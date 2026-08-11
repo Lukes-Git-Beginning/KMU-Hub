@@ -5570,3 +5570,49 @@ Frühere Läufe liegen vollständig im Archiv:
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 86) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:15). Naechste Backlog-Unit
   laut Reihenfolge: `f-cov-inventar-repository` (Block F Reserve).
+
+## Iteration 88 — f-cov-inventar-repository — done — 2026-08-11 07:21
+- commit: -
+- gebaut: Neue Datei `internal/inventar/postgres_repository_test.go` (DB-gestuetzt, Muster
+  `tenant_write_test.go`/`picking_booking_tx_test.go`) deckt alle bislang unterhalb 100 % liegenden
+  `PostgresRepository`-Methoden ab: Items (UpdateItem, SoftDeleteItem, ListItems mit
+  Search/Location/LowStock/Pagination, SKUExists inkl. excludeID), Movements (GetMovement,
+  ListMovements mit Ordering), Warnings (UpdateWarning, GetWarning, GetActiveWarningForItem,
+  ListWarnings mit/ohne Status-Filter), Locations (UpdateLocation, SoftDeleteLocation, GetLocation,
+  ListLocations), Inventur-Sessions (UpdateInventurSession, DeleteInventurSession,
+  GetInventurSession, ListInventurSessions, CompleteInventurSessionTx inkl. unbekannter Session),
+  Item-Attachments (CreateItemAttachment inkl. RETURNING-Timestamps, ListItemAttachments,
+  DeleteItemAttachment) und Picking-Lists (UpdatePickingList, ListPickingLists mit Status-Filter,
+  DeletePickingList, DeletePickingListItem). Jede getestete Methode hat mindestens einen
+  Fehlerpfad (NotFound bei unbekannter/doppelter ID). `service.go` war bereits bei 64,0 % und nicht
+  Teil dieser Unit (Scope war explizit `postgres_repository.go`).
+- gate: build ok (go build -p 2 ./internal/inventar/... ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok (go vet ./internal/inventar/...) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/inventar/... — 0 issues) | test ok (go test -count=1 ./internal/inventar/... — alle
+  gruen, 0 uebersprungen, DATABASE_URL gesetzt gegen kmuhub_app) | migration n.a. (kein Schema
+  angefasst) | rls-smoke n.a. (keine Policy angefasst; tenant_write_test.go/
+  tenant_isolation_phase2_test.go decken RLS fuer dieses Paket bereits ab) | gateway-Tests nicht
+  separat gelaufen (keine Route angefasst)
+- coverage: internal/inventar 44,2 % -> 72,9 % (go test -coverprofile ./internal/inventar/, go tool
+  cover -func). `postgres_repository.go` einzeln: jede Funktion jetzt zwischen 73,3 % und 100 %
+  (vorher u. a. UpdateItem/SoftDeleteItem/GetWarning/UpdateLocation/GetInventurSession/
+  CompleteInventurSessionTx/CreateItemAttachment/UpdatePickingList/ListPickingLists komplett
+  ungetestet), niedrigster Einzelwert jetzt `ListInventurCounts` mit 54,5 % (nur ueber
+  GetInventurSession/tenant_write_test.go indirekt mitgetestet, nicht Teil des expliziten Scopes).
+- mutations-probe: `ListItems`, LowStock-Praedikat von `quantity <= min_quantity` auf
+  `quantity >= min_quantity` gedreht -> `TestListItems_FiltersSearchLocationLowStockAndPaginates/low_stock_filter`
+  sofort rot ("expected exactly the low-stock item, got total=1 items=1" — lieferte den falschen,
+  gut bestueckten Artikel statt des Mangelartikels). Zurueckgedreht, `git diff --stat` auf
+  `postgres_repository.go` leer.
+- verify vorgaenger: sauber. Commit d781e463 (Iteration 87) fuegt ausschliesslich zwei erweiterte
+  bzw. neue Testdateien in `internal/helpdesk` hinzu (Mock-Repo-Stubs von No-Op auf funktionsfaehig,
+  neue Service- und DB-Tests) plus Journal-/Backlog-Metadaten — kein Produktionscode, kein Proto,
+  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. `csat_dispatch.go`/
+  `csat_config.go` laut eigenem Journal-Eintrag unveraendert. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie in
+  allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 87) fortgezaehlt, Zeitstempel
+  per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:21). Naechste Backlog-Unit laut
+  Reihenfolge: `f-cov-rapporte-repository` (Block F Reserve).

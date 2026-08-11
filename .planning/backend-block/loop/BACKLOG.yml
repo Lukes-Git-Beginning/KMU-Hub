@@ -3074,7 +3074,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/inventar 44,2 %"
     scope: >
       431 ungedeckte Statements: `postgres_repository.go` (283, **21,6 %**) und `service.go`
