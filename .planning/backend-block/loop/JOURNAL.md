@@ -4073,7 +4073,7 @@ Frühere Läufe liegen vollständig im Archiv:
 
 
 ## Iteration 65 — d-cov-gateway-dialer-queue-dashboard — done — 2026-08-11 04:01
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 4aa534d1
 - gebaut: `backend/internal/gateway/route_dialer_test.go` um 15 Tests fuer die
   bisher ungetestete Kontakt-Warteschlange und die Uebersichts-Endpunkte in
   route_dialer.go erweitert: HandleListCampaignContacts (ServiceUnavailable,
