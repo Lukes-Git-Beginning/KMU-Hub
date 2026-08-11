@@ -101,7 +101,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/audit 66,1 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       `audit.PostgresRepository.List` (backend/internal/security/audit/postgres_repository.go,
@@ -994,3 +994,79 @@ units:
       - Funde als neue Fix-Units ODER direkt gefixt mit Test und Mutations-Probe
       - Bei direktem Fix zusaetzlich `go test -count=1 ./internal/server/` gruen
       - „nichts gefunden“ ist mit der Liste der geprueften RPCs belegt
+
+# ==========================================================================================
+# BLOCK C — zur Laufzeit entstandene Funde (siehe Kopfkommentar Block B)
+# ==========================================================================================
+
+  - id: fix-audit-verifychain-timestamp-precision-mismatch
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/audit 80,0 % (lokal gemessen nach fix-audit-list-verifychain-ip-address-scan, Lauf 9 Iteration 1)"
+    scope: >
+      `PostgresRepository.Create` (internal/security/audit/postgres_repository.go:31) berechnet
+      `entry.EntryHash` per `computeEntryHash`, die `entry.Timestamp` mit
+      `time.RFC3339Nano` formatiert -- also inklusive aller neun Nachkommastellen, falls
+      vorhanden. `entry.Timestamp` wird beim Erzeugen ueblicherweise NICHT vom Aufrufer
+      gesetzt und faellt daher auf `time.Now().UTC()` zurueck (Zeile 60-62) -- ein Go-`time.Time`
+      mit, je nach Betriebssystem-Taktaufloesung, tatsaechlicher Sub-Mikrosekunden-Praezision.
+      Die Spalte `audit_log.timestamp` ist `TIMESTAMPTZ` (Migration 000039), die nur
+      Mikrosekunden speichert -- Postgres rundet/kappt die letzten drei Nachkommastellen beim
+      INSERT kommentarlos weg.
+
+      `VerifyChain` (Zeile 222) liest denselben Eintrag anschliessend per SELECT zurueck und
+      ruft `computeEntryHash` ein zweites Mal auf dem GELESENEN (also bereits gekappten)
+      Timestamp auf, um den gespeicherten `entry_hash` zu reproduzieren. Trug der urspruengliche
+      Timestamp beim `Create()`-Aufruf auch nur eine einzige von Null verschiedene
+      Sub-Mikrosekunden-Ziffer, unterscheidet sich der beim Insert berechnete Hash vom beim
+      Verify neu berechneten Hash -- `VerifyChain` meldet dann eine INTAKTE Kette als
+      manipuliert (`recomputed != entry.EntryHash`), obwohl kein Byte veraendert wurde.
+
+      Reproduziert beim Bau von fix-audit-list-verifychain-ip-address-scan (Lauf 9,
+      Iteration 1): `TestPostgresRepository_VerifyChain_ValidSingleEntryRange` schlug mit
+      genau diesem Symptom fehl, bis der Test seinen eigenen Timestamp explizit auf
+      Mikrosekunden kappte (`time.Now().UTC().Truncate(time.Microsecond)`), um die
+      Produktionslogik zu umgehen. Ein Stichproben-Lauf von zehn `time.Now().UTC()`-Aufrufen
+      auf der Loop-Maschine (Windows) zeigte in vier von fuenf Faellen eine von Null
+      verschiedene Sub-Mikrosekunden-Restziffer -- der Bug ist also nicht der Ausnahmefall,
+      sondern der Normalfall.
+    sources:
+      - backend/internal/security/audit/postgres_repository.go
+      - backend/migrations/000039_create_security_tables.up.sql
+      - backend/internal/security/audit/postgres_repository_test.go
+    notes: >
+      Sauberster Fix vermutlich: `entry.Timestamp` in `Create()` VOR der Hash-Berechnung
+      auf Mikrosekunden kappen (`entry.Timestamp = entry.Timestamp.Truncate(time.Microsecond)`,
+      direkt nach der `IsZero()`-Faellback-Zeile 60-62, vor `computeEntryHash` in Zeile 55) --
+      dann stimmt der Wert, der gehasht wird, exakt mit dem Wert ueberein, den Postgres
+      tatsaechlich speichert und beim naechsten Lesen zurueckgibt. Alternative waere, im
+      Modell selbst auf eine explizite `pgtype.Timestamptz`-Roundtrip-Pruefung zu verzichten
+      und stattdessen `entry.Timestamp` direkt nach dem INSERT per RETURNING zurueckzulesen --
+      unnoetig teurer als die Truncate-Loesung.
+      ACHTUNG: `computeEntryHash` wird auch beim ERSTEN Insert der Kette benutzt (chain-of-custody
+      ab Tag 1) -- die Aenderung betrifft nur NEUE Eintraege ab dem Fix-Commit, alle vorher
+      geschriebenen Eintraege bleiben mit ihrem ungekappten Original-Hash bestehen und sind
+      NICHT rueckwirkend reparierbar (append-only, kein UPDATE moeglich). Das ist hinnehmbar:
+      `VerifyChain` wuerde fuer Alt-Eintraege weiterhin spurious brechen -- gehoert in die
+      Journal-`offen:`-Zeile dieser Unit als bekannte Grenze, ist aber kein Grund, den Fix fuer
+      neue Eintraege zurueckzuhalten.
+      Ein DB-gestuetzter Pin-Test dafuer existiert noch nicht (die beiden VerifyChain-Tests aus
+      fix-audit-list-verifychain-ip-address-scan umgehen das Problem bewusst durch Truncate im
+      Test). Diese Unit sollte einen echten Regressionstest ergaenzen, der einen Timestamp MIT
+      Sub-Mikrosekunden-Anteil erzwingt (z. B. `time.Now().UTC().Add(123 * time.Nanosecond)`)
+      und beweist, dass `VerifyChain` danach trotzdem `valid=true` liefert.
+    done_when:
+      - Create() kappt den Timestamp vor der Hash-Berechnung auf Mikrosekunden-Praezision,
+        sodass der gehashte Wert mit dem tatsaechlich persistierten Wert uebereinstimmt
+      - Ein neuer DB-gestuetzter Test beweist mit einem Timestamp, der nachweislich eine
+        Sub-Mikrosekunden-Ziffer traegt, dass VerifyChain danach valid=true liefert
+      - Die bestehenden Truncate-Workarounds in
+        TestPostgresRepository_VerifyChain_ValidSingleEntryRange koennen entfernt werden,
+        sobald Create() selbst kappt (pruefen, nicht blind loeschen -- der Kommentar dort
+        verweist auf diese Unit)
+      - Die Nicht-rueckwirkende-Grenze (Alt-Eintraege bleiben spurious-broken) ist im Journal
+        dokumentiert
+      - go test -count=1 ./internal/security/audit/ gruen

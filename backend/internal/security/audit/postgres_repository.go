@@ -167,7 +167,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter *models.AuditFilte
 
 	// Fetch entries with pagination
 	dataQuery := fmt.Sprintf(
-		`SELECT id, sequence_num, timestamp, user_id, action, target, target_type, details, ip_address, user_agent, result, previous_hash, entry_hash
+		`SELECT id, sequence_num, timestamp, user_id, action, target, target_type, details, COALESCE(host(ip_address), ''), user_agent, result, previous_hash, entry_hash
 		 FROM audit_log %s
 		 ORDER BY sequence_num DESC
 		 LIMIT $%d OFFSET $%d`,
@@ -221,7 +221,7 @@ func (r *PostgresRepository) GetLastHash(ctx context.Context) (string, error) {
 // Returns (valid, firstBrokenSequence, error).
 func (r *PostgresRepository) VerifyChain(ctx context.Context, fromSequence, toSequence int64) (bool, int64, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, sequence_num, timestamp, user_id, action, target, target_type, details, ip_address, user_agent, result, previous_hash, entry_hash
+		`SELECT id, sequence_num, timestamp, user_id, action, target, target_type, details, COALESCE(host(ip_address), ''), user_agent, result, previous_hash, entry_hash
 		 FROM audit_log
 		 WHERE sequence_num >= $1 AND sequence_num <= $2
 		 ORDER BY sequence_num ASC`,
