@@ -211,7 +211,7 @@ Fensters.
   vorab durchsucht, das ist Aufgabe der jeweiligen Scan-Unit selbst.
 
 ## Iteration 4 — fix-notification-quiet-hours-conflict-index — done — 2026-08-11 16:40
-- commit: <sha>
+- commit: f30636b7
 - gebaut (Migration 000312): `notification_quiet_hours` verliert den inline
   `UNIQUE(user_id)` aus 000022 und bekommt `idx_notification_quiet_hours_user
   (tenant_id, user_id)`; `idx_notification_preferences_module_default` wird von
