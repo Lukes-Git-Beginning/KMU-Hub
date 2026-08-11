@@ -4576,7 +4576,7 @@ Frühere Läufe liegen vollständig im Archiv:
   e-cov-inbox-repo-infra es vorhersah.
 
 ## Iteration 73 — e-cov-inbox-message-repo-list — done — 2026-08-11 04:57
-- commit: -
+- commit: 64969687
 - gebaut: `backend/internal/inbox/message/postgres_repository_reads_test.go`
   (neu) deckt die vier bislang ungetesteten Repository-Lesepfade gegen eine
   echte Postgres ab: List (Channel+IsRead-Kombi-Filter, Default-Ausschluss
