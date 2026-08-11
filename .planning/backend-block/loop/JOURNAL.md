@@ -4644,7 +4644,7 @@ Frühere Läufe liegen vollständig im Archiv:
   DB-Testmuster aufbauen.
 
 ## Iteration 74 — e-cov-inbox-routing-thread-adapter — done — 2026-08-11 05:04
-- commit: -
+- commit: 13a2b976
 - gebaut: routing.Service.executeActions fuer alle vier Action-Typen
   (route_to_team/assign_to/add_tags/auto_reply) je mit Erfolgs- und
   Fehlerfall getestet, inkl. des dokumentierten Non-Fatal-Verhaltens von
