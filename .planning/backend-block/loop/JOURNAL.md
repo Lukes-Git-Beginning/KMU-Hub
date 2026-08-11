@@ -3251,7 +3251,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:28).
 
 ## Iteration 51 — d-cov-gateway-calendar-membership — done — 2026-08-11 02:35
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 3a0d027d
 - gebaut: Neue Testdatei `backend/internal/gateway/route_calendar_membership_test.go`
   (34 Tests) fuer HandleGetCalendar/HandleUpdateCalendar/HandleDeleteCalendar
   (ServiceUnavailable, InvalidIDUUID ueber validateUUIDParam, InvalidJSON bei
