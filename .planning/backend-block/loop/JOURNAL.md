@@ -3607,7 +3607,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:09).
 
 ## Iteration 57 — d-cov-gateway-rapporte-lifecycle — done — 2026-08-11 03:16
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 9bb0cae6
 - gebaut: `backend/internal/gateway/route_rapporte_test.go` um 20 neue Tests fuer den
   Bericht-Lebenszyklus in route_rapporte.go erweitert: HandleListReports (MissingTenant,
   ServiceUnavailable, ReachesRPC, OwnScopeWithoutUserIsRejected), HandleGetReport
