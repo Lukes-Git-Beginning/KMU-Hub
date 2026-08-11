@@ -767,7 +767,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
     scope: >
       MUSTER A2, TEIL 2 von 3 — gleiches Vorgehen wie

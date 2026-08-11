@@ -785,3 +785,50 @@ Fensters.
 - offen: Teil 2 von 3 (`scan-phantom-columns-platform-services`: auth, security, document, chat,
   calendar, notification, inbox, hr-top-level) und Teil 3 von 3
   (`scan-phantom-columns-module-services`) stehen noch aus und sind bereits als todo im Backlog.
+
+## Iteration 16 — scan-phantom-columns-platform-services — done — 2026-08-11 17:52
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A2 (SQL referenziert Spalte/Tabelle/Alias, die es nicht gibt), Teil 2 von 3 —
+  Repositories unter `internal/auth`, `internal/security` (inkl. audit, gdpr, password, vault,
+  vendoraccess), `internal/document`, `internal/chat`, `internal/notification` (inkl.
+  preference, integration, notification), `internal/inbox` (inkl. thread, message, routing,
+  team, adapter) per drei parallelen Subagenten geprueft (max. 3 gleichzeitig). `internal/hr`
+  und `internal/calendar` existieren als Top-Level-Pakete NICHT (verifiziert per `ls
+  backend/internal/`) -- die tatsaechlichen Pakete `internal/biz/hr` und `internal/work/calendar`
+  wurden bereits in Iteration 15 (Teil 1) gescannt, hier also korrekt ausgelassen statt doppelt
+  geprueft.
+  Vorgehen pro Agent: SQL-tragende Go-Dateien per Grep auf SELECT/INSERT/UPDATE/RETURNING
+  identifiziert (nicht nur `*postgres_repository*.go`), Aliase aus JOIN-Klauseln aufgeloest,
+  jede referenzierte Spalte gegen `information_schema.columns` der laufenden lokalen DB
+  (Migrationskopf 312) geprueft.
+  ERGEBNIS: 0 Funde ueber alle sechs Pakete. 150 Nicht-Test-Go-Dateien vollstaendig geprueft
+  (38 auth+security, 60 document+chat, 52 notification+inbox), davon 30 mit tatsaechlichem
+  Roh-SQL (Rest sind Interfaces/Services/Adapter ohne direkten DB-Zugriff):
+  - auth (1 SQL-Datei): postgres_repository.go
+  - security (8): audit/postgres_repository.go, password/postgres_repository.go,
+    vault/postgres_repository.go, vendoraccess/postgres_repository.go,
+    gdpr/postgres_repository.go, gdpr/erasure.go, gdpr/dsar_search.go, gdpr/export.go
+  - document (7): virtual, file, search, folder, tag, share, wopi/lock.go
+    (postgres_repository.go je Paket, wopi als lock.go)
+  - chat (6 mit echtem SQL): channel, message, file, search, bookmark, guest
+    (postgres_repository.go je Paket)
+  - notification (3): preference, integration, notification (postgres_repository.go je Paket)
+  - inbox (5): thread, message, routing, team (postgres_repository.go je Paket),
+    adapter/guest_adapter.go
+  Der Vorlage-Bug (`u.display_name` auf `users`) tritt in keinem der sechs gescannten Pakete
+  auf. Bestaetigt korrekt (Gegenbeispiel, kein Fund): `chat/message` und `inbox/adapter`
+  nutzen `gs.display_name` aus `guest_sessions` -- diese Tabelle TRAEGT tatsaechlich eine
+  `display_name`-Spalte, im Unterschied zu `users`. `auth`, `security/vendoraccess` und
+  `security/gdpr` per zusaetzlichem `EXPLAIN` gegen komplexere Queries (CTEs, Self-Joins,
+  korrelierte Subqueries) verifiziert -- alle planen fehlerfrei.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `49c7dc42`, Iteration 15 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine
+- offen: Teil 3 von 3 (`scan-phantom-columns-module-services`) steht noch aus und ist bereits
+  als todo im Backlog.
