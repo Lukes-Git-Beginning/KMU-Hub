@@ -5572,7 +5572,7 @@ Frühere Läufe liegen vollständig im Archiv:
   laut Reihenfolge: `f-cov-inventar-repository` (Block F Reserve).
 
 ## Iteration 88 — f-cov-inventar-repository — done — 2026-08-11 07:21
-- commit: -
+- commit: d80a5944
 - gebaut: Neue Datei `internal/inventar/postgres_repository_test.go` (DB-gestuetzt, Muster
   `tenant_write_test.go`/`picking_booking_tx_test.go`) deckt alle bislang unterhalb 100 % liegenden
   `PostgresRepository`-Methoden ab: Items (UpdateItem, SoftDeleteItem, ListItems mit
