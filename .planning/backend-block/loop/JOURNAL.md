@@ -5284,7 +5284,7 @@ Frühere Läufe liegen vollständig im Archiv:
   messen, siehe Block-F-Kopfkommentar zur Altersgrenze).
 
 ## Iteration 84 — f-cov-biz-bexio — done — 2026-08-11 06:36
-- commit: <wird nach diesem Eintrag gesetzt>
+- commit: 12161d6f
 - gebaut: eine neue Testdatei `internal/biz/bexio/scheduler_test.go`, kein Produktionscode
   veraendert. `scheduler.go` stand bei 0,0 % (siehe Block-F-Scope-Text) und ist jetzt zu
   fast 100 % abgedeckt: `TestNewScheduler` (Konstruktor-Feldbelegung), `TestStartAll_
