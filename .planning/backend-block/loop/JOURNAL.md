@@ -1473,7 +1473,7 @@ Fensters.
   Tabelle je deaktiviert wuerde, waere das ein Cross-Tenant-Leck, aber das ist rein hypothetisch.
 
 ## Iteration 30 — fix-calendar-grpc-nil-slice-wire-shape — done — 2026-08-11 19:21
-- commit: (folgt nach Journal-Commit)
+- commit: 0868f0dd
 - gebaut: Alle 13 List-RPCs plus `GetAvailability` in `backend/internal/server/calendar_grpc.go`
   initialisieren ihr Response-Slice jetzt per `make([]*calv1.XxxProto, 0, len(<quelle>))` statt
   einer nil-`var`-Deklaration (Stellen: ListCalendars 144, ListCalendarMembers 277,
