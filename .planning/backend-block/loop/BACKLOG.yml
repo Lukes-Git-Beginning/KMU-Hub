@@ -655,7 +655,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
     scope: >
       MUSTER A — `ON CONFLICT`-Ziel passt nicht zum tatsaechlich existierenden Index.

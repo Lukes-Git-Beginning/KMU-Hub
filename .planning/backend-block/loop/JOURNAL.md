@@ -587,3 +587,72 @@ Fensters.
 - neue-units: fix-security-ip-access-rules-cidr-scan, fix-chat-guest-sessions-ip-address-scan
 - offen: keine. Alle 6 Spalten aus der Unit-Beschreibung abschliessend geprueft, beide Funde
   als vollstaendige Fix-Units mit reproduziertem Fehler und Pin-Test-Vorschlag angelegt.
+
+## Iteration 12 — scan-on-conflict-target-vs-real-index-a — done — 2026-08-11 17:45
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A (ON-CONFLICT-Ziel vs. tatsaechlicher Unique-Index) ueber die Teil-A-Flaeche
+  (`internal/{auth,security,notification,chat,document,email,inbox,work,crm}`) geprueft.
+  Ergebnis: 0 neue Funde. `internal/security` und `internal/inbox` haben ueberhaupt kein
+  `ON CONFLICT` (per Grep bestaetigt). Alle 28 explizit-getargeteten `ON CONFLICT`-Klauseln
+  (Spaltenliste angegeben) in den restlichen sieben Paketen matchen exakt einen bestehenden
+  Unique-Index/PK -- gegen die laufende lokale DB per `pg_index`/`pg_get_indexdef` verifiziert
+  (Kopf 310), nicht nur gegen Migrationen (Drift-Gefahr, siehe Vorlage). Geprueft:
+  - notification/preference/postgres_repository.go: 3 Klauseln (event_type_key- und
+    module_id-Partial-Index, notification_quiet_hours) -- alle drei matchen; quiet_hours und
+    module_default wurden bereits in Iteration 4 (Migration 000312) korrigiert, event_type_key
+    war seit Migration 000305 (Lauf 8) bereits korrekt.
+  - work/calendar/postgres_repository.go: user_calendar_preferences(user_id) matcht PK.
+  - document/wopi/lock.go: wopi_locks(file_id) matcht PK.
+  - crm/contact/postgres_repository.go: contact_custom_field_values(contact_id, field_id) x2
+    matcht PK.
+  - crm/company/postgres_repository.go: company_custom_field_values(company_id, field_id) x2
+    matcht PK.
+  - crm/deal/postgres_repository.go: deal_custom_field_values(deal_id, field_id) matcht PK.
+  - crm/activity/postgres_repository.go: activity_custom_field_values(activity_id, field_id)
+    matcht PK.
+  - chat/file/postgres_repository.go: storage_quotas(tenant_id) matcht idx_storage_quotas_tenant.
+  - chat/bookmark/postgres_repository.go: message_bookmarks(user_id, message_id) matcht PK.
+  - notification/integration/postgres_repository.go:
+    integration_account_links(platform, external_user_id) matcht
+    integration_account_links_platform_external_user_id_key.
+  - work/meeting/postgres_repository.go: meeting_attendees(meeting_id, user_id) matcht PK;
+    meeting_cohosts(meeting_id, user_id) matcht meeting_cohosts_unique;
+    meeting_breakout_assignments(meeting_id, user_id) matcht meeting_breakout_assignments_unique;
+    meeting_notes(meeting_id, author_id) WHERE is_private = $5 (parametrisiertes Praedikat auf
+    einem partiellen Index, migration 000309) zusaetzlich per echtem DB-Testlauf
+    (TestNotes_SeriesIsolationAndSaveNotesUpsert) bestaetigt, nicht nur per Indexvergleich --
+    Postgres kann den Bind-Parameter im Arbiter-Praedikat bei jedem Exec neu gegen den
+    passenden der beiden partiellen Indizes (is_private = true / false) aufloesen, funktioniert
+    nachweislich.
+  - work/task/postgres_repository.go: task_custom_field_values(task_id, field_id) matcht PK.
+  - work/recording/postgres_repository.go: recording_consents(recording_id, user_id) matcht PK.
+  - work/presence/postgres_config_repository.go: presence_config(tenant_id) matcht
+    idx_presence_config_tenant.
+  - document/tag/postgres_repository.go: document_file_tags(file_id, tag_id) matcht PK.
+  - auth/postgres_repository.go: two_factor_policy(tenant_id, role_name) matcht
+    idx_two_factor_policy_tenant_role.
+  - work/project/postgres_repository.go: project_members(project_id, user_id) matcht PK;
+    user_project_preferences(user_id, project_id) matcht PK.
+  - work/video/postgres_repository.go: call_participants(call_id, user_id) matcht PK.
+  - email/contactlink/repository.go: email_contact_links(message_id, contact_id) matcht
+    email_contact_links_message_id_contact_id_key.
+  - work/holiday/postgres_repository.go: public_holidays(date, country_code, name) matcht
+    public_holidays_date_country_code_name_key (System-Global-Tabelle, kein tenant_id).
+  Zusaetzlich 12 `ON CONFLICT DO NOTHING`-Klauseln OHNE Spaltenliste geprueft (contact_tags,
+  company_tags, activity_tags, deal_tags je bis zu 2x, calendars, message_mentions,
+  work/label task_labels, work/reaction message_reactions, auth user_roles x2) -- diese sind
+  per Definition sicher (kein Arbiter-Ziel, greift bei jeder Constraint-Verletzung) und damit
+  kein Muster-A-Kandidat.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. Ein Wegwerf-Insert
+  in `users` (Testzeile, nicht Teil einer Test-Suite) wurde waehrend der Recherche versehentlich
+  angelegt und sofort wieder geloescht (`DELETE FROM users WHERE email =
+  'scan-repro@test.local'`), `git status --short` zeigt nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `b07a6b54`, Iteration 11 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine
+- offen: keine. Teil B (`scan-on-conflict-target-vs-real-index-b`, Module-Services) ist die
+  naechste Haelfte derselben Musterflaeche und noch offen.
