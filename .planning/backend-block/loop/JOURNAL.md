@@ -4448,3 +4448,60 @@ Frühere Läufe liegen vollständig im Archiv:
   service.go sind bereits durch material_availability_test.go abgedeckt,
   nicht Teil dieser Unit. Naechste offene Unit im Block ist
   e-cov-produktion-core-gaps.
+
+## Iteration 71 — e-cov-produktion-core-gaps — done — 2026-08-11 04:43
+- commit: -
+- gebaut: `internal/produktion/postgres_repository_core_test.go` (neu, DB-Tests
+  gegen die echte PostgresRepository): CreateBookingWithLock (Basisbuchung,
+  ueberlappende Buchung -> Konflikt + Rollback ohne Insert, angrenzende
+  Buchung t2..t4 -> kein Konflikt, halboffenes Intervall), FindConflictingBooking
+  (excludeID gegen die eigene Buchung -> kein Konflikt, ohne excludeID
+  dieselbe Buchung -> Konflikt, stornierte Buchung -> kein Konflikt),
+  ListOrders mit echtem Status-Filter, ListBookings mit echtem
+  MachineID-Filter, GetCapacityOverview gegen die echte DB (40h Kapazitaet,
+  8h gebucht, 32h verfuegbar) plus unbekannte PlanID -> ErrPlanNotFound.
+  Dazu in `service_test.go` (Mock-Ebene): UpdateOrder-Validierung als
+  Tabellentest (leerer ProductName, Quantity 0/negativ, invertierter
+  Datumsbereich, Priority < 1 und > 5) plus UpdateOrder mit unbekannter
+  BomID (ErrBOMNotFound) und unbekannter OrderID (ErrOrderNotFound);
+  UpdatePlan-Validierung analog zu CreatePlan als Tabellentest (leerer Name,
+  Week < 1 und > 53, Year < 2000, negative TotalCapacityHours) plus
+  UpdatePlan-Happy-Path und unbekannte PlanID; GetPlan-Happy-Path (bisher
+  nur der NotFound-Zweig war getestet); ListOrders/ListMachineBookings auf
+  Service-Ebene mit Filter- und Pagination-Clamping-Nachweis (Page<1,
+  PageSize>100).
+- gate: build ok (go build -p 2 ./internal/produktion/...) | vet ok | lint
+  ok (golangci-lint run --config .golangci.yml ./internal/produktion/... —
+  0 issues) | test ok (go test -count=1 -v ./internal/produktion/, 0 Fails,
+  0 Skips — DATABASE_URL gesetzt, docker-postgres-1 healthy, alle neuen
+  DB-Tests real gelaufen) | migration n.a. (keine neue Tabelle/Route,
+  bestehende Spalten seit Migration 000087) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst; Cross-Tenant-Scoping wird bereits durch
+  tenant_write_test.go/tenant_isolation_phase2_test.go bewiesen, diese Unit
+  fuegt nur Filter-/Konflikt-/Kapazitaetslogik hinzu) | gateway-Tests nicht
+  gelaufen (keine Route angefasst)
+- coverage: internal/produktion 22,3 % -> 77,8 % (go test -coverprofile +
+  go tool cover -func; nach Iteration 70 stand das Paket bei 57,8 %)
+- mutations-probe: eine Probe, gefangen. In `UpdateOrder` (service.go) die
+  Untergrenzen-Bedingung `p < 1 ||` aus `if p < 1 || p > 5` entfernt, sodass
+  nur noch die Obergrenze geprueft wird ->
+  TestService_UpdateOrder_ValidationErrors/priority_below_range rot
+  (erwartet ErrInvalidInput, bekam nil — Priority 0 waere durchgerutscht).
+  Per Edit-Tool zurueckgedreht, `git diff backend/internal/produktion/service.go`
+  danach leer, kompletter Testlauf erneut komplett gruen.
+- verify vorgaenger: sauber. Commit ada7af7c (Iteration 70) fuegt
+  `service_ext_test.go` (neu) plus Erweiterungen an `service_test.go`
+  (Mock-Repository-Methoden, Testdatei) sowie Journal-/Backlog-Metadaten
+  hinzu — kein Produktionscode in service_ext.go selbst angefasst, kein
+  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
+  keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-70
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 70) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:43).
+  Block E (produktion) ist mit dieser Unit vollstaendig: BOM/WorkStep/
+  Machine/QualityCheck (Iteration 69+70) und jetzt Order/Booking/Plan-Kern
+  sind alle abgedeckt, 77,8 % Paketgesamtwert. Naechste Backlog-Unit ist
+  laut Reihenfolge `e-cov-inbox-repo-infra` (Block E, inbox).

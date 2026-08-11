@@ -867,6 +867,154 @@ func TestService_DeleteMachineBooking_NotFound(t *testing.T) {
 }
 
 // ============================================================================
+// UpdateOrder Validation Tests
+// ============================================================================
+
+func TestService_UpdateOrder_ValidationErrors(t *testing.T) {
+	tenantID := uuid.New()
+
+	cases := []struct {
+		name  string
+		input func(orderID uuid.UUID) UpdateOrderInput
+	}{
+		{
+			name: "empty product name",
+			input: func(orderID uuid.UUID) UpdateOrderInput {
+				empty := "   "
+				return UpdateOrderInput{TenantID: tenantID, OrderID: orderID, ProductName: &empty}
+			},
+		},
+		{
+			name: "zero quantity",
+			input: func(orderID uuid.UUID) UpdateOrderInput {
+				zero := 0
+				return UpdateOrderInput{TenantID: tenantID, OrderID: orderID, Quantity: &zero}
+			},
+		},
+		{
+			name: "negative quantity",
+			input: func(orderID uuid.UUID) UpdateOrderInput {
+				neg := -5
+				return UpdateOrderInput{TenantID: tenantID, OrderID: orderID, Quantity: &neg}
+			},
+		},
+		{
+			name: "planned end before planned start",
+			input: func(orderID uuid.UUID) UpdateOrderInput {
+				newStart := t2
+				newEnd := t0
+				return UpdateOrderInput{TenantID: tenantID, OrderID: orderID, PlannedStart: &newStart, PlannedEnd: &newEnd}
+			},
+		},
+		{
+			name: "priority below range",
+			input: func(orderID uuid.UUID) UpdateOrderInput {
+				p := 0
+				return UpdateOrderInput{TenantID: tenantID, OrderID: orderID, Priority: &p}
+			},
+		},
+		{
+			name: "priority above range",
+			input: func(orderID uuid.UUID) UpdateOrderInput {
+				p := 6
+				return UpdateOrderInput{TenantID: tenantID, OrderID: orderID, Priority: &p}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newMockRepository()
+			svc := NewService(repo)
+			o := addOrder(repo, tenantID, "PO-UPD-"+tc.name, OrderStatusPlanned)
+
+			_, err := svc.UpdateOrder(context.Background(), tc.input(o.ID))
+
+			assert.ErrorIs(t, err, ErrInvalidInput)
+		})
+	}
+}
+
+func TestService_UpdateOrder_UnknownBomID(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	o := addOrder(repo, tenantID, "PO-UPD-BOM", OrderStatusPlanned)
+	unknownBomID := uuid.New()
+
+	_, err := svc.UpdateOrder(context.Background(), UpdateOrderInput{
+		TenantID: tenantID,
+		OrderID:  o.ID,
+		BomID:    &unknownBomID,
+	})
+
+	assert.ErrorIs(t, err, ErrBOMNotFound)
+}
+
+func TestService_UpdateOrder_NotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.UpdateOrder(context.Background(), UpdateOrderInput{
+		TenantID: uuid.New(),
+		OrderID:  uuid.New(),
+	})
+
+	assert.ErrorIs(t, err, ErrOrderNotFound)
+}
+
+// ============================================================================
+// ListOrders / ListMachineBookings Tests
+// ============================================================================
+
+func TestService_ListOrders_FilterAndPagination(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	addOrder(repo, tenantID, "PO-L1", OrderStatusPlanned)
+	addOrder(repo, tenantID, "PO-L2", OrderStatusInProgress)
+	addOrder(repo, uuid.New(), "PO-OTHER-TENANT", OrderStatusPlanned)
+
+	status := OrderStatusInProgress
+	results, total, err := svc.ListOrders(context.Background(), ListOrdersInput{
+		TenantID: tenantID,
+		Status:   &status,
+		Page:     0,   // invalid -> clamps to 1
+		PageSize: 500, // out of range -> clamps to 20
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, results, 1)
+	assert.Equal(t, OrderStatusInProgress, results[0].Status)
+}
+
+func TestService_ListMachineBookings_FilterAndPagination(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	addBooking(repo, tenantID, "M-WANTED", t0, t1, BookingStatusBooked)
+	addBooking(repo, tenantID, "M-OTHER", t0, t1, BookingStatusBooked)
+	addBooking(repo, uuid.New(), "M-WANTED", t0, t1, BookingStatusBooked)
+
+	machineID := "M-WANTED"
+	results, total, err := svc.ListMachineBookings(context.Background(), ListBookingsInput{
+		TenantID:  tenantID,
+		MachineID: &machineID,
+		Page:      -1,  // invalid -> clamps to 1
+		PageSize:  200, // out of range -> clamps to 20
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, results, 1)
+	assert.Equal(t, "M-WANTED", results[0].MachineID)
+}
+
+// ============================================================================
 // Plan Tests
 // ============================================================================
 
@@ -908,6 +1056,135 @@ func TestService_GetPlan_NotFound(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.GetPlan(context.Background(), uuid.New(), uuid.New())
+
+	assert.ErrorIs(t, err, ErrPlanNotFound)
+}
+
+func TestService_GetPlan_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	created, err := svc.CreatePlan(context.Background(), CreatePlanInput{
+		TenantID:           tenantID,
+		Name:               "KW 30 2026",
+		WeekNumber:         30,
+		Year:               2026,
+		TotalCapacityHours: 35,
+	})
+	require.NoError(t, err)
+
+	plan, err := svc.GetPlan(context.Background(), tenantID, created.ID)
+
+	require.NoError(t, err)
+	assert.Equal(t, created.ID, plan.ID)
+	assert.Equal(t, "KW 30 2026", plan.Name)
+}
+
+// ============================================================================
+// UpdatePlan Validation Tests (analogous to CreatePlan)
+// ============================================================================
+
+func TestService_UpdatePlan_ValidationErrors(t *testing.T) {
+	tenantID := uuid.New()
+
+	cases := []struct {
+		name  string
+		input func(planID uuid.UUID) UpdatePlanInput
+	}{
+		{
+			name: "empty name",
+			input: func(planID uuid.UUID) UpdatePlanInput {
+				empty := "   "
+				return UpdatePlanInput{TenantID: tenantID, PlanID: planID, Name: &empty}
+			},
+		},
+		{
+			name: "week below range",
+			input: func(planID uuid.UUID) UpdatePlanInput {
+				w := 0
+				return UpdatePlanInput{TenantID: tenantID, PlanID: planID, WeekNumber: &w}
+			},
+		},
+		{
+			name: "week above range",
+			input: func(planID uuid.UUID) UpdatePlanInput {
+				w := 54
+				return UpdatePlanInput{TenantID: tenantID, PlanID: planID, WeekNumber: &w}
+			},
+		},
+		{
+			name: "year below 2000",
+			input: func(planID uuid.UUID) UpdatePlanInput {
+				y := 1999
+				return UpdatePlanInput{TenantID: tenantID, PlanID: planID, Year: &y}
+			},
+		},
+		{
+			name: "negative total capacity hours",
+			input: func(planID uuid.UUID) UpdatePlanInput {
+				h := -1.0
+				return UpdatePlanInput{TenantID: tenantID, PlanID: planID, TotalCapacityHours: &h}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newMockRepository()
+			svc := NewService(repo)
+			plan, err := svc.CreatePlan(context.Background(), CreatePlanInput{
+				TenantID:           tenantID,
+				Name:               "Baseline " + tc.name,
+				WeekNumber:         10,
+				Year:               2026,
+				TotalCapacityHours: 40,
+			})
+			require.NoError(t, err)
+
+			_, err = svc.UpdatePlan(context.Background(), tc.input(plan.ID))
+
+			assert.ErrorIs(t, err, ErrInvalidInput)
+		})
+	}
+}
+
+func TestService_UpdatePlan_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	plan, err := svc.CreatePlan(context.Background(), CreatePlanInput{
+		TenantID:           tenantID,
+		Name:               "Original",
+		WeekNumber:         10,
+		Year:               2026,
+		TotalCapacityHours: 40,
+	})
+	require.NoError(t, err)
+
+	newName := "Updated"
+	active := PlanStatusActive
+	updated, err := svc.UpdatePlan(context.Background(), UpdatePlanInput{
+		TenantID: tenantID,
+		PlanID:   plan.ID,
+		Name:     &newName,
+		Status:   &active,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Updated", updated.Name)
+	assert.Equal(t, PlanStatusActive, updated.Status)
+}
+
+func TestService_UpdatePlan_NotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.UpdatePlan(context.Background(), UpdatePlanInput{
+		TenantID: uuid.New(),
+		PlanID:   uuid.New(),
+	})
 
 	assert.ErrorIs(t, err, ErrPlanNotFound)
 }

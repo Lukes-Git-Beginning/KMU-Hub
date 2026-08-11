@@ -2367,7 +2367,7 @@ units:
     service: produktion
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/produktion 22,3 %"
     scope: >
       Restlücken in den beiden Kern-Dateien (Order/Booking/Plan), die tenant_write_test.go,
