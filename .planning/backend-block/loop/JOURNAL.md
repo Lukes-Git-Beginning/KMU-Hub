@@ -4196,7 +4196,7 @@ Frühere Läufe liegen vollständig im Archiv:
   auf dem Loop-Rechner ermittelt (2026-08-11 04:12).
 
 ## Iteration 67 — d-cov-gateway-wiki-versioning — done — 2026-08-11 04:18
-- commit: (folgt im naechsten Commit dieser Iteration)
+- commit: e3ee735a
 - gebaut: `backend/internal/gateway/route_wiki_versions_test.go` neu, 19 Tests
   fuer die bisher ungetesteten Artikel-/Versions-Handler in route_wiki.go:
   HandleGetArticle (ServiceUnavailable, InvalidUUID, ReachesRPC),
