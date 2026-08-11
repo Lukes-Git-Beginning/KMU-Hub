@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { DEMO_MODE } from '@/mocks/demo-mode'
 
 export interface Ticket {
   id: string
@@ -466,6 +467,16 @@ const MOCK_STATS: HelpdeskStats = {
   ],
 }
 
+/** Zeroed counterpart to MOCK_STATS — invented KPIs next to an empty ticket
+ *  list read as real numbers, so production starts at zero instead. */
+const EMPTY_STATS: HelpdeskStats = {
+  openTickets: 0,
+  avgResponseTime: '–',
+  resolvedThisWeek: 0,
+  customerSatisfaction: '–',
+  weeklyBreakdown: [],
+}
+
 /** Monotonic id suffix for store-created entities (avoids Date.now collisions in a tick). */
 let _seq = 0
 function uid(prefix: string): string {
@@ -476,10 +487,13 @@ function uid(prefix: string): string {
 export const useHelpdeskStore = create<HelpdeskStore>()(
   persist(
     (set, get) => ({
-      tickets: MOCK_TICKETS,
-      threads: MOCK_THREADS,
-      kbArticles: MOCK_KB_ARTICLES,
-      stats: MOCK_STATS,
+      // Demo-mode only. The module also sits behind the `modules.helpdesk`
+      // feature flag (default off), so no migrate() is needed here — the seed
+      // has never reached a production localStorage.
+      tickets: DEMO_MODE ? MOCK_TICKETS : [],
+      threads: DEMO_MODE ? MOCK_THREADS : {},
+      kbArticles: DEMO_MODE ? MOCK_KB_ARTICLES : [],
+      stats: DEMO_MODE ? MOCK_STATS : EMPTY_STATS,
       cannedResponses: MOCK_CANNED_RESPONSES,
       routingRules: MOCK_ROUTING_RULES,
       businessHours: MOCK_BUSINESS_HOURS,

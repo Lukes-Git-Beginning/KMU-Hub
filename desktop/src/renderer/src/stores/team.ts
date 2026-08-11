@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { toast } from 'sonner'
+import { DEMO_MODE } from '@/mocks/demo-mode'
 
 // Members, requests, departments → migrated to API (useEmployees, useLeaveRequests)
 // Only training & payroll remain as Zustand mocks (no backend API yet)
@@ -150,9 +151,13 @@ const INITIAL_PARTICIPATIONS: TrainingParticipation[] = [
 export const useTeamStore = create<TeamStore>()(
   persist(
     (set) => ({
-      payroll: INITIAL_PAYROLL,
-      trainings: INITIAL_TRAININGS,
-      trainingParticipations: INITIAL_PARTICIPATIONS,
+      // Sample data seeds only in demo mode. Production must start empty:
+      // these are invented salary records with real-looking names and gross
+      // amounts, and persisting them would show a user fabricated payroll
+      // for colleagues that do not exist.
+      payroll: DEMO_MODE ? INITIAL_PAYROLL : [],
+      trainings: DEMO_MODE ? INITIAL_TRAININGS : [],
+      trainingParticipations: DEMO_MODE ? INITIAL_PARTICIPATIONS : [],
 
       startPayrollRun: () =>
         set((state) => {
@@ -185,6 +190,30 @@ export const useTeamStore = create<TeamStore>()(
           ],
         })),
     }),
-    { name: 'cosmi-team' },
+    {
+      name: 'cosmi-team',
+      version: 1,
+      // v1 drops the seeded payroll/training records that older builds wrote
+      // to localStorage. User-created records carry `<prefix><timestamp>` ids
+      // and are preserved; the seed ids are derived from the constants above
+      // so this filter cannot drift away from them.
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as Partial<TeamStore>
+        if (DEMO_MODE) return state as TeamStore
+        const seeded = <T extends { id: string }>(rows: T[]): Set<string> =>
+          new Set(rows.map((r) => r.id))
+        const mockPayroll = seeded(INITIAL_PAYROLL)
+        const mockTrainings = seeded(INITIAL_TRAININGS)
+        const mockParticipations = seeded(INITIAL_PARTICIPATIONS)
+        return {
+          ...state,
+          payroll: (state.payroll ?? []).filter((p) => !mockPayroll.has(p.id)),
+          trainings: (state.trainings ?? []).filter((t) => !mockTrainings.has(t.id)),
+          trainingParticipations: (state.trainingParticipations ?? []).filter(
+            (p) => !mockParticipations.has(p.id),
+          ),
+        } as TeamStore
+      },
+    },
   ),
 )

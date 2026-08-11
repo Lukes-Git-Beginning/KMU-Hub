@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { currentUserName } from '@/stores/auth'
+import { DEMO_MODE } from '@/mocks/demo-mode'
 
 /** Stable action codes written by store mutations. Legacy mock entries use
  *  free-form German text which the renderer displays as-is (fallback). */
@@ -502,7 +503,10 @@ const MOCK_CONTRACTS: Contract[] = [
 export const useVertraegeStore = create<VertraegeStore>()(
   persist(
     (set, get) => ({
-      contracts: MOCK_CONTRACTS,
+      // Demo-mode only. The module also sits behind the `modules.vertraege`
+      // feature flag (default off), so no migrate() is needed here — the seed
+      // has never reached a production localStorage.
+      contracts: DEMO_MODE ? MOCK_CONTRACTS : [],
       contractTemplates: MOCK_TEMPLATES,
 
       addContract: (contract) =>

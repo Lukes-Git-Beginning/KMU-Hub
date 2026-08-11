@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { DEMO_MODE } from '@/mocks/demo-mode'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -287,13 +288,17 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
         projectId: null,
         taskId: null,
       },
-      entries: INITIAL_ENTRIES,
+      // Sample data seeds only in demo mode; production starts empty so the
+      // real backend entries are the single source of truth. Categories are
+      // the exception — they are functional defaults (isDefault: true) and
+      // without at least one category nothing can be tracked at all.
+      entries: DEMO_MODE ? INITIAL_ENTRIES : [],
       categories: INITIAL_CATEGORIES,
-      templates: INITIAL_TEMPLATES,
+      templates: DEMO_MODE ? INITIAL_TEMPLATES : [],
       targets: { dailyHours: 8.4, weeklyHours: 42, monthlyHours: 176 },
-      absences: INITIAL_ABSENCES,
-      teamActivity: INITIAL_TEAM_ACTIVITY,
-      weekApprovals: INITIAL_WEEK_APPROVALS,
+      absences: DEMO_MODE ? INITIAL_ABSENCES : [],
+      teamActivity: DEMO_MODE ? INITIAL_TEAM_ACTIVITY : [],
+      weekApprovals: DEMO_MODE ? INITIAL_WEEK_APPROVALS : [],
       gpsEnabled: false,
       isClockedIn: false,
       clockedInAt: null,
@@ -609,7 +614,35 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
 
       setGpsEnabled: (enabled) => set({ gpsEnabled: enabled }),
     }),
-    { name: 'cosmi-timetracking' },
+    {
+      name: 'cosmi-timetracking',
+      version: 1,
+      // v1 drops the sample entries/templates/absences/approvals that older
+      // builds persisted to localStorage, so existing installs no longer show
+      // mock data next to real time entries. User-created records are kept —
+      // they carry `<prefix>-<timestamp>` ids and never collide with the seed
+      // ids, which are derived from the constants here rather than hardcoded.
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as Partial<TimeTrackingState>
+        if (DEMO_MODE) return state as TimeTrackingState
+        const seeded = <T extends { id: string }>(rows: T[]): Set<string> =>
+          new Set(rows.map((r) => r.id))
+        const mockEntries = seeded(INITIAL_ENTRIES)
+        const mockTemplates = seeded(INITIAL_TEMPLATES)
+        const mockAbsences = seeded(INITIAL_ABSENCES)
+        const mockApprovals = seeded(INITIAL_WEEK_APPROVALS)
+        return {
+          ...state,
+          entries: (state.entries ?? []).filter((e) => !mockEntries.has(e.id)),
+          templates: (state.templates ?? []).filter((t) => !mockTemplates.has(t.id)),
+          absences: (state.absences ?? []).filter((a) => !mockAbsences.has(a.id)),
+          weekApprovals: (state.weekApprovals ?? []).filter((w) => !mockApprovals.has(w.id)),
+          // Colleague presence is server-derived display state, never
+          // user-authored — drop it wholesale instead of filtering.
+          teamActivity: [],
+        } as TimeTrackingState
+      },
+    },
   ),
 )
 
