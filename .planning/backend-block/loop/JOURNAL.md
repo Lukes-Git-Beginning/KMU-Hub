@@ -5893,7 +5893,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Reserve).
 
 ## Iteration 93 — f-cov-vertraege-repository — done — 2026-08-11 08:21
-- commit: (wird nach `git commit` in dieser Iteration nachgetragen)
+- commit: a6ba9c37
 - gebaut: Neue Datei `internal/vertraege/postgres_repository_db_test.go` deckt alle zuvor bei
   0,0 % liegenden `PostgresRepository`-Methoden ab: `SaveSignature` (Happy Path, Cross-Tenant ->
   `ErrContractNotFound`, fehlender Vertrag), `UpdateContract` (alle Felder inkl. `EndsOn`/
