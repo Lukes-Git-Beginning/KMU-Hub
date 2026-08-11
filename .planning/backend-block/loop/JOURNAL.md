@@ -3120,3 +3120,64 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 47) fortgezaehlt,
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:09).
+
+## Iteration 49 — d-cov-gateway-email-accounts — done — 2026-08-11 02:11
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: Neue Testdatei `backend/internal/gateway/route_email_accounts_test.go`
+  (23 Tests) fuer die sieben E-Mail-Konto-Handler in route_email.go: HandleCreateAccount
+  (ServiceUnavailable, InvalidJSON, ReachesRPC), HandleGetAccount (ServiceUnavailable,
+  ReachesRPC), HandleListAccounts (ServiceUnavailable, ReachesRPC) plus
+  TestListEmailAccountsResponse_EmptyWireShape, HandleUpdateAccount (ServiceUnavailable,
+  InvalidJSON, InvalidIDUUID, ReachesRPC), HandleDeleteAccount (ServiceUnavailable,
+  ReachesRPC), HandleSetDefaultAccount (ServiceUnavailable, ReachesRPC) und
+  HandleTestConnection (ServiceUnavailable, InvalidJSON, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1530 PASS, 0 SKIP, 0 FAIL) | migration
+  n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836 Spec-Pfade) |
+  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 39,4 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: drei Proben, alle gefangen. (1) In HandleCreateAccount die
+  Invalid-JSON-Fehlerpruefung durch `_ = json.NewDecoder(r.Body).Decode(&req)`
+  ersetzt (Fehler verschluckt) -> TestHandleCreateAccount_InvalidJSON rot (503 statt 400,
+  "connection error" statt "invalid request body"). (2) In HandleGetAccount
+  `http.StatusBadGateway` zu `http.StatusOK` im Client-Fehlerpfad geaendert ->
+  TestHandleGetAccount_ServiceUnavailable rot (200 statt 502). (3) In HandleTestConnection
+  die Fehlerpruefung mit `err != nil && false` stillgelegt -> TestHandleTestConnection_
+  InvalidJSON rot (503 statt 400, "connection error" statt "invalid request body"). Alle
+  drei per Edit-Tool gesetzt und zurueckgedreht, `git diff --stat
+  backend/internal/gateway/route_email.go` danach leer, build/vet/lint/test erneut
+  komplett gruen (1530 PASS, 0 SKIP, 0 FAIL).
+- verify vorgaenger: sauber. Commit 725e99de (Iteration 48) sowie der Metadaten-Commit
+  4d53180e fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
+  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: Drei Abweichungen vom im Backlog skizzierten Testplan dokumentiert statt
+  stillschweigend anders gebaut. (1) Alle sieben Account-Handler sind proto-direct (kein
+  lokales DTO, kein validate-Tag) und rufen weder eine Pflichtfeld- noch eine
+  UUID-Pruefung lokal auf — HandleCreateAccount dekodiert nur JSON und reicht die
+  Felder unvalidiert an den gRPC-Client weiter; HandleUpdateAccount/HandleDeleteAccount/
+  HandleSetDefaultAccount reichen `chi.URLParam(r,"id")` unvalidiert weiter. Statt der im
+  Backlog verlangten "fehlende Pflichtfelder"/"ungueltige UUID"-Fehlerfaelle testen die
+  ServiceUnavailable/InvalidJSON/ReachesRPC-Tests die tatsaechlich vorhandenen Fehlerpfade;
+  TestHandleUpdateAccount_InvalidIDUUID belegt explizit, dass ein Nicht-UUID-Pfadsegment
+  NICHT lokal abgelehnt wird, sondern bis zur RPC-Schicht durchlaeuft (503). (2)
+  HandleListAccounts liefert `resp` ueber `response.JSON` (encoding/json.Marshal auf dem
+  rohen Proto-Struct), nicht ueber `response.Proto`/`response.ProtoList`. Da
+  `ListEmailAccountsResponse.Accounts` das protoc-gen-go-Standard-Tag
+  `json:"accounts,omitempty"` traegt, wird ein leeres/nil-Slice bei
+  `encoding/json.Marshal` **weder** als `"accounts":[]` **noch** als `"accounts":null`
+  serialisiert — der Schluessel fehlt komplett im Body (`{}`). Das ist eine dritte,
+  im Backlog nicht vorgesehene Auspraegung neben der erwarteten "leer -> [] statt
+  null". `TestListEmailAccountsResponse_EmptyWireShape` haelt das reale Verhalten fest.
+  Kein Blocker: der einzige Konsument (desktop/src/renderer/src/modules/mails/
+  MailsPage.tsx:142 und settings/MailsSettingsPanel.tsx:48) liest bereits defensiv
+  ueber `accountsData?.accounts ?? []`. Kein neuer Fix-Unit-Vorschlag fuer Lauf 9, weil
+  folgenlos — dieselbe Kategorie Befund wie das EmitUnpopulated-Verhalten in Iteration 47
+  (dort protojson-Pfad, hier encoding/json-Pfad, beide harmlos wegen FE-Guard).
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-48 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 48) fortgezaehlt,
+  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:11).
