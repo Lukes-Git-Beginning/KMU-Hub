@@ -3368,7 +3368,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:41).
 
 ## Iteration 53 — d-cov-gateway-inventar-items-stock — done — 2026-08-11 02:51
-- commit: (folgt)
+- commit: ed7e9b1c
 - gebaut: Testdatei `backend/internal/gateway/route_inventar_test.go` um 26 Tests fuer die
   sieben Scope-Handler in route_inventar.go erweitert: HandleListItems (ServiceUnavailable,
   MissingTenant, ReachesRPC mit search/low_stock/location-Query), HandleGetItem/
