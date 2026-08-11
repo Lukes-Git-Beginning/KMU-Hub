@@ -5679,7 +5679,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `f-cov-biz-datev` (Block F Reserve).
 
 ## Iteration 90 — f-cov-biz-datev — done — 2026-08-11 07:31
-- commit: (wird nachgetragen)
+- commit: 192dfbb5
 - gebaut: Drei neue Testdateien in `internal/biz/datev` heben die drei bei 0,0 % liegenden
   Dateien deutlich an, plus Erweiterung der bestehenden `upload_service_test.go`.
   `oauth_test.go`: `OAuthManager` komplett ohne echten DATEV-Token-Endpunkt (httptest.NewServer
