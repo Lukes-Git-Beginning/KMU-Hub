@@ -4642,3 +4642,61 @@ Frühere Läufe liegen vollständig im Archiv:
   `e-cov-inbox-routing-thread-adapter` (Block E, inbox) — letzte Unit in
   diesem Unterpaket-Cluster, kann auf das seit Iteration 72 etablierte
   DB-Testmuster aufbauen.
+
+## Iteration 74 — e-cov-inbox-routing-thread-adapter — done — 2026-08-11 05:04
+- commit: -
+- gebaut: routing.Service.executeActions fuer alle vier Action-Typen
+  (route_to_team/assign_to/add_tags/auto_reply) je mit Erfolgs- und
+  Fehlerfall getestet, inkl. des dokumentierten Non-Fatal-Verhaltens von
+  auto_reply (Sendefehler und Nicht-Email-Kanal liefern beide nil). Dazu
+  getCachedRules/refreshCache/invalidateCache/filterByChannel (neuer
+  Call-Counter `listActiveCalls` im bestehenden Mock, um TTL-Cache-Hits von
+  echten Refreshs zu unterscheiden) — alles in `service_test.go`.
+  thread.PostgresRepository: neue Datei `postgres_repository_canned_test.go`
+  deckt CreateCannedResponse/GetCannedResponse/ListCannedResponses/
+  UpdateCannedResponse/DeleteCannedResponse gegen die echte lokale DB ab,
+  inkl. Not-Found-Fehlerpfade fuer Update/Delete/Get und eines
+  Cross-Tenant-Isolationstests.
+  adapter.ChatAdapter: neue Datei `chat_adapter_test.go` (erste Testdatei
+  im `adapter`-Paket) mit einem `fakeChatClient` — FetchNewMessages (Mapping,
+  Preview-Truncation auf 200 Zeichen, Nil-Client-Graceful-Degradation,
+  Client-Fehler), HandleReply (Erfolg + Nil-Client-Fehler), HandleForward
+  (liefert dokumentiert ErrForwardNotSupported) und MarkReadOnSource
+  (Erfolg, Nil-Client-No-Op, Client-Fehler).
+- gate: build ok (go build -p 2 ./internal/inbox/... ./cmd/...) | vet ok
+  | lint ok (golangci-lint run --config .golangci.yml ./internal/inbox/...
+  — 0 issues) | test ok (go test -count=1 ./internal/inbox/..., alle fuenf
+  Unterpakete ok, 0 Fails, 0 Skips — DATABASE_URL gesetzt,
+  docker-postgres-1 healthy) | migration n.a. (keine neue
+  Tabelle/Route/Policy) | rls-smoke n.a. (keine Policy angefasst; der
+  Cross-Tenant-Test in postgres_repository_canned_test.go belegt die
+  Tenant-Trennung direkt) | gateway-Tests nicht gelaufen (keine Route
+  angefasst)
+- coverage: Bezugswert war das Paket-Aggregat "internal/inbox 32,3 %",
+  nicht paket-eigen (wie in Iteration 73 begruendet). Einzeln gemessen ohne
+  `...`: internal/inbox/routing n.a. -> 84,5 % | internal/inbox/thread
+  n.a. -> 58,8 % | internal/inbox/adapter n.a. -> 23,9 % (adapter-Paket
+  bleibt niedrig, weil email_adapter.go/guest_adapter.go/
+  notification_adapter.go weiterhin ungetestet sind — ausserhalb des
+  Scopes dieser Unit, die nur chat_adapter.go nennt)
+- mutations-probe: in `routing/service.go` actionAddTags den Dedup-Guard
+  (`if !existing[t] { ... }`) entfernt, sodass jeder Tag unbedingt
+  angehaengt wird -> TestExecuteActions_AddTags_DedupesAgainstExisting
+  sofort rot (drei statt zwei Eintraege, "vip" doppelt). Zurueckgedreht,
+  `git diff` auf der Datei leer.
+- verify vorgaenger: sauber. Commit 64969687 (Iteration 73) fuegt
+  ausschliesslich eine neue Testdatei (`postgres_repository_reads_test.go`)
+  in inbox/message hinzu, plus Journal-/Backlog-Metadaten — kein
+  Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard,
+  keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-73
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert
+  — Nummer aus der letzten Journal-Ueberschrift (Iteration 73)
+  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 05:04). Damit ist der gesamte Inbox-Unterpaket-Cluster
+  (message/routing/thread/adapter/team) aus Block E abgearbeitet — die
+  naechste Backlog-Unit gehoert zu einer anderen Flaeche, siehe
+  BACKLOG.yml in Reihenfolge.

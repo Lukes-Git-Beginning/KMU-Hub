@@ -2481,7 +2481,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/inbox 32,3 %"
     scope: >
       routing/service.go's executeActions-Zweige (actionRouteToTeam, actionAssignTo,
