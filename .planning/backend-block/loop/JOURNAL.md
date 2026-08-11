@@ -3495,7 +3495,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 02:53).
 
 ## Iteration 55 — d-cov-gateway-document-shares — done — 2026-08-11 03:04
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 7e71e8e3
 - gebaut: `backend/internal/gateway/route_document_test.go` um 29 neue Tests fuer die
   Share-Link- und Entity-Link-Handler in route_document.go erweitert:
   HandleListShareLinks (ServiceUnavailable, InvalidIDReachesRPC), HandleCreateShareLink
