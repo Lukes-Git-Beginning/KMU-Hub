@@ -927,7 +927,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 70,0 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       MUSTER C — eine List-RPC gibt bei leerem Ergebnis eine `nil`-Slice zurueck statt
@@ -1373,3 +1373,145 @@ units:
         ein zweiter Tenant sieht sie nicht (Muster AssertWriteCarriesTenant aus internal/testutil)
       - go test -count=1 ./internal/work/recording/ ./internal/server/ gruen, DATABASE_URL gegen
         kmuhub_app gesetzt
+
+  - id: fix-calendar-grpc-nil-slice-wire-shape
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-large-services, Lauf 9 Iteration 21)"
+    scope: >
+      MUSTER C — `calendar_grpc.go` deklariert in ALLEN 13 seiner List-RPCs das
+      Response-Slice als `var protos []*calv1.XxxProto` und befuellt es per `append` in einer
+      Schleife, ohne vorheriges `make(..., 0, n)`. Bei leerem Ergebnis bleibt `protos` `nil`;
+      ueber protojson wird daraus im JSON-Response `null` statt `[]`. Anders als beim bereits
+      gefixten `fix-crm-list-nil-slice-wire-shape` sitzt die Nil-Quelle hier in JEDEM Fall
+      direkt im Handler selbst (nicht im Service-Layer) -- die lokale `var`-Deklaration plus
+      `append`-Schleife ist unabhaengig davon, ob der jeweilige Service bereits ein leeres,
+      nicht-nil Slice liefert.
+
+      Betroffene RPCs mit Zeile der `var protos`-Deklaration (Datei
+      `backend/internal/server/calendar_grpc.go`):
+        ListCalendars (144, Response-Feld Calendars), ListCalendarMembers (277, Members),
+        ListBrowsableCalendars (331, Calendars), ListEventsInRange (512, Events),
+        ListEventAttendees (719, Attendees), ListEventCategories (770, Categories),
+        ListEventReminders (839, Reminders), ListResources (949, Resources),
+        ListResourceAvailability (1041, Bookings), ListResourceBookings (1147, Bookings),
+        ListHolidays (1175, Holidays), ListTaskDeadlinesInRange (1279, Deadlines),
+        ListBookingPages (1759, Pages).
+
+      Root-Cause-Regel: dieselbe Schwesterfunktion mit demselben Muster ausserhalb des
+      `List`-Namensraums gehoert in denselben Commit -- `GetAvailability` (Zeilen 1856-1891)
+      hat exakt dasselbe Muster bei `var dayProtos []*calv1.AvailabilityDayProto` (Zeile 1881,
+      Response-Feld Days) und ist beim Scan als Randfund mitnotiert worden.
+    sources:
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/server/crm_grpc.go
+    notes: >
+      Fix-Muster (Vorlage `fix-crm-list-nil-slice-wire-shape`, Commit `c3f0c46f` aus Lauf 7):
+      jede `var protos []*calv1.XxxProto`-Zeile durch
+      `protos := make([]*calv1.XxxProto, 0, len(<quelle>))` ersetzen, danach in der Schleife
+      weiterhin `append` verwenden (kein `var` mehr, `:=`). Alle 14 Stellen (13 List-RPCs +
+      GetAvailability) sind derselbe mechanische Zwei-Zeilen-Diff -- root-cause-identisch, ein
+      Commit reicht.
+
+      Test pro RPC ist billig: mit einem leeren Repository/Service-Mock aufrufen, Ergebnis-Slice
+      auf `!= nil` pruefen (Vorlage: `TestListContacts_EmptyIsNilNotEmptySlice` aus
+      crm_grpc_fields_tags_contacts_test.go, dort auf `require.NotNil` bereits umgestellt --
+      exaktes Gegenstueck fuer diese Datei bauen). Bei so vielen gleichartigen Stellen genuegt
+      EIN Test pro RPC (kein DB-Ueberbau noetig, ein leeres Mock-Ergebnis reicht) plus EINE
+      Mutations-Probe stellvertretend fuer das Muster (z. B. `make(...)` in einer Stelle wieder
+      durch `var` ersetzen, pruefen dass genau der zugehoerige Test rot wird, zurueckdrehen).
+    done_when:
+      - Alle 13 List-RPCs plus GetAvailability in calendar_grpc.go initialisieren ihr
+        Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
+      - Pro RPC ein Test, der bei leerem Ergebnis []  statt null im Response-Feld beweist
+      - Eine Mutations-Probe ist im Journal dokumentiert (welche Stelle gebrochen, welcher Test
+        rot, zurueckgedreht, Diff sauber)
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: fix-crm-grpc-nil-slice-wire-shape-remaining
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-large-services, Lauf 9 Iteration 21)"
+    scope: >
+      MUSTER C — dieselbe Bugklasse wie `fix-crm-list-nil-slice-wire-shape` (Block A, bereits
+      gefixt), aber FUENF weitere List-RPCs in derselben Datei `crm_grpc.go`, die beim
+      urspruenglichen Fund nicht mit abgedeckt waren:
+        ListCompanies (Zeile 799, `var infos []*crmv1.CompanyInfo` @831, append @833),
+        ListPipelineStages (1009, `var infos []*crmv1.PipelineStageInfo` @1020, append @1022),
+        ListDeals (1243, `var infos []*crmv1.DealInfo` @1303, append @1305),
+        ListActivities (1550, `var infos []*crmv1.ActivityInfo` @1605, append @1607),
+        ListSavedFilters (1834, `var infos []*crmv1.SavedFilterInfo` @1860, append @1862).
+
+      Root-Cause-Regel: drei weitere Schwesterfunktionen mit demselben Muster ausserhalb des
+      `List`-Namensraums im selben File gehoeren in denselben Commit -- `GetCompanyContacts`
+      (Zeile 948, `var infos []*crmv1.ContactInfo`), `ReorderPipelineStages` (1112) und `Search`
+      (1769, SearchResponse) sind beim Scan als Randfunde mitnotiert worden.
+    sources:
+      - backend/internal/server/crm_grpc.go
+    notes: >
+      Fix-Muster identisch zur bereits gefixten Vorlage im selben File (Commit `c3f0c46f`):
+      `var infos []*crmv1.XxxInfo` durch `infos := make([]*crmv1.XxxInfo, 0, len(<quelle>))`
+      ersetzen. Pin-Test-Vorlage: die drei bereits umgestellten Tests
+      `TestListCustomFields_EmptyIsNilNotEmptySlice` / `TestListTags_...` /
+      `TestListContacts_...` (jetzt `require.NotNil`) in
+      `crm_grpc_fields_tags_contacts_test.go` als Bauplan fuer die fuenf neuen Tests nutzen.
+      Service-Layer pruefen wie bei `enrichWithRelationsBatch` (Vorlage-Unit) -- laut Scan liegt
+      die Nil-Quelle hier direkt im Handler, aber vor dem Fix kurz gegenchecken, ob einer der
+      fuenf Service-Aufrufe (z. B. `companyService.List`, `dealService.List`) ebenfalls `nil`
+      statt `[]T{}` zurueckgibt und zusaetzlich fixen, falls ja.
+    done_when:
+      - ListCompanies, ListPipelineStages, ListDeals, ListActivities, ListSavedFilters sowie
+        GetCompanyContacts, ReorderPipelineStages und Search initialisieren ihr Response-Slice
+        mit make(..., 0, n) statt einer nil-var-Deklaration
+      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
+      - Eine Mutations-Probe ist im Journal dokumentiert
+      - go test -count=1 ./internal/server/ ./internal/crm/... gruen
+
+  - id: fix-work-grpc-nil-slice-wire-shape
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-large-services, Lauf 9 Iteration 21)"
+    scope: >
+      MUSTER C — `work_grpc.go` hat 12 List-RPCs mit demselben Nil-Slice-Muster wie die
+      bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
+        ListProjects (Zeile 120, `var protos []*workv1.ProjectProto` @131),
+        ListProjectMembers (278, `var protos []*workv1.ProjectMemberProto` @294),
+        ListProjectStatuses (504, `var protos []*workv1.ProjectStatusProto` @515),
+        ListTasks (649, `var protos []*workv1.TaskProto` @732),
+        ListSubtasks (892, `var protos []*workv1.TaskProto` @908),
+        ListTaskDependencies (971, `var protos []*workv1.TaskDependencyProto` @982),
+        ListTaskComments (1074, `var protos []*workv1.TaskCommentProto` @1094),
+        ListTaskEntityLinks (1167, `var protos []*workv1.TaskEntityLinkProto` @1178),
+        ListEntityTasks (1188, `var protos []*workv1.TaskProto` @1199),
+        ListTaskActivities (1214, `var protos []*workv1.TaskActivityProto` @1234),
+        ListTaskFiles (1301, `var protos []*workv1.TaskFileProto` @1312),
+        ListTimeEntries (1941, `var protos []*workv1.TimeEntryProto` @1966).
+
+      Root-Cause-Regel: zwei weitere Schwesterfunktionen mit demselben Muster ausserhalb des
+      `List`-Namensraums im selben File gehoeren in denselben Commit -- `ReorderProjectStatuses`
+      (Zeile 494) und `SearchTasks` (1523) sind beim Scan als Randfunde mitnotiert worden.
+    sources:
+      - backend/internal/server/work_grpc.go
+      - backend/internal/server/crm_grpc.go
+    notes: >
+      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede `var protos []*workv1.XxxProto`
+      durch `protos := make([]*workv1.XxxProto, 0, len(<quelle>))` ersetzen. 12 List-RPCs plus 2
+      Randfunde sind viel Flaeche fuer eine Iteration -- falls die Zeit nicht reicht, die
+      wichtigsten zuerst (ListProjects, ListTasks, ListTaskComments, ListTimeEntries sind die am
+      haeufigsten vom Frontend aufgerufenen) und den Rest im Journal unter `offen:` mit exakter
+      Restliste vermerken, NICHT als erledigt melden, wenn nicht alle 14 Stellen gefixt sind.
+    done_when:
+      - Alle 12 List-RPCs plus ReorderProjectStatuses und SearchTasks in work_grpc.go
+        initialisieren ihr Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
+      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
+      - Eine Mutations-Probe ist im Journal dokumentiert
+      - go test -count=1 ./internal/server/ gruen

@@ -1052,3 +1052,64 @@ Fensters.
   tenant, fix-work-erasure-task-double-count, fix-security-ip-access-rules-cidr-scan,
   fix-chat-guest-sessions-ip-address-scan, fix-caldav-carddav-company-permission-role-column,
   fix-work-recording-consent-missing-tenant-id).
+
+## Iteration 21 — scan-nil-slice-wire-shape-large-services — done — 2026-08-11 18:21
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster C (List-RPC gibt bei leerem Ergebnis nil-Slice statt make([]*T,0,n) zurueck,
+  ueber protojson wird daraus JSON `null` statt `[]`), Teil 1 von 2 — die acht groessten
+  gRPC-Server in `internal/server`: crm_grpc.go, biz_grpc.go, work_grpc.go, video_grpc.go,
+  hr_grpc.go, calendar_grpc.go, email_grpc.go, document_grpc.go. Ueber drei parallele
+  Explore-Subagenten geprueft (max. 3 gleichzeitig): Gruppe 1 crm/biz/work, Gruppe 2
+  video/hr/calendar, Gruppe 3 email/document. Vorgehen pro Datei: alle `List`-praefigierten
+  RPC-Funktionen gegrept, pro Treffer geprueft ob das Response-Slice vor der Append-Schleife
+  mit `make(..., 0, n)` initialisiert wird oder als nackte `var xs []*T` stehen bleibt; wo
+  plausibel zusaetzlich eine Ebene tiefer in den Service-Layer geschaut (Vorlage:
+  `enrichWithRelationsBatch`).
+  Ergebnis: 32 List-RPCs in video_grpc.go (9) + hr_grpc.go (10) + biz_grpc.go (5, ohne bereits
+  gefixte) + email_grpc.go (7) + document_grpc.go (12) geprueft — 0 Funde, durchgaengig
+  korrektes `make(...)`. document_grpc.go hat auf Repository-Ebene
+  (`internal/document/file/postgres_repository.go`, 7 Funktionen) zwar dasselbe nil-Var-Muster,
+  ist aber wirkungslos, weil jeder aufrufende Handler das Ergebnis bereits durch eine eigene,
+  korrekt mit `make()` gepufferte Konvertierungsschleife reicht — kein Fund, da kein
+  JSON-Response betroffen.
+  30 Treffer in den restlichen zwei Dateien: calendar_grpc.go 13 von 13 geprueften List-RPCs
+  betroffen (ListCalendars, ListCalendarMembers, ListBrowsableCalendars, ListEventsInRange,
+  ListEventAttendees, ListEventCategories, ListEventReminders, ListResources,
+  ListResourceAvailability, ListResourceBookings, ListHolidays, ListTaskDeadlinesInRange,
+  ListBookingPages) plus Randfund GetAvailability (kein List-Praefix, gleiches Muster).
+  crm_grpc.go 5 von 8 geprueften List-RPCs betroffen (ListCompanies, ListPipelineStages,
+  ListDeals, ListActivities, ListSavedFilters — ListCustomFields/ListTags/ListContacts waren
+  bereits durch fix-crm-list-nil-slice-wire-shape gefixt) plus Randfunde GetCompanyContacts,
+  ReorderPipelineStages, Search. work_grpc.go 12 von 17 geprueften List-RPCs betroffen
+  (ListProjects, ListProjectMembers, ListProjectStatuses, ListTasks, ListSubtasks,
+  ListTaskDependencies, ListTaskComments, ListTaskEntityLinks, ListEntityTasks,
+  ListTaskActivities, ListTaskFiles, ListTimeEntries) plus Randfunde ReorderProjectStatuses,
+  SearchTasks.
+  30 Funde in drei Dateien sind kein "wenige" im Sinne des done_when dieser Unit — Direkt-Fix
+  in dieser Iteration haette Umfang und Testaufwand weit ueber eine Iteration hinaus getrieben.
+  Stattdessen drei neue Fix-Units angelegt, GRUPPIERT PRO DATEI (Praezedenzfall
+  fix-chat-guest-sessions-ip-address-scan aus Lauf 9 Iteration 11, das 3 Fundstellen im selben
+  File in einer Unit zusammenfasst): fix-calendar-grpc-nil-slice-wire-shape (13 List-RPCs + 1
+  Randfund), fix-crm-grpc-nil-slice-wire-shape-remaining (5 List-RPCs + 3 Randfunde),
+  fix-work-grpc-nil-slice-wire-shape (12 List-RPCs + 2 Randfunde). Jede Unit ist derselbe
+  mechanische Zwei-Zeilen-Diff pro Stelle (Vorlage Commit `c3f0c46f`), aber root-cause-identisch
+  im selben File — ein Commit pro Datei ist angemessen granular, 30 Einzel-Units waeren reines
+  Backlog-Rauschen fuer denselben Fix.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `7fd2a4e3`, Iteration 20 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: fix-calendar-grpc-nil-slice-wire-shape, fix-crm-grpc-nil-slice-wire-shape-remaining,
+  fix-work-grpc-nil-slice-wire-shape
+- offen: Teil 2 von 2 (`scan-nil-slice-wire-shape-remaining-services`, die restlichen 23
+  `*_grpc.go`-Dateien: fuhrpark, inbox, helpdesk, chat, inventar, security, notification,
+  dialer, rapporte, berichte, formulare, plugin, automation, settings, vermietung, wiki,
+  schichten, einkauf, vertraege, produktion, bexio, lexware, datev_upload) steht noch aus und
+  ist bereits als todo im Backlog. Die drei neuen Fix-Units sind ungewoehnlich gross (bis zu 14
+  Fundstellen je Unit) -- falls eine davon in einer Iteration nicht vollstaendig passt, steht in
+  ihren notes bereits eine explizite Anweisung, den Rest ehrlich als `offen:` zu vermerken statt
+  als erledigt zu melden.
