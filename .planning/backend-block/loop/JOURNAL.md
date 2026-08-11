@@ -3956,3 +3956,58 @@ Frühere Läufe liegen vollständig im Archiv:
   in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 61) fortgezaehlt, Zeitstempel per `date`
   auf dem Loop-Rechner ermittelt (2026-08-11 03:46).
+
+## Iteration 63 — d-cov-gateway-schichten-swap-arbzg — done — 2026-08-11 03:52
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `backend/internal/gateway/route_schichten_test.go` um 20 Tests
+  erweitert fuer den bisher ungetesteten Schichttausch-/ArbZG-Block in
+  route_schichten.go: HandleCreateSwapRequest (MissingSwapWithEmployeeID,
+  MissingShiftID, InvalidAssignmentIDUUID, MissingIdempotencyKey,
+  ServiceUnavailable, ReachesRPC), HandleListSwapRequests
+  (ServiceUnavailable, ReachesRPC), HandleApproveSwapRequest/
+  HandleRejectSwapRequest (je ServiceUnavailable, InvalidRequestIDUUID,
+  AlreadyDecided_ReachesRPC) und HandleCheckArbzgCompliance
+  (ServiceUnavailable, MissingEmployeeID, MissingNewShiftStart,
+  InvalidNewShiftStartFormat, InvalidNewShiftEndFormat, ReachesRPC). Die
+  "AlreadyDecided_ReachesRPC"-Tests dokumentieren bewusst, dass die
+  Statusuebergangspruefung des Tauschantrags (bereits genehmigt/abgelehnt)
+  serverseitig im schichten-Service liegt — der Gateway-Handler validiert
+  nur Tenant und Antrags-ID (UUID) und reicht den Rest unveraendert an die
+  RPC durch (503 bei localhost:0-Dummy-Verbindung, dasselbe Verify-Muster
+  wie in Iteration 62). HandleCheckArbzgCompliance dagegen validiert
+  employee_id sowie new_shift_start/new_shift_end (inkl. leerem Wert, der
+  denselben "invalid ...: use RFC3339"-Fehler wie ein unparsbarer erzeugt)
+  tatsaechlich an der Gateway-Grenze, weil das Handler-eigene
+  `parseRFC3339ToTimestamp` das vor dem RPC-Aufruf prueft.
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
+  ./internal/gateway/: 1922 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
+  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift im selben Paketlauf mitgelaufen, gruen (keine neue
+  Route) | kein neuer RequirePermission-Guard, keine neue
+  config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 44,8 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleCreateSwapRequest den
+  Idempotency-Key-Guard `if idempotencyKey == "" {` auf `if false {`
+  geaendert -> TestHandleCreateSwapRequest_MissingIdempotencyKey rot (503
+  statt 400: die valide Anfrage ohne Header erreicht ungeprueft die RPC und
+  scheitert dort am localhost:0-Dial statt am Header-Guard). Alle anderen 19
+  neuen Tests blieben gruen. Per Edit-Tool zurueckgedreht, `git diff
+  backend/internal/gateway/route_schichten.go` danach leer, build/vet/lint/
+  test erneut komplett gruen (1922 PASS).
+- verify vorgaenger: sauber. Commit e5bc7291 (Iteration 62) fuegt
+  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
+  (`git show --stat e5bc7291`: BACKLOG.yml, JOURNAL.md,
+  route_vermietung_test.go) — keine Produktionscode-Datei, kein Proto, keine
+  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
+  Keine der acht Fehlerklassen einschlaegig.
+- offen: In route_schichten.go bleibt HandleGetShiftStats ungetestet
+  (nicht Teil dieser Unit-Scope) — Kandidat fuer eine Folge-Unit in Lauf 9.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-62 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
+  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 62) fortgezaehlt, Zeitstempel per `date`
+  auf dem Loop-Rechner ermittelt (2026-08-11 03:52).
