@@ -3433,7 +3433,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 02:51).
 
 ## Iteration 54 — d-cov-gateway-inventar-inventur — done — 2026-08-11 02:53
-- commit: (siehe naechster Metadaten-Commit)
+- commit: a4f32d20
 - gebaut: Testdatei `backend/internal/gateway/route_inventar_test.go` um 31 Tests fuer die
   sieben Inventur-Workflow-Handler in route_inventar.go erweitert: HandleCreateInventurSession
   (MissingName, InvalidLocationIDUUID, InvalidDateFormat als lokal geprueften Parse-Fehler,
