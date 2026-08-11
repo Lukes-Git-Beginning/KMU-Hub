@@ -1,8 +1,39 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-08-06
+updated: 2026-08-11
 ---
 # Datenbank
+
+## Aktueller Stand (2026-08-11, gegen Production verifiziert)
+
+**Repo-Kopf = lokaler Kopf = Produktionskopf = `310`, `dirty=false`.** Nächste freie Nummer ist
+`311` — aber immer zur Laufzeit ermitteln, nicht aus dieser Note ableiten:
+
+```bash
+ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1
+```
+
+Prüfung gegen Production (psql-User ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]]):
+
+```bash
+sudo docker compose --env-file /opt/kmuhub/.env.production \
+  -f deploy/docker/docker-compose.yml -f deploy/docker/docker-compose.prod.yml \
+  exec -T postgres psql -U kmuhub -d kmuhub -c "SELECT version, dirty FROM schema_migrations;"
+```
+
+Die Migrationen **298–310** stammen aus den Backend-Nachtläufen 6–8. `000310` ist ein
+idempotenter Seed-INSERT (`ON CONFLICT DO NOTHING`) der Dokumentkategorie `gehaltsabrechnung` in
+`hr_document_categories` — kein neues Schema, keine neue RLS-Policy.
+
+⚠ **Offener Schema-Bug aus Lauf 8** (`fix-notification-quiet-hours-conflict-index` in
+`BACKLOG-NEXT.yml`): `notification_quiet_hours` trägt seit `000022` nur ein inline
+`UNIQUE(user_id)`. `000124` hat `tenant_id` überall NOT NULL gemacht, diesen Constraint aber nie
+verbreitert, während `UpsertQuietHours` auf `ON CONFLICT (tenant_id, user_id)` zielt. Postgres
+validiert den ON-CONFLICT-Zielindex beim **Planen**, deshalb schlägt **jeder** Aufruf mit
+SQLSTATE 42P10 fehl, nicht nur der zweite. Exakt dieselbe Klasse wurde für
+`notification_preferences` schon mit `000305` gefixt — die Migration ist die Vorlage.
+
+Die vollständige, historisch gewachsene Migrations-Chronik steht unten im Überblick.
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)

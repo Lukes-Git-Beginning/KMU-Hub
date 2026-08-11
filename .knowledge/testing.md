@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-08-06
+updated: 2026-08-11
 ---
 # Test-Strategie
 
@@ -10,14 +10,40 @@ updated: 2026-08-06
 - Race Detector: `-race` Flag in CI aktiviert
 - Coverage: Report generiert, als Artifact hochgeladen (30 Tage)
 
-### Coverage-Stand (CI-Lauf vom 2026-08-06, gruen)
+### Coverage-Stand (CI-Lauf vom 2026-08-11, gruen — Run 31465073405)
 
-**Gesamt 30,2 %** (generierte Proto-Stubs ausgeschlossen), CI-Gate = 15 % (`ci.yml:125`).
+**Gesamt 60,0 %** (generierte Proto-Stubs ausgeschlossen), CI-Gate = 15 % (`ci.yml:125`).
 Die CI laeuft mit `DATABASE_URL=postgres://kmuhub_app@…` (`ci.yml:107`) — die DB-Tests werden also
 **nicht** still von `SkipIfNoDB` uebersprungen, und die Rolle ist `kmuhub_app` (NOBYPASSRLS), d. h.
 die RLS-Tests beweisen etwas. Ohne beides waere die Zahl wertlos.
 
-Pro Domaene (Mittel ueber Funktionen, nicht statement-gewichtet — Naeherung):
+Der Sprung von 30,2 % (2026-08-06) auf 60,0 % stammt aus den Backend-Nachtlaeufen 6–8; Lauf 8
+allein hat 47,7 → 60,0 % gebracht. Statement-gewichtet, je Paketverzeichnis:
+
+| Paket | Cov | |
+|---|---|---|
+| vertraege | 82,6 % | |
+| helpdesk, plugin | 81,5 % | |
+| schichten | 79,7 % | |
+| produktion | 77,8 % | ✅ war mit 22,3 % das schwaechste Paket des Repos |
+| **security** | **76,9 %** | ✅ ueber dem 60-%-Ziel fuer kritische Pfade |
+| rapporte | 76,0 % | |
+| inventar | 72,9 % | |
+| **server** | **70,0 %** | ✅ war 8 % im August — die groesste Einzelverbesserung |
+| **auth** | **67,9 %** | ✅ |
+| einkauf | 63,9 % | |
+| fuhrpark | 54,5 % | |
+| caldav | 54,2 % | |
+| **gateway** | **46,0 %** | ⚠ schwaechstes Kernpaket, groesste ungedeckte Flaeche |
+
+⚠ Ein hoher Prozentsatz ist **kein** Beleg fuer Fehlerfreiheit: die Nachtlaeufe haben beim
+Abdecken zehn reale Produktionsbugs gefunden, die vorher unentdeckt in gedecktem wie
+ungedecktem Code lagen. Der Grund ist die **Mutations-Probe** (Pflicht in jeder Loop-Iteration:
+eine Zeile brechen, pruefen ob ein Test rot wird, zurueckdrehen) — ohne sie deckt ein Test
+Zeilen ab, ohne Verhalten zu pruefen. Details in `.planning/backend-block/loop/ITERATION.md`.
+
+Aeltere Momentaufnahme (2026-08-06, Mittel ueber Funktionen statt statement-gewichtet — andere
+Groesse, nicht direkt vergleichbar):
 
 | Bereich | Cov | |
 |---|---|---|

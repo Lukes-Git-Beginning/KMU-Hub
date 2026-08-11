@@ -1,35 +1,45 @@
 ---
 tags: [index]
-updated: 2026-08-06
+updated: 2026-08-11
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-08-06) — live gemessen
+## Projektstand (2026-08-11) — live gemessen
 
-**Backend-Nachtlaeufe 1–5 durch, alle gemergt und deployt.** Der Backend-Loop
-(`.planning/backend-block/loop/`) hat in fuenf Naechten die Migrationen **243–297** geliefert:
+**Backend-Nachtlaeufe 1–8 durch, alle gemergt und deployt.** Der Backend-Loop
+(`.planning/backend-block/loop/`) hat in den Laeufen 1–5 die Migrationen **243–297** geliefert:
 Feature-Nachzug quer durch die Module (Laeufe 1+3, 243–268), in Lauf 4 die RLS-Welle (20 Tabellen +
 Standing-Guard, der die naechste Luecke selbst findet), **RBAC Phase 1** (tenant-eigene Rollen +
 per-User-Overrides) und 42 neue Routen, in Lauf 5 den Rest inkl. Wiki-Share-Soft-Revoke (297).
-**Repo-Kopf = Prod-Kopf 297 clean.** Loop-Backlog: 34 done · 7 blocked · **0 todo** — er ist damit
-**leer**, ein Lauf 6 braucht ihn komplett neu. Die 7 `blocked` sind keine Ausfaelle, sondern
-Entscheidungsvorlagen fuer Luke (Payroll-Datenmodell, Admin-Billing, Projekt-Meilensteine,
-CSAT-Oberflaeche, Public-Token-Landing-Pages, `DisallowUnknownFields`) plus ein reiner FE-Fix.
 
-**Gemessene Kennzahlen (2026-08-06):**
+**Die Laeufe 6–8 waren Coverage-Laeufe** und haben die Test-Abdeckung von 30,2 % auf **60,0 %**
+gebracht (Lauf 8 allein: 47,7 → 60,0 %, 93 Units in einer Nacht). Ihr eigentlicher Ertrag sind
+aber nicht die Prozente, sondern **22 reale Produktionsbugs**, die beim Abdecken aufgefallen
+sind — zwoelf in Lauf 7, zehn in Lauf 8. Der Grund ist die **Mutations-Probe**: jede Iteration
+muss eine Zeile brechen, pruefen ob ein Test rot wird, und zurueckdrehen. Ohne sie deckt ein
+Test Zeilen ab, ohne Verhalten zu pruefen. Siehe [[testing]].
+
+**Repo-Kopf = Prod-Kopf 310 clean.** Loop-Backlog `BACKLOG.yml`: 93 done · **0 todo**. Die zehn
+Fix-Units aus Lauf 8 liegen in `BACKLOG-NEXT.yml` (die Datei, die der Treiber NICHT liest — ein
+Kommentar „Fuer Lauf 9" neben `status: todo` hat Lauf 8 in eine Sackgasse laufen lassen).
+⚠ **Lauf-9-Prioritaet:** `audit.PostgresRepository.List`/`.VerifyChain` scannen rohes INET in
+einen Go-`string` — Audit-Viewer, CSV/JSON-Export und `VerifyAuditChain`-RPC sind fuer jeden
+Tenant mit realer Aktivitaet funktionsunfaehig.
+
+**Gemessene Kennzahlen (2026-08-11):**
 
 | | |
 |---|---|
 | Services | 24 (23 µSvc + Gateway) |
 | gRPC-RPCs | 1.134 ueber 32 `.proto` |
 | REST | 821 OpenAPI-Pfade / 1.171 Operationen |
-| Migrationen | Kopf **297**, 266 `.up.sql` (Luecken durch Reverts/Renumber) |
-| Test-Coverage | **30,2 %** gesamt (CI-Gate 15 %) — auth 71 %, security 67 %, ⚠ biz 48 % und crm 51 % unter dem 60-%-Ziel fuer kritische Pfade |
+| Migrationen | Kopf **310**, Prod = Repo, `dirty=false` |
+| Test-Coverage | **60,0 %** gesamt (CI-Gate 15 %) — server 70 %, security 77 %, auth 68 %, ⚠ **gateway 46 %** als schwaechstes Kernpaket |
 | RLS | `knownRLSGaps` **leer** (`internal/testutil/rls_regression_test.go:33`) |
 | Feature-Flags | 17 (14 `modules.*` + 3 `plugins.*`), alle Modul-Flags default OFF |
 | Frontend | 34 Module (32 im Router), 81 API-Hooks, 1.231 TS/TSX-Dateien |
 | i18n | 12.044 Keys, de/en vollstaendig, ⚠ fr/it je 34 Keys hinterher |
-| Prod | 30 von 35 Containern healthy, `COSMI_ENV=production` scharf |
+| Prod | 34 Container laufen (29 healthy + 5 ohne Healthcheck), `COSMI_ENV=production` scharf |
 
 **Offene Posten:** ⚠ CSAT auf Prod funktionsunfaehig (`SYSTEM_SMTP_*` nicht an `helpdesk`
 durchgereicht) · ⚠ `scans.yml` rot (npm-audit → react-router, Frontend) · ⚠ MinIO-Backup schlaegt
