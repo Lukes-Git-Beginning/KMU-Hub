@@ -3710,3 +3710,64 @@ Frühere Läufe liegen vollständig im Archiv:
   war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 57) fortgezaehlt, Zeitstempel per `date` auf dem
   Loop-Rechner ermittelt (2026-08-11 03:22).
+
+## Iteration 59 — d-cov-gateway-formulare-schema-submission — done — 2026-08-11 03:27
+- commit: <wird nach Commit ergaenzt>
+- gebaut: `backend/internal/gateway/route_formulare_test.go` von einem reinen
+  Konstruktor-Helfer auf 30 neue Tests fuer Formular-Schema-CRUD und den
+  Submission-Workflow in route_formulare.go erweitert: HandleCreateFormSchema
+  (ServiceUnavailable, MissingTenant, InvalidJSON, MissingTitle, ReachesRPC),
+  HandleUpdateFormSchema (InvalidIDUUID, MissingTenant, InvalidJSON,
+  ReachesRPC), HandleDeleteFormSchema (InvalidIDUUID, MissingTenant,
+  ServiceUnavailable), HandleDuplicateFormSchema (InvalidIDUUID,
+  MissingTenant, InvalidJSON, ReachesRPC), HandleCreateSubmission
+  (InvalidIDUUID, MissingTenant, InvalidJSON, ServiceUnavailable,
+  ReachesRPC), HandleUpdateSubmissionStatus (InvalidIDUUID, MissingTenant,
+  InvalidJSON, MissingStatus, InvalidStatusValue, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1
+  ./internal/gateway/ -v: 1816 PASS, 0 SKIP, 0 FAIL) | migration n.a. (keine
+  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade,
+  unveraendert) | keine neue Route, kein neuer RequirePermission-Guard, keine
+  neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 43,1 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. `createFormSchemaRequest.Title` von
+  `validate:"required"` auf keinen Validate-Tag entfernt ->
+  TestHandleCreateFormSchema_MissingTitle rot (503 + Dial-Fehler statt 400 +
+  validation_failed: der leere Titel reicht jetzt bis zur RPC durch). Alle
+  anderen 29 neuen Tests blieben gruen, insbesondere
+  TestHandleCreateFormSchema_ReachesRPC (das erwartet ohnehin 503 und haette
+  eine zu laxe Probe verschleiert). Per Edit-Tool zurueckgedreht, `git diff
+  --stat backend/internal/gateway/route_formulare.go` danach leer,
+  build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit bd2d3e98 (Iteration 58) fuegt
+  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
+  (Metadaten-Commit 093c68f1 nur JOURNAL.md/BACKLOG.yml) — keine
+  Produktionscode-Datei, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
+  acht Fehlerklassen einschlaegig.
+- offen: `createFormSchemaRequest.Fields`/`updateFormSchemaRequest.Fields`
+  tragen keinen `validate`-Tag — "fehlende Pflichtfelder (Name/Feldtyp)" aus
+  dem Backlog-Wunsch bezieht sich auf die Feldnamen INNERHALB des opaken
+  Fields-JSON-Blobs, die laut Scope in der Schema-Validierung liegen; das ist
+  service-seitige Logik ohne bufconn-Stub fuer FormulareServiceClient in
+  diesem Paket, dieselbe dokumentierte Grenze wie in jeder bisherigen
+  Gateway-Coverage-Unit dieses Laufs. `dispatchIntake` (privater Helfer, ruft
+  intern GetFormSchema + runIntakeDispatch) bleibt ungetestet aus demselben
+  Grund: CreateSubmission schlaegt schon an der RPC fehl, bevor dispatchIntake
+  je erreicht wird. `HandleListFormSchemas`, `HandleGetFormSchema`,
+  `HandleListSubmissions`, `HandleGetSubmission`, `HandleExportSubmissions`,
+  alle Webhook-Handler (Create/Get/Update/Delete/ListDeliveries), Share-Link-
+  Handler (List/Create/Revoke) und `HandleSubmitByShareToken` (der
+  unauthentifizierte Public-Pfad) bleiben ungetestet — nicht im Scope dieser
+  Unit (route_formulare.go hat 1204 Zeilen, deutlich mehr Handler als das
+  Backlog-`scope` nannte), Kandidat fuer Lauf 9 falls internal/gateway weiter
+  gehoben werden soll. `.planning/backend-block/loop/run-loop.ps1` traegt
+  weiterhin denselben unstaged Diff wie in den Iterationen 6-58 vermerkt —
+  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war
+  auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 58) fortgezaehlt, Zeitstempel per `date` auf
+  dem Loop-Rechner ermittelt (2026-08-11 03:27).
