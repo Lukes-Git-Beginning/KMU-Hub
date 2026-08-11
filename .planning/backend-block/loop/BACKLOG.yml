@@ -3129,7 +3129,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/datev 40,8 %"
     scope: >
       306 ungedeckte Statements, drei Dateien komplett ungetestet: `uploader.go` (77,
@@ -3475,3 +3475,70 @@ units:
         vorausgefuellte Zeilen an/aktualisieren sie, statt am NOT-NULL-Constraint zu scheitern
       - Ein Test belegt den leeren-Request-Pfad end-to-end (Service oder Repository-Ebene)
       - go test -count=1 ./internal/rapporte/... ./internal/server/ gruen
+
+# ==========================================================================================
+# Neu gefunden waehrend Lauf 8, Iteration 90 (f-cov-biz-datev) -- nicht gebaut, nur dokumentiert
+# (Coverage-Units aendern kein Verhalten). Fuer Lauf 9. Schwerer als der rapporte-Fund aus
+# Iteration 89: hier ist der komplette DATEV-Upload-Pfad seit RLS scharf (2026-06-05) tot, nicht
+# nur ein Einzelfall bei leerem optionalem Feld.
+# ==========================================================================================
+
+  - id: fix-datev-upload-repo-missing-tenant-id
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bug, kein Coverage-Ziel)"
+    scope: >
+      `PostgresUploadRepository.UpsertUploadConfig` und `.CreateUploadLog`
+      (internal/biz/datev/postgres_upload_repo.go:42 bzw. :63) INSERTen in `datev_upload_configs`
+      bzw. `datev_upload_log`, OHNE die Spalte `tenant_id` zu setzen -- weder in der Spaltenliste
+      noch im `VALUES`-Teil. Beide Tabellen tragen seit Migration 000115 `tenant_id UUID NOT NULL`
+      OHNE Spalten-Default (verifiziert per `\d` gegen die lokale DB, Kopf 309: `Default` bei
+      `tenant_id` ist leer) und seit Migration 000122 RLS mit `FORCE ROW LEVEL SECURITY`. Kein
+      Trigger setzt `tenant_id` automatisch nach -- beide Modelle (`models.DatevUploadConfig`,
+      `models.DatevUploadLog`) haben nicht einmal ein `TenantID`-Feld. Jeder Aufruf schlaegt
+      unveraendert mit `ERROR: null value in column "tenant_id" ... violates not-null constraint`
+      fehl -- verifiziert per echtem INSERT gegen die lokale DB (Kopf 309), siehe
+      `TestUpsertUploadConfig_FailsNotNullTenantID` und `TestCreateUploadLog_FailsNotNullTenantID`
+      in `postgres_upload_repo_test.go`.
+
+      Produktions-Impact ist vollstaendig, nicht partiell: `UpsertUploadConfig` kann nie eine
+      Zeile schreiben, also findet `GetUploadConfig` (WHERE config_id = $1) fuer JEDEN Tenanten
+      NIE eine Zeile -> `UploadService.UploadBuchungsstapel`
+      (internal/biz/datev/upload_service.go:163-166) liefert fuer jeden Upload-Versuch
+      `ErrNoUploadConfig`, bevor der DATEV-API-Client ueberhaupt kontaktiert wird. Die
+      Vorlaeuferpruefung `CreateUploadLog`-Fehler wird nur geloggt
+      (upload_service.go:197-199), aendert also nichts an dieser Kette. Seit
+      `COSMI_ENV=production` am 2026-06-05 scharf wurde, kann demnach kein Tenant jemals eine
+      DATEV-Client-Nummer speichern oder einen Buchungsstapel hochladen -- rund zwei Monate
+      stiller Totalausfall eines steuerlich relevanten Features, ohne dass ein Fehler im
+      Frontend anders als ein generischer 500/404 sichtbar wuerde.
+    sources:
+      - backend/internal/biz/datev/postgres_upload_repo.go
+      - backend/internal/models/datev_upload.go
+      - backend/internal/biz/datev/upload_service.go
+      - backend/migrations/000115_option_b_phase2_integrations_chat.up.sql
+      - backend/migrations/000122_rls_phase2_long_tail.up.sql
+      - backend/internal/biz/datev/postgres_upload_repo_test.go
+    notes: >
+      Gefunden beim Bau der Coverage-Unit f-cov-biz-datev (Lauf 8, Iteration 90). Sauberster
+      Fix: `TenantID uuid.UUID` auf beide Modelle ergaenzen, in beiden INSERTs die Spalte
+      `tenant_id` mit `middleware.GetTenantID(ctx)` (Muster aus anderen Repos in diesem Repo,
+      z. B. rapporte/postgres_repository.go) fuellen -- NICHT per Spalten-Default, das wuerde
+      System-Context-Schreibpfade (falls es welche gibt) unbeabsichtigt treffen. Anschliessend
+      die beiden `FailsNotNullTenantID`-Tests in `postgres_upload_repo_test.go` durch echte
+      Happy-Path-Tests ersetzen (Kommentar im Testdatei-Header verweist bereits darauf) und
+      `UpsertUploadConfig`/`CreateUploadLog` aus den beiden neuen Fehlerpfad-Tests in
+      Upsert/Create-Erfolgstests umbauen. Pruefen, ob ein Tenant ueberhaupt jemals erfolgreich
+      DATEV verbunden hat (Produktions-DB, `SELECT count(*) FROM datev_upload_configs` bzw.
+      `datev_upload_log`) -- vermutlich 0 Zeilen, was den Fund zusaetzlich untermauert, aber
+      Vorsicht: das ist eine reine Lesepruefung gegen Produktion, kein Teil dieses Nachtlaufs.
+    done_when:
+      - UpsertUploadConfig und CreateUploadLog schreiben tenant_id aus dem Request-Kontext und
+        schlagen nicht mehr am NOT-NULL-Constraint fehl
+      - Die beiden FailsNotNullTenantID-Tests sind durch echte Erfolgstests ersetzt
+      - Ein RLS-Test belegt, dass die neu geschriebene Zeile nur fuer den schreibenden Tenant
+        sichtbar ist (Muster AssertWriteCarriesTenant aus internal/testutil)
+      - go test -count=1 ./internal/biz/datev/ gruen

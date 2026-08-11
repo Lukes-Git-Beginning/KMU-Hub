@@ -5677,3 +5677,87 @@ Frühere Läufe liegen vollständig im Archiv:
   separater `chore(loop)`-Folgecommit traegt den Hash nach, da er zum Zeitpunkt des
   Journal-Schreibens selbst noch nicht existiert). Naechste Backlog-Unit laut Reihenfolge:
   `f-cov-biz-datev` (Block F Reserve).
+
+## Iteration 90 — f-cov-biz-datev — done — 2026-08-11 07:31
+- commit: (wird nachgetragen)
+- gebaut: Drei neue Testdateien in `internal/biz/datev` heben die drei bei 0,0 % liegenden
+  Dateien deutlich an, plus Erweiterung der bestehenden `upload_service_test.go`.
+  `oauth_test.go`: `OAuthManager` komplett ohne echten DATEV-Token-Endpunkt (httptest.NewServer
+  steht fuer den Token-Endpunkt) -- Cache-Hit ohne Refresh, Refresh bei Nah-Ablauf (30s-Fenster),
+  Vault-Fehler-Weiterleitung, exakte Form-Inhalte an den Token-Endpunkt, non-200-Status,
+  kaputtes JSON, neuer Refresh-Token wird im Vault gespeichert, Refresh ueberlebt einen
+  fehlschlagenden Vault-Write (nur geloggt), ExchangeCode dagegen schlaegt bei fehlschlagendem
+  Vault-Write hart fehl (kein vorheriger Refresh-Token vorhanden), RevokeTokens leert den Cache,
+  GetAuthorizationURL baut die korrekte Query. `uploader_test.go`: `Uploader` gegen
+  httptest-Server -- Erfolg im ersten Versuch, 4xx wird NICHT wiederholt, 5xx wird EINMAL
+  wiederholt und gelingt dann (echter 1s-Backoff, kein Fake-Clock-Seam vorhanden),
+  Netzwerkfehler wird ueber einen zaehlenden `RoundTripper` simuliert und ebenfalls wiederholt,
+  Token-Fehler wird NICHT wiederholt (0 Server-Kontakte), Circuit Breaker oeffnet nach
+  `WithFailureThreshold(2)` und shedded den dritten Versuch ohne Server-Kontakt, `ListClients`
+  (retryt NICHT, anders als `UploadBuchungsstapel`) mit Erfolg/4xx/5xx/Token-Fehler-Pfaden.
+  `postgres_upload_repo_test.go`: DB-gestuetzt -- siehe "gefunden, nicht gefixt" fuer
+  `UpsertUploadConfig`/`CreateUploadLog`; `GetUploadConfig` (Happy Path + NotFound),
+  `UpdateUploadLog` (Feld-Update inkl. Metadata-JSON-Roundtrip + CHECK-Constraint-Fehlerpfad bei
+  ungueltigem Status), `ListUploadLogs` (DESC-Order + Limit, Default-Limit bei `limit<=0`, leere
+  Liste bei unbekannter config_id) -- Fixtures fuer diese drei Methoden ueber `testutil.SeedRow`
+  direkt gesetzt, nicht ueber die (aktuell kaputten) Repository-Schreibmethoden.
+  `upload_service_test.go` erweitert um `GetConnectionStatus` (3 Faelle), `GetAuthorizationURL`
+  (nil-OAuthManager + Delegation), `HandleOAuthCallback` (nil-Fehler + echter Code-Austausch
+  gegen httptest-Server), `Disconnect` (Revoke+Deactivate sowie No-Op-Pfad), `UploadBeleg`
+  direkte Precondition-Fehlerpfade (bisher nur indirekt ueber `UploadInvoiceBeleg` getestet) und
+  die drei duennen Passthroughs `GetUploadConfig`/`UpdateUploadConfig`/`ListUploadLogs`
+  (Parameter-Weiterleitung + Fehler-Propagation).
+- gate: build ok (go build -p 2 ./internal/biz/... ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok (go vet ./internal/biz/... ./internal/gateway/...) | lint ok (golangci-lint run
+  --config .golangci.yml ./internal/biz/... ./internal/gateway/... — 0 issues) | test ok (go
+  test -count=1 -v ./internal/biz/datev/ — 87 PASS-Zeilen (inkl. Subtests), 0 uebersprungen,
+  DATABASE_URL gesetzt gegen kmuhub_app; zusaetzlich go test -count=1 ./internal/biz/... — alle
+  24 Unterpakete gruen) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine Policy
+  angefasst; tenant_isolation_phase2_test.go deckt RLS fuer datev_upload_configs/-log bereits ab)
+  | gateway-Tests nicht separat gelaufen (keine Route angefasst)
+- coverage: internal/biz/datev 40,8 % -> 79,3 % (go test -coverprofile ./internal/biz/datev/, go
+  tool cover -func). Die drei Ziel-Dateien einzeln: `uploader.go` 0,0 % -> 82,1–100 % je
+  Funktion, `oauth.go` 0,0 % -> 88,0–100 %, `postgres_upload_repo.go` 0,0 % -> 77,8–100 %.
+  `upload_service.go` zusaetzlich 56,7 % -> 80,0–100 % je Funktion (war nicht 0 %, aber
+  explizit im Scope genannt).
+- mutations-probe: `ListUploadLogs` (postgres_upload_repo.go), `ORDER BY started_at DESC` auf
+  `ASC` gedreht -> `TestListUploadLogs_OrdersDescByStartedAtAndRespectsLimit` sofort rot
+  ("logs[0].ID = ..., want the newest log ... (DESC by started_at)" plus
+  "logs not ordered DESC by started_at"). Zurueckgedreht, `git diff --stat` auf
+  `postgres_upload_repo.go` leer.
+- verify vorgaenger: sauber. Commit f33da131 (Iteration 89) fuegt ausschliesslich eine neue
+  Testdatei (`internal/rapporte/postgres_repository_test.go`) plus Journal-/Backlog-Metadaten
+  hinzu — kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- gefunden, nicht gefixt: `PostgresUploadRepository.UpsertUploadConfig` und `.CreateUploadLog`
+  (internal/biz/datev/postgres_upload_repo.go:42 bzw. :63) INSERTen weder in
+  `datev_upload_configs` noch in `datev_upload_log` die Spalte `tenant_id` -- beide Tabellen
+  tragen seit Migration 000115 `tenant_id UUID NOT NULL` OHNE Spalten-Default (verifiziert per
+  `\d datev_upload_configs`/`\d datev_upload_log` gegen die lokale DB, Kopf 309) und seit
+  Migration 000122 RLS mit `FORCE ROW LEVEL SECURITY`. Kein Trigger fuellt `tenant_id` nach,
+  beide Modelle haben nicht einmal ein `TenantID`-Feld. Jeder Aufruf schlaegt daher UNVERAENDERT
+  mit `ERROR: null value in column "tenant_id" ... violates not-null constraint` fehl --
+  verifiziert per echtem INSERT gegen die lokale DB. Produktions-Impact: vollstaendig, nicht
+  partiell -- da `UpsertUploadConfig` nie eine Zeile schreiben kann, findet `GetUploadConfig`
+  fuer JEDEN Tenanten NIE eine Zeile, also liefert `UploadService.UploadBuchungsstapel` fuer
+  jeden Upload-Versuch `ErrNoUploadConfig`, bevor die DATEV-API ueberhaupt kontaktiert wird --
+  seit `COSMI_ENV=production` am 2026-06-05 scharf ist, kann demnach kein Tenant je eine
+  DATEV-Client-Nummer speichern oder einen Buchungsstapel hochladen. In den neuen Tests bewusst
+  als Fehlerpfad dokumentiert (`TestUpsertUploadConfig_FailsNotNullTenantID`,
+  `TestCreateUploadLog_FailsNotNullTenantID`, mit Kommentar im Testdatei-Header), nicht gefixt --
+  Coverage-Units aendern kein Verhalten. Neue Fix-Unit `fix-datev-upload-repo-missing-tenant-id`
+  fuer Lauf 9 im Backlog angelegt (Block "Neu gefunden waehrend Lauf 8, Iteration 90"), status
+  todo, nicht in diesem Lauf gezogen.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
+  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht
+  meine Datei, nicht angefasst, nicht committet. Ebenso weiterhin ein reiner
+  Zeilenenden-Artefakt (kein inhaltlicher Diff, `git diff` liefert nur die LF/CRLF-Warnung) auf
+  `backend/internal/rapporte/postgres_repository.go` — ebenfalls nicht angefasst. Laufkontext-
+  Block war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 89) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-11 07:31). Commit-Hash wird nach dem `git commit` in dieser Iteration noch
+  nachgetragen. Die Fund-Beschreibung oben ist die wichtigste Zeile dieses Journal-Eintrags fuer
+  Luke: der DATEV-Upload-Pfad ist seit rund zwei Monaten in Produktion komplett tot, betrifft
+  aber (Stand jetzt unbekannt) vermutlich 0 oder sehr wenige Tenants, da noch niemand eine
+  Config je erfolgreich anlegen konnte. Naechste Backlog-Unit laut Reihenfolge:
+  `f-cov-schichten-repository` (Block F Reserve).
