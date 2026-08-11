@@ -5763,7 +5763,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `f-cov-schichten-repository` (Block F Reserve).
 
 ## Iteration 91 — f-cov-schichten-repository — done — 2026-08-11 07:59
-- commit: <wird nach dem Commit nachgetragen>
+- commit: f231449b
 - gebaut: Neue Datei `internal/schichten/postgres_repository_test.go` (DB-gestuetzt, Muster
   `tenant_write_test.go`/`rapporte/postgres_repository_test.go`) deckt alle bislang bei 0,0 %
   liegenden `PostgresRepository`-Methoden ab: Shifts (UpdateShift inkl. Cross-Tenant-Ablehnung,
