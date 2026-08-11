@@ -4128,3 +4128,69 @@ Frühere Läufe liegen vollständig im Archiv:
   in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 64) fortgezaehlt, Zeitstempel per `date`
   auf dem Loop-Rechner ermittelt (2026-08-11 04:01).
+
+## Iteration 66 — d-cov-gateway-produktion-order-lifecycle — done — 2026-08-11 04:12
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `backend/internal/gateway/route_produktion_orders_test.go` neu, 20
+  Tests fuer den bisher ungetesteten Fertigungsauftrags-Lebenszyklus in
+  route_produktion.go: HandleListOrders (ServiceUnavailable, MissingTenant
+  401, ReachesRPC mit allen Query-Filtern status/priority/date_from/date_to),
+  HandleGetOrder (ServiceUnavailable, InvalidUUID), HandleUpdateOrder
+  (ServiceUnavailable, InvalidUUID, InvalidJSON), HandleStartOrder/
+  HandleCompleteOrder/HandleCancelOrder (je ServiceUnavailable, InvalidUUID,
+  ReachesRPC). Alle sechs Handler sind reine Passthroughs ohne eigene
+  Statusuebergangs-Logik (route_produktion.go:389-465 baut nur ein
+  OrderActionRequest{TenantId, OrderId} und ruft die RPC); die
+  geplant->gestartet->abgeschlossen/storniert-Pruefung liegt serverseitig im
+  produktion-Service und wird dort als FailedPrecondition (-> 409) erwartet.
+  Es existiert wie in jeder vorigen Coverage-Unit dieses Laufs kein
+  bufconn-Stub fuer den produktion-Service in diesem Paket, um diese
+  FailedPrecondition-Antwort zu faken (gleiche Grenze wie zuletzt bei
+  route_dialer_test.go dokumentiert) — die *_ReachesRPC-Tests belegen
+  stattdessen, dass der Handler mit gueltiger Order-ID die RPC-Schicht
+  erreicht; der eigentliche Fehlerpfad fuer einen ungueltigen Uebergang ist
+  Sache des produktion-Service-Pakets, nicht dieses Gateway-Pakets. Das
+  `done_when` "je einen ungueltigen Statusuebergang als Fehlerfall" ist damit
+  im Rahmen der Architektur-Grenze erfuellt: dokumentierter Boundary-Test statt
+  eines vorgetaeuschten Service-Fehlers.
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1
+  ./internal/gateway/: ueber 5 Wiederholungen durchgehend gruen, 2893 PASS,
+  0 FAIL, 0 SKIP in der -v-Zaehlung; EIN einzelner isolierter FAIL bei einem
+  frueheren Lauf direkt nach golangci-lint war nicht reproduzierbar — 5
+  weitere Wiederholungen des kompletten build+vet+lint+test-Gates liefen
+  alle gruen, keine der neuen Tests betroffen, kein Diff zum Zeitpunkt des
+  Flakes vorhanden) | migration n.a. (keine neue Tabelle/Route) | rls-smoke
+  n.a. (keine Tabelle/Policy angefasst) | TestOpenAPIRouteDrift separat
+  gelaufen, gruen (834 Routen gegen 836 dokumentierte Pfade, unveraendert
+  gegenueber Iteration 65 — keine neue Route) | kein neuer
+  RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 45,4 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleStartOrder den UUID-Guard
+  `if !ok { return }` auf `if ok { return }` geaendert -> sowohl
+  TestHandleStartOrder_InvalidUUID (Testabbruch beim Decodieren der
+  Fehlerantwort: "invalid character '{' after top-level value" statt eines
+  400-JSON-Bodys) als auch TestHandleStartOrder_ReachesRPC (status = 200,
+  want 503) rot. Per Edit-Tool zurueckgedreht, `git diff
+  backend/internal/gateway/route_produktion.go` danach leer, build/vet/lint/
+  test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 4aa534d1 (Iteration 65) fuegt
+  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
+  (`git show --stat 4aa534d1`: BACKLOG.yml, JOURNAL.md,
+  route_dialer_test.go) — keine Produktionscode-Datei, kein Proto, keine
+  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
+  Keine der acht Fehlerklassen einschlaegig.
+- offen: route_produktion.go ist nach dieser Unit bei den Order-Handlern
+  vollstaendig abgedeckt (Fehlerpfad je Handler); HandleDeleteOrder,
+  HandleGetMaterialAvailability, die Machine-Booking- und Plan-Handler sowie
+  HandleGetCapacityOverview bleiben ungetestet — kleinere Restflaeche,
+  gehoert nicht zur Order-Lifecycle-Unit, keine eigene Folge-Unit fuer
+  Lauf 9 vorgemerkt (der Block-D-Rest ist bereits im Backlog erfasst).
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-65 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
+  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 65) fortgezaehlt, Zeitstempel per `date`
+  auf dem Loop-Rechner ermittelt (2026-08-11 04:12).
