@@ -5356,7 +5356,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Backlog-Unit laut Reihenfolge: `f-cov-notification` (Block F Reserve).
 
 ## Iteration 85 — f-cov-notification — done — 2026-08-11 06:48
-- commit: PENDING (wird nach dem Commit nachgetragen)
+- commit: 7522f659
 - gebaut: drei neue Testdateien, kein Produktionscode dauerhaft veraendert (drei Mutations-Proben
   liefen, alle zurueckgedreht, `git diff` auf den drei angefassten Produktionsdateien leer).
   `internal/notification/integration/slack/block_builder_test.go` deckt die komplett ungetestete
