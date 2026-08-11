@@ -4265,7 +4265,7 @@ Frühere Läufe liegen vollständig im Archiv:
   letzten Journal-Ueberschrift (Iteration 66) fortgezaehlt, Zeitstempel per
   `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:18).
 ## Iteration 68 — d-cov-gateway-plugin-installation-lifecycle — done — 2026-08-11 04:20
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: a3299bde
 - gebaut: `backend/internal/gateway/route_plugin_installation_test.go` neu, 19
   Tests fuer den bisher ungetesteten Installations-Lebenszyklus in
   route_plugin.go: HandleInstallPlugin (ServiceUnavailable, InvalidJSON,
