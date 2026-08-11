@@ -4070,3 +4070,61 @@ Frühere Läufe liegen vollständig im Archiv:
   Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
   Nummer aus der letzten Journal-Ueberschrift (Iteration 63) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:59).
+
+
+## Iteration 65 — d-cov-gateway-dialer-queue-dashboard — done — 2026-08-11 04:01
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `backend/internal/gateway/route_dialer_test.go` um 15 Tests fuer die
+  bisher ungetestete Kontakt-Warteschlange und die Uebersichts-Endpunkte in
+  route_dialer.go erweitert: HandleListCampaignContacts (ServiceUnavailable,
+  InvalidUUID, ReachesRPC), HandleSkipContact/HandleRequeueContact (je
+  ServiceUnavailable, InvalidUUID auf dem "cid"-Parameter),
+  HandleGetCampaignDashboard (ServiceUnavailable, InvalidUUID),
+  HandleGetAgentDashboard (ServiceUnavailable, NoAgentID -> 401 "not
+  authenticated", AgentIDFromUser -> agent_id faellt auf die User-ID aus dem
+  Kontext zurueck) und HandleGetSupervisorOverview (ServiceUnavailable, der
+  einzige Fehlerpfad, da der Handler keine Parameter entgegennimmt). Fuer
+  HandleListCampaignContacts existiert wie in jeder vorigen Coverage-Unit
+  dieses Laufs kein bufconn-Stub fuer den dialer-Service in diesem Paket —
+  die []-nicht-null-Wire-Shape der Kontaktliste ist dokumentiert als
+  Eigenschaft des service-eigenen Proto-Marshalings (ReachesRPC-Test mit
+  Kommentar, gleiches Muster wie TestHandleCheckTuevDue_ReachesRPC in
+  route_fuhrpark_crud_test.go).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
+  ./internal/gateway/: 1949 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
+  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gelaufen, gruen (834 Routen gegen 836
+  dokumentierte Pfade, keine neue Route) | kein neuer RequirePermission-Guard,
+  keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 45,2 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleSkipContact den
+  UUID-Guard `if !ok { return }` auf `if ok { return }` geaendert ->
+  TestHandleSkipContact_InvalidUUID rot (Handler laeuft mit ungueltiger
+  ID weiter statt sofort zu returnen, Testabbruch beim Decodieren der
+  Fehlerantwort: "invalid character '{' after top-level value" statt eines
+  400-JSON-Bodys). TestHandleSkipContact_ServiceUnavailable blieb gruen
+  (Client-Check kommt vor dem UUID-Guard). Per Edit-Tool zurueckgedreht,
+  `git diff backend/internal/gateway/route_dialer.go` danach leer,
+  build/vet/lint/test erneut komplett gruen (1949 PASS).
+- verify vorgaenger: sauber. Commit 0cee1ab5 (Iteration 64) fuegt
+  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
+  (`git show --stat 0cee1ab5`: BACKLOG.yml, JOURNAL.md,
+  route_berichte_test.go) — keine Produktionscode-Datei, kein Proto, keine
+  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
+  Keine der acht Fehlerklassen einschlaegig.
+- offen: route_dialer.go ist nach dieser Unit bis auf
+  HandleGetNextContact/HandleAddContactsToCampaign (Happy-Path/RPC-Reach
+  bereits teilweise abgedeckt, kein systematischer Fehlerpfad-Rest offen),
+  HandleListCallOutcomes, HandleGetAgentStatus/HandleSetAgentStatus
+  (ServiceUnavailable teilw. fehlt fuer GetAgentStatus) und
+  HandleGetContactCalls ungetestet — kein dringender Kandidat, kleine
+  Restfelder, keine eigene Folge-Unit fuer Lauf 9 vorgemerkt.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-64 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
+  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 64) fortgezaehlt, Zeitstempel per `date`
+  auf dem Loop-Rechner ermittelt (2026-08-11 04:01).
