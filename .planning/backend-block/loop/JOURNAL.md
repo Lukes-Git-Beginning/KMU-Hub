@@ -4011,3 +4011,62 @@ Frühere Läufe liegen vollständig im Archiv:
   in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 62) fortgezaehlt, Zeitstempel per `date`
   auf dem Loop-Rechner ermittelt (2026-08-11 03:52).
+
+
+## Iteration 64 — d-cov-gateway-berichte-documents — done — 2026-08-11 03:59
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `backend/internal/gateway/route_berichte_test.go` um 17 Tests fuer
+  die bisher ungetestete Dokumenten-Gruppe in route_berichte.go erweitert:
+  HandleListDocuments (ServiceUnavailable, MissingTenant),
+  HandleGetDocument (ServiceUnavailable, InvalidUUID),
+  HandleExportDocumentPDF (ServiceUnavailable, InvalidUUID),
+  HandleCreateDocument (ServiceUnavailable, InvalidJSON, InvalidModule),
+  HandleUpdateDocument (InvalidUUID, InvalidJSON, InvalidStatus),
+  HandleDeleteDocument (ServiceUnavailable, InvalidUUID). Abweichung vom
+  `done_when` der Unit: "HandleCreateDocument prueft fehlende Pflichtfelder
+  (Titel/Definition)" trifft auf den heutigen Code nicht zu —
+  `createReportDocumentRequest.Title` traegt anders als
+  `createDefinitionRequest.Name` kein `validate:"required"`-Tag, ein leerer
+  Titel wird von `decodeAndValidate` also nicht abgelehnt (keine
+  Verhaltensaenderung in dieser Coverage-Unit vorgenommen). Stattdessen
+  getestet: die tatsaechlich vorhandene `oneof`-Validierung auf `module`
+  (Create) und `status` (Update) — das sind die einzigen Felder, die die
+  Gateway-Grenze bei Documents wirklich zurueckweist.
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
+  ./internal/gateway/: 1936 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
+  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gelaufen, gruen (834 Routen gegen 836
+  dokumentierte Pfade, keine neue Route) | kein neuer RequirePermission-Guard,
+  keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 45,0 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleUpdateDocument den
+  UUID-Guard `if !ok { return }` auf `if ok { return }` geaendert ->
+  TestHandleUpdateDocument_InvalidUUID, ..._InvalidJSON und ..._InvalidStatus
+  alle drei rot (200/leerer Body statt 400: eine ungueltige ID laesst die
+  Funktion sofort verlassen statt fortzufahren, wodurch auch die beiden
+  nachgelagerten Tests, die denselben Handler mit gueltiger ID aufrufen,
+  keinen JSON-Body mehr sehen). Per Edit-Tool zurueckgedreht, `git diff
+  backend/internal/gateway/route_berichte.go` danach leer, build/vet/lint/
+  test erneut komplett gruen (1936 PASS, Coverage unveraendert 45,0 %).
+- verify vorgaenger: sauber. Commit 8908aba4 (Iteration 63) fuegt
+  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
+  (`git show --stat 8908aba4`: BACKLOG.yml, JOURNAL.md,
+  route_schichten_test.go) — keine Produktionscode-Datei, kein Proto, keine
+  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
+  Keine der acht Fehlerklassen einschlaegig. Sein Journal-Platzhalter
+  "(siehe unten, wird nach diesem Journal-Eintrag committet)" war noch nicht
+  aufgeloest — per separatem Commit (Konvention aus den Iterationen 59-62)
+  vor dieser Unit nachgetragen: `chore(loop): record commit hash for
+  iteration 63 journal entry`.
+- offen: route_berichte.go ist nach dieser Unit bis auf Detailpfade in
+  HandleGetDashboardKPIs (teilweise bereits in
+  route_berichte_kpi_scope_test.go) durchgetestet — nichts Neues fuer Lauf 9
+  vorgemerkt. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-63
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 63) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:59).
