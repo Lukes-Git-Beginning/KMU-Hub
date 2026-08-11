@@ -937,3 +937,66 @@ Fensters.
 - offen: Teil B (`scan-insert-missing-tenant-id-b`, auth/security/document/chat/calendar/email/
   notification/inbox/hr) und Teil C (`scan-insert-missing-tenant-id-c`, Modul-Services) stehen
   noch aus und sind bereits als todo im Backlog.
+
+## Iteration 19 — scan-insert-missing-tenant-id-b — done — 2026-08-11 18:09
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster B (INSERT setzt tenant_id nicht, obwohl NOT NULL ohne Default), Teil B von 3 —
+  Pakete auth, security/{audit,gdpr,password,vendoraccess,vault}, document/{file,folder,share,
+  tag,wopi}, chat/{bookmark,channel,file,guest,message}, calendar-Domaene (work/{calendar,event,
+  meeting}, ergaenzend auch caldav), email/{account,attachment,contactlink,label,message,rule,
+  signature,template} (ausser der bereits gefixten send.Send/SaveDraft-Ausnahme), notification/
+  {preference,integration,notification}, inbox/{thread,team,routing,message} per drei parallelen
+  Explore-Subagenten geprueft (max. 3 gleichzeitig).
+  Scope-Klarstellung vorab: `internal/hr` existiert nicht eigenstaendig — das HR-Modul liegt unter
+  `internal/biz/hr/{leave,employee,changerequest,timetracking,absence,compliance}` und wurde dort
+  geprueft (leave/employee/changerequest/timetracking waren durch Teil A/Iteration 18 bereits
+  abgedeckt und wurden hier zur Bestaetigung erneut gegengelesen — 0 Abweichung; absence und
+  compliance sind neu abgedeckt: absence hat kein INSERT, compliance hat kein Repository mit
+  INSERT). `internal/calendar` existiert ebenfalls nicht eigenstaendig — als fachliches Aequivalent
+  wurden `internal/work/{calendar,event,meeting}` sowie ergaenzend `internal/caldav` geprueft.
+  Vorgehen pro Agent: alle `INSERT INTO`-Statements in Nicht-Test-Go-Dateien gefunden, Zieltabelle
+  bestimmt, gegen die laufende lokale DB (Container `docker-postgres-1`, Kopf 312) per `\d
+  <tabelle>` geprueft ob `tenant_id NOT NULL` ohne Default ist, System-Global-Liste (ADR-006:
+  schema_migrations, caldav_settings, industry_templates, permissions, automation_templates,
+  event_types, public_holidays; zusaetzlich `roles`/`role_permissions` mit bewusst NULLable
+  tenant_id) ausgenommen, dann Spaltenliste + Werteherkunft bis zum gRPC-Handler/Service
+  zurueckverfolgt (Struct-Feld/Parameter aus `middleware.GetTenantID(ctx)`, tenant-tragendem
+  Event-Payload, oder sicherer SQL-Subquery-Ableitung aus einer bereits tenant-validierten
+  Elternzeile — vs. hartkodiert/uuid.Nil/fehlend).
+  Insgesamt 107 INSERT-Statements in 33 Nicht-Test-Dateien geprueft, 0 FUNDE:
+  - auth/security/hr (10 Dateien, 37 INSERTs) — 0 Funde. Alle tenant_id aus *.TenantID-Feld,
+    tenantID-Parameter oder `SELECT tenant_id FROM users WHERE id = ...`-Subquery.
+    `role_permissions` hat gar keine tenant_id-Spalte (Isolation ueber Join auf roles.tenant_id).
+    Drei Tabellen (users, audit_log, hr_employee_profiles) haben zusaetzlich einen Spalten-
+    Default und faellen damit per Definition ohnehin nicht unter Muster B — der Code setzt den
+    Wert aber in allen drei Faellen ohnehin explizit.
+  - document/chat/calendar-Domaene (13 Dateien + 3 caldav-Dateien, 49 INSERTs) — 0 Funde. Vier
+    Tabellen (document_files, channels, messages, calendar_events) haben einen fixen System-
+    Tenant-Default (Sentinel-UUID ...0001) und faellen damit nicht unter Muster B; der Code setzt
+    tenant_id trotzdem explizit aus dem Modell. Alle Subquery-Ableitungen (z. B. calendar_members
+    aus calendars, event_attendees aus calendar_events, meeting_attendees aus meetings) stammen
+    von Elternzeilen, die der Service vorher tenant-scoped aufgeloest hat.
+  - email/notification/inbox (15 Dateien, 26 INSERTs) — 0 Funde (ausser der bereits gefixten
+    send.Send/SaveDraft-Ausnahme, nicht erneut geprueft). email_messages, notifications und
+    inbox_messages haben denselben Sentinel-Default und faellen damit nicht unter Muster B.
+    `inbox/adapter/*.go` bauen InboxMessage ohne TenantID, sind aber laut Code-Kommentar ein
+    toter Pfad ohne aktiven Aufrufer (kein Fund). `integration_configs.CreateConfig` verlaesst
+    sich (anders als die Schwester-Methoden in derselben Datei) allein auf `cfg.TenantID` statt
+    zusaetzlich `tenantForWrite(ctx)` zu pruefen — der einzige produktive Aufrufer setzt den Wert
+    korrekt, also kein Fund, aber als Konsistenz-Beobachtung vermerkt (keine eigene Unit, da kein
+    reproduzierbarer Bug, nur fehlende Verteidigungslinie gegen einen hypothetischen zweiten
+    Aufrufer).
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `98874542`, Iteration 18 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine (0 Funde in allen neun Zielpaketen, siehe Belegliste oben)
+- offen: Teil C (`scan-insert-missing-tenant-id-c`, Modul-Services inventar/einkauf/produktion/
+  vertraege/rapporte/schichten/vermietung/fuhrpark/helpdesk/wiki/formulare/berichte/dialer/
+  automation/plugin/settings/video/caldav — caldav ist durch diese Iteration bereits mitgeprueft
+  und kann in Teil C uebersprungen werden) steht noch aus und ist bereits als todo im Backlog.
+  Muster B ist damit fuer 2 von 3 Teilen ohne weitere Funde abgeschlossen.

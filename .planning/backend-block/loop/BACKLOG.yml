@@ -870,7 +870,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
     scope: >
       MUSTER B, TEIL B von 3 — gleiches Vorgehen wie `scan-insert-missing-tenant-id-a`,
