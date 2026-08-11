@@ -1827,7 +1827,7 @@ Fensters.
 - offen: keine
 
 ## Iteration 36 — fix-plugin-grpc-granted-permissions-nil-slice — done — 2026-08-11 20:08
-- commit: (siehe unten, wird nach Commit ergaenzt)
+- commit: 9e58005f
 - gebaut: Root-Cause-Fix in `internal/plugin/repository/permission.go`,
   `PermissionRepository.ListByInstallation` (Zeile 44) initialisierte `permissions` bisher als
   `var permissions []string` und befuellte sie nur per `append` in der `rows.Next()`-Schleife —
