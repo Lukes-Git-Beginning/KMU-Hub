@@ -1782,7 +1782,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 34,9 %"
     scope: >
       Testet Kalender-CRUD und Mitgliederverwaltung in route_calendar.go:

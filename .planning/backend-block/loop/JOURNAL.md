@@ -3249,3 +3249,59 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 49) fortgezaehlt,
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:28).
+
+## Iteration 51 — d-cov-gateway-calendar-membership — done — 2026-08-11 02:35
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: Neue Testdatei `backend/internal/gateway/route_calendar_membership_test.go`
+  (34 Tests) fuer HandleGetCalendar/HandleUpdateCalendar/HandleDeleteCalendar
+  (ServiceUnavailable, InvalidIDUUID ueber validateUUIDParam, InvalidJSON bei
+  Update, ReachesRPC je), HandleAddCalendarMember (ServiceUnavailable,
+  InvalidJSON, MissingUserID, InvalidUserIDUUID, MissingPermission,
+  InvalidCalendarIDUUID_ReachesRPC, ReachesRPC), HandleRemoveCalendarMember
+  (ServiceUnavailable, InvalidCalendarIDUUID_ReachesRPC,
+  InvalidUserIDUUID_ReachesRPC, ReachesRPC), HandleUpdateCalendarMemberPermission
+  (ServiceUnavailable, InvalidJSON, MissingPermission,
+  InvalidPermissionLevel_ReachesRPC, ReachesRPC), HandleSubscribeToCalendar und
+  HandleUnsubscribeFromCalendar (ServiceUnavailable, ReachesRPC je).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ komplett gruen, 0 SKIP, 0 FAIL) | migration n.a.
+  (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift lief als Teil des Pakettests mit, unveraendert gruen — keine neue
+  Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 40,3 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleDeleteCalendar `if !ok { return }`
+  nach `validateUUIDParam` zu `if ok { return }` invertiert (bricht bei gueltiger
+  UUID fruehzeitig ohne Response ab, laesst eine ungueltige durch) ->
+  TestHandleDeleteCalendar_InvalidIDUUID (JSON-Decode-Fehler, weil kein Error-Body
+  geschrieben wurde) UND TestHandleDeleteCalendar_ReachesRPC (200 statt 503) beide
+  rot. Zurueckgedreht, `git diff --stat backend/internal/gateway/route_calendar.go`
+  danach leer, build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 071b5bf1 (Iteration 50) sowie der Metadaten-Commit
+  6c088292 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
+  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: (1) HandleAddCalendarMember/HandleRemoveCalendarMember/
+  HandleUpdateCalendarMemberPermission/HandleSubscribeToCalendar/
+  HandleUnsubscribeFromCalendar lesen "id" (und "userId") durchgaengig ueber rohes
+  chi.URLParam ohne validateUUIDParam — kein neuer Befund, sondern derselbe, den
+  Iteration 6 (fix-gateway-id-validation-consistency) bereits als eine der 161
+  verbleibenden Rohstellen fuer route_calendar.go katalogisiert und explizit fuer
+  eine Lauf-9-Folge-Unit vorgemerkt hat; hier nur mit *_ReachesRPC-Tests belegt statt
+  gefixt (Coverage-Unit aendert kein Verhalten), kein zweiter Fix-Unit-Vorschlag noetig.
+  (2) updateCalendarMemberPermissionRequest.Permission traegt nur `validate:"required"`,
+  kein Enum-/Oneof-Check gegen die gueltigen CalendarPermission-Werte — ein
+  semantisch unbekannter aber nicht-leerer Wert wird lokal nicht abgelehnt, sondern
+  erreicht die RPC-Schicht (TestHandleUpdateCalendarMemberPermission_
+  InvalidPermissionLevel_ReachesRPC dokumentiert das). Gleiche Kategorie wie (1),
+  kein eigener Fix-Unit-Vorschlag, da folgenlos solange der Service serverseitig
+  validiert (nicht gegengeprueft, ausserhalb des Scopes dieser Coverage-Unit). (3)
+  Wie bei den bisherigen Gateway-Coverage-Units kein bufconn-Stub fuer
+  CalendarServiceClient — alle ReachesRPC-Tests dokumentieren nur, dass Handler die
+  lokale Validierung passieren und die RPC-Schicht erreichen (503 ueber die
+  unerreichbare Dummy-Adresse), nicht das tatsaechliche Service-Verhalten.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-50 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 50) fortgezaehlt,
+  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:35).
