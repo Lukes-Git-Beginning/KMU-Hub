@@ -680,6 +680,8 @@ func mapSchichtenError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrSwapAlreadyProcessed):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, schichten.ErrSwapPartnerNotAssigned):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrShiftFull):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:

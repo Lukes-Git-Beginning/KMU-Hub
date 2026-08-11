@@ -621,13 +621,41 @@ func (r *PostgresRepository) UpdateSwapRequestStatus(ctx context.Context, tenant
 // SwapAssignmentsForRequest atomically swaps the employee IDs of two shift assignments:
 // the assignment identified by req.AssignmentID (requested_by) gets the swap_with employee,
 // and the complementary assignment (same shift, swap_with employee) gets requested_by.
-// Both updates run in a single DB transaction.
+// A swap is only valid between two employees who are both already assigned to the
+// shift -- if the swap partner has no assignment there, ErrSwapPartnerNotAssigned is
+// returned and nothing is changed.
+//
+// Both updates run in a single DB transaction, scoped by assignment row id rather
+// than by (shift_id, employee_id) -- scoping the second UPDATE by employee_id would
+// re-match the row the first UPDATE just moved onto that same employee_id within
+// this same transaction. uq_shift_assignments_tenant is DEFERRABLE (migration
+// 000311): the swap defers its check to COMMIT, because immediately after the first
+// UPDATE the requester's row and the partner's still-unmodified row briefly hold the
+// same (tenant_id, shift_id, employee_id).
 func (r *PostgresRepository) SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin swap transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `SET CONSTRAINTS uq_shift_assignments_tenant DEFERRED`); err != nil {
+		return fmt.Errorf("defer swap unique constraint: %w", err)
+	}
+
+	var partnerAssignmentID uuid.UUID
+	err = tx.QueryRow(ctx,
+		`SELECT id FROM shift_assignments
+		 WHERE tenant_id = $1 AND shift_id = $2 AND employee_id = $3
+		 FOR UPDATE`,
+		req.TenantID, req.ShiftID, req.SwapWithEmployeeID,
+	).Scan(&partnerAssignmentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrSwapPartnerNotAssigned
+	}
+	if err != nil {
+		return fmt.Errorf("lock swap partner assignment: %w", err)
+	}
 
 	// Update the requester's assignment to swap_with employee.
 	_, err = tx.Exec(ctx,
@@ -640,12 +668,13 @@ func (r *PostgresRepository) SwapAssignmentsForRequest(ctx context.Context, req 
 		return fmt.Errorf("swap assignment (requester): %w", err)
 	}
 
-	// Update the swap_with employee's assignment on the same shift to requested_by.
+	// Update the swap_with employee's assignment, identified by the row id
+	// locked above, to requested_by.
 	_, err = tx.Exec(ctx,
 		`UPDATE shift_assignments
 		 SET employee_id = $1
-		 WHERE shift_id = $2 AND employee_id = $3 AND tenant_id = $4`,
-		req.RequestedByEmployeeID, req.ShiftID, req.SwapWithEmployeeID, req.TenantID,
+		 WHERE id = $2 AND tenant_id = $3`,
+		req.RequestedByEmployeeID, partnerAssignmentID, req.TenantID,
 	)
 	if err != nil {
 		return fmt.Errorf("swap assignment (swap_with): %w", err)
