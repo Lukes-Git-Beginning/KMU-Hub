@@ -3773,7 +3773,7 @@ Frühere Läufe liegen vollständig im Archiv:
   dem Loop-Rechner ermittelt (2026-08-11 03:27).
 
 ## Iteration 60 — d-cov-gateway-settings-module-access — done — 2026-08-11 03:34
-- commit: PENDING
+- commit: 5fc601af
 - gebaut: `backend/internal/gateway/route_settings_module_access_test.go` neu
   angelegt mit 34 Tests fuer die RBAC-nahe Modul-Zugriffsgruppe in
   route_settings.go: HandleListModuleLeads (ServiceUnavailable,
