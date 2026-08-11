@@ -1928,7 +1928,7 @@ Fensters.
   `fix-security-grpc-nil-slice-wire-shape` (letzte verbliebene `todo`-Unit) abgearbeitet.
 
 ## Iteration 38 — fix-security-grpc-nil-slice-wire-shape — done — 2026-08-11 20:16
-- commit: <PENDING>
+- commit: 96b8cb02
 - gebaut: sieben Nil-Slice-Fixes in `backend/internal/server/security_grpc.go` nach dem
   Muster von `fix-crm-list-nil-slice-wire-shape`: `ListAuditEntries` (121),
   `ListVaultSecrets` (279), `ListDataExports` (355), `PreviewErasure` (528),
