@@ -41,7 +41,7 @@ func (r *PermissionRepository) ListByInstallation(ctx context.Context, installat
 	}
 	defer rows.Close()
 
-	var permissions []string
+	permissions := make([]string, 0)
 	for rows.Next() {
 		var perm string
 		if scanErr := rows.Scan(&perm); scanErr != nil {

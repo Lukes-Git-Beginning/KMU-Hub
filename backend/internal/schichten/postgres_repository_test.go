@@ -13,7 +13,6 @@ package schichten
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -620,23 +619,14 @@ func TestUpdateSwapRequestStatus_UpdatesAndRejectsUnknownID(t *testing.T) {
 	}
 }
 
-// TestSwapAssignmentsForRequest_SilentlyNoOpsWhenTargetNotYetOnShift
-// documents a verified production bug (case 1 of 2, see the sibling test
-// below for case 2): SwapAssignmentsForRequest's second UPDATE is scoped by
-// (shift_id, employee_id = swap_with), not by an assignment id disjoint from
-// the first UPDATE's target. When the swap partner has NO prior assignment
-// on the shift, step one moves the requester's row onto the partner's
-// employee_id -- and step two, running in the same transaction, immediately
-// re-matches that SAME now-updated row (it now has employee_id = swap_with)
-// and flips it straight back to the requester. Net effect: zero change to
-// the database, no error returned, yet the caller (ApproveSwapRequest) marks
-// the swap request "approved". Verified directly against the local DB
-// (two sequential UPDATEs on a single seeded row) before writing this test.
-// Not fixed here (coverage units change no behavior) -- filed as
-// fix-schichten-swap-assignments-unique-violation for the next run, together
-// with the unique-violation case below (same root cause: step two isn't
-// scoped to a specific row).
-func TestSwapAssignmentsForRequest_SilentlyNoOpsWhenTargetNotYetOnShift(t *testing.T) {
+// TestSwapAssignmentsForRequest_RejectsPartnerNotYetOnShift documents the
+// fixed behavior for the case where the swap partner has no prior
+// assignment on the shift. Per the product decision (2026-08-11, see
+// fix-schichten-swap-assignments-unique-violation in
+// .planning/backend-block/loop/BACKLOG.yml), a swap is only valid between
+// two employees already assigned to the shift -- this is now a rejected
+// request, not a silent no-op that ApproveSwapRequest would mark approved.
+func TestSwapAssignmentsForRequest_RejectsPartnerNotYetOnShift(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupSchichtenRepo(t)
 	now := time.Now().UTC()
@@ -646,36 +636,31 @@ func TestSwapAssignmentsForRequest_SilentlyNoOpsWhenTargetNotYetOnShift(t *testi
 	assignment := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, requester, now)
 	req := newTestSwapRequest(t, repo, ctx, pool, tenantID, assignment.ID, shift.ID, requester, partner, "schichten-repo-test-swap-move")
 
-	if err := repo.SwapAssignmentsForRequest(ctx, req); err != nil {
-		t.Fatalf("SwapAssignmentsForRequest: %v", err)
+	if err := repo.SwapAssignmentsForRequest(ctx, req); !errors.Is(err, ErrSwapPartnerNotAssigned) {
+		t.Fatalf("expected ErrSwapPartnerNotAssigned, got %v", err)
 	}
 
-	// If this now finds the row under the partner, the bug is fixed --
-	// rewrite this test to assert the actual move instead of the no-op.
-	if _, err := repo.GetAssignment(ctx, tenantID, shift.ID, partner); !errors.Is(err, ErrAssignmentNotFound) {
-		t.Fatalf("expected the swap to still be a no-op (bug fixed?): partner lookup returned %v", err)
-	}
+	// Nothing must have changed -- the transaction rolled back.
 	stillRequester, err := repo.GetAssignment(ctx, tenantID, shift.ID, requester)
 	if err != nil || stillRequester.ID != assignment.ID {
-		t.Fatalf("expected the assignment to have silently reverted to the requester, got %+v / %v", stillRequester, err)
+		t.Fatalf("expected the requester's assignment to be unchanged, got %+v / %v", stillRequester, err)
+	}
+	if _, err := repo.GetAssignment(ctx, tenantID, shift.ID, partner); !errors.Is(err, ErrAssignmentNotFound) {
+		t.Fatalf("expected no assignment for the partner, got %v", err)
 	}
 }
 
-// TestSwapAssignmentsForRequest_FailsWhenBothEmployeesAlreadyAssignedToShift
-// documents case 2 of 2, the other failure mode of the same root cause: the
-// two-step UPDATE in SwapAssignmentsForRequest is not order-safe against the
-// uq_shift_assignments_tenant UNIQUE(tenant_id, shift_id, employee_id)
-// constraint (migration 000102). When both the requester and the swap
-// partner already hold an assignment on the SAME shift -- the primary,
-// intended meaning of a "shift swap" between two colleagues -- step one
-// rewrites the requester's row to the partner's employee_id while the
-// partner's own row still carries that same employee_id, so the UPDATE
-// hits a duplicate-key violation and the whole transaction (and thus
-// ApproveSwapRequest) fails every time. Verified directly against the local
-// DB before writing this test. Not fixed here (coverage units change no
-// behavior) -- filed as fix-schichten-swap-assignments-unique-violation for
-// the next run.
-func TestSwapAssignmentsForRequest_FailsWhenBothEmployeesAlreadyAssignedToShift(t *testing.T) {
+// TestSwapAssignmentsForRequest_SwapsBothEmployeesAlreadyAssignedToShift
+// documents the fixed behavior for the primary, intended meaning of a
+// "shift swap": both the requester and the swap partner already hold an
+// assignment on the SAME shift. Before the fix, the two-step UPDATE hit
+// uq_shift_assignments_tenant's UNIQUE(tenant_id, shift_id, employee_id)
+// (migration 000102) because it validated immediately after the first
+// UPDATE, while the second UPDATE re-matched the row the first one had just
+// moved. Migration 000311 makes that constraint DEFERRABLE so the swap
+// transaction can defer the check to COMMIT, and both UPDATEs are now
+// scoped by assignment row id instead of (shift_id, employee_id).
+func TestSwapAssignmentsForRequest_SwapsBothEmployeesAlreadyAssignedToShift(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupSchichtenRepo(t)
 	now := time.Now().UTC()
@@ -683,21 +668,22 @@ func TestSwapAssignmentsForRequest_FailsWhenBothEmployeesAlreadyAssignedToShift(
 	shift := newTestShift(t, repo, ctx, pool, tenantID, "Swap Shift", ShiftStatusPublished, now, now.Add(8*time.Hour))
 	requester, partner := uuid.New(), uuid.New()
 	requesterAssignment := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, requester, now)
-	newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, partner, now)
+	partnerAssignment := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, partner, now)
 	req := newTestSwapRequest(t, repo, ctx, pool, tenantID, requesterAssignment.ID, shift.ID, requester, partner, "schichten-repo-test-swap-conflict")
 
-	err := repo.SwapAssignmentsForRequest(ctx, req)
-	if err == nil {
-		t.Fatal("expected SwapAssignmentsForRequest to fail with a unique constraint violation when both employees already hold an assignment on the shift -- if this now succeeds, the bug is fixed and this test should be rewritten to assert the swap, not the failure")
-	}
-	if !strings.Contains(err.Error(), "duplicate key") && !strings.Contains(err.Error(), "unique") {
-		t.Fatalf("expected a unique-constraint error, got: %v", err)
+	if err := repo.SwapAssignmentsForRequest(ctx, req); err != nil {
+		t.Fatalf("SwapAssignmentsForRequest: %v", err)
 	}
 
-	// Both original assignments must be untouched -- the transaction rolled back.
-	stillRequester, err := repo.GetAssignment(ctx, tenantID, shift.ID, requester)
-	if err != nil || stillRequester.ID != requesterAssignment.ID {
-		t.Fatalf("requester's assignment should be unchanged after rollback: %+v / %v", stillRequester, err)
+	// The requester's original row now belongs to the partner, and vice
+	// versa -- row identities swap along with employee_id.
+	nowPartner, err := repo.GetAssignment(ctx, tenantID, shift.ID, partner)
+	if err != nil || nowPartner.ID != requesterAssignment.ID {
+		t.Fatalf("expected the requester's row to now carry the partner's employee_id: %+v / %v", nowPartner, err)
+	}
+	nowRequester, err := repo.GetAssignment(ctx, tenantID, shift.ID, requester)
+	if err != nil || nowRequester.ID != partnerAssignment.ID {
+		t.Fatalf("expected the partner's row to now carry the requester's employee_id: %+v / %v", nowRequester, err)
 	}
 }
 

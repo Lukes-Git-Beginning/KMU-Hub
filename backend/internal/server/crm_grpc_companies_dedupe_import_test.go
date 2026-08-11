@@ -289,6 +289,24 @@ func TestListCompanies_HappyPath(t *testing.T) {
 	}
 }
 
+// TestListCompanies_EmptyIsNilNotEmptySlice documents the wire-shape fix
+// applied alongside fix-crm-list-nil-slice-wire-shape (Block A): the handler
+// (crm_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so an empty
+// result serializes to `[]` rather than `null`.
+func TestListCompanies_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := newStubCompanyRepo()
+	srv := newCRMServerWithCompanyRepo(repo)
+
+	resp, err := srv.ListCompanies(ctxWithTenant(uuid.New()), &crmv1.ListCompaniesRequest{PageSize: 20})
+	requireGRPCOK(t, err)
+	if resp.Companies == nil {
+		t.Error("Companies should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Companies) != 0 {
+		t.Errorf("expected 0 companies, got %d", len(resp.Companies))
+	}
+}
+
 func TestUpdateCompany_MissingTenant(t *testing.T) {
 	srv := newTestCRMServer()
 	_, err := srv.UpdateCompany(context.Background(), &crmv1.UpdateCompanyRequest{Id: uuid.New().String()})
@@ -393,6 +411,24 @@ func TestGetCompanyContacts_HappyPath(t *testing.T) {
 	requireGRPCOK(t, err)
 	if resp.Total != 1 {
 		t.Errorf("expected total 1, got %d", resp.Total)
+	}
+}
+
+// TestGetCompanyContacts_EmptyIsNilNotEmptySlice documents the wire-shape fix
+// applied alongside fix-crm-list-nil-slice-wire-shape (Block A): the handler
+// (crm_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so a
+// company with zero contacts serializes to `[]` rather than `null`.
+func TestGetCompanyContacts_EmptyIsNilNotEmptySlice(t *testing.T) {
+	repo := newStubContactRepo()
+	srv := newCRMServerWithContactRepo(repo)
+
+	resp, err := srv.GetCompanyContacts(ctxWithTenant(uuid.New()), &crmv1.GetCompanyContactsRequest{CompanyId: uuid.New().String(), PageSize: 20})
+	requireGRPCOK(t, err)
+	if resp.Contacts == nil {
+		t.Error("Contacts should be an empty slice, not nil, so it serializes to [] rather than null")
+	}
+	if len(resp.Contacts) != 0 {
+		t.Errorf("expected 0 contacts, got %d", len(resp.Contacts))
 	}
 }
 

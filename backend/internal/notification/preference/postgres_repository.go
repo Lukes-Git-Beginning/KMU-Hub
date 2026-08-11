@@ -92,12 +92,31 @@ func (r *PostgresRepository) ListPreferences(ctx context.Context, tenantID uuid.
 	return prefs, rows.Err()
 }
 
+// upsertPreferenceConflict returns the ON CONFLICT clause matching the unique index
+// that can actually arbitrate this row. notification_preferences carries two partial
+// unique indexes: one for event-type preferences, one for module defaults
+// (event_type_key IS NULL). An arbiter whose predicate does not cover the inserted
+// row is silently not applied, so a module default arbitrated by the event-type index
+// would insert a duplicate row -- and fail on the module-default index instead of
+// updating. A row with neither key is covered by no index at all and cannot conflict.
+func upsertPreferenceConflict(pref *models.NotificationPreference) string {
+	switch {
+	case pref.EventTypeKey != nil:
+		return `ON CONFLICT (tenant_id, user_id, event_type_key) WHERE event_type_key IS NOT NULL
+			DO UPDATE SET in_app = $6, desktop_push = $7, email = $8, sms = $9, sound = $10, updated_at = $12`
+	case pref.ModuleID != nil:
+		return `ON CONFLICT (tenant_id, user_id, module_id) WHERE event_type_key IS NULL AND module_id IS NOT NULL
+			DO UPDATE SET in_app = $6, desktop_push = $7, email = $8, sms = $9, sound = $10, updated_at = $12`
+	default:
+		return ""
+	}
+}
+
 func (r *PostgresRepository) UpsertPreference(ctx context.Context, pref *models.NotificationPreference) error {
 	query := `
 		INSERT INTO notification_preferences (id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, email, sms, sound, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT (tenant_id, user_id, event_type_key) WHERE event_type_key IS NOT NULL
-		DO UPDATE SET in_app = $6, desktop_push = $7, email = $8, sms = $9, sound = $10, updated_at = $12`
+		` + upsertPreferenceConflict(pref)
 
 	_, err := r.pool.Exec(ctx, query,
 		pref.ID, pref.TenantID, pref.UserID, pref.EventTypeKey, pref.ModuleID,

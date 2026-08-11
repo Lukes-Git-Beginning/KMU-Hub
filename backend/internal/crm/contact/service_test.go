@@ -612,6 +612,7 @@ func TestService_List_Empty(t *testing.T) {
 	contacts, total, err := svc.List(context.Background(), ListInput{TenantID: uuid.New()})
 
 	require.NoError(t, err)
+	assert.NotNil(t, contacts, "an empty result must serialize to [] over the wire, not null")
 	assert.Empty(t, contacts)
 	assert.Equal(t, 0, total)
 }

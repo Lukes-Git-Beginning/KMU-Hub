@@ -180,7 +180,7 @@ func (s *CRMGRPCServer) ListCustomFields(ctx context.Context, req *crmv1.ListCus
 		return nil, status.Error(codes.Internal, "failed to list custom fields")
 	}
 
-	var infos []*crmv1.CustomFieldInfo
+	infos := make([]*crmv1.CustomFieldInfo, 0, len(fields))
 	for _, f := range fields {
 		infos = append(infos, toCustomFieldInfo(f))
 	}
@@ -319,7 +319,7 @@ func (s *CRMGRPCServer) ListTags(ctx context.Context, req *crmv1.ListTagsRequest
 		return nil, status.Error(codes.Internal, "failed to list tags")
 	}
 
-	var infos []*crmv1.TagInfo
+	infos := make([]*crmv1.TagInfo, 0, len(tags))
 	for _, t := range tags {
 		infos = append(infos, toTagInfo(t))
 	}
@@ -520,7 +520,7 @@ func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContact
 			return nil, status.Error(codes.Internal, "failed to list contacts")
 		}
 
-		var infos []*crmv1.ContactInfo
+		infos := make([]*crmv1.ContactInfo, 0, len(contacts))
 		for _, c := range contacts {
 			infos = append(infos, toContactInfo(c))
 		}
@@ -537,7 +537,7 @@ func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContact
 		return nil, status.Error(codes.Internal, "failed to list contacts")
 	}
 
-	var infos []*crmv1.ContactInfo
+	infos := make([]*crmv1.ContactInfo, 0, len(contacts))
 	for _, c := range contacts {
 		infos = append(infos, toContactInfo(c))
 	}
@@ -828,7 +828,7 @@ func (s *CRMGRPCServer) ListCompanies(ctx context.Context, req *crmv1.ListCompan
 		return nil, status.Error(codes.Internal, "failed to list companies")
 	}
 
-	var infos []*crmv1.CompanyInfo
+	infos := make([]*crmv1.CompanyInfo, 0, len(companies))
 	for _, c := range companies {
 		infos = append(infos, toCompanyInfo(c))
 	}
@@ -945,7 +945,7 @@ func (s *CRMGRPCServer) GetCompanyContacts(ctx context.Context, req *crmv1.GetCo
 		return nil, status.Error(codes.Internal, "failed to list company contacts")
 	}
 
-	var infos []*crmv1.ContactInfo
+	infos := make([]*crmv1.ContactInfo, 0, len(contacts))
 	for _, c := range contacts {
 		infos = append(infos, toContactInfo(c))
 	}
@@ -1017,7 +1017,7 @@ func (s *CRMGRPCServer) ListPipelineStages(ctx context.Context, req *crmv1.ListP
 		return nil, status.Error(codes.Internal, "failed to list pipeline stages")
 	}
 
-	var infos []*crmv1.PipelineStageInfo
+	infos := make([]*crmv1.PipelineStageInfo, 0, len(stages))
 	for _, stage := range stages {
 		infos = append(infos, toPipelineStageInfoWithStats(stage))
 	}
@@ -1109,7 +1109,7 @@ func (s *CRMGRPCServer) ReorderPipelineStages(ctx context.Context, req *crmv1.Re
 		return nil, status.Error(codes.Internal, "failed to list pipeline stages")
 	}
 
-	var infos []*crmv1.PipelineStageInfo
+	infos := make([]*crmv1.PipelineStageInfo, 0, len(stages))
 	for _, stage := range stages {
 		infos = append(infos, toPipelineStageInfoWithStats(stage))
 	}
@@ -1300,7 +1300,7 @@ func (s *CRMGRPCServer) ListDeals(ctx context.Context, req *crmv1.ListDealsReque
 		return nil, status.Error(codes.Internal, "failed to list deals")
 	}
 
-	var infos []*crmv1.DealInfo
+	infos := make([]*crmv1.DealInfo, 0, len(deals))
 	for _, d := range deals {
 		infos = append(infos, toDealInfo(d))
 	}
@@ -1602,7 +1602,7 @@ func (s *CRMGRPCServer) ListActivities(ctx context.Context, req *crmv1.ListActiv
 		return nil, status.Error(codes.Internal, "failed to list activities")
 	}
 
-	var infos []*crmv1.ActivityInfo
+	infos := make([]*crmv1.ActivityInfo, 0, len(activities))
 	for _, a := range activities {
 		infos = append(infos, toActivityInfo(a))
 	}
@@ -1766,7 +1766,7 @@ func (s *CRMGRPCServer) Search(ctx context.Context, req *crmv1.SearchRequest) (*
 		return nil, mapCRMError(err)
 	}
 
-	var infos []*crmv1.SearchResult
+	infos := make([]*crmv1.SearchResult, 0, len(results))
 	for _, r := range results {
 		infos = append(infos, toSearchResultInfo(r))
 	}
@@ -1857,7 +1857,7 @@ func (s *CRMGRPCServer) ListSavedFilters(ctx context.Context, req *crmv1.ListSav
 		return nil, mapCRMError(err)
 	}
 
-	var infos []*crmv1.SavedFilterInfo
+	infos := make([]*crmv1.SavedFilterInfo, 0, len(filters))
 	for _, f := range filters {
 		infos = append(infos, toSavedFilterInfo(f))
 	}

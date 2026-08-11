@@ -383,8 +383,21 @@ while ($i -lt $MaxIterations) {
     # ErrorActionPreference "Stop" - den ganzen Lauf abbrechen.
     $errFile = Join-Path $LogDir ("iter-{0:d3}.stderr.log" -f $i)
 
+    # Der Prompt geht ueber STDIN, nicht als Argument. PS 5.1 baut die
+    # Kommandozeile fuer eine native EXE naiv zusammen und zerlegt einen langen,
+    # mehrzeiligen String mit Anfuehrungszeichen in viele Argumente: gemessen am
+    # 2026-08-11 kam ITERATION.md als 79 Argumente an (die Fassung vor
+    # `d6d80fcc` als 20). Solange keines davon mit "-" beginnt, konkateniert die
+    # CLI sie stillschweigend wieder und alles sieht gut aus - genau deshalb
+    # liefen die Laeufe 1-8 damit durch. In Lauf 9 fiel eine Trennstelle vor das
+    # "->" der coverage-Vorlage, die CLI las es als Option und brach jede
+    # Iteration nach 0 min mit `unknown option '->'` ab.
+    #
+    # Ueber STDIN existiert keine Kommandozeile, die brechen koennte. Verifiziert:
+    # 21.629 Zeichen rein, 21.632 raus (Zeilenende-Konvertierung), laengste Zeile
+    # unveraendert 112 - kein Umbruch an der Konsolenbreite.
     Invoke-Native {
-        & claude -p $iterPrompt `
+        $iterPrompt | & claude -p `
             --model $model `
             --permission-mode bypassPermissions `
             --settings $Settings `

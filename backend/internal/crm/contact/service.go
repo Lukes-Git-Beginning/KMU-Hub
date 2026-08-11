@@ -399,7 +399,7 @@ func (s *Service) RemoveTags(ctx context.Context, contactID uuid.UUID, tagIDs []
 // Uses 3 queries total instead of 3*N.
 func (s *Service) enrichWithRelationsBatch(ctx context.Context, contacts []*models.Contact, tenantID uuid.UUID) ([]*models.ContactWithRelations, error) {
 	if len(contacts) == 0 {
-		return nil, nil
+		return []*models.ContactWithRelations{}, nil
 	}
 
 	// Collect IDs

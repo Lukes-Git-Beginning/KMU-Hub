@@ -2,27 +2,10 @@ package virtual
 
 // DB-level tests for PostgresRepository. Every fixture is a fresh tenant, so
 // tests are safe under t.Parallel() without cross-test collisions.
-//
-// PRODUCTION BUG FOUND WHILE BUILDING THIS FILE, NOT FIXED HERE (coverage
-// units don't change behavior — see fix-document-virtual-users-display-name
-// in BACKLOG.yml for Lauf 9): ListChatFiles, ListTaskFiles and the
-// sourceType=="" branch of ListAll all SELECT `u.display_name` from the
-// `users` table, but `users` has no such column (only first_name/last_name —
-// migration 000001). Every one of these queries errors with "column
-// u.display_name does not exist" the moment there is at least one row to
-// return. Only ListEmailAttachments (which reads `eacc.display_name` off
-// email_accounts, a table that *does* carry the column) works as intended.
-// The tests below document the CURRENT behavior: the early "no access"
-// return path (before the broken SELECT ever runs) is exercised as the real
-// happy path, and the broken SELECT path is captured as an explicit,
-// named "ColumnBug" test asserting the error — the same pattern
-// fix-email-send-missing-tenant-id used in this backlog for a prior found
-// bug.
 
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -215,7 +198,7 @@ func TestPostgresRepository_ListChatFiles_EmptyForNonMember(t *testing.T) {
 	}
 }
 
-func TestPostgresRepository_ListChatFiles_ColumnBug(t *testing.T) {
+func TestPostgresRepository_ListChatFiles_UploadedByName(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -223,7 +206,7 @@ func TestPostgresRepository_ListChatFiles_ColumnBug(t *testing.T) {
 	defer pool.Close()
 
 	tenant := uuid.New()
-	testutil.EnsureTenant(t, pool, tenant, "Virtual Chat Column Bug Tenant")
+	testutil.EnsureTenant(t, pool, tenant, "Virtual Chat Uploaded By Name Tenant")
 	member := seedVirtualUser(t, pool, tenant, "member")
 	channel := seedVirtualChannel(t, pool, tenant, member, "member-channel")
 	addChannelMembership(t, pool, tenant, channel, member)
@@ -232,15 +215,15 @@ func TestPostgresRepository_ListChatFiles_ColumnBug(t *testing.T) {
 	repo := NewPostgresRepository(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenant)
 
-	// Documents the real, unfixed bug (see file header): as soon as the user
-	// has at least one accessible chat file, the SELECT referencing the
-	// nonexistent users.display_name column fails.
-	_, _, err := repo.ListChatFiles(ctx, member, 20, 0)
-	if err == nil {
-		t.Fatal("ListChatFiles: expected an error from the users.display_name column bug, got nil")
+	files, total, err := repo.ListChatFiles(ctx, member, 20, 0)
+	if err != nil {
+		t.Fatalf("ListChatFiles: unexpected error %v", err)
 	}
-	if !strings.Contains(err.Error(), "display_name") {
-		t.Fatalf("ListChatFiles: expected a display_name column error, got: %v", err)
+	if total != 1 || len(files) != 1 {
+		t.Fatalf("ListChatFiles: expected 1 file, got total=%d len=%d", total, len(files))
+	}
+	if files[0].UploadedByName != "Virtual member" {
+		t.Fatalf("ListChatFiles: uploaded_by_name=%q, want %q", files[0].UploadedByName, "Virtual member")
 	}
 }
 
@@ -365,7 +348,7 @@ func TestPostgresRepository_ListTaskFiles_EmptyForNoAccess(t *testing.T) {
 	}
 }
 
-func TestPostgresRepository_ListTaskFiles_ColumnBugViaProjectMembership(t *testing.T) {
+func TestPostgresRepository_ListTaskFiles_UploadedByNameViaProjectMembership(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -373,8 +356,8 @@ func TestPostgresRepository_ListTaskFiles_ColumnBugViaProjectMembership(t *testi
 	defer pool.Close()
 
 	tenant := uuid.New()
-	testutil.EnsureTenant(t, pool, tenant, "Virtual Task Column Bug Tenant")
-	owner := seedVirtualUser(t, pool, tenant, "task-member-owner")
+	testutil.EnsureTenant(t, pool, tenant, "Virtual Task Uploaded By Name Tenant")
+	owner := seedVirtualUser(t, pool, tenant, "task-owner")
 	member := seedVirtualUser(t, pool, tenant, "task-member")
 	project := seedVirtualProject(t, pool, tenant, owner)
 	addProjectMember(t, pool, tenant, project, member)
@@ -385,13 +368,15 @@ func TestPostgresRepository_ListTaskFiles_ColumnBugViaProjectMembership(t *testi
 	repo := NewPostgresRepository(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenant)
 
-	// Same users.display_name column bug as ListChatFiles (see file header).
-	_, _, err := repo.ListTaskFiles(ctx, member, 20, 0)
-	if err == nil {
-		t.Fatal("ListTaskFiles: expected an error from the users.display_name column bug, got nil")
+	files, total, err := repo.ListTaskFiles(ctx, member, 20, 0)
+	if err != nil {
+		t.Fatalf("ListTaskFiles: unexpected error %v", err)
 	}
-	if !strings.Contains(err.Error(), "display_name") {
-		t.Fatalf("ListTaskFiles: expected a display_name column error, got: %v", err)
+	if total != 1 || len(files) != 1 {
+		t.Fatalf("ListTaskFiles: expected 1 file, got total=%d len=%d", total, len(files))
+	}
+	if files[0].UploadedByName != "Virtual task-owner" {
+		t.Fatalf("ListTaskFiles: uploaded_by_name=%q, want %q", files[0].UploadedByName, "Virtual task-owner")
 	}
 }
 
@@ -478,7 +463,7 @@ func TestPostgresRepository_ListAll_EmptyAcrossAllSources(t *testing.T) {
 	}
 }
 
-func TestPostgresRepository_ListAll_UnionColumnBugTriggeredByEmailOnlyAccess(t *testing.T) {
+func TestPostgresRepository_ListAll_UnionAcrossAllSourcesWithEmailOnlyAccess(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -486,11 +471,11 @@ func TestPostgresRepository_ListAll_UnionColumnBugTriggeredByEmailOnlyAccess(t *
 	defer pool.Close()
 
 	tenant := uuid.New()
-	testutil.EnsureTenant(t, pool, tenant, "Virtual ListAll Union Bug Tenant")
-	user := seedVirtualUser(t, pool, tenant, "union-bug")
-	account := seedVirtualEmailAccount(t, pool, tenant, user, "Union Bug Mailbox")
+	testutil.EnsureTenant(t, pool, tenant, "Virtual ListAll Union Tenant")
+	user := seedVirtualUser(t, pool, tenant, "union")
+	account := seedVirtualEmailAccount(t, pool, tenant, user, "Union Mailbox")
 	folder := seedVirtualEmailFolder(t, pool, tenant, account)
-	msg := seedVirtualEmailMessage(t, pool, tenant, account, folder, 1, "Union bug subject", time.Now().UTC())
+	msg := seedVirtualEmailMessage(t, pool, tenant, account, folder, 1, "Union subject", time.Now().UTC())
 	seedVirtualEmailAttachment(t, pool, tenant, msg, "union.pdf", time.Now().UTC())
 
 	repo := NewPostgresRepository(pool)
@@ -498,14 +483,58 @@ func TestPostgresRepository_ListAll_UnionColumnBugTriggeredByEmailOnlyAccess(t *
 
 	// The user has ZERO chat/task access, only one email attachment — but the
 	// union count is > 0, so the combined SELECT runs and its chat/task
-	// branches still reference the broken users.display_name column. This
-	// proves the "all files" view is broken for ANY user with at least one
-	// accessible virtual file, not just chat/task users.
-	_, _, err := repo.ListAll(ctx, user, "", 20, 0)
-	if err == nil {
-		t.Fatal("ListAll (source=\"\"): expected an error from the users.display_name column bug, got nil")
+	// branches must not fail even though no row comes from them.
+	files, total, err := repo.ListAll(ctx, user, "", 20, 0)
+	if err != nil {
+		t.Fatalf("ListAll (source=\"\"): unexpected error %v", err)
 	}
-	if !strings.Contains(err.Error(), "display_name") {
-		t.Fatalf("ListAll (source=\"\"): expected a display_name column error, got: %v", err)
+	if total != 1 || len(files) != 1 {
+		t.Fatalf("ListAll (source=\"\"): expected 1 file, got total=%d len=%d", total, len(files))
+	}
+	if files[0].SourceType != "email" {
+		t.Fatalf("ListAll (source=\"\"): source_type=%q, want email", files[0].SourceType)
+	}
+	if files[0].UploadedByName != "Union Mailbox" {
+		t.Fatalf("ListAll (source=\"\"): uploaded_by_name=%q, want %q", files[0].UploadedByName, "Union Mailbox")
+	}
+}
+
+// TestPostgresRepository_ListChatFiles_UploadedByNameFallsBackToEmail covers
+// the case first_name/last_name are both blank (columns are NOT NULL DEFAULT
+// '') — uploaded_by_name must fall back to the uploader's email instead of
+// rendering a bare space.
+func TestPostgresRepository_ListChatFiles_UploadedByNameFallsBackToEmail(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "Virtual Chat Email Fallback Tenant")
+	email := fmt.Sprintf("nameless-%s@test.invalid", uuid.New().String()[:8])
+	member := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenant,
+		"email":         email,
+		"password_hash": "x",
+		"first_name":    "",
+		"last_name":     "",
+	})
+	channel := seedVirtualChannel(t, pool, tenant, member, "nameless-channel")
+	addChannelMembership(t, pool, tenant, channel, member)
+	seedVirtualChatFile(t, pool, tenant, channel, member, "report.pdf", time.Now().UTC())
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+
+	files, total, err := repo.ListChatFiles(ctx, member, 20, 0)
+	if err != nil {
+		t.Fatalf("ListChatFiles: unexpected error %v", err)
+	}
+	if total != 1 || len(files) != 1 {
+		t.Fatalf("ListChatFiles: expected 1 file, got total=%d len=%d", total, len(files))
+	}
+	if files[0].UploadedByName != email {
+		t.Fatalf("ListChatFiles: uploaded_by_name=%q, want fallback to email %q", files[0].UploadedByName, email)
 	}
 }

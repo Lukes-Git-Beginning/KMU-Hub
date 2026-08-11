@@ -1254,6 +1254,14 @@ func TestInventarItemAttachmentHandlers(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
+	t.Run("ListItemAttachments empty result is [] not nil", func(t *testing.T) {
+		s := newInventarTestServer(newStubInventarRepo())
+		resp, err := s.ListItemAttachments(ctx, &inventarv1.ListItemAttachmentsRequest{TenantId: tenantID.String(), ItemId: itemID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Attachments)
+		require.Empty(t, resp.Attachments)
+	})
+
 	t.Run("DeleteItemAttachment invalid tenant", func(t *testing.T) {
 		s := newInventarTestServer(newStubInventarRepo())
 		_, err := s.DeleteItemAttachment(ctx, &inventarv1.DeleteItemAttachmentRequest{TenantId: "bad", AttachmentId: attachmentID.String()})

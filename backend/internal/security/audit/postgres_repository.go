@@ -51,15 +51,19 @@ func (r *PostgresRepository) Create(ctx context.Context, entry *models.AuditEntr
 		return fmt.Errorf("get last hash: %w", err)
 	}
 
-	entry.PreviousHash = previousHash
-	entry.EntryHash = computeEntryHash(entry, previousHash)
-
 	if entry.ID == uuid.Nil {
 		entry.ID = uuid.New()
 	}
 	if entry.Timestamp.IsZero() {
 		entry.Timestamp = time.Now().UTC()
 	}
+	// audit_log.timestamp is TIMESTAMPTZ, which only stores microsecond
+	// precision; truncate before hashing so the hashed value matches what
+	// Postgres actually persists and returns on the next read.
+	entry.Timestamp = entry.Timestamp.Truncate(time.Microsecond)
+
+	entry.PreviousHash = previousHash
+	entry.EntryHash = computeEntryHash(entry, previousHash)
 
 	// ip_address is a nullable INET column; an empty string is not valid INET
 	// input and fails the insert (SQLSTATE 22P02). Callers that don't have a
@@ -167,7 +171,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter *models.AuditFilte
 
 	// Fetch entries with pagination
 	dataQuery := fmt.Sprintf(
-		`SELECT id, sequence_num, timestamp, user_id, action, target, target_type, details, ip_address, user_agent, result, previous_hash, entry_hash
+		`SELECT id, sequence_num, timestamp, user_id, action, target, target_type, details, COALESCE(host(ip_address), ''), user_agent, result, previous_hash, entry_hash
 		 FROM audit_log %s
 		 ORDER BY sequence_num DESC
 		 LIMIT $%d OFFSET $%d`,
@@ -221,7 +225,7 @@ func (r *PostgresRepository) GetLastHash(ctx context.Context) (string, error) {
 // Returns (valid, firstBrokenSequence, error).
 func (r *PostgresRepository) VerifyChain(ctx context.Context, fromSequence, toSequence int64) (bool, int64, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, sequence_num, timestamp, user_id, action, target, target_type, details, ip_address, user_agent, result, previous_hash, entry_hash
+		`SELECT id, sequence_num, timestamp, user_id, action, target, target_type, details, COALESCE(host(ip_address), ''), user_agent, result, previous_hash, entry_hash
 		 FROM audit_log
 		 WHERE sequence_num >= $1 AND sequence_num <= $2
 		 ORDER BY sequence_num ASC`,

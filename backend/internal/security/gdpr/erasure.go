@@ -207,29 +207,19 @@ func (h *CRMErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUID
 
 	affected := 0
 
-	// Anonymize activities assigned to this user (keep records for pipeline history)
+	// Anonymize activities assigned to and/or created by this user in a single UPDATE,
+	// so a row that is both (assigned to self, created by self) is only counted once.
+	// activities.created_by is NOT NULL FK; the user record persists as anonymized sentinel,
+	// so FK integrity is maintained regardless of which branch touches the row.
 	res, err := tx.Exec(ctx,
 		`UPDATE activities SET
-		   assigned_to = NULL,
+		   assigned_to = CASE WHEN assigned_to = $1 THEN NULL ELSE assigned_to END,
 		   description = NULL,
 		   updated_at = NOW()
-		 WHERE assigned_to = $1`, userID,
+		 WHERE assigned_to = $1 OR created_by = $1`, userID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("crm erasure: failed to anonymize assigned activities: %w", err)
-	}
-	affected += int(res.RowsAffected())
-
-	// activities.created_by is NOT NULL FK; the user record persists as anonymized sentinel,
-	// so FK integrity is maintained. Clear description only (personal content).
-	res, err = tx.Exec(ctx,
-		`UPDATE activities SET
-		   description = NULL,
-		   updated_at = NOW()
-		 WHERE created_by = $1 AND (assigned_to IS NULL OR assigned_to != $1)`, userID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("crm erasure: failed to anonymize created activities: %w", err)
+		return 0, fmt.Errorf("crm erasure: failed to anonymize activities: %w", err)
 	}
 	affected += int(res.RowsAffected())
 
@@ -383,23 +373,21 @@ func (h *WorkErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 
 	affected := 0
 
-	// Unassign tasks (keep task structure for project continuity)
+	// Unassign tasks and count tasks created by the subject in a single UPDATE,
+	// so a task that is both (assigned to self, created by self) is only counted
+	// once. tasks.created_by is NOT NULL FK; the user record persists as
+	// anonymized sentinel, so FK integrity is maintained regardless of which
+	// branch touches the row.
 	res, err := tx.Exec(ctx,
-		`UPDATE tasks SET assignee_id = NULL, updated_at = NOW() WHERE assignee_id = $1`, userID,
+		`UPDATE tasks SET
+		   assignee_id = CASE WHEN assignee_id = $1 THEN NULL ELSE assignee_id END,
+		   updated_at = NOW()
+		 WHERE assignee_id = $1 OR created_by = $1`, userID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("work erasure: failed to unassign tasks: %w", err)
 	}
 	affected += int(res.RowsAffected())
-
-	// tasks.created_by is NOT NULL FK; the user record persists as anonymized sentinel,
-	// so FK integrity is maintained. Count for reporting only.
-	var taskCreatedCount int
-	_ = tx.QueryRow(ctx,
-		`SELECT COUNT(*) FROM tasks WHERE created_by = $1 AND (assignee_id IS NULL OR assignee_id != $1)`,
-		userID,
-	).Scan(&taskCreatedCount)
-	affected += taskCreatedCount
 
 	// Delete time entries (personal data, no business retention need)
 	res, err = tx.Exec(ctx,

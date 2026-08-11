@@ -204,6 +204,7 @@ func (s *Service) Send(ctx context.Context, input SendInput) (*models.EmailMessa
 	// Save copy locally
 	msg := &models.EmailMessage{
 		ID:             uuid.New(),
+		TenantID:       input.TenantID,
 		AccountID:      input.AccountID,
 		MessageID:      messageID,
 		FromName:       input.From.Name,
@@ -317,6 +318,7 @@ func (s *Service) SaveDraft(ctx context.Context, input DraftInput) (*models.Emai
 
 	msg := &models.EmailMessage{
 		ID:           uuid.New(),
+		TenantID:     input.TenantID,
 		AccountID:    input.AccountID,
 		MessageID:    fmt.Sprintf("<%s@kmuhub>", uuid.New().String()),
 		FromName:     input.From.Name,

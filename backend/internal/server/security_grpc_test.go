@@ -15,9 +15,10 @@ package server
 // A nil-service server would panic on those, so this file wires all five
 // sub-services against small in-memory stub repositories instead of using a
 // nil-service server. ListIPRules and ListRetentionPolicies query s.pool
-// directly with zero validation beforehand -- those two are not reachable at
-// all without a real DB pool and are intentionally left uncovered here (see
-// JOURNAL.md for iteration 46).
+// directly with zero validation beforehand -- ListRetentionPolicies is not
+// reachable at all without a real DB pool and is intentionally left
+// uncovered here (see JOURNAL.md for iteration 46); ListIPRules now has its
+// own DB-backed test in security_grpc_ip_rules_db_test.go.
 
 import (
 	"context"
@@ -1135,11 +1136,46 @@ func TestGDPRErasure_PreviewIsSafeExecuteIsValidationOnly(t *testing.T) {
 	previewResp, err := srv.PreviewErasure(ctx, &securityv1.PreviewErasureRequest{UserId: userID.String()})
 	require.NoError(t, err)
 	assert.Equal(t, int32(0), previewResp.TotalRecords)
+	require.NotNil(t, previewResp.Modules)
 	assert.Empty(t, previewResp.Modules)
 
 	// ExecuteErasure is destructive by design -- per the backlog notes, this
 	// file only exercises its validation/error paths (covered in the table
-	// test above), never a real deletion run.
+	// test above) plus this server's wire-shape guarantee, never a real
+	// deletion run. With no erasure handlers registered here, it performs no
+	// module writes and its ModulesAffected map stays empty.
+	executeResp, err := srv.ExecuteErasure(ctx, &securityv1.ExecuteErasureRequest{
+		UserId: userID.String(), ExecutedBy: uuid.New().String(),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, executeResp.ModulesAffected)
+	assert.Empty(t, executeResp.ModulesAffected)
+}
+
+// TestSecurityGRPC_EmptyListsAreEmptySliceNotNull proves the four
+// stub-repo-backed list RPCs serialize an empty result to [] rather than
+// null: ListAuditEntries, ListVaultSecrets, ListDataExports and
+// PreviewErasure (covered separately above) all used to declare their
+// response slice with a nil `var`, which json/protojson renders as `null`.
+func TestSecurityGRPC_EmptyListsAreEmptySliceNotNull(t *testing.T) {
+	srv, _ := newTestSecurityGRPCServer(t)
+	tenantID := uuid.New()
+	ctx := ctxWithTenant(tenantID)
+
+	auditResp, err := srv.ListAuditEntries(ctx, &securityv1.ListAuditEntriesRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, auditResp.Entries)
+	assert.Empty(t, auditResp.Entries)
+
+	vaultResp, err := srv.ListVaultSecrets(ctx, &securityv1.ListVaultSecretsRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, vaultResp.Secrets)
+	assert.Empty(t, vaultResp.Secrets)
+
+	exportsResp, err := srv.ListDataExports(ctx, &securityv1.ListDataExportsRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, exportsResp.ExportRequests)
+	assert.Empty(t, exportsResp.ExportRequests)
 }
 
 func TestPasswordRPCs_HappyPaths(t *testing.T) {

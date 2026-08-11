@@ -118,7 +118,7 @@ func (s *SecurityGRPCServer) ListAuditEntries(ctx context.Context, req *security
 		return nil, status.Error(codes.Internal, "failed to list audit entries")
 	}
 
-	var pbEntries []*securityv1.AuditEntry
+	pbEntries := make([]*securityv1.AuditEntry, 0, len(entries))
 	for _, e := range entries {
 		pbEntries = append(pbEntries, toProtoAuditEntry(e))
 	}
@@ -276,7 +276,7 @@ func (s *SecurityGRPCServer) ListVaultSecrets(ctx context.Context, _ *securityv1
 		return nil, status.Error(codes.Internal, "failed to list secrets")
 	}
 
-	var pbSecrets []*securityv1.VaultSecret
+	pbSecrets := make([]*securityv1.VaultSecret, 0, len(secrets))
 	for _, sec := range secrets {
 		pbSecrets = append(pbSecrets, toProtoVaultSecret(sec))
 	}
@@ -352,7 +352,7 @@ func (s *SecurityGRPCServer) ListDataExports(ctx context.Context, req *securityv
 		return nil, status.Error(codes.Internal, "failed to list exports")
 	}
 
-	var pbExports []*securityv1.GDPRExportRequest
+	pbExports := make([]*securityv1.GDPRExportRequest, 0, len(exports))
 	for _, e := range exports {
 		pbExports = append(pbExports, toProtoGDPRExport(e))
 	}
@@ -525,7 +525,7 @@ func (s *SecurityGRPCServer) PreviewErasure(ctx context.Context, req *securityv1
 		return nil, status.Error(codes.Internal, "preview erasure failed")
 	}
 
-	var pbModules []*securityv1.ModuleErasurePreview
+	pbModules := make([]*securityv1.ModuleErasurePreview, 0, len(modules))
 	for _, m := range modules {
 		pbModules = append(pbModules, &securityv1.ModuleErasurePreview{
 			ModuleName:  m.ModuleName,
@@ -556,7 +556,7 @@ func (s *SecurityGRPCServer) ExecuteErasure(ctx context.Context, req *securityv1
 		return nil, mapSecurityError(err)
 	}
 
-	var pbModules []*securityv1.ModuleErasurePreview
+	pbModules := make([]*securityv1.ModuleErasurePreview, 0, len(entry.ModulesAffected))
 	for moduleName, detail := range entry.ModulesAffected {
 		pbModules = append(pbModules, &securityv1.ModuleErasurePreview{
 			ModuleName: moduleName,
@@ -708,7 +708,7 @@ func (s *SecurityGRPCServer) ValidatePassword(ctx context.Context, req *security
 // ============================================================================
 
 func (s *SecurityGRPCServer) ListIPRules(ctx context.Context, req *securityv1.ListIPRulesRequest) (*securityv1.ListIPRulesResponse, error) {
-	query := `SELECT id, ip_cidr, rule_type, description, created_by, created_at FROM ip_access_rules`
+	query := `SELECT id, ip_cidr::text, rule_type, description, created_by, created_at FROM ip_access_rules`
 	var args []interface{}
 
 	if req.RuleType != "" {
@@ -723,7 +723,7 @@ func (s *SecurityGRPCServer) ListIPRules(ctx context.Context, req *securityv1.Li
 	}
 	defer rows.Close()
 
-	var rules []*securityv1.IPAccessRule
+	rules := make([]*securityv1.IPAccessRule, 0)
 	for rows.Next() {
 		var rule models.IPAccessRule
 		if scanErr := rows.Scan(&rule.ID, &rule.IPCIDR, &rule.RuleType, &rule.Description, &rule.CreatedBy, &rule.CreatedAt); scanErr != nil {
@@ -824,7 +824,7 @@ func (s *SecurityGRPCServer) ListRetentionPolicies(ctx context.Context, _ *secur
 	}
 	defer rows.Close()
 
-	var policies []*securityv1.RetentionPolicy
+	policies := make([]*securityv1.RetentionPolicy, 0)
 	for rows.Next() {
 		var p models.RetentionPolicy
 		if scanErr := rows.Scan(

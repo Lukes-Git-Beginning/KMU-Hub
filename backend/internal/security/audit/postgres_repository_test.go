@@ -1,54 +1,44 @@
 package audit_test
 
-// List() and VerifyChain() both Scan the raw ip_address column into
-// models.AuditEntry.IPAddress (a plain string, not *string):
+// List() and VerifyChain() both scan the ip_address column -- INET on
+// audit_log -- via COALESCE(host(ip_address), '') into models.AuditEntry.IPAddress
+// (a plain string). Until fix-audit-list-verifychain-ip-address-scan, both
+// queries selected ip_address raw instead of casting it first: pgx v5 cannot
+// decode an INET value -- NULL or set -- into a string destination, so every
+// call that would return at least one row failed unconditionally ("cannot
+// scan NULL into *string" for an empty IP, "cannot scan inet (OID 869) in
+// binary format into *string" for a real one), both reproduced directly
+// against the local Postgres. That made the audit log viewer, the
+// CSV/JSON export (Service.ExportEntries -> repo.List), and the
+// VerifyAuditChain RPC (-> repo.VerifyChain) unusable for any tenant with
+// real audit activity. internal/auth/postgres_repository.go was already
+// using this exact COALESCE(host(ip_address), '') cast for the analogous
+// user_sessions.ip_address column; internal/crm/consent and
+// internal/formulare use ip_address::text for the same reason.
 //
-//	SELECT ..., ip_address, ... FROM audit_log ...
-//	rows.Scan(..., &e.IPAddress, ...)
+// VerifyChain has no tenant scope by design (it walks the one global
+// chain), and this shared dev database's global chain contains links
+// seeded by rls_test.go via testutil.SeedRow with hardcoded dummy
+// previous_hash/entry_hash values that don't reflect the real preceding
+// row. A test asserting "an arbitrary multi-row range verifies as intact"
+// would therefore be flaky depending on what other tests happen to have
+// written into that range. The two VerifyChain tests below sidestep that
+// by using single-row ranges (fromSequence == toSequence): the row's own
+// PreviousHash field was captured by Create() from the actual last hash at
+// insert time, so a single-row range's validity depends only on that row
+// itself, not on the surrounding chain state.
 //
-// ip_address is INET. pgx v5 cannot decode an INET value -- NULL or set --
-// into a string destination; both cases were reproduced directly against
-// the local Postgres while writing this test ("cannot scan NULL into
-// *string" for an empty IP, "cannot scan inet (OID 869) in binary format
-// into *string" for a real one). Every other repository in this codebase
-// that reads ip_address casts it first -- internal/auth/postgres_repository.go
-// uses COALESCE(host(ip_address), ''), internal/crm/consent/postgres_repository.go
-// and internal/formulare/postgres_repository.go use ip_address::text.
-// audit/postgres_repository.go (List at line ~170, VerifyChain at line
-// ~224) is missing that cast, so both functions error on every call that
-// would return at least one row -- unconditionally, regardless of whether
-// that row happens to carry a real IP or none. Verified by temporarily
-// adding the missing cast locally: the two integration tests below then
-// pass with their full intended assertions (filter matching, pagination
-// defaults, chain verification); reverted, since fixing this is a behavior
-// change out of scope for a coverage-only unit. Flagged for a Block A
-// fix-unit in the next run -- this likely means the audit log viewer,
-// export, and VerifyAuditChain RPC have never worked against a tenant with
-// any recorded audit activity.
-//
-// Consequently this file can only pin the bug (TestPostgresRepository_
-// List_IPAddressScanBug) rather than exercise the filter/pagination logic
-// the unit originally set out to cover, and does not attempt a VerifyChain
-// integration test at all: VerifyChain has no tenant scope by design (it
-// walks the one global chain), and this shared dev database's global chain
-// already contains links seeded by rls_test.go via testutil.SeedRow with
-// hardcoded dummy previous_hash/entry_hash values that don't reflect the
-// real preceding row -- so even a "verify an intact range" test cannot be
-// made reliably green here without picking apart pre-existing, unrelated
-// chain state. GetLastHash is unaffected (it selects only entry_hash) and
-// is covered on its own below.
-//
-// GetLastHash's "no rows" branch (returns "") is also not exercised: audit_log
-// is a single global table, not just non-empty but structurally impossible to
-// make empty for a moment (it is append-only by DB trigger -- migration
-// 000222 -- so DELETE is blocked even under system context, and truncating a
-// shared table other processes may be writing to is not an option).
+// GetLastHash's "no rows" branch (returns "") is not exercised: audit_log
+// is a single global table, not just non-empty but structurally impossible
+// to make empty for a moment (it is append-only by DB trigger -- migration
+// 000222 -- so DELETE is blocked even under system context, and truncating
+// a shared table other processes may be writing to is not an option).
 
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -90,16 +80,10 @@ func TestPostgresRepository_List_NoMatch_PaginationDefaultsDontError(t *testing.
 	}
 }
 
-// TestPostgresRepository_List_IPAddressScanBug pins the bug described in the
-// file header: List() errors as soon as its result set is non-empty, because
-// it scans the raw INET ip_address column into a plain string. Seeds exactly
-// one entry via the real Create() path (a normal, correctly hash-chained
-// row -- safe to add permanently, same as every other write test in this
-// package) and confirms List() fails with the specific pgx scan error rather
-// than returning that entry. If this test starts failing because List()
-// unexpectedly succeeds, the missing ip_address cast has been fixed --
-// replace this test with real filter/pagination assertions at that point.
-func TestPostgresRepository_List_IPAddressScanBug(t *testing.T) {
+// TestPostgresRepository_List_ReturnsSeededEntry_WithIPAddress proves the
+// ip_address cast fix: a seeded entry carrying a real IP is returned by
+// List() -- not a scan error -- with IPAddress round-tripped correctly.
+func TestPostgresRepository_List_ReturnsSeededEntry_WithIPAddress(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -107,7 +91,7 @@ func TestPostgresRepository_List_IPAddressScanBug(t *testing.T) {
 	defer pool.Close()
 
 	tenantID := uuid.New()
-	testutil.EnsureTenant(t, pool, tenantID, "Audit List IP Scan Bug Tenant")
+	testutil.EnsureTenant(t, pool, tenantID, "Audit List IP Address Tenant")
 	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
 
 	repo := audit.NewPostgresRepository(pool)
@@ -118,7 +102,7 @@ func TestPostgresRepository_List_IPAddressScanBug(t *testing.T) {
 	entry := &models.AuditEntry{
 		ID:        id,
 		TenantID:  tenantID,
-		Action:    "ip-scan-bug-" + run,
+		Action:    "ip-address-" + run,
 		Result:    audit.ResultSuccess,
 		Details:   "{}",
 		IPAddress: "10.0.0.1",
@@ -128,16 +112,324 @@ func TestPostgresRepository_List_IPAddressScanBug(t *testing.T) {
 	}
 	defer testutil.CleanupRow(t, pool, "audit_log", id)
 
-	_, _, err := repo.List(ctx, &models.AuditFilter{
+	entries, total, err := repo.List(ctx, &models.AuditFilter{
 		TenantID: tenantID,
-		Action:   "ip-scan-bug-" + run,
+		Action:   "ip-address-" + run,
 		Limit:    50,
 	})
-	if err == nil {
-		t.Fatal("expected List() to fail scanning ip_address (see file header) -- it returned successfully, which means the bug is fixed; replace this test with real assertions")
+	if err != nil {
+		t.Fatalf("List: %v", err)
 	}
-	if !strings.Contains(err.Error(), "ip_address") {
-		t.Fatalf("expected a scan error mentioning ip_address, got: %v", err)
+	if total != 1 || len(entries) != 1 {
+		t.Fatalf("expected exactly one matching entry, got total=%d len=%d", total, len(entries))
+	}
+	if entries[0].ID != id {
+		t.Fatalf("entries[0].ID = %s, want %s", entries[0].ID, id)
+	}
+	if entries[0].IPAddress != "10.0.0.1" {
+		t.Fatalf("entries[0].IPAddress = %q, want %q", entries[0].IPAddress, "10.0.0.1")
+	}
+}
+
+// TestPostgresRepository_List_ReturnsSeededEntry_NullIPAddress proves the
+// other half of the cast fix: a row with no IP at all (SQL NULL, the path
+// Create() takes when IPAddress == "") still scans cleanly, as "".
+func TestPostgresRepository_List_ReturnsSeededEntry_NullIPAddress(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Audit List Null IP Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := audit.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	run := uuid.New().String()
+	id := uuid.New()
+	entry := &models.AuditEntry{
+		ID:       id,
+		TenantID: tenantID,
+		Action:   "null-ip-" + run,
+		Result:   audit.ResultSuccess,
+		Details:  "{}",
+	}
+	if err := repo.Create(ctx, entry); err != nil {
+		t.Fatalf("seed Create: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "audit_log", id)
+
+	entries, total, err := repo.List(ctx, &models.AuditFilter{
+		TenantID: tenantID,
+		Action:   "null-ip-" + run,
+		Limit:    50,
+	})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if total != 1 || len(entries) != 1 {
+		t.Fatalf("expected exactly one matching entry, got total=%d len=%d", total, len(entries))
+	}
+	if entries[0].IPAddress != "" {
+		t.Fatalf("entries[0].IPAddress = %q, want empty string for a NULL ip_address", entries[0].IPAddress)
+	}
+}
+
+// TestPostgresRepository_List_FiltersByResult proves the Result filter
+// narrows within a shared Action, now that a matching row can actually be
+// scanned back.
+func TestPostgresRepository_List_FiltersByResult(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Audit List Filter Result Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := audit.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	run := uuid.New().String()
+	action := "filter-result-" + run
+
+	successID := uuid.New()
+	if err := repo.Create(ctx, &models.AuditEntry{
+		ID: successID, TenantID: tenantID, Action: action,
+		Result: audit.ResultSuccess, Details: "{}",
+	}); err != nil {
+		t.Fatalf("seed success Create: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "audit_log", successID)
+
+	failureID := uuid.New()
+	if err := repo.Create(ctx, &models.AuditEntry{
+		ID: failureID, TenantID: tenantID, Action: action,
+		Result: audit.ResultFailure, Details: "{}",
+	}); err != nil {
+		t.Fatalf("seed failure Create: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "audit_log", failureID)
+
+	entries, total, err := repo.List(ctx, &models.AuditFilter{
+		TenantID: tenantID,
+		Action:   action,
+		Result:   audit.ResultFailure,
+		Limit:    50,
+	})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if total != 1 || len(entries) != 1 {
+		t.Fatalf("expected exactly one failure-result entry, got total=%d len=%d", total, len(entries))
+	}
+	if entries[0].ID != failureID {
+		t.Fatalf("entries[0].ID = %s, want the failure entry %s", entries[0].ID, failureID)
+	}
+}
+
+// TestPostgresRepository_List_PaginationLimitAndOffset proves Limit/Offset
+// slice a shared Action's entries correctly, newest first.
+func TestPostgresRepository_List_PaginationLimitAndOffset(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Audit List Pagination Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := audit.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	run := uuid.New().String()
+	action := "pagination-" + run
+
+	ids := make([]uuid.UUID, 3)
+	for i := range ids {
+		id := uuid.New()
+		if err := repo.Create(ctx, &models.AuditEntry{
+			ID: id, TenantID: tenantID, Action: action,
+			Result: audit.ResultSuccess, Details: "{}",
+		}); err != nil {
+			t.Fatalf("seed entry %d Create: %v", i, err)
+		}
+		ids[i] = id
+		defer testutil.CleanupRow(t, pool, "audit_log", id)
+	}
+	// List orders by sequence_num DESC, so the most recently created entry
+	// (ids[2]) sorts first.
+	newestFirst := []uuid.UUID{ids[2], ids[1], ids[0]}
+
+	page1, total, err := repo.List(ctx, &models.AuditFilter{
+		TenantID: tenantID, Action: action, Limit: 2, Offset: 0,
+	})
+	if err != nil {
+		t.Fatalf("List page 1: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("total = %d, want 3", total)
+	}
+	if len(page1) != 2 || page1[0].ID != newestFirst[0] || page1[1].ID != newestFirst[1] {
+		t.Fatalf("page1 = %+v, want first two of %v", entryIDs(page1), newestFirst[:2])
+	}
+
+	page2, total, err := repo.List(ctx, &models.AuditFilter{
+		TenantID: tenantID, Action: action, Limit: 2, Offset: 2,
+	})
+	if err != nil {
+		t.Fatalf("List page 2: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("total = %d, want 3", total)
+	}
+	if len(page2) != 1 || page2[0].ID != newestFirst[2] {
+		t.Fatalf("page2 = %+v, want [%s]", entryIDs(page2), newestFirst[2])
+	}
+}
+
+func entryIDs(entries []*models.AuditEntry) []uuid.UUID {
+	out := make([]uuid.UUID, len(entries))
+	for i, e := range entries {
+		out[i] = e.ID
+	}
+	return out
+}
+
+// TestPostgresRepository_VerifyChain_ValidSingleEntryRange proves the
+// ip_address cast fix on the VerifyChain path: a freshly created entry
+// verifies as valid over a single-row range (fromSequence == toSequence),
+// which depends only on that row's own PreviousHash/EntryHash, not on the
+// state of the surrounding shared chain.
+func TestPostgresRepository_VerifyChain_ValidSingleEntryRange(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	// Deliberately not t.Parallel(): reads its own row's sequence_num right
+	// after the seed write, no shared fixture beyond the global audit_log
+	// table.
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	repo := audit.NewPostgresRepository(pool)
+	ctx := testutil.WithSystemCtx(context.Background())
+
+	id := uuid.New()
+	if err := repo.Create(ctx, &models.AuditEntry{
+		ID: id, TenantID: uuid.New(), Action: fmt.Sprintf("verify-chain-valid-%s", uuid.New()),
+		Result:    audit.ResultSuccess,
+		Details:   "{}",
+		Timestamp: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("seed Create: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "audit_log", id)
+
+	var seq int64
+	if err := pool.QueryRow(ctx, "SELECT sequence_num FROM audit_log WHERE id = $1", id).Scan(&seq); err != nil {
+		t.Fatalf("read seeded sequence_num: %v", err)
+	}
+
+	valid, brokenSeq, err := repo.VerifyChain(ctx, seq, seq)
+	if err != nil {
+		t.Fatalf("VerifyChain: %v", err)
+	}
+	if !valid {
+		t.Fatalf("VerifyChain(%d, %d) = invalid at sequence %d, want valid", seq, seq, brokenSeq)
+	}
+}
+
+// TestPostgresRepository_VerifyChain_SubMicrosecondTimestampStillValid proves
+// the timestamp-precision fix: a Create() call with a timestamp that
+// deliberately carries a non-zero sub-microsecond digit (audit_log.timestamp
+// is TIMESTAMPTZ, which only stores microsecond precision) must still verify
+// as valid, because Create() now truncates the timestamp before hashing so
+// the hashed value matches what Postgres actually persists and returns on
+// the next read.
+func TestPostgresRepository_VerifyChain_SubMicrosecondTimestampStillValid(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	repo := audit.NewPostgresRepository(pool)
+	ctx := testutil.WithSystemCtx(context.Background())
+
+	id := uuid.New()
+	subMicroTimestamp := time.Now().UTC().Truncate(time.Microsecond).Add(123 * time.Nanosecond)
+	if err := repo.Create(ctx, &models.AuditEntry{
+		ID: id, TenantID: uuid.New(), Action: fmt.Sprintf("verify-chain-submicro-%s", uuid.New()),
+		Result:    audit.ResultSuccess,
+		Details:   "{}",
+		Timestamp: subMicroTimestamp,
+	}); err != nil {
+		t.Fatalf("seed Create: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "audit_log", id)
+
+	var seq int64
+	if err := pool.QueryRow(ctx, "SELECT sequence_num FROM audit_log WHERE id = $1", id).Scan(&seq); err != nil {
+		t.Fatalf("read seeded sequence_num: %v", err)
+	}
+
+	valid, brokenSeq, err := repo.VerifyChain(ctx, seq, seq)
+	if err != nil {
+		t.Fatalf("VerifyChain: %v", err)
+	}
+	if !valid {
+		t.Fatalf("VerifyChain(%d, %d) = invalid at sequence %d, want valid (sub-microsecond timestamp %v must be truncated before hashing)", seq, seq, brokenSeq, subMicroTimestamp)
+	}
+}
+
+// TestPostgresRepository_VerifyChain_DetectsTamperedEntry proves
+// VerifyChain still detects a broken link once it can scan the row at all:
+// a row seeded with a hash that doesn't match its own fields must verify
+// as invalid, pointing at its own sequence number.
+func TestPostgresRepository_VerifyChain_DetectsTamperedEntry(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	repo := audit.NewPostgresRepository(pool)
+
+	// target/target_type/details are included explicitly (not left to
+	// column defaults) so this test exercises only the tamper-detection
+	// path -- omitting them would leave those nullable columns NULL, which
+	// Create() never does for a real entry (it always writes "" or a JSON
+	// string), so a NULL there would be a SeedRow test artifact, not
+	// production-reachable behavior.
+	id := testutil.SeedRow(t, pool, "audit_log", map[string]any{
+		"tenant_id":     uuid.New(),
+		"action":        fmt.Sprintf("verify-chain-tampered-%s", uuid.New()),
+		"target":        "",
+		"target_type":   "",
+		"details":       "{}",
+		"user_agent":    "",
+		"result":        audit.ResultSuccess,
+		"entry_hash":    "tampered-hash-does-not-match-fields",
+		"previous_hash": "",
+	})
+	defer testutil.CleanupRow(t, pool, "audit_log", id)
+
+	ctx := testutil.WithSystemCtx(context.Background())
+	var seq int64
+	if err := pool.QueryRow(ctx, "SELECT sequence_num FROM audit_log WHERE id = $1", id).Scan(&seq); err != nil {
+		t.Fatalf("read seeded sequence_num: %v", err)
+	}
+
+	valid, brokenSeq, err := repo.VerifyChain(ctx, seq, seq)
+	if err != nil {
+		t.Fatalf("VerifyChain: %v", err)
+	}
+	if valid {
+		t.Fatalf("VerifyChain(%d, %d) = valid, want invalid for a tampered entry_hash", seq, seq)
+	}
+	if brokenSeq != seq {
+		t.Fatalf("brokenSeq = %d, want %d", brokenSeq, seq)
 	}
 }
 

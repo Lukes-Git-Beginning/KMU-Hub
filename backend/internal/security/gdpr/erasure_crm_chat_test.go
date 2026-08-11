@@ -180,12 +180,9 @@ func TestCRMErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 
 	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
 	require.NoError(t, err)
-	// Two activities are touched, but the count says five, not four: the first
-	// UPDATE sets assigned_to = NULL, which makes the assigned activity match
-	// the second UPDATE's `assigned_to IS NULL` branch as well, so it is
-	// counted twice. Only the reported number is wrong — the data ends up
-	// correct either way. Pinned as-is; fix unit filed for run 9.
-	assert.Equal(t, 5, affected, "assigned+created activity is counted twice (see JOURNAL Iteration 39)")
+	// Two activities touched (assigned+created activity counts once, created-only
+	// activity counts once) + one contact + one company = 4.
+	assert.Equal(t, 4, affected, "each activity is counted exactly once, regardless of matching both branches")
 
 	// The assigned activity loses both its assignment and its description.
 	var assignedTo *uuid.UUID
@@ -262,7 +259,7 @@ func TestCRMErasureHandler_ExecuteErasure_IgnoresAction(t *testing.T) {
 	// ErasureDelete does NOT delete: the handler ignores its action parameter.
 	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureDelete)
 	require.NoError(t, err)
-	assert.Equal(t, 3, affected, "one activity counted twice (see JOURNAL Iteration 39) + one contact")
+	assert.Equal(t, 2, affected, "one activity counted once + one contact")
 
 	var contactRows int
 	require.NoError(t, pool.QueryRow(ctx,

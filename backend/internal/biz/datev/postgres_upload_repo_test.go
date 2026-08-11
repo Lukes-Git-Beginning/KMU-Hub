@@ -1,14 +1,10 @@
 package datev
 
-// Covers PostgresUploadRepository against the real schema. GetUploadConfig,
-// UpdateUploadLog and ListUploadLogs are exercised through the repository
-// itself; fixture rows are seeded directly via testutil.SeedRow because — see
-// TestUpsertUploadConfig_FailsNotNullTenantID and
-// TestCreateUploadLog_FailsNotNullTenantID below — UpsertUploadConfig and
-// CreateUploadLog currently cannot insert a row at all.
+// Covers PostgresUploadRepository against the real schema.
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -51,29 +47,136 @@ func setupDatevUploadRepo(t *testing.T) (*PostgresUploadRepository, *pgxpool.Poo
 }
 
 // ============================================================================
-// Verified production bug — filed as fix-unit
-// fix-datev-upload-repo-missing-tenant-id for Lauf 9. See JOURNAL.md.
+// UpsertUploadConfig / CreateUploadLog — fixed in fix-datev-upload-repo-
+// missing-tenant-id (Lauf 9). Both now resolve tenant_id from ctx via
+// tenantForWrite instead of leaving the NOT NULL column unset.
 // ============================================================================
 
-func TestUpsertUploadConfig_FailsNotNullTenantID(t *testing.T) {
-	repo, _, ctx, _, configID := setupDatevUploadRepo(t)
+func TestUpsertUploadConfig_InsertsThenUpdatesOnConflict(t *testing.T) {
+	repo, pool, ctx, _, configID := setupDatevUploadRepo(t)
 
-	err := repo.UpsertUploadConfig(ctx, &models.DatevUploadConfig{ConfigID: configID, ClientNumber: "12345"})
-	if err == nil {
-		t.Fatal("UpsertUploadConfig unexpectedly succeeded — the missing tenant_id column bug was fixed " +
-			"without updating this test/backlog entry; drop this test and add a real happy-path one instead")
+	cfg := &models.DatevUploadConfig{ConfigID: configID, ClientNumber: "12345", AutoUploadEnabled: true}
+	if err := repo.UpsertUploadConfig(ctx, cfg); err != nil {
+		t.Fatalf("UpsertUploadConfig (insert): %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "datev_upload_configs", cfg.ID) })
+
+	got, err := repo.GetUploadConfig(ctx, configID)
+	if err != nil {
+		t.Fatalf("GetUploadConfig after insert: %v", err)
+	}
+	if got.ClientNumber != "12345" || !got.AutoUploadEnabled {
+		t.Errorf("got = %+v, want client_number=12345 auto_upload_enabled=true", got)
+	}
+
+	// Same ConfigID, same repo-assigned ID — this is the ON CONFLICT(config_id) path.
+	cfg.ClientNumber = "67890"
+	cfg.AutoUploadEnabled = false
+	if err := repo.UpsertUploadConfig(ctx, cfg); err != nil {
+		t.Fatalf("UpsertUploadConfig (update): %v", err)
+	}
+
+	got, err = repo.GetUploadConfig(ctx, configID)
+	if err != nil {
+		t.Fatalf("GetUploadConfig after update: %v", err)
+	}
+	if got.ClientNumber != "67890" || got.AutoUploadEnabled {
+		t.Errorf("got = %+v, want client_number=67890 auto_upload_enabled=false", got)
 	}
 }
 
-func TestCreateUploadLog_FailsNotNullTenantID(t *testing.T) {
-	repo, _, ctx, _, configID := setupDatevUploadRepo(t)
+func TestCreateUploadLog_InsertsRow(t *testing.T) {
+	repo, pool, ctx, _, configID := setupDatevUploadRepo(t)
 
-	err := repo.CreateUploadLog(ctx, &models.DatevUploadLog{
+	log := &models.DatevUploadLog{
+		ConfigID: configID, UploadType: "buchungsstapel", Status: "uploading", StartedAt: time.Now().UTC(),
+	}
+	if err := repo.CreateUploadLog(ctx, log); err != nil {
+		t.Fatalf("CreateUploadLog: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "datev_upload_log", log.ID) })
+
+	logs, err := repo.ListUploadLogs(ctx, configID, 10)
+	if err != nil {
+		t.Fatalf("ListUploadLogs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].ID != log.ID {
+		t.Fatalf("logs = %+v, want exactly the just-created log %s", logs, log.ID)
+	}
+	testutil.AssertRowCount(t, pool, ctx, "datev_upload_log", log.ID, 1)
+}
+
+// ============================================================================
+// RLS — a write must land under the calling tenant and stay invisible to any
+// other tenant, even though the tenant_id column is never supplied by the
+// caller directly (tenantForWrite resolves it from ctx).
+// ============================================================================
+
+func TestUpsertUploadConfigAndCreateUploadLog_WriteLandsInCallerTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Datev Upload RLS Own Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "Datev Upload RLS Other Tenant")
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         fmt.Sprintf("datev-rls-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userID) })
+
+	configID := testutil.SeedRow(t, pool, "integration_configs", map[string]any{
+		"tenant_id":             tenantOwn,
+		"platform":              "datev_api",
+		"credentials_vault_key": "datev/" + uuid.New().String(),
+		"created_by":            userID,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "integration_configs", configID) })
+
+	repo := NewPostgresUploadRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	cfg := &models.DatevUploadConfig{ConfigID: configID, ClientNumber: "55555"}
+	if err := repo.UpsertUploadConfig(ctxOwn, cfg); err != nil {
+		t.Fatalf("UpsertUploadConfig (own ctx): %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "datev_upload_configs", cfg.ID) })
+	testutil.AssertRowCount(t, pool, ctxOwn, "datev_upload_configs", cfg.ID, 1)
+	testutil.AssertRowCount(t, pool, ctxOther, "datev_upload_configs", cfg.ID, 0)
+
+	log := &models.DatevUploadLog{
+		ConfigID: configID, UploadType: "buchungsstapel", Status: "uploading", StartedAt: time.Now().UTC(),
+	}
+	if err := repo.CreateUploadLog(ctxOwn, log); err != nil {
+		t.Fatalf("CreateUploadLog (own ctx): %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "datev_upload_log", log.ID) })
+	testutil.AssertRowCount(t, pool, ctxOwn, "datev_upload_log", log.ID, 1)
+	testutil.AssertRowCount(t, pool, ctxOther, "datev_upload_log", log.ID, 0)
+}
+
+func TestUpsertUploadConfig_FailsWithoutTenantContext(t *testing.T) {
+	repo, _, _, _, configID := setupDatevUploadRepo(t)
+
+	err := repo.UpsertUploadConfig(context.Background(), &models.DatevUploadConfig{ConfigID: configID, ClientNumber: "12345"})
+	if !errors.Is(err, ErrTenantMissing) {
+		t.Fatalf("err = %v, want ErrTenantMissing", err)
+	}
+}
+
+func TestCreateUploadLog_FailsWithoutTenantContext(t *testing.T) {
+	repo, _, _, _, configID := setupDatevUploadRepo(t)
+
+	err := repo.CreateUploadLog(context.Background(), &models.DatevUploadLog{
 		ConfigID: configID, UploadType: "buchungsstapel", Status: "uploading", StartedAt: time.Now().UTC(),
 	})
-	if err == nil {
-		t.Fatal("CreateUploadLog unexpectedly succeeded — the missing tenant_id column bug was fixed " +
-			"without updating this test/backlog entry; drop this test and add a real happy-path one instead")
+	if !errors.Is(err, ErrTenantMissing) {
+		t.Fatalf("err = %v, want ErrTenantMissing", err)
 	}
 }
 

@@ -149,7 +149,7 @@ func (s *ChatGRPCServer) ListChannels(ctx context.Context, req *chatv1.ListChann
 		return nil, mapChatError(err)
 	}
 
-	var infos []*chatv1.ChannelInfo
+	infos := make([]*chatv1.ChannelInfo, 0, len(channels))
 	for _, ch := range channels {
 		infos = append(infos, toChannelInfo(ch))
 	}
@@ -309,7 +309,7 @@ func (s *ChatGRPCServer) GetChannelMembers(ctx context.Context, req *chatv1.GetC
 		return nil, mapChatError(err)
 	}
 
-	var infos []*chatv1.MemberInfo
+	infos := make([]*chatv1.MemberInfo, 0, len(members))
 	for _, m := range members {
 		infos = append(infos, toMemberInfo(m))
 	}
@@ -472,7 +472,7 @@ func (s *ChatGRPCServer) GetMessages(ctx context.Context, req *chatv1.GetMessage
 		return nil, mapChatError(err)
 	}
 
-	var infos []*chatv1.MessageInfo
+	infos := make([]*chatv1.MessageInfo, 0, len(messages))
 	for _, m := range messages {
 		infos = append(infos, toMessageInfo(m))
 	}
@@ -587,7 +587,7 @@ func (s *ChatGRPCServer) ListDMs(ctx context.Context, req *chatv1.ListDMsRequest
 		return nil, mapChatError(err)
 	}
 
-	var infos []*chatv1.ChannelInfo
+	infos := make([]*chatv1.ChannelInfo, 0, len(channels))
 	for _, ch := range channels {
 		infos = append(infos, toChannelInfo(ch))
 	}
@@ -805,7 +805,7 @@ func (s *ChatGRPCServer) ListChannelFiles(ctx context.Context, req *chatv1.ListC
 		return nil, mapChatError(err)
 	}
 
-	var infos []*chatv1.FileInfo
+	infos := make([]*chatv1.FileInfo, 0, len(files))
 	for _, f := range files {
 		infos = append(infos, toFileInfo(f))
 	}
@@ -864,7 +864,7 @@ func (s *ChatGRPCServer) SearchChat(ctx context.Context, req *chatv1.SearchChatR
 		return nil, mapChatError(err)
 	}
 
-	var protos []*chatv1.ChatSearchResultProto
+	protos := make([]*chatv1.ChatSearchResultProto, 0, len(results))
 	for _, r := range results {
 		protos = append(protos, toChatSearchResultProto(&r))
 	}
@@ -895,7 +895,7 @@ func (s *ChatGRPCServer) ToggleReaction(ctx context.Context, req *chatv1.ToggleR
 		return nil, mapChatError(err)
 	}
 
-	var reactions []*chatv1.Reaction
+	reactions := make([]*chatv1.Reaction, 0, len(result.Reactions))
 	for _, rx := range result.Reactions {
 		for _, uid := range rx.UserIDs {
 			reactions = append(reactions, &chatv1.Reaction{
@@ -923,7 +923,7 @@ func (s *ChatGRPCServer) ListReactions(ctx context.Context, req *chatv1.ListReac
 		return nil, mapChatError(err)
 	}
 
-	var reactions []*chatv1.Reaction
+	reactions := make([]*chatv1.Reaction, 0, len(rxList))
 	for _, rx := range rxList {
 		reactions = append(reactions, &chatv1.Reaction{
 			MessageId: rx.MessageID.String(),

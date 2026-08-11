@@ -28,14 +28,14 @@ import (
 // WorkGRPCServer implements the Work gRPC service
 type WorkGRPCServer struct {
 	workv1.UnimplementedWorkServiceServer
-	projectService      *project.Service
-	statusService       *wstatus.Service
-	taskService         *task.Service
-	taskRepo            task.Repository
-	commentService      *comment.Service
-	timeEntryService    *timeentry.Service
-	labelService        *label.Service
-	customFieldService  *customfield.Service
+	projectService     *project.Service
+	statusService      *wstatus.Service
+	taskService        *task.Service
+	taskRepo           task.Repository
+	commentService     *comment.Service
+	timeEntryService   *timeentry.Service
+	labelService       *label.Service
+	customFieldService *customfield.Service
 }
 
 // NewWorkGRPCServer creates a new Work gRPC server
@@ -128,7 +128,7 @@ func (s *WorkGRPCServer) ListProjects(ctx context.Context, req *workv1.ListProje
 		return nil, status.Error(codes.Internal, "failed to list projects")
 	}
 
-	var protos []*workv1.ProjectProto
+	protos := make([]*workv1.ProjectProto, 0, len(projects))
 	for _, p := range projects {
 		protos = append(protos, projectWithDetailsToProto(&p))
 	}
@@ -291,7 +291,7 @@ func (s *WorkGRPCServer) ListProjectMembers(ctx context.Context, req *workv1.Lis
 		return nil, mapWorkError(err)
 	}
 
-	var protos []*workv1.ProjectMemberProto
+	protos := make([]*workv1.ProjectMemberProto, 0, len(members))
 	for _, m := range members {
 		protos = append(protos, memberToProto(&m))
 	}
@@ -491,7 +491,7 @@ func (s *WorkGRPCServer) ReorderProjectStatuses(ctx context.Context, req *workv1
 		return nil, status.Error(codes.Internal, "failed to list statuses")
 	}
 
-	var protos []*workv1.ProjectStatusProto
+	protos := make([]*workv1.ProjectStatusProto, 0, len(statuses))
 	for _, st := range statuses {
 		protos = append(protos, statusToProto(&st))
 	}
@@ -512,7 +512,7 @@ func (s *WorkGRPCServer) ListProjectStatuses(ctx context.Context, req *workv1.Li
 		return nil, status.Error(codes.Internal, "failed to list statuses")
 	}
 
-	var protos []*workv1.ProjectStatusProto
+	protos := make([]*workv1.ProjectStatusProto, 0, len(statuses))
 	for _, st := range statuses {
 		protos = append(protos, statusToProto(&st))
 	}
@@ -729,7 +729,7 @@ func (s *WorkGRPCServer) ListTasks(ctx context.Context, req *workv1.ListTasksReq
 		}
 	}
 
-	var protos []*workv1.TaskProto
+	protos := make([]*workv1.TaskProto, 0, len(tasks))
 	for _, t := range tasks {
 		p := taskToProto(&t)
 		p.LabelIds = labelMap[t.ID.String()]
@@ -905,7 +905,7 @@ func (s *WorkGRPCServer) ListSubtasks(ctx context.Context, req *workv1.ListSubta
 		return nil, status.Error(codes.Internal, "failed to list subtasks")
 	}
 
-	var protos []*workv1.TaskProto
+	protos := make([]*workv1.TaskProto, 0, len(tasks))
 	for _, t := range tasks {
 		protos = append(protos, taskToProto(&t))
 	}
@@ -979,7 +979,7 @@ func (s *WorkGRPCServer) ListTaskDependencies(ctx context.Context, req *workv1.L
 		return nil, status.Error(codes.Internal, "failed to list dependencies")
 	}
 
-	var protos []*workv1.TaskDependencyProto
+	protos := make([]*workv1.TaskDependencyProto, 0, len(deps))
 	for _, d := range deps {
 		protos = append(protos, dependencyToProto(&d))
 	}
@@ -1091,7 +1091,7 @@ func (s *WorkGRPCServer) ListTaskComments(ctx context.Context, req *workv1.ListT
 		return nil, status.Error(codes.Internal, "failed to list comments")
 	}
 
-	var protos []*workv1.TaskCommentProto
+	protos := make([]*workv1.TaskCommentProto, 0, len(comments))
 	for _, c := range comments {
 		protos = append(protos, commentToWorkProto(&c.TaskComment))
 	}
@@ -1175,7 +1175,7 @@ func (s *WorkGRPCServer) ListTaskEntityLinks(ctx context.Context, req *workv1.Li
 		return nil, status.Error(codes.Internal, "failed to list entity links")
 	}
 
-	var protos []*workv1.TaskEntityLinkProto
+	protos := make([]*workv1.TaskEntityLinkProto, 0, len(links))
 	for _, l := range links {
 		protos = append(protos, entityLinkToProto(&l))
 	}
@@ -1196,7 +1196,7 @@ func (s *WorkGRPCServer) ListEntityTasks(ctx context.Context, req *workv1.ListEn
 		return nil, status.Error(codes.Internal, "failed to list entity tasks")
 	}
 
-	var protos []*workv1.TaskProto
+	protos := make([]*workv1.TaskProto, 0, len(tasks))
 	for _, t := range tasks {
 		protos = append(protos, taskToProto(&t))
 	}
@@ -1231,7 +1231,7 @@ func (s *WorkGRPCServer) ListTaskActivities(ctx context.Context, req *workv1.Lis
 		return nil, status.Error(codes.Internal, "failed to list activities")
 	}
 
-	var protos []*workv1.TaskActivityProto
+	protos := make([]*workv1.TaskActivityProto, 0, len(activities))
 	for _, a := range activities {
 		protos = append(protos, activityToWorkProto(&a))
 	}
@@ -1309,7 +1309,7 @@ func (s *WorkGRPCServer) ListTaskFiles(ctx context.Context, req *workv1.ListTask
 		return nil, status.Error(codes.Internal, "failed to list files")
 	}
 
-	var protos []*workv1.TaskFileProto
+	protos := make([]*workv1.TaskFileProto, 0, len(files))
 	for _, f := range files {
 		protos = append(protos, fileToProto(&f))
 	}
@@ -1520,7 +1520,7 @@ func (s *WorkGRPCServer) SearchTasks(ctx context.Context, req *workv1.SearchTask
 		return nil, status.Error(codes.Internal, "failed to search tasks")
 	}
 
-	var protos []*workv1.TaskProto
+	protos := make([]*workv1.TaskProto, 0, len(tasks))
 	for _, t := range tasks {
 		protos = append(protos, taskToProto(&t))
 	}
@@ -1963,7 +1963,7 @@ func (s *WorkGRPCServer) ListTimeEntries(ctx context.Context, req *workv1.ListTi
 		return nil, status.Error(codes.Internal, "failed to list time entries")
 	}
 
-	var protos []*workv1.TimeEntryProto
+	protos := make([]*workv1.TimeEntryProto, 0, len(entries))
 	for _, e := range entries {
 		protos = append(protos, timeEntryWithUserToProto(&e))
 	}

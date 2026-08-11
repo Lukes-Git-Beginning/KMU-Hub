@@ -183,6 +183,14 @@ func (r *stubAttachmentRepo) GetByMessage(_ context.Context, messageID, tenantID
 	return out, nil
 }
 
+func (r *stubAttachmentRepo) GetByID(_ context.Context, id, tenantID uuid.UUID) (*models.EmailAttachment, error) {
+	a, ok := r.attachments[id]
+	if !ok || a.TenantID != tenantID {
+		return nil, attachment.ErrAttachmentNotFound
+	}
+	return a, nil
+}
+
 func (r *stubAttachmentRepo) GetMinIOKeyByID(_ context.Context, id, tenantID uuid.UUID) (string, error) {
 	a, ok := r.attachments[id]
 	if !ok || a.TenantID != tenantID {
@@ -771,6 +779,12 @@ func TestSendEmail(t *testing.T) {
 	requireGRPCOK(t, err)
 	require.Equal(t, "Hello", resp.Message.Subject)
 	require.NotEmpty(t, f.msgRepo.messages, "the sent message must be persisted locally")
+
+	msgID, parseErr := uuid.Parse(resp.Message.Id)
+	require.NoError(t, parseErr)
+	stored, getErr := f.msgRepo.GetByID(context.Background(), msgID, tenantID)
+	require.NoError(t, getErr, "the sent message must be findable via a tenant-scoped lookup")
+	require.Equal(t, tenantID, stored.TenantID)
 }
 
 func TestSaveDraft_MissingTenant(t *testing.T) {
@@ -787,7 +801,8 @@ func TestSaveDraft_InvalidAccountID(t *testing.T) {
 
 func TestSaveDraft(t *testing.T) {
 	f := newEmailMessagesFixture()
-	resp, err := f.srv.SaveDraft(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.SaveDraftRequest{
+	tenantID := uuid.New()
+	resp, err := f.srv.SaveDraft(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.SaveDraftRequest{
 		AccountId: uuid.NewString(),
 		Subject:   "Draft",
 		To:        []*emailv1.EmailAddress{{Email: "to@example.com"}},
@@ -795,6 +810,12 @@ func TestSaveDraft(t *testing.T) {
 	requireGRPCOK(t, err)
 	require.True(t, resp.Message.IsDraft)
 	require.NotEmpty(t, f.msgRepo.messages)
+
+	msgID, parseErr := uuid.Parse(resp.Message.Id)
+	require.NoError(t, parseErr)
+	stored, getErr := f.msgRepo.GetByID(context.Background(), msgID, tenantID)
+	require.NoError(t, getErr, "the draft must be findable via a tenant-scoped lookup")
+	require.Equal(t, tenantID, stored.TenantID)
 }
 
 func TestReplyEmail_MissingTenant(t *testing.T) {
@@ -960,14 +981,11 @@ func TestGetAttachmentDownloadURL_NotFound(t *testing.T) {
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
-// TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment documents
-// a real bug (see JOURNAL.md and the new fix-email-attachment-download-metadata-
-// wrong-message-id backlog unit): the handler looks up filename/content_type/
-// size_bytes via GetByMessage(ctx, uuid.Nil, tenantID) -- a hardcoded uuid.Nil,
-// not the attachment's own MessageID (email_grpc.go:1131). For any attachment
-// that belongs to a real message this lookup finds nothing, so the metadata
-// fields stay empty even though the presigned URL itself resolves correctly.
-func TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment(t *testing.T) {
+// TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment covers
+// an attachment that belongs to a real (sent/received) message: the handler
+// looks up filename/content_type/size_bytes via GetByID(ctx, id, tenantID),
+// scoped to the attachment's own ID rather than the pre-send uuid.Nil bucket.
+func TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment(t *testing.T) {
 	f := newEmailMessagesFixture()
 	tenantID := uuid.New()
 	att := &models.EmailAttachment{
@@ -984,9 +1002,9 @@ func TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment(t *testi
 	resp, err := f.srv.GetAttachmentDownloadURL(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.GetAttachmentDownloadURLRequest{Id: att.ID.String()})
 	requireGRPCOK(t, err)
 	require.NotEmpty(t, resp.DownloadUrl, "the presigned URL itself is looked up correctly, by attachment ID")
-	require.Empty(t, resp.Filename, "known bug: metadata lookup uses uuid.Nil instead of att.MessageID")
-	require.Empty(t, resp.ContentType)
-	require.Zero(t, resp.SizeBytes)
+	require.Equal(t, "contract.pdf", resp.Filename)
+	require.Equal(t, "application/pdf", resp.ContentType)
+	require.EqualValues(t, 1234, resp.SizeBytes)
 }
 
 func TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment(t *testing.T) {

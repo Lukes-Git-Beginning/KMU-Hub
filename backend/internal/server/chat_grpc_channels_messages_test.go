@@ -585,6 +585,7 @@ func TestChatListChannels(t *testing.T) {
 			UserId: userID.String(),
 		})
 		require.NoError(t, err)
+		require.NotNil(t, resp.Channels, "Channels should be an empty slice, not nil, so it serializes to [] rather than null")
 		require.Empty(t, resp.Channels)
 		require.EqualValues(t, 0, resp.Total)
 	})
@@ -761,6 +762,27 @@ func TestChatGetChannelMembers(t *testing.T) {
 		})
 		requireGRPCCode(t, err, codes.NotFound)
 	})
+
+	// TestChatGetChannelMembers/empty_is_not_nil documents the wire-shape fix
+	// applied alongside fix-chat-grpc-nil-slice-wire-shape (Block C): the
+	// handler (chat_grpc.go) now pre-allocates `infos` with make(..., 0, ...),
+	// so a channel with zero members serializes to `[]` rather than `null`.
+	t.Run("empty is not nil", func(t *testing.T) {
+		f := newChatChannelsMessagesFixture()
+		tenantID, channelID := uuid.New(), uuid.New()
+		f.chRepo.channels[channelID] = &models.Channel{
+			ID:       channelID,
+			TenantID: tenantID,
+			Name:     "empty-channel",
+		}
+
+		resp, err := f.srv.GetChannelMembers(chatCtx(uuid.New(), tenantID), &chatv1.GetChannelMembersRequest{
+			ChannelId: channelID.String(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Members, "Members should be an empty slice, not nil, so it serializes to [] rather than null")
+		require.Empty(t, resp.Members)
+	})
 }
 
 func TestChatUpdateMemberRole(t *testing.T) {
@@ -864,6 +886,24 @@ func TestChatGetMessages(t *testing.T) {
 			UserId:    ownerID.String(),
 		})
 		requireGRPCCode(t, err, codes.NotFound)
+	})
+
+	// TestChatGetMessages/empty_is_not_nil documents the wire-shape fix applied
+	// alongside fix-chat-grpc-nil-slice-wire-shape (Block C): the handler
+	// (chat_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so a
+	// channel with zero messages serializes to `[]` rather than `null`.
+	t.Run("empty is not nil", func(t *testing.T) {
+		f := newChatChannelsMessagesFixture()
+		tenantID, ownerID := uuid.New(), uuid.New()
+		channelID := f.seedChannel(tenantID, ownerID, false)
+
+		resp, err := f.srv.GetMessages(chatCtx(ownerID, tenantID), &chatv1.GetMessagesRequest{
+			ChannelId: channelID.String(),
+			UserId:    ownerID.String(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Messages, "Messages should be an empty slice, not nil, so it serializes to [] rather than null")
+		require.Empty(t, resp.Messages)
 	})
 }
 
@@ -994,6 +1034,22 @@ func TestChatListDMs(t *testing.T) {
 			UserId: "not-a-uuid",
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	// TestChatListDMs/empty_is_not_nil documents the wire-shape fix applied
+	// alongside fix-chat-grpc-nil-slice-wire-shape (Block C): the handler
+	// (chat_grpc.go) now pre-allocates `infos` with make(..., 0, ...), so a
+	// user with no DMs serializes to `[]` rather than `null`.
+	t.Run("empty is not nil", func(t *testing.T) {
+		f := newChatChannelsMessagesFixture()
+		tenantID, userA := uuid.New(), uuid.New()
+
+		resp, err := f.srv.ListDMs(chatCtx(userA, tenantID), &chatv1.ListDMsRequest{
+			UserId: userA.String(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Channels, "Channels should be an empty slice, not nil, so it serializes to [] rather than null")
+		require.Empty(t, resp.Channels)
 	})
 }
 

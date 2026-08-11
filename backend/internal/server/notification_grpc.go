@@ -114,7 +114,7 @@ func (s *NotificationGRPCServer) ListNotifications(ctx context.Context, req *not
 		return nil, mapNotificationError(err)
 	}
 
-	var infos []*notificationv1.NotificationInfo
+	infos := make([]*notificationv1.NotificationInfo, 0, len(notifications))
 	for _, n := range notifications {
 		infos = append(infos, toNotificationInfo(n))
 	}
@@ -322,7 +322,7 @@ func (s *NotificationGRPCServer) GetNotificationPreferences(ctx context.Context,
 		return nil, mapNotificationError(err)
 	}
 
-	var infos []*notificationv1.NotificationPreferenceInfo
+	infos := make([]*notificationv1.NotificationPreferenceInfo, 0, len(prefs))
 	for _, p := range prefs {
 		infos = append(infos, toPreferenceInfo(p))
 	}
@@ -428,7 +428,7 @@ func (s *NotificationGRPCServer) ListMutedResources(ctx context.Context, req *no
 		return nil, mapNotificationError(err)
 	}
 
-	var infos []*notificationv1.MuteInfo
+	infos := make([]*notificationv1.MuteInfo, 0, len(mutes))
 	for _, m := range mutes {
 		infos = append(infos, toMuteInfo(m))
 	}
@@ -536,7 +536,7 @@ func (s *NotificationGRPCServer) ListEventTypes(_ context.Context, req *notifica
 		types = s.registry.ListAll()
 	}
 
-	var infos []*notificationv1.EventTypeInfo
+	infos := make([]*notificationv1.EventTypeInfo, 0, len(types))
 	for _, et := range types {
 		infos = append(infos, toEventTypeInfo(&et))
 	}
@@ -746,7 +746,7 @@ func (s *NotificationGRPCServer) ListIntegrationConfigs(ctx context.Context, _ *
 		return nil, status.Error(codes.Internal, "failed to list configs")
 	}
 
-	var infos []*notificationv1.IntegrationConfigInfo
+	infos := make([]*notificationv1.IntegrationConfigInfo, 0, len(configs))
 	for _, cfg := range configs {
 		infos = append(infos, toIntegrationConfigInfo(cfg))
 	}
@@ -936,7 +936,7 @@ func (s *NotificationGRPCServer) ListChannelMappings(ctx context.Context, req *n
 		return nil, mapNotificationError(err)
 	}
 
-	var infos []*notificationv1.ChannelMappingInfo
+	infos := make([]*notificationv1.ChannelMappingInfo, 0, len(mappings))
 	for _, m := range mappings {
 		infos = append(infos, toChannelMappingInfo(m))
 	}
@@ -1071,7 +1071,7 @@ func (s *NotificationGRPCServer) GetAccountLinkStatus(ctx context.Context, req *
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	var links []*notificationv1.AccountLinkInfo
+	links := make([]*notificationv1.AccountLinkInfo, 0, 2)
 	for _, platform := range []string{integration.PlatformTeams, integration.PlatformSlack} {
 		link, err := s.integrationRepo.GetAccountLinkByKMUHubUser(ctx, platform, userID)
 		if err != nil {

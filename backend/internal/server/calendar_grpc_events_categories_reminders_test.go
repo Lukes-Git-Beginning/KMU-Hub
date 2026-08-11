@@ -398,6 +398,19 @@ func TestListEventsInRange(t *testing.T) {
 		})
 		requireGRPCCode(t, err, codes.Internal)
 	})
+
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+	t.Run("empty result is not nil", func(t *testing.T) {
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
+
+		resp, err := srv.ListEventsInRange(ctxWithTenant(tenantID), &calv1.ListEventsInRangeRequest{
+			CalendarIds: []string{calID.String()},
+			UserId:      userID.String(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Events)
+		assert.Empty(t, resp.Events)
+	})
 }
 
 // ============================================================================
@@ -645,6 +658,18 @@ func TestListEventAttendees(t *testing.T) {
 		_, err := srv.ListEventAttendees(ctxWithTenant(tenantID), &calv1.ListEventAttendeesRequest{EventId: uuid.New().String()})
 		requireGRPCCode(t, err, codes.NotFound)
 	})
+
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+	t.Run("empty result is not nil", func(t *testing.T) {
+		eventRepo := newStubEventRepo()
+		eventRepo.events[eventID] = &models.CalendarEvent{ID: eventID, TenantID: tenantID}
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), eventRepo, disabledLiveKit())
+
+		resp, err := srv.ListEventAttendees(ctxWithTenant(tenantID), &calv1.ListEventAttendeesRequest{EventId: eventID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Attendees)
+		assert.Empty(t, resp.Attendees)
+	})
 }
 
 // ============================================================================
@@ -711,6 +736,16 @@ func TestListEventCategories(t *testing.T) {
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
 		_, err := srv.ListEventCategories(ctxWithTenant(tenantID), &calv1.ListEventCategoriesRequest{UserId: "nope"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+	t.Run("empty result is not nil", func(t *testing.T) {
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
+
+		resp, err := srv.ListEventCategories(ctxWithTenant(tenantID), &calv1.ListEventCategoriesRequest{UserId: userID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Categories)
+		assert.Empty(t, resp.Categories)
 	})
 }
 
@@ -843,6 +878,16 @@ func TestListEventReminders(t *testing.T) {
 		_, err := srv.ListEventReminders(context.Background(), &calv1.ListEventRemindersRequest{EventId: eventID.String()})
 		requireGRPCCode(t, err, codes.Internal)
 	})
+
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+	t.Run("empty result is not nil", func(t *testing.T) {
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
+
+		resp, err := srv.ListEventReminders(context.Background(), &calv1.ListEventRemindersRequest{EventId: eventID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Reminders)
+		assert.Empty(t, resp.Reminders)
+	})
 }
 
 // ============================================================================
@@ -875,6 +920,16 @@ func TestListTaskDeadlinesInRange(t *testing.T) {
 
 		_, err := srv.ListTaskDeadlinesInRange(context.Background(), &calv1.ListTaskDeadlinesInRangeRequest{UserId: userID.String()})
 		requireGRPCCode(t, err, codes.Internal)
+	})
+
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+	t.Run("empty result is not nil", func(t *testing.T) {
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
+
+		resp, err := srv.ListTaskDeadlinesInRange(context.Background(), &calv1.ListTaskDeadlinesInRangeRequest{UserId: userID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Deadlines)
+		assert.Empty(t, resp.Deadlines)
 	})
 }
 

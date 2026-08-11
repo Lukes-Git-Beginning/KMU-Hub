@@ -740,22 +740,23 @@ func (r *PostgresRepository) listMeasurementPositions(ctx context.Context, tenan
 // ============================================================================
 
 func (r *PostgresRepository) CreateTemplate(ctx context.Context, tenantID uuid.UUID, name, description, category, defaultLinesJSON string) (*ReportTemplate, error) {
+	if defaultLinesJSON == "" {
+		defaultLinesJSON = "[]"
+	}
 	t := ReportTemplate{
-		ID:        uuid.New(),
-		TenantID:  tenantID,
-		Name:      name,
-		IsActive:  true,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:               uuid.New(),
+		TenantID:         tenantID,
+		Name:             name,
+		IsActive:         true,
+		DefaultLinesJSON: sql.NullString{String: defaultLinesJSON, Valid: true},
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 	if description != "" {
 		t.Description = sql.NullString{String: description, Valid: true}
 	}
 	if category != "" {
 		t.Category = sql.NullString{String: category, Valid: true}
-	}
-	if defaultLinesJSON != "" {
-		t.DefaultLinesJSON = sql.NullString{String: defaultLinesJSON, Valid: true}
 	}
 
 	_, err := r.pool.Exec(ctx,
@@ -846,6 +847,9 @@ func (r *PostgresRepository) ListTemplates(ctx context.Context, tenantID uuid.UU
 }
 
 func (r *PostgresRepository) UpdateTemplate(ctx context.Context, tenantID, templateID uuid.UUID, name, description, category, defaultLinesJSON string, isActive bool) (*ReportTemplate, error) {
+	if defaultLinesJSON == "" {
+		defaultLinesJSON = "[]"
+	}
 	var t ReportTemplate
 	err := r.pool.QueryRow(ctx,
 		`UPDATE report_templates
@@ -855,7 +859,7 @@ func (r *PostgresRepository) UpdateTemplate(ctx context.Context, tenantID, templ
 		templateID, tenantID, name,
 		sql.NullString{String: description, Valid: description != ""},
 		sql.NullString{String: category, Valid: category != ""},
-		sql.NullString{String: defaultLinesJSON, Valid: defaultLinesJSON != ""},
+		defaultLinesJSON,
 		isActive,
 	).Scan(&t.ID, &t.TenantID, &t.Name, &t.Description, &t.Category, &t.DefaultLinesJSON, &t.IsActive, &t.CreatedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {

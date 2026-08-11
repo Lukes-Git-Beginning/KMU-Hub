@@ -140,6 +140,7 @@ func TestEnvelopeToMessage(t *testing.T) {
 
 		msg := w.envelopeToMessage(env, folder, date)
 
+		assert.Equal(t, w.account.TenantID, msg.TenantID)
 		assert.Equal(t, w.account.ID, msg.AccountID)
 		assert.Equal(t, folder.ID, msg.FolderID)
 		assert.Equal(t, int64(42), msg.UID)

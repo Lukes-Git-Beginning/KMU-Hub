@@ -3,15 +3,16 @@ package schichten
 import "errors"
 
 var (
-	ErrShiftNotFound         = errors.New("shift not found")
-	ErrTemplateNotFound      = errors.New("shift template not found")
-	ErrAssignmentNotFound    = errors.New("shift assignment not found")
-	ErrInvalidInput          = errors.New("schichten input is invalid")
-	ErrAlreadyAssigned       = errors.New("employee is already assigned to this shift")
-	ErrArbzgViolation        = errors.New("ArbZG §5 violation: minimum 11 hours rest period not met between consecutive shifts")
-	ErrShiftFull             = errors.New("shift has reached maximum capacity")
-	ErrSwapRequestNotFound   = errors.New("swap request not found")
-	ErrSwapAlreadyProcessed  = errors.New("swap request has already been processed")
+	ErrShiftNotFound          = errors.New("shift not found")
+	ErrTemplateNotFound       = errors.New("shift template not found")
+	ErrAssignmentNotFound     = errors.New("shift assignment not found")
+	ErrInvalidInput           = errors.New("schichten input is invalid")
+	ErrAlreadyAssigned        = errors.New("employee is already assigned to this shift")
+	ErrArbzgViolation         = errors.New("ArbZG §5 violation: minimum 11 hours rest period not met between consecutive shifts")
+	ErrShiftFull              = errors.New("shift has reached maximum capacity")
+	ErrSwapRequestNotFound    = errors.New("swap request not found")
+	ErrSwapAlreadyProcessed   = errors.New("swap request has already been processed")
+	ErrSwapPartnerNotAssigned = errors.New("swap partner is not assigned to this shift")
 
 	// JArbSchG (Jugendarbeitsschutzgesetz) violations. They only ever apply to
 	// employees whose HR profile carries is_minor.

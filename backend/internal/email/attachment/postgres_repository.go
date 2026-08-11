@@ -61,6 +61,23 @@ func (r *PostgresRepository) GetByMessage(ctx context.Context, messageID uuid.UU
 	return attachments, rows.Err()
 }
 
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAttachment, error) {
+	var att models.EmailAttachment
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, message_id, filename, content_type, size_bytes, minio_key,
+			content_id, is_inline, created_at
+		 FROM email_attachments WHERE id = $1 AND tenant_id = $2`, id, tenantID,
+	).Scan(&att.ID, &att.TenantID, &att.MessageID, &att.Filename, &att.ContentType,
+		&att.SizeBytes, &att.MinIOKey, &att.ContentID, &att.IsInline, &att.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrAttachmentNotFound
+		}
+		return nil, err
+	}
+	return &att, nil
+}
+
 func (r *PostgresRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (string, error) {
 	var minioKey string
 	err := r.pool.QueryRow(ctx,

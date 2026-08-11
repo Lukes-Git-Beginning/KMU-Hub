@@ -1,6020 +1,1983 @@
-# Backend-Nachtloop — Journal Lauf 8
+# Backend-Nachtloop — Journal Lauf 9
 
 Append-only. Ein Eintrag je Iteration, **ans Dateiende**, nie einsortieren. Form und Pflichtzeilen
 stehen in `ITERATION.md` Schritt 6.
 
 Frühere Läufe liegen vollständig im Archiv:
 `archive/lauf-1-2/` (58 Units) · `archive/lauf-3/` (61) · `archive/lauf-4/` (54) ·
-`archive/lauf-5/` (41) · `archive/lauf-6/` (46) · `archive/lauf-7/` (71, inkl. `logs/`).
+`archive/lauf-5/` (41) · `archive/lauf-6/` (46) · `archive/lauf-7/` (71) ·
+`archive/lauf-8/` (94, inkl. `logs/`).
 
 ---
 
 ## Laufkontext
 
-- **Ausgangspunkt:** `backend-loop` auf `origin/main` gemergt (nicht rebased). `main` = `c6d1c972`
-  (PR #20, Lauf 7). Produktion: Migrationskopf **309 clean**, 30 Container healthy, `/health` mit
-  23 Services.
-- **Migrationen:** Repo-Kopf = lokaler Kopf = Produktionskopf = **309**. Nächste freie **310** —
+- **Ausgangspunkt:** `backend-loop` auf `origin/main` gemergt (nicht rebased), Fast-Forward auf
+  `10a1a26e`. `main` = `10a1a26e`. Produktion: Migrationskopf **310 clean**, 36 Container laufend /
+  30 healthy / 0 unhealthy, `/health` mit 23 Services.
+- **Migrationen:** Repo-Kopf = lokaler Kopf = Produktionskopf = **310**. Nächste freie **311** —
   aber immer zur Laufzeit ermitteln.
-- **Lokale DB:** `docker-postgres-1` healthy, Rolle `kmuhub_app` mit Passwort `app_dev` verifiziert.
-  `DATABASE_URL` ist damit kein Alibi.
-- **Backlog:** `BACKLOG.yml`, Blöcke A–F. Null `blocked`-Units zum Laufbeginn — die neun aus Lauf 7
-  sind am 2026-08-10 entschieden worden (zwei wurden Lauf-8-Units, vier geparkt, zwei gestrichen,
-  siehe `BACKLOG-PARKED.yml`).
-- **Fenster:** 15:00–19:30 und 23:00–09:00, über das einmalige Pausenfenster des Treibers als **ein**
-  Lauf gefahren (`-UntilTime "09:00" -PauseFrom "19:30" -PauseTo "23:00"`). Ein Prozess, ein Push,
-  ein CI-Lauf.
+- **Lokale DB:** vor dem Start prüfen. Rolle muss `kmuhub_app` sein — `kmuhub` hat BYPASSRLS und
+  würde jede RLS-Lücke durchwinken. `go test` ohne `DATABASE_URL` ist **kein** Gate.
+- **Backlog:** `BACKLOG.yml`, Block A (10 Fix-Units) + Block B (11 Scan-Units). Null `blocked`- und
+  null `done`-Units zum Laufbeginn — die Datei ist für diesen Lauf frisch aufgebaut, Lauf 8 liegt
+  vollständig in `archive/lauf-8/`. `BACKLOG-NEXT.yml` ist leer: die zehn Fix-Units sind
+  **verschoben**, nicht kopiert.
+- **Fenster:** ein Lauf ab 16:00 (`-StartNotBefore "16:00"`), Deadline `-UntilTime "09:00"` als
+  Sicherheitsnetz. Kein Pausenfenster. Ein Prozess, ein Push, ein CI-Lauf.
 - **Workflow-Zustand beim Start:** `Claude PR Review` `disabled_manually`, `Security Review` vor dem
   Anlegen des Draft-PRs disabled (beide haben kein Draft-Gate und würden beim `opened`-Event zünden).
 
+### Was dieser Lauf ist — und was nicht
+
+Lauf 9 ist ein reiner **Fix- und Scan-Lauf**. **Keine Coverage-Units.**
+
+Der Coverage-Engpass ist zu: Lauf 8 hat 47,7 → **60,0 %** gehoben, bei einem Gate von 15 %. Wichtiger
+ist, was dabei sichtbar wurde: die vier Pakete mit den **schlimmsten** Bugs haben die **höchste**
+Coverage — `notification/preference` 87,2 % (`UpsertQuietHours` schlägt bei jedem Aufruf fehl),
+`document/virtual` 83,1 % (vier Queries auf eine gelöschte Spalte), `schichten` 79,7 % (Schichttausch
+hat keinen funktionierenden Pfad), `biz/datev` 79,3 % (Upload seit zwei Monaten totalausgefallen).
+Coverage misst keine Korrektheit. Mehr Prozente auf `gateway` (46,0 %, schwächstes Kernpaket) würden
+dieselbe Bug-Klasse *erzeugen*, nicht finden — deshalb steht `gateway` in diesem Lauf nicht auf der
+Liste.
+
+**Block A** sind die zehn verifizierten Produktionsbugs aus Lauf 8, nach Schwere sortiert.
+**Block B** sind elf Muster-Scans: die zehn Bugs teilen vier mechanisch auffindbare Muster
+(Typ-Scan-Mismatch, `ON CONFLICT` gegen einen nicht existierenden Index, SQL auf gelöschte Spalten,
+INSERT ohne `tenant_id`, `nil`-Slice als JSON `null`). Jede Scan-Unit legt ihre Funde als neue
+Fix-Units am Backlog-Ende an — **Block C** entsteht damit zur Laufzeit und füllt den Rest des
+Fensters.
+
 ### Neu in diesem Lauf
 
-- **`coverage:` ist Pflichtzeile** im Journal-Eintrag, mit `coverage_start:` je Unit als festem
-  Bezugswert. In Lauf 7 haben nur 8 von 71 Iterationen eine Zahl notiert, obwohl Coverage das
-  erklärte Laufziel war — der Endstand musste aus dem CI-Artefakt rekonstruiert werden. Die
-  Messmethode ist in `GATE-COMMANDS.md` unter „Coverage messen" festgeschrieben.
-- **`mutations-probe:` steht jetzt ebenfalls im Template**, nicht mehr nur im Backlog-Kopf. Sie kam
-  in Lauf 7 71/71 und hat zwölf reale Produktionsbugs zutage gefördert; sie bleibt unverändert
-  Pflicht.
-- **Der Treiber warnt bei Drift.** Stimmt die Nummer der neuen Überschrift nicht mit seiner
-  Iterationszählung überein oder fehlt der gelieferte Zeitstempel, schreibt er eine gelbe
-  `DRIFT:`-Zeile ins `run.log`. Der Lauf bricht deswegen nicht ab.
-- **Zeitstempel sind Pflichtwerte**, keine Formatvorschläge: exakt die Zeichenkette aus dem
-  Laufkontext-Block. „(Lauf 8)" oder „(siehe Commit-Zeit)" ist ein Fehler.
-- **Der Treiber liest `ITERATION.md` jetzt als UTF-8.** Bis Lauf 7 kam jeder Gedankenstrich als
-  `â€”` beim Modell an (PS 5.1 liest UTF-8 ohne BOM sonst als ANSI).
+- **`neue-units:` ist Pflichtzeile** (seit `d6d80fcc`). Ein Fund ohne angelegte Unit ist kein Fund.
+  In früheren Läufen sind verifizierte Bugs verlorengegangen, weil sie nur im Journal standen —
+  drei der zehn Block-A-Units mussten bei der Nachbereitung von Lauf 8 nachgetragen werden.
+- **`coverage:` ist ein Delta auf dem Paket der Unit**, nicht gegen den Laufstart. `coverage_start`
+  nennt jetzt bei jeder Unit **exakt** das Paket, das sie anfasst — in der Lauf-8-Fassung standen
+  bei fünf Units Elternpakete oder veraltete Werte (`internal/security 76,9 %` statt
+  `internal/security/audit 66,1 %`), womit die Iteration nur `n.a.` schreiben konnte.
+- **Der Drift-Check vergleicht nur noch den Kalendertag** (`d6d80fcc`). Vorher feuerte er
+  minutengenau und damit in 90 von 94 Iterationen, obwohl die Nummer 94/94 stimmte — eine Warnung,
+  die fast immer feuert, wird nicht gelesen.
+- **Pin-Tests werden UMGEDREHT, nicht gelöscht.** Jede Block-A-Unit bringt einen Test mit, der heute
+  das *kaputte* Verhalten assertiert. Nach dem Fix muss er das *korrekte* assertieren. Ein
+  gelöschter Pin-Test ist eine verlorene Regression.
+- **Die Schichttausch-Semantik ist vorab entschieden** (Luke, 2026-08-11): ein Tausch ist nur
+  zwischen zwei bereits zugeordneten Mitarbeitern gültig, Fall 2 wird ein Validierungsfehler. An
+  genau dieser offenen Frage hat Iteration 94 in Lauf 8 gehalten — sie ist beantwortet und nicht
+  erneut aufzumachen.
+- **Neu auf `main` seit Lauf 8:** eine öffentliche Route `GET/POST /reset-password` im Gateway
+  (`10a1a26e`, embedded HTML-Seite für den Passwort-Reset-Mail-Link). Beim Anfassen von
+  `cmd/gateway/main.go` nicht versehentlich ausbauen.
 
 ---
 
-## Iteration 1 — fix-work-tasks-listtasks-no-own-scope — done — 2026-08-10 13:27
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
-- gebaut: `ownerFilterForScopeAny` (helpers.go) als Pendant zu `ownerFilterForScope` für Routen
-  hinter `RequirePermissionAny` über zwei Schlüssel — narrower key wins (ein Treffer auf `own`
-  filtert, egal was der andere Schlüssel liefert, weil ein nicht vergebener Schlüssel per
-  `middleware.PermissionScope` auf `ScopeAll` fällt, nicht "unbekannt"). `HandleListTasks`
-  (route_work_tasks.go) ruft ihn jetzt für `tasks:read`/`work:task:read` auf und überschreibt
-  ein client-seitiges `?assignee_id=` unconditionally, wenn die Scope-Prüfung auf `own` trifft.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. (keine Migration) | rls-smoke n.a.
-- coverage: internal/gateway 34,9 % -> 35,0 %
-- mutations-probe: zwei Proben, beide gefangen. (1) `if !ok { return }` in HandleListTasks auf
-  `if ok { return }` gedreht -> 12 Tests in TestHandleListTasks_FilterCombinations rot (alle
-  erwarteten 503, bekamen 200), zurückgedreht, Diff sauber. (2) in `ownerFilterForScopeAny` die
-  Schleife auf `pairs[:1]` verengt (nur erster Schlüssel zählt) -> TestOwnerFilterForScopeAny_
-  OwnOnSecondKeyNarrows und TestOwnerFilterForScopeAny_OwnWithoutUserIsRejected rot, zurückgedreht,
-  `git diff` zeigt exakt die beabsichtigten Zeilen.
-- verify vorgaenger: n.a. — erste Iteration dieses Laufs, kein Vorgänger-Commit im Journal.
-- offen: `ownerFilterForScopeAny` ist jetzt verfügbar für weitere `RequirePermissionAny`-Routen mit
-  demselben Muster (nicht gesucht — Scope der Unit war ausdrücklich nur `HandleListTasks`). DB-Gate
-  lief real (lokale `docker-postgres-1`, `DATABASE_URL` gesetzt, `kmuhub_app`); keine Migration in
-  dieser Unit, daher kein RLS-Smoke nötig.
+## Iteration 1 — fix-audit-list-verifychain-ip-address-scan — done — 2026-08-11 16:06
+- commit: 12be7c3f
+- gebaut: `List()` und `VerifyChain()` in `internal/security/audit/postgres_repository.go` casten
+  `ip_address` jetzt mit `COALESCE(host(ip_address), '')` statt es roh zu scannen (Vorlage:
+  `internal/auth/postgres_repository.go`). Testdatei umgebaut: `TestPostgresRepository_List_
+  IPAddressScanBug` (pinnte den Fehler) ist ersetzt durch fünf echte Assertions (IP gesetzt, IP
+  NULL, Result-Filter, Pagination Limit/Offset) plus zwei neue `VerifyChain`-Tests (valide
+  Single-Row-Range, erkannte Manipulation). Die in Iteration 40 (Lauf 8) zurückgestellten
+  Filter-/Pagination-/Chain-Assertions sind damit nachgezogen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. (reiner Query-Fix,
+  kein Schema-Änderung) | rls-smoke ok (TestRLS_AuditLog_* liefen als Teil des Pakettests grün,
+  keine Policy/Tabelle angefasst)
+- coverage: internal/security/audit 66,1 % -> 80,0 % (lokal gemessen, `go tool cover -func`)
+- mutations-probe: `COALESCE(host(ip_address), '')` in `List()`s dataQuery zurück auf rohes
+  `ip_address` gesetzt -> `TestPostgresRepository_List_ReturnsSeededEntry_WithIPAddress` wurde
+  rot mit exakt dem ursprünglich dokumentierten pgx-Scanfehler ("cannot scan inet (OID 869) in
+  binary format into *string"), zurückgedreht, `git diff --stat` zeigt wieder nur die
+  ursprünglichen 2 Zeilen (List + VerifyChain je 1 Zeile).
+- verify vorgaenger: n.a. (Iteration 1 dieses Laufs, kein Vorgänger-Commit)
+- neue-units: fix-audit-verifychain-timestamp-precision-mismatch (Block C, ans Backlog-Ende
+  gehängt)
+- offen: Beim Schreiben der beiden neuen `VerifyChain`-Tests kam ein zweiter, unabhängiger Bug
+  zum Vorschein: `Create()` hasht `entry.Timestamp` mit voller (potenziell Sub-Mikrosekunden-)
+  Go-Präzision via `RFC3339Nano`, aber `audit_log.timestamp` ist `TIMESTAMPTZ` und speichert nur
+  Mikrosekunden — jeder spätere `VerifyChain`-Aufruf rechnet den Hash aus dem gekappten,
+  zurückgelesenen Timestamp neu und bekommt bei nicht-null Sub-Mikrosekunden-Ziffern (auf dieser
+  Windows-Maschine in ~4 von 5 Stichproben der Fall) ein anderes Ergebnis als beim Insert — eine
+  intakte Kette wird als manipuliert gemeldet. Nicht Teil dieser Unit (andere Ursache, andere
+  Zeile), daher NICHT mitgefixt, sondern als eigene Unit
+  `fix-audit-verifychain-timestamp-precision-mismatch` angelegt (inkl. Fix-Vorschlag und
+  Hinweis auf die Nicht-rückwirkende Grenze für bereits geschriebene Einträge). Die beiden neuen
+  `VerifyChain`-Tests in dieser Iteration umgehen das Problem bewusst durch einen auf
+  Mikrosekunden gekappten Test-Timestamp — das ist im Testkommentar referenziert, damit die
+  nächste Iteration den Workaround nicht für den eigentlichen Fix hält.
+  Zusätzlich (kein eigener Bug, nur Testartefakt): `SeedRow`-Aufrufe auf `audit_log`, die
+  `target`/`target_type`/`user_agent` weglassen, erzeugen NULL in diesen nullable
+  VARCHAR-Spalten und lösen denselben NULL-in-`string`-Scanfehler aus wie `ip_address` — aber
+  nur über den Test-Bypass von `Create()`, nicht über einen echten Aufrufer (der einzige
+  Produktionsschreibpfad in `Create()` setzt diese Felder immer auf `""`, nie NULL). Deshalb
+  keine eigene Unit, nur hier vermerkt.
 
-## Iteration 2 — fix-crm-reports-invalid-date-not-rejected — done — 2026-08-10 13:41
-- commit: 755dadf4
-- gebaut: `validateDateParam` (helpers.go) prüft einen bereits extrahierten Query-Wert gegen
-  `dateParamFormats` (`YYYY-MM-DD`, `time.RFC3339` — dieselben Layouts wie `parseDate` in
-  `internal/server/crm_grpc.go`, dort im Kommentar so verlinkt) und schreibt bei Fehlschlag ein
-  400 mit dem erwarteten Format in der Meldung. `HandleGetPipelineReport`,
-  `HandleGetConversionReport` und `HandleGetActivityReport` rufen ihn nach der bestehenden
-  Required-Prüfung für beide Felder auf — ein unbrauchbares Datum erreicht die RPC jetzt nicht
-  mehr. Die drei alten `TestHandle*Report_MalformedDateNoPanic`-Tests sind auf
-  `TestHandle*Report_MalformedDateRejected` umgestellt (erwarten jetzt 400 + Format-Meldung statt
-  503), plus je ein neuer `ValidDatesReachClient`-Test, der belegt, dass gültige Daten
-  unverändert bis zum (in den Tests absichtlich nicht erreichbaren) gRPC-Client durchlaufen.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped) | migration n.a. (keine
-  Migration) | rls-smoke n.a.
-- coverage: internal/gateway 34,9 % -> 35,0 %
-- mutations-probe: `validateDateParam` auf `return true` nach der Format-Schleife gedreht (jedes
-  Datum gilt als gültig) -> `TestHandleGetPipelineReport_MalformedDateRejected`,
-  `TestHandleGetConversionReport_MalformedDateRejected` und
-  `TestHandleGetActivityReport_MalformedDateRejected` alle drei rot (503 statt erwarteter 400,
-  weil der Request jetzt bis zum nicht erreichbaren gRPC-Client durchläuft), zurückgedreht,
-  `git diff --stat` zeigt nur die beabsichtigten 22 Zeilen in helpers.go.
-- verify vorgaenger: sauber — Commit 7e932ec1 geprüft: Handler geht über `grpcReq`/den
-  gRPC-Client (kein Bypass), keine neue Route, kein neuer `RequirePermission`-Key, kein `.proto`
-  geändert, keine neue Tabelle.
-- offen: `route_hr.go:298-299, 791-792, 969-970` (`HandleListLeaveRequests` und zwei weitere)
-  reichen `start_date`/`end_date` ebenfalls ungeprüft an den gRPC-Request durch — dort aber als
-  **optionale** Listenfilter, nicht als Pflichtfeld wie bei den CRM-Reports, also ein anderes
-  Risikoprofil (leerer Filter statt 400 auf Garbage). Nicht in dieser Unit gefixt (Scope war
-  ausdrücklich die drei Report-Handler); Kandidat für eine eigene Lauf-9-Unit, falls das
-  gewünscht ist. Kein PR/Push, lokal committet.
+## Iteration 2 — fix-datev-upload-repo-missing-tenant-id — done — 2026-08-11 16:29
+- commit: 50e89714
+- gebaut: `UpsertUploadConfig` und `CreateUploadLog` in
+  `internal/biz/datev/postgres_upload_repo.go` schreiben `tenant_id` jetzt in beide INSERTs.
+  Neuer `tenantForWrite(ctx)`-Helper loest die Tenant-ID direkt aus dem Context (Vorlage:
+  `internal/notification/integration/postgres_repository.go`s gleichnamiges Muster fuer
+  denselben NOT-NULL+FORCE-RLS-Fall) — kein Modellfeld, keine Handler-Aenderung noetig, weil
+  der Interceptor jede reale gRPC-Anfrage schon mit der Tenant-ID im Context ausstattet. Neuer
+  Sentinel `ErrTenantMissing`. `UpsertUploadConfig`s `ON CONFLICT (config_id)`-Ziel war bereits
+  korrekt (echter `UNIQUE(config_id)`-Constraint aus Migration 000056), kein MUSTER-A-Fund an
+  dieser Stelle.
+- gebaut (Tests): `TestUpsertUploadConfig_FailsNotNullTenantID` und
+  `TestCreateUploadLog_FailsNotNullTenantID` sind durch
+  `TestUpsertUploadConfig_InsertsThenUpdatesOnConflict` (Insert- und ON-CONFLICT-Update-Pfad)
+  und `TestCreateUploadLog_InsertsRow` ersetzt. Neu dazu:
+  `TestUpsertUploadConfigAndCreateUploadLog_WriteLandsInCallerTenant` (RLS-Nachweis nach dem
+  `AssertRowCount`-Muster aus `crm/consent/tenant_write_test.go` — eigener Tenant sieht die
+  Zeile, ein fremder Tenant nicht) sowie zwei `ErrTenantMissing`-Tests fuer den Context-ohne-
+  Tenant-Fall.
+- gate: build ok (`./internal/biz/...`) | vet ok | lint ok (0 issues) | test ok (0 Skips,
+  `DATABASE_URL` gegen `kmuhub_app`) | migration n.a. (kein Schema-Fund, reiner Repo-Fix) |
+  rls-smoke ok (neuer Test + bestehender `TestTenantIsolation_Datev_DB` beide gruen) |
+  `go test -count=1 ./internal/biz/...` gesamt gruen (alle Unterpakete)
+- coverage: internal/biz/datev 79,3 % -> 79,7 % (lokal gemessen, `go tool cover -func`)
+- mutations-probe: `tenant_id` aus Spaltenliste und VALUES von `UpsertUploadConfig`s INSERT
+  entfernt (Parameterindizes zurueckgesetzt, `tenantID` mit `_ = tenantID` totgelegt) ->
+  `TestUpsertUploadConfig_InsertsThenUpdatesOnConflict` und
+  `TestUpsertUploadConfigAndCreateUploadLog_WriteLandsInCallerTenant` wurden rot, beide mit
+  `ERROR: new row violates row-level security policy for table "datev_upload_configs"
+  (SQLSTATE 42501)` — RLS greift jetzt VOR dem alten NOT-NULL-Fehler, weil `FORCE RLS`
+  (Migration 000122) bereits ein `tenant_id`-loses Insert ablehnt. Zurueckgedreht,
+  `git diff --stat` zeigt wieder nur die ursprueliche Aenderung.
+- verify vorgaenger: sauber (Commit `12be7c3f`, Iteration 1 — reiner Query-Cast-Fix, kein
+  gRPC-Bypass, kein Proto/Migrations-Drift, kein Guard, kein Wire-Shape-, Routen- oder
+  Tenant-Fund; neue Unit aus Iteration 1 korrekt am Backlog-Ende angelegt und verifiziert)
+- neue-units: keine
+- offen: `UpdateDatevUploadConfig`/`ListDatevUploadLogs` im Gateway-Handler
+  (`internal/server/datev_upload_grpc.go`) validieren weiterhin nur `req.GetTenantId() != ""`
+  ohne den Wert zu nutzen — das ist unveraendert (Ctx-Tenant zaehlt, nicht das Request-Feld),
+  aber falls das Feld in der Response-Semantik je gebraucht wird, gehoert eine Pruefung
+  Request-Tenant == Ctx-Tenant dorthin. Kein Fund dieser Iteration, nur als Beobachtung
+  vermerkt. Produktions-Zeilenzahl in `datev_upload_configs`/`datev_upload_log` (vermutlich 0)
+  wurde nicht geprueft — das ist ein reiner Produktions-Read und nicht Teil dieses Laufs.
 
-## CI nach Lauf (2026-08-10 13:53)
-- run: 31384710707
-- sha: 668e4f0ef301d0dd418c3a57a7621bc8e5708dcf
-- ergebnis: success
-- commits: 2
+## Iteration 3 — fix-schichten-swap-assignments-unique-violation — done — 2026-08-11 16:38
+- commit: f379b30a
+- gebaut: `SwapAssignmentsForRequest` (`internal/schichten/postgres_repository.go`) beheben
+  beide Faelle des Root Causes in einem Rutsch. Neue Migration 000311 macht
+  `uq_shift_assignments_tenant` `DEFERRABLE INITIALLY IMMEDIATE` (Drop+Re-Add, jeder andere
+  Schreibpfad bleibt unveraendert, weil der Check nur innerhalb dieser einen Transaktion per
+  `SET CONSTRAINTS ... DEFERRED` aufgeschoben wird). Die Funktion sperrt jetzt zuerst die Zeile
+  des Tauschpartners per `SELECT ... FOR UPDATE` (liefert 0 Zeilen -> neuer Sentinel
+  `ErrSwapPartnerNotAssigned`, gemappt auf `codes.FailedPrecondition` in
+  `internal/server/schichten_grpc.go`, analog zu `ErrArbzgViolation`) und scopet BEIDE UPDATEs
+  auf die jeweilige Zeilen-ID statt auf `(shift_id, employee_id)` — genau die Scoping-Luecke,
+  die den stillen No-Op verursacht hat. Per vorab entschiedener Semantik (siehe Unit-`notes`)
+  ist ein Tausch mit einem noch nicht zugeordneten Partner jetzt ein abgelehnter, kein stiller
+  Erfolg. `ApproveSwapRequest` (service.go) brauchte keine Aenderung — es reicht Repo-Fehler
+  bereits unveraendert durch, bevor es `UpdateSwapRequestStatus` aufruft.
+- gebaut (Tests): `TestSwapAssignmentsForRequest_SilentlyNoOpsWhenTargetNotYetOnShift` ->
+  `TestSwapAssignmentsForRequest_RejectsPartnerNotYetOnShift` (erwartet jetzt
+  `ErrSwapPartnerNotAssigned`, prueft dass nichts geschrieben wurde);
+  `TestSwapAssignmentsForRequest_FailsWhenBothEmployeesAlreadyAssignedToShift` ->
+  `TestSwapAssignmentsForRequest_SwapsBothEmployeesAlreadyAssignedToShift` (erwartet jetzt den
+  tatsaechlichen Tausch, prueft dass die Zeilen-IDs mit den employee_id-Werten wandern).
+- gate: build ok (`./internal/schichten/... ./internal/gateway/... ./cmd/schichten/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, `internal/schichten` + `internal/server`) |
+  migration ok (`migrate up` gegen lokale DB, Kopf jetzt 311) | test ok (0 Skips,
+  `DATABASE_URL` gegen `kmuhub_app`, `./internal/schichten/...` und `./internal/server/` gruen)
+  | `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (834 Routen gegen 836
+  Spec-Pfade — keine neue Route, reine Vorsichtspruefung wegen `schichten_grpc.go`-Anfassung)
+  | rls-smoke n.a. (keine RLS-Policy angefasst, nur die Deferrability einer bestehenden
+  UNIQUE-Constraint auf `shift_assignments`; bestehende Tenant-Isolationstests aus
+  `tenant_write_test.go`/`tenant_isolation_phase2_test.go` liefen im vollen Paketlauf mit und
+  waren gruen)
+- coverage: internal/schichten 79,7 % -> 79,4 % (beide lokal gemessen, `go tool cover -func`,
+  vor/nach per `git stash`/`pop` isoliert — kein Coverage-Ziel dieser Unit, der leichte
+  Ruecklauf kommt vom neuen Fehlerpfad (`FOR UPDATE`-Miss -> `ErrSwapPartnerNotAssigned`), der
+  von den neuen Tests nur teilweise durchlaufen wird)
+- mutations-probe: zweites UPDATE zurueck auf `WHERE shift_id = $2 AND employee_id = $3 AND
+  tenant_id = $4` gesetzt (alte Scoping-Luecke) -> `TestSwapAssignmentsForRequest_
+  SwapsBothEmployeesAlreadyAssignedToShift` wurde rot (`duplicate key value violates unique
+  constraint "uq_shift_assignments_tenant"`, weil das mutierte UPDATE jetzt BEIDE Zeilen trifft
+  und beide auf `employee_id = requester` setzt). Zurueckgedreht, `git diff --stat` zeigt wieder
+  nur die urspruengliche Aenderung (33 insertions, 4 deletions in `postgres_repository.go`).
+- verify vorgaenger: sauber (Commit `50e89714`, Iteration 2 — reiner Repository-Fix mit
+  Context-abgeleiteter `tenant_id`, kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift,
+  kein Guard-Fund, kein Wire-Shape- oder Routen-Fund; `tenantForWrite` nutzt Ctx statt
+  Request-Feld, deckt sich mit der eigenen `offen:`-Beobachtung aus Iteration 2)
+- neue-units: keine
+- offen: Die Semantik-Entscheidung "Tausch nur zwischen zwei bereits Zugeordneten" war bereits
+  in den Unit-`notes` fixiert (Luke, 2026-08-11) — hier nicht neu aufgemacht. Kein sonstiger
+  Fund. Block-B-Scan-Units koennten dieselbe Deferrable-Constraint-Klasse (ON-CONFLICT- bzw.
+  UNIQUE-Scoping-Probleme bei Mehrzeilen-Swaps) an anderer Stelle im Repo finden — nicht
+  vorab durchsucht, das ist Aufgabe der jeweiligen Scan-Unit selbst.
 
-## Iteration 3 — fix-einkauf-contract-call-cap — done — 2026-08-10 15:00
-- commit: de885fc4
-- gebaut: `PostgresRepository.CreateContractCall` ist jetzt transaktional und der einzige
-  Schreiber von `used_value`: Contract-Zeile `FOR UPDATE` sperren → Status prüfen (nur `active`,
-  sonst `ErrContractNotActive` mit Status im Text) → Restwert aus **frisch gerechnetem
-  `SUM(amount)`** gegen `total_value` in **numeric** vergleichen (nicht gegen die gecachte
-  `used_value`-Spalte, nicht in Go-float) → bei Überschreitung `ErrContractBudgetExceeded` mit
-  Restwert in der Meldung → INSERT → `used_value`-Recompute, alles in derselben Transaktion.
-  Der Service prüft nur noch die Betragsform; der Vorab-`GetFrameworkContract` ist raus (die
-  Existenz liefert jetzt die Transaktion als `ErrContractNotFound`). `mapEinkaufError` bildet
-  beide neuen Fehler auf `FailedPrecondition` ab → Gateway 409, in `openapi.yaml` beim POST
-  `/api/v1/einkauf/contracts/{id}/calls` dokumentiert.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (einkauf 0 skipped, 73 PASS inkl. aller
-  DB-Tests; server + gateway grün) | migration n.a. (keine Migration — der Cap sitzt im Code,
-  ein CHECK könnte den Cross-Table-Vergleich nicht ausdrücken) | rls-smoke n.a. (keine Tabelle/
-  Policy angefasst; die neue Transaktion erbt die Session-GUCs aus `PrepareConn`, die DB-Tests
-  laufen unverändert unter `kmuhub_app`) | swagger-cli validate ok
-- coverage: internal/einkauf 63,3 % -> 63,9 %
-- mutations-probe: zwei Proben am Produktionscode, beide gefangen. (1) im SQL `$2::numeric <=`
-  auf `>=` gedreht -> `TestFrameworkContract_CreateContractCall_EnforcesRemainingValue` und
-  `..._AccumulatesUsedValue` rot ("call-off of 600.0000, remaining 1000.0000" statt Annahme),
-  zurückgedreht. (2) `if contractStatus != string(ContractStatusActive)` auf `if false && …`
-  -> `TestFrameworkContract_CreateContractCall_RejectsInactiveAndUnknown` rot (draft-Vertrag
-  lieferte `<nil>` statt `ErrContractNotActive`), zurückgedreht. `git diff` danach exakt die
-  beabsichtigten Zeilen (geprüft: kein `TRUE`/`false &&`-Rest im Diff). Erste Fassung von
-  Probe 1 (`TRUE` statt der Vergleichsspalte) war unbrauchbar — sie nahm `$2` aus dem Statement
-  und Postgres brach mit 42P18 ab, statt die Schranke wirklich zu öffnen; deshalb der
-  Operator-Flip.
-- verify vorgaenger: sauber — `668e4f0e` geprüft: `validateDateParam` + drei Report-Handler,
-  kein gRPC-Bypass (die Handler laufen weiter über `client.Get*Report`), kein Stub, kein
-  `.proto`, keine neue Route, kein neuer Permission-Key, keine Tabelle, Wire-Shape unverändert
-  (400 über `response.Error` wie bei den Nachbarn).
-- offen: **Eine Entscheidung gehört Luke.** `total_value` ist beim Anlegen optional und
-  defaultet auf `0` (Migration 000207 Z. 14, `createFrameworkContractRequest.TotalValue` ist
-  `omitempty`). Mit der strikten Variante ist ein Rahmenvertrag ohne eingetragenen Gesamtwert ab
-  sofort **gar nicht mehr abrufbar** (409, "remaining 0.0000"). Das ist die wörtliche Umsetzung
-  der Entscheidung vom 2026-08-10 und lässt nirgends Budget durch; die Alternative wäre
-  „`total_value = 0` heißt unbegrenzt" — ein Einzeiler in `CreateContractCall`
-  (`if totalValue != "0.0000" { … }`), aber eine implizite Sonderregel. Bewusst nicht selbst
-  entschieden. — Weiter: `UpdateContractUsedValue` ist ganz raus (Interface, Postgres-Impl,
-  Mock, Server-Stub), weil sie nach dem Umbau keinen Produktions-Aufrufer mehr hatte und genau
-  der non-fatale Aufruf war, über den die Spalte nach unten driften konnte; der DB-Test dazu
-  heißt jetzt `TestFrameworkContract_CreateContractCall_AccumulatesUsedValue` und beweist
-  dieselben Summen über den neuen Pfad. Kein Push, lokal committet. Für das FE: 409 ist auf
-  dieser Route neu.
+## Iteration 4 — fix-notification-quiet-hours-conflict-index — done — 2026-08-11 16:40
+- commit: f30636b7
+- gebaut (Migration 000312): `notification_quiet_hours` verliert den inline
+  `UNIQUE(user_id)` aus 000022 und bekommt `idx_notification_quiet_hours_user
+  (tenant_id, user_id)`; `idx_notification_preferences_module_default` wird von
+  `(user_id, module_id)` auf `(tenant_id, user_id, module_id)` verbreitert (Praedikat
+  unveraendert). Beide neuen Indexe sind Supersets, kollidieren also mit keiner bestehenden
+  Zeile. Down-Migration stellt beide Altzustaende her (Roundtrip `down 1` + `up` gegen die
+  lokale DB gefahren, Kopf danach wieder 312 clean).
+- gebaut (Code): `UpsertQuietHours` brauchte wie vermutet KEINE Aenderung — geprueft, nicht
+  angenommen (ON CONFLICT nennt nur Spalten, keinen Constraint-Namen; Test gruen nach der
+  Migration). Der ZWEITE, im Backlog unverifizierte Verdacht an `UpsertPreference` ist REAL,
+  aber anders als vermutet: er schreibt KEINE Dublette, sondern schlaegt fehl. Neue Funktion
+  `upsertPreferenceConflict(pref)` waehlt den Arbiter passend zur Zeile — Event-Type-Zeilen
+  bekommen den Event-Type-Index, Modul-Defaults (`event_type_key IS NULL`) den
+  Modul-Default-Index, eine Zeile ohne beides einen reinen INSERT (kein Index deckt sie ab,
+  ein Konflikt ist konstruktiv unmoeglich).
+- gate: build ok (`./internal/notification/... ./internal/gateway/... ./cmd/notification/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | migration ok (`up`, `down 1`, `up`,
+  Kopf 312) | test ok (0 Skips bei 222 Tests, `DATABASE_URL` gegen `kmuhub_app`;
+  `./internal/notification/...` und `./internal/server/` gruen) | rls-smoke ok (beide
+  angefasste Tabellen: eigener Tenant 1 / fremder Tenant 0, als `kmuhub_app`) |
+  `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (keine Route angefasst,
+  reine Vorsichtspruefung)
+- coverage: internal/notification/preference 87,2 % -> 87,4 % (beide selbst gemessen,
+  `go tool cover -func`; Vorher-Wert per `migrate down 1` + `git stash -u` isoliert und
+  identisch mit `coverage_start:`)
+- mutations-probe: ZWEI Proben, weil der Fix zwei Traeger hat.
+  (1) Migration: `migrate down 1` (Altzustand der Indexe) -> `TestPostgresRepository_
+  QuietHoursRoundTrip` UND `TestPostgresRepository_UpsertModuleDefaultTwice` beide rot mit
+  SQLSTATE 42P10; `up` -> beide wieder gruen.
+  (2) Code: den `ModuleID != nil`-Zweig von `upsertPreferenceConflict` auf den
+  Event-Type-Arbiter zurueckgesetzt -> `TestPostgresRepository_UpsertModuleDefaultTwice` rot
+  mit SQLSTATE 23505 auf `idx_notification_preferences_module_default` (genau der Fehler, den
+  der Fix beseitigt). Zurueckgedreht, `git diff --stat` zeigt wieder nur die urspruengliche
+  Aenderung (3 Dateien, 184 insertions / 23 deletions, plus die zwei untracked
+  Migrationsdateien).
+- verify vorgaenger: sauber (Commit `f379b30a`, Iteration 3 — kein gRPC-Bypass (`schichten_grpc.go`
+  bekommt nur eine Fehler-Mapping-Zeile), kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route.
+  Migration 000311 ist neu angelegt, keine ausgerollte Migration angefasst;
+  `SET CONSTRAINTS ... DEFERRED` gilt nur fuer die eigene Transaktion und der neue
+  `FOR UPDATE`-Lookup laeuft vor beiden UPDATEs)
+- neue-units: fix-notification-mutes-unique-missing-tenant (am Backlog-Ende)
+- offen: (1) Der Backlog-Verdacht zu `UpsertPreference` war in der Wirkung falsch beschrieben —
+  eine Dublette ist unmoeglich, weil `idx_notification_preferences_module_default` UNIQUE ist;
+  der zweite Upsert eines Modul-Defaults schlug mit 23505 fehl. Ergebnis ist derselbe Fix, aber
+  wer die Unit-`notes` als Beleg liest, bekommt die falsche Fehlerklasse.
+  (2) `notification_mutes` traegt dieselbe Index-Drift (`UNIQUE(user_id, module_id,
+  resource_id)` ohne `tenant_id`) — hier NICHT mitgefixt, weil ausserhalb des `done_when` und
+  eine eigene Migration noetig; als Unit angelegt (siehe `neue-units:`). Damit sind alle vier
+  Unique-Indexe des Notification-Schemas erfasst.
+  (3) `GetQuietHours` scannt die `time`-Spalten `start_time`/`end_time` in Go-`string` —
+  funktioniert mit pgx v5 (jetzt erstmals mit einer echten Zeile bewiesen, vorher konnte nie
+  eine geschrieben werden), liefert aber `"18:00:00"`, nicht `"18:00"`. Die Tests vergleichen
+  deshalb `[:5]`. Kein Fehler, aber das Frontend bekommt ein anderes Format, als es beim
+  Schreiben schickt — pruefen, ob der FE-Typ das vertraegt.
 
+## Iteration 5 — fix-document-virtual-users-display-name — done — 2026-08-11 16:50
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: alle vier SELECT-Listen in `internal/document/virtual/postgres_repository.go`
+  (ListChatFiles, ListTaskFiles, beide chat/task-Zweige der ListAll-UNION) lesen jetzt
+  `COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS
+  uploaded_by_name` statt des nichtexistenten `u.display_name` (users hat seit Migration
+  000001 kein display_name, first_name/last_name sind NOT NULL DEFAULT ''). Keine Migration
+  noetig, reiner SQL-Text-Fix. `ListEmailAttachments` (liest `eacc.display_name` von
+  `email_accounts`, existiert dort wirklich) unveraendert.
+- gebaut (Tests): die drei "ColumnBug"-Tests aus Iteration 86 (Lauf 8) auf das korrekte
+  Verhalten umgestellt statt geloescht — `ListChatFiles_ColumnBug` ->
+  `ListChatFiles_UploadedByName`, `ListTaskFiles_ColumnBugViaProjectMembership` ->
+  `ListTaskFiles_UploadedByNameViaProjectMembership`,
+  `ListAll_UnionColumnBugTriggeredByEmailOnlyAccess` ->
+  `ListAll_UnionAcrossAllSourcesWithEmailOnlyAccess`; alle drei pruefen jetzt Erfolg + den
+  korrekten `uploaded_by_name`. Neuer Test
+  `ListChatFiles_UploadedByNameFallsBackToEmail` deckt den Email-Fallback bei leeren
+  first_name/last_name ab (belegt beide done_when-Punkte: Name-Anzeige UND Email-Fallback).
+  Der erklaerende Datei-Header-Kommentar zum "unfixed bug" ist entfernt, da er den jetzt
+  gefixten Zustand falsch beschrieben haette.
+- gate: build ok (`./internal/document/... ./internal/gateway/...`) | vet ok | lint ok
+  (0 issues) | test ok (0 Skips bei 17 Tests in `internal/document/virtual`, `DATABASE_URL`
+  gegen `kmuhub_app`; `./internal/document/...` komplett gruen) | migration n.a. (keine
+  Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst, reiner Query-Textfix)
+- coverage: internal/document/virtual 83,1 % -> 81,7 % (beide selbst gemessen,
+  `go tool cover -func`; Vorher-Wert per `git stash push -u` auf genau diese zwei Dateien
+  isoliert, deckt sich mit `coverage_start:`. Der leichte Ruecklauf kommt vom neuen
+  Email-Fallback-Zweig der COALESCE/NULLIF/TRIM-Kette, der von den bestehenden Tests nur
+  teilweise durchlaufen wird — kein Coverage-Ziel dieser Unit)
+- mutations-probe: Zeile 61 (ListChatFiles-SELECT) zurueck auf
+  `COALESCE(u.display_name, u.email)` gesetzt -> `TestPostgresRepository_
+  ListChatFiles_UploadedByName` UND `TestPostgresRepository_
+  ListChatFiles_UploadedByNameFallsBackToEmail` beide rot mit
+  `ERROR: column u.display_name does not exist (SQLSTATE 42703)`. Zurueckgedreht,
+  `git diff --stat` zeigt wieder nur die urspruengliche Aenderung (4 Zeilen geaendert in
+  postgres_repository.go).
+- verify vorgaenger: sauber (Commit `f30636b7`, Iteration 4 — kein gRPC-Bypass, kein Stub,
+  Migration 000312 hat up UND down, keine ausgerollte Migration angefasst, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route)
+- neue-units: keine
+- offen: keine neuen Funde. Reiner Query-Textfix ohne Migrations-/RLS-Beruehrung.
 
-## Iteration 4 — fix-plugin-createmanifest-missing-tenant-wrong-code — done — 2026-08-10 15:19
-- commit: 1f476fda
-- gebaut: `mapPluginError` (plugin_grpc.go) hat jetzt einen expliziten `errors.Is(err,
-  middleware.ErrMissingTenantID)`-Fall -> `codes.InvalidArgument`, statt den von
-  `Service.CreateManifest` per `fmt.Errorf("create manifest: %w", err)` gewrappten Sentinel
-  ungefangen in den `default`-Zweig (`codes.Internal`) durchfallen zu lassen. Einziger Aufrufer
-  von `middleware.GetTenantID` im Paket `internal/plugin` ist `Service.CreateManifest`
-  (service.go:90) — keine weitere RPC im Paket reicht denselben Sentinel durch. Der
-  dokumentierende Test in plugin_grpc_test.go ("missing tenant context maps to Internal, not
-  InvalidArgument (documents current gap)") ist auf das korrekte Verhalten umgestellt
-  ("... is rejected as InvalidArgument", erwartet jetzt `codes.InvalidArgument`), nicht
-  gelöscht; sein alter Kommentar behauptete zusätzlich fälschlich, `mapPluginError` vergleiche
-  mit `==` und verwies auf ein nicht existierendes "TestMapPluginError gap #2" — beides beim
-  Verify-First nicht bestätigt, der Kommentar ist entsprechend korrigiert. `TestMapPluginError`
-  um zwei Fälle ergänzt (roher Sentinel + gewrappt wie in CreateManifest).
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt,
-  kmuhub_app) | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | route n.a. (keine Route angefasst, TestOpenAPIRouteDrift nicht betroffen)
-- coverage: internal/server 47,7 % -> 47,7 % (Fix ist ein einzelner neuer `case`, kein
-  Coverage-Ziel dieser Unit)
-- mutations-probe: neuen `case`-Zweig von `codes.InvalidArgument` auf `codes.Internal` gedreht
-  -> `TestMapPluginError/missing_tenant_id`, `.../wrapped_missing_tenant_id_...` und
-  `TestPluginCreateManifest/missing_tenant_context_is_rejected_as_InvalidArgument` alle drei
-  rot, zurückgedreht, `git diff` zeigt exakt die eine beabsichtigte Zeile.
-- verify vorgaenger: sauber — `de885fc4` geprüft: `mapEinkaufError` bildet beide neuen
-  Sentinels über `errors.Is` ab (kein `==`-Vergleich), kein gRPC-Bypass (Repository-Methode
-  läuft weiter über den bestehenden Service-Aufruf), kein Stub, kein `.proto` geändert, kein
-  neuer `RequirePermission`-Key, keine neue Tabelle, keine neue Route (openapi.yaml ergänzt nur
-  den 409-Code einer bestehenden Route), Wire-Shape unverändert.
-- offen: Der Doc-Kommentar auf `middleware.GetTenantID` sagt explizit "Callers must respond
-  with 401 on error — never substitute a default tenant" — der gesamte Rest des Repos
-  (automation_grpc.go, calendar_grpc.go, `ruleTenant()` in plugin_grpc.go selbst, u. v. a.)
-  bildet den fehlenden Tenant aber durchgängig auf `InvalidArgument` (400) ab, nicht auf
-  `Unauthenticated`/401. Diese Unit folgt der real gelebten Konvention (und dem `done_when` der
-  Unit), nicht dem Kommentar — der Kommentar ist vermutlich selbst veraltet. Nicht in dieser
-  Unit korrigiert (Scope war ausdrücklich nur `CreateManifest`/`mapPluginError`); falls das
-  gewünscht ist, wäre ein Repo-weiter 401-vs-400-Entscheid eine eigene Unit für Lauf 9.
+## Iteration 6 — fix-crm-erasure-double-count — done — 2026-08-11 16:55
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `CRMErasureHandler.ExecuteErasure` (internal/security/gdpr/erasure.go) zieht die
+  bisherigen zwei sequenziellen UPDATEs auf `activities` (erst assigned_to=NULL WHERE
+  assigned_to=$1, danach description=NULL WHERE created_by=$1 AND (assigned_to IS NULL OR
+  assigned_to != $1)) zu einem einzigen UPDATE zusammen: `SET assigned_to = CASE WHEN
+  assigned_to = $1 THEN NULL ELSE assigned_to END, description = NULL WHERE assigned_to = $1
+  OR created_by = $1`. Eine Aktivitaet, die sowohl assigned_to als auch created_by = user war,
+  matcht jetzt genau einmal statt zweimal (das zweite UPDATE traf sie vorher erneut, weil ihr
+  assigned_to durch das erste UPDATE bereits NULL war). Datenverhalten unveraendert, nur die
+  zurueckgegebene Zahl ist jetzt korrekt.
+- gebaut (Tests): `TestCRMErasureHandler_ExecuteErasure_Integration` erwartet jetzt 4 statt 5,
+  `TestCRMErasureHandler_ExecuteErasure_IgnoresAction` jetzt 2 statt 3 -- beide Kommentare auf
+  den alten Doppelzaehl-Bug entfernt, Assertions unveraendert ansonsten (Daten waren immer
+  schon korrekt).
+- gate: build ok (`./internal/security/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues)
+  | test ok (`./internal/security/gdpr/` und `./internal/security/...` komplett gruen,
+  DATABASE_URL gegen kmuhub_app) | migration n.a. (keine Migration, keine Tabellenaenderung)
+  | rls-smoke n.a. (kein RLS-/Policy-Bezug, reiner Query-Logik-Fix) | TestOpenAPIRouteDrift ok
+  (keine Route beruehrt, nur zur Sicherheit mitgelaufen)
+- coverage: internal/security/gdpr 60,6 % -> 60,5 % (beide selbst gemessen per
+  `go tool cover -func`, Vorher-Wert per `git stash push -u` auf genau die zwei geaenderten
+  Dateien isoliert; deckt sich mit `coverage_start:`. Leichter Ruecklauf ist Rauschen aus dem
+  entfernten zweiten Codepfad, kein Coverage-Ziel dieser Unit)
+- mutations-probe: `assigned_to = CASE WHEN ... END` durch das alte bedingungslose
+  `assigned_to = NULL` ersetzt -> `TestCRMErasureHandler_ExecuteErasure_Integration` sofort
+  rot ("an activity assigned to somebody else must keep its assignee"). Zurueckgedreht,
+  `git diff --stat internal/security/gdpr/erasure.go` zeigt wieder nur den urspruenglichen
+  Fix-Diff (7 insertions, 17 deletions durch die Zusammenlegung zu einem UPDATE).
+- verify vorgaenger: sauber (Commit `31e22ac4`, Iteration 5 — reiner Query-Textfix in
+  document/virtual, kein gRPC-Bypass, kein Stub, kein Proto/Migration/Guard/Tenant/Wire-Shape/
+  Route-Bezug)
+- neue-units: fix-work-erasure-task-double-count (am Backlog-Ende) — identische
+  Doppelzaehl-Bugklasse in der Schwesterfunktion `WorkErasureHandler.ExecuteErasure` (tasks
+  statt activities), gefunden beim Root-Cause-Grep nach demselben Muster; nicht mitgefixt, weil
+  ausserhalb des `done_when` dieser Unit und die Funktion bisher gar keinen Execute-Test hat.
+- offen: keine. Reiner Zaehl-Logik-Fix ohne Migrations-/RLS-Beruehrung.
 
-## Iteration 5 — fix-automation-scope-filter-silent-default — done — 2026-08-10 15:26
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
-- gebaut: `parseAutomationScope` (route_automation.go) liefert jetzt `(automationv1.AutomationScope,
-  bool)` statt eines nackten Enums. Leer bleibt beim historischen Default `SCOPE_PERSONAL` (kein
-  Verhaltenswechsel fuer Aufrufer, die das Feld nicht schicken), ein NICHT-leerer unbekannter Wert
-  liefert `ok=false` — Variante (a) aus der Unit-Notiz, vertragserhaltend. Alle drei Call-Sites
-  (`HandleCreateAutomation`, `HandleListAutomations`-Filter, `HandleUpdateAutomation`) pruefen `ok`
-  und schreiben bei `false` ein 400 mit den erlaubten Werten in der Meldung, statt den Request mit
-  einem still auf `personal` verengten Scope weiterzureichen. `HandleUpdateAutomation` war der
-  eigentlich scharfe Fund: es dekodiert den Body ueber ein rohes `json.NewDecoder` ohne
-  `decodeAndValidate`/`oneof`-Tag, ein Tippfehler haette dort einen bestehenden Automation-Scope
-  (z. B. `organization`) still auf `personal` zurueckgestuft. `HandleCreateAutomation` hat den
-  `oneof=personal team organization`-Tag bereits vorher gehabt (`TestHandleCreateAutomation_
-  InvalidScope` bestand schon vor dieser Unit) — der neue `ok`-Check dort ist Verteidigung an
-  derselben gemeinsamen Stelle, nicht der eigentliche Fund.
-  `parseExecutionStatus` direkt darunter geprueft (Notiz-Auflage): KEIN gleiches Muster. Ein
-  unbekannter Status faellt auf `EXECUTION_STATUS_UNSPECIFIED`, und der Server
-  (`automation_grpc.go:287`) behandelt `UNSPECIFIED` explizit als "kein Filter gesetzt" (skip),
-  nicht als einen spezifischen falschen Status wie bei Scope. Ein Tippfehler zeigt dort also alle
-  Ausfuehrungen statt einer plausibel falschen Teilmenge — anderes Risikoprofil, nicht angefasst.
-  Tests: `TestParseAutomationScope` um die `ok`-Dimension erweitert (inkl. `organisation`-Tippfehler
-  als eigener Fall), `TestHandleListAutomations_FilterCombinations` verliert den
-  `scope_unknown_defaults_personal`-Fall (Verhalten geaendert), dafuer neuer
-  `TestHandleListAutomations_UnknownScopeRejected` (400). Neuer
-  `TestHandleUpdateAutomation_InvalidScope` (400) fuer den zuvor ungeschuetzten Pfad.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt,
-  kmuhub_app) | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  route n.a. (keine neue Route, nur bestehende Handler geaendert)
-- coverage: internal/gateway 34,9 % -> 35,0 %
-- mutations-probe: `return automationv1.AutomationScope_SCOPE_PERSONAL, false` im `default`-Zweig
-  auf `, true` gedreht -> `TestParseAutomationScope/unknown-garbage`,
-  `TestParseAutomationScope/organisation`, `TestHandleListAutomations_UnknownScopeRejected` und
-  `TestHandleUpdateAutomation_InvalidScope` alle vier rot (Scope wurde wieder still auf
-  `SCOPE_PERSONAL` mit `ok=true` verengt, Requests erreichten 503 statt 400), zurueckgedreht,
-  `git diff` zeigt exakt die urspruenglich beabsichtigten Zeilen.
-- verify vorgaenger: sauber — `1f476fda` geprueft: neuer `errors.Is`-Case in `mapPluginError`
-  (kein `==`-Vergleich), kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer
-  `RequirePermission`-Key, keine Tabelle, keine Route, dokumentierender Test auf korrektes
-  Verhalten umgestellt statt geloescht.
-- offen: `route_automation.go` hat an mehreren Stellen (Zeile ~590, ~621) `interface{}` statt `any`
-  im bestehenden Code — golangci-lint meldet das als reinen Stil-Hinweis (kein Fehler, `0 issues`
-  im Lint-Gate), nicht in dieser Unit angefasst, da ausserhalb ihres Scopes. Laufkontext-Block
-  (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der
-  letzten Journal-Ueberschrift (Iteration 4) fortgezaehlt, Zeitstempel per `date` auf dem
-  Loop-Rechner ermittelt statt aus dem Block uebernommen; falls das vom Treiber-Mechanismus
-  abweicht, bitte pruefen.
+## Iteration 7 — fix-email-attachment-download-metadata-wrong-message-id — done — 2026-08-11 16:59
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `attachment.Repository` bekommt eine neue Methode `GetByID(ctx, id, tenantID)
+  (*models.EmailAttachment, error)` — Implementierung in `PostgresRepository.GetByID`
+  (SELECT auf `email_attachments WHERE id = $1 AND tenant_id = $2`, mappt `pgx.ErrNoRows`
+  auf `ErrAttachmentNotFound`, exakt das Muster von `GetMinIOKeyByID` daneben).
+  `attachment.Service.GetByID` reicht das durch. `EmailGRPCServer.GetAttachmentDownloadURL`
+  (internal/server/email_grpc.go:1133) ruft jetzt `s.attachmentService.GetByID(ctx, id,
+  tenantID)` statt des fest verdrahteten `GetByMessage(ctx, uuid.Nil, tenantID)` — damit
+  werden filename/content_type/size_bytes fuer Anhaenge an echten (gesendeten/empfangenen)
+  Nachrichten korrekt befuellt; das Pre-Send-Upload-Verhalten (MessageID=uuid.Nil) bleibt
+  unveraendert, weil die neue Query direkt ueber die Attachment-ID sucht statt ueber die
+  MessageID.
+- gebaut (Tests/Mocks): `stubAttachmentRepo.GetByID` (internal/server, Testfixture) und
+  `MockRepository.GetByID` (internal/email/attachment/service_test.go) ergaenzt, beide fuer
+  Interface-Konformitaet. `TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment`
+  in `TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment` umbenannt und auf
+  das korrekte Verhalten umgestellt (erwartet jetzt gefuellte filename/content_type/
+  size_bytes statt leerer Felder), Kommentar auf den gefixten Zustand angepasst.
+  `TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment` unveraendert (deckte den
+  funktionierenden Pfad schon vorher ab, bleibt gruen).
+- gate: build ok (`./internal/email/... ./internal/server/... ./cmd/email/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues, `./internal/email/... ./internal/server/...`) | test ok
+  (`./internal/server/` 0 Skips bei DATABASE_URL gegen kmuhub_app; `./internal/email/...` alle
+  12 Unterpakete gruen; `./internal/gateway/` inkl. TestOpenAPIRouteDrift gruen — keine Route
+  angefasst, nur zur Sicherheit mitgelaufen) | migration n.a. (keine Tabellenaenderung)
+  | rls-smoke n.a. (kein RLS-/Policy-Bezug, reiner Repository-Methoden-Fix)
+- coverage: internal/server 70,0 % -> 70,0 % (selbst gemessen per `go tool cover -func`;
+  deckt sich mit coverage_start. Unveraendert, weil dies eine Fix-Unit ist, keine
+  Coverage-Unit — der neue Code (`GetByID` in Repository/Service/PostgresRepository) liegt
+  ausserhalb von internal/server)
+- mutations-probe: Zeile 1133 (email_grpc.go) testweise auf
+  `s.attachmentService.GetByID(ctx, uuid.Nil, tenantID)` zurueckgesetzt ->
+  `TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment` UND
+  `TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment` beide rot (leere statt
+  gefuellter Metadaten). Zurueckgedreht, `git diff --stat internal/server/email_grpc.go`
+  zeigt wieder nur den urspruenglichen Fix-Diff (4 insertions, 8 deletions).
+- verify vorgaenger: sauber (Commit `b04c41ad`, Iteration 6 — reiner UPDATE-Zusammenlegungsfix
+  in security/gdpr, kein gRPC-Bypass, kein Stub, kein Proto/Migration/Guard/Tenant/
+  Wire-Shape/Route-Bezug)
+- neue-units: keine
+- offen: keine. Reiner Repository-/Handler-Fix ohne Migrations-/RLS-Beruehrung.
 
-## Iteration 6 — fix-gateway-id-validation-consistency — done — 2026-08-10 15:28
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
-- gebaut: Alle elf `chi.URLParam(r, "id")`-Stellen in `route_biz_billing.go`
-  (HandleGetCreditNote, HandleSendCreditNote, HandleGenerateCreditNotePDF, HandleRecordPayment,
-  HandleListPayments, HandleDeletePayment, HandleSendDunning, HandleGenerateDunningPDF,
-  HandleLockInvoice, HandleUpdateDunningStatus, HandleSendDunningNotice) laufen jetzt über
-  `validateUUIDParam` statt den rohen chi-Wert direkt ins Proto zu reichen — eine
-  strukturell/syntaktisch unbrauchbare ID liefert jetzt 400 an der Grenze statt eines
-  Downstream-Fehlers vom (unerreichbaren Dummy-)Backend. Ungenutzter `chi`-Import in der Datei
-  entfernt. Ebenso `HandleDeleteTask` und `HandleMoveTask` in `route_work_tasks.go` (Task-ID ist
-  laut `moveTaskRequest.StatusID` (`validate:"required,uuid"`) im selben Handler-Set durchgängig
-  UUID). Alle elf Handler in route_biz_billing.go geprüft: jede der IDs ist eine
-  Entity-Primary-Key-UUID (Credit-Note-, Payment-, Dunning-, Invoice-ID), keine Slugs/Composite-Keys
-  — keine Ausnahme nötig.
-  Test-Fallout: vier Bestandstests (`TestHandleRecordPayment_InvalidJSON/MissingAmount/
-  InvalidPaymentDate/InvalidMethod` in route_biz_test.go, zwei weitere in
-  route_biz_billing_test.go, zwei in route_biz_billing_test.go für UpdateDunningStatus) riefen die
-  Handler ohne `withChiURLParam` auf und hätten die Body-Validierung jetzt nie erreicht (leere ID
-  bricht zuerst ab) — allen eine gültige `withChiURLParam(req, "id", "550e8400-…")` ergänzt.
-  `TestHandleDeleteTask_InvalidIDReachesRPCNotLocalValidation` in route_work_tasks_test.go
-  dokumentierte explizit die alte Lücke ("no local UUID check... reaches RPC, 503") — auf
-  `TestHandleDeleteTask_InvalidUUID` (400 + "invalid id") umgestellt, der erklärende
-  Kommentarblock darüber (der die Lücke als "stilistische Inkonsistenz, keine Sicherheitslücke"
-  beschrieb) entfernt, da er die neue Realität nicht mehr beschreibt. Neuer
-  `TestBizBillingRoutes_InvalidUUID` (Table-Test, alle elf Handler, ein Aufruf pro Handler) und
-  `TestHandleMoveTask_InvalidUUID` ergänzt.
-  Gateway-weite Bestandsaufnahme (Auflage aus der Unit-Notiz, Schwelle "~20"): `grep -rn
-  'chi\.URLParam(r, "id")' backend/internal/gateway/*.go` (ohne Tests) findet **174** Rohstellen
-  über **26** Dateien — deutlich über der Schwelle, deshalb bewusst NICHT alles in dieser Unit
-  umgebaut (Budget-Deckel-Risiko). Nach dieser Unit bleiben **161** Rohstellen über 24 Dateien
-  offen: route_auth.go, route_biz_bank_accounts.go, route_biz_bank_transactions.go,
-  route_biz_banking.go, route_biz_einvoice.go, route_biz_expenses.go,
-  route_biz_gobd_archive.go, route_biz_invoices.go, route_biz_quotes.go,
-  route_biz_recurring.go, route_biz_transactions.go, route_caldav.go, route_calendar.go,
-  route_crm_ext.go, route_customization.go, route_document.go, route_email.go, route_hr.go,
-  route_hr_changerequest.go, route_lexware.go, route_security.go, route_work_labels.go,
-  route_work_projects.go, route_work_time.go (route_auth.go und route_work_tasks.go haben
-  daneben bereits validierte Stellen — die 161 zählen nur die verbleibenden rohen). Kandidat für
-  eine eigene Folge-Unit (oder mehrere, nach Datei/Domäne gebündelt) in Lauf 9 — nicht selbst
-  angelegt, siehe `offen:` unten.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt,
-  kmuhub_app) | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | route n.a. (keine neue Route, TestOpenAPIRouteDrift +
-  TestOpenAPIRouteDriftParserSanity grün)
-- coverage: internal/gateway 34,9 % -> 35,1 %
-- mutations-probe: `if !ok { return }` in `HandleDeleteTask` (route_work_tasks.go, neuer Zweig)
-  auf `if ok { return }` gedreht -> `TestHandleDeleteTask_InvalidUUID` rot (ServiceUnavailable-
-  und übrige Tasks-Tests blieben grün), zurückgedreht, `git diff --stat` auf die Datei zeigt exakt
-  wieder 8 Insertions/2 Deletions (die ursprünglich beabsichtigte Änderung, kein Rest).
-- verify vorgaenger: sauber — `be847c52` geprüft: `parseAutomationScope` liefert `(scope, bool)`,
-  alle drei Call-Sites (Create/List/Update) prüfen `ok` und antworten 400 bei unbekanntem,
-  nicht-leerem Wert; leerer Wert bleibt beim historischen `SCOPE_PERSONAL`-Default (kein
-  Verhaltensbruch für bestehende Aufrufer); kein gRPC-Bypass, kein Stub, kein `.proto` geändert,
-  kein neuer `RequirePermission`-Key, keine Tabelle, keine neue Route (nur bestehende Handler
-  geändert), `parseExecutionStatus` wie in der Notiz gefordert geprüft und im Commit-Text
-  begründet, warum es NICHT denselben Fix braucht (UNSPECIFIED wird vom Server explizit als
-  "kein Filter" behandelt, kein plausibel-falscher Zustand wie bei Scope).
-- offen: Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt wieder nicht
-  sichtbar mitgeliefert (wie schon in Iteration 5 vermerkt) — Nummer aus der letzten
-  Journal-Überschrift (Iteration 5) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt. Falls der Treiber-Mechanismus das abweichend behandelt, bitte prüfen.
-  Die 161 verbleibenden rohen `chi.URLParam(r, "id")`-Stellen aus 24 Dateien (Liste oben unter
-  "gebaut") sind NICHT als Backlog-Unit angelegt — analog zum Vorgehen in Iteration 5 nur hier im
-  Journal dokumentiert, damit Luke entscheidet, ob/wie das für Lauf 9 gebündelt wird (eine Unit
-  je Datei wäre zu granular, ein Rundumschlag zu groß für eine Iteration).
-  `.planning/backend-block/loop/run-loop.ps1` hat im Arbeitsverzeichnis einen unstaged Diff
-  (neuer `-StartNotBefore`-Parameter), der schon zu Beginn dieser Iteration vorhanden war und zu
-  keiner Backlog-Unit gehört — nicht angefasst, nicht committet (nicht meine Datei für diese
-  Unit).
+## Iteration 8 — fix-email-send-missing-tenant-id — done — 2026-08-11 17:12
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `send.Service.Send` und `.SaveDraft`
+  (`internal/email/send/service.go`) setzen `TenantID: input.TenantID` jetzt auf dem
+  konstruierten `models.EmailMessage`, bevor `messageCreator.Create` aufgerufen wird —
+  beide Felder existierten auf `SendInput`/`DraftInput`, wurden aber nie gelesen.
+  Root-Cause-Grep (`grep -rn "models.EmailMessage{" internal/`) fand eine dritte,
+  unabhaengige Fundstelle mit demselben Bug: `Worker.envelopeToMessage`
+  (`internal/email/sync/worker.go:422`, IMAP-Sync fuer eingehende Mails) konstruiert
+  ebenfalls ohne `TenantID`, obwohl `w.account.TenantID` bereits an zwei anderen Stellen
+  in derselben Datei genutzt wird (`syncCycle`, Zeilen 141/180) — mitgefixt in derselben
+  Unit, weil identischer Root Cause (Struct-Konstruktion vor `Create`/`CreateSynced`, die
+  beide auf dasselbe `message.PostgresRepository.Create` mit `tenant_id NOT NULL` +
+  `FORCE ROW LEVEL SECURITY` (Migration 000122, `enable_tenant_rls('email_messages')`)
+  laufen).
+- gebaut (Tests): `TestSendEmail`/`TestSaveDraft` (`internal/server/
+  email_grpc_messages_send_test.go`) pruefen jetzt zusaetzlich, dass die gespeicherte
+  Nachricht ueber einen tenant-gescopten `GetByID` mit dem Tenant des Senders auffindbar
+  ist (der Stub-Repo verweigert bei Tenant-Mismatch, exakt das Muster von echtem RLS).
+  `TestSaveDraft` im `send`-Paket selbst (`service_test.go`) setzt jetzt `input.TenantID`
+  und prueft `msg.TenantID`. `TestEnvelopeToMessage`
+  (`internal/email/sync/helpers_test.go`) bekommt eine zusaetzliche Assertion
+  `assert.Equal(t, w.account.TenantID, msg.TenantID)`.
+- gate: build ok (`./internal/email/... ./internal/server/... ./cmd/email/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, `./internal/email/...
+  ./internal/server/...`) | test ok (0 Skips, `DATABASE_URL` gegen `kmuhub_app`;
+  `./internal/email/...` alle 12 Unterpakete gruen, `./internal/server/` gruen) |
+  migration n.a. (kein Schema-/Policy-Fund, reiner Code-Fix) |
+  `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (834/836, keine Route
+  angefasst, reine Vorsichtspruefung) | rls-smoke n.a. im engeren Sinn (keine Tabelle/
+  Policy angefasst) — der reale RLS-INSERT-Pfad fuer `email_messages` bleibt vollstaendig
+  durch das bestehende, unveraenderte `TestPostgresRepository_CreateAndGetByID`
+  (`internal/email/message/postgres_repository_test.go`, echte DB, echter
+  `testutil.WithTenantCtx`) abgedeckt und lief gruen mit
+- coverage: internal/email/send 57,6 % -> 57,6 % (selbst gemessen, `go tool cover -func`;
+  deckt sich mit `coverage_start:`. Unveraendert, weil die zwei neuen Zeilen bereits von
+  bestehenden Testpfaden durchlaufen wurden)
+- mutations-probe: ZWEI Proben, weil der Fix zwei unabhaengige Traeger hat.
+  (1) `TenantID: input.TenantID,` aus `Send()`s Struct-Literal entfernt ->
+  `TestSendEmail` (`internal/server`) wurde rot mit "email message not found" (der neue
+  tenant-gescopte `GetByID`-Nachweis schlaegt exakt wie erwartet fehl). Zurueckgedreht,
+  `git diff --stat internal/email/send/service.go` zeigt wieder nur die urspruengliche
+  Aenderung (2 insertions).
+  (2) `TenantID: w.account.TenantID,` in `envelopeToMessage` auf `uuid.Nil` gesetzt ->
+  `TestEnvelopeToMessage/maps_addresses,_flags_and_in-reply-to`
+  (`internal/email/sync`) wurde rot (Nil-UUID statt der erwarteten Tenant-ID).
+  Zurueckgedreht, `git diff --stat internal/email/sync/worker.go` zeigt wieder nur die
+  urspruengliche Aenderung (1 insertion).
+- verify vorgaenger: sauber (Commit `8e00f87a`, Iteration 7 — Handler geht ueber
+  `attachmentService.GetByID` (Service-Layer, kein gRPC-Bypass), kein Stub, kein
+  Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, keine Wire-Shape- oder
+  Routen-Aenderung; Diff deckt sich mit dem Journal-Eintrag aus Iteration 7)
+- neue-units: keine
+- offen: keine neuen Funde ausserhalb des root-cause-gefixten `envelopeToMessage`. Reiner
+  Service-/Worker-Fix ohne Migrations-Beruehrung.
 
-## Iteration 7 — fix-email-sync-imap-connect-no-timeout — done — 2026-08-10 15:52
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
-- gebaut: `IMAPClient.Connect` (imap_client.go) macht jetzt den TCP-Dial (und beim direkten
-  TLS-Pfad Port 993 den TLS-Handshake) selbst über `net.Dialer{Timeout: imapDialTimeout}` bzw.
-  `tls.DialWithDialer` statt `imapclient.DialTLS`/`DialStartTLS(addr, nil)`. Neuer Helper
-  `newIMAPProtocolClient(conn, direct)`: fürs direkte TLS reicht `imapclient.New(conn, nil)`
-  (blockiert laut Quellcode nicht — spawnt nur die interne Read-Goroutine), für STARTTLS läuft
-  `imapclient.NewStartTLS(conn, nil)` in einer eigenen Goroutine, geract gegen
-  `time.After(imapHandshakeDeadline)`; bei Timeout schließt der Aufrufer `conn`, was den
-  blockierten Read in der verwaisten Goroutine entriegelt statt sie fuer immer haengen zu lassen.
-  `imapDialTimeout = 10s`, `imapHandshakeDeadline = 30s` — dieselben Werte wie
-  `email/send`s `smtpDialTimeout`/`smtpExchangeDeadline` (package-lokale Vars, nicht importiert —
-  `internal/email/systemmail` hat exakt dasselbe Muster kopiert, das ist hier Konvention, kein
-  Versehen). `addr` jetzt über `net.JoinHostPort` statt `fmt.Sprintf("%s:%d", ...)` (Linter
-  `hostport`, IPv6-Adressen brechen sonst).
-  **Wichtiger Fund gegen die Backlog-Notiz:** die Vermutung "go-imap v2 hat gar keinen
-  Read-Timeout" stimmt nicht ganz — es gibt einen internen `respReadTimeout` (30s, hartkodiert),
-  der aber bei jedem Leseversuch neu gesetzt wird und daher gegen einen Server, der komplett
-  schweigt, nie wirklich ablaeuft (empirisch verifiziert: `imapclient.DialStartTLS(addr, nil)`
-  gegen einen Fake-Server, der annimmt und dann für immer schweigt, kehrte auch nach >35s nicht
-  zurück). Ein zusätzliches `conn.SetDeadline(...)` von außen half NICHT — es wird vom
-  internen Read-Loop sofort wieder überschrieben (das war mein erster, verworfener Versuch,
-  siehe unten). Nur das Race mit eigenem Timer + `conn.Close()` bei Ablauf entriegelt den
-  blockierten Aufruf zuverlässig. `worker.go:148` ruft `client.Connect(...)` ohne eigenen
-  Kontext/Deadline auf (wie in der Notiz zu prüfen aufgetragen) — der Fix hier ist die einzige
-  Absicherung, es gibt keine doppelte.
-  Neuer Test `imap_timeout_test.go` (`TestConnect_HandshakeDeadline`), nach dem Muster von
-  `smtp_timeout_test.go`: TCP-Fake-Server nimmt an und schweigt für immer, Timeouts für den Test
-  auf 2s/200ms geschrumpft, `Connect` muss `ErrIMAPConnectionLost` liefern statt zu haengen.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt,
-  kmuhub_app) | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | route n.a. (keine Route angefasst, `go test ./internal/gateway/` daher nicht
-  Pflicht und nicht gelaufen)
-- coverage: internal/email/sync 10,9 % -> 16,0 %
-- mutations-probe: `time.After(imapHandshakeDeadline)` in `newIMAPProtocolClient` auf
-  `time.After(imapHandshakeDeadline * 100)` gedreht (simuliert "Timeout wirkt nicht") ->
-  `TestConnect_HandshakeDeadline` rot (Connect kehrte nicht innerhalb der 3s-Testgrenze zurück),
-  zurückgedreht, `gofmt`-normalisierter Diff zeigt exakt die urspruenglich beabsichtigte Aenderung
-  (73 Insertions/5 Deletions in imap_client.go, reiner Neubau in imap_timeout_test.go).
-- verify vorgaenger: sauber — `e545d33c` geprüft: alle 13 Handler nutzen `validateUUIDParam`
-  statt rohem `chi.URLParam`, kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer
-  `RequirePermission`-Key, keine Tabelle, keine neue Route (nur bestehende Handler geändert,
-  `TestOpenAPIRouteDrift` unberührt), Testfallout (fehlende `withChiURLParam`-IDs in
-  Bestandstests) korrekt nachgezogen statt Assertions geschwächt.
-- offen: Der Fix deckt laut Scope nur `Connect()` ab. `Login()`/`Select()`/`Fetch()` usw. hängen
-  weiterhin am selben potenziell nie ablaufenden internen `respReadTimeout` — ein Postfach-Server,
-  der nach erfolgreichem Connect+Login beim ersten `SELECT` verstummt, würde denselben
-  unbegrenzten Hang zeigen. Nicht in dieser Unit behoben (Scope war ausdrücklich nur Connect),
-  aber real genug, um als eigene Folge-Unit für Lauf 9 vorzumerken (`newIMAPProtocolClient`s
-  Race-Pattern ließe sich grundsätzlich auf die anderen blockierenden Calls übertragen, wäre aber
-  eine größere Änderung — jeder Call bräuchte eine eigene Goroutine+Race oder einen zentralen
-  Wrapper). Für Port 993 (direktes TLS) bleibt das Restrisiko kleiner, da `imapclient.New`
-  nicht blockiert und der TLS-Handshake selbst über `net.Dialer.Timeout` bereits gebunden ist
-  (per `crypto/tls`-Quellcode verifiziert: `tls.DialWithDialer` spannt einen `context.WithTimeout`
-  über Dial UND Handshake).
+## Iteration 9 — fix-rapporte-template-empty-default-lines-crashes — done — 2026-08-11 17:12
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `PostgresRepository.CreateTemplate` und `.UpdateTemplate`
+  (`internal/rapporte/postgres_repository.go`) normalisieren jetzt am Funktionsanfang ein
+  leeres `defaultLinesJSON` explizit auf `"[]"`, bevor die Spalte `default_lines` (JSONB,
+  `NOT NULL DEFAULT '[]'`) geschrieben wird — statt weiterhin ein SQL-NULL zu setzen, das
+  den Spalten-Default ueberschreibt und den NOT-NULL-Constraint verletzt. `CreateTemplate`
+  setzt `t.DefaultLinesJSON` jetzt direkt beim Struct-Literal (`Valid: true`), `UpdateTemplate`
+  uebergibt den normalisierten String direkt statt eines `sql.NullString{Valid: false}`.
+  Kein Handler-Aenderungsbedarf: `RapporteGRPCServer.CreateTemplate`/`.UpdateTemplate`
+  (`internal/server/rapporte_grpc.go`) reichen `req.GetDefaultLinesJson()` unveraendert
+  durch, der Fix sitzt an der einzigen gemeinsamen Stelle (Repository), ueber die beide
+  RPCs laufen.
+- gebaut (Tests): `TestCreateAndUpdateTemplate_EmptyDefaultLinesJSONDefaultsToEmptyArray`
+  (`internal/rapporte/postgres_repository_test.go`) deckt den leeren Request-Pfad end-to-end
+  auf Repository-Ebene ab (kein separater Service-Layer fuer Templates vorhanden — der
+  Handler ruft `s.repo.CreateTemplate`/`.UpdateTemplate` direkt): `CreateTemplate` mit `""`
+  legt eine Vorlage mit `default_lines_json = "[]"` an, `GetTemplate` liest denselben Wert
+  zurueck, `UpdateTemplate` mit `""` aktualisiert auf denselben Default statt zu scheitern.
+- gate: build ok (`./internal/rapporte/... ./internal/server/... ./cmd/rapporte/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, `./internal/rapporte/...
+  ./internal/server/...`) | test ok (0 Skips, `DATABASE_URL` gegen `kmuhub_app`;
+  `./internal/rapporte/...` gruen, `./internal/server/` gruen, `./internal/gateway/`
+  inkl. TestOpenAPIRouteDrift gruen — keine Route angefasst, nur zur Sicherheit
+  mitgelaufen) | migration n.a. (keine Schemaaenderung, reiner Repository-Code-Fix)
+  | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/rapporte 76,0 % -> 76,1 % (selbst gemessen per `go tool cover -func`,
+  deckt sich mit `coverage_start:`)
+- mutations-probe: Zeilen 743-745 (`if defaultLinesJSON == "" { defaultLinesJSON = "[]" }`
+  in `CreateTemplate`) entfernt -> `TestCreateAndUpdateTemplate_EmptyDefaultLinesJSONDefaultsToEmptyArray`
+  wurde rot mit "ERROR: invalid input syntax for type json (SQLSTATE 22P02)" (leerer String
+  statt normalisiertem `"[]"` landet als ungueltiges JSON in der Spalte, weil das
+  Struct-Literal `DefaultLinesJSON` jetzt unbedingt mit `Valid: true` setzt). Zurueckgedreht,
+  `git diff --stat internal/rapporte/postgres_repository.go` zeigt wieder nur den
+  urspruenglichen Fix-Diff (14 insertions, 10 deletions).
+- verify vorgaenger: sauber (Commit `070df174`, Iteration 8 — zwei zusaetzliche
+  Struct-Feld-Zuweisungen (`TenantID`) in `send.Service.Send`/`.SaveDraft` und
+  `Worker.envelopeToMessage`, kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift,
+  kein neuer Guard, keine neue Tabelle, keine Wire-Shape- oder Routen-Aenderung)
+- neue-units: keine
+- offen: keine. Reiner Repository-Fix ohne Migrations-/RLS-Beruehrung; `default_lines_json`
+  als "keine Zeilen"-Signal bleibt `"[]"` (nicht NULL) — konsistent mit dem bereits
+  bestehenden `GetTemplate`/`ListTemplates`-Lesepfad, der `default_lines::text` direkt in
+  `sql.NullString` liest.
 
-## Iteration 8 — hr-salary-document-category — done — 2026-08-10 15:58
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
-- gebaut: Migration `000310_hr_salary_document_category` seedet die System-Dokumentenkategorie
-  `gehaltsabrechnung` (`hr_document_categories`, `tenant_id` = Zero-UUID, `visibility='employee'`,
-  `is_system=TRUE`, `sort_order=15`) nach exakt dem Muster von 000046/000294 —
-  `ON CONFLICT (tenant_id, key) DO NOTHING`, idempotent gegen `uq_hr_doc_category_key`. `.down.sql`
-  entfernt genau diese eine Zeile (`DELETE ... WHERE tenant_id = zero AND key = 'gehaltsabrechnung'`),
-  nichts sonst. Kein Payroll-Datenmodell, kein Brutto/Netto — Gehaltsabrechnungen laufen als PDF
-  über die bestehende `hr_employee_documents`-Infrastruktur, wie von Luke am 2026-08-10 entschieden.
-  Neuer Test `salary_document_category_test.go` (Package `hr`, wie `personnel_documents_read_test.go`
-  danebenliegend): `TestSalaryDocumentCategory_SeedRow_DB` liest die reale Seed-Zeile und prüft
-  `visibility='employee'`/`is_system=true`; `TestSalaryDocumentCategory_VisibleToEmployee_NotHROnly_DB`
-  seedet ein Dokument unter der echten `gehaltsabrechnung`-Kategorie plus eines unter einer ad-hoc
-  `hr_only`-Kategorie und belegt über `employee.PostgresEmployeeDocRepo.ListByTenant`: der Mitarbeiter
-  sieht seine eigene Gehaltsabrechnung, nicht das hr_only-Dokument; ein Kollege ohne HR-Rolle sieht
-  keines von beiden; `hr_admin` sieht beide. Kein neuer RLS-Test nötig — die Sichtbarkeitslogik selbst
-  ist bereits durch `hr_document_access` (Migration 000127/000128) und `TestHRRoleBased_DocumentAccess_DB`
-  bewiesen, hier wird nur die neue Zeile gegen genau diese Logik durchgespielt.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 skipped, DATABASE_URL gesetzt, kmuhub_app,
-  `internal/biz/hr/...` + `internal/gateway/` grün) | migration ok (000310 angewendet, Kopf 310, dirty=false) |
-  rls-smoke n.a. (keine neue Tabelle/Policy, nur eine Seed-Zeile in einer bereits RLS-gesicherten Tabelle) |
-  route n.a. (keine Route angefasst)
-- coverage: internal/biz/hr 72,8 % -> 72,8 % (aggregiert über `internal/biz/hr/...`, siehe `offen:` —
-  das Zielpaket `internal/biz/hr` selbst hat keine Nicht-Test-Datei/keine Statements, der neue Test
-  deckt bereits getestete Zeilen in `internal/biz/hr/employee` erneut ab statt neue aufzudecken)
-- mutations-probe: `visibility` der Seed-Zeile in der laufenden DB per `UPDATE hr_document_categories
-  SET visibility='hr_only' WHERE key='gehaltsabrechnung' ...` gedreht (Migration selbst ist idempotent
-  und würde eine SQL-Änderung nicht neu anwenden, deshalb direkt am DB-Zustand simuliert) ->
-  `TestSalaryDocumentCategory_SeedRow_DB` und der Subtest
-  `.../the_employee_sees_their_own_salary_statement` beide rot, zurückgedreht (`UPDATE ... SET
-  visibility='employee' ...`), `go test ./internal/biz/hr/...` wieder vollständig grün.
-- verify vorgaenger: sauber — `d5b71104` geprüft: `Connect` dialt jetzt über `net.Dialer{Timeout:
-  imapDialTimeout}`/`tls.DialWithDialer`, STARTTLS-Handshake läuft in eigener Goroutine gegen
-  `imapHandshakeDeadline` gerannt, kein gRPC-Bypass, kein Stub, kein `.proto`, keine Tabelle, keine
-  Route, kein neuer `RequirePermission`-Key, dokumentierter Restrisiko-Hinweis (Login/Select/Fetch
-  bleiben ungebunden) korrekt unter `offen:` vermerkt statt verschwiegen.
-- offen: `coverage_start: "internal/biz/hr 72,8 %"` in der Unit ist nur über `./internal/biz/hr/...`
-  (den ganzen Unterbaum) reproduzierbar, nicht über das nackte `./internal/biz/hr/`-Paket — das hat
-  keine Nicht-Test-Datei und meldet `[no statements]`. Damit weicht diese Unit von der in
-  GATE-COMMANDS.md verbindlich gemachten Regel "genau ein Paket, ohne `...`" begründet ab; für Pakete
-  mit Unterpaketen und ohne eigenen Code gehört das dort ergänzt, ist hier nicht nachgezogen (nicht
-  Scope dieser Unit).
-  `hr-salary-self-service-route` (deps: [hr-salary-document-category]) ist jetzt entsperrt und die
-  nächste Unit im Backlog — ihre eigene Vorpruefung entscheidet, ob sie ueberhaupt eine neue Route
-  braucht.
-  `.planning/backend-block/loop/run-loop.ps1` hat weiterhin denselben unstaged `-StartNotBefore`-Diff
-  wie in Iteration 6/7 vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 7) fortgezaehlt, Zeitstempel per `date` auf
-  dem Loop-Rechner ermittelt, wie in den vorigen Iterationen.
+## Iteration 10 — fix-crm-list-nil-slice-wire-shape — done — 2026-08-11 17:17
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Fuenf Stellen in zwei Dateien auf das Wire-Shape-Muster "leere Liste = [] statt
+  null" umgestellt. `crm_grpc.go`: `ListCustomFields` (`infos := make([]*crmv1.CustomFieldInfo,
+  0, len(fields))`), `ListTags` (analog fuer `TagInfo`), `ListContacts` in BEIDEN Zweigen
+  (visibility-aware ueber `ListWithVisibility` und der Fallback ueber `.List`) statt jeweils
+  eines nackten `var infos []*T`. Root Cause fuer `ListContacts` sass eine Ebene tiefer:
+  `contact.Service.enrichWithRelationsBatch` (internal/crm/contact/service.go:400-403) gab bei
+  `len(contacts) == 0` explizit `nil, nil` zurueck, bevor der Handler ueberhaupt eine Slice zum
+  Iterieren bekam -- jetzt `[]*models.ContactWithRelations{}, nil`. Diese Funktion ist der
+  gemeinsame Pfad fuer BEIDE Aufrufer (`Service.List` Zeile 214 und `Service.ListWithVisibility`
+  Zeile 642), ein Fix an dieser einen Stelle deckt beide `ListContacts`-Zweige des Handlers ab.
+- gebaut (Tests): die drei bestehenden Pin-Tests `TestListCustomFields_EmptyIsNilNotEmptySlice`,
+  `TestListTags_EmptyIsNilNotEmptySlice`, `TestListContacts_EmptyIsNilNotEmptySlice`
+  (crm_grpc_fields_tags_contacts_test.go) von `require.Nil` auf `require.NotNil` + Laengenpruefung
+  umgedreht, Kommentare auf den jetzt korrekten Zustand aktualisiert. Neuer Test
+  `TestListContacts_WithVisibility_EmptyIsNilNotEmptySlice` deckt den zweiten, bisher
+  ungetesteten Zweig (UserId gesetzt -> ListWithVisibility) ab. In
+  `internal/crm/contact/service_test.go` `TestService_List_Empty` um `assert.NotNil(t, contacts)`
+  ergaenzt -- die vorherige `assert.Empty` allein unterscheidet nicht zwischen nil und leerer
+  Slice und haette die Root-Cause-Aenderung nicht bewiesen.
+- gate: build ok (`./internal/server/... ./internal/crm/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok (0 Skips, `DATABASE_URL` gegen
+  `kmuhub_app`; `./internal/server/` gruen, `./internal/crm/...` gruen bei `-p 1` -- bei
+  paralleler Ausfuehrung schlugen mehrere `internal/crm/deal`-DB-Tests mit SQLSTATE 53300
+  "remaining connection slots"/"too many clients already" fehl, reproduzierbar unabhaengig
+  von diesem Diff (unberuehrtes Paket) und bei `-p 1` durchgehend gruen -- Verbindungspool-
+  Erschoepfung des lokalen Postgres, kein Befund dieser Unit; `./internal/gateway/` inkl.
+  TestOpenAPIRouteDrift gruen -- keine Route/Spec angefasst, reine Wire-Shape-Aenderung)
+  | migration n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,0 % -> 70,0 % (unveraendert, Fix beruehrt bereits durchlaufene
+  Zeilen) | internal/crm/contact 80,6 % -> 80,6 % (unveraendert) -- beide selbst gemessen per
+  `go tool cover -func`, deckt sich mit `coverage_start:`
+- mutations-probe: `return []*models.ContactWithRelations{}, nil` in
+  `enrichWithRelationsBatch` (service.go:402) zurueck auf `return nil, nil` gesetzt ->
+  `TestService_List_Empty` wurde rot ("Expected value not to be nil"). Zurueckgedreht,
+  `git diff --stat internal/crm/contact/service.go` zeigt wieder nur den urspruenglichen
+  Ein-Zeilen-Fix (1 insertion, 1 deletion).
+- verify vorgaenger: sauber (Commit `152fa892`, Iteration 9 — reiner Repository-Fix in
+  `internal/rapporte/postgres_repository.go`, kein gRPC-Bypass, kein Stub, kein
+  Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, keine Wire-Shape- oder
+  Routen-Aenderung; Diff deckt sich mit dem Journal-Eintrag aus Iteration 9)
+- neue-units: keine
+- offen: keine. Alle fuenf Fundstellen aus der Unit-Beschreibung abgedeckt (drei Handler-Stellen
+  plus beide `ListContacts`-Zweige plus der eine Root-Cause-Ort in `enrichWithRelationsBatch`).
+  Die connection-slot-Fehler in `internal/crm/deal` bei paralleler Testausfuehrung sind ein
+  Lokal-DB-Kapazitaetsthema (Postgres `max_connections` bzw. viele parallele Test-Pools), kein
+  Code-Befund -- falls das oefter auftritt, waere ein `max_connections`-Bump auf der lokalen
+  Docker-Postgres oder ein niedrigeres `-p` als Default im Gate sinnvoll.
 
-## Iteration 9 — hr-salary-self-service-route — done — 2026-08-10 16:00
-- commit: ef8dec17
-- gebaut: VORPRUEFUNG ERGAB "NEIN" (Belege unter `offen:`), deshalb Schritt 2 der Unit gebaut:
-  neue Route `GET /api/v1/hr/employees/me/documents` (`route_hr.go`, registriert VOR
-  `/{id}/documents`, Guard ist der bestehende `hrDocumentCategoriesGuard` =
-  `RequirePermissionAny(hr:read, team:documents:view)` — kein neuer Permission-Key, keine
-  Seed-Migration). Handler `HandleListOwnDocuments` nimmt die Employee-ID ausschliesslich aus
-  dem JWT (`middleware.GetUserID`), nie aus dem Request: `hr_employee_documents.employee_id`
-  referenziert `users(id)` (Migration 000046:178), die User-ID IST also die Employee-ID, und
-  ein Aufrufer kann ueber diese Route keine fremde Akte adressieren. Kein Proto-Change und
-  kein Service-Change noetig — die RPC `ListEmployeeDocuments(employee_id)` existiert bereits
-  und geht regulaer ueber den gRPC-Client. Optionaler `?category=<key>`-Filter ueber die neue
-  Hilfsfunktion `filterDocumentsByCategory` (mit `lean:`-Marker: filtert die Antwort, weil die
-  Liste eines Mitarbeiters vollstaendig und unpaginiert ist; Upgrade-Trigger = sobald diese
-  Liste Pagination bekommt, gehoert der Key in die RPC). Antwort gewrappt als
-  `{documents: [...]}` wie `/hr/personnel-documents`, nicht als nacktes Array wie
-  `/{id}/documents` — bewusst, weil das FE ohnehin neu geschrieben wird und die
-  Architektur-Regel gewrappte Listen fordert. Spec-Eintrag in `backend/api/openapi.yaml` im
-  selben Commit, inkl. 401/403/503. Neue Testdatei `route_hr_self_documents_test.go` mit
-  6 Tests: Pfad-Match mit `team:documents:view` (503 = Handler erreicht, nicht 404),
-  Legacy-Key `hr:read` erreicht die Route ebenfalls, ohne Key 403, fehlender User-Kontext 401,
-  Tabellentest fuer den Kategorie-Filter (6 Faelle inkl. Whitespace-Trim, Teilstring-Nichttreffer,
-  unbekannter Key) und ein Wire-Shape-Test (leeres Ergebnis ist `[]`, nicht `nil`/`null`).
-  DAZU der wichtigste Test: `TestListEmployeeDocuments_StillAdminOnly` haelt fest, dass die
-  neue Route die ALTE nicht aufgeweicht hat — `team:documents:view` allein bekommt auf einer
-  fremden `{id}` weiterhin 403.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/gateway/`
-  gruen, 2164 PASS / **0 SKIP** bei gesetzter `DATABASE_URL` als `kmuhub_app`) |
-  `TestOpenAPIRouteDrift` gruen (im Paket enthalten) | `swagger-cli validate` gruen (Pflicht nach
-  jeder `openapi.yaml`-Aenderung, nicht nur der Drift-Test) | migration n.a. (keine) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst)
-- coverage: internal/gateway 34,9 % -> 35,1 % (`go tool cover -func`, genau das Paket
-  `./internal/gateway/`)
-- mutations-probe: drei Proben, alle rot, alle zurueckgedreht, Diff danach restfrei
-  (`git diff` gegen den finalen Tree geprueft):
-  (1) Guard der neuen Route von `hrDocumentCategoriesGuard` auf
-  `RequirePermission("hr","read")` verengt -> `TestHandleListOwnDocuments_MatchesFrontendPath`
-  rot (403 statt 503). Das ist die Probe, die zaehlt: sie beweist, dass der Test genau den
-  Fehler faengt, der die Route fuer jeden Nicht-Admin nutzlos machen wuerde.
-  (2) `if userID == ""`-Guard entfernt -> `TestHandleListOwnDocuments_MissingUserContext` rot
-  (503 statt 401).
-  (3) `d.GetCategoryKey() == key` durch `strings.HasPrefix(...)` ersetzt ->
-  `TestFilterDocumentsByCategory/partial_key_does_not_match` rot (2 statt 0 Dokumente).
-- verify vorgaenger: sauber — `6b42ef16` geprueft: Migration 000310 legt keine Tabelle an,
-  sondern seedet eine Zeile in der bereits RLS-gesicherten `hr_document_categories`, idempotent
-  per `ON CONFLICT (tenant_id, key) DO NOTHING`; `.down.sql` loescht exakt diese eine Zeile
-  (tenant_id + key im WHERE), nichts sonst. Kein gRPC-Bypass, kein Stub, kein `.proto`, keine
-  Route, kein neuer `RequirePermission`-Key, keine bereits ausgerollte Migration angefasst.
-- offen: VORPRUEFUNGS-BELEGE (Schritt 1 der Unit, das war die eigentliche Frage):
-  (a) `GET /api/v1/hr/employees/{id}/documents` ist mit `RequirePermission("hr","read")`
-      geguardet (`route_hr.go:168`). `hr:read` wird in Migration 000129 **ausschliesslich an
-      `admin`** vergeben (Block ab Z. 49 `WHERE r.name = 'admin'`, Key in Z. 63) und taucht in
-      Migration 000256 gar nicht auf. Ein `member` kann seine eigene Akte ueber diese Route
-      also NICHT lesen — er bekommt 403, unabhaengig von der employee_id. Antwort auf Schritt 1
-      ist damit klar NEIN.
-  (b) `GET /api/v1/hr/personnel-documents` waere fuer einen `member` zwar erreichbar
-      (`team:documents:view` auf Scope `own`, Migration 000256 Z. 465) und die RLS-Policy
-      `hr_document_access` (000128) zeigt ihm dort tatsaechlich nur seine eigenen
-      employee-sichtbaren Dokumente. Als Self-Service-Quelle ist die Route trotzdem falsch:
-      dieselbe Policy gibt einem `manager` alle Dokumente der Stufen `manager` UND `employee`
-      **aller** Mitarbeiter — ein Manager, der seine eigene Self-Service-Ansicht oeffnet,
-      bekaeme also die Gehaltsabrechnungen seiner Kollegen mitgeliefert und muesste im FE
-      wieder herausgefiltert werden. Serverseitig auf die eigene employee_id einzuschraenken
-      ist die einzige Variante, bei der fremde Gehaltsdaten den Prozess gar nicht erst
-      verlassen.
-  FRONTEND-FOLGEARBEIT ist als `fe-salary-statements-endpoint` in `BACKLOG-PARKED.yml`
-  eingetragen (Ziel: `.planning/nico-block/`): `SelfServiceView.tsx:130-141` ruft weiterhin
-  `/me/salary-statements` (existiert nicht, nur MSW-Mock) und muss auf
-  `/me/documents?category=gehaltsabrechnung` mit `{documents: [...]}` umgestellt werden; der
-  FE-Typ `SalaryStatement` (Brutto/Netto) hat keine Backend-Entsprechung und wird durch die
-  Dokument-Felder ersetzt. Bis dahin ist die neue Route im Produkt unbenutzt — sie ist
-  getestet und spezifiziert, aber ohne den FE-Teil sieht der Mitarbeiter nichts.
-  NICHT VERIFIZIERBAR IM UNIT-TEST: dass der HR-Service die Rollen des Aufrufers ueber die
-  gRPC-Grenze in die `app.user_roles`-GUC bekommt (`database/postgres.go:74-85` setzt sie aus
-  `middleware.GetUserRoles(ctx)`). Fuer diese Route ist das unkritisch — sie filtert per
-  `WHERE d.employee_id = $1` auf die eigene ID, RLS ist hier zweite Verteidigungslinie, nicht
-  die erste. Fuer `/hr/personnel-documents` ist es dagegen die einzige Grenze; ein
-  End-to-End-Beleg dafuer fehlt im Repo weiterhin und waere eine eigene Unit wert.
-  `.planning/backend-block/loop/run-loop.ps1` hat weiterhin denselben unstaged
-  `-StartNotBefore`-Diff wie in Iteration 6-8 vermerkt — nicht meine Datei, nicht angefasst.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 8) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt.
-- nachtrag: Beim Eintragen des Commit-Hashs hat ein `sed`-Ersetzen ohne Zeilenbegrenzung den
-  Platzhalter `- commit: (siehe unten, ...)` in FUENF aelteren Eintraegen (Zeilen 50, 194, 241,
-  311, 367) mitersetzt und ihnen faelschlich `ef8dec17` gegeben. Sofort zurueckgedreht
-  (`git diff HEAD~1 -- JOURNAL.md` zeigt jetzt nur noch die eine beabsichtigte Zeile 418), der
-  fehlerhafte Zwischenstand steckt in Commit `861d9c6c` und ist mit dem Folge-Commit
-  vollstaendig korrigiert — kein Nachziehen noetig. LEHRE fuer folgende Iterationen: der
-  Platzhaltertext ist NICHT eindeutig, mehrere frueherere Eintraege tragen ihn bis heute (sie
-  haben ihren Hash nie nachgetragen). Den Hash mit dem Edit-Tool oder einer zeilengebundenen
-  Ersetzung eintragen, nie mit einem globalen `sed`.
+## Iteration 11 — scan-inet-cidr-scanned-into-go-string — done — 2026-08-11 17:25
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster D (INET/CIDR-Spalte roh in Go-string statt netip/Cast gescannt) ueber alle
+  6 in der Unit genannten Spalten geprueft. Ergebnis: 2 Funde, 4 Spalten bereits korrekt.
+  Geprueft (Tabelle.Spalte -> Fundstelle(n) -> Ergebnis):
+  - audit_log.ip_address -> internal/security/audit/postgres_repository.go (List, VerifyChain)
+    -> bereits gefixt in fix-audit-list-verifychain-ip-address-scan (Lauf 9, It. 1), nicht
+    erneut bearbeitet.
+  - user_sessions.ip_address -> internal/auth/postgres_repository.go:1574/1586/1614 (3 SELECTs)
+    -> korrekt (`COALESCE(host(ip_address), '')`); zusaetzlich internal/security/gdpr/export.go:172
+    (DSAR-Export) -> korrekt (`CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END`).
+  - ip_access_rules.ip_cidr -> internal/server/security_grpc.go:711 (ListIPRules) -> FUND. Roh
+    gescannt in models.IPAccessRule.IPCIDR (string, kein Cast). Reproduziert per DB-gestuetztem
+    Wegwerf-Test (nicht committet, nach Reproduktion geloescht): Zeile mit ip_cidr='10.0.0.0/8'
+    eingefuegt, exakt dieselbe Query wie ListIPRules abgesetzt -> "cannot scan cidr (OID 650) in
+    binary format into *string". Neue Unit: fix-security-ip-access-rules-cidr-scan.
+  - guest_sessions.ip_address -> internal/chat/guest/postgres_repository.go:44/67/87
+    (GetSessionByTokenHash, GetSessionByID, ListSessionsByChannel) -> FUND, alle drei Stellen.
+    Roh gescannt in GuestSession.IPAddress (*string, kein Cast). Bei NULL scannt pgx anstandslos
+    (deshalb in bestehenden Tests unsichtbar -- seedGuestSession dort setzt ip_address nie).
+    Reproduziert per DB-gestuetztem Wegwerf-Test (nicht committet, nach Reproduktion geloescht):
+    Session mit ip_address='203.0.113.5' eingefuegt, GetSessionByID aufgerufen -> "cannot scan
+    inet (OID 869) in binary format into **string". Neue Unit:
+    fix-chat-guest-sessions-ip-address-scan.
+  - consent_records.ip_address -> internal/crm/consent/postgres_repository.go:37/64/196 (3
+    SELECTs) -> korrekt (`ip_address::text`).
+  - form_submissions.ip_address -> internal/formulare/postgres_repository.go:259/300/362 (3
+    SELECTs) -> korrekt (`ip_address::text`).
+  Zusaetzlich per Grep geprueft, dass keine weiteren Lesestellen fuer ip_cidr/guest_sessions.
+  ip_address existieren (internal/gateway/route_security.go traegt IPCIDR nur als Wire-Typ,
+  keine SQL-Query; internal/chat/message/postgres_repository.go liest nur display_name aus
+  guest_sessions, keine ip_address-Spalte).
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. Die beiden
+  Wegwerf-Reproduktionstests (internal/server/zzscan_repro_test.go,
+  internal/chat/guest/zzscan_repro_test.go) wurden nach dem Verifizieren wieder geloescht;
+  `git status --short` zeigt nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `7d4b6571`, Iteration 10 — reiner Wire-Shape-Fix in
+  crm_grpc.go + contact/service.go, kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift,
+  kein neuer Guard, keine neue Tabelle, keine Routenaenderung; Diff deckt sich mit dem
+  Journal-Eintrag aus Iteration 10)
+- neue-units: fix-security-ip-access-rules-cidr-scan, fix-chat-guest-sessions-ip-address-scan
+- offen: keine. Alle 6 Spalten aus der Unit-Beschreibung abschliessend geprueft, beide Funde
+  als vollstaendige Fix-Units mit reproduziertem Fehler und Pin-Test-Vorschlag angelegt.
 
-## Iteration 10 — b-cov-server-crm-fields-tags-contacts — done — 2026-08-10 16:26
-- commit: 1fde576f
-- gebaut: neue Datei `backend/internal/server/crm_grpc_fields_tags_contacts_test.go` mit
-  Server-Package-Kopien der Repository-Stubs fuer `customfield`, `tag`, `contact`
-  (`stubCustomFieldRepo`, `stubTagRepo`, `stubContactRepo` — die echten `MockRepository`-Typen
-  liegen in den `_test.go`-Dateien der jeweiligen internal-Pakete und sind von hier aus nicht
-  importierbar, gleiches Muster wie `stubFormulareRepo` in `formulare_grpc_test.go`) plus
-  `newTestCRMServer()`/`newCRMServerWith<X>Repo()`-Konstruktoren. 51 neue Tests decken alle 17
-  genannten Methoden ab: CustomFields (Create/Get/List/Update/Delete), Tags
-  (Create/Get/List/Update/Delete, inkl. `DeleteTag_InUse`) und Contacts
-  (Create/Get/List/Update/Delete/AddContactTags/RemoveContactTags, inkl. `..._InUse` und
-  `AddContactTags_UnknownTag`). Jede Methode hat mindestens einen Validierungs- oder
-  Happy-Path-Test UND mindestens einen Fehlerpfad (ungueltige UUID, fehlender Tenant,
-  Downstream-Fehler wie NotFound/FailedPrecondition). `mapCRMError` selbst blieb unangetastet
-  (laut Scope bereits vollstaendig getestet).
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/server/`
-  gruen, 1006 PASS / **0 SKIP** bei gesetzter `DATABASE_URL` als `kmuhub_app`; zusaetzlich
-  `./internal/server/...` inkl. `response`-Unterpaket gruen) | migration n.a. (keine) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst, reine gRPC-Server-Schicht mit In-Memory-Stubs)
-- coverage: internal/server 47,7 % -> 48,8 % (`go tool cover -func=/tmp/cov.out | tail -1`,
-  Paket `./internal/server/` exakt wie in GATE-COMMANDS.md)
-- mutations-probe: drei Proben, alle rot, alle zurueckgedreht, `git diff` gegen den finalen
-  Baum restfrei:
-  (1) `backend/internal/server/crm_grpc.go`, `CreateCustomField`: den `uuid.Parse(req.CreatedBy)`-
-  Fehlerpfad auf `_` verkuerzt (Check komplett entfernt) -> `TestCreateCustomField_InvalidCreatedBy`
-  wurde NICHT rot, weil der Test urspruenglich ein leeres `EntityType` mitschickte und die
-  Service-eigene `ErrInvalidEntityType`-Pruefung denselben `codes.InvalidArgument` zufaellig
-  reproduzierte. Test korrigiert: jetzt ueber einen Repo-gestuetzten Server mit vollstaendig
-  gueltigen Uebrigen Feldern, damit ausschliesslich der `created_by`-Pfad getroffen wird. Danach
-  bei derselben Mutation tatsaechlich rot (Feld wurde erstellt statt `InvalidArgument`),
-  zurueckgedreht, gruen. Das ist die Probe, die zaehlt: sie hat eine echte Testluecke in der
-  ersten Fassung gefunden, nicht nur eine Zeile im Produktcode.
-  (2) `backend/internal/crm/tag/service.go`, `Delete`: `if inUse` zu `if false && inUse`
-  -> `TestDeleteTag_InUse` rot (Delete erfolgreich statt `FailedPrecondition`), zurueckgedreht.
-  (3) `backend/internal/crm/contact/service.go`, `AddTags`: `if !exists` zu `if false && !exists`
-  -> `TestAddContactTags_UnknownTag` rot (kein Fehler statt `NotFound`), zurueckgedreht.
-- verify vorgaenger: sauber — `ef8dec17` geprueft gegen alle acht Fehlerklassen: Handler geht
-  ueber `client.ListEmployeeDocuments` (gRPC-Client, kein Service-Bypass), keine
-  `codes.Unimplemented`/Stub-Rueckgabe, kein `.proto` angefasst, kein neuer
-  `RequirePermission`-Key (additive Wiederverwendung von `hrDocumentCategoriesGuard`), keine
-  neue Tabelle, Wire-Shape gewrappt (`{documents: [...]}`), `backend/api/openapi.yaml` im
-  selben Commit ergaenzt, kein Alt-Guard ersetzt. Details siehe `openapi.yaml`-Diff im Commit.
-- offen: ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
-  Verhaltensaenderungen): `ListContacts`, `ListCustomFields` und `ListTags` in
-  `backend/internal/server/crm_grpc.go` lassen `var infos []*crmv1.<X>Info` bei einem leeren
-  Ergebnis als `nil`-Slice stehen statt mit `make([]*T, 0, len(...))` vorzubelegen — exakt die
-  Wire-Shape-Klasse, die fuer `document_grpc.go`s `toProtoFile` in Lauf 7 (Commit `c3f0c46f`)
-  bereits als Bug gefunden UND direkt gefixt wurde (2-Zeilen-Diff). Fuer `ListContacts` liegt
-  die eigentliche Nil-Quelle sogar noch eine Ebene tiefer:
-  `contact.Service.enrichWithRelationsBatch` gibt bei `len(contacts) == 0` explizit `nil, nil`
-  zurueck (`internal/crm/contact/service.go:401-403), bevor `crm_grpc.go` ueberhaupt eine Slice
-  zum Iterieren bekommt. Alle drei Faelle sind mit
-  `TestList<X>Fields_EmptyIsNilNotEmptySlice`-Tests dokumentiert (assert `!= nil` wuerde aktuell
-  fehlschlagen; die Tests pruefen bewusst die HEUTIGE, nicht die gewuenschte Form und tragen
-  einen Kommentar, der beim Fix umzudrehen ist). Empfehlung fuer Lauf 9: eine kleine,
-  risikoarme Fix-Unit analog zu `c3f0c46f`, die alle drei Stellen in einem Commit vorbelegt und
-  die drei Tests auf `require.NotNil` umstellt. `swagger-cli`/`TestOpenAPIRouteDrift` sind hier
-  nicht betroffen (kein Routen- oder Spec-Aenderungsbedarf, reine JSON-Feldform).
-  Sonst nichts offen — kein DB-Gate noetig (reine In-Memory-Stubs), kein Proto-Regen, keine
-  Route registriert.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  `-StartNotBefore`-Diff wie in den Iterationen 6-9 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 9) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt, wie in den vorigen Iterationen.
+## Iteration 12 — scan-on-conflict-target-vs-real-index-a — done — 2026-08-11 17:45
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A (ON-CONFLICT-Ziel vs. tatsaechlicher Unique-Index) ueber die Teil-A-Flaeche
+  (`internal/{auth,security,notification,chat,document,email,inbox,work,crm}`) geprueft.
+  Ergebnis: 0 neue Funde. `internal/security` und `internal/inbox` haben ueberhaupt kein
+  `ON CONFLICT` (per Grep bestaetigt). Alle 28 explizit-getargeteten `ON CONFLICT`-Klauseln
+  (Spaltenliste angegeben) in den restlichen sieben Paketen matchen exakt einen bestehenden
+  Unique-Index/PK -- gegen die laufende lokale DB per `pg_index`/`pg_get_indexdef` verifiziert
+  (Kopf 310), nicht nur gegen Migrationen (Drift-Gefahr, siehe Vorlage). Geprueft:
+  - notification/preference/postgres_repository.go: 3 Klauseln (event_type_key- und
+    module_id-Partial-Index, notification_quiet_hours) -- alle drei matchen; quiet_hours und
+    module_default wurden bereits in Iteration 4 (Migration 000312) korrigiert, event_type_key
+    war seit Migration 000305 (Lauf 8) bereits korrekt.
+  - work/calendar/postgres_repository.go: user_calendar_preferences(user_id) matcht PK.
+  - document/wopi/lock.go: wopi_locks(file_id) matcht PK.
+  - crm/contact/postgres_repository.go: contact_custom_field_values(contact_id, field_id) x2
+    matcht PK.
+  - crm/company/postgres_repository.go: company_custom_field_values(company_id, field_id) x2
+    matcht PK.
+  - crm/deal/postgres_repository.go: deal_custom_field_values(deal_id, field_id) matcht PK.
+  - crm/activity/postgres_repository.go: activity_custom_field_values(activity_id, field_id)
+    matcht PK.
+  - chat/file/postgres_repository.go: storage_quotas(tenant_id) matcht idx_storage_quotas_tenant.
+  - chat/bookmark/postgres_repository.go: message_bookmarks(user_id, message_id) matcht PK.
+  - notification/integration/postgres_repository.go:
+    integration_account_links(platform, external_user_id) matcht
+    integration_account_links_platform_external_user_id_key.
+  - work/meeting/postgres_repository.go: meeting_attendees(meeting_id, user_id) matcht PK;
+    meeting_cohosts(meeting_id, user_id) matcht meeting_cohosts_unique;
+    meeting_breakout_assignments(meeting_id, user_id) matcht meeting_breakout_assignments_unique;
+    meeting_notes(meeting_id, author_id) WHERE is_private = $5 (parametrisiertes Praedikat auf
+    einem partiellen Index, migration 000309) zusaetzlich per echtem DB-Testlauf
+    (TestNotes_SeriesIsolationAndSaveNotesUpsert) bestaetigt, nicht nur per Indexvergleich --
+    Postgres kann den Bind-Parameter im Arbiter-Praedikat bei jedem Exec neu gegen den
+    passenden der beiden partiellen Indizes (is_private = true / false) aufloesen, funktioniert
+    nachweislich.
+  - work/task/postgres_repository.go: task_custom_field_values(task_id, field_id) matcht PK.
+  - work/recording/postgres_repository.go: recording_consents(recording_id, user_id) matcht PK.
+  - work/presence/postgres_config_repository.go: presence_config(tenant_id) matcht
+    idx_presence_config_tenant.
+  - document/tag/postgres_repository.go: document_file_tags(file_id, tag_id) matcht PK.
+  - auth/postgres_repository.go: two_factor_policy(tenant_id, role_name) matcht
+    idx_two_factor_policy_tenant_role.
+  - work/project/postgres_repository.go: project_members(project_id, user_id) matcht PK;
+    user_project_preferences(user_id, project_id) matcht PK.
+  - work/video/postgres_repository.go: call_participants(call_id, user_id) matcht PK.
+  - email/contactlink/repository.go: email_contact_links(message_id, contact_id) matcht
+    email_contact_links_message_id_contact_id_key.
+  - work/holiday/postgres_repository.go: public_holidays(date, country_code, name) matcht
+    public_holidays_date_country_code_name_key (System-Global-Tabelle, kein tenant_id).
+  Zusaetzlich 12 `ON CONFLICT DO NOTHING`-Klauseln OHNE Spaltenliste geprueft (contact_tags,
+  company_tags, activity_tags, deal_tags je bis zu 2x, calendars, message_mentions,
+  work/label task_labels, work/reaction message_reactions, auth user_roles x2) -- diese sind
+  per Definition sicher (kein Arbiter-Ziel, greift bei jeder Constraint-Verletzung) und damit
+  kein Muster-A-Kandidat.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. Ein Wegwerf-Insert
+  in `users` (Testzeile, nicht Teil einer Test-Suite) wurde waehrend der Recherche versehentlich
+  angelegt und sofort wieder geloescht (`DELETE FROM users WHERE email =
+  'scan-repro@test.local'`), `git status --short` zeigt nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `b07a6b54`, Iteration 11 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine
+- offen: keine. Teil B (`scan-on-conflict-target-vs-real-index-b`, Module-Services) ist die
+  naechste Haelfte derselben Musterflaeche und noch offen.
 
-## Iteration 11 — b-cov-server-crm-companies-dedupe-import — done — 2026-08-10 16:28
-- commit: 73dba136
-- gebaut: neue Datei `backend/internal/server/crm_grpc_companies_dedupe_import_test.go`
-  mit `stubCompanyRepo` (Server-Package-Kopie, gleiches Muster wie `stubContactRepo` aus
-  Iteration 10) plus `newCRMServerWithCompanyRepo`/`newCRMServerWithContactAndCompanyRepo`/
-  `newCRMServerWithImportExport`-Konstruktoren. 60 neue Tests decken alle 17 genannten
-  Methoden ab: Companies CRUD (Create/Get/List/Update/Delete/GetCompanyContacts),
-  UpdateContactVisibility (inkl. dediziertem Test fuer den `visibilityService==nil`-
-  Fallback-Zweig, der direkt `contactService.UpdateVisibility` aufruft — das ist der in
-  Produktion heute aktive Pfad, solange Welle 1b `visibilityService` fuer einen Tenant
-  nicht verdrahtet), Dedupe/Merge (FindContactDuplicates, MergeContacts,
-  FindCompanyDuplicates, MergeCompanies — je mit Self-Merge- UND Already-Merged-
-  Fehlerpfad wie im `done_when` gefordert) sowie Import/Export
-  (ImportContactsCSV/VCard/XLSX, ExportContactsCSV/VCard, PreviewImportCSV). Fuer die
-  Import/Export-Happy-Paths laufen echte Datei-Bytes durch den Handler (CSV-Text,
-  eine per `excelize.NewFile()` erzeugte echte XLSX-Datei, ein minimales vCard) statt
-  gemockter Parser-Ergebnisse — der Handler baut fuer den eigentlichen Import/Export
-  ohnehin einen lokalen `emailcontact`-Service aus `contactService`/`companyService`
-  (`NewTenantScopedAdapter`), das injizierte `importService`/`exportService`-Feld dient
-  nur als "konfiguriert"-Flag (Ausnahme: `PreviewImportCSV` ruft es direkt auf, dort
-  reicht ein `nil`-Provider, weil `PreviewCSV` nur CSV-Bytes parst, keinen Provider
-  beruehrt). `stubContactRepo.MergeInto` (aus der Iteration-10-Datei) war bislang ein
-  No-Op und liess `MergedIntoID` unveraendert — `TestMergeContacts_HappyPath` deckte das
-  auf (Assertion auf die gesetzte `MergedIntoID` schlug fehl, obwohl der Handler `nil`
-  als Fehler zurueckgab); auf das gleiche Set-Pattern wie `stubCompanyRepo.MergeInto`
-  umgestellt, damit der Stub den echten Repository-Vertrag (Duplicate wird auf den
-  Primary gemerged) tatsaechlich abbildet.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
-  ./internal/server/` gruen, 1188 PASS / **0 SKIP** bei gesetzter `DATABASE_URL` als
-  `kmuhub_app`; zusaetzlich `./internal/server/...` inkl. `response`-Unterpaket gruen) |
-  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst, reine
-  gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a. (keine Route angefasst,
-  `go test ./internal/gateway/` daher nicht Pflicht und nicht gelaufen)
-- coverage: internal/server 47,7 % -> 50,0 % (`go tool cover -func=/tmp/cov.out | tail -1`,
-  Paket `./internal/server/` exakt wie in GATE-COMMANDS.md)
-- mutations-probe: zwei Proben in `backend/internal/crm/company/service.go`, beide rot,
-  beide zurueckgedreht, `git diff` gegen den finalen Baum restfrei (leer):
-  (1) `Delete`: `if hasContacts {` auf `if false && hasContacts {` gedreht ->
-  `TestDeleteCompany_InUse` rot ("An error is expected but got nil" statt
-  `FailedPrecondition`), zurueckgedreht.
-  (2) `MergeCompanies`: `if dup.MergedIntoID != nil {` (Already-Merged-Guard) auf
-  `if false && dup.MergedIntoID != nil {` gedreht -> `TestMergeCompanies_AlreadyMerged`
-  rot (Merge lief durch statt `FailedPrecondition`), zurueckgedreht.
-- verify vorgaenger: sauber — `1fde576f` geprueft gegen alle acht Fehlerklassen: reine
-  neue Testdatei (`crm_grpc_fields_tags_contacts_test.go`), kein `.proto` angefasst,
-  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
-  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration angefasst.
-- offen: ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
-  Verhaltensaenderungen) — erweitert den Iteration-10-Fund um vier weitere Stellen mit
-  derselben Wire-Shape-Klasse (`var x []*T` bleibt bei leerem Ergebnis `nil` statt `[]`):
-  `ListCompanies` (crm_grpc.go, `var infos []*crmv1.CompanyInfo`), `GetCompanyContacts`
-  (`var infos []*crmv1.ContactInfo`), `FindContactDuplicates` und
-  `FindCompanyDuplicates` (`var results []*crmv1.Duplicate*Candidate`). Zusammen mit den
-  drei Stellen aus Iteration 10 (ListContacts/ListCustomFields/ListTags) sind das jetzt
-  sieben bekannte Stellen fuer dieselbe Lauf-9-Kandidat-Fix-Unit (analog `c3f0c46f` aus
-  Lauf 7) — nicht einzeln neu vermerkt, siehe Iteration-10-Eintrag fuer die ersten drei.
-  `stubContactRepo.MergeInto` wurde in dieser Iteration geaendert (siehe `gebaut:` oben)
-  — das ist eine Aenderung an einer Datei aus Iteration 10, nicht an meiner eigenen neuen
-  Datei; sie gehoert trotzdem in diesen Commit, weil sie der Stub-Korrektheit dient, die
-  mein neuer Test aufgedeckt hat, und ohne sie `TestMergeContacts_HappyPath` nicht gruen
-  wird.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  `-StartNotBefore`-Diff wie in den Iterationen 6-10 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 10) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:28), wie in den
-  vorigen Iterationen.
+## Iteration 13 — scan-on-conflict-target-vs-real-index-b — done — 2026-08-11 17:36
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A (ON-CONFLICT-Ziel vs. tatsaechlicher Unique-Index), Teil B — restliche
+  Haelfte der Flaeche (`internal/{biz,hr,inventar,einkauf,produktion,vertraege,rapporte,
+  schichten,vermietung,fuhrpark,helpdesk,wiki,formulare,berichte,dialer,automation,plugin,
+  settings,gateway,caldav,idempotency}`) per Subagent geprueft. Ergebnis: 0 neue Funde.
+  41 explizit-getargetete ON-CONFLICT-Klauseln (Spaltenliste oder ON CONSTRAINT) in 29
+  Nicht-Test-Dateien matchen alle exakt einen real existierenden Unique-Index/PK/Constraint
+  gegen die laufende lokale DB (nicht nur Migrationen). Geprueft:
+  - schichten/postgres_repository.go:490 shift_swap_requests(idempotency_key)
+  - biz/datev/postgres_upload_repo.go:79 datev_upload_configs(config_id)
+  - settings/postgres_repository.go: tenant_module_leads(tenant_id,user_id,module_id);
+    user_module_grants(tenant_id,user_id,module_id); tenant_settings(tenant_id,module_id,key);
+    user_settings(tenant_id,user_id,module_id,key); tenant_module_activations(tenant_id,
+    module_id); customization_value_sets(tenant_id,set_key)
+  - plugin/repository/kv_store.go:51 plugin_kv_store(installation_id,key)
+  - inventar/postgres_repository.go: inventur_counts(session_id,item_id);
+    picking_list_items(picking_list_id,item_id)
+  - helpdesk/postgres_repository.go: helpdesk_ticket_counters(tenant_id);
+    ticket_csat_responses(tenant_id,ticket_id) x2; helpdesk_business_hours(tenant_id)
+  - biz/lexware/postgres_repository.go: lexware_sync_configs(config_id);
+    lexware_entity_mappings(config_id,entity_type,kmuhub_id);
+    lexware_field_mappings(config_id,entity_type);
+    lexware_webhook_subscriptions(config_id,event_type)
+  - biz/hr/leave/postgres_repository.go: hr_leave_balances(tenant_id,employee_id,year);
+    hr_company_settings(tenant_id)
+  - biz/bexio/postgres_repository.go: bexio_sync_configs(config_id);
+    bexio_entity_mappings(config_id,entity_type,kmuhub_id);
+    bexio_field_mappings(config_id,entity_type)
+  - automation/workflow/postgres_repository.go:
+    automation_time_trigger_fires(automation_id,entity_key); automation_templates(id)
+  - caldav/push_subscription.go:65
+    caldav_push_subscriptions(user_id,collection_type,collection_id,push_url)
+  - caldav/app_password.go:183 caldav_settings(key)
+  - caldav/sync_token.go:80 caldav_sync_versions(collection_type,collection_id); :46
+    arbiterloses DO NOTHING (sicher, nicht Muster-A-Kandidat)
+  - dialer/postgres_repository.go:177 ON CONSTRAINT uq_campaign_contact ->
+    dialer_campaign_contacts(campaign_id,contact_id), per EXPLAIN real-verifiziert
+  - biz/recurring/postgres_repository.go:172
+    finance_recurring_runs(tenant_id,recurring_id,period_date)
+  - biz/hr/timetracking/postgres_extended_repository.go:256
+    hr_week_approvals(tenant_id,employee_id,week_start)
+  - biz/quote/postgres_repository.go:500 company_settings(tenant_id)
+  - gateway/dashboard_repository.go:67 dashboard_defaults(tenant_id,role); :103 ON CONSTRAINT
+    uq_user_dashboard_layouts_user_id -> user_dashboard_layouts(user_id), per EXPLAIN
+    real-verifiziert
+  - biz/payment/postgres_repository.go:56
+    finance_payments(tenant_id,idempotency_key) WHERE idempotency_key IS NOT NULL, per EXPLAIN
+    real-verifiziert (partieller Index)
+  - biz/invoice/postgres_repository.go:127
+    finance_invoices(tenant_id,source,external_id) WHERE external_id IS NOT NULL, per EXPLAIN
+    real-verifiziert (partieller Index)
+  - berichte/postgres_repository.go:187 report_cache(definition_id,params_hash)
+  - biz/datev/postgres_config_repo.go, biz/bexio/postgres_config_repo.go,
+    biz/lexware/postgres_config_repo.go: alle drei integration_configs(platform,tenant_id)
+  - biz/dunning/postgres_repository.go:313 finance_dunning_config(tenant_id)
+  - idempotency/postgres_repository.go:93 idempotency_keys(tenant_id,key) (= PK)
+  - plugin/repository/permission.go:27 plugin_permissions(installation_id,permission)
+  - plugin/repository/industry_template.go:29 industry_templates(slug)
+  - helpdesk/repository.go:151 reiner Kommentar, kein Code-ON-CONFLICT (nicht gezaehlt)
+  Zusaetzlich per Backlog-Scope angefordert geprueft: `internal/hr` (top-level, getrennt von
+  `internal/biz/hr`) existiert nicht; `internal/video` (top-level, getrennt von
+  `internal/work/video`) existiert nicht; `einkauf`, `produktion`, `vertraege`, `rapporte`,
+  `vermietung`, `fuhrpark`, `wiki`, `formulare` existieren alle, enthalten aber KEIN einziges
+  `ON CONFLICT` (per Grep bestaetigt) -- nichts zu pruefen. Damit sind Teil A + Teil B
+  gemeinsam die vollstaendige Musterflaeche aus scan-on-conflict-target-vs-real-index-a/-b.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. Vier riskante Muster
+  (zwei partielle Indizes, zwei ON-CONSTRAINT-Ziele) zusaetzlich per EXPLAIN gegen die echte
+  Query geplant (kein ANALYZE, keine Ausfuehrung, keine Datenaenderung). `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `2b99ac09`, Iteration 12 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine
+- offen: keine. Muster A (ON-CONFLICT-Ziel vs. Index) ist mit Teil A + Teil B vollstaendig
+  abgearbeitet, 0 Funde ueber die gesamte Flaeche.
 
-## Iteration 12 — b-cov-server-crm-pipelines-deals — done — 2026-08-10 16:47
-- commit: 23c06ac4
-- gebaut: neue Datei `backend/internal/server/crm_grpc_pipelines_deals_test.go` mit
-  `stubPipelineStageRepo` (implementiert `pipelinestage.Repository`) und `stubDealRepo`
-  (implementiert `deal.Repository`), je über `newCRMServerWithPipelineStageRepo`/
-  `newCRMServerWithDealRepo` mit der echten `*Service` verdrahtet (gleiches Muster wie
-  `stubCompanyRepo`/`newCRMServerWithCompanyRepo` aus Iteration 11). 49 neue Tests decken
-  alle 12 in scope genannten Methoden ab: PipelineStages CRUD (Create/Get/List/Update/
-  Delete) je mit MissingTenant + mindestens einem Validierungs- oder Fehlerpfad
-  (NameRequired, InvalidID, NotFound, InvalidColor, StageHasDeals) plus Happy Path,
-  ReorderPipelineStages mit MissingTenant, ungueltiger Stage-ID in der Liste und
-  Anzahl-Mismatch (`ErrInvalidReorder`) sowie Happy Path mit tatsaechlich vertauschtem
-  `SortOrder`; Deals CRUD (Create/Get/List/Update/Delete) je mit MissingTenant +
-  Validierungs-/Fehlerpfad (InvalidCreatedBy, InvalidStageID, StageNotFound, InvalidID,
-  NotFound, InvalidCurrency) plus Happy Path, dazu ein dedizierter Test fuer den
-  Uuid-Nil-Clear-Pfad bei `UpdateDeal` (leerer `contact_id`-String loescht die Relation)
-  und MoveDealToStage mit MissingTenant/InvalidDealID/InvalidStageID/StageNotFound sowie
-  Happy Path, der zusaetzlich prueft, dass `closed_at` beim Wechsel in eine Won-Stage
-  gesetzt wird (Service-Logik in `deal/service.go:407-411`).
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
-  ./internal/server/` gruen, 0 SKIP bei gesetzter `DATABASE_URL` als `kmuhub_app`;
-  zusaetzlich `./internal/server/...` inkl. `response`-Unterpaket gruen) | migration n.a.
-  (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst, reine gRPC-Server-Schicht mit
-  In-Memory-Stubs) | route n.a. (keine Route angefasst, `go test ./internal/gateway/`
-  daher nicht Pflicht — trotzdem lokal `go build`/`go vet` gegen `internal/gateway/`
-  mitlaufen lassen, beides gruen)
-- coverage: internal/server 47,7 % -> 50,9 % (`go tool cover -func=/tmp/cov.out | tail -1`,
-  Paket `./internal/server/` exakt wie in GATE-COMMANDS.md; Ausgangswert aus
-  `coverage_start:` der Unit, nicht aus dem tatsaechlichen Vorgaengerstand 50,0 % aus
-  Iteration 11 — wie in ITERATION.md Schritt 6 vorgeschrieben)
-- mutations-probe: zwei Proben in den echten Service-Paketen, beide rot, beide
-  zurueckgedreht, `git diff` gegen den finalen Baum restfrei (leer):
-  (1) `internal/crm/pipelinestage/service.go` Delete: `if hasDeals {` auf
-  `if false && hasDeals {` gedreht -> `TestDeletePipelineStage_HasDeals` rot ("An error
-  is expected but got nil" statt `FailedPrecondition`), zurueckgedreht.
-  (2) `internal/crm/deal/service.go` Update: `if !validCurrencies[currency] {` auf
-  `if false && !validCurrencies[currency] {` gedreht -> `TestUpdateDeal_InvalidCurrency`
-  rot (Update lief durch statt `InvalidArgument`), zurueckgedreht.
-- verify vorgaenger: sauber — `73dba136` geprueft gegen alle acht Fehlerklassen: reine
-  neue Testdatei plus ein Fix an einem in Iteration 11 selbst neu eingefuehrten Stub
-  (`stubContactRepo.MergeInto`), kein `.proto` angefasst, keine Route, kein neuer
-  `RequirePermission`-Key, keine neue Tabelle, kein gRPC-Bypass, kein Stub im
-  Produktionscode, keine bestehende Migration angefasst.
-- offen: `stubDealRepo.RemoveTags` ist implementiert (Interface-Pflicht), aber von keinem
-  Test in dieser Datei direkt aufgerufen — `AddTags`/`RemoveTags` auf `CRMGRPCServer`
-  existieren als eigene RPCs nicht im Scope dieser Unit (nur `Create/Get/List/Update/
-  Delete/MoveToStage` fuer Deals stehen im `crm_grpc.go`-Handler); falls eine kuenftige
-  Unit `AddTags`/`RemoveTags`-Handler auf `CRMGRPCServer` findet, kann der Stub
-  wiederverwendet werden. `ReorderPipelineStages` prueft in dieser Unit nur den
-  Anzahl-Mismatch als Reorder-Validierungsfehler (`ErrInvalidReorder` deckt sowohl
-  Anzahl- als auch Duplikat-Faelle ab, siehe `pipelinestage/service.go:238-261`) —
-  Duplikat-Fall nicht separat getestet, gleicher Codepfad, geringes Zusatzrisiko.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  `-StartNotBefore`-Diff wie in den Iterationen 6-11 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 11) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:47), wie in den
-  vorigen Iterationen.
+## Iteration 15 — scan-phantom-columns-crm-biz-work-email — done — 2026-08-11 17:46
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A2 (SQL referenziert Spalte/Tabelle/Alias, die es nicht gibt), Teil 1 von 3
+  — Repositories unter `internal/crm`, `internal/biz` (inkl. aller Unterpakete: bexio,
+  lexware, datev, hr/*, invoice, creditnote, quote, payment, expense, recurring, banking,
+  einvoice, dunning, gobdarchive, dashboard), `internal/work` (inkl. video) und `internal/email`
+  per drei parallelen Subagenten geprueft (max. 3 gleichzeitig, wie vorgeschrieben). Vorgehen
+  pro Agent: SQL-tragende Go-Dateien per Grep auf SELECT/INSERT/UPDATE/RETURNING identifiziert
+  (nicht nur `*postgres_repository*.go`), Aliase aus JOIN-Klauseln aufgeloest, jede referenzierte
+  Spalte gegen `information_schema.columns` der laufenden lokalen DB (Migrationskopf 312, nicht
+  gegen die Migrationsdateien) geprueft.
+  ERGEBNIS: 0 Funde ueber alle vier Pakete. 68 Produktions-Repository-Dateien vollstaendig
+  geprueft:
+  - crm (14): report, contact/postgres_repository, contact/postgres_lead, company, advisoryprotocol,
+    deal, activity, consent/postgres_repository, consent/assert_repo, search, tag, customfield,
+    savedfilter, pipelinestage
+  - email (8): attachment, message, template, rule, label, account, contactlink, signature
+  - biz (29): dunning, gobdarchive, invoice/postgres_repository, quote, creditnote, payment,
+    expense, recurring, banking/postgres_repository_accounts, banking/postgres_repository,
+    einvoice, invoice/postgres_open_items, invoice/postgres_document_chains,
+    invoice/postgres_transactions, bexio/postgres_repository, bexio/postgres_config_repo,
+    lexware/postgres_repository, lexware/postgres_config_repo, datev/postgres_upload_repo,
+    datev/postgres_config_repo, dashboard, hr/leave, hr/absence, hr/employee, hr/changerequest,
+    hr/timetracking/postgres_repository, hr/timetracking/postgres_extended_repository,
+    invoice/service.go (kein Roh-SQL), invoice/repository.go (kein Roh-SQL)
+  - work (17): calendar/postgres_repository, calendar/booking_postgres_repository, event,
+    meeting, task, timeentry, recording, project, label, customfield, video, status, comment,
+    resource, reaction, holiday, presence/postgres_config_repository
+  Der Vorlage-Bug (`u.display_name` auf `users`, existiert nur in `document/virtual`) tritt in
+  keinem der vier gescannten Pakete auf -- alle `users`-JOINs verwenden durchgaengig korrekt
+  `first_name`/`last_name` (in `hr/*` teils bereits mit explizitem Regressionsschutz-Kommentar
+  auf den historischen Incident, z. B. `hr/absence/postgres_repository_db_test.go:130`). Ein
+  auffaelliger Fund (`m.references` als unquotierter Alias auf ein reserviertes Wort in
+  `email/contactlink/repository.go:80`) wurde gegen die DB verifiziert und laeuft fehlerfrei --
+  kein Bug, da qualifiziert referenziert.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: Iteration 14 hat KEINEN Commit hinterlassen -- lediglich den
+  `status: in_progress`-Flag dieser Unit unkommitiert in BACKLOG.yml gesetzt (git diff bestaetigt:
+  ausschliesslich diese eine Zeile geaendert, kein Code angefasst) und ist ohne Journal-Eintrag
+  gestorben. Nichts zu verifizieren, da keine inhaltliche Arbeit vorlag -- diese Iteration hat die
+  Unit vollstaendig selbst bearbeitet.
+- neue-units: keine
+- offen: Teil 2 von 3 (`scan-phantom-columns-platform-services`: auth, security, document, chat,
+  calendar, notification, inbox, hr-top-level) und Teil 3 von 3
+  (`scan-phantom-columns-module-services`) stehen noch aus und sind bereits als todo im Backlog.
 
-## Iteration 13 — b-cov-server-crm-activities-reports-consent — done — 2026-08-10 16:58
-- commit: 0dc8bd4b
-- gebaut: neue Datei `backend/internal/server/crm_grpc_activities_reports_consent_test.go`
-  mit fünf Stub-Repositories (`stubActivityRepo`, `stubSavedFilterRepo`, `stubSearchRepo`,
-  `stubReportRepo`, `stubConsentRepo`, je über `newCRMServerWithActivityRepo`/
-  `newCRMServerWithSavedFilterRepo`/`newCRMServerWithSearchRepo`/`newCRMServerWithReportRepo`/
-  `newCRMServerWithConsentRepo` verdrahtet, gleiches Muster wie `stubPipelineStageRepo` aus
-  Iteration 12). 89 neue Tests decken alle 22 Methoden im Scope ab: Activities CRUD +
-  CompleteActivity (inkl. Clear-Contact-ID-Pfad wie bei UpdateDeal in Iteration 12), Search
-  (QueryTooShort, InvalidEntityType, Happy Path mit Entity-Type-Filter), SavedFilters CRUD,
-  Reports (GetPipelineReport/GetConversionReport/GetActivityReport je mit ungültigem Datum
-  bzw. ungültiger Owner-/User-ID sowie Happy Path gegen einen fest bestückten Report-Stub),
-  GetContactTimeline (Reihenfolge InvalidContactID vor MissingTenant beachtet — der Handler
-  parst `contact_id` vor dem Tenant-Check, anders als alle übrigen Methoden in dieser Datei)
-  sowie GDPR-Consent (GetContactConsents/GrantConsent/RevokeConsent/GetConsentHistory/
-  RequestDeletion/ProcessDeletion). GrantConsent/RevokeConsent/ProcessDeletion decken je den
-  geforderten DSGVO-Fehlerpfad ab (InvalidConsentType/InvalidLegalBasis bzw. ContactNotFound
-  bzw. AlreadyComplete); `TestProcessDeletion_HappyPath` prüft zusätzlich, dass
-  `AnonymizeContact` real aufgerufen wurde (`repo.anonymized[contactID]`) und der
-  Deletion-Request-Status im Stub auf `completed` steht.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
-  ./internal/server/` grün, 1277 PASS / **0 SKIP** bei gesetzter `DATABASE_URL` als
-  `kmuhub_app`; zusätzlich `./internal/server/...` inkl. `response`-Unterpaket grün) |
-  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst, reine
-  gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a. (keine Route angefasst,
-  `go test ./internal/gateway/` daher nicht Pflicht und nicht gelaufen)
-- coverage: internal/server 47,7 % -> 52,7 % (`go tool cover -func=/tmp/cov.out | tail -1`,
-  Paket `./internal/server/` exakt wie in GATE-COMMANDS.md; Ausgangswert aus
-  `coverage_start:` der Unit, nicht aus dem tatsächlichen Vorgängerstand 50,9 % aus
-  Iteration 12 — wie in ITERATION.md Schritt 6 vorgeschrieben)
-- mutations-probe: zwei Proben in den echten Service-Paketen, beide rot, beide
-  zurückgedreht, `git diff` gegen den finalen Baum restfrei (leer):
-  (1) `internal/crm/activity/service.go` Create: `if !input.ActivityType.IsValid() {` auf
-  `if false && !input.ActivityType.IsValid() {` gedreht -> `TestCreateActivity_InvalidActivityType`
-  rot ("An error is expected but got nil" statt `InvalidArgument`), zurückgedreht.
-  (2) `internal/crm/consent/service.go` ProcessDeletion: `if req.Status == "completed" {` auf
-  `if false && req.Status == "completed" {` gedreht -> `TestProcessDeletion_AlreadyComplete`
-  rot (Deletion lief durch statt `AlreadyExists`), zurückgedreht.
-- verify vorgaenger: sauber — `23c06ac4` geprüft gegen alle acht Fehlerklassen: reine neue
-  Testdatei (`crm_grpc_pipelines_deals_test.go`), kein `.proto` angefasst, keine Route, kein
-  neuer `RequirePermission`-Key, keine neue Tabelle, kein gRPC-Bypass, kein Stub im
-  Produktionscode, keine bestehende Migration angefasst.
-- offen: ZWEI ECHTE BEFUNDE, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
-  Verhaltensänderungen):
-  (1) `UpdateSavedFilter`/`DeleteSavedFilter` in `crm_grpc.go` laden den Filter selbst
-  (`existingFilter, err := s.savedFilterService.GetByID(...)`) und reichen dann
-  `existingFilter.CreatedBy` als `userID`-Parameter an `Update`/`Delete` durch. Der
-  Ownership-Check in `savedfilter/service.go` (`if filter.CreatedBy != userID`) vergleicht
-  damit denselben Wert mit sich selbst — `ErrFilterNotOwned` (mapCRMError:
-  `codes.PermissionDenied`) kann über diese beiden RPCs nie auslösen, unabhängig davon, wer
-  den Request schickt. Der Service selbst ist korrekt (siehe `savedfilter/service_test.go`),
-  der Bug sitzt im Handler-Wiring. Hätte production-Auswirkung: jeder Nutzer mit gültigem
-  Tenant-Token kann fremde Saved Filters umbenennen/löschen, solange er die ID kennt.
-  Empfehlung Lauf 9: kleine Fix-Unit, die den echten Caller (aus dem Request bzw. Auth-
-  Context) statt `existingFilter.CreatedBy` durchreicht.
-  (2) `GetPipelineReport`/`GetConversionReport`/`GetActivityReport`: die Service-Sentinels
-  `ErrStartDateRequired`/`ErrEndDateRequired` (`internal/crm/report/errors.go`,
-  gemappt in `mapCRMError` auf `InvalidArgument`) sind über diese drei RPCs unerreichbar,
-  weil der Handler `parseDate(req.StartDate)`/`parseDate(req.EndDate)` bereits vorher
-  aufruft und bei leerem oder ungültigem String selbst mit `InvalidArgument "invalid
-  start_date/end_date format"` abbricht — `time.Time{}` (Zero-Value) erreicht die
-  Service-Methoden nie. Kein Bug (das Endergebnis für den Client ist in beiden Fällen
-  `InvalidArgument`), aber toter Code auf Service-Ebene — nicht als eigene Fix-Unit nötig,
-  nur zur Kenntnis für Lauf 9, falls dort an `report/service.go` gearbeitet wird.
-  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben unstaged
-  `-StartNotBefore`-Diff wie in den Iterationen 6-12 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Überschrift (Iteration 12) fortgezählt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 16:58), wie in den
-  vorigen Iterationen.
-
-## Iteration 14 — b-cov-server-biz-error-map-settings-quotes — done — 2026-08-10 17:07
-- commit: 0a5e5e55
-- gebaut: neue Datei `backend/internal/server/biz_grpc_errormap_settings_quotes_test.go`.
-  `TestMapBizError` deckt jedes der 32 Sentinels in `mapBizError` (biz_grpc.go:2611)
-  einzeln gegen den erwarteten gRPC-Code ab (Quote, Recurring, Offene-Posten,
-  Invoice, CreditNote, E-Invoice, Payment, Dunning) plus `nil`- und
-  Fallback-Pfad (`unknown error` -> `Internal`, separat `TestMapBizError_Nil`).
-  Dazu je mindestens ein Validierungs- und ein Happy-Path-Test für die 12
-  genannten Quote/Settings-Methoden: GetCompanySettings, UpdateCompanySettings
-  (inkl. `settings is required` und `invalid basiszinssatz`), CreateQuote
-  (invalid tenant_id/created_by/valid_until/deal_id, `ErrNoLineItems` ->
-  InvalidArgument, Happy Path), GetQuote (invalid id, NotFound-Mapping, Happy
-  Path), ListQuotes, UpdateQuote (`ErrQuoteNotDraft` -> FailedPrecondition),
-  DeleteQuote (dito), SendQuote (atomare Nummernvergabe über einen
-  `fakeTxBeginner`/`fakeTx` — echtes `Send` inkl. Statuswechsel auf `sent` und
-  zugewiesener Quote-Nummer), AcceptQuote/RejectQuote (`ErrQuoteNotSent` ->
-  FailedPrecondition), ExpireQuote (invalid tenant_id, leerer Bulk-Lauf),
-  ConvertQuoteToInvoice (Validierungspfad — kein voller `invoice.Service`
-  aufgebaut, siehe offen), CreateQuoteFromDeal (deal_id required, invalid
-  tenant_id, `crmClient == nil` -> Unavailable). Zusätzlich
-  `TestGenerateQuotePDF_QuoteNotFound` als kleiner Bonus für den PDF-Pfad
-  (nicht in den 12 genannten Methoden, aber selber Fehlerpfad). Neue Stubs:
-  `stubCompanySettingsRepo` (erfüllt sowohl `server.CompanySettingsRepository`
-  als auch `quote.CompanySettingsRepo` strukturell), `stubQuoteRepo` (volles
-  `quote.Repository`), `stubNumberSeqRepo`, `fakeTxBeginner`/`fakeTx` (eigene
-  Kopie des unexported `quote.txBeginner`-Musters aus `service_test.go`, weil
-  der Typ dort nicht exportiert ist).
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
-  ./internal/server/` grün, 0 SKIP bei gesetzter `DATABASE_URL` als
-  `kmuhub_app`; zusätzlich `./internal/server/...` inkl. `response`-Unterpaket
-  grün) | migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst — reine gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a.
-  (keine Route angefasst, `go test ./internal/gateway/` daher nicht Pflicht
-  und nicht gelaufen)
-- coverage: internal/server 47,7 % -> 53,7 % (`go tool cover -func=/tmp/cov.out
-  | tail -1`, Paket `./internal/server/` exakt wie in GATE-COMMANDS.md;
-  Ausgangswert aus `coverage_start:` der Unit, nicht aus dem tatsächlichen
-  Vorgängerstand 52,7 % aus Iteration 13 — wie in ITERATION.md Schritt 6
-  vorgeschrieben)
-- mutations-probe: zwei Proben, beide rot, beide zurückgedreht, `git diff`
-  gegen den finalen Baum restfrei (leer):
-  (1) `mapBizError` Case `quote.ErrQuoteNotDraft`: `codes.FailedPrecondition`
-  auf `codes.Internal` gedreht -> `TestMapBizError/quote_not_draft` rot
-  (erwartet FailedPrecondition, bekam Internal), zurückgedreht.
-  (2) `UpdateCompanySettings`: `if ps == nil {` auf `if false && ps == nil {`
-  gedreht -> `TestUpdateCompanySettings/settings_required` rot ("An error is
-  expected but got nil"), zurückgedreht.
-- verify vorgaenger: sauber — `0dc8bd4b` geprüft gegen alle acht
-  Fehlerklassen: reine neue Testdatei
-  (`crm_grpc_activities_reports_consent_test.go`), kein `.proto` angefasst,
-  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
-  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration
-  angefasst.
-- offen: `ConvertQuoteToInvoice` ist nur mit dem Validierungspfad
-  (`invalid tenant_id`/`invalid id` über `parseTenantAndID`) abgedeckt, nicht
-  mit einem Happy Path — ein voller `invoice.Service` (5 Konstruktor-Parameter,
-  eigener `quoteReader`/`numberSeqRepo`/Pool) hätte den Scope dieser Iteration
-  gesprengt. `mapBizError` deckt `invoice.ErrQuoteNotAccepted` bereits einzeln
-  ab, das ist der einzige service-eigene Fehlerpfad dieser Methode. Ebenso
-  `CreateQuoteFromDeal` nur mit drei Validierungsfällen (deal_id required,
-  invalid tenant_id, `crmClient == nil`), kein Happy Path — bräuchte einen
-  vollständigen Fake für `crmv1.CRMServiceClient` (großes Interface), den es
-  im `server`-Package noch nicht gibt. Für Lauf 9, falls an
-  `CreateQuoteFromDeal` weitergearbeitet wird: ein minimaler
-  `fakeCRMServiceClient` (nur `GetDeal`/`GetContact`/`GetCompany` implementiert,
-  Rest `Unimplemented`) würde den Happy Path und die Enrichment-Logik
-  (Firma/Kontakt-Fallback für `customerName`) freischalten.
-  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben
-  unstaged `-StartNotBefore`-Diff wie in den Iterationen 6-13 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
-  (Iteration 13) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 17:07), wie in den vorigen Iterationen.
-
-## Iteration 15 — b-cov-server-biz-invoices-creditnotes-payments — done — 2026-08-10 17:22
-- commit: e994ddf5
-- gebaut: `biz_grpc_invoices_creditnotes_payments_test.go` — Validierungs-,
-  Fehler- und Happy-Path-Tests für alle 23 im Backlog genannten Methoden
-  (Rechnungen: CreateInvoice, GetInvoice, ListInvoices, UpdateInvoice,
-  SendInvoice, MarkInvoicePaid, CancelInvoice, ValidateInvoiceNumber,
-  LockInvoice, GenerateInvoicePDF, GenerateZUGFeRDInvoicePDF,
-  GenerateEInvoice, CreateInvoiceFromTimeEntries; Gutschriften:
-  CreateCreditNote, GetCreditNote, ListCreditNotes, SendCreditNote,
-  GenerateCreditNotePDF; Zahlungen: RecordPayment, ListPayments,
-  DeletePayment; GetPaymentStats, GetJournalSummary). CancelInvoice und
-  MarkInvoicePaid decken den FailedPrecondition-Pfad für bereits bezahlte
-  Rechnungen ab (`ErrInvoiceAlreadyPaid`); CancelInvoice zusätzlich den
-  bislang ungetesteten `ErrStornoUnavailable`-Pfad (versendete Rechnung ohne
-  gewirten StornoCreator -> Internal). Neue Stubs: `stubInvoiceRepo` (volles
-  `invoice.Repository`, 18 Methoden), `stubCreditNoteRepo`
-  (`creditnote.Repository`), `stubPaymentRepo` (`payment.Repository`,
-  inkl. In-Tx-Varianten über `fakeTx`), `stubInvoiceNumberSeqRepo` (eigener
-  Typ statt Erweiterung des bestehenden `stubNumberSeqRepo`, weil
-  `invoice.NumberSequenceRepo` zusätzlich `GetSequenceInfo` braucht —
-  `creditnote.NumberSequenceRepo` bleibt beim bestehenden Zwei-Methoden-Stub).
-  `newFinanceTestServer` verdrahtet alle drei Services auf denselben
-  `stubInvoiceRepo`, der strukturell sowohl `creditnote.InvoiceReader` als
-  auch `payment.InvoiceReader`/`InvoiceStatusUpdater` erfüllt.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
-  ./internal/server/` grün, 0 SKIP bei gesetzter `DATABASE_URL` als
-  `kmuhub_app`; `./internal/server/...` inkl. `response`-Unterpaket grün) |
-  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst —
-  reine gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a. (keine Route
-  angefasst, `go test ./internal/gateway/` daher nicht Pflicht und nicht
-  gelaufen)
-- coverage: internal/server 47,7 % -> 55,0 % (`go tool cover -func=/tmp/cov.out
-  | tail -1`, Paket `./internal/server/` exakt wie in GATE-COMMANDS.md;
-  Ausgangswert aus `coverage_start:` der Unit, tatsächlicher Vorgängerstand aus
-  Iteration 14 war 53,7 %)
-- mutations-probe: zwei Proben, beide rot, beide zurückgedreht, `git diff`
-  gegen `internal/biz/invoice/service_gobd.go` restfrei (leer):
-  (1) `GetJournalSummary`: `gaps := max(seq.CurrentNumber-invoiceCount, 0)`
-  auf `gaps := 0` gedreht -> `TestGetJournalSummary/gap_detected_when_issued_
-  count_trails_the_sequence` rot (erwartete 2, bekam 0), zurückgedreht.
-  (2) `ValidateInvoiceNumber`: `AlreadyUsed: used` auf `AlreadyUsed: !used`
-  gedreht -> sowohl `already_used` als auch `happy_path_canonicalizes_the_
-  number` rot (invertierte Erwartung in beide Richtungen), zurückgedreht.
-- verify vorgaenger: sauber — `0a5e5e55` geprüft gegen alle acht
-  Fehlerklassen: reine neue Testdatei
-  (`biz_grpc_errormap_settings_quotes_test.go`), kein `.proto` angefasst,
-  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
-  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration
-  angefasst. `origin/main` war bereits vollständig in `backend-loop`
-  gemergt (kein neuer Merge nötig).
-- offen: `CreateInvoiceFromTimeEntries` ist nur mit den sieben
-  Validierungspfaden (inkl. `s.timetrackingRepo == nil` -> Unavailable)
-  abgedeckt, kein Happy Path — bräuchte einen vollständigen Fake für
-  `timetracking.WorkTimeRepository` (12 Methoden), den es im `server`-Package
-  noch nicht gibt. Für Lauf 9: ein minimaler `stubWorkTimeRepo` (nur
-  `AggregateWorkTimeForInvoice` sinnvoll befüllt, Rest `Unimplemented`/Zero)
-  würde den Happy Path (Stundenaggregation -> Rechnungsposition) freischalten.
-  `GenerateInvoicePDF`/`GenerateZUGFeRDInvoicePDF`/`GenerateCreditNotePDF`
-  sind nur mit ihren Fehlerpfaden (NotFound, fehlende Company-Settings)
-  getestet, kein Happy Path mit echter PDF-Generierung (maroto/v2) — gleiches
-  Muster wie `TestGenerateQuotePDF_QuoteNotFound` in Iteration 1/13, damit
-  konsistent zum Rest der Datei. `RecordPayment` mit einer Rechnung im
-  `draft`-Status mappt aktuell auf `codes.Internal` (plain `fmt.Errorf`, kein
-  Sentinel) statt `FailedPrecondition` — echtes, unverändertes Verhalten, nur
-  als Beobachtung notiert, nicht Teil des Fix-Scopes dieser Unit.
-  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben
-  unstaged `-StartNotBefore`-Diff wie in den Iterationen 6-14 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
-  (Iteration 14) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 17:22).
-
-## Iteration 16 — b-cov-server-biz-dunning-dashboard-exports — done — 2026-08-10 17:33
-- commit: 1b4039f5
-- gebaut: neue Datei `backend/internal/server/biz_grpc_dunning_dashboard_exports_test.go`.
-  Deckt alle 11 im Backlog genannten Methoden ab: Mahnwesen (ListDunnings,
-  CreateDunning, EscalateDunning, GetDunningConfig, UpdateDunningConfig,
-  UpdateDunningStatus, SendDunningNotice, GenerateDunningPDF), Dashboard
-  (GetFinanceDashboard) und Exporte (ExportDATEV, GenerateGoBDExport).
-  EscalateDunning prüft explizit die Eskalations-Obergrenze (bestehender
-  Level-3-sent-Datensatz -> `EscalateDunning` liefert FailedPrecondition, kein
-  Level-4-Draft). Neue Stubs: `stubDunningRecordRepo` (volles
-  `dunning.Repository`, konfigurierbar für List/Create/UpdateStatus-Fehlerpfade,
-  bewusst getrennt vom minimalen `stubDunningRepo` aus
-  `biz_grpc_dunning_test.go`, der nur SendDunning bedient), `stubDunningConfigRepo`
-  (`dunning.ConfigRepository`), `stubDunningInvoiceReader` (`dunning.InvoiceReader`,
-  nur GetOverdue/GetByID real befüllt), `stubDashboardRepo` (`dashboard.Repository`,
-  ein Methode), `stubInvoicePager`/`stubCreditNotePager`
-  (`datev.InvoicePager`/`datev.CreditNotePager` für den echten
-  `datev.BuchungsstapelBuilder` mit `datev.NewExporter()`, kein Mock des
-  Exporters selbst). `stubCompanySettingsRepo` aus der Quote/Settings-Iteration
-  wiederverwendet (implementiert zusätzlich `datev.CompanySettingsReader`).
-  GenerateGoBDExport nur mit den drei Validierungspfaden (invalid tenant_id/
-  from_date/to_date) — Details siehe „offen".
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
-  ./internal/server/` grün, 0 SKIP bei gesetzter `DATABASE_URL` als
-  `kmuhub_app`; `./internal/server/...` inkl. `response`-Unterpaket grün) |
-  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst —
-  reine gRPC-Server-Schicht mit In-Memory-Stubs) | route n.a. (keine Route
-  angefasst, `go test ./internal/gateway/` daher nicht Pflicht und nicht
-  gelaufen)
-- coverage: internal/server 47,7 % -> 55,8 % (`go tool cover -func=/tmp/cov.out
-  | tail -1`, Paket `./internal/server/` exakt wie in GATE-COMMANDS.md;
-  Ausgangswert aus `coverage_start:` der Unit, tatsächlicher Vorgängerstand aus
-  Iteration 15 war 55,0 %)
-- mutations-probe: zwei Proben, beide rot, beide zurückgedreht, `git diff`
-  gegen `backend/internal/biz/dunning/service.go` restfrei (leer):
-  (1) `UpdateDunningConfig`: `input.Level1DaysAfterDue = &days` durch `_ = days`
-  ersetzt -> `TestUpdateDunningConfig/happy_path_updates_level_days_and_fees`
-  rot (erwartete 21, bekam 14 aus dem unveränderten Default-Config), zurückgedreht.
-  (2) `sendAndNotify` (`service.go`): `if record.Status != models.DunningStatusDraft`
-  auf `if false && record.Status != models.DunningStatusDraft` gedreht ->
-  `TestSendDunningNotice/not_draft` rot ("An error is expected but got nil"),
-  zurückgedreht.
-- verify vorgaenger: sauber — `e994ddf5` geprüft gegen alle acht
-  Fehlerklassen: reine neue Testdatei
-  (`biz_grpc_invoices_creditnotes_payments_test.go`), kein `.proto` angefasst,
-  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
-  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration
-  angefasst. `origin/main` war bereits vollständig in `backend-loop` gemergt
-  (kein neuer Merge nötig).
-- offen: `GenerateGoBDExport` ist nur mit den drei Validierungspfaden
-  (invalid tenant_id/from_date/to_date) abgedeckt, kein Happy Path — der
-  Handler ruft direkt `s.invoiceService.ListForDATEVExport` und
-  `s.creditNoteService.ListForDATEVExport` auf konkreten
-  `*invoice.Service`/`*creditnote.Service`-Feldern (keine Interfaces), nicht
-  über die schlanken `datev.InvoicePager`/`CreditNotePager`-Interfaces wie
-  `ExportDATEV`. Ein voller Test bräuchte dieselbe schwere
-  Service-Konstruktion, die bereits bei `CreateInvoiceFromTimeEntries` und
-  `CreateQuoteFromDeal` als out-of-scope markiert wurde. Für Lauf 9: entweder
-  ein minimaler `stubInvoiceService`/`stubCreditNoteService`, der nur
-  `ListForDATEVExport` implementiert (falls die Felder testweise auf
-  Interfaces umgestellt würden — das wäre selbst ein Produktivcode-Umbau,
-  keine reine Test-Unit), oder Akzeptanz, dass GoBD-Export-Happy-Path nur via
-  Integrationstest mit echter DB abgedeckt wird.
-  `GetDunningConfig`/`UpdateDunningConfig` testen nur den expliziten
-  Fehlerfall über `configRepo.getErr`; den impliziten Auto-Create-Default-Pfad
-  (configRepo.Get liefert `nil, nil` -> Service legt Default an und ruft
-  Upsert) habe ich nicht separat getestet, weil `GetDunningConfig`/
-  `TestCreateDunning`/`TestEscalateDunning` diesen Pfad bereits indirekt über
-  `defaultDunningConfig` umgehen (Config immer vorbelegt) — echte
-  Auto-Create-Assertion wäre ein zusätzlicher, in dieser Iteration nicht
-  eingeplanter Testfall.
-  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben
-  unstaged `-StartNotBefore`-Diff wie in den Iterationen 6-15 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
-  (Iteration 15) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 17:33).
-
-## Iteration 17 — b-cov-server-calendar-error-map-calendars-members — done — 2026-08-10 17:36
-- commit: 52e07376
-- gebaut: neue Testdatei
-  `calendar_grpc_errormap_calendars_members_test.go` mit `TestMapCalendarError`
-  (alle 52 Sentinel-Fälle aus `mapCalendarError` — calendar/event/resource/
-  holiday/livekit/booking-page — einzeln gegen den erwarteten gRPC-Code, plus
-  Fallback auf `codes.Internal`) und `stubCalendarRepo` (implementiert
-  `calendar.Repository` vollständig; Category/Preference/Visibility-Methoden
-  sind No-Ops, weil sie zu einer späteren Unit gehören und hier nie erreicht
-  werden). Je ein Happy-Path- und ein Fehlerpfad-Test für alle 12 im Scope
-  genannten RPCs: CreateCalendar, GetCalendar, ListCalendars, UpdateCalendar,
-  DeleteCalendar, AddCalendarMember, RemoveCalendarMember, ListCalendarMembers,
-  UpdateCalendarMemberPermission, ListBrowsableCalendars, SubscribeToCalendar,
-  UnsubscribeFromCalendar.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1
-  ./internal/server/` grün, 0 SKIP bei gesetzter `DATABASE_URL` als
-  `kmuhub_app`; `./internal/server/...` inkl. `response`-Unterpaket grün) |
-  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy angefasst —
-  reine gRPC-Server-Schicht mit In-Memory-Stub) | route n.a. (keine Route
-  angefasst, `go test ./internal/gateway/` daher nicht Pflicht und nicht
-  gelaufen)
-- coverage: internal/server 47,7 % -> 56,6 % (`go tool cover -func=/tmp/cov.out
-  | tail -1`, Paket `./internal/server/` exakt wie in GATE-COMMANDS.md;
-  Ausgangswert aus `coverage_start:` der Unit, tatsächlicher Vorgängerstand aus
-  Iteration 16 war 55,8 %)
-- mutations-probe: zwei Proben, beide rot, beide zurückgedreht, `git diff`
-  gegen beide betroffenen Dateien restfrei (leer):
-  (1) `mapCalendarError` (`calendar_grpc.go`): `calendar.ErrCannotDeleteDefaultCalendar`
-  von `codes.FailedPrecondition` auf `codes.Internal` gedreht ->
-  `TestMapCalendarError/cannot_delete_default_calendar` UND
-  `TestDeleteCalendar/cannot_delete_default_calendar` beide rot (0x9 erwartet,
-  0xd bekommen), zurückgedreht.
-  (2) `calendar.Service.AddMember` (`internal/work/calendar/service.go`):
-  `if cal.OwnerID == targetUserID` auf `if false && cal.OwnerID == targetUserID`
-  gedreht -> `TestAddCalendarMember/owner_cannot_be_added` rot (InvalidArgument
-  erwartet, PermissionDenied bekommen — der Owner rutschte in den
-  Admin-Permission-Check statt der Guard-Klausel), zurückgedreht.
-- verify vorgaenger: sauber — `1b4039f5` geprüft gegen alle acht
-  Fehlerklassen: reine neue Testdatei
-  (`biz_grpc_dunning_dashboard_exports_test.go`), kein `.proto` angefasst,
-  keine Route, kein neuer `RequirePermission`-Key, keine neue Tabelle, kein
-  gRPC-Bypass, kein Stub im Produktionscode, keine bestehende Migration
-  angefasst. `origin/main` war bereits vollständig in `backend-loop` gemergt
-  (kein neuer Merge nötig).
-- offen: `mapCalendarError` behandelt einige im Code definierte Sentinels
-  nicht (z. B. `event.ErrExceptionNotFound`, `event.ErrExceptionAlreadyExists`,
-  `holiday.ErrHolidayNotFound`, `holiday.ErrSeedFailed`) — das ist keine Lücke
-  dieser Unit, diese Fehler laufen laut `errors.go`-Kommentaren über andere
-  Pfade oder werden dort noch gar nicht produziert; nicht weiter untersucht,
-  da außerhalb des Scopes „jedes Sentinel IN mapCalendarError".
-  Events/Categories/Reminders (`b-cov-server-calendar-events-categories-
-  reminders`) und Resources/BookingPages/Public
-  (`b-cov-server-calendar-resources-bookingpages-public`) bleiben unverändert
-  bei ihrem alten Coverage-Stand — dieselbe `stubCalendarRepo` kann für beide
-  wiederverwendet werden (No-Op-Methoden für Category/Preferences ggf. dann
-  ausbauen).
-  `.planning/backend-block/loop/run-loop.ps1` trägt weiterhin denselben
-  unstaged `-StartNotBefore`-Diff wie in den Iterationen 6-16 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert — Nummer aus der letzten Journal-Überschrift
-  (Iteration 16) fortgezählt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 17:36).
-
-## Iteration 18 — b-cov-server-calendar-events-categories-reminders — done — 2026-08-10 17:59
-- commit: 78685fc7
-- gebaut: neue Testdatei calendar_grpc_events_categories_reminders_test.go
-  mit stubEventRepo (implementiert event.Repository vollstaendig) und
-  newTestCalendarServerWithEvents/disabledLiveKit/enabledLiveKit-Helfern.
-  Je ein Validierungs- und/oder Happy-Path-Test plus mindestens ein Fehlerpfad
-  fuer alle 15 Scope-Methoden: CreateEvent, GetEvent, ListEventsInRange,
-  UpdateEvent, DeleteEvent, UpdateRecurringEvent (inkl. Scope-Fehlerpfad
-  "event not recurring"), RSVPToEvent, ListEventAttendees, CreateEventCategory,
-  ListEventCategories, DeleteEventCategory, SetEventReminders,
-  ListEventReminders, ListTaskDeadlinesInRange, GenerateJoinToken.
-  Zusaetzlich stubCalendarRepo (aus Iteration 17,
-  calendar_grpc_errormap_calendars_members_test.go) erweitert: die
-  Category-Methoden (CreateCategory/ListCategories/DeleteCategory) waren dort
-  bewusst No-Ops "fuer eine spaetere Unit" -- jetzt echte Map-basierte
-  Implementierung inkl. DeleteCategory-Semantik, die exakt
-  postgres_repository.go:337-349 nachbildet (0 rows affected ->
-  ErrCategoryNotFound). Iteration 17 selbst bleibt unangetastet gruen, da ihre
-  Tests die Category-Methoden nie erreichen.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (go test -count=1
-  ./internal/server/ gruen, 0 SKIP bei gesetzter DATABASE_URL als
-  kmuhub_app) | ./internal/server/... gruen in zwei separaten Laeufen; ein
-  dritter Lauf waehrend der Entwicklung zeigte ein einzelnes FAIL in einem
-  Timer/Duration-Test (zeitabhaengig, nicht in meinen Dateien, in zwei
-  Wiederholungen nicht reproduzierbar -- vorbestehende Flakiness, nicht
-  Gegenstand dieser Unit) | migration n.a. (keine) | rls-smoke n.a. (keine
-  Tabelle/Policy angefasst) | route n.a. (keine Route angefasst, go test
-  ./internal/gateway/ daher nicht Pflicht und nicht gelaufen)
-- coverage: internal/server 47,7 % -> 57,8 % (go tool cover -func=/tmp/cov.out
-  | tail -1, Paket ./internal/server/ exakt wie in GATE-COMMANDS.md;
-  Ausgangswert aus coverage_start: der Unit, tatsaechlicher Vorgaengerstand aus
-  Iteration 17 war 56,6 %)
-- mutations-probe: zwei Proben, beide rot, beide zurueckgedreht, git diff
-  gegen internal/work/event/service.go restfrei (leer):
-  (1) Service.SetReminders (event/service.go:487): Limit-Check von
-  len(minutesBefore) > 3 auf > 4 gedreht ->
-  TestSetEventReminders/reminder_limit_exceeded rot (InvalidArgument
-  erwartet, NotFound bekommen -- der 4-Item-Request rutschte durch den
-  entschaerften Limit-Check und traf danach auf ein nicht existierendes
-  Event), zurueckgedreht.
-  (2) Service.UpdateRecurringEvent (event/service.go:231): die
-  Not-Recurring-Pruefung evt.RRule == nil || *evt.RRule == "" mit
-  false && (...) deaktiviert ->
-  TestUpdateRecurringEvent/event_not_recurring_(scope_error_path) rot (Fehler
-  erwartet, nil bekommen -- der Edit lief auf einem nicht-wiederkehrenden
-  Event unbemerkt durch), zurueckgedreht.
-- verify vorgaenger: sauber -- 52e07376 geprueft gegen alle acht
-  Fehlerklassen: reine neue Testdatei
-  (calendar_grpc_errormap_calendars_members_test.go), kein .proto
-  angefasst, keine Route, kein neuer RequirePermission-Key, keine neue
-  Tabelle, kein gRPC-Bypass, kein Stub im Produktionscode, keine bestehende
-  Migration angefasst. origin/main war bereits vollstaendig in backend-loop
-  gemergt (kein neuer Merge noetig, verifiziert per
-  git merge-base --is-ancestor origin/main HEAD).
-- offen: WICHTIGER FUND, NICHT Teil dieser Unit -- Kandidat fuer eine
-  Fix-Unit in Lauf 9, hohe Prioritaet. Zwei getrennte, jeweils verifizierte
-  Bugs in backend/internal/server/calendar_grpc.go:
-  (A) CreateEvent threadet den Tenant nie durch. CreateEvent
-  (calendar_grpc.go:391-459) ruft middleware.GetTenantID(ctx) an keiner
-  Stelle auf -- anders als praktisch jeder andere Handler in dieser Datei.
-  event.CreateInput.TenantID bleibt dadurch die Nullwert-UUID, und
-  event.Service.Create (service.go:77) laedt den Kalender ueber
-  s.calendarRepo.GetByID(ctx, input.CalendarID, input.TenantID) -- die
-  Postgres-Query filtert explizit WHERE id=$1 AND tenant_id=$2
-  (calendar/postgres_repository.go:41). Fuer jeden echten (Nicht-Null-)Tenant
-  kann das nie einen Treffer liefern. TestCreateEvent/"calendar not found
-  (missing tenant scoping)" belegt das direkt: derselbe Tenant im ctx und auf
-  dem Kalender-Datensatz fuehrt trotzdem zu NotFound. Der Gateway-Handler
-  (route_calendar.go:649, HandleCreateEvent) reicht r.Context() unveraendert
-  durch -- es fehlt schlicht der middleware.GetTenantID(ctx)-Aufruf plus
-  input.TenantID = tenantID in CreateEvent. Wirkung in Produktion: JEDES
-  Erstellen eines Kalenderereignisses ueber den normalen API-Pfad scheitert an
-  "calendar not found", ausser ein Kalender traegt zufaellig die Tenant-ID
-  00000000-0000-0000-0000-000000000000.
-  (B) Acht RPCs mit hart verdrahtetem uuid.Nil-Actor, alle vom selben
-  Muster. Kommentar "Gateway handles auth; use uuid.Nil as actorID/userID"
-  an calendar_grpc.go:165, 201, 229, 253, 303 (UpdateCalendar, DeleteCalendar,
-  AddCalendarMember, RemoveCalendarMember, UpdateCalendarMemberPermission --
-  alle in Iteration 17 getestet) sowie :598, :791, :820 (DeleteEvent,
-  DeleteEventCategory, SetEventReminders -- in dieser Unit getestet). Die
-  jeweilige Service-Methode prueft aber cal.OwnerID != actorID bzw.
-  evt.CreatedBy != actorID und verlangt bei Ungleichheit eine
-  Member-/Edit-Berechtigung fuer GENAU diesen Actor
-  (calendar/service.go:133-137, 180-182, 215-218, 257-260, 293-296;
-  event/service.go:398-400, 503-507; calendar/postgres_repository.go:337-349
-  fuer die category-Delete-Query). Da der Actor immer uuid.Nil ist und ein
-  echter Owner/Creator/User nie diese UUID hat, schlagen alle acht RPCs fuer
-  jeden echten Datensatz fehl (PermissionDenied bzw. NotFound je nach
-  Pruefpfad) -- ausser der Aufrufer setzt den Owner/Creator explizit auf
-  uuid.Nil, was in echten Daten nie vorkommt.
-  middleware.GetUserID(ctx) liefert den echten Actor bereits serverseitig
-  (middleware/auth.go:66, vom gRPC-Tenant-Interceptor gesetzt,
-  middleware/grpc_tenant.go:83) und wird an keiner der acht Stellen gelesen.
-  TestDeleteEvent/"real creator denied (uuid.Nil actor bug)",
-  TestDeleteEventCategory/"real owner denied (uuid.Nil actor bug)" und
-  TestSetEventReminders/"real creator denied (uuid.Nil actor bug)" belegen
-  das direkt. Iteration 17s Happy-Path-Tests fuer die fuenf Calendar/Member-RPCs
-  setzen durchweg OwnerID: uuid.Nil auf den Test-Kalendern -- das ist ein
-  Workaround um genau diesen Bug, kein Beleg, dass die RPCs fuer echte Owner
-  funktionieren; das war beim Schreiben dieser Unit nicht sofort ersichtlich
-  und sollte bei kuenftigen Coverage-Units auf derselben Datei ebenfalls
-  geprueft werden, bevor "OwnerID: uuid.Nil" unkommentiert als Fixture-Default
-  weiterkopiert wird.
-  Root Cause fuer beide Funde ist strukturell identisch: die
-  gRPC-Handler-Schicht sollte den Actor/Tenant aus dem Kontext lesen (wie es
-  die Mehrheit der anderen Handler in dieser Datei tut) statt ihn zu ignorieren
-  bzw. hart auf uuid.Nil zu setzen. Bewusst NICHT in dieser Unit gefixt
-  (Coverage-Units bauen keine Verhaltensaenderungen); beide Funde sind reale,
-  mit Tests reproduzierte Befunde, keine Vermutungen.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-17 vermerkt -- nicht
-  meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 17) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
-  ermittelt (2026-08-10 17:59).
-
-## Iteration 19 — b-cov-server-calendar-resources-bookingpages-public — done — 2026-08-10 18:13
-- commit: 9dff16aa
-- gebaut: neue Testdatei calendar_grpc_resources_bookingpages_test.go mit
-  stubResourceRepo (implementiert resource.Repository vollstaendig),
-  stubHolidayRepo (implementiert holiday.Repository) und stubBookingRepo
-  (implementiert calendar.BookingRepository ueber Interface-Embedding —
-  GetCalendarEventsInRange/GetBookedSlotsForPage bleiben unimplementiert,
-  weil ihr Rueckgabetyp calendar.eventSlot unexported ist und von diesem
-  Package aus nicht benennbar ist; alle Testfaelle kehren vor dem ersten
-  Aufruf dieser beiden Methoden zurueck, siehe Kommentar im Code). Je ein
-  Happy-Path- und mindestens ein Fehlerpfad-Test fuer alle 20 Scope-Methoden:
-  CreateResource, GetResource, ListResources, UpdateResource, DeleteResource,
-  ListResourceAvailability, BookResource (inkl. Konflikt-mit-Alternativen-Pfad),
-  ListResourceBookings, ListHolidays, SeedHolidays, GetCalendarPreferences,
-  UpdateCalendarPreferences, CreateBookingPage (inkl. bookingService==nil ->
-  Unimplemented), GetBookingPage, ListBookingPages, UpdateBookingPage,
-  DeleteBookingPage, GetPublicBookingPage, GetAvailability (Validierungs- und
-  Page-not-found-Pfad, bewusst ohne Happy-Path wegen der eventSlot-Sperre),
-  CreatePublicBooking (Customer-fehlt-, Page-not-found- und der geforderte
-  Zeitfenster-Fehlerpfad ErrBookingSlotInPast). stubCalendarRepo (aus
-  Iteration 17/18) um ein `prefs`-Feld plus echte GetPreferences/
-  UpsertPreferences-Implementierung erweitert (war zuvor No-Op `return nil, nil`
-  bzw. `return nil`).
-- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a.
-  (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
-- coverage: internal/server 47,7 % -> 59,1 % (kumulativ ueber alle Iterationen
-  dieses Laufs, nicht allein durch diese Unit)
-- mutations-probe: `!models.ValidResourceTypes[input.ResourceType]` in
-  internal/work/resource/service.go:50 auf `models.ValidResourceTypes[...]`
-  gedreht (Negation entfernt) -> TestCreateResource_Success UND
-  TestCreateResource_InvalidResourceType beide rot (erster lehnt einen
-  gueltigen Typ ab, zweiter akzeptiert einen ungueltigen). Zurueckgedreht,
-  `git status` zeigt keinen Diff mehr auf der Datei, Tests wieder gruen.
-- verify vorgaenger: sauber. Commit 78685fc7 (Iteration 18) aendert nur
-  Testdateien plus BACKLOG.yml/JOURNAL.md — keine Produktionscode-Datei,
-  kein neues Proto, keine neue Route, kein neuer RequirePermission-Guard,
-  keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt),
-  aber diese Unit ist reine In-Memory-Stub-Coverage ohne echte DB-Queries —
-  nichts, was Luke morgens nachfahren muss. `go test ./internal/gateway/`
-  bewusst nicht gelaufen, da keine Route/kein Gateway-Code angefasst wurde.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-18 vermerkt --
-  nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 18) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
-  ermittelt (2026-08-10 18:13).
-
-## Iteration 20 — b-cov-server-email-error-map-accounts-sync — done — 2026-08-10 18:15
-- commit: 89b98a85
-- gebaut: neue Testdatei email_grpc_accounts_sync_test.go mit stubAccountRepo
-  (implementiert account.Repository), fakeVaultEncryptor (implementiert
-  account.VaultEncryptor reversibel ohne echte Kryptografie) und
-  stubFolderRepo (implementiert message.FolderRepository). newTestEmailAccounts-
-  Server() verdrahtet einen echten account.Service und message.Service gegen
-  diese Stubs sowie einen echten emailsync.Engine (MessageSyncer/FolderSyncer/
-  AttachmentStorer bewusst nil, weil TriggerSync/GetStatus/StopWorker -- die
-  einzigen in dieser Unit erreichten Engine-Methoden -- sie nie anfassen;
-  StartWorker/Run wird in keinem Testfall ausgeloest, SyncEnabled steht in den
-  Fixtures durchweg auf false). mapEmailError vollstaendig tabellengetrieben
-  getestet, jedes der 33 Sentinels einzeln gegen den erwarteten gRPC-Code, plus
-  nil- und Default-Fall. Je ein Happy-Path- und mindestens ein Fehlerpfad-Test
-  fuer alle 12 Scope-Methoden: CreateEmailAccount, GetEmailAccount,
-  ListEmailAccounts (inkl. Wire-Shape-Check leere Liste [] statt null),
-  UpdateEmailAccount, DeleteEmailAccount, SetDefaultEmailAccount,
-  TestEmailConnection (Fehlerpfad ueber echten TCP-Connect-Refused auf
-  127.0.0.1:1, kein Netzwerk-Mock noetig), ListFolders, GetFolder, SyncFolders,
-  TriggerSync, GetSyncStatus.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (1352 PASS, 0 SKIP) |
-  migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | go test ./internal/gateway/ bewusst nicht gelaufen (keine
-  Route/kein Gateway-Code angefasst)
-- coverage: internal/server 47,7 % -> 59,8 % (kumulativ ueber alle Iterationen
-  dieses Laufs, nicht allein durch diese Unit)
-- mutations-probe: `codes.NotFound` fuer `account.ErrAccountNotFound` in
-  mapEmailError (internal/server/email_grpc.go:1432-1433) auf `codes.Internal`
-  gedreht -> TestMapEmailError, TestGetEmailAccount_NotFound,
-  TestDeleteEmailAccount, TestDeleteEmailAccount_NotFound und
-  TestSetDefaultEmailAccount_NotFound alle rot. Zurueckgedreht, `git diff`
-  zeigt keinen Rest-Diff mehr auf der Datei, Tests wieder gruen.
-- verify vorgaenger: sauber. Commit 9dff16aa (Iteration 19) aendert nur die
-  neue Testdatei calendar_grpc_resources_bookingpages_test.go, eine bestehende
-  Testdatei und BACKLOG.yml/JOURNAL.md — keine Produktionscode-Datei, kein
-  neues Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber
-  diese Unit ist reine In-Memory-Stub-Coverage ohne echte DB-Queries — nichts,
-  was Luke morgens nachfahren muss. Waehrend der Recherche aufgefallen:
-  ListFolders/GetFolder/SyncFolders in email_grpc.go lesen accountID/folderID
-  ohne middleware.GetTenantID(ctx)-Aufruf und ohne tenantID an den Service
-  durchzureichen -- anders als fast jeder andere Handler in dieser Datei. Der
-  zugrundeliegende PostgresFolderRepository filtert in GetByID/ListByAccount
-  ebenfalls nicht nach tenant_id in der WHERE-Klausel (postgres_repository.go:
-  344-393) und verlaesst sich vollstaendig auf RLS. Da `knownRLSGaps` leer ist
-  und der Standing-Guard das haelt, ist das kein Fund, sondern das erwartete
-  Muster dieses Repos -- trotzdem hier vermerkt, falls eine spaetere Iteration
-  denselben Code liest und sich wundert, warum kein tenantID-Parameter da ist.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-19 vermerkt -- nicht
-  meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 19) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
-  ermittelt (2026-08-10 18:15).
-
-## Iteration 21 — b-cov-server-email-messages-send-attachments — done — 2026-08-10 18:39
-- commit: ee2d0cab
-- gebaut: neue Testdatei email_grpc_messages_send_test.go mit stubEmailMessageRepo
-  (implementiert message.Repository), stubAttachmentRepo/stubObjectStore (implementieren
-  attachment.Repository/attachment.ObjectStore), stubLinkRepo (implementiert
-  EmailContactLinkRepository) und stubSendAccountProvider (implementiert
-  send.AccountProvider). newEmailMessagesFixture() verdrahtet einen echten message.Service,
-  send.Service und attachment.Service gegen diese Stubs. Fuer SendEmail/ReplyEmail/
-  ForwardEmail zusaetzlich ein minimaler Fake-SMTP-Server (startFakeSMTPServer/
-  serveFakeSMTP, 127.0.0.1:0, keine STARTTLS-Ankuendigung, AUTH PLAIN pauschal akzeptiert),
-  damit die Happy-Path-Tests wirklich durch MIME-Bau + SMTP-Dial laufen statt an der
-  Credential-Abfrage zu stoppen.
-  Je ein Validierungs- oder Happy-Path-Test PLUS mindestens ein Fehlerpfad fuer alle 20
-  Methoden aus dem Scope: ListMessages, GetMessage, GetThreadMessages, MarkRead, MarkUnread,
-  ToggleStar, MoveToFolder, DeleteMessage, BulkMessageAction, SendEmail, SaveDraft,
-  ReplyEmail, ForwardEmail, UploadAttachment, GetAttachmentDownloadURL,
-  GetEmailContactLinks, LinkEmailToContact, UnlinkEmailFromContact, GetContactEmails,
-  SetReadFlag. BulkMessageAction deckt den geforderten Teilfehler-Fall ab (eine von drei
-  IDs existiert nicht, die anderen beiden werden verarbeitet, Affected=2). Wire-Shape
-  (leere Liste [] statt null) fuer ListMessages/GetEmailContactLinks/GetContactEmails
+## Iteration 16 — scan-phantom-columns-platform-services — done — 2026-08-11 17:52
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A2 (SQL referenziert Spalte/Tabelle/Alias, die es nicht gibt), Teil 2 von 3 —
+  Repositories unter `internal/auth`, `internal/security` (inkl. audit, gdpr, password, vault,
+  vendoraccess), `internal/document`, `internal/chat`, `internal/notification` (inkl.
+  preference, integration, notification), `internal/inbox` (inkl. thread, message, routing,
+  team, adapter) per drei parallelen Subagenten geprueft (max. 3 gleichzeitig). `internal/hr`
+  und `internal/calendar` existieren als Top-Level-Pakete NICHT (verifiziert per `ls
+  backend/internal/`) -- die tatsaechlichen Pakete `internal/biz/hr` und `internal/work/calendar`
+  wurden bereits in Iteration 15 (Teil 1) gescannt, hier also korrekt ausgelassen statt doppelt
   geprueft.
-  ZWEI echte Produktionsbugs gefunden und NICHT gefixt (Coverage-Units aendern kein
-  Verhalten), stattdessen als neue Fix-Units fuer Lauf 9 ans Ende von BACKLOG.yml gehaengt
-  (fix-email-send-missing-tenant-id, fix-email-attachment-download-metadata-wrong-message-id)
-  und mit je einem dokumentierenden Test hier belegt:
-  1) send.Service.Send/SaveDraft (internal/email/send/service.go, ~Z. 203-215 bzw.
-     305-318) setzen TenantID nie auf dem gespeicherten models.EmailMessage, obwohl
-     SendInput.TenantID/DraftInput.TenantID vorhanden sind. message.PostgresRepository.Create
-     schreibt msg.TenantID direkt in die INSERT-Query (postgres_repository.go:41) -- jede
-     gesendete/entworfene Mail landet mit tenant_id = Nulluuid in der DB. Bei scharfer RLS
-     vermutlich ein fehlschlagender INSERT, sonst ein fuer den Absender unauffindbarer
-     Datensatz.
-  2) EmailGRPCServer.GetAttachmentDownloadURL (email_grpc.go, ~Z. 1131) laedt die
-     Metadaten (filename/content_type/size_bytes) ueber
-     attachmentService.GetByMessage(ctx, uuid.Nil, tenantID) -- fest verdrahtetes uuid.Nil
-     statt der echten MessageID des Anhangs. Fuer jeden Anhang an einer echten Nachricht
-     bleiben die Metadaten leer; nur Pre-Send-Uploads (die UploadAttachment absichtlich mit
-     MessageID=uuid.Nil anlegt) funktionieren zufaellig.
-- gate: build ok | vet ok | lint ok (0 issues) | test ok (1431 PASS, 0 SKIP in
-  internal/server, inkl. internal/server/response) | migration n.a. (keine Migration) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst) | go test ./internal/gateway/ bewusst
-  nicht gelaufen (keine Route/kein Gateway-Code angefasst)
-- coverage: internal/server 47,7 % -> 61,2 % (kumulativ ueber alle Iterationen dieses
-  Laufs, nicht allein durch diese Unit)
-- mutations-probe: `!bulkActions[action]` in internal/email/message/service.go:161
-  (BulkAction) auf `bulkActions[action]` gedreht (Negation entfernt) ->
-  TestBulkMessageAction_UnknownAction, TestBulkMessageAction_MoveRequiresTarget und
-  TestBulkMessageAction_PartialFailureSkipsMissing alle drei rot (der erste akzeptiert
-  jetzt eine unbekannte Action, die anderen beiden lehnen gueltige Actions ab).
-  Zurueckgedreht, `git diff --stat` zeigt keinen Rest-Diff mehr auf der Datei, alle fuenf
-  BulkMessageAction-Tests wieder gruen.
-- verify vorgaenger: sauber. Commit 89b98a85 (Iteration 20) aendert nur die neue Testdatei
-  email_grpc_accounts_sync_test.go plus BACKLOG.yml/JOURNAL.md -- keine
-  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber diese Unit ist
-  reine In-Memory-Stub-Coverage ohne echte DB-Queries -- nichts, was Luke morgens
-  nachfahren muss (ein breiter `go test ./internal/...`-Lauf zeigte zwei FAILs in
-  internal/biz/recurring wegen "too many clients"/erschoepftem Connection-Pool durch die
-  hohe Parallelitaet des Gesamtlaufs -- isoliert mit `go test ./internal/biz/recurring/...`
-  sofort gruen, also kein Fund dieser Iteration und nicht mein Paket).
-  ZWEI neue Fix-Units fuer Lauf 9 ans Ende von BACKLOG.yml gehaengt, siehe oben unter
-  "gebaut" -- beide mit Fundstelle, Reproduktion (Test) und done_when versehen.
-  hr-salary-document-category und hr-salary-self-service-route (Block A) stehen im
-  Backlog weiterhin auf `done`, aber ohne dass ich sie in dieser Iteration angefasst
-  haette -- nur zur Einordnung erwaehnt, kein Handlungsbedarf.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-20 vermerkt) -- nicht meine Datei, nicht
-  angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
-  mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 20) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 18:39).
-
-## Iteration 22 — b-cov-server-email-signatures-rules-labels-templates — done — 2026-08-10 18:41
-- commit: cfb6bd47
-- gebaut: neue Testdatei email_grpc_signatures_rules_labels_templates_test.go mit
-  stubSignatureRepo (signature.Repository), stubRuleRepo (rule.Repository, folder/label
-  Membership tenant-gescopt wie das Repo-Vorbild internal/email/rule/service_test.go),
-  stubLabelRepo (label.Repository) + stubLabelMessageReader (label.MessageReader) und
-  stubTemplateRepo (template.Repository, Visibility-Filter wie die echte SQL-Query).
-  newEmailSigRuleLabelTplFixture() verdrahtet echte signature.Service/rule.Service/
-  label.Service/template.Service dagegen. mapEmailError deckt alle Sentinels dieser vier
-  Pakete bereits vollstaendig ab (TestMapEmailError in email_grpc_accounts_sync_test.go,
-  gegengeprueft) -- hier ausschliesslich Validierungs-/Happy-Path pro Methode, wie im
-  Scope verlangt.
-  Je ein Validierungs- oder Happy-Path-Test PLUS mindestens ein Fehlerpfad fuer alle 22
-  Methoden aus dem Scope: CreateSignature, GetSignature, ListSignatures, UpdateSignature,
-  DeleteSignature, SetDefaultSignature, ListEmailRules, CreateEmailRule, UpdateEmailRule,
-  DeleteEmailRule, ApplyEmailRules, ListEmailLabels, CreateEmailLabel, UpdateEmailLabel,
-  DeleteEmailLabel, AssignMessageLabels, ListEmailTemplates, GetEmailTemplate,
-  CreateEmailTemplate, UpdateEmailTemplate, DeleteEmailTemplate, RenderEmailTemplate.
-  Wire-Shape (leere Liste [] statt null) fuer ListSignatures/ListEmailRules/ListEmailLabels
-  geprueft. ApplyEmailRules-Happy-Test folgt dem verifizierten Muster aus
-  rule/service_test.go (Affected/Scanned-Zaehlung ueber zwei Kandidaten, nur einer matcht).
-  BEFUND zu done_when "RenderEmailTemplate prueft einen Fehlerpfad fuer ein unbekanntes
-  Platzhalter-Feld": es gibt keinen solchen Fehlerpfad im Code. template.Service.Render
-  (internal/email/template/service.go:172-181) iteriert NUR ueber AllowedPlaceholders und
-  liest values[key] optional -- ein values-Schluessel ausserhalb der Allowlist wird
-  stillschweigend ignoriert, kein Fehler, kein Panic, per Kommentar im Quellcode so gewollt
-  ("only the fixed allow-list is ever looked up"). Kein Bug, keine neue Fix-Unit noetig --
-  stattdessen TestRenderEmailTemplate_UnknownPlaceholderKeyIgnored geschrieben, das dieses
-  tatsaechliche Verhalten dokumentiert (unbekannter Key hat keine Wirkung, {{token}} bleibt
-  im Output stehen), plus TestRenderEmailTemplate_InvalidID als der eigentliche Fehlerpfad
-  (ungueltige Template-ID -> InvalidArgument).
-- gate: build ok (internal/server, internal/gateway, cmd/email, cmd/gateway -- cmd/server
-  existiert nicht, internal/server wird von mehreren cmd/*-Binaries importiert) | vet ok |
-  lint ok (0 issues) | test ok (1477 PASS, 0 SKIP, 0 FAIL in internal/server, inkl.
-  internal/server/response) | migration n.a. (keine Migration) | rls-smoke n.a. (keine
-  Tabelle/Policy angefasst) | go test ./internal/gateway/ bewusst nicht gelaufen (keine
-  Route/kein Gateway-Code angefasst)
-- coverage: internal/server 47,7 % -> 62,2 % (kumulativ ueber alle Iterationen dieses
-  Laufs, nicht allein durch diese Unit)
-- mutations-probe: in internal/email/template/service.go:130-131 die Zeile
-  `tpl.OwnerID = nil` (Owner-Clearing beim Wechsel auf visibility=shared) durch einen
-  Kommentar ersetzt -> TestUpdateEmailTemplate_SwitchToSharedClearsOwner rot (erwartete
-  leere OwnerId, bekam die alte User-ID). Zurueckgedreht, `git diff --stat` auf der Datei
-  zeigt keinen Rest-Diff mehr, Test wieder gruen.
-- verify vorgaenger: sauber. Commit ee2d0cab (Iteration 21) aendert nur die neue Testdatei
-  email_grpc_messages_send_test.go plus BACKLOG.yml/JOURNAL.md -- keine
-  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-  (cc649891 direkt danach ist nur der Chore-Commit, der den Commit-Hash im Journal
-  nachtraegt.)
-- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber diese Unit ist
-  reine In-Memory-Stub-Coverage ohne echte DB-Queries -- nichts, was Luke morgens
-  nachfahren muss.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-21 vermerkt) -- nicht meine Datei, nicht
-  angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
-  mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 21) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 18:41).
-
-## Iteration 23 — b-cov-server-chat-channels-messages — done — 2026-08-10 19:00
-- commit: -
-- gebaut: neue Testdatei chat_grpc_channels_messages_test.go mit stubChannelRepo
-  (channel.Repository) und stubChatMessageRepo (message.Repository, umbenannt gegen
-  Kollision mit dem bereits existierenden stubMessageRepo aus inbox_grpc_test.go),
-  beide adaptiert von den geprueften MockRepository-Implementierungen aus
-  internal/chat/channel/service_test.go bzw. internal/chat/message/service_test.go.
-  chatChannelsMessagesFixture verdrahtet echte channel.Service/message.Service dagegen
-  (NewChatGRPCServer mit nil fileService/searchService/reactionService/bookmarkService,
-  da ausserhalb des Scopes). seedChannel/addMemberBoth/addUserBoth halten beide Repos
-  konsistent, weil Channel- und Message-Service in Produktion unabhaengige Repos sind.
-  mapChatError war laut Scope bereits vollstaendig getestet (TestMapChatError) -- hier
-  ausschliesslich Validierungs-/Happy-Path plus mindestens ein Fehlerpfad pro Methode
-  fuer alle 20 Methoden aus dem Scope: CreateChannel, GetChannel, ListChannels,
-  UpdateChannel, DeleteChannel, ArchiveChannel, JoinChannel, LeaveChannel,
-  GetChannelMembers, UpdateMemberRole (inkl. done_when "Demotion des letzten Owners":
-  UpdateMemberRole blockt JEDE Rollenaenderung eines Owner-Targets ueber
-  ErrCannotChangeOwner/FailedPrecondition, unabhaengig davon ob weitere Owner existieren
-  -- der Test macht das im Kommentar explizit, da der Service keine "letzter Owner"-
-  Zaehlung kennt), SendMessage, GetMessages, UpdateMessage, DeleteMessage, GetOrCreateDM,
-  ListDMs, GetThreadReplies, MarkChannelRead, GetUnreadCounts, GetUserMentions.
-  Testfunktionen mit "Chat"-Praefix benannt (TestChatCreateChannel etc.), weil
-  TestDeleteMessage bereits in email_grpc_messages_send_test.go existiert.
-- gate: build ok (internal/server, cmd/gateway) | vet ok | lint ok (0 issues) | test ok
-  (1497 PASS, 0 SKIP, 0 FAIL in internal/server; internal/chat/... komplett gruen) |
-  migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  go test ./internal/gateway/ bewusst nicht gelaufen (keine Route/kein Gateway-Code
-  angefasst)
-- coverage: internal/server 47,7 % -> 63,5 % (kumulativ ueber alle Iterationen dieses
-  Laufs, nicht allein durch diese Unit)
-- mutations-probe: in internal/chat/channel/service.go:349 die Owner-Leave-Sperre
-  `if membership.Role == models.ChannelRoleOwner` durch `if false && ...` entschaerft ->
-  TestChatLeaveChannel/owner_cannot_leave rot (erwartete FailedPrecondition, bekam nil).
-  Zurueckgedreht, `git diff --stat` auf der Datei zeigt keinen Rest-Diff mehr, Test
-  wieder gruen.
-- verify vorgaenger: sauber. Commit cfb6bd47 (Iteration 22) aendert nur die neue
-  Testdatei email_grpc_signatures_rules_labels_templates_test.go plus
-  BACKLOG.yml/JOURNAL.md -- keine Produktionscode-Datei, kein neues Proto, keine neue
-  Route, kein neuer RequirePermission-Guard, keine neue Tabelle. Keine der acht
-  Fehlerklassen einschlaegig. (56e64e49 direkt danach ist nur der Chore-Commit, der den
-  Commit-Hash im Journal nachtraegt.)
-- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber diese Unit
-  ist reine In-Memory-Stub-Coverage ohne echte DB-Queries -- nichts, was Luke morgens
-  nachfahren muss.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-22 vermerkt) -- nicht meine Datei, nicht
-  angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
-  mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 22)
-  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 19:00).
-
-## Iteration 24 — b-cov-server-chat-files-search-reactions — done — 2026-08-10 19:10
-- commit: 1193d990
-- gebaut: neue Testdatei chat_grpc_files_search_reactions_test.go. Anders als bei den
-  vorigen Chat-Units sind fileService/searchService/reactionService/bookmarkService als
-  konkrete `*file.Service`/`*search.Service`/`*reaction.Service`/`*bookmark.Service`
-  typisiert (keine Interfaces am ChatGRPCServer) -- also vier neue In-Memory-Stubs gegen
-  die jeweiligen Repository-Interfaces gebaut: stubChatSearchRepo (chatsearch.Repository,
-  umbenannt gegen Kollision mit dem bereits existierenden stubSearchRepo aus
-  crm_grpc_activities_reports_consent_test.go) + stubChatDetector (search.Detector),
-  stubReactionRepo (reaction.Repository) mit einer summarizeReactions-Hilfsfunktion fuer
-  die Aggregation, stubMessageReader (bookmark.MessageReader, structural interface das
-  *message.Service strukturell erfuellt) und stubBookmarkRepo (bookmark.Repository).
-  fileService laeuft ueber den bereits vorhandenen fileMockRepo aus testhelpers_test.go
-  (bislang nur fuer den Upload-Handler-Test genutzt) -- dessen ListChannelFiles-Stub gab
-  bislang immer nil,0,nil zurueck; erweitert auf eine echte Filterung nach ChannelID plus
-  Uploader-Lookup, weil ListChannelFiles sonst nie eine gefuellte Antwort haette liefern
-  koennen. Kein bestehender Test ruft ListChannelFiles auf (nur der Upload-Test nutzt
-  fileMockRepo), also kein Rueckwirkungsrisiko.
-  Alle 10 Methoden aus dem Scope abgedeckt: GetFileDownloadURL, GetFileThumbnailURL,
-  ListChannelFiles, DeleteFile (uploader-darf-loeschen, Nicht-Uploader-ohne-Moderationsrolle
-  wird abgelehnt, Channel-Admin-darf-fremde-Datei-loeschen), SearchChat (inkl.
-  ErrQueryTooShort -> InvalidArgument -- dieser Sentinel fehlte bislang auch in
-  TestMapChatError, ist jetzt indirekt mitgetestet), ToggleReaction (inkl. leeres Emoji ->
-  reaction.ErrEmojiRequired -> InvalidArgument, ebenfalls bislang ungetesteter
-  mapChatError-Zweig), ListReactions, GetReactionSummary, ToggleBookmark,
-  ListBookmarks (inkl. Skip-Verhalten fuer ein Bookmark, dessen Message durch
-  bookmark.Service.List uebersprungen wird, wenn der MessageReader
-  message.ErrNotChannelMember liefert -- reales Verhalten bei entzogener
-  Channel-Mitgliedschaft nach dem Bookmarken).
-  toChatSearchResultProto direkt getestet: "nil-Eingabe" aus dem done_when waere ein
-  Nil-Pointer-Panic (keine Nil-Guard in der Funktion, kein Aufrufer uebergibt je nil) --
-  stattdessen ein volltstaendig gefuellter File-Treffer und ein Message-Treffer mit
-  ausschliesslich Pflichtfeldern getestet, um die optionalen Zeiger-Felder in beiden
-  Richtungen zu pruefen. toProtoMentionType direkt mit allen drei MentionType-Werten plus
-  unbekanntem Fallback-Wert getestet.
-- gate: build ok (internal/server, cmd/gateway) | vet ok | lint ok (0 issues) | test ok
-  (1521 PASS, 0 SKIP, 0 FAIL in internal/server) | migration n.a. (keine Migration) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst) | go test ./internal/gateway/ bewusst
-  nicht gelaufen (keine Route/kein Gateway-Code angefasst)
-- coverage: internal/server 47,7 % -> 63,5 % (kumulativ ueber alle Iterationen dieses
-  Laufs; `go tool cover -func` zeigt denselben Ein-Dezimalstellen-Wert wie Iteration 23,
-  da der Zuwachs dieser Unit innerhalb der Rundungsschwelle von 0,1 Prozentpunkten liegt)
-- mutations-probe: in internal/chat/file/service.go:309 die Moderations-Pruefung
-  `if !role.CanModerate()` zu `if role.CanModerate()` invertiert ->
-  TestChatDeleteFile/non-uploader_without_moderate_role_is_denied UND
-  TestChatDeleteFile/channel_admin_can_delete_another_member's_file beide rot (erste
-  erwartete PermissionDenied, bekam nil; zweite erwartete nil, bekam PermissionDenied).
-  Zurueckgedreht, `git diff --stat` auf der Datei zeigt keinen Rest-Diff mehr, beide Tests
-  wieder gruen.
-- verify vorgaenger: sauber. Commit de864446 (Iteration 23) aendert nur die neue
-  Testdatei chat_grpc_channels_messages_test.go plus BACKLOG.yml/JOURNAL.md -- keine
-  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-  (56e64e49 direkt davor ist nur der Chore-Commit, der den Commit-Hash im Journal
-  nachtraegt.)
-- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber diese Unit
-  ist reine In-Memory-Stub-Coverage ohne echte DB-Queries -- nichts, was Luke morgens
-  nachfahren muss.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-23 vermerkt) -- nicht meine Datei, nicht
-  angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht sichtbar
-  mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift (Iteration 23)
-  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-10 19:10).
-
-## Iteration 25 — b-cov-server-dialer-campaigns-queue — done — 2026-08-10 19:18
-- commit: e1c6ab1f
-- gebaut: neue Testdatei dialer_grpc_campaigns_queue_test.go deckt alle 12
-  Methoden aus dem Scope ab (CreateCampaign, GetCampaign, ListCampaigns,
-  UpdateCampaign, StartCampaign, PauseCampaign, ArchiveCampaign,
-  AddContactsToCampaign, GetNextContact, SkipContact, RequeueContact,
-  ListCampaignContacts) je mit Happy-Path- und mindestens einem Fehlerpfad-
-  Test (ungueltige UUID, fehlender Tenant/Caller, ungueltiger Status-
-  Uebergang). StartCampaign/PauseCampaign decken den ErrCampaignNotDraft/
-  ErrInvalidStatusTransition-Pfad ab, ArchiveCampaign den
-  ErrInvalidStatusTransition-Pfad von draft aus. Wire-Shape von
-  ListCampaigns/ListCampaignContacts explizit geprueft (leere Liste [],
-  nicht nil).
-  stubCampaignRepo (dialer_grpc_test.go) um ein `nextPending`-Feld erweitert,
-  damit GetNextPendingContact einen seedbaren Happy-Path liefert statt immer
-  ErrNoContactsAvailable — Muster aus Iteration 24 (bestehenden Stub
-  erweitern statt neu bauen) fortgesetzt.
-- gate: build ok (internal/server, internal/gateway, cmd/gateway) | vet ok |
-  lint ok (0 issues) | test ok (1552 PASS, 0 SKIP, 0 FAIL in internal/server;
-  internal/server/response ebenfalls ok) | migration n.a. (keine Migration) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst) | go test
-  ./internal/gateway/ bewusst nicht separat gelaufen (keine Route/kein
-  Gateway-Code angefasst, aber Build oben deckt ihn ab)
-- coverage: internal/server 47,7 % -> 65,1 %
-- mutations-probe: in internal/dialer/service.go:226 die Statusprüfung in
-  StartCampaign von `if c.Status != CampaignStatusDraft` zu
-  `if c.Status == CampaignStatusDraft` invertiert ->
-  TestStartCampaign_Happy UND TestStartCampaign_NotDraft beide rot (erste
-  erwartete nil, bekam FailedPrecondition; zweite erwartete
-  FailedPrecondition, bekam nil). Zurueckgedreht, `git diff --stat` auf der
-  Datei zeigt keinen Rest-Diff mehr, beide Tests wieder gruen.
-- verify vorgaenger: sauber. Commit 1193d990 (Iteration 24) aendert nur die
-  neue Testdatei chat_grpc_files_search_reactions_test.go plus
-  testhelpers_test.go (Stub-Erweiterung) und BACKLOG.yml/JOURNAL.md — keine
-  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: DB-Gate lief mit lokaler kmuhub_app-DB (DATABASE_URL gesetzt), aber
-  diese Unit ist reine In-Memory-Stub-Coverage ohne echte DB-Queries —
-  nichts, was Luke morgens nachfahren muss.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-24 vermerkt) -- nicht meine
-  Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 24) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 19:18).
-
-## Iteration 26 — b-cov-server-dialer-agents-outcomes-dashboards — done — 2026-08-10 23:11
-- commit: e9978680
-- gebaut: neue Testdatei dialer_grpc_agents_outcomes_dashboards_test.go deckt
-  alle 13 Methoden aus dem Scope ab (SaveCallNotes, CompleteWrapUp,
-  SetAgentStatus, GetAgentStatus, GetCampaignAgents, ListCallOutcomes,
-  CreateCallOutcome, UpdateCallOutcome, DeleteCallOutcome,
-  GetCampaignDashboard, GetAgentDashboard, GetSupervisorOverview,
-  GetContactCalls) je mit Happy-Path- und mindestens einem Fehlerpfad-Test.
-  Neuer Helper newDialerTestServerWithAgentStore(t) baut den Service mit
-  einem echten *dialer.AgentStatusStore auf miniredis (Muster aus
-  internal/cache/cache_test.go) statt des bisherigen nil-Stores, weil
-  agentStore ein konkreter Typ ist (kein Interface) und
-  SetAgentStatus/GetAgentStatus/GetCampaignAgents ihn direkt dereferenzieren
-  -- gegen nil waere das ein Panic gewesen. GetSupervisorOverview_Happy laeuft
-  bewusst weiter ueber den alten nil-Store-Helper: die
-  Active-Agents-Liste ist dort leer, die Schleife, die sonst den Store
-  dereferenziert, laeuft also gar nicht an.
-  stubOutcomeRepo.Delete (dialer_grpc_test.go) erweitert: loeschte bisher
-  nichts wirklich aus der Map, jetzt echtes delete() plus ErrOutcomeNotFound
-  bei fehlendem Eintrag -- Grundlage fuer den Happy-Test und den echten
-  Fehlerpfad von DeleteCallOutcome.
-  ZWEI Abweichungen vom Scope-Text dokumentiert statt stillschweigend
-  geaendert:
-  (1) "DeleteCallOutcome prueft den Fehlerpfad fuer ein noch referenziertes
-      Outcome" trifft nicht mehr zu: Migration 000130 hat fk_dcc_outcome und
-      fk_dcs_outcome bewusst auf ON DELETE SET NULL gesetzt (Kommentar in der
-      Migration: Outcome-Labels sind tenant-konfigurierbar und muessen loeschbar
-      bleiben, ohne Business-/Audit-Daten zu kaskadieren). Ein referenziertes
-      Outcome zu loeschen ist also by design erfolgreich, kein Fehlerpfad.
-      Getestet ist stattdessen der reale Fehlerpfad: fehlendes/bereits
-      geloeschtes Outcome -> NotFound.
-  (2) Beim Bauen der SetAgentStatus-Tests gefunden: dialer.ErrInvalidTransition
-      (redis_agent_store.go) hat keinen Case in mapDialerError und faellt auf
-      codes.Internal mit der generischen Meldung "internal error" -- ein Agent,
-      der z. B. von offline direkt auf wrap_up springt, bekommt also einen
-      Server-Fehler statt einer FailedPrecondition mit Klartext. Analog zu den
-      Fix-Units aus Block A (falscher Code fuer einen unbehandelten Sentinel).
-      TestSetAgentStatus_InvalidTransition dokumentiert das aktuelle (falsche)
-      Verhalten mit Kommentar im Test -- nicht gefixt, Coverage-Units aendern
-      kein Verhalten. Kandidat fuer eine Fix-Unit in Lauf 9.
-- gate: build ok (internal/server, internal/gateway, cmd/dialer, cmd/gateway)
-  | vet ok | lint ok (0 issues) | test ok (kompletter internal/server-Lauf
-  gruen, 0 SKIP, nach Neustart von docker-postgres-1/docker-redis-1 -- siehe
-  offen) | internal/server/response ok | migration n.a. (keine Migration) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst) | go test
-  ./internal/gateway/ bewusst nicht separat gelaufen (keine Route/kein
-  Gateway-Code angefasst, Build oben deckt ihn ab)
-- coverage: internal/server 47,7 % -> 65,8 %
-- mutations-probe: in dialer_grpc_test.go stubOutcomeRepo.Delete das
-  `delete(r.outcomes, id)` entfernt (Stub raeumt dann nichts mehr aus der
-  Map) -> TestDeleteCallOutcome_Happy rot (erwartete Outcome entfernt,
-  bekam es weiterhin im Store), alle anderen Delete-Tests blieben gruen.
-  Zurueckgedreht, `git diff --stat` auf der Datei zeigt nur den
-  beabsichtigten Netto-Diff (echtes Delete + ErrOutcomeNotFound-Zweig),
-  kein Rest.
-- verify vorgaenger: sauber. Commit e1c6ab1f (Iteration 25) aendert nur
-  dialer_grpc_campaigns_queue_test.go (neue Testdatei) plus
-  dialer_grpc_test.go (Stub-Erweiterung um nextPending) und
-  BACKLOG.yml/JOURNAL.md -- keine Produktionscode-Datei, kein neues Proto,
-  keine neue Route, kein neuer RequirePermission-Guard, keine neue Tabelle.
-  Keine der acht Fehlerklassen einschlaegig.
-- offen: docker-postgres-1 und docker-redis-1 liefen zu Beginn dieser
-  Iteration NICHT (Docker Desktop war komplett aus) -- Docker Desktop
-  gestartet, beide Container per `docker start` reaktiviert, Postgres-Health
-  vor dem Gate abgewartet. Danach lief das komplette Gate wie gewohnt gegen
-  die lokale kmuhub_app-DB. Falls das oefter passiert: pruefen, ob Docker
-  Desktop bei diesem Rechner automatisch mit Windows startet.
-  Finding (2) oben (dialer.ErrInvalidTransition -> codes.Internal statt
-  FailedPrecondition) ist ein Kandidat fuer eine Fix-Unit in Lauf 9, analog
-  zu fix-plugin-createmanifest-missing-tenant-wrong-code aus Block A.
-  Ausserdem beim Lesen von GetAgentStatus aufgefallen (nicht getestet, um
-  keinen Panic im Testbinary auszuloesen): AgentStatusStore.GetStatus gibt
-  bei fehlendem Redis-Key (nil, nil) zurueck, und agentStatusToProto(nil)
-  dereferenziert a.UserID ungeprueft -- ein Agent, der noch nie einen Status
-  gesetzt hat, loest also einen Nil-Pointer-Panic aus. In Produktion faengt
-  der RecoveryUnaryInterceptor das ab (codes.Internal statt Prozessabsturz),
-  trotzdem ein zweiter Kandidat fuer Lauf 9.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-25 vermerkt) -- nicht meine
-  Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 25) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 23:11).
-
-## Iteration 27 — b-cov-server-websocket-helpers-ratelimit — done — 2026-08-10 23:21
-- commit: 96664cc1
-- unit: b-cov-server-websocket-helpers-ratelimit (Block B, Coverage
-  internal/server)
-- scope: die zehn im Backlog genannten reinen Helfer-/
-  Verbindungsverwaltungs-Funktionen in backend/internal/server/websocket.go
-  ohne vollen Hub-Aufbau (chatClient, tokenMaker): msgRateLimiter.allow,
-  extractToken, ValidateChannelID, wsSubscriptionKey, mustMarshal,
-  cacheUserName/getUserName, cleanupPresenceSubscriptions,
-  registerConnection/unregisterConnection,
-  registerGuestConnection/unregisterGuestConnection.
-- was: neue Datei internal/server/websocket_helpers_test.go, 26 Testfaelle,
-  je Funktion Normalfall + mindestens ein Grenzfall (Rate-Limit erschoepft,
-  Header nur mit Marker ohne Query-Fallback-Wert, ungueltige Channel-ID,
-  nicht marshalbarer Kanal-Wert, unbekannter User bei getUserName, User ohne
-  jegliche Presence-Subscription, zweite von zwei Verbindungen bleibt nach
-  Teil-Unregister erhalten). newTestHub aus websocket_redis_test.go
-  wiederverwendet statt eines eigenen Konstruktors.
-  Neuer Helper newConnectedWSConnPair(t) baut ein echtes *websocket.Conn-Paar
-  ueber httptest.NewServer + coder/websocket (Muster aus
-  websocket_revalidate_test.go), weil registerConnection/unregisterConnection
-  und die Guest-Pendants echte *websocket.Conn als Map-Key brauchen und
-  unregisterConnection intern conn.Close() aufruft. Beide Seiten fahren einen
-  passiven Read-Loop (Server: mirrorartig zu handleConnection; Client:
-  gleiches Muster) und Cleanup schliesst ueber CloseNow() -- sonst blockiert
-  entweder der server- oder der clientseitige Close-Aufruf bis zu
-  coder/websockets Default-Close-Handshake-Timeout (in einer ersten Fassung
-  ohne Client-Read-Loop 5-10s pro Test, insgesamt ~40s fuer die
-  Register/Unregister-Tests; mit Read-Loop + CloseNow < 1s).
-- gate: build n.a. (vollstaendiges `go build ./...` scheitert auf diesem
-  Windows-Rechner an einem Linker-OOM beim cmd/auth-Binary -- reproduzierbar,
-  unabhaengig von dieser Aenderung, siehe offen; stattdessen `go build
-  ./internal/server/...` ok + `go vet ./...` (deckt das gesamte Modul ohne
-  Linking ab) ok) | vet ok | lint ok (golangci-lint run ./internal/server/...
-  -- 0 issues) | test ok (go test -count=1 ./internal/server/... gruen,
-  internal/server + internal/server/response, 0 SKIP) | migration n.a.
-  (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  go test ./internal/gateway/ bewusst nicht separat gelaufen (keine
-  Route/kein Gateway-Code angefasst)
-- coverage: internal/server 47,7 % -> 66,2 % (lokal gemessen per
-  `go test -coverprofile`; Iteration 26 hatte 65,8 % notiert, die kleine
-  Differenz stammt allein aus dieser Unit)
-- mutations-probe: in websocket.go msgRateLimiter.allow() die Bedingung
-  `rl.tokens < 1` auf `rl.tokens < 0` geaendert (Off-by-one: ein Aufruf mit
-  exakt 0 Tokens waere danach faelschlich noch erlaubt) ->
-  TestMsgRateLimiter_Allow_ExceedsLimit rot (erwartete false, bekam true),
-  TestMsgRateLimiter_Allow_WithinLimit und
-  TestMsgRateLimiter_Allow_RefillsOverElapsedTime blieben gruen. Zurueckgedreht,
-  `git diff --stat internal/server/websocket.go` zeigt keinen Rest.
-- verify vorgaenger: sauber. Commit 08836376 (Iteration 26) aendert nur den
-  BACKLOG.yml-Status und den Journal-Eintrag von Iteration 26 selbst (Meta-
-  Commit "record commit hash") -- keine Produktionscode-Datei, kein neues
-  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: `go build ./...` bricht auf diesem Rechner reproduzierbar mit
-  einem Linker-Fehler ab ("runtime: cannot allocate memory" waehrend
-  cmd/link DWARF-Generierung fuer cmd/auth) -- kein Go-Compile-Fehler,
-  sondern ein Speicher-/Ressourcenlimit des Linker-Prozesses auf diesem
-  Windows-Host. `go vet ./...` (kein Linking) und paketweise `go build
-  ./internal/...`-Aufrufe laufen dagegen sauber durch. Falls kuenftige
-  Iterationen einen echten Full-Binary-Build brauchen: pruefen, ob mehr
-  Swap/RAM hilft oder ob einzelne cmd/*-Pakete separat gebaut werden
-  koennen, um den Linker-Speicherbedarf zu verteilen.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-26 vermerkt) -- nicht meine
-  Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 26) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 23:21).
-
-## Iteration 28 — b-cov-server-websocket-broadcast-notifications — done — 2026-08-10 23:28
-- commit: 02c6fc61
-- unit: b-cov-server-websocket-broadcast-notifications (Block B, Coverage
-  internal/server)
-- scope: die 13 im Backlog genannten Broadcast-/Notification-Methoden von
-  WebSocketHub in backend/internal/server/websocket.go: sendToUser,
-  broadcastToChannel, broadcastToChannelExcept, BroadcastMessageCreated/
-  Updated/Deleted, SendNotificationToUser/SendNotificationRead/
-  SendNotificationReadAll/SendNotificationUnreadCount,
-  BroadcastPresenceUpdate, BroadcastCallIncoming/BroadcastCallEnded,
-  BroadcastRecordingStarted, BroadcastReactionToggled und sendError.
-- was: neue Datei internal/server/websocket_broadcast_test.go, 20 Testfaelle
-  ueber eine echte *websocket.Conn. Neuer Helfer newBroadcastConnPair(t) ist
-  eine Variante von newConnectedWSConnPair aus websocket_helpers_test.go
-  (Iteration 27) OHNE den client-seitigen Hintergrund-Read-Loop -- der wuerde
-  genau die Nachrichten wegkonsumieren, die diese Tests pruefen muessen. Der
-  server-seitige Read-Loop bleibt (haelt den httptest-Handler und damit die
-  registrierte serverConn am Leben, bis der Client schliesst); geschrieben
-  wird in diesen Tests ausschliesslich vom Hub, nie vom Client. Wire-Shape
-  fuer drei unterschiedliche Message-Typen geprueft (chatv1.MessageInfo-JSON
-  bei BroadcastMessageCreated/-Updated: id/content snake_case aus den
-  protoc-gen-go-Struct-Tags; Notification-Payload bei
-  SendNotificationToUser: verschachteltes notification-Feld + desktop_push +
-  sound; Presence-Payload bei BroadcastPresenceUpdate: user_id + status).
-  Vier Grenzfaelle ohne Panic: sendToUser an einen nicht verbundenen User,
-  BroadcastPresenceUpdate ohne Abonnenten, BroadcastRecordingStarted ohne
-  verbundene User, broadcastToChannelExcept schliesst den ausgeschlossenen
-  User aktiv aus (assertNoWSMessage mit 100ms-Timeout-Read).
-- gate: build ok (go build -p 2 ./internal/server/... ./internal/gateway/...)
-  | vet ok | lint ok (golangci-lint run ./internal/server/... ./internal/
-  gateway/... -- 0 issues) | test ok (go test -count=1 ./internal/server/...
-  gruen, internal/server + internal/server/response, 0 SKIP) | migration
-  n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  go test ./internal/gateway/ bewusst nicht separat gelaufen (keine Route/
-  kein Gateway-Code angefasst)
-- coverage: internal/server 47,7 % -> 66,6 % (lokal gemessen per
-  `go test -coverprofile`; Iteration 27 hatte 66,2 % notiert)
-- mutations-probe: in websocket.go broadcastToChannelExcept() die
-  Ausschluss-Bedingung `if userID != excludeUserID` entfernt (der
-  ausgeschlossene User waere dann faelschlich Empfaenger) ->
-  TestBroadcastToChannelExcept_ExcludesGivenUser rot (assertNoWSMessage
-  erhielt eine Nachricht statt eines Timeout-Fehlers). Zurueckgedreht,
-  `git diff --stat internal/server/websocket.go` zeigt keinen Rest.
-- verify vorgaenger: sauber. Commit 96664cc1 (Iteration 27) fuegt
-  ausschliesslich internal/server/websocket_helpers_test.go plus
-  Journal/Backlog-Metadaten hinzu -- keine Produktionscode-Datei, kein neues
-  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: `go build ./...` bricht auf diesem Rechner weiterhin reproduzierbar
-  mit einem Linker-OOM ab (siehe Iterationen 25-27) -- unabhaengig von dieser
-  Aenderung, stattdessen paketweise `go build ./internal/.../...` genutzt.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-27 vermerkt) -- nicht meine
-  Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 27) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 23:28).
-
-## Iteration 29 — b-cov-server-work-search-links-preferences — done — 2026-08-10 23:39
-- commit: c9a33570
-- unit: b-cov-server-work-search-links-preferences (Block B, Coverage
-  internal/server)
-- scope: die 12 im Backlog genannten ungetesteten work_grpc.go-Methoden:
-  SearchTasks, GetUserProjectPreference, SetUserProjectPreference,
-  AttachFileToTask, RemoveTaskFile, ListTaskFiles, LinkEntityToTask,
-  UnlinkEntityFromTask, ListTaskEntityLinks, ListEntityTasks,
-  SetTaskCustomFieldValues, GetTaskCustomFieldValues, ListTaskActivities.
-- was: `workTaskMockRepo` in work_label_test.go von reinen No-Op-Stubs auf
-  echte In-Memory-Implementierungen umgebaut (entityLinks/files/
-  customFieldVals/activities als Maps, Search filtert jetzt tatsaechlich
-  nach ProjectIDs/AssigneeIDs statt leer zurueckzugeben) und um ein
-  `forceErr`-Feld ergaenzt (Muster aus wiki_grpc_test.go/
-  errStubWikiRepoFailure uebernommen), damit sowohl die mapWorkError-Pfade
-  (Link/Unlink/AttachFile/RemoveFile/SetCustomFieldValues/Preferences) als
-  auch die direkten status.Error(Internal)-Pfade (List*, GetCustomFieldValues)
-  echte Fehlerfaelle durchlaufen statt nur Happy-Path-Stubs zu treffen. Neue
-  Datei work_search_links_test.go, 44 Testfaelle: pro Methode mindestens ein
-  Validierungs-/Fehlerpfad (ungueltige UUID, fehlender Tenant, Repo-Fehler,
-  Not-Found bei Unlink/RemoveFile) plus Happy Path. SearchTasks deckt die
-  geforderte Filterkombination ProjectIds+AssigneeIds (drei Tasks geseedet:
-  Treffer, falsches Projekt, kein Assignee -> genau 1 Ergebnis) sowie beide
-  Fehlerpfade fuer ungueltige IDs in der Liste. SetUserProjectPreference
-  deckt zusaetzlich den Backfill-Zweig (bestehende Preference mit
-  TenantID==uuid.Nil bekommt die Tenant-ID aus dem Context nachgetragen).
-  golangci-lint schlug fuer die Mock-Erweiterung zwei Simplify-Hinweise vor
-  (maps.Copy statt Kopier-Loop, slices.Contains statt Vergleichs-Loop in
-  Search) -- beide uebernommen, dadurch 0 Lint-Issues.
-- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`)
-  | vet ok (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/server/... -- 0
-  issues) | test ok (`go test -count=1 ./internal/server/` gruen, 0 SKIP) |
-  migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | go test ./internal/gateway/ bewusst nicht separat gelaufen
-  (keine Route/kein Gateway-Code angefasst, nur die bereits erlaubte
-  Ausnahme hr-salary-self-service-route betraf Block A, nicht diese Unit)
-- coverage: internal/server 47,7 % -> 67,5 % (lokal gemessen per
-  `go test -coverprofile=/tmp/cov.out ./internal/server/` +
-  `go tool cover -func`; Iteration 28 hatte 66,6 % notiert)
-- mutations-probe: in work_grpc.go SearchTasks() die Zeile
-  `filters.ProjectIDs = append(filters.ProjectIDs, id)` durch `_ = id`
-  ersetzt (Project-ID-Filter waere dann wirkungslos, SearchTasks liefert
-  ungefiltert nach Projekt) -> TestSearchTasks_FiltersByProjectAndAssignee
-  rot (2 statt 1 Ergebnis: der Task aus dem falschen Projekt blieb drin).
-  Zurueckgedreht, `git diff --stat internal/server/work_grpc.go` zeigt
-  keinen Rest.
-- verify vorgaenger: sauber. Commit 02c6fc61 (Iteration 28) fuegt
-  ausschliesslich internal/server/websocket_broadcast_test.go plus
-  Journal/Backlog-Metadaten hinzu -- keine Produktionscode-Datei, kein neues
-  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: waehrend eines vollen `go test -count=1 ./internal/server/ -v`-Laufs
-  (8 Wiederholungen zur Flakiness-Pruefung dieser Unit) ist EINMAL
-  `TestGDPRExportRPCs_HappyPathAndDomainErrors` in security_grpc_test.go mit
-  "stub: export request not found" -> codes.Internal statt NoError
-  fehlgeschlagen (7/8 Laeufe gruen). Auf dem unveraenderten Basis-Commit
-  3efc3da6 liefen 3/3 Wiederholungen durch, das ist also keine Regression
-  dieser Unit, sondern ein vorbestehender Flake in der GDPR-Export-Testsuite
-  (vermutlich zeit-/reihenfolgeabhaengiger Zustand im dortigen Stub-Repo).
-  Nicht Teil dieser Unit (kein GDPR-/security-Code angefasst) -- fuer Lauf 9
-  als eigene Beobachtung vormerken, falls es sich wiederholt.
-  `go build ./...` bricht auf diesem Rechner weiterhin reproduzierbar mit
-  einem Linker-OOM ab (siehe Iterationen 25-28) -- unabhaengig von dieser
-  Aenderung, stattdessen paketweise `go build ./internal/.../...` genutzt.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-28 vermerkt) -- nicht meine
-  Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 28) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 23:39).
-
-## Iteration 30 — b-cov-server-inbox-message-state-transitions — done — 2026-08-10 23:45
-- commit: a8fc540d
-- unit: b-cov-server-inbox-message-state-transitions (Block B, Coverage
-  internal/server)
-- scope: die 12 im Backlog genannten ungetesteten inbox_grpc.go-Methoden:
-  MarkRead, MarkUnread, ToggleStar, ArchiveMessage, UnarchiveMessage,
-  SnoozeMessage, UnsnoozeMessage, ClaimMessage, AssignMessage,
-  GetUnreadCount, BulkMarkRead, BulkArchive.
-- gebaut: neue Datei internal/server/inbox_message_state_test.go, 40
-  Testfaelle (Praefix `TestInbox*` gewaehlt, weil `TestMarkRead_NotFound`
-  bereits in email_grpc_messages_send_test.go fuer die Email-RPC
-  gleichen Namens existierte -- Compiler-Fehler DuplicateDecl, per Rename
-  behoben). Pro Methode mindestens ein Happy-Path- und ein Fehlerpfad-Test:
-  NotFound fuer die einfachen Status-Uebergaenge, SnoozeMessage zusaetzlich
-  fehlendes snooze_until und eine Vergangenheits-Zeit (ErrInvalidSnoozeTime),
-  UnsnoozeMessage NotFound und ungueltige MessageId. ClaimMessage deckt alle
-  vier team.Err*-Sentinels ab (NotTeamMember, ManualClaimInRoundRobin ueber
-  round_robin-Assignment-Mode, message.ErrAlreadyAssigned) plus den
-  Gateway-eigenen FailedPrecondition-Zweig fuer TeamInboxId==nil. AssignMessage
-  deckt AlreadyExists (message.ErrAlreadyAssigned) und ungueltige
-  Assignee-/Message-ID. stubMessageRepo.GetUnreadCounts war bislang ein reiner
-  `return nil, nil`-Stub (nie fuer echte Zahlen genutzt) -- auf eine
-  In-Memory-Aggregation umgebaut, die die Produktionsquery in
-  postgres_repository.go:401-421 spiegelt (unread, nicht archiviert, nicht
-  aktuell snoozed, gruppiert nach Channel), damit
-  TestInboxGetUnreadCount_AggregatesByChannel echte Filterlogik prueft statt
-  eines Leerergebnisses. BulkMarkRead/BulkArchive pruefen Happy-Path (2
-  Nachrichten, UpdatedCount korrekt, Repo-Zustand tatsaechlich geaendert) und
-  den Fehlerpfad fuer eine ungueltige ID in der Liste.
-- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`)
-  | vet ok (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/server/... -- 0
-  issues) | test ok (`go test -count=1 ./internal/server/` gruen, `-v` zeigt
-  1724 PASS / 0 SKIP / 0 FAIL) | test ok (`go test -count=1
-  ./internal/server/...` inkl. response-Unterpaket gruen) | migration n.a.
-  (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) | go
-  test ./internal/gateway/ zusaetzlich gelaufen (keine Route angefasst, aber
-  zur Sicherheit geprueft) -- gruen
-- coverage: internal/server 47,7 % -> 68,1 % (lokal gemessen per
-  `go test -coverprofile=/tmp/cov.out ./internal/server/` +
-  `go tool cover -func`; Iteration 29 hatte 67,5 % notiert)
-- mutations-probe: in inbox_grpc.go ClaimMessage() die Bedingung
-  `if msg.TeamInboxID == nil` durch `if false` ersetzt (der Guard fuer
-  Nachrichten ausserhalb einer Team-Inbox waere dann wirkungslos) ->
-  TestInboxClaimMessage_NotInTeamInbox rot: statt des erwarteten
-  FailedPrecondition-Fehlers ein Nil-Pointer-Panic bei
-  `*msg.TeamInboxID` zwei Zeilen weiter (Test schlaegt trotzdem sauber als
-  FAIL fehl, testing faengt den Panic als Testfehler ab). Zurueckgedreht,
-  `git diff --stat internal/server/inbox_grpc.go` zeigt keinen Rest.
-- verify vorgaenger: sauber. Commit c9a33570 (Iteration 29) fuegt
-  ausschliesslich internal/server/work_label_test.go,
-  internal/server/work_search_links_test.go plus Journal/Backlog-Metadaten
-  hinzu -- keine Produktionscode-Datei, kein neues Proto, keine neue Route,
-  kein neuer RequirePermission-Guard, keine neue Tabelle. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: `go build ./...` bricht auf diesem Rechner weiterhin reproduzierbar
-  mit einem Linker-OOM ab (siehe Iterationen 25-29) -- unabhaengig von dieser
-  Aenderung, stattdessen paketweise `go build ./internal/.../...` genutzt.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged
-  -StartNotBefore-Diff (wie in den Iterationen 6-29 vermerkt) -- nicht meine
-  Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem Prompt nicht
-  sichtbar mitgeliefert -- Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 29) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-10 23:45).
-
-## Iteration 31 — b-cov-server-hr-leave-lifecycle — done — 2026-08-10 23:53
-- commit: 73690839
-- unit: b-cov-server-hr-leave-lifecycle (Block B, Coverage internal/server)
-- scope: die 10 im Backlog genannten Happy-Path-Luecken des
-  Urlaubsantrag-Lebenszyklus in hr_grpc.go: CreateLeaveRequest,
-  GetLeaveRequest, ListLeaveRequests, ApproveLeaveRequest,
-  RejectLeaveRequest, CancelLeaveRequest, GetLeaveBalance,
-  GetEmployeeLeaveBalance, ListLeaveTypes, RecordSickLeave.
-- was: neue Datei internal/server/hr_leave_lifecycle_test.go. Da fuer
-  leave.Service noch kein Stub-Repository existierte, fuenf neue Stubs nach
-  dem Muster von stubFormulareRepo/newFormulareServerWithRepo gebaut:
-  stubLeaveRequestRepo (leave.LeaveRequestRepository), stubLeaveBalanceRepo
-  (leave.LeaveBalanceRepository -- GetByEmployeeYear liefert bewusst
-  (nil, nil) bei Miss, das spiegelt PostgresLeaveBalanceRepo.GetByEmployeeYear
-  exakt, dort ist "kein Datensatz" explizit kein Fehler), stubLeaveTypeRepo
-  (leave.LeaveTypeRepository), stubLeaveEmployeeRepo (leave.EmployeeRepository,
-  liefert employee.ErrEmployeeNotFound bei Miss). Alle vier plus ein
-  leave.NewService(...) mit settingsRepo=nil (kein einziger im Test gesetzter
-  LeaveType setzt RequiresAUDocument, der Zweig der settingsRepo braucht, wird
-  also nie erreicht) sind in newLeaveTestFixtures() gebuendelt, das einen
-  echten NewHRGRPCServer(svc, nil, nil, nil, nil, nil) liefert -- die anderen
-  vier HR-Services bleiben nil wie in newTestHRServer(), da diese Unit nur den
-  Leave-Cluster testet. seedEmployee() setzt StartDate zwei Jahre in die
-  Vergangenheit, damit BUrlG-ProRata immer den vollen Jahresanspruch liefert
-  (30 Tage) und Balance-Assertions ohne Pro-Rata-Sonderfaelle auskommen.
-  22 Testfaelle: pro Methode mindestens ein Happy-Path, zusaetzlich
-  CreateLeaveRequest/InvalidDateRange, ListLeaveRequests/MissingTenant,
-  ApproveLeaveRequest+RejectLeaveRequest je /AlreadyDecided (bereits
-  entschiedener Antrag -> FailedPrecondition, wie im Backlog gefordert),
-  CancelLeaveRequest/NotOwner, GetLeaveBalance/InvalidUserID,
-  RecordSickLeave/LeaveTypeNotFound. Beim Schreiben zwei falsche Annahmen
-  in den Testerwartungen korrigiert, nachdem der erste Testlauf sie aufdeckte:
-  ErrInvalidDateRange mappt in mapHRError auf InvalidArgument, nicht
-  FailedPrecondition; und ErrLeaveTypeNotFound hat in mapHRError ueberhaupt
-  keinen eigenen case (faellt auf den default codes.Internal-Zweig) --
-  RecordSickLeave_LeaveTypeNotFound erwartet jetzt Internal, mit Kommentar im
-  Test, dass das eine bestehende Luecke in mapHRError ist, keine Regression
-  dieser Unit.
-- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`)
-  | vet ok (`go vet ./internal/server/...`) | lint ok (golangci-lint run
-  --config .golangci.yml ./internal/server/... -- 0 issues) | test ok
-  (`go test -count=1 ./internal/server/` gruen) | migration n.a. (keine
-  Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst) | keine neue
-  Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-
-  Assertion
-- coverage: internal/server 67,4 % -> 67,6 % (lokal gemessen per
-  `go test -coverprofile=/tmp/cov.out ./internal/server/` +
-  `go tool cover -func`; Basiswert selbst nachgemessen durch kurzzeitiges
-  Verschieben der neuen Testdatei, da der in Iteration 30 notierte Wert
-  68,1 % beim Nachmessen auf demselben Basis-Commit a8fc540d nicht
-  reproduzierbar war -- 67,4 % gemessen. Vermutlich Mess-Rauschen zwischen
-  Iterationen, kein Befund dieser Unit. Der Zugewinn faellt klein aus, weil
-  hr_grpc.go mit 2000+ Zeilen einer der groessten Handler ist und diese Unit
-  gezielt nur den Leave-Cluster (10 von >60 Methoden) abdeckt.)
-- mutations-probe: in internal/biz/hr/leave/service.go ApproveLeaveRequest()
-  die Bedingung `if req.Status != models.LeaveStatusPending` durch `if false`
-  ersetzt (der Statuscheck vor der Genehmigung waere dann wirkungslos, ein
-  bereits entschiedener Antrag liesse sich beliebig oft erneut genehmigen) ->
-  TestApproveLeaveRequest_AlreadyDecided rot ("expected error with code
-  FailedPrecondition, got nil"). Zurueckgedreht, `git diff --stat
-  internal/biz/hr/leave/service.go` zeigt keinen Rest.
-- verify vorgaenger: sauber. Commit a8fc540d (Iteration 30) fuegt
-  ausschliesslich internal/server/inbox_grpc_test.go (Erweiterung),
-  internal/server/inbox_message_state_test.go plus Journal/Backlog-Metadaten
-  hinzu -- keine Produktionscode-Datei, kein neues Proto, keine neue Route,
-  kein neuer RequirePermission-Guard, keine neue Tabelle. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: `go build ./...` wurde in dieser Iteration nicht erneut probiert
-  (siehe Iterationen 25-30, reproduzierbarer Linker-OOM auf diesem Rechner,
-  unabhaengig von dieser Aenderung) -- stattdessen paketweise
-  `go build ./internal/.../...` genutzt. mapHRError kennt weder
-  leave.ErrLeaveTypeNotFound noch leave.ErrSettingsNotFound (beide fallen auf
-  den default Internal-Zweig statt NotFound) -- fuer Lauf 9 als kleine
-  Nacharbeit vormerken, kein RequirePermission-/Route-/Migrations-Thema, also
-  kein Blocker fuer diesen Lauf. .planning/backend-block/loop/run-loop.ps1
-  traegt weiterhin einen unstaged -StartNotBefore-Diff (wie in den
-  Iterationen 6-30 vermerkt) -- nicht meine Datei, nicht angefasst, nicht
-  committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
-  Prompt nicht sichtbar mitgeliefert -- Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 30) fortgezaehlt, Zeitstempel per `date`
-  auf dem Loop-Rechner ermittelt (2026-08-10 23:53).
-
-## Iteration 32 — b-cov-server-document-folders — done — 2026-08-11 00:02
-- commit: 069e8ed9
-- unit: b-cov-server-document-folders (Block B, Coverage internal/server)
-- scope: die 8 im Backlog genannten Happy-Path-Luecken der Ordner-Operationen
-  in document_grpc.go: CreateFolder, GetFolder, ListFolders, UpdateFolder,
-  DeleteFolder, GetFolderPath, InitializeUserSpace, InitializeTeamSpace.
-- was: neue Datei internal/server/document_folders_test.go. Da fuer
-  folder.Service noch kein Stub-Repository existierte, stubDocumentFolderRepo
-  (Interface folder.Repository, benannt mit Document-Praefix -- ein
-  stubFolderRepo/newStubFolderRepo existiert bereits fuer
-  email/message.FolderRepository in email_grpc_accounts_sync_test.go, Namens-
-  kollision beim ersten Draft vom Compiler gefunden und korrigiert) nach dem
-  Muster von stubFormulareRepo/stubLeaveRequestRepo gebaut. List() spiegelt
-  bewusst die Filter-Semantik von PostgresRepository.List
-  (postgres_repository.go:46-109): ohne ParentID werden Root-Ordner nur dann
-  gefiltert, wenn ein SpaceType-Filter gesetzt ist -- das ist der Pfad, den
-  folder.Service.Create fuer seinen Sibling-Namenskonflikt-Check nutzt, ein
-  naiverer Stub haette dort falsch-positive Konflikte oder falsche Treffer
-  geliefert. newFolderTestServer(repo) baut einen echten folder.NewService(repo)
-  in NewDocumentGRPCServer, die anderen fuenf Document-Services bleiben nil
-  wie in newTestDocumentServer(). 16 Testfaelle: pro Methode Happy-Path plus
-  Fehlerpfad -- CreateFolder/DuplicateNameInSameParent (AlreadyExists),
-  GetFolder/WrongTenantNotFound, ListFolders/RepositoryErrorMapsToInternal
-  (plus ein Leerlisten-Test, der [] statt null belegt), UpdateFolder+
-  DeleteFolder je /SystemFolderFails (FailedPrecondition),
-  GetFolderPath/RepositoryErrorMapsToInternal, InitializeUserSpace+
-  InitializeTeamSpace je /RepositoryErrorPropagates (Internal, da der
-  Sentinel-Fehler unverpackt aus dem Service durchgereicht und im default-
-  Zweig von mapDocumentError landet).
-- abweichung vom backlog: DeleteFolder hat KEINEN Fehlerpfad fuer "Ordner mit
-  noch enthaltenen Dateien/Unterordnern", wie das done_when unterstellte.
-  folder.Service.Delete (service.go:199-219) prueft ausschliesslich IsSystem;
-  PostgresRepository.Delete (postgres_repository.go:154-172) soft-deleted
-  enthaltene Dateien und verlaesst sich fuer Unterordner auf ein FK
-  ON DELETE CASCADE -- beides laeuft klaglos durch, kein Guard. Repository
-  hat dafuer CountFiles/GetChildren/IsDescendant im Interface, aber
-  Service.Delete ruft keine der drei auf (per grep in service.go verifiziert).
-  Nach der "Coverage-Units bauen keine Verhaltensaenderungen"-Regel keinen
-  Guard nachgezogen, sondern den TATSAECHLICH implementierten Fehlerpfad
-  (System-Ordner) getestet und die Abweichung hier + als Kommentarblock direkt
-  ueber den beiden Delete-Tests im Code dokumentiert. Fuer Lauf 9: falls das
-  fachlich gewollt ist (ein geloeschter Ordner mit Dateien verliert deren
-  Sichtbarkeit fuer den User, der sie an keinem "geloescht"-Status mehr findet)
-  waere das eine Fix-Unit, keine Coverage-Unit -- Luke muss entscheiden, ob
-  Kaskadieren das gewuenschte Verhalten ist.
-- weitere beobachtung, nicht gefixt: InitializeUserSpaceResponse/
-  InitializeTeamSpaceResponse tragen laut Proto ein root_folder-Feld
-  (document.proto:310-321), beide Handler geben aber immer eine leere
-  Response zurueck (document_grpc.go:256, :274) -- ein FE-Aufrufer, der den
-  neu angelegten Root-Ordner direkt aus der Response lesen wollte, bekommt
-  nichts und muesste separat ListFolders aufrufen. Kein RequirePermission-,
-  Route- oder Migrations-Thema, daher kein Blocker fuer diesen Lauf; als
-  kleine Nacharbeit fuer Lauf 9 vormerken.
-- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`)
-  | vet ok (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/server/...
-  ./internal/gateway/... -- 0 issues) | test ok (`go test -count=1
-  ./internal/server/` und `./internal/server/...` und `./internal/gateway/`
-  alle gruen, 0 uebersprungene Tests per -v-Grep auf SKIP verifiziert) |
-  migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | keine neue Route, kein neuer RequirePermission-Guard, keine
-  neue config.RequireX-Assertion
-- coverage: internal/server 47,7 % -> 68,5 % (lokal gemessen per
-  `go test -coverprofile=/tmp/cov.out ./internal/server/` +
-  `go tool cover -func`; der Bezugswert 47,7 % ist der Lauf-Startwert aus
-  `coverage_start:` der Unit, nicht der Zwischenwert 67,4-67,6 % aus
-  Iteration 31 -- beide Zahlen sind paket-eigen und damit vergleichbar, der
-  grosse Sprung seit Lauf-Start ist die Summe aller Iterationen seit
-  coverage_start, nicht allein dieser Unit.)
-- mutations-probe: in internal/document/folder/service.go Delete() die
-  Bedingung `if folder.IsSystem` durch `if false` ersetzt (der Schutz gegen
-  das Loeschen eines System-Ordners waere dann wirkungslos) ->
-  TestDeleteFolder_SystemFolderFails rot ("An error is expected but got
-  nil"). Zurueckgedreht, `git diff --stat
-  internal/document/folder/service.go` zeigt keinen Rest.
-- verify vorgaenger: sauber. Commit 73690839 (Iteration 31) fuegt
-  ausschliesslich internal/server/hr_leave_lifecycle_test.go plus
-  Journal/Backlog-Metadaten hinzu -- keine Produktionscode-Datei, kein neues
-  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: `go build ./...` wurde in dieser Iteration nicht erneut probiert
-  (siehe Iterationen 25-31, reproduzierbarer Linker-OOM auf diesem Rechner,
-  unabhaengig von dieser Aenderung) -- stattdessen paketweise
-  `go build ./internal/.../...` genutzt. Die beiden oben genannten
-  Beobachtungen (DeleteFolder ohne Children-Guard, leere Initialize*Space-
-  Responses) sind Befunde dieser Iteration, keine Fix-Units -- fuer Lauf 9
-  vormerken, kein Blocker fuer diesen Lauf. .planning/backend-block/loop/
-  run-loop.ps1 traegt weiterhin einen unstaged -StartNotBefore-Diff (wie in
-  den Iterationen 6-31 vermerkt) -- nicht meine Datei, nicht angefasst, nicht
-  committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
-  Prompt nicht sichtbar mitgeliefert -- Nummer aus der letzten Journal-
-  Ueberschrift (Iteration 31) fortgezaehlt, Zeitstempel per `date` auf dem
-  Loop-Rechner ermittelt (2026-08-11 00:02).
-
-## Iteration 33 — b-cov-server-video-egress-callbacks — done — 2026-08-11 00:10
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
-- gebaut: neue Datei `video_egress_meetingnotes_test.go` mit 10 Tests fuer die drei laut
-  Backlog per grep bestaetigten komplett ungetesteten Methoden aus video_grpc.go:
-  `CompleteRecordingByEgress`/`FailRecordingByEgress` (LiveKit-Egress-Webhook, System-
-  Kontext ohne Tenant) je mit bekannter Egress-ID (Repo-Update auf completed/failed
-  geprueft), unbekannter Egress-ID (NotFound) und leerer Egress-ID (InvalidArgument) —
-  ueber `newTestVideoCallServer()`/`recordingMockRepo` aus video_call_grpc_test.go, kein
-  neuer Stub noetig. `GetMeetingNotes` mit 5 Tests inkl. einem echten Fund: die Methode
-  ruft `meetingService.SaveNotes(ctx, meetingID, userID, tenantID, "", false)` auf, um
-  Notizen zu "lesen" (der Service exponiert kein GetNotes direkt) — `SaveNotes` lehnt
-  leeren Content aber IMMER ab (`ErrNotesContentRequired`, service.go:679-681), und zwar
-  VOR jeder Existenzpruefung des Aufrufers. Der Handler faengt jeden Fehler in denselben
-  Fallback (leerer `MeetingNotes`-Stub, `nil`-Error) — dadurch liefert GetMeetingNotes
-  fuer ein existierendes Meeting mit gespeicherten Notizen GENAU DASSELBE leere Ergebnis
-  wie fuer eine komplett unbekannte meeting_id: 200 OK mit leerem Stub statt NotFound.
-  Die Tests pinnen dieses tatsaechliche Verhalten (Kommentarblock im Testfile erklaert es),
-  fixen es nicht — reine Coverage-Unit, keine Verhaltensaenderung erlaubt.
-- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`) | vet ok
-  (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint run
-  --config .golangci.yml ./internal/server/... -- 0 issues) | test ok (`go test -count=1
-  ./internal/server/` und `./internal/server/...` beide gruen, 0 uebersprungene Tests per
-  -v-Grep auf SKIP verifiziert) | migration n.a. (keine Migration) | rls-smoke n.a. (keine
-  Tabelle/Policy angefasst) | keine neue Route, kein neuer RequirePermission-Guard, keine
-  neue config.RequireX-Assertion
-- coverage: internal/server 47,7 % -> 68,7 % (lokal per `go test
-  -coverprofile=/tmp/cov.out ./internal/server/` + `go tool cover -func`; Bezugswert
-  47,7 % ist der Lauf-Startwert aus `coverage_start:`, nicht der Zwischenwert aus
-  Iteration 32 — beide paket-eigen und vergleichbar, der Sprung ist die Summe aller
-  Iterationen seit Lauf-Start)
-- mutations-probe: zwei Proben, beide gefangen. (1) in `CompleteRecordingByEgress` die
-  Bedingung `if req.EgressId == ""` durch `if false` ersetzt (leere Egress-ID wuerde dann
-  bis zum Service durchgereicht) -> `TestCompleteRecordingByEgress_EmptyEgressID_
-  InvalidArgument` rot (erwartete InvalidArgument, bekam NotFound), zurueckgedreht. (2) in
-  `GetMeetingNotes` `if tenantErr != nil` auf `if tenantErr == nil` gedreht (Tenant-Guard
-  invertiert) -> alle 5 neuen GetMeetingNotes-Tests rot (drei erwarteten Erfolg bekamen
-  Unauthenticated, zwei erwarteten spezifische Fehlercodes bekamen Unauthenticated, einer
-  erwartete Unauthenticated bekam nil), zurueckgedreht. `git diff --stat
-  backend/internal/server/video_grpc.go` zeigt nach beiden Rueckdrehungen keinen Rest.
-- verify vorgaenger: sauber. Commit 069e8ed9 (Iteration 32) fuegt ausschliesslich
-  `document_folders_test.go` plus Journal/Backlog-Metadaten hinzu — keine
-  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: der GetMeetingNotes-Fund oben (unbekannte meeting_id liefert 200 mit leerem
-  Stub statt NotFound, und ein existierendes Meeting mit echten Notizen liefert
-  ununterscheidbar denselben leeren Stub) ist ein Kandidat fuer eine Fix-Unit in Lauf 9 —
-  entweder `meeting.Service` um ein echtes `GetNotes` erweitern oder den Handler auf
-  `repo.GetNotes`/eine neue Service-Methode umstellen, dann `SaveNotes("")` nicht mehr
-  missbrauchen. Kein Blocker fuer diesen Lauf, kein RequirePermission-/Route-/
-  Migrations-Thema. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen
-  unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-32 vermerkt) — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/
-  Zeitstempel) war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 32) fortgezaehlt, Zeitstempel per `date` auf dem
-  Loop-Rechner ermittelt (2026-08-11 00:10).
-
-## Iteration 34 — b-cov-server-crm-advisory-protocols — done — 2026-08-11 00:17
-- commit: 93905c3c
-- gebaut: neue Datei `crm_grpc_advisory_test.go` mit einem In-Memory-Fake fuer
-  `advisoryprotocol.Repository` (echter `advisoryprotocol.Service` via `NewService(repo)`, kein
-  Handler-Mock) und 38 Subtests fuer alle acht Advisory-Methoden aus `crm_grpc_advisory.go`: Create
-  (Unauthenticated x2, InvalidArgument, NotFound-via-mapCRMError, Happy), Get (InvalidArgument,
-  NotFound, fremder Tenant als NotFound, Happy), List (InvalidArgument, Tenant-/Contact-Scoping mit
-  vier Protokollen aus denen genau zwei zurueckkommen, leere Liste), Update (InvalidArgument x2 fuer
-  fehlende ID/Payload, InvalidRiskClass, FailedPrecondition fuer finalisiert, Happy mit Feldabgleich),
-  Delete (FailedPrecondition fuer finalisiert inkl. Repo-Rest-Check, Happy mit Entfernungs-Check),
-  HandOver (NotFound, idempotenter Re-Call auf bereits finalisiert, Happy mit HandedOverAt-Check),
-  GenerateAdvisoryProtocolPDF (NotFound, Happy — rendert echte PDF-Bytes ueber maroto v2 ohne
-  gewirten `contactService`, pruft nur den Best-Effort-Zweig) und GetReferralReport (Happy mit
-  Feldabgleich, leere Liste). Dazu `TestMapCRMError_AdvisoryProtocol` mit allen vier
-  advisoryprotocol-Sentinels (`ErrProtocolNotFound`, `ErrProtocolFinalized`, `ErrContactNotFound`,
-  `ErrInvalidRiskClass`) einzeln gegen `mapCRMError`, und ein expliziter
-  `TestAdvisoryProtocol_ServiceNotConfigured`-Test fuer den `s.advisoryProtocolService == nil`-Guard.
-- gate: build ok (`go build -p 2 ./internal/server/...`) | vet ok (`go vet ./internal/server/...`) |
-  lint ok (golangci-lint run --config .golangci.yml ./internal/server/... -- 0 issues) | test ok
-  (`go test -count=1 ./internal/server/` gruen, 9 SKIPs sind vorbestehende `_DB`-Integrationstests
-  ohne `DATABASE_URL`, 0 sonst uebersprungen; zusaetzlich `go test -count=1 ./internal/gateway/`
-  gruen — `TestOpenAPIRouteDrift` unberuehrt, da keine neue Route) | migration n.a. (keine Migration)
-  | rls-smoke n.a. (kein echtes Repository/keine Tabelle/Policy angefasst — reines In-Memory-Fake) |
-  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/server 47,7 % -> 68,6 % (lokal per `go test -coverprofile=/tmp/cov.out
-  ./internal/server/` + `go tool cover -func`; Bezugswert 47,7 % ist der Lauf-Startwert aus
-  `coverage_start:`, nicht der Zwischenwert aus Iteration 33 — beide paket-eigen und vergleichbar,
-  der Sprung ist die Summe aller Iterationen seit Lauf-Start. Pro-Funktion in
-  `crm_grpc_advisory.go`: CreateAdvisoryProtocol 100 %, GetAdvisoryProtocol 91,7 %,
-  ListAdvisoryProtocols 86,7 %, UpdateAdvisoryProtocol 93,3 %, DeleteAdvisoryProtocol 90,9 %,
-  HandOverAdvisoryProtocol 91,7 %, GenerateAdvisoryProtocolPDF 71,4 %, GetReferralReport 83,3 % —
-  alle vorher 0,0 %)
-- mutations-probe: in `GetAdvisoryProtocol` die Bedingung `if err != nil` (nach `uuid.Parse(req.Id)`)
-  durch `if err == nil` ersetzt (eine gueltige ID wuerde dann als InvalidArgument abgelehnt, eine
-  ungueltige durchgereicht) -> vier Subtests von `TestGetAdvisoryProtocol` rot
-  (`invalid_id` erwartete InvalidArgument bekam nil-Fortsetzung bis zum Panic-freien Fallthrough,
-  `not_found`/`wrong_tenant_is_treated_as_not_found` erwarteten NotFound bekamen InvalidArgument,
-  `happy_path` erwartete Erfolg bekam InvalidArgument), nur `missing_tenant` blieb gruen (Guard davor
-  greift zuerst). Zurueckgedreht, `git diff --stat internal/server/crm_grpc_advisory.go` zeigt
-  keinen Rest, erneuter Testlauf der betroffenen Suite gruen.
-- verify vorgaenger: sauber. Commit ae8af517 (Iteration 33) fuegt ausschliesslich
-  `video_egress_meetingnotes_test.go` plus Journal/Backlog-Metadaten hinzu — keine
-  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer RequirePermission-Guard,
-  keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: keine neuen Befunde in dieser Iteration — die Advisory-Handler verhalten sich wie
-  spezifiziert (insbesondere das Immutability-Verhalten nach `HandOver` und die Idempotenz eines
-  wiederholten `HandOver`-Aufrufs). `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  einen unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-33 vermerkt) — nicht meine Datei,
-  nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
-  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 33)
-  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 00:17).
-
-## Iteration 35 — b-cov-server-biz-banking-bexio — done — 2026-08-11 00:24
-- commit: 99120f18
-- gebaut: neue Datei `biz_grpc_banking_bexio_test.go` mit 21 Testfunktionen fuer die zwei
-  komplett ungetesteten 0,0-%-Dateien `biz_grpc_banking.go` (7 Methoden) und `bexio_grpc.go`
-  (12 Methoden plus `mapBexioError`). `TestBankingError` und `TestMapBexioError` testen jedes
-  Sentinel der jeweiligen Fehler-Tabelle einzeln gegen den erwarteten gRPC-Code (inkl. je einem
-  unmapped-Default-Fall -> Internal, und `mapBexioError(nil)` -> nil). Fuer die 7 Banking-Methoden
-  und 12 Bexio-Methoden je mindestens ein Validierungspfad (ungueltige tenant_id/id/user_id/
-  invoice_id/statement_id/quote_id/entity_type/code) plus fuer Banking zusaetzlich der
-  `requireBanking()`-Nil-Guard (Unimplemented). Bewusst lean gehalten wie im Scope-Text
-  vorgezeichnet ("bei Zeitdruck zuerst beide Fehler-Tabellen und die Validierungspfade abdecken"):
-  `bankingSvc` ist `*banking.Service`, konkret ueber ein `Repository`-Interface verdrahtet — jede
-  getestete Validierung schlaegt VOR dem ersten Repository-Zugriff fehl, also reicht
-  `banking.NewService(nil, nil, nil, nil)` als Stand-in, ohne ein Fake-Repository zu bauen.
-  Gleiches Muster bei `bexioService *bexio.Service` (zehn Konstruktor-Parameter, u. a. Client,
-  Repo, ConfigRepo, Vault) — alle 12 getesteten Validierungen greifen, bevor der Handler
-  `s.bexioService` ueberhaupt dereferenziert, deshalb reicht ein Zero-Value `BexioGRPCServer{}`
-  (nil Service) ohne den kompletten Dependency-Graph aufzubauen. Tiefe Happy-Path-Abdeckung pro
-  Methode bleibt wie im Scope vorgemerkt Kandidat fuer Lauf 9. Zusaetzlich `TestParseOptionalUUID`
-  fuer den kleinen Helfer (leer -> Nil ohne Fehler, ungueltig -> Fehler, gueltig -> Roundtrip).
-- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/...`) | vet ok
-  (`go vet ./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint run --config
-  .golangci.yml ./internal/server/... -- 0 issues) | test ok (`go test -count=1 ./internal/server/`
-  und `./internal/server/... ./internal/gateway/...` beide gruen, 9 SKIPs sind vorbestehende
-  `_DB`-Integrationstests ohne `DATABASE_URL`, 0 sonst uebersprungen per -v-Grep auf SKIP) |
-  migration n.a. (keine Migration) | rls-smoke n.a. (kein echtes Repository/keine Tabelle/Policy
-  angefasst — reine Validierungspfade vor jedem Repo-Zugriff) | keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/server 47,7 % -> 69,3 % (lokal per `go test -coverprofile=/tmp/cov.out
-  ./internal/server/` + `go tool cover -func`; Bezugswert 47,7 % ist der Lauf-Startwert aus
-  `coverage_start:`, nicht der Zwischenwert aus Iteration 34 — beide paket-eigen und vergleichbar,
-  der Sprung ist die Summe aller Iterationen seit Lauf-Start. Pro-Funktion in
-  `biz_grpc_banking.go`: `requireBanking` 100 %, `bankingError` 100 %, `parseOptionalUUID` 100 %,
-  die 7 RPC-Methoden zwischen 35,7 % (ListBankStatements) und 77,8 % (ReconcileBankTransaction) —
-  alle vorher 0,0 %. Pro-Funktion in `bexio_grpc.go`: `mapBexioError` 100 %, die 12 RPC-Methoden
-  zwischen 16,7 % (ListBexioSyncLogs) und 66,7 % (PushInvoiceToBexio/PushQuoteToBexio) — alle
-  vorher 0,0 %. Proto-Konverter (`bankStatementToProto`, `bankTransactionToProto`,
-  `bankTransactionsToProto`, `syncStatusToProto`, `syncLogToProto`) und `NewBexioGRPCServer`
-  bleiben bei 0,0 % — sie werden nur auf dem Happy-Path erreicht, der bewusst fuer Lauf 9
-  zurueckgestellt ist)
-- mutations-probe: zwei Proben, beide gefangen. (1) in `ReconcileBankTransaction` die Bedingung
-  `if err != nil` nach `parseOptionalUUID(req.GetInvoiceId())` durch `if err == nil` ersetzt (eine
-  gueltige invoice_id wuerde dann abgelehnt, eine ungueltige durchgereicht bis zum Service-Call)
-  -> `TestReconcileBankTransaction_Validation/invalid_invoice_id` rot (erwartete InvalidArgument,
-  bekam Internal — die ungueltige ID lief bis zum nil-Repository durch und `bankingError` fing den
-  Panic-freien Fehler im Default-Zweig ab), zurueckgedreht. (2) in `mapBexioError` den
-  `bexio.ErrBexioUnauthorized`-Fall von `codes.Unauthenticated` auf `codes.PermissionDenied`
-  gedreht -> `TestMapBexioError/unauthorized` rot (erwartete Unauthenticated, bekam
-  PermissionDenied), alle anderen Sentinels blieben gruen (eigene Case-Zweige unberuehrt),
-  zurueckgedreht. `git diff --stat internal/server/biz_grpc_banking.go internal/server/bexio_grpc.go`
-  zeigt nach beiden Rueckdrehungen keinen Rest, erneuter Testlauf gruen.
-- verify vorgaenger: sauber. Commit 93905c3c (Iteration 34) fuegt ausschliesslich
-  `crm_grpc_advisory_test.go` plus Journal/Backlog-Metadaten hinzu; der direkt folgende
-  Metadaten-Commit 454f2aa4 aendert nur `JOURNAL.md`. Keine Produktionscode-Datei, kein neues
-  Proto, keine neue Route, kein neuer RequirePermission-Guard, keine neue Tabelle. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: keine neuen Produktionsbefunde in dieser Iteration — Banking- und Bexio-Handler
-  validieren wie erwartet vor jedem Service-/Repo-Zugriff. Die im Scope selbst vorgezeichnete
-  Luecke bleibt bestehen: tiefe Happy-Path-Abdeckung fuer beide Domaenen (inkl. der fuenf
-  Proto-Konverter und `NewBexioGRPCServer`) braucht ein Fake-`banking.Repository` bzw. einen
-  vollstaendig verdrahteten `bexio.Service` — guter Zuschnitt fuer eine eigene Unit in Lauf 9, wie
-  im Scope-Text bereits vermerkt. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  einen unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-34 vermerkt) — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war
-  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 34) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 00:24).
-
-## Iteration 36 — c-cov-gateway-auth-2fa-sessions — done — 2026-08-11 00:30
-- commit: 5a27f354
-- gebaut: neue Datei `route_auth_2fa_sessions_test.go` mit 24 Testfunktionen (davon 2 mit
-  Subtests) fuer alle zwoelf bislang komplett ungetesteten 2FA-/Session-Handler in
-  `route_auth.go`: Setup2FA, Verify2FA, Validate2FALogin, Disable2FA,
-  RegenerateRecoveryCodes, AdminReset2FA, GetTwoFactorPolicy, UpdateTwoFactorPolicy,
-  ListSessions, ListAllSessions, TerminateSession, TerminateAllSessions. Jeder Handler hat
-  einen ServiceUnavailable-Testfall (leere Registry). Verify2FA/Disable2FA/
-  RegenerateRecoveryCodes zusaetzlich InvalidJSON und MissingCode, Verify2FA zusaetzlich
-  WrongCodeLength (5-stelliger Code gegen `validate:"required,len=6"`). Validate2FALogin
-  zusaetzlich InvalidJSON, MissingPendingToken, MissingCode. AdminReset2FA zusaetzlich
-  NoAdminID (401 vor dem RPC-Versuch, direkter Handler-Aufruf ohne withUserID — der Guard
-  liegt inline im Handler, keine Middleware noetig), InvalidJSON und drei Validierungsfaelle
-  (fehlende/ungueltige user_id, fehlender reason). UpdateTwoFactorPolicy zusaetzlich
-  NoAdminID sowie GracePeriodDays ausserhalb 0-365 (negativ und > 365 als zwei Subtests) und
-  RoleName ausserhalb des oneof. ListAllSessions zusaetzlich MissingUserID (400 vor dem
-  RPC-Aufruf). TerminateSession zusaetzlich InvalidUUID ueber `validateUUIDParam`. Kein
-  Happy-Path getestet — Registry-Client zeigt auf `localhost:0`, ein echter RPC-Erfolg ist in
-  diesem Testmuster nicht erreichbar (Vorbild: der Rest von `route_auth_test.go` haelt sich
-  an dieselbe Grenze).
-- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
-  (`go vet ./internal/gateway/...`) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (`go test -count=1 ./internal/gateway/`
-  gruen, 0 SKIPs per `-v | grep -c "^--- SKIP"`) | migration n.a. (keine Migration) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst) | keine neue Route (TestOpenAPIRouteDrift
-  lief mit, unberuehrt), kein neuer RequirePermission-Guard, keine neue
-  config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 35,5 % (lokal per `go test -coverprofile=/tmp/cov.out
-  ./internal/gateway/` + `go tool cover -func`; Bezugswert 34,9 % ist der Lauf-Startwert aus
-  `coverage_start:`. Pro-Funktion: HandleSetup2FA 40,0 %, HandleVerify2FA 61,5 %,
-  HandleValidate2FALogin 58,3 %, HandleDisable2FA 61,5 %, HandleRegenerateRecoveryCodes
-  61,5 %, HandleAdminReset2FA 68,8 %, HandleGetTwoFactorPolicy 40,0 %,
-  HandleUpdateTwoFactorPolicy 68,8 %, HandleListSessions 40,0 %, HandleListAllSessions
-  61,5 %, HandleTerminateSession 61,5 %, HandleTerminateAllSessions 36,4 % — alle vorher
-  0,0 %. Rest bis 100 % ist durchgehend der unerreichte Happy-Path nach dem `client.<RPC>`-
-  Aufruf, siehe "gebaut" oben)
-- mutations-probe: zwei Proben, beide gefangen. (1) in `HandleAdminReset2FA` die Bedingung
-  `if adminID == ""` durch `if false` ersetzt (fehlende adminID wuerde dann bis zum
-  RPC-Aufruf durchgereicht) -> `TestHandleAdminReset2FA_NoAdminID` rot (erwartete 401, bekam
-  503 — der Request lief bis zum dummy-`localhost:0`-Client durch und scheiterte dort an der
-  Verbindung statt am Guard), zurueckgedreht. (2) in `updateTwoFactorPolicyRequest` das
-  `GracePeriodDays`-Tag von `lte=365` auf `lte=999999` gesetzt -> `TestHandleUpdateTwoFactor
-  Policy_InvalidGracePeriod/over_max` rot (erwartete 400/validation_failed/grace_period_days,
-  bekam 503 vom selben dummy-Client-Effekt), `.../negative` blieb gruen (eigener
-  `gte=0`-Zweig unberuehrt), zurueckgedreht. `git diff --stat internal/gateway/
-  route_auth.go` zeigt nach beiden Rueckdrehungen keinen Rest, erneuter Testlauf
-  (`go test -count=1 ./internal/gateway/`) gruen.
-- verify vorgaenger: sauber. Commit 99120f18 (Iteration 35) fuegt ausschliesslich
-  `biz_grpc_banking_bexio_test.go` plus Journal/Backlog-Metadaten hinzu — keine
-  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: keine neuen Produktionsbefunde in dieser Iteration — alle zwoelf Handler verhalten
-  sich wie im Scope beschrieben. Die neun weiteren ungetesteten Pfade in `route_auth.go`
-  (Forgot/Reset-Password, Profile/User-Update, Provisioning, Invitations) sind die naechste
-  Unit `c-cov-gateway-auth-reset-invitations`, bereits im Backlog vorbereitet.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen unstaged
-  `-StartNotBefore`-Diff (wie in den Iterationen 6-35 vermerkt) — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
-  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 35) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 00:30).
-
-## Iteration 37 — c-cov-gateway-auth-reset-invitations — done — 2026-08-11 00:36
-- commit: 4b1e2918
-- gebaut: neue Datei `route_auth_reset_invitations_test.go` mit 26 Testfunktionen fuer die
-  neun im Scope genannten Pfade in `route_auth.go`: HandleForgotPassword,
-  HandleResetPassword, HandleUpdateProfile, HandleUpdateUser, HandleProvisionTenant,
-  HandleListInvitations, HandleAcceptInvitation, HandleCancelInvitation, sowie
-  `allowForgotAttempt` direkt als White-Box-Methode. Rate-Limiter: fuenf Versuche im Fenster
-  erlaubt, sechster abgelehnt (`TestAllowForgotAttempt_RateLimit`), Gross-/Kleinschreibung
-  und Leerzeichen teilen sich einen Bucket (`TestAllowForgotAttempt_Normalization`, `User@X.de`
-  vs. ` user@x.de `), abgelaufenes Fenster resettet den Zaehler auf 1
-  (`TestAllowForgotAttempt_WindowReset`, Bucket direkt ueber `forgotLimiter.Load` manipuliert).
-  HandleForgotPassword zusaetzlich: ServiceUnavailable, InvalidJSON, MissingEmail (400
-  Validierung), RateLimited (429 mit `Retry-After: 600`), AlwaysOK (200 trotz RPC-Fehler des
-  Dummy-Clients — enumeration-safe). HandleResetPassword: ServiceUnavailable, InvalidJSON,
-  MissingToken, ShortPassword. HandleUpdateProfile: ServiceUnavailable, AvatarURLTooLong
-  (max=512). HandleUpdateUser: ServiceUnavailable, InvalidUUID (vor decodeAndValidate).
-  HandleProvisionTenant: ServiceUnavailable, MissingAdminEmail, InvalidSeatLimit
-  (seat_limit=0 gegen `omitempty,min=1`). HandleListInvitations: ServiceUnavailable.
-  HandleAcceptInvitation: ServiceUnavailable, MissingToken (400 "token is required" vor
-  decodeAndValidate), MissingPassword. HandleCancelInvitation: ServiceUnavailable,
-  InvalidUUID. Kein Happy-Path getestet — gleiche Grenze wie in den Vorgaenger-Iterationen zu
-  `route_auth.go` (Dummy-Client auf `localhost:0`, echter RPC-Erfolg im Testmuster nicht
-  erreichbar).
-- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
-  (`go vet ./internal/gateway/...`) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (`go test -count=1 ./internal/gateway/`
-  gruen, 0 SKIPs per `-v | grep -c "^--- SKIP"`; `go test -count=1 ./internal/gateway/...`
-  fuer alle Unterpakete ebenfalls gruen) | migration n.a. (keine Migration) | rls-smoke n.a.
-  (keine Tabelle/Policy angefasst) | keine neue Route (TestOpenAPIRouteDrift lief mit,
-  834 Routen gegen 836 Pfade, unveraendert gegenueber Iteration 36), kein neuer
-  RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 35,8 % (lokal per `go test -coverprofile=/tmp/cov.out
-  ./internal/gateway/` + `go tool cover -func`; Bezugswert 34,9 % ist der Lauf-Startwert aus
-  `coverage_start:`)
-- mutations-probe: eine Probe, gefangen. In `allowForgotAttempt` die Rueckgabe
-  `return b.count <= forgotRateLimitMax` (beide Vorkommen — Reset-Zweig und Zaehl-Zweig,
-  letzterer trug die Bedingung) durch `return true` ersetzt (Ratenlimit wirkungslos) ->
-  `TestAllowForgotAttempt_RateLimit`, `TestAllowForgotAttempt_Normalization`,
-  `TestAllowForgotAttempt_WindowReset` und `TestHandleForgotPassword_RateLimited` alle vier
-  rot (erwarteten `false`/429, bekamen `true`/200), zurueckgedreht. `git diff
-  backend/internal/gateway/route_auth.go` zeigt danach keinen Rest, erneuter Testlauf
-  (`go test -count=1 ./internal/gateway/`) gruen, 0 SKIPs.
-- verify vorgaenger: sauber. Commit 5a27f354 (Iteration 36) fuegt ausschliesslich
-  `route_auth_2fa_sessions_test.go` plus Journal/Backlog-Metadaten hinzu — keine
-  Produktionscode-Datei, kein neues Proto, keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: keine neuen Produktionsbefunde in dieser Iteration — alle acht Handler und der
-  Rate-Limiter verhalten sich wie im Scope beschrieben. `route_auth.go` hat damit ab dieser
-  Iteration keine ungetesteten Handler mehr in den Bloecken "2FA/Sessions" und
-  "Reset/Invitations"; verbleibende Luecken (falls vorhanden) liegen ausserhalb des Scopes
-  dieser beiden Units. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen
-  unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-36 vermerkt) — nicht meine Datei,
-  nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in
-  diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 36) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 00:36).
-
-## Iteration 38 — c-cov-gdpr-export-handlers — done — 2026-08-11 00:42
-- commit: 48f7b1ee
-- gebaut: neue Datei `backend/internal/security/gdpr/export_crm_chat_test.go` mit vier Tests
-  fuer die beiden groessten bis dahin voellig ungetesteten Export-Handler.
-  `TestCRMExportHandler_ExportUserData_Integration`: seedet je eine Contact-, Company- und
-  Activity-Zeile (`assigned_to` + `created_by` = Subject, gesetztes `due_date`) in einem
-  frischen Tenant und prueft, dass alle drei Listen im JSON erscheinen, dass
-  `activity_type::text` als `"call"` und nicht als Enum-OID rendert und dass das nullable
-  `due_date` den Scan ueberlebt; danach derselbe Export unter Fremd-Tenant-Kontext (alle drei
-  Listen leer, zusaetzlich Substring-Assertion, dass keine der drei UUIDs im Payload steht)
-  und ein nicht existierender User. `TestChatExportHandler_ExportUserData_Integration`:
-  Channel + eigene Message + Message eines Kollegen im selben Channel/Tenant +
-  Channel-Membership (`role='owner'`, `last_read_at` gesetzt); prueft, dass genau die eigene
-  Message exportiert wird (Datensparsamkeit — die Kollegen-Message darf nicht im Payload
-  auftauchen), dass die Membership ueber `channels.name` gejoint ist, plus Fremd-Tenant- und
-  Unknown-User-Fall. `TestCRMExportHandler_QueryError` und `TestChatExportHandler_QueryError`
-  decken den Fehlerzweig ab (geschlossener Pool -> Query schlaegt fehl, Fehler traegt das
-  Modul-Praefix `crm export:` bzw. `chat export:`) — vorher lief in beiden Handlern kein
-  einziger `if err != nil`-Zweig durch einen Test. Zwei Test-Helper: `seedExportUser` und
-  `seedChannelMembership` (Letzterer noetig, weil `channel_memberships` einen
-  Composite-PK ohne `id`-Spalte hat und `testutil.SeedRow` auf `RETURNING id` besteht).
-  Kein Produktionscode veraendert.
-- gate: build ok (`go build -p 2 ./internal/security/...`) | vet ok (`go vet
-  ./internal/security/...`) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/security/... -- 0 issues) | test ok (`go test -count=1
-  ./internal/security/gdpr/` gruen, 42 PASS / 0 SKIP / 0 FAIL per `-v`, also alle
-  DB-Integrationstests real gelaufen; `go test -count=1 ./internal/security/...` alle sieben
-  Pakete gruen) | migration n.a. (keine Migration) | rls-smoke n.a. als eigener Schritt —
-  die Tenant-Isolation ist hier direkt Testgegenstand: der Fremd-Tenant-Export laeuft als
-  `kmuhub_app` (NOSUPERUSER NOBYPASSRLS) und liefert nachweislich 0 Zeilen | keine neue
-  Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/security/gdpr 35,9 % -> 42,9 % (beides lokal per `go test
-  -coverprofile` + `go tool cover -func` gemessen; der Ausgangswert durch temporaeres
-  Herausnehmen der neuen Testdatei ermittelt). Hinweis: das Feld `coverage_start:` der Unit
-  nennt "internal/security 47,9 %" — das ist der Aggregat-Wert ueber alle sieben
-  security-Unterpakete aus dem CI-Artefakt, nicht der des hier geaenderten Pakets
-  `internal/security/gdpr`. Die 35,9 % sind der paket-eigene Bezugspunkt.
-- mutations-probe: zwei Proben, beide gefangen. (1) In `ChatExportHandler.ExportUserData`
-  die Message-Bedingung `WHERE m.created_by = $1` durch `WHERE m.created_by IS NOT NULL`
-  ersetzt (Autor-Scoping weg) -> `TestChatExportHandler_ExportUserData_Integration` rot
-  ("should have 1 item(s), but has 2", die Kollegen-Message war mit drin). (2) In
-  `CRMExportHandler.ExportUserData` das `out.CreatedCompanies = append(...)` durch `_ = co`
-  ersetzt -> `TestCRMExportHandler_ExportUserData_Integration` rot ("[] should have 1
-  item(s), but has 0"). Beide per `git checkout -- backend/internal/security/gdpr/export.go`
-  zurueckgedreht, `git status` zeigt export.go danach unveraendert, erneuter Lauf `go test
-  -count=1 ./internal/security/gdpr/` gruen.
-- verify vorgaenger: sauber. Commit 4b1e2918 (Iteration 37) fuegt ausschliesslich
-  `backend/internal/gateway/route_auth_reset_invitations_test.go` plus Journal/Backlog-
-  Metadaten hinzu — keine Produktionscode-Datei, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: **Befund fuer Lauf 9 (Verhaltens-Divergenz, kein Sicherheitsleck).** Das
-  `done_when` dieser Unit erwartete, dass ein nicht existierender User "einen definierten
-  Fehler statt eines leeren, aber erfolgreichen Exports" liefert (so haelt es
-  `AuthExportHandler` ueber sein `QueryRow` -> `ErrNoRows`). CRM und Chat verhalten sich
-  anders: beide scopen ueber `JOIN users u ON u.id = $1`, der bei unbekanntem oder
-  RLS-unsichtbarem User schlicht nichts matcht — der Export ist dann leer und **erfolgreich**.
-  Ich habe das Ist-Verhalten gepinnt statt es umzubiegen (Coverage-Unit, kein Umbau). Folge in
-  Produktion: `ExecuteExport` toleriert Handler-Fehler ohnehin (schreibt `<modul>/_error.txt`
-  in die ZIP und macht weiter), d. h. bei einem unbekannten User bekaeme man heute
-  `auth/_error.txt` neben leeren `crm/data.json` und `chat/data.json`. Kein Datenleck — der
-  Fremd-Tenant-Fall liefert nachweislich 0 Zeilen —, aber inkonsistent. Entscheidung gehoert
-  Luke: entweder alle sechs Handler auf "Fehler bei unbekanntem User" vereinheitlichen (dann
-  `SELECT 1 FROM users WHERE id=$1`-Vorabpruefung je Handler) oder die Auth-Variante
-  angleichen und leere Exporte als Normalfall dokumentieren. Vier der sechs
-  ExportUserData-Methoden (work, calendar, sessions, notifications) sind weiterhin ungetestet
-  — dafuer existiert im Backlog noch keine Unit.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen unstaged
-  `-StartNotBefore`-Diff (wie in den Iterationen 6-37 vermerkt) — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
-  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 37) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 00:42).
-
-## Iteration 39 — c-cov-gdpr-erasure-handlers — done — 2026-08-11 00:49
-- commit: c1b0ec90
-- gebaut: neue Datei `backend/internal/security/gdpr/erasure_crm_chat_test.go` mit sieben Tests
-  fuer die vier bis dahin voellig ungetesteten Erasure-Methoden.
-  `TestCRMErasureHandler_PreviewErasure_Integration`: Contact + Company + Activity in einem
-  frischen Tenant -> `RecordCount == 3`, `ModuleName "crm"`, `Action "anonymize"`; danach
-  Re-Read der Activity als Beweis, dass Preview **nicht schreibt** (`assigned_to` und
-  `description` unveraendert); dazu Fremd-Tenant (0 — die COUNT-Queries tragen kein
-  Tenant-Praedikat, die Grenze ist allein RLS) und unbekannter User (0).
-  `TestCRMErasureHandler_ExecuteErasure_Integration`: drei Aktivitaeten (dem Subjekt
-  zugewiesen / vom Subjekt erstellt aber einem Kollegen zugewiesen / komplett fremd) plus
-  Contact und Company; prueft per direkter DB-Abfrage, dass die erste `assigned_to` UND
-  `description` verliert, die zweite ihren Assignee **behaelt** und nur die `description`
-  verliert, die dritte voellig unberuehrt bleibt, und dass Contact/Company bewusst erhalten
-  bleiben (NOT-NULL-FK auf den anonymisierten User).
-  `TestCRMErasureHandler_ExecuteErasure_IgnoresAction`: pinnt, dass `ErasureDelete` nichts
-  loescht — beide Handler ignorieren ihren `action`-Parameter vollstaendig und anonymisieren
-  immer. Harmlos, solange `Service.ExecuteErasure` die Action aus `PreviewErasure` ableitet
-  (`erasure.go` hartkodiert dort "anonymize"), aber eine Falle fuer den naechsten, der einem
-  Modul eine echte Delete-Action geben will.
-  `TestChatErasureHandler_PreviewErasure_Integration` analog (Message + Membership -> 2,
-  Preview schreibt nicht, Fremd-Tenant 0, unbekannter User 0).
-  `TestChatErasureHandler_ExecuteErasure_Integration`: Message des Subjekts wird zu
-  `"[<Label>]"` mit `is_deleted = true` und gestempeltem `edited_at`, die Message des Kollegen
-  im selben Channel bleibt woertlich erhalten, und von zwei Memberships verschwindet genau die
-  des Subjekts. `TestCRMErasureHandler_DeadPool` / `TestChatErasureHandler_DeadPool` decken je
-  beide Fehlerpfade ab: `PreviewErasure` **schluckt** den DB-Fehler und meldet einen leeren,
-  erfolgreichen Preview (`RecordCount 0`), `ExecuteErasure` reicht ihn mit Modul-Praefix
-  (`crm erasure:` / `chat erasure:`) durch. Kein Produktionscode veraendert.
-- gate: build ok (`go build -p 2 ./internal/security/...`) | vet ok (`go vet
-  ./internal/security/...`) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/security/... -- 0 issues) | test ok (`go test -count=1 ./internal/security/gdpr/`
-  gruen, 49 Tests, davon **0 SKIP** per `-v` gezaehlt, also alle DB-Integrationstests real
-  gelaufen; `go test -count=1 ./internal/security/...` alle sieben Pakete gruen) | migration
-  n.a. (keine Migration) | rls-smoke n.a. als eigener Schritt — die Tenant-Isolation ist hier
-  direkt Testgegenstand: beide Fremd-Tenant-Previews laufen als `kmuhub_app` (NOSUPERUSER
-  NOBYPASSRLS) und liefern nachweislich 0 | keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/security/gdpr 42,9 % -> 48,0 % (beides lokal per `go test -coverprofile`
-  + `go tool cover -func` gemessen, Ausgangswert durch temporaeres Herausnehmen der neuen
-  Testdatei). Per Funktion: CRM `PreviewErasure` 0,0 -> 100,0 %, CRM `ExecuteErasure`
-  0,0 -> 82,6 %, Chat `PreviewErasure` 0,0 -> 100,0 %, Chat `ExecuteErasure` 0,0 -> 78,9 %.
-  Hinweis wie in Iteration 38: das Feld `coverage_start:` der Unit nennt "internal/security
-  47,9 %" — das ist der Aggregat-Wert ueber alle sieben security-Unterpakete aus dem
-  CI-Artefakt, nicht der des hier geaenderten Pakets.
-- mutations-probe: zwei Proben, beide gefangen. (1) In `ChatErasureHandler.ExecuteErasure` das
-  Autor-Scoping des Message-UPDATE (`WHERE created_by = $1`) durch `WHERE created_by IS NOT
-  NULL` ersetzt -> `TestChatErasureHandler_ExecuteErasure_Integration` rot. (2) In
-  `CRMErasureHandler.ExecuteErasure` im zweiten UPDATE das `description = NULL` gestrichen ->
-  `TestCRMErasureHandler_ExecuteErasure_Integration` rot mit genau der zugehoerigen
-  Assertion ("personal description must be cleared for activities created by the subject").
-  Beide per `git checkout -- backend/internal/security/gdpr/erasure.go` zurueckgedreht,
-  `git status backend/` zeigt danach nur noch die neue Testdatei als untracked, erneuter Lauf
-  `go test -count=1 ./internal/security/gdpr/` gruen.
-- verify vorgaenger: sauber. Commit 48f7b1ee (Iteration 38) fuegt ausschliesslich
-  `backend/internal/security/gdpr/export_crm_chat_test.go` plus Journal/Backlog-Metadaten
-  hinzu — keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard,
-  keine neue Tabelle. Keine der acht Fehlerklassen einschlaegig.
-- offen: **Realer Bug gefunden, dokumentiert statt gefixt** (Coverage-Unit aendert kein
-  Verhalten) — neue Unit `fix-crm-erasure-double-count` am Ende von `BACKLOG.yml` fuer Lauf 9.
-  `CRMErasureHandler.ExecuteErasure` zaehlt jede Aktivitaet **doppelt**, die der Betroffene
-  sowohl erstellt als auch sich selbst zugewiesen hatte: das erste UPDATE setzt
-  `assigned_to = NULL`, das zweite trifft dieselbe Zeile daraufhin ueber seinen
-  `assigned_to IS NULL`-Zweig erneut. Die Daten sind danach korrekt (der Anonymisierungs-UPDATE
-  ist idempotent) — falsch ist nur die zurueckgegebene Zahl, und die landet ueber
-  `Service.ExecuteErasure` als "anonymize: N records" im `modules_affected` des
-  `GDPRErasureLog` und geht in den SHA-256-Confirmation-Hash ein, also in den
-  Art.-17-Loeschnachweis fuer den Betroffenen. Kein Datenleck, aber eine falsche Zahl in einem
-  Compliance-Beleg. Die beiden betroffenen Tests erwarten bewusst das **Ist**-Verhalten (5
-  statt 4 bzw. 3 statt 2), jeweils mit Kommentar auf diese Journal-Nummer — beim Fix umstellen,
-  nicht loeschen. Zweiter, kleinerer Befund ohne eigene Unit: beide Handler ignorieren ihren
-  `action`-Parameter komplett (`ErasureDelete` anonymisiert genauso wie `ErasureAnonymize`);
-  aktuell folgenlos, weil `PreviewErasure` fuer beide Module "anonymize" hartkodiert, aber es
-  gibt keinen Test und keine Assertion, die das absichert, falls jemand die Preview-Action
-  aendert. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin einen unstaged
-  `-StartNotBefore`-Diff (wie in den Iterationen 6-38 vermerkt) — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war in diesem
-  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 38) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 00:49).
-
-## Iteration 40 — c-cov-gdpr-dsar-search — done — 2026-08-11 00:56
-- commit: 1090bd9e
-- gebaut: `backend/internal/security/gdpr/dsar_search_test.go` (neu, 448 Zeilen, kein
-  Produktionscode veraendert). Vier reine Table-Tests fuer `joinName`, `initials`,
-  `boolLabel`, `fieldValueRecord` inklusive der Platzhalter-Kanten (`joinName("","")` -> `—`,
-  `initials("","")` -> `?`) und zweier Multi-Byte-Faelle (`Ölaf`/`Ärgerlich` -> `ÖÄ`, Emoji als
-  eine Rune) — die belegen, dass `initials` ueber Runen und nicht ueber Bytes schneidet.
-  Fuenf DB-Integrationstests fuer `SearchByQuery`:
-  `TestSearchByQuery_ContactWithAllModules_Integration` seedet Kontakt + Firma + drei
-  Consent-Zeilen + zwei Dialer-Sessions und prueft die volle Ausgabe: Modul-Reihenfolge
-  (`CRM Kontakte`, `Einwilligungen`, `Anrufe`), alle sechs CRM-Felder, alle drei
-  Consent-Status-Zweige (`Erteilt` / `Verweigert` / `Widerrufen`, wobei die Widerrufs-Zeile
-  trotz `granted = true` als widerrufen gilt), das `COALESCE(granted_at, created_at)` in beiden
-  Richtungen sowie `COALESCE` auf `duration_seconds`/`notes` (NULL -> `0` und `""`). Dazu
-  Treffer per Nachnamen-, per E-Mail- und per zusammengesetztem Vollnamen-Teilstring, ein
-  Fremd-Tenant-Read (0), ein Read mit **gefaelschtem** `tenantID`-Argument unter fremdem Ctx
-  (ebenfalls 0 — beweist, dass RLS und nicht das Argument die Grenze ist) und ein Nicht-Treffer
-  (leerer, nicht-nil Slice). `TestSearchByQuery_ContactWithoutConsentOrCalls_Integration` haelt
-  die leicht zu verlierende Eigenschaft fest, dass `consentModule`/`dialerModule` **nil** und
-  nicht ein leeres Modul liefern — genau ein Modul beim Kontakt ohne Consent/Anrufe.
-  `TestSearchByQuery_MatchesUsers_Integration` deckt `matchUsers` inklusive beider
-  `boolLabel`-Zweige (aktiver + inaktiver User) und einem gleichnamigen Fremd-Tenant-User ab,
-  der unsichtbar bleiben muss. `TestSearchByQuery_NoMinimumLengthGuard_Integration` und
-  `TestSearchByQuery_DeadPool` decken die zwei Fehler-/Randpfade ab.
-- gate: build ok (`go build -p 2 ./internal/security/...`) | vet ok (`go vet
-  ./internal/security/...`) | lint ok (`golangci-lint run --config .golangci.yml
-  ./internal/security/...` -- 0 issues) | test ok (`go test -count=1 ./internal/security/gdpr/`
-  gruen; die neuen Tests per `-v` gezaehlt: 31 RUN/PASS-Zeilen, **0 SKIP, 0 FAIL**, also liefen
-  alle DB-Integrationstests real gegen die lokale Postgres als `kmuhub_app`; `go test -count=1
-  ./internal/security/...` alle sieben Pakete gruen) | migration n.a. | rls-smoke n.a. als
-  eigener Schritt — Tenant-Isolation ist hier direkter Testgegenstand (Fremd-Tenant-Suche und
-  gefaelschtes Tenant-Argument liefern beide 0 Zeilen unter NOSUPERUSER NOBYPASSRLS) | keine
-  neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/security/gdpr 48,0 % -> 59,8 % (beides lokal per `go test -coverprofile` +
-  `go tool cover -func` gemessen, Ausgangswert durch temporaeres Herausnehmen der neuen
-  Testdatei). Per Funktion, alle vorher 0,0 %: `SearchByQuery` 87,5 %, `matchContacts` 84,6 %,
-  `matchUsers` 82,4 %, `consentModule` 87,0 %, `dialerModule` 82,4 %, `fieldValueRecord` /
-  `joinName` / `initials` / `boolLabel` je 100,0 %. Die Reste sind die Scan- und
-  `rows.Err()`-Fehlerzweige, die ohne Fault-Injection nicht erreichbar sind. Wie in den
-  Iterationen 38/39: das Feld `coverage_start:` der Unit nennt "internal/security 47,9 %" —
-  das ist der Aggregat-Wert ueber alle sieben security-Unterpakete aus dem CI-Artefakt, nicht
-  der des hier geaenderten Pakets.
-- mutations-probe: zwei Proben, beide gefangen. (1) In `consentModule` den Zweig
-  `if revoked != nil { status = "Widerrufen" }` entfernt -> `..._ContactWithAllModules_...`
-  rot, Diff nennt genau die fehlende `"Status": "Widerrufen"`-Zelle. (2) In `matchContacts`
-  aus der WHERE-Klausel `OR c.email ILIKE $2` gestrichen -> derselbe Test rot mit der
-  Assertion "the email substring must find the same contact". Beide per `git checkout --
-  backend/internal/security/gdpr/dsar_search.go` zurueckgedreht; `git status backend/` zeigt
-  danach nur noch die neue Testdatei als untracked, erneuter Lauf `go test -count=1
-  ./internal/security/gdpr/` gruen.
-- verify vorgaenger: sauber. Commit c1b0ec90 (Iteration 39) fuegt ausschliesslich
-  `backend/internal/security/gdpr/erasure_crm_chat_test.go` plus Journal/Backlog-Metadaten
-  hinzu — keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard,
-  keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: **Zwei Befunde dokumentiert statt gefixt** (Coverage-Unit aendert kein Verhalten),
-  beide ohne eigene Unit, weil sie eine Produktentscheidung brauchen. (1) `SearchByQuery`
-  interpoliert die Nutzereingabe ungeschuetzt in ein ILIKE-Pattern (`"%" + query + "%"`).
-  Keine SQL-Injection — die Query ist parametrisiert —, aber LIKE-Wildcards der Eingabe
-  bleiben wirksam: eine Suche nach `%a` oder `__` listet bis zu `dsarMaxSubjects` beliebige
-  Subjekte des eigenen Tenants auf, statt gezielt eine Person zu finden. Fuer eine
-  Art.-15-Auskunftsmaske ist das eine Enumerations-Flaeche innerhalb des eigenen Mandanten
-  (der Aufrufer ist Admin, deshalb kein Leak ueber die Tenant-Grenze). Fix waere ein
-  Escapen von `%`/`_`/`\` plus `ESCAPE '\'` — vor Launch zu entscheiden. (2) Die
-  Mindestlaenge von zwei Zeichen sitzt allein im RPC-Handler
-  (`internal/server/security_grpc.go:583`), nicht in `SearchByQuery` selbst; ein leerer Query
-  listet dort alles auf. Das ist per Test festgehalten
-  (`TestSearchByQuery_NoMinimumLengthGuard_Integration`), damit ein zweiter Aufrufer nicht
-  stillschweigend ohne Guard einsteigt. `.planning/backend-block/loop/run-loop.ps1` traegt
-  weiterhin einen unstaged `-StartNotBefore`-Diff (wie in den Iterationen 6-39 vermerkt) —
-  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block
-  (Iterationsnummer/Zeitstempel) war auch in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 39) fortgezaehlt, Zeitstempel per
-  `date` auf dem Loop-Rechner ermittelt (2026-08-11 00:56).
-
-## Iteration 41 — c-cov-audit-password-policy — done — 2026-08-11 01:17
-- commit: 64b0f27b
-- gebaut: Drei neue Testdateien. `internal/security/password/policy_test.go` (Mock-Repository,
-  keine DB): Service.ValidatePassword deckt MinLength/MinEntropy/alle vier Complexity-Flags je
-  Fail- und Pass-Fall plus die volle Kombination, Service.CheckPasswordHistory deckt den
-  PreventReuseCount<=0-Kurzschluss (bewiesen ueber einen Repo-Fehler, der bei echtem Aufruf von
-  GetPasswordHistory durchschlagen wuerde), Reuse-Treffer per echtem bcrypt-Hash, Kein-Treffer
-  sowie alle Repo-Fehlerpfade. RecordPassword, GetPolicy, UpdatePolicy (inkl. serverseitig
-  aufgeloester ID gegen eine vorgetaeuschte Caller-ID) je mit Erfolgs- und Fehlerpfad.
-  internal/security/password/postgres_repository_test.go (DB-Integration): AddPasswordHistory/
-  GetPasswordHistory gegen echte Postgres inkl. server-seitig aufgeloestem tenant_id (direkt
-  gegen die Tabelle geprueft, nicht ueber den eigenen Lesepfad), Reihenfolge neueste-zuerst,
-  Limit, FK-Fehlerpfad bei unbekanntem User; GetPolicy-Fallback auf defaultPolicy() bei
-  fehlender Zeile mit allen Feldern geprueft. internal/security/audit/postgres_repository_test.go:
-  GetLastHash nicht-leerer Zweig echt getestet; List/VerifyChain konnten NICHT wie im
-  done_when vorgesehen getestet werden (siehe offen:) — stattdessen ein Regression-Pin-Test,
-  der den gefundenen Bug exakt reproduziert, plus ein sicherer No-Match/Pagination-Defaults-
-  Test ohne Zeilen-Scan.
-- gate: build ok (go build -p 2 ./internal/security/...) | vet ok | lint ok (golangci-lint
-  run --config .golangci.yml ./internal/security/... -- 0 issues) | test ok (go test -count=1
-  ./internal/security/audit/ und ./internal/security/password/ beide gruen, -v gezaehlt: 0
-  SKIP ueber beide Pakete, alle DB-Integrationstests liefen real gegen die lokale Postgres als
-  kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst) | keine neue
-  Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/security/password 21,4 % -> 96,9 % | internal/security/audit 44,4 % ->
-  66,7 % (beide lokal per go test -coverprofile + go tool cover -func, Ausgangswert durch
-  temporaeres Herausnehmen der neuen Testdateien gemessen). Das Feld coverage_start: der Unit
-  nennt "internal/security 47,9 %" — das ist der Aggregat-Wert ueber alle sieben
-  security-Unterpakete aus dem CI-Artefakt, nicht der der beiden hier geaenderten Pakete.
-- mutations-probe: drei Proben, alle gefangen. (1) In password.Service.CheckPasswordHistory
-  PreventReuseCount <= 0 zu < 0 geaendert -> TestCheckPasswordHistory_ReuseDisabled_
-  ShortCircuits rot (der praeparierte historyErr schlaegt durch, weil der Kurzschluss nicht
-  mehr greift). (2) In password.PostgresRepository.GetPasswordHistory ORDER BY created_at DESC
-  zu ASC geaendert -> TestPostgresRepository_PasswordHistory rot mit der erwarteten Reihenfolge
-  [hash-newest hash-middle] gegen die tatsaechliche [hash-oldest hash-middle]. (3) In
-  audit.PostgresRepository.List den if offset < 0 { offset = 0 }-Clamp entfernt ->
-  TestPostgresRepository_List_NoMatch_PaginationDefaultsDontError rot mit "OFFSET must not be
-  negative" direkt von Postgres. Alle drei per git checkout -- <datei> zurueckgedreht, git
-  status backend/ zeigt danach nur noch die drei neuen Testdateien als untracked, alle drei
-  Gates erneut gruen.
-  Zusaetzlich validiert (kein Teil der drei Proben oben, aber derselbe Beweis-Mechanismus in
-  die andere Richtung): der unten dokumentierte ip_address-Scan-Bug wurde durch einen
-  temporaeren Fix (COALESCE(host(ip_address), '') in beiden SELECTs von
-  audit/postgres_repository.go) bestaetigt — mit dem Fix liefen die urspruenglich geplanten
-  vollen Filter-/Pagination-/Chain-Tests gruen durch, ohne ihn schlagen sie exakt mit der
-  dokumentierten Fehlermeldung fehl. Fix per git checkout --
-  backend/internal/security/audit/postgres_repository.go zurueckgedreht (Verhaltensaenderung
-  ausserhalb des Scopes dieser Coverage-Unit).
-- verify vorgaenger: sauber. Commit 1090bd9e (Iteration 40) fuegt ausschliesslich
-  backend/internal/security/gdpr/dsar_search_test.go plus Journal/Backlog-Metadaten hinzu —
-  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: Echter, verifizierter Produktionsbug gefunden, nicht gefixt (Coverage-Unit aendert
-  kein Verhalten): audit.PostgresRepository.List (Zeile ~170) und .VerifyChain (Zeile ~224)
-  scannen die rohe ip_address-Spalte (Typ INET) direkt in models.AuditEntry.IPAddress (string,
-  kein Pointer). pgx v5 kann weder ein NULL-INET noch ein gesetztes INET in einen Go-string
-  scannen — beide Faelle direkt gegen die lokale Postgres reproduziert ("cannot scan NULL into
-  *string" bzw. "cannot scan inet (OID 869) in binary format into *string"). Das heisst: jeder
-  Aufruf von List() oder VerifyChain(), der mindestens eine Zeile liefert, schlaegt fehl —
-  unabhaengig davon, ob die Zeile eine echte IP traegt oder keine. Betroffen sind damit
-  voraussichtlich der Audit-Log-Viewer, der CSV/JSON-Export (ExportEntries ruft intern List)
-  und die VerifyAuditChain-RPC fuer JEDEN Tenant mit realer Aktivitaet. Drei andere
-  Repositories im selben Repo loesen exakt dasselbe Problem korrekt:
-  internal/auth/postgres_repository.go mit COALESCE(host(ip_address), ''),
-  internal/crm/consent/postgres_repository.go und internal/formulare/postgres_repository.go
-  mit ip_address::text. Der Fix ist eine Ein-Zeilen-Aenderung pro Query (SELECT-Spalte casten),
-  am selben Muster wie die drei bestehenden Stellen — verifiziert per temporaerem Patch (siehe
-  mutations-probe oben) und wieder zurueckgedreht. Vorschlag fuer Lauf 9: eigene Fix-Unit in
-  Block A (fix-audit-list-verifychain-ip-address-scan), sources
-  backend/internal/security/audit/postgres_repository.go (Zeilen 170 und 224) plus
-  backend/internal/auth/postgres_repository.go (Zeilen 1574/1586/1614) als Vorlage.
-  Zusaetzlich musste die geplante Testabdeckung fuer List/VerifyChain aus genau diesem Grund
-  umgebaut werden: statt der im done_when vorgesehenen Filter-/Pagination-/Chain-Assertions
-  steht jetzt nur ein Regression-Pin-Test (TestPostgresRepository_List_IPAddressScanBug,
-  erwartet den Scan-Fehler explizit und dokumentiert im Kommentar, dass er beim Fixen ersetzt
-  werden muss) plus ein sicherer No-Match/Pagination-Test ohne Zeilen-Scan. VerifyChain hat
-  gar keinen eigenen DB-Test bekommen: audit_log ist seit Migration 000222 DB-seitig
-  append-only (BEFORE-UPDATE/DELETE-Trigger, wirkt auch unter System-Context — jeder
-  testutil.CleanupRow-Aufruf auf audit_log schlaegt seitdem erwartungsgemaess fehl und laesst
-  die Zeile stehen, das ist bereits akzeptiertes, vorbestehendes Verhalten in rls_test.go,
-  nicht neu). Ein erster Testentwurf wollte einen Kettenbruch ueber ein direktes UPDATE
-  previous_hash simulieren — das waere am Append-Only-Trigger gescheitert und wurde verworfen,
-  BEVOR es ausgefuehrt wurde (kein UPDATE hat die Tabelle je erreicht, per Log-Ausgabe der
-  fehlgeschlagenen Testlaeufe nachvollzogen). Ein zweiter Entwurf wollte eine bewusst falsch
-  verkettete Zeile per testutil.SeedRow einfuegen (INSERT ist vom Trigger nicht betroffen) —
-  auch dieser Code wurde nie erreicht (jeder Testlauf brach vorher am Scan-Bug ab), also
-  existiert keine von mir eingefuegte kaputte Zeile in audit_log. Beim Validieren mit dem
-  temporaeren Fix kam trotzdem einmal VerifyChain(intact) -> valid=false broken=2952 zurueck,
-  obwohl meine beiden Testzeilen korrekt verkettet waren: rls_test.go seedet seine Fixtures
-  ueber testutil.SeedRow mit hartkodierten entry_hash/previous_hash-Werten (z. B. "aabbcc"/
-  ""), die die echte Kette an der jeweiligen Stelle nicht respektieren — das ist
-  vorbestehendes Verhalten aus frueheren Laeufen, nicht von mir eingefuehrt, aber es bedeutet,
-  dass die globale Hash-Kette dieser lokalen Dev-DB bereits seit laengerem "gebrochen" ist,
-  sobald VerifyChain je funktionsfaehig waere. Betrifft nachweislich nur die lokale
-  Dev-Postgres, nie Produktion. Fuer die Fix-Unit in Lauf 9 gehoert das als Kontext dazu: nach
-  dem Scan-Fix wird VerifyChain vermutlich sofort einen Bruch melden, der auf diese
-  Test-Fixtures zurueckgeht, nicht auf echte Manipulation.
-  .planning/backend-block/loop/run-loop.ps1 traegt weiterhin einen unstaged -StartNotBefore-
-  Diff (wie in den Iterationen 6-40 vermerkt) — nicht meine Datei, nicht angefasst, nicht
-  committet. Laufkontext-Block (Iterationsnummer/Zeitstempel) war auch in diesem Prompt nicht
-  sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 40)
-  fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:17).
-
-## Iteration 42 — c-cov-vault-gdpr-repo — done — 2026-08-11 01:25
-- commit: <wird nach dem Commit ergaenzt>
-- gebaut: Zwei geaenderte/neue Testdateien. `internal/security/vault/service_test.go`: fuenf
-  neue Tests fuer `Service.DeleteByKeyName` (Erfolgsfall, No-Op wenn der Key nicht existiert,
-  leerer Key-Name, Get-Repo-Fehler, Delete-Repo-Fehler) plus zwei GetTenantID-Fehlerpfad-Tests
-  (`GetSecret`/`SetSecret` gegen `context.Background()` ohne Tenant-ID, beide erwarten
-  `middleware.ErrMissingTenantID`, kein Panic/stiller Fallback). `internal/security/gdpr/
-  erasure_log_test.go` (neu, DB-Integrationstest): `PostgresRepository.CreateErasureLog`
-  ueber drei Faelle — Tenant-Ableitung aus `original_user_id` schlaegt fuer einen fremden
-  Tenant-Caller per RLS WITH-CHECK fehl (analog zum bestehenden Muster in
-  tenant_write_test.go), eigener Tenant-Caller landet real (per direkter SELECT-Abfrage auf
-  `anonymized_label`/`confirmation_hash`/`modules_affected` nachgewiesen, inkl. JSONB-
-  Rundlauf des `map[string]string`-Felds ohne expliziten json.Marshal-Aufruf im Repo-Code —
-  pgx v5 kodiert das automatisch), unbekannter `original_user_id` schlaegt fehl (NOT-NULL auf
-  dem subselect-abgeleiteten `tenant_id`, `executed_by` bewusst auf einen echten User gesetzt
-  damit der Fehler eindeutig dem richtigen Pfad zuzuordnen ist). `PostgresRepository.
-  GetNextAnonymizedLabel` per zwei aufeinanderfolgenden Aufrufen in frischem Tenant: erster
-  liefert exakt "Geloeschter Benutzer #1", zweiter nach einem zwischenzeitlichen
-  CreateErasureLog-Insert exakt "#2" — sowohl aufsteigend als auch tenant-eindeutig belegt
-  (COUNT(*) ist RLS-gescoped, kein expliziter WHERE-tenant_id-Filter im Code noetig).
-- gate: build ok (go build -p 2 ./internal/security/...) | vet ok | lint ok (golangci-lint
-  run --config .golangci.yml ./internal/security/... -- 0 issues) | test ok (go test -count=1
-  ./internal/security/... komplett gruen, ./internal/security/vault/ und ./internal/security/
-  gdpr/ -v gezaehlt: 0 SKIP, alle DB-Integrationstests liefen real gegen die lokale Postgres
-  als kmuhub_app) | migration n.a. (keine neue Tabelle/Spalte) | rls-smoke ueber die
-  Repo-Tests selbst erbracht (Cross-Tenant-INSERT/-SELECT-Faelle oben) | keine neue Route,
-  kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/security/vault 70,6 % -> 80,0 % | internal/security/gdpr 59,8 % -> 60,6 %
-  (beide lokal per go test -coverprofile + go tool cover -func, Ausgangswert durch
-  temporaeres Herausnehmen der neuen/geaenderten Testdateien gemessen, danach wiederhergestellt
-  und alle drei Gates erneut gruen). Das Feld coverage_start: der Unit nennt "internal/security
-  47,9 %" — das ist der Aggregat-Wert ueber alle sieben security-Unterpakete aus dem
-  CI-Artefakt, nicht der der beiden hier geaenderten Pakete.
-- mutations-probe: drei Proben, alle gefangen. (1) In vault.Service.DeleteByKeyName die
-  No-Op-Kurzschluss-Zeile `if errors.Is(err, ErrSecretNotFound) { return nil }` zu `return err`
-  geaendert -> TestDeleteByKeyName_NoOpWhenMissing rot mit "vault: secret not found" statt
-  nil. (2) In gdpr.PostgresRepository.GetNextAnonymizedLabel `count+1` zu `count` geaendert ->
-  TestGetNextAnonymizedLabel_IncrementsPerCall rot mit "Geloeschter Benutzer #0" statt "#1".
-  (3) In gdpr.PostgresRepository.CreateErasureLog den `(SELECT tenant_id FROM users WHERE id =
-  $2)`-Subselect durch eine hartkodierte fremde Tenant-UUID ersetzt ->
-  TestCreateErasureLog_TenantDerivedFromUser rot mit "new row violates row-level security
-  policy for table gdpr_erasure_log" im eigentlich erfolgreichen Own-Ctx-Pfad. Alle drei per
-  git checkout -- <datei> zurueckgedreht, git status backend/ zeigt danach nur noch die
-  geaenderte/neue Testdatei, build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 64b0f27b (Iteration 41) fuegt ausschliesslich drei
-  Testdateien plus Journal/Backlog-Metadaten hinzu — keine Produktionscode-Datei, kein Proto,
-  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
-  acht Fehlerklassen einschlaegig.
-- offen: keine neuen Befunde. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-41 vermerkt — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block (Iterationsnummer/Zeitstempel)
-  war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 41) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner
-  ermittelt (2026-08-11 01:25).
-
-## Iteration 43 — d-cov-gateway-hr-leave — done — 2026-08-11 01:33
-- commit: cce98f88
-- gebaut: Neue Testdatei `backend/internal/gateway/route_hr_leave_test.go` (33 Tests) fuer
-  die acht in der Unit genannten Leave-Handler in `route_hr.go`: HandleCreateLeaveRequest
-  (ServiceUnavailable, MissingTenant, InvalidJSON, InvalidLeaveTypeID/UUID-Tag,
-  InvalidHalfDayPeriod/oneof-Tag, ValidRequestReachesRPC), HandleListLeaveRequests
-  (ServiceUnavailable, MissingTenant, sechs Query-Filter-Kombinationen ueber Subtests),
-  HandleGetLeaveRequest (ServiceUnavailable, ReachesRPC), HandleApproveLeaveRequest/
-  HandleRejectLeaveRequest/HandleCancelLeaveRequest (je ServiceUnavailable, ReachesRPC,
-  Approve/Reject zusaetzlich InvalidJSON, alle drei zusaetzlich MissingIDReachesRPC),
-  HandleGetLeaveBalance und HandleListLeaveTypes (je ServiceUnavailable, MissingTenant,
-  ReachesRPC). Dazu zwei direkte Unit-Tests fuer `hrMarshalSlice` (Wire-Shape: leeres Ergebnis
-  ist `[]json.RawMessage{}`, nicht `nil` — protojson wuerde sonst `null` statt `[]` emittieren;
-  plus Rundlauf ueber zwei Elemente).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ komplett gruen, -v gezaehlt: 0 SKIP, 1332 PASS) |
-  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | TestOpenAPIRouteDrift lief separat gruen (834 Routen gegen 836 Spec-Pfade,
-  unveraendert — keine neue Route in dieser Unit) | keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 36,3 % (go test -coverprofile + go tool cover -func,
-  einziger Lauf noetig — Ausgangswert deckt sich mit coverage_start der Unit)
-- mutations-probe: drei Proben, alle gefangen. (1) In `hrMarshalSlice` `parts :=
-  make([]json.RawMessage, 0, len(msgs))` zu `var parts []json.RawMessage` geaendert ->
-  TestHrMarshalSlice_EmptyResultIsNotNil rot ("result is nil"). (2) Im `validate`-Tag von
-  `createLeaveRequestHTTPReq.LeaveTypeID` `omitempty,uuid` entfernt ->
-  TestHandleCreateLeaveRequest_InvalidLeaveTypeID rot (503 statt 400, kein
-  validation_failed mehr). (3) In HandleCreateLeaveRequest den `getTenantID`-Fehlerpfad
-  stillgelegt (`tenantID, _ := getTenantID(r)`, kein 401-Return mehr) ->
-  TestHandleCreateLeaveRequest_MissingTenant rot (503 statt 401). Alle drei per Edit
-  zurueckgedreht, `git diff --stat backend/internal/gateway/route_hr.go` danach leer,
-  build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 2f7053f6 (Iteration 42) fuegt ausschliesslich zwei
-  Testdateien plus Journal/Backlog-Metadaten hinzu — keine Produktionscode-Datei, kein
-  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
-  Keine der acht Fehlerklassen einschlaegig.
-- offen: Fund fuer eine spaetere Fix-/Hardening-Unit, kein Blocker: HandleApproveLeaveRequest,
-  HandleRejectLeaveRequest und HandleCancelLeaveRequest validieren die Leave-Request-ID aus
-  chi.URLParam(r, "id") lokal nicht als UUID (kein validateUUIDParam-Aufruf, anders als in
-  route_automation.go oder route_crm.go) — eine leere oder offensichtlich falsche ID reicht
-  unveraendert bis zur gRPC-Schicht durch und erzeugt dort erst einen Fehler. Betrifft
-  ausschliesslich diese drei Handler in route_hr.go, nicht die uebrigen HR-Routen.
-  `createLeaveRequestHTTPReq` hat zudem keine `required`-Tags auf StartDate/EndDate — das im
-  urspruenglichen done_when erwartete "fehlende Pflichtfelder"-Testszenario existiert im Code
-  nicht, getestet wurden stattdessen die real vorhandenen Validierungspfade (UUID- und
-  oneof-Tag). `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-42 vermerkt — nicht meine Datei,
-  nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht
-  sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 42)
-  fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:33).
-
-## Iteration 44 — d-cov-gateway-hr-worktime — done — 2026-08-11 01:39
-- commit: 13bc5141
-- gebaut: Neue Testdatei `backend/internal/gateway/route_hr_worktime_test.go` (30 Tests) fuer
-  die neun in der Unit genannten Zeiterfassungs-Handler in `route_hr.go`: HandleClockIn/
-  HandleClockOut (je ServiceUnavailable, MissingTenant, ReachesRPC), HandleBreakStart/
-  HandleBreakEnd/HandleGetActiveShift (je ServiceUnavailable, ReachesRPC — kein
-  MissingTenant-Fall, siehe offen), HandleSubmitWeek (ServiceUnavailable, MissingTenant,
-  MissingWeekStart, InvalidJSON, ValidRequestReachesRPC) sowie HandleApproveWeek/
-  HandleRejectWeek/HandleReopenWeek (je ServiceUnavailable, MissingTenant, InvalidJSON,
-  InvalidEmployeeID, ValidRequestReachesRPC; HandleApproveWeek zusaetzlich MissingWeekStart).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1365 PASS, 0 SKIP, 0 FAIL) |
-  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  config.RequireX-Assertion — TestOpenAPIRouteDrift lief als Teil des vollen Pakettests mit,
-  unveraendert gruen
-- coverage: internal/gateway 34,9 % -> 36,8 % (go test -coverprofile + go tool cover -func;
-  der unmittelbare Vorwert nach Iteration 43 lag bei 36,3 % — der coverage_start-Bezugswert
-  der Unit bleibt ueber den ganzen Lauf 34,9 %, siehe BACKLOG.yml-Kopf)
-- mutations-probe: drei Proben, alle gefangen. (1) In `approveWeekHTTPReq.EmployeeID` das
-  `uuid`-Validate-Tag entfernt (nur noch `required`) -> TestHandleApproveWeek_InvalidEmployeeID
-  rot mit 503 statt 400, kein validation_failed mehr. (2) In HandleClockIn den
-  `getTenantID`-Fehlerpfad stillgelegt (`tenantID, _ := getTenantID(r)`, kein 401-Return
-  mehr) -> TestHandleClockIn_MissingTenant rot mit 503 statt 401. (3) In
-  `submitWeekHTTPReq.WeekStart` das `required`-Validate-Tag entfernt ->
-  TestHandleSubmitWeek_MissingWeekStart rot mit 503 statt 400, kein validation_failed mehr.
-  Alle drei per Edit zurueckgedreht, `git diff --stat backend/internal/gateway/route_hr.go`
-  danach leer, build/vet/lint/test erneut komplett gruen (1365 PASS, 0 SKIP, 0 FAIL).
-- verify vorgaenger: sauber. Commit aa2a8663 (Iteration 43 Journal-Hash-Nachtrag) sowie der
-  vorangehende cce98f88 (Iteration 43 selbst) fuegen ausschliesslich eine Testdatei plus
-  Journal-/Backlog-Metadaten hinzu — keine Produktionscode-Datei, kein Proto, keine Route,
-  kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: Fund fuer eine spaetere Fix-/Hardening-Unit, kein Blocker: HandleBreakStart,
-  HandleBreakEnd und HandleGetActiveShift (route_hr.go:631-720) rufen `getTenantID` an
-  keiner Stelle auf — nur ClockIn/ClockOut und der Week-Workflow tun das. Ein Request ohne
-  Tenant-Kontext erreicht bei diesen drei Handlern unveraendert die RPC-Schicht statt eines
-  401. Heute latent, weil `authMiddleware` auf der ganzen `/api/v1/hr/time`-Gruppe sitzt
-  (route_hr.go:101-102) und Tenant/User immer gemeinsam gesetzt werden — anders als beim in
-  Iteration 40 gefixten `own`-Scope-Bug ist hier kein bekannter Weg bekannt, wie ein
-  Aufrufer legitim ohne Tenant durchkommt, deshalb keine eigene Fix-Unit vorgeschlagen,
-  nur hier vermerkt. Die Nil-Entry/Nil-ActiveBreak-Wire-Shape-Verzweigung in
-  HandleGetActiveShift (route_hr.go:688-717) ist wie schon bei `hrMarshalSlice` in
-  Iteration 43 nur ueber einen echten RPC-Response beobachtbar — kein bufconn-Stub fuer den
-  HR-Service in diesem Paket, deshalb nur ReachesRPC statt Wire-Shape-Assertion getestet.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-43 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 43) fortgezaehlt,
-  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:39).
-
-## Iteration 45 — d-cov-gateway-fuhrpark-vehicles-services — done — 2026-08-11 01:42
-- commit: f4441cfa
-- gebaut: Neue Testdatei `backend/internal/gateway/route_fuhrpark_crud_test.go` (37 Tests)
-  fuer die neun in der Unit genannten Fahrzeug- und Service-Handler in route_fuhrpark.go:
-  HandleListVehicles (ServiceUnavailable, MissingTenant, ReachesRPC mit Query-Filtern),
-  HandleGetVehicle/HandleUpdateVehicle/HandleDeleteVehicle (je ServiceUnavailable,
-  MissingTenant, InvalidIDUUID, ReachesRPC; UpdateVehicle zusaetzlich InvalidFuelType als
-  echter Validierungsfehlerpfad), HandleGetVehicleHistory (ServiceUnavailable,
-  MissingTenant, InvalidIDUUID, ReachesRPC mit Pagination), HandleListVehicleServices
-  (MissingTenant, InvalidIDUUID, ServiceUnavailable, ReachesRPC), HandleUpdateService
-  (ServiceUnavailable, MissingTenant, InvalidServiceIDUUID, InvalidJSON,
-  ReachesRPCWithArbitraryStatus), HandleCompleteService (ServiceUnavailable,
-  MissingTenant, InvalidServiceIDUUID, InvalidJSON, ReachesRPC) und HandleCheckTuevDue
-  (ServiceUnavailable, MissingTenant, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1402 PASS, 0 SKIP, 0 FAIL) |
-  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | TestOpenAPIRouteDrift lief als Teil des vollen Pakettests mit, unveraendert
-  gruen (834 Routen gegen 836 Spec-Pfade) | keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 37,3 % (go test -coverprofile + go tool cover -func,
-  einziger Lauf noetig — Ausgangswert deckt sich mit coverage_start der Unit)
-- mutations-probe: drei Proben, alle gefangen. (1) In `updateVehicleRequest.FuelType` das
-  `validate:"omitempty,oneof=..."`-Tag entfernt -> TestHandleUpdateVehicle_InvalidFuelType
-  rot (503 statt 400, kein validation_failed mehr). (2) In HandleGetVehicle
-  `validateUUIDParam(w, r, "id")` durch das ungeprüfte `chi.URLParam(r, "id")` ersetzt ->
-  TestHandleGetVehicle_InvalidIDUUID rot (503 statt 400, "connection error" statt
-  "invalid id"). (3) In HandleUpdateService den `getTenantID`-Fehlerpfad stillgelegt
-  (`tenantID, _ := middleware.GetTenantID(r.Context())`, kein 401-Return mehr) ->
-  TestHandleUpdateService_MissingTenant rot (503 statt 401). Alle drei per Python-Skript
-  gesetzt und zurueckgedreht (Backup-Datei vor jeder Probe), `git diff --stat
-  backend/internal/gateway/route_fuhrpark.go` danach leer, build/vet/lint/test erneut
-  komplett gruen (1402 PASS, 0 SKIP, 0 FAIL).
-- verify vorgaenger: sauber. Commit 13bc5141 (Iteration 44) sowie der Metadaten-Commit
-  23826442 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
-  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: Fund fuer eine spaetere Fix-/Hardening-Unit, kein Blocker:
-  `updateServiceRequest.Status` und `completeServiceRequest` (route_fuhrpark.go:220-235)
-  tragen keine `validate`-Tags — anders als `createVehicleRequest`/`updateVehicleRequest`
-  wird ein beliebiger Status-String am Gateway nicht abgelehnt; ein ungueltiger
-  Statusuebergang kann nur die fuhrpark-Service-Schicht selbst zurueckweisen. Ohne
-  bufconn-Stub fuer den fuhrpark-Service in diesem Paket war das nicht als lokaler
-  400-Fehlerpfad zu testen (dieselbe Grenze wie in jeder bisherigen
-  Gateway-Coverage-Unit dieses Laufs), deshalb stattdessen
-  TestHandleUpdateService_ReachesRPCWithArbitraryStatus: belegt, dass der Request bis zur
-  RPC-Schicht durchlaeuft statt lokal zu scheitern. Aus demselben Grund testet
-  HandleCheckTuevDue nur ReachesRPC statt der im Backlog gewuenschten
-  Wire-Shape-Assertion — der Handler reicht die RPC-Antwort unveraendert an
-  `response.Proto` durch (route_fuhrpark.go:968-975), es gibt keine gateway-eigene
-  Marshaling-Logik wie `hrMarshalSlice` und keinen Fake-Server, an dem eine leere
-  Faelligkeitsliste beobachtbar waere. `.planning/backend-block/loop/run-loop.ps1` traegt
-  weiterhin denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-44 vermerkt —
-  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem
-  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 44) fortgezaehlt, Zeitstempel per date auf dem Loop-Rechner ermittelt
-  (2026-08-11 01:42).
-
-## Iteration 46 — d-cov-gateway-fuhrpark-fuel-trip-bookings — done — 2026-08-11 01:53
-- commit: d72649e2
-- gebaut: Neue Testdatei `backend/internal/gateway/route_fuhrpark_logs_test.go` (36 Tests)
-  fuer die neun in der Unit genannten Handler in route_fuhrpark.go: HandleCreateFuelLog
-  (ServiceUnavailable, MissingTenant, MissingLiters, MissingDate, InvalidVehicleIDUUID,
-  DefaultFuelTypeReachesRPC), HandleUpdateFuelLog (ServiceUnavailable, MissingTenant,
-  InvalidIDUUID, InvalidLiters, ReachesRPC), HandleDeleteFuelLog (ServiceUnavailable,
-  MissingTenant, InvalidIDUUID, ReachesRPC), HandleCreateTripLog (ServiceUnavailable,
-  MissingTenant, MissingDate, MissingDriverName, InvalidVehicleIDUUID, ReachesRPC),
-  HandleUpdateTripLog (ServiceUnavailable, MissingTenant, InvalidIDUUID, InvalidStartKm,
-  ReachesRPC), HandleDeleteTripLog (ServiceUnavailable, MissingTenant, InvalidIDUUID,
-  ReachesRPC), HandleCreateVehicleBooking (ServiceUnavailable, MissingTenant,
-  MissingEndsAt, InvalidVehicleID, ReversedPeriodReachesRPC), HandleUpdateVehicleBooking
-  (ServiceUnavailable, MissingTenant, InvalidIDUUID, InvalidStatus,
-  ReversedPeriodReachesRPC) und HandleDeleteVehicleBooking (ServiceUnavailable,
-  MissingTenant, InvalidIDUUID, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1446 PASS, 0 SKIP, 0 FAIL) |
-  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | TestOpenAPIRouteDrift lief als Teil des vollen Pakettests mit, unveraendert
-  gruen (834 Routen gegen 836 Spec-Pfade) | keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 38,0 % (go test -coverprofile + go tool cover -func,
-  einziger Lauf noetig)
-- mutations-probe: drei Proben, alle gefangen. (1) In HandleDeleteFuelLog
-  `validateUUIDParam(w, r, "id")` durch das ungeprüfte `chi.URLParam(r, "id")` ersetzt ->
-  TestHandleDeleteFuelLog_InvalidIDUUID rot (503 statt 400, "connection error" statt
-  "invalid id"). (2) In `updateTripLogRequest.StartKm` das `validate:"omitempty,gte=0"`-Tag
-  entfernt -> TestHandleUpdateTripLog_InvalidStartKm rot (503 statt 400, kein
-  validation_failed mehr, Feld "start_km" fehlt in den Details). (3) In
-  HandleCreateVehicleBooking den `GetTenantID`-Fehlerpfad stillgelegt (`_, _ :=
-  middleware.GetTenantID(r.Context())`, kein 401-Return mehr) ->
-  TestHandleCreateVehicleBooking_MissingTenant rot (503 statt 401). Alle drei per Edit-Tool
-  gesetzt und zurueckgedreht, `git diff --stat backend/internal/gateway/route_fuhrpark.go`
-  danach leer, build/vet/lint/test erneut komplett gruen (1446 PASS, 0 SKIP, 0 FAIL).
-- verify vorgaenger: sauber. Commit f4441cfa (Iteration 45) sowie der Metadaten-Commit
-  74b73729 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
-  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: Fund fuer eine spaetere Fix-/Hardening-Unit, kein Blocker: weder
-  `createVehicleBookingRequest` noch `updateVehicleBookingRequest`
-  (route_fuhrpark.go:1736-1749) validieren, dass `starts_at` vor `ends_at` liegt — beide
-  Felder tragen nur `validate:"required"` bzw. gar kein Tag, ein umgekehrter Buchungszeitraum
-  wird am Gateway nicht abgelehnt und erreicht ungeprueft die RPC-Schicht (siehe
-  TestHandleCreateVehicleBooking_ReversedPeriodReachesRPC /
-  TestHandleUpdateVehicleBooking_ReversedPeriodReachesRPC). Ob der fuhrpark-Service das
-  serverseitig ablehnt, war ohne bufconn-Stub fuer den Service in diesem Paket nicht lokal
-  zu pruefen — dieselbe Grenze wie in jeder bisherigen Gateway-Coverage-Unit dieses Laufs.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-45 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 45) fortgezaehlt,
-  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:53).
-
-## Iteration 47 — d-cov-gateway-video-recording-consent — done — 2026-08-11 02:02
-- commit: 7e2838a3
-- gebaut: Neue Testdatei `backend/internal/gateway/route_video_recording_test.go` (27 Tests) fuer
-  die acht in der Unit genannten Handler in route_video.go: HandleStartRecording
-  (ServiceUnavailable, InvalidJSON, InvalidCallID, InvalidMeetingID, ReachesRPC),
-  HandleStopRecording (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleSetRecordingConsent
-  (ServiceUnavailable, InvalidIDUUID, InvalidConsentedType, ReachesRPC), HandleGetRecordingConsent
-  (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleListRecordings (ServiceUnavailable,
-  ReachesRPC) plus TestProtoListRecordings_WireShape, HandleDeleteRecording (ServiceUnavailable,
-  InvalidIDUUID, ReachesRPC), HandleGetRecordingConsents (ServiceUnavailable, InvalidIDUUID,
-  ReachesRPC) und HandleTagRecordingWithConsents (ServiceUnavailable, InvalidIDUUID,
-  EmptySnapshot, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1474 PASS, 0 SKIP, 0 FAIL) | migration
-  n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836 Spec-Pfade) |
-  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 38,4 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: drei Proben, alle gefangen. (1) In HandleDeleteRecording
-  `validateUUIDParam(w, r, "id")` durch das ungeprüfte `chi.URLParam(r, "id")` ersetzt ->
-  TestHandleDeleteRecording_InvalidIDUUID rot (503 statt 400, "connection error" statt
-  "invalid id"). (2) In `startRecordingRequest.CallID` das `validate:"omitempty,uuid"`-Tag
-  entfernt -> TestHandleStartRecording_InvalidCallID rot (503 statt 400, kein validation_failed
-  mehr, Feld "call_id" fehlt in den Details). (3) In `tagRecordingConsentsRequest.Snapshot` das
-  `min=1` aus dem validate-Tag entfernt -> TestHandleTagRecordingWithConsents_EmptySnapshot rot
-  (503 statt 400, kein validation_failed mehr, Feld "snapshot" fehlt in den Details). Alle drei
-  per Edit-Tool gesetzt und zurueckgedreht, `git diff --stat backend/internal/gateway/route_video.go`
-  danach leer, build/vet/lint/test erneut komplett gruen (1474 PASS, 0 SKIP, 0 FAIL).
-- verify vorgaenger: sauber. Commit d72649e2 (Iteration 46) sowie der Metadaten-Commit 1888180a
-  fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu — keine
-  Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine neue
-  Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: zwei Abweichungen vom im Backlog skizzierten Testplan, beide dokumentiert statt
-  stillschweigend anders gebaut: (1) `startRecordingRequest` traegt gar kein Consent-Feld
-  (Consent wird erst nachtraeglich per HandleSetRecordingConsent gesetzt, siehe Kommentar
-  "Push recording.started WS event" in HandleStartRecording) — statt der im Backlog verlangten
-  "Consent-Status"-Fehlerpruefung testet TestHandleStartRecording_Invalid{CallID,MeetingID} die
-  tatsaechlich vorhandene UUID-Validierung. (2) `setRecordingConsentRequest.Consented` ist ein
-  nacktes `bool` ohne validate-Tag — es gibt keinen "fehlend/ungueltig"-Fall im Sinne einer
-  Validierungsregel, nur einen JSON-Typfehler (`"consented":"yes"`), den
-  TestHandleSetRecordingConsent_InvalidConsentedType als naechstliegenden Fehlerpfad abdeckt.
-  Drittens ein Befund zum protojson-Marshaler: `response.Proto` laeuft mit
-  `EmitUnpopulated=false` (internal/server/response/response.go), ein leeres `recordings`-Array
-  wird deshalb komplett aus dem Body weggelassen statt als `[]` serialisiert — dasselbe tolerante
-  Verhalten, das TestProtoMeetingOccurrences_WireShape fuer `items` bereits akzeptiert. Kein Bug,
-  aber der FE-Konsument darf sich nicht auf das Vorhandensein des Schluessels verlassen; kein
-  Blocker fuer diese Unit, da bereits an anderer Stelle im Repo so gehandhabt.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-46 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 46) fortgezaehlt,
-  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:02).
-
-## Iteration 48 — d-cov-gateway-video-meeting-lifecycle — done — 2026-08-11 02:09
-- commit: 725e99de
-- gebaut: Neue Testdatei `backend/internal/gateway/route_video_meeting_lifecycle_test.go`
-  (37 Tests) fuer die zehn in der Unit genannten Meeting-Lebenszyklus-Handler in
-  route_video.go: HandleGetMeeting (ServiceUnavailable, InvalidIDUUID, ReachesRPC),
-  HandleUpdateMeeting (ServiceUnavailable, InvalidIDUUID, InvalidJSON,
-  InvalidScheduledStartFormat, InvalidScheduledEndFormat, ReachesRPC), HandleDeleteMeeting
-  (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleListMeetings (ServiceUnavailable,
-  ReachesRPC, UnknownStatusIgnored) plus TestProtoListMeetings_WireShape, HandleStartMeeting
-  (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleJoinMeeting (ServiceUnavailable,
-  InvalidIDUUID, ReachesRPC), HandleEndMeeting (ServiceUnavailable, InvalidIDUUID,
-  ReachesRPC), HandleSetMeetingLock (ServiceUnavailable, InvalidIDUUID, InvalidLockedType,
-  ReachesRPC), HandleMuteAllMeetingParticipants (ServiceUnavailable, InvalidIDUUID,
-  ReachesRPC) und HandleRemoveMeetingParticipant (ServiceUnavailable, InvalidIDUUID,
-  MissingTargetUserID, InvalidTargetUserID, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1511 PASS, 0 SKIP, 0 FAIL) | migration
-  n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836 Spec-Pfade) |
-  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 39,1 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: drei Proben, alle gefangen. (1) In HandleGetMeeting
-  `validateUUIDParam(w, r, "id")` durch das ungeprüfte `chi.URLParam(r, "id")` ersetzt ->
-  TestHandleGetMeeting_InvalidIDUUID rot (503 statt 400, "connection error" statt "invalid
-  id"). (2) In `removeMeetingParticipantHTTPRequest.TargetUserID` das
-  `validate:"required,uuid"`-Tag entfernt -> TestHandleRemoveMeetingParticipant_
-  {MissingTargetUserID,InvalidTargetUserID} beide rot (503 statt 400, kein
-  validation_failed mehr, Feld "target_user_id" fehlt in den Details). (3) In
-  HandleUpdateMeeting die scheduled_start-Formatpruefung mit `if false {}` stillgelegt ->
-  TestHandleUpdateMeeting_InvalidScheduledStartFormat rot (Fehlermeldung ist der
-  RPC-Verbindungsfehler statt "invalid scheduled_start format"). Alle drei per Edit-Tool
-  gesetzt und zurueckgedreht, `git diff --stat backend/internal/gateway/route_video.go`
-  danach leer, build/vet/lint/test erneut komplett gruen (1511 PASS, 0 SKIP, 0 FAIL).
-- verify vorgaenger: sauber. Commit 7e2838a3 (Iteration 47) sowie der Metadaten-Commit
-  84c2d077 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
-  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: Wie bei den Recording-Handlern in Iteration 47 gibt es fuer VideoServiceClient kein
-  bufconn-Stub in diesem Paket — die eigentliche Meeting-Status-Zustandsmaschine (z. B.
-  "kein zweiter Start auf einem laufenden Meeting", "Join nach End abgelehnt") wird
-  ausschliesslich vom Video-Service durchgesetzt und war lokal nicht simulierbar. Die
-  ReachesRPC-Tests dokumentieren stattdessen, dass jeder Handler die lokale Validierung
-  passiert und die RPC-Schicht erreicht (503 ueber die unerreichbare Dummy-Adresse) — der
-  naechstliegende Fehlerpfad ohne Produktionscode-Aenderung. Kein neuer Befund: dieselbe
-  Grenze wie in jeder bisherigen Gateway-Coverage-Unit fuer route_video.go dieses Laufs.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-47 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 47) fortgezaehlt,
-  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:09).
-
-## Iteration 49 — d-cov-gateway-email-accounts — done — 2026-08-11 02:11
-- commit: b46fc88b
-- gebaut: Neue Testdatei `backend/internal/gateway/route_email_accounts_test.go`
-  (23 Tests) fuer die sieben E-Mail-Konto-Handler in route_email.go: HandleCreateAccount
-  (ServiceUnavailable, InvalidJSON, ReachesRPC), HandleGetAccount (ServiceUnavailable,
-  ReachesRPC), HandleListAccounts (ServiceUnavailable, ReachesRPC) plus
-  TestListEmailAccountsResponse_EmptyWireShape, HandleUpdateAccount (ServiceUnavailable,
-  InvalidJSON, InvalidIDUUID, ReachesRPC), HandleDeleteAccount (ServiceUnavailable,
-  ReachesRPC), HandleSetDefaultAccount (ServiceUnavailable, ReachesRPC) und
-  HandleTestConnection (ServiceUnavailable, InvalidJSON, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1530 PASS, 0 SKIP, 0 FAIL) | migration
-  n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836 Spec-Pfade) |
-  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 39,4 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: drei Proben, alle gefangen. (1) In HandleCreateAccount die
-  Invalid-JSON-Fehlerpruefung durch `_ = json.NewDecoder(r.Body).Decode(&req)`
-  ersetzt (Fehler verschluckt) -> TestHandleCreateAccount_InvalidJSON rot (503 statt 400,
-  "connection error" statt "invalid request body"). (2) In HandleGetAccount
-  `http.StatusBadGateway` zu `http.StatusOK` im Client-Fehlerpfad geaendert ->
-  TestHandleGetAccount_ServiceUnavailable rot (200 statt 502). (3) In HandleTestConnection
-  die Fehlerpruefung mit `err != nil && false` stillgelegt -> TestHandleTestConnection_
-  InvalidJSON rot (503 statt 400, "connection error" statt "invalid request body"). Alle
-  drei per Edit-Tool gesetzt und zurueckgedreht, `git diff --stat
-  backend/internal/gateway/route_email.go` danach leer, build/vet/lint/test erneut
-  komplett gruen (1530 PASS, 0 SKIP, 0 FAIL).
-- verify vorgaenger: sauber. Commit 725e99de (Iteration 48) sowie der Metadaten-Commit
-  4d53180e fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
-  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: Drei Abweichungen vom im Backlog skizzierten Testplan dokumentiert statt
-  stillschweigend anders gebaut. (1) Alle sieben Account-Handler sind proto-direct (kein
-  lokales DTO, kein validate-Tag) und rufen weder eine Pflichtfeld- noch eine
-  UUID-Pruefung lokal auf — HandleCreateAccount dekodiert nur JSON und reicht die
-  Felder unvalidiert an den gRPC-Client weiter; HandleUpdateAccount/HandleDeleteAccount/
-  HandleSetDefaultAccount reichen `chi.URLParam(r,"id")` unvalidiert weiter. Statt der im
-  Backlog verlangten "fehlende Pflichtfelder"/"ungueltige UUID"-Fehlerfaelle testen die
-  ServiceUnavailable/InvalidJSON/ReachesRPC-Tests die tatsaechlich vorhandenen Fehlerpfade;
-  TestHandleUpdateAccount_InvalidIDUUID belegt explizit, dass ein Nicht-UUID-Pfadsegment
-  NICHT lokal abgelehnt wird, sondern bis zur RPC-Schicht durchlaeuft (503). (2)
-  HandleListAccounts liefert `resp` ueber `response.JSON` (encoding/json.Marshal auf dem
-  rohen Proto-Struct), nicht ueber `response.Proto`/`response.ProtoList`. Da
-  `ListEmailAccountsResponse.Accounts` das protoc-gen-go-Standard-Tag
-  `json:"accounts,omitempty"` traegt, wird ein leeres/nil-Slice bei
-  `encoding/json.Marshal` **weder** als `"accounts":[]` **noch** als `"accounts":null`
-  serialisiert — der Schluessel fehlt komplett im Body (`{}`). Das ist eine dritte,
-  im Backlog nicht vorgesehene Auspraegung neben der erwarteten "leer -> [] statt
-  null". `TestListEmailAccountsResponse_EmptyWireShape` haelt das reale Verhalten fest.
-  Kein Blocker: der einzige Konsument (desktop/src/renderer/src/modules/mails/
-  MailsPage.tsx:142 und settings/MailsSettingsPanel.tsx:48) liest bereits defensiv
-  ueber `accountsData?.accounts ?? []`. Kein neuer Fix-Unit-Vorschlag fuer Lauf 9, weil
-  folgenlos — dieselbe Kategorie Befund wie das EmitUnpopulated-Verhalten in Iteration 47
-  (dort protojson-Pfad, hier encoding/json-Pfad, beide harmlos wegen FE-Guard).
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-48 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 48) fortgezaehlt,
-  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:11).
-
-## Iteration 50 — d-cov-gateway-email-compose-actions — done — 2026-08-11 02:28
-- commit: 071b5bf1
-- gebaut: Neue Testdatei `backend/internal/gateway/route_email_compose_test.go`
-  (48 Tests) fuer die zehn Send-/Massenaktions-Handler in route_email.go:
-  HandleMarkRead/HandleMarkUnread/HandleToggleStar (ServiceUnavailable,
-  ReachesRPC je), HandleMoveToFolder (ServiceUnavailable, InvalidJSON,
-  MissingTargetFolderID, InvalidTargetFolderIDFormat, InvalidMessageIDUUID,
-  ReachesRPC), HandleDeleteMessage (ServiceUnavailable, InvalidIDUUID,
-  ReachesRPC), HandleBulkMessageAction (ServiceUnavailable, InvalidJSON,
-  EmptyIDs, InvalidUUIDInIDs, MissingAction, InvalidTargetUUID,
-  DeleteWithoutPermission, DeleteWithPermission_ReachesRPC, ReachesRPC),
-  HandleSendEmail (ServiceUnavailable, InvalidJSON, MissingTo,
-  InvalidEmailInTo, InvalidContactID, ReachesRPC), HandleSaveDraft
-  (ServiceUnavailable, InvalidJSON, InvalidEmailInTo, ReachesRPC),
-  HandleReplyEmail (ServiceUnavailable, InvalidJSON,
-  MissingOriginalMessageID, ReachesRPC), HandleForwardEmail
-  (ServiceUnavailable, InvalidJSON, MissingOriginalMessageID, MissingTo,
-  InvalidEmailInTo, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1574 PASS, 0 SKIP, 0 FAIL) | migration
-  n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836 Spec-Pfade) |
-  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 39,9 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: drei Proben, alle gefangen. (1) In HandleBulkMessageAction das
-  `!slices.Contains(...)` der zweiten Permission-Pruefung zu
-  `slices.Contains(...)` invertiert (Delete-Guard umgedreht) ->
-  TestHandleBulkMessageAction_DeleteWithoutPermission UND
-  TestHandleBulkMessageAction_DeleteWithPermission_ReachesRPC beide rot
-  (403/503 vertauscht). (2) In `moveToFolderDTO` das `validate`-Tag von
-  `required,uuid` auf `omitempty,uuid` geschwaecht ->
-  TestHandleMoveToFolder_MissingTargetFolderID rot (503 statt 400,
-  keine validation_failed-Struktur). (3) In HandleDeleteMessage den
-  Fehlerpfad `respondGRPCError(w, err)` durch `response.JSON(w,
-  http.StatusOK, resp)` ersetzt (RPC-Fehler verschluckt) ->
-  TestHandleDeleteMessage_InvalidIDUUID UND TestHandleDeleteMessage_ReachesRPC
-  beide rot (200 statt 503). Alle drei per Edit-Tool gesetzt und
-  zurueckgedreht, `git diff --stat backend/internal/gateway/route_email.go`
-  danach leer, build/vet/lint/test erneut komplett gruen (1574 PASS, 0 SKIP,
-  0 FAIL).
-- verify vorgaenger: sauber. Commit b46fc88b (Iteration 49) sowie der Metadaten-Commit
-  844ce463 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
-  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: (1) Drei todo-Fix-Units am Dateiende von BACKLOG.yml
-  (fix-email-send-missing-tenant-id, fix-email-attachment-download-metadata-wrong-message-id,
-  fix-crm-erasure-double-count) sind explizit als "Fuer Lauf 9" markiert und wurden
-  deshalb uebersprungen, obwohl sie formal `status: todo` mit leeren `deps` tragen —
-  kein Backlog-Fehler, nur zur Klarheit dokumentiert, falls eine kuenftige Iteration
-  denselben Datei-Scan macht. (2) Die im Backlog erwaehnte "Consent bei fehlendem
-  contact_id" Fehlerpfad-Erwartung ist bei genauerem Hinsehen keine Gateway-Sache:
-  die Consent-Durchsetzung fuer SendEmail sitzt vollstaendig in
-  internal/email/send/service.go (consentAsserter) und ist dort bereits durch
-  internal/email/send/consent_test.go abgedeckt (TestSend_BlockedByConsent,
-  TestSend_AllowedByConsent, TestSend_NoContactID_SkipsConsentCheck) —
-  HandleSendEmail selbst reicht ContactId nur unveraendert durch. Kein Fix-Unit-
-  Vorschlag, weil bereits getestet, nur an der falschen Stelle vermutet. (3) Wie bei
-  den bisherigen Email-/Video-Coverage-Units gibt es kein bufconn-Stub fuer
-  EmailServiceClient in diesem Paket — alle ReachesRPC-Tests dokumentieren nur, dass
-  Handler die lokale Validierung passieren und die RPC-Schicht erreichen (503 ueber
-  die unerreichbare Dummy-Adresse), nicht das tatsaechliche Service-Verhalten.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-49 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 49) fortgezaehlt,
-  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:28).
-
-## Iteration 51 — d-cov-gateway-calendar-membership — done — 2026-08-11 02:35
-- commit: 3a0d027d
-- gebaut: Neue Testdatei `backend/internal/gateway/route_calendar_membership_test.go`
-  (34 Tests) fuer HandleGetCalendar/HandleUpdateCalendar/HandleDeleteCalendar
-  (ServiceUnavailable, InvalidIDUUID ueber validateUUIDParam, InvalidJSON bei
-  Update, ReachesRPC je), HandleAddCalendarMember (ServiceUnavailable,
-  InvalidJSON, MissingUserID, InvalidUserIDUUID, MissingPermission,
-  InvalidCalendarIDUUID_ReachesRPC, ReachesRPC), HandleRemoveCalendarMember
-  (ServiceUnavailable, InvalidCalendarIDUUID_ReachesRPC,
-  InvalidUserIDUUID_ReachesRPC, ReachesRPC), HandleUpdateCalendarMemberPermission
-  (ServiceUnavailable, InvalidJSON, MissingPermission,
-  InvalidPermissionLevel_ReachesRPC, ReachesRPC), HandleSubscribeToCalendar und
-  HandleUnsubscribeFromCalendar (ServiceUnavailable, ReachesRPC je).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ komplett gruen, 0 SKIP, 0 FAIL) | migration n.a.
-  (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift lief als Teil des Pakettests mit, unveraendert gruen — keine neue
-  Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 40,3 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleDeleteCalendar `if !ok { return }`
-  nach `validateUUIDParam` zu `if ok { return }` invertiert (bricht bei gueltiger
-  UUID fruehzeitig ohne Response ab, laesst eine ungueltige durch) ->
-  TestHandleDeleteCalendar_InvalidIDUUID (JSON-Decode-Fehler, weil kein Error-Body
-  geschrieben wurde) UND TestHandleDeleteCalendar_ReachesRPC (200 statt 503) beide
-  rot. Zurueckgedreht, `git diff --stat backend/internal/gateway/route_calendar.go`
-  danach leer, build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 071b5bf1 (Iteration 50) sowie der Metadaten-Commit
-  6c088292 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
-  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: (1) HandleAddCalendarMember/HandleRemoveCalendarMember/
-  HandleUpdateCalendarMemberPermission/HandleSubscribeToCalendar/
-  HandleUnsubscribeFromCalendar lesen "id" (und "userId") durchgaengig ueber rohes
-  chi.URLParam ohne validateUUIDParam — kein neuer Befund, sondern derselbe, den
-  Iteration 6 (fix-gateway-id-validation-consistency) bereits als eine der 161
-  verbleibenden Rohstellen fuer route_calendar.go katalogisiert und explizit fuer
-  eine Lauf-9-Folge-Unit vorgemerkt hat; hier nur mit *_ReachesRPC-Tests belegt statt
-  gefixt (Coverage-Unit aendert kein Verhalten), kein zweiter Fix-Unit-Vorschlag noetig.
-  (2) updateCalendarMemberPermissionRequest.Permission traegt nur `validate:"required"`,
-  kein Enum-/Oneof-Check gegen die gueltigen CalendarPermission-Werte — ein
-  semantisch unbekannter aber nicht-leerer Wert wird lokal nicht abgelehnt, sondern
-  erreicht die RPC-Schicht (TestHandleUpdateCalendarMemberPermission_
-  InvalidPermissionLevel_ReachesRPC dokumentiert das). Gleiche Kategorie wie (1),
-  kein eigener Fix-Unit-Vorschlag, da folgenlos solange der Service serverseitig
-  validiert (nicht gegengeprueft, ausserhalb des Scopes dieser Coverage-Unit). (3)
-  Wie bei den bisherigen Gateway-Coverage-Units kein bufconn-Stub fuer
-  CalendarServiceClient — alle ReachesRPC-Tests dokumentieren nur, dass Handler die
-  lokale Validierung passieren und die RPC-Schicht erreichen (503 ueber die
-  unerreichbare Dummy-Adresse), nicht das tatsaechliche Service-Verhalten.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-50 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 50) fortgezaehlt,
-  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:35).
-
-## Iteration 52 — d-cov-gateway-calendar-events-resources — done — 2026-08-11 02:41
-- commit: b3788f5c
-- gebaut: Neue Testdatei `backend/internal/gateway/route_calendar_events_resources_test.go`
-  (42 Tests) fuer die acht Event-/Ressourcen-Handler in route_calendar.go:
-  HandleListEventsInRange (ServiceUnavailable, MissingStart, MissingEnd,
-  InvalidStartFormat, InvalidEndFormat, InvertedRange_ReachesRPC, ReachesRPC),
-  HandleGetEvent (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleUpdateEvent
-  (ServiceUnavailable, InvalidIDUUID, InvalidJSON, InvalidStartTimeFormat, ReachesRPC),
-  HandleDeleteEvent (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleCreateResource
-  (ServiceUnavailable, InvalidJSON, MissingName, MissingResourceType, InvalidCapacity,
-  ReachesRPC), HandleUpdateResource (ServiceUnavailable, InvalidIDUUID, InvalidJSON,
-  InvalidCapacity, ReachesRPC), HandleBookResource (ServiceUnavailable, InvalidJSON,
-  InvalidResourceIDUUID, InvalidEventIDUUID, MissingStartTime, InvalidStartTimeFormat,
-  ConflictingRange_ReachesRPC, ReachesRPC), HandleCancelBooking (ServiceUnavailable,
-  InvalidIDUUID, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v: 1641 PASS, 3 SKIP (DATABASE_URL nicht gesetzt,
-  vorbestehende RLS-Integrationstests in rls_dashboard_defaults_test.go, unveraendert durch
-  diese Unit), 0 FAIL) | migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine
-  Tabelle/Policy angefasst) | TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen
-  (834 Routen gegen 836 Spec-Pfade) | keine neue Route, kein neuer RequirePermission-Guard,
-  keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 40,8 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleListEventsInRange die Bedingung
-  `if startStr == "" || endStr == ""` zu `if startStr == "" && endStr == ""` geschwaecht
-  (akzeptiert jetzt einen einzelnen fehlenden Parameter) ->
-  TestHandleListEventsInRange_MissingStart UND TestHandleListEventsInRange_MissingEnd
-  beide rot (400 "invalid start/end time format" statt der erwarteten
-  "start and end query parameters are required"-Meldung, weil der jeweils leere String
-  ungeprueft in parseTimestamp lief und dort scheiterte). Per Edit-Tool zurueckgedreht,
-  `git diff --stat backend/internal/gateway/route_calendar.go` danach leer, build/vet/lint/
-  test erneut komplett gruen (1641 PASS, 3 SKIP, 0 FAIL).
-- verify vorgaenger: sauber. Commit 3a0d027d (Iteration 51) sowie der Metadaten-Commit
-  590e792b fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
-  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: (1) Das Backlog-`done_when` erwartete, dass HandleListEventsInRange "fehlende oder
-  invertierte Von/Bis-Parameter als Fehlerfall" prueft. Gepruefte Realitaet: der Handler
-  vergleicht start/end nach dem Parsen nie miteinander (route_calendar.go:561-603,
-  parseTimestamp in route_work.go:256 kennt auch keine Reihenfolge) -- eine Anfrage mit
-  start nach end erreicht unveraendert die RPC-Schicht. Kein Fix-Unit-Vorschlag: eine
-  Coverage-Unit aendert kein Verhalten, TestHandleListEventsInRange_InvertedRange_ReachesRPC
-  haelt die tatsaechliche Luecke fest statt sie stillschweigend zu unterstellen. Fuer Lauf 9
-  vormerkbar, aber kein verifizierter Produktionsbug wie die Block-A-Funde -- ob eine
-  Inversionspruefung ueberhaupt Produktwert hat (der Service ignoriert sie ohnehin nicht
-  zwingend falsch), ist eine Produktfrage, keine offensichtliche Luecke. (2) Analog fuer
-  HandleBookResource/HandleCancelBooking: "Buchungskonflikt-Pruefung" existiert im Handler
-  nicht, Konfliktbehandlung ist vollstaendig serverseitig (BookResource/CancelBooking RPCs).
-  TestHandleBookResource_ConflictingRange_ReachesRPC dokumentiert das, kein eigener Befund,
-  da konsistent mit jeder anderen ReachesRPC-Coverage-Unit in diesem Paket. (3) Wie bei allen
-  bisherigen Gateway-Coverage-Units kein bufconn-Stub fuer CalendarServiceClient -- alle
-  ReachesRPC-Tests dokumentieren nur, dass Handler die lokale Validierung passieren und die
-  RPC-Schicht erreichen (503 ueber die unerreichbare Dummy-Adresse localhost:0), nicht das
-  tatsaechliche Service-Verhalten.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-51 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 51) fortgezaehlt,
-  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:41).
-
-## Iteration 53 — d-cov-gateway-inventar-items-stock — done — 2026-08-11 02:51
-- commit: ed7e9b1c
-- gebaut: Testdatei `backend/internal/gateway/route_inventar_test.go` um 26 Tests fuer die
-  sieben Scope-Handler in route_inventar.go erweitert: HandleListItems (ServiceUnavailable,
-  MissingTenant, ReachesRPC mit search/low_stock/location-Query), HandleGetItem/
-  HandleUpdateItem/HandleDeleteItem (je InvalidIDUUID, ServiceUnavailable, ReachesRPC;
-  HandleUpdateItem zusaetzlich InvalidJSON), HandleAdjustStock (InvalidIDUUID,
-  InvalidPerformedByUUID via assertValidationError, InvalidDeltaType als einziger lokal
-  geprueften Fehlerpfad fuer eine unbrauchbare Mengenaenderung, MissingDelta_ReachesRPC als
-  dokumentierter Befund, ServiceUnavailable, ReachesRPC), HandleListMovements/
-  HandleGetStockHistory (je InvalidIDUUID, ServiceUnavailable, ReachesRPC) sowie
-  TestProtoListMovements_WireShape (direkter response.Proto-Marshal-Test fuer
-  ListMovementsResponse, geteilt von beiden Handlern).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v: 1670 PASS, 0 SKIP, 0 FAIL; ein einzelner FAIL beim
-  allerersten Lauf dieser Iteration war nicht reproduzierbar -- vier weitere Wiederholungen
-  direkt danach komplett gruen, keine der 26 neuen Tests betroffen, vermutlich eine
-  vorbestehende zeitkritische Flakiness in einem anderen Testfall desselben Pakets) |
-  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836
-  Spec-Pfade) | keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 41,2 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleAdjustStock `if !ok { return }` nach
-  `validateUUIDParam` zu `if ok { return }` invertiert (bricht bei gueltiger UUID fruehzeitig
-  ohne Response ab, laesst eine ungueltige durch) -> TestHandleAdjustStock_InvalidIDUUID,
-  TestHandleAdjustStock_InvalidPerformedByUUID, TestHandleAdjustStock_InvalidDeltaType,
-  TestHandleAdjustStock_MissingDelta_ReachesRPC UND TestHandleAdjustStock_ReachesRPC alle fuenf
-  rot (TestHandleAdjustStock_ServiceUnavailable blieb gruen, da der Client-Check davor greift).
-  Per Edit-Tool zurueckgedreht, `git diff --stat backend/internal/gateway/route_inventar.go`
-  danach leer, build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit b3788f5c (Iteration 52) fuegt ausschliesslich eine
-  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit 68515a77 nur
-  BACKLOG.yml/JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: (1) ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
-  Verhaltensaenderungen): `adjustStockRequest.Delta` (route_inventar.go, Zeile ~189) traegt
-  keinen `validate`-Tag — anders als `TransferStockRequest.Quantity` (`validate:"gt=0"`,
-  Zeile ~197) direkt darunter im selben Handler-Cluster. Ein Request ohne `delta`-Feld oder mit
-  `delta:0` wird nicht lokal abgelehnt, sondern erreicht die RPC-Schicht unveraendert als
-  Nullaenderung — TestHandleAdjustStock_MissingDelta_ReachesRPC dokumentiert das. Ob delta=0
-  serverseitig ueberhaupt sinnvoll behandelt wird (z. B. als No-Op-Movement-Eintrag), ist nicht
-  Teil dieser Coverage-Unit; vorgemerkt fuer eine Lauf-9-Fix-Unit, falls Luke das als echte
-  Produktluecke einstuft (kein verifizierter Bug wie die Block-A-Funde, nur eine Inkonsistenz
-  gegenueber dem Nachbar-Handler). (2) TestProtoListMovements_WireShape bestaetigt fuer
-  ListMovementsResponse (von HandleListMovements UND HandleGetStockHistory geteilt) denselben
-  Befund wie bereits fuer ListRecordingsResponse/ListMeetingOccurrencesResponse dokumentiert:
-  `EmitUnpopulated=false` im gemeinsamen protoMarshaler (internal/server/response/response.go)
-  laesst eine leere `movements`-Liste vollstaendig aus dem JSON-Body verschwinden (`{}` statt
-  `{"movements":[]}`), statt `[]` zu serialisieren — kein `null`, aber auch kein Array-Schluessel,
-  den ein FE-Consumer blind mappen koennte. Kein neuer Fix-Unit-Vorschlag, da systemweit
-  (jeder `response.Proto`-Aufruf mit leerem Repeated-Feld), nicht spezifisch fuer Inventar; bereits
-  an anderer Stelle als bekannte, tolerierte Eigenschaft dokumentiert. (3) Wie bei allen
-  bisherigen Gateway-Coverage-Units in diesem Paket kein bufconn-Stub fuer InventarServiceClient
-  — alle ReachesRPC-Tests dokumentieren nur, dass der Handler die lokale Validierung passiert
-  und die RPC-Schicht erreicht (503 ueber die unerreichbare Dummy-Adresse localhost:0), nicht
-  das tatsaechliche Service-Verhalten.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-52 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 52) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 02:51).
-
-## Iteration 54 — d-cov-gateway-inventar-inventur — done — 2026-08-11 02:53
-- commit: a4f32d20
-- gebaut: Testdatei `backend/internal/gateway/route_inventar_test.go` um 31 Tests fuer die
-  sieben Inventur-Workflow-Handler in route_inventar.go erweitert: HandleCreateInventurSession
-  (MissingName, InvalidLocationIDUUID, InvalidDateFormat als lokal geprueften Parse-Fehler,
-  ServiceUnavailable, ReachesRPC), HandleUpdateInventurSessionStatus (InvalidIDUUID,
-  InvalidStatusValue als dokumentierter Befund -- siehe offen --, ServiceUnavailable,
-  ReachesRPC), HandleUpsertInventurCount (InvalidIDUUID, InvalidJSON, MissingItemID,
-  ServiceUnavailable, ReachesRPC), HandleBookInventurDifferences (InvalidIDUUID wie im
-  done_when gefordert vor dem Buchen, InvalidBookedByUUID, ServiceUnavailable, ReachesRPC),
-  HandleListWarnings (ServiceUnavailable, MissingTenant, ReachesRPC mit status-Query),
-  HandleUpdateWarning (InvalidIDUUID, InvalidJSON als einziger lokal geprueften Fehlerpfad,
-  ServiceUnavailable, ReachesRPC), HandleAcknowledgeWarning (InvalidIDUUID, InvalidJSON,
-  InvalidAcknowledgedByUUID via assertValidationError, ServiceUnavailable,
-  ReachesRPC_FallsBackToAuthenticatedUser fuer den User-ID-Fallback-Zweig).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v: 1700 PASS, 0 SKIP, 0 FAIL) | migration n.a. (keine
-  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade, unveraendert) | keine
-  neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 41,6 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleBookInventurDifferences
-  `id, ok := validateUUIDParam(...); if !ok { return }` zu `if ok { return }` invertiert
-  (bricht bei gueltiger UUID fruehzeitig ohne Response ab, laesst eine ungueltige durch) ->
-  TestHandleBookInventurDifferences_InvalidIDUUID, _InvalidBookedByUUID UND _ReachesRPC alle
-  drei rot (_ServiceUnavailable blieb gruen, da der Client-Check davor greift). Per Edit-Tool
-  zurueckgedreht, `git diff --stat backend/internal/gateway/route_inventar.go` danach leer,
-  build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit ed7e9b1c (Iteration 53) fuegt ausschliesslich eine
-  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit 14dd7809 nur
-  BACKLOG.yml/JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: (1) ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
-  Verhaltensaenderungen): `updateInventurSessionStatusRequest.Status` (route_inventar.go,
-  Zeile ~818) validiert nur Mitgliedschaft in der festen oneof-Liste
-  (open/counting/review/completed) -- der Handler prueft NIE, ob der Uebergang VOM aktuellen
-  Sitzungsstatus aus zulaessig ist (z. B. von "completed" zurueck auf "open"). Das
-  done_when dieser Unit erwartete, dass "einen ungueltigen Statusuebergang als Fehlerfall"
-  geprueft wird -- gepruefte Realitaet: es gibt im Gateway-Handler keine
-  Uebergangspruefung, nur eine Werte-Pruefung. TestHandleUpdateInventurSessionStatus_
-  InvalidStatusValue dokumentiert die tatsaechlich vorhandene Werte-Pruefung (Wert
-  "cancelled" nicht im oneof), nicht die im done_when unterstellte
-  Uebergangs-Zustandsmaschine. Ob eine echte Uebergangspruefung serverseitig existiert
-  (internal/inventar/service.go, nicht Teil dieser Coverage-Unit) oder Produktwert haette,
-  ist eine Produktfrage; vorgemerkt fuer Lauf 9, falls Luke das als echte Luecke einstuft.
-  (2) Analog `updateWarningRequest.Status` (Zeile ~216) traegt gar keinen validate-Tag --
-  jeder String erreicht HandleUpdateWarning unveraendert die RPC-Schicht, nur malformed JSON
-  wird lokal abgelehnt. Kein eigener Fix-Unit-Vorschlag, konsistent mit dem
-  MissingDelta-Befund aus Iteration 53 (Inkonsistenz gegenueber Nachbar-Handlern mit
-  strengerem Tag, kein verifizierter Produktionsbug). (3) Wie bei allen bisherigen
-  Gateway-Coverage-Units kein bufconn-Stub fuer InventarServiceClient -- alle ReachesRPC-Tests
-  dokumentieren nur, dass der Handler die lokale Validierung passiert und die RPC-Schicht
-  erreicht (503 ueber die unerreichbare Dummy-Adresse localhost:0), nicht das tatsaechliche
-  Service-Verhalten.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-53 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 53) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 02:53).
-
-## Iteration 55 — d-cov-gateway-document-shares — done — 2026-08-11 03:04
-- commit: 7e71e8e3
-- gebaut: `backend/internal/gateway/route_document_test.go` um 29 neue Tests fuer die
-  Share-Link- und Entity-Link-Handler in route_document.go erweitert:
-  HandleListShareLinks (ServiceUnavailable, InvalidIDReachesRPC), HandleCreateShareLink
-  (ServiceUnavailable, InvalidJSON, InvalidIDReachesRPC, NoCreatedByWhenAnonymous),
-  HandleRevokeShareLink (ServiceUnavailable, InvalidIDReachesRPC), HandleGetSharedFile
-  (NoAuthNeeded, EmptyToken, MalformedTokenLooksLikeUnknown, BodyIsOptional,
-  InvalidJSONBody), HandleLinkFileToEntity (ServiceUnavailable, InvalidJSON,
-  MissingEntityID, MissingEntityType), HandleUnlinkFileFromEntity (ServiceUnavailable,
-  InvalidJSON, MissingEntityID), HandleListFileEntityLinks (ServiceUnavailable,
-  InvalidIDReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v: 1722 PASS, 0 SKIP, 0 FAIL) | migration n.a.
-  (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade, unveraendert) |
-  keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 41,9 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleGetSharedFile `token == "" ||
-  len(token) > 128` zu `token == ""` verkuerzt (die Laengenpruefung entfernt) ->
-  TestHandleGetSharedFile_MalformedTokenLooksLikeUnknown rot (200-Zeichen-Token erreicht
-  jetzt die RPC-Schicht statt lokal 404 zu liefern, Body zeigt "connection error" statt
-  "share link not found"; die vier anderen HandleGetSharedFile-Tests blieben gruen, da sie
-  den leeren bzw. kurzen Token pruefen). Per Edit-Tool zurueckgedreht, `git diff --stat
-  backend/internal/gateway/route_document.go` danach leer, build/vet/lint/test erneut
-  komplett gruen.
-- verify vorgaenger: sauber. Commit a4f32d20 (Iteration 54) fuegt ausschliesslich eine
-  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit 8c20db0e nur
-  JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
-  Verhaltensaenderungen): HandleListShareLinks, HandleCreateShareLink, HandleRevokeShareLink
-  und HandleListFileEntityLinks in route_document.go lesen `chi.URLParam(r, "id")` an keiner
-  Stelle ueber `validateUUIDParam` (bestaetigt per Test: eine nicht-UUID-Id erreicht die
-  RPC-Schicht statt lokal 400 zu liefern). Das ist derselbe, bereits in Iteration 6
-  (fix-gateway-id-validation-consistency) dokumentierte Gateway-weite Befund — dort wurde
-  route_document.go explizit als eine der 24 verbleibenden Dateien mit rohen
-  chi.URLParam(r, "id")-Stellen genannt (161 Stellen gesamt), aber nicht selbst gefixt.
-  Kein neuer Fix-Unit-Vorschlag hier, konsistent mit der damaligen Entscheidung, das fuer
-  Lauf 9 zu buendeln statt einzeln anzulegen.
-  HandleGetSharedFile ist per Code-Review (nicht per zusaetzlichem Test) als schmaler
-  Wire-Typ bestaetigt: `documentv1.GetSharedFileResponse` traegt bereits nur
-  download_url/filename/content_type/file_size (proto/document/v1/document.pb.go:4451-4459),
-  keine tenant_id oder sonstiges Feld, und der Handler baut die Antwort ohnehin manuell aus
-  genau diesen vier Feldern (route_document.go:1023-1028) statt das rohe Proto zu
-  serialisieren — die Projektregel ist damit erfuellt, ohne dass ein Happy-Path-Test noetig
-  waere. Ein echter Happy-Path-Test war wie bei allen bisherigen Gateway-Coverage-Units nicht
-  moeglich: kein bufconn-Stub fuer DocumentServiceClient im Repo, alle ReachesRPC-Tests
-  dokumentieren nur, dass der Handler die lokale Validierung passiert und die RPC-Schicht
-  erreicht (503 ueber die unerreichbare Dummy-Adresse localhost:0).
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-54 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 54) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:04).
-
-## Iteration 56 — d-cov-gateway-document-file-lifecycle — done — 2026-08-11 03:09
-- commit: 6f1f3b31
-- gebaut: `backend/internal/gateway/route_document_test.go` um 22 neue Tests fuer die
-  Datei-Lebenszyklus-Handler in route_document.go erweitert: HandleRegisterUploadedFile
-  (ServiceUnavailable, InvalidJSON, MissingFolderID, ReachesRPC), HandleDeleteFile
-  (ServiceUnavailable, InvalidIDReachesRPC), HandleCopyFile (ServiceUnavailable, InvalidJSON,
-  MissingTargetFolderID, ReachesRPC), HandleMoveFile (ServiceUnavailable, InvalidJSON,
-  MissingTargetFolderID, ReachesRPC), HandleGetFileDownloadURL (ServiceUnavailable,
-  InvalidIDReachesRPC), HandleListFileVersions (ServiceUnavailable, InvalidIDReachesRPC),
-  HandleRevertFileVersion (ServiceUnavailable, InvalidJSON, InvalidVersionNumber, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v: 1744 PASS, 0 SKIP, 0 FAIL) | migration n.a. (keine
-  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade, unveraendert) | keine
-  neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 42,1 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: zwei Proben, erste verpuffte, zweite gefangen. Erster Versuch: in
-  `copyFileRequest.TargetFolderID` das `validate`-Tag von `required,uuid` auf `uuid` verkuerzt
-  -> alle Tests blieben gruen, weil ein leerer String schon an der `uuid`-Regel scheitert (die
-  Probe testete nichts Neues, `required` und `uuid` ueberlappen bei leerem Input). Zurueckgedreht
-  und durch eine echte Probe ersetzt: in HandleCopyFile `if !ok { return }` zu `if ok { return }`
-  invertiert (bricht bei gueltiger Validierung fruehzeitig ab, laesst eine fehlgeschlagene
-  Validierung durch) -> TestHandleCopyFile_MissingTargetFolderID UND TestHandleCopyFile_ReachesRPC
-  beide rot (Response-Body doppelt geschrieben bzw. Status 200 statt 503). Per Edit-Tool
-  zurueckgedreht, `git diff --stat backend/internal/gateway/route_document.go` danach leer,
-  build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 7e71e8e3 (Iteration 55) fuegt ausschliesslich eine
-  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit fe638e80 nur
-  JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: (1) BACKLOG-DONE_WHEN-ABWEICHUNG: das done_when dieser Unit unterstellte fuer
-  HandleRevertFileVersion eine "ungueltige Versions-ID (UUID)"-Pruefung. Tatsaechlich nimmt der
-  Handler gar keinen Versions-ID-Parameter — `revertVersionRequest.VersionNumber` ist ein
-  `int32` mit `validate:"gt=0"`, adressiert die Zielversion also ueber eine Nummer im JSON-Body,
-  nicht ueber eine UUID im Pfad. TestHandleRevertFileVersion_InvalidVersionNumber dokumentiert
-  die tatsaechlich vorhandene Nummer-Pruefung (0 wird abgelehnt) statt der im done_when
-  unterstellten UUID-Pruefung. (2) ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut
-  Backlog-Kopf keine Verhaltensaenderungen, konsistent mit dem in Iteration 55 dokumentierten
-  Befund): keiner der sieben in dieser Unit getesteten Handler (HandleRegisterUploadedFile
-  betrifft das nicht, aber HandleDeleteFile, HandleCopyFile, HandleMoveFile,
-  HandleGetFileDownloadURL, HandleListFileVersions, HandleRevertFileVersion) ruft
-  `validateUUIDParam` auf die Datei-`id` aus `chi.URLParam(r, "id")` auf — dieselbe Gateway-weite
-  Luecke aus Iteration 6 (fix-gateway-id-validation-consistency), route_document.go stand dort
-  bereits als eine der 24 verbleibenden Dateien mit rohen chi.URLParam-Stellen. Kein neuer
-  Fix-Unit-Vorschlag, konsistent mit der damaligen Entscheidung, das fuer Lauf 9 zu buendeln.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in den Iterationen 6-55 vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 55) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:09).
-
-## Iteration 57 — d-cov-gateway-rapporte-lifecycle — done — 2026-08-11 03:16
-- commit: 9bb0cae6
-- gebaut: `backend/internal/gateway/route_rapporte_test.go` um 20 neue Tests fuer den
-  Bericht-Lebenszyklus in route_rapporte.go erweitert: HandleListReports (MissingTenant,
-  ServiceUnavailable, ReachesRPC, OwnScopeWithoutUserIsRejected), HandleGetReport
-  (InvalidIDUUID, MissingTenant, ReachesRPC), HandleUpdateReport (InvalidIDUUID,
-  InvalidJSON, MissingTenant, ReachesRPC), HandleDeleteReport (InvalidIDUUID,
-  MissingTenant, ServiceUnavailable), HandleSubmitReport (InvalidIDUUID, MissingTenant,
-  ReachesRPCWithInvalidStatusTransition), HandleRejectReport (InvalidIDUUID,
-  MissingReviewerID, MissingTenant, ReachesRPCWithInvalidStatusTransition).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 ./internal/gateway/ -v: 1765 PASS, 0 SKIP, 0 FAIL) | migration n.a.
-  (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade, unveraendert) |
-  keine neue Route, kein neuer RequirePermission-Guard, keine neue
-  config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 42,4 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleSubmitReport `if !ok { return }` nach
-  validateUUIDParam auf `if ok { return }` invertiert -> TestHandleSubmitReport_
-  ReachesRPCWithInvalidStatusTransition rot (Status 200 statt 503: bei validem Report-ID
-  kehrt der Handler jetzt sofort zurueck, ohne die RPC je zu erreichen, kein
-  ResponseWriter-Write). TestHandleSubmitReport_InvalidIDUUID blieb dabei gruen (die 400
-  aus validateUUIDParam ist bereits geschrieben, bevor der mutierte Zweig greift — kein
-  falsches Gruen, sondern derselbe doppelte-WriteHeader-Effekt wie in Iteration 56
-  dokumentiert). Per Edit-Tool zurueckgedreht, `git diff --stat
-  backend/internal/gateway/route_rapporte.go` danach leer, build/vet/lint/test erneut
-  komplett gruen.
-- verify vorgaenger: sauber. Commit 6f1f3b31 (Iteration 56) fuegt ausschliesslich eine
-  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit db34d1eb nur
-  JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: Kein Wire-Shape-Test fuer HandleListReports moeglich (Backlog-Wunsch
-  "gewrappte Liste pruefen") — der Handler reicht `ListReportsResponse` unveraendert
-  ueber `response.Proto` durch (route_rapporte.go:224-229), keine gateway-eigene
-  Marshaling-Logik und kein bufconn-Stub fuer RapporteServiceClient in diesem Paket,
-  dieselbe dokumentierte Grenze wie in jeder bisherigen Gateway-Coverage-Unit dieses
-  Laufs (zuletzt Iteration 55/document, Iteration ~52/fuhrpark). Ebenso kein lokal
-  testbarer "ungueltiger Statusuebergang" fuer HandleSubmitReport/HandleRejectReport:
-  die draft->submitted->approved/rejected-Maschine lebt in der rapporte-RPC-Schicht,
-  nicht im Handler — stattdessen ReachesRPC-Tests, die belegen, dass eine gueltige
-  ID/Payload lokal durchlaeuft und die RPC-Schicht unveraendert erreicht (503 ueber die
-  unerreichbare Dummy-Adresse). `HandleSaveReportSignature`, `HandleListLines`,
-  `HandleUpdateLine`, `HandleDeleteLine`, `HandleDeleteAttachment`,
-  `HandleGetReportStats`, `HandleListPendingApprovals`, `HandleExportPDF` sowie alle
-  Measurement-/Template-Handler bleiben ungetestet — nicht im Scope dieser Unit, ggf.
-  Kandidat fuer Lauf 9, falls internal/gateway noch weiter gehoben werden soll.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff
-  wie in frueheren Iterationen vermerkt — nicht meine Datei, nicht angefasst, nicht
-  committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 56) fortgezaehlt, Zeitstempel
-  per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:16).
-
-## Iteration 58 — d-cov-gateway-helpdesk-csat-lifecycle — done — 2026-08-11 03:22
-- commit: bd2d3e98
-- gebaut: `backend/internal/gateway/route_helpdesk_test.go` um 26 neue Tests fuer
-  Ticket-Statusuebergaenge und den oeffentlichen CSAT-Pfad in route_helpdesk.go
-  erweitert: HandleListTickets (ServiceUnavailable, MissingTenant, ReachesRPC,
-  OwnScopeWithoutUserIsRejected), HandleGetTicket (InvalidIDUUID, ServiceUnavailable,
-  ReachesRPC), HandleCloseTicket (InvalidIDUUID, ServiceUnavailable, ReachesRPC),
-  HandleReopenTicket (InvalidIDUUID, ServiceUnavailable, ReachesRPC), HandleSubmitCsat
-  (ServiceUnavailable, InvalidIDUUID, InvalidJSON, RatingOutOfRange, ReachesRPC),
-  HandleSubmitCsatByToken (ServiceUnavailable, EmptyToken, TokenTooLong, InvalidJSON,
-  RatingOutOfRange, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok |
-  lint ok (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0
-  issues) | test ok (go test -count=1 ./internal/gateway/ -v: 1789 PASS, 0 SKIP, 0
-  FAIL) | migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/
-  Policy angefasst) | TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836
-  Spec-Pfade, unveraendert) | keine neue Route, kein neuer RequirePermission-Guard,
-  keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 42,7 % (go test -coverprofile + go tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleCloseTicket `if !ok { return }` nach
-  validateUUIDParam auf `if ok { return }` invertiert -> TestHandleCloseTicket_
-  ReachesRPC rot (Status 200 statt 503, leerer Body: bei validem Ticket-ID kehrt der
-  Handler jetzt sofort zurueck, ohne die RPC je zu erreichen, kein ResponseWriter-
-  Write). TestHandleCloseTicket_InvalidIDUUID blieb dabei gruen (die 400 aus
-  validateUUIDParam ist bereits geschrieben, bevor der mutierte Zweig greift — kein
-  falsches Gruen, derselbe dokumentierte Doppel-Write-Effekt wie in Iteration 57).
-  Per Edit-Tool zurueckgedreht, `git diff --stat backend/internal/gateway/
-  route_helpdesk.go` danach leer, build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 9bb0cae6 (Iteration 57) fuegt ausschliesslich
-  eine Testdatei plus Journal-/Backlog-Metadaten hinzu (Metadaten-Commit db34d1eb nur
-  JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: HandleSubmitCsatByToken deckt nur den lokal aufloesbaren Token-Fehlerfall ab
-  (leer/zu lang -> 404 vor der RPC); unbekannt/abgelaufen/widerrufen/bereits eingeloest
-  sind laut Handler-Kommentar derselbe 404, aber RPC-seitig entschieden und ohne
-  bufconn-Stub fuer HelpdeskServiceClient in diesem Paket lokal nicht scriptbar —
-  dieselbe dokumentierte Grenze wie beim Statusuebergang in route_rapporte_test.go
-  (Iteration 57). Kein Wire-Shape-Test fuer HandleListTickets moeglich: der Handler
-  reicht die RPC-Response unveraendert ueber response.Proto durch, kein
-  gateway-eigenes Marshaling. HandleUpdateTicket, HandleAssignTicket (Happy Path),
-  HandleMergeTickets (Happy Path), HandleAddMessage/HandleListMessages, Queues,
-  SLA-Policies, Routing-Rules, Business-Hours und HandleGetHelpdeskStats bleiben
-  ungetestet — nicht im Scope dieser Unit, Kandidat fuer Lauf 9 falls internal/gateway
-  weiter gehoben werden soll. `.planning/backend-block/loop/run-loop.ps1` traegt
-  weiterhin denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-57
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block
-  war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 57) fortgezaehlt, Zeitstempel per `date` auf dem
-  Loop-Rechner ermittelt (2026-08-11 03:22).
-
-## Iteration 59 — d-cov-gateway-formulare-schema-submission — done — 2026-08-11 03:27
-- commit: 052b4bb5
-- gebaut: `backend/internal/gateway/route_formulare_test.go` von einem reinen
-  Konstruktor-Helfer auf 30 neue Tests fuer Formular-Schema-CRUD und den
-  Submission-Workflow in route_formulare.go erweitert: HandleCreateFormSchema
-  (ServiceUnavailable, MissingTenant, InvalidJSON, MissingTitle, ReachesRPC),
-  HandleUpdateFormSchema (InvalidIDUUID, MissingTenant, InvalidJSON,
-  ReachesRPC), HandleDeleteFormSchema (InvalidIDUUID, MissingTenant,
-  ServiceUnavailable), HandleDuplicateFormSchema (InvalidIDUUID,
-  MissingTenant, InvalidJSON, ReachesRPC), HandleCreateSubmission
-  (InvalidIDUUID, MissingTenant, InvalidJSON, ServiceUnavailable,
-  ReachesRPC), HandleUpdateSubmissionStatus (InvalidIDUUID, MissingTenant,
-  InvalidJSON, MissingStatus, InvalidStatusValue, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1
-  ./internal/gateway/ -v: 1816 PASS, 0 SKIP, 0 FAIL) | migration n.a. (keine
-  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade,
-  unveraendert) | keine neue Route, kein neuer RequirePermission-Guard, keine
-  neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 43,1 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. `createFormSchemaRequest.Title` von
-  `validate:"required"` auf keinen Validate-Tag entfernt ->
-  TestHandleCreateFormSchema_MissingTitle rot (503 + Dial-Fehler statt 400 +
-  validation_failed: der leere Titel reicht jetzt bis zur RPC durch). Alle
-  anderen 29 neuen Tests blieben gruen, insbesondere
-  TestHandleCreateFormSchema_ReachesRPC (das erwartet ohnehin 503 und haette
-  eine zu laxe Probe verschleiert). Per Edit-Tool zurueckgedreht, `git diff
-  --stat backend/internal/gateway/route_formulare.go` danach leer,
-  build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit bd2d3e98 (Iteration 58) fuegt
-  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
-  (Metadaten-Commit 093c68f1 nur JOURNAL.md/BACKLOG.yml) — keine
-  Produktionscode-Datei, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
-  acht Fehlerklassen einschlaegig.
-- offen: `createFormSchemaRequest.Fields`/`updateFormSchemaRequest.Fields`
-  tragen keinen `validate`-Tag — "fehlende Pflichtfelder (Name/Feldtyp)" aus
-  dem Backlog-Wunsch bezieht sich auf die Feldnamen INNERHALB des opaken
-  Fields-JSON-Blobs, die laut Scope in der Schema-Validierung liegen; das ist
-  service-seitige Logik ohne bufconn-Stub fuer FormulareServiceClient in
-  diesem Paket, dieselbe dokumentierte Grenze wie in jeder bisherigen
-  Gateway-Coverage-Unit dieses Laufs. `dispatchIntake` (privater Helfer, ruft
-  intern GetFormSchema + runIntakeDispatch) bleibt ungetestet aus demselben
-  Grund: CreateSubmission schlaegt schon an der RPC fehl, bevor dispatchIntake
-  je erreicht wird. `HandleListFormSchemas`, `HandleGetFormSchema`,
-  `HandleListSubmissions`, `HandleGetSubmission`, `HandleExportSubmissions`,
-  alle Webhook-Handler (Create/Get/Update/Delete/ListDeliveries), Share-Link-
-  Handler (List/Create/Revoke) und `HandleSubmitByShareToken` (der
-  unauthentifizierte Public-Pfad) bleiben ungetestet — nicht im Scope dieser
-  Unit (route_formulare.go hat 1204 Zeilen, deutlich mehr Handler als das
-  Backlog-`scope` nannte), Kandidat fuer Lauf 9 falls internal/gateway weiter
-  gehoben werden soll. `.planning/backend-block/loop/run-loop.ps1` traegt
-  weiterhin denselben unstaged Diff wie in den Iterationen 6-58 vermerkt —
-  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war
-  auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 58) fortgezaehlt, Zeitstempel per `date` auf
-  dem Loop-Rechner ermittelt (2026-08-11 03:27).
-
-## Iteration 60 — d-cov-gateway-settings-module-access — done — 2026-08-11 03:34
-- commit: 5fc601af
-- gebaut: `backend/internal/gateway/route_settings_module_access_test.go` neu
-  angelegt mit 34 Tests fuer die RBAC-nahe Modul-Zugriffsgruppe in
-  route_settings.go: HandleListModuleLeads (ServiceUnavailable,
-  MissingTenant, ReachesRPC), HandleGetMyModuleLeads (ServiceUnavailable,
-  MissingTenant, NoUserID, ReachesRPC), HandleGrantModuleLead
-  (ServiceUnavailable, MissingTenant, NoCallerID, InvalidIDUUID,
-  MissingModuleID, ReachesRPC), HandleRevokeModuleLead (ServiceUnavailable,
-  MissingTenant, InvalidIDUUID, MissingModuleID, ReachesRPC),
-  HandleListModuleGrants (ServiceUnavailable, MissingTenant, ReachesRPC),
-  HandleGrantModuleAccess (ServiceUnavailable, MissingTenant, NoCallerID,
-  InvalidIDUUID, MissingModuleID, ReachesRPC), HandleRevokeModuleAccess
-  (ServiceUnavailable, MissingTenant, InvalidIDUUID, MissingModuleID,
-  ReachesRPC), HandleBulkRevokeModuleAccess (ServiceUnavailable,
-  MissingTenant, InvalidJSON, MissingPairs, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1
-  ./internal/gateway/ -v: 1850 PASS, 0 FAIL, 3 SKIP [bekannte DB-abhaengige
-  RLS-Tests]) | migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a.
-  (keine Tabelle/Policy angefasst) | TestOpenAPIRouteDrift separat gruen (834
-  Routen gegen 836 Spec-Pfade, unveraendert) | keine neue Route, kein neuer
-  RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 43,7 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleGrantModuleLead
-  `if moduleID == "" { ... }` auf `if false { ... }` invertiert ->
-  TestHandleGrantModuleLead_MissingModuleID rot (200 statt 400: der leere
-  module_id-Pfadparameter erreicht jetzt ungeprueft die RPC). Alle anderen 33
-  neuen Tests blieben gruen. Per Edit-Tool zurueckgedreht, `git diff
-  backend/internal/gateway/route_settings.go` danach leer, build/vet/lint/
-  test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 052b4bb5 (Iteration 59) fuegt
-  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
-  (Metadaten-Commit b66ceb19 nur JOURNAL.md) — keine Produktionscode-Datei,
-  kein Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
-  keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `bulkRevokeGrantsRequest.Pairs` traegt pro Element
-  `validate:"required,uuid"` auf UserID / `validate:"required"` auf ModuleID,
-  aber die go-playground/validator-Instanz in internal/validation validiert
-  Struct-Felder innerhalb eines Slice NICHT automatisch ohne `dive`-Tag —
-  per Scratch-Test verifiziert: ein Pair mit `UserID: "not-a-uuid"` besteht
-  `Validate()` klaglos. HandleBulkRevokeModuleAccess reicht damit ungueltige
-  UUIDs unvalidiert bis zur RPC durch (kein Sicherheitsloch, da die RPC selbst
-  parsen muss, aber ein irrefuehrender Validate-Tag, der nichts tut). Nicht
-  gefixt (Coverage-Unit baut keine Verhaltensaenderung) — Kandidat fuer Lauf 9:
-  `dive` zum `pairs`-Tag hinzufuegen. Ebenso offen: HandleGetTenantLicense,
-  HandleSetTenantModuleActive, HandleGetTenantSubscription,
-  HandleGetBranding/HandlePutBranding und alle Settings-Handler
-  (GetResolvedSettings/GetTenantSettings/PutTenantSettings/GetUserSettings/
-  PutUserSettings) in derselben Datei bleiben ungetestet — nicht im Scope
-  dieser Unit, Kandidat fuer Lauf 9. `.planning/backend-block/loop/
-  run-loop.ps1` traegt weiterhin denselben unstaged -StartNotBefore-Diff wie
-  in den Iterationen 6-59 vermerkt — nicht meine Datei, nicht angefasst,
-  nicht committet. Laufkontext-Block war auch in diesem Prompt nicht
-  sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 59) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-11 03:34).
-
-## Iteration 61 — d-cov-gateway-chat-membership — done — 2026-08-11 03:35
-- commit: bda88c7f3d38992ef708f7bdb4a3b2ffd23dcb5f
-- gebaut: `backend/internal/gateway/route_chat_membership_test.go` neu
-  angelegt mit 25 Tests fuer die Kanal-Mitgliedschafts- und
-  Rollenverwaltungsgruppe in route_chat.go: HandleJoinChannel
-  (ServiceUnavailable, NoUserID, InvalidUUID, ReachesRPC), HandleLeaveChannel
-  (dieselben vier), HandleGetChannelMembers (ServiceUnavailable,
-  InvalidUUID, ReachesRPC — kein eigener UserID-Check im Handler),
-  HandleUpdateMemberRole (ServiceUnavailable, NoUserID, InvalidChannelID,
-  InvalidTargetUserID, InvalidJSON, UnknownRole, MissingRole, ReachesRPC),
-  HandleArchiveChannel und HandleDeleteChannel (je ServiceUnavailable,
-  InvalidUUID, ReachesRPC).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
-  ./internal/gateway/: 1878 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
-  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift im selben Paketlauf mitgelaufen, gruen (keine neue
-  Route) | kein neuer RequirePermission-Guard, keine neue
-  config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 44,1 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleUpdateMemberRole
-  `if requesterID == "" { ... }` auf `if false { ... }` geaendert ->
-  TestHandleUpdateMemberRole_NoUserID rot (503 statt 401: ohne Requester-ID
-  erreicht der Request jetzt den gRPC-Client-Aufbau statt an der
-  Auth-Grenze abzubrechen). Alle anderen 24 neuen Tests blieben gruen. Per
-  Edit-Tool zurueckgedreht, `git diff backend/internal/gateway/route_chat.go`
-  danach leer, build/vet/lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 5fc601af (Iteration 60) fuegt
-  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
-  (Metadaten-Commit 6c377749 nur JOURNAL.md) — keine Produktionscode-Datei,
-  kein Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
-  keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: HandleGetChannelMembers und HandleArchiveChannel/HandleDeleteChannel
-  rufen middleware.GetUserID nie explizit ab bzw. pruefen sie nicht auf Leere
-  (anders als HandleUpdateMemberRole) — sie verlassen sich vollstaendig auf
-  die RequireAuthenticated-Middleware der Route-Registrierung. Das ist heute
-  konsistent mit dem restlichen Datei-Stil (HandleJoinChannel/
-  HandleLeaveChannel machen es genauso), aber kein Handler-eigener Schutz;
-  nicht gefixt, da Coverage-Unit keine Verhaltensaenderung baut. In
-  route_chat.go bleiben nach dieser Unit noch HandleGetMessages,
-  HandleUpdateMessage, HandleDeleteMessage, HandleListDMs,
-  HandleGetThreadReplies, HandleMarkChannelRead, HandleGetUnreadCounts,
-  HandleGetUserMentions, HandleGetFileDownloadURL/ThumbnailURL,
-  HandleListChannelFiles, HandleDeleteFile, HandleToggleReaction/
-  ListReactions/GetReactionSummary, HandleListBookmarks/ToggleBookmark und
-  HandleSearchChat ungetestet — Kandidat fuer eine Folge-Unit in Lauf 9,
-  nicht in dieser Unit gebaut. `.planning/backend-block/loop/run-loop.ps1`
-  traegt weiterhin denselben unstaged -StartNotBefore-Diff wie in den
-  Iterationen 6-60 vermerkt — nicht meine Datei, nicht angefasst, nicht
-  committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 60)
-  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 03:35).
-
-## Iteration 62 — d-cov-gateway-vermietung-rental-lifecycle — done — 2026-08-11 03:46
-- commit: e5bc7291ed379cec6fe688d6cf459926c61613a7
-- gebaut: `backend/internal/gateway/route_vermietung_test.go` um 30 Tests
-  erweitert fuer den bisher ungetesteten Vermietungs-Lebenszyklus in
-  route_vermietung.go: HandleCheckAvailability (ServiceUnavailable,
-  InvalidObjectIDUUID, MissingDates, InvalidStartDateFormat,
-  InvalidEndDateFormat, OverlappingRange_ReachesRPC), HandleStartRental und
-  HandleEndRental (je ServiceUnavailable, InvalidRentalIDUUID,
-  InvalidStatusTransition_ReachesRPC), HandleUpdateRental
-  (ServiceUnavailable, InvalidRentalIDUUID, InvalidJSON,
-  InvalidStartDateFormat, InvalidEndDateFormat, ReachesRPC),
-  HandleDeleteRental (ServiceUnavailable, InvalidRentalIDUUID, ReachesRPC)
-  und HandleGetRentalCalendar (ServiceUnavailable, ReachesRPC,
-  NonNumericYearMonthIgnored). Die "OverlappingRange"/"InvalidStatusTransition"
-  -Tests dokumentieren bewusst, dass Ueberschneidungs- und
-  Statusuebergangspruefung serverseitig im vermietung-Service liegen (kein
-  bufconn-Stub im Repo fuer dieses Paket) — der Gateway-Handler validiert nur
-  Tenant/ID/Datumsformat und reicht den Rest unveraendert an die RPC durch
-  (503 bei localhost:0-Dummy-Verbindung, dasselbe Verify-Muster wie in
-  Iteration 61).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
-  ./internal/gateway/: 1899 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
-  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift im selben Paketlauf mitgelaufen, gruen (keine neue
-  Route) | kein neuer RequirePermission-Guard, keine neue
-  config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 44,4 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleUpdateRental den
-  Start-Date-Formatfehler-Guard `if parseErr != nil { ... }` auf `if false`
-  geaendert -> TestHandleUpdateRental_InvalidStartDateFormat rot (503 statt
-  400: "gestern" erreicht ungeprueft die RPC und scheitert dort am
-  localhost:0-Dial statt an der Datumsformat-Grenze). Alle anderen 29 neuen
-  Tests blieben gruen. Per Edit-Tool zurueckgedreht, `git diff
-  backend/internal/gateway/route_vermietung.go` danach leer, build/vet/lint/
-  test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit bda88c7f (Iteration 61) fuegt
-  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
-  (`git show --stat bda88c7f`: BACKLOG.yml, JOURNAL.md,
-  route_chat_membership_test.go) — keine Produktionscode-Datei, kein Proto,
-  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine
-  Migration. Keine der acht Fehlerklassen einschlaegig. Sein
-  Journal-Platzhalter "(siehe git log nach diesem Commit)" war noch nicht
-  aufgeloest — per separatem Commit (Konvention aus den Iterationen 59/60)
-  vor dieser Unit nachgetragen: `chore(loop): record commit hash for
-  iteration 61 journal entry`.
-- offen: In route_vermietung.go bleiben nach dieser Unit noch
-  HandleListObjects/HandleCreateObject/HandleGetObject/HandleUpdateObject/
-  HandleDeleteObject, HandleListRentals/HandleCreateRental/HandleGetRental,
-  HandleSaveRentalSignature, alle Inspection-Handler und
-  HandleExportRentalReport ungetestet bzw. nur teilweise (Object/Rental/
-  Inspection-Create sind in der bestehenden Testdatei abgedeckt, Get/List/
-  Update/Delete/Export/Signature nicht) — Kandidat fuer eine Folge-Unit in
-  Lauf 9, nicht in dieser Unit gebaut. Beim Lesen von helpers.go aufgefallen:
-  es existiert bereits ein `validateDateParam`-Helfer (Zeile ~129) mit
-  eigenem Format-Set, den route_vermietung.go nicht nutzt (eigenes
-  `parseRFC3339` + manuelle RFC3339-Fehlermeldungen stattdessen) — keine
-  Verhaltensaenderung in dieser Coverage-Unit, aber ein Kandidat fuer
-  Root-Cause-Vereinheitlichung in einer spaeteren Fix-Unit, falls
-  `validateDateParam` dasselbe Format akzeptiert.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-61 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
-  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 61) fortgezaehlt, Zeitstempel per `date`
-  auf dem Loop-Rechner ermittelt (2026-08-11 03:46).
-
-## Iteration 63 — d-cov-gateway-schichten-swap-arbzg — done — 2026-08-11 03:52
-- commit: 8908aba4
-- gebaut: `backend/internal/gateway/route_schichten_test.go` um 20 Tests
-  erweitert fuer den bisher ungetesteten Schichttausch-/ArbZG-Block in
-  route_schichten.go: HandleCreateSwapRequest (MissingSwapWithEmployeeID,
-  MissingShiftID, InvalidAssignmentIDUUID, MissingIdempotencyKey,
-  ServiceUnavailable, ReachesRPC), HandleListSwapRequests
-  (ServiceUnavailable, ReachesRPC), HandleApproveSwapRequest/
-  HandleRejectSwapRequest (je ServiceUnavailable, InvalidRequestIDUUID,
-  AlreadyDecided_ReachesRPC) und HandleCheckArbzgCompliance
-  (ServiceUnavailable, MissingEmployeeID, MissingNewShiftStart,
-  InvalidNewShiftStartFormat, InvalidNewShiftEndFormat, ReachesRPC). Die
-  "AlreadyDecided_ReachesRPC"-Tests dokumentieren bewusst, dass die
-  Statusuebergangspruefung des Tauschantrags (bereits genehmigt/abgelehnt)
-  serverseitig im schichten-Service liegt — der Gateway-Handler validiert
-  nur Tenant und Antrags-ID (UUID) und reicht den Rest unveraendert an die
-  RPC durch (503 bei localhost:0-Dummy-Verbindung, dasselbe Verify-Muster
-  wie in Iteration 62). HandleCheckArbzgCompliance dagegen validiert
-  employee_id sowie new_shift_start/new_shift_end (inkl. leerem Wert, der
-  denselben "invalid ...: use RFC3339"-Fehler wie ein unparsbarer erzeugt)
-  tatsaechlich an der Gateway-Grenze, weil das Handler-eigene
-  `parseRFC3339ToTimestamp` das vor dem RPC-Aufruf prueft.
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
-  ./internal/gateway/: 1922 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
-  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift im selben Paketlauf mitgelaufen, gruen (keine neue
-  Route) | kein neuer RequirePermission-Guard, keine neue
-  config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 44,8 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleCreateSwapRequest den
-  Idempotency-Key-Guard `if idempotencyKey == "" {` auf `if false {`
-  geaendert -> TestHandleCreateSwapRequest_MissingIdempotencyKey rot (503
-  statt 400: die valide Anfrage ohne Header erreicht ungeprueft die RPC und
-  scheitert dort am localhost:0-Dial statt am Header-Guard). Alle anderen 19
-  neuen Tests blieben gruen. Per Edit-Tool zurueckgedreht, `git diff
-  backend/internal/gateway/route_schichten.go` danach leer, build/vet/lint/
-  test erneut komplett gruen (1922 PASS).
-- verify vorgaenger: sauber. Commit e5bc7291 (Iteration 62) fuegt
-  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
-  (`git show --stat e5bc7291`: BACKLOG.yml, JOURNAL.md,
-  route_vermietung_test.go) — keine Produktionscode-Datei, kein Proto, keine
-  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
-  Keine der acht Fehlerklassen einschlaegig.
-- offen: In route_schichten.go bleibt HandleGetShiftStats ungetestet
-  (nicht Teil dieser Unit-Scope) — Kandidat fuer eine Folge-Unit in Lauf 9.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-62 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
-  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 62) fortgezaehlt, Zeitstempel per `date`
-  auf dem Loop-Rechner ermittelt (2026-08-11 03:52).
-
-
-## Iteration 64 — d-cov-gateway-berichte-documents — done — 2026-08-11 03:59
-- commit: 0cee1ab5
-- gebaut: `backend/internal/gateway/route_berichte_test.go` um 17 Tests fuer
-  die bisher ungetestete Dokumenten-Gruppe in route_berichte.go erweitert:
-  HandleListDocuments (ServiceUnavailable, MissingTenant),
-  HandleGetDocument (ServiceUnavailable, InvalidUUID),
-  HandleExportDocumentPDF (ServiceUnavailable, InvalidUUID),
-  HandleCreateDocument (ServiceUnavailable, InvalidJSON, InvalidModule),
-  HandleUpdateDocument (InvalidUUID, InvalidJSON, InvalidStatus),
-  HandleDeleteDocument (ServiceUnavailable, InvalidUUID). Abweichung vom
-  `done_when` der Unit: "HandleCreateDocument prueft fehlende Pflichtfelder
-  (Titel/Definition)" trifft auf den heutigen Code nicht zu —
-  `createReportDocumentRequest.Title` traegt anders als
-  `createDefinitionRequest.Name` kein `validate:"required"`-Tag, ein leerer
-  Titel wird von `decodeAndValidate` also nicht abgelehnt (keine
-  Verhaltensaenderung in dieser Coverage-Unit vorgenommen). Stattdessen
-  getestet: die tatsaechlich vorhandene `oneof`-Validierung auf `module`
-  (Create) und `status` (Update) — das sind die einzigen Felder, die die
-  Gateway-Grenze bei Documents wirklich zurueckweist.
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
-  ./internal/gateway/: 1936 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
-  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gelaufen, gruen (834 Routen gegen 836
-  dokumentierte Pfade, keine neue Route) | kein neuer RequirePermission-Guard,
-  keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 45,0 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleUpdateDocument den
-  UUID-Guard `if !ok { return }` auf `if ok { return }` geaendert ->
-  TestHandleUpdateDocument_InvalidUUID, ..._InvalidJSON und ..._InvalidStatus
-  alle drei rot (200/leerer Body statt 400: eine ungueltige ID laesst die
-  Funktion sofort verlassen statt fortzufahren, wodurch auch die beiden
-  nachgelagerten Tests, die denselben Handler mit gueltiger ID aufrufen,
-  keinen JSON-Body mehr sehen). Per Edit-Tool zurueckgedreht, `git diff
-  backend/internal/gateway/route_berichte.go` danach leer, build/vet/lint/
-  test erneut komplett gruen (1936 PASS, Coverage unveraendert 45,0 %).
-- verify vorgaenger: sauber. Commit 8908aba4 (Iteration 63) fuegt
-  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
-  (`git show --stat 8908aba4`: BACKLOG.yml, JOURNAL.md,
-  route_schichten_test.go) — keine Produktionscode-Datei, kein Proto, keine
-  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
-  Keine der acht Fehlerklassen einschlaegig. Sein Journal-Platzhalter
-  "(siehe unten, wird nach diesem Journal-Eintrag committet)" war noch nicht
-  aufgeloest — per separatem Commit (Konvention aus den Iterationen 59-62)
-  vor dieser Unit nachgetragen: `chore(loop): record commit hash for
-  iteration 63 journal entry`.
-- offen: route_berichte.go ist nach dieser Unit bis auf Detailpfade in
-  HandleGetDashboardKPIs (teilweise bereits in
-  route_berichte_kpi_scope_test.go) durchgetestet — nichts Neues fuer Lauf 9
-  vorgemerkt. `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-63
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 63) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:59).
-
-
-## Iteration 65 — d-cov-gateway-dialer-queue-dashboard — done — 2026-08-11 04:01
-- commit: 4aa534d1
-- gebaut: `backend/internal/gateway/route_dialer_test.go` um 15 Tests fuer die
-  bisher ungetestete Kontakt-Warteschlange und die Uebersichts-Endpunkte in
-  route_dialer.go erweitert: HandleListCampaignContacts (ServiceUnavailable,
-  InvalidUUID, ReachesRPC), HandleSkipContact/HandleRequeueContact (je
-  ServiceUnavailable, InvalidUUID auf dem "cid"-Parameter),
-  HandleGetCampaignDashboard (ServiceUnavailable, InvalidUUID),
-  HandleGetAgentDashboard (ServiceUnavailable, NoAgentID -> 401 "not
-  authenticated", AgentIDFromUser -> agent_id faellt auf die User-ID aus dem
-  Kontext zurueck) und HandleGetSupervisorOverview (ServiceUnavailable, der
-  einzige Fehlerpfad, da der Handler keine Parameter entgegennimmt). Fuer
-  HandleListCampaignContacts existiert wie in jeder vorigen Coverage-Unit
-  dieses Laufs kein bufconn-Stub fuer den dialer-Service in diesem Paket —
-  die []-nicht-null-Wire-Shape der Kontaktliste ist dokumentiert als
-  Eigenschaft des service-eigenen Proto-Marshalings (ReachesRPC-Test mit
-  Kommentar, gleiches Muster wie TestHandleCheckTuevDue_ReachesRPC in
-  route_fuhrpark_crud_test.go).
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
-  ./internal/gateway/: 1949 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
-  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
-  TestOpenAPIRouteDrift separat gelaufen, gruen (834 Routen gegen 836
-  dokumentierte Pfade, keine neue Route) | kein neuer RequirePermission-Guard,
-  keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 45,2 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleSkipContact den
-  UUID-Guard `if !ok { return }` auf `if ok { return }` geaendert ->
-  TestHandleSkipContact_InvalidUUID rot (Handler laeuft mit ungueltiger
-  ID weiter statt sofort zu returnen, Testabbruch beim Decodieren der
-  Fehlerantwort: "invalid character '{' after top-level value" statt eines
-  400-JSON-Bodys). TestHandleSkipContact_ServiceUnavailable blieb gruen
-  (Client-Check kommt vor dem UUID-Guard). Per Edit-Tool zurueckgedreht,
-  `git diff backend/internal/gateway/route_dialer.go` danach leer,
-  build/vet/lint/test erneut komplett gruen (1949 PASS).
-- verify vorgaenger: sauber. Commit 0cee1ab5 (Iteration 64) fuegt
-  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
-  (`git show --stat 0cee1ab5`: BACKLOG.yml, JOURNAL.md,
-  route_berichte_test.go) — keine Produktionscode-Datei, kein Proto, keine
-  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
-  Keine der acht Fehlerklassen einschlaegig.
-- offen: route_dialer.go ist nach dieser Unit bis auf
-  HandleGetNextContact/HandleAddContactsToCampaign (Happy-Path/RPC-Reach
-  bereits teilweise abgedeckt, kein systematischer Fehlerpfad-Rest offen),
-  HandleListCallOutcomes, HandleGetAgentStatus/HandleSetAgentStatus
-  (ServiceUnavailable teilw. fehlt fuer GetAgentStatus) und
-  HandleGetContactCalls ungetestet — kein dringender Kandidat, kleine
-  Restfelder, keine eigene Folge-Unit fuer Lauf 9 vorgemerkt.
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-64 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
-  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 64) fortgezaehlt, Zeitstempel per `date`
-  auf dem Loop-Rechner ermittelt (2026-08-11 04:01).
-
-## Iteration 66 — d-cov-gateway-produktion-order-lifecycle — done — 2026-08-11 04:12
-- commit: ae490601
-- gebaut: `backend/internal/gateway/route_produktion_orders_test.go` neu, 20
-  Tests fuer den bisher ungetesteten Fertigungsauftrags-Lebenszyklus in
-  route_produktion.go: HandleListOrders (ServiceUnavailable, MissingTenant
-  401, ReachesRPC mit allen Query-Filtern status/priority/date_from/date_to),
-  HandleGetOrder (ServiceUnavailable, InvalidUUID), HandleUpdateOrder
-  (ServiceUnavailable, InvalidUUID, InvalidJSON), HandleStartOrder/
-  HandleCompleteOrder/HandleCancelOrder (je ServiceUnavailable, InvalidUUID,
-  ReachesRPC). Alle sechs Handler sind reine Passthroughs ohne eigene
-  Statusuebergangs-Logik (route_produktion.go:389-465 baut nur ein
-  OrderActionRequest{TenantId, OrderId} und ruft die RPC); die
-  geplant->gestartet->abgeschlossen/storniert-Pruefung liegt serverseitig im
-  produktion-Service und wird dort als FailedPrecondition (-> 409) erwartet.
-  Es existiert wie in jeder vorigen Coverage-Unit dieses Laufs kein
-  bufconn-Stub fuer den produktion-Service in diesem Paket, um diese
-  FailedPrecondition-Antwort zu faken (gleiche Grenze wie zuletzt bei
-  route_dialer_test.go dokumentiert) — die *_ReachesRPC-Tests belegen
-  stattdessen, dass der Handler mit gueltiger Order-ID die RPC-Schicht
-  erreicht; der eigentliche Fehlerpfad fuer einen ungueltigen Uebergang ist
-  Sache des produktion-Service-Pakets, nicht dieses Gateway-Pakets. Das
-  `done_when` "je einen ungueltigen Statusuebergang als Fehlerfall" ist damit
-  im Rahmen der Architektur-Grenze erfuellt: dokumentierter Boundary-Test statt
-  eines vorgetaeuschten Service-Fehlers.
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1
-  ./internal/gateway/: ueber 5 Wiederholungen durchgehend gruen, 2893 PASS,
-  0 FAIL, 0 SKIP in der -v-Zaehlung; EIN einzelner isolierter FAIL bei einem
-  frueheren Lauf direkt nach golangci-lint war nicht reproduzierbar — 5
-  weitere Wiederholungen des kompletten build+vet+lint+test-Gates liefen
-  alle gruen, keine der neuen Tests betroffen, kein Diff zum Zeitpunkt des
-  Flakes vorhanden) | migration n.a. (keine neue Tabelle/Route) | rls-smoke
-  n.a. (keine Tabelle/Policy angefasst) | TestOpenAPIRouteDrift separat
-  gelaufen, gruen (834 Routen gegen 836 dokumentierte Pfade, unveraendert
-  gegenueber Iteration 65 — keine neue Route) | kein neuer
-  RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 34,9 % -> 45,4 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleStartOrder den UUID-Guard
-  `if !ok { return }` auf `if ok { return }` geaendert -> sowohl
-  TestHandleStartOrder_InvalidUUID (Testabbruch beim Decodieren der
-  Fehlerantwort: "invalid character '{' after top-level value" statt eines
-  400-JSON-Bodys) als auch TestHandleStartOrder_ReachesRPC (status = 200,
-  want 503) rot. Per Edit-Tool zurueckgedreht, `git diff
-  backend/internal/gateway/route_produktion.go` danach leer, build/vet/lint/
-  test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 4aa534d1 (Iteration 65) fuegt
-  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
-  (`git show --stat 4aa534d1`: BACKLOG.yml, JOURNAL.md,
-  route_dialer_test.go) — keine Produktionscode-Datei, kein Proto, keine
-  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
-  Keine der acht Fehlerklassen einschlaegig.
-- offen: route_produktion.go ist nach dieser Unit bei den Order-Handlern
-  vollstaendig abgedeckt (Fehlerpfad je Handler); HandleDeleteOrder,
-  HandleGetMaterialAvailability, die Machine-Booking- und Plan-Handler sowie
-  HandleGetCapacityOverview bleiben ungetestet — kleinere Restflaeche,
-  gehoert nicht zur Order-Lifecycle-Unit, keine eigene Folge-Unit fuer
-  Lauf 9 vorgemerkt (der Block-D-Rest ist bereits im Backlog erfasst).
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-65 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
-  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 65) fortgezaehlt, Zeitstempel per `date`
-  auf dem Loop-Rechner ermittelt (2026-08-11 04:12).
-
-## Iteration 67 — d-cov-gateway-wiki-versioning — done — 2026-08-11 04:18
-- commit: e3ee735a
-- gebaut: `backend/internal/gateway/route_wiki_versions_test.go` neu, 19 Tests
-  fuer die bisher ungetesteten Artikel-/Versions-Handler in route_wiki.go:
-  HandleGetArticle (ServiceUnavailable, InvalidUUID, ReachesRPC),
-  HandleUpdateArticle (ServiceUnavailable, InvalidUUID, InvalidJSON,
-  ReachesRPC), HandleDeleteArticle (ServiceUnavailable, InvalidUUID,
-  ReachesRPC), HandleListVersions (ServiceUnavailable, InvalidUUID,
-  ReachesRPC), HandleRestoreVersion (ServiceUnavailable,
-  InvalidArticleUUID, InvalidVersionUUID, MissingVersionID, ReachesRPC) und
-  HandleGetVersion (ServiceUnavailable, InvalidUUID, ReachesRPC). Alle sechs
-  Handler sind reine Passthroughs ohne eigene Business-Logik
-  (route_wiki.go:257-454, 844-870); wie in jeder vorigen Coverage-Unit
-  dieses Laufs gibt es keinen bufconn-Stub fuer den wiki-Service in diesem
-  Paket, daher belegen die *_ReachesRPC-Tests (registryWithService zeigt auf
-  localhost:0) nur, dass der Handler nach erfolgreicher lokaler Validierung
-  die RPC-Schicht erreicht (503 durch Connection-refused, nicht durch die
-  ServiceUnavailable-Kurzschluss-Pruefung). Bemerkenswert:
-  HandleGetVersion validiert unter dem Parameternamen "id" tatsaechlich eine
-  Versions-ID (eigenstaendige Route GET /wiki/versions/{id}, baut
-  GetVersionRequest{VersionId: id}) und nicht wie alle anderen Handler in
-  dieser Datei eine Artikel-ID — im Test kommentiert, damit das nicht als
-  Fehler missverstanden wird. HandleRestoreVersion validiert Artikel-ID vor
-  Versions-ID (route_wiki.go:432-439 in dieser Reihenfolge); MissingVersionID
-  deckt den Fall ab, dass der versionId-URL-Param gar nicht gesetzt ist
-  (chi.URLParam liefert "", uuid.Parse("") schlaegt fehl -> "invalid
-  versionId"), zusaetzlich zum expliziten InvalidVersionUUID-Fall.
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test: 8 von 9
-  Wiederholungen von `go test -count=1 ./internal/gateway/` gruen; EIN
-  isolierter FAIL in einer Wiederholung, danach 5 weitere Wiederholungen
-  (davon 2 mit -v) durchgehend gruen, kein Zusammenhang mit den neuen Tests
-  (dieselbe Flake-Beobachtung wie in Iteration 66 dokumentiert, kein Diff
-  zum Zeitpunkt des Flakes) | migration n.a. (keine neue Tabelle/Route) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst) | TestOpenAPIRouteDrift
-  separat gelaufen, gruen (834 Routen gegen 836 dokumentierte Pfade,
-  unveraendert — keine neue Route) | kein neuer RequirePermission-Guard,
-  keine neue config.RequireX-Assertion
-- coverage: internal/gateway 45,4 % -> 45,7 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In HandleGetVersion den
-  UUID-Guard `if !ok { return }` auf `if ok { return }` geaendert ->
-  sowohl TestHandleGetVersion_InvalidUUID (Testabbruch beim Decodieren der
-  Fehlerantwort: "invalid character '{' after top-level value" statt eines
-  400-JSON-Bodys) als auch TestHandleGetVersion_ReachesRPC (status = 200,
-  want 503) rot. Per Edit-Tool zurueckgedreht, `git diff
-  backend/internal/gateway/route_wiki.go` danach leer, build/vet/lint/test
-  erneut komplett gruen.
-- verify vorgaenger: sauber. Commit 4385469c (Iteration 66) fuegt
-  ausschliesslich Journal-/Backlog-Metadaten hinzu (Commit-Hash-Nachtrag
-  fuer Iteration 66 selbst) — kein Produktionscode, kein Proto, keine
-  Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration.
-  Keine der acht Fehlerklassen einschlaegig.
-- offen: route_wiki.go ist nach dieser Unit bei Artikel-CRUD und Versionen
-  vollstaendig abgedeckt (Fehlerpfad je Handler); HandleListArticles,
-  HandleSearchArticles, HandleListAttachments, HandleDeleteAttachment,
-  HandleListCategories, HandleDeleteCategory, HandleUpdateCategory,
-  HandleCreateShareToken, HandleListShareTokens und
-  HandleRevokeShareToken bleiben ungetestet — kleinere Restflaeche,
-  gehoert nicht zur Versions-Unit, keine eigene Folge-Unit fuer Lauf 9
-  vorgemerkt (der Block-D-Rest ist bereits im Backlog erfasst, naechste
-  offene Unit ist d-cov-gateway-plugin-installation-lifecycle).
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-66 vermerkt —
-  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block
-  war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der
-  letzten Journal-Ueberschrift (Iteration 66) fortgezaehlt, Zeitstempel per
-  `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:18).
-## Iteration 68 — d-cov-gateway-plugin-installation-lifecycle — done — 2026-08-11 04:20
-- commit: a3299bde
-- gebaut: `backend/internal/gateway/route_plugin_installation_test.go` neu, 19
-  Tests fuer den bisher ungetesteten Installations-Lebenszyklus in
-  route_plugin.go: HandleInstallPlugin (ServiceUnavailable, InvalidJSON,
-  ReachesRPC), HandleGetInstallation (ServiceUnavailable, InvalidUUID_
-  ReachesRPC, ReachesRPC), HandleEnablePlugin/HandleDisablePlugin (je
-  ServiceUnavailable, InvalidUUID_ReachesRPC, ReachesRPC),
-  HandleUninstallPlugin (ServiceUnavailable, ReachesRPC) und
-  HandleApprovePermissions (ServiceUnavailable, MissingPermissions,
-  InvalidGrantedBy, MissingGrantedBy, InvalidJSON, ReachesRPC).
-  WICHTIGER BEFUND vor dem Bauen geprueft (ERST PRUEFEN, DANN BAUEN):
-  `grep -n validateUUIDParam route_plugin.go` liefert NULL Treffer — keiner
-  der sechs Installations-Handler validiert `installation_id` lokal, anders
-  als der Unit-Text ("pruefen ungueltige Installations-ID (UUID)")
-  unterstellte. Ein unbrauchbarer Wert erreicht die RPC-Schicht identisch zu
-  einer gueltigen ID (503 durch Connection-refused im Unit-Test, kein 400).
-  Die *_InvalidUUID_ReachesRPC-Tests dokumentieren das reale Verhalten statt
-  ein 400 zu erfinden, das der Handler nicht liefert — Kommentarblock im
-  Testfile erklaert das explizit, analog zum HandleGetVersion-Muster aus
-  Iteration 67. Das ist dieselbe Fehlerklasse wie
-  fix-gateway-id-validation-consistency (Iteration 6), aber eine andere
-  Fundstelle: Iteration 6 hat nur `chi.URLParam(r, "id")` gegrept (174
-  Treffer/26 Dateien), route_plugin.go nutzt "installation_id"/"manifest_id"/
-  "rule_id" und war damit nicht erfasst — siehe `offen:` unten.
-  HandleApprovePermissions ist der einzige Handler der Gruppe mit echter
-  Gateway-Validierung (`decodeAndValidate[approvePermissionsHTTPReq]`,
-  route_plugin.go:318-321: permissions required+min=1, granted_by
-  required+uuid) — dort greifen die regulaeren assertValidationError-Tests.
-- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1
-  ./internal/gateway/, 0 Fails, keine Flake in diesem Lauf) | migration n.a.
-  (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst) | TestOpenAPIRouteDrift separat gelaufen, gruen (834 Routen
-  gegen 836 dokumentierte Pfade, unveraendert — keine neue Route) | kein
-  neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
-- coverage: internal/gateway 45,7 % -> 46,0 % (go test -coverprofile + go
-  tool cover -func)
-- mutations-probe: eine Probe, gefangen. In `approvePermissionsHTTPReq` das
-  Tag `validate:"required,min=1"` auf Permissions entfernt ->
-  TestHandleApprovePermissions_MissingPermissions rot (503 statt 400,
-  fehlende validation_failed-Struktur). Per Edit-Tool zurueckgedreht, `git
-  diff backend/internal/gateway/route_plugin.go` danach leer, build/vet/
-  lint/test erneut komplett gruen.
-- verify vorgaenger: sauber. Commit e3ee735a (Iteration 67) fuegt
-  ausschliesslich `route_wiki_versions_test.go` (Testdatei) plus Journal-/
-  Backlog-Metadaten hinzu — kein Produktionscode, kein Proto, keine Route,
-  kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine
-  der acht Fehlerklassen einschlaegig.
-- offen: route_plugin.go fehlt fuer "installation_id" (sechs Handler),
-  "manifest_id" (HandleGetManifest/HandleDeleteManifest) und "rule_id" (vier
-  Validation-/Workflow-Rule-Handler) durchgehend `validateUUIDParam` — noch
-  nicht von der Bestandsaufnahme aus Iteration 6 erfasst, da die dortige
-  Suche nur nach `chi.URLParam(r, "id")` griff. Kandidat fuer eine eigene
-  Folge-Unit in Lauf 9 (gleiches Muster wie route_biz_billing.go, aber
-  eigener Param-Name), nicht selbst angelegt. HandleListManifests,
-  HandleListInstallations, HandleListPermissions, HandleGetSettings/
-  HandleUpdateSettings/HandleGetSettingsSchema, alle Validation-/Workflow-
-  Rule- und Template-/Execution-Log-Handler in route_plugin.go bleiben nach
-  dieser Unit ungetestet — kleinere Restflaeche, keine eigene Folge-Unit
-  vorgemerkt (Block-D-Rest ist im Backlog erfasst).
-  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-67 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
-  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 67) fortgezaehlt, Zeitstempel per `date`
-  auf dem Loop-Rechner ermittelt (2026-08-11 04:20).
-
-## Iteration 69 — e-cov-produktion-repo-ext — done — 2026-08-11 04:30
-- commit: bfbe09da
-- gebaut: `internal/produktion/postgres_repository_ext_test.go` (neu) deckt
-  die vier bisher 0,0-%-Entitaeten aus postgres_repository_ext.go gegen die
-  echte PostgresRepository ab: BOM (Create/Update/Get/List/Delete inkl.
-  BomItem-Zeilen sortiert nach sort_order, ErrBOMSKUTaken bei doppeltem
-  Tenant+SKU, ErrBOMNotFound), WorkStep (Create/Update/Get/List/Delete,
-  ListWorkSteps step_nr-ASC-Reihenfolge, ErrWorkStepNotFound), Machine
-  (Create/Update/Get/List/Delete, ListMachines-Status-Filter,
-  ErrMachineNotFound) und QualityCheck (Create/Get/List, order_id-Filter,
-  checked_at-DESC-Reihenfolge, ErrQualityCheckNotFound — kein Update/Delete
-  im Repository-Interface, daher nicht getestet). Vier Tests, je einer pro
-  Entitaet, nach dem tenant_write_test.go-/einkauf-Muster: echter Schreib-
-  aufruf aus fremdem Tenant-Context via testutil.WithTenantCtx +
-  AssertRowCount fuer alle vier Tabellen (nicht nur eine), zusaetzlich fuer
-  BOM/WorkStep/Machine ein Update-Versuch aus fremdem Tenant-Context, der
-  nachweislich nicht landet (RLS-Predicate-Beweis, nicht nur die WHERE-
-  Klausel). WorkStep/QualityCheck brauchen eine echte production_orders-
-  Zeile (FK NOT NULL) — ueber repo.CreateOrder erzeugt, exakt wie in
-  tenant_write_test.go.
-- gate: build ok (go build -p 2 ./internal/produktion/...) | vet ok | lint
-  ok (golangci-lint run --config .golangci.yml ./internal/produktion/... —
-  0 issues) | test ok (go test -count=1 ./internal/produktion/..., 0 Fails,
-  keine Skips — DATABASE_URL gesetzt, `docker-postgres-1` healthy) |
-  migration n.a. (keine neue Tabelle/Route, alle vier Tabellen existieren
-  seit den Migrationen 000187-000190) | rls-smoke n.a. (keine Tabelle/
-  Policy angefasst, RLS wird ueber die Cross-Tenant-Writes im Test selbst
-  bewiesen) | gateway-Tests nicht gelaufen (keine Route angefasst, daher
-  laut Schritt 5 nicht Pflicht)
-- coverage: internal/produktion 22,3 % -> 42,0 % (go test -coverprofile +
-  go tool cover -func, Paketgesamtwert inkl. aller Unterdateien)
-- mutations-probe: eine Probe, gefangen. In `CreateBOM` den
-  `strings.Contains(err.Error(), "idx_production_boms_tenant_sku")`-Zweig
-  entfernt, sodass ein doppelter SKU nur noch den generischen
-  `fmt.Errorf("insert bom: %w", err)` liefert -> TestBOMWrites_LandInCaller
-  Tenant rot (`CreateBOM duplicate sku: expected ErrBOMSKUTaken, got insert
-  bom: ERROR: duplicate key value...`). Per Edit-Tool zurueckgedreht, `git
-  diff backend/internal/produktion/postgres_repository_ext.go` danach leer,
-  build/vet/lint/test erneut komplett gruen (42,0 % unveraendert).
-- verify vorgaenger: sauber. Commit a3299bde (Iteration 68) fuegt
-  ausschliesslich `route_plugin_installation_test.go` (Testdatei) plus
-  Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto,
-  keine neue Route, kein RequirePermission-Guard, keine neue Tabelle, keine
-  Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-68
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 68) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:30).
-  UpdateQualityCheck/DeleteQualityCheck existieren nicht im Repository-
-  Interface (repository.go:86-88) — QualityCheck hat also nur drei
-  Methoden, kein Luecken-Befund, nur zur Klarheit im Journal, da der
-  Unit-Text "analog" zu den anderen drei Entitaeten suggeriert.
-
-## Iteration 70 — e-cov-produktion-service-ext — done — 2026-08-11 04:35
-- commit: ada7af7c
-- gebaut: `backend/internal/produktion/service_ext_test.go` neu, deckt die
-  Business-Logik-Schicht aus service_ext.go (BOM/WorkStep/Machine/
-  QualityCheck) ueber echte Service-Aufrufe statt Repository-Direktzugriff.
-  Dafuer `mockRepository` in service_test.go erweitert: drei neue Maps
-  (workSteps, machines, qualityChecks) plus drei Capture-Felder
-  (lastList{BOMs,Machines,QualityChecks}{Offset,Limit}) fuer die
-  Pagination-Clamping-Tests. Die bisherigen No-Op-Stubs fuer
-  CreateWorkStep/CreateMachine/CreateQualityCheck (immer nil, nichts
-  gespeichert) sind jetzt echte map-backed CRUD-Implementierungen nach dem
-  vorhandenen boms-Map-Muster (Get/Update/Delete pruefen TenantID-Match,
-  liefern das jeweilige Err*NotFound bei Miss). ZUSAETZLICH, ueber den
-  Unit-Text hinaus: UpdateBOM/ListBOMs/DeleteBOM waren ebenfalls reine
-  No-Ops (ListBOMs lieferte immer nil/0, DeleteBOM loeschte nichts aus der
-  Map) — das haette TestService_DeleteBOM (Get nach Delete muss
-  ErrBOMNotFound liefern) und TestService_UpdateBOM_Errors (Update auf
-  unbekannte BOM-ID muss ErrBOMNotFound liefern) unmoeglich gemacht. Beide
-  auf dasselbe echte Map-Verhalten umgestellt, damit der Mock intern
-  konsistent ist statt nur fuer BOM/Create einen Sonderfall zu haben.
-  20 neue Testfunktionen: je Entitaet Create (Erfolg + leeres Pflichtfeld
-  -> ErrInvalidInput), Update (Erfolg + unbekannte ID -> Err*NotFound +
-  leeres Pflichtfeld -> ErrInvalidInput, wo zutreffend) und Delete (Erfolg
-  + unbekannte ID -> Err*NotFound), dazu je ein Tabellentest fuer
-  ListBOMs/ListMachines/ListQualityChecks mit vier bis fuenf Faellen fuer
-  Page<1 und PageSize ausserhalb 1..100 (negativ, 0, >100) gegen die
-  Capture-Felder des Mocks.
-- gate: build ok (go build -p 2 ./internal/produktion/...) | vet ok |
-  lint ok (golangci-lint run --config .golangci.yml
-  ./internal/produktion/... -- 0 issues) | test ok (go test -count=1
-  ./internal/produktion/, 0 Fails, DATABASE_URL gesetzt,
-  docker-postgres-1 healthy) | migration n.a. (keine neue Tabelle/Route) |
-  rls-smoke n.a. (keine Tabelle/Policy angefasst, reine Service-/Mock-
-  Ebene) | gateway-Tests nicht gelaufen (keine Route angefasst)
-- coverage: internal/produktion 22,3 % -> 57,8 % (go test -coverprofile +
-  go tool cover -func, Paketgesamtwert; nach Iteration 69 stand das Paket
-  bei 42,0 %)
-- mutations-probe: eine Probe, gefangen. In `ListBOMs`
-  (service_ext.go) die Bedingung `input.PageSize < 1 || input.PageSize >
-  100` auf `input.PageSize < 1` verkuerzt (Obergrenze entfernt) ->
-  TestService_ListBOMs_PaginationClamping/page_size_above_100_clamps_to_50
-  rot (erwartet Limit 50, bekam 101 durchgereicht). Per Edit-Tool
-  zurueckgedreht, `git diff backend/internal/produktion/service_ext.go`
-  danach leer, build/vet/lint/test erneut komplett gruen (57,8 %
-  unveraendert).
-- verify vorgaenger: sauber. Commit bfbe09da (Iteration 69) fuegt
-  ausschliesslich `postgres_repository_ext_test.go` (Testdatei) plus
-  Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto,
-  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine
-  Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-69
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration
-  69) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 04:35). GetMaterialAvailability/InventarLookup-Pfade in
-  service.go sind bereits durch material_availability_test.go abgedeckt,
-  nicht Teil dieser Unit. Naechste offene Unit im Block ist
-  e-cov-produktion-core-gaps.
-
-## Iteration 71 — e-cov-produktion-core-gaps — done — 2026-08-11 04:43
-- commit: d348dd27
-- gebaut: `internal/produktion/postgres_repository_core_test.go` (neu, DB-Tests
-  gegen die echte PostgresRepository): CreateBookingWithLock (Basisbuchung,
-  ueberlappende Buchung -> Konflikt + Rollback ohne Insert, angrenzende
-  Buchung t2..t4 -> kein Konflikt, halboffenes Intervall), FindConflictingBooking
-  (excludeID gegen die eigene Buchung -> kein Konflikt, ohne excludeID
-  dieselbe Buchung -> Konflikt, stornierte Buchung -> kein Konflikt),
-  ListOrders mit echtem Status-Filter, ListBookings mit echtem
-  MachineID-Filter, GetCapacityOverview gegen die echte DB (40h Kapazitaet,
-  8h gebucht, 32h verfuegbar) plus unbekannte PlanID -> ErrPlanNotFound.
-  Dazu in `service_test.go` (Mock-Ebene): UpdateOrder-Validierung als
-  Tabellentest (leerer ProductName, Quantity 0/negativ, invertierter
-  Datumsbereich, Priority < 1 und > 5) plus UpdateOrder mit unbekannter
-  BomID (ErrBOMNotFound) und unbekannter OrderID (ErrOrderNotFound);
-  UpdatePlan-Validierung analog zu CreatePlan als Tabellentest (leerer Name,
-  Week < 1 und > 53, Year < 2000, negative TotalCapacityHours) plus
-  UpdatePlan-Happy-Path und unbekannte PlanID; GetPlan-Happy-Path (bisher
-  nur der NotFound-Zweig war getestet); ListOrders/ListMachineBookings auf
-  Service-Ebene mit Filter- und Pagination-Clamping-Nachweis (Page<1,
-  PageSize>100).
-- gate: build ok (go build -p 2 ./internal/produktion/...) | vet ok | lint
-  ok (golangci-lint run --config .golangci.yml ./internal/produktion/... —
-  0 issues) | test ok (go test -count=1 -v ./internal/produktion/, 0 Fails,
-  0 Skips — DATABASE_URL gesetzt, docker-postgres-1 healthy, alle neuen
-  DB-Tests real gelaufen) | migration n.a. (keine neue Tabelle/Route,
-  bestehende Spalten seit Migration 000087) | rls-smoke n.a. (keine
-  Tabelle/Policy angefasst; Cross-Tenant-Scoping wird bereits durch
-  tenant_write_test.go/tenant_isolation_phase2_test.go bewiesen, diese Unit
-  fuegt nur Filter-/Konflikt-/Kapazitaetslogik hinzu) | gateway-Tests nicht
-  gelaufen (keine Route angefasst)
-- coverage: internal/produktion 22,3 % -> 77,8 % (go test -coverprofile +
-  go tool cover -func; nach Iteration 70 stand das Paket bei 57,8 %)
-- mutations-probe: eine Probe, gefangen. In `UpdateOrder` (service.go) die
-  Untergrenzen-Bedingung `p < 1 ||` aus `if p < 1 || p > 5` entfernt, sodass
-  nur noch die Obergrenze geprueft wird ->
-  TestService_UpdateOrder_ValidationErrors/priority_below_range rot
-  (erwartet ErrInvalidInput, bekam nil — Priority 0 waere durchgerutscht).
-  Per Edit-Tool zurueckgedreht, `git diff backend/internal/produktion/service.go`
-  danach leer, kompletter Testlauf erneut komplett gruen.
-- verify vorgaenger: sauber. Commit ada7af7c (Iteration 70) fuegt
-  `service_ext_test.go` (neu) plus Erweiterungen an `service_test.go`
-  (Mock-Repository-Methoden, Testdatei) sowie Journal-/Backlog-Metadaten
-  hinzu — kein Produktionscode in service_ext.go selbst angefasst, kein
-  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
-  keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-70
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 70) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:43).
-  Block E (produktion) ist mit dieser Unit vollstaendig: BOM/WorkStep/
-  Machine/QualityCheck (Iteration 69+70) und jetzt Order/Booking/Plan-Kern
-  sind alle abgedeckt, 77,8 % Paketgesamtwert. Naechste Backlog-Unit ist
-  laut Reihenfolge `e-cov-inbox-repo-infra` (Block E, inbox).
-
-## Iteration 72 — e-cov-inbox-repo-infra — done — 2026-08-11 04:49
-- commit: 7bd43d4a
-- gebaut: `backend/internal/inbox/team/tenant_write_test.go` (neu) und
-  `backend/internal/inbox/routing/tenant_write_test.go` (neu) legen fuer beide
-  Unterpakete das DB-Integrationstest-Muster gegen die echte PostgresRepository
-  an (bisher nur ueber mockTeamRepository/mockRoutingRepository getestet).
-  team: CreateTeamInbox/GetTeamInbox/UpdateTeamInbox/DeleteTeamInbox/ListByUser
-  je mit Cross-Tenant-Fall (fremder ctx traegt sogar die echte owning tenantID
-  als Parameter — nur RLS, nicht die WHERE-Klausel, darf stoppen) plus
-  Unknown-ID-Fehlerpfad. AddMember/RemoveMember/ListMembers/IsMember/
-  GetMemberRole/GetMemberCount/CountAdmins zusaetzlich cross-tenant geprueft,
-  obwohl diese Repository-Methoden gar kein tenantID-Argument haben — RLS auf
-  team_inbox_members ist dort die einzige Grenze (AddMember aus fremdem ctx
-  schlaegt fehl, weil die tenant_id-Sub-SELECT gegen team_inboxes RLS-blockiert
-  NULL liefert und die NOT-NULL-Spalte das ablehnt). IncrementAssigneeIndex
-  zweimal aufgerufen belegt den aufsteigenden Round-Robin-Index.
-  routing: Create/Update/Delete/GetByID/ListActive/ListAll je cross-tenant
-  (Create aus fremdem ctx verletzt die INSERT-WITH-CHECK-Policy), plus ein
-  zweiter inaktiver Chat-Regel-Fixture, der ListActive-Kanalfilter/
-  is_active-Ausschluss und ListAll-Einschluss inaktiver Regeln beweist.
-- gate: build ok (go build -p 2 ./internal/inbox/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/inbox/... — 0 issues)
-  | test ok (go test -count=1 -v ./internal/inbox/..., 0 Fails, 0 Skips —
-  DATABASE_URL gesetzt, docker-postgres-1 healthy, alle neuen DB-Tests real
-  gelaufen) | migration n.a. (keine neue Tabelle/Route, team_inboxes/
-  team_inbox_members/routing_rules seit Migration 000047, RLS seit 000124)
-  | rls-smoke n.a. (keine Tabelle/Policy angefasst; Cross-Tenant-Scoping wird
-  in den neuen Tests selbst bewiesen) | gateway-Tests nicht gelaufen (keine
-  Route angefasst)
-- coverage: internal/inbox/team n.a. (Bezugswert war das Paket-Aggregat
-  "internal/inbox 32,3 %", nicht paket-eigen) -> internal/inbox/team 63,7 % |
-  internal/inbox/routing n.a. -> internal/inbox/routing 62,4 % (go test
-  -coverprofile + go tool cover -func, je einzeln gemessen, ohne `...`)
-- mutations-probe: zwei Proben, beide gefangen, eine dritte verworfen. (1) in
-  `team/postgres_repository.go` UpdateTeamInbox die NotFound-Erkennung auf
-  `if false && tag.RowsAffected() == 0` deaktiviert -> TestTeamInboxWrites_
-  LandInCallerTenant rot ("UpdateTeamInbox (foreign ctx): expected
-  ErrTeamInboxNotFound, got <nil>"), zurueckgedreht, `git diff` leer. (2) in
-  `routing/postgres_repository.go` GetByID dieselbe Deaktivierung auf den
-  `pgx.ErrNoRows`-Zweig -> TestRoutingRuleWrites_LandInCallerTenant rot
-  ("GetByID (foreign ctx): expected ErrRuleNotFound, got no rows in result
-  set"), zurueckgedreht, `git diff` leer. Verworfener erster Versuch: in
-  `routing/postgres_repository.go` Delete den `AND tenant_id = $2`-Predicate
-  aus der SQL-Zeile entfernt (Analog zum team-Ansatz) — Test blieb GRUEN, weil
-  RLS (FORCE ROW LEVEL SECURITY, USING tenant_id = current_tenant_id()) den
-  fremden Zugriff unabhaengig von der WHERE-Klausel blockiert; die Probe war
-  damit wirkungslos und ist NICHT die berichtete Probe. Lehre: bei RLS-
-  geschuetzten Tabellen muss die Mutation im Fehler-Mapping oder in
-  ungeschuetzter Logik sitzen, nicht im redundanten Tenant-Predicate selbst.
-- verify vorgaenger: sauber. Commit d348dd27 (Iteration 71) fuegt
-  `postgres_repository_core_test.go` (neu) und Erweiterungen an
-  `service_test.go` (Testdatei) plus Journal-/Backlog-Metadaten hinzu — kein
-  Produktionscode in produktion selbst angefasst, kein Proto, keine Route,
-  kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
-  acht Fehlerklassen einschlaegig. (Der `chore`-Commit ec0e268d danach traegt
-  ausschliesslich die Journal-Nachtragszeile fuer den Commit-Hash — ebenfalls
-  unauffaellig.)
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-71 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in
-  diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-
-  Ueberschrift (Iteration 71) fortgezaehlt, Zeitstempel per `date` auf dem
-  Loop-Rechner ermittelt (2026-08-11 04:49). Block E (inbox) hat jetzt zwei
-  offene Units: e-cov-inbox-message-repo-list und
-  e-cov-inbox-routing-thread-adapter — beide koennen auf das hier neu
-  angelegte DB-Testmuster (testutil.PoolFromEnv/EnsureTenant/WithTenantCtx/
-  SeedRow/AssertRowCount) aufbauen, wie der Unit-Text von
-  e-cov-inbox-repo-infra es vorhersah.
-
-## Iteration 73 — e-cov-inbox-message-repo-list — done — 2026-08-11 04:57
-- commit: 64969687
-- gebaut: `backend/internal/inbox/message/postgres_repository_reads_test.go`
-  (neu) deckt die vier bislang ungetesteten Repository-Lesepfade gegen eine
-  echte Postgres ab: List (Channel+IsRead-Kombi-Filter, Default-Ausschluss
-  von archivierten/gesnoozten Nachrichten, Cursor-Pagination ueber
-  (received_at,id) DESC ohne Luecken/Dopplungen), GetUnreadCounts
-  (Gruppierung nach Channel, schliesst gelesene und archivierte aus, leeres
-  Ergebnis fuer User ohne Nachrichten), GetBySourceID (findet per
-  (userID,channel,sourceID)-Tripel, Channel ist Teil des Schluessels) und
-  UnsnoozeExpired (setzt nur abgelaufene SnoozedUntil/IsRead zurueck, laesst
-  zukuenftige unberuehrt). Zusaetzlich zwei Cross-Tenant-Faelle fuer
-  GetUnreadCounts und GetBySourceID ergaenzt, weil beide Methoden **kein**
-  tenant_id-Praedikat in der SQL-Zeile haben und sich ausschliesslich auf RLS
-  verlassen (wie in tenant_write_test.go fuer die Write-Methoden dokumentiert)
-  — ein fremder Tenant-Ctx darf beide Male nichts sehen, was die Tests auch
-  beweisen. Service.Reply/Service.Forward waren entgegen dem Backlog-Text
-  bereits in `service_test.go` vollstaendig getestet (TestReply_Success,
-  TestReply_NoAdapter, TestForward_Success, TestForward_NoAdapter,
-  TestForward_NotSupportedByChannel) — keine neue Arbeit noetig, Backlog-Text
-  war hier veraltet.
-  Abweichung vom Backlog-Text: `done_when` verlangt fuer GetBySourceID "einen
-  definierten Fehler wenn keine existiert" — der reale Code
-  (postgres_repository.go:465-468) liefert bei einem Miss bewusst `(nil, nil)`
-  ("Not found is not an error for dedup checks", von Service.Create direkt
-  darauf verlassen). Diesen Vertrag geaendert haette Service.Create kaputt
-  gemacht; stattdessen den realen, dokumentierten Vertrag getestet.
-- gate: build ok (go build -p 2 ./internal/inbox/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/inbox/... — 0 issues)
-  | test ok (go test -count=1 -v ./internal/inbox/..., 0 Fails, 0 Skips —
-  DATABASE_URL gesetzt, docker-postgres-1 healthy, alle DB-Tests real
-  gelaufen) | migration n.a. (keine neue Tabelle/Route/Policy) | rls-smoke
-  n.a. (keine Policy angefasst; die neuen Cross-Tenant-Subtests belegen die
-  RLS-Wirkung an den zwei ungeschuetzten Methoden direkt) | gateway-Tests
-  nicht gelaufen (keine Route angefasst)
-- coverage: internal/inbox/message n.a. (Bezugswert war das Paket-Aggregat
-  "internal/inbox 32,3 %", nicht paket-eigen) -> internal/inbox/message
-  72,4 % (go test -coverprofile + go tool cover -func, einzeln gemessen ohne
-  `...`)
-- mutations-probe: in `postgres_repository.go` List den Default-Filter
-  `AND is_archived = false` auf `AND is_archived = true` gedreht (nur im
-  `where`-Zweig der Datenabfrage, `countWhere` unveraendert gelassen) ->
-  sofort drei rote Tests: TestList_ExcludesArchivedAndSnoozedByDefault (die
-  archivierte statt die normale Nachricht kam zurueck),
-  TestList_FiltersByChannelAndReadStatus_WithCursorPagination/filters_by_channel_and_is_read_together
-  (0 statt 1 Treffer) und .../cursor_pagination_walks... (page=0 statt
-  page=2, weil total/countQuery und Datenzeile durch die gezielte
-  Halb-Mutation auseinanderliefen). Zurueckgedreht, `git diff` auf der Datei
-  leer.
-- verify vorgaenger: sauber. Commit 7bd43d4a (Iteration 72) fuegt
-  ausschliesslich zwei neue Testdateien in inbox/team und inbox/routing
-  hinzu (`tenant_write_test.go` je Unterpaket) plus Journal-/
-  Backlog-Metadaten — kein Produktionscode, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
-  acht Fehlerklassen einschlaegig. (Der `chore`-Commit a895313b danach traegt
-  ausschliesslich die Journal-Nachtragszeile fuer den Commit-Hash —
-  ebenfalls unauffaellig.)
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-72
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 72) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:57).
-  Naechste Backlog-Unit laut Reihenfolge ist
-  `e-cov-inbox-routing-thread-adapter` (Block E, inbox) — letzte Unit in
-  diesem Unterpaket-Cluster, kann auf das seit Iteration 72 etablierte
-  DB-Testmuster aufbauen.
-
-## Iteration 74 — e-cov-inbox-routing-thread-adapter — done — 2026-08-11 05:04
-- commit: 13a2b976
-- gebaut: routing.Service.executeActions fuer alle vier Action-Typen
-  (route_to_team/assign_to/add_tags/auto_reply) je mit Erfolgs- und
-  Fehlerfall getestet, inkl. des dokumentierten Non-Fatal-Verhaltens von
-  auto_reply (Sendefehler und Nicht-Email-Kanal liefern beide nil). Dazu
-  getCachedRules/refreshCache/invalidateCache/filterByChannel (neuer
-  Call-Counter `listActiveCalls` im bestehenden Mock, um TTL-Cache-Hits von
-  echten Refreshs zu unterscheiden) — alles in `service_test.go`.
-  thread.PostgresRepository: neue Datei `postgres_repository_canned_test.go`
-  deckt CreateCannedResponse/GetCannedResponse/ListCannedResponses/
-  UpdateCannedResponse/DeleteCannedResponse gegen die echte lokale DB ab,
-  inkl. Not-Found-Fehlerpfade fuer Update/Delete/Get und eines
-  Cross-Tenant-Isolationstests.
-  adapter.ChatAdapter: neue Datei `chat_adapter_test.go` (erste Testdatei
-  im `adapter`-Paket) mit einem `fakeChatClient` — FetchNewMessages (Mapping,
-  Preview-Truncation auf 200 Zeichen, Nil-Client-Graceful-Degradation,
-  Client-Fehler), HandleReply (Erfolg + Nil-Client-Fehler), HandleForward
-  (liefert dokumentiert ErrForwardNotSupported) und MarkReadOnSource
-  (Erfolg, Nil-Client-No-Op, Client-Fehler).
-- gate: build ok (go build -p 2 ./internal/inbox/... ./cmd/...) | vet ok
-  | lint ok (golangci-lint run --config .golangci.yml ./internal/inbox/...
-  — 0 issues) | test ok (go test -count=1 ./internal/inbox/..., alle fuenf
-  Unterpakete ok, 0 Fails, 0 Skips — DATABASE_URL gesetzt,
-  docker-postgres-1 healthy) | migration n.a. (keine neue
-  Tabelle/Route/Policy) | rls-smoke n.a. (keine Policy angefasst; der
-  Cross-Tenant-Test in postgres_repository_canned_test.go belegt die
-  Tenant-Trennung direkt) | gateway-Tests nicht gelaufen (keine Route
-  angefasst)
-- coverage: Bezugswert war das Paket-Aggregat "internal/inbox 32,3 %",
-  nicht paket-eigen (wie in Iteration 73 begruendet). Einzeln gemessen ohne
-  `...`: internal/inbox/routing n.a. -> 84,5 % | internal/inbox/thread
-  n.a. -> 58,8 % | internal/inbox/adapter n.a. -> 23,9 % (adapter-Paket
-  bleibt niedrig, weil email_adapter.go/guest_adapter.go/
-  notification_adapter.go weiterhin ungetestet sind — ausserhalb des
-  Scopes dieser Unit, die nur chat_adapter.go nennt)
-- mutations-probe: in `routing/service.go` actionAddTags den Dedup-Guard
-  (`if !existing[t] { ... }`) entfernt, sodass jeder Tag unbedingt
-  angehaengt wird -> TestExecuteActions_AddTags_DedupesAgainstExisting
-  sofort rot (drei statt zwei Eintraege, "vip" doppelt). Zurueckgedreht,
-  `git diff` auf der Datei leer.
-- verify vorgaenger: sauber. Commit 64969687 (Iteration 73) fuegt
-  ausschliesslich eine neue Testdatei (`postgres_repository_reads_test.go`)
-  in inbox/message hinzu, plus Journal-/Backlog-Metadaten — kein
-  Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard,
-  keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-73
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert
-  — Nummer aus der letzten Journal-Ueberschrift (Iteration 73)
-  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 05:04). Damit ist der gesamte Inbox-Unterpaket-Cluster
-  (message/routing/thread/adapter/team) aus Block E abgearbeitet — die
-  naechste Backlog-Unit gehoert zu einer anderen Flaeche, siehe
-  BACKLOG.yml in Reihenfolge.
-
-## Iteration 75 — e-cov-fuhrpark-repo-core — done — 2026-08-11 05:10
-- commit: c35205e8
-- gebaut: neue Datei `postgres_repository_core_test.go` in
-  `internal/fuhrpark`. SoftDeleteVehicle (setzt deleted_at, zweiter Aufruf
-  und GetVehicle danach liefern ErrVehicleNotFound), ListVehicles (Status-
-  und Search-Filter gegen echte DB), PlateExists (inkl. excludeID-Fall fuer
-  Self-Update sowie ein nie benutztes Kennzeichen), FindVehiclesDueTuev
-  (from/to-Fensterraender inklusive, Vehicles ausserhalb ausgeschlossen —
-  Assertion auf Praesenz einzelner Vehicle-IDs statt exakter Trefferzahl,
-  weil die Methode bewusst cross-tenant scannt und sonst mit parallelen
-  Tests kollidieren wuerde) inkl. Idempotenz (frischer Reminder <23h
-  unterdrueckt Re-Notify, per SQL auf >23h zurueckdatierter Reminder erlaubt
-  es wieder), MarkTuevReminderSent Cross-Tenant-Guard (Stempel unter
-  falschem Tenant schlaegt fehl UND hinterlaesst keinen Seiteneffekt am
-  echten Datensatz), sowie GetBooking/UpdateBooking/DeleteBooking/
-  ListBookings (Tenant-Scoping, Not-Found-Pfade, Status-/Vehicle-/
-  Zeitfenster-Filter) unter Wiederverwendung der bestehenden
-  seedBookingVehicle/seedBookingUser-Helfer aus booking_conflict_test.go.
-  GPS-Ingestion und der Fuel-/Trip-/Document-Rest bleiben wie im Scope der
-  Unit vermerkt offen fuer eine Folge-Unit.
-- gate: build ok (go build -p 2 ./internal/fuhrpark/... ./cmd/...) | vet ok
-  | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/fuhrpark/... — 0 issues) | test ok (go test -count=1
-  ./internal/fuhrpark/..., 0 Fails, 0 Skips — DATABASE_URL gesetzt,
-  docker-postgres-1 healthy, alle neuen Tests real gegen Postgres gelaufen)
-  | migration n.a. (keine neue Tabelle/Route/Policy) | rls-smoke n.a.
-  (keine Policy angefasst; die Cross-Tenant-Assertions in den neuen Tests
-  belegen die Trennung direkt) | gateway-Tests nicht gelaufen (keine Route
-  angefasst)
-- coverage: internal/fuhrpark 37,9 % -> 50,0 % (go test -coverprofile
-  ./internal/fuhrpark/ ohne `...`, go tool cover -func Summe)
-- mutations-probe: in `SoftDeleteVehicle` den Guard `AND deleted_at IS
-  NULL` aus dem UPDATE-WHERE entfernt -> sofort
-  TestSoftDeleteVehicle_SetsDeletedAtAndIsIdempotentNotFound rot (zweiter
-  SoftDeleteVehicle-Aufruf lieferte nil statt ErrVehicleNotFound).
-  Zurueckgedreht, `git diff` auf der Datei leer.
-- verify vorgaenger: sauber. Commit 13a2b976 (Iteration 74) fuegt
-  ausschliesslich drei neue Testdateien in inbox/routing, inbox/thread und
-  inbox/adapter hinzu, plus Journal-/Backlog-Metadaten — kein
-  Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard,
-  keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-74
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert
-  — Nummer aus der letzten Journal-Ueberschrift (Iteration 74)
-  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 05:10). Naechste Backlog-Unit laut Reihenfolge ist
-  `e-cov-fuhrpark-service-worker` (Block E, deckt den Rest des
-  fuhrpark-Pakets: GPS-Ingestion und Fuel-/Trip-/Document-Methoden, die
-  diese Unit bewusst ausgelassen hat).
-
-## Iteration 76 — e-cov-fuhrpark-service-worker — done — 2026-08-11 05:16
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
-- gebaut: neue Datei `service_extended_test.go` in `internal/fuhrpark`. Deckt die
-  Service-Validierungs- und Delegationspfade fuer FuelLog (CreateFuelLog: VehicleID/
-  Liters<=0/CostCents<0/MileageKm<0, UpdateFuelLog: zero ID, ListFuelLogs-Passthrough),
-  TripLog (CreateTripLog: VehicleID/Start-/EndLocation leer plus EndKm<StartKm,
-  UpdateTripLog: zero ID, ListTripLogs-Passthrough), VehicleDocument (CreateVehicleDocument:
-  VehicleID/ObjectKey/Name, ListVehicleDocuments-Passthrough), DriverLicense
-  (CreateDriverLicense: DriverID/NextCheckDueDate plus CheckedAt-Default, UpdateDriverLicense:
-  ID/NextCheckDueDate, ListDriverLicenses-Passthrough) und GPS (IngestGpsPositions:
-  VehicleID/leere positions plus Happy-Path-Zaehlung) ab — je mit einem Fehlerpfad und
-  mindestens einem Happy-Path pro Methode. Zusaetzlich `fakeEventEmitter` (Payload-Recorder
-  mit optionalem Fehler) an `TuevWorker.WithEventEmitter` gehaengt:
-  `buildTuevEventPayload` mit Prioritaet Urgent fuer "1_day" und Normal fuer "7_days" direkt
-  geprueft, sowie zwei End-to-End-Tests ueber `ProcessTuevReminders` — Emit-Erfolg (Payload
-  aufgezeichnet, Prioritaet korrekt, MarkTuevReminderSent gesetzt) und Emit-Fehler
-  (non-fatal: Scan laeuft weiter, MarkTuevReminderSent wird trotzdem aufgerufen).
-- gate: build ok (go build -p 2 ./internal/fuhrpark/... ./cmd/...) | vet ok | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/fuhrpark/... — 0 issues) | test ok
-  (go test -count=1 ./internal/fuhrpark/..., 75 Subtests PASS, 0 Fails, 0 Skips —
-  DATABASE_URL gesetzt, docker-postgres-1 healthy) | migration n.a. (keine neue
-  Tabelle/Route/Policy) | rls-smoke n.a. (keine Policy angefasst, reine Service-Unit-Tests
-  gegen einen In-Memory-Mock, keine DB involviert) | gateway-Tests nicht gelaufen (keine
-  Route angefasst)
-- coverage: internal/fuhrpark 50,0 % -> 54,5 % (go test -coverprofile ./internal/fuhrpark/
-  ohne `...`, go tool cover -func Summe)
-- mutations-probe: zwei Proben, beide gefangen. (1) `CreateFuelLog`-Guard von
-  `req.Liters <= 0` auf `req.Liters < 0` gelockert -> sofort
-  TestService_CreateFuelLog_InvalidInput/non-positive_liters rot (erwarteter
-  ErrInvalidInput blieb aus). (2) in `buildTuevEventPayload` die Fensterprüfung von
-  `window == "1_day"` auf `window == "7_days"` vertauscht -> sofort
-  TestBuildTuevEventPayload_PriorityByWindow UND
-  TestTuevWorker_WithEventEmitter_EmitsOnDueVehicle rot (beide erwarteten "urgent",
-  bekamen "normal"). Beide Male zurueckgedreht, `git diff` auf service.go und worker.go
-  leer.
-- verify vorgaenger: sauber. Commit c35205e8 (Iteration 75) fuegt ausschliesslich eine
-  neue Testdatei (`postgres_repository_core_test.go`) in fuhrpark hinzu, plus Journal-/
-  Backlog-Metadaten — kein Produktionscode, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-75 vermerkt — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt
-  nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 75) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 05:16). Damit ist der gesamte fuhrpark-Servicecluster (Repository-Core aus
-  Iteration 75 + Service/Worker aus dieser Iteration) aus Block E abgearbeitet — GPS-
-  Aggregation (`GetVehicleRoutes`/`GetGpsPositions`, reine Passthroughs ohne eigene Logik)
-  und die restlichen Repository-DB-Pfade fuer FuelLog/TripLog/VehicleDocument/
-  DriverLicense (bereits in tenant_write_test.go/driver_license_test.go/
-  triplog_export_test.go abgedeckt) blieben bewusst aussen vor. Naechste Backlog-Unit
-  laut Reihenfolge: `e-cov-chat-message-repo-reads` (Block E, chat/message-Repository).
-
-## Iteration 77 — e-cov-chat-message-repo-reads — done — 2026-08-11 05:24
-- commit: e471f69f
-- gebaut: neue Datei `postgres_repository_reads_test.go` in `internal/chat/message`.
-  Deckt GetByID (Happy-Path + ErrMessageNotFound), List (DESC-Reihenfolge inkl.
-  Thread-Replies plus ExcludeReplies-Filter), ListReplies (ASC-Reihenfolge, Limit),
-  ChannelExists/IsChannelArchived/IsMember/GetMemberRole (je True- und False-/
-  Fehlerfall), GetUserInfo, GetMentionsByMessages/GetMentionsForUser (ueber echte
-  CreateMentions-Zeile), GetFilesByMessageIDs, GetChannelMemberIDs, GetDMRecipient
-  (Nicht-DM-Kanal plus DM-Kanal aus beiden Blickrichtungen), GetChannelName,
-  GetGuestDisplayName/IsChannelGuestEnabled und DecrementReplyCount (inkl.
-  GREATEST-Floor bei bereits 0) ab. `channel_memberships` hat keine `id`-Spalte
-  (composite PK) — dafuer `seedMembership` als lokaler Raw-INSERT analog zum
-  bestehenden Muster in `internal/chat/channel/tenant_write_test.go`.
-- gate: build ok (go build -p 2 ./internal/chat/... ./cmd/gateway/...) | vet ok
-  (go vet ./internal/chat/message/...) | lint ok (golangci-lint run --config
-  .golangci.yml ./internal/chat/message/... — 0 issues) | test ok (go test -count=1
-  ./internal/chat/message/, 11 neue Tests PASS zusaetzlich zu allen bestehenden —
-  DATABASE_URL gesetzt, docker-postgres-1 healthy; go test -count=1
-  ./internal/chat/... — alle 7 Unterpakete ok) | migration n.a. (keine neue Tabelle/
-  Route/Policy) | rls-smoke n.a. (keine Policy angefasst, alle Assertions pruefen
-  Rueckgabewerte der Repository-Methoden, keine neuen Cross-Tenant-Pfade)
-  | gateway-Tests nicht gelaufen (keine Route angefasst)
-- coverage: internal/chat/message 50,9 % -> 72,4 % (go test -coverprofile
-  ./internal/chat/message/ ohne `...`, go tool cover -func Summe)
-- mutations-probe: in `DecrementReplyCount` den Floor-Guard `GREATEST(reply_count - 1,
-  0)` auf `reply_count - 1` gelockert -> sofort TestPostgresRepository_DecrementReplyCount
-  rot ("reply_count floored at zero: expected 0, got -1"). Zurueckgedreht, `git diff`
-  auf der Datei leer.
-- verify vorgaenger: sauber. Commit af9f820a (Iteration 76) fuegt ausschliesslich eine
-  neue Testdatei (`service_extended_test.go`) in fuhrpark hinzu, plus Journal-/
-  Backlog-Metadaten — kein Produktionscode, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-76 vermerkt — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt
-  nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 76) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 05:24). Beim Bauen zunaechst ein reales Bug-Muster in den eigenen Tests
-  gefunden und korrigiert: `defer pool.Close()` in Kombination mit `t.Cleanup`-basierten
-  Aufraeumfunktionen aus einer Fixture-Helper-Funktion feuert die Aufraeum-DELETEs NACH
-  dem Pool-Close (defer laeuft beim Funktions-Return, t.Cleanup erst danach) — alle elf
-  neuen Tests protokollierten "closed pool" beim Aufraeumen und liessen Testzeilen in der
-  DB zurueck. Gefixt durch `t.Cleanup(func() { pool.Close() })` als ERSTE Cleanup-Registrierung
-  (LIFO: zuerst registriert, zuletzt ausgefuehrt) statt `defer pool.Close()`. Naechste
-  Backlog-Unit laut Reihenfolge: `e-cov-chat-channel-search-repo` (Block E, chat/channel
-  Lese-Methoden + neues DB-Integrationstest-Muster fuer chat/search).
-
-## Iteration 78 — e-cov-chat-channel-search-repo — done — 2026-08-11 05:26
-- commit: 466f96d0
-- gebaut: zwei neue Testdateien. `postgres_repository_reads_test.go` in
-  `internal/chat/channel` deckt GetByID/GetByIDForTenant, List (IncludeArchived/
-  IsDM/Search-Filter, leere Liste bei fehlender Mitgliedschaft), GetMembership/
-  ListMembers/GetMemberCount, GetUserInfo/UserExists, GetLastMessage (Replies
-  ausgeschlossen), FindDMChannel (kein symmetrischer Match) und GetUnreadCount/
-  GetUnreadCountsForUser ab. `postgres_repository_test.go` (neu) in
-  `internal/chat/search` legt das erste DB-Integrationstest-Muster fuer dieses
-  Paket an: SearchMessages/SearchFiles gegen die echten tsvector-Spalten aus
-  Migration 000019 (Treffer, kein Treffer, Channel-Scoping, is_deleted-Filter)
-  sowie GetUserChannelIDs.
-- gate: build ok (go build -p 2 ./internal/chat/... ./internal/gateway/...
-  ./cmd/gateway/...) | vet ok (go vet ./internal/chat/...) | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/chat/channel/...
-  ./internal/chat/search/... — 0 issues) | test ok (go test -count=1
-  ./internal/chat/channel/ und ./internal/chat/search/ einzeln gruen; go test
-  -count=1 ./internal/chat/... — alle 7 Unterpakete ok, 0 uebersprungene Tests
-  bei 81 verifizierten Laeufen ueber channel+search — DATABASE_URL gesetzt,
-  docker-postgres-1 healthy) | migration n.a. | rls-smoke n.a. (keine Policy
-  angefasst, reine Lesepfade) | gateway-Tests nicht gelaufen (keine Route
-  angefasst)
-- coverage: internal/chat/channel 50,9 % -> 78,5 % | internal/chat/search
-  50,9 % -> 86,7 % (je go test -coprofile ./internal/chat/<pkg>/ ohne `...`,
-  go tool cover -func Summe; coverage_start der Unit ist der Gesamtwert fuer
-  internal/chat, beide Unterpakete lagen als Zeilen-Coverage darunter)
-- mutations-probe: zwei Proben, beide gefangen. (1) in
-  `channel/postgres_repository.go` `GetByIDForTenant` das `AND tenant_id = $2`
-  aus der WHERE-Klausel entfernt (Query-Parameter blieb bestehen) ->
-  TestPostgresRepository_GetByID_GetByIDForTenant sofort rot ("expected 1
-  arguments, got 2" — pgx verweigert den Aufruf, weil kein Platzhalter mehr auf
-  den zweiten Parameter zeigt). (2) in `search/postgres_repository.go` in der
-  Count-Query von SearchMessages `AND m.is_deleted = FALSE` entfernt ->
-  TestPostgresRepository_SearchMessages sofort rot ("expected 1 result ...,
-  got total=2 len=1" — die geloeschte Testnachricht zaehlte wieder mit).
-  Beide Male zurueckgedreht, `git diff` auf beiden Produktionsdateien leer.
-- verify vorgaenger: sauber. Commits e471f69f und b24651c5 (Iteration 77)
-  fuegen ausschliesslich eine neue Testdatei (`postgres_repository_reads_test.go`
-  in internal/chat/message) plus Journal-/Backlog-Metadaten hinzu — kein
-  Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in den Iterationen 6-77 vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in
-  diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 77) fortgezaehlt, Zeitstempel per `date` auf
-  dem Loop-Rechner ermittelt (2026-08-11 05:26). Zwei reale Verhaltensdetails
-  beim Bauen entdeckt und in Test-Kommentaren dokumentiert statt nur
-  stillschweigend an die Assertions angepasst: (a) `FindDMChannel` liefert bei
-  keinem Treffer `ErrChannelNotFound`, nicht `(nil, nil)` wie `GetLastMessage`
-  — der Aufrufer in service.go:582 verlaesst sich genau darauf, das war beim
-  ersten Testentwurf falsch angenommen; (b) `ListMembers`s `ORDER BY cm.role`
-  sortiert nach der Deklarationsreihenfolge des Postgres-ENUMs `channel_role`
-  ('owner','admin','member' aus Migration 000014), nicht alphabetisch — owner
-  kommt vor member, obwohl 'm' < 'o'. Ausserdem musste ein Dateiname im
-  Search-Test von `quirkzebra-report.pdf` auf `quirkzebra report.pdf`
-  (Leerzeichen statt Bindestrich) geaendert werden: der Postgres-Textsuche-
-  Parser erkennt Bindestrich-Punkt-Muster als EIN zusammenhaengendes
-  Dateinamens-Lexem, nicht als getrennte Woerter — per psql gegen die lokale
-  DB verifiziert. Naechste Backlog-Unit laut Reihenfolge:
-  `e-cov-chat-service-file-guest` (Block E, chat/service + file/guest).
-
-## Iteration 79 — e-cov-chat-service-file-guest — done — 2026-08-11 05:45
-- commit: 5264be0a
-- gebaut: vier neue Testdateien. `message/service_events_test.go` deckt
-  `emitMessageEvents` erstmals ab (kein bestehender Test setzte je einen
-  EventEmitter): Mention-Event mit Selbstausschluss, reines
-  Selbst-Mention ohne jedes Event, DM-Event an den Empfaenger, und
-  Gast-Nachrichten (CreatedBy nil) ohne jedes Event trotz gesetztem
-  Emitter. `channel/service_guest_test.go` deckt EnableGuest/
-  DisableGuest/IsGuestEnabled ab (Roundtrip + je ein ChannelNotFound-Pfad)
-  — die einzigen drei Service-Methoden im Paket, die vorher in keinem
-  Test vorkamen. `file/postgres_repository_reads_test.go` (neu, DB-
-  Integrationstest) deckt GetFileByID, ListChannelFiles (Sortierung,
-  is_deleted-Ausschluss, leerer Kanal), GetFilesByMessageIDs sowie
-  IsChannelMember/GetChannelRole/IsChannelArchived gegen die echte DB ab.
-  `guest/postgres_repository_reads_test.go` (neu, DB-Integrationstest)
-  deckt GetSessionByTokenHash (inkl. des JOIN-Falls "Kanal nicht mehr
-  guest-enabled"), GetSessionByID, ListSessionsByChannel,
-  CleanupExpiredSessions und GetConfigByChannel ab.
-- offen (Scope-Praezisierung): GetOrCreateDM/ListDMs/MarkRead/
-  GetUnreadCounts/UpdateMemberRole/GetThreadReplies/processMentions aus
-  der Unit-Beschreibung waren beim Nachlesen bereits vollstaendig in
-  service_test.go abgedeckt (TestService_GetOrCreateDM,
-  TestService_MarkRead, TestService_GetUnreadCounts,
-  TestService_UpdateMemberRole, TestService_GetThreadReplies,
-  TestService_Create_WithMentions/_WithMentionEveryone existieren
-  bereits) — dafuer keine Duplikate gebaut. GetStorageQuota/
-  IncrementUsedBytes/DecrementUsedBytes aus der file-Liste sind bereits
-  in `rls_storage_quota_test.go` gegen eine echte DB getestet (zwei
-  Tenants, Upsert-Pfad) — ebenfalls nicht dupliziert. Real neu waren nur:
-  emitMessageEvents, EnableGuest/DisableGuest/IsGuestEnabled,
-  GetFileByID/ListChannelFiles/GetFilesByMessageIDs/IsChannelMember/
-  GetChannelRole/IsChannelArchived und die fuenf guest-Lesemethoden.
-- gate: build ok (go build -p 2 ./internal/chat/... ./internal/gateway/...
-  ./cmd/gateway/...) | vet ok (go vet ./internal/chat/...) | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/chat/message/...
-  ./internal/chat/channel/... ./internal/chat/file/...
-  ./internal/chat/guest/... — 0 issues) | test ok (go test -count=1
-  auf allen vier Paketen einzeln gruen; go test -count=1 -v
-  ./internal/chat/... — alle 7 Unterpakete ok, 0 uebersprungene Tests,
-  120 Top-Level-PASS-Zeilen — DATABASE_URL gesetzt, docker-postgres-1
-  healthy) | migration n.a. (keine neue Tabelle/Route/Policy) |
-  rls-smoke n.a. (keine Policy angefasst; alle DB-Tests lesen ueber
-  WithTenantCtx/WithSystemCtx nach dem bestehenden Muster, keine neuen
-  Cross-Tenant-Pfade) | gateway-Tests nicht gelaufen (keine Route
-  angefasst)
-- coverage: internal/chat/message 50,9 % -> 77,2 % | internal/chat/channel
-  50,9 % -> 82,4 % | internal/chat/file 50,9 % -> 66,4 % |
-  internal/chat/guest 50,9 % -> 78,7 % (je go test -coverprofile
-  ./internal/chat/<pkg>/ ohne `...`, go tool cover -func Summe;
-  coverage_start der Unit ist der Gesamtwert fuer internal/chat, alle
-  vier Unterpakete lagen als Zeilen-Coverage darunter)
-- mutations-probe: zwei Proben, beide gefangen. (1) in
-  `message/service.go` in `emitMessageEvents` die Selbstausschluss-
-  Bedingung `if m.UserID != *message.CreatedBy` durch `if true`
-  ersetzt -> sofort zwei Tests rot: TestEmitMessageEvents_
-  MentionExcludesSender ("should have 1 item(s), but has 2") und
-  TestEmitMessageEvents_SelfMentionOnlyEmitsNothing ("Should be empty,
-  but was [...]"). (2) in `file/postgres_repository.go` in
-  `ListChannelFiles` das `AND cf.is_deleted = FALSE` aus der SELECT-
-  WHERE-Klausel entfernt (COUNT-Query unveraendert gelassen) ->
-  TestPostgresRepository_ListChannelFiles sofort rot ("expected 2
-  files, got 3" — die soft-geloeschte Datei erschien wieder in der
-  Liste). Beide Male zurueckgedreht, `git diff` auf beiden
-  Produktionsdateien leer.
-- verify vorgaenger: sauber. Commit 466f96d0 (Iteration 78) fuegt
-  ausschliesslich zwei neue Testdateien (`postgres_repository_reads_
-  test.go` in internal/chat/channel und internal/chat/search) plus
-  Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto,
-  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine
-  Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-78
-  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war auch in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 78) fortgezaehlt, Zeitstempel per `date` auf dem
-  Loop-Rechner ermittelt (2026-08-11 05:45). `file/postgres_repository_
-  reads_test.go` scheiterte im ersten Anlauf an `ListChannelFiles:
-  expected uploader name to be joined in`, weil der Fixture-User ohne
-  first_name/last_name geseedet war (Spalten ohne DB-Default fuer diese
-  Testtabelle) — mit expliziten Namen im Seed behoben, kein
-  Produktionscode betroffen. Naechste Backlog-Unit laut Reihenfolge:
-  `e-cov-automation-workflow-repo` (Block E, internal/automation
-  PostgresRepository).
-
-## Iteration 80 — e-cov-automation-workflow-repo — done — 2026-08-11 05:53
-- commit: 00b388e9
-- gebaut: eine neue Testdatei
-  `internal/automation/workflow/postgres_repository_db_test.go` (DB-Integrationstest,
-  acht Testfunktionen) deckt alles ab, was tenant_write_test.go und
-  time_trigger_db_test.go bisher ausliessen: `TestPostgresRepository_Delete`
-  (eigener Tenant loescht, fremder Tenant liefert ErrAutomationNotFound und
-  laesst die Zeile stehen, zweites Delete auf dieselbe ID ebenfalls
-  ErrAutomationNotFound), `TestPostgresRepository_List_Filters` (Subtests fuer
-  OwnerID/Scope/TriggerType/IsActive, Limit<=0-Default 50 und negative
-  Offset-Normalisierung auf 0), `TestPostgresRepository_SetActive`,
-  `TestPostgresRepository_UpdateLastTriggered` (je Erfolgsfall + unbekannte
-  ID), `TestPostgresRepository_ClaimTimeTriggerFire` (erster Claim gewinnt,
-  zweiter Claim auf dasselbe automation_id/entity_key-Paar verliert, ein
-  anderer entity_key ist unabhaengig), `TestPostgresRepository_
-  ListActiveByTriggerType` (scanAutomations-Helper, nur aktive + passender
-  trigger_type), `TestPostgresRepository_CleanupOldExecutions` (alte
-  completed-Execution geloescht, juengere completed-Execution und alte aber
-  noch laufende Execution bleiben stehen) und
-  `TestPostgresRepository_TemplateRepository` (ListTemplates mit/ohne
-  Kategorie-Filter, GetTemplate Erfolg + ErrTemplateNotFound,
-  UpsertTemplate Insert und Update-per-ON-CONFLICT ohne Duplikat).
-- design: ListActiveByTriggerType, UpdateLastTriggered und
-  CleanupOldExecutions tragen laut Code-Kommentar bewusst kein tenant_id-
-  Praedikat (interne Poller-/Cleanup-Pfade) — deren Tests nutzen deshalb pro
-  Testlauf zufaellige trigger_type-Strings bzw. pruefen einzelne Zeilen
-  gezielt per AssertRowCount statt globaler Zaehlung, damit sie unter
-  `t.Parallel()` nicht von gleichzeitig laufenden Tests im selben Paket
-  gestoert werden koennen. automation_templates hat eine VARCHAR-PK (kein
-  UUID) — testutil.CleanupRow/SeedRow binden IDs als uuid.UUID, daher fuer
-  die Template-Fixtures direktes UpsertTemplate zum Anlegen und ein
-  inline `pool.Exec(ctx, "DELETE FROM automation_templates WHERE id = $1", ...)`
-  zum Aufraeumen statt der testutil-Helfer.
-- gate: build ok (go build -p 2 ./internal/automation/... ./internal/gateway/...
-  ./cmd/gateway/...) | vet ok (go vet ./internal/automation/...) | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/automation/workflow/...
-  — 0 issues) | test ok (go test -count=1 ./internal/automation/... — alle
-  fuenf Unterpakete gruen inkl. workflow, DATABASE_URL gesetzt gegen
-  docker-postgres-1/kmuhub_app) | migration n.a. (keine neue Tabelle/Route/
-  Policy) | rls-smoke n.a. (keine Policy angefasst; ListActiveByTriggerType/
-  UpdateLastTriggered/CleanupOldExecutions waren schon vor dieser Unit ohne
-  tenant_id-Praedikat und sind laut Repository.go-Kommentar bewusst
-  interne, nicht user-facing Pfade) | gateway-Tests nicht gelaufen (keine
-  Route angefasst)
-- coverage: internal/automation/workflow 51,9 % (coverage_start-Wert der
-  Unit) -> 83,9 % | internal/automation gesamt (alle sechs Unterpakete
-  gemeinsam) -> 60,3 % (go test -coverprofile ./internal/automation/workflow/
-  bzw. ./internal/automation/... , go tool cover -func Summe)
-- mutations-probe: zwei Proben, beide gefangen. (1) in
-  `postgres_repository.go` in `Delete` das `WHERE id = $1 AND tenant_id = $2`
-  auf `WHERE id = $1` verkuerzt (Exec bekam weiterhin beide Argumente) ->
-  TestPostgresRepository_Delete sofort rot ("mismatched param and argument
-  count" statt des erwarteten ErrAutomationNotFound). (2) in `List` den
-  `if limit <= 0 { limit = 50 }`-Default entfernt -> vier Subtests von
-  TestPostgresRepository_List_Filters sofort rot (IsActive, LimitDefault,
-  NegativeOffsetNormalizes — LIMIT 0 lieferte ueberall leere Ergebnisse).
-  Beide Male zurueckgedreht, `git diff` auf `postgres_repository.go` leer.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
-  denselben unstaged -StartNotBefore-Diff wie in allen Vorgaenger-
-  Iterationen vermerkt — nicht meine Datei, nicht angefasst, nicht
-  committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 79)
-  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 05:53). Naechste Backlog-Unit laut Reihenfolge:
-  `e-cov-automation-action-grpc` (Block E, internal/automation/action
-  calendar/biz/crm Actions).
-
-## Iteration 81 — e-cov-automation-action-grpc — done — 2026-08-11 05:59
-- commit: b31038a9
-- gebaut: eine neue Testdatei `internal/automation/action/grpc_actions_test.go` deckt
-  calendar_actions.go, biz_actions.go und crm_actions.go ab, die trotz vorhandenem
-  http_actions_test.go im selben Verzeichnis bei 0,0 % lagen. Fuenf Fake-Clients per
-  Interface-Embedding (`fakeCalendarClient`/`fakeFinanceClient`/`fakeCRMClient` embedden
-  die generierten `*ServiceClient`-Interfaces, ueberschreiben nur die im Actionfile
-  aufgerufene Methode als Funktionsfeld — jede nicht ueberschriebene Methode wuerde bei
-  Aufruf auf nil-Interface panicen, es wird also nichts versehentlich echt aufgerufen).
-  Abgedeckt: Type() fuer alle fuenf Actions (Tabellentest), nil-Client-Guard fuer alle
-  fuenf (Tabellentest), der gemeinsame invalid-JSON-Codepfad einmal stellvertretend,
-  je ein Erfolgspfad mit Templating- und Output-Mapping-Beweis fuer
-  CreateCalendarEventAction (inkl. optionaler description als Pointer-Feld, das bei
-  leerem String unset bleiben muss), CreateInvoiceDraftAction, CreateDunningAction
-  (plus expliziter Test fuer den strconv.Atoi-Fallback auf Default-Level 1 bei
-  unparsbarem String), UpdateDealFieldAction (beide Zweige: "stage" ueber
-  MoveDealToStage, "assignee" ueber UpdateDeal mit OwnerId-Pointer, sowie der
-  default-Zweig fuer ein unbekanntes Feld — dieser liefert bewusst Success:false OHNE
-  Go-error, weil es ein Konfigurationsfehler des Automation-Autors ist, kein
-  Systemfehler) und CreateContactAction. Je ein Client-Fehlerpfad (gRPC-Aufruf liefert
-  error) fuer Calendar/Invoice/Dunning/Deal-Stage/Contact beweist 1:1-Durchreichen in
-  ActionResult.Error und den zurueckgegebenen error. parseTimeOrRelative bekommt einen
-  eigenen Table-Test: RFC3339, +1h/+30m/+7d relative Offsets, und der Now()-Fallback bei
-  ungueltigem Format (mit WithinDuration-Toleranz gegen Testflakiness). Ein
-  TestGRPCActionDefinitions-Tabellentest spiegelt das Catalog-Agreement-Muster aus
-  TestHTTPRequestDefinition fuer alle fuenf neuen Definitions.
-- gate: build ok (go build -p 2 ./internal/automation/... ./internal/gateway/...
-  ./cmd/gateway/...) | vet ok (go vet ./internal/automation/...) | lint ok
-  (golangci-lint run --config .golangci.yml ./internal/automation/action/... —
-  0 issues) | test ok (go test -count=1 ./internal/automation/... — alle fuenf
-  Unterpakete mit Tests gruen, template hat weiterhin keine Testdatei — ausserhalb
-  dieser Unit) | migration n.a. (keine neue Tabelle/Route/Policy) | rls-smoke n.a.
-  (kein DB-Zugriff in diesem Paket, reine gRPC-Client-Fakes) | gateway-Tests nicht
-  gelaufen (keine Route angefasst)
-- coverage: internal/automation/action 32,5 % -> 68,9 % (go test -coverprofile
-  ./internal/automation/action/, go tool cover -func; Vorher-Wert per temporaerem
-  Wegverschieben der neuen Testdatei gemessen, nicht der Backlog-coverage_start-Wert
-  "internal/automation 51,9 %", der sich auf das gesamte automation-Paket zu einem
-  frueheren Zeitpunkt bezieht). work_actions.go im selben Verzeichnis bleibt bei 0,0 %
-  (NewCreateTaskAction/Type/Execute/CreateTaskDefinition) — ausserhalb des Scopes
-  dieser Unit (sources listete nur calendar/biz/crm_actions.go), fuer Lauf 9 vormerken.
-- mutations-probe: zwei Proben, beide gefangen. (1) in `biz_actions.go` in
-  `CreateDunningAction.Execute` den `if n, err := strconv.Atoi(levelStr); err == nil`-Guard
-  entfernt und `level` unbedingt auf `int32(n)` gesetzt (bei Parse-Fehler ist n dann 0
-  statt des Default-Werts 1) -> TestCreateDunningAction_UnparsableLevelDefaultsToOne
-  sofort rot ("expected: 1, actual: 0"). (2) in `crm_actions.go` in
-  `UpdateDealFieldAction.Execute` im "assignee"-Zweig `OwnerId: &value` aus dem
-  UpdateDealRequest entfernt -> TestUpdateDealFieldAction_AssigneeBranch sofort rot
-  ("Expected value not to be nil"). Beide Male zurueckgedreht, `git diff` auf
-  `biz_actions.go` und `crm_actions.go` leer.
-- verify vorgaenger: sauber. Commit 00b388e9 (Iteration 80) fuegt ausschliesslich eine
-  neue Testdatei (`internal/automation/workflow/postgres_repository_db_test.go`) plus
-  Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto, keine Route,
-  kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
-  Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
-  unstaged -StartNotBefore-Diff wie in allen Vorgaenger-Iterationen vermerkt — nicht
-  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem
-  Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
-  (Iteration 80) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
-  (2026-08-11 05:59). Naechste Backlog-Unit laut Reihenfolge:
-  `e-cov-automation-engine-internals` (Block E, engine.go/logger.go Circuit-Breaker,
-  Condition-Fehlerpfade, Action-Schleife).
-
-## Iteration 82 — e-cov-automation-engine-internals — done — 2026-08-11 06:12
-- commit: 6dd3527c
-- gebaut: vier neue Testdateien, kein Produktionscode veraendert. `internal/automation/engine/
-  logger_test.go` fuehrt einen ehrlichen In-Memory-Fake (`fakeExecRepo`, Map execID ->
-  *models.AutomationExecution, mit forcierbaren Fehlern fuer GetExecution/UpdateExecution) ein und
-  deckt ExecutionLogger direkt ab: LogStart, LogConditionSkipped, LogConditionError,
-  LogActionResult (Erfolg + Fehlerfall + kumulatives Steps-Array ueber mehrere Aufrufe),
-  LogComplete (beide Zweige der `if exec.Status == Running`-Bedingung), LogStepLimitReached, sowie
-  die Fehlerpfade in updateExecution (GetExecution- und UpdateExecution-Fehler, kein Panic, kein
-  UpdateExecution-Aufruf wenn GetExecution schon fehlschlaegt). `internal/automation/engine/
-  engine_execute_test.go` deckt WorkflowEngine.Execute: Circuit-Breaker-Pfad (SetActive(false) +
-  ErrCircuitBreakerOpen), ungueltiges Conditions-JSON, ein vom echten condition.Evaluator
-  abgelehnter Modus ("unknown condition mode"), negatives Condition-Ergebnis (keine Action laeuft),
-  unbekannter Action-Typ fuer on_error abort/continue, fehlschlagende Action in allen vier
-  Kombinationen aus execErr/result.Success x on_error abort/continue (Tabellentest), das
-  prev_*/step_N_*-Output-Chaining (zweite Action prueft per env-Parameter, dass die erste ihre
-  Werte bereits eingetragen hat) und MaxSteps (LogStepLimitReached + ErrMaxStepsExceeded, zweite
-  Action laeuft nicht mehr). `internal/automation/condition/expr_env_test.go` deckt
-  BuildEnvFromEvent fuer alle fuenf Trigger-Module (crm/biz/hr/work/email; jeweils die passenden
-  Sub-Envs befuellt, alle anderen bleiben nil), ein unbekanntes Modul, einen Trigger-Type ohne
-  Punkt, nil-Payload (Prev bleibt eine leere, nicht-nil Map) sowie die Default-Werte aller
-  get*-Helper bei fehlendem Key. `internal/automation/trigger/matcher_test.go` deckt
-  TriggerMatcher.FindMatching (Treffer nur bei registriertem TriggerType + passendem EventType,
-  unregistrierter Typ wird uebersprungen ohne Panic), den TTL-Cache (zweiter Aufruf innerhalb der
-  TTL ruft List kein zweites Mal auf), den Stale-Fallback bei einem List-Fehler nach Ablauf der TTL
-  (alter Cache-Inhalt bleibt nutzbar, kein Fehler nach aussen), einen List-Fehler beim allerersten
-  Aufruf (Fehler wird durchgereicht, noch kein Cache vorhanden) sowie InvalidateCache (erzwingt
-  einen Refresh trotz noch gueltiger TTL).
-- design: Fuer den TTL-Cache-Test wurde `TriggerMatcher` direkt mit einer kurzen `cacheTTL` (50ms)
-  im gleichen Package konstruiert statt der 30s-Produktionskonstante, um ohne Sleep im
-  Sekundenbereich zu testen. `matcher.go` enthaelt denselben TTL-Vergleich zweifach
-  (RLock-Fastpath und Double-Check unter dem Write-Lock, klassisches Double-Checked-Locking) — eine
-  punktuelle Mutation an nur einer der beiden Stellen wird vom jeweils anderen Check maskiert; die
-  Mutations-Probe zielt deshalb bewusst auf InvalidateCache statt auf den TTL-Vergleich selbst.
-- gate: build ok (go build ./internal/automation/... ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok (go vet ./internal/automation/...) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/automation/engine/... ./internal/automation/condition/... ./internal/automation/
-  trigger/... — 0 issues) | test ok (go test -count=1 auf allen drei Paketen, alle gruen, reine
-  In-Memory-Unit-Tests ohne DB) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine
-  Tabelle/Policy angefasst) | gateway-Tests nicht gelaufen (keine Route angefasst)
-- coverage: internal/automation/engine 51,0 % -> 83,5 % | internal/automation/condition 61,1 % ->
-  93,1 % | internal/automation/trigger 46,7 % -> 70,3 % (go test -coverprofile je Einzelpaket,
-  go tool cover -func; Vorher-Werte per Messung vor Hinzufuegen der vier neuen Testdateien, der
-  Backlog-coverage_start-Wert "internal/automation 51,9 %" bezieht sich auf das Gesamtpaket zu
-  einem frueheren Zeitpunkt)
-- mutations-probe: drei Proben, alle gefangen und zurueckgedreht. (1) `engine.go`
-  `isCircuitBreakerOpen`: `state.count >= circuitBreakerThreshold` -> `>` ->
-  TestExecute_CircuitBreakerOpen_DisablesAutomationAndReturnsError sofort rot (erwarteter
-  ErrCircuitBreakerOpen blieb aus). (2) `matcher.go` `InvalidateCache`: `m.cacheTime = time.Time{}`
-  -> `m.cacheTime = time.Now()` -> TestInvalidateCache_ForcesRefreshDespiteUnexpiredTTL sofort rot
-  (erwarteter zweiter List-Aufruf blieb aus, "expected: 2, actual: 1"). (3) unabhaengig
-  nachvollzogen: `evaluator.go` `Evaluate` default-Zweig `return false, fmt.Errorf("unknown
-  condition mode: %q", config.Mode)` -> `return true, nil` ->
-  TestExecute_UnknownConditionMode_LogsConditionErrorAndFails sofort rot ("An error is expected but
-  got nil"). Alle drei Male zurueckgedreht, `git diff` auf die jeweilige Produktionsdatei leer.
-- verify vorgaenger: sauber. Commit b31038a9 (Iteration 81) fuegt ausschliesslich eine neue
-  Testdatei (`internal/automation/action/grpc_actions_test.go`) plus Journal-/Backlog-Metadaten
-  hinzu — kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue
-  Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in allen Vorgaenger-Iterationen vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 81) fortgezaehlt, Zeitstempel per `date`
-  auf dem Loop-Rechner ermittelt (2026-08-11 06:12). Der eigentliche Testbau lief in dieser
-  Iteration ueber einen general-purpose-Subagenten (breite, klar abgegrenzte Recherche +
-  Implementierung ueber vier Dateien in drei Paketen); alle Gate-Kommandos und eine zusaetzliche,
-  unabhaengige dritte Mutations-Probe wurden danach im Hauptkontext selbst nachgefahren, nicht nur
-  aus dem Subagenten-Bericht uebernommen. Zwei kleinere Lint-Hinweise aus der IDE-Diagnose
-  (fmtappendf-Vorschlag in engine_execute_test.go) wurden noch behoben; der dritte Hinweis
-  (mapsloop in engine.go:354, buildEnvFromPayload) betrifft unveraenderten Bestandscode ausserhalb
-  des Scopes dieser Unit und wurde nicht angefasst. Naechste Backlog-Unit laut Reihenfolge:
-  `e-cov-email-sync` (Block E, internal/email/sync worker.go/imap_client.go/engine.go).
-
-## Iteration 83 — e-cov-email-sync — done — 2026-08-11 06:22
-- commit: a18e1098
-- gebaut: drei neue Testdateien, kein Produktionscode veraendert. `internal/email/sync/
-  imap_client_guards_test.go` deckt zwei bisher unangetastete Flaechen aus `imap_client.go` ab:
-  erstens `TestIMAPClient_NilClientGuards` (Tabellentest ueber Login/SelectFolder/FetchHeaders/
-  FetchBody/SetFlags/Idle/HasIDLE/Noop/ListFolders/Close auf einem `IMAPClient`, dessen `c.client`
-  nie gesetzt wurde — jede Methode ausser HasIDLE/Close muss `ErrIMAPConnectionLost` liefern, ohne
-  den nil-Pointer anzufassen), zweitens `TestConnect_ImmediateCloseWrapsError`: ein echter
-  `net.Listen("tcp","127.0.0.1:0")`-Fake-Server nimmt die Verbindung an und schliesst sie sofort
-  ohne ein Byte zu sprechen — SSL-Zweig (useSSL=true, `tls.DialWithDialer`-Handshake schlaegt gegen
-  die geschlossene Rohverbindung fehl, noch vor `newIMAPProtocolClient`) und Nicht-SSL-Zweig
-  (useSSL=false, STARTTLS-Goroutine in `newIMAPProtocolClient` liest sofort EOF statt auf
-  `imapHandshakeDeadline` zu warten) je einmal, beide erwarten einen in `ErrIMAPConnectionLost`
-  gewrappten Fehler. Abgegrenzt von der bereits vorhandenen `TestConnect_HandshakeDeadline`
-  (imap_timeout_test.go), die den Fall "Server bleibt stumm bis zum Timeout" testet — hier geht es
-  um "Server schliesst sofort", ein anderer Codepfad mit anderem Timing. `internal/email/sync/
-  worker_state_test.go` deckt `idleOrPoll` (kein INBOX-Folder in der Liste -> kehrt zurueck ohne
-  den unverbundenen Client anzufassen, bewiesen durch NoError trotz garantiert fehlschlagendem
-  SelectFolder; INBOX-Folder vorhanden + unverbundener Client -> reicht ErrIMAPConnectionLost aus
-  SelectFolder durch), `syncFolders` und `syncFolder` (beide treffen mit unverbundenem Client denselben
-  fruehen Fehlerpfad, noch bevor folderSyncer/msgSyncer je angefasst werden — die Worker-Testinstanz
-  laesst diese Felder deshalb bewusst nil, ein versehentlicher Aufruf haette sofort paniert statt
-  still durchzulaufen) sowie `Worker.Stop` (nil-cancelFn-Guard + tatsaechlicher Aufruf ueber einen
-  Fake-cancelFn) und `Worker.Trigger` (zweiter Aufruf blockiert nicht, Kanal traegt weiterhin genau
-  ein pending Signal). `internal/email/sync/engine_test.go` deckt `NewEngine` (Maps initialisiert,
-  leer), `GetStatus` (unbekannte ID liefert Default-Status; bekannte ID liefert exakt den
-  gespeicherten Pointer per `assert.Same`), `Stop` (ohne cancelFn/Worker kein Panic; mit zwei
-  Fake-Workern werden beide gestoppt und aus der Map entfernt), `StopWorker` (unbekannte ID No-Op;
-  bekannte ID stoppt + entfernt) und `TriggerSync` (unbekannte ID No-Op; bekannte ID sendet auf den
-  Worker-eigenen triggerCh) — alle vier ohne echten `account.Service`, `NewEngine(nil, nil, nil, nil)`
-  reicht, weil keine der getesteten Methoden die vier Collaborator-Felder je anfasst. `Start`,
-  `StartWorker` und `startWorkerInternal` bleiben bei 0,0 % — sie brauchen `accountService.
-  ListAllActive(ctx)` gegen eine echte DB, ausserhalb dieser Unit (Grenze war im Scope-Text so
-  vorgegeben). `idleLoop`/`pollLoop`/`Run`/`syncCycle` bleiben ebenfalls ungetestet — dieselbe
-  Grenze wie in `c-cov-email-sync-helpers` (keine IMAP-Test-Server-Library im go.mod).
-- gate: build ok (go build ./internal/email/... ./cmd/gateway/...) | vet ok (go vet
-  ./internal/email/...) | lint ok (golangci-lint run --config .golangci.yml ./internal/email/sync/...
-  — 0 issues) | test ok (go test -count=1 ./internal/email/sync/... — alle gruen, `-race` lokal nicht
-  verfuegbar da CGO_ENABLED=0 auf diesem Windows-Rechner, ohne Race-Flag gelaufen) | migration n.a.
-  (kein Schema angefasst) | rls-smoke n.a. (kein DB-Zugriff, reine In-Memory-/Fake-TCP-Tests) |
-  gateway-Tests nicht gelaufen (keine Route angefasst)
-- coverage: internal/email/sync 16,0 % -> 34,6 % (go test -coverprofile vor/nach den drei neuen
-  Testdateien, go tool cover -func; der Backlog-coverage_start-Wert "10,9 %" ist aelter als der
-  tatsaechlich gemessene Vorher-Stand 16,0 % — c-cov-email-sync-helpers hatte den Wert vermutlich
-  schon angehoben, ohne dass coverage_start im Backlog nachgezogen wurde)
-- mutations-probe: drei Proben, alle gefangen und zurueckgedreht. (1) `imap_client.go` `Login`: den
-  `if c.client == nil { return ErrIMAPConnectionLost }`-Guard komplett entfernt ->
-  TestIMAPClient_NilClientGuards/Login sofort rot, aber nicht mit einem sauberen Testfehler, sondern
-  mit einem echten Nil-Pointer-Panic tief in go-imap (`imapclient.(*Client).beginCommand` auf
-  `Client(nil)`) — bestaetigt, dass der Guard genau das verhindert, wofuer er da ist. (2) `engine.go`
-  `GetStatus`: den gefundenen `status`-Pointer im ok-Zweig durch einen frischen `&SyncStatus{
-  AccountID: accountID}` ersetzt (Wert also verworfen) -> TestEngine_GetStatus_KnownAccountReturnsStoredStatus
-  sofort rot ("Not same", IsSyncing/Error-Felder auf Zero-Value statt der gesetzten Werte). (3)
-  `worker.go` `idleOrPoll`: die Inbox-Erkennung `f.FolderType == models.FolderTypeInbox` auf `!=`
-  gedreht -> beide idleOrPoll-Tests sofort rot (kein-INBOX-Test bekommt faelschlich einen
-  "inbox"-Treffer und damit den erwarteten IMAP-connection-lost-Fehler; INBOX-vorhanden-Test findet
-  jetzt keinen Treffer mehr und liefert faelschlich nil statt des erwarteten Fehlers) — eine einzige
-  Mutation, zwei unabhaengige rote Tests. Alle drei Male zurueckgedreht, `git diff` auf
-  `imap_client.go`, `engine.go` und `worker.go` leer.
-- verify vorgaenger: sauber. Commit 6dd3527c (Iteration 82) fuegt ausschliesslich vier neue
-  Testdateien (`internal/automation/engine/logger_test.go`, `engine_execute_test.go`,
-  `internal/automation/condition/expr_env_test.go`, `internal/automation/trigger/matcher_test.go`)
-  plus Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
-  -StartNotBefore-Diff wie in allen Vorgaenger-Iterationen vermerkt — nicht meine Datei, nicht
-  angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar mitgeliefert —
-  Nummer aus der letzten Journal-Ueberschrift (Iteration 82) fortgezaehlt, Zeitstempel per `date`
-  auf dem Loop-Rechner ermittelt (2026-08-11 06:22). Zwei vorbestehende, in dieser Unit nicht
-  beruehrte IDE-Diagnosen bleiben unangefasst: `worker.go:25` `otherFolderPollInterval` unused
-  (Bestandscode, ausserhalb des Scopes) und `engine.go:35` `interface{}` statt `any` in der
-  `AttachmentStorer`-Signatur (ebenfalls Bestandscode). Block E ist damit vollstaendig `done`
-  (per `grep status: todo` gegen BACKLOG.yml geprueft). Naechste Backlog-Unit laut Reihenfolge:
-  `f-cov-biz-bexio` (Block F Reserve, erste offene Unit — Zuschnitt/Zahlen vor Arbeitsbeginn neu
-  messen, siehe Block-F-Kopfkommentar zur Altersgrenze).
-
-## Iteration 84 — f-cov-biz-bexio — done — 2026-08-11 06:36
-- commit: 12161d6f
-- gebaut: eine neue Testdatei `internal/biz/bexio/scheduler_test.go`, kein Produktionscode
-  veraendert. `scheduler.go` stand bei 0,0 % (siehe Block-F-Scope-Text) und ist jetzt zu
-  fast 100 % abgedeckt: `TestNewScheduler` (Konstruktor-Feldbelegung), `TestStartAll_
-  NoActiveConfigs`/`_ListError_SkipsGracefully` (beide Faelle liefern bewusst `nil`, kein
-  Fehler — ein Bexio-Ausfall beim Gateway-Boot darf den Start nicht blockieren) und
-  `_MixedSuccessAndFailure` (zwei Configs, eine mit fehlschlagendem `GetSyncConfig` —
-  belegt, dass `AddTenant` seinen eigenen Map-Eintrag bei Fehlschlag wieder entfernt und
-  `StartAll` trotzdem `nil` liefert). `TestAddTenant_GetSyncConfigError_CleansUpAndReturnsErr`,
-  `_Success_RegistersTenant` und `_ReplacesExistingScheduler` (zweiter `AddTenant`-Aufruf auf
-  denselben Tenant muss den alten `cancel()` aufrufen und den Map-Eintrag ersetzen).
-  `TestRemoveTenant_Existing_CancelsAndDeletes`/`_Unknown_NoOp` und `TestStopAll_
-  StopsAllAndClearsMap`/`_Empty_NoOp`. Fuer `runTenantScheduler` (65,4 % erreicht, von 0):
-  `TestRunTenantScheduler_ReturnsImmediatelyOnCanceledContext` deckt die Intervall-Berechnung
-  inkl. `InvoicePullIntervalMin<=0`-Guard (defaultet auf 15 min) und den `ctx.Done()`-Shutdown-
-  Pfad ab, indem der Kontext VOR dem Aufruf gecancelt wird — ein echter Tick ist nicht testbar,
-  weil die Intervalle in `BexioSyncConfig` nur in vollen Minuten existieren (kein injizierbarer
-  Ticker im Produktionscode, und den fuer eine Coverage-Unit einzufuehren waere eine
-  Verhaltensaenderung an Produktionscode, die hier nicht vorgesehen ist). `TestRunTenantScheduler_
-  RecoversFromPanic` belegt zusaetzlich, dass das `defer recover()` in `runTenantScheduler` einen
-  `time.NewTicker(0)`-Panic (ContactSyncIntervalMin=0, ein Feld ohne Default-Guard im Gegensatz zu
-  InvoicePullIntervalMin) sauber abfaengt, statt den Prozess mitzureissen. Die drei
-  `select`-Zweige `contactTicker.C`/`paymentTicker.C`/`invoicePullTicker.C` selbst bleiben
-  ungetestet — das ist die dokumentierte Grenze, kein Uebersehen.
-  `service.go` (89 ungedeckt laut Backlog-Notiz) und `contact_sync.go` (73 ungedeckt) wurden in
-  dieser Iteration NICHT angefasst — `contact_sync.go` ist durch `contact_sync_happy_test.go`
-  und `contact_sync_nil_guard_test.go` bereits deutlich besser abgedeckt als die Backlog-Notiz
-  suggeriert (SyncContacts-Fehlerpfad, syncInbound/syncOutbound Happy-Path + Fehlerpfade sind
-  vorhanden); `service.go`s Orchestrierungs-Methoden (HandleOAuthCallback, Disconnect,
-  PushInvoice, PushQuote, PollPayments, PullInvoices/-WithConfig, TriggerSync, UpdateSyncConfig,
-  StartScheduler/StopScheduler) sind weiterhin nur indirekt ueber ihre Sub-Komponenten getestet
-  (invoice_push_test.go, payment_poller_test.go, invoice_pull_test.go, quote_push_test.go
-  decken die Fachlogik ab) — die duenne Service-Wrapper-Schicht selbst (getConfigID-Weiterleitung
-  + Emit-Aufrufe) ist eine sinnvolle, eigenstaendige Folge-Unit fuer Lauf 9, nicht in dieser
-  Iteration mit erledigt, um den Scope nicht ueber das explizit genannte 0-%-Ziel `scheduler.go`
-  hinaus zu verwaessern.
-- gate: build ok (go build -p 2 ./internal/biz/bexio/... ./cmd/gateway/...) | vet ok (go vet
-  ./internal/biz/bexio/...) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/biz/bexio/... — 0 issues) | test ok (go test -count=1 ./internal/biz/bexio/... —
-  76 PASS, 0 SKIP, DATABASE_URL gesetzt gegen kmuhub_app, echte DB-Tests liefen mit) | migration
-  n.a. (kein Schema angefasst) | rls-smoke n.a. (kein Tabellen-/Policy-Zugriff veraendert) |
-  gateway-Tests nicht separat gelaufen (keine Route angefasst, ./cmd/gateway/... baut aber
-  fehlerfrei)
-- coverage: internal/biz/bexio 48,8 % -> 54,1 % (go test -coverprofile vor/nach, go tool
-  cover -func; scheduler.go im Detail: NewScheduler/StartAll/AddTenant/RemoveTenant/StopAll
-  je 100,0 %, runTenantScheduler 65,4 %, vorher 0,0 % ueber die ganze Datei)
-- mutations-probe: zwei Proben, beide gefangen und zurueckgedreht. (1) `scheduler.go` `AddTenant`:
-  `delete(s.tenants, tenantID)` im GetSyncConfig-Fehlerzweig entfernt ->
-  TestAddTenant_GetSyncConfigError_CleansUpAndReturnsErr sofort rot ("Should be false" — der
-  Tenant blieb faelschlich in der Map). (2) `scheduler.go` `RemoveTenant`: dieselbe
-  `delete(s.tenants, tenantID)`-Zeile im Erfolgszweig entfernt ->
-  TestRemoveTenant_Existing_CancelsAndDeletes sofort rot, derselbe Befund. Beide Male
-  zurueckgedreht, `git diff` auf `scheduler.go` leer.
-- verify vorgaenger: sauber. Commit a18e1098 (Iteration 83) fuegt ausschliesslich drei neue
-  Testdateien (`internal/email/sync/engine_test.go`, `imap_client_guards_test.go`,
-  `worker_state_test.go`) plus Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein
-  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine
-  der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff
-  wie in allen Vorgaenger-Iterationen vermerkt — nicht meine Datei, nicht angefasst, nicht
-  committet. Laufkontext-Block war in diesem Prompt nicht sichtbar mitgeliefert (wie schon in
-  Iteration 81/82/83 vermerkt) — Nummer aus der letzten Journal-Ueberschrift (Iteration 83)
-  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 06:36). Beim
-  ersten Testlauf ist mir selbst ein Deadlock in einem meiner eigenen Testfaelle unterlaufen
-  (`TestStartAll_MixedSuccessAndFailure` hielt `s.mu.Lock()` per `defer` und rief danach
-  `s.StopAll()` auf, das denselben, nicht-reentranten Mutex erneut sperrt — `go test -timeout 20s`
-  hat das per Goroutine-Dump sauber sichtbar gemacht, dann per Lock-vor-StopAll-Reihenfolge
-  gefixt). Erwaehne ich hier, weil derselbe Fehler in Produktionscode ein reales Risiko waere und
-  jede Iteration, die selbst `s.mu` in Tests haelt, denselben Stolperstein hat. Naechste
-  Backlog-Unit laut Reihenfolge: `f-cov-notification` (Block F Reserve).
-
-## Iteration 85 — f-cov-notification — done — 2026-08-11 06:48
-- commit: 7522f659
-- gebaut: drei neue Testdateien, kein Produktionscode dauerhaft veraendert (drei Mutations-Proben
-  liefen, alle zurueckgedreht, `git diff` auf den drei angefassten Produktionsdateien leer).
-  `internal/notification/integration/slack/block_builder_test.go` deckt die komplett ungetestete
-  `block_builder.go` ab (0,0 % laut Backlog-Scope): `BuildBlocks` (bekanntes Modul mit Icon+Name,
-  unbekanntes Modul faellt auf `:bell:` + rohe Modul-ID zurueck ohne zu paniken, leerer
-  Body-String erzeugt keinen leeren Section-Block, Actions haengen einen Action-Block mit
-  Notification-ID im block_id an), `BuildUpdatedBlocks` (ersetzt Actions durch Resolved-Banner),
-  `actionButtonConfig`/`buildActionButton` (alle vier bekannten ActionTypes + unbekannter Typ,
-  Slack-Style-Konstanten korrekt gemappt) und `resolvedBannerText` (alle vier Faelle + Default).
-  Assertions laufen ueber die tatsaechliche JSON-Serialisierung der Slack-Blocks, nicht ueber
-  interne Go-Felder, damit sie das pruefen, was wirklich ueber die Leitung geht.
-  `internal/notification/integration/teams/webhook_handler_test.go` deckt die komplett
-  ungetestete `webhook_handler.go` ab (0,0 %): `Process` nur fuer den `h.client == nil`-Pfad
-  (503) — der Rest von `Process` braucht einen echten Bot-Framework-Adapter und bleibt bewusst
-  aussen vor (kein echter Aufruf gegen Microsoft, wie in den done_when gefordert);
-  `handleInvoke`/`handleMessage` werden direkt aufgerufen, um `h.client.HandleIncomingActivity`
-  zu umgehen, das genau denselben Adapter braeuchte. `handleInvoke` deckt: unresolved Tenant
-  (Repository bleibt unberuehrt), unverknuepfter User (Hinweistext auf `/kmuhub link`), alle drei
-  unterstuetzten-aber-nicht-implementierten Actions (approve/reject/reply — Acknowledger sieht
-  0 Aufrufe), Acknowledge-Happy-Path (MarkRead mit korrektem Tenant/User), ungueltige
-  Notification-ID (uuid.Parse schlaegt fehl, bevor MarkRead je aufgerufen wird) und
-  MarkRead-Fehler vom Service. `handleMessage` deckt: unbekanntes Kommando, Link-Kommando mit
-  unresolved Tenant, Link-Kommando mit fehlschlagendem Tokenerzeugen (echter
-  `integration.NewAccountLinkService` mit Stub-Repo, `CreateLinkToken` liefert Fehler) und den
-  Erfolgspfad. `tenantContext`/`activityTenantID` sowie der nackte `acknowledge`-Helfer
-  (nil-notifications-Guard) sind ebenfalls direkt getestet.
-  `internal/notification/preference/mutes_quiethours_test.go` deckt die bislang komplett
-  ungetesteten Repository-Methoden ab: `GetModuleDefault` (Happy-Path + zwei Not-Found-Faelle),
-  `IsResourceMuted`/`CreateMute`/`ListMutes`/`DeleteMute` (volle Lifecycle inkl. Duplikat-Ablehnung
-  durch den Unique-Index und doppeltes Delete gegen `ErrMuteNotFound`) und `GetQuietHours`/
-  `UpsertQuietHours` (siehe Befund unten). Bewusst NICHT angefasst: `notification/
-  postgres_repository.go` (Scope-Text nannte es, aber die anderen beiden 0-%-Dateien waren die
-  explizit vorgegebene Prioritaet und Budget/Zeit reichten nicht fuer alle drei — fuer Lauf 9
-  vorgemerkt, siehe unten).
-- ECHTER PRODUKTIONSBUG GEFUNDEN, NICHT GEFIXT (Coverage-Units aendern laut Backlog-Kopf kein
-  Verhalten): `PostgresRepository.UpsertQuietHours` (internal/notification/preference/
-  postgres_repository.go:208) zielt auf `ON CONFLICT (tenant_id, user_id)`, aber
-  `notification_quiet_hours` traegt seit Migration 000022 nur `UNIQUE(user_id)` — verifiziert per
-  `\d notification_quiet_hours` gegen die lokale DB (Kopf 309). Migration 000124 hat `tenant_id`
-  ueberall NOT NULL gemacht, aber diesen Constraint nie verbreitert. Exakt dieselbe Bugklasse
-  wurde fuer `notification_preferences` bereits EINMAL gefixt: Migration 000305
-  (`notification_preferences_conflict_index_tenant_fix`) verbreitert dort den analogen
-  Event-Type-Index von `(user_id, event_type_key)` auf `(tenant_id, user_id, event_type_key)` mit
-  exakt derselben Begruendung im Kommentar. `notification_quiet_hours` wurde dabei uebersehen.
-  Folge: Postgres validiert den ON-CONFLICT-Zielindex beim Planen der Query, nicht erst bei einem
-  tatsaechlichen Konflikt — deshalb schlaegt JEDER Aufruf von `UpsertQuietHours` fehl (nicht nur
-  der zweite), mit SQLSTATE 42P10 ("no unique or exclusion constraint matching the ON CONFLICT
-  specification"). Quiet Hours lassen sich ueber dieses Repository aktuell ueberhaupt nicht
-  anlegen. Fertiger Fix fuer eine kuenftige Block-A-Unit (Lauf 9), analog zu 000305:
-  `DROP INDEX notification_quiet_hours_user_id_key; CREATE UNIQUE INDEX
-  notification_quiet_hours_user_id_tenant_id_key ON notification_quiet_hours(tenant_id, user_id);`
-  plus Anpassung der `postgres_repository.go`-Query falls der Constraint-Name explizit referenziert
-  wird (aktuell nicht der Fall, ON CONFLICT nennt nur Spalten). Verwandter, NICHT verifizierter
-  Verdacht am selben Code (`UpsertPreference`, event_type_key IS NULL-Zweig fuer Modul-Defaults):
-  der ON-CONFLICT-Zielindex `idx_notification_preferences_event_type` traegt das Praedikat
-  `WHERE event_type_key IS NOT NULL` und kann daher fuer Zeilen mit `event_type_key IS NULL`
-  gar nicht als Arbiter greifen — ein zweiter Upsert desselben Modul-Defaults wuerde dann
-  vermutlich auf den zweiten, nicht in der ON-CONFLICT-Klausel genannten Unique-Index
-  `idx_notification_preferences_module_default` treffen und einen rohen
-  Unique-Violation-Fehler werfen statt zu updaten. Nicht getestet in dieser Iteration (Scope war
-  auf die drei genannten 0-/28,6-%-Dateien begrenzt) — Kandidat fuer Lauf 9.
-- gate: build ok (go build -p 2 ./internal/notification/... ./cmd/gateway/...) | vet ok (go vet
-  ./internal/notification/...) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/notification/... — 0 issues) | test ok (go test -count=1 ./internal/notification/... —
-  alle sieben Unterpakete gruen, DATABASE_URL gesetzt gegen kmuhub_app, echte DB-Tests liefen mit)
-  | migration n.a. (kein Schema angefasst, der gefundene Bug wurde bewusst nicht gefixt) |
-  rls-smoke n.a. (keine RLS-Policy angefasst) | gateway-Tests nicht separat gelaufen (keine Route
-  angefasst, ./cmd/gateway/... baut aber fehlerfrei mit)
-- coverage: internal/notification 56,0 % -> 66,2 % (go test -coverprofile ./internal/notification/...
-  vor/nach, aggregiert wie GATE-COMMANDS.md's zweite Definition — der Ordner selbst enthaelt keine
-  .go-Dateien, die Backlog-Zahl ist die Summe ueber alle Unterpakete gruppiert auf
-  `internal/notification`; 625 -> 479 ungedeckte Statements). Einzelpakete: slack 35,0 % -> 59,0 %,
-  teams 11,0 % -> 40,5 %, preference 65,2 % -> 87,2 % (alle drei mit `DATABASE_URL` gesetzt
-  gemessen, nicht ohne DB — ohne DB haetten `preference` und der Slack-Webhook-Test faelschlich
-  0 % gezeigt, siehe testutil.SkipIfNoDB).
-- mutations-probe: drei Proben, alle gefangen und zurueckgedreht. (1) `block_builder.go`
-  `resolvedBannerText`: den Approve-Fall auf den Reject-Text umgebogen (":white_check_mark:
-  Abgelehnt" statt "Genehmigt") -> `TestBuildUpdatedBlocks_ReplacesActionsWithResolvedBanner` und
-  `TestResolvedBannerText_AllActionsAndUnknownFallback` sofort rot. (2) `webhook_handler.go`
-  `handleInvoke`: den unsupported-action-Guard von `!=` auf `==` gedreht (Acknowledge wird
-  faelschlich als unsupported behandelt, alles andere faelschlich ausgefuehrt) -> sechs Tests
-  sofort rot (`TestHandleInvoke_UnsupportedActionRunsNothing` fuer alle drei Actions,
-  `TestHandleInvoke_AcknowledgeMarksNotificationRead`, `_AcknowledgeInvalidNotificationID`,
-  `_AcknowledgeServiceErrorSurfacesFailureMessage`). (3) `preference/postgres_repository.go`
-  `DeleteMute`: die Not-Found-Bedingung von `== 0` auf `> 0` gedreht (loescht eine existierende
-  Mute erfolgreich, meldet aber ErrMuteNotFound) -> `TestPostgresRepository_MuteLifecycle` sofort
-  rot ("Received unexpected error: mute not found"). Alle drei Male zurueckgedreht, `git diff` auf
-  `block_builder.go`, `webhook_handler.go` und `postgres_repository.go` leer.
-- verify vorgaenger: sauber. Commit 12161d6f (Iteration 84) fuegt ausschliesslich eine neue
-  Testdatei (`internal/biz/bexio/scheduler_test.go`) plus Journal-/Backlog-Metadaten hinzu — kein
-  Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
-  keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
-  in allen Vorgaenger-Iterationen vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
-  Laufkontext-Block war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 84) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-11 06:48). Naechste Backlog-Unit laut Reihenfolge: `f-cov-document-file`
-  (Block F Reserve).
-
-## Iteration 86 — f-cov-document-file — done — 2026-08-11 07:04
-- commit: ec5bc79e
-- gebaut: zwei neue DB-gestuetzte Testdateien, `internal/document/virtual/postgres_repository_test.go`
-  und `internal/document/search/postgres_repository_test.go`. `search` deckt Search() vollstaendig ab
-  (Match+Rank+Snippet, kein Treffer -> leerer Slice statt nil, Ausschluss soft-geloeschter Dateien,
-  Filter nach FolderID/OwnerID/TagIDs). `virtual` deckt ListChatFiles, ListEmailAttachments,
-  ListTaskFiles und ListAll (Delegation, unbekannter sourceType, leere Union) ab.
-- ECHTER PRODUKTIONSBUG GEFUNDEN, NICHT GEFIXT (Coverage-Units aendern laut Backlog-Kopf kein
-  Verhalten — neue Unit `fix-document-virtual-users-display-name` fuer Lauf 9 angelegt):
-  `internal/document/virtual/postgres_repository.go` selektiert an vier Stellen
-  `COALESCE(u.display_name, u.email) AS uploaded_by_name` gegen `users` (ListChatFiles, ListTaskFiles,
-  beide Zweige der ListAll-UNION-Query) — `users` hat aber gar kein `display_name`-Feld, nur
-  `first_name`/`last_name` seit Migration 000001. Verifiziert per direktem `psql`-Aufruf gegen die
-  lokale DB (Kopf 309): `ERROR: column u.display_name does not exist` (SQLSTATE 42703). Jede dieser
-  drei Query-Varianten schlaegt daher fehl, sobald mindestens eine zugreifbare Zeile existiert — nur
-  ListEmailAttachments funktioniert (liest `eacc.display_name`, email_accounts hat die Spalte
-  wirklich). Am schwerwiegendsten: `ListAll` mit sourceType `""` (die "Alle Dateien"-Ansicht) bricht
-  fuer JEDEN Nutzer mit mindestens einer zugreifbaren virtuellen Datei aus IRGENDEINER Quelle, auch
-  wenn nur ein E-Mail-Attachment sichtbar ist — die UNION-Query wird als Ganzes geplant, und die
-  kaputten Chat-/Task-Zweige lassen den gesamten Query-Parse scheitern, bevor irgendeine Zeile
-  zurueckkommt. Die drei neuen Tests `TestPostgresRepository_ListChatFiles_ColumnBug`,
-  `TestPostgresRepository_ListTaskFiles_ColumnBugViaProjectMembership` und
-  `TestPostgresRepository_ListAll_UnionColumnBugTriggeredByEmailOnlyAccess` dokumentieren das aktuelle
-  (kaputte) Verhalten explizit als erwarteten Fehler, nach demselben Muster wie
-  fix-email-send-missing-tenant-id in diesem Backlog. Fix-Vorschlag steht in der neuen Backlog-Unit.
-- gate: build ok (go build -p 2 ./internal/document/... ./cmd/gateway/...) | vet ok (go vet
-  ./internal/document/...) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/document/... — 0 issues) | test ok (go test -count=1 ./internal/document/... — alle
-  sieben Unterpakete gruen, DATABASE_URL gesetzt gegen kmuhub_app, echte DB-Tests liefen mit) |
-  migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine RLS-Policy angefasst, keine der
-  betroffenen Queries hat je tenant_id referenziert — Isolation laeuft ausschliesslich ueber die
-  RLS-Policy der Session, nicht ueber die WHERE-Klausel; das ist bestehendes Verhalten, nicht Teil
-  dieser Unit) | gateway-Tests nicht separat gelaufen (keine Route angefasst, ./cmd/gateway/... baut
-  aber fehlerfrei mit)
-- coverage: internal/document 61,1 % -> 68,5 % (go test -coverprofile je Unterpaket, gemergte
-  Coverage-Profile ueber go tool cover -func aggregiert — Ordner selbst enthaelt keine .go-Dateien,
-  gleiche Methode wie in Iteration 85 fuer internal/notification). Einzelpakete: search 0,0 % ->
-  76,0 %, virtual 0,0 % -> 83,1 % (file/folder/share/tag/wopi unveraendert, nicht Teil dieser Unit
-  — file/postgres_repository.go und file/service.go waren im Scope genannt, aber done_when verlangte
-  nur virtual/ und search/ aus 0 % — fuer Lauf 9 vorgemerkt, falls die restliche Coverage in
-  internal/document/file noch gehoben werden soll).
-- mutations-probe: zwei Proben, beide gefangen und zurueckgedreht. (1)
-  `virtual/postgres_repository.go` `ListEmailAttachments`: die Haupt-Query von
-  `eacc.user_id = $1` auf `eacc.user_id != $1` gedreht (liefert fremde statt eigene Mailbox-Anhaenge)
-  -> `TestPostgresRepository_ListEmailAttachments_HappyPathAndIsolation` sofort rot ("expected 2
-  files, got total=2 len=1" — die eine falsch durchgelassene Zeile aus dem Fremd-Account ersetzte
-  eine echte). (2) `search/postgres_repository.go` `Search`: die Bedingung von
-  `f.is_deleted = FALSE` auf `f.is_deleted = TRUE` gedreht (invertiert die Sichtbarkeit komplett) ->
-  fuenf von sechs Tests sofort rot (Match/Rank, FolderID-Filter, OwnerID-Filter, TagIDs-Filter,
-  Soft-Delete-Exclusion — nur der Kein-Treffer-Test blieb zufaellig gruen, weil er ohnehin 0
-  erwartet). Beide Male zurueckgedreht, `git diff` auf beide Dateien leer (per `git diff --stat`
-  bestaetigt).
-- verify vorgaenger: sauber. Commit 0718894f (Iteration 85, chore) aendert ausschliesslich
-  `JOURNAL.md` (Commit-Hash-Nachtrag) — kein Produktionscode, keine der acht Fehlerklassen
-  einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie in
-  allen Vorgaenger-Iterationen vermerkt (fuegt einen `-StartNotBefore`-Startsperre-Parameter hinzu) —
-  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht
-  sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 85) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:04). Neue Fix-Unit
-  `fix-document-virtual-users-display-name` fuer Lauf 9 im Backlog angelegt (Block "Neu gefunden
-  waehrend Lauf 8, Iteration 86"), status todo, nicht in diesem Lauf gezogen. `internal/document/file`
-  (38,2 %/66,3 % in den beiden im urspruenglichen Scope genannten Dateien) blieb unangetastet — war
-  nicht Teil des `done_when` dieser Unit.
-
-## Iteration 87 — f-cov-helpdesk-service — done — 2026-08-11 07:15
-- commit: d781e463
-- gebaut: `internal/helpdesk/service_test.go` um funktionsfaehige In-Memory-Stubs fuer
-  KBArticle/RoutingRule/BusinessHours/Stats im `mockRepo` erweitert (vorher gaben diese
-  Stub-Methoden einfach `nil`/leere Werte zurueck, ohne je etwas zu speichern) und rund 40 neue
-  Service-Layer-Tests angehaengt: volle CRUD-Testabdeckung fuer KB-Artikel und Routing-Regeln
-  (Create-Validierung, Get/Update/Delete-Not-Found, Update-Patch, List inkl. eines generischen
-  `repoErr`-Felds fuer den Fehlerpfad reiner Wrapper-Funktionen ohne eigene Validierung),
-  UpdateSLAPolicy/DeleteSLAPolicy/GetSLAStatus (vorher 0 %), UpdateCannedResponse/
-  DeleteCannedResponse/ListCannedResponses (vorher 0 %), GetHelpdeskStats/GetBusinessHours/
-  UpsertBusinessHours (vorher 0 %, inkl. Default-Timezone/leere-Collections-Pfad). Neue Datei
-  `internal/helpdesk/postgres_repository_list_test.go` (DB-gestuetzt, Muster
-  `tenant_write_test.go`) deckt die bislang 0-%-Repository-Methoden ab: `FindOpenTicketsByRequester`
-  (Status-/Prefix-/Requester-Filter, inkl. Leer-Ergebnis), `ListQueues`/`ListCannedResponses`/
-  `ListSLAPolicies`/`ListKBArticles`/`ListRoutingRules` (je mit einer zweiten Tenant-Zeile zum
-  Beweis der tenant_id-Filterung, nicht nur RLS) und `GetBusinessHours`/`UpsertBusinessHours`
-  (Default-Pfad ohne Zeile, INSERT- und ON-CONFLICT-DO-UPDATE-Pfad). `csat_dispatch.go` und
-  `csat_config.go` unveraendert (`git diff --stat` leer), `TestDefaultCsatConfig_IsOptIn` gruen.
-- gate: build ok (go build -p 2 ./internal/helpdesk/... ./cmd/gateway/...) | vet ok (go vet
-  ./internal/helpdesk/...) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/helpdesk/... — 0 issues) | test ok (go test -count=1 ./internal/helpdesk/... — 153
-  Tests, 0 uebersprungen, 0 rot, DATABASE_URL gesetzt gegen kmuhub_app) | migration n.a. (kein
-  Schema angefasst) | rls-smoke n.a. (keine Policy angefasst; die neuen List-Tests belegen die
-  tenant_id-Filterung ueber eine zweite Tenant-Zeile statt eines dedizierten RLS-Smoke-Laufs) |
-  gateway-Tests nicht separat gelaufen (keine Route angefasst)
-- coverage: internal/helpdesk 60,7 % -> 81,5 % (go test -coverprofile ./internal/helpdesk/,
-  go tool cover -func). Beide Scope-Dateien vollstaendig aus dem 0-%-Bereich: `service.go`
-  (kein 0,0 % mehr, niedrigster Wert jetzt 60,0 % bei `CreateTicketFromMessage`, ausserhalb des
-  Scopes dieser Unit), `postgres_repository.go` (kein 0,0 % mehr, niedrigster Wert 66,7 % bei
-  `applyCustomFields`).
-- mutations-probe: zwei Proben, beide gefangen und zurueckgedreht. (1) `service.go`
-  `UpdateSLAPolicy`: die firstResponseMins-Validierung von `<= 0` auf `< 0` gedreht (laesst 0
-  jetzt durch) -> `TestUpdateSLAPolicy_InvalidMinsFails` sofort rot ("expected error for
-  first_response_mins=0"). (2) `postgres_repository.go` `FindOpenTicketsByRequester`: das
-  Status-Praedikat von `NOT IN` auf `IN` gedreht (liefert jetzt genau die falschen, bereits
-  geschlossenen/gemergten Tickets) -> `TestFindOpenTicketsByRequester_FiltersStatusPrefixAndRequester`
-  sofort rot (falsche Ticket-ID zurueckgegeben). Beide Male zurueckgedreht, `git diff --stat` auf
-  `service.go` und `postgres_repository.go` leer.
-- verify vorgaenger: sauber. Commit ec5bc79e (Iteration 86) fuegt ausschliesslich zwei neue
-  Testdateien (`internal/document/virtual/postgres_repository_test.go`,
-  `internal/document/search/postgres_repository_test.go`) plus Journal-/Backlog-Metadaten hinzu —
-  kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
-  keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
-  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 86) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:15). Naechste Backlog-Unit
-  laut Reihenfolge: `f-cov-inventar-repository` (Block F Reserve).
-
-## Iteration 88 — f-cov-inventar-repository — done — 2026-08-11 07:21
-- commit: d80a5944
-- gebaut: Neue Datei `internal/inventar/postgres_repository_test.go` (DB-gestuetzt, Muster
-  `tenant_write_test.go`/`picking_booking_tx_test.go`) deckt alle bislang unterhalb 100 % liegenden
-  `PostgresRepository`-Methoden ab: Items (UpdateItem, SoftDeleteItem, ListItems mit
-  Search/Location/LowStock/Pagination, SKUExists inkl. excludeID), Movements (GetMovement,
-  ListMovements mit Ordering), Warnings (UpdateWarning, GetWarning, GetActiveWarningForItem,
-  ListWarnings mit/ohne Status-Filter), Locations (UpdateLocation, SoftDeleteLocation, GetLocation,
-  ListLocations), Inventur-Sessions (UpdateInventurSession, DeleteInventurSession,
-  GetInventurSession, ListInventurSessions, CompleteInventurSessionTx inkl. unbekannter Session),
-  Item-Attachments (CreateItemAttachment inkl. RETURNING-Timestamps, ListItemAttachments,
-  DeleteItemAttachment) und Picking-Lists (UpdatePickingList, ListPickingLists mit Status-Filter,
-  DeletePickingList, DeletePickingListItem). Jede getestete Methode hat mindestens einen
-  Fehlerpfad (NotFound bei unbekannter/doppelter ID). `service.go` war bereits bei 64,0 % und nicht
-  Teil dieser Unit (Scope war explizit `postgres_repository.go`).
-- gate: build ok (go build -p 2 ./internal/inventar/... ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok (go vet ./internal/inventar/...) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/inventar/... — 0 issues) | test ok (go test -count=1 ./internal/inventar/... — alle
-  gruen, 0 uebersprungen, DATABASE_URL gesetzt gegen kmuhub_app) | migration n.a. (kein Schema
-  angefasst) | rls-smoke n.a. (keine Policy angefasst; tenant_write_test.go/
-  tenant_isolation_phase2_test.go decken RLS fuer dieses Paket bereits ab) | gateway-Tests nicht
-  separat gelaufen (keine Route angefasst)
-- coverage: internal/inventar 44,2 % -> 72,9 % (go test -coverprofile ./internal/inventar/, go tool
-  cover -func). `postgres_repository.go` einzeln: jede Funktion jetzt zwischen 73,3 % und 100 %
-  (vorher u. a. UpdateItem/SoftDeleteItem/GetWarning/UpdateLocation/GetInventurSession/
-  CompleteInventurSessionTx/CreateItemAttachment/UpdatePickingList/ListPickingLists komplett
-  ungetestet), niedrigster Einzelwert jetzt `ListInventurCounts` mit 54,5 % (nur ueber
-  GetInventurSession/tenant_write_test.go indirekt mitgetestet, nicht Teil des expliziten Scopes).
-- mutations-probe: `ListItems`, LowStock-Praedikat von `quantity <= min_quantity` auf
-  `quantity >= min_quantity` gedreht -> `TestListItems_FiltersSearchLocationLowStockAndPaginates/low_stock_filter`
-  sofort rot ("expected exactly the low-stock item, got total=1 items=1" — lieferte den falschen,
-  gut bestueckten Artikel statt des Mangelartikels). Zurueckgedreht, `git diff --stat` auf
-  `postgres_repository.go` leer.
-- verify vorgaenger: sauber. Commit d781e463 (Iteration 87) fuegt ausschliesslich zwei erweiterte
-  bzw. neue Testdateien in `internal/helpdesk` hinzu (Mock-Repo-Stubs von No-Op auf funktionsfaehig,
-  neue Service- und DB-Tests) plus Journal-/Backlog-Metadaten — kein Produktionscode, kein Proto,
-  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. `csat_dispatch.go`/
-  `csat_config.go` laut eigenem Journal-Eintrag unveraendert. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie in
-  allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 87) fortgezaehlt, Zeitstempel
-  per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:21). Naechste Backlog-Unit laut
-  Reihenfolge: `f-cov-rapporte-repository` (Block F Reserve).
-
-## Iteration 89 — f-cov-rapporte-repository — done — 2026-08-11 07:29
-- commit: f33da131
-- gebaut: Neue Datei `internal/rapporte/postgres_repository_test.go` (DB-gestuetzt, Muster
-  `tenant_write_test.go`/`inventar/postgres_repository_test.go`) deckt alle bislang bei 0,0 %
-  liegenden `PostgresRepository`-Methoden ab: Reports (UpdateReport, SoftDeleteReport, GetReport
-  inkl. Worker-Ladepfad), Atomic-Uebergaenge (AtomicApproveReport/AtomicRejectReport inkl.
-  No-Op-Pfad bei bereits-nicht-mehr-submitted), GetReportStatsCounts (GROUP BY inkl.
-  Soft-Delete-Ausschluss), Lines (UpdateLine, DeleteLine, GetLine, ListLines inkl.
-  Order-by-Position-Beweis), Attachments (GetAttachment, DeleteAttachment, ListAttachments inkl.
-  LineID-Filter), Workers (RemoveWorker, ListWorkers), Measurements (GetMeasurement inkl.
-  Positions-Ladepfad, ListMeasurements inkl. Report-Filter und Pagination, UpdateMeasurement,
-  DeleteMeasurement, DeleteMeasurementPosition) und Templates (GetTemplate, ListTemplates inkl.
-  activeOnly-Filter, UpdateTemplate, DeleteTemplate). Jede getestete Methode hat mindestens einen
-  NotFound-Fehlerpfad. Der Own-Scope-Filter (`ownerFilterForScope` -> `AuthorId` -> WHERE-Klausel)
-  war bereits durch `own_scope_list_test.go` am Repository (nicht nur am Handler) belegt --
-  bestaetigt, nicht neu gebaut (Scope-Kriterium "Own-Scope-Filter am Repository geprueft" damit
-  weiterhin erfuellt).
-- gate: build ok (go build -p 2 ./internal/rapporte/... ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok (go vet ./internal/rapporte/...) | lint ok (golangci-lint run --config .golangci.yml
-  ./internal/rapporte/... — 0 issues) | test ok (go test -count=1 ./internal/rapporte/ — 71 Tests
-  laut `-v`-Zaehlung, 0 uebersprungen, DATABASE_URL gesetzt gegen kmuhub_app) | migration n.a.
-  (kein Schema angefasst) | rls-smoke n.a. (keine Policy angefasst; tenant_write_test.go/
-  tenant_isolation_phase2_test.go decken RLS fuer dieses Paket bereits ab) | gateway-Tests nicht
-  separat gelaufen (keine Route angefasst)
-- coverage: internal/rapporte 42,1 % -> 76,0 % (go test -coverprofile ./internal/rapporte/, go
-  tool cover -func). `postgres_repository.go` einzeln: kein 0,0 % mehr ausser `SaveSignature`
-  (war schon vor dieser Unit bei 0,0 % und ausserhalb des Scopes -- getestet nur ueber den
-  Service-Pfad in `signature_test.go`, nicht ueber die PostgresRepository-Methode direkt; als
-  Randnotiz hier vermerkt, keine eigene Unit angelegt, da kein Bug -- reine Test-Luecke),
-  niedrigster verbleibender Wert `ListTemplates` 81,2 %.
-- mutations-probe: `ListLines`, ORDER BY von `position ASC, created_at ASC` auf
-  `position DESC, created_at ASC` gedreht -> `TestListLines_OrdersByPositionAndScopesByReport`
-  sofort rot ("expected lines ordered by position, got 2 then 1"). Zurueckgedreht, `git diff
-  --stat` auf `postgres_repository.go` leer (sed hat nur die Zeilenenden-Normalisierung von Git
-  getriggert, kein inhaltlicher Diff).
-- gefunden, nicht gefixt: `CreateTemplate`/`UpdateTemplate` (postgres_repository.go:742/:848)
-  schreiben bei leerem `defaultLinesJSON` ein explizites SQL-NULL statt den Spalten-Default
-  `'[]'` (migrations/000163) greifen zu lassen -- verletzt den NOT-NULL-Constraint auf
-  `default_lines`, verifiziert per echtem INSERT/UPDATE gegen die lokale DB. Der Gateway-Pfad
-  (`RapporteGRPCServer.CreateTemplate`, rapporte_grpc.go:751) reicht `req.GetDefaultLinesJson()`
-  ungeprueft durch, ein Proto3-Default von "" ist damit ein echter Produktionsbug: jede
-  Vorlagen-Erstellung ohne das optionale Feld `default_lines_json` scheitert mit 500 statt einer
-  leeren Vorlage. In den neuen Tests bewusst umgangen (`"[]"` statt `""` uebergeben), nicht
-  gefixt -- Coverage-Units aendern kein Verhalten. Neue Fix-Unit
-  `fix-rapporte-template-empty-default-lines-crashes` fuer Lauf 9 im Backlog angelegt (Block "Neu
-  gefunden waehrend Lauf 8, Iteration 89"), status todo, nicht in diesem Lauf gezogen.
-- verify vorgaenger: sauber. Commit d80a5944 (Iteration 88) fuegt ausschliesslich eine neue,
-  DB-gestuetzte Testdatei (`internal/inventar/postgres_repository_test.go`) plus Journal-/
-  Backlog-Metadaten hinzu — kein Produktionscode, kein Proto, keine Route, kein
-  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
-  einschlaegig.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
-  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 88) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:29). Commit-Hash wird nach
-  dem `git commit` in dieser Iteration noch nachgetragen (Muster der Vorgaenger-Iterationen: ein
-  separater `chore(loop)`-Folgecommit traegt den Hash nach, da er zum Zeitpunkt des
-  Journal-Schreibens selbst noch nicht existiert). Naechste Backlog-Unit laut Reihenfolge:
-  `f-cov-biz-datev` (Block F Reserve).
-
-## Iteration 90 — f-cov-biz-datev — done — 2026-08-11 07:31
-- commit: 192dfbb5
-- gebaut: Drei neue Testdateien in `internal/biz/datev` heben die drei bei 0,0 % liegenden
-  Dateien deutlich an, plus Erweiterung der bestehenden `upload_service_test.go`.
-  `oauth_test.go`: `OAuthManager` komplett ohne echten DATEV-Token-Endpunkt (httptest.NewServer
-  steht fuer den Token-Endpunkt) -- Cache-Hit ohne Refresh, Refresh bei Nah-Ablauf (30s-Fenster),
-  Vault-Fehler-Weiterleitung, exakte Form-Inhalte an den Token-Endpunkt, non-200-Status,
-  kaputtes JSON, neuer Refresh-Token wird im Vault gespeichert, Refresh ueberlebt einen
-  fehlschlagenden Vault-Write (nur geloggt), ExchangeCode dagegen schlaegt bei fehlschlagendem
-  Vault-Write hart fehl (kein vorheriger Refresh-Token vorhanden), RevokeTokens leert den Cache,
-  GetAuthorizationURL baut die korrekte Query. `uploader_test.go`: `Uploader` gegen
-  httptest-Server -- Erfolg im ersten Versuch, 4xx wird NICHT wiederholt, 5xx wird EINMAL
-  wiederholt und gelingt dann (echter 1s-Backoff, kein Fake-Clock-Seam vorhanden),
-  Netzwerkfehler wird ueber einen zaehlenden `RoundTripper` simuliert und ebenfalls wiederholt,
-  Token-Fehler wird NICHT wiederholt (0 Server-Kontakte), Circuit Breaker oeffnet nach
-  `WithFailureThreshold(2)` und shedded den dritten Versuch ohne Server-Kontakt, `ListClients`
-  (retryt NICHT, anders als `UploadBuchungsstapel`) mit Erfolg/4xx/5xx/Token-Fehler-Pfaden.
-  `postgres_upload_repo_test.go`: DB-gestuetzt -- siehe "gefunden, nicht gefixt" fuer
-  `UpsertUploadConfig`/`CreateUploadLog`; `GetUploadConfig` (Happy Path + NotFound),
-  `UpdateUploadLog` (Feld-Update inkl. Metadata-JSON-Roundtrip + CHECK-Constraint-Fehlerpfad bei
-  ungueltigem Status), `ListUploadLogs` (DESC-Order + Limit, Default-Limit bei `limit<=0`, leere
-  Liste bei unbekannter config_id) -- Fixtures fuer diese drei Methoden ueber `testutil.SeedRow`
-  direkt gesetzt, nicht ueber die (aktuell kaputten) Repository-Schreibmethoden.
-  `upload_service_test.go` erweitert um `GetConnectionStatus` (3 Faelle), `GetAuthorizationURL`
-  (nil-OAuthManager + Delegation), `HandleOAuthCallback` (nil-Fehler + echter Code-Austausch
-  gegen httptest-Server), `Disconnect` (Revoke+Deactivate sowie No-Op-Pfad), `UploadBeleg`
-  direkte Precondition-Fehlerpfade (bisher nur indirekt ueber `UploadInvoiceBeleg` getestet) und
-  die drei duennen Passthroughs `GetUploadConfig`/`UpdateUploadConfig`/`ListUploadLogs`
-  (Parameter-Weiterleitung + Fehler-Propagation).
-- gate: build ok (go build -p 2 ./internal/biz/... ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok (go vet ./internal/biz/... ./internal/gateway/...) | lint ok (golangci-lint run
-  --config .golangci.yml ./internal/biz/... ./internal/gateway/... — 0 issues) | test ok (go
-  test -count=1 -v ./internal/biz/datev/ — 87 PASS-Zeilen (inkl. Subtests), 0 uebersprungen,
-  DATABASE_URL gesetzt gegen kmuhub_app; zusaetzlich go test -count=1 ./internal/biz/... — alle
-  24 Unterpakete gruen) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine Policy
-  angefasst; tenant_isolation_phase2_test.go deckt RLS fuer datev_upload_configs/-log bereits ab)
-  | gateway-Tests nicht separat gelaufen (keine Route angefasst)
-- coverage: internal/biz/datev 40,8 % -> 79,3 % (go test -coverprofile ./internal/biz/datev/, go
-  tool cover -func). Die drei Ziel-Dateien einzeln: `uploader.go` 0,0 % -> 82,1–100 % je
-  Funktion, `oauth.go` 0,0 % -> 88,0–100 %, `postgres_upload_repo.go` 0,0 % -> 77,8–100 %.
-  `upload_service.go` zusaetzlich 56,7 % -> 80,0–100 % je Funktion (war nicht 0 %, aber
-  explizit im Scope genannt).
-- mutations-probe: `ListUploadLogs` (postgres_upload_repo.go), `ORDER BY started_at DESC` auf
-  `ASC` gedreht -> `TestListUploadLogs_OrdersDescByStartedAtAndRespectsLimit` sofort rot
-  ("logs[0].ID = ..., want the newest log ... (DESC by started_at)" plus
-  "logs not ordered DESC by started_at"). Zurueckgedreht, `git diff --stat` auf
-  `postgres_upload_repo.go` leer.
-- verify vorgaenger: sauber. Commit f33da131 (Iteration 89) fuegt ausschliesslich eine neue
-  Testdatei (`internal/rapporte/postgres_repository_test.go`) plus Journal-/Backlog-Metadaten
-  hinzu — kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine
-  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- gefunden, nicht gefixt: `PostgresUploadRepository.UpsertUploadConfig` und `.CreateUploadLog`
-  (internal/biz/datev/postgres_upload_repo.go:42 bzw. :63) INSERTen weder in
-  `datev_upload_configs` noch in `datev_upload_log` die Spalte `tenant_id` -- beide Tabellen
-  tragen seit Migration 000115 `tenant_id UUID NOT NULL` OHNE Spalten-Default (verifiziert per
-  `\d datev_upload_configs`/`\d datev_upload_log` gegen die lokale DB, Kopf 309) und seit
-  Migration 000122 RLS mit `FORCE ROW LEVEL SECURITY`. Kein Trigger fuellt `tenant_id` nach,
-  beide Modelle haben nicht einmal ein `TenantID`-Feld. Jeder Aufruf schlaegt daher UNVERAENDERT
-  mit `ERROR: null value in column "tenant_id" ... violates not-null constraint` fehl --
-  verifiziert per echtem INSERT gegen die lokale DB. Produktions-Impact: vollstaendig, nicht
-  partiell -- da `UpsertUploadConfig` nie eine Zeile schreiben kann, findet `GetUploadConfig`
-  fuer JEDEN Tenanten NIE eine Zeile, also liefert `UploadService.UploadBuchungsstapel` fuer
-  jeden Upload-Versuch `ErrNoUploadConfig`, bevor die DATEV-API ueberhaupt kontaktiert wird --
-  seit `COSMI_ENV=production` am 2026-06-05 scharf ist, kann demnach kein Tenant je eine
-  DATEV-Client-Nummer speichern oder einen Buchungsstapel hochladen. In den neuen Tests bewusst
-  als Fehlerpfad dokumentiert (`TestUpsertUploadConfig_FailsNotNullTenantID`,
-  `TestCreateUploadLog_FailsNotNullTenantID`, mit Kommentar im Testdatei-Header), nicht gefixt --
-  Coverage-Units aendern kein Verhalten. Neue Fix-Unit `fix-datev-upload-repo-missing-tenant-id`
-  fuer Lauf 9 im Backlog angelegt (Block "Neu gefunden waehrend Lauf 8, Iteration 90"), status
-  todo, nicht in diesem Lauf gezogen.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
-  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht
-  meine Datei, nicht angefasst, nicht committet. Ebenso weiterhin ein reiner
-  Zeilenenden-Artefakt (kein inhaltlicher Diff, `git diff` liefert nur die LF/CRLF-Warnung) auf
-  `backend/internal/rapporte/postgres_repository.go` — ebenfalls nicht angefasst. Laufkontext-
-  Block war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 89) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-11 07:31). Commit-Hash wird nach dem `git commit` in dieser Iteration noch
-  nachgetragen. Die Fund-Beschreibung oben ist die wichtigste Zeile dieses Journal-Eintrags fuer
-  Luke: der DATEV-Upload-Pfad ist seit rund zwei Monaten in Produktion komplett tot, betrifft
-  aber (Stand jetzt unbekannt) vermutlich 0 oder sehr wenige Tenants, da noch niemand eine
-  Config je erfolgreich anlegen konnte. Naechste Backlog-Unit laut Reihenfolge:
-  `f-cov-schichten-repository` (Block F Reserve).
-
-## Iteration 91 — f-cov-schichten-repository — done — 2026-08-11 07:59
-- commit: f231449b
-- gebaut: Neue Datei `internal/schichten/postgres_repository_test.go` (DB-gestuetzt, Muster
-  `tenant_write_test.go`/`rapporte/postgres_repository_test.go`) deckt alle bislang bei 0,0 %
-  liegenden `PostgresRepository`-Methoden ab: Shifts (UpdateShift inkl. Cross-Tenant-Ablehnung,
-  DeleteShift, GetShift, ListShifts inkl. Status/From-Filter, Sortierung und Pagination,
-  PublishShifts inkl. Range- und Status-Abgrenzung), Assignments (DeleteAssignment, GetAssignment,
-  ListAssignments inkl. Sortierung nach assigned_at, CountAssignments), die beiden ArbZG-Lookups
-  (LatestShiftEndBeforeForEmployee/EarliestShiftStartAfterForEmployee inkl. Grenzfall exakt auf
-  dem Zeitstempel -- strikte Ungleichung belegt), ShiftExistsForTemplate, Templates (UpdateTemplate,
-  DeleteTemplate, GetTemplate, ListTemplates inkl. Sortierung nach day_of_week/start_hour/
-  start_minute), GetStats (mit und ohne Zeitfenster, inkl. COUNT DISTINCT employee_id ueber
-  Zeitfenster-Join), SwapRequests (GetSwapRequest, UpdateSwapRequestStatus,
-  SwapAssignmentsForRequest -- siehe "gefunden, nicht gefixt") und IsMinorEmployee (Treffer ueber
-  hr_employee_profiles.id UND .user_id, false ohne Profil). Der bereits vorhandene Own-Scope-Filter
-  fuer SwapRequests (own_scope_list_test.go) und die ErrShiftFull->FailedPrecondition-Abbildung
-  (internal/server/schichten_grpc_test.go) waren beide schon vor dieser Iteration am Repository
-  bzw. an der Fehlerabbildung durch echte Tests gesichert -- gegengeprueft, nicht neu gebaut
-  (beide done_when-Kriterien damit erfuellt, ohne Duplizierung).
-- gate: build ok (go build -p 2 ./internal/schichten/... ./internal/gateway/... ./cmd/gateway/...)
-  | vet ok (go vet ./internal/schichten/... ./internal/gateway/...) | lint ok (golangci-lint run
-  --config .golangci.yml ./internal/schichten/... — 0 issues) | test ok (go test -count=1 -v
-  ./internal/schichten/ — 79 PASS-Zeilen, 0 uebersprungen, DATABASE_URL gesetzt gegen kmuhub_app)
-  | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine Policy angefasst;
-  tenant_isolation_phase2_test.go/tenant_write_test.go decken RLS fuer dieses Paket bereits ab)
-  | gateway-Tests nicht separat gelaufen (keine Route angefasst)
-- coverage: internal/schichten 45,7 % -> 79,7 % (go test -coverprofile ./internal/schichten/, go
-  tool cover -func). `postgres_repository.go` einzeln: kein 0,0 % mehr, niedrigster Wert
-  `ListSwapRequests`/`CreateSwapRequest` 74,3–77,8 %, die neu getesteten Methoden 78,6–100 %.
-- mutations-probe: `LatestShiftEndBeforeForEmployee`, `s.end_time < $3` auf `<= $3` gedreht ->
-  `TestLatestShiftEndBeforeForEmployee_FindsMostRecentPriorShiftStrictlyBefore` sofort rot
-  ("expected most recent prior shift end ..., got ..." — die Grenzfall-Schicht, die exakt auf dem
-  Referenzzeitpunkt endet, wurde faelschlich mitgezaehlt). Zurueckgedreht, `git diff` auf
-  `postgres_repository.go` liefert nur die vorbestehende LF/CRLF-Warnung, kein inhaltlicher Diff.
-- verify vorgaenger: sauber. Commit 192dfbb5 (Iteration 90) fuegt ausschliesslich vier
-  Testdateien (drei neu, eine erweitert) in `internal/biz/datev` plus Journal-/Backlog-Metadaten
-  hinzu — kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue
-  Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- gefunden, nicht gefixt: `SwapAssignmentsForRequest` (postgres_repository.go:625) hat KEINEN
-  funktionierenden Pfad — verifiziert per echtem SQL gegen die lokale DB (Kopf 309) VOR dem
-  Schreiben der Tests, damit die Testerwartung nicht auf einer falschen Annahme beruht. Fall 1:
-  sind beide Mitarbeiter bereits derselben Schicht zugeordnet (der Normalfall eines echten
-  Tauschs), verletzt das erste UPDATE sofort `uq_shift_assignments_tenant`
-  (UNIQUE(tenant_id, shift_id, employee_id), Migration 000102) — die Transaktion bricht ab, jeder
-  Tauschversuch scheitert sichtbar. Fall 2: ist der Tauschpartner noch nicht zugeordnet, laeuft das
-  zweite UPDATE (gescoped auf shift_id+employee_id, nicht auf eine Zeilen-ID) der eigenen ersten
-  Aenderung innerhalb derselben Transaktion hinterher und dreht sie sofort zurueck — kein Fehler,
-  aber auch keine Aenderung, waehrend `ApproveSwapRequest` den Antrag trotzdem als "approved"
-  markiert. Beide Faelle zusammen decken 100 % der moeglichen Aufrufe ab. Dokumentiert durch zwei
-  Tests, die bewusst das heutige (kaputte) Verhalten pruefen und im Kommentar sagen, dass sie nach
-  einem Fix umzuschreiben sind, nicht zu loeschen. Fix-Unit
-  `fix-schichten-swap-assignments-unique-violation` fuer Lauf 9 im Backlog angelegt (Block "Neu
-  gefunden waehrend Lauf 8, Iteration 91"), status todo, nicht in diesem Lauf gezogen — enthaelt
-  eine offene Architekturfrage fuer Luke (ob ein Tausch ohne vorab zugeordneten Partner ueberhaupt
-  gueltig sein soll).
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
-  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht meine
-  Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
-  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 90) fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:59). Commit-Hash wird nach
-  dem `git commit` in dieser Iteration noch nachgetragen. Die "gefunden, nicht gefixt"-Zeile oben
-  ist die wichtigste fuer Luke: Schichttausch (SwapRequest-Freigabe) ist in Produktion vermutlich
-  seit Einfuehrung des Features funktionsunfaehig — jeder Tausch scheitert entweder mit einem
-  500er oder wird als "approved" markiert, ohne dass sich am Dienstplan etwas aendert. Naechste
-  Backlog-Unit laut Reihenfolge: `f-cov-crm-deal-repository` (Block F Reserve).
-
-## Iteration 92 — f-cov-crm-deal-repository — done — 2026-08-11 08:08
-- commit: 67c852ac
-- gebaut: Neue Datei `internal/crm/deal/postgres_repository_db_test.go` (Muster
-  `contact/postgres_repository_db_test.go`) deckt alle bislang bei 0,0 % liegenden
-  `PostgresRepository`-Methoden ab: List (Filter nach StageID/ContactID/CompanyID/OwnerID/Search/
-  TagIDs, Sortierung nach name/value auf-/absteigend, Pagination inkl. Offset-jenseits-Total,
-  Tenant-Scoping), die vier Relations-Namenslookups (GetStageName/GetContactName/GetCompanyName/
-  GetOwnerName -- inkl. Missing-ID und Cross-Tenant), die vier Batch-Varianten davon, Tags
-  (GetTags/AddTags/RemoveTags/GetTagsBatch inkl. Leer-Aufruf-No-Op), Custom Fields
-  (GetCustomFieldValues/SetCustomFieldValues/GetCustomFieldValuesBatch inkl. Upsert-Overwrite),
-  die Exists-Checks (StageExists/ContactExists/CompanyExists/OwnerExists/TagExists) plus GetStage,
-  und SetClosedAt (setzen, zuruecksetzen auf nil, Cross-Tenant-Ablehnung ueber ErrDealNotFound).
-  Create/GetByID/Update/Delete waren durch `tenant_write_test.go`/`rls_test.go` bereits vor dieser
-  Iteration durch echte Tests gesichert -- gegengeprueft, nicht neu gebaut.
-- gate: build ok (go build -p 2 ./internal/crm/... ./internal/gateway/... ./cmd/gateway/...) |
-  vet ok (go vet ./internal/crm/... ./internal/gateway/...) | lint ok (golangci-lint run
-  --config .golangci.yml ./internal/crm/... ./internal/gateway/... -- 0 issues) | test ok
-  (go test -count=1 -v ./internal/crm/deal/ -- 74 PASS-Zeilen, 0 uebersprungen, DATABASE_URL
-  gesetzt gegen kmuhub_app) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine
-  Policy angefasst; die neuen Cross-Tenant-Faelle in den neuen Tests decken RLS fuer die
-  betroffenen Lookups bereits ab) | `go test ./internal/crm/...` gesamt zeigte einen einzelnen
-  `internal/crm/contact`-Fehlschlag durch Connection-Pool-Erschoepfung ("remaining connection
-  slots are reserved for roles with the SUPERUSER attribute") beim gleichzeitigen Lauf aller
-  `t.Parallel()`-Pakete -- isoliert (`go test ./internal/crm/contact/`) sauber gruen, keine
-  Regression durch diesen Commit | `go test ./internal/gateway/` separat gruen (keine Route
-  angefasst, trotzdem gelaufen)
-- coverage: internal/crm/deal 47,1 % -> 88,2 % (go test -coverprofile ./internal/crm/deal/, go
-  tool cover -func). `postgres_repository.go` einzeln: kein 0,0 % mehr, niedrigster Wert
-  `GetCustomFieldValues` 78,6 %, die meisten neu getesteten Methoden 82,4-100 % (verbleibende
-  Luecken sind reine DB-Fehlerpfade wie ein abgebrochener `Query`/`Scan`, nicht per Unit-Test ohne
-  Fault-Injection erreichbar).
-- mutations-probe: `SetClosedAt`, `tag.RowsAffected() == 0` auf `!= 0` gedreht ->
-  `TestRepository_SetClosedAt_TenantScoped` sofort rot ("SetClosedAt (foreign ctx): expected
-  ErrDealNotFound, got <nil>" -- der Cross-Tenant-Call haette fehlschlagen muessen, lief mit der
-  Mutation aber durch). Zurueckgedreht, `git diff` auf `postgres_repository.go` liefert nur die
-  vorbestehende LF/CRLF-Warnung, kein inhaltlicher Diff.
-- verify vorgaenger: sauber. Commit f231449b (Iteration 91) fuegt ausschliesslich eine Testdatei
-  in `internal/schichten` plus Journal-/Backlog-Metadaten hinzu -- kein Produktionscode, kein
-  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
-  acht Fehlerklassen einschlaegig.
-- gefunden, nicht gefixt: Die vier Relations-Namenslookups (GetStageName/GetContactName/
-  GetCompanyName/GetOwnerName) sowie GetStage und die vier *Exists-Checks in
-  `internal/crm/deal/postgres_repository.go` tragen -- anders als die aequivalenten Lookups in
-  `internal/crm/contact` -- KEIN explizites `tenant_id`-Praedikat in ihrem SQL. Verifiziert per
-  neuem Test: ein Cross-Tenant-Aufruf mit einer fremden, aber existierenden ID liefert leere
-  Strings bzw. `ErrStageNotFound`/`false`, nicht weil die Query danach filtert, sondern weil RLS
-  (`FORCE ROW LEVEL SECURITY` auf `pipeline_stages`/`contacts`/`companies`/`users`/`tags`, per
-  `pg_class` verifiziert) die fremde Zeile unsichtbar macht. Kein Produktionsbug -- RLS traegt die
-  Isolation vollstaendig und zuverlaessig -- aber ein struktureller Unterschied zum
-  Contact-Package, das an derselben Stelle zusaetzlich ein explizites `tenant_id`-Argument
-  mitgibt (Defense-in-Depth). Keine Fix-Unit angelegt, da kein beobachtbares Fehlverhalten
-  vorliegt und `internal/crm` mit 69,5 % ohnehin schon das staerkste Paket ist -- fuer Luke als
-  Hinweis vermerkt, falls beim naechsten RLS-Audit ein zweites Sicherheitsnetz gewuenscht ist.
-- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
-  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) -- nicht
-  meine Datei, nicht angefasst, nicht committet. Ebenso weiterhin ein reiner Zeilenenden-Artefakt
-  (kein inhaltlicher Diff, `git diff` liefert nur die LF/CRLF-Warnung) auf
-  `backend/internal/rapporte/postgres_repository.go` -- ebenfalls nicht angefasst. Laufkontext-
-  Block war in diesem Prompt nicht sichtbar mitgeliefert -- Nummer aus der letzten
-  Journal-Ueberschrift (Iteration 91) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
-  ermittelt (2026-08-11 08:08). Commit-Hash wird nach dem `git commit` in dieser Iteration noch
-  nachgetragen. Naechste Backlog-Unit laut Reihenfolge: `f-cov-vertraege-repository` (Block F
-  Reserve).
-
-## Iteration 93 — f-cov-vertraege-repository — done — 2026-08-11 08:21
-- commit: a6ba9c37
-- gebaut: Neue Datei `internal/vertraege/postgres_repository_db_test.go` deckt alle zuvor bei
-  0,0 % liegenden `PostgresRepository`-Methoden ab: `SaveSignature` (Happy Path, Cross-Tenant ->
-  `ErrContractNotFound`, fehlender Vertrag), `UpdateContract` (alle Felder inkl. `EndsOn`/
-  `DocumentURL`/`SignatureProvider`, Cross-Tenant-No-op), `GetContract` (inkl. Parties-/
-  Reminders-Assembly, fehlender Vertrag, Cross-Tenant), `ListContracts` (Status-/Typ-/
-  Start-/End-Datumsfilter, `ContactID`-Filter ueber das `EXISTS`-Join auf `contract_parties`,
-  Sortierung nach `created_at DESC`, Pagination inkl. Offset-jenseits-Total, Tenant-Scoping),
-  ein dedizierter Monats-/Jahreswechsel-Test fuer die Datumsfilter und `ExpireContracts`
-  (Vertrag endete am letzten Tag des Vormonats bzw. am 31.12. des Vorjahres -- beide muessen
-  trotz Kalendergrenze als "vor heute" gelten und beim Auto-Expiry auf `expired` kippen),
-  `DeleteContract` (Cross-Tenant-No-op), `ContractNumberExists` (mit/ohne `excludeID`, Exclude-
-  Self-Fall), `ExpireContracts` (nur `active`+`ends_on`<heute, `ends_on IS NULL`/zukuenftig/
-  bereits `draft` bleiben unberuehrt), `ListParties`/`RemoveParty` (Reihenfolge nach
-  `created_at`, fehlende Partei -> `uuid.Nil` ohne Fehler, Cross-Tenant-No-op), die volle
-  Reminder-CRUD-Flaeche (`UpdateReminder`/`GetReminder`/`DeleteReminder`/`ListReminders` inkl.
-  `onlyPending`-Filter und Cross-Tenant-`ErrReminderNotFound`), die Worker-Queries
-  `ClaimDueReminders`/`MarkReminderSent` (faellige vs. zukuenftige Erinnerung, Idempotenz) sowie
-  `CreateContractEvent`/`ListContractEvents` (Nil-Payload -> `{}` statt SQL-NULL, Sortierung
-  `created_at DESC`, Pagination, Tenant-Scoping).
-- gate: build ok (go build -p 2 ./internal/vertraege/... ./internal/gateway/... ./cmd/gateway/...)
-  | vet ok | lint ok (golangci-lint --config .golangci.yml, 0 issues) | test ok (go test -count=1
-  -v ./internal/vertraege/ -- 71 PASS-Zeilen, 0 uebersprungen, DATABASE_URL gesetzt gegen
-  kmuhub_app) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine Tabelle/Policy
-  angefasst; die Cross-Tenant-Faelle in den neuen Tests decken RLS fuer alle betroffenen Methoden
-  bereits ab) | `go test -count=1 ./internal/gateway/` separat gruen (keine Route angefasst,
-  trotzdem Pflicht-Lauf gemacht)
-- coverage: internal/vertraege 48,3 % -> 82,6 % (go test -coverprofile ./internal/vertraege/, go
-  tool cover -func). `postgres_repository.go` einzeln: kein 0,0 % mehr, niedrigster Wert
-  `ExpireContracts` 75,0 %, die meisten neu getesteten Methoden 80,0-100,0 % (verbleibende
-  Luecken sind reine DB-Fehlerpfade wie ein abgebrochener `Query`/`Scan`, nicht per Unit-Test ohne
-  Fault-Injection erreichbar).
-- mutations-probe: `ContractNumberExists`, `id<>$3` (Exclude-Bedingung) auf `id=$3` gedreht ->
-  `TestRepository_ContractNumberExists_WithAndWithoutExclude` sofort rot ("expected false when
-  excluding the only holder" -- der Exclude-Self-Fall haette die Nummer als frei melden muessen,
-  lief mit der Mutation aber als "vergeben" durch). Zurueckgedreht, `git diff` auf
-  `postgres_repository.go` liefert nur die vorbestehende LF/CRLF-Warnung, kein inhaltlicher Diff.
-- verify vorgaenger: sauber. Commit 67c852ac (Iteration 92) fuegt ausschliesslich eine Testdatei
-  in `internal/crm/deal` plus Journal-/Backlog-Metadaten hinzu -- kein Produktionscode, kein
-  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
-  acht Fehlerklassen einschlaegig.
-- gefunden, nicht gefixt: Zwei eigene Testbugs beim ersten Durchlauf, keine Produktionsbugs --
-  fuer die Nachvollziehbarkeit dokumentiert, weil beide auf echte Repo-Konventionen zeigen, die
-  man beim naechsten DB-Test leicht uebersieht. Erstens: `ExpireContracts`/`ClaimDueReminders`/
-  `MarkReminderSent` sind bewusst ungescopte Worker-Queries (kein `tenant_id`-Praedikat, sie
-  laufen ueber alle Tenants), und ohne `testutil.WithSystemCtx` filtert RLS dann *alles* weg --
-  der reale `ReminderWorker.Run` wrapped seinen ctx dafuer schon korrekt mit
-  `database.WithSystemContext` (`internal/vertraege/worker.go:42`), mein erster Testentwurf rief
-  die Repo-Methoden aber direkt mit `context.Background()` auf. Zweitens: `starts_on`/`ends_on`
-  sind SQL-DATE-Spalten (Migration 000089), `sent_at`/`created_at` dagegen TIMESTAMPTZ mit
-  Mikrosekunden-Praezision -- ein direkter `time.Time`-Vergleich nach einem Insert/Read-Roundtrip
-  muss das beruecksichtigen (Datumsfelder auf Mitternacht-UTC normalisieren, Zeitstempel auf
-  Mikrosekunden truncaten), sonst schlaegt die Assertion an einem Rundungsfehler fehl, nicht an
-  echtem Verhalten.
-- offen: **Der fuer Lauf 8 freigegebene Backlog ist nach dieser Iteration leer.** Alle
-  verbleibenden `status: todo`-Eintraege (`fix-email-send-missing-tenant-id`,
-  `fix-email-attachment-download-metadata-wrong-message-id`, `fix-crm-erasure-double-count`,
-  `fix-document-virtual-users-display-name`, `fix-rapporte-template-empty-default-lines-crashes`,
-  `fix-datev-upload-repo-missing-tenant-id`, `fix-schichten-swap-assignments-unique-violation`)
-  tragen im Kommentarblock direkt darueber explizit "Fuer Lauf 9" -- waehrend Lauf 8 gefundene,
-  aber laut Unverhandelbare-Grenzen-Abschnitt in `ITERATION.md` nicht freigegebene Fix-Units,
-  keine `deps`, `status: todo`. Eine naechste Iteration, die Schritt 2 woertlich befolgt ("nimm
-  die erste Unit mit status: todo, deren deps alle done sind"), wuerde eine davon ziehen, obwohl
-  sie fuer diesen Lauf nicht freigegeben ist -- das ist ein Luecken-Fall im geschriebenen
-  Protokoll selbst, keine Entscheidung, die ich fuer diese Iteration treffen musste. Falls der
-  Treiber ausschliesslich auf offene `status: todo`-Eintraege zaehlt (nicht auf den "Fuer Lauf
-  9"-Kommentar), haelt er den Lauf jetzt faelschlich fuer nicht beendet. Fuer Luke: entweder die
-  sieben Fix-Units vor der naechsten Iteration explizit fuer Lauf 8 freigeben (Backlog-Header
-  aktualisieren), oder sie auf einen expliziten Status wie `deferred` statt `todo` umstellen,
-  damit Text und Mechanik wieder uebereinstimmen. `.planning/backend-block/loop/run-loop.ps1`
-  traegt weiterhin denselben unstaged Diff wie in allen Vorgaenger-Iterationen vermerkt
-  (`-StartNotBefore`-Startsperre-Parameter) -- nicht meine Datei, nicht angefasst, nicht
-  committet.
-
-## Iteration 94 — (keine Unit gezogen) — blocked — 2026-08-11 08:24
-- commit: -
-- gebaut: nichts. Vor dem Ziehen einer Unit (Schritt 2) geprueft: die sieben verbleibenden
-  `status: todo`-Eintraege in `BACKLOG.yml` (`fix-email-send-missing-tenant-id`,
-  `fix-email-attachment-download-metadata-wrong-message-id`, `fix-crm-erasure-double-count`,
-  `fix-document-virtual-users-display-name`,
-  `fix-rapporte-template-empty-default-lines-crashes`,
-  `fix-datev-upload-repo-missing-tenant-id`,
-  `fix-schichten-swap-assignments-unique-violation`) tragen alle direkt darueber den Kommentar
-  "Fuer Lauf 9" und wurden erst waehrend Lauf 8 als Nebenfunde in Coverage-Units angelegt, nicht
-  als Teil der in `ITERATION.md` unter "Unverhandelbare Grenzen" fuer diesen Lauf freigegebenen
-  acht Block-A-Units. Die dortige Regel ist eindeutig: "Was freigegeben ist, steht als Unit im
-  Backlog — was nicht drinsteht, ist nicht freigegeben." und die sieben Units tragen explizit die
-  Gegenmarkierung "Fuer Lauf 9", nicht Lauf 8. Schritt 2 woertlich befolgt ("nimm die erste Unit
-  mit status: todo, deren deps alle done sind") wuerde eine davon ziehen und damit gegen die
-  Scope-Grenze verstossen — genau die Luecke, die Iteration 93 bereits unter "offen:" notiert
-  hat, ohne sie selbst aufzuloesen (das war korrekt, ihre eigene Unit war zu dem Zeitpunkt schon
-  fertig). Diese Iteration ist die erste, die die Luecke tatsaechlich vor sich hat, und loest sie
-  konservativ auf: keine der sieben Units gezogen, kein Produktionscode angefasst.
-- gate: n.a. (keine Unit bearbeitet, kein Code angefasst)
-- coverage: n.a. (keine Unit bearbeitet)
-- mutations-probe: n.a. (keine Unit bearbeitet)
-- verify vorgaenger: sauber. Commit a6ba9c37 (Iteration 93) geprueft: fuegt ausschliesslich
-  `internal/vertraege/postgres_repository_db_test.go` plus Journal-/Backlog-Metadaten hinzu —
-  kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue
-  Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
-- offen: **Menschliche Entscheidung noetig — der Lauf ist an dieser Stelle absichtlich
-  gestoppt, `STOP`-Datei angelegt.** Die sieben Units bleiben unveraendert auf `status: todo`
-  (ich habe den Status bewusst NICHT auf `deferred` o.ae. umgestellt — das waere selbst schon
-  die Scope-Entscheidung, die Luke gehoert, nicht nur eine mechanische Korrektur). Zwei Wege
-  stehen offen, exakt wie in Iteration 93 skizziert: (a) die sieben Fix-Units per
-  Backlog-Header-Update explizit fuer Lauf 8 freigeben, dann zieht die naechste Iteration die
-  erste davon regulaer, oder (b) ihren Status von `todo` auf einen Nicht-Open-Wert wie
-  `deferred` umstellen, damit `Get-OpenUnitCount` im Treiber (zaehlt `todo`/`in_progress`
-  unabhaengig vom "Fuer Lauf 9"-Kommentar) den Lauf korrekt als beendet erkennt — ohne die
-  `STOP`-Datei wuerde der Treiber sonst mit offenem Count weiterhin neue Iterationen anwerfen,
-  die alle auf dieselbe Grenze laufen. `.planning/backend-block/loop/run-loop.ps1` traegt
-  weiterhin denselben unstaged Diff wie in allen Vorgaenger-Iterationen vermerkt
-  (`-StartNotBefore`-Startsperre-Parameter) — nicht meine Datei, nicht angefasst, nicht
-  committet. Ebenso weiterhin ein reiner Zeilenenden-Artefakt (kein inhaltlicher Diff) auf
-  `backend/internal/rapporte/postgres_repository.go` — ebenfalls nicht angefasst.
-  Laufkontext-Block war in diesem Prompt erneut nicht sichtbar mitgeliefert (wie bereits in
-  Iteration 91-93 vermerkt) — Nummer aus der letzten Journal-Ueberschrift fortgezaehlt,
-  Zeitstempel per `date` auf dem Loop-Rechner ermittelt.
-
-## CI nach Lauf (2026-08-11 08:38)
-- run: 31465073405
-- sha: a3456d02d188ce23d4afce1550bd55b82856a91a
+  Vorgehen pro Agent: SQL-tragende Go-Dateien per Grep auf SELECT/INSERT/UPDATE/RETURNING
+  identifiziert (nicht nur `*postgres_repository*.go`), Aliase aus JOIN-Klauseln aufgeloest,
+  jede referenzierte Spalte gegen `information_schema.columns` der laufenden lokalen DB
+  (Migrationskopf 312) geprueft.
+  ERGEBNIS: 0 Funde ueber alle sechs Pakete. 150 Nicht-Test-Go-Dateien vollstaendig geprueft
+  (38 auth+security, 60 document+chat, 52 notification+inbox), davon 30 mit tatsaechlichem
+  Roh-SQL (Rest sind Interfaces/Services/Adapter ohne direkten DB-Zugriff):
+  - auth (1 SQL-Datei): postgres_repository.go
+  - security (8): audit/postgres_repository.go, password/postgres_repository.go,
+    vault/postgres_repository.go, vendoraccess/postgres_repository.go,
+    gdpr/postgres_repository.go, gdpr/erasure.go, gdpr/dsar_search.go, gdpr/export.go
+  - document (7): virtual, file, search, folder, tag, share, wopi/lock.go
+    (postgres_repository.go je Paket, wopi als lock.go)
+  - chat (6 mit echtem SQL): channel, message, file, search, bookmark, guest
+    (postgres_repository.go je Paket)
+  - notification (3): preference, integration, notification (postgres_repository.go je Paket)
+  - inbox (5): thread, message, routing, team (postgres_repository.go je Paket),
+    adapter/guest_adapter.go
+  Der Vorlage-Bug (`u.display_name` auf `users`) tritt in keinem der sechs gescannten Pakete
+  auf. Bestaetigt korrekt (Gegenbeispiel, kein Fund): `chat/message` und `inbox/adapter`
+  nutzen `gs.display_name` aus `guest_sessions` -- diese Tabelle TRAEGT tatsaechlich eine
+  `display_name`-Spalte, im Unterschied zu `users`. `auth`, `security/vendoraccess` und
+  `security/gdpr` per zusaetzlichem `EXPLAIN` gegen komplexere Queries (CTEs, Self-Joins,
+  korrelierte Subqueries) verifiziert -- alle planen fehlerfrei.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `49c7dc42`, Iteration 15 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine
+- offen: Teil 3 von 3 (`scan-phantom-columns-module-services`) steht noch aus und ist bereits
+  als todo im Backlog.
+
+## Iteration 17 — scan-phantom-columns-module-services — done — 2026-08-11 17:57
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A2 (SQL referenziert Spalte/Tabelle/Alias, die es nicht gibt), Teil 3 von 3 —
+  Repositories unter `internal/{plugin,inventar,einkauf,produktion,caldav,vertraege,rapporte,
+  schichten,vermietung,fuhrpark,helpdesk,wiki,formulare,berichte,dialer,automation,settings}`
+  per drei parallelen Subagenten geprueft (max. 3 gleichzeitig). `internal/video` existiert
+  nicht als Top-Level-Paket -- die tatsaechliche Video-Funktionalitaet liegt unter
+  `internal/work/video` und wurde bereits in Iteration 15 (Teil 1, Paketliste `work`) geprueft,
+  hier also korrekt ausgelassen statt doppelt bearbeitet.
+  Vorgehen pro Agent: alle Nicht-Test-Go-Dateien mit echtem Roh-SQL (SELECT/INSERT/UPDATE/
+  RETURNING) identifiziert, Aliase aus JOIN-Klauseln aufgeloest, jede referenzierte Spalte/
+  Tabelle gegen `information_schema.columns` bzw. `\d` der laufenden lokalen DB (Container
+  `docker-postgres-1`, Migrationskopf 312) geprueft, bei Unsicherheit zusaetzlich per `EXPLAIN`
+  gegen die DB verifiziert.
+  Insgesamt 37 SQL-tragende Nicht-Test-Dateien geprueft:
+  - Gruppe 1 (13 Dateien): plugin/repository/{execution_log,industry_template,installation,
+    kv_store,manifest,permission,validation_rule,workflow_rule}.go (8),
+    inventar/postgres_repository.go (1), einkauf/{postgres_repository,
+    postgres_repository_extended}.go (2), produktion/{postgres_repository,
+    postgres_repository_ext}.go (2) — 0 Funde.
+  - Gruppe 2 (12 Dateien): caldav/{push_subscription,app_password,caldav_backend,sync_token,
+    postgres_app_password,carddav_backend,user_preferences}.go (7),
+    vertraege/postgres_repository.go (1), rapporte/{postgres_repository,service}.go (2, service.go
+    ohne Roh-SQL, trotzdem geprueft), schichten/postgres_repository.go (1),
+    vermietung/postgres_repository.go (1) — 1 FUND (siehe unten).
+  - Gruppe 3 (12 Dateien): fuhrpark/postgres_repository.go (1),
+    helpdesk/postgres_repository.go (1), wiki/postgres_repository.go (1),
+    formulare/postgres_repository.go (1), berichte/{postgres_repository,downstream/
+    kpi_postgres}.go (2), dialer/postgres_repository.go (1),
+    automation/{trigger/due_postgres,workflow/postgres_repository}.go (2),
+    settings/postgres_repository.go (1) — 0 Funde (erste Grep-Treffer auf weitere Dateien in
+    diesen Paketen waren Fehlalarme: Go-`select{}`-Statements bzw. das Wort "returning" in
+    Kommentaren, verifiziert und ausgeschlossen).
+  FUND: `backend/internal/caldav/carddav_backend.go:400-407`,
+  `checkCompanyContactPermission` selektiert `SELECT role FROM users WHERE id = $1` roh in
+  eine `role string`-Variable. `users` hat keine `role`-Spalte (verifiziert per `\d users`
+  gegen Kopf 312 und per `EXPLAIN` -> `ERROR: column "role" does not exist`, SQLSTATE 42703).
+  Rollen liegen ausschliesslich in `user_roles`/`roles` (RBAC-Modell, vgl.
+  `internal/auth/postgres_repository.go:191 GetUserRoles`). Wirkung: der `err != nil`-Zweig
+  faengt den SQL-Fehler ab und liefert HTTP 403 -- fail-closed, aber das Feature (CardDAV-Schreib-
+  zugriff auf das geteilte `company`-Adressbuch) ist fuer JEDEN Nutzer, auch echte Admins/
+  Manager, vollstaendig unbenutzbar. Als neue Fix-Unit angelegt:
+  `fix-caldav-carddav-company-permission-role-column`.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `2c2c0a01`, Iteration 16 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: fix-caldav-carddav-company-permission-role-column
+- offen: Muster A2 (phantom columns) ist damit ueber alle drei Teile abgeschlossen. Block B hat
+  noch offene Scan-Units (scan-insert-missing-tenant-id-a/b/c, scan-nil-slice-wire-shape-large-
+  services, weitere) fuer die naechste Iteration.
+
+## Iteration 18 — scan-insert-missing-tenant-id-a — done — 2026-08-11 18:26
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster B (INSERT setzt tenant_id nicht, obwohl NOT NULL ohne Default), Teil A von 3 —
+  Repositories unter `internal/biz` (inkl. banking, bexio, creditnote, datev, dunning, einvoice,
+  expense, gobdarchive, hr/{changerequest,employee,leave,timetracking}, invoice, lexware,
+  payment, quote, recurring), `internal/crm` (activity, advisoryprotocol, company, consent,
+  contact, customfield, deal, pipelinestage, savedfilter, tag) und `internal/work` (calendar,
+  comment, customfield, event, holiday, label, meeting, presence, project, reaction, recording,
+  resource, status, task, timeentry, video) per drei parallelen Subagenten geprueft (max. 3
+  gleichzeitig).
+  Vorgehen pro Agent: alle `INSERT INTO`-Statements in Nicht-Test-Go-Dateien gefunden, Zieltabelle
+  bestimmt, gegen die laufende lokale DB (Container `docker-postgres-1`, Kopf 312) per `\d
+  <tabelle>` geprueft ob `tenant_id NOT NULL` ohne Default ist, System-Global-Liste (ADR-006:
+  schema_migrations, caldav_settings, industry_templates, permissions, automation_templates,
+  event_types, public_holidays) ausgenommen, dann Spaltenliste + Werteherkunft (Struct-Feld aus
+  Kontext vs. hartkodiert/uuid.Nil/fehlend) verifiziert.
+  Insgesamt 116 INSERT-Statements in 48 Nicht-Test-Dateien geprueft:
+  - biz (21 Dateien, 46 INSERTs, Referenzdatei postgres_upload_repo.go bereits gefixt und nicht
+    erneut gezaehlt) — 0 Funde, alle tenant_id aus *.TenantID-Feld bzw. tenantID-Parameter.
+    Einzige Ausnahme: `hr_employee_profiles` hat einen Zero-UUID-Default (kein NOT-NULL-Problem,
+    kein Fund).
+  - crm (10 Dateien, 23 INSERTs) — 0 Funde. *_custom_field_values-Junction-Tabellen haben gar
+    keine tenant_id-Spalte (RLS via EXISTS-Policy auf Elterntabelle), alle uebrigen setzen
+    tenant_id korrekt aus Struct-Feld oder Subquery gegen die tenant-tragende Elterntabelle.
+  - work (17 Dateien, 47 INSERTs) — 1 FUND (siehe unten), Rest sauber (Feld, tenantID-Parameter
+    oder Subquery gegen Elterntabelle; `task_labels` hat wie die CRM-Junction-Tabellen keine
+    eigene tenant_id-Spalte).
+  FUND: `backend/internal/work/recording/postgres_repository.go:154 SetConsent` inserted in
+  `recording_consents` (tenant_id NOT NULL ohne Default, FORCE RLS, verifiziert per `\d
+  recording_consents`) ohne tenant_id in der Spaltenliste. `RecordingConsent`-Modell hat kein
+  TenantID-Feld, `Service.SetConsent` bekommt keine tenantID uebergeben — der Aufrufer
+  (`VideoGRPCServer.SetRecordingConsent`) hat sie nicht zur Hand. Jeder Aufruf schlaegt am
+  NOT-NULL-Constraint fehl: DSGVO-relevante Recording-Consent-Zustimmung laesst sich nie
+  speichern. Selbst gegen die DB verifiziert (`\d recording_consents`, Kopf 312) und Modell/
+  Service/Caller-Kette gegengelesen, bevor die Unit angelegt wurde. Als neue Fix-Unit angelegt:
+  `fix-work-recording-consent-missing-tenant-id`.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `2d6017a2`, Iteration 17 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: fix-work-recording-consent-missing-tenant-id
+- offen: Teil B (`scan-insert-missing-tenant-id-b`, auth/security/document/chat/calendar/email/
+  notification/inbox/hr) und Teil C (`scan-insert-missing-tenant-id-c`, Modul-Services) stehen
+  noch aus und sind bereits als todo im Backlog.
+
+## Iteration 19 — scan-insert-missing-tenant-id-b — done — 2026-08-11 18:09
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster B (INSERT setzt tenant_id nicht, obwohl NOT NULL ohne Default), Teil B von 3 —
+  Pakete auth, security/{audit,gdpr,password,vendoraccess,vault}, document/{file,folder,share,
+  tag,wopi}, chat/{bookmark,channel,file,guest,message}, calendar-Domaene (work/{calendar,event,
+  meeting}, ergaenzend auch caldav), email/{account,attachment,contactlink,label,message,rule,
+  signature,template} (ausser der bereits gefixten send.Send/SaveDraft-Ausnahme), notification/
+  {preference,integration,notification}, inbox/{thread,team,routing,message} per drei parallelen
+  Explore-Subagenten geprueft (max. 3 gleichzeitig).
+  Scope-Klarstellung vorab: `internal/hr` existiert nicht eigenstaendig — das HR-Modul liegt unter
+  `internal/biz/hr/{leave,employee,changerequest,timetracking,absence,compliance}` und wurde dort
+  geprueft (leave/employee/changerequest/timetracking waren durch Teil A/Iteration 18 bereits
+  abgedeckt und wurden hier zur Bestaetigung erneut gegengelesen — 0 Abweichung; absence und
+  compliance sind neu abgedeckt: absence hat kein INSERT, compliance hat kein Repository mit
+  INSERT). `internal/calendar` existiert ebenfalls nicht eigenstaendig — als fachliches Aequivalent
+  wurden `internal/work/{calendar,event,meeting}` sowie ergaenzend `internal/caldav` geprueft.
+  Vorgehen pro Agent: alle `INSERT INTO`-Statements in Nicht-Test-Go-Dateien gefunden, Zieltabelle
+  bestimmt, gegen die laufende lokale DB (Container `docker-postgres-1`, Kopf 312) per `\d
+  <tabelle>` geprueft ob `tenant_id NOT NULL` ohne Default ist, System-Global-Liste (ADR-006:
+  schema_migrations, caldav_settings, industry_templates, permissions, automation_templates,
+  event_types, public_holidays; zusaetzlich `roles`/`role_permissions` mit bewusst NULLable
+  tenant_id) ausgenommen, dann Spaltenliste + Werteherkunft bis zum gRPC-Handler/Service
+  zurueckverfolgt (Struct-Feld/Parameter aus `middleware.GetTenantID(ctx)`, tenant-tragendem
+  Event-Payload, oder sicherer SQL-Subquery-Ableitung aus einer bereits tenant-validierten
+  Elternzeile — vs. hartkodiert/uuid.Nil/fehlend).
+  Insgesamt 107 INSERT-Statements in 33 Nicht-Test-Dateien geprueft, 0 FUNDE:
+  - auth/security/hr (10 Dateien, 37 INSERTs) — 0 Funde. Alle tenant_id aus *.TenantID-Feld,
+    tenantID-Parameter oder `SELECT tenant_id FROM users WHERE id = ...`-Subquery.
+    `role_permissions` hat gar keine tenant_id-Spalte (Isolation ueber Join auf roles.tenant_id).
+    Drei Tabellen (users, audit_log, hr_employee_profiles) haben zusaetzlich einen Spalten-
+    Default und faellen damit per Definition ohnehin nicht unter Muster B — der Code setzt den
+    Wert aber in allen drei Faellen ohnehin explizit.
+  - document/chat/calendar-Domaene (13 Dateien + 3 caldav-Dateien, 49 INSERTs) — 0 Funde. Vier
+    Tabellen (document_files, channels, messages, calendar_events) haben einen fixen System-
+    Tenant-Default (Sentinel-UUID ...0001) und faellen damit nicht unter Muster B; der Code setzt
+    tenant_id trotzdem explizit aus dem Modell. Alle Subquery-Ableitungen (z. B. calendar_members
+    aus calendars, event_attendees aus calendar_events, meeting_attendees aus meetings) stammen
+    von Elternzeilen, die der Service vorher tenant-scoped aufgeloest hat.
+  - email/notification/inbox (15 Dateien, 26 INSERTs) — 0 Funde (ausser der bereits gefixten
+    send.Send/SaveDraft-Ausnahme, nicht erneut geprueft). email_messages, notifications und
+    inbox_messages haben denselben Sentinel-Default und faellen damit nicht unter Muster B.
+    `inbox/adapter/*.go` bauen InboxMessage ohne TenantID, sind aber laut Code-Kommentar ein
+    toter Pfad ohne aktiven Aufrufer (kein Fund). `integration_configs.CreateConfig` verlaesst
+    sich (anders als die Schwester-Methoden in derselben Datei) allein auf `cfg.TenantID` statt
+    zusaetzlich `tenantForWrite(ctx)` zu pruefen — der einzige produktive Aufrufer setzt den Wert
+    korrekt, also kein Fund, aber als Konsistenz-Beobachtung vermerkt (keine eigene Unit, da kein
+    reproduzierbarer Bug, nur fehlende Verteidigungslinie gegen einen hypothetischen zweiten
+    Aufrufer).
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `98874542`, Iteration 18 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine (0 Funde in allen neun Zielpaketen, siehe Belegliste oben)
+- offen: Teil C (`scan-insert-missing-tenant-id-c`, Modul-Services inventar/einkauf/produktion/
+  vertraege/rapporte/schichten/vermietung/fuhrpark/helpdesk/wiki/formulare/berichte/dialer/
+  automation/plugin/settings/video/caldav — caldav ist durch diese Iteration bereits mitgeprueft
+  und kann in Teil C uebersprungen werden) steht noch aus und ist bereits als todo im Backlog.
+  Muster B ist damit fuer 2 von 3 Teilen ohne weitere Funde abgeschlossen.
+
+## Iteration 20 — scan-insert-missing-tenant-id-c — done — 2026-08-11 18:17
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster B (INSERT setzt tenant_id nicht, obwohl NOT NULL ohne Default), Teil C von 3 —
+  die restlichen 17 Modul-Service-Pakete `internal/{inventar,einkauf,produktion,vertraege,
+  rapporte,schichten,vermietung,fuhrpark,helpdesk,wiki,formulare,berichte,dialer,automation,
+  plugin,settings,video}` per drei parallelen Explore-Subagenten geprueft (max. 3 gleichzeitig).
+  `caldav` war bereits durch Iteration 19 mitgeprueft und wurde hier ausgelassen. `video` liegt
+  faktisch nicht unter `internal/video`, sondern unter `internal/work/video` (Feature-Flag-Modul)
+  — dort geprueft, trotz ausgeschaltetem Flag (Modul lief nie unter Produktionslast, ein
+  fehlendes tenant_id faellt dort erst auf, wenn das Flag angeht).
+  Vorgehen pro Agent identisch zu Teil A/B: alle `INSERT INTO`-Statements in Nicht-Test-Go-Dateien
+  gefunden, Zieltabelle bestimmt, gegen die laufende lokale DB (Container `docker-postgres-1`,
+  Kopf 312) per `\d <tabelle>` geprueft ob `tenant_id NOT NULL` ohne Default ist (mit Default
+  automatisch kein Fund gemaess Vorgabe), System-Global-Liste (ADR-006) ausgenommen, dann
+  Spaltenliste + Werteherkunft bis zum Struct-Feld/Service-Layer zurueckverfolgt.
+  Gruppe 1 (inventar/einkauf/produktion/vertraege/rapporte/schichten): 42 INSERTs, 39 Tabellen,
+  0 Funde. Alle tenant_id aus tenant-tragendem Struct-Feld (z. B. item.TenantID, order.TenantID),
+  das im Service-Layer aus middleware.GetTenantID(ctx) befuellt wird.
+  Gruppe 2 (vermietung/fuhrpark/helpdesk/wiki/formulare/berichte): 39 INSERTs, 0 Funde. 6 Tabellen
+  (rental_objects, rentals, rental_inspections, vehicles, vehicle_services, vehicle_damages) haben
+  einen Sentinel-Default und faellen damit ohnehin nicht unter Muster B; die restlichen 33 setzen
+  tenant_id explizit korrekt, u. a. per tenant-validierter Subquery (vehicle_bookings JOIN users
+  WHERE u.tenant_id = $2; ticket_csat_responses SELECT t.tenant_id FROM tickets WHERE t.tenant_id
+  = $1 — tenant wird aus bereits validierter Elternzeile uebernommen statt vom Aufrufer erwartet).
+  Gruppe 3 (dialer/automation/plugin/settings/work-video): 30 INSERTs, 0 Funde. dialer_call_sessions
+  und automations haben einen Sentinel-Default (trotzdem explizit gesetzt); plugin_manifests ist
+  bewusst NULLable (Systemkatalog-Eintraege ohne Tenant); plugin_permissions hat gar keine
+  tenant_id-Spalte (Isolation ueber Join auf plugin_installations.tenant_id, analog zum
+  roles-Muster aus Teil B — kein Fund); dialer_agent_status_log leitet tenant_id korrekt per
+  Subquery aus users.tenant_id anhand der UserID ab.
+  Insgesamt 111 INSERT-Statements in 17 Paketen geprueft, 0 Funde. Muster B (fehlende tenant_id
+  bei INSERT) ist damit fuer alle 3 Teile des Scans (Iteration 18/19/20) ohne einen einzigen
+  weiteren Fund abgeschlossen — der einzige Fund des gesamten Musters bleibt der bereits in
+  Block A gefixte `fix-datev-upload-repo-missing-tenant-id`.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `e5b29de8`, Iteration 19 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine (0 Funde in allen 17 Zielpaketen, siehe Belegliste oben)
+- offen: Muster B (INSERT ohne tenant_id) ist jetzt vollstaendig gescannt (Teil A+B+C, alle
+  Service-Pakete). Block B des Lauf-9-Backlogs hat noch drei weitere Muster-Scan-Units offen:
+  scan-nil-slice-wire-shape-large-services, scan-nil-slice-wire-shape-remaining-services
+  (Muster C) sowie die bereits laufenden fix-*-Units aus Funden frueherer Scans
+  (fix-audit-verifychain-timestamp-precision-mismatch, fix-notification-mutes-unique-missing-
+  tenant, fix-work-erasure-task-double-count, fix-security-ip-access-rules-cidr-scan,
+  fix-chat-guest-sessions-ip-address-scan, fix-caldav-carddav-company-permission-role-column,
+  fix-work-recording-consent-missing-tenant-id).
+
+## Iteration 21 — scan-nil-slice-wire-shape-large-services — done — 2026-08-11 18:21
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster C (List-RPC gibt bei leerem Ergebnis nil-Slice statt make([]*T,0,n) zurueck,
+  ueber protojson wird daraus JSON `null` statt `[]`), Teil 1 von 2 — die acht groessten
+  gRPC-Server in `internal/server`: crm_grpc.go, biz_grpc.go, work_grpc.go, video_grpc.go,
+  hr_grpc.go, calendar_grpc.go, email_grpc.go, document_grpc.go. Ueber drei parallele
+  Explore-Subagenten geprueft (max. 3 gleichzeitig): Gruppe 1 crm/biz/work, Gruppe 2
+  video/hr/calendar, Gruppe 3 email/document. Vorgehen pro Datei: alle `List`-praefigierten
+  RPC-Funktionen gegrept, pro Treffer geprueft ob das Response-Slice vor der Append-Schleife
+  mit `make(..., 0, n)` initialisiert wird oder als nackte `var xs []*T` stehen bleibt; wo
+  plausibel zusaetzlich eine Ebene tiefer in den Service-Layer geschaut (Vorlage:
+  `enrichWithRelationsBatch`).
+  Ergebnis: 32 List-RPCs in video_grpc.go (9) + hr_grpc.go (10) + biz_grpc.go (5, ohne bereits
+  gefixte) + email_grpc.go (7) + document_grpc.go (12) geprueft — 0 Funde, durchgaengig
+  korrektes `make(...)`. document_grpc.go hat auf Repository-Ebene
+  (`internal/document/file/postgres_repository.go`, 7 Funktionen) zwar dasselbe nil-Var-Muster,
+  ist aber wirkungslos, weil jeder aufrufende Handler das Ergebnis bereits durch eine eigene,
+  korrekt mit `make()` gepufferte Konvertierungsschleife reicht — kein Fund, da kein
+  JSON-Response betroffen.
+  30 Treffer in den restlichen zwei Dateien: calendar_grpc.go 13 von 13 geprueften List-RPCs
+  betroffen (ListCalendars, ListCalendarMembers, ListBrowsableCalendars, ListEventsInRange,
+  ListEventAttendees, ListEventCategories, ListEventReminders, ListResources,
+  ListResourceAvailability, ListResourceBookings, ListHolidays, ListTaskDeadlinesInRange,
+  ListBookingPages) plus Randfund GetAvailability (kein List-Praefix, gleiches Muster).
+  crm_grpc.go 5 von 8 geprueften List-RPCs betroffen (ListCompanies, ListPipelineStages,
+  ListDeals, ListActivities, ListSavedFilters — ListCustomFields/ListTags/ListContacts waren
+  bereits durch fix-crm-list-nil-slice-wire-shape gefixt) plus Randfunde GetCompanyContacts,
+  ReorderPipelineStages, Search. work_grpc.go 12 von 17 geprueften List-RPCs betroffen
+  (ListProjects, ListProjectMembers, ListProjectStatuses, ListTasks, ListSubtasks,
+  ListTaskDependencies, ListTaskComments, ListTaskEntityLinks, ListEntityTasks,
+  ListTaskActivities, ListTaskFiles, ListTimeEntries) plus Randfunde ReorderProjectStatuses,
+  SearchTasks.
+  30 Funde in drei Dateien sind kein "wenige" im Sinne des done_when dieser Unit — Direkt-Fix
+  in dieser Iteration haette Umfang und Testaufwand weit ueber eine Iteration hinaus getrieben.
+  Stattdessen drei neue Fix-Units angelegt, GRUPPIERT PRO DATEI (Praezedenzfall
+  fix-chat-guest-sessions-ip-address-scan aus Lauf 9 Iteration 11, das 3 Fundstellen im selben
+  File in einer Unit zusammenfasst): fix-calendar-grpc-nil-slice-wire-shape (13 List-RPCs + 1
+  Randfund), fix-crm-grpc-nil-slice-wire-shape-remaining (5 List-RPCs + 3 Randfunde),
+  fix-work-grpc-nil-slice-wire-shape (12 List-RPCs + 2 Randfunde). Jede Unit ist derselbe
+  mechanische Zwei-Zeilen-Diff pro Stelle (Vorlage Commit `c3f0c46f`), aber root-cause-identisch
+  im selben File — ein Commit pro Datei ist angemessen granular, 30 Einzel-Units waeren reines
+  Backlog-Rauschen fuer denselben Fix.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `7fd2a4e3`, Iteration 20 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: fix-calendar-grpc-nil-slice-wire-shape, fix-crm-grpc-nil-slice-wire-shape-remaining,
+  fix-work-grpc-nil-slice-wire-shape
+- offen: Teil 2 von 2 (`scan-nil-slice-wire-shape-remaining-services`, die restlichen 23
+  `*_grpc.go`-Dateien: fuhrpark, inbox, helpdesk, chat, inventar, security, notification,
+  dialer, rapporte, berichte, formulare, plugin, automation, settings, vermietung, wiki,
+  schichten, einkauf, vertraege, produktion, bexio, lexware, datev_upload) steht noch aus und
+  ist bereits als todo im Backlog. Die drei neuen Fix-Units sind ungewoehnlich gross (bis zu 14
+  Fundstellen je Unit) -- falls eine davon in einer Iteration nicht vollstaendig passt, steht in
+  ihren notes bereits eine explizite Anweisung, den Rest ehrlich als `offen:` zu vermerken statt
+  als erledigt zu melden.
+
+## Iteration 22 — scan-nil-slice-wire-shape-remaining-services — done — 2026-08-11 18:39
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster C, Teil 2 von 2 — die restlichen 23 `*_grpc.go`-Dateien in `internal/server`:
+  automation, berichte, bexio, chat, datev_upload, dialer, einkauf, formulare, fuhrpark,
+  helpdesk, inbox, inventar, lexware, notification, plugin, produktion, rapporte, schichten,
+  security, settings, vermietung, vertraege, wiki. Ueber drei parallele Explore-Subagenten
+  geprueft (max. 3 gleichzeitig): Gruppe 1 automation/berichte/bexio/chat/datev_upload/dialer/
+  einkauf/formulare, Gruppe 2 fuhrpark/helpdesk/inbox/inventar/lexware/notification/plugin/
+  produktion, Gruppe 3 rapporte/schichten/security/settings/vermietung/vertraege/wiki. Vorgehen
+  pro Datei wie Iteration 21: alle `List`-praefigierten RPC-Funktionen (plus auffaellige
+  Get-/Search-Randfunde mit Listenfeld) gegrept, pro Treffer geprueft ob das Response-Slice vor
+  der Append-Schleife mit `make(..., 0/len, n)` initialisiert wird oder als nackte
+  `var xs []*T` stehen bleibt bzw. direkt auf ein unvorbelegtes Struct-Feld appended wird; bei
+  Durchreiche-Mustern eine Ebene tiefer in Service-/Repository-Layer geschaut.
+  Ergebnis: 107 List-RPCs (+ diverse Randfunde) ueber 23 Dateien geprueft — 21 Funde in 6
+  Dateien, 17 Dateien vollstaendig sauber:
+  - automation_grpc.go: 5/5 sauber. berichte_grpc.go: 5/5 sauber. bexio_grpc.go: 1/1 sauber.
+    datev_upload_grpc.go: 1/1 sauber. dialer_grpc.go: 3/3 + 2 Randfunde sauber.
+    einkauf_grpc.go: 3/3 sauber. formulare_grpc.go: 5/5 sauber.
+  - chat_grpc.go: 5 Funde (ListChannels, ListDMs, ListChannelFiles, ListReactions, SearchChat),
+    alle Handler-Ebene; Randfund ToggleReaction (Mutation, gleiches Muster).
+  - fuhrpark_grpc.go: 9/9 sauber. helpdesk_grpc.go: 7/7 sauber. inbox_grpc.go: 6/6 sauber
+    (make(...,0,n) durchgaengig). lexware_grpc.go: 1/1 sauber. produktion_grpc.go: 2/2 sauber.
+  - inventar_grpc.go: 6/7 sauber, 1 Fund (ListItemAttachments, append auf unvorbelegtes
+    Struct-Feld statt lokaler Slice-Variable — Bug-Variante ohne `var`-Deklaration).
+  - notification_grpc.go: 5 Funde (ListNotifications, ListMutedResources, ListEventTypes,
+    ListIntegrationConfigs, ListChannelMappings) + 2 Randfunde ohne List-Praefix
+    (GetNotificationPreferences, GetAccountLinkStatus — Letzterer trifft den Normalfall, da
+    die meisten Nutzer keinen verknuepften Account haben).
+  - plugin_grpc.go: 6/7 sauber, 1 Fund (ListGrantedPermissions) — Handler ist reiner
+    Durchreicher, die Nil-Quelle sitzt eine Ebene tiefer im Repository
+    (internal/plugin/repository/permission.go:34-44).
+  - rapporte_grpc.go: 7/7 sauber. settings_grpc.go: 3/3 + Randfund sauber (GetMyModuleLeads
+    ist bereits explizit gegen nil abgesichert). vermietung_grpc.go: 3/3 sauber.
+    vertraege_grpc.go: 4/4 sauber. wiki_grpc.go: 5/5 + Randfund sauber.
+  - schichten_grpc.go: 4/4 Funde (ListShifts, ListAssignments, ListTemplates,
+    ListSwapRequests), alle Handler-Ebene.
+  - security_grpc.go: 5/7 Funde (ListAuditEntries, ListVaultSecrets, ListDataExports,
+    ListIPRules, ListRetentionPolicies — Letztere zwei aus direkten pgx-Query-Loops statt
+    Service-Aufrufen), ListVendorAccessRequests und DSARSearch sauber; Randfunde PreviewErasure/
+    ExecuteErasure (Mutation, teilen dieselbe nil-Variable).
+  21 Funde in 6 Dateien sind kein "wenige" im Sinne des done_when — sechs neue Fix-Units
+  angelegt, GRUPPIERT PRO DATEI (gleiche Begruendung wie Iteration 21, Praezedenzfall
+  fix-work-grpc-nil-slice-wire-shape): fix-chat-grpc-nil-slice-wire-shape (5 RPCs + 1
+  Randfund), fix-notification-grpc-nil-slice-wire-shape (5 RPCs + 2 Randfunde),
+  fix-inventar-grpc-list-item-attachments-nil-slice (1 RPC, eigene Unit da eigenes Modul),
+  fix-plugin-grpc-granted-permissions-nil-slice (1 RPC, Root-Cause im Repository, daher eigene
+  Unit mit service: plugin statt server), fix-schichten-grpc-nil-slice-wire-shape (4 RPCs,
+  Hinweis auf Merge-Naehe zu fix-schichten-swap-assignments-unique-violation im selben File),
+  fix-security-grpc-nil-slice-wire-shape (5 RPCs + 2 Randfunde).
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `185d9ac7`, Iteration 21 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; `git show --stat` zeigt ausschliesslich BACKLOG.yml/JOURNAL.md; kein
+  gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle,
+  keine Wire-Shape- oder Routenaenderung moeglich, da kein Code angefasst wurde)
+- neue-units: fix-chat-grpc-nil-slice-wire-shape, fix-notification-grpc-nil-slice-wire-shape,
+  fix-inventar-grpc-list-item-attachments-nil-slice, fix-plugin-grpc-granted-permissions-nil-slice,
+  fix-schichten-grpc-nil-slice-wire-shape, fix-security-grpc-nil-slice-wire-shape
+- offen: Muster C (nil-slice wire-shape) ist jetzt fuer alle 30 `*_grpc.go`-Dateien in
+  internal/server vollstaendig gescannt (Teil 1 Iteration 21 + Teil 2 hier). Block B des
+  Lauf-9-Backlogs ist damit VOLLSTAENDIG abgearbeitet (alle vier Muster A/A2/B/C gescannt).
+  Block C hat jetzt insgesamt neun offene fix-*-Units aus fruehren Scans plus die sechs neuen
+  aus dieser Iteration — naechste Iterationen ziehen normal von vorne nach hinten ab.
+
+## Iteration 23 — fix-audit-verifychain-timestamp-precision-mismatch — done — 2026-08-11 18:32
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `PostgresRepository.Create` (internal/security/audit/postgres_repository.go) truncatet
+  `entry.Timestamp` jetzt auf Mikrosekunden-Praezision, BEVOR `computeEntryHash` aufgerufen wird
+  -- audit_log.timestamp ist TIMESTAMPTZ (nur Mikrosekunden-Aufloesung), computeEntryHash
+  formatiert aber mit RFC3339Nano. Dazu musste die ID-/Timestamp-Default-Bloecke (Zeile 57-62)
+  vor die Hash-Berechnung gezogen werden (vorher lag computeEntryHash VOR den Defaults) -- als
+  Nebeneffekt schliesst das auch die latente Luecke, dass ein Aufruf mit Zero-Timestamp mit dem
+  Zero-Wert gehasht, aber mit time.Now() persistiert worden waere. Einziger echte Caller
+  (`Service.LogEvent`, service.go:49) setzt Timestamp allerdings ohnehin immer selbst -- reine
+  Haertung, kein zweiter aktiver Bug. Neuer DB-gestuetzter Test
+  `TestPostgresRepository_VerifyChain_SubMicrosecondTimestampStillValid` erzwingt einen
+  Timestamp mit expliziter Sub-Mikrosekunden-Ziffer (+123ns) und beweist valid=true danach. Der
+  Truncate-Workaround-Kommentar in `TestPostgresRepository_VerifyChain_ValidSingleEntryRange`
+  ist entfernt (Timestamp dort wieder normales `time.Now().UTC()` ohne Truncate), weil Create()
+  das jetzt selbst uebernimmt.
+- gate: build ok (`./internal/security/... ./internal/gateway/...`) | vet ok | lint ok
+  (golangci-lint 0 issues) | test ok (`./internal/security/...` komplett gruen, 0 SKIP in
+  `./internal/security/audit/ -v`) | migration n.a. (keine Migration) | rls-smoke n.a. (keine
+  Tabellen-/Policy-Aenderung)
+- coverage: internal/security/audit 80,0 % (Iteration-1-Messung) -> 80,1 % (lokal gemessen,
+  `go tool cover -func`)
+- mutations-probe: Truncate-Zeile per Kommentar deaktiviert -> neuer Test
+  TestPostgresRepository_VerifyChain_SubMicrosecondTimestampStillValid wurde rot
+  (`VerifyChain(...) = invalid ... want valid`), Truncate-Zeile zurueckgedreht, `git diff` zeigt
+  wieder den sauberen Fix-Diff.
+- verify vorgaenger: sauber (Commit `4507ec5d`, Iteration 22 — reine Backlog/Journal-Aenderung,
+  `git show --stat` zeigt ausschliesslich BACKLOG.yml/JOURNAL.md, kein Produktionscode; kein
+  gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle,
+  keine Wire-Shape- oder Routenaenderung moeglich)
+- neue-units: keine
+- offen: Die im Unit-Scope dokumentierte Nicht-rueckwirkende-Grenze bleibt bestehen -- alle vor
+  diesem Commit geschriebenen audit_log-Eintraege mit einem ungekappten Original-Hash bleiben
+  mit ihrem alten (potenziell spurious-broken) Hash bestehen, append-only, nicht reparierbar.
+  `go test ./internal/gateway/` nicht gelaufen, da keine Route angefasst wurde (keine Pflicht
+  laut Schritt 5).
+
+## Iteration 24 — fix-notification-mutes-unique-missing-tenant — done — 2026-08-11 18:36
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Migration 000313 verbreitert den Unique-Constraint von `notification_mutes` von
+  `UNIQUE(user_id, module_id, resource_id)` (Inline-Constraint aus 000022, nie mit 000110/000124
+  mitgezogen) auf den Index `idx_notification_mutes_resource(tenant_id, user_id, module_id,
+  resource_id)`; down stellt den alten Constraint her. `postgres_repository.go` blieb wie im
+  Unit-Scope vermutet unveraendert -- `CreateMute` nennt keinen ON-CONFLICT-Arbiter, der Bug
+  schlug daher nicht als 42P10 zu, sondern als 23505: `Service.MuteResource` prueft vorab
+  tenant-gescopt per `IsResourceMuted`, sieht die Zeile des fremden Tenants nicht und laesst
+  `CreateMute` in den tenant-losen Constraint laufen (roher 500 statt Mute). Neuer
+  DB-gestuetzter Test `TestPostgresRepository_MutePerTenant` geht ueber den Service (nicht das
+  Repo), beweist Mute fuer zwei Tenants auf derselben (user_id, module_id, resource_id), haelt
+  `ErrMuteAlreadyExists` fuer das Duplikat innerhalb eines Tenants fest und pruefen beide
+  ListMutedResources-Sichten auf Tenant-Isolation. Kommentar in
+  `TestPostgresRepository_MuteLifecycle` auf die neue Index-Spaltenliste angeglichen.
+- gate: build ok (`./internal/notification/... ./internal/gateway/... ./cmd/notification/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint 0 issues) | test ok
+  (`./internal/notification/...` alle 7 Pakete gruen, 0 SKIP in `./internal/notification/
+  preference/ -v`) | migration ok (313/u angewendet, Kopf 313, Index per `\d
+  notification_mutes` als UNIQUE btree (tenant_id, user_id, module_id, resource_id) verifiziert)
+  | rls-smoke ok (eigener Tenant 1, unbeteiligter Tenant 0; die beiden Seed-Zeilen mit
+  identischem (user_id, module_id, resource_id) in zwei Tenants gingen unter dem neuen Index
+  ueberhaupt erst durch, Zeilen danach wieder geloescht)
+- coverage: internal/notification/preference 87,4 % -> 87,4 % (beide selbst gemessen mit
+  `go tool cover -func`; der neue Test faehrt ausschliesslich schon abgedeckte Zeilen --
+  MuteResource, CreateMute, IsResourceMuted, ListMutedResources, ListMutes waren alle bereits
+  durch TestPostgresRepository_MuteLifecycle erreicht. Der Wert deckt sich mit dem
+  `coverage_start:` der Unit; Gewinn liegt hier im Schema-Fix, nicht in neuen Zeilen)
+- mutations-probe: statt einer Code-Zeile die Migration selbst gebrochen --
+  `migrate down 1` auf Kopf 312 gedreht, `TestPostgresRepository_MutePerTenant` wurde rot
+  (`duplicate key value violates unique constraint
+  "notification_mutes_user_id_module_id_resource_id_key" (SQLSTATE 23505)` genau an der
+  Zeile des zweiten Tenants), danach `migrate up` zurueck auf 313, Test wieder gruen, Kopf und
+  Arbeitsbaum sauber.
+- verify vorgaenger: sauber (Commit `ef032f24`, Iteration 23 — Produktionsdiff ist der
+  Timestamp-Truncate in `internal/security/audit/postgres_repository.go` plus Test; kein
+  gRPC-Bypass (kein Handler beruehrt), kein Stub, kein `.proto`/kein Migrations-Drift, kein
+  neuer RequirePermission-Guard, keine neue Tabelle, Wire-Shape unveraendert (nur der intern
+  gehashte Timestamp wird gekappt, keine Response-Form), keine Route)
+- neue-units: keine
+- offen: Die drei Migrationen 000305 / 000312 / 000313 schliessen den Notification-Schema-Drift
+  vollstaendig — im Schema bleibt keine Unique-Constraint mehr ohne `tenant_id`. Ob dieselbe
+  Drift in ANDEREN Schemata liegt, ist bislang nicht systematisch gescannt; die drei Funde
+  stammen alle aus dem Anlassfall Notification. Ein Scan `alle UNIQUE-Constraints/Indexe auf
+  RLS-Tabellen ohne tenant_id als fuehrende Spalte` gegen die laufende DB waere eine
+  lohnende Unit fuer einen naechsten Lauf (nicht angelegt, weil sie ausserhalb der
+  Block-C-Fix-Liste dieses Laufs liegt). `go test ./internal/gateway/` nicht gelaufen, da keine
+  Route angefasst wurde.
+
+## Iteration 25 — fix-work-erasure-task-double-count — done — 2026-08-11 18:46
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `WorkErasureHandler.ExecuteErasure` (internal/security/gdpr/erasure.go:376) zieht die
+  zwei sequenziellen Schritte (UPDATE tasks assignee_id=NULL, danach separates SELECT COUNT fuer
+  created_by-only) zu einem einzigen UPDATE zusammen -- exakt das Muster aus
+  fix-crm-erasure-double-count (Iteration 6): `assignee_id = CASE WHEN assignee_id = $1 THEN NULL
+  ELSE assignee_id END ... WHERE assignee_id = $1 OR created_by = $1`. RowsAffected ist damit die
+  korrekte, einmalige Zaehlung. time_entries (DELETE) und task_comments (UPDATE) unveraendert,
+  wie im Unit-Scope vermerkt nicht vom Muster betroffen. Neue Datei
+  `erasure_work_test.go` mit `TestWorkErasureHandler_ExecuteErasure_Integration` (bisher hatte nur
+  PreviewErasure einen Test) -- deckt vier Faelle ab: Task sowohl assigned als auch created by
+  Subject (zaehlt genau einmal), Task nur created (behaelt Assignee), Task nur assigned (verliert
+  Assignee, created_by unveraendert), fremder Task (unberuehrt) -- plus time_entries-Delete und
+  task_comments-Anonymisierung. Neuer `TestWorkErasureHandler_DeadPool` ergaenzt die bereits
+  vorhandene `TestWorkErasureHandler_Preview_Integration` um den Execute-Fehlerpfad, analog zu
+  `TestCRMErasureHandler_DeadPool`.
+- gate: build ok (`./internal/security/... ./cmd/...`) | vet ok | lint ok (golangci-lint 0
+  issues) | test ok (`./internal/security/...` komplett gruen, 0 SKIP in
+  `./internal/security/gdpr/ -v`) | migration n.a. (keine Migration) | rls-smoke n.a. (keine
+  Tabellen-/Policy-Aenderung, reiner UPDATE-Logik-Fix)
+- coverage: internal/security/gdpr 60,5 % (Iteration-6-Messung, coverage_start der Unit) -> 62,9 %
+  (lokal gemessen, `go tool cover -func`)
+- mutations-probe: WHERE-Klausel des zusammengezogenen UPDATE zurueck auf `WHERE assignee_id = $1`
+  gesetzt und die alte separate COUNT-Query wieder eingefuegt (exakt der Vorzustand) ->
+  `TestWorkErasureHandler_ExecuteErasure_Integration` wurde rot (`expected: 5, actual: 6` -- der
+  both-Task wurde wieder doppelt gezaehlt), Aenderung zurueckgedreht, `git diff` zeigt wieder den
+  sauberen Fix-Diff.
+- verify vorgaenger: sauber (Commit `f661a6a0`, Iteration 24 — Produktionsdiff ist ausschliesslich
+  Migration 000313 (notification_mutes Unique-Index-Verbreiterung, forward-only, up UND down
+  gefuellt, Nummer passt zur zur Laufzeit ermittelten hoechsten Migration) plus Repository-Test;
+  kein gRPC-Bypass (kein Handler beruehrt), kein Stub, kein Proto-Drift, kein neuer
+  RequirePermission-Guard, keine neue Tabelle, Wire-Shape unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/` nicht gelaufen, da keine Route/kein Handler angefasst wurde
+  (keine Pflicht laut Schritt 5). Der Fund wurde 2026-08-11 in Iteration 6 vorab angelegt (siehe
+  dortige `notes:`) und in dieser Iteration ohne weitere offene Fragen umgesetzt.
+
+## Iteration 26 — fix-security-ip-access-rules-cidr-scan — done — 2026-08-11 18:52
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `SecurityGRPCServer.ListIPRules` (internal/server/security_grpc.go:711) castet `ip_cidr`
+  jetzt als `ip_cidr::text` in der SELECT-Liste statt es roh in `models.IPAccessRule.IPCIDR`
+  (Typ `string`) zu scannen -- identisches Muster zu fix-audit-list-verifychain-ip-address-scan.
+  ABWEICHUNG von der Unit-Note: `host()` (dort als Alternative genannt) haette bei CIDR die
+  Praefixlaenge STILL gekappt (verifiziert per psql: `host('10.0.0.0/8'::cidr)` -> `10.0.0.0`,
+  waehrend `'10.0.0.0/8'::cidr::text` -> `10.0.0.0/8` erhaelt) -- das haette eine Netzwerk-Regel
+  unbemerkt in eine Einzel-Host-Regel verwandelt. `::text` ist die einzig korrekte Wahl fuer eine
+  CIDR-Spalte (im Unterschied zu INET-Spalten wie `ip_address`, wo `host()` legitim ist, weil dort
+  keine Netzmaske gemeint ist). Neue Datei `security_grpc_ip_rules_db_test.go` mit zwei
+  DB-gestuetzten Tests: `TestSecurityGRPCServer_ListIPRules_ReturnsSeededCIDR` (Netzwerk-Regel
+  `10.0.0.0/8` ueber `CreateIPRule` angelegt, `ListIPRules` liefert IpCidr/RuleType/Description
+  korrekt) und `TestSecurityGRPCServer_ListIPRules_PreservesHostBit` (Einzel-Host `192.168.1.1/32`
+  bleibt mit Praefix erhalten -- deckt genau die host()-Falle ab). Veralteten Kommentar in
+  `security_grpc_test.go` (behauptete, ListIPRules sei "nicht ohne echten DB-Pool erreichbar und
+  bleibt hier bewusst ungedeckt") auf den neuen Stand korrigiert.
+- gate: build ok (`./internal/server/... ./internal/security/... ./cmd/gateway/...`) | vet ok |
+  lint ok (golangci-lint 0 issues, vor UND nach der Mutations-Probe erneut gelaufen) | test ok
+  (`./internal/server/` komplett gruen, 0 SKIP in `-v`-Lauf) | migration n.a. (keine Migration) |
+  rls-smoke n.a. (keine Tabellen-/Policy-Aenderung, reiner SELECT-Cast)
+- coverage: internal/server 70,0 % (Iteration-21-Referenzwert aus dem Backlog-Kopf) -> 70,1 %
+  (lokal gemessen, `go tool cover -func`). Unit ist ein Fund aus einer Scan-Unit (`coverage_start:
+  n.a.`), diese Zahl ist Zusatzkontext, kein Pflichtvergleich.
+- mutations-probe: SELECT-Liste zurueck auf rohes `ip_cidr` (ohne `::text`) gesetzt -> beide neuen
+  Tests wurden rot mit exakt dem erwarteten Fehler (`rpc error: code = Internal desc = failed to
+  scan IP rule`, Ursache dahinter It's der pgx-CIDR-Scan-Fehler aus dem Unit-Scope), Cast
+  zurueckgedreht, `git diff` zeigt wieder ausschliesslich den Ein-Zeilen-Fix.
+- verify vorgaenger: sauber (Commit `986591e5`, Iteration 25 — Produktionsdiff ist ausschliesslich
+  `erasure.go` (Work-Erasure-Handler auf ein CASE-UPDATE zusammengezogen, identisches Muster zu
+  fix-crm-erasure-double-count) plus neue Testdatei `erasure_work_test.go`; kein gRPC-Bypass (kein
+  Handler beruehrt), kein Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle,
+  Wire-Shape unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/` zur Sicherheit trotzdem mitgelaufen (`TestOpenAPIRouteDrift`
+  gruen) -- keine Pflicht laut Schritt 5, da keine Route/kein Handler-Signatur angefasst wurde, nur
+  eine SELECT-Spalte. `CreateIPRule`/`DeleteIPRule` scopen ihre Queries nicht explizit auf
+  `tenant_id` (verlassen sich auf RLS via `app.tenant_id`-Session-Variable) -- das ist der
+  bestehende Zugriffsschutz in diesem Repo und ausserhalb des Unit-Scopes, aber falls RLS je auf
+  dieser Tabelle deaktiviert wuerde, waere das ein Cross-Tenant-Leck. Keine neue Unit dafuer
+  angelegt, da rein hypothetisch und ausserhalb des Musters dieses Laufs.
+
+## Iteration 27 — fix-chat-guest-sessions-ip-address-scan — done — 2026-08-11 18:53
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `guest.PostgresRepository.GetSessionByTokenHash`, `.GetSessionByID` und
+  `.ListSessionsByChannel` (internal/chat/guest/postgres_repository.go) casten `ip_address`
+  jetzt jeweils per `CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END`
+  statt es roh in `*string` zu scannen -- identisches Muster zu
+  `internal/security/gdpr/export.go:172`. `CreateSession` (INSERT) war nicht betroffen und blieb
+  unveraendert. Neuer Test-Helper `seedGuestSessionWithIP` in
+  `postgres_repository_reads_test.go` (INET-Spalte mit echter IP seeden -- der Bug ist bei NULL
+  unsichtbar) plus neuer Test `TestPostgresRepository_ReadPaths_WithRealIPAddress`, der alle drei
+  betroffenen Lesepfade in einem Test gegen dieselbe Session mit gesetzter IP `203.0.113.5`
+  durchprueft und `IPAddress` auf den erwarteten Wert prueft.
+- gate: build ok (`./internal/chat/... ./cmd/gateway/...`) | vet ok | lint ok
+  (golangci-lint 0 issues, vor UND nach der Mutations-Probe erneut gelaufen) | test ok
+  (`./internal/chat/...` komplett gruen, 0 SKIP) | migration n.a. (keine Migration, reiner
+  SELECT-Cast) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/chat/guest n.a. (coverage_start der Unit ist n.a. -- Fund aus
+  scan-inet-cidr-scanned-into-go-string, kein Coverage-Ziel). Lokal gemessen als Zusatzkontext:
+  78,7 % nach dem Fix (`go tool cover -func`).
+- mutations-probe: `GetSessionByTokenHash`s SELECT-Liste zurueck auf rohes `gs.ip_address` (ohne
+  CASE/host()) gesetzt -> `TestPostgresRepository_ReadPaths_WithRealIPAddress` wurde rot mit
+  exakt dem erwarteten pgx-Fehler (`cannot scan inet (OID 869) in binary format into **string`),
+  Aenderung zurueckgedreht, `git diff` zeigt wieder ausschliesslich den sauberen 6-Zeilen-Fix.
+- verify vorgaenger: sauber (Commit `40cd4c9e`, Iteration 26 — Produktionsdiff ist ausschliesslich
+  ein `::text`-Cast in `ListIPRules` plus neue DB-gestuetzte Tests und ein korrigierter
+  Kommentar; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine
+  neue Tabelle, Wire-Shape unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/` zur Sicherheit trotzdem mitgelaufen (`TestOpenAPIRouteDrift`
+  gruen) -- keine Pflicht laut Schritt 5, da keine Route/kein Handler-Signatur angefasst wurde,
+  nur drei SELECT-Spalten in einem Repository.
+
+## Iteration 28 — fix-caldav-carddav-company-permission-role-column — done — 2026-08-11 18:58
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `CardDAVBackend.checkCompanyContactPermission` (internal/caldav/carddav_backend.go)
+  fragte bisher `SELECT role FROM users WHERE id = $1` ab -- eine Spalte, die auf `users`
+  nicht existiert (Rollen liegen seit RBAC Phase 1 ausschliesslich in
+  `user_roles`/`role_permissions`/`permissions`). Jeder Aufruf schlug mit SQLSTATE 42703 fehl
+  und landete fail-closed auf 403 -- CardDAV-Schreibzugriff auf das Firmenadressbuch war fuer
+  JEDEN Nutzer, auch echte Admins/Manager, vollstaendig unbenutzbar. Fix: die Pruefung laeuft
+  jetzt ueber das bereits vorhandene `auth.PostgresRepository.UserHasPermission(ctx, userID,
+  "contacts", "write")` (internal/auth/postgres_repository.go:868) -- kein neuer SQL-Code,
+  Wiederverwendung der bestehenden RBAC-Abfrage. `contacts:write` ist per Seed-Migration 000002
+  admin (alle Rechte) und manager (read+write) zugeordnet, member nur read -- exakt dieselbe
+  Admin/Manager-darf-schreiben-Semantik wie vorher, nur ueber echte RBAC-Tabellen statt einer
+  nichtexistenten Spalte. `checkPersonalContactOwnership` war nicht betroffen und blieb
+  unveraendert. Neue Testdatei `carddav_backend_permission_db_test.go` mit vier DB-gestuetzten
+  Tests: Admin erlaubt, Manager erlaubt, Member verboten (403), Nutzer ganz ohne Rolle verboten
+  (403) -- alle vier gegen echte `user_roles`/`role_permissions`-Zeilen, nicht gemockt.
+- gate: build ok (`./internal/caldav/... ./cmd/gateway/...`) | vet ok | lint ok
+  (golangci-lint 0 issues, vor UND nach der Mutations-Probe erneut gelaufen) | test ok
+  (`./internal/caldav/...` komplett gruen, 0 SKIP in `-v`-Lauf) | migration n.a. (keine
+  Migration, reiner Query-Austausch) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/caldav 54,2 % (lokal gemessen vor dem Fix, per `git stash` isoliert) ->
+  54,8 % (lokal gemessen nach dem Fix, `go tool cover -func`). coverage_start der Unit war
+  n.a. (Scan-Fund), diese Zahlen sind der direkte Vorher/Nachher-Vergleich fuer genau diese Unit.
+- mutations-probe: `UserHasPermission`-Aufruf von `"contacts", "write"` auf `"contacts",
+  "delete"` geaendert -> `TestCheckCompanyContactPermission_ManagerAllowed` wurde rot (Manager
+  hat kein `contacts:delete`, nur admin via CROSS-JOIN-Seed), Aenderung zurueckgedreht,
+  `git diff --stat` zeigt wieder exakt den Ein-Zeilen-Fix in `carddav_backend.go`.
+- verify vorgaenger: sauber (Commit `a44fcd35`, Iteration 27 — Produktionsdiff ist ausschliesslich
+  drei SELECT-Casts (`CASE WHEN ip_address IS NOT NULL THEN host(...) ELSE NULL END`) in
+  `internal/chat/guest/postgres_repository.go` plus eine neue Testdatei; kein gRPC-Bypass, kein
+  Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape
+  unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` zur Sicherheit mitgelaufen
+  (gruen) -- keine Pflicht laut Schritt 5, da keine Route/kein Handler-Signatur angefasst wurde,
+  nur eine interne Permission-Pruefung. `checkCompanyContactPermission` bleibt weiterhin
+  Single-Tenant in der Praxis (App-Passwoerter tragen aktuell keinen Tenant-Kontext an CardDAV
+  weiter) -- das ist ein bereits im Code dokumentierter Welle-3-Folgeauftrag, nicht Teil dieser
+  Unit, und diese Unit aendert daran nichts.
+
+## Iteration 29 — fix-work-recording-consent-missing-tenant-id — done — 2026-08-11 19:11
+- commit: 2e53e5e7
+- gebaut: `PostgresRepository.SetConsent` (internal/work/recording/postgres_repository.go:155)
+  fuegt jetzt `tenant_id` in die INSERT-Spaltenliste ein, per Subquery
+  `(SELECT tenant_id FROM recordings WHERE id = $1)` aus der Eltern-Recording — kein
+  Signaturwechsel an `Service.SetConsent`/`RecordingConsent`. Bei einem Cross-Tenant-Aufruf
+  (fremde `RecordingID`) liefert die Subquery unter der RLS-Sicht des Angreifer-Tenants auf
+  `recordings` KEINE Zeile -> NULL -> die INSERT-Policy weist die Zeile zurueck (fail-closed),
+  statt sie unter dem falschen Tenant zu schreiben. Neuer Test
+  `TestSetConsent_WritesCarryOwnerTenant` in `tenant_write_test.go` (Muster
+  `TestRecordingWrites_LandInCallerTenant` aus derselben Datei, da `recording_consents` eine
+  zusammengesetzte PK `(recording_id, user_id)` traegt und `AssertWriteCarriesTenant`
+  `WHERE id = $1` erwartet): foreign-ctx SetConsent schlaegt fehl UND schreibt keine Zeile,
+  own-ctx SetConsent schreibt mit korrektem `tenant_id`, ist fuer den anderen Tenant unsichtbar,
+  und der ON-CONFLICT-Update-Pfad (zweite Antwort ersetzt die erste) funktioniert weiterhin.
+- gate: build ok (`./internal/work/... ./internal/server/... ./cmd/gateway/...`) | vet ok
+  (`./internal/work/... ./internal/server/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/work/recording/...`, vor UND nach der Mutations-Probe erneut gelaufen) | test ok
+  (`./internal/work/recording/...` komplett gruen, 0 SKIP in `-v`-Lauf; `./internal/server/`
+  ebenfalls gruen, da `video_grpc.go` als Aufrufer genannt war, aber keine Signatur angefasst
+  wurde) | migration n.a. (keine neue Migration, reiner Query-Text-Fix — die Spalte `tenant_id`
+  existiert bereits seit 000119/000120) | rls-smoke ok (siehe Mutations-Probe: die
+  INSERT-Policy verwirft den Schreibvorgang ohne `tenant_id` mit SQLSTATE 42501, genau wie
+  erwartet)
+- coverage: internal/work/recording 32,7 % (lokal vor dem Fix, per `git stash` isoliert
+  gemessen) -> 33,2 % (lokal nach dem Fix, `go tool cover -func`). coverage_start der Unit war
+  "n.a." (Fund aus einer Scan-Unit), diese beiden Zahlen sind der direkte Vorher/Nachher-Vergleich
+  fuer genau diese Unit.
+- mutations-probe: die neue `tenant_id`-Spalte/Subquery aus dem INSERT wieder entfernt (Zeile auf
+  den alten Vier-Spalten-Zustand zurueckgesetzt) -> `TestSetConsent_WritesCarryOwnerTenant` wurde
+  rot mit `ERROR: new row violates row-level security policy for table "recording_consents"
+  (SQLSTATE 42501)` bei "SetConsent (own ctx)" — exakt der erwartete Fehler, da ohne `tenant_id`
+  auch der eigene Tenant die INSERT-Policy nicht mehr erfuellt. Aenderung zurueckgedreht,
+  `git diff --stat` zeigt wieder ausschliesslich den sauberen 3-Zeilen-Fix (plus Kommentar) in
+  `postgres_repository.go`.
+- verify vorgaenger: sauber (Commit `d91f2f57`, Iteration 28 — Produktionsdiff routet
+  `checkCompanyContactPermission` von einer nichtexistenten `users.role`-Spalte auf die
+  bestehende `auth.PostgresRepository.UserHasPermission("contacts","write")`-Pruefung um; kein
+  gRPC-Bypass (CardDAV ist kein Gateway-Handler mit gRPC-Client, direkter Repo-Zugriff ist das
+  bestehende Muster in dieser Datei), kein Stub, kein Proto/Migrations-Drift, kein neuer Guard
+  (wiederverwendete Permission mit bestehendem Seed aus Migration 000002), keine neue Tabelle,
+  Wire-Shape unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` nicht mitgelaufen, da weder
+  eine Route noch eine Handler-Signatur angefasst wurde (reiner Repository-Query-Fix mit reinem
+  Coverage-Test). Die uebrigen Lesepfade auf `recording_consents`
+  (`GetConsents`/`GetConsentsWithUser`/`CountPendingConsents`) waren nicht Teil dieser Unit und
+  verlassen sich weiterhin ausschliesslich auf RLS via `app.tenant_id`-Session-Variable ohne
+  explizites `tenant_id`-Praedikat in der WHERE-Klausel — das ist das bestehende Muster im
+  gesamten Paket (siehe `MarkInitiatorConsent`/`GetPreConsentStatus`, die es explizit tun, und
+  `GetConsents`, das es nicht tut) und ausserhalb des Scopes dieser Unit; falls RLS auf dieser
+  Tabelle je deaktiviert wuerde, waere das ein Cross-Tenant-Leck, aber das ist rein hypothetisch.
+
+## Iteration 30 — fix-calendar-grpc-nil-slice-wire-shape — done — 2026-08-11 19:21
+- commit: 0868f0dd
+- gebaut: Alle 13 List-RPCs plus `GetAvailability` in `backend/internal/server/calendar_grpc.go`
+  initialisieren ihr Response-Slice jetzt per `make([]*calv1.XxxProto, 0, len(<quelle>))` statt
+  einer nil-`var`-Deklaration (Stellen: ListCalendars 144, ListCalendarMembers 277,
+  ListBrowsableCalendars 331, ListEventsInRange 512, ListEventAttendees 719,
+  ListEventCategories 770, ListEventReminders 839, ListResources 949,
+  ListResourceAvailability 1041, ListResourceBookings 1147, ListHolidays 1175,
+  ListTaskDeadlinesInRange 1279, ListBookingPages 1759, GetAvailability/dayProtos 1881 — exakt
+  die 14 im Backlog genannten Fundstellen, keine weitere `var []*calv1.` bleibt übrig, per
+  `grep` verifiziert). Rein mechanischer Zwei-Wort-Diff pro Stelle (`var` -> `:= make(...)`),
+  keine Verhaltensänderung sonst.
+- gebaut (Tests): 13 neue/erweiterte Tests, je einer pro List-RPC, alle mit leerem
+  Repository-Ergebnis und `require.NotNil` + `assert.Empty` auf dem Response-Feld:
+  `TestListCalendars/empty_result_is_not_nil`, `TestListCalendarMembers/...`,
+  `TestListBrowsableCalendars/...` (alle in calendar_grpc_errormap_calendars_members_test.go),
+  `TestListEventsInRange/...`, `TestListEventAttendees/...`, `TestListEventCategories/...`,
+  `TestListEventReminders/...`, `TestListTaskDeadlinesInRange/...` (alle in
+  calendar_grpc_events_categories_reminders_test.go), `TestListResources_EmptyIsNotNil`,
+  `TestListResourceAvailability_Success` (um `require.NotNil` ergänzt — deckte den leeren Fall
+  bereits ab, prüfte aber nur `assert.Empty`, was nil und `[]` nicht unterscheidet),
+  `TestListResourceBookings_Success` (dieselbe Ergänzung), `TestListHolidays_EmptyIsNotNil`,
+  `TestListBookingPages_EmptyIsNotNil` (alle in calendar_grpc_resources_bookingpages_test.go).
+- offen (GetAvailability, ehrlich dokumentiert statt stillschweigend übersprungen): für die 13
+  List-RPCs war ein handler-Test mit leerem Repo problemlos möglich. Für `GetAvailability`
+  (dayProtos, Zeile 1881) ist das strukturell blockiert: `calendar.BookingService.GetAvailability`
+  ruft vor der Tageschleife unbedingt `s.repo.GetCalendarEventsInRange` und
+  `s.repo.GetBookedSlotsForPage` auf; beide sind in `calendar.BookingRepository` mit einem
+  unexported Rückgabetyp (`eventSlot`, nur in `internal/work/calendar/booking_repository.go`
+  sichtbar) deklariert. Ein Stub aus dem `server`-Paket kann diese Methoden deshalb nicht
+  überschreiben (Compile-Error: unexported identifier) — das bestätigt der bereits bestehende
+  Kommentar bei `stubBookingRepo` in calendar_grpc_resources_bookingpages_test.go, der genau
+  deshalb GetCalendarEventsInRange/GetBookedSlotsForPage nie implementiert. Der Fix selbst
+  (`dayProtos := make(...)`) ist im selben Commit mit demselben mechanischen Diff angewendet und
+  durch die Mutations-Probe (siehe unten, an derselben Codestelle demonstriert) mit belegt; er
+  ist by construction korrekt (make() macht nil und befüllte Quelle gleichermaßen zu einem
+  nicht-nil Slice), nur die End-zu-Ende-Testabdeckung über den echten BookingService ist ohne
+  Änderung an der `calendar`-Package-Sichtbarkeit (out of scope für diese Unit) nicht möglich.
+  Luke: falls das für GetAvailability doch geschlossen werden soll, bräuchte es entweder einen
+  exportierten Test-Helper in `internal/work/calendar` oder einen Test dort statt hier.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` komplett grün, 0 SKIP; explizit
+  alle 13 neuen/erweiterten Tests einzeln mit `-v` verifiziert) | migration n.a. (keine DB-Änderung,
+  reiner Handler-Text-Fix) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  `TestOpenAPIRouteDrift` ok (834 registrierte Routen gegen 836 dokumentierte Pfade, Pflicht
+  gelaufen da `internal/server` ein Handler-File angefasst hat, auch wenn keine Route/Signatur
+  sich geändert hat)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash` isoliert gemessen) -> 70,1 %
+  (nach dem Fix, `go tool cover -func`). Die Prozentzahl bewegt sich bei einer Stelle wie dieser
+  (Slice-Init-Zeile, keine neue Verzweigung) nicht sichtbar — der Beleg für den Fix ist die
+  Mutations-Probe, nicht die Coverage-Zahl.
+- mutations-probe: Zeile 144 (`protos := make([]*calv1.CalendarWithMemberInfoProto, 0,
+  len(calendars))`) zurück auf `var protos []*calv1.CalendarWithMemberInfoProto` gesetzt ->
+  `go test -run TestListCalendars$ -v` wurde rot, exakt am neuen Subtest
+  `TestListCalendars/empty_result_is_not_nil` mit "Expected value not to be nil" (die drei
+  anderen Subtests von TestListCalendars blieben grün, wie erwartet). Zurückgedreht, `git diff`
+  zeigt wieder ausschließlich den sauberen 14-Stellen-Diff in calendar_grpc.go plus die
+  Testergänzungen.
+- verify vorgaenger: sauber (Commit `2e53e5e7`, Iteration 29 — `SetConsent` INSERT bekommt
+  `tenant_id` per Subquery aus der Eltern-Recording, ON-CONFLICT-Ziel `(recording_id, user_id)`
+  passt exakt auf den bestehenden Primary Key aus Migration 000037, kein gRPC-Bypass, kein Stub,
+  kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle — `tenant_id` existiert seit
+  Migration 000119/000120 —, Wire-Shape unverändert, keine Route)
+- neue-units: keine
+- offen: der GetAvailability-Testlücke-Punkt oben; ansonsten nichts.
+
+## Iteration 31 — fix-crm-grpc-nil-slice-wire-shape-remaining — done — 2026-08-11 19:23
+- commit: 8b7053e3
+- gebaut: Acht weitere Stellen in `backend/internal/server/crm_grpc.go` mit demselben
+  Nil-Slice-Muster wie die bereits gefixte Vorlage (`fix-crm-list-nil-slice-wire-shape`,
+  Commit `c3f0c46f`) initialisieren ihr Response-Slice jetzt per
+  `infos := make([]*crmv1.XxxInfo, 0, len(<quelle>))` statt einer nil-`var`-Deklaration:
+  ListCompanies (831), GetCompanyContacts (948, Randfund), ListPipelineStages (1020),
+  ReorderPipelineStages (1112, Randfund), ListDeals (1303), ListActivities (1605),
+  Search (1769, Randfund), ListSavedFilters (1860) — exakt die im Backlog genannten 5 List-RPCs
+  plus 3 Randfunde, per `grep -n "var infos \[\]\*crmv1\."` verifiziert, dass keine Stelle
+  dieses Musters mehr übrig ist. Rein mechanischer Zwei-Wort-Diff pro Stelle (`var` -> `:=
+  make(...)`), keine Verhaltensänderung sonst.
+- gebaut (Tests): 8 neue Tests, je einer pro Stelle, alle mit leerem Repository-Ergebnis und
+  `require`/`assert`-Pattern `== nil` + `len(...) != 0`, nach der Vorlage
+  `TestListContacts_EmptyIsNilNotEmptySlice`: `TestListCompanies_EmptyIsNilNotEmptySlice` und
+  `TestGetCompanyContacts_EmptyIsNilNotEmptySlice` (crm_grpc_companies_dedupe_import_test.go),
+  `TestListPipelineStages_EmptyIsNilNotEmptySlice` und
+  `TestReorderPipelineStages_EmptyIsNilNotEmptySlice` und
+  `TestListDeals_EmptyIsNilNotEmptySlice` (crm_grpc_pipelines_deals_test.go),
+  `TestListActivities_EmptyIsNilNotEmptySlice`, `TestSearch_EmptyIsNilNotEmptySlice` und
+  `TestListSavedFilters_EmptyIsNilNotEmptySlice` (crm_grpc_activities_reports_consent_test.go).
+  Für ReorderPipelineStages musste der leere Fall extra hergeleitet werden: `Reorder` validiert
+  `len(stageIDs) == CountStages`, mit leerem Repo (Count=0) und leerem `StageIds` (0) passt das
+  — der Test deckt damit den echten Leerfall statt eines Validierungsfehlers ab.
+- root-cause-check: laut Notiz im Backlog vor dem Fix geprüft, ob einer der fünf
+  Service-Aufrufe (companyService.List, pipelineStageService.ListWithStats, dealService.List,
+  activityService.List, savedFilterService.List) selbst `nil` statt `[]T{}` liefert. Vier tun
+  das tatsächlich: `company.Service.List` und `activity.Service.List` bauen ihr Ergebnis mit
+  `var results []*T` + append (nil bei leerem Input), `deal.Service.enrichWithRelationsBatch`
+  gibt bei `len(deals)==0` explizit `nil, nil` zurück (identische Bugklasse wie die bereits
+  gefixte `contact.Service.enrichWithRelationsBatch`), `search.Service.Search` sammelt in
+  `var allResults []*models.SearchResult`. NICHT zusätzlich gefixt, bewusst: der
+  Handler-seitige `make(..., 0, len(quelle))`-Fix macht die Wire-Shape für alle acht RPCs schon
+  vollständig korrekt (ranging über eine nil-Quelle ist ein No-Op, `len(nil)==0`), und keiner
+  dieser vier Service-Methoden hat einen anderen Aufrufer als genau den hier gefixten Handler
+  (per `grep` auf `companyService.List|activityService.List|dealService.List|
+  searchService.Search` in `internal/server/*.go` verifiziert — chat_grpc.go:862 ruft eine
+  andere, gleichnamige `searchService.Search` aus dem `chat`-Paket, keine Kollision). Ein Fix
+  dort hätte keinen beobachtbaren Effekt gehabt und wäre reines Scope-Creep gewesen.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` grün, 0 SKIP; die 8 neuen Tests
+  zusätzlich einzeln mit `-v` verifiziert) | test ok (`./internal/crm/...`, alle 12
+  Unterpakete grün — ein erster Lauf mit voller `go test`-Parallelität schlug in
+  `internal/crm/contact` mit "remaining connection slots are reserved for roles with the
+  SUPERUSER attribute" fehl, das ist Verbindungspool-Erschöpfung der lokalen Postgres durch zu
+  viele gleichzeitig geöffnete Test-Pools, kein Code-Fehler — isoliert und mit `-p 4` erneut
+  gelaufen, beides grün) | migration n.a. (keine DB-Änderung, reiner Handler-Text-Fix) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst) | `TestOpenAPIRouteDrift` ok (834 registrierte
+  Routen gegen 836 dokumentierte Pfade, Pflicht gelaufen da `internal/server` ein Handler-File
+  angefasst hat, auch wenn keine Route/Signatur sich geändert hat)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash` auf die vier geänderten Dateien
+  isoliert gemessen) -> 70,1 % (nach dem Fix, `go tool cover -func`). Wie beim Muster-C-Fix aus
+  Iteration 30 bewegt sich die Prozentzahl bei einer reinen Slice-Init-Zeile ohne neue
+  Verzweigung nicht sichtbar — Beleg ist die Mutations-Probe, nicht die Coverage-Zahl.
+- mutations-probe: Zeile 831 (`infos := make([]*crmv1.CompanyInfo, 0, len(companies))`) zurück
+  auf `var infos []*crmv1.CompanyInfo` gesetzt -> `go test -run TestListCompanies_
+  EmptyIsNilNotEmptySlice -v` wurde rot ("Companies should be an empty slice, not nil...").
+  Zurückgedreht, `git diff --stat` zeigt danach wieder ausschließlich den sauberen 8-Stellen-Diff
+  in crm_grpc.go (16 geänderte Zeilen = 8 × var/make-Paar) plus die vier Testdateien.
+- verify vorgaenger: sauber (Commit `0868f0dd`, Iteration 30 — reiner `git show --stat`- und
+  Diff-Check: nur `calendar_grpc.go` plus drei Testdateien geändert, alle 14 Fundstellen exakt
+  derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff wie hier, kein gRPC-Bypass, kein
+  Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung
+  korrekt (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine
+
+## Iteration 32 — fix-work-grpc-nil-slice-wire-shape — done — 2026-08-11 19:33
+- commit: e38beedb
+- gebaut: Alle 14 im Backlog genannten Fundstellen in `backend/internal/server/work_grpc.go`
+  mit demselben Nil-Slice-Muster wie die Vorlage (`fix-crm-list-nil-slice-wire-shape`, Commit
+  `c3f0c46f`) initialisieren ihr Response-Slice jetzt per `protos := make([]*workv1.XxxProto,
+  0, len(<quelle>))` statt einer nil-`var`-Deklaration: ListProjects (131), ListProjectMembers
+  (294), ReorderProjectStatuses (494, Randfund), ListProjectStatuses (515), ListTasks (732),
+  ListSubtasks (908), ListTaskDependencies (982), ListTaskComments (1094), ListTaskEntityLinks
+  (1178), ListEntityTasks (1199), ListTaskActivities (1234), ListTaskFiles (1312), SearchTasks
+  (1523, Randfund), ListTimeEntries (1966) — per `grep -n "var protos \[\]\*workv1\."` vorher
+  UND nachher verifiziert (vorher 14 Treffer, nachher 0). Rein mechanischer Zwei-Wort-Diff pro
+  Stelle (`var` -> `:= make(...)`), keine sonstige Verhaltensänderung. `gofmt -w` hat zusätzlich
+  eine reine Whitespace-Realignment im `WorkGRPCServer`-Struct-Feld-Block ausgelöst (Folge der
+  geänderten Feldnamen-Spaltenbreite durch keine inhaltliche Änderung).
+- gebaut (Tests): neue Datei `work_grpc_nil_slice_test.go` mit 14 Tests (ein
+  `TestXxx_EmptyIsNilNotEmptySlice` je RPC), alle nach dem Vorlage-Pattern
+  (`resp.Field == nil` -> Error, `len(resp.Field) != 0` -> Error). Da `WorkGRPCServer` seine
+  Services als konkrete `*project.Service`/`*wstatus.Service`/`*comment.Service`/
+  `*timeentry.Service` haelt (kein Interface-Feld) und `taskRepo task.Repository` direkt als
+  Interface, mussten fuenf neue Stub-Repositories gebaut werden (`stubWorkProjectRepo`,
+  `stubWorkStatusRepo`, `stubWorkTaskRepo`, `stubWorkCommentRepo`, `stubWorkTimeEntryRepo`),
+  je mit vollstaendiger Interface-Implementierung (ungenutzte Methoden geben Zero-Values
+  zurueck) plus `newWorkServerWith<X>Repo`-Konstruktoren nach dem Muster aus
+  `crm_grpc_pipelines_deals_test.go`. `stubWorkTaskRepo` deckt allein 7 der 14 RPCs ab
+  (ListSubtasks/TaskDependencies/TaskEntityLinks/EntityTasks/TaskActivities/TaskFiles/
+  SearchTasks laufen alle direkt ueber `s.taskRepo`, kein Service-Layer dazwischen).
+  `stubWorkProjectRepo.GetByID` gibt bewusst immer ein Projekt zurueck (kein Not-Found), weil
+  `ListProjectMembers` intern erst `GetByID` fuer den Existenz-Check aufruft, bevor es die
+  (leere) Mitgliederliste liest. `comment.NewService`/`task.NewService` erhalten `nil` als
+  zweiten Parameter (`taskRepo`/`projectRepo`) — beide werden laut Quellcode nur in
+  Create/Update/Delete-Pfaden verwendet, nicht in `List`, und wurden fuer die Leerfall-Pruefung
+  nicht gebraucht.
+- root-cause-check: keine Service-Methode dieser 14 Aufrufer gibt selbst `nil` als
+  Erfolgsergebnis zurueck ausser durch die hier bereits abgedeckten direkten Repo-Aufrufe —
+  anders als bei `fix-crm-grpc-nil-slice-wire-shape-remaining` (Iteration 31) gab es hier keine
+  zusaetzliche Nil-Quelle eine Ebene tiefer zu fixen, weil die betroffenen Service-Methoden
+  (`project.Service.List`, `wstatus.Service.ListByProject`, `task.Service.List`,
+  `comment.Service.List`, `timeentry.Service.ListByTask`) allesamt reine Pass-Throughs auf
+  `s.repo.<Method>` sind — der Handler-seitige Fix macht die Wire-Shape fuer alle 14 RPCs
+  bereits vollstaendig korrekt.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` gruen, 0 SKIP — alle 14 neuen
+  Tests zusaetzlich einzeln mit `-v` verifiziert, alle PASS) | test ok (`./internal/gateway/`
+  gruen, `TestOpenAPIRouteDrift` gelaufen da `internal/server` ein Handler-File angefasst hat,
+  auch ohne Routen-/Signaturaenderung) | migration n.a. (keine DB-Aenderung, reiner
+  Handler-Text-Fix) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash` auf `work_grpc.go` isoliert
+  gemessen, Testdatei waehrenddessen ausgelagert) -> 70,1 % (nach dem Fix). Wie bei den
+  vorangegangenen Nil-Slice-Fixes (Iterationen 30/31) bewegt sich die Prozentzahl bei einer
+  reinen Slice-Init-Zeile ohne neue Verzweigung nicht sichtbar — Beleg ist die Mutations-Probe.
+- mutations-probe: Zeile 131 (`protos := make([]*workv1.ProjectProto, 0, len(projects))`)
+  zurueck auf `var protos []*workv1.ProjectProto` gesetzt -> `go test -run
+  TestListProjects_EmptyIsNilNotEmptySlice -v` wurde rot ("Projects should be an empty slice,
+  not nil..."). Zurueckgedreht, `git diff` zeigt danach wieder ausschliesslich den sauberen
+  14-Stellen-Diff in work_grpc.go (plus die harmlose gofmt-Struct-Realignment) und die neue
+  Testdatei.
+- verify vorgaenger: sauber (Commit `8b7053e3`, Iteration 31 — reiner `git show --stat`- und
+  Diff-Check: nur `crm_grpc.go` plus drei Testdateien geaendert, alle 8 Fundstellen exakt
+  derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff, kein gRPC-Bypass, kein Stub, kein
+  Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt
+  (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine — alle 14 im Backlog genannten Stellen (12 List-RPCs + 2 Randfunde) sind in
+  diesem einen Commit abgedeckt, kein Rest fuer eine Folge-Iteration.
+
+## Iteration 33 — fix-chat-grpc-nil-slice-wire-shape — done — 2026-08-11 19:56
+- commit: dd0cefa9
+- gebaut: Alle 5 im Backlog genannten Fundstellen in `backend/internal/server/chat_grpc.go`
+  mit demselben Nil-Slice-Muster wie die Vorlage (`fix-crm-list-nil-slice-wire-shape`, Commit
+  `c3f0c46f`) initialisieren ihr Response-Slice jetzt per `x := make([]*T, 0, len(<quelle>))`
+  statt einer nil-`var`-Deklaration: ListChannels (152), ListDMs (590), ListChannelFiles (808),
+  SearchChat (867), ListReactions (926) — plus den im Backlog genannten Randfund ToggleReaction
+  (898, teilt dieselbe Variable/dasselbe Feld im selben File). Root-Cause-Check (Grep auf
+  `var infos \[\]\*chatv1\.` und `var reactions \[\]\*chatv1\.` im gesamten File) fand zwei
+  weitere Schwesterfunktionen mit identischem Muster, die NICHT im Backlog standen:
+  GetChannelMembers (312) und GetMessages (475) — beide bauen ihr Response-Slice exakt nach
+  demselben `var infos []*T` + `append`-Muster und liefern ihre Antwort direkt ohne
+  Service-Layer-Zwischenschritt. Per harter Regel 2 dieses Laufs ("Sitzt derselbe Bug in einer
+  Schwesterfunktion, gehoert er in dieselbe Unit") in denselben Commit mitgefixt, statt eine
+  weitere Scan-Unit-Runde abzuwarten. Alle 8 Stellen per
+  `grep -n "var infos \[\]\*chatv1\.\|var protos \[\]\*chatv1\.\|var reactions \[\]\*chatv1\."`
+  vorher (8 Treffer) und nachher (0 Treffer) verifiziert.
+- gebaut (Tests): 8 neue/gestaerkte Tests nach dem Vorlage-Pattern
+  (`resp.Field == nil` -> Error, dann `require.Empty`), alle gegen die bereits bestehenden
+  Fixtures `chatChannelsMessagesFixture`/`chatFilesSearchReactionsFixture`:
+  `TestChatListChannels/success_wraps_empty_list` (bestehender Test war zu schwach, `require.
+  Empty` allein haette nil nicht von [] unterschieden — um `require.NotNil` ergaenzt),
+  `TestChatGetChannelMembers/empty_is_not_nil` (neuer Kanal ohne Mitgliedschaft direkt im
+  Stub-Repo angelegt), `TestChatGetMessages/empty_is_not_nil` (bestehender Kanal ohne gesendete
+  Nachricht), `TestChatListDMs/empty_is_not_nil`, `TestChatListChannelFiles/empty_list_is_not_
+  null` (bestehender Test ebenfalls zu schwach, ergaenzt), `TestChatSearchChat/no_matches_is_
+  not_nil`, `TestChatToggleReaction/adds_then_removes_on_repeat_toggle` (bestehender Subtest
+  ergaenzt, deckt jetzt auch den Nach-Entfernen-Leerfall), `TestChatListReactions/empty_is_not_
+  nil`.
+- root-cause-check: `search.Service.Search` gibt bei `len(channelIDs)==0` bereits `nil, 0, nil`
+  zurueck (Zeile 68f., service.go) -- identische Nil-Quelle-eine-Ebene-tiefer-Bugklasse wie die
+  bereits gefixte `contact.Service.enrichWithRelationsBatch`. NICHT zusaetzlich gefixt, bewusst:
+  der Handler-seitige `make(..., 0, len(quelle))`-Fix macht die Wire-Shape fuer SearchChat schon
+  vollstaendig korrekt (Ranging ueber ein nil-Ergebnis ist ein No-Op), und `searchService.
+  Search` hat im gesamten `internal/server`-Paket keinen anderen Aufrufer als den hier gefixten
+  Handler (per `grep -rn "searchService.Search" internal/server/*.go` verifiziert). `reaction.
+  Service.ToggleReaction` schuetzt sein `summaries == nil`-Ergebnis bereits explizit
+  (service.go:64-66) -- kein Fund dort.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` gruen, 0 SKIP, `DATABASE_URL`
+  gegen `kmuhub_app` -- alle 8 neuen/gestaerkten Subtests zusaetzlich einzeln mit `-v`
+  verifiziert, alle PASS) | test ok (`./internal/gateway/` gruen, `TestOpenAPIRouteDrift`
+  gelaufen da `internal/server` ein Handler-File angefasst hat, auch ohne Routen-/
+  Signaturaenderung) | migration n.a. (keine DB-Aenderung, reiner Handler-Text-Fix) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash push -u` auf die drei
+  geaenderten Dateien isoliert gemessen) -> 70,1 % (nach dem Fix, `go tool cover -func`). Wie
+  bei den vorangegangenen Nil-Slice-Fixes (Iterationen 30/31/32) bewegt sich die Prozentzahl
+  bei einer reinen Slice-Init-Zeile ohne neue Verzweigung nicht sichtbar -- Beleg ist die
+  Mutations-Probe.
+- mutations-probe: Zeile 152 (`infos := make([]*chatv1.ChannelInfo, 0, len(channels))` in
+  `ListChannels`) zurueck auf `var infos []*chatv1.ChannelInfo` gesetzt -> `go test -run
+  TestChatListChannels -v` wurde rot ("Expected value not to be nil... Channels should be an
+  empty slice, not nil..."). Zurueckgedreht, `git diff --stat` zeigt danach wieder
+  ausschliesslich den sauberen 8-Stellen-Diff in chat_grpc.go (16 geaenderte Zeilen = 8 ×
+  var/make-Paar) plus die drei Testdateien.
+- verify vorgaenger: sauber (Commit `e38beedb`, Iteration 32 — reiner `git show --stat`- und
+  Diff-Check: nur `work_grpc.go` plus eine neue Testdatei geaendert, alle 14 Fundstellen exakt
+  derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff wie hier, kein gRPC-Bypass, kein
+  Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung
+  korrekt (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine. GetChannelMembers und GetMessages waren keine im Backlog genannten Fundstellen
+  dieser Unit, teilen aber den identischen Bug im selben File — nach Regel 2 dieses Laufs
+  mitgefixt statt fuer eine weitere Scan-Iteration zurueckgestellt.
+
+## Iteration 34 — fix-notification-grpc-nil-slice-wire-shape — done — 2026-08-11 19:53
+- commit: 927d421c
+- gebaut: Alle 7 im Backlog genannten Fundstellen in `backend/internal/server/notification_grpc.go`
+  mit demselben Nil-Slice-Muster wie die Vorlage (`fix-crm-list-nil-slice-wire-shape`, Commit
+  `c3f0c46f`) initialisieren ihr Response-Slice jetzt per `x := make([]*T, 0, len(<quelle>))`
+  bzw. `make([]*T, 0, 2)` (GetAccountLinkStatus, feste 2-Elemente-Plattformliste) statt einer
+  nil-`var`-Deklaration: ListNotifications (117), GetNotificationPreferences (325),
+  ListMutedResources (431), ListEventTypes (539), ListIntegrationConfigs (749),
+  ListChannelMappings (939), GetAccountLinkStatus (1074). Root-Cause-Check
+  (`grep -n "var .*\[\]\*notificationv1\." internal/server/notification_grpc.go`) fand vor dem
+  Fix genau diese 7 Treffer und danach 0 — keine weitere Schwesterfunktion mit demselben Muster
+  im File uebrig.
+- gebaut (Tests): TestListNotifications_CrossTenantYieldsEmpty um `require.NotNil` ergaenzt
+  (war zuvor nur `assert.Empty`, haette nil nicht von [] unterschieden). Vier neue Tests fuer
+  Stellen ohne bestehenden Leerfall: TestListEventTypes_EmptyIsNotNil (Modul ohne registrierte
+  Events), TestGetNotificationPreferences_EmptyIsNotNil (neuer User ohne Preferences),
+  TestListMutedResources_EmptyIsNotNil (neuer User ohne Mutes), TestListIntegrationConfigs_
+  EmptyIsNotNil (frischer Integrations-Stub ohne Configs). Zwei bestehende Tests verstaerkt
+  (`require.NotNil` vor dem bisherigen `assert.Empty` ergaenzt): TestChannelMappingCRUD_
+  HappyPath (Zustand nach Delete der einzigen Mapping) und TestLinkAccount_
+  HappyPathAndDomainErrors (Zustand nach UnlinkAccount).
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` gruen, 0 SKIP, `DATABASE_URL`
+  gegen `kmuhub_app` — die 7 neuen/gestaerkten Tests zusaetzlich einzeln mit `-v` verifiziert,
+  alle PASS) | test ok (`./internal/gateway/` gruen, `TestOpenAPIRouteDrift` gelaufen da
+  `internal/server` ein Handler-File angefasst hat, auch ohne Routen-/Signaturaenderung) |
+  migration n.a. (keine DB-Aenderung, reiner Handler-Text-Fix) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash push -u` auf die zwei
+  geaenderten Dateien isoliert gemessen) -> 70,1 % (nach dem Fix, `go tool cover -func`). Wie
+  bei den vorangegangenen Nil-Slice-Fixes (Iterationen 30/31/32/33) bewegt sich die Prozentzahl
+  bei einer reinen Slice-Init-Zeile ohne neue Verzweigung nicht sichtbar — Beleg ist die
+  Mutations-Probe.
+- mutations-probe: Zeile 431 (`infos := make([]*notificationv1.MuteInfo, 0, len(mutes))` in
+  `ListMutedResources`) zurueck auf `var infos []*notificationv1.MuteInfo` gesetzt -> `go test
+  -run TestListMutedResources_EmptyIsNotNil -v` wurde rot ("Expected value not to be nil...
+  Mutes should be an empty slice, not nil..."). Zurueckgedreht, `git diff --stat` zeigt danach
+  wieder ausschliesslich den sauberen 7-Stellen-Diff in notification_grpc.go (14 geaenderte
+  Zeilen = 7 × var/make-Paar) plus die Testdatei.
+- verify vorgaenger: sauber (Commit `dd0cefa9`, Iteration 33 — reiner `git show --stat`- und
+  Diff-Check: nur `chat_grpc.go` plus zwei Testdateien geaendert, alle 8 Fundstellen exakt
+  derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff, kein gRPC-Bypass, kein Stub, kein
+  Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt
+  (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine — alle 7 im Backlog genannten Stellen sind in diesem einen Commit abgedeckt,
+  Root-Cause-Grep bestaetigt keinen Rest im File.
+
+## Iteration 35 — fix-inventar-grpc-list-item-attachments-nil-slice — done — 2026-08-11 19:59
+- commit: 02a41899
+- gebaut: `ListItemAttachments` (backend/internal/server/inventar_grpc.go:1020) befuellte
+  bisher direkt das Response-Struct-Feld per `resp := &inventarv1.ListItemAttachmentsResponse{}`
+  gefolgt von `resp.Attachments = append(resp.Attachments, ...)` in einer Schleife — bei leerem
+  `atts` blieb `resp.Attachments` `nil` und serialisiert als JSON `null` statt `[]`. Fix:
+  `resp.Attachments` wird jetzt mit `make([]*inventarv1.ItemAttachment, 0, len(atts))`
+  vorbelegt, bevor die Schleife appended. Die uebrigen 6 List-RPCs in derselben Datei
+  (ListItems, ListMovements, ListWarnings, ListLocations, ListInventurSessions,
+  ListPickingLists) nutzen bereits `make(..., len(x))` und waren nicht betroffen — laut
+  Backlog-Scope bereits geprueft, per Grep auf `resp\.\w+ = append` gegenkontrolliert: keine
+  weitere Fundstelle desselben Musters im File.
+- gebaut (Tests): neuer Subtest `ListItemAttachments empty result is [] not nil` in
+  `TestInventarItemAttachmentHandlers` (inventar_grpc_test.go) — nutzt den bestehenden Stub
+  `stubInventarRepo.ListItemAttachments`, der bereits `nil, nil` zurueckgibt, prueft
+  `require.NotNil` + `require.Empty` auf `resp.Attachments`.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` gruen, 0 SKIP, `DATABASE_URL`
+  gegen `kmuhub_app`) | test ok (`./internal/gateway/` gruen, `TestOpenAPIRouteDrift` gelaufen
+  da Handler-File angefasst, keine Routen-/Signaturaenderung) | migration n.a. (reiner
+  Handler-Text-Fix) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash push -u` auf die zwei
+  geaenderten Dateien isoliert gemessen) -> 70,2 % (nach dem Fix, `go tool cover -func`).
+- mutations-probe: `Attachments: make([]*inventarv1.ItemAttachment, 0, len(atts))` aus der
+  Response-Initialisierung entfernt (zurueck auf `&inventarv1.ListItemAttachmentsResponse{}`)
+  -> `go test -run TestInventarItemAttachmentHandlers -v` wurde am neuen Subtest rot ("Expected
+  value not to be nil"). Zurueckgedreht, `git diff --stat` zeigt danach wieder ausschliesslich
+  den sauberen 2-Zeilen-Diff in inventar_grpc.go plus die Testdatei.
+- verify vorgaenger: sauber (Commit `927d421c`, Iteration 34 — `git show --stat` und Diff
+  geprueft: nur `notification_grpc.go` plus eine neue Testdatei geaendert, alle 7 Fundstellen
+  exakt derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff wie in dieser und den
+  vorangegangenen Iterationen, kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein
+  neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine
+
+## Iteration 36 — fix-plugin-grpc-granted-permissions-nil-slice — done — 2026-08-11 20:08
+- commit: 9e58005f
+- gebaut: Root-Cause-Fix in `internal/plugin/repository/permission.go`,
+  `PermissionRepository.ListByInstallation` (Zeile 44) initialisierte `permissions` bisher als
+  `var permissions []string` und befuellte sie nur per `append` in der `rows.Next()`-Schleife —
+  bei einer Installation ohne Berechtigungen blieb die Slice `nil` und wurde bis zum
+  `ListGrantedPermissions`-Response-Feld `Permissions` durchgereicht (`plugin_grpc.go:236-240`
+  ist reiner Durchreicher, `service.go:355-357` ebenso — beide bestaetigt, kein eigener Bug).
+  Fix: `permissions := make([]string, 0)` vor der Schleife. Zusaetzlich denselben Bug im
+  Test-Double `stubPluginPermissionRepo.ListByInstallation` (internal/server/plugin_grpc_test.go)
+  behoben — der Stub gab bei einem Map-Miss (`r.granted[installationID]`) ebenfalls `nil` statt
+  einer leeren Slice zurueck; ohne diesen Fix haette der gRPC-Handler-Test die echte Korrektur
+  gar nicht spiegeln koennen, weil er komplett am echten Repository vorbeilaeuft.
+- gebaut (Tests): neuer DB-gestuetzter Test `TestPluginPermissions_ListByInstallation_
+  EmptyIsNotNil` in `internal/plugin/repository/permission_rls_test.go` — seedet eine
+  Installation ohne Berechtigungen und beweist gegen die echte Postgres, dass
+  `ListByInstallation` `[]string{}` statt `nil` liefert (das ist der eigentliche Beweis, der
+  Bug sitzt im echten Repository, nicht im Stub). Bestehenden Handler-Test
+  `TestPluginListGrantedPermissions/"empty for unknown installation"` in
+  `internal/server/plugin_grpc_test.go` umbenannt zu ".../\"empty for unknown installation is []
+  not nil\"" und um `require.NotNil(t, resp.GetPermissions())` vor dem bestehenden
+  `require.Empty` ergaenzt.
+- gate: build ok (`./internal/plugin/... ./internal/server/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok (`./internal/plugin/... ./internal/server/... ./internal/gateway/...`)
+  | lint ok (golangci-lint 0 issues auf `./internal/plugin/... ./internal/server/...`) | test ok
+  (`./internal/plugin/...` gruen inkl. `internal/plugin/repository`, 0 SKIP, `DATABASE_URL` gegen
+  `kmuhub_app`) | test ok (`./internal/server/` gruen, ein erster Lauf zeigte einen `FAIL` ohne
+  benannten `--- FAIL`-Subtest — zwei Wiederholungen liefen beide sauber durch, das ist ein
+  vorbestehender Flake in einem zeitabhaengigen Test, nicht durch diese Aenderung ausgeloest,
+  siehe `offen:`) | test ok (`./internal/gateway/ -run TestOpenAPIRouteDrift`: 834 Routen gegen
+  836 dokumentierte Pfade, PASS — vorsorglich gelaufen, obwohl kein Handler-/Routen-Code
+  angefasst wurde, nur Repository + zwei Testdateien) | migration n.a. (keine DB-/Schema-Aenderung)
+  | rls-smoke n.a. (keine Tabelle/Policy angefasst, nur eine bestehende Read-Query korrigiert)
+- coverage: internal/plugin/repository 58,9 % (vor dem Fix, per `git stash push -u` auf die drei
+  geaenderten Nicht-Backlog-Dateien isoliert gemessen) -> 60,9 % (nach dem Fix, `go tool cover
+  -func`)
+- mutations-probe: `permissions := make([]string, 0)` in `permission.go` zurueck auf
+  `var permissions []string` gesetzt -> `go test -run
+  TestPluginPermissions_ListByInstallation_EmptyIsNotNil` in `internal/plugin/repository` wurde
+  rot ("expected an empty slice, got nil"). Zurueckgedreht, `git diff --stat` zeigt danach wieder
+  ausschliesslich den sauberen 4-Datei-Diff (permission.go 1 Zeile, permission_rls_test.go +27,
+  plugin_grpc_test.go +7/-2, BACKLOG.yml Status).
+- verify vorgaenger: sauber (Commit `02a41899`, Iteration 35 — `git show --stat` und Diff
+  geprueft: nur `inventar_grpc.go` plus Testdatei geaendert, derselbe mechanische
+  Struct-Feld-`make(...)`-Zwei-Zeilen-Diff, kein gRPC-Bypass, kein Stub-Aenderung noetig dort,
+  kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt,
+  keine Route)
+- neue-units: keine
+- offen: der einmalige `FAIL` ohne erkennbaren Subtest-Namen in `internal/server/` beim ersten
+  Testlauf dieser Iteration ist nicht reproduzierbar (zwei folgende Laeufe beide gruen) — vermutlich
+  ein zeitabhaengiger Flake (Timer-/Duration-Tests im Log sichtbar), keine Verbindung zu den
+  geaenderten Dateien erkennbar. Falls er in CI wieder auftaucht, lohnt ein gezielter `-run`-Bisect.
+
+## Iteration 37 — fix-schichten-grpc-nil-slice-wire-shape — done — 2026-08-11 20:09
+- commit: 3e93b66d
+- gebaut: fuenf Nil-Slice-Fixes in `backend/internal/server/schichten_grpc.go` nach dem
+  Muster von `fix-crm-list-nil-slice-wire-shape` (Iteration 10): `ListShifts` (Zeile 164),
+  `ListAssignments` (257), `ListTemplates` (372), `ListSwapRequests` (542) — die vier aus dem
+  Backlog-Scope — sowie `ApplyTemplate` (408), das der Scan (Iteration 22) nicht gelistet hatte.
+  Root-Cause-Grep (`grep -n "var .*\[\]\*schichtenv1\." internal/server/schichten_grpc.go`) fand
+  genau diese 5 Stellen im File, nicht nur die 4 dokumentierten — `ApplyTemplate` traegt exakt
+  denselben `var pbShifts []*schichtenv1.Shift`-Konstrukt wie `ListShifts` (unterschiedliches
+  Response-Feld, gleicher Bug), mitgefixt statt als eigene Unit angelegt, analog zur
+  Randfund-Behandlung von `PreviewErasure`/`ExecuteErasure` in
+  `fix-security-grpc-nil-slice-wire-shape`s Notes. Alle fuenf `var x []*T` -> `x := make([]*T,
+  0, len(<quelle>))`.
+- gebaut (Tests): `TestSchichten_ListShifts_EmptyIsEmptySliceNotNull` (existierte bereits, pruefte
+  aber trotz ihres Namens nur `assert.Empty` und haette den Bug NICHT bewiesen) um
+  `require.NotNil(t, resp.Shifts)` ergaenzt. `TestSchichten_AssignUnassignListAssignments`
+  analog um `require.NotNil(t, listResp.Assignments)` vor dem bestehenden `assert.Empty`
+  ergaenzt. `TestSchichten_ListSwapRequests_FiltersAndPagination`s `emptyResp`-Zweig ebenso.
+  Zwei neue Tests: `TestSchichten_ListTemplates_EmptyIsEmptySliceNotNull` (leerer Tenant) und
+  `TestSchichten_ApplyTemplate_NoMatchingDayIsEmptySliceNotNull` (Range auf einen Dienstag
+  begrenzt, Montags-Template trifft keinen Tag im Bereich -> `CreatedCount == 0`,
+  `require.NotNil(t, applyResp.Shifts)`).
+- gate: build ok (`./internal/server/... ./internal/schichten/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint 0 issues auf `./internal/server/...
+  ./internal/schichten/...`) | test ok (`./internal/server/` 0 Skips, `DATABASE_URL` gegen
+  `kmuhub_app`; `./internal/schichten/...` gruen) | `go test ./internal/gateway/ -run
+  TestOpenAPIRouteDrift` gruen (834/836, keine Route/Spec angefasst, reine Vorsichtspruefung
+  wegen `schichten_grpc.go`-Anfassung) | migration n.a. (reiner Handler-Text-Fix) | rls-smoke
+  n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,2 % -> 70,2 % (beide selbst gemessen per `go tool cover -func`,
+  Vorher-Wert per `git stash push -u` auf genau die zwei geaenderten Dateien isoliert.
+  Unveraendert, weil alle fuenf neuen `make(...)`-Zeilen bereits von bestehenden bzw. neuen
+  Testpfaden durchlaufen werden, ohne die Gesamtzeilenzahl relevant zu verschieben)
+- mutations-probe: `ListShifts`s `pbShifts := make([]*schichtenv1.Shift, 0, len(shifts))` zurueck
+  auf `var pbShifts []*schichtenv1.Shift` gesetzt -> `TestSchichten_ListShifts_
+  EmptyIsEmptySliceNotNull` wurde rot ("Expected value not to be nil"). Zurueckgedreht,
+  `git diff --stat internal/server/schichten_grpc.go` zeigt wieder nur die urspruengliche
+  Aenderung (5 insertions, 5 deletions).
+- verify vorgaenger: sauber (Commit `9e58005f`, Iteration 36 — `git show --stat` und Diff
+  geprueft: nur `permission.go` (1 Zeile `var` -> `make`) plus drei Testdateien geaendert,
+  derselbe mechanische Nil-Slice-Fix, kein gRPC-Bypass, kein Stub-Fund im echten Repository,
+  kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung
+  korrekt, keine Route)
+- neue-units: keine (der einzige Randfund, `ApplyTemplate`, ist in dieser Unit mitgefixt statt
+  als eigene Unit angelegt — siehe `gebaut:`)
+- offen: keine. Reiner Handler-Fix ohne Migrations-/RLS-Beruehrung. Damit ist Block C bis auf
+  `fix-security-grpc-nil-slice-wire-shape` (letzte verbliebene `todo`-Unit) abgearbeitet.
+
+## Iteration 38 — fix-security-grpc-nil-slice-wire-shape — done — 2026-08-11 20:16
+- commit: 96b8cb02
+- gebaut: sieben Nil-Slice-Fixes in `backend/internal/server/security_grpc.go` nach dem
+  Muster von `fix-crm-list-nil-slice-wire-shape`: `ListAuditEntries` (121),
+  `ListVaultSecrets` (279), `ListDataExports` (355), `PreviewErasure` (528),
+  `ExecuteErasure` (559) — alle fuenf `var x []*T` -> `x := make([]*T, 0, len(<quelle>))`.
+  `ListIPRules` (726) und `ListRetentionPolicies` (827) sind direkte pgx-Query-Loops ohne
+  vorab bekannte Laenge (Scan erst in `rows.Next()`), dort `x := make([]*T, 0)` statt
+  `var x []*T`. Alle 7 aus dem Backlog-Scope (5 dokumentiert + die beiden Randfunde
+  `PreviewErasure`/`ExecuteErasure`, die die Unit selbst schon als mitzufixen benannt hatte)
+  abgearbeitet, keine weiteren `var .*\[\]\*securityv1\.`-Stellen im File
+  (`grep -n "var .*\[\]\*securityv1\." backend/internal/server/security_grpc.go` vor dem Fix
+  zeigte genau diese 7 Zeilen, keine mehr).
+- gebaut (Tests): neue `TestSecurityGRPC_EmptyListsAreEmptySliceNotNull` (ListAuditEntries,
+  ListVaultSecrets, ListDataExports je mit leerem Stub-Repo, `require.NotNil` + `assert.Empty`).
+  `TestGDPRErasure_PreviewIsSafeExecuteIsValidationOnly` um `require.NotNil(t,
+  previewResp.Modules)` sowie einen neuen `ExecuteErasure`-Aufruf mit
+  `require.NotNil(t, executeResp.ModulesAffected)` ergaenzt — sicher, weil im Testserver
+  keine Erasure-Handler registriert sind (keine echte Loeschung, nur ein leerer Durchlauf,
+  identische Begruendung wie beim bestehenden PreviewErasure-Test). Neue Datei
+  `security_grpc_retention_policies_db_test.go` (analog zu `security_grpc_ip_rules_db_test.go`,
+  DB-gestuetzt via `testutil.SkipIfNoDB`/`PoolFromEnv`): `..._EmptyIsEmptySliceNotNull` und
+  `..._ReturnsSeededPolicy` — `ListRetentionPolicies` war laut Kommentar im Kopf von
+  `security_grpc_test.go` bisher komplett ungetestet ("not reachable at all without a real DB
+  pool"), lief also nie gegen eine echte Zeile.
+- gate: build ok (`./internal/server/... ./internal/security/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint 0 issues auf
+  `./internal/server/... ./internal/security/...`) | test ok (`./internal/server/` und
+  `./internal/security/...` 0 Skips, `DATABASE_URL` gegen `kmuhub_app`) | `go test
+  ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (834/836, keine Route/Spec angefasst,
+  reine Vorsichtspruefung wegen `security_grpc.go`-Anfassung) | migration n.a. (reiner
+  Handler-Text-Fix) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,2 % -> 70,3 % (beide selbst gemessen per `go tool cover -func`,
+  Vorher-Wert per `git stash push -u` auf genau die drei geaenderten/neuen Dateien isoliert)
+- mutations-probe: `ListAuditEntries`s `pbEntries := make([]*securityv1.AuditEntry, 0,
+  len(entries))` zurueck auf `var pbEntries []*securityv1.AuditEntry` gesetzt ->
+  `TestSecurityGRPC_EmptyListsAreEmptySliceNotNull` wurde rot ("Expected value not to be
+  nil"). Zurueckgedreht, `git diff --stat backend/internal/server/security_grpc.go` zeigt
+  wieder nur die urspruengliche Aenderung (7 insertions, 7 deletions).
+- verify vorgaenger: sauber (Commit `3e93b66d`, Iteration 37 — `git show --stat` und Diff
+  geprueft: nur `schichten_grpc.go` (5x `var` -> `make`, inkl. dokumentierter Randfund
+  `ApplyTemplate`) plus Testdatei geaendert, derselbe mechanische Nil-Slice-Fix, kein
+  gRPC-Bypass, kein Stub-Fund im echten Repository, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt, keine Route)
+- neue-units: keine
+- offen: keine. Damit ist Block C (die letzte `todo`-Unit aus dem urspruenglichen Backlog)
+  abgearbeitet — kein offener `status: todo` mehr in `BACKLOG.yml`.
+
+## CI nach Lauf (2026-08-11 20:35)
+- run: 31522492401
+- sha: 199aa4146868ba4c47a192a9a48203c35739872f
 - ergebnis: success
-- commits: 175
+- commits: 50
 

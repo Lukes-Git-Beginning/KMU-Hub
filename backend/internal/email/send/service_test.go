@@ -124,8 +124,10 @@ func TestSaveDraft(t *testing.T) {
 	creator := &mockMessageCreator{}
 	svc := NewService(nil, creator, nil)
 
+	tenantID := uuid.New()
 	input := DraftInput{
 		AccountID: uuid.New(),
+		TenantID:  tenantID,
 		UserID:    uuid.New(),
 		From:      EmailAddress{Name: "Alice", Email: "alice@example.com"},
 		To:        []EmailAddress{{Email: "bob@example.com"}},
@@ -140,6 +142,7 @@ func TestSaveDraft(t *testing.T) {
 	assert.True(t, msg.IsDraft)
 	assert.Equal(t, "Draft subject", msg.Subject)
 	assert.Equal(t, "alice@example.com", msg.FromEmail)
+	assert.Equal(t, tenantID, msg.TenantID)
 	assert.Len(t, creator.messages, 1)
 }
 

@@ -623,6 +623,37 @@ func TestGetTemplate_ReturnsRowAndRejectsUnknownID(t *testing.T) {
 	}
 }
 
+func TestCreateAndUpdateTemplate_EmptyDefaultLinesJSONDefaultsToEmptyArray(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupRapporteRepo(t)
+
+	template, err := repo.CreateTemplate(ctx, tenantID, "Leere Vorlage", "", "", "")
+	if err != nil {
+		t.Fatalf("CreateTemplate with empty default_lines_json: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "report_templates", template.ID) })
+
+	if !template.DefaultLinesJSON.Valid || template.DefaultLinesJSON.String != "[]" {
+		t.Fatalf("expected default_lines_json '[]', got %+v", template.DefaultLinesJSON)
+	}
+
+	reloaded, err := repo.GetTemplate(ctx, tenantID, template.ID)
+	if err != nil {
+		t.Fatalf("GetTemplate: %v", err)
+	}
+	if !reloaded.DefaultLinesJSON.Valid || reloaded.DefaultLinesJSON.String != "[]" {
+		t.Fatalf("expected reloaded default_lines_json '[]', got %+v", reloaded.DefaultLinesJSON)
+	}
+
+	updated, err := repo.UpdateTemplate(ctx, tenantID, template.ID, "Leere Vorlage", "", "", "", true)
+	if err != nil {
+		t.Fatalf("UpdateTemplate with empty default_lines_json: %v", err)
+	}
+	if !updated.DefaultLinesJSON.Valid || updated.DefaultLinesJSON.String != "[]" {
+		t.Fatalf("expected updated default_lines_json '[]', got %+v", updated.DefaultLinesJSON)
+	}
+}
+
 func TestListTemplates_FiltersActiveOnlyAndPaginates(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupRapporteRepo(t)

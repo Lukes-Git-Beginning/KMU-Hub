@@ -70,6 +70,33 @@ func TestRLS_PluginPermissions_TenantBSeesNoTenantAGrants(t *testing.T) {
 	testutil.AssertRowCount(t, pool, ctxA, "plugin_permissions", permID, 1)
 }
 
+// TestPluginPermissions_ListByInstallation_EmptyIsNotNil proves that an
+// installation with zero granted permissions gets back an allocated empty
+// slice rather than nil — a nil []string here serializes to JSON null
+// instead of [] over the gRPC/protojson boundary in
+// PluginGRPCServer.ListGrantedPermissions.
+func TestPluginPermissions_ListByInstallation_EmptyIsNotNil(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	testutil.EnsureTenant(t, pool, testutil.TenantA, "TenantA")
+
+	installationID := seedInstallation(t, pool, testutil.TenantA, "rls-test-plugin-empty-perms")
+
+	repo := repository.NewPermissionRepository(pool)
+	perms, err := repo.ListByInstallation(context.Background(), installationID)
+	if err != nil {
+		t.Fatalf("ListByInstallation: %v", err)
+	}
+	if perms == nil {
+		t.Fatal("expected an empty slice, got nil")
+	}
+	if len(perms) != 0 {
+		t.Fatalf("expected 0 permissions, got %d", len(perms))
+	}
+}
+
 // TestPluginPermissions_Grant_CrossTenantInstallation_Rejected exercises the
 // real write path (repository.PermissionRepository.Grant) rather than SeedRow:
 // granting a permission against another tenant's installation must fail the
