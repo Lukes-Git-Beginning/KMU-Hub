@@ -4334,7 +4334,7 @@ Frühere Läufe liegen vollständig im Archiv:
   auf dem Loop-Rechner ermittelt (2026-08-11 04:20).
 
 ## Iteration 69 — e-cov-produktion-repo-ext — done — 2026-08-11 04:30
-- commit: <wird nach dem Commit im naechsten Schritt eingetragen>
+- commit: bfbe09da
 - gebaut: `internal/produktion/postgres_repository_ext_test.go` (neu) deckt
   die vier bisher 0,0-%-Entitaeten aus postgres_repository_ext.go gegen die
   echte PostgresRepository ab: BOM (Create/Update/Get/List/Delete inkl.
