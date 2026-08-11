@@ -400,6 +400,7 @@ func TestChatListChannelFiles(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, int32(0), resp.Total)
+		require.NotNil(t, resp.Files, "Files should be an empty slice, not nil, so it serializes to [] rather than null")
 		require.Empty(t, resp.Files)
 	})
 
@@ -518,6 +519,23 @@ func TestChatSearchChat(t *testing.T) {
 		require.Len(t, resp.Results, 1)
 		require.Equal(t, msgID.String(), *resp.Results[0].MessageId)
 	})
+
+	// "no matches is not nil" documents the wire-shape fix applied alongside
+	// fix-chat-grpc-nil-slice-wire-shape (Block C): the handler (chat_grpc.go)
+	// now pre-allocates `protos` with make(..., 0, ...), so a query with zero
+	// hits serializes to `[]` rather than `null`.
+	t.Run("no matches is not nil", func(t *testing.T) {
+		f := newChatFilesSearchReactionsFixture()
+		userID := uuid.New()
+
+		resp, err := f.srv.SearchChat(context.Background(), &chatv1.SearchChatRequest{
+			UserId: userID.String(), Query: "invoice", Page: 1, PageSize: 20,
+		})
+		require.NoError(t, err)
+		require.Equal(t, int32(0), resp.Total)
+		require.NotNil(t, resp.Results, "Results should be an empty slice, not nil, so it serializes to [] rather than null")
+		require.Empty(t, resp.Results)
+	})
 }
 
 func TestToChatSearchResultProto(t *testing.T) {
@@ -599,6 +617,7 @@ func TestChatToggleReaction(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.False(t, resp.Added)
+		require.NotNil(t, resp.Reactions, "Reactions should be an empty slice, not nil, so it serializes to [] rather than null")
 		require.Empty(t, resp.Reactions)
 	})
 }
@@ -619,6 +638,20 @@ func TestChatListReactions(t *testing.T) {
 		resp, err := f.srv.ListReactions(context.Background(), &chatv1.ListReactionsRequest{MessageId: msgID.String()})
 		require.NoError(t, err)
 		require.Len(t, resp.Reactions, 2)
+	})
+
+	// "empty is not nil" documents the wire-shape fix applied alongside
+	// fix-chat-grpc-nil-slice-wire-shape (Block C): the handler (chat_grpc.go)
+	// now pre-allocates `reactions` with make(..., 0, ...), so a message with
+	// zero reactions serializes to `[]` rather than `null`.
+	t.Run("empty is not nil", func(t *testing.T) {
+		f := newChatFilesSearchReactionsFixture()
+		msgID := uuid.New()
+
+		resp, err := f.srv.ListReactions(context.Background(), &chatv1.ListReactionsRequest{MessageId: msgID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Reactions, "Reactions should be an empty slice, not nil, so it serializes to [] rather than null")
+		require.Empty(t, resp.Reactions)
 	})
 }
 
