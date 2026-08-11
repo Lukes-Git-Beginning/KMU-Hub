@@ -3307,7 +3307,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:35).
 
 ## Iteration 52 — d-cov-gateway-calendar-events-resources — done — 2026-08-11 02:41
-- commit: PENDING
+- commit: b3788f5c
 - gebaut: Neue Testdatei `backend/internal/gateway/route_calendar_events_resources_test.go`
   (42 Tests) fuer die acht Event-/Ressourcen-Handler in route_calendar.go:
   HandleListEventsInRange (ServiceUnavailable, MissingStart, MissingEnd,
