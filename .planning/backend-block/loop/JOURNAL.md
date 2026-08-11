@@ -4130,7 +4130,7 @@ Frühere Läufe liegen vollständig im Archiv:
   auf dem Loop-Rechner ermittelt (2026-08-11 04:01).
 
 ## Iteration 66 — d-cov-gateway-produktion-order-lifecycle — done — 2026-08-11 04:12
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: ae490601
 - gebaut: `backend/internal/gateway/route_produktion_orders_test.go` neu, 20
   Tests fuer den bisher ungetesteten Fertigungsauftrags-Lebenszyklus in
   route_produktion.go: HandleListOrders (ServiceUnavailable, MissingTenant
