@@ -5354,3 +5354,104 @@ Frühere Läufe liegen vollständig im Archiv:
   gefixt). Erwaehne ich hier, weil derselbe Fehler in Produktionscode ein reales Risiko waere und
   jede Iteration, die selbst `s.mu` in Tests haelt, denselben Stolperstein hat. Naechste
   Backlog-Unit laut Reihenfolge: `f-cov-notification` (Block F Reserve).
+
+## Iteration 85 — f-cov-notification — done — 2026-08-11 06:48
+- commit: PENDING (wird nach dem Commit nachgetragen)
+- gebaut: drei neue Testdateien, kein Produktionscode dauerhaft veraendert (drei Mutations-Proben
+  liefen, alle zurueckgedreht, `git diff` auf den drei angefassten Produktionsdateien leer).
+  `internal/notification/integration/slack/block_builder_test.go` deckt die komplett ungetestete
+  `block_builder.go` ab (0,0 % laut Backlog-Scope): `BuildBlocks` (bekanntes Modul mit Icon+Name,
+  unbekanntes Modul faellt auf `:bell:` + rohe Modul-ID zurueck ohne zu paniken, leerer
+  Body-String erzeugt keinen leeren Section-Block, Actions haengen einen Action-Block mit
+  Notification-ID im block_id an), `BuildUpdatedBlocks` (ersetzt Actions durch Resolved-Banner),
+  `actionButtonConfig`/`buildActionButton` (alle vier bekannten ActionTypes + unbekannter Typ,
+  Slack-Style-Konstanten korrekt gemappt) und `resolvedBannerText` (alle vier Faelle + Default).
+  Assertions laufen ueber die tatsaechliche JSON-Serialisierung der Slack-Blocks, nicht ueber
+  interne Go-Felder, damit sie das pruefen, was wirklich ueber die Leitung geht.
+  `internal/notification/integration/teams/webhook_handler_test.go` deckt die komplett
+  ungetestete `webhook_handler.go` ab (0,0 %): `Process` nur fuer den `h.client == nil`-Pfad
+  (503) — der Rest von `Process` braucht einen echten Bot-Framework-Adapter und bleibt bewusst
+  aussen vor (kein echter Aufruf gegen Microsoft, wie in den done_when gefordert);
+  `handleInvoke`/`handleMessage` werden direkt aufgerufen, um `h.client.HandleIncomingActivity`
+  zu umgehen, das genau denselben Adapter braeuchte. `handleInvoke` deckt: unresolved Tenant
+  (Repository bleibt unberuehrt), unverknuepfter User (Hinweistext auf `/kmuhub link`), alle drei
+  unterstuetzten-aber-nicht-implementierten Actions (approve/reject/reply — Acknowledger sieht
+  0 Aufrufe), Acknowledge-Happy-Path (MarkRead mit korrektem Tenant/User), ungueltige
+  Notification-ID (uuid.Parse schlaegt fehl, bevor MarkRead je aufgerufen wird) und
+  MarkRead-Fehler vom Service. `handleMessage` deckt: unbekanntes Kommando, Link-Kommando mit
+  unresolved Tenant, Link-Kommando mit fehlschlagendem Tokenerzeugen (echter
+  `integration.NewAccountLinkService` mit Stub-Repo, `CreateLinkToken` liefert Fehler) und den
+  Erfolgspfad. `tenantContext`/`activityTenantID` sowie der nackte `acknowledge`-Helfer
+  (nil-notifications-Guard) sind ebenfalls direkt getestet.
+  `internal/notification/preference/mutes_quiethours_test.go` deckt die bislang komplett
+  ungetesteten Repository-Methoden ab: `GetModuleDefault` (Happy-Path + zwei Not-Found-Faelle),
+  `IsResourceMuted`/`CreateMute`/`ListMutes`/`DeleteMute` (volle Lifecycle inkl. Duplikat-Ablehnung
+  durch den Unique-Index und doppeltes Delete gegen `ErrMuteNotFound`) und `GetQuietHours`/
+  `UpsertQuietHours` (siehe Befund unten). Bewusst NICHT angefasst: `notification/
+  postgres_repository.go` (Scope-Text nannte es, aber die anderen beiden 0-%-Dateien waren die
+  explizit vorgegebene Prioritaet und Budget/Zeit reichten nicht fuer alle drei — fuer Lauf 9
+  vorgemerkt, siehe unten).
+- ECHTER PRODUKTIONSBUG GEFUNDEN, NICHT GEFIXT (Coverage-Units aendern laut Backlog-Kopf kein
+  Verhalten): `PostgresRepository.UpsertQuietHours` (internal/notification/preference/
+  postgres_repository.go:208) zielt auf `ON CONFLICT (tenant_id, user_id)`, aber
+  `notification_quiet_hours` traegt seit Migration 000022 nur `UNIQUE(user_id)` — verifiziert per
+  `\d notification_quiet_hours` gegen die lokale DB (Kopf 309). Migration 000124 hat `tenant_id`
+  ueberall NOT NULL gemacht, aber diesen Constraint nie verbreitert. Exakt dieselbe Bugklasse
+  wurde fuer `notification_preferences` bereits EINMAL gefixt: Migration 000305
+  (`notification_preferences_conflict_index_tenant_fix`) verbreitert dort den analogen
+  Event-Type-Index von `(user_id, event_type_key)` auf `(tenant_id, user_id, event_type_key)` mit
+  exakt derselben Begruendung im Kommentar. `notification_quiet_hours` wurde dabei uebersehen.
+  Folge: Postgres validiert den ON-CONFLICT-Zielindex beim Planen der Query, nicht erst bei einem
+  tatsaechlichen Konflikt — deshalb schlaegt JEDER Aufruf von `UpsertQuietHours` fehl (nicht nur
+  der zweite), mit SQLSTATE 42P10 ("no unique or exclusion constraint matching the ON CONFLICT
+  specification"). Quiet Hours lassen sich ueber dieses Repository aktuell ueberhaupt nicht
+  anlegen. Fertiger Fix fuer eine kuenftige Block-A-Unit (Lauf 9), analog zu 000305:
+  `DROP INDEX notification_quiet_hours_user_id_key; CREATE UNIQUE INDEX
+  notification_quiet_hours_user_id_tenant_id_key ON notification_quiet_hours(tenant_id, user_id);`
+  plus Anpassung der `postgres_repository.go`-Query falls der Constraint-Name explizit referenziert
+  wird (aktuell nicht der Fall, ON CONFLICT nennt nur Spalten). Verwandter, NICHT verifizierter
+  Verdacht am selben Code (`UpsertPreference`, event_type_key IS NULL-Zweig fuer Modul-Defaults):
+  der ON-CONFLICT-Zielindex `idx_notification_preferences_event_type` traegt das Praedikat
+  `WHERE event_type_key IS NOT NULL` und kann daher fuer Zeilen mit `event_type_key IS NULL`
+  gar nicht als Arbiter greifen — ein zweiter Upsert desselben Modul-Defaults wuerde dann
+  vermutlich auf den zweiten, nicht in der ON-CONFLICT-Klausel genannten Unique-Index
+  `idx_notification_preferences_module_default` treffen und einen rohen
+  Unique-Violation-Fehler werfen statt zu updaten. Nicht getestet in dieser Iteration (Scope war
+  auf die drei genannten 0-/28,6-%-Dateien begrenzt) — Kandidat fuer Lauf 9.
+- gate: build ok (go build -p 2 ./internal/notification/... ./cmd/gateway/...) | vet ok (go vet
+  ./internal/notification/...) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/notification/... — 0 issues) | test ok (go test -count=1 ./internal/notification/... —
+  alle sieben Unterpakete gruen, DATABASE_URL gesetzt gegen kmuhub_app, echte DB-Tests liefen mit)
+  | migration n.a. (kein Schema angefasst, der gefundene Bug wurde bewusst nicht gefixt) |
+  rls-smoke n.a. (keine RLS-Policy angefasst) | gateway-Tests nicht separat gelaufen (keine Route
+  angefasst, ./cmd/gateway/... baut aber fehlerfrei mit)
+- coverage: internal/notification 56,0 % -> 66,2 % (go test -coverprofile ./internal/notification/...
+  vor/nach, aggregiert wie GATE-COMMANDS.md's zweite Definition — der Ordner selbst enthaelt keine
+  .go-Dateien, die Backlog-Zahl ist die Summe ueber alle Unterpakete gruppiert auf
+  `internal/notification`; 625 -> 479 ungedeckte Statements). Einzelpakete: slack 35,0 % -> 59,0 %,
+  teams 11,0 % -> 40,5 %, preference 65,2 % -> 87,2 % (alle drei mit `DATABASE_URL` gesetzt
+  gemessen, nicht ohne DB — ohne DB haetten `preference` und der Slack-Webhook-Test faelschlich
+  0 % gezeigt, siehe testutil.SkipIfNoDB).
+- mutations-probe: drei Proben, alle gefangen und zurueckgedreht. (1) `block_builder.go`
+  `resolvedBannerText`: den Approve-Fall auf den Reject-Text umgebogen (":white_check_mark:
+  Abgelehnt" statt "Genehmigt") -> `TestBuildUpdatedBlocks_ReplacesActionsWithResolvedBanner` und
+  `TestResolvedBannerText_AllActionsAndUnknownFallback` sofort rot. (2) `webhook_handler.go`
+  `handleInvoke`: den unsupported-action-Guard von `!=` auf `==` gedreht (Acknowledge wird
+  faelschlich als unsupported behandelt, alles andere faelschlich ausgefuehrt) -> sechs Tests
+  sofort rot (`TestHandleInvoke_UnsupportedActionRunsNothing` fuer alle drei Actions,
+  `TestHandleInvoke_AcknowledgeMarksNotificationRead`, `_AcknowledgeInvalidNotificationID`,
+  `_AcknowledgeServiceErrorSurfacesFailureMessage`). (3) `preference/postgres_repository.go`
+  `DeleteMute`: die Not-Found-Bedingung von `== 0` auf `> 0` gedreht (loescht eine existierende
+  Mute erfolgreich, meldet aber ErrMuteNotFound) -> `TestPostgresRepository_MuteLifecycle` sofort
+  rot ("Received unexpected error: mute not found"). Alle drei Male zurueckgedreht, `git diff` auf
+  `block_builder.go`, `webhook_handler.go` und `postgres_repository.go` leer.
+- verify vorgaenger: sauber. Commit 12161d6f (Iteration 84) fuegt ausschliesslich eine neue
+  Testdatei (`internal/biz/bexio/scheduler_test.go`) plus Journal-/Backlog-Metadaten hinzu — kein
+  Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
+  keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
+  in allen Vorgaenger-Iterationen vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 84) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-11 06:48). Naechste Backlog-Unit laut Reihenfolge: `f-cov-document-file`
+  (Block F Reserve).

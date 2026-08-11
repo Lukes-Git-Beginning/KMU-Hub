@@ -2984,7 +2984,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/notification 56,0 %"
     scope: >
       625 ungedeckte Statements, verteilt statt konzentriert:
