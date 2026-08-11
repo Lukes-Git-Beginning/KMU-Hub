@@ -337,7 +337,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/document/virtual 83,1 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       `internal/document/virtual/postgres_repository.go` selektiert an vier Stellen

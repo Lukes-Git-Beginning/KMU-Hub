@@ -267,3 +267,45 @@ Fensters.
   eine geschrieben werden), liefert aber `"18:00:00"`, nicht `"18:00"`. Die Tests vergleichen
   deshalb `[:5]`. Kein Fehler, aber das Frontend bekommt ein anderes Format, als es beim
   Schreiben schickt — pruefen, ob der FE-Typ das vertraegt.
+
+## Iteration 5 — fix-document-virtual-users-display-name — done — 2026-08-11 16:50
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: alle vier SELECT-Listen in `internal/document/virtual/postgres_repository.go`
+  (ListChatFiles, ListTaskFiles, beide chat/task-Zweige der ListAll-UNION) lesen jetzt
+  `COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS
+  uploaded_by_name` statt des nichtexistenten `u.display_name` (users hat seit Migration
+  000001 kein display_name, first_name/last_name sind NOT NULL DEFAULT ''). Keine Migration
+  noetig, reiner SQL-Text-Fix. `ListEmailAttachments` (liest `eacc.display_name` von
+  `email_accounts`, existiert dort wirklich) unveraendert.
+- gebaut (Tests): die drei "ColumnBug"-Tests aus Iteration 86 (Lauf 8) auf das korrekte
+  Verhalten umgestellt statt geloescht — `ListChatFiles_ColumnBug` ->
+  `ListChatFiles_UploadedByName`, `ListTaskFiles_ColumnBugViaProjectMembership` ->
+  `ListTaskFiles_UploadedByNameViaProjectMembership`,
+  `ListAll_UnionColumnBugTriggeredByEmailOnlyAccess` ->
+  `ListAll_UnionAcrossAllSourcesWithEmailOnlyAccess`; alle drei pruefen jetzt Erfolg + den
+  korrekten `uploaded_by_name`. Neuer Test
+  `ListChatFiles_UploadedByNameFallsBackToEmail` deckt den Email-Fallback bei leeren
+  first_name/last_name ab (belegt beide done_when-Punkte: Name-Anzeige UND Email-Fallback).
+  Der erklaerende Datei-Header-Kommentar zum "unfixed bug" ist entfernt, da er den jetzt
+  gefixten Zustand falsch beschrieben haette.
+- gate: build ok (`./internal/document/... ./internal/gateway/...`) | vet ok | lint ok
+  (0 issues) | test ok (0 Skips bei 17 Tests in `internal/document/virtual`, `DATABASE_URL`
+  gegen `kmuhub_app`; `./internal/document/...` komplett gruen) | migration n.a. (keine
+  Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst, reiner Query-Textfix)
+- coverage: internal/document/virtual 83,1 % -> 81,7 % (beide selbst gemessen,
+  `go tool cover -func`; Vorher-Wert per `git stash push -u` auf genau diese zwei Dateien
+  isoliert, deckt sich mit `coverage_start:`. Der leichte Ruecklauf kommt vom neuen
+  Email-Fallback-Zweig der COALESCE/NULLIF/TRIM-Kette, der von den bestehenden Tests nur
+  teilweise durchlaufen wird — kein Coverage-Ziel dieser Unit)
+- mutations-probe: Zeile 61 (ListChatFiles-SELECT) zurueck auf
+  `COALESCE(u.display_name, u.email)` gesetzt -> `TestPostgresRepository_
+  ListChatFiles_UploadedByName` UND `TestPostgresRepository_
+  ListChatFiles_UploadedByNameFallsBackToEmail` beide rot mit
+  `ERROR: column u.display_name does not exist (SQLSTATE 42703)`. Zurueckgedreht,
+  `git diff --stat` zeigt wieder nur die urspruengliche Aenderung (4 Zeilen geaendert in
+  postgres_repository.go).
+- verify vorgaenger: sauber (Commit `f30636b7`, Iteration 4 — kein gRPC-Bypass, kein Stub,
+  Migration 000312 hat up UND down, keine ausgerollte Migration angefasst, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route)
+- neue-units: keine
+- offen: keine neuen Funde. Reiner Query-Textfix ohne Migrations-/RLS-Beruehrung.

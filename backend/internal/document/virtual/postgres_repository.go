@@ -58,7 +58,7 @@ func (r *PostgresRepository) ListChatFiles(ctx context.Context, userID uuid.UUID
 		       'chat' AS source_type, cf.channel_id AS source_id,
 		       c.name AS source_name,
 		       cf.uploaded_by,
-		       COALESCE(u.display_name, u.email) AS uploaded_by_name,
+		       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS uploaded_by_name,
 		       cf.created_at
 		FROM chat_files cf
 		INNER JOIN channel_memberships cm ON cm.channel_id = cf.channel_id AND cm.user_id = $1
@@ -139,7 +139,7 @@ func (r *PostgresRepository) ListTaskFiles(ctx context.Context, userID uuid.UUID
 		       'task' AS source_type, t.id AS source_id,
 		       t.title AS source_name,
 		       tf.uploaded_by,
-		       COALESCE(u.display_name, u.email) AS uploaded_by_name,
+		       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS uploaded_by_name,
 		       tf.created_at
 		FROM task_files tf
 		INNER JOIN tasks t ON t.id = tf.task_id
@@ -218,7 +218,7 @@ func (r *PostgresRepository) ListAll(ctx context.Context, userID uuid.UUID, sour
 			       'chat'::text AS source_type, cf.channel_id AS source_id,
 			       c.name AS source_name,
 			       cf.uploaded_by,
-			       COALESCE(u.display_name, u.email) AS uploaded_by_name,
+			       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS uploaded_by_name,
 			       cf.created_at
 			FROM chat_files cf
 			INNER JOIN channel_memberships cm ON cm.channel_id = cf.channel_id AND cm.user_id = $1
@@ -245,7 +245,7 @@ func (r *PostgresRepository) ListAll(ctx context.Context, userID uuid.UUID, sour
 			       'task'::text AS source_type, t.id AS source_id,
 			       t.title AS source_name,
 			       tf.uploaded_by,
-			       COALESCE(u.display_name, u.email) AS uploaded_by_name,
+			       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS uploaded_by_name,
 			       tf.created_at
 			FROM task_files tf
 			INNER JOIN tasks t ON t.id = tf.task_id
