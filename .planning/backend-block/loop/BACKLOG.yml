@@ -3017,7 +3017,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/document 61,1 %"
     scope: >
       515 ungedeckte Statements, Schwerpunkt in der Datei-Ablage: `file/postgres_repository.go`
@@ -3367,3 +3367,61 @@ units:
       - Die beiden dokumentierenden Tests aus Iteration 39 sind auf das korrekte Verhalten
         umgestellt statt geloescht
       - go test -count=1 ./internal/security/gdpr/ gruen
+
+# ==========================================================================================
+# Neu gefunden waehrend Lauf 8, Iteration 86 (f-cov-document-file) -- nicht gebaut, nur
+# dokumentiert (Coverage-Units aendern kein Verhalten). Fuer Lauf 9.
+# ==========================================================================================
+
+  - id: fix-document-virtual-users-display-name
+    phase: 3
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bug, kein Coverage-Ziel)"
+    scope: >
+      `internal/document/virtual/postgres_repository.go` selektiert an vier Stellen
+      `COALESCE(u.display_name, u.email) AS uploaded_by_name` gegen die `users`-Tabelle, aliasiert
+      als `u` (ListChatFiles Zeile ~61, ListTaskFiles Zeile ~142, sowie beide entsprechenden
+      Zweige der UNION-Query in ListAll, Zeilen ~221 und ~248). `users` hat aber kein
+      `display_name`-Feld -- nur `first_name`/`last_name` seit Migration 000001. Jede dieser vier
+      Query-Varianten schlaegt daher mit `ERROR: column u.display_name does not exist`
+      (SQLSTATE 42703) fehl, sobald mindestens eine zugreifbare Zeile existiert -- verifiziert
+      per `psql` direkt gegen die lokale DB (Kopf 309) und per vier neuen roten/dokumentierenden
+      Tests. Nur `ListEmailAttachments` funktioniert, weil sie stattdessen
+      `eacc.display_name` (email_accounts, hat die Spalte wirklich) liest.
+      Besonders schwerwiegend: die kombinierte `ListAll`-Sicht (sourceType `""`, die "Alle
+      Dateien"-Ansicht im Dokumenten-Browser) bricht fuer JEDEN Nutzer mit mindestens einer
+      zugreifbaren virtuellen Datei aus IRGENDEINER Quelle -- auch fuer einen Nutzer, der
+      ausschliesslich ein E-Mail-Attachment sichtbar hat, weil die UNION-Query alle drei
+      Zweige gemeinsam plant und die kaputten Chat-/Task-Zweige den gesamten Query-Parse
+      zum Scheitern bringen, bevor irgendeine Zeile zurueckkommt. Die reine
+      `ListEmailAttachments`-Ansicht bleibt davon unberuehrt (eigene Query).
+    sources:
+      - backend/internal/document/virtual/postgres_repository.go
+      - backend/internal/document/virtual/postgres_repository_test.go
+    notes: >
+      Gefunden beim Bau der Coverage-Unit f-cov-document-file (Lauf 8, Iteration 86).
+      `postgres_repository_test.go` dokumentiert den aktuellen (kaputten) Zustand explizit in
+      `TestPostgresRepository_ListChatFiles_ColumnBug`,
+      `TestPostgresRepository_ListTaskFiles_ColumnBugViaProjectMembership` und
+      `TestPostgresRepository_ListAll_UnionColumnBugTriggeredByEmailOnlyAccess` -- alle drei
+      pruefen bewusst auf den Fehler statt auf Erfolg, nach demselben Muster wie
+      fix-email-send-missing-tenant-id in diesem Backlog.
+      Sauberster Fix: `u.display_name` in allen vier SELECT-Listen durch
+      `COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email)` ersetzen (exakt
+      das Muster, das `file/postgres_repository.go` und `notification`-Queries im selben Repo
+      bereits fuer `users`-Anzeigenamen verwenden -- siehe z. B.
+      `document_file_activity`-JOIN in `internal/document/file/postgres_repository.go:392`:
+      `COALESCE(u.first_name || ' ' || u.last_name, '')`). KEINE neue Migration noetig, reiner
+      SQL-Text-Fix in vier Query-Strings.
+    done_when:
+      - Alle vier betroffenen SELECT-Listen verwenden first_name/last_name statt des
+        nichtexistenten display_name
+      - Die drei "ColumnBug"-Tests aus Iteration 86 sind auf das korrekte Verhalten
+        (kein Fehler, korrekter uploaded_by_name) umgestellt statt geloescht -- inklusive
+        Umbenennung weg von "ColumnBug" im Testnamen
+      - Ein Test belegt den first_name+last_name-Anzeigenamen UND den E-Mail-Fallback bei
+        leeren Namen
+      - go test -count=1 ./internal/document/... gruen

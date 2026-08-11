@@ -5455,3 +5455,68 @@ Frühere Läufe liegen vollständig im Archiv:
   Journal-Ueberschrift (Iteration 84) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-11 06:48). Naechste Backlog-Unit laut Reihenfolge: `f-cov-document-file`
   (Block F Reserve).
+
+## Iteration 86 — f-cov-document-file — done — 2026-08-11 07:04
+- commit: (wird nach diesem Eintrag gesetzt, siehe naechste chore-Iteration)
+- gebaut: zwei neue DB-gestuetzte Testdateien, `internal/document/virtual/postgres_repository_test.go`
+  und `internal/document/search/postgres_repository_test.go`. `search` deckt Search() vollstaendig ab
+  (Match+Rank+Snippet, kein Treffer -> leerer Slice statt nil, Ausschluss soft-geloeschter Dateien,
+  Filter nach FolderID/OwnerID/TagIDs). `virtual` deckt ListChatFiles, ListEmailAttachments,
+  ListTaskFiles und ListAll (Delegation, unbekannter sourceType, leere Union) ab.
+- ECHTER PRODUKTIONSBUG GEFUNDEN, NICHT GEFIXT (Coverage-Units aendern laut Backlog-Kopf kein
+  Verhalten — neue Unit `fix-document-virtual-users-display-name` fuer Lauf 9 angelegt):
+  `internal/document/virtual/postgres_repository.go` selektiert an vier Stellen
+  `COALESCE(u.display_name, u.email) AS uploaded_by_name` gegen `users` (ListChatFiles, ListTaskFiles,
+  beide Zweige der ListAll-UNION-Query) — `users` hat aber gar kein `display_name`-Feld, nur
+  `first_name`/`last_name` seit Migration 000001. Verifiziert per direktem `psql`-Aufruf gegen die
+  lokale DB (Kopf 309): `ERROR: column u.display_name does not exist` (SQLSTATE 42703). Jede dieser
+  drei Query-Varianten schlaegt daher fehl, sobald mindestens eine zugreifbare Zeile existiert — nur
+  ListEmailAttachments funktioniert (liest `eacc.display_name`, email_accounts hat die Spalte
+  wirklich). Am schwerwiegendsten: `ListAll` mit sourceType `""` (die "Alle Dateien"-Ansicht) bricht
+  fuer JEDEN Nutzer mit mindestens einer zugreifbaren virtuellen Datei aus IRGENDEINER Quelle, auch
+  wenn nur ein E-Mail-Attachment sichtbar ist — die UNION-Query wird als Ganzes geplant, und die
+  kaputten Chat-/Task-Zweige lassen den gesamten Query-Parse scheitern, bevor irgendeine Zeile
+  zurueckkommt. Die drei neuen Tests `TestPostgresRepository_ListChatFiles_ColumnBug`,
+  `TestPostgresRepository_ListTaskFiles_ColumnBugViaProjectMembership` und
+  `TestPostgresRepository_ListAll_UnionColumnBugTriggeredByEmailOnlyAccess` dokumentieren das aktuelle
+  (kaputte) Verhalten explizit als erwarteten Fehler, nach demselben Muster wie
+  fix-email-send-missing-tenant-id in diesem Backlog. Fix-Vorschlag steht in der neuen Backlog-Unit.
+- gate: build ok (go build -p 2 ./internal/document/... ./cmd/gateway/...) | vet ok (go vet
+  ./internal/document/...) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/document/... — 0 issues) | test ok (go test -count=1 ./internal/document/... — alle
+  sieben Unterpakete gruen, DATABASE_URL gesetzt gegen kmuhub_app, echte DB-Tests liefen mit) |
+  migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine RLS-Policy angefasst, keine der
+  betroffenen Queries hat je tenant_id referenziert — Isolation laeuft ausschliesslich ueber die
+  RLS-Policy der Session, nicht ueber die WHERE-Klausel; das ist bestehendes Verhalten, nicht Teil
+  dieser Unit) | gateway-Tests nicht separat gelaufen (keine Route angefasst, ./cmd/gateway/... baut
+  aber fehlerfrei mit)
+- coverage: internal/document 61,1 % -> 68,5 % (go test -coverprofile je Unterpaket, gemergte
+  Coverage-Profile ueber go tool cover -func aggregiert — Ordner selbst enthaelt keine .go-Dateien,
+  gleiche Methode wie in Iteration 85 fuer internal/notification). Einzelpakete: search 0,0 % ->
+  76,0 %, virtual 0,0 % -> 83,1 % (file/folder/share/tag/wopi unveraendert, nicht Teil dieser Unit
+  — file/postgres_repository.go und file/service.go waren im Scope genannt, aber done_when verlangte
+  nur virtual/ und search/ aus 0 % — fuer Lauf 9 vorgemerkt, falls die restliche Coverage in
+  internal/document/file noch gehoben werden soll).
+- mutations-probe: zwei Proben, beide gefangen und zurueckgedreht. (1)
+  `virtual/postgres_repository.go` `ListEmailAttachments`: die Haupt-Query von
+  `eacc.user_id = $1` auf `eacc.user_id != $1` gedreht (liefert fremde statt eigene Mailbox-Anhaenge)
+  -> `TestPostgresRepository_ListEmailAttachments_HappyPathAndIsolation` sofort rot ("expected 2
+  files, got total=2 len=1" — die eine falsch durchgelassene Zeile aus dem Fremd-Account ersetzte
+  eine echte). (2) `search/postgres_repository.go` `Search`: die Bedingung von
+  `f.is_deleted = FALSE` auf `f.is_deleted = TRUE` gedreht (invertiert die Sichtbarkeit komplett) ->
+  fuenf von sechs Tests sofort rot (Match/Rank, FolderID-Filter, OwnerID-Filter, TagIDs-Filter,
+  Soft-Delete-Exclusion — nur der Kein-Treffer-Test blieb zufaellig gruen, weil er ohnehin 0
+  erwartet). Beide Male zurueckgedreht, `git diff` auf beide Dateien leer (per `git diff --stat`
+  bestaetigt).
+- verify vorgaenger: sauber. Commit 0718894f (Iteration 85, chore) aendert ausschliesslich
+  `JOURNAL.md` (Commit-Hash-Nachtrag) — kein Produktionscode, keine der acht Fehlerklassen
+  einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie in
+  allen Vorgaenger-Iterationen vermerkt (fuegt einen `-StartNotBefore`-Startsperre-Parameter hinzu) —
+  nicht meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht
+  sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 85) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:04). Neue Fix-Unit
+  `fix-document-virtual-users-display-name` fuer Lauf 9 im Backlog angelegt (Block "Neu gefunden
+  waehrend Lauf 8, Iteration 86"), status todo, nicht in diesem Lauf gezogen. `internal/document/file`
+  (38,2 %/66,3 % in den beiden im urspruenglichen Scope genannten Dateien) blieb unangetastet — war
+  nicht Teil des `done_when` dieser Unit.
