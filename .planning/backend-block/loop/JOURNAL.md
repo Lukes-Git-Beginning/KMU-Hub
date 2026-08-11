@@ -4916,3 +4916,88 @@ Frühere Läufe liegen vollständig im Archiv:
   Dateinamens-Lexem, nicht als getrennte Woerter — per psql gegen die lokale
   DB verifiziert. Naechste Backlog-Unit laut Reihenfolge:
   `e-cov-chat-service-file-guest` (Block E, chat/service + file/guest).
+
+## Iteration 79 — e-cov-chat-service-file-guest — done — 2026-08-11 05:45
+- commit: (folgt nach diesem Journal-Eintrag)
+- gebaut: vier neue Testdateien. `message/service_events_test.go` deckt
+  `emitMessageEvents` erstmals ab (kein bestehender Test setzte je einen
+  EventEmitter): Mention-Event mit Selbstausschluss, reines
+  Selbst-Mention ohne jedes Event, DM-Event an den Empfaenger, und
+  Gast-Nachrichten (CreatedBy nil) ohne jedes Event trotz gesetztem
+  Emitter. `channel/service_guest_test.go` deckt EnableGuest/
+  DisableGuest/IsGuestEnabled ab (Roundtrip + je ein ChannelNotFound-Pfad)
+  — die einzigen drei Service-Methoden im Paket, die vorher in keinem
+  Test vorkamen. `file/postgres_repository_reads_test.go` (neu, DB-
+  Integrationstest) deckt GetFileByID, ListChannelFiles (Sortierung,
+  is_deleted-Ausschluss, leerer Kanal), GetFilesByMessageIDs sowie
+  IsChannelMember/GetChannelRole/IsChannelArchived gegen die echte DB ab.
+  `guest/postgres_repository_reads_test.go` (neu, DB-Integrationstest)
+  deckt GetSessionByTokenHash (inkl. des JOIN-Falls "Kanal nicht mehr
+  guest-enabled"), GetSessionByID, ListSessionsByChannel,
+  CleanupExpiredSessions und GetConfigByChannel ab.
+- offen (Scope-Praezisierung): GetOrCreateDM/ListDMs/MarkRead/
+  GetUnreadCounts/UpdateMemberRole/GetThreadReplies/processMentions aus
+  der Unit-Beschreibung waren beim Nachlesen bereits vollstaendig in
+  service_test.go abgedeckt (TestService_GetOrCreateDM,
+  TestService_MarkRead, TestService_GetUnreadCounts,
+  TestService_UpdateMemberRole, TestService_GetThreadReplies,
+  TestService_Create_WithMentions/_WithMentionEveryone existieren
+  bereits) — dafuer keine Duplikate gebaut. GetStorageQuota/
+  IncrementUsedBytes/DecrementUsedBytes aus der file-Liste sind bereits
+  in `rls_storage_quota_test.go` gegen eine echte DB getestet (zwei
+  Tenants, Upsert-Pfad) — ebenfalls nicht dupliziert. Real neu waren nur:
+  emitMessageEvents, EnableGuest/DisableGuest/IsGuestEnabled,
+  GetFileByID/ListChannelFiles/GetFilesByMessageIDs/IsChannelMember/
+  GetChannelRole/IsChannelArchived und die fuenf guest-Lesemethoden.
+- gate: build ok (go build -p 2 ./internal/chat/... ./internal/gateway/...
+  ./cmd/gateway/...) | vet ok (go vet ./internal/chat/...) | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/chat/message/...
+  ./internal/chat/channel/... ./internal/chat/file/...
+  ./internal/chat/guest/... — 0 issues) | test ok (go test -count=1
+  auf allen vier Paketen einzeln gruen; go test -count=1 -v
+  ./internal/chat/... — alle 7 Unterpakete ok, 0 uebersprungene Tests,
+  120 Top-Level-PASS-Zeilen — DATABASE_URL gesetzt, docker-postgres-1
+  healthy) | migration n.a. (keine neue Tabelle/Route/Policy) |
+  rls-smoke n.a. (keine Policy angefasst; alle DB-Tests lesen ueber
+  WithTenantCtx/WithSystemCtx nach dem bestehenden Muster, keine neuen
+  Cross-Tenant-Pfade) | gateway-Tests nicht gelaufen (keine Route
+  angefasst)
+- coverage: internal/chat/message 50,9 % -> 77,2 % | internal/chat/channel
+  50,9 % -> 82,4 % | internal/chat/file 50,9 % -> 66,4 % |
+  internal/chat/guest 50,9 % -> 78,7 % (je go test -coverprofile
+  ./internal/chat/<pkg>/ ohne `...`, go tool cover -func Summe;
+  coverage_start der Unit ist der Gesamtwert fuer internal/chat, alle
+  vier Unterpakete lagen als Zeilen-Coverage darunter)
+- mutations-probe: zwei Proben, beide gefangen. (1) in
+  `message/service.go` in `emitMessageEvents` die Selbstausschluss-
+  Bedingung `if m.UserID != *message.CreatedBy` durch `if true`
+  ersetzt -> sofort zwei Tests rot: TestEmitMessageEvents_
+  MentionExcludesSender ("should have 1 item(s), but has 2") und
+  TestEmitMessageEvents_SelfMentionOnlyEmitsNothing ("Should be empty,
+  but was [...]"). (2) in `file/postgres_repository.go` in
+  `ListChannelFiles` das `AND cf.is_deleted = FALSE` aus der SELECT-
+  WHERE-Klausel entfernt (COUNT-Query unveraendert gelassen) ->
+  TestPostgresRepository_ListChannelFiles sofort rot ("expected 2
+  files, got 3" — die soft-geloeschte Datei erschien wieder in der
+  Liste). Beide Male zurueckgedreht, `git diff` auf beiden
+  Produktionsdateien leer.
+- verify vorgaenger: sauber. Commit 466f96d0 (Iteration 78) fuegt
+  ausschliesslich zwei neue Testdateien (`postgres_repository_reads_
+  test.go` in internal/chat/channel und internal/chat/search) plus
+  Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto,
+  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine
+  Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-78
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 78) fortgezaehlt, Zeitstempel per `date` auf dem
+  Loop-Rechner ermittelt (2026-08-11 05:45). `file/postgres_repository_
+  reads_test.go` scheiterte im ersten Anlauf an `ListChannelFiles:
+  expected uploader name to be joined in`, weil der Fixture-User ohne
+  first_name/last_name geseedet war (Spalten ohne DB-Default fuer diese
+  Testtabelle) — mit expliziten Namen im Seed behoben, kein
+  Produktionscode betroffen. Naechste Backlog-Unit laut Reihenfolge:
+  `e-cov-automation-workflow-repo` (Block E, internal/automation
+  PostgresRepository).

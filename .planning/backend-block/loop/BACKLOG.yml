@@ -2682,7 +2682,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/chat 50,9 %"
     scope: >
       chat/message/service.go (emitMessageEvents, processMentions, loadMentionsForMessages,
