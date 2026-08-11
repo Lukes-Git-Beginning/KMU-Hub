@@ -4387,3 +4387,64 @@ Frühere Läufe liegen vollständig im Archiv:
   Interface (repository.go:86-88) — QualityCheck hat also nur drei
   Methoden, kein Luecken-Befund, nur zur Klarheit im Journal, da der
   Unit-Text "analog" zu den anderen drei Entitaeten suggeriert.
+
+## Iteration 70 — e-cov-produktion-service-ext — done — 2026-08-11 04:35
+- commit: (siehe naechster Nachtrag)
+- gebaut: `backend/internal/produktion/service_ext_test.go` neu, deckt die
+  Business-Logik-Schicht aus service_ext.go (BOM/WorkStep/Machine/
+  QualityCheck) ueber echte Service-Aufrufe statt Repository-Direktzugriff.
+  Dafuer `mockRepository` in service_test.go erweitert: drei neue Maps
+  (workSteps, machines, qualityChecks) plus drei Capture-Felder
+  (lastList{BOMs,Machines,QualityChecks}{Offset,Limit}) fuer die
+  Pagination-Clamping-Tests. Die bisherigen No-Op-Stubs fuer
+  CreateWorkStep/CreateMachine/CreateQualityCheck (immer nil, nichts
+  gespeichert) sind jetzt echte map-backed CRUD-Implementierungen nach dem
+  vorhandenen boms-Map-Muster (Get/Update/Delete pruefen TenantID-Match,
+  liefern das jeweilige Err*NotFound bei Miss). ZUSAETZLICH, ueber den
+  Unit-Text hinaus: UpdateBOM/ListBOMs/DeleteBOM waren ebenfalls reine
+  No-Ops (ListBOMs lieferte immer nil/0, DeleteBOM loeschte nichts aus der
+  Map) — das haette TestService_DeleteBOM (Get nach Delete muss
+  ErrBOMNotFound liefern) und TestService_UpdateBOM_Errors (Update auf
+  unbekannte BOM-ID muss ErrBOMNotFound liefern) unmoeglich gemacht. Beide
+  auf dasselbe echte Map-Verhalten umgestellt, damit der Mock intern
+  konsistent ist statt nur fuer BOM/Create einen Sonderfall zu haben.
+  20 neue Testfunktionen: je Entitaet Create (Erfolg + leeres Pflichtfeld
+  -> ErrInvalidInput), Update (Erfolg + unbekannte ID -> Err*NotFound +
+  leeres Pflichtfeld -> ErrInvalidInput, wo zutreffend) und Delete (Erfolg
+  + unbekannte ID -> Err*NotFound), dazu je ein Tabellentest fuer
+  ListBOMs/ListMachines/ListQualityChecks mit vier bis fuenf Faellen fuer
+  Page<1 und PageSize ausserhalb 1..100 (negativ, 0, >100) gegen die
+  Capture-Felder des Mocks.
+- gate: build ok (go build -p 2 ./internal/produktion/...) | vet ok |
+  lint ok (golangci-lint run --config .golangci.yml
+  ./internal/produktion/... -- 0 issues) | test ok (go test -count=1
+  ./internal/produktion/, 0 Fails, DATABASE_URL gesetzt,
+  docker-postgres-1 healthy) | migration n.a. (keine neue Tabelle/Route) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst, reine Service-/Mock-
+  Ebene) | gateway-Tests nicht gelaufen (keine Route angefasst)
+- coverage: internal/produktion 22,3 % -> 57,8 % (go test -coverprofile +
+  go tool cover -func, Paketgesamtwert; nach Iteration 69 stand das Paket
+  bei 42,0 %)
+- mutations-probe: eine Probe, gefangen. In `ListBOMs`
+  (service_ext.go) die Bedingung `input.PageSize < 1 || input.PageSize >
+  100` auf `input.PageSize < 1` verkuerzt (Obergrenze entfernt) ->
+  TestService_ListBOMs_PaginationClamping/page_size_above_100_clamps_to_50
+  rot (erwartet Limit 50, bekam 101 durchgereicht). Per Edit-Tool
+  zurueckgedreht, `git diff backend/internal/produktion/service_ext.go`
+  danach leer, build/vet/lint/test erneut komplett gruen (57,8 %
+  unveraendert).
+- verify vorgaenger: sauber. Commit bfbe09da (Iteration 69) fuegt
+  ausschliesslich `postgres_repository_ext_test.go` (Testdatei) plus
+  Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto,
+  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine
+  Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-69
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration
+  69) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 04:35). GetMaterialAvailability/InventarLookup-Pfade in
+  service.go sind bereits durch material_availability_test.go abgedeckt,
+  nicht Teil dieser Unit. Naechste offene Unit im Block ist
+  e-cov-produktion-core-gaps.

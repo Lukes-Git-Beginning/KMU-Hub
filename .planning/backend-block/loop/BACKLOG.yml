@@ -2328,7 +2328,7 @@ units:
     service: produktion
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/produktion 22,3 %"
     scope: >
       service_ext.go ist die Business-Logik-Schicht über postgres_repository_ext.go (BOM,

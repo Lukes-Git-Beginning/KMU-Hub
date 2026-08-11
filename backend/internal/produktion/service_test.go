@@ -17,11 +17,14 @@ import (
 // ============================================================================
 
 type mockRepository struct {
-	mu       sync.Mutex // guards all map access and CreateBookingWithLock atomicity
-	orders   map[uuid.UUID]*ProductionOrder
-	bookings map[uuid.UUID]*MachineBooking
-	plans    map[uuid.UUID]*ProductionPlan
-	boms     map[uuid.UUID]*BOM
+	mu            sync.Mutex // guards all map access and CreateBookingWithLock atomicity
+	orders        map[uuid.UUID]*ProductionOrder
+	bookings      map[uuid.UUID]*MachineBooking
+	plans         map[uuid.UUID]*ProductionPlan
+	boms          map[uuid.UUID]*BOM
+	workSteps     map[uuid.UUID]*WorkStep
+	machines      map[uuid.UUID]*Machine
+	qualityChecks map[uuid.UUID]*QualityCheck
 
 	// injected errors for specific methods
 	createOrderErr   error
@@ -29,15 +32,23 @@ type mockRepository struct {
 
 	// for FindConflictingBooking: map machineID -> conflicting bookingID
 	conflicts map[string]*uuid.UUID
+
+	// captured args from the last List* call, for pagination-clamping assertions
+	lastListBOMsOffset, lastListBOMsLimit                   int
+	lastListMachinesOffset, lastListMachinesLimit           int
+	lastListQualityChecksOffset, lastListQualityChecksLimit int
 }
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
-		orders:    make(map[uuid.UUID]*ProductionOrder),
-		bookings:  make(map[uuid.UUID]*MachineBooking),
-		plans:     make(map[uuid.UUID]*ProductionPlan),
-		boms:      make(map[uuid.UUID]*BOM),
-		conflicts: make(map[string]*uuid.UUID),
+		orders:        make(map[uuid.UUID]*ProductionOrder),
+		bookings:      make(map[uuid.UUID]*MachineBooking),
+		plans:         make(map[uuid.UUID]*ProductionPlan),
+		boms:          make(map[uuid.UUID]*BOM),
+		workSteps:     make(map[uuid.UUID]*WorkStep),
+		machines:      make(map[uuid.UUID]*Machine),
+		qualityChecks: make(map[uuid.UUID]*QualityCheck),
+		conflicts:     make(map[string]*uuid.UUID),
 	}
 }
 
@@ -267,7 +278,14 @@ func (m *mockRepository) CreateBOM(_ context.Context, bom *BOM) error {
 	m.boms[bom.ID] = bom
 	return nil
 }
-func (m *mockRepository) UpdateBOM(_ context.Context, _ *BOM) error { return nil }
+func (m *mockRepository) UpdateBOM(_ context.Context, bom *BOM) error {
+	existing, ok := m.boms[bom.ID]
+	if !ok || existing.TenantID != bom.TenantID {
+		return ErrBOMNotFound
+	}
+	m.boms[bom.ID] = bom
+	return nil
+}
 func (m *mockRepository) GetBOM(_ context.Context, tenantID, bomID uuid.UUID) (*BOM, error) {
 	bom, ok := m.boms[bomID]
 	if !ok || bom.TenantID != tenantID {
@@ -275,37 +293,132 @@ func (m *mockRepository) GetBOM(_ context.Context, tenantID, bomID uuid.UUID) (*
 	}
 	return bom, nil
 }
-func (m *mockRepository) ListBOMs(_ context.Context, _ uuid.UUID, _ *bool, _, _ int) ([]*BOM, int, error) {
-	return nil, 0, nil
+func (m *mockRepository) ListBOMs(_ context.Context, tenantID uuid.UUID, activeOnly *bool, offset, limit int) ([]*BOM, int, error) {
+	m.lastListBOMsOffset, m.lastListBOMsLimit = offset, limit
+	var result []*BOM
+	for _, bom := range m.boms {
+		if bom.TenantID != tenantID {
+			continue
+		}
+		if activeOnly != nil && *activeOnly && !bom.Active {
+			continue
+		}
+		result = append(result, bom)
+	}
+	return result, len(result), nil
 }
-func (m *mockRepository) DeleteBOM(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockRepository) DeleteBOM(_ context.Context, tenantID, bomID uuid.UUID) error {
+	bom, ok := m.boms[bomID]
+	if !ok || bom.TenantID != tenantID {
+		return ErrBOMNotFound
+	}
+	delete(m.boms, bomID)
+	return nil
+}
 
-func (m *mockRepository) CreateWorkStep(_ context.Context, _ *WorkStep) error { return nil }
-func (m *mockRepository) UpdateWorkStep(_ context.Context, _ *WorkStep) error { return nil }
-func (m *mockRepository) GetWorkStep(_ context.Context, _, _ uuid.UUID) (*WorkStep, error) {
-	return nil, ErrWorkStepNotFound
+func (m *mockRepository) CreateWorkStep(_ context.Context, step *WorkStep) error {
+	m.workSteps[step.ID] = step
+	return nil
 }
-func (m *mockRepository) ListWorkSteps(_ context.Context, _, _ uuid.UUID) ([]*WorkStep, error) {
-	return nil, nil
+func (m *mockRepository) UpdateWorkStep(_ context.Context, step *WorkStep) error {
+	existing, ok := m.workSteps[step.ID]
+	if !ok || existing.TenantID != step.TenantID {
+		return ErrWorkStepNotFound
+	}
+	m.workSteps[step.ID] = step
+	return nil
 }
-func (m *mockRepository) DeleteWorkStep(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockRepository) GetWorkStep(_ context.Context, tenantID, stepID uuid.UUID) (*WorkStep, error) {
+	step, ok := m.workSteps[stepID]
+	if !ok || step.TenantID != tenantID {
+		return nil, ErrWorkStepNotFound
+	}
+	return step, nil
+}
+func (m *mockRepository) ListWorkSteps(_ context.Context, tenantID, orderID uuid.UUID) ([]*WorkStep, error) {
+	var result []*WorkStep
+	for _, step := range m.workSteps {
+		if step.TenantID == tenantID && step.OrderID == orderID {
+			result = append(result, step)
+		}
+	}
+	return result, nil
+}
+func (m *mockRepository) DeleteWorkStep(_ context.Context, tenantID, stepID uuid.UUID) error {
+	step, ok := m.workSteps[stepID]
+	if !ok || step.TenantID != tenantID {
+		return ErrWorkStepNotFound
+	}
+	delete(m.workSteps, stepID)
+	return nil
+}
 
-func (m *mockRepository) CreateMachine(_ context.Context, _ *Machine) error { return nil }
-func (m *mockRepository) UpdateMachine(_ context.Context, _ *Machine) error { return nil }
-func (m *mockRepository) GetMachine(_ context.Context, _, _ uuid.UUID) (*Machine, error) {
-	return nil, ErrMachineNotFound
+func (m *mockRepository) CreateMachine(_ context.Context, machine *Machine) error {
+	m.machines[machine.ID] = machine
+	return nil
 }
-func (m *mockRepository) ListMachines(_ context.Context, _ uuid.UUID, _ *MachineStatus, _, _ int) ([]*Machine, int, error) {
-	return nil, 0, nil
+func (m *mockRepository) UpdateMachine(_ context.Context, machine *Machine) error {
+	existing, ok := m.machines[machine.ID]
+	if !ok || existing.TenantID != machine.TenantID {
+		return ErrMachineNotFound
+	}
+	m.machines[machine.ID] = machine
+	return nil
 }
-func (m *mockRepository) DeleteMachine(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockRepository) GetMachine(_ context.Context, tenantID, machineID uuid.UUID) (*Machine, error) {
+	machine, ok := m.machines[machineID]
+	if !ok || machine.TenantID != tenantID {
+		return nil, ErrMachineNotFound
+	}
+	return machine, nil
+}
+func (m *mockRepository) ListMachines(_ context.Context, tenantID uuid.UUID, status *MachineStatus, offset, limit int) ([]*Machine, int, error) {
+	m.lastListMachinesOffset, m.lastListMachinesLimit = offset, limit
+	var result []*Machine
+	for _, machine := range m.machines {
+		if machine.TenantID != tenantID {
+			continue
+		}
+		if status != nil && machine.Status != *status {
+			continue
+		}
+		result = append(result, machine)
+	}
+	return result, len(result), nil
+}
+func (m *mockRepository) DeleteMachine(_ context.Context, tenantID, machineID uuid.UUID) error {
+	machine, ok := m.machines[machineID]
+	if !ok || machine.TenantID != tenantID {
+		return ErrMachineNotFound
+	}
+	delete(m.machines, machineID)
+	return nil
+}
 
-func (m *mockRepository) CreateQualityCheck(_ context.Context, _ *QualityCheck) error { return nil }
-func (m *mockRepository) GetQualityCheck(_ context.Context, _, _ uuid.UUID) (*QualityCheck, error) {
-	return nil, ErrQualityCheckNotFound
+func (m *mockRepository) CreateQualityCheck(_ context.Context, check *QualityCheck) error {
+	m.qualityChecks[check.ID] = check
+	return nil
 }
-func (m *mockRepository) ListQualityChecks(_ context.Context, _ uuid.UUID, _ *uuid.UUID, _, _ int) ([]*QualityCheck, int, error) {
-	return nil, 0, nil
+func (m *mockRepository) GetQualityCheck(_ context.Context, tenantID, checkID uuid.UUID) (*QualityCheck, error) {
+	check, ok := m.qualityChecks[checkID]
+	if !ok || check.TenantID != tenantID {
+		return nil, ErrQualityCheckNotFound
+	}
+	return check, nil
+}
+func (m *mockRepository) ListQualityChecks(_ context.Context, tenantID uuid.UUID, orderID *uuid.UUID, offset, limit int) ([]*QualityCheck, int, error) {
+	m.lastListQualityChecksOffset, m.lastListQualityChecksLimit = offset, limit
+	var result []*QualityCheck
+	for _, check := range m.qualityChecks {
+		if check.TenantID != tenantID {
+			continue
+		}
+		if orderID != nil && check.OrderID != *orderID {
+			continue
+		}
+		result = append(result, check)
+	}
+	return result, len(result), nil
 }
 
 // compile-time interface check
