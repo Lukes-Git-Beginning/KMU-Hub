@@ -412,6 +412,18 @@ func TestListCalendars(t *testing.T) {
 		_, err := srv.ListCalendars(ctxWithTenant(tenantID), &calv1.ListCalendarsRequest{UserId: "nope"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
+
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape: an empty result
+	// must serialize as [] over the wire, not null.
+	t.Run("empty result is not nil", func(t *testing.T) {
+		repo := newStubCalendarRepo()
+		srv := newTestCalendarServerWithRepo(repo)
+
+		resp, err := srv.ListCalendars(ctxWithTenant(tenantID), &calv1.ListCalendarsRequest{UserId: userID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Calendars)
+		assert.Empty(t, resp.Calendars)
+	})
 }
 
 func TestUpdateCalendar(t *testing.T) {
@@ -567,6 +579,18 @@ func TestListCalendarMembers(t *testing.T) {
 		_, err := srv.ListCalendarMembers(ctxWithTenant(tenantID), &calv1.ListCalendarMembersRequest{CalendarId: uuid.New().String()})
 		requireGRPCCode(t, err, codes.NotFound)
 	})
+
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+	t.Run("empty result is not nil", func(t *testing.T) {
+		repo := newStubCalendarRepo()
+		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID}
+		srv := newTestCalendarServerWithRepo(repo)
+
+		resp, err := srv.ListCalendarMembers(ctxWithTenant(tenantID), &calv1.ListCalendarMembersRequest{CalendarId: calID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Members)
+		assert.Empty(t, resp.Members)
+	})
 }
 
 func TestUpdateCalendarMemberPermission(t *testing.T) {
@@ -629,6 +653,17 @@ func TestListBrowsableCalendars(t *testing.T) {
 
 		_, err := srv.ListBrowsableCalendars(ctxWithTenant(tenantID), &calv1.ListBrowsableCalendarsRequest{UserId: "nope"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+	t.Run("empty result is not nil", func(t *testing.T) {
+		repo := newStubCalendarRepo()
+		srv := newTestCalendarServerWithRepo(repo)
+
+		resp, err := srv.ListBrowsableCalendars(ctxWithTenant(tenantID), &calv1.ListBrowsableCalendarsRequest{UserId: userID.String()})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Calendars)
+		assert.Empty(t, resp.Calendars)
 	})
 }
 

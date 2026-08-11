@@ -141,7 +141,7 @@ func (s *CalendarGRPCServer) ListCalendars(ctx context.Context, req *calv1.ListC
 		return nil, status.Error(codes.Internal, "failed to list calendars")
 	}
 
-	var protos []*calv1.CalendarWithMemberInfoProto
+	protos := make([]*calv1.CalendarWithMemberInfoProto, 0, len(calendars))
 	for _, c := range calendars {
 		protos = append(protos, calendarWithMemberInfoToProto(&c))
 	}
@@ -274,7 +274,7 @@ func (s *CalendarGRPCServer) ListCalendarMembers(ctx context.Context, req *calv1
 		return nil, mapCalendarError(err)
 	}
 
-	var protos []*calv1.CalendarMemberProto
+	protos := make([]*calv1.CalendarMemberProto, 0, len(members))
 	for _, m := range members {
 		protos = append(protos, calendarMemberToProto(&m))
 	}
@@ -328,7 +328,7 @@ func (s *CalendarGRPCServer) ListBrowsableCalendars(ctx context.Context, req *ca
 		return nil, status.Error(codes.Internal, "failed to list browsable calendars")
 	}
 
-	var protos []*calv1.CalendarProto
+	protos := make([]*calv1.CalendarProto, 0, len(calendars))
 	for _, c := range calendars {
 		protos = append(protos, calendarToProto(&c))
 	}
@@ -509,7 +509,7 @@ func (s *CalendarGRPCServer) ListEventsInRange(ctx context.Context, req *calv1.L
 		return nil, status.Error(codes.Internal, "failed to list events")
 	}
 
-	var protos []*calv1.ExpandedEventProto
+	protos := make([]*calv1.ExpandedEventProto, 0, len(events))
 	for _, e := range events {
 		protos = append(protos, expandedEventToProto(&e))
 	}
@@ -716,7 +716,7 @@ func (s *CalendarGRPCServer) ListEventAttendees(ctx context.Context, req *calv1.
 		return nil, mapCalendarError(err)
 	}
 
-	var protos []*calv1.EventAttendeeProto
+	protos := make([]*calv1.EventAttendeeProto, 0, len(attendees))
 	for _, a := range attendees {
 		protos = append(protos, attendeeToProto(&a))
 	}
@@ -767,7 +767,7 @@ func (s *CalendarGRPCServer) ListEventCategories(ctx context.Context, req *calv1
 		return nil, status.Error(codes.Internal, "failed to list categories")
 	}
 
-	var protos []*calv1.EventCategoryProto
+	protos := make([]*calv1.EventCategoryProto, 0, len(categories))
 	for _, c := range categories {
 		protos = append(protos, categoryToProto(&c))
 	}
@@ -836,7 +836,7 @@ func (s *CalendarGRPCServer) ListEventReminders(ctx context.Context, req *calv1.
 		return nil, mapCalendarError(err)
 	}
 
-	var protos []*calv1.EventReminderProto
+	protos := make([]*calv1.EventReminderProto, 0, len(reminders))
 	for _, r := range reminders {
 		protos = append(protos, reminderToProto(&r))
 	}
@@ -946,7 +946,7 @@ func (s *CalendarGRPCServer) ListResources(ctx context.Context, req *calv1.ListR
 		return nil, status.Error(codes.Internal, "failed to list resources")
 	}
 
-	var protos []*calv1.ResourceProto
+	protos := make([]*calv1.ResourceProto, 0, len(resources))
 	for _, r := range resources {
 		protos = append(protos, resourceToProto(&r))
 	}
@@ -1038,7 +1038,7 @@ func (s *CalendarGRPCServer) ListResourceAvailability(ctx context.Context, req *
 		return nil, mapCalendarError(err)
 	}
 
-	var protos []*calv1.ResourceBookingProto
+	protos := make([]*calv1.ResourceBookingProto, 0, len(bookings))
 	for _, b := range bookings {
 		protos = append(protos, bookingToProto(&b))
 	}
@@ -1144,7 +1144,7 @@ func (s *CalendarGRPCServer) ListResourceBookings(ctx context.Context, req *calv
 		return nil, mapCalendarError(err)
 	}
 
-	var protos []*calv1.ResourceBookingProto
+	protos := make([]*calv1.ResourceBookingProto, 0, len(bookings))
 	for _, b := range bookings {
 		protos = append(protos, bookingToProto(&b))
 	}
@@ -1172,7 +1172,7 @@ func (s *CalendarGRPCServer) ListHolidays(ctx context.Context, req *calv1.ListHo
 		return nil, mapCalendarError(err)
 	}
 
-	var protos []*calv1.PublicHolidayProto
+	protos := make([]*calv1.PublicHolidayProto, 0, len(holidays))
 	for _, h := range holidays {
 		protos = append(protos, holidayToProto(&h))
 	}
@@ -1276,7 +1276,7 @@ func (s *CalendarGRPCServer) ListTaskDeadlinesInRange(ctx context.Context, req *
 		return nil, status.Error(codes.Internal, "failed to list task deadlines")
 	}
 
-	var protos []*calv1.TaskDeadlineStubProto
+	protos := make([]*calv1.TaskDeadlineStubProto, 0, len(deadlines))
 	for _, d := range deadlines {
 		protos = append(protos, taskDeadlineToProto(&d))
 	}
@@ -1756,7 +1756,7 @@ func (s *CalendarGRPCServer) ListBookingPages(ctx context.Context, req *calv1.Li
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
-	var protos []*calv1.BookingPageProto
+	protos := make([]*calv1.BookingPageProto, 0, len(pages))
 	for _, p := range pages {
 		pp := p
 		protos = append(protos, bookingPageToProto(&pp))
@@ -1878,7 +1878,7 @@ func (s *CalendarGRPCServer) GetAvailability(ctx context.Context, req *calv1.Get
 		return nil, mapCalendarError(err)
 	}
 
-	var dayProtos []*calv1.AvailabilityDayProto
+	dayProtos := make([]*calv1.AvailabilityDayProto, 0, len(days))
 	for _, d := range days {
 		dayProtos = append(dayProtos, &calv1.AvailabilityDayProto{
 			Date:  d.Date.Format("2006-01-02"),

@@ -1379,7 +1379,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-large-services, Lauf 9 Iteration 21)"
     scope: >
       MUSTER C — `calendar_grpc.go` deklariert in ALLEN 13 seiner List-RPCs das

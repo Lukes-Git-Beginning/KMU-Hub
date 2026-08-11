@@ -314,6 +314,17 @@ func TestListResources_Success(t *testing.T) {
 	assert.Len(t, resp.Resources, 1)
 }
 
+// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+func TestListResources_EmptyIsNotNil(t *testing.T) {
+	repo := newStubResourceRepo()
+	srv := NewCalendarGRPCServer(nil, nil, resource.NewService(repo), nil, nil)
+
+	resp, err := srv.ListResources(ctxWithTenant(uuid.New()), &calv1.ListResourcesRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, resp.Resources)
+	assert.Empty(t, resp.Resources)
+}
+
 func TestListResources_RepoError(t *testing.T) {
 	repo := newStubResourceRepo()
 	repo.listErr = assert.AnError
@@ -386,6 +397,9 @@ func TestListResourceAvailability_Success(t *testing.T) {
 		End:        timestamppb.New(time.Now().Add(24 * time.Hour)),
 	})
 	require.NoError(t, err)
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape: the empty result
+	// must serialize as [] over the wire, not null.
+	require.NotNil(t, resp.Bookings)
 	assert.Empty(t, resp.Bookings)
 }
 
@@ -454,6 +468,9 @@ func TestListResourceBookings_Success(t *testing.T) {
 		End:        timestamppb.New(time.Now().Add(24 * time.Hour)),
 	})
 	require.NoError(t, err)
+	// Regression for fix-calendar-grpc-nil-slice-wire-shape: the empty result
+	// must serialize as [] over the wire, not null.
+	require.NotNil(t, resp.Bookings)
 	assert.Empty(t, resp.Bookings)
 }
 
@@ -488,6 +505,21 @@ func TestListHolidays_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resp.Holidays, 1)
 	assert.Equal(t, "Tag der Arbeit", resp.Holidays[0].Name)
+}
+
+// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+func TestListHolidays_EmptyIsNotNil(t *testing.T) {
+	repo := &stubHolidayRepo{hasData: true}
+	srv := NewCalendarGRPCServer(nil, nil, nil, holiday.NewService(repo, nil), nil)
+
+	resp, err := srv.ListHolidays(context.Background(), &calv1.ListHolidaysRequest{
+		CountryCode: "DE",
+		Start:       timestamppb.New(time.Now()),
+		End:         timestamppb.New(time.Now().Add(10 * 24 * time.Hour)),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp.Holidays)
+	assert.Empty(t, resp.Holidays)
 }
 
 func TestListHolidays_InvalidCountryCode(t *testing.T) {
@@ -640,6 +672,17 @@ func TestListBookingPages_Success(t *testing.T) {
 	resp, err := srv.ListBookingPages(ctxWithTenant(tenantID), &calv1.ListBookingPagesRequest{})
 	require.NoError(t, err)
 	assert.Len(t, resp.Pages, 1)
+}
+
+// Regression for fix-calendar-grpc-nil-slice-wire-shape.
+func TestListBookingPages_EmptyIsNotNil(t *testing.T) {
+	repo := newStubBookingRepo()
+	srv := newBookingServer(repo)
+
+	resp, err := srv.ListBookingPages(ctxWithTenant(uuid.New()), &calv1.ListBookingPagesRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, resp.Pages)
+	assert.Empty(t, resp.Pages)
 }
 
 func TestListBookingPages_RepoError(t *testing.T) {

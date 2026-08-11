@@ -1471,3 +1471,70 @@ Fensters.
   gesamten Paket (siehe `MarkInitiatorConsent`/`GetPreConsentStatus`, die es explizit tun, und
   `GetConsents`, das es nicht tut) und ausserhalb des Scopes dieser Unit; falls RLS auf dieser
   Tabelle je deaktiviert wuerde, waere das ein Cross-Tenant-Leck, aber das ist rein hypothetisch.
+
+## Iteration 30 — fix-calendar-grpc-nil-slice-wire-shape — done — 2026-08-11 19:21
+- commit: (folgt nach Journal-Commit)
+- gebaut: Alle 13 List-RPCs plus `GetAvailability` in `backend/internal/server/calendar_grpc.go`
+  initialisieren ihr Response-Slice jetzt per `make([]*calv1.XxxProto, 0, len(<quelle>))` statt
+  einer nil-`var`-Deklaration (Stellen: ListCalendars 144, ListCalendarMembers 277,
+  ListBrowsableCalendars 331, ListEventsInRange 512, ListEventAttendees 719,
+  ListEventCategories 770, ListEventReminders 839, ListResources 949,
+  ListResourceAvailability 1041, ListResourceBookings 1147, ListHolidays 1175,
+  ListTaskDeadlinesInRange 1279, ListBookingPages 1759, GetAvailability/dayProtos 1881 — exakt
+  die 14 im Backlog genannten Fundstellen, keine weitere `var []*calv1.` bleibt übrig, per
+  `grep` verifiziert). Rein mechanischer Zwei-Wort-Diff pro Stelle (`var` -> `:= make(...)`),
+  keine Verhaltensänderung sonst.
+- gebaut (Tests): 13 neue/erweiterte Tests, je einer pro List-RPC, alle mit leerem
+  Repository-Ergebnis und `require.NotNil` + `assert.Empty` auf dem Response-Feld:
+  `TestListCalendars/empty_result_is_not_nil`, `TestListCalendarMembers/...`,
+  `TestListBrowsableCalendars/...` (alle in calendar_grpc_errormap_calendars_members_test.go),
+  `TestListEventsInRange/...`, `TestListEventAttendees/...`, `TestListEventCategories/...`,
+  `TestListEventReminders/...`, `TestListTaskDeadlinesInRange/...` (alle in
+  calendar_grpc_events_categories_reminders_test.go), `TestListResources_EmptyIsNotNil`,
+  `TestListResourceAvailability_Success` (um `require.NotNil` ergänzt — deckte den leeren Fall
+  bereits ab, prüfte aber nur `assert.Empty`, was nil und `[]` nicht unterscheidet),
+  `TestListResourceBookings_Success` (dieselbe Ergänzung), `TestListHolidays_EmptyIsNotNil`,
+  `TestListBookingPages_EmptyIsNotNil` (alle in calendar_grpc_resources_bookingpages_test.go).
+- offen (GetAvailability, ehrlich dokumentiert statt stillschweigend übersprungen): für die 13
+  List-RPCs war ein handler-Test mit leerem Repo problemlos möglich. Für `GetAvailability`
+  (dayProtos, Zeile 1881) ist das strukturell blockiert: `calendar.BookingService.GetAvailability`
+  ruft vor der Tageschleife unbedingt `s.repo.GetCalendarEventsInRange` und
+  `s.repo.GetBookedSlotsForPage` auf; beide sind in `calendar.BookingRepository` mit einem
+  unexported Rückgabetyp (`eventSlot`, nur in `internal/work/calendar/booking_repository.go`
+  sichtbar) deklariert. Ein Stub aus dem `server`-Paket kann diese Methoden deshalb nicht
+  überschreiben (Compile-Error: unexported identifier) — das bestätigt der bereits bestehende
+  Kommentar bei `stubBookingRepo` in calendar_grpc_resources_bookingpages_test.go, der genau
+  deshalb GetCalendarEventsInRange/GetBookedSlotsForPage nie implementiert. Der Fix selbst
+  (`dayProtos := make(...)`) ist im selben Commit mit demselben mechanischen Diff angewendet und
+  durch die Mutations-Probe (siehe unten, an derselben Codestelle demonstriert) mit belegt; er
+  ist by construction korrekt (make() macht nil und befüllte Quelle gleichermaßen zu einem
+  nicht-nil Slice), nur die End-zu-Ende-Testabdeckung über den echten BookingService ist ohne
+  Änderung an der `calendar`-Package-Sichtbarkeit (out of scope für diese Unit) nicht möglich.
+  Luke: falls das für GetAvailability doch geschlossen werden soll, bräuchte es entweder einen
+  exportierten Test-Helper in `internal/work/calendar` oder einen Test dort statt hier.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` komplett grün, 0 SKIP; explizit
+  alle 13 neuen/erweiterten Tests einzeln mit `-v` verifiziert) | migration n.a. (keine DB-Änderung,
+  reiner Handler-Text-Fix) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  `TestOpenAPIRouteDrift` ok (834 registrierte Routen gegen 836 dokumentierte Pfade, Pflicht
+  gelaufen da `internal/server` ein Handler-File angefasst hat, auch wenn keine Route/Signatur
+  sich geändert hat)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash` isoliert gemessen) -> 70,1 %
+  (nach dem Fix, `go tool cover -func`). Die Prozentzahl bewegt sich bei einer Stelle wie dieser
+  (Slice-Init-Zeile, keine neue Verzweigung) nicht sichtbar — der Beleg für den Fix ist die
+  Mutations-Probe, nicht die Coverage-Zahl.
+- mutations-probe: Zeile 144 (`protos := make([]*calv1.CalendarWithMemberInfoProto, 0,
+  len(calendars))`) zurück auf `var protos []*calv1.CalendarWithMemberInfoProto` gesetzt ->
+  `go test -run TestListCalendars$ -v` wurde rot, exakt am neuen Subtest
+  `TestListCalendars/empty_result_is_not_nil` mit "Expected value not to be nil" (die drei
+  anderen Subtests von TestListCalendars blieben grün, wie erwartet). Zurückgedreht, `git diff`
+  zeigt wieder ausschließlich den sauberen 14-Stellen-Diff in calendar_grpc.go plus die
+  Testergänzungen.
+- verify vorgaenger: sauber (Commit `2e53e5e7`, Iteration 29 — `SetConsent` INSERT bekommt
+  `tenant_id` per Subquery aus der Eltern-Recording, ON-CONFLICT-Ziel `(recording_id, user_id)`
+  passt exakt auf den bestehenden Primary Key aus Migration 000037, kein gRPC-Bypass, kein Stub,
+  kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle — `tenant_id` existiert seit
+  Migration 000119/000120 —, Wire-Shape unverändert, keine Route)
+- neue-units: keine
+- offen: der GetAvailability-Testlücke-Punkt oben; ansonsten nichts.
