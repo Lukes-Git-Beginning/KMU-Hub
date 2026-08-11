@@ -1,4 +1,4 @@
-﻿{
+{
   "admin.caldav.description": "Organization-wide settings for calendar and contact synchronization",
   "admin.caldav.email": "Email",
   "admin.caldav.enableDescription": "Allows all users to sync calendars and contacts with external applications",
