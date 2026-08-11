@@ -5457,7 +5457,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (Block F Reserve).
 
 ## Iteration 86 — f-cov-document-file — done — 2026-08-11 07:04
-- commit: (wird nach diesem Eintrag gesetzt, siehe naechste chore-Iteration)
+- commit: ec5bc79e
 - gebaut: zwei neue DB-gestuetzte Testdateien, `internal/document/virtual/postgres_repository_test.go`
   und `internal/document/search/postgres_repository_test.go`. `search` deckt Search() vollstaendig ab
   (Match+Rank+Snippet, kein Treffer -> leerer Slice statt nil, Ausschluss soft-geloeschter Dateien,
