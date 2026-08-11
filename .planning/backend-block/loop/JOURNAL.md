@@ -3958,7 +3958,7 @@ Frühere Läufe liegen vollständig im Archiv:
   auf dem Loop-Rechner ermittelt (2026-08-11 03:46).
 
 ## Iteration 63 — d-cov-gateway-schichten-swap-arbzg — done — 2026-08-11 03:52
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 8908aba4
 - gebaut: `backend/internal/gateway/route_schichten_test.go` um 20 Tests
   erweitert fuer den bisher ungetesteten Schichttausch-/ArbZG-Block in
   route_schichten.go: HandleCreateSwapRequest (MissingSwapWithEmployeeID,
