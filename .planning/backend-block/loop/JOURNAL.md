@@ -4918,7 +4918,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `e-cov-chat-service-file-guest` (Block E, chat/service + file/guest).
 
 ## Iteration 79 — e-cov-chat-service-file-guest — done — 2026-08-11 05:45
-- commit: (folgt nach diesem Journal-Eintrag)
+- commit: 5264be0a
 - gebaut: vier neue Testdateien. `message/service_events_test.go` deckt
   `emitMessageEvents` erstmals ab (kein bestehender Test setzte je einen
   EventEmitter): Mention-Event mit Selbstausschluss, reines
