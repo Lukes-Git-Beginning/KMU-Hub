@@ -1878,3 +1878,51 @@ Fensters.
   Testlauf dieser Iteration ist nicht reproduzierbar (zwei folgende Laeufe beide gruen) — vermutlich
   ein zeitabhaengiger Flake (Timer-/Duration-Tests im Log sichtbar), keine Verbindung zu den
   geaenderten Dateien erkennbar. Falls er in CI wieder auftaucht, lohnt ein gezielter `-run`-Bisect.
+
+## Iteration 37 — fix-schichten-grpc-nil-slice-wire-shape — done — 2026-08-11 20:09
+- commit: 3e93b66d
+- gebaut: fuenf Nil-Slice-Fixes in `backend/internal/server/schichten_grpc.go` nach dem
+  Muster von `fix-crm-list-nil-slice-wire-shape` (Iteration 10): `ListShifts` (Zeile 164),
+  `ListAssignments` (257), `ListTemplates` (372), `ListSwapRequests` (542) — die vier aus dem
+  Backlog-Scope — sowie `ApplyTemplate` (408), das der Scan (Iteration 22) nicht gelistet hatte.
+  Root-Cause-Grep (`grep -n "var .*\[\]\*schichtenv1\." internal/server/schichten_grpc.go`) fand
+  genau diese 5 Stellen im File, nicht nur die 4 dokumentierten — `ApplyTemplate` traegt exakt
+  denselben `var pbShifts []*schichtenv1.Shift`-Konstrukt wie `ListShifts` (unterschiedliches
+  Response-Feld, gleicher Bug), mitgefixt statt als eigene Unit angelegt, analog zur
+  Randfund-Behandlung von `PreviewErasure`/`ExecuteErasure` in
+  `fix-security-grpc-nil-slice-wire-shape`s Notes. Alle fuenf `var x []*T` -> `x := make([]*T,
+  0, len(<quelle>))`.
+- gebaut (Tests): `TestSchichten_ListShifts_EmptyIsEmptySliceNotNull` (existierte bereits, pruefte
+  aber trotz ihres Namens nur `assert.Empty` und haette den Bug NICHT bewiesen) um
+  `require.NotNil(t, resp.Shifts)` ergaenzt. `TestSchichten_AssignUnassignListAssignments`
+  analog um `require.NotNil(t, listResp.Assignments)` vor dem bestehenden `assert.Empty`
+  ergaenzt. `TestSchichten_ListSwapRequests_FiltersAndPagination`s `emptyResp`-Zweig ebenso.
+  Zwei neue Tests: `TestSchichten_ListTemplates_EmptyIsEmptySliceNotNull` (leerer Tenant) und
+  `TestSchichten_ApplyTemplate_NoMatchingDayIsEmptySliceNotNull` (Range auf einen Dienstag
+  begrenzt, Montags-Template trifft keinen Tag im Bereich -> `CreatedCount == 0`,
+  `require.NotNil(t, applyResp.Shifts)`).
+- gate: build ok (`./internal/server/... ./internal/schichten/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint 0 issues auf `./internal/server/...
+  ./internal/schichten/...`) | test ok (`./internal/server/` 0 Skips, `DATABASE_URL` gegen
+  `kmuhub_app`; `./internal/schichten/...` gruen) | `go test ./internal/gateway/ -run
+  TestOpenAPIRouteDrift` gruen (834/836, keine Route/Spec angefasst, reine Vorsichtspruefung
+  wegen `schichten_grpc.go`-Anfassung) | migration n.a. (reiner Handler-Text-Fix) | rls-smoke
+  n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,2 % -> 70,2 % (beide selbst gemessen per `go tool cover -func`,
+  Vorher-Wert per `git stash push -u` auf genau die zwei geaenderten Dateien isoliert.
+  Unveraendert, weil alle fuenf neuen `make(...)`-Zeilen bereits von bestehenden bzw. neuen
+  Testpfaden durchlaufen werden, ohne die Gesamtzeilenzahl relevant zu verschieben)
+- mutations-probe: `ListShifts`s `pbShifts := make([]*schichtenv1.Shift, 0, len(shifts))` zurueck
+  auf `var pbShifts []*schichtenv1.Shift` gesetzt -> `TestSchichten_ListShifts_
+  EmptyIsEmptySliceNotNull` wurde rot ("Expected value not to be nil"). Zurueckgedreht,
+  `git diff --stat internal/server/schichten_grpc.go` zeigt wieder nur die urspruengliche
+  Aenderung (5 insertions, 5 deletions).
+- verify vorgaenger: sauber (Commit `9e58005f`, Iteration 36 — `git show --stat` und Diff
+  geprueft: nur `permission.go` (1 Zeile `var` -> `make`) plus drei Testdateien geaendert,
+  derselbe mechanische Nil-Slice-Fix, kein gRPC-Bypass, kein Stub-Fund im echten Repository,
+  kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung
+  korrekt, keine Route)
+- neue-units: keine (der einzige Randfund, `ApplyTemplate`, ist in dieser Unit mitgefixt statt
+  als eigene Unit angelegt — siehe `gebaut:`)
+- offen: keine. Reiner Handler-Fix ohne Migrations-/RLS-Beruehrung. Damit ist Block C bis auf
+  `fix-security-grpc-nil-slice-wire-shape` (letzte verbliebene `todo`-Unit) abgearbeitet.
