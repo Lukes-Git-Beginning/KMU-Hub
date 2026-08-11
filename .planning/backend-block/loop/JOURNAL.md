@@ -1217,3 +1217,52 @@ Fensters.
   mit ihrem alten (potenziell spurious-broken) Hash bestehen, append-only, nicht reparierbar.
   `go test ./internal/gateway/` nicht gelaufen, da keine Route angefasst wurde (keine Pflicht
   laut Schritt 5).
+
+## Iteration 24 — fix-notification-mutes-unique-missing-tenant — done — 2026-08-11 18:36
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Migration 000313 verbreitert den Unique-Constraint von `notification_mutes` von
+  `UNIQUE(user_id, module_id, resource_id)` (Inline-Constraint aus 000022, nie mit 000110/000124
+  mitgezogen) auf den Index `idx_notification_mutes_resource(tenant_id, user_id, module_id,
+  resource_id)`; down stellt den alten Constraint her. `postgres_repository.go` blieb wie im
+  Unit-Scope vermutet unveraendert -- `CreateMute` nennt keinen ON-CONFLICT-Arbiter, der Bug
+  schlug daher nicht als 42P10 zu, sondern als 23505: `Service.MuteResource` prueft vorab
+  tenant-gescopt per `IsResourceMuted`, sieht die Zeile des fremden Tenants nicht und laesst
+  `CreateMute` in den tenant-losen Constraint laufen (roher 500 statt Mute). Neuer
+  DB-gestuetzter Test `TestPostgresRepository_MutePerTenant` geht ueber den Service (nicht das
+  Repo), beweist Mute fuer zwei Tenants auf derselben (user_id, module_id, resource_id), haelt
+  `ErrMuteAlreadyExists` fuer das Duplikat innerhalb eines Tenants fest und pruefen beide
+  ListMutedResources-Sichten auf Tenant-Isolation. Kommentar in
+  `TestPostgresRepository_MuteLifecycle` auf die neue Index-Spaltenliste angeglichen.
+- gate: build ok (`./internal/notification/... ./internal/gateway/... ./cmd/notification/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint 0 issues) | test ok
+  (`./internal/notification/...` alle 7 Pakete gruen, 0 SKIP in `./internal/notification/
+  preference/ -v`) | migration ok (313/u angewendet, Kopf 313, Index per `\d
+  notification_mutes` als UNIQUE btree (tenant_id, user_id, module_id, resource_id) verifiziert)
+  | rls-smoke ok (eigener Tenant 1, unbeteiligter Tenant 0; die beiden Seed-Zeilen mit
+  identischem (user_id, module_id, resource_id) in zwei Tenants gingen unter dem neuen Index
+  ueberhaupt erst durch, Zeilen danach wieder geloescht)
+- coverage: internal/notification/preference 87,4 % -> 87,4 % (beide selbst gemessen mit
+  `go tool cover -func`; der neue Test faehrt ausschliesslich schon abgedeckte Zeilen --
+  MuteResource, CreateMute, IsResourceMuted, ListMutedResources, ListMutes waren alle bereits
+  durch TestPostgresRepository_MuteLifecycle erreicht. Der Wert deckt sich mit dem
+  `coverage_start:` der Unit; Gewinn liegt hier im Schema-Fix, nicht in neuen Zeilen)
+- mutations-probe: statt einer Code-Zeile die Migration selbst gebrochen --
+  `migrate down 1` auf Kopf 312 gedreht, `TestPostgresRepository_MutePerTenant` wurde rot
+  (`duplicate key value violates unique constraint
+  "notification_mutes_user_id_module_id_resource_id_key" (SQLSTATE 23505)` genau an der
+  Zeile des zweiten Tenants), danach `migrate up` zurueck auf 313, Test wieder gruen, Kopf und
+  Arbeitsbaum sauber.
+- verify vorgaenger: sauber (Commit `ef032f24`, Iteration 23 — Produktionsdiff ist der
+  Timestamp-Truncate in `internal/security/audit/postgres_repository.go` plus Test; kein
+  gRPC-Bypass (kein Handler beruehrt), kein Stub, kein `.proto`/kein Migrations-Drift, kein
+  neuer RequirePermission-Guard, keine neue Tabelle, Wire-Shape unveraendert (nur der intern
+  gehashte Timestamp wird gekappt, keine Response-Form), keine Route)
+- neue-units: keine
+- offen: Die drei Migrationen 000305 / 000312 / 000313 schliessen den Notification-Schema-Drift
+  vollstaendig — im Schema bleibt keine Unique-Constraint mehr ohne `tenant_id`. Ob dieselbe
+  Drift in ANDEREN Schemata liegt, ist bislang nicht systematisch gescannt; die drei Funde
+  stammen alle aus dem Anlassfall Notification. Ein Scan `alle UNIQUE-Constraints/Indexe auf
+  RLS-Tabellen ohne tenant_id als fuehrende Spalte` gegen die laufende DB waere eine
+  lohnende Unit fuer einen naechsten Lauf (nicht angelegt, weil sie ausserhalb der
+  Block-C-Fix-Liste dieses Laufs liegt). `go test ./internal/gateway/` nicht gelaufen, da keine
+  Route angefasst wurde.

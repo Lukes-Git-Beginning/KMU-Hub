@@ -113,7 +113,7 @@ func TestPostgresRepository_MuteLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, muted)
 
-	// Error path: the unique index (user_id, module_id, resource_id) rejects a duplicate.
+	// Error path: the unique index (tenant_id, user_id, module_id, resource_id) rejects a duplicate.
 	dup := &models.NotificationMute{
 		ID:         uuid.New(),
 		TenantID:   testutil.TenantA,
@@ -350,4 +350,58 @@ func TestPostgresRepository_UpsertModuleDefaultTwice(t *testing.T) {
 		"SELECT COUNT(*) FROM notification_preferences WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3 AND event_type_key IS NULL",
 		testutil.TenantA, userID, moduleID).Scan(&rowCount))
 	require.Equal(t, 1, rowCount)
+}
+
+// The point of widening the unique index in migration 000313: the old
+// UNIQUE(user_id, module_id, resource_id) let the first tenant that muted a
+// resource for a user block every other tenant from muting the same resource
+// for that user. Service.MuteResource cannot even detect the collision, because
+// its IsResourceMuted pre-check is tenant-scoped -- so the caller got a raw
+// 23505 instead of a mute.
+func TestPostgresRepository_MutePerTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	testutil.EnsureTenant(t, pool, testutil.TenantA, "Tenant A")
+	testutil.EnsureTenant(t, pool, testutil.TenantB, "Tenant B")
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     testutil.TenantA,
+		"email":         fmt.Sprintf("pref-mute-pertenant-%s@tenanta.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	svc := NewService(NewPostgresRepository(pool))
+	resourceID := uuid.New().String()
+
+	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+	muteA, err := svc.MuteResource(ctxA, testutil.TenantA, userID, "crm", resourceID)
+	require.NoError(t, err)
+	defer testutil.CleanupRow(t, pool, "notification_mutes", muteA.ID)
+
+	ctxB := testutil.WithTenantCtx(context.Background(), testutil.TenantB)
+	muteB, err := svc.MuteResource(ctxB, testutil.TenantB, userID, "crm", resourceID)
+	require.NoError(t, err,
+		"a second tenant must be able to mute the same resource for the same user independently")
+	defer testutil.CleanupRow(t, pool, "notification_mutes", muteB.ID)
+
+	// The duplicate path within a single tenant still reports the sentinel,
+	// not a raw unique violation.
+	_, err = svc.MuteResource(ctxA, testutil.TenantA, userID, "crm", resourceID)
+	require.ErrorIs(t, err, ErrMuteAlreadyExists)
+
+	// Tenant isolation still holds: each tenant sees only its own mute.
+	listA, totalA, err := svc.ListMutedResources(ctxA, testutil.TenantA, userID, nil, 1, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, totalA)
+	require.Equal(t, muteA.ID, listA[0].ID)
+
+	listB, totalB, err := svc.ListMutedResources(ctxB, testutil.TenantB, userID, nil, 1, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, totalB)
+	require.Equal(t, muteB.ID, listB[0].ID)
 }

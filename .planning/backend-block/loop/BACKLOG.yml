@@ -1076,7 +1076,7 @@ units:
     service: notification
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/notification/preference 87,4 % (lokal gemessen, Iteration 4 nach Migration 000312)"
     scope: >
       `notification_mutes` traegt seit Migration 000022 den inline-Constraint
