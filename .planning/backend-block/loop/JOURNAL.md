@@ -5205,3 +5205,79 @@ Frühere Läufe liegen vollständig im Archiv:
   (mapsloop in engine.go:354, buildEnvFromPayload) betrifft unveraenderten Bestandscode ausserhalb
   des Scopes dieser Unit und wurde nicht angefasst. Naechste Backlog-Unit laut Reihenfolge:
   `e-cov-email-sync` (Block E, internal/email/sync worker.go/imap_client.go/engine.go).
+
+## Iteration 83 — e-cov-email-sync — done — 2026-08-11 06:22
+- gebaut: drei neue Testdateien, kein Produktionscode veraendert. `internal/email/sync/
+  imap_client_guards_test.go` deckt zwei bisher unangetastete Flaechen aus `imap_client.go` ab:
+  erstens `TestIMAPClient_NilClientGuards` (Tabellentest ueber Login/SelectFolder/FetchHeaders/
+  FetchBody/SetFlags/Idle/HasIDLE/Noop/ListFolders/Close auf einem `IMAPClient`, dessen `c.client`
+  nie gesetzt wurde — jede Methode ausser HasIDLE/Close muss `ErrIMAPConnectionLost` liefern, ohne
+  den nil-Pointer anzufassen), zweitens `TestConnect_ImmediateCloseWrapsError`: ein echter
+  `net.Listen("tcp","127.0.0.1:0")`-Fake-Server nimmt die Verbindung an und schliesst sie sofort
+  ohne ein Byte zu sprechen — SSL-Zweig (useSSL=true, `tls.DialWithDialer`-Handshake schlaegt gegen
+  die geschlossene Rohverbindung fehl, noch vor `newIMAPProtocolClient`) und Nicht-SSL-Zweig
+  (useSSL=false, STARTTLS-Goroutine in `newIMAPProtocolClient` liest sofort EOF statt auf
+  `imapHandshakeDeadline` zu warten) je einmal, beide erwarten einen in `ErrIMAPConnectionLost`
+  gewrappten Fehler. Abgegrenzt von der bereits vorhandenen `TestConnect_HandshakeDeadline`
+  (imap_timeout_test.go), die den Fall "Server bleibt stumm bis zum Timeout" testet — hier geht es
+  um "Server schliesst sofort", ein anderer Codepfad mit anderem Timing. `internal/email/sync/
+  worker_state_test.go` deckt `idleOrPoll` (kein INBOX-Folder in der Liste -> kehrt zurueck ohne
+  den unverbundenen Client anzufassen, bewiesen durch NoError trotz garantiert fehlschlagendem
+  SelectFolder; INBOX-Folder vorhanden + unverbundener Client -> reicht ErrIMAPConnectionLost aus
+  SelectFolder durch), `syncFolders` und `syncFolder` (beide treffen mit unverbundenem Client denselben
+  fruehen Fehlerpfad, noch bevor folderSyncer/msgSyncer je angefasst werden — die Worker-Testinstanz
+  laesst diese Felder deshalb bewusst nil, ein versehentlicher Aufruf haette sofort paniert statt
+  still durchzulaufen) sowie `Worker.Stop` (nil-cancelFn-Guard + tatsaechlicher Aufruf ueber einen
+  Fake-cancelFn) und `Worker.Trigger` (zweiter Aufruf blockiert nicht, Kanal traegt weiterhin genau
+  ein pending Signal). `internal/email/sync/engine_test.go` deckt `NewEngine` (Maps initialisiert,
+  leer), `GetStatus` (unbekannte ID liefert Default-Status; bekannte ID liefert exakt den
+  gespeicherten Pointer per `assert.Same`), `Stop` (ohne cancelFn/Worker kein Panic; mit zwei
+  Fake-Workern werden beide gestoppt und aus der Map entfernt), `StopWorker` (unbekannte ID No-Op;
+  bekannte ID stoppt + entfernt) und `TriggerSync` (unbekannte ID No-Op; bekannte ID sendet auf den
+  Worker-eigenen triggerCh) — alle vier ohne echten `account.Service`, `NewEngine(nil, nil, nil, nil)`
+  reicht, weil keine der getesteten Methoden die vier Collaborator-Felder je anfasst. `Start`,
+  `StartWorker` und `startWorkerInternal` bleiben bei 0,0 % — sie brauchen `accountService.
+  ListAllActive(ctx)` gegen eine echte DB, ausserhalb dieser Unit (Grenze war im Scope-Text so
+  vorgegeben). `idleLoop`/`pollLoop`/`Run`/`syncCycle` bleiben ebenfalls ungetestet — dieselbe
+  Grenze wie in `c-cov-email-sync-helpers` (keine IMAP-Test-Server-Library im go.mod).
+- gate: build ok (go build ./internal/email/... ./cmd/gateway/...) | vet ok (go vet
+  ./internal/email/...) | lint ok (golangci-lint run --config .golangci.yml ./internal/email/sync/...
+  — 0 issues) | test ok (go test -count=1 ./internal/email/sync/... — alle gruen, `-race` lokal nicht
+  verfuegbar da CGO_ENABLED=0 auf diesem Windows-Rechner, ohne Race-Flag gelaufen) | migration n.a.
+  (kein Schema angefasst) | rls-smoke n.a. (kein DB-Zugriff, reine In-Memory-/Fake-TCP-Tests) |
+  gateway-Tests nicht gelaufen (keine Route angefasst)
+- coverage: internal/email/sync 16,0 % -> 34,6 % (go test -coverprofile vor/nach den drei neuen
+  Testdateien, go tool cover -func; der Backlog-coverage_start-Wert "10,9 %" ist aelter als der
+  tatsaechlich gemessene Vorher-Stand 16,0 % — c-cov-email-sync-helpers hatte den Wert vermutlich
+  schon angehoben, ohne dass coverage_start im Backlog nachgezogen wurde)
+- mutations-probe: drei Proben, alle gefangen und zurueckgedreht. (1) `imap_client.go` `Login`: den
+  `if c.client == nil { return ErrIMAPConnectionLost }`-Guard komplett entfernt ->
+  TestIMAPClient_NilClientGuards/Login sofort rot, aber nicht mit einem sauberen Testfehler, sondern
+  mit einem echten Nil-Pointer-Panic tief in go-imap (`imapclient.(*Client).beginCommand` auf
+  `Client(nil)`) — bestaetigt, dass der Guard genau das verhindert, wofuer er da ist. (2) `engine.go`
+  `GetStatus`: den gefundenen `status`-Pointer im ok-Zweig durch einen frischen `&SyncStatus{
+  AccountID: accountID}` ersetzt (Wert also verworfen) -> TestEngine_GetStatus_KnownAccountReturnsStoredStatus
+  sofort rot ("Not same", IsSyncing/Error-Felder auf Zero-Value statt der gesetzten Werte). (3)
+  `worker.go` `idleOrPoll`: die Inbox-Erkennung `f.FolderType == models.FolderTypeInbox` auf `!=`
+  gedreht -> beide idleOrPoll-Tests sofort rot (kein-INBOX-Test bekommt faelschlich einen
+  "inbox"-Treffer und damit den erwarteten IMAP-connection-lost-Fehler; INBOX-vorhanden-Test findet
+  jetzt keinen Treffer mehr und liefert faelschlich nil statt des erwarteten Fehlers) — eine einzige
+  Mutation, zwei unabhaengige rote Tests. Alle drei Male zurueckgedreht, `git diff` auf
+  `imap_client.go`, `engine.go` und `worker.go` leer.
+- verify vorgaenger: sauber. Commit 6dd3527c (Iteration 82) fuegt ausschliesslich vier neue
+  Testdateien (`internal/automation/engine/logger_test.go`, `engine_execute_test.go`,
+  `internal/automation/condition/expr_env_test.go`, `internal/automation/trigger/matcher_test.go`)
+  plus Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in allen Vorgaenger-Iterationen vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 82) fortgezaehlt, Zeitstempel per `date`
+  auf dem Loop-Rechner ermittelt (2026-08-11 06:22). Zwei vorbestehende, in dieser Unit nicht
+  beruehrte IDE-Diagnosen bleiben unangefasst: `worker.go:25` `otherFolderPollInterval` unused
+  (Bestandscode, ausserhalb des Scopes) und `engine.go:35` `interface{}` statt `any` in der
+  `AttachmentStorer`-Signatur (ebenfalls Bestandscode). Block E ist damit vollstaendig `done`
+  (per `grep status: todo` gegen BACKLOG.yml geprueft). Naechste Backlog-Unit laut Reihenfolge:
+  `f-cov-biz-bexio` (Block F Reserve, erste offene Unit — Zuschnitt/Zahlen vor Arbeitsbeginn neu
+  messen, siehe Block-F-Kopfkommentar zur Altersgrenze).

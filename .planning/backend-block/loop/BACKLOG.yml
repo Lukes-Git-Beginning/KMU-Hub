@@ -2881,7 +2881,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/email/sync 10,9 %"
     scope: >
       worker.go (20,1 %), imap_client.go (2,8 %) und engine.go (0,0 %, bisher keine
