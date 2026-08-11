@@ -4808,7 +4808,7 @@ Frühere Läufe liegen vollständig im Archiv:
   laut Reihenfolge: `e-cov-chat-message-repo-reads` (Block E, chat/message-Repository).
 
 ## Iteration 77 — e-cov-chat-message-repo-reads — done — 2026-08-11 05:24
-- commit: -
+- commit: e471f69f
 - gebaut: neue Datei `postgres_repository_reads_test.go` in `internal/chat/message`.
   Deckt GetByID (Happy-Path + ErrMessageNotFound), List (DESC-Reihenfolge inkl.
   Thread-Replies plus ExcludeReplies-Filter), ListReplies (ASC-Reihenfolge, Limit),
