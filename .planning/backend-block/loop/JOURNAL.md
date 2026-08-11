@@ -5522,7 +5522,7 @@ Frühere Läufe liegen vollständig im Archiv:
   nicht Teil des `done_when` dieser Unit.
 
 ## Iteration 87 — f-cov-helpdesk-service — done — 2026-08-11 07:15
-- commit: (siehe naechster chore-Eintrag)
+- commit: d781e463
 - gebaut: `internal/helpdesk/service_test.go` um funktionsfaehige In-Memory-Stubs fuer
   KBArticle/RoutingRule/BusinessHours/Stats im `mockRepo` erweitert (vorher gaben diese
   Stub-Methoden einfach `nil`/leere Werte zurueck, ohne je etwas zu speichern) und rund 40 neue
