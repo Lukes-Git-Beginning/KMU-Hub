@@ -3366,3 +3366,68 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 51) fortgezaehlt,
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:41).
+
+## Iteration 53 — d-cov-gateway-inventar-items-stock — done — 2026-08-11 02:51
+- commit: (folgt)
+- gebaut: Testdatei `backend/internal/gateway/route_inventar_test.go` um 26 Tests fuer die
+  sieben Scope-Handler in route_inventar.go erweitert: HandleListItems (ServiceUnavailable,
+  MissingTenant, ReachesRPC mit search/low_stock/location-Query), HandleGetItem/
+  HandleUpdateItem/HandleDeleteItem (je InvalidIDUUID, ServiceUnavailable, ReachesRPC;
+  HandleUpdateItem zusaetzlich InvalidJSON), HandleAdjustStock (InvalidIDUUID,
+  InvalidPerformedByUUID via assertValidationError, InvalidDeltaType als einziger lokal
+  geprueften Fehlerpfad fuer eine unbrauchbare Mengenaenderung, MissingDelta_ReachesRPC als
+  dokumentierter Befund, ServiceUnavailable, ReachesRPC), HandleListMovements/
+  HandleGetStockHistory (je InvalidIDUUID, ServiceUnavailable, ReachesRPC) sowie
+  TestProtoListMovements_WireShape (direkter response.Proto-Marshal-Test fuer
+  ListMovementsResponse, geteilt von beiden Handlern).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v: 1670 PASS, 0 SKIP, 0 FAIL; ein einzelner FAIL beim
+  allerersten Lauf dieser Iteration war nicht reproduzierbar -- vier weitere Wiederholungen
+  direkt danach komplett gruen, keine der 26 neuen Tests betroffen, vermutlich eine
+  vorbestehende zeitkritische Flakiness in einem anderen Testfall desselben Pakets) |
+  migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836
+  Spec-Pfade) | keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 41,2 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleAdjustStock `if !ok { return }` nach
+  `validateUUIDParam` zu `if ok { return }` invertiert (bricht bei gueltiger UUID fruehzeitig
+  ohne Response ab, laesst eine ungueltige durch) -> TestHandleAdjustStock_InvalidIDUUID,
+  TestHandleAdjustStock_InvalidPerformedByUUID, TestHandleAdjustStock_InvalidDeltaType,
+  TestHandleAdjustStock_MissingDelta_ReachesRPC UND TestHandleAdjustStock_ReachesRPC alle fuenf
+  rot (TestHandleAdjustStock_ServiceUnavailable blieb gruen, da der Client-Check davor greift).
+  Per Edit-Tool zurueckgedreht, `git diff --stat backend/internal/gateway/route_inventar.go`
+  danach leer, build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit b3788f5c (Iteration 52) fuegt ausschliesslich eine
+  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit 68515a77 nur
+  BACKLOG.yml/JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: (1) ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
+  Verhaltensaenderungen): `adjustStockRequest.Delta` (route_inventar.go, Zeile ~189) traegt
+  keinen `validate`-Tag — anders als `TransferStockRequest.Quantity` (`validate:"gt=0"`,
+  Zeile ~197) direkt darunter im selben Handler-Cluster. Ein Request ohne `delta`-Feld oder mit
+  `delta:0` wird nicht lokal abgelehnt, sondern erreicht die RPC-Schicht unveraendert als
+  Nullaenderung — TestHandleAdjustStock_MissingDelta_ReachesRPC dokumentiert das. Ob delta=0
+  serverseitig ueberhaupt sinnvoll behandelt wird (z. B. als No-Op-Movement-Eintrag), ist nicht
+  Teil dieser Coverage-Unit; vorgemerkt fuer eine Lauf-9-Fix-Unit, falls Luke das als echte
+  Produktluecke einstuft (kein verifizierter Bug wie die Block-A-Funde, nur eine Inkonsistenz
+  gegenueber dem Nachbar-Handler). (2) TestProtoListMovements_WireShape bestaetigt fuer
+  ListMovementsResponse (von HandleListMovements UND HandleGetStockHistory geteilt) denselben
+  Befund wie bereits fuer ListRecordingsResponse/ListMeetingOccurrencesResponse dokumentiert:
+  `EmitUnpopulated=false` im gemeinsamen protoMarshaler (internal/server/response/response.go)
+  laesst eine leere `movements`-Liste vollstaendig aus dem JSON-Body verschwinden (`{}` statt
+  `{"movements":[]}`), statt `[]` zu serialisieren — kein `null`, aber auch kein Array-Schluessel,
+  den ein FE-Consumer blind mappen koennte. Kein neuer Fix-Unit-Vorschlag, da systemweit
+  (jeder `response.Proto`-Aufruf mit leerem Repeated-Feld), nicht spezifisch fuer Inventar; bereits
+  an anderer Stelle als bekannte, tolerierte Eigenschaft dokumentiert. (3) Wie bei allen
+  bisherigen Gateway-Coverage-Units in diesem Paket kein bufconn-Stub fuer InventarServiceClient
+  — alle ReachesRPC-Tests dokumentieren nur, dass der Handler die lokale Validierung passiert
+  und die RPC-Schicht erreicht (503 ueber die unerreichbare Dummy-Adresse localhost:0), nicht
+  das tatsaechliche Service-Verhalten.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-52 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 52) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 02:51).
