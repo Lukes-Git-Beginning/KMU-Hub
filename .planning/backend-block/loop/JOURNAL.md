@@ -5616,3 +5616,64 @@ Frühere Läufe liegen vollständig im Archiv:
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 87) fortgezaehlt, Zeitstempel
   per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:21). Naechste Backlog-Unit laut
   Reihenfolge: `f-cov-rapporte-repository` (Block F Reserve).
+
+## Iteration 89 — f-cov-rapporte-repository — done — 2026-08-11 07:29
+- commit: -
+- gebaut: Neue Datei `internal/rapporte/postgres_repository_test.go` (DB-gestuetzt, Muster
+  `tenant_write_test.go`/`inventar/postgres_repository_test.go`) deckt alle bislang bei 0,0 %
+  liegenden `PostgresRepository`-Methoden ab: Reports (UpdateReport, SoftDeleteReport, GetReport
+  inkl. Worker-Ladepfad), Atomic-Uebergaenge (AtomicApproveReport/AtomicRejectReport inkl.
+  No-Op-Pfad bei bereits-nicht-mehr-submitted), GetReportStatsCounts (GROUP BY inkl.
+  Soft-Delete-Ausschluss), Lines (UpdateLine, DeleteLine, GetLine, ListLines inkl.
+  Order-by-Position-Beweis), Attachments (GetAttachment, DeleteAttachment, ListAttachments inkl.
+  LineID-Filter), Workers (RemoveWorker, ListWorkers), Measurements (GetMeasurement inkl.
+  Positions-Ladepfad, ListMeasurements inkl. Report-Filter und Pagination, UpdateMeasurement,
+  DeleteMeasurement, DeleteMeasurementPosition) und Templates (GetTemplate, ListTemplates inkl.
+  activeOnly-Filter, UpdateTemplate, DeleteTemplate). Jede getestete Methode hat mindestens einen
+  NotFound-Fehlerpfad. Der Own-Scope-Filter (`ownerFilterForScope` -> `AuthorId` -> WHERE-Klausel)
+  war bereits durch `own_scope_list_test.go` am Repository (nicht nur am Handler) belegt --
+  bestaetigt, nicht neu gebaut (Scope-Kriterium "Own-Scope-Filter am Repository geprueft" damit
+  weiterhin erfuellt).
+- gate: build ok (go build -p 2 ./internal/rapporte/... ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok (go vet ./internal/rapporte/...) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/rapporte/... — 0 issues) | test ok (go test -count=1 ./internal/rapporte/ — 71 Tests
+  laut `-v`-Zaehlung, 0 uebersprungen, DATABASE_URL gesetzt gegen kmuhub_app) | migration n.a.
+  (kein Schema angefasst) | rls-smoke n.a. (keine Policy angefasst; tenant_write_test.go/
+  tenant_isolation_phase2_test.go decken RLS fuer dieses Paket bereits ab) | gateway-Tests nicht
+  separat gelaufen (keine Route angefasst)
+- coverage: internal/rapporte 42,1 % -> 76,0 % (go test -coverprofile ./internal/rapporte/, go
+  tool cover -func). `postgres_repository.go` einzeln: kein 0,0 % mehr ausser `SaveSignature`
+  (war schon vor dieser Unit bei 0,0 % und ausserhalb des Scopes -- getestet nur ueber den
+  Service-Pfad in `signature_test.go`, nicht ueber die PostgresRepository-Methode direkt; als
+  Randnotiz hier vermerkt, keine eigene Unit angelegt, da kein Bug -- reine Test-Luecke),
+  niedrigster verbleibender Wert `ListTemplates` 81,2 %.
+- mutations-probe: `ListLines`, ORDER BY von `position ASC, created_at ASC` auf
+  `position DESC, created_at ASC` gedreht -> `TestListLines_OrdersByPositionAndScopesByReport`
+  sofort rot ("expected lines ordered by position, got 2 then 1"). Zurueckgedreht, `git diff
+  --stat` auf `postgres_repository.go` leer (sed hat nur die Zeilenenden-Normalisierung von Git
+  getriggert, kein inhaltlicher Diff).
+- gefunden, nicht gefixt: `CreateTemplate`/`UpdateTemplate` (postgres_repository.go:742/:848)
+  schreiben bei leerem `defaultLinesJSON` ein explizites SQL-NULL statt den Spalten-Default
+  `'[]'` (migrations/000163) greifen zu lassen -- verletzt den NOT-NULL-Constraint auf
+  `default_lines`, verifiziert per echtem INSERT/UPDATE gegen die lokale DB. Der Gateway-Pfad
+  (`RapporteGRPCServer.CreateTemplate`, rapporte_grpc.go:751) reicht `req.GetDefaultLinesJson()`
+  ungeprueft durch, ein Proto3-Default von "" ist damit ein echter Produktionsbug: jede
+  Vorlagen-Erstellung ohne das optionale Feld `default_lines_json` scheitert mit 500 statt einer
+  leeren Vorlage. In den neuen Tests bewusst umgangen (`"[]"` statt `""` uebergeben), nicht
+  gefixt -- Coverage-Units aendern kein Verhalten. Neue Fix-Unit
+  `fix-rapporte-template-empty-default-lines-crashes` fuer Lauf 9 im Backlog angelegt (Block "Neu
+  gefunden waehrend Lauf 8, Iteration 89"), status todo, nicht in diesem Lauf gezogen.
+- verify vorgaenger: sauber. Commit d80a5944 (Iteration 88) fuegt ausschliesslich eine neue,
+  DB-gestuetzte Testdatei (`internal/inventar/postgres_repository_test.go`) plus Journal-/
+  Backlog-Metadaten hinzu — kein Produktionscode, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
+  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 88) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:29). Commit-Hash wird nach
+  dem `git commit` in dieser Iteration noch nachgetragen (Muster der Vorgaenger-Iterationen: ein
+  separater `chore(loop)`-Folgecommit traegt den Hash nach, da er zum Zeitpunkt des
+  Journal-Schreibens selbst noch nicht existiert). Naechste Backlog-Unit laut Reihenfolge:
+  `f-cov-biz-datev` (Block F Reserve).

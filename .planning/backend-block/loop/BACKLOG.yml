@@ -3101,7 +3101,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/rapporte 42,1 %"
     scope: >
       369 ungedeckte Statements: `postgres_repository.go` (278, **22,3 %**) und `service.go`
@@ -3425,3 +3425,53 @@ units:
       - Ein Test belegt den first_name+last_name-Anzeigenamen UND den E-Mail-Fallback bei
         leeren Namen
       - go test -count=1 ./internal/document/... gruen
+
+# ==========================================================================================
+# Neu gefunden waehrend Lauf 8, Iteration 89 (f-cov-rapporte-repository) -- nicht gebaut, nur
+# dokumentiert (Coverage-Units aendern kein Verhalten). Fuer Lauf 9.
+# ==========================================================================================
+
+  - id: fix-rapporte-template-empty-default-lines-crashes
+    phase: 3
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bug, kein Coverage-Ziel)"
+    scope: >
+      `PostgresRepository.CreateTemplate` und `UpdateTemplate`
+      (internal/rapporte/postgres_repository.go:742 bzw. :848) setzen
+      `default_lines = sql.NullString{Valid: defaultLinesJSON != ""}` -- ein leerer
+      `defaultLinesJSON` wird also als explizites SQL-NULL eingefuegt bzw. geschrieben.
+      Die Spalte `default_lines` (migrations/000163_measurements_and_templates.up.sql:55) ist
+      aber `NOT NULL DEFAULT '[]'`: ein expliziter NULL-Wert UEBERSCHREIBT den Spalten-Default
+      und verletzt den NOT-NULL-Constraint (SQLSTATE 23502), das INSERT/UPDATE schlaegt fehl.
+      `RapporteGRPCServer.CreateTemplate` (internal/server/rapporte_grpc.go:751) reicht
+      `req.GetDefaultLinesJson()` ungeprueft durch -- ein Proto-`string`-Feld ohne
+      `default_lines_json` im Request ist "" (Proto3-Default), nicht "[]". Jeder Client-Aufruf
+      `POST /api/v1/rapporte/templates` ohne dieses optionale Feld schlaegt damit mit einem
+      500er statt einer erfolgreichen Vorlage ohne vorausgefuellte Zeilen fehl. Verifiziert
+      direkt gegen die lokale DB (Kopf 309): `CreateTemplate(..., "")` -> `ERROR: null value in
+      column "default_lines" ... violates not-null constraint`. In dieser Iteration ausschliesslich
+      als Workaround in den neuen Coverage-Tests umgangen (`"[]"` statt `""` uebergeben), nicht
+      gefixt -- Coverage-Units aendern kein Verhalten.
+    sources:
+      - backend/internal/rapporte/postgres_repository.go
+      - backend/internal/server/rapporte_grpc.go
+      - backend/migrations/000163_measurements_and_templates.up.sql
+      - backend/internal/rapporte/postgres_repository_test.go
+    notes: >
+      Gefunden beim Bau der Coverage-Unit f-cov-rapporte-repository (Lauf 8, Iteration 89).
+      Sauberster Fix: in `CreateTemplate`/`UpdateTemplate` bei leerem `defaultLinesJSON` explizit
+      `"[]"` statt eines NULL-validen `sql.NullString` schreiben -- dann greift kein
+      Spalten-Default mehr, sondern der Code setzt den gleichen Wert bewusst, und ein leerer
+      Request bekommt eine Vorlage ohne vorausgefuellte Zeilen statt eines 500ers.
+      Alternative waere, die Spalte den Default tragen zu lassen (NULL statt "" einfuegen, wenn
+      wirklich kein Wert gewollt ist) -- aber `GetTemplate`/`ListTemplates` lesen `default_lines::text`
+      direkt in `sql.NullString`, ein echtes NULL ist dort bereits vorgesehen; zu klaeren, ob das
+      Frontend NULL oder "[]" fuer "keine Zeilen" erwartet, bevor die Variante gewaehlt wird.
+    done_when:
+      - CreateTemplate und UpdateTemplate mit leerem default_lines_json legen eine Vorlage ohne
+        vorausgefuellte Zeilen an/aktualisieren sie, statt am NOT-NULL-Constraint zu scheitern
+      - Ein Test belegt den leeren-Request-Pfad end-to-end (Service oder Repository-Ebene)
+      - go test -count=1 ./internal/rapporte/... ./internal/server/ gruen
