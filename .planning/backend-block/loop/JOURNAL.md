@@ -3122,7 +3122,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:09).
 
 ## Iteration 49 — d-cov-gateway-email-accounts — done — 2026-08-11 02:11
-- commit: <wird nach dem Commit ergaenzt>
+- commit: b46fc88b
 - gebaut: Neue Testdatei `backend/internal/gateway/route_email_accounts_test.go`
   (23 Tests) fuer die sieben E-Mail-Konto-Handler in route_email.go: HandleCreateAccount
   (ServiceUnavailable, InvalidJSON, ReachesRPC), HandleGetAccount (ServiceUnavailable,
