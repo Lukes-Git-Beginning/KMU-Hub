@@ -260,9 +260,12 @@ func main() {
 	// Wiki: authenticated CRUD via the registrar loop, the public read of one
 	// shared article outside it -- same split as berichte/helpdesk/formulare.
 	wikiRoutes := gateway.NewWikiRoutes(registry, flagRegistry)
+	// Auth: the authenticated routes via the registrar loop, the public
+	// password-reset page outside it -- same split as berichte/helpdesk.
+	authRoutes := gateway.NewAuthRoutes(registry)
 
 	registrars := []gateway.RouteRegistrar{
-		gateway.NewAuthRoutes(registry),
+		authRoutes,
 		crmRoutes,
 		gateway.NewChatRoutes(registry),
 		gateway.NewNotificationRoutes(registry),
@@ -394,6 +397,13 @@ func main() {
 	// exactly one page — the limiter is what bounds a guessing run.
 	wikiRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "wiki-public")
+
+	// Password-reset page reached from the mail link (no auth middleware).
+	// PASSWORD_RESET_BASE_URL points here; without this route the link 404s
+	// and a locked-out user has no way back in. Same strict per-IP limiter:
+	// the reset token is the whole credential and the POST writes.
+	authRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "auth-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)
