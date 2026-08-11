@@ -434,3 +434,224 @@ func TestHandleListFileEntityLinks_InvalidIDReachesRPC(t *testing.T) {
 	routes.HandleListFileEntityLinks(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- File lifecycle (register/delete/copy/move/download-url/versions) ---
+
+func TestHandleRegisterUploadedFile_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleRegisterUploadedFile)
+}
+
+func TestHandleRegisterUploadedFile_InvalidJSON(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files", invalidJSON())
+	routes.HandleRegisterUploadedFile(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleRegisterUploadedFile_MissingFolderID(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files", jsonBody(t, map[string]interface{}{
+		"filename":    "report.pdf",
+		"file_size":   1024,
+		"storage_key": "uploads/report.pdf",
+		// folder_id deliberately omitted
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleRegisterUploadedFile(rec, req)
+	assertValidationError(t, rec, "folder_id")
+}
+
+func TestHandleRegisterUploadedFile_ReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files", jsonBody(t, map[string]interface{}{
+		"folder_id":   "550e8400-e29b-41d4-a716-446655440000",
+		"filename":    "report.pdf",
+		"file_size":   1024,
+		"storage_key": "uploads/report.pdf",
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleRegisterUploadedFile(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteFile_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/documents/files/123", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteFile(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleDeleteFile_InvalidIDReachesRPC documents the same gap as the
+// share-link handlers: route_document.go's file lifecycle handlers never
+// call validateUUIDParam on the file id, so a syntactically unusable id
+// reaches the RPC layer instead of getting a 400 at the boundary.
+func TestHandleDeleteFile_InvalidIDReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/documents/files/not-a-uuid", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteFile(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleCopyFile_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleCopyFile)
+}
+
+func TestHandleCopyFile_InvalidJSON(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/123/copy", invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleCopyFile(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleCopyFile_MissingTargetFolderID(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/copy", jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", id)
+	routes.HandleCopyFile(rec, req)
+	assertValidationError(t, rec, "target_folder_id")
+}
+
+func TestHandleCopyFile_ReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/copy", jsonBody(t, map[string]interface{}{
+		"target_folder_id": "550e8400-e29b-41d4-a716-446655440001",
+	}))
+	req = withChiURLParam(req, "id", id)
+	routes.HandleCopyFile(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleMoveFile_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleMoveFile)
+}
+
+func TestHandleMoveFile_InvalidJSON(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/123/move", invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleMoveFile(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleMoveFile_MissingTargetFolderID(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/move", jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", id)
+	routes.HandleMoveFile(rec, req)
+	assertValidationError(t, rec, "target_folder_id")
+}
+
+func TestHandleMoveFile_ReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/move", jsonBody(t, map[string]interface{}{
+		"target_folder_id": "550e8400-e29b-41d4-a716-446655440001",
+	}))
+	req = withChiURLParam(req, "id", id)
+	routes.HandleMoveFile(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetFileDownloadURL_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/documents/files/123/download-url", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGetFileDownloadURL(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleGetFileDownloadURL_InvalidIDReachesRPC — same known gap as the
+// other file lifecycle handlers: no local UUID validation on the file id.
+func TestHandleGetFileDownloadURL_InvalidIDReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/documents/files/not-a-uuid/download-url", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetFileDownloadURL(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListFileVersions_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/documents/files/123/versions", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleListFileVersions(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleListFileVersions_InvalidIDReachesRPC — same known gap as the
+// other file lifecycle handlers: no local UUID validation on the file id.
+func TestHandleListFileVersions_InvalidIDReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/documents/files/not-a-uuid/versions", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListFileVersions(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleRevertFileVersion_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleRevertFileVersion)
+}
+
+func TestHandleRevertFileVersion_InvalidJSON(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/123/versions/revert", invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleRevertFileVersion(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+// TestHandleRevertFileVersion_InvalidVersionNumber documents the actual
+// request shape: revertVersionRequest.VersionNumber is an int32 (validate
+// "gt=0"), not a version UUID — the backlog unit's done_when assumed an
+// "invalid version id (UUID)" check, but the handler takes no version id
+// parameter at all; the target version is addressed by number in the JSON
+// body. A zero/negative value is what a client can actually get wrong here.
+func TestHandleRevertFileVersion_InvalidVersionNumber(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/versions/revert", jsonBody(t, map[string]interface{}{
+		"version_number": 0,
+	}))
+	req = withChiURLParam(req, "id", id)
+	routes.HandleRevertFileVersion(rec, req)
+	assertValidationError(t, rec, "version_number")
+}
+
+func TestHandleRevertFileVersion_ReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/versions/revert", jsonBody(t, map[string]interface{}{
+		"version_number": 2,
+	}))
+	req = withChiURLParam(req, "id", id)
+	routes.HandleRevertFileVersion(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}

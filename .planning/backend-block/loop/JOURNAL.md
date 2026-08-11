@@ -3552,3 +3552,56 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 54) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:04).
+
+## Iteration 56 — d-cov-gateway-document-file-lifecycle — done — 2026-08-11 03:09
+- commit: -
+- gebaut: `backend/internal/gateway/route_document_test.go` um 22 neue Tests fuer die
+  Datei-Lebenszyklus-Handler in route_document.go erweitert: HandleRegisterUploadedFile
+  (ServiceUnavailable, InvalidJSON, MissingFolderID, ReachesRPC), HandleDeleteFile
+  (ServiceUnavailable, InvalidIDReachesRPC), HandleCopyFile (ServiceUnavailable, InvalidJSON,
+  MissingTargetFolderID, ReachesRPC), HandleMoveFile (ServiceUnavailable, InvalidJSON,
+  MissingTargetFolderID, ReachesRPC), HandleGetFileDownloadURL (ServiceUnavailable,
+  InvalidIDReachesRPC), HandleListFileVersions (ServiceUnavailable, InvalidIDReachesRPC),
+  HandleRevertFileVersion (ServiceUnavailable, InvalidJSON, InvalidVersionNumber, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v: 1744 PASS, 0 SKIP, 0 FAIL) | migration n.a. (keine
+  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade, unveraendert) | keine
+  neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 42,1 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: zwei Proben, erste verpuffte, zweite gefangen. Erster Versuch: in
+  `copyFileRequest.TargetFolderID` das `validate`-Tag von `required,uuid` auf `uuid` verkuerzt
+  -> alle Tests blieben gruen, weil ein leerer String schon an der `uuid`-Regel scheitert (die
+  Probe testete nichts Neues, `required` und `uuid` ueberlappen bei leerem Input). Zurueckgedreht
+  und durch eine echte Probe ersetzt: in HandleCopyFile `if !ok { return }` zu `if ok { return }`
+  invertiert (bricht bei gueltiger Validierung fruehzeitig ab, laesst eine fehlgeschlagene
+  Validierung durch) -> TestHandleCopyFile_MissingTargetFolderID UND TestHandleCopyFile_ReachesRPC
+  beide rot (Response-Body doppelt geschrieben bzw. Status 200 statt 503). Per Edit-Tool
+  zurueckgedreht, `git diff --stat backend/internal/gateway/route_document.go` danach leer,
+  build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 7e71e8e3 (Iteration 55) fuegt ausschliesslich eine
+  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit fe638e80 nur
+  JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: (1) BACKLOG-DONE_WHEN-ABWEICHUNG: das done_when dieser Unit unterstellte fuer
+  HandleRevertFileVersion eine "ungueltige Versions-ID (UUID)"-Pruefung. Tatsaechlich nimmt der
+  Handler gar keinen Versions-ID-Parameter — `revertVersionRequest.VersionNumber` ist ein
+  `int32` mit `validate:"gt=0"`, adressiert die Zielversion also ueber eine Nummer im JSON-Body,
+  nicht ueber eine UUID im Pfad. TestHandleRevertFileVersion_InvalidVersionNumber dokumentiert
+  die tatsaechlich vorhandene Nummer-Pruefung (0 wird abgelehnt) statt der im done_when
+  unterstellten UUID-Pruefung. (2) ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut
+  Backlog-Kopf keine Verhaltensaenderungen, konsistent mit dem in Iteration 55 dokumentierten
+  Befund): keiner der sieben in dieser Unit getesteten Handler (HandleRegisterUploadedFile
+  betrifft das nicht, aber HandleDeleteFile, HandleCopyFile, HandleMoveFile,
+  HandleGetFileDownloadURL, HandleListFileVersions, HandleRevertFileVersion) ruft
+  `validateUUIDParam` auf die Datei-`id` aus `chi.URLParam(r, "id")` auf — dieselbe Gateway-weite
+  Luecke aus Iteration 6 (fix-gateway-id-validation-consistency), route_document.go stand dort
+  bereits als eine der 24 verbleibenden Dateien mit rohen chi.URLParam-Stellen. Kein neuer
+  Fix-Unit-Vorschlag, konsistent mit der damaligen Entscheidung, das fuer Lauf 9 zu buendeln.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-55 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 55) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:09).
