@@ -209,3 +209,61 @@ Fensters.
   Fund. Block-B-Scan-Units koennten dieselbe Deferrable-Constraint-Klasse (ON-CONFLICT- bzw.
   UNIQUE-Scoping-Probleme bei Mehrzeilen-Swaps) an anderer Stelle im Repo finden — nicht
   vorab durchsucht, das ist Aufgabe der jeweiligen Scan-Unit selbst.
+
+## Iteration 4 — fix-notification-quiet-hours-conflict-index — done — 2026-08-11 16:40
+- commit: <sha>
+- gebaut (Migration 000312): `notification_quiet_hours` verliert den inline
+  `UNIQUE(user_id)` aus 000022 und bekommt `idx_notification_quiet_hours_user
+  (tenant_id, user_id)`; `idx_notification_preferences_module_default` wird von
+  `(user_id, module_id)` auf `(tenant_id, user_id, module_id)` verbreitert (Praedikat
+  unveraendert). Beide neuen Indexe sind Supersets, kollidieren also mit keiner bestehenden
+  Zeile. Down-Migration stellt beide Altzustaende her (Roundtrip `down 1` + `up` gegen die
+  lokale DB gefahren, Kopf danach wieder 312 clean).
+- gebaut (Code): `UpsertQuietHours` brauchte wie vermutet KEINE Aenderung — geprueft, nicht
+  angenommen (ON CONFLICT nennt nur Spalten, keinen Constraint-Namen; Test gruen nach der
+  Migration). Der ZWEITE, im Backlog unverifizierte Verdacht an `UpsertPreference` ist REAL,
+  aber anders als vermutet: er schreibt KEINE Dublette, sondern schlaegt fehl. Neue Funktion
+  `upsertPreferenceConflict(pref)` waehlt den Arbiter passend zur Zeile — Event-Type-Zeilen
+  bekommen den Event-Type-Index, Modul-Defaults (`event_type_key IS NULL`) den
+  Modul-Default-Index, eine Zeile ohne beides einen reinen INSERT (kein Index deckt sie ab,
+  ein Konflikt ist konstruktiv unmoeglich).
+- gate: build ok (`./internal/notification/... ./internal/gateway/... ./cmd/notification/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | migration ok (`up`, `down 1`, `up`,
+  Kopf 312) | test ok (0 Skips bei 222 Tests, `DATABASE_URL` gegen `kmuhub_app`;
+  `./internal/notification/...` und `./internal/server/` gruen) | rls-smoke ok (beide
+  angefasste Tabellen: eigener Tenant 1 / fremder Tenant 0, als `kmuhub_app`) |
+  `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (keine Route angefasst,
+  reine Vorsichtspruefung)
+- coverage: internal/notification/preference 87,2 % -> 87,4 % (beide selbst gemessen,
+  `go tool cover -func`; Vorher-Wert per `migrate down 1` + `git stash -u` isoliert und
+  identisch mit `coverage_start:`)
+- mutations-probe: ZWEI Proben, weil der Fix zwei Traeger hat.
+  (1) Migration: `migrate down 1` (Altzustand der Indexe) -> `TestPostgresRepository_
+  QuietHoursRoundTrip` UND `TestPostgresRepository_UpsertModuleDefaultTwice` beide rot mit
+  SQLSTATE 42P10; `up` -> beide wieder gruen.
+  (2) Code: den `ModuleID != nil`-Zweig von `upsertPreferenceConflict` auf den
+  Event-Type-Arbiter zurueckgesetzt -> `TestPostgresRepository_UpsertModuleDefaultTwice` rot
+  mit SQLSTATE 23505 auf `idx_notification_preferences_module_default` (genau der Fehler, den
+  der Fix beseitigt). Zurueckgedreht, `git diff --stat` zeigt wieder nur die urspruengliche
+  Aenderung (3 Dateien, 184 insertions / 23 deletions, plus die zwei untracked
+  Migrationsdateien).
+- verify vorgaenger: sauber (Commit `f379b30a`, Iteration 3 — kein gRPC-Bypass (`schichten_grpc.go`
+  bekommt nur eine Fehler-Mapping-Zeile), kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route.
+  Migration 000311 ist neu angelegt, keine ausgerollte Migration angefasst;
+  `SET CONSTRAINTS ... DEFERRED` gilt nur fuer die eigene Transaktion und der neue
+  `FOR UPDATE`-Lookup laeuft vor beiden UPDATEs)
+- neue-units: fix-notification-mutes-unique-missing-tenant (am Backlog-Ende)
+- offen: (1) Der Backlog-Verdacht zu `UpsertPreference` war in der Wirkung falsch beschrieben —
+  eine Dublette ist unmoeglich, weil `idx_notification_preferences_module_default` UNIQUE ist;
+  der zweite Upsert eines Modul-Defaults schlug mit 23505 fehl. Ergebnis ist derselbe Fix, aber
+  wer die Unit-`notes` als Beleg liest, bekommt die falsche Fehlerklasse.
+  (2) `notification_mutes` traegt dieselbe Index-Drift (`UNIQUE(user_id, module_id,
+  resource_id)` ohne `tenant_id`) — hier NICHT mitgefixt, weil ausserhalb des `done_when` und
+  eine eigene Migration noetig; als Unit angelegt (siehe `neue-units:`). Damit sind alle vier
+  Unique-Indexe des Notification-Schemas erfasst.
+  (3) `GetQuietHours` scannt die `time`-Spalten `start_time`/`end_time` in Go-`string` —
+  funktioniert mit pgx v5 (jetzt erstmals mit einer echten Zeile bewiesen, vorher konnte nie
+  eine geschrieben werden), liefert aber `"18:00:00"`, nicht `"18:00"`. Die Tests vergleichen
+  deshalb `[:5]`. Kein Fehler, aber das Frontend bekommt ein anderes Format, als es beim
+  Schreiben schickt — pruefen, ob der FE-Typ das vertraegt.

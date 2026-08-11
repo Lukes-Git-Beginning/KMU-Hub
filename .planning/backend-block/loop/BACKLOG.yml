@@ -281,7 +281,7 @@ units:
     service: notification
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/notification/preference 87,2 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       `PostgresRepository.UpsertQuietHours`
@@ -1070,3 +1070,63 @@ units:
       - Die Nicht-rueckwirkende-Grenze (Alt-Eintraege bleiben spurious-broken) ist im Journal
         dokumentiert
       - go test -count=1 ./internal/security/audit/ gruen
+
+  - id: fix-notification-mutes-unique-missing-tenant
+    phase: 4
+    service: notification
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/notification/preference 87,4 % (lokal gemessen, Iteration 4 nach Migration 000312)"
+    scope: >
+      `notification_mutes` traegt seit Migration 000022 den inline-Constraint
+      `UNIQUE(user_id, module_id, resource_id)` (`notification_mutes_user_id_module_id_
+      resource_id_key`, gegen die lokale DB auf Kopf 312 per `\d` verifiziert). Migration 000110
+      hat `tenant_id` ergaenzt, 000124 hat es NOT NULL gemacht und RLS aktiviert -- der
+      Unique-Constraint wurde nie verbreitert. Das ist EXAKT dieselbe Index-Drift, die
+      Migration 000305 fuer `idx_notification_preferences_event_type` und Migration 000312
+      (diese Iteration) fuer `notification_quiet_hours` und
+      `idx_notification_preferences_module_default` behoben hat -- `notification_mutes` ist die
+      letzte verbliebene Tabelle des Notification-Schemas mit dieser Luecke.
+
+      Wirkung anders als bei den drei Vorgaengern: `CreateMute`
+      (internal/notification/preference/postgres_repository.go:118) nutzt KEIN `ON CONFLICT`,
+      es gibt also keinen 42P10-Planungsfehler. Stattdessen prueft
+      `Service.MuteResource` (service.go:240) vorab per `IsResourceMuted` TENANT-GESCOPT, sieht
+      die Zeile eines fremden Tenants also nicht, und laesst `CreateMute` laufen -- das dann am
+      tenant-losen Unique-Constraint mit SQLSTATE 23505 scheitert. Der Nutzer bekommt einen
+      rohen 500er statt `ErrMuteAlreadyExists` oder eines erfolgreichen Mutes. Betroffen ist
+      nur der Cross-Tenant-Fall (dieselbe user_id in zwei Tenants), heute also der
+      Vendor-Access-/Multi-Tenant-User-Pfad, nicht der Alltagsfall -- deshalb niedriger
+      priorisiert als die drei bereits gefixten Stellen, aber dieselbe Ursache und dieselbe
+      Zwei-Zeilen-Loesung.
+    sources:
+      - backend/migrations/000022_create_notification_preferences.up.sql
+      - backend/migrations/000312_notification_quiet_hours_and_module_default_tenant_index.up.sql
+      - backend/internal/notification/preference/postgres_repository.go
+      - backend/internal/notification/preference/service.go
+      - backend/internal/notification/preference/mutes_quiethours_test.go
+    notes: >
+      Gefunden beim Bau von fix-notification-quiet-hours-conflict-index (Lauf 9, Iteration 4)
+      beim Abgleich ALLER Unique-Indexe des Notification-Schemas gegen die laufende DB. NICHT
+      dort mitgefixt, weil er ausserhalb des `done_when` der Unit lag und eine eigene
+      Migration braucht.
+      Migrationskoerper (Nummer zur Laufzeit ermitteln, NICHT 313 annehmen), Vorlage ist
+      000312 in dieser Datei:
+      `ALTER TABLE notification_mutes DROP CONSTRAINT
+       notification_mutes_user_id_module_id_resource_id_key;`
+      `CREATE UNIQUE INDEX idx_notification_mutes_resource
+       ON notification_mutes(tenant_id, user_id, module_id, resource_id);`
+      Der neue Index ist ein Superset des alten und kann mit keiner bestehenden Zeile
+      kollidieren. `postgres_repository.go` braucht voraussichtlich keine Aenderung (CreateMute
+      nennt keinen Constraint) -- pruefen, nicht annehmen.
+      Migration + RLS => `model: opus`, RLS-Smoke aus GATE-COMMANDS.md ist Pflicht.
+    done_when:
+      - Neue Migration verbreitert den Unique-Constraint auf
+        (tenant_id, user_id, module_id, resource_id), down-Migration stellt den alten Zustand her
+      - Ein DB-gestuetzter Test beweist, dass zwei Tenants dieselbe (user_id, module_id,
+        resource_id) unabhaengig muten koennen (Muster:
+        TestPostgresRepository_QuietHoursPerTenant aus Iteration 4)
+      - Der bestehende Duplikat-Pfad innerhalb EINES Tenants liefert weiterhin
+        ErrMuteAlreadyExists, nicht 23505
+      - rls-smoke gruen, go test -count=1 ./internal/notification/... gruen
