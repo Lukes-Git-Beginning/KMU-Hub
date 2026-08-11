@@ -3712,7 +3712,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Loop-Rechner ermittelt (2026-08-11 03:22).
 
 ## Iteration 59 — d-cov-gateway-formulare-schema-submission — done — 2026-08-11 03:27
-- commit: <wird nach Commit ergaenzt>
+- commit: 052b4bb5
 - gebaut: `backend/internal/gateway/route_formulare_test.go` von einem reinen
   Konstruktor-Helfer auf 30 neue Tests fuer Formular-Schema-CRUD und den
   Submission-Workflow in route_formulare.go erweitert: HandleCreateFormSchema
