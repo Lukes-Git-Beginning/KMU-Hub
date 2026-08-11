@@ -3661,7 +3661,7 @@ Frühere Läufe liegen vollständig im Archiv:
   per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:16).
 
 ## Iteration 58 — d-cov-gateway-helpdesk-csat-lifecycle — done — 2026-08-11 03:22
-- commit: -
+- commit: bd2d3e98
 - gebaut: `backend/internal/gateway/route_helpdesk_test.go` um 26 neue Tests fuer
   Ticket-Statusuebergaenge und den oeffentlichen CSAT-Pfad in route_helpdesk.go
   erweitert: HandleListTickets (ServiceUnavailable, MissingTenant, ReachesRPC,
