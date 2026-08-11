@@ -1266,3 +1266,40 @@ Fensters.
   lohnende Unit fuer einen naechsten Lauf (nicht angelegt, weil sie ausserhalb der
   Block-C-Fix-Liste dieses Laufs liegt). `go test ./internal/gateway/` nicht gelaufen, da keine
   Route angefasst wurde.
+
+## Iteration 25 — fix-work-erasure-task-double-count — done — 2026-08-11 18:46
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `WorkErasureHandler.ExecuteErasure` (internal/security/gdpr/erasure.go:376) zieht die
+  zwei sequenziellen Schritte (UPDATE tasks assignee_id=NULL, danach separates SELECT COUNT fuer
+  created_by-only) zu einem einzigen UPDATE zusammen -- exakt das Muster aus
+  fix-crm-erasure-double-count (Iteration 6): `assignee_id = CASE WHEN assignee_id = $1 THEN NULL
+  ELSE assignee_id END ... WHERE assignee_id = $1 OR created_by = $1`. RowsAffected ist damit die
+  korrekte, einmalige Zaehlung. time_entries (DELETE) und task_comments (UPDATE) unveraendert,
+  wie im Unit-Scope vermerkt nicht vom Muster betroffen. Neue Datei
+  `erasure_work_test.go` mit `TestWorkErasureHandler_ExecuteErasure_Integration` (bisher hatte nur
+  PreviewErasure einen Test) -- deckt vier Faelle ab: Task sowohl assigned als auch created by
+  Subject (zaehlt genau einmal), Task nur created (behaelt Assignee), Task nur assigned (verliert
+  Assignee, created_by unveraendert), fremder Task (unberuehrt) -- plus time_entries-Delete und
+  task_comments-Anonymisierung. Neuer `TestWorkErasureHandler_DeadPool` ergaenzt die bereits
+  vorhandene `TestWorkErasureHandler_Preview_Integration` um den Execute-Fehlerpfad, analog zu
+  `TestCRMErasureHandler_DeadPool`.
+- gate: build ok (`./internal/security/... ./cmd/...`) | vet ok | lint ok (golangci-lint 0
+  issues) | test ok (`./internal/security/...` komplett gruen, 0 SKIP in
+  `./internal/security/gdpr/ -v`) | migration n.a. (keine Migration) | rls-smoke n.a. (keine
+  Tabellen-/Policy-Aenderung, reiner UPDATE-Logik-Fix)
+- coverage: internal/security/gdpr 60,5 % (Iteration-6-Messung, coverage_start der Unit) -> 62,9 %
+  (lokal gemessen, `go tool cover -func`)
+- mutations-probe: WHERE-Klausel des zusammengezogenen UPDATE zurueck auf `WHERE assignee_id = $1`
+  gesetzt und die alte separate COUNT-Query wieder eingefuegt (exakt der Vorzustand) ->
+  `TestWorkErasureHandler_ExecuteErasure_Integration` wurde rot (`expected: 5, actual: 6` -- der
+  both-Task wurde wieder doppelt gezaehlt), Aenderung zurueckgedreht, `git diff` zeigt wieder den
+  sauberen Fix-Diff.
+- verify vorgaenger: sauber (Commit `f661a6a0`, Iteration 24 — Produktionsdiff ist ausschliesslich
+  Migration 000313 (notification_mutes Unique-Index-Verbreiterung, forward-only, up UND down
+  gefuellt, Nummer passt zur zur Laufzeit ermittelten hoechsten Migration) plus Repository-Test;
+  kein gRPC-Bypass (kein Handler beruehrt), kein Stub, kein Proto-Drift, kein neuer
+  RequirePermission-Guard, keine neue Tabelle, Wire-Shape unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/` nicht gelaufen, da keine Route/kein Handler angefasst wurde
+  (keine Pflicht laut Schritt 5). Der Fund wurde 2026-08-11 in Iteration 6 vorab angelegt (siehe
+  dortige `notes:`) und in dieser Iteration ohne weitere offene Fragen umgesetzt.

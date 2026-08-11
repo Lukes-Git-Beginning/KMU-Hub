@@ -1136,7 +1136,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 60,5 % (selbst gemessen, Lauf 9 Iteration 6, nach fix-crm-erasure-double-count)"
     scope: >
       `WorkErasureHandler.ExecuteErasure` (backend/internal/security/gdpr/erasure.go, um Zeile
