@@ -3183,7 +3183,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:11).
 
 ## Iteration 50 — d-cov-gateway-email-compose-actions — done — 2026-08-11 02:28
-- commit: <wird nach Commit ergaenzt>
+- commit: 071b5bf1
 - gebaut: Neue Testdatei `backend/internal/gateway/route_email_compose_test.go`
   (48 Tests) fuer die zehn Send-/Massenaktions-Handler in route_email.go:
   HandleMarkRead/HandleMarkUnread/HandleToggleStar (ServiceUnavailable,
