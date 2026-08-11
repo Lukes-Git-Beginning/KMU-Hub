@@ -5618,7 +5618,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Reihenfolge: `f-cov-rapporte-repository` (Block F Reserve).
 
 ## Iteration 89 — f-cov-rapporte-repository — done — 2026-08-11 07:29
-- commit: -
+- commit: f33da131
 - gebaut: Neue Datei `internal/rapporte/postgres_repository_test.go` (DB-gestuetzt, Muster
   `tenant_write_test.go`/`inventar/postgres_repository_test.go`) deckt alle bislang bei 0,0 %
   liegenden `PostgresRepository`-Methoden ab: Reports (UpdateReport, SoftDeleteReport, GetReport
