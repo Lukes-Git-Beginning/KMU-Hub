@@ -510,7 +510,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/rapporte 76,0 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       `PostgresRepository.CreateTemplate` und `UpdateTemplate`

@@ -446,3 +446,48 @@ Fensters.
 - neue-units: keine
 - offen: keine neuen Funde ausserhalb des root-cause-gefixten `envelopeToMessage`. Reiner
   Service-/Worker-Fix ohne Migrations-Beruehrung.
+
+## Iteration 9 — fix-rapporte-template-empty-default-lines-crashes — done — 2026-08-11 17:12
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `PostgresRepository.CreateTemplate` und `.UpdateTemplate`
+  (`internal/rapporte/postgres_repository.go`) normalisieren jetzt am Funktionsanfang ein
+  leeres `defaultLinesJSON` explizit auf `"[]"`, bevor die Spalte `default_lines` (JSONB,
+  `NOT NULL DEFAULT '[]'`) geschrieben wird — statt weiterhin ein SQL-NULL zu setzen, das
+  den Spalten-Default ueberschreibt und den NOT-NULL-Constraint verletzt. `CreateTemplate`
+  setzt `t.DefaultLinesJSON` jetzt direkt beim Struct-Literal (`Valid: true`), `UpdateTemplate`
+  uebergibt den normalisierten String direkt statt eines `sql.NullString{Valid: false}`.
+  Kein Handler-Aenderungsbedarf: `RapporteGRPCServer.CreateTemplate`/`.UpdateTemplate`
+  (`internal/server/rapporte_grpc.go`) reichen `req.GetDefaultLinesJson()` unveraendert
+  durch, der Fix sitzt an der einzigen gemeinsamen Stelle (Repository), ueber die beide
+  RPCs laufen.
+- gebaut (Tests): `TestCreateAndUpdateTemplate_EmptyDefaultLinesJSONDefaultsToEmptyArray`
+  (`internal/rapporte/postgres_repository_test.go`) deckt den leeren Request-Pfad end-to-end
+  auf Repository-Ebene ab (kein separater Service-Layer fuer Templates vorhanden — der
+  Handler ruft `s.repo.CreateTemplate`/`.UpdateTemplate` direkt): `CreateTemplate` mit `""`
+  legt eine Vorlage mit `default_lines_json = "[]"` an, `GetTemplate` liest denselben Wert
+  zurueck, `UpdateTemplate` mit `""` aktualisiert auf denselben Default statt zu scheitern.
+- gate: build ok (`./internal/rapporte/... ./internal/server/... ./cmd/rapporte/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, `./internal/rapporte/...
+  ./internal/server/...`) | test ok (0 Skips, `DATABASE_URL` gegen `kmuhub_app`;
+  `./internal/rapporte/...` gruen, `./internal/server/` gruen, `./internal/gateway/`
+  inkl. TestOpenAPIRouteDrift gruen — keine Route angefasst, nur zur Sicherheit
+  mitgelaufen) | migration n.a. (keine Schemaaenderung, reiner Repository-Code-Fix)
+  | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/rapporte 76,0 % -> 76,1 % (selbst gemessen per `go tool cover -func`,
+  deckt sich mit `coverage_start:`)
+- mutations-probe: Zeilen 743-745 (`if defaultLinesJSON == "" { defaultLinesJSON = "[]" }`
+  in `CreateTemplate`) entfernt -> `TestCreateAndUpdateTemplate_EmptyDefaultLinesJSONDefaultsToEmptyArray`
+  wurde rot mit "ERROR: invalid input syntax for type json (SQLSTATE 22P02)" (leerer String
+  statt normalisiertem `"[]"` landet als ungueltiges JSON in der Spalte, weil das
+  Struct-Literal `DefaultLinesJSON` jetzt unbedingt mit `Valid: true` setzt). Zurueckgedreht,
+  `git diff --stat internal/rapporte/postgres_repository.go` zeigt wieder nur den
+  urspruenglichen Fix-Diff (14 insertions, 10 deletions).
+- verify vorgaenger: sauber (Commit `070df174`, Iteration 8 — zwei zusaetzliche
+  Struct-Feld-Zuweisungen (`TenantID`) in `send.Service.Send`/`.SaveDraft` und
+  `Worker.envelopeToMessage`, kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift,
+  kein neuer Guard, keine neue Tabelle, keine Wire-Shape- oder Routen-Aenderung)
+- neue-units: keine
+- offen: keine. Reiner Repository-Fix ohne Migrations-/RLS-Beruehrung; `default_lines_json`
+  als "keine Zeilen"-Signal bleibt `"[]"` (nicht NULL) — konsistent mit dem bereits
+  bestehenden `GetTemplate`/`ListTemplates`-Lesepfad, der `default_lines::text` direkt in
+  `sql.NullString` liest.
