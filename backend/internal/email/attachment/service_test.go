@@ -19,6 +19,7 @@ import (
 type MockRepository struct {
 	CreateFn          func(ctx context.Context, att *models.EmailAttachment) error
 	GetByMessageFn    func(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error)
+	GetByIDFn         func(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAttachment, error)
 	GetMinIOKeyByIDFn func(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (string, error)
 }
 
@@ -34,6 +35,13 @@ func (m *MockRepository) GetByMessage(ctx context.Context, messageID uuid.UUID, 
 		return m.GetByMessageFn(ctx, messageID, tenantID)
 	}
 	return nil, nil
+}
+
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAttachment, error) {
+	if m.GetByIDFn != nil {
+		return m.GetByIDFn(ctx, id, tenantID)
+	}
+	return nil, ErrAttachmentNotFound
 }
 
 func (m *MockRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (string, error) {

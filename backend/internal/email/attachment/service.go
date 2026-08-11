@@ -81,6 +81,11 @@ func (s *Service) GetByMessage(ctx context.Context, messageID uuid.UUID, tenantI
 	return s.repo.GetByMessage(ctx, messageID, tenantID)
 }
 
+// GetByID returns a single attachment by its own ID, scoped to a tenant.
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAttachment, error) {
+	return s.repo.GetByID(ctx, id, tenantID)
+}
+
 // GetDownloadURL returns a presigned URL for downloading an attachment.
 func (s *Service) GetDownloadURL(ctx context.Context, attachmentID uuid.UUID, tenantID uuid.UUID) (string, error) {
 	minioKey, err := s.repo.GetMinIOKeyByID(ctx, attachmentID, tenantID)

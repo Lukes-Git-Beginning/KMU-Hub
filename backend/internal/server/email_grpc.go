@@ -1128,16 +1128,12 @@ func (s *EmailGRPCServer) GetAttachmentDownloadURL(ctx context.Context, req *ema
 	}
 
 	// Get attachment metadata for the response
-	attachments, _ := s.attachmentService.GetByMessage(ctx, uuid.Nil, tenantID)
 	var filename, contentType string
 	var sizeBytes int64
-	for _, att := range attachments {
-		if att.ID == id {
-			filename = att.Filename
-			contentType = att.ContentType
-			sizeBytes = att.SizeBytes
-			break
-		}
+	if att, attErr := s.attachmentService.GetByID(ctx, id, tenantID); attErr == nil {
+		filename = att.Filename
+		contentType = att.ContentType
+		sizeBytes = att.SizeBytes
 	}
 
 	return &emailv1.GetAttachmentDownloadURLResponse{

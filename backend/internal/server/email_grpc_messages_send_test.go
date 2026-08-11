@@ -183,6 +183,14 @@ func (r *stubAttachmentRepo) GetByMessage(_ context.Context, messageID, tenantID
 	return out, nil
 }
 
+func (r *stubAttachmentRepo) GetByID(_ context.Context, id, tenantID uuid.UUID) (*models.EmailAttachment, error) {
+	a, ok := r.attachments[id]
+	if !ok || a.TenantID != tenantID {
+		return nil, attachment.ErrAttachmentNotFound
+	}
+	return a, nil
+}
+
 func (r *stubAttachmentRepo) GetMinIOKeyByID(_ context.Context, id, tenantID uuid.UUID) (string, error) {
 	a, ok := r.attachments[id]
 	if !ok || a.TenantID != tenantID {
@@ -960,14 +968,11 @@ func TestGetAttachmentDownloadURL_NotFound(t *testing.T) {
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
-// TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment documents
-// a real bug (see JOURNAL.md and the new fix-email-attachment-download-metadata-
-// wrong-message-id backlog unit): the handler looks up filename/content_type/
-// size_bytes via GetByMessage(ctx, uuid.Nil, tenantID) -- a hardcoded uuid.Nil,
-// not the attachment's own MessageID (email_grpc.go:1131). For any attachment
-// that belongs to a real message this lookup finds nothing, so the metadata
-// fields stay empty even though the presigned URL itself resolves correctly.
-func TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment(t *testing.T) {
+// TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment covers
+// an attachment that belongs to a real (sent/received) message: the handler
+// looks up filename/content_type/size_bytes via GetByID(ctx, id, tenantID),
+// scoped to the attachment's own ID rather than the pre-send uuid.Nil bucket.
+func TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment(t *testing.T) {
 	f := newEmailMessagesFixture()
 	tenantID := uuid.New()
 	att := &models.EmailAttachment{
@@ -984,9 +989,9 @@ func TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment(t *testi
 	resp, err := f.srv.GetAttachmentDownloadURL(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.GetAttachmentDownloadURLRequest{Id: att.ID.String()})
 	requireGRPCOK(t, err)
 	require.NotEmpty(t, resp.DownloadUrl, "the presigned URL itself is looked up correctly, by attachment ID")
-	require.Empty(t, resp.Filename, "known bug: metadata lookup uses uuid.Nil instead of att.MessageID")
-	require.Empty(t, resp.ContentType)
-	require.Zero(t, resp.SizeBytes)
+	require.Equal(t, "contract.pdf", resp.Filename)
+	require.Equal(t, "application/pdf", resp.ContentType)
+	require.EqualValues(t, 1234, resp.SizeBytes)
 }
 
 func TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment(t *testing.T) {

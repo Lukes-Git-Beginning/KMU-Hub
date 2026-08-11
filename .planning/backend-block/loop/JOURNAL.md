@@ -347,3 +347,46 @@ Fensters.
   statt activities), gefunden beim Root-Cause-Grep nach demselben Muster; nicht mitgefixt, weil
   ausserhalb des `done_when` dieser Unit und die Funktion bisher gar keinen Execute-Test hat.
 - offen: keine. Reiner Zaehl-Logik-Fix ohne Migrations-/RLS-Beruehrung.
+
+## Iteration 7 — fix-email-attachment-download-metadata-wrong-message-id — done — 2026-08-11 16:59
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `attachment.Repository` bekommt eine neue Methode `GetByID(ctx, id, tenantID)
+  (*models.EmailAttachment, error)` — Implementierung in `PostgresRepository.GetByID`
+  (SELECT auf `email_attachments WHERE id = $1 AND tenant_id = $2`, mappt `pgx.ErrNoRows`
+  auf `ErrAttachmentNotFound`, exakt das Muster von `GetMinIOKeyByID` daneben).
+  `attachment.Service.GetByID` reicht das durch. `EmailGRPCServer.GetAttachmentDownloadURL`
+  (internal/server/email_grpc.go:1133) ruft jetzt `s.attachmentService.GetByID(ctx, id,
+  tenantID)` statt des fest verdrahteten `GetByMessage(ctx, uuid.Nil, tenantID)` — damit
+  werden filename/content_type/size_bytes fuer Anhaenge an echten (gesendeten/empfangenen)
+  Nachrichten korrekt befuellt; das Pre-Send-Upload-Verhalten (MessageID=uuid.Nil) bleibt
+  unveraendert, weil die neue Query direkt ueber die Attachment-ID sucht statt ueber die
+  MessageID.
+- gebaut (Tests/Mocks): `stubAttachmentRepo.GetByID` (internal/server, Testfixture) und
+  `MockRepository.GetByID` (internal/email/attachment/service_test.go) ergaenzt, beide fuer
+  Interface-Konformitaet. `TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment`
+  in `TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment` umbenannt und auf
+  das korrekte Verhalten umgestellt (erwartet jetzt gefuellte filename/content_type/
+  size_bytes statt leerer Felder), Kommentar auf den gefixten Zustand angepasst.
+  `TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment` unveraendert (deckte den
+  funktionierenden Pfad schon vorher ab, bleibt gruen).
+- gate: build ok (`./internal/email/... ./internal/server/... ./cmd/email/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues, `./internal/email/... ./internal/server/...`) | test ok
+  (`./internal/server/` 0 Skips bei DATABASE_URL gegen kmuhub_app; `./internal/email/...` alle
+  12 Unterpakete gruen; `./internal/gateway/` inkl. TestOpenAPIRouteDrift gruen — keine Route
+  angefasst, nur zur Sicherheit mitgelaufen) | migration n.a. (keine Tabellenaenderung)
+  | rls-smoke n.a. (kein RLS-/Policy-Bezug, reiner Repository-Methoden-Fix)
+- coverage: internal/server 70,0 % -> 70,0 % (selbst gemessen per `go tool cover -func`;
+  deckt sich mit coverage_start. Unveraendert, weil dies eine Fix-Unit ist, keine
+  Coverage-Unit — der neue Code (`GetByID` in Repository/Service/PostgresRepository) liegt
+  ausserhalb von internal/server)
+- mutations-probe: Zeile 1133 (email_grpc.go) testweise auf
+  `s.attachmentService.GetByID(ctx, uuid.Nil, tenantID)` zurueckgesetzt ->
+  `TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment` UND
+  `TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment` beide rot (leere statt
+  gefuellter Metadaten). Zurueckgedreht, `git diff --stat internal/server/email_grpc.go`
+  zeigt wieder nur den urspruenglichen Fix-Diff (4 insertions, 8 deletions).
+- verify vorgaenger: sauber (Commit `b04c41ad`, Iteration 6 — reiner UPDATE-Zusammenlegungsfix
+  in security/gdpr, kein gRPC-Bypass, kein Stub, kein Proto/Migration/Guard/Tenant/
+  Wire-Shape/Route-Bezug)
+- neue-units: keine
+- offen: keine. Reiner Repository-/Handler-Fix ohne Migrations-/RLS-Beruehrung.

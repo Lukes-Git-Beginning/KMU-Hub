@@ -433,7 +433,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 70,0 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       `EmailGRPCServer.GetAttachmentDownloadURL` (internal/server/email_grpc.go, um Zeile 1131)
