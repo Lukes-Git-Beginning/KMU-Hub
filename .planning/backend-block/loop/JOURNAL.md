@@ -4014,7 +4014,7 @@ Frühere Läufe liegen vollständig im Archiv:
 
 
 ## Iteration 64 — d-cov-gateway-berichte-documents — done — 2026-08-11 03:59
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 0cee1ab5
 - gebaut: `backend/internal/gateway/route_berichte_test.go` um 17 Tests fuer
   die bisher ungetestete Dokumenten-Gruppe in route_berichte.go erweitert:
   HandleListDocuments (ServiceUnavailable, MissingTenant),
