@@ -4854,3 +4854,65 @@ Frühere Läufe liegen vollständig im Archiv:
   (LIFO: zuerst registriert, zuletzt ausgefuehrt) statt `defer pool.Close()`. Naechste
   Backlog-Unit laut Reihenfolge: `e-cov-chat-channel-search-repo` (Block E, chat/channel
   Lese-Methoden + neues DB-Integrationstest-Muster fuer chat/search).
+
+## Iteration 78 — e-cov-chat-channel-search-repo — done — 2026-08-11 05:26
+- commit: <wird nach Commit im naechsten Chore-Eintrag ergaenzt>
+- gebaut: zwei neue Testdateien. `postgres_repository_reads_test.go` in
+  `internal/chat/channel` deckt GetByID/GetByIDForTenant, List (IncludeArchived/
+  IsDM/Search-Filter, leere Liste bei fehlender Mitgliedschaft), GetMembership/
+  ListMembers/GetMemberCount, GetUserInfo/UserExists, GetLastMessage (Replies
+  ausgeschlossen), FindDMChannel (kein symmetrischer Match) und GetUnreadCount/
+  GetUnreadCountsForUser ab. `postgres_repository_test.go` (neu) in
+  `internal/chat/search` legt das erste DB-Integrationstest-Muster fuer dieses
+  Paket an: SearchMessages/SearchFiles gegen die echten tsvector-Spalten aus
+  Migration 000019 (Treffer, kein Treffer, Channel-Scoping, is_deleted-Filter)
+  sowie GetUserChannelIDs.
+- gate: build ok (go build -p 2 ./internal/chat/... ./internal/gateway/...
+  ./cmd/gateway/...) | vet ok (go vet ./internal/chat/...) | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/chat/channel/...
+  ./internal/chat/search/... — 0 issues) | test ok (go test -count=1
+  ./internal/chat/channel/ und ./internal/chat/search/ einzeln gruen; go test
+  -count=1 ./internal/chat/... — alle 7 Unterpakete ok, 0 uebersprungene Tests
+  bei 81 verifizierten Laeufen ueber channel+search — DATABASE_URL gesetzt,
+  docker-postgres-1 healthy) | migration n.a. | rls-smoke n.a. (keine Policy
+  angefasst, reine Lesepfade) | gateway-Tests nicht gelaufen (keine Route
+  angefasst)
+- coverage: internal/chat/channel 50,9 % -> 78,5 % | internal/chat/search
+  50,9 % -> 86,7 % (je go test -coprofile ./internal/chat/<pkg>/ ohne `...`,
+  go tool cover -func Summe; coverage_start der Unit ist der Gesamtwert fuer
+  internal/chat, beide Unterpakete lagen als Zeilen-Coverage darunter)
+- mutations-probe: zwei Proben, beide gefangen. (1) in
+  `channel/postgres_repository.go` `GetByIDForTenant` das `AND tenant_id = $2`
+  aus der WHERE-Klausel entfernt (Query-Parameter blieb bestehen) ->
+  TestPostgresRepository_GetByID_GetByIDForTenant sofort rot ("expected 1
+  arguments, got 2" — pgx verweigert den Aufruf, weil kein Platzhalter mehr auf
+  den zweiten Parameter zeigt). (2) in `search/postgres_repository.go` in der
+  Count-Query von SearchMessages `AND m.is_deleted = FALSE` entfernt ->
+  TestPostgresRepository_SearchMessages sofort rot ("expected 1 result ...,
+  got total=2 len=1" — die geloeschte Testnachricht zaehlte wieder mit).
+  Beide Male zurueckgedreht, `git diff` auf beiden Produktionsdateien leer.
+- verify vorgaenger: sauber. Commits e471f69f und b24651c5 (Iteration 77)
+  fuegen ausschliesslich eine neue Testdatei (`postgres_repository_reads_test.go`
+  in internal/chat/message) plus Journal-/Backlog-Metadaten hinzu — kein
+  Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-77 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in
+  diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 77) fortgezaehlt, Zeitstempel per `date` auf
+  dem Loop-Rechner ermittelt (2026-08-11 05:26). Zwei reale Verhaltensdetails
+  beim Bauen entdeckt und in Test-Kommentaren dokumentiert statt nur
+  stillschweigend an die Assertions angepasst: (a) `FindDMChannel` liefert bei
+  keinem Treffer `ErrChannelNotFound`, nicht `(nil, nil)` wie `GetLastMessage`
+  — der Aufrufer in service.go:582 verlaesst sich genau darauf, das war beim
+  ersten Testentwurf falsch angenommen; (b) `ListMembers`s `ORDER BY cm.role`
+  sortiert nach der Deklarationsreihenfolge des Postgres-ENUMs `channel_role`
+  ('owner','admin','member' aus Migration 000014), nicht alphabetisch — owner
+  kommt vor member, obwohl 'm' < 'o'. Ausserdem musste ein Dateiname im
+  Search-Test von `quirkzebra-report.pdf` auf `quirkzebra report.pdf`
+  (Leerzeichen statt Bindestrich) geaendert werden: der Postgres-Textsuche-
+  Parser erkennt Bindestrich-Punkt-Muster als EIN zusammenhaengendes
+  Dateinamens-Lexem, nicht als getrennte Woerter — per psql gegen die lokale
+  DB verifiziert. Naechste Backlog-Unit laut Reihenfolge:
+  `e-cov-chat-service-file-guest` (Block E, chat/service + file/guest).

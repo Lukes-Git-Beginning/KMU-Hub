@@ -2644,7 +2644,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/chat 50,9 %"
     scope: >
       chat/channel/postgres_repository.go's Lese-Methoden (GetByID, GetByIDForTenant, List,
