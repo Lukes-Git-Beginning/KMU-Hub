@@ -148,3 +148,25 @@ jobs:
       - name: Run npm audit
         working-directory: desktop
         run: npm audit --audit-level=high --omit=dev
+
+      # `--omit=dev` above hides electron, because npm lists it as a devDependency.
+      # It is not a build tool: electron-builder bundles it and it IS the runtime our
+      # users execute, so its advisories ship with the app. Audit it explicitly.
+      - name: Run npm audit (shipped Electron runtime)
+        working-directory: desktop
+        run: |
+          set -euo pipefail
+          report=$(npm audit --json || true)
+          node -e '
+            const a = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const e = (a.vulnerabilities || {}).electron;
+            if (!e) { console.log("electron: no advisories"); process.exit(0); }
+            const via = (e.via || []).filter(v => typeof v === "object");
+            const counts = via.reduce((m, v) => (m[v.severity] = (m[v.severity] || 0) + 1, m), {});
+            console.error(`electron ${e.range} is vulnerable: ${via.length} advisories ` +
+              Object.entries(counts).map(([s, n]) => `${n} ${s}`).join(", "));
+            for (const v of via) console.error(`  - [${v.severity}] ${v.title}`);
+            const fix = e.fixAvailable;
+            if (fix && typeof fix === "object") console.error(`fix available: electron@${fix.version}`);
+            process.exit(1);
+          ' <<< "$report"
