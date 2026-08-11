@@ -2526,7 +2526,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/fuhrpark 37,9 %"
     scope: >
       postgres_repository.go ist mit 1.485 Zeilen und 493 uncovered Statements die größte

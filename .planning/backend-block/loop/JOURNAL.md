@@ -4700,3 +4700,56 @@ Frühere Läufe liegen vollständig im Archiv:
   (message/routing/thread/adapter/team) aus Block E abgearbeitet — die
   naechste Backlog-Unit gehoert zu einer anderen Flaeche, siehe
   BACKLOG.yml in Reihenfolge.
+
+## Iteration 75 — e-cov-fuhrpark-repo-core — done — 2026-08-11 05:10
+- commit: -
+- gebaut: neue Datei `postgres_repository_core_test.go` in
+  `internal/fuhrpark`. SoftDeleteVehicle (setzt deleted_at, zweiter Aufruf
+  und GetVehicle danach liefern ErrVehicleNotFound), ListVehicles (Status-
+  und Search-Filter gegen echte DB), PlateExists (inkl. excludeID-Fall fuer
+  Self-Update sowie ein nie benutztes Kennzeichen), FindVehiclesDueTuev
+  (from/to-Fensterraender inklusive, Vehicles ausserhalb ausgeschlossen —
+  Assertion auf Praesenz einzelner Vehicle-IDs statt exakter Trefferzahl,
+  weil die Methode bewusst cross-tenant scannt und sonst mit parallelen
+  Tests kollidieren wuerde) inkl. Idempotenz (frischer Reminder <23h
+  unterdrueckt Re-Notify, per SQL auf >23h zurueckdatierter Reminder erlaubt
+  es wieder), MarkTuevReminderSent Cross-Tenant-Guard (Stempel unter
+  falschem Tenant schlaegt fehl UND hinterlaesst keinen Seiteneffekt am
+  echten Datensatz), sowie GetBooking/UpdateBooking/DeleteBooking/
+  ListBookings (Tenant-Scoping, Not-Found-Pfade, Status-/Vehicle-/
+  Zeitfenster-Filter) unter Wiederverwendung der bestehenden
+  seedBookingVehicle/seedBookingUser-Helfer aus booking_conflict_test.go.
+  GPS-Ingestion und der Fuel-/Trip-/Document-Rest bleiben wie im Scope der
+  Unit vermerkt offen fuer eine Folge-Unit.
+- gate: build ok (go build -p 2 ./internal/fuhrpark/... ./cmd/...) | vet ok
+  | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/fuhrpark/... — 0 issues) | test ok (go test -count=1
+  ./internal/fuhrpark/..., 0 Fails, 0 Skips — DATABASE_URL gesetzt,
+  docker-postgres-1 healthy, alle neuen Tests real gegen Postgres gelaufen)
+  | migration n.a. (keine neue Tabelle/Route/Policy) | rls-smoke n.a.
+  (keine Policy angefasst; die Cross-Tenant-Assertions in den neuen Tests
+  belegen die Trennung direkt) | gateway-Tests nicht gelaufen (keine Route
+  angefasst)
+- coverage: internal/fuhrpark 37,9 % -> 50,0 % (go test -coverprofile
+  ./internal/fuhrpark/ ohne `...`, go tool cover -func Summe)
+- mutations-probe: in `SoftDeleteVehicle` den Guard `AND deleted_at IS
+  NULL` aus dem UPDATE-WHERE entfernt -> sofort
+  TestSoftDeleteVehicle_SetsDeletedAtAndIsIdempotentNotFound rot (zweiter
+  SoftDeleteVehicle-Aufruf lieferte nil statt ErrVehicleNotFound).
+  Zurueckgedreht, `git diff` auf der Datei leer.
+- verify vorgaenger: sauber. Commit 13a2b976 (Iteration 74) fuegt
+  ausschliesslich drei neue Testdateien in inbox/routing, inbox/thread und
+  inbox/adapter hinzu, plus Journal-/Backlog-Metadaten — kein
+  Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard,
+  keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-74
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert
+  — Nummer aus der letzten Journal-Ueberschrift (Iteration 74)
+  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 05:10). Naechste Backlog-Unit laut Reihenfolge ist
+  `e-cov-fuhrpark-service-worker` (Block E, deckt den Rest des
+  fuhrpark-Pakets: GPS-Ingestion und Fuel-/Trip-/Document-Methoden, die
+  diese Unit bewusst ausgelassen hat).
