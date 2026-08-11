@@ -154,19 +154,52 @@ jobs:
       # users execute, so its advisories ship with the app. Audit it explicitly.
       - name: Run npm audit (shipped Electron runtime)
         working-directory: desktop
+        # Runs even when the step above failed — that step reports a different
+        # surface (production deps), and a failure there must not hide this one.
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
-          report=$(npm audit --json || true)
-          node -e '
-            const a = JSON.parse(require("fs").readFileSync(0, "utf8"));
-            const e = (a.vulnerabilities || {}).electron;
+          # --audit-level=none keeps the full vulnerability data but stops npm
+          # from exiting non-zero just because findings exist, so a non-zero exit
+          # here means an OPERATIONAL failure (ENOLOCK, registry down, ...).
+          # Without this the `|| true` idiom would swallow those, and the error
+          # payload — which has no `vulnerabilities` key — would read as "clean".
+          if ! report=$(npm audit --json --audit-level=none); then
+            echo "npm audit failed to produce a report:" >&2
+            echo "$report" >&2
+            exit 1
+          fi
+          node --input-type=commonjs -e '
+            const raw = require("fs").readFileSync(0, "utf8");
+            let a;
+            try { a = JSON.parse(raw); } catch {
+              console.error("npm audit did not return JSON:"); console.error(raw.slice(0, 2000)); process.exit(1);
+            }
+            if (a.error) { console.error("npm audit reported an error:", JSON.stringify(a.error)); process.exit(1); }
+            if (!a.vulnerabilities) { console.error("npm audit JSON has no `vulnerabilities` key — refusing to call this clean."); process.exit(1); }
+
+            const e = a.vulnerabilities.electron;
             if (!e) { console.log("electron: no advisories"); process.exit(0); }
-            const via = (e.via || []).filter(v => typeof v === "object");
-            const counts = via.reduce((m, v) => (m[v.severity] = (m[v.severity] || 0) + 1, m), {});
-            console.error(`electron ${e.range} is vulnerable: ${via.length} advisories ` +
-              Object.entries(counts).map(([s, n]) => `${n} ${s}`).join(", "));
-            for (const v of via) console.error(`  - [${v.severity}] ${v.title}`);
+
+            // `via` mixes advisory objects with plain strings; a string names a
+            // dependency whose own advisory propagates here (meta-vulnerability).
+            const direct = (e.via || []).filter((v) => v && typeof v === "object");
+            const indirect = (e.via || []).filter((v) => typeof v === "string");
+            const counts = direct.reduce((m, v) => ((m[v.severity] = (m[v.severity] || 0) + 1), m), {});
+            const summary = Object.entries(counts).map(([s, n]) => `${n} ${s}`).join(", ");
+
+            console.error(`electron ${e.range} is vulnerable (severity: ${e.severity})`);
+            if (direct.length) console.error(`  ${direct.length} advisories${summary ? ": " + summary : ""}`);
+            for (const v of direct) console.error(`  - [${v.severity}] ${v.title}`);
+            if (indirect.length) console.error(`  via vulnerable dependencies: ${indirect.join(", ")}`);
+
             const fix = e.fixAvailable;
-            if (fix && typeof fix === "object") console.error(`fix available: electron@${fix.version}`);
+            if (fix && typeof fix === "object") {
+              console.error(`fix available: ${fix.name}@${fix.version}${fix.isSemVerMajor ? " (semver-major)" : ""}`);
+            } else if (fix === true) {
+              console.error("fix available: run `npm audit fix`");
+            } else {
+              console.error("no fix available yet — assess exposure and document the acceptance");
+            }
             process.exit(1);
           ' <<< "$report"
