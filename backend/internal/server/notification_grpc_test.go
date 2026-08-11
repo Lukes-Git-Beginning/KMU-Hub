@@ -989,6 +989,18 @@ func TestListEventTypes(t *testing.T) {
 	assert.Equal(t, "contact.created", resp.EventTypes[0].EventKey)
 }
 
+func TestListEventTypes_EmptyIsNotNil(t *testing.T) {
+	registry := event.NewEventTypeRegistry()
+	registry.Register(models.EventType{EventKey: "contact.created", ModuleID: "crm", DisplayName: "Contact Created"})
+	srv := NewNotificationGRPCServer(nil, nil, registry)
+
+	moduleID := "no-such-module"
+	resp, err := srv.ListEventTypes(context.Background(), &notificationv1.ListEventTypesRequest{ModuleId: &moduleID})
+	requireGRPCOK(t, err)
+	require.NotNil(t, resp.EventTypes, "EventTypes should be an empty slice, not nil, so it serializes to [] rather than null")
+	assert.Empty(t, resp.EventTypes)
+}
+
 // ============================================================================
 // ListNotifications -- the case that matters: user A never sees user B's rows
 // ============================================================================
@@ -1021,6 +1033,7 @@ func TestListNotifications_CrossTenantYieldsEmpty(t *testing.T) {
 
 	resp, err := srv.ListNotifications(ctx, &notificationv1.ListNotificationsRequest{UserId: userA.String()})
 	requireGRPCOK(t, err)
+	require.NotNil(t, resp.Notifications, "Notifications should be an empty slice, not nil, so it serializes to [] rather than null")
 	assert.Empty(t, resp.Notifications)
 	assert.Equal(t, int32(0), resp.Total)
 }
@@ -1145,6 +1158,16 @@ func TestGetAndUpdateNotificationPreference_HappyPath(t *testing.T) {
 	assert.Equal(t, "chime", listResp.Preferences[0].Sound)
 }
 
+func TestGetNotificationPreferences_EmptyIsNotNil(t *testing.T) {
+	srv := newNotificationServerWithRepos(newStubNotifRepo(), newStubPrefRepo())
+	ctx := helpdeskTenantContext(uuid.New())
+
+	resp, err := srv.GetNotificationPreferences(ctx, &notificationv1.GetNotificationPreferencesRequest{UserId: uuid.NewString()})
+	requireGRPCOK(t, err)
+	require.NotNil(t, resp.Preferences, "Preferences should be an empty slice, not nil, so it serializes to [] rather than null")
+	assert.Empty(t, resp.Preferences)
+}
+
 func TestListMutedResources_HappyPath(t *testing.T) {
 	prefRepo := newStubPrefRepo()
 	srv := newNotificationServerWithRepos(newStubNotifRepo(), prefRepo)
@@ -1158,6 +1181,17 @@ func TestListMutedResources_HappyPath(t *testing.T) {
 	requireGRPCOK(t, err)
 	require.Len(t, listResp.Mutes, 1)
 	assert.Equal(t, int32(1), listResp.Total)
+}
+
+func TestListMutedResources_EmptyIsNotNil(t *testing.T) {
+	srv := newNotificationServerWithRepos(newStubNotifRepo(), newStubPrefRepo())
+	ctx := helpdeskTenantContext(uuid.New())
+
+	listResp, err := srv.ListMutedResources(ctx, &notificationv1.ListMutedResourcesRequest{UserId: uuid.NewString()})
+	requireGRPCOK(t, err)
+	require.NotNil(t, listResp.Mutes, "Mutes should be an empty slice, not nil, so it serializes to [] rather than null")
+	assert.Empty(t, listResp.Mutes)
+	assert.Equal(t, int32(0), listResp.Total)
 }
 
 func TestToggleManualDND_HappyPath(t *testing.T) {
@@ -1190,6 +1224,17 @@ func TestListIntegrationConfigs_HappyPath(t *testing.T) {
 	list, err := srv.ListIntegrationConfigs(ctx, &notificationv1.ListIntegrationConfigsRequest{})
 	requireGRPCOK(t, err)
 	assert.Len(t, list.Configs, 2)
+}
+
+func TestListIntegrationConfigs_EmptyIsNotNil(t *testing.T) {
+	repo := newNotifIntegStub()
+	srv := newNotificationServerWithIntegration(repo, nil)
+	ctx := helpdeskTenantContext(uuid.New())
+
+	list, err := srv.ListIntegrationConfigs(ctx, &notificationv1.ListIntegrationConfigsRequest{})
+	requireGRPCOK(t, err)
+	require.NotNil(t, list.Configs, "Configs should be an empty slice, not nil, so it serializes to [] rather than null")
+	assert.Empty(t, list.Configs)
 }
 
 // ============================================================================
@@ -1341,6 +1386,7 @@ func TestChannelMappingCRUD_HappyPath(t *testing.T) {
 
 	list, err = srv.ListChannelMappings(ctx, &notificationv1.ListChannelMappingsRequest{ConfigId: configID})
 	requireGRPCOK(t, err)
+	require.NotNil(t, list.Mappings, "Mappings should be an empty slice, not nil, so it serializes to [] rather than null")
 	assert.Empty(t, list.Mappings)
 }
 
@@ -1376,6 +1422,7 @@ func TestLinkAccount_HappyPathAndDomainErrors(t *testing.T) {
 
 	status, err = srv.GetAccountLinkStatus(ctx, &notificationv1.GetAccountLinkStatusRequest{UserId: userID.String()})
 	requireGRPCOK(t, err)
+	require.NotNil(t, status.Links, "Links should be an empty slice, not nil, so it serializes to [] rather than null")
 	assert.Empty(t, status.Links)
 
 	// Unlinking again finds nothing.

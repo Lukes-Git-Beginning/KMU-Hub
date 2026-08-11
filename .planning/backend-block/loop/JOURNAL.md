@@ -1739,3 +1739,52 @@ Fensters.
 - offen: keine. GetChannelMembers und GetMessages waren keine im Backlog genannten Fundstellen
   dieser Unit, teilen aber den identischen Bug im selben File — nach Regel 2 dieses Laufs
   mitgefixt statt fuer eine weitere Scan-Iteration zurueckgestellt.
+
+## Iteration 34 — fix-notification-grpc-nil-slice-wire-shape — done — 2026-08-11 19:53
+- commit: (wird nach dem Commit ergaenzt)
+- gebaut: Alle 7 im Backlog genannten Fundstellen in `backend/internal/server/notification_grpc.go`
+  mit demselben Nil-Slice-Muster wie die Vorlage (`fix-crm-list-nil-slice-wire-shape`, Commit
+  `c3f0c46f`) initialisieren ihr Response-Slice jetzt per `x := make([]*T, 0, len(<quelle>))`
+  bzw. `make([]*T, 0, 2)` (GetAccountLinkStatus, feste 2-Elemente-Plattformliste) statt einer
+  nil-`var`-Deklaration: ListNotifications (117), GetNotificationPreferences (325),
+  ListMutedResources (431), ListEventTypes (539), ListIntegrationConfigs (749),
+  ListChannelMappings (939), GetAccountLinkStatus (1074). Root-Cause-Check
+  (`grep -n "var .*\[\]\*notificationv1\." internal/server/notification_grpc.go`) fand vor dem
+  Fix genau diese 7 Treffer und danach 0 — keine weitere Schwesterfunktion mit demselben Muster
+  im File uebrig.
+- gebaut (Tests): TestListNotifications_CrossTenantYieldsEmpty um `require.NotNil` ergaenzt
+  (war zuvor nur `assert.Empty`, haette nil nicht von [] unterschieden). Vier neue Tests fuer
+  Stellen ohne bestehenden Leerfall: TestListEventTypes_EmptyIsNotNil (Modul ohne registrierte
+  Events), TestGetNotificationPreferences_EmptyIsNotNil (neuer User ohne Preferences),
+  TestListMutedResources_EmptyIsNotNil (neuer User ohne Mutes), TestListIntegrationConfigs_
+  EmptyIsNotNil (frischer Integrations-Stub ohne Configs). Zwei bestehende Tests verstaerkt
+  (`require.NotNil` vor dem bisherigen `assert.Empty` ergaenzt): TestChannelMappingCRUD_
+  HappyPath (Zustand nach Delete der einzigen Mapping) und TestLinkAccount_
+  HappyPathAndDomainErrors (Zustand nach UnlinkAccount).
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` gruen, 0 SKIP, `DATABASE_URL`
+  gegen `kmuhub_app` — die 7 neuen/gestaerkten Tests zusaetzlich einzeln mit `-v` verifiziert,
+  alle PASS) | test ok (`./internal/gateway/` gruen, `TestOpenAPIRouteDrift` gelaufen da
+  `internal/server` ein Handler-File angefasst hat, auch ohne Routen-/Signaturaenderung) |
+  migration n.a. (keine DB-Aenderung, reiner Handler-Text-Fix) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash push -u` auf die zwei
+  geaenderten Dateien isoliert gemessen) -> 70,1 % (nach dem Fix, `go tool cover -func`). Wie
+  bei den vorangegangenen Nil-Slice-Fixes (Iterationen 30/31/32/33) bewegt sich die Prozentzahl
+  bei einer reinen Slice-Init-Zeile ohne neue Verzweigung nicht sichtbar — Beleg ist die
+  Mutations-Probe.
+- mutations-probe: Zeile 431 (`infos := make([]*notificationv1.MuteInfo, 0, len(mutes))` in
+  `ListMutedResources`) zurueck auf `var infos []*notificationv1.MuteInfo` gesetzt -> `go test
+  -run TestListMutedResources_EmptyIsNotNil -v` wurde rot ("Expected value not to be nil...
+  Mutes should be an empty slice, not nil..."). Zurueckgedreht, `git diff --stat` zeigt danach
+  wieder ausschliesslich den sauberen 7-Stellen-Diff in notification_grpc.go (14 geaenderte
+  Zeilen = 7 × var/make-Paar) plus die Testdatei.
+- verify vorgaenger: sauber (Commit `dd0cefa9`, Iteration 33 — reiner `git show --stat`- und
+  Diff-Check: nur `chat_grpc.go` plus zwei Testdateien geaendert, alle 8 Fundstellen exakt
+  derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff, kein gRPC-Bypass, kein Stub, kein
+  Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt
+  (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine — alle 7 im Backlog genannten Stellen sind in diesem einen Commit abgedeckt,
+  Root-Cause-Grep bestaetigt keinen Rest im File.
