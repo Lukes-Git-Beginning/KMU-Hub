@@ -5070,7 +5070,7 @@ Frühere Läufe liegen vollständig im Archiv:
   calendar/biz/crm Actions).
 
 ## Iteration 81 — e-cov-automation-action-grpc — done — 2026-08-11 05:59
-- commit: <wird im naechsten Meta-Commit nachgetragen>
+- commit: b31038a9
 - gebaut: eine neue Testdatei `internal/automation/action/grpc_actions_test.go` deckt
   calendar_actions.go, biz_actions.go und crm_actions.go ab, die trotz vorhandenem
   http_actions_test.go im selben Verzeichnis bei 0,0 % lagen. Fuenf Fake-Clients per
