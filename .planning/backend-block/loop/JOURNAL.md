@@ -4264,3 +4264,71 @@ Frühere Läufe liegen vollständig im Archiv:
   war auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der
   letzten Journal-Ueberschrift (Iteration 66) fortgezaehlt, Zeitstempel per
   `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:18).
+## Iteration 68 — d-cov-gateway-plugin-installation-lifecycle — done — 2026-08-11 04:20
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `backend/internal/gateway/route_plugin_installation_test.go` neu, 19
+  Tests fuer den bisher ungetesteten Installations-Lebenszyklus in
+  route_plugin.go: HandleInstallPlugin (ServiceUnavailable, InvalidJSON,
+  ReachesRPC), HandleGetInstallation (ServiceUnavailable, InvalidUUID_
+  ReachesRPC, ReachesRPC), HandleEnablePlugin/HandleDisablePlugin (je
+  ServiceUnavailable, InvalidUUID_ReachesRPC, ReachesRPC),
+  HandleUninstallPlugin (ServiceUnavailable, ReachesRPC) und
+  HandleApprovePermissions (ServiceUnavailable, MissingPermissions,
+  InvalidGrantedBy, MissingGrantedBy, InvalidJSON, ReachesRPC).
+  WICHTIGER BEFUND vor dem Bauen geprueft (ERST PRUEFEN, DANN BAUEN):
+  `grep -n validateUUIDParam route_plugin.go` liefert NULL Treffer — keiner
+  der sechs Installations-Handler validiert `installation_id` lokal, anders
+  als der Unit-Text ("pruefen ungueltige Installations-ID (UUID)")
+  unterstellte. Ein unbrauchbarer Wert erreicht die RPC-Schicht identisch zu
+  einer gueltigen ID (503 durch Connection-refused im Unit-Test, kein 400).
+  Die *_InvalidUUID_ReachesRPC-Tests dokumentieren das reale Verhalten statt
+  ein 400 zu erfinden, das der Handler nicht liefert — Kommentarblock im
+  Testfile erklaert das explizit, analog zum HandleGetVersion-Muster aus
+  Iteration 67. Das ist dieselbe Fehlerklasse wie
+  fix-gateway-id-validation-consistency (Iteration 6), aber eine andere
+  Fundstelle: Iteration 6 hat nur `chi.URLParam(r, "id")` gegrept (174
+  Treffer/26 Dateien), route_plugin.go nutzt "installation_id"/"manifest_id"/
+  "rule_id" und war damit nicht erfasst — siehe `offen:` unten.
+  HandleApprovePermissions ist der einzige Handler der Gruppe mit echter
+  Gateway-Validierung (`decodeAndValidate[approvePermissionsHTTPReq]`,
+  route_plugin.go:318-321: permissions required+min=1, granted_by
+  required+uuid) — dort greifen die regulaeren assertValidationError-Tests.
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1
+  ./internal/gateway/, 0 Fails, keine Flake in diesem Lauf) | migration n.a.
+  (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | TestOpenAPIRouteDrift separat gelaufen, gruen (834 Routen
+  gegen 836 dokumentierte Pfade, unveraendert — keine neue Route) | kein
+  neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 45,7 % -> 46,0 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In `approvePermissionsHTTPReq` das
+  Tag `validate:"required,min=1"` auf Permissions entfernt ->
+  TestHandleApprovePermissions_MissingPermissions rot (503 statt 400,
+  fehlende validation_failed-Struktur). Per Edit-Tool zurueckgedreht, `git
+  diff backend/internal/gateway/route_plugin.go` danach leer, build/vet/
+  lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit e3ee735a (Iteration 67) fuegt
+  ausschliesslich `route_wiki_versions_test.go` (Testdatei) plus Journal-/
+  Backlog-Metadaten hinzu — kein Produktionscode, kein Proto, keine Route,
+  kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine
+  der acht Fehlerklassen einschlaegig.
+- offen: route_plugin.go fehlt fuer "installation_id" (sechs Handler),
+  "manifest_id" (HandleGetManifest/HandleDeleteManifest) und "rule_id" (vier
+  Validation-/Workflow-Rule-Handler) durchgehend `validateUUIDParam` — noch
+  nicht von der Bestandsaufnahme aus Iteration 6 erfasst, da die dortige
+  Suche nur nach `chi.URLParam(r, "id")` griff. Kandidat fuer eine eigene
+  Folge-Unit in Lauf 9 (gleiches Muster wie route_biz_billing.go, aber
+  eigener Param-Name), nicht selbst angelegt. HandleListManifests,
+  HandleListInstallations, HandleListPermissions, HandleGetSettings/
+  HandleUpdateSettings/HandleGetSettingsSchema, alle Validation-/Workflow-
+  Rule- und Template-/Execution-Log-Handler in route_plugin.go bleiben nach
+  dieser Unit ungetestet — kleinere Restflaeche, keine eigene Folge-Unit
+  vorgemerkt (Block-D-Rest ist im Backlog erfasst).
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-67 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
+  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 67) fortgezaehlt, Zeitstempel per `date`
+  auf dem Loop-Rechner ermittelt (2026-08-11 04:20).
