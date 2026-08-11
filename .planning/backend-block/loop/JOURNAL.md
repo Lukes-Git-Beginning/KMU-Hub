@@ -4856,7 +4856,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Lese-Methoden + neues DB-Integrationstest-Muster fuer chat/search).
 
 ## Iteration 78 — e-cov-chat-channel-search-repo — done — 2026-08-11 05:26
-- commit: <wird nach Commit im naechsten Chore-Eintrag ergaenzt>
+- commit: 466f96d0
 - gebaut: zwei neue Testdateien. `postgres_repository_reads_test.go` in
   `internal/chat/channel` deckt GetByID/GetByIDForTenant, List (IncludeArchived/
   IsDM/Search-Filter, leere Liste bei fehlender Mitgliedschaft), GetMembership/
