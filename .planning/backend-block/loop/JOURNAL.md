@@ -3771,3 +3771,63 @@ Frühere Läufe liegen vollständig im Archiv:
   auch in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 58) fortgezaehlt, Zeitstempel per `date` auf
   dem Loop-Rechner ermittelt (2026-08-11 03:27).
+
+## Iteration 60 — d-cov-gateway-settings-module-access — done — 2026-08-11 03:34
+- commit: PENDING
+- gebaut: `backend/internal/gateway/route_settings_module_access_test.go` neu
+  angelegt mit 34 Tests fuer die RBAC-nahe Modul-Zugriffsgruppe in
+  route_settings.go: HandleListModuleLeads (ServiceUnavailable,
+  MissingTenant, ReachesRPC), HandleGetMyModuleLeads (ServiceUnavailable,
+  MissingTenant, NoUserID, ReachesRPC), HandleGrantModuleLead
+  (ServiceUnavailable, MissingTenant, NoCallerID, InvalidIDUUID,
+  MissingModuleID, ReachesRPC), HandleRevokeModuleLead (ServiceUnavailable,
+  MissingTenant, InvalidIDUUID, MissingModuleID, ReachesRPC),
+  HandleListModuleGrants (ServiceUnavailable, MissingTenant, ReachesRPC),
+  HandleGrantModuleAccess (ServiceUnavailable, MissingTenant, NoCallerID,
+  InvalidIDUUID, MissingModuleID, ReachesRPC), HandleRevokeModuleAccess
+  (ServiceUnavailable, MissingTenant, InvalidIDUUID, MissingModuleID,
+  ReachesRPC), HandleBulkRevokeModuleAccess (ServiceUnavailable,
+  MissingTenant, InvalidJSON, MissingPairs, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1
+  ./internal/gateway/ -v: 1850 PASS, 0 FAIL, 3 SKIP [bekannte DB-abhaengige
+  RLS-Tests]) | migration n.a. (keine neue Tabelle/Route) | rls-smoke n.a.
+  (keine Tabelle/Policy angefasst) | TestOpenAPIRouteDrift separat gruen (834
+  Routen gegen 836 Spec-Pfade, unveraendert) | keine neue Route, kein neuer
+  RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 43,7 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleGrantModuleLead
+  `if moduleID == "" { ... }` auf `if false { ... }` invertiert ->
+  TestHandleGrantModuleLead_MissingModuleID rot (200 statt 400: der leere
+  module_id-Pfadparameter erreicht jetzt ungeprueft die RPC). Alle anderen 33
+  neuen Tests blieben gruen. Per Edit-Tool zurueckgedreht, `git diff
+  backend/internal/gateway/route_settings.go` danach leer, build/vet/lint/
+  test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 052b4bb5 (Iteration 59) fuegt
+  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
+  (Metadaten-Commit b66ceb19 nur JOURNAL.md) — keine Produktionscode-Datei,
+  kein Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
+  keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `bulkRevokeGrantsRequest.Pairs` traegt pro Element
+  `validate:"required,uuid"` auf UserID / `validate:"required"` auf ModuleID,
+  aber die go-playground/validator-Instanz in internal/validation validiert
+  Struct-Felder innerhalb eines Slice NICHT automatisch ohne `dive`-Tag —
+  per Scratch-Test verifiziert: ein Pair mit `UserID: "not-a-uuid"` besteht
+  `Validate()` klaglos. HandleBulkRevokeModuleAccess reicht damit ungueltige
+  UUIDs unvalidiert bis zur RPC durch (kein Sicherheitsloch, da die RPC selbst
+  parsen muss, aber ein irrefuehrender Validate-Tag, der nichts tut). Nicht
+  gefixt (Coverage-Unit baut keine Verhaltensaenderung) — Kandidat fuer Lauf 9:
+  `dive` zum `pairs`-Tag hinzufuegen. Ebenso offen: HandleGetTenantLicense,
+  HandleSetTenantModuleActive, HandleGetTenantSubscription,
+  HandleGetBranding/HandlePutBranding und alle Settings-Handler
+  (GetResolvedSettings/GetTenantSettings/PutTenantSettings/GetUserSettings/
+  PutUserSettings) in derselben Datei bleiben ungetestet — nicht im Scope
+  dieser Unit, Kandidat fuer Lauf 9. `.planning/backend-block/loop/
+  run-loop.ps1` traegt weiterhin denselben unstaged -StartNotBefore-Diff wie
+  in den Iterationen 6-59 vermerkt — nicht meine Datei, nicht angefasst,
+  nicht committet. Laufkontext-Block war auch in diesem Prompt nicht
+  sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 59) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-11 03:34).
