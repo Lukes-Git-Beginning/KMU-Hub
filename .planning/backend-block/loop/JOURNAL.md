@@ -3887,3 +3887,72 @@ Frühere Läufe liegen vollständig im Archiv:
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 60)
   fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
   (2026-08-11 03:35).
+
+## Iteration 62 — d-cov-gateway-vermietung-rental-lifecycle — done — 2026-08-11 03:46
+- commit: (siehe git log nach diesem Commit)
+- gebaut: `backend/internal/gateway/route_vermietung_test.go` um 30 Tests
+  erweitert fuer den bisher ungetesteten Vermietungs-Lebenszyklus in
+  route_vermietung.go: HandleCheckAvailability (ServiceUnavailable,
+  InvalidObjectIDUUID, MissingDates, InvalidStartDateFormat,
+  InvalidEndDateFormat, OverlappingRange_ReachesRPC), HandleStartRental und
+  HandleEndRental (je ServiceUnavailable, InvalidRentalIDUUID,
+  InvalidStatusTransition_ReachesRPC), HandleUpdateRental
+  (ServiceUnavailable, InvalidRentalIDUUID, InvalidJSON,
+  InvalidStartDateFormat, InvalidEndDateFormat, ReachesRPC),
+  HandleDeleteRental (ServiceUnavailable, InvalidRentalIDUUID, ReachesRPC)
+  und HandleGetRentalCalendar (ServiceUnavailable, ReachesRPC,
+  NonNumericYearMonthIgnored). Die "OverlappingRange"/"InvalidStatusTransition"
+  -Tests dokumentieren bewusst, dass Ueberschneidungs- und
+  Statusuebergangspruefung serverseitig im vermietung-Service liegen (kein
+  bufconn-Stub im Repo fuer dieses Paket) — der Gateway-Handler validiert nur
+  Tenant/ID/Datumsformat und reicht den Rest unveraendert an die RPC durch
+  (503 bei localhost:0-Dummy-Verbindung, dasselbe Verify-Muster wie in
+  Iteration 61).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
+  ./internal/gateway/: 1899 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
+  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift im selben Paketlauf mitgelaufen, gruen (keine neue
+  Route) | kein neuer RequirePermission-Guard, keine neue
+  config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 44,4 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleUpdateRental den
+  Start-Date-Formatfehler-Guard `if parseErr != nil { ... }` auf `if false`
+  geaendert -> TestHandleUpdateRental_InvalidStartDateFormat rot (503 statt
+  400: "gestern" erreicht ungeprueft die RPC und scheitert dort am
+  localhost:0-Dial statt an der Datumsformat-Grenze). Alle anderen 29 neuen
+  Tests blieben gruen. Per Edit-Tool zurueckgedreht, `git diff
+  backend/internal/gateway/route_vermietung.go` danach leer, build/vet/lint/
+  test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit bda88c7f (Iteration 61) fuegt
+  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
+  (`git show --stat bda88c7f`: BACKLOG.yml, JOURNAL.md,
+  route_chat_membership_test.go) — keine Produktionscode-Datei, kein Proto,
+  keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine
+  Migration. Keine der acht Fehlerklassen einschlaegig. Sein
+  Journal-Platzhalter "(siehe git log nach diesem Commit)" war noch nicht
+  aufgeloest — per separatem Commit (Konvention aus den Iterationen 59/60)
+  vor dieser Unit nachgetragen: `chore(loop): record commit hash for
+  iteration 61 journal entry`.
+- offen: In route_vermietung.go bleiben nach dieser Unit noch
+  HandleListObjects/HandleCreateObject/HandleGetObject/HandleUpdateObject/
+  HandleDeleteObject, HandleListRentals/HandleCreateRental/HandleGetRental,
+  HandleSaveRentalSignature, alle Inspection-Handler und
+  HandleExportRentalReport ungetestet bzw. nur teilweise (Object/Rental/
+  Inspection-Create sind in der bestehenden Testdatei abgedeckt, Get/List/
+  Update/Delete/Export/Signature nicht) — Kandidat fuer eine Folge-Unit in
+  Lauf 9, nicht in dieser Unit gebaut. Beim Lesen von helpers.go aufgefallen:
+  es existiert bereits ein `validateDateParam`-Helfer (Zeile ~129) mit
+  eigenem Format-Set, den route_vermietung.go nicht nutzt (eigenes
+  `parseRFC3339` + manuelle RFC3339-Fehlermeldungen stattdessen) — keine
+  Verhaltensaenderung in dieser Coverage-Unit, aber ein Kandidat fuer
+  Root-Cause-Vereinheitlichung in einer spaeteren Fix-Unit, falls
+  `validateDateParam` dasselbe Format akzeptiert.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-61 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch
+  in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 61) fortgezaehlt, Zeitstempel per `date`
+  auf dem Loop-Rechner ermittelt (2026-08-11 03:46).
