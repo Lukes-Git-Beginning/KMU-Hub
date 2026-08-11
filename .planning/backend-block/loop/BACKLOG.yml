@@ -726,7 +726,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
     scope: >
       MUSTER A2 — SQL referenziert eine Spalte, die es (nicht mehr) gibt. Vorlage:

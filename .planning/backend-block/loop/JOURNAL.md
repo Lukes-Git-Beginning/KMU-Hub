@@ -736,3 +736,52 @@ Fensters.
 - neue-units: keine
 - offen: keine. Muster A (ON-CONFLICT-Ziel vs. Index) ist mit Teil A + Teil B vollstaendig
   abgearbeitet, 0 Funde ueber die gesamte Flaeche.
+
+## Iteration 15 — scan-phantom-columns-crm-biz-work-email — done — 2026-08-11 17:46
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster A2 (SQL referenziert Spalte/Tabelle/Alias, die es nicht gibt), Teil 1 von 3
+  — Repositories unter `internal/crm`, `internal/biz` (inkl. aller Unterpakete: bexio,
+  lexware, datev, hr/*, invoice, creditnote, quote, payment, expense, recurring, banking,
+  einvoice, dunning, gobdarchive, dashboard), `internal/work` (inkl. video) und `internal/email`
+  per drei parallelen Subagenten geprueft (max. 3 gleichzeitig, wie vorgeschrieben). Vorgehen
+  pro Agent: SQL-tragende Go-Dateien per Grep auf SELECT/INSERT/UPDATE/RETURNING identifiziert
+  (nicht nur `*postgres_repository*.go`), Aliase aus JOIN-Klauseln aufgeloest, jede referenzierte
+  Spalte gegen `information_schema.columns` der laufenden lokalen DB (Migrationskopf 312, nicht
+  gegen die Migrationsdateien) geprueft.
+  ERGEBNIS: 0 Funde ueber alle vier Pakete. 68 Produktions-Repository-Dateien vollstaendig
+  geprueft:
+  - crm (14): report, contact/postgres_repository, contact/postgres_lead, company, advisoryprotocol,
+    deal, activity, consent/postgres_repository, consent/assert_repo, search, tag, customfield,
+    savedfilter, pipelinestage
+  - email (8): attachment, message, template, rule, label, account, contactlink, signature
+  - biz (29): dunning, gobdarchive, invoice/postgres_repository, quote, creditnote, payment,
+    expense, recurring, banking/postgres_repository_accounts, banking/postgres_repository,
+    einvoice, invoice/postgres_open_items, invoice/postgres_document_chains,
+    invoice/postgres_transactions, bexio/postgres_repository, bexio/postgres_config_repo,
+    lexware/postgres_repository, lexware/postgres_config_repo, datev/postgres_upload_repo,
+    datev/postgres_config_repo, dashboard, hr/leave, hr/absence, hr/employee, hr/changerequest,
+    hr/timetracking/postgres_repository, hr/timetracking/postgres_extended_repository,
+    invoice/service.go (kein Roh-SQL), invoice/repository.go (kein Roh-SQL)
+  - work (17): calendar/postgres_repository, calendar/booking_postgres_repository, event,
+    meeting, task, timeentry, recording, project, label, customfield, video, status, comment,
+    resource, reaction, holiday, presence/postgres_config_repository
+  Der Vorlage-Bug (`u.display_name` auf `users`, existiert nur in `document/virtual`) tritt in
+  keinem der vier gescannten Pakete auf -- alle `users`-JOINs verwenden durchgaengig korrekt
+  `first_name`/`last_name` (in `hr/*` teils bereits mit explizitem Regressionsschutz-Kommentar
+  auf den historischen Incident, z. B. `hr/absence/postgres_repository_db_test.go:130`). Ein
+  auffaelliger Fund (`m.references` als unquotierter Alias auf ein reserviertes Wort in
+  `email/contactlink/repository.go:80`) wurde gegen die DB verifiziert und laeuft fehlerfrei --
+  kein Bug, da qualifiziert referenziert.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: Iteration 14 hat KEINEN Commit hinterlassen -- lediglich den
+  `status: in_progress`-Flag dieser Unit unkommitiert in BACKLOG.yml gesetzt (git diff bestaetigt:
+  ausschliesslich diese eine Zeile geaendert, kein Code angefasst) und ist ohne Journal-Eintrag
+  gestorben. Nichts zu verifizieren, da keine inhaltliche Arbeit vorlag -- diese Iteration hat die
+  Unit vollstaendig selbst bearbeitet.
+- neue-units: keine
+- offen: Teil 2 von 3 (`scan-phantom-columns-platform-services`: auth, security, document, chat,
+  calendar, notification, inbox, hr-top-level) und Teil 3 von 3
+  (`scan-phantom-columns-module-services`) stehen noch aus und sind bereits als todo im Backlog.
