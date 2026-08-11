@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -187,4 +188,249 @@ func TestHandleShareEntity_MissingPermission(t *testing.T) {
 	req = withUserID(req, "user-123")
 	routes.HandleShareEntity(rec, req)
 	assertValidationError(t, rec, "permission")
+}
+
+// --- Share Links (external, unauthenticated read/download links) ---
+
+func TestHandleListShareLinks_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/documents/files/123/share-links", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleListShareLinks(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleListShareLinks_InvalidIDReachesRPC documents a real gap:
+// route_document.go's share-link handlers never call validateUUIDParam on
+// the file id (route_document.go is one of the 161 remaining raw
+// chi.URLParam(r, "id") sites left after the fix-gateway-id-validation-
+// consistency unit, Iteration 6). A syntactically unusable id passes
+// straight through to the RPC layer instead of getting a 400 at the
+// boundary — same class of finding, not fixed here (coverage units don't
+// change behavior).
+func TestHandleListShareLinks_InvalidIDReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/documents/files/not-a-uuid/share-links", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListShareLinks(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleCreateShareLink_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleCreateShareLink)
+}
+
+func TestHandleCreateShareLink_InvalidJSON(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/123/share-links", invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleCreateShareLink(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+// TestHandleCreateShareLink_InvalidIDReachesRPC — same finding as
+// TestHandleListShareLinks_InvalidIDReachesRPC, for the create path.
+func TestHandleCreateShareLink_InvalidIDReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/not-a-uuid/share-links", jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withUserID(req, "user-123")
+	routes.HandleCreateShareLink(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleCreateShareLink_NoCreatedByWhenAnonymous pins that CreatedBy is
+// only forwarded when a user id is actually present in the request context —
+// an anonymous caller must not crash the handler or forge an actor id.
+func TestHandleCreateShareLink_NoCreatedByWhenAnonymous(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/share-links", jsonBody(t, map[string]interface{}{
+		"expires_in_days": 7,
+	}))
+	req = withChiURLParam(req, "id", id)
+	routes.HandleCreateShareLink(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleRevokeShareLink_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/documents/share-links/123", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleRevokeShareLink(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleRevokeShareLink_InvalidIDReachesRPC — same finding, for the
+// standalone-by-link-id revoke route.
+func TestHandleRevokeShareLink_InvalidIDReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/documents/share-links/not-a-uuid", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleRevokeShareLink(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetSharedFile (unauthenticated public route) ---
+
+func TestHandleGetSharedFile_NoAuthNeeded(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/public/documents/share/sometoken", nil)
+	req = withChiURLParam(req, "token", "sometoken")
+	routes.HandleGetSharedFile(rec, req)
+	// No document backend reachable in this test — the honest answer is 503,
+	// never 401/403, which would mean the public handler asked for auth.
+	if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+		t.Fatalf("public share handler demanded auth: %d, body = %s", rec.Code, rec.Body.String())
+	}
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetSharedFile_EmptyToken(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/public/documents/share/", nil)
+	req = withChiURLParam(req, "token", "")
+	routes.HandleGetSharedFile(rec, req)
+	assertStatus(t, rec, http.StatusNotFound)
+}
+
+// TestHandleGetSharedFile_MalformedTokenLooksLikeUnknown pins that an
+// over-length token gets the same 404 an unknown one gets, and never reaches
+// the backend — a scraper cannot distinguish "malformed" from "no such link".
+func TestHandleGetSharedFile_MalformedTokenLooksLikeUnknown(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	longToken := strings.Repeat("x", 200)
+	req := httptest.NewRequest("POST", "/api/v1/public/documents/share/"+longToken, nil)
+	req = withChiURLParam(req, "token", longToken)
+	routes.HandleGetSharedFile(rec, req)
+	assertStatus(t, rec, http.StatusNotFound)
+}
+
+func TestHandleGetSharedFile_BodyIsOptional(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+
+	for name, body := range map[string]string{
+		"absent": "",
+		"blank":  "   ",
+		"empty":  "{}",
+	} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/api/v1/public/documents/share/sometoken", strings.NewReader(body))
+		req = withChiURLParam(req, "token", "sometoken")
+		routes.HandleGetSharedFile(rec, req)
+		if rec.Code == http.StatusBadRequest {
+			t.Fatalf("%s body rejected as malformed: %s", name, rec.Body.String())
+		}
+	}
+}
+
+func TestHandleGetSharedFile_InvalidJSONBody(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/public/documents/share/sometoken", strings.NewReader("{not json"))
+	req = withChiURLParam(req, "token", "sometoken")
+	routes.HandleGetSharedFile(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+// --- Entity Links (file <-> other-entity associations) ---
+
+func TestHandleLinkFileToEntity_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleLinkFileToEntity)
+}
+
+func TestHandleLinkFileToEntity_InvalidJSON(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/123/links", invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleLinkFileToEntity(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleLinkFileToEntity_MissingEntityID(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/links", jsonBody(t, map[string]interface{}{
+		"entity_type": "contact",
+		// entity_id deliberately omitted
+	}))
+	req = withChiURLParam(req, "id", id)
+	req = withUserID(req, "user-123")
+	routes.HandleLinkFileToEntity(rec, req)
+	assertValidationError(t, rec, "entity_id")
+}
+
+func TestHandleLinkFileToEntity_MissingEntityType(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/documents/files/"+id+"/links", jsonBody(t, map[string]interface{}{
+		"entity_id": "550e8400-e29b-41d4-a716-446655440001",
+		// entity_type deliberately omitted
+	}))
+	req = withChiURLParam(req, "id", id)
+	req = withUserID(req, "user-123")
+	routes.HandleLinkFileToEntity(rec, req)
+	assertValidationError(t, rec, "entity_type")
+}
+
+func TestHandleUnlinkFileFromEntity_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleUnlinkFileFromEntity)
+}
+
+func TestHandleUnlinkFileFromEntity_InvalidJSON(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/documents/files/123/links", invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUnlinkFileFromEntity(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleUnlinkFileFromEntity_MissingEntityID(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/documents/files/"+id+"/links", jsonBody(t, map[string]interface{}{
+		"entity_type": "contact",
+		// entity_id deliberately omitted
+	}))
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUnlinkFileFromEntity(rec, req)
+	assertValidationError(t, rec, "entity_id")
+}
+
+func TestHandleListFileEntityLinks_ServiceUnavailable(t *testing.T) {
+	routes := NewDocumentRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/documents/files/123/links", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleListFileEntityLinks(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleListFileEntityLinks_InvalidIDReachesRPC — same finding as the
+// share-link handlers above: no local UUID validation on the file id.
+func TestHandleListFileEntityLinks_InvalidIDReachesRPC(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/documents/files/not-a-uuid/links", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListFileEntityLinks(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }

@@ -1890,7 +1890,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 34,9 %"
     scope: >
       Testet öffentliche Freigabe-Links und Entity-Verknüpfungen in

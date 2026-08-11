@@ -3493,3 +3493,62 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 53) fortgezaehlt,
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 02:53).
+
+## Iteration 55 — d-cov-gateway-document-shares — done — 2026-08-11 03:04
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: `backend/internal/gateway/route_document_test.go` um 29 neue Tests fuer die
+  Share-Link- und Entity-Link-Handler in route_document.go erweitert:
+  HandleListShareLinks (ServiceUnavailable, InvalidIDReachesRPC), HandleCreateShareLink
+  (ServiceUnavailable, InvalidJSON, InvalidIDReachesRPC, NoCreatedByWhenAnonymous),
+  HandleRevokeShareLink (ServiceUnavailable, InvalidIDReachesRPC), HandleGetSharedFile
+  (NoAuthNeeded, EmptyToken, MalformedTokenLooksLikeUnknown, BodyIsOptional,
+  InvalidJSONBody), HandleLinkFileToEntity (ServiceUnavailable, InvalidJSON,
+  MissingEntityID, MissingEntityType), HandleUnlinkFileFromEntity (ServiceUnavailable,
+  InvalidJSON, MissingEntityID), HandleListFileEntityLinks (ServiceUnavailable,
+  InvalidIDReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v: 1722 PASS, 0 SKIP, 0 FAIL) | migration n.a.
+  (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gruen (834 Routen gegen 836 Spec-Pfade, unveraendert) |
+  keine neue Route, kein neuer RequirePermission-Guard, keine neue
+  config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 41,9 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleGetSharedFile `token == "" ||
+  len(token) > 128` zu `token == ""` verkuerzt (die Laengenpruefung entfernt) ->
+  TestHandleGetSharedFile_MalformedTokenLooksLikeUnknown rot (200-Zeichen-Token erreicht
+  jetzt die RPC-Schicht statt lokal 404 zu liefern, Body zeigt "connection error" statt
+  "share link not found"; die vier anderen HandleGetSharedFile-Tests blieben gruen, da sie
+  den leeren bzw. kurzen Token pruefen). Per Edit-Tool zurueckgedreht, `git diff --stat
+  backend/internal/gateway/route_document.go` danach leer, build/vet/lint/test erneut
+  komplett gruen.
+- verify vorgaenger: sauber. Commit a4f32d20 (Iteration 54) fuegt ausschliesslich eine
+  Testdatei plus Journal-/Backlog-Metadaten hinzu (der Metadaten-Commit 8c20db0e nur
+  JOURNAL.md) — keine Produktionscode-Datei, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht Fehlerklassen
+  einschlaegig.
+- offen: ECHTER BEFUND, NICHT GEFIXT (Coverage-Units bauen laut Backlog-Kopf keine
+  Verhaltensaenderungen): HandleListShareLinks, HandleCreateShareLink, HandleRevokeShareLink
+  und HandleListFileEntityLinks in route_document.go lesen `chi.URLParam(r, "id")` an keiner
+  Stelle ueber `validateUUIDParam` (bestaetigt per Test: eine nicht-UUID-Id erreicht die
+  RPC-Schicht statt lokal 400 zu liefern). Das ist derselbe, bereits in Iteration 6
+  (fix-gateway-id-validation-consistency) dokumentierte Gateway-weite Befund — dort wurde
+  route_document.go explizit als eine der 24 verbleibenden Dateien mit rohen
+  chi.URLParam(r, "id")-Stellen genannt (161 Stellen gesamt), aber nicht selbst gefixt.
+  Kein neuer Fix-Unit-Vorschlag hier, konsistent mit der damaligen Entscheidung, das fuer
+  Lauf 9 zu buendeln statt einzeln anzulegen.
+  HandleGetSharedFile ist per Code-Review (nicht per zusaetzlichem Test) als schmaler
+  Wire-Typ bestaetigt: `documentv1.GetSharedFileResponse` traegt bereits nur
+  download_url/filename/content_type/file_size (proto/document/v1/document.pb.go:4451-4459),
+  keine tenant_id oder sonstiges Feld, und der Handler baut die Antwort ohnehin manuell aus
+  genau diesen vier Feldern (route_document.go:1023-1028) statt das rohe Proto zu
+  serialisieren — die Projektregel ist damit erfuellt, ohne dass ein Happy-Path-Test noetig
+  waere. Ein echter Happy-Path-Test war wie bei allen bisherigen Gateway-Coverage-Units nicht
+  moeglich: kein bufconn-Stub fuer DocumentServiceClient im Repo, alle ReachesRPC-Tests
+  dokumentieren nur, dass der Handler die lokale Validierung passiert und die RPC-Schicht
+  erreicht (503 ueber die unerreichbare Dummy-Adresse localhost:0).
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-54 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 54) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:04).
