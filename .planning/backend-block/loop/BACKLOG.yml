@@ -971,7 +971,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 70,0 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       MUSTER C, TEIL 2 von 2 — gleiches Vorgehen wie
@@ -1515,3 +1515,198 @@ units:
       - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
       - Eine Mutations-Probe ist im Journal dokumentiert
       - go test -count=1 ./internal/server/ gruen
+
+  - id: fix-chat-grpc-nil-slice-wire-shape
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
+    scope: >
+      MUSTER C — `chat_grpc.go` hat 5 List/Search-RPCs mit demselben Nil-Slice-Muster wie die
+      bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
+        ListChannels (Zeile 152, `var infos []*chatv1.ChannelInfo` @153-155),
+        ListDMs (590, `var infos []*chatv1.ChannelInfo` @591-593),
+        ListChannelFiles (808, `var infos []*chatv1.FileInfo` @809-811),
+        ListReactions (926, `var reactions []*chatv1.Reaction` @927-934),
+        SearchChat (867, `var protos []*chatv1.ChatSearchResultProto` @868-870).
+      Alle 5 Bugs sitzen direkt im Handler, kein Service-Layer-Fund noetig.
+    sources:
+      - backend/internal/server/chat_grpc.go
+    notes: >
+      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede nackte `var x []*T`-Deklaration
+      durch `x := make([]*T, 0, len(<quelle>))` ersetzen.
+      Root-Cause-Regel: `ToggleReaction` (Zeile 898) hat dasselbe Muster (`var reactions
+      []*chatv1.Reaction`), ist aber eine Mutation-RPC, kein List/Get/Search -- beim Scan als
+      Randfund notiert. Da es dieselbe Variable/dasselbe Feld im selben File betrifft, gehoert
+      der Fix in denselben Commit, sonst bleibt die Nil-Quelle fuer diesen Aufrufer bestehen.
+    done_when:
+      - Alle 5 genannten RPCs plus der ToggleReaction-Randfund initialisieren ihr
+        Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
+      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
+      - Eine Mutations-Probe ist im Journal dokumentiert
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: fix-notification-grpc-nil-slice-wire-shape
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
+    scope: >
+      MUSTER C — `notification_grpc.go` hat 5 List-RPCs plus 2 Get-Randfunde mit demselben
+      Nil-Slice-Muster wie die bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
+        ListNotifications (Zeile 117, `var infos []*notificationv1.NotificationInfo`
+          @122-125, Feld Notifications),
+        ListMutedResources (431, `var infos []*notificationv1.MuteInfo` @436-439, Feld Mutes),
+        ListEventTypes (539, `var infos []*notificationv1.EventTypeInfo` @544-546,
+          Feld EventTypes),
+        ListIntegrationConfigs (749, `var infos []*notificationv1.IntegrationConfigInfo`
+          @754, Feld Configs),
+        ListChannelMappings (939, `var infos []*notificationv1.ChannelMappingInfo` @944,
+          Feld Mappings),
+        GetNotificationPreferences (325, `var infos
+          []*notificationv1.NotificationPreferenceInfo` @330-332, Feld Preferences -- kein
+          List-Praefix, aber identisches Muster),
+        GetAccountLinkStatus (1074, `var links []*notificationv1.AccountLinkInfo` @1087,
+          Feld Links -- iteriert ueber ein festes 2-Elemente-Array Teams/Slack, ist bei einem
+          Nutzer ohne verknuepfte Accounts der Normalfall).
+      Alle 7 Bugs sitzen direkt im Handler, kein Service-Layer-Fund noetig.
+    sources:
+      - backend/internal/server/notification_grpc.go
+    notes: >
+      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede nackte `var x []*T`-Deklaration
+      durch `x := make([]*T, 0, len(<quelle>))` ersetzen. GetAccountLinkStatus ist besonders
+      relevant, weil der Normalfall (kein verknuepfter Account) IMMER die leere Liste trifft.
+    done_when:
+      - Alle 5 List-RPCs plus GetNotificationPreferences und GetAccountLinkStatus
+        initialisieren ihr Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
+      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
+      - Eine Mutations-Probe ist im Journal dokumentiert
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: fix-inventar-grpc-list-item-attachments-nil-slice
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
+    scope: >
+      MUSTER C — `ListItemAttachments` (internal/server/inventar_grpc.go, Zeile 1020-1039)
+      befuellt direkt das Response-Struct-Feld statt einer lokalen Slice-Variable:
+      `resp := &inventarv1.ListItemAttachmentsResponse{}` gefolgt von
+      `resp.Attachments = append(resp.Attachments, ...)` in einer Schleife (Zeile 1034-1037).
+      Bei leerem `atts` bleibt `resp.Attachments` `nil` -- Variante desselben Bugs wie die
+      Vorlage `fix-crm-list-nil-slice-wire-shape`, nur ohne Zwischenvariable. Die uebrigen 6
+      List-RPCs in derselben Datei (ListItems, ListMovements, ListWarnings, ListLocations,
+      ListInventurSessions, ListPickingLists) sind bereits sauber (`make(..., len(x))`).
+    sources:
+      - backend/internal/server/inventar_grpc.go
+    notes: >
+      Fix: `resp := &inventarv1.ListItemAttachmentsResponse{Attachments: make([]*inventarv1.
+      ItemAttachment, 0, len(atts))}` (oder die Feldzuweisung nach dem `make`-Aufruf ergaenzen)
+      statt des append-auf-nil-Feld-Musters.
+    done_when:
+      - ListItemAttachments initialisiert Attachments mit make(..., 0, n) statt append auf ein
+        unvorbelegtes Struct-Feld
+      - Ein Test beweist bei leerem Ergebnis [] statt null im Response-Feld
+      - Eine Mutations-Probe ist im Journal dokumentiert
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: fix-plugin-grpc-granted-permissions-nil-slice
+    phase: 4
+    service: plugin
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
+    scope: >
+      MUSTER C, Service-Layer-Variante -- Vorlage `fix-crm-list-nil-slice-wire-shape`
+      (dort: `contact/service.go enrichWithRelationsBatch`). `ListGrantedPermissions`
+      (internal/server/plugin_grpc.go, Zeile 230-241) reicht das Ergebnis von
+      `s.svc.ListGrantedPermissions` 1:1 durch (reiner Durchreicher, kein Bug im Handler). Die
+      eigentliche Nil-Quelle sitzt in `internal/plugin/repository/permission.go`, Zeile 34-53:
+      `var permissions []string` gefolgt von `permissions = append(permissions, perm)` in der
+      `rows.Next()`-Schleife (Zeile 44). Existieren fuer eine Installation keine Berechtigungen,
+      bleibt `permissions` `nil` und wird bis zum Response-Feld `Permissions` durchgereicht.
+    sources:
+      - backend/internal/plugin/repository/permission.go
+      - backend/internal/plugin/service.go
+      - backend/internal/server/plugin_grpc.go
+    notes: >
+      Root-Cause-Regel: Fix gehoert an die Repository-Stelle (permission.go:34), nicht in den
+      Handler -- der Service ist reiner Durchreicher (service.go:355-357), ein Fix nur im
+      Handler wuerde die Nil-Quelle fuer jeden weiteren Aufrufer des Repositorys offen lassen.
+      `permissions := make([]string, 0)` vor der Schleife statt `var permissions []string`.
+    done_when:
+      - permission.go initialisiert die Slice mit make([]string, 0) statt einer
+        nil-var-Deklaration
+      - Ein Test beweist bei einer Installation ohne Berechtigungen [] statt null im
+        Permissions-Feld der Response
+      - Eine Mutations-Probe ist im Journal dokumentiert
+      - go test -count=1 ./internal/plugin/... ./internal/server/ gruen
+
+  - id: fix-schichten-grpc-nil-slice-wire-shape
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
+    scope: >
+      MUSTER C — `schichten_grpc.go` hat 4 von 4 geprueften List-RPCs mit demselben
+      Nil-Slice-Muster wie die bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
+        ListShifts (Zeile 164, `var pbShifts []*schichtenv1.Shift` @165-167),
+        ListAssignments (257, `var pbAssignments []*schichtenv1.ShiftAssignment`),
+        ListTemplates (372, `var pbTemplates []*schichtenv1.ShiftTemplate`),
+        ListSwapRequests (542, `var pbReqs []*schichtenv1.SwapRequest`).
+      Alle 4 Bugs sitzen direkt im Handler, kein Service-Layer-Fund noetig.
+    sources:
+      - backend/internal/server/schichten_grpc.go
+    notes: >
+      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede nackte `var x []*T`-Deklaration
+      durch `x := make([]*T, 0, len(<quelle>))` ersetzen. Achtung: `fix-schichten-swap-
+      assignments-unique-violation` (Block A) aendert im selben File die Swap-Logik --
+      Reihenfolge der Commits pruefen, um Merge-Konflikte im selben File zu vermeiden.
+    done_when:
+      - Alle 4 List-RPCs initialisieren ihr Response-Slice mit make(..., 0, n) statt einer
+        nil-var-Deklaration
+      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
+      - Eine Mutations-Probe ist im Journal dokumentiert
+      - go test -count=1 ./internal/server/ ./internal/schichten/... gruen
+
+  - id: fix-security-grpc-nil-slice-wire-shape
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
+    scope: >
+      MUSTER C — `security_grpc.go` hat 5 List-RPCs mit demselben Nil-Slice-Muster wie die
+      bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
+        ListAuditEntries (Zeile 121, `var pbEntries []*securityv1.AuditEntry`),
+        ListVaultSecrets (279, `var pbSecrets []*securityv1.VaultSecret`),
+        ListDataExports (355, `var pbExports []*securityv1.GDPRExportRequest`),
+        ListIPRules (726, `var rules []*securityv1.IPAccessRule` -- direkter pgx-Query-Loop),
+        ListRetentionPolicies (827, `var policies []*securityv1.RetentionPolicy` -- direkter
+          pgx-Query-Loop).
+      Alle 5 Bugs sitzen direkt im Handler, kein Service-Layer-Fund noetig.
+    sources:
+      - backend/internal/server/security_grpc.go
+    notes: >
+      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede nackte `var x []*T`-Deklaration
+      durch `x := make([]*T, 0, len(<quelle>))` ersetzen.
+      Root-Cause-Regel: `PreviewErasure` (Zeile 528) und `ExecuteErasure` (559) teilen dieselbe
+      Variable `var pbModules []*securityv1.ModuleErasurePreview` -- Mutation-RPCs, kein
+      List/Get/Search, aber gleiches Muster im selben File; beim Scan als Randfund notiert, in
+      diesem Commit mitfixen, da sonst dieselbe Nil-Quelle fuer beide Aufrufer offen bleibt.
+    done_when:
+      - Alle 5 List-RPCs plus PreviewErasure und ExecuteErasure initialisieren ihr
+        Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
+      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
+      - Eine Mutations-Probe ist im Journal dokumentiert
+      - go test -count=1 ./internal/server/ ./internal/security/... gruen

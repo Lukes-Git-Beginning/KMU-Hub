@@ -1113,3 +1113,70 @@ Fensters.
   Fundstellen je Unit) -- falls eine davon in einer Iteration nicht vollstaendig passt, steht in
   ihren notes bereits eine explizite Anweisung, den Rest ehrlich als `offen:` zu vermerken statt
   als erledigt zu melden.
+
+## Iteration 22 — scan-nil-slice-wire-shape-remaining-services — done — 2026-08-11 18:39
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster C, Teil 2 von 2 — die restlichen 23 `*_grpc.go`-Dateien in `internal/server`:
+  automation, berichte, bexio, chat, datev_upload, dialer, einkauf, formulare, fuhrpark,
+  helpdesk, inbox, inventar, lexware, notification, plugin, produktion, rapporte, schichten,
+  security, settings, vermietung, vertraege, wiki. Ueber drei parallele Explore-Subagenten
+  geprueft (max. 3 gleichzeitig): Gruppe 1 automation/berichte/bexio/chat/datev_upload/dialer/
+  einkauf/formulare, Gruppe 2 fuhrpark/helpdesk/inbox/inventar/lexware/notification/plugin/
+  produktion, Gruppe 3 rapporte/schichten/security/settings/vermietung/vertraege/wiki. Vorgehen
+  pro Datei wie Iteration 21: alle `List`-praefigierten RPC-Funktionen (plus auffaellige
+  Get-/Search-Randfunde mit Listenfeld) gegrept, pro Treffer geprueft ob das Response-Slice vor
+  der Append-Schleife mit `make(..., 0/len, n)` initialisiert wird oder als nackte
+  `var xs []*T` stehen bleibt bzw. direkt auf ein unvorbelegtes Struct-Feld appended wird; bei
+  Durchreiche-Mustern eine Ebene tiefer in Service-/Repository-Layer geschaut.
+  Ergebnis: 107 List-RPCs (+ diverse Randfunde) ueber 23 Dateien geprueft — 21 Funde in 6
+  Dateien, 17 Dateien vollstaendig sauber:
+  - automation_grpc.go: 5/5 sauber. berichte_grpc.go: 5/5 sauber. bexio_grpc.go: 1/1 sauber.
+    datev_upload_grpc.go: 1/1 sauber. dialer_grpc.go: 3/3 + 2 Randfunde sauber.
+    einkauf_grpc.go: 3/3 sauber. formulare_grpc.go: 5/5 sauber.
+  - chat_grpc.go: 5 Funde (ListChannels, ListDMs, ListChannelFiles, ListReactions, SearchChat),
+    alle Handler-Ebene; Randfund ToggleReaction (Mutation, gleiches Muster).
+  - fuhrpark_grpc.go: 9/9 sauber. helpdesk_grpc.go: 7/7 sauber. inbox_grpc.go: 6/6 sauber
+    (make(...,0,n) durchgaengig). lexware_grpc.go: 1/1 sauber. produktion_grpc.go: 2/2 sauber.
+  - inventar_grpc.go: 6/7 sauber, 1 Fund (ListItemAttachments, append auf unvorbelegtes
+    Struct-Feld statt lokaler Slice-Variable — Bug-Variante ohne `var`-Deklaration).
+  - notification_grpc.go: 5 Funde (ListNotifications, ListMutedResources, ListEventTypes,
+    ListIntegrationConfigs, ListChannelMappings) + 2 Randfunde ohne List-Praefix
+    (GetNotificationPreferences, GetAccountLinkStatus — Letzterer trifft den Normalfall, da
+    die meisten Nutzer keinen verknuepften Account haben).
+  - plugin_grpc.go: 6/7 sauber, 1 Fund (ListGrantedPermissions) — Handler ist reiner
+    Durchreicher, die Nil-Quelle sitzt eine Ebene tiefer im Repository
+    (internal/plugin/repository/permission.go:34-44).
+  - rapporte_grpc.go: 7/7 sauber. settings_grpc.go: 3/3 + Randfund sauber (GetMyModuleLeads
+    ist bereits explizit gegen nil abgesichert). vermietung_grpc.go: 3/3 sauber.
+    vertraege_grpc.go: 4/4 sauber. wiki_grpc.go: 5/5 + Randfund sauber.
+  - schichten_grpc.go: 4/4 Funde (ListShifts, ListAssignments, ListTemplates,
+    ListSwapRequests), alle Handler-Ebene.
+  - security_grpc.go: 5/7 Funde (ListAuditEntries, ListVaultSecrets, ListDataExports,
+    ListIPRules, ListRetentionPolicies — Letztere zwei aus direkten pgx-Query-Loops statt
+    Service-Aufrufen), ListVendorAccessRequests und DSARSearch sauber; Randfunde PreviewErasure/
+    ExecuteErasure (Mutation, teilen dieselbe nil-Variable).
+  21 Funde in 6 Dateien sind kein "wenige" im Sinne des done_when — sechs neue Fix-Units
+  angelegt, GRUPPIERT PRO DATEI (gleiche Begruendung wie Iteration 21, Praezedenzfall
+  fix-work-grpc-nil-slice-wire-shape): fix-chat-grpc-nil-slice-wire-shape (5 RPCs + 1
+  Randfund), fix-notification-grpc-nil-slice-wire-shape (5 RPCs + 2 Randfunde),
+  fix-inventar-grpc-list-item-attachments-nil-slice (1 RPC, eigene Unit da eigenes Modul),
+  fix-plugin-grpc-granted-permissions-nil-slice (1 RPC, Root-Cause im Repository, daher eigene
+  Unit mit service: plugin statt server), fix-schichten-grpc-nil-slice-wire-shape (4 RPCs,
+  Hinweis auf Merge-Naehe zu fix-schichten-swap-assignments-unique-violation im selben File),
+  fix-security-grpc-nil-slice-wire-shape (5 RPCs + 2 Randfunde).
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `185d9ac7`, Iteration 21 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; `git show --stat` zeigt ausschliesslich BACKLOG.yml/JOURNAL.md; kein
+  gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle,
+  keine Wire-Shape- oder Routenaenderung moeglich, da kein Code angefasst wurde)
+- neue-units: fix-chat-grpc-nil-slice-wire-shape, fix-notification-grpc-nil-slice-wire-shape,
+  fix-inventar-grpc-list-item-attachments-nil-slice, fix-plugin-grpc-granted-permissions-nil-slice,
+  fix-schichten-grpc-nil-slice-wire-shape, fix-security-grpc-nil-slice-wire-shape
+- offen: Muster C (nil-slice wire-shape) ist jetzt fuer alle 30 `*_grpc.go`-Dateien in
+  internal/server vollstaendig gescannt (Teil 1 Iteration 21 + Teil 2 hier). Block B des
+  Lauf-9-Backlogs ist damit VOLLSTAENDIG abgearbeitet (alle vier Muster A/A2/B/C gescannt).
+  Block C hat jetzt insgesamt neun offene fix-*-Units aus fruehren Scans plus die sechs neuen
+  aus dieser Iteration — naechste Iterationen ziehen normal von vorne nach hinten ab.
