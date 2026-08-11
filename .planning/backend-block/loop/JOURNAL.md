@@ -3831,3 +3831,59 @@ Frühere Läufe liegen vollständig im Archiv:
   sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
   (Iteration 59) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
   ermittelt (2026-08-11 03:34).
+
+## Iteration 61 — d-cov-gateway-chat-membership — done — 2026-08-11 03:35
+- commit: (siehe git log nach diesem Commit)
+- gebaut: `backend/internal/gateway/route_chat_membership_test.go` neu
+  angelegt mit 25 Tests fuer die Kanal-Mitgliedschafts- und
+  Rollenverwaltungsgruppe in route_chat.go: HandleJoinChannel
+  (ServiceUnavailable, NoUserID, InvalidUUID, ReachesRPC), HandleLeaveChannel
+  (dieselben vier), HandleGetChannelMembers (ServiceUnavailable,
+  InvalidUUID, ReachesRPC — kein eigener UserID-Check im Handler),
+  HandleUpdateMemberRole (ServiceUnavailable, NoUserID, InvalidChannelID,
+  InvalidTargetUserID, InvalidJSON, UnknownRole, MissingRole, ReachesRPC),
+  HandleArchiveChannel und HandleDeleteChannel (je ServiceUnavailable,
+  InvalidUUID, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/gateway/... -- 0 issues) | test ok (go test -count=1 -v
+  ./internal/gateway/: 1878 PASS, 0 FAIL, 0 SKIP) | migration n.a. (keine
+  neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift im selben Paketlauf mitgelaufen, gruen (keine neue
+  Route) | kein neuer RequirePermission-Guard, keine neue
+  config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 44,1 % (go test -coverprofile + go
+  tool cover -func)
+- mutations-probe: eine Probe, gefangen. In HandleUpdateMemberRole
+  `if requesterID == "" { ... }` auf `if false { ... }` geaendert ->
+  TestHandleUpdateMemberRole_NoUserID rot (503 statt 401: ohne Requester-ID
+  erreicht der Request jetzt den gRPC-Client-Aufbau statt an der
+  Auth-Grenze abzubrechen). Alle anderen 24 neuen Tests blieben gruen. Per
+  Edit-Tool zurueckgedreht, `git diff backend/internal/gateway/route_chat.go`
+  danach leer, build/vet/lint/test erneut komplett gruen.
+- verify vorgaenger: sauber. Commit 5fc601af (Iteration 60) fuegt
+  ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu
+  (Metadaten-Commit 6c377749 nur JOURNAL.md) — keine Produktionscode-Datei,
+  kein Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
+  keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: HandleGetChannelMembers und HandleArchiveChannel/HandleDeleteChannel
+  rufen middleware.GetUserID nie explizit ab bzw. pruefen sie nicht auf Leere
+  (anders als HandleUpdateMemberRole) — sie verlassen sich vollstaendig auf
+  die RequireAuthenticated-Middleware der Route-Registrierung. Das ist heute
+  konsistent mit dem restlichen Datei-Stil (HandleJoinChannel/
+  HandleLeaveChannel machen es genauso), aber kein Handler-eigener Schutz;
+  nicht gefixt, da Coverage-Unit keine Verhaltensaenderung baut. In
+  route_chat.go bleiben nach dieser Unit noch HandleGetMessages,
+  HandleUpdateMessage, HandleDeleteMessage, HandleListDMs,
+  HandleGetThreadReplies, HandleMarkChannelRead, HandleGetUnreadCounts,
+  HandleGetUserMentions, HandleGetFileDownloadURL/ThumbnailURL,
+  HandleListChannelFiles, HandleDeleteFile, HandleToggleReaction/
+  ListReactions/GetReactionSummary, HandleListBookmarks/ToggleBookmark und
+  HandleSearchChat ungetestet — Kandidat fuer eine Folge-Unit in Lauf 9,
+  nicht in dieser Unit gebaut. `.planning/backend-block/loop/run-loop.ps1`
+  traegt weiterhin denselben unstaged -StartNotBefore-Diff wie in den
+  Iterationen 6-60 vermerkt — nicht meine Datei, nicht angefasst, nicht
+  committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 60)
+  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 03:35).
