@@ -4574,3 +4574,71 @@ Frühere Läufe liegen vollständig im Archiv:
   angelegte DB-Testmuster (testutil.PoolFromEnv/EnsureTenant/WithTenantCtx/
   SeedRow/AssertRowCount) aufbauen, wie der Unit-Text von
   e-cov-inbox-repo-infra es vorhersah.
+
+## Iteration 73 — e-cov-inbox-message-repo-list — done — 2026-08-11 04:57
+- commit: -
+- gebaut: `backend/internal/inbox/message/postgres_repository_reads_test.go`
+  (neu) deckt die vier bislang ungetesteten Repository-Lesepfade gegen eine
+  echte Postgres ab: List (Channel+IsRead-Kombi-Filter, Default-Ausschluss
+  von archivierten/gesnoozten Nachrichten, Cursor-Pagination ueber
+  (received_at,id) DESC ohne Luecken/Dopplungen), GetUnreadCounts
+  (Gruppierung nach Channel, schliesst gelesene und archivierte aus, leeres
+  Ergebnis fuer User ohne Nachrichten), GetBySourceID (findet per
+  (userID,channel,sourceID)-Tripel, Channel ist Teil des Schluessels) und
+  UnsnoozeExpired (setzt nur abgelaufene SnoozedUntil/IsRead zurueck, laesst
+  zukuenftige unberuehrt). Zusaetzlich zwei Cross-Tenant-Faelle fuer
+  GetUnreadCounts und GetBySourceID ergaenzt, weil beide Methoden **kein**
+  tenant_id-Praedikat in der SQL-Zeile haben und sich ausschliesslich auf RLS
+  verlassen (wie in tenant_write_test.go fuer die Write-Methoden dokumentiert)
+  — ein fremder Tenant-Ctx darf beide Male nichts sehen, was die Tests auch
+  beweisen. Service.Reply/Service.Forward waren entgegen dem Backlog-Text
+  bereits in `service_test.go` vollstaendig getestet (TestReply_Success,
+  TestReply_NoAdapter, TestForward_Success, TestForward_NoAdapter,
+  TestForward_NotSupportedByChannel) — keine neue Arbeit noetig, Backlog-Text
+  war hier veraltet.
+  Abweichung vom Backlog-Text: `done_when` verlangt fuer GetBySourceID "einen
+  definierten Fehler wenn keine existiert" — der reale Code
+  (postgres_repository.go:465-468) liefert bei einem Miss bewusst `(nil, nil)`
+  ("Not found is not an error for dedup checks", von Service.Create direkt
+  darauf verlassen). Diesen Vertrag geaendert haette Service.Create kaputt
+  gemacht; stattdessen den realen, dokumentierten Vertrag getestet.
+- gate: build ok (go build -p 2 ./internal/inbox/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/inbox/... — 0 issues)
+  | test ok (go test -count=1 -v ./internal/inbox/..., 0 Fails, 0 Skips —
+  DATABASE_URL gesetzt, docker-postgres-1 healthy, alle DB-Tests real
+  gelaufen) | migration n.a. (keine neue Tabelle/Route/Policy) | rls-smoke
+  n.a. (keine Policy angefasst; die neuen Cross-Tenant-Subtests belegen die
+  RLS-Wirkung an den zwei ungeschuetzten Methoden direkt) | gateway-Tests
+  nicht gelaufen (keine Route angefasst)
+- coverage: internal/inbox/message n.a. (Bezugswert war das Paket-Aggregat
+  "internal/inbox 32,3 %", nicht paket-eigen) -> internal/inbox/message
+  72,4 % (go test -coverprofile + go tool cover -func, einzeln gemessen ohne
+  `...`)
+- mutations-probe: in `postgres_repository.go` List den Default-Filter
+  `AND is_archived = false` auf `AND is_archived = true` gedreht (nur im
+  `where`-Zweig der Datenabfrage, `countWhere` unveraendert gelassen) ->
+  sofort drei rote Tests: TestList_ExcludesArchivedAndSnoozedByDefault (die
+  archivierte statt die normale Nachricht kam zurueck),
+  TestList_FiltersByChannelAndReadStatus_WithCursorPagination/filters_by_channel_and_is_read_together
+  (0 statt 1 Treffer) und .../cursor_pagination_walks... (page=0 statt
+  page=2, weil total/countQuery und Datenzeile durch die gezielte
+  Halb-Mutation auseinanderliefen). Zurueckgedreht, `git diff` auf der Datei
+  leer.
+- verify vorgaenger: sauber. Commit 7bd43d4a (Iteration 72) fuegt
+  ausschliesslich zwei neue Testdateien in inbox/team und inbox/routing
+  hinzu (`tenant_write_test.go` je Unterpaket) plus Journal-/
+  Backlog-Metadaten — kein Produktionscode, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
+  acht Fehlerklassen einschlaegig. (Der `chore`-Commit a895313b danach traegt
+  ausschliesslich die Journal-Nachtragszeile fuer den Commit-Hash —
+  ebenfalls unauffaellig.)
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-72
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 72) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:57).
+  Naechste Backlog-Unit laut Reihenfolge ist
+  `e-cov-inbox-routing-thread-adapter` (Block E, inbox) — letzte Unit in
+  diesem Unterpaket-Cluster, kann auf das seit Iteration 72 etablierte
+  DB-Testmuster aufbauen.

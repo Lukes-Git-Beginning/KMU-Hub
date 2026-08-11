@@ -2445,7 +2445,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/inbox 32,3 %"
     scope: >
       message/postgres_repository.go's List (die größte ungetestete Methode im Paket —
