@@ -5134,7 +5134,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Condition-Fehlerpfade, Action-Schleife).
 
 ## Iteration 82 — e-cov-automation-engine-internals — done — 2026-08-11 06:12
-- commit: <wird nach dem Commit in einem Folge-Eintrag nachgetragen, siehe Muster der Vorlaeufer-Iterationen>
+- commit: 6dd3527c
 - gebaut: vier neue Testdateien, kein Produktionscode veraendert. `internal/automation/engine/
   logger_test.go` fuehrt einen ehrlichen In-Memory-Fake (`fakeExecRepo`, Map execID ->
   *models.AutomationExecution, mit forcierbaren Fehlern fuer GetExecution/UpdateExecution) ein und
