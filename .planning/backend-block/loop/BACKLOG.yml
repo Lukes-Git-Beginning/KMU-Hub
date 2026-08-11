@@ -1478,7 +1478,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-large-services, Lauf 9 Iteration 21)"
     scope: >
       MUSTER C — `work_grpc.go` hat 12 List-RPCs mit demselben Nil-Slice-Muster wie die
