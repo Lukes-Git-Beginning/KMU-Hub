@@ -1741,7 +1741,7 @@ Fensters.
   mitgefixt statt fuer eine weitere Scan-Iteration zurueckgestellt.
 
 ## Iteration 34 — fix-notification-grpc-nil-slice-wire-shape — done — 2026-08-11 19:53
-- commit: (wird nach dem Commit ergaenzt)
+- commit: 927d421c
 - gebaut: Alle 7 im Backlog genannten Fundstellen in `backend/internal/server/notification_grpc.go`
   mit demselben Nil-Slice-Muster wie die Vorlage (`fix-crm-list-nil-slice-wire-shape`, Commit
   `c3f0c46f`) initialisieren ihr Response-Slice jetzt per `x := make([]*T, 0, len(<quelle>))`
