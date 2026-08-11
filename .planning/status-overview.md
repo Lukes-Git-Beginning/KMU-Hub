@@ -1,9 +1,9 @@
-# Projekt-Status-Snapshot — Cosmi/Zentria CRM (Stand: 2026-08-11)
+# Projekt-Status-Snapshot — Cosmi/Zentria CRM (Stand: 2026-08-12)
 
 > Deskriptiver Ist-Stand. **Keine** Empfehlungen, keine Priorisierung — reine Lagebeschreibung.
-> Jede Zahl hier ist am 2026-08-11 selbst gemessen, nicht aus Doku übernommen — auch nicht aus
-> `MEMORY.md` oder `.knowledge/`, die am selben Tag nachgezogen wurden und damit keine unabhängige
-> Quelle sind. Wo eine Zahl eine Näherung ist, steht es dabei. Die vorherige Fassung (2026-08-06)
+> Die Zahlen sind am 2026-08-11 selbst gemessen und am 2026-08-12 um Lauf 9 fortgeschrieben — nicht
+> aus Doku übernommen, auch nicht aus `MEMORY.md` oder `.knowledge/`, die am selben Tag nachgezogen
+> wurden und damit keine unabhängige Quelle sind. Wo eine Zahl eine Näherung ist, steht es dabei. Die vorherige Fassung (2026-08-06)
 > behauptete Migrationskopf 297, Coverage 30,2 % und einen leeren Loop-Backlog — nach fünf Tagen
 > war jeder dieser Punkte überholt. Wer diese Datei künftig liest: **erst das Datum prüfen, dann
 > glauben.**
@@ -11,22 +11,34 @@
 ## Executive Summary
 
 Cosmi (Software) der **Zentria UG i.G.** ist ein All-in-One-CRM für DACH-KMUs mit
-EU-Datensouveränität. Der Launch steht auf **2026-09-01**, das sind noch **21 Tage**. Sprint 5
+EU-Datensouveränität. Der Launch steht auf **2026-09-01**, das sind noch **20 Tage**. Sprint 5
 (Pre-Launch-Audit + Rigorosum R3) läuft bis 08-31.
 
 **Der im Juli/August dominierende Engpass — Test-Coverage auf den kritischen Pfaden — ist
 geschlossen.** Backend-Nachtlauf 8 (10.–11.08., 93 Units, 0 Fehler-Iterationen) hat die Coverage von
 47,7 auf **60,0 %** gehoben; die beiden namentlich als Risiko geführten Pakete liegen jetzt über dem
-60-%-Ziel (`biz` 48 → **70,6 %**, `crm` 51 → **71,7 %**). Migrationen stehen auf **310**, Prod-Kopf
-identisch und clean.
+60-%-Ziel (`biz` 48 → **70,6 %**, `crm` 51 → **71,7 %**).
 
 Wichtiger als die Prozentzahl ist, was der Lauf dabei zutage gefördert hat: **zehn verifizierte
 Produktionsbugs**, und zwar ausgerechnet in den Paketen mit der *höchsten* Coverage —
 `notification/preference` 87,2 % (Quiet Hours schlagen bei jedem Aufruf fehl), `document/virtual`
 83,1 % (vier Queries auf eine gelöschte Spalte), `schichten` 79,7 % (Schichttausch ohne
 funktionierenden Pfad), `biz/datev` 79,3 % (Upload seit ~zwei Monaten stiller Totalausfall). Der
-Engpass ist damit nicht mehr Abdeckung, sondern **Korrektheit**. Nachtlauf 9 (seit 11.08. 16:00)
-arbeitet diese zehn Bugs ab und scannt anschließend repo-weit nach denselben vier Fehlermustern.
+Engpass ist damit nicht mehr Abdeckung, sondern **Korrektheit**.
+
+**Nachtlauf 9 (11.08., 16:20–20:23) hat genau das abgearbeitet und ist gemergt** (`60dcdae1`).
+37 Iterationen, 37 `done`, 0 `blocked`, 0 Fehler-Iterationen, **keine** Coverage-Unit. Alle zehn
+Bugs sind gefixt; die elf Muster-Scans haben sich selbst nachgefüllt und **16 weitere Fix-Units**
+erzeugt, die derselbe Lauf mit abgearbeitet hat (21 Start-Units → 37). Die neun Pin-Tests, die das
+kaputte Verhalten festgenagelt hatten, sind allesamt **umgedreht statt gelöscht** — sie behaupten
+jetzt das korrekte Verhalten. Migrationen stehen dadurch auf **313** (311 `DEFERRABLE`-Unique für
+den Schichttausch, 312+313 Tenant-Verbreiterung dreier Notification-Unique-Indexe).
+
+Was die Scans über den Zustand des Codes sagen, ist mindestens so wertvoll wie die Fixes: Muster A
+(ON-CONFLICT-Ziel vs. echter Index) ergab über 41 Klauseln in 29 Dateien **null** Funde, Muster B
+(INSERT ohne `tenant_id`) über 26 Zielpakete genau **einen**. Die Fehlerdichte konzentriert sich
+also nicht flächig, sondern in wenigen Ecken — vor allem im nil-slice-Wire-Shape (neun Units über
+30 `*_grpc.go`-Dateien).
 
 Der einzige echte Launch-Blocker bleibt **Legal (AVV/DPA)**, gekoppelt an die UG-Gründung.
 
@@ -41,7 +53,7 @@ Der einzige echte Launch-Blocker bleibt **Legal (AVV/DPA)**, gekoppelt an die UG
 | gRPC-RPCs | **1.154** über 32 `.proto` | +20 | `grep -cE "^\s*rpc\s+"` |
 | REST | **836 OpenAPI-Pfade** / 1.192 Operationen | +15 / +21 | `grep -cE "^  /"` in `openapi.yaml` |
 | Route-Dateien | 87 Quell-`route_*.go` (+71 Testdateien) | Zählmethode korrigiert¹ | `ls internal/gateway/` |
-| Migrationen | Kopf **310**, 279 `.up.sql` | +13 / +13 | Lücken durch Reverts/Renumber |
+| Migrationen | Kopf **313**, 282 `.up.sql` | +16 / +16 | Lücken durch Reverts/Renumber |
 | **Prod-Migrationskopf** | **310, `dirty=false`** | +13 | `psql -U kmuhub -d kmuhub` über SSH |
 | Prod-Container | 36 laufend, **30 healthy, 0 unhealthy** | +1 / — | `docker ps` |
 | Test-Coverage | **60,0 %** gesamt (Gate 15 %) | **+29,8 pp** | CI-Lauf 31471247645 |
@@ -49,7 +61,7 @@ Der einzige echte Launch-Blocker bleibt **Legal (AVV/DPA)**, gekoppelt an die UG
 | RLS-Lücken | **0** (`knownRLSGaps` leer) | — | `testutil/rls_regression_test.go` |
 | Frontend | **34 Module**, 81 API-Hook-Dateien (993 Hooks), 1.234 TS/TSX | +3 TS/TSX | |
 | i18n | **12.072 Keys × 4 Sprachen, Parität vollständig** | fr/it +34, BOM weg | `locale-parity.test.ts` |
-| Loop-Backlog | **21 todo** (10 Fix + 11 Scan), 0 blocked | war 0 todo | `backend-block/loop/BACKLOG.yml` |
+| Loop-Backlog | **0 todo**, 37 done, 0 blocked | 21 todo abgearbeitet | `backend-block/loop/BACKLOG.yml` |
 
 ¹ Die alte Zahl „127 `route_*.go`" zählte Testdateien mit. Getrennt sind es **87 Quelldateien**,
 davon **29 ohne eigene Testdatei** — die größten `route_email.go` (1.612 LOC) und
@@ -139,63 +151,71 @@ gantt
     Lauf 5 Rest (288-297)             :done,   n5, 2026-08-05, 2026-08-06
     Laeufe 6-7 Coverage (298-309)     :done,   n6, 2026-08-08, 2026-08-10
     Lauf 8 Coverage 47,7-60,0 % (310) :done,   n8, 2026-08-10, 2026-08-11
-    Lauf 9 Fix + Scan                 :active, n9, 2026-08-11, 1d
+    Lauf 9 Fix + Scan (313)           :done,   n9, 2026-08-11, 2026-08-12
     section Meilensteine
     UG-Gruendung          :milestone, m1, 2026-06-01, 0d
     Launch ZFA + volle P0 :milestone, m2, 2026-09-01, 0d
 ```
 
-*Caption: Sprint 0–4 abgeschlossen, **Sprint 5 läuft** (heute 2026-08-11, noch 21 Tage bis Launch).
-Die Nachtläufe 1–8 sind gemergt und deployt; Lauf 9 läuft seit dem 11.08. 16:00 als reiner Fix- und
-Scan-Lauf ohne Coverage-Units.*
+*Caption: Sprint 0–4 abgeschlossen, **Sprint 5 läuft** (heute 2026-08-12, noch 20 Tage bis Launch).
+Die Nachtläufe 1–9 sind gemergt und deployt; Lauf 9 war ein reiner Fix- und Scan-Lauf ohne
+Coverage-Units und hat den Migrationskopf auf 313 gehoben.*
 
 ---
 
 ## 4 · Offene Posten
 
-Sortiert nach Nähe zum Nutzer, nicht nach Aufwand. **Vier Posten der Vorfassung sind am 2026-08-11
-geschlossen** und stehen zur Nachvollziehbarkeit unter §4b.
+Sortiert nach Nähe zum Nutzer, nicht nach Aufwand. **Zwei Posten sind am 2026-08-12 geschlossen**
+(§4b), vier weitere am 2026-08-11 (§4c).
 
-1. **Zehn verifizierte Produktionsbugs, in Arbeit (Nachtlauf 9).** Alle gegen die lokale DB
-   reproduziert und mit einem Pin-Test festgenagelt, der das *kaputte* Ist-Verhalten assertiert.
-   Nutzersichtbar bzw. Compliance-relevant:
-   - `security/audit` — rohes INET in einen Go-`string` gescannt: Audit-Viewer, CSV/JSON-Export und
-     die `VerifyAuditChain`-RPC sind für **jeden Tenant mit realer Aktivität** tot (Art.-30-Nachweis)
-   - `biz/datev` — INSERT ohne `tenant_id`: DATEV-Upload seit `COSMI_ENV=production` (05.06.)
-     stiller Totalausfall, ~zwei Monate unbemerkt
-   - `schichten` — Schichttausch hat **keinen** funktionierenden Pfad (Unique-Violation oder
-     stiller No-Op mit `approved`)
-   - `notification/preference` — `ON CONFLICT` auf einen nicht existierenden Index, Quiet Hours
-     lassen sich gar nicht anlegen (SQLSTATE 42P10)
-   - `document/virtual` — 4 Queries auf die seit Migration 000001 gelöschte Spalte `display_name`
-   - dazu `security/gdpr` (Doppelzählung im Art.-17-Löschnachweis), `server`/`email` (leere
-     Anhang-Metadaten, Null-UUID-Tenant), `rapporte` (500 statt leerer Vorlage), `server`/`crm`
-     (JSON `null` statt `[]`)
-2. **`internal/gateway` bei 46,0 %** — schwächstes Kernpaket, 29 von 87 Quelldateien ohne eigene
+1. **`internal/gateway` bei 46,0 %** — schwächstes Kernpaket, 29 von 87 Quelldateien ohne eigene
    Testdatei. Als Trust-Boundary (Auth, RBAC, Input-Validierung) gewichtiger als der Prozentwert
    allein nahelegt. Bewusst **nicht** Teil von Lauf 9.
-3. **118 TypeScript-Fehler im Desktop** (`tsc -p tsconfig.web.json --noEmit`). Der Großteil liegt in
+2. **118 TypeScript-Fehler im Desktop** (`tsc -p tsconfig.web.json --noEmit`). Der Großteil liegt in
    `__tests__`, aber auch Produktionscode ist betroffen: `ReactionBar.tsx` (`.length`/`.map` auf
    `ListReactionsApiResponse` — Signatur des bekannten Nested-Proto-vs-flacher-Typ-Musters),
-   `useProjects.ts`, `finance-client.ts`, `BackgroundSelector.tsx`. Vorbestand, nicht neu; erklärt,
-   warum ein Full-`tsc` hier kein brauchbares Gate ist.
-4. **Electron 33.4.11 mit 34 High-Advisories.** npm führt `electron` als devDependency, es wird aber
-   in die App gebündelt und ist damit **Nutzer-Laufzeit** — `npm audit --omit=dev`, das `scans.yml`
-   ausführt, blendet genau diese Fläche aus. Der von npm vorgeschlagene Fix ist 43.3.0, also zehn
-   Major-Versionen; der Advisory-Range endet bei `<=39.8.9`, ein Sprung auf 39.8.10+ könnte also
-   reichen. Ungeprüft, braucht eine Entscheidung vor Launch. Gleiches Muster bei `sharp` und
-   `vitest`/`vite`, beide aber echt dev-only.
-5. **`PASSWORD_RESET_BASE_URL`-Nachlauf.** Die Seite existiert seit `10a1a26e`, aber der
+   `useProjects.ts`, `finance-client.ts`, `BackgroundSelector.tsx`. Vorbestand, nicht neu.
+   **Verschärfend (neu am 12.08. gemessen):** die Root-`tsconfig.json` ist eine reine
+   Solution-Datei (`"files": []` + `references`). `npx tsc --noEmit` — genau das, was der Schritt
+   „TypeScript type check" in `ci-desktop.yml` fährt — prüft damit **null Dateien**. Das Gate ist
+   nicht lax, es ist wirkungslos; es bräuchte `tsc -b`. Ein Umstellen legt die 118 Fehler offen und
+   gehört in eine eigene Änderung.
+3. **Schichttausch-UI bietet ungültige Partner an.** `SchichtenPage.tsx:1941` befüllt
+   `swapCandidates` mit `employees.filter((e) => e.id !== detailAssignment?.userId)` — also *allen*
+   Mitarbeitern außer dem Zugewiesenen, ohne Filter darauf, ob der Partner überhaupt auf der Schicht
+   steht. Seit Lauf 9 antwortet der Backend-Pfad in dem Fall mit `ErrSwapPartnerNotAssigned` statt
+   des vorherigen stillen No-Ops. Das ist die richtige Richtung (der No-Op markierte den Antrag
+   fälschlich als `approved`), aber die UI kann weiterhin einen Antrag erzeugen, der bei der
+   Genehmigung zwangsläufig scheitert. Fix gehört in den Renderer, nicht ins Backend.
+4. **`PASSWORD_RESET_BASE_URL`-Nachlauf.** Die Seite existiert seit `10a1a26e`, aber der
    End-to-End-Durchlauf (Mail anfordern → Link klicken → Passwort setzen → Login) ist auf Produktion
    noch nicht gegen einen echten Mailversand geprüft.
-6. **CSAT bleibt stillgelegt.** Verifiziert dicht: die Public-Route `POST
+5. **CSAT bleibt stillgelegt.** Verifiziert dicht: die Public-Route `POST
    /api/v1/public/helpdesk/csat/{token}` ist zwar ungegatet registriert, liefert aber konstant 404,
    weil nie ein Token ausgestellt wird; `GetCsatConfig`/`UpdateCsatConfig` existieren als RPC, haben
    aber keine Gateway-Route; Default `Enabled: false`. Gebündelt mit den sieben Public-Token-Routen
    und der nie gebauten `guest-chat`-SPA zum Projekt „Public Web Surface" in `BACKLOG-PARKED.yml`.
-7. **Legal (AVV/DPA)** — an die UG-Gründung gekoppelt. Einziger echter Launch-Blocker.
+6. **Legal (AVV/DPA)** — an die UG-Gründung gekoppelt. Einziger echter Launch-Blocker.
 
-### 4b · Am 2026-08-11 geschlossen
+### 4b · Am 2026-08-12 geschlossen
+
+- **Nachtlauf 9 gemergt und deployt** (`60dcdae1`) — die zehn verifizierten Produktionsbugs aus
+  Lauf 8 sind gefixt, dazu 16 selbst nachgefüllte Fix-Units aus den Muster-Scans. Details im
+  Executive Summary und in `.planning/backend-block/loop/JOURNAL.md`.
+- **Electron-Advisories** (PR #23, `chore/electron-43`) — die Ausgangslage war in der Vorfassung
+  falsch beziffert: es sind **33** Advisories (6 high, 21 moderate, 6 low), nicht „34 High", und
+  `npm audit` meldete insgesamt 22 verwundbare Pakete, von denen die beiden kritischen (`tar`,
+  `vitest`) **nicht** Electron waren. Entscheidend ist aber: *alles* davon liegt in
+  `devDependencies`, auch `sharp` und `tar` — das einzige tatsächlich **ausgelieferte** verwundbare
+  Artefakt war Electron selbst. Angehoben auf **43.4.0** (statt der Minimalstufe 39.8.10, die
+  dieselben Advisories schließt, aber außerhalb des 3-Major-Support-Fensters liegt), dazu
+  electron-builder 26.15.3 und sharp 0.35.3. `npm audit`: 22 → 11 verwundbare Pakete, alle
+  verbleibenden reines Build-/Test-Tooling. Verifiziert unter 43.4.0: Build grün, 703 Tests grün,
+  Login-Maske rendert korrekt, und eine von Electron 33 geschriebene `tokens.enc` entschlüsselt
+  weiterhin — **kein Zwangs-Logout** beim Upgrade. `scans.yml` bekommt zusätzlich einen
+  Electron-Schritt **ohne** `--omit=dev`, damit der Blindfleck nicht wieder zufällt.
+
+### 4c · Am 2026-08-11 geschlossen
 
 - **Mock-Seed in Zustand-Stores** (`3353a402`) — `timetracking` und `team` waren über keinen
   Feature-Flag gegatet und damit für jeden Nutzer erreichbar; `team` seedete erfundene

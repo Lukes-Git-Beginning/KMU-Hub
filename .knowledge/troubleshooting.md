@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-08-06
+updated: 2026-08-12
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -233,6 +233,37 @@ der 404. Deshalb gehoert der Mock-Pfad an die Wire-Wahrheit angeglichen, nicht a
 - CI fuehrt `npm run lint` = **`eslint src/`** (nur `desktop/src/`), NICHT `eslint .`. Der `desktop/design-reference/`-Ordner ist Grundrauschen (~100 no-unused-vars/no-explicit-any) und **zaehlt nicht** fuer CI.
 - **Diagnose:** `npx eslint src/ -f json` aggregieren statt `eslint .`. Beim letzten Vorfall blockten genau **2** Fehler main (`unused-imports/no-unused-imports` + `react-hooks/refs` = ref-Mutation im Render).
 - **Regel:** Vor Push aus `desktop/`: `npm run lint` (exakt der CI-Befehl). „tsc gruen" ≠ „lint gruen".
+
+## CI Desktop „TypeScript type check" prueft NULL Dateien (gemessen 2026-08-12)
+- `ci-desktop.yml` faehrt `npx tsc --noEmit` gegen die Root-`desktop/tsconfig.json`. Die ist aber
+  eine reine **Solution-Datei**: `{"files": [], "references": [tsconfig.node.json, tsconfig.web.json]}`.
+- Ohne `-b`/`--build` folgt `tsc` den `references` **nicht** und kompiliert wegen `"files": []`
+  exakt null Dateien. Der Schritt ist immer gruen — er ist kein laxes Gate, er ist **wirkungslos**.
+- Das erklaert, warum die ~118 bekannten Desktop-Typfehler nie in CI auftauchen.
+- **Gescopt pruefen:** `npx tsc -p tsconfig.node.json --noEmit` (main+preload) bzw.
+  `-p tsconfig.web.json` (renderer). **Nie durch eine Pipe** — das maskiert den Exit-Code.
+- ⚠ `tsconfig.node.json` setzt `"types": ["node"]` und zieht damit `electron-vite/node.d.ts` nicht
+  ein → `import.meta.env` in `src/main/index.ts` meldet TS2339. Vorbestand, kein Electron-Problem.
+
+## `npm audit --omit=dev` blendet die ausgelieferte Electron-Runtime aus (2026-08-12)
+- npm fuehrt `electron` als `devDependency`, electron-builder **buendelt es aber** — es ist die
+  Laufzeit, die beim Nutzer laeuft, kein Build-Werkzeug. `scans.yml` fuhr nur
+  `npm audit --audit-level=high --omit=dev` und war deshalb gruen, waehrend 33 Advisories
+  ausgeliefert wurden.
+- Gegenprobe vor jedem „ist gruen": `npm audit --json` **ohne** `--omit=dev` und gezielt auf den
+  `electron`-Key schauen. Seit 2026-08-12 macht `scans.yml` das in einem zweiten Schritt selbst.
+- Echt dev-only sind dagegen `electron-builder` (+ `app-builder-lib`/`builder-util`/`tar`), `vite`,
+  `vitest`, `esbuild`, `postcss` und `sharp` (nur `scripts/generate-icons.mjs`).
+
+## deploy.sh sichert VOR dem `git pull` — ein Backup-Fix wirkt erst beim naechsten Deploy (2026-08-12)
+- Reihenfolge in `deploy/scripts/deploy.sh`: **Step 1/7 Backup**, danach erst Step 2 `git pull`.
+- Folge: ein Commit, der `deploy/scripts/backup.sh` repariert, wird in genau dem Deploy, der ihn
+  ausliefert, **noch nicht benutzt**. Der Lauf loggt weiter den alten Fehler.
+- Beim MinIO-Fix (`3753a4fc`) sah das aus wie „Fix wirkt nicht": Deploy-Log meldete erneut
+  `WARNING: MinIO backup failed (non-critical)`, obwohl das neue Skript bereits auf dem Server lag.
+- **Regel:** Nach einem Backup-Skript-Fix das Skript einmal von Hand nachziehen und das Artefakt
+  pruefen, statt auf das Deploy-Log zu vertrauen:
+  `ssh … 'sudo bash /opt/kmuhub/deploy/scripts/backup.sh'` und danach `ls /opt/kmuhub/backups/`.
 
 ## Radix Dialog Null-Access Pattern
 - Radix Dialog rendert `<DialogContent>` im DOM auch wenn `open={false}`

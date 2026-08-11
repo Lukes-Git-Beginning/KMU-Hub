@@ -1,13 +1,13 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-08-11
+updated: 2026-08-12
 ---
 # Datenbank
 
-## Aktueller Stand (2026-08-11, gegen Production verifiziert)
+## Aktueller Stand (2026-08-12, gegen Production verifiziert)
 
-**Repo-Kopf = lokaler Kopf = Produktionskopf = `310`, `dirty=false`.** Nächste freie Nummer ist
-`311` — aber immer zur Laufzeit ermitteln, nicht aus dieser Note ableiten:
+**Repo-Kopf = lokaler Kopf = Produktionskopf = `313`, `dirty=false`.** Nächste freie Nummer ist
+`314` — aber immer zur Laufzeit ermitteln, nicht aus dieser Note ableiten:
 
 ```bash
 ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1
@@ -25,13 +25,26 @@ Die Migrationen **298–310** stammen aus den Backend-Nachtläufen 6–8. `00031
 idempotenter Seed-INSERT (`ON CONFLICT DO NOTHING`) der Dokumentkategorie `gehaltsabrechnung` in
 `hr_document_categories` — kein neues Schema, keine neue RLS-Policy.
 
-⚠ **Offener Schema-Bug aus Lauf 8** (`fix-notification-quiet-hours-conflict-index` in
-`BACKLOG-NEXT.yml`): `notification_quiet_hours` trägt seit `000022` nur ein inline
-`UNIQUE(user_id)`. `000124` hat `tenant_id` überall NOT NULL gemacht, diesen Constraint aber nie
-verbreitert, während `UpsertQuietHours` auf `ON CONFLICT (tenant_id, user_id)` zielt. Postgres
-validiert den ON-CONFLICT-Zielindex beim **Planen**, deshalb schlägt **jeder** Aufruf mit
-SQLSTATE 42P10 fehl, nicht nur der zweite. Exakt dieselbe Klasse wurde für
-`notification_preferences` schon mit `000305` gefixt — die Migration ist die Vorlage.
+**311–313 stammen aus Nachtlauf 9** (gemergt als `60dcdae1`, Prod-Deploy am 2026-08-11 abends):
+
+- **`000311`** macht `uq_shift_assignments_tenant` **`DEFERRABLE INITIALLY IMMEDIATE`**. Der
+  Schichttausch vertauscht zwei `employee_id`-Werte in einer Transaktion; bei sofortiger Prüfung
+  kollidiert der Zwischenzustand mit 23505, obwohl der Endzustand gültig ist. `INITIALLY IMMEDIATE`
+  heißt: alle anderen Schreibpfade bleiben unverändert, nur `SwapAssignmentsForRequest` opted per
+  `SET CONSTRAINTS ... DEFERRED` in die Prüfung beim COMMIT.
+- **`000312`** verbreitert die Unique-Indexe auf `notification_quiet_hours` und
+  `idx_notification_preferences_module_default` um `tenant_id`.
+- **`000313`** schließt dieselbe Drift für `notification_mutes` — die letzte Tabelle des
+  Notification-Schemas mit einem tenant-losen Unique-Constraint.
+
+**Muster, das sich durch 305/312/313 zieht — Index-Drift nach dem Tenant-Retrofit:** eine Tabelle
+bekommt in einer frühen Migration ein inline `UNIQUE(...)`, ein späterer RLS-Schritt ergänzt
+`tenant_id NOT NULL`, aber der Constraint wird nie mitgezogen. Zwei Ausprägungen, je nach
+Schreibpfad: nennt der Code ein `ON CONFLICT`-Ziel, validiert Postgres den Index beim **Planen** und
+**jeder** Aufruf scheitert mit 42P10 (so bei `notification_quiet_hours`); nennt er keines, kommt der
+Fehler erst als 23505 im Cross-Tenant-Fall, weil der tenant-gescopte Vorab-Check die fremde Zeile
+nicht sieht (so bei `notification_mutes`). Der Scan aus Lauf 9 hat die restliche Fläche abgesucht:
+41 `ON CONFLICT`-Klauseln in 29 Dateien, **null** weitere Funde.
 
 Die vollständige, historisch gewachsene Migrations-Chronik steht unten im Überblick.
 
