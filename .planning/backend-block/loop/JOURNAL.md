@@ -309,3 +309,41 @@ Fensters.
   `RequirePermission`-Guard, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route)
 - neue-units: keine
 - offen: keine neuen Funde. Reiner Query-Textfix ohne Migrations-/RLS-Beruehrung.
+
+## Iteration 6 — fix-crm-erasure-double-count — done — 2026-08-11 16:55
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `CRMErasureHandler.ExecuteErasure` (internal/security/gdpr/erasure.go) zieht die
+  bisherigen zwei sequenziellen UPDATEs auf `activities` (erst assigned_to=NULL WHERE
+  assigned_to=$1, danach description=NULL WHERE created_by=$1 AND (assigned_to IS NULL OR
+  assigned_to != $1)) zu einem einzigen UPDATE zusammen: `SET assigned_to = CASE WHEN
+  assigned_to = $1 THEN NULL ELSE assigned_to END, description = NULL WHERE assigned_to = $1
+  OR created_by = $1`. Eine Aktivitaet, die sowohl assigned_to als auch created_by = user war,
+  matcht jetzt genau einmal statt zweimal (das zweite UPDATE traf sie vorher erneut, weil ihr
+  assigned_to durch das erste UPDATE bereits NULL war). Datenverhalten unveraendert, nur die
+  zurueckgegebene Zahl ist jetzt korrekt.
+- gebaut (Tests): `TestCRMErasureHandler_ExecuteErasure_Integration` erwartet jetzt 4 statt 5,
+  `TestCRMErasureHandler_ExecuteErasure_IgnoresAction` jetzt 2 statt 3 -- beide Kommentare auf
+  den alten Doppelzaehl-Bug entfernt, Assertions unveraendert ansonsten (Daten waren immer
+  schon korrekt).
+- gate: build ok (`./internal/security/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues)
+  | test ok (`./internal/security/gdpr/` und `./internal/security/...` komplett gruen,
+  DATABASE_URL gegen kmuhub_app) | migration n.a. (keine Migration, keine Tabellenaenderung)
+  | rls-smoke n.a. (kein RLS-/Policy-Bezug, reiner Query-Logik-Fix) | TestOpenAPIRouteDrift ok
+  (keine Route beruehrt, nur zur Sicherheit mitgelaufen)
+- coverage: internal/security/gdpr 60,6 % -> 60,5 % (beide selbst gemessen per
+  `go tool cover -func`, Vorher-Wert per `git stash push -u` auf genau die zwei geaenderten
+  Dateien isoliert; deckt sich mit `coverage_start:`. Leichter Ruecklauf ist Rauschen aus dem
+  entfernten zweiten Codepfad, kein Coverage-Ziel dieser Unit)
+- mutations-probe: `assigned_to = CASE WHEN ... END` durch das alte bedingungslose
+  `assigned_to = NULL` ersetzt -> `TestCRMErasureHandler_ExecuteErasure_Integration` sofort
+  rot ("an activity assigned to somebody else must keep its assignee"). Zurueckgedreht,
+  `git diff --stat internal/security/gdpr/erasure.go` zeigt wieder nur den urspruenglichen
+  Fix-Diff (7 insertions, 17 deletions durch die Zusammenlegung zu einem UPDATE).
+- verify vorgaenger: sauber (Commit `31e22ac4`, Iteration 5 — reiner Query-Textfix in
+  document/virtual, kein gRPC-Bypass, kein Stub, kein Proto/Migration/Guard/Tenant/Wire-Shape/
+  Route-Bezug)
+- neue-units: fix-work-erasure-task-double-count (am Backlog-Ende) — identische
+  Doppelzaehl-Bugklasse in der Schwesterfunktion `WorkErasureHandler.ExecuteErasure` (tasks
+  statt activities), gefunden beim Root-Cause-Grep nach demselben Muster; nicht mitgefixt, weil
+  ausserhalb des `done_when` dieser Unit und die Funktion bisher gar keinen Execute-Test hat.
+- offen: keine. Reiner Zaehl-Logik-Fix ohne Migrations-/RLS-Beruehrung.

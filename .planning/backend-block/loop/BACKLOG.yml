@@ -390,7 +390,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 60,6 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       `CRMErasureHandler.ExecuteErasure` (internal/security/gdpr/erasure.go:197) zaehlt jede
@@ -1130,3 +1130,53 @@ units:
       - Der bestehende Duplikat-Pfad innerhalb EINES Tenants liefert weiterhin
         ErrMuteAlreadyExists, nicht 23505
       - rls-smoke gruen, go test -count=1 ./internal/notification/... gruen
+
+  - id: fix-work-erasure-task-double-count
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 60,5 % (selbst gemessen, Lauf 9 Iteration 6, nach fix-crm-erasure-double-count)"
+    scope: >
+      `WorkErasureHandler.ExecuteErasure` (backend/internal/security/gdpr/erasure.go, um Zeile
+      377) hat exakt dieselbe Doppelzaehl-Bugklasse wie `fix-crm-erasure-double-count` (Lauf 9,
+      Iteration 6), nur in einer Schwesterfunktion desselben Files: das erste UPDATE setzt
+      `assignee_id = NULL WHERE assignee_id = $1`. Die anschliessende Zaehl-Query
+      `SELECT COUNT(*) FROM tasks WHERE created_by = $1 AND (assignee_id IS NULL OR
+      assignee_id != $1)` laeuft in DERSELBEN Transaktion und sieht das gerade committete
+      (aber noch nicht transaktions-committete, wohl aber sichtbare) NULL bereits -- ein Task,
+      der sowohl `assignee_id = $1` als auch `created_by = $1` war, wird also zuerst vom UPDATE
+      gezaehlt (RowsAffected) UND danach nochmal von `taskCreatedCount` erfasst, weil sein
+      `assignee_id` jetzt NULL ist. Die Daten sind am Ende korrekt (Task ist unassigned,
+      created_by unveraendert -- kein Feld wird beim zweiten Treffer nochmal geschrieben,
+      es ist eine reine Zaehl-Query), nur der zurueckgegebene `affected`-Wert ist zu hoch.
+      Anders als bei der CRM-Variante wird hier keine Compliance-Beleg-Zahl (SHA-256-Hash)
+      beeinflusst, sondern nur die im Loeschprotokoll angezeigte Zahl -- trotzdem dieselbe
+      Bugklasse, dieselbe Ursache, derselbe Fix.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/security/gdpr/handlers_test.go
+    notes: >
+      Gefunden beim Bau von fix-crm-erasure-double-count (Lauf 9, Iteration 6) beim
+      Root-Cause-Grep nach Schwesterfunktionen mit demselben Muster (zwei sequenzielle
+      UPDATE/COUNT-Schritte auf derselben Tabelle in einer Transaktion). NICHT dort mitgefixt,
+      weil ausserhalb des `done_when` dieser Unit und WorkErasureHandler.ExecuteErasure bisher
+      GAR KEINEN Test hat (nur PreviewErasure ist in handlers_test.go abgedeckt) -- die Unit
+      braucht also zusaetzlich einen neuen Integrationstest, nicht nur eine Zahlen-Korrektur
+      an einem bestehenden.
+      Fix nach dem Muster der CRM-Unit: die zwei Schritte (UPDATE tasks assignee_id=NULL,
+      danach SELECT COUNT fuer created_by-only) zu einem einzigen UPDATE zusammenziehen:
+      `UPDATE tasks SET assignee_id = CASE WHEN assignee_id = $1 THEN NULL ELSE assignee_id END,
+       updated_at = NOW() WHERE assignee_id = $1 OR created_by = $1` -- RowsAffected ist dann
+      die korrekte, einmalige Zaehlung. time_entries (DELETE) und task_comments (UPDATE) sind
+      von diesem Muster nicht betroffen (eigene, nicht ueberlappende WHERE-Bedingungen) und
+      brauchen keine Aenderung.
+    done_when:
+      - Ein Task, der sowohl assignee_id = user als auch created_by = user ist, wird in
+        ExecuteErasure genau einmal gezaehlt
+      - Ein Task, der nur created_by = user ist (anderer assignee), behaelt seinen assignee
+        und wird weiterhin gezaehlt
+      - Ein neuer Integrationstest fuer WorkErasureHandler.ExecuteErasure deckt beide Faelle
+        plus time_entries-Delete und task_comments-Anonymisierung ab (bisher ungetestet)
+      - go test -count=1 ./internal/security/gdpr/ gruen
