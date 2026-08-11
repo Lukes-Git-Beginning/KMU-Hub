@@ -5282,3 +5282,75 @@ Frühere Läufe liegen vollständig im Archiv:
   (per `grep status: todo` gegen BACKLOG.yml geprueft). Naechste Backlog-Unit laut Reihenfolge:
   `f-cov-biz-bexio` (Block F Reserve, erste offene Unit — Zuschnitt/Zahlen vor Arbeitsbeginn neu
   messen, siehe Block-F-Kopfkommentar zur Altersgrenze).
+
+## Iteration 84 — f-cov-biz-bexio — done — 2026-08-11 06:36
+- commit: <wird nach diesem Eintrag gesetzt>
+- gebaut: eine neue Testdatei `internal/biz/bexio/scheduler_test.go`, kein Produktionscode
+  veraendert. `scheduler.go` stand bei 0,0 % (siehe Block-F-Scope-Text) und ist jetzt zu
+  fast 100 % abgedeckt: `TestNewScheduler` (Konstruktor-Feldbelegung), `TestStartAll_
+  NoActiveConfigs`/`_ListError_SkipsGracefully` (beide Faelle liefern bewusst `nil`, kein
+  Fehler — ein Bexio-Ausfall beim Gateway-Boot darf den Start nicht blockieren) und
+  `_MixedSuccessAndFailure` (zwei Configs, eine mit fehlschlagendem `GetSyncConfig` —
+  belegt, dass `AddTenant` seinen eigenen Map-Eintrag bei Fehlschlag wieder entfernt und
+  `StartAll` trotzdem `nil` liefert). `TestAddTenant_GetSyncConfigError_CleansUpAndReturnsErr`,
+  `_Success_RegistersTenant` und `_ReplacesExistingScheduler` (zweiter `AddTenant`-Aufruf auf
+  denselben Tenant muss den alten `cancel()` aufrufen und den Map-Eintrag ersetzen).
+  `TestRemoveTenant_Existing_CancelsAndDeletes`/`_Unknown_NoOp` und `TestStopAll_
+  StopsAllAndClearsMap`/`_Empty_NoOp`. Fuer `runTenantScheduler` (65,4 % erreicht, von 0):
+  `TestRunTenantScheduler_ReturnsImmediatelyOnCanceledContext` deckt die Intervall-Berechnung
+  inkl. `InvoicePullIntervalMin<=0`-Guard (defaultet auf 15 min) und den `ctx.Done()`-Shutdown-
+  Pfad ab, indem der Kontext VOR dem Aufruf gecancelt wird — ein echter Tick ist nicht testbar,
+  weil die Intervalle in `BexioSyncConfig` nur in vollen Minuten existieren (kein injizierbarer
+  Ticker im Produktionscode, und den fuer eine Coverage-Unit einzufuehren waere eine
+  Verhaltensaenderung an Produktionscode, die hier nicht vorgesehen ist). `TestRunTenantScheduler_
+  RecoversFromPanic` belegt zusaetzlich, dass das `defer recover()` in `runTenantScheduler` einen
+  `time.NewTicker(0)`-Panic (ContactSyncIntervalMin=0, ein Feld ohne Default-Guard im Gegensatz zu
+  InvoicePullIntervalMin) sauber abfaengt, statt den Prozess mitzureissen. Die drei
+  `select`-Zweige `contactTicker.C`/`paymentTicker.C`/`invoicePullTicker.C` selbst bleiben
+  ungetestet — das ist die dokumentierte Grenze, kein Uebersehen.
+  `service.go` (89 ungedeckt laut Backlog-Notiz) und `contact_sync.go` (73 ungedeckt) wurden in
+  dieser Iteration NICHT angefasst — `contact_sync.go` ist durch `contact_sync_happy_test.go`
+  und `contact_sync_nil_guard_test.go` bereits deutlich besser abgedeckt als die Backlog-Notiz
+  suggeriert (SyncContacts-Fehlerpfad, syncInbound/syncOutbound Happy-Path + Fehlerpfade sind
+  vorhanden); `service.go`s Orchestrierungs-Methoden (HandleOAuthCallback, Disconnect,
+  PushInvoice, PushQuote, PollPayments, PullInvoices/-WithConfig, TriggerSync, UpdateSyncConfig,
+  StartScheduler/StopScheduler) sind weiterhin nur indirekt ueber ihre Sub-Komponenten getestet
+  (invoice_push_test.go, payment_poller_test.go, invoice_pull_test.go, quote_push_test.go
+  decken die Fachlogik ab) — die duenne Service-Wrapper-Schicht selbst (getConfigID-Weiterleitung
+  + Emit-Aufrufe) ist eine sinnvolle, eigenstaendige Folge-Unit fuer Lauf 9, nicht in dieser
+  Iteration mit erledigt, um den Scope nicht ueber das explizit genannte 0-%-Ziel `scheduler.go`
+  hinaus zu verwaessern.
+- gate: build ok (go build -p 2 ./internal/biz/bexio/... ./cmd/gateway/...) | vet ok (go vet
+  ./internal/biz/bexio/...) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/biz/bexio/... — 0 issues) | test ok (go test -count=1 ./internal/biz/bexio/... —
+  76 PASS, 0 SKIP, DATABASE_URL gesetzt gegen kmuhub_app, echte DB-Tests liefen mit) | migration
+  n.a. (kein Schema angefasst) | rls-smoke n.a. (kein Tabellen-/Policy-Zugriff veraendert) |
+  gateway-Tests nicht separat gelaufen (keine Route angefasst, ./cmd/gateway/... baut aber
+  fehlerfrei)
+- coverage: internal/biz/bexio 48,8 % -> 54,1 % (go test -coverprofile vor/nach, go tool
+  cover -func; scheduler.go im Detail: NewScheduler/StartAll/AddTenant/RemoveTenant/StopAll
+  je 100,0 %, runTenantScheduler 65,4 %, vorher 0,0 % ueber die ganze Datei)
+- mutations-probe: zwei Proben, beide gefangen und zurueckgedreht. (1) `scheduler.go` `AddTenant`:
+  `delete(s.tenants, tenantID)` im GetSyncConfig-Fehlerzweig entfernt ->
+  TestAddTenant_GetSyncConfigError_CleansUpAndReturnsErr sofort rot ("Should be false" — der
+  Tenant blieb faelschlich in der Map). (2) `scheduler.go` `RemoveTenant`: dieselbe
+  `delete(s.tenants, tenantID)`-Zeile im Erfolgszweig entfernt ->
+  TestRemoveTenant_Existing_CancelsAndDeletes sofort rot, derselbe Befund. Beide Male
+  zurueckgedreht, `git diff` auf `scheduler.go` leer.
+- verify vorgaenger: sauber. Commit a18e1098 (Iteration 83) fuegt ausschliesslich drei neue
+  Testdateien (`internal/email/sync/engine_test.go`, `imap_client_guards_test.go`,
+  `worker_state_test.go`) plus Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein
+  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine
+  der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff
+  wie in allen Vorgaenger-Iterationen vermerkt — nicht meine Datei, nicht angefasst, nicht
+  committet. Laufkontext-Block war in diesem Prompt nicht sichtbar mitgeliefert (wie schon in
+  Iteration 81/82/83 vermerkt) — Nummer aus der letzten Journal-Ueberschrift (Iteration 83)
+  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 06:36). Beim
+  ersten Testlauf ist mir selbst ein Deadlock in einem meiner eigenen Testfaelle unterlaufen
+  (`TestStartAll_MixedSuccessAndFailure` hielt `s.mu.Lock()` per `defer` und rief danach
+  `s.StopAll()` auf, das denselben, nicht-reentranten Mutex erneut sperrt — `go test -timeout 20s`
+  hat das per Goroutine-Dump sauber sichtbar gemacht, dann per Lock-vor-StopAll-Reihenfolge
+  gefixt). Erwaehne ich hier, weil derselbe Fehler in Produktionscode ein reales Risiko waere und
+  jede Iteration, die selbst `s.mu` in Tests haelt, denselben Stolperstein hat. Naechste
+  Backlog-Unit laut Reihenfolge: `f-cov-notification` (Block F Reserve).

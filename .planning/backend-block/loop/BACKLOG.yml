@@ -2952,7 +2952,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/bexio 48,8 %"
     scope: >
       `internal/biz/bexio` hat 640 ungedeckte Statements. Die größten Brocken: `service.go`
