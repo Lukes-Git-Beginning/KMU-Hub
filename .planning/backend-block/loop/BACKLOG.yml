@@ -898,7 +898,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
     scope: >
       MUSTER B, TEIL C von 3 — gleiches Vorgehen wie `scan-insert-missing-tenant-id-a`,

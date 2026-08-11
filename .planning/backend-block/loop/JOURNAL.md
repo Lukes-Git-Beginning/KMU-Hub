@@ -1000,3 +1000,55 @@ Fensters.
   automation/plugin/settings/video/caldav — caldav ist durch diese Iteration bereits mitgeprueft
   und kann in Teil C uebersprungen werden) steht noch aus und ist bereits als todo im Backlog.
   Muster B ist damit fuer 2 von 3 Teilen ohne weitere Funde abgeschlossen.
+
+## Iteration 20 — scan-insert-missing-tenant-id-c — done — 2026-08-11 18:17
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster B (INSERT setzt tenant_id nicht, obwohl NOT NULL ohne Default), Teil C von 3 —
+  die restlichen 17 Modul-Service-Pakete `internal/{inventar,einkauf,produktion,vertraege,
+  rapporte,schichten,vermietung,fuhrpark,helpdesk,wiki,formulare,berichte,dialer,automation,
+  plugin,settings,video}` per drei parallelen Explore-Subagenten geprueft (max. 3 gleichzeitig).
+  `caldav` war bereits durch Iteration 19 mitgeprueft und wurde hier ausgelassen. `video` liegt
+  faktisch nicht unter `internal/video`, sondern unter `internal/work/video` (Feature-Flag-Modul)
+  — dort geprueft, trotz ausgeschaltetem Flag (Modul lief nie unter Produktionslast, ein
+  fehlendes tenant_id faellt dort erst auf, wenn das Flag angeht).
+  Vorgehen pro Agent identisch zu Teil A/B: alle `INSERT INTO`-Statements in Nicht-Test-Go-Dateien
+  gefunden, Zieltabelle bestimmt, gegen die laufende lokale DB (Container `docker-postgres-1`,
+  Kopf 312) per `\d <tabelle>` geprueft ob `tenant_id NOT NULL` ohne Default ist (mit Default
+  automatisch kein Fund gemaess Vorgabe), System-Global-Liste (ADR-006) ausgenommen, dann
+  Spaltenliste + Werteherkunft bis zum Struct-Feld/Service-Layer zurueckverfolgt.
+  Gruppe 1 (inventar/einkauf/produktion/vertraege/rapporte/schichten): 42 INSERTs, 39 Tabellen,
+  0 Funde. Alle tenant_id aus tenant-tragendem Struct-Feld (z. B. item.TenantID, order.TenantID),
+  das im Service-Layer aus middleware.GetTenantID(ctx) befuellt wird.
+  Gruppe 2 (vermietung/fuhrpark/helpdesk/wiki/formulare/berichte): 39 INSERTs, 0 Funde. 6 Tabellen
+  (rental_objects, rentals, rental_inspections, vehicles, vehicle_services, vehicle_damages) haben
+  einen Sentinel-Default und faellen damit ohnehin nicht unter Muster B; die restlichen 33 setzen
+  tenant_id explizit korrekt, u. a. per tenant-validierter Subquery (vehicle_bookings JOIN users
+  WHERE u.tenant_id = $2; ticket_csat_responses SELECT t.tenant_id FROM tickets WHERE t.tenant_id
+  = $1 — tenant wird aus bereits validierter Elternzeile uebernommen statt vom Aufrufer erwartet).
+  Gruppe 3 (dialer/automation/plugin/settings/work-video): 30 INSERTs, 0 Funde. dialer_call_sessions
+  und automations haben einen Sentinel-Default (trotzdem explizit gesetzt); plugin_manifests ist
+  bewusst NULLable (Systemkatalog-Eintraege ohne Tenant); plugin_permissions hat gar keine
+  tenant_id-Spalte (Isolation ueber Join auf plugin_installations.tenant_id, analog zum
+  roles-Muster aus Teil B — kein Fund); dialer_agent_status_log leitet tenant_id korrekt per
+  Subquery aus users.tenant_id anhand der UserID ab.
+  Insgesamt 111 INSERT-Statements in 17 Paketen geprueft, 0 Funde. Muster B (fehlende tenant_id
+  bei INSERT) ist damit fuer alle 3 Teile des Scans (Iteration 18/19/20) ohne einen einzigen
+  weiteren Fund abgeschlossen — der einzige Fund des gesamten Musters bleibt der bereits in
+  Block A gefixte `fix-datev-upload-repo-missing-tenant-id`.
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. `git status --short`
+  zeigt vor dem Commit nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `e5b29de8`, Iteration 19 — reine Backlog/Journal-Aenderung,
+  kein Produktionscode; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, keine Wire-Shape- oder Routenaenderung moeglich, da kein Code
+  angefasst wurde)
+- neue-units: keine (0 Funde in allen 17 Zielpaketen, siehe Belegliste oben)
+- offen: Muster B (INSERT ohne tenant_id) ist jetzt vollstaendig gescannt (Teil A+B+C, alle
+  Service-Pakete). Block B des Lauf-9-Backlogs hat noch drei weitere Muster-Scan-Units offen:
+  scan-nil-slice-wire-shape-large-services, scan-nil-slice-wire-shape-remaining-services
+  (Muster C) sowie die bereits laufenden fix-*-Units aus Funden frueherer Scans
+  (fix-audit-verifychain-timestamp-precision-mismatch, fix-notification-mutes-unique-missing-
+  tenant, fix-work-erasure-task-double-count, fix-security-ip-access-rules-cidr-scan,
+  fix-chat-guest-sessions-ip-address-scan, fix-caldav-carddav-company-permission-role-column,
+  fix-work-recording-consent-missing-tenant-id).
