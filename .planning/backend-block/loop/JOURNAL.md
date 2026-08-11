@@ -1926,3 +1926,51 @@ Fensters.
   als eigene Unit angelegt — siehe `gebaut:`)
 - offen: keine. Reiner Handler-Fix ohne Migrations-/RLS-Beruehrung. Damit ist Block C bis auf
   `fix-security-grpc-nil-slice-wire-shape` (letzte verbliebene `todo`-Unit) abgearbeitet.
+
+## Iteration 38 — fix-security-grpc-nil-slice-wire-shape — done — 2026-08-11 20:16
+- commit: <PENDING>
+- gebaut: sieben Nil-Slice-Fixes in `backend/internal/server/security_grpc.go` nach dem
+  Muster von `fix-crm-list-nil-slice-wire-shape`: `ListAuditEntries` (121),
+  `ListVaultSecrets` (279), `ListDataExports` (355), `PreviewErasure` (528),
+  `ExecuteErasure` (559) — alle fuenf `var x []*T` -> `x := make([]*T, 0, len(<quelle>))`.
+  `ListIPRules` (726) und `ListRetentionPolicies` (827) sind direkte pgx-Query-Loops ohne
+  vorab bekannte Laenge (Scan erst in `rows.Next()`), dort `x := make([]*T, 0)` statt
+  `var x []*T`. Alle 7 aus dem Backlog-Scope (5 dokumentiert + die beiden Randfunde
+  `PreviewErasure`/`ExecuteErasure`, die die Unit selbst schon als mitzufixen benannt hatte)
+  abgearbeitet, keine weiteren `var .*\[\]\*securityv1\.`-Stellen im File
+  (`grep -n "var .*\[\]\*securityv1\." backend/internal/server/security_grpc.go` vor dem Fix
+  zeigte genau diese 7 Zeilen, keine mehr).
+- gebaut (Tests): neue `TestSecurityGRPC_EmptyListsAreEmptySliceNotNull` (ListAuditEntries,
+  ListVaultSecrets, ListDataExports je mit leerem Stub-Repo, `require.NotNil` + `assert.Empty`).
+  `TestGDPRErasure_PreviewIsSafeExecuteIsValidationOnly` um `require.NotNil(t,
+  previewResp.Modules)` sowie einen neuen `ExecuteErasure`-Aufruf mit
+  `require.NotNil(t, executeResp.ModulesAffected)` ergaenzt — sicher, weil im Testserver
+  keine Erasure-Handler registriert sind (keine echte Loeschung, nur ein leerer Durchlauf,
+  identische Begruendung wie beim bestehenden PreviewErasure-Test). Neue Datei
+  `security_grpc_retention_policies_db_test.go` (analog zu `security_grpc_ip_rules_db_test.go`,
+  DB-gestuetzt via `testutil.SkipIfNoDB`/`PoolFromEnv`): `..._EmptyIsEmptySliceNotNull` und
+  `..._ReturnsSeededPolicy` — `ListRetentionPolicies` war laut Kommentar im Kopf von
+  `security_grpc_test.go` bisher komplett ungetestet ("not reachable at all without a real DB
+  pool"), lief also nie gegen eine echte Zeile.
+- gate: build ok (`./internal/server/... ./internal/security/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (golangci-lint 0 issues auf
+  `./internal/server/... ./internal/security/...`) | test ok (`./internal/server/` und
+  `./internal/security/...` 0 Skips, `DATABASE_URL` gegen `kmuhub_app`) | `go test
+  ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (834/836, keine Route/Spec angefasst,
+  reine Vorsichtspruefung wegen `security_grpc.go`-Anfassung) | migration n.a. (reiner
+  Handler-Text-Fix) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,2 % -> 70,3 % (beide selbst gemessen per `go tool cover -func`,
+  Vorher-Wert per `git stash push -u` auf genau die drei geaenderten/neuen Dateien isoliert)
+- mutations-probe: `ListAuditEntries`s `pbEntries := make([]*securityv1.AuditEntry, 0,
+  len(entries))` zurueck auf `var pbEntries []*securityv1.AuditEntry` gesetzt ->
+  `TestSecurityGRPC_EmptyListsAreEmptySliceNotNull` wurde rot ("Expected value not to be
+  nil"). Zurueckgedreht, `git diff --stat backend/internal/server/security_grpc.go` zeigt
+  wieder nur die urspruengliche Aenderung (7 insertions, 7 deletions).
+- verify vorgaenger: sauber (Commit `3e93b66d`, Iteration 37 — `git show --stat` und Diff
+  geprueft: nur `schichten_grpc.go` (5x `var` -> `make`, inkl. dokumentierter Randfund
+  `ApplyTemplate`) plus Testdatei geaendert, derselbe mechanische Nil-Slice-Fix, kein
+  gRPC-Bypass, kein Stub-Fund im echten Repository, kein Proto/Migrations-Drift, kein neuer
+  Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt, keine Route)
+- neue-units: keine
+- offen: keine. Damit ist Block C (die letzte `todo`-Unit aus dem urspruenglichen Backlog)
+  abgearbeitet — kein offener `status: todo` mehr in `BACKLOG.yml`.
