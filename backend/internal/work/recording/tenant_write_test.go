@@ -137,3 +137,127 @@ func TestRecordingWrites_LandInCallerTenant(t *testing.T) {
 	}
 	testutil.AssertRowCount(t, pool, sysCtx, "recordings", rec.ID, 0)
 }
+
+// TestSetConsent_WritesCarryOwnerTenant closes the same write-surface gap for
+// recording_consents: SetConsent never took a tenantID parameter and, before
+// the fix, omitted tenant_id from the INSERT entirely, failing the NOT NULL
+// constraint on every call. The fix derives tenant_id from the parent
+// recording via subquery — this test proves the happy path lands the row
+// under the recording's own tenant, is invisible to another tenant, and that
+// a call for a foreign-tenant's recording_id fails closed instead of writing
+// under the wrong tenant or silently succeeding.
+func TestSetConsent_WritesCarryOwnerTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "SetConsent Write Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "SetConsent Write Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	userOwn := seedRecordingUser(t, pool, tenantOwn)
+	defer testutil.CleanupRow(t, pool, "users", userOwn)
+	meetingOwn := seedRecordingMeeting(t, pool, tenantOwn, userOwn)
+	defer testutil.CleanupRow(t, pool, "meetings", meetingOwn)
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+
+	now := time.Now().UTC()
+	rec := &Recording{
+		ID:        uuid.New(),
+		TenantID:  tenantOwn,
+		MeetingID: &meetingOwn,
+		StartedBy: &userOwn,
+		ConsentSnapshot: []ParticipantConsentInfo{
+			{UserID: userOwn, DisplayName: "SetConsent Write User", JoinedAt: now},
+		},
+		Status:    RecordingStatusActive,
+		CreatedAt: now,
+	}
+	if err := repo.CreateRecording(ctxOwn, rec); err != nil {
+		t.Fatalf("CreateRecording (own ctx): %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "recordings", rec.ID)
+
+	// A foreign-tenant caller cannot even see the recording, so the tenant_id
+	// subquery resolves to NULL and the write must fail closed.
+	foreignConsent := &RecordingConsent{
+		RecordingID: rec.ID,
+		UserID:      userOwn,
+		Consented:   true,
+		RespondedAt: now,
+	}
+	if err := repo.SetConsent(ctxOther, foreignConsent); err == nil {
+		t.Fatalf("SetConsent (foreign ctx): expected an error, got nil")
+	}
+	var foreignCount int
+	if err := pool.QueryRow(sysCtx,
+		"SELECT count(*) FROM recording_consents WHERE recording_id = $1", rec.ID,
+	).Scan(&foreignCount); err != nil {
+		t.Fatalf("count recording_consents: %v", err)
+	}
+	if foreignCount != 0 {
+		t.Fatalf("a foreign-tenant SetConsent wrote a row: got %d", foreignCount)
+	}
+
+	// The owning tenant's write must succeed and carry tenant_id transparently.
+	ownConsent := &RecordingConsent{
+		RecordingID: rec.ID,
+		UserID:      userOwn,
+		Consented:   true,
+		RespondedAt: now,
+	}
+	if err := repo.SetConsent(ctxOwn, ownConsent); err != nil {
+		t.Fatalf("SetConsent (own ctx): %v", err)
+	}
+
+	var ownTenantID uuid.UUID
+	if err := pool.QueryRow(sysCtx,
+		"SELECT tenant_id FROM recording_consents WHERE recording_id = $1 AND user_id = $2",
+		rec.ID, userOwn,
+	).Scan(&ownTenantID); err != nil {
+		t.Fatalf("read back tenant_id: %v", err)
+	}
+	if ownTenantID != tenantOwn {
+		t.Fatalf("recording_consents.tenant_id = %s, want %s", ownTenantID, tenantOwn)
+	}
+
+	var visibleToOther int
+	if err := pool.QueryRow(ctxOther,
+		"SELECT count(*) FROM recording_consents WHERE recording_id = $1", rec.ID,
+	).Scan(&visibleToOther); err != nil {
+		t.Fatalf("count recording_consents (other ctx): %v", err)
+	}
+	if visibleToOther != 0 {
+		t.Fatalf("tenantOther must not see tenantOwn's recording_consents: got %d", visibleToOther)
+	}
+
+	// ON CONFLICT DO UPDATE must still work for the owning tenant (second
+	// response replaces the first, not a duplicate row).
+	updated := &RecordingConsent{
+		RecordingID: rec.ID,
+		UserID:      userOwn,
+		Consented:   false,
+		RespondedAt: now.Add(time.Minute),
+	}
+	if err := repo.SetConsent(ctxOwn, updated); err != nil {
+		t.Fatalf("SetConsent (update, own ctx): %v", err)
+	}
+	var consented bool
+	if err := pool.QueryRow(sysCtx,
+		"SELECT consented FROM recording_consents WHERE recording_id = $1 AND user_id = $2",
+		rec.ID, userOwn,
+	).Scan(&consented); err != nil {
+		t.Fatalf("read back consented: %v", err)
+	}
+	if consented {
+		t.Fatalf("SetConsent update did not land: consented = true, want false")
+	}
+}

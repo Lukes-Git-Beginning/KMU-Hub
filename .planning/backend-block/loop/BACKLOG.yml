@@ -1331,7 +1331,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fund aus scan-insert-missing-tenant-id-a, Lauf 9 Iteration 18)"
     scope: >
       `PostgresRepository.SetConsent` (backend/internal/work/recording/postgres_repository.go:154)

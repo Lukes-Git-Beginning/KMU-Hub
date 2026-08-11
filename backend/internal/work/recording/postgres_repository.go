@@ -152,10 +152,15 @@ func (r *PostgresRepository) DeleteRecording(ctx context.Context, id uuid.UUID) 
 	return nil
 }
 
+// SetConsent inserts or updates a participant's consent response. tenant_id is
+// not a caller-supplied parameter: it is derived from the parent recording via
+// subquery, so a cross-tenant call (RecordingID belonging to another tenant)
+// resolves to NULL under that tenant's RLS view of `recordings` and fails the
+// NOT NULL constraint instead of silently writing under the wrong tenant.
 func (r *PostgresRepository) SetConsent(ctx context.Context, consent *RecordingConsent) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO recording_consents (recording_id, user_id, consented, responded_at)
-		 VALUES ($1, $2, $3, $4)
+		`INSERT INTO recording_consents (recording_id, user_id, consented, responded_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, (SELECT tenant_id FROM recordings WHERE id = $1))
 		 ON CONFLICT (recording_id, user_id) DO UPDATE SET consented = $3, responded_at = $4`,
 		consent.RecordingID, consent.UserID, consent.Consented, consent.RespondedAt,
 	)
