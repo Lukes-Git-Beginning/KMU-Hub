@@ -3181,3 +3181,71 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 48) fortgezaehlt,
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:11).
+
+## Iteration 50 — d-cov-gateway-email-compose-actions — done — 2026-08-11 02:28
+- commit: <wird nach Commit ergaenzt>
+- gebaut: Neue Testdatei `backend/internal/gateway/route_email_compose_test.go`
+  (48 Tests) fuer die zehn Send-/Massenaktions-Handler in route_email.go:
+  HandleMarkRead/HandleMarkUnread/HandleToggleStar (ServiceUnavailable,
+  ReachesRPC je), HandleMoveToFolder (ServiceUnavailable, InvalidJSON,
+  MissingTargetFolderID, InvalidTargetFolderIDFormat, InvalidMessageIDUUID,
+  ReachesRPC), HandleDeleteMessage (ServiceUnavailable, InvalidIDUUID,
+  ReachesRPC), HandleBulkMessageAction (ServiceUnavailable, InvalidJSON,
+  EmptyIDs, InvalidUUIDInIDs, MissingAction, InvalidTargetUUID,
+  DeleteWithoutPermission, DeleteWithPermission_ReachesRPC, ReachesRPC),
+  HandleSendEmail (ServiceUnavailable, InvalidJSON, MissingTo,
+  InvalidEmailInTo, InvalidContactID, ReachesRPC), HandleSaveDraft
+  (ServiceUnavailable, InvalidJSON, InvalidEmailInTo, ReachesRPC),
+  HandleReplyEmail (ServiceUnavailable, InvalidJSON,
+  MissingOriginalMessageID, ReachesRPC), HandleForwardEmail
+  (ServiceUnavailable, InvalidJSON, MissingOriginalMessageID, MissingTo,
+  InvalidEmailInTo, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1574 PASS, 0 SKIP, 0 FAIL) | migration
+  n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836 Spec-Pfade) |
+  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 39,9 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: drei Proben, alle gefangen. (1) In HandleBulkMessageAction das
+  `!slices.Contains(...)` der zweiten Permission-Pruefung zu
+  `slices.Contains(...)` invertiert (Delete-Guard umgedreht) ->
+  TestHandleBulkMessageAction_DeleteWithoutPermission UND
+  TestHandleBulkMessageAction_DeleteWithPermission_ReachesRPC beide rot
+  (403/503 vertauscht). (2) In `moveToFolderDTO` das `validate`-Tag von
+  `required,uuid` auf `omitempty,uuid` geschwaecht ->
+  TestHandleMoveToFolder_MissingTargetFolderID rot (503 statt 400,
+  keine validation_failed-Struktur). (3) In HandleDeleteMessage den
+  Fehlerpfad `respondGRPCError(w, err)` durch `response.JSON(w,
+  http.StatusOK, resp)` ersetzt (RPC-Fehler verschluckt) ->
+  TestHandleDeleteMessage_InvalidIDUUID UND TestHandleDeleteMessage_ReachesRPC
+  beide rot (200 statt 503). Alle drei per Edit-Tool gesetzt und
+  zurueckgedreht, `git diff --stat backend/internal/gateway/route_email.go`
+  danach leer, build/vet/lint/test erneut komplett gruen (1574 PASS, 0 SKIP,
+  0 FAIL).
+- verify vorgaenger: sauber. Commit b46fc88b (Iteration 49) sowie der Metadaten-Commit
+  844ce463 fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu —
+  keine Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine
+  neue Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: (1) Drei todo-Fix-Units am Dateiende von BACKLOG.yml
+  (fix-email-send-missing-tenant-id, fix-email-attachment-download-metadata-wrong-message-id,
+  fix-crm-erasure-double-count) sind explizit als "Fuer Lauf 9" markiert und wurden
+  deshalb uebersprungen, obwohl sie formal `status: todo` mit leeren `deps` tragen —
+  kein Backlog-Fehler, nur zur Klarheit dokumentiert, falls eine kuenftige Iteration
+  denselben Datei-Scan macht. (2) Die im Backlog erwaehnte "Consent bei fehlendem
+  contact_id" Fehlerpfad-Erwartung ist bei genauerem Hinsehen keine Gateway-Sache:
+  die Consent-Durchsetzung fuer SendEmail sitzt vollstaendig in
+  internal/email/send/service.go (consentAsserter) und ist dort bereits durch
+  internal/email/send/consent_test.go abgedeckt (TestSend_BlockedByConsent,
+  TestSend_AllowedByConsent, TestSend_NoContactID_SkipsConsentCheck) —
+  HandleSendEmail selbst reicht ContactId nur unveraendert durch. Kein Fix-Unit-
+  Vorschlag, weil bereits getestet, nur an der falschen Stelle vermutet. (3) Wie bei
+  den bisherigen Email-/Video-Coverage-Units gibt es kein bufconn-Stub fuer
+  EmailServiceClient in diesem Paket — alle ReachesRPC-Tests dokumentieren nur, dass
+  Handler die lokale Validierung passieren und die RPC-Schicht erreichen (503 ueber
+  die unerreichbare Dummy-Adresse), nicht das tatsaechliche Service-Verhalten.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-49 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 49) fortgezaehlt,
+  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:28).
