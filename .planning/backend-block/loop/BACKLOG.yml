@@ -1672,7 +1672,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 34,9 %"
     scope: >
       Testet die Aufnahme- und Consent-Handler in route_video.go: HandleStartRecording,

@@ -3014,3 +3014,57 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
   mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 45) fortgezaehlt,
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:53).
+
+## Iteration 47 — d-cov-gateway-video-recording-consent — done — 2026-08-11 02:02
+- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- gebaut: Neue Testdatei `backend/internal/gateway/route_video_recording_test.go` (27 Tests) fuer
+  die acht in der Unit genannten Handler in route_video.go: HandleStartRecording
+  (ServiceUnavailable, InvalidJSON, InvalidCallID, InvalidMeetingID, ReachesRPC),
+  HandleStopRecording (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleSetRecordingConsent
+  (ServiceUnavailable, InvalidIDUUID, InvalidConsentedType, ReachesRPC), HandleGetRecordingConsent
+  (ServiceUnavailable, InvalidIDUUID, ReachesRPC), HandleListRecordings (ServiceUnavailable,
+  ReachesRPC) plus TestProtoListRecordings_WireShape, HandleDeleteRecording (ServiceUnavailable,
+  InvalidIDUUID, ReachesRPC), HandleGetRecordingConsents (ServiceUnavailable, InvalidIDUUID,
+  ReachesRPC) und HandleTagRecordingWithConsents (ServiceUnavailable, InvalidIDUUID,
+  EmptySnapshot, ReachesRPC).
+- gate: build ok (go build -p 2 ./internal/gateway/... ./cmd/gateway/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 ./internal/gateway/ -v komplett gruen, 1474 PASS, 0 SKIP, 0 FAIL) | migration
+  n.a. (keine neue Tabelle/Route) | rls-smoke n.a. (keine Tabelle/Policy angefasst) |
+  TestOpenAPIRouteDrift separat gelaufen, unveraendert gruen (834 Routen gegen 836 Spec-Pfade) |
+  keine neue Route, kein neuer RequirePermission-Guard, keine neue config.RequireX-Assertion
+- coverage: internal/gateway 34,9 % -> 38,4 % (go test -coverprofile + go tool cover -func)
+- mutations-probe: drei Proben, alle gefangen. (1) In HandleDeleteRecording
+  `validateUUIDParam(w, r, "id")` durch das ungeprüfte `chi.URLParam(r, "id")` ersetzt ->
+  TestHandleDeleteRecording_InvalidIDUUID rot (503 statt 400, "connection error" statt
+  "invalid id"). (2) In `startRecordingRequest.CallID` das `validate:"omitempty,uuid"`-Tag
+  entfernt -> TestHandleStartRecording_InvalidCallID rot (503 statt 400, kein validation_failed
+  mehr, Feld "call_id" fehlt in den Details). (3) In `tagRecordingConsentsRequest.Snapshot` das
+  `min=1` aus dem validate-Tag entfernt -> TestHandleTagRecordingWithConsents_EmptySnapshot rot
+  (503 statt 400, kein validation_failed mehr, Feld "snapshot" fehlt in den Details). Alle drei
+  per Edit-Tool gesetzt und zurueckgedreht, `git diff --stat backend/internal/gateway/route_video.go`
+  danach leer, build/vet/lint/test erneut komplett gruen (1474 PASS, 0 SKIP, 0 FAIL).
+- verify vorgaenger: sauber. Commit d72649e2 (Iteration 46) sowie der Metadaten-Commit 1888180a
+  fuegen ausschliesslich eine Testdatei plus Journal-/Backlog-Metadaten hinzu — keine
+  Produktionscode-Datei, kein Proto, keine Route, kein RequirePermission-Guard, keine neue
+  Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: zwei Abweichungen vom im Backlog skizzierten Testplan, beide dokumentiert statt
+  stillschweigend anders gebaut: (1) `startRecordingRequest` traegt gar kein Consent-Feld
+  (Consent wird erst nachtraeglich per HandleSetRecordingConsent gesetzt, siehe Kommentar
+  "Push recording.started WS event" in HandleStartRecording) — statt der im Backlog verlangten
+  "Consent-Status"-Fehlerpruefung testet TestHandleStartRecording_Invalid{CallID,MeetingID} die
+  tatsaechlich vorhandene UUID-Validierung. (2) `setRecordingConsentRequest.Consented` ist ein
+  nacktes `bool` ohne validate-Tag — es gibt keinen "fehlend/ungueltig"-Fall im Sinne einer
+  Validierungsregel, nur einen JSON-Typfehler (`"consented":"yes"`), den
+  TestHandleSetRecordingConsent_InvalidConsentedType als naechstliegenden Fehlerpfad abdeckt.
+  Drittens ein Befund zum protojson-Marshaler: `response.Proto` laeuft mit
+  `EmitUnpopulated=false` (internal/server/response/response.go), ein leeres `recordings`-Array
+  wird deshalb komplett aus dem Body weggelassen statt als `[]` serialisiert — dasselbe tolerante
+  Verhalten, das TestProtoMeetingOccurrences_WireShape fuer `items` bereits akzeptiert. Kein Bug,
+  aber der FE-Konsument darf sich nicht auf das Vorhandensein des Schluessels verlassen; kein
+  Blocker fuer diese Unit, da bereits an anderer Stelle im Repo so gehandhabt.
+  `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in den Iterationen 6-46 vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 46) fortgezaehlt,
+  Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:02).
