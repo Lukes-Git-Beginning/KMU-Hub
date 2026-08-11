@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
@@ -388,25 +389,22 @@ func (b *CardDAVBackend) DeleteAddressObject(ctx context.Context, path string) e
 	return nil
 }
 
-// checkCompanyContactPermission verifies the user has admin or manager role
-// for modifying company (shared) contacts.
+// checkCompanyContactPermission verifies the user holds the contacts:write
+// RBAC permission (granted to admin and manager by default) for modifying
+// company (shared) contacts.
 func (b *CardDAVBackend) checkCompanyContactPermission(ctx context.Context, userID uuid.UUID) error {
 	// CardDAV's BasicAuth middleware injects userID but no tenant. After RLS
-	// activation, a direct read on `users` would return zero rows.
+	// activation, a direct read on RBAC tables would return zero rows.
 	// App-passwords are single-tenant in practice (Welle-3 follow-up: inject
 	// tenant_id from app_specific_passwords for proper multi-tenant CardDAV).
 	ctx = sysctx.With(ctx)
 
-	var role string
-	err := b.pool.QueryRow(ctx,
-		`SELECT role FROM users WHERE id = $1`,
-		userID,
-	).Scan(&role)
+	hasPermission, err := auth.NewPostgresRepository(b.pool).UserHasPermission(ctx, userID, "contacts", "write")
 	if err != nil {
-		return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("unable to verify user role"))
+		return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("unable to verify user permissions"))
 	}
 
-	if role != "admin" && role != "manager" {
+	if !hasPermission {
 		return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("insufficient permissions to modify company contacts"))
 	}
 	return nil

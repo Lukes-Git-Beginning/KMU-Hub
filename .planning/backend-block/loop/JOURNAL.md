@@ -1377,3 +1377,44 @@ Fensters.
 - offen: `go test ./internal/gateway/` zur Sicherheit trotzdem mitgelaufen (`TestOpenAPIRouteDrift`
   gruen) -- keine Pflicht laut Schritt 5, da keine Route/kein Handler-Signatur angefasst wurde,
   nur drei SELECT-Spalten in einem Repository.
+
+## Iteration 28 — fix-caldav-carddav-company-permission-role-column — done — 2026-08-11 18:58
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `CardDAVBackend.checkCompanyContactPermission` (internal/caldav/carddav_backend.go)
+  fragte bisher `SELECT role FROM users WHERE id = $1` ab -- eine Spalte, die auf `users`
+  nicht existiert (Rollen liegen seit RBAC Phase 1 ausschliesslich in
+  `user_roles`/`role_permissions`/`permissions`). Jeder Aufruf schlug mit SQLSTATE 42703 fehl
+  und landete fail-closed auf 403 -- CardDAV-Schreibzugriff auf das Firmenadressbuch war fuer
+  JEDEN Nutzer, auch echte Admins/Manager, vollstaendig unbenutzbar. Fix: die Pruefung laeuft
+  jetzt ueber das bereits vorhandene `auth.PostgresRepository.UserHasPermission(ctx, userID,
+  "contacts", "write")` (internal/auth/postgres_repository.go:868) -- kein neuer SQL-Code,
+  Wiederverwendung der bestehenden RBAC-Abfrage. `contacts:write` ist per Seed-Migration 000002
+  admin (alle Rechte) und manager (read+write) zugeordnet, member nur read -- exakt dieselbe
+  Admin/Manager-darf-schreiben-Semantik wie vorher, nur ueber echte RBAC-Tabellen statt einer
+  nichtexistenten Spalte. `checkPersonalContactOwnership` war nicht betroffen und blieb
+  unveraendert. Neue Testdatei `carddav_backend_permission_db_test.go` mit vier DB-gestuetzten
+  Tests: Admin erlaubt, Manager erlaubt, Member verboten (403), Nutzer ganz ohne Rolle verboten
+  (403) -- alle vier gegen echte `user_roles`/`role_permissions`-Zeilen, nicht gemockt.
+- gate: build ok (`./internal/caldav/... ./cmd/gateway/...`) | vet ok | lint ok
+  (golangci-lint 0 issues, vor UND nach der Mutations-Probe erneut gelaufen) | test ok
+  (`./internal/caldav/...` komplett gruen, 0 SKIP in `-v`-Lauf) | migration n.a. (keine
+  Migration, reiner Query-Austausch) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/caldav 54,2 % (lokal gemessen vor dem Fix, per `git stash` isoliert) ->
+  54,8 % (lokal gemessen nach dem Fix, `go tool cover -func`). coverage_start der Unit war
+  n.a. (Scan-Fund), diese Zahlen sind der direkte Vorher/Nachher-Vergleich fuer genau diese Unit.
+- mutations-probe: `UserHasPermission`-Aufruf von `"contacts", "write"` auf `"contacts",
+  "delete"` geaendert -> `TestCheckCompanyContactPermission_ManagerAllowed` wurde rot (Manager
+  hat kein `contacts:delete`, nur admin via CROSS-JOIN-Seed), Aenderung zurueckgedreht,
+  `git diff --stat` zeigt wieder exakt den Ein-Zeilen-Fix in `carddav_backend.go`.
+- verify vorgaenger: sauber (Commit `a44fcd35`, Iteration 27 — Produktionsdiff ist ausschliesslich
+  drei SELECT-Casts (`CASE WHEN ip_address IS NOT NULL THEN host(...) ELSE NULL END`) in
+  `internal/chat/guest/postgres_repository.go` plus eine neue Testdatei; kein gRPC-Bypass, kein
+  Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape
+  unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` zur Sicherheit mitgelaufen
+  (gruen) -- keine Pflicht laut Schritt 5, da keine Route/kein Handler-Signatur angefasst wurde,
+  nur eine interne Permission-Pruefung. `checkCompanyContactPermission` bleibt weiterhin
+  Single-Tenant in der Praxis (App-Passwoerter tragen aktuell keinen Tenant-Kontext an CardDAV
+  weiter) -- das ist ein bereits im Code dokumentierter Welle-3-Folgeauftrag, nicht Teil dieser
+  Unit, und diese Unit aendert daran nichts.
