@@ -5829,7 +5829,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Backlog-Unit laut Reihenfolge: `f-cov-crm-deal-repository` (Block F Reserve).
 
 ## Iteration 92 — f-cov-crm-deal-repository — done — 2026-08-11 08:08
-- commit: -
+- commit: 67c852ac
 - gebaut: Neue Datei `internal/crm/deal/postgres_repository_db_test.go` (Muster
   `contact/postgres_repository_db_test.go`) deckt alle bislang bei 0,0 % liegenden
   `PostgresRepository`-Methoden ab: List (Filter nach StageID/ContactID/CompanyID/OwnerID/Search/
