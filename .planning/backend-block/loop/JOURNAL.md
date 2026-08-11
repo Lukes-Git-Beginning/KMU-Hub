@@ -3889,7 +3889,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 03:35).
 
 ## Iteration 62 — d-cov-gateway-vermietung-rental-lifecycle — done — 2026-08-11 03:46
-- commit: (siehe git log nach diesem Commit)
+- commit: e5bc7291ed379cec6fe688d6cf459926c61613a7
 - gebaut: `backend/internal/gateway/route_vermietung_test.go` um 30 Tests
   erweitert fuer den bisher ungetesteten Vermietungs-Lebenszyklus in
   route_vermietung.go: HandleCheckAvailability (ServiceUnavailable,
