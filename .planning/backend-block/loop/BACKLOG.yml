@@ -2409,7 +2409,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/inbox 32,3 %"
     scope: >
       team/postgres_repository.go und routing/postgres_repository.go haben als einzige

@@ -4505,3 +4505,72 @@ Frühere Läufe liegen vollständig im Archiv:
   Machine/QualityCheck (Iteration 69+70) und jetzt Order/Booking/Plan-Kern
   sind alle abgedeckt, 77,8 % Paketgesamtwert. Naechste Backlog-Unit ist
   laut Reihenfolge `e-cov-inbox-repo-infra` (Block E, inbox).
+
+## Iteration 72 — e-cov-inbox-repo-infra — done — 2026-08-11 04:49
+- commit: (folgt, wird nach diesem Journal-Eintrag committet)
+- gebaut: `backend/internal/inbox/team/tenant_write_test.go` (neu) und
+  `backend/internal/inbox/routing/tenant_write_test.go` (neu) legen fuer beide
+  Unterpakete das DB-Integrationstest-Muster gegen die echte PostgresRepository
+  an (bisher nur ueber mockTeamRepository/mockRoutingRepository getestet).
+  team: CreateTeamInbox/GetTeamInbox/UpdateTeamInbox/DeleteTeamInbox/ListByUser
+  je mit Cross-Tenant-Fall (fremder ctx traegt sogar die echte owning tenantID
+  als Parameter — nur RLS, nicht die WHERE-Klausel, darf stoppen) plus
+  Unknown-ID-Fehlerpfad. AddMember/RemoveMember/ListMembers/IsMember/
+  GetMemberRole/GetMemberCount/CountAdmins zusaetzlich cross-tenant geprueft,
+  obwohl diese Repository-Methoden gar kein tenantID-Argument haben — RLS auf
+  team_inbox_members ist dort die einzige Grenze (AddMember aus fremdem ctx
+  schlaegt fehl, weil die tenant_id-Sub-SELECT gegen team_inboxes RLS-blockiert
+  NULL liefert und die NOT-NULL-Spalte das ablehnt). IncrementAssigneeIndex
+  zweimal aufgerufen belegt den aufsteigenden Round-Robin-Index.
+  routing: Create/Update/Delete/GetByID/ListActive/ListAll je cross-tenant
+  (Create aus fremdem ctx verletzt die INSERT-WITH-CHECK-Policy), plus ein
+  zweiter inaktiver Chat-Regel-Fixture, der ListActive-Kanalfilter/
+  is_active-Ausschluss und ListAll-Einschluss inaktiver Regeln beweist.
+- gate: build ok (go build -p 2 ./internal/inbox/...) | vet ok | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/inbox/... — 0 issues)
+  | test ok (go test -count=1 -v ./internal/inbox/..., 0 Fails, 0 Skips —
+  DATABASE_URL gesetzt, docker-postgres-1 healthy, alle neuen DB-Tests real
+  gelaufen) | migration n.a. (keine neue Tabelle/Route, team_inboxes/
+  team_inbox_members/routing_rules seit Migration 000047, RLS seit 000124)
+  | rls-smoke n.a. (keine Tabelle/Policy angefasst; Cross-Tenant-Scoping wird
+  in den neuen Tests selbst bewiesen) | gateway-Tests nicht gelaufen (keine
+  Route angefasst)
+- coverage: internal/inbox/team n.a. (Bezugswert war das Paket-Aggregat
+  "internal/inbox 32,3 %", nicht paket-eigen) -> internal/inbox/team 63,7 % |
+  internal/inbox/routing n.a. -> internal/inbox/routing 62,4 % (go test
+  -coverprofile + go tool cover -func, je einzeln gemessen, ohne `...`)
+- mutations-probe: zwei Proben, beide gefangen, eine dritte verworfen. (1) in
+  `team/postgres_repository.go` UpdateTeamInbox die NotFound-Erkennung auf
+  `if false && tag.RowsAffected() == 0` deaktiviert -> TestTeamInboxWrites_
+  LandInCallerTenant rot ("UpdateTeamInbox (foreign ctx): expected
+  ErrTeamInboxNotFound, got <nil>"), zurueckgedreht, `git diff` leer. (2) in
+  `routing/postgres_repository.go` GetByID dieselbe Deaktivierung auf den
+  `pgx.ErrNoRows`-Zweig -> TestRoutingRuleWrites_LandInCallerTenant rot
+  ("GetByID (foreign ctx): expected ErrRuleNotFound, got no rows in result
+  set"), zurueckgedreht, `git diff` leer. Verworfener erster Versuch: in
+  `routing/postgres_repository.go` Delete den `AND tenant_id = $2`-Predicate
+  aus der SQL-Zeile entfernt (Analog zum team-Ansatz) — Test blieb GRUEN, weil
+  RLS (FORCE ROW LEVEL SECURITY, USING tenant_id = current_tenant_id()) den
+  fremden Zugriff unabhaengig von der WHERE-Klausel blockiert; die Probe war
+  damit wirkungslos und ist NICHT die berichtete Probe. Lehre: bei RLS-
+  geschuetzten Tabellen muss die Mutation im Fehler-Mapping oder in
+  ungeschuetzter Logik sitzen, nicht im redundanten Tenant-Predicate selbst.
+- verify vorgaenger: sauber. Commit d348dd27 (Iteration 71) fuegt
+  `postgres_repository_core_test.go` (neu) und Erweiterungen an
+  `service_test.go` (Testdatei) plus Journal-/Backlog-Metadaten hinzu — kein
+  Produktionscode in produktion selbst angefasst, kein Proto, keine Route,
+  kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
+  acht Fehlerklassen einschlaegig. (Der `chore`-Commit ec0e268d danach traegt
+  ausschliesslich die Journal-Nachtragszeile fuer den Commit-Hash — ebenfalls
+  unauffaellig.)
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-71 vermerkt — nicht
+  meine Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in
+  diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-
+  Ueberschrift (Iteration 71) fortgezaehlt, Zeitstempel per `date` auf dem
+  Loop-Rechner ermittelt (2026-08-11 04:49). Block E (inbox) hat jetzt zwei
+  offene Units: e-cov-inbox-message-repo-list und
+  e-cov-inbox-routing-thread-adapter — beide koennen auf das hier neu
+  angelegte DB-Testmuster (testutil.PoolFromEnv/EnsureTenant/WithTenantCtx/
+  SeedRow/AssertRowCount) aufbauen, wie der Unit-Text von
+  e-cov-inbox-repo-infra es vorhersah.
