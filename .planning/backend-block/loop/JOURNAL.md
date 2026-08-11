@@ -72,3 +72,44 @@ Fensters.
   `cmd/gateway/main.go` nicht versehentlich ausbauen.
 
 ---
+
+## Iteration 1 — fix-audit-list-verifychain-ip-address-scan — done — 2026-08-11 16:06
+- commit: 12be7c3f
+- gebaut: `List()` und `VerifyChain()` in `internal/security/audit/postgres_repository.go` casten
+  `ip_address` jetzt mit `COALESCE(host(ip_address), '')` statt es roh zu scannen (Vorlage:
+  `internal/auth/postgres_repository.go`). Testdatei umgebaut: `TestPostgresRepository_List_
+  IPAddressScanBug` (pinnte den Fehler) ist ersetzt durch fünf echte Assertions (IP gesetzt, IP
+  NULL, Result-Filter, Pagination Limit/Offset) plus zwei neue `VerifyChain`-Tests (valide
+  Single-Row-Range, erkannte Manipulation). Die in Iteration 40 (Lauf 8) zurückgestellten
+  Filter-/Pagination-/Chain-Assertions sind damit nachgezogen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. (reiner Query-Fix,
+  kein Schema-Änderung) | rls-smoke ok (TestRLS_AuditLog_* liefen als Teil des Pakettests grün,
+  keine Policy/Tabelle angefasst)
+- coverage: internal/security/audit 66,1 % -> 80,0 % (lokal gemessen, `go tool cover -func`)
+- mutations-probe: `COALESCE(host(ip_address), '')` in `List()`s dataQuery zurück auf rohes
+  `ip_address` gesetzt -> `TestPostgresRepository_List_ReturnsSeededEntry_WithIPAddress` wurde
+  rot mit exakt dem ursprünglich dokumentierten pgx-Scanfehler ("cannot scan inet (OID 869) in
+  binary format into *string"), zurückgedreht, `git diff --stat` zeigt wieder nur die
+  ursprünglichen 2 Zeilen (List + VerifyChain je 1 Zeile).
+- verify vorgaenger: n.a. (Iteration 1 dieses Laufs, kein Vorgänger-Commit)
+- neue-units: fix-audit-verifychain-timestamp-precision-mismatch (Block C, ans Backlog-Ende
+  gehängt)
+- offen: Beim Schreiben der beiden neuen `VerifyChain`-Tests kam ein zweiter, unabhängiger Bug
+  zum Vorschein: `Create()` hasht `entry.Timestamp` mit voller (potenziell Sub-Mikrosekunden-)
+  Go-Präzision via `RFC3339Nano`, aber `audit_log.timestamp` ist `TIMESTAMPTZ` und speichert nur
+  Mikrosekunden — jeder spätere `VerifyChain`-Aufruf rechnet den Hash aus dem gekappten,
+  zurückgelesenen Timestamp neu und bekommt bei nicht-null Sub-Mikrosekunden-Ziffern (auf dieser
+  Windows-Maschine in ~4 von 5 Stichproben der Fall) ein anderes Ergebnis als beim Insert — eine
+  intakte Kette wird als manipuliert gemeldet. Nicht Teil dieser Unit (andere Ursache, andere
+  Zeile), daher NICHT mitgefixt, sondern als eigene Unit
+  `fix-audit-verifychain-timestamp-precision-mismatch` angelegt (inkl. Fix-Vorschlag und
+  Hinweis auf die Nicht-rückwirkende Grenze für bereits geschriebene Einträge). Die beiden neuen
+  `VerifyChain`-Tests in dieser Iteration umgehen das Problem bewusst durch einen auf
+  Mikrosekunden gekappten Test-Timestamp — das ist im Testkommentar referenziert, damit die
+  nächste Iteration den Workaround nicht für den eigentlichen Fix hält.
+  Zusätzlich (kein eigener Bug, nur Testartefakt): `SeedRow`-Aufrufe auf `audit_log`, die
+  `target`/`target_type`/`user_agent` weglassen, erzeugen NULL in diesen nullable
+  VARCHAR-Spalten und lösen denselben NULL-in-`string`-Scanfehler aus wie `ip_address` — aber
+  nur über den Test-Bypass von `Create()`, nicht über einen echten Aufrufer (der einzige
+  Produktionsschreibpfad in `Create()` setzt diese Felder immer auf `""`, nie NULL). Deshalb
+  keine eigene Unit, nur hier vermerkt.
