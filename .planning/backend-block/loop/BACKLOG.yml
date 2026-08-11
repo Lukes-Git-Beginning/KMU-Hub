@@ -2723,7 +2723,7 @@ units:
     service: automation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/automation 51,9 %"
     scope: >
       PostgresRepository in postgres_repository.go implementiert Repository,

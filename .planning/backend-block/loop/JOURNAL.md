@@ -5001,3 +5001,70 @@ Frühere Läufe liegen vollständig im Archiv:
   Produktionscode betroffen. Naechste Backlog-Unit laut Reihenfolge:
   `e-cov-automation-workflow-repo` (Block E, internal/automation
   PostgresRepository).
+
+## Iteration 80 — e-cov-automation-workflow-repo — done — 2026-08-11 05:53
+- commit: (folgt im naechsten chore-Commit)
+- gebaut: eine neue Testdatei
+  `internal/automation/workflow/postgres_repository_db_test.go` (DB-Integrationstest,
+  acht Testfunktionen) deckt alles ab, was tenant_write_test.go und
+  time_trigger_db_test.go bisher ausliessen: `TestPostgresRepository_Delete`
+  (eigener Tenant loescht, fremder Tenant liefert ErrAutomationNotFound und
+  laesst die Zeile stehen, zweites Delete auf dieselbe ID ebenfalls
+  ErrAutomationNotFound), `TestPostgresRepository_List_Filters` (Subtests fuer
+  OwnerID/Scope/TriggerType/IsActive, Limit<=0-Default 50 und negative
+  Offset-Normalisierung auf 0), `TestPostgresRepository_SetActive`,
+  `TestPostgresRepository_UpdateLastTriggered` (je Erfolgsfall + unbekannte
+  ID), `TestPostgresRepository_ClaimTimeTriggerFire` (erster Claim gewinnt,
+  zweiter Claim auf dasselbe automation_id/entity_key-Paar verliert, ein
+  anderer entity_key ist unabhaengig), `TestPostgresRepository_
+  ListActiveByTriggerType` (scanAutomations-Helper, nur aktive + passender
+  trigger_type), `TestPostgresRepository_CleanupOldExecutions` (alte
+  completed-Execution geloescht, juengere completed-Execution und alte aber
+  noch laufende Execution bleiben stehen) und
+  `TestPostgresRepository_TemplateRepository` (ListTemplates mit/ohne
+  Kategorie-Filter, GetTemplate Erfolg + ErrTemplateNotFound,
+  UpsertTemplate Insert und Update-per-ON-CONFLICT ohne Duplikat).
+- design: ListActiveByTriggerType, UpdateLastTriggered und
+  CleanupOldExecutions tragen laut Code-Kommentar bewusst kein tenant_id-
+  Praedikat (interne Poller-/Cleanup-Pfade) — deren Tests nutzen deshalb pro
+  Testlauf zufaellige trigger_type-Strings bzw. pruefen einzelne Zeilen
+  gezielt per AssertRowCount statt globaler Zaehlung, damit sie unter
+  `t.Parallel()` nicht von gleichzeitig laufenden Tests im selben Paket
+  gestoert werden koennen. automation_templates hat eine VARCHAR-PK (kein
+  UUID) — testutil.CleanupRow/SeedRow binden IDs als uuid.UUID, daher fuer
+  die Template-Fixtures direktes UpsertTemplate zum Anlegen und ein
+  inline `pool.Exec(ctx, "DELETE FROM automation_templates WHERE id = $1", ...)`
+  zum Aufraeumen statt der testutil-Helfer.
+- gate: build ok (go build -p 2 ./internal/automation/... ./internal/gateway/...
+  ./cmd/gateway/...) | vet ok (go vet ./internal/automation/...) | lint ok
+  (golangci-lint run --config .golangci.yml ./internal/automation/workflow/...
+  — 0 issues) | test ok (go test -count=1 ./internal/automation/... — alle
+  fuenf Unterpakete gruen inkl. workflow, DATABASE_URL gesetzt gegen
+  docker-postgres-1/kmuhub_app) | migration n.a. (keine neue Tabelle/Route/
+  Policy) | rls-smoke n.a. (keine Policy angefasst; ListActiveByTriggerType/
+  UpdateLastTriggered/CleanupOldExecutions waren schon vor dieser Unit ohne
+  tenant_id-Praedikat und sind laut Repository.go-Kommentar bewusst
+  interne, nicht user-facing Pfade) | gateway-Tests nicht gelaufen (keine
+  Route angefasst)
+- coverage: internal/automation/workflow 51,9 % (coverage_start-Wert der
+  Unit) -> 83,9 % | internal/automation gesamt (alle sechs Unterpakete
+  gemeinsam) -> 60,3 % (go test -coverprofile ./internal/automation/workflow/
+  bzw. ./internal/automation/... , go tool cover -func Summe)
+- mutations-probe: zwei Proben, beide gefangen. (1) in
+  `postgres_repository.go` in `Delete` das `WHERE id = $1 AND tenant_id = $2`
+  auf `WHERE id = $1` verkuerzt (Exec bekam weiterhin beide Argumente) ->
+  TestPostgresRepository_Delete sofort rot ("mismatched param and argument
+  count" statt des erwarteten ErrAutomationNotFound). (2) in `List` den
+  `if limit <= 0 { limit = 50 }`-Default entfernt -> vier Subtests von
+  TestPostgresRepository_List_Filters sofort rot (IsActive, LimitDefault,
+  NegativeOffsetNormalizes — LIMIT 0 lieferte ueberall leere Ergebnisse).
+  Beide Male zurueckgedreht, `git diff` auf `postgres_repository.go` leer.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in allen Vorgaenger-
+  Iterationen vermerkt — nicht meine Datei, nicht angefasst, nicht
+  committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 79)
+  fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 05:53). Naechste Backlog-Unit laut Reihenfolge:
+  `e-cov-automation-action-grpc` (Block E, internal/automation/action
+  calendar/biz/crm Actions).
