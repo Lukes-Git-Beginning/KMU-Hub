@@ -42,7 +42,8 @@ func (r *PostgresRepository) GetSessionByTokenHash(ctx context.Context, tokenHas
 	var s GuestSession
 	err := r.pool.QueryRow(ctx,
 		`SELECT gs.id, gs.token_hash, gs.channel_id, gs.display_name, gs.email,
-		        gs.ip_address, gs.user_agent, gs.last_activity_at, gs.is_active,
+		        CASE WHEN gs.ip_address IS NOT NULL THEN host(gs.ip_address) ELSE NULL END,
+		        gs.user_agent, gs.last_activity_at, gs.is_active,
 		        gs.created_at, gs.expires_at
 		 FROM guest_sessions gs
 		 JOIN channels c ON gs.channel_id = c.id
@@ -65,7 +66,8 @@ func (r *PostgresRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (
 	var s GuestSession
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, token_hash, channel_id, display_name, email,
-		        ip_address, user_agent, last_activity_at, is_active,
+		        CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END,
+		        user_agent, last_activity_at, is_active,
 		        created_at, expires_at
 		 FROM guest_sessions WHERE id = $1`, id,
 	).Scan(
@@ -85,7 +87,8 @@ func (r *PostgresRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (
 func (r *PostgresRepository) ListSessionsByChannel(ctx context.Context, channelID uuid.UUID) ([]*GuestSession, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, token_hash, channel_id, display_name, email,
-		        ip_address, user_agent, last_activity_at, is_active,
+		        CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END,
+		        user_agent, last_activity_at, is_active,
 		        created_at, expires_at
 		 FROM guest_sessions
 		 WHERE channel_id = $1

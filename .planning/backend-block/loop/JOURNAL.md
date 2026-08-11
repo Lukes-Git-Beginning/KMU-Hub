@@ -1345,3 +1345,35 @@ Fensters.
   bestehende Zugriffsschutz in diesem Repo und ausserhalb des Unit-Scopes, aber falls RLS je auf
   dieser Tabelle deaktiviert wuerde, waere das ein Cross-Tenant-Leck. Keine neue Unit dafuer
   angelegt, da rein hypothetisch und ausserhalb des Musters dieses Laufs.
+
+## Iteration 27 — fix-chat-guest-sessions-ip-address-scan — done — 2026-08-11 18:53
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `guest.PostgresRepository.GetSessionByTokenHash`, `.GetSessionByID` und
+  `.ListSessionsByChannel` (internal/chat/guest/postgres_repository.go) casten `ip_address`
+  jetzt jeweils per `CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END`
+  statt es roh in `*string` zu scannen -- identisches Muster zu
+  `internal/security/gdpr/export.go:172`. `CreateSession` (INSERT) war nicht betroffen und blieb
+  unveraendert. Neuer Test-Helper `seedGuestSessionWithIP` in
+  `postgres_repository_reads_test.go` (INET-Spalte mit echter IP seeden -- der Bug ist bei NULL
+  unsichtbar) plus neuer Test `TestPostgresRepository_ReadPaths_WithRealIPAddress`, der alle drei
+  betroffenen Lesepfade in einem Test gegen dieselbe Session mit gesetzter IP `203.0.113.5`
+  durchprueft und `IPAddress` auf den erwarteten Wert prueft.
+- gate: build ok (`./internal/chat/... ./cmd/gateway/...`) | vet ok | lint ok
+  (golangci-lint 0 issues, vor UND nach der Mutations-Probe erneut gelaufen) | test ok
+  (`./internal/chat/...` komplett gruen, 0 SKIP) | migration n.a. (keine Migration, reiner
+  SELECT-Cast) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/chat/guest n.a. (coverage_start der Unit ist n.a. -- Fund aus
+  scan-inet-cidr-scanned-into-go-string, kein Coverage-Ziel). Lokal gemessen als Zusatzkontext:
+  78,7 % nach dem Fix (`go tool cover -func`).
+- mutations-probe: `GetSessionByTokenHash`s SELECT-Liste zurueck auf rohes `gs.ip_address` (ohne
+  CASE/host()) gesetzt -> `TestPostgresRepository_ReadPaths_WithRealIPAddress` wurde rot mit
+  exakt dem erwarteten pgx-Fehler (`cannot scan inet (OID 869) in binary format into **string`),
+  Aenderung zurueckgedreht, `git diff` zeigt wieder ausschliesslich den sauberen 6-Zeilen-Fix.
+- verify vorgaenger: sauber (Commit `40cd4c9e`, Iteration 26 — Produktionsdiff ist ausschliesslich
+  ein `::text`-Cast in `ListIPRules` plus neue DB-gestuetzte Tests und ein korrigierter
+  Kommentar; kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine
+  neue Tabelle, Wire-Shape unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/` zur Sicherheit trotzdem mitgelaufen (`TestOpenAPIRouteDrift`
+  gruen) -- keine Pflicht laut Schritt 5, da keine Route/kein Handler-Signatur angefasst wurde,
+  nur drei SELECT-Spalten in einem Repository.

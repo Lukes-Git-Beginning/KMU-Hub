@@ -60,6 +60,24 @@ func seedGuestSession(t *testing.T, pool *pgxpool.Pool, tenantID, channelID uuid
 	})
 }
 
+// seedGuestSessionWithIP mirrors seedGuestSession but sets ip_address to a
+// real value -- ip_address is an INET column, and the pgx scan bug this file
+// covers only reproduces when a row actually carries a non-NULL IP.
+func seedGuestSessionWithIP(t *testing.T, pool *pgxpool.Pool, tenantID, channelID uuid.UUID, tokenHash string, ipAddress string) uuid.UUID {
+	t.Helper()
+	return testutil.SeedRow(t, pool, "guest_sessions", map[string]any{
+		"tenant_id":        tenantID,
+		"token_hash":       tokenHash,
+		"channel_id":       channelID,
+		"display_name":     "Reader Guest",
+		"ip_address":       ipAddress,
+		"last_activity_at": time.Now().UTC(),
+		"is_active":        true,
+		"created_at":       time.Now().UTC(),
+		"expires_at":       time.Now().UTC().Add(24 * time.Hour),
+	})
+}
+
 func TestPostgresRepository_GetSessionByTokenHash(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
@@ -168,6 +186,52 @@ func TestPostgresRepository_ListSessionsByChannel(t *testing.T) {
 	}
 	if len(empty) != 0 {
 		t.Fatalf("ListSessionsByChannel (empty channel): expected no sessions, got %d", len(empty))
+	}
+}
+
+// TestPostgresRepository_ReadPaths_WithRealIPAddress covers GetSessionByTokenHash,
+// GetSessionByID and ListSessionsByChannel against a session that carries a
+// real (non-NULL) ip_address. The column is INET; pgx cannot scan it into a
+// bare *string without a cast, so this bug is invisible unless at least one
+// seeded row actually has an IP set (the tests above never set one).
+func TestPostgresRepository_ReadPaths_WithRealIPAddress(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	fx := newGuestReadFixture(t, pool, true)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), fx.tenant)
+	repo := NewPostgresRepository(pool)
+
+	const ip = "203.0.113.5"
+	tokenHash := fmt.Sprintf("hash-%s", uuid.New())
+	sessID := seedGuestSessionWithIP(t, pool, fx.tenant, fx.channel, tokenHash, ip)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "guest_sessions", sessID) })
+
+	byToken, err := repo.GetSessionByTokenHash(ctxOwn, tokenHash)
+	if err != nil {
+		t.Fatalf("GetSessionByTokenHash: %v", err)
+	}
+	if byToken.IPAddress == nil || *byToken.IPAddress != ip {
+		t.Fatalf("GetSessionByTokenHash: expected ip_address %q, got %v", ip, byToken.IPAddress)
+	}
+
+	byID, err := repo.GetSessionByID(ctxOwn, sessID)
+	if err != nil {
+		t.Fatalf("GetSessionByID: %v", err)
+	}
+	if byID.IPAddress == nil || *byID.IPAddress != ip {
+		t.Fatalf("GetSessionByID: expected ip_address %q, got %v", ip, byID.IPAddress)
+	}
+
+	list, err := repo.ListSessionsByChannel(ctxOwn, fx.channel)
+	if err != nil {
+		t.Fatalf("ListSessionsByChannel: %v", err)
+	}
+	if len(list) != 1 || list[0].IPAddress == nil || *list[0].IPAddress != ip {
+		t.Fatalf("ListSessionsByChannel: expected 1 session with ip_address %q, got %+v", ip, list)
 	}
 }
 

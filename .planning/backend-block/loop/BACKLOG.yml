@@ -1231,7 +1231,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fund aus scan-inet-cidr-scanned-into-go-string, Lauf 9 Iteration 11)"
     scope: >
       MUSTER D — dieselbe Bugklasse, drei Fundstellen in derselben Datei.
