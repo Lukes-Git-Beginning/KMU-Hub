@@ -4389,7 +4389,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Unit-Text "analog" zu den anderen drei Entitaeten suggeriert.
 
 ## Iteration 70 — e-cov-produktion-service-ext — done — 2026-08-11 04:35
-- commit: (siehe naechster Nachtrag)
+- commit: ada7af7c
 - gebaut: `backend/internal/produktion/service_ext_test.go` neu, deckt die
   Business-Logik-Schicht aus service_ext.go (BOM/WorkStep/Machine/
   QualityCheck) ueber echte Service-Aufrufe statt Repository-Direktzugriff.
