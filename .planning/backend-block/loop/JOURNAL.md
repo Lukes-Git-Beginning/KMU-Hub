@@ -1418,3 +1418,56 @@ Fensters.
   Single-Tenant in der Praxis (App-Passwoerter tragen aktuell keinen Tenant-Kontext an CardDAV
   weiter) -- das ist ein bereits im Code dokumentierter Welle-3-Folgeauftrag, nicht Teil dieser
   Unit, und diese Unit aendert daran nichts.
+
+## Iteration 29 — fix-work-recording-consent-missing-tenant-id — done — 2026-08-11 19:11
+- commit: 2e53e5e7
+- gebaut: `PostgresRepository.SetConsent` (internal/work/recording/postgres_repository.go:155)
+  fuegt jetzt `tenant_id` in die INSERT-Spaltenliste ein, per Subquery
+  `(SELECT tenant_id FROM recordings WHERE id = $1)` aus der Eltern-Recording — kein
+  Signaturwechsel an `Service.SetConsent`/`RecordingConsent`. Bei einem Cross-Tenant-Aufruf
+  (fremde `RecordingID`) liefert die Subquery unter der RLS-Sicht des Angreifer-Tenants auf
+  `recordings` KEINE Zeile -> NULL -> die INSERT-Policy weist die Zeile zurueck (fail-closed),
+  statt sie unter dem falschen Tenant zu schreiben. Neuer Test
+  `TestSetConsent_WritesCarryOwnerTenant` in `tenant_write_test.go` (Muster
+  `TestRecordingWrites_LandInCallerTenant` aus derselben Datei, da `recording_consents` eine
+  zusammengesetzte PK `(recording_id, user_id)` traegt und `AssertWriteCarriesTenant`
+  `WHERE id = $1` erwartet): foreign-ctx SetConsent schlaegt fehl UND schreibt keine Zeile,
+  own-ctx SetConsent schreibt mit korrektem `tenant_id`, ist fuer den anderen Tenant unsichtbar,
+  und der ON-CONFLICT-Update-Pfad (zweite Antwort ersetzt die erste) funktioniert weiterhin.
+- gate: build ok (`./internal/work/... ./internal/server/... ./cmd/gateway/...`) | vet ok
+  (`./internal/work/... ./internal/server/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/work/recording/...`, vor UND nach der Mutations-Probe erneut gelaufen) | test ok
+  (`./internal/work/recording/...` komplett gruen, 0 SKIP in `-v`-Lauf; `./internal/server/`
+  ebenfalls gruen, da `video_grpc.go` als Aufrufer genannt war, aber keine Signatur angefasst
+  wurde) | migration n.a. (keine neue Migration, reiner Query-Text-Fix — die Spalte `tenant_id`
+  existiert bereits seit 000119/000120) | rls-smoke ok (siehe Mutations-Probe: die
+  INSERT-Policy verwirft den Schreibvorgang ohne `tenant_id` mit SQLSTATE 42501, genau wie
+  erwartet)
+- coverage: internal/work/recording 32,7 % (lokal vor dem Fix, per `git stash` isoliert
+  gemessen) -> 33,2 % (lokal nach dem Fix, `go tool cover -func`). coverage_start der Unit war
+  "n.a." (Fund aus einer Scan-Unit), diese beiden Zahlen sind der direkte Vorher/Nachher-Vergleich
+  fuer genau diese Unit.
+- mutations-probe: die neue `tenant_id`-Spalte/Subquery aus dem INSERT wieder entfernt (Zeile auf
+  den alten Vier-Spalten-Zustand zurueckgesetzt) -> `TestSetConsent_WritesCarryOwnerTenant` wurde
+  rot mit `ERROR: new row violates row-level security policy for table "recording_consents"
+  (SQLSTATE 42501)` bei "SetConsent (own ctx)" — exakt der erwartete Fehler, da ohne `tenant_id`
+  auch der eigene Tenant die INSERT-Policy nicht mehr erfuellt. Aenderung zurueckgedreht,
+  `git diff --stat` zeigt wieder ausschliesslich den sauberen 3-Zeilen-Fix (plus Kommentar) in
+  `postgres_repository.go`.
+- verify vorgaenger: sauber (Commit `d91f2f57`, Iteration 28 — Produktionsdiff routet
+  `checkCompanyContactPermission` von einer nichtexistenten `users.role`-Spalte auf die
+  bestehende `auth.PostgresRepository.UserHasPermission("contacts","write")`-Pruefung um; kein
+  gRPC-Bypass (CardDAV ist kein Gateway-Handler mit gRPC-Client, direkter Repo-Zugriff ist das
+  bestehende Muster in dieser Datei), kein Stub, kein Proto/Migrations-Drift, kein neuer Guard
+  (wiederverwendete Permission mit bestehendem Seed aus Migration 000002), keine neue Tabelle,
+  Wire-Shape unveraendert, keine Route)
+- neue-units: keine
+- offen: `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` nicht mitgelaufen, da weder
+  eine Route noch eine Handler-Signatur angefasst wurde (reiner Repository-Query-Fix mit reinem
+  Coverage-Test). Die uebrigen Lesepfade auf `recording_consents`
+  (`GetConsents`/`GetConsentsWithUser`/`CountPendingConsents`) waren nicht Teil dieser Unit und
+  verlassen sich weiterhin ausschliesslich auf RLS via `app.tenant_id`-Session-Variable ohne
+  explizites `tenant_id`-Praedikat in der WHERE-Klausel — das ist das bestehende Muster im
+  gesamten Paket (siehe `MarkInitiatorConsent`/`GetPreConsentStatus`, die es explizit tun, und
+  `GetConsents`, das es nicht tut) und ausserhalb des Scopes dieser Unit; falls RLS auf dieser
+  Tabelle je deaktiviert wuerde, waere das ein Cross-Tenant-Leck, aber das ist rein hypothetisch.
