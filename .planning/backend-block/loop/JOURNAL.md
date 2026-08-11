@@ -3554,7 +3554,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 03:04).
 
 ## Iteration 56 — d-cov-gateway-document-file-lifecycle — done — 2026-08-11 03:09
-- commit: -
+- commit: 6f1f3b31
 - gebaut: `backend/internal/gateway/route_document_test.go` um 22 neue Tests fuer die
   Datei-Lebenszyklus-Handler in route_document.go erweitert: HandleRegisterUploadedFile
   (ServiceUnavailable, InvalidJSON, MissingFolderID, ReachesRPC), HandleDeleteFile
