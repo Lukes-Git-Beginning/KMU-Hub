@@ -1004,7 +1004,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/audit 80,0 % (lokal gemessen nach fix-audit-list-verifychain-ip-address-scan, Lauf 9 Iteration 1)"
     scope: >
       `PostgresRepository.Create` (internal/security/audit/postgres_repository.go:31) berechnet

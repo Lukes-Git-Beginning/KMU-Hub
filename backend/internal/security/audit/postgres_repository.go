@@ -51,15 +51,19 @@ func (r *PostgresRepository) Create(ctx context.Context, entry *models.AuditEntr
 		return fmt.Errorf("get last hash: %w", err)
 	}
 
-	entry.PreviousHash = previousHash
-	entry.EntryHash = computeEntryHash(entry, previousHash)
-
 	if entry.ID == uuid.Nil {
 		entry.ID = uuid.New()
 	}
 	if entry.Timestamp.IsZero() {
 		entry.Timestamp = time.Now().UTC()
 	}
+	// audit_log.timestamp is TIMESTAMPTZ, which only stores microsecond
+	// precision; truncate before hashing so the hashed value matches what
+	// Postgres actually persists and returns on the next read.
+	entry.Timestamp = entry.Timestamp.Truncate(time.Microsecond)
+
+	entry.PreviousHash = previousHash
+	entry.EntryHash = computeEntryHash(entry, previousHash)
 
 	// ip_address is a nullable INET column; an empty string is not valid INET
 	// input and fails the insert (SQLSTATE 22P02). Callers that don't have a

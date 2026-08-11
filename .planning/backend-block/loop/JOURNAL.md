@@ -1180,3 +1180,40 @@ Fensters.
   Lauf-9-Backlogs ist damit VOLLSTAENDIG abgearbeitet (alle vier Muster A/A2/B/C gescannt).
   Block C hat jetzt insgesamt neun offene fix-*-Units aus fruehren Scans plus die sechs neuen
   aus dieser Iteration — naechste Iterationen ziehen normal von vorne nach hinten ab.
+
+## Iteration 23 — fix-audit-verifychain-timestamp-precision-mismatch — done — 2026-08-11 18:32
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `PostgresRepository.Create` (internal/security/audit/postgres_repository.go) truncatet
+  `entry.Timestamp` jetzt auf Mikrosekunden-Praezision, BEVOR `computeEntryHash` aufgerufen wird
+  -- audit_log.timestamp ist TIMESTAMPTZ (nur Mikrosekunden-Aufloesung), computeEntryHash
+  formatiert aber mit RFC3339Nano. Dazu musste die ID-/Timestamp-Default-Bloecke (Zeile 57-62)
+  vor die Hash-Berechnung gezogen werden (vorher lag computeEntryHash VOR den Defaults) -- als
+  Nebeneffekt schliesst das auch die latente Luecke, dass ein Aufruf mit Zero-Timestamp mit dem
+  Zero-Wert gehasht, aber mit time.Now() persistiert worden waere. Einziger echte Caller
+  (`Service.LogEvent`, service.go:49) setzt Timestamp allerdings ohnehin immer selbst -- reine
+  Haertung, kein zweiter aktiver Bug. Neuer DB-gestuetzter Test
+  `TestPostgresRepository_VerifyChain_SubMicrosecondTimestampStillValid` erzwingt einen
+  Timestamp mit expliziter Sub-Mikrosekunden-Ziffer (+123ns) und beweist valid=true danach. Der
+  Truncate-Workaround-Kommentar in `TestPostgresRepository_VerifyChain_ValidSingleEntryRange`
+  ist entfernt (Timestamp dort wieder normales `time.Now().UTC()` ohne Truncate), weil Create()
+  das jetzt selbst uebernimmt.
+- gate: build ok (`./internal/security/... ./internal/gateway/...`) | vet ok | lint ok
+  (golangci-lint 0 issues) | test ok (`./internal/security/...` komplett gruen, 0 SKIP in
+  `./internal/security/audit/ -v`) | migration n.a. (keine Migration) | rls-smoke n.a. (keine
+  Tabellen-/Policy-Aenderung)
+- coverage: internal/security/audit 80,0 % (Iteration-1-Messung) -> 80,1 % (lokal gemessen,
+  `go tool cover -func`)
+- mutations-probe: Truncate-Zeile per Kommentar deaktiviert -> neuer Test
+  TestPostgresRepository_VerifyChain_SubMicrosecondTimestampStillValid wurde rot
+  (`VerifyChain(...) = invalid ... want valid`), Truncate-Zeile zurueckgedreht, `git diff` zeigt
+  wieder den sauberen Fix-Diff.
+- verify vorgaenger: sauber (Commit `4507ec5d`, Iteration 22 — reine Backlog/Journal-Aenderung,
+  `git show --stat` zeigt ausschliesslich BACKLOG.yml/JOURNAL.md, kein Produktionscode; kein
+  gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle,
+  keine Wire-Shape- oder Routenaenderung moeglich)
+- neue-units: keine
+- offen: Die im Unit-Scope dokumentierte Nicht-rueckwirkende-Grenze bleibt bestehen -- alle vor
+  diesem Commit geschriebenen audit_log-Eintraege mit einem ungekappten Original-Hash bleiben
+  mit ihrem alten (potenziell spurious-broken) Hash bestehen, append-only, nicht reparierbar.
+  `go test ./internal/gateway/` nicht gelaufen, da keine Route angefasst wurde (keine Pflicht
+  laut Schritt 5).

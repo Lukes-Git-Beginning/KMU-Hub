@@ -322,19 +322,9 @@ func TestPostgresRepository_VerifyChain_ValidSingleEntryRange(t *testing.T) {
 	id := uuid.New()
 	if err := repo.Create(ctx, &models.AuditEntry{
 		ID: id, TenantID: uuid.New(), Action: fmt.Sprintf("verify-chain-valid-%s", uuid.New()),
-		Result: audit.ResultSuccess, Details: "{}",
-		// Truncated to microsecond: audit_log.timestamp is TIMESTAMPTZ, which
-		// only stores microsecond precision. computeEntryHash formats with
-		// RFC3339Nano, so an untruncated time.Now().UTC() (this machine
-		// regularly has non-zero sub-microsecond digits) would hash
-		// differently before insert than after a round trip through
-		// Postgres, and VerifyChain's recompute would spuriously report a
-		// valid chain as broken. That mismatch is real and reachable via the
-		// normal Create() path -- separate bug, tracked as
-		// fix-audit-verifychain-timestamp-precision-mismatch. Truncating
-		// here isolates this test to the link/recompute logic this unit is
-		// responsible for.
-		Timestamp: time.Now().UTC().Truncate(time.Microsecond),
+		Result:    audit.ResultSuccess,
+		Details:   "{}",
+		Timestamp: time.Now().UTC(),
 	}); err != nil {
 		t.Fatalf("seed Create: %v", err)
 	}
@@ -351,6 +341,47 @@ func TestPostgresRepository_VerifyChain_ValidSingleEntryRange(t *testing.T) {
 	}
 	if !valid {
 		t.Fatalf("VerifyChain(%d, %d) = invalid at sequence %d, want valid", seq, seq, brokenSeq)
+	}
+}
+
+// TestPostgresRepository_VerifyChain_SubMicrosecondTimestampStillValid proves
+// the timestamp-precision fix: a Create() call with a timestamp that
+// deliberately carries a non-zero sub-microsecond digit (audit_log.timestamp
+// is TIMESTAMPTZ, which only stores microsecond precision) must still verify
+// as valid, because Create() now truncates the timestamp before hashing so
+// the hashed value matches what Postgres actually persists and returns on
+// the next read.
+func TestPostgresRepository_VerifyChain_SubMicrosecondTimestampStillValid(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	repo := audit.NewPostgresRepository(pool)
+	ctx := testutil.WithSystemCtx(context.Background())
+
+	id := uuid.New()
+	subMicroTimestamp := time.Now().UTC().Truncate(time.Microsecond).Add(123 * time.Nanosecond)
+	if err := repo.Create(ctx, &models.AuditEntry{
+		ID: id, TenantID: uuid.New(), Action: fmt.Sprintf("verify-chain-submicro-%s", uuid.New()),
+		Result:    audit.ResultSuccess,
+		Details:   "{}",
+		Timestamp: subMicroTimestamp,
+	}); err != nil {
+		t.Fatalf("seed Create: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "audit_log", id)
+
+	var seq int64
+	if err := pool.QueryRow(ctx, "SELECT sequence_num FROM audit_log WHERE id = $1", id).Scan(&seq); err != nil {
+		t.Fatalf("read seeded sequence_num: %v", err)
+	}
+
+	valid, brokenSeq, err := repo.VerifyChain(ctx, seq, seq)
+	if err != nil {
+		t.Fatalf("VerifyChain: %v", err)
+	}
+	if !valid {
+		t.Fatalf("VerifyChain(%d, %d) = invalid at sequence %d, want valid (sub-microsecond timestamp %v must be truncated before hashing)", seq, seq, brokenSeq, subMicroTimestamp)
 	}
 }
 
