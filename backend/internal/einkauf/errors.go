@@ -27,4 +27,10 @@ var (
 	ErrContractItemNotFound = errors.New("einkauf framework contract item not found")
 	ErrContractNrTaken      = errors.New("einkauf contract number already exists for this tenant")
 	ErrContractCallNotFound = errors.New("einkauf framework contract call not found")
+	// ErrContractNotActive rejects a call-off against a draft or expired
+	// framework contract.
+	ErrContractNotActive = errors.New("einkauf framework contract must be active to be called off")
+	// ErrContractBudgetExceeded rejects a call-off above the contract's
+	// remaining value. The wrapping message names that remaining value.
+	ErrContractBudgetExceeded = errors.New("einkauf contract call-off exceeds the contract's remaining value")
 )

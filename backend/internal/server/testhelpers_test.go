@@ -721,8 +721,28 @@ func (m *fileMockRepo) GetFileByID(_ context.Context, id uuid.UUID) (*models.Cha
 	return f, nil
 }
 
-func (m *fileMockRepo) ListChannelFiles(_ context.Context, _ uuid.UUID, _, _ int) ([]*models.ChatFileWithUploader, int, error) {
-	return nil, 0, nil
+func (m *fileMockRepo) ListChannelFiles(_ context.Context, channelID uuid.UUID, limit, offset int) ([]*models.ChatFileWithUploader, int, error) {
+	var all []*models.ChatFileWithUploader
+	for _, f := range m.files {
+		if f.ChannelID != channelID || f.IsDeleted {
+			continue
+		}
+		firstName, lastName, _ := m.GetUserInfo(context.Background(), f.UploadedBy)
+		all = append(all, &models.ChatFileWithUploader{
+			ChatFile:          *f,
+			UploaderFirstName: firstName,
+			UploaderLastName:  lastName,
+		})
+	}
+	total := len(all)
+	if offset >= total {
+		return []*models.ChatFileWithUploader{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return all[offset:end], total, nil
 }
 
 func (m *fileMockRepo) GetFilesByMessageIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID][]models.ChatFileWithUploader, error) {

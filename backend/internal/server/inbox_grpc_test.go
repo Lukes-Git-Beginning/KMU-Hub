@@ -159,8 +159,28 @@ func (r *stubMessageRepo) AssignMessage(_ context.Context, tenantID, id, assigne
 	return true, nil
 }
 
-func (r *stubMessageRepo) GetUnreadCounts(_ context.Context, _ uuid.UUID) ([]models.UnreadCount, error) {
-	return nil, nil
+// GetUnreadCounts mirrors the production query in postgres_repository.go:
+// unread, not archived, and not currently snoozed (snoozed_until NULL or in
+// the past), grouped by channel.
+func (r *stubMessageRepo) GetUnreadCounts(_ context.Context, userID uuid.UUID) ([]models.UnreadCount, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	counted := map[string]int{}
+	now := time.Now()
+	for _, m := range r.messages {
+		if m.UserID != userID || m.IsRead || m.IsArchived {
+			continue
+		}
+		if m.SnoozedUntil != nil && m.SnoozedUntil.After(now) {
+			continue
+		}
+		counted[m.Channel]++
+	}
+	var out []models.UnreadCount
+	for ch, c := range counted {
+		out = append(out, models.UnreadCount{Channel: ch, Count: c})
+	}
+	return out, nil
 }
 
 func (r *stubMessageRepo) BulkMarkRead(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {

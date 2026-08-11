@@ -3,6 +3,7 @@ package datev
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -69,26 +70,36 @@ func (s *settingsStub) GetByTenantID(_ context.Context, _ uuid.UUID) (*models.Co
 }
 
 type configRepoStub struct {
-	config *IntegrationConfig
-	err    error
+	config          *IntegrationConfig
+	err             error
+	deactivateErr   error
+	deactivateCalls []uuid.UUID
 }
 
 func (s *configRepoStub) GetByPlatform(_ context.Context, _ string) (*IntegrationConfig, error) {
 	return s.config, s.err
 }
 func (s *configRepoStub) Upsert(_ context.Context, _ *IntegrationConfig) error { return nil }
-func (s *configRepoStub) Deactivate(_ context.Context, _ uuid.UUID) error      { return nil }
+func (s *configRepoStub) Deactivate(_ context.Context, id uuid.UUID) error {
+	s.deactivateCalls = append(s.deactivateCalls, id)
+	return s.deactivateErr
+}
 
 type uploadRepoStub struct {
-	uploadConfig *models.DatevUploadConfig
-	configErr    error
-	logs         []*models.DatevUploadLog
+	uploadConfig  *models.DatevUploadConfig
+	configErr     error
+	logs          []*models.DatevUploadLog
+	listResult    []models.DatevUploadLog
+	listErr       error
+	listConfigIDs []uuid.UUID
+	upsertCalls   []*models.DatevUploadConfig
 }
 
 func (s *uploadRepoStub) GetUploadConfig(_ context.Context, _ uuid.UUID) (*models.DatevUploadConfig, error) {
 	return s.uploadConfig, s.configErr
 }
-func (s *uploadRepoStub) UpsertUploadConfig(_ context.Context, _ *models.DatevUploadConfig) error {
+func (s *uploadRepoStub) UpsertUploadConfig(_ context.Context, cfg *models.DatevUploadConfig) error {
+	s.upsertCalls = append(s.upsertCalls, cfg)
 	return nil
 }
 func (s *uploadRepoStub) CreateUploadLog(_ context.Context, l *models.DatevUploadLog) error {
@@ -98,8 +109,9 @@ func (s *uploadRepoStub) CreateUploadLog(_ context.Context, l *models.DatevUploa
 func (s *uploadRepoStub) UpdateUploadLog(_ context.Context, _ *models.DatevUploadLog) error {
 	return nil
 }
-func (s *uploadRepoStub) ListUploadLogs(_ context.Context, _ uuid.UUID, _ int) ([]models.DatevUploadLog, error) {
-	return nil, nil
+func (s *uploadRepoStub) ListUploadLogs(_ context.Context, configID uuid.UUID, _ int) ([]models.DatevUploadLog, error) {
+	s.listConfigIDs = append(s.listConfigIDs, configID)
+	return s.listResult, s.listErr
 }
 
 // uploaderSpy stands in for the DATEV API. It counts calls, because the defect
@@ -466,5 +478,253 @@ func TestUploadInvoiceBeleg_RefusesWhenNothingRendered(t *testing.T) {
 				t.Errorf("platform contacted %d times, want 0", belegUp.calls)
 			}
 		})
+	}
+}
+
+// ============================================================================
+// Connection status, authorization URL, OAuth callback
+// ============================================================================
+
+func TestGetConnectionStatus_FalseWhenNotConnected(t *testing.T) {
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, &configRepoStub{}, nil)
+
+	connected, err := svc.GetConnectionStatus(context.Background())
+	if err != nil {
+		t.Fatalf("GetConnectionStatus: %v", err)
+	}
+	if connected {
+		t.Error("expected not connected when uploader/oauthManager are nil")
+	}
+}
+
+func TestGetConnectionStatus_ReflectsConfigActiveFlag(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *IntegrationConfig
+		err    error
+		want   bool
+	}{
+		{"active config", &IntegrationConfig{IsActive: true}, nil, true},
+		{"inactive config", &IntegrationConfig{IsActive: false}, nil, false},
+		{"config lookup fails", nil, errors.New("db down"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := NewUploadService(nil, nil, &uploaderSpy{}, nil, &uploadRepoStub{},
+				&configRepoStub{config: tt.config, err: tt.err}, &OAuthManager{})
+
+			connected, err := svc.GetConnectionStatus(context.Background())
+			if err != nil {
+				t.Fatalf("GetConnectionStatus: %v", err)
+			}
+			if connected != tt.want {
+				t.Errorf("connected = %v, want %v", connected, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetAuthorizationURL_EmptyWhenOAuthManagerNil(t *testing.T) {
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, &configRepoStub{}, nil)
+
+	if got := svc.GetAuthorizationURL(uuid.New(), "https://app.example/callback", "https://login.datev.de/authorize"); got != "" {
+		t.Errorf("URL = %q, want empty when OAuth is not configured", got)
+	}
+}
+
+func TestGetAuthorizationURL_DelegatesToOAuthManager(t *testing.T) {
+	om := NewOAuthManager(&vaultStub{}, "the-client", "csecret", "http://unused.invalid")
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, &configRepoStub{}, om)
+	tenantID := uuid.New()
+
+	got := svc.GetAuthorizationURL(tenantID, "https://app.example/callback", "https://login.datev.de/authorize")
+	if !strings.Contains(got, "client_id=the-client") || !strings.Contains(got, tenantID.String()) {
+		t.Errorf("URL = %q, want it to carry the client id and tenant state", got)
+	}
+}
+
+func TestHandleOAuthCallback_ErrorsWhenOAuthManagerNil(t *testing.T) {
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, &configRepoStub{}, nil)
+
+	if err := svc.HandleOAuthCallback(context.Background(), uuid.New(), "code", "https://app.example/callback"); err == nil {
+		t.Fatal("expected an error when OAuth is not configured")
+	}
+}
+
+func TestHandleOAuthCallback_ExchangesCodeAndCachesToken(t *testing.T) {
+	tenantID := uuid.New()
+	server := tokenServer(t, http.StatusOK, `{"access_token":"tok-cb","expires_in":60,"refresh_token":"refresh-cb"}`, nil)
+	defer server.Close()
+
+	om := NewOAuthManager(&vaultStub{}, "cid", "csecret", server.URL)
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, &configRepoStub{}, om)
+
+	if err := svc.HandleOAuthCallback(context.Background(), tenantID, "code-1", "https://app.example/callback"); err != nil {
+		t.Fatalf("HandleOAuthCallback: %v", err)
+	}
+
+	om.mu.RLock()
+	entry := om.cache[tenantID]
+	om.mu.RUnlock()
+	if entry == nil || entry.accessToken != "tok-cb" {
+		t.Fatal("token was not cached after the OAuth callback")
+	}
+}
+
+// ============================================================================
+// Disconnect
+// ============================================================================
+
+func TestDisconnect_RevokesTokensAndDeactivatesConfig(t *testing.T) {
+	tenantID := uuid.New()
+	om := NewOAuthManager(&vaultStub{}, "cid", "csecret", "http://unused.invalid")
+	om.cache[tenantID] = &tokenCacheEntry{accessToken: "tok", expiresAt: time.Now().Add(time.Hour)}
+
+	configID := uuid.New()
+	configRepo := &configRepoStub{config: &IntegrationConfig{ID: configID, IsActive: true}}
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, configRepo, om)
+
+	if err := svc.Disconnect(context.Background(), tenantID); err != nil {
+		t.Fatalf("Disconnect: %v", err)
+	}
+
+	om.mu.RLock()
+	_, cached := om.cache[tenantID]
+	om.mu.RUnlock()
+	if cached {
+		t.Error("token cache entry survived Disconnect")
+	}
+	if len(configRepo.deactivateCalls) != 1 || configRepo.deactivateCalls[0] != configID {
+		t.Fatalf("Deactivate calls = %v, want exactly [%s]", configRepo.deactivateCalls, configID)
+	}
+}
+
+func TestDisconnect_NoOpWhenNoActiveConfig(t *testing.T) {
+	configRepo := &configRepoStub{err: errors.New("no config for platform")}
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, configRepo, &OAuthManager{})
+
+	if err := svc.Disconnect(context.Background(), uuid.New()); err != nil {
+		t.Fatalf("Disconnect: %v, want nil when there is nothing to deactivate", err)
+	}
+	if len(configRepo.deactivateCalls) != 0 {
+		t.Errorf("Deactivate calls = %v, want none", configRepo.deactivateCalls)
+	}
+}
+
+// ============================================================================
+// UploadBeleg — direct-call precondition and failure paths (the
+// UploadInvoiceBeleg tests above cover the render-then-transfer path with
+// every precondition satisfied).
+// ============================================================================
+
+func TestUploadBeleg_RefusesWithoutUploader(t *testing.T) {
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, &configRepoStub{}, &OAuthManager{})
+
+	err := svc.UploadBeleg(context.Background(), uuid.New(), []byte("%PDF-1.4"), "x.pdf")
+	if !errors.Is(err, ErrNotConnected) {
+		t.Fatalf("err = %v, want ErrNotConnected", err)
+	}
+}
+
+func TestUploadBeleg_RefusesWithoutActiveAPIConfig(t *testing.T) {
+	svc := NewUploadService(nil, nil, nil, &belegUploaderSpy{}, &uploadRepoStub{},
+		&configRepoStub{config: &IntegrationConfig{IsActive: false}}, &OAuthManager{})
+
+	err := svc.UploadBeleg(context.Background(), uuid.New(), []byte("%PDF-1.4"), "x.pdf")
+	if !errors.Is(err, ErrNoAPIConfig) {
+		t.Fatalf("err = %v, want ErrNoAPIConfig", err)
+	}
+}
+
+func TestUploadBeleg_RefusesWithoutUploadConfig(t *testing.T) {
+	up := &belegUploaderSpy{}
+	svc := NewUploadService(nil, nil, nil, up, &uploadRepoStub{uploadConfig: &models.DatevUploadConfig{ClientNumber: ""}},
+		&configRepoStub{config: &IntegrationConfig{IsActive: true}}, &OAuthManager{})
+
+	err := svc.UploadBeleg(context.Background(), uuid.New(), []byte("%PDF-1.4"), "x.pdf")
+	if !errors.Is(err, ErrNoUploadConfig) {
+		t.Fatalf("err = %v, want ErrNoUploadConfig", err)
+	}
+	if up.calls != 0 {
+		t.Errorf("platform contacted %d times, want 0", up.calls)
+	}
+}
+
+func TestUploadBeleg_FailedTransferLogsFailedStatus(t *testing.T) {
+	up := &belegUploaderSpy{err: errors.New("502 from DATEV")}
+	repo := &uploadRepoStub{uploadConfig: &models.DatevUploadConfig{ClientNumber: "55555"}}
+	svc := NewUploadService(nil, nil, nil, up, repo,
+		&configRepoStub{config: &IntegrationConfig{IsActive: true}}, &OAuthManager{})
+
+	if err := svc.UploadBeleg(context.Background(), uuid.New(), []byte("%PDF-1.4"), "x.pdf"); err == nil {
+		t.Fatal("expected an error when the transfer fails")
+	}
+	if len(repo.logs) != 1 || repo.logs[0].Status != "failed" {
+		t.Fatalf("logs = %+v, want one failed log", repo.logs)
+	}
+}
+
+// ============================================================================
+// Config/log passthroughs — thin, but a swapped argument or dropped error
+// here silently corrupts every read of DATEV settings and upload history.
+// ============================================================================
+
+func TestGetUploadConfig_PropagatesConfigRepoError(t *testing.T) {
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, &configRepoStub{err: errors.New("no config")}, &OAuthManager{})
+
+	if _, err := svc.GetUploadConfig(context.Background()); err == nil {
+		t.Fatal("expected an error when the platform config cannot be resolved")
+	}
+}
+
+func TestGetUploadConfig_ResolvesConfigIDThenLoadsUploadConfig(t *testing.T) {
+	configID := uuid.New()
+	repo := &uploadRepoStub{uploadConfig: &models.DatevUploadConfig{ID: uuid.New(), ClientNumber: "77777"}}
+	svc := NewUploadService(nil, nil, nil, nil, repo, &configRepoStub{config: &IntegrationConfig{ID: configID}}, &OAuthManager{})
+
+	got, err := svc.GetUploadConfig(context.Background())
+	if err != nil {
+		t.Fatalf("GetUploadConfig: %v", err)
+	}
+	if got.ClientNumber != "77777" {
+		t.Errorf("ClientNumber = %q, want 77777", got.ClientNumber)
+	}
+}
+
+func TestUpdateUploadConfig_DelegatesToUploadRepo(t *testing.T) {
+	repo := &uploadRepoStub{}
+	svc := NewUploadService(nil, nil, nil, nil, repo, &configRepoStub{}, &OAuthManager{})
+
+	cfg := &models.DatevUploadConfig{ClientNumber: "99999"}
+	if err := svc.UpdateUploadConfig(context.Background(), cfg); err != nil {
+		t.Fatalf("UpdateUploadConfig: %v", err)
+	}
+	if len(repo.upsertCalls) != 1 || repo.upsertCalls[0].ClientNumber != "99999" {
+		t.Fatalf("upsertCalls = %+v, want one call carrying ClientNumber 99999", repo.upsertCalls)
+	}
+}
+
+func TestListUploadLogs_PropagatesConfigRepoError(t *testing.T) {
+	svc := NewUploadService(nil, nil, nil, nil, &uploadRepoStub{}, &configRepoStub{err: errors.New("no config")}, &OAuthManager{})
+
+	if _, err := svc.ListUploadLogs(context.Background(), 10); err == nil {
+		t.Fatal("expected an error when the platform config cannot be resolved")
+	}
+}
+
+func TestListUploadLogs_ResolvesConfigIDThenListsLogs(t *testing.T) {
+	configID := uuid.New()
+	repo := &uploadRepoStub{listResult: []models.DatevUploadLog{{ConfigID: configID, Status: "completed"}}}
+	svc := NewUploadService(nil, nil, nil, nil, repo, &configRepoStub{config: &IntegrationConfig{ID: configID}}, &OAuthManager{})
+
+	got, err := svc.ListUploadLogs(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ListUploadLogs: %v", err)
+	}
+	if len(got) != 1 || got[0].Status != "completed" {
+		t.Fatalf("logs = %+v, want the one seeded completed log", got)
+	}
+	if len(repo.listConfigIDs) != 1 || repo.listConfigIDs[0] != configID {
+		t.Fatalf("listConfigIDs = %v, want exactly [%s]", repo.listConfigIDs, configID)
 	}
 }

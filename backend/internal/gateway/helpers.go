@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -16,6 +17,11 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	"github.com/kmuhub/kmuhub/internal/validation"
 )
+
+// dateParamFormats are the layouts a date/time query parameter is accepted
+// in. Mirrors parseDate in internal/server/crm_grpc.go, the only consumer of
+// these values downstream — keep the two in sync.
+var dateParamFormats = []string{"2006-01-02", time.RFC3339}
 
 // respondGRPCError translates a gRPC error into an appropriate HTTP error response.
 // If the error is a gRPC Unavailable error (service down), it returns 503.
@@ -120,6 +126,22 @@ func validateUUIDParam(w http.ResponseWriter, r *http.Request, param string) (st
 	return raw, true
 }
 
+// validateDateParam checks that value (already extracted from a query
+// parameter named param) parses as one of dateParamFormats. Returns true on
+// success. On failure it writes a 400 naming the accepted formats and
+// returns false — the caller must return immediately without reaching the
+// gRPC call, so a client sees the same error whether it forgot the field or
+// sent a syntactically unusable one.
+func validateDateParam(w http.ResponseWriter, param, value string) bool {
+	for _, layout := range dateParamFormats {
+		if _, err := time.Parse(layout, value); err == nil {
+			return true
+		}
+	}
+	response.Error(w, http.StatusBadRequest, param+" must be YYYY-MM-DD or RFC3339, got: "+value)
+	return false
+}
+
 // ownerFilterForScope resolves the data scope of one permission into a list
 // filter. It returns a non-nil user id exactly when the caller's grant on
 // resource:action is narrowed to "own", and nil when they may see the whole
@@ -151,6 +173,35 @@ func ownerFilterForScope(w http.ResponseWriter, r *http.Request, resource, actio
 		// Refusing beats falling through: an empty id would either filter on
 		// nothing and hand back the full list, or reach the service as an
 		// unparsable filter.
+		response.Error(w, http.StatusUnauthorized, "missing user in token")
+		return nil, false
+	}
+	return &userID, true
+}
+
+// ownerFilterForScopeAny is ownerFilterForScope for a route guarded by
+// middleware.RequirePermissionAny across more than one resource:action pair.
+// That guard grants access if EITHER key is present, so a caller can be
+// narrowed to "own" under one key while the other key was never assigned to
+// them — and an unassigned key resolves to auth.ScopeAll (see
+// middleware.PermissionScope), not "unknown". Treating that as "wide open"
+// would let the caller escape a scope their own grant deliberately set, so
+// the narrower of the pairs always wins: any pair at ScopeOwn filters the
+// list, regardless of what the other pairs resolve to.
+func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]string) (*string, bool) {
+	narrowed := false
+	for _, p := range pairs {
+		if middleware.PermissionScope(r.Context(), p[0], p[1]) == auth.ScopeOwn {
+			narrowed = true
+			break
+		}
+	}
+	if !narrowed {
+		return nil, true
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
 		response.Error(w, http.StatusUnauthorized, "missing user in token")
 		return nil, false
 	}

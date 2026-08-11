@@ -2,9 +2,13 @@ package sync
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
@@ -61,17 +65,50 @@ func NewIMAPClient(accountID uuid.UUID, logger *slog.Logger) *IMAPClient {
 	}
 }
 
+// imapDialTimeout bounds the TCP connect to the IMAP server (and, for direct
+// TLS, the TLS handshake — crypto/tls applies net.Dialer.Timeout to the whole
+// dial+handshake). imapHandshakeDeadline bounds the STARTTLS negotiation for
+// the non-993 path, which go-imap v2 runs synchronously inside
+// imapclient.NewStartTLS.
+//
+// Both matter because imapclient.DialStartTLS(addr, nil) has no real bound: a
+// mailbox server that accepts the connection and then stays silent hangs the
+// sync worker's goroutine indefinitely. go-imap v2 does set an internal read
+// deadline (respReadTimeout, 30s) around each response read, but it keeps
+// getting rearmed by the client's own read loop before it ever elapses, so it
+// never actually fires against a server that sends nothing at all — verified
+// against a fake server that accepts and never speaks, which hung well past
+// 30s with the internal deadline alone. Racing the handshake against our own
+// timer and closing conn on timeout is what actually unblocks it.
+//
+// email/send's SMTP client has the same shape of gap (dial timeout + exchange
+// deadline) and is the template for the values here — a mailbox fetch is not
+// less time-critical than a send.
+//
+// Both are vars (not consts) only so tests can shrink them; production never
+// reassigns them.
+var (
+	imapDialTimeout       = 10 * time.Second
+	imapHandshakeDeadline = 30 * time.Second
+)
+
 // Connect establishes a connection to the IMAP server.
 func (c *IMAPClient) Connect(host string, port int, useSSL bool) error {
-	addr := fmt.Sprintf("%s:%d", host, port)
-	var client *imapclient.Client
-	var err error
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
+	dialer := &net.Dialer{Timeout: imapDialTimeout}
 
+	var conn net.Conn
+	var err error
 	if useSSL || port == 993 {
-		client, err = imapclient.DialTLS(addr, nil)
+		conn, err = tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{ServerName: host})
 	} else {
-		client, err = imapclient.DialStartTLS(addr, nil)
+		conn, err = dialer.Dial("tcp", addr)
 	}
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrIMAPConnectionLost, err)
+	}
+
+	client, err := newIMAPProtocolClient(conn, useSSL || port == 993)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrIMAPConnectionLost, err)
 	}
@@ -79,6 +116,37 @@ func (c *IMAPClient) Connect(host string, port int, useSSL bool) error {
 	c.client = client
 	c.logger.Info("IMAP connected", "host", host, "port", port, "ssl", useSSL)
 	return nil
+}
+
+// newIMAPProtocolClient wraps conn in an imapclient.Client. For direct TLS,
+// imapclient.New never blocks (it only spawns its background read loop), so
+// no extra bound is needed beyond the dial+handshake timeout already applied
+// in Connect. For STARTTLS, imapclient.NewStartTLS blocks synchronously on
+// the STARTTLS negotiation, so that call is raced against
+// imapHandshakeDeadline; on timeout, closing conn unblocks the stuck read in
+// the abandoned goroutine so it can exit instead of leaking forever.
+func newIMAPProtocolClient(conn net.Conn, direct bool) (*imapclient.Client, error) {
+	if direct {
+		return imapclient.New(conn, nil), nil
+	}
+
+	type result struct {
+		client *imapclient.Client
+		err    error
+	}
+	resultCh := make(chan result, 1)
+	go func() {
+		client, err := imapclient.NewStartTLS(conn, nil)
+		resultCh <- result{client: client, err: err}
+	}()
+
+	select {
+	case res := <-resultCh:
+		return res.client, res.err
+	case <-time.After(imapHandshakeDeadline):
+		_ = conn.Close()
+		return nil, fmt.Errorf("STARTTLS handshake timed out after %s", imapHandshakeDeadline)
+	}
 }
 
 // Login authenticates with the IMAP server.

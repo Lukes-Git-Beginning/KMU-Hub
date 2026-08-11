@@ -355,3 +355,88 @@ func TestDecryptTOTP_EmptyInput(t *testing.T) {
 
 	assert.ErrorIs(t, err, ErrEmptyPayload)
 }
+
+// ============================================================================
+// DeleteByKeyName Tests
+// ============================================================================
+
+func TestDeleteByKeyName_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := newTestService(t, repo)
+	ctx := testCtx()
+
+	require.NoError(t, svc.SetSecret(ctx, "to-delete", "val", "desc", uuid.New()))
+	require.Len(t, repo.secrets, 1)
+
+	err := svc.DeleteByKeyName(ctx, "to-delete")
+
+	require.NoError(t, err)
+	assert.Empty(t, repo.secrets)
+}
+
+func TestDeleteByKeyName_NoOpWhenMissing(t *testing.T) {
+	repo := NewMockRepository()
+	svc := newTestService(t, repo)
+
+	err := svc.DeleteByKeyName(testCtx(), "does-not-exist")
+
+	assert.NoError(t, err)
+}
+
+func TestDeleteByKeyName_EmptyKeyName(t *testing.T) {
+	repo := NewMockRepository()
+	svc := newTestService(t, repo)
+
+	err := svc.DeleteByKeyName(context.Background(), "")
+
+	assert.ErrorIs(t, err, ErrEmptyKeyName)
+}
+
+func TestDeleteByKeyName_GetRepoError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := newTestService(t, repo)
+
+	repoErr := errors.New("database connection lost")
+	repo.getErr = repoErr
+
+	err := svc.DeleteByKeyName(testCtx(), "any-key")
+
+	assert.ErrorIs(t, err, repoErr)
+}
+
+func TestDeleteByKeyName_DeleteRepoError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := newTestService(t, repo)
+	ctx := testCtx()
+
+	require.NoError(t, svc.SetSecret(ctx, "to-delete", "val", "desc", uuid.New()))
+
+	repoErr := errors.New("disk full")
+	repo.deleteErr = repoErr
+
+	err := svc.DeleteByKeyName(ctx, "to-delete")
+
+	assert.ErrorIs(t, err, repoErr)
+}
+
+// ============================================================================
+// GetTenantID error-path Tests (no tenant in context)
+// ============================================================================
+
+func TestGetSecret_MissingTenantID(t *testing.T) {
+	repo := NewMockRepository()
+	svc := newTestService(t, repo)
+
+	_, err := svc.GetSecret(context.Background(), "any-key")
+
+	assert.ErrorIs(t, err, middleware.ErrMissingTenantID)
+}
+
+func TestSetSecret_MissingTenantID(t *testing.T) {
+	repo := NewMockRepository()
+	svc := newTestService(t, repo)
+
+	err := svc.SetSecret(context.Background(), "key", "value", "desc", uuid.New())
+
+	assert.ErrorIs(t, err, middleware.ErrMissingTenantID)
+}

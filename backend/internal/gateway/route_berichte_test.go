@@ -607,3 +607,152 @@ func TestShareAdminHandlers_RequireTenant(t *testing.T) {
 		}
 	}
 }
+
+// ============================================================================
+// Document Handlers (multi-page authoring)
+// ============================================================================
+
+func TestHandleListDocuments_ServiceUnavailable(t *testing.T) {
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/berichte/documents", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListDocuments(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListDocuments_MissingTenant(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/berichte/documents", nil)
+	routes.HandleListDocuments(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleGetDocument_ServiceUnavailable(t *testing.T) {
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/berichte/documents/550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
+	routes.HandleGetDocument(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetDocument_InvalidUUID(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/berichte/documents/bad", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
+	routes.HandleGetDocument(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleExportDocumentPDF_ServiceUnavailable(t *testing.T) {
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/berichte/documents/550e8400-e29b-41d4-a716-446655440000/export/pdf", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
+	routes.HandleExportDocumentPDF(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleExportDocumentPDF_InvalidUUID(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/berichte/documents/bad/export/pdf", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
+	routes.HandleExportDocumentPDF(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleCreateDocument_ServiceUnavailable(t *testing.T) {
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	testServiceUnavailable(t, routes.HandleCreateDocument)
+}
+
+func TestHandleCreateDocument_InvalidJSON(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/documents", invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateDocument(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+// TestHandleCreateDocument_InvalidModule covers the request's only structural
+// validation rule. createReportDocumentRequest.Title has no `validate:"required"`
+// tag (unlike createDefinitionRequest.Name) — an empty title is accepted here and
+// left to the berichte service to reject, so it is not a gateway-level error path.
+// Module is the one field decodeAndValidate actually rejects at the boundary.
+func TestHandleCreateDocument_InvalidModule(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/documents",
+		jsonBody(t, map[string]interface{}{"title": "Q1 Report", "module": "not-a-real-module"}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateDocument(rec, req)
+	assertValidationError(t, rec, "module")
+}
+
+func TestHandleUpdateDocument_InvalidUUID(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/berichte/documents/bad",
+		jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleUpdateDocument(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpdateDocument_InvalidJSON(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/berichte/documents/550e8400-e29b-41d4-a716-446655440000",
+		invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleUpdateDocument(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateDocument_InvalidStatus(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/berichte/documents/550e8400-e29b-41d4-a716-446655440000",
+		jsonBody(t, map[string]interface{}{"status": "not-a-real-status"}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleUpdateDocument(rec, req)
+	assertValidationError(t, rec, "status")
+}
+
+func TestHandleDeleteDocument_ServiceUnavailable(t *testing.T) {
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/berichte/documents/550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
+	routes.HandleDeleteDocument(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteDocument_InvalidUUID(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/berichte/documents/bad", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
+	routes.HandleDeleteDocument(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}

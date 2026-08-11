@@ -20,6 +20,7 @@ param(
     [int]    $MaxIterations = 100,
     [int]    $StartAt       = 1,         # Iterationsnummer, bei der die Zaehlung beginnt
     [string] $UntilTime     = "",        # "HH:mm", z.B. "07:30" - naechstes Auftreten
+    [string] $StartNotBefore = "",       # "HH:mm" - vor der ERSTEN Iteration bis dahin warten
     [string] $PauseFrom     = "",        # "HH:mm" - einmaliges Pausenfenster, Beginn
     [string] $PauseTo       = "",        # "HH:mm" - Ende (naechstes Auftreten nach PauseFrom)
     [int]    $PauseGuard    = 15,        # Minuten vor PauseFrom, ab denen keine Iteration mehr startet
@@ -227,7 +228,11 @@ function Get-OpenUnitCount {
 }
 
 # --- Hauptschleife -----------------------------------------------------------
-$promptText = Get-Content $Prompt -Raw
+# -Encoding UTF8 ist Pflicht, nicht Kosmetik: PS 5.1 liest eine UTF-8-Datei OHNE BOM
+# sonst als ANSI. Verifiziert am 2026-08-10 an dieser Datei - jeder Gedankenstrich in
+# ITERATION.md kam als "â€”" beim Modell an, und jeder Umlaut wuerde es genauso. Damit
+# war die Datei stillschweigend auf ASCII festgelegt, ohne dass das irgendwo stand.
+$promptText = Get-Content $Prompt -Raw -Encoding UTF8
 # Muss ein abgebrochener Lauf am selben Abend fortgesetzt werden (geaenderte
 # Parameter, Rechnerneustart), zaehlt -StartAt weiter statt wieder bei 1 zu
 # beginnen. Sonst ueberschreibt der zweite Lauf die iter-NNN.json des ersten und
@@ -257,8 +262,47 @@ $CtxTemplate = @'
 - Startzeit dieser Iteration: **{1}**.
 
 Beides gehoert unveraendert in die Kopfzeile deines Journal-Eintrags (Form siehe Schritt 6 oben).
-Leite die Nummer nicht aus dem Journal ab und schaetze die Uhrzeit nicht.
+Leite die Nummer nicht aus dem Journal ab und schaetze die Uhrzeit nicht. Der Zeitstempel ist ein
+Pflichtwert: uebernimm exakt die Zeichenkette oben. Ersatzangaben wie "(Lauf 8)" oder
+"(siehe Commit-Zeit)" sind ein Fehler - der Treiber prueft die Ueberschrift danach und meldet
+eine Abweichung.
 '@
+
+# --- Startsperre (optional) --------------------------------------------------
+# Damit der Lauf abends im Voraus angeworfen werden kann, ohne dass jemand zur
+# Startzeit am Rechner sitzt. BEWUSST NICHT ueber -PauseFrom geloest: es gibt nur
+# EIN Pausenfenster, und das wird fuer die Sperrzeit MITTEN im Lauf gebraucht.
+#
+# Die Vorflug-Checks (Guard-Test, Branch) sind oben schon gelaufen - ein kaputtes
+# Setup faellt also sofort auf und nicht erst Stunden spaeter. Waehrend des
+# Wartens gilt die Schlafsperre bereits, und die STOP-Datei wirkt im
+# Minutentakt.
+if ($StartNotBefore -ne "") {
+    $startPoint = [DateTime]::ParseExact($StartNotBefore, "HH:mm", $null)
+    if ($startPoint -le (Get-Date)) { $startPoint = $startPoint.AddDays(1) }
+    if ($startPoint -ge $Deadline) {
+        Write-Line "ABBRUCH: -StartNotBefore liegt auf oder hinter der Deadline - es bliebe keine Arbeitszeit." "Red"
+        exit 1
+    }
+    if ($startPoint -ge $PauseStart) {
+        Write-Line "ABBRUCH: -StartNotBefore liegt hinter dem Pausenbeginn - das Fenster waere sinnlos." "Red"
+        exit 1
+    }
+    if ($DryRun) {
+        Write-Line ("DryRun: wuerde bis {0} warten." -f $startPoint.ToString("yyyy-MM-dd HH:mm")) "Yellow"
+    } else {
+        Write-Line ("Warte bis {0} - erste Iteration startet dann." -f $startPoint.ToString("yyyy-MM-dd HH:mm")) "Cyan"
+        while (((Get-Date) -lt $startPoint) -and (-not (Test-Path $StopFile))) {
+            Start-Sleep -Seconds 60
+        }
+        if (Test-Path $StopFile) {
+            Write-Line "STOP-Datei waehrend der Wartezeit gefunden - Lauf beendet." "Yellow"
+            [Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS) | Out-Null
+            exit 0
+        }
+        Write-Line "Wartezeit vorbei." "Green"
+    }
+}
 
 Write-Line "Start. MaxIterations=$MaxIterations BudgetUsd=$BudgetUsd Effort=$Effort" "Green"
 
@@ -295,11 +339,15 @@ while ($i -lt $MaxIterations) {
 
     Write-Line "--- Iteration $i / $MaxIterations  (Modell: $model, offen: $open) ---" "Cyan"
 
-    $iterPrompt = $promptText + ($CtxTemplate -f $i, (Get-Date -Format "yyyy-MM-dd HH:mm"))
+    # Zeitstempel EINMAL bilden: er geht in den Prompt und wird nach der Iteration
+    # gegen die geschriebene Journal-Ueberschrift geprueft (Drift-Warnung unten). Ein
+    # zweites Get-Date waere um Minuten versetzt und der Vergleich damit wertlos.
+    $stamp      = Get-Date -Format "yyyy-MM-dd HH:mm"
+    $iterPrompt = $promptText + ($CtxTemplate -f $i, $stamp)
 
     if ($DryRun) {
         Write-Line "DryRun: wuerde starten mit Modell $model, Log $logFile" "Yellow"
-        Write-Line "DryRun: Laufkontext waere Iteration $i, Startzeit $(Get-Date -Format 'yyyy-MM-dd HH:mm')" "Yellow"
+        Write-Line "DryRun: Laufkontext waere Iteration $i, Startzeit $stamp" "Yellow"
         break
     }
 
@@ -409,11 +457,27 @@ while ($i -lt $MaxIterations) {
     # einsortiert (JOURNAL.md fuehrt "Iteration 37" vor "Iteration 36"), worauf
     # `Select-Object -Last 1` zwei Iterationen lang dieselbe Zeile meldete und
     # der Fortschritt stillzustehen schien.
+    #
+    # Zusaetzlich seit Lauf 8: Drift-Warnung. In Lauf 7 lief der Treiber-Zaehler auf 71,
+    # das Journal auf 72 - die iter-NNN.json sind seitdem nicht mehr 1:1 auf die
+    # Journal-Nummern abbildbar. Und 32 von 72 Ueberschriften trugen "(Lauf 7)" statt der
+    # Uhrzeit, die hier jedes Mal mitgeliefert wurde. Beides bricht den Lauf NICHT ab -
+    # es soll nur morgens im run.log stehen, statt erst bei der Retrospektive aufzufallen.
     if (Test-Path $Journal) {
-        $heads = Select-String -Path $Journal -Pattern '^## Iteration\s+(\d+)'
+        $heads = Select-String -Path $Journal -Pattern '^## Iteration\s+(\d+)' -Encoding UTF8
         if ($heads) {
             $newest = $heads | Sort-Object { [int]$_.Matches[0].Groups[1].Value } | Select-Object -Last 1
             Write-Line ("  " + $newest.Line) "DarkGray"
+
+            $newestNum = [int]$newest.Matches[0].Groups[1].Value
+            if ($newestNum -ne $i) {
+                Write-Line "  DRIFT: hoechste Journal-Nummer ist $newestNum, Treiber-Iteration ist $i." "Yellow"
+            }
+            if ($newest.Line -notmatch [regex]::Escape($stamp)) {
+                Write-Line "  DRIFT: Ueberschrift traegt nicht den gelieferten Zeitstempel '$stamp'." "Yellow"
+            }
+        } else {
+            Write-Line "  DRIFT: keine '## Iteration'-Ueberschrift im Journal - die Iteration hat nichts protokolliert." "Yellow"
         }
     }
 

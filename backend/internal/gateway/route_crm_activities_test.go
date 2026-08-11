@@ -514,11 +514,11 @@ func TestHandleDeleteSavedFilter_InvalidUUID(t *testing.T) {
 
 // ============================================================================
 // Reports — HandleGetPipelineReport / HandleGetConversionReport /
-// HandleGetActivityReport. All three only check that start_date/end_date are
-// non-empty; there is no local date-format parsing (see the finding recorded
-// in JOURNAL.md), so a syntactically invalid date is not rejected here —
-// it is forwarded to the gRPC call like any other string. The tests below
-// prove the required-fields check and that a garbage date does not panic.
+// HandleGetActivityReport. All three check that start_date/end_date are
+// non-empty AND that both parse via validateDateParam (helpers.go) before
+// the gRPC call is reached — a syntactically invalid date never leaves the
+// gateway. See JOURNAL.md for the finding that this used to fall through to
+// the RPC unchecked.
 // ============================================================================
 
 func TestHandleGetPipelineReport_MissingDates(t *testing.T) {
@@ -540,10 +540,19 @@ func TestHandleGetPipelineReport_MissingDates(t *testing.T) {
 	}
 }
 
-func TestHandleGetPipelineReport_MalformedDateNoPanic(t *testing.T) {
+func TestHandleGetPipelineReport_MalformedDateRejected(t *testing.T) {
 	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/pipeline?start_date=not-a-date&end_date=also-not-a-date&owner_id="+activityTestID, nil)
+	routes.HandleGetPipelineReport(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "start_date must be YYYY-MM-DD or RFC3339")
+}
+
+func TestHandleGetPipelineReport_ValidDatesReachClient(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/pipeline?start_date=2026-01-01&end_date=2026-01-31T00:00:00Z", nil)
 	routes.HandleGetPipelineReport(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
@@ -557,12 +566,13 @@ func TestHandleGetConversionReport_MissingDates(t *testing.T) {
 	assertErrorContains(t, rec, "start_date and end_date are required")
 }
 
-func TestHandleGetConversionReport_MalformedDateNoPanic(t *testing.T) {
+func TestHandleGetConversionReport_MalformedDateRejected(t *testing.T) {
 	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/conversion?start_date=banana&end_date=banana", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/conversion?start_date=2026-01-01&end_date=gestern", nil)
 	routes.HandleGetConversionReport(rec, req)
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "end_date must be YYYY-MM-DD or RFC3339")
 }
 
 func TestHandleGetActivityReport_MissingDates(t *testing.T) {
@@ -574,10 +584,19 @@ func TestHandleGetActivityReport_MissingDates(t *testing.T) {
 	assertErrorContains(t, rec, "start_date and end_date are required")
 }
 
-func TestHandleGetActivityReport_MalformedDateNoPanic(t *testing.T) {
+func TestHandleGetActivityReport_MalformedDateRejected(t *testing.T) {
 	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/activities?start_date=banana&end_date=banana&user_id="+activityTestID, nil)
+	routes.HandleGetActivityReport(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "start_date must be YYYY-MM-DD or RFC3339")
+}
+
+func TestHandleGetActivityReport_ValidDatesReachClient(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/activities?start_date=2026-01-01&end_date=2026-01-31&user_id="+activityTestID, nil)
 	routes.HandleGetActivityReport(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }

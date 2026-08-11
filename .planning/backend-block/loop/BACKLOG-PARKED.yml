@@ -1,0 +1,378 @@
+# Backend-Nachtloop — geparkte und gestrichene Units
+#
+# Diese Datei liest der Treiber NICHT. Sie ist das Gegenstück zu `BACKLOG.yml`: hier liegt,
+# was der Loop strukturell nicht bearbeiten kann oder was bewusst aus dem Scope fällt.
+#
+# Anlass: nach Lauf 7 lagen neun Units auf `status: blocked` — teils seit drei Läufen. Der Loop
+# las sie jede Iteration mit, übersprang sie und verfälschte damit den Backlog-Stand. In der
+# Entscheidungsrunde am 2026-08-10 wurden alle neun aufgelöst: zwei wurden zu Lauf-8-Units
+# (`fix-einkauf-contract-call-cap`, `hr-salary-*`), vier sind hier geparkt, zwei gestrichen.
+# Dazu zwei Nebenbefunde, die bei der Verifikation aus dem Code gefallen sind.
+#
+# status: parked   — die Arbeit bleibt gültig, gehört aber woanders hin (siehe `target`)
+# status: dropped  — bewusst aus dem Scope genommen, mit Begründung
+#
+# Jeder Eintrag trägt `decided`, `decision` und `target`. Eine Unit ohne diese drei Felder
+# gehört nicht in diese Datei, sondern zurück in die Entscheidungsrunde.
+#
+# Historie der Units selbst: `archive/lauf-7/BACKLOG.yml` (unveränderte Kopie mit den
+# ursprünglichen `blocked_reason`-Texten).
+
+units:
+
+  # ==========================================================================================
+  # GEPARKT — Frontend-Arbeit
+  # ==========================================================================================
+
+  - id: fe-salary-statements-endpoint
+    service: desktop
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      Reiner Frontend-Fix, Backend-Anteil ist erledigt. Der Loop hat in Lauf 8
+      (`hr-salary-self-service-route`) `GET /api/v1/hr/employees/me/documents` gebaut
+      (`backend/internal/gateway/route_hr.go`, `HandleListOwnDocuments`, Spec-Eintrag in
+      `backend/api/openapi.yaml`). Damit steht die Selbstzugriffs-Route bereit, die das FE
+      heute nur als MSW-Mock kennt.
+    scope: >
+      `desktop/src/renderer/src/modules/team/SelfServiceView.tsx:130-141` ruft
+      `GET /api/v1/hr/employees/me/salary-statements` und erwartet
+      `{ statements: SalaryStatement[] }`. Diesen Pfad gibt es im Backend nicht und wird es
+      auch nicht geben — Cosmi rechnet kein Brutto/Netto (Entscheidung Luke, 2026-08-10),
+      Gehaltsabrechnungen sind PDFs in der Personalakte. Umzustellen auf
+      `GET /api/v1/hr/employees/me/documents?category=gehaltsabrechnung`, Antwort
+      `{ documents: EmployeeDocument[] }`.
+    notes: >
+      Der FE-Typ `SalaryStatement` (Brutto/Netto/Zeitraum) hat im Backend keine Entsprechung
+      und muss durch die Dokument-Felder ersetzt werden: `title`, `file_name`, `file_size`,
+      `created_at`, `file_id` (zum Download), `category_key`. Die Kategorie
+      `gehaltsabrechnung` legt Migration 000310 als System-Kategorie mit
+      `visibility='employee'` an; RLS-Policy `hr_document_access` sorgt dafuer, dass ein
+      Mitarbeiter nur seine eigene sieht. `TIME_ACCOUNTS` in derselben Datei (Zeile 103-108)
+      ist weiterhin hartkodiert und braucht eine eigene Entscheidung — nicht Teil dieses Fixes.
+    target: >
+      Frontend-Session, `.planning/nico-block/`.
+
+  - id: fe-helpdesk-ticket-number
+    service: desktop
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      Reiner Frontend-Fix, kein Backend-Anteil. Verifiziert am 2026-08-10: das Backend liefert
+      `ticket_number` als Pflichtfeld auf jeder Ticket-Response
+      (`backend/internal/helpdesk/models.go:118`, gesetzt in
+      `postgres_repository.go:44,67,75,143,488,520,1294` aus der per-Tenant-Sequenz
+      `helpdesk_ticket_counters`, Migration 000236). Dokumentiert in
+      `backend/api/openapi.yaml:14329,14387,14545`, gRPC-Mapping in
+      `backend/internal/server/helpdesk_grpc.go:435,1196`. Es fehlt ausschließlich auf der
+      FE-Seite.
+    scope: >
+      `desktop/src/renderer/src/api/helpdesk-types.ts:24-60` kennt das Feld `ticket_number`
+      nicht; `helpdesk-adapters.ts:124-146` baut stattdessen eine Pseudonummer (Zeile 131
+      `parseInt(t.id, 16)`, Zeile 132 Regex auf Trailing-Digits, Zeile 142-144
+      FNV-1a-Hash-Fallback, Ergebnis Zeile 146). Der Nutzer sieht damit eine andere Nummer als
+      die im Backend und in der CSAT-Mail.
+    notes: >
+      Fix betrifft genau zwei Dateien, kein Fan-out: `ticketNr` wird nur an dieser einen Stelle
+      berechnet, alle Verbraucher (`HelpdeskPage.tsx`, `stores/helpdesk.ts`,
+      `dashboard/widgets/OpenTickets.tsx`, `stores/kommunikation.ts`) lesen nur das fertige
+      `DisplayTicket.ticketNr`. MITZUENTSCHEIDEN: Backend und CSAT-Mail formatieren
+      `Ticket #%d` (`helpdesk/csat_dispatch.go:288,291,296`), das FE zeigt `HD-YYYY-XXXX`. Auch
+      nach dem Fix bleibt eine Darstellungsentscheidung offen — beide Seiten müssen dieselbe
+      Zeichenkette zeigen, sonst ist der Fix halb.
+    target: >
+      Frontend-Session, `.planning/nico-block/`.
+
+  - id: g-admin-billing
+    service: desktop
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      ÜBERHOLT gegenüber der ursprünglichen `blocked_reason`: das Backend ist inzwischen
+      fertig, es fehlt nur die FE-Verdrahtung. Verifiziert am 2026-08-10 —
+      `GET /api/v1/admin/subscription` (Route `backend/internal/gateway/route_settings.go:88-91`,
+      Handler `:994-1029`, Schema `TenantSubscription` in `openapi.yaml:31354-31373`) liefert
+      `planType`, `supportTier`, `status`, `billingPeriodEnd`, `totalSeats` und deckt damit die
+      hartkodierte `useTenant()`-Struktur in
+      `desktop/src/renderer/src/api/hooks/useBilling.ts:73-97` Feld für Feld ab. Von der
+      Desktop-App wird die Route nirgends aufgerufen (0 Treffer für `admin/subscription` in
+      `desktop/src`). Damit ist das keine Produktfrage mehr, sondern eine Frontend-Aufgabe.
+    scope: >
+      `useBilling.ts` von Mock plus `localStorage` (Zeilen 1-4 Doku "Kein Backend-Call",
+      19-24 Mock-Importe, 40-69 und 237-267 localStorage) auf die bestehenden Endpunkte
+      umstellen.
+    sources:
+      - backend/internal/gateway/route_settings.go   # :88-91 subscription, :74-76 module-grants, :82-85 license
+      - desktop/src/renderer/src/api/hooks/useBilling.ts
+      - desktop/src/renderer/src/api/hooks/useTenantModules.ts
+    notes: >
+      Drei nutzbare Endpunkte, alle in `openapi.yaml` dokumentiert:
+      `GET /api/v1/admin/subscription` (s. o.),
+      `GET /api/v1/tenant/module-grants` (`route_settings.go:74-76`, Handler `:291-323`,
+      Schema `SettingsModuleGrant` mit `userId/userName/moduleId/grantedAt/lastActiveAt` —
+      exaktes Feld-Match zu `UserModuleGrant` in `desktop/src/renderer/src/lib/pricing.ts:175-181`)
+      und `GET /api/v1/admin/license` (`:82-85`, Handler `:907ff`, Schema `TenantModule`), der
+      über `useTenantModules.ts:11-22` bereits real angebunden ist, nur nicht in `useBilling.ts`.
+      NICHT abgedeckt bleibt allein die Rechnungshistorie: es gibt kein SaaS-Billing-Datenmodell
+      (`tenants` trägt nur `plan_type`, `support_tier`, `subscription_status`,
+      `billing_period_end` aus Migration 000250:20-23, dazu `tenant_module_activations` :44-53)
+      und kein Payment-Gateway. `internal/biz/invoice` und `internal/biz/payment` sind das
+      Finanzmodul für die Rechnungen DER Tenants an deren Kunden — andere Domäne, nicht
+      wiederverwendbar.
+    target: >
+      Frontend-Session. Die Rechnungshistorie wartet auf die Payment-Gateway-Entscheidung und
+      bleibt bis dahin ausgeblendet statt gemockt.
+
+  # ==========================================================================================
+  # GEPARKT — Projekt "Public Web Surface"
+  #
+  # Drei Einträge, ein Problem: es gibt keine öffentliche Weboberfläche. Sie werden bewusst
+  # gebündelt, weil sie dieselbe Lösung teilen und einzeln jeweils halb wären.
+  #
+  # NEU UND WICHTIG (2026-08-10): das Hosting-Muster existiert bereits im Repo. Der Gateway
+  # serviert statische Dateien unter `/guest/*`, wenn `guest-chat/dist` vorliegt
+  # (`backend/cmd/gateway/main.go:405-417`), und der Caddyfile reicht `app.zentria.tech`
+  # ohnehin vollständig an `gateway:8080` durch (`deploy/docker/Caddyfile:1-21`, Ausnahme nur
+  # `/rtc*`). Die Infrastrukturfrage ist damit beantwortet — offen sind Design, i18n, Consent
+  # und ein Build-Schritt im Gateway-Image.
+  # ==========================================================================================
+
+  - id: g-csat-public-surface
+    service: helpdesk
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      CSAT bleibt STILLGELEGT, bis die öffentliche Oberfläche existiert. Der Default steht
+      seit `f855272f` auf `false` (`backend/internal/helpdesk/csat_config.go:56-60`) und ist per
+      `TestDefaultCsatConfig_IsOptIn` (`csat_config_test.go:21-25`) festgenagelt — es ist also
+      nichts zu bauen, sondern etwas ausdrücklich NICHT zu tun. Kein SMTP-Passthrough, kein
+      Scharfschalten. Der Passthrough allein wäre schädlich: dann gingen Umfragen mit totem
+      Link an echte Empfänger.
+    scope: >
+      CSAT vom Token bis zur abgegebenen Bewertung nutzbar machen: öffentliche Seite hinter
+      `CSAT_SURVEY_BASE_URL`, SMTP-Passthrough für `helpdesk`, Config-Route für den
+      Tenant-Toggle, danach erst `Enabled` erwägen.
+    notes: >
+      Alle vier Teilaussagen am 2026-08-10 einzeln gegen den Code geprüft, alle gelten:
+      (1) `SYSTEM_SMTP_*` geht in `deploy/docker/docker-compose.yml` nur an `auth` (Z. 118-122),
+          `biz` (Z. 437-441) und `berichte` (Z. 615-619). Der `helpdesk`-Block (Z. 572-596)
+          hat keine SMTP-Zeile, `docker-compose.prod.yml` ergänzt keine. Folge:
+          `backend/cmd/helpdesk/main.go:121-139` — `systemSender.Configured()` (Z. 128) gated
+          `go dispatcher.Run(ctx)` (Z. 135), es greift immer der Warn-Zweig Z. 137-138
+          "system SMTP not configured — CSAT survey invitations are issued but not sent".
+      (2) `CsatSurveyBaseURL` Default `https://app.zentria.tech/csat`
+          (`backend/internal/config/config.go:209`), nirgends im Compose überschrieben.
+          Link-Bau `csat_dispatch.go:323-325` = baseURL + "/" + Token. Der Gateway hat auf
+          bloszem `/csat/{token}` keine Route — die einzige CSAT-Route ist
+          `POST /api/v1/public/helpdesk/csat/{token}` (`route_helpdesk.go:144`).
+      (3) Empfänger ist `COALESCE(NULLIF(t.requester_email,''), req.email)`
+          (`helpdesk/postgres_repository.go:521`) — also auch Mitarbeiteradressen.
+      (4) Kein Fernzugriff auf die CSAT-Config. PRÄZISIERUNG zur alten Notiz: `GetCsatConfig`
+          und `SetCsatConfig` (`server/helpdesk_grpc.go:57,74`) sind KEINE gRPC-RPCs — das
+          Proto (`backend/proto/helpdesk/v1/helpdesk.proto`) kennt nur `SubmitCsat` (Z. 30) und
+          `SubmitCsatByToken` (Z. 38). Es sind reine Go-Methoden ohne Wire-Anbindung. Der
+          Desktop-Toggle in `HelpdeskSettingsPanel.tsx:83-108` schreibt nur in
+          `stores/helpdesk.ts:670` (Zustand-Persist), nie ans Backend. Ein Tenant kann CSAT
+          heute weder ein- noch ausschalten.
+    target: >
+      Projekt "Public Web Surface", gemeinsam mit `g-public-token-landing-pages` und
+      `deploy-guest-chat-spa-never-built`. Erst danach SMTP-Passthrough und `Enabled`.
+
+  - id: g-public-token-landing-pages
+    service: gateway
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      Bleibt ein eigenes Projekt, aber die Begründung ist zu präzisieren: nicht "Cosmi ist
+      eine Electron-App, also unmöglich", sondern "das Muster existiert, es ist nur für diese
+      sieben Routen nicht gebaut". Siehe Block-Kopf.
+    scope: >
+      Öffentliche Weboberfläche, in der ein Empfänger die Public-Token-Routen einlöst.
+    notes: >
+      Genau sieben Registrare, alle am 2026-08-10 verifiziert
+      (`backend/cmd/gateway/main.go:359,365,370,376,382,389,395`):
+        1. `GET /api/v1/public/booking-pages/{slug}` + `/availability` + `POST /public/bookings`
+           — `route_booking.go:77-81`
+        2. `POST /api/v1/public/berichte/reports/{token}`   — `route_berichte.go:151`
+        3. `POST /api/v1/public/documents/share/{token}`    — `route_document.go:204`
+        4. `POST /api/v1/public/automations/webhooks/{id}`  — `route_automation.go:123`
+        5. `POST /api/v1/public/helpdesk/csat/{token}`      — `route_helpdesk.go:144`
+        6. `POST /api/v1/public/formulare/submit/{token}`   — `route_formulare.go:156`
+        7. `POST /api/v1/public/wiki/articles/{token}`      — `route_wiki.go:135`
+      Sicherheitsseitig sind sie dicht: registriert mit `publicRateLimiter.Middleware` statt
+      `authWithIdempotency` (`main.go:356-395`), eigener Redis-Präfix `ratelimit:public`
+      (`main.go:166`), `PUBLIC_RATE_LIMIT_RPS` Default 10 (`config.go:74`), schmaler Wire-Typ,
+      einheitliches 404 für jede Ablehnung. Nicht mitgezählt: `route_guest.go:45-53`
+      (Chat-Gast, sessionbasiert statt Token-in-URL).
+      Base-URL-Env-Vars existieren nur für `PASSWORD_RESET_BASE_URL` (`config.go:204`) und
+      `CSAT_SURVEY_BASE_URL` (`config.go:209`) — für Berichte, Dokument, Formular und Wiki
+      gibt es keine, deren Links entstehen anderswo. Das gehört beim Projektzuschnitt geklärt.
+    target: >
+      Projekt "Public Web Surface".
+
+  - id: deploy-guest-chat-spa-never-built
+    service: deploy
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      NEUER BEFUND aus der Verifikationsrunde, keine Alt-Unit. Der Guest-Chat ist auf
+      Production tot: `guest-chat/` liegt als Vite-SPA im Repo (`index.html`, `package.json`,
+      `src/`, `vite.config.ts`), und `backend/cmd/gateway/main.go:405-417` serviert sie unter
+      `/guest/*`, sobald `guest-chat/dist` existiert. `backend/Dockerfile.gateway` baut sie aber
+      nie mit (0 Treffer für `guest`), also greift im Container immer der Else-Zweig Z. 416
+      `guest chat SPA not found, /guest/* disabled`. Kein Loop-Ticket — der Loop fasst
+      Deploy-Dateien nicht an.
+    scope: >
+      Build-Stage für `guest-chat` in `Dockerfile.gateway`, Ergebnis nach `guest-chat/dist`
+      ins Gateway-Image.
+    notes: >
+      Doppelt nützlich: derselbe Build-Schritt ist der Trittstein für die Public Web Surface —
+      das Muster "Gateway serviert eine statische SPA unter einem Präfix" wäre damit einmal
+      real durchgezogen statt nur angelegt.
+    target: >
+      Projekt "Public Web Surface" bzw. eine Deploy-Session. Vor dem Launch prüfen, ob der
+      Guest-Chat überhaupt im Scope ist — sonst ersatzlos ausbauen statt reparieren.
+
+  # ==========================================================================================
+  # GEPARKT — braucht eine bewusste Freigabe
+  # ==========================================================================================
+
+  - id: g-decode-disallow-unknown-fields
+    service: gateway
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      Bleibt eine repo-weite Entscheidung mit Breaking-Potenzial und gehört nicht in eine
+      Nachtlauf-Iteration. Der Blast Radius ist jetzt beziffert statt geschätzt (2026-08-10):
+      `decodeAndValidate` (`backend/internal/gateway/helpers.go:174-189`, Decode ohne
+      `DisallowUnknownFields` in Z. 176) hat 437 Call-Sites in 64 `route_*.go`-Dateien
+      (Spannweite 1-25 pro Datei, z. B. `route_auth.go` 25, `route_hr.go` 21). Repo-weit gibt es
+      0 Treffer für `DisallowUnknownFields`.
+    scope: >
+      `decodeAndValidate` auf `DisallowUnknownFields` umstellen.
+    notes: >
+      ZWEI Dinge, die vor einer Freigabe auf dem Tisch liegen müssen:
+      (1) Ein Umbau NUR am Helfer wäre unvollständig. Rund 30 weitere Decode-Stellen umgehen
+          ihn: `route_email.go` (14 Stellen, u. a. 270, 330, 390, 452, 841…1597),
+          `route_plugin.go` (7: 141, 233, 395, 467, 489, 557, 579), `route_automation.go`
+          (279, 578), `route_notification.go` (260, 299), `route_inbox.go:1310`,
+          `route_settings.go:961`.
+      (2) Entlastend: kein FE-Aufrufer sendet nachweislich unbekannte Felder. Der einzige
+          Spread-Verdachtsfall `useContactTags.ts:93`
+          (`JSON.stringify({ ...body, entity_type: 'contact' })`) bekommt von seinem einzigen
+          Aufrufer `TagManager.tsx:34-35` ein eng typisiertes Literal `{name, color}`. Die
+          übrigen `...data`-Fundstellen (`useAutomation.ts:144-148`, `useInbox.ts:364-365`,
+          `useIntegration.ts:190-195`, `TeamInboxSettings.tsx:74-83`) sind gegen enge
+          Request-Typen destrukturiert. Kein Full-State-Spread gefunden.
+      Kein Test nagelt das heutige Verhalten fest (0 Treffer für "unknown field" in
+      `backend/internal/gateway`) — eine Umstellung fällt also nicht durch ein Gate auf, sondern
+      erst beim Client.
+    target: >
+      Eigene Session nach ausdrücklicher Freigabe durch Luke. Reihenfolge dort: erst die ~30
+      Umgehungen auf den Helfer ziehen, dann einen Test schreiben, der das Alt-Verhalten
+      festnagelt, dann umstellen.
+
+  # ==========================================================================================
+  # GESTRICHEN
+  # ==========================================================================================
+
+  - id: a-inbox-sla
+    service: inbox
+    status: dropped
+    decided: 2026-08-10
+    decision: >
+      Aus dem Scope genommen. Ausschlaggebend war nicht die Backend-Lücke, sondern dass auch
+      das Frontend nichts davon verlangt: `desktop/src/renderer/src/**/inbox/**` hat 0 Treffer
+      für `sla|overdue|überfällig`. Es gibt also weder eine Anzeige noch einen Filter, den
+      eine Frist bedienen würde — die Unit hätte Datenmodell und Semantik erfunden, die
+      niemand abruft.
+    scope: >
+      SLA-Verfolgung im Posteingang: Reaktions- und Lösungsfrist je Nachricht, Filter auf
+      überfällige Vorgänge.
+    notes: >
+      Befundlage am 2026-08-10: `sla_policies` existiert (Migration
+      `000077_create_helpdesk.up.sql:4-13`, Spalten `id, tenant_id, name, first_response_mins,
+      resolution_mins, business_hours, created_at, updated_at`), hängt aber ausschließlich an
+      `ticket_queues.sla_policy_id` (Z. 20) und wird nur von `internal/helpdesk` gelesen
+      (`sla.go`, `service.go`, `models.go`, `repository.go`, `postgres_repository.go`).
+      `sla_policies` taucht in genau vier Migrationsdateien auf: 000077 (Create + Down) und
+      000122 (`CALL enable_tenant_rls('sla_policies')` + Down, Z. 111) — keine davon fügt eine
+      Verknüpfung zu `team_inboxes` hinzu. Die Inbox-Migrationen (000047, 000110, 000124)
+      legen keine `sla_policy_id`-Spalte an. `backend/internal/inbox/**` hat 0 Treffer für
+      `sla|due_at|first_response|resolution`.
+      WENN ES ZURÜCKKOMMT: eine EIGENE Inbox-Policy-Tabelle mit Zuordnung pro `team_inbox` ist
+      der saubere Weg. `team_inboxes.sla_policy_id` auf Helpdesks Tabelle zu zeigen wäre zwar
+      billiger, koppelt aber zwei bisher unabhängige Bounded Contexts dauerhaft.
+
+  - id: fe-projects-guest-overview
+    service: work
+    status: dropped
+    decided: 2026-08-10
+    decision: >
+      Aus dem Scope genommen bis nach dem Launch. Die Unit hängt an derselben fehlenden
+      öffentlichen Oberfläche wie CSAT und die sieben Public-Token-Routen, PLUS an zwei neuen
+      Datenmodellen, PLUS an einem Projekt-Gastzugang, den es nicht gibt. Drei ungelöste
+      Voraussetzungen für eine Ansichtsseite ist kein Zuschnitt, den man vor dem 01.09. angeht.
+    scope: >
+      Gast-Projektübersicht mit Meilensteinen und Status-Updates.
+    notes: >
+      Am 2026-08-10 verifiziert, und die Lage ist schlechter als die alte `blocked_reason`
+      sagte:
+      - Kein Meilenstein-/Status-Update-Modell. 0 Treffer für
+        `milestone|meilenstein|status_update|project_update` in `backend/migrations/**`,
+        `backend/internal/work/**`, `backend/internal/models/**`.
+      - AUCH DER "ECHTE" TEIL DER SEITE BRICHT: `GuestProjectView.tsx:52-58` liest
+        `project.completed_task_count`, `project.start_date` und `project.end_date`. Keines
+        existiert. `models/project.go:24-45` kennt weder Start- noch Enddatum, und
+        `ProjectWithDetails` trägt nur `MemberCount`, `TaskCount`, `OwnerName`
+        (`work/project/postgres_repository.go:54-55` berechnet die beiden per Subquery);
+        `completed_task_count` kommt im Backend nirgends vor. Migration
+        `000024_create_projects.up.sql:8-20` hat kein `start_date`/`end_date`.
+      - Kein Projekt-Gastzugang. `backend/internal/gateway/route_guest.go:43-56` ist
+        ausschließlich Chat-Gast (`/api/v1/guest/sessions`, `X-Guest-Token`, Kanal-Nachrichten);
+        für Projekte gibt es kein `public_token`- oder Share-Konzept.
+      - Der FE-Mock ist reine Fiktion: `GuestProjectView.tsx:1-8` sagt es selbst
+        ("Mock data for design — backend swap"), `mocks/handlers/work.ts:1087-1128` generiert
+        Meilensteine und Status-Updates synthetisch aus einem Titel-Array mit
+        Datumsinterpolation. Erwartete Formen: `GuestMilestone{id,title,dueDate,status,progress}`
+        und `GuestStatusUpdate{id,date,author,text,type}`
+        (`api/hooks/useProjects.ts:41-54`, Aufruf `:536-545` gegen
+        `GET /api/v1/projects/{id}/guest-overview` — 0 Treffer im Backend).
+      FRONTEND-FOLGEARBEIT: `GuestProjectView.tsx`, den MSW-Handler und
+      `useProjectGuestOverview` im Zuge der Streichung entfernen, damit kein totes Mock-UI
+      stehen bleibt.
+      FALLS ES ZURÜCKKOMMT: der billigste Zuschnitt ist eine INTERNE Projektübersicht ohne
+      Gast — `start_date`/`end_date`/`completed_task_count` ans Projektmodell, Rest aus echten
+      `tasks`-Daten, Meilensteine entfallen, "Status-Updates" aus Task-Abschlüssen abgeleitet.
+
+  # ==========================================================================================
+  # NUR ZUR NACHVERFOLGUNG — kein Ticket, aber nicht vergessen
+  # ==========================================================================================
+
+  - id: check-password-reset-link-target
+    service: auth
+    status: parked
+    decided: 2026-08-10
+    decision: >
+      NEUER BEFUND aus der Verifikationsrunde. Zu PRÜFEN, nicht zu bauen — und vor dem Launch,
+      weil ein toter Reset-Link Nutzer aussperrt.
+    scope: >
+      Klären, wohin der Passwort-Reset-Link tatsächlich führt.
+    notes: >
+      `PASSWORD_RESET_BASE_URL` hat zwei verschiedene Defaults:
+      `https://app.zentria.tech/reset-password` (`backend/internal/config/config.go:204`) und
+      `https://zentria.tech/reset-password` (`deploy/docker/docker-compose.yml:123`,
+      ebenso `deploy/docker/PRODUCTION_TEMPLATE:49`); die Ansible-Vorlage
+      (`deploy/ansible/roles/secrets/templates/env.production.j2:46`) baut ihn aus
+      `pilot_domain`. Gesetzt wird er in `backend/cmd/auth/main.go:69`.
+      Das Problem: der Gateway hat nur `POST /api/v1/auth/reset-password`
+      (`route_auth.go:69`), keine HTML-Seite, und `app.zentria.tech` proxyt komplett auf
+      `gateway:8080`. Die Reset-Oberfläche liegt in der Electron-App
+      (`desktop/src/renderer/src/modules/auth/ResetPasswordPage.tsx`, Routing in `App.tsx`) —
+      die ein `https://`-Link aus einer Mail nicht öffnet.
+      DREI SCHRITTE: (1) welcher Wert steht real in `/opt/kmuhub/.env.production`?
+      (2) hat die Astro-Website (`zentria-website`) eine `/reset-password`-Seite, die den Token
+      entgegennimmt? (3) falls nein: entweder dort eine bauen oder den Link auf die Public Web
+      Surface ziehen.
+    target: >
+      Luke, vor dem Launch. Gehört fachlich in denselben Topf wie die Public Web Surface.

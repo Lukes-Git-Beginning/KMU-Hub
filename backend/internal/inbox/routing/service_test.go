@@ -21,12 +21,14 @@ type mockRoutingRepository struct {
 	mu    sync.RWMutex
 	rules map[uuid.UUID]*models.RoutingRule
 
-	createErr   error
-	updateErr   error
-	deleteErr   error
-	getByIDErr  error
+	createErr     error
+	updateErr     error
+	deleteErr     error
+	getByIDErr    error
 	listActiveErr error
-	listAllErr  error
+	listAllErr    error
+
+	listActiveCalls int
 }
 
 func newMockRoutingRepository() *mockRoutingRepository {
@@ -85,6 +87,9 @@ func (m *mockRoutingRepository) GetByID(_ context.Context, _, id uuid.UUID) (*mo
 }
 
 func (m *mockRoutingRepository) ListActive(_ context.Context, _ uuid.UUID, _ *string) ([]*models.RoutingRule, error) {
+	m.mu.Lock()
+	m.listActiveCalls++
+	m.mu.Unlock()
 	if m.listActiveErr != nil {
 		return nil, m.listActiveErr
 	}
@@ -409,4 +414,254 @@ func TestListAll_TenantIsolation(t *testing.T) {
 	require.NoError(t, err)
 	// Same mock returns same result; verifies tenantID propagates without error.
 	assert.Len(t, rulesB, 1)
+}
+
+// ============================================================================
+// executeActions
+// ============================================================================
+
+func newRoutableMessage() *models.InboxMessage {
+	return &models.InboxMessage{
+		ID:      uuid.New(),
+		Channel: "email",
+		Subject: "Test",
+		Tags:    []string{},
+	}
+}
+
+func TestExecuteActions_RouteToTeam_Success(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	teamID := uuid.New()
+	msg := newRoutableMessage()
+	actions := []models.Action{
+		{Type: "route_to_team", Config: json.RawMessage(`{"team_inbox_id":"` + teamID.String() + `"}`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.NoError(t, err)
+	require.NotNil(t, msg.TeamInboxID)
+	assert.Equal(t, teamID, *msg.TeamInboxID)
+}
+
+func TestExecuteActions_RouteToTeam_InvalidTeamID(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	msg := newRoutableMessage()
+	actions := []models.Action{
+		{Type: "route_to_team", Config: json.RawMessage(`{"team_inbox_id":"not-a-uuid"}`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid team_inbox_id")
+	assert.Nil(t, msg.TeamInboxID)
+}
+
+func TestExecuteActions_AssignTo_Success(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	userID := uuid.New()
+	msg := newRoutableMessage()
+	actions := []models.Action{
+		{Type: "assign_to", Config: json.RawMessage(`{"user_id":"` + userID.String() + `"}`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.NoError(t, err)
+	require.NotNil(t, msg.AssignedTo)
+	assert.Equal(t, userID, *msg.AssignedTo)
+}
+
+func TestExecuteActions_AssignTo_InvalidUserID(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	msg := newRoutableMessage()
+	actions := []models.Action{
+		{Type: "assign_to", Config: json.RawMessage(`{"user_id":"not-a-uuid"}`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid user_id")
+	assert.Nil(t, msg.AssignedTo)
+}
+
+func TestExecuteActions_AddTags_DedupesAgainstExisting(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	msg := newRoutableMessage()
+	msg.Tags = []string{"vip"}
+	actions := []models.Action{
+		{Type: "add_tags", Config: json.RawMessage(`{"tags":["vip","urgent"]}`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"vip", "urgent"}, msg.Tags)
+}
+
+func TestExecuteActions_AddTags_InvalidConfig(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	msg := newRoutableMessage()
+	actions := []models.Action{
+		{Type: "add_tags", Config: json.RawMessage(`not-json`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse add_tags config")
+}
+
+func TestExecuteActions_AutoReply_SendsForEmailChannel(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	sender := &mockEmailSender{}
+	svc := NewService(repo, msgRepo, sender)
+
+	senderEmail := "customer@example.test"
+	msg := newRoutableMessage()
+	msg.SenderEmail = &senderEmail
+	actions := []models.Action{
+		{Type: "auto_reply", Config: json.RawMessage(`{"subject":"Re: Hi","body":"Thanks!"}`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.NoError(t, err)
+	require.Len(t, sender.sent, 1)
+	assert.Equal(t, senderEmail, sender.sent[0].to)
+	assert.Equal(t, "Thanks!", sender.sent[0].body)
+}
+
+func TestExecuteActions_AutoReply_SendErrorIsNonFatal(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	sender := &mockEmailSender{sendErr: errors.New("smtp down")}
+	svc := NewService(repo, msgRepo, sender)
+
+	senderEmail := "customer@example.test"
+	msg := newRoutableMessage()
+	msg.SenderEmail = &senderEmail
+	actions := []models.Action{
+		{Type: "auto_reply", Config: json.RawMessage(`{"body":"Thanks!"}`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.NoError(t, err, "auto_reply failures are logged as a warning, not propagated")
+}
+
+func TestExecuteActions_AutoReply_SkippedForNonEmailChannel(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	sender := &mockEmailSender{}
+	svc := NewService(repo, msgRepo, sender)
+
+	senderEmail := "customer@example.test"
+	msg := newRoutableMessage()
+	msg.Channel = "chat"
+	msg.SenderEmail = &senderEmail
+	actions := []models.Action{
+		{Type: "auto_reply", Config: json.RawMessage(`{"body":"Thanks!"}`)},
+	}
+
+	err := svc.executeActions(context.Background(), msg, actions)
+
+	require.NoError(t, err)
+	assert.Empty(t, sender.sent)
+}
+
+// ============================================================================
+// Rule cache
+// ============================================================================
+
+func TestGetCachedRules_ServesFromCacheWithinTTL(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	tenantID := uuid.New()
+	rule := newTestRule()
+	rule.TenantID = tenantID
+	repo.rules[rule.ID] = rule
+
+	rules1, err := svc.getCachedRules(context.Background(), tenantID, nil)
+	require.NoError(t, err)
+	assert.Len(t, rules1, 1)
+	assert.Equal(t, 1, repo.listActiveCalls)
+
+	rules2, err := svc.getCachedRules(context.Background(), tenantID, nil)
+	require.NoError(t, err)
+	assert.Len(t, rules2, 1)
+	assert.Equal(t, 1, repo.listActiveCalls, "second call within TTL must not hit the repository again")
+}
+
+func TestGetCachedRules_RepoError(t *testing.T) {
+	repo := newMockRoutingRepository()
+	repo.listActiveErr = errors.New("db connection failed")
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	_, err := svc.getCachedRules(context.Background(), uuid.New(), nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "db connection failed")
+}
+
+func TestInvalidateCache_ForcesRefreshOnNextAccess(t *testing.T) {
+	repo := newMockRoutingRepository()
+	msgRepo := newMockMessageRepository()
+	svc := NewService(repo, msgRepo, &mockEmailSender{})
+
+	tenantID := uuid.New()
+	rule := newTestRule()
+	rule.TenantID = tenantID
+	repo.rules[rule.ID] = rule
+
+	_, err := svc.getCachedRules(context.Background(), tenantID, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 1, repo.listActiveCalls)
+
+	svc.invalidateCache(tenantID)
+
+	_, err = svc.getCachedRules(context.Background(), tenantID, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 2, repo.listActiveCalls, "a cache invalidation must force a repository refresh on the next call")
+}
+
+func TestFilterByChannel(t *testing.T) {
+	svc := &Service{}
+
+	emailChannel := "email"
+	chatChannel := "chat"
+	ruleAllChannels := &models.RoutingRule{ID: uuid.New(), Channel: nil}
+	ruleEmail := &models.RoutingRule{ID: uuid.New(), Channel: &emailChannel}
+	ruleChat := &models.RoutingRule{ID: uuid.New(), Channel: &chatChannel}
+	rules := []*models.RoutingRule{ruleAllChannels, ruleEmail, ruleChat}
+
+	filtered := svc.filterByChannel(rules, &emailChannel)
+	assert.ElementsMatch(t, []*models.RoutingRule{ruleAllChannels, ruleEmail}, filtered)
+
+	unfiltered := svc.filterByChannel(rules, nil)
+	assert.Len(t, unfiltered, 3)
 }

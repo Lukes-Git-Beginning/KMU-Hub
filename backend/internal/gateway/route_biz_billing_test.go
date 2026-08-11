@@ -98,6 +98,42 @@ func TestBizBillingRoutes_NoTenant(t *testing.T) {
 }
 
 // ============================================================================
+// InvalidUUID — the eleven handlers below used to read chi.URLParam(r, "id")
+// straight into the gRPC request, so a malformed id (typo, truncated copy-
+// paste) reached the RPC layer as a downstream error instead of a local 400.
+// They now go through validateUUIDParam like every other id-bearing handler
+// in this package (route_auth.go, route_work_test.go's HandleGetTask, ...).
+// ============================================================================
+
+func TestBizBillingRoutes_InvalidUUID(t *testing.T) {
+	handlers := map[string]http.HandlerFunc{}
+	routes := NewBizRoutes(registryWithService("biz"))
+	handlers["HandleGetCreditNote"] = routes.HandleGetCreditNote
+	handlers["HandleSendCreditNote"] = routes.HandleSendCreditNote
+	handlers["HandleGenerateCreditNotePDF"] = routes.HandleGenerateCreditNotePDF
+	handlers["HandleRecordPayment"] = routes.HandleRecordPayment
+	handlers["HandleListPayments"] = routes.HandleListPayments
+	handlers["HandleDeletePayment"] = routes.HandleDeletePayment
+	handlers["HandleSendDunning"] = routes.HandleSendDunning
+	handlers["HandleGenerateDunningPDF"] = routes.HandleGenerateDunningPDF
+	handlers["HandleLockInvoice"] = routes.HandleLockInvoice
+	handlers["HandleUpdateDunningStatus"] = routes.HandleUpdateDunningStatus
+	handlers["HandleSendDunningNotice"] = routes.HandleSendDunningNotice
+
+	for name, h := range handlers {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req = withTenantID(req, testTenantID)
+			req = withChiURLParam(req, "id", "not-a-uuid")
+			h(rec, req)
+			assertStatus(t, rec, http.StatusBadRequest)
+			assertErrorContains(t, rec, "invalid id")
+		})
+	}
+}
+
+// ============================================================================
 // Credit Notes — validation branches not already exercised by route_biz_test.go
 // (which only covers InvalidJSON/MissingCustomer/MissingReason).
 // ============================================================================
@@ -176,6 +212,7 @@ func TestHandleRecordPayment_AmountStaysStringHighPrecision(t *testing.T) {
 		"method":       "bank_transfer",
 	}))
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleRecordPayment(rec, req)
 	// decimal_gt0 uses shopspring/decimal (arbitrary precision), not a float
 	// parse — a value this large must pass validation and reach the
@@ -201,6 +238,7 @@ func TestHandleRecordPayment_IdempotencyKeyForwarded(t *testing.T) {
 	}))
 	req.Header.Set("Idempotency-Key", "a-client-generated-key")
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleRecordPayment(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
@@ -306,6 +344,7 @@ func TestHandleUpdateDunningStatus_InvalidJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PUT", "/api/v1/finance/dunning/id/status", invalidJSON())
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleUpdateDunningStatus(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -318,6 +357,7 @@ func TestHandleUpdateDunningStatus_InvalidStatus(t *testing.T) {
 		"status": "overdue",
 	}))
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleUpdateDunningStatus(rec, req)
 	assertValidationError(t, rec, "status")
 }

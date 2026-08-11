@@ -125,6 +125,34 @@ func TestHandleListTasks_InvalidDueTo(t *testing.T) {
 	assertErrorContains(t, rec, "invalid due_to format")
 }
 
+// TestHandleListTasks_ScopeOwnWithoutUserRejected proves the scope check runs
+// before the request reaches the RPC layer: a caller narrowed to "own" (on
+// either permission key of the route's RequirePermissionAny guard) without a
+// user id in the token is refused outright, not handed the unfiltered list.
+func TestHandleListTasks_ScopeOwnWithoutUserRejected(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/tasks", nil)
+	req = withTenantID(req, testTenantID)
+	req = withScopes(req, map[string]string{"work:task:read": "own"})
+	routes.HandleListTasks(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+	assertErrorContains(t, rec, "missing user in token")
+}
+
+// TestHandleListTasks_ScopeOwnValidUserReachesRPC proves a caller narrowed to
+// "own" with a valid user id still reaches the RPC layer (their own
+// assignee_id filter is not a rejection).
+func TestHandleListTasks_ScopeOwnValidUserReachesRPC(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/tasks?assignee_id=550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withScopes(req, map[string]string{"tasks:read": "own"})
+	routes.HandleListTasks(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
 // TestHandleListTasks_FilterCombinations exercises the filter-parsing branches
 // (project_id, assignee_id, status_id, priority, parent_task_id, label_ids,
 // due_from/due_to, sort, include_completed) including the empty combination.
@@ -278,13 +306,6 @@ func TestHandleUpdateTask_EmptyBodyReachesRPC(t *testing.T) {
 }
 
 // --- Tasks: HandleDeleteTask ---
-//
-// HandleDeleteTask reads the id straight off chi.URLParam without running it
-// through validateUUIDParam first (unlike HandleGetTask/HandleUpdateTask in
-// this same file). An invalid id therefore reaches the RPC layer instead of
-// being rejected locally with 400 — a stylistic inconsistency, not a security
-// gap (the service still validates), documented here rather than fixed: see
-// journal entry for this unit.
 
 func TestHandleDeleteTask_ServiceUnavailable(t *testing.T) {
 	routes := NewWorkRoutes(emptyRegistry())
@@ -295,15 +316,14 @@ func TestHandleDeleteTask_ServiceUnavailable(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
-func TestHandleDeleteTask_InvalidIDReachesRPCNotLocalValidation(t *testing.T) {
+func TestHandleDeleteTask_InvalidUUID(t *testing.T) {
 	routes := NewWorkRoutes(registryWithService("work"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/api/v1/tasks/not-a-uuid", nil)
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleDeleteTask(rec, req)
-	// Documents current behaviour: no local UUID check, so this reaches the
-	// (unreachable) RPC layer and comes back 503, not 400.
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Tasks: HandleMoveTask ---
@@ -320,6 +340,20 @@ func TestHandleMoveTask_InvalidJSON(t *testing.T) {
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleMoveTask(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleMoveTask_InvalidUUID(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/tasks/not-a-uuid/move", jsonBody(t, map[string]interface{}{
+		"status_id":  "660e8400-e29b-41d4-a716-446655440000",
+		"sort_order": 3.5,
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleMoveTask(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleMoveTask_ValidRequestReachesRPC(t *testing.T) {

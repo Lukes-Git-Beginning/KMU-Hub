@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
@@ -112,7 +110,10 @@ func (b *BizRoutes) HandleGetCreditNote(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	resp, err := client.GetCreditNote(r.Context(), &bizv1.GetCreditNoteRequest{
 		Id:       id,
@@ -138,7 +139,10 @@ func (b *BizRoutes) HandleSendCreditNote(w http.ResponseWriter, r *http.Request)
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	resp, err := client.SendCreditNote(r.Context(), &bizv1.SendCreditNoteRequest{
 		Id:       id,
@@ -164,7 +168,10 @@ func (b *BizRoutes) HandleGenerateCreditNotePDF(w http.ResponseWriter, r *http.R
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	resp, err := client.GenerateCreditNotePDF(r.Context(), &bizv1.GenerateCreditNotePDFRequest{
 		Id:       id,
@@ -203,7 +210,10 @@ func (b *BizRoutes) HandleRecordPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
-	invoiceID := chi.URLParam(r, "id")
+	invoiceID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	req, ok := decodeAndValidate[recordPaymentRequest](w, r)
 	if !ok {
@@ -243,7 +253,10 @@ func (b *BizRoutes) HandleListPayments(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	invoiceID := chi.URLParam(r, "id")
+	invoiceID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 
 	resp, err := client.ListPayments(r.Context(), &bizv1.ListPaymentsRequest{
@@ -281,7 +294,10 @@ func (b *BizRoutes) HandleDeletePayment(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	_, err = client.DeletePayment(r.Context(), &bizv1.DeletePaymentRequest{
 		Id:       id,
@@ -391,7 +407,10 @@ func (b *BizRoutes) HandleSendDunning(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	resp, err := client.SendDunning(r.Context(), &bizv1.SendDunningRequest{
 		Id:       id,
@@ -454,7 +473,10 @@ func (b *BizRoutes) HandleGenerateDunningPDF(w http.ResponseWriter, r *http.Requ
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	resp, err := client.GenerateDunningPDF(r.Context(), &bizv1.GenerateDunningPDFRequest{
 		Id:       id,
@@ -699,7 +721,10 @@ func (b *BizRoutes) HandleLockInvoice(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	resp, err := client.LockInvoice(r.Context(), &bizv1.LockInvoiceRequest{
@@ -763,7 +788,10 @@ func (b *BizRoutes) HandleUpdateDunningStatus(w http.ResponseWriter, r *http.Req
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	type updateDunningStatusRequest struct {
 		Status string `json:"status" validate:"required,oneof=draft sent paid"`
@@ -800,7 +828,10 @@ func (b *BizRoutes) HandleSendDunningNotice(w http.ResponseWriter, r *http.Reque
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	id := chi.URLParam(r, "id")
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 
 	resp, err := client.SendDunningNotice(r.Context(), &bizv1.SendDunningNoticeRequest{
 		Id:       id,

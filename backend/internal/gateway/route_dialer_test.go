@@ -328,3 +328,132 @@ func TestHandleDeleteCallOutcome_InvalidUUID(t *testing.T) {
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
 }
+
+// --- Campaign Contact Queue ---
+
+func TestHandleListCampaignContacts_ServiceUnavailable(t *testing.T) {
+	routes := NewDialerRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/dialer/campaigns/550e8400-e29b-41d4-a716-446655440000/contacts", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleListCampaignContacts(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListCampaignContacts_InvalidUUID(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/dialer/campaigns/bad/contacts", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListCampaignContacts(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+// HandleListCampaignContacts passes the RPC response straight to
+// response.Proto with no gateway-local wire-shape logic of its own
+// (route_dialer.go:457-463) and there is no bufconn stub for the dialer
+// service in this package to fake an actual response (same boundary noted
+// in every prior gateway coverage unit this run). This proves the handler
+// reaches the RPC layer with a valid campaign ID; the []-not-null wire
+// shape of the contact list is a property of the dialer service's own
+// proto marshaling.
+func TestHandleListCampaignContacts_ReachesRPC(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/dialer/campaigns/550e8400-e29b-41d4-a716-446655440000/contacts", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleListCampaignContacts(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleSkipContact_ServiceUnavailable(t *testing.T) {
+	routes := NewDialerRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/dialer/campaigns/550e8400-e29b-41d4-a716-446655440000/contacts/550e8400-e29b-41d4-a716-446655440000/skip", nil)
+	req = withChiURLParam(req, "cid", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleSkipContact(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleSkipContact_InvalidUUID(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/dialer/campaigns/550e8400-e29b-41d4-a716-446655440000/contacts/bad/skip", nil)
+	req = withUserID(req, "user-123")
+	req = withChiURLParam(req, "cid", "not-a-uuid")
+	routes.HandleSkipContact(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid cid")
+}
+
+func TestHandleRequeueContact_ServiceUnavailable(t *testing.T) {
+	routes := NewDialerRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/dialer/campaigns/550e8400-e29b-41d4-a716-446655440000/contacts/550e8400-e29b-41d4-a716-446655440000/requeue", nil)
+	req = withChiURLParam(req, "cid", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleRequeueContact(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleRequeueContact_InvalidUUID(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/dialer/campaigns/550e8400-e29b-41d4-a716-446655440000/contacts/bad/requeue", nil)
+	req = withUserID(req, "user-123")
+	req = withChiURLParam(req, "cid", "not-a-uuid")
+	routes.HandleRequeueContact(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid cid")
+}
+
+// --- Dashboards ---
+
+func TestHandleGetCampaignDashboard_ServiceUnavailable(t *testing.T) {
+	routes := NewDialerRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/dialer/campaigns/550e8400-e29b-41d4-a716-446655440000/dashboard", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGetCampaignDashboard(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetCampaignDashboard_InvalidUUID(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/dialer/campaigns/bad/dashboard", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetCampaignDashboard(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleGetAgentDashboard_ServiceUnavailable(t *testing.T) {
+	routes := NewDialerRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleGetAgentDashboard)
+}
+
+func TestHandleGetAgentDashboard_NoAgentID(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/dialer/dashboard/agent", nil)
+	routes.HandleGetAgentDashboard(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+	assertErrorContains(t, rec, "not authenticated")
+}
+
+func TestHandleGetAgentDashboard_AgentIDFromUser(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/dialer/dashboard/agent", nil)
+	req = withUserID(req, "user-123")
+	routes.HandleGetAgentDashboard(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- Supervisor Overview ---
+
+func TestHandleGetSupervisorOverview_ServiceUnavailable(t *testing.T) {
+	routes := NewDialerRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleGetSupervisorOverview)
+}

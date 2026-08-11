@@ -137,6 +137,11 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ownerID, ok := ownerFilterForScopeAny(wr, r, [2]string{"tasks", "read"}, [2]string{"work:task", "read"})
+	if !ok {
+		return
+	}
+
 	q := r.URL.Query()
 	page, pageSize := parsePagination(r, 1, 20)
 
@@ -154,6 +159,11 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 	}
 	if aid := q.Get("assignee_id"); aid != "" {
 		grpcReq.AssigneeId = &aid
+	}
+	if ownerID != nil {
+		// Overrides any client-supplied assignee_id — a scope of "own" is a
+		// boundary, not a suggestion the caller can widen with a query param.
+		grpcReq.AssigneeId = ownerID
 	}
 	if sid := q.Get("status_id"); sid != "" {
 		grpcReq.StatusId = &sid
@@ -280,7 +290,10 @@ func (w *WorkRoutes) HandleDeleteTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskID := chi.URLParam(r, "id")
+	taskID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
+		return
+	}
 	_, err = client.DeleteTask(r.Context(), &workv1.DeleteTaskRequest{Id: taskID})
 	if err != nil {
 		respondGRPCError(wr, err)
@@ -303,7 +316,10 @@ func (w *WorkRoutes) HandleMoveTask(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	taskID := chi.URLParam(r, "id")
+	taskID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
+		return
+	}
 
 	req, ok := decodeAndValidate[moveTaskRequest](wr, r)
 	if !ok {

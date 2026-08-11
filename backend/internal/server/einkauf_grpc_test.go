@@ -518,25 +518,6 @@ func (r *stubEinkaufRepo) ContractNrExists(_ context.Context, tenantID uuid.UUID
 	return true, nil
 }
 
-func (r *stubEinkaufRepo) UpdateContractUsedValue(_ context.Context, tenantID, contractID uuid.UUID) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	fc, ok := r.contracts[contractID]
-	if !ok || fc.TenantID != tenantID {
-		return einkauf.ErrContractNotFound
-	}
-	var used float64
-	for _, call := range r.contractCalls {
-		if call.ContractID != contractID || call.TenantID != tenantID {
-			continue
-		}
-		amt, _ := strconv.ParseFloat(call.Amount, 64)
-		used += amt
-	}
-	fc.UsedValue = strconv.FormatFloat(used, 'f', 4, 64)
-	return nil
-}
-
 // --- Framework Contract Items ---
 
 func (r *stubEinkaufRepo) CreateContractItem(_ context.Context, item *einkauf.FrameworkContractItem) error {
@@ -594,10 +575,28 @@ func (r *stubEinkaufRepo) QueryRowContractItem(_ context.Context, tenantID, item
 
 // --- Framework Contract Calls ---
 
+// CreateContractCall stands in for the repository's transaction: it persists
+// the call and recomputes used_value in one step. The status and remaining
+// value checks the real implementation performs are exercised in
+// internal/einkauf — this stub only has to keep the gRPC layer honest.
 func (r *stubEinkaufRepo) CreateContractCall(_ context.Context, call *einkauf.FrameworkContractCall) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	fc, ok := r.contracts[call.ContractID]
+	if !ok || fc.TenantID != call.TenantID {
+		return einkauf.ErrContractNotFound
+	}
 	r.contractCalls[call.ID] = call
+
+	var used float64
+	for _, c := range r.contractCalls {
+		if c.ContractID != call.ContractID || c.TenantID != call.TenantID {
+			continue
+		}
+		amt, _ := strconv.ParseFloat(c.Amount, 64)
+		used += amt
+	}
+	fc.UsedValue = strconv.FormatFloat(used, 'f', 4, 64)
 	return nil
 }
 
@@ -1658,7 +1657,7 @@ func TestEinkauf_ContractCall_CreateAndList(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, list.Calls, 1)
 
-	// UpdateContractUsedValue runs as a side effect of CreateContractCall.
+	// used_value is recomputed inside the same repository call.
 	refreshed, err := srv.GetFrameworkContract(ctx, &einkaufv1.GetFrameworkContractRequest{TenantId: tenantID.String(), ContractId: contract.ID.String()})
 	require.NoError(t, err)
 	assert.Equal(t, "500.5000", refreshed.Contract.UsedValue)

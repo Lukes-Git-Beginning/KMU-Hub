@@ -342,6 +342,7 @@ func TestHandleRecordPayment_InvalidJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", invalidJSON())
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleRecordPayment(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -355,6 +356,7 @@ func TestHandleRecordPayment_MissingAmount(t *testing.T) {
 		"method":       "bank_transfer",
 	}))
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleRecordPayment(rec, req)
 	assertValidationError(t, rec, "amount")
 }
@@ -368,6 +370,7 @@ func TestHandleRecordPayment_InvalidPaymentDate(t *testing.T) {
 		"method":       "bank_transfer",
 	}))
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleRecordPayment(rec, req)
 	assertValidationError(t, rec, "payment_date")
 }
@@ -381,6 +384,7 @@ func TestHandleRecordPayment_InvalidMethod(t *testing.T) {
 		"method":       "bitcoin",
 	}))
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleRecordPayment(rec, req)
 	assertValidationError(t, rec, "method")
 }

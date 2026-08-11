@@ -41,7 +41,6 @@ type RepositoryExtended interface {
 	GetFrameworkContractWithItems(ctx context.Context, tenantID, contractID uuid.UUID) (*FrameworkContract, error)
 	ListFrameworkContracts(ctx context.Context, tenantID uuid.UUID, filter ListContractsFilter, offset, limit int) ([]*FrameworkContract, int, error)
 	ContractNrExists(ctx context.Context, tenantID uuid.UUID, contractNr string, excludeID *uuid.UUID) (bool, error)
-	UpdateContractUsedValue(ctx context.Context, tenantID, contractID uuid.UUID) error
 
 	// -------------------------------------------------------------------------
 	// Framework Contract Items
@@ -56,6 +55,11 @@ type RepositoryExtended interface {
 	// Framework Contract Calls
 	// -------------------------------------------------------------------------
 
+	// CreateContractCall persists a call-off, enforces the contract's status
+	// and remaining value, and recomputes used_value — all in one transaction.
+	// It is the only writer of used_value, so the column cannot drift away
+	// from the sum of the calls it caches. Rejects with ErrContractNotFound,
+	// ErrContractNotActive or ErrContractBudgetExceeded without writing.
 	CreateContractCall(ctx context.Context, call *FrameworkContractCall) error
 	ListContractCalls(ctx context.Context, tenantID, contractID uuid.UUID) ([]*FrameworkContractCall, error)
 }

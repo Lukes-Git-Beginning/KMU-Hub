@@ -22,7 +22,17 @@ powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.p
 # ein Prozess, ein Push, ein CI-Lauf). Ab 15 min vor Pausenbeginn startet keine
 # neue Iteration mehr - steuerbar ueber -PauseGuard.
 powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -UntilTime "10:00" -PauseFrom "20:30" -PauseTo "22:30"
+
+# Zwei Arbeitsfenster an einem Tag (Lauf 8): ab 15:00 starten, 19:30-23:00 still,
+# dann bis 09:00 weiter. Das ist KEIN zweiter Lauf - es ist dasselbe eine
+# Pausenfenster, nur groesser. -MaxIterations muss hoch, sonst ist der Default 100
+# die bindende Grenze statt der Uhrzeit.
+powershell -ExecutionPolicy Bypass -File .planning\backend-block\loop\run-loop.ps1 -UntilTime "09:00" -PauseFrom "19:30" -PauseTo "23:00" -MaxIterations 120
 ```
+
+**Die reale Grenze eines langen Fensters ist der Wochen-Cap des Abos, nicht die Rechenleistung.**
+Lauf 7 waren 71 Iterationen ≈ 288 USD Äquivalenzwert; 14 Stunden sind eher 105 Iterationen ≈ 430 USD.
+Ein Loop, der den Cap leerläuft, blockiert die eigenen Sessions am Folgetag.
 
 Der Treiber bricht vor dem ersten Start ab, wenn der Guard-Test rot ist oder der Branch nicht
 `backend-loop` heisst.
@@ -119,6 +129,7 @@ git diff --stat main..backend-loop -- '*.proto' '*.pb.go'                       
 | `run-loop.ps1` | Treiber. Vorflug-Checks, Deadline, STOP-Sentinel, Rate-Limit-Backoff |
 | `ITERATION.md` | Der konstante Prompt jeder Iteration |
 | `BACKLOG.yml` | Die Queue. Eine Unit = eine Iteration = ein Commit |
+| `BACKLOG-PARKED.yml` | Was der Loop **nicht** zieht: geparkt oder gestrichen, je mit Entscheidung und Zielort. Der Treiber liest die Datei nicht |
 | `JOURNAL.md` | Append-only Protokoll |
 | `GATE-COMMANDS.md` | Verifizierte Gate-Kommandos (Build, DB, RLS-Smoke, Proto) |
 | `loop-settings.json` | `--settings`-Datei, aktiviert den Guard nur waehrend Loop-Laeufen |

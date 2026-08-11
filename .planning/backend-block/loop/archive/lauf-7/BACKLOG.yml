@@ -1,0 +1,2827 @@
+# Backend-Nachtloop — Arbeitsqueue (Lauf 7, gestaged 2026-08-09, Fenster 2026-08-09 22:00–2026-08-10 09:00)
+#
+# Eine Unit = eine Iteration = ein Commit.
+#
+# status: todo | in_progress | done | blocked
+# model:  sonnet (Default) | opus (architektonisch schwer, Proto, Security, Migration+RLS)
+#
+# ACHTUNG Treiber-Parsing: `model:` muss VOR `status:` stehen, und hinter `status: todo`
+# darf kein Kommentar stehen (der Treiber zaehlt offene Units per Zeilen-Regex).
+#
+# Laeufe 1+2 (58 Units): archive/lauf-1-2/ — Lauf 3 (61): archive/lauf-3/
+# Lauf 4 (54): archive/lauf-4/ — Lauf 5 (41): archive/lauf-5/ — Lauf 6 (46): archive/lauf-6/
+#
+# ------------------------------------------------------------------------------------------
+# STAND DER VORBEREITUNG (2026-08-09, alles gegen den laufenden Code verifiziert)
+#
+#   - Laeufe 1-6 sind gemergt und deployt. PR #19 -> `main` `1e68b7dc`, CD `31307275850`
+#     success. Migrationskopf lokal wie produktiv = 308, `dirty=false`. NAECHSTE FREIE = 309,
+#     aber IMMER zur Laufzeit ermitteln:
+#     `ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1`
+#   - `backend-loop` wurde VOR diesem Lauf auf origin/main gemergt. Kein Fast-Forward diesmal:
+#     `origin/main` ist der Merge-Commit von PR #19 und damit kein Ancestor des Branches. Der
+#     Merge ist inhaltlich trivial (gleicher Baum), erzeugt aber einen echten Merge-Commit.
+#   - RLS ist FLAECHENDECKEND: `knownRLSGaps` in
+#     `backend/internal/testutil/rls_regression_test.go` ist LEER, und der Standing-Guard
+#     `TestAllPublicTablesHaveRLSOrAreAllowlisted` haelt das so. 283 Tabellen mit RLS aktiv.
+#   - NEU SEIT LAUF 6, beide Guards sind scharf und muessen gruen bleiben:
+#       * `TestEveryRouteGuardHasAUsablePermission` prueft alle 784 `RequirePermission`-
+#         Call-Sites per go/ast gegen die Seed-Migrationen. Anlass: `mentions:read` existierte
+#         seit Migration 000017, war aber KEINER Rolle zugeordnet — `GET /api/v1/messages/
+#         mentions` lieferte auf Produktion seit jeher 403 fuer JEDEN, Admin eingeschlossen.
+#         Migration 000306 hat das geheilt.
+#       * Ein eigener BLOCKIERENDER `integration`-Job in `ci.yml` faehrt
+#         `go test -tags=integration ./internal/biz/{invoice,quote,creditnote,hr}/...`
+#         (344 Tests). Vorher liefen diese Tests in keinem PR-Gate.
+#   - RBAC Phase 1 (Welle 1a UND 1b), Per-User-Overrides und Vendor-Access sind ABGESCHLOSSEN
+#     (Lauf 4). Kein RBAC-Nachbau in diesem Lauf.
+#   - Die lokale DB laeuft und ist verifiziert: `docker-postgres-1` healthy auf Kopf 308,
+#     Rolle `kmuhub_app` hat das Passwort `app_dev`, Login geprueft. `DATABASE_URL` ist damit
+#     KEIN Alibi — siehe ITERATION.md Schritt 5.
+#
+# COVERAGE-AUSGANGSLAGE (gewichtet aus dem CI-`coverage.out` von Lauf 6, nicht geschaetzt)
+#
+#   Gesamt 36,3 % (Gate 15 %). Nach Paketen:
+#     `internal/crm`      69,5 %  — Ziel "60 % kritische Pfade" ERREICHT, hier ist nichts mehr zu tun
+#     `internal/biz`      54,9 %  — Ziel 60 % VERFEHLT, es fehlen rund 446 gedeckte Statements
+#     `internal/server`   26,0 %  — von 8,1 % in Lauf 6 hochgezogen, groesster Einzelgewinn
+#     `internal/gateway`  24,2 %  — GEFALLEN von 27,2 %, siehe roter Faden
+#
+# DER ROTE FADEN DIESES LAUFS: REINE COVERAGE, IN DIESER REIHENFOLGE
+#
+#   1. Eine Fix-Unit vorweg (`fix-inventar-picking-partial-book`) — ein Transaktions-Bug mit
+#      Doc-Kommentar-Bruch, den Lauf 6 selbst gefunden hat.
+#   2. BLOCK C1 (2 Units): `biz/lexware` und `biz/recurring`. Zusammen decken sie rechnerisch
+#      die ~446 Statements ab, die `internal/biz` aufs 60-%-Ziel bringen. invoice/quote/
+#      creditnote bringen dafuer NICHTS: ihre Tests tragen `//go:build integration` und zaehlen
+#      nicht in `coverage.out` — sie gaten seit 2026-08-09 immerhin den Merge.
+#   3. BLOCK B-GATEWAY (12 Units) VOR Block B-Server. Grund: die Gateway-Coverage ist in Lauf 6
+#      von 27,2 % auf 24,2 % GEFALLEN. Kein Rueckschritt an der Substanz — Block A legte
+#      vierzehn neue OpenAPI-Pfade und zwoelf Gateway-Dateien an, ohne Handler-Tests dazu, also
+#      wuchs der Nenner. Diese zwoelf Units sind die Gegenmassnahme und stehen deshalb zuerst.
+#   4. BLOCK B-SERVER (12 Units): die restlichen `internal/server`-Dateien aus Lauf 6.
+#   5. BLOCK C2 (23 Units): Service-Paket-Coverage. Die acht groessten ungedeckten Pakete
+#      ausserhalb von server/gateway/biz/crm — geschnitten gegen den realen Code, mit den
+#      nicht-testbaren Teilen (WASM ohne Fixture, `wasip1`-Build-Tag, gRPC-Backends ohne
+#      bufconn-Muster, LiveKit-Twirp-Client) ausdruecklich AUSGENOMMEN und im Block-Kopf
+#      begruendet.
+#
+#   50 Units bei Median 13 min aus Lauf 6 sind rund 11 Stunden — das Fenster ist genau so
+#   bemessen. Was ueberlaeuft, startet Lauf 8: eingeplant, kein Versaeumnis.
+#
+# HARTE QUALITAETSREGEL FUER JEDE COVERAGE-UNIT (Bloecke B, C1 und C2)
+#
+#   Zeilen-Abdeckung ohne Aussage ist wertlos und schlimmer als keine, weil sie eine
+#   Sicherheit vortaeuscht. Deshalb traegt JEDE Coverage-Unit zwei Kriterien:
+#
+#     1. FEHLERPFAD: mindestens einer pro getesteter Funktion, nicht nur Happy Path —
+#        falsche UUID, fehlender Tenant, Downstream-Fehler, Validierungsbruch.
+#     2. MUTATIONS-PROBE: eine Zeile im getesteten Code absichtlich brechen, pruefen dass
+#        der neue Test rot wird, zurueckdrehen. Wird er NICHT rot, testet er nichts — dann
+#        die Unit `blocked` setzen mit genau diesem Grund. Das Ergebnis der Probe gehoert
+#        ins Journal, nicht nur die Behauptung, sie sei gelaufen.
+#
+#   ZUSAETZLICH SEIT LAUF 6 — BUILD-TAGS PRUEFEN, BEVOR DU SCHREIBST:
+#     `grep -rl "^//go:build" backend/internal/<zielpaket> --include=*_test.go`
+#     Liegen im Zielpaket Tests hinter einem Build-Tag, laufen sie weder im PR-Gate noch
+#     zaehlen sie in `coverage.out`. Genau das ist in Lauf 6 DREIMAL passiert (invoice, quote,
+#     creditnote): drei Iterationen bauten Tests fuer finanzkritische Logik, die weder gateten
+#     noch in der Coverage-Zahl auftauchten. Fuer die Pakete in Block C2 ist das vorab geprueft
+#     — keines hat Build-Tag-Tests. Fuer alles, was du selbst dazunimmst, gilt: erst greppen.
+#     Und leg NIE selbst einen neuen Test hinter einen Build-Tag.
+#
+#   Getestet wird das, was in einem Thin Handler wirklich Logik ist, in dieser Rangfolge:
+#     a) die `map<X>Error`-Tabelle — jedes Sentinel gegen den erwarteten gRPC-Code. Eine
+#        falsche Zuordnung ist in Produktion ein falscher HTTP-Status.
+#     b) die `toProto*`-Konvertierungen — Wire-Shape: `[]` statt `null`, snake_case,
+#        gewrappt, nil-Eingabe. Genau diese Klasse hat in diesem Repo mehrfach Phantom-404
+#        und leere FE-Listen erzeugt.
+#     c) die Validierungspfade der RPC-/Handler-Methoden.
+#
+#   MUSTER, DAS WIEDERZUVERWENDEN IST — NICHT NEU ERFINDEN:
+#     - `internal/server/formulare_grpc_test.go` ist die Referenz fuer gRPC-Handler:
+#       `stubFormulareRepo` implementiert das Repository-Interface, `newTestFormulareServer()`
+#       baut den Server mit NIL-Service fuer die Validierungspfade (die laufen vor jedem
+#       Service-Aufruf, deshalb kein Nil-Panic), `newFormulareServerWithRepo(repo)` fuer den
+#       Happy Path. Gemeinsame Helfer in `internal/server/testhelpers_test.go`
+#       (`requireGRPCCode`, `assertGRPCCode`).
+#     - `internal/gateway/testutil_test.go` haelt `emptyRegistry`/`registryWithService`,
+#       `withAuth`/`withTenantID`/`withChiURLParam`, `jsonBody`/`invalidJSON`,
+#       `assertStatus`/`assertErrorContains`.
+#     - DB-Repository-Tests am echten Schreibpfad: `internal/caldav/tenant_write_test.go`,
+#       `internal/einkauf/tenant_write_test.go` (echte Repository-Methoden aufrufen, nicht
+#       `testutil.SeedRow` — nur so faellt eine fehlende `tenant_id`-Spalte auf).
+#     - RLS/Cross-Tenant: `internal/plugin/repository/manifest_rls_test.go`
+#       (Paket `repository_test`, `testutil.PoolFromEnv`/`SeedRow`/`WithTenantCtx`, eigene
+#       Tenants pro Test statt geteilter Konstanten — sonst Unique-Index-Kollisionen).
+#     - Redis ohne echten Server: `internal/cache/cache_test.go` (`miniredis.RunT(t)` plus
+#       `redis.NewClient(&redis.Options{Addr: mr.Addr()})`). miniredis/v2 steht in go.mod.
+#     - TCP-Fake-Server fuer Wire-Protokolle: `internal/email/send/smtp_timeout_test.go`.
+#     Ein Server mit Nil-Service darf NUR fuer Pfade benutzt werden, die vor dem
+#     Service-Aufruf abbrechen. Wer damit in den Happy Path laeuft, bekommt einen
+#     Nil-Panic — dann Stub-Repo bauen.
+#
+# GESPERRT IN DIESEM LAUF
+#
+#   - Frontend. Der Loop baut Backend. Die drei Stores mit hartkodiertem Mock-Seed
+#     (`helpdesk`, `vertraege`, `timetracking`) und die 34 fehlenden fr/it-i18n-Schluessel
+#     gehoeren in eine Frontend-Session.
+#   - CSAT. Der SMTP-Passthrough an `helpdesk` und die oeffentliche Umfrageseite sind eine
+#     Deploy-Entscheidung, keine Nachtlauf-Iteration. Nicht anfassen.
+#   - RLS-Scans. `knownRLSGaps` ist leer, ein Standing-Guard haelt es so. Nichts zu tun.
+#   - NEUE ROUTEN. Lauf 7 legt keine an — dieser Lauf testet, was da ist. Wer in einer
+#     Coverage-Unit eine echte Luecke findet, notiert sie im Journal und legt eine Unit fuer
+#     Lauf 8 an, statt sie nebenbei zu bauen.
+#   - Phase 4 im Sinne von: kein Neubau ganzer Branchen-Module.
+#   - Neue `config.RequireX`-Assertionen (Deploy-Hazard: COSMI_ENV=production ist live, CD
+#     deployt automatisch). Scharfschalten neuer `modules.*`-Feature-Flags.
+#   - Merge, Push, PR, Deploy, Production-Zugriff.
+#   - Customization Draft/Deploy-Overlay und `moduleAreas`-Persistenz.
+#   - Aenderungen an bereits ausgerollten Migrationen — auch an ihren Kommentaren.
+# ------------------------------------------------------------------------------------------
+
+units:
+
+  - id: fix-rapporte-reject-without-reason
+    phase: 3
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `RejectReport` (internal/rapporte/service.go:333) validiert nirgends, dass `ReviewNote`
+      nicht leer ist, obwohl der Backlog-Scope von `b-cov-server-rapporte` selbst "Ablehnen
+      ohne Begruendung muss scheitern" fordert. Verifiziert ueber den gesamten Pfad: der
+      gRPC-Handler `RejectReport` (internal/server/rapporte_grpc.go:224) reicht
+      `req.GetReviewNote()` ungeprueft durch, der Service validiert nur `TenantID`/`ReportID`
+      via UUID-Parse und ruft direkt `s.repo.AtomicRejectReport(...)` auf, und das Repository
+      (`postgres_repository.go`, `AtomicRejectReport`) schreibt `review_note` als beliebigen
+      String ohne NOT-NULL- oder Laengen-Constraint (Migration, in der `report_workflow`-Spalten
+      angelegt wurden, hat keine CHECK-Klausel dafuer). Ein leerer oder reiner Whitespace-String
+      wird also klaglos als Ablehnungsgrund akzeptiert. `ApproveReport` hat dasselbe Feld
+      (`ReviewNote`), aber dort ist eine leere Begruendung fachlich unproblematisch - nur
+      `RejectReport` hat laut Scope die explizite Anforderung.
+    sources:
+      - backend/internal/rapporte/service.go
+      - backend/internal/server/rapporte_grpc.go
+      - backend/internal/rapporte/postgres_repository.go
+      - backend/internal/rapporte/errors.go
+    notes: >
+      Gefunden waehrend b-cov-server-rapporte (Lauf 7, Iteration 19) - im Backlog-Scope selbst
+      als done_when-Kriterium benannt ("Ablehnen ohne Begruendung scheitert"), beim Lesen von
+      service.go/rapporte_grpc.go/postgres_repository.go bestaetigt statt nur vermutet. Nicht in
+      der Coverage-Unit gefixt - echte Verhaltensaenderung (neue Validierung), keine
+      Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: in
+      `Service.RejectReport` (service.go:333) vor dem Repository-Aufruf pruefen, dass
+      `strings.TrimSpace(input.ReviewNote) != ""`, sonst `ErrInvalidInput` zurueckgeben - exakt
+      das Muster, das `AddLine`/`UpdateLine` schon fuer `Description` verwenden (Trim + Leer-Check
+      -> ErrInvalidInput). `mapRapporteError` bildet `ErrInvalidInput` bereits auf
+      `codes.InvalidArgument` ab, keine neue Fehlerklasse noetig. `RejectReportInput.ReviewNote`
+      bleibt `string` (kein Zeigertyp noetig, ein leerer String ist bereits eindeutig ablehnbar).
+    done_when:
+      - RejectReport mit leerem oder reinem Whitespace-ReviewNote liefert ErrInvalidInput /
+        codes.InvalidArgument statt die Ablehnung anzunehmen
+      - RejectReport mit nicht-leerem ReviewNote funktioniert unveraendert
+      - ApproveReport bleibt bewusst ohne diese Pflicht (nicht Teil des Scopes)
+      - Test fuer den leeren Fall in internal/rapporte (Service-Ebene) und internal/server
+        (Handler-Ebene, Fehler-Mapping) ergaenzt
+      - go test -count=1 ./internal/rapporte/... ./internal/server/... gruen
+
+  - id: fix-einkauf-contract-call-no-value-check
+    phase: 3
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Produktentscheidung noetig, bevor der Fix geschrieben wird - siehe Frage im Journal
+      (Iteration 32): soll die Kappung nur fuer status=active gelten, oder auch fuer draft/
+      expired? Verifiziert (nicht nur vermutet): Service.CreateContractCall
+      (service_extended.go:610) prueft nur v < 0, ContractStatus (models_extended.go:50-55)
+      kennt draft/active/expired, keine Schicht vergleicht Amount gegen
+      total_value - used_value.
+    scope: >
+      `Service.CreateContractCall` (internal/einkauf/service_extended.go:610) validiert nur,
+      dass der Abrufbetrag nicht-negativ ist (`v < 0`) - es gibt keinen Vergleich gegen
+      `framework_contracts.total_value` oder den bereits verbrauchten `used_value`. Jeder
+      Abruf, egal wie hoch, wird angenommen; `UpdateContractUsedValue` (postgres_repository_
+      extended.go:403) rechnet danach nur die Summe aus `framework_contract_calls` neu und
+      schreibt sie zurueck - rein informativ, keine Schranke. Ein Rahmenvertrag ueber 5.000 EUR
+      lässt sich damit beliebig oft und beliebig hoch abrufen, ohne dass irgendeine Schicht
+      (Gateway-Handler, Service, Repository, DB-Constraint) das ablehnt.
+    sources:
+      - backend/internal/einkauf/service_extended.go
+      - backend/internal/einkauf/postgres_repository_extended.go
+      - backend/internal/gateway/route_einkauf_extended.go
+      - backend/internal/einkauf/models_extended.go
+    notes: >
+      Gefunden waehrend b-cov-gateway-einkauf-extended (Lauf 7, Iteration 16) - im Backlog
+      selbst als Verdacht benannt ("ein Abruf ueber die Rahmenvertragsmenge hinaus ist der
+      Fall, an dem eine fehlende Pruefung sichtbar wird"), per Code-Lektuere von Service UND
+      Repository bestaetigt statt nur vermutet. Nicht in der Coverage-Unit gefixt - echte
+      Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit.
+      Fix-Vorschlag: vor dem Insert `total_value - used_value` (oder die Summe bestehender
+      Calls) laden und den neuen Betrag dagegen pruefen, Ueberschreitung als `ErrInvalidInput`
+      oder eigenen Sentinel ablehnen. Ob eine Teilausschoepfung ueberhaupt erlaubt sein soll
+      oder ob Ueberschreitung je nach Vertragsstatus zulaessig ist (z. B. `draft`), ist eine
+      Produktfrage - kurz mit Luke klaeren, bevor der Fix geschrieben wird.
+    done_when:
+      - Abruf, der total_value (abzueglich bereits verbrauchtem used_value) uebersteigt, wird
+        abgelehnt statt angenommen
+      - Verhalten bei Vertragsstatus != active geklaert und getestet (falls relevant)
+      - DB-Test gegen das reale Schema fuer den Ablehnungsfall
+      - go test -count=1 ./internal/einkauf/... gruen
+
+  - id: fix-plugin-error-mapping-gaps
+    phase: 3
+    service: plugin
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `mapPluginError` (internal/server/plugin_grpc.go:829) hat zwei getrennte Luecken,
+      beide durch die neue Tabellentest-Suite `TestMapPluginError` in
+      `internal/server/plugin_grpc_test.go` belegt (Faelle mit Kommentar "documents current
+      gap"). Erstens vergleichen `isNotFound`/`isAlreadyExists`/`isInvalidArgument` (Zeilen
+      847-868) mit einfachem `==` statt `errors.Is` - jeder Sentinel, den `Service` mit
+      `fmt.Errorf("%w: ...", ...)` wrapped, wird nie erkannt. Betroffen:
+      `ApprovePermissions` (wrapped `ErrPermissionNotDeclared`, service.go:324) und
+      `UpdatePluginSettings` (wrapped `ErrInvalidSettings`, service.go:392) - beide liefern
+      heute `codes.Internal` statt `codes.InvalidArgument`. Zweitens hat `mapPluginError`
+      ueberhaupt keinen Fall fuer `ErrPluginHasInstallations` (von
+      `Service.DeleteManifest` zurueckgegeben, service.go:165) - der faellt auf den
+      generischen Internal-Zweig, obwohl `FailedPrecondition` der naheliegende Code waere.
+      Alle sieben anderen Sentinels in `errors.go` werden korrekt gemappt, weil `Service`
+      sie unwrapped zurueckgibt - nur diese drei Stellen sind betroffen. Jedes andere
+      `map<X>Error` in diesem Repo (fuhrpark, rapporte, inventar) nutzt bereits
+      `errors.Is` - `mapPluginError` ist die einzige Ausnahme.
+    sources:
+      - backend/internal/server/plugin_grpc.go
+      - backend/internal/plugin/service.go
+      - backend/internal/plugin/errors.go
+      - backend/internal/server/plugin_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-plugin (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (aus 500 wird 400/409 fuer drei konkrete Faelle), keine
+      Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: die drei
+      Helfer `isNotFound`/`isAlreadyExists`/`isInvalidArgument` von `err ==` auf
+      `errors.Is(err, ...)` umstellen (mechanisch, gleiche Fallliste), und einen vierten
+      Fall `case errors.Is(err, plugin.ErrPluginHasInstallations): return
+      status.Error(codes.FailedPrecondition, err.Error())` ergaenzen. Nach dem Fix muessen
+      die drei als "documents current gap" markierten Testfaelle in
+      `plugin_grpc_test.go` (TestMapPluginError zwei Faelle, TestPluginApprovePermissions/
+      undeclared_permission, TestPluginDeleteManifest/has_active_installations,
+      TestPluginSettings/schema_mismatch) auf den jetzt korrekten Code aktualisiert werden -
+      sie pruefen bewusst nur den IST-Zustand.
+    done_when:
+      - isNotFound/isAlreadyExists/isInvalidArgument nutzen errors.Is statt ==
+      - ErrPluginHasInstallations hat einen eigenen Fall in mapPluginError (FailedPrecondition
+        oder gleichwertig client-actionable)
+      - ApprovePermissions mit nicht deklarierter Permission liefert InvalidArgument
+      - UpdatePluginSettings mit Schema-Verstoss liefert InvalidArgument
+      - DeleteManifest mit aktiven Installationen liefert nicht mehr Internal
+      - Die "documents current gap"-Testfaelle in plugin_grpc_test.go auf den neuen
+        erwarteten Code aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/plugin/... gruen
+
+  - id: fix-plugin-nil-manifest-panic-on-orphaned-installation
+    phase: 3
+    service: plugin
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Drei Methoden in `internal/plugin/service.go` laden eine Installation, dann per
+      `s.manifests.GetByID(ctx, inst.ManifestID)` das zugehoerige Manifest, und greifen
+      danach ungeprueft auf das Ergebnis zu, obwohl `GetByID` bei einer nicht gefundenen
+      Zeile `nil, nil` liefert (siehe `ManifestRepo.GetByID`-Vertrag, den auch
+      `Service.GetManifest` selbst explizit gegen nil prueft): `ApprovePermissions`
+      (`for _, p := range manifest.Permissions`, Zeile ~319), `UpdatePluginSettings`
+      (`s.schemaValidator.Validate(manifest.SettingsSchema, ...)`, Zeile ~390) und
+      `GetPluginSettingsSchema` (`return manifest.SettingsSchema, nil`, Zeile ~412). Ein
+      Manifest kann eine Installation ueberleben: `DeleteManifest` blockt nur bei
+      `HasActiveInstallations` (die per Definition nur nicht-uninstallte Installationen
+      zaehlt), also bleibt eine `uninstalled`-Installation mit ihrer alten `ManifestID`
+      nach dem Loeschen des Manifests bestehen. Jeder der drei Aufrufe auf diese
+      verwaiste Installation loest eine Nil-Pointer-Dereferenzierung aus. Reproduziert
+      und belegt in `internal/server/plugin_grpc_test.go` per `require.Panics` in drei
+      Testfaellen ("orphaned installation (deleted manifest) panics..."). `cmd/plugin/main.go`
+      registriert `middleware.RecoveryUnaryInterceptor()`, der Panic wird also in
+      Produktion zu einem opaken `codes.Internal` statt den Prozess abzuschiessen - aber
+      es bleibt ein Panic bei jedem Treffer, kein behandelter Fehlerpfad.
+    sources:
+      - backend/internal/plugin/service.go
+      - backend/internal/plugin/repository_interfaces.go
+      - backend/internal/server/plugin_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-plugin (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit.
+      Fix-Vorschlag: an allen drei Stellen nach dem `manifests.GetByID`-Aufruf denselben
+      `if manifest == nil { return ..., ErrManifestNotFound }`-Wächter einbauen, den
+      `Service.GetManifest` bereits nutzt (ErrManifestNotFound mapped bereits sauber auf
+      NotFound). Nach dem Fix muessen die drei `require.Panics`-Testfaelle in
+      `plugin_grpc_test.go` durch normale `requireGRPCCode(t, err, codes.NotFound)`-Faelle
+      ersetzt werden - sie pruefen bewusst nur den IST-Zustand (Panic), nicht das
+      gewuenschte Verhalten.
+    done_when:
+      - ApprovePermissions, UpdatePluginSettings und GetPluginSettingsSchema pruefen das
+        Manifest-Lookup-Ergebnis auf nil, bevor sie es dereferenzieren
+      - Alle drei liefern bei verwaistem Manifest ErrManifestNotFound / codes.NotFound statt
+        zu paniken
+      - Die drei require.Panics-Testfaelle in plugin_grpc_test.go durch
+        requireGRPCCode(..., codes.NotFound)-Faelle ersetzt
+      - go test -count=1 ./internal/server/... ./internal/plugin/... gruen
+
+  - id: fix-automation-actions-struct-cannot-represent-array
+    phase: 3
+    service: automation
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `automation.proto` deklariert `actions` (auf CreateAutomationRequest, UpdateAutomationRequest
+      und AutomationInfo) als `google.protobuf.Struct` - ein Wire-Typ, der ausschliesslich ein
+      JSON-*Objekt* (`{...}`) transportieren kann (Struct <-> JSON-Objekt ist die kanonische
+      Well-Known-Type-Abbildung, siehe `google.golang.org/protobuf/types/known/structpb`). Die
+      Domain-Seite verlangt aber ein JSON-*Array*: `workflow.Service.validateAutomation`
+      (internal/automation/workflow/service.go:433) und `Service.DryRun` unmarshaln `auto.Actions`
+      unconditional in `[]models.ActionConfig`. `automation_grpc.go`s `automationStructToJSON`
+      wandelt einen `*structpb.Struct` per `s.MarshalJSON()` zurueck - das Ergebnis beginnt
+      strukturell IMMER mit `{`, nie mit `[`. Jeder nicht-nil `Actions`-Wert - selbst ein leeres
+      `{}` - schlaegt deshalb beim Unmarshal in `[]models.ActionConfig` fehl
+      (`json: cannot unmarshal object into Go value of type []models.ActionConfig`), was
+      `mapDomainError` auf `codes.InvalidArgument` abbildet. Ergebnis: `CreateAutomation` und
+      `UpdateAutomation` lassen sich mit KEINER einzigen echten Aktion konfigurieren - die einzige
+      Automation, die sich je erstellen laesst, ist eine ganz ohne Actions (Feld nil/omitted).
+      Bewiesen durch `TestCreateAutomation_ActionsStructCannotCarryAnArray` in
+      `internal/server/automation_grpc_test.go` (gebaut waehrend `b-cov-server-automation`, Lauf 7):
+      ein einzelnes, sonst gueltiges `{"type":"send_email"}` als Actions-Struct fuehrt zu
+      `codes.InvalidArgument`. Gateway-seitig (`route_automation.go`, `rawJSONToAutomationStruct`)
+      ist der Fehler noch unauffaelliger: ein echtes JSON-Array im Request-Body
+      (`s.UnmarshalJSON(data)` auf einem `*structpb.Struct`) schlaegt beim Parsen fehl, der Fehler
+      wird verschluckt (`if s, sErr := ...; sErr == nil { grpcReq.Actions = s }`), das Feld bleibt
+      einfach nil - der Client bekommt 200 OK, seine konfigurierten Aktionen wurden aber nie
+      gesetzt. `b-cov-gateway-automation` (Lauf 7, Iteration 10) hat exakt dieses Symptom bereits
+      fuer `trigger_config` als Testfall festgeschrieben, ohne die Ursache (Struct-vs-Array) oder
+      die Tragweite fuer `actions` speziell zu benennen. `modules.automation` ist in
+      `backend/internal/featureflag/` nicht als Flag gefuehrt (kein Gate), der Pfad ist also ohne
+      Feature-Flag erreichbar.
+    sources:
+      - backend/proto/automation/v1/automation.proto
+      - backend/internal/server/automation_grpc.go
+      - backend/internal/server/automation_grpc_test.go
+      - backend/internal/automation/workflow/service.go
+      - backend/internal/gateway/route_automation.go
+    notes: >
+      Gefunden waehrend b-cov-server-automation (Lauf 7). Nicht inline gefixt - echte
+      Wire-Vertrags-Aenderung (Proto-Feldtyp), keine Coverage-Aenderung, nach Backlog-Regel eine
+      eigene Unit. Fix-Vorschlag: `actions` im .proto von `google.protobuf.Struct` auf
+      `google.protobuf.ListValue` (oder `repeated ActionConfigProto` als eigene Message, falls das
+      Team strukturierte statt opaquer Actions bevorzugt) umstellen - das ist ein Breaking Change
+      am Wire-Format auf allen drei betroffenen Messages (CreateAutomationRequest,
+      UpdateAutomationRequest, AutomationInfo) und erfordert `protoc`-Neugenerierung
+      (`C:/Users/Luke/AppData/Local/Microsoft/WinGet/Packages/Google.Protobuf_Microsoft.Winget.
+      Source_8wekyb3d8bbwe/bin/protoc.exe`), Anpassung von `automationStructToJSON`/
+      `automationJSONToStruct` auf ListValue-Konvertierung, Anpassung von
+      `rawJSONToAutomationStruct` im Gateway (arrayJSON -> `structpb.NewList`), und Korrektur der
+      "documents current gap"-Tests in `automation_grpc_test.go`
+      (`TestCreateAutomation_ActionsStructCannotCarryAnArray`) auf das dann gewuenschte Verhalten.
+      Da kein einziges Frontend-Modul automation.actions aktuell erfolgreich schreiben kann, lohnt
+      sich vor dem Fix ein kurzer Griff in den FE-Code (`desktop/src/renderer/src/api/
+      automation*`), um zu pruefen, ob die FE bereits (fehlerhaft) ein Array sendet oder das
+      Feature dort noch gar nicht verdrahtet ist - das aendert nur die Dringlichkeit, nicht den Fix.
+    done_when:
+      - actions kann ueber CreateAutomation/UpdateAutomation mit mindestens einer echten Aktion
+        erfolgreich gesetzt und ueber GetAutomation/AutomationInfo wieder ausgelesen werden
+      - Bestehende TestCreateAutomation_ActionsStructCannotCarryAnArray auf das neue (korrekte)
+        Verhalten aktualisiert, nicht geloescht
+      - rawJSONToAutomationStruct im Gateway wandelt ein echtes JSON-Array verlustfrei durch
+      - go test -count=1 ./internal/server/... ./internal/automation/... ./internal/gateway/... gruen
+      - protoc-Neugenerierung im selben Commit, kein manuell editiertes .pb.go
+
+  - id: fix-automation-testcondition-omitted-conditions-error
+    phase: 3
+    service: automation
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `AutomationGRPCServer.TestCondition` (internal/server/automation_grpc.go:412) ruft
+      `automationStructToJSON(req.GetConditions())` unconditional auf und reicht das Ergebnis an
+      `workflow.Service.TestCondition` durch, das direkt `json.Unmarshal(conditionJSON, &config)`
+      macht - ohne die Laengenpruefung, die `Service.DryRun` fuer denselben Fall hat
+      (`if len(auto.Conditions) > 0 { unmarshal } `, sonst bleibt `condConfig` der Nullwert und
+      matched immer). Ein Client, der "Automation ohne Bedingungen testen" meint (ein normaler
+      Fall - die Automation soll bei jedem Trigger feuern) und deshalb `conditions` im Request
+      weglaesst, bekommt `automationStructToJSON(nil) == nil` -> `json.Unmarshal(nil, &config)` ->
+      `"unexpected end of JSON input"` als `TestConditionResponse.ErrorMessage` mit
+      `Matches: false`, statt des erwarteten `Matches: true`. Bewiesen durch
+      `TestTestCondition_OmittedConditionsSurfacesAsError` in `automation_grpc_test.go` (Lauf 7).
+      Kleinere Inkonsistenz als der Actions/Struct-Fund (kein Datenverlust, nur eine verwirrende
+      Fehlermeldung im "Bedingung testen"-UI-Feature), aber dieselbe Codebasis, dieselbe Iteration
+      gefunden - deshalb als eigene, kleine Unit statt in die groessere Actions-Unit gemischt.
+    sources:
+      - backend/internal/server/automation_grpc.go
+      - backend/internal/automation/workflow/service.go
+      - backend/internal/server/automation_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-automation (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit.
+      Fix-Vorschlag: in `workflow.Service.TestCondition` (service.go:346) dieselbe
+      `if len(conditionJSON) > 0 { unmarshal }`-Wächter wie in `DryRun` einziehen, sonst bei der
+      Nullwert-`ConditionConfig{}` bleiben (Mode "" matched laut `condEvaluator.Evaluate` bereits
+      immer alles - das ist exakt das gewuenschte Verhalten, kein neuer Code fuer den Match-Teil
+      noetig). Nach dem Fix `TestTestCondition_OmittedConditionsSurfacesAsError` auf
+      `Matches: true` und leere `ErrorMessage` aktualisieren.
+    done_when:
+      - TestCondition mit weggelassenem conditions-Feld liefert Matches:true statt eines
+        Unmarshal-Fehlers, symmetrisch zu DryRun
+      - TestTestCondition_OmittedConditionsSurfacesAsError auf das neue Verhalten aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/automation/... gruen
+
+  - id: fix-schichten-createtemplate-drops-location
+    phase: 3
+    service: schichten
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `SchichtenGRPCServer.CreateTemplate` (internal/server/schichten_grpc.go:268) parses
+      `tenant_id` and then builds `schichten.CreateTemplateInput` from `req.GetName()`,
+      `GetDescription()`, `GetDayOfWeek()`, `GetStartHour()`, `GetStartMinute()`,
+      `GetDurationMinutes()` - it never calls `req.GetLocation()` and never sets
+      `CreateTemplateInput.Location`. Every shift template created via the API therefore has
+      `Location: nil` regardless of what the client sent, even though `CreateTemplateInput`
+      (service.go:97-106) fully supports the field and `Service.CreateTemplate` writes it
+      through unchanged. `UpdateTemplate` (schichten_grpc.go:289, same file) wires the
+      identical field correctly (`if l := req.GetLocation(); l != "" { input.Location = &l }`),
+      so this is a one-RPC omission, not a missing feature. `ApplyTemplate` then copies
+      `tmpl.Location` onto every generated shift (service.go:526), so the loss also silently
+      propagates into every shift a template with a location produces.
+    sources:
+      - backend/internal/server/schichten_grpc.go
+      - backend/internal/schichten/service.go
+      - backend/internal/server/schichten_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-schichten (Lauf 7) - `TestSchichten_TemplateCRUDAndList`
+      erwartete zunaechst, dass ein bei CreateTemplate gesetztes Location-Feld im Response
+      auftaucht (analog zum bereits bestehenden CreateShift-Test), und schlug fehl. Nicht inline
+      gefixt - echte Verhaltensaenderung, keine Coverage-Aenderung, nach Backlog-Regel eine
+      eigene Unit. Fix-Vorschlag: in `CreateTemplate` dieselbe
+      `if l := req.GetLocation(); l != "" { input.Location = &l }`-Zeile ergaenzen, die
+      `UpdateTemplate` schon hat. Der Testfall in `schichten_grpc_test.go`
+      (`TestSchichten_TemplateCRUDAndList`) traegt bereits einen "documents current gap"-
+      Kommentar an der Stelle, die nach dem Fix auf `assert.NotNil`/den gesetzten Wert
+      umgestellt werden muss.
+    done_when:
+      - CreateTemplate liest req.GetLocation() und setzt CreateTemplateInput.Location wie
+        UpdateTemplate es bereits tut
+      - Der "documents current gap"-Kommentar in TestSchichten_TemplateCRUDAndList auf das neue
+        (korrekte) Verhalten aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/schichten/... gruen
+
+  - id: fix-schichten-error-mapping-shiftfull-gap
+    phase: 3
+    service: schichten
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `mapSchichtenError` (internal/server/schichten_grpc.go:647) hat keinen Fall fuer
+      `schichten.ErrShiftFull` (errors.go:12, zurueckgegeben von `Service.AssignEmployee`s
+      Kapazitaets-Guard, service.go:280-294, sobald `CountAssignments >= *shift.Capacity`).
+      Der Fehler faellt auf den generischen Default-Zweig und wird als `codes.Internal`
+      beantwortet, obwohl er - wie `ErrAlreadyAssigned` (AlreadyExists) oder
+      `ErrArbzgViolation`/die JArbSchG-Sentinels (FailedPrecondition) - ein wohlgeformter,
+      client-actionabler Fehler ist: "diese Schicht ist voll" ist kein Serverfehler. Jeder
+      andere Sentinel aus errors.go ist in `mapSchichtenError` vertreten, nur dieser eine
+      fehlt. Belegt durch `TestMapSchichtenError_Table/shift_full_documents_current_gap` und
+      `TestSchichten_AssignEmployee_CapacityExceeded_MapsToInternal` in
+      `internal/server/schichten_grpc_test.go` (beide mit "documents current gap"-Kommentar).
+    sources:
+      - backend/internal/server/schichten_grpc.go
+      - backend/internal/schichten/errors.go
+      - backend/internal/schichten/service.go
+      - backend/internal/server/schichten_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-schichten (Lauf 7) - die per done_when geforderte
+      Tabellentest-Abdeckung ueber alle mapSchichtenError-Sentinels deckte die Luecke auf.
+      Nicht inline gefixt - echte Verhaltensaenderung (500 -> 4xx fuer einen konkreten Fall),
+      keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: einen
+      Fall `case errors.Is(err, schichten.ErrShiftFull): return
+      status.Error(codes.FailedPrecondition, err.Error())` ergaenzen (FailedPrecondition
+      passt zum Muster der anderen Kapazitaets-/Regel-Verstoesse in dieser Funktion; nicht
+      AlreadyExists, da keine Entitaet doppelt existiert). Danach die beiden
+      "documents current gap"-Testfaelle in schichten_grpc_test.go auf den neuen erwarteten
+      Code umstellen.
+    done_when:
+      - ErrShiftFull hat einen eigenen Fall in mapSchichtenError (FailedPrecondition oder
+        gleichwertig client-actionable), nicht mehr Internal
+      - Die beiden "documents current gap"-Testfaelle in schichten_grpc_test.go auf den
+        neuen erwarteten Code aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/schichten/... gruen
+
+  - id: fix-schichten-swaprequests-no-own-scope
+    phase: 3
+    service: schichten
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Es gibt keine own-Scope-Filterung fuer Tauschantraege - an keiner Stelle im Stack.
+      `schichten.SwapRequestFilter` (repository.go:18) traegt nur `ShiftID`/`Status`,
+      `ListSwapRequestsInput` (service.go:599) hat kein Mitarbeiterfeld, und die Gateway-Route
+      `GET /schichten/swap-requests` (route_schichten.go:105) guardet nur mit der einzelnen
+      flachen Permission `schichten:swap read` - keine own-Variante wie sie
+      `rapporte`/`helpdesk` fuer denselben Zweck haben. Jeder Nutzer mit Lese-Recht auf
+      `schichten:swap` sieht damit JEDEN Tauschantrag des Tenants, unabhaengig davon, ob er
+      Antragsteller oder Tauschpartner ist. Verifiziert per Grep ueber
+      `internal/schichten/**` und `internal/gateway/route_schichten.go` (0 Treffer fuer
+      "own"/"Own"). `internal/rapporte/own_scope_list_test.go` und
+      `internal/helpdesk/own_scope_list_test.go` zeigen das etablierte Muster: der Scope
+      erreicht die Datenbank als Praedikat auf dem Autoren-/Zustaendigen-Feld, angewendet auf
+      Service-Ebene (vor dem Offset/Limit-Split), sodass Zeilen UND `total` konsistent
+      bleiben.
+    sources:
+      - backend/internal/schichten/repository.go
+      - backend/internal/schichten/service.go
+      - backend/internal/gateway/route_schichten.go
+      - backend/internal/rapporte/own_scope_list_test.go
+      - backend/internal/helpdesk/own_scope_list_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-schichten (Lauf 7) - der Backlog-Scope dieser Unit
+      forderte selbst "own-Scope ueber beide Mitarbeiterfelder geprueft" als done_when-
+      Kriterium; beim Nachlesen von repository.go/service.go/route_schichten.go bestaetigt,
+      dass die Filterung schlicht nicht existiert, statt nur falsch verdrahtet zu sein.
+      Dokumentiert in `TestSchichten_ListSwapRequests_NoOwnScopeFiltering`
+      (internal/server/schichten_grpc_test.go). Nicht inline gebaut - echte neue Filterlogik
+      quer durch Repository/Service/Gateway, keine Coverage-Aenderung, nach Backlog-Regel
+      eine eigene Unit. Anders als bei `a-inbox-sla` gibt es hier KEINE offene
+      Produktentscheidung ueber Datenmodell oder Zustaendigkeit - beide Mitarbeiterfelder
+      (`RequestedByEmployeeID`, `SwapWithEmployeeID`) existieren bereits auf `SwapRequest`,
+      es fehlt nur die Filterung selbst. Einzige offene Frage: ob "own" bei Tauschantraegen
+      ueberhaupt der richtige Default ist (Schichtleitung braucht ggf. tenant-weite Sicht
+      fuer Genehmigen/Ablehnen) - falls ja, gehoert die own-Filterung nur an
+      `ListSwapRequests` fuer die lesende Rolle, waehrend `ApproveSwapRequest`/
+      `RejectSwapRequest` unveraendert bleiben. Fix-Vorschlag: `ListSwapRequestsInput` um
+      ein optionales `OwnEmployeeID *uuid.UUID` erweitern, `SwapRequestFilter` um dasselbe
+      Feld (matched gegen `requested_by_employee_id OR swap_with_employee_id`), und die
+      Gateway-Route mit `RequirePermissionAny` auf eine "read"/"read:own"-Unterscheidung
+      umstellen (Muster: `route_rapporte.go`/`route_helpdesk.go` abschauen).
+    done_when:
+      - Produktfrage geklaert - own-Scope gilt fuer ListSwapRequests, Genehmigen/Ablehnen
+        bleiben tenant-weit oder bekommen ihre eigene Regel
+      - SwapRequestFilter/ListSwapRequestsInput tragen ein own-Scope-Feld, matched gegen
+        BEIDE Mitarbeiterfelder
+      - Zeilen UND total bleiben konsistent (Filterung auf Service-Ebene, nicht nach dem
+        Offset/Limit-Split)
+      - TestSchichten_ListSwapRequests_NoOwnScopeFiltering in schichten_grpc_test.go auf
+        das neue Verhalten aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/schichten/... ./internal/gateway/... gruen
+
+  - id: fix-vermietung-rentaltoproto-drops-signature
+    phase: 3
+    service: vermietung
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `rentalToProto` (internal/server/vermietung_grpc.go:650) never maps `Rental.SignatureData`,
+      `Rental.SignedAt`, or `Rental.SignedBy` onto the wire `vermietungv1.Rental` message, even
+      though the proto (`vermietung.proto`) carries all three fields (`signature_data`,
+      `signed_at`, `signed_by`) and `Service.SaveSignature` (service.go:663) correctly persists
+      them on the domain model via `Repository.SaveSignature`. Every RPC that returns a `Rental` -
+      `SaveSignature`'s own response, `GetRental`, `ListRentals`, `StartRental`, `EndRental`,
+      `UpdateRental` - silently drops the signature the caller just saved. The gap is proto-mapping
+      only, not a repository or service bug: confirmed in
+      `TestVermietung_SaveSignature` (internal/server/vermietung_grpc_test.go, built during
+      `b-cov-server-vermietung`, Lauf 7) by asserting the stub repository's stored `*Rental` DOES
+      carry `SignatureData`/`SignedBy` right after the same call whose gRPC response comes back
+      empty for both fields.
+    sources:
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/vermietung/service.go
+      - backend/internal/server/vermietung_grpc_test.go
+      - backend/proto/vermietung/v1/vermietung.proto
+    notes: >
+      Gefunden waehrend b-cov-server-vermietung (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (Wire-Antwort bekommt neue, bisher fehlende Felder), keine
+      Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: in `rentalToProto`
+      drei Zeilen ergaenzen - `proto.SignatureData = r.SignatureData`-Analogon (Vorsicht: Proto-Feld
+      `SignatureData`/`SignedBy` sind auf `Rental` NICHT `optional` im .proto, also plain `string`,
+      nil-Pointer-Dereferenz vermeiden mit `if r.SignatureData != nil { proto.SignatureData =
+      *r.SignatureData }` analog fuer SignedBy), und `proto.SignedAt = timestamppb.New(*r.SignedAt)`
+      hinter einem `if r.SignedAt != nil`-Guard (SignedAt ist `optional` im .proto). Nach dem Fix
+      die "documents current gap"-Assertions in `TestVermietung_SaveSignature` auf die tatsaechlich
+      erwarteten Werte umstellen (das Repository-Bypass-Assert kann dann entfallen, da der
+      gRPC-Response-Weg wieder aussagekraeftig ist).
+    done_when:
+      - rentalToProto mappt SignatureData, SignedAt und SignedBy auf das Wire-Rental
+      - TestVermietung_SaveSignature in vermietung_grpc_test.go auf das neue (korrekte) Verhalten
+        aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/server/... ./internal/vermietung/... gruen
+
+  - id: fix-vermietung-error-mapping-inspectionkindexists-gap
+    phase: 3
+    service: vermietung
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `mapVermietungError` (internal/server/vermietung_grpc.go:735) has no case for
+      `vermietung.ErrInspectionKindExists` (errors.go:12, returned by
+      `Service.CreateInspection` when a second inspection of the same kind - e.g. a
+      second "handover" - is attempted for the same rental, service.go:513). It falls
+      through to the generic default branch and is answered as `codes.Internal`, even
+      though it is exactly the same shape of error as `ErrRentalConflict` (which DOES
+      have a case, mapped to `codes.AlreadyExists`) - a well-formed, client-actionable
+      conflict, not a server fault. Every other sentinel in errors.go is represented in
+      `mapVermietungError`; this is the only exception. Belegt durch
+      `TestMapVermietungError_Table/inspection_kind_exists_documents_current_gap` and
+      `TestVermietung_CreateInspection_DuplicateKind_MapsToInternal` in
+      `internal/server/vermietung_grpc_test.go` (both carry a "documents current gap"
+      comment).
+    sources:
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/vermietung/errors.go
+      - backend/internal/vermietung/service.go
+      - backend/internal/server/vermietung_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-vermietung (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (500 -> 409 fuer einen konkreten Fall), keine Coverage-Aenderung,
+      nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: einen Fall
+      `case errors.Is(err, vermietung.ErrInspectionKindExists): return
+      status.Error(codes.AlreadyExists, err.Error())` ergaenzen (gleiches Muster wie
+      ErrRentalConflict). Danach die beiden "documents current gap"-Testfaelle in
+      vermietung_grpc_test.go auf den neuen erwarteten Code umstellen.
+    done_when:
+      - ErrInspectionKindExists hat einen eigenen Fall in mapVermietungError
+        (AlreadyExists), nicht mehr Internal
+      - Die beiden "documents current gap"-Testfaelle in vermietung_grpc_test.go auf den
+        neuen erwarteten Code aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/vermietung/... gruen
+
+  - id: fix-email-mime-attachment-boundary-mismatch
+    phase: 3
+    service: email
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `MIMEBuilder.buildWithAttachments` (internal/email/send/mime_builder.go:129) declares the
+      nested text/html body part's Content-Type boundary from one throwaway `multipart.Writer`
+      ("just for the boundary", e.g. `relatedWriter`/`altWriter` at lines 137/160) but then writes
+      the actual text/html content through a SECOND, independently-created `multipart.Writer`
+      (`innerRelated`/`innerAlt`, lines 144/167) wrapping the same `bodyPart` io.Writer. Each
+      `multipart.NewWriter` call generates its own random boundary
+      (`multipart.randomBoundary()`/crypto rand under the hood) - the two never match. Both
+      branches (`hasInline` true and false) share this exact pattern. Result: every email built
+      with at least one attachment (inline or not) is malformed per RFC 2046 SS5.1.1 - a
+      spec-compliant MIME parser reading the nested body part strictly against its OWN declared
+      Content-Type boundary finds zero parts (immediate EOF) and cannot recover the text/plain or
+      text/html body at all. The message still "sends" (SMTP layer doesn't care about MIME
+      structure) and the ATTACHMENTS themselves ARE still recoverable (they're direct, correctly
+      un-nested children of the outer multipart/mixed writer, which does not have this bug - only
+      the inner alternative/related wrapper does). Proven concretely (not just asserted) by
+      `TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap` in
+      `internal/email/send/mime_builder_test.go` (built during `c-cov-email-send-mime`, Lauf 7):
+      parses the declared boundary out of the nested part's own Content-Type header, then feeds
+      that exact boundary plus the nested part's actual bytes into `multipart.NewReader`, and
+      shows `NextPart()` returns `io.EOF` immediately - i.e. no client, however compliant, can
+      parse it. `TestMIMEBuilder_MultipleAttachments`/`TestMIMEBuilder_AttachmentWithoutFilename`
+      (same file) already work around the bug by asserting only on the outer mixed-level parts and
+      explicitly NOT decoding the broken nested body part.
+    sources:
+      - backend/internal/email/send/mime_builder.go
+      - backend/internal/email/send/mime_builder_test.go
+    notes: >
+      Gefunden waehrend c-cov-email-send-mime (Lauf 7, Iteration 45). Nicht inline gefixt - echte
+      Verhaltensaenderung an einer viel benutzten Kernfunktion (jede ausgehende Mail mit Anhang),
+      keine reine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit - und ausserdem
+      risikoreicher als eine typische Coverage-Iteration, daher besser mit vollem Fokus statt
+      nebenbei. Fix-Vorschlag: in beiden Zweigen von `buildWithAttachments` die throwaway-Writer
+      (`relatedWriter`/`altWriter`, nur fuer `.Boundary()` gebraucht) STREICHEN und stattdessen den
+      bereits fuer den Inhalt erzeugten Writer (`innerRelated`/`innerAlt`) zuerst instanziieren und
+      dessen `.Boundary()` in den Header schreiben - Reihenfolge dreht sich einfach um: erst
+      `innerAlt := multipart.NewWriter(bodyPart)` (oder aequivalent mit einem
+      `bytes.Buffer`-Zwischenschritt, falls `bodyPart` erst nach dem Header-Write existiert - dann
+      Header ueber `innerAlt.Boundary()` VOR `mixedWriter.CreatePart(bodyHeader)` befuellen, das
+      erfordert vermutlich einen kleinen Umbau der Schreibreihenfolge, siehe Kommentar im Code
+      "Override boundary to match the one in the header" bei `caldav_backend`-artigen Mustern
+      dieses Repos als Referenz, falls vorhanden). Nach dem Fix
+      `TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap` durch einen
+      echten Roundtrip-Test ersetzen (Boundary MUSS jetzt matchen, Text/HTML MUESSEN decodierbar
+      sein) und `TestMIMEBuilder_MultipleAttachments`/`TestMIMEBuilder_AttachmentWithoutFilename`
+      auf vollen rekursiven Parse (statt Shallow-Parse an der Mixed-Ebene) umstellen.
+    done_when:
+      - Der im Content-Type-Header deklarierte Boundary-Wert des nested text/html-Bodyparts
+        stimmt mit dem tatsaechlich verwendeten Boundary ueberein, in BEIDEN Zweigen (hasInline
+        true und false)
+      - Ein echter rekursiver MIME-Parse (net/mail + verschachteltes mime/multipart, keine
+        Shallow-Workarounds) liefert Text- und HTML-Body korrekt zurueck fuer eine Mail mit
+        mindestens einem Anhang
+      - TestMIMEBuilder_WithAttachments_NestedBoundaryMismatch_DocumentsCurrentGap auf das neue
+        (korrekte) Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/email/send/... gruen
+
+  - id: fix-vertraege-contracttoproto-drops-signature
+    phase: 3
+    service: vertraege
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `vertraegeContractToProto` (internal/server/vertraege_grpc.go:537) never sets
+      `signature_data`, `signed_at`, or `signed_by` on the wire `Contract` message,
+      even though the proto (vertraege.proto:67-69) declares all three and comments
+      `signature_data` as "Populated only by GetContract". `Contract.SignatureData`/
+      `SignedAt`/`SignedBy` are correctly persisted by `Service.SaveSignature`
+      (service.go:543) via `Repository.SaveSignature`, and the domain struct
+      (models.go:99-101) carries the fields - but the ONE conversion function used by
+      every RPC that returns a `Contract` (CreateContract, UpdateContract, GetContract,
+      ListContracts, SaveSignature's own response) unconditionally omits them. The
+      effect is not "list leaks detail data" (the opposite, harmless direction) but the
+      reverse and actually broken one: a signature saved via `SaveSignature` can never
+      be read back through ANY RPC, including `GetContract` - the field the proto
+      comment says should carry it. The frontend has no way to display or verify a
+      contract's signature after saving it.
+    sources:
+      - backend/internal/server/vertraege_grpc.go
+      - backend/proto/vertraege/v1/vertraege.proto
+      - backend/internal/vertraege/models.go
+      - backend/internal/vertraege/service.go
+      - backend/internal/server/vertraege_grpc_test.go
+    notes: >
+      Gefunden waehrend b-cov-server-vertraege (Lauf 7) - beim Bau von
+      `TestVertraege_SaveSignature_NotInListResponse` (Nachweis, dass Signaturdaten
+      nicht in Listen-Antworten auftauchen sollen) faellt auf, dass sie auch in
+      GetContract fehlen, was der Proto-Kommentar "Populated only by GetContract"
+      explizit anders vorsieht. Der Test dokumentiert den IST-Zustand
+      ("documents current gap"-Kommentar am GetContract-Assert), aendert ihn aber
+      nicht - echte Wire-Vertrags-Verhaltensaenderung, keine Coverage-Aenderung, nach
+      Backlog-Regel eine eigene Unit. Fix-Vorschlag: in `vertraegeContractToProto` nur
+      dann `SignatureData`/`SignedAt`/`SignedBy` setzen, wenn der Aufrufer `GetContract`
+      (oder `SaveSignature`, dessen Response ohnehin ein frisch signiertes Contract
+      zurueckgibt) ist - z. B. per zusaetzlichem `includeSignature bool`-Parameter, den
+      `ListContracts`/`CreateContract`/`UpdateContract` mit `false` aufrufen. Danach den
+      "documents current gap"-Assert in
+      `TestVertraege_SaveSignature_NotInListResponse` auf das neue (korrekte)
+      GetContract-Verhalten umstellen.
+    done_when:
+      - GetContract und SaveSignature liefern signature_data/signed_at/signed_by, wenn
+        das Contract signiert ist
+      - ListContracts/CreateContract/UpdateContract liefern diese Felder weiterhin
+        NICHT (bewusste Trennung Liste vs. Detail bleibt bestehen)
+      - Der "documents current gap"-Assert in
+        TestVertraege_SaveSignature_NotInListResponse auf das neue Verhalten
+        aktualisiert
+      - go test -count=1 ./internal/server/... ./internal/vertraege/... gruen
+
+  - id: fix-lexware-tenant-id-missing-on-upsert
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/biz/lexware/postgres_repository.go`: `UpsertSyncConfig`,
+      `UpsertEntityMapping`, `UpsertFieldMappings`, `CreateSyncLog`, and
+      `UpsertWebhookSubscription` build their INSERT statements without a
+      `tenant_id` column. All five target tables (`lexware_sync_configs`,
+      `lexware_entity_mappings`, `lexware_field_mappings`, `lexware_sync_log`,
+      `lexware_webhook_subscriptions`) have `tenant_id UUID NOT NULL` with NO
+      default and NO populating trigger - verified against the live schema
+      (`\d <table>` on docker-postgres-1, five for five) and by grepping every
+      migration for a tenant_id-setting trigger (none exists; `enable_tenant_rls`
+      only adds the RLS policy, it does not backfill inserts). Every one of
+      these five methods therefore fails on a real database with a
+      not-null-violation, every single time. The four `models.Lexware*`
+      structs they write from (`LexwareSyncConfig`, `LexwareEntityMapping`,
+      `LexwareFieldMapping`, `LexwareSyncLog`) do not even carry a TenantID
+      field, so the gap runs from the model up. Net effect: the entire
+      Lexware integration write path - Connect (UpsertSyncConfig), contact
+      sync in both directions (CreateSyncLog, UpsertEntityMapping),
+      UpdateFieldMappings (UpsertFieldMappings), and webhook (de)registration
+      (UpsertWebhookSubscription) - cannot write to a real tenant-scoped
+      database today. `modules.lexware`'s activation state was not checked as
+      part of this finding; treat this as broken regardless.
+    sources:
+      - backend/internal/biz/lexware/postgres_repository.go
+      - backend/internal/models/lexware.go
+      - backend/internal/biz/lexware/repository.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/lexware/contact_sync.go
+      - backend/internal/biz/lexware/webhook_handler.go
+      - backend/migrations/000115_option_b_phase2_integrations_chat.up.sql
+      - backend/migrations/000125_rls_welle4_integration_configs_constraint.up.sql
+    notes: >
+      Found while building c-cov-biz-lexware (Lauf 7, Iteration 2): every DB
+      test written for the read/list/delete/update paths of
+      postgres_repository.go had to seed its fixture rows directly via
+      testutil.SeedRow (which does carry tenant_id) instead of through the
+      repository's own Upsert/Create methods, because those methods do not
+      compile a working INSERT against the real schema. Fix shape: add
+      `TenantID uuid.UUID` to the four models.Lexware* structs, thread a
+      tenantID argument (or read it off middleware.GetTenantID(ctx), matching
+      the pattern everywhere else in this codebase) through the five
+      Repository methods and their INSERT statements, and update every call
+      site (contact_sync.go, webhook_handler.go, service.go
+      UpdateFieldMappings, scheduler.go where relevant) plus the mockRepository
+      test doubles across service_test.go/service_wiring_test.go/
+      tenant_isolation_*_test.go that implement the Repository interface.
+      This is a real signature change across many call sites, not a one-line
+      fix - explicitly out of scope for a Lauf-7 coverage unit per this run's
+      own rule against building fixes on the side. bexio's equivalent methods
+      were NOT checked as part of this finding; worth a quick grep before
+      starting this unit in case the same gap exists there too.
+    done_when:
+      - The four models.Lexware* structs carry TenantID
+      - All five Repository Upsert/Create methods write tenant_id in their INSERT
+      - Every call site and mock/test double updated to match the new signature
+      - A DB test proves UpsertSyncConfig (or another of the five) succeeds
+        end-to-end against the real schema, replacing today's
+        SeedRow-bypasses-Upsert workaround in postgres_repository_db_test.go
+      - go test -count=1 ./internal/biz/lexware/... green with DATABASE_URL set, 0 skips
+
+  - id: fix-bexio-tenant-id-missing-on-upsert
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Same bug as fix-lexware-tenant-id-missing-on-upsert (fixed in Lauf 7), same shape, sister
+      module. `internal/biz/bexio/postgres_repository.go`: `UpsertSyncConfig`, `UpsertEntityMapping`,
+      `UpsertFieldMappings`, and `CreateSyncLog` build their INSERT statements without a `tenant_id`
+      column. All four target tables (`bexio_sync_configs`, `bexio_entity_mappings`,
+      `bexio_field_mappings`, `bexio_sync_log`) have `tenant_id UUID NOT NULL` with no default and no
+      populating trigger (confirmed via migrations 000115 and 000125 - `bexio_sync_configs` is the
+      Welle-4-deferred one, backfilled only via a one-time UPDATE JOIN on `config_id`, exactly the
+      lexware pattern). The four `models.Bexio*` structs do not carry a TenantID field either. Every
+      call to these four methods fails on a real database with a not-null-violation. bexio has no
+      webhook-subscriptions table (OAuth-based, not webhook-based), so this is four methods, not five -
+      otherwise identical in shape to the lexware fix.
+    sources:
+      - backend/internal/biz/bexio/postgres_repository.go
+      - backend/internal/models/bexio.go
+      - backend/internal/biz/bexio/repository.go
+      - backend/internal/biz/bexio/service.go
+      - backend/internal/biz/bexio/contact_sync.go
+      - backend/internal/biz/bexio/invoice_push.go
+      - backend/internal/biz/bexio/invoice_pull.go
+      - backend/internal/biz/bexio/quote_push.go
+      - backend/internal/biz/bexio/payment_poll.go
+      - backend/internal/biz/bexio/scheduler.go
+      - backend/migrations/000115_option_b_phase2_integrations_chat.up.sql
+      - backend/migrations/000125_rls_welle4_integration_configs_constraint.up.sql
+    notes: >
+      Found while building fix-lexware-tenant-id-missing-on-upsert (Lauf 7, this iteration) - the
+      lexware unit's own notes flagged bexio as unchecked, so it was grepped as part of this fix and
+      confirmed to have the identical gap. Fix shape: copy the lexware fix exactly - add TenantID to
+      the four models.Bexio* structs, thread tenantID through the four Repository methods and their
+      INSERT statements, update every call site (contact_sync.go, invoice_push.go, invoice_pull.go,
+      quote_push.go, payment_poll.go all build sync-log/entity-mapping literals) and the bexio
+      mockRepository test double. Check payment_poll.go and invoice_pull.go specifically - lexware has
+      no equivalent of either, so their call sites were not part of the lexware fix and need fresh
+      review. While in postgres_repository.go, also check every ON CONFLICT target against the actual
+      unique constraints in the migrations that created bexio_sync_configs/bexio_entity_mappings/
+      bexio_field_mappings/bexio_sync_log - the lexware fix uncovered a second, independent bug in
+      lexware_webhook_subscriptions this way (ON CONFLICT named a column pair with no matching unique
+      constraint at all, 42P10 on the very first real INSERT), so the same class of bug is plausible
+      here too and worth a real-schema DB test either way, not just a grep.
+    done_when:
+      - The four models.Bexio* structs carry TenantID
+      - All four Repository Upsert/Create methods write tenant_id in their INSERT
+      - Every ON CONFLICT target checked against the migration that created the unique constraint it names
+      - Every call site and mock/test double updated to match the new signature
+      - A DB test proves at least one of the four methods succeeds end-to-end against the real schema
+      - go test -count=1 ./internal/biz/bexio/... green with DATABASE_URL set, 0 skips
+
+  - id: fix-notification-wildcard-mapping-never-delivered
+    phase: 3
+    service: notification
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `MappingCache.refresh` (internal/notification/integration/forwarder.go:332) loads every
+      active channel mapping and, for a wildcard mapping (`len(m.Modules) == 0`, meaning "forward
+      every module's notifications to this channel" - the simplest possible admin setup), files it
+      under the literal cache key `"*"` (`newModules["*"] = append(...)`, line 370) with a comment
+      promising "we'll handle this at query time in GetMappingsForModule". `GetMappingsForModule`
+      (line 290) never keeps that promise: both the fast-path read (`c.modules[moduleID]`, line
+      293) and the post-refresh read (line 306) look up only the literal `moduleID` key, never
+      merge in `c.modules["*"]`. The result: a wildcard channel mapping is loaded into memory on
+      every cache refresh and then never returned for any real module lookup, so
+      `Forwarder.HandleNotification` (line 49, the only caller of `GetMappingsForModule`) never
+      selects it and no notification is ever forwarded through it - a silently dead integration
+      from the moment it is configured, for every tenant that sets one up. `ListActiveMappingsForModule`
+      (repository.go:23, postgres_repository.go:265) is unused dead code (grepped, zero call sites)
+      and would not fix this either - its SQL (`m.modules @> $1::jsonb`) also fails to match a
+      wildcard's empty `modules` array.
+    sources:
+      - backend/internal/notification/integration/forwarder.go
+      - backend/internal/notification/integration/repository.go
+      - backend/internal/notification/integration/postgres_repository.go
+      - backend/internal/notification/integration/forwarder_test.go
+    notes: >
+      Gefunden waehrend c-cov-notification-forwarder (Lauf 7) - beim Nachvollziehen von
+      `MappingCache.refresh`/`GetMappingsForModule` bestaetigt (nicht nur vermutet):
+      `TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap` in
+      `forwarder_test.go` beweist es direkt (Wildcard-Mapping in den Fake-Repo geladen, Cache
+      befuellt, `GetMappingsForModule(ctx, "crm")` liefert eine leere Liste). Nicht inline
+      gefixt - echte Verhaltensaenderung (bisher tote Mappings wuerden ploetzlich Nachrichten
+      verschicken), keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit. Fix-Vorschlag:
+      in `GetMappingsForModule` nach dem Read von `c.modules[moduleID]` zusaetzlich
+      `c.modules["*"]` lesen und beide Listen zusammenfuehren (dedupe by ChannelID analog zu
+      `selectMostSpecific`s Vorgehen, oder die Merge-Verantwortung ganz `selectMostSpecific`
+      ueberlassen und `GetMappingsForModule` einfach beide Slices zurueckgeben lassen - dort
+      existiert die Wildcard-vs-exact-Logik bereits und wuerde sie unveraendert korrekt anwenden).
+      Nach dem Fix `TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap` auf das
+      neue (korrekte) Verhalten aktualisieren, nicht loeschen.
+    done_when:
+      - Ein Wildcard-Mapping (leeres Modules-Feld) wird von GetMappingsForModule fuer JEDES
+        Modul zurueckgegeben, sofern kein spezifischeres exaktes Mapping vorhanden ist
+      - selectMostSpecifics bestehendes Exact-schlaegt-Wildcard-Verhalten bleibt unveraendert
+      - TestMappingCache_WildcardMappingNeverReturned_DocumentsCurrentGap in forwarder_test.go
+        auf das neue erwartete Verhalten aktualisiert
+      - go test -count=1 ./internal/notification/... gruen
+
+  - id: a-inbox-sla
+    phase: 3
+    service: inbox
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >
+      `sla_policies` existiert (Migration 000077), gehoert aber vollstaendig dem Helpdesk-
+      Bounded-Context: es haengt an `ticket_queues.sla_policy_id`, traegt `first_response_mins`/
+      `resolution_mins`/`business_hours` fuer Ticket-Queues und wird ausschliesslich von
+      `internal/helpdesk` gelesen. Inbox (`inbox_messages`, `team_inboxes`,
+      `team_inbox_members`, `routing_rules`, Migration 000047 + Folgen) hat keine Spalte, keinen
+      Code-Pfad und keine Migration, die je auf `sla_policies` verweist - verifiziert per Grep
+      ueber `backend/internal/inbox/**` (0 Treffer fuer sla/due_at/first_response/resolution)
+      und ueber alle Migrationen, die `team_inboxes` anfassen (000047, 000110, 000124 - keine
+      fuegt eine `sla_policy_id`-Spalte hinzu). Es gibt also keine bestehende Zuordnung
+      "welche Policy gilt fuer welchen Team-Inbox/Channel" und keine Vorgabe, ob Inbox
+      ueberhaupt dieselbe Tabelle wie Helpdesk teilen soll oder eine eigene braucht. Genau das
+      ist die in den notes selbst benannte Produktentscheidung ("Gibt es keine ... eine
+      Produktentscheidung") - nur eine Ebene tiefer als vermutet: die Tabelle existiert, aber
+      nicht fuer diesen Bounded Context, und die Zuordnungsfrage ist ungeklaert.
+    scope: >
+      SLA-Verfolgung im Posteingang. Status, Threading, Tags und Weiterleiten sind gebaut;
+      SLA ist der letzte offene Punkt aus dem Inbox-Block. Reaktions- und Loesungsfrist je
+      Nachricht berechnen und im Listen- und Detail-Wire mitliefern, plus einen Filter auf
+      ueberfaellige Vorgaenge.
+    sources:
+      - backend/internal/inbox/service.go
+      - backend/internal/inbox/postgres_repository.go
+      - backend/internal/gateway/route_inbox.go
+    notes: >
+      Bleibt blockiert bis Luke entscheidet: (a) Inbox bekommt eine eigene Policy-Tabelle
+      analog `sla_policies`, mit eigener Zuordnung (global? pro `team_inbox`? pro `channel`?),
+      oder (b) `team_inboxes.sla_policy_id` referenziert Helpdesks `sla_policies` direkt
+      (Cross-Modul-Kopplung zweier bisher unabhaengiger Services), oder (c) Scope-Streichung.
+      Sobald entschieden, ist die Berechnung selbst mechanisch (serverseitig, Filter in SQL).
+    done_when:
+      - Praemisse geprueft, Ergebnis mit Fundstelle im Journal belegt
+      - Falls gebaut - Fristen im Wire, Filter auf ueberfaellig greift in SQL
+      - Nachricht ohne zutreffende Richtlinie liefert keine Frist statt einer Nullfrist
+      - openapi.yaml nachgezogen, go test ./internal/gateway/ gruen
+
+  - id: fix-inventar-picking-partial-book
+    phase: 3
+    service: inventar
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `BookPickingList` (internal/inventar/service.go, ~Zeile 1143) haelt die Zusage aus
+      seinem eigenen Doc-Kommentar nicht: "a list that cannot be booked in full must not
+      leave half its stock moved". Der Vorab-Check deckt nur den Bestandsfall ab. Schlaegt
+      `AdjustStock` in der Schleife danach fehl, wird der Fehler NUR geloggt - die Liste
+      bleibt `completed`, der Aufrufer bekommt 200, ein Teil des Bestands ist bewegt.
+      Dasselbe Muster steht in `BookInventurDifferences` (~Zeile 962); nach der
+      Root-Cause-Regel gehoert der Fix an die gemeinsame Stelle, nicht zweimal als Guard.
+      Zweiter Teil: die neuen Picking-Tabellen sind nie gegen das reale Schema gelaufen.
+      `picking_service_test.go` faehrt nur gegen `mockRepository`, also ist weder
+      `ON CONFLICT (picking_list_id, item_id)` noch das konditionale
+      `UPDATE ... WHERE status <> 'completed'` verifiziert. Genau diese Fehlerklasse hat
+      in Lauf 6 Migration 000305 noetig gemacht.
+    sources:
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/picking_service_test.go
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/fuhrpark/booking_conflict_test.go
+      - backend/migrations/000307_picking_lists.up.sql
+    notes: >
+      Claim und alle Bestandsbewegungen gehoeren in EINE Transaktion. Das Muster steht
+      bereits im Repo: `produktion/postgres_repository.go` ~Zeile 347
+      (`pool.BeginTx(ReadCommitted)` / `defer tx.Rollback` / `tx.Commit`, mit
+      dokumentierter Schrittliste) und `fuhrpark/postgres_repository.go` ~Zeile 1279.
+      Keine neue Abstraktion, kein Tx-Framework, keine neue Dependency.
+      `modules.inventar` ist per Default OFF - der Pfad ist auf Produktion nicht
+      erreichbar, die Unit ist wichtig aber nicht dringend.
+    done_when:
+      - Teilfehler beim Buchen laesst die Liste NICHT completed und liefert einen Fehler
+      - Fix sitzt an der gemeinsamen Stelle, BookInventurDifferences mit abgedeckt
+      - DB-Test gegen das reale Schema fuer ON CONFLICT und den Claim-UPDATE
+      - Doppelbuchung liefert weiterhin ErrPickingListAlreadyBooked
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/inventar/... gruen
+
+  - id: fix-meeting-savenotes-onconflict-no-matching-constraint
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `PostgresRepository.SaveNotes` (internal/work/meeting/postgres_repository.go:308)
+      builds `INSERT INTO meeting_notes (...) VALUES (...) ON CONFLICT (meeting_id,
+      author_id) WHERE is_private = $5 DO UPDATE SET content = EXCLUDED.content,
+      updated_at = EXCLUDED.updated_at`. There is no unique or exclusion constraint on
+      `meeting_notes` matching that column list and predicate - verified against the live
+      schema (`\d meeting_notes` on docker-postgres-1: only `meeting_notes_pkey` on `id`
+      plus two plain btree indexes on `meeting_id`/`tenant_id`, nothing else) and by
+      grepping every migration touching `meeting_notes`
+      (000037_create_meetings.up.sql creates the table with no such constraint;
+      000109/000124 only add `tenant_id`/RLS, no index changes). PostgreSQL requires an
+      ON CONFLICT target to name an existing unique/exclusion constraint or index -
+      without one, the statement fails outright with "there is no unique or exclusion
+      constraint matching the ON CONFLICT specification". This is not a partial-coverage
+      edge case: EVERY call to SaveNotes fails, unconditionally - confirmed empirically
+      by running the literal INSERT by hand against docker-postgres-1 (exit 1, exact
+      error text above) and by `TestNotes_SeriesIsolationAndSaveNotesConflictGap`
+      (internal/work/meeting/postgres_repository_db_test.go, built during
+      c-cov-work-meeting-repo, Lauf 7) which asserts `repo.SaveNotes(...)` returns
+      exactly that error. The entire meeting-notes-writing feature - both public notes
+      and private per-author scratch notes, the read side of which (`GetNotes`,
+      `GetAllNotes`, `GetPreviousMeetingNotes`) works fine and is fully tested - has
+      never successfully written a single row through this code path on a real database.
+    sources:
+      - backend/internal/work/meeting/postgres_repository.go
+      - backend/internal/work/meeting/models.go
+      - backend/internal/work/meeting/service.go
+      - backend/internal/work/meeting/postgres_repository_db_test.go
+      - backend/migrations/000037_create_meetings.up.sql
+    notes: >
+      Gefunden waehrend c-cov-work-meeting-repo (Lauf 7) - beim Bau eines Fixtures fuer
+      GetPreviousMeetingNotes ueber SaveNotes schlug der Aufruf sofort mit dem exakten
+      Postgres-Fehler fehl; per direktem `psql`-INSERT gegen docker-postgres-1
+      reproduziert statt nur vermutet, danach auf `testutil.SeedRow` fuer die
+      Notes-Fixtures umgestellt (siehe Kommentar im Testfile). Nicht inline gefixt -
+      echte Verhaltensaenderung (heute: 100 % Fehlerrate auf einer Kernfunktion; nach dem
+      Fix: funktionierend), keine Coverage-Aenderung, nach Backlog-Regel eine eigene
+      Unit - und dringlicher als eine normale Coverage-Iteration, weil es ein Totalausfall
+      einer bestehenden Funktion ist, nicht nur eine Luecke. Fix-Vorschlag: eine partielle
+      Unique-Index-Migration ergaenzen, die exakt zum ON-CONFLICT-Ziel passt -
+      `CREATE UNIQUE INDEX meeting_notes_meeting_author_public_unique ON
+      meeting_notes(meeting_id, author_id) WHERE is_private = false` deckt den
+      dokumentierten Anwendungsfall (ein einzelner "the" public note pro Autor und
+      Meeting, mehrere private Notizen pro Autor bleiben moeglich) - genauer pruefen, ob
+      private Notizen ebenfalls nur eine pro Autor sein sollen (dann zusaetzlich
+      `WHERE is_private = true`, zwei partielle Indizes) oder ob mehrere private
+      Scratch-Notizen pro Autor gewuenscht sind (dann bleibt es bei einem Index); das ist
+      eine Produktfrage zum Notizen-Feature, keine rein technische. `make migrate-create
+      name=meeting_notes_unique_index`, danach
+      `TestNotes_SeriesIsolationAndSaveNotesConflictGap` auf das neue (korrekte)
+      Verhalten umstellen (SaveNotes erfolgreich, Upsert-Verhalten pruefen: zweiter
+      SaveNotes-Call fuer denselben Autor/dieselbe Sichtbarkeit muss UPDATE statt neuer
+      Zeile sein).
+    done_when:
+      - Eine Migration ergaenzt einen partiellen Unique-Index auf meeting_notes, der zum
+        ON-CONFLICT-Ziel in SaveNotes passt (Produktfrage zu privaten Notizen vorher
+        geklaert)
+      - SaveNotes gelingt fuer eine neue (meeting_id, author_id, is_private)-Kombination
+      - Ein zweiter SaveNotes-Call fuer dieselbe Kombination aktualisiert die bestehende
+        Zeile (DO UPDATE), erzeugt keine zweite
+      - TestNotes_SeriesIsolationAndSaveNotesConflictGap auf das neue (korrekte)
+        Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/work/meeting/... gruen
+
+  - id: c-cov-biz-lexware
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/biz/lexware` - 998 Statements, 41,5 % gedeckt, 584 ungedeckt. Der groesste
+      ungedeckte Block in `biz`, der ueberhaupt in die Coverage-Zahl einzahlt.
+    sources:
+      - backend/internal/biz/lexware/
+      - backend/internal/biz/bexio/
+    notes: >
+      `internal/biz` steht bei 54,9 % - fuer das 60-%-Ziel der kritischen Pfade fehlen rund
+      446 gedeckte Statements. invoice/quote/creditnote bringen dafuer NICHTS: ihre Tests
+      tragen `//go:build integration` und zaehlen nicht in `coverage.out`. Seit 2026-08-09
+      gaten sie immerhin den Merge (eigener blockierender CI-Job `integration`), aber die
+      Zahl bewegen sie nicht. lexware und recurring sind deshalb die wirksamen Ziele.
+      Mapping- und Fehlerpfade zuerst, nicht die HTTP-Attrappe. bexio ist das
+      Schwestermodul und taugt als Muster fuer den Testaufbau.
+    done_when:
+      - Mapping-Pfade als Tabellentests gegen erwartete Literale, nicht gegen nachgebaute Logik
+      - Fehlerklassen der API-Antworten abgedeckt
+      - lexware ueber 80 %
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/biz/lexware/... gruen
+
+  - id: c-cov-biz-recurring
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/biz/recurring` - 269 Statements, 52,4 % gedeckt, 128 ungedeckt.
+      Wiederkehrende Rechnungen: Terminberechnung und Ausloese-Logik.
+    sources:
+      - backend/internal/biz/recurring/
+    notes: >
+      Zweites Paket fuer das 60-%-Ziel aus `c-cov-biz-lexware` - zusammen decken die
+      beiden rechnerisch die fehlenden ~446 Statements ab. Terminberechnung ueber
+      Monatsgrenzen und Schaltjahre ist die typische Falle; Zeitpunkte in den Test
+      injizieren, nie `time.Now()` im Test verwenden.
+    done_when:
+      - Terminberechnung inkl. Monatsende- und Schaltjahrfaellen abgedeckt
+      - Ausloese-Pfad mit und ohne faelligen Termin abgedeckt
+      - recurring ueber 85 %
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/biz/recurring/... gruen
+
+  - id: b-cov-gateway-inbox
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_inbox.go` - 1.396 Zeilen, 45 Handler, keine Testdatei. Groesste
+      ungetestete Routendatei im Gateway.
+    sources:
+      - backend/internal/gateway/route_inbox.go
+      - backend/internal/gateway/testutil_test.go
+      - backend/internal/gateway/route_helpdesk_test.go
+    notes: >
+      `testutil_test.go` liefert alles Noetige - `registryWithService` registriert einen
+      Dienst unter einer Dummy-Adresse, sodass der Client-Abruf gelingt und der gRPC-Aufruf
+      erst zur Laufzeit scheitert; damit lassen sich alle Pfade VOR dem Aufruf sauber testen.
+      `/inbox/messages/unread-count` ist historisch belastet - das dedizierte Segment muss vor
+      `/{id}` greifen, sonst wird `unread-count` als UUID gelesen und mit 400 abgewiesen. Genau
+      das als Test festschreiben.
+    done_when:
+      - unread-count wird nicht als UUID-Parameter gelesen, als Test festgeschrieben
+      - Validierungspfade je Handler - ungueltige UUID, fehlender Tenant, kaputtes JSON
+      - Antwortformen gegen den FE-Typ geprueft, nicht geraten
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-crm-activities
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_crm_activities.go` - 903 Zeilen, 27 Handler, keine Testdatei.
+    sources:
+      - backend/internal/gateway/route_crm_activities.go
+      - backend/internal/gateway/route_crm_test.go
+    notes: >
+      Aktivitaeten haengen polymorph an Kontakt, Firma oder Deal - jeder Zweig braucht
+      seinen Validierungsfall. Zeitraumfilter aus der Abfragezeichenkette sind der
+      klassische Ort fuer ein ungeprueftes Datum.
+    done_when:
+      - Jeder Zuordnungszweig hat einen Validierungsfall
+      - Ungueltiges Datum im Zeitraumfilter liefert 400, keinen Panic
+      - Antwortformen gegen den FE-Typ geprueft
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-biz-billing
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_biz_billing.go` - 868 Zeilen, 24 Handler, keine Testdatei.
+      Zahlungspfad.
+    sources:
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/gateway/route_biz_test.go
+    notes: >
+      `route_biz_test.go` (516 Zeilen) ist die Vorlage und deckt Nachbardateien ab - zuerst
+      lesen, nichts doppeln. Betraege kommen als Zeichenkette; ein Handler, der sie durch
+      einen Float schiebt, verliert Cents - genau das gehoert geprueft. Idempotenz-Schluessel
+      bei POST nicht uebersehen.
+    done_when:
+      - Betraege laufen unveraendert als Zeichenkette durch, belegt durch einen Test
+      - Idempotenz-Verhalten bei POST geprueft, falls vorhanden
+      - Validierungspfade je Handler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-work-tasks
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_work_tasks.go` - 856 Zeilen, 25 Handler, keine Testdatei.
+    sources:
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/gateway/route_work_test.go
+    notes: >
+      Die Aufgabenliste kennt viele Filter (Label, Zustaendiger, Faelligkeit, Projekt) - die
+      Kombination ist der Ort, an dem eine Tenant-Bedingung verloren geht. Der own-Scope
+      greift in Listen nur ueber den Zustaendigen, weil Listen-Antworten den Ersteller nicht
+      tragen - falls das noch gilt, gehoert es als Befund ins Journal.
+    done_when:
+      - Filterkombinationen abgedeckt, inklusive der leeren Kombination
+      - Befund zum own-Scope in Listen im Journal
+      - Validierungspfade je Handler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-automation
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_automation.go` - 745 Zeilen, 25 Handler, keine Testdatei.
+    sources:
+      - backend/internal/gateway/route_automation.go
+      - backend/internal/gateway/testutil_test.go
+    notes: >
+      Die BE-Ressource heisst `automations` OHNE Modul-Praefix, das FE benutzt
+      `automatisierung:automations:*` - falls das Gateway hier abbildet, gehoert die Abbildung
+      getestet, denn ein Tippfehler darin ist ein stiller Default-Deny. Der eingehende
+      Webhook-Pfad ist der einzige, der von aussen erreichbar ist - seine Validierung
+      besonders pruefen.
+    done_when:
+      - Berechtigungs-Abbildung getestet, falls das Gateway eine vornimmt
+      - Webhook-Eingang - Validierung und Ablehnung ungueltiger Nutzlast abgedeckt
+      - Validierungspfade je Handler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-notification
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_notification.go` - 677 Zeilen, 24 Handler, keine Testdatei.
+    sources:
+      - backend/internal/gateway/route_notification.go
+      - backend/internal/gateway/testutil_test.go
+    notes: >
+      Benachrichtigungen sind empfaengerbezogen - jeder Handler muss den Nutzer aus dem
+      Auth-Kontext nehmen und nicht aus der Abfragezeichenkette. Ein Test, der eine fremde
+      Nutzerkennung mitschickt und prueft, dass sie ignoriert wird, ist hier der wertvollste.
+    done_when:
+      - Fremde Nutzerkennung in der Abfrage wird ignoriert, belegt durch einen Test
+      - Validierungspfade je Handler
+      - Antwortformen gegen den FE-Typ geprueft
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-work-projects
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_work_projects.go` - 591 Zeilen, 19 Handler, keine Testdatei.
+    sources:
+      - backend/internal/gateway/route_work_projects.go
+      - backend/internal/gateway/route_work_test.go
+    notes: >
+      Vorlagen und Projekte teilen sich die Routen (`templates_only`, `from-template`) - der
+      Filter ist die Logik und gehoert in beiden Stellungen getestet. `HandleDeleteProject`
+      (:159) ist neu genug, dass er noch keinen Test hat.
+    done_when:
+      - Vorlagenfilter in beiden Stellungen getestet
+      - Loeschpfad abgedeckt, inklusive unbekannter Projektkennung
+      - Validierungspfade je Handler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-crm-contacts
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_crm_contacts.go` - 541 Zeilen, 13 Handler, keine eigene
+      Testdatei. Enthaelt den Import-/Export-Pfad.
+    sources:
+      - backend/internal/gateway/route_crm_contacts.go
+      - backend/internal/gateway/route_crm_test.go
+    notes: >
+      Der Import liest die Spalten-Zuordnung aus einzelnen `map_<spalte>`-Formularfeldern -
+      das ist ein Vertrag, der schon einmal auseinandergelaufen ist und jede Zeile still
+      verworfen hat. Genau diesen Vertrag als Test festschreiben, inklusive des Falls, dass
+      gar keine Zuordnung mitkommt. Mehrteilige Anfragen ohne Datei muessen 400 liefern.
+    done_when:
+      - map_-Zuordnungsvertrag als Test festgeschrieben
+      - Import ohne Zuordnung und ohne Datei liefern je 400, keinen Panic
+      - Validierungspfade je Handler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-crm-pipeline
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_crm_pipeline.go` - 513 Zeilen, 14 Handler, keine Testdatei.
+    sources:
+      - backend/internal/gateway/route_crm_pipeline.go
+      - backend/internal/gateway/route_crm_test.go
+    notes: >
+      Die Umsortierung der Stufen ist die einzige echte Logik - eine unvollstaendige oder
+      doppelte Reihenfolge muss abgewiesen werden. Gewonnen- und Verloren-Stufe sind
+      einmalig; ein zweiter Versuch muss 409 liefern.
+    done_when:
+      - Unvollstaendige und doppelte Reihenfolge werden abgewiesen
+      - Zweite Gewonnen- oder Verloren-Stufe liefert 409
+      - Validierungspfade je Handler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-biz-invoices
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_biz_invoices.go` - 397 Zeilen, 10 Handler, keine eigene
+      Testdatei. Zahlungspfad.
+    sources:
+      - backend/internal/gateway/route_biz_invoices.go
+      - backend/internal/gateway/route_biz_test.go
+    notes: >
+      `mark-paid` ist der Handler mit Konsequenz - ein zweiter Aufruf darf den Zahlbetrag
+      nicht verdoppeln. Betraege wieder als Zeichenkette durchreichen. Der Kontaktfilter
+      (`?contact_id=`) muss tenant-gescopt sein, sonst ist er ein Existenz-Orakel fuer fremde
+      Kontakte.
+    done_when:
+      - Zweiter mark-paid-Aufruf verdoppelt nichts, belegt durch einen Test
+      - Kontaktfilter tenant-gescopt geprueft
+      - Betraege laufen unveraendert als Zeichenkette durch
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-einkauf-extended
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_einkauf_extended.go` - 778 Zeilen, 19 Handler, keine eigene
+      Testdatei (`route_einkauf_test.go` deckt die Basisdatei ab).
+    sources:
+      - backend/internal/gateway/route_einkauf_extended.go
+      - backend/internal/gateway/route_einkauf_test.go
+    notes: >
+      Zuerst `route_einkauf_test.go` lesen und nichts doppeln. Lieferantenbewertungen und
+      Rahmenvertrags-Abrufe sind der Inhalt dieser Datei; ein Abruf ueber die
+      Rahmenvertragsmenge hinaus ist der Fall, an dem eine fehlende Pruefung sichtbar wird.
+    done_when:
+      - Bestehende einkauf-Tests gelesen, nichts gedoppelt
+      - Abruf ueber die Rahmenvertragsmenge hinaus geprueft
+      - Validierungspfade je Handler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-gateway-bexio
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/gateway/route_bexio.go` - 566 Zeilen, 16 Handler, keine Testdatei.
+      OAuth2-Anbindung an eine externe Buchhaltung.
+    sources:
+      - backend/internal/gateway/route_bexio.go
+      - backend/internal/gateway/bexio_state_test.go
+    notes: >
+      `bexio_state_test.go` deckt die Zustands-Behandlung des OAuth-Flusses bereits ab -
+      zuerst lesen. Der wertvollste neue Test ist der, der beweist, dass kein Zugriffs- oder
+      Aktualisierungs-Token in einer Antwort oder in einem Log auftaucht. Ein
+      Rueckruf mit falschem Zustandsparameter muss abgewiesen werden, ohne zu verraten, warum.
+    done_when:
+      - Kein Token erscheint in einer Antwort, belegt durch einen Test
+      - Rueckruf mit falschem Zustandsparameter wird ununterscheidbar abgewiesen
+      - Validierungspfade je Handler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: b-cov-server-fuhrpark
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/fuhrpark_grpc.go` - 1.376 Zeilen, 36 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/server/formulare_grpc_test.go
+    notes: >
+      GPS-Positionen sind personenbezogene Bewegungsdaten - die Lesepfade dazu gehoeren
+      besonders geprueft, insbesondere dass sie tenant-gescopt sind. Kilometerstaende und
+      Datumsfelder sind die typischen Konvertierungsfallen.
+    done_when:
+      - GPS-Lesepfade mit Tenant-Fall abgedeckt
+      - Fehler-Abbildung als Tabellentest
+      - Validierungspfade je Methode
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-rapporte
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/rapporte_grpc.go` - 1.066 Zeilen, 34 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/rapporte_grpc.go
+      - backend/internal/server/formulare_grpc_test.go
+    notes: >
+      Der Genehmigungsfluss (Entwurf, eingereicht, genehmigt, abgelehnt, erneut eingereicht)
+      ist die eigentliche Logik - jeder unzulaessige Uebergang braucht einen Fall. Ablehnen
+      ohne Begruendung muss scheitern.
+    done_when:
+      - Jeder unzulaessige Zustandsuebergang hat einen Fall
+      - Ablehnen ohne Begruendung scheitert
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-inventar
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/inventar_grpc.go` - 1.047 Zeilen, 31 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/inventar_grpc.go
+      - backend/internal/server/formulare_grpc_test.go
+    notes: >
+      Bestandsbewegungen sind vorzeichenbehaftet - Zu- und Abgang gehoeren getrennt geprueft,
+      ebenso ein Abgang unter null, falls das Modul ihn verbietet. Mengen liegen als
+      Zeichenkette oder Ganzzahl vor - im Modell nachsehen, nicht raten.
+    done_when:
+      - Zu- und Abgang getrennt geprueft, inklusive Abgang unter null
+      - Fehler-Abbildung als Tabellentest
+      - Validierungspfade je Methode
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-plugin
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/plugin_grpc.go` - 868 Zeilen, 32 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/plugin_grpc.go
+      - backend/internal/gateway/route_plugin_test.go
+    notes: >
+      WASM ist per Feature-Flag AUS und wird mit Build-Tag `no_wasm` gebaut - die Tests
+      duerfen deshalb nichts voraussetzen, was nur mit eingeschaltetem WASM existiert, sonst
+      sind sie in CI rot. Nur die Verwaltungs- und Validierungspfade testen, keine
+      Plugin-Ausfuehrung.
+    done_when:
+      - Tests laufen mit Build-Tag no_wasm gruen
+      - Keine Plugin-Ausfuehrung im Test, nur Verwaltung und Validierung
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-automation
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/automation_grpc.go` - 834 Zeilen, 17 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/automation_grpc.go
+      - backend/internal/automation/trigger/registry.go
+    notes: >
+      Die Ausloeser- und Aktionstypen kommen aus einer Registry - ein unbekannter Typ muss
+      als Validierungsfehler abgelehnt werden, nicht still ignoriert. Genau das testen. Die
+      HTTP-Aktion ist SSRF-relevant; falls dort eine Zieladressen-Pruefung existiert, gehoert
+      sie mitgeprueft, und falls nicht, ist das ein Befund fuers Journal.
+    done_when:
+      - Unbekannter Ausloeser- oder Aktionstyp wird abgelehnt, nicht ignoriert
+      - Befund zur SSRF-Pruefung der HTTP-Aktion im Journal
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-settings
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/settings_grpc.go` - 738 Zeilen, 21 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/settings_grpc.go
+      - backend/migrations/000138_settings_foundation.up.sql
+    notes: >
+      Die Aufloesung ist dreistufig - Tenant-Vorgabe, Modul-Leiter-Override, persoenlicher
+      Override. Genau diese Reihenfolge ist die Logik und gehoert mit allen drei Ebenen
+      besetzt getestet, nicht nur mit einer. Schreiben auf Tenant-Ebene ohne Modul-Leiter-
+      oder Admin-Recht muss scheitern.
+    done_when:
+      - Aufloesung mit allen drei Ebenen besetzt geprueft
+      - Tenant-Schreibzugriff ohne Recht scheitert
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-wiki
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/wiki_grpc.go` - 699 Zeilen, 20 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/wiki_grpc.go
+      - backend/internal/gateway/route_wiki_test.go
+    notes: >
+      Die Freigabe-Token sind seit Lauf 5 weich widerrufbar und tragen ihren Ersteller -
+      ein widerrufener Token muss dieselbe Antwort erzeugen wie ein unbekannter, sonst ist
+      der Endpunkt ein Existenz-Orakel. Genau das testen. Artikelinhalt ist opak (Block-Doc
+      als JSON oder Alt-HTML) - beide Formen muessen durchlaufen.
+    done_when:
+      - Widerrufener und unbekannter Token erzeugen dieselbe Antwort
+      - Beide Inhaltsformen laufen durch
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-schichten
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/schichten_grpc.go` - 669 Zeilen, 20 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/schichten_grpc.go
+      - backend/internal/gateway/route_schichten_test.go
+    notes: >
+      Die Tauschantraege sind der Teil mit Logik - genehmigen, ablehnen, und der own-Scope
+      ueber die beiden Mitarbeiterfelder. Ein Antrag, der weder vom Antragsteller noch vom
+      Tauschpartner stammt, darf in einer own-gescopten Liste nicht auftauchen.
+    done_when:
+      - Tauschantrags-Uebergaenge abgedeckt, zulaessig und unzulaessig
+      - own-Scope ueber beide Mitarbeiterfelder geprueft
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-vermietung
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/vermietung_grpc.go` - 715 Zeilen, 25 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/gateway/route_vermietung_test.go
+    notes: >
+      Miete und Uebergabe haben eine Zustandsfolge; Ruecknahme vor Uebergabe muss scheitern.
+      Datumsfelder und Tarifbetraege sind die Konvertierungsfallen.
+    done_when:
+      - Ruecknahme vor Uebergabe scheitert
+      - Fehler-Abbildung als Tabellentest
+      - Validierungspfade je Methode
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-einkauf
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/einkauf_grpc.go` und `einkauf_grpc_extended.go` - zusammen 1.292
+      Zeilen, 46 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/einkauf_grpc.go
+      - backend/internal/server/einkauf_grpc_extended.go
+      - backend/internal/einkauf/service_test.go
+    notes: >
+      Der Kopfbetrag wird bei jeder Zeilenaenderung nachgerechnet (belegt in
+      `einkauf/service_test.go:736-807`) - auf gRPC-Ebene gehoert geprueft, dass der
+      nachgerechnete Wert unveraendert bis auf den Wire kommt, als Zeichenkette und nicht
+      als gerundeter Float. Der Statusfluss Entwurf, eingereicht, genehmigt, storniert
+      braucht seine unzulaessigen Uebergaenge.
+    done_when:
+      - Kopfbetrag kommt als Zeichenkette unveraendert auf den Wire
+      - Unzulaessige Statusuebergaenge haben je einen Fall
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-produktion
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/produktion_grpc.go` und `produktion_grpc_ext.go` - zusammen 1.189
+      Zeilen, 43 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/produktion_grpc.go
+      - backend/internal/server/produktion_grpc_ext.go
+      - backend/internal/produktion/errors.go
+    notes: >
+      Die Maschinenbuchung hat eine Ueberschneidungspruefung mit halboffenem Intervall
+      (`produktion/postgres_repository.go:282-286`, Sentinel `ErrBookingConflict`) - auf
+      gRPC-Ebene gehoert geprueft, dass daraus wirklich ein Konflikt-Code wird und nicht
+      Internal. Angrenzende Buchungen sind KEIN Konflikt.
+    done_when:
+      - ErrBookingConflict wird auf den erwarteten Code abgebildet, nicht auf Internal
+      - Angrenzende Buchung erzeugt keinen Konflikt
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  - id: b-cov-server-vertraege
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/server/vertraege_grpc.go` - 580 Zeilen, 15 Methoden, keine Testdatei.
+    sources:
+      - backend/internal/server/vertraege_grpc.go
+      - backend/internal/gateway/route_vertraege_test.go
+    notes: >
+      Kuendigungsfristen und Verlaengerungsdaten sind reine Datumslogik - Grenzfaelle am
+      Monatsende und am Jahreswechsel gehoeren dazu. Signaturdaten duerfen in keiner
+      Listen-Antwort auftauchen, nur im Detail.
+    done_when:
+      - Datums-Grenzfaelle am Monats- und Jahreswechsel abgedeckt
+      - Signaturdaten erscheinen nicht in Listen-Antworten
+      - Fehler-Abbildung als Tabellentest
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/server/ gruen
+
+  # ==========================================================================================
+  # WEITERHIN BLOCKIERT — unveraendert aus Lauf 5 uebernommen.
+  #
+  # Das sind KEINE Ausfaelle, sondern Entscheidungsvorlagen fuer Luke plus ein reiner
+  # Frontend-Fix. Der Loop zieht sie nicht (`status: blocked`) und soll das auch nicht.
+  # ==========================================================================================
+  - id: g-hr-salary-statements
+    phase: 3
+    service: hr
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Kein Gehalts- oder Payroll-Datenmodell im Backend (nur HourlyRate am Mitarbeiter); das FE
+      erwartet berechnete Brutto- und Nettobetraege. Drei Wege moeglich (echtes Payroll-Feld,
+      PDF-Upload als Dokumentenkategorie, Scope-Streichung) — alle drei sind Produktentscheide.
+    scope: >
+      `GET /hr/employees/me/salary-statements`.
+    notes: >
+      Bleibt blockiert bis Luke einen der drei Wege waehlt.
+
+  - id: g-admin-billing
+    phase: 3
+    service: admin
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Das FE macht gar keinen Backend-Call (useBilling.ts ist Mock und localStorage). Die
+      Datenbasis fuer die Kernfelder existiert bereits ueber drei andere Endpunkte; nur die
+      Rechnungshistorie braeuchte ein echtes Payment-Gateway. Das ist ein Deploy-Hazard und
+      eine Produktentscheidung.
+    scope: >
+      Admin-Billing-Ansicht.
+    notes: >
+      Die FE-Umstellung auf die bestehenden Endpunkte waere trivial und gehoert in eine
+      Frontend-Session, nicht hierher.
+
+  - id: fe-projects-guest-overview
+    phase: 3
+    service: work
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Kein Datenmodell fuer Meilensteine und Status-Updates im Backend (verifiziert, keine
+      Tabelle, kein Struct, kein Schreibpfad). Der FE-Mock ist reine Platzhalter-Fiktion.
+      Neubau vs. Datenreduktion vs. Streichung ist eine Produktentscheidung.
+    scope: >
+      Gast-Projektuebersicht mit Meilensteinen und Status-Updates.
+    notes: >
+      Bleibt blockiert.
+
+# ==========================================================================================
+# NACHGETRAGEN 2026-08-06, nach Merge und Deploy von Lauf 5 (PR #18 -> 9950f339, Prod 297).
+# Alle vier sind bewusst `blocked`: sie brauchen eine Entscheidung oder gehoeren in eine
+# Frontend-Session — der Loop soll sie nicht ziehen.
+# ==========================================================================================
+
+  - id: g-csat-public-surface
+    phase: 3
+    service: helpdesk
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      CSAT ist auf Produktion funktionsunfaehig, und zwar doppelt. (1) `SYSTEM_SMTP_*` steht
+      in `.env.production`, wird in `deploy/docker/docker-compose.yml` aber nur an `auth`,
+      `biz` und `berichte` durchgereicht — NICHT an `helpdesk`. Der Container loggt beim
+      Start `system SMTP not configured` und startet den Dispatcher nie. (2) Der Mail-Link
+      besteht aus `CSAT_SURVEY_BASE_URL` + Token, Default `https://app.zentria.tech/csat`.
+      Dort liegt nichts: der Caddyfile proxyt die Domain vollstaendig auf `gateway:8080`,
+      eine oeffentliche Weboberflaeche existiert nicht. Der Passthrough allein wuerde also
+      Umfragen mit totem Link verschicken — an `ticket.requester_email` oder ersatzweise die
+      Adresse des anfragenden Users, also auch an Mitarbeiter.
+    scope: >
+      CSAT vom Token bis zur abgegebenen Bewertung nutzbar machen: oeffentliche Seite hinter
+      CSAT_SURVEY_BASE_URL, SMTP-Passthrough fuer helpdesk, `DefaultCsatConfig().Enabled`
+      erst danach wieder auf true erwaegen.
+    notes: >
+      Der Default steht seit `f855272f` bewusst auf false (Opt-in) und ist per Test
+      festgenagelt (`TestDefaultCsatConfig_IsOptIn`). Ebenfalls offen und Teil derselben
+      Entscheidung: es gibt keine Gateway-Route fuer Get/UpdateCsatConfig — die RPCs
+      existieren, sind aber nicht exponiert, und der Desktop-Toggle in
+      `HelpdeskSettingsPanel.tsx` ist reiner lokaler Store-State ohne Backend-Call. Ein
+      Tenant kann CSAT heute also weder ein- noch ausschalten.
+
+  - id: g-public-token-landing-pages
+    phase: 3
+    service: gateway
+    model: opus
+    deps: [g-csat-public-surface]
+    status: blocked
+    blocked_reason: >
+      Sieben Public-Token-Routen sind gebaut (Berichte, Dokument, Formular-Submit,
+      Wiki-Redeem, CSAT u.a.), aber es gibt keine Oberflaeche, in der ein Empfaenger sie
+      einloesen koennte — Cosmi ist eine Electron-App. Das ist ein eigenes Projekt
+      (Hosting, Design, i18n, Consent), keine Nachtlauf-Unit.
+    scope: >
+      Oeffentliche Weboberflaeche fuer die Public-Token-Routen.
+    notes: >
+      Bis dahin sind die Routen serverseitig korrekt und nutzlos. Sicherheitsseitig sind sie
+      dicht: eigener schmaler Wire-Typ, Rate-Limit, einheitliches 404 fuer jede Ablehnung.
+
+  - id: fe-helpdesk-ticket-number
+    phase: 3
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Reiner Frontend-Fix, gehoert in eine Frontend-Session.
+    scope: >
+      `ticket_number` aus der Backend-Response uebernehmen.
+    notes: >
+      Das Backend liefert das Feld auf jeder Ticket-Response. `helpdesk-types.ts` kennt es
+      nicht, und `helpdesk-adapters.ts:124-137` baut stattdessen eine Hash-Pseudonummer — der
+      Nutzer sieht also eine andere Nummer als die, die in der CSAT-Mail und im Backend steht.
+
+  - id: g-decode-disallow-unknown-fields
+    phase: 3
+    service: gateway
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Repo-weite Entscheidung mit Breaking-Potenzial fuer jeden Client, der Zusatzfelder
+      sendet. Braucht eine bewusste Freigabe, keine Nachtlauf-Iteration.
+    scope: >
+      `decodeAndValidate` auf `DisallowUnknownFields` umstellen.
+    notes: >
+      Lauf 5 hat den konkreten Schaden dieser Nachsicht behoben (Intake-Contract), aber die
+      Klasse bleibt: ein Feld, das der Decoder nicht kennt, faellt still weg und die API
+      antwortet 200. Vor der Umstellung alle FE-Aufrufer durchgehen.
+
+  # ------------------------------------------------------------------------------------------
+  # BLOCK C2 — Service-Paket-Coverage (23 Units, gestaged fuer Lauf 7)
+  #
+  # Gemessen am CI-Coverage-Artefakt von Lauf 6 und gegen den realen Code geschnitten.
+  # Reihenfolge ist Absicht: Positionen 1-8 sind reine Logik bzw. voll gemockt und brauchen
+  # KEIN DATABASE_URL - sie laufen auch dann durch, wenn die lokale Postgres nachts wegbricht.
+  # Ab Position 9 folgen die DB-Integrationstests nach dem Block-C-Muster aus Lauf 6,
+  # absteigend nach Groesse der jeweiligen postgres_repository.go.
+  #
+  # BEWUSST NICHT IM BACKLOG (geprueft, nicht vergessen):
+  #   - internal/plugin/wasm/{hostapi,lifecycle,memory,runtime,sandbox}.go (665 Z.): braucht ein
+  #     kompiliertes WASM-Modul. Keine .wasm-Fixture, keine Toolchain, kein Testmuster im Repo.
+  #   - internal/plugin/sdk/{host,entry}.go (148 Z.): `//go:build wasip1` - wird unter dem GOOS
+  #     des Loop-Runners GAR NICHT kompiliert. Jede Coverage-Zahl darauf waere Fiktion.
+  #   - CalDAVBackend/CardDAVBackend-Interface-Methoden (~900 Z.): jede Methode geht ueber
+  #     registry.GetConnection -> echter gRPC-Client. Es gibt im Repo KEIN bufconn-Muster.
+  #     Die testbaren Helfer daraus stehen als eigene Unit drin (c-cov-caldav-backend-helpers).
+  #   - internal/work/livekit-Netzwerkmethoden: `lksdk.RoomServiceClient` ist ein konkreter
+  #     Twirp-HTTP-Client, kein Interface. Die pure Logik ist ueber service_test.go abgedeckt.
+  #   - internal/document/search/extractor.go: docconv/v2 kann externe Systembinaries
+  #     (poppler u.ae.) brauchen - Risiko eines blocked-Endes im Runner.
+  #
+  # FUER LAUF 8 VORGEMERKT: internal/plugin/wasm/{ratelimiter,permission}.go (143 Z., kein
+  # Build-Tag, reine Logik, nur zu klein fuer einen eigenen Slot), die drei
+  # notification/integration/{slack,teams}-Builder, und die work-Repositories
+  # {project,resource,reaction,comment,label,status,video,customfield,holiday}.
+  # ------------------------------------------------------------------------------------------
+
+  - id: c-cov-plugin-config
+    phase: 3
+    service: plugin
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/plugin/config` - Schema-Validator (140 Z.), Validation-Engine (269 Z.) und
+      Workflow-Engine (142 Z.), zusammen 551 Zeilen, KEINE einzige Testdatei im Paket. Teil der
+      bei 23,8 % gemessenen `internal/plugin`-Coverage. Reine Go-Logik ohne DB, ohne WASM, ohne
+      gRPC - die guenstigste und wertvollste Luecke im ganzen Paket, weil hier die
+      Konfigurations-Validierung eines Plugins entschieden wird, bevor irgendein WASM-Code laeuft.
+    sources:
+      - backend/internal/plugin/config/schema_validator.go
+      - backend/internal/plugin/config/validation_engine.go
+      - backend/internal/plugin/config/workflow_engine.go
+    notes: >
+      Drei Engines, drei Verantwortungen: `SchemaValidator.Validate` prueft Plugin-Settings gegen
+      ein JSON-Schema (`validateProperty` je Typ), `ValidationEngine.evaluateRule` wertet
+      Feldregeln aus (`evalRegex`, `evalRange`, `evalRequiredIf`, `evalFormat`, `evalEnum` - je
+      ein Fehlerpfad pro Auswerter, inklusive eines syntaktisch ungueltigen Regex und eines
+      Feldes, das im Daten-Map fehlt), `WorkflowEngine.EvaluateWorkflows` matcht Bedingungen und
+      baut `TriggeredAction`s (`evaluateCondition`, `parseActions` - ein unbekannter
+      Aktionstyp darf nicht crashen). `toFloat64` ist der Konvertierungs-Helfer fuer
+      `evalRange` - mit String, int, float und nicht-numerischem Wert testen.
+    done_when:
+      - Fehlerpfad je Auswerter (Regex/Range/RequiredIf/Format/Enum), nicht nur der Erfolgsfall
+      - Ein unbekannter Workflow-Aktionstyp fuehrt zu einer leeren Aktion, nicht zu einem Panic
+      - Schema-Validierung deckt fehlendes Pflichtfeld und falschen Typ ab
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/plugin/config/... gruen
+
+  - id: c-cov-work-event-rrule
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/work/event/rrule.go` - 85 Zeilen, komplett ungetestet. RFC-5545-RRULE-Expansion
+      fuer wiederkehrende Kalenderereignisse (`ExpandRecurrence`, `ValidateRRule`, `SetUntil`,
+      `RemoveUntil`) ueber `github.com/teambition/rrule-go`. Direktes Gegenstueck zum
+      `biz/recurring`-Muster aus Lauf 6 - reine, deterministische Terminberechnung.
+    sources:
+      - backend/internal/work/event/rrule.go
+      - backend/internal/work/event/errors.go
+    notes: >
+      Terminberechnung ueber Monatsgrenzen, Schaltjahre (29. Februar in FREQ=YEARLY) und
+      DST-Umstellungen ist die typische Falle - feste Zeitpunkte im Test hart codieren, nie
+      `time.Now()` verwenden. `SetUntil` gegen COUNT ist der interessante Fall: laut RFC 5545
+      sind COUNT und UNTIL exklusiv, die Funktion entfernt COUNT beim Setzen von UNTIL - das
+      Verhalten ist bereits Vertrag im Code (Kommentarzeile 56), also als Testfall
+      festschreiben. `RemoveUntil`/`SetUntil` auf eine syntaktisch ungueltige RRULE anwenden
+      muss `ErrInvalidRRule` liefern, nicht die kaputte Regel weiterreichen.
+    done_when:
+      - Monatsende-, Schaltjahr- und DST-Randfaelle in ExpandRecurrence abgedeckt
+      - SetUntil entfernt COUNT, RemoveUntil entfernt nur UNTIL und laesst den Rest intakt
+      - Ungueltige RRULE liefert ErrInvalidRRule an jeder der vier Funktionen
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/work/event/... gruen
+
+  - id: c-cov-caldav-ical
+    phase: 3
+    service: caldav
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/caldav/ical_converter.go` - 392 Zeilen, keine Testdatei. Teil der bei 7,2 %
+      gemessenen `internal/caldav`-Coverage. Reine Konvertierung zwischen KMU-Hub-Kalenderevents
+      und `github.com/emersion/go-ical`-Structs (iCalendar-Format), kein Netzwerk, keine DB.
+    sources:
+      - backend/internal/caldav/ical_converter.go
+      - backend/internal/caldav/etag.go
+    notes: >
+      Der wertvollste Test ist Roundtrip - Event -> ICS-Text -> zurueckgeparst -> gleiche Felder.
+      Sonderfaelle: ganztaegige Events (VALUE=DATE statt DATETIME), Zeitzonen-Events (TZID),
+      wiederkehrende Events mit RRULE-Property, Events mit Teilnehmern (ATTENDEE-Zeilen) und ein
+      Event mit leerem Titel/leerer Beschreibung (muss nicht crashen). Ein syntaktisch kaputter
+      ICS-Block beim Parsen muss einen Fehler liefern, keinen Panic.
+    done_when:
+      - Roundtrip-Test Event -> ICS -> Event fuer normale, ganztaegige und wiederkehrende Events
+      - Zeitzonen- und Teilnehmer-Felder ueberleben den Roundtrip
+      - Kaputtes ICS beim Parsen liefert einen Fehler, keinen Panic
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/caldav/... gruen
+
+  - id: c-cov-email-send-mime
+    phase: 3
+    service: email
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/email/send/mime_builder.go` - 279 Zeilen, keine Testdatei, trotz drei
+      bestehender Testdateien im Paket (service_test.go, consent_test.go,
+      smtp_timeout_test.go). Reine MIME-Nachrichtenerzeugung (RFC 5322/2045): Header,
+      Multipart-Grenzen, Anhaenge, Kodierung.
+    sources:
+      - backend/internal/email/send/mime_builder.go
+      - backend/internal/email/send/errors.go
+    notes: >
+      Der Test, der zaehlt, ist ein Parse-Rueckwaerts-Test - die erzeugte MIME-Nachricht mit
+      `net/mail`/`mime/multipart` wieder einlesen und pruefen, dass Betreff, Empfaenger,
+      Textkoerper und Anhaenge korrekt ankommen. Umlaute und Emoji im Betreff sind der klassische
+      Fall (RFC-2047-Encoded-Word) - ein falsch kodierter Betreff zeigt sich erst beim
+      Empfaenger, nie im eigenen Test ohne Rueckwaerts-Parse. Anhang ohne Dateinamen und
+      Multipart mit null Anhaengen (reiner Text) sind die Randfaelle.
+    done_when:
+      - Erzeugte Nachricht wird mit net/mail zurueckgeparst, Felder stimmen
+      - RFC-2047-Kodierung von Umlauten im Betreff belegt (nicht nur UTF-8 im Rohtext behauptet)
+      - Multipart ohne Anhang und mit mehreren Anhaengen beide abgedeckt
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/email/send/... gruen
+
+  - id: c-cov-notification-forwarder
+    phase: 3
+    service: notification
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/notification/integration/forwarder.go` - 384 Zeilen, keine Testdatei. Teil der
+      bei 36,5 % gemessenen `internal/notification`-Coverage. Leitet Notifications an
+      Slack/Teams weiter, mit Modul-Mapping-Aufloesung, Aktions-Set-Bau und einem
+      Fehler-Zaehler, der eine Zuordnung nach wiederholten Fehlschlaegen deaktiviert.
+    sources:
+      - backend/internal/notification/integration/forwarder.go
+      - backend/internal/notification/preference/
+    notes: >
+      Vollstaendig ueber Interfaces entkoppelt - `PlatformPoster` (Slack/Teams) und `Repository`
+      sind beides Interfaces, also Fake-Implementierungen bauen statt echter HTTP-Calls, analog
+      `stubFormulareRepo` in `internal/server/formulare_grpc_test.go`. Kernstuecke:
+      `selectMostSpecific` (Modul-Mapping-Praezedenz, mehrdeutige Zuordnung), `buildActionSet`
+      (Event-Typ zu Aktionen), `trackFailure`/`resetFailures` (Deaktivierungs-Schwelle nach X
+      Fehlschlaegen in Folge - der Fall, an dem ein still kaputter Slack-Webhook nie auffaellt,
+      wenn er nicht getestet ist), `MappingCache.refresh` (TTL-Ablauf).
+    done_when:
+      - selectMostSpecific waehlt die spezifischste Zuordnung bei mehreren Treffern
+      - Fehlerzaehler deaktiviert eine Zuordnung nach der konfigurierten Schwelle, resetFailures setzt zurueck
+      - MappingCache liefert nach TTL-Ablauf frische Daten, davor die gecachten
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/notification/integration/... gruen
+
+  - id: c-cov-caldav-vcard-vtimezone
+    phase: 3
+    service: caldav
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/caldav/vcard_converter.go` (127 Z.) und `internal/caldav/vtimezone.go`
+      (114 Z.), zusammen 241 Zeilen, keine Testdatei. Kontakt-zu-vCard-Konvertierung
+      (`github.com/emersion/go-vcard`) und VTIMEZONE-Block-Erzeugung fuer den iCal-Export.
+    sources:
+      - backend/internal/caldav/vcard_converter.go
+      - backend/internal/caldav/vtimezone.go
+    notes: >
+      vCard-Roundtrip wie bei ical_converter - Kontakt -> vCard-Text -> zurueckgeparst.
+      Sonderfaelle: Kontakt ohne Nachname (nur Firmenname), mehrere Telefonnummern/E-Mails mit
+      Typ-Labels, Sonderzeichen im Namen. VTIMEZONE testet man am besten gegen eine bekannte
+      Zone mit DST-Wechsel (Europe/Berlin) - die erzeugten STANDARD/DAYLIGHT-Bloecke muessen die
+      richtigen UTC-Offsets tragen, sonst zeigen externe Kalender-Clients falsche Uhrzeiten.
+    done_when:
+      - vCard-Roundtrip fuer Kontakt mit und ohne Nachname
+      - VTIMEZONE fuer Europe/Berlin traegt korrekte STANDARD- und DAYLIGHT-Offsets
+      - Kontakt mit mehreren Telefonnummern/E-Mails behaelt alle Eintraege nach Roundtrip
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/caldav/... gruen
+
+  - id: c-cov-caldav-backend-helpers
+    phase: 3
+    service: caldav
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Die reinen Helferfunktionen aus `caldav_backend.go` und `carddav_backend.go`, die KEINEN
+      gRPC-Client und KEINEN DB-Pool brauchen: Pfad-Parsing, Proto-zu-Model-Konvertierung und
+      Fehler-Mapping. Der Rest dieser beiden Dateien (1.340 Zeilen) implementiert das
+      go-webdav-Backend-Interface direkt gegen den Calendar-/CRM-gRPC-Client - dafuer gibt es im
+      Repo kein bufconn-Muster und keine Vorlage, deshalb bewusst NICHT Teil dieser Unit.
+    sources:
+      - backend/internal/caldav/caldav_backend.go
+      - backend/internal/caldav/carddav_backend.go
+    notes: >
+      Konkret: `calendarIDFromPath`, `eventUIDFromPath`, `protoEventToModel`,
+      `protoAttendeesToModels`, `grpcToWebDAVError` (caldav_backend.go) sowie
+      `addressBookTypeFromPath`, `contactIDFromPath`, `syncCollectionIDForAddressBook`,
+      `contactInfoToVCard`, `parseContactUpdatedAt` (carddav_backend.go). `grpcToWebDAVError` ist
+      die `map<X>Error`-Tabelle dieses Pakets - jeder gRPC-Status-Code gegen den erwarteten
+      WebDAV-HTTP-Status, plus ein unbekannter Code. `contactInfoToVCard`/`protoEventToModel`
+      mit nil-Feldern und leeren Listen testen - Ergebnis darf nicht crashen.
+    done_when:
+      - grpcToWebDAVError als Tabellentest ueber alle Codes, die der Code produziert, plus unbekannt
+      - Pfad-Parser (calendarIDFromPath/eventUIDFromPath/contactIDFromPath) mit gueltigem und ungueltigem Pfad
+      - Proto-Konvertierungen mit nil-Eingabe und leerer Liste getestet
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/caldav/... gruen
+
+  - id: c-cov-email-sync-helpers
+    phase: 3
+    service: email
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Die reinen Konvertierungs-/Parsing-Helfer aus `internal/email/sync/worker.go` und
+      `imap_client.go`, die KEINE echte IMAP-Verbindung brauchen: `DetectFolderType`,
+      `envelopeToMessage`, `imapAddressesToModel`, `parseEnvelopeDate`, `firstInReplyTo`. Die
+      Methoden, die wirklich gegen einen IMAP-Server sprechen (Connect/Login/Fetch*), sind
+      bewusst NICHT Teil dieser Unit - go.mod enthaelt nur `go-imap/v2`, kein Test-Server-Paket
+      dafuer, also kein Fake ohne echten IMAP-Server.
+    sources:
+      - backend/internal/email/sync/worker.go
+      - backend/internal/email/sync/imap_client.go
+    notes: >
+      `DetectFolderType` ist eine Heuristik ueber IMAP-Sonderordnernamen (Trash/Spam/Sent in
+      diversen Sprachvarianten) - jede erkannte Kategorie plus ein unbekannter Ordnername ist
+      ein Fall. `parseEnvelopeDate` mit einem RFC-5322-Datum, das nicht parsebar ist (manche
+      Mailserver senden kaputte Datumsangaben), muss einen sinnvollen Fallback liefern statt
+      eines Zero-Values, der spaeter als "1. Januar 0001" im FE auftaucht. `firstInReplyTo`
+      mit leerer Liste testen.
+    done_when:
+      - DetectFolderType deckt alle erkannten Sonderordner plus einen unbekannten Namen ab
+      - parseEnvelopeDate mit kaputtem Datum liefert einen definierten Fallback, keinen Zero-Value ungeprueft
+      - envelopeToMessage/imapAddressesToModel mit leeren Feldern getestet
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/email/sync/... gruen
+
+  - id: c-cov-work-task-repo
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/work/task/postgres_repository.go` - 823 Zeilen, 30 Methoden. CRUD (Create,
+      Update, Delete, GetByID, MoveTask) ist bereits durch `tenant_write_test.go` gegen echtes
+      SQL abgedeckt - die Luecke liegt in `List` (Filterkombinationen), `Search`
+      (Volltextsuche), `GetSubtasks`/`GetParentChain`/`GetDepth` (Baum-Navigation) und
+      `HasCycle` (Zyklenerkennung bei Task-Abhaengigkeiten).
+    sources:
+      - backend/internal/work/task/postgres_repository.go
+      - backend/internal/work/task/tenant_write_test.go
+      - backend/internal/work/task/rls_test.go
+    notes: >
+      `HasCycle` ist der wichtigste Test hier - eine Abhaengigkeit, die einen Zyklus erzeugen
+      wuerde (A haengt von B ab, B soll von A abhaengen), muss VOR dem Insert erkannt werden,
+      sonst entsteht eine Endlosschleife bei jeder Graph-Traversierung im FE. `List`/`Search`
+      IMMER mit dem Gesamtzahl-Tenant-Bedingungs-Check wie im crm/contact-Muster aus Lauf 6 -
+      eine Gesamtzahl ueber alle Tenants ist ein stiller Leck. `GetDepth` an einer sehr tiefen
+      Subtask-Kette testen (Grenze pruefen, falls eine existiert).
+    done_when:
+      - HasCycle erkennt einen direkten und einen transitiven Zyklus, bevor er gespeichert wird
+      - List/Search - Gesamtzahl traegt dieselbe Tenant-Bedingung wie die Seite
+      - GetSubtasks/GetParentChain liefern die korrekte Reihenfolge bei mehrstufiger Verschachtelung
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/work/task/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-work-meeting-repo
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/work/meeting/postgres_repository.go` - 777 Zeilen, 38 Methoden, keine
+      dedizierte Repository-Testdatei (nur `service_test.go` mit 2.088 Zeilen Mock-Ebene und
+      ein duenner `tenant_write_test.go` mit 122 Zeilen). Groesster einzelner unabgedeckter
+      Repository-Block im ganzen work-Paket.
+    sources:
+      - backend/internal/work/meeting/postgres_repository.go
+      - backend/internal/work/meeting/tenant_write_test.go
+      - backend/internal/work/meeting/occurrences.go
+    notes: >
+      `occurrences.go` (bereits ueber occurrences_test.go getestet) berechnet die
+      Meeting-Instanzen; diese Unit deckt nur die Persistenz. Prioritaet: Teilnehmerverwaltung
+      (Einladen/Antworten/Entfernen), Serientermin-Ausnahmen (eine einzelne Instanz einer
+      Serie abweichend speichern - der Fall, an dem "diese und zukuenftige" vs "nur diese"
+      leicht vertauscht wird) und Listen-/Filterpfade. CRUD am Meeting selbst zuerst gegen
+      `tenant_write_test.go` abgleichen, um keine Doppelarbeit zu bauen.
+    done_when:
+      - Teilnehmer-CRUD inkl. Antwortstatus getestet
+      - Serientermin-Ausnahme fuer eine einzelne Instanz veraendert nur diese, nicht die Serie
+      - Cross-Tenant-Fall an mindestens einem Lesepfad
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/work/meeting/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-dialer-repo
+    phase: 3
+    service: dialer
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/dialer/postgres_repository.go` - 1.184 Zeilen, 39 Methoden. Contact-/Campaign-
+      CRUD (Create, Update, Delete, GetByID, UpdateContactStatus, SetContactCallback,
+      SkipContact, RequeueContact, IncrementContactCallCount) ist bereits durch
+      `tenant_write_test.go` (397 Z.) gegen echtes SQL abgedeckt. Die Luecke liegt in den
+      Listen-, Such- und Reporting-Methoden - dem groessten einzelnen unabgedeckten
+      Repository-Block ueber alle acht Zielpakete.
+    sources:
+      - backend/internal/dialer/postgres_repository.go
+      - backend/internal/dialer/tenant_write_test.go
+      - backend/internal/dialer/rls_test.go
+    notes: >
+      ZUERST tenant_write_test.go lesen (die dort per Grep aufrufbaren Methoden nicht
+      doppeln). Prioritaet auf Campaign-Queue-Logik - welche Kontakte als naechstes angerufen
+      werden, ist Geschaeftslogik mit Tenant-Scoping-Risiko, nicht nur ein SELECT. Pagination
+      mit Gesamtzahl-Tenant-Bedingung wie im crm/contact-Muster.
+    done_when:
+      - Listen-/Queue-Methoden mit Filterkombinationen abgedeckt
+      - Gesamtzahl der Paginierung traegt dieselbe Tenant-Bedingung wie die Seite
+      - Fehlerpfad je getesteter Funktion
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/dialer/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-work-calendar-repo
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/work/calendar/postgres_repository.go` (432 Z., 21 Methoden) und
+      `booking_postgres_repository.go` (266 Z., 11 Methoden), zusammen 698 Zeilen. Nur
+      `booking_slug_unique_test.go` (74 Z.) und ein duenner `tenant_write_test.go` (124 Z.)
+      existieren bisher - der Grossteil beider Dateien ist ungetestet.
+    sources:
+      - backend/internal/work/calendar/postgres_repository.go
+      - backend/internal/work/calendar/booking_postgres_repository.go
+      - backend/internal/produktion/postgres_repository.go
+    notes: >
+      Zwei Schwerpunkte, wenn die Zeit knapp wird zuerst den ersten - (1) Member-Berechtigungen
+      (`AddMember`/`RemoveMember`/`UpdateMemberPermission`/`UpdateMemberVisibility`) sind
+      Zugriffskontrolle, nicht nur CRUD - ein entfernter Member darf den Kalender danach nicht
+      mehr sehen. (2) `GetBookedSlotsForPage`/`GetCalendarEventsInRange` sind die
+      Ueberschneidungspruefung fuer oeffentliche Buchungsseiten - dasselbe halboffene
+      Intervall-Muster wie `internal/produktion/postgres_repository.go:282-286`
+      (`ErrBookingConflict`), hier aber lesend fuer die Slot-Berechnung. Ein Slot, der exakt an
+      einer bestehenden Buchung endet, ist frei, nicht blockiert.
+    done_when:
+      - Member-Berechtigungsaenderung wirkt sich auf die Sichtbarkeit aus, belegt durch einen Test
+      - Angrenzender Slot (ends_at == starts_at) gilt als frei, ueberlappender als belegt
+      - Cross-Tenant-Fall an mindestens einem Lesepfad
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/work/calendar/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-work-calendar-listbrowsable-broken-query
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `PostgresRepository.ListBrowsable` (internal/work/calendar/postgres_repository.go:233)
+      binds three query arguments (`userID, userID, tenantID`) for a SQL statement that only
+      references placeholders `$1` (twice: `c.owner_id != $1` and `cm.user_id = $1` in the
+      NOT EXISTS subquery) and `$3` (`c.tenant_id = $3`) - `$2` never appears anywhere in the
+      SQL text. Postgres's extended query protocol (which pgx uses by default, Parse/Bind/
+      Describe) must determine a type for every parameter position it parses; a position the
+      statement never references cannot be typed, so EVERY call fails with
+      `ERROR: could not determine data type of parameter $2 (SQLSTATE 42P18)`, regardless of
+      tenant, user, or fixture state. This is not an RLS issue and not a data issue - the
+      query is malformed independent of what's in the database. Proven by
+      `TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap` in
+      `internal/work/calendar/repository_gaps_test.go` (built during `c-cov-work-calendar-repo`,
+      Lauf 7): asserts the exact SQLSTATE 42P18 on every call. Net effect: the shared-calendar
+      discovery/browse feature (find calendars you can subscribe to) is completely dead -
+      `ListBrowsable` has presumably never returned successfully in any environment running a
+      normal pgx pool, since nothing before this unit ever tested or (per the "documents
+      current gap" proof) could have exercised this path successfully.
+    sources:
+      - backend/internal/work/calendar/postgres_repository.go
+      - backend/internal/work/calendar/repository_gaps_test.go
+      - backend/internal/work/calendar/booking_repository.go
+    notes: >
+      Gefunden waehrend c-cov-work-calendar-repo (Lauf 7) - kein einziger bestehender Test
+      rief ListBrowsable vorher auf (weder tenant_write_test.go noch
+      tenant_isolation_phase2_test.go), die Luecke war komplett unentdeckt. Nicht inline
+      gefixt - echte Verhaltensaenderung (Query-Text/Argumentliste), keine Coverage-Aenderung,
+      nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: die duplizierte `userID`-Bindung
+      streichen und die Query-Platzhalter durchnummerieren - `r.pool.Query(ctx, query, userID,
+      tenantID)` (zwei Argumente) mit `c.tenant_id = $2` statt `$3` im SQL-Text (beide
+      `$1`-Referenzen bleiben unveraendert, da `userID` weiterhin an Position 1 steht). Nach
+      dem Fix `TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap` durch einen
+      echten Verhaltenstest ersetzen (nicht loeschen): shared calendar owned by someone else
+      ist browsable, personal calendar nie, bereits abonnierte Kalender werden ueber die
+      NOT EXISTS-Klausel ausgeschlossen - alles Assertions, die in
+      `TestCalendarDiscovery_ListBrowsableAndSubscription` (Vorentwurf dieser Iteration,
+      verworfen weil die Query nie erfolgreich zurueckkehrte) bereits vorbereitet waren, siehe
+      Git-Historie dieser Datei fuer die verworfene Fassung als Vorlage.
+    done_when:
+      - ListBrowsable gibt bei gueltigen Argumenten keinen 42P18-Fehler mehr zurueck
+      - Shared calendar eines anderen Owners ist browsable, personal calendar nie, bereits
+        abonnierte Kalender werden ausgeschlossen - alle drei Faelle mit einem Test belegt
+      - TestListBrowsable_UnusedSecondParameter_DocumentsCurrentGap auf das neue (korrekte)
+        Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/work/calendar/... gruen
+
+  - id: c-cov-plugin-repository-gaps
+    phase: 3
+    service: plugin
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/plugin/repository/installation.go` (154 Z.), `industry_template.go` (102 Z.),
+      `kv_store.go` (90 Z.) und `execution_log.go` (86 Z.), zusammen 432 Zeilen, keine
+      Testdatei - im Unterschied zu `manifest.go`/`permission.go`/`validation_rule.go`/
+      `workflow_rule.go`, die bereits ueber `manifest_rls_test.go`,
+      `permission_rls_test.go` und `tenant_isolation_rules_test.go` laufen.
+    sources:
+      - backend/internal/plugin/repository/installation.go
+      - backend/internal/plugin/repository/industry_template.go
+      - backend/internal/plugin/repository/kv_store.go
+      - backend/internal/plugin/repository/execution_log.go
+      - backend/internal/plugin/repository/manifest_rls_test.go
+    notes: >
+      `manifest_rls_test.go` ist die Vorlage: Paket `repository_test`,
+      `testutil.PoolFromEnv`/`SeedRow`/`WithTenantCtx`, eigene Tenants pro Test statt
+      geteilter Fixtures (Unique-Index-Kollisionen vermeiden). `KVStoreRepository` ist
+      Key-Value je Plugin-Installation - `List` mit Praefix-Filter und eine zweite
+      Installation, die denselben Key-Namen unter einer anderen `installation_id` haelt,
+      testen (Isolation nicht nur ueber Tenant, sondern ueber Installation). `IndustryTemplate`
+      ist teils global (kein Tenant), `GetBySlug` mit unbekanntem Slug muss NotFound liefern.
+    done_when:
+      - Installation-Lifecycle inkl. UpdateStatus/UpdateSettings abgedeckt
+      - KVStore isoliert nach installation_id, nicht nur nach Tenant, belegt durch einen Test
+      - ExecutionLog.List mit Limit und optionalem Installation-Filter
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/plugin/repository/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-plugin-kvset-silent-noop-unknown-installation
+    phase: 3
+    service: plugin
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `KVStoreRepository.Set` (internal/plugin/repository/kv_store.go:42) writes
+      `INSERT INTO plugin_kv_store (...) SELECT $1, $2, pi.tenant_id, ... FROM
+      plugin_installations pi WHERE pi.id = $2` to derive `tenant_id` from the owning
+      installation without changing the method's signature. When that SELECT matches zero
+      rows - installation_id does not exist, was uninstalled and its row is gone, or (since
+      `plugin_installations` itself carries RLS) simply belongs to a different tenant than
+      the caller's context - the INSERT ... SELECT inserts zero rows and `Exec` reports no
+      error. `Service.KVSet` (service.go:641) and the gRPC handler
+      `PluginGRPCServer.KVSet` (server/plugin_grpc.go:570) both pass the error straight
+      through unchanged; neither checks `pgconn.CommandTag.RowsAffected()`. The caller gets
+      `KVSetResponse{Success: true}` even though nothing was stored. `ExecutionLogRepository.
+      Create` (execution_log.go:25) uses the identical INSERT...SELECT-from-installations
+      pattern and has the same gap.
+    sources:
+      - backend/internal/plugin/repository/kv_store.go
+      - backend/internal/plugin/repository/execution_log.go
+      - backend/internal/plugin/service.go
+      - backend/internal/server/plugin_grpc.go
+    notes: >
+      Gefunden waehrend c-cov-plugin-repository-gaps (Lauf 7) -
+      TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap in
+      internal/plugin/repository/kv_store_test.go beweist das Verhalten konkret (Set gegen
+      eine erfundene installation_id liefert nil-Fehler, ein nachfolgendes Get findet
+      nichts). Kein Sicherheitsproblem - RLS auf plugin_installations verhindert, dass ein
+      Tenant fremde Daten schreibt oder liest, der Effekt ist rein ein irrefuehrendes
+      Success:true statt eines clientseitig verwertbaren Fehlers. Nicht inline gefixt - echte
+      Verhaltensaenderung (neuer Fehlerpfad), keine Coverage-Aenderung, nach Backlog-Regel
+      eine eigene Unit. Fix-Vorschlag: `Set`/`Create` auf `pool.Exec` -> `CommandTag` pruefen
+      umstellen (`tag.RowsAffected() == 0` -> eigenen Sentinel wie
+      `ErrInstallationNotFound` zurueckgeben), Service- und gRPC-Ebene auf den neuen
+      Sentinel mappen (NotFound statt stillem Erfolg). `KVDelete`/`Delete` hat denselben
+      Shape (DELETE ohne WHERE-Existenzpruefung liefert ebenfalls keinen Fehler bei 0
+      betroffenen Zeilen) - beim Fix mitpruefen, ob das dieselbe Behandlung verdient oder ob
+      "loeschen, was nicht da ist" als No-op gewuenscht bleibt (anders als Set/Create, wo der
+      Aufrufer explizit erwartet, dass etwas geschrieben wurde).
+    done_when:
+      - KVStoreRepository.Set und ExecutionLogRepository.Create liefern einen erkennbaren
+        Fehler (nicht nil), wenn die installation_id nicht aufloest, statt still 0 Zeilen zu
+        schreiben
+      - Service- und gRPC-Ebene (KVSet-Handler) mappen diesen Fall auf einen client-actionablen
+        Code statt Success:true
+      - Entscheidung zu KVDelete/execution log-Aequivalenten dokumentiert (gleiche Behandlung
+        oder bewusst als No-op belassen)
+      - TestKVStore_Set_UnknownInstallation_DocumentsCurrentGap und das Analogon in
+        execution_log_test.go auf das neue (korrekte) Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/plugin/... ./internal/server/... gruen
+
+  - id: c-cov-work-event-repo
+    phase: 3
+    service: work
+    model: sonnet
+    deps: [c-cov-work-event-rrule]
+    status: done
+    scope: >
+      `internal/work/event/postgres_repository.go` - 448 Zeilen, 18 Methoden, keine
+      dedizierte Repository-Testdatei (nur `service_test.go` mit 1.563 Zeilen Mock-Ebene).
+      Kalenderevent-Persistenz inklusive Serientermin-Feldern (RRULE-String, EXDATE).
+    sources:
+      - backend/internal/work/event/postgres_repository.go
+      - backend/internal/work/event/rrule.go
+    notes: >
+      Baut auf c-cov-work-event-rrule auf, weil Serientermin-Speicherung und
+      RRULE-Expansion zusammengehoeren. Schwerpunkt: Event mit RRULE speichern und wieder lesen
+      (String bleibt exakt erhalten, kein Character-Verlust), eine einzelne Ausnahme-Instanz
+      (EXDATE) hinzufuegen ohne die Serie zu beeinflussen, Zeitraumabfragen ueber eine
+      Monats-/Jahresgrenze. Die Expansions-Korrektheit selbst gehoert in die rrule-Unit und
+      wird hier nicht neu erfunden.
+    done_when:
+      - RRULE-String uebersteht einen Speicher-Lese-Roundtrip zeichengenau
+      - EXDATE-Ausnahme entfernt eine Instanz aus der Serie, ohne die Serie selbst zu aendern
+      - Zeitraumabfrage ueber eine Monatsgrenze liefert die richtigen Instanzen
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/work/event/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-notification-integration-repo
+    phase: 3
+    service: notification
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/notification/integration/postgres_repository.go` - 550 Zeilen, 23 Methoden.
+      Nur die vier `Create*`-Methoden sind ueber `tenant_write_test.go` (173 Z.) gegen echtes
+      SQL getestet. `Get*`/`List*`/`Update*`/`Delete*`/`Cleanup*`/`ResolveTenant` sind
+      ungetestet - der groesste Einzelblock im notification-Paket.
+    sources:
+      - backend/internal/notification/integration/postgres_repository.go
+      - backend/internal/notification/integration/tenant_write_test.go
+    notes: >
+      `ResolveTenant` loest aus Platform+WorkspaceID den Tenant auf - das ist der
+      Webhook-Empfangspfad (Slack/Teams-Events kommen ohne JWT rein), analog
+      `resolveTenantID` in caldav. Ein unbekanntes Workspace muss einen definierten Fehler
+      liefern, keinen internen SQL-Fehler nach aussen durchreichen. `CleanupExpiredTokens`/
+      `CleanupOldLogs` mit einer Mischung aus abgelaufenen und gueltigen Zeilen testen - nur
+      die abgelaufenen duerfen verschwinden.
+    done_when:
+      - ResolveTenant mit unbekanntem Workspace liefert einen definierten Fehler
+      - CleanupExpiredTokens/CleanupOldLogs loeschen nur die faelligen Zeilen, belegt durch einen Test
+      - List-Methoden tenant-gescopt, Cross-Tenant-Fall vorhanden
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/notification/integration/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-email-message-repo
+    phase: 3
+    service: email
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/email/message/postgres_repository.go` - 529 Zeilen, groesste ungetestete
+      Repository-Datei im email-Paket (im Unterschied zu `rule`/`label`/`template`, die schon
+      eigene `postgres_repository_test.go` haben). `service_test.go` (672 Z.) deckt nur die
+      Mock-Ebene ab.
+    sources:
+      - backend/internal/email/message/postgres_repository.go
+      - backend/internal/email/message/thread.go
+    notes: >
+      `FindThreadByReferences` und `GetByMessageIDHeader` sind die Threading-Logik (RFC-5322
+      In-Reply-To/References-Header) - eine Antwort-Mail, die keine passende Referenz findet,
+      muss einen neuen Thread beginnen, nicht crashen. `FindBySubjectAndParticipants` ist der
+      Fallback, wenn Header fehlen (manche Clients senden keine References) - mit und ohne
+      exakter Betreffs-Uebereinstimmung testen. `GetHighestUID` ist kritisch fuer den
+      IMAP-Sync-Fortschritt - falscher Wert bedeutet doppelt oder gar nicht synchronisierte
+      Mails.
+    done_when:
+      - FindThreadByReferences findet den richtigen Thread und faellt bei keiner Referenz auf neuen Thread zurueck
+      - FindBySubjectAndParticipants als Fallback getestet
+      - GetHighestUID liefert 0 bei leerem Ordner, nicht -1 oder Fehler
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/email/message/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-document-wopi
+    phase: 3
+    service: document
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/document/wopi` - handler.go (315 Z.), lock.go (120 Z.), token.go (89 Z.),
+      zusammen 524 Zeilen, KEINE einzige Testdatei. OnlyOffice/WOPI-Integration fuer
+      Dokumentbearbeitung. Klingt nach Protokoll-Falle, ist aber sauber entkoppelt -
+      `FileServiceInterface` und `chatfile.FileStore` sind beides Interfaces, kein echter
+      Office-Online-Server noetig.
+    sources:
+      - backend/internal/document/wopi/handler.go
+      - backend/internal/document/wopi/lock.go
+      - backend/internal/document/wopi/token.go
+    notes: >
+      `Handler` per `httptest.NewRequest`/`httptest.NewRecorder` testen, `FileServiceInterface`
+      faken (drei Methoden: GetByID/GetDownloadURL/CreateVersion). `TokenService.Generate`/
+      `Validate` ist reine Signatur-Logik - ein manipulierter oder abgelaufener
+      Token muss bei `Validate` scheitern, das ist der sicherheitskritischste Test hier, weil
+      ein gueltiger Token vollen Schreibzugriff auf ein Dokument gibt. `LockService` braucht
+      echtes Postgres (pgxpool) - Lock/Unlock/RefreshLock/GetLock als CRUD, `CleanExpired` mit
+      Mischung aus abgelaufenen und aktiven Locks.
+    done_when:
+      - TokenService.Validate lehnt manipulierten und abgelaufenen Token ab
+      - Handler-Endpunkte ueber httptest mit gefaktem FileServiceInterface getestet
+      - CleanExpired entfernt nur abgelaufene Locks, belegt durch einen Test
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/document/wopi/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-document-wopi-lock-table-name-mismatch
+    phase: 3
+    service: document
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      Jede der sechs Queries in `internal/document/wopi/lock.go` (`Lock`, `Unlock`,
+      `RefreshLock`, `GetLock`, `CleanExpired`) zielt auf eine Tabelle namens
+      `document_wopi_locks`. Diese Tabelle existiert in KEINER Migration. Migration
+      `000044_create_wopi_locks.up.sql` legt die Tabelle `wopi_locks` an (PK `file_id`,
+      `lock_id`, `locked_by`, `created_at`, `expires_at`), Migration
+      `000114_option_b_phase2_settings_preferences.up.sql` ergaenzt dort `tenant_id`,
+      Migration `000122_rls_phase2_long_tail.up.sql` aktiviert RLS darauf - durchgehend
+      unter dem Namen `wopi_locks`, nie `document_wopi_locks`. Verifiziert per Grep ueber
+      alle Migrationen (0 Treffer fuer `document_wopi_locks` ausserhalb von `lock.go`
+      selbst) und empirisch durch alle fuenf LockService-Methoden gegen die echte
+      lokale DB (docker-postgres-1): `Lock`/`Unlock`/`RefreshLock`/`CleanExpired` liefern
+      einen echten Postgres-Fehler `ERROR: relation "document_wopi_locks" does not
+      exist (SQLSTATE 42P01)`, `GetLock` verschluckt denselben Fehler unconditional zu
+      `ErrLockNotFound` (der `if err != nil { return "", ErrLockNotFound }`-Zweig in
+      `GetLock` behandelt JEDEN Query-Fehler als "kein Lock", nicht nur "keine Zeile
+      gefunden"). Auswirkung ueber den ganzen Stack: `HandleLockOperation`
+      (`internal/server`-Aequivalent ist hier der WOPI-HTTP-Handler selbst,
+      `internal/document/wopi/handler.go:214`) beantwortet jedes LOCK/UNLOCK/
+      REFRESH_LOCK von OnlyOffice mit 500, weil der zurueckgegebene Fehler kein
+      `*LockConflictError` ist (`errors.As` schlaegt fehl, faellt auf den generischen
+      500-Zweig). `PutFile`s Lock-Konflikt-Wächter (`handler.go:170`) ist faktisch
+      abgeschaltet: `GetLock` liefert IMMER `ErrLockNotFound`, also ist die Bedingung
+      `lockErr == nil && currentLock != "" ...` nie wahr, unabhaengig vom tatsaechlichen
+      Sperrzustand oder vom mitgeschickten `X-WOPI-Lock`-Header - jeder Speichervorgang
+      geht durch, auch wenn eine andere Session das Dokument gerade haelt. Zusaetzlich
+      laeuft in `cmd/document/main.go:116-129` ein Goroutine-Cleanup-Ticker alle 5
+      Minuten, der `CleanExpired` aufruft und dessen Fehler nur loggt
+      (`slog.Error("WOPI lock cleanup failed", ...)`) - dieser Job schlaegt seit
+      Einfuehrung der Tabelle bei JEDEM Tick fehl, abgelaufene Zeilen in `wopi_locks`
+      wachsen unbegrenzt. Netto: die komplette WOPI-Sperrfunktion (kollaboratives
+      Bearbeiten via OnlyOffice) ist funktionsunfaehig - Sperren lassen sich nie
+      erfolgreich setzen, ein bestehendes Lock wird nie erkannt, und der Aufraeumjob
+      schlaegt endlos fehl.
+    sources:
+      - backend/internal/document/wopi/lock.go
+      - backend/internal/document/wopi/handler.go
+      - backend/internal/document/wopi/lock_test.go
+      - backend/internal/document/wopi/handler_test.go
+      - backend/cmd/document/main.go
+      - backend/migrations/000044_create_wopi_locks.up.sql
+      - backend/migrations/000114_option_b_phase2_settings_preferences.up.sql
+      - backend/migrations/000122_rls_phase2_long_tail.up.sql
+    notes: >
+      Gefunden waehrend c-cov-document-wopi (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (aus "immer 500 / Sperre wird nie erkannt" wird "funktioniert"),
+      keine Coverage-Aenderung, nach Backlog-Regel eine eigene Unit - und dringlicher als
+      eine normale Coverage-Iteration, weil es ein Totalausfall einer bestehenden Funktion
+      ist (analog `fix-meeting-savenotes-onconflict-no-matching-constraint`). Fix-Vorschlag:
+      rein mechanisch - alle sechs Vorkommen von `document_wopi_locks` in `lock.go`
+      (Zeilen 39/43/44/66/82/102/114) durch `wopi_locks` ersetzen, kein Migrations- oder
+      Schema-Aenderungsbedarf, die Zieltabelle existiert bereits korrekt inkl. `tenant_id`
+      und RLS. Nach dem Fix muessen die fuenf "documents current gap"-Tests in
+      `lock_test.go` (`TestLockService_Lock/Unlock/RefreshLock/CleanExpired_
+      QueriesNonexistentTable_DocumentsCurrentGap`, `TestLockService_GetLock_
+      AlwaysReportsUnlocked_DocumentsCurrentGap`) durch echte Round-Trip-Tests ersetzt
+      werden (Lock erfolgreich setzen, GetLock findet ihn, RefreshLock verlaengert,
+      Unlock entfernt ihn, CleanExpired loescht nur abgelaufene). Ebenso die vier
+      "documents current gap"-Faelle in `handler_test.go`
+      (`TestHandler_HandleLockOperation` LOCK/UNLOCK/REFRESH_LOCK/GET_LOCK,
+      `TestHandler_PutFile/lock-conflict_guard_never_triggers`) auf das dann korrekte
+      Verhalten umstellen (LOCK/UNLOCK/REFRESH_LOCK liefern 200 bzw. echten 409-Konflikt
+      bei fremdem Lock, GET_LOCK liefert die echte Lock-ID, PutFile lehnt bei
+      Lock-Mismatch mit 409 ab statt durchzugehen). Da `tenant_id` bereits auf der
+      Zieltabelle liegt, lohnt sich ein kurzer Blick, ob die Queries sie zukuenftig auch
+      setzen/filtern sollten (aktuell tut das keine der sechs Queries) - das ist aber ein
+      separater, kleinerer Fund und kann im selben Fix mit erledigt werden, wenn es sich
+      anbietet, sonst als eigene Notiz im Journal festhalten.
+    done_when:
+      - Alle sechs Query-Ziele in lock.go verwenden wopi_locks statt document_wopi_locks
+      - Lock/Unlock/RefreshLock/GetLock/CleanExpired funktionieren nachweislich gegen die
+        echte lokale DB (Round-Trip-Test: setzen, finden, verlaengern, entfernen)
+      - CleanExpired loescht nachweislich nur abgelaufene Zeilen (Mischfixture aus
+        abgelaufenen und aktiven Locks), Mutations-Probe im Journal belegt
+      - HandleLockOperation liefert bei echtem Fremd-Lock einen echten 409-Konflikt
+        (X-WOPI-Lock-Header mit der aktuellen Lock-ID gesetzt), nicht mehr 500
+      - PutFiles Lock-Konflikt-Wächter lehnt einen Save bei abweichendem X-WOPI-Lock
+        nachweislich ab
+      - Alle "documents current gap"-Tests in lock_test.go und handler_test.go auf das
+        neue (korrekte) Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/document/wopi/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-einkauf-repository-extended
+    phase: 3
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/einkauf/postgres_repository_extended.go` - 562 Zeilen, 23 Methoden.
+      CatalogItems, SupplierRatings und FrameworkContracts (inkl. ContractItems/
+      ContractCalls) - im Unterschied zu `postgres_repository.go` (Supplier/PO/POLines,
+      bereits ueber `tenant_write_test.go` abgedeckt) hat diese Datei KEINE Testabdeckung.
+    sources:
+      - backend/internal/einkauf/postgres_repository_extended.go
+      - backend/internal/einkauf/tenant_write_test.go
+      - backend/internal/einkauf/models_extended.go
+    notes: >
+      `UpdateContractUsedValue` ist der Fall mit dem meisten Risiko - ein Rahmenvertrag
+      hat ein Verbrauchslimit, und dieser Wert wird bei jedem Abruf (`CreateContractCall`)
+      nachgefuehrt. Zwei aufeinanderfolgende Abrufe duerfen den Verbrauch nicht verlieren.
+      `ContractNrExists` ist die Eindeutigkeitspruefung fuer Vertragsnummern -
+      tenant-gescopt testen, ein Vertrag mit derselben Nummer bei einem ANDEREN Tenant
+      darf nicht kollidieren.
+    done_when:
+      - UpdateContractUsedValue nach mehreren ContractCalls akkumuliert korrekt
+      - ContractNrExists ist tenant-gescopt, belegt durch einen Cross-Tenant-Test
+      - CatalogItem- und SupplierRating-CRUD tenant-gescopt getestet
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/einkauf/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-document-folder-repo
+    phase: 3
+    service: document
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/document/folder/postgres_repository.go` - 288 Zeilen, 9 oeffentliche
+      Methoden. Nur `service_test.go` (397 Z., Mock-Repository-Ebene) und ein duenner
+      `tenant_isolation_phase2_test.go` (49 Z.) existieren - die Repository-Implementierung
+      selbst ist ungetestet.
+    sources:
+      - backend/internal/document/folder/postgres_repository.go
+      - backend/internal/document/folder/tenant_isolation_phase2_test.go
+    notes: >
+      `IsDescendant` ist der wichtigste Test - verhindert, dass ein Ordner in seinen eigenen
+      Unterordner verschoben wird (zyklische Ordnerstruktur). Ohne diesen Schutz wuerde
+      `GetPath` (Breadcrumb-Aufloesung) in eine Endlosschleife laufen.
+      `GetPath` selbst mit einer tief verschachtelten Struktur testen (mindestens vier Ebenen)
+      - die Reihenfolge der Segmente ist die typische Fehlerquelle. `List` mit `ListFilter`
+      und Pagination wie im crm/contact-Muster.
+    done_when:
+      - IsDescendant erkennt einen direkten und einen transitiven Vorfahren
+      - GetPath liefert die Breadcrumb-Segmente in der richtigen Reihenfolge bei vier Ebenen
+      - List mit Filter/Pagination tenant-gescopt getestet
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/document/folder/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-einkauf-repository-lists
+    phase: 3
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/einkauf/postgres_repository.go` - die Listen-/Filterpfade, die
+      `tenant_write_test.go` (272 Z.) NICHT abdeckt: `ListSuppliers`, `ListPOs`,
+      `GetPOWithLines`, `PONumberExists`, `ListPOLines`, `CountPOLines`. CRUD auf Supplier/PO/
+      POLine ist bereits real getestet - diese Unit ergaenzt gezielt die Luecke, dupliziert
+      nichts.
+    sources:
+      - backend/internal/einkauf/postgres_repository.go
+      - backend/internal/einkauf/tenant_write_test.go
+    notes: >
+      ZUERST tenant_write_test.go lesen, um die Ueberschneidung zu vermeiden - die Datei
+      testet bereits Create/Update/Delete/UpdatePOStatus/UpdatePOLineReceivedQuantity/
+      RecomputePOTotal fuer Supplier und PO. `PONumberExists` ist die
+      GoBD-relevante Eindeutigkeitspruefung fuer Bestellnummern - tenant-gescopt, ein
+      `excludeID` fuer den Update-Fall (eigene PO-Nummer darf sich nicht selbst blockieren).
+      `ListPOs`/`ListSuppliers` mit Filterkombination und Gesamtzahl-Tenant-Bedingung.
+    done_when:
+      - PONumberExists ist tenant-gescopt und respektiert excludeID beim Update
+      - ListPOs/ListSuppliers - Gesamtzahl traegt dieselbe Tenant-Bedingung wie die Seite
+      - GetPOWithLines liefert Kopf und Positionen konsistent, leere Positionsliste als [] nicht nil
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/einkauf/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-caldav-app-password
+    phase: 3
+    service: caldav
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/caldav/app_password.go` (194 Z., Service-Ebene) und
+      `internal/caldav/user_preferences.go` (141 Z.), zusammen 335 Zeilen.
+      `app_password_test.go` (86 Z.) deckt bisher nur `Create`s Tenant-ID und
+      `PushSubscription`s Tenant-ID ab - `Validate` (der Basic-Auth-Pruefpfad jeder
+      CalDAV/CardDAV-Anfrage), `List`, `Revoke`, `IsOrgEnabled`/`SetOrgEnabled` und das
+      komplette `user_preferences.go` sind ungetestet.
+    sources:
+      - backend/internal/caldav/app_password.go
+      - backend/internal/caldav/user_preferences.go
+      - backend/internal/caldav/tenant_write_test.go
+    notes: >
+      `Validate` ist der sicherheitskritischste Pfad im ganzen Paket - jede CalDAV-Anfrage von
+      macOS/iOS-Kalender-Clients laeuft hier durch. Falsches Passwort, widerrufenes Passwort
+      und abgelaufenes Passwort muessen alle klar scheitern, nicht nur "irgendein Fehler".
+      `RevokeAllUserPasswords` ist der Deprovisioning-Pfad (Nutzer wird deaktiviert) - danach
+      darf KEIN App-Passwort dieses Nutzers mehr funktionieren, mit einem Test ueber `Validate`
+      danach belegen, nicht nur ueber die Zeilenzahl der DB.
+    done_when:
+      - Validate lehnt falsches, widerrufenes und abgelaufenes Passwort mit je eigenem Test ab
+      - RevokeAllUserPasswords macht alle Passwoerter des Nutzers ungueltig, belegt ueber Validate danach
+      - IsOrgEnabled/SetOrgEnabled Roundtrip getestet
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/caldav/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: c-cov-dialer-redis-store
+    phase: 3
+    service: dialer
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/dialer/redis_agent_store.go` - 255 Zeilen. `redis_agent_store_test.go`
+      (133 Z.) testet bisher ausschliesslich die reine Zustandsuebergangstabelle
+      `ValidateTransition` - die tatsaechlichen Redis-I/O-Methoden (`SetStatus`, `GetStatus`,
+      `GetCampaignAgents`, `GetAvailableAgents`, `RemoveFromCampaign`) sind ungetestet.
+    sources:
+      - backend/internal/dialer/redis_agent_store.go
+      - backend/internal/cache/cache_test.go
+    notes: >
+      `internal/cache/cache_test.go` ist die Vorlage fuer Redis-Mocking in diesem Repo:
+      `miniredis.RunT(t)` plus `redis.NewClient(&redis.Options{Addr: mr.Addr()})` - kein echter
+      Redis-Server noetig, `github.com/alicebob/miniredis/v2` steht bereits in go.mod.
+      `SetStatus` mit einem Statuswechsel testen, der laut `ValidateTransition` unzulaessig ist
+      - muss abgelehnt werden, BEVOR irgendetwas in Redis geschrieben wird. `GetAvailableAgents`
+      mit einem Agenten, dessen TTL abgelaufen ist (miniredis unterstuetzt `FastForward`) -
+      der darf nicht als verfuegbar gelten.
+    done_when:
+      - SetStatus lehnt einen laut ValidateTransition unzulaessigen Wechsel ab, ohne zu schreiben
+      - GetAvailableAgents ignoriert Agenten mit abgelaufener TTL (miniredis FastForward)
+      - RemoveFromCampaign entfernt den Agenten aus der Campaign-Menge, belegt durch einen Test
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/dialer/... gruen
+
+  - id: c-cov-caldav-push
+    phase: 3
+    service: caldav
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `internal/caldav/push_subscription.go` (190 Z.) und `push_notifier.go` (162 Z.),
+      zusammen 352 Zeilen. `Subscribe` ist bereits ueber `tenant_write_test.go` getestet -
+      `Unsubscribe`, `GetSubscriptionsForCollection`, `CleanupExpired`, `UnsubscribeByURL`
+      und der komplette `push_notifier.go` (WebDAV-Push-Benachrichtigung per HTTP-POST an die
+      Subscriber-URL) sind ungetestet.
+    sources:
+      - backend/internal/caldav/push_subscription.go
+      - backend/internal/caldav/push_notifier.go
+      - backend/internal/email/send/smtp_timeout_test.go
+    notes: >
+      `push_notifier.go` sendet HTTP-POST an externe Push-URLs - `httptest.NewServer` als
+      Fake-Subscriber reicht, kein echter WebDAV-Client noetig (analog dem
+      TCP-Fake-Server-Muster in `smtp_timeout_test.go`, nur auf HTTP-Ebene). Ein
+      Subscriber, dessen Endpunkt einen Fehler oder Timeout liefert, darf
+      `NotifyCollectionChanged` nicht insgesamt scheitern lassen - das ist Fire-and-Forget je
+      Subscriber, ein kaputter Client darf die anderen nicht blockieren. `CleanupExpired` mit
+      Mischung aus abgelaufenen und aktiven Subscriptions.
+    done_when:
+      - Fake-HTTP-Server empfaengt die Push-Notification mit korrektem Payload
+      - Ein fehlschlagender Subscriber blockiert die Benachrichtigung der anderen nicht
+      - CleanupExpired entfernt nur abgelaufene Subscriptions
+      - Mutations-Probe durchgefuehrt und im Journal belegt
+      - go test -count=1 ./internal/caldav/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-caldav-push-410-unsubscribe-no-tenant-context
+    phase: 3
+    service: caldav
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `PushNotifier.sendNotification` (internal/caldav/push_notifier.go:138) reacts to a
+      subscriber endpoint returning 410 Gone by calling
+      `n.subscriptions.UnsubscribeByURL(removeCtx, sub.PushURL)` with `removeCtx :=
+      context.WithTimeout(context.Background(), 5*time.Second)` - a bare context, carrying
+      neither `middleware.TenantIDKey` nor `sysctx.With`. Per
+      `internal/database.TestPrepareConn_NoTenantNoSystem` (postgres_hook_test.go:100-134,
+      doc comment: "the safe default for accidentally-unwrapped paths"), a connection
+      acquired under such a context gets `app.tenant_id=''`/`app.role=''`, and RLS on
+      `caldav_push_subscriptions` (FORCE ROW LEVEL SECURITY since migration 000122) then
+      admits zero rows - the DELETE silently affects nothing. Confirmed empirically, not
+      just read: `TestPushNotifier_NotifyCollectionChanged_410Gone_
+      DocumentsMissingContextOnRemoval` (internal/caldav/push_subscription_test.go, built
+      during `c-cov-caldav-push`, Lauf 7) creates a subscription, drives a real 410 response
+      through `NotifyCollectionChanged`, waits for the removal goroutine, and asserts the row
+      is STILL present - which it is. Effect in production: every macOS-Calendar push
+      subscriber that unregisters (or whose endpoint goes away, hence 410) is never actually
+      removed from `caldav_push_subscriptions` - `NotifyCollectionChanged` keeps POSTing to
+      the dead URL on every future change, forever, until `CleanupExpired`'s 7-day TTL
+      eventually catches it (and only if the subscription isn't renewed by another client in
+      the meantime).
+    sources:
+      - backend/internal/caldav/push_notifier.go
+      - backend/internal/caldav/push_subscription.go
+      - backend/internal/database/postgres_hook_test.go
+      - backend/internal/caldav/push_subscription_test.go
+    notes: >
+      Gefunden waehrend c-cov-caldav-push (Lauf 7). Nicht inline gefixt - echte
+      Verhaltensaenderung (die DELETE muesste tatsaechlich greifen), keine Coverage-Aenderung,
+      nach Backlog-Regel eine eigene Unit. Fix-Vorschlag: `removeCtx` mit `sysctx.With(...)`
+      wrappen, genau das Muster, das `tenant_write_test.go` fuer
+      `FindActiveByUser`/`UpdateLastUsed` dokumentiert (CalDAV-Vorgaenge ohne JWT sind der
+      sanktionierte "identity not yet known"-Bypass-Fall) - `UnsubscribeByURL` matched ohnehin
+      global auf `push_url`, keine Tenant-Filterung noetig, sysctx ist also nicht nur sicher
+      sondern das einzig korrekte Verhalten hier. Nach dem Fix
+      `TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnRemoval`
+      umbenennen und auf `AssertRowCount(..., 0)` umstellen (Test heisst dann nicht mehr
+      "DocumentsMissingContextOnRemoval", sondern beschreibt das korrekte Verhalten).
+    done_when:
+      - UnsubscribeByURL im 410-Gone-Pfad von sendNotification laeuft unter einem Context, der
+        RLS tatsaechlich passiert (sysctx.With oder aequivalent)
+      - Eine reale 410-Gone-Antwort entfernt die Subscription tatsaechlich aus der DB
+      - TestPushNotifier_NotifyCollectionChanged_410Gone_DocumentsMissingContextOnRemoval auf
+        das neue (korrekte) Verhalten aktualisiert, nicht geloescht
+      - go test -count=1 ./internal/caldav/... mit DATABASE_URL gruen, 0 Skips
+
+  - id: fix-notification-markallread-empty-body-rejected
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    scope: >
+      `HandleMarkAllRead` (internal/gateway/route_notification.go, ~Zeile 280) haelt sein
+      eigenes Kommentarversprechen nicht ein: "Body is optional for mark-all-read". Der Code
+      prueft `if r.Body != nil` und decodiert nur dann - das schuetzt vor einem *nil* Body,
+      aber ein echter net/http-Server liefert Handlern NIE einen nil Body: laut Go-Doku ist
+      `Request.Body` bei Server-Requests immer non-nil und liefert bei fehlendem Body sofort
+      EOF. Ein Client, der POST /read-all wirklich ohne Body sendet (kein `{}`, kein
+      Content-Length: 0 mit leerem JSON), bekommt also `json.Decode` -> `io.EOF` -> 400
+      "invalid request body" statt des beabsichtigten "alle Module als gelesen markieren".
+      Gefunden und als IST-Verhalten in `TestHandleMarkAllRead_NoBodyIsRejected`
+      (route_notification_test.go) festgeschrieben waehrend b-cov-gateway-notification
+      (Lauf 7) - bewusst NICHT gefixt, da Verhaltensaenderung und damit ausserhalb einer
+      reinen Coverage-Unit.
+    sources:
+      - backend/internal/gateway/route_notification.go
+      - backend/internal/gateway/route_notification_test.go
+    notes: >
+      Naheliegender Fix: `json.NewDecoder(r.Body).Decode(&body)`-Fehler nur dann als 400
+      behandeln, wenn er NICHT `io.EOF` ist (`errors.Is(err, io.EOF)` durchlassen), statt auf
+      `r.Body != nil` zu pruefen - das behandelt "kein Body" und "leerer Body" gleich und laesst
+      echtes kaputtes JSON weiterhin scheitern. `TestHandleMarkAllRead_NoBodyIsRejected` muss
+      nach dem Fix von "erwartet 400" auf "erreicht die RPC-Schicht" (503 im Testaufbau)
+      umgedreht werden. Kurz pruefen, ob dasselbe `r.Body != nil`-Muster anderswo im Gateway
+      vorkommt (grep `r.Body != nil` ueber `internal/gateway`) - falls ja, gleiche Ursache,
+      gleicher Fix, nicht mehrfach einzeln.
+    done_when:
+      - Ein echter bodyloser POST /read-all markiert alle Module als gelesen statt 400 zu liefern
+      - Echtes kaputtes JSON liefert weiterhin 400 "invalid request body"
+      - TestHandleMarkAllRead_NoBodyIsRejected auf das neue Verhalten umgestellt
+      - Andere Fundstellen des gleichen r.Body-!=-nil-Musters im Gateway prueft und ggf. mitgefixt
+      - go test -count=1 ./internal/gateway/ gruen

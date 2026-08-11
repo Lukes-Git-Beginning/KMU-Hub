@@ -153,11 +153,17 @@ func (ar *AutomationRoutes) HandleCreateAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
+	scope, ok := parseAutomationScope(body.Scope)
+	if !ok {
+		response.Error(w, http.StatusBadRequest, "scope must be personal, team, or organization, got: "+body.Scope)
+		return
+	}
+
 	grpcReq := &automationv1.CreateAutomationRequest{
 		OwnerId:     userID,
 		Name:        body.Name,
 		Description: body.Description,
-		Scope:       parseAutomationScope(body.Scope),
+		Scope:       scope,
 		TriggerType: body.TriggerType,
 		MaxSteps:    body.MaxSteps,
 	}
@@ -209,7 +215,11 @@ func (ar *AutomationRoutes) HandleListAutomations(w http.ResponseWriter, r *http
 		}
 	}
 	if scope := r.URL.Query().Get("scope"); scope != "" {
-		s := parseAutomationScope(scope)
+		s, ok := parseAutomationScope(scope)
+		if !ok {
+			response.Error(w, http.StatusBadRequest, "scope must be personal, team, or organization, got: "+scope)
+			return
+		}
 		grpcReq.Scope = &s
 	}
 	if tt := r.URL.Query().Get("trigger_type"); tt != "" {
@@ -292,7 +302,11 @@ func (ar *AutomationRoutes) HandleUpdateAutomation(w http.ResponseWriter, r *htt
 		grpcReq.Description = body.Description
 	}
 	if body.Scope != nil {
-		s := parseAutomationScope(*body.Scope)
+		s, ok := parseAutomationScope(*body.Scope)
+		if !ok {
+			response.Error(w, http.StatusBadRequest, "scope must be personal, team, or organization, got: "+*body.Scope)
+			return
+		}
 		grpcReq.Scope = &s
 	}
 	if body.TriggerType != nil {
@@ -703,16 +717,23 @@ func (ar *AutomationRoutes) HandleTriggerWebhook(w http.ResponseWriter, r *http.
 // Helpers
 // ============================================================================
 
-func parseAutomationScope(s string) automationv1.AutomationScope {
+// parseAutomationScope maps a scope filter/body value to its proto enum. An
+// empty value keeps the historical default of SCOPE_PERSONAL, so callers
+// that omit the field see no behavior change. ok is false only for a
+// non-empty value that isn't personal/team/organization — the caller must
+// reject those with 400 instead of silently narrowing to personal, which
+// used to turn a typo like "organisation" into a plausible-looking wrong
+// answer instead of a visible error.
+func parseAutomationScope(s string) (automationv1.AutomationScope, bool) {
 	switch s {
-	case "personal":
-		return automationv1.AutomationScope_SCOPE_PERSONAL
+	case "", "personal":
+		return automationv1.AutomationScope_SCOPE_PERSONAL, true
 	case "team":
-		return automationv1.AutomationScope_SCOPE_TEAM
+		return automationv1.AutomationScope_SCOPE_TEAM, true
 	case "organization":
-		return automationv1.AutomationScope_SCOPE_ORGANIZATION
+		return automationv1.AutomationScope_SCOPE_ORGANIZATION, true
 	default:
-		return automationv1.AutomationScope_SCOPE_PERSONAL
+		return automationv1.AutomationScope_SCOPE_PERSONAL, false
 	}
 }
 
