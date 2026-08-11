@@ -3070,7 +3070,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 02:02).
 
 ## Iteration 48 — d-cov-gateway-video-meeting-lifecycle — done — 2026-08-11 02:09
-- commit: <wird nach dem Commit nachgetragen>
+- commit: 725e99de
 - gebaut: Neue Testdatei `backend/internal/gateway/route_video_meeting_lifecycle_test.go`
   (37 Tests) fuer die zehn in der Unit genannten Meeting-Lebenszyklus-Handler in
   route_video.go: HandleGetMeeting (ServiceUnavailable, InvalidIDUUID, ReachesRPC),
