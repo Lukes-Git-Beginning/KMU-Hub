@@ -3213,7 +3213,7 @@ units:
     service: vertraege
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/vertraege 48,3 %"
     scope: >
       241 ungedeckte Statements, davon 181 in `postgres_repository.go` bei **3,7 %** — der

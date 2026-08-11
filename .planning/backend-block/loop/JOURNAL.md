@@ -5891,3 +5891,78 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-11 08:08). Commit-Hash wird nach dem `git commit` in dieser Iteration noch
   nachgetragen. Naechste Backlog-Unit laut Reihenfolge: `f-cov-vertraege-repository` (Block F
   Reserve).
+
+## Iteration 93 — f-cov-vertraege-repository — done — 2026-08-11 08:21
+- commit: (wird nach `git commit` in dieser Iteration nachgetragen)
+- gebaut: Neue Datei `internal/vertraege/postgres_repository_db_test.go` deckt alle zuvor bei
+  0,0 % liegenden `PostgresRepository`-Methoden ab: `SaveSignature` (Happy Path, Cross-Tenant ->
+  `ErrContractNotFound`, fehlender Vertrag), `UpdateContract` (alle Felder inkl. `EndsOn`/
+  `DocumentURL`/`SignatureProvider`, Cross-Tenant-No-op), `GetContract` (inkl. Parties-/
+  Reminders-Assembly, fehlender Vertrag, Cross-Tenant), `ListContracts` (Status-/Typ-/
+  Start-/End-Datumsfilter, `ContactID`-Filter ueber das `EXISTS`-Join auf `contract_parties`,
+  Sortierung nach `created_at DESC`, Pagination inkl. Offset-jenseits-Total, Tenant-Scoping),
+  ein dedizierter Monats-/Jahreswechsel-Test fuer die Datumsfilter und `ExpireContracts`
+  (Vertrag endete am letzten Tag des Vormonats bzw. am 31.12. des Vorjahres -- beide muessen
+  trotz Kalendergrenze als "vor heute" gelten und beim Auto-Expiry auf `expired` kippen),
+  `DeleteContract` (Cross-Tenant-No-op), `ContractNumberExists` (mit/ohne `excludeID`, Exclude-
+  Self-Fall), `ExpireContracts` (nur `active`+`ends_on`<heute, `ends_on IS NULL`/zukuenftig/
+  bereits `draft` bleiben unberuehrt), `ListParties`/`RemoveParty` (Reihenfolge nach
+  `created_at`, fehlende Partei -> `uuid.Nil` ohne Fehler, Cross-Tenant-No-op), die volle
+  Reminder-CRUD-Flaeche (`UpdateReminder`/`GetReminder`/`DeleteReminder`/`ListReminders` inkl.
+  `onlyPending`-Filter und Cross-Tenant-`ErrReminderNotFound`), die Worker-Queries
+  `ClaimDueReminders`/`MarkReminderSent` (faellige vs. zukuenftige Erinnerung, Idempotenz) sowie
+  `CreateContractEvent`/`ListContractEvents` (Nil-Payload -> `{}` statt SQL-NULL, Sortierung
+  `created_at DESC`, Pagination, Tenant-Scoping).
+- gate: build ok (go build -p 2 ./internal/vertraege/... ./internal/gateway/... ./cmd/gateway/...)
+  | vet ok | lint ok (golangci-lint --config .golangci.yml, 0 issues) | test ok (go test -count=1
+  -v ./internal/vertraege/ -- 71 PASS-Zeilen, 0 uebersprungen, DATABASE_URL gesetzt gegen
+  kmuhub_app) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst; die Cross-Tenant-Faelle in den neuen Tests decken RLS fuer alle betroffenen Methoden
+  bereits ab) | `go test -count=1 ./internal/gateway/` separat gruen (keine Route angefasst,
+  trotzdem Pflicht-Lauf gemacht)
+- coverage: internal/vertraege 48,3 % -> 82,6 % (go test -coverprofile ./internal/vertraege/, go
+  tool cover -func). `postgres_repository.go` einzeln: kein 0,0 % mehr, niedrigster Wert
+  `ExpireContracts` 75,0 %, die meisten neu getesteten Methoden 80,0-100,0 % (verbleibende
+  Luecken sind reine DB-Fehlerpfade wie ein abgebrochener `Query`/`Scan`, nicht per Unit-Test ohne
+  Fault-Injection erreichbar).
+- mutations-probe: `ContractNumberExists`, `id<>$3` (Exclude-Bedingung) auf `id=$3` gedreht ->
+  `TestRepository_ContractNumberExists_WithAndWithoutExclude` sofort rot ("expected false when
+  excluding the only holder" -- der Exclude-Self-Fall haette die Nummer als frei melden muessen,
+  lief mit der Mutation aber als "vergeben" durch). Zurueckgedreht, `git diff` auf
+  `postgres_repository.go` liefert nur die vorbestehende LF/CRLF-Warnung, kein inhaltlicher Diff.
+- verify vorgaenger: sauber. Commit 67c852ac (Iteration 92) fuegt ausschliesslich eine Testdatei
+  in `internal/crm/deal` plus Journal-/Backlog-Metadaten hinzu -- kein Produktionscode, kein
+  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
+  acht Fehlerklassen einschlaegig.
+- gefunden, nicht gefixt: Zwei eigene Testbugs beim ersten Durchlauf, keine Produktionsbugs --
+  fuer die Nachvollziehbarkeit dokumentiert, weil beide auf echte Repo-Konventionen zeigen, die
+  man beim naechsten DB-Test leicht uebersieht. Erstens: `ExpireContracts`/`ClaimDueReminders`/
+  `MarkReminderSent` sind bewusst ungescopte Worker-Queries (kein `tenant_id`-Praedikat, sie
+  laufen ueber alle Tenants), und ohne `testutil.WithSystemCtx` filtert RLS dann *alles* weg --
+  der reale `ReminderWorker.Run` wrapped seinen ctx dafuer schon korrekt mit
+  `database.WithSystemContext` (`internal/vertraege/worker.go:42`), mein erster Testentwurf rief
+  die Repo-Methoden aber direkt mit `context.Background()` auf. Zweitens: `starts_on`/`ends_on`
+  sind SQL-DATE-Spalten (Migration 000089), `sent_at`/`created_at` dagegen TIMESTAMPTZ mit
+  Mikrosekunden-Praezision -- ein direkter `time.Time`-Vergleich nach einem Insert/Read-Roundtrip
+  muss das beruecksichtigen (Datumsfelder auf Mitternacht-UTC normalisieren, Zeitstempel auf
+  Mikrosekunden truncaten), sonst schlaegt die Assertion an einem Rundungsfehler fehl, nicht an
+  echtem Verhalten.
+- offen: **Der fuer Lauf 8 freigegebene Backlog ist nach dieser Iteration leer.** Alle
+  verbleibenden `status: todo`-Eintraege (`fix-email-send-missing-tenant-id`,
+  `fix-email-attachment-download-metadata-wrong-message-id`, `fix-crm-erasure-double-count`,
+  `fix-document-virtual-users-display-name`, `fix-rapporte-template-empty-default-lines-crashes`,
+  `fix-datev-upload-repo-missing-tenant-id`, `fix-schichten-swap-assignments-unique-violation`)
+  tragen im Kommentarblock direkt darueber explizit "Fuer Lauf 9" -- waehrend Lauf 8 gefundene,
+  aber laut Unverhandelbare-Grenzen-Abschnitt in `ITERATION.md` nicht freigegebene Fix-Units,
+  keine `deps`, `status: todo`. Eine naechste Iteration, die Schritt 2 woertlich befolgt ("nimm
+  die erste Unit mit status: todo, deren deps alle done sind"), wuerde eine davon ziehen, obwohl
+  sie fuer diesen Lauf nicht freigegeben ist -- das ist ein Luecken-Fall im geschriebenen
+  Protokoll selbst, keine Entscheidung, die ich fuer diese Iteration treffen musste. Falls der
+  Treiber ausschliesslich auf offene `status: todo`-Eintraege zaehlt (nicht auf den "Fuer Lauf
+  9"-Kommentar), haelt er den Lauf jetzt faelschlich fuer nicht beendet. Fuer Luke: entweder die
+  sieben Fix-Units vor der naechsten Iteration explizit fuer Lauf 8 freigeben (Backlog-Header
+  aktualisieren), oder sie auf einen expliziten Status wie `deferred` statt `todo` umstellen,
+  damit Text und Mechanik wieder uebereinstimmen. `.planning/backend-block/loop/run-loop.ps1`
+  traegt weiterhin denselben unstaged Diff wie in allen Vorgaenger-Iterationen vermerkt
+  (`-StartNotBefore`-Startsperre-Parameter) -- nicht meine Datei, nicht angefasst, nicht
+  committet.
