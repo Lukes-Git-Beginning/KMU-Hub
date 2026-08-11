@@ -157,3 +157,55 @@ Fensters.
   Request-Tenant == Ctx-Tenant dorthin. Kein Fund dieser Iteration, nur als Beobachtung
   vermerkt. Produktions-Zeilenzahl in `datev_upload_configs`/`datev_upload_log` (vermutlich 0)
   wurde nicht geprueft — das ist ein reiner Produktions-Read und nicht Teil dieses Laufs.
+
+## Iteration 3 — fix-schichten-swap-assignments-unique-violation — done — 2026-08-11 16:38
+- commit: f379b30a
+- gebaut: `SwapAssignmentsForRequest` (`internal/schichten/postgres_repository.go`) beheben
+  beide Faelle des Root Causes in einem Rutsch. Neue Migration 000311 macht
+  `uq_shift_assignments_tenant` `DEFERRABLE INITIALLY IMMEDIATE` (Drop+Re-Add, jeder andere
+  Schreibpfad bleibt unveraendert, weil der Check nur innerhalb dieser einen Transaktion per
+  `SET CONSTRAINTS ... DEFERRED` aufgeschoben wird). Die Funktion sperrt jetzt zuerst die Zeile
+  des Tauschpartners per `SELECT ... FOR UPDATE` (liefert 0 Zeilen -> neuer Sentinel
+  `ErrSwapPartnerNotAssigned`, gemappt auf `codes.FailedPrecondition` in
+  `internal/server/schichten_grpc.go`, analog zu `ErrArbzgViolation`) und scopet BEIDE UPDATEs
+  auf die jeweilige Zeilen-ID statt auf `(shift_id, employee_id)` — genau die Scoping-Luecke,
+  die den stillen No-Op verursacht hat. Per vorab entschiedener Semantik (siehe Unit-`notes`)
+  ist ein Tausch mit einem noch nicht zugeordneten Partner jetzt ein abgelehnter, kein stiller
+  Erfolg. `ApproveSwapRequest` (service.go) brauchte keine Aenderung — es reicht Repo-Fehler
+  bereits unveraendert durch, bevor es `UpdateSwapRequestStatus` aufruft.
+- gebaut (Tests): `TestSwapAssignmentsForRequest_SilentlyNoOpsWhenTargetNotYetOnShift` ->
+  `TestSwapAssignmentsForRequest_RejectsPartnerNotYetOnShift` (erwartet jetzt
+  `ErrSwapPartnerNotAssigned`, prueft dass nichts geschrieben wurde);
+  `TestSwapAssignmentsForRequest_FailsWhenBothEmployeesAlreadyAssignedToShift` ->
+  `TestSwapAssignmentsForRequest_SwapsBothEmployeesAlreadyAssignedToShift` (erwartet jetzt den
+  tatsaechlichen Tausch, prueft dass die Zeilen-IDs mit den employee_id-Werten wandern).
+- gate: build ok (`./internal/schichten/... ./internal/gateway/... ./cmd/schichten/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, `internal/schichten` + `internal/server`) |
+  migration ok (`migrate up` gegen lokale DB, Kopf jetzt 311) | test ok (0 Skips,
+  `DATABASE_URL` gegen `kmuhub_app`, `./internal/schichten/...` und `./internal/server/` gruen)
+  | `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (834 Routen gegen 836
+  Spec-Pfade — keine neue Route, reine Vorsichtspruefung wegen `schichten_grpc.go`-Anfassung)
+  | rls-smoke n.a. (keine RLS-Policy angefasst, nur die Deferrability einer bestehenden
+  UNIQUE-Constraint auf `shift_assignments`; bestehende Tenant-Isolationstests aus
+  `tenant_write_test.go`/`tenant_isolation_phase2_test.go` liefen im vollen Paketlauf mit und
+  waren gruen)
+- coverage: internal/schichten 79,7 % -> 79,4 % (beide lokal gemessen, `go tool cover -func`,
+  vor/nach per `git stash`/`pop` isoliert — kein Coverage-Ziel dieser Unit, der leichte
+  Ruecklauf kommt vom neuen Fehlerpfad (`FOR UPDATE`-Miss -> `ErrSwapPartnerNotAssigned`), der
+  von den neuen Tests nur teilweise durchlaufen wird)
+- mutations-probe: zweites UPDATE zurueck auf `WHERE shift_id = $2 AND employee_id = $3 AND
+  tenant_id = $4` gesetzt (alte Scoping-Luecke) -> `TestSwapAssignmentsForRequest_
+  SwapsBothEmployeesAlreadyAssignedToShift` wurde rot (`duplicate key value violates unique
+  constraint "uq_shift_assignments_tenant"`, weil das mutierte UPDATE jetzt BEIDE Zeilen trifft
+  und beide auf `employee_id = requester` setzt). Zurueckgedreht, `git diff --stat` zeigt wieder
+  nur die urspruengliche Aenderung (33 insertions, 4 deletions in `postgres_repository.go`).
+- verify vorgaenger: sauber (Commit `50e89714`, Iteration 2 — reiner Repository-Fix mit
+  Context-abgeleiteter `tenant_id`, kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift,
+  kein Guard-Fund, kein Wire-Shape- oder Routen-Fund; `tenantForWrite` nutzt Ctx statt
+  Request-Feld, deckt sich mit der eigenen `offen:`-Beobachtung aus Iteration 2)
+- neue-units: keine
+- offen: Die Semantik-Entscheidung "Tausch nur zwischen zwei bereits Zugeordneten" war bereits
+  in den Unit-`notes` fixiert (Luke, 2026-08-11) — hier nicht neu aufgemacht. Kein sonstiger
+  Fund. Block-B-Scan-Units koennten dieselbe Deferrable-Constraint-Klasse (ON-CONFLICT- bzw.
+  UNIQUE-Scoping-Probleme bei Mehrzeilen-Swaps) an anderer Stelle im Repo finden — nicht
+  vorab durchsucht, das ist Aufgabe der jeweiligen Scan-Unit selbst.
