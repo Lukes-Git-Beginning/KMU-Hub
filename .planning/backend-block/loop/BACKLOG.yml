@@ -147,7 +147,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/datev 79,3 % (CI-Stand 8c224eba, Run 31471247645)"
     scope: >
       `PostgresUploadRepository.UpsertUploadConfig` und `.CreateUploadLog`

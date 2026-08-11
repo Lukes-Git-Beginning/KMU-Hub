@@ -3,6 +3,7 @@ package datev
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,8 +11,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// ErrTenantMissing is returned when UpsertUploadConfig or CreateUploadLog is
+// called on a context that carries no tenant — datev_upload_configs and
+// datev_upload_log have had tenant_id NOT NULL with no default since
+// migration 000115, so a write without one would fail at the constraint
+// anyway; this turns that into a typed refusal before the pool is touched.
+var ErrTenantMissing = errors.New("datev: upload write without tenant context")
 
 type PostgresUploadRepository struct {
 	pool *pgxpool.Pool
@@ -19,6 +28,19 @@ type PostgresUploadRepository struct {
 
 func NewPostgresUploadRepository(pool *pgxpool.Pool) *PostgresUploadRepository {
 	return &PostgresUploadRepository{pool: pool}
+}
+
+// tenantForWrite resolves the calling tenant from ctx for an INSERT.
+// datev_upload_configs/datev_upload_log carry FORCE ROW LEVEL SECURITY
+// (migration 000122); reads rely on that policy alone, but a write must
+// supply tenant_id itself to satisfy the NOT NULL constraint and the
+// policy's WITH CHECK.
+func tenantForWrite(ctx context.Context) (uuid.UUID, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return uuid.Nil, ErrTenantMissing
+	}
+	return tenantID, nil
 }
 
 func (r *PostgresUploadRepository) GetUploadConfig(ctx context.Context, configID uuid.UUID) (*models.DatevUploadConfig, error) {
@@ -40,27 +62,37 @@ func (r *PostgresUploadRepository) GetUploadConfig(ctx context.Context, configID
 }
 
 func (r *PostgresUploadRepository) UpsertUploadConfig(ctx context.Context, config *models.DatevUploadConfig) error {
+	tenantID, err := tenantForWrite(ctx)
+	if err != nil {
+		return err
+	}
+
 	config.UpdatedAt = time.Now().UTC()
 	if config.ID == uuid.Nil {
 		config.ID = uuid.New()
 		config.CreatedAt = config.UpdatedAt
 	}
 
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO datev_upload_configs (id, config_id, client_number, auto_upload_enabled, upload_after_export, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO datev_upload_configs (id, tenant_id, config_id, client_number, auto_upload_enabled, upload_after_export, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (config_id) DO UPDATE SET
 			client_number = EXCLUDED.client_number,
 			auto_upload_enabled = EXCLUDED.auto_upload_enabled,
 			upload_after_export = EXCLUDED.upload_after_export,
 			updated_at = EXCLUDED.updated_at`,
-		config.ID, config.ConfigID, config.ClientNumber, config.AutoUploadEnabled, config.UploadAfterExport,
+		config.ID, tenantID, config.ConfigID, config.ClientNumber, config.AutoUploadEnabled, config.UploadAfterExport,
 		config.CreatedAt, config.UpdatedAt,
 	)
 	return err
 }
 
 func (r *PostgresUploadRepository) CreateUploadLog(ctx context.Context, log *models.DatevUploadLog) error {
+	tenantID, err := tenantForWrite(ctx)
+	if err != nil {
+		return err
+	}
+
 	if log.ID == uuid.Nil {
 		log.ID = uuid.New()
 	}
@@ -71,9 +103,9 @@ func (r *PostgresUploadRepository) CreateUploadLog(ctx context.Context, log *mod
 	}
 
 	_, err = r.pool.Exec(ctx,
-		`INSERT INTO datev_upload_log (id, config_id, upload_type, status, file_size, document_count, error_message, started_at, completed_at, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		log.ID, log.ConfigID, log.UploadType, log.Status,
+		`INSERT INTO datev_upload_log (id, tenant_id, config_id, upload_type, status, file_size, document_count, error_message, started_at, completed_at, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		log.ID, tenantID, log.ConfigID, log.UploadType, log.Status,
 		log.FileSize, log.DocumentCount, log.ErrorMessage,
 		log.StartedAt, log.CompletedAt, metadataJSON,
 	)
