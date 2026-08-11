@@ -1538,3 +1538,71 @@ Fensters.
   Migration 000119/000120 —, Wire-Shape unverändert, keine Route)
 - neue-units: keine
 - offen: der GetAvailability-Testlücke-Punkt oben; ansonsten nichts.
+
+## Iteration 31 — fix-crm-grpc-nil-slice-wire-shape-remaining — done — 2026-08-11 19:23
+- commit: 8b7053e3
+- gebaut: Acht weitere Stellen in `backend/internal/server/crm_grpc.go` mit demselben
+  Nil-Slice-Muster wie die bereits gefixte Vorlage (`fix-crm-list-nil-slice-wire-shape`,
+  Commit `c3f0c46f`) initialisieren ihr Response-Slice jetzt per
+  `infos := make([]*crmv1.XxxInfo, 0, len(<quelle>))` statt einer nil-`var`-Deklaration:
+  ListCompanies (831), GetCompanyContacts (948, Randfund), ListPipelineStages (1020),
+  ReorderPipelineStages (1112, Randfund), ListDeals (1303), ListActivities (1605),
+  Search (1769, Randfund), ListSavedFilters (1860) — exakt die im Backlog genannten 5 List-RPCs
+  plus 3 Randfunde, per `grep -n "var infos \[\]\*crmv1\."` verifiziert, dass keine Stelle
+  dieses Musters mehr übrig ist. Rein mechanischer Zwei-Wort-Diff pro Stelle (`var` -> `:=
+  make(...)`), keine Verhaltensänderung sonst.
+- gebaut (Tests): 8 neue Tests, je einer pro Stelle, alle mit leerem Repository-Ergebnis und
+  `require`/`assert`-Pattern `== nil` + `len(...) != 0`, nach der Vorlage
+  `TestListContacts_EmptyIsNilNotEmptySlice`: `TestListCompanies_EmptyIsNilNotEmptySlice` und
+  `TestGetCompanyContacts_EmptyIsNilNotEmptySlice` (crm_grpc_companies_dedupe_import_test.go),
+  `TestListPipelineStages_EmptyIsNilNotEmptySlice` und
+  `TestReorderPipelineStages_EmptyIsNilNotEmptySlice` und
+  `TestListDeals_EmptyIsNilNotEmptySlice` (crm_grpc_pipelines_deals_test.go),
+  `TestListActivities_EmptyIsNilNotEmptySlice`, `TestSearch_EmptyIsNilNotEmptySlice` und
+  `TestListSavedFilters_EmptyIsNilNotEmptySlice` (crm_grpc_activities_reports_consent_test.go).
+  Für ReorderPipelineStages musste der leere Fall extra hergeleitet werden: `Reorder` validiert
+  `len(stageIDs) == CountStages`, mit leerem Repo (Count=0) und leerem `StageIds` (0) passt das
+  — der Test deckt damit den echten Leerfall statt eines Validierungsfehlers ab.
+- root-cause-check: laut Notiz im Backlog vor dem Fix geprüft, ob einer der fünf
+  Service-Aufrufe (companyService.List, pipelineStageService.ListWithStats, dealService.List,
+  activityService.List, savedFilterService.List) selbst `nil` statt `[]T{}` liefert. Vier tun
+  das tatsächlich: `company.Service.List` und `activity.Service.List` bauen ihr Ergebnis mit
+  `var results []*T` + append (nil bei leerem Input), `deal.Service.enrichWithRelationsBatch`
+  gibt bei `len(deals)==0` explizit `nil, nil` zurück (identische Bugklasse wie die bereits
+  gefixte `contact.Service.enrichWithRelationsBatch`), `search.Service.Search` sammelt in
+  `var allResults []*models.SearchResult`. NICHT zusätzlich gefixt, bewusst: der
+  Handler-seitige `make(..., 0, len(quelle))`-Fix macht die Wire-Shape für alle acht RPCs schon
+  vollständig korrekt (ranging über eine nil-Quelle ist ein No-Op, `len(nil)==0`), und keiner
+  dieser vier Service-Methoden hat einen anderen Aufrufer als genau den hier gefixten Handler
+  (per `grep` auf `companyService.List|activityService.List|dealService.List|
+  searchService.Search` in `internal/server/*.go` verifiziert — chat_grpc.go:862 ruft eine
+  andere, gleichnamige `searchService.Search` aus dem `chat`-Paket, keine Kollision). Ein Fix
+  dort hätte keinen beobachtbaren Effekt gehabt und wäre reines Scope-Creep gewesen.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` grün, 0 SKIP; die 8 neuen Tests
+  zusätzlich einzeln mit `-v` verifiziert) | test ok (`./internal/crm/...`, alle 12
+  Unterpakete grün — ein erster Lauf mit voller `go test`-Parallelität schlug in
+  `internal/crm/contact` mit "remaining connection slots are reserved for roles with the
+  SUPERUSER attribute" fehl, das ist Verbindungspool-Erschöpfung der lokalen Postgres durch zu
+  viele gleichzeitig geöffnete Test-Pools, kein Code-Fehler — isoliert und mit `-p 4` erneut
+  gelaufen, beides grün) | migration n.a. (keine DB-Änderung, reiner Handler-Text-Fix) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst) | `TestOpenAPIRouteDrift` ok (834 registrierte
+  Routen gegen 836 dokumentierte Pfade, Pflicht gelaufen da `internal/server` ein Handler-File
+  angefasst hat, auch wenn keine Route/Signatur sich geändert hat)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash` auf die vier geänderten Dateien
+  isoliert gemessen) -> 70,1 % (nach dem Fix, `go tool cover -func`). Wie beim Muster-C-Fix aus
+  Iteration 30 bewegt sich die Prozentzahl bei einer reinen Slice-Init-Zeile ohne neue
+  Verzweigung nicht sichtbar — Beleg ist die Mutations-Probe, nicht die Coverage-Zahl.
+- mutations-probe: Zeile 831 (`infos := make([]*crmv1.CompanyInfo, 0, len(companies))`) zurück
+  auf `var infos []*crmv1.CompanyInfo` gesetzt -> `go test -run TestListCompanies_
+  EmptyIsNilNotEmptySlice -v` wurde rot ("Companies should be an empty slice, not nil...").
+  Zurückgedreht, `git diff --stat` zeigt danach wieder ausschließlich den sauberen 8-Stellen-Diff
+  in crm_grpc.go (16 geänderte Zeilen = 8 × var/make-Paar) plus die vier Testdateien.
+- verify vorgaenger: sauber (Commit `0868f0dd`, Iteration 30 — reiner `git show --stat`- und
+  Diff-Check: nur `calendar_grpc.go` plus drei Testdateien geändert, alle 14 Fundstellen exakt
+  derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff wie hier, kein gRPC-Bypass, kein
+  Stub, kein Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, Wire-Shape-Richtung
+  korrekt (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine
