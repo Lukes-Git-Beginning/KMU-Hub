@@ -608,7 +608,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
     scope: >
       MUSTER D — Typ-Scan-Mismatch. Vorlage: `fix-audit-list-verifychain-ip-address-scan`.
@@ -1180,3 +1180,100 @@ units:
       - Ein neuer Integrationstest fuer WorkErasureHandler.ExecuteErasure deckt beide Faelle
         plus time_entries-Delete und task_comments-Anonymisierung ab (bisher ungetestet)
       - go test -count=1 ./internal/security/gdpr/ gruen
+
+  - id: fix-security-ip-access-rules-cidr-scan
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-inet-cidr-scanned-into-go-string, Lauf 9 Iteration 11)"
+    scope: >
+      MUSTER D — Typ-Scan-Mismatch, identisch zur bereits gefixten Vorlage
+      `fix-audit-list-verifychain-ip-address-scan`. `SecurityGRPCServer.ListIPRules`
+      (backend/internal/server/security_grpc.go:711) selektiert `ip_cidr` (Spaltentyp CIDR,
+      Migration 000039_create_security_tables.up.sql:139, `NOT NULL`) roh und scannt sie in
+      `models.IPAccessRule.IPCIDR` (Typ `string`, kein Cast). pgx v5 kann CIDR nicht direkt in
+      einen Go-`string` scannen. Da die Spalte NOT NULL ist, betrifft das JEDE Zeile ohne
+      Ausnahme -- `ListIPRules` ist fuer jeden Tenant mit mindestens einer IP-Regel komplett
+      unbenutzbar.
+      Reproduziert per DB-gestuetztem Wegwerf-Test (Lauf 9, Iteration 11, nicht committet):
+      Zeile mit `ip_cidr = '10.0.0.0/8'` eingefuegt, dieselbe Query wie in `ListIPRules`
+      abgesetzt -- Fehler exakt:
+      `can't scan into dest[1] (col: ip_cidr): cannot scan cidr (OID 650) in binary format
+      into *string`.
+    sources:
+      - backend/internal/server/security_grpc.go
+      - backend/internal/models/security.go
+      - backend/migrations/000039_create_security_tables.up.sql
+      - backend/internal/security/audit/postgres_repository.go
+    notes: >
+      Sauberster Fix nach dem Vorlagen-Muster aus `fix-audit-list-verifychain-ip-address-scan`:
+      die SELECT-Liste in `ListIPRules` (security_grpc.go:711) von `ip_cidr` auf
+      `host(ip_cidr)` oder `ip_cidr::text` umstellen (CIDR ist NOT NULL, `COALESCE` also nicht
+      noetig, aber unschaedlich). `CreateIPRule` (INSERT) ist NICHT betroffen -- Parameter-Bindung
+      beim INSERT funktioniert bereits (Vorbild: dieselbe Asymmetrie bei `user_sessions`).
+      `models.IPAccessRule.IPCIDR` bleibt `string` (Spalte ist NOT NULL, kein Pointer noetig).
+      Pin-Test analog zum Repro: eine Regel mit gesetztem CIDR anlegen, `ListIPRules` aufrufen,
+      `IPCIDR` im Ergebnis pruefen -- mit MINDESTENS EINER Zeile in der Tabelle, sonst bleibt der
+      Bug unsichtbar (bestehende Tests in `security_grpc_test.go` pruefen vermutlich nur den
+      leeren Fall oder mocken die DB-Schicht, sonst waere das bereits aufgefallen -- vor dem Fix
+      verifizieren).
+    done_when:
+      - ListIPRules castet ip_cidr in der SELECT-Liste (host() oder ::text) statt es roh zu
+        scannen
+      - Ein neuer DB-gestuetzter Test beweist, dass ListIPRules mit mindestens einer Zeile in
+        ip_access_rules erfolgreich durchlaeuft und den korrekten CIDR-Wert liefert
+      - go test -count=1 ./internal/server/ gruen, DATABASE_URL gegen kmuhub_app gesetzt
+
+  - id: fix-chat-guest-sessions-ip-address-scan
+    phase: 4
+    service: chat
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fund aus scan-inet-cidr-scanned-into-go-string, Lauf 9 Iteration 11)"
+    scope: >
+      MUSTER D — dieselbe Bugklasse, drei Fundstellen in derselben Datei.
+      `guest.PostgresRepository.GetSessionByTokenHash`,
+      `.GetSessionByID` und `.ListSessionsByChannel`
+      (backend/internal/chat/guest/postgres_repository.go, Zeilen ~44/67/87) selektieren
+      `ip_address` (Spaltentyp INET, nullable, Migration
+      000054_add_guest_chat_support.up.sql:10) roh und scannen sie in
+      `GuestSession.IPAddress` (Typ `*string`, kein Cast, `internal/chat/guest/types.go:17`).
+      Ist die Spalte NULL, scannt pgx v5 anstandslos (Pointer bleibt nil) -- deshalb faellt der
+      Bug in den bestehenden Tests (`postgres_repository_reads_test.go`,
+      `tenant_write_test.go`) nicht auf: `seedGuestSession` setzt `ip_address` dort nie. Traegt
+      eine Guest-Session aber eine ECHTE IP (der Normalfall bei realen Gast-Chat-Besuchen ueber
+      `CreateSession`, die die Anfrage-IP mitgibt), schlagen alle drei Lesepfade fehl -- der
+      Gast-Chat-Widget-Login (`GetSessionByTokenHash`, jeder Folge-Request eines Gasts),
+      die Admin-Sessionsliste pro Kanal (`ListSessionsByChannel`) und `GetSessionByID` sind
+      damit fuer jede Session mit gesetzter IP unbenutzbar.
+      Reproduziert per DB-gestuetztem Wegwerf-Test (Lauf 9, Iteration 11, nicht committet):
+      Session mit `ip_address = '203.0.113.5'` eingefuegt, `GetSessionByID` aufgerufen -- Fehler
+      exakt: `can't scan into dest[5] (col: ip_address): cannot scan inet (OID 869) in binary
+      format into **string`.
+    sources:
+      - backend/internal/chat/guest/postgres_repository.go
+      - backend/internal/chat/guest/types.go
+      - backend/internal/chat/guest/service.go
+      - backend/migrations/000054_add_guest_chat_support.up.sql
+      - backend/internal/chat/guest/postgres_repository_reads_test.go
+    notes: >
+      Sauberster Fix: alle drei SELECT-Listen von `ip_address` auf
+      `CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END` umstellen -- exakt
+      das Muster, das `internal/security/gdpr/export.go:172` fuer dieselbe Spaltenkombination
+      (INET, nullable, Ziel `*string`) bereits korrekt verwendet. `GetSessionByTokenHash` (Zeile
+      ~44), `GetSessionByID` (Zeile ~67) und `ListSessionsByChannel` (Zeile ~87) sind alle drei
+      im selben Commit zu fixen -- Root-Cause-Regel, dieselbe Spalte, dieselbe Datei.
+      `CreateSession` (INSERT, Zeile ~32) ist NICHT betroffen.
+      Pin-Test: `seedGuestSession`-Helper in `postgres_repository_reads_test.go` um ein optionales
+      `ip_address`-Argument erweitern (oder einen zweiten Helfer-Aufruf mit gesetzter IP), dann
+      alle drei Lesepfade je einmal mit gesetzter IP durchtesten -- mit MINDESTENS EINER Zeile,
+      die eine echte IP traegt, sonst bleibt der Bug wie bisher unsichtbar.
+    done_when:
+      - Alle drei SELECT-Listen (GetSessionByTokenHash, GetSessionByID, ListSessionsByChannel)
+        casten ip_address statt es roh zu scannen, NULL bleibt weiterhin NULL
+      - Ein neuer DB-gestuetzter Test pro betroffener Methode (oder ein gemeinsamer, alle drei
+        abdeckender Test) beweist den korrekten Read bei gesetzter IP
+      - go test -count=1 ./internal/chat/guest/ gruen, DATABASE_URL gegen kmuhub_app gesetzt

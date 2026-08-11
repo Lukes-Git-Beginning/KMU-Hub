@@ -541,3 +541,49 @@ Fensters.
   Lokal-DB-Kapazitaetsthema (Postgres `max_connections` bzw. viele parallele Test-Pools), kein
   Code-Befund -- falls das oefter auftritt, waere ein `max_connections`-Bump auf der lokalen
   Docker-Postgres oder ein niedrigeres `-p` als Default im Gate sinnvoll.
+
+## Iteration 11 — scan-inet-cidr-scanned-into-go-string — done — 2026-08-11 17:25
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: Muster D (INET/CIDR-Spalte roh in Go-string statt netip/Cast gescannt) ueber alle
+  6 in der Unit genannten Spalten geprueft. Ergebnis: 2 Funde, 4 Spalten bereits korrekt.
+  Geprueft (Tabelle.Spalte -> Fundstelle(n) -> Ergebnis):
+  - audit_log.ip_address -> internal/security/audit/postgres_repository.go (List, VerifyChain)
+    -> bereits gefixt in fix-audit-list-verifychain-ip-address-scan (Lauf 9, It. 1), nicht
+    erneut bearbeitet.
+  - user_sessions.ip_address -> internal/auth/postgres_repository.go:1574/1586/1614 (3 SELECTs)
+    -> korrekt (`COALESCE(host(ip_address), '')`); zusaetzlich internal/security/gdpr/export.go:172
+    (DSAR-Export) -> korrekt (`CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END`).
+  - ip_access_rules.ip_cidr -> internal/server/security_grpc.go:711 (ListIPRules) -> FUND. Roh
+    gescannt in models.IPAccessRule.IPCIDR (string, kein Cast). Reproduziert per DB-gestuetztem
+    Wegwerf-Test (nicht committet, nach Reproduktion geloescht): Zeile mit ip_cidr='10.0.0.0/8'
+    eingefuegt, exakt dieselbe Query wie ListIPRules abgesetzt -> "cannot scan cidr (OID 650) in
+    binary format into *string". Neue Unit: fix-security-ip-access-rules-cidr-scan.
+  - guest_sessions.ip_address -> internal/chat/guest/postgres_repository.go:44/67/87
+    (GetSessionByTokenHash, GetSessionByID, ListSessionsByChannel) -> FUND, alle drei Stellen.
+    Roh gescannt in GuestSession.IPAddress (*string, kein Cast). Bei NULL scannt pgx anstandslos
+    (deshalb in bestehenden Tests unsichtbar -- seedGuestSession dort setzt ip_address nie).
+    Reproduziert per DB-gestuetztem Wegwerf-Test (nicht committet, nach Reproduktion geloescht):
+    Session mit ip_address='203.0.113.5' eingefuegt, GetSessionByID aufgerufen -> "cannot scan
+    inet (OID 869) in binary format into **string". Neue Unit:
+    fix-chat-guest-sessions-ip-address-scan.
+  - consent_records.ip_address -> internal/crm/consent/postgres_repository.go:37/64/196 (3
+    SELECTs) -> korrekt (`ip_address::text`).
+  - form_submissions.ip_address -> internal/formulare/postgres_repository.go:259/300/362 (3
+    SELECTs) -> korrekt (`ip_address::text`).
+  Zusaetzlich per Grep geprueft, dass keine weiteren Lesestellen fuer ip_cidr/guest_sessions.
+  ip_address existieren (internal/gateway/route_security.go traegt IPCIDR nur als Wire-Typ,
+  keine SQL-Query; internal/chat/message/postgres_repository.go liest nur display_name aus
+  guest_sessions, keine ip_address-Spalte).
+- gate: n.a. -- reine Backlog-Recherche, kein Produktionscode geaendert. Die beiden
+  Wegwerf-Reproduktionstests (internal/server/zzscan_repro_test.go,
+  internal/chat/guest/zzscan_repro_test.go) wurden nach dem Verifizieren wieder geloescht;
+  `git status --short` zeigt nur BACKLOG.yml/JOURNAL.md.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein Verhalten geaendert)
+- verify vorgaenger: sauber (Commit `7d4b6571`, Iteration 10 — reiner Wire-Shape-Fix in
+  crm_grpc.go + contact/service.go, kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift,
+  kein neuer Guard, keine neue Tabelle, keine Routenaenderung; Diff deckt sich mit dem
+  Journal-Eintrag aus Iteration 10)
+- neue-units: fix-security-ip-access-rules-cidr-scan, fix-chat-guest-sessions-ip-address-scan
+- offen: keine. Alle 6 Spalten aus der Unit-Beschreibung abschliessend geprueft, beide Funde
+  als vollstaendige Fix-Units mit reproduziertem Fehler und Pin-Test-Vorschlag angelegt.
