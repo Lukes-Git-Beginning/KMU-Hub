@@ -2611,7 +2611,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/chat 50,9 %"
     scope: >
       chat/message/postgres_repository.go's Schreib-Methoden (Create, Update, CreateMentions,

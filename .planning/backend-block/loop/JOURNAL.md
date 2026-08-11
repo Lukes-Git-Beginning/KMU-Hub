@@ -4806,3 +4806,51 @@ Frühere Läufe liegen vollständig im Archiv:
   DriverLicense (bereits in tenant_write_test.go/driver_license_test.go/
   triplog_export_test.go abgedeckt) blieben bewusst aussen vor. Naechste Backlog-Unit
   laut Reihenfolge: `e-cov-chat-message-repo-reads` (Block E, chat/message-Repository).
+
+## Iteration 77 — e-cov-chat-message-repo-reads — done — 2026-08-11 05:24
+- commit: -
+- gebaut: neue Datei `postgres_repository_reads_test.go` in `internal/chat/message`.
+  Deckt GetByID (Happy-Path + ErrMessageNotFound), List (DESC-Reihenfolge inkl.
+  Thread-Replies plus ExcludeReplies-Filter), ListReplies (ASC-Reihenfolge, Limit),
+  ChannelExists/IsChannelArchived/IsMember/GetMemberRole (je True- und False-/
+  Fehlerfall), GetUserInfo, GetMentionsByMessages/GetMentionsForUser (ueber echte
+  CreateMentions-Zeile), GetFilesByMessageIDs, GetChannelMemberIDs, GetDMRecipient
+  (Nicht-DM-Kanal plus DM-Kanal aus beiden Blickrichtungen), GetChannelName,
+  GetGuestDisplayName/IsChannelGuestEnabled und DecrementReplyCount (inkl.
+  GREATEST-Floor bei bereits 0) ab. `channel_memberships` hat keine `id`-Spalte
+  (composite PK) — dafuer `seedMembership` als lokaler Raw-INSERT analog zum
+  bestehenden Muster in `internal/chat/channel/tenant_write_test.go`.
+- gate: build ok (go build -p 2 ./internal/chat/... ./cmd/gateway/...) | vet ok
+  (go vet ./internal/chat/message/...) | lint ok (golangci-lint run --config
+  .golangci.yml ./internal/chat/message/... — 0 issues) | test ok (go test -count=1
+  ./internal/chat/message/, 11 neue Tests PASS zusaetzlich zu allen bestehenden —
+  DATABASE_URL gesetzt, docker-postgres-1 healthy; go test -count=1
+  ./internal/chat/... — alle 7 Unterpakete ok) | migration n.a. (keine neue Tabelle/
+  Route/Policy) | rls-smoke n.a. (keine Policy angefasst, alle Assertions pruefen
+  Rueckgabewerte der Repository-Methoden, keine neuen Cross-Tenant-Pfade)
+  | gateway-Tests nicht gelaufen (keine Route angefasst)
+- coverage: internal/chat/message 50,9 % -> 72,4 % (go test -coverprofile
+  ./internal/chat/message/ ohne `...`, go tool cover -func Summe)
+- mutations-probe: in `DecrementReplyCount` den Floor-Guard `GREATEST(reply_count - 1,
+  0)` auf `reply_count - 1` gelockert -> sofort TestPostgresRepository_DecrementReplyCount
+  rot ("reply_count floored at zero: expected 0, got -1"). Zurueckgedreht, `git diff`
+  auf der Datei leer.
+- verify vorgaenger: sauber. Commit af9f820a (Iteration 76) fuegt ausschliesslich eine
+  neue Testdatei (`service_extended_test.go`) in fuhrpark hinzu, plus Journal-/
+  Backlog-Metadaten — kein Produktionscode, kein Proto, keine Route, kein
+  RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der acht
+  Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben
+  unstaged -StartNotBefore-Diff wie in den Iterationen 6-76 vermerkt — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block war auch in diesem Prompt
+  nicht sichtbar mitgeliefert — Nummer aus der letzten Journal-Ueberschrift
+  (Iteration 76) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner ermittelt
+  (2026-08-11 05:24). Beim Bauen zunaechst ein reales Bug-Muster in den eigenen Tests
+  gefunden und korrigiert: `defer pool.Close()` in Kombination mit `t.Cleanup`-basierten
+  Aufraeumfunktionen aus einer Fixture-Helper-Funktion feuert die Aufraeum-DELETEs NACH
+  dem Pool-Close (defer laeuft beim Funktions-Return, t.Cleanup erst danach) — alle elf
+  neuen Tests protokollierten "closed pool" beim Aufraeumen und liessen Testzeilen in der
+  DB zurueck. Gefixt durch `t.Cleanup(func() { pool.Close() })` als ERSTE Cleanup-Registrierung
+  (LIFO: zuerst registriert, zuletzt ausgefuehrt) statt `defer pool.Close()`. Naechste
+  Backlog-Unit laut Reihenfolge: `e-cov-chat-channel-search-repo` (Block E, chat/channel
+  Lese-Methoden + neues DB-Integrationstest-Muster fuer chat/search).
