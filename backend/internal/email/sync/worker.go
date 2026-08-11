@@ -421,6 +421,7 @@ func (w *Worker) Trigger() {
 func (w *Worker) envelopeToMessage(env *MessageEnvelope, folder *models.EmailFolder, date time.Time) *models.EmailMessage {
 	msg := &models.EmailMessage{
 		ID:        uuid.New(),
+		TenantID:  w.account.TenantID,
 		AccountID: w.account.ID,
 		FolderID:  folder.ID,
 		UID:       int64(env.UID),

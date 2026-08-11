@@ -390,3 +390,59 @@ Fensters.
   Wire-Shape/Route-Bezug)
 - neue-units: keine
 - offen: keine. Reiner Repository-/Handler-Fix ohne Migrations-/RLS-Beruehrung.
+
+## Iteration 8 — fix-email-send-missing-tenant-id — done — 2026-08-11 17:12
+- commit: (siehe git log nach diesem Eintrag)
+- gebaut: `send.Service.Send` und `.SaveDraft`
+  (`internal/email/send/service.go`) setzen `TenantID: input.TenantID` jetzt auf dem
+  konstruierten `models.EmailMessage`, bevor `messageCreator.Create` aufgerufen wird —
+  beide Felder existierten auf `SendInput`/`DraftInput`, wurden aber nie gelesen.
+  Root-Cause-Grep (`grep -rn "models.EmailMessage{" internal/`) fand eine dritte,
+  unabhaengige Fundstelle mit demselben Bug: `Worker.envelopeToMessage`
+  (`internal/email/sync/worker.go:422`, IMAP-Sync fuer eingehende Mails) konstruiert
+  ebenfalls ohne `TenantID`, obwohl `w.account.TenantID` bereits an zwei anderen Stellen
+  in derselben Datei genutzt wird (`syncCycle`, Zeilen 141/180) — mitgefixt in derselben
+  Unit, weil identischer Root Cause (Struct-Konstruktion vor `Create`/`CreateSynced`, die
+  beide auf dasselbe `message.PostgresRepository.Create` mit `tenant_id NOT NULL` +
+  `FORCE ROW LEVEL SECURITY` (Migration 000122, `enable_tenant_rls('email_messages')`)
+  laufen).
+- gebaut (Tests): `TestSendEmail`/`TestSaveDraft` (`internal/server/
+  email_grpc_messages_send_test.go`) pruefen jetzt zusaetzlich, dass die gespeicherte
+  Nachricht ueber einen tenant-gescopten `GetByID` mit dem Tenant des Senders auffindbar
+  ist (der Stub-Repo verweigert bei Tenant-Mismatch, exakt das Muster von echtem RLS).
+  `TestSaveDraft` im `send`-Paket selbst (`service_test.go`) setzt jetzt `input.TenantID`
+  und prueft `msg.TenantID`. `TestEnvelopeToMessage`
+  (`internal/email/sync/helpers_test.go`) bekommt eine zusaetzliche Assertion
+  `assert.Equal(t, w.account.TenantID, msg.TenantID)`.
+- gate: build ok (`./internal/email/... ./internal/server/... ./cmd/email/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, `./internal/email/...
+  ./internal/server/...`) | test ok (0 Skips, `DATABASE_URL` gegen `kmuhub_app`;
+  `./internal/email/...` alle 12 Unterpakete gruen, `./internal/server/` gruen) |
+  migration n.a. (kein Schema-/Policy-Fund, reiner Code-Fix) |
+  `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (834/836, keine Route
+  angefasst, reine Vorsichtspruefung) | rls-smoke n.a. im engeren Sinn (keine Tabelle/
+  Policy angefasst) — der reale RLS-INSERT-Pfad fuer `email_messages` bleibt vollstaendig
+  durch das bestehende, unveraenderte `TestPostgresRepository_CreateAndGetByID`
+  (`internal/email/message/postgres_repository_test.go`, echte DB, echter
+  `testutil.WithTenantCtx`) abgedeckt und lief gruen mit
+- coverage: internal/email/send 57,6 % -> 57,6 % (selbst gemessen, `go tool cover -func`;
+  deckt sich mit `coverage_start:`. Unveraendert, weil die zwei neuen Zeilen bereits von
+  bestehenden Testpfaden durchlaufen wurden)
+- mutations-probe: ZWEI Proben, weil der Fix zwei unabhaengige Traeger hat.
+  (1) `TenantID: input.TenantID,` aus `Send()`s Struct-Literal entfernt ->
+  `TestSendEmail` (`internal/server`) wurde rot mit "email message not found" (der neue
+  tenant-gescopte `GetByID`-Nachweis schlaegt exakt wie erwartet fehl). Zurueckgedreht,
+  `git diff --stat internal/email/send/service.go` zeigt wieder nur die urspruengliche
+  Aenderung (2 insertions).
+  (2) `TenantID: w.account.TenantID,` in `envelopeToMessage` auf `uuid.Nil` gesetzt ->
+  `TestEnvelopeToMessage/maps_addresses,_flags_and_in-reply-to`
+  (`internal/email/sync`) wurde rot (Nil-UUID statt der erwarteten Tenant-ID).
+  Zurueckgedreht, `git diff --stat internal/email/sync/worker.go` zeigt wieder nur die
+  urspruengliche Aenderung (1 insertion).
+- verify vorgaenger: sauber (Commit `8e00f87a`, Iteration 7 — Handler geht ueber
+  `attachmentService.GetByID` (Service-Layer, kein gRPC-Bypass), kein Stub, kein
+  Proto/Migrations-Drift, kein neuer Guard, keine neue Tabelle, keine Wire-Shape- oder
+  Routen-Aenderung; Diff deckt sich mit dem Journal-Eintrag aus Iteration 7)
+- neue-units: keine
+- offen: keine neuen Funde ausserhalb des root-cause-gefixten `envelopeToMessage`. Reiner
+  Service-/Worker-Fix ohne Migrations-Beruehrung.

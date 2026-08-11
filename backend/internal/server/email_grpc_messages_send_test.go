@@ -779,6 +779,12 @@ func TestSendEmail(t *testing.T) {
 	requireGRPCOK(t, err)
 	require.Equal(t, "Hello", resp.Message.Subject)
 	require.NotEmpty(t, f.msgRepo.messages, "the sent message must be persisted locally")
+
+	msgID, parseErr := uuid.Parse(resp.Message.Id)
+	require.NoError(t, parseErr)
+	stored, getErr := f.msgRepo.GetByID(context.Background(), msgID, tenantID)
+	require.NoError(t, getErr, "the sent message must be findable via a tenant-scoped lookup")
+	require.Equal(t, tenantID, stored.TenantID)
 }
 
 func TestSaveDraft_MissingTenant(t *testing.T) {
@@ -795,7 +801,8 @@ func TestSaveDraft_InvalidAccountID(t *testing.T) {
 
 func TestSaveDraft(t *testing.T) {
 	f := newEmailMessagesFixture()
-	resp, err := f.srv.SaveDraft(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.SaveDraftRequest{
+	tenantID := uuid.New()
+	resp, err := f.srv.SaveDraft(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.SaveDraftRequest{
 		AccountId: uuid.NewString(),
 		Subject:   "Draft",
 		To:        []*emailv1.EmailAddress{{Email: "to@example.com"}},
@@ -803,6 +810,12 @@ func TestSaveDraft(t *testing.T) {
 	requireGRPCOK(t, err)
 	require.True(t, resp.Message.IsDraft)
 	require.NotEmpty(t, f.msgRepo.messages)
+
+	msgID, parseErr := uuid.Parse(resp.Message.Id)
+	require.NoError(t, parseErr)
+	stored, getErr := f.msgRepo.GetByID(context.Background(), msgID, tenantID)
+	require.NoError(t, getErr, "the draft must be findable via a tenant-scoped lookup")
+	require.Equal(t, tenantID, stored.TenantID)
 }
 
 func TestReplyEmail_MissingTenant(t *testing.T) {
