@@ -5003,7 +5003,7 @@ Frühere Läufe liegen vollständig im Archiv:
   PostgresRepository).
 
 ## Iteration 80 — e-cov-automation-workflow-repo — done — 2026-08-11 05:53
-- commit: (folgt im naechsten chore-Commit)
+- commit: 00b388e9
 - gebaut: eine neue Testdatei
   `internal/automation/workflow/postgres_repository_db_test.go` (DB-Integrationstest,
   acht Testfunktionen) deckt alles ab, was tenant_write_test.go und
