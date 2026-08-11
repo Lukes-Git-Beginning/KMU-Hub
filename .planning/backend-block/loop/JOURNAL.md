@@ -5827,3 +5827,67 @@ Frühere Läufe liegen vollständig im Archiv:
   seit Einfuehrung des Features funktionsunfaehig — jeder Tausch scheitert entweder mit einem
   500er oder wird als "approved" markiert, ohne dass sich am Dienstplan etwas aendert. Naechste
   Backlog-Unit laut Reihenfolge: `f-cov-crm-deal-repository` (Block F Reserve).
+
+## Iteration 92 — f-cov-crm-deal-repository — done — 2026-08-11 08:08
+- commit: -
+- gebaut: Neue Datei `internal/crm/deal/postgres_repository_db_test.go` (Muster
+  `contact/postgres_repository_db_test.go`) deckt alle bislang bei 0,0 % liegenden
+  `PostgresRepository`-Methoden ab: List (Filter nach StageID/ContactID/CompanyID/OwnerID/Search/
+  TagIDs, Sortierung nach name/value auf-/absteigend, Pagination inkl. Offset-jenseits-Total,
+  Tenant-Scoping), die vier Relations-Namenslookups (GetStageName/GetContactName/GetCompanyName/
+  GetOwnerName -- inkl. Missing-ID und Cross-Tenant), die vier Batch-Varianten davon, Tags
+  (GetTags/AddTags/RemoveTags/GetTagsBatch inkl. Leer-Aufruf-No-Op), Custom Fields
+  (GetCustomFieldValues/SetCustomFieldValues/GetCustomFieldValuesBatch inkl. Upsert-Overwrite),
+  die Exists-Checks (StageExists/ContactExists/CompanyExists/OwnerExists/TagExists) plus GetStage,
+  und SetClosedAt (setzen, zuruecksetzen auf nil, Cross-Tenant-Ablehnung ueber ErrDealNotFound).
+  Create/GetByID/Update/Delete waren durch `tenant_write_test.go`/`rls_test.go` bereits vor dieser
+  Iteration durch echte Tests gesichert -- gegengeprueft, nicht neu gebaut.
+- gate: build ok (go build -p 2 ./internal/crm/... ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok (go vet ./internal/crm/... ./internal/gateway/...) | lint ok (golangci-lint run
+  --config .golangci.yml ./internal/crm/... ./internal/gateway/... -- 0 issues) | test ok
+  (go test -count=1 -v ./internal/crm/deal/ -- 74 PASS-Zeilen, 0 uebersprungen, DATABASE_URL
+  gesetzt gegen kmuhub_app) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine
+  Policy angefasst; die neuen Cross-Tenant-Faelle in den neuen Tests decken RLS fuer die
+  betroffenen Lookups bereits ab) | `go test ./internal/crm/...` gesamt zeigte einen einzelnen
+  `internal/crm/contact`-Fehlschlag durch Connection-Pool-Erschoepfung ("remaining connection
+  slots are reserved for roles with the SUPERUSER attribute") beim gleichzeitigen Lauf aller
+  `t.Parallel()`-Pakete -- isoliert (`go test ./internal/crm/contact/`) sauber gruen, keine
+  Regression durch diesen Commit | `go test ./internal/gateway/` separat gruen (keine Route
+  angefasst, trotzdem gelaufen)
+- coverage: internal/crm/deal 47,1 % -> 88,2 % (go test -coverprofile ./internal/crm/deal/, go
+  tool cover -func). `postgres_repository.go` einzeln: kein 0,0 % mehr, niedrigster Wert
+  `GetCustomFieldValues` 78,6 %, die meisten neu getesteten Methoden 82,4-100 % (verbleibende
+  Luecken sind reine DB-Fehlerpfade wie ein abgebrochener `Query`/`Scan`, nicht per Unit-Test ohne
+  Fault-Injection erreichbar).
+- mutations-probe: `SetClosedAt`, `tag.RowsAffected() == 0` auf `!= 0` gedreht ->
+  `TestRepository_SetClosedAt_TenantScoped` sofort rot ("SetClosedAt (foreign ctx): expected
+  ErrDealNotFound, got <nil>" -- der Cross-Tenant-Call haette fehlschlagen muessen, lief mit der
+  Mutation aber durch). Zurueckgedreht, `git diff` auf `postgres_repository.go` liefert nur die
+  vorbestehende LF/CRLF-Warnung, kein inhaltlicher Diff.
+- verify vorgaenger: sauber. Commit f231449b (Iteration 91) fuegt ausschliesslich eine Testdatei
+  in `internal/schichten` plus Journal-/Backlog-Metadaten hinzu -- kein Produktionscode, kein
+  Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle, keine Migration. Keine der
+  acht Fehlerklassen einschlaegig.
+- gefunden, nicht gefixt: Die vier Relations-Namenslookups (GetStageName/GetContactName/
+  GetCompanyName/GetOwnerName) sowie GetStage und die vier *Exists-Checks in
+  `internal/crm/deal/postgres_repository.go` tragen -- anders als die aequivalenten Lookups in
+  `internal/crm/contact` -- KEIN explizites `tenant_id`-Praedikat in ihrem SQL. Verifiziert per
+  neuem Test: ein Cross-Tenant-Aufruf mit einer fremden, aber existierenden ID liefert leere
+  Strings bzw. `ErrStageNotFound`/`false`, nicht weil die Query danach filtert, sondern weil RLS
+  (`FORCE ROW LEVEL SECURITY` auf `pipeline_stages`/`contacts`/`companies`/`users`/`tags`, per
+  `pg_class` verifiziert) die fremde Zeile unsichtbar macht. Kein Produktionsbug -- RLS traegt die
+  Isolation vollstaendig und zuverlaessig -- aber ein struktureller Unterschied zum
+  Contact-Package, das an derselben Stelle zusaetzlich ein explizites `tenant_id`-Argument
+  mitgibt (Defense-in-Depth). Keine Fix-Unit angelegt, da kein beobachtbares Fehlverhalten
+  vorliegt und `internal/crm` mit 69,5 % ohnehin schon das staerkste Paket ist -- fuer Luke als
+  Hinweis vermerkt, falls beim naechsten RLS-Audit ein zweites Sicherheitsnetz gewuenscht ist.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
+  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) -- nicht
+  meine Datei, nicht angefasst, nicht committet. Ebenso weiterhin ein reiner Zeilenenden-Artefakt
+  (kein inhaltlicher Diff, `git diff` liefert nur die LF/CRLF-Warnung) auf
+  `backend/internal/rapporte/postgres_repository.go` -- ebenfalls nicht angefasst. Laufkontext-
+  Block war in diesem Prompt nicht sichtbar mitgeliefert -- Nummer aus der letzten
+  Journal-Ueberschrift (Iteration 91) fortgezaehlt, Zeitstempel per `date` auf dem Loop-Rechner
+  ermittelt (2026-08-11 08:08). Commit-Hash wird nach dem `git commit` in dieser Iteration noch
+  nachgetragen. Naechste Backlog-Unit laut Reihenfolge: `f-cov-vertraege-repository` (Block F
+  Reserve).

@@ -3184,7 +3184,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/deal 47,1 %"
     scope: >
       279 ungedeckte Statements, praktisch alle in `postgres_repository.go` (247, **6,8 %**).
