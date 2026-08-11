@@ -3016,7 +3016,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Zeitstempel per date auf dem Loop-Rechner ermittelt (2026-08-11 01:53).
 
 ## Iteration 47 — d-cov-gateway-video-recording-consent — done — 2026-08-11 02:02
-- commit: (siehe unten, wird nach diesem Journal-Eintrag committet)
+- commit: 7e2838a3
 - gebaut: Neue Testdatei `backend/internal/gateway/route_video_recording_test.go` (27 Tests) fuer
   die acht in der Unit genannten Handler in route_video.go: HandleStartRecording
   (ServiceUnavailable, InvalidJSON, InvalidCallID, InvalidMeetingID, ReachesRPC),
