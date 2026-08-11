@@ -3833,7 +3833,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ermittelt (2026-08-11 03:34).
 
 ## Iteration 61 — d-cov-gateway-chat-membership — done — 2026-08-11 03:35
-- commit: (siehe git log nach diesem Commit)
+- commit: bda88c7f3d38992ef708f7bdb4a3b2ffd23dcb5f
 - gebaut: `backend/internal/gateway/route_chat_membership_test.go` neu
   angelegt mit 25 Tests fuer die Kanal-Mitgliedschafts- und
   Rollenverwaltungsgruppe in route_chat.go: HandleJoinChannel
