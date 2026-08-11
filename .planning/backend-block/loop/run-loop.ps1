@@ -140,6 +140,20 @@ foreach ($f in @($Prompt, $Backlog)) {
     if (-not (Test-Path $f)) { Write-Line "ABBRUCH: fehlt: $f" "Red"; exit 1 }
 }
 
+# Schmutziger Arbeitsbaum: Warnung, kein Abbruch. In Lauf 8 lag ein unkommittierter
+# Patch an dieser Datei ueber den gesamten Lauf herum; rund 90 Journal-Eintraege haben
+# je einen Absatz darauf verwendet zu versichern, dass er nicht von ihnen stammt. Das
+# ist kein Fehler, aber es kostet Kontext und macht `git status` in jeder Iteration
+# mehrdeutig - eine Iteration muss unterscheiden koennen, was sie selbst angefasst hat.
+#
+# Bewusst kein exit: es gibt legitime Faelle (halbfertige Notiz im Planungsordner), und
+# ein Abbruch zur Startzeit eines Nachtlaufs kostet die ganze Nacht.
+$dirty = (Invoke-Native { & git status --porcelain })
+if ($dirty) {
+    Write-Line "WARNUNG: Arbeitsbaum nicht sauber - der Lauf laeuft trotzdem:" "Yellow"
+    foreach ($line in $dirty) { Write-Line "  $line" "DarkYellow" }
+}
+
 if (Test-Path $StopFile) {
     Write-Line "STOP-Datei existiert noch vom letzten Lauf - wird entfernt." "Yellow"
     Remove-Item $StopFile -Force
@@ -261,11 +275,17 @@ $CtxTemplate = @'
 - Deine Iterationsnummer ist **{0}**.
 - Startzeit dieser Iteration: **{1}**.
 
-Beides gehoert unveraendert in die Kopfzeile deines Journal-Eintrags (Form siehe Schritt 6 oben).
-Leite die Nummer nicht aus dem Journal ab und schaetze die Uhrzeit nicht. Der Zeitstempel ist ein
-Pflichtwert: uebernimm exakt die Zeichenkette oben. Ersatzangaben wie "(Lauf 8)" oder
-"(siehe Commit-Zeit)" sind ein Fehler - der Treiber prueft die Ueberschrift danach und meldet
-eine Abweichung.
+Die **Nummer** gehoert unveraendert in die Kopfzeile deines Journal-Eintrags (Form siehe
+Schritt 6 oben) - leite sie nicht aus dem Journal ab, sie ist hier verbindlich.
+
+Beim **Zeitstempel** zaehlt das Datum. Nimm entweder die Startzeit oben oder die Uhrzeit, zu der
+du den Eintrag schreibst - beides ist richtig, solange der TAG stimmt. Was nicht geht, sind
+Ersatzangaben ohne Datum wie "(Lauf 8)" oder "(siehe Commit-Zeit)"; der Treiber prueft die
+Ueberschrift danach.
+
+Du musst diesen Block nicht kommentieren. In Lauf 8 haben 42 Eintraege einen Absatz darauf
+verwendet zu erklaeren, woher ihre Uhrzeit stammt - das ist Rauschen, die `offen:`-Zeile ist
+fuer echte Befunde da.
 '@
 
 # --- Startsperre (optional) --------------------------------------------------
@@ -473,8 +493,20 @@ while ($i -lt $MaxIterations) {
             if ($newestNum -ne $i) {
                 Write-Line "  DRIFT: hoechste Journal-Nummer ist $newestNum, Treiber-Iteration ist $i." "Yellow"
             }
-            if ($newest.Line -notmatch [regex]::Escape($stamp)) {
-                Write-Line "  DRIFT: Ueberschrift traegt nicht den gelieferten Zeitstempel '$stamp'." "Yellow"
+            # Nur der KALENDERTAG wird geprueft, nicht die Minute. Die minutengenaue
+            # Fassung feuerte in Lauf 8 in 90 von 94 Iterationen: der Treiber liefert die
+            # STARTzeit der Iteration, das Modell schreibt seinen Eintrag rund sieben
+            # Minuten spaeter und datiert ihn auf den SCHREIBzeitpunkt. Die Nummer stimmte
+            # dabei 94 von 94 Mal - es war also nie ein echter Drift, nur zwei vertretbare
+            # Lesarten desselben Feldes.
+            #
+            # Ein Check, der in 96 % der Faelle feuert, wird nicht mehr gelesen und verdeckt
+            # damit genau den Fall, den er fangen soll: ein Eintrag, der auf einem ganz
+            # anderen TAG landet (verschleppte Iteration, falsch fortgezaehlte Nummer nach
+            # einem Neustart). Der Tagesvergleich faengt das und schweigt sonst.
+            $stampDay = $stamp.Substring(0, 10)
+            if ($newest.Line -notmatch [regex]::Escape($stampDay)) {
+                Write-Line "  DRIFT: Ueberschrift traegt nicht das Datum '$stampDay'." "Yellow"
             }
         } else {
             Write-Line "  DRIFT: keine '## Iteration'-Ueberschrift im Journal - die Iteration hat nichts protokolliert." "Yellow"

@@ -251,13 +251,14 @@ Die naechste Iteration nimmt die naechste Unit.
 `BACKLOG.yml` aktualisieren (`done` bzw. `blocked`) und ans `JOURNAL.md` anhaengen:
 
 ```markdown
-## Iteration <n> — <unit-id> — <done|blocked> — <exakt die Uhrzeit aus dem Laufkontext-Block>
+## Iteration <n> — <unit-id> — <done|blocked> — <YYYY-MM-DD HH:mm, Tag muss stimmen>
 - commit: <sha oder ->
 - gebaut: <ein bis drei Zeilen, was real existiert>
 - gate: build ok | vet ok | lint ok | test ok | migration ok | rls-smoke ok|n.a.
-- coverage: <pkg> <coverage_start aus der Unit> % -> <jetzt gemessen> % | n.a. (kein Coverage-Ziel)
+- coverage: <genau das Paket, das du angefasst hast> <vorher> % -> <nachher> % | n.a. (kein Coverage-Ziel)
 - mutations-probe: <welche Zeile gebrochen, welcher Test wurde rot, zurueckgedreht, Diff sauber> | n.a.
 - verify vorgaenger: <sauber | Befund + angelegte Fix-Unit>
+- neue-units: <IDs der Units, die du fuer deine Funde ans Backlog-Ende gehaengt hast> | keine
 - offen: <was Luke morgens pruefen muss — DB-Gate, Proto-Regen, Route-Registrierung, Annahmen>
 ```
 
@@ -266,24 +267,48 @@ Mutations-Probe 71/71, weil sie ausdruecklich gefordert war — und die Coverage
 nirgends stand. Das erklaerte Laufziel war damit am Ende unbelegt und musste nachtraeglich aus dem
 CI-Artefakt rekonstruiert werden. `n.a.` ist eine zulaessige Antwort, Weglassen nicht.
 
-Fuer `coverage:` gilt: den Ausgangswert nimmst du aus dem Feld `coverage_start:` deiner Unit (der
-ist einmal beim Backlog-Bau aus dem CI-Artefakt gemessen und ueber den ganzen Lauf derselbe
-Bezugspunkt), den aktuellen Wert aus `go tool cover -func` in Schritt 5. Beide Zahlen sind
-paket-eigen und damit dieselbe Groesse — die Begruendung dafuer steht in `GATE-COMMANDS.md`.
+Fuer `coverage:` gilt: **beide Zahlen gehoeren zu genau dem Paket, das deine Unit anfasst, und
+der Abstand dazwischen ist DEIN Beitrag** — nicht der des ganzen Laufs. Miss selbst mit
+`go tool cover -func` vor und nach deiner Aenderung (Kommando in `GATE-COMMANDS.md` unter
+„Coverage messen"). `coverage_start:` in der Unit ist nur die Plausibilitaetskontrolle: weicht
+dein gemessener Vorher-Wert stark davon ab, hat eine fruehere Iteration dasselbe Paket schon
+angefasst — dann gilt DEINE Messung, und der Unterschied gehoert in die `offen:`-Zeile.
 
-**Nummer und Zeitstempel stehen im Laufkontext-Block am Ende dieses Prompts (siehe unten) und
-werden woertlich uebernommen — nicht aus dem Journal ableiten, nicht schaetzen.** Der Zeitstempel
-ist ein **Pflichtwert, kein Formatvorschlag**: es gehoert exakt die Zeichenkette in die
-Ueberschrift, die der Laufkontext-Block liefert. Ersatzangaben wie "(Lauf 8)" oder
-"(siehe Commit-Zeit)" sind ein Fehler, kein zulaessiger Platzhalter — in Lauf 7 trugen 32 von 72
-Ueberschriften so etwas, obwohl der Treiber die Uhrzeit jedes Mal mitgeliefert hat.
+Zwei Fallen aus Lauf 8, beide vermeidbar:
 
-Der Treiber prueft nach jeder Iteration, ob die neue Ueberschrift die Nummer `$i` und den
-gelieferten Zeitstempel traegt, und loggt eine gelbe `DRIFT:`-Zeile, wenn nicht. Das bricht den
-Lauf nicht ab, steht aber morgens im `run.log`. In Lauf 6 hat das Modell ab Iteration 27
+- **Nicht gegen den Laufstart messen.** Etliche Eintraege schrieben „`internal/server` 47,7 %
+  -> 61,2 % (kumulativ ueber alle Iterationen dieses Laufs)". Als Beleg fuer die eigene Unit ist
+  das wertlos — man sieht nicht, ob sie einen Punkt gebracht hat oder null.
+- **Nennt `coverage_start:` ein Elternpaket, du arbeitest aber in einem Unterpaket**, dann miss
+  das Unterpaket und schreib beide Zahlen dafuer hin. Die `inbox`-Units mussten `n.a.` schreiben,
+  weil der Bezugswert `internal/inbox` war, die Arbeit aber in `internal/inbox/message` lag.
+
+**`neue-units:` ist ebenfalls Pflicht.** Findest du beim Bauen einen Bug, den du nach den
+Unverhandelbaren Grenzen nicht selbst fixen darfst (Coverage-Units aendern kein Verhalten), dann
+reicht es NICHT, ihn in `offen:` zu beschreiben: haeng ihn als vollstaendige Unit ans Ende von
+`BACKLOG.yml` (mit `scope`, `sources`, `notes`, `done_when`, `status: todo`) und nenn ihre ID
+hier. In Lauf 8 sind drei verifizierte Produktionsbugs nur im Journal gelandet und waeren mit dem
+naechsten Lauf verloren gewesen — darunter einer, der den kompletten Audit-Log-Viewer,
+den CSV/JSON-Export und die `VerifyAuditChain`-RPC lahmlegt. `keine` ist eine zulaessige Antwort,
+Weglassen nicht.
+
+**Die Nummer steht im Laufkontext-Block am Ende dieses Prompts und wird woertlich uebernommen —
+nicht aus dem Journal ableiten, nicht schaetzen.** In Lauf 6 hat das Modell ab Iteration 27
 "## Iteration 28" geschrieben; seitdem lief die Nummerierung um eins vor, eine Nummer existierte
 doppelt und eine gar nicht. Der Treiber leitet seine Fortschrittsanzeige aus der hoechsten
 Journal-Nummer ab — eine falsche Nummer verfaelscht sie direkt.
+
+**Beim Zeitstempel zaehlt der Tag.** Ob du die Startzeit aus dem Laufkontext-Block nimmst oder
+die Uhrzeit, zu der du den Eintrag schreibst, ist gleichwertig — sie liegen typischerweise
+sieben Minuten auseinander. Ein Datum muss aber dastehen: Ersatzangaben wie "(Lauf 8)" oder
+"(siehe Commit-Zeit)" sind ein Fehler (in Lauf 7 trugen 32 von 72 Ueberschriften so etwas).
+
+Der Treiber prueft nach jeder Iteration Nummer und Datum und loggt eine gelbe `DRIFT:`-Zeile,
+wenn eines nicht passt. Das bricht den Lauf nicht ab, steht aber morgens im `run.log`. Bis
+Lauf 8 verglich er den Zeitstempel minutengenau und feuerte deshalb 90 von 94 Mal, obwohl die
+Nummer 94 von 94 Mal stimmte — eine Warnung, die fast immer angeht, liest niemand mehr. Seitdem
+vergleicht er nur noch den Kalendertag und faengt damit das, was wirklich schieflaufen kann:
+ein Eintrag, der auf einem ganz anderen Tag landet.
 
 **Ans Dateiende anhaengen, nicht einsortieren.** Das Journal ist chronologisch, nicht sortiert —
 ein Eintrag gehoert unter den letzten, nie darueber. Am 2026-08-02 hat eine Iteration ihren Block
