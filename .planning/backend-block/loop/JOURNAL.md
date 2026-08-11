@@ -4450,7 +4450,7 @@ Frühere Läufe liegen vollständig im Archiv:
   e-cov-produktion-core-gaps.
 
 ## Iteration 71 — e-cov-produktion-core-gaps — done — 2026-08-11 04:43
-- commit: -
+- commit: d348dd27
 - gebaut: `internal/produktion/postgres_repository_core_test.go` (neu, DB-Tests
   gegen die echte PostgresRepository): CreateBookingWithLock (Basisbuchung,
   ueberlappende Buchung -> Konflikt + Rollback ohne Insert, angrenzende
