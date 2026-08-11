@@ -4507,7 +4507,7 @@ Frühere Läufe liegen vollständig im Archiv:
   laut Reihenfolge `e-cov-inbox-repo-infra` (Block E, inbox).
 
 ## Iteration 72 — e-cov-inbox-repo-infra — done — 2026-08-11 04:49
-- commit: (folgt, wird nach diesem Journal-Eintrag committet)
+- commit: 7bd43d4a
 - gebaut: `backend/internal/inbox/team/tenant_write_test.go` (neu) und
   `backend/internal/inbox/routing/tenant_write_test.go` (neu) legen fuer beide
   Unterpakete das DB-Integrationstest-Muster gegen die echte PostgresRepository
