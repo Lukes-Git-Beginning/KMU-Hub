@@ -2819,7 +2819,7 @@ units:
     service: automation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/automation 51,9 %"
     scope: >
       engine.go und logger.go bilden zusammen die Ausführungs-Pipeline; engine_test.go

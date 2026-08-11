@@ -5132,3 +5132,76 @@ Frühere Läufe liegen vollständig im Archiv:
   (2026-08-11 05:59). Naechste Backlog-Unit laut Reihenfolge:
   `e-cov-automation-engine-internals` (Block E, engine.go/logger.go Circuit-Breaker,
   Condition-Fehlerpfade, Action-Schleife).
+
+## Iteration 82 — e-cov-automation-engine-internals — done — 2026-08-11 06:12
+- commit: <wird nach dem Commit in einem Folge-Eintrag nachgetragen, siehe Muster der Vorlaeufer-Iterationen>
+- gebaut: vier neue Testdateien, kein Produktionscode veraendert. `internal/automation/engine/
+  logger_test.go` fuehrt einen ehrlichen In-Memory-Fake (`fakeExecRepo`, Map execID ->
+  *models.AutomationExecution, mit forcierbaren Fehlern fuer GetExecution/UpdateExecution) ein und
+  deckt ExecutionLogger direkt ab: LogStart, LogConditionSkipped, LogConditionError,
+  LogActionResult (Erfolg + Fehlerfall + kumulatives Steps-Array ueber mehrere Aufrufe),
+  LogComplete (beide Zweige der `if exec.Status == Running`-Bedingung), LogStepLimitReached, sowie
+  die Fehlerpfade in updateExecution (GetExecution- und UpdateExecution-Fehler, kein Panic, kein
+  UpdateExecution-Aufruf wenn GetExecution schon fehlschlaegt). `internal/automation/engine/
+  engine_execute_test.go` deckt WorkflowEngine.Execute: Circuit-Breaker-Pfad (SetActive(false) +
+  ErrCircuitBreakerOpen), ungueltiges Conditions-JSON, ein vom echten condition.Evaluator
+  abgelehnter Modus ("unknown condition mode"), negatives Condition-Ergebnis (keine Action laeuft),
+  unbekannter Action-Typ fuer on_error abort/continue, fehlschlagende Action in allen vier
+  Kombinationen aus execErr/result.Success x on_error abort/continue (Tabellentest), das
+  prev_*/step_N_*-Output-Chaining (zweite Action prueft per env-Parameter, dass die erste ihre
+  Werte bereits eingetragen hat) und MaxSteps (LogStepLimitReached + ErrMaxStepsExceeded, zweite
+  Action laeuft nicht mehr). `internal/automation/condition/expr_env_test.go` deckt
+  BuildEnvFromEvent fuer alle fuenf Trigger-Module (crm/biz/hr/work/email; jeweils die passenden
+  Sub-Envs befuellt, alle anderen bleiben nil), ein unbekanntes Modul, einen Trigger-Type ohne
+  Punkt, nil-Payload (Prev bleibt eine leere, nicht-nil Map) sowie die Default-Werte aller
+  get*-Helper bei fehlendem Key. `internal/automation/trigger/matcher_test.go` deckt
+  TriggerMatcher.FindMatching (Treffer nur bei registriertem TriggerType + passendem EventType,
+  unregistrierter Typ wird uebersprungen ohne Panic), den TTL-Cache (zweiter Aufruf innerhalb der
+  TTL ruft List kein zweites Mal auf), den Stale-Fallback bei einem List-Fehler nach Ablauf der TTL
+  (alter Cache-Inhalt bleibt nutzbar, kein Fehler nach aussen), einen List-Fehler beim allerersten
+  Aufruf (Fehler wird durchgereicht, noch kein Cache vorhanden) sowie InvalidateCache (erzwingt
+  einen Refresh trotz noch gueltiger TTL).
+- design: Fuer den TTL-Cache-Test wurde `TriggerMatcher` direkt mit einer kurzen `cacheTTL` (50ms)
+  im gleichen Package konstruiert statt der 30s-Produktionskonstante, um ohne Sleep im
+  Sekundenbereich zu testen. `matcher.go` enthaelt denselben TTL-Vergleich zweifach
+  (RLock-Fastpath und Double-Check unter dem Write-Lock, klassisches Double-Checked-Locking) — eine
+  punktuelle Mutation an nur einer der beiden Stellen wird vom jeweils anderen Check maskiert; die
+  Mutations-Probe zielt deshalb bewusst auf InvalidateCache statt auf den TTL-Vergleich selbst.
+- gate: build ok (go build ./internal/automation/... ./internal/gateway/... ./cmd/gateway/...) |
+  vet ok (go vet ./internal/automation/...) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/automation/engine/... ./internal/automation/condition/... ./internal/automation/
+  trigger/... — 0 issues) | test ok (go test -count=1 auf allen drei Paketen, alle gruen, reine
+  In-Memory-Unit-Tests ohne DB) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst) | gateway-Tests nicht gelaufen (keine Route angefasst)
+- coverage: internal/automation/engine 51,0 % -> 83,5 % | internal/automation/condition 61,1 % ->
+  93,1 % | internal/automation/trigger 46,7 % -> 70,3 % (go test -coverprofile je Einzelpaket,
+  go tool cover -func; Vorher-Werte per Messung vor Hinzufuegen der vier neuen Testdateien, der
+  Backlog-coverage_start-Wert "internal/automation 51,9 %" bezieht sich auf das Gesamtpaket zu
+  einem frueheren Zeitpunkt)
+- mutations-probe: drei Proben, alle gefangen und zurueckgedreht. (1) `engine.go`
+  `isCircuitBreakerOpen`: `state.count >= circuitBreakerThreshold` -> `>` ->
+  TestExecute_CircuitBreakerOpen_DisablesAutomationAndReturnsError sofort rot (erwarteter
+  ErrCircuitBreakerOpen blieb aus). (2) `matcher.go` `InvalidateCache`: `m.cacheTime = time.Time{}`
+  -> `m.cacheTime = time.Now()` -> TestInvalidateCache_ForcesRefreshDespiteUnexpiredTTL sofort rot
+  (erwarteter zweiter List-Aufruf blieb aus, "expected: 2, actual: 1"). (3) unabhaengig
+  nachvollzogen: `evaluator.go` `Evaluate` default-Zweig `return false, fmt.Errorf("unknown
+  condition mode: %q", config.Mode)` -> `return true, nil` ->
+  TestExecute_UnknownConditionMode_LogsConditionErrorAndFails sofort rot ("An error is expected but
+  got nil"). Alle drei Male zurueckgedreht, `git diff` auf die jeweilige Produktionsdatei leer.
+- verify vorgaenger: sauber. Commit b31038a9 (Iteration 81) fuegt ausschliesslich eine neue
+  Testdatei (`internal/automation/action/grpc_actions_test.go`) plus Journal-/Backlog-Metadaten
+  hinzu — kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue
+  Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged
+  -StartNotBefore-Diff wie in allen Vorgaenger-Iterationen vermerkt — nicht meine Datei, nicht
+  angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 81) fortgezaehlt, Zeitstempel per `date`
+  auf dem Loop-Rechner ermittelt (2026-08-11 06:12). Der eigentliche Testbau lief in dieser
+  Iteration ueber einen general-purpose-Subagenten (breite, klar abgegrenzte Recherche +
+  Implementierung ueber vier Dateien in drei Paketen); alle Gate-Kommandos und eine zusaetzliche,
+  unabhaengige dritte Mutations-Probe wurden danach im Hauptkontext selbst nachgefahren, nicht nur
+  aus dem Subagenten-Bericht uebernommen. Zwei kleinere Lint-Hinweise aus der IDE-Diagnose
+  (fmtappendf-Vorschlag in engine_execute_test.go) wurden noch behoben; der dritte Hinweis
+  (mapsloop in engine.go:354, buildEnvFromPayload) betrifft unveraenderten Bestandscode ausserhalb
+  des Scopes dieser Unit und wurde nicht angefasst. Naechste Backlog-Unit laut Reihenfolge:
+  `e-cov-email-sync` (Block E, internal/email/sync worker.go/imap_client.go/engine.go).
