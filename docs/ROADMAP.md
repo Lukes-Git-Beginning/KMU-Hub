@@ -1,6 +1,6 @@
 # Cosmi — Kern-Roadmap
 
-> **Status (2026-08-06):** **Sprint 0–4 abgeschlossen, Sprint 5 laeuft** (Pre-Launch-Audit + Rigorosum R3, bis 08-31). Noch **26 Tage bis Launch**. Parallel zu S5 liefen fuenf **Backend-Nachtlaeufe** (07-26 bis 08-06, Migrationen **243–297**): Feature-Nachzug quer durch die Module, RLS-Welle (`knownRLSGaps` seither leer), RBAC Phase 1 mit tenant-eigenen Rollen + per-User-Overrides, ~110 neue REST-Pfade. Alle gemergt und deployt — **Prod-Kopf = Repo-Kopf 297 clean**, 30/35 Container healthy. Der Engpass liegt nicht mehr im FE↔Backend-Wiring (14 von 17 operativen Modulen voll verdrahtet), sondern in der **Test-Coverage kritischer Pfade** (`biz` 48 %, `crm` 51 % gegen 60 % Ziel). Einziger echter Launch-Blocker bleibt **Legal (AVV/DPA)**. Gemessener Ist-Stand mit allen Zahlen: [`.planning/status-overview.md`](../.planning/status-overview.md).
+> **Status (2026-08-11):** **Sprint 0–4 abgeschlossen, Sprint 5 laeuft** (Pre-Launch-Audit + Rigorosum R3, bis 08-31). Noch **21 Tage bis Launch**. Parallel zu S5 laufen die **Backend-Nachtlaeufe** (seit 07-26, Migrationen **243–310**): Feature-Nachzug quer durch die Module, RLS-Welle (`knownRLSGaps` seither leer), RBAC Phase 1, ~110 neue REST-Pfade, zuletzt zwei reine Coverage-Laeufe. Laeufe 1–8 sind gemergt und deployt — **Prod-Kopf = Repo-Kopf 310 clean**, 30 von 36 Containern healthy (0 unhealthy). **Der Coverage-Engpass ist geschlossen:** Lauf 8 hob 47,7 → **60,0 %**, `biz` 48 → **70,6 %** und `crm` 51 → **71,7 %** liegen damit ueber dem 60-%-Ziel. Der Engpass ist jetzt **Korrektheit statt Abdeckung**: derselbe Lauf foerderte zehn verifizierte Produktionsbugs zutage, ausgerechnet in den Paketen mit der hoechsten Coverage. Lauf 9 (seit 11-08 16:00) arbeitet sie ab. Einziger echter Launch-Blocker bleibt **Legal (AVV/DPA)**. Gemessener Ist-Stand mit allen Zahlen: [`.planning/status-overview.md`](../.planning/status-overview.md).
 >
 > <details><summary>Frueherer Status (2026-04-26)</summary>
 >
@@ -53,30 +53,38 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 ## 2. Aktueller Stand
 
-### Gemessen am 2026-08-06
+### Gemessen am 2026-08-11
 
 Alle Zahlen selbst erhoben, nicht aus Doku uebernommen. Vollstaendige Fassung mit Messkommandos:
 [`.planning/status-overview.md`](../.planning/status-overview.md).
 
 | Bereich | Stand |
 |---|---|
-| Backend | 24 Services (23 µSvc + Gateway), **1.134 gRPC-RPCs**, **821 OpenAPI-Pfade** / 1.171 Operationen |
-| Datenbank | Migrationskopf **297**, Prod identisch und clean; RLS produktiv, **`knownRLSGaps` leer** |
-| Tests | 503 Test-Dateien, **Coverage 30,2 %** (CI-Gate 15 %). auth 71 % ✅ · security 67 % ✅ · ⚠ crm 51 % · ⚠ biz 48 % (Ziel 60 % fuer kritische Pfade) |
-| Frontend | **34 Module** (32 im Router), 81 API-Hooks, 1.231 TS/TSX-Dateien; **14 von 17 operativen Modulen voll gewired** |
-| i18n | **12.044 Keys**, de/en vollstaendig, fr/it je 34 offen |
-| Feature-Flags | 17 (14 `modules.*` + 3 `plugins.*`), alle Modul-Flags default OFF |
-| Produktion | Hetzner CPX42, `app.zentria.tech`, 30 von 35 Containern healthy, `COSMI_ENV=production` scharf |
+| Backend | 24 Services (23 µSvc + Gateway), **1.154 gRPC-RPCs**, **836 OpenAPI-Pfade** / 1.192 Operationen |
+| Datenbank | Migrationskopf **310**, Prod identisch und clean; RLS produktiv, **`knownRLSGaps` leer** |
+| Tests | 711 Test-Dateien, **Coverage 60,0 %** (CI-Gate 15 %). security 79,5 % ✅ · crm 71,7 % ✅ · biz 70,6 % ✅ · auth 67,9 % ✅ · ⚠ **gateway 46,0 %** (schwaechstes Kernpaket) |
+| Frontend | **34 Module**, 81 API-Hook-Dateien (993 Hooks), 1.234 TS/TSX-Dateien; **17 von 17 operativen Modulen voll gewired**, kein Mock-Seed mehr im Produktionspfad |
+| i18n | **12.072 Keys × 4 Sprachen, Paritaet vollstaendig**, BOM entfernt, per Test gepinnt |
+| Feature-Flags | 17, 16 davon default OFF |
+| Produktion | Hetzner CPX42, `app.zentria.tech`, 30 von 36 Containern healthy (0 unhealthy), `COSMI_ENV=production` scharf |
 
-**Was seit dem Juni-Stand dazukam:** fuenf Backend-Nachtlaeufe (Migr. 243–297) mit RLS-Welle,
-RBAC Phase 1, Partitionierung (242) und rund 110 neuen REST-Pfaden; die FE↔Backend-Wiring-Wellen
-sind im Wesentlichen durch.
+**Was seit dem Juni-Stand dazukam:** acht Backend-Nachtlaeufe (Migr. 243–310) mit RLS-Welle,
+RBAC Phase 1, Partitionierung (242), rund 110 neuen REST-Pfaden und zuletzt zwei reinen
+Coverage-Laeufen (30,2 → 47,7 → 60,0 %); die FE↔Backend-Wiring-Wellen sind durch.
 
-**Was offen ist** (Details in `.planning/status-overview.md` §4): CSAT auf Prod funktionsunfaehig
-(SMTP nicht an `helpdesk` durchgereicht + keine oeffentliche Seite) · drei Stores mit ungegatetem
-Mock-Seed (`helpdesk`, `vertraege`, `timetracking` — nur letzterer ohne Feature-Flag) · Coverage der
-kritischen Pfade · `scans.yml` rot (react-router, Frontend) · MinIO-Backup ohne Absicherung ·
-**Legal (AVV/DPA)** als einziger echter Launch-Blocker.
+**Was offen ist** (Details in `.planning/status-overview.md` §4): zehn verifizierte
+Produktionsbugs aus Lauf 8, in Arbeit in Lauf 9 — schwerster ist ein Typ-Scan-Fehler in
+`security/audit`, der Audit-Viewer, Export und Chain-Verifikation fuer jeden aktiven Tenant
+lahmlegt (Compliance) · `gateway`-Coverage bei 46 % · 118 TypeScript-Fehler im Desktop
+(Vorbestand, auch Produktionscode) · **Electron 33.4.11 mit 34 High-Advisories**, von
+`npm audit --omit=dev` ausgeblendet obwohl es ausgeliefert wird · CSAT bleibt stillgelegt
+(„Public Web Surface") · **Legal (AVV/DPA)** als einziger echter Launch-Blocker.
+
+**Am 2026-08-11 geschlossen:** Mock-Seed in vier Zustand-Stores (`timetracking` und `team` waren
+ungegatet fuer jeden Nutzer erreichbar, `team` mit erfundenen Gehaltsdaten) · `scans.yml` wieder
+gruen (react-router 7.18.2 + dompurify 3.4.13) · MinIO-Backup lief nie, weil das MinIO-Image kein
+`tar` enthaelt — jetzt ueber einen Sidecar · i18n-Paritaet fr/it · Passwort-Reset-Link zeigte ins
+Leere (kein GET-Handler unter `/reset-password`), jetzt eine eingebettete Seite im Gateway.
 
 ### Was fertig ist (Stand Rigorosum 18.04., historisch)
 
