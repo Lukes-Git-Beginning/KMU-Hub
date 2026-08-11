@@ -21,6 +21,9 @@ type mockRepo struct {
 	queues          map[uuid.UUID]*TicketQueue
 	cannedResponses map[uuid.UUID]*CannedResponse
 	slaPolicies     map[uuid.UUID]*SLAPolicy
+	kbArticles      map[uuid.UUID]*KBArticle
+	routingRules    map[uuid.UUID]*RoutingRule
+	businessHours   map[uuid.UUID]*BusinessHours
 
 	// Controls for FindOpenTicketsByRequester
 	openTickets []*Ticket
@@ -36,6 +39,15 @@ type mockRepo struct {
 	// csatTokens holds the pending survey tokens written by
 	// IssueCsatSurveyTokenTx, keyed by ticket.
 	csatTokens map[uuid.UUID]csatTokenRow
+
+	// stats is returned as-is by GetHelpdeskStats when set.
+	stats *HelpdeskStats
+
+	// repoErr, when non-nil, is returned by the plain get/list/upsert wrappers
+	// below that have no other natural failure branch (no input validation of
+	// their own) -- lets tests exercise the service's error-wrapping path for
+	// them without inventing a DB failure.
+	repoErr error
 }
 
 // csatTokenRow is the mock's stand-in for the token columns on
@@ -53,6 +65,9 @@ func newMockRepo() *mockRepo {
 		queues:          make(map[uuid.UUID]*TicketQueue),
 		cannedResponses: make(map[uuid.UUID]*CannedResponse),
 		slaPolicies:     make(map[uuid.UUID]*SLAPolicy),
+		kbArticles:      make(map[uuid.UUID]*KBArticle),
+		routingRules:    make(map[uuid.UUID]*RoutingRule),
+		businessHours:   make(map[uuid.UUID]*BusinessHours),
 		contactTenants:  make(map[uuid.UUID]uuid.UUID),
 		companyTenants:  make(map[uuid.UUID]uuid.UUID),
 		csatTokens:      make(map[uuid.UUID]csatTokenRow),
@@ -319,50 +334,88 @@ func (r *mockRepo) DeleteSLAPolicy(_ context.Context, id, _ uuid.UUID) error {
 }
 
 func (r *mockRepo) CreateKBArticle(_ context.Context, a *KBArticle) error {
+	r.kbArticles[a.ID] = a
 	return nil
 }
 
 func (r *mockRepo) GetKBArticleByID(_ context.Context, id, _ uuid.UUID) (*KBArticle, error) {
+	if a, ok := r.kbArticles[id]; ok {
+		return a, nil
+	}
 	return nil, ErrKBArticleNotFound
 }
 
 func (r *mockRepo) ListKBArticles(_ context.Context, _ uuid.UUID) ([]*KBArticle, error) {
-	return nil, nil
+	if r.repoErr != nil {
+		return nil, r.repoErr
+	}
+	var list []*KBArticle
+	for _, a := range r.kbArticles {
+		list = append(list, a)
+	}
+	return list, nil
 }
 
-func (r *mockRepo) UpdateKBArticle(_ context.Context, _ *KBArticle) error {
+func (r *mockRepo) UpdateKBArticle(_ context.Context, a *KBArticle) error {
+	r.kbArticles[a.ID] = a
 	return nil
 }
 
-func (r *mockRepo) DeleteKBArticle(_ context.Context, _, _ uuid.UUID) error {
+func (r *mockRepo) DeleteKBArticle(_ context.Context, id, _ uuid.UUID) error {
+	delete(r.kbArticles, id)
 	return nil
 }
 
-func (r *mockRepo) CreateRoutingRule(_ context.Context, _ *RoutingRule) error {
+func (r *mockRepo) CreateRoutingRule(_ context.Context, rr *RoutingRule) error {
+	r.routingRules[rr.ID] = rr
 	return nil
 }
 
 func (r *mockRepo) GetRoutingRuleByID(_ context.Context, id, _ uuid.UUID) (*RoutingRule, error) {
+	if rr, ok := r.routingRules[id]; ok {
+		return rr, nil
+	}
 	return nil, ErrRoutingRuleNotFound
 }
 
 func (r *mockRepo) ListRoutingRules(_ context.Context, _ uuid.UUID) ([]*RoutingRule, error) {
-	return nil, nil
+	if r.repoErr != nil {
+		return nil, r.repoErr
+	}
+	var list []*RoutingRule
+	for _, rr := range r.routingRules {
+		list = append(list, rr)
+	}
+	return list, nil
 }
 
-func (r *mockRepo) UpdateRoutingRule(_ context.Context, _ *RoutingRule) error {
+func (r *mockRepo) UpdateRoutingRule(_ context.Context, rr *RoutingRule) error {
+	r.routingRules[rr.ID] = rr
 	return nil
 }
 
-func (r *mockRepo) DeleteRoutingRule(_ context.Context, _, _ uuid.UUID) error {
+func (r *mockRepo) DeleteRoutingRule(_ context.Context, id, _ uuid.UUID) error {
+	delete(r.routingRules, id)
 	return nil
 }
 
 func (r *mockRepo) GetHelpdeskStats(_ context.Context, _ uuid.UUID) (*HelpdeskStats, error) {
+	if r.repoErr != nil {
+		return nil, r.repoErr
+	}
+	if r.stats != nil {
+		return r.stats, nil
+	}
 	return &HelpdeskStats{}, nil
 }
 
 func (r *mockRepo) GetBusinessHours(_ context.Context, tenantID uuid.UUID) (*BusinessHours, error) {
+	if r.repoErr != nil {
+		return nil, r.repoErr
+	}
+	if bh, ok := r.businessHours[tenantID]; ok {
+		return bh, nil
+	}
 	return &BusinessHours{
 		TenantID: tenantID,
 		Schedule: map[string]DaySchedule{},
@@ -372,6 +425,12 @@ func (r *mockRepo) GetBusinessHours(_ context.Context, tenantID uuid.UUID) (*Bus
 }
 
 func (r *mockRepo) UpsertBusinessHours(_ context.Context, bh *BusinessHours) error {
+	if r.repoErr != nil {
+		return r.repoErr
+	}
+	stored := *bh
+	stored.UpdatedAt = time.Now().UTC()
+	r.businessHours[bh.TenantID] = &stored
 	return nil
 }
 
@@ -1114,5 +1173,527 @@ func TestDetectDuplicates_ExcludesSelf(t *testing.T) {
 	}
 	if len(dupes) != 1 || dupes[0].ID != other.ID {
 		t.Errorf("expected [other], got %v", dupes)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge-base article tests
+// ---------------------------------------------------------------------------
+
+func TestCreateKBArticle_EmptyTitleFails(t *testing.T) {
+	h := newTestHarness()
+	_, err := h.svc.CreateKBArticle(context.Background(), uuid.New(), uuid.New(), "", "body", "cat", "")
+	if err == nil {
+		t.Error("expected error for empty title")
+	}
+}
+
+func TestCreateKBArticle_DefaultsStatusToDraft(t *testing.T) {
+	h := newTestHarness()
+	authorID := uuid.New()
+
+	a, err := h.svc.CreateKBArticle(context.Background(), uuid.New(), authorID, "How to reset a password", "content", "auth", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if a.Status != string(KBArticleStatusDraft) {
+		t.Errorf("expected default status draft, got %q", a.Status)
+	}
+	if a.AuthorID != authorID {
+		t.Errorf("expected author_id %v, got %v", authorID, a.AuthorID)
+	}
+}
+
+func TestGetKBArticle_NotFound(t *testing.T) {
+	h := newTestHarness()
+	_, err := h.svc.GetKBArticle(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, ErrKBArticleNotFound) {
+		t.Errorf("expected ErrKBArticleNotFound, got %v", err)
+	}
+}
+
+func TestUpdateKBArticle_NotFound(t *testing.T) {
+	h := newTestHarness()
+	title := "New Title"
+	_, err := h.svc.UpdateKBArticle(context.Background(), uuid.New(), uuid.New(), &title, nil, nil, nil)
+	if !errors.Is(err, ErrKBArticleNotFound) {
+		t.Errorf("expected ErrKBArticleNotFound, got %v", err)
+	}
+}
+
+func TestUpdateKBArticle_EmptyTitleFails(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	a, err := h.svc.CreateKBArticle(context.Background(), tenantID, uuid.New(), "Original", "c", "cat", "")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	empty := ""
+	_, err = h.svc.UpdateKBArticle(context.Background(), a.ID, tenantID, &empty, nil, nil, nil)
+	if err == nil {
+		t.Error("expected error for empty title")
+	}
+}
+
+func TestUpdateKBArticle_PatchesFields(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	a, err := h.svc.CreateKBArticle(context.Background(), tenantID, uuid.New(), "Original", "c", "cat", "")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	newTitle := "Updated Title"
+	published := string(KBArticleStatusPublished)
+	updated, err := h.svc.UpdateKBArticle(context.Background(), a.ID, tenantID, &newTitle, nil, nil, &published)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Title != newTitle || updated.Status != published {
+		t.Errorf("patch did not land: title=%q status=%q", updated.Title, updated.Status)
+	}
+}
+
+func TestDeleteKBArticle_Success(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	a, _ := h.svc.CreateKBArticle(context.Background(), tenantID, uuid.New(), "Doomed", "c", "cat", "")
+	if err := h.svc.DeleteKBArticle(context.Background(), a.ID, tenantID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := h.repo.kbArticles[a.ID]; ok {
+		t.Error("expected article to be deleted")
+	}
+}
+
+func TestListKBArticles_AfterCreate(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	h.svc.CreateKBArticle(context.Background(), tenantID, uuid.New(), "Article A", "c", "cat", "")
+	h.svc.CreateKBArticle(context.Background(), tenantID, uuid.New(), "Article B", "c", "cat", "")
+
+	list, err := h.svc.ListKBArticles(context.Background(), tenantID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list) != 2 {
+		t.Errorf("expected 2 articles, got %d", len(list))
+	}
+}
+
+func TestListKBArticles_RepoErrorIsWrapped(t *testing.T) {
+	h := newTestHarness()
+	h.repo.repoErr = errors.New("db unavailable")
+
+	_, err := h.svc.ListKBArticles(context.Background(), uuid.New())
+	if err == nil {
+		t.Fatal("expected error to propagate from repository")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Routing rule tests
+// ---------------------------------------------------------------------------
+
+func TestCreateRoutingRule_EmptyNameFails(t *testing.T) {
+	h := newTestHarness()
+	_, err := h.svc.CreateRoutingRule(context.Background(), uuid.New(), "", nil, nil, 0, true)
+	if err == nil {
+		t.Error("expected error for empty name")
+	}
+}
+
+func TestCreateRoutingRule_NilConditionsDefaultToEmptyMap(t *testing.T) {
+	h := newTestHarness()
+	rr, err := h.svc.CreateRoutingRule(context.Background(), uuid.New(), "Route to Sales", nil, nil, 1, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rr.Conditions == nil {
+		t.Error("expected nil conditions to default to an empty map")
+	}
+}
+
+func TestUpdateRoutingRule_NotFound(t *testing.T) {
+	h := newTestHarness()
+	name := "Renamed"
+	_, err := h.svc.UpdateRoutingRule(context.Background(), uuid.New(), uuid.New(), &name, nil, nil, nil, nil)
+	if !errors.Is(err, ErrRoutingRuleNotFound) {
+		t.Errorf("expected ErrRoutingRuleNotFound, got %v", err)
+	}
+}
+
+func TestUpdateRoutingRule_EmptyNameFails(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	rr, err := h.svc.CreateRoutingRule(context.Background(), tenantID, "Original", nil, nil, 0, true)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	empty := ""
+	_, err = h.svc.UpdateRoutingRule(context.Background(), rr.ID, tenantID, &empty, nil, nil, nil, nil)
+	if err == nil {
+		t.Error("expected error for empty name")
+	}
+}
+
+func TestUpdateRoutingRule_PatchesFields(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	rr, err := h.svc.CreateRoutingRule(context.Background(), tenantID, "Original", nil, nil, 0, true)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	newName := "Renamed"
+	newPriority := 5
+	disabled := false
+	updated, err := h.svc.UpdateRoutingRule(context.Background(), rr.ID, tenantID, &newName, nil, nil, &newPriority, &disabled)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Name != newName || updated.Priority != newPriority || updated.Enabled {
+		t.Errorf("patch did not land: name=%q priority=%d enabled=%v", updated.Name, updated.Priority, updated.Enabled)
+	}
+}
+
+func TestDeleteRoutingRule_Success(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	rr, _ := h.svc.CreateRoutingRule(context.Background(), tenantID, "Doomed", nil, nil, 0, true)
+	if err := h.svc.DeleteRoutingRule(context.Background(), rr.ID, tenantID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := h.repo.routingRules[rr.ID]; ok {
+		t.Error("expected rule to be deleted")
+	}
+}
+
+func TestListRoutingRules_AfterCreate(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	h.svc.CreateRoutingRule(context.Background(), tenantID, "Rule A", nil, nil, 0, true)
+	h.svc.CreateRoutingRule(context.Background(), tenantID, "Rule B", nil, nil, 1, false)
+
+	list, err := h.svc.ListRoutingRules(context.Background(), tenantID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list) != 2 {
+		t.Errorf("expected 2 rules, got %d", len(list))
+	}
+}
+
+func TestListRoutingRules_RepoErrorIsWrapped(t *testing.T) {
+	h := newTestHarness()
+	h.repo.repoErr = errors.New("db unavailable")
+
+	_, err := h.svc.ListRoutingRules(context.Background(), uuid.New())
+	if err == nil {
+		t.Fatal("expected error to propagate from repository")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Stats + business hours tests
+// ---------------------------------------------------------------------------
+
+func TestGetHelpdeskStats_Success(t *testing.T) {
+	h := newTestHarness()
+	h.repo.stats = &HelpdeskStats{OpenTickets: 3, AvgResponseTime: "42 min"}
+
+	stats, err := h.svc.GetHelpdeskStats(context.Background(), uuid.New())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats.OpenTickets != 3 {
+		t.Errorf("expected 3 open tickets, got %d", stats.OpenTickets)
+	}
+}
+
+func TestGetHelpdeskStats_RepoErrorIsWrapped(t *testing.T) {
+	h := newTestHarness()
+	h.repo.repoErr = errors.New("db unavailable")
+
+	_, err := h.svc.GetHelpdeskStats(context.Background(), uuid.New())
+	if err == nil {
+		t.Fatal("expected error to propagate from repository")
+	}
+}
+
+func TestGetBusinessHours_DefaultsWhenNoneStored(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	bh, err := h.svc.GetBusinessHours(context.Background(), tenantID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bh.Timezone != "Europe/Berlin" || bh.Schedule == nil || bh.Holidays == nil {
+		t.Errorf("expected default business hours, got %+v", bh)
+	}
+}
+
+func TestGetBusinessHours_RepoErrorIsWrapped(t *testing.T) {
+	h := newTestHarness()
+	h.repo.repoErr = errors.New("db unavailable")
+
+	_, err := h.svc.GetBusinessHours(context.Background(), uuid.New())
+	if err == nil {
+		t.Fatal("expected error to propagate from repository")
+	}
+}
+
+func TestUpsertBusinessHours_DefaultsTimezoneAndCollectionsThenRereads(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	updated, err := h.svc.UpsertBusinessHours(context.Background(), &BusinessHours{TenantID: tenantID})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Timezone != "Europe/Berlin" {
+		t.Errorf("expected default timezone, got %q", updated.Timezone)
+	}
+	if updated.Schedule == nil || updated.Holidays == nil {
+		t.Errorf("expected non-nil schedule/holidays, got %+v", updated)
+	}
+	if updated.UpdatedAt.IsZero() {
+		t.Error("expected the re-read to carry a server-set updated_at")
+	}
+}
+
+func TestUpsertBusinessHours_RepoErrorIsWrapped(t *testing.T) {
+	h := newTestHarness()
+	h.repo.repoErr = errors.New("db unavailable")
+
+	_, err := h.svc.UpsertBusinessHours(context.Background(), &BusinessHours{TenantID: uuid.New()})
+	if err == nil {
+		t.Fatal("expected error to propagate from repository")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Canned response Update/Delete/List tests
+// ---------------------------------------------------------------------------
+
+func TestUpdateCannedResponse_NotFound(t *testing.T) {
+	h := newTestHarness()
+	name := "New Name"
+	_, err := h.svc.UpdateCannedResponse(context.Background(), uuid.New(), uuid.New(), &name, nil)
+	if !errors.Is(err, ErrCannedResponseNotFound) {
+		t.Errorf("expected ErrCannedResponseNotFound, got %v", err)
+	}
+}
+
+func TestUpdateCannedResponse_EmptyNameOrBodyFails(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	cr, err := h.svc.CreateCannedResponse(context.Background(), tenantID, "Greeting", "Hello there")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	empty := ""
+	if _, err := h.svc.UpdateCannedResponse(context.Background(), cr.ID, tenantID, &empty, nil); err == nil {
+		t.Error("expected error for empty name")
+	}
+	if _, err := h.svc.UpdateCannedResponse(context.Background(), cr.ID, tenantID, nil, &empty); err == nil {
+		t.Error("expected error for empty body")
+	}
+}
+
+func TestUpdateCannedResponse_PatchesFields(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	cr, err := h.svc.CreateCannedResponse(context.Background(), tenantID, "Greeting", "Hello there")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	newBody := "Hello and welcome"
+	updated, err := h.svc.UpdateCannedResponse(context.Background(), cr.ID, tenantID, nil, &newBody)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Body != newBody || updated.Name != "Greeting" {
+		t.Errorf("patch did not land: name=%q body=%q", updated.Name, updated.Body)
+	}
+}
+
+func TestDeleteCannedResponse_Success(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	cr, _ := h.svc.CreateCannedResponse(context.Background(), tenantID, "Doomed", "body")
+	if err := h.svc.DeleteCannedResponse(context.Background(), cr.ID, tenantID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := h.repo.cannedResponses[cr.ID]; ok {
+		t.Error("expected canned response to be deleted")
+	}
+}
+
+func TestListCannedResponses_AfterCreate(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	h.svc.CreateCannedResponse(context.Background(), tenantID, "Greeting", "Hello")
+	h.svc.CreateCannedResponse(context.Background(), tenantID, "Closing", "Bye")
+
+	list, err := h.svc.ListCannedResponses(context.Background(), tenantID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list) != 2 {
+		t.Errorf("expected 2 canned responses, got %d", len(list))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SLA policy Update/Delete/Status tests
+// ---------------------------------------------------------------------------
+
+func TestUpdateSLAPolicy_NotFound(t *testing.T) {
+	h := newTestHarness()
+	name := "New Name"
+	_, err := h.svc.UpdateSLAPolicy(context.Background(), uuid.New(), uuid.New(), &name, nil, nil, nil)
+	if !errors.Is(err, ErrSLAPolicyNotFound) {
+		t.Errorf("expected ErrSLAPolicyNotFound, got %v", err)
+	}
+}
+
+func TestUpdateSLAPolicy_InvalidMinsFails(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	p, err := h.svc.CreateSLAPolicy(context.Background(), tenantID, "Standard", 30, 120, nil)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	zero := 0
+	if _, err := h.svc.UpdateSLAPolicy(context.Background(), p.ID, tenantID, nil, &zero, nil, nil); err == nil {
+		t.Error("expected error for first_response_mins=0")
+	}
+	negative := -5
+	if _, err := h.svc.UpdateSLAPolicy(context.Background(), p.ID, tenantID, nil, nil, &negative, nil); err == nil {
+		t.Error("expected error for negative resolution_mins")
+	}
+	empty := ""
+	if _, err := h.svc.UpdateSLAPolicy(context.Background(), p.ID, tenantID, &empty, nil, nil, nil); err == nil {
+		t.Error("expected error for empty name")
+	}
+}
+
+func TestUpdateSLAPolicy_PatchesFields(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	p, err := h.svc.CreateSLAPolicy(context.Background(), tenantID, "Standard", 30, 120, nil)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	newName := "Premium"
+	newFirst := 15
+	updated, err := h.svc.UpdateSLAPolicy(context.Background(), p.ID, tenantID, &newName, &newFirst, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Name != newName || updated.FirstResponseMins != newFirst || updated.ResolutionMins != 120 {
+		t.Errorf("patch did not land correctly: %+v", updated)
+	}
+}
+
+func TestDeleteSLAPolicy_Success(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	p, _ := h.svc.CreateSLAPolicy(context.Background(), tenantID, "Doomed", 30, 120, nil)
+	if err := h.svc.DeleteSLAPolicy(context.Background(), p.ID, tenantID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := h.repo.slaPolicies[p.ID]; ok {
+		t.Error("expected policy to be deleted")
+	}
+}
+
+func TestGetSLAStatus_WithoutPolicyIsOnTrack(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	ticket, err := h.svc.CreateTicket(context.Background(), tenantID, uuidPtr(uuid.New()), "Test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	status, err := h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != SLAStatusOnTrack {
+		t.Errorf("expected on_track without a policy applied, got %q", status)
+	}
+}
+
+func TestGetSLAStatus_BreachedAfterDueAt(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	ticket, err := h.svc.CreateTicket(context.Background(), tenantID, uuidPtr(uuid.New()), "Test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	policy, err := h.svc.CreateSLAPolicy(context.Background(), tenantID, "Fast", 1, 5, nil)
+	if err != nil {
+		t.Fatalf("create policy: %v", err)
+	}
+	past := time.Now().UTC().Add(-time.Hour)
+	ticket.DueAt = &past
+	h.repo.tickets[ticket.ID] = ticket
+
+	status, err := h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, &policy.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != SLAStatusBreached {
+		t.Errorf("expected breached, got %q", status)
+	}
+}
+
+func TestGetSLAStatus_TicketNotFound(t *testing.T) {
+	h := newTestHarness()
+	_, err := h.svc.GetSLAStatus(context.Background(), uuid.New(), uuid.New(), nil)
+	if !errors.Is(err, ErrTicketNotFound) {
+		t.Errorf("expected ErrTicketNotFound, got %v", err)
+	}
+}
+
+func TestGetSLAStatus_PolicyNotFound(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	ticket, err := h.svc.CreateTicket(context.Background(), tenantID, uuidPtr(uuid.New()), "Test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	missingPolicy := uuid.New()
+	_, err = h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, &missingPolicy)
+	if !errors.Is(err, ErrSLAPolicyNotFound) {
+		t.Errorf("expected ErrSLAPolicyNotFound, got %v", err)
 	}
 }

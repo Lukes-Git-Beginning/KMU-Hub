@@ -5520,3 +5520,53 @@ Frühere Läufe liegen vollständig im Archiv:
   waehrend Lauf 8, Iteration 86"), status todo, nicht in diesem Lauf gezogen. `internal/document/file`
   (38,2 %/66,3 % in den beiden im urspruenglichen Scope genannten Dateien) blieb unangetastet — war
   nicht Teil des `done_when` dieser Unit.
+
+## Iteration 87 — f-cov-helpdesk-service — done — 2026-08-11 07:15
+- commit: (siehe naechster chore-Eintrag)
+- gebaut: `internal/helpdesk/service_test.go` um funktionsfaehige In-Memory-Stubs fuer
+  KBArticle/RoutingRule/BusinessHours/Stats im `mockRepo` erweitert (vorher gaben diese
+  Stub-Methoden einfach `nil`/leere Werte zurueck, ohne je etwas zu speichern) und rund 40 neue
+  Service-Layer-Tests angehaengt: volle CRUD-Testabdeckung fuer KB-Artikel und Routing-Regeln
+  (Create-Validierung, Get/Update/Delete-Not-Found, Update-Patch, List inkl. eines generischen
+  `repoErr`-Felds fuer den Fehlerpfad reiner Wrapper-Funktionen ohne eigene Validierung),
+  UpdateSLAPolicy/DeleteSLAPolicy/GetSLAStatus (vorher 0 %), UpdateCannedResponse/
+  DeleteCannedResponse/ListCannedResponses (vorher 0 %), GetHelpdeskStats/GetBusinessHours/
+  UpsertBusinessHours (vorher 0 %, inkl. Default-Timezone/leere-Collections-Pfad). Neue Datei
+  `internal/helpdesk/postgres_repository_list_test.go` (DB-gestuetzt, Muster
+  `tenant_write_test.go`) deckt die bislang 0-%-Repository-Methoden ab: `FindOpenTicketsByRequester`
+  (Status-/Prefix-/Requester-Filter, inkl. Leer-Ergebnis), `ListQueues`/`ListCannedResponses`/
+  `ListSLAPolicies`/`ListKBArticles`/`ListRoutingRules` (je mit einer zweiten Tenant-Zeile zum
+  Beweis der tenant_id-Filterung, nicht nur RLS) und `GetBusinessHours`/`UpsertBusinessHours`
+  (Default-Pfad ohne Zeile, INSERT- und ON-CONFLICT-DO-UPDATE-Pfad). `csat_dispatch.go` und
+  `csat_config.go` unveraendert (`git diff --stat` leer), `TestDefaultCsatConfig_IsOptIn` gruen.
+- gate: build ok (go build -p 2 ./internal/helpdesk/... ./cmd/gateway/...) | vet ok (go vet
+  ./internal/helpdesk/...) | lint ok (golangci-lint run --config .golangci.yml
+  ./internal/helpdesk/... — 0 issues) | test ok (go test -count=1 ./internal/helpdesk/... — 153
+  Tests, 0 uebersprungen, 0 rot, DATABASE_URL gesetzt gegen kmuhub_app) | migration n.a. (kein
+  Schema angefasst) | rls-smoke n.a. (keine Policy angefasst; die neuen List-Tests belegen die
+  tenant_id-Filterung ueber eine zweite Tenant-Zeile statt eines dedizierten RLS-Smoke-Laufs) |
+  gateway-Tests nicht separat gelaufen (keine Route angefasst)
+- coverage: internal/helpdesk 60,7 % -> 81,5 % (go test -coverprofile ./internal/helpdesk/,
+  go tool cover -func). Beide Scope-Dateien vollstaendig aus dem 0-%-Bereich: `service.go`
+  (kein 0,0 % mehr, niedrigster Wert jetzt 60,0 % bei `CreateTicketFromMessage`, ausserhalb des
+  Scopes dieser Unit), `postgres_repository.go` (kein 0,0 % mehr, niedrigster Wert 66,7 % bei
+  `applyCustomFields`).
+- mutations-probe: zwei Proben, beide gefangen und zurueckgedreht. (1) `service.go`
+  `UpdateSLAPolicy`: die firstResponseMins-Validierung von `<= 0` auf `< 0` gedreht (laesst 0
+  jetzt durch) -> `TestUpdateSLAPolicy_InvalidMinsFails` sofort rot ("expected error for
+  first_response_mins=0"). (2) `postgres_repository.go` `FindOpenTicketsByRequester`: das
+  Status-Praedikat von `NOT IN` auf `IN` gedreht (liefert jetzt genau die falschen, bereits
+  geschlossenen/gemergten Tickets) -> `TestFindOpenTicketsByRequester_FiltersStatusPrefixAndRequester`
+  sofort rot (falsche Ticket-ID zurueckgegeben). Beide Male zurueckgedreht, `git diff --stat` auf
+  `service.go` und `postgres_repository.go` leer.
+- verify vorgaenger: sauber. Commit ec5bc79e (Iteration 86) fuegt ausschliesslich zwei neue
+  Testdateien (`internal/document/virtual/postgres_repository_test.go`,
+  `internal/document/search/postgres_repository_test.go`) plus Journal-/Backlog-Metadaten hinzu —
+  kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue Tabelle,
+  keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
+  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 86) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:15). Naechste Backlog-Unit
+  laut Reihenfolge: `f-cov-inventar-repository` (Block F Reserve).

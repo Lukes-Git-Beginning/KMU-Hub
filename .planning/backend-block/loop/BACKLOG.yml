@@ -3047,7 +3047,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/helpdesk 60,7 %"
     scope: >
       433 ungedeckte Statements, fast vollständig in zwei Dateien: `service.go` (206, 49,0 %)
