@@ -1790,7 +1790,7 @@ Fensters.
   Root-Cause-Grep bestaetigt keinen Rest im File.
 
 ## Iteration 35 — fix-inventar-grpc-list-item-attachments-nil-slice — done — 2026-08-11 19:59
-- commit: (siehe unten, wird nach commit ergaenzt)
+- commit: 02a41899
 - gebaut: `ListItemAttachments` (backend/internal/server/inventar_grpc.go:1020) befuellte
   bisher direkt das Response-Struct-Feld per `resp := &inventarv1.ListItemAttachmentsResponse{}`
   gefolgt von `resp.Attachments = append(resp.Attachments, ...)` in einer Schleife — bei leerem
