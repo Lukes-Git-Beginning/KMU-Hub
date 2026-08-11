@@ -4332,3 +4332,58 @@ Frühere Läufe liegen vollständig im Archiv:
   in diesem Prompt nicht sichtbar mitgeliefert — Nummer aus der letzten
   Journal-Ueberschrift (Iteration 67) fortgezaehlt, Zeitstempel per `date`
   auf dem Loop-Rechner ermittelt (2026-08-11 04:20).
+
+## Iteration 69 — e-cov-produktion-repo-ext — done — 2026-08-11 04:30
+- commit: <wird nach dem Commit im naechsten Schritt eingetragen>
+- gebaut: `internal/produktion/postgres_repository_ext_test.go` (neu) deckt
+  die vier bisher 0,0-%-Entitaeten aus postgres_repository_ext.go gegen die
+  echte PostgresRepository ab: BOM (Create/Update/Get/List/Delete inkl.
+  BomItem-Zeilen sortiert nach sort_order, ErrBOMSKUTaken bei doppeltem
+  Tenant+SKU, ErrBOMNotFound), WorkStep (Create/Update/Get/List/Delete,
+  ListWorkSteps step_nr-ASC-Reihenfolge, ErrWorkStepNotFound), Machine
+  (Create/Update/Get/List/Delete, ListMachines-Status-Filter,
+  ErrMachineNotFound) und QualityCheck (Create/Get/List, order_id-Filter,
+  checked_at-DESC-Reihenfolge, ErrQualityCheckNotFound — kein Update/Delete
+  im Repository-Interface, daher nicht getestet). Vier Tests, je einer pro
+  Entitaet, nach dem tenant_write_test.go-/einkauf-Muster: echter Schreib-
+  aufruf aus fremdem Tenant-Context via testutil.WithTenantCtx +
+  AssertRowCount fuer alle vier Tabellen (nicht nur eine), zusaetzlich fuer
+  BOM/WorkStep/Machine ein Update-Versuch aus fremdem Tenant-Context, der
+  nachweislich nicht landet (RLS-Predicate-Beweis, nicht nur die WHERE-
+  Klausel). WorkStep/QualityCheck brauchen eine echte production_orders-
+  Zeile (FK NOT NULL) — ueber repo.CreateOrder erzeugt, exakt wie in
+  tenant_write_test.go.
+- gate: build ok (go build -p 2 ./internal/produktion/...) | vet ok | lint
+  ok (golangci-lint run --config .golangci.yml ./internal/produktion/... —
+  0 issues) | test ok (go test -count=1 ./internal/produktion/..., 0 Fails,
+  keine Skips — DATABASE_URL gesetzt, `docker-postgres-1` healthy) |
+  migration n.a. (keine neue Tabelle/Route, alle vier Tabellen existieren
+  seit den Migrationen 000187-000190) | rls-smoke n.a. (keine Tabelle/
+  Policy angefasst, RLS wird ueber die Cross-Tenant-Writes im Test selbst
+  bewiesen) | gateway-Tests nicht gelaufen (keine Route angefasst, daher
+  laut Schritt 5 nicht Pflicht)
+- coverage: internal/produktion 22,3 % -> 42,0 % (go test -coverprofile +
+  go tool cover -func, Paketgesamtwert inkl. aller Unterdateien)
+- mutations-probe: eine Probe, gefangen. In `CreateBOM` den
+  `strings.Contains(err.Error(), "idx_production_boms_tenant_sku")`-Zweig
+  entfernt, sodass ein doppelter SKU nur noch den generischen
+  `fmt.Errorf("insert bom: %w", err)` liefert -> TestBOMWrites_LandInCaller
+  Tenant rot (`CreateBOM duplicate sku: expected ErrBOMSKUTaken, got insert
+  bom: ERROR: duplicate key value...`). Per Edit-Tool zurueckgedreht, `git
+  diff backend/internal/produktion/postgres_repository_ext.go` danach leer,
+  build/vet/lint/test erneut komplett gruen (42,0 % unveraendert).
+- verify vorgaenger: sauber. Commit a3299bde (Iteration 68) fuegt
+  ausschliesslich `route_plugin_installation_test.go` (Testdatei) plus
+  Journal-/Backlog-Metadaten hinzu — kein Produktionscode, kein Proto,
+  keine neue Route, kein RequirePermission-Guard, keine neue Tabelle, keine
+  Migration. Keine der acht Fehlerklassen einschlaegig.
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin
+  denselben unstaged -StartNotBefore-Diff wie in den Iterationen 6-68
+  vermerkt — nicht meine Datei, nicht angefasst, nicht committet.
+  Laufkontext-Block war auch in diesem Prompt nicht sichtbar mitgeliefert —
+  Nummer aus der letzten Journal-Ueberschrift (Iteration 68) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 04:30).
+  UpdateQualityCheck/DeleteQualityCheck existieren nicht im Repository-
+  Interface (repository.go:86-88) — QualityCheck hat also nur drei
+  Methoden, kein Luecken-Befund, nur zur Klarheit im Journal, da der
+  Unit-Text "analog" zu den anderen drei Entitaeten suggeriert.

@@ -2287,7 +2287,7 @@ units:
     service: produktion
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/produktion 22,3 %"
     scope: >
       postgres_repository_ext.go implementiert die Stückliste-Ebene der Produktion, die
