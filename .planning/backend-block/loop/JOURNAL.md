@@ -5761,3 +5761,69 @@ Frühere Läufe liegen vollständig im Archiv:
   aber (Stand jetzt unbekannt) vermutlich 0 oder sehr wenige Tenants, da noch niemand eine
   Config je erfolgreich anlegen konnte. Naechste Backlog-Unit laut Reihenfolge:
   `f-cov-schichten-repository` (Block F Reserve).
+
+## Iteration 91 — f-cov-schichten-repository — done — 2026-08-11 07:59
+- commit: <wird nach dem Commit nachgetragen>
+- gebaut: Neue Datei `internal/schichten/postgres_repository_test.go` (DB-gestuetzt, Muster
+  `tenant_write_test.go`/`rapporte/postgres_repository_test.go`) deckt alle bislang bei 0,0 %
+  liegenden `PostgresRepository`-Methoden ab: Shifts (UpdateShift inkl. Cross-Tenant-Ablehnung,
+  DeleteShift, GetShift, ListShifts inkl. Status/From-Filter, Sortierung und Pagination,
+  PublishShifts inkl. Range- und Status-Abgrenzung), Assignments (DeleteAssignment, GetAssignment,
+  ListAssignments inkl. Sortierung nach assigned_at, CountAssignments), die beiden ArbZG-Lookups
+  (LatestShiftEndBeforeForEmployee/EarliestShiftStartAfterForEmployee inkl. Grenzfall exakt auf
+  dem Zeitstempel -- strikte Ungleichung belegt), ShiftExistsForTemplate, Templates (UpdateTemplate,
+  DeleteTemplate, GetTemplate, ListTemplates inkl. Sortierung nach day_of_week/start_hour/
+  start_minute), GetStats (mit und ohne Zeitfenster, inkl. COUNT DISTINCT employee_id ueber
+  Zeitfenster-Join), SwapRequests (GetSwapRequest, UpdateSwapRequestStatus,
+  SwapAssignmentsForRequest -- siehe "gefunden, nicht gefixt") und IsMinorEmployee (Treffer ueber
+  hr_employee_profiles.id UND .user_id, false ohne Profil). Der bereits vorhandene Own-Scope-Filter
+  fuer SwapRequests (own_scope_list_test.go) und die ErrShiftFull->FailedPrecondition-Abbildung
+  (internal/server/schichten_grpc_test.go) waren beide schon vor dieser Iteration am Repository
+  bzw. an der Fehlerabbildung durch echte Tests gesichert -- gegengeprueft, nicht neu gebaut
+  (beide done_when-Kriterien damit erfuellt, ohne Duplizierung).
+- gate: build ok (go build -p 2 ./internal/schichten/... ./internal/gateway/... ./cmd/gateway/...)
+  | vet ok (go vet ./internal/schichten/... ./internal/gateway/...) | lint ok (golangci-lint run
+  --config .golangci.yml ./internal/schichten/... — 0 issues) | test ok (go test -count=1 -v
+  ./internal/schichten/ — 79 PASS-Zeilen, 0 uebersprungen, DATABASE_URL gesetzt gegen kmuhub_app)
+  | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine Policy angefasst;
+  tenant_isolation_phase2_test.go/tenant_write_test.go decken RLS fuer dieses Paket bereits ab)
+  | gateway-Tests nicht separat gelaufen (keine Route angefasst)
+- coverage: internal/schichten 45,7 % -> 79,7 % (go test -coverprofile ./internal/schichten/, go
+  tool cover -func). `postgres_repository.go` einzeln: kein 0,0 % mehr, niedrigster Wert
+  `ListSwapRequests`/`CreateSwapRequest` 74,3–77,8 %, die neu getesteten Methoden 78,6–100 %.
+- mutations-probe: `LatestShiftEndBeforeForEmployee`, `s.end_time < $3` auf `<= $3` gedreht ->
+  `TestLatestShiftEndBeforeForEmployee_FindsMostRecentPriorShiftStrictlyBefore` sofort rot
+  ("expected most recent prior shift end ..., got ..." — die Grenzfall-Schicht, die exakt auf dem
+  Referenzzeitpunkt endet, wurde faelschlich mitgezaehlt). Zurueckgedreht, `git diff` auf
+  `postgres_repository.go` liefert nur die vorbestehende LF/CRLF-Warnung, kein inhaltlicher Diff.
+- verify vorgaenger: sauber. Commit 192dfbb5 (Iteration 90) fuegt ausschliesslich vier
+  Testdateien (drei neu, eine erweitert) in `internal/biz/datev` plus Journal-/Backlog-Metadaten
+  hinzu — kein Produktionscode, kein Proto, keine Route, kein RequirePermission-Guard, keine neue
+  Tabelle, keine Migration. Keine der acht Fehlerklassen einschlaegig.
+- gefunden, nicht gefixt: `SwapAssignmentsForRequest` (postgres_repository.go:625) hat KEINEN
+  funktionierenden Pfad — verifiziert per echtem SQL gegen die lokale DB (Kopf 309) VOR dem
+  Schreiben der Tests, damit die Testerwartung nicht auf einer falschen Annahme beruht. Fall 1:
+  sind beide Mitarbeiter bereits derselben Schicht zugeordnet (der Normalfall eines echten
+  Tauschs), verletzt das erste UPDATE sofort `uq_shift_assignments_tenant`
+  (UNIQUE(tenant_id, shift_id, employee_id), Migration 000102) — die Transaktion bricht ab, jeder
+  Tauschversuch scheitert sichtbar. Fall 2: ist der Tauschpartner noch nicht zugeordnet, laeuft das
+  zweite UPDATE (gescoped auf shift_id+employee_id, nicht auf eine Zeilen-ID) der eigenen ersten
+  Aenderung innerhalb derselben Transaktion hinterher und dreht sie sofort zurueck — kein Fehler,
+  aber auch keine Aenderung, waehrend `ApproveSwapRequest` den Antrag trotzdem als "approved"
+  markiert. Beide Faelle zusammen decken 100 % der moeglichen Aufrufe ab. Dokumentiert durch zwei
+  Tests, die bewusst das heutige (kaputte) Verhalten pruefen und im Kommentar sagen, dass sie nach
+  einem Fix umzuschreiben sind, nicht zu loeschen. Fix-Unit
+  `fix-schichten-swap-assignments-unique-violation` fuer Lauf 9 im Backlog angelegt (Block "Neu
+  gefunden waehrend Lauf 8, Iteration 91"), status todo, nicht in diesem Lauf gezogen — enthaelt
+  eine offene Architekturfrage fuer Luke (ob ein Tausch ohne vorab zugeordneten Partner ueberhaupt
+  gueltig sein soll).
+- offen: `.planning/backend-block/loop/run-loop.ps1` traegt weiterhin denselben unstaged Diff wie
+  in allen Vorgaenger-Iterationen vermerkt (`-StartNotBefore`-Startsperre-Parameter) — nicht meine
+  Datei, nicht angefasst, nicht committet. Laufkontext-Block war in diesem Prompt nicht sichtbar
+  mitgeliefert — Nummer aus der letzten Journal-Ueberschrift (Iteration 90) fortgezaehlt,
+  Zeitstempel per `date` auf dem Loop-Rechner ermittelt (2026-08-11 07:59). Commit-Hash wird nach
+  dem `git commit` in dieser Iteration noch nachgetragen. Die "gefunden, nicht gefixt"-Zeile oben
+  ist die wichtigste fuer Luke: Schichttausch (SwapRequest-Freigabe) ist in Produktion vermutlich
+  seit Einfuehrung des Features funktionsunfaehig — jeder Tausch scheitert entweder mit einem
+  500er oder wird als "approved" markiert, ohne dass sich am Dienstplan etwas aendert. Naechste
+  Backlog-Unit laut Reihenfolge: `f-cov-crm-deal-repository` (Block F Reserve).

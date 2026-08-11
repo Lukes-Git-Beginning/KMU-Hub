@@ -3157,7 +3157,7 @@ units:
     service: schichten
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/schichten 45,7 %"
     scope: >
       299 ungedeckte Statements: `postgres_repository.go` (234, **15,8 %**) und `service.go`
@@ -3542,3 +3542,81 @@ units:
       - Ein RLS-Test belegt, dass die neu geschriebene Zeile nur fuer den schreibenden Tenant
         sichtbar ist (Muster AssertWriteCarriesTenant aus internal/testutil)
       - go test -count=1 ./internal/biz/datev/ gruen
+
+# ==========================================================================================
+# Neu gefunden waehrend Lauf 8, Iteration 91 (f-cov-schichten-repository) -- nicht gebaut, nur
+# dokumentiert (Coverage-Units aendern kein Verhalten). Fuer Lauf 9. Kernfeature komplett
+# unbenutzbar, nicht nur ein Randfall.
+# ==========================================================================================
+
+  - id: fix-schichten-swap-assignments-unique-violation
+    phase: 3
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bug, kein Coverage-Ziel)"
+    scope: >
+      `PostgresRepository.SwapAssignmentsForRequest` (internal/schichten/postgres_repository.go:625)
+      fuehrt zwei sequenzielle UPDATEs in EINER Transaktion aus, um die employee_id zweier
+      shift_assignments-Zeilen zu tauschen. Beide sind falsch verdrahtet und decken zusammen
+      JEDEN realen Aufruf ab -- verifiziert per echtem SQL gegen die lokale DB (Kopf 309):
+
+      (1) Sind BEIDE Mitarbeiter (Antragsteller und Tauschpartner) bereits derselben Schicht
+      zugeordnet -- der Normalfall eines Schichttauschs zwischen zwei Kollegen -- verletzt das
+      erste UPDATE sofort den UNIQUE(tenant_id, shift_id, employee_id)-Index
+      `uq_shift_assignments_tenant` (migrations/000102_schichten_shift_assignments_tenant_
+      unique.up.sql), weil es die Zeile des Antragstellers auf employee_id=Partner setzt, waehrend
+      die Zeile des Partners noch denselben Wert traegt. Die Transaktion bricht mit
+      `ERROR: duplicate key value violates unique constraint "uq_shift_assignments_tenant"` ab,
+      `ApproveSwapRequest` (service.go:679) gibt den Fehler nach oben durch -- der Tausch
+      schlaegt jedes Mal fehl.
+
+      (2) Ist der Tauschpartner NOCH NICHT dieser Schicht zugeordnet, laeuft das erste UPDATE
+      durch und setzt die Zeile des Antragstellers auf employee_id=Partner. Das ZWEITE UPDATE
+      ist aber nicht auf eine andere Zeilen-ID gescoped, sondern nur auf
+      `WHERE shift_id = $2 AND employee_id = $3 (=Partner) AND tenant_id = $4` -- und trifft damit
+      dieselbe, gerade erst geaenderte Zeile innerhalb derselben Transaktion (Postgres sieht
+      eigene, noch nicht committete Schreibvorgaenge). Es dreht sie sofort wieder auf
+      employee_id=Antragsteller zurueck. Netto-Ergebnis: KEINE Datenaenderung, KEIN Fehler --
+      `ApproveSwapRequest` markiert den Antrag trotzdem als `approved`, obwohl am
+      Schicht-Assignment nichts passiert ist.
+
+      Beide Faelle decken zusammen 100% der moeglichen Aufrufe ab (Partner entweder schon
+      zugeordnet oder nicht) -- die Funktion hat KEINEN funktionierenden Pfad. Jeder
+      Schichttausch in Produktion schlaegt entweder sichtbar fehl oder tut unsichtbar nichts.
+    sources:
+      - backend/internal/schichten/postgres_repository.go
+      - backend/internal/schichten/service.go
+      - backend/migrations/000094_create_schichten.up.sql
+      - backend/migrations/000102_schichten_shift_assignments_tenant_unique.up.sql
+      - backend/internal/schichten/postgres_repository_test.go
+    notes: >
+      Gefunden beim Bau der Coverage-Unit f-cov-schichten-repository (Lauf 8, Iteration 91),
+      durch zwei DB-gestuetzte Tests dokumentiert:
+      `TestSwapAssignmentsForRequest_FailsWhenBothEmployeesAlreadyAssignedToShift` (Fall 1, erwartet
+      aktuell einen Unique-Violation-Fehler) und
+      `TestSwapAssignmentsForRequest_SilentlyNoOpsWhenTargetNotYetOnShift` (Fall 2, erwartet aktuell
+      keine Aenderung). Beide Tests sind bewusst auf das HEUTIGE, kaputte Verhalten geschrieben --
+      der Kommentar in jedem Test sagt explizit, dass er nach dem Fix umgeschrieben werden muss,
+      nicht geloescht.
+      Sauberster Fix: beide UPDATEs auf die Zeilen-ID statt auf (shift_id, employee_id) scopen.
+      Die zweite UPDATE braucht dazu die ID der komplementaeren Zeile -- die ist heute nicht Teil
+      von `SwapRequest`, muss also entweder vor dem Swap per
+      `GetAssignment(ctx, tenantID, req.ShiftID, req.SwapWithEmployeeID)` aufgeloest werden (0
+      Treffer -> Fall 2 wird zu einer reinen Verschiebung ohne Ruecktausch, was dann auch so
+      benannt/dokumentiert werden sollte statt weiter "Swap" zu heissen) oder die Tabelle bekommt
+      eine temporaere Zwischenzuweisung (z. B. ein Dritt-Wert wie NULL/Tombstone), damit die beiden
+      UPDATEs sich nicht gegenseitig treffen koennen. Architekturfrage, die Luke gehoert: ob ein
+      Tausch ohne bereits vorhandene Partner-Zuweisung ueberhaupt sinnvoll ist oder ob
+      `CreateSwapRequest`/`ApproveSwapRequest` verlangen sollten, dass beide Mitarbeiter vorab
+      zugeordnet sind (dann waere nur Fall 1 zu fixen, Fall 2 waere ein Validierungsfehler).
+    done_when:
+      - Ein Schichttausch zwischen zwei bereits zugeordneten Mitarbeitern tauscht tatsaechlich
+        beide employee_id-Werte, ohne die UNIQUE-Constraint zu verletzen
+      - Entschieden und im Journal begruendet, ob ein Tausch mit noch nicht zugeordnetem Partner
+        ueberhaupt ein gueltiger Zustand ist -- falls ja, bewegt er die Zuweisung nachweisbar
+        (nicht mehr ein no-op), falls nein, liefert CreateSwapRequest/ApproveSwapRequest einen
+        Validierungsfehler statt eines stillen No-Op
+      - Beide oben genannten Tests sind auf das korrekte Verhalten umgestellt statt geloescht
+      - go test -count=1 ./internal/schichten/ gruen
