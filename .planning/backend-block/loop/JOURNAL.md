@@ -1788,3 +1788,40 @@ Fensters.
 - neue-units: keine
 - offen: keine — alle 7 im Backlog genannten Stellen sind in diesem einen Commit abgedeckt,
   Root-Cause-Grep bestaetigt keinen Rest im File.
+
+## Iteration 35 — fix-inventar-grpc-list-item-attachments-nil-slice — done — 2026-08-11 19:59
+- commit: (siehe unten, wird nach commit ergaenzt)
+- gebaut: `ListItemAttachments` (backend/internal/server/inventar_grpc.go:1020) befuellte
+  bisher direkt das Response-Struct-Feld per `resp := &inventarv1.ListItemAttachmentsResponse{}`
+  gefolgt von `resp.Attachments = append(resp.Attachments, ...)` in einer Schleife — bei leerem
+  `atts` blieb `resp.Attachments` `nil` und serialisiert als JSON `null` statt `[]`. Fix:
+  `resp.Attachments` wird jetzt mit `make([]*inventarv1.ItemAttachment, 0, len(atts))`
+  vorbelegt, bevor die Schleife appended. Die uebrigen 6 List-RPCs in derselben Datei
+  (ListItems, ListMovements, ListWarnings, ListLocations, ListInventurSessions,
+  ListPickingLists) nutzen bereits `make(..., len(x))` und waren nicht betroffen — laut
+  Backlog-Scope bereits geprueft, per Grep auf `resp\.\w+ = append` gegenkontrolliert: keine
+  weitere Fundstelle desselben Musters im File.
+- gebaut (Tests): neuer Subtest `ListItemAttachments empty result is [] not nil` in
+  `TestInventarItemAttachmentHandlers` (inventar_grpc_test.go) — nutzt den bestehenden Stub
+  `stubInventarRepo.ListItemAttachments`, der bereits `nil, nil` zurueckgibt, prueft
+  `require.NotNil` + `require.Empty` auf `resp.Attachments`.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/server/... ./internal/gateway/...`) | lint ok (golangci-lint 0 issues auf
+  `./internal/server/...`) | test ok (`./internal/server/...` gruen, 0 SKIP, `DATABASE_URL`
+  gegen `kmuhub_app`) | test ok (`./internal/gateway/` gruen, `TestOpenAPIRouteDrift` gelaufen
+  da Handler-File angefasst, keine Routen-/Signaturaenderung) | migration n.a. (reiner
+  Handler-Text-Fix) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/server 70,1 % (vor dem Fix, per `git stash push -u` auf die zwei
+  geaenderten Dateien isoliert gemessen) -> 70,2 % (nach dem Fix, `go tool cover -func`).
+- mutations-probe: `Attachments: make([]*inventarv1.ItemAttachment, 0, len(atts))` aus der
+  Response-Initialisierung entfernt (zurueck auf `&inventarv1.ListItemAttachmentsResponse{}`)
+  -> `go test -run TestInventarItemAttachmentHandlers -v` wurde am neuen Subtest rot ("Expected
+  value not to be nil"). Zurueckgedreht, `git diff --stat` zeigt danach wieder ausschliesslich
+  den sauberen 2-Zeilen-Diff in inventar_grpc.go plus die Testdatei.
+- verify vorgaenger: sauber (Commit `927d421c`, Iteration 34 — `git show --stat` und Diff
+  geprueft: nur `notification_grpc.go` plus eine neue Testdatei geaendert, alle 7 Fundstellen
+  exakt derselbe mechanische `var` -> `make(...)`-Zwei-Zeilen-Diff wie in dieser und den
+  vorangegangenen Iterationen, kein gRPC-Bypass, kein Stub, kein Proto/Migrations-Drift, kein
+  neuer Guard, keine neue Tabelle, Wire-Shape-Richtung korrekt (nil -> leer), keine Route)
+- neue-units: keine
+- offen: keine

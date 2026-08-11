@@ -1031,7 +1031,9 @@ func (s *InventarGRPCServer) ListItemAttachments(ctx context.Context, req *inven
 	if err != nil {
 		return nil, mapInventarError(err)
 	}
-	resp := &inventarv1.ListItemAttachmentsResponse{}
+	resp := &inventarv1.ListItemAttachmentsResponse{
+		Attachments: make([]*inventarv1.ItemAttachment, 0, len(atts)),
+	}
 	for _, a := range atts {
 		resp.Attachments = append(resp.Attachments, itemAttachmentToProto(a))
 	}
