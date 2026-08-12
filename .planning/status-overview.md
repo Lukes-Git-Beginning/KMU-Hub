@@ -7,12 +7,24 @@
 > behauptete Migrationskopf 297, Coverage 30,2 % und einen leeren Loop-Backlog — nach fünf Tagen
 > war jeder dieser Punkte überholt. Wer diese Datei künftig liest: **erst das Datum prüfen, dann
 > glauben.**
+>
+> **Prämissenwechsel am 2026-08-12:** Diese Fassung ist die erste nach dem Lagebild
+> (`launch-lagebild-2026-08-12.md`). Entwertet sind das Launch-Datum 2026-09-01, der Sprint-Kalender,
+> der ZFA-Pilot und die Aussage „Legal ist der einzige Blocker". Die *gemessenen* Zahlen aus §1 und §2
+> sind davon unberührt und weiter gültig — geändert hat sich, wogegen sie gemessen werden.
 
 ## Executive Summary
 
-Cosmi (Software) der **Zentria UG i.G.** ist ein All-in-One-CRM für DACH-KMUs mit
-EU-Datensouveränität. Der Launch steht auf **2026-09-01**, das sind noch **20 Tage**. Sprint 5
-(Pre-Launch-Audit + Rigorosum R3) läuft bis 08-31.
+Cosmi (Software) ist ein All-in-One-CRM für DACH-KMUs mit EU-Datensouveränität. Rechtsträger ist
+bislang **keine UG** — die Gründung steht aus.
+
+**Das Launch-Datum 2026-09-01 ist seit 2026-08-12 entwertet** (Lagebild
+`.planning/launch-lagebild-2026-08-12.md`). An seine Stelle tritt ein **Produkt 1.0.0** nach
+Reifegrad-Gates: zeigbar, nutzbar, ohne Fremdscham. Die fünf prüfbaren Kriterien (Lagebild §3) stehen
+heute so: **① nichts öffentlich Gesagtes ist in 30 Sekunden widerlegbar — nein · ② ein Fremder kann
+das Produkt selbst starten — nein · ③ die drei Kernflüsse halten gegen das echte Backend — nein ·
+④ kein Bildschirm zeigt Rohschlüssel oder Erfolg ohne Wirkung — fast · ⑤ ein Ausfall ist überlebbar
+— nein.** Es gibt keinen Sprint-Kalender mehr; Etappe N+1 beginnt, wenn N belegt abgeschlossen ist.
 
 **Der im Juli/August dominierende Engpass — Test-Coverage auf den kritischen Pfaden — ist
 geschlossen.** Backend-Nachtlauf 8 (10.–11.08., 93 Units, 0 Fehler-Iterationen) hat die Coverage von
@@ -40,7 +52,11 @@ Was die Scans über den Zustand des Codes sagen, ist mindestens so wertvoll wie 
 also nicht flächig, sondern in wenigen Ecken — vor allem im nil-slice-Wire-Shape (neun Units über
 30 `*_grpc.go`-Dateien).
 
-Der einzige echte Launch-Blocker bleibt **Legal (AVV/DPA)**, gekoppelt an die UG-Gründung.
+**Legal ist nicht mehr der einzige Blocker** — diese Aussage stand hier bis zum 2026-08-12 und war
+falsch. Das Lagebild zählt **13 G0-Befunde ≈ 10 Personentage** zwischen dem heutigen Stand und einem
+zeigbaren Produkt (§4a). Die größte Einzelposition sind **3,25 PT Website**: `zentria.tech` verspricht
+„Keine US-Cloud, Daten verlassen niemals die EU" und läuft dabei selbst auf Vercel. Legal (AVV/DPA)
+ist einer der 13 Posten, gekoppelt an die UG-Gründung, und liegt in Etappe 4.
 
 ---
 
@@ -131,35 +147,41 @@ im Produktionspfad. `hr/zeiterfassung` bleibt das einzige Modul ohne Feature-Fla
 
 ---
 
-## 3 · Roadmap
+## 3 · Sequenz — Reifegrad-Gates statt Kalender
+
+Kein Datum. Jede Etappe hat ein Austrittskriterium; die nächste beginnt, wenn die vorige **belegt**
+abgeschlossen ist. Quelle: `.planning/launch-lagebild-2026-08-12.md` §6.
 
 ```mermaid
-gantt
-    title Pre-Launch-Roadmap 2026 (docs/ROADMAP.md = Single Source of Truth)
-    dateFormat YYYY-MM-DD
-    axisFormat %d.%m
-    section Sprints
-    S0 R1-Blocker + Flag-Registry     :done,   s0, 2026-04-21, 2026-04-27
-    S1 7 Module + R2-P0 Batch A       :done,   s1, 2026-04-28, 2026-05-10
-    S2 7 Module + Option-B Phase 1    :done,   s2, 2026-05-11, 2026-05-24
-    S3 Option-B Phase 2 + Ansible     :done,   s3, 2026-05-25, 2026-06-07
-    S4 Finance-Normalisierung + P1    :done,   s4, 2026-06-08, 2026-06-21
-    S5 Pre-Launch-Audit + Rigorosum R3 :active, s5, 2026-06-22, 2026-08-31
-    section Backend-Nachtlaeufe
-    Laeufe 1-3 (Migr. 243-268)        :done,   n1, 2026-07-26, 2026-08-01
-    Lauf 4 RLS+RBAC (269-287)         :done,   n4, 2026-08-03, 1d
-    Lauf 5 Rest (288-297)             :done,   n5, 2026-08-05, 2026-08-06
-    Laeufe 6-7 Coverage (298-309)     :done,   n6, 2026-08-08, 2026-08-10
-    Lauf 8 Coverage 47,7-60,0 % (310) :done,   n8, 2026-08-10, 2026-08-11
-    Lauf 9 Fix + Scan (313)           :done,   n9, 2026-08-11, 2026-08-12
-    section Meilensteine
-    UG-Gruendung          :milestone, m1, 2026-06-01, 0d
-    Launch ZFA + volle P0 :milestone, m2, 2026-09-01, 0d
+flowchart LR
+    E0["<b>Etappe 0</b><br/>Nichts, was wir sagen,<br/>ist widerlegbar<br/><i>3,25 PT</i>"]
+    G0{{"<b>Gate 0</b><br/>curl -I zentria.tech<br/>zeigt keinen US-Anbieter"}}
+    E1["<b>Etappe 1</b><br/>Kernpfad haelt, was<br/>die Demo zeigt<br/><i>4,25 PT</i>"]
+    G1{{"<b>Gate 1</b><br/>Kontakt + Ticket end-to-end<br/>gegen echtes Backend"}}
+    E2["<b>Etappe 2</b><br/>Produkt ist<br/>aushaendigbar<br/><i>0,5-4 PT</i>"]
+    G2{{"<b>Gate 2</b><br/>Fremder startet es<br/>ohne Hilfe, ohne Warndialog"}}
+    E3["<b>Etappe 3</b><br/>Vor dem ersten echten<br/>Personendatensatz<br/><i>~10 PT</i>"]
+    G3{{"<b>Gate 3</b><br/>Restore einmal wirklich<br/>durchgefuehrt, Auskunft<br/>+ Loeschung bedienbar"}}
+    E4["<b>Etappe 4</b><br/>Bevor Geld fliesst<br/><i>UG, Legal, Abrechnung</i>"]
+
+    E0 --> G0 --> E1 --> G1 --> E2 --> G2 --> E3 --> G3 --> E4
+
+    classDef laufend fill:#1e7e74,stroke:#0f4f48,color:#fff
+    classDef offen fill:#2a2a32,stroke:#4a4a55,color:#ddd
+    classDef gate fill:#3a3140,stroke:#6a5a75,color:#eee
+    class E0 laufend
+    class E1,E2,E3,E4 offen
+    class G0,G1,G2,G3 gate
 ```
 
-*Caption: Sprint 0–4 abgeschlossen, **Sprint 5 läuft** (heute 2026-08-12, noch 20 Tage bis Launch).
-Die Nachtläufe 1–9 sind gemergt und deployt; Lauf 9 war ein reiner Fix- und Scan-Lauf ohne
-Coverage-Units und hat den Migrationskopf auf 313 gehoben.*
+*Caption: **Etappe 0 läuft** (Stand 2026-08-12) — sie ist die billigste mit dem größten Risikoabbau
+und blockiert nichts anderes. Etappe 3 hängt am ersten echten personenbezogenen Datensatz, nicht am
+Kalender. Etappe 2 ist in der Spanne offen, weil Entscheidung 2 (Desktop-Installer vs.
+Web-Auslieferung) noch nicht gefallen ist.*
+
+**Vorgeschichte (Kalendermodell, abgeschlossen):** Sprints 0–4 durch, Sprint 5 als Pre-Launch-Audit
+begonnen. Die Backend-Nachtläufe 1–9 (26.07.–12.08., Migrationen 243–313) sind alle gemergt und
+deployt; Lauf 9 war ein reiner Fix- und Scan-Lauf ohne Coverage-Units.
 
 ---
 
@@ -187,15 +209,46 @@ Sortiert nach Nähe zum Nutzer, nicht nach Aufwand. **Zwei Posten sind am 2026-0
    des vorherigen stillen No-Ops. Das ist die richtige Richtung (der No-Op markierte den Antrag
    fälschlich als `approved`), aber die UI kann weiterhin einen Antrag erzeugen, der bei der
    Genehmigung zwangsläufig scheitert. Fix gehört in den Renderer, nicht ins Backend.
-4. **`PASSWORD_RESET_BASE_URL`-Nachlauf.** Die Seite existiert seit `10a1a26e`, aber der
-   End-to-End-Durchlauf (Mail anfordern → Link klicken → Passwort setzen → Login) ist auf Produktion
-   noch nicht gegen einen echten Mailversand geprüft.
+4. **`PASSWORD_RESET_BASE_URL` — Konfiguration dicht, End-to-End weiter ungeprüft.** Am 2026-08-12 am
+   Server gemessen: `.env.production` trägt seit dem 11.08. 23:03:54 UTC
+   `https://app.zentria.tech/reset-password`, `docker-auth-1` wurde 16 Sekunden später neu erstellt
+   und trägt den Wert; der Go-Default im laufenden Binary stimmt ebenfalls. Alle vier Defaults im Repo
+   sind seit dem 12.08. deckungsgleich (`config.go:204`, `docker-compose.yml:126`,
+   `PRODUCTION_TEMPLATE:50`, `ansible/…/env.production.j2:46` — letzterer renderte bis dahin
+   `https://zfa.zentria.tech/…` und hätte den Fehler bei einer Neu-Provisionierung zurückgeholt).
+   **Offen bleibt** der echte Durchlauf: Mail anfordern → Link klicken → Passwort setzen → Login,
+   gegen einen echten Mailversand auf Produktion.
 5. **CSAT bleibt stillgelegt.** Verifiziert dicht: die Public-Route `POST
    /api/v1/public/helpdesk/csat/{token}` ist zwar ungegatet registriert, liefert aber konstant 404,
    weil nie ein Token ausgestellt wird; `GetCsatConfig`/`UpdateCsatConfig` existieren als RPC, haben
    aber keine Gateway-Route; Default `Enabled: false`. Gebündelt mit den sieben Public-Token-Routen
    und der nie gebauten `guest-chat`-SPA zum Projekt „Public Web Surface" in `BACKLOG-PARKED.yml`.
-6. **Legal (AVV/DPA)** — an die UG-Gründung gekoppelt. Einziger echter Launch-Blocker.
+6. **Legal (AVV/DPA)** — an die UG-Gründung gekoppelt, liegt in Etappe 4. **Nicht** der einzige
+   Blocker, siehe §4a.
+
+### 4a · G0-Befunde aus dem Lagebild — zwischen heute und einem zeigbaren Produkt
+
+Aus `.planning/launch-lagebild-2026-08-12.md` §4, jeder Befund dort mit Beleg. **13 Posten, ca. 10 PT**,
+davon 3,25 PT Website. Sortiert nach Schadenshöhe, nicht nach Aufwand.
+
+| # | Befund | PT | Etappe | Stand 2026-08-12 |
+|---|---|---:|---|---|
+| G0-1 | `zentria.tech` verspricht „keine US-Cloud" und läuft auf Vercel (USA); DSE nennt Vercel und Resend als US-Auftragsverarbeiter | 1 | 0 | 🟡 Functions auf `fra1` gezogen — Vercel Inc. bleibt US-Auftragsverarbeiter |
+| G0-2 | Impressum behauptet „Amtsgericht Mainz, Eintragung beantragt" für eine UG, die es nicht gibt | 0,5 | 0 | ⬜ braucht Name + ladungsfähige Anschrift |
+| G0-3 | `/ki` verkauft für 149–899 €/Monat ein zu ~95 % nicht existierendes Produkt | 0,5 | 0 | ✅ Seite offline, geparkt unter `_offline/` |
+| G0-4 | „Beta startet im Juni 2026" plus hartkodierte Anmeldezahlen (37 Pioneer, 13/Woche) bei realer Warteliste `{"count":0}` | 0,5 | 0 | ✅ entfernt |
+| G0-5 | „AVV inkludiert" beworben, es existiert kein AVV | 0,5 | 0 | 🟡 Claims von der Website entfernt, AVV selbst fehlt weiter |
+| G0-6 | Kontakte verwirft beim Speichern neun sichtbare Formularfelder, ohne Fehlermeldung | 2,5 | 1 | ⬜ |
+| G0-7 | Helpdesk kann gegen das echte Backend weder Ticket anlegen noch zuweisen (zwei Demo-Namen im Picker) | 0,5 | 1 | ⬜ Team-Hook existiert bereits |
+| G0-8 | E-Rechnungs-Oberfläche ist Attrappe mit falschem Erfolgs-Toast, Endpoint existiert real | 1 | 1 | ⬜ |
+| G0-9 | Fuhrpark zeigt bei jedem Tabwechsel rohe Übersetzungsschlüssel (6 `t()` ohne `defaultValue`) | 0,25 | 1 | ⬜ |
+| G0-10 | Buchungslink zeigt auf `booking.zentria.tech`, Domain existiert nicht; die Seite lebt unter `zentria.tech/book/{slug}` | 0,15 | 1 | ⬜ |
+| G0-11 | `electron-builder --win` ist nie gelaufen, kein Release-Workflow, kein Downloadpunkt | 0,5 | 2 | ⬜ hängt an Entscheidung 2 |
+| G0-12 | Keine Code-Signatur → „unbekannter Herausgeber" bei jeder Installation | – | 2 | ⬜ hängt an Entscheidung 2 |
+| G0-13 | `docs/pilot0-onboarding/` beschreibt einen Piloten, den es nicht gibt | 0,25 | 0 | ✅ als hinfällig gekennzeichnet |
+
+G1 (vor dem ersten echten personenbezogenen Datensatz, ~10 PT) und G2 (vor dem ersten zahlenden
+Kunden) stehen vollständig im Lagebild §4 — hier bewusst nicht dupliziert, damit es eine Quelle bleibt.
 
 ### 4b · Am 2026-08-12 geschlossen
 

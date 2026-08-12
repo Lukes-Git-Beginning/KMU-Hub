@@ -1,5 +1,10 @@
 # Backend Launch-Plan — Wellen-Playbook bis Launch (01.09)
 
+> ⚠️ **KALENDERMODELL ÜBERHOLT** am 2026-08-12 durch `.planning/launch-lagebild-2026-08-12.md`.
+> Das Launch-Datum 2026-09-01 im Titel, der ZFA-Pilot und die Wellen-Terminierung sind entwertet.
+> Gültige Sequenz: Reifegrad-Gates Etappe 0–4 (Lagebild §6). Die fachlichen Wellen-Inhalte und
+> Dependency-Reihenfolge unten bleiben brauchbar — die Daten nicht.
+
 > **Zweck:** Dependency-geordnetes Wellen-Playbook für die Backend-Arbeit Richtung Launch. Jede Welle ist ein
 > **eigenständiges Auftragspaket** — du kannst sie einzeln in einer Session starten ODER 2–3 als Chain
 > durchlaufen lassen. Dieses Dokument ist die Informationsquelle; die nächste Session liest es, wählt die

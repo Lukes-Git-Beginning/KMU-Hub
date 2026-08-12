@@ -1,5 +1,21 @@
 # Cosmi — Kern-Roadmap
 
+> ⚠️ **KALENDERMODELL ÜBERHOLT** am 2026-08-12 durch `.planning/launch-lagebild-2026-08-12.md`.
+>
+> Entwertet und **nicht mehr als Referenz nutzbar**: das Launch-Datum **2026-09-01**, das
+> „Ein-Launch-Modell", der Sprint-Kalender S0–S5 mit seinen Gate-Daten, der **ZFA-Pilot** und die
+> Aussage „Legal ist der einzige Launch-Blocker". Die Vertriebs-Pipeline ist leer, ZFA ist kalt.
+>
+> **Gültig ist stattdessen:** Ziel **Produkt 1.0.0** nach Reifegrad-Gates ohne Kalenderdatum —
+> Definition in Lagebild §3, Sequenz Etappe 0–4 in §6, offene Befunde G0/G1/G2 in §4.
+>
+> **Weiter gültig in diesem Dokument:** die gemessenen Kennzahlen (§2), die Modul-Realisierungs-Matrix
+> (§5) und die inhaltlichen Task-Beschreibungen — nur ihre Termine und Reihenfolge nicht.
+> Ein Rewrite folgt, sobald Entscheidung 2 (Desktop- vs. Web-Auslieferung) und Entscheidung 3
+> (Fassung des DE-Versprechens) gefallen sind (Lagebild §8).
+
+### Früherer Status (2026-08-11) — Kalendermodell, überholt am 2026-08-12
+
 > **Status (2026-08-11):** **Sprint 0–4 abgeschlossen, Sprint 5 laeuft** (Pre-Launch-Audit + Rigorosum R3, bis 08-31). Noch **21 Tage bis Launch**. Parallel zu S5 laufen die **Backend-Nachtlaeufe** (seit 07-26, Migrationen **243–310**): Feature-Nachzug quer durch die Module, RLS-Welle (`knownRLSGaps` seither leer), RBAC Phase 1, ~110 neue REST-Pfade, zuletzt zwei reine Coverage-Laeufe. Laeufe 1–8 sind gemergt und deployt — **Prod-Kopf = Repo-Kopf 310 clean**, 30 von 36 Containern healthy (0 unhealthy). **Der Coverage-Engpass ist geschlossen:** Lauf 8 hob 47,7 → **60,0 %**, `biz` 48 → **70,6 %** und `crm` 51 → **71,7 %** liegen damit ueber dem 60-%-Ziel. Der Engpass ist jetzt **Korrektheit statt Abdeckung**: derselbe Lauf foerderte zehn verifizierte Produktionsbugs zutage, ausgerechnet in den Paketen mit der hoechsten Coverage. Lauf 9 (seit 11-08 16:00) arbeitet sie ab. Einziger echter Launch-Blocker bleibt **Legal (AVV/DPA)**. Gemessener Ist-Stand mit allen Zahlen: [`.planning/status-overview.md`](../.planning/status-overview.md).
 >
 > <details><summary>Frueherer Status (2026-04-26)</summary>

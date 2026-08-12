@@ -9,7 +9,7 @@
 - **Zielgruppe:** Branchenunabhaengige KMUs (5-200 Mitarbeiter)
 - **Team:** 1 Dev + 2 Business, AI-First Development
 - **Branding:** Software="Cosmi", Firma="Zentria"
-- **Timeline:** Launch 2026-09-01 — Detail-Roadmap in `docs/ROADMAP.md`
+- **Ziel:** **Produkt 1.0.0** nach Reifegrad-Gates, **kein Kalenderdatum** (das Launch-Datum 2026-09-01 ist seit 2026-08-12 entwertet). Definition und Sequenz: `.planning/launch-lagebild-2026-08-12.md` §3 und §6
 - **Version:** 0.1.0
 
 ## Tech-Stack
@@ -128,8 +128,10 @@ Paralleles Markt-Intelligence-Repo (`~/Documents/zentria-intel/`, github.com/Luk
 
 | Thema | Datei |
 |-------|-------|
+| **Lage und Sequenz (Single Source of Truth)** | `.planning/launch-lagebild-2026-08-12.md` |
 | Architektur-Entscheidungen (ADRs) | `docs/ARCHITECTURE.md` |
 | Learnings aus Vorgaenger-Projekt | `docs/LEARNINGS.md` |
 | Pricing-Modell | `docs/PRICING.md` |
-| Roadmap (Single Source of Truth) | `docs/ROADMAP.md` |
+| Roadmap (⚠ Kalendermodell überholt 2026-08-12, Messwerte gelten) | `docs/ROADMAP.md` |
 | Modul-Scope-Matrix | `docs/MODULES_SCOPE_MATRIX.md` |
+| Live-Reifegrad (deskriptiver Snapshot) | `.planning/status-overview.md` |
