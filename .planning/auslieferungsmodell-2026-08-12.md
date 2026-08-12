@@ -185,9 +185,9 @@ nicht der Hauptserver sind. Der Unterschied ist nur, wem die Maschine gehört.
 | Neu | Aufwand |
 |---|---|
 | Container-Registry | Teil der 3–5 PT |
-| Serveradresse zur Laufzeit | " |
-| Einrichtungs-Erzeuger (Compose + Dateiliste aus der Modul-Liste) | " |
-| Auslieferung ohne ungebuchte Module | " |
+| Serveradresse zur Laufzeit | dito |
+| Einrichtungs-Erzeuger (Compose + Dateiliste aus der Modul-Liste) | dito |
+| Auslieferung ohne ungebuchte Module | dito |
 | **Summe** | **~3–5 PT** |
 
 Nicht die vollen 4 PT aus dem Lagebild — Ansible und Compose existieren. Aber auch nicht null.
