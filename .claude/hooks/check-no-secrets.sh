@@ -8,7 +8,12 @@
 # Substring-Match ueber das ganze Kommando).
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | grep -oP '(git add .*)' || true)
+# Capture endet an der Grenze des `git add`-Subkommandos: Shell-Trenner (&& ; |) und das
+# Ende des JSON-Strings (" bzw. \) beenden den Match. Ohne diese Grenze zieht `.*` bei
+# `git add X && git commit -m "... .env.production ..."` die komplette Commit-Message mit
+# hinein, die unten wortweise als Pfad geprueft wird — und der Commit wird faelschlich
+# blockiert, obwohl gar keine .env-Datei gestaget ist.
+COMMAND=$(echo "$INPUT" | grep -oP 'git add\b[^&;|"\\]*' || true)
 
 if [ -z "$COMMAND" ]; then
   exit 0
