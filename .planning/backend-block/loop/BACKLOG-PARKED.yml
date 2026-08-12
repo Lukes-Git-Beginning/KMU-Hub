@@ -351,7 +351,29 @@ units:
 
   - id: check-password-reset-link-target
     service: auth
-    status: parked
+    status: resolved
+    resolved: 2026-08-12
+    resolution: >
+      GEKLÄRT UND GESCHLOSSEN. Alle drei Schritte beantwortet:
+      (1) `/opt/kmuhub/.env.production:77` trägt seit 2026-08-11 23:03:54 UTC
+      `https://app.zentria.tech/reset-password`; `docker-auth-1` wurde 23:04:10 neu erstellt und
+      trägt den Wert (per `docker inspect` verifiziert), der Go-Default im laufenden Binary
+      ebenfalls.
+      (2) Die Annahme „der Gateway hat keine HTML-Seite" stimmt seit `10a1a26e` nicht mehr:
+      `backend/internal/gateway/reset_password_page.go:51-56` registriert `GET`+`POST
+      /reset-password` hinter dem Public-Rate-Limiter. Live geprüft — 200 mit `Cache-Control:
+      no-store`, `X-Robots-Tag: noindex, nofollow`, strikter CSP, und 400 ohne Token.
+      (3) Damit entfällt Schritt 3. Die Astro-Seite `zentria.tech/reset-password` existierte
+      zwar, lief aber als Vercel-Function in iad1/Virginia mit `Cache-Control: public` — sie ist
+      am 2026-08-12 entfernt worden, weil kein Mail-Link mehr darauf zeigt.
+      Alle vier Defaults sind jetzt deckungsgleich: `config.go:204`,
+      `docker-compose.yml:126` und `PRODUCTION_TEMPLATE:50` (beide via `fe8707ad`) sowie
+      `ansible/roles/secrets/templates/env.production.j2:46` — letzterer leitete den Wert bis
+      2026-08-12 aus `pilot_domain` ab und hätte den Fehler bei jeder Neu-Provisionierung
+      zurückgeholt.
+      OFFEN bleibt nur der End-to-End-Durchlauf gegen einen echten Mailversand
+      (Mail anfordern → Link klicken → Passwort setzen → Login) — geführt in
+      `.planning/status-overview.md` §4.
     decided: 2026-08-10
     decision: >
       NEUER BEFUND aus der Verifikationsrunde. Zu PRÜFEN, nicht zu bauen — und vor dem Launch,
