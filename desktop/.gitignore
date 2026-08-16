@@ -1,2 +1,4 @@
 .qa-screenshots/
 .qa-admin-*/
+.qa-etappe1/
+tsconfig.scopecheck.json

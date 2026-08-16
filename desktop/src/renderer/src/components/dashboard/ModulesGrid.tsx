@@ -116,6 +116,11 @@ export function ModulesGrid() {
 
   const filteredModules = ALL_MODULES.filter((mod) => {
     if (!isRbacVisible(mod.id)) return false
+    // A module the sidebar doesn't ship has no business appearing as a tile
+    // either. nav-items owns "is this shipped"; ALL_MODULES only adds the
+    // dashboard copy and stats on top. `=== false` on purpose: entries with no
+    // sidebar counterpart (the CRM hub) yield undefined and stay visible.
+    if (navItems.find((i) => i.id === mod.id)?.enabled === false) return false
     if (devShowAll) return true
     return isModuleAllowedForProfile(mod.id, businessProfileId, enabledOptionals)
   })

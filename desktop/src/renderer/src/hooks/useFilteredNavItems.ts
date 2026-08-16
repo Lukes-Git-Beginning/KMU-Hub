@@ -68,6 +68,14 @@ export function useFilteredNavItems() {
         const moduleKey = NAV_ITEM_MODULE[item.id]
         if (!moduleKey || !has(moduleViewKey(moduleKey))) return false
 
+        // `enabled: false` means "not shipped", so it outranks devShowAll —
+        // unlike the profile and flag gates below, which only say "not for
+        // this tenant". The route itself stays reachable by direct entry.
+        // Until now only ClassicSidebar, DockBar and TopNavBar re-checked this
+        // flag; the default Sidebar did not, so setting it had no visible
+        // effect there.
+        if (!item.enabled) return false
+
         // devShowAll bypasses every gate (profile + feature flags).
         // It's the explicit "show me everything" switch for design/dev work.
         if (devShowAll) return true

@@ -106,7 +106,12 @@ export const navItems: NavItemConfig[] = [
 
   // ── Finance ──
   { id: 'finance', to: '/finanzen', icon: Receipt, label: 'layout.navItems.finance', enabled: true, section: 'main', badge: { type: 'text', value: 'layout.navItems.badgeNew' }, color: { h: 38, s: 88 } },
-  { id: 'infrastructure', to: '/infrastruktur', icon: Network, label: 'layout.navItems.infrastructure', enabled: true, section: 'main', color: { h: 215, s: 32 } },
+  // lean: hidden until InfrastrukturPage reads real data — today every metric,
+  // backup state and security indicator on it is mock ("All data is mock", see
+  // modules/admin/InfrastrukturPage.tsx). Showing invented server health to a
+  // customer running their own server is the one claim we cannot afford.
+  // Re-enable together with the backend integration.
+  { id: 'infrastructure', to: '/infrastruktur', icon: Network, label: 'layout.navItems.infrastructure', enabled: false, section: 'main', color: { h: 215, s: 32 } },
 
   // ── Industry modules ──
   { id: 'inventar', to: '/inventar', icon: Warehouse, label: 'layout.navItems.inventar', enabled: true, section: 'main', color: { h: 15, s: 75 } },
