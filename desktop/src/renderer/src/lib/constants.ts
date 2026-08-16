@@ -4,6 +4,15 @@
 export const API_BASE_URL =
   import.meta.env.RENDERER_VITE_API_URL || 'http://localhost:8080'
 
+/**
+ * Base URL under which public booking pages are served. These live on the
+ * marketing site (zentria-website, `src/pages/book/[slug].astro`), not in the
+ * product — so the address is configurable per installation rather than tied
+ * to API_BASE_URL.
+ */
+export const BOOKING_BASE_URL =
+  import.meta.env.RENDERER_VITE_BOOKING_URL || 'https://zentria.tech/book'
+
 /** WebSocket reconnection delays in ms (exponential backoff, max 60s) */
 export const WS_RECONNECT_DELAYS = [3000, 6000, 12000, 24000, 48000, 60000]
 

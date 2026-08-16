@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ExternalLink, Copy, Calendar, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { BookingPage, BookingPageService, AvailabilitySlot } from '@/api/booking-client'
+import { BOOKING_BASE_URL } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -100,7 +101,7 @@ export function BookingPagePreview({ page }: BookingPagePreviewProps) {
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [step, setStep] = useState(1)
 
-  const bookingUrl = `https://booking.zentria.tech/${page.slug}`
+  const bookingUrl = `${BOOKING_BASE_URL}/${page.slug}`
   const rules = page.availabilityRules
 
   const availableDates = useMemo(() => computeAvailableDates(rules), [rules])
