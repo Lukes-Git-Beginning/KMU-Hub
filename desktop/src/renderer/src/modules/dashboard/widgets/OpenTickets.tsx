@@ -28,8 +28,10 @@ function OpenTickets(_props: WidgetProps) {
   const { data: pendingData } = useTickets({ status: 'pending', page_size: 20 })
 
   const open = useMemo(() => {
-    const openTickets = (openData?.tickets ?? []).map(wireTicketToDisplay)
-    const pendingTickets = (pendingData?.tickets ?? []).map(wireTicketToDisplay)
+    // Arrow, not a bare reference: `map` would pass the index as the adapter's
+    // second (resolver) argument.
+    const openTickets = (openData?.tickets ?? []).map((t) => wireTicketToDisplay(t))
+    const pendingTickets = (pendingData?.tickets ?? []).map((t) => wireTicketToDisplay(t))
     const combined = [...openTickets, ...pendingTickets]
 
     return combined

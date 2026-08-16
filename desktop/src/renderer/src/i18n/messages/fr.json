@@ -5058,6 +5058,7 @@
   "helpdesk.ticket.slaLabel": "SLA",
   "helpdesk.ticket.statusChangeError": "Impossible de modifier le statut.",
   "helpdesk.ticket.statusChanged": "Statut modifié en \"{status}\".",
+  "helpdesk.ticket.unassigned": "Non assigné",
   "helpdesk.ticket.updated": "Mis à jour",
   "inventar.actions.delete": "Supprimer",
   "inventar.actions.movement": "Mouvement de stock",

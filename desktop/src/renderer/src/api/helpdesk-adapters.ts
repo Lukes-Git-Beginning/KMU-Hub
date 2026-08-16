@@ -112,7 +112,18 @@ export function displayPriorityToWire(p: DisplayTicket['priority']): TicketPrior
 // WireTicket → DisplayTicket
 // ---------------------------------------------------------------------------
 
-export function wireTicketToDisplay(t: WireTicket): DisplayTicket {
+/**
+ * Resolves a user id to a display name. Pass one when real user data is at
+ * hand — `displayUserName` only knows the demo id table, so against the real
+ * backend it echoes raw UUIDs back.
+ *
+ * lean: a parameter, not a lookup service. The same gap exists across ~19
+ * `displayUserName` call sites (Rapporte, Schichten, audit events); fixing it
+ * globally is its own piece of work.
+ */
+export type UserNameResolver = (id: string | null | undefined) => string | undefined
+
+export function wireTicketToDisplay(t: WireTicket, resolveName?: UserNameResolver): DisplayTicket {
   const now = Date.now()
   const dueMs = t.due_at ? new Date(t.due_at).getTime() : null
   const diffMs = dueMs !== null ? dueMs - now : null
@@ -152,10 +163,11 @@ export function wireTicketToDisplay(t: WireTicket): DisplayTicket {
     description: t.description ?? '',
     status: wireStatusToDisplay(t.status),
     priority: wirePriorityToDisplay(t.priority),
-    assignedTo: displayUserName(t.assignee_id),
+    assignedTo: resolveName?.(t.assignee_id) ?? displayUserName(t.assignee_id),
     // External requesters have no user account → carry their entered name;
     // internal tickets resolve the display name from the requester UUID.
-    contactName: t.requester_name ?? displayUserName(t.requester_id),
+    contactName:
+      t.requester_name ?? resolveName?.(t.requester_id) ?? displayUserName(t.requester_id),
     assigneeId: t.assignee_id,
     requesterId: t.requester_id,
     requesterEmail: t.requester_email,

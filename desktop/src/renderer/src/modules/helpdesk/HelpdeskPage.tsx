@@ -47,6 +47,7 @@ import {
   useUpdateKBArticle,
   useHelpdeskStats,
 } from '@/api/hooks/useHelpdesk'
+import { useEmployees } from '@/api/hooks/hr-hooks'
 import type { KBArticle, TicketChannel, CreateTicketInput } from '@/api/helpdesk-types'
 import {
   wireTicketToDisplay,
@@ -86,8 +87,24 @@ type StatusFilter = 'all' | DisplayTicket['status']
 type PriorityFilter = 'all' | DisplayTicket['priority']
 type CategoryFilter = 'all' | string
 
-/** Demo agent pool for assign/escalate (no real team lookup — that is CRM/backend). */
-const HELPDESK_AGENTS = ['Marco Hartmann', 'Sandra Bürki'] as const
+/** An agent the backend will accept as `assignee_id` — a real user UUID. */
+type HelpdeskAgent = { id: string; name: string }
+
+/**
+ * Assignable agents, resolved from the tenant's employees. The backend
+ * validates `assignee_id` as a UUID (route_helpdesk.go), so the picker must
+ * bind ids and only render names.
+ */
+function useHelpdeskAgents(): HelpdeskAgent[] {
+  const { data } = useEmployees()
+  return useMemo(
+    () =>
+      (data?.employees ?? [])
+        .filter((e) => e.userId)
+        .map((e) => ({ id: e.userId, name: e.userName || e.userEmail || e.userId })),
+    [data],
+  )
+}
 
 /** Sort fields for the ticket list (H-7). */
 const SORT_FIELDS = [
@@ -164,6 +181,7 @@ export default function HelpdeskPage() {
 
   // API hooks — Tickets (core data)
   const { data: ticketsResponse, isLoading: ticketsLoading, error: ticketsError } = useTickets()
+  const agents = useHelpdeskAgents()
   // Editor draft may delete a status/priority and reassign its records; remap the
   // display values through that migration so the preview is honest (empty in the
   // live app — the real record migration runs on deploy in the backend).
@@ -174,9 +192,15 @@ export default function HelpdeskPage() {
   const [createdCustomFields, setCreatedCustomFields] = useState<Record<string, Record<string, string>>>({})
   // CSAT feature gate = the tenant Helpdesk setting (intake P3, auto-after-close).
   const csatEnabled = useHelpdeskStore((s) => s.csatEnabled)
+  // Real user ids resolve through the employee list; the demo id table only
+  // knows mock users and would render bare UUIDs against the real backend.
+  const resolveAgentName = useMemo(() => {
+    const byId = new Map(agents.map((a) => [a.id, a.name]))
+    return (id: string | null | undefined) => (id ? byId.get(id) : undefined)
+  }, [agents])
   const rawTickets: DisplayTicket[] = useMemo(
-    () => (ticketsResponse?.tickets ?? []).map(wireTicketToDisplay),
-    [ticketsResponse],
+    () => (ticketsResponse?.tickets ?? []).map((tk) => wireTicketToDisplay(tk, resolveAgentName)),
+    [ticketsResponse, resolveAgentName],
   )
   const tickets: DisplayTicket[] = useMemo(
     () =>
@@ -289,7 +313,8 @@ export default function HelpdeskPage() {
   // keep contact search, priority and assignment that a plain form can't express.
   const [newTicketOpen, setNewTicketOpen] = useState(false)
   const [ntPriority, setNtPriority] = useState<DisplayTicket['priority']>('medium')
-  const [ntAssignee, setNtAssignee] = useState('Marco Hartmann')
+  /** Empty means unassigned — never preselect a colleague on someone's behalf. */
+  const [ntAssignee, setNtAssignee] = useState('')
   const [ntContact, setNtContact] = useState('')
   // Agent-form answers keyed by form field id (fed through the intake engine on save).
   const [ntFormValues, setNtFormValues] = useState<Record<string, unknown>>({})
@@ -1184,8 +1209,8 @@ export default function HelpdeskPage() {
                   <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.assignTo')}</label>
                   <div className="relative">
                     <select value={ntAssignee} onChange={(e) => setNtAssignee(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
-                      <option value="Marco Hartmann">Marco Hartmann</option>
-                      <option value="Sandra Buerki">Sandra Buerki</option>
+                      <option value="">{t('helpdesk.ticket.unassigned')}</option>
+                      {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   </div>
@@ -1294,6 +1319,7 @@ function TicketDetailPanel({
 }) {
   const { t } = useTranslation()
   const guard = useEditorGuard()
+  const agents = useHelpdeskAgents()
   const priorityValueSet = useModuleValueSet('ticket_priority')
   const statusValueSet = useModuleValueSet('ticket_status')
   // Custom "Zusatzfelder": the tenant-defined helpdesk_ticket fields (draft ⊕ live).
@@ -1357,10 +1383,11 @@ function TicketDetailPanel({
     [allTickets, ticket.id],
   )
 
-  const handleAssign = (agent: string) => {
-    if (agent === ticket.assignedTo) return
+  const handleAssign = (agentId: string) => {
+    if (agentId === ticket.assigneeId) return
+    const agent = agents.find((a) => a.id === agentId)?.name ?? t('helpdesk.ticket.unassigned')
     assignTicketMut.mutate(
-      { ticketId: ticket.id, assigneeId: agent },
+      { ticketId: ticket.id, assigneeId: agentId },
       { onSuccess: () => toast.success(t('helpdesk.ticket.assigned', { ticket: ticket.ticketNr, agent })),
         onError: () => toast.error(t('helpdesk.ticket.assignError')) },
     )
@@ -1552,14 +1579,17 @@ function TicketDetailPanel({
                 <div className="relative">
                   <select
                     aria-label={t('helpdesk.ticket.assign')}
-                    value={ticket.assignedTo}
+                    value={ticket.assigneeId ?? ''}
                     onChange={(e) => guard(handleAssign)(e.target.value)}
                     className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer"
                   >
-                    {!HELPDESK_AGENTS.includes(ticket.assignedTo as (typeof HELPDESK_AGENTS)[number]) && (
-                      <option value={ticket.assignedTo}>{ticket.assignedTo}</option>
+                    <option value="">{t('helpdesk.ticket.unassigned')}</option>
+                    {/* Legacy seeds may carry a free-text name instead of a user id;
+                        keep it selectable so the current state stays visible. */}
+                    {ticket.assigneeId && !agents.some((a) => a.id === ticket.assigneeId) && (
+                      <option value={ticket.assigneeId}>{ticket.assignedTo || ticket.assigneeId}</option>
                     )}
-                    {HELPDESK_AGENTS.map((a) => <option key={a} value={a}>{a}</option>)}
+                    {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                   <UserPlus className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
