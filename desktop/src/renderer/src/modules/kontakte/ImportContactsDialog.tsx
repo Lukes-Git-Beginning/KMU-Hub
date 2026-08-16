@@ -85,7 +85,17 @@ function parseCSV(text: string): ParsedContact[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim())
   if (lines.length < 2) return []
 
-  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z_-]/g, ''))
+  // Transliterate before stripping non-ASCII, or a German header loses its
+  // umlaut entirely: "Straße" would become "strae" and match no key below.
+  const headers = parseCSVLine(lines[0]).map((h) =>
+    h
+      .toLowerCase()
+      .replace(/ä/g, 'ae')
+      .replace(/ö/g, 'oe')
+      .replace(/ü/g, 'ue')
+      .replace(/ß/g, 'ss')
+      .replace(/[^a-z_-]/g, ''),
+  )
   const fieldIndices: { field: string; index: number }[] = []
 
   for (let i = 0; i < headers.length; i++) {
