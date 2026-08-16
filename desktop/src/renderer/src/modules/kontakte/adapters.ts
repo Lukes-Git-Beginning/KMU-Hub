@@ -1,11 +1,15 @@
 /**
  * Adapters between backend ContactInfo and the UI Contact type.
  *
- * The backend schema only covers core fields (name, email, phone, title,
- * companyId, notes, tags, customFields). All UI-specific fields (salutation,
- * mobile, address, jobTitle, department, website, category, status,
- * socialMedia, projects) are round-tripped through the backend's
- * custom_fields map with an underscore-prefixed key convention.
+ * Since migration 000314 the backend stores the whole contact form: salutation,
+ * academic title, mobile, department, the four address parts, website,
+ * LinkedIn, Xing, category and status are real columns. Before that they only
+ * survived in DEMO_MODE, and saving against the real backend dropped them
+ * without a word (G0-6).
+ *
+ * `projects` is the one field still carried in custom_fields: it is a list of
+ * links to the work module, not a scalar, and wiring it properly is its own
+ * piece of work.
  */
 import type { components } from '@/api/types'
 import { dual } from '@/api/casing'
@@ -49,30 +53,40 @@ export function backendContactToUI(c: BackendContact): Contact {
   const createdAt = dual<string>(c, 'createdAt')
   const initials = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
 
+  // Real columns win; the `_`-prefixed extras remain as the fallback so
+  // DEMO_MODE and any contact saved before 000314 still render.
+  const street = dual<string>(c, 'addressStreet') ?? extra._address?.street ?? ''
+  const zip = dual<string>(c, 'addressZip') ?? extra._address?.zip ?? ''
+  const city = dual<string>(c, 'addressCity') ?? extra._address?.city ?? ''
+  const country = dual<string>(c, 'addressCountry') ?? extra._address?.country ?? 'Deutschland'
+
   return {
     id: c.id ?? '',
-    salutation: (extra._salutation as 'Herr' | 'Frau' | '') ?? '',
-    // Akademischer Titel (Dr./Prof.) — reines Extra-Feld, hat kein echtes
-    // Backend-Pendant (gegen das echte Backend leer, im Mock via `title`).
+    salutation: ((c.salutation ?? extra._salutation) as 'Herr' | 'Frau' | '') ?? '',
+    // Akademischer Titel (Dr./Prof.) — seit 000314 eine echte Spalte, getrennt
+    // von `position` (Job-Rolle).
     title: c.title ?? '',
     firstName,
     lastName,
     initials,
     email: c.email ?? '',
     phone: c.phone ?? '',
-    mobile: extra._mobile ?? '',
+    mobile: c.mobile ?? extra._mobile ?? '',
     company: dual<string>(c, 'companyName') ?? '',
-    // Job-Position ("Geschäftsführer"): echtes Backend liefert sie im
-    // `position`-Feld, der Mock im custom-fields-Extra `_jobTitle` (X-3).
+    // Job-Position ("Geschäftsführer"). Das Extra `_jobTitle` bleibt als
+    // Rückfall für Datensätze, die vor 000314 gespeichert wurden.
     jobTitle: (dual<string>(c, 'position') ?? extra._jobTitle) ?? '',
-    department: extra._department ?? '',
-    address: extra._address ?? { street: '', zip: '', city: '', country: 'Deutschland' },
-    website: extra._website ?? '',
-    category: (extra._category as 'employee' | 'customer' | 'partner') ?? 'customer',
-    status: (extra._status as 'active' | 'prospect' | 'inactive') ?? 'active',
+    department: c.department ?? extra._department ?? '',
+    address: { street, zip, city, country },
+    website: c.website ?? extra._website ?? '',
+    category: ((c.category ?? extra._category) as 'employee' | 'customer' | 'partner') ?? 'customer',
+    status: ((c.status ?? extra._status) as 'active' | 'prospect' | 'inactive') ?? 'active',
     tags: (c.tags ?? []).map((t) => t.name ?? '').filter(Boolean),
     notes: c.notes ?? '',
-    socialMedia: extra._socialMedia ?? { linkedin: '', xing: '' },
+    socialMedia: {
+      linkedin: c.linkedin ?? extra._socialMedia?.linkedin ?? '',
+      xing: c.xing ?? extra._socialMedia?.xing ?? '',
+    },
     lastContact: updatedAt?.split('T')[0] ?? new Date().toISOString().split('T')[0],
     projects: extra._projects ?? [],
     createdAt: createdAt?.split('T')[0] ?? '',
@@ -104,46 +118,58 @@ function buildExtraFields(data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 
 
 type FormData = Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>
 
-/** Kernfelder, die das echte Contact-Schema kennt (snake_case, Gateway-konform). */
-function coreContactFields(data: FormData): {
-  first_name: string
-  last_name: string
-  email?: string
-  phone?: string
-  notes?: string
-} {
+/**
+ * Alle Felder, die das echte Contact-Schema kennt (snake_case, Gateway-konform).
+ *
+ * Leerstring statt `undefined` bei den Profilfeldern: Der Nutzer, der ein Feld
+ * leert, will es geleert haben — beim Update bedeutet `undefined` „nicht
+ * mitgeschickt", der Wert bliebe also stehen.
+ */
+function coreContactFields(data: FormData): Record<string, unknown> {
   return {
     first_name: data.firstName,
     last_name: data.lastName,
     email: data.email || undefined,
     phone: data.phone || undefined,
     notes: data.notes || undefined,
+    position: data.jobTitle ?? '',
+    salutation: data.salutation ?? '',
+    title: data.title ?? '',
+    mobile: data.mobile ?? '',
+    department: data.department ?? '',
+    address_street: data.address?.street ?? '',
+    address_zip: data.address?.zip ?? '',
+    address_city: data.address?.city ?? '',
+    address_country: data.address?.country ?? '',
+    website: data.website ?? '',
+    linkedin: data.socialMedia?.linkedin ?? '',
+    xing: data.socialMedia?.xing ?? '',
+    category: data.category ?? '',
+    status: data.status ?? '',
   }
 }
 
 /**
  * Map UI form data → Create/Update payload, je nach Modus.
  *
- * Mock (DEMO_MODE): toleriert das `_`-präfixierte `custom_fields`-Objekt und das
- * `title`-Feld → der volle UI-Feldumfang bleibt im Demo-Modus erhalten.
+ * Mock (DEMO_MODE): reicht zusätzlich das `_`-präfixierte `custom_fields`-Objekt
+ * durch, damit die Demo-Handler unverändert weiterlaufen.
  *
- * Echtes Backend: Das Contact-Schema kennt nur Kernfelder. Job-Position liegt im
- * `position`-Feld (die OpenAPI-Spec nennt es fälschlich `title` und kennt kein
- * `position` → Cast, X-3). `custom_fields` verlangt echte Custom-Field-UUIDs →
- * leeres Array. Die 9 UI-Extra-Felder (mobile/address/jobTitle/…) sind eine
- * Backend-Lücke (Handover Luke) und werden serverseitig noch nicht persistiert.
+ * Echtes Backend: seit Migration 000314 nimmt das Schema alle Formularfelder
+ * entgegen. `custom_fields` bleibt leer — es verlangt echte Custom-Field-UUIDs,
+ * und `projects` (das einzige verbliebene Extra) ist eine Verknüpfung ins
+ * work-Modul, kein Skalar.
  */
 function uiFormToWriteRequest(data: FormData): CreateContactRequest {
+  const core = coreContactFields(data)
   if (DEMO_MODE) {
     return {
-      ...coreContactFields(data),
-      title: data.title || undefined,
+      ...core,
       custom_fields: buildExtraFields(data),
-    }
+    } as unknown as CreateContactRequest
   }
   return {
-    ...coreContactFields(data),
-    position: data.jobTitle || undefined,
+    ...core,
     custom_fields: [],
   } as unknown as CreateContactRequest
 }
