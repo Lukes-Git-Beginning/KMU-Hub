@@ -275,6 +275,23 @@ message ContactInfo {
   string updated_at = 14;
   string visibility = 15;  // "shared" or "personal"
   optional string owner_id = 16;
+
+  // Profile fields (migration 000314). The contact form always collected
+  // these; before 000314 they were dropped on save. `title` is the academic
+  // title (Dr./Prof.) — the job role is `position` above.
+  optional string salutation = 17;
+  optional string title = 18;
+  optional string mobile = 19;
+  optional string department = 20;
+  optional string address_street = 21;
+  optional string address_zip = 22;
+  optional string address_city = 23;
+  optional string address_country = 24;
+  optional string website = 25;
+  optional string linkedin = 26;
+  optional string xing = 27;
+  optional string category = 28;  // employee, customer, partner
+  optional string status = 29;    // active, prospect, inactive
 }
 
 message CreateContactRequest {
@@ -288,6 +305,21 @@ message CreateContactRequest {
   repeated string tag_ids = 8;
   repeated CustomFieldValueInput custom_fields = 9;
   string created_by = 10;
+
+  // Profile fields — see ContactInfo.
+  optional string salutation = 11;
+  optional string title = 12;
+  optional string mobile = 13;
+  optional string department = 14;
+  optional string address_street = 15;
+  optional string address_zip = 16;
+  optional string address_city = 17;
+  optional string address_country = 18;
+  optional string website = 19;
+  optional string linkedin = 20;
+  optional string xing = 21;
+  optional string category = 22;
+  optional string status = 23;
 }
 
 message CreateContactResponse {
@@ -330,6 +362,22 @@ message UpdateContactRequest {
   optional string position = 7;
   optional string notes = 8;
   repeated CustomFieldValueInput custom_fields = 9;
+
+  // Profile fields — see ContactInfo. As with the fields above, an empty
+  // string clears the column; omitting the field leaves it untouched.
+  optional string salutation = 10;
+  optional string title = 11;
+  optional string mobile = 12;
+  optional string department = 13;
+  optional string address_street = 14;
+  optional string address_zip = 15;
+  optional string address_city = 16;
+  optional string address_country = 17;
+  optional string website = 18;
+  optional string linkedin = 19;
+  optional string xing = 20;
+  optional string category = 21;
+  optional string status = 22;
 }
 
 message UpdateContactResponse {

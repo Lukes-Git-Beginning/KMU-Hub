@@ -1330,25 +1330,41 @@ func (x *CustomFieldValueInput) GetValue() string {
 }
 
 type ContactInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	FirstName     string                 `protobuf:"bytes,2,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
-	LastName      string                 `protobuf:"bytes,3,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
-	Email         string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
-	Phone         string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`
-	CompanyId     *string                `protobuf:"bytes,6,opt,name=company_id,json=companyId,proto3,oneof" json:"company_id,omitempty"`
-	CompanyName   *string                `protobuf:"bytes,7,opt,name=company_name,json=companyName,proto3,oneof" json:"company_name,omitempty"`
-	Position      string                 `protobuf:"bytes,8,opt,name=position,proto3" json:"position,omitempty"`
-	Notes         string                 `protobuf:"bytes,9,opt,name=notes,proto3" json:"notes,omitempty"`
-	Tags          []*TagInfo             `protobuf:"bytes,10,rep,name=tags,proto3" json:"tags,omitempty"`
-	CustomFields  map[string]string      `protobuf:"bytes,11,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // field_name -> JSON value
-	CreatedBy     string                 `protobuf:"bytes,12,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	Visibility    string                 `protobuf:"bytes,15,opt,name=visibility,proto3" json:"visibility,omitempty"` // "shared" or "personal"
-	OwnerId       *string                `protobuf:"bytes,16,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FirstName    string                 `protobuf:"bytes,2,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName     string                 `protobuf:"bytes,3,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	Email        string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
+	Phone        string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`
+	CompanyId    *string                `protobuf:"bytes,6,opt,name=company_id,json=companyId,proto3,oneof" json:"company_id,omitempty"`
+	CompanyName  *string                `protobuf:"bytes,7,opt,name=company_name,json=companyName,proto3,oneof" json:"company_name,omitempty"`
+	Position     string                 `protobuf:"bytes,8,opt,name=position,proto3" json:"position,omitempty"`
+	Notes        string                 `protobuf:"bytes,9,opt,name=notes,proto3" json:"notes,omitempty"`
+	Tags         []*TagInfo             `protobuf:"bytes,10,rep,name=tags,proto3" json:"tags,omitempty"`
+	CustomFields map[string]string      `protobuf:"bytes,11,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // field_name -> JSON value
+	CreatedBy    string                 `protobuf:"bytes,12,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	CreatedAt    string                 `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt    string                 `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Visibility   string                 `protobuf:"bytes,15,opt,name=visibility,proto3" json:"visibility,omitempty"` // "shared" or "personal"
+	OwnerId      *string                `protobuf:"bytes,16,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
+	// Profile fields (migration 000314). The contact form always collected
+	// these; before 000314 they were dropped on save. `title` is the academic
+	// title (Dr./Prof.) — the job role is `position` above.
+	Salutation     *string `protobuf:"bytes,17,opt,name=salutation,proto3,oneof" json:"salutation,omitempty"`
+	Title          *string `protobuf:"bytes,18,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Mobile         *string `protobuf:"bytes,19,opt,name=mobile,proto3,oneof" json:"mobile,omitempty"`
+	Department     *string `protobuf:"bytes,20,opt,name=department,proto3,oneof" json:"department,omitempty"`
+	AddressStreet  *string `protobuf:"bytes,21,opt,name=address_street,json=addressStreet,proto3,oneof" json:"address_street,omitempty"`
+	AddressZip     *string `protobuf:"bytes,22,opt,name=address_zip,json=addressZip,proto3,oneof" json:"address_zip,omitempty"`
+	AddressCity    *string `protobuf:"bytes,23,opt,name=address_city,json=addressCity,proto3,oneof" json:"address_city,omitempty"`
+	AddressCountry *string `protobuf:"bytes,24,opt,name=address_country,json=addressCountry,proto3,oneof" json:"address_country,omitempty"`
+	Website        *string `protobuf:"bytes,25,opt,name=website,proto3,oneof" json:"website,omitempty"`
+	Linkedin       *string `protobuf:"bytes,26,opt,name=linkedin,proto3,oneof" json:"linkedin,omitempty"`
+	Xing           *string `protobuf:"bytes,27,opt,name=xing,proto3,oneof" json:"xing,omitempty"`
+	Category       *string `protobuf:"bytes,28,opt,name=category,proto3,oneof" json:"category,omitempty"` // employee, customer, partner
+	Status         *string `protobuf:"bytes,29,opt,name=status,proto3,oneof" json:"status,omitempty"`     // active, prospect, inactive
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ContactInfo) Reset() {
@@ -1493,20 +1509,125 @@ func (x *ContactInfo) GetOwnerId() string {
 	return ""
 }
 
+func (x *ContactInfo) GetSalutation() string {
+	if x != nil && x.Salutation != nil {
+		return *x.Salutation
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetMobile() string {
+	if x != nil && x.Mobile != nil {
+		return *x.Mobile
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetDepartment() string {
+	if x != nil && x.Department != nil {
+		return *x.Department
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetAddressStreet() string {
+	if x != nil && x.AddressStreet != nil {
+		return *x.AddressStreet
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetAddressZip() string {
+	if x != nil && x.AddressZip != nil {
+		return *x.AddressZip
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetAddressCity() string {
+	if x != nil && x.AddressCity != nil {
+		return *x.AddressCity
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetAddressCountry() string {
+	if x != nil && x.AddressCountry != nil {
+		return *x.AddressCountry
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetWebsite() string {
+	if x != nil && x.Website != nil {
+		return *x.Website
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetLinkedin() string {
+	if x != nil && x.Linkedin != nil {
+		return *x.Linkedin
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetXing() string {
+	if x != nil && x.Xing != nil {
+		return *x.Xing
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *ContactInfo) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
 type CreateContactRequest struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	FirstName     string                   `protobuf:"bytes,1,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
-	LastName      string                   `protobuf:"bytes,2,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
-	Email         string                   `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
-	Phone         string                   `protobuf:"bytes,4,opt,name=phone,proto3" json:"phone,omitempty"`
-	CompanyId     *string                  `protobuf:"bytes,5,opt,name=company_id,json=companyId,proto3,oneof" json:"company_id,omitempty"`
-	Position      string                   `protobuf:"bytes,6,opt,name=position,proto3" json:"position,omitempty"`
-	Notes         string                   `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
-	TagIds        []string                 `protobuf:"bytes,8,rep,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
-	CustomFields  []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
-	CreatedBy     string                   `protobuf:"bytes,10,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState   `protogen:"open.v1"`
+	FirstName    string                   `protobuf:"bytes,1,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName     string                   `protobuf:"bytes,2,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	Email        string                   `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	Phone        string                   `protobuf:"bytes,4,opt,name=phone,proto3" json:"phone,omitempty"`
+	CompanyId    *string                  `protobuf:"bytes,5,opt,name=company_id,json=companyId,proto3,oneof" json:"company_id,omitempty"`
+	Position     string                   `protobuf:"bytes,6,opt,name=position,proto3" json:"position,omitempty"`
+	Notes        string                   `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	TagIds       []string                 `protobuf:"bytes,8,rep,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
+	CustomFields []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
+	CreatedBy    string                   `protobuf:"bytes,10,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	// Profile fields — see ContactInfo.
+	Salutation     *string `protobuf:"bytes,11,opt,name=salutation,proto3,oneof" json:"salutation,omitempty"`
+	Title          *string `protobuf:"bytes,12,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Mobile         *string `protobuf:"bytes,13,opt,name=mobile,proto3,oneof" json:"mobile,omitempty"`
+	Department     *string `protobuf:"bytes,14,opt,name=department,proto3,oneof" json:"department,omitempty"`
+	AddressStreet  *string `protobuf:"bytes,15,opt,name=address_street,json=addressStreet,proto3,oneof" json:"address_street,omitempty"`
+	AddressZip     *string `protobuf:"bytes,16,opt,name=address_zip,json=addressZip,proto3,oneof" json:"address_zip,omitempty"`
+	AddressCity    *string `protobuf:"bytes,17,opt,name=address_city,json=addressCity,proto3,oneof" json:"address_city,omitempty"`
+	AddressCountry *string `protobuf:"bytes,18,opt,name=address_country,json=addressCountry,proto3,oneof" json:"address_country,omitempty"`
+	Website        *string `protobuf:"bytes,19,opt,name=website,proto3,oneof" json:"website,omitempty"`
+	Linkedin       *string `protobuf:"bytes,20,opt,name=linkedin,proto3,oneof" json:"linkedin,omitempty"`
+	Xing           *string `protobuf:"bytes,21,opt,name=xing,proto3,oneof" json:"xing,omitempty"`
+	Category       *string `protobuf:"bytes,22,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Status         *string `protobuf:"bytes,23,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateContactRequest) Reset() {
@@ -1605,6 +1726,97 @@ func (x *CreateContactRequest) GetCustomFields() []*CustomFieldValueInput {
 func (x *CreateContactRequest) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetSalutation() string {
+	if x != nil && x.Salutation != nil {
+		return *x.Salutation
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetMobile() string {
+	if x != nil && x.Mobile != nil {
+		return *x.Mobile
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetDepartment() string {
+	if x != nil && x.Department != nil {
+		return *x.Department
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetAddressStreet() string {
+	if x != nil && x.AddressStreet != nil {
+		return *x.AddressStreet
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetAddressZip() string {
+	if x != nil && x.AddressZip != nil {
+		return *x.AddressZip
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetAddressCity() string {
+	if x != nil && x.AddressCity != nil {
+		return *x.AddressCity
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetAddressCountry() string {
+	if x != nil && x.AddressCountry != nil {
+		return *x.AddressCountry
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetWebsite() string {
+	if x != nil && x.Website != nil {
+		return *x.Website
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetLinkedin() string {
+	if x != nil && x.Linkedin != nil {
+		return *x.Linkedin
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetXing() string {
+	if x != nil && x.Xing != nil {
+		return *x.Xing
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *CreateContactRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
 	}
 	return ""
 }
@@ -1910,18 +2122,33 @@ func (x *ListContactsResponse) GetTotal() int32 {
 }
 
 type UpdateContactRequest struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	Id            string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	FirstName     *string                  `protobuf:"bytes,2,opt,name=first_name,json=firstName,proto3,oneof" json:"first_name,omitempty"`
-	LastName      *string                  `protobuf:"bytes,3,opt,name=last_name,json=lastName,proto3,oneof" json:"last_name,omitempty"`
-	Email         *string                  `protobuf:"bytes,4,opt,name=email,proto3,oneof" json:"email,omitempty"`
-	Phone         *string                  `protobuf:"bytes,5,opt,name=phone,proto3,oneof" json:"phone,omitempty"`
-	CompanyId     *string                  `protobuf:"bytes,6,opt,name=company_id,json=companyId,proto3,oneof" json:"company_id,omitempty"`
-	Position      *string                  `protobuf:"bytes,7,opt,name=position,proto3,oneof" json:"position,omitempty"`
-	Notes         *string                  `protobuf:"bytes,8,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
-	CustomFields  []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState   `protogen:"open.v1"`
+	Id           string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FirstName    *string                  `protobuf:"bytes,2,opt,name=first_name,json=firstName,proto3,oneof" json:"first_name,omitempty"`
+	LastName     *string                  `protobuf:"bytes,3,opt,name=last_name,json=lastName,proto3,oneof" json:"last_name,omitempty"`
+	Email        *string                  `protobuf:"bytes,4,opt,name=email,proto3,oneof" json:"email,omitempty"`
+	Phone        *string                  `protobuf:"bytes,5,opt,name=phone,proto3,oneof" json:"phone,omitempty"`
+	CompanyId    *string                  `protobuf:"bytes,6,opt,name=company_id,json=companyId,proto3,oneof" json:"company_id,omitempty"`
+	Position     *string                  `protobuf:"bytes,7,opt,name=position,proto3,oneof" json:"position,omitempty"`
+	Notes        *string                  `protobuf:"bytes,8,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	CustomFields []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
+	// Profile fields — see ContactInfo. As with the fields above, an empty
+	// string clears the column; omitting the field leaves it untouched.
+	Salutation     *string `protobuf:"bytes,10,opt,name=salutation,proto3,oneof" json:"salutation,omitempty"`
+	Title          *string `protobuf:"bytes,11,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Mobile         *string `protobuf:"bytes,12,opt,name=mobile,proto3,oneof" json:"mobile,omitempty"`
+	Department     *string `protobuf:"bytes,13,opt,name=department,proto3,oneof" json:"department,omitempty"`
+	AddressStreet  *string `protobuf:"bytes,14,opt,name=address_street,json=addressStreet,proto3,oneof" json:"address_street,omitempty"`
+	AddressZip     *string `protobuf:"bytes,15,opt,name=address_zip,json=addressZip,proto3,oneof" json:"address_zip,omitempty"`
+	AddressCity    *string `protobuf:"bytes,16,opt,name=address_city,json=addressCity,proto3,oneof" json:"address_city,omitempty"`
+	AddressCountry *string `protobuf:"bytes,17,opt,name=address_country,json=addressCountry,proto3,oneof" json:"address_country,omitempty"`
+	Website        *string `protobuf:"bytes,18,opt,name=website,proto3,oneof" json:"website,omitempty"`
+	Linkedin       *string `protobuf:"bytes,19,opt,name=linkedin,proto3,oneof" json:"linkedin,omitempty"`
+	Xing           *string `protobuf:"bytes,20,opt,name=xing,proto3,oneof" json:"xing,omitempty"`
+	Category       *string `protobuf:"bytes,21,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Status         *string `protobuf:"bytes,22,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdateContactRequest) Reset() {
@@ -2015,6 +2242,97 @@ func (x *UpdateContactRequest) GetCustomFields() []*CustomFieldValueInput {
 		return x.CustomFields
 	}
 	return nil
+}
+
+func (x *UpdateContactRequest) GetSalutation() string {
+	if x != nil && x.Salutation != nil {
+		return *x.Salutation
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetMobile() string {
+	if x != nil && x.Mobile != nil {
+		return *x.Mobile
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetDepartment() string {
+	if x != nil && x.Department != nil {
+		return *x.Department
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetAddressStreet() string {
+	if x != nil && x.AddressStreet != nil {
+		return *x.AddressStreet
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetAddressZip() string {
+	if x != nil && x.AddressZip != nil {
+		return *x.AddressZip
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetAddressCity() string {
+	if x != nil && x.AddressCity != nil {
+		return *x.AddressCity
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetAddressCountry() string {
+	if x != nil && x.AddressCountry != nil {
+		return *x.AddressCountry
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetWebsite() string {
+	if x != nil && x.Website != nil {
+		return *x.Website
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetLinkedin() string {
+	if x != nil && x.Linkedin != nil {
+		return *x.Linkedin
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetXing() string {
+	if x != nil && x.Xing != nil {
+		return *x.Xing
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *UpdateContactRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
 }
 
 type UpdateContactResponse struct {
@@ -11920,7 +12238,7 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\x11DeleteTagResponse\"H\n" +
 	"\x15CustomFieldValueInput\x12\x19\n" +
 	"\bfield_id\x18\x01 \x01(\tR\afieldId\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xff\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xf5\t\n" +
 	"\vContactInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -11945,13 +12263,46 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\n" +
 	"visibility\x18\x0f \x01(\tR\n" +
 	"visibility\x12\x1e\n" +
-	"\bowner_id\x18\x10 \x01(\tH\x02R\aownerId\x88\x01\x01\x1a?\n" +
+	"\bowner_id\x18\x10 \x01(\tH\x02R\aownerId\x88\x01\x01\x12#\n" +
+	"\n" +
+	"salutation\x18\x11 \x01(\tH\x03R\n" +
+	"salutation\x88\x01\x01\x12\x19\n" +
+	"\x05title\x18\x12 \x01(\tH\x04R\x05title\x88\x01\x01\x12\x1b\n" +
+	"\x06mobile\x18\x13 \x01(\tH\x05R\x06mobile\x88\x01\x01\x12#\n" +
+	"\n" +
+	"department\x18\x14 \x01(\tH\x06R\n" +
+	"department\x88\x01\x01\x12*\n" +
+	"\x0eaddress_street\x18\x15 \x01(\tH\aR\raddressStreet\x88\x01\x01\x12$\n" +
+	"\vaddress_zip\x18\x16 \x01(\tH\bR\n" +
+	"addressZip\x88\x01\x01\x12&\n" +
+	"\faddress_city\x18\x17 \x01(\tH\tR\vaddressCity\x88\x01\x01\x12,\n" +
+	"\x0faddress_country\x18\x18 \x01(\tH\n" +
+	"R\x0eaddressCountry\x88\x01\x01\x12\x1d\n" +
+	"\awebsite\x18\x19 \x01(\tH\vR\awebsite\x88\x01\x01\x12\x1f\n" +
+	"\blinkedin\x18\x1a \x01(\tH\fR\blinkedin\x88\x01\x01\x12\x17\n" +
+	"\x04xing\x18\x1b \x01(\tH\rR\x04xing\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\x1c \x01(\tH\x0eR\bcategory\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x1d \x01(\tH\x0fR\x06status\x88\x01\x01\x1a?\n" +
 	"\x11CustomFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\r\n" +
 	"\v_company_idB\x0f\n" +
 	"\r_company_nameB\v\n" +
-	"\t_owner_id\"\xdf\x02\n" +
+	"\t_owner_idB\r\n" +
+	"\v_salutationB\b\n" +
+	"\x06_titleB\t\n" +
+	"\a_mobileB\r\n" +
+	"\v_departmentB\x11\n" +
+	"\x0f_address_streetB\x0e\n" +
+	"\f_address_zipB\x0f\n" +
+	"\r_address_cityB\x12\n" +
+	"\x10_address_countryB\n" +
+	"\n" +
+	"\b_websiteB\v\n" +
+	"\t_linkedinB\a\n" +
+	"\x05_xingB\v\n" +
+	"\t_categoryB\t\n" +
+	"\a_status\"\xd5\a\n" +
 	"\x14CreateContactRequest\x12\x1d\n" +
 	"\n" +
 	"first_name\x18\x01 \x01(\tR\tfirstName\x12\x1b\n" +
@@ -11966,8 +12317,41 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\rcustom_fields\x18\t \x03(\v2\x1d.crm.v1.CustomFieldValueInputR\fcustomFields\x12\x1d\n" +
 	"\n" +
 	"created_by\x18\n" +
-	" \x01(\tR\tcreatedByB\r\n" +
-	"\v_company_id\"F\n" +
+	" \x01(\tR\tcreatedBy\x12#\n" +
+	"\n" +
+	"salutation\x18\v \x01(\tH\x01R\n" +
+	"salutation\x88\x01\x01\x12\x19\n" +
+	"\x05title\x18\f \x01(\tH\x02R\x05title\x88\x01\x01\x12\x1b\n" +
+	"\x06mobile\x18\r \x01(\tH\x03R\x06mobile\x88\x01\x01\x12#\n" +
+	"\n" +
+	"department\x18\x0e \x01(\tH\x04R\n" +
+	"department\x88\x01\x01\x12*\n" +
+	"\x0eaddress_street\x18\x0f \x01(\tH\x05R\raddressStreet\x88\x01\x01\x12$\n" +
+	"\vaddress_zip\x18\x10 \x01(\tH\x06R\n" +
+	"addressZip\x88\x01\x01\x12&\n" +
+	"\faddress_city\x18\x11 \x01(\tH\aR\vaddressCity\x88\x01\x01\x12,\n" +
+	"\x0faddress_country\x18\x12 \x01(\tH\bR\x0eaddressCountry\x88\x01\x01\x12\x1d\n" +
+	"\awebsite\x18\x13 \x01(\tH\tR\awebsite\x88\x01\x01\x12\x1f\n" +
+	"\blinkedin\x18\x14 \x01(\tH\n" +
+	"R\blinkedin\x88\x01\x01\x12\x17\n" +
+	"\x04xing\x18\x15 \x01(\tH\vR\x04xing\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\x16 \x01(\tH\fR\bcategory\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x17 \x01(\tH\rR\x06status\x88\x01\x01B\r\n" +
+	"\v_company_idB\r\n" +
+	"\v_salutationB\b\n" +
+	"\x06_titleB\t\n" +
+	"\a_mobileB\r\n" +
+	"\v_departmentB\x11\n" +
+	"\x0f_address_streetB\x0e\n" +
+	"\f_address_zipB\x0f\n" +
+	"\r_address_cityB\x12\n" +
+	"\x10_address_countryB\n" +
+	"\n" +
+	"\b_websiteB\v\n" +
+	"\t_linkedinB\a\n" +
+	"\x05_xingB\v\n" +
+	"\t_categoryB\t\n" +
+	"\a_status\"F\n" +
 	"\x15CreateContactResponse\x12-\n" +
 	"\acontact\x18\x01 \x01(\v2\x13.crm.v1.ContactInfoR\acontact\"#\n" +
 	"\x11GetContactRequest\x12\x0e\n" +
@@ -11990,7 +12374,7 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\v_company_id\"]\n" +
 	"\x14ListContactsResponse\x12/\n" +
 	"\bcontacts\x18\x01 \x03(\v2\x13.crm.v1.ContactInfoR\bcontacts\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\x9d\x03\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x93\b\n" +
 	"\x14UpdateContactRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
 	"\n" +
@@ -12002,7 +12386,27 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"company_id\x18\x06 \x01(\tH\x04R\tcompanyId\x88\x01\x01\x12\x1f\n" +
 	"\bposition\x18\a \x01(\tH\x05R\bposition\x88\x01\x01\x12\x19\n" +
 	"\x05notes\x18\b \x01(\tH\x06R\x05notes\x88\x01\x01\x12B\n" +
-	"\rcustom_fields\x18\t \x03(\v2\x1d.crm.v1.CustomFieldValueInputR\fcustomFieldsB\r\n" +
+	"\rcustom_fields\x18\t \x03(\v2\x1d.crm.v1.CustomFieldValueInputR\fcustomFields\x12#\n" +
+	"\n" +
+	"salutation\x18\n" +
+	" \x01(\tH\aR\n" +
+	"salutation\x88\x01\x01\x12\x19\n" +
+	"\x05title\x18\v \x01(\tH\bR\x05title\x88\x01\x01\x12\x1b\n" +
+	"\x06mobile\x18\f \x01(\tH\tR\x06mobile\x88\x01\x01\x12#\n" +
+	"\n" +
+	"department\x18\r \x01(\tH\n" +
+	"R\n" +
+	"department\x88\x01\x01\x12*\n" +
+	"\x0eaddress_street\x18\x0e \x01(\tH\vR\raddressStreet\x88\x01\x01\x12$\n" +
+	"\vaddress_zip\x18\x0f \x01(\tH\fR\n" +
+	"addressZip\x88\x01\x01\x12&\n" +
+	"\faddress_city\x18\x10 \x01(\tH\rR\vaddressCity\x88\x01\x01\x12,\n" +
+	"\x0faddress_country\x18\x11 \x01(\tH\x0eR\x0eaddressCountry\x88\x01\x01\x12\x1d\n" +
+	"\awebsite\x18\x12 \x01(\tH\x0fR\awebsite\x88\x01\x01\x12\x1f\n" +
+	"\blinkedin\x18\x13 \x01(\tH\x10R\blinkedin\x88\x01\x01\x12\x17\n" +
+	"\x04xing\x18\x14 \x01(\tH\x11R\x04xing\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\x15 \x01(\tH\x12R\bcategory\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x16 \x01(\tH\x13R\x06status\x88\x01\x01B\r\n" +
 	"\v_first_nameB\f\n" +
 	"\n" +
 	"_last_nameB\b\n" +
@@ -12010,7 +12414,21 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\x06_phoneB\r\n" +
 	"\v_company_idB\v\n" +
 	"\t_positionB\b\n" +
-	"\x06_notes\"F\n" +
+	"\x06_notesB\r\n" +
+	"\v_salutationB\b\n" +
+	"\x06_titleB\t\n" +
+	"\a_mobileB\r\n" +
+	"\v_departmentB\x11\n" +
+	"\x0f_address_streetB\x0e\n" +
+	"\f_address_zipB\x0f\n" +
+	"\r_address_cityB\x12\n" +
+	"\x10_address_countryB\n" +
+	"\n" +
+	"\b_websiteB\v\n" +
+	"\t_linkedinB\a\n" +
+	"\x05_xingB\v\n" +
+	"\t_categoryB\t\n" +
+	"\a_status\"F\n" +
 	"\x15UpdateContactResponse\x12-\n" +
 	"\acontact\x18\x01 \x01(\v2\x13.crm.v1.ContactInfoR\acontact\"&\n" +
 	"\x14DeleteContactRequest\x12\x0e\n" +

@@ -18,6 +18,26 @@ type customFieldValueRequest struct {
 	Value   string `json:"value"`
 }
 
+// contactProfileFields mirrors contact.ProfileFields on the HTTP layer. Shared
+// by create and update so the two request shapes cannot drift apart. The
+// lengths match the column widths of migration 000314 — an oversized value
+// should be a 400 here, not a database error downstream.
+type contactProfileFields struct {
+	Salutation     *string `json:"salutation,omitempty" validate:"omitempty,oneof=Herr Frau"`
+	Title          *string `json:"title,omitempty" validate:"omitempty,max=50"`
+	Mobile         *string `json:"mobile,omitempty" validate:"omitempty,phone_dach"`
+	Department     *string `json:"department,omitempty" validate:"omitempty,max=100"`
+	AddressStreet  *string `json:"address_street,omitempty" validate:"omitempty,max=255"`
+	AddressZip     *string `json:"address_zip,omitempty" validate:"omitempty,max=20"`
+	AddressCity    *string `json:"address_city,omitempty" validate:"omitempty,max=100"`
+	AddressCountry *string `json:"address_country,omitempty" validate:"omitempty,max=100"`
+	Website        *string `json:"website,omitempty" validate:"omitempty,max=255"`
+	LinkedIn       *string `json:"linkedin,omitempty" validate:"omitempty,max=255"`
+	Xing           *string `json:"xing,omitempty" validate:"omitempty,max=255"`
+	Category       *string `json:"category,omitempty" validate:"omitempty,oneof=employee customer partner"`
+	Status         *string `json:"status,omitempty" validate:"omitempty,oneof=active prospect inactive"`
+}
+
 type createContactRequest struct {
 	FirstName    string                    `json:"first_name" validate:"required"`
 	LastName     string                    `json:"last_name" validate:"required"`
@@ -28,6 +48,7 @@ type createContactRequest struct {
 	Notes        string                    `json:"notes"`
 	TagIDs       []string                  `json:"tag_ids" validate:"omitempty,dive,uuid"`
 	CustomFields []customFieldValueRequest `json:"custom_fields"`
+	contactProfileFields
 }
 
 func (c *CRMRoutes) HandleCreateContact(w http.ResponseWriter, r *http.Request) {
@@ -45,14 +66,27 @@ func (c *CRMRoutes) HandleCreateContact(w http.ResponseWriter, r *http.Request) 
 	}
 
 	grpcReq := &crmv1.CreateContactRequest{
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Email:     req.Email,
-		Phone:     req.Phone,
-		Position:  req.Position,
-		Notes:     req.Notes,
-		TagIds:    req.TagIDs,
-		CreatedBy: userID,
+		FirstName:      req.FirstName,
+		LastName:       req.LastName,
+		Email:          req.Email,
+		Phone:          req.Phone,
+		Position:       req.Position,
+		Notes:          req.Notes,
+		TagIds:         req.TagIDs,
+		CreatedBy:      userID,
+		Salutation:     req.Salutation,
+		Title:          req.Title,
+		Mobile:         req.Mobile,
+		Department:     req.Department,
+		AddressStreet:  req.AddressStreet,
+		AddressZip:     req.AddressZip,
+		AddressCity:    req.AddressCity,
+		AddressCountry: req.AddressCountry,
+		Website:        req.Website,
+		Linkedin:       req.LinkedIn,
+		Xing:           req.Xing,
+		Category:       req.Category,
+		Status:         req.Status,
 	}
 
 	if req.CompanyID != nil {
@@ -147,6 +181,7 @@ type updateContactRequest struct {
 	Position     *string                   `json:"position,omitempty"`
 	Notes        *string                   `json:"notes,omitempty"`
 	CustomFields []customFieldValueRequest `json:"custom_fields"`
+	contactProfileFields
 }
 
 func (c *CRMRoutes) HandleUpdateContact(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +223,21 @@ func (c *CRMRoutes) HandleUpdateContact(w http.ResponseWriter, r *http.Request) 
 	if req.Notes != nil {
 		grpcReq.Notes = req.Notes
 	}
+	// Straight assignment: these are already pointers, and nil carries the same
+	// "not supplied" meaning through to the service.
+	grpcReq.Salutation = req.Salutation
+	grpcReq.Title = req.Title
+	grpcReq.Mobile = req.Mobile
+	grpcReq.Department = req.Department
+	grpcReq.AddressStreet = req.AddressStreet
+	grpcReq.AddressZip = req.AddressZip
+	grpcReq.AddressCity = req.AddressCity
+	grpcReq.AddressCountry = req.AddressCountry
+	grpcReq.Website = req.Website
+	grpcReq.Linkedin = req.LinkedIn
+	grpcReq.Xing = req.Xing
+	grpcReq.Category = req.Category
+	grpcReq.Status = req.Status
 	for _, cf := range req.CustomFields {
 		grpcReq.CustomFields = append(grpcReq.CustomFields, &crmv1.CustomFieldValueInput{
 			FieldId: cf.FieldID,

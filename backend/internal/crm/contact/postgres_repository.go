@@ -24,6 +24,18 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
+// contactColumns is the column list behind every contact SELECT in this file.
+// It was spelled out nine times until the 000314 profile fields had to be added
+// to all of them; scanContactRow reads exactly this order, so the two belong
+// together and change together.
+//
+// Note the lifecycle_stage / lead_* columns are deliberately absent: no read
+// path in this repository loads them today.
+const contactColumns = `id, first_name, last_name, email, phone, company_id, position, notes,
+	       visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at,
+	       salutation, title, mobile, department, address_street, address_zip, address_city,
+	       address_country, website, linkedin, xing, category, status`
+
 func (r *PostgresRepository) Create(ctx context.Context, contact *models.Contact) error {
 	vis := contact.Visibility
 	if vis == "" {
@@ -35,28 +47,34 @@ func (r *PostgresRepository) Create(ctx context.Context, contact *models.Contact
 	}
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO contacts (id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, tenant_id, created_by, created_at, updated_at,
-		                       lifecycle_stage, lead_source, lead_score, lead_temperature, lead_status, lead_company)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
+		                       lifecycle_stage, lead_source, lead_score, lead_temperature, lead_status, lead_company,
+		                       salutation, title, mobile, department, address_street, address_zip, address_city,
+		                       address_country, website, linkedin, xing, category, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+		         $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)`,
 		contact.ID, contact.FirstName, contact.LastName, contact.Email, contact.Phone,
 		contact.CompanyID, contact.Position, contact.Notes,
 		vis, contact.OwnerID, contact.TenantID,
 		contact.CreatedBy, contact.CreatedAt, contact.UpdatedAt,
 		stage, contact.LeadSource, contact.LeadScore, contact.LeadTemperature,
 		contact.LeadStatus, contact.LeadCompany,
+		contact.Salutation, contact.Title, contact.Mobile, contact.Department,
+		contact.AddressStreet, contact.AddressZip, contact.AddressCity, contact.AddressCountry,
+		contact.Website, contact.LinkedIn, contact.Xing, contact.Category, contact.Status,
 	)
 	return err
 }
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Contact, error) {
 	return r.scanContact(r.pool.QueryRow(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at
+		`SELECT `+contactColumns+`
 		 FROM contacts WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	))
 }
 
 func (r *PostgresRepository) GetByEmail(ctx context.Context, email string, tenantID uuid.UUID) (*models.Contact, error) {
 	return r.scanContact(r.pool.QueryRow(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at
+		`SELECT `+contactColumns+`
 		 FROM contacts WHERE LOWER(email) = LOWER($1) AND tenant_id = $2`, email, tenantID,
 	))
 }
@@ -123,7 +141,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 
 	// Query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at
+		SELECT `+contactColumns+`
 		FROM contacts %s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d
@@ -152,12 +170,18 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 func (r *PostgresRepository) Update(ctx context.Context, contact *models.Contact, tenantID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE contacts SET first_name = $1, last_name = $2, email = $3, phone = $4,
-		 company_id = $5, position = $6, notes = $7, visibility = $8, owner_id = $9, updated_at = $10
+		 company_id = $5, position = $6, notes = $7, visibility = $8, owner_id = $9, updated_at = $10,
+		 salutation = $13, title = $14, mobile = $15, department = $16,
+		 address_street = $17, address_zip = $18, address_city = $19, address_country = $20,
+		 website = $21, linkedin = $22, xing = $23, category = $24, status = $25
 		 WHERE id = $11 AND tenant_id = $12`,
 		contact.FirstName, contact.LastName, contact.Email, contact.Phone,
 		contact.CompanyID, contact.Position, contact.Notes,
 		contact.Visibility, contact.OwnerID,
 		contact.UpdatedAt, contact.ID, tenantID,
+		contact.Salutation, contact.Title, contact.Mobile, contact.Department,
+		contact.AddressStreet, contact.AddressZip, contact.AddressCity, contact.AddressCountry,
+		contact.Website, contact.LinkedIn, contact.Xing, contact.Category, contact.Status,
 	)
 	return err
 }
@@ -241,7 +265,7 @@ func (r *PostgresRepository) ListWithVisibility(ctx context.Context, userID uuid
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at
+		SELECT `+contactColumns+`
 		FROM contacts %s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d
@@ -272,7 +296,7 @@ func (r *PostgresRepository) ListByIDs(ctx context.Context, ids []uuid.UUID, ten
 		return nil, nil
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at
+		`SELECT `+contactColumns+`
 		 FROM contacts WHERE id = ANY($1) AND tenant_id = $2`, ids, tenantID,
 	)
 	if err != nil {
@@ -293,7 +317,7 @@ func (r *PostgresRepository) ListByIDs(ctx context.Context, ids []uuid.UUID, ten
 
 func (r *PostgresRepository) ListAll(ctx context.Context, userID uuid.UUID, isAdmin bool, tenantID uuid.UUID) ([]*models.Contact, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at
+		`SELECT `+contactColumns+`
 		 FROM contacts
 		 WHERE tenant_id = $1 AND (visibility = 'shared' OR owner_id = $2 OR $3 = true)
 		 ORDER BY created_at DESC`, tenantID, userID, isAdmin,
@@ -552,7 +576,7 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, contac
 	// 1. Email exact match
 	if src.Email != nil && *src.Email != "" {
 		rows, queryErr := r.pool.Query(ctx,
-			`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at
+			`SELECT `+contactColumns+`
 			 FROM contacts
 			 WHERE LOWER(email) = LOWER($1) AND id != $2 AND merged_into_id IS NULL AND tenant_id = $3
 			 LIMIT 10`,
@@ -576,7 +600,7 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, contac
 	// 2. Trigram name match (>= 0.7 similarity)
 	fullName := strings.ToLower(src.FirstName + " " + src.LastName)
 	rows2, queryErr2 := r.pool.Query(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at,
+		`SELECT `+contactColumns+`,
 		        similarity(lower(first_name) || ' ' || lower(last_name), $1) AS sim
 		 FROM contacts
 		 WHERE similarity(lower(first_name) || ' ' || lower(last_name), $1) >= 0.7
@@ -598,6 +622,9 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, contac
 				&c.Visibility, &c.OwnerID, &c.MergedIntoID,
 				&c.TenantID,
 				&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
+				&c.Salutation, &c.Title, &c.Mobile, &c.Department,
+				&c.AddressStreet, &c.AddressZip, &c.AddressCity, &c.AddressCountry,
+				&c.Website, &c.LinkedIn, &c.Xing, &c.Category, &c.Status,
 				&sim,
 			)
 			if scanErr == nil {
@@ -623,7 +650,7 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, contac
 	// 3. Phone exact match
 	if src.Phone != nil && *src.Phone != "" {
 		rows3, queryErr3 := r.pool.Query(ctx,
-			`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, tenant_id, created_by, created_at, updated_at
+			`SELECT `+contactColumns+`
 			 FROM contacts
 			 WHERE phone = $1 AND id != $2 AND merged_into_id IS NULL AND tenant_id = $3
 			 LIMIT 10`,
@@ -736,8 +763,15 @@ func (r *PostgresRepository) MergeInto(ctx context.Context, primaryID, duplicate
 	return tx.Commit(ctx)
 }
 
-// Helper to scan a single row into Contact
-func (r *PostgresRepository) scanContact(row pgx.Row) (*models.Contact, error) {
+// scanTarget is what pgx.Row and pgx.Rows have in common. One scan body for
+// both keeps the field order in step with contactColumns; two copies had to be
+// edited in lockstep and there is no reason for that.
+type scanTarget interface {
+	Scan(dest ...any) error
+}
+
+// scanContactRow reads exactly the columns of contactColumns, in that order.
+func scanContactRow(row scanTarget) (*models.Contact, error) {
 	var c models.Contact
 	err := row.Scan(
 		&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
@@ -745,28 +779,29 @@ func (r *PostgresRepository) scanContact(row pgx.Row) (*models.Contact, error) {
 		&c.Visibility, &c.OwnerID, &c.MergedIntoID,
 		&c.TenantID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
+		&c.Salutation, &c.Title, &c.Mobile, &c.Department,
+		&c.AddressStreet, &c.AddressZip, &c.AddressCity, &c.AddressCountry,
+		&c.Website, &c.LinkedIn, &c.Xing, &c.Category, &c.Status,
 	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrContactNotFound
-	}
 	if err != nil {
 		return nil, err
 	}
 	return &c, nil
 }
 
-// Helper to scan rows iterator
-func (r *PostgresRepository) scanContactFromRows(rows pgx.Rows) (*models.Contact, error) {
-	var c models.Contact
-	err := rows.Scan(
-		&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
-		&c.CompanyID, &c.Position, &c.Notes,
-		&c.Visibility, &c.OwnerID, &c.MergedIntoID,
-		&c.TenantID,
-		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
-	)
+// Helper to scan a single row into Contact
+func (r *PostgresRepository) scanContact(row pgx.Row) (*models.Contact, error) {
+	c, err := scanContactRow(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrContactNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	return &c, nil
+	return c, nil
+}
+
+// Helper to scan rows iterator
+func (r *PostgresRepository) scanContactFromRows(rows pgx.Rows) (*models.Contact, error) {
+	return scanContactRow(rows)
 }

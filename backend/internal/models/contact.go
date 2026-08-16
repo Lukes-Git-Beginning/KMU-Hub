@@ -36,6 +36,23 @@ type Contact struct {
 	LeadStatus      *string `json:"lead_status,omitempty"`      // new, contacted, qualified, disqualified
 	// LeadCompany names the employer before a companies row exists for it.
 	LeadCompany *string `json:"lead_company,omitempty"`
+
+	// Profile fields (migration 000314). The contact form always showed these;
+	// until now the backend dropped them on save. Category and Status describe
+	// the relationship and are independent of the Lead* pipeline fields above.
+	Salutation     *string `json:"salutation,omitempty"` // Herr, Frau
+	Title          *string `json:"title,omitempty"`      // academic title; job role is Position
+	Mobile         *string `json:"mobile,omitempty"`
+	Department     *string `json:"department,omitempty"`
+	AddressStreet  *string `json:"address_street,omitempty"`
+	AddressZip     *string `json:"address_zip,omitempty"`
+	AddressCity    *string `json:"address_city,omitempty"`
+	AddressCountry *string `json:"address_country,omitempty"`
+	Website        *string `json:"website,omitempty"`
+	LinkedIn       *string `json:"linkedin,omitempty"`
+	Xing           *string `json:"xing,omitempty"`
+	Category       *string `json:"category,omitempty"` // employee, customer, partner
+	Status         *string `json:"status,omitempty"`   // active, prospect, inactive
 }
 
 // ContactWithRelations includes associated data for API responses

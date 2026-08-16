@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/mail"
+	"slices"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ type CreateInput struct {
 	// Lead is set only by CreateLead; nil means an ordinary contact, which is
 	// what every existing caller creates.
 	Lead *LeadIntake
+	ProfileFields
 }
 
 // LeadIntake carries the lifecycle columns for a contact created through the
@@ -48,6 +50,76 @@ type LeadIntake struct {
 	Score   *int16
 	Status  *string
 	Company *string
+}
+
+// ProfileFields are the contact-form fields added in migration 000314. Shared
+// by CreateInput and UpdateInput so the two cannot drift apart. A nil field
+// means "not supplied"; an empty string clears the column.
+//
+// Category and Status describe the relationship, not the sales pipeline --
+// LeadIntake above owns that.
+type ProfileFields struct {
+	Salutation     *string
+	Title          *string
+	Mobile         *string
+	Department     *string
+	AddressStreet  *string
+	AddressZip     *string
+	AddressCity    *string
+	AddressCountry *string
+	Website        *string
+	LinkedIn       *string
+	Xing           *string
+	Category       *string
+	Status         *string
+}
+
+// validate mirrors the CHECK constraints so an invalid value fails as a
+// validation error rather than a database error.
+func (p ProfileFields) validate() error {
+	if err := checkEnum(p.Salutation, ErrInvalidSalutation, "Herr", "Frau"); err != nil {
+		return err
+	}
+	if err := checkEnum(p.Category, ErrInvalidCategory, "employee", "customer", "partner"); err != nil {
+		return err
+	}
+	return checkEnum(p.Status, ErrInvalidStatus, "active", "prospect", "inactive")
+}
+
+// checkEnum accepts nil and the empty string (both mean "no value") plus the
+// allowed vocabulary.
+func checkEnum(v *string, invalid error, allowed ...string) error {
+	if v == nil || strings.TrimSpace(*v) == "" {
+		return nil
+	}
+	if slices.Contains(allowed, strings.TrimSpace(*v)) {
+		return nil
+	}
+	return invalid
+}
+
+// applyTo writes every supplied field onto the contact. Used by Create (where
+// all fields are supplied at once) and by Update (which relies on nil meaning
+// "leave alone").
+func (p ProfileFields) applyTo(c *models.Contact) {
+	assign := func(dst **string, src *string) {
+		if src != nil {
+			*dst = trimStringPtr(src)
+		}
+	}
+	assign(&c.Salutation, p.Salutation)
+	assign(&c.Title, p.Title)
+	assign(&c.Mobile, p.Mobile)
+	assign(&c.Department, p.Department)
+	assign(&c.AddressStreet, p.AddressStreet)
+	assign(&c.AddressZip, p.AddressZip)
+	assign(&c.AddressCity, p.AddressCity)
+	assign(&c.AddressCountry, p.AddressCountry)
+	assign(&c.Website, p.Website)
+	assign(&c.LinkedIn, p.LinkedIn)
+	assign(&c.Xing, p.Xing)
+	assign(&c.Category, p.Category)
+	assign(&c.Status, p.Status)
 }
 
 // Create creates a new contact
@@ -106,6 +178,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Contac
 		}
 	}
 
+	if err := input.ProfileFields.validate(); err != nil {
+		return nil, err
+	}
+
 	contact := &models.Contact{
 		ID:             uuid.New(),
 		FirstName:      firstName,
@@ -122,6 +198,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Contac
 		UpdatedAt:      time.Now(),
 		LifecycleStage: LifecycleCustomer,
 	}
+	input.ProfileFields.applyTo(contact)
 
 	if input.Lead != nil {
 		contact.LifecycleStage = input.Lead.Stage
@@ -229,6 +306,7 @@ type UpdateInput struct {
 	Position     *string
 	Notes        *string
 	CustomFields map[uuid.UUID]any
+	ProfileFields
 }
 
 // Update updates an existing contact scoped to a tenant
@@ -300,6 +378,11 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput, t
 	if input.Notes != nil {
 		contact.Notes = input.Notes
 	}
+
+	if err := input.ProfileFields.validate(); err != nil {
+		return nil, err
+	}
+	input.ProfileFields.applyTo(contact)
 
 	contact.UpdatedAt = time.Now()
 

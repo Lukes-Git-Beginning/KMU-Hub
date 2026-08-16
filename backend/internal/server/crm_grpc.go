@@ -420,6 +420,22 @@ func (s *CRMGRPCServer) CreateContact(ctx context.Context, req *crmv1.CreateCont
 		input.Notes = &req.Notes
 	}
 
+	input.ProfileFields = contact.ProfileFields{
+		Salutation:     req.Salutation,
+		Title:          req.Title,
+		Mobile:         req.Mobile,
+		Department:     req.Department,
+		AddressStreet:  req.AddressStreet,
+		AddressZip:     req.AddressZip,
+		AddressCity:    req.AddressCity,
+		AddressCountry: req.AddressCountry,
+		Website:        req.Website,
+		LinkedIn:       req.Linkedin,
+		Xing:           req.Xing,
+		Category:       req.Category,
+		Status:         req.Status,
+	}
+
 	// Parse tag IDs
 	for _, tagIDStr := range req.TagIds {
 		tagID, parseErr := uuid.Parse(tagIDStr)
@@ -590,6 +606,24 @@ func (s *CRMGRPCServer) UpdateContact(ctx context.Context, req *crmv1.UpdateCont
 	}
 	if req.Notes != nil {
 		input.Notes = req.Notes
+	}
+
+	// Pass the pointers straight through: nil means "not supplied", an empty
+	// string clears the column — the same convention the fields above use.
+	input.ProfileFields = contact.ProfileFields{
+		Salutation:     req.Salutation,
+		Title:          req.Title,
+		Mobile:         req.Mobile,
+		Department:     req.Department,
+		AddressStreet:  req.AddressStreet,
+		AddressZip:     req.AddressZip,
+		AddressCity:    req.AddressCity,
+		AddressCountry: req.AddressCountry,
+		Website:        req.Website,
+		LinkedIn:       req.Linkedin,
+		Xing:           req.Xing,
+		Category:       req.Category,
+		Status:         req.Status,
 	}
 
 	// Parse custom field values
@@ -2573,6 +2607,22 @@ func toContactInfo(c *models.ContactWithRelations) *crmv1.ContactInfo {
 	if c.Notes != nil {
 		info.Notes = *c.Notes
 	}
+
+	// Profile fields (migration 000314) — optional on the wire, so a nil column
+	// stays absent rather than becoming an empty string.
+	info.Salutation = c.Salutation
+	info.Title = c.Title
+	info.Mobile = c.Mobile
+	info.Department = c.Department
+	info.AddressStreet = c.AddressStreet
+	info.AddressZip = c.AddressZip
+	info.AddressCity = c.AddressCity
+	info.AddressCountry = c.AddressCountry
+	info.Website = c.Website
+	info.Linkedin = c.LinkedIn
+	info.Xing = c.Xing
+	info.Category = c.Category
+	info.Status = c.Status
 
 	for _, t := range c.Tags {
 		info.Tags = append(info.Tags, toTagInfo(t))

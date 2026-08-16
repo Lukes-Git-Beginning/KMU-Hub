@@ -34176,6 +34176,10 @@ components:
 
     # Contacts
     ContactInfo:
+      # Note the mixed casing: the older properties are camelCase while the
+      # gateway actually emits protobuf JSON (snake_case) — a known drift
+      # (X-3), which is why the desktop adapter reads both spellings. Fields
+      # added since then follow the wire instead of the drift.
       type: object
       properties:
         id:
@@ -34190,8 +34194,12 @@ components:
           format: email
         phone:
           type: string
+        position:
+          type: string
+          description: Job role, e.g. "Geschäftsführer"
         title:
           type: string
+          description: Academic title (Dr./Prof.); the job role is `position`
         companyId:
           type: string
           format: uuid
@@ -34199,6 +34207,35 @@ components:
           type: string
         notes:
           type: string
+        salutation:
+          type: string
+          enum: [Herr, Frau]
+        mobile:
+          type: string
+        department:
+          type: string
+        address_street:
+          type: string
+        address_zip:
+          type: string
+        address_city:
+          type: string
+        address_country:
+          type: string
+        website:
+          type: string
+        linkedin:
+          type: string
+        xing:
+          type: string
+        category:
+          type: string
+          enum: [employee, customer, partner]
+          description: Relationship type; unrelated to the lead pipeline
+        status:
+          type: string
+          enum: [active, prospect, inactive]
+          description: Relationship state; unrelated to the lead pipeline
         tags:
           type: array
           items:
@@ -34226,13 +34263,44 @@ components:
           format: email
         phone:
           type: string
+        position:
+          type: string
+          description: Job role, e.g. "Geschäftsführer"
         title:
           type: string
+          description: Academic title (Dr./Prof.); the job role is `position`
         company_id:
           type: string
           format: uuid
         notes:
           type: string
+        salutation:
+          type: string
+          enum: [Herr, Frau]
+        mobile:
+          type: string
+        department:
+          type: string
+        address_street:
+          type: string
+        address_zip:
+          type: string
+        address_city:
+          type: string
+        address_country:
+          type: string
+        website:
+          type: string
+        linkedin:
+          type: string
+        xing:
+          type: string
+        category:
+          type: string
+          enum: [employee, customer, partner]
+        status:
+          type: string
+          enum: [active, prospect, inactive]
         tag_ids:
           type: array
           items:
@@ -34243,6 +34311,8 @@ components:
           additionalProperties: true
 
     UpdateContactRequest:
+      # Omitting a property leaves the field untouched; sending an empty string
+      # clears it.
       type: object
       properties:
         first_name:
@@ -34254,13 +34324,44 @@ components:
           format: email
         phone:
           type: string
+        position:
+          type: string
+          description: Job role, e.g. "Geschäftsführer"
         title:
           type: string
+          description: Academic title (Dr./Prof.); the job role is `position`
         company_id:
           type: string
           format: uuid
         notes:
           type: string
+        salutation:
+          type: string
+          enum: [Herr, Frau]
+        mobile:
+          type: string
+        department:
+          type: string
+        address_street:
+          type: string
+        address_zip:
+          type: string
+        address_city:
+          type: string
+        address_country:
+          type: string
+        website:
+          type: string
+        linkedin:
+          type: string
+        xing:
+          type: string
+        category:
+          type: string
+          enum: [employee, customer, partner]
+        status:
+          type: string
+          enum: [active, prospect, inactive]
         custom_fields:
           type: object
           additionalProperties: true

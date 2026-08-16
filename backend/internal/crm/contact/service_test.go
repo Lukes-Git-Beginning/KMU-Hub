@@ -1974,3 +1974,127 @@ func TestService_List_ListError(t *testing.T) {
 
 	assert.Error(t, err)
 }
+
+// ---------------------------------------------------------------------------
+// Profile fields (migration 000314)
+//
+// These are the fields the contact form always showed and the backend used to
+// drop on save (G0-6). The round-trip test is the one that would have caught
+// the original defect.
+// ---------------------------------------------------------------------------
+
+func TestService_Create_ProfileFields_RoundTrip(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	str := func(s string) *string { return &s }
+	input := CreateInput{
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		TenantID:  uuid.New(),
+		ProfileFields: ProfileFields{
+			Salutation:     str("Herr"),
+			Title:          str("Dr."),
+			Mobile:         str("+49 170 1234567"),
+			Department:     str("Einkauf"),
+			AddressStreet:  str("Hauptstraße 1"),
+			AddressZip:     str("55131"),
+			AddressCity:    str("Mainz"),
+			AddressCountry: str("Deutschland"),
+			Website:        str("https://example.com"),
+			LinkedIn:       str("https://linkedin.com/in/jdoe"),
+			Xing:           str("https://xing.com/profile/jdoe"),
+			Category:       str("partner"),
+			Status:         str("prospect"),
+		},
+	}
+
+	contact, err := svc.Create(context.Background(), input)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Herr", *contact.Salutation)
+	assert.Equal(t, "Dr.", *contact.Title)
+	assert.Equal(t, "+49 170 1234567", *contact.Mobile)
+	assert.Equal(t, "Einkauf", *contact.Department)
+	assert.Equal(t, "Hauptstraße 1", *contact.AddressStreet)
+	assert.Equal(t, "55131", *contact.AddressZip)
+	assert.Equal(t, "Mainz", *contact.AddressCity)
+	assert.Equal(t, "Deutschland", *contact.AddressCountry)
+	assert.Equal(t, "https://example.com", *contact.Website)
+	assert.Equal(t, "https://linkedin.com/in/jdoe", *contact.LinkedIn)
+	assert.Equal(t, "https://xing.com/profile/jdoe", *contact.Xing)
+	assert.Equal(t, "partner", *contact.Category)
+	assert.Equal(t, "prospect", *contact.Status)
+}
+
+func TestService_Create_ProfileFields_Omitted(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contact, err := svc.Create(context.Background(), CreateInput{
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		TenantID:  uuid.New(),
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, contact.Salutation)
+	assert.Nil(t, contact.Mobile)
+	assert.Nil(t, contact.AddressCity)
+	assert.Nil(t, contact.Category)
+}
+
+func TestService_Create_ProfileFields_RejectsUnknownEnums(t *testing.T) {
+	str := func(s string) *string { return &s }
+	cases := []struct {
+		name  string
+		field ProfileFields
+		want  error
+	}{
+		{"salutation", ProfileFields{Salutation: str("Divers")}, ErrInvalidSalutation},
+		{"category", ProfileFields{Category: str("supplier")}, ErrInvalidCategory},
+		{"status", ProfileFields{Status: str("archived")}, ErrInvalidStatus},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := NewService(NewMockRepository())
+			_, err := svc.Create(context.Background(), CreateInput{
+				FirstName:     "John",
+				LastName:      "Doe",
+				CreatedBy:     uuid.New(),
+				TenantID:      uuid.New(),
+				ProfileFields: tc.field,
+			})
+			assert.ErrorIs(t, err, tc.want)
+		})
+	}
+}
+
+func TestService_Update_ProfileFields_EmptyStringClears(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+
+	str := func(s string) *string { return &s }
+	created, err := svc.Create(context.Background(), CreateInput{
+		FirstName:     "John",
+		LastName:      "Doe",
+		CreatedBy:     uuid.New(),
+		TenantID:      tenantID,
+		ProfileFields: ProfileFields{Mobile: str("+49 170 1234567"), Department: str("Einkauf")},
+	})
+	require.NoError(t, err)
+
+	// Empty string clears; an omitted field is left alone.
+	updated, err := svc.Update(context.Background(), created.ID, UpdateInput{
+		ProfileFields: ProfileFields{Mobile: str("")},
+	}, tenantID)
+
+	require.NoError(t, err)
+	assert.Nil(t, updated.Mobile, "empty string should clear the field")
+	require.NotNil(t, updated.Department, "omitted field should survive the update")
+	assert.Equal(t, "Einkauf", *updated.Department)
+}
