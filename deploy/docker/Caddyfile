@@ -29,9 +29,31 @@ s3.zentria.tech {
 # project's default network — hence the service name works as an upstream here
 # while deploy.sh never builds it.
 #
-# Staging host first: this block proves the container end to end before the
-# apex A record moves. Replace with `zentria.tech` + a `www` redirect once the
-# checks pass, and drop this one.
+# Headers match what Vercel served, so nothing regresses on the switch. HSTS
+# deliberately without includeSubDomains: turn.zentria.tech is a TURN server on
+# a different host and has no HTTPS to force.
+zentria.tech {
+	header {
+		-Server
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Strict-Transport-Security "max-age=31536000"
+	}
+
+	reverse_proxy website:4321
+}
+
+# astro.config.mjs declares https://zentria.tech as the canonical site, so www
+# redirects rather than serving a duplicate.
+www.zentria.tech {
+	redir https://zentria.tech{uri} permanent
+}
+
+# Staging host, kept until the apex has run clean for a day. Then delete this
+# block and the neu.zentria.tech A record with it.
 neu.zentria.tech {
 	header {
 		-Server
