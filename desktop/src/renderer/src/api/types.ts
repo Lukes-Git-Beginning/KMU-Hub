@@ -109,6 +109,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/me/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get own effective permissions
+         * @description Resolved multi-role union of the authenticated account: the roles it holds and, per fine-grained capability key, the widest scope any of those roles grants, with the account's per-user overrides (R-6) folded in — deny drops a key into deniedByOverride, allow sets its scope and tags the grant with the "override" source. The account is taken from the JWT, never from the request. No permission guard — every signed-in user may read their own rights.
+         */
+        get: operations["getMyEffectivePermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/profile": {
         parameters: {
             query?: never;
@@ -189,6 +209,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Provision a tenant
+         * @description Creates a tenant, activates its modules and issues the invitation for its first administrator, all in one transaction. Requires the tenants:write permission, which only the platform_admin role holds — a tenant administrator cannot create tenants. The plaintext invitation token is returned once and never again; without it the tenant has no way in. An admin_email that already has an account, or an open invitation in any tenant, is rejected with 409.
+         */
+        post: operations["provisionTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations": {
         parameters: {
             query?: never;
@@ -204,7 +244,7 @@ export interface paths {
         put?: never;
         /**
          * Create user invitation
-         * @description Creates an invitation to join the system. Requires admin or manager role.
+         * @description Creates an invitation to join the caller's tenant. Requires admin or manager role. An active user and a pending, unexpired invitation each occupy one seat; if the tenant has a seat limit booked and no seat is free, the request is rejected with 409.
          */
         post: operations["createInvitation"];
         delete?: never;
@@ -304,15 +344,243 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Assign role to user
-         * @description Requires admin role.
+         * Assign a role to an account
+         * @description Adds a role — a system preset or a tenant-owned custom role — to the account and answers with the role ids it holds afterwards. Roles are n:m, so the assignment adds to the existing ones; assigning a role the account already holds is a no-op that still returns the list. Requires roles:manage (legacy) or admin:role:assign (fine-grained). An account or a role outside the caller's tenant is invisible rather than forbidden and answers 404. Assigning a role to SOMEONE ELSE is not capped by the caller's own rights — staffing roles richer than one's own is what admin:role:assign delegates. Assigning one to ONESELF is capped: a role whose grants exceed the caller's own answers 403 privilege_escalation.
          */
         post: operations["assignRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/roles/{roleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
         /**
-         * Remove role from user
-         * @description Requires admin role.
+         * Remove a role from an account
+         * @description Answers with the role ids the account still holds. Removing a role the account does not hold is a no-op. Requires roles:manage (legacy) or admin:role:assign (fine-grained). Two guardrails apply to roles that carry role administration itself (roles:manage or admin:role:assign): the tenant's last administrator cannot lose it (last_admin), and callers cannot take it off themselves while other administrators exist (self_lockout). Both answer 409.
          */
         delete: operations["removeRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the tenant's account roster
+         * @description Every real account (active/deactivated, from users) plus every still-open invitation (invited, from invitations) merged into one list. jobTitle is always "" — the backend has no job-title data on an account. hasOverrides is omitted — per-user permission overrides (R-6) are stored and editable under /admin/users/{id}/overrides, but this roster does not yet report whether an account carries any. lastLoginAt is derived from the most recent user_sessions row and is therefore only as complete as session history: a session removed by logout/termination no longer counts. Requires the admin role.
+         */
+        get: operations["listAdminUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite a new account
+         * @description Opens an invitation and answers with the roster row it produced, so the surface can insert it without refetching. roles carries role IDS (preset or custom), not names — a name does not identify a custom role uniquely. Every id is resolved under the roles RLS read policy first, so a role from another tenant answers 404.
+         *
+         *     inviteToken is the one-time accept token. It travels back to the caller because nothing server-side dispatches invitation mail — the same way POST /api/v1/invitations already works.
+         *
+         *     A seat is taken by every active account and every pending, unexpired invitation; exceeding tenants.seat_limit answers 409. Requires the admin role.
+         */
+        post: operations["inviteAdminUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an account's roles or status
+         * @description Both fields are optional and independent. An absent `roles` leaves the account's roles untouched; `"roles": []` strips every role. The role edit runs through the same guarded assign/revoke path as /api/v1/users/{id}/roles, so the wave-1b guardrails apply unchanged (last_admin, self_lockout, and the escalation cap on assigning to oneself).
+         *
+         *     status accepts active and deactivated only — "invited" is derived from a pending invitation, not a state an account can be put into (400). Deactivating oneself is refused, as is deactivating the tenant's last active administrator. Reactivating takes a seat and can hit the seat limit.
+         *
+         *     The two edits are not atomic: a failure while writing the status leaves an already-applied role change standing. Requires the admin role.
+         */
+        patch: operations["updateAdminUser"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/resend-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-send a pending invitation
+         * @description Issues a fresh token with a fresh expiry and overwrites the old hash in place, so the previous link stops working — two live tokens to one account would be two ways in.
+         *
+         *     The path id is the INVITATION id, which is what an invited roster row carries (no account exists for it yet). An already-accepted or unknown invitation answers 404. Requires the admin role.
+         */
+        post: operations["resendAdminUserInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get any account's effective permissions
+         * @description Same resolved multi-role union as /api/v1/auth/me/permissions, for an arbitrary account. Requires admin role. A user id outside the caller's tenant returns 404, not an empty result — the target account is fetched under the users RLS policy before its rights are resolved.
+         */
+        get: operations["getUserEffectivePermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List roles
+         * @description System presets (tenant_id IS NULL) plus the calling tenant's custom roles — exactly the rows the roles table's RLS read policy admits. memberCount is scoped to the caller's tenant even for a preset shared across tenants. Requires roles:manage (legacy) or admin:role:read (fine-grained; also held by the it_admin and hr_admin presets).
+         */
+        get: operations["listRoles"];
+        put?: never;
+        /**
+         * Create a custom role
+         * @description Clones basedOn into a new role owned by the calling tenant, copying every grant of the source role including its scope. A tenant may own at most 20 custom roles; the system presets do not count against that. Requires roles:manage (legacy) or admin:role:create (fine-grained). The clone may not reach past the caller's own rights: a source role carrying a capability the caller lacks — or a wider scope than they hold — answers 403 privilege_escalation. In practice only a caller with the admin preset can clone every preset.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a custom role
+         * @description System presets answer 403 preset_immutable; a role still assigned to at least one account answers 409 role_has_members. Requires roles:manage (legacy) or admin:role:delete (fine-grained).
+         */
+        delete: operations["deleteRole"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename/re-describe/recolor a custom role
+         * @description Every field is optional; an absent one is left unchanged. System presets answer 403 preset_immutable. Requires roles:manage (legacy) or admin:role:edit (fine-grained).
+         */
+        patch: operations["updateRole"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Per-user permission overrides of an account
+         * @description The deviations one account carries on top of its roles: `allow` sets or raises a capability key, `deny` takes it away regardless of how many roles grant it. A key absent from the map keeps following the roles live. An account without deviations answers an empty object, not null. Requires admin:user_override:manage — held by the admin preset alone, deliberately not by hr_admin.
+         */
+        get: operations["getUserOverrides"];
+        /**
+         * Replace the override map of an account
+         * @description Full replacement: every key missing from overrides goes back to following the roles, every key present is stored, in one transaction. An empty map clears all overrides — the same effect as DELETE. Each key must exist in the capability catalogue, and mode/scope must be spellable; either problem aborts the whole write with 422. One audit event (permission.override_set / permission.override_removed) is written per key that actually changed.
+         *
+         *     Takes effect for the target account with their NEXT access token: the permission, deny and scope claims are baked in at login and refresh and are never re-read per request. Until then the account keeps the rights its current token carries. GET /auth/me/permissions shows the new state immediately — it resolves live — so the two can disagree for the lifetime of one access token.
+         */
+        put: operations["setUserOverrides"];
+        post?: never;
+        /**
+         * Clear all overrides of an account
+         * @description Puts the account back on the pure role stand. Clearing an account that has no overrides is a no-op and still answers 204. Like the PUT, the caller may not do this to their own account, and like the PUT it takes effect for the target with their next access token.
+         */
+        delete: operations["clearUserOverrides"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles/{id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Grant set of a role
+         * @description Presets are readable too — the builder needs to see what it is cloning. Requires roles:manage (legacy) or admin:role:read (fine-grained).
+         */
+        get: operations["getRolePermissions"];
+        /**
+         * Replace the grant set of a custom role
+         * @description Full replacement: every key missing from grants is revoked, every key present is (re)inserted with its scope, in one transaction. System presets answer 403 preset_immutable. Every key must exist in the capability catalogue — an unknown key aborts the whole write with 422. Requires roles:manage (legacy) or admin:role:edit (fine-grained).
+         */
+        put: operations["setRolePermissions"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -410,6 +678,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List leads
+         * @description The lead inbox. A lead is a contact at an earlier lifecycle stage, not a separate entity — these are contacts rows filtered by lifecycle_stage. Guarded by the contacts read permission.
+         */
+        get: operations["listLeads"];
+        put?: never;
+        /**
+         * Create lead
+         * @description Records a raw prospect as a contact at the "lead" lifecycle stage. The score is computed server-side from source and data completeness.
+         */
+        post: operations["createLead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leads/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update lead status or temperature
+         * @description Moves a lead through the inbox or pins its temperature. An empty temperature clears the manual override and hands the displayed value back to the computed score. Setting status to "qualified" also moves the lifecycle stage, exactly like the convert endpoint.
+         */
+        patch: operations["updateLead"];
+        trace?: never;
+    };
+    "/api/v1/leads/{id}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert lead to qualified
+         * @description Qualifies a lead. The row already is the contact, so this is a stage change rather than a copy into a second table.
+         */
+        post: operations["convertLead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contacts/{id}": {
         parameters: {
             query?: never;
@@ -427,6 +759,24 @@ export interface paths {
         head?: never;
         /** Update contact */
         patch: operations["updateContact"];
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List contact files */
+        get: operations["listContactFiles"];
+        put?: never;
+        /** Attach file to contact */
+        post: operations["createContactFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/contacts/{id}/tags": {
@@ -1297,6 +1647,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/{id}/snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Snooze a notification
+         * @description Hides the notification from the list and the unread count until the given time, and marks it read. Response is the flat `{id, snoozed_until}` shape (not the wrapped Notification used by pin/dismiss).
+         */
+        post: operations["snoozeNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/read-all": {
         parameters: {
             query?: never;
@@ -1361,7 +1731,23 @@ export interface paths {
         put?: never;
         /** Mute notifications for a resource */
         post: operations["muteResource"];
-        /** Unmute notifications for a resource */
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/mutes/{muteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unmute a previously muted resource */
         delete: operations["unmuteResource"];
         options?: never;
         head?: never;
@@ -1627,6 +2013,119 @@ export interface paths {
         get: operations["getUserProjectPreference"];
         /** Set user project preference */
         put: operations["setUserProjectPreference"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/time-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a project's completed time entries (Stunden abrechnen)
+         * @description Completed time entries whose task belongs to this project, joined with task and contributor names, for the project's hours-to-invoice roll-up.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description false (default) returns all completed entries; true always returns none -- nothing yet persists which entries an invoice covered. */
+                    billed?: "true" | "false";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Time entries of the project */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            entries?: components["schemas"]["ProjectTimeEntry"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Work service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/team-utilization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Project team utilization roll-up (Auslastung)
+         * @description Every project member's tracked hours per week (last 6 ISO weeks) and per month (last 3 months), including members with zero tracked hours. Carries no cost or salary figure -- this route sits behind the project-read permission, not team:salary:view.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Team utilization roll-up */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            team?: components["schemas"]["MemberUtilization"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Work service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2814,6 +3313,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/messages/bookmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the current user's bookmarked messages, newest bookmark first */
+        get: operations["listBookmarks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/messages/{id}/bookmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Toggle the bookmark state of a message for the current user */
+        post: operations["toggleBookmark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/meetings": {
         parameters: {
             query?: never;
@@ -2929,6 +3462,26 @@ export interface paths {
         };
         /** Get notes from the previous recurring meeting */
         get: operations["getPreviousMeetingNotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{id}/occurrences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the dated instances of a recurring meeting
+         * @description Expands the recurrence rule of the calendar event this meeting is linked to (meetings.calendar_event_id) into concrete occurrences inside the requested window. Occurrences are computed on read and never stored, so they carry no id of their own -- only the id of the meeting that repeats. Cancelled occurrences are omitted and moved occurrences report their moved start. Returns 409 when the meeting is not linked to a recurring event or the stored rule is unusable.
+         */
+        get: operations["listMeetingOccurrences"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3455,6 +4008,8 @@ export interface paths {
                     page_size?: components["parameters"]["page_size"];
                     /** @description Filter to invoices linked to this CRM contact (Contact-360 view) */
                     contact_id?: string;
+                    /** @description Filter to invoices emitted by this recurring schedule (Migration 000246) */
+                    recurring_id?: string;
                 };
                 header?: never;
                 path?: never;
@@ -3617,7 +4172,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/finance/invoices/{id}/pay": {
+    "/api/v1/finance/invoices/{id}/mark-paid": {
         parameters: {
             query?: never;
             header?: never;
@@ -3700,10 +4255,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Generate PDF for an invoice */
+        /**
+         * Generate PDF for an invoice
+         * @description With `format=zugferd` the PDF carries the Factur-X/ZUGFeRD XML as an embedded attachment named `factur-x.xml`, declared as the machine-readable alternative of the document. An invoice that does not meet EN 16931 is rejected with 409 listing every unmet requirement — no plain PDF is returned in its place, because the caller could not tell it apart from an e-invoice.
+         */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Embed the Factur-X/ZUGFeRD XML into the PDF. */
+                    format?: "zugferd";
+                };
                 header?: never;
                 path: {
                     id: components["parameters"]["ResourceId"];
@@ -3721,10 +4282,85 @@ export interface paths {
                         "application/pdf": string;
                     };
                 };
+                404: components["responses"]["NotFound"];
+                /** @description Invoice does not meet the e-invoice requirements */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/invoices/{id}/erechnung": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate an outbound e-invoice (XRechnung or ZUGFeRD)
+         * @description `format=xrechnung` returns a bare XRechnung UBL 2.1 XML document. `format=zugferd` returns a PDF with the Factur-X/ZUGFeRD XML embedded and declared, identical to `GET .../pdf?format=zugferd`. `buyer_reference` is BT-10 (Leitweg-ID); it only applies to xrechnung, and supplying it also enforces the stricter German CIUS for public-sector buyers on top of the EN 16931 core. An invoice that does not meet the applicable requirements is rejected with 409 listing every unmet one — no partial document is returned in its place.
+         */
+        post: {
+            parameters: {
+                query: {
+                    format: "xrechnung" | "zugferd";
+                    /** @description Leitweg-ID (BT-10), xrechnung only. */
+                    buyer_reference?: string;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["ResourceId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description XRechnung XML or ZUGFeRD PDF, depending on format */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/xml": string;
+                        "application/pdf": string;
+                    };
+                };
+                /** @description format missing or not one of xrechnung, zugferd */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description Invoice does not meet the e-invoice requirements */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -3792,6 +4428,355 @@ export interface paths {
                     content: {
                         "application/json": components["schemas"]["Payment"];
                     };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/recurring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List recurring invoice schedules */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "active" | "paused" | "ended";
+                    page?: components["parameters"]["page"];
+                    page_size?: components["parameters"]["page_size"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of schedules */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            recurring?: components["schemas"]["RecurringInvoice"][];
+                            total?: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a recurring invoice schedule */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateRecurringInvoiceRequest"];
+                };
+            };
+            responses: {
+                /** @description Schedule created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            recurring?: components["schemas"]["RecurringInvoice"];
+                        };
+                    };
+                };
+                /** @description Invalid interval, date range or empty line items */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/recurring/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a recurring invoice schedule */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ResourceId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Schedule details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            recurring?: components["schemas"]["RecurringInvoice"];
+                        };
+                    };
+                };
+                /** @description Schedule not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Update a recurring invoice schedule (partial) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ResourceId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRecurringInvoiceRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            recurring?: components["schemas"]["RecurringInvoice"];
+                        };
+                    };
+                };
+                /** @description Invalid interval or date range */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Schedule not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Delete a recurring invoice schedule */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ResourceId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Schedule deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+                /** @description Schedule not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/recurring/{id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause a recurring invoice schedule */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ResourceId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paused schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            recurring?: components["schemas"]["RecurringInvoice"];
+                        };
+                    };
+                };
+                /** @description Schedule not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/recurring/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused recurring invoice schedule
+         * @description A schedule whose end date has passed stays ended.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ResourceId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Resumed schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            recurring?: components["schemas"]["RecurringInvoice"];
+                        };
+                    };
+                };
+                /** @description Schedule not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/recurring/{id}/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emit the invoice for the current period of the schedule
+         * @description Idempotent per period. A repeated call for the same period returns the invoice that was already emitted instead of creating a second one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["ResourceId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Emitted invoice plus the advanced schedule */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            invoice?: components["schemas"]["Invoice"];
+                            recurring?: components["schemas"]["RecurringInvoice"];
+                        };
+                    };
+                };
+                /** @description Schedule not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Schedule is paused, ended or past its end date */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };
@@ -4013,6 +4998,1556 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-statements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List imported bank statements
+         * @description Imported account statements, newest first.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: components["parameters"]["page"];
+                    page_size?: components["parameters"]["page_size"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Imported statements */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            statements?: components["schemas"]["BankStatement"][];
+                            total?: number;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-statements/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a bank statement (CAMT.053 or MT940)
+         * @description Uploads an account statement. The format is detected from the content, not from the filename or MIME type. Every credit is matched against the open items of the tenant and carries a suggestion; nothing is booked here — a payment is only recorded when a transaction is reconciled.
+         *     The import is idempotent on the file content: uploading the identical file again returns the original statement with already_imported=true and 200 instead of 201, and creates no second set of transactions.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description CAMT.053 XML or MT940 text file, at most 10 MiB
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The identical file had already been imported */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankStatementImportResult"];
+                    };
+                };
+                /** @description Statement imported */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankStatementImportResult"];
+                    };
+                };
+                /** @description Missing file, unrecognised format or malformed statement */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description File exceeds the 10 MiB limit */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-statements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one bank statement with its transactions */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Statement with its transactions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            statement?: components["schemas"]["BankStatement"];
+                            transactions?: components["schemas"]["BankTransaction"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List imported bank transactions
+         * @description The reconciliation queue. Without a status this is what still needs a decision and leaves out entries that were set aside; status=ignored asks for exactly those.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Restrict to one import */
+                    statement_id?: string;
+                    /** @description Restrict to one reconciliation state. Absent or "all" returns the queue, which excludes ignored entries. */
+                    status?: "all" | "unmatched" | "suggested" | "matched" | "ignored";
+                    page?: components["parameters"]["page"];
+                    page_size?: components["parameters"]["page_size"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Imported transactions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transactions?: components["schemas"]["BankTransactionQueueEntry"][];
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Unknown status */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-transactions/{id}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book a bank credit as a payment against an invoice
+         * @description Records a payment through the payment service, so invoice status, numbering and the GoBD trail keep running through the one path that owns them. An empty body confirms the suggestion the import attached; an invoice_id or invoice_number assigns a different one, and invoice_id wins where both are given. The payment carries an idempotency key derived from the transaction, so a retried confirmation records exactly one payment.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description Overrides the suggested invoice
+                         */
+                        invoice_id?: string;
+                        /** @description The same override as the operator sees it on the document. Read only when invoice_id is absent. */
+                        invoice_number?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The matched transaction */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transaction?: components["schemas"]["BankTransactionQueueEntry"];
+                        };
+                    };
+                };
+                /** @description Invalid id, invoice_id or invoice_number */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description No such transaction, or no invoice carries the given number within the tenant. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Already reconciled, or the entry is a debit — money leaving the account cannot settle a receivable. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-transactions/{id}/reject-match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard the suggested match of a bank transaction
+         * @description Says "not this invoice" and puts the entry back in front of the operator as unmatched — distinct from ignore, which says it is not a customer payment at all. An already unmatched entry is returned unchanged rather than refused: the outcome the caller asked for holds.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The transaction, now unmatched */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transaction?: components["schemas"]["BankTransactionQueueEntry"];
+                        };
+                    };
+                };
+                /** @description Invalid id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description The entry is booked or was set aside — both are reversals, not rejections. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-transactions/{id}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a bank transaction out of the reconciliation queue
+         * @description For entries that are not customer payments — bank fees, own transfers. A booked transaction cannot be ignored: undoing it means deleting its payment.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The ignored transaction */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transaction?: components["schemas"]["BankTransactionQueueEntry"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description The transaction is already booked */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List bank accounts (Bankkonten)
+         * @description The accounts the caller's tenant holds, ordered by bank name. There is no pagination: a KMU holds a handful of accounts and the client renders all of them. Balance and lastSync are derived from the newest imported statement of the account's IBAN, so an account without an import reports a zero balance and a null lastSync.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Bank accounts of the tenant */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            accounts?: components["schemas"]["BankAccount"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a bank account
+         * @description The IBAN may be sent grouped or compact; it is normalised and its ISO 7064 check digits are verified before it is stored. An account starts disconnected.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BankAccountInput"];
+                };
+            };
+            responses: {
+                /** @description The created account */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            account?: components["schemas"]["BankAccount"];
+                        };
+                    };
+                };
+                /** @description Missing bank name, malformed IBAN, BIC or currency */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description The tenant already holds an account with this IBAN */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/bank-accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a bank account
+         * @description Statements already imported for this IBAN are unaffected — they record what a bank reported and outlive the master-data row.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The account was removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+                /** @description Invalid id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Edit a bank account
+         * @description Every field is optional; an omitted one is left untouched. Correcting the IBAN also changes which imported statements the balance is read from — that is the point, an account entered with a typo would otherwise never find its own imports.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BankAccountUpdateInput"];
+                };
+            };
+            responses: {
+                /** @description The updated account */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            account?: components["schemas"]["BankAccount"];
+                        };
+                    };
+                };
+                /** @description Invalid id, IBAN, BIC or currency */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Another account of the tenant already holds this IBAN */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/finance/bank-accounts/{id}/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a bank account as connected
+         * @description Records the outcome of the bank login flow. There is no bank session behind this: the PSD2 handshake is simulated in the desktop client and the real FinAPI integration is a later phase. Connecting an already connected account is a no-op that keeps the original timestamp.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The connected account */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            account?: components["schemas"]["BankAccount"];
+                        };
+                    };
+                };
+                /** @description Invalid id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List expenses (Ausgaben)
+         * @description Expenses of the caller's tenant, newest first. A caller whose read grant is narrowed to the "own" data scope only sees what they submitted, and the total reflects the same restriction.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Restrict to one approval state */
+                    status?: "pending" | "approved" | "rejected";
+                    page?: components["parameters"]["page"];
+                    page_size?: components["parameters"]["page_size"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Expenses of the tenant */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            expenses?: components["schemas"]["Expense"][];
+                            total?: number;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Record a new expense
+         * @description The expense always starts pending; it cannot be created already approved. The submitter is taken from the token, not from the body.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ExpenseInput"];
+                };
+            };
+            responses: {
+                /** @description The created expense */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            expense?: components["schemas"]["Expense"];
+                        };
+                    };
+                };
+                /** @description Missing description, non-positive amount or invalid date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/expenses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit an expense
+         * @description Every field is optional; an omitted one is left untouched. Once the expense has been approved or rejected only the SKR03/04 account and the receipt filename stay editable — Kontierung and a late receipt are normal after-the-fact work, while changing the amount would make the decision describe something else.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ExpenseUpdateInput"];
+                };
+            };
+            responses: {
+                /** @description The updated expense */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            expense?: components["schemas"]["Expense"];
+                        };
+                    };
+                };
+                /** @description Invalid id, amount or date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description The expense was already decided and the edit reaches past account and receipt */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a pending expense
+         * @description Only a pending expense can be removed. A decided one is the record of a decision somebody made and stays.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description The expense was already decided */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/expenses/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a pending expense
+         * @description Only a pending expense can be decided, and never by the person who submitted it — enforced server-side, so hiding the button is a courtesy rather than the control.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The approved expense */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            expense?: components["schemas"]["Expense"];
+                        };
+                    };
+                };
+                /** @description Invalid id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Already decided, or the caller is the submitter */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/expenses/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a pending expense
+         * @description Same guards as approve: pending only, and never by the submitter.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rejected expense */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            expense?: components["schemas"]["Expense"];
+                        };
+                    };
+                };
+                /** @description Invalid id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Already decided, or the caller is the submitter */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/expenses/{id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach a receipt filename to an expense
+         * @description Records the name of the document handed in. This carries metadata, not bytes — there is no upload here. It stays open after a decision, because a receipt arriving late is the normal case.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @example hetzner-2026-05.pdf */
+                        receiptName: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The expense with the receipt recorded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            expense?: components["schemas"]["Expense"];
+                        };
+                    };
+                };
+                /** @description Invalid id or missing receiptName */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the consolidated payment ledger (Transaktionen)
+         * @description Every recorded customer payment (income) and every approved expense (expense) of the tenant, merged and sorted by date, newest first.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Transactions of the tenant */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transactions?: components["schemas"]["Transaction"][];
+                            total?: number;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/transactions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a ledger entry
+         * @description A payment delete also reverts the invoice's paid status if it no longer covers the total. An approved expense is refused with 409 — it is the record of a decision somebody made, not a draft.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Opaque, prefixed ("pay-"/"exp-") — not a plain UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+                /** @description Unrecognized id prefix */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description The entry names an approved expense, which cannot be withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/document-chains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List document chains (Belegkette)
+         * @description Every customer document traced from quote through invoice to payment, dunning, or credit note. One entry per invoice (prefixed with its source quote, if one converted into it), plus one entry per quote that has not become an invoice yet. Tenant-wide overview, not filtered by any single document — the desktop client paginates and searches client-side.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Document chains of the tenant */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            chains?: components["schemas"]["DocumentChain"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/time-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List billable time entries (Stunden -> Rechnung)
+         * @description Completed time entries across every project of the tenant, joined with task, project, and employee names, for building invoice line items from tracked hours.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description false returns only unbilled entries (the only value the desktop client sends). */
+                    billed?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Billable time entries of the tenant */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            entries?: components["schemas"]["FinanceTimeEntry"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Work service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/open-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List open items (Offene Posten) with receivables aging
+         * @description Unpaid receivables — sent or overdue invoices whose gross total is not yet covered by recorded payments. open_amount is the residual, so a partially paid invoice appears for the remainder only. The summary always covers every open item of the tenant, not just the returned page, and is reported per currency: without a stored exchange rate the server cannot fold CHF mirrors and EUR invoices into a single figure.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Restrict to one aging bucket */
+                    bucket?: "current" | "d30" | "d60" | "d60plus";
+                    /** @description Drop items that are not past due yet */
+                    overdue_only?: boolean;
+                    page?: components["parameters"]["page"];
+                    page_size?: components["parameters"]["page_size"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Open items with the tenant-wide aging summary */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["OpenItem"][];
+                            total?: number;
+                            summary?: components["schemas"]["OpenItemsSummary"];
+                        };
+                    };
+                };
+                /** @description Unknown aging bucket */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing finance read permission */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Finance service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5397,6 +7932,536 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hr/employees/{id}/offboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Offboard an employee
+         * @description Ends an employment in one transaction: the personnel record goes inactive with its exit data, the account loses its login and all role assignments (which releases its seat), and the leaver's direct reports move to the successor. The body is camelCase because the desktop offboard dialog posts its form state unchanged.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["OffboardEmployeeInput"];
+                };
+            };
+            responses: {
+                /** @description Employee offboarded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            employee?: components["schemas"]["EmployeeProfile"];
+                        };
+                    };
+                };
+                /** @description Malformed body, unknown exit type, exit date before the last working day, or the named successor is not an active employee of this tenant */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing team:employee:offboard, or the caller is offboarding their own account */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Employee profile not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Employee has already left, or is the last active account carrying role administration */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The employee still has direct reports and no successor was named */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/change-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List profile change requests
+         * @description HR inbox and the employee's own list in one route. A caller without team:data_personal:edit only ever receives their own proposals, regardless of the scope parameter; a caller holding it at scope "team" receives their own plus their direct reports'.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "pending" | "approved" | "rejected" | "cancelled";
+                    /** @description Set to "mine" to ask for the caller's own proposals only. */
+                    scope?: "mine";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Change requests, newest first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            requests?: components["schemas"]["ProfileChangeRequest"][];
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Invalid status filter */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Neither team:self:propose nor team:data_personal:edit */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Submit a profile change request
+         * @description Opens a proposal for one field of the caller's own profile. The proposer is taken from the token, never from the body.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        drawer?: "personal" | "job";
+                        /** @description Must be one of the proposable fields (addressStreet, addressCity, addressPostalCode, addressCountry, emergencyContactName, emergencyContactPhone). Anything else is 400 — an approval would have no column to write to. */
+                        field: string;
+                        fieldLabel?: string;
+                        oldValue?: string;
+                        newValue: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Change request created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            request?: components["schemas"]["ProfileChangeRequest"];
+                        };
+                    };
+                };
+                /** @description Validation failed or field not proposable */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing team:self:propose */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description A pending request for this field already exists */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/change-requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a profile change request
+         * @description Writes the proposed value to the employee profile and closes the request in one transaction. Refused when the approver's team:data_personal:edit scope does not reach the proposer.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Change request approved and applied */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            request?: components["schemas"]["ProfileChangeRequest"];
+                        };
+                    };
+                };
+                /** @description Invalid request id or field no longer proposable */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing team:data_personal:edit, or proposer outside the approver's scope */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Change request not found, or proposer has no employee profile */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Change request is no longer pending */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/change-requests/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a profile change request */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Change request rejected */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            request?: components["schemas"]["ProfileChangeRequest"];
+                        };
+                    };
+                };
+                /** @description Invalid request id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing team:data_personal:edit, or proposer outside the approver's scope */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Change request not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Change request is no longer pending */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Rejection reason missing */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/change-requests/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw own profile change request
+         * @description Only the proposer may cancel, and only while the request is pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Change request cancelled */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            request?: components["schemas"]["ProfileChangeRequest"];
+                        };
+                    };
+                };
+                /** @description Invalid request id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing team:self:propose, or caller is not the proposer */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Change request not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Change request is no longer pending */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/employees/me/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's own personnel documents
+         * @description Self-service view of the caller's own Akte. The employee id is taken from the JWT (hr_employee_documents.employee_id references users.id), never from the request, so no caller can reach a colleague's documents through this route. Which categories are returned still follows RLS policy hr_document_access — for the employee themselves that is the 'employee' tier, which includes salary statements (category key gehaltsabrechnung, migration 000310). Optional category filter narrows to one hr_document_categories.key. Requires hr:read or team:documents:view.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description hr_document_categories.key, e.g. gehaltsabrechnung */
+                    category?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Documents list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            documents?: components["schemas"]["EmployeeDocument"][];
+                        };
+                    };
+                };
+                /** @description Missing user context */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing hr:read / team:documents:view */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description HR service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hr/employees/{id}/documents": {
         parameters: {
             query?: never;
@@ -5461,6 +8526,210 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/personnel-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List personnel documents across employees
+         * @description Returns every personnel document of the tenant the caller may see. The visibility tiers (hr_only/manager/employee) are enforced by RLS policy hr_document_access (migration 000127) against the caller's roles, not by a filter in the handler — a caller who may only see employee-tier documents receives exactly those, for every employee, in one list. Requires hr:read or team:documents:view.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Documents list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            documents?: components["schemas"]["EmployeeDocument"][];
+                        };
+                    };
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing hr:read / team:documents:view */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description HR service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Record a document in an employee's Akte
+         * @description employee_id is required: a document filed into the wrong personnel record is worse than a rejected request, so there is no caller default. category is the category slug (hr_document_categories.key), which decides the visibility tier the document inherits. file_id is optional — metadata may be recorded before a file is linked. Requires hr:write or team:documents:edit.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description users.id of the employee
+                         */
+                        employee_id: string;
+                        title: string;
+                        /** @description hr_document_categories.key */
+                        category: string;
+                        file_name: string;
+                        file_size?: string;
+                        /** Format: uuid */
+                        file_id?: string;
+                        /** Format: date */
+                        expires_at?: string;
+                        notes?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Document recorded */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmployeeDocument"];
+                    };
+                };
+                /** @description Invalid body, unknown expires_at format, or missing employee_id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing hr:write / team:documents:edit */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unknown category slug for this tenant */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description HR service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/employees/{id}/documents/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List HR document categories visible for an employee's Akte
+         * @description Returns the tenant's document categories plus the system seed categories (migration 000046), filtered to the visibility tiers (hr_only/manager/ employee) the caller's team:documents:view permission scope permits — the same tiers RLS migration 000127 enforces on the documents themselves, so a caller who cannot see hr_only documents for this employee does not learn hr_only categories exist either. These are tenant master data, not an employee attribute — the ids returned here are the ones POST /api/v1/hr/employees/{id}/documents accepts.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Category list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            categories?: components["schemas"]["HRDocumentCategory"][];
+                        };
+                    };
+                };
+                /** @description Missing or invalid tenant */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing hr:read or team:documents:view permission */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description HR service unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5606,6 +8875,58 @@ export interface paths {
         put?: never;
         /** Toggle star on message */
         post: operations["toggleInboxMessageStar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set conversation-level status on a message */
+        post: operations["setInboxMessageStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/{id}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a tag to a message */
+        post: operations["addInboxMessageTag"];
+        /** Remove a tag from a message */
+        delete: operations["removeInboxMessageTag"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/{id}/forward": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Forward message to a new recipient through the originating channel */
+        post: operations["forwardInboxMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6130,6 +9451,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/automations/webhooks/{automationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger an automation via its inbound webhook (no auth)
+         * @description Unauthenticated by design (external senders carry no JWT). The request is verified via an HMAC-SHA256 signature in the X-Cosmi-Signature header (sha256=<hex>), computed over the raw request body using the automation's configured webhook secret.
+         */
+        post: operations["triggerAutomationWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contacts/{contactId}/advisory-protocols": {
         parameters: {
             query?: never;
@@ -6318,6 +9659,138 @@ export interface paths {
         put: operations["putUserSettings"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the caller's user-wide preferences (language, theme, region)
+         * @description Thin, fixed-key wrapper over the same user_settings table as GET /settings/{module_id}/user (module_id "profile") — no dedicated table.
+         */
+        get: operations["getUserPreferences"];
+        /**
+         * Replace the caller's user-wide preferences
+         * @description Full-replace semantics — keys omitted from the request are deleted, not left untouched (unlike PUT /settings/{module_id}/user, which patches). Only the known preference keys (language, theme, region) are accepted; any other key is rejected with 400. Any user_id in the body is ignored — the target is always the authenticated caller.
+         */
+        put: operations["putUserPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customization/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get resolved tenant label overrides for a locale
+         * @description Every whitelisted i18n key, each with the effective value and its provenance ("tenant" or "default"). Available to any authenticated user — the labels drive UI text for everyone, not just editors.
+         */
+        get: operations["getCustomizationLabels"];
+        /** Update tenant-scope label overrides for a locale */
+        put: operations["putCustomizationLabels"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customization/value-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all value-sets resolved for the caller's tenant
+         * @description Each value-set merges the shipped baseline (deal stages, ticket priority, ...) with the tenant's stored override, per option key. Available to any authenticated user — value-sets drive pickers and status dots for everyone, not just editors.
+         */
+        get: operations["listCustomizationValueSets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customization/value-sets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one value-set resolved for the caller's tenant */
+        get: operations["getCustomizationValueSet"];
+        /**
+         * Upsert the tenant's override for one value-set
+         * @description A system key (e.g. "ticket_priority") is overridden; an unknown key creates a tenant-owned list. The full option list is replaced — the editor always submits the complete list it is showing.
+         */
+        put: operations["putCustomizationValueSet"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customization/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List unified custom fields
+         * @description Dispatch layer over custom_field_definitions (crm_* entities) and work_custom_field_definitions (work_task) — see route_customization_fields.go. helpdesk_ticket has no backend table and is always omitted from the result.
+         */
+        get: operations["listCustomizationFields"];
+        put?: never;
+        /** Create a custom field */
+        post: operations["createCustomizationField"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customization/fields/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one custom field by ID
+         * @description Resolved by trying the CRM-backed table first, then work_custom_field_definitions.
+         */
+        get: operations["getCustomizationField"];
+        /** Merge-patch update a custom field */
+        put: operations["updateCustomizationField"];
+        post?: never;
+        /**
+         * Delete a custom field
+         * @description 409 when the CRM-backed field still has data on a record (ErrFieldInUse) — work_custom_field_definitions has no such guard.
+         */
+        delete: operations["deleteCustomizationField"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6604,6 +10077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/helpdesk/tickets/from-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert an inbox message into a ticket
+         * @description Links back to the source inbox message via source_channel/source_message_id instead of copying its content a second time. Converting the same message_id twice is idempotent: the second call returns the already-existing ticket with 200 instead of creating a duplicate.
+         */
+        post: operations["createHelpdeskTicketFromMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/helpdesk/tickets/{id}": {
         parameters: {
             query?: never;
@@ -6650,6 +10143,49 @@ export interface paths {
         put?: never;
         /** Reopen a closed helpdesk ticket */
         post: operations["reopenHelpdeskTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/helpdesk/tickets/{id}/csat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a customer-satisfaction rating for a ticket */
+        post: operations["submitHelpdeskTicketCsat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/helpdesk/csat/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeem a CSAT survey link (public, unauthenticated)
+         * @description No authentication. The survey token in the path — mailed to the requester after the ticket was closed — is the entire credential; the tenant is resolved from it server-side and the call can only ever rate the one ticket the link names.
+         *
+         *     It is a POST rather than a GET so the token does not travel where access logs, browser history and Referer headers keep it, and because it writes: a prefetching GET must not be able to submit a rating.
+         *
+         *     Redemption consumes the token, so a link works exactly once. Unknown, malformed, expired, revoked and already-redeemed links all answer 404, deliberately indistinguishable — the route is not an oracle for which tokens exist. An out-of-range rating or a malformed body answers 400, which says nothing about the token. This route is behind the strict per-IP public rate limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one.
+         *
+         *     The response carries only the ticket number the invitation mail already quoted and the rating just recorded — no ticket content, no internal state.
+         */
+        post: operations["submitPublicHelpdeskCsat"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7126,8 +10662,37 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Revoke a wiki article share token */
+        /**
+         * Revoke a wiki article share token
+         * @description Cuts a public share link. The revocation is soft: the token stays in the article's share list carrying the moment it was cut, so an author can tell a revoked link from one that never existed. Redeeming a revoked token answers the same 404 as an invented one. Repeating the call is idempotent and does not move the original revocation time.
+         */
         delete: operations["revokeWikiShareToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/wiki/articles/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read a shared wiki article (public, unauthenticated)
+         * @description No authentication. The share token in the path is the entire credential; the tenant is resolved from it server-side and the call can only ever reach the one article the token names — never its children, never a listing.
+         *
+         *     It is a POST rather than a GET so the token does not travel where access logs, browser history and Referer headers keep it, and so that no prefetching GET redeems a link on the visitor's behalf.
+         *
+         *     Unknown, malformed, expired and revoked tokens, tokens that grant no read, and tokens whose article was deleted or unpublished all answer 404 — deliberately indistinguishable, so the route is not an oracle for which tokens exist. This route is behind the strict per-IP public rate limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one.
+         *
+         *     The response is narrower than the authenticated article read on purpose: no ids, no tenant, no author, no category.
+         */
+        post: operations["readPublicWikiArticleByShareToken"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7460,6 +11025,23 @@ export interface paths {
         put?: never;
         /** Cancel a production order */
         post: operations["cancelProductionOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/produktion/orders/{id}/material-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check BOM material availability against inventar stock for a production order */
+        get: operations["getProductionOrderMaterialAvailability"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7870,6 +11452,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fuhrpark/trip-logs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export a Fahrtenbuch-compliant trip log report (CSV or PDF) */
+        get: operations["exportTripLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fuhrpark/trip-logs/{id}": {
         parameters: {
             query?: never;
@@ -7888,6 +11487,48 @@ export interface paths {
         patch: operations["updateTripLog"];
         trace?: never;
     };
+    "/api/v1/fuhrpark/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List vehicle bookings (tenant-wide, optionally filtered) */
+        get: operations["listVehicleBookings"];
+        put?: never;
+        /**
+         * Book a pool vehicle for a time interval
+         * @description Rejects the request with 409 when the interval overlaps an active booking (booked, in_use) of the same vehicle. Intervals are half-open: a booking starting exactly when another ends is accepted.
+         */
+        post: operations["createVehicleBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fuhrpark/bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a vehicle booking */
+        delete: operations["deleteVehicleBooking"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a vehicle booking
+         * @description Re-checks for conflicts whenever the booking stays active. Releasing a booking (status completed or cancelled) never conflicts.
+         */
+        patch: operations["updateVehicleBooking"];
+        trace?: never;
+    };
     "/api/v1/fuhrpark/documents/{id}": {
         parameters: {
             query?: never;
@@ -7903,6 +11544,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fuhrpark/driver-licenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List driver license checks (tenant-wide, optionally filtered by driver) */
+        get: operations["listDriverLicenses"];
+        put?: never;
+        /** Record a new driver license check */
+        post: operations["createDriverLicense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fuhrpark/driver-licenses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a driver license check entry */
+        delete: operations["deleteDriverLicense"];
+        options?: never;
+        head?: never;
+        /** Correct a driver license check entry */
+        patch: operations["updateDriverLicense"];
         trace?: never;
     };
     "/api/v1/fuhrpark/gps/ingest": {
@@ -8081,6 +11758,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/einkauf/pos/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a purchase order
+         * @description Cancels a purchase order that has not been received yet. Only orders in draft, submitted or sent state can be cancelled; any other state is rejected with 409.
+         */
+        post: operations["cancelPurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/einkauf/pos/{id}/receive": {
         parameters: {
             query?: never;
@@ -8109,23 +11806,6 @@ export interface paths {
         put?: never;
         /** Record partial goods receipt for specific order lines */
         post: operations["partialReceivePurchaseOrder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/einkauf/pos/{id}/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Export a purchase order as PDF or other format */
-        post: operations["exportPurchaseOrder"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8702,7 +12382,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Terminate a specific session */
+        /**
+         * Terminate a specific session
+         * @description Signs out one of the caller's own devices and revokes the refresh token that device holds. A session belonging to another user answers 404 — the same as one that does not exist, so an id cannot be probed.
+         */
         delete: operations["terminateSession"];
         options?: never;
         head?: never;
@@ -8916,7 +12599,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/security/gdpr/export": {
+    "/api/v1/security/gdpr/export/request": {
         parameters: {
             query?: never;
             header?: never;
@@ -8950,7 +12633,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/security/gdpr/exports/{id}/approve": {
+    "/api/v1/security/gdpr/export/{id}/approve": {
         parameters: {
             query?: never;
             header?: never;
@@ -8967,7 +12650,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/security/gdpr/exports/{id}/deny": {
+    "/api/v1/security/gdpr/export/{id}/deny": {
         parameters: {
             query?: never;
             header?: never;
@@ -8984,7 +12667,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/security/gdpr/download/{token}": {
+    "/api/v1/security/gdpr/export/{id}/download": {
         parameters: {
             query?: never;
             header?: never;
@@ -9158,6 +12841,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vendor-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List vendor access requests for the caller's tenant */
+        get: operations["listVendorAccessRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vendor-access/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a vendor access request */
+        post: operations["approveVendorAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vendor-access/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline a vendor access request */
+        post: operations["declineVendorAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vendor-access/{id}/counter-propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Propose an alternative start date for a pending vendor access request */
+        post: operations["counterProposeVendorAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vendor-access/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke an active vendor access request */
+        post: operations["revokeVendorAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/formulare/schemas": {
         parameters: {
             query?: never;
@@ -9258,6 +13026,82 @@ export interface paths {
         get: operations["exportFormSubmissions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/schemas/{id}/share-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the public fill-out links of a form schema
+         * @description Returns every link ever minted for this schema, newest first, including revoked and expired ones — an author looking at an external write path needs to see what was cut, not only what is live. `status` is derived on read from revocation, expiry and the submission quota.
+         *
+         *     `token` is returned in clear text on purpose: it is the copyable link the author hands out, and a one-way hash would make that impossible. It grants the ability to append one submission to this one schema and reads nothing.
+         */
+        get: operations["listFormShareLinks"];
+        put?: never;
+        /**
+         * Mint a public fill-out link for a form schema
+         * @description Requires `formulare:share:manage`. The schema must be public (`is_public`) — that flag is the precondition for opening a form up, while the token is what a visitor actually presents. A schema that is not public answers 409.
+         *
+         *     The link may carry an expiry and a submission quota; both are enforced server-side on every redemption, and both are optional (omitted = never expires / unlimited).
+         */
+        post: operations["createFormShareLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/share-links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a public fill-out link
+         * @description Requires `formulare:share:manage`. Soft revoke: the row and its submission count survive, because that count is the only record of how often the link was used before it was cut. Re-revoking is a no-op.
+         */
+        delete: operations["revokeFormShareLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/formulare/submit/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a form through a public share link (public, unauthenticated)
+         * @description No authentication. The share token in the path is the entire credential; the tenant is resolved from it server-side and the call can only ever append one submission to the one schema the link names.
+         *
+         *     It is a POST rather than a GET so the token does not travel where access logs, browser history and Referer headers keep it, and because it writes: a prefetching GET must not be able to submit a form.
+         *
+         *     Unknown, malformed, revoked, expired and used-up links, and links whose form is no longer public, archived or deleted, all answer 404 — deliberately indistinguishable, so the route is not an oracle for which tokens exist. A malformed or oversized body answers 400, which says nothing about the token. This route is behind the strict per-IP public rate limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one, and the body is capped at 256 KiB.
+         *
+         *     Forms declaring a file-upload field are rejected with 409: a public submission carries JSON answers only, and there is no upload path on this route, so accepting one would store a reference pointing at nothing.
+         *
+         *     If the schema is bound to an intake target, the module record (today: a Helpdesk ticket) is created after the submission is stored. A target that refuses the record costs the ticket, never the submitter's answers — the response stays 201 either way.
+         */
+        post: operations["submitPublicFormByShareToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9410,6 +13254,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vertraege/contracts/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a contract's audit trail (newest first)
+         * @description Append-only history of one contract: creation, updates, termination, signature and party changes. Requires vertraege:contract read — the trail is part of reading the contract, not a separate capability.
+         */
+        get: operations["listContractEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vertraege/contracts/{id}/signature": {
         parameters: {
             query?: never;
@@ -9516,6 +13380,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/email/accounts/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List every email account the calling user holds */
+        get: operations["listEmailAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/email/accounts/{id}": {
         parameters: {
             query?: never;
@@ -9529,6 +13410,23 @@ export interface paths {
         post?: never;
         /** Delete an email account */
         delete: operations["deleteEmailAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/accounts/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set an email account as the default for its user */
+        post: operations["setDefaultEmailAccount"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -9722,6 +13620,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/email/messages/{id}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the label set of a message
+         * @description Full replace, not an add/remove pair: the given label ids become the message's entire label set. Every id must already be a label of the tenant.
+         */
+        post: operations["assignMessageLabels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply an action to many messages at once
+         * @description Requires email:write; action=delete additionally requires email:delete, matching the single-message DELETE route. Ids that don't exist or belong to another tenant are silently excluded from the result, not errored. archive/spam resolve the destination folder per message from that message's own account.
+         */
+        post: operations["bulkEmailMessageAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/email/send": {
         parameters: {
             query?: never;
@@ -9842,6 +13780,161 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the tenant's email rules */
+        get: operations["listEmailRules"];
+        put?: never;
+        /** Create an email rule */
+        post: operations["createEmailRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an email rule */
+        delete: operations["deleteEmailRule"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an email rule
+         * @description Partial update: omitted fields keep their stored value. The merged rule is validated as a whole, so a patch cannot produce a combination a create would have rejected.
+         */
+        patch: operations["updateEmailRule"];
+        trace?: never;
+    };
+    "/api/v1/email/rules/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply all rules to the tenant's stored messages
+         * @description Runs every rule over the tenant's non-trashed messages, newest first, capped at 2000 messages per run. Rules apply in creation order and accumulate: labels add up, a later move overrides an earlier one.
+         */
+        post: operations["applyEmailRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List email templates visible to the caller (own personal + shared) */
+        get: operations["listEmailTemplates"];
+        put?: never;
+        /** Create an email template */
+        post: operations["createEmailTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an email template */
+        get: operations["getEmailTemplate"];
+        /** Update an email template */
+        put: operations["updateEmailTemplate"];
+        post?: never;
+        /** Delete an email template */
+        delete: operations["deleteEmailTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/templates/{id}/render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render an email template, substituting the fixed set of allowed placeholders */
+        post: operations["renderEmailTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the tenant's email labels */
+        get: operations["listEmailLabels"];
+        put?: never;
+        /** Create an email label */
+        post: operations["createEmailLabel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/labels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an email label
+         * @description Also strips the label id from every message of the tenant that still carries it (label_ids has no foreign key to do that on its own).
+         */
+        delete: operations["deleteEmailLabel"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an email label
+         * @description Partial update: omitted fields keep their stored value.
+         */
+        patch: operations["updateEmailLabel"];
         trace?: never;
     };
     "/api/v1/email/links/message/{messageId}": {
@@ -10594,6 +14687,103 @@ export interface paths {
         patch: operations["updateInventarLocation"];
         trace?: never;
     };
+    "/api/v1/inventar/picking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List picking lists */
+        get: operations["listPickingLists"];
+        put?: never;
+        /** Create a picking list */
+        post: operations["createPickingList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/picking/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a picking list by ID */
+        get: operations["getPickingList"];
+        put?: never;
+        post?: never;
+        /** Delete a picking list */
+        delete: operations["deletePickingList"];
+        options?: never;
+        head?: never;
+        /**
+         * Update picking list head data
+         * @description Status accepts open and picking. completed is reached by booking the list — setting it by hand would mark the stock as moved without moving it and is rejected with 400.
+         */
+        patch: operations["updatePickingList"];
+        trace?: never;
+    };
+    "/api/v1/inventar/picking/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upsert a picking list position
+         * @description Keyed by (picking list, item): a second call for the same item updates the position instead of adding a duplicate. The first recorded pick moves the list from open to picking.
+         */
+        post: operations["upsertPickingListItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/picking/{id}/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book picked quantities out of stock
+         * @description Writes one outbound stock movement per picked position and completes the list. Booking the same list twice answers 409 and does not move stock a second time. If any position exceeds available stock, nothing is booked at all.
+         */
+        post: operations["bookPickingList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/picking-items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a picking list position */
+        delete: operations["deletePickingListItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventar/inventur": {
         parameters: {
             query?: never;
@@ -11073,6 +15263,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/berichte/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List report documents
+         * @description Requires berichte:reports:read permission. Returns the tenant's report documents, newest first. The library view has no pager, so page_size defaults to 100 (capped at 100 server-side).
+         */
+        get: operations["listBerichteDocuments"];
+        put?: never;
+        /**
+         * Create a report document
+         * @description Requires berichte:reports:write permission. Every field is optional: the title falls back to "Neuer Bericht", the module to "cross", rows to an empty array and settings to an empty object. New documents always start in status "draft".
+         */
+        post: operations["createBerichteDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a report document by ID
+         * @description Requires berichte:reports:read permission.
+         */
+        get: operations["getBerichteDocument"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a report document
+         * @description Requires berichte:reports:write permission.
+         */
+        delete: operations["deleteBerichteDocument"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a report document
+         * @description Requires berichte:reports:write permission. Only present fields are changed; omitted rows/settings keep their stored value. The first transition to status "released" stamps released_at, later edits leave it untouched.
+         */
+        patch: operations["updateBerichteDocument"];
+        trace?: never;
+    };
+    "/api/v1/berichte/documents/{id}/export/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Server-rendered PDF of a report document
+         * @description Requires berichte:reports:read permission. Renders the document's block tree (rows -> columns -> blocks) via the maroto/v2 renderer — chart and table blocks are rendered as data tables, not charts (no chart-rendering dependency added). Blocks backed by an inline query instead of a saved definition render as unavailable, since the executor only runs saved definitions.
+         */
+        get: operations["exportBerichteDocumentPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/documents/{id}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the live share links of a report document
+         * @description Requires berichte:reports:read permission. Returns only links that are still live: revoked ones stay in the database for the audit trail but are not listed. The token is returned in clear because the frontend renders it as a copyable URL.
+         */
+        get: operations["listBerichteDocumentShares"];
+        put?: never;
+        /**
+         * Create an external share link for a report document
+         * @description Requires berichte:reports:write permission — minting a link hands out an unauthenticated read path to the document, so it sits behind the same permission as changing the document itself.
+         *
+         *     The returned token is the whole credential for POST /api/v1/public/berichte/reports/{token}. An optional password is bcrypt-hashed and never returned; the response only reports whether one is set. expires_in_days is capped at 365; omitting it or passing 0 creates a link that never expires.
+         */
+        post: operations["createBerichteDocumentShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/shares/{shareId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an external share link
+         * @description Requires berichte:reports:write permission. The link stops working immediately; the row is kept with a revocation timestamp so the view count survives. Revoking an already-revoked link answers 404.
+         */
+        delete: operations["revokeBerichteDocumentShare"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/berichte/reports/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read a shared report document (public, unauthenticated)
+         * @description No authentication. The share token in the path is the entire credential; the tenant is resolved from it server-side and the response can only ever be the one document the link names.
+         *
+         *     It is a POST rather than a GET because the password must not travel in a URL — where it would land in access logs, browser history and Referer headers — and because the call increments the link's view counter, which no prefetching GET should be free to do. The request body is optional: a link without a password is read with no body at all.
+         *
+         *     Unknown, expired and revoked links all answer 404, deliberately indistinguishable. A missing or wrong password answers 401. This route is behind the strict per-IP public rate limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one.
+         *
+         *     The response is a reduced document: tenant_id, created_by and the editing status are withheld from anonymous callers.
+         */
+        post: operations["getPublicBerichteSharedReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List report starter templates
+         * @description Requires berichte:reports:read permission. Returns the static set of starter block structures for "Neuer Bericht aus Vorlage" — not tenant data, so the response is identical for every tenant.
+         */
+        get: operations["listBerichteTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/berichte/kpis": {
         parameters: {
             query?: never;
@@ -11229,6 +15583,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/files/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a file directly into the document store
+         * @description Requires documents:write permission. Unlike POST /api/v1/documents/files (which only registers metadata for bytes already in MinIO via a presigned PUT), this route streams the file itself through the gateway. Intended for small server-generated files (e.g. a report PDF) where a presign round-trip is unnecessary overhead. folder_id and, if given, tag_id must belong to the caller's tenant. Owner is taken from the JWT.
+         */
+        post: operations["uploadDocumentFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/files/{id}": {
         parameters: {
             query?: never;
@@ -11317,6 +15691,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/files/{id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the activity history of a document file
+         * @description Requires documents:read permission. Append-only audit trail: uploaded, renamed, moved, copied, downloaded, shared, version_created, reverted — newest first.
+         */
+        get: operations["listDocumentFileActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List comments on a document file
+         * @description Requires documents:read permission. Oldest first.
+         */
+        get: operations["listDocumentFileComments"];
+        put?: never;
+        /**
+         * Comment on a document file
+         * @description Requires documents:write permission. The author is taken from the auth context.
+         */
+        post: operations["createDocumentFileComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}/share-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List external share links for a document file
+         * @description Requires documents:read permission. Newest first.
+         */
+        get: operations["listDocumentShareLinks"];
+        put?: never;
+        /**
+         * Create an external share link for a document file
+         * @description Requires documents:write permission plus documents:share_link:create. The password, if given, is bcrypt-hashed and never stored or returned in clear.
+         */
+        post: operations["createDocumentShareLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/share-links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an external document share link
+         * @description Requires documents:write permission plus documents:share:manage. Revocation is immediate; the next redemption attempt gets the same generic "invalid" answer an unknown token would.
+         */
+        delete: operations["revokeDocumentShareLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/documents/share/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read/download a shared document file (public, unauthenticated)
+         * @description No authentication. The share token in the path is the entire credential; the tenant is resolved from it server-side and the response can only ever be the one file the link names.
+         *
+         *     It is a POST rather than a GET because the password must not travel in a URL — where it would land in access logs, browser history and Referer headers — and because the call increments the link's view counter, which no prefetching GET should be free to do. The request body is optional: a link without a password is read with no body at all.
+         *
+         *     Unknown token, revoked link, expired link, missing password and wrong password all answer 404 with the identical message — deliberately indistinguishable, stricter than the berichte share-token route, which tells "not found" and "wrong password" apart by status code. This route is behind the strict per-IP public rate limit (PUBLIC_RATE_LIMIT_RPS), not the authenticated one.
+         */
+        post: operations["getPublicDocumentSharedFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/comments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a document file comment
+         * @description Requires documents:write permission. Only the comment's author may edit it.
+         */
+        put: operations["updateDocumentFileComment"];
+        post?: never;
+        /**
+         * Delete a document file comment
+         * @description Requires documents:write permission. Only the comment's author or an admin may delete it.
+         */
+        delete: operations["deleteDocumentFileComment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/files/{id}/versions": {
         parameters: {
             query?: never;
@@ -11357,6 +15867,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/files/{id}/versions/{versionId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a download URL for one past version of a document file
+         * @description Requires documents:read or documents:file:download permission. A version id that does not belong to this file (foreign or unknown) returns 404, same as an unknown file id — the two are not told apart.
+         */
+        get: operations["getDocumentFileVersionDownloadUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/files/{id}/links": {
         parameters: {
             query?: never;
@@ -11380,6 +15910,26 @@ export interface paths {
          * @description Requires documents:write permission.
          */
         delete: operations["unlinkDocumentFileFromEntity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a document entity link by its own ID
+         * @description Requires documents:write permission. Unlike DELETE /documents/files/{id}/links, this deletes by the link's own ID without requiring the caller to know which file or entity it connects — the desktop entity-link panel only holds the link ID.
+         */
+        delete: operations["deleteDocumentEntityLink"];
         options?: never;
         head?: never;
         patch?: never;
@@ -11626,7 +16176,10 @@ export interface paths {
         get: operations["getPluginManifest"];
         put?: never;
         post?: never;
-        /** Delete a plugin manifest (admin-only) */
+        /**
+         * Delete a plugin manifest (admin-only)
+         * @description Only manifests the calling tenant created itself can be deleted. Manifests shipped with the product are readable by every tenant and owned by none; deleting one answers 403.
+         */
         delete: operations["deletePluginManifest"];
         options?: never;
         head?: never;
@@ -12087,7 +16640,7 @@ export interface paths {
         put?: never;
         /**
          * Test an integration config
-         * @description Requires admin role. NOTE (current backend state): TestIntegrationConfig is a stub -- it always returns success=true without actually probing the platform or validating that a config for the platform exists; real notification-send testing will be wired once the forwarder/platform clients are available to the notification service.
+         * @description Requires admin role. Probes the platform with the credentials the notification service holds: Slack via auth.test, Teams via a Bot Framework client_credentials token request. Neither writes anything into a channel. A 200 therefore means the platform actually answered -- there is no success=false response; a config that does not exist for this tenant is 404, and a platform that refuses or that the server has no credentials for is 409 with the reason in the error message.
          */
         post: operations["testIntegrationConfig"];
         delete?: never;
@@ -12193,7 +16746,7 @@ export interface paths {
         };
         /**
          * Get the caller's account link status for a platform
-         * @description Any authenticated user (no admin role required). NOTE: despite the platform path segment, the handler currently ignores it and always returns ALL of the caller's linked platforms (GetAccountLinkStatus is called with only user_id, no platform filter).
+         * @description Any authenticated user (no admin role required). GetAccountLinkStatus is called with only user_id (it returns every platform the caller has linked); the gateway handler then picks the link matching the platform path segment and flattens it into the single-platform shape the frontend types as AccountLinkStatus. No link for that platform is a 200 with linked=false, not a 404. linked_at is hand-formatted RFC3339 in the handler, so it is a genuine timestamp string here (unlike the ProtoTimestamp-shaped IntegrationAccountLink schema).
          */
         get: operations["getIntegrationAccountLinkStatus"];
         put?: never;
@@ -12215,7 +16768,10 @@ export interface paths {
         put?: never;
         /**
          * Inbound Microsoft Teams Bot Framework webhook
-         * @description Public endpoint (no bearerAuth) called by the Microsoft Bot Framework for all bot interactions (messages, Action.Execute invokes). Authenticity is verified internally via Bot Framework JWT validation, not the gateway's standard auth middleware. Returns 404 (JSON ErrorResponse) if the Teams integration is not configured on this deployment (teamsWebhook handler unset). On JWT verification failure the underlying handler writes a PLAIN TEXT "unauthorized" body via http.Error (not the JSON ErrorResponse shape).
+         * @description Public endpoint (no bearerAuth) called by the Microsoft Bot Framework for all bot interactions (messages, Action.Execute invokes). The gateway is a pure proxy here: it forwards the raw body and the Authorization header to the notification service, which validates the Bot Framework JWT and only then reads any data.
+         *     Tenant resolution: the request is unauthenticated, so the tenant comes from channelData.tenant.id (the Azure AD tenant of the Teams organisation), matched against the `tenant_id` key in integration_configs.metadata. An admin sets that key via POST /api/v1/integrations/configs (metadata is free-form JSON). Until it is set the organisation resolves to no tenant and the activity is answered with an explanatory message instead of being processed -- no tenant is ever guessed.
+         *     Effect: only the acknowledge card action runs (it marks the notification read). approve, reject and reply have no counterpart in Cosmi yet and are answered as not-yet-executed rather than confirmed.
+         *     Returns 501 if Teams webhooks are not configured on this deployment (TEAMS_APP_ID / TEAMS_APP_PASSWORD unset). On JWT verification failure the body is PLAIN TEXT "unauthorized" (not the JSON ErrorResponse shape).
          */
         post: operations["handleTeamsWebhook"];
         delete?: never;
@@ -12235,7 +16791,10 @@ export interface paths {
         put?: never;
         /**
          * Inbound Slack interactive message callback (Block Kit button clicks)
-         * @description Public endpoint (no bearerAuth) called by Slack for block_actions interaction payloads. Authenticity is verified internally via the Slack request signing secret, not the gateway's standard auth middleware. Body is application/x-www-form-urlencoded with a single `payload` field containing the JSON-encoded Slack InteractionCallback. Returns 404 (JSON ErrorResponse) if the Slack integration is not configured. Signature/parse failures return a PLAIN TEXT body via http.Error (not the JSON ErrorResponse shape).
+         * @description Public endpoint (no bearerAuth) called by Slack for block_actions interaction payloads. The gateway is a pure proxy here: it forwards the raw body and the two X-Slack-* headers to the notification service, which verifies the signature over the untouched bytes before anything is parsed or read. Body is application/x-www-form-urlencoded with a single `payload` field containing the JSON-encoded Slack InteractionCallback.
+         *     Tenant resolution: the request is unauthenticated, so the tenant comes from the Slack workspace id (payload team.id), matched against the `team_id` key in integration_configs.metadata. An admin sets that key via POST /api/v1/integrations/configs (metadata is free-form JSON). Until it is set the workspace resolves to no tenant and the user gets an explanatory ephemeral message -- no tenant is ever guessed.
+         *     Effect: only the acknowledge action runs (it marks the notification read) and only then is the card rewritten with a resolved banner. approve, reject and reply have no counterpart in Cosmi yet; they leave the card untouched and answer with an ephemeral note.
+         *     Returns 501 if Slack webhooks are not configured on this deployment (SLACK_BOT_TOKEN / SLACK_SIGNING_SECRET unset). Signature and parse failures return a PLAIN TEXT body (not the JSON ErrorResponse shape).
          */
         post: operations["handleSlackInteraction"];
         delete?: never;
@@ -12255,7 +16814,9 @@ export interface paths {
         put?: never;
         /**
          * Inbound Slack slash command (/kmuhub)
-         * @description Public endpoint (no bearerAuth) called by Slack for the /kmuhub slash command. Authenticity is verified internally via the Slack request signing secret, not the gateway's standard auth middleware. Body is application/x-www-form-urlencoded (Slack SlashCommand payload: command, text, user_id, channel_id, ...). Supported text subcommands: `link`, `unlink`; anything else returns a help message. Returns 404 (JSON ErrorResponse) if the Slack integration is not configured. Signature/parse failures return a PLAIN TEXT body via http.Error (not the JSON ErrorResponse shape).
+         * @description Public endpoint (no bearerAuth) called by Slack for the /kmuhub slash command. The gateway is a pure proxy here: it forwards the raw body and the two X-Slack-* headers to the notification service, which verifies the signature over the untouched bytes before anything is parsed or read. Body is application/x-www-form-urlencoded (Slack SlashCommand payload: command, text, user_id, team_id, channel_id, ...). Supported text subcommands: `link`, `unlink`; anything else returns a help message.
+         *     Tenant resolution: the request is unauthenticated, so the tenant comes from the `team_id` form field, matched against the `team_id` key in integration_configs.metadata. An admin sets that key via POST /api/v1/integrations/configs (metadata is free-form JSON). Until it is set the workspace resolves to no tenant and the command answers with an explanatory ephemeral message -- no tenant is ever guessed, and no link token is issued without one.
+         *     Returns 501 if Slack webhooks are not configured on this deployment (SLACK_BOT_TOKEN / SLACK_SIGNING_SECRET unset). Signature and parse failures return a PLAIN TEXT body (not the JSON ErrorResponse shape).
          */
         post: operations["handleSlackSlashCommand"];
         delete?: never;
@@ -12272,8 +16833,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Start the Slack app install (OAuth authorize) redirect
-         * @description Public endpoint (no bearerAuth). Redirects the browser to Slack's OAuth v2 authorize URL. Returns 404 (JSON ErrorResponse) if Slack OAuth is not configured (slackOAuth handler unset).
+         * Start the Slack app install (OAuth authorize) redirect -- NOT IMPLEMENTED
+         * @description Public endpoint (no bearerAuth), reserved for the Slack app install flow. It always answers 501 today, and that is a decision rather than missing wiring: the install hands back a per-workspace bot token and there is nowhere to keep it -- integration_configs.credentials_vault_key is a bare string with no resolver behind it. Until a credential store exists, Slack is configured with a single deployment-wide bot token from the environment.
          */
         get: operations["slackOAuthInstall"];
         put?: never;
@@ -12292,8 +16853,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Slack OAuth install callback
-         * @description Public endpoint (no bearerAuth) -- Slack redirects here after the user approves the app install. Exchanges the authorization code for a bot token and redirects back into the app. NOTE (current backend state): the exchanged bot token is only logged, not yet persisted via CreateIntegrationConfig -- the frontend is expected to complete setup by calling POST /api/v1/integrations/configs with the vault key. Returns 404 (JSON ErrorResponse) if Slack OAuth is not configured. code/exchange failures return a PLAIN TEXT body via http.Error (not the JSON ErrorResponse shape).
+         * Slack OAuth install callback -- NOT IMPLEMENTED
+         * @description Public endpoint (no bearerAuth), reserved for the Slack app install callback. It always answers 501 today, for two reasons that both need their own work: the exchanged bot token has nowhere to live (see /oauth/install), and the callback arrives unauthenticated, so it would additionally need a signed `state` carrying the tenant from a prior authenticated install step. Answering 501 is the honest state until both exist.
          */
         get: operations["slackOAuthCallback"];
         put?: never;
@@ -12395,7 +16956,7 @@ export interface paths {
         put?: never;
         /**
          * Trigger a DATEV Buchungsstapel export and upload
-         * @description Requires admin role. NOTE (current backend state): the upload service is invoked with empty invoice/credit-note slices at the gRPC layer, so document_count is always 0 regardless of the date range passed -- the full fetch-then-export orchestration is not yet wired end-to-end. On export/upload failure the RPC returns success=false with a 200 response (not an HTTP error), except for an invalid fiscal_year_start which is a 400.
+         * @description Requires admin role. Renders the tenant's booking batch for the requested period (the same rows and EXTF header the GoBD export produces) and transfers it to DATEV. Success means the batch reached DATEV; every precondition that would produce a meaningless transfer answers 409 instead: no active DATEV connection, no client number in the upload config, no Berater-/Mandantennummer in the company settings, or a period without a single bookable document. The period is mandatory.
          */
         post: operations["uploadDatevBuchungsstapel"];
         delete?: never;
@@ -12415,7 +16976,7 @@ export interface paths {
         put?: never;
         /**
          * Upload a single invoice PDF as a DATEV Belegbild
-         * @description Requires admin role. NOTE (current backend state): this is a placeholder RPC -- it logs the request and always returns success=true without retrieving or uploading a PDF; the invoice_id path parameter is also not validated as a UUID by the handler.
+         * @description Requires admin role. Renders the invoice PDF with the same generator the finance module serves for download and transfers it as a Belegbild. Success means the document reached DATEV. Answers 409 when a precondition is unmet (no active DATEV connection, no client number, or company settings missing a Pflichtangabe of section 14 UStG, which would render a document the tax advisor may not book) and 404 when the invoice does not exist in this tenant.
          */
         post: operations["uploadDatevBeleg"];
         delete?: never;
@@ -12968,6 +17529,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/caldav/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test the CalDAV/CardDAV connection for the current user
+         * @description Makes real, timeout-bounded HTTP requests against this server's own /caldav/ and /carddav/ endpoints using a freshly minted, immediately revoked app-specific password -- the same path a real CalDAV/CardDAV client would use. Distinguishes network failure, auth failure, and unexpected responses instead of only checking that the enabled flags are set.
+         */
+        post: operations["testCaldavConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/caldav/enable": {
         parameters: {
             query?: never;
@@ -13514,6 +18095,68 @@ export interface paths {
         put?: never;
         /** Create an invoice from an employee's time entries in a date range */
         post: operations["createInvoiceFromTime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/license": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every Cosmi module with its tenant-wide activation state
+         * @description Returns the full module catalogue, not only the activated ones. A module the deployment does not run (modules.* feature flag off) always reports active=false regardless of the stored activation.
+         */
+        get: operations["getTenantLicense"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Activate or deactivate one module tenant-wide (admin only) */
+        patch: operations["setTenantModuleActive"];
+        trace?: never;
+    };
+    "/api/v1/admin/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booked plan, support tier and seats of the tenant */
+        get: operations["getTenantSubscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the tenant's workspace branding (name, logo, icon, accent color)
+         * @description logo_object_key/icon_object_key are MinIO object keys, not URLs — resolve them via POST /api/v1/files/presign-download (same pattern as User.avatar_url). accent_color defaults to #10B981 until the first write.
+         */
+        get: operations["getBranding"];
+        /**
+         * Replace the tenant's workspace branding (admin only)
+         * @description Full replace, not a patch — omitting logo_object_key/icon_object_key clears them. accent_color must be one of the Cosmi swatch colors (server-validated, no free hex). logo/icon object keys must belong to this tenant's branding presign scope (obtained from POST /api/v1/files/presign-upload with scope=branding), or the write is rejected.
+         */
+        put: operations["putBranding"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -14197,6 +18840,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hr/time/weeks/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a submitted or approved week for corrections (manager/admin)
+         * @description A submitted or approved week rejects every write of work time — clock-in, manual entry and time corrections all return 409. Reopening is the only way back to an editable week. A week that is open or rejected is already editable and returns 409.
+         */
+        post: operations["reopenHrTimeWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/2fa/validate": {
         parameters: {
             query?: never;
@@ -14245,6 +18908,26 @@ export interface paths {
         put?: never;
         /** Import contacts from a vCard file (multipart upload) */
         post: operations["importCRMContactsVCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/import/xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import contacts from an XLSX workbook (multipart upload)
+         * @description Only the first worksheet is read; the first row is treated as the header. Row count is capped server-side; rows beyond the cap are silently skipped, not erred.
+         */
+        post: operations["importCRMContactsXLSX"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14509,9 +19192,16 @@ export interface components {
             last_name?: string;
             is_active?: boolean;
         };
-        RoleRequest: {
-            /** @enum {string} */
-            role_name: "admin" | "manager" | "member";
+        AssignRoleRequest: {
+            /**
+             * Format: uuid
+             * @description Id of a system preset or a custom role of the caller's tenant. Validated against the roles table, not against a fixed list — a tenant's own roles cannot be enumerated in the spec.
+             */
+            roleId: string;
+        };
+        UserRolesResponse: {
+            /** @description Role ids the account holds after the mutation, oldest assignment first. */
+            roles: string[];
         };
         ChangePasswordRequest: {
             /** Format: password */
@@ -14526,6 +19216,59 @@ export interface components {
         ResetPasswordRequest: {
             token: string;
             new_password: string;
+        };
+        ProvisionTenantRequest: {
+            name: string;
+            /**
+             * @default cosmi
+             * @enum {string}
+             */
+            plan_type: "cosmi" | "orbit";
+            /**
+             * @default standard
+             * @enum {string}
+             */
+            support_tier: "standard" | "priority" | "enterprise";
+            /** @description Booked seats. Omit for an uncapped tenant. The administrator's invitation takes the first seat, so 0 is rejected. */
+            seat_limit?: number | null;
+            /**
+             * Format: date
+             * @description End of the current billing period (YYYY-MM-DD).
+             */
+            billing_period_end?: string;
+            /** @description Catalogue module ids to activate. Omit or leave empty to activate the whole catalogue. An unknown id is rejected rather than skipped. */
+            modules?: string[];
+            /**
+             * Format: email
+             * @description Receives the invitation that creates the first account. Mandatory: a tenant without a way in is stranded, not provisioned.
+             */
+            admin_email: string;
+        };
+        TenantInfo: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** @enum {string} */
+            planType?: "cosmi" | "orbit";
+            /** @enum {string} */
+            supportTier?: "standard" | "priority" | "enterprise";
+            /** @enum {string} */
+            subscriptionStatus?: "active" | "past_due" | "paused";
+            /** @description YYYY-MM-DD, empty when no period has been agreed. */
+            billingPeriodEnd?: string;
+            seatLimit?: number;
+            /** @description False means the tenant is uncapped; seatLimit is then meaningless. */
+            hasSeatLimit?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** @description The module ids activated at provisioning time. */
+            modules?: string[];
+        };
+        ProvisionTenantResponse: {
+            tenant?: components["schemas"]["TenantInfo"];
+            invitation?: components["schemas"]["InvitationInfo"];
+            /** @description Plaintext invitation token. Returned once, never stored and never retrievable again. */
+            invitationToken?: string;
         };
         CreateInvitationRequest: {
             /** Format: email */
@@ -14576,6 +19319,202 @@ export interface components {
         ListUsersResponse: {
             users?: components["schemas"]["UserInfo"][];
             total?: number;
+        };
+        EffectiveRole: {
+            /** Format: uuid */
+            id?: string;
+            /** @description Technical role name, unique per tenant. */
+            name?: string;
+            /** @description True for a Zentria-maintained preset (tenant_id IS NULL). */
+            isSystem?: boolean;
+            /**
+             * @description HSL accent used for role dots in the admin surfaces.
+             * @example hsl(217 91% 60%)
+             */
+            color?: string;
+        };
+        EffectiveCapability: {
+            /**
+             * @description Widest data scope any of the account's roles grants for this key.
+             * @enum {string}
+             */
+            scope: "own" | "team" | "all";
+            /** @description IDs of every role contributing this grant, including those that lost the scope comparison. Resolvable against the roles list of the same response. A grant set or raised by an allow override carries the literal sentinel "override" as its last entry, next to the role IDs that also grant the key — it is not a UUID and resolves against no role. */
+            sources: string[];
+        };
+        /** @description A capability the account's roles grant and a deny override takes away. It is absent from capabilities; this entry keeps what the roles would have given so the effective view can show the row struck through instead of silently missing. */
+        DeniedCapability: {
+            /** @example crm:contact:delete */
+            key: string;
+            /**
+             * @description Scope the roles would have granted.
+             * @enum {string}
+             */
+            roleScope: "own" | "team" | "all";
+            /** @description IDs of the roles that grant the revoked key. */
+            sources: string[];
+        };
+        EffectivePermissions: {
+            roles: components["schemas"]["EffectiveRole"][];
+            /** @description Capability key (module:subject:action) to resolved grant. An absent key means denied — default-deny, so no entry ever carries an empty scope. Coarse legacy permission names are filtered out. */
+            capabilities: {
+                [key: string]: components["schemas"]["EffectiveCapability"];
+            };
+            /** @description True when the account carries at least one per-user override. Omitted when it carries none and for a base=1 request, which keeps the answer for an account without overrides identical to the one this route gave before R-6. */
+            hasOverrides?: boolean;
+            /** @description Keys the roles grant and a deny override revokes. Omitted when empty and for a base=1 request. */
+            deniedByOverride?: components["schemas"]["DeniedCapability"][];
+        };
+        EffectivePermissionsResponse: {
+            permissions: components["schemas"]["EffectivePermissions"];
+        };
+        AdminUser: {
+            /**
+             * Format: uuid
+             * @description The account id for a real user, or the invitation id while status is "invited" — no user row exists yet in that case.
+             */
+            id: string;
+            /** @description Empty for an invited row — invitations do not collect a name. */
+            firstName: string;
+            /** @description Empty for an invited row — invitations do not collect a name. */
+            lastName: string;
+            email: string;
+            /** @description Always "" — the backend has no job-title data on an account (that lives in the HR employee record, a different service). */
+            jobTitle: string;
+            /** @description Role ids (preset or custom). An invited row carries at most the one preset id its invitations.role legacy name resolves to. */
+            roles: string[];
+            /** @description Whether the account carries any per-user override. Always omitted: the overrides themselves exist under /admin/users/{id}/overrides, but the roster query does not join them yet. */
+            hasOverrides?: boolean;
+            /** @enum {string} */
+            status: "active" | "invited" | "deactivated";
+            /**
+             * Format: date-time
+             * @description Most recent user_sessions row for the account. Null if the account never logged in, or every session since has been removed by logout/termination.
+             */
+            lastLoginAt: string | null;
+            /**
+             * Format: date-time
+             * @description Null unless status is "invited".
+             */
+            invitedAt: string | null;
+        };
+        AdminUsersResponse: {
+            users: components["schemas"]["AdminUser"][];
+        };
+        /** @description The answer of the three writing roster routes: the one row the operation produced, in the shape the list returns. */
+        AdminUserResult: {
+            user: components["schemas"]["AdminUser"];
+            /** @description One-time accept token, present on the two invitation routes and omitted otherwise. Returned to the caller rather than mailed, the same way POST /api/v1/invitations works. */
+            inviteToken?: string;
+        };
+        InviteAdminUserRequest: {
+            /** Format: email */
+            email: string;
+            /** @description Stored on the invitation since migration 000280, so the invited row shows the name the admin typed. The person accepting still enters their own name, which is what the account gets. */
+            firstName?: string;
+            lastName?: string;
+            /** @description Role IDS, preset or custom. At least one — an account with no role has no rights and cannot repair that itself. */
+            roles: string[];
+        };
+        UpdateAdminUserRequest: {
+            /** @description Full replacement of the account's roles. Absent leaves them untouched; an empty array strips them. */
+            roles?: string[] | null;
+            /**
+             * @description "invited" is not accepted — it is derived from a pending invitation, not a state an existing account can hold.
+             * @enum {string}
+             */
+            status?: "active" | "deactivated";
+        };
+        Role: {
+            /** Format: uuid */
+            id: string;
+            /** @description Technical name, unique per tenant. */
+            name: string;
+            description: string;
+            /**
+             * Format: uuid
+             * @description Null for a Zentria-maintained system preset.
+             */
+            tenantId: string | null;
+            /**
+             * Format: uuid
+             * @description Id of the preset (or role) a custom role was cloned from. Null on presets.
+             */
+            basedOn: string | null;
+            isSystem: boolean;
+            /** @example hsl(217 91% 60%) */
+            color: string;
+            /** @description Accounts in the caller's tenant currently holding this role. */
+            memberCount: number;
+            /** @description Number of capability grants the role carries. */
+            capabilityCount: number;
+        };
+        RolesResponse: {
+            roles: components["schemas"]["Role"][];
+        };
+        RoleResponse: {
+            role: components["schemas"]["Role"];
+        };
+        CreateRoleRequest: {
+            name: string;
+            description?: string;
+            /** @example hsl(217 91% 60%) */
+            color?: string;
+            /**
+             * Format: uuid
+             * @description Role the new one is cloned from — usually a preset. Every grant of that role is copied over, scope included.
+             */
+            basedOn: string;
+        };
+        UpdateRoleRequest: {
+            name?: string;
+            description?: string;
+            /** @example hsl(217 91% 60%) */
+            color?: string;
+        };
+        RoleGrant: {
+            /** @enum {string} */
+            scope: "own" | "team" | "all";
+        };
+        RolePermissionsResponse: {
+            /** Format: uuid */
+            roleId: string;
+            /** @description Capability key (resource:action) → grant. Missing key = not granted. */
+            grants: {
+                [key: string]: components["schemas"]["RoleGrant"];
+            };
+        };
+        UpdateRolePermissionsRequest: {
+            /** @description Full replacement grant map — keys absent here are revoked. */
+            grants: {
+                [key: string]: components["schemas"]["RoleGrant"];
+            };
+        };
+        CapabilityOverride: {
+            /**
+             * @description allow sets or raises the key, deny removes it from the effective set.
+             * @enum {string}
+             */
+            mode: "allow" | "deny";
+            /**
+             * @description Target scope of an allow. Stored but meaningless for deny.
+             * @enum {string}
+             */
+            scope: "own" | "team" | "all";
+        };
+        UserOverridesResponse: {
+            /** Format: uuid */
+            userId: string;
+            /** @description Capability key (resource:action) → override. Missing key = follows the roles. */
+            overrides: {
+                [key: string]: components["schemas"]["CapabilityOverride"];
+            };
+        };
+        UpdateUserOverridesRequest: {
+            /** @description Full replacement map — keys absent here go back to following the roles. */
+            overrides: {
+                [key: string]: components["schemas"]["CapabilityOverride"];
+            };
         };
         StatusResponse: {
             status?: string;
@@ -14664,11 +19603,35 @@ export interface components {
             /** Format: email */
             email?: string;
             phone?: string;
+            /** @description Job role, e.g. "Geschäftsführer" */
+            position?: string;
+            /** @description Academic title (Dr./Prof.); the job role is `position` */
             title?: string;
             /** Format: uuid */
             companyId?: string;
             companyName?: string;
             notes?: string;
+            /** @enum {string} */
+            salutation?: "Herr" | "Frau";
+            mobile?: string;
+            department?: string;
+            address_street?: string;
+            address_zip?: string;
+            address_city?: string;
+            address_country?: string;
+            website?: string;
+            linkedin?: string;
+            xing?: string;
+            /**
+             * @description Relationship type; unrelated to the lead pipeline
+             * @enum {string}
+             */
+            category?: "employee" | "customer" | "partner";
+            /**
+             * @description Relationship state; unrelated to the lead pipeline
+             * @enum {string}
+             */
+            status?: "active" | "prospect" | "inactive";
             tags?: components["schemas"]["TagInfo"][];
             customFields?: {
                 [key: string]: unknown;
@@ -14684,10 +19647,28 @@ export interface components {
             /** Format: email */
             email?: string;
             phone?: string;
+            /** @description Job role, e.g. "Geschäftsführer" */
+            position?: string;
+            /** @description Academic title (Dr./Prof.); the job role is `position` */
             title?: string;
             /** Format: uuid */
             company_id?: string;
             notes?: string;
+            /** @enum {string} */
+            salutation?: "Herr" | "Frau";
+            mobile?: string;
+            department?: string;
+            address_street?: string;
+            address_zip?: string;
+            address_city?: string;
+            address_country?: string;
+            website?: string;
+            linkedin?: string;
+            xing?: string;
+            /** @enum {string} */
+            category?: "employee" | "customer" | "partner";
+            /** @enum {string} */
+            status?: "active" | "prospect" | "inactive";
             tag_ids?: string[];
             custom_fields?: {
                 [key: string]: unknown;
@@ -14699,10 +19680,28 @@ export interface components {
             /** Format: email */
             email?: string;
             phone?: string;
+            /** @description Job role, e.g. "Geschäftsführer" */
+            position?: string;
+            /** @description Academic title (Dr./Prof.); the job role is `position` */
             title?: string;
             /** Format: uuid */
             company_id?: string;
             notes?: string;
+            /** @enum {string} */
+            salutation?: "Herr" | "Frau";
+            mobile?: string;
+            department?: string;
+            address_street?: string;
+            address_zip?: string;
+            address_city?: string;
+            address_country?: string;
+            website?: string;
+            linkedin?: string;
+            xing?: string;
+            /** @enum {string} */
+            category?: "employee" | "customer" | "partner";
+            /** @enum {string} */
+            status?: "active" | "prospect" | "inactive";
             custom_fields?: {
                 [key: string]: unknown;
             };
@@ -14713,6 +19712,66 @@ export interface components {
         ListContactsResponse: {
             contacts?: components["schemas"]["ContactInfo"][];
             total?: number;
+        };
+        /** @description A contact at the lead or qualified lifecycle stage. camelCase because this is hand-mapped onto the desktop inbox's Lead type rather than emitted straight from the proto. */
+        Lead: {
+            /** Format: uuid */
+            id?: string;
+            firstName?: string;
+            lastName?: string;
+            /** @description Linked company name, else the free-text employer from intake. */
+            company?: string;
+            email?: string;
+            phone?: string;
+            /** @enum {string} */
+            source?: "manual" | "csv" | "dialer";
+            /** @description 0-100, computed server-side from source and data completeness. */
+            score?: number;
+            /**
+             * @description Effective value — the manual override if pinned, else derived from score.
+             * @enum {string}
+             */
+            temperature?: "hot" | "warm" | "cold";
+            /**
+             * @description Present only when a user pinned the temperature by hand.
+             * @enum {string}
+             */
+            temperatureOverride?: "hot" | "warm" | "cold";
+            /** @enum {string} */
+            status?: "new" | "contacted" | "qualified" | "disqualified";
+            /** @enum {string} */
+            lifecycleStage?: "lead" | "qualified";
+            notes?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        LeadResponse: {
+            lead?: components["schemas"]["Lead"];
+        };
+        ListLeadsResponse: {
+            items?: components["schemas"]["Lead"][];
+            total?: number;
+        };
+        CreateLeadRequest: {
+            firstName: string;
+            lastName: string;
+            company?: string;
+            /** Format: email */
+            email?: string;
+            phone?: string;
+            notes?: string;
+            /** @enum {string} */
+            source: "manual" | "csv" | "dialer";
+        };
+        /** @description At least one of status or temperature must be present. */
+        UpdateLeadRequest: {
+            /** @enum {string} */
+            status?: "new" | "contacted" | "qualified" | "disqualified";
+            /**
+             * @description Empty string clears the manual override.
+             * @enum {string}
+             */
+            temperature?: "hot" | "warm" | "cold" | "";
         };
         CompanyInfo: {
             /** Format: uuid */
@@ -15392,6 +20451,13 @@ export interface components {
              */
             created_at?: string;
         };
+        /** @description Flat response for the snooze endpoint (not the wrapped `{notification}` shape used by pin/dismiss) — matches the desktop client's SnoozeResponse type exactly. */
+        SnoozeNotificationResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: date-time */
+            snoozed_until?: string;
+        };
         NotificationPreference: {
             /** Format: uuid */
             id?: string;
@@ -15401,6 +20467,10 @@ export interface components {
             module_id?: string;
             in_app?: boolean;
             desktop_push?: boolean;
+            /** @description Whether this preference selects email as a delivery channel. Carried through for the user's choice; actual email delivery is not wired to the dispatcher yet. */
+            email?: boolean;
+            /** @description Whether this preference selects SMS as a delivery channel. Carried through for the user's choice; no SMS provider is configured. */
+            sms?: boolean;
             sound?: string;
         };
         UpdateNotificationPreferenceRequest: {
@@ -15410,6 +20480,8 @@ export interface components {
             module_id?: string;
             in_app?: boolean;
             desktop_push?: boolean;
+            email?: boolean;
+            sms?: boolean;
             sound?: string;
         };
         EventType: {
@@ -15600,6 +20672,8 @@ export interface components {
             /** Format: uuid */
             parent_task_id?: string;
             /** Format: date-time */
+            start_date?: string;
+            /** Format: date-time */
             due_date?: string;
             custom_fields?: {
                 /** Format: uuid */
@@ -15621,6 +20695,8 @@ export interface components {
             priority?: "urgent" | "high" | "normal" | "low";
             /** Format: uuid */
             assignee_id?: string;
+            /** Format: date-time */
+            start_date?: string;
             /** Format: date-time */
             due_date?: string;
             custom_fields?: {
@@ -15651,6 +20727,8 @@ export interface components {
             depth?: number;
             /** Format: double */
             sort_order?: number;
+            /** Format: date-time */
+            start_date?: string;
             /** Format: date-time */
             due_date?: string;
             /** Format: uuid */
@@ -15759,6 +20837,17 @@ export interface components {
             /** Format: uuid */
             uploaded_by?: string;
             uploaded_by_name?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ContactFileResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            contact_id?: string;
+            filename?: string;
+            mime_type?: string;
+            storage_key?: string;
             /** Format: date-time */
             created_at?: string;
         };
@@ -16390,6 +21479,13 @@ export interface components {
                 };
             }[];
         };
+        ToggleBookmarkResponse: {
+            /** @description true if the message is now bookmarked, false if the bookmark was removed */
+            bookmarked?: boolean;
+        };
+        ListBookmarksResponse: {
+            messages?: components["schemas"]["MessageInfo"][];
+        };
         CreateMeetingRequest: {
             title: string;
             description?: string;
@@ -16649,6 +21745,11 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             updated_at?: string;
+            /**
+             * @description ISO 4217 code of the document currency. EUR for rows written before the column existed.
+             * @example EUR
+             */
+            currency?: string;
         };
         CreateQuoteRequest: {
             customer: components["schemas"]["CustomerSnapshot"];
@@ -16703,6 +21804,97 @@ export interface components {
              * @description CRM contact linked to this invoice (Contact-360, Migration 000141)
              */
             contact_id?: string;
+            /**
+             * @description ISO 4217 code of the document currency. EUR for rows written before the column existed.
+             * @example EUR
+             */
+            currency?: string;
+            /**
+             * @description Provenance (Migration 000243). Bexio rows are read-only mirrors.
+             * @enum {string}
+             */
+            source?: "cosmi" | "bexio";
+            /** @description Identity in the source system. Absent for cosmi invoices. */
+            external_id?: string;
+            /** @description Document number in the source system. Absent for cosmi invoices. */
+            external_number?: string;
+            /**
+             * Format: uuid
+             * @description Recurring schedule that emitted this invoice (Migration 000246). Absent for manually created invoices.
+             */
+            recurring_id?: string;
+        };
+        /** @description A schedule that emits draft invoices at a fixed interval (Migration 000246). */
+        RecurringInvoice: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            customer?: components["schemas"]["CustomerSnapshot"];
+            line_items?: components["schemas"]["LineItem"][];
+            /** @enum {string} */
+            tax_mode?: "standard" | "reverse_charge" | "kleinunternehmer";
+            tax_breakdown?: components["schemas"]["TaxBreakdown"];
+            /** @example EUR */
+            currency?: string;
+            /** @enum {string} */
+            interval?: "weekly" | "monthly" | "quarterly" | "yearly";
+            /** @enum {string} */
+            status?: "active" | "paused" | "ended";
+            /** Format: date */
+            start_date?: string;
+            /**
+             * Format: date
+             * @description Empty when the schedule is open-ended.
+             */
+            end_date?: string;
+            /** Format: date */
+            next_run?: string;
+            payment_terms_days?: number;
+            generated_count?: number;
+            /**
+             * Format: date
+             * @description Empty before the first run.
+             */
+            last_generated_at?: string;
+            notes?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CreateRecurringInvoiceRequest: {
+            title?: string;
+            customer: components["schemas"]["CustomerSnapshot"];
+            line_items: components["schemas"]["LineItem"][];
+            /** @enum {string} */
+            tax_mode: "standard" | "reverse_charge" | "kleinunternehmer";
+            /** @example EUR */
+            currency?: string;
+            /** @enum {string} */
+            interval: "weekly" | "monthly" | "quarterly" | "yearly";
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date?: string;
+            payment_terms_days?: number;
+            notes?: string;
+        };
+        /** @description Partial update; omitted fields stay unchanged, an empty end_date clears it. */
+        UpdateRecurringInvoiceRequest: {
+            title?: string;
+            customer?: components["schemas"]["CustomerSnapshot"];
+            line_items?: components["schemas"]["LineItem"][];
+            /** @enum {string} */
+            tax_mode?: "standard" | "reverse_charge" | "kleinunternehmer";
+            currency?: string;
+            /** @enum {string} */
+            interval?: "weekly" | "monthly" | "quarterly" | "yearly";
+            /** Format: date */
+            start_date?: string;
+            /** Format: date */
+            end_date?: string;
+            payment_terms_days?: number;
+            notes?: string;
         };
         CreateInvoiceRequest: {
             customer: components["schemas"]["CustomerSnapshot"];
@@ -16759,6 +21951,11 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             updated_at?: string;
+            /**
+             * @description ISO 4217 code of the document currency. EUR for rows written before the column existed.
+             * @example EUR
+             */
+            currency?: string;
         };
         CreateCreditNoteRequest: {
             /** Format: uuid */
@@ -16797,6 +21994,377 @@ export interface components {
             method: "bank_transfer" | "cash" | "credit_card" | "other";
             reference?: string;
             notes?: string;
+        };
+        /** @description One imported account statement file (Migration 000247). */
+        BankStatement: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            format?: "camt053" | "mt940";
+            filename?: string;
+            /** @description SHA-256 of the uploaded bytes. Importing the same file twice resolves to this same statement instead of creating a second one. */
+            content_hash?: string;
+            account_iban?: string;
+            statement_ref?: string;
+            /** @description ISO 4217 */
+            currency?: string;
+            /** @description Decimal as string */
+            opening_balance?: string;
+            /** @description Decimal as string */
+            closing_balance?: string;
+            /** Format: date */
+            statement_date?: string;
+            transaction_count?: number;
+            /** Format: uuid */
+            imported_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        /** @description One account a tenant holds. balance and lastSync are read from the newest imported statement of this IBAN and are never stored on the account itself, so a figure shown here is always one this system actually imported. */
+        BankAccount: {
+            /** Format: uuid */
+            id?: string;
+            bankName?: string;
+            /**
+             * @description Grouped in blocks of four for display; stored canonically.
+             * @example DE89 3704 0044 0532 0130 00
+             */
+            iban?: string;
+            bic?: string;
+            /**
+             * Format: double
+             * @description Closing balance of the newest imported statement, 0 when none.
+             */
+            balance?: number;
+            /** @example EUR */
+            currency?: string;
+            /** @description Master-data flag, not a live bank session. */
+            connected?: boolean;
+            /**
+             * Format: date
+             * @description Date of the newest imported statement, null when none.
+             */
+            lastSync?: string | null;
+        };
+        BankAccountInput: {
+            bankName: string;
+            /** @description Grouped or compact; validated with the ISO 7064 mod-97 check. */
+            iban: string;
+            bic?: string;
+            /**
+             * @description ISO 4217; defaults to EUR when omitted.
+             * @example EUR
+             */
+            currency?: string;
+        };
+        /** @description Partial edit — an omitted field is left untouched. */
+        BankAccountUpdateInput: {
+            bankName?: string;
+            iban?: string;
+            bic?: string;
+            currency?: string;
+            connected?: boolean;
+        };
+        /** @description An expense (Ausgabe) as the desktop client reads it. Two fields deliberately break the snake_case convention used elsewhere in this spec, because this shape is the existing frontend contract: receiptName is camelCase, and amount is a JSON number rather than a decimal string. */
+        Expense: {
+            /** Format: uuid */
+            id: string;
+            description: string;
+            /**
+             * Format: double
+             * @description Gross amount, always positive
+             * @example 234.5
+             */
+            amount: number;
+            /**
+             * Format: date
+             * @description The day the money was spent
+             * @example 2026-05-29
+             */
+            date: string;
+            /** @example Büromaterial */
+            category: string;
+            /** @example Hetzner Online GmbH */
+            supplier: string;
+            /** @description Absent when the expense is not booked on a project */
+            project?: string;
+            /**
+             * @description SKR03/04 Sachkonto, absent until Kontierung
+             * @example 4930
+             */
+            account?: string;
+            /** @description Derived from receiptName, never stored separately */
+            receipt?: boolean;
+            /**
+             * @description Filename of the attached document, absent when none
+             * @example hetzner-2026-05.pdf
+             */
+            receiptName?: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+        };
+        /** @description A new expense. The submitter and the pending status come from the server. */
+        ExpenseInput: {
+            description: string;
+            /**
+             * Format: double
+             * @description Must be greater than zero
+             */
+            amount: number;
+            /**
+             * Format: date
+             * @example 2026-05-29
+             */
+            date: string;
+            category?: string;
+            supplier?: string;
+            project?: string;
+            account?: string;
+            receiptName?: string;
+        };
+        /** @description A partial edit — every field is optional and an omitted one is left untouched, so the Kontierung dialog can send account alone. */
+        ExpenseUpdateInput: {
+            description?: string;
+            /** Format: double */
+            amount?: number;
+            /** Format: date */
+            date?: string;
+            category?: string;
+            supplier?: string;
+            project?: string;
+            account?: string;
+            receiptName?: string;
+        };
+        /** @description One entry in the consolidated payment ledger (Transaktionen): either a recorded customer payment (income) or an approved expense (expense). id is opaque and prefixed ("pay-"/"exp-") to name the underlying record for delete; do not parse it as a UUID. */
+        Transaction: {
+            /** @example pay-3fa85f64-5717-4562-b3fc-2c963f66afa6 */
+            id: string;
+            /** @enum {string} */
+            type: "income" | "expense";
+            description: string;
+            /**
+             * Format: double
+             * @description Always positive; sign is implied by type
+             * @example 4280
+             */
+            amount: number;
+            /**
+             * Format: date
+             * @example 2026-05-29
+             */
+            date: string;
+            /** @example Umsatzerlöse */
+            category: string;
+            /**
+             * @description Always "completed" today — only settled money movements are listed
+             * @enum {string}
+             */
+            status: "completed" | "pending";
+            /**
+             * @description Invoice number; present for income entries only
+             * @example RE-2026-042
+             */
+            reference?: string;
+            /**
+             * Format: uuid
+             * @description Present for income entries only
+             */
+            invoiceId?: string;
+        };
+        /** @description One entry of a statement plus its reconciliation state. Everything up to remittance_info is what the bank reported and is never rewritten after import; the match_ fields carry what this system made of it. */
+        BankTransaction: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            statement_id?: string;
+            entry_ref?: string;
+            end_to_end_id?: string;
+            /** Format: date */
+            value_date?: string;
+            /** Format: date */
+            booking_date?: string;
+            /** @description Decimal as string, signed: a credit (money in) is positive, a debit negative. */
+            amount?: string;
+            currency?: string;
+            counterparty_name?: string;
+            counterparty_iban?: string;
+            remittance_info?: string;
+            /** @enum {string} */
+            match_status?: "unmatched" | "suggested" | "matched" | "ignored";
+            /**
+             * @description Why the matcher suggested what it did.
+             * @enum {string}
+             */
+            match_reason?: "" | "invoice_number+amount" | "invoice_number" | "amount" | "manual" | "ignored";
+            /** Format: uuid */
+            matched_invoice_id?: string;
+            /** Format: uuid */
+            payment_id?: string;
+            /** Format: date-time */
+            reconciled_at?: string;
+            /** Format: uuid */
+            reconciled_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** @description Number of the matched invoice, joined on read. Absent while nothing is matched. */
+            matched_invoice_number?: string;
+        };
+        /** @description One entry of the reconciliation queue, in the shape the desktop client reads. Narrower than BankTransaction on purpose: the queue shows what an operator decides on, not the full bank record, which the statement endpoints carry. */
+        BankTransactionQueueEntry: {
+            /** Format: uuid */
+            id?: string;
+            /**
+             * Format: date
+             * @description Value date of the entry.
+             */
+            date?: string;
+            /** @description Remittance information, falling back to the bank's entry reference where the payer left it empty. */
+            description?: string;
+            /** @description Signed: a credit (money in) is positive, a debit negative. */
+            amount?: number;
+            /**
+             * @description Restates the sign of amount.
+             * @enum {string}
+             */
+            type?: "credit" | "debit";
+            counterpart?: string;
+            /** @enum {string} */
+            matchStatus?: "unmatched" | "suggested" | "matched" | "ignored";
+            /** @description Number of the matched invoice — not its id. Absent while nothing is matched. */
+            matchedInvoice?: string;
+        };
+        /** @description One step in a document's lifecycle. number and date read "—" for a step that has not happened yet — the pending-payment placeholder on an invoice that is not fully settled. */
+        ChainNode: {
+            /** @enum {string} */
+            type?: "quote" | "invoice" | "payment" | "dunning" | "credit-note";
+            number?: string;
+            /** @description YYYY-MM-DD, or — if the step has not happened yet. */
+            date?: string;
+            /** @description Pre-formatted for display, e.g. "CHF 12.450,00" — the client renders it verbatim. */
+            amount?: string;
+            /**
+             * @description Presentational, independent of the underlying document's own status field.
+             * @enum {string}
+             */
+            status?: "completed" | "active" | "pending" | "cancelled" | "overdue";
+        };
+        /** @description One customer document traced from quote to its current step. */
+        DocumentChain: {
+            /** Format: uuid */
+            id?: string;
+            customer?: string;
+            /** @description Pre-formatted for display, e.g. "CHF 12.450,00". */
+            totalValue?: string;
+            isComplete?: boolean;
+            nodes?: components["schemas"]["ChainNode"][];
+        };
+        /** @description A completed time entry available for invoicing (Stunden -> Rechnung). billed is always false today -- invoice creation from this list does not yet persist which entries it covered. */
+        FinanceTimeEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** @description YYYY-MM-DD */
+            date?: string;
+            project?: string;
+            task?: string;
+            employee?: string;
+            hours?: number;
+            description?: string;
+            billed?: boolean;
+        };
+        /** @description A completed time entry scoped to one project's tasks, for that project's "Stunden abrechnen" roll-up. */
+        ProjectTimeEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** @description YYYY-MM-DD */
+            date?: string;
+            task?: string;
+            person?: string;
+            hours?: number;
+            description?: string;
+        };
+        /** @description One labeled period ("KW 6", "Aug 2026") in a member's tracked-hours trend. */
+        UtilizationPoint: {
+            label?: string;
+            hours?: number;
+        };
+        /** @description One project member's tracked-hours roll-up for the Auslastung view. Deliberately carries no cost or salary figure. */
+        MemberUtilization: {
+            member?: {
+                /** Format: uuid */
+                id?: string;
+                name?: string;
+                role?: string;
+                avatarInitial?: string;
+                /** @description Fixed full-time-week default (40h), not the member's real contracted hours. */
+                weeklyTarget?: number;
+            };
+            weeklyData?: components["schemas"]["UtilizationPoint"][];
+            monthlyData?: components["schemas"]["UtilizationPoint"][];
+        };
+        BankStatementImportResult: {
+            statement?: components["schemas"]["BankStatement"];
+            transactions?: components["schemas"]["BankTransaction"][];
+            /** @description True when the identical file had been imported before. The response then carries the original statement, not a second copy. */
+            already_imported?: boolean;
+        };
+        /** @description One unpaid receivable with its aging and dunning state. */
+        OpenItem: {
+            /** Format: uuid */
+            invoice_id?: string;
+            invoice_number?: string;
+            /** @enum {string} */
+            status?: "sent" | "overdue";
+            customer_name?: string;
+            customer_email?: string;
+            /** @description ISO 4217 code */
+            currency?: string;
+            /** @description Decimal as string */
+            gross_total?: string;
+            /** @description Decimal as string — everything recorded in finance_payments */
+            paid_amount?: string;
+            /** @description Decimal as string — gross_total minus paid_amount */
+            open_amount?: string;
+            /** Format: date */
+            invoice_date?: string;
+            /** Format: date */
+            due_date?: string;
+            /** @description Negative when the item is not due yet */
+            days_overdue?: number;
+            /** @enum {string} */
+            aging_bucket?: "current" | "d30" | "d60" | "d60plus";
+            /** @description Highest dunning level reached, 0 when never dunned */
+            dunning_level?: number;
+            /** @description Empty when never dunned */
+            dunning_status?: string;
+            /** Format: date-time */
+            last_dunned_at?: string;
+            /** Format: uuid */
+            contact_id?: string;
+        };
+        /** @description One aging bucket in one currency, over all open items. */
+        OpenItemBucketTotal: {
+            currency?: string;
+            /** @enum {string} */
+            bucket?: "current" | "d30" | "d60" | "d60plus";
+            count?: number;
+            /** @description Decimal as string */
+            amount?: string;
+        };
+        /** @description Receivables totals for one currency. */
+        OpenItemCurrencyTotal: {
+            currency?: string;
+            /** @description Decimal as string */
+            open_amount?: string;
+            open_count?: number;
+            /** @description Decimal as string */
+            overdue_amount?: string;
+            overdue_count?: number;
+            avg_days_overdue?: number;
+        };
+        /** @description Tenant-wide receivables aggregates, never page-scoped. */
+        OpenItemsSummary: {
+            totals?: components["schemas"]["OpenItemCurrencyTotal"][];
+            buckets?: components["schemas"]["OpenItemBucketTotal"][];
         };
         DunningRecord: {
             /** Format: uuid */
@@ -16961,7 +22529,7 @@ export interface components {
             auto_break_deducted?: number;
             net_work_minutes?: number;
             /** @enum {string} */
-            status?: "active" | "completed" | "correction_pending" | "correction_approved";
+            status?: "active" | "completed" | "correction_pending" | "correction_approved" | "superseded";
             is_correction?: boolean;
             /** Format: uuid */
             original_entry_id?: string;
@@ -17041,6 +22609,29 @@ export interface components {
             leave_type_name?: string;
             leave_type_color?: string;
         };
+        /** @description One employee's proposal to change a single field of their own master data. camelCase, unlike the other HR schemas: this contract is consumed by desktop's hr-change-requests client, which was written against camelCase and is the reference for the shape. oldValue is what the proposer saw when submitting, not what the record holds now — the approver has to be able to notice when the two differ. */
+        ProfileChangeRequest: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            userId?: string;
+            userName?: string;
+            /** @enum {string} */
+            drawer?: "personal" | "job";
+            field?: string;
+            fieldLabel?: string;
+            oldValue?: string;
+            newValue?: string;
+            /** @enum {string} */
+            status?: "pending" | "approved" | "rejected" | "cancelled";
+            /** @description Rejection reason, absent otherwise */
+            reason?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            decidedByName?: string;
+        };
         EmployeeProfile: {
             /** Format: uuid */
             id?: string;
@@ -17069,6 +22660,33 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             updated_at?: string;
+            /** @enum {string} */
+            status?: "active" | "inactive";
+            /** Format: date */
+            last_work_day?: string;
+            /** Format: date */
+            exit_date?: string;
+            /** @enum {string} */
+            exit_type?: "resignation" | "termination" | "fixed_term_expired" | "mutual_termination" | "retirement";
+            exit_reason?: string;
+            /** @description Under 18. Shift compliance applies the stricter JArbSchG limits (no work before 06:00 or after 20:00, at most 8 hours per shift, no weekend shifts) to everyone carrying this flag, and refuses shift assignments that break them. Settable by HR only. */
+            is_minor?: boolean;
+        };
+        OffboardEmployeeInput: {
+            /** Format: date */
+            lastWorkDay?: string;
+            /** Format: date */
+            exitDate: string;
+            /** @enum {string} */
+            exitType: "resignation" | "termination" | "fixed_term_expired" | "mutual_termination" | "retirement";
+            reason?: string;
+            /** @description Whether the position is to be refilled. Recorded only; it has no effect on the cascade. */
+            backfill?: boolean;
+            /**
+             * Format: uuid
+             * @description Required when the employee still has direct reports.
+             */
+            successorUserId?: string;
         };
         UpdateEmployeeInput: {
             department?: string;
@@ -17081,6 +22699,8 @@ export interface components {
             manager_user_id?: string;
             /** Format: date */
             start_date?: string;
+            /** @description Omit to leave the flag untouched; send false to clear it. Not part of UpdateSelfProfileInput — an employee must not be able to clear it on themselves. */
+            is_minor?: boolean;
         };
         UpdateSelfProfileInput: {
             emergency_contact_name?: string;
@@ -17105,9 +22725,40 @@ export interface components {
             uploaded_by?: string;
             notes?: string;
             category_name?: string;
+            /** @description hr_document_categories.key slug */
+            category_key?: string;
+            /** @enum {string} */
+            visibility?: "hr_only" | "manager" | "employee";
             file_name?: string;
-            file_size?: number;
+            /** @description Human-readable size, e.g. "120 KB" */
+            file_size?: string;
             uploaded_by_name?: string;
+            title?: string;
+            /**
+             * Format: date
+             * @description Empty when the document never expires
+             */
+            expires_at?: string;
+            employee_name?: string;
+            /**
+             * Format: uuid
+             * @description hr_employee_profiles.id
+             */
+            employee_profile_id?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        HRDocumentCategory: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            key?: string;
+            /** @enum {string} */
+            visibility?: "hr_only" | "manager" | "employee";
+            is_system?: boolean;
+            sort_order?: number;
             /** Format: date-time */
             created_at?: string;
         };
@@ -17169,6 +22820,8 @@ export interface components {
             is_read?: boolean;
             is_starred?: boolean;
             is_archived?: boolean;
+            /** @enum {string} */
+            status?: "open" | "pending" | "resolved" | "closed";
             /** Format: date-time */
             snoozed_until?: string;
             /** Format: uuid */
@@ -17186,6 +22839,9 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             updated_at?: string;
+        };
+        InboxMessageWrapper: {
+            message?: components["schemas"]["InboxMessage"];
         };
         InboxMessageList: {
             messages?: components["schemas"]["InboxMessage"][];
@@ -17297,7 +22953,7 @@ export interface components {
             trigger_type?: string;
             trigger_config?: Record<string, never>;
             conditions?: Record<string, never>;
-            actions?: Record<string, never>;
+            actions?: Record<string, never>[];
             is_active?: boolean;
             max_steps?: number;
             template_id?: string | null;
@@ -17319,7 +22975,7 @@ export interface components {
             trigger_type: string;
             trigger_config?: Record<string, never>;
             conditions?: Record<string, never>;
-            actions?: Record<string, never>;
+            actions?: Record<string, never>[];
             /** @default 10 */
             max_steps: number;
         };
@@ -17331,7 +22987,7 @@ export interface components {
             trigger_type?: string;
             trigger_config?: Record<string, never>;
             conditions?: Record<string, never>;
-            actions?: Record<string, never>;
+            actions?: Record<string, never>[];
             max_steps?: number;
         };
         AutomationExecution: {
@@ -17382,7 +23038,7 @@ export interface components {
             trigger_type?: string;
             trigger_config?: Record<string, never>;
             conditions?: Record<string, never>;
-            actions?: Record<string, never>;
+            actions?: Record<string, never>[];
             /** Format: date-time */
             created_at?: string;
         };
@@ -17543,6 +23199,183 @@ export interface components {
             settings: {
                 [key: string]: unknown;
             };
+        };
+        /** @description Full-replace semantics — the given keys become the caller's complete preference set. Only language, theme and region are accepted; any other key is rejected with 400. */
+        PutUserPreferencesRequest: {
+            /** @description Subset of {language, theme, region}. Example: {"language": "de", "theme": "dark"} */
+            preferences: {
+                [key: string]: unknown;
+            };
+        };
+        ResolvedLabel: {
+            /** @description Effective text — the tenant override, or "" when unset (the FE i18n bundle already holds the code default). */
+            value: string;
+            /**
+             * @description Where the effective value came from. Vendor/draft provenance is not produced by this endpoint yet.
+             * @enum {string}
+             */
+            provenance: "default" | "tenant";
+            /** @description The i18n key from the label whitelist. */
+            key: string;
+        };
+        LabelOverridesResponse: {
+            locale: string;
+            /** @description One entry per whitelisted i18n key. */
+            labels: {
+                [key: string]: components["schemas"]["ResolvedLabel"];
+            };
+        };
+        /**
+         * @description Upserts tenant-scope label overrides for a locale. Only whitelisted keys are honoured — others are silently dropped. An empty-string value clears that key's override back to the code default.
+         * @example {
+         *       "locale": "de",
+         *       "overrides": {
+         *         "crm.deals.title": "Aufträge"
+         *       }
+         *     }
+         */
+        UpdateLabelOverridesRequest: {
+            locale: string;
+            /**
+             * @description Only "tenant" (the default) is currently writable; "vendor" is rejected with 400.
+             * @enum {string}
+             */
+            layer?: "tenant" | "vendor";
+            overrides: {
+                [key: string]: string;
+            };
+        };
+        /** @description Field names are camelCase and use `id` (not `key`) on purpose — this shape mirrors the frontend's MSW mock contract 1:1 rather than the snake_case house rule (customization-types.ts ResolvedValueSetOption). */
+        ResolvedValueSetOption: {
+            /** @description Stable option key, referenced by live records (e.g. a deal's stage). */
+            id: string;
+            label: string;
+            /** @description Optional HSL/hex color token for status dots. */
+            color?: string;
+            order: number;
+            /** @description false = soft-deleted, hidden from pickers but kept for existing records. */
+            active: boolean;
+            /** @enum {string} */
+            provenance: "default" | "tenant";
+        };
+        ResolvedValueSet: {
+            /** @description Stable set key (e.g. "deal_stages", "ticket_priority", or a tenant-owned key). */
+            id: string;
+            name: string;
+            options: components["schemas"]["ResolvedValueSetOption"][];
+            /**
+             * @description Provenance of the set's name/definition, not of individual options.
+             * @enum {string}
+             */
+            provenance: "default" | "tenant";
+        };
+        ValueSetsResponse: {
+            valueSets: components["schemas"]["ResolvedValueSet"][];
+        };
+        ValueSetResponse: {
+            valueSet: components["schemas"]["ResolvedValueSet"];
+        };
+        UpsertValueSetOption: {
+            id: string;
+            label: string;
+            color?: string;
+            order?: number;
+            active?: boolean;
+        };
+        /**
+         * @description Replaces the tenant's override for one value-set wholesale — the full option list is expected, not a patch.
+         * @example {
+         *       "options": [
+         *         {
+         *           "id": "low",
+         *           "label": "Niedrig",
+         *           "color": "hsl(142 71% 45%)",
+         *           "order": 0,
+         *           "active": true
+         *         },
+         *         {
+         *           "id": "medium",
+         *           "label": "Mittel",
+         *           "color": "hsl(38 92% 50%)",
+         *           "order": 1,
+         *           "active": true
+         *         }
+         *       ]
+         *     }
+         */
+        UpsertValueSetRequest: {
+            /**
+             * @description Only "tenant" (the default) is currently writable; "vendor" is rejected with 400.
+             * @enum {string}
+             */
+            layer?: "tenant" | "vendor";
+            /** @description Defaults to the value-set id (the URL path segment) when omitted. */
+            name?: string;
+            options: components["schemas"]["UpsertValueSetOption"][];
+        };
+        /** @description Mirrors CustomFieldDefinition in mocks/data/custom-fields.ts. A thin dispatch layer over two existing tables (custom_field_definitions for crm_* entities, work_custom_field_definitions for work_task) — see the route_customization_fields.go file header for the full mapping. valueSetId, validation and inUse are never returned: neither backing table has a column for the first two (a write that sets them is rejected with 400, not silently dropped), and inUse is not computed. */
+        CustomizationField: {
+            id: string;
+            /** @enum {string} */
+            entity: "work_task" | "crm_contact" | "crm_company" | "crm_deal" | "crm_activity" | "helpdesk_ticket";
+            /** @description Stable for crm_* entities; derived from the label for work_task (no separate key column there). */
+            key: string;
+            label: string;
+            /**
+             * @description url/email/phone are only valid for work_task — CRM's backing table predates them.
+             * @enum {string}
+             */
+            type: "text" | "number" | "date" | "boolean" | "select" | "multi_select" | "url" | "email" | "phone";
+            required: boolean;
+            options: string[];
+            defaultValue?: string;
+            /** @description Always true — no persisted column on either backing table yet. */
+            visible: boolean;
+            order: number;
+            /** @description Always false — not computed yet, see route_customization_fields.go. */
+            inUse: boolean;
+        };
+        CustomizationFieldsResponse: {
+            fields: components["schemas"]["CustomizationField"][];
+        };
+        CustomizationFieldResponse: {
+            field: components["schemas"]["CustomizationField"];
+        };
+        CreateCustomizationFieldRequest: {
+            /**
+             * @description helpdesk_ticket is rejected with 400 — no backend table yet.
+             * @enum {string}
+             */
+            entity: "work_task" | "crm_contact" | "crm_company" | "crm_deal" | "crm_activity" | "helpdesk_ticket";
+            label: string;
+            /** @enum {string} */
+            type: "text" | "number" | "date" | "boolean" | "select" | "multi_select" | "url" | "email" | "phone";
+            /** @description Rejected with 400 when true for entity=work_task (no backend column). */
+            required?: boolean;
+            options?: string[];
+            /** @description Rejected with 400 if present — no backend column yet. */
+            valueSetId?: string;
+            /** @description Rejected with 400 if present — no backend column yet. */
+            validation?: Record<string, never>;
+            /** @description Rejected with 400 for entity=work_task (no backend column). */
+            defaultValue?: string;
+            /** @description Rejected with 400 if set to false — no backend column yet, fields are always visible. */
+            visible?: boolean;
+        };
+        /** @description Merge-patch — only fields present in the body change. */
+        UpdateCustomizationFieldRequest: {
+            label?: string;
+            /**
+             * @description Rejected with 400 for CRM-backed entities — type is immutable there once created.
+             * @enum {string}
+             */
+            type?: "text" | "number" | "date" | "boolean" | "select" | "multi_select" | "url" | "email" | "phone";
+            required?: boolean;
+            options?: string[];
+            valueSetId?: string;
+            validation?: Record<string, never>;
+            defaultValue?: string;
+            visible?: boolean;
         };
         /** @description An immutable archived GoBD document (§147 AO) */
         GobdDocument: {
@@ -17976,6 +23809,51 @@ export interface components {
             enabled?: boolean;
             description?: string;
         };
+        VendorAccessAgent: {
+            name?: string;
+        };
+        /** @description A time-boxed Zentria support access request into a tenant's data. */
+        VendorAccessRequest: {
+            /** Format: uuid */
+            id?: string;
+            reason?: string;
+            description?: string;
+            ticket_ref?: string;
+            agents?: components["schemas"]["VendorAccessAgent"][];
+            /** @description Area IDs from the frontend's VENDOR_ACCESS_AREAS catalogue. */
+            scope?: string[];
+            /** Format: date */
+            requested_start?: string;
+            duration_days?: number;
+            /** Format: date */
+            expires_at?: string;
+            /** @enum {string} */
+            status?: "pending" | "counter_proposed" | "active" | "declined" | "expired" | "revoked" | "completed";
+            /** Format: date */
+            counter_proposed_start?: string;
+            approved_at?: components["schemas"]["ProtoTimestamp"];
+            /** @description Reviewer display name, resolved server-side. */
+            approved_by?: string;
+            sensitive_ack?: boolean;
+            revoked_at?: components["schemas"]["ProtoTimestamp"];
+            /** @description Reviewer display name, resolved server-side. */
+            revoked_by?: string;
+            completed_at?: components["schemas"]["ProtoTimestamp"];
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        VendorAccessListResponse: {
+            requests?: components["schemas"]["VendorAccessRequest"][];
+        };
+        VendorAccessRequestResponse: {
+            request?: components["schemas"]["VendorAccessRequest"];
+        };
+        ApproveVendorAccessRequest: {
+            sensitive_ack?: boolean;
+        };
+        CounterProposeVendorAccessRequest: {
+            /** Format: date */
+            proposed_start: string;
+        };
         /** @description A form schema definition (fields layout + metadata). */
         FormSchema: {
             /** Format: uuid */
@@ -18005,6 +23883,35 @@ export interface components {
             created_at?: components["schemas"]["ProtoTimestamp"];
             updated_at?: components["schemas"]["ProtoTimestamp"];
             deleted_at?: components["schemas"]["ProtoTimestamp"];
+            /** @description Key into the shared intake registry (e.g. "helpdesk_ticket") this form feeds. Absent = a plain form. */
+            intake_target_id?: string;
+        };
+        /** @description A public fill-out link for one form schema. `token` is the credential itself and is returned in clear text on purpose — it is the link the author copies out. */
+        FormShareLink: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            form_schema_id?: string;
+            /** @description 43-char base64url secret (32 bytes of crypto/rand). */
+            token?: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** @description 0 = unlimited. */
+            max_submissions?: number;
+            submission_count?: number;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /**
+             * @description Derived on read. `disabled` when revoked by hand, `expired` when past its expiry or out of submission quota.
+             * @enum {string}
+             */
+            status?: "active" | "expired" | "disabled";
         };
         /** @description A single form submission (answers from one respondent). */
         FormSubmission: {
@@ -18090,6 +23997,27 @@ export interface components {
             last_7d_count?: number;
             /** Format: int32 */
             last_30d_count?: number;
+        };
+        /** @description One entry of a contract's append-only audit trail. */
+        VertraegeContractEvent: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            contract_id?: string;
+            /** @enum {string} */
+            action?: "created" | "updated" | "terminated" | "signed" | "party_added" | "party_removed";
+            /**
+             * Format: uuid
+             * @description Absent when the change had no caller (reminder worker, auto-expiry) or the acting account was deleted
+             */
+            user_id?: string;
+            /** @description Per-action facts, no fixed schema: {"fields":[...]} for an update, {"party_id":...} for a party change */
+            payload?: {
+                [key: string]: unknown;
+            };
+            created_at?: components["schemas"]["ProtoTimestamp"];
         };
         /** @description A contract managed in the Vertraege module. */
         VertraegeContract: {
@@ -18199,6 +24127,7 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             updated_at?: string;
+            is_default?: boolean;
         };
         CreateEmailAccountRequest: {
             /** Format: uuid */
@@ -18220,6 +24149,12 @@ export interface components {
             account?: components["schemas"]["EmailAccountInfo"];
         };
         GetEmailAccountResponse: {
+            account?: components["schemas"]["EmailAccountInfo"];
+        };
+        ListEmailAccountsResponse: {
+            accounts?: components["schemas"]["EmailAccountInfo"][];
+        };
+        SetDefaultEmailAccountResponse: {
             account?: components["schemas"]["EmailAccountInfo"];
         };
         UpdateEmailAccountRequest: {
@@ -18319,6 +24254,7 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             updated_at?: string;
+            label_ids?: string[];
         };
         EmailListMessagesResponse: {
             messages?: components["schemas"]["EmailMessageInfo"][];
@@ -18336,6 +24272,20 @@ export interface components {
         MoveToFolderRequest: {
             /** Format: uuid */
             target_folder_id: string;
+        };
+        BulkMessageActionRequest: {
+            ids: string[];
+            /** @enum {string} */
+            action: "read" | "unread" | "star" | "unstar" | "archive" | "spam" | "move" | "delete";
+            /**
+             * Format: uuid
+             * @description Destination folder id. Required for "move"; ignored otherwise.
+             */
+            target?: string;
+        };
+        BulkMessageActionResponse: {
+            /** @description Number of messages actually changed. Ids outside the caller's tenant are silently excluded, not errored. */
+            affected?: number;
         };
         SendEmailRequest: {
             /** Format: uuid */
@@ -18407,6 +24357,88 @@ export interface components {
         ForwardEmailResponse: {
             message?: components["schemas"]["EmailMessageInfo"];
         };
+        EmailRuleInfo: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** @enum {string} */
+            field?: "from" | "subject";
+            /** @enum {string} */
+            op?: "contains";
+            value?: string;
+            /** @enum {string} */
+            action_type?: "label" | "move";
+            /**
+             * Format: uuid
+             * @description Label id when action_type is "label", folder id when it is "move".
+             */
+            action_target?: string;
+        };
+        ListEmailRulesResponse: {
+            rules?: components["schemas"]["EmailRuleInfo"][];
+        };
+        EmailRuleEnvelope: {
+            rule?: components["schemas"]["EmailRuleInfo"];
+        };
+        CreateEmailRuleRequest: {
+            name: string;
+            /** @enum {string} */
+            field: "from" | "subject";
+            /**
+             * @default contains
+             * @enum {string}
+             */
+            op: "contains";
+            value: string;
+            /** @enum {string} */
+            action_type: "label" | "move";
+            /** Format: uuid */
+            action_target: string;
+        };
+        UpdateEmailRuleRequest: {
+            name?: string | null;
+            /** @enum {string|null} */
+            field?: "from" | "subject" | null;
+            /** @enum {string|null} */
+            op?: "contains" | null;
+            value?: string | null;
+            /** @enum {string|null} */
+            action_type?: "label" | "move" | null;
+            /** Format: uuid */
+            action_target?: string | null;
+        };
+        ApplyEmailRulesResponse: {
+            /** @description Messages that actually changed, not the number of rule matches. */
+            affected?: number;
+            /** @description Messages inspected, capped by the per-run scan limit. */
+            scanned?: number;
+        };
+        EmailLabelInfo: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** @description Hex swatch colour, e.g. "#6B7280". */
+            color?: string;
+        };
+        ListEmailLabelsResponse: {
+            labels?: components["schemas"]["EmailLabelInfo"][];
+        };
+        EmailLabelEnvelope: {
+            label?: components["schemas"]["EmailLabelInfo"];
+        };
+        CreateEmailLabelRequest: {
+            name: string;
+            /** @description Hex swatch colour. Defaults to a neutral grey if omitted. */
+            color?: string;
+        };
+        UpdateEmailLabelRequest: {
+            name?: string | null;
+            color?: string | null;
+        };
+        AssignMessageLabelsRequest: {
+            /** @description Full replacement set. Every id must already be a label of the tenant. */
+            label_ids: string[];
+        };
         EmailSignatureInfo: {
             /** Format: uuid */
             id?: string;
@@ -18450,6 +24482,67 @@ export interface components {
         };
         SetDefaultSignatureResponse: {
             signature?: components["schemas"]["EmailSignatureInfo"];
+        };
+        EmailTemplateInfo: {
+            /** Format: uuid */
+            id?: string;
+            /**
+             * Format: uuid
+             * @description Empty when visibility is "shared".
+             */
+            owner_id?: string;
+            /** @enum {string} */
+            visibility?: "personal" | "shared";
+            name?: string;
+            subject?: string;
+            body_html?: string;
+            body_text?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        ListEmailTemplatesResponse: {
+            templates?: components["schemas"]["EmailTemplateInfo"][];
+        };
+        GetEmailTemplateResponse: {
+            template?: components["schemas"]["EmailTemplateInfo"];
+        };
+        CreateEmailTemplateRequest: {
+            name: string;
+            subject?: string;
+            body_html?: string;
+            body_text?: string;
+            /**
+             * @description Defaults to "personal" when omitted.
+             * @enum {string}
+             */
+            visibility?: "personal" | "shared";
+        };
+        CreateEmailTemplateResponse: {
+            template?: components["schemas"]["EmailTemplateInfo"];
+        };
+        UpdateEmailTemplateRequest: {
+            name?: string | null;
+            subject?: string | null;
+            body_html?: string | null;
+            body_text?: string | null;
+            /** @enum {string|null} */
+            visibility?: "personal" | "shared" | null;
+        };
+        UpdateEmailTemplateResponse: {
+            template?: components["schemas"]["EmailTemplateInfo"];
+        };
+        RenderEmailTemplateRequest: {
+            /** @description Only keys from the server-side fixed placeholder allow-list are substituted; unknown keys are ignored. */
+            values?: {
+                [key: string]: string;
+            };
+        };
+        RenderEmailTemplateResponse: {
+            subject?: string;
+            body_html?: string;
+            body_text?: string;
         };
         EmailContactLinkInfo: {
             /** Format: uuid */
@@ -18859,6 +24952,50 @@ export interface components {
             created_at?: components["schemas"]["ProtoTimestamp"];
             updated_at?: components["schemas"]["ProtoTimestamp"];
         };
+        /** @description A picking list — what has to be pulled from stock for one order. */
+        InventarPickingList: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** @description Order or delivery note reference this pick belongs to */
+            reference?: string;
+            /**
+             * @description completed means the picked quantities were booked out of stock
+             * @enum {string}
+             */
+            status?: "open" | "picking" | "completed";
+            /** Format: uuid */
+            assigned_to?: string | null;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** @description Positions of this picking list */
+            items?: components["schemas"]["InventarPickingListItem"][];
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description One position of a picking list. */
+        InventarPickingListItem: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            picking_list_id?: string;
+            /** Format: uuid */
+            item_id?: string;
+            /** Format: int64 */
+            quantity_requested?: number;
+            /**
+             * Format: int64
+             * @description Actually pulled quantity; this is what booking moves out of stock
+             */
+            quantity_picked?: number;
+            /** @description Free-text pick location hint (bin, shelf) */
+            location?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
         /** @description An Inventur (physical stocktake) session. */
         InventarInventurSession: {
             /** Format: uuid */
@@ -18969,8 +25106,17 @@ export interface components {
             photo_urls?: string[];
             /** Format: uuid */
             performed_by?: string;
+            checklist?: components["schemas"]["VermietungChecklistItem"][];
+            /** @description data:image/png;base64,... or data:image/svg+xml;base64,... — absent when unsigned */
+            signature_data?: string;
             created_at?: components["schemas"]["ProtoTimestamp"];
             updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description One structured position of an inspection's condition checklist. */
+        VermietungChecklistItem: {
+            label: string;
+            condition?: string;
+            remark?: string;
         };
         /** @description Aggregated calendar view — all rentals for one object within the requested month. */
         VermietungCalendarEntry: {
@@ -19402,6 +25548,26 @@ export interface components {
             created_at?: string;
             updated_at?: string;
         };
+        /** @description A driving-licence compliance check for a driver (proto DriverLicense). Rows are append-only history; the most recent row per driver_id is the current status. */
+        FuhrparkDriverLicense: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            driver_id?: string;
+            license_classes?: string[];
+            /** @description ISO date YYYY-MM-DD; absent when the licence has no expiry */
+            expiry_date?: string | null;
+            /** @description ISO date YYYY-MM-DD */
+            checked_at?: string;
+            /** @description ISO date YYYY-MM-DD */
+            next_check_due_date?: string;
+            notes?: string;
+            /** @description ISO-8601 string (proto string field, not Timestamp) */
+            created_at?: string;
+            updated_at?: string;
+        };
         /** @description A fuel refuelling log entry (proto FuelLog). */
         FuhrparkFuelLog: {
             /** Format: uuid */
@@ -19480,6 +25646,33 @@ export interface components {
             created_at?: components["schemas"]["ProtoTimestamp"];
             updated_at?: components["schemas"]["ProtoTimestamp"];
         };
+        /** @description A pool vehicle reservation (proto VehicleBooking). */
+        FuhrparkVehicleBooking: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            /**
+             * Format: uuid
+             * @description The user the vehicle is reserved for.
+             */
+            user_id?: string;
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            ends_at?: string;
+            purpose?: string;
+            /** @enum {string} */
+            status?: "booked" | "in_use" | "completed" | "cancelled";
+            /** @description Empty when the booking has no known creator. */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
         /** @description A vehicle trip (Fahrtenbuch) entry (proto TripLog). */
         FuhrparkTripLog: {
             /** Format: uuid */
@@ -19504,6 +25697,8 @@ export interface components {
             km?: number;
             is_private?: boolean;
             driver_name?: string;
+            /** @description Geschaeftspartner (Fahrtenbuch Pflichtangabe) */
+            business_partner?: string;
             notes?: string;
             /** @description ISO-8601 string (proto string field, not Timestamp) */
             created_at?: string;
@@ -19562,6 +25757,95 @@ export interface components {
             is_published?: boolean;
             created_at?: components["schemas"]["ProtoTimestamp"];
             updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description An external, unauthenticated read link for one report document. Mirrors ReportShareToken in berichte-types.ts. The bcrypt password hash has no field here at all — it never leaves the service; has_password is all a client learns. */
+        BerichtShareToken: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            document_id?: string;
+            /** @description The link secret in clear (43-char base64url, 32 bytes of crypto/rand). Returned so the UI can render a copyable URL; it is the entire credential for the public read route. */
+            token?: string;
+            /**
+             * Format: date-time
+             * @description null = never expires
+             */
+            expires_at?: string | null;
+            has_password?: boolean;
+            view_count?: number;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        /** @description The reduced report document an anonymous visitor sees through a share link. Deliberately not BerichtDocument: tenant_id, created_by and the editing status are internal facts withheld from unauthenticated callers. */
+        BerichtPublicDocument: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            description?: string;
+            /** @description finanzen|crm|helpdesk|inventar|produktion|cross */
+            module?: string;
+            /** @description Block tree (rows -> columns -> blocks), opaque JSONB. */
+            rows?: {
+                [key: string]: unknown;
+            }[];
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            updated_at?: string;
+            /** Format: date-time */
+            released_at?: string | null;
+        };
+        /** @description A multi-page report authoring document ("Schicht 4"): cover page, headings, rich text and embedded chart/table/KPI blocks. Distinct from BerichtDefinition, which is a single data widget. Unlike the other berichte endpoints, the document handlers serialize a hand-built wire struct (encoding/json), so timestamps are RFC3339 strings and rows/settings are nested JSON, not base64. */
+        BerichtDocument: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            title?: string;
+            description?: string;
+            /** @description finanzen|crm|helpdesk|inventar|produktion|cross */
+            module?: string;
+            /** @description draft|final|released|archived */
+            status?: string;
+            /** @description Block tree (rows -> columns -> blocks). Stored and returned as opaque JSONB; the block structure is owned by the editor and its keys are camelCase. */
+            rows?: {
+                [key: string]: unknown;
+            }[];
+            /** @description Document-level page setup (header/footer/page numbers, palette). */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** @description Frontend-side starter template key; not a foreign key. */
+            template_id?: string | null;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /**
+             * Format: date-time
+             * @description Set when the status first transitions to "released".
+             */
+            released_at?: string | null;
+        };
+        /** @description A static starter block structure for "Neuer Bericht aus Vorlage". Not tenant data — served from a server-side constant, identical for every tenant. Same wire rationale as BerichtDocument: served via response.JSON, not response.Proto. */
+        BerichtTemplate: {
+            id?: string;
+            title?: string;
+            description?: string;
+            /** @description finanzen|crm|helpdesk|inventar|produktion|cross */
+            module?: string;
+            /** @description Lucide icon name resolved in the picker UI. */
+            icon?: string | null;
+            /** @description Block tree (rows -> columns -> blocks), same shape as BerichtDocument.rows. */
+            rows?: {
+                [key: string]: unknown;
+            }[];
+            settings?: {
+                [key: string]: unknown;
+            };
         };
         /** @description A recurring delivery schedule for a report definition. */
         BerichtSchedule: {
@@ -19640,6 +25924,15 @@ export interface components {
             /** Format: double */
             change_percent?: number;
             module_id?: string;
+            /** @description Last up to eight calendar-month periods, oldest first. Omitted (not an empty array) for KPIs with no historical state, e.g. stock warnings, whose rows are mutated in place. */
+            series?: components["schemas"]["BerichtKPISeriesPoint"][];
+        };
+        /** @description One point of a BerichtKPI's history, for dashboard sparklines. */
+        BerichtKPISeriesPoint: {
+            /** Format: date-time */
+            period_start?: string;
+            /** @description Rendered value, same convention as BerichtKPI.value */
+            value?: string;
         };
         /** @description Field names match document.v1.DocumentFolder. GET .../folders (list) serializes via protojson (created_at/updated_at as RFC3339 strings); GET/POST/PUT on a single folder serialize via Go encoding/json over the raw proto struct (created_at/updated_at as ProtoTimestamp {seconds,nanos}) — see the differing response schemas per operation. */
         DocumentFolder: {
@@ -19701,6 +25994,56 @@ export interface components {
             file_size?: number;
             /** Format: uuid */
             created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        /** @description Only ever returned via GET .../files/{id}/activity, which serializes via protojson (bare array) — created_at here is a real RFC3339 string, not a ProtoTimestamp object. Append-only audit trail entry (DB-level trigger blocks UPDATE/DELETE). */
+        DocumentFileActivity: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            file_id?: string;
+            /** @enum {string} */
+            action?: "uploaded" | "renamed" | "moved" | "copied" | "downloaded" | "shared" | "version_created" | "reverted";
+            /** Format: uuid */
+            actor_id?: string;
+            /** @description Denormalized from JOIN */
+            actor_name?: string;
+            detail?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        /** @description List/create/update all serialize via protojson — created_at and updated_at are always real RFC3339 strings, not ProtoTimestamp objects. */
+        DocumentFileComment: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            file_id?: string;
+            /** Format: uuid */
+            author_id?: string;
+            /** @description Denormalized from JOIN */
+            author_name?: string;
+            content?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        /** @description An external, unauthenticated read/download link for one document file. List/create serialize via protojson — created_at and expires_at are always real RFC3339 strings. password_hash never leaves the service; has_password is the only signal a caller gets. */
+        DocumentShareLink: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            file_id?: string;
+            /** @description The link secret in clear — this is the copyable URL segment. */
+            token?: string;
+            /**
+             * Format: date-time
+             * @description Absent or null means the link never expires.
+             */
+            expires_at?: string | null;
+            has_password?: boolean;
+            view_count?: number;
             /** Format: date-time */
             created_at?: string;
         };
@@ -19808,7 +26151,7 @@ export interface components {
         PluginManifest: {
             /** Format: uuid */
             id?: string;
-            /** @description Unique plugin slug. */
+            /** @description Plugin slug, unique per tenant. A manifest shipped with the product and a tenant's own manifest never share one. */
             slug?: string;
             name?: string;
             description?: string;
@@ -20186,6 +26529,14 @@ export interface components {
             caldav_url?: string;
             carddav_url?: string;
         };
+        CaldavTestResult: {
+            /** @description True only if both the CalDAV and the CardDAV probe reached and authenticated successfully */
+            success?: boolean;
+            /** @description Human-readable detail for any failed probe (e.g. 'CalDAV: authentication failed'); empty on success */
+            message?: string;
+            caldav_reachable?: boolean;
+            carddav_reachable?: boolean;
+        };
         CaldavAdminSettings: {
             /** @description Whether CalDAV/CardDAV is enabled organization-wide */
             enabled?: boolean;
@@ -20562,6 +26913,35 @@ export interface components {
             /** Format: date-time */
             lastActiveAt?: string | null;
         };
+        /** @description One catalogue module with this tenant's activation state. assignedSeats counts the users holding a module grant and is reported as 0 while the module is inactive — the grants themselves survive a deactivation. */
+        TenantModule: {
+            /** @description One of the ModuleId values (see lib/pricing.ts) */
+            moduleId?: string;
+            /** @enum {string} */
+            group?: "core" | "comm" | "team" | "industry" | "tools";
+            active?: boolean;
+            assignedSeats?: number;
+        };
+        /** @description The booked contract of the tenant. Seats in use are not part of it — they are counted where they are enforced (the invitation path). */
+        TenantSubscription: {
+            /** @enum {string} */
+            planType?: "cosmi" | "orbit";
+            /** @enum {string} */
+            supportTier?: "standard" | "priority" | "enterprise";
+            /** @enum {string} */
+            status?: "active" | "past_due" | "paused";
+            /** Format: date */
+            billingPeriodEnd?: string | null;
+            totalSeats?: number | null;
+        };
+        /** @description Tenant-wide workspace branding, served via protojson (snake_case). logo_object_key/icon_object_key are MinIO object keys — resolve via POST /api/v1/files/presign-download — not URLs. accent_color is restricted to the Cosmi swatch palette. */
+        Branding: {
+            name?: string;
+            logo_object_key?: string;
+            icon_object_key?: string;
+            /** @description Booked seats; null means unlimited */
+            accent_color?: string;
+        };
         FilePresignUploadRequest: {
             /** @description Logical storage scope/prefix for the upload */
             scope: string;
@@ -20856,6 +27236,14 @@ export interface components {
             week_start: string;
             rejection_reason?: string;
         };
+        HrTimeReopenWeekRequest: {
+            /** Format: uuid */
+            employee_id: string;
+            /** Format: date */
+            week_start: string;
+            /** @description Logged with the reopen event, not stored on the approval record. */
+            reason?: string;
+        };
         /** @description hr.v1.GetTimeAnalyticsResp serialized via response.JSON (no timestamp fields). */
         HrTimeAnalytics: {
             total_minutes?: number;
@@ -20924,6 +27312,24 @@ export interface components {
              */
             visibility: "shared" | "personal";
             /** @enum {string} */
+            merge_by_email?: "true" | "false";
+        };
+        /** @description multipart/form-data. Additional dynamic fields named map_<column> (form value = target CRM field name) configure the worksheet-column- to-CRM-field mapping; not enumerable as a fixed schema property. */
+        ContactsImportXLSXForm: {
+            /**
+             * Format: binary
+             * @description XLSX workbook to import
+             */
+            file: string;
+            /**
+             * @default shared
+             * @enum {string}
+             */
+            visibility: "shared" | "personal";
+            /**
+             * @description Merge with existing contacts sharing the same email
+             * @enum {string}
+             */
             merge_by_email?: "true" | "false";
         };
         ContactsPreviewImportForm: {
@@ -21098,10 +27504,29 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description Rate limit exceeded */
+        TooManyRequests: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description Upstream service unavailable */
+        ServiceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
     };
     parameters: {
         UserId: string;
         ResourceId: string;
+        RoleId: string;
         page: number;
         page_size: number;
     };
@@ -21256,6 +27681,27 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    getMyEffectivePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved effective permissions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectivePermissionsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     updateProfile: {
         parameters: {
             query?: never;
@@ -21366,6 +27812,34 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    provisionTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionTenantRequest"];
+            };
+        };
+        responses: {
+            /** @description Tenant provisioned */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvisionTenantResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     listInvitations: {
         parameters: {
             query?: never;
@@ -21443,7 +27917,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description Invitation expired or already used. The backend maps both cases to gRPC FailedPrecondition, which the gateway returns as 409 Conflict (changed from 410 in the R3 hardening wave). */
+            /** @description Invitation expired, already used, or the tenant has no free seat left. The backend maps these cases to gRPC FailedPrecondition, which the gateway returns as 409 Conflict (changed from 410 in the R3 hardening wave). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -21570,7 +28044,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RoleRequest"];
+                "application/json": components["schemas"]["AssignRoleRequest"];
             };
         };
         responses: {
@@ -21580,15 +28054,143 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StatusResponse"];
+                    "application/json": components["schemas"]["UserRolesResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description insufficient permissions, or privilege_escalation — the caller assigned themselves a role reaching past their own rights */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found — no such account or role visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    removeRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["UserId"];
+                roleId: components["parameters"]["RoleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRolesResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            /** @description not_found — no such account or role visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description last_admin — the tenant's last administrator would lose role administration; or self_lockout — the caller would remove their own */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
-    removeRole: {
+    listAdminUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account roster */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUsersResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    inviteAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteAdminUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Invitation opened */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description not_found — a named role does not exist or is not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The address already holds an account or a pending invitation, or the tenant's booked seats are all taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateAdminUser: {
         parameters: {
             query?: never;
             header?: never;
@@ -21599,22 +28201,542 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RoleRequest"];
+                "application/json": components["schemas"]["UpdateAdminUserRequest"];
             };
         };
         responses: {
-            /** @description Role removed */
+            /** @description Updated roster row */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StatusResponse"];
+                    "application/json": components["schemas"]["AdminUserResult"];
+                };
+            };
+            /** @description A malformed body (role ids that are not uuids, a status outside active|deactivated), or status_not_assignable — "invited" is not a state an account can hold. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Missing the admin role, or privilege_escalation — the caller tried to take on a right they do not hold themselves. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such account, or a named role is not visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description last_admin — the tenant's last administrator would go dark; self_lockout — the caller would remove their own role administration; self_deactivation — the caller tried to switch off their own account; or the seat limit blocks a reactivation. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resendAdminUserInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitation re-issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserResult"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            /** @description No such pending invitation visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getUserEffectivePermissions: {
+        parameters: {
+            query?: {
+                /** @description "1" returns the pure role union, before the account's per-user overrides (see /admin/users/{id}/overrides) are folded in — the inherited baseline the override editor renders behind the deviations. hasOverrides and deniedByOverride are then omitted. Any other value is ignored and yields the effective set. */
+                base?: "1";
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved effective permissions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectivePermissionsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Presets and tenant custom roles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Role created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description insufficient permissions, or privilege_escalation — the clone source carries rights the caller does not hold */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found — basedOn names no role visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description role_name_exists — a preset or an own role already carries the name (compared case-insensitively) — or role_limit_reached when the tenant already owns 20 custom roles. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found — name or basedOn missing */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description preset_immutable — system presets cannot be deleted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found — no such role visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description role_has_members — the role still has at least one holder */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Role updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description preset_immutable — system presets cannot be edited */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found — no such role visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description role_name_exists — a preset or an own role already carries the name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getUserOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Override map of the account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOverridesResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description user not found — no such account visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setUserOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserOverridesRequest"];
+            };
+        };
+        responses: {
+            /** @description Override map replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOverridesResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description privilege_escalation — an allow names a capability the caller does not hold, or widens a scope past their own */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description user not found — no such account visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description self_lockout — the caller may not edit their own account; or last_admin — the deny would take the role administration off the last account that still has it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description unknown_capability_key — a key is not in the permissions catalogue, or mode/scope is outside allow|deny / own|team|all */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    clearUserOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overrides cleared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description user not found — no such account visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description self_lockout — the caller may not edit their own account */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grant set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolePermissionsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description not_found — no such role visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRolePermissionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Grant set replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolePermissionsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description preset_immutable — system presets cannot be edited; or privilege_escalation — the grant set names a capability the caller does not hold, or widens a scope past their own */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found — no such role visible to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description self_lockout — the caller wears this role and the new grant set would strip their own role administration */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description unknown_capability_key — a grant key is not in the permissions catalogue */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listCustomFields: {
@@ -21940,6 +29062,120 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    listLeads: {
+        parameters: {
+            query?: {
+                /** @description Empty means every non-customer stage. */
+                stage?: "lead" | "qualified";
+                status?: "new" | "contacted" | "qualified" | "disqualified";
+                search?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of leads */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListLeadsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createLead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLeadRequest"];
+            };
+        };
+        responses: {
+            /** @description Lead created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateLead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLeadRequest"];
+            };
+        };
+        responses: {
+            /** @description Lead updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    convertLead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lead converted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getContact: {
         parameters: {
             query?: never;
@@ -22011,6 +29247,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContactResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listContactFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files?: components["schemas"]["ContactFileResponse"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createContactFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    filename: string;
+                    mime_type?: string;
+                    storage_key: string;
+                    /** Format: int64 */
+                    file_size: number;
+                };
+            };
+        };
+        responses: {
+            /** @description File attached */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file?: components["schemas"]["ContactFileResponse"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24081,6 +31381,48 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    snoozeNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: date-time
+                     * @description Must be in the future.
+                     */
+                    until: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Notification snoozed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnoozeNotificationResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Snooze time is in the past */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     markAllNotificationsRead: {
         parameters: {
             query?: never;
@@ -24250,17 +31592,12 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                muteId: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    module_id: string;
-                    resource_id: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Resource unmuted */
             200: {
@@ -24271,6 +31608,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getQuietHours: {
@@ -24962,6 +32300,10 @@ export interface operations {
                 status_id?: string;
                 priority?: "urgent" | "high" | "normal" | "low";
                 parent_task_id?: string;
+                /** @description Only tasks whose due_date is on or after this timestamp. */
+                due_from?: string;
+                /** @description Only tasks whose due_date is on or before this timestamp. */
+                due_to?: string;
                 search?: string;
                 sort_by?: string;
                 sort_desc?: boolean;
@@ -27562,6 +34904,59 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    listBookmarks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bookmarked messages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListBookmarksResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    toggleBookmark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bookmark toggled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToggleBookmarkResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not a member of the message's channel */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     listMeetings: {
         parameters: {
             query?: {
@@ -27844,6 +35239,60 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listMeetingOccurrences: {
+        parameters: {
+            query: {
+                /** @description Window start (RFC3339) */
+                start: string;
+                /** @description Window end (RFC3339), must be after start */
+                end: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Occurrences inside the window */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items?: {
+                            /** Format: uuid */
+                            meeting_id?: string;
+                            /** Format: uuid */
+                            calendar_event_id?: string;
+                            /** Format: date-time */
+                            start?: string;
+                            /** Format: date-time */
+                            end?: string;
+                        }[];
+                        total?: number;
+                        /** @description True when the window held more occurrences than the server returns at once. Narrow the window to reach the remainder. */
+                        truncated?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Meeting is not part of a recurring series, or its rule is unusable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     listActionItems: {
         parameters: {
             query?: never;
@@ -28074,6 +35523,7 @@ export interface operations {
                 channel?: "email" | "chat" | "notification";
                 is_read?: boolean;
                 is_starred?: boolean;
+                status?: "open" | "pending" | "resolved" | "closed";
                 team_inbox_id?: string;
                 search?: string;
                 page_size?: number;
@@ -28135,7 +35585,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InboxMessage"];
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
                 };
             };
         };
@@ -28157,7 +35607,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InboxMessage"];
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
                 };
             };
         };
@@ -28179,8 +35629,139 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
+                };
+            };
+        };
+    };
+    setInboxMessageStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "open" | "pending" | "resolved" | "closed";
+                };
+            };
+        };
+        responses: {
+            /** @description Status updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    addInboxMessageTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tag: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Tag added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["InboxMessage"];
                 };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    removeInboxMessageTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tag: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Tag removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    forwardInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Recipient — email address or free-text name/handle */
+                    to: string;
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Message forwarded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Forwarding is not supported for this message's channel */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -28201,7 +35782,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InboxMessage"];
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
                 };
             };
         };
@@ -28223,7 +35804,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InboxMessage"];
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
                 };
             };
         };
@@ -28252,7 +35833,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InboxMessage"];
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
                 };
             };
         };
@@ -28274,7 +35855,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InboxMessage"];
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
                 };
             };
         };
@@ -28333,7 +35914,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InboxMessage"];
+                    "application/json": components["schemas"]["InboxMessageWrapper"];
                 };
             };
         };
@@ -29152,6 +36733,76 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    triggerAutomationWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description HMAC-SHA256 signature of the raw body, e.g. sha256=<hex> */
+                "X-Cosmi-Signature": string;
+                /** @description Optional delivery/event ID from the sender. Absent one, an exact resend of the same body is deduped by content hash. */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                automationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Delivery accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description true when this delivery was already processed */
+                        duplicate?: boolean;
+                    };
+                };
+            };
+            /** @description Invalid automation_id, payload too large, or Idempotency-Key reused with a different payload */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid webhook signature */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Automation is currently disabled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Payload exceeds the size cap */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listAdvisoryProtocols: {
         parameters: {
             query?: never;
@@ -29614,6 +37265,348 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getUserPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User preferences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putUserPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutUserPreferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated user preferences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCustomizationLabels: {
+        parameters: {
+            query?: {
+                locale?: string;
+                /** @description When "1", returns the code-default baseline (every key provenance "default") instead of resolving tenant overrides. */
+                base?: "1";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved label map */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelOverridesResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putCustomizationLabels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLabelOverridesRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated, freshly resolved label map */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelOverridesResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Forbidden — caller lacks admin:customization:manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCustomizationValueSets: {
+        parameters: {
+            query?: {
+                /** @description When "1", returns only the shipped baselines (the editor's "reset to" view). Tenant-only lists have no baseline and are omitted. */
+                base?: "1";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved value-sets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValueSetsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCustomizationValueSet: {
+        parameters: {
+            query?: {
+                /** @description When "1", returns the shipped baseline instead of the tenant-resolved value. */
+                base?: "1";
+            };
+            header?: never;
+            path: {
+                /** @description The value-set key (e.g. "ticket_priority", or a tenant-owned key). */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved value-set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValueSetResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putCustomizationValueSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertValueSetRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated, freshly resolved value-set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValueSetResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Forbidden — caller lacks admin:customization:manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCustomizationFields: {
+        parameters: {
+            query?: {
+                entity?: "work_task" | "crm_contact" | "crm_company" | "crm_deal" | "crm_activity" | "helpdesk_ticket";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom field definitions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomizationFieldsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createCustomizationField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCustomizationFieldRequest"];
+            };
+        };
+        responses: {
+            /** @description Custom field created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomizationFieldResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Forbidden — caller lacks admin:customization:manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCustomizationField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom field details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomizationFieldResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCustomizationField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomizationFieldRequest"];
+            };
+        };
+        responses: {
+            /** @description Custom field updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomizationFieldResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Forbidden — caller lacks admin:customization:manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCustomizationField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom field deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Forbidden — caller lacks admin:customization:manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listGobdDocuments: {
@@ -30299,6 +38292,8 @@ export interface operations {
                 status?: "open" | "pending" | "closed" | "resolved";
                 page?: number;
                 page_size?: number;
+                contact_id?: string;
+                org_id?: string;
             };
             header?: never;
             path?: never;
@@ -30335,6 +38330,17 @@ export interface operations {
                     assignee_id?: string;
                     /** Format: uuid */
                     queue_id?: string;
+                    /** Format: uuid */
+                    contact_id?: string;
+                    /** Format: uuid */
+                    org_id?: string;
+                    /** @enum {string} */
+                    channel?: "agent" | "selfservice" | "external";
+                    /** Format: email */
+                    requester_email?: string;
+                    requester_name?: string;
+                    requester_is_external?: boolean;
+                    custom_fields?: Record<string, never>;
                 };
             };
         };
@@ -30345,11 +38351,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": {
+                        /** @description Per-tenant sequential number (helpdesk_ticket_counters), stable and human-facing, distinct from id. */
+                        ticket_number?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createHelpdeskTicketFromMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    message_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description message_id was already converted; the existing ticket is returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Ticket created from the inbox message */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": Record<string, never>;
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getHelpdeskTicket: {
@@ -30369,7 +38418,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        /** @description Per-tenant sequential number (helpdesk_ticket_counters), stable and human-facing, distinct from id. */
+                        ticket_number?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -30389,12 +38441,23 @@ export interface operations {
             content: {
                 "application/json": {
                     subject?: string;
+                    /**
+                     * @description closed and merged go through /close and /merge instead, which carry side effects this field does not apply.
+                     * @enum {string}
+                     */
+                    status?: "open" | "pending" | "solved";
                     /** @enum {string} */
                     priority?: "low" | "normal" | "high" | "urgent";
                     /** Format: uuid */
                     assignee_id?: string;
                     /** Format: uuid */
                     queue_id?: string;
+                    /** Format: uuid */
+                    contact_id?: string;
+                    /** Format: uuid */
+                    org_id?: string;
+                    /** @description Merge patch — sent keys overwrite, absent keys are left untouched. */
+                    custom_fields?: Record<string, never>;
                 };
             };
         };
@@ -30459,6 +38522,83 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    submitHelpdeskTicketCsat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    rating: number;
+                    comment?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Rating recorded, updated ticket returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    submitPublicHelpdeskCsat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The survey link secret (43-char base64url). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    rating: number;
+                    comment?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Rating recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ticket_number?: number;
+                        rating?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description No such link, or it expired, was revoked or is already redeemed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     assignHelpdeskTicket: {
@@ -31715,6 +39855,48 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    readPublicWikiArticleByShareToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The share token secret (43-char base64url). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shared article */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        article?: {
+                            title?: string;
+                            /** @description Raw article body (TipTap JSON). */
+                            content?: Record<string, never> | null;
+                            /** Format: date-time */
+                            updated_at?: string;
+                        };
+                    };
+                };
+            };
+            /** @description No such link, or it expired, was revoked, or its article is gone or unpublished */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     getWikiVersion: {
         parameters: {
             query?: never;
@@ -32385,6 +40567,8 @@ export interface operations {
                     planned_end: string;
                     priority?: number;
                     notes?: string;
+                    /** Format: uuid */
+                    bom_id?: string;
                 };
             };
         };
@@ -32468,6 +40652,8 @@ export interface operations {
                     planned_end?: string;
                     priority?: number;
                     notes?: string;
+                    /** Format: uuid */
+                    bom_id?: string;
                 };
             };
         };
@@ -32556,6 +40742,39 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getProductionOrderMaterialAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per-material required/available/shortfall quantities. available_quantity and shortfall_quantity are omitted for a material that could not be matched against inventar (unknown availability, not zero stock). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Order has no linked BOM */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
         };
     };
     listMachineBookings: {
@@ -33262,6 +41481,7 @@ export interface operations {
                     end_km?: number;
                     is_private?: boolean;
                     driver_name: string;
+                    business_partner?: string;
                     notes?: string;
                 };
             };
@@ -33729,6 +41949,33 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    exportTripLogs: {
+        parameters: {
+            query?: {
+                vehicle_id?: string;
+                from?: string;
+                to?: string;
+                format?: "csv" | "pdf";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trip log report file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     deleteTripLog: {
         parameters: {
             query?: never;
@@ -33774,6 +42021,7 @@ export interface operations {
                     end_km?: number;
                     is_private?: boolean;
                     driver_name?: string;
+                    business_partner?: string;
                     notes?: string;
                 };
             };
@@ -33795,6 +42043,143 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listVehicleBookings: {
+        parameters: {
+            query?: {
+                vehicle_id?: string;
+                user_id?: string;
+                status?: "booked" | "in_use" | "completed" | "cancelled";
+                /** @description Lower bound of the window (RFC3339); a booking still running at this time is included. */
+                from?: string;
+                /** @description Upper bound of the window (RFC3339). */
+                to?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Booking list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bookings?: components["schemas"]["FuhrparkVehicleBooking"][];
+                        total?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createVehicleBooking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    vehicle_id: string;
+                    /** Format: uuid */
+                    user_id: string;
+                    /** Format: date-time */
+                    starts_at: string;
+                    /** Format: date-time */
+                    ends_at: string;
+                    purpose?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Booking created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        booking?: components["schemas"]["FuhrparkVehicleBooking"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteVehicleBooking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateVehicleBooking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    starts_at?: string;
+                    /** Format: date-time */
+                    ends_at?: string;
+                    purpose?: string;
+                    /** @enum {string} */
+                    status?: "booked" | "in_use" | "completed" | "cancelled";
+                };
+            };
+        };
+        responses: {
+            /** @description Booking updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        booking?: components["schemas"]["FuhrparkVehicleBooking"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     deleteVehicleDocument: {
         parameters: {
             query?: never;
@@ -33813,6 +42198,136 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDriverLicenses: {
+        parameters: {
+            query?: {
+                driver_id?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Driver license check list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        licenses?: components["schemas"]["FuhrparkDriverLicense"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createDriverLicense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    driver_id: string;
+                    license_classes: string[];
+                    /** Format: date */
+                    expiry_date?: string;
+                    /** Format: date */
+                    checked_at?: string;
+                    /** Format: date */
+                    next_check_due_date: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Driver license check recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        license?: components["schemas"]["FuhrparkDriverLicense"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDriverLicense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDriverLicense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    license_classes: string[];
+                    /** Format: date */
+                    expiry_date?: string;
+                    /** Format: date */
+                    checked_at?: string;
+                    /** Format: date */
+                    next_check_due_date: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Driver license check updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        license?: components["schemas"]["FuhrparkDriverLicense"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
@@ -34278,6 +42793,39 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    cancelPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Purchase order cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Purchase order is not in a cancellable state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     receivePurchaseOrderGoods: {
         parameters: {
             query?: never;
@@ -34333,32 +42881,6 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    exportPurchaseOrder: {
-        parameters: {
-            query?: {
-                format?: "pdf" | "csv";
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Export file */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/octet-stream": string;
-                };
-            };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
@@ -35088,6 +43610,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listRapporteReports: {
@@ -36140,7 +44663,13 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
+            /** @description No such session, or it belongs to another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     listAllSessions: {
@@ -36642,7 +45171,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                token: string;
+                /** @description One-time download token (not the export request ID) */
+                id: string;
             };
             cookie?: never;
         };
@@ -36996,6 +45526,172 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listVendorAccessRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of vendor access requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorAccessListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    approveVendorAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApproveVendorAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description Vendor access request approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorAccessRequestResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Request is not in a valid state for this operation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description sensitive_ack required for a sensitive scope */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    declineVendorAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vendor access request declined */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorAccessRequestResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Request is not in a valid state for this operation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    counterProposeVendorAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CounterProposeVendorAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description Vendor access request counter-proposed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorAccessRequestResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Request is not in a valid state for this operation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeVendorAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vendor access request revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorAccessRequestResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Request is not in a valid state for this operation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listFormSchemas: {
         parameters: {
             query?: {
@@ -37045,6 +45741,8 @@ export interface operations {
                     is_public?: boolean;
                     /** Format: int32 */
                     page_count?: number;
+                    /** @description Key into the shared intake registry (e.g. "helpdesk_ticket") */
+                    intake_target_id?: string;
                 };
             };
         };
@@ -37135,6 +45833,8 @@ export interface operations {
                     is_public?: boolean;
                     /** Format: int32 */
                     page_count?: number;
+                    /** @description Key into the shared intake registry; empty string clears the binding */
+                    intake_target_id?: string;
                 };
             };
         };
@@ -37306,6 +46006,163 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listFormShareLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share links of the schema */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        share_links?: components["schemas"]["FormShareLink"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    createFormShareLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    expires_at?: string | null;
+                    max_submissions?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Share link created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        share_link?: components["schemas"]["FormShareLink"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The schema is not public, so no link may be minted for it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    revokeFormShareLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share link revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    submitPublicFormByShareToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The share link secret (43-char base64url). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description JSON object of field answers, keyed by field id. */
+                    answers: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Submission stored. The body carries the submission id and nothing else — an unauthenticated visitor learns neither the tenant nor the schema they wrote into. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        submission_id?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description No such link, or it expired, was revoked, is used up, or its form is no longer public */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The form declares a file-upload field, which public submission does not support */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listFormWebhooks: {
@@ -37768,6 +46625,38 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listContractEvents: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit trail page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["VertraegeContractEvent"][];
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     saveContractSignature: {
         parameters: {
             query?: never;
@@ -38074,6 +46963,27 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    listEmailAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEmailAccountsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     updateEmailAccount: {
         parameters: {
             query?: never;
@@ -38121,6 +47031,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setDefaultEmailAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account set as default */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetDefaultEmailAccountResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -38426,6 +47360,76 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    assignMessageLabels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignMessageLabelsRequest"];
+            };
+        };
+        responses: {
+            /** @description Message with its updated label set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetMessageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Message not found, or one of the label ids does not belong to the tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    bulkEmailMessageAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkMessageActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Bulk action applied */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkMessageActionResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Unknown action */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     sendEmail: {
         parameters: {
             query?: never;
@@ -38686,6 +47690,414 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listEmailRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule list in application order (oldest first) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEmailRulesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createEmailRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmailRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailRuleEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Move action target is not a folder of this tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteEmailRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEmailRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEmailRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailRuleEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    applyEmailRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Apply result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyEmailRulesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listEmailTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template list, name-ordered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEmailTemplatesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createEmailTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmailTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Template created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateEmailTemplateResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getEmailTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetEmailTemplateResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEmailTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEmailTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Template updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateEmailTemplateResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEmailTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    renderEmailTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenderEmailTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Rendered subject and body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderEmailTemplateResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEmailLabels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Label list, name-ordered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEmailLabelsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createEmailLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmailLabelRequest"];
+            };
+        };
+        responses: {
+            /** @description Label created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailLabelEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description A label with this name already exists for the tenant */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteEmailLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Label deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEmailLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEmailLabelRequest"];
+            };
+        };
+        responses: {
+            /** @description Label updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailLabelEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description A label with this name already exists for the tenant */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getEmailContactLinks: {
@@ -40015,6 +49427,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listInventarItemMovements: {
@@ -40155,6 +49568,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
         };
     };
     listInventarWarnings: {
@@ -40499,6 +49913,275 @@ export interface operations {
                         location?: components["schemas"]["InventarLocation"];
                     };
                 };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPickingLists: {
+        parameters: {
+            query?: {
+                /** @description Filter by picking list status */
+                status?: "open" | "picking" | "completed";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated picking list overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        picking_lists?: components["schemas"]["InventarPickingList"][];
+                        total?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createPickingList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reference: string;
+                    /** Format: uuid */
+                    assigned_to?: string;
+                    items?: {
+                        /** Format: uuid */
+                        item_id: string;
+                        /** Format: int64 */
+                        quantity_requested: number;
+                        /** Format: int64 */
+                        quantity_picked?: number;
+                        location?: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Picking list created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        picking_list?: components["schemas"]["InventarPickingList"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPickingList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Picking list including its positions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        picking_list?: components["schemas"]["InventarPickingList"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deletePickingList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Picking list deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updatePickingList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reference?: string;
+                    /** @enum {string} */
+                    status?: "open" | "picking" | "completed";
+                    /** Format: uuid */
+                    assigned_to?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated picking list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        picking_list?: components["schemas"]["InventarPickingList"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    upsertPickingListItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    item_id: string;
+                    /** Format: int64 */
+                    quantity_requested: number;
+                    /** Format: int64 */
+                    quantity_picked?: number;
+                    location?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Position stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["InventarPickingListItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    bookPickingList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description Defaults to the authenticated user
+                     */
+                    booked_by?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Picking list after booking */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        picking_list?: components["schemas"]["InventarPickingList"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deletePickingListItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Position deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
@@ -41237,6 +50920,7 @@ export interface operations {
                     photo_urls?: string[];
                     /** Format: uuid */
                     performed_by?: string;
+                    checklist?: components["schemas"]["VermietungChecklistItem"][];
                 };
             };
         };
@@ -41299,6 +50983,11 @@ export interface operations {
                 "application/json": {
                     notes?: string;
                     photo_urls?: string[];
+                    checklist?: components["schemas"]["VermietungChecklistItem"][];
+                    /** @description When true, checklist replaces the existing list (even if empty). When false/omitted, checklist is ignored. */
+                    replace_checklist?: boolean;
+                    /** @description data:image/png;base64,... or data:image/svg+xml;base64,..., max 1 MiB */
+                    signature_data?: string;
                 };
             };
         };
@@ -41840,10 +51529,374 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listBerichteDocuments: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive title match */
+                search?: string;
+                /** @description Filter by module: finanzen|crm|helpdesk|inventar|produktion|cross */
+                module?: string;
+                /** @description Filter by status: draft|final|released|archived */
+                status?: string;
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["page_size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report document list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents?: components["schemas"]["BerichtDocument"][];
+                        total?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createBerichteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    description?: string;
+                    /** @description finanzen|crm|helpdesk|inventar|produktion|cross (defaults to cross) */
+                    module?: string;
+                    template_id?: string | null;
+                    rows?: {
+                        [key: string]: unknown;
+                    }[];
+                    settings?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Report document created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        document?: components["schemas"]["BerichtDocument"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBerichteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        document?: components["schemas"]["BerichtDocument"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteBerichteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report document deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateBerichteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    description?: string;
+                    /** @description finanzen|crm|helpdesk|inventar|produktion|cross */
+                    module?: string;
+                    /** @description draft|final|released|archived */
+                    status?: string;
+                    rows?: {
+                        [key: string]: unknown;
+                    }[];
+                    settings?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Report document updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        document?: components["schemas"]["BerichtDocument"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    exportBerichteDocumentPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF binary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listBerichteDocumentShares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share links of the document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        shares?: components["schemas"]["BerichtShareToken"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createBerichteDocumentShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description null or 0 = never expires */
+                    expires_in_days?: number | null;
+                    /** @description Optional. Capped at 72 bytes because bcrypt ignores input past that length, which would make two different passwords interchangeable. */
+                    password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Share link created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        share?: components["schemas"]["BerichtShareToken"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    revokeBerichteDocumentShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shareId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share link revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPublicBerichteSharedReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The share link secret (43-char base64url). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Required only if the link is password-protected. */
+                    password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The shared report document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        document?: components["schemas"]["BerichtPublicDocument"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description The link is password-protected and no valid password was given */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such link, or it expired or was revoked */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listBerichteTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report template list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        templates?: components["schemas"]["BerichtTemplate"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     getBerichteDashboardKPIs: {
         parameters: {
             query?: {
-                /** @description Comma-separated module list (e.g. finanzen,crm,helpdesk); empty means all modules */
+                /** @description Comma-separated module list (e.g. finanzen,crm,helpdesk). The list is intersected server-side with the caller's <module>:module:view capabilities; empty means every module the caller may see, and a module they may not see is dropped rather than rejected. */
                 modules?: string;
             };
             header?: never;
@@ -41889,12 +51942,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": (components["schemas"]["DocumentFolder"] & {
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        updated_at?: string;
-                    })[];
+                    "application/json": {
+                        folders?: (components["schemas"]["DocumentFolder"] & {
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            updated_at?: string;
+                        })[];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -42048,13 +52104,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Breadcrumb segments (protojson bare array) */
+            /** @description Breadcrumb segments */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentFolderPathSegment"][];
+                    "application/json": {
+                        segments?: components["schemas"]["DocumentFolderPathSegment"][];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -42199,6 +52257,63 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    uploadDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description Document file (max 50 MiB, allowlisted content types only)
+                     */
+                    file: string;
+                    /** Format: uuid */
+                    folder_id: string;
+                    /**
+                     * Format: uuid
+                     * @description Optional — tag applied to the file after upload
+                     */
+                    tag_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description File uploaded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file?: components["schemas"]["DocumentFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description File exceeds the 50 MiB limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Content type not in the document upload allowlist */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getDocumentFile: {
@@ -42395,6 +52510,295 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listDocumentFileActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity history (newest first) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        activities?: components["schemas"]["DocumentFileActivity"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDocumentFileComments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comment list (oldest first) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        comments?: components["schemas"]["DocumentFileComment"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createDocumentFileComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    content: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Comment created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        comment?: components["schemas"]["DocumentFileComment"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDocumentShareLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share link list (newest first) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        share_links?: components["schemas"]["DocumentShareLink"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createDocumentShareLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Absent, null or 0 means the link never expires. Max 365. */
+                    expires_in_days?: number | null;
+                    /** @description Absent or empty means no password. */
+                    password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Share link created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        share_link?: components["schemas"]["DocumentShareLink"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    revokeDocumentShareLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share link revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        revoked?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPublicDocumentSharedFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The share link secret (43-char base64url). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Required only if the link is password-protected. */
+                    password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description A short-lived presigned download for the shared file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        download_url?: string;
+                        filename?: string;
+                        content_type?: string;
+                        file_size?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description No such link, or it is expired, revoked, or password-rejected */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    updateDocumentFileComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    content: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Comment updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        comment?: components["schemas"]["DocumentFileComment"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDocumentFileComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comment deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        deleted?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listDocumentFileVersions: {
         parameters: {
             query?: never;
@@ -42406,13 +52810,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Version history (protojson bare array, oldest→newest as stored) */
+            /** @description Version history (oldest→newest as stored) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentFileVersion"][];
+                    "application/json": {
+                        versions?: components["schemas"]["DocumentFileVersion"][];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -42454,6 +52860,39 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getDocumentFileVersionDownloadUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Presigned download URL and file metadata for the version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uri */
+                        download_url?: string;
+                        filename?: string;
+                        content_type?: string;
+                        /** Format: int64 */
+                        file_size?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listDocumentFileEntityLinks: {
         parameters: {
             query?: never;
@@ -42465,16 +52904,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Entity links (protojson bare array) */
+            /** @description Entity links (protojson — created_at as RFC3339 string) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": (components["schemas"]["DocumentEntityLink"] & {
-                        /** Format: date-time */
-                        created_at?: string;
-                    })[];
+                    "application/json": {
+                        links?: (components["schemas"]["DocumentEntityLink"] & {
+                            /** Format: date-time */
+                            created_at?: string;
+                        })[];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -42551,6 +52992,34 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDocumentEntityLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Link removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        unlinked?: boolean;
+                    };
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -42650,10 +53119,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": (components["schemas"]["DocumentShare"] & {
-                        /** Format: date-time */
-                        created_at?: string;
-                    })[];
+                    "application/json": {
+                        shares?: (components["schemas"]["DocumentShare"] & {
+                            /** Format: date-time */
+                            created_at?: string;
+                        })[];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -42702,10 +53173,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": (components["schemas"]["DocumentTag"] & {
-                        /** Format: date-time */
-                        created_at?: string;
-                    })[];
+                    "application/json": {
+                        tags?: (components["schemas"]["DocumentTag"] & {
+                            /** Format: date-time */
+                            created_at?: string;
+                        })[];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -43013,10 +53486,11 @@ export interface operations {
                     hook_registrations?: components["schemas"]["PluginHookRegistration"][];
                     /**
                      * Format: byte
-                     * @description Base64-encoded WASM binary. Accepted but inert while plugins.wasm=false.
+                     * @description Base64-encoded WASM binary. Ignored unless plugin_type is wasm.
                      */
                     wasm_binary?: string;
                     /**
+                     * @description wasm manifests are rejected with 400 while the plugins.wasm feature flag is off (default in production — WASM plugin execution is compiled out via the no_wasm build tag).
                      * @default config
                      * @enum {string}
                      */
@@ -44470,20 +54944,45 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Test result */
+            /** @description Platform answered the probe */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
+                        /** @example true */
                         success?: boolean;
-                        error_message?: string;
+                        /**
+                         * @description Identity the credentials resolved to
+                         * @example authenticated as cosmi-bot in workspace Zentria
+                         */
+                        message?: string;
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Platform refused the credentials, or the server holds no client for this platform */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Notification service or integration storage unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listIntegrationChannelMappings: {
@@ -44695,21 +55194,30 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Integration platform identifier, e.g. slack or teams (currently unused by the handler) */
+                /** @description Integration platform identifier, e.g. slack or teams */
                 platform: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description All account links for the caller */
+            /** @description Link status of the caller for the requested platform */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        links?: components["schemas"]["IntegrationAccountLink"][];
+                        linked: boolean;
+                        /** @description Echo of the path parameter */
+                        platform: string;
+                        /** @description Only present when linked is true */
+                        external_display_name?: string;
+                        /**
+                         * Format: date-time
+                         * @description RFC3339. Only present when linked is true and the link carries a timestamp
+                         */
+                        linked_at?: string;
                     };
                 };
             };
@@ -44747,7 +55255,15 @@ export interface operations {
                     "text/plain": string;
                 };
             };
-            404: components["responses"]["NotFound"];
+            /** @description Teams webhooks are not configured on this deployment */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     handleSlackInteraction: {
@@ -44791,7 +55307,15 @@ export interface operations {
                     "text/plain": string;
                 };
             };
-            404: components["responses"]["NotFound"];
+            /** @description Slack webhooks are not configured on this deployment */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     handleSlackSlashCommand: {
@@ -44838,7 +55362,15 @@ export interface operations {
                     "text/plain": string;
                 };
             };
-            404: components["responses"]["NotFound"];
+            /** @description Slack webhooks are not configured on this deployment */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     slackOAuthInstall: {
@@ -44850,22 +55382,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Redirect to https://slack.com/oauth/v2/authorize */
-            307: {
+            /** @description Slack OAuth install is not available on this deployment */
+            501: {
                 headers: {
-                    Location?: string;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
-            404: components["responses"]["NotFound"];
         };
     };
     slackOAuthCallback: {
         parameters: {
-            query: {
-                /** @description OAuth authorization code issued by Slack */
-                code: string;
+            query?: {
+                /** @description OAuth authorization code issued by Slack (ignored while the flow is disabled) */
+                code?: string;
             };
             header?: never;
             path?: never;
@@ -44873,31 +55405,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Redirect to /settings?tab=integrations&slack=connected */
-            307: {
-                headers: {
-                    Location?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing code parameter (plain text body, not JSON) */
-            400: {
+            /** @description Slack OAuth install is not available on this deployment */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/plain": string;
-                };
-            };
-            404: components["responses"]["NotFound"];
-            /** @description Token exchange with Slack failed (plain text body, not JSON) */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -45012,20 +55526,20 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "application/json": {
                     /** @description YYYY-MM-DD */
-                    start_date?: string;
+                    start_date: string;
                     /** @description YYYY-MM-DD */
-                    end_date?: string;
-                    /** @description YYYY-MM-DD */
+                    end_date: string;
+                    /** @description YYYY-MM-DD; defaults to start_date */
                     fiscal_year_start?: string;
                 };
             };
         };
         responses: {
-            /** @description Upload result */
+            /** @description Batch transferred to DATEV */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -45033,17 +55547,34 @@ export interface operations {
                 content: {
                     "application/json": {
                         success?: boolean;
-                        /** Format: int32 */
+                        /** @description Invoices and credit notes that produced booking lines (drafts are skipped) */
                         document_count?: number;
-                        /** Format: int32 */
+                        /** @description CSV size in bytes */
                         file_size?: number;
-                        error_message?: string;
                     };
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            /** @description Upload preconditions unmet (not connected, client number or advisor numbers missing, or no bookable document in the period) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description DATEV upload service not available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     uploadDatevBeleg: {
@@ -45057,7 +55588,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Upload result */
+            /** @description Belegbild transferred to DATEV */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -45065,12 +55596,31 @@ export interface operations {
                 content: {
                     "application/json": {
                         success?: boolean;
-                        error_message?: string;
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Upload preconditions unmet (not connected, client number or company settings incomplete) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description DATEV upload service not available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     getDatevUploadConfig: {
@@ -45275,7 +55825,7 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
-                    /** @description "contacts", "payments", or omitted/empty for all */
+                    /** @description "contacts", "payments", "invoices", or omitted/empty for all */
                     sync_type?: string;
                 };
             };
@@ -45318,6 +55868,8 @@ export interface operations {
                         invoice_push_enabled?: boolean;
                         quote_push_enabled?: boolean;
                         payment_poll_enabled?: boolean;
+                        /** @description Read-only invoice mirror (Bexio -> Cosmi) enabled */
+                        invoice_pull_enabled?: boolean;
                         /** Format: int32 */
                         total_contacts_mapped?: number;
                         /** Format: int32 */
@@ -45334,6 +55886,11 @@ export interface operations {
                          * @description Present only once a payment poll has run
                          */
                         last_payment_poll_at?: string;
+                        /**
+                         * Format: date-time
+                         * @description Present only once an invoice pull has run
+                         */
+                        last_invoice_pull_at?: string;
                         /** @description Present only when the last sync attempt failed */
                         last_sync_error?: string;
                         /**
@@ -45366,6 +55923,9 @@ export interface operations {
                     payment_poll_enabled?: boolean;
                     /** Format: int32 */
                     payment_poll_interval_minutes?: number;
+                    invoice_pull_enabled?: boolean;
+                    /** Format: int32 */
+                    invoice_pull_interval_minutes?: number;
                 };
             };
         };
@@ -45993,6 +56553,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaldavStatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    testCaldavConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connection test result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaldavTestResult"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -46950,6 +57531,167 @@ export interface operations {
                 content: {
                     "application/json": {
                         [key: string]: unknown;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getTenantLicense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Module activation state for the tenant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        modules?: components["schemas"]["TenantModule"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setTenantModuleActive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Catalogue module id (see GET for the list) */
+                    moduleId: string;
+                    active: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The updated module */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        module?: components["schemas"]["TenantModule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Unknown module id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Module is not available in this deployment (feature flag off) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTenantSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tenant's subscription */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        subscription?: components["schemas"]["TenantSubscription"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Tenant not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getBranding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tenant's branding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        branding?: components["schemas"]["Branding"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putBranding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    logo_object_key?: string;
+                    icon_object_key?: string;
+                    /** @enum {string} */
+                    accent_color: "#6B7280" | "#3B82F6" | "#06B6D4" | "#10B981" | "#F59E0B" | "#F97316" | "#EF4444" | "#8B5CF6" | "#EC4899" | "#6366F1";
+                };
+            };
+        };
+        responses: {
+            /** @description The updated branding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        branding?: components["schemas"]["Branding"];
                     };
                 };
             };
@@ -48246,6 +58988,35 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    reopenHrTimeWeek: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeReopenWeekRequest"];
+            };
+        };
+        responses: {
+            /** @description Week reopened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeWeekApproval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     validate2FALogin: {
         parameters: {
             query?: never;
@@ -48309,6 +59080,33 @@ export interface operations {
         requestBody: {
             content: {
                 "multipart/form-data": components["schemas"]["ContactsImportVCardForm"];
+            };
+        };
+        responses: {
+            /** @description Import result with counts and per-row errors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactsImportResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    importCRMContactsXLSX: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ContactsImportXLSXForm"];
             };
         };
         responses: {
