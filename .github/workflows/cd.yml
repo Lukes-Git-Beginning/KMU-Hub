@@ -2,7 +2,13 @@ name: CD
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    # Both, because ci.yml filters on backend/** — a commit that only touches
+    # desktop/ never ran CI and therefore never deployed, even though deploy.sh
+    # builds the webapp service. A commit touching both triggers this twice,
+    # which is safe: the concurrency group below serialises the runs, and
+    # deploy.sh exits 0 on an unchanged SHA before it builds or restarts
+    # anything. The only cost of the redundant run is one extra DB backup.
+    workflows: ["CI", "CI Desktop"]
     types:
       - completed
     branches:
@@ -19,9 +25,11 @@ on:
           - "true"
 
 # Least-privilege token: the deploy runs on a self-hosted runner via local
-# scripts + webhook secrets — GITHUB_TOKEN is unused, so read-only is enough.
+# scripts + webhook secrets. actions:read is needed by the sibling-CI gate below,
+# which asks the API whether the other workflow passed for this commit.
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: production-deploy
@@ -47,6 +55,63 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     steps:
+      # The job's `if` above only sees the workflow that triggered this run. With
+      # two triggers that is not enough: on 2026-08-17 main sat with a green
+      # "CI Desktop" and a red "CI", and a deploy off the green one would have
+      # shipped an unverified backend. So ask about the other workflow.
+      #
+      # It waits rather than failing: a commit touching backend/ and desktop/
+      # starts both workflows, "CI Desktop" finishes first, and aborting here
+      # would paint a red CD run on every such commit. Waiting keeps the run
+      # green, and the redundant second deploy exits early on the unchanged SHA.
+      #
+      # gh is not installed on this runner — curl and jq are.
+      - name: Require the sibling CI run to be green
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          TRIGGERED_BY: ${{ github.event.workflow_run.name }}
+        run: |
+          set -euo pipefail
+          if [[ "$TRIGGERED_BY" == "CI" ]]; then sibling="CI Desktop"; else sibling="CI"; fi
+
+          for attempt in $(seq 1 20); do
+            state=$(curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${SHA}&per_page=100" \
+              | jq -r --arg w "$sibling" \
+                '[.workflow_runs[] | select(.name == $w)] | first
+                 | if . == null then "absent" else .status + ":" + (.conclusion // "pending") end')
+
+            case "$state" in
+              absent)
+                echo "No $sibling run for ${SHA:0:8} — its paths were untouched. Proceeding."
+                exit 0
+                ;;
+              completed:success)
+                echo "$sibling passed for ${SHA:0:8}. Proceeding."
+                exit 0
+                ;;
+              completed:skipped|completed:neutral)
+                echo "$sibling was $state for ${SHA:0:8}. Proceeding."
+                exit 0
+                ;;
+              completed:*)
+                echo "::error::$sibling is '${state#completed:}' for ${SHA:0:8} — refusing to deploy."
+                exit 1
+                ;;
+              *)
+                echo "$sibling is $state — waiting (attempt ${attempt}/20)"
+                sleep 30
+                ;;
+            esac
+          done
+
+          echo "::error::$sibling did not finish within 10 minutes for ${SHA:0:8} — refusing to deploy."
+          exit 1
+
       - name: Deploy
         # Runs directly on the production host (self-hosted runner as the deploy
         # user) — no SSH hop, no checkout. deploy.sh operates on /opt/kmuhub and
