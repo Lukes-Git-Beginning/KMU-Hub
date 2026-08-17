@@ -178,7 +178,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Contac
 		}
 	}
 
-	if err := input.ProfileFields.validate(); err != nil {
+	if err := input.validate(); err != nil {
 		return nil, err
 	}
 
@@ -198,7 +198,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Contac
 		UpdatedAt:      time.Now(),
 		LifecycleStage: LifecycleCustomer,
 	}
-	input.ProfileFields.applyTo(contact)
+	input.applyTo(contact)
 
 	if input.Lead != nil {
 		contact.LifecycleStage = input.Lead.Stage
@@ -379,10 +379,10 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput, t
 		contact.Notes = input.Notes
 	}
 
-	if err := input.ProfileFields.validate(); err != nil {
+	if err := input.validate(); err != nil {
 		return nil, err
 	}
-	input.ProfileFields.applyTo(contact)
+	input.applyTo(contact)
 
 	contact.UpdatedAt = time.Now()
 
