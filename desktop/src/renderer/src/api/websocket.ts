@@ -4,7 +4,7 @@
  * Handles connection lifecycle, message routing, and automatic reconnection
  * with exponential backoff. Used by the auth store and useWebSocket hook.
  */
-import { WS_RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '@/lib/constants'
+import { WS_RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS, API_BASE_URL } from '@/lib/constants'
 
 export type WSConnectionState = 'disconnected' | 'connecting' | 'connected'
 
@@ -192,7 +192,8 @@ export class WebSocketManager {
   }
 }
 
-/** Singleton WebSocket manager instance */
-export const wsManager = new WebSocketManager(
-  (import.meta.env.RENDERER_VITE_API_URL as string) || 'http://localhost:8080'
-)
+/** Singleton WebSocket manager instance.
+ *  Takes the resolved API base rather than re-reading the env var: in the web
+ *  build the address comes from the origin, and a second copy of this logic
+ *  would leave the socket pointing at localhost. */
+export const wsManager = new WebSocketManager(API_BASE_URL)

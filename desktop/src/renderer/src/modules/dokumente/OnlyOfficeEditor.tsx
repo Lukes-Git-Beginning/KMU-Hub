@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { API_BASE_URL } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
 // WOPI-editable MIME types
@@ -100,8 +101,9 @@ interface OnlyOfficeEditorProps {
 
 const ONLYOFFICE_URL =
   import.meta.env.VITE_ONLYOFFICE_URL || 'http://localhost:8088'
-const API_URL =
-  import.meta.env.RENDERER_VITE_API_URL || 'http://localhost:8080'
+/** Same resolved address the API client uses -- re-reading the env var here
+ *  would point WOPI callbacks at localhost in the web build. */
+const API_URL = API_BASE_URL
 
 /**
  * Full-screen overlay hosting the OnlyOffice editor via WOPI iframe.

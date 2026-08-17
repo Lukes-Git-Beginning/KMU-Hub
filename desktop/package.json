@@ -9,6 +9,9 @@
     "build:win": "electron-vite build && electron-builder --win",
     "build:dist": "electron-vite build && electron-builder",
     "preview": "electron-vite preview",
+    "dev:web": "vite --config vite.web.config.mts",
+    "build:web": "vite build --config vite.web.config.mts",
+    "preview:web": "vite preview --config vite.web.config.mts",
     "test": "vitest",
     "lint": "eslint src/",
     "api:generate": "openapi-typescript ../backend/api/openapi.yaml -o src/renderer/src/api/types.ts"

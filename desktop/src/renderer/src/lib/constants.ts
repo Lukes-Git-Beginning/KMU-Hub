@@ -1,8 +1,31 @@
 /** Application-wide constants */
 
+/**
+ * Resolve the backend address.
+ *
+ * Order matters:
+ * 1. An explicit RENDERER_VITE_API_URL always wins. The Electron builds set it
+ *    at build time (.env.demo, .env.production) and must keep doing so -- they
+ *    load from file://, so there is no origin to derive anything from.
+ * 2. Otherwise, when the app was served over http(s), it came *from* the server
+ *    it needs to talk to. Deriving the address instead of baking it in is what
+ *    makes one build work for every customer server, rather than one build per
+ *    customer -- see .planning/auslieferungsmodell-2026-08-12.md §3.1.
+ * 3. Local fallback for anything else.
+ */
+function resolveApiBaseUrl(): string {
+  const configured = import.meta.env.RENDERER_VITE_API_URL
+  if (configured) return configured
+
+  if (typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
+    return window.location.origin
+  }
+
+  return 'http://localhost:8080'
+}
+
 /** Base URL for the backend API */
-export const API_BASE_URL =
-  import.meta.env.RENDERER_VITE_API_URL || 'http://localhost:8080'
+export const API_BASE_URL = resolveApiBaseUrl()
 
 /**
  * Base URL under which public booking pages are served. These live on the
