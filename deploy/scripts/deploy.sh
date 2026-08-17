@@ -91,7 +91,7 @@ rollback() {
     # serial pattern of Step 3 above so behaviour stays consistent.
     local build_time
     build_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    local rollback_buildable="auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare inventar einkauf produktion vertraege rapporte schichten fuhrpark vermietung gateway migrate"
+    local rollback_buildable="auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare inventar einkauf produktion vertraege rapporte schichten fuhrpark vermietung gateway migrate webapp"
     for svc in $rollback_buildable; do
         log "AUTO-ROLLBACK: building $svc..."
         $COMPOSE build \
@@ -185,7 +185,11 @@ BUILD_VERSION=$(git describe --tags --always 2>/dev/null || echo "$NEW_SHA")
 BUILD_COMMIT=$(git rev-parse --short HEAD)
 BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-BUILDABLE_SERVICES="auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare inventar einkauf produktion vertraege rapporte schichten fuhrpark vermietung gateway migrate"
+# webapp is the Cosmi web app (desktop/Dockerfile.web). It must be in this list
+# or a frontend change would never reach production -- exactly the manual-copy
+# trap the marketing site was just freed from. Docker layer caching keeps the
+# cost near zero when desktop/ has not changed.
+BUILDABLE_SERVICES="auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare inventar einkauf produktion vertraege rapporte schichten fuhrpark vermietung gateway migrate webapp"
 
 if [[ -n "$SERVICE" ]]; then
     $COMPOSE build \
