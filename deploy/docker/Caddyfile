@@ -58,21 +58,6 @@ app.zentria.tech {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	}
 
-	handle {
-		reverse_proxy gateway:8080
-	}
-}
-
-# Staging for the web-app switch, container-internal only (no host port, no
-# DNS, no certificate). Lets the routing above be smoke-tested end to end
-# before app.zentria.tech is moved onto it:
-#
-#   docker exec <caddy> wget -qO- http://localhost:8081/health
-#
-# Etappe 0 taught this the hard way — testing a staging host first is what
-# caught the bind-mount reload bug before it became a TLS outage under a
-# two-year HSTS. Remove this block together with the switch.
-:8081 {
 	import cosmi_routes
 }
 
