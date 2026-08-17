@@ -1,10 +1,18 @@
 ---
 tags: [pricing, strategie, cosmi, orbit]
-updated: 2026-04-06
+updated: 2026-08-17
 ---
 # Preismodell — COSMI (SaaS) + ORBIT (Self-Hosted)
 
-> Quelle: Darien, April 2026. Kanonische Referenz fuer Website, Studio, Billing.
+> Quelle: Darien, April 2026; Modulpreise und Modulstatus am 2026-08-17 auf den Stand der Website
+> gezogen (`.planning/preis-und-kostenanalyse-2026-08-13.md` §7.1, Website `src/data/modules.ts`).
+>
+> **Nicht mehr kanonisch für Paketsummen.** Die Branchenpakete und die abgeleiteten „ab EUR"-Beträge
+> unten sind mit dem alten 24-Modul-Katalog gerechnet, und jedes Paket enthält Module, die in
+> Vorbereitung sind. Details und die offenen Entscheidungen (79-€-Grundgebühr, Mindestbestellwert,
+> ORBIT in der Preisliste) stehen in `docs/PRICING.md`. Die Code-Spiegelung
+> `desktop/src/renderer/src/lib/pricing.ts` trägt weiterhin die alten Preise — siehe
+> `docs/PRICING.md` §13.
 
 ## Grundprinzip
 
@@ -21,53 +29,58 @@ Was es gibt: Modul-Zuweisungen pro User, Rollenvorlagen, Volumen-Rabatt, Branche
 
 ## COSMI Modulpreise (EUR/User/Monat, zzgl. MwSt.)
 
+**13 buchbar, 11 in Vorbereitung** (Modul-Zuschnitt, `.planning/preis-und-kostenanalyse-2026-08-13.md`
+§1.1). Preise entsprechen `src/data/modules.ts` im Website-Repo — der Fassung, die ein Interessent
+sieht. Für die 11 steht bewusst kein Preis: sie sind nicht verkäuflich, und ein Preis in einer
+Tabelle wird zitiert. Summe der 13 buchbaren Module: **60 EUR** pro User und Monat.
+
 ### Kern
-| Modul | Preis | Markt-Vergleich |
-|-------|-------|-----------------|
-| CRM & Vertrieb | 6 | Pipedrive ab 14, HubSpot ab 15 |
-| Aufgaben | 3 | Asana ab 11, Monday ab 9 |
-| Kalender | 2 | In M365 enthalten (8-22) |
-| Dokumente | 2 | Notion ab 8 |
+| Modul | Preis | Status | Markt-Vergleich |
+|-------|-------|--------|-----------------|
+| CRM & Vertrieb | 9 | buchbar | Pipedrive ab 14, HubSpot ab 15 |
+| Aufgaben | 3 | buchbar | Asana ab 11, Monday ab 9 |
+| Kalender | 3 | buchbar | In M365 enthalten (8-22) |
+| Dokumente | 6 | buchbar | Notion ab 8 |
 
 ### Kommunikation
-| Modul | Preis | Markt-Vergleich |
-|-------|-------|-----------------|
-| Chat | 4 | Slack Pro 7-8 |
-| E-Mail | 3 | In M365 enthalten |
-| Meetings | 4 | Zoom Pro 13-15 |
-| Telefonie | 5 | VoIP 8-15 |
+| Modul | Preis | Status | Markt-Vergleich |
+|-------|-------|--------|-----------------|
+| Chat | 4 | buchbar | Slack Pro 7-8 |
+| E-Mail | 3 | buchbar | In M365 enthalten |
+| Meetings | — | in Vorbereitung | Zoom Pro 13-15 |
+| Telefonie & Kampagnen | — | in Vorbereitung | VoIP 8-15 |
 
-### Buchhaltung & Einkauf
-| Modul | Preis | Markt-Vergleich |
-|-------|-------|-----------------|
-| Buchhaltung | 6 | sevDesk ab 10, Lexoffice ab 7 |
-| Einkauf | 5 | Spezialsoftware 10-20 |
-| Vertraege | 5 | Spezialsoftware 10-25 |
-| Vermietung | 5 | Spezialsoftware 20-40 |
+### Finanzen & Einkauf
+| Modul | Preis | Status | Markt-Vergleich |
+|-------|-------|--------|-----------------|
+| Finanzen | — | in Vorbereitung | sevDesk ab 10, Lexoffice ab 7 |
+| Einkauf | — | in Vorbereitung | Spezialsoftware 10-20 |
+| Vertraege | 5 | buchbar | Spezialsoftware 10-25 |
+| Vermietung | — | in Vorbereitung | Spezialsoftware 20-40 |
 
 ### Team & HR
-| Modul | Preis | Markt-Vergleich |
-|-------|-------|-----------------|
-| Team | 3 | In M365/HR-Tools enthalten |
-| Schichten | 4 | Spezialsoftware 5-10 |
-| Zeiterfassung | 3 | Clockify/Harvest ab 5 |
+| Modul | Preis | Status | Markt-Vergleich |
+|-------|-------|--------|-----------------|
+| Team | 4 | buchbar | In M365/HR-Tools enthalten |
+| Schichten | 4 | buchbar | Spezialsoftware 5-10 |
+| Zeiterfassung | 4 | buchbar | Clockify/Harvest ab 5 |
 
 ### Projekte & Betrieb
-| Modul | Preis | Markt-Vergleich |
-|-------|-------|-----------------|
-| Projekte | 5 | Monday 9-16, Asana 11 |
-| Produktion | 7 | Spezialsoftware 15-30 |
-| Inventar | 5 | Spezialsoftware 8-20 |
-| Fuhrpark | 5 | Spezialsoftware 10-20 |
-| Helpdesk | 5 | Zendesk ab 19 |
-| Rapporte | 3 | In Proj.tools ab 24 |
+| Modul | Preis | Status | Markt-Vergleich |
+|-------|-------|--------|-----------------|
+| Projekte | 6 | buchbar | Monday 9-16, Asana 11 |
+| Produktion | — | in Vorbereitung | Spezialsoftware 15-30 |
+| Inventar | — | in Vorbereitung | Spezialsoftware 8-20 |
+| Fuhrpark | — | in Vorbereitung | Spezialsoftware 10-20 |
+| Helpdesk | 6 | buchbar | Zendesk ab 19 |
+| Rapporte | — | in Vorbereitung | In Proj.tools ab 24 |
 
 ### Tools & Berichte
-| Modul | Preis | Markt-Vergleich |
-|-------|-------|-----------------|
-| Berichte | 3 | Power BI/Looker ab 10 |
-| Formulare | 2 | Typeform ab 25 |
-| Wiki | 2 | Notion ab 8, Confluence 5 |
+| Modul | Preis | Status | Markt-Vergleich |
+|-------|-------|--------|-----------------|
+| Berichte | — | in Vorbereitung | Power BI/Looker ab 10 |
+| Formulare | — | in Vorbereitung | Typeform ab 25 |
+| Wiki | 3 | buchbar | Notion ab 8, Confluence 5 |
 
 ---
 
@@ -90,7 +103,12 @@ Was es gibt: Modul-Zuweisungen pro User, Rollenvorlagen, Volumen-Rabatt, Branche
 
 ## Branchenpakete (Onboarding-Vorlagen mit 15% Rabatt)
 
-| Paket | Module | ab EUR/User/Monat |
+> ⚠ Alte Preise, und jedes Paket enthält Module in Vorbereitung — Handwerk (Finanzen, Rapporte),
+> IT & Agentur (Meetings, Berichte), Dienstleister (Finanzen, Berichte), Handel & Logistik
+> (Inventar, Finanzen, Einkauf), Produktion (Produktion, Inventar, Fuhrpark). Nicht zitieren; die
+> Neuzusammensetzung ist eine Produktentscheidung, siehe `docs/PRICING.md` §5.
+
+| Paket | Module | ab EUR/User/Monat (alt) |
 |-------|--------|-------------------|
 | Handwerk | CRM, Aufgaben, Kalender, Chat, Zeiterfassung, Buchhaltung, Rapporte, Schichten | ~26 |
 | IT & Agentur | CRM, Aufgaben, Kalender, Chat, E-Mail, Meetings, Projekte, Wiki, Berichte | ~29 |
