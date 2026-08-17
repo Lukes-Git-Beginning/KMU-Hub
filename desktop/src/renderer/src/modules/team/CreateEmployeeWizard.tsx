@@ -52,6 +52,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { useCreateEmployee, useEmployees } from '@/api/hooks/hr-hooks'
+import { isElectron } from '@/lib/platform'
 import type { ContractType } from '@/api/hr-types'
 
 // ---------------------------------------------------------------------------
@@ -314,7 +315,10 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
         </div>
 
         <div className="flex items-center gap-1" style={isWindow ? ({ WebkitAppRegion: 'no-drag' } as React.CSSProperties) : undefined}>
-          {!isWindow && (
+          {/* Pop-out needs a second OS window, so it only exists in the Electron
+              shell. In the web build the wizard is already a full-screen dialog;
+              offering a button that silently does nothing is worse than no button. */}
+          {!isWindow && isElectron() && (
             <button
               onClick={handlePopOut}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"

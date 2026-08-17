@@ -10,7 +10,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useMailsStore } from '@/stores/mails'
+import { takeComposeDraft, clearComposeDraft } from '@/stores/mails'
 import type { ComposeMode } from '@/stores/mails'
 import { useSendEmail, useSaveDraft, useReplyEmail, useForwardEmail } from '@/api/hooks/useEmail'
 import type { EmailAddress } from '@/api/email-types'
@@ -28,7 +28,6 @@ import {
 
 export default function ComposeWindowPage() {
   const { t } = useTranslation()
-  const { composeDraft, setComposeDraft } = useMailsStore()
   const sendEmail = useSendEmail()
   const saveDraftMutation = useSaveDraft()
   const replyEmail = useReplyEmail()
@@ -58,8 +57,11 @@ export default function ComposeWindowPage() {
   // Load draft state on mount
    
   useEffect(() => {
+    // Consumes the handover entry, so a reload of this window starts fresh
+    // instead of re-applying a draft the user already sent or discarded.
+    const composeDraft = takeComposeDraft()
     if (composeDraft) {
-       
+
       setTo(composeDraft.to)
       setCc(composeDraft.cc)
       setBcc(composeDraft.bcc)
@@ -69,7 +71,6 @@ export default function ComposeWindowPage() {
       setReplyToMessageId(composeDraft.replyToMessageId)
       setAccountId(composeDraft.accountId ?? '')
       setShowCcBcc(composeDraft.cc.length > 0 || composeDraft.bcc.length > 0)
-      setComposeDraft(null)
       setEditorVersion((v) => v + 1)
     } else {
       // Fresh window — set default signature
@@ -191,7 +192,7 @@ export default function ComposeWindowPage() {
   }
 
   const handleDiscard = () => {
-    setComposeDraft(null)
+    clearComposeDraft()
     closeWindow()
   }
 

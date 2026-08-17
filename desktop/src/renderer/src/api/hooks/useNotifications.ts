@@ -228,9 +228,22 @@ export function useNotificationWebSocket() {
         const title = (data.title as string) || i18next.t('api.notifications.newNotification')
         const body = (data.body as string) || ''
         try {
-          window.electronAPI.notifications.show(title, body)
+          const bridge = window.electronAPI?.notifications
+          if (bridge) {
+            bridge.show(title, body)
+          } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            // lean: web build only notifies when the user already granted the
+            // permission elsewhere -- we never prompt from a background event,
+            // because a permission dialog out of nowhere is exactly the kind of
+            // surprise the "starts without a warning dialog" gate rules out.
+            // Add a proper opt-in (a toggle in notification settings that calls
+            // requestPermission on click) when the web build gets its own
+            // settings pass.
+            new Notification(title, { body })
+          }
         } catch {
-          // Gracefully handle if electronAPI is not available (e.g., in browser dev)
+          // Notification constructor can throw on some platforms even when
+          // permission reads as granted.
         }
       }
     })

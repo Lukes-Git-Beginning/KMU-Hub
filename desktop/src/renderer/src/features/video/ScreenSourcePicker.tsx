@@ -43,18 +43,6 @@ export interface ScreenSourcePickerProps {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: detect Electron context
-// ---------------------------------------------------------------------------
-
-function isElectron(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.electronAPI !== 'undefined' &&
-    typeof window.electronAPI.screenshare !== 'undefined'
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -74,7 +62,8 @@ export function ScreenSourcePicker({ open, onSelect, onCancel }: ScreenSourcePic
       return
     }
 
-    if (!isElectron()) {
+    const screenshare = window.electronAPI?.screenshare
+    if (!screenshare) {
       // Non-Electron path: immediately call back with no sourceId so the
       // browser's native getDisplayMedia picker is shown instead.
       onSelect('')
@@ -84,7 +73,7 @@ export function ScreenSourcePicker({ open, onSelect, onCancel }: ScreenSourcePic
     setLoading(true)
     setError(null)
 
-    window.electronAPI.screenshare.getSources()
+    screenshare.getSources()
       .then((srcs) => {
         setSources(srcs)
         // Auto-select primary screen

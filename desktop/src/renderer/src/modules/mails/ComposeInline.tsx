@@ -11,7 +11,8 @@ import {
   FileText,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useMailsStore, type ComposeMode } from '@/stores/mails'
+import { stashComposeDraft, type ComposeMode } from '@/stores/mails'
+import { isElectron } from '@/lib/platform'
 import { useSendEmail, useSaveDraft, useReplyEmail, useForwardEmail } from '@/api/hooks/useEmail'
 import type { EmailMessageInfo, EmailAddress } from '@/api/email-types'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
@@ -48,7 +49,6 @@ export function ComposeInline({
   onClose,
 }: ComposeInlineProps) {
   const { t } = useTranslation()
-  const { setComposeDraft } = useMailsStore()
   const sendEmail = useSendEmail()
   const saveDraft = useSaveDraft()
   const replyEmail = useReplyEmail()
@@ -250,26 +250,31 @@ export function ComposeInline({
             >
               <FileText className="h-4 w-4" />
             </button>
-            <button
-              onClick={() => {
-                setComposeDraft({
-                  to,
-                  cc,
-                  bcc,
-                  subject,
-                  body,
-                  mode,
-                  replyToMessageId: replyTo?.id,
-                  accountId,
-                })
-                window.electronAPI?.compose.openWindow()
-                onClose()
-              }}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              title={t('mails.compose.openAsWindow')}
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
+            {/* Only in the Electron shell: the web build has no second OS window,
+                and the old code closed the composer either way -- so in a browser
+                the button silently threw the draft away. */}
+            {isElectron() && (
+              <button
+                onClick={() => {
+                  stashComposeDraft({
+                    to,
+                    cc,
+                    bcc,
+                    subject,
+                    body,
+                    mode,
+                    replyToMessageId: replyTo?.id,
+                    accountId,
+                  })
+                  window.electronAPI?.compose.openWindow()
+                  onClose()
+                }}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                title={t('mails.compose.openAsWindow')}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 

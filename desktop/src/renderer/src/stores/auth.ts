@@ -1,8 +1,11 @@
 /**
  * Authentication store (Zustand).
  *
- * Manages user session, token persistence via Electron safeStorage,
- * and WebSocket connectivity lifecycle.
+ * Manages user session, token persistence and WebSocket connectivity lifecycle.
+ *
+ * Token persistence goes through lib/platform's tokenStore rather than the
+ * preload bridge directly: the same store runs in the web build, where there is
+ * no bridge and an unguarded window.electronAPI.auth call throws.
  *
  * Offline behavior:
  * - initialize: loads cached user from localStorage when offline (skip API call)
@@ -13,6 +16,7 @@ import { create } from 'zustand'
 import { apiClient } from '@/api/client'
 import { wsManager } from '@/api/websocket'
 import { validate2FALogin } from '@/api/security-client'
+import { tokenStore } from '@/lib/platform'
 import type { components } from '@/api/types'
 
 type UserInfo = components['schemas']['UserInfo']
@@ -158,7 +162,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     set({ isLoading: true })
 
     try {
-      const stored = await window.electronAPI.auth.getStoredTokens()
+      const stored = await tokenStore.getStoredTokens()
       if (!stored) {
         set({ isLoading: false })
         return
@@ -192,7 +196,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         const newToken = await get().refreshToken()
         if (!newToken) {
           // Refresh also failed -- clean up
-          await window.electronAPI.auth.clearTokens()
+          await tokenStore.clearTokens()
           clearCachedUser()
           set({
             user: null,
@@ -207,7 +211,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         // Retry profile fetch with new token
         const retryResult = await apiClient.GET('/api/v1/auth/me')
         if (retryResult.error || !retryResult.data?.user) {
-          await window.electronAPI.auth.clearTokens()
+          await tokenStore.clearTokens()
           clearCachedUser()
           set({
             user: null,
@@ -275,7 +279,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       throw new Error('Invalid server response.')
     }
 
-    await window.electronAPI.auth.storeTokens({ accessToken, refreshToken })
+    await tokenStore.storeTokens({ accessToken, refreshToken })
     cacheUser(user)
 
     set({
@@ -322,7 +326,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
     // Persist tokens via Electron safeStorage only when rememberMe is true
     if (rememberMe) {
-      await window.electronAPI.auth.storeTokens({
+      await tokenStore.storeTokens({
         accessToken,
         refreshToken,
       })
@@ -364,7 +368,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
     // Persist tokens via Electron safeStorage only when rememberMe is true
     if (rememberMe) {
-      await window.electronAPI.auth.storeTokens({
+      await tokenStore.storeTokens({
         accessToken,
         refreshToken,
       })
@@ -404,7 +408,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     wsManager.disconnect()
 
     // Clear persisted tokens
-    await window.electronAPI.auth.clearTokens()
+    await tokenStore.clearTokens()
 
     // Clear cached user
     clearCachedUser()
@@ -438,7 +442,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       const newRefreshToken = data.refresh_token
 
       // Persist updated tokens
-      await window.electronAPI.auth.storeTokens({
+      await tokenStore.storeTokens({
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
       })

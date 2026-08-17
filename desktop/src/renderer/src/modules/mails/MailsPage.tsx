@@ -35,7 +35,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
-import { useMailsStore } from '@/stores/mails'
 import { useNavigationStore } from '@/stores/navigation'
 import {
   useEmailAccount,
@@ -131,7 +130,6 @@ export default function MailsPage() {
   const user = useAuthStore((s) => s.user)
   const userId = user?.id ?? ''
   const consumeIntent = useNavigationStore((s) => s.consumeIntent)
-  const { setComposeDraft: _setComposeDraft } = useMailsStore()
   const canSeeMailSettings = useHasCapability('mail:settings:manage')
   const [showMailSettings, setShowMailSettings] = useState(false)
 
