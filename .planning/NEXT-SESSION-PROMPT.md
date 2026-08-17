@@ -21,19 +21,53 @@ Dazu `.planning/preis-und-kostenanalyse-2026-08-13.md` §10 und
 
 ---
 
-## BLOCKER: Anmeldung schlägt fehl — Gate 2 ist NICHT bestanden
+## BLOCKER: Anmeldung — eingegrenzt, Serverseite ist sauber
 
-**Stand 2026-08-17 abends, von Luke am lebenden System geprüft.** Die Web-App lädt, aber:
+**Stand 2026-08-17, gemessen am lebenden System.** Die Ursache liegt **nicht** im Backend und
+**nicht** im `tokenStore`-Umbau. Ausgeschlossen durch Messung:
 
-- **Anmelden mit den eigenen Zugangsdaten funktioniert nicht.** Ursache unbekannt — nicht
-  eingegrenzt, ob es an Zugangsdaten, am Backend, am Rate-Limit oder am `tokenStore`-Umbau liegt.
-  Das ist der erste Punkt, an dem gearbeitet werden muss; alles andere in Etappe 2 hängt daran.
-- **Der Passwort-Reset-Versand funktioniert** — die Mail kam an. Damit ist zugleich belegt, dass
-  der SPF-Fix greift: vor der DNS-Korrektur wäre sie an `p=reject` gescheitert.
+| Prüfung | Ergebnis |
+|---|---|
+| 6 Login-Versuche 12:57:20–12:58:23 UTC | alle **401**, kein 429, kein 5xx |
+| Konto `lukeleonhoppe@gmail.com` | aktiv, kein 2FA, bcrypt `$2a$12$` |
+| Reset | `updated_at 12:57:05`, Token `used_at` gesetzt → das UPDATE lief |
+| Account-Lockout | existiert im Schema überhaupt nicht |
+| Rate-Limit auf Login | IP-basiert, 100 rps **pro Sekunde** → irrelevant |
+| E-Mail-Lookup | `WHERE lower(email) = $1` mit `normalizeEmail` davor |
+| Reset vs. Login | dieselbe Spalte, gleicher bcryptCost, `newPassword` unverändert gehasht |
 
-Der ganze Rest von Gate 2 steht dahinter und ist ungeprüft: einloggen → **neu laden** → noch
-angemeldet (daran hängt der `tokenStore`-Umbau) → abmelden → neu laden → ausgeloggt → Kontakt
-anlegen, speichern, neu laden.
+Es gibt damit keinen Code-Pfad, auf dem ein korrekt eingegebenes Passwort zu 401 führt. Zwei
+Mechanismen bleiben, und der erste war ein echter Mangel: **die Login-Maske hatte keine
+`autocomplete`-Attribute**, weshalb Chrome die Felder heuristisch zuordnet und ein zu einem
+anderen Konto gespeichertes Passwort einsetzen kann — sichtbar nur als Punkte. Behoben.
+
+**Was jetzt zu tun ist:** einen normalen Login-Versuch machen, dann
+
+```
+sudo docker logs docker-auth-1 --since 10m | grep -i "login failed"
+```
+
+Der Auth-Service loggte Fehlversuche vorher **gar nicht** — deshalb war die Ursache „völlig offen".
+Jetzt nennt er den Grund: `unknown_email`, `password_mismatch`, `user_inactive` oder
+`lookup_error`. Verifiziert auf dem deployten Stand. Bei `password_mismatch` trennt ein `fetch`
+aus der DevTools-Konsole (umgeht Autofill) einen Tippfehler von einer echten Abweichung.
+
+Danach der Rest von Gate 2, weiter ungeprüft: einloggen → **neu laden** → noch angemeldet (daran
+hängt der `tokenStore`-Umbau) → abmelden → neu laden → ausgeloggt → Kontakt anlegen, speichern,
+neu laden.
+
+### Am 2026-08-17 dazu gebaut und deployt (`44e1773f`)
+
+- **Login-Fehler sind unterscheidbar.** `stores/auth.ts` beantwortete 401, 403, 409, 429, 5xx und
+  einen abbrechenden `fetch` mit **einem** hartkodierten englischen Satz, bei Locale de-DE. Jetzt
+  ein Mapping auf `response.status`, fünf neue i18n-Keys ×4, plus `auth.serverUnreachable` für den
+  vorher ungefangenen Netzwerkfall.
+- **Reset-Mail:** Deutsch, `multipart/alternative` mit vollwertigem Plain-Text-Teil, RFC-2047-Betreff,
+  `Date`- und `Message-ID`-Header (fehlten beide — eigenes Spam-Signal), und sie **nennt die
+  Kontoadresse**. Genau deren Fehlen machte vier eigene Konten verwechselbar.
+- **Reset-Seite:** Farbtoken an `globals.css`, „Zur Anmeldung"-Link im Erfolgs- und im
+  Ablauf-Zustand (sie sagte vorher „dieses Fenster kann geschlossen werden" — im Web falsch).
+  Härtung unverändert, in Produktion per `curl` gegengeprüft.
 
 > **Gate 2:** Jemand außerhalb des Teams startet das Produkt ohne Lukes Hilfe und ohne Warndialog.
 > Die URL genügt, es gibt nichts zu installieren — aber solange die Anmeldung nicht geht, ist das
@@ -90,33 +124,15 @@ kommt die App vom Server des Kunden und kennt ihn dadurch. Ein Image für alle K
 
 ## Was als Nächstes dran ist
 
-### 1. Automatisches CD für Frontend-Commits (klein, aber offen)
+### 1. Gate 2 abnehmen (wartet nur noch auf einen Login-Versuch)
 
-`cd.yml` triggert auf `workflow_run` von **„CI"**, und `ci.yml` filtert auf `backend/**`. Ein reiner
-`desktop/`-Commit deployt deshalb **nicht** — `deploy.sh` baut `webapp` inzwischen zwar mit, aber
-nur wenn er läuft.
+Siehe den Blocker-Abschnitt oben. Die Diagnose ist gemacht, die Instrumentierung ist live — es
+fehlt ein Versuch und ein Blick in den Auth-Log.
 
-Vorschlag: `cd.yml` auf `workflows: ["CI", "CI Desktop"]` erweitern. Bewusst nicht eigenmächtig
-gemacht — ein CD-Trigger mehr kann Doppel-Deploys auslösen, das gehört entschieden, nicht gebaut.
+### 2. Vercel-Projekt löschen — Vorbedingung geprüft
 
-### 1b. Reset-Flow: Mail und Seite sind unfertig (Lukes Eindruck, 17.08.)
-
-Beides funktioniert technisch, wirkt aber nicht wie ein Produkt, das Vertrauen verkauft:
-
-- **Die Reset-Mail ist auf Englisch und reiner Text** — `backend/cmd/auth/mailer.go:41-49`:
-  Betreff „Reset your Cosmi password", Signatur „— The Cosmi Team", `Content-Type: text/plain`,
-  kein Branding. Bei Locale de-DE und einem Produkt für DACH-KMUs.
-- **Die Reset-Seite sieht „vibe coded" aus** — `backend/internal/gateway/reset_password_page.html`,
-  176 Zeilen handgeschriebenes HTML, das vom Design-System der App nichts weiß.
-
-Der Fairness halber: Die Seite ist bewusst gehärtet (strikte CSP, `no-store`, `X-Robots-Tag`) und
-serverseitig gerendert, damit sie ohne die SPA funktioniert. Beim Überarbeiten darf das nicht
-verloren gehen — sie ist der einzige Weg zurück für einen ausgesperrten Nutzer.
-
-### 2. Vercel-Projekt löschen
-
-Der Apex läuft seit dem 16.08. sauber auf eigenem Server. Rückfalloption war der A-Record
-`216.198.79.1`; die Git-Integration ist längst pausiert. Kann jetzt weg.
+`zentria.tech` und `www` lösen auf 178.104.38.195 auf, Antwort trägt nur `Server: Caddy`, keinen
+Vercel-Header. Löschung im Dashboard, muss ein Mensch machen.
 
 ### 3. Etappe 3 (G1, ~10 PT) — vor dem ersten echten Datensatz
 
@@ -126,12 +142,49 @@ verdrahten · Kontakt-Löschung-UI + vollständige Kaskade · DSAR um Finance/Me
 
 ---
 
+## Neue Befunde vom 2026-08-17 (nachmittags)
+
+- **CI war seit dem 11.08. rot und niemand sah es.** `golangci-lint` fand drei QF1008-Verstöße in
+  `internal/crm/contact/service.go` (aus `98196b03`, Etappe 1). Weil `ci.yml` auf `backend/**`
+  filtert und jeder Commit danach nur `desktop/`, `deploy/` oder `.planning/` berührte, lief der
+  Linter wochenlang nicht. Der erste Backend-Commit erbt dann eine rote CI, die nicht von ihm
+  stammt. Behoben in `4704f464`.
+- **`cd.yml` deployt jetzt auch bei Frontend-Commits** (`workflows: ["CI", "CI Desktop"]`). Das
+  allein wäre ein Rückschritt gewesen: Das `if` des Jobs sieht nur den auslösenden Workflow, also
+  hätte ein grünes „CI Desktop" heute ein Backend mit roter CI deployt. Der neue erste Step fragt
+  die API nach dem Geschwister-Lauf und verweigert bei Fehlschlag; er **wartet**, solange der
+  andere noch läuft, sonst gäbe es bei jedem Commit über beide Pfade einen roten CD-Lauf. Gegen
+  beide echten Fälle von heute verifiziert. `gh` fehlt auf dem Runner — `curl` und `jq` sind da.
+- **Caddy überschreibt `Referrer-Policy`.** Die Reset-Seite setzt `no-referrer`, geliefert wird
+  `strict-origin-when-cross-origin`, weil das Caddyfile den Header an drei Stellen per
+  `header`-Direktive setzt. Praktisch leakt der Token nicht (cross-origin geht nur der Origin
+  raus), aber die Absicht des Codes wird kassiert. Fix wäre `header ?Referrer-Policy …` — Caddys
+  „nur setzen, wenn nicht vorhanden". Braucht `compose up -d --force-recreate caddy`, deshalb
+  nicht nebenbei gemacht.
+- **`HEAD /reset-password` antwortet 405.** Die Route ist nur für GET und POST registriert. Für
+  Browser irrelevant, für Linkchecker und Monitoring nicht. Achtung bei der Diagnose: `curl -I`
+  zeigt dadurch die globalen statt der gehärteten Header — mit `curl -D -` prüfen.
+- **`desktop/src/renderer/src/lib/pricing.ts` ist kein Spiegel, obwohl es das behauptet.** Alte
+  Modulpreise, kein Modulstatus, und eine **vierte** Variante der Support-Stufen
+  (`standard 0 / priority 99 / enterprise 299` gegen Basis 9 / Professional 10 % / Premium 15 %
+  überall sonst). Speist nur Demo- und Insight-Daten, ist also kein Geldrisiko — die Demo zeigt
+  aber Preise, die niemand mehr verkauft. Details in `docs/PRICING.md` §13.
+- **Der Blog-Artikel bewirbt weiter Module in Vorbereitung.** `wahre-kosten-tool-chaos.md`
+  beginnt mit „CRM, Chat, Videokonferenzen, Projektmanagement und Finanzen in einer Plattform" und
+  verlinkt am Ende `/funktionen/finanzen` — Finanzen und Meetings sind beide nicht buchbar. Der
+  Preis- und Ersparnisabsatz ist korrigiert, dieser Teil ist redaktionelle Arbeit und offen.
+- **`.claude/settings.local.json` ist im Website-Repo getrackt** (seit `598aa0c`). Enthält nur
+  Bash-Allowlists, keine Geheimnisse, Repo ist privat — gehört aber in `.gitignore`.
+
 ## Offene Posten, die nirgends sonst stehen
 
-- **`docs/PRICING.md` ist weiter nicht nachgezogen.** Website: 13 buchbare Module, 60 €.
-  `PRICING.md`: 24 zu 97 €, inklusive „50-90% guenstiger" (`:269`) und 16 Modulzeilen „bis X%
-  guenstiger" (`:63-111`), die Darien in §4.4 auf ~27 % korrigiert hat. `.knowledge/pricing.md`
-  hängt mit dran. **Dritte Session in Folge nicht geschafft.**
+- **`docs/PRICING.md` und `.knowledge/pricing.md` sind nachgezogen** (13 Module zu 60 €, die elf
+  anderen ohne Preis, „50-90 %" und die 16 unbelegten Modul-Prozentzahlen entfernt). **Nicht**
+  erledigt und dort jetzt als „nicht zitieren" markiert: die Branchenpakete, der
+  Wettbewerbsvergleich und das ORBIT-Beispiel. Jedes der fünf Pakete enthält Module in
+  Vorbereitung — das Paket „Produktion" besteht überwiegend daraus. Sie neu zusammenzusetzen ist
+  eine Produktentscheidung für Darien, keine Dokumentationspflege, und hängt zusätzlich an den
+  offenen Punkten aus §10 der Preisanalyse (79-€-Grundgebühr, Mindestbestellwert, ORBIT).
 - **Das Intro blockiert die Anmeldung ~6,6 Sekunden** (`CosmiLaunch` `T_TEXT_END`, einmal pro
   Browser-Session, `prefers-reduced-motion` wird respektiert). Im Desktop einmal pro App-Start, im
   Web beim ersten Aufruf. Kein Blocker, aber ein Erstbesucher sieht 6 Sekunden ein „C". Bewusst
