@@ -316,6 +316,21 @@ services:
 
   # ===== Reverse Proxy =====
 
+  # Cosmi as a web app. Separate from the edge Caddy on purpose: a failed
+  # frontend build must not be able to take TLS termination -- and with it the
+  # API -- down. Not published to a host port; only the edge proxies to it.
+  webapp:
+    build:
+      context: ../../desktop
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
   caddy:
     image: caddy:2.8-alpine
     ports:

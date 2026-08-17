@@ -1,0 +1,25 @@
+# Static serving for the Cosmi web app, inside the webapp container.
+#
+# Plain HTTP on :80 -- TLS, HSTS and the security headers are the job of the
+# edge Caddy in deploy/docker/Caddyfile, which is the only thing exposed.
+
+:80 {
+	root * /srv/app
+	encode gzip zstd
+
+	# Vite fingerprints every file under /assets, so those can be cached hard.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# index.html must never be cached: it is what points at the fingerprinted
+	# bundles, so a cached copy would keep serving the previous deploy's assets
+	# until the browser happened to revalidate.
+	@html path / /index.html
+	header @html Cache-Control "no-cache"
+
+	# SPA fallback. The app uses a hash router, so deep links arrive as
+	# "/#/kontakte" and never hit the server as a path -- but this keeps a
+	# stray path from 404ing, and leaves the door open for history routing.
+	try_files {path} /index.html
+	file_server
+}

@@ -1,0 +1,14 @@
+# Keeps the web-app build context small. node_modules alone is well over a
+# gigabyte here and is reinstalled inside the image anyway.
+node_modules
+out
+dist
+.qa-screenshots
+test-results
+playwright-report
+*.log
+
+# Local env files must never reach an image -- the web build reads no secrets
+# and derives its backend address from the origin at runtime.
+.env
+.env.*

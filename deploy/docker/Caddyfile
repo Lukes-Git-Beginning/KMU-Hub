@@ -1,10 +1,19 @@
-app.zentria.tech {
-	header {
-		-Server
-		X-Frame-Options "DENY"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+# Routing shared by the production host and the staging port below, so the
+# smoke test exercises the very same rules that go live.
+#
+# Everything the gateway owns is listed explicitly; anything else is the web
+# app. The list is complete as of 2026-08-17, checked against the code:
+# /api/* plus /guest/*, /health, /reset-password and /webhooks/* are the only
+# non-/api paths chi registers (cmd/gateway/main.go, internal/gateway/*.go).
+#
+# ⚠ A NEW gateway route outside /api/ must be added here, or the SPA will
+# swallow it and answer with index.html instead of 404. Keep this in sync.
+#
+# /debug/pprof deliberately has no entry: it used to be reachable through the
+# catch-all and is now closed from the outside.
+(cosmi_routes) {
+	handle /api/* {
+		reverse_proxy gateway:8080
 	}
 
 	# LiveKit signaling (WebSocket) + token validation. Only /rtc* is exposed —
@@ -15,9 +24,56 @@ app.zentria.tech {
 		reverse_proxy livekit:7880
 	}
 
+	# Guest chat SPA, served by the gateway from guest-chat/dist.
+	handle /guest/* {
+		reverse_proxy gateway:8080
+	}
+
+	handle /health {
+		reverse_proxy gateway:8080
+	}
+
+	# Password-reset page reached from the mail link. Hardened, server-rendered
+	# by the gateway — must not be shadowed by the SPA.
+	handle /reset-password {
+		reverse_proxy gateway:8080
+	}
+
+	handle /webhooks/* {
+		reverse_proxy gateway:8080
+	}
+
+	# Everything else: the Cosmi web app.
+	handle {
+		reverse_proxy webapp:80
+	}
+}
+
+app.zentria.tech {
+	header {
+		-Server
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
 	handle {
 		reverse_proxy gateway:8080
 	}
+}
+
+# Staging for the web-app switch, container-internal only (no host port, no
+# DNS, no certificate). Lets the routing above be smoke-tested end to end
+# before app.zentria.tech is moved onto it:
+#
+#   docker exec <caddy> wget -qO- http://localhost:8081/health
+#
+# Etappe 0 taught this the hard way — testing a staging host first is what
+# caught the bind-mount reload bug before it became a TLS outage under a
+# two-year HSTS. Remove this block together with the switch.
+:8081 {
+	import cosmi_routes
 }
 
 s3.zentria.tech {

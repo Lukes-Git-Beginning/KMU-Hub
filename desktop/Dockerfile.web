@@ -1,0 +1,32 @@
+# Cosmi as a web app: the same renderer the Electron shell wraps, served over
+# HTTP so a first-time user only needs a URL -- no installer, no code signature,
+# no "unknown publisher" dialog.
+#
+# Runs as its own service behind the main Caddy rather than being baked into it.
+# That keeps a failed frontend build from taking the TLS terminator -- and with
+# it the whole API -- down with it, and mirrors how the marketing site is wired.
+
+FROM node:22-alpine AS build
+WORKDIR /app
+
+# Dependencies first: this layer only busts when the manifests change, so a
+# content-only frontend change reuses the (slow) install.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+# No RENDERER_VITE_API_URL on purpose. Without it the renderer derives the
+# backend from window.location.origin (lib/constants.ts), so one image works
+# for every server it is deployed to instead of one build per customer.
+RUN npm run build:web
+
+
+FROM caddy:2.8-alpine
+COPY --from=build /app/out/web /srv/app
+COPY Caddyfile.web /etc/caddy/Caddyfile
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1/ || exit 1
