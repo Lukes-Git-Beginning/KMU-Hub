@@ -21,34 +21,28 @@ Dazu `.planning/preis-und-kostenanalyse-2026-08-13.md` §10 und
 
 ---
 
-## Sofort dran: zwei Dinge, die eine Hand brauchen
+## BLOCKER: Anmeldung schlägt fehl — Gate 2 ist NICHT bestanden
 
-### 1. DNS-Korrektur — Anleitung liegt fertig
+**Stand 2026-08-17 abends, von Luke am lebenden System geprüft.** Die Web-App lädt, aber:
 
-**`.planning/dns-korrektur-2026-08-17.md`** — vier Einträge in der Hetzner-Zone, ~10 Minuten.
+- **Anmelden mit den eigenen Zugangsdaten funktioniert nicht.** Ursache unbekannt — nicht
+  eingegrenzt, ob es an Zugangsdaten, am Backend, am Rate-Limit oder am `tokenStore`-Umbau liegt.
+  Das ist der erste Punkt, an dem gearbeitet werden muss; alles andere in Etappe 2 hängt daran.
+- **Der Passwort-Reset-Versand funktioniert** — die Mail kam an. Damit ist zugleich belegt, dass
+  der SPF-Fix greift: vor der DNS-Korrektur wäre sie an `p=reject` gescheitert.
 
-Der wichtige Teil ist **nicht** das Aufräumen, sondern ein Fund: **Produktion versendet über Brevo**
-(`SYSTEM_SMTP_HOST=smtp-relay.brevo.com`, Absender `noreply@zentria.tech`), aber der SPF-Record
-erlaubt **nur Strato** und endet auf `-all`. Bei `_dmarc p=reject`. Jede Produkt-Mail —
-Passwort-Reset, Einladungen — fällt damit bei SPF hart durch und kommt allenfalls über
-DKIM-Alignment durch. Das ist ein plausibler Grund, warum der Reset-Flow nie funktionierend
-gesehen wurde.
-
-Die Brevo-DKIM-Records **bleiben** (sie sind aktiv, nicht tot — das stand so in keinem Dokument).
-
-### 2. Gate 2 abnehmen — der Test, den ich nicht führen konnte
-
-**Das ist der einzige offene Punkt von Etappe 2, und er ist nicht klein.** Der Auth-Umbau ist durch
-26 Unit-Tests abgedeckt, aber **nie gegen das echte Backend eingeloggt worden** — mir fehlten
-Zugangsdaten. Der Beweis steht also aus:
-
-1. `https://app.zentria.tech` öffnen, anmelden.
-2. **Seite neu laden.** Noch angemeldet? Daran hängt der ganze `tokenStore`-Umbau.
-3. Abmelden, neu laden — jetzt ausgeloggt?
-4. Kontakt anlegen, speichern, neu laden — alle Felder da (Etappe-1-Gate gegen das Web).
+Der ganze Rest von Gate 2 steht dahinter und ist ungeprüft: einloggen → **neu laden** → noch
+angemeldet (daran hängt der `tokenStore`-Umbau) → abmelden → neu laden → ausgeloggt → Kontakt
+anlegen, speichern, neu laden.
 
 > **Gate 2:** Jemand außerhalb des Teams startet das Produkt ohne Lukes Hilfe und ohne Warndialog.
-> Nico ist dafür da. Die URL genügt, es gibt nichts zu installieren.
+> Die URL genügt, es gibt nichts zu installieren — aber solange die Anmeldung nicht geht, ist das
+> Gate offen.
+
+## Erledigt: DNS-Korrektur
+
+`.planning/dns-korrektur-2026-08-17.md` ist **vollständig abgearbeitet**. SPF trägt jetzt Brevo,
+die Resend-Reste sind weg, die Brevo-DKIM-Records stehen. Belegt durch die angekommene Reset-Mail.
 
 ---
 
@@ -104,6 +98,20 @@ nur wenn er läuft.
 
 Vorschlag: `cd.yml` auf `workflows: ["CI", "CI Desktop"]` erweitern. Bewusst nicht eigenmächtig
 gemacht — ein CD-Trigger mehr kann Doppel-Deploys auslösen, das gehört entschieden, nicht gebaut.
+
+### 1b. Reset-Flow: Mail und Seite sind unfertig (Lukes Eindruck, 17.08.)
+
+Beides funktioniert technisch, wirkt aber nicht wie ein Produkt, das Vertrauen verkauft:
+
+- **Die Reset-Mail ist auf Englisch und reiner Text** — `backend/cmd/auth/mailer.go:41-49`:
+  Betreff „Reset your Cosmi password", Signatur „— The Cosmi Team", `Content-Type: text/plain`,
+  kein Branding. Bei Locale de-DE und einem Produkt für DACH-KMUs.
+- **Die Reset-Seite sieht „vibe coded" aus** — `backend/internal/gateway/reset_password_page.html`,
+  176 Zeilen handgeschriebenes HTML, das vom Design-System der App nichts weiß.
+
+Der Fairness halber: Die Seite ist bewusst gehärtet (strikte CSP, `no-store`, `X-Robots-Tag`) und
+serverseitig gerendert, damit sie ohne die SPA funktioniert. Beim Überarbeiten darf das nicht
+verloren gehen — sie ist der einzige Weg zurück für einen ausgesperrten Nutzer.
 
 ### 2. Vercel-Projekt löschen
 
