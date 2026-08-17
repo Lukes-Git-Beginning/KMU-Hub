@@ -52,21 +52,6 @@ www.zentria.tech {
 	redir https://zentria.tech{uri} permanent
 }
 
-# Staging host, kept until the apex has run clean for a day. Then delete this
-# block and the neu.zentria.tech A record with it.
-neu.zentria.tech {
-	header {
-		-Server
-		X-Frame-Options "DENY"
-		X-Content-Type-Options "nosniff"
-		X-XSS-Protection "1; mode=block"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		Permissions-Policy "camera=(), microphone=(), geolocation=()"
-	}
-
-	reverse_proxy website:4321
-}
-
 # Fallback: IP-based access (HTTP only, remove once domain works)
 :80 {
 	reverse_proxy gateway:8080
