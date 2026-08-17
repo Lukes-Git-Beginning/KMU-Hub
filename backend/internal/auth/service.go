@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -125,14 +126,24 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.Lo
 
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
+		// The caller always sees the same 401 (no user enumeration) — the log is
+		// the only place that says which of the two happened. Without it, an
+		// unknown address, a wrong password and a broken lookup are one symptom.
+		if errors.Is(err, ErrUserNotFound) {
+			slog.Warn("login failed", "reason", "unknown_email", "email", email)
+		} else {
+			slog.Error("login failed", "reason", "lookup_error", "email", email, "error", err)
+		}
 		return nil, ErrInvalidCredentials
 	}
 
 	if !user.IsActive {
+		slog.Warn("login failed", "reason", "user_inactive", "user_id", user.ID, "email", user.Email)
 		return nil, ErrUserInactive
 	}
 
 	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); compareErr != nil {
+		slog.Warn("login failed", "reason", "password_mismatch", "user_id", user.ID, "email", user.Email)
 		return nil, ErrInvalidCredentials
 	}
 
