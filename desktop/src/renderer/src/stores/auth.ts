@@ -136,6 +136,21 @@ function loadTenantMode(): TenantMode {
   return 'distributed'
 }
 
+/** Maps a failed login response to an i18n key. The store throws keys rather
+ *  than sentences so the message is localized where it is rendered.
+ *
+ *  Every one of these used to surface as the same hardcoded English sentence,
+ *  which is why a wrong password, a rate limit and an unreachable backend were
+ *  indistinguishable — for the user and for anyone debugging it. */
+export function loginErrorKey(status: number): string {
+  if (status === 401) return 'auth.invalidCredentials'
+  if (status === 403) return 'auth.accountDisabled'
+  if (status === 409) return 'auth.twoFactorRequired'
+  if (status === 429) return 'auth.rateLimited'
+  if (status >= 500) return 'auth.serverError'
+  return 'auth.loginFailed'
+}
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   tenant: {
@@ -297,15 +312,19 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   async login(email: string, password: string, rememberMe = true) {
     // Login requires a network connection
     if (!navigator.onLine) {
-      throw new Error('Anmeldung erfordert eine Internetverbindung.')
+      throw new Error('auth.offlineError')
     }
 
-    const { data, error } = await apiClient.POST('/api/v1/auth/login', {
-      body: { email, password },
-    })
+    // A rejecting fetch (DNS, TLS, CORS, backend down) was previously uncaught
+    // and reached the UI as a raw browser string like "Failed to fetch".
+    const { data, error, response } = await apiClient
+      .POST('/api/v1/auth/login', { body: { email, password } })
+      .catch(() => {
+        throw new Error('auth.serverUnreachable')
+      })
 
     if (error || !data) {
-      throw new Error('Login failed. Please check your credentials.')
+      throw new Error(loginErrorKey(response.status))
     }
 
     // Check if 2FA is required (backend returns pending_token instead of tokens)
@@ -321,7 +340,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     const user = data.user ? toUser(data.user) : null
 
     if (!accessToken || !refreshToken || !user) {
-      throw new Error('Invalid server response.')
+      throw new Error('auth.serverError')
     }
 
     // Persist tokens via Electron safeStorage only when rememberMe is true

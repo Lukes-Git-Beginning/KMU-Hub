@@ -69,9 +69,11 @@ export default function LoginPage() {
           setPendingToken(token)
           setStage('2fa_prompt')
         } else {
+          // The store throws i18n keys; defaultValue keeps any other thrown
+          // message readable instead of printing a raw key.
           setError(
             err instanceof Error
-              ? err.message
+              ? t(err.message, { defaultValue: err.message })
               : t('auth.loginFailed'),
           )
         }
@@ -221,6 +223,10 @@ export default function LoginPage() {
             <Input
               id="email"
               type="email"
+              // Without these two hints the browser matches the fields by
+              // heuristic and can prefill a password saved for another account
+              // — visible only as dots, and indistinguishable from a typo.
+              autoComplete="username"
               placeholder="name@firma.de"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -247,6 +253,7 @@ export default function LoginPage() {
             <Input
               id="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isSubmitting}

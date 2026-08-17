@@ -55,9 +55,14 @@ describe('LoginPage', () => {
     })
   })
 
-  it('shows error on invalid credentials', async () => {
-    // Mock login to throw
-    const loginMock = vi.fn().mockRejectedValue(new Error('Login failed. Please check your credentials.'))
+  // The store throws i18n keys, so the page must translate them. The test's t()
+  // mock returns the key verbatim, which is what these assertions match on.
+  it.each([
+    ['auth.invalidCredentials', 'wrong password'],
+    ['auth.rateLimited', 'too many attempts'],
+    ['auth.serverUnreachable', 'backend down'],
+  ])('renders %s as its own message', async (key) => {
+    const loginMock = vi.fn().mockRejectedValue(new Error(key))
     useAuthStore.setState({ login: loginMock })
 
     const user = userEvent.setup()
@@ -68,9 +73,25 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'auth.login' }))
 
     await waitFor(() => {
-      expect(screen.getByText('Login failed. Please check your credentials.')).toBeInTheDocument()
+      expect(screen.getByText(key)).toBeInTheDocument()
     })
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('keeps a non-key error message readable instead of printing a raw key', async () => {
+    const loginMock = vi.fn().mockRejectedValue(new Error('Something specific went wrong'))
+    useAuthStore.setState({ login: loginMock })
+
+    const user = userEvent.setup()
+    renderLogin()
+
+    await user.type(screen.getByLabelText('auth.email'), 'wrong@firma.de')
+    await user.type(screen.getByLabelText('auth.password'), 'wrong')
+    await user.click(screen.getByRole('button', { name: 'auth.login' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Something specific went wrong')).toBeInTheDocument()
+    })
   })
 
   it('shows 2FA prompt when backend requires TOTP', async () => {
