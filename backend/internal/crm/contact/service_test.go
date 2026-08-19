@@ -155,8 +155,11 @@ func (m *MockRepository) SetCustomFieldValues(ctx context.Context, contactID uui
 	return nil
 }
 
-func (m *MockRepository) IsInUse(ctx context.Context, id uuid.UUID, _ uuid.UUID) (bool, error) {
-	return m.inUseContacts[id], nil
+func (m *MockRepository) IsInUse(ctx context.Context, id uuid.UUID, _ uuid.UUID) (bool, string, error) {
+	if m.inUseContacts[id] {
+		return true, "call campaign history", nil
+	}
+	return false, "", nil
 }
 
 func (m *MockRepository) CompanyExists(ctx context.Context, companyID uuid.UUID, _ uuid.UUID) (bool, error) {

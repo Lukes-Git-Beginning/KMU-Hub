@@ -540,10 +540,34 @@ func (r *PostgresRepository) GetCustomFieldValuesBatch(ctx context.Context, cont
 	return result, rows.Err()
 }
 
-func (r *PostgresRepository) IsInUse(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (bool, error) {
-	// For now, contacts are not in use by anything
-	// In the future, check deal_contacts and activities
-	return false, nil
+// IsInUse checks the two FKs that are ON DELETE RESTRICT on contacts(id):
+// dialer_campaign_contacts.contact_id (migration 000130) and
+// advisory_protocols.contact_id (migration 000137). Both are deliberately
+// RESTRICT rather than CASCADE/SET NULL because they are audit/compliance
+// material (call history, MiFID II advisory records) that must not silently
+// disappear — a contact with either is anonymized, not hard-deleted.
+func (r *PostgresRepository) IsInUse(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (bool, string, error) {
+	var hasCampaigns, hasProtocols bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT
+		   EXISTS(SELECT 1 FROM dialer_campaign_contacts WHERE contact_id = $1 AND tenant_id = $2),
+		   EXISTS(SELECT 1 FROM advisory_protocols WHERE contact_id = $1 AND tenant_id = $2)`,
+		id, tenantID,
+	).Scan(&hasCampaigns, &hasProtocols); err != nil {
+		return false, "", err
+	}
+
+	var reasons []string
+	if hasCampaigns {
+		reasons = append(reasons, "call campaign history")
+	}
+	if hasProtocols {
+		reasons = append(reasons, "advisory protocols")
+	}
+	if len(reasons) == 0 {
+		return false, "", nil
+	}
+	return true, strings.Join(reasons, ", "), nil
 }
 
 func (r *PostgresRepository) CompanyExists(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (bool, error) {

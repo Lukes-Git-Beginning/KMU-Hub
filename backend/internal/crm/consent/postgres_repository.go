@@ -3,6 +3,8 @@ package consent
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -114,38 +116,117 @@ func (r *PostgresRepository) UpdateDeletionRequest(ctx context.Context, req *GDP
 	return err
 }
 
+// AnonymizeContact executes the GDPR Art. 17 erasure for a contact by
+// overwriting its personal data with a sentinel and stripping personal data
+// from records that hang off it. The contact row itself is kept (not
+// hard-deleted): dialer_campaign_contacts.contact_id and
+// advisory_protocols.contact_id are ON DELETE RESTRICT (migrations
+// 000130/000137) because they are audit/compliance material, and this is the
+// erasure path that respects that -- see contact.PostgresRepository.IsInUse.
+//
+// What stays untouched, deliberately:
+//   - company_id, owner_id, visibility, category, status, lifecycle_stage,
+//     lead_* -- business/relationship metadata, not personal data. Same
+//     rationale erasure.go's CRMErasureHandler uses to retain deal/pipeline
+//     history on user erasure.
+//   - merged_into_id, referred_by_contact_id -- relationship pointers
+//     (UUIDs), not personal data themselves.
+//   - dialer_campaign_contacts.notes, advisory_protocols content -- audit /
+//     legal-retention material (advisory_protocols: 10y under FinVermV §18a).
+//     Exactly why those FKs are RESTRICT instead of CASCADE: the anonymized
+//     contact row stays as their anchor.
+//   - consent_records rows -- Art. 7(1) requires the controller to be able to
+//     demonstrate that consent was given/withdrawn, so the grant/revoke
+//     history (type, granted, legal_basis, dates) is retained; only the two
+//     directly identifying fields on each record (ip_address, notes) are
+//     cleared.
 func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID, tenantID uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("gdpr contact anonymize: begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Anonymize contact data (GDPR Art. 17 - right to erasure)
-	if _, err := tx.Exec(ctx,
+	affected := 0
+
+	res, err := tx.Exec(ctx,
 		`UPDATE contacts SET
 			first_name = 'Gelöschte',
 			last_name = 'Person',
 			email = NULL,
 			phone = NULL,
+			mobile = NULL,
 			position = NULL,
+			salutation = NULL,
+			title = NULL,
+			department = NULL,
 			notes = NULL,
+			address_street = NULL,
+			address_zip = NULL,
+			address_city = NULL,
+			address_country = NULL,
+			website = NULL,
+			linkedin = NULL,
+			xing = NULL,
 			updated_at = NOW()
 		 WHERE id = $1 AND tenant_id = $2`,
 		contactID, tenantID,
-	); err != nil {
-		return err
+	)
+	if err != nil {
+		return fmt.Errorf("gdpr contact anonymize: update contact: %w", err)
 	}
+	affected += int(res.RowsAffected())
 
-	// Anonymize activity descriptions
-	if _, err := tx.Exec(ctx,
+	// Free-text activity notes may name or describe the contact; the activity
+	// skeleton (type, subject, dates) stays for business continuity -- same
+	// pattern erasure.go's CRMErasureHandler uses for user erasure.
+	res, err = tx.Exec(ctx,
 		`UPDATE activities SET description = NULL, updated_at = NOW() WHERE contact_id = $1 AND tenant_id = $2`,
 		contactID, tenantID,
-	); err != nil {
-		return err
+	)
+	if err != nil {
+		return fmt.Errorf("gdpr contact anonymize: clear activity notes: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Tags are free-form labels ("VIP", "schwierig") and are themselves a form
+	// of personal characterization.
+	res, err = tx.Exec(ctx, `DELETE FROM contact_tags WHERE contact_id = $1`, contactID)
+	if err != nil {
+		return fmt.Errorf("gdpr contact anonymize: delete tags: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Custom fields are tenant-defined with no fixed schema, so there is no
+	// way to know generically which hold PII -- clear all of them. Same call
+	// erasure.go's WorkErasureHandler makes for time_entries: no business
+	// retention need.
+	res, err = tx.Exec(ctx, `DELETE FROM contact_custom_field_values WHERE contact_id = $1`, contactID)
+	if err != nil {
+		return fmt.Errorf("gdpr contact anonymize: delete custom fields: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE consent_records SET ip_address = NULL, notes = NULL
+		 WHERE contact_id = $1 AND tenant_id = $2 AND (ip_address IS NOT NULL OR COALESCE(notes, '') <> '')`,
+		contactID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("gdpr contact anonymize: scrub consent records: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("gdpr contact anonymize: commit: %w", err)
 	}
 
-	return tx.Commit(ctx)
+	slog.Info("gdpr contact anonymize: complete",
+		"contact_id", contactID,
+		"tenant_id", tenantID,
+		"records_affected", affected,
+	)
+	return nil
 }
 
 func (r *PostgresRepository) ContactExists(ctx context.Context, contactID, tenantID uuid.UUID) (bool, error) {
@@ -204,20 +285,20 @@ func (r *PostgresRepository) GetLastConsentByType(ctx context.Context, tenantID,
 
 // ValidConsentTypes lists all valid consent_type enum values.
 var ValidConsentTypes = map[string]bool{
-	"marketing_email":  true,
-	"marketing_phone":  true,
-	"profiling":        true,
-	"newsletter":       true,
-	"data_processing":  true,
-	"data_sharing":     true,
+	"marketing_email": true,
+	"marketing_phone": true,
+	"profiling":       true,
+	"newsletter":      true,
+	"data_processing": true,
+	"data_sharing":    true,
 }
 
 // ValidLegalBases lists all valid consent_legal_basis enum values.
 var ValidLegalBases = map[string]bool{
-	"consent":              true,
-	"legitimate_interest":  true,
-	"contract":             true,
-	"legal_obligation":     true,
+	"consent":             true,
+	"legitimate_interest": true,
+	"contract":            true,
+	"legal_obligation":    true,
 }
 
 // unused: suppress "time imported and not used"

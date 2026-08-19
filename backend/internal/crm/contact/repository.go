@@ -37,7 +37,11 @@ type Repository interface {
 	SetCustomFieldValues(ctx context.Context, contactID uuid.UUID, values map[uuid.UUID]any) error
 
 	// Checks
-	IsInUse(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (bool, error)
+	// IsInUse reports whether the contact is referenced by records that block a
+	// hard delete (dialer campaign history, advisory protocols — see
+	// postgres_repository.go). The returned reason names what is in the way,
+	// for use in the returned error; it is empty when inUse is false.
+	IsInUse(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (inUse bool, reason string, err error)
 	CompanyExists(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (bool, error)
 	TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error)
 

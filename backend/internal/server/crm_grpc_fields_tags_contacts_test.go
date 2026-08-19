@@ -308,8 +308,11 @@ func (r *stubContactRepo) SetCustomFieldValues(_ context.Context, _ uuid.UUID, _
 	return nil
 }
 
-func (r *stubContactRepo) IsInUse(_ context.Context, id, _ uuid.UUID) (bool, error) {
-	return r.inUseContacts[id], nil
+func (r *stubContactRepo) IsInUse(_ context.Context, id, _ uuid.UUID) (bool, string, error) {
+	if r.inUseContacts[id] {
+		return true, "call campaign history", nil
+	}
+	return false, "", nil
 }
 
 func (r *stubContactRepo) CompanyExists(_ context.Context, companyID, _ uuid.UUID) (bool, error) {

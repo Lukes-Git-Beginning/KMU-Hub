@@ -2,6 +2,7 @@ package contact
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/mail"
 	"slices"
@@ -412,13 +413,15 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) 
 		return ErrContactNotFound
 	}
 
-	// Check if contact is used by deals/activities (for future use)
-	inUse, err := s.repo.IsInUse(ctx, id, tenantID)
+	// Contacts with call campaign history or advisory protocols cannot be hard
+	// deleted (ON DELETE RESTRICT, migrations 000130/000137) -- point the
+	// caller at the anonymization path (consent.Service.RequestDeletion) instead.
+	inUse, reason, err := s.repo.IsInUse(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
 	if inUse {
-		return ErrContactInUse
+		return fmt.Errorf("%w: %s reference this contact; use GDPR anonymization instead of deleting", ErrContactInUse, reason)
 	}
 
 	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
