@@ -116,14 +116,6 @@ Single Source of Truth fuer projektspezifisches Wissen. Notes haben YAML-Frontma
 
 Paralleles Markt-Intelligence-Repo (`~/Documents/zentria-intel/`, github.com/Lukes-Git-Beginning/zentria-intel) — taeglicher CRM-/KMU-Markt-Scan, Friday-Synthese, Discord-Pick-Mechanik, Recall in Cosmi-Sessions. Memory-Pointer in `MEMORY.md > ## Intel-System`.
 
-| Slash-Command | Zweck |
-|---|---|
-| `/intel-bootstrap` | Smoke-Test, Discord-Server-Setup, Routinen-Registrierung (drei Sub-Modi `--smoke`/`--discord`/`--routines`) |
-| `/intel-friday` | Manueller Trigger der Friday-Synthese (Routine-Backup, optional `--week=YYYY-Wxx`) |
-| `/intel-pick <id> <action> [tags] [note]` | Backup zur Discord-Bot-Pick-Mechanik (Stable-ID `W..-T..-i..` aus Friday-Report) |
-| `/intel-promote <modul> [--dry-run]` | Synthetisiert ≥5 Keepers über ≥3 Wochen zu `.knowledge/intel-<modul>.md`-Note |
-| `/intel-recall <modul-oder-thema> [--days=90]` | Laedt Keepers + promoted Notes nach Modul/Thema in den Context |
-
 ## Weiterfuehrende Dokumentation (Repo-Root `docs/`)
 
 | Thema | Datei |
