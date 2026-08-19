@@ -37,6 +37,95 @@ const contactReportLinks: Array<{
 }> = []
 let contactFileCounter = 0
 
+// GDPR consent per contact (route_crm_ext.go). Demo-stateful: a grant or a
+// revocation survives a reload within the session, so the panel behaves the way
+// it does against the real service instead of resetting to a canned state.
+interface DemoConsent {
+  id: string
+  contact_id: string
+  consent_type: string
+  granted: boolean
+  legal_basis: string
+  source: string
+  ip_address: string | null
+  notes: string
+  granted_at: string | null
+  revoked_at: string | null
+  created_by: string | null
+  created_at: string
+}
+
+const consentsByContact: Record<string, Record<string, DemoConsent>> = {}
+const consentHistory: Record<string, DemoConsent[]> = {}
+let consentCounter = 0
+
+const consentHistoryKey = (contactId: string, type: string) => `${contactId}:${type}`
+
+function makeConsent(
+  contactId: string,
+  consentType: string,
+  fields: Partial<DemoConsent>,
+): DemoConsent {
+  consentCounter += 1
+  return {
+    id: `consent-${consentCounter}`,
+    contact_id: contactId,
+    consent_type: consentType,
+    granted: false,
+    legal_basis: 'consent',
+    source: 'web_form',
+    ip_address: null,
+    notes: '',
+    granted_at: null,
+    revoked_at: null,
+    created_by: null,
+    created_at: new Date().toISOString(),
+    ...fields,
+  }
+}
+
+/**
+ * Seeds a plausible starting state the first time a contact is opened, hashed
+ * off the id so different contacts do not all look identical. Only the demo
+ * needs this — against the real service an unseen contact simply has no records.
+ */
+function ensureConsentSeed(contactId: string): void {
+  if (consentsByContact[contactId]) return
+
+  const variant = [...contactId].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 3
+  const store: Record<string, DemoConsent> = {}
+
+  if (variant === 0) {
+    store.marketing_email = makeConsent(contactId, 'marketing_email', {
+      granted: true,
+      source: 'email_confirmation',
+      granted_at: '2026-03-14T09:12:00Z',
+    })
+    store.newsletter = makeConsent(contactId, 'newsletter', {
+      granted: true,
+      source: 'web_form',
+      granted_at: '2026-03-14T09:12:00Z',
+    })
+  } else if (variant === 1) {
+    store.marketing_email = makeConsent(contactId, 'marketing_email', {
+      granted: true,
+      source: 'contract',
+      granted_at: '2026-01-08T14:30:00Z',
+    })
+    store.profiling = makeConsent(contactId, 'profiling', {
+      granted: false,
+      source: 'web_form',
+      granted_at: '2025-11-02T10:00:00Z',
+      revoked_at: '2026-05-20T16:45:00Z',
+    })
+  }
+
+  consentsByContact[contactId] = store
+  for (const [type, record] of Object.entries(store)) {
+    consentHistory[consentHistoryKey(contactId, type)] = [record]
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helper: flatten a company.address object into a string. OpenAPI defines
 // CompanyInfo.address as a string ("street, zip city, country"); the mock data
@@ -670,5 +759,71 @@ export const crmHandlers = [
     }
     contactReportLinks.push(file)
     return HttpResponse.json({ file }, { status: 201 })
+  }),
+
+  // ---- GDPR consent -----------------------------------------------------
+  // The real routes return the raw crmv1 protos: a summary keyed by
+  // consent_type, and a { history, total } envelope.
+
+  http.get(`${API}/api/v1/contacts/:id/consents`, ({ params }) => {
+    const contactId = params.id as string
+    ensureConsentSeed(contactId)
+    return HttpResponse.json({
+      contact_id: contactId,
+      consents: consentsByContact[contactId],
+    })
+  }),
+
+  http.post(`${API}/api/v1/contacts/:id/consents`, async ({ params, request }) => {
+    const contactId = params.id as string
+    const body = (await request.json()) as Record<string, unknown>
+    const consentType = String(body.consent_type ?? '')
+    if (!consentType) {
+      return HttpResponse.json({ message: 'consent_type is required' }, { status: 400 })
+    }
+
+    ensureConsentSeed(contactId)
+    const record = makeConsent(contactId, consentType, {
+      granted: true,
+      source: String(body.source ?? 'web_form'),
+      legal_basis: String(body.legal_basis ?? 'consent'),
+      granted_at: new Date().toISOString(),
+    })
+
+    consentsByContact[contactId][consentType] = record
+    const key = consentHistoryKey(contactId, consentType)
+    consentHistory[key] = [record, ...(consentHistory[key] ?? [])]
+    return HttpResponse.json(record, { status: 201 })
+  }),
+
+  http.delete(`${API}/api/v1/contacts/:id/consents/:type`, ({ params }) => {
+    const contactId = params.id as string
+    const consentType = params.type as string
+    ensureConsentSeed(contactId)
+
+    const previous = consentsByContact[contactId][consentType]
+    if (!previous) {
+      return HttpResponse.json({ message: 'consent not found' }, { status: 404 })
+    }
+
+    const record = makeConsent(contactId, consentType, {
+      granted: false,
+      source: previous.source,
+      legal_basis: previous.legal_basis,
+      granted_at: previous.granted_at,
+      revoked_at: new Date().toISOString(),
+    })
+
+    consentsByContact[contactId][consentType] = record
+    const key = consentHistoryKey(contactId, consentType)
+    consentHistory[key] = [record, ...(consentHistory[key] ?? [])]
+    return HttpResponse.json(record)
+  }),
+
+  http.get(`${API}/api/v1/contacts/:id/consents/:type/history`, ({ params }) => {
+    const contactId = params.id as string
+    ensureConsentSeed(contactId)
+    const history = consentHistory[consentHistoryKey(contactId, params.type as string)] ?? []
+    return HttpResponse.json({ history, total: history.length })
   }),
 ]
