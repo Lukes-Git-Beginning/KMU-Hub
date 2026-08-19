@@ -134,6 +134,7 @@ func main() {
 	// Health checkers
 	healthCheckers := []health.Checker{
 		health.NewRedisChecker(redisClient),
+		health.NewPostgresChecker(pool),
 	}
 
 	// Idempotency repository + cleanup worker (WarnMode: warns but never blocks)
