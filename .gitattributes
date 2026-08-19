@@ -1,1 +1,7 @@
 *.sh text eol=lf
+
+# Vom claude-command-center gesyncte Assets: sync.ps1 schreibt LF und vergleicht byteweise.
+# 'text' allein laesst Git die Arbeitskopie beim Windows-Checkout auf CRLF normalisieren ->
+# Dauer-Drift ohne Inhaltsunterschied. Deshalb explizit eol=lf.
+.claude/**/*.md          text eol=lf
+.claude/settings.json    text eol=lf
