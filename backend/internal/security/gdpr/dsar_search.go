@@ -47,14 +47,15 @@ const (
 	dsarMaxSubjects = 10
 	dsarMaxRows     = 50
 	dsarTimeLayout  = "2006-01-02 15:04"
+	dsarDateLayout  = "2006-01-02"
 )
 
 // SearchByQuery performs an Art. 15 GDPR cross-module lookup for a person within
 // a tenant. It matches contacts and users by name/email and, for each match,
-// aggregates the data held about them across CRM, consent and dialer modules.
-// Coverage is a deliberate subset (contacts + users + consent + dialer); other
-// modules can be folded in incrementally. All queries are tenant-scoped and run
-// behind RLS as defense-in-depth.
+// aggregates the data held about them across CRM, consent, dialer, finance,
+// meetings, helpdesk, contracts, email, deals and activities modules. Other
+// modules can still be folded in incrementally. All queries are tenant-scoped
+// and run behind RLS as defense-in-depth.
 func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, query string) ([]DSARPerson, error) {
 	pattern := "%" + query + "%"
 	persons := make([]DSARPerson, 0)
@@ -101,6 +102,62 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *calls)
 		}
 
+		invoices, fErr := financeModule(ctx, pool, tenantID, c.id)
+		if fErr != nil {
+			return nil, fErr
+		}
+		if invoices != nil {
+			person.Modules = append(person.Modules, *invoices)
+		}
+
+		meetings, mErr := meetingsModule(ctx, pool, tenantID, c.id)
+		if mErr != nil {
+			return nil, mErr
+		}
+		if meetings != nil {
+			person.Modules = append(person.Modules, *meetings)
+		}
+
+		tickets, tErr := helpdeskModule(ctx, pool, tenantID, c.id)
+		if tErr != nil {
+			return nil, tErr
+		}
+		if tickets != nil {
+			person.Modules = append(person.Modules, *tickets)
+		}
+
+		contracts, ctErr := contractsModule(ctx, pool, tenantID, c.id)
+		if ctErr != nil {
+			return nil, ctErr
+		}
+		if contracts != nil {
+			person.Modules = append(person.Modules, *contracts)
+		}
+
+		emails, eErr := emailModule(ctx, pool, tenantID, c.id)
+		if eErr != nil {
+			return nil, eErr
+		}
+		if emails != nil {
+			person.Modules = append(person.Modules, *emails)
+		}
+
+		deals, dlErr := dealsModule(ctx, pool, tenantID, c.id)
+		if dlErr != nil {
+			return nil, dlErr
+		}
+		if deals != nil {
+			person.Modules = append(person.Modules, *deals)
+		}
+
+		activities, acErr := activitiesModule(ctx, pool, tenantID, c.id)
+		if acErr != nil {
+			return nil, acErr
+		}
+		if activities != nil {
+			person.Modules = append(person.Modules, *activities)
+		}
+
 		persons = append(persons, person)
 	}
 
@@ -118,9 +175,9 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 // ---------------------------------------------------------------------------
 
 type contactRow struct {
-	id                                              uuid.UUID
+	id                                           uuid.UUID
 	first, last, email, phone, position, company string
-	createdAt                                       time.Time
+	createdAt                                    time.Time
 }
 
 func matchContacts(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pattern string) ([]contactRow, error) {
@@ -278,6 +335,264 @@ func dialerModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID u
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: dialer rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func financeModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT invoice_number, status, invoice_date, gross_total::float8
+		 FROM finance_invoices
+		 WHERE contact_id = $1 AND tenant_id = $2
+		 ORDER BY invoice_date DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query finance invoices: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Rechnungen", Columns: []string{"Rechnungsnummer", "Status", "Datum", "Betrag"}}
+	for rows.Next() {
+		var number, status string
+		var at time.Time
+		var gross float64
+		if scanErr := rows.Scan(&number, &status, &at, &gross); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan finance invoice: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Rechnungsnummer", Value: number},
+			{Key: "Status", Value: status},
+			{Key: "Datum", Value: at.Format(dsarDateLayout)},
+			// lean: EUR hardcoded — finance_invoices carries no currency column
+			// because the product is DACH/EUR-only; revisit if multi-currency
+			// billing lands.
+			{Key: "Betrag", Value: fmt.Sprintf("%.2f EUR", gross)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: finance invoice rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func meetingsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT title, status, scheduled_start, scheduled_end
+		 FROM meetings
+		 WHERE contact_id = $1 AND tenant_id = $2
+		 ORDER BY scheduled_start DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query meetings: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Meetings", Columns: []string{"Titel", "Status", "Beginn", "Ende"}}
+	for rows.Next() {
+		var title, status string
+		var start, end time.Time
+		if scanErr := rows.Scan(&title, &status, &start, &end); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan meeting: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: title},
+			{Key: "Status", Value: status},
+			{Key: "Beginn", Value: start.Format(dsarTimeLayout)},
+			{Key: "Ende", Value: end.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: meeting rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func helpdeskModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT subject, status, priority, created_at
+		 FROM tickets
+		 WHERE contact_id = $1 AND tenant_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query tickets: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Helpdesk-Tickets", Columns: []string{"Betreff", "Status", "Priorität", "Erstellt"}}
+	for rows.Next() {
+		var subject, status, priority string
+		var at time.Time
+		if scanErr := rows.Scan(&subject, &status, &priority, &at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan ticket: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Betreff", Value: subject},
+			{Key: "Status", Value: status},
+			{Key: "Priorität", Value: priority},
+			{Key: "Erstellt", Value: at.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: ticket rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// contractsModule resolves via contract_parties: contracts carries no
+// contact_id of its own, a contact is one of possibly several parties to a
+// contract (contact/company/external).
+func contractsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT c.contract_number, c.title, c.status, c.starts_on
+		 FROM contracts c
+		 JOIN contract_parties cp ON cp.contract_id = c.id
+		 WHERE cp.contact_id = $1 AND cp.tenant_id = $2
+		 ORDER BY c.starts_on DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query contracts: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Verträge", Columns: []string{"Vertragsnummer", "Titel", "Status", "Beginn"}}
+	for rows.Next() {
+		var number, title, status string
+		var startsOn time.Time
+		if scanErr := rows.Scan(&number, &title, &status, &startsOn); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan contract: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Vertragsnummer", Value: number},
+			{Key: "Titel", Value: title},
+			{Key: "Status", Value: status},
+			{Key: "Beginn", Value: startsOn.Format(dsarDateLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: contract rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// emailModule resolves via email_contact_links: the junction table carries no
+// tenant_id of its own, so tenant scoping happens on the joined email_messages
+// row instead.
+func emailModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT em.date, COALESCE(em.subject, ''), COALESCE(NULLIF(em.from_name, ''), em.from_email)
+		 FROM email_messages em
+		 JOIN email_contact_links ecl ON ecl.message_id = em.id
+		 WHERE ecl.contact_id = $1 AND em.tenant_id = $2
+		 ORDER BY em.date DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query emails: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "E-Mails", Columns: []string{"Datum", "Betreff", "Von"}}
+	for rows.Next() {
+		var subject, from string
+		var at time.Time
+		if scanErr := rows.Scan(&at, &subject, &from); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan email: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Datum", Value: at.Format(dsarTimeLayout)},
+			{Key: "Betreff", Value: subject},
+			{Key: "Von", Value: from},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: email rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func dealsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT d.name, d.value::float8, d.currency, ps.name, d.created_at
+		 FROM deals d
+		 JOIN pipeline_stages ps ON ps.id = d.stage_id
+		 WHERE d.contact_id = $1 AND d.tenant_id = $2
+		 ORDER BY d.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query deals: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Deals", Columns: []string{"Bezeichnung", "Wert", "Phase", "Erstellt"}}
+	for rows.Next() {
+		var name, currency, stage string
+		var value float64
+		var at time.Time
+		if scanErr := rows.Scan(&name, &value, &currency, &stage, &at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan deal: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Bezeichnung", Value: name},
+			{Key: "Wert", Value: fmt.Sprintf("%.2f %s", value, currency)},
+			{Key: "Phase", Value: stage},
+			{Key: "Erstellt", Value: at.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: deal rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func activitiesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT created_at, activity_type::text, subject, COALESCE(description, '')
+		 FROM activities
+		 WHERE contact_id = $1 AND tenant_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query activities: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Aktivitäten", Columns: []string{"Datum", "Typ", "Betreff", "Notiz"}}
+	for rows.Next() {
+		var activityType, subject, note string
+		var at time.Time
+		if scanErr := rows.Scan(&at, &activityType, &subject, &note); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan activity: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Datum", Value: at.Format(dsarTimeLayout)},
+			{Key: "Typ", Value: activityType},
+			{Key: "Betreff", Value: subject},
+			{Key: "Notiz", Value: note},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: activity rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil
