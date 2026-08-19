@@ -10,6 +10,7 @@ import {
   getCompanyById,
   getDealById,
 } from '../data/contacts'
+import { IDS } from '../data/shared-ids'
 
 // Tenant-wide contact tag definitions — mutable so the tag manager (CRM
 // settings) can create/rename/recolour/delete them in demo mode.
@@ -125,6 +126,23 @@ function ensureConsentSeed(contactId: string): void {
     consentHistory[consentHistoryKey(contactId, type)] = [record]
   }
 }
+
+// GDPR right-to-erasure (deletion request) per contact (route_crm_ext.go).
+// Demo-stateful: filing a request marks it pending for the session; the
+// (admin-only) process step flips it to completed -- mirrors the real
+// two-step flow (HandleRequestDeletion / HandleProcessDeletion).
+interface DemoDeletionRequest {
+  id: string
+  contact_id: string
+  requested_by: string | null
+  reason: string
+  status: 'pending' | 'processing' | 'completed'
+  completed_at: string | null
+  created_at: string
+}
+
+const deletionRequestsById: Record<string, DemoDeletionRequest> = {}
+let deletionRequestCounter = 0
 
 // ---------------------------------------------------------------------------
 // Helper: flatten a company.address object into a string. OpenAPI defines
@@ -261,9 +279,22 @@ export const crmHandlers = [
   }),
 
   http.delete(`${API}/api/v1/contacts/:id`, ({ params }) => {
-    const existing = getContactById(params.id as string)
+    const id = params.id as string
+    const existing = getContactById(id)
     if (!existing) {
       return HttpResponse.json({ error: 'Contact not found' }, { status: 404 })
+    }
+    // Hans Müller (ct-001) stands in for a contact with call-campaign/advisory
+    // history in the real service, so the GDPR-anonymization detour
+    // (KontaktePage) is reachable and screenshot-testable in demo mode too.
+    if (id === IDS.contacts.mueller) {
+      return HttpResponse.json(
+        {
+          error:
+            'contact is in use and cannot be deleted: call campaign history, advisory protocols reference this contact; use GDPR anonymization instead of deleting',
+        },
+        { status: 409 },
+      )
     }
     return new HttpResponse(null, { status: 204 })
   }),
@@ -825,5 +856,38 @@ export const crmHandlers = [
     ensureConsentSeed(contactId)
     const history = consentHistory[consentHistoryKey(contactId, params.type as string)] ?? []
     return HttpResponse.json({ history, total: history.length })
+  }),
+
+  // ---- GDPR right-to-erasure (deletion request) --------------------------
+
+  http.post(`${API}/api/v1/contacts/:id/gdpr/deletion-request`, async ({ params, request }) => {
+    const contactId = params.id as string
+    const existing = getContactById(contactId)
+    if (!existing) {
+      return HttpResponse.json({ error: 'Contact not found' }, { status: 404 })
+    }
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    deletionRequestCounter += 1
+    const deletionRequest: DemoDeletionRequest = {
+      id: `del-req-${deletionRequestCounter}`,
+      contact_id: contactId,
+      requested_by: null,
+      reason: String(body.reason ?? ''),
+      status: 'pending',
+      completed_at: null,
+      created_at: new Date().toISOString(),
+    }
+    deletionRequestsById[deletionRequest.id] = deletionRequest
+    return HttpResponse.json(deletionRequest, { status: 201 })
+  }),
+
+  http.post(`${API}/api/v1/gdpr/deletion-requests/:id/process`, ({ params }) => {
+    const deletionRequest = deletionRequestsById[params.id as string]
+    if (!deletionRequest) {
+      return HttpResponse.json({ error: 'deletion request not found' }, { status: 404 })
+    }
+    deletionRequest.status = 'completed'
+    deletionRequest.completed_at = new Date().toISOString()
+    return HttpResponse.json({ status: 'completed' })
   }),
 ]

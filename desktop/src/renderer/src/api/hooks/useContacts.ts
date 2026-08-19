@@ -9,6 +9,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
 import { authenticatedRequest } from '../utils/authenticatedFetch'
 
+/**
+ * Thrown by useDeleteContact when the backend refuses a hard delete because
+ * other records still reference the contact (call campaign history, advisory
+ * protocols -- see ErrContactInUse in backend/internal/crm/contact/service.go).
+ * GDPR anonymization (useContactErasure.ts) is the way out; callers branch on
+ * this type to offer that instead of just reporting failure.
+ */
+export class ContactDeleteConflictError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ContactDeleteConflictError'
+  }
+}
+
 export interface ContactListParams {
   page?: number
   page_size?: number
@@ -129,10 +143,16 @@ export function useDeleteContact() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await apiClient.DELETE('/api/v1/contacts/{id}', {
+      const { data, error, response } = await apiClient.DELETE('/api/v1/contacts/{id}', {
         params: { path: { id } },
       })
-      if (error) throw error
+      if (error) {
+        // 409: call campaign history or advisory protocols still reference
+        // this contact -- a hard delete would orphan them. Surface this
+        // distinctly so the UI can offer GDPR anonymization instead.
+        if (response.status === 409) throw new ContactDeleteConflictError(error.error ?? '')
+        throw error
+      }
       return data
     },
     onSuccess: () => {

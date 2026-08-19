@@ -26,7 +26,14 @@ import {
   Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/api/hooks/useContacts'
+import {
+  useContacts,
+  useCreateContact,
+  useUpdateContact,
+  useDeleteContact,
+  ContactDeleteConflictError,
+} from '@/api/hooks/useContacts'
+import { useRequestContactErasure } from '@/api/hooks/useContactErasure'
 import { useContactsStore, type Contact } from '@/stores/contacts'
 import { useCrmPrefsStore } from '@/stores/crmPrefs'
 import { useNavigationStore } from '@/stores/navigation'
@@ -86,6 +93,7 @@ export default function KontaktePage() {
   const createContactMutation = useCreateContact()
   const updateContactMutation = useUpdateContact()
   const deleteContactMutation = useDeleteContact()
+  const requestErasureMutation = useRequestContactErasure()
 
   // Map backend contacts to UI contacts, overlaying local favoriteIds
   const contacts: Contact[] = (contactsData?.contacts ?? [])
@@ -119,6 +127,12 @@ export default function KontaktePage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editContact, setEditContact] = useState<Contact | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  // Set when a hard delete is refused with 409 (history still references the
+  // contact) -- carries the server's reason so the follow-up dialog can quote it.
+  const [deleteConflict, setDeleteConflict] = useState<{ contactId: string; message: string } | null>(null)
+  // Id pending the separate, explicit confirmation for GDPR anonymization
+  // (irreversible, so it never shares a dialog with the plain delete confirm).
+  const [erasureConfirmId, setErasureConfirmId] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [groupManagerOpen, setGroupManagerOpen] = useState(false)
   const [groupAssignContact, setGroupAssignContact] = useState<Contact | null>(null)
@@ -154,6 +168,8 @@ export default function KontaktePage() {
 
   const detailContact = contacts.find((c) => c.id === detailContactId) || null
   const deleteTarget = contacts.find((c) => c.id === deleteConfirmId)
+  const deleteConflictTarget = contacts.find((c) => c.id === deleteConflict?.contactId)
+  const erasureTarget = contacts.find((c) => c.id === erasureConfirmId)
 
   const sortFieldLabel = (f: SortField) =>
     f === 'name' ? t('kontakte.sort.name') : f === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact')
@@ -180,11 +196,48 @@ export default function KontaktePage() {
   }
 
   const handleDelete = async () => {
-    if (deleteConfirmId) {
-      await deleteContactMutation.mutateAsync(deleteConfirmId)
+    const id = deleteConfirmId
+    if (!id) return
+    try {
+      await deleteContactMutation.mutateAsync(id)
       toast.success(t('kontakte.toast.contactDeleted'))
-      if (detailContactId === deleteConfirmId) setDetailContactId(null)
+      if (detailContactId === id) setDetailContactId(null)
       setDeleteConfirmId(null)
+    } catch (err) {
+      setDeleteConfirmId(null)
+      // History still references the contact: offer GDPR anonymization
+      // instead of leaving the user stuck on a failed delete.
+      if (err instanceof ContactDeleteConflictError) {
+        setDeleteConflict({ contactId: id, message: err.message })
+      } else {
+        toast.error(t('kontakte.toast.deleteFailed'))
+      }
+    }
+  }
+
+  /** From the conflict dialog to the (separately confirmed) anonymization step. */
+  const handleErasureContinue = () => {
+    if (!deleteConflict) return
+    setErasureConfirmId(deleteConflict.contactId)
+    setDeleteConflict(null)
+  }
+
+  /**
+   * Files the GDPR deletion request. This only creates a "pending" record --
+   * a later, admin-only step performs the actual erasure (see
+   * useContactErasure.ts) -- so the success toast must not claim the contact
+   * was anonymized.
+   */
+  const handleRequestErasure = async () => {
+    const id = erasureConfirmId
+    if (!id) return
+    try {
+      await requestErasureMutation.mutateAsync(id)
+      toast.success(t('kontakte.erasure.requested'))
+      setErasureConfirmId(null)
+    } catch {
+      setErasureConfirmId(null)
+      toast.error(t('kontakte.erasure.requestFailed'))
     }
   }
 
@@ -840,6 +893,33 @@ export default function KontaktePage() {
         confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
+      />
+
+      {/* Delete blocked by history (409) — offer GDPR anonymization as the way out */}
+      <ConfirmDialog
+        open={!!deleteConflict}
+        onOpenChange={(open) => !open && setDeleteConflict(null)}
+        title={t('kontakte.confirm.deleteConflictTitle')}
+        description={t('kontakte.confirm.deleteConflictDescription', {
+          name: deleteConflictTarget ? `${deleteConflictTarget.firstName} ${deleteConflictTarget.lastName}` : '',
+          reason: deleteConflict?.message ?? '',
+        })}
+        confirmLabel={t('kontakte.confirm.deleteConflictContinue')}
+        variant="warning"
+        onConfirm={handleErasureContinue}
+      />
+
+      {/* GDPR anonymization — irreversible, so it gets its own explicit confirmation */}
+      <ConfirmDialog
+        open={!!erasureConfirmId}
+        onOpenChange={(open) => !open && setErasureConfirmId(null)}
+        title={t('kontakte.erasure.confirmTitle')}
+        description={t('kontakte.erasure.confirmDescription', {
+          name: erasureTarget ? `${erasureTarget.firstName} ${erasureTarget.lastName}` : '',
+        })}
+        confirmLabel={t('kontakte.erasure.confirmAction')}
+        variant="destructive"
+        onConfirm={handleRequestErasure}
       />
 
       {/* Import Dialog — nur mounten wenn Recht (Button ist eh disabled ohne Recht) */}
