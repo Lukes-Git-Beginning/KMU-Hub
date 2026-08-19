@@ -6,13 +6,16 @@ BACKUP_DIR="${BACKUP_DIR:-$COMPOSE_DIR/backups}"
 ENV_FILE="${ENV_FILE:-$COMPOSE_DIR/.env.production}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ASSUME_YES=false
+SKIP_ROLES=false
 
 log() { echo "[restore] $(date '+%Y-%m-%d %H:%M:%S') $*"; }
 
 usage() {
-    echo "Usage: $0 [--yes|-y] <pg_backup.dump.gz> [minio_backup.tar.gz]"
+    echo "Usage: $0 [--yes|-y] [--skip-roles] <pg_backup.dump.gz> [minio_backup.tar.gz]"
     echo ""
-    echo "  --yes, -y   Skip the interactive 'type yes' confirmation."
+    echo "  --yes, -y      Skip the interactive 'type yes' confirmation."
+    echo "  --skip-roles   Do not restore roles. Only when they already exist on"
+    echo "                 this cluster -- without them the app cannot read the data."
     echo ""
     echo "Restoring a backup shipped offsite (deploy/scripts/backup.sh with"
     echo "BACKUP_OFFSITE_TARGET set)? Decrypt it first, it does not arrive here:"
@@ -26,6 +29,7 @@ ARGS=()
 for arg in "$@"; do
     case "$arg" in
         --yes|-y) ASSUME_YES=true ;;
+        --skip-roles) SKIP_ROLES=true ;;
         -h|--help) usage; exit 0 ;;
         *) ARGS+=("$arg") ;;
     esac
@@ -101,6 +105,40 @@ done
 log "Stopping application services:$STOP_SERVICES"
 # shellcheck disable=SC2086 # intentional word-splitting of a service-name list
 compose stop $STOP_SERVICES
+
+# Roles first: they are cluster-level, pg_dump does not carry them, and every
+# GRANT in the data dump targets them. Restoring onto a fresh server without
+# them was measured on 2026-08-19 -- 710 failed grants for kmuhub_app and
+# cosmi_agent_readonly, and every app service connects as kmuhub_app. The data
+# would have been there and unreadable.
+PG_DIR="$(cd "$(dirname "$PG_BACKUP")" && pwd)"
+ROLES_BACKUP="$PG_DIR/$(basename "$PG_BACKUP" | sed 's/^pg_/roles_/; s/\.dump\.gz$/.sql.gz/')"
+
+if [[ "$SKIP_ROLES" == true ]]; then
+    log "WARNING: --skip-roles given. Grants for kmuhub_app will fail and the app will not be able to read this database until the roles exist."
+elif [[ ! -f "$ROLES_BACKUP" ]]; then
+    echo "ERROR: no role dump next to the backup: $ROLES_BACKUP"
+    echo ""
+    echo "Backups taken before 2026-08-19 have none — backup.sh did not write one yet."
+    echo "Restoring without it yields a database the application cannot read."
+    echo ""
+    echo "Either create the roles on the target first, or re-run with --skip-roles"
+    echo "if you know they already exist on this cluster."
+    exit 1
+else
+    log "Restoring roles from $ROLES_BACKUP..."
+    # "already exists" is the expected case when restoring onto the same
+    # cluster; anything else is a real failure and must not pass silently.
+    ROLE_ERRORS=$(gunzip -c "$ROLES_BACKUP" \
+        | compose exec -T postgres psql -U kmuhub -d kmuhub -v ON_ERROR_STOP=0 2>&1 \
+        | grep -i "^ERROR" | grep -vi "already exists" || true)
+    if [[ -n "$ROLE_ERRORS" ]]; then
+        log "ERROR: restoring roles failed:"
+        echo "$ROLE_ERRORS"
+        exit 1
+    fi
+    log "Roles restore OK."
+fi
 
 log "Restoring PostgreSQL..."
 # Real error handling: a failed pg_restore used to be swallowed by

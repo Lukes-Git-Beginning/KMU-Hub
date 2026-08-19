@@ -75,6 +75,18 @@ log "Dumping PostgreSQL..."
 compose exec -T postgres pg_dump -U kmuhub -Fc kmuhub | gzip > "$PG_FILE"
 log "PostgreSQL backup: $PG_FILE ($(du -h "$PG_FILE" | cut -f1))"
 
+# Roles are cluster-level and pg_dump does not carry them. Without this file a
+# restore onto a fresh server replays every GRANT against roles that do not
+# exist -- verified on 2026-08-19 against a scratch instance: the data came
+# back, and 710 grants for kmuhub_app and cosmi_agent_readonly failed. Every
+# app service connects as kmuhub_app, so that restore would have produced a
+# database nothing could read.
+#
+# Contains role password hashes: treat this file exactly like the data dump.
+ROLES_FILE="$BACKUP_DIR/roles_${TIMESTAMP}.sql.gz"
+compose exec -T postgres pg_dumpall -U kmuhub --roles-only | gzip > "$ROLES_FILE"
+log "Role backup: $ROLES_FILE ($(du -h "$ROLES_FILE" | cut -f1))"
+
 # MinIO backup (volume snapshot via a sidecar).
 #
 # This used to run `compose exec -T minio tar czf - /data`, which could never
@@ -165,6 +177,7 @@ fi
 BACKUP_COUNT=$(find "$BACKUP_DIR" -name "pg_*.dump.gz" -type f | wc -l)
 if [[ "$BACKUP_COUNT" -gt "$MIN_BACKUPS" ]]; then
     find "$BACKUP_DIR" -name "pg_*.dump.gz" -type f -mtime +"$RETENTION_DAYS" -delete
+    find "$BACKUP_DIR" -name "roles_*.sql.gz" -type f -mtime +"$RETENTION_DAYS" -delete
     find "$BACKUP_DIR" -name "minio_*.tar.gz" -type f -mtime +"$RETENTION_DAYS" -delete
     log "Cleaned backups older than $RETENTION_DAYS days"
 fi
