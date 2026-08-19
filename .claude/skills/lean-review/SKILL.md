@@ -1,8 +1,10 @@
 ---
 name: lean-review
 description: Prüft den aktuellen Diff auf Over-Engineering und schlägt schlankere Alternativen vor (delete/stdlib/native/yagni/shrink). Read-only, ändert nichts. Manuell via /lean-review aufrufen.
-phase: review
 disable-model-invocation: true
+context: fork
+metadata:
+  phase: review
 ---
 
 # Lean-Review
@@ -20,7 +22,8 @@ Gestagte Änderungen:
 !`git diff --staged`
 
 > Falls beide Injektionen leer bleiben (nichts geändert / kein Git-Repo): den Diff selbst über das
-> Terminal-Tool holen (`git diff`, `git diff --staged`) oder den User nach dem Ziel-Bereich fragen.
+> Terminal-Tool holen (`git diff`, `git diff --staged`). Bleibt er leer, melde genau das zurück —
+> du läufst in einem Subagenten und kannst nicht nachfragen.
 
 ## Vorgehen
 
