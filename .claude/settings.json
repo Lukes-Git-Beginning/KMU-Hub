@@ -5,13 +5,13 @@
                                            "hooks":  [
                                                          {
                                                              "type":  "command",
-                                                             "command":  "bash .claude/hooks/session-start.sh",
+                                                             "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/session-start.sh\"",
                                                              "description":  "Compact git orientation at session start",
                                                              "timeout":  5000
                                                          },
                                                          {
                                                              "type":  "command",
-                                                             "command":  "bash .claude/hooks/memory-size-guard.sh",
+                                                             "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/memory-size-guard.sh\"",
                                                              "description":  "Warn when MEMORY.md exceeds its 150-line/18KB budget",
                                                              "timeout":  3000
                                                          }
@@ -24,12 +24,12 @@
                                          "hooks":  [
                                                        {
                                                            "type":  "command",
-                                                           "command":  "bash .claude/hooks/check-commit-message.sh",
+                                                           "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-commit-message.sh\"",
                                                            "description":  "Enforce conventional commit messages (feat:|fix:|docs:|refactor:|test:|chore:)"
                                                        },
                                                        {
                                                            "type":  "command",
-                                                           "command":  "bash .claude/hooks/check-no-secrets.sh",
+                                                           "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-no-secrets.sh\"",
                                                            "description":  "Block staging of files with secrets (.env, credentials, keys)"
                                                        }
                                                    ]
@@ -41,7 +41,7 @@
                                           "hooks":  [
                                                         {
                                                             "type":  "command",
-                                                            "command":  "bash .claude/hooks/format-on-write.sh",
+                                                            "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-on-write.sh\"",
                                                             "description":  "Auto-format edited files (prettier --write for .ts/.tsx if installed, ruff format for .py; no-op otherwise)",
                                                             "timeout":  20000
                                                         }
