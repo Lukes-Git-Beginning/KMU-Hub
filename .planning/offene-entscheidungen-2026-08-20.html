@@ -1,0 +1,1156 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Cosmi 1.0 — Offene Entscheidungen</title>
+<style>
+:root{
+  --ink:#15201f;
+  --ink-soft:#4a5654;
+  --ink-faint:#7b8785;
+  --primary:#1e7e74;
+  --primary-dark:#0d4d48;
+  --primary-light:#e8f5f3;
+  --primary-subtle:#f4faf9;
+  --warn:#b45309;
+  --warn-bg:#fdf6ec;
+  --rule:#dfe5e3;
+  --rule-soft:#edf1f0;
+  --paper:#ffffff;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  font-size:9.6pt;
+  line-height:1.52;
+  color:var(--ink);
+  background:var(--paper);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- Titelseite ---------- */
+.cover{
+  height:247mm;
+  display:flex;
+  flex-direction:column;
+  page-break-after:always;
+}
+.cover-mark{
+  font-family:'JetBrains Mono',monospace;
+  font-size:7.5pt;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--primary);
+}
+.cover-title{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:38pt;
+  line-height:1.04;
+  font-weight:600;
+  letter-spacing:-0.015em;
+  margin:14mm 0 0;
+  color:var(--primary-dark);
+}
+.cover-sub{
+  font-size:12pt;
+  line-height:1.45;
+  color:var(--ink-soft);
+  max-width:118mm;
+  margin-top:7mm;
+}
+.cover-rule{height:2.5px;background:var(--primary);width:26mm;margin:9mm 0;}
+.cover-meta{
+  margin-top:auto;
+  border-top:1px solid var(--rule);
+  padding-top:5mm;
+  display:flex;
+  gap:12mm;
+  font-size:8.4pt;
+}
+.cover-meta dt{
+  font-family:'JetBrains Mono',monospace;
+  font-size:6.8pt;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-faint);margin-bottom:1.5mm;
+}
+.cover-meta dd{margin:0;color:var(--ink);font-weight:600;}
+
+.howto{
+  background:var(--primary-subtle);
+  border-left:2.5px solid var(--primary);
+  padding:6mm 7mm;
+  margin:10mm 0 0;
+}
+.howto h3{
+  font-family:'JetBrains Mono',monospace;
+  font-size:7pt;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--primary-dark);margin:0 0 3mm;font-weight:700;
+}
+.howto p{margin:0 0 2.5mm;font-size:9.2pt;color:var(--ink-soft);}
+.howto p:last-child{margin-bottom:0;}
+.howto strong{color:var(--ink);}
+
+/* ---------- Abschnitte ---------- */
+.part{page-break-before:always;}
+.part-head{
+  border-bottom:1.5px solid var(--primary-dark);
+  padding-bottom:3mm;margin-bottom:6mm;
+  display:flex;align-items:baseline;gap:5mm;
+}
+.part-num{
+  font-family:'JetBrains Mono',monospace;
+  font-size:20pt;font-weight:700;color:var(--primary);line-height:1;
+}
+.part-title{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:17pt;font-weight:600;color:var(--primary-dark);margin:0;line-height:1.1;
+}
+.part-who{
+  margin-left:auto;font-family:'JetBrains Mono',monospace;
+  font-size:7pt;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);
+  text-align:right;line-height:1.4;
+}
+.part-intro{
+  font-size:9.4pt;color:var(--ink-soft);margin:0 0 7mm;max-width:150mm;
+}
+
+/* ---------- Frage ---------- */
+.q{
+  page-break-inside:avoid;
+  margin-bottom:7mm;
+  padding-left:13mm;
+  position:relative;
+  border-top:1px solid var(--rule-soft);
+  padding-top:4.5mm;
+}
+.q-id{
+  position:absolute;left:0;top:4mm;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11pt;font-weight:700;color:var(--primary);
+  letter-spacing:-0.02em;
+}
+.q-title{
+  font-size:11pt;font-weight:700;color:var(--ink);
+  margin:0 0 2mm;line-height:1.3;
+}
+.q-tags{margin:0 0 2.5mm;display:flex;flex-wrap:wrap;gap:2mm;}
+.tag{
+  font-family:'JetBrains Mono',monospace;
+  font-size:6.4pt;letter-spacing:.1em;text-transform:uppercase;
+  padding:0.9mm 2.2mm;border-radius:2px;font-weight:600;
+}
+.tag-who{background:var(--primary-light);color:var(--primary-dark);}
+.tag-block{background:var(--warn-bg);color:var(--warn);}
+.tag-src{background:#f2f4f4;color:var(--ink-faint);}
+.q-ctx{margin:0 0 3mm;color:var(--ink-soft);font-size:9.3pt;}
+.q-ctx strong{color:var(--ink);}
+.q-ctx code,code{
+  font-family:'JetBrains Mono',monospace;font-size:8.2pt;
+  background:#f2f4f4;padding:0.3mm 1mm;border-radius:2px;color:var(--primary-dark);
+}
+
+.opts{margin:0 0 3mm;padding:0;list-style:none;}
+.opts li{
+  position:relative;padding-left:6mm;margin-bottom:1.6mm;font-size:9.3pt;color:var(--ink-soft);
+}
+.opts li::before{
+  content:"";position:absolute;left:0;top:1.15mm;
+  width:3.1mm;height:3.1mm;border:1px solid var(--ink-faint);border-radius:1px;
+}
+.opts li b{color:var(--ink);font-weight:700;}
+.rec{
+  display:inline-block;font-family:'JetBrains Mono',monospace;
+  font-size:6.4pt;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--primary);border:1px solid var(--primary);
+  padding:0.3mm 1.6mm;border-radius:2px;margin-left:2mm;vertical-align:1.5px;font-weight:700;
+}
+
+.answer{
+  border:1px dashed var(--rule);
+  border-left:2.5px solid var(--primary-light);
+  background:#fcfdfd;
+  padding:2.5mm 3.5mm 4mm;
+  border-radius:2px;
+}
+.answer-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:6.4pt;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-faint);display:block;margin-bottom:2.5mm;
+}
+.answer-line{border-bottom:1px solid var(--rule);height:5.2mm;}
+.answer-line:last-child{border-bottom:none;}
+.answer.tall .answer-line{height:5.4mm;}
+
+/* ---------- Tabellen ---------- */
+table{
+  width:100%;border-collapse:collapse;margin:0 0 3mm;font-size:8.6pt;
+  page-break-inside:avoid;
+}
+th{
+  text-align:left;font-family:'JetBrains Mono',monospace;
+  font-size:6.6pt;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);
+  border-bottom:1px solid var(--rule);padding:1.5mm 2.5mm 1.5mm 0;font-weight:700;
+}
+td{
+  padding:1.6mm 2.5mm 1.6mm 0;border-bottom:1px solid var(--rule-soft);
+  vertical-align:top;color:var(--ink-soft);
+}
+td b{color:var(--ink);}
+th.num,td.num{
+  width:13mm;text-align:right;white-space:nowrap;
+  font-family:'JetBrains Mono',monospace;padding-right:4.5mm;
+}
+table.t-prices td:first-child,table.t-prices th:first-child{width:36mm;}
+
+/* ---------- Erledigt-Block ---------- */
+.done{
+  background:#f7faf9;border-left:2.5px solid var(--primary);
+  padding:4mm 5mm;margin:0 0 7mm;page-break-inside:avoid;
+}
+.done h4{
+  font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--primary-dark);margin:0 0 2.5mm;font-weight:700;
+}
+.done ul{margin:0;padding-left:4mm;font-size:9pt;color:var(--ink-soft);}
+.done li{margin-bottom:1.2mm;}
+.done b{color:var(--ink);}
+
+/* ---------- Übersicht ---------- */
+.toc{page-break-after:always;}
+.toc-h{
+  font-family:'Playfair Display',Georgia,serif;font-size:19pt;font-weight:600;
+  color:var(--primary-dark);margin:0 0 5mm;
+}
+.toc table td{padding:2.2mm 3mm 2.2mm 0;font-size:9.2pt;}
+.toc table td:first-child{
+  font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--primary);width:14mm;
+}
+
+.footnote{
+  margin-top:8mm;padding-top:4mm;border-top:1px solid var(--rule);
+  font-size:8.2pt;color:var(--ink-faint);
+}
+.footnote b{color:var(--ink-soft);}
+</style>
+</head>
+<body>
+
+<!-- ============ TITELSEITE ============ -->
+<section class="cover">
+  <div class="cover-mark">Zentria · Cosmi 1.0</div>
+  <h1 class="cover-title">Was noch<br>entschieden<br>werden muss</h1>
+  <div class="cover-rule"></div>
+  <p class="cover-sub">
+    Alle offenen Fragen, die den Weg zu Produkt 1.0 blockieren — gesammelt aus dem
+    Launch-Lagebild, der Preis- und Kostenanalyse, dem Auslieferungsmodell und den
+    Befunden aus Lukes Bauwelle vom 16.–19. August.
+  </p>
+
+  <div class="howto">
+    <h3>So beantwortest du es</h3>
+    <p>
+      <strong>29 Fragen in fünf Teilen.</strong> Jede hat eine Kennung (A1, B2, …), einen
+      Vermerk, wer sie entscheiden muss, und — wo es eine gibt — eine Empfehlung.
+      Ankreuzen oder danebenschreiben reicht; du kannst auch einfach eine Liste
+      zurückschicken: <code>A1: B mit 79 · A2: ja · A3: …</code>
+    </p>
+    <p>
+      <strong>Was du allein entscheiden kannst, steht in Teil C.</strong> Das sind die
+      Marken- und Produktfragen, an denen die Website hängt — dort bringt eine Antwort
+      am meisten in Bewegung.
+    </p>
+    <p>
+      <strong>Nichts davon ist vorentschieden.</strong> Die Empfehlungen sind Vorschläge
+      aus den Analysedokumenten, keine Beschlüsse. Wo du anderer Meinung bist, ist
+      genau das die nützliche Antwort.
+    </p>
+  </div>
+
+  <dl class="cover-meta">
+    <div><dt>Stand</dt><dd>20. August 2026</dd></div>
+    <div><dt>Repo-Stand</dt><dd>fc0b5131</dd></div>
+    <div><dt>Offene Fragen</dt><dd>29</dd></div>
+    <div><dt>Davon nur du</dt><dd>9</dd></div>
+  </dl>
+</section>
+
+<!-- ============ ÜBERSICHT ============ -->
+<section class="toc">
+  <h2 class="toc-h">Übersicht</h2>
+  <table>
+    <thead>
+      <tr><th>Teil</th><th>Thema</th><th>Fragen</th><th>Wer entscheidet</th><th>Was daran hängt</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>A</td><td><b>Preis &amp; Geschäftsmodell</b></td><td>12</td><td>Runde</td>
+        <td>Preisliste, Website-Preise, jedes Angebot</td>
+      </tr>
+      <tr>
+        <td>B</td><td><b>Auslieferung &amp; Architektur</b></td><td>4</td><td>Runde, technisch Luke</td>
+        <td>Betriebsaufwand, Grundgebühr, Etappenplan</td>
+      </tr>
+      <tr>
+        <td>C</td><td><b>Marke, Website, Produktdarstellung</b></td><td>7</td><td><b>Du allein</b></td>
+        <td>Website-Redaktion, erster Eindruck</td>
+      </tr>
+      <tr>
+        <td>D</td><td><b>Betrieb, Support, Absicherung</b></td><td>4</td><td>Du + Luke</td>
+        <td>Was wir dem ersten Kunden zusagen dürfen</td>
+      </tr>
+      <tr>
+        <td>E</td><td><b>Kleine Klärungen</b></td><td>2</td><td>Kurz</td>
+        <td>Reihenfolge und Restposten</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="done" style="margin-top:8mm;">
+    <h4>Seit dem 12. August erledigt — nicht mehr zu entscheiden</h4>
+    <ul>
+      <li><b>Modul-Streichliste.</b> 11 Module raus, 14 bleiben. Von dir am 13.08. entschieden.</li>
+      <li><b>Web oder Desktop.</b> De facto beantwortet: Cosmi läuft seit dem 17.08. als Web-App
+        auf <code>app.zentria.tech</code>. Offen ist nur noch, was mit dem Desktop-Client passiert (B4).</li>
+      <li><b>Serveradresse zur Laufzeit.</b> Gelöst — die App leitet sie aus der eigenen URL ab.
+        Ein Image für alle Kunden.</li>
+      <li><b>Website weg von Vercel/Resend.</b> Läuft auf dem eigenen Hetzner-Server. Der Widerspruch,
+        den alle vier Pre-Mortem-Linsen als Todesursache genannt haben, ist geschlossen — bis auf
+        einen Dashboard-Klick (D3).</li>
+    </ul>
+  </div>
+
+  <p class="footnote">
+    <b>Quellen:</b> <code>.planning/launch-lagebild-2026-08-12.md</code> §5 und §8 ·
+    <code>.planning/preis-und-kostenanalyse-2026-08-13.md</code> §9 und §10 ·
+    <code>.planning/auslieferungsmodell-2026-08-12.md</code> §6 ·
+    <code>docs/PRICING.md</code> §5, §9, §10 · <code>.planning/NEXT-SESSION-PROMPT.md</code>.
+    Wo eine Frage aus einem dieser Dokumente stammt, steht die Fundstelle als graue Marke dabei.
+  </p>
+</section>
+
+<!-- ============ TEIL A ============ -->
+<section class="part">
+  <div class="part-head">
+    <span class="part-num">A</span>
+    <h2 class="part-title">Preis &amp; Geschäftsmodell</h2>
+    <span class="part-who">Runde<br>Luke · Nico · Du</span>
+  </div>
+  <p class="part-intro">
+    Diese zwölf Fragen stehen wörtlich in §10 der Preis- und Kostenanalyse. Sie hängen alle am
+    selben Punkt: <b>Es hat noch nie jemand einen Cosmi-Preis bezahlt.</b> Solange das so ist,
+    lässt sich der Katalog frei neu setzen. Mit dem ersten zahlenden Kunden schließt sich das
+    Fenster — dann ist jede Änderung eine Preiserhöhung gegenüber einem Bestandskunden.
+  </p>
+
+  <div class="q">
+    <span class="q-id">A1</span>
+    <h3 class="q-title">Grundgebühr einführen — oder beim reinen Modul × User bleiben?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-block">Blockiert: gesamte Preisliste</span>
+      <span class="tag tag-src">Preisanalyse §10.1</span>
+    </div>
+    <p class="q-ctx">
+      Wenn jeder Kunde einen eigenen Server bekommt (siehe <b>B1</b>), kostet der rund 31 €/Monat —
+      unabhängig davon, wie viele Nutzer darauf arbeiten. Bei einem Kunden mit fünf Leuten frisst
+      das die Marge auf. Eine Grundgebühr deckt den Server, die Module bleiben pro Kopf.
+    </p>
+    <ul class="opts">
+      <li><b>Modell B — 79 € Grundgebühr</b> plus Modulpreise pro User <span class="rec">Vorschlag</span></li>
+      <li><b>Reines Modul × User</b> ohne Grundgebühr — einfacher zu erklären, deckt den Server aber nicht</li>
+      <li><b>Andere Höhe</b> als 79 € — welche, und woraus hergeleitet?</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A2</span>
+    <h3 class="q-title">Modulpreise neu kalibrieren — oder die alten halten?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-block">Blockiert: Website, Angebote</span>
+      <span class="tag tag-src">Preisanalyse §7.1</span>
+    </div>
+    <p class="q-ctx">
+      Der Vorschlag hebt den Katalog von 47 auf 60 € pro User an — bei gleichzeitig elf gestrichenen
+      Modulen. Das sieht von außen unschön aus und trägt nur, <b>weil die Website ohnehin neu
+      geschrieben wird und niemand diese Preise je bezahlt hat.</b> Die größten Bewegungen:
+    </p>
+    <table class="t-prices">
+      <thead><tr><th>Modul</th><th class="num">alt</th><th class="num">neu</th><th>Begründung</th></tr></thead>
+      <tbody>
+        <tr><td><b>Dokumente</b></td><td class="num">2</td><td class="num">6</td><td>OnlyOffice self-hosted ist teuer im Betrieb — und die beste Souveränitäts-Erzählung</td></tr>
+        <tr><td><b>CRM &amp; Kontakte</b></td><td class="num">6</td><td class="num">9</td><td>81 RPCs, Kernwertträger. Pipedrive nimmt 14–99</td></tr>
+        <tr><td><b>Helpdesk</b></td><td class="num">5</td><td class="num">6</td><td>38 RPCs. Zendesk nimmt 19–55</td></tr>
+        <tr><td><b>Zeiterfassung</b></td><td class="num">3</td><td class="num">4</td><td>Aufzeichnungspflicht seit BAG 2022 erhöht den Wert</td></tr>
+        <tr><td colspan="1"><b>Summe pro User</b></td><td class="num"><b>47</b></td><td class="num"><b>60</b></td><td>weiterhin 38 % unter den alten 97 €</td></tr>
+      </tbody>
+    </table>
+    <ul class="opts">
+      <li><b>Neu kalibrieren</b> — jetzt, solange das Fenster offen ist <span class="rec">Vorschlag</span></li>
+      <li><b>Alte Preise halten</b> und die Streichliste als Rabatt darstellen</li>
+      <li><b>Teilweise</b> — welche Module ja, welche nein?</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A3</span>
+    <h3 class="q-title">Mindestbestellwert 199 €/Monat?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Preisanalyse §10.3 / R3</span>
+    </div>
+    <p class="q-ctx">
+      Ohne Untergrenze zahlt ein Fünf-Personen-Betrieb rund 48 € im Monat — bei 31 € Serverkosten
+      und einem Betreuungsaufwand, der nicht mit der Kundengröße schrumpft. Das ist strukturell
+      unrentabel, nicht nur knapp.
+    </p>
+    <ul class="opts">
+      <li><b>Ja, 199 €</b> als Mindestbestellwert <span class="rec">Vorschlag</span></li>
+      <li><b>Ja, aber andere Höhe</b> — welche?</li>
+      <li><b>Nein</b> — kleine Kunden bewusst mitnehmen, Verlust als Markteintritt verbuchen</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A4</span>
+    <h3 class="q-title">Kunden unter 8 Mitarbeitern überhaupt annehmen?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Preisanalyse §10.4 / R3</span>
+    </div>
+    <p class="q-ctx">
+      Zusammen mit A3 die zweite Hälfte derselben Frage. Zoho One kostet in dieser Größe weniger
+      als wir — bei acht Nutzern kippt die Rechnung zu unseren Gunsten. Ein Nein hier schneidet
+      allerdings einen großen Teil des DACH-KMU-Marktes ab, und die ZFA-Warmkontakte könnten
+      genau dort liegen.
+    </p>
+    <ul class="opts">
+      <li><b>Vorerst nein</b> — Untergrenze acht Nutzer <span class="rec">Vorschlag</span></li>
+      <li><b>Ja, aber mit Aufschlag</b> — Kleinkunden-Zuschlag in welcher Höhe?</li>
+      <li><b>Ja, ohne Einschränkung</b> — Referenzen wiegen jetzt mehr als Marge</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A5</span>
+    <h3 class="q-title">Automatisierung: 29 € pro Installation oder pro User?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Preisanalyse §10.5</span>
+    </div>
+    <p class="q-ctx">
+      Automatisierungen richtet in aller Regel eine Person ein, alle anderen profitieren davon,
+      ohne das Modul je zu öffnen. Pro Kopf abzurechnen wäre schwer zu begründen — Make und
+      Zapier nehmen 20–70 € pro Account, nicht pro Nutzer.
+    </p>
+    <ul class="opts">
+      <li><b>Pro Installation, 29 €</b> <span class="rec">Vorschlag</span></li>
+      <li><b>Pro User</b> — dann zu welchem Preis?</li>
+      <li><b>In die Grundgebühr</b> aus A1 einschließen</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A6</span>
+    <h3 class="q-title">Reifegrad-Kennzeichnung „Vorschau" einführen?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Preisanalyse §6</span>
+    </div>
+    <p class="q-ctx">
+      Module, die noch nicht vollständig sind, würden sichtbar als Vorschau gekennzeichnet und zum
+      halben Preis angeboten. Das ist ehrlich und nimmt Enttäuschung vorweg — kann aber auch als
+      „unfertig" gelesen werden. Es ist zugleich die Gegenmaßnahme zu genau dem Fehlertyp, der uns
+      auf der Website eingeholt hat.
+    </p>
+    <ul class="opts">
+      <li><b>Ja</b> — Vorschau-Kennzeichnung mit 50 % Preisnachlass <span class="rec">Vorschlag</span></li>
+      <li><b>Ja, aber ohne Preisnachlass</b> — nur Transparenz</li>
+      <li><b>Nein</b> — nur verkaufen, was fertig ist, der Rest kommt gar nicht in die Liste</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A7</span>
+    <h3 class="q-title">Support-Stufe „Premium" mit 24/7 auf die Preisliste?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-block">Vertragsrisiko</span>
+      <span class="tag tag-src">Preisanalyse R7 · Lagebild §10</span>
+    </div>
+    <p class="q-ctx">
+      24/7 zuzusagen, während <b>eine einzige Person</b> Zugang zum Server hat und 12–16 Tage im
+      Monat im Hauptjob sitzt, ist beim ersten Vorfall ein Vertragsbruch. Hängt direkt an <b>D2</b>:
+      Sobald eine zweite Person herankommt, ändert sich die Antwort.
+    </p>
+    <ul class="opts">
+      <li><b>Nein</b> — erst anbieten, wenn eine zweite Person Zugang hat <span class="rec">Vorschlag</span></li>
+      <li><b>Ja</b> — mit ehrlich abgeschwächter Reaktionszeit statt „rund um die Uhr"</li>
+      <li><b>Ja</b> — und D2 sofort mitlösen</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A8</span>
+    <h3 class="q-title">Onsite-Analyse von 5.000–8.000 auf 2.500–5.000 € senken?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Preisanalyse §7.4</span>
+    </div>
+    <p class="q-ctx">
+      Die Woche vor Ort ist unser erklärtes Alleinstellungsmerkmal — und gleichzeitig die höchste
+      Einstiegshürde bei einem Anbieter ohne Referenzkunden. Der Vorschlag senkt sie für die ersten
+      drei Kunden und hebt danach wieder an.
+    </p>
+    <ul class="opts">
+      <li><b>Senken</b>, mit Anhebung nach den ersten drei Kunden <span class="rec">Vorschlag</span></li>
+      <li><b>Halten</b> — der Preis signalisiert den Wert der Leistung</li>
+      <li><b>Für Pilotkunden ganz erlassen</b> gegen Referenz und Feedback</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A9</span>
+    <h3 class="q-title">WASM-Plugins von der Preisliste nehmen?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Preisanalyse §7.4</span>
+    </div>
+    <p class="q-ctx">
+      Das Plugin-System steht im Code auf einem Feature-Flag, das ausgeschaltet ist. Es zu bewerben
+      wäre exakt derselbe Fehlertyp, der uns die Website-Krise eingebracht hat: ein Versprechen,
+      das ein prüfender Interessent in Minuten widerlegt.
+    </p>
+    <ul class="opts">
+      <li><b>Ja, streichen</b> — nicht bewerben, was ausgeschaltet ist <span class="rec">Vorschlag</span></li>
+      <li><b>Als Ausblick behalten</b>, klar als „in Vorbereitung" markiert</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A10</span>
+    <h3 class="q-title">Ab wann steigt jemand aus dem Hauptjob aus?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Preisanalyse §8.4</span>
+    </div>
+    <p class="q-ctx">
+      Die Gewinnrechnung kennt zwei Besetzungen: nebenberuflich (Szenario A) und mit mindestens
+      einer Vollzeitkraft (Szenario B). Der Umschaltpunkt ist eine geschäftliche Entscheidung,
+      keine rechnerische — der Vorschlag nennt <b>~30 Kunden oder ~10.000 € wiederkehrend im
+      Monat</b>. Wichtig ist hier weniger die Zahl als die Festlegung, dass es überhaupt eine gibt.
+    </p>
+    <ul class="opts">
+      <li><b>Ab ~30 Kunden oder ~10.000 €/Monat</b> <span class="rec">Vorschlag</span></li>
+      <li><b>Andere Schwelle</b> — welche?</li>
+      <li><b>Nach Person unterschiedlich</b> — wer zuerst, und woran gemessen?</li>
+    </ul>
+    <div class="answer tall">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A11</span>
+    <h3 class="q-title">Was kostet der <i>zweite</i> Hetzner-Server?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du — Nachsehen im Konto</span>
+      <span class="tag tag-block">Blockiert: Margenrechnung</span>
+      <span class="tag tag-src">Preisanalyse R4</span>
+    </div>
+    <p class="q-ctx">
+      Keine Meinungsfrage, sondern ein Blick ins Hetzner-Konto. Die 31 €/Monat sind der Preis der
+      <b>laufenden</b> Maschine. Neupreise für vergleichbare Ausstattung streuen zwischen 16 und
+      69 € — am oberen Rand kostet das rund 8 % Marge pro Kunde. Die gesamte Kostenseite der
+      Analyse hängt an diesem einen Wert.
+    </p>
+    <div class="answer tall">
+      <span class="answer-label">Welches Modell trägt die 31 € — und was kostet ein zweites davon heute?</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">A12</span>
+    <h3 class="q-title">Betreuungsstunden ab dem ersten Piloten mitschreiben?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-block">Ohne das ist die Gewinnrechnung Kaffeesatz</span>
+      <span class="tag tag-src">Preisanalyse R2</span>
+    </div>
+    <p class="q-ctx">
+      Der Betreuungsaufwand pro Kunde ist die einzige große Unbekannte der gesamten Kostenrechnung
+      — und die einzige, die sich durch Messen statt Schätzen klären lässt. Wenn ab Kunde 1 niemand
+      Stunden notiert, bleibt jede Prognose unbelegt, und wir merken erst bei Kunde 15, dass die
+      Rechnung nicht aufgeht.
+    </p>
+    <ul class="opts">
+      <li><b>Ja, verbindlich</b> — wer schreibt mit, und wo? <span class="rec">Vorschlag</span></li>
+      <li><b>Nein</b> — bewusst geschätzt weiterrechnen</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort — und wenn ja: wer führt die Liste?</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TEIL B ============ -->
+<section class="part">
+  <div class="part-head">
+    <span class="part-num">B</span>
+    <h2 class="part-title">Auslieferung &amp; Architektur</h2>
+    <span class="part-who">Runde<br>technisch Luke</span>
+  </div>
+  <p class="part-intro">
+    Drei der ursprünglich sieben Fragen sind seit dem 12. August erledigt — die Streichliste hast
+    du entschieden, Web-Auslieferung und Serveradresse hat Luke gebaut. Was bleibt, ist der
+    folgenreichste Punkt und was daran hängt.
+  </p>
+
+  <div class="q">
+    <span class="q-id">B1</span>
+    <h3 class="q-title">Ein eigener Server pro Kunde — oder ein gemeinsames SaaS?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-block">Der folgenreichste Punkt überhaupt</span>
+      <span class="tag tag-src">Auslieferungsmodell §6.2</span>
+    </div>
+    <p class="q-ctx">
+      Diese Antwort bestimmt A1 (Grundgebühr), B2, den gesamten Betriebsaufwand und mehrere Posten
+      in Lukes Etappenplan. Wichtig zu wissen: <b>Der Betriebsaufwand mehrerer Kundenserver ist
+      nirgends beziffert</b> — er ist nur benannt. Backup, Restore, Alarme und Runbook
+      vervielfachen sich mit jedem Kunden.
+    </p>
+    <table>
+      <thead><tr><th>Server pro Kunde</th><th>Gemeinsames SaaS</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Geschlossenes System, „nicht gebucht heißt nicht installiert", saubere Abgrenzung
+              zwischen Kunden, stärkste Souveränitäts-Erzählung</td>
+          <td>Ein Betrieb statt N, Backup und Restore nur einmal, kein Einrichtungsweg nötig —
+              die Zeilensicherheit über alle 336 Tabellen ist bereits gebaut und produktiv scharf</td>
+        </tr>
+        <tr>
+          <td><b>Kostet:</b> Registry und Einrichtungsweg 3–5 Personentage, plus laufender
+              Betriebsaufwand pro Kunde</td>
+          <td><b>Kostet:</b> die Erzählung „Ihr eigener Server" — und die Grundgebühr aus A1
+              verliert ihre Begründung</td>
+        </tr>
+      </tbody>
+    </table>
+    <ul class="opts">
+      <li><b>Ein Server pro Kunde</b> — dein ursprünglicher Vorschlag</li>
+      <li><b>Gemeinsames SaaS</b> für kleine Kunden, eigener Server ab einer bestimmten Größe oder auf Wunsch</li>
+      <li><b>Gemeinsames SaaS</b> für alle, eigener Server nur als Orbit-Variante</li>
+      <li><b>Erst beziffern lassen</b>, dann entscheiden <span class="rec">wenn unsicher</span></li>
+    </ul>
+    <div class="answer tall">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">B2</span>
+    <h3 class="q-title">Container-Registry aufsetzen — ja oder nein?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Auslieferungsmodell §6.4</span>
+    </div>
+    <p class="q-ctx">
+      Hängt ganz an B1. Wenn Kundenserver ihre Software beziehen sollen, ohne unseren Quellcode zu
+      bekommen, braucht es einen Ort, von dem sie fertige Images ziehen. Bei gemeinsamem SaaS
+      entfällt die Frage.
+    </p>
+    <ul class="opts">
+      <li><b>Ja</b> — wenn B1 auf eigene Server fällt, unvermeidlich</li>
+      <li><b>Nein</b> — entfällt mit gemeinsamem SaaS</li>
+      <li><b>Später</b> — der erste Pilot läuft auf unserem Server, danach neu bewerten</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">B3</span>
+    <h3 class="q-title">Nicht gebuchte Module: wirklich weglassen oder nur ausblenden?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">Auslieferungsmodell §3.4</span>
+    </div>
+    <p class="q-ctx">
+      Technisch geprüft: Jedes gestrichene Modul hat einen eigenen Backend-Dienst und lässt sich
+      <b>tatsächlich weglassen</b>, nicht nur abschalten. Mit der Streichliste fallen 12 von 36
+      Containern weg — das erlaubt einen kleineren Server pro Kunde. Ungeprüft ist, ob das
+      Weglassen einzelner Frontend-Teile ohne Nacharbeit funktioniert; die Seitenleiste darf ein
+      fehlendes Modul dann nicht mehr anbieten.
+    </p>
+    <ul class="opts">
+      <li><b>Wirklich weglassen</b> — stärkste Aussage gegenüber dem Kunden, spart Serverkosten</li>
+      <li><b>Nur ausblenden</b> — einfacher, ein Bild für alle, Zukauf ist ein Schalter</li>
+      <li><b>Backend weglassen, Frontend ausblenden</b> — der pragmatische Mittelweg <span class="rec">Vorschlag</span></li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">B4</span>
+    <h3 class="q-title">Was passiert jetzt mit dem Desktop-Client?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-src">neu seit Etappe 2</span>
+    </div>
+    <p class="q-ctx">
+      Seit dem 17. August läuft Cosmi im Browser — ohne Installer, ohne Code-Signatur, ohne
+      SmartScreen-Warnung. Der Desktop-Client existiert weiter und funktioniert. Die Frage ist,
+      ob er gepflegt wird: Jede Doppelpflege kostet bei jedem Modul Zeit, und Screen-Sharing sowie
+      die Fenster-Funktionen des Editors gibt es nur dort.
+    </p>
+    <ul class="opts">
+      <li><b>Web ist der Regelweg</b>, Desktop bleibt als Premium-Variante für Piloten <span class="rec">Vorschlag</span></li>
+      <li><b>Nur noch Web</b> — Desktop einfrieren, keine Pflege mehr</li>
+      <li><b>Beides gleichwertig</b> pflegen — dann ist die Doppelpflege eingeplant</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TEIL C ============ -->
+<section class="part">
+  <div class="part-head">
+    <span class="part-num">C</span>
+    <h2 class="part-title">Marke, Website, Produktdarstellung</h2>
+    <span class="part-who">Du allein<br>7 Fragen</span>
+  </div>
+  <p class="part-intro">
+    Das ist dein Teil. An diesen sieben Antworten hängt die gesamte Website-Redaktion — und
+    solange sie offen sind, kann niemand außer dir weiterarbeiten. Luke hat drei davon
+    ausdrücklich als „Produktentscheidung, keine Dokumentationspflege" markiert und stehen
+    gelassen.
+  </p>
+
+  <div class="q">
+    <span class="q-id">C1</span>
+    <h3 class="q-title">Welche Fassung des Datensouveränitäts-Versprechens?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du</span>
+      <span class="tag tag-block">Blockiert: jeden Website-Text</span>
+      <span class="tag tag-src">Lagebild §5 · Entscheidung 3</span>
+    </div>
+    <p class="q-ctx">
+      Die technische Seite ist inzwischen erledigt — Vercel und Resend sind raus, alles läuft in
+      Nürnberg. Was fehlt, ist die <b>Formulierung</b>. Die alte Fassung „Daten verlassen niemals
+      die EU" ist absolut und damit bei jedem Randfall widerlegbar: Sobald ein Kunde Slack, Teams
+      oder Bexio anschaltet, fließen Daten hinaus.
+    </p>
+    <table>
+      <thead><tr><th>Fassung</th><th>Zusage</th><th>Aufwand offen</th><th>Laufend</th></tr></thead>
+      <tbody>
+        <tr><td><b>A</b> — Hosting in Deutschland</td>
+            <td>Server, Datenbank und Dateien in Nürnberg</td><td>erfüllt</td><td>0 €</td></tr>
+        <tr><td><b>B</b> — Kein Drittlandtransfer</td>
+            <td>zusätzlich: kein Dienstleister außerhalb der EU im Datenpfad</td><td>erfüllt</td><td>~16–20 €/Mo</td></tr>
+        <tr><td><b>C</b> — Kein Byte verlässt Deutschland</td>
+            <td>zusätzlich: ausschließlich deutsche Anbieter, Self-Hosted als Regelfall</td>
+            <td>8–12 Tage</td><td>höher</td></tr>
+      </tbody>
+    </table>
+    <ul class="opts">
+      <li><b>Fassung B</b> — stark und prüfbar, hält auch beim Randfall <span class="rec">Empfehlung</span></li>
+      <li><b>Fassung A</b> — schwächer als das, was die Website heute schon behauptet</li>
+      <li><b>Fassung C</b> — am stärksten, aber beim ersten Kunden mit Slack gebrochen</li>
+    </ul>
+    <p class="q-ctx">
+      Vorgeschlagener Wortlaut für B: <i>„Anwendung, Datenbank und Dateien laufen auf Servern in
+      Nürnberg. Wir setzen keine Auftragsverarbeiter außerhalb der EU ein. Integrationen zu
+      Drittsystemen aktivieren Sie selbst — wir sagen Ihnen vorher, wohin die Daten gehen."</i>
+      Schwächer im Ton, stärker im Verkaufsgespräch. Passt dir der Ton?
+    </p>
+    <div class="answer tall">
+      <span class="answer-label">Fassung — und Anmerkungen zum Wortlaut</span>
+      <div class="answer-line"></div><div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">C2</span>
+    <h3 class="q-title">Branchenpakete neu zusammensetzen — welche Module in welches Paket?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du</span>
+      <span class="tag tag-block">Blockiert: Website-Paketseiten</span>
+      <span class="tag tag-src">PRICING §5</span>
+    </div>
+    <p class="q-ctx">
+      <b>Alle fünf Pakete sind derzeit nicht verkaufsfähig</b> — jedes enthält Module, die
+      gestrichen wurden. Das Paket „Produktion" besteht überwiegend daraus. Sie stehen in der
+      Preisdokumentation als „nicht zitieren" markiert, bis du sie neu zuschneidest.
+    </p>
+    <table>
+      <thead><tr><th>Paket</th><th>enthält gestrichene Module</th></tr></thead>
+      <tbody>
+        <tr><td>Handwerk</td><td>Finanzen, Rapporte</td></tr>
+        <tr><td>IT &amp; Agentur</td><td>Meetings, Berichte</td></tr>
+        <tr><td>Dienstleister</td><td>Finanzen, Berichte</td></tr>
+        <tr><td>Handel &amp; Logistik</td><td>Inventar, Finanzen, Einkauf</td></tr>
+        <tr><td>Produktion</td><td>Produktion, Inventar, Fuhrpark — <b>der Kern des Pakets</b></td></tr>
+      </tbody>
+    </table>
+    <p class="q-ctx">
+      <b>Verfügbar für die Neuzusammenstellung sind diese 14:</b> CRM &amp; Kontakte · Projekte ·
+      Aufgaben · Kalender · Dokumente · Chat · E-Mail · Verträge · Team &amp; HR · Zeiterfassung ·
+      Schichtplanung · Helpdesk · Wiki · Automatisierung.
+    </p>
+    <ul class="opts">
+      <li><b>Alle fünf neu zuschneiden</b> — aus den 14 verfügbaren Modulen</li>
+      <li><b>Auf weniger Pakete reduzieren</b> — welche bleiben?</li>
+      <li><b>Ganz weglassen</b> für 1.0 — stattdessen die drei Rollenvorlagen Basis / Büro / Leitung</li>
+    </ul>
+    <div class="answer tall">
+      <span class="answer-label">Antwort — bei Neuzuschnitt gern als Liste je Paket</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">C3</span>
+    <h3 class="q-title">Das Intro blockiert die Anmeldung 6,6 Sekunden — bleibt das so?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du</span>
+      <span class="tag tag-src">Lukes Befund 19.08.</span>
+    </div>
+    <p class="q-ctx">
+      Ein Erstbesucher sieht sechs Sekunden lang ein „C", bevor er das Anmeldefeld bedienen kann.
+      Im Browser passiert das beim ersten Aufruf pro Sitzung. Luke hat es bewusst nicht angefasst
+      und als <b>Markenentscheidung</b> markiert. Systemeinstellungen für reduzierte Bewegung
+      werden bereits respektiert.
+    </p>
+    <p class="q-ctx">
+      Zur Einordnung: Bei Direct Sales bekommt ein Interessent die URL in einer Mail. Sein erster
+      Eindruck von Cosmi sind sechs Sekunden Wartezeit vor einem Anmeldefeld.
+    </p>
+    <ul class="opts">
+      <li><b>Bleibt</b> — der Auftritt ist die Marke, sechs Sekunden sind vertretbar</li>
+      <li><b>Kürzen</b> — auf wie viel? Zwei bis drei Sekunden?</li>
+      <li><b>Bleibt, aber überspringbar</b> — Klick oder Tastendruck bricht ab</li>
+      <li><b>Nur einmal pro Gerät</b> — beim ersten Besuch voll, danach kurz <span class="rec">falls unentschieden</span></li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">C4</span>
+    <h3 class="q-title">Das Produktbild auf der Startseite zeigt gestrichene Module — welche sollen rein?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du</span>
+      <span class="tag tag-block">Website, sichtbar an erster Stelle</span>
+      <span class="tag tag-src">Lagebild-Nachtrag</span>
+    </div>
+    <p class="q-ctx">
+      Das Mockup auf der Startseite führt eine <b>zweite, unabhängige Modulliste</b> — es weiß von
+      der Streichliste nichts. Ein Interessent sieht dort Module, die er nicht buchen kann. Es ist
+      das erste Bild, das jemand von Cosmi sieht.
+    </p>
+    <div class="answer tall">
+      <span class="answer-label">Welche Module sollen im Startseiten-Mockup zu sehen sein? (Reihenfolge zählt)</span>
+      <div class="answer-line"></div><div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">C5</span>
+    <h3 class="q-title">Der Blog-Artikel bewirbt Finanzen und Meetings — umschreiben oder offline?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du</span>
+      <span class="tag tag-src">Lukes Befund 17.08.</span>
+    </div>
+    <p class="q-ctx">
+      <code>wahre-kosten-tool-chaos.md</code> beginnt mit „CRM, Chat, Videokonferenzen,
+      Projektmanagement und Finanzen in einer Plattform" und verlinkt am Ende auf
+      <code>/funktionen/finanzen</code>. Beide Module sind nicht buchbar. Die Preis- und
+      Ersparnisabsätze hat Luke bereits korrigiert; dieser Teil ist redaktionelle Arbeit und
+      wartet auf dich.
+    </p>
+    <ul class="opts">
+      <li><b>Umschreiben</b> auf die 14 verfügbaren Module — machst du, oder soll ich einen Entwurf liefern?</li>
+      <li><b>Offline nehmen</b>, bis Phase 2 die Module nachliefert</li>
+      <li><b>Stehen lassen</b> mit Hinweis „in Vorbereitung"</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">C6</span>
+    <h3 class="q-title">Wettbewerbsvergleich und Beispielrechnungen — auf welcher Basis neu?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du</span>
+      <span class="tag tag-src">PRICING §9, §10</span>
+    </div>
+    <p class="q-ctx">
+      Beide Abschnitte sind auf dem alten 24-Modul-Katalog gerechnet und dadurch falsch. Der alte
+      Claim „50–90 % günstiger" ist mit der 1.0-Palette nicht mehr haltbar — und es ist derselbe
+      Fehlertyp, der die Website-Krise ausgelöst hat. Neu rechnen lässt sich das erst, wenn A1
+      und A2 beantwortet sind.
+    </p>
+    <ul class="opts">
+      <li><b>Nach A1/A2 neu rechnen</b> und dann eine nachrechenbare Zahl nennen <span class="rec">Vorschlag</span></li>
+      <li><b>Ganz ohne Prozentzahl</b> — nur die Vergleichstabelle zeigen, den Schluss dem Leser überlassen</li>
+      <li><b>Vergleich weglassen</b> für 1.0</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">C7</span>
+    <h3 class="q-title">Kommt Orbit (Self-Hosted) auf die 1.0-Preisliste?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du</span>
+      <span class="tag tag-src">PRICING §8 · Preisanalyse §10</span>
+    </div>
+    <p class="q-ctx">
+      Orbit ist als Konzept ausgearbeitet, aber für Phase E vorgesehen. Es jetzt zu bewerben,
+      hieße wieder etwas zu verkaufen, das es noch nicht gibt. Es wegzulassen, kostet ein
+      Argument, das gerade bei datenschutzbewussten Kunden zieht — und das eine echte
+      Alleinstellung wäre. Hängt an C1: Bei Fassung C wird Orbit zur Voraussetzung.
+    </p>
+    <ul class="opts">
+      <li><b>Nicht auf die 1.0-Liste</b> — auf Anfrage besprechen <span class="rec">Vorschlag</span></li>
+      <li><b>Als Ausblick nennen</b>, ohne Preis</li>
+      <li><b>Mit Preis auf die Liste</b> — dann muss es zum Launch existieren</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TEIL D ============ -->
+<section class="part">
+  <div class="part-head">
+    <span class="part-num">D</span>
+    <h2 class="part-title">Betrieb, Support, Absicherung</h2>
+    <span class="part-who">Du + Luke<br>4 Fragen</span>
+  </div>
+  <p class="part-intro">
+    Das Lagebild nennt dies den blinden Fleck: <b>Was passiert, wenn der erste Kunde anruft und
+    Luke im Hauptjob sitzt?</b> Heute eskaliert jeder ernste Vorfall per Anruf an genau eine
+    Person, es gibt keinen zweiten Namen, kein Absturz-Melden und für vier von sechs Störfällen
+    keinen beschriebenen Ablauf. Der ganze Teil kostet zusammen etwa 1,5 Personentage.
+  </p>
+
+  <div class="q">
+    <span class="q-id">D1</span>
+    <h3 class="q-title">Was sagen wir dem ersten Kunden beim Support wirklich zu?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du + Luke</span>
+      <span class="tag tag-block">Steht im Vertrag</span>
+      <span class="tag tag-src">Lagebild §10</span>
+    </div>
+    <p class="q-ctx">
+      Die Pilot-Unterlagen versprechen heute einen „direkten Draht zu Luke". Das ist bei 12–16
+      Tagen Hauptjob im Monat nicht haltbar, und die erste unbeantwortete Nacht kostet mehr
+      Vertrauen, als die Zusage je eingebracht hat. Hängt direkt mit A7 zusammen.
+    </p>
+    <ul class="opts">
+      <li><b>„Antwort binnen eines Werktags"</b> — haltbar, unspektakulär <span class="rec">Vorschlag</span></li>
+      <li><b>Gestaffelt nach Support-Stufe</b> — dann welche Zeiten je Stufe?</li>
+      <li><b>Direkter Draht</b> beibehalten, weil der Pilot besondere Nähe braucht</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">D2</span>
+    <h3 class="q-title">Wer außer Luke kommt an SSH-Schlüssel und Tresor-Passwort?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du + Luke</span>
+      <span class="tag tag-block">Bus-Faktor 1</span>
+      <span class="tag tag-src">Lagebild §10 · Auslieferungsmodell §6.7</span>
+    </div>
+    <p class="q-ctx">
+      Heute: niemand. Das ist nicht nur ein Ausfallrisiko im Störfall — es ist auch ein
+      Gesellschafter-Thema. Wenn Luke ausfällt, kommt an das Produkt der drei niemand heran.
+      Die Empfehlung lautet, eine zweite Kopie so abzulegen, dass du im Notfall herankommst.
+    </p>
+    <ul class="opts">
+      <li><b>Du</b> bekommst eine zweite Kopie (versiegelt, für den Notfall) <span class="rec">Vorschlag</span></li>
+      <li><b>Du und Nico</b> — Nico führt im Störfall auch aus</li>
+      <li><b>Hinterlegung bei einem Dritten</b> — Notar, Bankschließfach, Passwort-Tresor mit Freigabe</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort — wer, und in welcher Form abgelegt?</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">D3</span>
+    <h3 class="q-title">Vercel-Projekt löschen — wer macht es, und wann?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Mensch mit Zugang</span>
+      <span class="tag tag-src">NEXT-SESSION-PROMPT</span>
+    </div>
+    <p class="q-ctx">
+      Reine Erledigung, keine Entscheidung — aber sie ist der letzte sichtbare Rest der
+      Website-Krise. Die Vorbedingung ist geprüft: Beide Domains lösen auf unseren Hetzner-Server
+      auf, die Antwort trägt keinen Vercel-Vermerk mehr. Es fehlt der Klick im Dashboard, und
+      der braucht einen Menschen mit Zugang.
+    </p>
+    <div class="answer">
+      <span class="answer-label">Wer macht es — und wann?</span>
+      <div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">D4</span>
+    <h3 class="q-title">Wer liest künftig die Werbetexte gegen den Code, bevor sie live gehen?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-block">Der Prozessschritt, der komplett fehlt</span>
+      <span class="tag tag-src">Lagebild §10</span>
+    </div>
+    <p class="q-ctx">
+      Vier unabhängige Analyse-Linsen haben denselben Befund genannt: Wir haben eine ausgeprägte
+      Kultur des Nachmessens — unsere Projektnotizen sind voll von Lehren über grüne Prüfungen,
+      die nichts prüfen. <b>Aber keine einzige dieser Lehren betrifft die Außendarstellung.</b>
+      Dieselbe Skepsis, die wir auf jeden Testlauf anwenden, hat nie die Website getroffen. Das
+      ist kein Versäumnis einer Person, sondern ein fehlender Schritt. Ohne ihn passiert dasselbe
+      beim nächsten Text wieder.
+    </p>
+    <ul class="opts">
+      <li><b>Feste Rolle</b> — eine Person prüft jeden Werbetext gegen den Code. Wer?</li>
+      <li><b>Vier-Augen-Prinzip</b> — kein Text geht live, den nicht ein Zweiter gegengelesen hat</li>
+      <li><b>Prüfliste</b> statt Person — jede Behauptung braucht einen Beleg im Repo</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TEIL E ============ -->
+<section class="part">
+  <div class="part-head">
+    <span class="part-num">E</span>
+    <h2 class="part-title">Kleine Klärungen</h2>
+    <span class="part-who">Kurz<br>2 Fragen</span>
+  </div>
+  <p class="part-intro">
+    Zwei Restposten, die vor der Preisliste beziehungsweise vor dem nächsten Bauabschnitt eine
+    Antwort brauchen. Beide in einem Satz zu beantworten.
+  </p>
+
+  <div class="q">
+    <span class="q-id">E1</span>
+    <h3 class="q-title">Preise nennen, bevor die UG existiert?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Runde</span>
+      <span class="tag tag-block">Persönliche Haftung</span>
+      <span class="tag tag-src">Preisanalyse R9</span>
+    </div>
+    <p class="q-ctx">
+      Wer Preise nennt und Angebote verschickt, bevor es einen Rechtsträger gibt, haftet
+      persönlich. Der Vorschlag: Preisliste vorbereiten, aber <b>Angebote erst nach dem
+      Notartermin</b> verschicken. Wo steht die UG-Gründung gerade?
+    </p>
+    <div class="answer">
+      <span class="answer-label">Stand der UG-Gründung — und ab wann dürfen Angebote raus?</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <span class="q-id">E2</span>
+    <h3 class="q-title">Womit soll ich weitermachen, sobald du zurück bist?</h3>
+    <div class="q-tags">
+      <span class="tag tag-who">Du</span>
+      <span class="tag tag-src">Reihenfolge</span>
+    </div>
+    <p class="q-ctx">
+      Zwei Arbeitsstränge liegen fertig vorbereitet und haben seit dem 12. beziehungsweise 13.
+      August nicht begonnen. Beide sind entblockt — die Streichliste steht, der Editor ist gebaut.
+    </p>
+    <ul class="opts">
+      <li><b>Website-Redaktion</b> — sobald C1 bis C6 beantwortet sind, kann ich das durcharbeiten</li>
+      <li><b>Editor-Rollout</b> — Dokumente und Kalender als Startmodule (Finanzen ist mit der Streichliste weggefallen)</li>
+      <li><b>Beides parallel</b> — Website im Hauptfenster, Editor-Rollout nebenher</li>
+      <li><b>Etwas anderes</b> — was?</li>
+    </ul>
+    <div class="answer">
+      <span class="answer-label">Antwort</span>
+      <div class="answer-line"></div><div class="answer-line"></div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <b>Wenn du zurück bist:</b> Es reicht, wenn du mir die Kennungen mit deinen Antworten
+    zurückschickst — abfotografiert, abgetippt oder als Liste. Ich ziehe sie dann in die
+    Planungsdokumente nach, damit sie nicht ein zweites Mal beantwortet werden müssen, und fange
+    mit dem an, was du unter E2 nennst.
+  </div>
+</section>
+
+</body>
+</html>
