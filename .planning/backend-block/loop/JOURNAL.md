@@ -230,3 +230,40 @@ Frühere Läufe liegen vollständig im Archiv:
     nicht matchen — laut aktueller Validierung ist das kein realer Fall.
   - Rest-Scope aus A5/A6/A7/A8/A9 (Dokumente, Helpdesk-Nachrichten, User-Chat/Work/Kalender/
     Notification) weiterhin offen, hier nicht angefasst.
+
+## Iteration 5 — feat-dsar-search-contact-documents — done — 2026-08-22 01:04
+- commit: fa204b9c
+- gebaut: `documentsModule` in `internal/security/gdpr/dsar_search.go`, verkabelt in
+  `SearchByQuery` direkt nach `tagsModule`. Liest `document_entity_links` (entity_type='contact',
+  Literal wie in `route_crm_contact_files.go`/`document/file`-Paket verwendet, keine eigene
+  Konstante vorhanden) gejoint auf `document_files`, gefiltert auf Tenant und `NOT is_deleted`.
+  Ausgegeben werden ausschliesslich Dateiname, MIME-Typ, Groesse (Bytes) und Hochladedatum —
+  kein `storage_key`, kein `thumbnail_key`, kein Inhalt. Soft-geloeschte (Papierkorb-)Dateien
+  sind per `NOT f.is_deleted` ausgeschlossen, mit Begruendung im Docstring (deckt sich mit der
+  Trash-Behandlung in der Datei-UI).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (66 PASS / 0 SKIP / 0 FAIL,
+  DATABASE_URL gegen kmuhub_app) | migration n.a. (keine Schemaaenderung) | rls-smoke n.a.
+  (keine neue Tabelle/Policy; Tenant-Isolation ist Teil der neuen DB-Testfunktion) |
+  `go test ./internal/gateway/` n.a. (keine Route/OpenAPI beruehrt)
+- coverage: internal/security/gdpr 62,2 % -> 62,7 % (eigene Messung per `git stash` auf genau
+  die beiden geaenderten Dateien; deckt sich mit dem kumulativen Stand aus Iteration 4, nicht
+  mit dem veralteten `coverage_start` der Unit von 61,2 %, weil A3/A4 dasselbe Paket zuvor schon
+  angehoben haben)
+- mutations-probe: in `documentsModule` der WHERE-Klausel `AND false` angehaengt ->
+  `TestSearchByQuery_ContactDocuments_Integration` wird rot ("Dokumente" fehlt in der
+  Modulliste). Zurueckgedreht -> gruen, `git diff --stat` zeigt fuer `dsar_search.go` nur
+  57 Zeilen rein additiv (0 Loeschungen).
+- verify vorgaenger: sauber. `05457053` (Form-Submissions-DSAR) gegen alle acht Fehlerklassen
+  geprueft — kein gRPC-Layer beruehrt (reine additive Query-Funktion im gdpr-Paket selbst, wie
+  alle anderen DSAR-Module), kein Stub/TODO, kein `.proto` im Diff, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle/Migration, Wire-Shape unveraendert (DSARModule/
+  DSARRecord wie ueberall), keine neue Route, kein Alt-Guard ersetzt. `git show --stat` zeigt
+  nur `dsar_search.go`/`dsar_search_test.go`/`BACKLOG.yml`.
+- neue-units: keine
+- offen:
+  - `document_entity_links.entity_type` ist ein freier VARCHAR(50) ohne Enum/Konstante — der
+    Literal `'contact'` ist an drei Stellen im Code dupliziert (jetzt vier: hier, `document/file`,
+    `route_crm_contact_files.go`). Kein neuer Befund dieser Iteration, aber falls C-Scans eine
+    Sammel-Unit fuer "String-Literale vereinheitlichen" anlegen, gehoert diese Stelle dazu.
+  - Rest-Scope aus A6/A7/A8/A9 (Helpdesk-Nachrichten, User-Chat/Work/Kalender/Notification)
+    weiterhin offen, hier nicht angefasst.
