@@ -9,12 +9,14 @@ ROLLBACK_START=$(date +%s)
 
 TARGET_SHA=""
 LIST_MODE=false
+ALLOW_SCHEMA_AHEAD=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --to) TARGET_SHA="$2"; shift 2 ;;
         --to=*) TARGET_SHA="${1#*=}"; shift ;;
         --list) LIST_MODE=true; shift ;;
+        --allow-schema-ahead) ALLOW_SCHEMA_AHEAD=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -93,6 +95,51 @@ if ! git cat-file -e "$TARGET_SHA" 2>/dev/null; then
     exit 1
 fi
 
+# Migration guard.
+#
+# deploy.sh grew this after 2026-08-06, when an auto-rollback across an applied
+# migration put the schema ahead of the code and cost 31 minutes of production
+# 503 (see halt_without_rollback there). This script is the same operation run
+# by hand and never got the guard — same failure mode, one command away.
+#
+# The mechanism: the migrate container of the older revision reads
+# schema_migrations.version and finds no file of its own for it, so it refuses
+# to start. Everything that waits on migrate stays down and the gateway fails
+# closed. Going back across a migration is therefore not automatic — the down
+# path can be destructive, so it stays a human decision.
+SCHEMA_VERSION=$($COMPOSE exec -T postgres psql -U kmuhub -d kmuhub -tAc \
+    "SELECT version FROM schema_migrations LIMIT 1" 2>/dev/null | tr -d '[:space:]' || true)
+
+if [[ -z "$SCHEMA_VERSION" ]]; then
+    log "ERROR: could not read schema_migrations.version from postgres."
+    log "  Without it there is no way to tell whether $TARGET_SHA knows the current schema."
+    log "  Fix the database connection first, or pass --allow-schema-ahead if you have"
+    log "  checked by hand that no migration was applied since $TARGET_SHA."
+    [[ "$ALLOW_SCHEMA_AHEAD" == true ]] || exit 1
+else
+    # Does the target revision carry a migration file for the version the DB is on?
+    if git ls-tree --name-only "$TARGET_SHA" backend/migrations/ | grep -q "^backend/migrations/${SCHEMA_VERSION}_"; then
+        log "Schema check: DB at $SCHEMA_VERSION, and $TARGET_SHA carries that migration. OK."
+    else
+        TARGET_HEAD=$(git ls-tree --name-only "$TARGET_SHA" backend/migrations/ \
+            | grep -oE '[0-9]{6}' | sort | tail -1)
+        log "REFUSING TO ROLL BACK: the schema is ahead of the target revision."
+        log "  Database is at migration $SCHEMA_VERSION."
+        log "  $TARGET_SHA has no file for it (its head is ${TARGET_HEAD:-unknown})."
+        log "  Its migrate container would refuse to start and every service waiting on"
+        log "  it would stay down — that is the 2026-08-06 outage, by hand."
+        log ""
+        log "  Roll the schema back deliberately first (migrate down to ${TARGET_HEAD:-<target head>}),"
+        log "  then re-run. Or fix forward and deploy instead."
+        log "  --allow-schema-ahead overrides this, and you own what happens next."
+        if [[ "$ALLOW_SCHEMA_AHEAD" != true ]]; then
+            log_deploy "rollback-refused-schema-ahead" "$CURRENT_SHA" "$TARGET_SHA"
+            exit 1
+        fi
+        log "  --allow-schema-ahead given, continuing anyway."
+    fi
+fi
+
 # Step 1: Backup
 log "Step 1/5: Creating backup..."
 "$SCRIPT_DIR/backup.sh"
@@ -113,11 +160,30 @@ $COMPOSE build \
     --build-arg BUILD_TIME="$BUILD_TIME"
 
 # Step 4: Restart services
+#
+# The service list used to be a second, hand-maintained copy that had already
+# drifted: it carried livekit and livekit-egress, which deploy.sh does not
+# build, and was missing `webapp` — the container that serves Cosmi in the
+# browser since Etappe 2. A rollback would have left app.zentria.tech dark.
+# It comes from deploy.sh now, the same way restore.sh takes it.
 log "Step 4/5: Restarting services..."
+BUILDABLE_LINE=$(grep -m1 '^BUILDABLE_SERVICES=' "$SCRIPT_DIR/deploy.sh") || {
+    log "ERROR: could not find BUILDABLE_SERVICES in $SCRIPT_DIR/deploy.sh"
+    exit 1
+}
+BUILDABLE_SERVICES=$(printf '%s' "$BUILDABLE_LINE" | cut -d'"' -f2)
+if [[ -z "$BUILDABLE_SERVICES" ]]; then
+    log "ERROR: BUILDABLE_SERVICES parsed empty from $SCRIPT_DIR/deploy.sh"
+    exit 1
+fi
+
 $COMPOSE up -d postgres redis minio
 sleep 5
 
-for svc in auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare inventar einkauf produktion vertraege rapporte schichten fuhrpark vermietung livekit livekit-egress; do
+for svc in $BUILDABLE_SERVICES; do
+    # gateway and caddy come last, migrate is a run-to-completion job that the
+    # dependent services already wait on.
+    [[ "$svc" == "gateway" || "$svc" == "migrate" ]] && continue
     log "  Starting $svc..."
     $COMPOSE up -d "$svc"
     sleep 3
