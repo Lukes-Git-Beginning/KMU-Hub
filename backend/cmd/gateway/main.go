@@ -228,9 +228,17 @@ func main() {
 	// after hub construction (hub depends on chat gRPC client, built below).
 	videoRoutes := gateway.NewVideoRoutes(registry, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret)
 
-	// Captcha verifier (provider-agnostic siteverify — Cloudflare Turnstile by default).
+	// Captcha verifier (provider-agnostic siteverify).
 	// Disabled when CAPTCHA_SECRET is empty (default). No prod assertion: the hook
 	// is opt-in; absence is acceptable until frontend widget is wired up.
+	//
+	// A secret without an endpoint is a misconfiguration, not a disabled hook:
+	// the verifier would POST into the void and reject every token. Say so at
+	// startup rather than failing every booking request.
+	if cfg.CaptchaSecret != "" && cfg.CaptchaVerifyURL == "" {
+		slog.Error("CAPTCHA_SECRET is set but CAPTCHA_VERIFY_URL is empty — name the siteverify endpoint; there is no default, so no provider is chosen for you")
+		os.Exit(1)
+	}
 	captchaVerifier := security.NewCaptchaVerifier(cfg.CaptchaSecret, cfg.CaptchaVerifyURL)
 	if captchaVerifier.Enabled() {
 		slog.Info("captcha verification enabled", "verify_url", cfg.CaptchaVerifyURL)

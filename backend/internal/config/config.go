@@ -80,10 +80,17 @@ type Config struct {
 	// calls are not severed; lower it via env if needed.
 	GRPCTimeout time.Duration `env:"GATEWAY_GRPC_TIMEOUT,default=30s"`
 
-	// Captcha (provider-agnostic siteverify API — Cloudflare Turnstile by default).
+	// Captcha (provider-agnostic siteverify API).
 	// When CAPTCHA_SECRET is empty the verifier is disabled and all requests pass through.
+	//
+	// No default endpoint on purpose. It used to point at Cloudflare Turnstile,
+	// which put a US processor one environment variable away from the request
+	// path of a product sold on "no processor outside the EU". Whoever turns
+	// captcha on now has to name the endpoint, and that choice is visible in
+	// .env.production instead of buried in a struct tag. Friendly Captcha
+	// (Munich) and a self-hosted mCaptcha both speak this siteverify shape.
 	CaptchaSecret    string `env:"CAPTCHA_SECRET,default="`
-	CaptchaVerifyURL string `env:"CAPTCHA_VERIFY_URL,default=https://challenges.cloudflare.com/turnstile/v0/siteverify"`
+	CaptchaVerifyURL string `env:"CAPTCHA_VERIFY_URL,default="`
 
 	MetricsPort            string `env:"METRICS_PORT,default=:9090"`
 	HealthPort             string `env:"HEALTH_PORT,default=:9091"`
