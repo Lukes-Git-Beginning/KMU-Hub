@@ -181,3 +181,52 @@ Frühere Läufe liegen vollständig im Archiv:
     Funktionen aus anderen Dateien (Erasure-Handler-Registrierung, DSAR-Suche fuer
     Formulare/Dokumente/Helpdesk-Nachrichten/Benutzer-Module) — das ist der erwartete
     Rest-Scope der Units A4 bis A9, hier nicht angefasst.
+
+## Iteration 4 — feat-dsar-search-contact-form-submissions — done — 2026-08-22 00:57
+- commit: 05457053
+- gebaut: `formSubmissionsModule` in `internal/security/gdpr/dsar_search.go`, verkabelt in
+  `SearchByQuery` zwischen `deals` und `activities`. Der Entwurf ging von einer Spalte
+  `submitted_by` mit der Kontakt-E-Mail aus — das Schema widerlegt das:
+  `form_submissions.submitted_by` (TEXT NULL) traegt bei authentifizierten Einreichungen die
+  Mitarbeiter-User-ID (`route_formulare.go:451-454`, Fallback auf `userID` wenn nicht explizit
+  gesetzt) und bei oeffentlichen Share-Link-Einreichungen ueberhaupt nichts
+  (`form_share.go:301-309`, `SubmittedBy` bleibt im Struct-Literal aus). Die Identitaet des
+  Einreichenden liegt ausschliesslich im JSONB `answers`-Payload, unter einer vom Formularautor
+  gewaehlten Feld-ID. Der Match laeuft daher ueber `form_schemas.fields` (JSONB-Array mit
+  `id`/`type`/`label`/optionalem `role`): ein `EXISTS`-Subquery mit `jsonb_array_elements` prueft
+  je Einreichung, ob irgendein Feld vom Typ `email` einen Wert traegt, der (case-insensitive)
+  der Kontakt-E-Mail entspricht. Treffer werden pro beantwortetem Feld offengelegt (Formular,
+  Datum, Feld-Label, Wert), mit `formatCustomFieldValue` (aus Iteration 3) fuer die
+  Wert-Rendering — Wiederverwendung statt zweiter JSON-Typumwandlung. Einreichungen, deren Schema
+  geloescht wurde (`form_schema_id` durch `ON DELETE SET NULL` auf NULL gesetzt), werden per
+  INNER JOIN ausgeschlossen und das ist im Docstring und im Test dokumentiert — ohne Schema ist
+  nicht feststellbar, welches Feld eine E-Mail war.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (65 PASS / 0 SKIP / 0 FAIL in
+  internal/security/gdpr, DATABASE_URL gegen kmuhub_app; internal/formulare zusaetzlich gruen)
+  | migration n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine neue Tabelle/Policy;
+  Tenant-Isolation ist Teil der neuen DB-Testfunktion) | `go test ./internal/gateway/` n.a.
+  (keine Route/OpenAPI beruehrt)
+- coverage: internal/security/gdpr 61,7 % -> 62,2 % (eigene Messung per `git stash` auf genau
+  die beiden geaenderten Dateien; deckt sich mit `coverage_start` aus der Unit)
+- mutations-probe: in `formSubmissionsModule` der WHERE-Klausel `AND false` angehaengt ->
+  `TestSearchByQuery_ContactFormSubmissions_Integration` wird rot ("Formulareinreichungen" fehlt
+  in der Modulliste). Zurueckgedreht -> gruen, `git diff --stat` zeigt nur die drei erwarteten
+  Dateien (BACKLOG.yml, dsar_search.go, dsar_search_test.go).
+- verify vorgaenger: sauber. `7ac232c3` (Custom Fields/Tags DSAR) gegen die acht Fehlerklassen
+  geprueft — reine additive Query-Funktionen ohne gRPC-Layer, keine neue Tabelle/Guard/Route,
+  alle referenzierten Helfer (`dsarMaxRows`, `dsarTimeLayout`, `boolLabel`, `fieldValueRecord`)
+  existierten bereits, kein Stub/TODO im Diff.
+- neue-units: keine
+- offen:
+  - Der Test seedet `form_schemas`/`form_submissions` direkt per `testutil.SeedRow` (JSONB-Spalten
+    `fields`/`answers` als `[]byte`) — das folgt demselben Muster wie
+    `PostgresRepository.CreateSchema`/`CreateSubmission` und hat keine Besonderheiten wie die
+    Junction-Tabelle aus Iteration 3.
+  - `role: "requester_email"` (aus `formulare/models.go:79`, fuer Intake-gebundene Formulare)
+    wird bewusst NICHT zusaetzlich geprueft — jedes Feld vom Typ `email` zaehlt, unabhaengig von
+    seiner Rolle, weil auch reine (nicht Intake-gebundene) Formulare ein E-Mail-Feld ohne Rolle
+    haben koennen. Ein Formular mit `role: requester_email` auf einem NICHT als `email` typisierten
+    Feld (Schema-seitig eigentlich ausgeschlossen, siehe `service.go` Validierung) wuerde damit
+    nicht matchen — laut aktueller Validierung ist das kein realer Fall.
+  - Rest-Scope aus A5/A6/A7/A8/A9 (Dokumente, Helpdesk-Nachrichten, User-Chat/Work/Kalender/
+    Notification) weiterhin offen, hier nicht angefasst.
