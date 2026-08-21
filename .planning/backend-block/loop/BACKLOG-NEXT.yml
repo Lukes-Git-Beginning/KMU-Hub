@@ -1,4 +1,4 @@
-# Backend-Nachtloop — Arbeitsqueue fuer den NAECHSTEN Lauf (Lauf 10)
+# Backend-Nachtloop — Arbeitsqueue fuer den NAECHSTEN Lauf (Lauf 11)
 #
 # Diese Datei liest der Treiber NICHT. Sie ist die Schleuse vor `BACKLOG.yml`.
 #
@@ -11,158 +11,48 @@
 # kopieren), Bloecke und Reihenfolge dort festlegen, `coverage_start` gegen den dann aktuellen
 # CI-Stand nachziehen.
 #
-# ==========================================================================================
-# LAUF 10 — "Datenschutz-Mechanik + Gateway-Haertung", entworfen 2026-08-21
-# ==========================================================================================
+# ------------------------------------------------------------------------------------------
+# LAUF 10 IST FREIGEGEBEN (2026-08-22) — die 48 Units stehen in `BACKLOG.yml`.
 #
-# Fenster: Abend bis naechster Tag ~14:00, ~15 min/Iteration.
-# 48 Units hier + geschaetzt 12-20 aus den Scans (Lauf 9: 11 Scans -> 16 Zusatz-Units)
-# = realistisch 60-68. Die spaeten Scan-Funde sind die Reserve.
+# Was beim Ausschreiben aufgefallen ist und hier festgehalten gehoert, weil es die naechste
+# Vorbereitung betrifft:
 #
-# VORFLUG, sonst laeuft der Lauf gegen ein Schein-Gate:
-#   Es lief am 2026-08-21 KEIN lokaler Postgres (Port 5432 zu). Ohne DATABASE_URL ruft
-#   testutil.SkipIfNoDB in JEDEM Integrationstest t.Skip — der Lauf meldet dann `ok` fuer
-#   Pakete, deren DB-Tests gar nicht liefen. Bei 60+ Units waere das eine ganze Nacht
-#   gruener Meldungen ueber ungepruftem Code.
-#     1. docker compose -f deploy/docker/docker-compose.yml up -d postgres
-#     2. cd backend && make migrate-up
-#     3. Rolle kmuhub_app (NOSUPERUSER NOBYPASSRLS) — nicht kmuhub, der hat BYPASSRLS
-#     4. DATABASE_URL exportieren und mit EINEM Paket gegenpruefen, dass Tests laufen
-#        statt zu skippen
-#     5. `backend-loop` auf `origin/main` MERGEN, nicht rebasen
+#   - Diese Datei trug einen Kopf, der auf einen Unit-Anhang unter `units:` verwies. Der
+#     Anhang existierte nie — `units:` war leer. Waere der Lauf so gestartet, haette der
+#     Treiber sofort "Keine offenen Units mehr im Backlog" gemeldet und nach null Iterationen
+#     beendet. Eine Uebersichtsliste in Kommentaren ist kein Backlog.
+#     KONSEQUENZ: Wer hier einen Lauf entwirft, schreibt die Units aus oder markiert im Kopf
+#     ausdruecklich, dass sie noch fehlen. Kein Kopf, der einen Anhang behauptet, den es nicht
+#     gibt.
 #
-# MIGRATIONSKOPF: stand am 21.08. auf 314. IMMER zur Laufzeit ermitteln, im Lauf entstehen
-# mehrere Migrationen hintereinander:
-#     ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1
+#   - Von den sechs Befunden des Lauf-10-Entwurfs hat die Gegenpruefung am Code EINEN
+#     widerlegt: `contact_tags.contact_id` hat sehr wohl einen Foreign Key
+#     (`migrations/000007_create_contacts_companies.up.sql:81`, `ON DELETE CASCADE`, auch live
+#     in der DB vorhanden). Die geplante Unit `fix-contact-tags-missing-foreign-key` haette
+#     eine Migration gegen ein nicht existierendes Problem gebaut. Sie ist gestrichen; an ihre
+#     Stelle trat `scan-contact-set-null-residual-personal-data`.
+#     KONSEQUENZ: Jede Schema-Behauptung vor dem Ausschreiben gegen `pg_constraint` pruefen,
+#     nicht gegen die Erinnerung. Das kostet eine Minute und hat hier eine Migration gespart.
 #
 # ------------------------------------------------------------------------------------------
-# BEFUNDE, DIE DIE VORBEREITUNG KORRIGIERT HAT — vor dem Bauen lesen
+# KANDIDATEN FUER LAUF 11 — noch nicht entworfen, nur vorgemerkt
 #
-#  1. DATEV/Windows-1252 ist KEIN bestaetigter Bug. exporter_test.go:409-420 traegt bereits
-#     einen Kommentar, der die Praemisse zurueckweist: der EXTF-Header schreibt
-#     Format-Version "700", und ab 700 laesst DATEV UTF-8 mit BOM zu (erst davor war
-#     ANSI/cp1252 Pflicht). Deshalb steht hier eine VERIFY-Unit mit hartem
-#     Nicht-Fix-Kriterium, keine Fix-Unit. Blind umkodieren waere eine Regression.
-#
-#  2. Route-Dateien: 75 Quelldateien `route_*.go`, davon 23 ohne eigene Testdatei —
-#     nicht 87/29 wie im Statusdokument. route_email.go (1.612) und route_settings.go
-#     (1.029) sind die groessten UNGETESTETEN, nicht die groessten insgesamt
-#     (route_video.go 2.379, route_hr.go 2.300, route_auth.go 1.923 haben Tests).
-#
-#  3. DSAR-Luecke ist groesser als beschrieben: matchUsers() (dsar_search.go:213) haengt
-#     UEBERHAUPT KEIN Modul an ausser dem nackten Benutzerkonto. Fuer einen per Name/E-Mail
-#     gematchten *User* liefert die Art.-15-Auskunft nichts aus Chat, Work, Kalender oder
-#     Notification — obwohl sieben Erasure-Handler die Tabellen dafuer kennen. Vier Module,
-#     nicht eines (A8-A10).
-#
-#  4. `contact_tags.contact_id` hat weiterhin KEINEN Foreign Key, und Delete() ist
-#     weiterhin ein nacktes `DELETE FROM contacts` (postgres_repository.go:342). Die
-#     Anonymisierung vom 19.08. deckt nur den Pfad ab, der ueber IsInUse/409 laeuft.
-#
-#  5. `retention_policies.resource_type` ist ein freier String ohne Enum/Whitelist
-#     (route_security.go:145, nur `validate:"required"`). Der Worker braucht eine eigene,
-#     im Code gepflegte Zuordnung resource_type -> Tabelle; es gibt keine Registry dafuer.
-#
-#  6. GoBD-Grant bestaetigt: 000121_create_app_role.up.sql:49 erteilt kmuhub_app ein
-#     schema-weites GRANT SELECT, INSERT, UPDATE, DELETE — inklusive gobd_documents.
-#     Kein UPDATE/DELETE gegen diese Tabellen im Go-Code (gegrept), ein REVOKE ist
-#     gefahrlos.
-#
-# ------------------------------------------------------------------------------------------
-# REIHENFOLGE UND BEGRUENDUNG
-#
-#  Block A (Datenschutz-Mechanik):
-#    GoBD-WORM zuerst — unabhaengig, risikoarm, blockiert nichts.
-#    Dann contact_tags-FK — Fundament fuer alles, was danach Loeschpfade anfasst.
-#    Dann Cascade-Preview, dann die DSAR-Luecken (erst Kontakt-, dann User-Seite).
-#    Retention-Worker zuletzt: groesstes Stueck, einziger echter deps-Zaun im Backlog.
-#  Block B (Gateway): Geld-/Compliance-Pfade zuerst (biz, settings-Lizenz), dann
-#    datenschutznahe Flaechen (crm, email-Kontaktverknuepfung), dann Rest.
-#    idempotency und DATEV am Ende — eigenstaendig, jederzeit lauffaehig.
-#  Block C (Scans) am Schluss: sie referenzieren als Vorlage die in A/B gebauten Bugs
-#    und fuellen den Backlog selbst nach.
-#
-# DREI UNITS BRAUCHEN EINE MIGRATION (alle model: opus):
-#   fix-gobd-belegarchiv-worm-enforcement (REVOKE-only)
-#   fix-contact-tags-missing-foreign-key (bereinigt Waisen VOR dem Constraint)
-#   feat-retention-worker-schema-and-engine (neue Tabelle + RLS)
-#
-# BEWUSST NICHT AUFGENOMMEN (Kandidaten fuer BACKLOG-PARKED.yml):
-#   - DATEV-cp1252-Umstellung als Fix-Unit (Praemisse im Code widerlegt, s. o.)
-#   - Frontend fuer die Cascade-Impact-Preview (dieser Loop hat kein Playwright-Gate)
-#   - resource_type-Whitelist/Enum (Produktentscheidung; der Worker arbeitet defensiv)
-#   - Ausweitung des Retention-Workers auf alle 24 Services (der Scan liefert die Liste
-#     erst zur Laufzeit — gehoert in Lauf 11, nicht blind vorab geschaetzt)
-#   - gdpr_deletion_requests.contact_id-FK (unklar, ob in der Praxis erreichbar —
-#     scan-restrict-fk-without-ui-path klaert das zuerst)
-#   - CSAT/Public-Token-Routen (bleiben gesperrt wie in BACKLOG-PARKED.yml dokumentiert)
-#
-# ------------------------------------------------------------------------------------------
-# DIE UNITS SELBST
-#
-# Der vollstaendige Entwurf mit `scope`, `sources`, `notes` und `done_when` je Unit liegt
-# als Anhang in dieser Datei unter `units:`. Beim Freigeben nach BACKLOG.yml VERSCHIEBEN,
-# nicht kopieren, und `coverage_start` gegen den dann aktuellen CI-Stand nachziehen.
-#
-# Block A — Datenschutz-Mechanik (14 Units)
-#   A1  fix-gobd-belegarchiv-worm-enforcement          opus   Migration (REVOKE)
-#   A2  fix-contact-tags-missing-foreign-key           opus   Migration (Waisen + FK CASCADE)
-#   A3  feat-contact-deletion-cascade-impact-preview   sonnet 8 SET-NULL-Tabellen zaehlen
-#   A4  feat-dsar-search-contact-custom-fields-and-tags sonnet
-#   A5  feat-dsar-search-contact-form-submissions      sonnet submitted_by = Kontakt-E-Mail
-#   A6  feat-dsar-search-contact-documents             sonnet document_entity_links, nur Metadaten
-#   A7  feat-dsar-search-contact-helpdesk-messages     sonnet internal=true AUSSCHLIESSEN
-#   A8  feat-dsar-search-user-chat-module              sonnet
-#   A9  feat-dsar-search-user-work-module              sonnet
-#   A10 feat-dsar-search-user-calendar-notification-modules sonnet
-#   A11 feat-retention-worker-schema-and-engine        opus   Migration + RLS, Dry-Run-Default
-#   A12 feat-retention-worker-handler-contacts         sonnet deps: A11
-#   A13 feat-retention-worker-handler-dialer-chat      sonnet deps: A11
-#   A14 feat-retention-worker-handler-helpdesk-formulare sonnet deps: A11
-#   A15 feat-retention-worker-scheduling-and-admin-visibility sonnet deps: A11, openapi.yaml
-#
-# Block B — Gateway-Haertung (26 Units)
-#   B1  cov-gateway-biz-gobd-archive          (260 LOC, 6 Methoden)
-#   B2  cov-gateway-biz-einvoice              (203 LOC, isEInvoiceMIME separat testen)
-#   B3  cov-gateway-biz-quotes                (385 LOC, 10 Methoden, Statusuebergaenge)
-#   B4  cov-gateway-biz-recurring-invoices    (274 LOC, 8 Methoden)
-#   B5  cov-gateway-biz-open-items-time-entries (66 + 80 LOC)
-#   B6  cov-gateway-biz-banking-document-chains (172 + 137 LOC, Formatierfunktionen isoliert)
-#   B7  cov-gateway-biz-ext-time-billing      (101 LOC)
-#   B8  cov-gateway-settings-module-leads-grants     (ERST Abdeckung verifizieren)
-#   B9  cov-gateway-settings-branding-tenant-user    (ERST Abdeckung verifizieren)
-#   B10 cov-gateway-settings-license-subscription-verify (KEIN modules.*-Flag scharfschalten)
-#   B11 cov-gateway-email-messages-folders-sync  (route_email.go Kernpfad, 15 Methoden)
-#   B12 cov-gateway-email-signatures-templates   (12 Methoden, Render-Injection testen)
-#   B13 cov-gateway-email-contact-linking-import-export (CSV-Formel-Injection, Tenant-Leak)
-#   B14 cov-gateway-crm-advisory-protocols   (362 LOC, RESTRICT -> 409 statt 500)
-#   B15 cov-gateway-crm-companies            (239 LOC)
-#   B16 cov-gateway-crm-ext-duplicates-merge-gdpr (389 LOC, Permission-Grenze
-#                                                  RequestDeletion vs. ProcessDeletion)
-#   B17 cov-gateway-crm-contact-files-wopi   (verifyContactOwnership cross-tenant zuerst)
-#   B18 cov-gateway-lexware-integration      (610 LOC, route_bexio_test.go als Vorlage)
-#   B19 cov-gateway-booking-admin            (403 LOC, Admin-Teil)
-#   B20 cov-gateway-registrar-global-search  (Tenant-Isolation je Teilsuche)
-#   B21 cov-gateway-dashboard                (239 LOC, 5 Methoden)
-#   B22 cov-gateway-work-labels-custom-fields (328 LOC, 11 Methoden)
-#   B23 fix-idempotency-real-sql-coverage-core        (Reserve/Get/Complete gegen echtes SQL)
-#   B24 fix-idempotency-real-sql-coverage-cleanup-concurrency (deps: B23, -race)
-#   B25 verify-datev-extf-encoding-requirement (VERIFY-Unit, darf NICHT umkodieren;
-#                                               ohne belastbare Quelle -> status blocked)
-#
-# Block C — Muster-Scans (8 Units, fuellen den Backlog selbst nach)
-#   C1  scan-dsar-missing-contact-user-tables
-#   C2  scan-erasure-handlers-missing-personal-data-tables
-#   C3  scan-restrict-fk-without-ui-path
-#   C4  scan-personal-data-tables-without-retention-mapping   (deps: A11)
-#   C5  scan-gateway-sql-error-leakage        (grep err.Error() ueber 75 route_*.go)
-#   C6  scan-gateway-pii-in-logs              (Audit-Log legitim vs. Anwendungslog)
-#   C7  scan-gateway-openapi-response-code-drift (TestOpenAPIRouteDrift kennt nur Pfade,
-#                                                 nicht die Menge dokumentierter Codes)
-#   C8  scan-erasure-retention-idempotency-double-run (deps: A12; Doppellauf-Test je Handler)
-#
-# Jeder Scan braucht ein praezises Grep-/SQL-Kommando UND ein Abbruchkriterium: eine
-# vollstaendige Liste des Geprueften mit Begruendung je Nicht-Fund, nicht nur eine Zahl.
+#   - Ausweitung des Retention-Workers auf die uebrigen Services. Die Liste liefert
+#     `scan-personal-data-tables-without-retention-mapping` (C4) zur Laufzeit; vorher blind zu
+#     schaetzen waere geraten.
+#   - Ein dauerhafter Test gegen die Antwortcode-Drift in `openapi.yaml`. Die Bestandsaufnahme
+#     macht C7; ob daraus ein Gate wird, ist eine eigene Entscheidung.
+#   - `resource_type`-Whitelist/Enum fuer Retention-Policies. Produktentscheidung, nicht
+#     Loop-Arbeit — der Worker aus A10 arbeitet solange defensiv und meldet unbekannte Werte
+#     als "nicht zugeordnet".
+#   - Frontend fuer die Kaskaden-Impact-Vorschau aus A2. Braucht ein Playwright-Gate, das
+#     dieser Loop nicht hat.
+#   - Die schwaechsten Pakete jenseits des Gateways: `internal/work/customfield` (14,0 %),
+#     `internal/work/label` (15,2 %), `internal/email/attachment` (22,1 %),
+#     `internal/biz/creditnote` (28,2 %), `internal/biz/quote` (33,3 %),
+#     `internal/document/share` (33,3 %). Stand CI-Run 32508843776.
+#   - CSAT und die uebrigen Public-Token-Routen bleiben gesperrt (BACKLOG-PARKED.yml,
+#     Projekt "Public Web Surface"), bis dazu eine Entscheidung faellt.
 #
 # ------------------------------------------------------------------------------------------
 

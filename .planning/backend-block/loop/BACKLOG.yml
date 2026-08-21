@@ -1,4 +1,4 @@
-# Backend-Nachtloop — Arbeitsqueue (Lauf 9, gestaged 2026-08-11)
+# Backend-Nachtloop — Arbeitsqueue (Lauf 10, gestaged 2026-08-22)
 #
 # Eine Unit = eine Iteration = ein Commit.
 #
@@ -10,7 +10,8 @@
 #
 # Laeufe 1+2 (58 Units): archive/lauf-1-2/ — Lauf 3 (61): archive/lauf-3/
 # Lauf 4 (54): archive/lauf-4/ — Lauf 5 (41): archive/lauf-5/ — Lauf 6 (46): archive/lauf-6/
-# Lauf 7 (71): archive/lauf-7/ — Lauf 8 (94): archive/lauf-8/ (jeweils inkl. logs/)
+# Lauf 7 (71): archive/lauf-7/ — Lauf 8 (94): archive/lauf-8/ — Lauf 9 (37): archive/lauf-9/
+# (jeweils inkl. logs/).
 #
 # Was der Loop NICHT zieht — geparkt oder gestrichen, mit Entscheidung und Zielort:
 # BACKLOG-PARKED.yml. In DIESER Datei steht keine `blocked`-Unit. Wird eine Unit im Lauf
@@ -18,1695 +19,1657 @@
 # entscheidet.
 #
 # ------------------------------------------------------------------------------------------
-# STAND DER VORBEREITUNG (2026-08-11, alles gegen den laufenden Code gemessen)
+# STAND DER VORBEREITUNG (2026-08-22, alles gegen den laufenden Code und die lokale DB gemessen)
 #
-#   - Lauf 8 ist gemergt und deployt. PR #21 -> `main` `8c224eba`, Produktion auf
-#     Migrationskopf 310 clean, 36 Container laufend / 30 healthy / 0 unhealthy,
-#     `/health` meldet 23 Services. NAECHSTE FREIE MIGRATION = 311, aber IMMER zur
-#     Laufzeit ermitteln:
+#   - Lauf 9 ist gemergt und deployt. `main` steht auf `fb9ea6cb`, CI gruen auf `1b49a1f3`
+#     (Run 32508843776, CI Desktop 32508843728), CD gruen auf `390a75f5`.
+#   - MIGRATIONSKOPF = 314 (Repo und lokale DB, `schema_migrations` clean). Naechste freie
+#     Nummer waere 315, aber IMMER zur Laufzeit ermitteln:
 #     `ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1`
-#   - `backend-loop` steht auf `origin/main` `10a1a26e` (Merge, kein Rebase).
-#   - Auf `main` liegen seit Lauf 8 drei Commits aus der Vorbereitung dieses Laufs:
-#     `3353a402` (Mock-Seeds in vier Zustand-Stores hinter DEMO_MODE),
-#     `a72a987a` (react-router 7.18.2 + dompurify 3.4.13),
-#     `10a1a26e` (Passwort-Reset-Seite im Gateway, `GET/POST /reset-password`).
-#     Die Reset-Seite ist eine NEUE oeffentliche Route — beim Anfassen von
-#     `cmd/gateway/main.go` nicht versehentlich ausbauen.
+#   - `backend-loop` ist auf `origin/main` GEMERGT (nicht rebased).
+#   - Das DB-Gate ist ab diesem Lauf im Treiber erzwungen: `run-loop.ps1` prueft vor der ersten
+#     Iteration Port, Anmeldung als `kmuhub_app` und Migrationskopf und BRICHT AB, wenn eins
+#     davon fehlt. Grund: `testutil.SkipIfNoDB` fragt nur, OB `DATABASE_URL` gesetzt ist. Am
+#     2026-08-22 an `internal/security/audit` gemessen — mit DB 33 PASS / 0 SKIP, ohne die
+#     Variable 19 PASS / 14 SKIP, beide Male "ok" und Exit 0.
 #
-# COVERAGE-AUSGANGSLAGE (CI-Run 31471247645 auf `8c224eba`, gesamt 60,0 % bei Gate 15 %):
-#     server 70,0 · auth 67,9 · security/audit 66,1 · security/gdpr 60,6 · email/send 57,6
-#     schichten 79,7 · biz/datev 79,3 · document/virtual 83,1 · notification/preference 87,2
-#     rapporte 76,0 · crm/contact 80,6 · gateway 46,0 (schwaechstes Kernpaket)
+# COVERAGE-AUSGANGSLAGE (CI-Run 32508843776 auf `1b49a1f3`, gesamt 60,2 % bei Gate 15 %):
+#     gateway 46,1 (schwaechstes Kernpaket) · security/gdpr 61,2 · security/audit 80,1
+#     crm/contact 80,4 · crm/advisoryprotocol 65,5 · crm/company 79,7 · settings 60,3
+#     helpdesk 81,5 · biz/gobdarchive 89,9 · biz/quote 33,3 · biz/einvoice 81,9
+#     biz/recurring 88,1 · biz/banking 77,0 · biz/lexware 74,4 · biz/datev 79,7
+#     email/message 79,7 · email/signature 43,0 · email/contactlink 35,0 · work/label 15,2
 #
 # ------------------------------------------------------------------------------------------
 # DER ROTE FADEN DIESES LAUFS
 #
-# Lauf 9 ist ein reiner FIX- und SCAN-Lauf. KEINE Coverage-Units.
+# Lauf 10 hat zwei Haelften und einen Nachfueller.
 #
-# Begruendung, direkt aus den Zahlen von Lauf 8: die vier Pakete mit den schlimmsten Bugs
-# haben die HOECHSTE Coverage — notification/preference 87,2 % (UpsertQuietHours schlaegt bei
-# jedem Aufruf fehl), document/virtual 83,1 % (vier Queries auf eine geloeschte Spalte),
-# schichten 79,7 % (Schichttausch hat keinen funktionierenden Pfad), biz/datev 79,3 %
-# (Upload seit zwei Monaten totalausgefallen). Coverage misst keine Korrektheit. Mehr
-# Prozente auf `gateway` wuerden dieselbe Bug-Klasse ERZEUGEN, nicht finden.
+#   BLOCK A (14 Units) — DATENSCHUTZ-MECHANIK. Zahlt direkt auf Gate 3 ein: "eine Auskunfts-
+#     anfrage und eine Loeschanfrage sind vollstaendig ueber die Oberflaeche bedienbar"
+#     (`.planning/launch-lagebild-2026-08-12.md` §6). Das ist die Etappe, die VOR dem ersten
+#     echten personenbezogenen Datensatz fertig sein muss — also bevor ein Kunde etwas
+#     eingibt, nicht danach.
 #
-#   BLOCK A (10 Units) — die verifizierten Produktionsbugs aus Lauf 8, nach Schwere sortiert.
-#     Alle gegen die lokale DB reproduziert, alle im Code mit einem Regression-Pin-Test
-#     festgenagelt, der das KAPUTTE Ist-Verhalten assertiert. Diese Tests werden beim Fix
-#     UMGEDREHT, nicht geloescht.
+#   BLOCK B (25 Units) — GATEWAY-HAERTUNG. `internal/gateway` ist mit 46,1 % das schwaechste
+#     Kernpaket und traegt jede oeffentliche Flaeche. Von 75 `route_*.go` haben 23 keine eigene
+#     Testdatei; die groessten davon sind route_email.go (1.612 Zeilen) und route_settings.go
+#     (1.029). Reihenfolge: Geld- und Compliance-Pfade zuerst, dann datenschutznahe Flaechen,
+#     dann der Rest.
 #
-#   BLOCK B (11 Units) — Muster-Scans. Die zehn Bugs aus Block A teilen vier mechanisch
-#     auffindbare Muster. Jede Scan-Unit sucht ihr Muster repo-weit ab und LEGT JEDEN FUND
-#     ALS NEUE FIX-UNIT AM BACKLOG-ENDE AN (`neue-units:` ist Pflichtzeile). Eine Scan-Unit
-#     ohne Funde ist ein gueltiges Ergebnis — aber nur mit Beleg, WAS geprueft wurde.
-#     Scan-Units aendern selbst KEIN Verhalten ausser dem Anlegen von Units.
+#   BLOCK C (9 Units) — MUSTER-SCANS, am Schluss. Sie referenzieren die in A und B gebauten
+#     Faelle als Vorlage und LEGEN JEDEN FUND ALS NEUE UNIT AM BACKLOG-ENDE AN
+#     (`neue-units:` ist Pflichtzeile). Eine Scan-Unit ohne Funde ist ein gueltiges Ergebnis —
+#     aber nur mit Beleg, WAS geprueft wurde. Scan-Units aendern selbst KEIN Verhalten ausser
+#     dem Anlegen von Units. In Lauf 9 haben 11 Scans 16 Zusatz-Units erzeugt.
 #
-#   BLOCK C — entsteht zur Laufzeit aus den Funden von Block B und fuellt den Rest des
-#     Fensters. Nicht vorab schreiben.
+# ------------------------------------------------------------------------------------------
+# BEFUNDE DER VORBEREITUNG — vor dem Bauen lesen. Zwei davon korrigieren den Entwurf.
+#
+#  1. `contact_tags.contact_id` HAT einen Foreign Key. Der Entwurf behauptete das Gegenteil und
+#     plante dafuer eine eigene Migration. Gegengeprueft an zwei Stellen:
+#     `migrations/000007_create_contacts_companies.up.sql:81` legt `fk_contact_tags_contact`
+#     mit `ON DELETE CASCADE` an, und `\d contact_tags` gegen die lokale DB zeigt ihn als
+#     bestehenden Constraint. Die geplante Unit `fix-contact-tags-missing-foreign-key` ist
+#     ERSATZLOS GESTRICHEN — sie haette eine Migration gegen ein Problem gebaut, das es nicht
+#     gibt. An ihre Stelle tritt C9 (Rest-Personendaten auf den SET-NULL-Tabellen).
+#
+#  2. Die Loeschkaskade an `contacts` ist vollstaendig vermessen (pg_constraint, lokale DB):
+#       CASCADE  (4): contact_custom_field_values, contact_tags, email_contact_links,
+#                     gdpr_deletion_requests
+#       SET NULL (8): activities, consent_records, contacts (Selbstbezug), contract_parties,
+#                     deals, finance_invoices, meetings, tickets
+#       RESTRICT (2): advisory_protocols, dialer_campaign_contacts
+#     Die Zahl 8 aus dem Entwurf stimmt also. `IsInUse`
+#     (`internal/crm/contact/postgres_repository.go:549`) prueft genau die zwei RESTRICT-FKs —
+#     der 409-Pfad und die Anonymisierung vom 19.08. sind gebaut, das ist kein offener Punkt
+#     mehr. Offen ist, was der Benutzer VOR dem Klick sieht (A2) und was auf den acht
+#     SET-NULL-Tabellen an Personendaten liegen bleibt (C9).
+#
+#  3. Die DSAR-Luecke auf der Benutzerseite ist so gross wie beschrieben. `matchUsers`
+#     (`internal/security/gdpr/dsar_search.go:213`) haengt GENAU EIN Modul an: "Benutzerkonto"
+#     mit vier Feldern. Kein Chat, kein Work, kein Kalender, keine Notification — obwohl sieben
+#     Erasure-Handler (audit, auth, calendar, chat, crm, notifications, work) die Tabellen
+#     dafuer kennen. Die Kontaktseite ist deutlich weiter: `SearchByQuery` haengt zehn Module
+#     an (CRM Kontakte, Einwilligungen, Anrufe, Rechnungen, Meetings, Helpdesk-Tickets,
+#     Vertraege, E-Mails, Deals, Aktivitaeten).
+#
+#  4. DATEV/Windows-1252 ist KEIN bestaetigter Bug. `exporter_test.go:409-422` traegt bereits
+#     einen ausfuehrlichen Kommentar, der die Praemisse zurueckweist: `NewStreamWriter` schreibt
+#     eine UTF-8-BOM, `encoding/csv` emittiert nur UTF-8, und im ganzen Paket gibt es keinen
+#     cp1252-Transcoding-Schritt. Deshalb steht hier eine VERIFY-Unit mit hartem Nicht-Fix-
+#     Kriterium (B25), keine Fix-Unit. Blind umkodieren waere eine Regression.
+#
+#  5. Route-Dateien: 75 Quelldateien `route_*.go`, davon 23 ohne eigene Testdatei — nicht 87/29
+#     wie im Statusdokument. Die groessten UNGETESTETEN sind route_email.go (1.612) und
+#     route_settings.go (1.029), nicht die groessten insgesamt (route_video.go 2.379,
+#     route_hr.go 2.300, route_auth.go 1.923 haben Tests).
+#
+#  6. `retention_policies` existiert als Tabelle (tenant_id, resource_type varchar(64),
+#     retention_days, action, enabled, ...) und wird ausschliesslich von
+#     `internal/server/security_grpc.go` bedient — reines CRUD. Es gibt KEINEN Worker, kein
+#     Scheduling und keine Zuordnung resource_type -> Tabelle. `resource_type` ist ein freier
+#     String ohne Enum/Whitelist (`route_security.go:143-147`, nur `validate:"required"`).
+#     Eine Policy anlegen zu koennen, ohne dass irgendetwas sie ausfuehrt, ist die gefaehrlichste
+#     Variante: sie sieht in der Oberflaeche aus wie eine erfuellte Loeschpflicht.
+#
+#  7. GoBD-Grant bestaetigt: `000121_create_app_role.up.sql:49` erteilt kmuhub_app ein
+#     schema-weites `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES` — inklusive der
+#     Belegarchiv-Tabellen aus `000139_gobd_belegarchiv.up.sql`. Ein Grep ueber `internal/`
+#     findet kein einziges `UPDATE gobd`/`DELETE FROM gobd` im Go-Code, ein REVOKE ist also
+#     gefahrlos.
 #
 # ------------------------------------------------------------------------------------------
 # HARTE REGELN FUER DIESEN LAUF
 #
-#   1. Pin-Tests UMDREHEN, nicht loeschen. Jeder Test, der heute das kaputte Verhalten
-#      assertiert, muss nach dem Fix das KORREKTE Verhalten assertieren. Ein geloeschter
-#      Pin-Test ist eine verlorene Regression.
-#   2. Root Cause, nicht Symptom. Vor jedem Fix alle Caller der angefassten Funktion greppen.
+#   1. Root Cause, nicht Symptom. Vor jedem Fix alle Caller der angefassten Funktion greppen.
 #      Sitzt derselbe Bug in einer Schwesterfunktion, gehoert er in dieselbe Unit.
-#   3. Mutations-Probe ist Pflicht: eine Zeile der Fix-Logik brechen, pruefen dass ein Test
+#   2. Mutations-Probe ist Pflicht: eine Zeile der Fix-Logik brechen, pruefen dass ein Test
 #      rot wird, zurueckdrehen, Diff sauber. Ohne Probe ist der Test nicht bewiesen.
-#   4. `go test` ohne `DATABASE_URL` ist KEIN Gate. Die Rolle muss `kmuhub_app` sein —
-#      `kmuhub` hat BYPASSRLS und wuerde jede RLS-Luecke durchwinken.
-#   5. Scan-Units: ein Fund ohne angelegte Unit ist kein Fund. `neue-units:` im Journal muss
+#   3. `go test` ohne `DATABASE_URL` ist KEIN Gate. Die Rolle muss `kmuhub_app` sein —
+#      `kmuhub` hat BYPASSRLS und wuerde jede RLS-Luecke durchwinken. Der Treiber erzwingt das
+#      jetzt beim Start; wer es innerhalb einer Iteration umgeht, betruegt sich selbst.
+#   4. Scan-Units: ein Fund ohne angelegte Unit ist kein Fund. `neue-units:` im Journal muss
 #      die IDs nennen, die wirklich in dieser Datei stehen.
+#   5. Jede neue Tabelle braucht `tenant_id UUID NOT NULL` + RLS-Policy — oder einen Eintrag in
+#      der System-Global-Liste (ADR-006). Kein stiller dritter Weg.
+#   6. Eine Praemisse aus dem Backlog, die sich am Code als falsch erweist, wird NICHT
+#      trotzdem gebaut. Sie wird im Journal widerlegt und die Unit auf `blocked` gesetzt —
+#      siehe Befund 1, der genau so entstanden ist.
 #
 # GESPERRT IN DIESEM LAUF (nicht anfassen, auch nicht "nur schnell"):
 #   - Frontend/Desktop jeder Art. Der Loop hat kein Playwright-Gate.
 #   - CSAT und die uebrigen Public-Token-Routen — stillgelegt, siehe BACKLOG-PARKED.yml
-#     (Projekt "Public Web Surface"). Die neue Reset-Seite ist die EINE Ausnahme und ist
-#     bereits gebaut.
-#   - Coverage-Units jeder Art.
+#     (Projekt "Public Web Surface"). Die Passwort-Reset-Seite ist die EINE Ausnahme und ist
+#     fertig; beim Anfassen von `cmd/gateway/main.go` nicht versehentlich ausbauen.
 #   - Electron-Upgrade / Dependency-Bumps.
 #   - `deploy/` und Migrations-Umnummerierungen.
+#   - Preise, Modul-Zuschnitt, `lib/pricing.ts` — offene Produktentscheidungen.
 # ==========================================================================================
 
 units:
 
 # ==========================================================================================
-# BLOCK A — verifizierte Produktionsbugs aus Lauf 8, nach Schwere sortiert.
-# Reihenfolge ist Absicht: Compliance-Flaechen und Totalausfaelle zuerst.
+# BLOCK A — Datenschutz-Mechanik. Reihenfolge ist Absicht:
+# GoBD-WORM zuerst (unabhaengig, risikoarm, blockiert nichts), dann die Kaskaden-Vorschau,
+# dann die DSAR-Luecken (erst Kontakt-, dann Benutzerseite), Retention-Worker zuletzt —
+# groesstes Stueck und einziger echter deps-Zaun im Backlog.
 # ==========================================================================================
 
-  - id: fix-audit-list-verifychain-ip-address-scan
+  - id: fix-gobd-belegarchiv-worm-enforcement
+    phase: 3
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/gobdarchive 89,9 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Das GoBD-Belegarchiv ist als unveraenderliches Archiv gedacht (Unveraenderbarkeit nach
+      GoBD), aber die Datenbank erzwingt davon nichts.
+      `000121_create_app_role.up.sql:49` erteilt `kmuhub_app` ein schema-weites
+      `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public` — die Tabellen aus
+      `000139_gobd_belegarchiv.up.sql` sind darin enthalten. Jeder Handler, jede kuenftige
+      Query und jede SQL-Injection-Luecke kann damit ein archiviertes Dokument aendern oder
+      loeschen. Die Unveraenderbarkeit existiert heute nur als Absicht im Go-Code.
+    sources:
+      - backend/migrations/000121_create_app_role.up.sql
+      - backend/migrations/000139_gobd_belegarchiv.up.sql
+      - backend/internal/biz/gobdarchive/postgres_repository.go
+      - backend/internal/biz/gobdarchive/service.go
+      - backend/internal/models/gobd.go
+    notes: >
+      REVOKE-only, keine Datenaenderung, kein Verhalten im Go-Code betroffen: ein Grep ueber
+      `internal/` nach "UPDATE gobd" und "DELETE FROM gobd" liefert NULL Treffer (geprueft
+      2026-08-22). Das ist die Begruendung, warum das gefahrlos ist — sie gehoert in den
+      Migrationskopf, nicht nur ins Journal.
+      ZUERST die tatsaechliche Tabellenliste aus 000139 ziehen, nicht raten; das Archiv besteht
+      aus mehreren Tabellen und mindestens eine davon kann eine Verknuepfungstabelle sein, bei
+      der DELETE legitim ist. Pro Tabelle entscheiden und begruenden.
+      Die default privileges aus 000121 Abschnitt 4 muessen mitbedacht werden, sonst holt sich
+      eine kuenftige Migration das Recht still zurueck.
+      Kein REVOKE gegen die Rolle `kmuhub` — Migrationen laufen unter ihr und muessen das
+      Archiv weiterhin strukturell aendern koennen.
+    done_when:
+      - Migration entzieht kmuhub_app UPDATE und DELETE auf den Belegarchiv-Tabellen, mit
+        Begruendung je Tabelle im Migrationskopf
+      - Ein Test schreibt als kmuhub_app in eine Archivtabelle und erwartet den Rechtefehler;
+        SELECT und INSERT bleiben nachweislich moeglich
+      - Der bestehende Archivierungspfad (Service + Repository) laeuft unveraendert gruen
+      - down-Migration stellt die Rechte wieder her
+      - go test -count=1 ./internal/biz/gobdarchive/... gruen, DATABASE_URL gegen kmuhub_app
+
+  - id: feat-contact-deletion-cascade-impact-preview
+    phase: 3
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/crm/contact 80,4 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Wer heute einen Kontakt loescht, erfaehrt vorher nur, OB die Loeschung blockiert ist
+      (`IsInUse` prueft die zwei RESTRICT-FKs und fuehrt zu 409 mit Anonymisierungsangebot).
+      Was die Loeschung ANRICHTET, wenn sie durchgeht, sagt ihm niemand: vier Tabellen
+      kaskadieren mit, acht setzen ihre Referenz auf NULL. Konkret verliert eine Rechnung ihren
+      Kontaktbezug, ein Ticket seinen Melder, ein Deal seinen Ansprechpartner — lautlos und
+      unwiderruflich. Diese Unit liefert die Zahlen VOR dem Klick.
+    sources:
+      - backend/internal/crm/contact/postgres_repository.go
+      - backend/internal/crm/contact/service.go
+      - backend/internal/crm/contact/repository.go
+      - backend/internal/gateway/route_crm_ext.go
+      - backend/api/openapi.yaml
+    notes: >
+      Die Kaskadenlage ist vollstaendig vermessen (2026-08-22, pg_constraint gegen die lokale
+      DB) und steht in Befund 2 des Kopfes: 4 CASCADE, 8 SET NULL, 2 RESTRICT. Diese Liste ist
+      die Vorlage — aber NICHT hartcodieren. Sie zur Laufzeit aus `pg_constraint` zu lesen ist
+      dieselbe Menge Code und bleibt korrekt, wenn eine spaetere Migration einen FK hinzufuegt;
+      eine hartcodierte Liste ist ab dem naechsten ALTER TABLE eine Luege in der Oberflaeche.
+      `IsInUse` ist die Vorlage fuer die Query-Form und liegt in derselben Datei
+      (postgres_repository.go:549). Nicht duplizieren, sondern die gemeinsame Mechanik ziehen.
+      Reine Lesefunktion — sie darf unter keinen Umstaenden etwas veraendern.
+      Das Frontend dazu ist in diesem Lauf GESPERRT (kein Playwright-Gate). Diese Unit liefert
+      Repository, Service und Route inklusive OpenAPI-Eintrag, nicht mehr.
+    done_when:
+      - Repository liefert je referenzierender Tabelle Regel (cascade/set null/restrict) und
+        betroffene Zeilenzahl fuer einen Kontakt, aus pg_constraint ermittelt
+      - Service verdichtet das zu einer Vorschau; RESTRICT-Treffer bleiben mit IsInUse konsistent
+      - GET-Route unter der bestehenden Kontakt-Berechtigung, in openapi.yaml dokumentiert
+      - Tenant-Isolation getestet, die Vorschau eines fremden Kontakts liefert 404 statt 200 mit 0
+      - go test -count=1 ./internal/crm/... ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: feat-dsar-search-contact-custom-fields-and-tags
     phase: 3
     service: security
     model: sonnet
     deps: []
-    status: done
-    coverage_start: "internal/security/audit 66,1 % (CI-Stand 8c224eba, Run 31471247645)"
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
-      `audit.PostgresRepository.List` (backend/internal/security/audit/postgres_repository.go,
-      SELECT um Zeile 170) und `.VerifyChain` (SELECT um Zeile 224) selektieren die Spalte
-      `ip_address` roh und scannen sie in `models.AuditEntry.IPAddress` (Typ `string`, kein
-      Pointer). `ip_address` ist eine nullable INET-Spalte; pgx v5 kann weder ein NULL-INET
-      noch ein gesetztes INET in einen Go-`string` scannen. Damit schlaegt JEDER Aufruf von
-      `List()` oder `VerifyChain()` fehl, der mindestens eine Zeile liefert -- unabhaengig
-      davon, ob die Zeile eine echte IP traegt oder nicht.
+      Die Art.-15-Auskunft fuer einen Kontakt haengt zehn Module an (`SearchByQuery`,
+      dsar_search.go:59). Zwei Datentoepfe fehlen, die genau dort liegen, wo ein Kunde seine
+      eigenen Felder anlegt: `contact_custom_field_values` und `contact_tags`. Beide
+      kaskadieren beim Loeschen mit — die Auskunft weiss also von Daten nichts, die die
+      Loeschung sehr wohl entfernt. Das ist die schlechteste Kombination: Auskunft
+      unvollstaendig, Loeschung vollstaendig.
     sources:
-      - backend/internal/security/audit/postgres_repository.go
-      - backend/internal/security/audit/service.go
-      - backend/internal/auth/postgres_repository.go
-      - backend/internal/security/audit/postgres_repository_test.go
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/crm/customfield/postgres_repository.go
+      - backend/internal/crm/tag/postgres_repository.go
+      - backend/internal/security/gdpr/dsar_search_test.go
     notes: >
-      Gefunden UND gegen die lokale Postgres reproduziert beim Bau der Coverage-Unit
-      c-cov-gdpr-dsar-search (Lauf 8, Iteration 40): "cannot scan NULL into *string" bzw.
-      "cannot scan inet (OID 869) in binary format into *string".
-      WIRKUNG: der Audit-Log-Viewer, der CSV/JSON-Export (`Service.ExportEntries`,
-      service.go:125, ruft intern `repo.List`) und die `VerifyAuditChain`-RPC sind damit fuer
-      JEDEN Tenant mit realer Aktivitaet funktionsunfaehig. Das ist eine Compliance-Flaeche.
-      Der Fix ist eine Ein-Zeilen-Aenderung pro Query (SELECT-Spalte casten). DREI Stellen im
-      selben Repo loesen exakt dasselbe Problem bereits korrekt und sind die Vorlage:
-      `internal/auth/postgres_repository.go` (Zeilen 1574/1586/1614) mit
-      `COALESCE(host(ip_address), '')`, `internal/crm/consent/postgres_repository.go` und
-      `internal/formulare/postgres_repository.go` mit `ip_address::text`.
-      Der Pin-Test `TestPostgresRepository_List_IPAddressScanBug`
-      (postgres_repository_test.go:102) erwartet den Scan-Fehler AKTUELL explizit und
-      dokumentiert im Kommentar, dass er beim Fixen ersetzt wird -- umstellen, nicht loeschen.
-      Iteration 40 musste die eigentlich geplante Filter-/Pagination-/Chain-Abdeckung wegen
-      dieses Bugs weglassen; sie gehoert mit in diese Unit, sobald der Scan funktioniert.
+      Vorlage ist `consentModule` (dsar_search.go:264) — dieselbe Form: Query, nil bei leerem
+      Ergebnis, `DSARModule` mit `Columns` und `Records`. Nicht neu erfinden, kopieren und
+      anpassen. Wer nil zurueckgibt, erzeugt in der Oberflaeche kein leeres Modul; das ist
+      Absicht und muss so bleiben.
+      Custom Fields brauchen den Feld-NAMEN, nicht die Feld-ID — sonst steht in der Auskunft
+      eine UUID, wo der Kunde "Kundennummer" erwartet. Das heisst Join auf die Definitionstabelle.
+      Tenant-Filter nicht vergessen: `consentModule` bekommt nur die contactID, die anderen
+      Module bekommen zusaetzlich die tenantID. Fuer beide neuen Module gilt die strengere
+      Variante, auch wenn RLS ohnehin greift.
     done_when:
-      - List und VerifyChain casten ip_address in der SELECT-Liste nach dem Muster der drei
-        bestehenden korrekten Stellen (COALESCE(host(...), '') oder ::text)
-      - TestPostgresRepository_List_IPAddressScanBug ist auf das KORREKTE Verhalten umgestellt
-        statt geloescht, inkl. der beiden Faelle NULL-IP und gesetzte IP
-      - Die in Iteration 40 zurueckgestellten Assertions (Filter, Pagination, Chain-Verifikation)
-        sind nachgezogen
-      - go test -count=1 ./internal/security/... gruen, DATABASE_URL gegen kmuhub_app gesetzt
+      - Zwei neue Module haengen an einem gematchten Kontakt, Custom Fields mit Klarnamen
+      - Leere Ergebnisse erzeugen kein leeres Modul (nil), wie bei den bestehenden neun
+      - DB-Test mit geseedetem Kontakt inkl. Feldwert und Tag belegt beide Module
+      - Ein Kontakt eines fremden Tenants taucht in keinem der beiden Module auf
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
 
-  - id: fix-datev-upload-repo-missing-tenant-id
+  - id: feat-dsar-search-contact-form-submissions
     phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Formulareinreichungen sind der einzige Weg, auf dem eine Person Daten ueber sich selbst
+      ins System schreibt, ohne dass ein Mitarbeiter sie eintippt — Kontaktformular,
+      Selfservice-Ticket, Intake. Genau diese Daten fehlen in der Auskunft vollstaendig. Die
+      Verknuepfung laeuft nicht ueber `contact_id`, sondern ueber die eingetragene E-Mail;
+      deshalb ist das eine eigene Unit und kein Anhaengsel an A3.
+    sources:
+      - backend/internal/formulare/postgres_repository.go
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/models/formulare.go
+    notes: >
+      ZUERST das Schema pruefen, nicht die Annahme uebernehmen: der Entwurf ging von einer
+      Spalte `submitted_by` mit der Kontakt-E-Mail aus. Ob die Einreichung die E-Mail in einer
+      eigenen Spalte oder im JSON-Payload traegt, entscheidet die Query-Form komplett. Steht
+      sie nur im Payload, ist ein Match ueber JSON-Feldwerte noetig — dann in den notes
+      dokumentieren, dass die Zuordnung heuristisch ist, statt sie als sicher auszugeben.
+      Der Payload kann beliebige Felder enthalten, auch Freitext mit weiteren Personendaten.
+      In der Auskunft gehoert er vollstaendig hinein — eine Auskunft, die den eingegebenen
+      Text weglaesst, ist keine.
+      Achtung Tenant: Formulare koennen oeffentlich erreichbar sein. Der Tenant-Filter ist hier
+      Pflicht und muss getestet werden, nicht mitgedacht.
+    done_when:
+      - Modul "Formulareinreichungen" haengt an einem gematchten Kontakt, mit Datum, Formularname
+        und den eingereichten Feldwerten
+      - Die Zuordnungsregel (Spalte oder Payload-Feld) ist im Code kommentiert und im Journal
+        benannt, inklusive ihrer Unschaerfe
+      - DB-Test mit geseedeter Einreichung belegt den Treffer und den Nicht-Treffer bei fremder
+        E-Mail
+      - Tenant-Isolation getestet
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-dsar-search-contact-documents
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Zu einem Kontakt hochgeladene Dokumente (Vertragskopien, Ausweise, Korrespondenz) tauchen
+      in der Auskunft nicht auf. Die Verknuepfung existiert bereits als Tabelle
+      (`document_entity_links`), sie wird von der DSAR-Suche nur nicht gelesen.
+    sources:
+      - backend/internal/document/file/postgres_repository.go
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/gateway/route_crm_contact_files.go
+    notes: >
+      NUR METADATEN: Dateiname, Typ, Groesse, Hochladedatum. Kein Inhalt, kein Download-Link,
+      keine Signed URL. Eine Auskunftsantwort ist ein Export, der per Definition das Haus
+      verlaesst — ein Link darin waere ein Zugriffsweg auf den Dokumentenspeicher, der die
+      Berechtigungspruefung umgeht.
+      Struktur von `document_entity_links` zuerst lesen: entity_type/entity_id-Muster heisst,
+      dass der Filter auf den richtigen entity_type-Wert fuer Kontakte gehen muss. Den Wert aus
+      dem Code ziehen, nicht raten.
+      Geloeschte oder in den Papierkorb verschobene Dokumente gehoeren NICHT in die Auskunft,
+      wenn sie fuer den Kunden nicht mehr existieren — aber die Entscheidung begruenden, nicht
+      stillschweigend filtern.
+    done_when:
+      - Modul "Dokumente" haengt an einem gematchten Kontakt, ausschliesslich mit Metadaten
+      - Kein Pfad, keine URL und kein Inhalt im Export, per Test belegt
+      - Der entity_type-Wert stammt aus dem Code, nicht aus einer Annahme
+      - DB-Test mit geseedeter Verknuepfung, inklusive Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-dsar-search-contact-helpdesk-messages
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `helpdeskModule` (dsar_search.go:419) liefert die TICKETS eines Kontakts — Betreff,
+      Status, Prioritaet, Datum. Die Nachrichten darin fehlen, und die sind der eigentliche
+      personenbezogene Inhalt: was die Person geschrieben hat und was ihr geantwortet wurde.
+    sources:
+      - backend/internal/helpdesk/repository.go
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/models/helpdesk.go
+    notes: >
+      INTERNE NOTIZEN AUSSCHLIESSEN. Interne Kommentare am Ticket sind Arbeitsmaterial des
+      Bearbeiters und in einer Art.-15-Auskunft heikel — sie enthalten regelmaessig Aussagen
+      ueber die betroffene Person, die andere Mitarbeiter geschrieben haben. Das Flag im Code
+      zuerst suchen (Kandidat: `internal`), seinen tatsaechlichen Namen verwenden und den
+      Ausschluss mit einem eigenen Test festnageln, der eine interne Nachricht seedet und
+      beweist, dass sie NICHT im Export steht. Dieser Test ist der Kern der Unit, nicht der
+      Happy Path.
+      Reihenfolge chronologisch, sonst ist der Verlauf unlesbar.
+      Wenn die Nachrichtenmenge gross werden kann, ein Limit setzen — und das Limit im Export
+      sichtbar machen ("gekuerzt"), statt still abzuschneiden.
+    done_when:
+      - Modul "Helpdesk-Nachrichten" haengt an einem gematchten Kontakt, chronologisch
+      - Ein Test seedet eine interne Nachricht und belegt, dass sie fehlt
+      - Ein Test seedet eine Kundennachricht und belegt, dass sie da ist
+      - Eine etwaige Kuerzung ist im Export als solche erkennbar
+      - go test -count=1 ./internal/security/gdpr/... ./internal/helpdesk/... gruen
+
+  - id: feat-dsar-search-user-chat-module
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `matchUsers` (dsar_search.go:213) haengt genau ein Modul an: "Benutzerkonto" mit Name,
+      E-Mail, Aktiv, Erstellt. Fuer einen per Name oder E-Mail gematchten BENUTZER liefert die
+      Auskunft also nichts aus dem Chat — obwohl der `ChatErasureHandler`
+      (erasure.go:253) die Tabellen kennt und sie im Loeschfall auch anfasst. Auskunft und
+      Loeschung sind hier unterschiedlicher Meinung darueber, welche Daten existieren.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/chat/postgres_repository.go
+    notes: >
+      Der `ChatErasureHandler` ist die Quelle der Wahrheit fuer die Tabellenliste — was er
+      loescht oder anonymisiert, muss die Auskunft nennen. Seine `PreviewErasure` zaehlt
+      bereits genau diese Zeilen; die Query-Form ist damit vorhanden und muss nicht erfunden
+      werden. Wenn sich die beiden Listen unterscheiden, ist das ein Befund fuer C2 und gehoert
+      ins Journal.
+      Nachrichteninhalte gehoeren hinein. Ein Chat-Export ohne Text ist eine Statistik, keine
+      Auskunft. Aber: Nachrichten in Raeumen mit anderen Teilnehmern enthalten Daten Dritter —
+      nur die Nachrichten der betroffenen Person exportieren, nicht den ganzen Raum.
+      Diese Unit ist die Vorlage fuer A8 und A9. Ihre Struktur sauber halten, sie wird zweimal
+      kopiert.
+    done_when:
+      - Ein oder mehrere Chat-Module haengen an einem gematchten Benutzer
+      - Exportiert werden nur Nachrichten der betroffenen Person, per Test gegen einen Raum mit
+        zwei Teilnehmern belegt
+      - Die Tabellenliste deckt sich mit der des ChatErasureHandler; Abweichungen sind im
+        Journal benannt
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-dsar-search-user-work-module
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Gleiche Luecke wie A7, andere Flaeche: fuer einen gematchten Benutzer liefert die
+      Auskunft nichts aus dem Work-Modul — Aufgaben, Kommentare, Zeiteintraege, Projekte,
+      Reaktionen. Der `WorkErasureHandler` (erasure.go:334) kennt die Tabellen.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/work/task/postgres_repository.go
+      - backend/internal/work/timeentry/postgres_repository.go
+    notes: >
+      A7 ist die Vorlage. Wenn dabei dieselbe Schleife ein drittes Mal entsteht, gehoert sie in
+      eine gemeinsame Hilfsfunktion — der Loop hat in frueheren Laeufen mehrfach dieselbe
+      Modulform kopiert, bis sie sechsmal dastand.
+      Zeiteintraege sind arbeitsrechtlich relevant und koennen der Aufbewahrungspflicht
+      unterliegen; das aendert nichts an der Auskunftspflicht. Sie gehoeren in die Auskunft,
+      auch wenn sie nicht geloescht werden duerfen. Falls die Menge gross wird, aggregieren
+      statt weglassen (z. B. pro Monat), und die Aggregation kenntlich machen.
+      Aufgaben, die die Person nur zugewiesen bekommen hat, sind ebenfalls personenbezogen —
+      nicht nur die selbst erstellten. Beide Richtungen abdecken.
+    done_when:
+      - Work-Module haengen an einem gematchten Benutzer, erstellte UND zugewiesene Datensaetze
+      - Die Tabellenliste deckt sich mit der des WorkErasureHandler
+      - Etwaige Aggregation ist im Export als solche erkennbar
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... ./internal/work/... gruen
+
+  - id: feat-dsar-search-user-calendar-notification-modules
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Letzte der drei Benutzerluecken: Kalender und Notification. Termine, Teilnahmen,
+      Abwesenheiten auf der einen Seite; Benachrichtigungseinstellungen, Ruhezeiten und
+      zugestellte Benachrichtigungen auf der anderen. `CalendarErasureHandler`
+      (erasure.go:432) und der Notifications-Handler kennen beide Flaechen.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/work/calendar/postgres_repository.go
+      - backend/internal/notification/preference/postgres_repository.go
+    notes: >
+      Zwei Module in einer Unit, weil beide klein sind und dieselbe Vorlage aus A7 nutzen.
+      Wird eins davon unerwartet gross, in zwei Units teilen und die zweite ans Backlog-Ende
+      haengen — das ist ausdruecklich erlaubt und besser als eine Unit, die das Zeitfenster
+      sprengt.
+      Kalendertermine mit mehreren Teilnehmern sind wie Chat-Raeume zu behandeln: die Teilnahme
+      der betroffenen Person exportieren, nicht die Teilnehmerliste der anderen.
+      Benachrichtigungseinstellungen sind keine spannenden Daten, aber sie sind personenbezogen
+      und stehen in `notification/preference` — die Vollstaendigkeit der Auskunft ist der Punkt,
+      nicht die Interessantheit.
+    done_when:
+      - Kalender- und Notification-Module haengen an einem gematchten Benutzer
+      - Bei Terminen mit mehreren Teilnehmern erscheinen keine Daten Dritter, per Test belegt
+      - Beide Tabellenlisten decken sich mit den zugehoerigen Erasure-Handlern
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-retention-worker-schema-and-engine
+    phase: 3
+    service: security
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `retention_policies` existiert als Tabelle und laesst sich ueber die Oberflaeche pflegen
+      (`internal/server/security_grpc.go`, `route_security.go`). Ausgefuehrt wird sie von
+      NIEMANDEM. Es gibt keinen Worker, kein Scheduling und keine Zuordnung von
+      `resource_type` auf eine Tabelle. Eine angelegte Policy sieht damit aus wie eine
+      erfuellte Loeschpflicht und ist keine — die gefaehrlichste Form eines fehlenden Features,
+      weil sie im Audit als vorhanden durchgeht. Diese Unit baut Schema und Motor, nicht die
+      Handler.
+    sources:
+      - backend/internal/server/security_grpc.go
+      - backend/internal/gateway/route_security.go
+      - backend/internal/models/security.go
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      DRY-RUN IST DER DEFAULT. Ein Worker, der beim ersten Start scharf loescht, ist bei einem
+      Zuordnungsfehler nicht zurueckzuholen. Der erste Modus zaehlt nur und schreibt das
+      Ergebnis fort; scharf schalten ist eine bewusste, dokumentierte Einstellung. Das ist
+      keine Vorsichtsgeste, sondern die einzige Reihenfolge, in der man einer Loeschmechanik
+      trauen kann.
+      Die Zuordnung resource_type -> Tabelle gehoert in eine EXPLIZITE Registry im Go-Code, mit
+      der Datumsspalte je Eintrag. `resource_type` ist ein freier String (Befund 6): ein
+      unbekannter Wert darf NICHT raten und nicht stillschweigend nichts tun, sondern muss als
+      "nicht zugeordnet" sichtbar werden. Sonst legt jemand eine Policy fuer "kontakte" an,
+      waehrend die Registry "contacts" kennt, und niemand merkt es.
+      `action` kennt bereits delete und anonymize (Check-Constraint, `route_security.go:146`).
+      Die Erasure-Handler in `erasure.go` haben fuer Anonymisierung eine funktionierende
+      Mechanik inklusive Label — die wiederverwenden, nicht daneben eine zweite bauen.
+      Neue Tabelle fuer Laufprotokolle: `tenant_id UUID NOT NULL` + RLS-Policy, wie jede andere.
+      Ein Lauf muss idempotent sein: zweimal hintereinander ausgefuehrt darf beim zweiten Mal
+      nichts mehr passieren. C8 prueft genau das.
+    done_when:
+      - Migration legt die Protokolltabelle mit tenant_id und RLS-Policy an, down entfernt sie
+      - Registry resource_type -> Tabelle + Datumsspalte liegt explizit im Code; unbekannte Werte
+        erscheinen als "nicht zugeordnet" statt still zu verpuffen
+      - Motor arbeitet im Dry-Run-Default, scharfes Ausfuehren ist eine explizite Einstellung
+      - Anonymisierung nutzt die bestehende Mechanik aus erasure.go, keine zweite Implementierung
+      - Ein Test belegt: zweiter Lauf direkt nach dem ersten aendert nichts
+      - go test -count=1 ./internal/security/... gruen, DATABASE_URL gegen kmuhub_app
+
+  - id: feat-retention-worker-handler-contacts
+    phase: 3
+    service: crm
+    model: sonnet
+    deps: [feat-retention-worker-schema-and-engine]
+    status: todo
+    coverage_start: "internal/crm/contact 80,4 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Erster echter Handler am Motor aus A10: Kontakte. Er ist der schwierigste von allen und
+      steht deshalb zuerst — was hier nicht geht, geht bei den anderen auch nicht.
+      Ein Kontakt laesst sich haeufig gar nicht loeschen: zwei RESTRICT-FKs
+      (advisory_protocols, dialer_campaign_contacts) blockieren, acht Tabellen setzen ihre
+      Referenz auf NULL.
+    sources:
+      - backend/internal/crm/contact/postgres_repository.go
+      - backend/internal/crm/contact/service.go
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      `IsInUse` (postgres_repository.go:549) ist die vorhandene Antwort auf die RESTRICT-Frage
+      und muss der Handler benutzen, nicht nachbauen. Blockierte Kontakte gehoeren protokolliert
+      und uebersprungen — ein Retention-Lauf, der an einem Kontakt haengen bleibt und abbricht,
+      loescht die restlichen nie.
+      Fuer blockierte Kontakte ist ANONYMIZE die richtige Aktion, nicht Fehlschlag: die
+      Anonymisierung vom 19.08. ist genau dafuer gebaut. Ob der Handler das selbst entscheidet
+      oder nur meldet, haengt an der `action` der Policy — nicht eigenmaechtig eskalieren.
+      Die Datumsgrundlage explizit waehlen und begruenden: `created_at` und "letzte Aktivitaet"
+      sind zwei verschiedene Aufbewahrungsfristen. Eine Frist auf das Erstelldatum loescht
+      aktive Kunden.
+    done_when:
+      - Handler haengt an der Registry aus A10 und arbeitet im Dry-Run wie im scharfen Modus
+      - RESTRICT-Faelle werden ueber IsInUse erkannt, protokolliert und uebersprungen statt zu
+        werfen
+      - Die gewaehlte Datumsspalte ist im Code kommentiert und begruendet
+      - DB-Test mit einem loeschbaren und einem blockierten Kontakt belegt beide Pfade
+      - go test -count=1 ./internal/crm/... ./internal/security/... gruen
+
+  - id: feat-retention-worker-handler-dialer-chat
+    phase: 3
+    service: security
+    model: sonnet
+    deps: [feat-retention-worker-schema-and-engine]
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Zwei Handler mit kurzen, klaren Fristen: Anrufprotokolle des Dialers und
+      Chat-Nachrichten. Beides sind Flaechen, in denen sich Personendaten ohne aktives Zutun
+      ansammeln — genau der Fall, fuer den Aufbewahrungsfristen gedacht sind.
+    sources:
+      - backend/internal/dialer/postgres_repository.go
+      - backend/internal/chat/postgres_repository.go
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      Anrufaufzeichnungen (falls vorhanden) liegen nicht nur in der Datenbank, sondern auch im
+      Objektspeicher. Ein Handler, der die Zeile loescht und die Datei liegen laesst, hat die
+      Loeschpflicht NICHT erfuellt und erzeugt zusaetzlich eine Waise, die niemand mehr
+      zuordnen kann. Erst pruefen, ob dieser Fall hier existiert — wenn ja, gehoert er
+      abgedeckt oder ausdruecklich als eigene Unit ans Backlog-Ende.
+      Chat: eine Nachricht in einem Raum zu loeschen, zerreisst den Gespraechsverlauf fuer die
+      anderen Teilnehmer. Anonymisieren ist hier meist richtiger als loeschen — die Entscheidung
+      trifft die `action` der Policy, nicht der Handler.
+      Der ChatErasureHandler macht das bereits fuer den Benutzerfall. Wiederverwenden.
+    done_when:
+      - Beide Handler haengen an der Registry und respektieren Dry-Run
+      - Der Fall "Datei im Objektspeicher" ist geprueft und entweder abgedeckt oder als eigene
+        Unit angelegt, mit Begruendung im Journal
+      - DB-Tests belegen beide Handler, inklusive Tenant-Isolation
+      - go test -count=1 ./internal/security/... ./internal/chat/... gruen
+
+  - id: feat-retention-worker-handler-helpdesk-formulare
+    phase: 3
+    service: security
+    model: sonnet
+    deps: [feat-retention-worker-schema-and-engine]
+    status: todo
+    coverage_start: "internal/helpdesk 81,5 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Dritter Handler-Satz: geschlossene Helpdesk-Tickets samt Nachrichten und
+      Formulareinreichungen. Beide sammeln Freitext von Personen, der nach Abschluss des
+      Vorgangs keinen Zweck mehr erfuellt.
+    sources:
+      - backend/internal/helpdesk/repository.go
+      - backend/internal/formulare/postgres_repository.go
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      Frist ab SCHLIESSUNG, nicht ab Erstellung — ein zwei Jahre altes, noch offenes Ticket
+      darf nicht verschwinden. Die passende Spalte im Schema suchen; existiert sie nicht, ist
+      das ein Befund und die Unit wird `blocked`, statt auf `created_at` auszuweichen.
+      Nachrichten haengen an Tickets. Ob die Loeschung des Tickets sie mitnimmt, ist eine
+      FK-Frage — nachsehen (`pg_constraint`), nicht annehmen. Bleiben sie liegen, ist die
+      Loeschung unvollstaendig und der Handler muss sie selbst mitnehmen.
+      Formulareinreichungen koennen ohne Kontaktbezug existieren (oeffentliches Formular). Auch
+      die unterliegen der Frist — der Handler darf nicht nur die verknuepften erwischen.
+    done_when:
+      - Beide Handler haengen an der Registry und respektieren Dry-Run
+      - Die Frist rechnet ab Schliessung; fehlt die Spalte, ist die Unit blocked mit Begruendung
+      - Ob Nachrichten mitkaskadieren, ist an pg_constraint geprueft und im Code kommentiert
+      - Einreichungen ohne Kontaktbezug werden ebenfalls erfasst, per Test belegt
+      - go test -count=1 ./internal/helpdesk/... ./internal/security/... gruen
+
+  - id: feat-retention-worker-scheduling-and-admin-visibility
+    phase: 3
+    service: security
+    model: sonnet
+    deps: [feat-retention-worker-schema-and-engine]
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Der Motor aus A10 braucht einen Ausloeser und eine Sicht. Ohne Scheduling laeuft er nie,
+      ohne Sichtbarkeit weiss niemand, ob er lief, was er tat und was er uebersprang. Beides
+      zusammen ist der Unterschied zwischen einer Loeschmechanik und einem Skript, das
+      irgendwo liegt.
+    sources:
+      - backend/internal/gateway/route_security.go
+      - backend/internal/server/security_grpc.go
+      - backend/api/openapi.yaml
+      - backend/cmd/gateway/main.go
+    notes: >
+      Fuer das Scheduling zuerst pruefen, was es schon gibt: die Datenbank hat `pg_cron`
+      (Compose-Kommando `shared_preload_libraries=pg_cron`, `cron.database_name=kmuhub`), und
+      im Go-Code laufen bereits periodische Aufgaben — etwa das Idempotency-Cleanup mit
+      Advisory Lock. Eine dieser beiden Mechaniken uebernehmen. Kein dritter Scheduler.
+      Bei mehreren Gateway-Instanzen darf der Lauf nicht mehrfach starten. `CleanupWithLock`
+      (`internal/idempotency/postgres_repository.go:188`) ist die vorhandene Antwort auf genau
+      diese Frage und die Vorlage.
+      Sichtbarkeit heisst: letzter Lauf, Ergebnis je Policy, uebersprungene Datensaetze mit
+      Grund. Eine Zahl ohne Gruende beantwortet die einzige Frage nicht, die im Ernstfall
+      gestellt wird.
+      Route in `openapi.yaml` eintragen, sonst ist `TestOpenAPIRouteDrift` rot.
+    done_when:
+      - Der Lauf wird periodisch ausgeloest, ueber pg_cron oder die vorhandene Go-Mechanik,
+        mit Sperre gegen Mehrfachstart
+      - Admin-Route liefert letzten Lauf, Ergebnis je Policy und uebersprungene Datensaetze mit
+        Grund; in openapi.yaml dokumentiert und unter der bestehenden Security-Berechtigung
+      - Ein Test belegt, dass zwei gleichzeitige Laeufe nicht doppelt arbeiten
+      - go test -count=1 ./internal/gateway/ ./internal/security/... gruen, DATABASE_URL gesetzt
+
+# ==========================================================================================
+# BLOCK B — Gateway-Haertung. `internal/gateway` liegt bei 46,1 % und ist das schwaechste
+# Kernpaket. 23 der 75 `route_*.go` haben keine eigene Testdatei; diese Units decken 22 davon
+# ab (route_health.go bleibt aus — es haengt am Smoke-Test).
+#
+# FUER JEDE UNIT IN DIESEM BLOCK GILT:
+#   - Vorlage ist eine BESTEHENDE route_*_test.go, nicht ein neu erfundener Aufbau.
+#     `route_bexio_test.go` ist die ausfuehrlichste fuer Integrationsrouten.
+#   - Coverage ist NICHT das Ziel, sondern das Nebenprodukt. Lauf 8 hat gezeigt, dass die
+#     Pakete mit der hoechsten Abdeckung die schlimmsten Bugs trugen. Wer beim Testen einen
+#     Bug findet, legt eine Fix-Unit ans Backlog-Ende an, statt den Test um ihn herum zu bauen.
+#   - Vier Fragen gehoeren in JEDE Unit, unabhaengig vom Thema: Was passiert ohne Berechtigung?
+#     Was passiert mit der ID eines fremden Tenants? Was steht in der Fehlerantwort (siehe C5)?
+#     Ist die Route in `openapi.yaml` dokumentiert?
+#   - `go test ./internal/gateway/` ist Pflicht, dort liegt TestOpenAPIRouteDrift.
+# ==========================================================================================
+
+  - id: cov-gateway-biz-gobd-archive
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `route_biz_gobd_archive.go` (260 Zeilen, 7 Funktionen) hat keine eigene Testdatei. Das
+      Belegarchiv ist eine Aufbewahrungsflaeche mit gesetzlicher Bindung — hier gehoert die
+      Berechtigungsgrenze getestet, nicht nur der Happy Path.
+    sources:
+      - backend/internal/gateway/route_biz_gobd_archive.go
+      - backend/internal/biz/gobdarchive/service.go
+      - backend/internal/gateway/route_bexio_test.go
+    notes: >
+      Verzahnt mit A1 (WORM-REVOKE). Wenn A1 zuerst laeuft, muss diese Unit belegen, dass ein
+      Aenderungsversuch ueber die Route sauber scheitert und nicht als 500 mit SQL-Text
+      herauskommt.
+      Archivierung ist ein Schreibvorgang mit Datei — Multipart, Groessengrenze und MIME-Pruefung
+      sind die Fehlerpfade, die zaehlen.
+    done_when:
+      - Testdatei deckt alle 7 Funktionen ab, Erfolgs- und Fehlerpfad
+      - Fehlende Berechtigung liefert 403, fremder Tenant 404
+      - Kein SQL-Text und kein Dateipfad in Fehlerantworten
+      - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: cov-gateway-biz-einvoice
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `route_biz_einvoice.go` (203 Zeilen, 5 Funktionen) ohne eigene Testdatei. E-Rechnung ist
+      eine Formatgrenze nach aussen: was hier durchgeht, landet beim Empfaenger und wird von
+      dessen Validator beurteilt.
+    sources:
+      - backend/internal/gateway/route_biz_einvoice.go
+      - backend/internal/biz/einvoice/
+      - backend/internal/gateway/route_bexio_test.go
+    notes: >
+      Die MIME-Pruefung gehoert isoliert getestet, nicht nur ueber die Route: ein XML mit
+      falschem Content-Type, ein PDF mit XML-Endung, ein leerer Body. Genau diese Faelle
+      entscheiden, ob eine kaputte Rechnung rausgeht.
+      Kein Schematron erfinden — die Feldpruefung ist bewusst der Umfang (Streichliste im
+      Lagebild §7).
+    done_when:
+      - Testdatei deckt alle 5 Funktionen ab
+      - Die MIME-Erkennung ist isoliert getestet, inkl. Grenzfaellen
+      - Berechtigungs- und Tenant-Grenze belegt
+      - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: cov-gateway-biz-quotes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/biz/quote 33,3 % (Run 32508843776)"
+    scope: >
+      `route_biz_quotes.go` (385 Zeilen, 11 Funktionen) ohne Testdatei, und das dahinterliegende
+      Paket `internal/biz/quote` ist mit 33,3 % eines der schwaechsten im Backend. Angebote
+      haben Statusuebergaenge (Entwurf, versendet, angenommen, abgelehnt, abgelaufen) — die
+      falsche Reihenfolge zuzulassen ist hier ein Geldfehler.
+    sources:
+      - backend/internal/gateway/route_biz_quotes.go
+      - backend/internal/biz/quote/
+      - backend/internal/gateway/route_bexio_test.go
+    notes: >
+      Die Statusuebergaenge sind der Kern dieser Unit. Ein angenommenes Angebot zurueck auf
+      Entwurf zu setzen oder ein abgelehntes anzunehmen muss abgelehnt werden — und zwar mit
+      409, nicht mit 500.
+      Betragsfelder: Rundung und Waehrung gehoeren geprueft. `internal/biz/tax` liegt bei 100 %
+      und ist die Vorlage dafuer, wie so etwas getestet aussieht.
+    done_when:
+      - Testdatei deckt alle 11 Funktionen ab
+      - Jeder unerlaubte Statusuebergang ist einzeln getestet und liefert 409
+      - Berechtigungs- und Tenant-Grenze belegt
+      - go test -count=1 ./internal/gateway/ ./internal/biz/quote/ gruen
+
+  - id: cov-gateway-biz-recurring-invoices
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/biz/recurring 88,1 % (Run 32508843776)"
+    scope: >
+      `route_biz_recurring.go` (274 Zeilen, 9 Funktionen) ohne Testdatei. Wiederkehrende
+      Rechnungen erzeugen Geld ohne menschlichen Ausloeser — ein doppelter Lauf schreibt eine
+      doppelte Rechnung.
+    sources:
+      - backend/internal/gateway/route_biz_recurring.go
+      - backend/internal/biz/recurring/
+      - backend/internal/gateway/route_bexio_test.go
+    notes: >
+      Das Paket dahinter hat 88,1 % — die Luecke ist die Route, nicht die Logik. Trotzdem
+      gehoert die Frage gestellt, ob ein zweimal ausgeloester Lauf zwei Rechnungen erzeugt.
+      Findet sich dort ein Loch, ist das eine Fix-Unit ans Backlog-Ende, kein Test drumherum.
+      Intervalle an den Monatsgrenzen sind der klassische Fehler: der 31. in einem Monat mit 30
+      Tagen, der 29. Februar.
+    done_when:
+      - Testdatei deckt alle 9 Funktionen ab
+      - Monatsgrenzen sind als eigene Faelle getestet
+      - Doppelausloesung ist geprueft; ein Fund ist als Fix-Unit angelegt
+      - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: cov-gateway-biz-open-items-time-entries
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Zwei kleine Dateien in einer Unit: `route_biz_open_items.go` (66 Zeilen, 1 Funktion) und
+      `route_biz_time_entries.go` (80 Zeilen, 2 Funktionen). Beide ohne Testdatei.
+    sources:
+      - backend/internal/gateway/route_biz_open_items.go
+      - backend/internal/gateway/route_biz_time_entries.go
+      - backend/internal/gateway/route_bexio_test.go
+    notes: >
+      Klein genug, um beide in einer Iteration zu erledigen. Offene Posten sind eine reine
+      Auswertung — dort zaehlen Filter- und Datumsgrenzen sowie das Verhalten bei leerem
+      Ergebnis (leere Liste, nicht 404).
+      Zeiteintraege sind abrechnungsrelevant: die Tenant-Grenze ist hier keine Formalie.
+    done_when:
+      - Beide Dateien haben eine Testdatei, alle Funktionen abgedeckt
+      - Leeres Ergebnis liefert eine leere Liste mit 200, nicht 404
+      - Berechtigungs- und Tenant-Grenze je Route belegt
+      - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: cov-gateway-biz-banking-document-chains
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/biz/banking 77,0 % (Run 32508843776)"
+    scope: >
+      `route_biz_banking.go` (172 Zeilen, 3 Funktionen) und `route_biz_document_chains.go`
+      (137 Zeilen, 4 Funktionen), beide ohne Testdatei. Bankdaten sind besonders schutzwuerdig,
+      Belegketten sind die Nachweisbarkeit der Buchhaltung.
+    sources:
+      - backend/internal/gateway/route_biz_banking.go
+      - backend/internal/gateway/route_biz_document_chains.go
+      - backend/internal/biz/banking/
+    notes: >
+      IBAN-Formatierung und -Maskierung isoliert testen, nicht nur ueber die Route. Eine
+      vollstaendige IBAN in einer Listenantwort, die nur maskiert sein sollte, faellt in einem
+      Routentest mit einem Datensatz nicht auf.
+      Belegketten: eine Kette mit Luecke oder Zyklus darf keine Endlosschleife ausloesen. Das
+      ist der Fall, den ein Test finden muss.
+    done_when:
+      - Beide Dateien haben eine Testdatei, alle 7 Funktionen abgedeckt
+      - Formatier- und Maskierfunktionen sind isoliert getestet
+      - Eine Kette mit Luecke und eine mit Zyklus sind als Faelle abgedeckt
+      - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: cov-gateway-biz-ext-time-billing
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `route_biz_ext.go` (101 Zeilen, 4 Funktionen) ohne Testdatei — die Bruecke zwischen
+      erfasster Zeit und Abrechnung.
+    sources:
+      - backend/internal/gateway/route_biz_ext.go
+      - backend/internal/biz/hr/timetracking/
+      - backend/internal/gateway/route_bexio_test.go
+    notes: >
+      Klein, aber inhaltlich heikel: hier wird aus Arbeitszeit Geld. Die Frage, ob bereits
+      abgerechnete Zeiten ein zweites Mal in eine Rechnung wandern koennen, ist der Kern.
+      `internal/biz/hr/timetracking` liegt bei 60,2 % — findet sich dort eine Luecke, gehoert
+      sie als eigene Unit ans Ende, nicht in diese hinein.
+    done_when:
+      - Testdatei deckt alle 4 Funktionen ab
+      - Doppelabrechnung derselben Zeit ist als Fall geprueft
+      - Berechtigungs- und Tenant-Grenze belegt
+      - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: cov-gateway-settings-module-leads-grants
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/settings 60,3 % (Run 32508843776)"
+    scope: >
+      `route_settings.go` ist mit 1.029 Zeilen und 28 Funktionen die zweitgroesste ungetestete
+      Routendatei. Diese Unit nimmt den Teil zu Modulzugriffen und Berechtigungsvergabe — die
+      Stelle, an der entschieden wird, wer was sehen darf.
+    sources:
+      - backend/internal/gateway/route_settings.go
+      - backend/internal/settings/
+      - backend/internal/auth/
+    notes: >
+      ERST DIE IST-ABDECKUNG VERIFIZIEREN. Die Datei hat keine eigene `route_settings_test.go`,
+      aber Teile davon koennen ueber andere Testdateien mit abgedeckt sein. Mit
+      `-coverprofile` gegen die Datei messen, bevor Tests geschrieben werden, sonst entstehen
+      Tests fuer bereits abgedeckte Zeilen und die eigentliche Luecke bleibt.
+      Berechtigungsvergabe ist eine Rechteausweitung: der Test, der zaehlt, ist der, in dem ein
+      Benutzer sich selbst ein Recht gibt, das er nicht hat.
+      Jeder RequirePermission-Guard braucht einen Seed — fehlt er, ist es 403 fuer alle. Beim
+      Testen mitpruefen.
+    done_when:
+      - Die Ist-Abdeckung der Datei ist VOR dem Schreiben gemessen und im Journal genannt
+      - Der Modul-/Grant-Teil ist abgedeckt, inklusive Rechteausweitungs-Versuch
+      - Jeder beruehrte Guard hat einen Permission-Seed, per Test belegt
+      - go test -count=1 ./internal/gateway/ ./internal/settings/ gruen
+
+  - id: cov-gateway-settings-branding-tenant-user
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/settings 60,3 % (Run 32508843776)"
+    scope: >
+      Zweiter Teil von `route_settings.go`: Branding, Tenant- und Benutzereinstellungen.
+    sources:
+      - backend/internal/gateway/route_settings.go
+      - backend/internal/settings/
+    notes: >
+      Auch hier gilt: ERST die Ist-Abdeckung messen (siehe B8).
+      Branding nimmt vom Benutzer gestellte Werte entgegen — Farben, Namen, moeglicherweise
+      Logo-Uploads oder URLs. Das ist eine Injection-Flaeche: eine Farbangabe, die in ein
+      Stylesheet wandert, und eine URL, die im Frontend gerendert wird, gehoeren beide geprueft.
+      Tenant-Einstellungen duerfen nicht ueber die Tenant-Grenze hinweg gelesen oder geschrieben
+      werden koennen. Das ist der Test, der zaehlt.
+    done_when:
+      - Die Ist-Abdeckung ist vor dem Schreiben gemessen und im Journal genannt
+      - Branding-Eingaben sind auf Injection geprueft, mindestens Farbwert und URL
+      - Cross-Tenant-Lesen und -Schreiben liefert 404 bzw. 403, per Test belegt
+      - go test -count=1 ./internal/gateway/ ./internal/settings/ gruen
+
+  - id: cov-gateway-settings-license-subscription-verify
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/settings 60,3 % (Run 32508843776)"
+    scope: >
+      Dritter Teil von `route_settings.go`: Lizenz- und Abonnementstatus. Diese Routen
+      entscheiden, welche Module ein Kunde sieht.
+    sources:
+      - backend/internal/gateway/route_settings.go
+      - backend/internal/featureflag/
+      - backend/internal/settings/
+    notes: >
+      KEIN `modules.*`-Flag scharfschalten, auch nicht testweise, auch nicht in einer Fixture,
+      die spaeter kopiert wird. Welche Module buchbar sind, ist eine offene Produktentscheidung
+      (Lagebild §8, Dariens Dokumente) und keine, die in einem Nachtlauf faellt.
+      Getestet wird das VERHALTEN: ein abgelaufenes Abonnement, ein nicht gebuchtes Modul, ein
+      gebuchtes Modul. Dass die Antwort stimmt, nicht dass ein bestimmtes Modul an ist.
+      Der Preis gehoert nirgendwo hartcodiert in einen Test. Es gibt vier Varianten der
+      Support-Stufen im Repo und `lib/pricing.ts` ist nachweislich veraltet.
+    done_when:
+      - Der Lizenz-/Abo-Teil ist abgedeckt, mit abgelaufenem, gebuchtem und ungebuchtem Fall
+      - Kein Feature-Flag wurde umgestellt, per Diff belegt
+      - Keine Preiszahl in einem Test
+      - go test -count=1 ./internal/gateway/ ./internal/settings/ gruen
+
+  - id: cov-gateway-email-messages-folders-sync
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/email/sync 34,6 % (Run 32508843776)"
+    scope: >
+      `route_email.go` ist mit 1.612 Zeilen und 63 Funktionen die groesste ungetestete
+      Routendatei im Gateway. Diese Unit nimmt den Kernpfad: Nachrichten, Ordner, Synchronisation.
+    sources:
+      - backend/internal/gateway/route_email.go
+      - backend/internal/email/message/
+      - backend/internal/email/sync/
+    notes: >
+      Die Datei ist zu gross fuer eine Iteration, deshalb drei Units (B11-B13). Vorher die
+      Funktionsliste ziehen und die 63 Funktionen sauber auf die drei aufteilen, damit keine
+      zwischen den Units verlorengeht. Die Aufteilung ins Journal.
+      `internal/email/sync` liegt bei 34,6 % — der Synchronisationspfad ist die duennste Stelle
+      dahinter. Teilweise fehlgeschlagene Synchronisation ist der Fall, der zaehlt: was
+      passiert, wenn der Server mitten in der Uebertragung abbricht?
+      E-Mail-Inhalte sind personenbezogen. Eine Nachricht eines fremden Tenants darf nicht
+      abrufbar sein, auch nicht mit korrekter Nachrichten-ID.
+    done_when:
+      - Die Aufteilung der 63 Funktionen auf B11-B13 ist im Journal dokumentiert
+      - Der Kernpfad Nachrichten/Ordner/Sync ist abgedeckt
+      - Abbruch mitten in der Synchronisation ist als Fall getestet
+      - Cross-Tenant-Zugriff auf eine Nachrichten-ID liefert 404
+      - go test -count=1 ./internal/gateway/ ./internal/email/... gruen
+
+  - id: cov-gateway-email-signatures-templates
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/email/signature 43,0 % (Run 32508843776)"
+    scope: >
+      Zweiter Teil von `route_email.go`: Signaturen und Vorlagen. Beide werden vom Benutzer
+      geschrieben und spaeter in ausgehende Nachrichten gerendert.
+    sources:
+      - backend/internal/gateway/route_email.go
+      - backend/internal/email/signature/
+      - backend/internal/email/template/
+    notes: >
+      RENDER-INJECTION IST DER KERN. Eine Vorlage mit Platzhaltern, die in eine ausgehende
+      Mail gerendert wird, ist eine Template-Engine mit Benutzereingabe. Zwei Faelle:
+      ein Platzhalter, den es nicht gibt (darf nicht durchschlagen), und Inhalt, der selbst wie
+      ein Platzhalter aussieht (darf nicht rekursiv aufgeloest werden).
+      `internal/email/signature` liegt bei 43,0 % — dort ist auch dahinter Luft.
+      HTML in Signaturen: pruefen, ob und wo sanitisiert wird. Wenn nirgends, ist das ein Fund
+      und eine eigene Fix-Unit.
+    done_when:
+      - Signatur- und Vorlagen-Routen sind abgedeckt
+      - Unbekannter Platzhalter und selbstreferenzieller Inhalt sind je ein eigener Test
+      - Der Sanitizing-Pfad fuer HTML ist benannt; fehlt er, ist eine Fix-Unit angelegt
+      - go test -count=1 ./internal/gateway/ ./internal/email/... gruen
+
+  - id: cov-gateway-email-contact-linking-import-export
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/email/contactlink 35,0 % (Run 32508843776)"
+    scope: >
+      Dritter Teil von `route_email.go`: Verknuepfung von Nachrichten mit Kontakten sowie
+      Import und Export. `internal/email/contactlink` liegt bei 35,0 %. Der Export ist die
+      Stelle, an der Personendaten das System in einer Datei verlassen.
+    sources:
+      - backend/internal/gateway/route_email.go
+      - backend/internal/email/contactlink/
+      - backend/internal/email/contact/
+    notes: >
+      CSV-FORMEL-INJECTION: ein Feld, das mit =, +, - oder @ beginnt, wird von Excel und
+      LibreOffice als Formel ausgefuehrt. Wenn der Export das nicht neutralisiert, ist das ein
+      Fund und eine Fix-Unit — kein Test, der das Verhalten festschreibt.
+      TENANT-LEAK IM EXPORT: ein Export, der ueber eine Filterbedingung statt ueber den
+      Tenant-Kontext laeuft, liefert im Fehlerfall fremde Daten in einer Datei. Genau das
+      gehoert getestet, mit zwei geseedeten Tenants.
+      Die Verknuepfung Nachricht-Kontakt laeuft ueber `email_contact_links` — dieselbe Tabelle,
+      die bei der Kontaktloeschung kaskadiert (Befund 2). Konsistent halten.
+    done_when:
+      - Verknuepfungs-, Import- und Export-Routen sind abgedeckt
+      - CSV-Formel-Injection ist geprueft; ohne Neutralisierung ist eine Fix-Unit angelegt
+      - Ein Export mit zwei geseedeten Tenants belegt, dass keine fremde Zeile enthalten ist
+      - go test -count=1 ./internal/gateway/ ./internal/email/... gruen
+
+  - id: cov-gateway-crm-advisory-protocols
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/crm/advisoryprotocol 65,5 % (Run 32508843776)"
+    scope: >
+      `route_crm_advisory.go` (362 Zeilen, 9 Funktionen) ohne Testdatei. Beratungsprotokolle
+      sind eine der beiden Tabellen, deren FK auf `contacts` RESTRICT ist — sie blockieren die
+      Kontaktloeschung und sind damit direkt Gate-3-relevant.
+    sources:
+      - backend/internal/gateway/route_crm_advisory.go
+      - backend/internal/crm/advisoryprotocol/
+      - backend/internal/crm/contact/postgres_repository.go
+    notes: >
+      Der wichtigste Fall: ein Protokoll loeschen, dessen Kontakt noch referenziert wird, und
+      umgekehrt einen Kontakt loeschen, an dem ein Protokoll haengt. Letzteres muss 409 mit
+      verstaendlicher Begruendung liefern, nicht 500 mit einer Constraint-Meldung. `IsInUse`
+      liefert bereits den Grund als Text — pruefen, ob er bis zur Antwort durchkommt.
+      Protokolle enthalten Freitext ueber Personen. Cross-Tenant-Lesen ist hier keine
+      Formalie.
+    done_when:
+      - Testdatei deckt alle 9 Funktionen ab
+      - Kontaktloeschung bei haengendem Protokoll liefert 409 mit Grund, nicht 500
+      - Cross-Tenant-Zugriff liefert 404
+      - go test -count=1 ./internal/gateway/ ./internal/crm/... gruen
+
+  - id: cov-gateway-crm-companies
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/crm/company 79,7 % (Run 32508843776)"
+    scope: >
+      `route_crm_companies.go` (239 Zeilen, 6 Funktionen) ohne Testdatei.
+    sources:
+      - backend/internal/gateway/route_crm_companies.go
+      - backend/internal/crm/company/
+      - backend/internal/gateway/route_crm_contacts_test.go
+    notes: >
+      Firmen haengen an Kontakten (`GetCompanyName`, contact/postgres_repository.go). Eine
+      Firma zu loeschen, an der Kontakte haengen, ist derselbe Fragenkomplex wie bei den
+      Kontakten: was kaskadiert, was blockiert, was wird NULL. Vorher an `pg_constraint`
+      nachsehen statt zu vermuten.
+      Wenn dabei ein RESTRICT ohne UI-Pfad auffaellt, ist das ein Befund fuer C3.
+    done_when:
+      - Testdatei deckt alle 6 Funktionen ab
+      - Das Loeschverhalten bei haengenden Kontakten ist an pg_constraint geprueft und getestet
+      - Berechtigungs- und Tenant-Grenze belegt
+      - go test -count=1 ./internal/gateway/ ./internal/crm/... gruen
+
+  - id: cov-gateway-crm-ext-duplicates-merge-gdpr
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `route_crm_ext.go` (389 Zeilen, 16 Funktionen) ohne Testdatei — die groesste ungetestete
+      CRM-Routendatei. Sie traegt Duplikatserkennung, Zusammenfuehrung und die
+      DSGVO-Anfragerouten. Damit liegt hier die Loeschanfrage aus Gate 3.
+    sources:
+      - backend/internal/gateway/route_crm_ext.go
+      - backend/internal/crm/contact/service.go
+      - backend/internal/security/gdpr/
+    notes: >
+      DIE BERECHTIGUNGSGRENZE ZWISCHEN ANFRAGE UND AUSFUEHRUNG IST DER KERN. Eine Loeschung
+      BEANTRAGEN darf ein normaler Bearbeiter; sie AUSFUEHREN nicht. Fallen beide auf dieselbe
+      Berechtigung, ist die Vier-Augen-Trennung nur gedacht. Das ist der Test, der zaehlt —
+      und wenn er rot ist, ist es eine Fix-Unit, kein angepasster Test.
+      Zusammenfuehrung ist destruktiv und schwer rueckgaengig zu machen: was passiert mit den
+      Verknuepfungen des verlierenden Kontakts, und was, wenn beide dieselbe eindeutige
+      Verknuepfung tragen?
+      A2 (Kaskaden-Vorschau) beruehrt dieselbe Route. Wenn A2 zuerst lief, hier mitnutzen statt
+      danebenbauen.
+    done_when:
+      - Testdatei deckt alle 16 Funktionen ab
+      - Ein Test belegt, dass Beantragen und Ausfuehren einer Loeschung unterschiedliche
+        Berechtigungen erfordern; andernfalls ist eine Fix-Unit angelegt
+      - Zusammenfuehrung mit kollidierenden eindeutigen Verknuepfungen ist getestet
+      - go test -count=1 ./internal/gateway/ ./internal/crm/... ./internal/security/... gruen
+
+  - id: cov-gateway-crm-contact-files-wopi
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/document/wopi 86,5 % (Run 32508843776)"
+    scope: >
+      `route_crm_contact_files.go` (237 Zeilen, 7 Funktionen) und `route_wopi.go` (56 Zeilen,
+      3 Funktionen), beide ohne Testdatei. Dateien an Kontakten, bearbeitet ueber OnlyOffice.
+    sources:
+      - backend/internal/gateway/route_crm_contact_files.go
+      - backend/internal/gateway/route_wopi.go
+      - backend/internal/document/wopi/
+    notes: >
+      ZUERST `verifyContactOwnership` cross-tenant testen, vor allem anderen. Wenn diese
+      Pruefung durchlaessig ist, sind alle weiteren Tests dieser Unit ohne Aussage.
+      WOPI ist eine Schnittstelle nach aussen: OnlyOffice ruft mit einem Token zurueck. Ein
+      abgelaufenes, ein manipuliertes und ein Token fuer eine andere Datei sind die drei Faelle.
+      Kein Token in einer Logzeile — beim Testen mitlesen, das ist zugleich Material fuer C6.
+    done_when:
+      - verifyContactOwnership ist cross-tenant getestet, und zwar zuerst
+      - Beide Dateien haben eine Testdatei, alle 10 Funktionen abgedeckt
+      - Abgelaufenes, manipuliertes und fremdes WOPI-Token sind je ein Fall
+      - go test -count=1 ./internal/gateway/ ./internal/document/... gruen
+
+  - id: cov-gateway-lexware-integration
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/biz/lexware 74,4 % (Run 32508843776)"
+    scope: >
+      `route_lexware.go` (610 Zeilen, 18 Funktionen) ohne Testdatei — die groesste ungetestete
+      Integrationsroute. Buchhaltungsdaten in beide Richtungen.
+    sources:
+      - backend/internal/gateway/route_lexware.go
+      - backend/internal/biz/lexware/
+      - backend/internal/gateway/route_bexio_test.go
+    notes: >
+      `route_bexio_test.go` ist die Vorlage und deckt dieselbe Art Integration ab. Aufbau
+      uebernehmen, nicht neu erfinden.
+      Die Faelle, die zaehlen, sind die des fremden Systems: Zeitueberschreitung, HTTP 500 vom
+      Anbieter, abgelaufene Anmeldedaten, Ratenbegrenzung. Jeder davon muss eine verstaendliche
+      Antwort erzeugen und darf keine Anmeldedaten in Log oder Antwort schreiben.
+      Zugangsdaten gehoeren in `internal/security/vault` (80,0 %). Pruefen, ob diese Route das
+      auch tut, oder ob sie sie anders haelt.
+    done_when:
+      - Testdatei deckt alle 18 Funktionen ab, Vorlage ist route_bexio_test.go
+      - Timeout, Anbieterfehler, abgelaufene Anmeldedaten und Ratenbegrenzung sind je ein Fall
+      - Kein Zugangsdatum in Antwort oder Log, per Test belegt
+      - go test -count=1 ./internal/gateway/ ./internal/biz/lexware/ gruen
+
+  - id: cov-gateway-booking-admin
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `route_booking.go` (403 Zeilen, 13 Funktionen) ohne Testdatei. Diese Unit nimmt den
+      ADMIN-Teil — die Verwaltung von Buchungsstrecken, nicht die oeffentliche Buchungsseite.
+    sources:
+      - backend/internal/gateway/route_booking.go
+      - backend/internal/gateway/route_bexio_test.go
+      - backend/api/openapi.yaml
+    notes: >
+      Die oeffentlichen Buchungsrouten sind Teil der stillgelegten Public-Web-Surface
+      (BACKLOG-PARKED.yml) und bleiben in diesem Lauf UNANGETASTET. Vor dem Schreiben pruefen,
+      welche Funktionen der Datei oeffentlich und welche admin-seitig sind, und die Grenze im
+      Journal benennen. Im Zweifel weniger anfassen.
+      Doppelbuchung desselben Zeitfensters ist der fachliche Kernfall des Admin-Teils.
+    done_when:
+      - Die Grenze oeffentlich/admin ist vor dem Schreiben bestimmt und im Journal benannt
+      - Der Admin-Teil ist abgedeckt, die oeffentlichen Routen sind unveraendert
+      - Doppelbuchung desselben Zeitfensters ist getestet
+      - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: cov-gateway-registrar-global-search
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/crm/search 59,4 % (Run 32508843776)"
+    scope: >
+      `route_search_global.go` (167 Zeilen, 7 Funktionen) und `route_registrar.go` (20 Zeilen,
+      reine Registrierung) ohne Testdatei. Die globale Suche greift quer ueber alle Module —
+      genau die Konstruktion, bei der eine einzelne vergessene Teilsuche die Tenant-Grenze
+      durchlaessig macht.
+    sources:
+      - backend/internal/gateway/route_search_global.go
+      - backend/internal/gateway/route_registrar.go
+      - backend/internal/crm/search/
+    notes: >
+      JEDE TEILSUCHE EINZELN auf Tenant-Isolation testen, nicht die Gesamtantwort. Eine
+      Gesamtantwort mit sieben korrekten und einer durchlaessigen Teilsuche sieht bei einem
+      Datensatz je Modul unauffaellig aus. Zwei Tenants seeden, in beiden dieselben Begriffe,
+      und je Teilsuche pruefen.
+      Die Suche liefert Treffer aus Modulen, die der Benutzer moeglicherweise nicht buchen oder
+      nicht sehen darf. Pruefen, ob die Berechtigung je Teilsuche greift oder nur einmal am
+      Eingang.
+    done_when:
+      - Jede Teilsuche ist einzeln auf Tenant-Isolation getestet, mit zwei geseedeten Tenants
+      - Die Berechtigungspruefung je Modul ist belegt oder als Fund gemeldet
+      - route_registrar.go ist als Registrierungspunkt mit abgedeckt
+      - go test -count=1 ./internal/gateway/ ./internal/crm/... gruen
+
+  - id: cov-gateway-dashboard
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/biz/dashboard 79,3 % (Run 32508843776)"
+    scope: >
+      `route_dashboard.go` (239 Zeilen, 10 Funktionen) ohne Testdatei. Das Dashboard aggregiert
+      ueber alle Module und ist das Erste, was ein Benutzer nach der Anmeldung sieht.
+    sources:
+      - backend/internal/gateway/route_dashboard.go
+      - backend/internal/biz/dashboard/
+    notes: >
+      Aggregationen ueber viele Tabellen sind derselbe Fall wie die globale Suche: pro
+      Kennzahl die Tenant-Grenze pruefen, nicht nur die Gesamtantwort.
+      Ein leerer Mandant (frisch angelegt, keine Daten) muss ein leeres Dashboard liefern und
+      darf nicht in eine Division durch null oder ein nil-Dereferenzieren laufen. Das ist der
+      Zustand jedes ersten Kunden — und damit kein Randfall, sondern der Erstkontakt.
+      Kennzahlen mit Geldbezug: Waehrung und Rundung pruefen.
+    done_when:
+      - Testdatei deckt alle 10 Funktionen ab
+      - Ein Mandant ohne jede Daten liefert ein leeres Dashboard ohne Fehler
+      - Jede Kennzahl ist einzeln auf Tenant-Isolation geprueft
+      - go test -count=1 ./internal/gateway/ ./internal/biz/dashboard/ gruen
+
+  - id: cov-gateway-work-labels-custom-fields
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % · internal/work/label 15,2 % (Run 32508843776)"
+    scope: >
+      `route_work_labels.go` (328 Zeilen, 12 Funktionen) ohne Testdatei. Die Pakete dahinter
+      sind die schwaechsten im ganzen Backend: `internal/work/label` 15,2 % und
+      `internal/work/customfield` 14,0 %.
+    sources:
+      - backend/internal/gateway/route_work_labels.go
+      - backend/internal/work/label/
+      - backend/internal/work/customfield/
+    notes: >
+      Hier ist die Wahrscheinlichkeit am hoechsten, echte Bugs zu finden — 14 bis 15 % Abdeckung
+      auf Code, der taeglich benutzt wird. Jeder Fund gehoert als eigene Fix-Unit ans
+      Backlog-Ende, nicht in diese Unit hinein.
+      Custom Fields haben Typen. Ein Wert, der nicht zum Feldtyp passt (Text in ein Zahlenfeld,
+      ungueltiges Datum), ist der Kernfall — und die Frage, was mit bestehenden Werten
+      passiert, wenn der Feldtyp geaendert wird.
+      Ein Label zu loeschen, das noch verwendet wird, ist derselbe Fragenkomplex wie bei
+      Kontakten. An pg_constraint nachsehen.
+    done_when:
+      - Testdatei deckt alle 12 Funktionen ab
+      - Typfremde Werte und Feldtyp-Aenderung mit bestehenden Werten sind je ein Fall
+      - Das Loeschverhalten benutzter Labels ist an pg_constraint geprueft und getestet
+      - Gefundene Bugs sind als eigene Fix-Units angelegt, nicht wegdefiniert
+      - go test -count=1 ./internal/gateway/ ./internal/work/... gruen
+
+  - id: fix-idempotency-real-sql-coverage-core
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/idempotency (Paketwert im CI-Log nachschlagen, Run 32508843776)"
+    scope: >
+      `internal/idempotency` traegt die Doppelausfuehrungssperre fuer alle POST-Routen mit
+      Idempotency-Key — Dialer-Outcomes, Finance-Buchungen, Webhooks. `Reserve`
+      (postgres_repository.go:79), `Complete` (159) und `Get` sind der Kern. Was hier
+      danebengeht, erzeugt doppelte Buchungen, und zwar lautlos.
+    sources:
+      - backend/internal/idempotency/postgres_repository.go
+      - backend/internal/idempotency/repository_test.go
+      - backend/internal/idempotency/rls_test.go
+    notes: >
+      GEGEN ECHTES SQL, nicht gegen ein Mock. Der Wert dieser Mechanik liegt genau in dem, was
+      die Datenbank tut: Eindeutigkeitsverletzung bei gleichzeitiger Reservierung desselben
+      Schluessels. Ein Mock beantwortet die Frage nicht, die zaehlt.
+      Der eigentliche Test: zwei Reservierungen desselben Schluessels, eine gewinnt, die andere
+      bekommt den bereits gespeicherten Zustand statt eines Fehlers.
+      Abgelaufene Reservierungen und der Fall "reserviert, aber nie abgeschlossen" (Prozess
+      gestorben) gehoeren dazu — sonst blockiert ein Absturz den Schluessel fuer immer.
+    done_when:
+      - Reserve, Get und Complete sind gegen echtes SQL getestet, DATABASE_URL Pflicht
+      - Gleichzeitige Reservierung desselben Schluessels ist als Fall abgedeckt
+      - Reserviert-aber-nie-abgeschlossen ist abgedeckt
+      - go test -count=1 ./internal/idempotency/... gruen
+
+  - id: fix-idempotency-real-sql-coverage-cleanup-concurrency
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-idempotency-real-sql-coverage-core]
+    status: todo
+    coverage_start: "internal/idempotency (Paketwert im CI-Log nachschlagen, Run 32508843776)"
+    scope: >
+      Zweite Haelfte: `Cleanup` (postgres_repository.go:179) und `CleanupWithLock` (188). Der
+      Advisory Lock ist die Antwort darauf, dass mehrere Gateway-Instanzen dieselbe
+      Aufraeumarbeit gleichzeitig starten. Ob er das wirklich leistet, ist nie gegen zwei
+      echte Verbindungen geprueft worden.
+    sources:
+      - backend/internal/idempotency/postgres_repository.go
+      - backend/internal/idempotency/repository_test.go
+    notes: >
+      Mit `-race` laufen lassen, nicht nur `go test`.
+      Zwei Verbindungen, beide rufen CleanupWithLock mit demselben Lock-Key: eine arbeitet, die
+      andere kehrt sofort zurueck, ohne zu blockieren und ohne zu doppeln. Genau das ist die
+      Zusage der Funktion.
+      Dieselbe Mechanik ist die Vorlage fuer das Scheduling in A14 — was hier bewiesen wird,
+      traegt dort.
+      Cleanup darf keine Reservierung entfernen, die noch laeuft. Ein Test mit einer frischen
+      und einer abgelaufenen Reservierung belegt die Grenze.
+    done_when:
+      - Cleanup und CleanupWithLock sind gegen echtes SQL getestet
+      - Zwei gleichzeitige Verbindungen belegen, dass nur eine arbeitet und keine blockiert
+      - Eine laufende Reservierung ueberlebt den Cleanup, eine abgelaufene nicht
+      - go test -count=1 -race ./internal/idempotency/... gruen
+
+  - id: verify-datev-extf-encoding-requirement
+    phase: 4
     service: biz
     model: sonnet
     deps: []
-    status: done
-    coverage_start: "internal/biz/datev 79,3 % (CI-Stand 8c224eba, Run 31471247645)"
+    status: todo
+    coverage_start: "internal/biz/datev 79,7 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
-      `PostgresUploadRepository.UpsertUploadConfig` und `.CreateUploadLog`
-      (internal/biz/datev/postgres_upload_repo.go:42 bzw. :63) INSERTen in `datev_upload_configs`
-      bzw. `datev_upload_log`, OHNE die Spalte `tenant_id` zu setzen -- weder in der Spaltenliste
-      noch im `VALUES`-Teil. Beide Tabellen tragen seit Migration 000115 `tenant_id UUID NOT NULL`
-      OHNE Spalten-Default (verifiziert per `\d` gegen die lokale DB, Kopf 309: `Default` bei
-      `tenant_id` ist leer) und seit Migration 000122 RLS mit `FORCE ROW LEVEL SECURITY`. Kein
-      Trigger setzt `tenant_id` automatisch nach -- beide Modelle (`models.DatevUploadConfig`,
-      `models.DatevUploadLog`) haben nicht einmal ein `TenantID`-Feld. Jeder Aufruf schlaegt
-      unveraendert mit `ERROR: null value in column "tenant_id" ... violates not-null constraint`
-      fehl -- verifiziert per echtem INSERT gegen die lokale DB (Kopf 309), siehe
-      `TestUpsertUploadConfig_FailsNotNullTenantID` und `TestCreateUploadLog_FailsNotNullTenantID`
-      in `postgres_upload_repo_test.go`.
-
-      Produktions-Impact ist vollstaendig, nicht partiell: `UpsertUploadConfig` kann nie eine
-      Zeile schreiben, also findet `GetUploadConfig` (WHERE config_id = $1) fuer JEDEN Tenanten
-      NIE eine Zeile -> `UploadService.UploadBuchungsstapel`
-      (internal/biz/datev/upload_service.go:163-166) liefert fuer jeden Upload-Versuch
-      `ErrNoUploadConfig`, bevor der DATEV-API-Client ueberhaupt kontaktiert wird. Die
-      Vorlaeuferpruefung `CreateUploadLog`-Fehler wird nur geloggt
-      (upload_service.go:197-199), aendert also nichts an dieser Kette. Seit
-      `COSMI_ENV=production` am 2026-06-05 scharf wurde, kann demnach kein Tenant jemals eine
-      DATEV-Client-Nummer speichern oder einen Buchungsstapel hochladen -- rund zwei Monate
-      stiller Totalausfall eines steuerlich relevanten Features, ohne dass ein Fehler im
-      Frontend anders als ein generischer 500/404 sichtbar wuerde.
+      VERIFY-UNIT, KEINE FIX-UNIT. Zu klaeren ist eine einzige Frage: verlangt der
+      DATEV-Import fuer EXTF-Dateien mit Format-Version 700 eine cp1252-Kodierung, oder
+      akzeptiert er UTF-8 mit BOM? Der Code schreibt heute UTF-8 mit BOM. Diese Unit darf am
+      Kodierungsverhalten NICHTS aendern.
     sources:
-      - backend/internal/biz/datev/postgres_upload_repo.go
-      - backend/internal/models/datev_upload.go
-      - backend/internal/biz/datev/upload_service.go
-      - backend/migrations/000115_option_b_phase2_integrations_chat.up.sql
-      - backend/migrations/000122_rls_phase2_long_tail.up.sql
-      - backend/internal/biz/datev/postgres_upload_repo_test.go
+      - backend/internal/biz/datev/exporter.go
+      - backend/internal/biz/datev/exporter_test.go
     notes: >
-      Gefunden beim Bau der Coverage-Unit f-cov-biz-datev (Lauf 8, Iteration 90). Sauberster
-      Fix: `TenantID uuid.UUID` auf beide Modelle ergaenzen, in beiden INSERTs die Spalte
-      `tenant_id` mit `middleware.GetTenantID(ctx)` (Muster aus anderen Repos in diesem Repo,
-      z. B. rapporte/postgres_repository.go) fuellen -- NICHT per Spalten-Default, das wuerde
-      System-Context-Schreibpfade (falls es welche gibt) unbeabsichtigt treffen. Anschliessend
-      die beiden `FailsNotNullTenantID`-Tests in `postgres_upload_repo_test.go` durch echte
-      Happy-Path-Tests ersetzen (Kommentar im Testdatei-Header verweist bereits darauf) und
-      `UpsertUploadConfig`/`CreateUploadLog` aus den beiden neuen Fehlerpfad-Tests in
-      Upsert/Create-Erfolgstests umbauen. Pruefen, ob ein Tenant ueberhaupt jemals erfolgreich
-      DATEV verbunden hat (Produktions-DB, `SELECT count(*) FROM datev_upload_configs` bzw.
-      `datev_upload_log`) -- vermutlich 0 Zeilen, was den Fund zusaetzlich untermauert, aber
-      Vorsicht: das ist eine reine Lesepruefung gegen Produktion, kein Teil dieses Nachtlaufs.
+      `exporter_test.go:409-422` widerlegt die Praemisse bereits ausfuehrlich: NewStreamWriter
+      schreibt eine UTF-8-BOM, encoding/csv emittiert nur UTF-8, und im ganzen Paket gibt es
+      keinen cp1252-Transcoding-Schritt (kein charmap-Import). Dieser Kommentar ist der
+      Ausgangspunkt, nicht der Endpunkt.
+      OHNE BELASTBARE QUELLE (DATEV-Formatbeschreibung mit Versionsangabe, nicht ein Forenpost)
+      WIRD DIESE UNIT `blocked` MIT BEGRUENDUNG. Das ist ein gueltiges, sogar erwuenschtes
+      Ergebnis. Eine Umkodierung auf Verdacht waere eine Regression an einer Schnittstelle, die
+      beim Steuerberater landet — und der Fehler faellt erst dort auf.
+      Ergibt die Recherche, dass cp1252 Pflicht ist, wird das NICHT hier gebaut, sondern als
+      eigene Fix-Unit mit Migrationspfad fuer bestehende Exporte angelegt.
     done_when:
-      - UpsertUploadConfig und CreateUploadLog schreiben tenant_id aus dem Request-Kontext und
-        schlagen nicht mehr am NOT-NULL-Constraint fehl
-      - Die beiden FailsNotNullTenantID-Tests sind durch echte Erfolgstests ersetzt
-      - Ein RLS-Test belegt, dass die neu geschriebene Zeile nur fuer den schreibenden Tenant
-        sichtbar ist (Muster AssertWriteCarriesTenant aus internal/testutil)
+      - Die Frage ist mit Quelle beantwortet, oder die Unit steht auf blocked mit Begruendung
+      - Das Kodierungsverhalten des Exporters ist unveraendert, per Diff belegt
+      - Das Ergebnis steht als Kommentar am Test, damit die Frage nicht ein drittes Mal gestellt wird
       - go test -count=1 ./internal/biz/datev/ gruen
 
-  - id: fix-schichten-swap-assignments-unique-violation
-    phase: 3
-    service: schichten
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/schichten 79,7 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      `PostgresRepository.SwapAssignmentsForRequest` (internal/schichten/postgres_repository.go:625)
-      fuehrt zwei sequenzielle UPDATEs in EINER Transaktion aus, um die employee_id zweier
-      shift_assignments-Zeilen zu tauschen. Beide sind falsch verdrahtet und decken zusammen
-      JEDEN realen Aufruf ab -- verifiziert per echtem SQL gegen die lokale DB (Kopf 309):
+# ==========================================================================================
+# BLOCK C — Muster-Scans. Sie fuellen den Backlog selbst nach und stehen deshalb am Schluss:
+# was sie finden, wird als Unit angelegt und in derselben Nacht abgearbeitet.
+#
+# FUER JEDE SCAN-UNIT GILT:
+#   - Sie aendert KEIN Verhalten. Kein Fix, kein Test, keine Migration. Nur Units anlegen.
+#   - `neue-units:` ist Pflichtzeile im Journal und muss die IDs nennen, die WIRKLICH in
+#     BACKLOG.yml stehen. Ein Fund ohne angelegte Unit ist kein Fund.
+#   - Das Abbruchkriterium ist eine VOLLSTAENDIGE LISTE des Geprueften mit Begruendung je
+#     Nicht-Fund, keine Zahl. "12 Dateien geprueft, 0 Funde" ist wertlos; "diese 12, und bei
+#     jeder warum nicht" ist ein Ergebnis.
+#   - Jede neu angelegte Unit braucht dieselben Felder wie die vorab geschriebenen, inklusive
+#     `scope` und `done_when`. Eine Unit mit nur einer Zeile ist in der naechsten Iteration
+#     nicht bearbeitbar.
+# ==========================================================================================
 
-      (1) Sind BEIDE Mitarbeiter (Antragsteller und Tauschpartner) bereits derselben Schicht
-      zugeordnet -- der Normalfall eines Schichttauschs zwischen zwei Kollegen -- verletzt das
-      erste UPDATE sofort den UNIQUE(tenant_id, shift_id, employee_id)-Index
-      `uq_shift_assignments_tenant` (migrations/000102_schichten_shift_assignments_tenant_
-      unique.up.sql), weil es die Zeile des Antragstellers auf employee_id=Partner setzt, waehrend
-      die Zeile des Partners noch denselben Wert traegt. Die Transaktion bricht mit
-      `ERROR: duplicate key value violates unique constraint "uq_shift_assignments_tenant"` ab,
-      `ApproveSwapRequest` (service.go:679) gibt den Fehler nach oben durch -- der Tausch
-      schlaegt jedes Mal fehl.
-
-      (2) Ist der Tauschpartner NOCH NICHT dieser Schicht zugeordnet, laeuft das erste UPDATE
-      durch und setzt die Zeile des Antragstellers auf employee_id=Partner. Das ZWEITE UPDATE
-      ist aber nicht auf eine andere Zeilen-ID gescoped, sondern nur auf
-      `WHERE shift_id = $2 AND employee_id = $3 (=Partner) AND tenant_id = $4` -- und trifft damit
-      dieselbe, gerade erst geaenderte Zeile innerhalb derselben Transaktion (Postgres sieht
-      eigene, noch nicht committete Schreibvorgaenge). Es dreht sie sofort wieder auf
-      employee_id=Antragsteller zurueck. Netto-Ergebnis: KEINE Datenaenderung, KEIN Fehler --
-      `ApproveSwapRequest` markiert den Antrag trotzdem als `approved`, obwohl am
-      Schicht-Assignment nichts passiert ist.
-
-      Beide Faelle decken zusammen 100% der moeglichen Aufrufe ab (Partner entweder schon
-      zugeordnet oder nicht) -- die Funktion hat KEINEN funktionierenden Pfad. Jeder
-      Schichttausch in Produktion schlaegt entweder sichtbar fehl oder tut unsichtbar nichts.
-    sources:
-      - backend/internal/schichten/postgres_repository.go
-      - backend/internal/schichten/service.go
-      - backend/migrations/000094_create_schichten.up.sql
-      - backend/migrations/000102_schichten_shift_assignments_tenant_unique.up.sql
-      - backend/internal/schichten/postgres_repository_test.go
-    notes: >
-      Gefunden beim Bau der Coverage-Unit f-cov-schichten-repository (Lauf 8, Iteration 91),
-      durch zwei DB-gestuetzte Tests dokumentiert:
-      `TestSwapAssignmentsForRequest_FailsWhenBothEmployeesAlreadyAssignedToShift` (Fall 1, erwartet
-      aktuell einen Unique-Violation-Fehler) und
-      `TestSwapAssignmentsForRequest_SilentlyNoOpsWhenTargetNotYetOnShift` (Fall 2, erwartet aktuell
-      keine Aenderung). Beide Tests sind bewusst auf das HEUTIGE, kaputte Verhalten geschrieben --
-      der Kommentar in jedem Test sagt explizit, dass er nach dem Fix umgeschrieben werden muss,
-      nicht geloescht.
-      Sauberster Fix: beide UPDATEs auf die Zeilen-ID statt auf (shift_id, employee_id) scopen.
-      Die zweite UPDATE braucht dazu die ID der komplementaeren Zeile -- die ist heute nicht Teil
-      von `SwapRequest`, muss also entweder vor dem Swap per
-      `GetAssignment(ctx, tenantID, req.ShiftID, req.SwapWithEmployeeID)` aufgeloest werden (0
-      Treffer -> Fall 2 wird zu einer reinen Verschiebung ohne Ruecktausch, was dann auch so
-      benannt/dokumentiert werden sollte statt weiter "Swap" zu heissen) oder die Tabelle bekommt
-      eine temporaere Zwischenzuweisung (z. B. ein Dritt-Wert wie NULL/Tombstone), damit die beiden
-      UPDATEs sich nicht gegenseitig treffen koennen. ENTSCHIEDEN (Luke, 2026-08-11, vor dem Lauf): Ein Tausch ist NUR
-      zwischen zwei bereits der Schicht zugeordneten Mitarbeitern gueltig. Damit ist Fall 1 der
-      einzige zu reparierende Pfad -- beide UPDATEs auf die Zeilen-ID scopen, die ID der
-      komplementaeren Zeile vorher per GetAssignment aufloesen. Fall 2 ist KEIN gueltiger
-      Zustand mehr: CreateSwapRequest bzw. ApproveSwapRequest muessen einen Validierungsfehler
-      liefern statt eines stillen No-Op mit approved. Diese Frage ist damit beantwortet und
-      blockiert die Unit nicht -- nicht erneut aufmachen.
-    done_when:
-      - Ein Schichttausch zwischen zwei bereits zugeordneten Mitarbeitern tauscht tatsaechlich
-        beide employee_id-Werte, ohne die UNIQUE-Constraint zu verletzen
-      - Ein Tausch mit noch nicht zugeordnetem Partner wird abgelehnt -- CreateSwapRequest bzw.
-        ApproveSwapRequest liefern einen Validierungsfehler, kein stiller No-Op mit approved
-        (die Semantik-Frage ist vorab entschieden, siehe notes)
-      - Beide oben genannten Tests sind auf das korrekte Verhalten umgestellt statt geloescht
-      - go test -count=1 ./internal/schichten/ gruen
-
-  - id: fix-notification-quiet-hours-conflict-index
-    phase: 3
-    service: notification
-    model: opus
-    deps: []
-    status: done
-    coverage_start: "internal/notification/preference 87,2 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      `PostgresRepository.UpsertQuietHours`
-      (backend/internal/notification/preference/postgres_repository.go, ON CONFLICT um Zeile
-      213) zielt auf `ON CONFLICT (tenant_id, user_id)`, aber `notification_quiet_hours` traegt
-      seit Migration 000022 nur ein inline `UNIQUE(user_id)` (Constraint
-      `notification_quiet_hours_user_id_key`). Migration 000124 hat `tenant_id` ueberall NOT
-      NULL gemacht, diesen Constraint aber nie verbreitert -- verifiziert gegen die lokale DB
-      (Kopf 309) und gegen alle Migrationen, die die Tabelle anfassen (000022, 000110, 000124).
-      Postgres validiert den ON-CONFLICT-Zielindex beim PLANEN der Query, nicht erst bei einem
-      tatsaechlichen Konflikt: deshalb schlaegt JEDER Aufruf fehl, nicht nur der zweite, mit
-      SQLSTATE 42P10. Quiet Hours lassen sich ueber dieses Repository derzeit ueberhaupt nicht
-      anlegen.
-    sources:
-      - backend/internal/notification/preference/postgres_repository.go
-      - backend/migrations/000305_notification_preferences_conflict_index_tenant_fix.up.sql
-      - backend/migrations/000022_create_notification_preferences.up.sql
-    notes: >
-      EXAKT dieselbe Bugklasse wurde fuer `notification_preferences` schon EINMAL gefixt:
-      Migration 000305 verbreitert dort den analogen Event-Type-Index von
-      `(user_id, event_type_key)` auf `(tenant_id, user_id, event_type_key)` mit derselben
-      Begruendung im Kommentar. `notification_quiet_hours` wurde dabei uebersehen -- 000305 ist
-      damit Vorlage UND Beleg, dass der Fix so funktioniert.
-      Fertiger Migrationskoerper (neue Nummer zur Laufzeit ermitteln, NICHT 310 annehmen):
-      `DROP INDEX notification_quiet_hours_user_id_key;`
-      `CREATE UNIQUE INDEX notification_quiet_hours_user_id_tenant_id_key
-       ON notification_quiet_hours(tenant_id, user_id);`
-      Der neue Index ist ein Superset des alten und kann mit keiner bestehenden Zeile
-      kollidieren. `postgres_repository.go` braucht voraussichtlich keine Aenderung (ON CONFLICT
-      nennt nur Spalten, keinen Constraint-Namen) -- pruefen, nicht annehmen.
-      ZWEITER, NICHT VERIFIZIERTER VERDACHT am selben Code, in dieser Unit mitpruefen:
-      `UpsertPreference` (Zeile 99) zielt auf
-      `ON CONFLICT (tenant_id, user_id, event_type_key) WHERE event_type_key IS NOT NULL`.
-      Fuer Modul-Defaults mit `event_type_key IS NULL` kann dieser partielle Index gar nicht
-      als Arbiter greifen -- ein zweiter Upsert desselben Modul-Defaults wuerde dann eine
-      Dublette schreiben statt zu aktualisieren. Erst reproduzieren, dann entscheiden.
-      Migration + RLS => `model: opus`, und die neue Tabelle/der neue Index braucht den
-      RLS-Smoke aus GATE-COMMANDS.md.
-    done_when:
-      - Neue Migration verbreitert den Unique-Index auf (tenant_id, user_id), down-Migration
-        stellt den alten Zustand her
-      - Ein DB-gestuetzter Test beweist, dass UpsertQuietHours zweimal hintereinander fuer
-        denselben (tenant_id, user_id) durchlaeuft und beim zweiten Mal aktualisiert statt
-        einzufuegen
-      - Ein zweiter Test beweist, dass zwei Tenants dieselbe user_id unabhaengig konfigurieren
-        koennen (der eigentliche Grund fuer die Verbreiterung)
-      - Der UpsertPreference-Verdacht (event_type_key IS NULL) ist reproduziert und entweder
-        gefixt oder mit Begruendung als Nicht-Bug im Journal abgeraeumt
-      - rls-smoke gruen, go test -count=1 ./internal/notification/... gruen
-
-  - id: fix-document-virtual-users-display-name
-    phase: 3
-    service: document
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/document/virtual 83,1 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      `internal/document/virtual/postgres_repository.go` selektiert an vier Stellen
-      `COALESCE(u.display_name, u.email) AS uploaded_by_name` gegen die `users`-Tabelle, aliasiert
-      als `u` (ListChatFiles Zeile ~61, ListTaskFiles Zeile ~142, sowie beide entsprechenden
-      Zweige der UNION-Query in ListAll, Zeilen ~221 und ~248). `users` hat aber kein
-      `display_name`-Feld -- nur `first_name`/`last_name` seit Migration 000001. Jede dieser vier
-      Query-Varianten schlaegt daher mit `ERROR: column u.display_name does not exist`
-      (SQLSTATE 42703) fehl, sobald mindestens eine zugreifbare Zeile existiert -- verifiziert
-      per `psql` direkt gegen die lokale DB (Kopf 309) und per vier neuen roten/dokumentierenden
-      Tests. Nur `ListEmailAttachments` funktioniert, weil sie stattdessen
-      `eacc.display_name` (email_accounts, hat die Spalte wirklich) liest.
-      Besonders schwerwiegend: die kombinierte `ListAll`-Sicht (sourceType `""`, die "Alle
-      Dateien"-Ansicht im Dokumenten-Browser) bricht fuer JEDEN Nutzer mit mindestens einer
-      zugreifbaren virtuellen Datei aus IRGENDEINER Quelle -- auch fuer einen Nutzer, der
-      ausschliesslich ein E-Mail-Attachment sichtbar hat, weil die UNION-Query alle drei
-      Zweige gemeinsam plant und die kaputten Chat-/Task-Zweige den gesamten Query-Parse
-      zum Scheitern bringen, bevor irgendeine Zeile zurueckkommt. Die reine
-      `ListEmailAttachments`-Ansicht bleibt davon unberuehrt (eigene Query).
-    sources:
-      - backend/internal/document/virtual/postgres_repository.go
-      - backend/internal/document/virtual/postgres_repository_test.go
-    notes: >
-      Gefunden beim Bau der Coverage-Unit f-cov-document-file (Lauf 8, Iteration 86).
-      `postgres_repository_test.go` dokumentiert den aktuellen (kaputten) Zustand explizit in
-      `TestPostgresRepository_ListChatFiles_ColumnBug`,
-      `TestPostgresRepository_ListTaskFiles_ColumnBugViaProjectMembership` und
-      `TestPostgresRepository_ListAll_UnionColumnBugTriggeredByEmailOnlyAccess` -- alle drei
-      pruefen bewusst auf den Fehler statt auf Erfolg, nach demselben Muster wie
-      fix-email-send-missing-tenant-id in diesem Backlog.
-      Sauberster Fix: `u.display_name` in allen vier SELECT-Listen durch
-      `COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email)` ersetzen (exakt
-      das Muster, das `file/postgres_repository.go` und `notification`-Queries im selben Repo
-      bereits fuer `users`-Anzeigenamen verwenden -- siehe z. B.
-      `document_file_activity`-JOIN in `internal/document/file/postgres_repository.go:392`:
-      `COALESCE(u.first_name || ' ' || u.last_name, '')`). KEINE neue Migration noetig, reiner
-      SQL-Text-Fix in vier Query-Strings.
-    done_when:
-      - Alle vier betroffenen SELECT-Listen verwenden first_name/last_name statt des
-        nichtexistenten display_name
-      - Die drei "ColumnBug"-Tests aus Iteration 86 sind auf das korrekte Verhalten
-        (kein Fehler, korrekter uploaded_by_name) umgestellt statt geloescht -- inklusive
-        Umbenennung weg von "ColumnBug" im Testnamen
-      - Ein Test belegt den first_name+last_name-Anzeigenamen UND den E-Mail-Fallback bei
-        leeren Namen
-      - go test -count=1 ./internal/document/... gruen
-
-  - id: fix-crm-erasure-double-count
-    phase: 3
+  - id: scan-dsar-missing-contact-user-tables
+    phase: 4
     service: security
     model: sonnet
     deps: []
-    status: done
-    coverage_start: "internal/security/gdpr 60,6 % (CI-Stand 8c224eba, Run 31471247645)"
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
-      `CRMErasureHandler.ExecuteErasure` (internal/security/gdpr/erasure.go:197) zaehlt jede
-      Aktivitaet doppelt, die der Betroffene sowohl erstellt als auch sich selbst zugewiesen
-      hatte. Das erste UPDATE setzt `assigned_to = NULL` (WHERE assigned_to = $1); das zweite
-      UPDATE laeuft danach mit `WHERE created_by = $1 AND (assigned_to IS NULL OR assigned_to
-      != $1)` und trifft genau diese Zeile ein zweites Mal, weil ihr `assigned_to` inzwischen
-      NULL ist. Die Daten sind danach korrekt (idempotenter Anonymisierungs-UPDATE), nur die
-      zurueckgegebene Zahl ist zu hoch. Sie landet ueber `Service.ExecuteErasure` als
-      "anonymize: N records" im `modules_affected` des `GDPRErasureLog` und geht in den
-      SHA-256-Confirmation-Hash ein — also in den Art.-17-Loeschnachweis, den der Betroffene
-      bekommt. Kein Datenleck, aber eine falsche Zahl in einem Compliance-Beleg.
+      Nach A3 bis A9 ist die Auskunft breiter, aber niemand hat je vollstaendig aufgelistet,
+      welche Tabellen ueberhaupt personenbezogene Daten mit Bezug auf `contacts` oder `users`
+      tragen. Dieser Scan erstellt diese Liste und gleicht sie gegen das ab, was
+      `dsar_search.go` tatsaechlich abfragt.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/migrations/
+    notes: >
+      Mechanisch anfangen, nicht raten: alle Tabellen mit einem FK auf `contacts(id)` oder
+      `users(id)` aus `pg_constraint` ziehen, dazu alle Tabellen mit einer Spalte, die
+      `email`, `phone`, `first_name`, `last_name` oder `ip_address` heisst. Das ist die
+      Grundgesamtheit.
+      Dann je Tabelle entscheiden: personenbezogen und auskunftspflichtig, oder nicht — mit
+      Begruendung. Reine Verknuepfungstabellen ohne eigene Daten sind ein legitimer Nicht-Fund.
+      Systemtabellen (schema_migrations, Feature-Flags) ebenso.
+      Der Abgleich gegen `dsar_search.go` erfolgt gegen die Queries, nicht gegen die Modulnamen.
+    done_when:
+      - Vollstaendige Liste der Kandidatentabellen aus pg_constraint und Spaltennamen
+      - Je Tabelle eine Entscheidung mit Begruendung
+      - Jede Luecke ist als eigene Unit mit scope und done_when angelegt
+      - neue-units im Journal nennt die IDs, die wirklich in BACKLOG.yml stehen
+
+  - id: scan-erasure-handlers-missing-personal-data-tables
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Gegenstueck zu C1, auf der Loeschseite. Sieben Erasure-Handler (audit, auth, calendar,
+      chat, crm, notifications, work) fassen je eine Menge Tabellen an. Ob diese Mengen
+      vollstaendig sind, hat nie jemand geprueft. Eine Loeschung, die eine Tabelle auslaesst,
+      hinterlaesst Personendaten in einem System, das sie als geloescht meldet.
     sources:
       - backend/internal/security/gdpr/erasure.go
-      - backend/internal/security/gdpr/erasure_crm_chat_test.go
-      - backend/internal/security/gdpr/service.go
+      - backend/migrations/
     notes: >
-      Gefunden UND reproduziert beim Bau der Coverage-Unit c-cov-gdpr-erasure-handlers
-      (Lauf 8, Iteration 39): TestCRMErasureHandler_ExecuteErasure_Integration erwartet
-      aktuell 5 statt der sachlich richtigen 4, TestCRMErasureHandler_ExecuteErasure_IgnoresAction
-      erwartet 3 statt 2 — beide mit Kommentar auf diese Unit. Sauberster Fix: das zweite
-      UPDATE um `AND NOT (assigned_to IS NULL AND updated_at = ...)` zu ergaenzen ist fragil;
-      besser die beiden UPDATEs zu einem einzigen mit
-      `WHERE assigned_to = $1 OR created_by = $1` zusammenziehen und `assigned_to` per
-      `CASE WHEN assigned_to = $1 THEN NULL ELSE assigned_to END` setzen — dann ist die
-      Zeilenzahl per Konstruktion die Zahl der beruehrten Aktivitaeten. Die beiden Tests
-      muessen nach dem Fix auf die korrekte Zahl umgestellt werden, nicht geloescht.
+      Die Grundgesamtheit aus C1 wiederverwenden, wenn C1 zuerst lief — dieselbe Liste, andere
+      Frage. Falls nicht, hier erzeugen.
+      Besonders auf die Faelle achten, in denen `PreviewErasure` und `ExecuteErasure` eines
+      Handlers UNTERSCHIEDLICHE Tabellenmengen anfassen. Das ist der gefaehrlichste Fund
+      ueberhaupt: die Vorschau zeigt dann etwas anderes, als die Ausfuehrung tut.
+      Auch die Gegenrichtung pruefen: fasst ein Handler eine Tabelle an, die er gar nicht
+      anfassen duerfte (Aufbewahrungspflicht, GoBD, arbeitsrechtliche Fristen)?
     done_when:
-      - Eine Aktivitaet, die der Betroffene erstellt und sich selbst zugewiesen hat, zaehlt
-        genau einmal
-      - assigned_to wird weiterhin nur fuer die dem Betroffenen zugewiesenen Aktivitaeten
-        geleert, description fuer beide Faelle
-      - Aktivitaeten Dritter bleiben unveraendert
-      - Die beiden dokumentierenden Tests aus Iteration 39 sind auf das korrekte Verhalten
-        umgestellt statt geloescht
-      - go test -count=1 ./internal/security/gdpr/ gruen
+      - Je Handler die angefasste Tabellenmenge, gegen die Grundgesamtheit abgeglichen
+      - Preview und Execute je Handler auf Deckungsgleichheit geprueft
+      - Jede Luecke und jede Ueberreichweite ist als eigene Unit angelegt
+      - neue-units im Journal nennt die IDs, die wirklich in BACKLOG.yml stehen
 
-  - id: fix-email-attachment-download-metadata-wrong-message-id
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/server 70,0 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      `EmailGRPCServer.GetAttachmentDownloadURL` (internal/server/email_grpc.go, um Zeile 1131)
-      lädt die Anhang-Metadaten für die Antwort über
-      `s.attachmentService.GetByMessage(ctx, uuid.Nil, tenantID)` — mit fest verdrahtetem
-      `uuid.Nil` statt der tatsächlichen `MessageID` des Anhangs. `UploadAttachment` legt
-      Pre-Send-Uploads absichtlich mit `MessageID = uuid.Nil` an ("No message yet"); für jeden
-      Anhang, der zu einer echten (gesendeten/empfangenen) Nachricht gehört, liefert dieser
-      Lookup deshalb nichts. Die presignte Download-URL selbst wird korrekt aufgelöst (die
-      läuft über `GetMinIOKeyByID` mit der richtigen Attachment-ID), aber
-      `filename`/`content_type`/`size_bytes` in der Antwort bleiben leer bzw. 0.
-    sources:
-      - backend/internal/server/email_grpc.go
-      - backend/internal/email/attachment/repository.go
-      - backend/internal/server/email_grpc_messages_send_test.go
-    notes: >
-      Gefunden UND reproduziert beim Bau der Coverage-Unit
-      b-cov-server-email-messages-send-attachments (Lauf 8, Iteration 21):
-      TestGetAttachmentDownloadURL_MetadataEmptyForRealMessageAttachment belegt das aktuelle
-      (fehlerhafte) Verhalten exakt, TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment
-      zeigt den einzigen Fall, in dem es zufällig funktioniert.
-      Sauberster Fix vermutlich: `attachment.Repository` um einen `GetByID`-Zugriff auf ein
-      einzelnes Attachment erweitern (statt über `GetByMessage` mit falscher ID zu gehen) und
-      den Handler darauf umstellen. Die beiden oben genannten Tests müssen nach dem Fix auf
-      das KORREKTE Verhalten umgestellt werden, nicht gelöscht.
-    done_when:
-      - filename/content_type/size_bytes sind für Anhänge an echten Nachrichten korrekt befüllt
-      - Das bestehende Pre-Send-Upload-Verhalten bleibt unverändert
-      - Die beiden dokumentierenden Tests aus Iteration 21 sind auf das korrekte Verhalten
-        umgestellt statt gelöscht
-      - go test -count=1 ./internal/server/ grün
-
-  - id: fix-email-send-missing-tenant-id
-    phase: 3
-    service: email
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/email/send 57,6 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      `send.Service.Send` und `send.Service.SaveDraft` (internal/email/send/service.go, im
-      Send-Fall um Zeile 203-215, im SaveDraft-Fall um Zeile 305-318) konstruieren das
-      gespeicherte `models.EmailMessage` OHNE `TenantID` zu setzen, obwohl
-      `SendInput.TenantID`/`DraftInput.TenantID` beide vorhanden sind und an keiner Stelle
-      verwendet werden. `message.PostgresRepository.Create`
-      (internal/email/message/postgres_repository.go:41) schreibt `msg.TenantID` direkt in die
-      INSERT-Query. Jede gesendete oder als Entwurf gespeicherte E-Mail landet damit mit
-      `tenant_id = 00000000-0000-0000-0000-000000000000` in der DB statt mit dem echten Tenant.
-    sources:
-      - backend/internal/email/send/service.go
-      - backend/internal/email/message/postgres_repository.go
-      - backend/internal/server/email_grpc_messages_send_test.go
-    notes: >
-      Gefunden beim Bau der Coverage-Unit b-cov-server-email-messages-send-attachments
-      (Lauf 8, Iteration 21) — TestSendEmail dort speichert bewusst NICHT gegen die
-      tenant-gescopte GetByID, weil genau das an dieser Lücke scheitern würde.
-      Bei scharfer RLS (`COSMI_ENV=production`, produktiv seit 2026-06-05) prüft die
-      INSERT-Policy vermutlich `tenant_id = current_setting(...)`WITH CHECK` — dann schlägt
-      das Senden schlicht fehl. Ist die Policy lockerer, landet die Mail unter dem
-      Nulltenant und ist für den Absender über keinen tenant-gescopten Read mehr erreichbar
-      (Phantom-Verlust der eigenen gesendeten Mail).
-      Root-Cause-Regel: EIN Fix an der gemeinsamen Stelle in `Send`/`SaveDraft`, nicht an
-      jedem Aufrufer im Gateway.
-    done_when:
-      - Send und SaveDraft setzen TenantID auf dem konstruierten models.EmailMessage aus
-        input.TenantID, bevor messageCreator.Create aufgerufen wird
-      - Ein Test beweist, dass eine gesendete/entworfene Nachricht über einen
-        tenant-gescopten GetByID mit dem Tenant des Senders auffindbar ist
-      - RLS-Smoke erneut geprüft, falls INSERT-Policy betroffen ist
-      - go test -count=1 ./internal/email/... ./internal/server/ grün
-
-  - id: fix-rapporte-template-empty-default-lines-crashes
-    phase: 3
-    service: rapporte
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/rapporte 76,0 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      `PostgresRepository.CreateTemplate` und `UpdateTemplate`
-      (internal/rapporte/postgres_repository.go:742 bzw. :848) setzen
-      `default_lines = sql.NullString{Valid: defaultLinesJSON != ""}` -- ein leerer
-      `defaultLinesJSON` wird also als explizites SQL-NULL eingefuegt bzw. geschrieben.
-      Die Spalte `default_lines` (migrations/000163_measurements_and_templates.up.sql:55) ist
-      aber `NOT NULL DEFAULT '[]'`: ein expliziter NULL-Wert UEBERSCHREIBT den Spalten-Default
-      und verletzt den NOT-NULL-Constraint (SQLSTATE 23502), das INSERT/UPDATE schlaegt fehl.
-      `RapporteGRPCServer.CreateTemplate` (internal/server/rapporte_grpc.go:751) reicht
-      `req.GetDefaultLinesJson()` ungeprueft durch -- ein Proto-`string`-Feld ohne
-      `default_lines_json` im Request ist "" (Proto3-Default), nicht "[]". Jeder Client-Aufruf
-      `POST /api/v1/rapporte/templates` ohne dieses optionale Feld schlaegt damit mit einem
-      500er statt einer erfolgreichen Vorlage ohne vorausgefuellte Zeilen fehl. Verifiziert
-      direkt gegen die lokale DB (Kopf 309): `CreateTemplate(..., "")` -> `ERROR: null value in
-      column "default_lines" ... violates not-null constraint`. In dieser Iteration ausschliesslich
-      als Workaround in den neuen Coverage-Tests umgangen (`"[]"` statt `""` uebergeben), nicht
-      gefixt -- Coverage-Units aendern kein Verhalten.
-    sources:
-      - backend/internal/rapporte/postgres_repository.go
-      - backend/internal/server/rapporte_grpc.go
-      - backend/migrations/000163_measurements_and_templates.up.sql
-      - backend/internal/rapporte/postgres_repository_test.go
-    notes: >
-      Gefunden beim Bau der Coverage-Unit f-cov-rapporte-repository (Lauf 8, Iteration 89).
-      Sauberster Fix: in `CreateTemplate`/`UpdateTemplate` bei leerem `defaultLinesJSON` explizit
-      `"[]"` statt eines NULL-validen `sql.NullString` schreiben -- dann greift kein
-      Spalten-Default mehr, sondern der Code setzt den gleichen Wert bewusst, und ein leerer
-      Request bekommt eine Vorlage ohne vorausgefuellte Zeilen statt eines 500ers.
-      Alternative waere, die Spalte den Default tragen zu lassen (NULL statt "" einfuegen, wenn
-      wirklich kein Wert gewollt ist) -- aber `GetTemplate`/`ListTemplates` lesen `default_lines::text`
-      direkt in `sql.NullString`, ein echtes NULL ist dort bereits vorgesehen; zu klaeren, ob das
-      Frontend NULL oder "[]" fuer "keine Zeilen" erwartet, bevor die Variante gewaehlt wird.
-    done_when:
-      - CreateTemplate und UpdateTemplate mit leerem default_lines_json legen eine Vorlage ohne
-        vorausgefuellte Zeilen an/aktualisieren sie, statt am NOT-NULL-Constraint zu scheitern
-      - Ein Test belegt den leeren-Request-Pfad end-to-end (Service oder Repository-Ebene)
-      - go test -count=1 ./internal/rapporte/... ./internal/server/ gruen
-
-  - id: fix-crm-list-nil-slice-wire-shape
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/server 70,0 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      Drei List-RPCs in `backend/internal/server/crm_grpc.go` (ListCustomFields, ListTags,
-      ListContacts) lassen ihr `var infos []*crmv1.<X>Info` bei einem leeren Ergebnis als
-      `nil`-Slice stehen, statt es mit `make([]*T, 0, len(...))` vorzubelegen. Ueber die
-      JSON-Serialisierung wird daraus `null` statt `[]` -- das Frontend bekommt fuer eine
-      leere Liste einen anderen Typ als fuer eine gefuellte. Fuer `ListContacts` liegt die
-      Nil-Quelle eine Ebene tiefer: `contact.Service.enrichWithRelationsBatch` gibt bei
-      `len(contacts) == 0` explizit `nil, nil` zurueck
-      (backend/internal/crm/contact/service.go:401-403), bevor `crm_grpc.go` ueberhaupt eine
-      Slice zum Iterieren bekommt.
-    sources:
-      - backend/internal/server/crm_grpc.go
-      - backend/internal/crm/contact/service.go
-      - backend/internal/server/crm_grpc_fields_tags_contacts_test.go
-    notes: >
-      Gefunden beim Bau der Coverage-Unit b-cov-server-crm-fields-tags-contacts (Lauf 8,
-      Iteration 10). EXAKT die Wire-Shape-Klasse, die fuer `document_grpc.go`s `toProtoFile`
-      in Lauf 7 (Commit `c3f0c46f`) bereits als Bug gefunden UND direkt gefixt wurde --
-      2-Zeilen-Diff, der Commit ist die Vorlage.
-      Die drei Pin-Tests `TestListCustomFields_EmptyIsNilNotEmptySlice`,
-      `TestListTags_EmptyIsNilNotEmptySlice` und `TestListContacts_EmptyIsNilNotEmptySlice`
-      (crm_grpc_fields_tags_contacts_test.go:510/696/898) pruefen bewusst die HEUTIGE, nicht
-      die gewuenschte Form und tragen einen Kommentar, der beim Fix umzudrehen ist
-      (`require.NotNil` statt `require.Nil`).
-      Root-Cause-Regel: fuer ListContacts an der gemeinsamen Stelle in
-      `enrichWithRelationsBatch` fixen, nicht nur im Handler -- sonst bleibt die Nil-Quelle
-      fuer jeden weiteren Aufrufer bestehen. Alle drei Stellen in EINEM Commit.
-      Kein Routen- oder Spec-Aenderungsbedarf (reine JSON-Feldform), `swagger-cli` und
-      `TestOpenAPIRouteDrift` sind nicht betroffen.
-    done_when:
-      - Alle drei List-RPCs liefern bei leerem Ergebnis [] statt null
-      - enrichWithRelationsBatch gibt bei len(contacts) == 0 eine leere, nicht-nil Slice zurueck
-      - Die drei Pin-Tests sind auf require.NotNil umgestellt statt geloescht
-      - go test -count=1 ./internal/server/ ./internal/crm/... gruen
-
-# ==========================================================================================
-# BLOCK B — Muster-Scans.
-#
-# Jede Unit hier sucht EIN Muster ueber eine ABGEGRENZTE Flaeche und legt Funde als neue
-# Fix-Units an. Die Vorlage steht jeweils in Block A: dort ist genau dieser Bug schon einmal
-# reproduziert, dokumentiert und (in diesem Lauf) gefixt worden.
-#
-# Wenn eine Scan-Unit laeuft, BEVOR ihre Vorlage-Unit aus Block A fertig ist, ist das kein
-# Problem — die Bugbeschreibung in Block A reicht als Muster.
-# ==========================================================================================
-
-  - id: scan-inet-cidr-scanned-into-go-string
-    phase: 4
-    service: security
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
-    scope: >
-      MUSTER D — Typ-Scan-Mismatch. Vorlage: `fix-audit-list-verifychain-ip-address-scan`.
-      Eine Postgres-Spalte vom Typ INET/CIDR wird per `rows.Scan(&someString)` in einen
-      Go-`string` gelesen. pgx kann das nicht und liefert bei JEDER Zeile einen Scanfehler --
-      die Query ist damit fuer jeden Tenant mit Daten tot, faellt aber in Tests mit leerer
-      Tabelle nicht auf.
-
-      Die Flaeche ist klein und vollstaendig aufzaehlbar: 6 Spalten in 4 Migrationen.
-        - 000039_create_security_tables.up.sql: `ip_address INET` (2x), `ip_cidr CIDR NOT NULL`
-        - 000054_add_guest_chat_support.up.sql: `ip_address INET`
-        - 000060_create_consent_management.up.sql: `ip_address INET`
-        - 000081_create_formulare.up.sql: `ip_address INET NULL`
-
-      Fuer JEDE dieser Spalten: alle SELECTs finden, die sie lesen, und pruefen, in welchen
-      Go-Typ gescannt wird. Korrekt sind `netip.Addr`/`netip.Prefix`, ein pgtype-Typ, oder ein
-      Cast in der Query (`host(ip_address)`, `ip_address::text`) -- drei korrekte Vorlagen
-      liegen bereits im Repo. Falsch ist ein roher `string` oder `*string` ohne Cast.
-    sources:
-      - backend/migrations/000039_create_security_tables.up.sql
-      - backend/migrations/000054_add_guest_chat_support.up.sql
-      - backend/migrations/000060_create_consent_management.up.sql
-      - backend/migrations/000081_create_formulare.up.sql
-      - backend/internal/security/audit/postgres_repository.go
-    notes: >
-      Vorgehen: erst die Tabellennamen aus den Migrationen ziehen, dann repo-weit nach
-      SELECTs auf diese Tabellen greppen, dann pro Fundstelle den Scan-Zieltyp pruefen.
-      Nicht nur nach `ip_address` als Bezeichner suchen -- `SELECT *` und
-      `RETURNING`-Klauseln treffen die Spalte ebenfalls.
-
-      Jeder Fund braucht einen DB-gestuetzten Pin-Test, der mit MINDESTENS EINER Zeile in der
-      Tabelle laeuft (mit leerer Tabelle ist der Bug unsichtbar -- genau deshalb ist er so
-      lange durchgerutscht).
-    done_when:
-      - Alle 6 Spalten abgearbeitet, pro Spalte im Journal notiert welche Queries sie lesen
-      - Jeder Fund ist eine neue Fix-Unit am Ende dieser Datei, mit reproduziertem Bug und
-        Pin-Test-Vorschlag; die IDs stehen in der `neue-units:`-Zeile des Journals
-      - Sind keine weiteren Fundstellen da, ist das im Journal mit der Liste der geprueften
-        Queries belegt -- "nichts gefunden" ohne Liste zaehlt nicht
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
-
-  - id: scan-on-conflict-target-vs-real-index-a
-    phase: 4
-    service: notification
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
-    scope: >
-      MUSTER A — `ON CONFLICT`-Ziel passt nicht zum tatsaechlich existierenden Index.
-      Vorlage: `fix-notification-quiet-hours-conflict-index`. Dort zielt
-      `ON CONFLICT (tenant_id, user_id)` auf einen Index, der nur `UNIQUE(user_id)` ist:
-      Postgres validiert das Konflikt-Ziel beim PLANEN, also schlaegt JEDER Aufruf mit
-      SQLSTATE 42P10 fehl -- unabhaengig davon, ob ueberhaupt ein Konflikt auftritt. Das
-      Feature ist damit zu 100 % unbenutzbar und faellt trotzdem in Unit-Tests ohne DB nicht auf.
-
-      TEIL A dieses Scans deckt die Haelfte der Flaeche ab (98 `ON CONFLICT`-Stellen gesamt):
-      alle Repositories unter `internal/{auth,security,notification,chat,calendar,document,
-      email,inbox,work,crm}`.
-
-      Pro Fundstelle: die Konfliktspalten aus der Query lesen, dann in den Migrationen den
-      UNIQUE-Constraint/Index auf dieser Tabelle suchen und die Spaltenliste EXAKT vergleichen
-      (Reihenfolge egal, Menge nicht). Besondere Vorsicht bei partiellen Indizes
-      (`WHERE deleted_at IS NULL`): ein `ON CONFLICT` ohne passende `WHERE`-Klausel trifft
-      einen partiellen Index NICHT und schlaegt ebenso fehl.
-    sources:
-      - backend/internal/notification/preference/postgres_repository.go
-      - backend/migrations
-    notes: >
-      Schnellster Einstieg: `grep -rn "ON CONFLICT" internal/ --include=*.go` und die Treffer
-      auf die oben genannten Pakete filtern. Fuer jede Tabelle die zugehoerigen Migrationen
-      per Tabellennamen suchen -- der Constraint kann in einer SPAETEREN Migration verbreitert
-      oder verengt worden sein als der, der die Tabelle angelegt hat. Genau diese Drift ist
-      die Ursache in der Vorlage.
-
-      Ein Fund ist beweisbar ohne Fix: die Query gegen die lokale DB absetzen und den
-      42P10-Fehler im Journal zitieren.
-    done_when:
-      - Alle `ON CONFLICT`-Stellen in den genannten Paketen geprueft und gezaehlt
-      - Jede Nichtuebereinstimmung ist eine neue Fix-Unit; braucht sie eine Migration, ist das
-        in der Unit vermerkt (dann `model` = `opus`)
-      - Die geprueften Stellen sind im Journal als Liste belegt, nicht nur als Zahl
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
-
-  - id: scan-on-conflict-target-vs-real-index-b
-    phase: 4
-    service: inventar
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
-    scope: >
-      MUSTER A, TEIL B — identisches Vorgehen wie
-      `scan-on-conflict-target-vs-real-index-a`, andere Haelfte der Flaeche: alle
-      Repositories unter `internal/{biz,hr,inventar,einkauf,produktion,vertraege,rapporte,
-      schichten,vermietung,fuhrpark,helpdesk,wiki,formulare,berichte,dialer,automation,
-      plugin,settings,video,plus alles nicht in Teil A genannte}`.
-
-      Muster, Beweisfuehrung und Abnahmekriterien stehen in Teil A -- hier nicht wiederholen,
-      sondern dort nachlesen.
-    sources:
-      - backend/internal/notification/preference/postgres_repository.go
-      - backend/migrations
-    notes: >
-      Vor dem Start pruefen, was Teil A bereits abgearbeitet hat (Journal), damit sich die
-      beiden Units nicht ueberschneiden und keine Tabelle zweimal geprueft wird.
-    done_when:
-      - Alle `ON CONFLICT`-Stellen ausserhalb der in Teil A genannten Pakete geprueft
-      - Jede Nichtuebereinstimmung ist eine neue Fix-Unit
-      - Die geprueften Stellen sind im Journal als Liste belegt
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
-
-  - id: scan-phantom-columns-crm-biz-work-email
+  - id: scan-restrict-fk-without-ui-path
     phase: 4
     service: crm
     model: sonnet
     deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
-      MUSTER A2 — SQL referenziert eine Spalte, die es (nicht mehr) gibt. Vorlage:
-      `fix-document-virtual-users-display-name`, wo vier Queries `u.display_name` lesen,
-      obwohl die Spalte seit Migration 000001 nicht mehr existiert. Solche Queries schlagen
-      erst fehl, wenn wirklich eine Zeile zurueckkaeme -- in Tests mit leerer Tabelle sind sie
-      unsichtbar.
-
-      TEIL 1 von 3: Repositories unter `internal/crm`, `internal/biz`, `internal/work`,
-      `internal/email`.
-
-      Vorgehen: pro Repository-Datei die SQL-Strings extrahieren, die referenzierten
-      Tabellen/Spalten sammeln, und gegen den aus den Migrationen aufgebauten Ist-Stand
-      pruefen. Der verlaesslichste Weg ist die LAUFENDE lokale DB
-      (`information_schema.columns`) statt der Migrationen -- sie ist bereits auf Kopf 310 und
-      spiegelt alle spaeteren ALTERs, DROPs und Umbenennungen.
+      Ein RESTRICT-Fremdschluessel ohne Weg in der Oberflaeche, ihn aufzuloesen, ist eine
+      Sackgasse: der Benutzer bekommt einen Fehler und kann nichts dagegen tun. Bei `contacts`
+      ist das geloest (IsInUse, 409, Anonymisierungsangebot). Dieser Scan sucht die uebrigen
+      RESTRICT-FKs im Schema und prueft je Fall, ob es einen Ausweg gibt.
     sources:
-      - backend/internal/document/virtual/postgres_repository.go
-      - backend/internal/crm
-      - backend/internal/biz
-      - backend/internal/work
-      - backend/internal/email
+      - backend/migrations/
+      - backend/internal/gateway/
     notes: >
-      Besonders anfaellig sind Spalten in JOINs auf `users` und `tenants` und alles, was in
-      einer frueheren Migration umbenannt wurde. Aliase (`u.`, `c.`) mit aufloesen, sonst
-      landet man bei der falschen Tabelle.
-
-      Ein Fund ist beweisbar, ohne ihn zu fixen: eine Zeile in die betroffene Tabelle
-      schreiben und die Query absetzen -- der Fehler ist der Beweis.
+      Alle RESTRICT- und NO-ACTION-FKs aus `pg_constraint` ziehen (confdeltype 'r' und 'a').
+      Bei `contacts` sind es zwei RESTRICT (advisory_protocols, dialer_campaign_contacts) und
+      ein NO ACTION (Selbstbezug) — die sind bekannt und dienen als Vorlage fuer die Bewertung.
+      Je Fund die drei Fragen: Kann der Benutzer die blockierende Zeile ueberhaupt erreichen?
+      Bekommt er einen verstaendlichen Grund oder einen 500er? Gibt es eine Alternative
+      (anonymisieren, archivieren, umhaengen)?
+      Der offene Punkt `gdpr_deletion_requests.contact_id` gehoert ausdruecklich hierher: der
+      Entwurf konnte nicht klaeren, ob dieser Fall in der Praxis erreichbar ist. Diese Unit
+      klaert es.
     done_when:
-      - Alle Repository-Dateien der vier genannten Pakete geprueft, Anzahl im Journal
-      - Jeder Fund ist eine neue Fix-Unit mit reproduziertem Fehler
-      - „nichts gefunden“ ist mit der Liste der geprueften Dateien belegt
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
+      - Vollstaendige Liste aller RESTRICT- und NO-ACTION-FKs mit ihren beiden Tabellen
+      - Je Fall die drei Fragen beantwortet
+      - gdpr_deletion_requests.contact_id ist ausdruecklich mitbewertet
+      - Jede Sackgasse ist als eigene Unit angelegt; neue-units im Journal nennt die IDs
 
-  - id: scan-phantom-columns-platform-services
+  - id: scan-personal-data-tables-without-retention-mapping
     phase: 4
-    service: document
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
-    scope: >
-      MUSTER A2, TEIL 2 von 3 — gleiches Vorgehen wie
-      `scan-phantom-columns-crm-biz-work-email`, andere Flaeche: `internal/auth`,
-      `internal/security`, `internal/document`, `internal/chat`, `internal/calendar`,
-      `internal/notification`, `internal/inbox`, `internal/hr`.
-
-      Muster und Beweisfuehrung stehen in Teil 1 -- dort nachlesen, hier nicht wiederholen.
-    sources:
-      - backend/internal/document/virtual/postgres_repository.go
-      - backend/internal/auth
-      - backend/internal/security
-      - backend/internal/chat
-      - backend/internal/hr
-    notes: >
-      `internal/document/virtual` selbst ist bereits durch die Block-A-Unit abgedeckt --
-      nicht doppelt bearbeiten, aber die SCHWESTER-Queries im selben Paket pruefen: die
-      Vorlage-Unit fixt vier benannte Stellen, nicht zwangslaeufig alle.
-    done_when:
-      - Alle Repository-Dateien der genannten Pakete geprueft, Anzahl im Journal
-      - Jeder Fund ist eine neue Fix-Unit mit reproduziertem Fehler
-      - „nichts gefunden“ ist mit der Liste der geprueften Dateien belegt
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
-
-  - id: scan-phantom-columns-module-services
-    phase: 4
-    service: inventar
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
-    scope: >
-      MUSTER A2, TEIL 3 von 3 — gleiches Vorgehen wie
-      `scan-phantom-columns-crm-biz-work-email`, restliche Flaeche: die Modul-Services
-      `internal/{inventar,einkauf,produktion,vertraege,rapporte,schichten,vermietung,fuhrpark,
-      helpdesk,wiki,formulare,berichte,dialer,automation,plugin,settings,video,caldav}`.
-
-      Muster und Beweisfuehrung stehen in Teil 1 -- dort nachlesen.
-    sources:
-      - backend/internal/document/virtual/postgres_repository.go
-      - backend/internal/inventar
-      - backend/internal/rapporte
-      - backend/internal/schichten
-    notes: >
-      Diese Pakete sind juenger als crm/biz und haben weniger Migrations-Historie hinter sich
-      -- die Trefferwahrscheinlichkeit ist geringer. Trotzdem vollstaendig durchgehen: gerade
-      die Module hinter ausgeschalteten Feature-Flags sind nie unter Last gelaufen.
-    done_when:
-      - Alle Repository-Dateien der genannten Pakete geprueft, Anzahl im Journal
-      - Jeder Fund ist eine neue Fix-Unit mit reproduziertem Fehler
-      - „nichts gefunden“ ist mit der Liste der geprueften Dateien belegt
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
-
-  - id: scan-insert-missing-tenant-id-a
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
-    scope: >
-      MUSTER B — INSERT setzt `tenant_id` nicht, obwohl die Spalte `NOT NULL` ohne Default
-      ist. Vorlage: `fix-datev-upload-repo-missing-tenant-id`, wo das Modell nicht einmal ein
-      `TenantID`-Feld hatte und der DATEV-Upload seit `COSMI_ENV=production` (2026-06-05) fuer
-      JEDEN Tenant still totalausgefallen ist -- rund zwei Monate unbemerkt.
-
-      Verwandte Auspraegung (Vorlage `fix-email-send-missing-tenant-id`): das Feld existiert,
-      wird aber nie gesetzt, sodass die Zeile mit Null-UUID-Tenant landet und ueber den
-      tenant-gescopten Read nie wieder auftaucht -- ein Phantom-Verlust ohne Fehlermeldung.
-
-      TEIL A von 3: `internal/biz` (inkl. datev, bexio, lexware), `internal/crm`,
-      `internal/work`.
-
-      Vorgehen: alle `INSERT INTO`-Statements finden, Zieltabelle bestimmen, in der laufenden
-      DB pruefen ob `tenant_id NOT NULL` ist, und dann pruefen ob die Spaltenliste des INSERT
-      sie enthaelt UND ob der Wert aus dem Kontext (nicht hartkodiert, nicht Null-UUID) kommt.
-    sources:
-      - backend/internal/biz/datev/postgres_upload_repo.go
-      - backend/internal/email/send/service.go
-      - backend/internal/biz
-      - backend/internal/crm
-      - backend/internal/work
-    notes: >
-      Es gibt eine System-Global-Liste (ADR-006, `docs/ARCHITECTURE.md`): Tabellen, die
-      bewusst KEIN `tenant_id` haben. Diese Liste vor jedem Fund pruefen, sonst entstehen
-      Fix-Units fuer Nicht-Bugs.
-
-      Der Beweis ist ein Test nach dem `AssertWriteCarriesTenant`-Muster, das im Repo bereits
-      existiert. Achtung: er muss als Rolle `kmuhub_app` laufen -- `kmuhub` hat BYPASSRLS und
-      wuerde die Luecke durchwinken.
-    done_when:
-      - Alle `INSERT INTO` in den genannten Paketen geprueft, Anzahl im Journal
-      - Jeder Fund ist eine neue Fix-Unit; Tabellen aus der System-Global-Liste sind als
-        solche vermerkt und NICHT als Fund gezaehlt
-      - „nichts gefunden“ ist mit der Liste der geprueften INSERTs belegt
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
-
-  - id: scan-insert-missing-tenant-id-b
-    phase: 4
-    service: document
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
-    scope: >
-      MUSTER B, TEIL B von 3 — gleiches Vorgehen wie `scan-insert-missing-tenant-id-a`,
-      andere Flaeche: `internal/{auth,security,document,chat,calendar,email,notification,
-      inbox,hr}`.
-
-      Muster, System-Global-Liste und Beweisfuehrung stehen in Teil A -- dort nachlesen.
-    sources:
-      - backend/internal/biz/datev/postgres_upload_repo.go
-      - backend/internal/email/send/service.go
-      - backend/internal/document
-      - backend/internal/chat
-    notes: >
-      `internal/email/send` ist bereits durch die Block-A-Unit abgedeckt -- nicht doppelt
-      bearbeiten, aber die uebrigen Schreibpfade im selben Paket pruefen (Drafts, Anhaenge,
-      Sync), die Vorlage-Unit fixt nur `Send` und `SaveDraft`.
-    done_when:
-      - Alle `INSERT INTO` in den genannten Paketen geprueft, Anzahl im Journal
-      - Jeder Fund ist eine neue Fix-Unit; System-Global-Tabellen sind vermerkt, nicht gezaehlt
-      - „nichts gefunden“ ist mit der Liste der geprueften INSERTs belegt
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
-
-  - id: scan-insert-missing-tenant-id-c
-    phase: 4
-    service: inventar
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
-    scope: >
-      MUSTER B, TEIL C von 3 — gleiches Vorgehen wie `scan-insert-missing-tenant-id-a`,
-      restliche Flaeche: die Modul-Services `internal/{inventar,einkauf,produktion,vertraege,
-      rapporte,schichten,vermietung,fuhrpark,helpdesk,wiki,formulare,berichte,dialer,
-      automation,plugin,settings,video,caldav}`.
-
-      Muster, System-Global-Liste und Beweisfuehrung stehen in Teil A -- dort nachlesen.
-    sources:
-      - backend/internal/biz/datev/postgres_upload_repo.go
-      - backend/internal/inventar
-      - backend/internal/schichten
-      - backend/internal/rapporte
-    notes: >
-      Module hinter ausgeschalteten Feature-Flags sind nie unter Produktionslast gelaufen --
-      ein fehlendes `tenant_id` faellt dort erst auf, wenn das Flag angeht. Genau deshalb
-      gehoeren sie in den Scan und nicht ans Ende der Liste.
-    done_when:
-      - Alle `INSERT INTO` in den genannten Paketen geprueft, Anzahl im Journal
-      - Jeder Fund ist eine neue Fix-Unit; System-Global-Tabellen sind vermerkt, nicht gezaehlt
-      - „nichts gefunden“ ist mit der Liste der geprueften INSERTs belegt
-      - Kein Verhalten geaendert ausser dem Anlegen von Units
-
-  - id: scan-nil-slice-wire-shape-large-services
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/server 70,0 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      MUSTER C — eine List-RPC gibt bei leerem Ergebnis eine `nil`-Slice zurueck statt
-      `make([]*T, 0, n)`. Ueber protojson wird daraus JSON `null` statt `[]`, und das
-      Frontend bricht auf `.map()`/`.length`. Vorlage: `fix-crm-list-nil-slice-wire-shape`,
-      Fix-Muster aus Lauf 7 in Commit `c3f0c46f` -- ein Zwei-Zeilen-Diff pro Stelle.
-
-      TEIL 1 von 2: die acht groessten gRPC-Server in `internal/server`:
-      `crm_grpc.go`, `biz_grpc.go`, `work_grpc.go`, `video_grpc.go`, `hr_grpc.go`,
-      `calendar_grpc.go`, `email_grpc.go`, `document_grpc.go`.
-
-      Fuer jede RPC, die eine wiederholte Nachricht zurueckgibt: pruefen, ob die Slice VOR der
-      Schleife mit `make(..., 0, len(...))` initialisiert wird. Ein `var xs []*T` gefolgt von
-      `append` in einer Schleife ist der Bug -- bei null Durchlaeufen bleibt die Slice `nil`.
-    sources:
-      - backend/internal/server/crm_grpc.go
-      - backend/internal/server/biz_grpc.go
-      - backend/internal/server/work_grpc.go
-      - backend/internal/server/hr_grpc.go
-      - backend/internal/server/email_grpc.go
-    notes: >
-      Die drei in `fix-crm-list-nil-slice-wire-shape` genannten RPCs (ListCustomFields,
-      ListTags, ListContacts) sind bereits abgedeckt -- die uebrigen List-RPCs in
-      `crm_grpc.go` aber NICHT. Diese Datei ist mit 3.233 Zeilen die groesste im Paket.
-
-      Auch der Service-Layer kann die Ursache sein, nicht nur der gRPC-Handler: die Vorlage
-      nennt zusaetzlich `crm/contact/service.go` (`enrichWithRelationsBatch`). Wo der
-      Handler nur durchreicht, sitzt der Bug eine Ebene tiefer.
-
-      Der Test ist billig und gehoert zu jedem Fund: RPC mit leerem Repository aufrufen,
-      Ergebnis-Slice auf `!= nil` pruefen.
-    done_when:
-      - Alle List-RPCs der acht genannten Dateien geprueft, Anzahl im Journal
-      - Funde entweder als neue Fix-Units angelegt ODER -- wenn es wenige sind -- in dieser
-        Unit direkt gefixt, inklusive Test pro Stelle und Mutations-Probe
-      - Bei direktem Fix zusaetzlich `go test -count=1 ./internal/server/` gruen
-      - „nichts gefunden“ ist mit der Liste der geprueften RPCs belegt
-
-  - id: scan-nil-slice-wire-shape-remaining-services
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/server 70,0 % (CI-Stand 8c224eba, Run 31471247645)"
-    scope: >
-      MUSTER C, TEIL 2 von 2 — gleiches Vorgehen wie
-      `scan-nil-slice-wire-shape-large-services`, restliche 23 `*_grpc.go` in
-      `internal/server`: fuhrpark, inbox, helpdesk, chat, inventar, security, notification,
-      dialer, rapporte, berichte, formulare, plugin, automation, settings, vermietung, wiki,
-      schichten, einkauf, vertraege, produktion, bexio, lexware, datev_upload.
-
-      Muster, Beweisfuehrung und Fix-Vorlage stehen in Teil 1 -- dort nachlesen.
-    sources:
-      - backend/internal/server/inventar_grpc.go
-      - backend/internal/server/helpdesk_grpc.go
-      - backend/internal/server/notification_grpc.go
-      - backend/internal/server/security_grpc.go
-    notes: >
-      Vor dem Start pruefen, was Teil 1 abgearbeitet hat (Journal), damit sich die beiden
-      Units nicht ueberschneiden.
-    done_when:
-      - Alle List-RPCs der 23 genannten Dateien geprueft, Anzahl im Journal
-      - Funde als neue Fix-Units ODER direkt gefixt mit Test und Mutations-Probe
-      - Bei direktem Fix zusaetzlich `go test -count=1 ./internal/server/` gruen
-      - „nichts gefunden“ ist mit der Liste der geprueften RPCs belegt
-
-# ==========================================================================================
-# BLOCK C — zur Laufzeit entstandene Funde (siehe Kopfkommentar Block B)
-# ==========================================================================================
-
-  - id: fix-audit-verifychain-timestamp-precision-mismatch
-    phase: 3
     service: security
     model: sonnet
-    deps: []
-    status: done
-    coverage_start: "internal/security/audit 80,0 % (lokal gemessen nach fix-audit-list-verifychain-ip-address-scan, Lauf 9 Iteration 1)"
+    deps: [feat-retention-worker-schema-and-engine]
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
-      `PostgresRepository.Create` (internal/security/audit/postgres_repository.go:31) berechnet
-      `entry.EntryHash` per `computeEntryHash`, die `entry.Timestamp` mit
-      `time.RFC3339Nano` formatiert -- also inklusive aller neun Nachkommastellen, falls
-      vorhanden. `entry.Timestamp` wird beim Erzeugen ueblicherweise NICHT vom Aufrufer
-      gesetzt und faellt daher auf `time.Now().UTC()` zurueck (Zeile 60-62) -- ein Go-`time.Time`
-      mit, je nach Betriebssystem-Taktaufloesung, tatsaechlicher Sub-Mikrosekunden-Praezision.
-      Die Spalte `audit_log.timestamp` ist `TIMESTAMPTZ` (Migration 000039), die nur
-      Mikrosekunden speichert -- Postgres rundet/kappt die letzten drei Nachkommastellen beim
-      INSERT kommentarlos weg.
-
-      `VerifyChain` (Zeile 222) liest denselben Eintrag anschliessend per SELECT zurueck und
-      ruft `computeEntryHash` ein zweites Mal auf dem GELESENEN (also bereits gekappten)
-      Timestamp auf, um den gespeicherten `entry_hash` zu reproduzieren. Trug der urspruengliche
-      Timestamp beim `Create()`-Aufruf auch nur eine einzige von Null verschiedene
-      Sub-Mikrosekunden-Ziffer, unterscheidet sich der beim Insert berechnete Hash vom beim
-      Verify neu berechneten Hash -- `VerifyChain` meldet dann eine INTAKTE Kette als
-      manipuliert (`recomputed != entry.EntryHash`), obwohl kein Byte veraendert wurde.
-
-      Reproduziert beim Bau von fix-audit-list-verifychain-ip-address-scan (Lauf 9,
-      Iteration 1): `TestPostgresRepository_VerifyChain_ValidSingleEntryRange` schlug mit
-      genau diesem Symptom fehl, bis der Test seinen eigenen Timestamp explizit auf
-      Mikrosekunden kappte (`time.Now().UTC().Truncate(time.Microsecond)`), um die
-      Produktionslogik zu umgehen. Ein Stichproben-Lauf von zehn `time.Now().UTC()`-Aufrufen
-      auf der Loop-Maschine (Windows) zeigte in vier von fuenf Faellen eine von Null
-      verschiedene Sub-Mikrosekunden-Restziffer -- der Bug ist also nicht der Ausnahmefall,
-      sondern der Normalfall.
+      Nach A10 gibt es eine Registry resource_type -> Tabelle und vier Handler (A11 bis A13).
+      Dieser Scan gleicht die Registry gegen die Grundgesamtheit personenbezogener Tabellen ab:
+      wofuer kann man heute eine Aufbewahrungsfrist setzen, und wofuer nicht?
     sources:
-      - backend/internal/security/audit/postgres_repository.go
-      - backend/migrations/000039_create_security_tables.up.sql
-      - backend/internal/security/audit/postgres_repository_test.go
+      - backend/internal/security/gdpr/
+      - backend/migrations/
     notes: >
-      Sauberster Fix vermutlich: `entry.Timestamp` in `Create()` VOR der Hash-Berechnung
-      auf Mikrosekunden kappen (`entry.Timestamp = entry.Timestamp.Truncate(time.Microsecond)`,
-      direkt nach der `IsZero()`-Faellback-Zeile 60-62, vor `computeEntryHash` in Zeile 55) --
-      dann stimmt der Wert, der gehasht wird, exakt mit dem Wert ueberein, den Postgres
-      tatsaechlich speichert und beim naechsten Lesen zurueckgibt. Alternative waere, im
-      Modell selbst auf eine explizite `pgtype.Timestamptz`-Roundtrip-Pruefung zu verzichten
-      und stattdessen `entry.Timestamp` direkt nach dem INSERT per RETURNING zurueckzulesen --
-      unnoetig teurer als die Truncate-Loesung.
-      ACHTUNG: `computeEntryHash` wird auch beim ERSTEN Insert der Kette benutzt (chain-of-custody
-      ab Tag 1) -- die Aenderung betrifft nur NEUE Eintraege ab dem Fix-Commit, alle vorher
-      geschriebenen Eintraege bleiben mit ihrem ungekappten Original-Hash bestehen und sind
-      NICHT rueckwirkend reparierbar (append-only, kein UPDATE moeglich). Das ist hinnehmbar:
-      `VerifyChain` wuerde fuer Alt-Eintraege weiterhin spurious brechen -- gehoert in die
-      Journal-`offen:`-Zeile dieser Unit als bekannte Grenze, ist aber kein Grund, den Fix fuer
-      neue Eintraege zurueckzuhalten.
-      Ein DB-gestuetzter Pin-Test dafuer existiert noch nicht (die beiden VerifyChain-Tests aus
-      fix-audit-list-verifychain-ip-address-scan umgehen das Problem bewusst durch Truncate im
-      Test). Diese Unit sollte einen echten Regressionstest ergaenzen, der einen Timestamp MIT
-      Sub-Mikrosekunden-Anteil erzwingt (z. B. `time.Now().UTC().Add(123 * time.Nanosecond)`)
-      und beweist, dass `VerifyChain` danach trotzdem `valid=true` liefert.
+      Erst laufen lassen, wenn A10 steht — ohne Registry gibt es nichts abzugleichen. Deshalb
+      der deps-Eintrag.
+      Wichtiger als die Luecke selbst ist die Frage, ob eine Tabelle eine Frist BRAUCHT. Nicht
+      jede personenbezogene Tabelle unterliegt einer Loeschpflicht; manche unterliegen dem
+      Gegenteil (GoBD, arbeitsrechtliche Aufbewahrung). Je Tabelle die Einordnung, nicht nur
+      der Abgleich.
+      Die Ausweitung auf alle 24 Services ist ausdruecklich NICHT Teil dieser Unit — sie
+      liefert die Liste, aus der Lauf 11 seine Units zieht.
     done_when:
-      - Create() kappt den Timestamp vor der Hash-Berechnung auf Mikrosekunden-Praezision,
-        sodass der gehashte Wert mit dem tatsaechlich persistierten Wert uebereinstimmt
-      - Ein neuer DB-gestuetzter Test beweist mit einem Timestamp, der nachweislich eine
-        Sub-Mikrosekunden-Ziffer traegt, dass VerifyChain danach valid=true liefert
-      - Die bestehenden Truncate-Workarounds in
-        TestPostgresRepository_VerifyChain_ValidSingleEntryRange koennen entfernt werden,
-        sobald Create() selbst kappt (pruefen, nicht blind loeschen -- der Kommentar dort
-        verweist auf diese Unit)
-      - Die Nicht-rueckwirkende-Grenze (Alt-Eintraege bleiben spurious-broken) ist im Journal
-        dokumentiert
-      - go test -count=1 ./internal/security/audit/ gruen
+      - Registry gegen die Grundgesamtheit abgeglichen, je Tabelle eine Einordnung
+      - Tabellen mit gegenlaeufiger Aufbewahrungspflicht sind als solche markiert
+      - Jede echte Luecke ist als eigene Unit angelegt; neue-units im Journal nennt die IDs
 
-  - id: fix-notification-mutes-unique-missing-tenant
+  - id: scan-gateway-sql-error-leakage
     phase: 4
-    service: notification
-    model: opus
-    deps: []
-    status: done
-    coverage_start: "internal/notification/preference 87,4 % (lokal gemessen, Iteration 4 nach Migration 000312)"
-    scope: >
-      `notification_mutes` traegt seit Migration 000022 den inline-Constraint
-      `UNIQUE(user_id, module_id, resource_id)` (`notification_mutes_user_id_module_id_
-      resource_id_key`, gegen die lokale DB auf Kopf 312 per `\d` verifiziert). Migration 000110
-      hat `tenant_id` ergaenzt, 000124 hat es NOT NULL gemacht und RLS aktiviert -- der
-      Unique-Constraint wurde nie verbreitert. Das ist EXAKT dieselbe Index-Drift, die
-      Migration 000305 fuer `idx_notification_preferences_event_type` und Migration 000312
-      (diese Iteration) fuer `notification_quiet_hours` und
-      `idx_notification_preferences_module_default` behoben hat -- `notification_mutes` ist die
-      letzte verbliebene Tabelle des Notification-Schemas mit dieser Luecke.
-
-      Wirkung anders als bei den drei Vorgaengern: `CreateMute`
-      (internal/notification/preference/postgres_repository.go:118) nutzt KEIN `ON CONFLICT`,
-      es gibt also keinen 42P10-Planungsfehler. Stattdessen prueft
-      `Service.MuteResource` (service.go:240) vorab per `IsResourceMuted` TENANT-GESCOPT, sieht
-      die Zeile eines fremden Tenants also nicht, und laesst `CreateMute` laufen -- das dann am
-      tenant-losen Unique-Constraint mit SQLSTATE 23505 scheitert. Der Nutzer bekommt einen
-      rohen 500er statt `ErrMuteAlreadyExists` oder eines erfolgreichen Mutes. Betroffen ist
-      nur der Cross-Tenant-Fall (dieselbe user_id in zwei Tenants), heute also der
-      Vendor-Access-/Multi-Tenant-User-Pfad, nicht der Alltagsfall -- deshalb niedriger
-      priorisiert als die drei bereits gefixten Stellen, aber dieselbe Ursache und dieselbe
-      Zwei-Zeilen-Loesung.
-    sources:
-      - backend/migrations/000022_create_notification_preferences.up.sql
-      - backend/migrations/000312_notification_quiet_hours_and_module_default_tenant_index.up.sql
-      - backend/internal/notification/preference/postgres_repository.go
-      - backend/internal/notification/preference/service.go
-      - backend/internal/notification/preference/mutes_quiethours_test.go
-    notes: >
-      Gefunden beim Bau von fix-notification-quiet-hours-conflict-index (Lauf 9, Iteration 4)
-      beim Abgleich ALLER Unique-Indexe des Notification-Schemas gegen die laufende DB. NICHT
-      dort mitgefixt, weil er ausserhalb des `done_when` der Unit lag und eine eigene
-      Migration braucht.
-      Migrationskoerper (Nummer zur Laufzeit ermitteln, NICHT 313 annehmen), Vorlage ist
-      000312 in dieser Datei:
-      `ALTER TABLE notification_mutes DROP CONSTRAINT
-       notification_mutes_user_id_module_id_resource_id_key;`
-      `CREATE UNIQUE INDEX idx_notification_mutes_resource
-       ON notification_mutes(tenant_id, user_id, module_id, resource_id);`
-      Der neue Index ist ein Superset des alten und kann mit keiner bestehenden Zeile
-      kollidieren. `postgres_repository.go` braucht voraussichtlich keine Aenderung (CreateMute
-      nennt keinen Constraint) -- pruefen, nicht annehmen.
-      Migration + RLS => `model: opus`, RLS-Smoke aus GATE-COMMANDS.md ist Pflicht.
-    done_when:
-      - Neue Migration verbreitert den Unique-Constraint auf
-        (tenant_id, user_id, module_id, resource_id), down-Migration stellt den alten Zustand her
-      - Ein DB-gestuetzter Test beweist, dass zwei Tenants dieselbe (user_id, module_id,
-        resource_id) unabhaengig muten koennen (Muster:
-        TestPostgresRepository_QuietHoursPerTenant aus Iteration 4)
-      - Der bestehende Duplikat-Pfad innerhalb EINES Tenants liefert weiterhin
-        ErrMuteAlreadyExists, nicht 23505
-      - rls-smoke gruen, go test -count=1 ./internal/notification/... gruen
-
-  - id: fix-work-erasure-task-double-count
-    phase: 3
-    service: security
+    service: gateway
     model: sonnet
     deps: []
-    status: done
-    coverage_start: "internal/security/gdpr 60,5 % (selbst gemessen, Lauf 9 Iteration 6, nach fix-crm-erasure-double-count)"
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
-      `WorkErasureHandler.ExecuteErasure` (backend/internal/security/gdpr/erasure.go, um Zeile
-      377) hat exakt dieselbe Doppelzaehl-Bugklasse wie `fix-crm-erasure-double-count` (Lauf 9,
-      Iteration 6), nur in einer Schwesterfunktion desselben Files: das erste UPDATE setzt
-      `assignee_id = NULL WHERE assignee_id = $1`. Die anschliessende Zaehl-Query
-      `SELECT COUNT(*) FROM tasks WHERE created_by = $1 AND (assignee_id IS NULL OR
-      assignee_id != $1)` laeuft in DERSELBEN Transaktion und sieht das gerade committete
-      (aber noch nicht transaktions-committete, wohl aber sichtbare) NULL bereits -- ein Task,
-      der sowohl `assignee_id = $1` als auch `created_by = $1` war, wird also zuerst vom UPDATE
-      gezaehlt (RowsAffected) UND danach nochmal von `taskCreatedCount` erfasst, weil sein
-      `assignee_id` jetzt NULL ist. Die Daten sind am Ende korrekt (Task ist unassigned,
-      created_by unveraendert -- kein Feld wird beim zweiten Treffer nochmal geschrieben,
-      es ist eine reine Zaehl-Query), nur der zurueckgegebene `affected`-Wert ist zu hoch.
-      Anders als bei der CRM-Variante wird hier keine Compliance-Beleg-Zahl (SHA-256-Hash)
-      beeinflusst, sondern nur die im Loeschprotokoll angezeigte Zahl -- trotzdem dieselbe
-      Bugklasse, dieselbe Ursache, derselbe Fix.
+      Ein Handler, der einen Datenbankfehler mit `err.Error()` an den Aufrufer durchreicht,
+      verraet Tabellennamen, Spaltennamen, Constraint-Namen und gelegentlich Datenwerte. Das
+      ist Aufklaerungsmaterial fuer jeden, der die Oberflaeche erreicht. Dieser Scan geht die
+      75 `route_*.go` durch.
+    sources:
+      - backend/internal/gateway/
+    notes: >
+      Grep-Grundlage: `err.Error()`, `%v` und `%s` mit einem error-Argument in einer
+      Antwortstruktur, sowie das direkte Durchreichen eines pgconn-Fehlers. Nach Wortstaemmen
+      suchen, nicht nach einem einzelnen Muster — ein zu enger Grep erzeugt einen falschen
+      Negativbefund.
+      Nicht jeder Treffer ist ein Fund: ein Fehler, der nur ins Log geht, ist legitim (dafuer
+      ist C6 zustaendig). Es zaehlt der Weg in die HTTP-ANTWORT.
+      Bei jedem Fund den Statuscode mitnotieren: ein 500 mit SQL-Text ist schlimmer als ein
+      400 mit einer Feldmeldung.
+      Die Fix-Units koennen gebuendelt werden (eine je Routendatei), nicht eine je Zeile —
+      sonst entstehen 40 Ein-Zeilen-Units.
+    done_when:
+      - Alle 75 route_*.go geprueft, Liste mit Begruendung je Nicht-Fund
+      - Je Fund Datei, Zeile und Statuscode
+      - Fix-Units je Routendatei gebuendelt angelegt; neue-units nennt die IDs
+
+  - id: scan-gateway-pii-in-logs
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Personendaten im Anwendungslog sind eine eigene Verarbeitung mit eigener Rechtsgrundlage
+      und eigener Aufbewahrungsfrist — und Logs landen regelmaessig ausserhalb des Systems, in
+      dem sie entstanden sind. Dieser Scan sucht E-Mail-Adressen, Namen, Telefonnummern,
+      IP-Adressen und Token in `slog`-Aufrufen im Gateway.
+    sources:
+      - backend/internal/gateway/
+      - backend/internal/security/audit/
+    notes: >
+      DAS AUDIT-LOG IST AUSDRUECKLICH LEGITIM. `internal/security/audit` speichert absichtlich,
+      wer wann was getan hat — inklusive IP. Das ist die Rechtsgrundlage selbst und darf nicht
+      als Fund gemeldet werden. Es geht um das ANWENDUNGSLOG (slog), nicht um das Auditlog.
+      Ebenfalls kein Fund: eine ID (UUID) in einer Logzeile. Sie ist personenbeziehbar, aber
+      ohne die Datenbank wertlos, und ohne sie ist kein Fehler nachvollziehbar.
+      Echte Funde: die vollstaendige E-Mail-Adresse im Klartext, der Nachrichteninhalt, ein
+      Token oder Anmeldedaten, ein vollstaendiger Request-Body.
+      Bei jedem Fund den Log-Level mitnotieren: was auf Debug steht, ist in Produktion
+      moeglicherweise aus — das aendert die Dringlichkeit, nicht die Bewertung.
+    done_when:
+      - Alle slog-Aufrufe im Gateway geprueft, Liste mit Begruendung je Nicht-Fund
+      - Auditlog und reine IDs sind ausdruecklich als Nicht-Funde ausgewiesen
+      - Je Fund Datei, Zeile und Log-Level
+      - Fix-Units angelegt; neue-units im Journal nennt die IDs
+
+  - id: scan-gateway-openapi-response-code-drift
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `TestOpenAPIRouteDrift` prueft, ob jede registrierte Route einen PFAD in `openapi.yaml`
+      hat. Was er nicht prueft, ist die Menge der dokumentierten ANTWORTCODES. Eine Route, die
+      409 liefern kann, aber nur 200 und 400 dokumentiert, laesst jeden Client auflaufen, der
+      sich an die Spezifikation haelt.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/
+      - backend/internal/gateway/openapi_drift_test.go
+    notes: >
+      Der Vergleich laeuft je Handler: welche Statuscodes schreibt er tatsaechlich (inklusive
+      der aus der Middleware — 401, 403, 429), und welche stehen in der Spezifikation?
+      Mit den in diesem Lauf beruehrten Routen anfangen (Block A und B), dann in die Breite.
+      Der Scan darf abbrechen, wenn das Zeitfenster es verlangt — dann aber MIT ANGABE, was
+      nicht geprueft wurde. Eine stille Teilpruefung liest sich hinterher wie eine vollstaendige.
+      Ob daraus ein Test wird, der das dauerhaft prueft, ist eine eigene Unit — hier nur die
+      Bestandsaufnahme.
+    done_when:
+      - Je geprueftem Handler die tatsaechlichen gegen die dokumentierten Codes
+      - Middleware-Codes (401, 403, 429) sind mitbetrachtet
+      - Nicht Geprueftes ist ausdruecklich benannt
+      - Fix-Units angelegt; neue-units im Journal nennt die IDs
+
+  - id: scan-erasure-retention-idempotency-double-run
+    phase: 4
+    service: security
+    model: sonnet
+    deps: [feat-retention-worker-handler-contacts]
+    status: todo
+    coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Ein Loesch- oder Anonymisierungslauf, der zweimal hintereinander laeuft, muss beim
+      zweiten Mal nichts mehr tun. Faellt der erste Lauf in der Mitte aus und wird neu
+      gestartet, entscheidet genau das darueber, ob der Datenbestand konsistent bleibt. Dieser
+      Scan prueft jeden Erasure-Handler und jeden Retention-Handler auf Doppellauf-Festigkeit.
     sources:
       - backend/internal/security/gdpr/erasure.go
-      - backend/internal/security/gdpr/handlers_test.go
+      - backend/internal/security/gdpr/
     notes: >
-      Gefunden beim Bau von fix-crm-erasure-double-count (Lauf 9, Iteration 6) beim
-      Root-Cause-Grep nach Schwesterfunktionen mit demselben Muster (zwei sequenzielle
-      UPDATE/COUNT-Schritte auf derselben Tabelle in einer Transaktion). NICHT dort mitgefixt,
-      weil ausserhalb des `done_when` dieser Unit und WorkErasureHandler.ExecuteErasure bisher
-      GAR KEINEN Test hat (nur PreviewErasure ist in handlers_test.go abgedeckt) -- die Unit
-      braucht also zusaetzlich einen neuen Integrationstest, nicht nur eine Zahlen-Korrektur
-      an einem bestehenden.
-      Fix nach dem Muster der CRM-Unit: die zwei Schritte (UPDATE tasks assignee_id=NULL,
-      danach SELECT COUNT fuer created_by-only) zu einem einzigen UPDATE zusammenziehen:
-      `UPDATE tasks SET assignee_id = CASE WHEN assignee_id = $1 THEN NULL ELSE assignee_id END,
-       updated_at = NOW() WHERE assignee_id = $1 OR created_by = $1` -- RowsAffected ist dann
-      die korrekte, einmalige Zaehlung. time_entries (DELETE) und task_comments (UPDATE) sind
-      von diesem Muster nicht betroffen (eigene, nicht ueberlappende WHERE-Bedingungen) und
-      brauchen keine Aenderung.
+      Je Handler ein Doppellauf-Test: einmal ausfuehren, Zustand festhalten, ein zweites Mal
+      ausfuehren, Zustand vergleichen. Unterschiedlich heisst nicht idempotent.
+      Der haeufigste Fehler ist die Anonymisierung: beim zweiten Lauf wird das bereits
+      anonymisierte Label erneut anonymisiert und ergibt "anonym_anonym_..." oder es wird ein
+      neuer Zaehler vergeben. Danach ausdruecklich suchen.
+      Der zweite haeufige Fehler ist die Zaehlung: der Handler meldet beim zweiten Lauf erneut
+      "42 Datensaetze geloescht", obwohl er nichts getan hat. Das ist eine falsche Aussage in
+      einem Compliance-Protokoll.
+      Diese Unit DARF Tests anlegen — sie ist der einzige Scan mit dieser Erlaubnis, weil der
+      Nachweis nur als Test existieren kann. Verhalten aendert sie trotzdem nicht: ein Handler,
+      der durchfaellt, bekommt eine Fix-Unit.
     done_when:
-      - Ein Task, der sowohl assignee_id = user als auch created_by = user ist, wird in
-        ExecuteErasure genau einmal gezaehlt
-      - Ein Task, der nur created_by = user ist (anderer assignee), behaelt seinen assignee
-        und wird weiterhin gezaehlt
-      - Ein neuer Integrationstest fuer WorkErasureHandler.ExecuteErasure deckt beide Faelle
-        plus time_entries-Delete und task_comments-Anonymisierung ab (bisher ungetestet)
-      - go test -count=1 ./internal/security/gdpr/ gruen
+      - Je Handler ein Doppellauf-Test, Ergebnis dokumentiert
+      - Mehrfach-Anonymisierung und Fehlzaehlung sind ausdruecklich geprueft
+      - Durchgefallene Handler haben je eine Fix-Unit; neue-units nennt die IDs
+      - go test -count=1 ./internal/security/... gruen, DATABASE_URL gesetzt
 
-  - id: fix-security-ip-access-rules-cidr-scan
+  - id: scan-contact-set-null-residual-personal-data
     phase: 4
-    service: security
+    service: crm
     model: sonnet
     deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-inet-cidr-scanned-into-go-string, Lauf 9 Iteration 11)"
+    status: todo
+    coverage_start: "internal/crm/contact 80,4 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
-      MUSTER D — Typ-Scan-Mismatch, identisch zur bereits gefixten Vorlage
-      `fix-audit-list-verifychain-ip-address-scan`. `SecurityGRPCServer.ListIPRules`
-      (backend/internal/server/security_grpc.go:711) selektiert `ip_cidr` (Spaltentyp CIDR,
-      Migration 000039_create_security_tables.up.sql:139, `NOT NULL`) roh und scannt sie in
-      `models.IPAccessRule.IPCIDR` (Typ `string`, kein Cast). pgx v5 kann CIDR nicht direkt in
-      einen Go-`string` scannen. Da die Spalte NOT NULL ist, betrifft das JEDE Zeile ohne
-      Ausnahme -- `ListIPRules` ist fuer jeden Tenant mit mindestens einer IP-Regel komplett
-      unbenutzbar.
-      Reproduziert per DB-gestuetztem Wegwerf-Test (Lauf 9, Iteration 11, nicht committet):
-      Zeile mit `ip_cidr = '10.0.0.0/8'` eingefuegt, dieselbe Query wie in `ListIPRules`
-      abgesetzt -- Fehler exakt:
-      `can't scan into dest[1] (col: ip_cidr): cannot scan cidr (OID 650) in binary format
-      into *string`.
+      Wird ein Kontakt geloescht, setzen acht Tabellen ihre Referenz auf NULL: activities,
+      consent_records, contacts (Selbstbezug), contract_parties, deals, finance_invoices,
+      meetings, tickets. Die ZEILEN bleiben. Tragen sie in eigenen Spalten noch Namen, E-Mail,
+      Telefonnummer oder Freitext ueber die Person, ist die Loeschung unvollstaendig — und
+      zwar unsichtbar, weil der Kontaktdatensatz weg ist und niemand mehr danach sucht.
     sources:
-      - backend/internal/server/security_grpc.go
-      - backend/internal/models/security.go
-      - backend/migrations/000039_create_security_tables.up.sql
-      - backend/internal/security/audit/postgres_repository.go
+      - backend/internal/crm/contact/postgres_repository.go
+      - backend/internal/security/gdpr/erasure.go
+      - backend/migrations/
     notes: >
-      Sauberster Fix nach dem Vorlagen-Muster aus `fix-audit-list-verifychain-ip-address-scan`:
-      die SELECT-Liste in `ListIPRules` (security_grpc.go:711) von `ip_cidr` auf
-      `host(ip_cidr)` oder `ip_cidr::text` umstellen (CIDR ist NOT NULL, `COALESCE` also nicht
-      noetig, aber unschaedlich). `CreateIPRule` (INSERT) ist NICHT betroffen -- Parameter-Bindung
-      beim INSERT funktioniert bereits (Vorbild: dieselbe Asymmetrie bei `user_sessions`).
-      `models.IPAccessRule.IPCIDR` bleibt `string` (Spalte ist NOT NULL, kein Pointer noetig).
-      Pin-Test analog zum Repro: eine Regel mit gesetztem CIDR anlegen, `ListIPRules` aufrufen,
-      `IPCIDR` im Ergebnis pruefen -- mit MINDESTENS EINER Zeile in der Tabelle, sonst bleibt der
-      Bug unsichtbar (bestehende Tests in `security_grpc_test.go` pruefen vermutlich nur den
-      leeren Fall oder mocken die DB-Schicht, sonst waere das bereits aufgefallen -- vor dem Fix
-      verifizieren).
+      Diese Unit ersetzt die gestrichene `fix-contact-tags-missing-foreign-key` aus dem Entwurf
+      (Befund 1: der FK existiert). Sie stellt die Frage, die dort eigentlich gemeint war.
+      Je der acht Tabellen die Spalten durchgehen: gibt es eine Spalte mit einer Kopie der
+      Personendaten (haeufig `contact_name`, `email`, `recipient`, `billing_address`)? Gibt es
+      Freitext, in dem der Name typischerweise steht (Betreff, Notiz, Beschreibung)?
+      Freitext ist der schwierige Fall und darf NICHT automatisch bereinigt werden — ein
+      Suchen-und-Ersetzen ueber Rechnungspositionen ist gefaehrlicher als das Problem. Hier
+      zaehlt die Bestandsaufnahme; was daraus folgt, entscheidet eine eigene Unit.
+      `finance_invoices` unterliegt der GoBD-Aufbewahrung. Ein Rechnungsempfaengername darf
+      dort moeglicherweise gar nicht geloescht werden. Das ist ein Ergebnis, kein Hindernis —
+      aber es gehoert ausgesprochen, statt still uebergangen.
     done_when:
-      - ListIPRules castet ip_cidr in der SELECT-Liste (host() oder ::text) statt es roh zu
-        scannen
-      - Ein neuer DB-gestuetzter Test beweist, dass ListIPRules mit mindestens einer Zeile in
-        ip_access_rules erfolgreich durchlaeuft und den korrekten CIDR-Wert liefert
-      - go test -count=1 ./internal/server/ gruen, DATABASE_URL gegen kmuhub_app gesetzt
-
-  - id: fix-chat-guest-sessions-ip-address-scan
-    phase: 4
-    service: chat
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-inet-cidr-scanned-into-go-string, Lauf 9 Iteration 11)"
-    scope: >
-      MUSTER D — dieselbe Bugklasse, drei Fundstellen in derselben Datei.
-      `guest.PostgresRepository.GetSessionByTokenHash`,
-      `.GetSessionByID` und `.ListSessionsByChannel`
-      (backend/internal/chat/guest/postgres_repository.go, Zeilen ~44/67/87) selektieren
-      `ip_address` (Spaltentyp INET, nullable, Migration
-      000054_add_guest_chat_support.up.sql:10) roh und scannen sie in
-      `GuestSession.IPAddress` (Typ `*string`, kein Cast, `internal/chat/guest/types.go:17`).
-      Ist die Spalte NULL, scannt pgx v5 anstandslos (Pointer bleibt nil) -- deshalb faellt der
-      Bug in den bestehenden Tests (`postgres_repository_reads_test.go`,
-      `tenant_write_test.go`) nicht auf: `seedGuestSession` setzt `ip_address` dort nie. Traegt
-      eine Guest-Session aber eine ECHTE IP (der Normalfall bei realen Gast-Chat-Besuchen ueber
-      `CreateSession`, die die Anfrage-IP mitgibt), schlagen alle drei Lesepfade fehl -- der
-      Gast-Chat-Widget-Login (`GetSessionByTokenHash`, jeder Folge-Request eines Gasts),
-      die Admin-Sessionsliste pro Kanal (`ListSessionsByChannel`) und `GetSessionByID` sind
-      damit fuer jede Session mit gesetzter IP unbenutzbar.
-      Reproduziert per DB-gestuetztem Wegwerf-Test (Lauf 9, Iteration 11, nicht committet):
-      Session mit `ip_address = '203.0.113.5'` eingefuegt, `GetSessionByID` aufgerufen -- Fehler
-      exakt: `can't scan into dest[5] (col: ip_address): cannot scan inet (OID 869) in binary
-      format into **string`.
-    sources:
-      - backend/internal/chat/guest/postgres_repository.go
-      - backend/internal/chat/guest/types.go
-      - backend/internal/chat/guest/service.go
-      - backend/migrations/000054_add_guest_chat_support.up.sql
-      - backend/internal/chat/guest/postgres_repository_reads_test.go
-    notes: >
-      Sauberster Fix: alle drei SELECT-Listen von `ip_address` auf
-      `CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END` umstellen -- exakt
-      das Muster, das `internal/security/gdpr/export.go:172` fuer dieselbe Spaltenkombination
-      (INET, nullable, Ziel `*string`) bereits korrekt verwendet. `GetSessionByTokenHash` (Zeile
-      ~44), `GetSessionByID` (Zeile ~67) und `ListSessionsByChannel` (Zeile ~87) sind alle drei
-      im selben Commit zu fixen -- Root-Cause-Regel, dieselbe Spalte, dieselbe Datei.
-      `CreateSession` (INSERT, Zeile ~32) ist NICHT betroffen.
-      Pin-Test: `seedGuestSession`-Helper in `postgres_repository_reads_test.go` um ein optionales
-      `ip_address`-Argument erweitern (oder einen zweiten Helfer-Aufruf mit gesetzter IP), dann
-      alle drei Lesepfade je einmal mit gesetzter IP durchtesten -- mit MINDESTENS EINER Zeile,
-      die eine echte IP traegt, sonst bleibt der Bug wie bisher unsichtbar.
-    done_when:
-      - Alle drei SELECT-Listen (GetSessionByTokenHash, GetSessionByID, ListSessionsByChannel)
-        casten ip_address statt es roh zu scannen, NULL bleibt weiterhin NULL
-      - Ein neuer DB-gestuetzter Test pro betroffener Methode (oder ein gemeinsamer, alle drei
-        abdeckender Test) beweist den korrekten Read bei gesetzter IP
-      - go test -count=1 ./internal/chat/guest/ gruen, DATABASE_URL gegen kmuhub_app gesetzt
-
-  - id: fix-caldav-carddav-company-permission-role-column
-    phase: 4
-    service: caldav
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-phantom-columns-module-services, Lauf 9 Iteration 17)"
-    scope: >
-      `CardDAVBackend.checkCompanyContactPermission`
-      (backend/internal/caldav/carddav_backend.go:400-407) selektiert roh
-      `SELECT role FROM users WHERE id = $1` und scannt das Ergebnis in eine lokale
-      `role string`-Variable. Die Spalte `role` existiert nicht auf `users` (verifiziert per
-      `\d users` gegen die laufende lokale DB, Kopf 312: Spalten sind u. a. `id, email,
-      password_hash, first_name, last_name, is_active, ..., tenant_id`, kein `role`). Rollen
-      liegen ausschliesslich in den RBAC-Tabellen `user_roles`/`roles`
-      (vgl. `internal/auth/postgres_repository.go:191`,
-      `func (r *PostgresRepository) GetUserRoles(ctx, userID) ([]string, error)`).
-      Jeder Aufruf von `checkCompanyContactPermission` schlaegt daher mit SQLSTATE 42703 fehl;
-      der `err != nil`-Zweig (Zeile 405-407) faengt das ab und gibt HTTP 403 Forbidden zurueck
-      -- der Fehler ist damit fail-closed (kein Zugriff statt falscher Zugriff), aber das
-      Feature ist fuer JEDEN Nutzer, auch echte Admins/Manager, vollstaendig unbenutzbar: kein
-      CardDAV-`PUT`/`DELETE` gegen das geteilte `company`-Adressbuch funktioniert je.
-      Verifiziert direkt gegen die lokale DB:
-      `EXPLAIN SELECT role FROM users WHERE id='00000000-...'` -> `ERROR: column "role" does
-      not exist`.
-    sources:
-      - backend/internal/caldav/carddav_backend.go
-      - backend/internal/auth/postgres_repository.go
-      - backend/internal/middleware/rbac.go
-    notes: >
-      Gefunden bei `scan-phantom-columns-module-services` (Lauf 9, Iteration 17). Sauberster
-      Fix: `checkCompanyContactPermission` auf den bestehenden RBAC-Pfad umstellen statt einer
-      eigenen Roh-SQL-Query -- entweder `authRepo.GetUserRoles(ctx, userID)` injizieren (falls
-      `CardDAVBackend` bereits Zugriff auf ein `auth`-Repository/-Service hat oder leicht
-      bekommen kann) und gegen `"admin"`/`"manager"` pruefen, oder direkt gegen
-      `user_roles JOIN roles` selektieren, falls die alten String-Rollennamen "admin"/"manager"
-      im RBAC-Modell so nicht mehr 1:1 existieren -- vorher pruefen, welche Rollen-Keys nach der
-      RBAC-Phase-1-Migration (Lauf 4) tatsaechlich das Recht tragen, Firmenkontakte zu
-      bearbeiten (`RequirePermission`-Konvention in `internal/middleware/rbac.go` als Vorlage).
-      `checkPersonalContactOwnership` (Zeile 415 ff.) ist NICHT betroffen (prueft Eigentuemerschaft,
-      keine Rolle) -- nicht anfassen.
-    done_when:
-      - checkCompanyContactPermission prueft die Rolle ueber die echten RBAC-Tabellen statt
-        einer nichtexistenten users.role-Spalte
-      - Ein DB-gestuetzter Test beweist: ein Nutzer mit Admin/Manager-Rolle darf einen
-        Firmenkontakt anlegen/aendern/loeschen, ein Nutzer ohne diese Rolle bekommt 403
-      - go test -count=1 ./internal/caldav/ gruen, DATABASE_URL gegen kmuhub_app gesetzt
-
-  - id: fix-work-recording-consent-missing-tenant-id
-    phase: 4
-    service: work
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-insert-missing-tenant-id-a, Lauf 9 Iteration 18)"
-    scope: >
-      `PostgresRepository.SetConsent` (backend/internal/work/recording/postgres_repository.go:154)
-      inserted in `recording_consents` OHNE die Spalte `tenant_id` zu setzen:
-      `INSERT INTO recording_consents (recording_id, user_id, consented, responded_at)
-      VALUES ($1, $2, $3, $4) ON CONFLICT (recording_id, user_id) DO UPDATE SET ...`.
-      `recording_consents` traegt `tenant_id UUID NOT NULL` OHNE Spalten-Default und FORCE ROW
-      LEVEL SECURITY mit `WITH CHECK (tenant_id = current_tenant_id() OR is_system_context())`
-      -- verifiziert per `\d recording_consents` gegen die laufende lokale DB (Kopf 312). Das
-      Modell `RecordingConsent` (backend/internal/work/recording/models.go:56-61) hat kein
-      `TenantID`-Feld, und `Service.SetConsent` (service.go:273) bekommt gar keine `tenantID`
-      als Parameter -- der Aufrufer (`VideoGRPCServer.SetRecordingConsent`,
-      internal/server/video_grpc.go:341) hat sie also nicht einmal zur Hand. Jeder Aufruf
-      schlaegt am NOT-NULL-Constraint fehl: die Teilnehmer-Zustimmung zu einer Aufzeichnung
-      (DSGVO-relevant, Recording-Consent-Feature) laesst sich ueber diesen Pfad nie speichern.
-      Kontrollfund (kein Bug): `CreateRecording` (postgres_repository.go:32) setzt `tenant_id`
-      auf derselben Datei korrekt aus `rec.TenantID`.
-    sources:
-      - backend/internal/work/recording/postgres_repository.go
-      - backend/internal/work/recording/service.go
-      - backend/internal/work/recording/models.go
-      - backend/internal/server/video_grpc.go
-    notes: >
-      Gefunden bei `scan-insert-missing-tenant-id-a` (Lauf 9, Iteration 18). Schlankster Fix
-      vermutlich ohne Signatur-Aenderung an `Service.SetConsent`: `tenant_id` per Subquery aus
-      der Elterntabelle ergaenzen, analog zum bereits im selben Paket verwendeten Muster
-      (`event_exceptions`, `meeting_breakout_rooms`, `task_dependencies` in Nachbarpaketen) --
-      `INSERT INTO recording_consents (recording_id, user_id, consented, responded_at,
-      tenant_id) VALUES ($1, $2, $3, $4, (SELECT tenant_id FROM recordings WHERE id = $1))`.
-      Alternative: `TenantID` durchs Modell/Service/Handler plumben (mehr Diff, dafuer expliziter
-      und ohne Subquery pro Schreibzugriff) -- vor dem Bauen entscheiden, welches Muster im Paket
-      ueberwiegt. `MarkInitiatorConsent` im selben Repository (Zeile 338) bekommt bereits eine
-      `tenantID` durchgereicht und nutzt sie in der WHERE-Klausel -- als Vergleichsmuster fuer
-      "Variante B" nutzbar, ist selbst aber kein Fund (UPDATE, keine fehlende Spalte).
-    done_when:
-      - SetConsent schreibt tenant_id korrekt (Subquery oder durchgereichter Parameter), das
-        INSERT/ON-CONFLICT-UPDATE schlaegt nicht mehr am NOT-NULL-Constraint fehl
-      - Ein DB-gestuetzter Test beweist: SetConsent legt fuer den richtigen Tenant eine Zeile an,
-        ein zweiter Tenant sieht sie nicht (Muster AssertWriteCarriesTenant aus internal/testutil)
-      - go test -count=1 ./internal/work/recording/ ./internal/server/ gruen, DATABASE_URL gegen
-        kmuhub_app gesetzt
-
-  - id: fix-calendar-grpc-nil-slice-wire-shape
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-large-services, Lauf 9 Iteration 21)"
-    scope: >
-      MUSTER C — `calendar_grpc.go` deklariert in ALLEN 13 seiner List-RPCs das
-      Response-Slice als `var protos []*calv1.XxxProto` und befuellt es per `append` in einer
-      Schleife, ohne vorheriges `make(..., 0, n)`. Bei leerem Ergebnis bleibt `protos` `nil`;
-      ueber protojson wird daraus im JSON-Response `null` statt `[]`. Anders als beim bereits
-      gefixten `fix-crm-list-nil-slice-wire-shape` sitzt die Nil-Quelle hier in JEDEM Fall
-      direkt im Handler selbst (nicht im Service-Layer) -- die lokale `var`-Deklaration plus
-      `append`-Schleife ist unabhaengig davon, ob der jeweilige Service bereits ein leeres,
-      nicht-nil Slice liefert.
-
-      Betroffene RPCs mit Zeile der `var protos`-Deklaration (Datei
-      `backend/internal/server/calendar_grpc.go`):
-        ListCalendars (144, Response-Feld Calendars), ListCalendarMembers (277, Members),
-        ListBrowsableCalendars (331, Calendars), ListEventsInRange (512, Events),
-        ListEventAttendees (719, Attendees), ListEventCategories (770, Categories),
-        ListEventReminders (839, Reminders), ListResources (949, Resources),
-        ListResourceAvailability (1041, Bookings), ListResourceBookings (1147, Bookings),
-        ListHolidays (1175, Holidays), ListTaskDeadlinesInRange (1279, Deadlines),
-        ListBookingPages (1759, Pages).
-
-      Root-Cause-Regel: dieselbe Schwesterfunktion mit demselben Muster ausserhalb des
-      `List`-Namensraums gehoert in denselben Commit -- `GetAvailability` (Zeilen 1856-1891)
-      hat exakt dasselbe Muster bei `var dayProtos []*calv1.AvailabilityDayProto` (Zeile 1881,
-      Response-Feld Days) und ist beim Scan als Randfund mitnotiert worden.
-    sources:
-      - backend/internal/server/calendar_grpc.go
-      - backend/internal/server/crm_grpc.go
-    notes: >
-      Fix-Muster (Vorlage `fix-crm-list-nil-slice-wire-shape`, Commit `c3f0c46f` aus Lauf 7):
-      jede `var protos []*calv1.XxxProto`-Zeile durch
-      `protos := make([]*calv1.XxxProto, 0, len(<quelle>))` ersetzen, danach in der Schleife
-      weiterhin `append` verwenden (kein `var` mehr, `:=`). Alle 14 Stellen (13 List-RPCs +
-      GetAvailability) sind derselbe mechanische Zwei-Zeilen-Diff -- root-cause-identisch, ein
-      Commit reicht.
-
-      Test pro RPC ist billig: mit einem leeren Repository/Service-Mock aufrufen, Ergebnis-Slice
-      auf `!= nil` pruefen (Vorlage: `TestListContacts_EmptyIsNilNotEmptySlice` aus
-      crm_grpc_fields_tags_contacts_test.go, dort auf `require.NotNil` bereits umgestellt --
-      exaktes Gegenstueck fuer diese Datei bauen). Bei so vielen gleichartigen Stellen genuegt
-      EIN Test pro RPC (kein DB-Ueberbau noetig, ein leeres Mock-Ergebnis reicht) plus EINE
-      Mutations-Probe stellvertretend fuer das Muster (z. B. `make(...)` in einer Stelle wieder
-      durch `var` ersetzen, pruefen dass genau der zugehoerige Test rot wird, zurueckdrehen).
-    done_when:
-      - Alle 13 List-RPCs plus GetAvailability in calendar_grpc.go initialisieren ihr
-        Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
-      - Pro RPC ein Test, der bei leerem Ergebnis []  statt null im Response-Feld beweist
-      - Eine Mutations-Probe ist im Journal dokumentiert (welche Stelle gebrochen, welcher Test
-        rot, zurueckgedreht, Diff sauber)
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: fix-crm-grpc-nil-slice-wire-shape-remaining
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-large-services, Lauf 9 Iteration 21)"
-    scope: >
-      MUSTER C — dieselbe Bugklasse wie `fix-crm-list-nil-slice-wire-shape` (Block A, bereits
-      gefixt), aber FUENF weitere List-RPCs in derselben Datei `crm_grpc.go`, die beim
-      urspruenglichen Fund nicht mit abgedeckt waren:
-        ListCompanies (Zeile 799, `var infos []*crmv1.CompanyInfo` @831, append @833),
-        ListPipelineStages (1009, `var infos []*crmv1.PipelineStageInfo` @1020, append @1022),
-        ListDeals (1243, `var infos []*crmv1.DealInfo` @1303, append @1305),
-        ListActivities (1550, `var infos []*crmv1.ActivityInfo` @1605, append @1607),
-        ListSavedFilters (1834, `var infos []*crmv1.SavedFilterInfo` @1860, append @1862).
-
-      Root-Cause-Regel: drei weitere Schwesterfunktionen mit demselben Muster ausserhalb des
-      `List`-Namensraums im selben File gehoeren in denselben Commit -- `GetCompanyContacts`
-      (Zeile 948, `var infos []*crmv1.ContactInfo`), `ReorderPipelineStages` (1112) und `Search`
-      (1769, SearchResponse) sind beim Scan als Randfunde mitnotiert worden.
-    sources:
-      - backend/internal/server/crm_grpc.go
-    notes: >
-      Fix-Muster identisch zur bereits gefixten Vorlage im selben File (Commit `c3f0c46f`):
-      `var infos []*crmv1.XxxInfo` durch `infos := make([]*crmv1.XxxInfo, 0, len(<quelle>))`
-      ersetzen. Pin-Test-Vorlage: die drei bereits umgestellten Tests
-      `TestListCustomFields_EmptyIsNilNotEmptySlice` / `TestListTags_...` /
-      `TestListContacts_...` (jetzt `require.NotNil`) in
-      `crm_grpc_fields_tags_contacts_test.go` als Bauplan fuer die fuenf neuen Tests nutzen.
-      Service-Layer pruefen wie bei `enrichWithRelationsBatch` (Vorlage-Unit) -- laut Scan liegt
-      die Nil-Quelle hier direkt im Handler, aber vor dem Fix kurz gegenchecken, ob einer der
-      fuenf Service-Aufrufe (z. B. `companyService.List`, `dealService.List`) ebenfalls `nil`
-      statt `[]T{}` zurueckgibt und zusaetzlich fixen, falls ja.
-    done_when:
-      - ListCompanies, ListPipelineStages, ListDeals, ListActivities, ListSavedFilters sowie
-        GetCompanyContacts, ReorderPipelineStages und Search initialisieren ihr Response-Slice
-        mit make(..., 0, n) statt einer nil-var-Deklaration
-      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
-      - Eine Mutations-Probe ist im Journal dokumentiert
-      - go test -count=1 ./internal/server/ ./internal/crm/... gruen
-
-  - id: fix-work-grpc-nil-slice-wire-shape
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-large-services, Lauf 9 Iteration 21)"
-    scope: >
-      MUSTER C — `work_grpc.go` hat 12 List-RPCs mit demselben Nil-Slice-Muster wie die
-      bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
-        ListProjects (Zeile 120, `var protos []*workv1.ProjectProto` @131),
-        ListProjectMembers (278, `var protos []*workv1.ProjectMemberProto` @294),
-        ListProjectStatuses (504, `var protos []*workv1.ProjectStatusProto` @515),
-        ListTasks (649, `var protos []*workv1.TaskProto` @732),
-        ListSubtasks (892, `var protos []*workv1.TaskProto` @908),
-        ListTaskDependencies (971, `var protos []*workv1.TaskDependencyProto` @982),
-        ListTaskComments (1074, `var protos []*workv1.TaskCommentProto` @1094),
-        ListTaskEntityLinks (1167, `var protos []*workv1.TaskEntityLinkProto` @1178),
-        ListEntityTasks (1188, `var protos []*workv1.TaskProto` @1199),
-        ListTaskActivities (1214, `var protos []*workv1.TaskActivityProto` @1234),
-        ListTaskFiles (1301, `var protos []*workv1.TaskFileProto` @1312),
-        ListTimeEntries (1941, `var protos []*workv1.TimeEntryProto` @1966).
-
-      Root-Cause-Regel: zwei weitere Schwesterfunktionen mit demselben Muster ausserhalb des
-      `List`-Namensraums im selben File gehoeren in denselben Commit -- `ReorderProjectStatuses`
-      (Zeile 494) und `SearchTasks` (1523) sind beim Scan als Randfunde mitnotiert worden.
-    sources:
-      - backend/internal/server/work_grpc.go
-      - backend/internal/server/crm_grpc.go
-    notes: >
-      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede `var protos []*workv1.XxxProto`
-      durch `protos := make([]*workv1.XxxProto, 0, len(<quelle>))` ersetzen. 12 List-RPCs plus 2
-      Randfunde sind viel Flaeche fuer eine Iteration -- falls die Zeit nicht reicht, die
-      wichtigsten zuerst (ListProjects, ListTasks, ListTaskComments, ListTimeEntries sind die am
-      haeufigsten vom Frontend aufgerufenen) und den Rest im Journal unter `offen:` mit exakter
-      Restliste vermerken, NICHT als erledigt melden, wenn nicht alle 14 Stellen gefixt sind.
-    done_when:
-      - Alle 12 List-RPCs plus ReorderProjectStatuses und SearchTasks in work_grpc.go
-        initialisieren ihr Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
-      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
-      - Eine Mutations-Probe ist im Journal dokumentiert
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: fix-chat-grpc-nil-slice-wire-shape
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
-    scope: >
-      MUSTER C — `chat_grpc.go` hat 5 List/Search-RPCs mit demselben Nil-Slice-Muster wie die
-      bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
-        ListChannels (Zeile 152, `var infos []*chatv1.ChannelInfo` @153-155),
-        ListDMs (590, `var infos []*chatv1.ChannelInfo` @591-593),
-        ListChannelFiles (808, `var infos []*chatv1.FileInfo` @809-811),
-        ListReactions (926, `var reactions []*chatv1.Reaction` @927-934),
-        SearchChat (867, `var protos []*chatv1.ChatSearchResultProto` @868-870).
-      Alle 5 Bugs sitzen direkt im Handler, kein Service-Layer-Fund noetig.
-    sources:
-      - backend/internal/server/chat_grpc.go
-    notes: >
-      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede nackte `var x []*T`-Deklaration
-      durch `x := make([]*T, 0, len(<quelle>))` ersetzen.
-      Root-Cause-Regel: `ToggleReaction` (Zeile 898) hat dasselbe Muster (`var reactions
-      []*chatv1.Reaction`), ist aber eine Mutation-RPC, kein List/Get/Search -- beim Scan als
-      Randfund notiert. Da es dieselbe Variable/dasselbe Feld im selben File betrifft, gehoert
-      der Fix in denselben Commit, sonst bleibt die Nil-Quelle fuer diesen Aufrufer bestehen.
-    done_when:
-      - Alle 5 genannten RPCs plus der ToggleReaction-Randfund initialisieren ihr
-        Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
-      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
-      - Eine Mutations-Probe ist im Journal dokumentiert
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: fix-notification-grpc-nil-slice-wire-shape
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
-    scope: >
-      MUSTER C — `notification_grpc.go` hat 5 List-RPCs plus 2 Get-Randfunde mit demselben
-      Nil-Slice-Muster wie die bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
-        ListNotifications (Zeile 117, `var infos []*notificationv1.NotificationInfo`
-          @122-125, Feld Notifications),
-        ListMutedResources (431, `var infos []*notificationv1.MuteInfo` @436-439, Feld Mutes),
-        ListEventTypes (539, `var infos []*notificationv1.EventTypeInfo` @544-546,
-          Feld EventTypes),
-        ListIntegrationConfigs (749, `var infos []*notificationv1.IntegrationConfigInfo`
-          @754, Feld Configs),
-        ListChannelMappings (939, `var infos []*notificationv1.ChannelMappingInfo` @944,
-          Feld Mappings),
-        GetNotificationPreferences (325, `var infos
-          []*notificationv1.NotificationPreferenceInfo` @330-332, Feld Preferences -- kein
-          List-Praefix, aber identisches Muster),
-        GetAccountLinkStatus (1074, `var links []*notificationv1.AccountLinkInfo` @1087,
-          Feld Links -- iteriert ueber ein festes 2-Elemente-Array Teams/Slack, ist bei einem
-          Nutzer ohne verknuepfte Accounts der Normalfall).
-      Alle 7 Bugs sitzen direkt im Handler, kein Service-Layer-Fund noetig.
-    sources:
-      - backend/internal/server/notification_grpc.go
-    notes: >
-      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede nackte `var x []*T`-Deklaration
-      durch `x := make([]*T, 0, len(<quelle>))` ersetzen. GetAccountLinkStatus ist besonders
-      relevant, weil der Normalfall (kein verknuepfter Account) IMMER die leere Liste trifft.
-    done_when:
-      - Alle 5 List-RPCs plus GetNotificationPreferences und GetAccountLinkStatus
-        initialisieren ihr Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
-      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
-      - Eine Mutations-Probe ist im Journal dokumentiert
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: fix-inventar-grpc-list-item-attachments-nil-slice
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
-    scope: >
-      MUSTER C — `ListItemAttachments` (internal/server/inventar_grpc.go, Zeile 1020-1039)
-      befuellt direkt das Response-Struct-Feld statt einer lokalen Slice-Variable:
-      `resp := &inventarv1.ListItemAttachmentsResponse{}` gefolgt von
-      `resp.Attachments = append(resp.Attachments, ...)` in einer Schleife (Zeile 1034-1037).
-      Bei leerem `atts` bleibt `resp.Attachments` `nil` -- Variante desselben Bugs wie die
-      Vorlage `fix-crm-list-nil-slice-wire-shape`, nur ohne Zwischenvariable. Die uebrigen 6
-      List-RPCs in derselben Datei (ListItems, ListMovements, ListWarnings, ListLocations,
-      ListInventurSessions, ListPickingLists) sind bereits sauber (`make(..., len(x))`).
-    sources:
-      - backend/internal/server/inventar_grpc.go
-    notes: >
-      Fix: `resp := &inventarv1.ListItemAttachmentsResponse{Attachments: make([]*inventarv1.
-      ItemAttachment, 0, len(atts))}` (oder die Feldzuweisung nach dem `make`-Aufruf ergaenzen)
-      statt des append-auf-nil-Feld-Musters.
-    done_when:
-      - ListItemAttachments initialisiert Attachments mit make(..., 0, n) statt append auf ein
-        unvorbelegtes Struct-Feld
-      - Ein Test beweist bei leerem Ergebnis [] statt null im Response-Feld
-      - Eine Mutations-Probe ist im Journal dokumentiert
-      - go test -count=1 ./internal/server/ gruen
-
-  - id: fix-plugin-grpc-granted-permissions-nil-slice
-    phase: 4
-    service: plugin
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
-    scope: >
-      MUSTER C, Service-Layer-Variante -- Vorlage `fix-crm-list-nil-slice-wire-shape`
-      (dort: `contact/service.go enrichWithRelationsBatch`). `ListGrantedPermissions`
-      (internal/server/plugin_grpc.go, Zeile 230-241) reicht das Ergebnis von
-      `s.svc.ListGrantedPermissions` 1:1 durch (reiner Durchreicher, kein Bug im Handler). Die
-      eigentliche Nil-Quelle sitzt in `internal/plugin/repository/permission.go`, Zeile 34-53:
-      `var permissions []string` gefolgt von `permissions = append(permissions, perm)` in der
-      `rows.Next()`-Schleife (Zeile 44). Existieren fuer eine Installation keine Berechtigungen,
-      bleibt `permissions` `nil` und wird bis zum Response-Feld `Permissions` durchgereicht.
-    sources:
-      - backend/internal/plugin/repository/permission.go
-      - backend/internal/plugin/service.go
-      - backend/internal/server/plugin_grpc.go
-    notes: >
-      Root-Cause-Regel: Fix gehoert an die Repository-Stelle (permission.go:34), nicht in den
-      Handler -- der Service ist reiner Durchreicher (service.go:355-357), ein Fix nur im
-      Handler wuerde die Nil-Quelle fuer jeden weiteren Aufrufer des Repositorys offen lassen.
-      `permissions := make([]string, 0)` vor der Schleife statt `var permissions []string`.
-    done_when:
-      - permission.go initialisiert die Slice mit make([]string, 0) statt einer
-        nil-var-Deklaration
-      - Ein Test beweist bei einer Installation ohne Berechtigungen [] statt null im
-        Permissions-Feld der Response
-      - Eine Mutations-Probe ist im Journal dokumentiert
-      - go test -count=1 ./internal/plugin/... ./internal/server/ gruen
-
-  - id: fix-schichten-grpc-nil-slice-wire-shape
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
-    scope: >
-      MUSTER C — `schichten_grpc.go` hat 4 von 4 geprueften List-RPCs mit demselben
-      Nil-Slice-Muster wie die bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
-        ListShifts (Zeile 164, `var pbShifts []*schichtenv1.Shift` @165-167),
-        ListAssignments (257, `var pbAssignments []*schichtenv1.ShiftAssignment`),
-        ListTemplates (372, `var pbTemplates []*schichtenv1.ShiftTemplate`),
-        ListSwapRequests (542, `var pbReqs []*schichtenv1.SwapRequest`).
-      Alle 4 Bugs sitzen direkt im Handler, kein Service-Layer-Fund noetig.
-    sources:
-      - backend/internal/server/schichten_grpc.go
-    notes: >
-      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede nackte `var x []*T`-Deklaration
-      durch `x := make([]*T, 0, len(<quelle>))` ersetzen. Achtung: `fix-schichten-swap-
-      assignments-unique-violation` (Block A) aendert im selben File die Swap-Logik --
-      Reihenfolge der Commits pruefen, um Merge-Konflikte im selben File zu vermeiden.
-    done_when:
-      - Alle 4 List-RPCs initialisieren ihr Response-Slice mit make(..., 0, n) statt einer
-        nil-var-Deklaration
-      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
-      - Eine Mutations-Probe ist im Journal dokumentiert
-      - go test -count=1 ./internal/server/ ./internal/schichten/... gruen
-
-  - id: fix-security-grpc-nil-slice-wire-shape
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: done
-    coverage_start: "n.a. (Fund aus scan-nil-slice-wire-shape-remaining-services, Lauf 9 Iteration 22)"
-    scope: >
-      MUSTER C — `security_grpc.go` hat 5 List-RPCs mit demselben Nil-Slice-Muster wie die
-      bereits gefixte Vorlage `fix-crm-list-nil-slice-wire-shape`:
-        ListAuditEntries (Zeile 121, `var pbEntries []*securityv1.AuditEntry`),
-        ListVaultSecrets (279, `var pbSecrets []*securityv1.VaultSecret`),
-        ListDataExports (355, `var pbExports []*securityv1.GDPRExportRequest`),
-        ListIPRules (726, `var rules []*securityv1.IPAccessRule` -- direkter pgx-Query-Loop),
-        ListRetentionPolicies (827, `var policies []*securityv1.RetentionPolicy` -- direkter
-          pgx-Query-Loop).
-      Alle 5 Bugs sitzen direkt im Handler, kein Service-Layer-Fund noetig.
-    sources:
-      - backend/internal/server/security_grpc.go
-    notes: >
-      Fix-Muster identisch zur Vorlage (Commit `c3f0c46f`): jede nackte `var x []*T`-Deklaration
-      durch `x := make([]*T, 0, len(<quelle>))` ersetzen.
-      Root-Cause-Regel: `PreviewErasure` (Zeile 528) und `ExecuteErasure` (559) teilen dieselbe
-      Variable `var pbModules []*securityv1.ModuleErasurePreview` -- Mutation-RPCs, kein
-      List/Get/Search, aber gleiches Muster im selben File; beim Scan als Randfund notiert, in
-      diesem Commit mitfixen, da sonst dieselbe Nil-Quelle fuer beide Aufrufer offen bleibt.
-    done_when:
-      - Alle 5 List-RPCs plus PreviewErasure und ExecuteErasure initialisieren ihr
-        Response-Slice mit make(..., 0, n) statt einer nil-var-Deklaration
-      - Pro RPC ein Test, der bei leerem Ergebnis [] statt null im Response-Feld beweist
-      - Eine Mutations-Probe ist im Journal dokumentiert
-      - go test -count=1 ./internal/server/ ./internal/security/... gruen
+      - Je der acht SET-NULL-Tabellen die Spalten geprueft, mit Begruendung je Nicht-Fund
+      - Kopierte Personendaten und Freitextfelder sind getrennt ausgewiesen
+      - Tabellen mit gegenlaeufiger Aufbewahrungspflicht sind als solche markiert
+      - Jeder Fund ist als eigene Unit angelegt; neue-units im Journal nennt die IDs
