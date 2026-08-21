@@ -138,3 +138,46 @@ Frühere Läufe liegen vollständig im Archiv:
   - RLS-Smoke im engeren Sinn (Tabelle/Policy angefasst) entfaellt, da keine Migration noetig
     war; die eigene DB-Testfunktion deckt Tenant-Isolation fuer die neue Query explizit ab
     (fremder Tenant-Kontext liefert 0 Impacts fuer dieselbe Contact-ID).
+
+## Iteration 3 — feat-dsar-search-contact-custom-fields-and-tags — done — 2026-08-22 00:51
+- commit: 7ac232c3
+- gebaut: `customFieldsModule` und `tagsModule` in `internal/security/gdpr/dsar_search.go`,
+  verkabelt in `SearchByQuery` zwischen der statischen "CRM Kontakte"-Karte und
+  `consentModule`. Custom Fields lesen `contact_custom_field_values` mit JOIN auf
+  `custom_field_definitions` fuer den `field_label` (Klarname statt UUID) und JOIN auf
+  `contacts` fuer den Tenant-Filter (die Wertetabelle traegt selbst keine `tenant_id`,
+  ihre RLS-Policy scoped ueber den Join). `formatCustomFieldValue` dekodiert die
+  JSONB-Zelle nach Go-Typ (string/bool/float64/[]any/nil), nicht nach dem `field_type`
+  der Definition, und deckt damit alle sechs Feldtypen ohne Sonderfall ab. Tags lesen
+  `contact_tags` (traegt eine eigene `tenant_id`-Spalte) mit JOIN auf `tags` fuer den
+  Namen. Beide folgen der `consentModule`-Vorlage: `nil` bei leerem Ergebnis, kein
+  leeres Modul in der Oberflaeche.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (64 PASS / 0 SKIP / 0 FAIL,
+  DATABASE_URL gegen kmuhub_app) | migration n.a. (keine Schemaaenderung, Migrationskopf
+  bereits bei 315) | rls-smoke n.a. (keine neue Tabelle/Policy; Tenant-Isolation ist Teil
+  der neuen DB-Testfunktion) | `go test ./internal/gateway/` n.a. (keine Route/OpenAPI
+  beruehrt)
+- coverage: internal/security/gdpr 61,2 % -> 61,7 % (eigene Messung per `git stash` auf
+  genau die beiden geaenderten Dateien, deckt sich mit `coverage_start`)
+- mutations-probe: in `customFieldsModule` der WHERE-Klausel `AND false` angehaengt ->
+  `TestSearchByQuery_ContactCustomFieldsAndTags_Integration` wird rot ("Benutzerdefinierte
+  Felder" fehlt in der Modulliste). Zurueckgedreht -> gruen, `git diff --stat` zeigt nur
+  die drei erwarteten Dateien (BACKLOG.yml, dsar_search.go, dsar_search_test.go).
+- verify vorgaenger: sauber. `473aefa8` (Contact-Deletion-Preview) gegen alle acht
+  Fehlerklassen geprueft — Handler geht ueber `crmClient.PreviewContactDeletion`, Proto
+  und generierte `.pb.go`/`_grpc.pb.go` im selben Commit regeneriert, kein neuer
+  `RequirePermission`-Guard (nutzt die bestehende `contacts:read`), reine Lesefunktion
+  ohne neue Tabelle, Route in `openapi.yaml` dokumentiert (laut Journal Iteration 2 mit
+  `swagger-cli validate` geprueft), kein Alt-Guard ersetzt.
+- neue-units: keine
+- offen:
+  - Der neue Testcase seedet `contact_tags` ueber die echte Repository-Methode
+    `contact.PostgresRepository.AddTags`, nicht ueber `testutil.SeedRow` — die Tabelle hat
+    eine zusammengesetzte Primaerschluessel (`contact_id, tag_id`) ohne `id`-Spalte, mit
+    der `SeedRow`s `RETURNING id` bricht (`column "id" does not exist`). Fuer kuenftige
+    Units, die eine Junction-Tabelle ohne eigene `id`-Spalte seeden wollen, ist das der
+    Weg: ueber die reale Schreibmethode gehen, nicht `SeedRow` erzwingen.
+  - `go tool cover -func` zeigt fuer `internal/security/gdpr` weiterhin mehrere 0,0 %-
+    Funktionen aus anderen Dateien (Erasure-Handler-Registrierung, DSAR-Suche fuer
+    Formulare/Dokumente/Helpdesk-Nachrichten/Benutzer-Module) — das ist der erwartete
+    Rest-Scope der Units A4 bis A9, hier nicht angefasst.
