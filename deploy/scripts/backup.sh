@@ -158,7 +158,12 @@ if [[ -n "$OFFSITE_TARGET" || -n "$AGE_RECIPIENT" ]]; then
             AGE_RECIPIENT_ARGS+=(-r "$r")
         done
 
-        OFFSITE_FILES=("$PG_FILE")
+        # The roles dump goes unconditionally, unlike MinIO: `set -o pipefail` is active,
+        # so a failed pg_dumpall aborts this script long before this line -- there is no
+        # state in which $ROLES_FILE is missing here. Leaving it out shipped an offsite set
+        # that restore.sh refuses outright; forced through with --skip-roles it reproduces
+        # the 710 pg_restore errors measured on 2026-08-19 (docs/operations/BACKUP.md).
+        OFFSITE_FILES=("$PG_FILE" "$ROLES_FILE")
         [[ "$MINIO_OK" == "true" ]] && OFFSITE_FILES+=("$MINIO_FILE")
 
         for f in "${OFFSITE_FILES[@]}"; do

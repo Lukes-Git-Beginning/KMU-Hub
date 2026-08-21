@@ -37,6 +37,12 @@ Aktiv nur, wenn **beide** Variablen gesetzt sind — sonst ist der Block ein No-
 - `BACKUP_OFFSITE_TARGET` — Ziel für `rsync` (lokaler Pfad oder `user@host:/pfad`)
 - `BACKUP_AGE_RECIPIENT` — öffentlicher `age`-Schlüssel (mehrere durch Leerzeichen getrennt)
 
+Ausgelagert werden **alle drei Artefakte** — PostgreSQL-Dump, Rollen-Dump und MinIO-Archiv, jedes
+einzeln mit `age` verschlüsselt. Der Rollen-Dump ist dabei kein Beiwerk: ohne ihn verweigert
+`restore.sh` den Satz (siehe §Wiederherstellung), und erzwungen mit `--skip-roles` kommt eine
+Datenbank zurück, die kein Dienst öffnen kann. Das MinIO-Archiv fehlt im Satz, wenn der lokale
+MinIO-Lauf fehlgeschlagen ist — dann steht der Fehler im Protokoll und löst den Alarm aus.
+
 Fehlt `age`, bricht der Transfer ab, statt unverschlüsselt zu senden. Der private Schlüssel gehört
 zum zweiten Zugriffsweg (Lagebild §10) und darf nicht nur bei einer Person liegen — sonst ist das
 Offsite-Backup im Ernstfall nicht lesbar.
