@@ -219,7 +219,8 @@ export function TransactionsTab() {
         onOpenChange={() => setConfirmDelete(null)}
         title={t('buchhaltung.delete.transactionTitle', { defaultValue: 'Transaktion löschen' })}
         description={t('buchhaltung.delete.transactionDescription', {
-          defaultValue: 'Möchtest du „{{label}}" wirklich löschen?',
+          // Single braces: i18next is configured with {var}, so {{label}} rendered literally.
+          defaultValue: 'Möchtest du „{label}“ wirklich löschen?',
           label: confirmDelete?.label ?? '',
         })}
         confirmLabel={t('common.delete')}
