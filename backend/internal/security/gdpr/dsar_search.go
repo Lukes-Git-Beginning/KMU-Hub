@@ -2,7 +2,9 @@ package gdpr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,6 +86,22 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 					fieldValueRecord("Erstellt", c.createdAt.Format(dsarTimeLayout)),
 				},
 			}},
+		}
+
+		customFields, cfErr := customFieldsModule(ctx, pool, tenantID, c.id)
+		if cfErr != nil {
+			return nil, cfErr
+		}
+		if customFields != nil {
+			person.Modules = append(person.Modules, *customFields)
+		}
+
+		tags, tgErr := tagsModule(ctx, pool, tenantID, c.id)
+		if tgErr != nil {
+			return nil, tgErr
+		}
+		if tags != nil {
+			person.Modules = append(person.Modules, *tags)
 		}
 
 		consent, cErr := consentModule(ctx, pool, c.id)
@@ -299,6 +317,106 @@ func consentModule(ctx context.Context, pool *pgxpool.Pool, contactID uuid.UUID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: consent rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// customFieldsModule reads a contact's custom field values. There is no
+// tenant_id on contact_custom_field_values itself -- its RLS policy scopes
+// via a join back to contacts, so this query joins the same way rather than
+// relying on RLS alone (defense-in-depth, matching every other module here).
+func customFieldsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT cfd.field_label, cfv.value
+		 FROM contact_custom_field_values cfv
+		 JOIN custom_field_definitions cfd ON cfd.id = cfv.field_id
+		 JOIN contacts c ON c.id = cfv.contact_id
+		 WHERE cfv.contact_id = $1 AND c.tenant_id = $2
+		 ORDER BY cfd.sort_order, cfd.field_label
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query custom fields: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Benutzerdefinierte Felder", Columns: []string{"Feld", "Wert"}}
+	for rows.Next() {
+		var label string
+		var valueJSON []byte
+		if scanErr := rows.Scan(&label, &valueJSON); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan custom field: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, fieldValueRecord(label, formatCustomFieldValue(valueJSON)))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: custom field rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// formatCustomFieldValue renders a contact_custom_field_values.value JSONB
+// cell as plain text for the disclosure. field_type on the definition
+// (text/number/date/boolean/select/multiselect) governs how the value was
+// written, but decoding by Go type covers all of them without needing to
+// look up the definition's field_type separately.
+func formatCustomFieldValue(raw []byte) string {
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return string(raw)
+	}
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return val
+	case bool:
+		return boolLabel(val)
+	case float64:
+		return strconv.FormatFloat(val, 'f', -1, 64)
+	case []any:
+		parts := make([]string, len(val))
+		for i, item := range val {
+			parts[i] = fmt.Sprintf("%v", item)
+		}
+		return strings.Join(parts, ", ")
+	default:
+		return fmt.Sprintf("%v", val)
+	}
+}
+
+func tagsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.name, ct.created_at
+		 FROM contact_tags ct
+		 JOIN tags t ON t.id = ct.tag_id
+		 WHERE ct.contact_id = $1 AND ct.tenant_id = $2
+		 ORDER BY ct.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query tags: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Tags", Columns: []string{"Tag", "Zugewiesen"}}
+	for rows.Next() {
+		var name string
+		var at time.Time
+		if scanErr := rows.Scan(&name, &at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan tag: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Tag", Value: name},
+			{Key: "Zugewiesen", Value: at.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: tag rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil

@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
@@ -347,6 +348,109 @@ func TestSearchByQuery_ContactWithoutConsentOrCalls_Integration(t *testing.T) {
 	assert.Equal(t, "", crm["Position"])
 	assert.Equal(t, "", crm["Unternehmen"])
 	assert.Equal(t, "Kasimir Habichtsberg", crm["Name"])
+}
+
+func TestSearchByQuery_ContactCustomFieldsAndTags_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Custom Fields Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Custom Fields Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	agentID := seedDSARUser(t, pool, tenantOwn, "Dsar", "FieldsAgent", true)
+	defer testutil.CleanupRow(t, pool, "users", agentID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Ottilie",
+		"last_name":  "Wolkenbruch",
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+
+	// A text field (renders its JSON string value verbatim) and a number field
+	// (renders the JSON float without quotes or trailing zeros) — proving
+	// formatCustomFieldValue does not just special-case strings.
+	textFieldID := testutil.SeedRow(t, pool, "custom_field_definitions", map[string]any{
+		"tenant_id":   tenantOwn,
+		"entity_type": "contact",
+		"field_name":  "customer_number",
+		"field_label": "Kundennummer",
+		"field_type":  "text",
+		"sort_order":  0,
+		"created_by":  agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "custom_field_definitions", textFieldID)
+
+	numberFieldID := testutil.SeedRow(t, pool, "custom_field_definitions", map[string]any{
+		"tenant_id":   tenantOwn,
+		"entity_type": "contact",
+		"field_name":  "credit_limit",
+		"field_label": "Kreditlimit",
+		"field_type":  "number",
+		"sort_order":  1,
+		"created_by":  agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "custom_field_definitions", numberFieldID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	contactRepo := contact.NewPostgresRepository(pool)
+	// No explicit cleanup for the value rows: field_id carries ON DELETE
+	// CASCADE from custom_field_definitions, so deleting the two definitions
+	// below removes them too.
+	require.NoError(t, contactRepo.SetCustomFieldValues(ctxOwn, contactID, map[uuid.UUID]any{
+		textFieldID:   "KD-4711",
+		numberFieldID: 4200.5,
+	}))
+
+	tagID := testutil.SeedRow(t, pool, "tags", map[string]any{
+		"tenant_id":   tenantOwn,
+		"name":        "VIP",
+		"color":       "#ff0000",
+		"entity_type": "contact",
+	})
+	// Same here: contact_tags.tag_id cascades from tags, no separate cleanup.
+	defer testutil.CleanupRow(t, pool, "tags", tagID)
+
+	require.NoError(t, contactRepo.AddTags(ctxOwn, contactID, []uuid.UUID{tagID}))
+
+	var tagAssignedAt time.Time
+	require.NoError(t, pool.QueryRow(ctxOwn, `SELECT created_at FROM contact_tags WHERE contact_id = $1 AND tag_id = $2`, contactID, tagID).Scan(&tagAssignedAt))
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Wolkenbruch")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	p := persons[0]
+
+	customFields := dsarModule(t, p, "Benutzerdefinierte Felder")
+	assert.Equal(t, []string{"Feld", "Wert"}, customFields.Columns)
+	assert.Equal(t, map[string]string{
+		"Kundennummer": "KD-4711",
+		"Kreditlimit":  "4200.5",
+	}, fieldValueMap(t, customFields), "custom fields must disclose the definition's field_label, not the field_id or field_name")
+
+	tags := dsarModule(t, p, "Tags")
+	assert.Equal(t, []string{"Tag", "Zugewiesen"}, tags.Columns)
+	assert.Equal(t, []map[string]string{
+		{"Tag": "VIP", "Zugewiesen": tagAssignedAt.Format(dsarTimeLayout)},
+	}, recordMaps(tags))
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Wolkenbruch")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this contact, let alone its custom fields or tags")
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Wolkenbruch")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
 }
 
 func TestSearchByQuery_MatchesUsers_Integration(t *testing.T) {
