@@ -1225,6 +1225,359 @@ func TestSearchByQuery_UserTimeEntries_Integration(t *testing.T) {
 	assert.Empty(t, foreign, "another tenant must not see this user, let alone their tracked time")
 }
 
+func TestSearchByQuery_UserCalendarEvents_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Calendar Events Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Calendar Events Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Adalbert", "Wolkenstein", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherUserID := seedDSARUser(t, pool, tenantOwn, "Brunhilde", "Wolkenstein", true)
+	defer testutil.CleanupRow(t, pool, "users", otherUserID)
+
+	calendarID := testutil.SeedRow(t, pool, "calendars", map[string]any{
+		"tenant_id": tenantOwn,
+		"name":      "Team Kalender",
+		"owner_id":  subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendars", calendarID)
+
+	// Event created by the subject.
+	ownEventID := testutil.SeedRow(t, pool, "calendar_events", map[string]any{
+		"tenant_id":   tenantOwn,
+		"calendar_id": calendarID,
+		"title":       "Strategiemeeting",
+		"start_time":  "2026-09-01T09:00:00Z",
+		"end_time":    "2026-09-01T10:00:00Z",
+		"location":    "Raum A",
+		"created_by":  subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendar_events", ownEventID)
+
+	// Event created by someone else; both the subject and a third person
+	// attend — only the subject's own RSVP must appear, not the attendee list.
+	sharedEventID := testutil.SeedRow(t, pool, "calendar_events", map[string]any{
+		"tenant_id":   tenantOwn,
+		"calendar_id": calendarID,
+		"title":       "Kundentermin",
+		"start_time":  "2026-09-02T14:00:00Z",
+		"end_time":    "2026-09-02T15:00:00Z",
+		"created_by":  otherUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendar_events", sharedEventID)
+
+	// event_attendees has no surrogate id (composite PK event_id, user_id) —
+	// SeedRow's "RETURNING id" would fail, insert directly.
+	ctxSystem := testutil.WithSystemCtx(context.Background())
+	_, err := pool.Exec(ctxSystem,
+		`INSERT INTO event_attendees (event_id, user_id, tenant_id, rsvp_status) VALUES ($1, $2, $3, 'accepted')`,
+		sharedEventID, subjectID, tenantOwn)
+	require.NoError(t, err)
+	defer func() {
+		_, _ = pool.Exec(ctxSystem, `DELETE FROM event_attendees WHERE event_id = $1 AND user_id = $2`, sharedEventID, subjectID)
+	}()
+	_, err = pool.Exec(ctxSystem,
+		`INSERT INTO event_attendees (event_id, user_id, tenant_id, rsvp_status) VALUES ($1, $2, $3, 'declined')`,
+		sharedEventID, otherUserID, tenantOwn)
+	require.NoError(t, err)
+	defer func() {
+		_, _ = pool.Exec(ctxSystem, `DELETE FROM event_attendees WHERE event_id = $1 AND user_id = $2`, sharedEventID, otherUserID)
+	}()
+
+	// Event neither created nor attended by the subject — must not appear.
+	unrelatedEventID := testutil.SeedRow(t, pool, "calendar_events", map[string]any{
+		"tenant_id":   tenantOwn,
+		"calendar_id": calendarID,
+		"title":       "Fremder Termin",
+		"start_time":  "2026-09-03T09:00:00Z",
+		"end_time":    "2026-09-03T10:00:00Z",
+		"created_by":  otherUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendar_events", unrelatedEventID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Adalbert")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	events := dsarModule(t, persons[0], "Kalendertermine")
+	assert.Equal(t, []string{"Titel", "Beginn", "Ort", "Rolle"}, events.Columns)
+	rows := recordMaps(events)
+	require.Len(t, rows, 2, "only the two events touching the subject, not the unrelated one")
+
+	byTitle := map[string]map[string]string{}
+	for _, r := range rows {
+		byTitle[r["Titel"]] = r
+	}
+	assert.Equal(t, "Ersteller", byTitle["Strategiemeeting"]["Rolle"])
+	assert.Equal(t, "Raum A", byTitle["Strategiemeeting"]["Ort"])
+	assert.Equal(t, "Teilnehmer (accepted)", byTitle["Kundentermin"]["Rolle"],
+		"only the subject's own RSVP appears, not the other attendee's 'declined'")
+	assert.NotContains(t, byTitle, "Fremder Termin")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Adalbert")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their calendar")
+}
+
+func TestSearchByQuery_UserCalendarPreferences_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Calendar Prefs Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Calendar Prefs Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Cordula", "Habichtsburg", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	// user_calendar_preferences has no surrogate id (PK user_id) — insert directly.
+	ctxSystem := testutil.WithSystemCtx(context.Background())
+	_, err := pool.Exec(ctxSystem,
+		`INSERT INTO user_calendar_preferences (tenant_id, user_id, default_view, week_days, subdivision_code, show_task_deadlines)
+		 VALUES ($1, $2, 'month', 7, 'DE-BY', false)`, tenantOwn, subjectID)
+	require.NoError(t, err)
+	defer func() {
+		_, _ = pool.Exec(ctxSystem, `DELETE FROM user_calendar_preferences WHERE user_id = $1`, subjectID)
+	}()
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Cordula")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	prefs := fieldValueMap(t, dsarModule(t, persons[0], "Kalendereinstellungen"))
+	assert.Equal(t, "month", prefs["Standardansicht"])
+	assert.Equal(t, "7", prefs["Wochentage"])
+	assert.Equal(t, "DE-BY", prefs["Feiertagsregion"])
+	assert.Equal(t, "Nein", prefs["Aufgaben-Termine anzeigen"])
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Cordula")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their calendar preferences")
+}
+
+func TestSearchByQuery_UserNotifications_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Notifications Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Notifications Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Dietlind", "Amselgrund", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherUserID := seedDSARUser(t, pool, tenantOwn, "Eberhart", "Amselgrund", true)
+	defer testutil.CleanupRow(t, pool, "users", otherUserID)
+
+	ownNotifID := testutil.SeedRow(t, pool, "notifications", map[string]any{
+		"tenant_id":      tenantOwn,
+		"user_id":        subjectID,
+		"event_type_key": "task.assigned",
+		"module_id":      "work",
+		"title":          "Neue Aufgabe zugewiesen",
+		"body":           "Angebot pruefen wurde dir zugewiesen.",
+		"is_read":        true,
+	})
+	defer testutil.CleanupRow(t, pool, "notifications", ownNotifID)
+	// Notification of another user — must not be disclosed.
+	testutil.SeedRow(t, pool, "notifications", map[string]any{
+		"tenant_id":      tenantOwn,
+		"user_id":        otherUserID,
+		"event_type_key": "task.assigned",
+		"module_id":      "work",
+		"title":          "Fremde Benachrichtigung",
+	})
+
+	var ownAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at FROM notifications WHERE id = $1`, ownNotifID).Scan(&ownAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Dietlind")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	notifs := dsarModule(t, persons[0], "Benachrichtigungen")
+	assert.Equal(t, []string{"Titel", "Text", "Datum", "Gelesen"}, notifs.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Titel":   "Neue Aufgabe zugewiesen",
+			"Text":    "Angebot pruefen wurde dir zugewiesen.",
+			"Datum":   ownAt.Format(dsarTimeLayout),
+			"Gelesen": "Ja",
+		},
+	}, recordMaps(notifs), "only the subject's own notifications, not another user's")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Dietlind")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their notifications")
+}
+
+func TestSearchByQuery_UserNotificationPreferences_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Notification Prefs Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Notification Prefs Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Fridolin", "Buchenhain", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	prefID := testutil.SeedRow(t, pool, "notification_preferences", map[string]any{
+		"tenant_id":    tenantOwn,
+		"user_id":      subjectID,
+		"module_id":    "helpdesk",
+		"in_app":       true,
+		"desktop_push": false,
+		"sound":        "chime",
+	})
+	defer testutil.CleanupRow(t, pool, "notification_preferences", prefID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Fridolin")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	prefs := dsarModule(t, persons[0], "Benachrichtigungseinstellungen")
+	assert.Equal(t, []string{"Ereignistyp", "Modul", "In-App", "Desktop", "Ton"}, prefs.Columns)
+	assert.Equal(t, []map[string]string{
+		{"Ereignistyp": "", "Modul": "helpdesk", "In-App": "Ja", "Desktop": "Nein", "Ton": "chime"},
+	}, recordMaps(prefs))
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Fridolin")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their notification preferences")
+}
+
+func TestSearchByQuery_UserNotificationQuietHours_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Quiet Hours Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Quiet Hours Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Gerlinde", "Steinfurth", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	qhID := testutil.SeedRow(t, pool, "notification_quiet_hours", map[string]any{
+		"tenant_id":   tenantOwn,
+		"user_id":     subjectID,
+		"start_time":  "20:00",
+		"end_time":    "07:00",
+		"enabled":     true,
+		"manual_dnd":  false,
+	})
+	defer testutil.CleanupRow(t, pool, "notification_quiet_hours", qhID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Gerlinde")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	qh := fieldValueMap(t, dsarModule(t, persons[0], "Ruhezeiten"))
+	assert.Equal(t, "Ja", qh["Aktiviert"])
+	assert.Equal(t, "20:00:00", qh["Von"])
+	assert.Equal(t, "07:00:00", qh["Bis"])
+	assert.Equal(t, "Nein", qh["Manuell aktiv"])
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Gerlinde")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their quiet hours")
+}
+
+func TestSearchByQuery_UserNotificationMutes_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Notification Mutes Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Notification Mutes Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Hartwig", "Distelmeier", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	muteID := testutil.SeedRow(t, pool, "notification_mutes", map[string]any{
+		"tenant_id":   tenantOwn,
+		"user_id":     subjectID,
+		"module_id":   "chat",
+		"resource_id": "channel-123",
+	})
+	defer testutil.CleanupRow(t, pool, "notification_mutes", muteID)
+
+	var mutedAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at FROM notification_mutes WHERE id = $1`, muteID).Scan(&mutedAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Hartwig")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	mutes := dsarModule(t, persons[0], "Stummgeschaltete Ressourcen")
+	assert.Equal(t, []string{"Modul", "Ressource", "Seit"}, mutes.Columns)
+	assert.Equal(t, []map[string]string{
+		{"Modul": "chat", "Ressource": "channel-123", "Seit": mutedAt.Format(dsarTimeLayout)},
+	}, recordMaps(mutes))
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Hartwig")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their muted resources")
+}
+
 // TestSearchByQuery_NoMinimumLengthGuard_Integration pins where the guard for
 // short queries lives. SearchByQuery itself has none: the pattern is built as
 // "%" + query + "%", so an empty query lists every subject of the tenant up to

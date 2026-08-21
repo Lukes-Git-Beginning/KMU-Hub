@@ -3,12 +3,14 @@ package gdpr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -351,6 +353,54 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *timeEntries)
 		}
 
+		calendarEvents, ceErr := calendarEventsModule(ctx, pool, tenantID, u.id)
+		if ceErr != nil {
+			return nil, ceErr
+		}
+		if calendarEvents != nil {
+			person.Modules = append(person.Modules, *calendarEvents)
+		}
+
+		calendarPrefs, cpErr := calendarPreferencesModule(ctx, pool, tenantID, u.id)
+		if cpErr != nil {
+			return nil, cpErr
+		}
+		if calendarPrefs != nil {
+			person.Modules = append(person.Modules, *calendarPrefs)
+		}
+
+		notifications, nErr := notificationsModule(ctx, pool, tenantID, u.id)
+		if nErr != nil {
+			return nil, nErr
+		}
+		if notifications != nil {
+			person.Modules = append(person.Modules, *notifications)
+		}
+
+		notificationPrefs, npErr := notificationPreferencesModule(ctx, pool, tenantID, u.id)
+		if npErr != nil {
+			return nil, npErr
+		}
+		if notificationPrefs != nil {
+			person.Modules = append(person.Modules, *notificationPrefs)
+		}
+
+		quietHours, qhErr := notificationQuietHoursModule(ctx, pool, tenantID, u.id)
+		if qhErr != nil {
+			return nil, qhErr
+		}
+		if quietHours != nil {
+			person.Modules = append(person.Modules, *quietHours)
+		}
+
+		mutes, muErr := notificationMutesModule(ctx, pool, tenantID, u.id)
+		if muErr != nil {
+			return nil, muErr
+		}
+		if mutes != nil {
+			person.Modules = append(person.Modules, *mutes)
+		}
+
 		out = append(out, person)
 	}
 	return out, nil
@@ -604,6 +654,265 @@ func timeEntriesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: time entry rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// calendarEventsModule discloses calendar events a matched user created or
+// attends. Both event_attendees (participation) and calendar_events
+// (created_by) are the two tables CalendarErasureHandler.ExecuteErasure
+// touches for events (erasure.go:461); the third, user_calendar_preferences,
+// is its own module below. Only the subject's own role and RSVP are
+// disclosed — an event with other attendees does not list who else is on it,
+// same rule as chat rooms and calendar entries with multiple participants.
+func calendarEventsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT e.title, e.start_time, COALESCE(e.location, ''),
+		        (e.created_by = $2) AS is_creator,
+		        ea.rsvp_status
+		 FROM calendar_events e
+		 LEFT JOIN event_attendees ea ON ea.event_id = e.id AND ea.user_id = $2
+		 WHERE e.tenant_id = $1 AND (e.created_by = $2 OR ea.user_id = $2)
+		 ORDER BY e.start_time DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query calendar events: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Kalendertermine", Columns: []string{"Titel", "Beginn", "Ort", "Rolle"}}
+	for rows.Next() {
+		var title, location string
+		var start time.Time
+		var isCreator bool
+		var rsvpStatus *string
+		if scanErr := rows.Scan(&title, &start, &location, &isCreator, &rsvpStatus); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan calendar event: %w", scanErr)
+		}
+		var roles []string
+		if isCreator {
+			roles = append(roles, "Ersteller")
+		}
+		if rsvpStatus != nil {
+			roles = append(roles, "Teilnehmer ("+*rsvpStatus+")")
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: title},
+			{Key: "Beginn", Value: start.Format(dsarTimeLayout)},
+			{Key: "Ort", Value: location},
+			{Key: "Rolle", Value: strings.Join(roles, ", ")},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: calendar event rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// calendarPreferencesModule discloses a matched user's calendar defaults —
+// the third table CalendarErasureHandler.ExecuteErasure deletes outright
+// (erasure.go:490). One row per user at most, so it renders like the
+// "Benutzerkonto" field/value module rather than a record list.
+func calendarPreferencesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	var defaultView, subdivisionCode *string
+	var weekDays, reminderMinutes, alldayReminderMinutes int
+	var showTaskDeadlines bool
+	err := pool.QueryRow(ctx,
+		`SELECT default_view, week_days, default_reminder_minutes, default_allday_reminder_minutes,
+		        subdivision_code, show_task_deadlines
+		 FROM user_calendar_preferences
+		 WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID,
+	).Scan(&defaultView, &weekDays, &reminderMinutes, &alldayReminderMinutes, &subdivisionCode, &showTaskDeadlines)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("dsar: query calendar preferences: %w", err)
+	}
+
+	view := ""
+	if defaultView != nil {
+		view = *defaultView
+	}
+	subdivision := ""
+	if subdivisionCode != nil {
+		subdivision = *subdivisionCode
+	}
+	mod := DSARModule{Module: "Kalendereinstellungen", Columns: []string{"Feld", "Wert"}, Records: []DSARRecord{
+		fieldValueRecord("Standardansicht", view),
+		fieldValueRecord("Wochentage", strconv.Itoa(weekDays)),
+		fieldValueRecord("Erinnerung (Minuten)", strconv.Itoa(reminderMinutes)),
+		fieldValueRecord("Erinnerung ganztaegig (Minuten)", strconv.Itoa(alldayReminderMinutes)),
+		fieldValueRecord("Feiertagsregion", subdivision),
+		fieldValueRecord("Aufgaben-Termine anzeigen", boolLabel(showTaskDeadlines)),
+	}}
+	return &mod, nil
+}
+
+// notificationsModule discloses a matched user's delivered notifications —
+// the first table NotificationErasureHandler.ExecuteErasure deletes
+// (erasure.go:560).
+func notificationsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT title, COALESCE(body, ''), created_at, is_read
+		 FROM notifications
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows+1)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query notifications: %w", err)
+	}
+	defer rows.Close()
+
+	type notif struct {
+		title, body string
+		at          time.Time
+		read        bool
+	}
+	var notifs []notif
+	for rows.Next() {
+		var n notif
+		if scanErr := rows.Scan(&n.title, &n.body, &n.at, &n.read); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan notification: %w", scanErr)
+		}
+		notifs = append(notifs, n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: notification rows: %w", err)
+	}
+	if len(notifs) == 0 {
+		return nil, nil
+	}
+
+	truncated := len(notifs) > dsarMaxRows
+	if truncated {
+		notifs = notifs[:dsarMaxRows]
+	}
+
+	mod := DSARModule{Module: "Benachrichtigungen", Columns: []string{"Titel", "Text", "Datum", "Gelesen"}}
+	for _, n := range notifs {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: n.title},
+			{Key: "Text", Value: n.body},
+			{Key: "Datum", Value: n.at.Format(dsarTimeLayout)},
+			{Key: "Gelesen", Value: boolLabel(n.read)},
+		}})
+	}
+	if truncated {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: fmt.Sprintf("(gekürzt auf die %d neuesten Benachrichtigungen)", dsarMaxRows)},
+			{Key: "Text", Value: ""},
+			{Key: "Datum", Value: ""},
+			{Key: "Gelesen", Value: ""},
+		}})
+	}
+	return &mod, nil
+}
+
+// notificationPreferencesModule discloses a matched user's per-event-type
+// and per-module delivery settings — the second table
+// NotificationErasureHandler.ExecuteErasure deletes (erasure.go:567).
+func notificationPreferencesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT COALESCE(event_type_key, ''), COALESCE(module_id, ''), in_app, desktop_push, COALESCE(sound, '')
+		 FROM notification_preferences
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY module_id, event_type_key
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query notification preferences: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Benachrichtigungseinstellungen", Columns: []string{"Ereignistyp", "Modul", "In-App", "Desktop", "Ton"}}
+	for rows.Next() {
+		var eventType, moduleID, sound string
+		var inApp, desktopPush bool
+		if scanErr := rows.Scan(&eventType, &moduleID, &inApp, &desktopPush, &sound); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan notification preference: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Ereignistyp", Value: eventType},
+			{Key: "Modul", Value: moduleID},
+			{Key: "In-App", Value: boolLabel(inApp)},
+			{Key: "Desktop", Value: boolLabel(desktopPush)},
+			{Key: "Ton", Value: sound},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: notification preference rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// notificationQuietHoursModule discloses a matched user's do-not-disturb
+// schedule — the third table NotificationErasureHandler.ExecuteErasure
+// deletes (erasure.go:574). At most one row per user (UNIQUE(user_id)), so
+// it renders as a field/value module.
+func notificationQuietHoursModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	var startTime, endTime, timezone string
+	var enabled, manualDND bool
+	err := pool.QueryRow(ctx,
+		`SELECT start_time::text, end_time::text, timezone, enabled, manual_dnd
+		 FROM notification_quiet_hours
+		 WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID,
+	).Scan(&startTime, &endTime, &timezone, &enabled, &manualDND)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("dsar: query quiet hours: %w", err)
+	}
+
+	mod := DSARModule{Module: "Ruhezeiten", Columns: []string{"Feld", "Wert"}, Records: []DSARRecord{
+		fieldValueRecord("Aktiviert", boolLabel(enabled)),
+		fieldValueRecord("Von", startTime),
+		fieldValueRecord("Bis", endTime),
+		fieldValueRecord("Zeitzone", timezone),
+		fieldValueRecord("Manuell aktiv", boolLabel(manualDND)),
+	}}
+	return &mod, nil
+}
+
+// notificationMutesModule discloses which resources a matched user has
+// muted — the fourth table NotificationErasureHandler.ExecuteErasure
+// deletes (erasure.go:581).
+func notificationMutesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT module_id, resource_id, created_at
+		 FROM notification_mutes
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query notification mutes: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Stummgeschaltete Ressourcen", Columns: []string{"Modul", "Ressource", "Seit"}}
+	for rows.Next() {
+		var moduleID, resourceID string
+		var createdAt time.Time
+		if scanErr := rows.Scan(&moduleID, &resourceID, &createdAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan notification mute: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Modul", Value: moduleID},
+			{Key: "Ressource", Value: resourceID},
+			{Key: "Seit", Value: createdAt.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: notification mute rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil
