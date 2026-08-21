@@ -315,6 +315,10 @@ func (r *stubContactRepo) IsInUse(_ context.Context, id, _ uuid.UUID) (bool, str
 	return false, "", nil
 }
 
+func (r *stubContactRepo) DeletionImpact(_ context.Context, _, _ uuid.UUID) ([]contact.DeletionImpactItem, error) {
+	return nil, nil
+}
+
 func (r *stubContactRepo) CompanyExists(_ context.Context, companyID, _ uuid.UUID) (bool, error) {
 	_, ok := r.companies[companyID]
 	return ok, nil

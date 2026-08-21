@@ -45,6 +45,12 @@ type Repository interface {
 	CompanyExists(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (bool, error)
 	TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error)
 
+	// DeletionImpact previews what deleting a contact would do to every table
+	// that references it via foreign key (read live from pg_constraint, not
+	// hardcoded — see postgres_repository.go). Only tables with at least one
+	// matching row are returned.
+	DeletionImpact(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) ([]DeletionImpactItem, error)
+
 	// Duplicate detection
 	FindDuplicateCandidates(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID) ([]*DuplicateCandidate, error)
 	MergeInto(ctx context.Context, primaryID, duplicateID uuid.UUID, tenantID uuid.UUID) error
@@ -71,6 +77,15 @@ type LeadPatch struct {
 	Score            *int16
 	Temperature      *string
 	ClearTemperature bool
+}
+
+// DeletionImpactItem is one referencing table/column pair that would be
+// affected by deleting a contact, per DeletionImpact.
+type DeletionImpactItem struct {
+	Table  string
+	Column string
+	Action string // lowercased delete_rule: cascade, set_null, restrict, no_action
+	Count  int
 }
 
 // ListFilter contains filtering options for listing contacts

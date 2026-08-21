@@ -852,3 +852,95 @@ func TestRepository_MergeInto_ReassignsRelationsMergesTagsAndCustomFieldsThenSof
 		t.Fatalf("MergeContacts (already merged): expected ErrAlreadyMerged, got %v", err)
 	}
 }
+
+func TestRepository_DeletionImpact_TenantScopedLiveFromCatalog(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "CRM Contact DeletionImpact Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "CRM Contact DeletionImpact Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	userOwn := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         fmt.Sprintf("crm-contact-impact-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userOwn)
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+	now := time.Now().UTC()
+
+	target := &models.Contact{ID: uuid.New(), TenantID: tenantOwn, FirstName: "Target", LastName: "Contact", Visibility: "shared", CreatedBy: userOwn, CreatedAt: now, UpdatedAt: now}
+	if err := repo.Create(ctxOwn, target); err != nil {
+		t.Fatalf("Create target: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contacts", target.ID)
+
+	// CASCADE reference.
+	tagID := testutil.SeedRow(t, pool, "tags", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantOwn, "name": fmt.Sprintf("Impact-Tag-%s", uuid.New().String()[:8]), "entity_type": "contact",
+	})
+	defer testutil.CleanupRow(t, pool, "tags", tagID)
+	if err := repo.AddTags(ctxOwn, target.ID, []uuid.UUID{tagID}); err != nil {
+		t.Fatalf("AddTags: %v", err)
+	}
+
+	// SET NULL reference.
+	activityID := testutil.SeedRow(t, pool, "activities", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantOwn, "activity_type": "note", "subject": "Impact test activity",
+		"contact_id": target.ID, "created_by": userOwn,
+	})
+	defer testutil.CleanupRow(t, pool, "activities", activityID)
+
+	// RESTRICT reference.
+	protocolID := testutil.SeedRow(t, pool, "advisory_protocols", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantOwn, "contact_id": target.ID, "created_by": userOwn,
+	})
+	defer testutil.CleanupRow(t, pool, "advisory_protocols", protocolID)
+
+	items, err := repo.DeletionImpact(ctxOwn, target.ID, tenantOwn)
+	if err != nil {
+		t.Fatalf("DeletionImpact: %v", err)
+	}
+
+	byTable := make(map[string]DeletionImpactItem, len(items))
+	for _, item := range items {
+		byTable[item.Table] = item
+	}
+
+	if got, ok := byTable["contact_tags"]; !ok || got.Action != "cascade" || got.Count != 1 {
+		t.Fatalf("contact_tags impact = %+v, ok=%v, want action=cascade count=1", got, ok)
+	}
+	if got, ok := byTable["activities"]; !ok || got.Action != "set_null" || got.Count != 1 {
+		t.Fatalf("activities impact = %+v, ok=%v, want action=set_null count=1", got, ok)
+	}
+	if got, ok := byTable["advisory_protocols"]; !ok || got.Action != "restrict" || got.Count != 1 {
+		t.Fatalf("advisory_protocols impact = %+v, ok=%v, want action=restrict count=1", got, ok)
+	}
+	// A table with zero matching rows for this contact (e.g. deals, never
+	// seeded here) must not show up at all -- the preview lists impact, not
+	// every table pg_constraint knows about.
+	if _, ok := byTable["deals"]; ok {
+		t.Fatalf("deals should not appear with zero rows referencing the contact, got %+v", byTable["deals"])
+	}
+
+	// Cross-tenant: the same contact ID under the wrong tenant context must
+	// come back empty, not a leaked count. RLS scopes the session to
+	// tenantOther, and DeletionImpact's own tenant_id filter (where the
+	// referencing table has one) reinforces that as defense-in-depth.
+	foreignItems, err := repo.DeletionImpact(ctxOther, target.ID, tenantOther)
+	if err != nil {
+		t.Fatalf("DeletionImpact (foreign tenant): %v", err)
+	}
+	if len(foreignItems) != 0 {
+		t.Fatalf("DeletionImpact (foreign tenant) = %+v, want empty", foreignItems)
+	}
+}

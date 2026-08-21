@@ -81,6 +81,7 @@ const (
 	CRMService_FindCompanyDuplicates_FullMethodName       = "/crm.v1.CRMService/FindCompanyDuplicates"
 	CRMService_MergeCompanies_FullMethodName              = "/crm.v1.CRMService/MergeCompanies"
 	CRMService_GetContactTimeline_FullMethodName          = "/crm.v1.CRMService/GetContactTimeline"
+	CRMService_PreviewContactDeletion_FullMethodName      = "/crm.v1.CRMService/PreviewContactDeletion"
 	CRMService_GetContactConsents_FullMethodName          = "/crm.v1.CRMService/GetContactConsents"
 	CRMService_GrantConsent_FullMethodName                = "/crm.v1.CRMService/GrantConsent"
 	CRMService_RevokeConsent_FullMethodName               = "/crm.v1.CRMService/RevokeConsent"
@@ -181,6 +182,8 @@ type CRMServiceClient interface {
 	MergeCompanies(ctx context.Context, in *MergeCompaniesRequest, opts ...grpc.CallOption) (*MergeCompaniesResponse, error)
 	// Contact Timeline
 	GetContactTimeline(ctx context.Context, in *GetContactTimelineRequest, opts ...grpc.CallOption) (*GetContactTimelineResponse, error)
+	// Contact Deletion Impact Preview
+	PreviewContactDeletion(ctx context.Context, in *PreviewContactDeletionRequest, opts ...grpc.CallOption) (*PreviewContactDeletionResponse, error)
 	// GDPR Consent Management
 	GetContactConsents(ctx context.Context, in *GetContactConsentsRequest, opts ...grpc.CallOption) (*GetContactConsentsResponse, error)
 	GrantConsent(ctx context.Context, in *GrantConsentRequest, opts ...grpc.CallOption) (*GrantConsentResponse, error)
@@ -833,6 +836,16 @@ func (c *cRMServiceClient) GetContactTimeline(ctx context.Context, in *GetContac
 	return out, nil
 }
 
+func (c *cRMServiceClient) PreviewContactDeletion(ctx context.Context, in *PreviewContactDeletionRequest, opts ...grpc.CallOption) (*PreviewContactDeletionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PreviewContactDeletionResponse)
+	err := c.cc.Invoke(ctx, CRMService_PreviewContactDeletion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *cRMServiceClient) GetContactConsents(ctx context.Context, in *GetContactConsentsRequest, opts ...grpc.CallOption) (*GetContactConsentsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetContactConsentsResponse)
@@ -1102,6 +1115,8 @@ type CRMServiceServer interface {
 	MergeCompanies(context.Context, *MergeCompaniesRequest) (*MergeCompaniesResponse, error)
 	// Contact Timeline
 	GetContactTimeline(context.Context, *GetContactTimelineRequest) (*GetContactTimelineResponse, error)
+	// Contact Deletion Impact Preview
+	PreviewContactDeletion(context.Context, *PreviewContactDeletionRequest) (*PreviewContactDeletionResponse, error)
 	// GDPR Consent Management
 	GetContactConsents(context.Context, *GetContactConsentsRequest) (*GetContactConsentsResponse, error)
 	GrantConsent(context.Context, *GrantConsentRequest) (*GrantConsentResponse, error)
@@ -1319,6 +1334,9 @@ func (UnimplementedCRMServiceServer) MergeCompanies(context.Context, *MergeCompa
 }
 func (UnimplementedCRMServiceServer) GetContactTimeline(context.Context, *GetContactTimelineRequest) (*GetContactTimelineResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetContactTimeline not implemented")
+}
+func (UnimplementedCRMServiceServer) PreviewContactDeletion(context.Context, *PreviewContactDeletionRequest) (*PreviewContactDeletionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PreviewContactDeletion not implemented")
 }
 func (UnimplementedCRMServiceServer) GetContactConsents(context.Context, *GetContactConsentsRequest) (*GetContactConsentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetContactConsents not implemented")
@@ -2514,6 +2532,24 @@ func _CRMService_GetContactTimeline_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CRMService_PreviewContactDeletion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreviewContactDeletionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).PreviewContactDeletion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_PreviewContactDeletion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).PreviewContactDeletion(ctx, req.(*PreviewContactDeletionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CRMService_GetContactConsents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetContactConsentsRequest)
 	if err := dec(in); err != nil {
@@ -3110,6 +3146,10 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetContactTimeline",
 			Handler:    _CRMService_GetContactTimeline_Handler,
+		},
+		{
+			MethodName: "PreviewContactDeletion",
+			Handler:    _CRMService_PreviewContactDeletion_Handler,
 		},
 		{
 			MethodName: "GetContactConsents",

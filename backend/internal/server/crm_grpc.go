@@ -3070,6 +3070,38 @@ func (s *CRMGRPCServer) GetContactTimeline(ctx context.Context, req *crmv1.GetCo
 	}, nil
 }
 
+func (s *CRMGRPCServer) PreviewContactDeletion(ctx context.Context, req *crmv1.PreviewContactDeletionRequest) (*crmv1.PreviewContactDeletionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	impacts, err := s.contactService.PreviewDeletion(ctx, contactID, tenantID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	results := make([]*crmv1.ContactDeletionImpact, 0, len(impacts))
+	for _, i := range impacts {
+		results = append(results, &crmv1.ContactDeletionImpact{
+			Table:  i.Table,
+			Column: i.Column,
+			Action: i.Action,
+			Count:  int32(i.Count),
+		})
+	}
+
+	return &crmv1.PreviewContactDeletionResponse{
+		ContactId: contactID.String(),
+		Impacts:   results,
+	}, nil
+}
+
 // ============================================================================
 // GDPR Consent Management
 // ============================================================================

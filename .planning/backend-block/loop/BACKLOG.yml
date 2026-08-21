@@ -203,7 +203,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/contact 80,4 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Wer heute einen Kontakt loescht, erfaehrt vorher nur, OB die Loeschung blockiert ist
@@ -1673,3 +1673,59 @@ units:
       - Kopierte Personendaten und Freitextfelder sind getrennt ausgewiesen
       - Tabellen mit gegenlaeufiger Aufbewahrungspflicht sind als solche markiert
       - Jeder Fund ist als eigene Unit angelegt; neue-units im Journal nennt die IDs
+
+  - id: fix-contact-delete-merged-into-no-action-unchecked
+    phase: 3
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/crm/contact 80,4 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Beim Bauen von `feat-contact-deletion-cascade-impact-preview` (Lauf 10) kam eine neunte
+      FK-Referenz auf `contacts(id)` zum Vorschein, die im Kaskaden-Befund des Laufkopfes fehlt:
+      `contacts.merged_into_id` (gesetzt von `MergeInto`, wenn ein Kontakt in einen anderen
+      gemergt wird) traegt `ON DELETE NO ACTION` — weder CASCADE noch SET NULL noch das
+      gepruefte RESTRICT. `Service.IsInUse`
+      (`internal/crm/contact/postgres_repository.go`, Methode `IsInUse`) prueft ausschliesslich
+      `advisory_protocols` und `dialer_campaign_contacts`. Wird ein Kontakt geloescht, der als
+      Primary-Kontakt eines abgeschlossenen Merges dient (eine andere Zeile in `contacts` hat
+      `merged_into_id` = seine ID), lehnt `IsInUse` nichts ab — der DELETE laeuft durch bis zur
+      Datenbank und schlaegt dort mit einer unbehandelten FK-Verletzung fehl (500 statt sauberem
+      409 mit Anonymisierungsangebot, wie es die anderen RESTRICT-Faelle bekommen).
+      Live an der lokalen DB nachgewiesen (2026-08-22, `kmuhub_app`):
+      ```
+      SELECT rel.relname, att.attname, con.confdeltype::text
+      FROM pg_constraint con
+      JOIN pg_class rel ON rel.oid = con.conrelid
+      JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = con.conkey[1]
+      WHERE con.contype = 'f' AND con.confrelid = 'public.contacts'::regclass;
+      ```
+      liefert u.a. `contacts | merged_into_id | a` (confdeltype 'a' = NO ACTION), waehrend
+      `contacts | referred_by_contact_id | n` (SET NULL) bereits harmlos ist.
+    sources:
+      - backend/internal/crm/contact/postgres_repository.go
+      - backend/internal/crm/contact/service.go
+      - backend/migrations/000059_add_duplicate_detection.up.sql
+    notes: >
+      Zwei mögliche Root-Cause-Fixes, beide legitim — diese Unit muss sich entscheiden, nicht
+      beide nebeneinander bauen:
+      (a) Migration: `merged_into_id`-Constraint auf `ON DELETE SET NULL` umstellen (DROP
+      CONSTRAINT + neu anlegen mit derselben Definition wie `referred_by_contact_id`). Loescht
+      man den Primary-Kontakt eines Merges, ist das Verschwinden der Merge-Historie fuer diese
+      eine Zeile hinnehmbar — der Duplicate-Kontakt selbst existiert (soft-deleted) weiter.
+      (b) `IsInUse` um eine dritte EXISTS-Klausel auf
+      `SELECT 1 FROM contacts WHERE merged_into_id = $1 AND tenant_id = $2` erweitern, damit der
+      bestehende 409-Pfad greift statt eines rohen DB-Fehlers.
+      (a) ist die staerkere Loesung (kein Sonderfall im Anwendungscode mehr, konsistent mit der
+      zweiten Selbstreferenz), erfordert aber eine Migration mit Forward-only-Charakter — pruefen,
+      ob eine bestehende Merge-Historie in Produktion ueberhaupt von diesem Constraint abhaengt
+      (does any code path read merged_into_id expecting it to survive a primary's deletion?),
+      bevor entschieden wird. Diese Unit soll die Entscheidung treffen und begruenden, nicht nur
+      eine der beiden Optionen blind bauen.
+    done_when:
+      - Root Cause entschieden und begruendet (Migration ODER IsInUse-Erweiterung), nicht beides
+      - Ein Test reproduziert den bisherigen Fehlzustand (500/unbehandelter FK-Fehler beim
+        Loeschen eines gemergten Primary-Kontakts) und zeigt danach das saubere 409-Verhalten
+      - go test -count=1 ./internal/crm/contact/... gruen, DATABASE_URL gesetzt
+      - Falls Migration: rls-smoke/Migrationslauf (up und down) dokumentiert

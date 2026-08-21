@@ -180,6 +180,31 @@ func (c *CRMExtRoutes) HandleContactTimeline(w http.ResponseWriter, r *http.Requ
 }
 
 // ============================================================================
+// Contact Deletion Impact Preview
+// ============================================================================
+
+// HandleContactDeletionPreview reports what deleting a contact would do to
+// every table that references it, so the caller can show the impact before
+// the user confirms. Pure read -- deletes nothing.
+func (c *CRMExtRoutes) HandleContactDeletionPreview(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, "crm")
+		return
+	}
+
+	resp, err := client.PreviewContactDeletion(r.Context(), &crmv1.PreviewContactDeletionRequest{
+		ContactId: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
 // Consent Management
 // ============================================================================
 
@@ -365,6 +390,9 @@ func (c *CRMExtRoutes) registerContactExtRoutes(r chi.Router) {
 
 	// Timeline
 	r.With(middleware.RequirePermission("contacts", "read")).Get("/{id}/timeline", c.HandleContactTimeline)
+
+	// Deletion impact preview
+	r.With(middleware.RequirePermission("contacts", "read")).Get("/{id}/deletion-preview", c.HandleContactDeletionPreview)
 
 	// Consent management
 	r.With(middleware.RequirePermission("contacts", "read")).Get("/{id}/consents", c.HandleGetConsents)

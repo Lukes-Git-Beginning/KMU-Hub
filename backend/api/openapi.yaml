@@ -30866,6 +30866,26 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /api/v1/contacts/{id}/deletion-preview:
+    get:
+      summary: Preview what deleting a contact would do to referencing records
+      description: Pure read, changes nothing. Lists every table that references the contact, the delete rule that governs it (cascade/set_null/restrict/no_action, read live from pg_constraint), and how many rows are affected.
+      tags: [contacts]
+      operationId: previewContactDeletion
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Deletion impact per referencing table
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmContactDeletionPreviewResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/contacts/{id}/consents:
     get:
       summary: Get the current consent summary for a contact (GDPR)
@@ -46302,6 +46322,30 @@ components:
             $ref: "#/components/schemas/CrmTimelineEvent"
         total:
           type: integer
+
+    CrmContactDeletionImpact:
+      type: object
+      properties:
+        table:
+          type: string
+        column:
+          type: string
+        action:
+          type: string
+          enum: [cascade, set_null, restrict, no_action]
+        count:
+          type: integer
+
+    CrmContactDeletionPreviewResponse:
+      type: object
+      properties:
+        contact_id:
+          type: string
+          format: uuid
+        impacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmContactDeletionImpact"
 
     # -----------------------------------------------------------------------
     # route_crm_ext.go -- GDPR consent + deletion-request proto messages, as
