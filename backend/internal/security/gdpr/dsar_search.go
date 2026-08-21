@@ -104,6 +104,14 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *tags)
 		}
 
+		documents, docErr := documentsModule(ctx, pool, tenantID, c.id)
+		if docErr != nil {
+			return nil, docErr
+		}
+		if documents != nil {
+			person.Modules = append(person.Modules, *documents)
+		}
+
 		consent, cErr := consentModule(ctx, pool, c.id)
 		if cErr != nil {
 			return nil, cErr
@@ -425,6 +433,55 @@ func tagsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uui
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: tag rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// documentsModule discloses metadata only for files linked to a contact via
+// document_entity_links (entity_type="contact", the literal used throughout
+// internal/gateway/route_crm_contact_files.go and internal/document/file --
+// there is no shared constant for it). No storage_key, thumbnail_key or
+// content_text leaves this function: an Art. 15 export leaves the building,
+// and a path or signed URL in it would be a document-store access path that
+// bypasses the permission check a real download goes through.
+//
+// Soft-deleted files (is_deleted) are excluded: from the data subject's
+// perspective they no longer exist once moved to trash, same as the file
+// list UI already treats them.
+func documentsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT f.filename, f.mime_type, f.file_size, f.created_at
+		 FROM document_files f
+		 JOIN document_entity_links del ON del.file_id = f.id
+		 WHERE del.entity_type = 'contact' AND del.entity_id = $1 AND del.tenant_id = $2
+		   AND f.tenant_id = $2 AND NOT f.is_deleted
+		 ORDER BY f.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query documents: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Dokumente", Columns: []string{"Dateiname", "Typ", "Größe", "Hochgeladen am"}}
+	for rows.Next() {
+		var filename, mimeType string
+		var size int64
+		var at time.Time
+		if scanErr := rows.Scan(&filename, &mimeType, &size, &at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan document: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Dateiname", Value: filename},
+			{Key: "Typ", Value: mimeType},
+			{Key: "Größe", Value: fmt.Sprintf("%d Bytes", size)},
+			{Key: "Hochgeladen am", Value: at.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: document rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil

@@ -454,6 +454,117 @@ func TestSearchByQuery_ContactCustomFieldsAndTags_Integration(t *testing.T) {
 	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
 }
 
+func TestSearchByQuery_ContactDocuments_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Documents Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Documents Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	agentID := seedDSARUser(t, pool, tenantOwn, "Dsar", "DocsAgent", true)
+	defer testutil.CleanupRow(t, pool, "users", agentID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Reinhilde",
+		"last_name":  "Ackerknecht",
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+
+	folderID := testutil.SeedRow(t, pool, "document_folders", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "DSAR Test Folder",
+		"space_type": "team",
+		"space_id":   uuid.New(),
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_folders", folderID)
+
+	// Linked, visible file -- must appear.
+	linkedFileID := testutil.SeedRow(t, pool, "document_files", map[string]any{
+		"tenant_id":   tenantOwn,
+		"folder_id":   folderID,
+		"filename":    "Ausweiskopie.pdf",
+		"mime_type":   "application/pdf",
+		"file_size":   204800,
+		"storage_key": "dsar-test/ausweiskopie.pdf",
+		"owner_id":    agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_files", linkedFileID)
+	linkID := testutil.SeedRow(t, pool, "document_entity_links", map[string]any{
+		"tenant_id":   tenantOwn,
+		"file_id":     linkedFileID,
+		"entity_type": "contact",
+		"entity_id":   contactID,
+		"linked_by":   agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_entity_links", linkID)
+
+	var linkedAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at FROM document_files WHERE id = $1`, linkedFileID).Scan(&linkedAt))
+
+	// Linked, but soft-deleted file -- must NOT appear.
+	trashedFileID := testutil.SeedRow(t, pool, "document_files", map[string]any{
+		"tenant_id":   tenantOwn,
+		"folder_id":   folderID,
+		"filename":    "Alter Vertrag.pdf",
+		"mime_type":   "application/pdf",
+		"file_size":   1024,
+		"storage_key": "dsar-test/alter-vertrag.pdf",
+		"owner_id":    agentID,
+		"is_deleted":  true,
+	})
+	defer testutil.CleanupRow(t, pool, "document_files", trashedFileID)
+	trashedLinkID := testutil.SeedRow(t, pool, "document_entity_links", map[string]any{
+		"tenant_id":   tenantOwn,
+		"file_id":     trashedFileID,
+		"entity_type": "contact",
+		"entity_id":   contactID,
+		"linked_by":   agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_entity_links", trashedLinkID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Ackerknecht")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	p := persons[0]
+
+	documents := dsarModule(t, p, "Dokumente")
+	assert.Equal(t, []string{"Dateiname", "Typ", "Größe", "Hochgeladen am"}, documents.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Dateiname":      "Ausweiskopie.pdf",
+			"Typ":            "application/pdf",
+			"Größe":          "204800 Bytes",
+			"Hochgeladen am": linkedAt.Format(dsarTimeLayout),
+		},
+	}, recordMaps(documents), "the trashed file must be excluded, only the live one disclosed")
+
+	for _, f := range documents.Records[0].Fields {
+		assert.NotContains(t, f.Value, "dsar-test/", "storage_key must never leave the export")
+	}
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Ackerknecht")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this contact, let alone its documents")
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Ackerknecht")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
+}
+
 func TestSearchByQuery_ContactFormSubmissions_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
