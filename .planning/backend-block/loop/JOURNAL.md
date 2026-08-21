@@ -94,3 +94,47 @@ Frühere Läufe liegen vollständig im Archiv:
     berührt. Die Änderung ist auf `internal/biz/gobdarchive` plus Migration begrenzt.
   - Für Production: die Migration ist reines REVOKE, ohne Datenänderung. Beim Deploy läuft sie
     als `kmuhub` (Tabelleneigentümer), in CI als `kmuhub_test` — beide dürfen widerrufen.
+
+## Iteration 2 — feat-contact-deletion-cascade-impact-preview — done — 2026-08-22 00:55
+- commit: 473aefa8
+- gebaut: `GET /api/v1/contacts/{id}/deletion-preview` (Route + OpenAPI-Eintrag), neue gRPC-RPC
+  `PreviewContactDeletion` (Proto regeneriert), `Repository.DeletionImpact` und
+  `Service.PreviewDeletion` in `internal/crm/contact`. Repository liest die referenzierenden
+  Fremdschluessel LIVE aus `pg_catalog` (pg_constraint/pg_class/pg_attribute) statt einer
+  hartcodierten Tabellenliste, zaehlt je Treffer die betroffenen Zeilen und meldet nur Tabellen
+  mit mindestens einem Treffer zurueck. Reine Lesefunktion, aendert nichts.
+- gate: build ok | vet ok | lint ok (0 issues, crm+gateway+server) | test ok
+  (internal/crm/contact 110 PASS / 0 SKIP / 0 FAIL, DATABASE_URL gegen kmuhub_app; alle
+  internal/crm/... Pakete gruen mit `-p 1`, Parallel-Lauf ueber alle Pakete sprengt lokal die
+  Postgres-Verbindungsgrenze — kein Befund an meinem Code) | migration n.a. (keine
+  Schemaaenderung) | `go test ./internal/gateway/` gruen (TestOpenAPIRouteDrift inklusive) |
+  `go test ./internal/server/...` gruen | `swagger-cli validate api/openapi.yaml` gruen
+- coverage: internal/crm/contact 80,4 % -> 80,4 % (eigene Messung vor/nach via `git stash` auf
+  genau die von mir geaenderten Dateien, deckt sich mit `coverage_start`). Neuer Code und neue
+  Tests halten sich die Waage; keine Regression.
+- mutations-probe: in `DeletionImpact` die WHERE-Klausel der pg_constraint-Query um `AND false`
+  ergaenzt → `TestRepository_DeletionImpact_TenantScopedLiveFromCatalog` wird rot (leere
+  Impact-Liste). Zurueckgedreht → gruen, `git diff --stat` zeigt nur die urspruengliche
+  Aenderung (105 Zeilen, reine Insertion).
+- verify vorgaenger: sauber. `2a27d899` (GoBD-WORM-Migration) geprueft gegen alle acht
+  Fehlerklassen — reine REVOKE-Migration plus Tests, keine Route/Proto/RBAC/Tenant-Tabelle
+  betroffen, Migrationskopf und Begruendung je Tabelle vorhanden.
+- neue-units: fix-contact-delete-merged-into-no-action-unchecked
+- offen:
+  - Root-Cause-Fund waehrend des Bauens: `contacts.merged_into_id` (gesetzt von `MergeInto`)
+    traegt `ON DELETE NO ACTION`, nicht CASCADE/SET NULL/RESTRICT. `IsInUse` prueft das nicht —
+    loescht man den Primary-Kontakt eines abgeschlossenen Merges, faellt der DELETE nicht mit
+    dem sauberen 409 durch, sondern mit einem unbehandelten FK-Fehler direkt aus der DB. Live an
+    der lokalen DB verifiziert (`confdeltype = 'a'` fuer `merged_into_id` vs. `'n'` fuer das
+    zweite Selbstbezug-Feld `referred_by_contact_id`). Nicht selbst gefixt, da diese Unit als
+    reine Lesefunktion beschraenkt war (`darf unter keinen Umstaenden etwas veraendern`) und die
+    Wahl zwischen Migrationsfix und `IsInUse`-Erweiterung eine echte Entscheidung ist. Neue Unit
+    `fix-contact-delete-merged-into-no-action-unchecked` am Backlog-Ende angelegt.
+  - Der Kaskaden-Befund im Laufkopf (Befund 2, "8 SET NULL") zaehlt `merged_into_id` nicht mit —
+    die Zahl 8 bleibt richtig fuer SET-NULL-Tabellen, aber `contacts` traegt zwei
+    Selbstbezug-FKs, nicht wie dort implizit unterstellt nur einen. Kein Korrekturbedarf am
+    Kopf selbst, nur zur Einordnung: die neue Route zaehlt inzwischen alle 15 FK-Faelle, der Kopf
+    zaehlt nur die drei benannten Kategorien.
+  - RLS-Smoke im engeren Sinn (Tabelle/Policy angefasst) entfaellt, da keine Migration noetig
+    war; die eigene DB-Testfunktion deckt Tenant-Isolation fuer die neue Query explizit ab
+    (fremder Tenant-Kontext liefert 0 Impacts fuer dieselbe Contact-ID).
