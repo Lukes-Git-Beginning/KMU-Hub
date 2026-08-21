@@ -252,6 +252,13 @@ func matchContacts(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 	return out, nil
 }
 
+type dsarUserRow struct {
+	id                 uuid.UUID
+	email, first, last string
+	isActive           bool
+	createdAt          time.Time
+}
+
 func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pattern string) ([]DSARPerson, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT id, COALESCE(email, ''), first_name, last_name, is_active, created_at
@@ -264,39 +271,168 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 	if err != nil {
 		return nil, fmt.Errorf("dsar: query users: %w", err)
 	}
-	defer rows.Close()
 
-	var out []DSARPerson
+	var users []dsarUserRow
 	for rows.Next() {
-		var id uuid.UUID
-		var email, first, last string
-		var isActive bool
-		var createdAt time.Time
-		if scanErr := rows.Scan(&id, &email, &first, &last, &isActive, &createdAt); scanErr != nil {
+		var u dsarUserRow
+		if scanErr := rows.Scan(&u.id, &u.email, &u.first, &u.last, &u.isActive, &u.createdAt); scanErr != nil {
+			rows.Close()
 			return nil, fmt.Errorf("dsar: scan user: %w", scanErr)
 		}
-		name := joinName(first, last)
-		out = append(out, DSARPerson{
-			ID:     id.String(),
+		users = append(users, u)
+	}
+	rowsErr := rows.Err()
+	rows.Close()
+	if rowsErr != nil {
+		return nil, fmt.Errorf("dsar: user rows: %w", rowsErr)
+	}
+
+	// Enrichment queries run after the user rows are collected and rows.Close()
+	// has run, matching the contacts path (matchContacts returns a slice before
+	// SearchByQuery layers on per-contact modules) rather than nesting a second
+	// pool.Query while the first result set is still open.
+	var out []DSARPerson
+	for _, u := range users {
+		name := joinName(u.first, u.last)
+		person := DSARPerson{
+			ID:     u.id.String(),
 			Name:   name,
-			Email:  email,
-			Avatar: initials(first, last),
+			Email:  u.email,
+			Avatar: initials(u.first, u.last),
 			Modules: []DSARModule{{
 				Module:  "Benutzerkonto",
 				Columns: []string{"Feld", "Wert"},
 				Records: []DSARRecord{
 					fieldValueRecord("Name", name),
-					fieldValueRecord("E-Mail", email),
-					fieldValueRecord("Aktiv", boolLabel(isActive)),
-					fieldValueRecord("Erstellt", createdAt.Format(dsarTimeLayout)),
+					fieldValueRecord("E-Mail", u.email),
+					fieldValueRecord("Aktiv", boolLabel(u.isActive)),
+					fieldValueRecord("Erstellt", u.createdAt.Format(dsarTimeLayout)),
 				},
 			}},
-		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("dsar: user rows: %w", err)
+		}
+
+		chatMessages, cmErr := chatMessagesModule(ctx, pool, tenantID, u.id)
+		if cmErr != nil {
+			return nil, cmErr
+		}
+		if chatMessages != nil {
+			person.Modules = append(person.Modules, *chatMessages)
+		}
+
+		chatMemberships, chErr := chatMembershipsModule(ctx, pool, tenantID, u.id)
+		if chErr != nil {
+			return nil, chErr
+		}
+		if chatMemberships != nil {
+			person.Modules = append(person.Modules, *chatMemberships)
+		}
+
+		out = append(out, person)
 	}
 	return out, nil
+}
+
+// chatMessagesModule discloses a matched user's own chat message content —
+// not the messages of other participants in a shared channel. Scope mirrors
+// ChatErasureHandler.ExecuteErasure, which anonymizes exactly the rows
+// WHERE created_by = userID (erasure.go:296).
+func chatMessagesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT c.name, m.content, m.created_at
+		 FROM messages m
+		 JOIN channels c ON c.id = m.channel_id
+		 WHERE m.tenant_id = $1 AND m.created_by = $2 AND NOT m.is_deleted
+		 ORDER BY m.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows+1)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query chat messages: %w", err)
+	}
+	defer rows.Close()
+
+	type message struct {
+		channel, content string
+		at               time.Time
+	}
+	var messages []message
+	for rows.Next() {
+		var m message
+		if scanErr := rows.Scan(&m.channel, &m.content, &m.at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan chat message: %w", scanErr)
+		}
+		messages = append(messages, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: chat message rows: %w", err)
+	}
+	if len(messages) == 0 {
+		return nil, nil
+	}
+
+	// Query fetched dsarMaxRows+1 newest-first so truncation, if any, drops
+	// the oldest messages rather than silently hiding the most recent ones.
+	truncated := len(messages) > dsarMaxRows
+	if truncated {
+		messages = messages[:dsarMaxRows]
+	}
+	// Reverse to chronological (oldest-first) order for a readable transcript.
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	mod := DSARModule{Module: "Chat-Nachrichten", Columns: []string{"Kanal", "Nachricht", "Datum"}}
+	if truncated {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Kanal", Value: ""},
+			{Key: "Nachricht", Value: fmt.Sprintf("(gekürzt auf die %d neuesten Nachrichten)", dsarMaxRows)},
+			{Key: "Datum", Value: ""},
+		}})
+	}
+	for _, m := range messages {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Kanal", Value: m.channel},
+			{Key: "Nachricht", Value: m.content},
+			{Key: "Datum", Value: m.at.Format(dsarTimeLayout)},
+		}})
+	}
+	return &mod, nil
+}
+
+// chatMembershipsModule discloses which channels a matched user belongs to —
+// the second table ChatErasureHandler.ExecuteErasure clears, DELETE FROM
+// channel_memberships WHERE user_id = userID (erasure.go:308).
+func chatMembershipsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT c.name, cm.role::text, cm.joined_at
+		 FROM channel_memberships cm
+		 JOIN channels c ON c.id = cm.channel_id
+		 WHERE cm.tenant_id = $1 AND cm.user_id = $2
+		 ORDER BY cm.joined_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query chat memberships: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Chat-Kanalmitgliedschaften", Columns: []string{"Kanal", "Rolle", "Beigetreten"}}
+	for rows.Next() {
+		var channel, role string
+		var joinedAt time.Time
+		if scanErr := rows.Scan(&channel, &role, &joinedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan chat membership: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Kanal", Value: channel},
+			{Key: "Rolle", Value: role},
+			{Key: "Beigetreten", Value: joinedAt.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: chat membership rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
 }
 
 // ---------------------------------------------------------------------------

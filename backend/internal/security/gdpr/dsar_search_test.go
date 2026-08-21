@@ -866,6 +866,135 @@ func TestSearchByQuery_MatchesUsers_Integration(t *testing.T) {
 		"is_active = false must render as Nein")
 }
 
+func TestSearchByQuery_UserChatMessages_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Chat Messages Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Chat Messages Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Odilo", "Sturmfeld", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherParticipantID := seedDSARUser(t, pool, tenantOwn, "Petronella", "Sturmfeld", true)
+	defer testutil.CleanupRow(t, pool, "users", otherParticipantID)
+
+	channelID := testutil.SeedRow(t, pool, "channels", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Projekt Nachtfalter",
+		"created_by": subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "channels", channelID)
+
+	ownMsgID := testutil.SeedRow(t, pool, "messages", map[string]any{
+		"tenant_id":  tenantOwn,
+		"channel_id": channelID,
+		"content":    "Ich kuemmere mich um den Bericht.",
+		"created_by": subjectID,
+	})
+	// Message of the OTHER participant in the same room — must not be
+	// disclosed when we search for the subject.
+	testutil.SeedRow(t, pool, "messages", map[string]any{
+		"tenant_id":  tenantOwn,
+		"channel_id": channelID,
+		"content":    "Danke, bis morgen dann.",
+		"created_by": otherParticipantID,
+	})
+
+	var ownAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at FROM messages WHERE id = $1`, ownMsgID).Scan(&ownAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Odilo")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	messages := dsarModule(t, persons[0], "Chat-Nachrichten")
+	assert.Equal(t, []string{"Kanal", "Nachricht", "Datum"}, messages.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Kanal":     "Projekt Nachtfalter",
+			"Nachricht": "Ich kuemmere mich um den Bericht.",
+			"Datum":     ownAt.Format(dsarTimeLayout),
+		},
+	}, recordMaps(messages), "only the subject's own message must appear, not the other participant's")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Odilo")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their chat history")
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Odilo")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
+}
+
+func TestSearchByQuery_UserChatMemberships_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Chat Memberships Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Chat Memberships Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Reinhild", "Kranichfeld", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	channelID := testutil.SeedRow(t, pool, "channels", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Vertrieb DACH",
+		"created_by": subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "channels", channelID)
+
+	// channel_memberships has no surrogate id (composite PK channel_id,
+	// user_id) — SeedRow's "RETURNING id" would fail, insert directly.
+	ctxSystem := testutil.WithSystemCtx(context.Background())
+	var joinedAt time.Time
+	require.NoError(t, pool.QueryRow(ctxSystem,
+		`INSERT INTO channel_memberships (channel_id, user_id, tenant_id, role)
+		 VALUES ($1, $2, $3, 'admin') RETURNING joined_at`,
+		channelID, subjectID, tenantOwn).Scan(&joinedAt))
+	defer func() {
+		_, _ = pool.Exec(ctxSystem, `DELETE FROM channel_memberships WHERE channel_id = $1 AND user_id = $2`, channelID, subjectID)
+	}()
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Kranichfeld")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	memberships := dsarModule(t, persons[0], "Chat-Kanalmitgliedschaften")
+	assert.Equal(t, []string{"Kanal", "Rolle", "Beigetreten"}, memberships.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Kanal":       "Vertrieb DACH",
+			"Rolle":       "admin",
+			"Beigetreten": joinedAt.Format(dsarTimeLayout),
+		},
+	}, recordMaps(memberships))
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Kranichfeld")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their channel memberships")
+}
+
 // TestSearchByQuery_NoMinimumLengthGuard_Integration pins where the guard for
 // short queries lives. SearchByQuery itself has none: the pattern is built as
 // "%" + query + "%", so an empty query lists every subject of the tenant up to
