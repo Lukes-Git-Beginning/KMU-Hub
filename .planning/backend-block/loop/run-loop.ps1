@@ -140,6 +140,85 @@ foreach ($f in @($Prompt, $Backlog)) {
     if (-not (Test-Path $f)) { Write-Line "ABBRUCH: fehlt: $f" "Red"; exit 1 }
 }
 
+# --- Vorflug: DB-Gate --------------------------------------------------------
+# Ohne laufende Postgres ist `go test` KEIN Gate, sondern eine Meldung darueber,
+# dass nichts geprueft wurde: testutil.SkipIfNoDB (backend/internal/testutil/rls.go:24)
+# fragt NUR, ob DATABASE_URL gesetzt ist, und ruft sonst t.Skip.
+#
+# Gemessen am 2026-08-21 an internal/security/audit:
+#   mit DB          33 PASS /  0 SKIP
+#   ohne Variable   19 PASS / 14 SKIP
+# Beide Male "ok" und Exit 0. Bei einem Backlog dieser Groesse waere das eine ganze
+# Nacht gruener Meldungen ueber ungepruftem Code - deshalb Abbruch, nicht Warnung.
+$DbUrl       = "postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable"
+$PgContainer = "docker-postgres-1"
+
+function Stop-DbGate([string]$reason) {
+    Write-Line "ABBRUCH: $reason" "Red"
+    Write-Line "  docker compose -f deploy/docker/docker-compose.yml up -d postgres" "DarkYellow"
+    Write-Line "  migrate -path backend/migrations -database `"postgres://kmuhub:<POSTGRES_PASSWORD>@localhost:5432/kmuhub?sslmode=disable`" up" "DarkYellow"
+    Write-Line "  docker exec $PgContainer psql -U kmuhub -d kmuhub -c `"ALTER ROLE kmuhub_app WITH PASSWORD 'app_dev'`"" "DarkYellow"
+    exit 1
+}
+
+Write-Line "Vorflug: DB-Gate" "Cyan"
+
+# 1. TCP. Faengt den haeufigsten Fall - Docker aus, Container unten - in unter einer
+#    Sekunde, statt auf das Timeout eines Kommandos zu warten.
+$tcp = New-Object System.Net.Sockets.TcpClient
+$tcpOk = $false
+try {
+    $async = $tcp.BeginConnect("localhost", 5432, $null, $null)
+    if ($async.AsyncWaitHandle.WaitOne(3000, $false)) {
+        $tcp.EndConnect($async)
+        $tcpOk = $true
+    }
+} catch {
+    $tcpOk = $false
+} finally {
+    $tcp.Close()
+}
+if (-not $tcpOk) { Stop-DbGate "localhost:5432 antwortet nicht - laeuft die lokale Postgres?" }
+
+# 2. Anmeldung als kmuhub_app, nicht als kmuhub: der Superuser hat BYPASSRLS und
+#    winkt jede RLS-Luecke durch. Migration 000121 legt die Rolle mit einem
+#    Platzhalter-Passwort an - fehlt das ALTER ROLE, scheitert genau dieser Schritt.
+$whoami = (Invoke-Native { & docker exec -e PGPASSWORD=app_dev $PgContainer psql -h localhost -U kmuhub_app -d kmuhub -tAc "select current_user" })
+if ($LASTEXITCODE -ne 0) { Stop-DbGate "Anmeldung als kmuhub_app schlug fehl - Passwort der Rolle gesetzt?" }
+if ("$whoami".Trim() -ne "kmuhub_app") { Stop-DbGate "Verbindung meldet sich als '$whoami', erwartet 'kmuhub_app'." }
+
+# 3. Migrationskopf. Eine DB, die zwei Migrationen zurueckliegt, laesst Tests an
+#    Spalten scheitern, die im Code laengst existieren - und der Lauf sucht den
+#    Fehler dann stundenlang im Code.
+$dbState = (Invoke-Native { & docker exec $PgContainer psql -U kmuhub -d kmuhub -tAc "select version || '|' || dirty from schema_migrations" })
+if ($LASTEXITCODE -ne 0) { Stop-DbGate "schema_migrations nicht lesbar - ist die DB migriert?" }
+$parts = "$dbState".Trim().Split("|")
+if ($parts.Count -ne 2) { Stop-DbGate "schema_migrations lieferte '$dbState' - unerwartetes Format." }
+$dbVersion = [int]$parts[0]
+if ($parts[1] -ne "f") { Stop-DbGate "schema_migrations ist dirty auf Version $dbVersion - erst von Hand aufraeumen." }
+
+$fileHead = (Get-ChildItem (Join-Path $RepoRoot "backend\migrations") -Filter "*.up.sql" |
+    ForEach-Object { if ($_.Name -match '^(\d{6})') { [int]$Matches[1] } } |
+    Sort-Object | Select-Object -Last 1)
+if ($dbVersion -ne $fileHead) {
+    Stop-DbGate "Migrationskopf: DB steht auf $dbVersion, backend/migrations auf $fileHead."
+}
+
+# 4. Die claude-Kindprozesse erben diese Umgebung. ITERATION.md Schritt 5 laesst das
+#    Modell die Variable selbst exportieren - hier gesetzt haengt das Gate nicht mehr
+#    daran, dass es das in jeder einzelnen Iteration auch wirklich tut.
+#    Eine bereits gesetzte Variable wird NICHT ueberschrieben, aber sie muss lokal
+#    zeigen: ein Lauf, der seine Tests gegen eine fremde Datenbank faehrt, schreibt
+#    Testdaten dorthin.
+if ($env:DATABASE_URL) {
+    if ($env:DATABASE_URL -notmatch "localhost|127\.0\.0\.1") {
+        Stop-DbGate "DATABASE_URL zeigt nicht auf localhost - der Lauf wuerde gegen eine fremde Datenbank testen."
+    }
+} else {
+    $env:DATABASE_URL = $DbUrl
+}
+Write-Line "DB-Gate: Migrationskopf $dbVersion, Anmeldung als kmuhub_app, DATABASE_URL gesetzt." "Green"
+
 # Schmutziger Arbeitsbaum: Warnung, kein Abbruch. In Lauf 8 lag ein unkommittierter
 # Patch an dieser Datei ueber den gesamten Lauf herum; rund 90 Journal-Eintraege haben
 # je einen Absatz darauf verwendet zu versichern, dass er nicht von ihnen stammt. Das
