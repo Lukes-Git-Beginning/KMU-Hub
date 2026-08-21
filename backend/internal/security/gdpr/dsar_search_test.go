@@ -565,6 +565,144 @@ func TestSearchByQuery_ContactDocuments_Integration(t *testing.T) {
 	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
 }
 
+func TestSearchByQuery_ContactHelpdeskMessages_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Helpdesk Messages Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Helpdesk Messages Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	agentID := seedDSARUser(t, pool, tenantOwn, "Dsar", "MessagesAgent", true)
+	defer testutil.CleanupRow(t, pool, "users", agentID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Isolde",
+		"last_name":  "Winterfeld",
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+
+	ticketID := testutil.SeedRow(t, pool, "tickets", map[string]any{
+		"tenant_id":    tenantOwn,
+		"subject":      "Lieferverzug",
+		"requester_id": agentID,
+		"contact_id":   contactID,
+	})
+	// ticket_messages.ticket_id carries ON DELETE CASCADE from tickets, no
+	// separate cleanup needed for the message rows below.
+	defer testutil.CleanupRow(t, pool, "tickets", ticketID)
+
+	customerMsgID := testutil.SeedRow(t, pool, "ticket_messages", map[string]any{
+		"tenant_id": tenantOwn,
+		"ticket_id": ticketID,
+		"author_id": agentID,
+		"body":      "Wo bleibt meine Lieferung?",
+		"internal":  false,
+	})
+
+	// Internal note about the same contact -- must NOT be disclosed.
+	testutil.SeedRow(t, pool, "ticket_messages", map[string]any{
+		"tenant_id": tenantOwn,
+		"ticket_id": ticketID,
+		"author_id": agentID,
+		"body":      "Kunde ist bereits zweimal eskaliert, bitte mit Vorsicht behandeln.",
+		"internal":  true,
+	})
+
+	var customerAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at FROM ticket_messages WHERE id = $1`, customerMsgID).Scan(&customerAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Winterfeld")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	p := persons[0]
+
+	messages := dsarModule(t, p, "Helpdesk-Nachrichten")
+	assert.Equal(t, []string{"Ticket", "Nachricht", "Datum"}, messages.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Ticket":    "Lieferverzug",
+			"Nachricht": "Wo bleibt meine Lieferung?",
+			"Datum":     customerAt.Format(dsarTimeLayout),
+		},
+	}, recordMaps(messages), "the internal note must be excluded, only the customer-facing message disclosed")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Winterfeld")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this contact, let alone its helpdesk messages")
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Winterfeld")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
+}
+
+func TestSearchByQuery_ContactHelpdeskMessages_Truncation_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Helpdesk Messages Truncation Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+
+	agentID := seedDSARUser(t, pool, tenantOwn, "Dsar", "TruncAgent", true)
+	defer testutil.CleanupRow(t, pool, "users", agentID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Roswitha",
+		"last_name":  "Federkiel",
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+
+	ticketID := testutil.SeedRow(t, pool, "tickets", map[string]any{
+		"tenant_id":    tenantOwn,
+		"subject":      "Vielschreiber",
+		"requester_id": agentID,
+		"contact_id":   contactID,
+	})
+	defer testutil.CleanupRow(t, pool, "tickets", ticketID)
+
+	// dsarMaxRows+5 messages, oldest to newest by creation offset -- enough to
+	// force truncation and prove which end gets dropped.
+	ctxSystem := testutil.WithSystemCtx(context.Background())
+	const total = dsarMaxRows + 5
+	for i := range total {
+		_, err := pool.Exec(ctxSystem,
+			`INSERT INTO ticket_messages (tenant_id, ticket_id, author_id, body, internal, created_at)
+			 VALUES ($1, $2, $3, $4, false, NOW() - make_interval(mins => $5))`,
+			tenantOwn, ticketID, agentID, fmt.Sprintf("Nachricht Nr. %d", i), total-i)
+		require.NoError(t, err)
+	}
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Federkiel")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	messages := dsarModule(t, persons[0], "Helpdesk-Nachrichten")
+	require.Len(t, messages.Records, dsarMaxRows+1, "dsarMaxRows disclosed messages plus one truncation marker")
+	assert.Contains(t, messages.Records[0].Fields[1].Value, "gekürzt",
+		"a truncation must be visible in the export, not a silent drop")
+	assert.Equal(t, fmt.Sprintf("Nachricht Nr. %d", total-1), messages.Records[len(messages.Records)-1].Fields[1].Value,
+		"truncation must keep the newest messages, not the oldest")
+}
+
 func TestSearchByQuery_ContactFormSubmissions_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()

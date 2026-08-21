@@ -152,6 +152,14 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *tickets)
 		}
 
+		helpdeskMessages, hmErr := helpdeskMessagesModule(ctx, pool, tenantID, c.id)
+		if hmErr != nil {
+			return nil, hmErr
+		}
+		if helpdeskMessages != nil {
+			person.Modules = append(person.Modules, *helpdeskMessages)
+		}
+
 		contracts, ctErr := contractsModule(ctx, pool, tenantID, c.id)
 		if ctErr != nil {
 			return nil, ctErr
@@ -727,6 +735,73 @@ func helpdeskModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil
+	}
+	return &mod, nil
+}
+
+// helpdeskMessagesModule discloses the customer-facing conversation on a
+// contact's tickets — what the person wrote and what they were told, which is
+// the actual personal content behind the ticket metadata in helpdeskModule.
+// Internal notes (internal = true) are excluded on purpose: they are agent
+// working material and routinely contain a colleague's assessment OF the
+// data subject, not communication addressed to them.
+func helpdeskMessagesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.subject, tm.body, tm.created_at
+		 FROM ticket_messages tm
+		 JOIN tickets t ON t.id = tm.ticket_id
+		 WHERE t.contact_id = $1 AND tm.tenant_id = $2 AND NOT tm.internal
+		 ORDER BY tm.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows+1)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query helpdesk messages: %w", err)
+	}
+	defer rows.Close()
+
+	type message struct {
+		subject, body string
+		at            time.Time
+	}
+	var messages []message
+	for rows.Next() {
+		var m message
+		if scanErr := rows.Scan(&m.subject, &m.body, &m.at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan helpdesk message: %w", scanErr)
+		}
+		messages = append(messages, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: helpdesk message rows: %w", err)
+	}
+	if len(messages) == 0 {
+		return nil, nil
+	}
+
+	// Query fetched dsarMaxRows+1 newest-first so truncation, if any, drops
+	// the oldest messages rather than silently hiding the most recent ones.
+	truncated := len(messages) > dsarMaxRows
+	if truncated {
+		messages = messages[:dsarMaxRows]
+	}
+	// Reverse to chronological (oldest-first) order for a readable transcript.
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	mod := DSARModule{Module: "Helpdesk-Nachrichten", Columns: []string{"Ticket", "Nachricht", "Datum"}}
+	if truncated {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Ticket", Value: ""},
+			{Key: "Nachricht", Value: fmt.Sprintf("(gekürzt auf die %d neuesten Nachrichten)", dsarMaxRows)},
+			{Key: "Datum", Value: ""},
+		}})
+	}
+	for _, m := range messages {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Ticket", Value: m.subject},
+			{Key: "Nachricht", Value: m.body},
+			{Key: "Datum", Value: m.at.Format(dsarTimeLayout)},
+		}})
 	}
 	return &mod, nil
 }
