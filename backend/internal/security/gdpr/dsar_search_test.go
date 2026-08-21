@@ -21,6 +21,7 @@ package gdpr
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -449,6 +450,116 @@ func TestSearchByQuery_ContactCustomFieldsAndTags_Integration(t *testing.T) {
 	assert.Empty(t, foreign, "another tenant must not see this contact, let alone its custom fields or tags")
 
 	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Wolkenbruch")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
+}
+
+func TestSearchByQuery_ContactFormSubmissions_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Form Submissions Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Form Submissions Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	agentID := seedDSARUser(t, pool, tenantOwn, "Dsar", "FormAgent", true)
+	defer testutil.CleanupRow(t, pool, "users", agentID)
+
+	email := fmt.Sprintf("gustav.%s@formkontakt.invalid", uuid.New())
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Gustav",
+		"last_name":  "Wolkenreiter",
+		"email":      email,
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+
+	fields := []byte(`[
+		{"id":"f_name","type":"text","label":"Name"},
+		{"id":"f_email","type":"email","label":"E-Mail","role":"requester_email"}
+	]`)
+	schemaID := testutil.SeedRow(t, pool, "form_schemas", map[string]any{
+		"tenant_id":  tenantOwn,
+		"title":      "Kontaktformular",
+		"fields":     fields,
+		"is_public":  true,
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "form_schemas", schemaID)
+
+	base := time.Now().UTC().Truncate(time.Minute).Add(-24 * time.Hour)
+
+	// Matches: the email-typed field's answer is the contact's own address,
+	// compared case-insensitively.
+	matchAnswers := fmt.Appendf(nil, `{"f_name":"Gustav Wolkenreiter","f_email":"%s"}`, strings.ToUpper(email))
+	matchID := testutil.SeedRow(t, pool, "form_submissions", map[string]any{
+		"tenant_id":      tenantOwn,
+		"form_schema_id": schemaID,
+		"answers":        matchAnswers,
+		"submitted_at":   base,
+	})
+	defer testutil.CleanupRow(t, pool, "form_submissions", matchID)
+
+	// Does not match: a different address in the same email field.
+	otherAnswers := []byte(`{"f_name":"Jemand Anders","f_email":"jemand@andere.invalid"}`)
+	otherID := testutil.SeedRow(t, pool, "form_submissions", map[string]any{
+		"tenant_id":      tenantOwn,
+		"form_schema_id": schemaID,
+		"answers":        otherAnswers,
+		"submitted_at":   base.Add(-time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "form_submissions", otherID)
+
+	// Does not match: schema deleted, form_schema_id set NULL by ON DELETE
+	// SET NULL -- there is no schema left to say which field held an email,
+	// so this submission must be excluded rather than guessed at.
+	orphanSchemaID := testutil.SeedRow(t, pool, "form_schemas", map[string]any{
+		"tenant_id":  tenantOwn,
+		"title":      "Verschwundenes Formular",
+		"fields":     fields,
+		"created_by": agentID,
+	})
+	orphanAnswers := fmt.Appendf(nil, `{"f_name":"Gustav Wolkenreiter","f_email":"%s"}`, email)
+	orphanID := testutil.SeedRow(t, pool, "form_submissions", map[string]any{
+		"tenant_id":      tenantOwn,
+		"form_schema_id": orphanSchemaID,
+		"answers":        orphanAnswers,
+		"submitted_at":   base.Add(-2 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "form_submissions", orphanID)
+	testutil.CleanupRow(t, pool, "form_schemas", orphanSchemaID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	var matchSubmittedAt time.Time
+	require.NoError(t, pool.QueryRow(ctxOwn, `SELECT submitted_at FROM form_submissions WHERE id = $1`, matchID).Scan(&matchSubmittedAt))
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Wolkenreiter")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	p := persons[0]
+
+	mod := dsarModule(t, p, "Formulareinreichungen")
+	assert.Equal(t, []string{"Formular", "Datum", "Feld", "Wert"}, mod.Columns)
+	assert.Equal(t, []map[string]string{
+		{"Formular": "Kontaktformular", "Datum": matchSubmittedAt.Format(dsarTimeLayout), "Feld": "Name", "Wert": "Gustav Wolkenreiter"},
+		{"Formular": "Kontaktformular", "Datum": matchSubmittedAt.Format(dsarTimeLayout), "Feld": "E-Mail", "Wert": strings.ToUpper(email)},
+	}, recordMaps(mod),
+		"only the submission whose email field matches the contact appears; the orphaned and other-address submissions must not")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Wolkenreiter")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this contact, let alone its form submissions")
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Wolkenreiter")
 	require.NoError(t, err)
 	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
 }

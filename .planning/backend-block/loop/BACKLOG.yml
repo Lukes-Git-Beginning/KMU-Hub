@@ -278,7 +278,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Formulareinreichungen sind der einzige Weg, auf dem eine Person Daten ueber sich selbst

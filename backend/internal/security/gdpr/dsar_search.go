@@ -168,6 +168,14 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *deals)
 		}
 
+		formSubmissions, fsErr := formSubmissionsModule(ctx, pool, tenantID, c.email)
+		if fsErr != nil {
+			return nil, fsErr
+		}
+		if formSubmissions != nil {
+			person.Modules = append(person.Modules, *formSubmissions)
+		}
+
 		activities, acErr := activitiesModule(ctx, pool, tenantID, c.id)
 		if acErr != nil {
 			return nil, acErr
@@ -417,6 +425,103 @@ func tagsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uui
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: tag rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// formFieldMeta is a partial decode of one entry in form_schemas.fields --
+// enough to label an answer for disclosure without importing the formulare
+// package's full FormField (which also carries options/conditional logic a
+// data subject export has no use for).
+type formFieldMeta struct {
+	ID    string `json:"id"`
+	Type  string `json:"type"`
+	Label string `json:"label"`
+}
+
+// formSubmissionsModule discloses public form submissions matched to a
+// contact by comparing an "email"-typed field's answer against the contact's
+// own address. This is a heuristic, not a foreign key: form_submissions
+// carries no contact_id at all, and submitted_by is not the respondent's
+// identity -- it holds the staff user who logged an authenticated
+// submission, or nothing whatsoever for a public share-link submission
+// (formulare/form_share.go SubmitByShareToken never sets it). The
+// respondent's own data lives only inside the JSONB answers, keyed by
+// whichever field id the form author chose, which is why the match has to
+// go through the schema's field definitions instead of a column.
+//
+// A submission whose schema has since been deleted (form_schema_id set NULL
+// by form_schemas' ON DELETE SET NULL) is excluded: without the schema there
+// is no way to tell which answer, if any, held an email address.
+func formSubmissionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, contactEmail string) (*DSARModule, error) {
+	if contactEmail == "" {
+		return nil, nil
+	}
+	rows, err := pool.Query(ctx,
+		`SELECT fs.title, fs.fields, fsub.answers, fsub.submitted_at
+		 FROM form_submissions fsub
+		 JOIN form_schemas fs ON fs.id = fsub.form_schema_id
+		 WHERE fsub.tenant_id = $1 AND fs.tenant_id = $1
+		   AND EXISTS (
+		     SELECT 1 FROM jsonb_array_elements(fs.fields) AS field(elem)
+		     WHERE field.elem ->> 'type' = 'email'
+		       AND LOWER(fsub.answers ->> (field.elem ->> 'id')) = LOWER($2)
+		   )
+		 ORDER BY fsub.submitted_at DESC
+		 LIMIT $3`, tenantID, contactEmail, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query form submissions: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Formulareinreichungen", Columns: []string{"Formular", "Datum", "Feld", "Wert"}}
+	for rows.Next() {
+		var title string
+		var fieldsRaw, answersRaw []byte
+		var at time.Time
+		if scanErr := rows.Scan(&title, &fieldsRaw, &answersRaw, &at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan form submission: %w", scanErr)
+		}
+
+		var defs []formFieldMeta
+		if err := json.Unmarshal(fieldsRaw, &defs); err != nil {
+			return nil, fmt.Errorf("dsar: decode form fields: %w", err)
+		}
+		var answers map[string]json.RawMessage
+		if err := json.Unmarshal(answersRaw, &answers); err != nil {
+			// The disclosure must still surface stored data even if it is not
+			// the JSON object shape every submission is expected to have.
+			mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+				{Key: "Formular", Value: title},
+				{Key: "Datum", Value: at.Format(dsarTimeLayout)},
+				{Key: "Feld", Value: "(unstrukturiert)"},
+				{Key: "Wert", Value: string(answersRaw)},
+			}})
+			continue
+		}
+
+		for _, def := range defs {
+			raw, ok := answers[def.ID]
+			if !ok {
+				continue
+			}
+			label := def.Label
+			if label == "" {
+				label = def.ID
+			}
+			mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+				{Key: "Formular", Value: title},
+				{Key: "Datum", Value: at.Format(dsarTimeLayout)},
+				{Key: "Feld", Value: label},
+				{Key: "Wert", Value: formatCustomFieldValue(raw)},
+			}})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: form submission rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil
