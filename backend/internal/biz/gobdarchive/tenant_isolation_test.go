@@ -5,6 +5,12 @@ package gobdarchive
 //
 // These tests run only when DATABASE_URL is set (local Compose / CI with DB).
 // In CI without a Postgres sidecar they are skipped via SkipIfNoDB.
+//
+// No test cleans up the rows it archives. Migration 000315 revokes DELETE on
+// both archive tables from kmuhub_app, and that is the point of the archive --
+// what lands in it stays. The fixtures use a throwaway tenant per test, so the
+// leftovers are invisible to everything else. Calling testutil.CleanupRow here
+// would only log a permission error.
 
 import (
 	"context"
@@ -38,7 +44,6 @@ func TestTenantIsolation_GobdDocuments(t *testing.T) {
 		"archived_by":       uuid.New(),
 		"retention_until":   time.Date(2034, 12, 31, 0, 0, 0, 0, time.UTC),
 	})
-	defer testutil.CleanupRow(t, pool, "gobd_documents", docID)
 
 	// Tenant A can see the document.
 	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
@@ -71,7 +76,6 @@ func TestTenantIsolation_GobdDocumentEvents(t *testing.T) {
 		"archived_by":       uuid.New(),
 		"retention_until":   time.Date(2034, 12, 31, 0, 0, 0, 0, time.UTC),
 	})
-	defer testutil.CleanupRow(t, pool, "gobd_documents", docID)
 
 	// Seed an event for Tenant A's document.
 	eventID := testutil.SeedRow(t, pool, "gobd_document_events", map[string]any{
@@ -80,7 +84,6 @@ func TestTenantIsolation_GobdDocumentEvents(t *testing.T) {
 		"event_type":  "archived",
 		"created_by":  uuid.New(),
 	})
-	defer testutil.CleanupRow(t, pool, "gobd_document_events", eventID)
 
 	// Tenant A can see the event.
 	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)

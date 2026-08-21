@@ -9,6 +9,12 @@ package gobdarchive
 // Repository interface exposes, so a second Create for the same document ID
 // is the only "update attempt" that can be made through this API at all, and
 // it must fail on the primary key.
+//
+// No test cleans up the rows it archives. Migration 000315 revokes DELETE on
+// both archive tables from kmuhub_app, and that is the point of the archive --
+// what lands in it stays. The fixtures use a throwaway tenant per test, so the
+// leftovers are invisible to everything else. Calling testutil.CleanupRow here
+// would only log a permission error.
 
 import (
 	"context"
@@ -72,7 +78,6 @@ func TestPostgresRepository_CreateAndGetByID_RoundTrip(t *testing.T) {
 
 	doc := newTestDocument(tenantID, "roundtrip")
 	require.NoError(t, repo.Create(ctx, doc))
-	t.Cleanup(func() { testutil.CleanupRow(t, pool, "gobd_documents", doc.ID) })
 
 	got, err := repo.GetByID(ctx, tenantID, doc.ID)
 	require.NoError(t, err)
@@ -95,7 +100,6 @@ func TestPostgresRepository_Create_DuplicateIDRejected(t *testing.T) {
 
 	original := newTestDocument(tenantID, "immutable-original")
 	require.NoError(t, repo.Create(ctx, original))
-	t.Cleanup(func() { testutil.CleanupRow(t, pool, "gobd_documents", original.ID) })
 
 	tampered := newTestDocument(tenantID, "tampered-payload")
 	tampered.ID = original.ID // same primary key — this is the "update attempt"
@@ -124,7 +128,6 @@ func TestPostgresRepository_GetByID_CrossTenantReturnsNotFound(t *testing.T) {
 	repo := NewPostgresRepository(pool)
 	doc := newTestDocument(tenantA, "cross-tenant")
 	require.NoError(t, repo.Create(ctxA, doc))
-	t.Cleanup(func() { testutil.CleanupRow(t, pool, "gobd_documents", doc.ID) })
 
 	_, err := repo.GetByID(ctxB, tenantB, doc.ID)
 	assert.ErrorIs(t, err, ErrDocumentNotFound)
@@ -158,10 +161,6 @@ func TestPostgresRepository_List_FiltersByDocType(t *testing.T) {
 	receipt.DocType = models.GobdDocTypeReceipt
 	require.NoError(t, repo.Create(ctx, invoice))
 	require.NoError(t, repo.Create(ctx, receipt))
-	t.Cleanup(func() {
-		testutil.CleanupRow(t, pool, "gobd_documents", invoice.ID)
-		testutil.CleanupRow(t, pool, "gobd_documents", receipt.ID)
-	})
 
 	docs, total, err := repo.List(ctx, ListFilter{TenantID: tenantID, DocType: models.GobdDocTypeInvoice})
 	require.NoError(t, err)
@@ -181,10 +180,6 @@ func TestPostgresRepository_List_FiltersByDateRange(t *testing.T) {
 	recent.ArchivedAt = time.Now().UTC().Truncate(time.Second)
 	require.NoError(t, repo.Create(ctx, old))
 	require.NoError(t, repo.Create(ctx, recent))
-	t.Cleanup(func() {
-		testutil.CleanupRow(t, pool, "gobd_documents", old.ID)
-		testutil.CleanupRow(t, pool, "gobd_documents", recent.ID)
-	})
 
 	from := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	docs, total, err := repo.List(ctx, ListFilter{TenantID: tenantID, DateFrom: &from})
@@ -216,10 +211,6 @@ func TestPostgresRepository_List_FiltersBySourceInvoiceID(t *testing.T) {
 	unlinked := newTestDocument(tenantID, "list-unlinked")
 	require.NoError(t, repo.Create(ctx, linked))
 	require.NoError(t, repo.Create(ctx, unlinked))
-	t.Cleanup(func() {
-		testutil.CleanupRow(t, pool, "gobd_documents", linked.ID)
-		testutil.CleanupRow(t, pool, "gobd_documents", unlinked.ID)
-	})
 
 	docs, total, err := repo.List(ctx, ListFilter{TenantID: tenantID, SourceInvoiceID: &invoiceID})
 	require.NoError(t, err)
@@ -242,9 +233,6 @@ func TestPostgresRepository_List_OrderedNewestFirstAndPaginated(t *testing.T) {
 		doc.ArchivedAt = base.Add(time.Duration(i) * time.Minute)
 		require.NoError(t, repo.Create(ctx, doc))
 		ids = append(ids, doc.ID)
-		t.Cleanup(func(id uuid.UUID) func() {
-			return func() { testutil.CleanupRow(t, pool, "gobd_documents", id) }
-		}(doc.ID))
 	}
 
 	// Page 1 of 2 must return the two newest documents, newest first.
@@ -273,7 +261,6 @@ func TestPostgresRepository_AppendEventAndListEvents_OrderedNewestFirst(t *testi
 
 	doc := newTestDocument(tenantID, "events-doc")
 	require.NoError(t, repo.Create(ctx, doc))
-	t.Cleanup(func() { testutil.CleanupRow(t, pool, "gobd_documents", doc.ID) })
 
 	base := time.Now().UTC().Truncate(time.Second)
 	ev1 := &models.GobdDocumentEvent{
