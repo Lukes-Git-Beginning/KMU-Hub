@@ -52,6 +52,12 @@ func (a *AuthRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(htt
 	r.Group(func(r chi.Router) {
 		r.Use(publicRateLimit)
 		r.Get("/reset-password", a.HandleResetPasswordPage)
+		// chi does not fold HEAD into Get, so the page answered 405 to every
+		// link checker and uptime probe. net/http drops the body for HEAD by
+		// itself, so the GET handler is the right one to reuse -- and it is the
+		// only way the hardened headers come back on a HEAD, which matters
+		// because `curl -I` was showing the global ones instead.
+		r.Head("/reset-password", a.HandleResetPasswordPage)
 		r.Post("/reset-password", a.HandleResetPasswordPageSubmit)
 	})
 }

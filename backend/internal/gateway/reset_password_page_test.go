@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -192,5 +193,29 @@ func TestResetPasswordPage_WeakPasswordStaysOnForm(t *testing.T) {
 	code, _ := resetPageErrorFor(status.Error(codes.InvalidArgument, "weak"))
 	if code != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument to be preserved, got %v", code)
+	}
+}
+
+// A HEAD on the page used to answer 405: chi does not fold HEAD into Get, and
+// only GET and POST were registered. Irrelevant to a browser, not to a link
+// checker or an uptime probe -- and `curl -I` showed the global headers rather
+// than the hardened ones, which made the page look unprotected during diagnosis.
+func TestResetPasswordPage_HeadIsRegistered(t *testing.T) {
+	routes := NewAuthRoutes(emptyRegistry())
+	r := chi.NewRouter()
+	routes.RegisterPublicRoutes(r, func(next http.Handler) http.Handler { return next })
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, "/reset-password?token=abc123", nil))
+
+	if rec.Code == http.StatusMethodNotAllowed {
+		t.Fatal("HEAD /reset-password answered 405 — the route is GET/POST only again")
+	}
+	assertStatus(t, rec, http.StatusOK)
+	if got := rec.Header().Get("Referrer-Policy"); got != "no-referrer" {
+		t.Errorf("Referrer-Policy = %q, want no-referrer — a HEAD must carry the same hardening as the GET", got)
+	}
+	if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "no-store") {
+		t.Errorf("Cache-Control = %q, want no-store", got)
 	}
 }
