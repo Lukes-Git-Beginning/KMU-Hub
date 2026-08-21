@@ -190,12 +190,15 @@ if ("$whoami".Trim() -ne "kmuhub_app") { Stop-DbGate "Verbindung meldet sich als
 # 3. Migrationskopf. Eine DB, die zwei Migrationen zurueckliegt, laesst Tests an
 #    Spalten scheitern, die im Code laengst existieren - und der Lauf sucht den
 #    Fehler dann stundenlang im Code.
-$dbState = (Invoke-Native { & docker exec $PgContainer psql -U kmuhub -d kmuhub -tAc "select version || '|' || dirty from schema_migrations" })
+# Kein blankes `|| dirty`: bei Text-Konkatenation rendert Postgres den Boolean als
+# "false", nicht als das "f" der Spaltenausgabe - der Vergleich unten lief dadurch
+# bei sauberer DB in den Dirty-Abbruch. Deshalb den Zustand ausschreiben lassen.
+$dbState = (Invoke-Native { & docker exec $PgContainer psql -U kmuhub -d kmuhub -tAc "select version || '|' || case when dirty then 'dirty' else 'clean' end from schema_migrations" })
 if ($LASTEXITCODE -ne 0) { Stop-DbGate "schema_migrations nicht lesbar - ist die DB migriert?" }
 $parts = "$dbState".Trim().Split("|")
 if ($parts.Count -ne 2) { Stop-DbGate "schema_migrations lieferte '$dbState' - unerwartetes Format." }
 $dbVersion = [int]$parts[0]
-if ($parts[1] -ne "f") { Stop-DbGate "schema_migrations ist dirty auf Version $dbVersion - erst von Hand aufraeumen." }
+if ($parts[1] -ne "clean") { Stop-DbGate "schema_migrations ist dirty auf Version $dbVersion - erst von Hand aufraeumen." }
 
 $fileHead = (Get-ChildItem (Join-Path $RepoRoot "backend\migrations") -Filter "*.up.sql" |
     ForEach-Object { if ($_.Name -match '^(\d{6})') { [int]$Matches[1] } } |
