@@ -305,3 +305,49 @@ Frühere Läufe liegen vollständig im Archiv:
     laeuft ueber das Ticket-CASCADE, keine 55 einzelnen `CleanupRow`-Aufrufe noetig.
   - Rest-Scope aus A7/A8/A9 (User-Chat/Work/Kalender/Notification) weiterhin offen, hier nicht
     angefasst.
+
+## Iteration 7 — feat-dsar-search-user-chat-module — done — 2026-08-22 01:19
+- commit: 784f252d
+- gebaut: `matchUsers` in `internal/security/gdpr/dsar_search.go` von "scannen und sofort
+  DSARPerson bauen" auf "erst alle User-Zeilen sammeln, `rows.Close()`, dann pro User anreichern"
+  umgestellt — dieselbe Reihenfolge wie beim Kontaktpfad (`matchContacts` liefert zuerst eine
+  Slice, `SearchByQuery` haengt danach die Module an), damit keine zweite `pool.Query` waehrend
+  eines offenen `rows.Next()`-Durchlaufs laeuft. Zwei neue Module fuer einen gematchten Benutzer:
+  `chatMessagesModule` (Tabelle `messages`, gefiltert auf `created_by = userID` UND `tenant_id`,
+  `NOT is_deleted`, mit derselben Kuerzungs-/Umkehr-Logik wie `helpdeskMessagesModule` aus
+  Iteration 6 — dsarMaxRows+1 holen, aeltestes fallen lassen, sichtbarer Kuerzungshinweis) und
+  `chatMembershipsModule` (Tabelle `channel_memberships`, gefiltert auf `user_id` UND
+  `tenant_id`, liefert Kanal/Rolle/Beigetreten). Beide Tabellen sind exakt die, die
+  `ChatErasureHandler.ExecuteErasure` anfasst (`erasure.go:296` `messages.created_by`,
+  `erasure.go:308` `channel_memberships.user_id`) — die Tabellenliste deckt sich, kein
+  Befund fuer C2. Nachrichten anderer Teilnehmer im selben Kanal werden NICHT exportiert
+  (Kernanforderung der Unit), per Test mit Zwei-Personen-Kanal belegt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (70 PASS / 0 SKIP / 0 FAIL in
+  internal/security/gdpr, DATABASE_URL gegen kmuhub_app) | migration n.a. (keine
+  Schemaaenderung, `messages`/`channels`/`channel_memberships` haben bereits tenant_id seit
+  Migration 000112) | rls-smoke n.a. (keine neue Tabelle/Policy; Tenant-Isolation ist Teil
+  beider neuer DB-Testfunktionen, RLS traegt sie) | `go test ./internal/gateway/` n.a.
+  (keine Route/OpenAPI beruehrt)
+- coverage: internal/security/gdpr 63,9 % -> 64,6 % (eigene Messung, volles Paket nach dem
+  Umbau; weicht vom `coverage_start` der Unit von 61,2 % ab, weil A3-A6 dasselbe Paket in
+  diesem Lauf bereits angehoben haben — siehe Iterationen 3-6)
+- mutations-probe: `chatMessagesModule`-WHERE von `m.created_by = $2 AND NOT m.is_deleted` auf
+  `(m.created_by = $2 OR TRUE) AND NOT m.is_deleted` geaendert ->
+  `TestSearchByQuery_UserChatMessages_Integration` wird rot (Nachricht des zweiten
+  Kanalteilnehmers taucht zusaetzlich im Export auf, Diff zeigt genau das). Zurueckgedreht ->
+  gruen (70/70), `git diff --stat` zeigt fuer `dsar_search.go` einen Umbau von `matchUsers`
+  (18 Zeilen geloescht, siehe gebaut:) plus rein additive neue Funktionen — kein
+  unbeabsichtigter Verlust, Volltext-Diff geprueft.
+- verify vorgaenger: sauber. `de357fa1` (Helpdesk-Nachrichten-DSAR) gegen alle acht
+  Fehlerklassen geprueft (`git show --stat` und Volltext) — reine additive Query-Funktion im
+  gdpr-Paket, kein gRPC-Layer, kein `.proto`, kein neuer `RequirePermission`-Guard, keine neue
+  Tabelle/Migration, Wire-Shape (DSARModule/DSARRecord) unveraendert, keine neue Route, kein
+  Alt-Guard ersetzt.
+- neue-units: keine
+- offen:
+  - `channel_memberships` hat keinen Surrogat-`id` (Composite-PK `channel_id, user_id`) —
+    `testutil.SeedRow` funktioniert dort nicht (`RETURNING id` schlaegt fehl), der Test seedet
+    per rohem `pool.Exec`/`QueryRow`. Kein neuer Befund, aber relevant fuer kuenftige Tests auf
+    dieser Tabelle.
+  - Rest-Scope aus A8/A9 (User-Work/Kalender/Notification) weiterhin offen, hier nicht
+    angefasst.
