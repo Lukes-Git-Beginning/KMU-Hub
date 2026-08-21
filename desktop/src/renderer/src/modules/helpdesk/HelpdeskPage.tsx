@@ -446,7 +446,10 @@ export default function HelpdeskPage() {
   // Handlers
   const handleOpenNewTicket = () => {
     setNtFormValues({}); setNtErrors({})
-    setNtPriority('medium'); setNtAssignee('Marco Hartmann'); setNtContact('')
+    // Unassigned, not a name: the select binds user ids and the backend validates
+    // assignee_id as a UUID. A display name here matches no <option>, so the
+    // dialog showed "Nicht zugewiesen" while sending that name on submit.
+    setNtPriority('medium'); setNtAssignee(''); setNtContact('')
     setNewTicketOpen(true)
   }
 
