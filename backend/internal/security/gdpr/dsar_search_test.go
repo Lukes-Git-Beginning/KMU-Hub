@@ -995,6 +995,236 @@ func TestSearchByQuery_UserChatMemberships_Integration(t *testing.T) {
 	assert.Empty(t, foreign, "another tenant must not see this user, let alone their channel memberships")
 }
 
+func TestSearchByQuery_UserTasks_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Tasks Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Tasks Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Siegwart", "Muehlbach", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherUserID := seedDSARUser(t, pool, tenantOwn, "Traudel", "Muehlbach", true)
+	defer testutil.CleanupRow(t, pool, "users", otherUserID)
+
+	projectID := testutil.SeedRow(t, pool, "projects", map[string]any{
+		"tenant_id":   tenantOwn,
+		"name":        "Projekt Muehlbach",
+		"project_key": fmt.Sprintf("MB%d", uuid.New().ID()%1000),
+		"created_by":  subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "projects", projectID)
+	statusID := testutil.SeedRow(t, pool, "project_statuses", map[string]any{
+		"tenant_id":  tenantOwn,
+		"project_id": projectID,
+		"name":       "In Arbeit",
+	})
+	defer testutil.CleanupRow(t, pool, "project_statuses", statusID)
+
+	// Task the subject created AND is assigned to — both roles on one row.
+	ownTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"project_id":  projectID,
+		"task_number": 1,
+		"title":       "Angebot pruefen",
+		"status_id":   statusID,
+		"assignee_id": subjectID,
+		"created_by":  subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", ownTaskID)
+	// Task assigned to the subject but created by someone else.
+	assignedTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"task_number": 2,
+		"title":       "Rechnung freigeben",
+		"assignee_id": subjectID,
+		"created_by":  otherUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", assignedTaskID)
+	// Task neither created nor assigned to the subject — must not appear.
+	unrelatedTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"task_number": 3,
+		"title":       "Fremde Aufgabe",
+		"assignee_id": otherUserID,
+		"created_by":  otherUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", unrelatedTaskID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Siegwart")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	tasks := dsarModule(t, persons[0], "Aufgaben")
+	assert.Equal(t, []string{"Titel", "Status", "Rolle", "Erstellt"}, tasks.Columns)
+	rows := recordMaps(tasks)
+	require.Len(t, rows, 2, "only the two tasks touching the subject, not the unrelated one")
+
+	byTitle := map[string]map[string]string{}
+	for _, r := range rows {
+		byTitle[r["Titel"]] = r
+	}
+	assert.Equal(t, "In Arbeit", byTitle["Angebot pruefen"]["Status"])
+	assert.Equal(t, "Ersteller, Zugewiesen", byTitle["Angebot pruefen"]["Rolle"])
+	assert.Equal(t, "", byTitle["Rechnung freigeben"]["Status"], "no status assigned renders empty, not a placeholder")
+	assert.Equal(t, "Zugewiesen", byTitle["Rechnung freigeben"]["Rolle"])
+	assert.NotContains(t, byTitle, "Fremde Aufgabe")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Siegwart")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their tasks")
+}
+
+func TestSearchByQuery_UserTaskComments_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Task Comments Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Task Comments Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Ursula", "Rabenstein", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherUserID := seedDSARUser(t, pool, tenantOwn, "Volkmar", "Rabenstein", true)
+	defer testutil.CleanupRow(t, pool, "users", otherUserID)
+
+	taskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"task_number": 1,
+		"title":       "Vertrag abschliessen",
+		"created_by":  subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", taskID)
+
+	ownCommentID := testutil.SeedRow(t, pool, "task_comments", map[string]any{
+		"tenant_id": tenantOwn,
+		"task_id":   taskID,
+		"author_id": subjectID,
+		"content":   "Ich schicke den Entwurf morgen.",
+	})
+	defer testutil.CleanupRow(t, pool, "task_comments", ownCommentID)
+	// Comment of another author on the same task — must not be disclosed.
+	testutil.SeedRow(t, pool, "task_comments", map[string]any{
+		"tenant_id": tenantOwn,
+		"task_id":   taskID,
+		"author_id": otherUserID,
+		"content":   "Klingt gut, danke.",
+	})
+
+	var ownAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at FROM task_comments WHERE id = $1`, ownCommentID).Scan(&ownAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Ursula")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	comments := dsarModule(t, persons[0], "Aufgaben-Kommentare")
+	assert.Equal(t, []string{"Aufgabe", "Kommentar", "Datum"}, comments.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Aufgabe":   "Vertrag abschliessen",
+			"Kommentar": "Ich schicke den Entwurf morgen.",
+			"Datum":     ownAt.Format(dsarTimeLayout),
+		},
+	}, recordMaps(comments), "only the subject's own comment must appear, not the other author's")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Ursula")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their task comments")
+}
+
+func TestSearchByQuery_UserTimeEntries_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Time Entries Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Time Entries Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Waltraud", "Eisenberg", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	taskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"task_number": 1,
+		"title":       "Migration testen",
+		"created_by":  subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", taskID)
+
+	// Two entries in the same month (2400s + 3600s = 6000s = 1.6667h, rounds
+	// to 1.7h) and one in an earlier month (7200s = 2.0h), to prove the
+	// GROUP BY aggregates correctly rather than listing three raw rows.
+	e1 := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+		"tenant_id":        tenantOwn,
+		"task_id":          taskID,
+		"user_id":          subjectID,
+		"started_at":       "2026-08-05T09:00:00Z",
+		"duration_seconds": 2400,
+	})
+	defer testutil.CleanupRow(t, pool, "time_entries", e1)
+	e2 := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+		"tenant_id":        tenantOwn,
+		"task_id":          taskID,
+		"user_id":          subjectID,
+		"started_at":       "2026-08-12T09:00:00Z",
+		"duration_seconds": 3600,
+	})
+	defer testutil.CleanupRow(t, pool, "time_entries", e2)
+	e3 := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+		"tenant_id":        tenantOwn,
+		"task_id":          taskID,
+		"user_id":          subjectID,
+		"started_at":       "2026-05-05T09:00:00Z",
+		"duration_seconds": 7200,
+	})
+	defer testutil.CleanupRow(t, pool, "time_entries", e3)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Waltraud")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	entries := dsarModule(t, persons[0], "Zeiterfassung (aggregiert pro Monat)")
+	assert.Equal(t, []string{"Monat", "Eintraege", "Dauer"}, entries.Columns)
+	assert.Equal(t, []map[string]string{
+		{"Monat": "2026-08", "Eintraege": "2", "Dauer": "1.7 Std."},
+		{"Monat": "2026-05", "Eintraege": "1", "Dauer": "2.0 Std."},
+	}, recordMaps(entries), "entries must be aggregated per month, newest month first")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Waltraud")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their tracked time")
+}
+
 // TestSearchByQuery_NoMinimumLengthGuard_Integration pins where the guard for
 // short queries lives. SearchByQuery itself has none: the pattern is built as
 // "%" + query + "%", so an empty query lists every subject of the tenant up to

@@ -327,6 +327,30 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *chatMemberships)
 		}
 
+		tasks, tErr := tasksModule(ctx, pool, tenantID, u.id)
+		if tErr != nil {
+			return nil, tErr
+		}
+		if tasks != nil {
+			person.Modules = append(person.Modules, *tasks)
+		}
+
+		taskComments, tcErr := taskCommentsModule(ctx, pool, tenantID, u.id)
+		if tcErr != nil {
+			return nil, tcErr
+		}
+		if taskComments != nil {
+			person.Modules = append(person.Modules, *taskComments)
+		}
+
+		timeEntries, teErr := timeEntriesModule(ctx, pool, tenantID, u.id)
+		if teErr != nil {
+			return nil, teErr
+		}
+		if timeEntries != nil {
+			person.Modules = append(person.Modules, *timeEntries)
+		}
+
 		out = append(out, person)
 	}
 	return out, nil
@@ -428,6 +452,158 @@ func chatMembershipsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, us
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: chat membership rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// tasksModule discloses tasks a matched user created or was assigned — both
+// directions count, since either makes the task the subject's personal data.
+// Scope mirrors WorkErasureHandler.ExecuteErasure, which touches exactly the
+// rows WHERE assignee_id = userID OR created_by = userID (erasure.go:385).
+func tasksModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.title, COALESCE(ps.name, ''), (t.assignee_id IS NOT DISTINCT FROM $2), (t.created_by = $2), t.created_at
+		 FROM tasks t
+		 LEFT JOIN project_statuses ps ON ps.id = t.status_id
+		 WHERE t.tenant_id = $1 AND (t.assignee_id = $2 OR t.created_by = $2)
+		 ORDER BY t.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query tasks: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Aufgaben", Columns: []string{"Titel", "Status", "Rolle", "Erstellt"}}
+	for rows.Next() {
+		var title, status string
+		var isAssignee, isCreator bool
+		var createdAt time.Time
+		if scanErr := rows.Scan(&title, &status, &isAssignee, &isCreator, &createdAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan task: %w", scanErr)
+		}
+		var roles []string
+		if isCreator {
+			roles = append(roles, "Ersteller")
+		}
+		if isAssignee {
+			roles = append(roles, "Zugewiesen")
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: title},
+			{Key: "Status", Value: status},
+			{Key: "Rolle", Value: strings.Join(roles, ", ")},
+			{Key: "Erstellt", Value: createdAt.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: task rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// taskCommentsModule discloses a matched user's own task comments — the
+// second table WorkErasureHandler.ExecuteErasure anonymizes, WHERE
+// author_id = userID (erasure.go:406).
+func taskCommentsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.title, tc.content, tc.created_at
+		 FROM task_comments tc
+		 JOIN tasks t ON t.id = tc.task_id
+		 WHERE tc.tenant_id = $1 AND tc.author_id = $2
+		 ORDER BY tc.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows+1)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query task comments: %w", err)
+	}
+	defer rows.Close()
+
+	type comment struct {
+		task, content string
+		at            time.Time
+	}
+	var comments []comment
+	for rows.Next() {
+		var c comment
+		if scanErr := rows.Scan(&c.task, &c.content, &c.at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan task comment: %w", scanErr)
+		}
+		comments = append(comments, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: task comment rows: %w", err)
+	}
+	if len(comments) == 0 {
+		return nil, nil
+	}
+
+	// Query fetched dsarMaxRows+1 newest-first so truncation, if any, drops
+	// the oldest comments rather than silently hiding the most recent ones.
+	truncated := len(comments) > dsarMaxRows
+	if truncated {
+		comments = comments[:dsarMaxRows]
+	}
+	for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
+		comments[i], comments[j] = comments[j], comments[i]
+	}
+
+	mod := DSARModule{Module: "Aufgaben-Kommentare", Columns: []string{"Aufgabe", "Kommentar", "Datum"}}
+	if truncated {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Aufgabe", Value: ""},
+			{Key: "Kommentar", Value: fmt.Sprintf("(gekürzt auf die %d neuesten Kommentare)", dsarMaxRows)},
+			{Key: "Datum", Value: ""},
+		}})
+	}
+	for _, c := range comments {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Aufgabe", Value: c.task},
+			{Key: "Kommentar", Value: c.content},
+			{Key: "Datum", Value: c.at.Format(dsarTimeLayout)},
+		}})
+	}
+	return &mod, nil
+}
+
+// timeEntriesModule discloses a matched user's tracked work time — the third
+// table WorkErasureHandler.ExecuteErasure deletes outright, WHERE
+// user_id = userID (erasure.go:394). Individual entries can accumulate into
+// the thousands for a long-tenured user, so this module aggregates by month
+// rather than truncating a row list — the aggregation is named in the module
+// title so it never reads as a raw, complete entry list.
+func timeEntriesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT to_char(date_trunc('month', started_at), 'YYYY-MM'),
+		        COUNT(*), COALESCE(SUM(duration_seconds), 0)
+		 FROM time_entries
+		 WHERE tenant_id = $1 AND user_id = $2
+		 GROUP BY 1
+		 ORDER BY 1 DESC`, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query time entries: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Zeiterfassung (aggregiert pro Monat)", Columns: []string{"Monat", "Eintraege", "Dauer"}}
+	for rows.Next() {
+		var month string
+		var count, totalSeconds int
+		if scanErr := rows.Scan(&month, &count, &totalSeconds); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan time entry: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Monat", Value: month},
+			{Key: "Eintraege", Value: strconv.Itoa(count)},
+			{Key: "Dauer", Value: fmt.Sprintf("%.1f Std.", float64(totalSeconds)/3600)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: time entry rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil
