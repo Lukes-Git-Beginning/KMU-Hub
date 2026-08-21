@@ -403,3 +403,59 @@ Frühere Läufe liegen vollständig im Archiv:
     sich mit WorkErasureHandler", der reactions nicht kennt). Falls ein C-Scan die
     Erasure-Handler-Vollstaendigkeit prueft, gehoert diese Luecke dorthin.
   - Rest-Scope aus A9 (User-Kalender/Notification) weiterhin offen, hier nicht angefasst.
+
+## Iteration 9 — feat-dsar-search-user-calendar-notification-modules — done — 2026-08-22 01:35
+- commit: d50754d5
+- gebaut: Sechs neue Module in `internal/security/gdpr/dsar_search.go`, verkabelt in
+  `matchUsers` direkt nach den Work-Modulen aus Iteration 8. `calendarEventsModule` liest
+  `calendar_events` LEFT JOIN `event_attendees` gefiltert auf `created_by = $2 OR
+  ea.user_id = $2`, mit `Rolle`-Spalte ("Ersteller"/"Teilnehmer (rsvp_status)") — bei
+  Terminen mit mehreren Teilnehmern wird NUR die eigene RSVP der betroffenen Person
+  aufgenommen, nicht die Teilnehmerliste (per Mutations-Probe und Test belegt).
+  `calendarPreferencesModule` liest `user_calendar_preferences` (PK `user_id`, kein
+  Surrogatschluessel) als Feld/Wert-Modul wie "Benutzerkonto". `notificationsModule` liest
+  `notifications` mit derselben Kuerzungs-/Umkehr-Logik wie Chat-Nachrichten/Aufgaben-
+  Kommentare (dsarMaxRows+1 holen, aeltestes fallen lassen, sichtbarer Kuerzungshinweis).
+  `notificationPreferencesModule`, `notificationQuietHoursModule` (Feld/Wert, PK `user_id`
+  bzw. UNIQUE(user_id)) und `notificationMutesModule` runden die vier Tabellen des
+  `NotificationErasureHandler` ab. Alle sieben Tabellen sind exakt die, die
+  `CalendarErasureHandler.ExecuteErasure` (erasure.go:461/490) und
+  `NotificationErasureHandler.ExecuteErasure` (erasure.go:560/567/574/581) anfassen — die
+  Tabellenlisten decken sich, kein Befund fuer C2.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (79 PASS / 0 SKIP / 0 FAIL in
+  internal/security/gdpr, DATABASE_URL gegen kmuhub_app; internal/security/... komplett
+  gruen) | migration n.a. (keine Schemaaenderung; alle sieben Tabellen haben tenant_id +
+  RLS-Policy bereits seit Migration 000106/109/110, gegen die lokale DB per `\d` bestaetigt)
+  | rls-smoke n.a. (keine neue Tabelle/Policy; Tenant-Isolation ist Teil aller sechs neuen
+  DB-Testfunktionen, RLS traegt sie) | `go test ./internal/gateway/ -run
+  TestOpenAPIRouteDrift` ok (n.a. fuer diese Unit, keine Route/OpenAPI beruehrt, trotzdem
+  zur Sicherheit gelaufen)
+- coverage: internal/security/gdpr 65,6 % -> 67,4 % (eigene Messung per `git worktree add
+  bbcaf38c` gegen den Vorgaenger-Commit, danach `git worktree remove`; deckt sich mit dem in
+  Iteration 8 protokollierten Nachher-Wert — kein Drift durch parallele Iterationen)
+- mutations-probe: in `calendarEventsModule` `if isCreator { roles = append(roles,
+  "Ersteller") }` auf `if !isCreator` geaendert -> `TestSearchByQuery_UserCalendarEvents_Integration`
+  wird rot (zwei Assertions: "Ersteller" fehlt beim eigenen Termin, "Teilnehmer (accepted)"
+  bekommt zusaetzlich "Ersteller" beim fremden Termin). Zurueckgedreht -> gruen (alle
+  security/...-Tests, 79/79 in gdpr), `git diff --stat` zeigt fuer beide Dateien rein
+  additive Aenderungen (309 bzw. 353 Zeilen neu, 0 Loeschungen ausser der
+  Backlog-Statuszeile).
+- verify vorgaenger: sauber. `bbcaf38c` (User-Work-DSAR, Iteration 8) gegen alle acht
+  Fehlerklassen geprueft (`git show --stat` und Volltext) — reine additive Query-Funktionen
+  im gdpr-Paket (kein gRPC-Layer, kein Stub/TODO), kein `.proto` im Diff, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle/Migration, Wire-Shape
+  (DSARModule/DSARRecord) unveraendert, keine neue Route, kein Alt-Guard ersetzt. Der
+  waehrend des Bauens gefundene und in derselben Iteration behobene NULL-Scan-Bug
+  (`IS NOT DISTINCT FROM`) betraf keinen vorher bestehenden Produktionscode.
+- neue-units: keine
+- offen:
+  - Damit ist Block A der DSAR-Luecken (A3-A9) vollstaendig abgearbeitet — die Auskunft
+    fuer Kontakte UND Benutzer deckt jetzt alle Module ab, die die jeweiligen
+    Erasure-Handler kennen. Naechste offene Units in Block A sind die Retention-Worker
+    (feat-retention-worker-schema-and-engine und ihre vier Folge-Units).
+  - `event_exceptions` und `event_reminders` (haengen an `calendar_events` per
+    `event_id`) werden von KEINEM Erasure-Handler angefasst und sind auch hier nicht
+    disclosed — reine Beobachtung wie die `work/reaction`-Luecke aus Iteration 8, kein
+    Befund dieser Unit (Scope war explizit "Tabellenliste deckt sich mit
+    CalendarErasureHandler", der beide nicht kennt). Gehoert in einen C-Scan zur
+    Erasure-Handler-Vollstaendigkeit, falls einer eingeplant wird.
