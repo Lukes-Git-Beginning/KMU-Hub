@@ -351,3 +351,55 @@ Frühere Läufe liegen vollständig im Archiv:
     dieser Tabelle.
   - Rest-Scope aus A8/A9 (User-Work/Kalender/Notification) weiterhin offen, hier nicht
     angefasst.
+
+## Iteration 8 — feat-dsar-search-user-work-module — done — 2026-08-22 01:24
+- commit: bbcaf38c
+- gebaut: Drei neue Module in `internal/security/gdpr/dsar_search.go`, verkabelt in `matchUsers`
+  direkt nach den Chat-Modulen aus Iteration 7. `tasksModule` liest `tasks` gefiltert auf
+  `tenant_id` UND (`assignee_id` ODER `created_by` = Subjekt), mit `Rolle`-Spalte
+  ("Ersteller", "Zugewiesen" oder beides) und Status-Namen per LEFT JOIN auf
+  `project_statuses` (COALESCE '' bei fehlendem Status). `taskCommentsModule` liest
+  `task_comments` gefiltert auf `author_id`, mit derselben Kuerzungs-/Umkehr-Logik wie die
+  Chat-Nachrichten aus Iteration 7 (dsarMaxRows+1 holen, aeltestes fallen lassen, sichtbarer
+  Kuerzungshinweis). `timeEntriesModule` liest `time_entries` gefiltert auf `user_id`, aber
+  AGGREGIERT per SQL `GROUP BY date_trunc('month', started_at)` statt einzelne Zeilen zu
+  listen (Notiz der Unit: "falls die Menge gross wird, aggregieren statt weglassen") — die
+  Aggregation steht im Modultitel ("Zeiterfassung (aggregiert pro Monat)"), damit sie nie als
+  rohe Vollstaendigkeit missverstanden wird. Alle drei Tabellen sind exakt die, die
+  `WorkErasureHandler.ExecuteErasure` anfasst (`erasure.go:385` tasks, `erasure.go:394`
+  time_entries, `erasure.go:406` task_comments) — die Tabellenliste deckt sich, kein Befund
+  fuer C2.
+  Bug waehrend des Bauens gefunden und in derselben Iteration behoben (kein Produktionscode
+  vorher betroffen, da die Funktion neu ist): `(t.assignee_id = $2)` liefert SQL-`NULL` statt
+  `false`, wenn `assignee_id` NULL ist (Task nur ueber `created_by` gematcht) — das Scannen in
+  `*bool` schlug dann mit "cannot scan NULL into *bool" fehl. Fix: `IS NOT DISTINCT FROM`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (73 PASS / 0 SKIP / 0 FAIL in
+  internal/security/gdpr, DATABASE_URL gegen kmuhub_app; internal/security/... komplett gruen)
+  | migration n.a. (keine Schemaaenderung; tasks/time_entries/task_comments haben tenant_id +
+  RLS-Policy bereits seit Migration 000109/106, gegen die lokale DB per `\d` bestaetigt)
+  | rls-smoke n.a. (keine neue Tabelle/Policy; Tenant-Isolation ist Teil aller drei neuen
+  DB-Testfunktionen, RLS traegt sie) | `go test ./internal/gateway/` n.a. (keine Route/OpenAPI
+  beruehrt)
+- coverage: internal/security/gdpr 64,6 % -> 65,6 % (eigene Messung per `git worktree add
+  HEAD~1` gegen den Vorgaenger-Commit, danach `git worktree remove`; deckt sich mit dem in
+  Iteration 7 protokollierten Nachher-Wert — kein Drift durch parallele Iterationen)
+- mutations-probe: in `tasksModule` die Rollen-Zuweisung `if isCreator { roles = append(roles,
+  "Ersteller") }` auf `if isAssignee` geaendert -> `TestSearchByQuery_UserTasks_Integration`
+  wird rot (erwartet "Zugewiesen" fuer den nur-zugewiesenen Task, tatsaechlich
+  "Ersteller, Zugewiesen"). Zurueckgedreht -> gruen (alle security/gdpr-Tests), `git diff
+  --stat` zeigt fuer `dsar_search.go` 176 Zeilen rein additiv (0 Loeschungen).
+- verify vorgaenger: sauber. `784f252d` (User-Chat-DSAR, Iteration 7) gegen alle acht
+  Fehlerklassen geprueft (`git show --stat` und Volltext) — reine additive Query-Funktionen im
+  gdpr-Paket (kein gRPC-Layer, kein Stub/TODO), kein `.proto` im Diff, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle/Migration, Wire-Shape (DSARModule/DSARRecord)
+  unveraendert, keine neue Route, kein Alt-Guard ersetzt. `matchUsers`-Umbau (Sammeln vor
+  Anreicherung, `rows.Close()` vor der zweiten Query) ist beabsichtigt und in der Commit-Message
+  begruendet.
+- neue-units: keine
+- offen:
+  - `work/reaction` (message_reactions) haengt an CHAT-Nachrichten, nicht am Work-Modul,
+    und wird von KEINEM Erasure-Handler angefasst (weder Chat- noch WorkErasureHandler) —
+    reine Beobachtung, kein Befund dieser Unit (der Scope war explizit "Tabellenliste deckt
+    sich mit WorkErasureHandler", der reactions nicht kennt). Falls ein C-Scan die
+    Erasure-Handler-Vollstaendigkeit prueft, gehoert diese Luecke dorthin.
+  - Rest-Scope aus A9 (User-Kalender/Notification) weiterhin offen, hier nicht angefasst.
