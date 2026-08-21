@@ -459,3 +459,77 @@ Frühere Läufe liegen vollständig im Archiv:
     Befund dieser Unit (Scope war explizit "Tabellenliste deckt sich mit
     CalendarErasureHandler", der beide nicht kennt). Gehoert in einen C-Scan zur
     Erasure-Handler-Vollstaendigkeit, falls einer eingeplant wird.
+
+## Iteration 10 — feat-retention-worker-schema-and-engine — done — 2026-08-22 01:36
+- commit: c1edcb15
+- gebaut: Migration `000316_create_retention_runs` legt `retention_runs` (ein Lauf) und
+  `retention_run_items` (ein Eintrag je Policy) an, beide mit `tenant_id UUID NOT NULL` und
+  `CALL enable_tenant_rls(...)`; `run_id` kaskadiert, `policy_id` steht auf ON DELETE SET NULL,
+  damit das Protokoll lesbar bleibt, wenn die Policy spaeter geaendert oder geloescht wird.
+  `internal/security/gdpr/retention.go` bringt den Motor: `RetentionHandler` (ResourceType,
+  Table, DateColumn, SupportsAction, Plan, Apply), `RetentionRegistry` mit EXAKTEM Lookup
+  (kein Trim, kein Case-Folding — "Contacts " ist nicht "contacts"), und `RetentionEngine.Run`,
+  der die aktivierten Policies des Tenants durchgeht und je Policy eine Zeile schreibt.
+  Dry-Run ist der Default und zwar strukturell: `Run` normalisiert JEDEN Wert ausser
+  `RetentionModeEnforce` auf `dry_run`, der Nullwert von `RetentionMode` ist also nie scharf.
+  `ParseRetentionMode` liefert zusaetzlich ein `ok=false` bei Tippfehlern ("enfroce", "on"),
+  damit ein falsch geschriebener Schalter geloggt und nicht stumm entschaerft wird.
+  Ein `resource_type` ohne Handler wird als `unmapped` mit Klartext "nicht zugeordnet ..."
+  protokolliert (plus `slog.Warn`), ein Handler ohne die verlangte Aktion als `unsupported`,
+  ein werfender Handler als `failed` — der Lauf laeuft in allen drei Faellen weiter, weil er
+  sonst an der ersten kaputten Policy haengen bleibt und die guten nie erreicht. Das
+  Anonymisierungs-Label kommt aus `repo.GetNextAnonymizedLabel` (dieselbe Mechanik wie
+  `service.go:314`), einmal je Lauf und nur wenn ein scharfer Lauf es wirklich braucht —
+  keine zweite Label-Implementierung. Die Default-Registry ist ABSICHTLICH LEER: welche
+  Ressourcen zugeordnet sind, entscheiden die vier Folge-Units; bis dahin erscheint jede
+  angelegte Policy ehrlich als "nicht zugeordnet" statt als erfuellte Loeschpflicht.
+- gate: build ok | vet ok | lint ok (0 issues, `golangci-lint run ./internal/security/gdpr/...`)
+  | test ok (100 PASS / 0 SKIP / 0 FAIL in internal/security/gdpr, DATABASE_URL gegen
+  `kmuhub_app`; `./internal/security/...` komplett gruen; `./internal/gateway/` inkl.
+  TestOpenAPIRouteDrift gruen, obwohl keine Route beruehrt) | migration ok (000316 up
+  angewandt, `down 1` entfernt beide Tabellen wieder — gegen `information_schema.tables`
+  auf 0 geprueft — danach erneut `up`; `schema_migrations` = 316, dirty=f)
+  | rls-smoke ok (Vorlage aus GATE-COMMANDS.md gegen beide neuen Tabellen: eigener Tenant
+  runs 1 / items 1, fremder Tenant runs 0 / items 0; Testzeile danach geloescht, CASCADE
+  raeumte das Item mit ab)
+- coverage: internal/security/gdpr 67,4 % -> 68,3 % (eigene Messung: Nachher im Arbeitsbaum,
+  Vorher per `git worktree add /tmp/covbase HEAD` gegen `210140f4`, danach
+  `git worktree remove`; deckt sich mit dem Nachher-Wert aus Iteration 9)
+- mutations-probe: in `runPolicy` den Dry-Run-Riegel `if mode != RetentionModeEnforce {
+  item.Status = RetentionItemDryRun; return item }` ersatzlos entfernt —
+  `TestRetentionEngine_Run_Integration` wird rot mit vier Assertions: `RecordsAffected` 2
+  statt 0, Item-Status "applied" statt "dry_run", Item-Affected 2 statt 0, und
+  `AssertRowCount` meldet, dass der Probelauf die Benachrichtigung wirklich geloescht hat.
+  Zurueckgedreht -> gruen (build, vet, `./internal/security/...`, `./internal/gateway/`);
+  `git diff --stat` zeigt ausser der Backlog-Statuszeile nur neue Dateien.
+- verify vorgaenger: sauber. `d50754d5` (Kalender-/Notification-DSAR, Iteration 9) gegen alle
+  acht Fehlerklassen geprueft: nur `dsar_search.go` + Test + Backlog-Zeile, rein additive
+  Query-Funktionen (kein gRPC-Handler, kein Stub/TODO/Unimplemented), kein `.proto`, kein
+  neuer `RequirePermission`-Guard und kein ersetzter Alt-Guard, keine neue Tabelle/Migration,
+  Wire-Shape (DSARModule/DSARRecord) unveraendert, keine neue Route. Alle sechs neuen SELECTs
+  filtern auf `tenant_id = $1 AND user_id = $2` bzw. `created_by/ea.user_id` — keine
+  Tenant-Luecke.
+- neue-units: keine
+- offen:
+  - Der Motor ist gebaut, aber NOCH NIRGENDS VERDRAHTET: `NewRetentionEngine` wird von keinem
+    Produktionspfad aufgerufen. Das ist so vorgesehen — Ausloeser, Sperre gegen
+    Mehrfachstart und Admin-Sicht liegen in `feat-retention-worker-scheduling-and-admin-
+    visibility`, die Handler in den drei Handler-Units. Bis dahin aendert dieser Commit am
+    Laufzeitverhalten der Anwendung exakt nichts (nur zwei leere Tabellen mehr).
+  - Bewusst NICHT gebaut: ein Feld `RetentionMode` in `internal/config`. Der Schalter
+    gehoert zur Verdrahtungs-Unit; `ParseRetentionMode` ist die fertige Nahtstelle dafuer.
+    Ein jetzt eingefuegtes, von niemandem gelesenes Config-Feld waere toter Code — und ein
+    neuer Env-Zwang ist in diesem Lauf ohnehin gesperrt. Wichtig fuer A14: der Default MUSS
+    `dry_run` bleiben.
+  - Ebenfalls bewusst NICHT gebaut: ein generischer `TableRetentionHandler` (Tabelle +
+    Datumsspalte, alles per Konfiguration). Er sieht sparsam aus, ist aber bei `anonymize`
+    nicht idempotent zu bekommen — das Label wechselt je Lauf, also kann `Plan` die bereits
+    anonymisierten Zeilen nicht wiedererkennen und jeder Lauf schriebe dieselben Zeilen neu.
+    Die Idempotenz-Pflicht steht deshalb als Vertrag im Interface-Kommentar; der Testhandler
+    ueber `notifications` (nur `delete`) belegt sie mit einem zweiten scharfen Lauf, der 0
+    Treffer findet. Die drei Handler-Units brauchen ohnehin je eigene Logik
+    (IsInUse, Kaskaden, `closed_at`).
+  - `retention_run_items.skip_reasons` ist auf `retentionMaxSkipReasons = 50` Gruende je
+    Policy gekappt (`lean:`-Marker im Code); die Zaehler `skipped`/`matched` bleiben exakt.
+    Sollte A14 die vollstaendige Liste in der Admin-Sicht brauchen, ist das eine eigene
+    Tabelle wert.
