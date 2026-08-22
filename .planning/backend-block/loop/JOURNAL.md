@@ -939,7 +939,7 @@ Frühere Läufe liegen vollständig im Archiv:
     (kein FE-Caller heute) — bestaetigt beim Bauen dieser Unit, kein neuer Befund.
 
 ## Iteration 17 — cov-gateway-biz-quotes — done — 2026-08-22 03:07
-- commit: (folgt im naechsten Schritt)
+- commit: 5f8c9871
 - gebaut: `route_biz_quotes_test.go` (neue Datei, 34 Tests) deckt alle 11 Funktionen von
   `route_biz_quotes.go` ab (`HandleCreateQuote`, `HandleListQuotes`, `HandleGetQuote`,
   `HandleUpdateQuote`, `HandleDeleteQuote`, `HandleSendQuote`, `HandleAcceptQuote`,
