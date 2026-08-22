@@ -750,6 +750,98 @@ func (h *NotificationErasureHandler) ExecuteErasure(ctx context.Context, userID 
 	return affected, nil
 }
 
+// SettingsErasureHandler handles erasure for personal settings and preferences
+// that belong to no other domain handler: user settings, dashboard layout,
+// per-project view preferences, and saved filters.
+type SettingsErasureHandler struct {
+	pool *pgxpool.Pool
+}
+
+// NewSettingsErasureHandler creates a new SettingsErasureHandler with DB access.
+func NewSettingsErasureHandler(pool *pgxpool.Pool) *SettingsErasureHandler {
+	return &SettingsErasureHandler{pool: pool}
+}
+
+func (h *SettingsErasureHandler) ModuleName() string { return "settings" }
+
+func (h *SettingsErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUID) (*models.ModuleErasurePreview, error) {
+	var count int
+	if err := h.pool.QueryRow(ctx,
+		`SELECT
+		   (SELECT COUNT(*) FROM user_settings WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM user_dashboard_layouts WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM user_project_preferences WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM saved_filters WHERE created_by = $1)
+		`, userID,
+	).Scan(&count); err != nil {
+		return &models.ModuleErasurePreview{
+			ModuleName:  "settings",
+			RecordCount: 0,
+			Action:      string(ErasureDelete),
+		}, nil
+	}
+
+	return &models.ModuleErasurePreview{
+		ModuleName:  "settings",
+		RecordCount: count,
+		Action:      string(ErasureDelete),
+	}, nil
+}
+
+func (h *SettingsErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUID, anonymizedLabel string, action ErasureAction) (int, error) {
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("settings erasure: failed to begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	affected := 0
+
+	// Delete personal settings
+	res, err := tx.Exec(ctx, `DELETE FROM user_settings WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("settings erasure: failed to delete user settings: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Delete dashboard layout
+	res, err = tx.Exec(ctx, `DELETE FROM user_dashboard_layouts WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("settings erasure: failed to delete dashboard layouts: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Delete per-project view preferences
+	res, err = tx.Exec(ctx, `DELETE FROM user_project_preferences WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("settings erasure: failed to delete project preferences: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Delete saved filters. These belong to the user (created_by), not to a
+	// business record about a third party, so they are erased like the other
+	// personal settings above.
+	res, err = tx.Exec(ctx, `DELETE FROM saved_filters WHERE created_by = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("settings erasure: failed to delete saved filters: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return 0, fmt.Errorf("settings erasure: failed to commit: %w", commitErr)
+	}
+
+	slog.Info("gdpr settings erasure: complete",
+		"user_id", userID,
+		"records_affected", affected,
+	)
+	return affected, nil
+}
+
 // AuditErasureHandler is a no-op handler for audit logs.
 // Audit logs are retained for compliance requirements (cannot be erased per DSGVO Art. 17(3)(e)).
 type AuditErasureHandler struct{}

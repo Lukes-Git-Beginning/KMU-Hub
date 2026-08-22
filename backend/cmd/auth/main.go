@@ -112,6 +112,7 @@ func main() {
 	gdprService.RegisterErasureHandler(gdpr.NewWorkErasureHandler(pool))
 	gdprService.RegisterErasureHandler(gdpr.NewCalendarErasureHandler(pool))
 	gdprService.RegisterErasureHandler(gdpr.NewNotificationErasureHandler(pool))
+	gdprService.RegisterErasureHandler(gdpr.NewSettingsErasureHandler(pool))
 	gdprService.RegisterErasureHandler(&gdpr.AuditErasureHandler{})
 
 	// Retention engine (A10-A13) + scheduler (A14): the CRUD routes on

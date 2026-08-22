@@ -4187,3 +4187,40 @@ Frühere Läufe liegen vollständig im Archiv:
   dokumentiert und plausibel.
 - neue-units: keine
 - offen: keine
+
+## Iteration 69 — feat-erasure-handler-user-settings-preferences — done — 2026-08-22 09:33
+- commit: (siehe naechste docs-Iteration)
+- gebaut: achter `ErasureHandler` `SettingsErasureHandler` (ModuleName "settings") fuer vier
+  Tabellen mit CASCADE-FK auf `users(id)`, die zu keiner der sieben bestehenden Domaenen
+  gehoeren: `user_settings` (composite PK tenant_id/user_id/module_id/key), 
+  `user_dashboard_layouts`, `user_project_preferences` (composite PK user_id/project_id) und
+  `saved_filters` (Filter des Nutzers ueber `created_by`, keine Business-Records ueber Dritte —
+  deshalb geloescht statt behalten, wie in den notes begruendet). Vorlage war exakt
+  `NotificationErasureHandler` (kleinster bestehender Handler, reine DELETE-Kette). In
+  `cmd/auth/main.go` als achte `RegisterErasureHandler`-Zeile registriert.
+- gebaut (Tests): neue Datei `erasure_settings_test.go` mit drei Tests: `ModuleName`,
+  `ExecuteErasure_Integration` (seedet je einen Datensatz pro Tabelle plus einen Kollegen-Filter,
+  belegt `affected == preview.RecordCount == 4` und dass der Kollegen-Filter ueberlebt),
+  `ExecuteErasure_DeadPool` (Fehlerpfad bei geschlossenem Pool).
+- gate: build ok (`./internal/security/... ./cmd/auth/...`) | vet ok (`./internal/security/...`)
+  | lint ok (0 issues, `./internal/security/...`) | test ok (`./internal/security/gdpr/` alle
+  Subtests PASS, 0 SKIP gegen `kmuhub_app`; `./internal/security/...` alle 7 Unterpakete ok) |
+  migration n.a. (keine Schema-Aenderung, alle vier Tabellen bestanden bereits inkl.
+  `tenant_id NOT NULL` + RLS, geprueft gegen `000114_option_b_phase2_settings_preferences` und
+  `000122_rls_phase2_long_tail`) | rls-smoke n.a. (kein Schema/Policy-Wechsel) |
+  TestOpenAPIRouteDrift nicht gelaufen — keine Route angefasst (nur `cmd/auth/main.go`
+  Registrierung), daher nicht Pflicht.
+- coverage: `internal/security/gdpr` 70,9 % -> 71,0 % (selbst gemessen: `git stash push -u` auf
+  genau `erasure.go` + `erasure_settings_test.go`, `go test -coverprofile` davor/danach,
+  `stash pop`).
+- mutations-probe: die neue `DELETE FROM saved_filters`-Zeile probeweise mit `AND false`
+  entwertet → `TestSettingsErasureHandler_ExecuteErasure_Integration` wird rot (affected 3 vs. 4,
+  `saved_filters`-Zeile des Subjekts ueberlebt). Zurueckgedreht, `git diff --stat erasure.go`
+  zeigt wieder ausschliesslich 92 Insertions/0 Deletions, Paket erneut vollstaendig gruen.
+- verify vorgaenger: sauber. `80794966` (Iteration 68, fix-chat-erasure-missing-bookmarks-mentions)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `erasure.go`) —
+  reine interne Erasure-Logik-Aenderung (message_bookmarks/message_mentions loeschen), kein
+  Gateway-Handler, kein Stub, kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard,
+  keine neue Tabelle, keine Route, keine Wire-Shape-Aenderung.
+- neue-units: keine
+- offen: keine

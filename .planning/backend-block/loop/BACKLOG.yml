@@ -2584,7 +2584,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
     scope: >
       Vier Tabellen mit persoenlichen Einstellungen des Nutzers haben CASCADE-FK auf users(id)
