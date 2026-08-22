@@ -2869,7 +2869,7 @@ Frühere Läufe liegen vollständig im Archiv:
     der jeweiligen Iteration begruenden.
 
 ## Iteration 46 — scan-gateway-openapi-response-code-drift — done — 2026-08-22 06:57
-- commit: (folgt im SHA-Nachtrag)
+- commit: b9889b04
 - gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Vergleich der
   tatsaechlich geschriebenen HTTP-Statuscodes gegen die in `openapi.yaml` dokumentierten, mit
   Schwerpunkt auf den in diesem Lauf (Lauf 10, Block A+B, Commits `2a27d899`..`0074c76b`)
