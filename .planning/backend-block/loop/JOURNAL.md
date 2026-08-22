@@ -5034,3 +5034,81 @@ Frühere Läufe liegen vollständig im Archiv:
   (3) `PreviewErasure` blieb ueberall unangetastet: sie zeigt Bestand, `ExecuteErasure` zeigt
   jetzt Veraenderung. Fuer Work faellt die beiden schon beim ersten Lauf auseinander — das ist
   der Inhalt der neu angelegten Unit, nicht ein Nebeneffekt, der hier haette mitlaufen sollen.
+
+## Iteration 85 — fix-contact-erasure-incomplete-set-null-table-scrub — done — 2026-08-22 11:35
+- commit: (siehe naechster Journal-Nachtrag)
+- gebaut: Beide Erasure-Pfade fuer Kontakte (Hard-Delete `contact.PostgresRepository.Delete`
+  UND `consent.PostgresRepository.AnonymizeContact`, der RESTRICT-Anonymisierungspfad) scrubben
+  jetzt dieselben drei abhaengigen Tabellen ueber eine gemeinsame neue Funktion
+  `consent.ScrubDependentPII(ctx, tx, contactID, tenantID)` (`internal/crm/consent/scrub.go`,
+  neue Datei):
+  - `activities.description` (vorher nur im Anonymize-Pfad geleert, beim regulaeren Hard-Delete
+    gar nicht — der COUNT/FK-Verweis verschwand per ON DELETE SET NULL, der Freitext blieb
+    lesbar stehen)
+  - `consent_records.ip_address`/`notes` (gleiches Muster, gleicher vorheriger Zustand)
+  - NEU fuer beide Pfade: `tickets.requester_name`/`requester_email`. Kein bestehender Pfad
+    kannte diese Spalten ueberhaupt (sie werden bei Ticket-Erstellung selbst eingetragen, nicht
+    aus `contacts` gejoint) — nach einer Kontakt-Loeschung/Anonymisierung blieb Name und
+    E-Mail-Adresse externer Requester auf jedem ihrer Tickets vollstaendig lesbar. Fix per
+    `CASE WHEN requester_is_external THEN <Platzhalter> ELSE NULL END`: externe Requester
+    (kein `requester_id`, CHECK `chk_tickets_requester_identity` aus Migration 000291 verlangt
+    dort zwingend eine nicht-leere `requester_email`) bekommen einen neuen Platzhalter
+    (`consent.AnonymizedRequesterEmail = "geloescht@deleted.invalid"`, Name
+    `AnonymizedFirstName+" "+AnonymizedLastName` = "Gelöschte Person", beide im gleichen Stil wie
+    der bestehende `contacts`-Anonymisierungs-Sentinel); interne Requester (identisch mit dem
+    User-Datensatz, diese beiden Spalten sind dort nur ungenutzter Fallback) werden schlicht auf
+    NULL gesetzt.
+  `contact.PostgresRepository.Delete` war vorher ein einzelnes `Exec` ohne Transaktion — jetzt
+  Begin/Scrub/Delete/Commit in einer Tx, damit der Scrub nicht ohne die nachfolgende Loeschung
+  stehen bleiben kann. `consent.PostgresRepository.AnonymizeContact` ruft dieselbe Funktion auf
+  und ersetzt damit zwei vorher inline duplizierte Statements (Notes im Unit-Kopf hatten das
+  explizit verlangt: beide Pfade sollen dieselbe SQL-Logik teilen, nicht zweimal schreiben).
+  Import-Richtung `contact` -> `consent` ist neu, aber unkritisch: beide Pakete laufen im selben
+  Service (`cmd/crm/main.go`, gleicher Pool), `consent` importiert nirgends `contact` zurueck,
+  kein Zyklus.
+  Bewusst NICHT angefasst, mit Begruendung jetzt direkt im Doc-Comment von `ScrubDependentPII`
+  (vorher nur im Backlog-Unit-Kopf): `finance_invoices` (10 Jahre GoBD-Aufbewahrungspflicht
+  §147 Abs. 3 AO, gesendete Rechnungen zusaetzlich `locked_at`-immutable) und
+  `deals.notes`/`meetings.title/description/agenda` (Freitext, der den Kontakt nennen KANN aber
+  nicht muss — automatisches Scrubben waere riskanter als das Restrisiko).
+  `contract_parties.external_name` und `contacts.referred_by_contact_id` waren laut Scope-Notiz
+  bereits geprueft und sauber — nicht angefasst, keine neue Erkenntnis dazu.
+- gate: build ok (`./internal/crm/... ./cmd/crm/...`) | vet ok | lint ok (0 issues) | test ok
+  (`./internal/crm/contact/` 117 Tests PASS inkl. der 2 neuen; `./internal/crm/consent/` 31 Tests
+  PASS inkl. der 1 neuen; `./internal/helpdesk/` unveraendert gruen; 0 SKIP in allen drei,
+  DATABASE_URL gegen kmuhub_app gesetzt. Musste `-p 1` erzwingen — der volle Lauf ueber
+  `./internal/crm/... ./internal/helpdesk/... ./internal/security/...` parallel sprengt den
+  lokalen Postgres `max_connections` ("too many clients already" / "remaining connection slots
+  reserved for SUPERUSER"), rein umgebungsbedingt, nicht durch diese Aenderung verursacht — mit
+  `-p 1` seriell liefen alle 20 betroffenen Pakete gruen durch) | migration: n.a. (keine neue
+  Tabelle, keine neue Spalte) | rls-smoke: implizit mitgeprueft, kein dediziertes neues Kommando
+  noetig — `TestContactWrites_LandInCallerTenant`s bestehender `Delete(ctxOther, ...)`-Fall und
+  `TestContactExistsAndAnonymize_ScopedToCallerTenant`s `AnonymizeContact(ctxOther, ...)`-Fall
+  laufen jetzt beide durch den neuen/erweiterten Code und blieben gruen (kein Cross-Tenant-Schaden
+  durch RLS auf `activities`/`consent_records`/`tickets`), beide Tests unveraendert im selben
+  Lauf bestanden
+- coverage: `internal/crm/contact` 81,4 % -> 81,2 % (eigene Messung mit `go tool cover -func`,
+  vorher per `git stash -u` auf demselben Tree). Leicht negativ trotz zwei neuer Tests: die neue
+  `Delete`-Transaktion fuegt Fehlerpfade hinzu (`tx.Begin`/`tx.Commit`-Fehler), die ohne einen
+  DB-Verbindungsabbruch nicht erreichbar sind — mehr neue Statements als neu abgedeckte.
+  `internal/crm/consent` 63,1 % -> 64,0 % (gleiche Methode). Abweichung zum `coverage_start:`
+  der Unit (80,4 % bzw. n/a) kommt aus spaeteren Iterationen, die dieselben Pakete seit
+  Iteration 48 weiter angefasst haben — es gilt meine Messung. `ScrubDependentPII` selbst: 80,0 %
+  Funktions-Coverage, `Delete` 66,7 % (die zwei unerreichbaren `tx.Begin`/`tx.Commit`-Fehlerzweige
+  sind der Rest), `AnonymizeContact` 76,9 %.
+- mutations-probe: in `scrub.go` die `requester_name`-CASE-Bedingung entfernt
+  (`requester_name = CASE WHEN requester_is_external THEN $3 ELSE NULL END` ->
+  `requester_name = $3`, also immer der Platzhalter statt nur fuer externe Requester) —
+  `TestAnonymizeContact_ScrubsExternalTicketRequesterIdentity` wurde sofort rot ("expected
+  requester_name on an internal-requester ticket to be NULL ... got 0xc00048afa0", der interne
+  Requester-Fall bekam faelschlich den externen Platzhalter). Zurueckgedreht, `git diff` danach
+  wieder sauber auf den Soll-Stand, `./internal/crm/consent/` und `./internal/crm/contact/`
+  erneut voll gruen.
+- verify vorgaenger: sauber. `9060cef0` (Iteration 84, fix-erasure-handlers-not-idempotent...)
+  per `git show --stat`/vollem Diff geprueft — reine Praedikat-Aenderungen (WHERE-Guards, neue
+  Konstanten) in `internal/security/gdpr/erasure.go`, kein gRPC-Layer-Bezug (das Paket hat keine
+  Handler), kein Stub, kein `.proto`, kein neuer `RequirePermission`-Guard, keine neue Tabelle/RLS,
+  keine neue Route, keine Wire-Shape-Aenderung. Damit fuer alle acht Fehlerklassen automatisch
+  sauber.
+- neue-units: keine.
+- offen: keine.

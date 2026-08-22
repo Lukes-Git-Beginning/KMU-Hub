@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -339,9 +340,31 @@ func (r *PostgresRepository) ListAll(ctx context.Context, userID uuid.UUID, isAd
 	return contacts, rows.Err()
 }
 
+// Delete hard-deletes a contact scoped to a tenant. This is the regular path
+// (no RESTRICT hit, see IsInUse) and, unlike AnonymizeContact, it does not
+// stop for audit/compliance FKs -- so it must scrub the same dependent tables
+// itself before the row disappears, or activities.description, consent_records
+// identifiers, and external tickets' requester identity would survive the
+// contact they name (fix-contact-erasure-incomplete-set-null-table-scrub).
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM contacts WHERE id = $1 AND tenant_id = $2`, id, tenantID)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("contact delete: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := consent.ScrubDependentPII(ctx, tx, id, tenantID); err != nil {
+		return fmt.Errorf("contact delete: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, `DELETE FROM contacts WHERE id = $1 AND tenant_id = $2`, id, tenantID); err != nil {
+		return fmt.Errorf("contact delete: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("contact delete: commit: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresRepository) GetCompanyName(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (string, error) {

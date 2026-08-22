@@ -3297,7 +3297,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/contact 80,4 % · internal/crm/consent n/a (Run 32508843776, aus scan-contact-set-null-residual-personal-data, Iteration 48)"
     scope: >
       Fund aus scan-contact-set-null-residual-personal-data (Iteration 48). Wird ein Kontakt

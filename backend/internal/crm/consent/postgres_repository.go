@@ -149,6 +149,11 @@ func (r *PostgresRepository) UpdateDeletionRequest(ctx context.Context, req *GDP
 //     history (type, granted, legal_basis, dates) is retained; only the two
 //     directly identifying fields on each record (ip_address, notes) are
 //     cleared.
+//
+// activities.description, consent_records.ip_address/notes, and (for
+// external requesters) tickets.requester_name/-email are scrubbed via
+// ScrubDependentPII, shared with contact.PostgresRepository.Delete's
+// hard-delete path.
 func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID, tenantID uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -186,18 +191,6 @@ func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID, te
 	}
 	affected += int(res.RowsAffected())
 
-	// Free-text activity notes may name or describe the contact; the activity
-	// skeleton (type, subject, dates) stays for business continuity -- same
-	// pattern erasure.go's CRMErasureHandler uses for user erasure.
-	res, err = tx.Exec(ctx,
-		`UPDATE activities SET description = NULL, updated_at = NOW() WHERE contact_id = $1 AND tenant_id = $2`,
-		contactID, tenantID,
-	)
-	if err != nil {
-		return fmt.Errorf("gdpr contact anonymize: clear activity notes: %w", err)
-	}
-	affected += int(res.RowsAffected())
-
 	// Tags are free-form labels ("VIP", "schwierig") and are themselves a form
 	// of personal characterization.
 	res, err = tx.Exec(ctx, `DELETE FROM contact_tags WHERE contact_id = $1`, contactID)
@@ -216,15 +209,14 @@ func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID, te
 	}
 	affected += int(res.RowsAffected())
 
-	res, err = tx.Exec(ctx,
-		`UPDATE consent_records SET ip_address = NULL, notes = NULL
-		 WHERE contact_id = $1 AND tenant_id = $2 AND (ip_address IS NOT NULL OR COALESCE(notes, '') <> '')`,
-		contactID, tenantID,
-	)
+	// Free-text activity notes, consent_records identifiers, and external
+	// tickets' requester identity -- shared with contact.PostgresRepository.
+	// Delete's hard-delete path so both scrub the identical set of tables.
+	scrubbed, err := ScrubDependentPII(ctx, tx, contactID, tenantID)
 	if err != nil {
-		return fmt.Errorf("gdpr contact anonymize: scrub consent records: %w", err)
+		return fmt.Errorf("gdpr contact anonymize: %w", err)
 	}
-	affected += int(res.RowsAffected())
+	affected += scrubbed
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("gdpr contact anonymize: commit: %w", err)
