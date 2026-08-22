@@ -3012,7 +3012,7 @@ Frühere Läufe liegen vollständig im Archiv:
     `seedChannelMembership` in export_crm_chat_test.go).
 
 ## Iteration 48 — scan-contact-set-null-residual-personal-data — done — 2026-08-22 07:08
-- commit: (folgt, siehe naechster SHA-Nachtrag)
+- commit: 22aa54d1
 - gebaut: keine Code-Aenderung (reine Scan-Unit). Alle acht SET-NULL-Tabellen aus Befund 2 des
   Lauf-Kopfes (activities, consent_records, contacts/Selbstbezug, contract_parties, deals,
   finance_invoices, meetings, tickets) einzeln gegen die lokale DB (`\d <table>`) und den Code
