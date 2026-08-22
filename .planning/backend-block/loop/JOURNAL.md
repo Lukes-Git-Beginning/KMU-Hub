@@ -2208,7 +2208,7 @@ Frühere Läufe liegen vollständig im Archiv:
     RLS war bereits durch A-Vorlauf/frueheren Fix abgedeckt).
 
 ## Iteration 36 — cov-gateway-work-labels-custom-fields — done — 2026-08-22 05:42
-- commit: (siehe naechster docs-Eintrag)
+- commit: ce77102f
 - gebaut: `route_work_labels_test.go` deckt alle 12 Funktionen aus
   `route_work_labels.go` ab (5 Label-Handler, HandleSetTaskLabels,
   5 Custom-Field-Definition-Handler, `labelIDsFromQuery`) nach dem
