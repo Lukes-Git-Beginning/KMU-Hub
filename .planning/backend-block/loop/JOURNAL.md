@@ -2867,3 +2867,70 @@ Frühere Läufe liegen vollständig im Archiv:
     Bauen pruefen, ob `internal/caldav` ausserhalb des Gateway-Scopes dieses Blocks liegt; falls
     das ein Problem ist, die Service-Schicht-Haelfte als eigene Unit abspalten und im Journal
     der jeweiligen Iteration begruenden.
+
+## Iteration 46 — scan-gateway-openapi-response-code-drift — done — 2026-08-22 06:57
+- commit: (folgt im SHA-Nachtrag)
+- gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Vergleich der
+  tatsaechlich geschriebenen HTTP-Statuscodes gegen die in `openapi.yaml` dokumentierten, mit
+  Schwerpunkt auf den in diesem Lauf (Lauf 10, Block A+B, Commits `2a27d899`..`0074c76b`)
+  beruehrten Routen-Dateien.
+  TIEF GEPRUEFT (Code gegen Spec-Zeile diffed, nicht nur gegrept):
+    - POST /api/v1/finance/gobd-archive (route_biz_gobd_archive.go:61) — FUND
+    - POST /api/v1/finance/invoices/import (route_biz_einvoice.go:68) — FUND
+    - POST /api/v1/finance/bank-statements/import (route_biz_banking.go:60) — Nicht-Fund,
+      dokumentiert 413 korrekt (openapi.yaml:9564) und diente als Vergleichsvorlage fuer die
+      beiden obigen Funde
+    - POST /api/v1/finance/quotes/{id}/{send,accept,reject,convert} (route_biz_quotes.go) —
+      FUND (alle vier)
+    - PATCH /api/v1/admin/license (route_settings.go:947, module-grant) — Nicht-Fund,
+      dokumentiert 400/401/403/404/409 vollstaendig (openapi.yaml:31402-31436) und diente als
+      Vergleichsvorlage fuer den Quotes-Fund
+    - POST /api/v1/integrations/lexware/sync/trigger (route_lexware.go:223, 202 Accepted) —
+      Nicht-Fund, korrekt dokumentiert (openapi.yaml:30147)
+    - GET /api/v1/contacts/{id}/deletion-preview (neue Route aus A2, route_crm_ext.go) —
+      Nicht-Fund. Dokumentiert 200/401/403/404; kein Rate-Limit auf dieser Route (registerContact-
+      ExtRoutes traegt keine RateLimit-Middleware), 401/403 stimmen mit auth.go/rbac.go ueberein
+    - GET /api/v1/security/retention-runs/latest (neue Route aus A13, route_security.go) —
+      Nicht-Fund. Dokumentiert 200/401/403, `RequireRole("admin")` liefert nur 403 (kein
+      eigener 404-Pfad, has_run=false laeuft ueber 200)
+    - route_email.go (55x StatusBadGateway/502 statt respondServiceUnavailable/503) — bereits
+      als fix-gateway-email-service-unavailable-status-code (Iteration 44) im Backlog erfasst,
+      KEINE neue Unit angelegt
+  NUR PER GREP UEBERFLOGEN, NICHT einzeln gegen openapi.yaml gegengeprueft (Zeitfenster-Ende,
+  siehe unten): route_biz_recurring.go, route_biz_open_items.go, route_biz_time_entries.go,
+  route_biz_document_chains.go, route_biz_ext.go, route_settings.go (branding/subscription-Teile
+  ausserhalb der module-grant-Route), route_crm_advisory.go, route_crm_companies.go,
+  route_crm_ext.go (Bestandsrouten ausserhalb A2), route_crm_contact_files.go, route_wopi.go,
+  route_booking.go, route_search_global.go, route_registrar.go, route_dashboard.go,
+  route_work_labels.go, route_security.go (Bestandsrouten ausserhalb A13). Middleware-Codes
+  401/403/429 sind an der Quelle verifiziert (auth.go:35-47, rbac.go:26+49+119,
+  ratelimit.go:63) und stichprobenartig an den beiden neuen Routen gegengeprueft, aber NICHT
+  erschoepfend gegen jede der ~20 Dateien einzeln durchgespielt — 429 gilt nur fuer Routen mit
+  RateLimit-Middleware (11 Dateien, keine davon in Block A/B dieses Laufs).
+  Rest des Gateways (52 weitere route_*.go ausserhalb Block A/B) ist NICHT geprueft.
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — done_when verlangt kein
+  go test; die beiden neuen Fix-Units haben ihr eigenes `swagger-cli validate` als done_when)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geaenderter Testfall)
+- verify vorgaenger: sauber. `0074c76b` (Iteration 45, scan-gateway-pii-in-logs) und `0f2715ac`
+  (SHA-Nachtrag) geprueft: beide `git show --stat` zeigen ausschliesslich BACKLOG.yml und
+  JOURNAL.md — kein Produktionscode, keine der acht Fehlerklassen einschlaegig.
+- neue-units: fix-gateway-file-import-413-response-undocumented,
+  fix-gateway-quote-lifecycle-routes-missing-error-responses
+- offen:
+  - Der Scan ist bewusst abgebrochen, bevor er in die Breite (52 weitere route_*.go) gegangen
+    ist — siehe Liste oben, was tief geprueft vs. nur gegrept vs. gar nicht geprueft wurde. Ein
+    kuenftiger Lauf kann daraus eine zweite scan-Unit fuer den Rest des Gateways ableiten, falls
+    das gewuenscht ist; hier nicht selbst angelegt, weil die Notes dieser Unit ausdruecklich nur
+    "in die Breite gehen, wenn Zeit reicht" vorsehen und keine Nachfolge-Unit verlangen.
+  - `fix-gateway-file-import-413-response-undocumented` buendelt zwei Routen aus zwei
+    verschiedenen Dateien (gobd_archive, einvoice) in einer Unit statt je einer je Datei (anders
+    als die Konvention aus scan-gateway-sql-error-leakage) — Begruendung: identische Ursache
+    (Upload-Groessengrenze ungeprueft in der Spec), identischer Fix (eine Zeile "413" je Route
+    plus eine Beschreibungskorrektur), keine gemeinsame Test-Aenderung noetig. Wenn sich beim
+    Bauen zeigt, dass Trennung sauberer ist, im Journal der jeweiligen Iteration begruenden.
+  - Die 502-vs-503-Inkonsistenz in route_email.go ist kein Doc-Drift-Fund (openapi.yaml
+    dokumentiert 502 nirgends, aber auch 503 nur selektiv — das ist die bestehende Konvention
+    fuer generische 5xx, siehe Vorlauf-Recherche zu A1/gobd-archive-GRANT), sondern ein
+    HTTP-Semantik-Bug (502 statt 503 fuer denselben "Service-Registry-leer"-Zustand). Bereits
+    als eigene Unit erfasst (Iteration 44), hier nur bestaetigt, nicht dupliziert.

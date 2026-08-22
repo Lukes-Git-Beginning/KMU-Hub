@@ -1609,7 +1609,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       `TestOpenAPIRouteDrift` prueft, ob jede registrierte Route einen PFAD in `openapi.yaml`
@@ -3087,3 +3087,99 @@ units:
       - Die verbleibende Log-Zeile bleibt fuer Anomalie-/Rate-Limit-Analyse brauchbar (maskiert,
         nicht ersatzlos gestrichen)
       - go test -count=1 ./internal/gateway/ ./internal/caldav/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-gateway-file-import-413-response-undocumented
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"
+    scope: >
+      Gefunden 2026-08-22 waehrend scan-gateway-openapi-response-code-drift (Iteration 46).
+      Zwei Datei-Upload-Routen schreiben `http.StatusRequestEntityTooLarge` (413) bei
+      Ueberschreiten ihrer Groessengrenze, aber `openapi.yaml` kennt diesen Code fuer beide
+      Pfade nicht:
+      1. `POST /api/v1/finance/gobd-archive` (`route_biz_gobd_archive.go:61`, Grenze 50 MiB) —
+         die Spec dokumentiert nur "400": "Validation error (empty file, unknown doc_type,
+         file too large)" (openapi.yaml:13720-13721). Die Beschreibung behauptet explizit, das
+         Groessenproblem liefere 400 — der Code liefert nachweislich 413. Das ist keine fehlende
+         Zeile, sondern eine falsche Aussage in der Spec.
+      2. `POST /api/v1/finance/invoices/import` (`route_biz_einvoice.go:68`, Grenze 10 MiB) —
+         die Spec dokumentiert "400", "409", "415", "401" (openapi.yaml:13868-13875), aber kein
+         "413", obwohl der 415-Fall (falscher MIME-Typ) direkt daneben korrekt steht. Zum
+         Vergleich: die strukturell identische Route `POST /api/v1/finance/bank-statements/import`
+         (`route_biz_banking.go:60`, ebenfalls 10 MiB) dokumentiert ihr "413" korrekt
+         (openapi.yaml:9564) — sie ist die Vorlage fuer den Fix.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_biz_gobd_archive.go
+      - backend/internal/gateway/route_biz_einvoice.go
+      - backend/internal/gateway/route_biz_banking.go
+    notes: >
+      Reine Spec-Korrektur, kein Code-Verhalten aendert sich. Fuer den GoBD-Pfad die
+      "400"-Beschreibung außerdem so umschreiben, dass sie das Groessenproblem nicht mehr
+      mitbehauptet (z. B. "Validation error (empty file, unknown doc_type)"), und ein eigenes
+      "413" mit Beschreibung "document exceeds 50 MiB limit" ergaenzen — analog zum Vorbild
+      bank-statements/import.
+      Kein Test noetig (die Handler-Tests fuer beide Groessengrenzen existieren bereits laut
+      route_biz_gobd_archive_test.go / route_biz_einvoice_test.go), aber `swagger-cli validate`
+      gegen die geaenderte Spec laufen lassen — `TestOpenAPIRouteDrift` prueft nur Pfade, keine
+      Response-Codes.
+    done_when:
+      - "openapi.yaml dokumentiert \"413\" fuer POST /api/v1/finance/gobd-archive mit korrekter,
+        von der 400-Beschreibung getrennter Aussage"
+      - "openapi.yaml dokumentiert \"413\" fuer POST /api/v1/finance/invoices/import"
+      - swagger-cli validate gegen backend/api/openapi.yaml gruen
+      - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen
+
+  - id: fix-gateway-quote-lifecycle-routes-missing-error-responses
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"
+    scope: >
+      Gefunden 2026-08-22 waehrend scan-gateway-openapi-response-code-drift (Iteration 46), als
+      Nachtrag zu cov-gateway-biz-quotes (Iteration ~19). Die vier Statusuebergangs-Routen fuer
+      Angebote —
+        POST /api/v1/finance/quotes/{id}/send    (openapi.yaml:8817)
+        POST /api/v1/finance/quotes/{id}/accept  (openapi.yaml:8834)
+        POST /api/v1/finance/quotes/{id}/reject  (openapi.yaml:8849)
+        POST /api/v1/finance/quotes/{id}/convert (openapi.yaml:8864)
+      dokumentieren fast keine ihrer tatsaechlichen Fehlerantworten. Alle vier Handler
+      (`route_biz_quotes.go`) gehen ueber den gemeinsamen `respondGRPCError`-Pfad, der
+      `quote.ErrQuoteNotDraft`/`ErrQuoteNotSent` (`codes.FailedPrecondition`) auf 409 und
+      `quote.ErrQuoteNotFound` (`codes.NotFound`) auf 404 abbildet
+      (`backend/internal/server/biz_grpc_errormap_settings_quotes_test.go:36-38` belegt die
+      Zuordnung) — und jede Route haengt hinter `RequirePermission`/`RequireRole`, liefert also
+      auch 401/403. In der Spec steht:
+        send:    nur 200, 404 (401/403/409 fehlen)
+        accept:  nur 200        (401/403/404/409 fehlen komplett)
+        reject:  nur 200        (401/403/404/409 fehlen komplett)
+        convert: nur 200        (401/403/404/409 fehlen komplett)
+      Zum Vergleich dokumentiert die strukturell aehnliche Route PATCH /api/v1/admin/license
+      (openapi.yaml:31402-31436) 400/401/403/404/409 vollstaendig — sie ist die Vorlage, wie es
+      aussehen sollte. Das ist genau der Fall, den done_when von cov-gateway-biz-quotes verlangt
+      hatte ("Jeder unerlaubte Statusuebergang ... liefert 409, nicht 500") — der Code haelt das
+      Versprechen ein, die Spec zeigt es nur nicht an.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_biz_quotes.go
+      - backend/internal/server/biz_grpc_errormap_settings_quotes_test.go
+      - backend/internal/biz/quote/
+    notes: >
+      Reine Spec-Korrektur, kein Code-Verhalten aendert sich. Fuer jede der vier Routen
+      "401": Unauthorized, "403": Forbidden, "404": NotFound (send hat es schon) und "409" mit
+      einer Beschreibung ergaenzen, die den konkreten Uebergangsfehler nennt (z. B. bei accept:
+      "Angebot ist nicht im Status 'sent'"). Nicht pauschal denselben Text fuer alle vier
+      kopieren — `ErrQuoteNotDraft` (send) und `ErrQuoteNotSent` (accept/reject) sind
+      unterschiedliche Vorbedingungen und sollten das auch in der Beschreibung sagen.
+      `convert` hat zusaetzlich `invoice.ErrQuoteNotAccepted` (FailedPrecondition, 409) aus dem
+      Invoice-Paket — im Response-Text erwaehnen, nicht nur den Quote-eigenen Fall.
+    done_when:
+      - Alle vier Routen dokumentieren 401, 403, 404 und 409 mit uebergangsspezifischer
+        Beschreibung
+      - swagger-cli validate gegen backend/api/openapi.yaml gruen
+      - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen
