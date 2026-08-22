@@ -1863,7 +1863,7 @@ Frühere Läufe liegen vollständig im Archiv:
     beruehrt in dieser Iteration).
 
 ## Iteration 31 — cov-gateway-crm-contact-files-wopi — done — 2026-08-22 05:02
-- commit: (siehe unten, wird nach dem Commit nachgetragen)
+- commit: 28caea24
 - gebaut: `internal/gateway/route_crm_contact_files_test.go` neu — deckt
   `route_crm_contact_files.go` (7 Funktionen) ab: ServiceUnavailable fuer beide
   Handler, invalide Contact-ID vor jeder RPC, ReachesRPC fuer beide Handler,
