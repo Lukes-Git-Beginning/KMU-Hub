@@ -1,59 +1,153 @@
-# Backend-Nachtloop — Arbeitsqueue fuer den NAECHSTEN Lauf (Lauf 11)
+# Backend-Nachtloop — Arbeitsqueue für den NÄCHSTEN Lauf (Lauf 11)
 #
 # Diese Datei liest der Treiber NICHT. Sie ist die Schleuse vor `BACKLOG.yml`.
 #
-# WARUM ES SIE GIBT: In Lauf 8 standen die waehrend des Laufs gefundenen Fix-Units mit
-# `status: todo` in `BACKLOG.yml` und trugen nur einen KOMMENTAR "Fuer Lauf 9". Ein Kommentar
-# ist keine Mechanik — `Get-OpenUnitCount` im Treiber zaehlt `todo` unabhaengig davon.
+# WARUM ES SIE GIBT: In Lauf 8 standen die während des Laufs gefundenen Fix-Units mit
+# `status: todo` in `BACKLOG.yml` und trugen nur einen KOMMENTAR "Für Lauf 9". Ein Kommentar
+# ist keine Mechanik — `Get-OpenUnitCount` im Treiber zählt `todo` unabhängig davon.
 # Seitdem gilt: was nicht freigegeben ist, steht nicht in der Datei, die der Treiber parst.
 #
-# FREIGABE FUER EINEN LAUF: Units aus dieser Datei nach `BACKLOG.yml` verschieben (nicht
-# kopieren), Bloecke und Reihenfolge dort festlegen, `coverage_start` gegen den dann aktuellen
-# CI-Stand nachziehen.
+# FREIGABE FÜR EINEN LAUF: Units aus dieser Datei nach `BACKLOG.yml` verschieben (nicht
+# kopieren), Blöcke und Reihenfolge dort festlegen, `coverage_start` gegen den dann aktuellen
+# CI-Stand nachziehen. Muster: PROMPT-VORBEREITUNG-LAUF-8.md.
 #
-# ------------------------------------------------------------------------------------------
-# LAUF 10 IST FREIGEGEBEN (2026-08-22) — die 48 Units stehen in `BACKLOG.yml`.
+# ==========================================================================================
+# STAND NACH LAUF 10 (Nachbearbeitung 2026-08-22)
 #
-# Was beim Ausschreiben aufgefallen ist und hier festgehalten gehoert, weil es die naechste
-# Vorbereitung betrifft:
+# Lauf 10: 92 Iterationen, 91 Units done, 2 blocked. Gemergt als `f87ffdcf`, deployt.
+# Migrationskopf 314 -> 322. Backlog und Journal im Archiv unter archive/lauf-10/.
 #
-#   - Diese Datei trug einen Kopf, der auf einen Unit-Anhang unter `units:` verwies. Der
-#     Anhang existierte nie — `units:` war leer. Waere der Lauf so gestartet, haette der
-#     Treiber sofort "Keine offenen Units mehr im Backlog" gemeldet und nach null Iterationen
-#     beendet. Eine Uebersichtsliste in Kommentaren ist kein Backlog.
-#     KONSEQUENZ: Wer hier einen Lauf entwirft, schreibt die Units aus oder markiert im Kopf
-#     ausdruecklich, dass sie noch fehlen. Kein Kopf, der einen Anhang behauptet, den es nicht
-#     gibt.
+# WAS DIE NACHBEREITUNG GEFUNDEN HAT — beim Ausschreiben berücksichtigen:
 #
-#   - Von den sechs Befunden des Lauf-10-Entwurfs hat die Gegenpruefung am Code EINEN
-#     widerlegt: `contact_tags.contact_id` hat sehr wohl einen Foreign Key
-#     (`migrations/000007_create_contacts_companies.up.sql:81`, `ON DELETE CASCADE`, auch live
-#     in der DB vorhanden). Die geplante Unit `fix-contact-tags-missing-foreign-key` haette
-#     eine Migration gegen ein nicht existierendes Problem gebaut. Sie ist gestrichen; an ihre
-#     Stelle trat `scan-contact-set-null-residual-personal-data`.
-#     KONSEQUENZ: Jede Schema-Behauptung vor dem Ausschreiben gegen `pg_constraint` pruefen,
-#     nicht gegen die Erinnerung. Das kostet eine Minute und hat hier eine Migration gespart.
+#   - Das CI-Signal war nicht dekorativ. Der erste Lauf über die 183 Commits war ROT:
+#     `TestPostgresCleanupWithLock_AcquiresAndReleases` deckte einen Advisory-Lock-Leak auf,
+#     den `idempotency.CleanupWithLock` und der in Lauf 10 NEU gebaute Retention-Scheduler
+#     teilten — Lock über den Pool genommen, über den Pool freigegeben, das Unlock landet auf
+#     einer fremden Verbindung und tut nichts. Der Scheduler wäre nach dem ersten Tick
+#     dauerhaft eingeschlafen, lautlos. Behoben in `778a2e44`.
+#     KONSEQUENZ 1: Ein DB-Test, der lokal grün ist, weil der Pool nur EINE warme Verbindung
+#     hatte, beweist nichts. Wer eine Ressource pro Verbindung testet (Advisory Locks,
+#     Session-GUCs, temporäre Tabellen), hält vorher eine zweite Verbindung fest.
+#     KONSEQUENZ 2: Wird ein bestehendes Muster als Vorlage kopiert, wird sein Fehler mit
+#     kopiert. Die Vorlage vorher prüfen, nicht nur nachbauen.
 #
-# ------------------------------------------------------------------------------------------
-# KANDIDATEN FUER LAUF 11 — noch nicht entworfen, nur vorgemerkt
+#   - `-race` ist in Lauf 10 lokal NIE gelaufen (kein `gcc` im PATH dieser Maschine). Units,
+#     deren `done_when` `-race` verlangt, können lokal nicht abgeschlossen werden — das
+#     gehört in die `offen:`-Zeile, und CI ist der Beweis.
 #
-#   - Ausweitung des Retention-Workers auf die uebrigen Services. Die Liste liefert
-#     `scan-personal-data-tables-without-retention-mapping` (C4) zur Laufzeit; vorher blind zu
-#     schaetzen waere geraten.
-#   - Ein dauerhafter Test gegen die Antwortcode-Drift in `openapi.yaml`. Die Bestandsaufnahme
-#     macht C7; ob daraus ein Gate wird, ist eine eigene Entscheidung.
-#   - `resource_type`-Whitelist/Enum fuer Retention-Policies. Produktentscheidung, nicht
-#     Loop-Arbeit — der Worker aus A10 arbeitet solange defensiv und meldet unbekannte Werte
-#     als "nicht zugeordnet".
-#   - Frontend fuer die Kaskaden-Impact-Vorschau aus A2. Braucht ein Playwright-Gate, das
-#     dieser Loop nicht hat.
-#   - Die schwaechsten Pakete jenseits des Gateways: `internal/work/customfield` (14,0 %),
+#   - Lokales Postgres-Verbindungslimit: `go test` über mehrere DB-Pakete mit vollem
+#     Parallelismus reißt mit `53300 remaining connection slots are reserved` ab. `-p 1`
+#     verwenden. Kein Code-Fehler. (Journal Lauf 10, Iterationen 11 und 54, in der
+#     Nachbereitung reproduziert.)
+#
+#   - Die lokale Dev-Postgres trägt 13.8k Zeilen in `tenants` aus alten Läufen. Produktion
+#     hat genau 1. Jeder Test, der über `tenants` iteriert, ist lokal unbrauchbar langsam und
+#     verschmutzt `retention_runs`.
+#
+# ==========================================================================================
+# ENTSCHEIDUNGEN, DIE JETZT GEFALLEN SIND
+#
+#   - `fix-booking-page-orphaned-after-owner-erasure` ist ENTBLOCKT.
+#     ENTSCHEIDUNG (Luke, 2026-08-22): DEAKTIVIEREN. Beim Erasure des Kalender-Eigentümers
+#     wird die Buchungsseite auf `active = false` gesetzt. Nicht umhängen, nicht nur warnen.
+#     Zusatzauflage aus der Unit selbst: `PreviewErasure` MUSS die betroffene Buchungsseite
+#     als eigenen Posten ausweisen, nicht schweigend im Kalender-Zähler verschwinden lassen —
+#     wer seine Löschung beantragt, soll wissen, dass eine öffentliche Seite betroffen ist.
+#     Ansatzpunkt steht: die `NOT EXISTS`-Subquery im `CalendarErasureHandler`, die heute den
+#     Ausschluss trägt, kennt die `booking_pages.id` bereits.
+#     Die Unit liegt vollständig ausgeschrieben in archive/lauf-10/BACKLOG.yml — von dort
+#     übernehmen, `blocked_reason` durch die Entscheidung ersetzen, `status: todo`.
+#
+# OFFEN, BRAUCHT LUKE — NICHT AUSSCHREIBEN, BEVOR DAS ENTSCHIEDEN IST
+#
+#   - `verify-datev-extf-encoding-requirement` bleibt `blocked`. Der Exporter schreibt heute
+#     UTF-8 mit BOM. Die offiziellen Feldlisten für Format 700 sagen zur Kodierung nichts,
+#     die Zeichensatz-Unterseite liefert ohne Login 404, und ein unabhängiges Ruby-Gem
+#     kodiert hart auf CP1252. Zwei Wege: registrierter Zugang zu developer.datev.de für die
+#     Primärquelle, oder ein empirischer Test gegen einen echten DATEV-Import. Bis dahin wird
+#     am Kodierungsverhalten NICHTS geändert.
+#
+#   - `RETENTION_MODE` bleibt `dry_run`. Scharfstellen erst, wenn die `retention_runs` aus
+#     Produktion zeigen, was ein `enforce` konkret löschen würde. Produktion hat aktuell NULL
+#     `retention_policies` — der erste Dry-Run ist also leer, und die Liste der nicht
+#     zugeordneten `resource_type`-Werte entsteht erst, wenn Policies angelegt sind.
+#
+#   - `resource_type`-Whitelist/Enum für Retention-Policies. Produktentscheidung, nicht
+#     Loop-Arbeit — der Worker arbeitet solange defensiv und meldet Unbekanntes als
+#     "nicht zugeordnet".
+#
+# ==========================================================================================
+# BEFUNDE AUS LAUF 10, DIE NIRGENDS ALS UNIT STEHEN
+# (aus den `offen:`-Zeilen des Journals herausgezogen — sie wären sonst verloren)
+#
+#   1. VERHALTENSÄNDERUNG IN PRODUKTION, bewusst so gebaut (Iteration 57): Ein Request,
+#      dessen erster Versuch abstürzte BEVOR `Complete` lief, bekommt beim Retry mit
+#      demselben Idempotency-Key jetzt 409 (`Retry-After: 2`) statt durchzulaufen — bis der
+#      Key nach `expires_at` verfällt. Das ist die dokumentierte Semantik und die
+#      Voraussetzung dafür, dass der Schlüssel Doppelbuchungen überhaupt verhindert. Vorher
+#      konnte nichts davon greifen. Keine Aufgabe, aber es muss jemand wissen.
+#
+#   2. FRONTEND-NACHZUG, ohne den ein Backend-Fix wirkungslos bleibt (Iteration 50):
+#      `RecurringInvoiceDialog.tsx:158` sendet beim Entfernen des Enddatums weiterhin
+#      `undefined` statt eines Leerstrings. Das Backend akzeptiert das Lösch-Signal seit
+#      `a5f5aa6f`, im UI passiert trotzdem nichts. Gehört in den Frontend-Backlog, nicht
+#      hierher (dieser Loop hat kein Playwright-Gate).
+#
+#   3. FRONTEND, SICHERHEITSRELEVANT (Iteration 26): In `handleTemplateSelect`
+#      (ComposeInline.tsx / ComposeModal.tsx) fehlt der `sanitizeHtml()`-Aufruf, den die
+#      übrigen Pfade haben. Eine E-Mail-Vorlage geht damit ungefiltert in den Editor. Lässt
+#      sich mit keiner Backend-Änderung schließen. Frontend-Session.
+#
+#   4. DSAR-LÜCKE, ARCHITEKTURFRAGE (Iteration 62): Eine nie angenommene Einladung
+#      (`accepted_at IS NULL`) hat weder `users`- noch `contacts`-Zeile, an die `SearchByQuery`
+#      sie hängen könnte — Name, E-Mail und Rolle stehen in `invitations`, sind für eine
+#      Auskunftsanfrage aber nicht auffindbar. Das wäre eine dritte Subjekt-Matching-Quelle
+#      neben Kontakten und Benutzern. Größer als eine Unit; erst entscheiden, dann bauen.
+#
+#   5. ANNAHME, NICHT BELEG (Iteration 63): Die 730-Tage-Frist, mit der die Work-Erasure
+#      Zeiteinträge zurückhält, ist eine konservative Ableitung aus § 16 Abs. 2 ArbZG, keine
+#      aus einer Konfigurationsquelle gelesene Zahl. Gilt für die Task-Zeiterfassung, nicht
+#      für `hr_work_time_entries`. Von Luke zu bestätigen.
+#
+#   6. SCAN BEWUSST ABGEBROCHEN (Iteration 46): Der OpenAPI-Antwortcode-Drift-Scan hat 52
+#      weitere `route_*.go` NICHT geprüft. Was tief geprüft, was nur gegrept und was gar nicht
+#      angesehen wurde, steht im Journal-Eintrag. Eine zweite Scan-Unit für den Rest des
+#      Gateways ist der naheliegende Nachfolger.
+#
+#   7. RLS-SMOKE NICHT BEWEISEND (Iteration 51): Bei `hr_work_time_entries` waren beide
+#      Zählungen 0, weil die Tabelle leer war. Die Policy wurde nicht angefasst (nur zwei
+#      nullable Spalten kamen dazu), das Risiko ist gering — mit befüllten Testdaten
+#      nachprüfbar.
+#
+# ==========================================================================================
+# KANDIDATEN FÜR LAUF 11 — noch nicht entworfen, nur vorgemerkt
+#
+#   - Ausweitung des Retention-Workers auf die übrigen Services. Registriert sind acht
+#     Handler (contacts, dialer_call_sessions, messages, tickets, form_submissions, tasks,
+#     calendar_events, notifications). Der C4-Scan aus Lauf 10 hat die Nicht-Zuordnungen
+#     begründet: `time_entries`/`hr_work_time_entries` (arbeitsrechtliche Aufbewahrung),
+#     `finance_invoices` (GoBD), `gobd_*` (WORM), `advisory_protocols` (Verdacht auf
+#     Dokumentationspflicht, NICHT belegt — das wäre zu klären). Die Ausweitung auf alle 24
+#     Services ist noch offen.
+#   - Ein dauerhafter Test gegen die Antwortcode-Drift in `openapi.yaml`. Ob daraus ein Gate
+#     wird, ist eine eigene Entscheidung.
+#   - Ein gemeinsamer Helper für `pg_advisory_lock` auf einer dedizierten Verbindung. Es gibt
+#     jetzt ZWEI Implementierungen desselben Musters (idempotency, gdpr), und die zweite ist
+#     als Kopie der ersten samt Fehler entstanden. `internal/database` scheidet als Zuhause
+#     aus: database -> middleware -> idempotency wäre ein Import-Zyklus. Ein eigenes kleines
+#     Paket (etwa `internal/pglock`) wäre der Weg — das ist eine Architekturentscheidung und
+#     gehört Luke, nicht dem Loop.
+#   - Frontend für die Kaskaden-Impact-Vorschau aus A2. Braucht ein Playwright-Gate.
+#   - Die schwächsten Pakete jenseits des Gateways: `internal/work/customfield` (14,0 %),
 #     `internal/work/label` (15,2 %), `internal/email/attachment` (22,1 %),
 #     `internal/biz/creditnote` (28,2 %), `internal/biz/quote` (33,3 %),
-#     `internal/document/share` (33,3 %). Stand CI-Run 32508843776.
-#   - CSAT und die uebrigen Public-Token-Routen bleiben gesperrt (BACKLOG-PARKED.yml,
-#     Projekt "Public Web Surface"), bis dazu eine Entscheidung faellt.
+#     `internal/document/share` (33,3 %). Stand CI-Run 32508843776 — vor dem Ausschreiben
+#     gegen den aktuellen CI-Stand nachziehen, Lauf 10 hat den Gateway-Wert bewegt.
+#   - CSAT und die übrigen Public-Token-Routen bleiben gesperrt (BACKLOG-PARKED.yml, Projekt
+#     "Public Web Surface"), bis dazu eine Entscheidung fällt.
+#   - Aufräumen der lokalen Dev-Postgres (13.8k Müll-Tenants), damit tenant-iterierende Tests
+#     lokal wieder bezahlbar sind.
 #
-# ------------------------------------------------------------------------------------------
+# ==========================================================================================
 
 units: []
