@@ -937,3 +937,72 @@ Frühere Läufe liegen vollständig im Archiv:
   - `route_biz.go:50-57` dokumentiert bereits, dass Invoice-Import/Incoming-Invoices bewusst auf
     dem alten `finance`-Guard bleiben statt auf den gesplitteten `finance:invoice`-Key zu wechseln
     (kein FE-Caller heute) — bestaetigt beim Bauen dieser Unit, kein neuer Befund.
+
+## Iteration 17 — cov-gateway-biz-quotes — done — 2026-08-22 03:07
+- commit: (folgt im naechsten Schritt)
+- gebaut: `route_biz_quotes_test.go` (neue Datei, 34 Tests) deckt alle 11 Funktionen von
+  `route_biz_quotes.go` ab (`HandleCreateQuote`, `HandleListQuotes`, `HandleGetQuote`,
+  `HandleUpdateQuote`, `HandleDeleteQuote`, `HandleSendQuote`, `HandleAcceptQuote`,
+  `HandleRejectQuote`, `HandleConvertQuoteToInvoice`, `HandleGenerateQuotePDF`,
+  `HandleCreateQuoteFromDeal`). Fuenf der elf Funktionen hatten bereits Teilabdeckung in
+  `route_biz_test.go` (Create/List/Get: ServiceUnavailable, InvalidJSON, MissingCustomer,
+  InvalidTaxMode, InvalidValidUntil) — diese Unit ergaenzt dort nur die Luecken (NoTenantID,
+  MissingLineItems, InvalidCustomerVAT, ReachesRPC) statt zu duplizieren, und baut Update,
+  Delete, Send, Accept, Reject, Convert, PDF und CreateQuoteFromDeal komplett neu.
+  Permission-Guard-Wiring fuer die ganze Quotes-Gruppe (inkl. additivem Legacy-vs-
+  Catalogue-Key-Rollout: finance:write/finance:quote:create, finance:quote:send,
+  finance:invoice:create fuers Convert, finance:delete-only fuers Delete) ist bereits
+  vollstaendig in `route_capability_guard_test.go` ("--- finance: quotes ---", 12 Faelle)
+  getestet und wird hier bewusst NICHT dupliziert.
+  Statusuebergaenge (Send/Accept/Reject/Convert): dieses Paket hat wie in jeder vorigen
+  Coverage-Unit dieses Laufs keinen bufconn-/Fake-Client-Harness fuer FinanceServiceClient
+  (bestaetigt, gleiche Grenze wie in Iteration 15/16 sowie in `route_produktion_orders_test.go`
+  und `route_rapporte_test.go` aus fruaeheren Laeufen). Die *_ReachesRPC-Tests beweisen nur,
+  dass der Handler mit gueltiger Quote-ID die RPC-Schicht erreicht — die eigentliche
+  Transitions-Ablehnung (draft->sent->accepted/rejected) ist an ZWEI tieferen Stellen bereits
+  bewiesen: `internal/biz/quote/service_test.go` (`TestService_Accept_RejectsNonSent`,
+  `TestService_Reject_RejectsNonSent`, `TestService_Send_RejectsNonDraft`,
+  `TestService_Accept_RejectsAlreadyAccepted`, ...) fuer die Service-Logik, und
+  `internal/server/biz_grpc_errormap_settings_quotes_test.go` fuer die Zuordnung
+  `quote.ErrQuoteNotDraft`/`ErrQuoteNotSent` -> `codes.FailedPrecondition`. Die generische
+  `FailedPrecondition -> 409`-HTTP-Abbildung ist in `helpers_test.go`
+  (`TestGrpcStatusToHTTP`) bewiesen. Diese drei Tests zusammen belegen den vollen Pfad
+  "falscher Statusuebergang -> 409", nur nicht als ein einzelner Live-RPC-Roundtrip in
+  diesem Paket — dieselbe dokumentierte Infrastrukturluecke wie in jeder vorigen
+  Block-B-Unit dieses Laufs.
+- gate: build ok (`-p 2` ueber gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (ganzes `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift` — 836 Routen gegen
+  838 dokumentierte Pfade, keine neue Route) | `internal/biz/quote` gruen (bestehende Tests
+  unveraendert, keine neue Testdatei dort — die Statusuebergaenge sind bereits ausfuehrlich
+  in `service_test.go` abgedeckt, siehe oben)
+- coverage: internal/gateway 46,9 % -> 47,4 % (eigene Messung: Testdatei nach `/tmp`
+  verschoben, `go test -coverprofile` vorher/nachher; 46,9 % ist der reale lokale Stand nach
+  Iteration 16, nicht der `coverage_start` der Unit aus dem CI-Snapshot 1b49a1f3 — 0,3 Punkte
+  Abweichung, weil zwei Iterationen dasselbe Paket bereits angehoben haben)
+- mutations-probe: in `updateQuoteRequest.TaxMode` das
+  `validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`-Tag entfernt ->
+  `TestHandleUpdateQuote_InvalidTaxMode` wird rot (503 statt 400, RPC-Layer erreicht statt
+  Validierungs-Guard). Zurueckgedreht -> Test wieder gruen, `git diff --stat` auf
+  `route_biz_quotes.go` zeigt keine Aenderung mehr.
+- verify vorgaenger: sauber. `4fabe7e3` (Iteration 16, E-Invoice-Route-Tests) gegen alle acht
+  Fehlerklassen geprueft: reine Testdatei (`route_biz_einvoice_test.go` neu, Rename
+  `gobdArchiveRouter` -> `bizRouter` in `route_biz_gobd_archive_test.go`), kein
+  Produktionscode geaendert, kein gRPC-Layer-Bypass (Tests rufen ausschliesslich Handler auf,
+  die ueber `client.<RPC>` gehen), kein Stub/TODO, kein `.proto` angefasst, keine neue
+  `RequirePermission` (die verwendeten `finance:write`/`:read`-Keys sind bestehende Guards aus
+  `route_biz.go:50-57`), keine neue Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt.
+  Die Journal-SHA fuer Iteration 16 fehlte noch ("folgt im naechsten Schritt") und wurde vor
+  dieser Unit in einem separaten docs-Commit nachgetragen (`5bf46c6a`).
+- neue-units: keine
+- offen:
+  - Wie in Iteration 15/16: "fremder Tenant liefert 404" ist an dieser Route NICHT ueber
+    einen Live-RPC-Roundtrip getestet (kein bufconn-/Fake-Client-Harness fuer
+    `FinanceServiceClient` im ganzen Paket). Die serverseitige Tenant-Durchsetzung liegt bei
+    `internal/biz/quote` (WHERE tenant_id = $1), ausserhalb des Scopes dieser Route-Unit;
+    `TestFinanceLineItems_JSONBTenantIsolation` in `route_biz_test.go` deckt bereits, dass
+    zwei verschiedene Tenants unabhaengige, nicht-401 Anfragen erzeugen.
+  - `internal/biz/quote` liegt weiterhin bei 33,3 % (CI-Snapshot) trotz sehr grosser
+    `service_test.go` — die Luecke ist vermutlich im Repository-Layer
+    (`postgres_repository.go`, DB-Tests) statt in der Service-Logik. Nicht Teil dieser Unit
+    (Scope war die Gateway-Route), aber ein Kandidat fuer eine eigene DB-Coverage-Unit, falls
+    Block E das Paket noch einmal aufgreift.

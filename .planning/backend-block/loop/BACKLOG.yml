@@ -739,7 +739,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/biz/quote 33,3 % (Run 32508843776)"
     scope: >
       `route_biz_quotes.go` (385 Zeilen, 11 Funktionen) ohne Testdatei, und das dahinterliegende
