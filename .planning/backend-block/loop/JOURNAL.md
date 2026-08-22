@@ -4919,7 +4919,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 83 — fix-gateway-quote-lifecycle-routes-missing-error-responses — done — 2026-08-22 11:20
-- commit: (folgt)
+- commit: 646fa714
 - gebaut: Fund aus scan-gateway-openapi-response-code-drift (Iteration 46), Nachtrag zu
   cov-gateway-biz-quotes. Reine Spec-Korrektur in `backend/api/openapi.yaml`, kein
   Code-Verhalten geaendert. Die vier Angebots-Statusuebergangsrouten
