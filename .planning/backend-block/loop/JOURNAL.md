@@ -3109,3 +3109,64 @@ Frühere Läufe liegen vollständig im Archiv:
   - fix-company-delete-merged-into-no-action-unchecked braucht vor dem Bauen eine eigene Pruefung,
     ob `company/service.go` ueberhaupt eine IsInUse-Aequivalent-Funktion hat (im Gegensatz zu
     contact) — im Journal der neuen Unit als offene Frage vermerkt.
+
+## Iteration 50 — fix-recurring-invoice-clear-end-date — done — 2026-08-22 07:19
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: Root Cause war die Validierung, nicht die Handler-Logik (`grpcReq.ClearEndDate = true`
+  bei leerem `*string` existierte bereits und war korrekt) — go-playground/validator's
+  `omitempty` ueberspringt bei einem Pointer-Feld nur den NIL-Fall; ein nicht-nil Pointer auf ""
+  gilt als "vorhanden" und laeuft weiter gegen `datetime`, das einen Leerstring ablehnt. Fix ist
+  Option (b) aus der Unit-Notiz: neuer Custom-Validator `clearable_date` in
+  `internal/validation/validation.go` (registriert neben `decimal_gt0`/`decimal_gte0`) — leerer
+  String ist immer gueltig (explizites Loeschsignal), jeder andere Wert muss `2006-01-02`
+  parsen. `updateRecurringRequest.EndDate` in `route_biz_recurring.go` nutzt jetzt
+  `validate:"omitempty,clearable_date"` statt `validate:"omitempty,datetime=2006-01-02"`.
+  `createRecurringRequest.EndDate` (kein Pointer, kein Clear-Sentinel) und
+  `updateRecurringRequest.StartDate` (kein Clear-Sentinel vorgesehen) bleiben bewusst bei
+  `datetime=2006-01-02` — nur das eine Feld mit Clear-Semantik ist betroffen.
+  Root-Cause-Scan nach Schwesterfeldern: Grep auf `Clear[A-Z]\w*\s*=\s*true` im ganzen Repo
+  zeigt `ClearEndDate` als einzigen Treffer im gesamten `biz`-Paket — kein zweites Sentinel-Feld,
+  das denselben Fix gebraucht haette. Grep auf `*string.*validate:"omitempty,datetime` in
+  `internal/gateway` findet nur die drei genannten Felder (plus `route_biz_expenses.go:86 Date`,
+  das keine Clear-Semantik hat und unveraendert bleibt).
+  Regressionstest umgedreht:
+  `TestHandleUpdateRecurringInvoice_EmptyEndDateRejectedByValidationBeforeClearLogicRuns` ersetzt
+  durch `TestHandleUpdateRecurringInvoice_EmptyEndDateClearsValidationAndReachesRPC` (erwartet
+  jetzt 503 statt 400, konsistent mit den anderen `*_ReachesRPC`-Tests in derselben Datei — das
+  Paket hat keinen bufconn-Stub fuer `FinanceServiceClient`, kann also nur beweisen, dass die
+  Validierung durchlaeuft, nicht was `UpdateRecurringInvoice` im gRPC-Request tatsaechlich
+  sendet). Datei-Header-Kommentar und der Kommentar am `if req.EndDate != nil`-Block in
+  `route_biz_recurring.go` aktualisiert (der alte Kommentar sprach faelschlich von "explizitem
+  null" statt "leerem String" — JSON `null` und ein fehlendes Feld dekodieren beide zu einem
+  nil-Pointer und sind nicht unterscheidbar, das war schon vorher so, nur falsch beschrieben).
+  NEBENFUND (nicht behebbar in diesem Lauf, Frontend gesperrt): `RecurringInvoiceDialog.tsx:158`
+  sendet `end_date: endDate || undefined` — ein geleertes Datumsfeld im UI wird nie als
+  Leerstring, sondern als fehlendes Feld gesendet (von `JSON.stringify` verworfen). Das Feature
+  "Enddatum entfernen" ist also selbst nach diesem Fix vom UI aus nicht auslösbar; der Fix macht
+  den Wire-Vertrag korrekt benutzbar, das Frontend muss noch nachziehen (`end_date: endDate` ohne
+  `|| undefined`, oder ein expliziter "Enddatum entfernen"-Button, der `""` sendet). Keine eigene
+  Backend-Unit dafuer, siehe offen.
+- gate: build ok (`./internal/gateway/... ./internal/validation/... ./cmd/gateway/...`) | vet ok |
+  lint ok (0 issues) | migration n.a. (keine Migration) | rls-smoke n.a. (kein Tabellenzugriff) |
+  test ok (`./internal/gateway/... ./internal/validation/... ./internal/biz/recurring/...`, 0 SKIP
+  in `internal/gateway` verifiziert per `go test -v | grep -c SKIP`)
+- coverage: n.a. (Unit ist als Bugfix ohne Coverage-Ziel deklariert, `coverage_start` im Backlog
+  sagt das explizit; internal/gateway lag bei dieser Messung bei 54,0 % Gesamtpaket, das ist aber
+  keine dieser-Unit-eigene Zahl und nicht aussagekraeftig fuer einen Ein-Zeilen-Validator-Fix)
+- mutations-probe: `clearable_date`-Tag temporaer zurueck auf `datetime=2006-01-02` gesetzt ->
+  `TestHandleUpdateRecurringInvoice_EmptyEndDateClearsValidationAndReachesRPC` wird rot mit
+  exakt dem erwarteten Fehlerbild (400, `"end_date: failed datetime (2006-01-02)"`) ->
+  zurueckgedreht, `git diff` zeigt danach nur die beabsichtigten zwei Aenderungen (Tag +
+  Kommentar), Diff sauber
+- verify vorgaenger: sauber. `6c00c33f` (Iteration 49, fix-contact-delete-merged-into-no-action-
+  unchecked) geprueft — `git show --stat` zeigt Migration 000318 (up+down gefuellt), einen neuen
+  DB-Test und BACKLOG.yml/JOURNAL.md. Migration entzieht/aendert keine RLS-Policy und keinen
+  Handler; kein Guard, kein Proto, keine Route, kein Wire-Shape betroffen. Migrationskopf und
+  down-SQL wurden inhaltlich gegengelesen (siehe oben), Constraint-Aenderung konsistent mit dem
+  bereits bestehenden `referred_by_contact_id`-Muster. Keine der acht Fehlerklassen einschlaegig.
+- neue-units: keine
+- offen:
+  - Frontend-Nebenfund (siehe oben): `RecurringInvoiceDialog.tsx:158` muss nachziehen, damit
+    "Enddatum entfernen" im UI tatsaechlich einen Leerstring statt `undefined` sendet. Frontend
+    ist in diesem Lauf gesperrt (kein Playwright-Gate), deshalb keine eigene Unit angelegt —
+    Luke entscheidet, ob das in den Frontend-Backlog gehoert.

@@ -29,11 +29,12 @@ package gateway
 //     duplicated here.
 //
 // What IS testable at the route layer without a fake client: the validation
-// tags on createRecurringRequest/updateRecurringRequest. That includes an
-// unexpected finding: the EndDate/ClearEndDate branch in
-// HandleUpdateRecurringInvoice (an empty string is meant to clear the end
-// date) turns out to be unreachable over HTTP — see the test below and
-// fix-recurring-invoice-clear-end-date in BACKLOG.yml.
+// tags on createRecurringRequest/updateRecurringRequest, including the
+// clearable_date tag on EndDate — an empty string is the deliberate signal
+// for "clear the end date" (grpcReq.ClearEndDate in
+// HandleUpdateRecurringInvoice) and must pass validation instead of being
+// rejected as a malformed date; see fix-recurring-invoice-clear-end-date in
+// BACKLOG.yml for the bug this used to be.
 
 import (
 	"net/http"
@@ -227,17 +228,18 @@ func TestHandleUpdateRecurringInvoice_InvalidEndDateFormat(t *testing.T) {
 }
 
 // The handler's own logic reads an empty end_date as the sentinel for
-// "clear the end date" (grpcReq.ClearEndDate, route_biz_recurring.go:179),
-// but that branch is unreachable over HTTP: decodeAndValidate runs the
+// "clear the end date" (grpcReq.ClearEndDate, route_biz_recurring.go). That
+// branch used to be unreachable over HTTP: decodeAndValidate ran the
 // omitempty,datetime tag first, and go-playground/validator's omitempty only
 // skips a *string field when the pointer itself is nil — not when it points
-// at an empty string. A present-but-empty end_date is therefore rejected
-// with 400 before the handler ever sees it, and there is no other way for a
-// JSON client to send "the pointer is non-nil and empty". This is a real,
-// verified bug (the clear-the-end-date feature is dead code), not something
-// a coverage unit is allowed to fix; see fix-recurring-invoice-clear-end-date
-// at the end of BACKLOG.yml.
-func TestHandleUpdateRecurringInvoice_EmptyEndDateRejectedByValidationBeforeClearLogicRuns(t *testing.T) {
+// at an empty string, so a present-but-empty end_date was rejected with 400
+// before the handler ever saw it (fix-recurring-invoice-clear-end-date in
+// BACKLOG.yml). The field now validates against the clearable_date tag
+// (internal/validation), which passes an empty string through explicitly.
+// This test proves the request now clears validation and reaches the RPC
+// layer (503 against the dummy client, same signal every other *_ReachesRPC
+// test in this file uses) instead of failing with 400.
+func TestHandleUpdateRecurringInvoice_EmptyEndDateClearsValidationAndReachesRPC(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PUT", "/api/v1/finance/recurring/"+testRecurringID, jsonBody(t, map[string]interface{}{
@@ -246,7 +248,7 @@ func TestHandleUpdateRecurringInvoice_EmptyEndDateRejectedByValidationBeforeClea
 	req = withTenantID(req, testTenantID)
 	req = withChiURLParam(req, "id", testRecurringID)
 	routes.HandleUpdateRecurringInvoice(rec, req)
-	assertValidationError(t, rec, "end_date")
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleUpdateRecurringInvoice_ValidRequestReachesRPC(t *testing.T) {

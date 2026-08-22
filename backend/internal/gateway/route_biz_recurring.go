@@ -37,7 +37,7 @@ type updateRecurringRequest struct {
 	Currency         *string                 `json:"currency"           validate:"omitempty,len=3"`
 	Interval         *string                 `json:"interval"           validate:"omitempty,oneof=weekly monthly quarterly yearly"`
 	StartDate        *string                 `json:"start_date"         validate:"omitempty,datetime=2006-01-02"`
-	EndDate          *string                 `json:"end_date"           validate:"omitempty,datetime=2006-01-02"`
+	EndDate          *string                 `json:"end_date"           validate:"omitempty,clearable_date"`
 	PaymentTermsDays *int32                  `json:"payment_terms_days" validate:"omitempty,gte=0,lte=365"`
 	Notes            *string                 `json:"notes"`
 }
@@ -173,7 +173,9 @@ func (b *BizRoutes) HandleUpdateRecurringInvoice(w http.ResponseWriter, r *http.
 	if req.PaymentTermsDays != nil {
 		grpcReq.PaymentTermsDays = req.PaymentTermsDays
 	}
-	// An explicit null end_date clears the end date; an absent one leaves it alone.
+	// An explicit empty-string end_date ("end_date":"") clears the end date; an
+	// absent field, and a JSON null (both decode to a nil pointer and are
+	// indistinguishable), leave it alone.
 	if req.EndDate != nil {
 		grpcReq.EndDate = req.EndDate
 		if *req.EndDate == "" {
