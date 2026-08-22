@@ -1254,7 +1254,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Produktionsverhalten.
 
 ## Iteration 22 — cov-gateway-settings-module-leads-grants — done — 2026-08-22 03:56
-- commit: -
+- commit: 2658c110
 - gebaut: PRAEMISSE DES UNIT-ENTWURFS WIDERLEGT, statt sie ungeprueft nachzubauen: die Datei
   `route_settings.go` hat entgegen Befund 5 im Backlog-Kopf ("23 von 75 route_*.go ohne eigene
   Testdatei", route_settings.go als Beispiel genannt) bereits DREI Testdateien
