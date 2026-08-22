@@ -1945,7 +1945,7 @@ Frühere Läufe liegen vollständig im Archiv:
     ausschliesslich bereits bestehende Tabellen/Policies).
 
 ## Iteration 32 — cov-gateway-lexware-integration — done — 2026-08-22 05:13
-- commit: (folgt im selben Commit, SHA wird im naechsten docs-Eintrag festgehalten)
+- commit: 9b54ee7b
 - gebaut: `internal/gateway/route_lexware_test.go` neu — deckt `route_lexware.go`
   (610 Zeilen, alle 18 Funktionen) ab: ServiceName, alle elf RPC-Handler
   (Connect/Disconnect/GetConnectionStatus/TestConnection/TriggerSync/
