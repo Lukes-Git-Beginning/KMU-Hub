@@ -272,7 +272,8 @@ func (h *CRMErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUID
 }
 
 // ChatErasureHandler handles erasure for chat data.
-// Anonymizes message content and removes channel memberships.
+// Anonymizes message content and removes channel memberships, bookmarks and
+// mentions of the subject.
 type ChatErasureHandler struct {
 	pool *pgxpool.Pool
 }
@@ -289,7 +290,9 @@ func (h *ChatErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUI
 	if err := h.pool.QueryRow(ctx,
 		`SELECT
 		   (SELECT COUNT(*) FROM messages WHERE created_by = $1) +
-		   (SELECT COUNT(*) FROM channel_memberships WHERE user_id = $1)
+		   (SELECT COUNT(*) FROM channel_memberships WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM message_bookmarks WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM message_mentions WHERE user_id = $1)
 		`, userID,
 	).Scan(&count); err != nil {
 		return &models.ModuleErasurePreview{
@@ -338,6 +341,26 @@ func (h *ChatErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 	)
 	if err != nil {
 		return 0, fmt.Errorf("chat erasure: failed to delete channel memberships: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Remove the subject's own bookmarks. Pure own data, no third party involved.
+	res, err = tx.Exec(ctx,
+		`DELETE FROM message_bookmarks WHERE user_id = $1`, userID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("chat erasure: failed to delete message bookmarks: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Remove mentions of the subject only. The mentioning message can belong to
+	// somebody else and must survive untouched -- only the (message_id,
+	// user_id) row that names the subject as the mentioned person is removed.
+	res, err = tx.Exec(ctx,
+		`DELETE FROM message_mentions WHERE user_id = $1`, userID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("chat erasure: failed to delete message mentions: %w", err)
 	}
 	affected += int(res.RowsAffected())
 

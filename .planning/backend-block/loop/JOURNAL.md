@@ -4145,3 +4145,45 @@ Frühere Läufe liegen vollständig im Archiv:
   keine neue Tabelle, keine Route, keine Wire-Shape-Aenderung.
 - neue-units: keine
 - offen: keine
+
+## Iteration 68 — fix-chat-erasure-missing-bookmarks-mentions — done — 2026-08-22 09:26
+- commit: (folgt im naechsten Commit-Eintrag)
+- gebaut: `ChatErasureHandler` erfasste `message_bookmarks` und `message_mentions` (beide
+  `user_id`, CASCADE auf `users(id)`) weder in `PreviewErasure` noch in `ExecuteErasure` — beide
+  CASCADE-FKs feuern nie, weil `AuthErasureHandler` den Nutzer anonymisiert statt loescht
+  (dasselbe Muster wie `channel_memberships`/`project_members`, das war die Vorlage).
+  `PreviewErasure` zaehlt jetzt zusaetzlich beide Tabellen; `ExecuteErasure` loescht
+  `message_bookmarks WHERE user_id = $1` (reine Eigendaten) und `message_mentions
+  WHERE user_id = $1` (nur die Zeile, in der der geloeschte Nutzer die ERWAEHNTE Person ist —
+  die Nachricht selbst bleibt unberuehrt, auch wenn sie von jemand anderem stammt). Struct-Doc-
+  Kommentar auf `ChatErasureHandler` ergaenzt.
+- gebaut (Tests): neue Datei `erasure_chat_bookmarks_mentions_test.go` mit zwei Helfern
+  (`seedMessageBookmark`, `seedMessageMention` — beide Tabellen composite PK ohne `id`,
+  `testutil.SeedRow` scheidet aus). `TestChatErasureHandler_ExecuteErasure_BookmarksAndMentions`
+  seedet eine fremde Nachricht (Kollege ist Autor), darin ein Bookmark und eine Mention des
+  Subjekts sowie eine zweite Mention des Kollegen selbst; belegt `affected == 2`, dass die
+  fremde Nachricht unveraendert bleibt, das Bookmark des Subjekts weg ist und nur seine
+  Mention geloescht wird, waehrend die Mention des Kollegen in derselben Nachricht ueberlebt.
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/... ./internal/gateway/...`) | lint ok (0 issues,
+  `./internal/security/... ./internal/gateway/...`) | test ok (`./internal/security/gdpr/` alle
+  Subtests PASS, 0 SKIP gegen `kmuhub_app`; `./internal/security/...` alle 7 Unterpakete ok) |
+  migration n.a. (keine Schema-Aenderung, beide Tabellen bestanden bereits inkl. RLS) |
+  rls-smoke n.a. (kein Schema/Policy-Wechsel) | TestOpenAPIRouteDrift nicht gelaufen — keine
+  Route in dieser Unit angefasst, daher nicht Pflicht.
+- coverage: `internal/security/gdpr` 70,9 % -> 70,9 % (selbst gemessen per `git stash push -u`
+  auf genau die zwei geaenderten/neuen Dateien, `go test -coverprofile` davor/danach, `stash
+  pop`; Rundungsgleichstand, das Paket ist gross genug, dass ein paar neue Zeilen den
+  gerundeten Wert nicht bewegen — kein Messfehler).
+- mutations-probe: die `message_mentions`-DELETE-Zeile probeweise mit `AND false` entwertet →
+  `TestChatErasureHandler_ExecuteErasure_BookmarksAndMentions` wird rot (affected 1 vs. 2,
+  Subjekt-Mention 1 vs. 0 erwartet). Zurueckgedreht, `git diff --stat erasure.go` zeigt wieder
+  ausschliesslich 25 Insertions/2 Deletions, Paket erneut vollstaendig gruen.
+- verify vorgaenger: sauber. `d72c0760` (Iteration 67, fix-work-erasure-missing-project-membership)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `erasure.go`) —
+  reine interne Erasure-Logik-Aenderung (project_members loeschen), kein Gateway-Handler, kein
+  Stub, kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine
+  Route, keine Wire-Shape-Aenderung. Mutations-Probe der Vorgaenger-Iteration im Journal
+  dokumentiert und plausibel.
+- neue-units: keine
+- offen: keine
