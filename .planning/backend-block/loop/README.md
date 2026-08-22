@@ -70,8 +70,13 @@ zwanzig Commits darauf stehen. `DATABASE_URL` (sonst laufen alle DB-Tests ins Sk
 **Voraussetzung fuer das CI-Signal: ein offener PR auf `backend-loop`.** `ci.yml` triggert nur auf
 `push: [main]` und `pull_request: [main]` — ein Push auf einen Branch ohne PR startet nichts. Der
 Treiber legt bewusst keinen an (`gh pr create` wuerde die beiden Review-Workflows zuenden, beide ohne
-Draft-Gate) und meldet stattdessen im Log, dass kein Lauf startete. Ist der PR gemergt, vor der
-naechsten Nacht einen neuen anlegen:
+Draft-Gate) und meldet stattdessen im Log, dass kein Lauf startete.
+
+⚠ **Korrektur 2026-08-22:** Hier stand "Ist der PR gemergt, vor der naechsten Nacht einen neuen
+anlegen". Das geht nicht. Nach dem Merge steht `backend-loop` auf `main`, die Commit-Differenz ist
+null, und `gh pr create` lehnt einen PR ohne Diff ab. Der PR wird deshalb **nach** dem Lauf angelegt,
+wenn der Treiber gepusht hat — `pull_request: opened` startet CI genauso wie `synchronize`. Genau so
+lief die Nachbereitung von Lauf 10 (PR #24). Ablauf:
 
 ```bash
 gh workflow disable "Claude PR Review"; gh workflow disable "Security Review"
