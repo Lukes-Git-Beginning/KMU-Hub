@@ -265,10 +265,10 @@ func writeBookingLine(
 		grossAmount = grossAmount.Abs()
 	}
 
-	// Determine rate key for account mapping
-	rateKey := truncateRate(item.TaxRate)
-	revenueAccount := RevenueAccountForRateAndMode(rateKey, taxMode)
-	buSchluessel := BUSchluesselForRate(rateKey)
+	// Determine account mapping from the exact rate — a truncated key would book
+	// 7.5% on the 7% account with BU key 2 (see RateKey).
+	revenueAccount := RevenueAccountForRateAndMode(item.TaxRate, taxMode)
+	buSchluessel := BUSchluesselForRate(item.TaxRate)
 
 	// Belegdatum: DDMM format (4 digits, no separator)
 	belegdatum := docDate.Format("0201") // Go: day=02, month=01
@@ -312,13 +312,6 @@ func writeBookingLine(
 func formatDecimalForDATEV(d decimal.Decimal) string {
 	s := d.StringFixed(2)
 	return strings.Replace(s, ".", ",", 1)
-}
-
-// truncateRate converts a decimal tax rate to its whole number string representation.
-// e.g., 19.00 -> "19", 7.00 -> "7", 0.00 -> "0"
-func truncateRate(rate decimal.Decimal) string {
-	intPart := rate.IntPart()
-	return fmt.Sprintf("%d", intPart)
 }
 
 // parseLineItems parses JSONB line items from raw JSON.

@@ -2477,7 +2477,7 @@ func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.Gener
 			break
 		}
 		for _, inv := range page {
-			rows = append(rows, financeDocToGoBDRows(inv.InvoiceNumber, inv.InvoiceDate, inv.CustomerName, inv.Status, inv.TaxMode, inv.LineItems, inv.Subtotal, 1)...)
+			rows = append(rows, dunning.BuildGoBDRows(inv.InvoiceNumber, inv.InvoiceDate, inv.CustomerName, inv.Status, inv.TaxMode, inv.LineItems, inv.Subtotal, 1)...)
 		}
 		last := page[len(page)-1]
 		d, id := last.InvoiceDate, last.ID
@@ -2499,7 +2499,7 @@ func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.Gener
 			break
 		}
 		for _, cn := range page {
-			rows = append(rows, financeDocToGoBDRows(cn.CreditNoteNumber, cn.CreatedAt, cn.CustomerName, "credit_note", cn.TaxMode, cn.LineItems, cn.Subtotal, -1)...)
+			rows = append(rows, dunning.BuildGoBDRows(cn.CreditNoteNumber, cn.CreatedAt, cn.CustomerName, "credit_note", cn.TaxMode, cn.LineItems, cn.Subtotal, -1)...)
 		}
 		last := page[len(page)-1]
 		d, id := last.CreatedAt, last.ID
@@ -2521,86 +2521,6 @@ func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.Gener
 		RecordCount:   int32(result.RowCount),
 		FormatVersion: "GoBD-CSV-1.0",
 	}, nil
-}
-
-// financeDocToGoBDRows splits one invoice or credit note into GoBD posting rows —
-// one per VAT rate for standard mode, or a single exempt row for reverse-charge /
-// Kleinunternehmer. Each row carries the SKR03 revenue account, DATEV BU key, net
-// and VAT amounts. sign is +1 for invoices and -1 for credit notes so the journal
-// nets out.
-func financeDocToGoBDRows(number string, docDate time.Time, customer, status, taxMode string, lineItemsJSON json.RawMessage, subtotal decimal.Decimal, sign int) []dunning.GoBDExportRow {
-	dateStr := docDate.Format("2006-01-02")
-	bookingText := fmt.Sprintf("Rechnung %s %s", number, customer)
-	signed := func(d decimal.Decimal) decimal.Decimal {
-		if sign < 0 {
-			return d.Neg()
-		}
-		return d
-	}
-
-	if taxMode == models.TaxModeReverseCharge || taxMode == models.TaxModeKleinunternehmer {
-		return []dunning.GoBDExportRow{{
-			InvoiceNumber: number,
-			InvoiceDate:   dateStr,
-			CustomerName:  customer,
-			Account:       datev.RevenueAccountForRateAndMode("0", taxMode),
-			TaxKey:        datev.BUSchluesselForRate("0"),
-			TaxRate:       "0",
-			NetAmount:     signed(subtotal).StringFixed(2),
-			TaxAmount:     "0.00",
-			GrossTotal:    signed(subtotal).StringFixed(2),
-			Status:        status,
-			TaxMode:       taxMode,
-			BookingText:   bookingText,
-		}}
-	}
-
-	var items []models.LineItem
-	if len(lineItemsJSON) > 0 {
-		_ = json.Unmarshal(lineItemsJSON, &items)
-	}
-
-	hundred := decimal.NewFromInt(100)
-	type rateGroup struct {
-		rate decimal.Decimal
-		net  decimal.Decimal
-		tax  decimal.Decimal
-	}
-	order := make([]string, 0)
-	groups := make(map[string]*rateGroup)
-	for _, item := range items {
-		lineTotal := item.Quantity.Mul(item.UnitPrice)
-		lineTax := lineTotal.Mul(item.TaxRate).Div(hundred).Round(2)
-		key := fmt.Sprintf("%d", item.TaxRate.IntPart())
-		g, ok := groups[key]
-		if !ok {
-			g = &rateGroup{rate: item.TaxRate}
-			groups[key] = g
-			order = append(order, key)
-		}
-		g.net = g.net.Add(lineTotal)
-		g.tax = g.tax.Add(lineTax)
-	}
-
-	rows := make([]dunning.GoBDExportRow, 0, len(order))
-	for _, key := range order {
-		g := groups[key]
-		rows = append(rows, dunning.GoBDExportRow{
-			InvoiceNumber: number,
-			InvoiceDate:   dateStr,
-			CustomerName:  customer,
-			Account:       datev.RevenueAccountForRateAndMode(key, taxMode),
-			TaxKey:        datev.BUSchluesselForRate(key),
-			TaxRate:       key,
-			NetAmount:     signed(g.net).StringFixed(2),
-			TaxAmount:     signed(g.tax).StringFixed(2),
-			GrossTotal:    signed(g.net.Add(g.tax)).StringFixed(2),
-			Status:        status,
-			TaxMode:       taxMode,
-			BookingText:   bookingText,
-		})
-	}
-	return rows
 }
 
 // ============================================================================

@@ -87,3 +87,44 @@ Frühere Läufe liegen vollständig im Archiv:
   `RETENTION_MODE` bleibt `dry_run`.
 
 ---
+
+## Iteration 1 — fix-gobd-export-tax-grouping-rate-key-collision — done — 2026-08-22 23:00
+- commit: 88be90d3
+- gebaut: Die USt-Gruppierung des GoBD-Exports liegt nicht mehr im gRPC-Handler, sondern als
+  `dunning.BuildGoBDRows` im Service-Paket (`internal/biz/dunning/gobd_rows.go`);
+  `financeDocToGoBDRows` in `internal/server/biz_grpc.go` ist ersatzlos entfallen. Der
+  Gruppenschlüssel ist jetzt der exakte Satz (`datev.RateKey`, "19"/"7"/"7.5") statt
+  `TaxRate.IntPart()`; das Zeilennetto wird vor dem Summieren auf Cent gerundet. Die beiden
+  Mapping-Funktionen `RevenueAccountForRateAndMode` und `BUSchluesselForRate` nehmen jetzt
+  `decimal.Decimal` statt eines abgeschnittenen Strings und liefern für jeden nicht-deutschen
+  Satz das generische Erlöskonto 8200 ohne BU-Schlüssel, statt ihn auf 8300/BU 2 zu buchen.
+  Der zweite Caller `datev/exporter.go` (`truncateRate`, gleiche Fehlerklasse) ist mitgezogen
+  und `truncateRate` entfernt. Der ungenutzte `RevenueAccountForRate(string)` ist entfallen —
+  null Produktionsaufrufer, und seine String-Signatur war genau die Falle.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/server 70,5 % -> 70,6 % · internal/biz/dunning 61,8 % -> 65,1 % ·
+  internal/biz/datev 79,7 % -> 79,5 % (datev sinkt, weil zwei vollständig abgedeckte Funktionen
+  gelöscht wurden — der Nenner schrumpft, ungedeckte Zeilen kamen keine dazu)
+- mutations-probe: zwei Läufe, beide am finalen Tree.
+  (a) `key := datev.RateKey(item.TaxRate)` zurück auf `fmt.Sprintf("%d", item.TaxRate.IntPart())`
+  gedreht -> `TestBuildGoBDRows_SeparatesFractionalRateFromWholeRate` rot, und die Ausgabe zeigt
+  den Produktionsschaden wörtlich: 7 % und 7,5 % fallen zu EINER Zeile Konto 8300 / BU 2 mit
+  Netto 300,00 zusammen (DATEV rechnet darauf 21,00 statt der belegten 22,00 USt).
+  (b) `.Round(2)` am Zeilennetto entfernt -> `TestBuildGoBDRows_RoundsLineNetBeforeSumming` rot
+  (9,99 statt 10,00; brutto 11,89 statt 11,90). Beide zurückgedreht, Paket wieder grün, Diff sauber.
+- verify vorgaenger: sauber — die drei Commits vor dieser Iteration (`69595874`, `832eee78`,
+  `a859974c`) berühren ausschließlich `.planning/`; kein Go-Code, keine Migration, keine Route,
+  also keine der acht Fehlerklassen anwendbar.
+- neue-units: keine. Der Rundungs-Divergenz-Befund in `datev/exporter.go` (nur der Bruttobetrag
+  wird gerundet) steht bereits als A2 im Backlog und wurde bewusst NICHT mitgefixt; ebenso die
+  Schwesterfunktion `tax.Calculate` (A3).
+- offen: (1) DB-Gate lief: `DATABASE_URL` als `kmuhub_app` gesetzt, **0 übersprungene Tests** in
+  allen drei Paketen, 12 `SkipIfNoDB`-Tests real gelaufen (7 in `internal/server`, 3 in
+  `internal/biz/datev`, keiner in `dunning`). `go test ./internal/gateway/` grün, obwohl keine
+  Route angefasst wurde. (2) Fachliche Annahme, die Luke prüfen sollte: für einen Satz, den SKR03
+  nicht kennt (7,5 %, historisch 16 %/5 %), buche ich auf **8200 "Erlöse" ohne BU-Schlüssel**
+  statt wie bisher still auf 8300/BU 2. Das ist konservativ (kein automatischer Steuerabzug,
+  der Steuerberater muss zuordnen) — falls die Buchhaltung ein anderes Sammelkonto will, ist es
+  eine Konstante in `datev/mapping.go`. (3) Der CSV-Spaltenwert "Steuersatz" trägt jetzt den
+  exakten Satz; für 19 und 7 ändert sich nichts, ein früher als "7" exportierter 7,5-%-Beleg
+  erscheint künftig als "7.5".

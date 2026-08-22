@@ -208,7 +208,7 @@ units:
     service: server
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 70,5 % (CI-Stand 32570176303)"
     scope: >
       `GenerateGoBDExport` (`internal/server/biz_grpc.go:2451`) baut ab Zeile 2560 eine eigene
