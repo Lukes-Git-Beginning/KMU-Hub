@@ -454,7 +454,7 @@ units:
     service: biz
     model: sonnet
     deps: [feat-einvoice-vat-category-rules]
-    status: todo
+    status: done
     coverage_start: "internal/biz/einvoice 81,9 % (CI-Stand 32570176303)"
     scope: >
       Dritte Regelfamilie: die Kardinalitäten BR-01 bis BR-17 — welche Elemente überhaupt

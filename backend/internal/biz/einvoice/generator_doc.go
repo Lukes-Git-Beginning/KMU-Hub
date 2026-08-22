@@ -69,11 +69,23 @@ type invoiceDoc struct {
 	TaxGroups []docTaxGroup
 
 	// Totals are recomputed from Lines, never copied from the invoice record, so
-	// the emitted document always satisfies EN 16931 BR-CO-10/13/14/15.
+	// the emitted document always satisfies EN 16931 BR-CO-10/13/14/15. Being
+	// struct fields written unconditionally by both generators (LineExtensionAmount
+	// /TaxExclusiveAmount/TaxInclusiveAmount/PayableAmount in generator_ubl.go,
+	// the Summation block in generator_cii.go), they also guarantee presence for
+	// BR-12 (BT-106), BR-13 (BT-109), BR-14 (BT-112) and BR-15 (BT-115, written as
+	// GrossTotal — this product tracks no partial payment to subtract from it).
 	LineTotal  decimal.Decimal
 	TaxTotal   decimal.Decimal
 	GrossTotal decimal.Decimal
 }
+
+// lean: BR-17 (Payee name, BT-59, mandatory when the payee differs from the
+// seller) has no runtime check because the data model has no distinct payee
+// concept to compare against — docBank is the seller's own account, not a
+// separate payee party, and neither generator emits a PayeeParty group. Add the
+// field and this check the day the product supports a factoring or collection
+// agency as payee.
 
 type docParty struct {
 	Name string
@@ -123,10 +135,10 @@ type docTaxGroup struct {
 // be rendered into a well-formed document at all.
 func buildInvoiceDoc(invoice models.Invoice, settings models.CompanySettings, buyerReference string) (*invoiceDoc, error) {
 	if strings.TrimSpace(invoice.InvoiceNumber) == "" {
-		return nil, fmt.Errorf("%w: invoice number (BT-1) is empty", ErrGenerateFailed)
+		return nil, fmt.Errorf("%w: invoice number (BT-1, BR-02) is empty", ErrGenerateFailed)
 	}
 	if invoice.InvoiceDate.IsZero() {
-		return nil, fmt.Errorf("%w: issue date (BT-2) is not set on invoice %s", ErrGenerateFailed, invoice.InvoiceNumber)
+		return nil, fmt.Errorf("%w: issue date (BT-2, BR-03) is not set on invoice %s", ErrGenerateFailed, invoice.InvoiceNumber)
 	}
 
 	var items []models.LineItem
@@ -136,9 +148,12 @@ func buildInvoiceDoc(invoice models.Invoice, settings models.CompanySettings, bu
 		}
 	}
 	if len(items) == 0 {
-		return nil, fmt.Errorf("%w: invoice %s has no line items (BG-25)", ErrGenerateFailed, invoice.InvoiceNumber)
+		return nil, fmt.Errorf("%w: invoice %s has no line items (BG-25, BR-16)", ErrGenerateFailed, invoice.InvoiceNumber)
 	}
 
+	// BR-05: the currency code (BT-5) is mandatory. Never actually empty by the
+	// time it reaches validateInvoiceDoc — this fallback guarantees it — so BR-05
+	// needs no runtime rejection of its own; only BR-CL-04 (the code list) does.
 	currency := strings.TrimSpace(invoice.Currency)
 	if currency == "" {
 		currency = models.DefaultCurrency

@@ -122,6 +122,11 @@ func validateInvoiceDoc(doc *invoiceDoc, profile Profile) error {
 
 	// BG-4 seller, BG-7 buyer. Name and country are the identifying minimum; the
 	// address parts below are only mandatory under the German CIUS.
+	//
+	// BR-08 (seller postal address, BG-5) and BR-10 (buyer postal address, BG-8)
+	// need no check of their own: country (BT-40/BT-55) is the only element EN
+	// 16931 actually requires inside either group, so the BR-09/BR-11 checks below
+	// already prove the group is present.
 	if strings.TrimSpace(doc.Seller.Name) == "" {
 		add("BR-06", "BT-27", "the company settings carry no company name")
 	}

@@ -258,6 +258,7 @@ func TestGenerateUBL_Rejections(t *testing.T) {
 		invoice.InvoiceNumber = "  "
 		_, err := GenerateUBL(invoice, testSettings(), "")
 		require.ErrorIs(t, err, ErrGenerateFailed)
+		assert.Contains(t, err.Error(), "BR-02", "the rejection must be searchable against a receiver's validation report")
 	})
 
 	t.Run("missing issue date", func(t *testing.T) {
@@ -265,6 +266,7 @@ func TestGenerateUBL_Rejections(t *testing.T) {
 		invoice.InvoiceDate = time.Time{}
 		_, err := GenerateUBL(invoice, testSettings(), "")
 		require.ErrorIs(t, err, ErrGenerateFailed)
+		assert.Contains(t, err.Error(), "BR-03")
 	})
 
 	t.Run("no line items", func(t *testing.T) {
@@ -272,6 +274,7 @@ func TestGenerateUBL_Rejections(t *testing.T) {
 		invoice.LineItems = json.RawMessage(`[]`)
 		_, err := GenerateUBL(invoice, testSettings(), "")
 		require.ErrorIs(t, err, ErrGenerateFailed)
+		assert.Contains(t, err.Error(), "BR-16")
 	})
 
 	t.Run("unparseable line items", func(t *testing.T) {
