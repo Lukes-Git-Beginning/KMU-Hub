@@ -194,6 +194,50 @@ func TestValidate_SellerTaxRuleFollowsTheCategory(t *testing.T) {
 }
 
 // ============================================================================
+// Code lists (BR-CL-04, BR-CL-14)
+// ============================================================================
+
+func TestValidate_RejectsUnsupportedCurrency(t *testing.T) {
+	t.Parallel()
+
+	inv := testInvoice(t)
+	inv.Currency = "EURO"
+
+	err := Validate(inv, testSettings(), "", ProfileEN16931)
+	assert.Equal(t, []string{"BT-5"}, violationTerms(t, err))
+	assert.Contains(t, err.Error(), "BR-CL-04")
+
+	for _, cur := range []string{"EUR", "CHF", "USD"} {
+		inv.Currency = cur
+		assert.NoError(t, Validate(inv, testSettings(), "", ProfileEN16931), "currency %s must be accepted", cur)
+	}
+}
+
+// TestValidate_RejectsUnsupportedCountry uses a two-letter, real ISO 3166-1
+// code outside the DACH whitelist ("FR") rather than a nonsense name: any
+// unrecognised name of a different length already falls back to "DE" inside
+// isoCountryCode (generator_doc.go) and would never reach this check — only a
+// bare two-letter passthrough does. Both BT-40 and BT-55 fire, because
+// buildBuyerParty currently derives the buyer country from the seller's own
+// (see its lean comment) — a receiver's validator still reports them as two
+// distinct terms.
+func TestValidate_RejectsUnsupportedCountry(t *testing.T) {
+	t.Parallel()
+
+	settings := testSettings()
+	settings.Country = "FR"
+
+	err := Validate(testInvoice(t), settings, "", ProfileEN16931)
+	assert.ElementsMatch(t, []string{"BT-40", "BT-55"}, violationTerms(t, err))
+	assert.Contains(t, err.Error(), "BR-CL-14")
+
+	for _, country := range []string{"Deutschland", "Österreich", "Schweiz", "AT", "CH"} {
+		settings.Country = country
+		assert.NoError(t, Validate(testInvoice(t), settings, "", ProfileEN16931), "country %s must be accepted", country)
+	}
+}
+
+// ============================================================================
 // BT-32 fallback
 // ============================================================================
 

@@ -34,6 +34,33 @@ const (
 	ProfileXRechnung Profile = "xrechnung"
 )
 
+// allowedCurrencies are the ISO 4217 codes BR-CL-04 lets an invoice currency
+// (BT-5) carry.
+//
+// lean: DACH-only whitelist, not the full ISO 4217 list (180+ entries this
+// product never emits). USD/CHF are already handled downstream (see the WKZ
+// comment in datev/exporter.go); widen here the day a customer bills in
+// another currency, not before.
+var allowedCurrencies = map[string]bool{
+	"EUR": true,
+	"CHF": true,
+	"USD": true,
+}
+
+// allowedCountries are the ISO 3166-1 alpha-2 codes BR-CL-14 lets a seller
+// (BT-40) or buyer (BT-55) country carry.
+//
+// lean: DE/AT/CH whitelist, per the DACH-KMU target market (CLAUDE.md
+// Zielgruppe). isoCountryCode (generator_doc.go) already normalises common
+// spellings of these three to their code; anything else it passes through
+// unchecked as a bare two-letter guess, which is exactly the gap this closes.
+// Widen once a customer invoices outside DE/AT/CH.
+var allowedCountries = map[string]bool{
+	"DE": true,
+	"AT": true,
+	"CH": true,
+}
+
 // ValidationViolation is a single unmet requirement.
 type ValidationViolation struct {
 	// Rule is the business rule identifier (e.g. "BR-S-02"), empty where the CIUS
@@ -106,6 +133,24 @@ func validateInvoiceDoc(doc *invoiceDoc, profile Profile) error {
 	}
 	if strings.TrimSpace(doc.Buyer.Country) == "" {
 		add("BR-11", "BT-55", "the invoice has no customer country")
+	}
+
+	// BR-CL-04: the invoice currency has to be a real ISO 4217 code, not
+	// whatever a caller happened to pass in — buildInvoiceDoc only defaults an
+	// empty one, it never validates it.
+	if !allowedCurrencies[doc.Currency] {
+		add("BR-CL-04", "BT-5", "currency %q is not a supported ISO 4217 code", doc.Currency)
+	}
+
+	// BR-CL-14: seller and buyer country both have to be real ISO 3166-1
+	// alpha-2 codes. isoCountryCode maps known spellings to DE/AT/CH but
+	// passes anything else through as a bare two-letter guess (e.g. settings
+	// carrying "XX" comes out as "XX") — that guess is what this catches.
+	if doc.Seller.Country != "" && !allowedCountries[doc.Seller.Country] {
+		add("BR-CL-14", "BT-40", "seller country %q is not a supported ISO 3166-1 code", doc.Seller.Country)
+	}
+	if doc.Buyer.Country != "" && !allowedCountries[doc.Buyer.Country] {
+		add("BR-CL-14", "BT-55", "customer country %q is not a supported ISO 3166-1 code", doc.Buyer.Country)
 	}
 
 	// Whichever VAT category an invoice uses, the seller has to be identified for
