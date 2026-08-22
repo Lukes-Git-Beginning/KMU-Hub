@@ -298,6 +298,30 @@ func TestGenerateUBL_Rejections(t *testing.T) {
 		_, err := GenerateUBL(invoice, testSettings(), "")
 		require.NoError(t, err)
 	})
+
+	// The write path (invoice.Service, tax.Calculate) sums UNROUNDED line nets while
+	// this generator rounds each net to cents first (BR-CO-10). Four lines that each
+	// drift half a cent put the two orders two cents apart — past the flat 0.01 this
+	// guard used to carry, which would have refused to export an ordinary invoice.
+	t.Run("write-path rounding order stays acceptable on many lines", func(t *testing.T) {
+		invoice := halfCentDriftInvoice(t)
+		// What tax.Calculate stores today: the unrounded nets sum to 199.98 exactly,
+		// against the document's sum of rounded nets, 200.00.
+		invoice.Subtotal = decimal.RequireFromString("199.98")
+		invoice.TotalTax = decimal.RequireFromString("38.00")
+		invoice.GrossTotal = decimal.RequireFromString("237.98")
+		_, err := GenerateUBL(invoice, testSettings(), "")
+		require.NoError(t, err)
+	})
+
+	// Scaling the tolerance with the line count must not turn the guard off: a stale
+	// figure on the same invoice still has to be caught.
+	t.Run("stale total is still caught on many lines", func(t *testing.T) {
+		invoice := halfCentDriftInvoice(t)
+		invoice.GrossTotal = decimal.RequireFromString("238.50")
+		_, err := GenerateUBL(invoice, testSettings(), "")
+		require.ErrorIs(t, err, ErrTotalsMismatch)
+	})
 }
 
 // ============================================================================
@@ -379,4 +403,33 @@ func TestIsoCountryCode(t *testing.T) {
 	assert.Equal(t, "CH", isoCountryCode("Schweiz"))
 	assert.Equal(t, "FR", isoCountryCode("fr"))
 	assert.Equal(t, "DE", isoCountryCode("Irgendwo"))
+}
+
+// halfCentDriftInvoice is four identical lines of 1.5 x 33.33 = 49.995 at 19 %.
+// Every net sits on a half cent and drifts the same way, so the two rounding orders
+// separate by the full two cents: 4 x 50.00 = 200.00 against round(199.98) = 199.98.
+// That is the smallest invoice on which the old flat 0.01 tolerance was wrong.
+func halfCentDriftInvoice(t *testing.T) models.Invoice {
+	t.Helper()
+
+	dec := decimal.RequireFromString
+	items := make([]models.LineItem, 0, 4)
+	for i := 1; i <= 4; i++ {
+		items = append(items, models.LineItem{
+			Position:    i,
+			Description: "Projektstunden",
+			Quantity:    dec("1.5"),
+			UnitPrice:   dec("33.33"),
+			TaxRate:     decimal.NewFromInt(19),
+		})
+	}
+	raw, err := json.Marshal(items)
+	require.NoError(t, err)
+
+	invoice := testInvoice(t)
+	invoice.LineItems = raw
+	invoice.Subtotal = dec("200.00")
+	invoice.TotalTax = dec("38.00")
+	invoice.GrossTotal = dec("238.00")
+	return invoice
 }

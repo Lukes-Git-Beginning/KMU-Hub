@@ -255,7 +255,7 @@ units:
     service: biz
     model: opus
     deps: [fix-gobd-export-tax-grouping-rate-key-collision]
-    status: todo
+    status: done
     coverage_start: "internal/biz/einvoice 81,9 % · internal/biz/tax 100 % (CI-Stand 32570176303)"
     scope: >
       Dieselbe Steuerarithmetik existiert nach A1 noch dreimal unabhängig voneinander, und die
@@ -354,6 +354,12 @@ units:
       im Journal nennen, bevor gerundet wird.
       Der Test braucht eine Menge mit Nachkommastellen und einen Preis mit drei Stellen, sonst
       beweist er nichts. Glatte Beträge sind hier ein wertloser Test.
+      Nachtrag aus A2 (Lauf 11, Iteration 2): die Toleranz ist seit A2 keine Konstante mehr,
+      sondern skaliert mit der Zeilenzahl (`einvoice.totalsTolerance`, 0,005 je Zeile, Boden
+      0,01) — genau weil die Schreibseite ungerundet summiert und der Generator seit A2
+      gerundet summiert. Wer hier rundet, verkleinert diese Differenz und muss zusammen mit
+      `fix-write-path-line-total-unrounded-everywhere` entscheiden, ob die Toleranz zurueck
+      auf einen festen Wert kann.
     done_when:
       - Der Zeilenbetrag wird auf zwei Stellen gerundet, bevor er summiert wird
       - Ein Test mit Bruchmenge und dreistelligem Einzelpreis belegt Netto, Steuer und Brutto
@@ -2737,3 +2743,52 @@ units:
       - Jede behauptete Lücke ist mit befüllten Daten gezeigt, nicht mit zwei Nullen
       - Jeder Fund ist als eigene Unit angelegt
       - neue-units im Journal nennt die IDs, die wirklich in BACKLOG.yml stehen
+
+  - id: fix-write-path-line-total-unrounded-everywhere
+    phase: 4
+    service: biz
+    model: opus
+    deps: [fix-tax-rounding-divergence-across-implementations]
+    status: todo
+    coverage_start: "internal/biz/invoice 43,1 % · internal/biz/quote · internal/biz/creditnote · internal/biz/recurring · internal/biz/pdf (je eigene Messung)"
+    scope: >
+      Befund aus A2 (Iteration 2, Lauf 11). Der E-Rechnungs-Generator rundet den Zeilenbetrag
+      jetzt auf Cent, bevor er summiert — BR-CO-10 vergleicht BT-106 exakt gegen die Summe der
+      geschriebenen Zeilenbetraege und kennt keine Toleranz. Die SCHREIBSEITE tut das nicht:
+      an sieben Stellen steht `LineTotal = Quantity.Mul(UnitPrice)` ohne `.Round(2)`, und
+      `tax.Calculate` summiert diese ungerundeten Betraege zum Subtotal.
+      Folge: bei Bruchmengen weicht das gespeicherte Netto (und damit PDF und UI) um Cent vom
+      Netto der XRechnung ab. Vier Zeilen zu 1,5 x 33,33 EUR ergeben gespeichert 199,98 und im
+      XML 200,00. Ueberbrueckt wird das derzeit durch die mit der Zeilenzahl skalierende
+      Toleranz in `einvoice.totalsTolerance` — die haelt den Export am Leben, macht die
+      Differenz aber nicht weg.
+      Die Stellen (alle ohne `.Round(2)`):
+      `invoice/service.go:151` und `:473`, `quote/service.go:121` und `:305`,
+      `creditnote/service.go:100`, `recurring/service.go:482`, `pdf/templates.go:154`,
+      dazu `tax/calculator.go:70` (dort ist es A3/A4-Gebiet — abstimmen, nicht doppelt fixen).
+    sources:
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/quote/service.go
+      - backend/internal/biz/creditnote/service.go
+      - backend/internal/biz/recurring/service.go
+      - backend/internal/biz/pdf/templates.go
+      - backend/internal/biz/tax/calculator.go
+      - backend/internal/biz/einvoice/generator_doc.go
+    notes: >
+      Reihenfolge beachten: erst `fix-tax-calculator-line-total-unrounded` (A4), sonst rundet
+      die Schreibseite die Zeile und `tax.Calculate` summiert weiter ungerundet — dann stimmt
+      gar nichts mehr. Beide muessen im selben Zustand landen.
+      `pdf/templates.go:154` ist dieselbe Fehlerklasse in sichtbarer Form: die gedruckten
+      Zeilen koennen sich nicht zur gedruckten Summe addieren. Mitziehen.
+      Sind alle Stellen gerundet, sollte die Toleranz in `einvoice.totalsTolerance` wieder auf
+      einen festen Wert zurueck koennen — das ist der Beweis, dass die Vereinheitlichung
+      wirklich durch ist. Erst pruefen, ob Alt-Rechnungen aus der Datenbank dann noch
+      exportieren; deren gespeicherte Summen bleiben ungerundet.
+      Kein Migrations-Backfill bestehender Rechnungen ohne Luke — das aendert gebuchte Betraege.
+    done_when:
+      - Alle sieben Schreibstellen runden den Zeilenbetrag auf zwei Stellen, bevor er
+        gespeichert oder summiert wird
+      - Ein Test je Paket mit Bruchmenge belegt, dass gespeichertes Netto und XRechnung-Netto
+        identisch sind (nicht nur beide "plausibel")
+      - Die Toleranzfrage in einvoice.totalsTolerance ist entschieden und begruendet
+      - go test -count=1 ./internal/biz/... gruen

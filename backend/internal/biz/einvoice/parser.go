@@ -549,6 +549,12 @@ func removeEmpty(parts []string) []string {
 
 // deriveTaxBreakdown computes a tax breakdown from line items when the document
 // does not contain explicit header-level tax entries.
+//
+// Rounding order: the per-line taxes are summed unrounded and only the group total
+// is rounded. That is arithmetically the same as BR-CO-17's "group net × rate,
+// rounded once", so a document this parser reconstructs a breakdown for lands on
+// the same figures the generator would have written for it. Do not switch this to
+// summing per-line rounded taxes — it would silently reintroduce the divergence.
 func deriveTaxBreakdown(items []ParsedLineItem) []ParsedTaxEntry {
 	type bucket struct {
 		net decimal.Decimal

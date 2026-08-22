@@ -128,3 +128,70 @@ Frühere Läufe liegen vollständig im Archiv:
   eine Konstante in `datev/mapping.go`. (3) Der CSV-Spaltenwert "Steuersatz" trägt jetzt den
   exakten Satz; für 19 und 7 ändert sich nichts, ein früher als "7" exportierter 7,5-%-Beleg
   erscheint künftig als "7.5".
+
+---
+
+## Iteration 2 — fix-tax-rounding-divergence-across-implementations — done — 2026-08-22 23:10
+- commit: <sha>
+- gebaut: Die vier Steuerarithmetiken runden weiterhin unterschiedlich — aber jetzt steht an
+  jeder Stelle, welche Regel ihre Reihenfolge fordert, und die zwei Stellen, die gegen EN 16931
+  verstießen, sind korrigiert. Im E-Rechnungs-Generator (`einvoice/generator_doc.go`) wird der
+  Zeilenbetrag jetzt auf Cent gerundet, BEVOR er summiert wird (BR-CO-10 vergleicht BT-106 exakt
+  gegen die Summe der geschriebenen Zeilenbeträge und kennt keine Toleranz — vorher wich BT-106
+  bei Bruchmengen von den eigenen Zeilen ab, was jedes XRechnung-Portal ablehnt). Die Gruppensteuer
+  BT-117 wird jetzt aus dem fertigen Gruppennetto BT-116 abgeleitet (BR-CO-17) statt aus
+  aufsummierten Zeilensteuern. `totalsTolerance` ist von der Konstanten 0,01 zu einer Funktion der
+  Zeilenzahl geworden (0,005 je Zeile, Boden 0,01), weil Schreibseite und Generator seither
+  systematisch bis zu einen halben Cent je Zeile auseinanderliegen — ohne das hätte der Fix
+  gewöhnliche fünfzeilige Rechnungen vom Export ausgesperrt. Dazu Rundungs-Notizen an allen vier
+  Stellen (`tax/calculator.go`, `einvoice/generator_doc.go`, `einvoice/parser.go`,
+  `datev/exporter.go`), jeweils mit der Regel, die sie fordert.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/biz/einvoice 81,9 % -> 82,1 % (eigene Messung vor/nach der Änderung,
+  `go tool cover -func`; deckt sich mit dem `coverage_start:` der Unit).
+  internal/biz/tax und internal/biz/datev nur Kommentare, Coverage unverändert.
+- mutations-probe: vier Läufe, jeweils am finalen Tree, jeweils zurückgedreht, Diff sauber.
+  (a) `net = net.Round(2)` im Generator entfernt -> `TestRoundtrip_FractionalQuantities_
+  HoldsEN16931SumRules` rot mit `BR-CO-10: sum of line nets 88.25 != BT-106 88.24`.
+  (b) Gruppensteuer zurück auf Aufsummieren der Zeilensteuern -> derselbe Test rot mit
+  `BR-CO-17: group 0 net 66.58 at 19% is 12.65, document says 12.66` plus `total tax: want 14.17,
+  got 14.18`.
+  (c) `totalsTolerance` zurück auf feste 0,01 -> `TestGenerateUBL_Rejections/write-path_rounding_
+  order_stays_acceptable_on_many_lines` rot (ErrTotalsMismatch auf einer korrekten Rechnung).
+  (d) Toleranz auf 0,05 je Zeile aufgerissen -> `.../stale_total_is_still_caught_on_many_lines`
+  rot. (c) und (d) zusammen klemmen die Toleranz von beiden Seiten ein.
+  Anmerkung zur Arbeitsweise: die erste Fassung des Fixtures bestand Probe (b) NICHT — bei 7,5
+  und 19 % fielen beide Rundungsreihenfolgen zufällig auf dieselbe Zahl. Das Fixture wurde
+  daraufhin auf fünf Zeilen umgebaut (zwei Materialpauschalen zu 8,29 EUR bei 19 %), bis beide
+  Regeln einzeln brechen. Ein Fixture, das nur eine der beiden Regeln bricht, lässt die andere
+  ungesehen zurückregressieren.
+- verify vorgaenger: sauber — `90d4b2ff` verschiebt `financeDocToGoBDRows` aus
+  `internal/server/biz_grpc.go` als `dunning.BuildGoBDRows` ins Service-Paket. Kein neuer
+  Gateway-Handler (also keine gRPC-Umgehung), kein Stub oder TODO im neuen Pfad, kein `.proto`,
+  keine Migration, kein `RequirePermission`, keine neue Tabelle, keine Route, keine
+  Response-Form geändert. Der Reverse-Charge-/Kleinunternehmer-Zweig ist vollständig
+  mitgezogen, der vorher verschluckte `json.Unmarshal`-Fehler wird jetzt geloggt.
+  `d21d2f2d` berührt nur das JOURNAL.
+- neue-units: `fix-write-path-line-total-unrounded-everywhere` (ans Backlog-Ende, deps auf diese
+  Unit). Sieben Schreibstellen berechnen `LineTotal = Quantity.Mul(UnitPrice)` ohne `.Round(2)`:
+  `invoice/service.go:151` und `:473`, `quote/service.go:121` und `:305`,
+  `creditnote/service.go:100`, `recurring/service.go:482`, `pdf/templates.go:154`. Dadurch weicht
+  das gespeicherte Netto (PDF, UI) bei Bruchmengen um Cent vom Netto der XRechnung ab — vier
+  Zeilen zu 1,5 x 33,33 EUR ergeben gespeichert 199,98 und im XML 200,00. Der Hinweis steht auch
+  in den `notes` von `fix-tax-calculator-line-total-unrounded` (A4), weil die beiden zusammen
+  entschieden werden müssen.
+- offen: (1) DB-Gate lief: `DATABASE_URL` als `kmuhub_app`, **0 übersprungene Tests** über
+  einvoice/tax/datev/invoice (300 Tests), darunter die drei Roundtrip-Tests und die
+  Tenant-Isolation. `go test ./internal/gateway/` und `./internal/server/` grün, obwohl keine
+  Route angefasst wurde. (2) **Die Toleranz ist bewusst weicher geworden**, und das ist der
+  Punkt, den Luke ansehen sollte: `totalsTolerance` erlaubt jetzt 0,005 je Zeile statt pauschal
+  0,01. Bei einer 40-Zeilen-Rechnung sind das 0,20 EUR, die als "Rundung" durchgehen. Das ist die
+  obere Schranke der Rundungsreihenfolge, also mathematisch begründet — aber die Schranke ist
+  nur so lange nötig, wie die Schreibseite ungerundet summiert. Mit
+  `fix-write-path-line-total-unrounded-everywhere` kann sie zurück auf einen festen Wert.
+  (3) Fachliche Nebenwirkung, die in der Buchhaltung sichtbar wird: die XRechnung eines
+  Bruchmengen-Belegs trägt ab jetzt bis zu wenige Cent mehr Netto als das PDF derselben
+  Rechnung. Vorher trug sie dieselbe Zahl wie das PDF — war dafür aber BR-CO-10-widrig und
+  hätte beim Empfänger abgelehnt werden können. Beide Zahlen decken sich erst wieder, wenn die
+  Schreibseite nachzieht. (4) Nicht angefasst, weil eigene Units: `tax.Calculate` rundet die
+  Zeilensteuer, aber nicht das Zeilennetto (A4), und sein Rate-Key trunkiert weiterhin (A3).

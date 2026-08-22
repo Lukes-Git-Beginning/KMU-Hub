@@ -256,7 +256,13 @@ func writeBookingLine(
 	docNumber string,
 	isCreditNote bool,
 ) error {
-	// Calculate gross amount for this line item (net + tax)
+	// Calculate gross amount for this line item (net + tax).
+	//
+	// Rounding order: per line, on purpose — every CSV row IS one Buchungssatz, and
+	// DATEV posts the gross "Umsatz" of that row and derives the tax itself from the
+	// BU-Schluessel. There is no group total in this format to round against, so the
+	// EN 16931 group rule (see einvoice.buildLinesAndTaxGroups) does not apply here.
+	// The net is intentionally not rounded separately: it is not written to the file.
 	grossAmount := item.LineTotal.Add(item.LineTotal.Mul(item.TaxRate.Div(decimal.NewFromInt(100))))
 	grossAmount = grossAmount.Round(2)
 

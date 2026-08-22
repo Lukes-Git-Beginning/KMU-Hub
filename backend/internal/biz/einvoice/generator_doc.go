@@ -30,9 +30,25 @@ const (
 	exemptionReasonKleinunternehmer = "Kleinunternehmer gemaess Paragraph 19 UStG"
 )
 
-// totalsTolerance is the largest difference between recomputed and stored totals
-// that is still treated as a rounding artefact rather than a data defect.
-var totalsTolerance = decimal.New(1, -2) // 0.01
+// halfCent is the largest amount a single line can move when its net is rounded
+// to cents. It is the unit the totals tolerance is built from.
+var halfCent = decimal.New(5, -3) // 0.005
+
+// totalsTolerance returns the largest difference between recomputed and stored
+// totals that is still a rounding artefact rather than a data defect.
+//
+// The write path (invoice.Service, tax.Calculate) sums UNROUNDED line nets, this
+// document rounds every line net to cents before summing (BR-CO-10, see
+// buildLinesAndTaxGroups). The two orders can disagree by up to half a cent per
+// line, so a fixed 0.01 would reject perfectly good three-line invoices with
+// fractional quantities. Anything beyond that bound is not a rounding order — it
+// is a stale stored figure, and that is what this guard is for.
+func totalsTolerance(lineCount int) decimal.Decimal {
+	if lineCount < 2 {
+		return decimal.New(1, -2) // 0.01 — floor, one line can never drift further
+	}
+	return halfCent.Mul(decimal.NewFromInt(int64(lineCount)))
+}
 
 // invoiceDoc is the format-neutral view of an outbound invoice.
 type invoiceDoc struct {
@@ -145,7 +161,7 @@ func buildInvoiceDoc(invoice models.Invoice, settings models.CompanySettings, bu
 	}
 	grossTotal := lineTotal.Add(taxTotal)
 
-	if err := assertTotalsMatch(invoice, lineTotal, taxTotal, grossTotal); err != nil {
+	if err := assertTotalsMatch(invoice, len(lines), lineTotal, taxTotal, grossTotal); err != nil {
 		return nil, err
 	}
 
@@ -262,6 +278,22 @@ func isPostalCode(s string) bool {
 // Deriving both from the same figure is what keeps BR-S-08 (category taxable amount
 // equals the sum of its line net amounts) true even when a stored line total was
 // rounded or adjusted.
+//
+// Rounding order (EN 16931, and the order the official Schematron enforces):
+//
+//   - Line net (BT-131) is rounded to cents HERE, before it is summed. BT-106 is
+//     compared against the sum of the line amounts as written, and BR-CO-10 has no
+//     tolerance: "Sum of Invoice line net amount (BT-106) = Σ (BT-131)". Summing
+//     unrounded nets and rounding only on output made BT-106 disagree with its own
+//     lines by a cent per fractional quantity — a document every XRechnung portal
+//     rejects.
+//   - Group tax (BT-117) is computed from the finished group net (BT-116), NOT as
+//     the sum of per-line taxes. BR-CO-17: "VAT category tax amount = VAT category
+//     taxable amount × (rate / 100), rounded to two decimals".
+//
+// This is deliberately NOT the order tax.Calculate uses — see the note there. Both
+// are correct for their purpose; what was wrong was that nobody had written down
+// which is which.
 func buildLinesAndTaxGroups(items []models.LineItem, taxMode string) ([]docLine, []docTaxGroup) {
 	hundred := decimal.NewFromInt(100)
 	taxFree := taxMode == models.TaxModeReverseCharge || taxMode == models.TaxModeKleinunternehmer
@@ -275,6 +307,8 @@ func buildLinesAndTaxGroups(items []models.LineItem, taxMode string) ([]docLine,
 		if net.IsZero() {
 			net = item.Quantity.Mul(item.UnitPrice)
 		}
+		// BR-CO-10 compares BT-106 against the line amounts as written, exactly.
+		net = net.Round(2)
 
 		rate := item.TaxRate
 		if taxFree {
@@ -306,12 +340,15 @@ func buildLinesAndTaxGroups(items []models.LineItem, taxMode string) ([]docLine,
 			order = append(order, key)
 		}
 		g.TaxableNet = g.TaxableNet.Add(net)
-		g.TaxAmount = g.TaxAmount.Add(net.Mul(rate).Div(hundred).Round(2))
 	}
 
 	out := make([]docTaxGroup, 0, len(order))
 	for _, key := range order {
-		out = append(out, *groups[key])
+		g := groups[key]
+		// BR-CO-17: BT-117 is derived from the finished BT-116, not accumulated
+		// from per-line taxes. The two differ once a group holds enough lines.
+		g.TaxAmount = g.TaxableNet.Mul(g.Rate).Div(hundred).Round(2)
+		out = append(out, *g)
 	}
 	return lines, out
 }
@@ -336,7 +373,7 @@ func taxCategoryFor(taxMode string, rate decimal.Decimal) (category, exemptionRe
 // the ones the customer sees on the PDF. The document itself always uses the
 // recomputed totals; a disagreement beyond rounding means the stored figures are
 // stale, and shipping either version silently would be wrong.
-func assertTotalsMatch(invoice models.Invoice, lineTotal, taxTotal, grossTotal decimal.Decimal) error {
+func assertTotalsMatch(invoice models.Invoice, lineCount int, lineTotal, taxTotal, grossTotal decimal.Decimal) error {
 	if invoice.GrossTotal.IsZero() && invoice.Subtotal.IsZero() {
 		// Totals were never computed for this record — nothing to compare against.
 		return nil
@@ -349,7 +386,7 @@ func assertTotalsMatch(invoice models.Invoice, lineTotal, taxTotal, grossTotal d
 		{"total tax", invoice.TotalTax, taxTotal},
 		{"gross total", invoice.GrossTotal, grossTotal},
 	} {
-		if c.stored.Sub(c.computed).Abs().GreaterThan(totalsTolerance) {
+		if c.stored.Sub(c.computed).Abs().GreaterThan(totalsTolerance(lineCount)) {
 			return fmt.Errorf("%w: invoice %s %s stored %s, recomputed %s",
 				ErrTotalsMismatch, invoice.InvoiceNumber, c.name,
 				c.stored.StringFixed(2), c.computed.StringFixed(2))
