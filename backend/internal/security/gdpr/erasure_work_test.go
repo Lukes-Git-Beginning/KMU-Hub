@@ -76,13 +76,26 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "tasks", foreignTaskID)
 
-	timeEntryID := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+	// Older than the two-year ArbZG retention window (relative to "now" at
+	// authoring time, 2026-08-22) -- must be hard-deleted.
+	oldTimeEntryID := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+		"tenant_id":  tenantOwn,
+		"task_id":    bothTaskID,
+		"user_id":    userID,
+		"started_at": "2020-01-01T09:00:00Z",
+		"ended_at":   "2020-01-01T10:00:00Z",
+	})
+
+	// Inside the retention window -- must survive; the retention duty does not
+	// lapse just because erasure was requested.
+	recentTimeEntryID := testutil.SeedRow(t, pool, "time_entries", map[string]any{
 		"tenant_id":  tenantOwn,
 		"task_id":    bothTaskID,
 		"user_id":    userID,
 		"started_at": "2026-08-11T09:00:00Z",
 		"ended_at":   "2026-08-11T10:00:00Z",
 	})
+	defer testutil.CleanupRow(t, pool, "time_entries", recentTimeEntryID)
 
 	commentID := testutil.SeedRow(t, pool, "task_comments", map[string]any{
 		"tenant_id": tenantOwn,
@@ -99,7 +112,8 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	require.NoError(t, err)
 	// 3 tasks touched (both-task counts once, created-only counts once,
 	// assigned-only counts once; the foreign task is untouched) + 1 time entry
-	// deleted + 1 comment anonymized = 5.
+	// (the one past the retention window) deleted + 1 comment anonymized = 5.
+	// recentTimeEntryID is inside the window and must not be counted.
 	assert.Equal(t, 5, affected, "each task is counted exactly once, regardless of matching both branches")
 
 	// The both-task loses its assignment.
@@ -129,11 +143,17 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	require.NotNil(t, assignee)
 	assert.Equal(t, colleagueID, *assignee)
 
-	// Time entries are deleted outright.
-	var timeEntryRows int
+	// Time entry past the ArbZG retention window is deleted outright.
+	var oldTimeEntryRows int
 	require.NoError(t, pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM time_entries WHERE id = $1`, timeEntryID).Scan(&timeEntryRows))
-	assert.Equal(t, 0, timeEntryRows, "time entries must be deleted, not anonymized")
+		`SELECT COUNT(*) FROM time_entries WHERE id = $1`, oldTimeEntryID).Scan(&oldTimeEntryRows))
+	assert.Equal(t, 0, oldTimeEntryRows, "time entries past the retention window must be deleted")
+
+	// Time entry still inside the retention window survives the erasure run.
+	var recentTimeEntryRows int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM time_entries WHERE id = $1`, recentTimeEntryID).Scan(&recentTimeEntryRows))
+	assert.Equal(t, 1, recentTimeEntryRows, "time entries inside the retention window must survive erasure")
 
 	// Task comments are anonymized, not deleted.
 	var commentContent string

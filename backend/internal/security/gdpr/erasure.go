@@ -4,12 +4,21 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// timeEntryRetentionDays is the conservative minimum a time entry survives a
+// GDPR erasure request before WorkErasureHandler hard-deletes it. Sec. 16(2)
+// ArbZG obliges employers to retain records of working hours for two years;
+// no ArbZG-specific column or constant exists elsewhere in the codebase for
+// task-level time tracking, so this figure is the documentation duty applied
+// conservatively rather than a value read out of an existing retention table.
+const timeEntryRetentionDays = 730
 
 // ErasureAction defines the type of erasure operation for a module.
 type ErasureAction string
@@ -389,9 +398,17 @@ func (h *WorkErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 	}
 	affected += int(res.RowsAffected())
 
-	// Delete time entries (personal data, no business retention need)
+	// Delete only time entries older than the retention window; entries still
+	// inside it survive untouched. Sec. 16(2) ArbZG requires employers to keep
+	// working-time records for two years, and that duty does not lapse because
+	// the employee later requests erasure. This does not leak identity: the
+	// users row is anonymized by AuthErasureHandler, registered before this
+	// handler (cmd/auth/main.go), so the surviving user_id FK already points at
+	// an anonymized sentinel -- the same reasoning tasks.created_by above and
+	// contacts/companies (CRMErasureHandler) already rely on.
 	res, err = tx.Exec(ctx,
-		`DELETE FROM time_entries WHERE user_id = $1`, userID,
+		`DELETE FROM time_entries WHERE user_id = $1 AND started_at < $2`,
+		userID, time.Now().UTC().AddDate(0, 0, -timeEntryRetentionDays),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("work erasure: failed to delete time entries: %w", err)

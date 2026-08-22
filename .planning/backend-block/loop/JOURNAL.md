@@ -3874,3 +3874,57 @@ Frühere Läufe liegen vollständig im Archiv:
     Subjekt-Matching-Quelle neben Kontakten und Benutzern und damit ein groesserer Eingriff als
     diese Unit — Architekturfrage fuer Luke, keine neue Unit angelegt (Vorgabe in den notes/
     done_when dieser Unit).
+
+## Iteration 63 — fix-work-erasure-time-entries-retention-conflict — done — 2026-08-22 08:48
+- commit: (siehe naechster docs-Commit)
+- gebaut: `WorkErasureHandler.ExecuteErasure` (`erasure.go`) loeschte bislang JEDEN Zeiteintrag
+  eines Nutzers sofort und unbedingt (`DELETE FROM time_entries WHERE user_id = $1`), mit dem
+  Kommentar "personal data, no business retention need" — ein Widerspruch zur eigenen Feststellung
+  aus Iteration 40, dass Zeiteintraege arbeitsrechtlich relevant sind (ArbZG-nahe Fristen). Fix:
+  neue Konstante `timeEntryRetentionDays = 730` (Sec. 16 Abs. 2 ArbZG, zwei Jahre — konservativ auf
+  die Task-Zeiterfassung angewandt, da im Code sonst keine ArbZG-spezifische Spalte/Konstante fuer
+  diese Tabelle existiert; das ist eine begruendete Annahme, kein aus einer bestehenden
+  Retention-Tabelle gelesener Wert). Das DELETE bekommt eine `AND started_at < <cutoff>`-Klausel:
+  nur Eintraege AELTER als die Frist werden hart geloescht, juengere ueberleben unveraendert.
+  Kein separates Anonymisieren des `user_id`-FK noetig: `AuthErasureHandler` (registriert VOR
+  `WorkErasureHandler` in `cmd/auth/main.go:109-112`) anonymisiert bereits die `users`-Zeile selbst
+  (Name/E-Mail geloescht) — derselbe Mechanismus, auf den sich `tasks.created_by` und
+  `contacts/companies.created_by` (CRMErasureHandler) schon verlassen. Ein junger Zeiteintrag zeigt
+  also weiterhin per FK auf einen bereits anonymisierten Nutzer, nicht auf eine identifizierbare
+  Person.
+- gebaut (Test): `erasure_work_test.go` — bestehender Zeiteintrag-Seed in zwei aufgeteilt: einer
+  mit `started_at` 2020 (jenseits der Frist, muss weiterhin hart geloescht werden — belegt den
+  Altfall) und einer mit `started_at` 2026-08-11 (innerhalb der Frist, darf NICHT geloescht werden
+  — neuer Pfad). Die alte Assertion "time entries must be deleted, not anonymized" war mit dem Fix
+  falsch geworden (der bestehende Seed lag innerhalb der Frist) und wurde durch zwei Assertions
+  ersetzt: Alteintrag = 0 Zeilen nach Erasure, junger Eintrag = weiterhin 1 Zeile.
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./internal/work/... ./cmd/gateway/...`)
+  | vet ok (`./internal/security/... ./internal/work/...`) | lint ok (0 issues,
+  `./internal/security/gdpr/...`) | test ok (`./internal/security/gdpr/` 124 PASS / 0 SKIP / 0 FAIL
+  gegen `kmuhub_app`; `./internal/work/...` alle 17 Unterpakete ok, seriell mit `-p 1` gefahren
+  nachdem ein paralleler Lauf zusammen mit gdpr an der Postgres-`max_connections`-Grenze der
+  lokalen Docker-Instanz scheiterte — reines Verbindungslimit, keine Regression, isoliert erneut
+  gruen) | migration n.a. (keine Schema-Aenderung) | rls-smoke n.a. (kein Schema/Policy-Wechsel) |
+  TestOpenAPIRouteDrift nicht gelaufen — keine Route in dieser Unit angefasst, daher nicht Pflicht.
+- coverage: `internal/security/gdpr` 70,7 % -> 70,7 % (selbst gemessen: `git stash` auf genau die
+  zwei geaenderten Dateien, `go test -coverprofile` davor/danach, `stash pop`; die Aenderung ist zu
+  klein, um die Paket-Prozentzahl sichtbar zu verschieben, aber die zwei neuen Testpfade sind
+  ueber die Assertions belegt, nicht ueber die Prozentzahl).
+- mutations-probe: `started_at < $2` zu `started_at > $2` verfaelscht (loescht junge statt alte
+  Eintraege) → `TestWorkErasureHandler_ExecuteErasure_Integration` wird rot (beide neuen
+  Assertions schlagen fehl: Alteintrag bleibt bestehen, junger Eintrag wird geloescht).
+  Zurueckgedreht, `git diff --stat erasure.go` zeigt wieder ausschliesslich die urspruenglichen
+  19 Insertions/2 Deletions, Paket erneut vollstaendig gruen (124 PASS).
+- verify vorgaenger: sauber. `3c92ac90` (Iteration 62, feat-dsar-search-invitation-history-module)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `dsar_search.go`) —
+  reine interne DSAR-Suchpfad-Erweiterung, kein Gateway-Handler (keine gRPC-Umgehung moeglich),
+  kein Stub, kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle,
+  keine Route, keine Wire-Shape-Aenderung. Tenant-Filter (`i.tenant_id = $1`) und der bewusste
+  Ausschluss offener Einladungen (`accepted_at IS NOT NULL`) durch die eigenen Tests der
+  Vorgaenger-Iteration belegt, inklusive der dort dokumentierten Mutations-Probe.
+- neue-units: keine
+- offen:
+  - Die 730-Tage-Frist ist eine begruendete, konservative Annahme (Sec. 16 Abs. 2 ArbZG), keine
+    aus einer bestehenden Konfigurationsquelle gelesene Zahl — falls es fuer die Task-Zeiterfassung
+    (im Unterschied zu `hr_work_time_entries`, dem eigentlichen ArbZG-Clock-in/out) eine andere
+    verbindliche Frist gibt, gehoert das von Luke geprueft.
