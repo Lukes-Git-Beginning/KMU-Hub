@@ -2287,3 +2287,74 @@ Frühere Läufe liegen vollständig im Archiv:
     Produktion bereits Zeilen in `task_custom_field_values` liegen
     (Karteileichen mit falschen field_id-Werten), sonst schlaegt die neue
     FK beim Anlegen fehl — siehe notes der neuen Fix-Unit.
+
+## Iteration 37 — fix-idempotency-real-sql-coverage-core — done — 2026-08-22 05:55
+- commit: (siehe naechster docs-Commit)
+- gebaut: `internal/idempotency/postgres_repository_db_test.go` (neu) testet
+  `postgresRepository` (Reserve, Get, Complete) gegen echtes SQL statt gegen
+  den In-Memory-Mock aus `repository_test.go`: frische Reservierung,
+  Replay nach Complete (inkl. JSONB-Body-Vergleich per `json.Unmarshal`,
+  weil Postgres den Body beim Round-Trip umformatiert), Conflict bei
+  abweichendem Hash, unbekannter Key bei Get/Complete,
+  reserviert-aber-nie-abgeschlossen (Get liefert CompletedAt nil,
+  ResponseStatus nil), Cross-Tenant-Complete (ErrKeyMissing ueber die
+  WHERE-Klausel, nicht nur RLS) und eine echte Zwei-Goroutinen-Kollision
+  auf demselben Schluessel.
+  BEFUND (kein Fix in dieser Unit, siehe unten): die Kollisions-Testrecherche
+  hat bestaetigt, dass die Postgres-Implementierung von `Reserve` NIEMALS
+  `ErrInFlight` zurueckgibt — anders als der eigene Doc-Kommentar
+  ("same hash, no response yet → ErrInFlight") und anders als der Mock.
+  Zwei gleichzeitige Reservierungen desselben Schluessels bekommen beide
+  `(nil, nil)`, solange `completed_at` noch NULL ist, und fuehren die
+  Handler-Logik dadurch beide aus. Bereits als `lean:`-Marker in
+  `internal/automation/workflow/webhook.go:164` bekannt, dort aber
+  ausdruecklich als "out of scope, pre-existing gap in shared infra"
+  markiert mit dem Hinweis "Upgrade when internal/idempotency's Reserve is
+  hardened for that race" — genau das ist jetzt als
+  `fix-idempotency-reserve-inflight-race` ans Backlog-Ende gehaengt, weil
+  die Luecke nicht nur den Webhook-Pfad betrifft, sondern die komplette
+  gemeinsame Infrastruktur hinter Dialer-Outcomes, Finance-Buchungen und
+  jeder anderen Idempotency-Key-Route.
+- gate: build ok (`-p 2` idempotency/..., cmd/gateway/..., cmd/automation/...)
+  | vet ok | lint ok (0 issues) | test ok (`internal/idempotency` komplett
+  gruen, 0 uebersprungene DB-Tests: 4 bestehende Mock-Tests + 4 bestehende
+  RLS-Tests + 9 neue Postgres-Tests) | migration n.a. (keine Schemaaenderung)
+  | rls-smoke ok (Cross-Tenant-Complete- und bestehende RLS-Tests laufen
+  als `kmuhub_app`) | gateway-route-drift n.a. (keine Route angefasst,
+  `go test ./internal/gateway/` daher nicht Pflicht fuer diese Unit)
+- coverage: internal/idempotency 0,0 % (eigene Messung ohne die neue
+  Testdatei — die bestehenden Tests riefen postgresRepository nie auf) ->
+  59,0 % (eigene Messung mit der neuen Testdatei)
+- mutations-probe: in `Reserve` (`postgres_repository.go:116`) die
+  Hash-Vergleichsbedingung mit `if false && rec.RequestHash != hash {`
+  deaktiviert -> `TestPostgresReserve_Conflict_DifferentHash` wird rot
+  (erwartet ErrConflict, bekommt nil). Zurueckgedreht ->
+  `git diff --stat internal/idempotency/postgres_repository.go` zeigt 0
+  Zeilen (nur eine harmlose LF/CRLF-Warnung beim Kopieren, keine
+  inhaltliche Aenderung).
+- verify vorgaenger: sauber. `ce77102f` (Iteration 36,
+  cov-gateway-work-labels-custom-fields) gegen alle acht Fehlerklassen
+  geprueft: `git show --stat ce77102f` zeigt ausschliesslich zwei neue
+  Testdateien (`route_work_labels_test.go`, `internal/work/label/
+  postgres_repository_db_test.go`) plus BACKLOG/JOURNAL — kein
+  Produktionscode angefasst, kein gRPC-Bypass, kein Stub/TODO, kein
+  `.proto` geaendert, keine neue `RequirePermission`, keine neue Tabelle,
+  keine Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route.
+  Folgecommit `f00740d7` ist nur der docs-SHA-Nachtrag im Journal.
+- neue-units: fix-idempotency-reserve-inflight-race (kritischer,
+  live-verifizierter Verhaltens-Bug: `Reserve` haelt seinen eigenen
+  ErrInFlight-Vertrag nicht ein, betrifft jede Idempotency-Key-Route)
+- offen:
+  - Vier Fix-Units stehen jetzt vor der naechsten Coverage-Unit im
+    Backlog (`fix-idempotency-real-sql-coverage-cleanup-concurrency` als
+    naechste, danach die drei seit Iteration 27/28/33 liegen gebliebenen:
+    `fix-email-contacts-csv-export-formula-injection`,
+    `fix-gateway-advisory-product-riskclass-not-validated`,
+    `fix-gateway-booking-page-services-no-dive`, dann
+    `fix-work-task-custom-field-values-wrong-fk` und die neue
+    `fix-idempotency-reserve-inflight-race`) — der Treiber zieht ohnehin
+    strikt die erste `todo`-Unit mit erfuellten `deps`, das ist bereits
+    die richtige Reihenfolge, keine manuelle Umsortierung noetig.
+  - Kein DB-Gate fuer eine Migration noetig (diese Unit aendert kein
+    Schema). Der neue Fix (`fix-idempotency-reserve-inflight-race`) ist
+    reine Code-Aenderung ueber `xmax = 0`, ebenfalls ohne Migration.

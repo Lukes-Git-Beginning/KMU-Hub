@@ -1306,7 +1306,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/idempotency (Paketwert im CI-Log nachschlagen, Run 32508843776)"
     scope: >
       `internal/idempotency` traegt die Doppelausfuehrungssperre fuer alle POST-Routen mit
@@ -2104,3 +2104,63 @@ units:
       - down-Migration stellt die alte FK wieder her
       - go test -count=1 ./internal/work/task/... ./internal/work/customfield/... gruen,
         DATABASE_URL gegen kmuhub_app
+
+  - id: fix-idempotency-reserve-inflight-race
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
+    scope: >
+      Gefunden in fix-idempotency-real-sql-coverage-core (Iteration 37, 2026-08-22), live gegen
+      die lokale DB verifiziert: `postgresRepository.Reserve` (internal/idempotency/postgres_repository.go:79)
+      kann unter der echten `INSERT ... ON CONFLICT (tenant_id, key) DO UPDATE ... RETURNING`-Query
+      NICHT unterscheiden zwischen "ich habe die Zeile gerade frisch angelegt" und "jemand anders
+      war eine Millisekunde vor mir mit demselben Schluessel da". Beide Faelle liefern
+      `(nil, nil)`, solange `completed_at` noch NULL ist — der dokumentierte Vertrag
+      ("same hash, no response yet → ErrInFlight", Zeile 47) wird vom Code nicht eingehalten;
+      `ErrInFlight` wird VON KEINER STELLE in `postgres_repository.go` je zurueckgegeben, nur vom
+      Mock in `repository_test.go`. Zwei nahezu gleichzeitige Requests mit demselben
+      Idempotency-Key fuehren die Handler-Logik dadurch BEIDE aus — genau der Doppelbuchungsfall,
+      den der Schluessel verhindern soll (Dialer-Outcomes, Finance-Buchungen, Webhooks).
+      Neu bewiesen in `internal/idempotency/postgres_repository_db_test.go`
+      (`TestPostgresReserve_ConcurrentSameKey_NoErrorEitherSide`, echte Nebenlaeufigkeit ueber
+      zwei Goroutinen). Bereits als Randnotiz bekannt, aber nur fuer EINEN Aufrufer als out-of-scope
+      markiert: `internal/automation/workflow/webhook.go:164` traegt seit einem frueheren Lauf einen
+      `lean:`-Marker genau dazu ("Upgrade when internal/idempotency's Reserve is hardened for
+      that race") — diese Unit ist dieses Upgrade, fuer die gemeinsame Infrastruktur statt nur
+      fuer den Webhook-Pfad.
+    sources:
+      - backend/internal/idempotency/postgres_repository.go
+      - backend/internal/idempotency/postgres_repository_db_test.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/automation/workflow/webhook.go
+    notes: >
+      Root Cause: die RETURNING-Zeile allein sagt nicht, ob der eigene INSERT oder der
+      ON-CONFLICT-Zweig gefeuert hat. Der uebliche Trick ist `xmax = 0` im RETURNING-Ausdruck
+      (xmax=0 heisst: diese Zeilenversion wurde von dieser Transaktion frisch eingefuegt, nicht
+      per UPDATE veraendert) — `RETURNING ..., (xmax = 0) AS inserted`. Bei `inserted = false` UND
+      `completed_at IS NULL` ist der Aufrufer NICHT der erste; das ist der Fall, der `ErrInFlight`
+      auslösen muss, nicht `(nil, nil)`.
+      Diese Aenderung veraendert das Verhalten von JEDEM bestehenden Aufrufer von `Reserve` —
+      `internal/middleware/idempotency.go` behandelt `ErrInFlight` bereits korrekt (Zeile 193,
+      `isInFlightErr`), ebenso `internal/automation/workflow/webhook.go` (Zeile 213). Beide Caller
+      pruefen, nicht anpassen ist das Ziel — sie sollen den Fehler jetzt tatsaechlich SEHEN statt
+      ihn nie auszuloesen.
+      Reine Code-Aenderung, kein Schema-Wechsel und keine neue Migration noetig (xmax ist
+      System-Spalte, keine Tabellenspalte).
+      Mutations-Probe Pflicht: `inserted`-Bedingung umdrehen oder entfernen, pruefen dass die
+      Concurrent-Reserve-Tests rot werden, zurueckdrehen.
+    done_when:
+      - Reserve liefert ErrInFlight fuer den Nicht-Gewinner einer gleichzeitigen Reservierung
+        desselben Schluessels, ueber `xmax = 0` oder eine gleichwertige Erkennung
+      - Der Gewinner (frischer INSERT) erhaelt weiterhin (nil, nil) wie bisher
+      - `TestPostgresReserve_ConcurrentSameKey_NoErrorEitherSide` wird durch eine Version ersetzt,
+        die ErrInFlight fuer genau eine Seite und (nil, nil) fuer die andere erwartet — Testname
+        entsprechend anpassen (nicht mehr "NoErrorEitherSide")
+      - `internal/middleware/idempotency.go` und `internal/automation/workflow/webhook.go` bleiben
+        unveraendert korrekt (bestehende Tests gruen), der `lean:`-Marker in webhook.go wird entfernt
+        oder auf "resolved" aktualisiert
+      - go test -count=1 -race ./internal/idempotency/... ./internal/middleware/...
+        ./internal/automation/workflow/... gruen, DATABASE_URL gegen kmuhub_app
