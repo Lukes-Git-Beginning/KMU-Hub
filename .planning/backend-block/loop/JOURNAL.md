@@ -1578,7 +1578,7 @@ Frühere Läufe liegen vollständig im Archiv:
     beruehrt).
 
 ## Iteration 27 — cov-gateway-email-contact-linking-import-export — done — 2026-08-22 04:31
-- commit: (siehe naechster Eintrag)
+- commit: 482503ac
 - gebaut: Neue Testdatei `route_email_contact_links_import_export_test.go` fuer den
   dritten/letzten Teil von `route_email.go`: Nachricht-Kontakt-Verknuepfung
   (HandleGetEmailContactLinks, HandleLinkEmailToContact, HandleUnlinkEmailFromContact,
