@@ -1744,7 +1744,7 @@ Frühere Läufe liegen vollständig im Archiv:
     keine Tabelle/Policy beruehrt).
 
 ## Iteration 29 — cov-gateway-crm-companies — done — 2026-08-22 04:53
-- commit: (wird nach diesem Eintrag gesetzt, siehe Folgecommit)
+- commit: e679cad4
 - gebaut: `internal/gateway/route_crm_companies_test.go` neu — deckt alle 6 Handler aus
   `route_crm_companies.go` ab (Create, Get, List, Update, Delete, GetCompanyContacts). Ein Teil
   war schon in `route_crm_test.go` gestreut (Create ServiceUnavailable/NoUserID/InvalidJSON/
