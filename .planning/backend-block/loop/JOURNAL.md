@@ -676,3 +676,73 @@ Frühere Läufe liegen vollständig im Archiv:
     ueber `is_deleted`, und erreicht solche Zeilen deshalb trotzdem), aber ein Normalisierungs-
     Kandidat: zwei verschiedene Bedeutungen von "geloescht" (Flag ohne Inhaltsloeschung vs.
     Flag mit Inhaltsloeschung) leben im selben Feld.
+
+## Iteration 13 — feat-retention-worker-handler-helpdesk-formulare — done — 2026-08-22 02:19
+- commit: (folgt im naechsten Schritt)
+- gebaut: `HelpdeskTicketRetentionHandler` und `FormSubmissionRetentionHandler`
+  (`internal/security/gdpr/retention_helpdesk_formulare.go`), vierter und fuenfter Handler an
+  der Registry aus A10. Tickets: `resource_type="helpdesk_tickets"`, Tabelle `tickets`, Scope
+  NUR `status='closed'`, Uhr `resolved_at` — `CloseTicket` (service.go:337) ist der einzige Pfad,
+  der `status` je auf `closed` setzt, und stempelt in derselben Transaktion `resolved_at`;
+  `UpdateTicket`s generischer Feld-Patch verweigert das Setzen von `status=closed` explizit
+  (service.go:294), also gibt es keinen zweiten Weg, der `resolved_at` vergessen koennte. Delete
+  verlaesst sich auf das bestehende `ON DELETE CASCADE` von `ticket_messages` (Migration 000077,
+  live per `pg_constraint` gegengeprueft: `confdeltype='c'`) und muss die Nachrichten nicht
+  selbst anfassen. Anonymize dagegen MUSS: es loescht die Ticket-Zeile nicht, also werden
+  `subject`/`description` sowie `requester_name`/`requester_email` (Label statt NULL, weil
+  `chk_tickets_requester_identity` aus Migration 000291 eine leere E-Mail bei externen
+  Anfragenden verbietet) geleert UND alle `ticket_messages.body` des Tickets ueberschrieben —
+  unabhaengig vom `internal`-Flag, denn das regelt nur die Sichtbarkeit in einer DSAR-Auskunft
+  (A6), nicht die Aufbewahrung. Idempotenz ueber `updated_at`, das Anonymize mitbumpt (gleiches
+  Muster wie A12 bei `dialer_call_sessions.updated_at`).
+  Formulare: `resource_type="form_submissions"`, Tabelle `form_submissions`, Uhr `submitted_at`.
+  Einreichungen ohne Kontaktbezug werden erfasst (kein Join, kein Filter auf `form_schema_id`
+  oder eine Kontakt-Verknuepfung — die existiert fuer `form_submissions` ohnehin nicht). Anders
+  als bei allen bisherigen Handlern gibt es kein `updated_at` zum Bumpen, `submitted_at` darf
+  als historische Tatsache nicht veraendert werden — deshalb neue Spalte `anonymized_at`
+  (Migration 000317, nullable, keine RLS-Aenderung noetig: `form_submissions` hatte RLS schon,
+  `relrowsecurity`/`relforcerowsecurity` nach dem `ALTER TABLE` gegengeprueft = weiterhin `t`/`t`).
+  Plan filtert bei `action=anonymize` zusaetzlich auf `anonymized_at IS NULL`, bei `action=delete`
+  nicht (eine bereits anonymisierte, aber noch nicht geloeschte Zeile muss ein Delete-Lauf
+  weiterhin finden).
+- gate: build ok (`-p 2` ueber security/..., helpdesk/..., formulare/..., gateway/...,
+  cmd/gateway/...) | vet ok | lint ok (0 issues, `internal/security/gdpr`) | test ok
+  (`internal/security/gdpr` 8 neue Tests gruen, ganzes Paket 103 PASS / 0 SKIP / 0 FAIL;
+  `internal/helpdesk/...` gruen; `internal/formulare/...` gruen; `internal/security/...` alle
+  Unterpakete gruen; `internal/gateway/` inkl. `TestOpenAPIRouteDrift` gruen, obwohl keine Route
+  beruehrt) | migration ok (000317, lokal angewendet via `migrate ... up`, down enthaelt
+  `DROP COLUMN IF EXISTS`) | rls-smoke: kein neuer Policy-Bedarf (bestehende Tabelle, nur Spalte
+  hinzugefuegt), `relrowsecurity`/`relforcerowsecurity` nach der Migration weiterhin `t`/`t`
+  gegengeprueft
+- coverage: internal/security/gdpr 69,0 % -> 69,1 % (eigene Messung: Vorher per
+  `git worktree add /tmp/covbase13 4c0da577`, Nachher im Arbeitsbaum)
+- mutations-probe: in `FormSubmissionRetentionHandler.Plan` das `anonymized_at IS NULL`-Gate mit
+  `if false && action == ...` deaktiviert —
+  `TestFormSubmissionRetentionHandler_ApplyAnonymizeIsIdempotentViaDedicatedColumn` wird rot (die
+  bereits anonymisierte Einreichung taucht faelschlich wieder in `Due` auf). Zurueckgedreht ->
+  `go test ./internal/security/gdpr/` wieder gruen, `git status --short` zeigt nur die vier
+  beabsichtigten neuen Dateien (Handler, Test, zwei Migrationsdateien) plus die Backlog-Zeile.
+- verify vorgaenger: sauber. `4c0da577` (Iteration 12, Dialer/Chat-Handler) gegen alle acht
+  Fehlerklassen geprueft: kein gRPC-Handler/Layer-Bypass (Handler liegt in security/gdpr, ist
+  nirgends an eine Route gebunden), kein Stub/TODO/Unimplemented, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle also kein Tenant-/RLS-Thema, keine
+  Wire-Shape-Aenderung (kein Response-Pfad), keine neue Route, kein Guard ersetzt. Der im
+  Commit dokumentierte Objektspeicher-Befund (keine Aufnahme-Verwaisung moeglich) wurde am
+  Schema gegengeprueft und ist korrekt.
+- neue-units: keine
+- offen:
+  - Wie A11/A12: `HelpdeskTicketRetentionHandler` und `FormSubmissionRetentionHandler` sind
+    gebaut und getestet, aber noch NICHT in einer `RetentionRegistry` produktiv registriert —
+    Absicht, liegt bei `feat-retention-worker-scheduling-and-admin-visibility`. Bis dahin aendert
+    dieser Commit am Laufzeitverhalten nichts.
+  - Nicht behoben, ausserhalb des Scopes: `UpdateTicket`s generischer Feld-Patch kann ein
+    bereits `closed` Ticket weiterhin editieren (Assignee, Prioritaet etc.), solange `statusVal`
+    dabei nicht gesetzt wird — das bumpt `updated_at`, ohne `resolved_at` zu beruehren. Fuer
+    Delete ist das folgenlos (kein Datumsfilter auf `updated_at`), fuer Anonymize bedeutet es,
+    dass eine solche nachtraegliche Bearbeitung eines laengst geschlossenen Tickets dessen
+    Anonymisierung um eine volle Aufbewahrungsfrist verzoegert — plausibel und im Sinne von
+    "noch in Bearbeitung", aber nicht explizit von der Fachseite bestaetigt.
+  - Ein per `ReopenTicket` wiedereroeffnetes und danach erneut geschlossenes Ticket startet
+    seine Frist automatisch neu (Status faellt bei `Plan` heraus, solange es nicht wieder
+    `closed` ist) — beabsichtigtes Verhalten, aber im Journal festgehalten, falls es spaeter
+    anders erwartet wird.

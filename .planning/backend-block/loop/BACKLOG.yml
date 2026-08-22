@@ -600,7 +600,7 @@ units:
     service: security
     model: sonnet
     deps: [feat-retention-worker-schema-and-engine]
-    status: todo
+    status: done
     coverage_start: "internal/helpdesk 81,5 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Dritter Handler-Satz: geschlossene Helpdesk-Tickets samt Nachrichten und
