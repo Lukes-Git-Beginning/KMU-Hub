@@ -943,7 +943,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Jahresgrenze dort zusaetzlich gegen echtes Postgres pruefen.
 
 ## Iteration 17 — cov-payment-repository-core-real-sql — done — 2026-08-23 00:49
-- commit: (siehe unten, wird nach Commit ergaenzt)
+- commit: 482434ef
 - gebaut: `internal/biz/payment` hatte keinen einzigen DB-Test. Neue Datei
   `postgres_repository_db_test.go` (ungetaggt, package `payment`) deckt den Schreib-/Lesekern
   gegen echtes Postgres ab: `Create`+`GetByID` mit exaktem Dezimal-Roundtrip (Betrag 1029.33,
