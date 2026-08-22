@@ -3983,7 +3983,7 @@ Frühere Läufe liegen vollständig im Archiv:
     keine Ueberschneidung mit dieser Unit.
 
 ## Iteration 65 — fix-calendar-erasure-incomplete-and-doc-mismatch — done — 2026-08-22 09:20
-- commit: (siehe Folge-Commit unten)
+- commit: fdfa18cc
 - gebaut: `CalendarErasureHandler`s Doc-Kommentar behauptete "Deletes personal calendars and owned
   events", der Code tat keins von beidem: `calendars` (owner_id) wurde nirgends angefasst,
   `calendar_events` (created_by) wurde in `ExecuteErasure` nur GEZAEHLT statt geloescht/
