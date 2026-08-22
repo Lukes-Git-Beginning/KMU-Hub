@@ -2611,7 +2611,7 @@ Frühere Läufe liegen vollständig im Archiv:
     zulaesst.
 
 ## Iteration 42 — scan-restrict-fk-without-ui-path — done — 2026-08-22 06:35
-- commit: -
+- commit: eb4bf4b6
 - gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Alle RESTRICT- und
   NO-ACTION-FKs (`confdeltype` 'r'/'a') aus `pg_constraint` gezogen (lokale DB, 2026-08-22,
   ~155 Treffer) und in vier Gruppen bewertet.
