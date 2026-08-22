@@ -4271,7 +4271,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 71 — fix-channel-delete-call-sessions-fk-crash — done — 2026-08-22 09:47
-- commit: (siehe naechster docs-Commit)
+- commit: 78339951
 - gebaut: `call_sessions.channel_id` traegt seit Migration 000036 `ON DELETE NO ACTION`
   (nullable FK, kein spaeteres ALTER gefunden — Grep ueber alle Migrationen bestaetigt).
   `channel/service.go` (`Delete`) prueft vor dem Loeschen nur DM-Status und Owner-Rolle, nicht ob
