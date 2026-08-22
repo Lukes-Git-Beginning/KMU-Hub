@@ -3462,7 +3462,7 @@ Frühere Läufe liegen vollständig im Archiv:
     (Backlog-Ende) bleibt offen und unangetastet von dieser Iteration.
 
 ## Iteration 56 — fix-work-task-custom-field-values-wrong-fk — done — 2026-08-22 07:57
-- commit: <pending>
+- commit: 28837c84
 - gebaut: Migration `000320_task_custom_field_values_fk_to_work_defs` haengt
   `task_custom_field_values.field_id` von `custom_field_definitions(id)` (CRM-Tabelle aus
   000005, deren `valid_entity_type`-CHECK 'task' gar nicht kennt) auf
