@@ -2820,7 +2820,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Settings-Ansicht erreichbar sind — trotzdem im selben Fix-Scope, nicht separat verschoben.
 
 ## Iteration 45 — scan-gateway-pii-in-logs — done — 2026-08-22 07:10
-- commit: -
+- commit: 0074c76b
 - gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Alle 100 `slog.*`-
   Aufrufe in den 18 Gateway-Dateien mit slog-Nutzung geprueft
   (route_dashboard.go, route_booking.go, route_lexware.go, reset_password_page.go,
