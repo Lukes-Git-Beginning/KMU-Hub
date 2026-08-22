@@ -1135,3 +1135,49 @@ Frühere Läufe liegen vollständig im Archiv:
   Methoden von `PostgresRepository`; `PostgresConfigRepository.Get`/`Upsert` (Zeile 274/310) sind
   weiterhin ungetestet — genau das Ziel der naechsten Unit in der Block-B-Reihe
   (`cov-dunning-config-repository-real-sql`, deps: `[]`, sofort ziehbar).
+
+## Iteration 21 — cov-dunning-config-repository-real-sql — done — 2026-08-23 01:15
+- commit: <wird nach commit ergaenzt>
+- gebaut: Vier DB-Tests fuer `PostgresConfigRepository` (Get/Upsert der Mahnkonfiguration je Mandant)
+  gegen echtes Postgres: `Get` ohne existierende Konfiguration liefert `(nil, nil)` (belegt, dass
+  `Service.GetConfig` sich zurecht darauf verlaesst, um den Default anzulegen); `Upsert` Insert-Zweig
+  roundtriped alle drei Gebuehren exakt als Dezimal (12.34/0.07/199.99, `.Equal()`-Vergleich statt
+  `.String()` — pgx liefert NUMERIC(10,2) ohne trailing zero, "2.50" kommt als "2.5" zurueck, kein Bug,
+  nur Darstellungsform); Update-Zweig (`ON CONFLICT (tenant_id) DO UPDATE`) ueberschreibt die
+  bestehende Zeile in-place, per `count(*)`-Kontrolle als System-Ctx belegt, dass kein Duplikat
+  entsteht; zwei Tenants upserten unabhaengig, jeder behaelt seine eigene Gebuehr, und ein
+  Cross-Tenant-`Get` (ctx Tenant B, Parameter Tenant A) liefert `nil` — RLS blockt trotz explizitem
+  `WHERE tenant_id = $1` im SQL, weil die USING-Klausel zusaetzlich `current_tenant_id()` verlangt.
+  Kein Produktionsfehler gefunden: `ON CONFLICT (tenant_id)` matched den echten Unique-Constraint
+  (`uq_finance_dunning_config_tenant`, Migration 000045), RLS-Policy aktiv seit Migration 000122.
+- gate: build ok (`./internal/biz/dunning/... ./internal/gateway/...`) | vet ok | lint ok (0 issues) |
+  test ok (`go test -count=1 -v ./internal/biz/dunning/`, alle 60 Tests gruen inkl. der 4 neuen,
+  0 SKIP) | test restliche Unterpakete ok (`go test -count=1 -p 1 ./internal/biz/dunning/...`) |
+  migration n.a. (keine Schema-Aenderung) | rls-smoke n.a. formal (keine neue Tabelle/Policy),
+  inhaltlich durch `TestPostgresConfigRepository_Upsert_TwoTenants_Independent` (Cross-Tenant-Read
+  liefert nil) erbracht | gateway-Test nicht gelaufen, da keine Route/kein Proto beruehrt (nicht
+  Pflicht laut Schritt 5)
+- coverage: internal/biz/dunning 88,7 % -> 92,2 % (eigens gemessen: Vorher-Wert per
+  `git stash push -u -- internal/biz/dunning/postgres_repository_db_test.go` + `go test
+  -coverprofile` auf dem dadurch wiederhergestellten Vor-Unit-Stand, danach `git stash pop`;
+  coverage_start aus dem Backlog nennt 61,8 % CI-Stand 32570176303 — die Differenz zum selbst
+  gemessenen 88,7 % ist die kumulierte Bewegung durch die Block-B-Dunning-Units der Iterationen
+  19+20 seit diesem CI-Lauf)
+- mutations-probe: `level1_fee = EXCLUDED.level1_fee,` aus dem `ON CONFLICT DO UPDATE`-Set-Teil
+  entfernt -> `TestPostgresConfigRepository_Upsert_UpdateBranch_OverwritesInPlace` sofort ROT
+  ("Should be true", got 0 statt der erwarteten 2.50). Zurueckgedreht, `git diff --stat` auf
+  `postgres_repository.go` zeigt keine Aenderung (nur CRLF-Hinweis von Git, kein Diff-Inhalt).
+- verify vorgaenger: sauber — `a584aeda` (Iteration 20) aendert laut `git show --stat` und Diff
+  ausschliesslich `backend/internal/biz/dunning/postgres_repository.go` (der `ORDER BY level DESC,
+  created_at DESC`-Tiebreaker in `GetHighestLevelByInvoiceID`, Caller gegengeprueft — nirgends
+  ausserhalb des Pakets aufgerufen ausser `GetByInvoiceIDs` via `service.go:184`, unveraendert
+  kompatibel) sowie eine neue Testdatei (`postgres_repository_db_test.go`, 158 Zeilen) und
+  JOURNAL.md/BACKLOG.yml. Keine der acht Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt,
+  kein Stub/TODO, kein `.proto`, keine Migration, kein neuer Guard, keine neue Tabelle, keine Route,
+  kein Wire-Shape-Wechsel, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: `internal/biz/dunning/postgres_repository.go` und `postgres_repository_config...` haben
+  jetzt vollstaendige DB-Test-Abdeckung fuer beide Repository-Typen. Naechste Unit in der
+  Block-B-Dunning-Reihe laut Backlog ist `cov-dunning-service-gobd-real-sql`
+  (deps: `[cov-dunning-repository-core-real-sql]`, bereits `done` seit Iteration 19 — damit sofort
+  ziehbar).

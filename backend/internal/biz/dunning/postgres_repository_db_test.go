@@ -438,3 +438,156 @@ func TestPostgresRepository_UpdateStatus_CrossTenant_ZeroRowsAffected(t *testing
 	require.NoError(t, err)
 	assert.Equal(t, models.DunningStatusDraft, got.Status, "cross-tenant update must not have changed the row")
 }
+
+func newTestDunningConfig(tenantID uuid.UUID) *models.DunningConfig {
+	return &models.DunningConfig{
+		ID:                    uuid.New(),
+		TenantID:              tenantID,
+		Level1DaysAfterDue:    14,
+		Level2DaysAfterLevel1: 14,
+		Level3DaysAfterLevel2: 14,
+		Level1Fee:             decimal.RequireFromString("0.00"),
+		Level2Fee:             decimal.RequireFromString("5.00"),
+		Level3Fee:             decimal.RequireFromString("10.00"),
+		UpdatedAt:             time.Now(),
+	}
+}
+
+// TestPostgresConfigRepository_Get_NoConfig_ReturnsNilNil proves Get signals
+// "nothing configured yet" as (nil, nil), not an error — Service.GetConfig
+// (service.go:83) relies on exactly this to decide whether to create the
+// default config.
+func TestPostgresConfigRepository_Get_NoConfig_ReturnsNilNil(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Dunning Config No Config Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := NewPostgresConfigRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	got, err := repo.Get(ctx, tenantID)
+	require.NoError(t, err)
+	assert.Nil(t, got, "a tenant without a config row must yield (nil, nil), not an error")
+}
+
+// TestPostgresConfigRepository_Upsert_Get_RoundTripsExactDecimal proves the
+// insert branch of the upsert and that fees survive the string+decimal scan
+// path (ADR-0007) exactly, not through float64.
+func TestPostgresConfigRepository_Upsert_Get_RoundTripsExactDecimal(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Dunning Config Roundtrip Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := NewPostgresConfigRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	config := newTestDunningConfig(tenantID)
+	config.Level1Fee = decimal.RequireFromString("12.34")
+	config.Level2Fee = decimal.RequireFromString("0.07")
+	config.Level3Fee = decimal.RequireFromString("199.99")
+	require.NoError(t, repo.Upsert(ctx, config))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_config", config.ID)
+
+	got, err := repo.Get(ctx, tenantID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.True(t, decimal.RequireFromString("12.34").Equal(got.Level1Fee), "got %s", got.Level1Fee)
+	assert.True(t, decimal.RequireFromString("0.07").Equal(got.Level2Fee), "got %s", got.Level2Fee)
+	assert.True(t, decimal.RequireFromString("199.99").Equal(got.Level3Fee), "got %s", got.Level3Fee)
+	assert.Equal(t, config.Level1DaysAfterDue, got.Level1DaysAfterDue)
+	assert.Equal(t, config.Level2DaysAfterLevel1, got.Level2DaysAfterLevel1)
+	assert.Equal(t, config.Level3DaysAfterLevel2, got.Level3DaysAfterLevel2)
+}
+
+// TestPostgresConfigRepository_Upsert_UpdateBranch_OverwritesInPlace proves
+// the ON CONFLICT (tenant_id) DO UPDATE branch: a second Upsert for the same
+// tenant changes the existing row's values rather than erroring or creating
+// a second row (the table carries a UNIQUE constraint on tenant_id, so a
+// silent duplicate is impossible — but a broken ON CONFLICT target would
+// surface as a constraint violation here, not silently).
+func TestPostgresConfigRepository_Upsert_UpdateBranch_OverwritesInPlace(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Dunning Config Update Branch Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := NewPostgresConfigRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	config := newTestDunningConfig(tenantID)
+	require.NoError(t, repo.Upsert(ctx, config))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_config", config.ID)
+
+	config.Level1DaysAfterDue = 21
+	config.Level1Fee = decimal.RequireFromString("2.50")
+	config.UpdatedAt = time.Now()
+	require.NoError(t, repo.Upsert(ctx, config))
+
+	got, err := repo.Get(ctx, tenantID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, 21, got.Level1DaysAfterDue)
+	assert.True(t, decimal.RequireFromString("2.50").Equal(got.Level1Fee), "got %s", got.Level1Fee)
+
+	var rowCount int
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT count(*) FROM finance_dunning_config WHERE tenant_id = $1`, tenantID,
+	).Scan(&rowCount))
+	assert.Equal(t, 1, rowCount, "a second Upsert must update the existing row, not insert a duplicate")
+}
+
+// TestPostgresConfigRepository_Upsert_TwoTenants_Independent proves the
+// classic ON CONFLICT tenant-leak shape: two tenants upserting their own
+// config must never see or overwrite each other's values.
+func TestPostgresConfigRepository_Upsert_TwoTenants_Independent(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantA, tenantB := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantA, "Dunning Config Two Tenants A")
+	testutil.EnsureTenant(t, pool, tenantB, "Dunning Config Two Tenants B")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantA)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantB)
+
+	repo := NewPostgresConfigRepository(pool)
+	ctxA := testutil.WithTenantCtx(context.Background(), tenantA)
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+
+	configA := newTestDunningConfig(tenantA)
+	configA.Level1Fee = decimal.RequireFromString("1.00")
+	configB := newTestDunningConfig(tenantB)
+	configB.Level1Fee = decimal.RequireFromString("9.00")
+
+	require.NoError(t, repo.Upsert(ctxA, configA))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_config", configA.ID)
+	require.NoError(t, repo.Upsert(ctxB, configB))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_config", configB.ID)
+
+	gotA, err := repo.Get(ctxA, tenantA)
+	require.NoError(t, err)
+	require.NotNil(t, gotA)
+	assert.True(t, decimal.RequireFromString("1.00").Equal(gotA.Level1Fee), "tenant A must keep its own fee, not tenant B's — got %s", gotA.Level1Fee)
+
+	gotB, err := repo.Get(ctxB, tenantB)
+	require.NoError(t, err)
+	require.NotNil(t, gotB)
+	assert.True(t, decimal.RequireFromString("9.00").Equal(gotB.Level1Fee), "tenant B must keep its own fee, not tenant A's — got %s", gotB.Level1Fee)
+
+	// Cross-tenant read: RLS must hide tenant A's config from tenant B's
+	// session even though the WHERE clause also filters by tenant_id.
+	crossRead, err := repo.Get(ctxB, tenantA)
+	require.NoError(t, err)
+	assert.Nil(t, crossRead, "a foreign tenant's config row must never be visible")
+}
