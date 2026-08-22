@@ -1430,7 +1430,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Nach A3 bis A9 ist die Auskunft breiter, aber niemand hat je vollstaendig aufgelistet,
@@ -2180,3 +2180,194 @@ units:
         oder auf "resolved" aktualisiert
       - go test -count=1 -race ./internal/idempotency/... ./internal/middleware/...
         ./internal/automation/workflow/... gruen, DATABASE_URL gegen kmuhub_app
+
+# ==========================================================================================
+# Nachgelegt aus scan-dsar-missing-contact-user-tables (Iteration 40, 2026-08-22). Fuenf echte
+# Luecken, gefunden ueber pg_constraint (FK auf contacts/users) und Spaltennamen
+# (email/phone/first_name/last_name/ip_address/birth_date/...) gegen die lokale DB, gegen
+# `dsar_search.go` abgeglichen. Details der vollstaendigen Pruefung im JOURNAL.md, Iteration 40.
+# ==========================================================================================
+
+  - id: feat-dsar-search-contact-advisory-protocol-module
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
+    scope: >
+      `advisory_protocols` haengt per RESTRICT-FK an `contacts` (Grund fuer den 409-Pfad in
+      `IsInUse`, postgres_repository.go:549) und traegt hochsensible Daten: Geburtsdatum,
+      Familienstand, Steuerstatus, Nettoeinkommen, Vermoegen, Verbindlichkeiten,
+      Risikoklasse/-toleranz, bestehende Versicherungen, Anlageziele. In `dsar_search.go` gibt es
+      dafuer KEIN Modul — von 14 Tabellen, die per FK auf `contacts` zeigen, ist das die einzige
+      ohne eigenes DSAR-Modul. Eine Auskunft nach Art. 15 ist damit fuer jeden beratenen Kontakt
+      strukturell unvollstaendig, und zwar an der sensibelsten Stelle im ganzen Schema.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/crm/advisoryprotocol/postgres_repository.go
+      - backend/internal/crm/advisoryprotocol/service.go
+      - backend/internal/models (Struct fuer advisory_protocols suchen)
+    notes: >
+      Vorlage ist `customFieldsModule`/`tagsModule` (gleiche Datei), Query-Form kopieren und
+      anpassen — nicht neu erfinden.
+      Vollstaendigkeit vor Kuerzung: `products` ist JSONB, `known_asset_classes`/
+      `investment_purpose`/`warnings_given` sind Arrays. Alle drei gehoeren lesbar in die
+      Auskunft, nicht als Roh-JSON/Array-Syntax.
+      `internal_notes` ist Arbeitsmaterial des Beraters (Analogon zu internen Helpdesk-Notizen in
+      A6) — pruefen, ob es denselben Ausschlussgrund traegt, und die Entscheidung im Code
+      begruenden statt stillschweigend zu uebernehmen oder zu exportieren.
+      Ein Kontakt kann mehrere Protokolle haben (Beratungshistorie) — alle gehoeren rein,
+      chronologisch, nicht nur das juengste.
+    done_when:
+      - Modul "Beratungsprotokolle" haengt an einem gematchten Kontakt, alle Felder lesbar
+        aufbereitet (Arrays/JSONB nicht als Rohformat)
+      - internal_notes-Behandlung ist im Code begruendet (ausgeschlossen oder aufgenommen)
+      - Mehrere Protokolle je Kontakt sind chronologisch abgebildet, per Test belegt
+      - Tenant-Isolation getestet
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-dsar-search-user-hr-employee-module
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
+    scope: >
+      Fuer einen gematchten Benutzer fehlt in der Auskunft die komplette HR-Flaeche:
+      `hr_employee_profiles` (Adresse, Notfallkontakt, Vertragsart, Stundenlohn, Austrittsdaten,
+      `is_minor`), `hr_leave_requests`/`hr_leave_balances` (Urlaub), `hr_work_time_entries`
+      (Arbeitszeit inkl. Korrekturen), `hr_employee_documents` (hochgeladene Personaldokumente),
+      `hr_profile_change_requests`. Sechs Tabellen, alle ueber `user_id`/`employee_id` an `users`
+      gebunden, keine davon in `dsar_search.go` erwaehnt. Beschaeftigtendaten sind eine der
+      sensibelsten Kategorien unter der DSGVO.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/biz/hr/employee/postgres_repository.go
+      - backend/internal/biz/hr/leave/postgres_repository.go
+      - backend/internal/biz/hr/absence/postgres_repository.go
+      - backend/internal/biz/hr/timetracking/postgres_repository.go
+      - backend/internal/biz/hr/changerequest/postgres_repository.go
+    notes: >
+      Sechs Tabellen sind zu viel fuer eine einzige Funktion — je Tabelle ein eigenes Modul nach
+      dem Muster aus A7/A8, sonst wird die Funktion unlesbar. Wird die Unit dabei zu gross, nach
+      Vorbild von A9 in zwei Units teilen (z. B. Stammdaten+Dokumente vs. Zeit+Urlaub) und die
+      zweite ans Backlog-Ende haengen.
+      `hourly_rate` ist eine Geldangabe der eigenen Vergueltung — personenbezogen, gehoert rein.
+      `is_minor` ist ein Sonderfall (Daten Minderjaehriger) — nicht weglassen, aber pruefen, ob
+      dafuer eine zusaetzliche Handhabung noetig ist (z. B. gesetzlicher Vertreter), und die
+      Entscheidung im Journal begruenden statt stillschweigend zu setzen.
+      `hr_employee_documents` folgt derselben Metadaten-only-Regel wie A5 (Dokumente): kein
+      Pfad, keine URL, kein Inhalt.
+      Korrigierte Zeiteintraege (`hr_work_time_entries.correction_approved_by`) gehoeren mit
+      Korrekturhistorie rein, nicht nur der finale Wert — sonst ist die Auskunft irrefuehrend.
+    done_when:
+      - Module fuer Profil, Urlaub, Arbeitszeit, Dokumente (Metadaten) und Aenderungsantraege
+        haengen an einem gematchten Benutzer
+      - is_minor-Behandlung ist im Code begruendet
+      - Dokumente enthalten ausschliesslich Metadaten, per Test belegt
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... ./internal/biz/hr/... gruen
+
+  - id: feat-dsar-search-user-account-security-history-module
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
+    scope: >
+      Das Modul "Benutzerkonto" zeigt heute nur Name/E-Mail/Aktiv/Erstellt. Was tatsaechlich an
+      Aktivitaets- und Sicherheitsdaten ueber das Konto anfaellt, fehlt: `user_sessions`
+      (Geraet, IP-Adresse, Standort, letzte Aktivitaet — inet-Spalte `ip_address`),
+      `password_history` (Zeitpunkte fruehrerer Passwortaenderungen), `recovery_codes`
+      (Vorhandensein/Nutzung von 2FA-Wiederherstellungscodes), `two_factor_policy`
+      (2FA-Status). Login-/Sitzungsverlauf ist klassisch auskunftspflichtig.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/models (Struct-Definitionen fuer die vier Tabellen suchen)
+    notes: >
+      KEINE GEHEIMNISSE EXPORTIEREN: `password_history` speichert Hashes, `recovery_codes`
+      vermutlich ebenfalls gehashte/verschluesselte Werte — diese Spalten gehoeren NICHT in die
+      Auskunft, nur Metadaten (Zeitpunkt, Anzahl, Status). Vor dem Bauen die tatsaechlichen
+      Spalten pruefen (`\d password_history` etc.), nicht raten.
+      `user_sessions.ip_address` ist personenbezogen (Standortbezug) und gehoert rein — aber nur
+      die Sitzungen DIESES Benutzers, RLS reicht hier nicht als einzige Grenze, WHERE user_id
+      explizit pruefen.
+      Aktive vs. abgelaufene Sitzungen unterscheiden, sonst wirkt die Liste unvollstaendig oder
+      irrefuehrend aktuell.
+    done_when:
+      - Modul(e) fuer Sitzungsverlauf und Sicherheitsstatus haengen an einem gematchten Benutzer
+      - Kein Hash, kein Secret, kein Wiederherstellungscode im Klartext im Export, per Test belegt
+      - Nur eigene Sitzungen des Benutzers, per Test mit zweitem Benutzer belegt
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-dsar-search-user-fuhrpark-driver-module
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
+    scope: >
+      Fuer einen gematchten Benutzer, der als Fahrer im Fuhrpark-Modul gefuehrt wird, fehlt in
+      der Auskunft: `driver_licenses` (Fuehrerscheinklassen, Ablaufdatum, Pruefdaten — CASCADE
+      auf `users`) und `vehicle_bookings` (Buchungshistorie, wer wann welches Fahrzeug gebucht
+      hat). Phase 4 erlaubt verifizierte Einzelluecken in bestehenden Branchen-Modulen
+      (Lagebild §6) — Fuhrpark existiert bereits, das ist eine Luecke darin, kein Neubau.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/models.go
+    notes: >
+      `driver_licenses` ist CASCADE an `users` gebunden — beim Loeschen des Benutzers verschwinden
+      die Fuehrerscheindaten mit, die Auskunft weiss davon aber vorher nichts. Vorlage fuer die
+      Query-Form ist wieder `customFieldsModule`/`tagsModule`.
+      `vehicle_bookings` hat sowohl `created_by` als auch `user_id` — pruefen, ob beide dieselbe
+      Person meinen (Buchender vs. Fahrer) oder unterschiedliche Rollen; ggf. beide Spalten in
+      die Auskunft, mit Feldbeschriftung, welche Rolle gemeint ist.
+    done_when:
+      - Module fuer Fuehrerschein und Fahrzeugbuchungen haengen an einem gematchten Benutzer,
+        der als Fahrer/Buchender vorkommt
+      - created_by/user_id-Unterscheidung bei vehicle_bookings ist im Export erkennbar
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... ./internal/fuhrpark/... gruen
+
+  - id: feat-dsar-search-invitation-history-module
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
+    scope: >
+      `invitations` traegt `first_name`/`last_name`/`email` der eingeladenen Person direkt als
+      Spalten (nicht per FK) — auch nach Annahme der Einladung bleibt die Zeile bestehen und wird
+      von `matchUsers`/`matchContacts` nicht mitgelesen. Wird die eingeladene Person spaeter als
+      Benutzer gematcht, fehlt ihre Einladungshistorie (wer hat sie wann mit welcher Rolle
+      eingeladen, angenommen wann) in der Auskunft. Fuer eine NIE angenommene Einladung ist die
+      Person aktuell ueberhaupt nicht auffindbar — das ist der kleinere, aber echte Nebenbefund
+      dieser Unit und gehoert im Journal benannt, auch wenn er nicht im selben Umfang geloest
+      werden kann wie der Haupt-Fund.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/auth (Invitations-Repository suchen, Name pruefen statt raten)
+    notes: >
+      Zwei Faelle trennen: (1) die eingeladene Person ist inzwischen ein `users`-Eintrag —
+      dafuer per E-Mail-Abgleich (Vorlage: `formSubmissionsModule`, matched ueber `contactEmail`)
+      ein Modul "Einladungshistorie" an den gematchten Benutzer haengen. (2) die Einladung wurde
+      nie angenommen (`accepted_at IS NULL`) — hier existiert noch kein Benutzer- oder
+      Kontakt-Datensatz, den `SearchByQuery` matchen koennte. Fall 2 NICHT in dieser Unit loesen
+      (das waere eine dritte Subjekt-Matching-Quelle neben Kontakten und Benutzern, ein
+      groesserer Eingriff) — stattdessen im Journal als eigener, ungeloester Befund benennen.
+      `token_hash` gehoert NICHT in die Auskunft (Zugangsgeheimnis, kein Personendatum).
+    done_when:
+      - Modul "Einladungshistorie" haengt an einem gematchten Benutzer, der ueber eine
+        angenommene Einladung ins System kam
+      - token_hash erscheint nicht im Export, per Test belegt
+      - Der ungeloeste Fall "nie angenommene Einladung" ist im Journal dieser Unit als offener
+        Befund benannt (nicht als neue Unit — das ist eine Architekturfrage fuer Luke)
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt

@@ -2468,3 +2468,82 @@ Frühere Läufe liegen vollständig im Archiv:
   - Naechster Schritt liegt bei Luke: entweder eine kostenpflichtige/registrierte
     developer.datev.de-Session fuer die Primaerquelle, oder ein empirischer Test mit einer echten
     DATEV-Instanz/einem Steuerberater. Bis dahin bleibt der Exporter unveraendert (UTF-8 mit BOM).
+
+## Iteration 40 — scan-dsar-missing-contact-user-tables — done — 2026-08-22 06:15
+- commit: (siehe BACKLOG/JOURNAL-Commit unten)
+- gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Vollstaendige Liste der
+  Kandidatentabellen gezogen: `pg_constraint` (FK auf `contacts(id)` bzw. `users(id)`, 154 Zeilen)
+  gegen die lokale DB plus eine zweite Abfrage auf Spaltennamen
+  (email/phone/first_name/last_name/ip_address/birth_date/address/...), beide gegen
+  `dsar_search.go` (aktuell 13 Contact-Module: CRM Kontakte, customFields, tags, documents,
+  consent, dialer, finance, meetings, helpdesk, helpdeskMessages, contracts, email, deals,
+  formSubmissions, activities — und 11 User-Module: Benutzerkonto, chatMessages,
+  chatMemberships, tasks, taskComments, timeEntries, calendarEvents, calendarPrefs,
+  notifications, notificationPrefs, quietHours, mutes) abgeglichen.
+  Entscheidungen je Gruppe:
+  - 14 contacts-FK-Tabellen ueber bestehende Module abgedeckt (contact_tags, contacts
+    Selbstbezug [merged_into_id/referred_by_contact_id, strukturell, keine eigenen
+    Personendaten], contact_custom_field_values, deals, activities, meetings,
+    email_contact_links, finance_invoices, consent_records, dialer_campaign_contacts, tickets,
+    contract_parties) — Nicht-Fund.
+  - `gdpr_deletion_requests.contact_id`/`gdpr_export_requests.*`/`gdpr_erasure_log.executed_by`:
+    Prozess-Metadatensaetze der GDPR-Mechanik selbst — Aufnahme waere zirkulaer (die Auskunft
+    wuerde sich selbst als Datenpunkt auflisten). Legitimer Nicht-Fund, konsistent mit
+    bestehender Behandlung von gdpr_export_requests.
+  - `advisory_protocols.contact_id` (RESTRICT-FK, Grund fuer den 409-Pfad in `IsInUse`):
+    KEIN Modul vorhanden, obwohl die Tabelle hochsensible Daten traegt (Geburtsdatum,
+    Familienstand, Steuerstatus, Einkommen, Vermoegen, Risikoklasse, Versicherungsstatus).
+    FUND -> feat-dsar-search-contact-advisory-protocol-module.
+  - ueber 120 users-FK-Zeilen sind reine Attributions-Spalten (created_by/updated_by/
+    approved_by/assigned_to/uploaded_by/author_id/actor_id/...) auf Geschaeftsdatensaetzen, die
+    inhaltlich nicht ueber die referenzierende Person handeln (z. B. deals.created_by ist keine
+    Aussage ueber den Vertriebler als Person) — legitimer Nicht-Fund, ausser die Flaeche ist
+    bereits als eigenes Modul abgedeckt (Chat, Tasks, Calendar, Notifications ueber A7-A9).
+  - `hr_employee_profiles`/`hr_leave_requests`/`hr_leave_balances`/`hr_work_time_entries`/
+    `hr_employee_documents`/`hr_profile_change_requests` (alle an `users` gebunden ueber
+    user_id/employee_id/manager_user_id): KEIN Modul. Beschaeftigtendaten (Adresse,
+    Notfallkontakt, Stundenlohn, Urlaub, Arbeitszeit, is_minor) sind eine der sensibelsten
+    DSGVO-Kategorien. FUND -> feat-dsar-search-user-hr-employee-module.
+  - `user_sessions`/`password_history`/`recovery_codes`/`two_factor_policy` (an `users`
+    gebunden, `user_sessions.ip_address` zusaetzlich per Spaltennamen-Scan gefunden):
+    KEIN Modul. Login-/Sitzungsverlauf ist klassisch auskunftspflichtig. FUND ->
+    feat-dsar-search-user-account-security-history-module.
+  - `driver_licenses` (CASCADE an users) und `vehicle_bookings` (created_by/user_id an users):
+    KEIN Modul im Fuhrpark-Bereich. FUND -> feat-dsar-search-user-fuhrpark-driver-module.
+  - `invitations` (first_name/last_name/email als eigene Spalten, nicht per FK — ueber
+    Spaltennamen-Scan gefunden, nicht ueber pg_constraint): KEIN Modul, auch fuer laengst
+    angenommene Einladungen nicht. FUND -> feat-dsar-search-invitation-history-module
+    (inkl. dokumentiertem Nebenbefund: nie angenommene Einladungen sind ueberhaupt nicht
+    matchbar, siehe unten).
+  - `guest_sessions` (email/ip_address als eigene Spalten, kein FK auf contacts/users):
+    bewusst NICHT als eigene Unit angelegt. Begruendung: Feature-Reichweite unklar (oeffentlicher
+    Chat-Gast ohne Konto), Matching wuerde eine dritte Subjekt-Matching-Quelle neben
+    Kontakten/Benutzern noetig machen — groesserer Architektureingriff, kein einfacher
+    Modul-Anhang. Als offener Befund unten benannt statt als Unit erzwungen.
+  - `companies`/`company_settings`/`inventory_locations`/`suppliers`-Adress-/Kontaktspalten aus
+    dem Spaltennamen-Scan: Geschaeftsadressen/-kontakte (B2B), keine natuerlichen Personen als
+    Datensubjekt in diesem Kontext — Nicht-Fund.
+- gate: n.a. (Scan-Unit aendert kein Verhalten, kein Produktionscode, keine Migration, kein Test
+  angefasst — done_when der Unit verlangt kein go test)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geaenderter Testfall)
+- verify vorgaenger: sauber. `e2a1d75c` (Iteration 39, journal-sha-Nachtrag) und `59ba84fd`
+  (Iteration 39, verify-datev-extf-encoding-requirement) gegen alle acht Fehlerklassen geprueft:
+  `git show --stat` fuer beide zeigt ausschliesslich BACKLOG/JOURNAL plus einen erweiterten
+  Kommentarblock in `exporter_test.go` — kein Produktionscode, kein gRPC-Bypass, kein Stub/TODO,
+  kein `.proto` geaendert, keine neue `RequirePermission`, keine neue Tabelle, keine
+  Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route.
+- neue-units: feat-dsar-search-contact-advisory-protocol-module,
+  feat-dsar-search-user-hr-employee-module,
+  feat-dsar-search-user-account-security-history-module,
+  feat-dsar-search-user-fuhrpark-driver-module, feat-dsar-search-invitation-history-module
+- offen:
+  - `guest_sessions` (oeffentlicher Chat-Gast mit optionaler E-Mail/IP) ist eine Personendaten
+    tragende Tabelle ohne jede Anbindung an `matchContacts`/`matchUsers` — bewusst NICHT als Unit
+    angelegt (siehe Begruendung oben), weil eine Loesung eine dritte Subjekt-Matching-Quelle
+    braeuchte. Architekturfrage fuer Luke: lohnt sich das fuer eine Funktion, deren
+    Nutzungsumfang hier nicht bekannt ist?
+  - Innerhalb von feat-dsar-search-invitation-history-module ist bereits vermerkt: nie
+    angenommene Einladungen (`accepted_at IS NULL`) bleiben unloesbar mit der aktuellen
+    Zwei-Quellen-Matching-Architektur (Kontakte, Benutzer) — dieselbe Grenze wie bei
+    guest_sessions, aus demselben Grund nicht in dieser Nacht geloest.
