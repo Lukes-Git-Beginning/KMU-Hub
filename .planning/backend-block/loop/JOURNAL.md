@@ -4598,3 +4598,54 @@ Frühere Läufe liegen vollständig im Archiv:
   aus fruaheren Laeufen), kein eigenstaendiger Code-Commit.
 - neue-units: keine
 - offen: keine
+
+## Iteration 77 — feat-retention-worker-handler-notifications — done — 2026-08-22 10:31
+- commit: <wird im naechsten Commit eingetragen>
+- gebaut: `NotificationRetentionHandler` (`backend/internal/security/gdpr/retention_notifications.go`)
+  als achter Handler auf der Retention-Registry aus A10, `resource_type` "notifications",
+  verdrahtet in `cmd/auth/main.go` neben den sieben bestehenden Handlern.
+  Zwei Entscheidungen aus den Notes umgesetzt: `SupportsAction` erlaubt NUR delete — eine
+  anonymisierte Benachrichtigung ("[geloescht] hat ... erwaehnt") ist fuer den Empfaenger wertlos,
+  die Begruendung steht im Datei-Header, nicht nur im Journal. `Plan` filtert `is_read = true`
+  direkt in der WHERE-Klausel, nicht als nachtraeglicher Skip: eine ungelesene Benachrichtigung
+  ist nie faellig, egal wie alt — sonst verschwindet eine Nachricht, die der Empfaenger nie zu
+  Gesicht bekommen hat, lautlos (Feature-Verlust, keine Aufraeumung).
+  `notifications.tenant_id` existiert bereits seit Migration 000106 (Retrofit Phase 1) mit
+  RLS-Policy seit 000122 (`enable_tenant_rls('notifications')`) — vor dem Bauen an der
+  Migrationshistorie gegengeprueft (`grep -rl notifications backend/migrations`), nicht
+  angenommen. Keine neue Migration noetig.
+  `retention_test.go` haelt bereits einen lokalen, testinternen `notificationRetentionHandler`
+  (Beweis fuer die Engine, ohne `is_read`-Filter und mit Anonymize+Delete) — bewusst NICHT
+  wiederverwendet, weil er genau die beiden Faelle nicht abdeckt, die diese Unit fordert
+  (ungelesen ausschliessen, nur delete). Die Produktions-Klasse ist eine neue, eigene Datei.
+- gate: build ok (`./internal/security/... ./internal/notification/... ./cmd/auth/...`) | vet ok
+  (`./internal/security/... ./internal/notification/...`) | lint ok (0 issues, beide Pakete) |
+  test ok (`./internal/security/gdpr/` 5 neue Tests PASS, 0 SKIP; volle
+  `./internal/security/gdpr/...`-, `./internal/security/...`- und `./internal/notification/...`-
+  Suiten gruen — ACHTUNG: der erste Lauf ueber den vollen `./internal/security/...`-Baum ohne
+  `-p 1` schlug in `password`/`vendoraccess`/`vault` mit "remaining connection slots are reserved
+  for roles with the SUPERUSER attribute" fehl, weil zu viele Pakete gleichzeitig eigene Pools
+  gegen die lokale Docker-Postgres oeffnen; mit `-p 1` (seriell) alle 7 Pakete gruen, `gdpr` isoliert
+  ebenfalls durchgehend gruen — kein Bug dieser Aenderung, reines lokales Connection-Limit) |
+  migration: n.a. (keine neue Migration, `tenant_id`/RLS auf `notifications` bereits vorhanden) |
+  rls-smoke: n.a. (keine Policy geaendert; Tenant-Isolation per DB-Test mit zwei Tenants explizit
+  belegt, `TestNotificationRetentionHandler_PlanOnlyMatchesReadPastCutoffAndIsTenantScoped`)
+- coverage: `internal/security/gdpr` 71,4 % -> 71,5 % (selbst gemessen: neue Dateien
+  `retention_notifications.go`/`_test.go` kurzzeitig nach `/tmp` verschoben, Wiring-Zeile in
+  `cmd/auth/main.go` per `sed` temporaer entfernt, `go test -coverprofile` vor der Aenderung,
+  Dateien und Wiring zurueckgeholt, `go test -coverprofile` danach)
+- mutations-probe: die Plan-Query von `WHERE tenant_id = $1 AND is_read = true AND created_at < $2`
+  auf `WHERE tenant_id = $1 AND created_at < $2` verkuerzt (ungelesene Benachrichtigungen waeren
+  doch faellig) -> `TestNotificationRetentionHandler_PlanExcludesUnreadRegardlessOfAge` bricht ab.
+  Zurueckgedreht, `git status` zeigt die Datei wieder als komplett unveraendert gegen den
+  Arbeitsstand (unstaged, keine Differenz zur eigenen Neufassung), Test erneut gruen, volle
+  Testdatei erneut gruen.
+- verify vorgaenger: sauber. `2ae62384` (Iteration 76, feat-retention-worker-handler-calendar-events)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextlesung von
+  `retention_calendar_events.go` und Diff von `cmd/auth/main.go`) — kein Gateway-Handler betroffen,
+  kein Stub, kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle
+  (`calendar_events.tenant_id`/RLS bereits seit 000106/000122 vorhanden, gegengeprueft), keine neue
+  Route, keine Wire-Shape-Aenderung. Der separate `b2aaeb2a`-Commit davor war nur die nachtraegliche
+  SHA-Eintragung ins Journal, kein eigenstaendiger Code-Commit.
+- neue-units: keine
+- offen: keine

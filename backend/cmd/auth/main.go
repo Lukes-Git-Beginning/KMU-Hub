@@ -128,6 +128,7 @@ func main() {
 		gdpr.NewFormSubmissionRetentionHandler(pool),
 		gdpr.NewTaskRetentionHandler(pool),
 		gdpr.NewCalendarEventRetentionHandler(pool),
+		gdpr.NewNotificationRetentionHandler(pool),
 	)
 	retentionEngine := gdpr.NewRetentionEngine(pool, gdprRepo, retentionRegistry)
 
