@@ -3930,7 +3930,7 @@ Frühere Läufe liegen vollständig im Archiv:
     verbindliche Frist gibt, gehoert das von Luke geprueft.
 
 ## Iteration 64 — fix-auth-erasure-missing-security-tables — done — 2026-08-22 08:55
-- commit: (siehe naechster docs-Commit)
+- commit: f0694012
 - gebaut: `AuthErasureHandler` (`erasure.go`) loeschte bislang `user_sessions`,
   `refresh_tokens`, `recovery_codes`, `password_history` und anonymisierte `users` — zwei
   sicherheitsrelevante Tabellen mit CASCADE-FK auf `users(id)` blieben unberuehrt:
