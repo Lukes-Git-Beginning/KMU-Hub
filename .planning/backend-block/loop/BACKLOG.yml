@@ -3203,7 +3203,7 @@ units:
     service: security
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 69,3 % (lokal gemessen 2026-08-22, Iteration 47 —
       hoeher als der CI-Stand 61,2 % aus dem Lauf-Kopf, weil A2-A13 seither dasselbe Paket
       erweitert haben; siehe Iteration 47 im Journal)"
@@ -3591,3 +3591,45 @@ units:
       - PreviewErasure weist eine betroffene Buchungsseite sichtbar aus, falls die Wahl das
         erfordert
       - go test -count=1 ./internal/security/gdpr/... ./internal/work/calendar/... gruen
+
+  - id: fix-work-erasure-preview-overcounts-vs-execute
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 71,5 % (lokal gemessen 2026-08-22, Iteration 84)"
+    scope: >
+      Gefunden 2026-08-22 waehrend fix-erasure-handlers-not-idempotent-on-second-run
+      (Iteration 84). Seit diesem Fix zaehlt `WorkErasureHandler.ExecuteErasure` nur noch
+      Aufgaben, an denen es wirklich etwas aendert (`UPDATE tasks ... WHERE assignee_id = $1`);
+      eine Aufgabe, die der Betroffene nur ERSTELLT hat und die jemand anderem zugewiesen ist,
+      bleibt unveraendert und wird deshalb nicht mehr mitgezaehlt — dieselbe Begruendung, mit der
+      `CRMErasureHandler` contacts/companies schon vorher ausgenommen hat.
+      `WorkErasureHandler.PreviewErasure` (erasure.go, `SELECT COUNT(*) FROM tasks WHERE
+      assignee_id = $1 OR created_by = $1`) zaehlt diese Aufgaben aber weiterhin mit. Vorschau
+      und Ausfuehrung weichen damit schon beim ERSTEN Lauf voneinander ab: die Vorschau
+      verspricht dem Admin z. B. 6 betroffene Datensaetze, die Ausfuehrung protokolliert 5.
+      `erasure_calendar_test.go:192` und `erasure_settings_test.go:105` verlangen fuer ihre
+      Module ausdruecklich `preview.RecordCount == affected` — fuer Work existiert keine solche
+      Assertion, deshalb faellt die Abweichung derzeit durch kein Gate.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/security/gdpr/handlers_test.go
+      - backend/internal/security/gdpr/erasure_work_test.go
+    notes: >
+      Der Preview-Zweig fuer `tasks` muss auf `WHERE assignee_id = $1` verengt werden, damit er
+      dieselbe Menge zaehlt wie die Ausfuehrung. `TestWorkErasureHandler_Preview_Integration`
+      (handlers_test.go:236) pinnt die aktuelle, zu hohe Zahl und muss mitgezogen werden.
+      Bei der Gelegenheit die fuer Calendar/Settings bereits bestehende Assertion
+      `preview.RecordCount == affected` auch fuer Work ergaenzen — sie ist das Gate, das genau
+      diese Klasse Drift kuenftig faengt. Achtung: sie gilt nur fuer den ERSTEN Lauf; nach dem
+      Idempotenz-Fix meldet ein zweiter Lauf bewusst 0, waehrend die Vorschau weiterhin den
+      Bestand zeigt.
+      Kein Wire-Format-Bezug (`ModuleErasurePreview.RecordCount` bleibt), kein OpenAPI-Eintrag.
+    done_when:
+      - WorkErasureHandler.PreviewErasure zaehlt dieselbe Task-Menge, die ExecuteErasure
+        tatsaechlich veraendert
+      - Ein Test belegt preview.RecordCount == affected fuer das Work-Modul beim ersten Lauf
+      - TestWorkErasureHandler_Preview_Integration ist gegen die korrigierte Zahl aktualisiert
+      - go test -count=1 ./internal/security/... gruen, DATABASE_URL gesetzt

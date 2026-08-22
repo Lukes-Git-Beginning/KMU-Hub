@@ -4960,3 +4960,77 @@ Frühere Läufe liegen vollständig im Archiv:
   `.proto`-Change, kein Guard, keine Tabelle, keine neue Route, keine Wire-Shape-Aenderung).
 - neue-units: keine.
 - offen: keine
+
+## Iteration 84 — fix-erasure-handlers-not-idempotent-on-second-run — done — 2026-08-22 11:24
+- commit: <sha>
+- gebaut: Alle fuenf nicht doppellauf-festen Erasure-Handler in
+  `backend/internal/security/gdpr/erasure.go` gefixt. Zwei Guard-Muster, pro Handler einzeln
+  entschieden statt pauschal:
+  - Zustands-Guard, wo der erste Lauf einen abfragbaren Zustand hinterlaesst. Auth:
+    `WHERE id = $1 AND last_name IS DISTINCT FROM $3` (neue Konstante `anonymizedLastName`;
+    der Handler laeuft komplett in EINER Transaktion, also ist das Sentinel-`last_name`
+    aequivalent zum vollstaendig anonymisierten Zustand). CRM: `WHERE assigned_to = $1 OR
+    (created_by = $1 AND description IS NOT NULL)`.
+  - Label-Muster-Guard fuer Freitext, dessen Label pro Lauf wechselt (neue Konstante
+    `anonymizedContentPattern = "[Geloeschter Benutzer #%]"`, Prefix ist durch
+    `GetNextAnonymizedLabel` fixiert, nur der Zaehler variiert). Chat `messages.content`,
+    Work `task_comments.content`, Calendar `calendar_events.title`.
+  - Reporting-Korrektur, wo gar nichts geschrieben wird: Work `tasks` matcht nur noch
+    `WHERE assignee_id = $1` — eine Aufgabe, die der Betroffene nur erstellt hat, wird von der
+    Erasure nachweislich nicht veraendert (created_by ist NOT-NULL-FK auf den anonymisierten
+    Sentinel) und gehoert deshalb nicht in `affected`; dieselbe Begruendung, mit der CRM
+    contacts/companies bereits ausnimmt. Calendar: der Pre-Count fuer Termine ist von "alle
+    Termine des Nutzers" auf "Termine, die der Personenkalender-DELETE mitkaskadiert"
+    verengt, der Rest wird ueber `RowsAffected` des anonymisierenden UPDATE gezaehlt.
+  Bewusst NICHT als Auth-Guard gewaehlt: `is_active` — ein aus anderen Gruenden deaktiviertes
+  Konto traegt seine PII noch und muss anonymisiert werden. Bewusst NICHT als Chat-Guard
+  gewaehlt: `is_deleted` — `message.PostgresRepository.Delete` (postgres_repository.go:151)
+  setzt nur das Flag und laesst den Content stehen, ein Guard darauf haette bei jeder
+  selbst-geloeschten Nachricht personenbezogenen Text zurueckgelassen. Beide Faelle sind
+  jetzt mit einem eigenen Test gepinnt, damit ein spaeterer "Vereinfachungs"-Refactor sie
+  nicht doch einbaut.
+  Testseite: `erasure_idempotency_test.go` von Pin- auf Korrektheits-Tests umgeschrieben
+  (Header + fuenf Testfunktionen umbenannt, alle `BUG:`-Assertions durch die korrekte
+  Erwartung ersetzt), plus drei neue Tests: deaktiviertes-aber-nicht-anonymisiertes Konto,
+  soft-geloeschte Nachricht, und der bis dahin unbelegte Calendar-Restfall (Termin auf einem
+  FREMDEN Kalender — nur der Muster-Guard verhindert dort das Nachzaehlen).
+  `erasure_work_test.go`: erwartete Zahl 6 -> 5 wegen der Reporting-Korrektur.
+  Keine Migration, keine Proto-Aenderung, keine Route, kein Wire-Format-Bezug
+  (`modulesAffected` behaelt seine Form, nur die Zahlen darin werden ehrlich).
+- gate: build ok (`./internal/security/...`) | vet ok | lint ok (0 issues) | test ok
+  (`./internal/security/...` alle 7 Pakete PASS; `-v` auf `./internal/security/gdpr/`:
+  **0 SKIP, 0 FAIL**, 151 Top-Level-Tests + 16 Subtests real gelaufen, davon 39 Erasure-Tests gegen die echte DB mit
+  `DATABASE_URL` auf `kmuhub_app`) | migration: n.a. | rls-smoke: n.a. (keine Tabelle,
+  keine Policy angefasst — reine Query-Praedikate)
+- coverage: `internal/security/gdpr` 71,5 % -> 71,5 % (eigene Messung mit
+  `go tool cover -func`, vorher per `git stash` auf demselben Tree). Kein Delta: der Fix
+  aendert Praedikate in bestehenden Statements, fuegt also keine neuen Zweige hinzu; die drei
+  neuen Tests decken Pfade ab, die vorher schon von anderen Tests durchlaufen wurden.
+  Abweichung zum `coverage_start:` der Unit (69,3 %) kommt aus Iteration 48+, die dasselbe
+  Paket erweitert haben — es gilt meine Messung.
+- mutations-probe: Calendar-Guard neutralisiert (`AND title NOT LIKE $3` -> `AND $3 = $3`,
+  praedikat-wahr statt Guard) — `TestCalendarErasureHandler_ExecuteErasure_
+  SecondRunSkipsAnonymizedForeignEvent` wurde rot ("expected [Geloeschter Benutzer #400],
+  actual [...#401]" — genau der Label-Ueberschreib-Schaden, den die Unit beschreibt).
+  Zurueckgedreht, `git diff --stat` danach wieder 67+/20- auf erasure.go, voller Paketlauf
+  erneut gruen. Anmerkung: der erste Mutationsversuch (`... NOT LIKE $3 OR false`) blieb
+  gruen und war ein Fehlgriff — `OR false` ist wirkungslos, weil AND staerker bindet; die
+  Probe zaehlt erst ab dem zweiten, wirklich verhaltensaendernden Eingriff.
+- verify vorgaenger: sauber. `646fa714` (Iteration 83) und `c2f2cee8` (Iteration 83
+  SHA-Nachtrag) geprueft (`git show --stat`) — nur `backend/api/openapi.yaml` und
+  Loop-Dateien, keine `.go`-Zeile, keine neue Route (nur Response-Codes an bestehenden
+  Pfaden). Damit fuer alle acht Fehlerklassen automatisch sauber.
+- neue-units: fix-work-erasure-preview-overcounts-vs-execute (ans Backlog-Ende gehaengt).
+- offen: (1) Zwei Punkte aus dem Unit-Scope waren bereits vor dieser Iteration erledigt und
+  brauchten keinen Fix mehr: CRM zaehlt contacts/companies laengst nicht mehr (der COUNT-Zweig
+  ist in erasure.go durch einen erklaerenden Kommentar ersetzt), und der Calendar-Fall
+  "eigener Personenkalender" war seit Lauf 10 doppellauf-fest. Der Scope-Text der Unit war an
+  diesen Stellen veraltet.
+  (2) Der `anonymizedContentPattern`-Guard ist eine Heuristik: eine Nachricht, die ein Nutzer
+  woertlich als "[Geloeschter Benutzer #7]" verfasst hat, wuerde uebersprungen. Im Code als
+  `lean:`-Marker mit Upgrade-Trigger vermerkt (dedizierte `anonymized_at`-Spalte pro Tabelle,
+  falls das je relevant wird). Bewusst nicht gebaut — das waere eine Migration ueber vier
+  Tabellen fuer einen Fall, der praktisch nicht vorkommt.
+  (3) `PreviewErasure` blieb ueberall unangetastet: sie zeigt Bestand, `ExecuteErasure` zeigt
+  jetzt Veraenderung. Fuer Work faellt die beiden schon beim ersten Lauf auseinander — das ist
+  der Inhalt der neu angelegten Unit, nicht ein Nebeneffekt, der hier haette mitlaufen sollen.

@@ -141,12 +141,12 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 
 	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
 	require.NoError(t, err)
-	// 3 tasks touched (both-task counts once, created-only counts once,
-	// assigned-only counts once; the foreign task is untouched) + 1 time entry
-	// (the one past the retention window) deleted + 1 comment anonymized +
-	// 1 project membership deleted = 6.
+	// 2 tasks unassigned (both-task and assigned-only; the created-only task keeps its
+	// assignee and is therefore not changed at all, and the foreign task is untouched)
+	// + 1 time entry (the one past the retention window) deleted + 1 comment anonymized
+	// + 1 project membership deleted = 5.
 	// recentTimeEntryID is inside the window and must not be counted.
-	assert.Equal(t, 6, affected, "each task is counted exactly once, regardless of matching both branches")
+	assert.Equal(t, 5, affected, "only rows this run actually changed are counted")
 
 	// The both-task loses its assignment.
 	var assignee *uuid.UUID

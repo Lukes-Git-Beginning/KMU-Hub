@@ -20,6 +20,24 @@ import (
 // conservatively rather than a value read out of an existing retention table.
 const timeEntryRetentionDays = 730
 
+// anonymizedLastName is the fixed sentinel AuthErasureHandler writes into
+// users.last_name. Because the whole handler runs in one transaction, a row
+// carrying it is fully anonymized, which makes it a reliable "already erased"
+// marker for a repeated run.
+const anonymizedLastName = "ANONYMIZED"
+
+// anonymizedContentPattern is the SQL LIKE pattern matching free-text content a
+// previous erasure run already replaced with a bracketed label, e.g.
+// "[Geloeschter Benutzer #42]". The prefix is fixed by GetNextAnonymizedLabel
+// (repository.go), only the counter varies -- and it varies per run, so the
+// label of the current run cannot be used to recognise the previous one.
+// Handlers guard their UPDATEs with it so a second run neither overwrites the
+// first run's label nor reports the row as freshly erased. `[` and `]` are not
+// LIKE metacharacters, so no escaping is needed.
+// lean: a message a user genuinely wrote as "[Geloeschter Benutzer #7]" would be
+// skipped; add a dedicated anonymized_at column per table if that ever matters.
+const anonymizedContentPattern = "[Geloeschter Benutzer #%]"
+
 // ErasureAction defines the type of erasure operation for a module.
 type ErasureAction string
 
@@ -157,12 +175,17 @@ func (h *AuthErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 	}
 	affected += int(res.RowsAffected())
 
-	// 5. Anonymize user profile: clear PII, clear 2FA secrets, deactivate account
+	// 5. Anonymize user profile: clear PII, clear 2FA secrets, deactivate account.
+	// Skipped for an already anonymized row: without the sentinel guard a second
+	// run would overwrite the first run's label (each run draws a fresh one from
+	// GetNextAnonymizedLabel) and report the row as newly erased. The guard is
+	// deliberately not is_active: an account deactivated for other reasons still
+	// carries its PII and must be anonymized.
 	res, err = tx.Exec(ctx,
 		`UPDATE users SET
 		   email = $2 || '@deleted.invalid',
 		   first_name = $2,
-		   last_name = 'ANONYMIZED',
+		   last_name = $3,
 		   password_hash = '',
 		   is_active = false,
 		   two_factor_enabled = false,
@@ -170,7 +193,7 @@ func (h *AuthErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 		   two_factor_pending_secret = NULL,
 		   two_factor_enabled_at = NULL,
 		   updated_at = NOW()
-		 WHERE id = $1`, userID, anonymizedLabel,
+		 WHERE id = $1 AND last_name IS DISTINCT FROM $3`, userID, anonymizedLabel, anonymizedLastName,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("auth erasure: failed to anonymize user: %w", err)
@@ -242,12 +265,15 @@ func (h *CRMErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUID
 	// so a row that is both (assigned to self, created by self) is only counted once.
 	// activities.created_by is NOT NULL FK; the user record persists as anonymized sentinel,
 	// so FK integrity is maintained regardless of which branch touches the row.
+	// The WHERE clause only matches rows that still have something to erase --
+	// created_by never changes, so matching on it alone would recount the same
+	// row on every subsequent run although its description is long since NULL.
 	res, err := tx.Exec(ctx,
 		`UPDATE activities SET
 		   assigned_to = CASE WHEN assigned_to = $1 THEN NULL ELSE assigned_to END,
 		   description = NULL,
 		   updated_at = NOW()
-		 WHERE assigned_to = $1 OR created_by = $1`, userID,
+		 WHERE assigned_to = $1 OR (created_by = $1 AND description IS NOT NULL)`, userID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("crm erasure: failed to anonymize activities: %w", err)
@@ -322,13 +348,19 @@ func (h *ChatErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 
 	affected := 0
 
-	// Anonymize message content (keep message skeleton for thread integrity)
+	// Anonymize message content (keep message skeleton for thread integrity).
+	// created_by never changes, so the pattern guard is what stops a second run
+	// from overwriting the first run's label with a fresher one and reporting
+	// the message as newly erased. The guard is deliberately not is_deleted:
+	// message.PostgresRepository.Delete only flips is_deleted and leaves the
+	// content in place, so a message the user soft-deleted themselves still
+	// holds personal data that this erasure must replace.
 	res, err := tx.Exec(ctx,
 		`UPDATE messages SET
 		   content = '[' || $2 || ']',
 		   is_deleted = true,
 		   edited_at = NOW()
-		 WHERE created_by = $1`, userID, anonymizedLabel,
+		 WHERE created_by = $1 AND content NOT LIKE $3`, userID, anonymizedLabel, anonymizedContentPattern,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("chat erasure: failed to anonymize messages: %w", err)
@@ -426,16 +458,17 @@ func (h *WorkErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 
 	affected := 0
 
-	// Unassign tasks and count tasks created by the subject in a single UPDATE,
-	// so a task that is both (assigned to self, created by self) is only counted
-	// once. tasks.created_by is NOT NULL FK; the user record persists as
-	// anonymized sentinel, so FK integrity is maintained regardless of which
-	// branch touches the row.
+	// Unassign tasks assigned to the subject. Tasks the subject merely created
+	// are deliberately out of scope: tasks.created_by is a NOT NULL FK and the
+	// user record persists as anonymized sentinel, so nothing about such a row
+	// changes -- counting it would report work that never happened, and since
+	// created_by never changes it would report it again on every later run.
+	// Same reasoning contacts/companies already follow in CRMErasureHandler.
 	res, err := tx.Exec(ctx,
 		`UPDATE tasks SET
-		   assignee_id = CASE WHEN assignee_id = $1 THEN NULL ELSE assignee_id END,
+		   assignee_id = NULL,
 		   updated_at = NOW()
-		 WHERE assignee_id = $1 OR created_by = $1`, userID,
+		 WHERE assignee_id = $1`, userID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("work erasure: failed to unassign tasks: %w", err)
@@ -459,12 +492,14 @@ func (h *WorkErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 	}
 	affected += int(res.RowsAffected())
 
-	// Anonymize task comments (keep for task history, remove author identity)
+	// Anonymize task comments (keep for task history, remove author identity).
+	// author_id never changes, so the pattern guard is what keeps a second run
+	// from overwriting the first run's label (see ChatErasureHandler).
 	res, err = tx.Exec(ctx,
 		`UPDATE task_comments SET
 		   content = '[' || $2 || ']',
 		   updated_at = NOW()
-		 WHERE author_id = $1`, userID, anonymizedLabel,
+		 WHERE author_id = $1 AND content NOT LIKE $3`, userID, anonymizedLabel, anonymizedContentPattern,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("work erasure: failed to anonymize task comments: %w", err)
@@ -558,10 +593,21 @@ func (h *CalendarErasureHandler) ExecuteErasure(ctx context.Context, userID uuid
 	// Pre-count rows that the personal-calendar cascade below can silently
 	// remove before their own DELETE/UPDATE statements run, so the reported
 	// total stays in sync with what PreviewErasure showed.
+	// Only events sitting on a calendar the DELETE below actually removes are
+	// pre-counted -- those vanish before any statement can report them. Events
+	// the subject organizes elsewhere (shared calendar, or their own calendar
+	// retained for a booking page) are counted by the anonymizing UPDATE's own
+	// RowsAffected instead, so a repeated run no longer recounts them:
+	// calendar_events.created_by never changes and would otherwise match forever.
 	var eventCount, attendeeCount, memberCount int
 	if err = tx.QueryRow(ctx,
 		`SELECT
-		   (SELECT COUNT(*) FROM calendar_events WHERE created_by = $1),
+		   (SELECT COUNT(*) FROM calendar_events e
+		      WHERE e.created_by = $1
+		        AND EXISTS (SELECT 1 FROM calendars c
+		                    WHERE c.id = e.calendar_id AND c.owner_id = $1
+		                      AND c.calendar_type = 'personal'
+		                      AND NOT EXISTS (SELECT 1 FROM booking_pages bp WHERE bp.calendar_id = c.id))),
 		   (SELECT COUNT(*) FROM event_attendees WHERE user_id = $1),
 		   (SELECT COUNT(*) FROM calendar_members WHERE user_id = $1)
 		`, userID,
@@ -591,17 +637,18 @@ func (h *CalendarErasureHandler) ExecuteErasure(ctx context.Context, userID uuid
 	// shared/booking-page calendar, or their own if retained above): the event
 	// stays for other attendees or the booking page, only the
 	// organizer-authored content disappears.
-	if _, err = tx.Exec(ctx,
+	res, err = tx.Exec(ctx,
 		`UPDATE calendar_events SET
 		   title = '[' || $2 || ']',
 		   description = NULL,
 		   location = NULL,
 		   updated_at = NOW()
-		 WHERE created_by = $1`, userID, anonymizedLabel,
-	); err != nil {
+		 WHERE created_by = $1 AND title NOT LIKE $3`, userID, anonymizedLabel, anonymizedContentPattern,
+	)
+	if err != nil {
 		return 0, fmt.Errorf("calendar erasure: failed to anonymize remaining events: %w", err)
 	}
-	affected += eventCount
+	affected += eventCount + int(res.RowsAffected())
 
 	// Remove attendee records (participation data is personal)
 	if _, err = tx.Exec(ctx,
