@@ -3314,3 +3314,51 @@ Frühere Läufe liegen vollständig im Archiv:
     verteilt ist, als eine einzelne Unit-Notiz greppen kann. Fuer kuenftige route_email.go-Units
     lohnt sich vorab ein `grep -rl "NewEmailRoutes" internal/gateway/*_test.go` statt sich auf die
     in den Notes genannten drei Dateien zu verlassen.
+
+## Iteration 53 — fix-email-contacts-csv-export-formula-injection — done — 2026-08-22 07:52
+- commit: (wird nach diesem Eintrag gesetzt)
+- gebaut: `neutralizeFormulaCell` in `internal/email/contact/export_service.go` — eine
+  Hilfsfunktion, die jedem der sieben CSV-Feldwerte in `ExportCSV` unmittelbar vor
+  `row = append(row, ...)` vorgeschaltet ist (Umbau der switch-Faelle auf ein gemeinsames `val`,
+  einmaliger Aufruf am Ende der Schleife statt sieben Einzelfaelle). Beginnt ein Wert mit
+  `=`, `+`, `-` oder `@`, wird ein fuehrendes Apostroph vorangestellt (Excel/LibreOffice liest die
+  Zelle dann als Text statt als Formel); der Wert selbst wird nie abgeschnitten oder verworfen.
+  `ExportVCard` bewusst nicht angefasst — vCard-Felder werden von keiner Tabellenkalkulation als
+  Formel interpretiert (kein Aenderungsbedarf, per Notes der Unit gegengeprueft).
+  Root-Cause-Grep vor dem Bauen: `csv.NewWriter` kommt im Backend an 9 Stellen vor. Drei davon
+  (`internal/formulare/service.go`, `internal/security/audit/export.go`,
+  `internal/biz/dunning/service_gobd.go`) schreiben denselben Fehler mit nachweislich
+  user-kontrolliertem Feldwert — nicht in dieser Unit mitgefixt (anderer Service, andere Datei,
+  bei GoBD zusaetzlich eine Formatentscheidung, die eigene Abwaegung braucht), sondern als neue
+  Unit `fix-csv-formula-injection-remaining-exports` ans Backlog-Ende gehaengt. Drei weitere
+  Treffer (`inventar_grpc.go`, `vermietung_grpc.go`, `fuhrpark_grpc.go`) sind NICHT geprueft und
+  in der neuen Unit als offen markiert, nicht stillschweigend als sauber angenommen.
+- gate: build ok (`./internal/email/... ./internal/gateway/...`) | vet ok | lint ok (0 issues,
+  `./internal/email/...`) | test ok (`./internal/email/...` komplett gruen, alle Unterpakete;
+  `internal/email/contact` einzeln 0 SKIP) | migration n.a. (keine Schemaaenderung) | rls-smoke
+  n.a. (keine Tabelle/Policy) | `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` ok
+  (n.a. fuer diese Unit, keine Route beruehrt, trotzdem zur Sicherheit gelaufen)
+- coverage: n.a. — Unit ist als Sicherheits-Fix ohne Coverage-Ziel deklariert
+  (`coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"`); zur Einordnung gemessen:
+  `internal/email/contact` unveraendert bei 80,4 % (zwei neue Tests kompensieren die zwei neuen
+  Codezeilen der Hilfsfunktion).
+- mutations-probe: `row = append(row, neutralizeFormulaCell(val))` per `sed` auf
+  `row = append(row, val)` zurueckgesetzt -> `TestExportCSV_FormulaInjectionNeutralized` wird rot
+  mit drei Assertions (first_name/last_name/notes liefern den unneutralisierten Formel-Praefix
+  statt des erwarteten fuehrenden Apostrophs). Zurueckgedreht -> alle 9 Tests in
+  `internal/email/contact` gruen, `git diff --stat` zeigt fuer `export_service.go` nur die
+  urspruengliche Aenderung (25 Insertions/19 Deletions, reiner Umbau plus neue Funktion).
+- verify vorgaenger: sauber. `edceea8e` (Iteration 52, fix-gateway-email-service-unavailable-
+  status-code) gegen alle acht Fehlerklassen geprueft (`git show --stat` und Volltext) — reine
+  Statuscode-Ersetzung (502 -> 503) in `route_email.go` plus sieben mitgezogene Testdateien, kein
+  neuer Handler, kein `.proto`, kein neuer `RequirePermission`-Guard, kein ersetzter Alt-Guard,
+  keine neue Tabelle/Migration, kein Wire-Shape-Bruch (nur der HTTP-Statuscode aendert sich, der
+  JSON-Fehlerkoerper bleibt identisch), keine neue Route.
+- neue-units: fix-csv-formula-injection-remaining-exports
+- offen:
+  - Die neue Unit deckt nur die drei bestaetigten Treffer ab; `inventar_grpc.go`,
+    `vermietung_grpc.go`, `fuhrpark_grpc.go` sind explizit als ungeprueft markiert, nicht als
+    sauber — wer die Unit abarbeitet, muss dort zuerst nachsehen.
+  - Kein gemeinsames Helper-Paket fuer CSV-Zell-Neutralisierung angelegt (waere eine vierte
+    Kopie ohne echten Konsumenten in dieser Iteration gewesen) — die neue Unit entscheidet, ob
+    sich das lohnt, sobald drei weitere Stellen dieselbe Funktion brauchen.

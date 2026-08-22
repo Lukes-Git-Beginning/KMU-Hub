@@ -1926,7 +1926,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
     scope: >
       `internal/email/contact/export_service.go` (`ExportService.ExportCSV`, Zeile 86-131)
@@ -3378,3 +3378,59 @@ units:
         einer gemergten Primary-Firma) und zeigt danach das saubere Verhalten
       - go test -count=1 ./internal/crm/company/... gruen, DATABASE_URL gesetzt
       - Falls Migration: rls-smoke/Migrationslauf (up und down) dokumentiert
+
+  - id: fix-csv-formula-injection-remaining-exports
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
+    scope: >
+      Fund waehrend fix-email-contacts-csv-export-formula-injection (Iteration 53, 2026-08-22):
+      dasselbe Muster (Feldwert wird ungeprueft als CSV-Zelle geschrieben, ein fuehrendes
+      `=`/`+`/`-`/`@` wird von Excel/LibreOffice als Formel ausgefuehrt) sitzt in mindestens drei
+      weiteren CSV-Exporten:
+        - `internal/formulare/service.go:buildCSV` (Zeile ~576-617) — schreibt `sub.SubmittedBy`
+          UND jeden Antwortwert aus dem JSONB-`answers`-Payload roh via `fmt.Sprintf("%v", v)`.
+          Das ist die schwerste der drei Stellen: Formulare koennen oeffentlich ueber Share-Links
+          erreichbar sein, der Payload ist damit direkt von einer nicht authentifizierten Person
+          befuellt.
+        - `internal/security/audit/export.go:ExportCSV` (Zeile ~36-59) — `e.Details`, `e.Target`,
+          `e.UserAgent` koennen Werte enthalten, die ueber Client-Header oder Freitext-Aktionen
+          beeinflussbar sind.
+        - `internal/biz/dunning/service_gobd.go` (Zeile ~148-165) — `r.CustomerName` stammt aus
+          Kontakt-/Firmenstammdaten und ist damit vom Kunden editierbar.
+      Alle drei sind uebers Grep `csv.NewWriter` gefunden (9 Treffer im Repo insgesamt), aber nur
+      diese drei tatsaechlich gegen den Code geprueft und mit user-kontrolliertem Feldwert
+      bestaetigt. `internal/server/inventar_grpc.go`, `vermietung_grpc.go`, `fuhrpark_grpc.go`
+      sind NICHT geprueft — vor dem Bauen dort ebenfalls nachsehen, nicht von hier uebernehmen.
+    sources:
+      - backend/internal/formulare/service.go
+      - backend/internal/security/audit/export.go
+      - backend/internal/biz/dunning/service_gobd.go
+      - backend/internal/email/contact/export_service.go
+    notes: >
+      `neutralizeFormulaCell` aus `export_service.go` (Iteration 53) ist die fertige Vorlage —
+      Signatur pruefen, ob sie sich verschieben laesst (z. B. nach `internal/csvutil` oder aehnlich,
+      falls es das schon gibt), statt sie drei weitere Male zu duplizieren. Existiert kein
+      gemeinsames Paket dafuer, EINE Hilfsfunktion pro betroffener Datei ist die zweitbeste Wahl —
+      aber dann in jeder Datei exakt dieselbe Neutralisierungsregel (`=`,`+`,`-`,`@` -> fuehrendes
+      `'`), nicht drei leicht unterschiedliche.
+      GoBD-Exporte (`dunning/service_gobd.go`) sind eine gesetzlich gebundene Aufbewahrungsflaeche
+      (siehe A1/GoBD-WORM) — hier den Datensatz selbst nicht veraendern, nur die Praesentation in
+      der CSV-Zelle. Vor dem Anfassen pruefen, ob ein Wiedereinlesen der Exportdatei (Re-Import in
+      ein Buchhaltungstool) das fuehrende `'` toleriert; falls das GoBD-Format das nicht darf, ist
+      hier ein anderer Neutralisierungs-Mechanismus noetig (z. B. Feld in Anfuehrungszeichen
+      erzwingen) und das gehoert als eigene Entscheidung ins Journal, nicht stillschweigend
+      uebernommen.
+      Formularantworten (`formulare/service.go`) koennen beliebige JSON-Typen sein (bool, Zahl,
+      Array) — `fmt.Sprintf("%v", v)` laeuft davor, die Neutralisierung muss NACH der
+      Stringifizierung greifen, nicht vor.
+    done_when:
+      - Alle drei genannten Exporte neutralisieren `=`,`+`,`-`,`@` am Zellenanfang fuer jeden
+        Feldwert, der nicht vom System selbst erzeugt ist
+      - Fuer jede Datei ein Test mit einem Formel-Praefix-Wert und ein Test mit einem normalen
+        Wert (unveraendert)
+      - GoBD-Exportentscheidung (Apostroph vs. Alternative) im Journal begruendet
+      - go test -count=1 ./internal/formulare/... ./internal/security/audit/... ./internal/biz/dunning/... gruen

@@ -86,44 +86,34 @@ func (s *ExportService) ExportCSV(ctx context.Context, contactIDs []uuid.UUID, f
 	for _, c := range contacts {
 		var row []string
 		for _, f := range fields {
+			var val string
 			switch f {
 			case "first_name":
-				row = append(row, c.FirstName)
+				val = c.FirstName
 			case "last_name":
-				row = append(row, c.LastName)
+				val = c.LastName
 			case "email":
 				if c.Email != nil {
-					row = append(row, *c.Email)
-				} else {
-					row = append(row, "")
+					val = *c.Email
 				}
 			case "phone":
 				if c.Phone != nil {
-					row = append(row, *c.Phone)
-				} else {
-					row = append(row, "")
+					val = *c.Phone
 				}
 			case "company":
 				if c.CompanyID != nil {
-					row = append(row, companyNames[*c.CompanyID])
-				} else {
-					row = append(row, "")
+					val = companyNames[*c.CompanyID]
 				}
 			case "position":
 				if c.Position != nil {
-					row = append(row, *c.Position)
-				} else {
-					row = append(row, "")
+					val = *c.Position
 				}
 			case "notes":
 				if c.Notes != nil {
-					row = append(row, *c.Notes)
-				} else {
-					row = append(row, "")
+					val = *c.Notes
 				}
-			default:
-				row = append(row, "")
 			}
+			row = append(row, neutralizeFormulaCell(val))
 		}
 		if err := writer.Write(row); err != nil {
 			return nil, err
@@ -227,6 +217,22 @@ func (s *ExportService) ExportVCard(ctx context.Context, contactIDs []uuid.UUID)
 	s.logger.Info("vCard export complete", "contacts", len(contacts))
 
 	return buf.Bytes(), nil
+}
+
+// neutralizeFormulaCell defuses CSV formula injection: if val starts with a character
+// that Excel/LibreOffice would interpret as the start of a formula (=, +, -, @), a
+// leading apostrophe forces the cell to be read as text instead of executed. The value
+// itself is never truncated or dropped — export/disclosure obligations still apply.
+func neutralizeFormulaCell(val string) string {
+	if val == "" {
+		return val
+	}
+	switch val[0] {
+	case '=', '+', '-', '@':
+		return "'" + val
+	default:
+		return val
+	}
 }
 
 // resolveCompanyNames batches company_id -> name lookups for the given contacts in a
