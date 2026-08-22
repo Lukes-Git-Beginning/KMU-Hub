@@ -1881,7 +1881,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"
     scope: >
       Gefunden 2026-08-22 waehrend `cov-gateway-email-messages-folders-sync` (Iteration 25).

@@ -48,7 +48,7 @@ func TestEmailRoutes_ServiceName(t *testing.T) {
 
 func TestEmailHandleListFolders_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleListFolders)
+	testServiceUnavailable(t, routes.HandleListFolders)
 }
 
 func TestEmailHandleListFolders_ReachesRPC(t *testing.T) {
@@ -61,7 +61,7 @@ func TestEmailHandleListFolders_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleGetFolder_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetFolder)
+	testServiceUnavailable(t, routes.HandleGetFolder)
 }
 
 func TestEmailHandleGetFolder_ReachesRPC(t *testing.T) {
@@ -75,7 +75,7 @@ func TestEmailHandleGetFolder_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleSyncFolders_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleSyncFolders)
+	testServiceUnavailable(t, routes.HandleSyncFolders)
 }
 
 func TestEmailHandleSyncFolders_InvalidJSON(t *testing.T) {
@@ -103,7 +103,7 @@ func TestEmailHandleSyncFolders_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleGetMessage_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetMessage)
+	testServiceUnavailable(t, routes.HandleGetMessage)
 }
 
 func TestEmailHandleGetMessage_ReachesRPC(t *testing.T) {
@@ -117,7 +117,7 @@ func TestEmailHandleGetMessage_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleGetThreadMessages_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetThreadMessages)
+	testServiceUnavailable(t, routes.HandleGetThreadMessages)
 }
 
 func TestEmailHandleGetThreadMessages_ReachesRPC(t *testing.T) {
@@ -135,7 +135,7 @@ func TestEmailHandleGetThreadMessages_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleTriggerSync_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleTriggerSync)
+	testServiceUnavailable(t, routes.HandleTriggerSync)
 }
 
 func TestEmailHandleTriggerSync_InvalidJSON(t *testing.T) {
@@ -159,7 +159,7 @@ func TestEmailHandleTriggerSync_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleGetSyncStatus_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetSyncStatus)
+	testServiceUnavailable(t, routes.HandleGetSyncStatus)
 }
 
 func TestEmailHandleGetSyncStatus_ReachesRPC(t *testing.T) {
@@ -172,7 +172,7 @@ func TestEmailHandleGetSyncStatus_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleSetReadFlag_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleSetReadFlag)
+	testServiceUnavailable(t, routes.HandleSetReadFlag)
 }
 
 func TestEmailHandleSetReadFlag_InvalidJSON(t *testing.T) {
@@ -201,7 +201,7 @@ func TestEmailHandleSetReadFlag_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleUploadAttachment_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleUploadAttachment)
+	testServiceUnavailable(t, routes.HandleUploadAttachment)
 }
 
 func TestEmailHandleUploadAttachment_InvalidMultipartForm(t *testing.T) {
@@ -237,7 +237,7 @@ func TestEmailHandleUploadAttachment_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleGetAttachmentDownloadURL_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetAttachmentDownloadURL)
+	testServiceUnavailable(t, routes.HandleGetAttachmentDownloadURL)
 }
 
 func TestEmailHandleGetAttachmentDownloadURL_ReachesRPC(t *testing.T) {
@@ -247,20 +247,4 @@ func TestEmailHandleGetAttachmentDownloadURL_ReachesRPC(t *testing.T) {
 	req = withChiURLParam(req, "id", "att-1")
 	routes.HandleGetAttachmentDownloadURL(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
-}
-
-// testEmailServiceUnavailable is like testServiceUnavailable but for
-// route_email.go's handlers, which return 502 (not 503) when the service isn't
-// registered: every one of the 58 client-fetch-error branches in that file
-// hand-writes response.Error(w, http.StatusBadGateway, "email service
-// unavailable") instead of calling the shared respondServiceUnavailable
-// helper (503) that every other route file uses -- a real, consistent
-// deviation, not a test-fixture quirk. See
-// fix-gateway-email-service-unavailable-status-code in BACKLOG.yml.
-func testEmailServiceUnavailable(t *testing.T, handler http.HandlerFunc) {
-	t.Helper()
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/", jsonBody(t, map[string]interface{}{}))
-	handler(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
 }

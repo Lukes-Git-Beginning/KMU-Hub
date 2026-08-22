@@ -261,7 +261,7 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 func (e *EmailRoutes) HandleCreateAccount(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -284,7 +284,7 @@ func (e *EmailRoutes) HandleCreateAccount(w http.ResponseWriter, r *http.Request
 func (e *EmailRoutes) HandleGetAccount(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -304,7 +304,7 @@ func (e *EmailRoutes) HandleGetAccount(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleListAccounts(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -321,7 +321,7 @@ func (e *EmailRoutes) HandleListAccounts(w http.ResponseWriter, r *http.Request)
 func (e *EmailRoutes) HandleUpdateAccount(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -345,7 +345,7 @@ func (e *EmailRoutes) HandleUpdateAccount(w http.ResponseWriter, r *http.Request
 func (e *EmailRoutes) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -363,7 +363,7 @@ func (e *EmailRoutes) HandleDeleteAccount(w http.ResponseWriter, r *http.Request
 func (e *EmailRoutes) HandleSetDefaultAccount(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -381,7 +381,7 @@ func (e *EmailRoutes) HandleSetDefaultAccount(w http.ResponseWriter, r *http.Req
 func (e *EmailRoutes) HandleTestConnection(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -408,7 +408,7 @@ func (e *EmailRoutes) HandleTestConnection(w http.ResponseWriter, r *http.Reques
 func (e *EmailRoutes) HandleListFolders(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -425,7 +425,7 @@ func (e *EmailRoutes) HandleListFolders(w http.ResponseWriter, r *http.Request) 
 func (e *EmailRoutes) HandleGetFolder(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -443,7 +443,7 @@ func (e *EmailRoutes) HandleGetFolder(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleSyncFolders(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -470,7 +470,7 @@ func (e *EmailRoutes) HandleSyncFolders(w http.ResponseWriter, r *http.Request) 
 func (e *EmailRoutes) HandleListMessages(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -497,7 +497,7 @@ func (e *EmailRoutes) HandleListMessages(w http.ResponseWriter, r *http.Request)
 func (e *EmailRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -515,7 +515,7 @@ func (e *EmailRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleGetThreadMessages(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -533,7 +533,7 @@ func (e *EmailRoutes) HandleGetThreadMessages(w http.ResponseWriter, r *http.Req
 func (e *EmailRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -551,7 +551,7 @@ func (e *EmailRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleMarkUnread(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -569,7 +569,7 @@ func (e *EmailRoutes) HandleMarkUnread(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleToggleStar(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -587,7 +587,7 @@ func (e *EmailRoutes) HandleToggleStar(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleMoveToFolder(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -611,7 +611,7 @@ func (e *EmailRoutes) HandleMoveToFolder(w http.ResponseWriter, r *http.Request)
 func (e *EmailRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -636,7 +636,7 @@ func (e *EmailRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request
 func (e *EmailRoutes) HandleBulkMessageAction(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -670,7 +670,7 @@ func (e *EmailRoutes) HandleBulkMessageAction(w http.ResponseWriter, r *http.Req
 func (e *EmailRoutes) HandleSendEmail(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -704,7 +704,7 @@ func (e *EmailRoutes) HandleSendEmail(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleSaveDraft(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -735,7 +735,7 @@ func (e *EmailRoutes) HandleSaveDraft(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleReplyEmail(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -764,7 +764,7 @@ func (e *EmailRoutes) HandleReplyEmail(w http.ResponseWriter, r *http.Request) {
 func (e *EmailRoutes) HandleForwardEmail(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -797,7 +797,7 @@ func (e *EmailRoutes) HandleForwardEmail(w http.ResponseWriter, r *http.Request)
 func (e *EmailRoutes) HandleListSignatures(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -814,7 +814,7 @@ func (e *EmailRoutes) HandleListSignatures(w http.ResponseWriter, r *http.Reques
 func (e *EmailRoutes) HandleGetSignature(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -832,7 +832,7 @@ func (e *EmailRoutes) HandleGetSignature(w http.ResponseWriter, r *http.Request)
 func (e *EmailRoutes) HandleCreateSignature(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -855,7 +855,7 @@ func (e *EmailRoutes) HandleCreateSignature(w http.ResponseWriter, r *http.Reque
 func (e *EmailRoutes) HandleUpdateSignature(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -879,7 +879,7 @@ func (e *EmailRoutes) HandleUpdateSignature(w http.ResponseWriter, r *http.Reque
 func (e *EmailRoutes) HandleDeleteSignature(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -897,7 +897,7 @@ func (e *EmailRoutes) HandleDeleteSignature(w http.ResponseWriter, r *http.Reque
 func (e *EmailRoutes) HandleSetDefaultSignature(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -925,7 +925,7 @@ func (e *EmailRoutes) HandleSetDefaultSignature(w http.ResponseWriter, r *http.R
 func (e *EmailRoutes) HandleListEmailTemplates(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -947,7 +947,7 @@ func (e *EmailRoutes) HandleListEmailTemplates(w http.ResponseWriter, r *http.Re
 func (e *EmailRoutes) HandleGetEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -967,7 +967,7 @@ func (e *EmailRoutes) HandleGetEmailTemplate(w http.ResponseWriter, r *http.Requ
 func (e *EmailRoutes) HandleCreateEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -995,7 +995,7 @@ func (e *EmailRoutes) HandleCreateEmailTemplate(w http.ResponseWriter, r *http.R
 func (e *EmailRoutes) HandleUpdateEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1025,7 +1025,7 @@ func (e *EmailRoutes) HandleUpdateEmailTemplate(w http.ResponseWriter, r *http.R
 func (e *EmailRoutes) HandleDeleteEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1045,7 +1045,7 @@ func (e *EmailRoutes) HandleDeleteEmailTemplate(w http.ResponseWriter, r *http.R
 func (e *EmailRoutes) HandleRenderEmailTemplate(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1075,7 +1075,7 @@ func (e *EmailRoutes) HandleRenderEmailTemplate(w http.ResponseWriter, r *http.R
 func (e *EmailRoutes) HandleGetEmailContactLinks(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1093,7 +1093,7 @@ func (e *EmailRoutes) HandleGetEmailContactLinks(w http.ResponseWriter, r *http.
 func (e *EmailRoutes) HandleLinkEmailToContact(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1116,7 +1116,7 @@ func (e *EmailRoutes) HandleLinkEmailToContact(w http.ResponseWriter, r *http.Re
 func (e *EmailRoutes) HandleUnlinkEmailFromContact(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1139,7 +1139,7 @@ func (e *EmailRoutes) HandleUnlinkEmailFromContact(w http.ResponseWriter, r *htt
 func (e *EmailRoutes) HandleGetContactEmails(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1166,7 +1166,7 @@ func (e *EmailRoutes) HandleGetContactEmails(w http.ResponseWriter, r *http.Requ
 func (e *EmailRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1189,7 +1189,7 @@ func (e *EmailRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Request) 
 func (e *EmailRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1206,7 +1206,7 @@ func (e *EmailRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Request
 func (e *EmailRoutes) HandleSetReadFlag(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1233,7 +1233,7 @@ func (e *EmailRoutes) HandleSetReadFlag(w http.ResponseWriter, r *http.Request) 
 func (e *EmailRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1273,7 +1273,7 @@ func (e *EmailRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 func (e *EmailRoutes) HandleGetAttachmentDownloadURL(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1295,7 +1295,7 @@ func (e *EmailRoutes) HandleGetAttachmentDownloadURL(w http.ResponseWriter, r *h
 func (e *EmailRoutes) HandleImportContactsCSV(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1318,7 +1318,7 @@ func (e *EmailRoutes) HandleImportContactsCSV(w http.ResponseWriter, r *http.Req
 func (e *EmailRoutes) HandleImportContactsVCard(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1341,7 +1341,7 @@ func (e *EmailRoutes) HandleImportContactsVCard(w http.ResponseWriter, r *http.R
 func (e *EmailRoutes) HandleExportContactsCSV(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1364,7 +1364,7 @@ func (e *EmailRoutes) HandleExportContactsCSV(w http.ResponseWriter, r *http.Req
 func (e *EmailRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1391,7 +1391,7 @@ func (e *EmailRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.R
 func (e *EmailRoutes) HandleListEmailRules(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1409,7 +1409,7 @@ func (e *EmailRoutes) HandleListEmailRules(w http.ResponseWriter, r *http.Reques
 func (e *EmailRoutes) HandleCreateEmailRule(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1432,7 +1432,7 @@ func (e *EmailRoutes) HandleCreateEmailRule(w http.ResponseWriter, r *http.Reque
 func (e *EmailRoutes) HandleUpdateEmailRule(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1457,7 +1457,7 @@ func (e *EmailRoutes) HandleUpdateEmailRule(w http.ResponseWriter, r *http.Reque
 func (e *EmailRoutes) HandleDeleteEmailRule(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1475,7 +1475,7 @@ func (e *EmailRoutes) HandleDeleteEmailRule(w http.ResponseWriter, r *http.Reque
 func (e *EmailRoutes) HandleApplyEmailRules(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1501,7 +1501,7 @@ func (e *EmailRoutes) HandleApplyEmailRules(w http.ResponseWriter, r *http.Reque
 func (e *EmailRoutes) HandleListEmailLabels(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1519,7 +1519,7 @@ func (e *EmailRoutes) HandleListEmailLabels(w http.ResponseWriter, r *http.Reque
 func (e *EmailRoutes) HandleCreateEmailLabel(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1542,7 +1542,7 @@ func (e *EmailRoutes) HandleCreateEmailLabel(w http.ResponseWriter, r *http.Requ
 func (e *EmailRoutes) HandleUpdateEmailLabel(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1567,7 +1567,7 @@ func (e *EmailRoutes) HandleUpdateEmailLabel(w http.ResponseWriter, r *http.Requ
 func (e *EmailRoutes) HandleDeleteEmailLabel(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 
@@ -1589,7 +1589,7 @@ type assignMessageLabelsDTO struct {
 func (e *EmailRoutes) HandleAssignMessageLabels(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "email service unavailable")
+		respondServiceUnavailable(w, e.ServiceName())
 		return
 	}
 

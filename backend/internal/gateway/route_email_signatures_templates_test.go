@@ -50,7 +50,7 @@ import (
 
 func TestEmailHandleListSignatures_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleListSignatures)
+	testServiceUnavailable(t, routes.HandleListSignatures)
 }
 
 func TestEmailHandleListSignatures_ReachesRPC(t *testing.T) {
@@ -63,7 +63,7 @@ func TestEmailHandleListSignatures_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleGetSignature_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetSignature)
+	testServiceUnavailable(t, routes.HandleGetSignature)
 }
 
 func TestEmailHandleGetSignature_ReachesRPC(t *testing.T) {
@@ -77,7 +77,7 @@ func TestEmailHandleGetSignature_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleCreateSignature_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleCreateSignature)
+	testServiceUnavailable(t, routes.HandleCreateSignature)
 }
 
 func TestEmailHandleCreateSignature_InvalidJSON(t *testing.T) {
@@ -103,7 +103,7 @@ func TestEmailHandleCreateSignature_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleUpdateSignature_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleUpdateSignature)
+	testServiceUnavailable(t, routes.HandleUpdateSignature)
 }
 
 func TestEmailHandleUpdateSignature_InvalidJSON(t *testing.T) {
@@ -130,7 +130,7 @@ func TestEmailHandleUpdateSignature_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleDeleteSignature_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleDeleteSignature)
+	testServiceUnavailable(t, routes.HandleDeleteSignature)
 }
 
 func TestEmailHandleDeleteSignature_ReachesRPC(t *testing.T) {
@@ -144,7 +144,7 @@ func TestEmailHandleDeleteSignature_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleSetDefaultSignature_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleSetDefaultSignature)
+	testServiceUnavailable(t, routes.HandleSetDefaultSignature)
 }
 
 func TestEmailHandleSetDefaultSignature_MissingUserID(t *testing.T) {
@@ -184,7 +184,7 @@ func TestEmailHandleSetDefaultSignature_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleListEmailTemplates_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleListEmailTemplates)
+	testServiceUnavailable(t, routes.HandleListEmailTemplates)
 }
 
 func TestEmailHandleListEmailTemplates_ReachesRPC(t *testing.T) {
@@ -197,7 +197,7 @@ func TestEmailHandleListEmailTemplates_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleGetEmailTemplate_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetEmailTemplate)
+	testServiceUnavailable(t, routes.HandleGetEmailTemplate)
 }
 
 func TestEmailHandleGetEmailTemplate_ReachesRPC(t *testing.T) {
@@ -211,7 +211,7 @@ func TestEmailHandleGetEmailTemplate_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleCreateEmailTemplate_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleCreateEmailTemplate)
+	testServiceUnavailable(t, routes.HandleCreateEmailTemplate)
 }
 
 func TestEmailHandleCreateEmailTemplate_MissingName(t *testing.T) {
@@ -248,7 +248,7 @@ func TestEmailHandleCreateEmailTemplate_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleUpdateEmailTemplate_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleUpdateEmailTemplate)
+	testServiceUnavailable(t, routes.HandleUpdateEmailTemplate)
 }
 
 func TestEmailHandleUpdateEmailTemplate_InvalidVisibility(t *testing.T) {
@@ -275,7 +275,7 @@ func TestEmailHandleUpdateEmailTemplate_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleDeleteEmailTemplate_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleDeleteEmailTemplate)
+	testServiceUnavailable(t, routes.HandleDeleteEmailTemplate)
 }
 
 func TestEmailHandleDeleteEmailTemplate_ReachesRPC(t *testing.T) {
@@ -289,7 +289,7 @@ func TestEmailHandleDeleteEmailTemplate_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleRenderEmailTemplate_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleRenderEmailTemplate)
+	testServiceUnavailable(t, routes.HandleRenderEmailTemplate)
 }
 
 func TestEmailHandleRenderEmailTemplate_InvalidJSON(t *testing.T) {

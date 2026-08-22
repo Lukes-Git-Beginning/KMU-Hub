@@ -3247,3 +3247,70 @@ Frühere Läufe liegen vollständig im Archiv:
     aber Luke kann bei Bedarf mit befuellten Testdaten nachpruefen.
   - `WorkTimeRepository`-Interface ist jetzt bei 15 Methoden; falls ein kuenftiger Lauf doch einen
     vollen Fake fuer gRPC-Handler-Tests bauen will, ist das der aktuelle Stand.
+
+## Iteration 52 — fix-gateway-email-service-unavailable-status-code — done — 2026-08-22 07:34
+- commit: (siehe naechste docs(loop)-Iteration)
+- gebaut: Root Cause war die hartkodierte Fehlerantwort in `route_email.go` selbst, nicht in
+  einer Schwesterfunktion: alle 58 Vorkommen von `response.Error(w, http.StatusBadGateway,
+  "email service unavailable")` im Client-Fetch-Fehlerpfad sind durch
+  `respondServiceUnavailable(w, e.ServiceName())` ersetzt (helpers.go:83, liefert 503 mit
+  identischer Fehlermeldung "email service unavailable", da `e.ServiceName()` "email" liefert).
+  Damit meldet `route_email.go` "Service nicht erreichbar" jetzt ueber denselben Code (503) wie
+  jede andere Route im Gateway, statt zwischen 502 (nicht registriert) und 503
+  (`respondGRPCError` bei `codes.Unavailable`) zu schwanken.
+  Sieben Testdateien mitgezogen (drei mehr als in den Unit-Notes genannt — ein Grep haette die
+  Notes-Liste vor dem Bauen widerlegt, ist aber erst beim Bauen aufgefallen):
+  `route_email_accounts_test.go`, `route_email_compose_test.go` — direkte `StatusBadGateway`-
+  Assertions auf 503 umgestellt (15 bzw. 23 Stellen).
+  `route_email_labels_test.go`, `route_email_rules_test.go` — `HandleListEmailLabels` und
+  `HandleAssignMessageLabels` (labels) sowie `HandleListEmailRules`/`HandleApplyEmailRules`
+  (rules) liegen ebenfalls in `route_email.go` und waren in den Unit-Sources nicht genannt;
+  `StatusBadGateway` dort auf `StatusServiceUnavailable` umgestellt (16 Stellen).
+  `route_email_folders_messages_sync_test.go`, `route_email_contact_links_import_export_test.go`,
+  `route_email_signatures_templates_test.go` — nutzten den lokalen Helper
+  `testEmailServiceUnavailable` (dessen Doc-Kommentar explizit auf diese Backlog-Unit verwies).
+  Alle Aufrufe auf den bereits vorhandenen generischen `testServiceUnavailable`
+  (testutil_test.go:171) umgestellt, `testEmailServiceUnavailable` selbst entfernt statt nur
+  seinen erwarteten Status zu aendern — der Unit-Vorschlag "entfaellt zugunsten von
+  testServiceUnavailable" war hier tatsaechlich die schlankere Variante, weil beide Helper bis
+  auf den erwarteten Status identisch waren (Request-Body `{}`, kein Tenant-Kontext noetig, da
+  `getEmailClient()` in jedem betroffenen Handler vor jeder Tenant-Pruefung scheitert — belegt an
+  `HandleListFolders`, route_email.go:408-413).
+  `route_integration.go:585` (`response.Error(w, http.StatusBadGateway, "invalid response from
+  notification service")`) bewusst NICHT angefasst — anderer Fehlerfall (kaputte Downstream-
+  Antwort, nicht "Service nicht erreichbar"), ausserhalb des Scopes dieser Unit.
+  Frontend-Pruefung (Explore-Agent, Desktop-Repo): keine 502-vs-503-spezifische Logik irgendwo im
+  Fetch-Layer. `authenticatedFetch.ts` unterscheidet nur 401 gesondert, jeder andere Non-OK-Status
+  (inkl. 502/503) faellt in denselben generischen `!response.ok`-Zweig; `offline-queue.ts`
+  behandelt alle 5xx gleich als retryable; Login-Fehler-Mapping bildet 502 und 503 bereits auf
+  denselben Schluessel ab. Keine Frontend-Aenderung noetig, keine Verhaltensaenderung zu erwarten.
+- gate: build ok (`./internal/gateway/...`) | vet ok | lint ok (0 issues) | test ok
+  (`./internal/gateway/` gruen, 0 SKIP per `go test -v` + `grep -c "^--- SKIP"`,
+  TestOpenAPIRouteDrift unveraendert gruen — keine Route hinzugefuegt/entfernt) | migration n.a.
+  (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: n.a. (Unit als Bugfix ohne Coverage-Ziel deklariert,
+  `coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"`; zur Einordnung gemessen:
+  `internal/gateway` 54,0 % nach dieser Aenderung, kumulativer Lauf-Wert, keine isolierte
+  Vorher/Nachher-Zahl fuer diese Unit)
+- mutations-probe: in `HandleCreateAccount` `respondServiceUnavailable(w, e.ServiceName())` durch
+  die alte `response.Error(w, http.StatusBadGateway, "email service unavailable")` ersetzt ->
+  `TestHandleCreateAccount_ServiceUnavailable` wird rot mit exakt dem erwarteten Fehlerbild
+  ("status = 502, want 503") -> zurueckgedreht, `git diff --stat` zeigt danach 58
+  Insertions/58 Deletions in `route_email.go` (die 58 urspruenglichen Ersetzungen, keine
+  Reste der Probe), Diff sauber
+- verify vorgaenger: sauber. `5f442703` (Iteration 51, fix-biz-time-entry-invoice-double-billing)
+  geprueft — Migration 000319 fuegt zwei nullable Spalten + partiellen Index hinzu, mit
+  vollstaendiger up/down. `ReserveWorkTimeForInvoice` sperrt und markiert `billed_at` in einer
+  Transaktion (SELECT ... FOR UPDATE + UPDATE vor Commit), `ConfirmInvoiceReservation` und
+  `ReleaseInvoiceReservation` sind sauber gescopt (Release nur bei `invoice_id IS NULL`, kann eine
+  bereits bestaetigte Reservierung nicht anfassen). Aufruf in `biz_grpc.go` (Service-Layer, kein
+  Gateway-Handler) bleibt beim gRPC-Client-Pfad, keine direkte Service-Instanz. Kein Proto
+  geaendert, kein neuer Guard, keine neue Route, kein Wire-Shape betroffen. Keine der acht
+  Fehlerklassen einschlaegig.
+- neue-units: keine
+- offen:
+  - Die drei zusaetzlich gefundenen Testdateien (labels, rules, contact-links) standen nicht in
+    den Unit-Sources — ein Hinweis, dass `route_email.go`s Testabdeckung ueber mehr Dateien
+    verteilt ist, als eine einzelne Unit-Notiz greppen kann. Fuer kuenftige route_email.go-Units
+    lohnt sich vorab ein `grep -rl "NewEmailRoutes" internal/gateway/*_test.go` statt sich auf die
+    in den Notes genannten drei Dateien zu verlassen.

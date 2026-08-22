@@ -31,20 +31,20 @@ func TestEmailRuleRoutes_Guards(t *testing.T) {
 		perms  []string
 		want   int
 	}{
-		{"list with read", http.MethodGet, "/api/v1/email/rules", "", []string{"email:read"}, http.StatusBadGateway},
+		{"list with read", http.MethodGet, "/api/v1/email/rules", "", []string{"email:read"}, http.StatusServiceUnavailable},
 		{"list without read", http.MethodGet, "/api/v1/email/rules", "", nil, http.StatusForbidden},
 		{"list with write only", http.MethodGet, "/api/v1/email/rules", "", []string{"email:write"}, http.StatusForbidden},
 
-		{"create with write", http.MethodPost, "/api/v1/email/rules", "{}", []string{"email:write"}, http.StatusBadGateway},
+		{"create with write", http.MethodPost, "/api/v1/email/rules", "{}", []string{"email:write"}, http.StatusServiceUnavailable},
 		{"create without write", http.MethodPost, "/api/v1/email/rules", "{}", []string{"email:read"}, http.StatusForbidden},
 
-		{"apply with write", http.MethodPost, "/api/v1/email/rules/apply", "", []string{"email:write"}, http.StatusBadGateway},
+		{"apply with write", http.MethodPost, "/api/v1/email/rules/apply", "", []string{"email:write"}, http.StatusServiceUnavailable},
 		{"apply without write", http.MethodPost, "/api/v1/email/rules/apply", "", []string{"email:read"}, http.StatusForbidden},
 
-		{"patch with write", http.MethodPatch, "/api/v1/email/rules/" + ruleID, "{}", []string{"email:write"}, http.StatusBadGateway},
+		{"patch with write", http.MethodPatch, "/api/v1/email/rules/" + ruleID, "{}", []string{"email:write"}, http.StatusServiceUnavailable},
 		{"patch without write", http.MethodPatch, "/api/v1/email/rules/" + ruleID, "{}", nil, http.StatusForbidden},
 
-		{"delete with delete", http.MethodDelete, "/api/v1/email/rules/" + ruleID, "", []string{"email:delete"}, http.StatusBadGateway},
+		{"delete with delete", http.MethodDelete, "/api/v1/email/rules/" + ruleID, "", []string{"email:delete"}, http.StatusServiceUnavailable},
 		{"delete with write only", http.MethodDelete, "/api/v1/email/rules/" + ruleID, "", []string{"email:write"}, http.StatusForbidden},
 	}
 
@@ -78,8 +78,8 @@ func TestEmailRuleRoutes_ApplyIsNotSwallowedByTheIdRoute(t *testing.T) {
 
 	// 405 would mean the path matched a route registered for other verbs only;
 	// 404 would mean no match at all.
-	if rec.Code != http.StatusBadGateway {
+	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("POST /rules/apply: status = %d, want %d (body %q)",
-			rec.Code, http.StatusBadGateway, rec.Body.String())
+			rec.Code, http.StatusServiceUnavailable, rec.Body.String())
 	}
 }

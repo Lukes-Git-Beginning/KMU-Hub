@@ -47,7 +47,7 @@ import (
 
 func TestEmailHandleGetEmailContactLinks_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetEmailContactLinks)
+	testServiceUnavailable(t, routes.HandleGetEmailContactLinks)
 }
 
 func TestEmailHandleGetEmailContactLinks_ReachesRPC(t *testing.T) {
@@ -61,7 +61,7 @@ func TestEmailHandleGetEmailContactLinks_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleLinkEmailToContact_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleLinkEmailToContact)
+	testServiceUnavailable(t, routes.HandleLinkEmailToContact)
 }
 
 func TestEmailHandleLinkEmailToContact_InvalidJSON(t *testing.T) {
@@ -86,7 +86,7 @@ func TestEmailHandleLinkEmailToContact_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleUnlinkEmailFromContact_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleUnlinkEmailFromContact)
+	testServiceUnavailable(t, routes.HandleUnlinkEmailFromContact)
 }
 
 func TestEmailHandleUnlinkEmailFromContact_InvalidJSON(t *testing.T) {
@@ -111,7 +111,7 @@ func TestEmailHandleUnlinkEmailFromContact_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleGetContactEmails_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleGetContactEmails)
+	testServiceUnavailable(t, routes.HandleGetContactEmails)
 }
 
 func TestEmailHandleGetContactEmails_ReachesRPC(t *testing.T) {
@@ -129,7 +129,7 @@ func TestEmailHandleGetContactEmails_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleImportContactsCSV_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleImportContactsCSV)
+	testServiceUnavailable(t, routes.HandleImportContactsCSV)
 }
 
 func TestEmailHandleImportContactsCSV_InvalidJSON(t *testing.T) {
@@ -154,7 +154,7 @@ func TestEmailHandleImportContactsCSV_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleImportContactsVCard_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleImportContactsVCard)
+	testServiceUnavailable(t, routes.HandleImportContactsVCard)
 }
 
 func TestEmailHandleImportContactsVCard_InvalidJSON(t *testing.T) {
@@ -179,7 +179,7 @@ func TestEmailHandleImportContactsVCard_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleExportContactsCSV_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleExportContactsCSV)
+	testServiceUnavailable(t, routes.HandleExportContactsCSV)
 }
 
 func TestEmailHandleExportContactsCSV_InvalidJSON(t *testing.T) {
@@ -203,7 +203,7 @@ func TestEmailHandleExportContactsCSV_ReachesRPC(t *testing.T) {
 
 func TestEmailHandleExportContactsVCard_ServiceUnavailable(t *testing.T) {
 	routes := NewEmailRoutes(emptyRegistry())
-	testEmailServiceUnavailable(t, routes.HandleExportContactsVCard)
+	testServiceUnavailable(t, routes.HandleExportContactsVCard)
 }
 
 func TestEmailHandleExportContactsVCard_InvalidJSON(t *testing.T) {
