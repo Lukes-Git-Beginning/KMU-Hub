@@ -1054,7 +1054,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/crm/advisoryprotocol 65,5 % (Run 32508843776)"
     scope: >
       `route_crm_advisory.go` (362 Zeilen, 9 Funktionen) ohne Testdatei. Beratungsprotokolle
@@ -1947,4 +1947,48 @@ units:
         eine gemeinsame Funktion
       - Ein Test seedet einen Kontakt mit einem Formel-Praefix und belegt die Neutralisierung
       - Ein Test belegt, dass ein normaler Wert (kein Formel-Praefix) unveraendert bleibt
+
+  - id: fix-gateway-advisory-product-riskclass-not-validated
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Validierungs-Fix, kein Coverage-Ziel)"
+    scope: >
+      `updateAdvisoryProtocolRequest.Products` (`backend/internal/gateway/route_crm_advisory.go`,
+      Zeile 152) traegt `json:"products"` OHNE `dive` im `validate`-Tag. `advisoryProduct.RiskClass`
+      hat zwar `validate:"min=1,max=7"`, aber go-playground/validator rekursiert nur dann in eine
+      Slice von Structs, wenn das Slice-Feld selbst `dive` traegt (siehe
+      `route_customization.go:473`: `validate:"required,min=1,dive"` als Referenzmuster). Ein
+      Produkt mit `risk_class: 0` oder `risk_class: 99` erreicht deshalb ungeprueft die RPC statt
+      mit 400 abgewiesen zu werden — belegt durch
+      `TestHandleUpdateAdvisoryProtocol_ProductRiskClassNotValidated` in
+      `route_crm_advisory_test.go` (Iteration 28, 2026-08-22), die den aktuellen (fehlerhaften)
+      503-Pfad bewusst als Ist-Zustand pinnt statt eine 400-Erwartung zu erzwingen. Auch
+      `internal/crm/advisoryprotocol/service.go` validiert nur `UpdateInput.RiskClass` (Zeile 178),
+      nie die einzelnen `Product.RiskClass`-Werte — die Luecke ist also zweistufig: weder Gateway
+      noch Service pruefen das Produkt-Feld.
+    sources:
+      - backend/internal/gateway/route_crm_advisory.go
+      - backend/internal/gateway/route_crm_advisory_test.go
+      - backend/internal/crm/advisoryprotocol/service.go
+      - backend/internal/crm/advisoryprotocol/errors.go
+    notes: >
+      Zwei moegliche Fixstellen, nur eine waehlen: (a) `dive` auf das `Products`-Tag ergaenzen
+      (Gateway-seitig, konsistent mit dem `route_customization.go`-Muster) — greift nur fuer den
+      HTTP-Pfad; oder (b) `Service.Update`/`Service.Create` (advisoryprotocol/service.go) validiert
+      jedes `Product.RiskClass` selbst, analog zu `ErrInvalidRiskClass` fuer das Protokoll-Level —
+      greift fuer jeden Aufrufer der Service-Methode, nicht nur den Gateway-Pfad. (b) ist der Root
+      Cause, (a) ist nur der HTTP-Rand; wenn beide gebaut werden, denselben Fehlertext/-code fuer
+      beide Ebenen verwenden statt zwei Varianten der gleichen Meldung.
+      Bestehenden Test `TestHandleUpdateAdvisoryProtocol_ProductRiskClassNotValidated` NICHT
+      loeschen, sondern umdrehen: nach dem Fix muss er 400 mit Feld `products[0].risk_class` (oder
+      dem tatsaechlichen Namespace-Format des Validators — pruefen, nicht raten) erwarten.
+    done_when:
+      - Ein Produkt mit risk_class ausserhalb 1-7 wird abgelehnt, bevor es Repository oder RPC
+        erreicht
+      - TestHandleUpdateAdvisoryProtocol_ProductRiskClassNotValidated erwartet nach dem Fix 400
+        statt 503
+      - go test -count=1 ./internal/gateway/ ./internal/crm/advisoryprotocol/... gruen
       - go test -count=1 ./internal/email/contact/... gruen

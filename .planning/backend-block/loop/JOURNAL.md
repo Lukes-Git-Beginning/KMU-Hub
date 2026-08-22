@@ -1660,3 +1660,85 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
     beruehrt). Die RLS-Defense-in-Depth-Beobachtung (siehe gebaut:/mutations-probe:) ist
     dokumentiert, kein Fund, der eine eigene Unit braucht.
+
+## Iteration 28 — cov-gateway-crm-advisory-protocols — done — 2026-08-22 04:46
+- commit: (siehe naechster docs-Commit)
+- gebaut: Neue Testdatei `route_crm_advisory_test.go` fuer `route_crm_advisory.go` (362 Zeilen,
+  9 Funktionen, bisher ohne Testdatei): ServiceUnavailable fuer alle 8 client-aufrufenden Handler
+  (RegisterAdvisoryRoutes ist keine eigene HTTP-Funktion, wird bereits von
+  `TestOpenAPIRouteDrift` mitregistriert und geprueft), InvalidUUID fuer contactId/id, InvalidJSON
+  und Validation (fehlender Advisor, Risikoklasse ausserhalb 1-7, self_assessment ausserhalb 1-5)
+  fuer HandleUpdateAdvisoryProtocol, sowie ReachesRPC (503) fuer alle Handler nach den
+  Vor-RPC-Pruefungen. Die beiden verhaltensbezogenen done_when-Punkte sind NICHT als
+  Gateway-Fakes neu gepinnt, sondern auf bereits existierende, staerkere Beweise verwiesen (im
+  Dateikopf dokumentiert): Cross-Tenant-Read-404 ist bereits in
+  `internal/server/crm_grpc_advisory_test.go` (`TestGetAdvisoryProtocol/"wrong tenant is treated
+  as not found"`) gegen `advisoryprotocol.Service.GetByID` bewiesen; die Kontakt-Loeschung bei
+  haengendem Protokoll (409 mit Grund) hatte dagegen KEINE Real-DB-Probe — nur eine
+  Mock-Repository-Variante in `contact/service_test.go` (`TestService_Delete_InUse`), die die
+  tatsaechliche `advisory_protocols`-SQL-Abfrage nie ausfuehrt. Dafuer neuer DB-Test
+  `TestRepository_IsInUse_AdvisoryProtocolBlocksDeletion_DB` in
+  `internal/crm/contact/postgres_repository_db_test.go`: seedet einen Kontakt, prueft `IsInUse` ==
+  false, seedet einen echten `advisory_protocols`-Datensatz (RESTRICT-FK, Migration 000137), prueft
+  `IsInUse` == true mit Grund "advisory protocols", ruft danach `Service.Delete` auf und belegt
+  `ErrContactInUse` mit demselben Grundtext sowie dass der Kontakt NICHT geloescht wurde (die
+  RESTRICT-Constraint wird nie erreicht, weil der Service-Check vorher greift). Die 409-Zuordnung
+  selbst (`ErrContactInUse` -> `codes.FailedPrecondition` -> HTTP 409) war bereits vorher in
+  `internal/server/crm_grpc.go`/`internal/gateway/helpers.go` verdrahtet und ungeaendert.
+  ECHTER FUND waehrend des Bauens (nicht gefixt, siehe neue-units): `updateAdvisoryProtocolRequest.
+  Products` (`route_crm_advisory.go:152`) traegt kein `dive` im `validate`-Tag, weshalb
+  `advisoryProduct.RiskClass`s eigenes `min=1,max=7` nie ausgefuehrt wird (go-playground/validator
+  rekursiert nur mit `dive` in eine Slice von Structs — Referenzmuster mit `dive` existiert bereits
+  in `route_customization.go:473`). Ein Produkt mit `risk_class: 0` erreicht daher unvalidiert die
+  RPC. Test `TestHandleUpdateAdvisoryProtocol_ProductRiskClassNotValidated` pinnt das aktuelle
+  (fehlerhafte) 503-Verhalten bewusst als Ist-Zustand, mit Verweis auf die neue Fix-Unit im
+  Testkommentar.
+- gate: build ok (`-p 2` gateway/..., crm/..., server/..., cmd/gateway/..., cmd/crm/...) | vet ok
+  (gateway/..., crm/..., server/...) | lint ok (0 issues, gateway/..., crm/..., server/...) |
+  test ok (`internal/gateway` komplett gruen inkl. TestOpenAPIRouteDrift [836 Routen gegen 838
+  dokumentierte Pfade, unveraendert], 0 SKIP; `internal/crm/...` komplett gruen mit `-p 1`
+  [Parallel-Lauf ueber alle CRM-Pakete sprengt lokal die Postgres-Verbindungsgrenze, kein Befund
+  an meinem Code — siehe Iteration 2]; `internal/server/...` komplett gruen; DATABASE_URL gegen
+  kmuhub_app, 0 SKIP in beiden neu beruehrten Paketen) | migration n.a. (keine Schemaaenderung,
+  advisory_protocols existiert seit Migration 000137) | rls-smoke n.a. (keine neue Tabelle/Policy;
+  Tenant-Scoping der neuen Query ist Teil des neuen DB-Tests selbst, kein zusaetzlicher
+  Cross-Tenant-Fall noetig, da IsInUse bereits tenant-gescoped filtert und das nicht Gegenstand
+  dieser Unit war)
+- coverage: internal/gateway 50,5 % -> 50,9 % (eigene Messung per `git stash -u` gegen den
+  Vorgaenger-Commit, danach `git stash pop`; deckt sich mit dem in Iteration 27 protokollierten
+  Endstand, nicht mit dem veralteten `coverage_start` der Unit von 46,1 %). internal/crm/contact
+  80,4 % -> 81,4 % (dieselbe Stash-Messung). internal/crm/advisoryprotocol unveraendert bei 65,5 %
+  (deckt sich mit `coverage_start` — diese Unit hat dort keine neue Testdatei angelegt, das
+  Paket war schon vor dieser Iteration gut abgedeckt durch `crm_grpc_advisory_test.go`).
+- mutations-probe: ZWEI Proben, je eine pro neuer Testdatei. (1) In
+  `internal/crm/contact/postgres_repository.go` `IsInUse` das
+  `EXISTS(SELECT 1 FROM advisory_protocols ...)` durch `false` ersetzt ->
+  `TestRepository_IsInUse_AdvisoryProtocolBlocksDeletion_DB` wird rot ("IsInUse (with protocol) =
+  false, want true"). Zurueckgedreht -> gruen (`go test ./internal/crm/contact/...`), `git diff
+  --stat` zeigt 0 Zeilen. (2) In `route_crm_advisory.go` `HandleCreateAdvisoryProtocol` den
+  `validateUUIDParam`-Aufruf durch ein ungeprueftes `chi.URLParam(r, "contactId")` ersetzt ->
+  `TestHandleCreateAdvisoryProtocol_InvalidContactID` wird rot (503 statt 400, RPC mit
+  "not-a-uuid" erreicht statt vorher abgefangen). Zurueckgedreht -> gruen (`go test
+  ./internal/gateway/`), `git diff --stat` zeigt 0 Zeilen fuer `route_crm_advisory.go`.
+- verify vorgaenger: sauber. `482503ac` (Iteration 27, Kontakt-Verknuepfung/Import-Export) gegen
+  alle acht Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`, `JOURNAL.md`, eine
+  neue reine Gateway-Testdatei und eine neue Testfunktion in
+  `internal/server/email_grpc_export_test.go` — kein gRPC-Bypass, kein Stub/TODO, kein `.proto`
+  angefasst, keine neue `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein
+  Guard ersetzt, keine neue Route. Der Folge-Commit `3bfffe35` ist reines Journal-SHA-Nachtragen
+  (1 Zeile), kein Code.
+- neue-units: fix-gateway-advisory-product-riskclass-not-validated (fehlendes `dive` auf
+  `updateAdvisoryProtocolRequest.Products` verhindert die Validierung von `Product.RiskClass`,
+  Details siehe gebaut:)
+- offen:
+  - `fix-email-contacts-csv-export-formula-injection` (aus Iteration 27, sicherheitsrelevant)
+    steht weiterhin unbearbeitet im Backlog — diese Iteration hat sie nicht gezogen, weil der
+    Ablauf die erste `todo`-Unit mit erfuellten deps in Dateireihenfolge verlangt (Schritt 2 von
+    ITERATION.md) und nicht nach Schweregrad umsortiert. Fuer Luke: beide neuen Fix-Units
+    (CSV-Injection und die hier gefundene Produkt-Risikoklassen-Luecke) stehen jetzt am
+    Backlog-Ende und sollten vor Block C gezogen werden, falls das gewuenscht ist.
+  - `chi` wird in `route_crm_advisory_test.go` NICHT importiert (nur fuer die temporaere
+    Mutations-Probe gebraucht) — keine Aufraeumarbeit noetig, die Probe wurde vollstaendig
+    zurueckgedreht.
+  - Kein DB-Gate ausser dem regulaeren Testlauf und dem neuen DB-Test noetig (keine Migration,
+    keine Tabelle/Policy beruehrt).

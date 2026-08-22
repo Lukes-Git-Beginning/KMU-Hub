@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -1030,5 +1031,83 @@ func TestRepository_ListRetentionCandidates(t *testing.T) {
 	}
 	if byID[foreign] {
 		t.Fatalf("ListRetentionCandidates = %v, must not include the foreign-tenant contact %s", got, foreign)
+	}
+}
+
+// TestRepository_IsInUse_AdvisoryProtocolBlocksDeletion_DB proves the RESTRICT
+// path end to end against real Postgres, not the in-memory MockRepository that
+// contact/service_test.go uses for TestService_Delete_InUse: a contact with a
+// hanging advisory_protocols row (migration 000137, ON DELETE RESTRICT) must
+// come back from IsInUse with the "advisory protocols" reason, and
+// Service.Delete must surface that reason wrapped in ErrContactInUse instead
+// of letting the RESTRICT constraint bubble up as a raw SQL error. Gateway/
+// gRPC map ErrContactInUse to codes.FailedPrecondition -> HTTP 409
+// (internal/server/crm_grpc.go), so this is also the DB-level half of
+// cov-gateway-crm-advisory-protocols' "409 with reason, not 500" done_when.
+func TestRepository_IsInUse_AdvisoryProtocolBlocksDeletion_DB(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "CRM Contact IsInUse Advisory Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantID,
+		"email":         fmt.Sprintf("crm-contact-isinuse-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	repo := NewPostgresRepository(pool)
+	svc := NewService(repo)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	now := time.Now().UTC()
+
+	target := &models.Contact{ID: uuid.New(), TenantID: tenantID, FirstName: "Advisory", LastName: "Bound", Visibility: "shared", CreatedBy: userID, CreatedAt: now, UpdatedAt: now}
+	if err := repo.Create(ctx, target); err != nil {
+		t.Fatalf("Create target: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contacts", target.ID)
+
+	inUse, reason, err := repo.IsInUse(ctx, target.ID, tenantID)
+	if err != nil {
+		t.Fatalf("IsInUse (before protocol): %v", err)
+	}
+	if inUse {
+		t.Fatalf("IsInUse (before protocol) = true, reason %q, want false", reason)
+	}
+
+	protocolID := testutil.SeedRow(t, pool, "advisory_protocols", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantID, "contact_id": target.ID, "created_by": userID,
+	})
+	defer testutil.CleanupRow(t, pool, "advisory_protocols", protocolID)
+
+	inUse, reason, err = repo.IsInUse(ctx, target.ID, tenantID)
+	if err != nil {
+		t.Fatalf("IsInUse (with protocol): %v", err)
+	}
+	if !inUse {
+		t.Fatalf("IsInUse (with protocol) = false, want true")
+	}
+	if !strings.Contains(reason, "advisory protocols") {
+		t.Fatalf("IsInUse reason = %q, want it to mention advisory protocols", reason)
+	}
+
+	err = svc.Delete(ctx, target.ID, tenantID)
+	if !errors.Is(err, ErrContactInUse) {
+		t.Fatalf("Delete error = %v, want ErrContactInUse", err)
+	}
+	if !strings.Contains(err.Error(), "advisory protocols") {
+		t.Fatalf("Delete error = %q, want it to mention advisory protocols", err.Error())
+	}
+
+	// Not deleted: the RESTRICT constraint was never reached because the
+	// service-level check short-circuits first.
+	if _, getErr := repo.GetByID(ctx, target.ID, tenantID); getErr != nil {
+		t.Fatalf("GetByID after blocked delete: %v, want the contact to still exist", getErr)
 	}
 }
