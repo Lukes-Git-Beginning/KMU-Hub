@@ -353,7 +353,8 @@ func (h *ChatErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 }
 
 // WorkErasureHandler handles erasure for work/project data.
-// Anonymizes task assignments and comments; deletes personal time entries.
+// Anonymizes task assignments and comments; deletes personal time entries
+// and project memberships.
 type WorkErasureHandler struct {
 	pool *pgxpool.Pool
 }
@@ -371,7 +372,8 @@ func (h *WorkErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUI
 		`SELECT
 		   (SELECT COUNT(*) FROM tasks WHERE assignee_id = $1 OR created_by = $1) +
 		   (SELECT COUNT(*) FROM time_entries WHERE user_id = $1) +
-		   (SELECT COUNT(*) FROM task_comments WHERE author_id = $1)
+		   (SELECT COUNT(*) FROM task_comments WHERE author_id = $1) +
+		   (SELECT COUNT(*) FROM project_members WHERE user_id = $1)
 		`, userID,
 	).Scan(&count); err != nil {
 		return &models.ModuleErasurePreview{
@@ -443,6 +445,18 @@ func (h *WorkErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 	)
 	if err != nil {
 		return 0, fmt.Errorf("work erasure: failed to anonymize task comments: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Remove project memberships. project_members.user_id is CASCADE on
+	// users(id), but AuthErasureHandler anonymizes the row instead of deleting
+	// it, so the CASCADE never fires (same reasoning as channel_memberships in
+	// ChatErasureHandler).
+	res, err = tx.Exec(ctx,
+		`DELETE FROM project_members WHERE user_id = $1`, userID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("work erasure: failed to delete project memberships: %w", err)
 	}
 	affected += int(res.RowsAffected())
 

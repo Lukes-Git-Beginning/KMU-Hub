@@ -4108,3 +4108,40 @@ Frühere Läufe liegen vollständig im Archiv:
   - `fix-erasure-handlers-not-idempotent-on-second-run` (bereits im Backlog) ist im Scope fuer den
     CRM-Anteil unveraendert (weiterhin `activities.created_by` matcht bei jedem Lauf erneut) —
     kein neuer Fund, nur Bestaetigung nach dieser Iteration.
+
+## Iteration 67 — fix-work-erasure-missing-project-membership — done — 2026-08-22 09:26
+- commit: (nachtragen nach Commit)
+- gebaut: `WorkErasureHandler` erfasste `project_members` (user_id, CASCADE auf users(id)) weder
+  in `PreviewErasure` noch in `ExecuteErasure` — die CASCADE-FK feuert nie, weil
+  `AuthErasureHandler` den Nutzer anonymisiert statt loescht (dasselbe Muster wie
+  `channel_memberships` im `ChatErasureHandler`, das war die Vorlage). `PreviewErasure` zaehlt
+  jetzt zusaetzlich `project_members WHERE user_id = $1`; `ExecuteErasure` loescht dieselben
+  Zeilen in derselben Transaktion und zaehlt sie in `affected` mit. Struct-Doc-Kommentar auf
+  `WorkErasureHandler` ergaenzt ("und Projektmitgliedschaften").
+- gebaut (Tests): `erasure_work_test.go` — neuer Helper `seedProjectMember` (composite PK
+  project_id/user_id, kein `id`, `testutil.SeedRow` scheidet aus wie schon bei
+  `seedChannelMembership`); `TestWorkErasureHandler_ExecuteErasure_Integration` seedet jetzt ein
+  Projekt mit zwei Mitgliedschaften (Subjekt + Kollege), erwartete `affected`-Summe von 5 auf 6
+  angepasst, zwei neue Assertions: Subjekt-Mitgliedschaft geloescht (0), Kollegen-Mitgliedschaft
+  bleibt (1).
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/... ./internal/gateway/...`) | lint ok (0 issues,
+  `./internal/security/... ./internal/gateway/...`) | test ok (`./internal/security/gdpr/` 126
+  Subtests PASS, 0 SKIP gegen `kmuhub_app`; `./internal/security/...` alle 7 Unterpakete ok) |
+  migration n.a. (keine Schema-Aenderung) | rls-smoke n.a. (kein Schema/Policy-Wechsel) |
+  TestOpenAPIRouteDrift nicht gelaufen — keine Route in dieser Unit angefasst, daher nicht
+  Pflicht.
+- coverage: `internal/security/gdpr` 70,8 % -> 70,9 % (selbst gemessen: `git stash push -u` auf
+  genau die zwei geaenderten Dateien, `go test -coverprofile` davor/danach, `stash pop`).
+- mutations-probe: die neue `DELETE FROM project_members`-Zeile probeweise mit `AND false`
+  entwertet → `TestWorkErasureHandler_ExecuteErasure_Integration` wird rot (affected 6 vs. 5,
+  Subjekt-Mitgliedschaft 0 vs. 1 erwartet). Zurueckgedreht, `git diff --stat erasure.go` zeigt
+  wieder ausschliesslich 16 Insertions/2 Deletions, Paket erneut vollstaendig gruen.
+- verify vorgaenger: sauber. `f0d108c7` (Iteration 66,
+  fix-crm-erasure-contacts-companies-preview-execute-mismatch) gegen alle acht Fehlerklassen
+  geprueft (`git show --stat` + Volltextdiff von `erasure.go`) — reine interne
+  Erasure-Logik-Aenderung (Preview/Execute-Zaehlung fuer contacts/companies entfernt), kein
+  Gateway-Handler, kein Stub, kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard,
+  keine neue Tabelle, keine Route, keine Wire-Shape-Aenderung.
+- neue-units: keine
+- offen: keine

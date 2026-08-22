@@ -2535,7 +2535,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
     scope: >
       `project_members` (user_id, CASCADE auf users(id)) wird von `WorkErasureHandler` nicht
