@@ -616,3 +616,63 @@ Frühere Läufe liegen vollständig im Archiv:
     Zwei Anonymisierungs-Mechaniken (fester Platzhalter vs. laufender Zaehler) leben damit
     nebeneinander im selben Package — kein Bug, aber ein Normalisierungs-Kandidat fuer einen
     spaeteren C-Scan, falls weitere Retention-Handler denselben Zaehler brauchen.
+
+## Iteration 12 — feat-retention-worker-handler-dialer-chat — done — 2026-08-22 02:08
+- commit: (folgt im naechsten Schritt)
+- gebaut: `DialerCallRetentionHandler` und `ChatMessageRetentionHandler`
+  (`internal/security/gdpr/retention_dialer_chat.go`), zweiter und dritter Handler an der
+  Registry aus A10. Beide arbeiten roh gegen `*pgxpool.Pool`, im selben Stil wie
+  `ChatErasureHandler` in `erasure.go` — keine neue Abstraktion, kein Repository-Interface
+  angefasst. Dialer: `resource_type="dialer_calls"`, Tabelle `dialer_call_sessions`, Uhr
+  `updated_at`; delete raeumt ueber die bestehende `ON DELETE CASCADE` auf
+  `dialer_call_events` mit auf, anonymize leert `notes`/`next_action` und laesst Dauer/Outcome/
+  Zeitstempel stehen. Chat: `resource_type="chat_messages"`, Tabelle `messages`, Uhr
+  `GREATEST(created_at, edited_at)`; anonymize repliziert exakt das Muster aus
+  `ChatErasureHandler.ExecuteErasure` (Inhalt -> `[Label]`, `is_deleted=true`,
+  `edited_at=NOW()`), delete loescht hart und korrigiert `reply_count` des Elternposts ueber
+  ein `RETURNING parent_message_id` plus Best-Effort-Update (Fehlschlag wird geloggt, bricht
+  den Lauf nicht ab — dieselbe Nichtfatal-Regel wie im bestehenden manuellen Loeschpfad in
+  `message.Service.Delete`).
+- gebaut (Recherche-Befund, kein Code): die im Unit-Scope verlangte Pruefung "Datei im
+  Objektspeicher" ist negativ — `dialer_call_sessions.call_session_id` zeigt nur AUF
+  `call_sessions`, keine Tabelle zeigt zurueck auf `dialer_call_sessions` ausser dem
+  CASCADE-Kind `dialer_call_events`. `recordings.call_id` haengt an `call_sessions`, nicht an
+  `dialer_call_sessions` — ein geloeschter/anonymisierter Dialer-Call beruehrt also nie eine
+  Aufnahme. Aufnahmen haben zudem laengst einen eigenen, unabhaengigen Ablaufmechanismus
+  (`recording.Service.CleanupExpiredRecordings`, MinIO-Object-Delete inklusive) — keine zweite
+  Unit noetig, kein verwaister Fall gefunden.
+- gate: build ok (`-p 2` ueber security/gdpr, gateway, dialer, chat, cmd/gateway) | vet ok |
+  lint ok (0 issues, `internal/security/gdpr`) | test ok (`internal/security/gdpr` 8/8 neue
+  Tests gruen, ganzes Paket gruen inkl. bestehender Suite, 0 SKIP per `-v | grep -c SKIP`;
+  `internal/security/...` 7/7 Pakete gruen; `internal/gateway/` inkl.
+  `TestOpenAPIRouteDrift` gruen, obwohl keine Route beruehrt) | migration n.a. (keine neue
+  Tabelle/Policy — beide Handler laufen gegen bestehende, bereits RLS-gesicherte Tabellen) |
+  rls-smoke n.a. (RLS auf `dialer_call_sessions` seit Migration 000120, auf `messages` seit
+  000253 aktiv; beide Handler filtern zusaetzlich explizit auf `tenant_id`, wie
+  `ContactRetentionHandler`)
+- coverage: internal/security/gdpr 68,7 % -> 69,0 % (eigene Messung: Nachher im Arbeitsbaum,
+  Vorher per `git worktree add /tmp/covbase12 ebc4a43b`)
+- mutations-probe: in `ChatMessageRetentionHandler.Plan` `GREATEST(created_at, ...)` durch
+  `created_at` ersetzt (Edited-Ausschluss deaktiviert) —
+  `TestChatMessageRetentionHandler_PlanExcludesFreshAndEditedMessages` wird rot (die kuerzlich
+  bearbeitete, aber alte Nachricht taucht faelschlich in `Due` auf). Zurueckgedreht -> Test
+  wieder gruen, `git diff --stat` zeigt nur die beabsichtigten Dateien.
+- verify vorgaenger: sauber. `ebc4a43b` (Iteration 11, ContactRetentionHandler) gegen alle acht
+  Fehlerklassen geprueft: kein gRPC-Handler/Layer-Bypass (Handler liegt in security/gdpr, ist
+  nirgends an eine Route gebunden), kein Stub/TODO/Unimplemented, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle also kein Tenant-/RLS-Thema, keine
+  Wire-Shape-Aenderung (kein Response-Pfad), keine neue Route, kein Guard ersetzt.
+- neue-units: keine
+- offen:
+  - Wie schon bei A11 (Contacts): `DialerCallRetentionHandler` und
+    `ChatMessageRetentionHandler` sind gebaut und getestet, aber noch NICHT in einer
+    `RetentionRegistry` produktiv registriert — das ist Absicht und liegt bei
+    `feat-retention-worker-scheduling-and-admin-visibility`. Bis dahin aendert dieser Commit
+    am Laufzeitverhalten nichts.
+  - Nicht behoben, weil ausserhalb des Scopes: `message.Repository.Delete` (der bestehende
+    manuelle Soft-Delete-Pfad) setzt `is_deleted=true`, ohne `content` zu anonymisieren — eine
+    manuell "geloeschte" Nachricht traegt ihren Klartext also unveraendert weiter in der DB.
+    Kein Bug in dieser Unit (mein Handler geht ueber `GREATEST(created_at, edited_at)`, nicht
+    ueber `is_deleted`, und erreicht solche Zeilen deshalb trotzdem), aber ein Normalisierungs-
+    Kandidat: zwei verschiedene Bedeutungen von "geloescht" (Flag ohne Inhaltsloeschung vs.
+    Flag mit Inhaltsloeschung) leben im selben Feld.
