@@ -199,7 +199,7 @@ Frühere Läufe liegen vollständig im Archiv:
 ---
 
 ## Iteration 3 — fix-tax-calculator-rate-key-collision — done — 2026-08-22 23:25
-- commit: <sha>
+- commit: 592a44c1
 - gebaut: `tax.Calculate` (`internal/biz/tax/calculator.go`) hatte zwei Fehler in einer Zeile
   (`rateKey := item.TaxRate.Truncate(0).StringFixed(0)`). Erstens fiel ein Satz von 7,5 % unter
   denselben Schlüssel "7" wie 7 % — beide Sätze wurden zu einer Gruppe verschmolzen, mit dem
