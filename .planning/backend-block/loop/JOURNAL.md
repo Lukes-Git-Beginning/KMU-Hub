@@ -4226,7 +4226,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 70 — fix-company-delete-merged-into-fk-crash — done — 2026-08-22 09:35
-- commit: (siehe naechster Eintrag)
+- commit: 097d3737
 - gebaut: `companies.merged_into_id` trug seit Migration 000059 `ON DELETE NO ACTION`
   (confdeltype `a`, verifiziert per `pg_constraint`). `company/service.go:290-318` prueft vor dem
   Loeschen nur `HasContacts`, nicht ob die Company Ziel eines abgeschlossenen Merges ist —
