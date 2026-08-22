@@ -996,9 +996,10 @@ func TestSearchByQuery_MatchesUsers_Integration(t *testing.T) {
 	assert.Equal(t, "Wendelin Falkenhorst", active.Name)
 	assert.Equal(t, "WF", active.Avatar)
 	assert.Equal(t, "", active.Company, "users carry no company — the field stays empty")
-	require.Len(t, active.Modules, 1)
+	require.Len(t, active.Modules, 2, "Benutzerkonto plus the always-present Kontosicherheit status, no other module has data for a bare user")
 	assert.Equal(t, "Benutzerkonto", active.Modules[0].Module)
 	assert.Equal(t, []string{"Feld", "Wert"}, active.Modules[0].Columns)
+	assert.Equal(t, "Kontosicherheit", active.Modules[1].Module)
 
 	var activeCreatedAt time.Time
 	require.NoError(t, pool.QueryRow(ctxOwn, `SELECT created_at FROM users WHERE id = $1`, activeID).Scan(&activeCreatedAt))
@@ -1949,6 +1950,273 @@ func TestSearchByQuery_UserHRProfileChangeRequests_Integration(t *testing.T) {
 	assert.Empty(t, foreign, "another tenant must not see this user, let alone their change requests")
 }
 
+func TestSearchByQuery_UserSessions_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Sessions Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Sessions Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Waltraud", "Kirchhoff", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherUserID := seedDSARUser(t, pool, tenantOwn, "Bernd", "Achterberg", true)
+	defer testutil.CleanupRow(t, pool, "users", otherUserID)
+
+	now := time.Now().UTC()
+
+	activeToken := testutil.SeedRow(t, pool, "refresh_tokens", map[string]any{
+		"tenant_id":  tenantOwn,
+		"user_id":    subjectID,
+		"token_hash": fmt.Sprintf("active-%s", uuid.New()),
+		"expires_at": now.Add(24 * time.Hour),
+		"revoked":    false,
+	})
+	defer testutil.CleanupRow(t, pool, "refresh_tokens", activeToken)
+	revokedToken := testutil.SeedRow(t, pool, "refresh_tokens", map[string]any{
+		"tenant_id":  tenantOwn,
+		"user_id":    subjectID,
+		"token_hash": fmt.Sprintf("revoked-%s", uuid.New()),
+		"expires_at": now.Add(24 * time.Hour),
+		"revoked":    true,
+	})
+	defer testutil.CleanupRow(t, pool, "refresh_tokens", revokedToken)
+	expiredToken := testutil.SeedRow(t, pool, "refresh_tokens", map[string]any{
+		"tenant_id":  tenantOwn,
+		"user_id":    subjectID,
+		"token_hash": fmt.Sprintf("expired-%s", uuid.New()),
+		"expires_at": now.Add(-24 * time.Hour),
+		"revoked":    false,
+	})
+	defer testutil.CleanupRow(t, pool, "refresh_tokens", expiredToken)
+
+	sessionActive := testutil.SeedRow(t, pool, "user_sessions", map[string]any{
+		"tenant_id":        tenantOwn,
+		"user_id":          subjectID,
+		"refresh_token_id": activeToken,
+		"device_name":      "MacBook Pro",
+		"device_type":      "desktop",
+		"ip_address":       "203.0.113.10",
+		"location":         "Berlin, DE",
+		"last_active_at":   now.Add(-1 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "user_sessions", sessionActive)
+	sessionRevoked := testutil.SeedRow(t, pool, "user_sessions", map[string]any{
+		"tenant_id":        tenantOwn,
+		"user_id":          subjectID,
+		"refresh_token_id": revokedToken,
+		"device_name":      "iPhone 15",
+		"device_type":      "mobile",
+		"ip_address":       "203.0.113.20",
+		"location":         "Hamburg, DE",
+		"last_active_at":   now.Add(-2 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "user_sessions", sessionRevoked)
+	sessionExpired := testutil.SeedRow(t, pool, "user_sessions", map[string]any{
+		"tenant_id":        tenantOwn,
+		"user_id":          subjectID,
+		"refresh_token_id": expiredToken,
+		"device_name":      "Windows PC",
+		"device_type":      "desktop",
+		"ip_address":       "203.0.113.30",
+		"location":         "Munich, DE",
+		"last_active_at":   now.Add(-3 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "user_sessions", sessionExpired)
+	sessionEnded := testutil.SeedRow(t, pool, "user_sessions", map[string]any{
+		"tenant_id":      tenantOwn,
+		"user_id":        subjectID,
+		"device_name":    "Old Tablet",
+		"device_type":    "mobile",
+		"location":       "Cologne, DE",
+		"last_active_at": now,
+	})
+	defer testutil.CleanupRow(t, pool, "user_sessions", sessionEnded)
+
+	otherSession := testutil.SeedRow(t, pool, "user_sessions", map[string]any{
+		"tenant_id":      tenantOwn,
+		"user_id":        otherUserID,
+		"device_name":    "Someone Else's Laptop",
+		"device_type":    "desktop",
+		"location":       "Bremen, DE",
+		"last_active_at": now,
+	})
+	defer testutil.CleanupRow(t, pool, "user_sessions", otherSession)
+
+	// last_active_at round-trips through the DB session's own time zone
+	// setting, so the expected strings are read back from Postgres rather
+	// than formatted from the Go-side `now` value used to seed them.
+	activeAt := querySessionLastActive(t, pool, sessionActive)
+	revokedAt := querySessionLastActive(t, pool, sessionRevoked)
+	expiredAt := querySessionLastActive(t, pool, sessionExpired)
+	endedAt := querySessionLastActive(t, pool, sessionEnded)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Waltraud")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	sessions := dsarModule(t, persons[0], "Sitzungsverlauf")
+	assert.Equal(t, []string{"Gerät", "Typ", "IP-Adresse", "Standort", "Letzte Aktivität", "Status"}, sessions.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Gerät": "Old Tablet", "Typ": "mobile", "IP-Adresse": "", "Standort": "Cologne, DE",
+			"Letzte Aktivität": endedAt.Format(dsarTimeLayout), "Status": "Beendet",
+		},
+		{
+			"Gerät": "MacBook Pro", "Typ": "desktop", "IP-Adresse": "203.0.113.10", "Standort": "Berlin, DE",
+			"Letzte Aktivität": activeAt.Format(dsarTimeLayout), "Status": "Aktiv",
+		},
+		{
+			"Gerät": "iPhone 15", "Typ": "mobile", "IP-Adresse": "203.0.113.20", "Standort": "Hamburg, DE",
+			"Letzte Aktivität": revokedAt.Format(dsarTimeLayout), "Status": "Widerrufen",
+		},
+		{
+			"Gerät": "Windows PC", "Typ": "desktop", "IP-Adresse": "203.0.113.30", "Standort": "Munich, DE",
+			"Letzte Aktivität": expiredAt.Format(dsarTimeLayout), "Status": "Abgelaufen",
+		},
+	}, recordMaps(sessions), "only the subject's own sessions, ordered by last activity, each with the right derived status")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Waltraud")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their sessions")
+}
+
+func TestSearchByQuery_UserAccountSecurity_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Account Security Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Account Security Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	twoFactorEnabledAt := time.Now().UTC().Add(-30 * 24 * time.Hour)
+	subjectID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":             tenantOwn,
+		"email":                 fmt.Sprintf("dsar-%s@search.invalid", uuid.New()),
+		"password_hash":         "$argon2id$v=19$secret-must-not-leak",
+		"first_name":            "Sieglinde",
+		"last_name":             "Torwart",
+		"is_active":             true,
+		"two_factor_enabled":    true,
+		"two_factor_enabled_at": twoFactorEnabledAt,
+	})
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	pw1 := testutil.SeedRow(t, pool, "password_history", map[string]any{
+		"tenant_id":     tenantOwn,
+		"user_id":       subjectID,
+		"password_hash": "$argon2id$v=19$old-secret-must-not-leak",
+	})
+	defer testutil.CleanupRow(t, pool, "password_history", pw1)
+	pw2 := testutil.SeedRow(t, pool, "password_history", map[string]any{
+		"tenant_id":     tenantOwn,
+		"user_id":       subjectID,
+		"password_hash": "$argon2id$v=19$older-secret-must-not-leak",
+	})
+	defer testutil.CleanupRow(t, pool, "password_history", pw2)
+
+	rc1 := testutil.SeedRow(t, pool, "recovery_codes", map[string]any{
+		"tenant_id": tenantOwn,
+		"user_id":   subjectID,
+		"code_hash": "recovery-hash-1-must-not-leak",
+		"used_at":   time.Now().UTC().Add(-10 * 24 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "recovery_codes", rc1)
+	rc2 := testutil.SeedRow(t, pool, "recovery_codes", map[string]any{
+		"tenant_id": tenantOwn,
+		"user_id":   subjectID,
+		"code_hash": "recovery-hash-2-must-not-leak",
+	})
+	defer testutil.CleanupRow(t, pool, "recovery_codes", rc2)
+	rc3 := testutil.SeedRow(t, pool, "recovery_codes", map[string]any{
+		"tenant_id": tenantOwn,
+		"user_id":   subjectID,
+		"code_hash": "recovery-hash-3-must-not-leak",
+	})
+	defer testutil.CleanupRow(t, pool, "recovery_codes", rc3)
+
+	var lastPasswordChange time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT max(created_at) FROM password_history WHERE user_id = $1`, subjectID).Scan(&lastPasswordChange))
+	// two_factor_enabled_at round-trips through the DB session's own time
+	// zone setting, so it is read back rather than formatted from the
+	// Go-side value used to seed it (see querySessionLastActive above).
+	var enabledAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT two_factor_enabled_at FROM users WHERE id = $1`, subjectID).Scan(&enabledAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Sieglinde")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	security := fieldValueMap(t, dsarModule(t, persons[0], "Kontosicherheit"))
+	assert.Equal(t, "Ja", security["Zwei-Faktor-Authentifizierung"])
+	assert.Equal(t, enabledAt.Format(dsarTimeLayout), security["Aktiviert am"])
+	assert.Equal(t, "2", security["Passwortänderungen (Anzahl)"])
+	assert.Equal(t, lastPasswordChange.Format(dsarTimeLayout), security["Letzte Passwortänderung"])
+	assert.Equal(t, "3", security["Wiederherstellungscodes (gesamt)"])
+	assert.Equal(t, "1", security["Wiederherstellungscodes (genutzt)"])
+
+	for _, v := range security {
+		assert.NotContains(t, v, "secret", "no password or recovery-code hash may ever surface in the export")
+		assert.NotContains(t, v, "recovery-hash", "no recovery code hash may ever surface in the export")
+	}
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Sieglinde")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their account security status")
+}
+
+// TestSearchByQuery_UserAccountSecurity_DefaultsWhenNoHistory_Integration pins
+// that accountSecurityModule, unlike most modules in this file, never
+// returns nil: a fresh account with no password change and no 2FA still
+// carries a security status, it just reads "Nein" and zero everywhere.
+func TestSearchByQuery_UserAccountSecurity_DefaultsWhenNoHistory_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Account Security Defaults Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Volker", "Nussbaumer", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Volker")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	security := fieldValueMap(t, dsarModule(t, persons[0], "Kontosicherheit"))
+	assert.Equal(t, "Nein", security["Zwei-Faktor-Authentifizierung"])
+	assert.Equal(t, "", security["Aktiviert am"])
+	assert.Equal(t, "0", security["Passwortänderungen (Anzahl)"])
+	assert.Equal(t, "", security["Letzte Passwortänderung"])
+	assert.Equal(t, "0", security["Wiederherstellungscodes (gesamt)"])
+	assert.Equal(t, "0", security["Wiederherstellungscodes (genutzt)"])
+}
+
 // TestSearchByQuery_NoMinimumLengthGuard_Integration pins where the guard for
 // short queries lives. SearchByQuery itself has none: the pattern is built as
 // "%" + query + "%", so an empty query lists every subject of the tenant up to
@@ -2000,6 +2268,14 @@ func TestSearchByQuery_DeadPool(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Fixtures and assertion helpers
 // ---------------------------------------------------------------------------
+
+func querySessionLastActive(t *testing.T, pool *pgxpool.Pool, sessionID uuid.UUID) time.Time {
+	t.Helper()
+	var lastActive time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT last_active_at FROM user_sessions WHERE id = $1`, sessionID).Scan(&lastActive))
+	return lastActive
+}
 
 func seedDSARUser(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, first, last string, active bool) uuid.UUID {
 	t.Helper()

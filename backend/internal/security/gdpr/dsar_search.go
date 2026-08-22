@@ -434,6 +434,22 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *hrChangeRequests)
 		}
 
+		sessions, sessErr := userSessionsModule(ctx, pool, tenantID, u.id)
+		if sessErr != nil {
+			return nil, sessErr
+		}
+		if sessions != nil {
+			person.Modules = append(person.Modules, *sessions)
+		}
+
+		accountSecurity, asErr := accountSecurityModule(ctx, pool, tenantID, u.id)
+		if asErr != nil {
+			return nil, asErr
+		}
+		if accountSecurity != nil {
+			person.Modules = append(person.Modules, *accountSecurity)
+		}
+
 		out = append(out, person)
 	}
 	return out, nil
@@ -1143,6 +1159,123 @@ func hrProfileChangeRequestsModule(ctx context.Context, pool *pgxpool.Pool, tena
 		return nil, nil
 	}
 	return &mod, nil
+}
+
+// userSessionsModule discloses a matched user's login/session history --
+// device, IP address, location, last activity and whether the underlying
+// refresh token is still active. host(ip_address) mirrors the pattern
+// AuthRepository already uses for reading this inet column
+// (internal/auth/postgres_repository.go) -- binding it as anything but text
+// trips the pgx inet/net.IPNet mismatch that pattern exists to avoid.
+// Status is computed in SQL against now() rather than in Go so the
+// active/expired cutoff can't drift from the database's own clock, the same
+// authority every session-expiry check in the auth package already defers
+// to.
+func userSessionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT COALESCE(us.device_name, ''), COALESCE(us.device_type, ''),
+		        COALESCE(host(us.ip_address), ''), COALESCE(us.location, ''), us.last_active_at,
+		        CASE
+		          WHEN rt.id IS NULL THEN 'Beendet'
+		          WHEN rt.revoked THEN 'Widerrufen'
+		          WHEN rt.expires_at < now() THEN 'Abgelaufen'
+		          ELSE 'Aktiv'
+		        END AS status
+		 FROM user_sessions us
+		 LEFT JOIN refresh_tokens rt ON rt.id = us.refresh_token_id
+		 WHERE us.tenant_id = $1 AND us.user_id = $2
+		 ORDER BY us.last_active_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query user sessions: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Sitzungsverlauf",
+		Columns: []string{"Gerät", "Typ", "IP-Adresse", "Standort", "Letzte Aktivität", "Status"},
+	}
+	for rows.Next() {
+		var deviceName, deviceType, ip, location, status string
+		var lastActive time.Time
+		if scanErr := rows.Scan(&deviceName, &deviceType, &ip, &location, &lastActive, &status); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan user session: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Gerät", Value: deviceName},
+			{Key: "Typ", Value: deviceType},
+			{Key: "IP-Adresse", Value: ip},
+			{Key: "Standort", Value: location},
+			{Key: "Letzte Aktivität", Value: lastActive.Format(dsarTimeLayout)},
+			{Key: "Status", Value: status},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: user session rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// accountSecurityModule discloses account-level security status for a
+// matched user: 2FA enrollment, password change history and recovery code
+// usage -- counts and timestamps only, never a password hash, a TOTP secret
+// or a usable recovery code value.
+//
+// Unlike most modules in this file, this one never returns nil for an empty
+// result: two_factor_enabled is a NOT NULL column on users itself, so "never
+// changed a password, never enabled 2FA" is itself the disclosed status, not
+// an absence of data -- the same reasoning that keeps the base
+// "Benutzerkonto" module in matchUsers unconditional.
+//
+// Deviates from the unit's premise: two_factor_policy is a per-ROLE
+// enforcement setting (unique on tenant_id+role_name), not a per-user
+// status, so it names something the tenant configured for a role, not
+// personal data of this user -- it is deliberately left out. The user's own
+// 2FA state lives on the users row instead (two_factor_enabled,
+// two_factor_enabled_at).
+func accountSecurityModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	var twoFactorEnabled bool
+	var twoFactorEnabledAt *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT two_factor_enabled, two_factor_enabled_at FROM users WHERE tenant_id = $1 AND id = $2`,
+		tenantID, userID,
+	).Scan(&twoFactorEnabled, &twoFactorEnabledAt); err != nil {
+		return nil, fmt.Errorf("dsar: query user two-factor status: %w", err)
+	}
+
+	var passwordChanges int
+	var lastPasswordChange *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*), max(created_at) FROM password_history WHERE tenant_id = $1 AND user_id = $2`,
+		tenantID, userID,
+	).Scan(&passwordChanges, &lastPasswordChange); err != nil {
+		return nil, fmt.Errorf("dsar: query password history: %w", err)
+	}
+
+	var recoveryCodesTotal, recoveryCodesUsed int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*), count(*) FILTER (WHERE used_at IS NOT NULL)
+		 FROM recovery_codes WHERE tenant_id = $1 AND user_id = $2`,
+		tenantID, userID,
+	).Scan(&recoveryCodesTotal, &recoveryCodesUsed); err != nil {
+		return nil, fmt.Errorf("dsar: query recovery codes: %w", err)
+	}
+
+	return &DSARModule{
+		Module:  "Kontosicherheit",
+		Columns: []string{"Feld", "Wert"},
+		Records: []DSARRecord{
+			fieldValueRecord("Zwei-Faktor-Authentifizierung", boolLabel(twoFactorEnabled)),
+			fieldValueRecord("Aktiviert am", derefDateTimeOrEmpty(twoFactorEnabledAt)),
+			fieldValueRecord("Passwortänderungen (Anzahl)", strconv.Itoa(passwordChanges)),
+			fieldValueRecord("Letzte Passwortänderung", derefDateTimeOrEmpty(lastPasswordChange)),
+			fieldValueRecord("Wiederherstellungscodes (gesamt)", strconv.Itoa(recoveryCodesTotal)),
+			fieldValueRecord("Wiederherstellungscodes (genutzt)", strconv.Itoa(recoveryCodesUsed)),
+		},
+	}, nil
 }
 
 func derefDateTimeOrEmpty(t *time.Time) string {

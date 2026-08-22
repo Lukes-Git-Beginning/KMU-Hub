@@ -2289,7 +2289,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
     scope: >
       Das Modul "Benutzerkonto" zeigt heute nur Name/E-Mail/Aktiv/Erstellt. Was tatsaechlich an
