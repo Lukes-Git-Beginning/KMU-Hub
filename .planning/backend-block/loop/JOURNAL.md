@@ -832,7 +832,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Unit.
 
 ## Iteration 15 — cov-gateway-biz-gobd-archive — done — 2026-08-22 02:52
-- commit: (folgt in separatem docs-Commit)
+- commit: 27225234
 - gebaut: `route_biz_gobd_archive_test.go` (26 neue Tests) fuer alle 7 Funktionen von
   `route_biz_gobd_archive.go` (`HandleArchiveDocument`, `HandleArchiveInvoiceDocument`,
   `HandleListGobdDocuments`, `HandleGetGobdDocument`, `HandleDownloadGobdDocument`,
