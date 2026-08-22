@@ -1235,7 +1235,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-invoice-repository-number-and-fiscal-year-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice 34,8 % (CI-Stand 32570176303)"
     scope: >
       `AggregatePaymentStats` (528-571) rechnet die Zahlungskennzahlen eines Zeitraums
@@ -2954,4 +2954,64 @@ units:
       - Entweder Entfernung (Repository, Interface, Service, Test-Doubles, zugehoerige
         DB-Testdatei) oder lean-Marker mit Upgrade-Trigger, im Journal begruendet
       - Kein Verhalten wurde verdrahtet oder umgebaut, per Diff belegt
+      - go test -count=1 ./internal/biz/invoice/ ./internal/server/ gruen
+
+  - id: fix-payment-stats-outstanding-ignores-recorded-payments
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix-Unit, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER FUND aus Iteration 27 (Lauf 11), beim Bauen von
+      `cov-invoice-repository-payment-stats-real-sql`
+      (postgres_repository_payment_stats_db_test.go,
+      TestPostgresRepository_AggregatePaymentStats_PartialPaymentNotNettedFromOutstanding und
+      _PaidAmountIgnoresOverpayment). `AggregatePaymentStats` (postgres_repository.go:530-570)
+      speist `GetPaymentStats` — die Dashboard-Kennzahl, nach der ein Geschaeftsfuehrer
+      entscheidet, wen er mahnt. Die Abfrage joint NIE gegen `finance_payments`, sondern
+      summiert `gross_total` nach `status` allein:
+      - eine teilweise bezahlte Rechnung (Status bleibt 'sent'/'overdue', bis die volle Summe
+        erreicht ist) zaehlt mit ihrem VOLLEN `gross_total` in `total_outstanding_amount` —
+        eine bereits verbuchte Teilzahlung senkt den ausgewiesenen offenen Betrag nicht
+      - eine ueberbezahlte, als 'paid' markierte Rechnung zaehlt nur mit ihrem `gross_total`
+        in `total_paid_amount` — der tatsaechlich vereinnahmte hoehere Betrag taucht nirgends
+        auf
+      Genau diese Klasse Fehler wurde fuer die Offene-Posten-Liste bereits einmal behoben:
+      `postgres_open_items.go` (Kopfkommentar) beschreibt ausdruecklich, dass die fruehere
+      Client-seitige Berechnung denselben Fehler hatte ("used the invoice gross amount, so an
+      invoice with a partial payment was reported as fully outstanding") und `openItemsBase`
+      joint seither korrekt gegen `finance_payments`. `AggregatePaymentStats` ist eine zweite,
+      unabhaengige Implementierung derselben Kennzahl-Familie und hat den Fix nicht bekommen.
+    sources:
+      - backend/internal/biz/invoice/postgres_repository.go
+      - backend/internal/biz/invoice/postgres_open_items.go
+      - backend/internal/biz/invoice/postgres_repository_payment_stats_db_test.go
+      - backend/internal/biz/invoice/service_gobd.go
+      - backend/internal/server/biz_grpc.go
+    notes: >
+      ROOT CAUSE: `AggregatePaymentStats` braucht denselben LEFT JOIN gegen
+      `(SELECT invoice_id, SUM(amount) AS paid FROM finance_payments WHERE tenant_id = $1
+      GROUP BY invoice_id)` wie `openItemsBase` (postgres_open_items.go) und muss
+      `gross_total - COALESCE(paid, 0)` statt `gross_total` fuer `total_outstanding_amount`
+      summieren. Fuer `total_paid_amount` ist die fachliche Frage vorher zu klaeren: soll die
+      Kennzahl weiterhin den Rechnungswert (Umsatz) oder die tatsaechlich vereinnahmte Summe
+      (Cashflow) zeigen? Beides ist eine legitime Kennzahl, aber nur eine passt zum Namen
+      "TotalPaidAmount" und zur heutigen UI-Beschriftung im Dashboard — das FE ist gesperrt,
+      aber die Beschriftung LESEN ist erlaubt, um die Erwartung zu pruefen.
+      Die beiden neuen Tests aus Iteration 27
+      (`TestPostgresRepository_AggregatePaymentStats_PartialPaymentNotNettedFromOutstanding`,
+      `_PaidAmountIgnoresOverpayment`) dokumentieren das AKTUELLE (falsche) Verhalten mit
+      Kommentar "current behaviour" — nach dem Fix muessen genau diese Assertions umgedreht
+      werden (Outstanding netto 600 statt 1000, ggf. TotalPaidAmount 450 statt 400, je nach
+      obiger Entscheidung), nicht eine zweite Testdatei danebenlegen.
+      `avg_days_to_pay` ist von diesem Fund nicht betroffen (haengt nicht an Zahlungshoehe).
+    done_when:
+      - total_outstanding_amount netiert bestaetigte finance_payments-Betraege vom gross_total,
+        eine Teilzahlung senkt den ausgewiesenen offenen Betrag nachweislich per Test
+      - Die Cashflow-vs-Umsatz-Frage fuer total_paid_amount ist im Journal entschieden und
+        begruendet (Beschriftung im Dashboard als Beleg)
+      - Die beiden "current behaviour"-Tests aus postgres_repository_payment_stats_db_test.go
+        sind auf das neue, korrekte Verhalten umgeschrieben, nicht dupliziert
       - go test -count=1 ./internal/biz/invoice/ ./internal/server/ gruen

@@ -1450,3 +1450,52 @@ Frühere Läufe liegen vollständig im Archiv:
   (deps: [cov-invoice-repository-number-and-fiscal-year-real-sql], jetzt ziehbar). Luke pruefen:
   keine besonderen Punkte — reine Coverage-Unit ohne Verhaltensaenderung. Der RLS-Nebenfund oben
   ist informativ, keine Aktion noetig.
+
+## Iteration 27 — cov-invoice-repository-payment-stats-real-sql — done — 2026-08-23 02:20
+- commit: (wird nach Commit ergänzt)
+- gebaut: neue ungetaggte Testdatei `postgres_repository_payment_stats_db_test.go` für
+  `AggregatePaymentStats` (postgres_repository.go:530-570), gegen echtes Postgres: leerer
+  Zeitraum liefert Nullwerte, Status-Klassifizierung (paid/sent/overdue/cancelled) inkl.
+  unabhängig gerechneter Summen, arithmetisches Mittel von avg_days_to_pay über zwei bezahlte
+  Rechnungen mit deterministischem `updated_at` (Session-Timezone vorher gegen
+  `docker-postgres-1` verifiziert: UTC), Tenant-Isolation gegen einen zweiten Tenant mit sehr
+  hohen Beträgen.
+  ECHTER FUND (dokumentiert, nicht gefixt — Coverage-Unit ändert kein Verhalten):
+  `AggregatePaymentStats` joint nie gegen `finance_payments` und summiert stattdessen
+  `gross_total` nach `status`. Zwei Konsequenzen, je mit eigenem Test belegt: (a) eine
+  Rechnung mit bereits verbuchter Teilzahlung (400 von 1000) zeigt weiterhin den vollen Betrag
+  als offen — `TestPostgresRepository_AggregatePaymentStats_PartialPaymentNotNettedFromOutstanding`;
+  (b) eine als 'paid' markierte, überbezahlte Rechnung (450 gezahlt auf 400 Rechnungsbetrag)
+  zeigt nur die 400 als vereinnahmt — `_PaidAmountIgnoresOverpayment`. Genau dieselbe
+  Fehlerklasse wurde für die Offene-Posten-Liste bereits einmal behoben: der Kopfkommentar von
+  `postgres_open_items.go` beschreibt wörtlich denselben Fehler ("used the invoice gross
+  amount, so an invoice with a partial payment was reported as fully outstanding") als bereits
+  gefixt für `openItemsBase` — `AggregatePaymentStats` ist eine zweite, unabhängige
+  Implementierung derselben Kennzahl-Familie ohne diesen Fix. Als Fix-Unit
+  `fix-payment-stats-outstanding-ignores-recorded-payments` ans Backlog-Ende gehängt.
+- gate: build ok (`./internal/biz/invoice/... ./internal/biz/payment/... ./internal/gateway/...
+  ./cmd/biz/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok
+  (`go test -count=1 -v ./internal/biz/invoice/`, 103 PASS, 0 SKIP, DATABASE_URL gegen
+  kmuhub_app) | gateway-Gate zusätzlich gelaufen (`TestOpenAPIRouteDrift`, grün) obwohl keine
+  Route berührt wurde | migration n.a. | rls-smoke erbracht durch
+  `TestPostgresRepository_AggregatePaymentStats_IsTenantScoped`
+- coverage: internal/biz/invoice 52,3 % (eigens gemessen Iteration 26, näherer
+  Vergleichspunkt als der CI-Stand 34,8 % aus coverage_start) -> 53,2 % (eigens gemessen,
+  `go tool cover -func`, lokaler Lauf nach der Änderung)
+- mutations-probe: `status NOT IN ('paid', 'cancelled')` im `total_outstanding_amount`-Filter
+  auf `status != 'paid'` verstümmelt (cancelled-Rechnung würde dann wieder mitgezählt) ->
+  `TestPostgresRepository_AggregatePaymentStats_ClassifiesByStatusAndSumsGross` rot (erwartet
+  500, erhalten 9500 — die 9000 der cancelled-Rechnung schlugen durch). Zurückgedreht,
+  `git diff --stat` auf postgres_repository.go danach leer.
+- verify vorgaenger: sauber — `ea99721d` (Iteration 26) ändert laut `git show --stat` und Diff
+  nur eine neue Testdatei (`postgres_repository_number_fiscal_year_db_test.go`, 172 Zeilen,
+  untagged, kein Skip/TODO/Unimplemented) sowie BACKLOG.yml/JOURNAL.md. Keine der acht
+  Fehlerklassen einschlägig: kein gRPC-Handler berührt, kein Stub/TODO, kein `.proto`, keine
+  Migration, kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein
+  ersetzter Guard-Key.
+- neue-units: fix-payment-stats-outstanding-ignores-recorded-payments
+- offen: nächste Unit laut Backlog-Reihenfolge ist `cov-invoice-postgres-transactions-real-sql`
+  (deps: [], sofort ziehbar). Luke prüfen: die neue Fix-Unit
+  `fix-payment-stats-outstanding-ignores-recorded-payments` enthält auch die offene Frage, ob
+  TotalPaidAmount künftig Umsatz oder tatsächlichen Cashflow zeigen soll — Produktentscheidung,
+  UI-Beschriftung ist gesperrt, aber lesbar.
