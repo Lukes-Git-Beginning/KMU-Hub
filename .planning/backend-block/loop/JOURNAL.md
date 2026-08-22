@@ -5218,7 +5218,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine.
 
 ## Iteration 88 — fix-work-task-custom-field-foreign-tenant-writable — done — 2026-08-22 12:01
-- commit: <pending>
+- commit: 9273da16
 - gebaut: `SetCustomFieldValues` (`internal/work/task/postgres_repository.go:586`) schreibt nicht
   mehr blind per `INSERT ... VALUES`, sondern per `INSERT ... SELECT ... WHERE EXISTS (SELECT 1
   FROM work_custom_field_definitions WHERE id = $3 AND tenant_id = $2)` mit `ON CONFLICT` wie
