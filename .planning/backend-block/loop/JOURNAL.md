@@ -773,3 +773,68 @@ Frühere Läufe liegen vollständig im Archiv:
   reiner Code-Fix. (c) `go-tree` wurde durch den neuen Test zur direkten Dependency in
   `go.mod` (`go mod tidy` mitcommittet, keine neue externe Dependency — das Modul war
   bereits transitiv über maroto vorhanden).
+
+## Iteration 14 — cov-invoice-pdf-generator-and-templates — done — 2026-08-23 00:28
+- commit: -
+- gebaut: neue Testdatei `internal/biz/pdf/generator_coverage_test.go`, sechs Tests,
+  kein Produktionscode geändert (reine Coverage-Unit, kein Fund erzwang einen Fix).
+  (1) `ValidateCompanySettingsForPDF` hatte laut `zugferd_test.go` nur "alles fehlt" und
+  "nur city fehlt" als Fehlerpfade — `TestValidateCompanySettingsForPDF_
+  MissingIndividualFields` deckt jetzt fehlenden Namen, fehlende Straße, fehlende PLZ und
+  einen nur-Leerzeichen-Namen (TrimSpace-Pfad) einzeln ab.
+  `TestValidateCompanySettingsForPDF_AllMissingFieldsAreListed` belegt, dass die
+  Fehlermeldung bei leeren Settings alle fünf fehlenden Felder nennt, nicht nur das erste.
+  (2) `TestInvoicePDF_UmlautsSurviveRenderPath` belegt, dass Umlaute in Firmenname,
+  Straße, Stadt, Kundenname und -anschrift ("Müller & Söhne GmbH", "Weiß & Groß KG", "Köln")
+  unverändert bis zur extrahierten Textebene durchlaufen. Vorab per Grep geprüft: kein
+  `charmap`/`iconv`/`x/text/encoding` im Paket — der Renderpfad wandelt vor `Generate()`
+  keine Zeichenkodierung um, der Test friert diese Garantie auf Struktur-Ebene ein
+  (Font-Glyph-Rendering selbst bleibt außerhalb der Testgrenze, wie vom `done_when`
+  verboten: kein binärer PDF-Vergleich). (3) Reverse-Charge- und Kleinunternehmer-Hinweis
+  GEPRÜFT, KEIN FUND: `buildTotalsSection`s Switch vergleicht `taxMode` (String) gegen
+  `models.TaxModeReverseCharge`/`models.TaxModeKleinunternehmer` — beide Konstanten tragen
+  denselben Stringwert wie `tax.ModeReverseCharge`/`tax.ModeKleinunternehmer`
+  ("reverse_charge"/"kleinunternehmer", per Grep in `internal/models/finance.go` und
+  `internal/biz/tax/calculator.go` verglichen), und `tax.RequiresReverseChargeNote`/
+  `RequiresKleinunternehmerNote` verlangen exakt diese beiden Hinweise. Kleinunternehmer
+  war bereits von Iteration 13 getestet (`invoice_ustg14_test.go`); neu ist
+  `TestInvoicePDF_ReverseChargeHintPresent` (Positivfall) und
+  `TestInvoicePDF_StandardModeShowsNoExemptionHint` (Negativfall — Gegenprobe, dass eine
+  reguläre Rechnung keinen der beiden Hinweise zeigt).
+- gate: build ok (`./internal/biz/pdf/...`) | vet ok | lint ok (0 issues) | test ok
+  (`go test -count=1 ./internal/biz/pdf/`, alle PASS, 0 SKIP) | migration n.a. (kein
+  Schema angefasst) | rls-smoke n.a. (keine Tabelle/Policy) |
+  `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` grün, obwohl keine Route
+  angefasst wurde
+- coverage: internal/biz/pdf 51,6 % -> 52,0 % (eigene Messung, `go tool cover -func`;
+  Vorher-Wert per `mv` der neuen Testdatei aus dem Paket und erneutem Lauf reproduziert,
+  identisch zur Iteration-13-Messung — kein Widerspruch zum `coverage_start:` der Unit,
+  der nur ein Platzhalter "im CI-Log nachschlagen" war)
+- mutations-probe: zwei Läufe, beide gegen eine `cp`-Sicherungskopie (nicht
+  `git checkout`, siehe Iteration-3-Lehre), beide zurückgeschrieben, `git diff --stat`
+  gegen `templates.go`/`generator.go` danach leer (0 Zeilen Unterschied zu HEAD).
+  (a) `if strings.TrimSpace(s.Name) == ""` in `ValidateCompanySettingsForPDF` mit
+  `if false && ...` stillgelegt -> `TestValidateCompanySettingsForPDF_
+  MissingIndividualFields/missing_name` UND `/whitespace-only_name` beide rot ("expected
+  an error ..., got nil"). (b) `case models.TaxModeReverseCharge:` in `buildTotalsSection`
+  auf einen unerreichbaren String-Wert umgebogen ->
+  `TestInvoicePDF_ReverseChargeHintPresent` rot ("expected rendered invoice to contain
+  \"Steuerschuldnerschaft\"").
+- verify vorgaenger: sauber — `e4f78e4b` (Iteration 13) ändert nur
+  `internal/biz/pdf/generator.go` (Lieferdatum-Fallback, Split in `buildInvoiceDoc`/
+  `generate`), `go.mod` (go-tree von indirect zu direct verschoben, keine neue
+  Dependency) und die neue Testdatei `invoice_ustg14_test.go`. Keine der acht
+  Fehlerklassen einschlägig: kein gRPC-Handler, kein Stub/TODO, kein `.proto`, keine
+  Migration, kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel,
+  kein ersetzter Guard-Key. `93982b11` ändert nur JOURNAL.md/BACKLOG.yml.
+- neue-units: keine
+- offen: (a) `internal/biz/pdf` hat keine DB-Tests, DATABASE_URL-Gate daher für diese
+  Unit nicht einschlägig (wie schon Iterationen 5-8, 13). (b) Mehrseitigkeit wurde NICHT
+  getestet — laut Notes nur, wenn der Generator sie kennt; `newMaroto`/`buildInvoiceDoc`
+  haben keine explizite Seitenumbruch-Logik zu prüfen (maroto paginiert intern), ein
+  Test dafür wäre gegen Bibliotheksverhalten, nicht gegen eigenen Code. (c) "Rechnung
+  ohne Positionen" (leere `LineItems`) wurde NICHT separat getestet — `parseLineItems`
+  gibt bei leerem Raw `nil, nil` zurück, `buildInvoiceDoc` rendert dann nur den
+  Tabellenkopf ohne Zeilen; kein Absturz, aber auch kein Fund, da das Backlog dafür kein
+  eigenes done_when nennt und die Frage, ob eine Rechnung ohne Positionen überhaupt
+  fachlich zulässig sein soll, eine Produktentscheidung ist, keine Coverage-Frage.
