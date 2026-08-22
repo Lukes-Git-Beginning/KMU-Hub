@@ -2089,7 +2089,7 @@ Frühere Läufe liegen vollständig im Archiv:
     keine neue Tabelle/Policy in dieser Iteration).
 
 ## Iteration 34 — cov-gateway-registrar-global-search — done — 2026-08-22 05:29
-- commit: (wird im Folgecommit nachgetragen)
+- commit: e7de0eca
 - gebaut: `route_search_global_test.go` deckt HandleGlobalSearch (leere Query,
   leere Registry, registrierte Services mit RPC-Fehlschlag, den fest
   verdrahteten Email-Stub, fehlerhafte/gueltige `limit`-Werte) und die
