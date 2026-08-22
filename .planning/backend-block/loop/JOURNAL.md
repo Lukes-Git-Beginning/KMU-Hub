@@ -5381,7 +5381,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (blocked_reason im Backlog). DB-Gate lief real (kmuhub_app, 0 SKIP).
 
 ## Iteration 91 — fix-csv-xlsx-formula-injection-remaining-writers — done — 2026-08-22 12:27
-- commit: (folgt im nächsten Journal-Doku-Commit)
+- commit: 474d525e8d11bebfb3efa4d22af3c43f6911b0b7
 - gebaut: Zwei separate Fundstellenklassen aus dem Unit-Scope abgearbeitet.
   (1) `internal/formulare/service.go:buildXLSX` — experimentell geprüft statt vermutet: eine
   kleine Probe (Testdatei mit `excelize.SetCellValue`, Wert beginnt mit `=`, rohe Sheet-XML aus
