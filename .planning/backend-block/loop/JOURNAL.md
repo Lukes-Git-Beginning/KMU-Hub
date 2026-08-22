@@ -1087,7 +1087,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `GetHighestLevelByInvoiceID`.
 
 ## Iteration 20 — cov-dunning-repository-invoice-lookups-real-sql — done — 2026-08-23 01:20
-- commit: (siehe unten)
+- commit: a584aeda
 - gebaut: Die drei Lesewege von Rechnung zu Mahnung in `internal/biz/dunning/postgres_repository.go`
   gegen echtes Postgres getestet: `GetByInvoiceID` (Level-aufsteigende Sortierung, Fremdtenant mit
   korrekter Invoice-ID liefert leer), `GetByInvoiceIDs` (leere ID-Liste -> leere Map ohne Query,
