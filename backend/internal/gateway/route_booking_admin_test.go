@@ -37,20 +37,15 @@ import (
 // route_calendar_events_resources_test.go for the same "no bufconn stub for
 // CalendarServiceClient in this repo" limitation.
 //
-// Second finding while writing this file: createBookingPageRequest.Services
-// and updateBookingPageRequest.Services carry no "dive" validate tag, so
-// go-playground/validator never descends into the slice elements —
+// Second finding while writing this file, fixed by
+// fix-gateway-booking-page-services-no-dive: createBookingPageRequest.Services
+// and updateBookingPageRequest.Services now carry "dive" on their validate
+// tag, so go-playground/validator descends into the slice elements and
 // bookingServiceRequestItem's own "required"/"gt=0" tags on id/name/
-// duration_min/price are dead code, a service item with every field empty
-// passes decodeAndValidate and reaches the RPC layer as-is. Zero duration is
-// defused defensively downstream (GetAvailability falls back to
-// rules.SlotDurationMin, then to a 30-minute default), so this is a data-
-// quality gap, not a crash or a security issue. Documented here via
-// *_ReachesRPC tests rather than assumed away, same reasoning as the
-// Doppelbuchung finding above; the one-line fix (`validate:"dive"` on both
-// Services fields) is filed as fix-gateway-booking-page-services-no-dive at
-// the end of BACKLOG.yml since it changes handler behaviour, out of scope
-// for a coverage-only commit.
+// duration_min/price run for every item (compare
+// route_customization.go's `validate:"required,min=1,dive"` on a similar
+// nested slice). A service item with an empty name, empty price or
+// duration_min <= 0 is now rejected with 400 before it reaches the RPC.
 
 func testBookingRoutes(reg *ServiceRegistry) *BookingRoutes {
 	return NewBookingRoutes(reg, security.NewCaptchaVerifier("", ""))
@@ -184,11 +179,11 @@ func TestHandleCreateBookingPage_MissingAvailabilityRules(t *testing.T) {
 	assertValidationError(t, rec, "availability_rules")
 }
 
-// TestHandleCreateBookingPage_ServiceItemMissingName_ReachesRPC documents the
-// missing-dive finding in the file-level comment: bookingServiceRequestItem's
-// "required" tag on Name is never evaluated for slice elements, so an item
-// with no name is accepted locally and reaches the RPC layer.
-func TestHandleCreateBookingPage_ServiceItemMissingName_ReachesRPC(t *testing.T) {
+// TestHandleCreateBookingPage_ServiceItemMissingName_Rejected proves the fix
+// for fix-gateway-booking-page-services-no-dive: bookingServiceRequestItem's
+// "required" tag on Name now runs for every slice element, so an item with
+// no name is rejected with 400 before it reaches the RPC layer.
+func TestHandleCreateBookingPage_ServiceItemMissingName_Rejected(t *testing.T) {
 	routes := testBookingRoutes(registryWithService("work"))
 	body := validCreateBookingPageBody()
 	body["services"] = []map[string]interface{}{
@@ -198,12 +193,12 @@ func TestHandleCreateBookingPage_ServiceItemMissingName_ReachesRPC(t *testing.T)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/calendar/booking-pages", jsonBody(t, body))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleCreateBookingPage(rec, req)
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertValidationError(t, rec, "name")
 }
 
-// TestHandleCreateBookingPage_ServiceItemZeroDuration_ReachesRPC — same
-// missing-dive finding for the "gt=0" tag on DurationMin.
-func TestHandleCreateBookingPage_ServiceItemZeroDuration_ReachesRPC(t *testing.T) {
+// TestHandleCreateBookingPage_ServiceItemZeroDuration_Rejected — same fix,
+// for the "gt=0" tag on DurationMin.
+func TestHandleCreateBookingPage_ServiceItemZeroDuration_Rejected(t *testing.T) {
 	routes := testBookingRoutes(registryWithService("work"))
 	body := validCreateBookingPageBody()
 	body["services"] = []map[string]interface{}{
@@ -213,12 +208,12 @@ func TestHandleCreateBookingPage_ServiceItemZeroDuration_ReachesRPC(t *testing.T
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/calendar/booking-pages", jsonBody(t, body))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleCreateBookingPage(rec, req)
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertValidationError(t, rec, "duration_min")
 }
 
-// TestHandleCreateBookingPage_ServiceItemMissingPrice_ReachesRPC — same
-// missing-dive finding for the "required" tag on Price.
-func TestHandleCreateBookingPage_ServiceItemMissingPrice_ReachesRPC(t *testing.T) {
+// TestHandleCreateBookingPage_ServiceItemMissingPrice_Rejected — same fix,
+// for the "required" tag on Price.
+func TestHandleCreateBookingPage_ServiceItemMissingPrice_Rejected(t *testing.T) {
 	routes := testBookingRoutes(registryWithService("work"))
 	body := validCreateBookingPageBody()
 	body["services"] = []map[string]interface{}{
@@ -228,7 +223,7 @@ func TestHandleCreateBookingPage_ServiceItemMissingPrice_ReachesRPC(t *testing.T
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/calendar/booking-pages", jsonBody(t, body))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleCreateBookingPage(rec, req)
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertValidationError(t, rec, "price")
 }
 
 func TestHandleCreateBookingPage_ReachesRPC(t *testing.T) {
@@ -319,9 +314,9 @@ func TestHandleUpdateBookingPage_InvalidJSON(t *testing.T) {
 	assertErrorContains(t, rec, "invalid request body")
 }
 
-// TestHandleUpdateBookingPage_ServiceItemZeroDuration_ReachesRPC — same
-// missing-dive finding as the create-side tests above, on the update path.
-func TestHandleUpdateBookingPage_ServiceItemZeroDuration_ReachesRPC(t *testing.T) {
+// TestHandleUpdateBookingPage_ServiceItemZeroDuration_Rejected — same fix as
+// the create-side tests above, on the update path.
+func TestHandleUpdateBookingPage_ServiceItemZeroDuration_Rejected(t *testing.T) {
 	routes := testBookingRoutes(registryWithService("work"))
 	rec := httptest.NewRecorder()
 	id := uuid.New().String()
@@ -333,7 +328,7 @@ func TestHandleUpdateBookingPage_ServiceItemZeroDuration_ReachesRPC(t *testing.T
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleUpdateBookingPage(rec, req)
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertValidationError(t, rec, "duration_min")
 }
 
 // TestHandleUpdateBookingPage_EmptyBody_ReachesRPC documents that every field

@@ -91,7 +91,7 @@ type createBookingPageRequest struct {
 	Slug                  string                       `json:"slug"                  validate:"required"`
 	CompanyName           string                       `json:"company_name"          validate:"required"`
 	LogoURL               *string                      `json:"logo_url,omitempty"`
-	Services              []bookingServiceRequestItem  `json:"services"`
+	Services              []bookingServiceRequestItem  `json:"services"              validate:"dive"`
 	AvailabilityRulesJSON string                       `json:"availability_rules"    validate:"required"`
 }
 
@@ -106,7 +106,7 @@ type bookingServiceRequestItem struct {
 type updateBookingPageRequest struct {
 	CompanyName           *string                      `json:"company_name,omitempty"`
 	LogoURL               *string                      `json:"logo_url,omitempty"`
-	Services              []bookingServiceRequestItem  `json:"services,omitempty"`
+	Services              []bookingServiceRequestItem  `json:"services,omitempty"    validate:"dive"`
 	AvailabilityRulesJSON *string                      `json:"availability_rules,omitempty"`
 	Active                *bool                        `json:"active,omitempty"`
 }

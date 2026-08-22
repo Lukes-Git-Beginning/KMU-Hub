@@ -3418,3 +3418,45 @@ Frühere Läufe liegen vollständig im Archiv:
     `internal/crm/...`-Unterpakete gleichzeitig — fuer kuenftige Iterationen, die dieses Paket
     komplett gegenpruefen wollen, `-p 1` oder ein gezielteres Paket-Set verwenden statt `...`
     mit vollem Parallelbetrieb.
+
+## Iteration 55 — fix-gateway-booking-page-services-no-dive — done — 2026-08-22 07:57
+- commit: (siehe naechster Eintrag)
+- gebaut: Gleiche Fehlerklasse wie der Advisory-Fix aus Iteration 54, hier auf
+  `route_booking.go`: `createBookingPageRequest.Services` und
+  `updateBookingPageRequest.Services` bekommen `validate:"dive"`. Anders als beim
+  Advisory-Fall gibt es hier keinen Root-Cause-Layer im Service (`booking_service.go`
+  hat keine eigene Feldvalidierung fuer Service-Items) — der Gateway-seitige `dive`
+  ist die vollstaendige Behebung.
+  Testdatei umgebaut: Datei-Kopf-Kommentar (der die Luecke als offenen Fund
+  beschrieb) auf "gefixt" umgeschrieben. Vier `*_ReachesRPC`-Tests umgedreht (nicht
+  geloescht) zu `*_Rejected`: drei auf dem Create-Pfad
+  (ServiceItemMissingName/ZeroDuration/MissingPrice) und einer auf dem Update-Pfad
+  (ServiceItemZeroDuration) erwarten jetzt `assertValidationError(t, rec, <feld>)`
+  mit 400 statt 503. Feldnamen (`name`, `duration_min`, `price`) sind der json-Tag
+  der Leaf-Struct, nicht "services[0].name" — durch `RegisterTagNameFunc` in
+  `internal/validation/validation.go:41` bestaetigt und per Testlauf verifiziert.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (0 issues) | test ok (`./internal/gateway/` komplett gruen inkl.
+  `TestOpenAPIRouteDrift` — 836 Routen gegen 838 dokumentierte Pfade, unveraendert,
+  keine neue Route; 0 SKIP ueber das ganze Paket) | migration n.a. (keine
+  Schemaaenderung) | rls-smoke n.a. (keine Tabelle/Policy beruehrt)
+- coverage: n.a. (Validierungs-Fix, kein Coverage-Ziel, wie in `coverage_start`
+  deklariert). Zur Einordnung gemessen: `internal/gateway` unveraendert bei 54,0 %
+  vor und nach der Aenderung (vier neue Testfaelle kompensieren die zwei neuen
+  `validate:"dive"`-Tags).
+- mutations-probe: beide `validate:"dive"`-Tags per `sed` entfernt (Ruecksprung auf
+  den urspruenglichen Zustand ohne Tag) -> alle vier umgebauten Tests werden rot
+  (503 statt der erwarteten 400/`validation_failed`, belegt per `go test -v` Output).
+  Zurueckgedreht -> `git diff --stat` zeigt fuer `route_booking.go` nur die
+  urspruengliche Aenderung (2 Insertions, 2 Deletions, ausschliesslich die beiden
+  `Services`-Tags).
+- verify vorgaenger: sauber. `69cecf89` (Iteration 54,
+  fix-gateway-advisory-product-riskclass-not-validated) gegen alle acht
+  Fehlerklassen geprueft (`git show --stat` + Volltextdiff) — reiner Root-Cause-Fix
+  (Service-Schleife + Gateway-`dive`-Tag), kein neuer Handler, kein `.proto`, kein
+  neuer `RequirePermission`-Guard, kein ersetzter Alt-Guard, keine neue
+  Tabelle/Migration, kein Wire-Shape-Bruch, keine neue Route.
+- neue-units: keine
+- offen:
+  - Iteration-53-Folgeunit `fix-csv-formula-injection-remaining-exports`
+    (Backlog-Ende) bleibt offen und unangetastet von dieser Iteration.

@@ -2014,7 +2014,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Validierungs-Fix, kein Coverage-Ziel)"
     scope: >
       Dieselbe Fehlerklasse wie `fix-gateway-advisory-product-riskclass-not-validated`, diesmal in
