@@ -11,7 +11,7 @@ import (
 
 // HandleListOpenItems serves the tenant's unpaid receivables, most overdue
 // first, with the tenant-wide aging summary.
-// GET /api/v1/finance/open-items?bucket=&overdue_only=&page=&per_page=
+// GET /api/v1/finance/open-items?bucket=&overdue_only=&page=&page_size=
 func (b *BizRoutes) HandleListOpenItems(w http.ResponseWriter, r *http.Request) {
 	client, err := b.getBizClient()
 	if err != nil {

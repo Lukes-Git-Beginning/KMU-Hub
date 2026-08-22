@@ -1070,3 +1070,65 @@ Frühere Läufe liegen vollständig im Archiv:
     loescht"-Sentinel noch anderswo im `biz`-Paket vorkommt, ist als offene Frage in die neue
     Unit selbst geschrieben (Notes-Feld), nicht hier separat geprueft — das haette den Scope
     dieser Coverage-Unit gesprengt.
+
+## Iteration 19 — cov-gateway-biz-open-items-time-entries — done — 2026-08-22 03:22
+- commit: (folgt im naechsten Schritt)
+- gebaut: neue Datei `route_biz_open_items_time_entries_test.go` deckt beide Handler ab, die
+  in dieser Unit im Fokus standen: `HandleListOpenItems` (route_biz_open_items.go, 1 Funktion)
+  und `HandleListTimeEntries` (route_biz_time_entries.go, 1 Funktion). Je Handler: Service-
+  Unavailable (leere Registry), fehlender Tenant (nur bei open-items moeglich, siehe unten),
+  und mehrere ReachesRPC-Faelle mit unterschiedlichen Query-Parametern (Standard-Pagination,
+  bucket+overdue_only-Filter, explizite page/page_size, ein page_size ueber dem Maximum von
+  parsePagination). Zusaetzlich in `route_capability_guard_test.go` zwei neue Faelle fuer
+  `/api/v1/finance/time-entries` (bislang nicht in der Guard-Tabelle, obwohl open-items direkt
+  daneben schon drin stand) — belegt, dass die Route ausschliesslich am reinen
+  `finance:read`-Legacy-Schluessel haengt, ohne feineren Alias.
+  ECHTER FUND, aber trivial: der Go-Doc-Kommentar von `HandleListOpenItems` dokumentierte die
+  Query-Parameter als `?bucket=&overdue_only=&page=&per_page=`, waehrend der Code ueber
+  `parsePagination` tatsaechlich `page_size` liest (wie `openapi.yaml` korrekt zeigt) — ein
+  gesendetes `per_page` wurde also stillschweigend ignoriert und faellt auf den Default-Wert 50
+  zurueck. Nur der Kommentar war falsch, kein Verhalten geaendert; direkt korrigiert
+  (`page_size=`), da es sich um eine reine Doc-String-Korrektur ohne Code- oder Testaenderung
+  handelt und keine eigene Unit rechtfertigt.
+  ARCHITEKTUR-BEFUND (kein Bug): `HandleListTimeEntries` prueft den Tenant gar nicht selbst —
+  im Unterschied zu praktisch jedem anderen Handler in diesem Paket. Das ist beabsichtigt:
+  `WorkGRPCServer.ListBillableTimeEntries` (work_grpc.go:2005) liest den Tenant serverseitig
+  aus dem RLS-Kontext, der ueber `TenantOutboundUnaryInterceptor`
+  (internal/middleware/grpc_tenant.go:37) automatisch aus dem HTTP-Request-Kontext in die
+  ausgehenden gRPC-Metadaten kopiert wird. Ein Test ohne Tenant im Kontext erreicht deshalb
+  trotzdem die RPC-Ebene (503 gegen die Dummy-Verbindung) statt eines Gateway-seitigen 401 —
+  dieses Verhalten ist als eigener Test festgenagelt
+  (`TestHandleListTimeEntries_NoTenantInContext_StillReachesRPC`), nicht als Luecke gemeldet.
+- gate: build ok (`-p 2` ueber gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (ganzes `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift`, keine neue Route,
+  kein OpenAPI-Eintrag noetig)
+- coverage: internal/gateway 47,7 % -> 47,8 % (eigene Messung: Testdatei + die zwei neuen
+  Guard-Faelle per `git stash` vollstaendig entfernt, `go test -coverprofile` vor/nach meiner
+  Aenderung auf demselben Arbeitsbaum; 47,7 % ist der reale lokale Stand, deckt sich mit dem
+  47,7 % Zwischenwert aus Iteration 18s Messkette)
+- mutations-probe: in `HandleListOpenItems` die Tenant-Fehlerpruefung `if err != nil` auf
+  `if false` gesetzt -> `TestHandleListOpenItems_NoTenantID` wird rot (503 statt 401, RPC-Layer
+  erreicht statt 401-Guard). Zurueckgedreht -> `git diff --stat` auf `route_biz_open_items.go`
+  zeigt nur noch die Kommentar-Korrektur, kein Rest der Mutation; ganzes `internal/gateway`
+  wieder gruen.
+- verify vorgaenger: sauber. `791ba2bf` (Iteration 18, Recurring-Invoice-Route-Tests) gegen
+  alle acht Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`, `JOURNAL.md` und
+  die neue `route_biz_recurring_test.go` — reine Testdatei ohne Client-Aufruf-Pattern
+  (`grep -n "client\.\|Unimplemented\|TODO\|t.Skip"` liefert null Treffer), kein gRPC-Bypass,
+  kein `.proto` angefasst, keine neue `RequirePermission`, keine neue Tabelle, keine
+  Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route.
+- neue-units: keine
+- offen:
+  - "Fremder Tenant liefert 404" ist an beiden Routen wie in jeder vorigen Coverage-Unit dieses
+    Laufs NICHT ueber einen Live-RPC-Roundtrip getestet (kein bufconn-/Fake-Client-Harness fuer
+    FinanceServiceClient/WorkServiceClient im ganzen Paket, gleiche dokumentierte
+    Infrastrukturgrenze wie in den Iterationen 15-18). Die serverseitige Tenant-Durchsetzung
+    liegt bei den jeweiligen Service-Paketen.
+  - "Leeres Ergebnis liefert 200 mit leerer Liste, nicht 404" (done_when-Kriterium) ist aus
+    demselben Grund nicht live pruefbar — die Antwort wird erst nach einer erfolgreichen RPC
+    gebaut, die in diesem Paket nicht erreichbar ist. `hrMarshalSlice` (bereits andernorts
+    getestet, u.a. route_hr_worktime_test.go) garantiert generisch `[]` statt `nil`, das ist die
+    naechstliegende Absicherung ohne Live-Client.
+  - Der `lean:`-Marker in `HandleListTimeEntries` (billed=true liefert immer eine leere Liste,
+    ohne dass irgendetwas je als "billed" markiert wird) ist bereits im Code als bewusste
+    Vereinfachung mit eigenem Upgrade-Trigger dokumentiert — kein neuer Fund, keine Unit noetig.

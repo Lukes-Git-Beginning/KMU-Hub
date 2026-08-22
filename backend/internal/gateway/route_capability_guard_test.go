@@ -397,6 +397,8 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"incoming invoices list with finance:read", bizRouter, "GET", "/api/v1/finance/incoming-invoices", []string{"finance:read"}, allowed},
 		{"open items list still requires finance:read only", bizRouter, "GET", "/api/v1/finance/open-items", []string{"finance:amounts:view"}, denied},
 		{"open items list with finance:read", bizRouter, "GET", "/api/v1/finance/open-items", []string{"finance:read"}, allowed},
+		{"time entries list still requires finance:read only", bizRouter, "GET", "/api/v1/finance/time-entries", []string{"finance:incoming:book"}, denied},
+		{"time entries list with finance:read", bizRouter, "GET", "/api/v1/finance/time-entries", []string{"finance:read"}, allowed},
 
 		// --- inventar: items ---
 		{"item create, legacy key only", inventarRouter, "POST", "/api/v1/inventar/items", []string{"inventar:item:write"}, allowed},

@@ -794,7 +794,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Zwei kleine Dateien in einer Unit: `route_biz_open_items.go` (66 Zeilen, 1 Funktion) und
