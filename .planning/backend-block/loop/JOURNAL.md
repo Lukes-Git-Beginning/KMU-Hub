@@ -4697,3 +4697,78 @@ Frühere Läufe liegen vollständig im Archiv:
   SHA-Eintragung ins Journal, kein eigenstaendiger Code-Commit.
 - neue-units: keine
 - offen: keine
+
+## Iteration 79 — fix-gateway-datev-upload-error-message-leakage — done — 2026-08-22 10:50
+- commit: (folgt, siehe naechste Iteration)
+- gebaut: Identisches Muster wie fix-gateway-bexio-error-message-leakage (Iteration 78), andere
+  Integration. `HandleDatevOAuthCallback` (`internal/server/datev_upload_grpc.go`) baute bei
+  Fehler `Success:false, ErrorMessage: err.Error()` statt eines echten gRPC-Status — `err` kommt
+  aus `OAuthManager.ExchangeCode` (`internal/biz/datev/oauth.go`), die Vault-/HTTP-Fehler wrappt
+  (bestaetigt: `TestExchangeCode_VaultStoreFailureFailsTheExchange` zeigt "failed to store refresh
+  token: %w" um einen Vault-Fehler). Jetzt `return nil, status.Error(codes.Internal, "DATEV OAuth
+  callback failed")` — anders als bei Bexio kein Wiederverwenden von `mapDatevUploadError`, weil
+  dessen Sentinel-Zweige (ErrInvoiceNotFound, ErrInvalidPeriod, ...) reine Upload-Fehler sind und
+  fuer den OAuth-Callback nie zutreffen; die generische Nachricht ist bewusst neu und eigen
+  benannt statt die irrefuehrende "DATEV upload failed" zu recyceln.
+  `route_datev_upload.go`s `HandleOAuthCallback` schrieb sowohl den externen Query-Parameter
+  `error` (von DATEV selbst gesendet, oeffentlicher Endpunkt, angreiferkontrollierbar) als auch
+  `resp.GetErrorMessage()` UNESCAPED in eine Redirect-Location — gleiches Injection-Risiko wie bei
+  Bexio. Neue Helper-Funktion `redirectDatevError` escaped jeden Fehlercode ueber
+  `url.QueryEscape`, bevor er in die Location wandert; alle vier Redirect-Stellen
+  (state_not_configured, missing-code/error-Pfad, invalid_state, OAuth-Ergebnis) nutzen sie jetzt.
+  `!resp.GetSuccess()` bleibt neben `err != nil` als auskommentiert begruendete Verteidigungslinie
+  erhalten (identische Begruendung wie beim Bexio-Fix).
+  Zusaetzlich als Lean-Cleanup: die im Scope genannten JSON-Stellen `route_datev_upload.go:278-279`
+  und `315-316` (`HandleUploadBuchungsstapel`/`HandleUploadBeleg`) waren bereits TOTER Code — die
+  einzigen Konstruktionsstellen der beiden Response-Protos setzen `ErrorMessage` nirgends (grep
+  bestaetigt), weil `UploadDatevBuchungsstapel`/`UploadDatevBeleg` serverseitig schon seit einer
+  frueheren Iteration ueber `mapDatevUploadError` einen echten gRPC-Fehler statt Success:false
+  liefern. `GetErrorMessage()` kann dort nie non-empty sein; die tote `if`-Verzweigung entfernt,
+  mit Kommentar warum.
+  Die dritte im Scope genannte Stelle (`route_datev_upload.go:431-432`, `ListDatevUploadLogs`) ist
+  KEIN Fund derselben Klasse und bewusst NICHT angefasst: `l.ErrorMessage` kommt aus
+  `UploadService.failUploadLog` (`upload_service.go:241-250`), das echte, bereits in der DB
+  gespeicherte historische Fehlertexte aus `Uploader.doWithRetry`
+  (`internal/biz/datev/uploader.go:212/221`) haelt — die rohe Antwort der DATEV-API, keine
+  Vault-/DB-Interna. Route liegt hinter `RequireRole("admin")` und ist tenant-gescoped
+  (`ListDatevUploadLogs` filtert auf `tenant_id`). Gleiche Guenstigere-Risikoklasse wie die
+  "historischen Sync-Log-Meldungen" bei `fix-gateway-lexware-error-message-leakage` (naechste
+  Unit im Backlog) — dort ausdruecklich als kleineres, separates Risiko benannt statt zwingend zu
+  maskieren. Entscheidung: unveraendert lassen, admin-eigene operative Diagnosedaten sind hier
+  nuetzlicher als ein Masking-Verlust.
+  Kein `.proto`-Change: `Success`/`ErrorMessage` bleiben als Felder bestehen (ungenutzt bei
+  Erfolg), keine Regenerierung noetig.
+- gate: build ok (`./internal/gateway/... ./internal/server/... ./cmd/gateway/...`) | vet ok
+  (dieselben Pakete) | lint ok (0 issues, `./internal/gateway/... ./internal/server/...`) | test ok
+  (`./internal/gateway/` inkl. `TestOpenAPIRouteDrift` — keine Route geaendert, gruen;
+  `./internal/server/...` und `./internal/biz/datev/...` gruen, DATABASE_URL gegen kmuhub_app
+  gesetzt, 0 SKIP) | migration: n.a. (keine Tabellen-/Policy-Aenderung) | rls-smoke: n.a.
+- coverage: `internal/gateway` 54,0 % -> 54,1 % (vor/nach per `git stash` der vier geaenderten
+  Dateien selbst gemessen) | `internal/server` 70,2 % -> 70,3 % (gleiches Verfahren). Fix-Unit,
+  keine Coverage-Unit — die Zahl ist Nebenprodukt der zwei neuen Testfaelle plus toter-Code-
+  Entfernung, nicht Ziel.
+- mutations-probe: zwei getrennte Proben, beide zurueckgedreht.
+  (1) `redirectDatevError`s `url.QueryEscape(code)` durch `url.QueryEscape("")+code` ersetzt (leere
+  Escape-Nutzung, echter Wert unescaped) -> `TestDatevHandleOAuthCallback_ExternalErrorParamIsEscaped`
+  bricht mit sichtbarem rohen CRLF in der Location ab. Zurueckgedreht, `git diff --stat` zeigt
+  wieder exakt den Ausgangsdiff (29 Einfuegungen/24 Loeschungen wie vor der Probe), volle Testdatei
+  erneut gruen.
+  (2) `HandleDatevOAuthCallback`s maskierten `status.Error(codes.Internal, "DATEV OAuth callback
+  failed")` durch `status.Error(codes.Internal, err.Error())` ersetzt (Rohtext durchgereicht) ->
+  `TestHandleDatevOAuthCallback_MasksInternalError` bricht ab und zeigt den vollen Vault-Fehlertext
+  inkl. CRLF und `&` im Fehler-Message-Feld. Zurueckgedreht, Diff wieder exakt 4 Einfuegungen/4
+  Loeschungen wie vor der Probe, Testdatei erneut gruen.
+- verify vorgaenger: sauber. `161d94a5` (Iteration 78, fix-gateway-bexio-error-message-leakage)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextlesung von `route_bexio.go`
+  und `bexio_grpc.go`) — kein Gateway-Handler ruft eine Service-Instanz direkt (weiterhin ueber
+  `bizv1.BexioServiceClient`), kein Stub, kein `.proto`-Change (Success/ErrorMessage-Felder bleiben
+  bestehen, ungenutzt), kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine
+  neue Route (`redirectBexioError` ist ein interner Helper, keine HTTP-Route), keine
+  Wire-Shape-Aenderung. `mapBexioError` ist ein bereits bestehender, seit laengerem genutzter
+  Mechanismus — kein neu erfundener zweiter Maskierungspfad.
+- neue-units: keine. Der beim Bauen gefundene tote Code
+  (`route_datev_upload.go:278-279`/`315-316`) war bereits durch eine fruehere Iteration
+  serverseitig entschaerft (kein Leck mehr moeglich) und wurde direkt in dieser Unit als
+  Lean-Cleanup mitentfernt statt als eigene Unit angelegt — kein Verhalten geaendert, nur toter
+  Code weg.
+- offen: keine

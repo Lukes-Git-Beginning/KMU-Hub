@@ -64,10 +64,10 @@ func (s *DatevUploadGRPCServer) HandleDatevOAuthCallback(ctx context.Context, re
 
 	if err := s.uploadService.HandleOAuthCallback(ctx, tenantID, req.GetCode(), req.GetRedirectUrl()); err != nil {
 		slog.Error("datev oauth callback failed", "tenant_id", tenantID, "error", err)
-		return &bizv1.HandleDatevOAuthCallbackResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		// ExchangeCode wraps Vault/HTTP internals (e.g. "failed to store refresh
+		// token: %w"); a masked status keeps that text out of the redirect the
+		// gateway builds from this error.
+		return nil, status.Error(codes.Internal, "DATEV OAuth callback failed")
 	}
 
 	return &bizv1.HandleDatevOAuthCallbackResponse{Success: true}, nil

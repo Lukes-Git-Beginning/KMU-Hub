@@ -3,6 +3,7 @@ package gateway
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 
@@ -10,6 +11,16 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
+
+// redirectDatevError sends the browser back to the integrations settings page
+// with a datev_error query param. code is always escaped: besides the fixed
+// strings this file passes in, it can also be the "error" query param DATEV's
+// own redirect carries — external, attacker-controllable on this public
+// endpoint — and neither is safe to splice into a URL unescaped (query/header
+// injection).
+func redirectDatevError(w http.ResponseWriter, r *http.Request, code string) {
+	http.Redirect(w, r, "/settings/integrations?datev_error="+url.QueryEscape(code), http.StatusFound)
+}
 
 // DatevUploadRoutes handles HTTP routes for the DATEV upload integration.
 type DatevUploadRoutes struct {
@@ -126,7 +137,7 @@ func (dr *DatevUploadRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.
 	// unverifiable state must be rejected without touching the biz service.
 	if dr.stateSecret == "" {
 		slog.Error("datev: state secret not configured, rejecting OAuth callback")
-		http.Redirect(w, r, "/settings/integrations?datev_error=state_not_configured", http.StatusFound)
+		redirectDatevError(w, r, "state_not_configured")
 		return
 	}
 
@@ -137,7 +148,7 @@ func (dr *DatevUploadRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.
 		if errorMsg == "" {
 			errorMsg = "missing authorization code"
 		}
-		http.Redirect(w, r, "/settings/integrations?datev_error="+errorMsg, http.StatusFound)
+		redirectDatevError(w, r, errorMsg)
 		return
 	}
 
@@ -148,7 +159,7 @@ func (dr *DatevUploadRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.
 			"error", stateErr,
 			"remote_addr", r.RemoteAddr,
 		)
-		http.Redirect(w, r, "/settings/integrations?datev_error=invalid_state", http.StatusFound)
+		redirectDatevError(w, r, "invalid_state")
 		return
 	}
 
@@ -163,13 +174,13 @@ func (dr *DatevUploadRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.
 		Code:        code,
 		RedirectUrl: r.URL.Query().Get("redirect_url"),
 	})
-	if err != nil {
-		http.Redirect(w, r, "/settings/integrations?datev_error=connection_failed", http.StatusFound)
-		return
-	}
-
-	if !resp.GetSuccess() {
-		http.Redirect(w, r, "/settings/integrations?datev_error="+resp.GetErrorMessage(), http.StatusFound)
+	// The server now reports failure as a gRPC error (mapped to a masked
+	// status), never as Success:false with a raw error string —
+	// !resp.GetSuccess() is checked alongside err != nil purely as a
+	// defensive backstop so a future regression there still can't reflect an
+	// unmasked message back out.
+	if err != nil || !resp.GetSuccess() {
+		redirectDatevError(w, r, "connection_failed")
 		return
 	}
 
@@ -270,16 +281,14 @@ func (dr *DatevUploadRoutes) HandleUploadBuchungsstapel(w http.ResponseWriter, r
 		return
 	}
 
-	result := map[string]interface{}{
+	// ErrorMessage is never populated: the server returns a masked gRPC error
+	// on failure (mapDatevUploadError) instead of Success:false+ErrorMessage,
+	// so a non-error response here is always a full success.
+	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"success":        resp.GetSuccess(),
 		"document_count": resp.GetDocumentCount(),
 		"file_size":      resp.GetFileSize(),
-	}
-	if resp.GetErrorMessage() != "" {
-		result["error_message"] = resp.GetErrorMessage()
-	}
-
-	response.JSON(w, http.StatusOK, result)
+	})
 }
 
 // HandleUploadBeleg uploads a single invoice PDF as a DATEV Belegbild.
@@ -309,14 +318,10 @@ func (dr *DatevUploadRoutes) HandleUploadBeleg(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	result := map[string]interface{}{
+	// ErrorMessage is never populated, see HandleUploadBuchungsstapel above.
+	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"success": resp.GetSuccess(),
-	}
-	if resp.GetErrorMessage() != "" {
-		result["error_message"] = resp.GetErrorMessage()
-	}
-
-	response.JSON(w, http.StatusOK, result)
+	})
 }
 
 // ============================================================================

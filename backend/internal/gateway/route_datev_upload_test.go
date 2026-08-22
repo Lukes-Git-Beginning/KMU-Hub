@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -114,5 +115,57 @@ func TestDatevUploadRoutes_ForgedStateRejected(t *testing.T) {
 	}
 	if loc := rec.Header().Get("Location"); !strings.Contains(loc, "datev_error=invalid_state") {
 		t.Errorf("Location = %q, want an invalid_state error redirect", loc)
+	}
+}
+
+// TestDatevHandleOAuthCallback_ExternalErrorParamIsEscaped is the
+// mutations-probe target for fix-gateway-datev-upload-error-message-leakage:
+// the "error" query param is attacker/DATEV-controlled (this is the public,
+// unauthenticated callback route) and reached the redirect Location unescaped
+// before the fix. A raw "&" would let the value inject an extra query param,
+// and a raw newline would be header/response splitting in front of some
+// proxies. Both must come out percent-encoded, and the Location header itself
+// must be a single line.
+func TestDatevHandleOAuthCallback_ExternalErrorParamIsEscaped(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+	rec := httptest.NewRecorder()
+	malicious := "evil&injected=1\r\nSet-Cookie: pwned=1"
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/finance/datev/oauth/callback?error="+url.QueryEscape(malicious), nil)
+	routes.HandleOAuthCallback(rec, req)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusFound)
+	}
+	loc := rec.Header().Get("Location")
+	if strings.Contains(loc, "\r") || strings.Contains(loc, "\n") {
+		t.Fatalf("Location contains a raw CR/LF: %q", loc)
+	}
+	if strings.Contains(loc, "injected=1") || strings.Contains(loc, "Set-Cookie:") {
+		t.Errorf("Location = %q, the malicious param leaked unescaped into the redirect", loc)
+	}
+	if !strings.Contains(loc, "datev_error=evil%26injected") {
+		t.Errorf("Location = %q, want the value percent-encoded (e.g. %%26 for '&')", loc)
+	}
+}
+
+// TestDatevHandleOAuthCallback_ValidState_RPCFailsRedirectsGenerically pins the
+// actual leak fix: whatever the biz service returns (a masked gRPC error, per
+// fix-gateway-datev-upload-error-message-leakage), the redirect the browser
+// sees carries only the fixed "connection_failed" code, never the RPC error's
+// text.
+func TestDatevHandleOAuthCallback_ValidState_RPCFailsRedirectsGenerically(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+	state, err := encodeBexioState("test-state-secret", "550e8400-e29b-41d4-a716-446655440000")
+	if err != nil {
+		t.Fatalf("encodeBexioState: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/finance/datev/oauth/callback?code=abc&state="+state, nil)
+	routes.HandleOAuthCallback(rec, req)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusFound)
+	}
+	loc := rec.Header().Get("Location")
+	if !strings.Contains(loc, "datev_error=connection_failed") {
+		t.Errorf("Location = %q, want to contain %q", loc, "datev_error=connection_failed")
 	}
 }
