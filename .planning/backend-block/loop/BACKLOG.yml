@@ -1127,7 +1127,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-invoice-repository-list-filter-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice 34,8 % (CI-Stand 32570176303)"
     scope: >
       `ListForDATEVExport` (624-689) blättert per Keyset über `(date, id)` durch die

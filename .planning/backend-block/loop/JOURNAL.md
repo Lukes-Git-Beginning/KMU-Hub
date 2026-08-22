@@ -1309,3 +1309,43 @@ Frühere Läufe liegen vollständig im Archiv:
   (deps: [cov-invoice-repository-list-filter-real-sql], jetzt ziehbar). Luke pruefen: die
   Datumsgrenzen-Entscheidung (beide inklusiv) ist reines Bestandsverhalten, keine Aenderung — nur
   jetzt erstmals per Test belegt und im Code kommentiert.
+
+## Iteration 24 — cov-invoice-repository-datev-export-keyset-real-sql — done — 2026-08-23 01:45
+- commit: <wird nach Commit ergaenzt>
+- gebaut: neue ungetaggte Testdatei `postgres_repository_datev_export_db_test.go` fuer
+  `PostgresRepository.ListForDATEVExport` (postgres_repository.go:626-682), gegen echtes Postgres:
+  Paging-Vollstaendigkeit (Baseline-Call mit grossem Limit vs. Seiten-fuer-Seite-Traversal mit
+  Limit 2, identische ID-Menge, keine Dubletten, ueber Mix aus passenden/nicht-passenden Zeilen
+  — falscher Status im Zeitraum, richtiger Status ausserhalb), Gleichdatum-Tiebreak (drei Rechnungen
+  mit identischem invoice_date ueber eine Seitengrenze hinweg, Reihenfolge nach id ASC bewiesen ueber
+  sortierte UUID-Strings — Postgres vergleicht uuid byteweise, was der lexikographischen Ordnung der
+  kanonischen Hex-Form entspricht), Datumsgrenzen inklusive (genau auf fromDate/toDate rein, einen Tag
+  davor/danach raus), Statusfilter (draft im Zeitraum nie im Export, sent schon), Fremdtenant-Isolation.
+  Erste Seite (afterDate/afterID nil) und Folgeseite sind in der Tiebreak- und der Paging-Vollstaendigkeit-
+  Probe beide abgedeckt.
+- gate: build ok (`./internal/biz/invoice/... ./internal/gateway/... ./cmd/biz/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v ./internal/biz/invoice/`, alle gruen,
+  0 SKIP, DATABASE_URL gegen kmuhub_app) | restliche Unterpakete ok (keine Unterpakete unter
+  internal/biz/invoice) | migration n.a. (keine Schema-Aenderung) | rls-smoke erbracht durch
+  `TestPostgresRepository_ListForDATEVExport_CrossTenantIsolation` (Tenant A sieht nur eigene
+  Rechnung trotz gleichem Zeitraum/Status bei Tenant B) | gateway-Gate n.a. formal (keine Route
+  beruehrt, deshalb nicht pflichtgemaess gelaufen)
+- coverage: internal/biz/invoice 34,8 % (CI-Stand, coverage_start) -> 49,1 % (eigens gemessen,
+  `go tool cover -func`, lokaler Lauf nach der Aenderung; Vorher-Wert 46,0 % aus Iteration 23 ist der
+  naehere Vergleichspunkt, da diese Unit direkt auf der vorigen aufsetzt — Beitrag dieser Iteration
+  46,0 % -> 49,1 %)
+- mutations-probe: Cursor-Vergleich `(invoice_date, id) > (...)` auf `>=` verstuemmelt (Zeile 630) ->
+  zwei Tests rot: `TestPostgresRepository_ListForDATEVExport_PagingCoversFullSet` ("duplicate invoice
+  ... returned across pages") und `TestPostgresRepository_ListForDATEVExport_SameDateCursorTiebreak`
+  (Folgeseite hatte 2 statt 1 Eintrag — die Grenzzeile der Vorseite kam ein zweites Mal). Zurueckgedreht,
+  `git diff --stat` auf postgres_repository.go danach leer.
+- verify vorgaenger: sauber — `c4564870` (Iteration 23) aendert laut `git show --stat` und Diff nur
+  einen Kommentar in `postgres_repository.go:211-212` (keine Logikaenderung) sowie eine neue
+  Testdatei (`postgres_repository_list_db_test.go`, 363 Zeilen) und BACKLOG.yml/JOURNAL.md. Keine der
+  acht Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt, kein Stub/TODO, kein `.proto`, keine
+  Migration, kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein
+  ersetzter Guard-Key.
+- neue-units: keine
+- offen: naechste Unit laut Backlog-Reihenfolge ist `cov-invoice-repository-gobd-export-real-sql`
+  (deps: [cov-invoice-repository-datev-export-keyset-real-sql], jetzt ziehbar). Luke pruefen: keine
+  besonderen Punkte — reine Coverage-Unit ohne Verhaltensaenderung.
