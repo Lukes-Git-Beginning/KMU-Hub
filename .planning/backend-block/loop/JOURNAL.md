@@ -2016,7 +2016,7 @@ Frühere Läufe liegen vollständig im Archiv:
     keine neue Tabelle/Policy in dieser Iteration).
 
 ## Iteration 33 — cov-gateway-booking-admin — done — 2026-08-22 05:19
-- commit: (wird nach dem Commit in einem docs-Folgeeintrag nachgetragen)
+- commit: c88eeb09
 - gebaut: `route_booking_admin_test.go` (Admin-CRUD-Teil von `route_booking.go`:
   HandleListBookingPages, HandleCreateBookingPage, HandleGetBookingPage,
   HandleUpdateBookingPage, HandleDeleteBookingPage — 5 Handler + ServiceName,
