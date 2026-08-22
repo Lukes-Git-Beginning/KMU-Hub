@@ -3789,7 +3789,7 @@ Frühere Läufe liegen vollständig im Archiv:
     neu geprüft werden — aktuell zeigt `auth/postgres_repository.go` klar `ON DELETE SET NULL`.
 
 ## Iteration 61 — feat-dsar-search-user-fuhrpark-driver-module — done — 2026-08-22 08:35
-- commit: (folgt)
+- commit: 940a28c6
 - gebaut: zwei neue DSAR-Module in `dsar_search.go`/`matchUsers` — `driverLicensesModule`
   ("Führerscheinkontrolle": Klassen, Ablaufdatum, geprüft am, nächste Prüfung fällig, Notizen aus
   `driver_licenses`, gefiltert auf `driver_id = subject`) und `vehicleBookingsModule`
