@@ -2387,6 +2387,88 @@ func TestSearchByQuery_UserVehicleBookings_Integration(t *testing.T) {
 	assert.Empty(t, foreign, "another tenant must not see this user, let alone their vehicle bookings")
 }
 
+func TestSearchByQuery_UserInvitationHistory_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Invitation Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Invitation Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	inviterID := seedDSARUser(t, pool, tenantOwn, "Petra", "Leitwolf", true)
+	defer testutil.CleanupRow(t, pool, "users", inviterID)
+
+	subjectEmail := fmt.Sprintf("dsar-invite-%s@search.invalid", uuid.New())
+	subjectID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         subjectEmail,
+		"password_hash": "$argon2id$v=19$test",
+		"first_name":    "Timo",
+		"last_name":     "Wachtberg",
+		"is_active":     true,
+	})
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	// A second, still-pending invitation to the SAME address (e.g. a stray
+	// re-invite of an already-onboarded person) must not surface -- it has
+	// no accepted_at, so it never became this account.
+	pendingID := testutil.SeedRow(t, pool, "invitations", map[string]any{
+		"tenant_id":  tenantOwn,
+		"email":      subjectEmail,
+		"first_name": "Nie",
+		"last_name":  "Angenommen",
+		"role":       "member",
+		"token_hash": fmt.Sprintf("pending-%s", uuid.New()),
+		"created_by": inviterID,
+		"expires_at": time.Now().Add(72 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "invitations", pendingID)
+
+	acceptedAt := time.Now().UTC().Add(-48 * time.Hour).Truncate(time.Second)
+	invitationID := testutil.SeedRow(t, pool, "invitations", map[string]any{
+		"tenant_id":   tenantOwn,
+		"email":       subjectEmail,
+		"first_name":  "Timo",
+		"last_name":   "Wachtberg",
+		"role":        "admin",
+		"token_hash":  fmt.Sprintf("accepted-%s", uuid.New()),
+		"created_by":  inviterID,
+		"expires_at":  time.Now().Add(72 * time.Hour),
+		"accepted_at": acceptedAt,
+	})
+	defer testutil.CleanupRow(t, pool, "invitations", invitationID)
+
+	invCreatedAt, invAcceptedAt := queryInvitationTimestamps(t, pool, invitationID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Timo")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	history := dsarModule(t, persons[0], "Einladungshistorie")
+	assert.Equal(t, []string{"Name bei Einladung", "Rolle", "Eingeladen von", "Eingeladen am", "Angenommen am"}, history.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Name bei Einladung": "Timo Wachtberg", "Rolle": "admin",
+			"Eingeladen von": "Petra Leitwolf",
+			"Eingeladen am":  invCreatedAt.Format(dsarTimeLayout),
+			"Angenommen am":  invAcceptedAt.Format(dsarTimeLayout),
+		},
+	}, recordMaps(history), "only the accepted invitation must appear, the pending one to another address must not")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Timo")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their invitation history")
+}
+
 // TestSearchByQuery_NoMinimumLengthGuard_Integration pins where the guard for
 // short queries lives. SearchByQuery itself has none: the pattern is built as
 // "%" + query + "%", so an empty query lists every subject of the tenant up to
@@ -2452,6 +2534,13 @@ func queryVehicleBookingWindow(t *testing.T, pool *pgxpool.Pool, bookingID uuid.
 	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
 		`SELECT starts_at, ends_at FROM vehicle_bookings WHERE id = $1`, bookingID).Scan(&starts, &ends))
 	return starts, ends
+}
+
+func queryInvitationTimestamps(t *testing.T, pool *pgxpool.Pool, invitationID uuid.UUID) (createdAt, acceptedAt time.Time) {
+	t.Helper()
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at, accepted_at FROM invitations WHERE id = $1`, invitationID).Scan(&createdAt, &acceptedAt))
+	return createdAt, acceptedAt
 }
 
 func seedDSARUser(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, first, last string, active bool) uuid.UUID {

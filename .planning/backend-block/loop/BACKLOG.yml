@@ -2354,7 +2354,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
     scope: >
       `invitations` traegt `first_name`/`last_name`/`email` der eingeladenen Person direkt als

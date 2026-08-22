@@ -466,6 +466,14 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *vehicleBookings)
 		}
 
+		invitationHistory, ihErr := invitationHistoryModule(ctx, pool, tenantID, u.email)
+		if ihErr != nil {
+			return nil, ihErr
+		}
+		if invitationHistory != nil {
+			person.Modules = append(person.Modules, *invitationHistory)
+		}
+
 		out = append(out, person)
 	}
 	return out, nil
@@ -1401,6 +1409,60 @@ func vehicleBookingRoleLabel(reservedForSubject, bookedBySubject bool) string {
 	default:
 		return ""
 	}
+}
+
+// invitationHistoryModule discloses how a matched user came to have an
+// account: who invited them, with which legacy role preset, and when the
+// invitation was accepted. invitations rows carry email/first_name/last_name
+// directly (not a users FK) and survive acceptance untouched -- matchUsers
+// never read them before this module.
+//
+// Only accepted invitations are matched. An invitation that was never
+// accepted has no corresponding users row for SearchByQuery to attach it to
+// -- that gap is a separate, larger change than this unit (see JOURNAL.md).
+func invitationHistoryModule(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, userEmail string) (*DSARModule, error) {
+	if userEmail == "" {
+		return nil, nil
+	}
+	rows, err := pool.Query(ctx,
+		`SELECT i.first_name, i.last_name, i.role, i.created_at, i.accepted_at,
+		        inviter.first_name, inviter.last_name
+		 FROM invitations i
+		 JOIN users inviter ON inviter.id = i.created_by
+		 WHERE i.tenant_id = $1 AND i.email = $2 AND i.accepted_at IS NOT NULL
+		 ORDER BY i.created_at DESC
+		 LIMIT $3`, tenantID, userEmail, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query invitation history: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Einladungshistorie",
+		Columns: []string{"Name bei Einladung", "Rolle", "Eingeladen von", "Eingeladen am", "Angenommen am"},
+	}
+	for rows.Next() {
+		var invFirst, invLast, role string
+		var createdAt, acceptedAt time.Time
+		var inviterFirst, inviterLast string
+		if scanErr := rows.Scan(&invFirst, &invLast, &role, &createdAt, &acceptedAt, &inviterFirst, &inviterLast); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan invitation history: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Name bei Einladung", Value: joinName(invFirst, invLast)},
+			{Key: "Rolle", Value: role},
+			{Key: "Eingeladen von", Value: joinName(inviterFirst, inviterLast)},
+			{Key: "Eingeladen am", Value: createdAt.Format(dsarTimeLayout)},
+			{Key: "Angenommen am", Value: acceptedAt.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: invitation history rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
 }
 
 func derefDateTimeOrEmpty(t *time.Time) string {

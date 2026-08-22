@@ -3828,3 +3828,49 @@ Frühere Läufe liegen vollständig im Archiv:
 - neue-units: keine
 - offen:
   - keine
+
+## Iteration 62 — feat-dsar-search-invitation-history-module — done — 2026-08-22 08:41
+- commit: (siehe naechster docs-Commit)
+- gebaut: neues Modul `invitationHistoryModule` in `dsar_search.go`/`matchUsers` —
+  "Einladungshistorie" (Name bei Einladung, Rolle, Eingeladen von, Eingeladen am, Angenommen am),
+  gematcht ueber `invitations.email = users.email` (beide Spalten seit Migration 000148 auf
+  lowercase normiert, exakter Vergleich reicht). Query filtert zusaetzlich
+  `accepted_at IS NOT NULL` — nur Einladungen, die tatsaechlich zu diesem Konto gefuehrt haben,
+  landen im Export. `role` ist die Legacy-Preset-Spalte (Display-only seit Migration 000280,
+  Kommentar in `models/invitation.go:15`); `token_hash` wird bewusst nicht selektiert.
+  Inviter-Name kommt aus einem JOIN auf `users.created_by` (FK ist `NOT NULL ... ON DELETE
+  CASCADE`, die Zeile existiert also immer, wenn die Einladung noch existiert).
+- gebaut (Test): `TestSearchByQuery_UserInvitationHistory_Integration` — ein Benutzer mit einer
+  angenommenen Einladung (Rolle "admin", Inviter "Petra Leitwolf") plus einer zweiten, weiterhin
+  offenen Einladung an dieselbe Adresse (simuliert eine versehentliche Zweit-Einladung eines
+  bereits onboardeten Kontos); der Test belegt, dass nur die angenommene Zeile im Modul landet
+  und die offene fehlt. Inklusive Tenant-Isolation.
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/...`) | lint ok (0 issues, `./internal/security/...`) | test ok
+  (`./internal/security/gdpr/` 124 PASS / 0 SKIP / 0 FAIL gegen `kmuhub_app`) | migration n.a.
+  (keine neue Tabelle/Spalte, reine Lesequery auf bestehende `invitations`/`users`) | rls-smoke
+  n.a. (kein Schema/Policy-Wechsel) | TestOpenAPIRouteDrift nicht gelaufen — keine Route in
+  dieser Unit angefasst, daher nicht Pflicht.
+- coverage: `internal/security/gdpr` 70,6 % -> 70,7 % (selbst gemessen: `git stash push` auf
+  genau die zwei geaenderten Dateien, `go test -coverprofile` davor/danach, `stash pop`).
+- mutations-probe: `AND i.accepted_at IS NOT NULL` aus dem WHERE entfernt → die zweite, offene
+  Einladung derselben Adresse wird mitgelesen, `accepted_at` ist dort NULL und der Scan bricht
+  hart ("cannot scan NULL into *time.Time") → Test wird rot. Zurueckgedreht, `git diff --stat
+  dsar_search.go` zeigt wieder ausschliesslich die urspruenglichen 62 Insertions, Paket erneut
+  vollstaendig gruen (124 PASS).
+- verify vorgaenger: sauber. `940a28c6` (Iteration 61, feat-dsar-search-user-fuhrpark-driver-module)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `dsar_search.go`) —
+  reine interne DSAR-Suchpfad-Erweiterung, kein Gateway-Handler (keine gRPC-Umgehung moeglich),
+  kein Stub, kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle,
+  keine Route, keine Wire-Shape-Aenderung. Tenant-Filter und die Rollenlabel-Logik
+  (`vehicleBookingRoleLabel`) durch die eigenen Tests der Vorgaenger-Iteration belegt, inklusive
+  der dort dokumentierten Mutations-Probe.
+- neue-units: keine
+- offen:
+  - Der im Scope explizit benannte Nebenbefund bleibt ungeloest: eine NIE angenommene Einladung
+    (`accepted_at IS NULL`) hat keinen `users`- oder `contacts`-Eintrag, an den `SearchByQuery`
+    sie haengen koennte — die eingeladene Person ist fuer eine Auskunftsanfrage aktuell nicht
+    auffindbar, obwohl ihre E-Mail/Name/Rolle in `invitations` steht. Das waere eine dritte
+    Subjekt-Matching-Quelle neben Kontakten und Benutzern und damit ein groesserer Eingriff als
+    diese Unit — Architekturfrage fuer Luke, keine neue Unit angelegt (Vorgabe in den notes/
+    done_when dieser Unit).
