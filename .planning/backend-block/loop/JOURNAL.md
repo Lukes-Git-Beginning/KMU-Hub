@@ -4490,7 +4490,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 75 — feat-retention-worker-handler-work-tasks — done — 2026-08-22 10:16
-- commit: (siehe naechster Eintrag)
+- commit: 33bea578926398c582461b3d1a3fd0284524e3c1
 - gebaut: `TaskRetentionHandler` (`backend/internal/security/gdpr/retention_work_tasks.go`) als
   sechster Handler auf der Retention-Registry aus A10, `resource_type` "tasks", verdrahtet in
   `cmd/auth/main.go` neben den fuenf bestehenden Handlern. Scope sind abgeschlossene Aufgaben:
