@@ -1662,7 +1662,7 @@ Frühere Läufe liegen vollständig im Archiv:
     dokumentiert, kein Fund, der eine eigene Unit braucht.
 
 ## Iteration 28 — cov-gateway-crm-advisory-protocols — done — 2026-08-22 04:46
-- commit: (siehe naechster docs-Commit)
+- commit: 2ac82165
 - gebaut: Neue Testdatei `route_crm_advisory_test.go` fuer `route_crm_advisory.go` (362 Zeilen,
   9 Funktionen, bisher ohne Testdatei): ServiceUnavailable fuer alle 8 client-aufrufenden Handler
   (RegisterAdvisoryRoutes ist keine eigene HTTP-Funktion, wird bereits von
