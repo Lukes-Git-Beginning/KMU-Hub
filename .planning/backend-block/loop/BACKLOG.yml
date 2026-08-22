@@ -1672,7 +1672,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/contact 80,4 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Wird ein Kontakt geloescht, setzen acht Tabellen ihre Referenz auf NULL: activities,
@@ -3268,3 +3268,73 @@ units:
         aktualisiert, falls sich die Reporting-Korrektur auf sie auswirkt
       - Bestehende Einzellauf-Tests (Preview/Execute-Happy-Path je Handler) bleiben gruen
       - go test -count=1 ./internal/security/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-contact-erasure-incomplete-set-null-table-scrub
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/crm/contact 80,4 % · internal/crm/consent n/a (Run 32508843776, aus scan-contact-set-null-residual-personal-data, Iteration 48)"
+    scope: >
+      Fund aus scan-contact-set-null-residual-personal-data (Iteration 48). Wird ein Kontakt
+      geloescht (contact.Service.Delete, Regelfall ohne RESTRICT-Blockade), setzen acht Tabellen
+      ihren contact_id auf NULL — die Zeilen selbst bleiben. `AnonymizeContact`
+      (internal/crm/consent/postgres_repository.go:152, der einzige bestehende Scrub-Pfad, laeuft
+      aber NUR wenn IsInUse den harten Delete blockiert) raeumt bereits `activities.description`
+      und `consent_records.ip_address`/`notes` auf — beide Luecken bestehen trotzdem doppelt:
+      (a) beim REGULAEREN Hard-Delete (kein RESTRICT-Treffer, der haeufigste Fall) laeuft
+      AnonymizeContact ueberhaupt nicht, also bleiben `activities.description` und
+      `consent_records.ip_address`/`notes` unveraendert stehen, nur der contact_id-Verweis
+      verschwindet;
+      (b) `tickets.requester_name`/`requester_email` werden von KEINEM der beiden Pfade
+      angefasst — AnonymizeContact kennt die Tabelle gar nicht. Diese beiden Spalten tragen den
+      Namen/die E-Mail der geloeschten Person unabhaengig vom contact_id-Verweis (sie werden bei
+      Ticket-Erstellung selbst eingetragen, nicht aus contacts gejoint) und bleiben nach einer
+      Loeschung vollstaendig lesbar.
+    sources:
+      - backend/internal/crm/contact/service.go
+      - backend/internal/crm/contact/postgres_repository.go
+      - backend/internal/crm/consent/postgres_repository.go
+      - backend/internal/helpdesk/models.go
+      - backend/internal/helpdesk/postgres_repository.go
+    notes: >
+      ACHTUNG CHECK-CONSTRAINT: `chk_tickets_requester_identity` verlangt
+      `requester_id IS NOT NULL OR (requester_is_external AND requester_email IS NOT NULL AND
+      requester_email <> '')`. Bei externen Requestern (requester_is_external = true) darf
+      requester_email NICHT auf NULL gesetzt werden, sonst schlaegt der INSERT/UPDATE fehl —
+      hier ist ein Anonymisierungs-Platzhalter noetig (Vorlage: contacts.AnonymizedFirstName/
+      AnonymizedLastName + GetNextAnonymizedLabel, postgres_repository.go:197), keine simple
+      Null-Zuweisung. Bei requester_is_external = false ist requester_id gesetzt und
+      requester_email/-name sind ohnehin nur Fallback-Anzeige (siehe Kommentar an
+      helpdesk/models.go:143 "RequesterName is asymmetric") — dort reicht Null.
+      finance_invoices (customer_name/-address/-email/-ust_id_nr) ist ABSICHTLICH NICHT Teil
+      dieser Unit: §147 Abs. 3 AO verlangt 10 Jahre Aufbewahrung fuer Rechnungen
+      (gobdarchive/service.go:270), gesendete Rechnungen sind zusaetzlich GoBD-immutable
+      (locked_at). Ein Scrub dort waere ein Compliance-Verstoss, kein Fix.
+      deals.notes/name und meetings.title/description/agenda sind ABSICHTLICH NICHT Teil dieser
+      Unit: Freitext, der den Namen der Person nennen KANN, aber nicht muss — automatisches
+      Bereinigen (Suchen/Ersetzen) ist laut den Notes der Scan-Unit selbst gefaehrlicher als das
+      Risiko und bleibt Restrisiko, keine Code-Aenderung.
+      contract_parties.external_name ist bereits geprueft und sauber: fuer party_type=contact
+      bleibt das Feld leer (pdf.go:133-147 faellt bei fehlendem ExternalName auf eine
+      UUID-Kurzform zurueck, keine Kopie der Kontaktdaten) — hier ist nichts zu tun.
+      contacts.referred_by_contact_id ist ein reiner FK-Zeiger ohne Datenkopie — ebenfalls nichts
+      zu tun.
+      AnonymizeContact und der neue Hard-Delete-Scrub sollten dieselbe SQL-Logik teilen (Funktion
+      oder gemeinsame Query-Bausteine), nicht zweimal geschrieben werden — beide raeumen
+      inhaltlich dieselben Tabellen auf.
+    done_when:
+      - Hard-Delete (Service.Delete, kein RESTRICT-Treffer) scrubbt activities.description und
+        consent_records.ip_address/notes fuer den Kontakt, BEVOR/WAEHREND die Loeschung passiert
+      - Sowohl Hard-Delete- als auch Anonymize-Pfad scrubben tickets.requester_name/
+        requester_email fuer Tickets des Kontakts; externe Requester bekommen einen
+        Anonymisierungs-Platzhalter (CHECK-Constraint bleibt erfuellt), interne NULL
+      - finance_invoices, deals, meetings bleiben unveraendert, mit Begruendung im Code-Kommentar
+      - DB-Test: Kontakt mit verknuepftem Ticket (requester_is_external=true) wird hart geloescht,
+        requester_email ist danach ein Platzhalter, kein CHECK-Constraint-Fehler
+      - DB-Test: Kontakt mit activities.description und consent_records.ip_address/notes wird
+        hart geloescht (kein RESTRICT), beide Felder sind danach leer
+      - Bestehender Anonymize-Pfad (RESTRICT-Fall) bleibt gruen und deckt jetzt zusaetzlich Tickets ab
+      - go test -count=1 ./internal/crm/... ./internal/helpdesk/... ./internal/security/... gruen,
+        DATABASE_URL gesetzt

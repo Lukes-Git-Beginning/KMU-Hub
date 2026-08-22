@@ -3010,3 +3010,62 @@ Frühere Läufe liegen vollständig im Archiv:
     preferences` PK ist user_id) — `testutil.SeedRow` (verlangt `RETURNING id`) schlaegt dort
     fehl, direkter INSERT unter `testutil.WithSystemCtx` ist der richtige Weg (Vorbild:
     `seedChannelMembership` in export_crm_chat_test.go).
+
+## Iteration 48 — scan-contact-set-null-residual-personal-data — done — 2026-08-22 07:08
+- commit: (folgt, siehe naechster SHA-Nachtrag)
+- gebaut: keine Code-Aenderung (reine Scan-Unit). Alle acht SET-NULL-Tabellen aus Befund 2 des
+  Lauf-Kopfes (activities, consent_records, contacts/Selbstbezug, contract_parties, deals,
+  finance_invoices, meetings, tickets) einzeln gegen die lokale DB (`\d <table>`) und den Code
+  geprueft, wer ihre contact_id-Spalte auf NULL setzt und was danach an Personendaten
+  stehenbleibt:
+    - **activities**: `description` (Freitext) wird NUR vom Anonymize-Pfad geleert
+      (`consent/postgres_repository.go:192`), NICHT vom Hard-Delete. `subject` (Freitext) bleibt
+      in beiden Faellen stehen — Restrisiko, keine automatische Bereinigung (siehe unten).
+    - **consent_records**: `ip_address`/`notes` ebenfalls nur vom Anonymize-Pfad geleert
+      (Zeile 219-227 derselben Datei), nicht vom Hard-Delete.
+    - **contacts (Selbstbezug, `referred_by_contact_id`)**: geprueft via pg_constraint
+      (`contacts_referred_by_contact_id_fkey`, ON DELETE SET NULL) — reiner FK-Zeiger ohne
+      Datenkopie, kein Fund.
+    - **contract_parties**: `external_name` wird fuer `party_type=contact` NIE befuellt (nur bei
+      `party_type=external` Pflichtfeld, service.go:396); `pdf.go:133-147` faellt beim Rendern
+      ohne ExternalName auf eine UUID-Kurzform zurueck. Kein Fund.
+    - **deals**: `name`/`notes` sind Freitext ohne strukturierte Personendaten-Kopie —
+      Restrisiko, keine automatische Bereinigung.
+    - **finance_invoices**: `customer_name`/`customer_address`/`customer_email`/
+      `customer_ust_id_nr` sind eine VOLLSTAENDIGE Kopie der Kontaktdaten und bleiben nach
+      Loeschung fuer immer lesbar — ABER `§147 Abs. 3 AO` verlangt 10 Jahre Aufbewahrung
+      (`gobdarchive/service.go:270`), gesendete Rechnungen sind zusaetzlich GoBD-immutable
+      (`locked_at`, `invoice/service.go:411`). Gegenlaeufige Aufbewahrungspflicht, kein Fix
+      moeglich — dokumentierte Ausnahme, keine Unit.
+    - **meetings**: `title`/`description`/`agenda` Freitext ohne strukturierte Kopie —
+      Restrisiko, keine automatische Bereinigung.
+    - **tickets**: `requester_name`/`requester_email` sind eine strukturierte Kopie (bei
+      externen, unauthentifizierten Anfragen selbst eingetragen, nicht aus `contacts` gejoint,
+      `helpdesk/models.go:143`) und werden von KEINEM der beiden Erasure-Pfade angefasst — auch
+      nicht vom Anonymize-Pfad, der die Tabelle gar nicht kennt. `description`/`csat_comment`
+      sind zusaetzlich Freitext — Restrisiko, keine automatische Bereinigung.
+  ERGEBNIS: zwei echte, zusammenhaengende Luecken (Hard-Delete ueberspringt den Scrub
+  vollstaendig; Anonymize-Pfad kennt `tickets` gar nicht) — als EINE Fix-Unit gebuendelt
+  (gleicher Root Cause: "kein Pfad raeumt die SET-NULL-Referenztabellen vollstaendig auf"),
+  Praezedens Iteration 47. Ein wichtiger Nebenfund fuer den Builder dieser Fix-Unit dokumentiert:
+  `chk_tickets_requester_identity` verbietet NULL auf `requester_email` bei externen
+  Requestern — ein blindes `SET requester_email = NULL` wuerde am CHECK-Constraint scheitern,
+  hier ist ein Anonymisierungs-Platzhalter noetig statt einer einfachen Null-Zuweisung.
+- gate: n.a. (Scan-Unit, keine Code-Aenderung — build/vet/lint/test entfallen laut Ablauf-Regel
+  fuer reine Scans)
+- coverage: n.a. (kein Coverage-Ziel, Scan-Unit)
+- mutations-probe: n.a. (keine Fix-Logik in dieser Unit)
+- verify vorgaenger: sauber. `96bcbc7f` (Iteration 47, scan-erasure-retention-idempotency-
+  double-run) geprueft — `git show --stat` zeigt ausschliesslich eine neue Testdatei
+  (`erasure_idempotency_test.go`) plus BACKLOG.yml/JOURNAL.md, kein Produktionscode. Keine der
+  acht Fehlerklassen einschlaegig (kein Handler, kein Guard, kein Proto, keine Route, keine
+  Tabelle angefasst).
+- neue-units: fix-contact-erasure-incomplete-set-null-table-scrub
+- offen:
+  - Die neue Fix-Unit buendelt zwei Teilbefunde (Hard-Delete-Luecke + fehlende Tickets-Abdeckung
+    im Anonymize-Pfad) statt zweier Units — Begruendung wie in Iteration 47: gleicher Root Cause,
+    dieselbe Datei/derselbe thematische Bereich. Falls das beim Bauen falsch erscheint, dort
+    aufteilen.
+  - `AnonymizeContact` und der neue Hard-Delete-Scrub sollen laut Notes dieselbe SQL-Logik
+    teilen — der Builder muss entscheiden, ob das eine gemeinsame Funktion im consent- oder im
+    contact-Paket wird (beide Pakete sind an der bisherigen Anonymisierung beteiligt).
