@@ -1134,7 +1134,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Vereinfachung mit eigenem Upgrade-Trigger dokumentiert — kein neuer Fund, keine Unit noetig.
 
 ## Iteration 20 — cov-gateway-biz-banking-document-chains — done — 2026-08-22 03:30
-- commit: (folgt im naechsten Schritt)
+- commit: 2b621da2
 - gebaut: zwei neue Testdateien fuer die letzten beiden ungetesteten `route_biz_*`-Dateien
   dieser Nachbarschaft. `route_biz_banking_test.go` deckt alle drei Funktionen von
   `route_biz_banking.go` ab (HandleImportBankStatement, HandleListBankStatements,
