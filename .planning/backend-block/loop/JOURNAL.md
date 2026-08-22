@@ -2438,7 +2438,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Auftrag.
 
 ## Iteration 39 — verify-datev-extf-encoding-requirement — blocked — 2026-08-22 06:09
-- commit: 5c7f2fbe (siehe unten, tatsaechlicher SHA wird nach commit ergaenzt)
+- commit: 59ba84fd
 - gebaut: nichts am Produktionscode. Recherche zur DATEV-EXTF-Zeichenkodierung (Format 700,
   Kategorie 21, Buchungsstapel) via WebSearch/WebFetch gegen developer.datev.de und Drittquellen.
   Ergebnis als ausfuehrlicher Kommentar an `TestExport_GoldenBytesWithUmlauts` in
