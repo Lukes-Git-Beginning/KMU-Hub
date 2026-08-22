@@ -1311,7 +1311,7 @@ Frühere Läufe liegen vollständig im Archiv:
   jetzt erstmals per Test belegt und im Code kommentiert.
 
 ## Iteration 24 — cov-invoice-repository-datev-export-keyset-real-sql — done — 2026-08-23 01:45
-- commit: <wird nach Commit ergaenzt>
+- commit: 1a8ecf64
 - gebaut: neue ungetaggte Testdatei `postgres_repository_datev_export_db_test.go` fuer
   `PostgresRepository.ListForDATEVExport` (postgres_repository.go:626-682), gegen echtes Postgres:
   Paging-Vollstaendigkeit (Baseline-Call mit grossem Limit vs. Seiten-fuer-Seite-Traversal mit
