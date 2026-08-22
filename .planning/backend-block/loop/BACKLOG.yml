@@ -1366,7 +1366,23 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Keine belastbare, direkt zitierbare Quelle mit Versionsangabe gefunden. Die offiziellen
+      developer.datev.de-Seiten fuer Format 700/Kategorie 21 (Buchungsstapel-Feldliste und
+      Header-Feldliste, direkt abgerufen) sagen NICHTS zur Zeichenkodierung. Eine dedizierte
+      "Zeichensatz"-Unterseite existiert auf dem Portal, liefert ohne Login aber 404. Deren
+      indexierter Inhalt (nur ueber Suchmaschinen-Snippet, nicht selbst gelesen) behauptet:
+      Standard-Importzeichensatz ISO-8859-1/CP1252, Unicode inkl. UTF-8 aber ausdruecklich
+      akzeptiert WENN eine BOM mitgeliefert wird — beschraenkt auf manuellen Import in DATEV
+      Rechnungswesen oder die Online-API "accounting:extf-files". Das waere exakt das, was dieser
+      Exporter heute produziert. Gegenlaeufiges Signal: die unabhaengige Open-Source-Bibliothek
+      ledermann/datev (Ruby-Gem, kein DATEV-Bezug) kodiert ihren EXTF-Buchungsstapel-Export hart
+      auf CP1252 — reales Indiz, dass automatisierte Importpfade abseits der Online-API CP1252
+      erwarten koennten. Befund bleibt damit gemischt und unterschreitet die selbst gesetzte
+      Beweisschwelle. Naechster Schritt liegt bei Luke: entweder kostenpflichtiger/registrierter
+      Zugang zu developer.datev.de fuer die Primaerquelle, oder ein empirischer Test gegen einen
+      echten DATEV-Import.
     coverage_start: "internal/biz/datev 79,7 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       VERIFY-UNIT, KEINE FIX-UNIT. Zu klaeren ist eine einzige Frage: verlangt der

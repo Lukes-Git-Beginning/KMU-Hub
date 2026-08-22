@@ -2436,3 +2436,35 @@ Frühere Läufe liegen vollständig im Archiv:
     Doc-Kommentar an `Repository.CleanupWithLock`/`Cleanup` in einer
     kuenftigen Unit, aendert aber kein Verhalten und war hier nicht der
     Auftrag.
+
+## Iteration 39 — verify-datev-extf-encoding-requirement — blocked — 2026-08-22 06:09
+- commit: 5c7f2fbe (siehe unten, tatsaechlicher SHA wird nach commit ergaenzt)
+- gebaut: nichts am Produktionscode. Recherche zur DATEV-EXTF-Zeichenkodierung (Format 700,
+  Kategorie 21, Buchungsstapel) via WebSearch/WebFetch gegen developer.datev.de und Drittquellen.
+  Ergebnis als ausfuehrlicher Kommentar an `TestExport_GoldenBytesWithUmlauts` in
+  `internal/biz/datev/exporter_test.go` festgehalten (siehe Kommentarblock dort fuer Details).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/biz/datev/...`
+  gruen, DATABASE_URL gesetzt) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/biz/datev unveraendert (kein Verhalten, keine neue Testfunktion — nur ein
+  Kommentar erweitert) | n.a. (Verify-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Verify-Unit, kein neuer/geaenderter Testfall mit Assertion-Logik)
+- verify vorgaenger: sauber. `254120eb` (Iteration 38, fix-idempotency-real-sql-coverage-cleanup-
+  concurrency) gegen alle acht Fehlerklassen geprueft: `git show --stat 254120eb` zeigt
+  ausschliesslich eine neue Testdatei (`internal/idempotency/postgres_repository_db_test.go`) plus
+  BACKLOG/JOURNAL — kein Produktionscode, kein gRPC-Bypass, kein Stub/TODO, kein `.proto`
+  geaendert, keine neue `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein
+  Guard ersetzt, keine neue Route.
+- neue-units: keine
+- offen:
+  - Die eigentliche Frage (cp1252 vs. UTF-8 fuer den DATEV-EXTF-Buchungsstapel-Import) bleibt
+    unbeantwortet. Zusammenfassung der Recherche: developer.datev.de fuehrt fuer Format 700/
+    Kategorie 21 (Buchungsstapel- UND Header-Feldliste, direkt abgerufen, nicht nur Suchsnippet)
+    KEINE Zeichensatzvorgabe. Eine dedizierte "Zeichensatz"-Unterseite existiert auf dem Portal,
+    liefert aber ohne Login 404 — ihr indexierter Inhalt (nur per Suchmaschinen-Synthese, nicht
+    selbst gelesen) legt nahe: UTF-8 mit BOM wird akzeptiert, aber nur bei manuellem Import bzw.
+    ueber die Online-API "accounting:extf-files" — beides deckt sich NICHT zwangslaeufig mit dem
+    Importweg, den ein Kunde tatsaechlich nutzt. Das unabhaengige Ruby-Gem ledermann/datev
+    (kein DATEV-Bezug) kodiert seinen EXTF-Export hart auf CP1252 — ein reales Gegenindiz.
+  - Naechster Schritt liegt bei Luke: entweder eine kostenpflichtige/registrierte
+    developer.datev.de-Session fuer die Primaerquelle, oder ein empirischer Test mit einer echten
+    DATEV-Instanz/einem Steuerberater. Bis dahin bleibt der Exporter unveraendert (UTF-8 mit BOM).
