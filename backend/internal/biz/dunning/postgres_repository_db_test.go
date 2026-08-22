@@ -247,6 +247,164 @@ func TestPostgresRepository_UpdateStatus_SentAtNil_LeavesColumnUnchanged(t *test
 	assert.True(t, sentAt.Equal(*got.SentAt), "sent_at must remain the original timestamp, not be cleared")
 }
 
+// TestPostgresRepository_GetByInvoiceID_OrderedByLevel_CrossTenantEmpty proves
+// GetByInvoiceID returns every record for the invoice ordered by level
+// ascending, and that a foreign tenant with the correct invoice ID gets
+// nothing back.
+func TestPostgresRepository_GetByInvoiceID_OrderedByLevel_CrossTenantEmpty(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantA, tenantB := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantA, "Dunning GetByInvoiceID A")
+	testutil.EnsureTenant(t, pool, tenantB, "Dunning GetByInvoiceID B")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantA)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantB)
+	invoiceA := seedDunningInvoice(t, pool, tenantA)
+
+	repo := NewPostgresRepository(pool)
+	ctxA := testutil.WithTenantCtx(context.Background(), tenantA)
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+
+	level2 := newTestDunningRecord(tenantA, invoiceA, 2, models.DunningStatusSent)
+	level1 := newTestDunningRecord(tenantA, invoiceA, 1, models.DunningStatusPaid)
+	require.NoError(t, repo.Create(ctxA, level2))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_records", level2.ID)
+	require.NoError(t, repo.Create(ctxA, level1))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_records", level1.ID)
+
+	got, err := repo.GetByInvoiceID(ctxA, tenantA, invoiceA)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, 1, got[0].Level, "must be ordered by level ascending")
+	assert.Equal(t, 2, got[1].Level)
+
+	// Same invoice ID, but a foreign tenant must see nothing (RLS + explicit filter).
+	gotB, err := repo.GetByInvoiceID(ctxB, tenantB, invoiceA)
+	require.NoError(t, err)
+	assert.Empty(t, gotB)
+}
+
+// TestPostgresRepository_GetByInvoiceIDs_EmptyUnknownAndNoRecords covers the
+// three edge cases the batch path must not get wrong: an empty ID slice (must
+// not become an unbounded query), an unknown invoice ID mixed with a known
+// one (must not fail, must just be absent from the map), and an invoice with
+// no dunning records (must not appear as a nil-valued map entry that would
+// panic a caller ranging over it).
+func TestPostgresRepository_GetByInvoiceIDs_EmptyUnknownAndNoRecords(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Dunning GetByInvoiceIDs Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+	invoiceWithRecords := seedDunningInvoice(t, pool, tenantID)
+	invoiceWithoutRecords := seedDunningInvoice(t, pool, tenantID)
+	unknownInvoiceID := uuid.New()
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	rec1 := newTestDunningRecord(tenantID, invoiceWithRecords, 1, models.DunningStatusDraft)
+	rec2 := newTestDunningRecord(tenantID, invoiceWithRecords, 2, models.DunningStatusSent)
+	require.NoError(t, repo.Create(ctx, rec1))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_records", rec1.ID)
+	require.NoError(t, repo.Create(ctx, rec2))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_records", rec2.ID)
+
+	// Empty slice must return an empty, non-nil map without querying.
+	empty, err := repo.GetByInvoiceIDs(ctx, tenantID, nil)
+	require.NoError(t, err)
+	assert.Empty(t, empty)
+
+	byInvoice, err := repo.GetByInvoiceIDs(ctx, tenantID, []uuid.UUID{
+		invoiceWithRecords, invoiceWithoutRecords, unknownInvoiceID,
+	})
+	require.NoError(t, err)
+	require.Len(t, byInvoice[invoiceWithRecords], 2, "unbekannte und leere Rechnungen duerfen den bekannten Treffer nicht stoeren")
+	assert.Equal(t, 1, byInvoice[invoiceWithRecords][0].Level, "grouped records stay ordered by level ascending")
+	assert.Equal(t, 2, byInvoice[invoiceWithRecords][1].Level)
+
+	_, hasEmpty := byInvoice[invoiceWithoutRecords]
+	assert.False(t, hasEmpty, "an invoice with no dunning records must be absent from the map, not a nil-valued entry")
+	_, hasUnknown := byInvoice[unknownInvoiceID]
+	assert.False(t, hasUnknown, "an unknown invoice ID must not appear in the result")
+}
+
+// TestPostgresRepository_GetHighestLevelByInvoiceID_TieBreaksOnMostRecent
+// covers the case named in the unit notes: two records at the same (highest)
+// level are schema-legal (no unique constraint on invoice_id+level), and
+// `ORDER BY level DESC` alone would make the pick nondeterministic. The fix
+// adds `created_at DESC` as a tiebreaker; this test pins that behavior down.
+func TestPostgresRepository_GetHighestLevelByInvoiceID_TieBreaksOnMostRecent(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Dunning GetHighestLevel Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+	invoiceID := seedDunningInvoice(t, pool, tenantID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	older := newTestDunningRecord(tenantID, invoiceID, 1, models.DunningStatusSent)
+	require.NoError(t, repo.Create(ctx, older))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_records", older.ID)
+
+	tieOlder := newTestDunningRecord(tenantID, invoiceID, 2, models.DunningStatusSent)
+	tieOlder.CreatedAt = time.Now().Add(-time.Hour)
+	require.NoError(t, repo.Create(ctx, tieOlder))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_records", tieOlder.ID)
+
+	tieNewer := newTestDunningRecord(tenantID, invoiceID, 2, models.DunningStatusDraft)
+	tieNewer.CreatedAt = time.Now()
+	require.NoError(t, repo.Create(ctx, tieNewer))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_records", tieNewer.ID)
+
+	got, err := repo.GetHighestLevelByInvoiceID(ctx, tenantID, invoiceID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, 2, got.Level)
+	assert.Equal(t, tieNewer.ID, got.ID, "a tie on level must break on the most recently created record")
+}
+
+// TestPostgresRepository_GetHighestLevelByInvoiceID_NoRecords_ReturnsNilNil
+// proves the "no dunning yet" path returns (nil, nil), not an error — callers
+// use this to decide the invoice has no history at all.
+func TestPostgresRepository_GetHighestLevelByInvoiceID_NoRecords_ReturnsNilNil(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantA, tenantB := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantA, "Dunning GetHighestLevel NoRecords A")
+	testutil.EnsureTenant(t, pool, tenantB, "Dunning GetHighestLevel NoRecords B")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantA)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantB)
+	invoiceA := seedDunningInvoice(t, pool, tenantA)
+
+	repo := NewPostgresRepository(pool)
+	ctxA := testutil.WithTenantCtx(context.Background(), tenantA)
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+
+	got, err := repo.GetHighestLevelByInvoiceID(ctxA, tenantA, invoiceA)
+	require.NoError(t, err)
+	assert.Nil(t, got, "an invoice without dunning records must yield (nil, nil), not an error")
+
+	rec := newTestDunningRecord(tenantA, invoiceA, 3, models.DunningStatusSent)
+	require.NoError(t, repo.Create(ctxA, rec))
+	defer testutil.CleanupRow(t, pool, "finance_dunning_records", rec.ID)
+
+	// Same invoice ID, foreign tenant: must not see tenant A's record.
+	gotB, err := repo.GetHighestLevelByInvoiceID(ctxB, tenantB, invoiceA)
+	require.NoError(t, err)
+	assert.Nil(t, gotB, "a foreign tenant must never see another tenant's dunning record")
+}
+
 // TestPostgresRepository_UpdateStatus_CrossTenant_ZeroRowsAffected proves an
 // UPDATE issued with a foreign tenant ID touches zero rows, using the exact
 // query the repository runs so the assertion is against the real predicate,

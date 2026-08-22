@@ -1085,3 +1085,53 @@ Frühere Läufe liegen vollständig im Archiv:
   `cov-dunning-repository-invoice-lookups-real-sql` (naechste in der Block-B-Reihe, deps auf diese
   Unit) offen — inklusive der dort explizit genannten Gleichstand-Frage bei
   `GetHighestLevelByInvoiceID`.
+
+## Iteration 20 — cov-dunning-repository-invoice-lookups-real-sql — done — 2026-08-23 01:20
+- commit: (siehe unten)
+- gebaut: Die drei Lesewege von Rechnung zu Mahnung in `internal/biz/dunning/postgres_repository.go`
+  gegen echtes Postgres getestet: `GetByInvoiceID` (Level-aufsteigende Sortierung, Fremdtenant mit
+  korrekter Invoice-ID liefert leer), `GetByInvoiceIDs` (leere ID-Liste -> leere Map ohne Query,
+  unbekannte ID und Rechnung ohne Mahnung stoeren den bekannten Treffer nicht, keine `nil`-Panics
+  beim Ranging), `GetHighestLevelByInvoiceID` (kein Datensatz -> `(nil, nil)`, Fremdtenant -> `nil`).
+  Beim Bauen den in den Notes vorhergesagten Fund bestaetigt und in derselben Zeile behoben (Block-B-
+  Mandat, keine Unverhandelbare Grenze beruehrt): `ORDER BY level DESC` ohne Tiebreaker ist bei zwei
+  Datensaetzen derselben (hoechsten) Stufe nicht deterministisch — `finance_dunning_records` hat
+  keinen Unique-Constraint auf `(invoice_id, level)` (siehe `000045_create_finance_tables.up.sql`),
+  Gleichstand ist also schema-legal. Fix: `ORDER BY level DESC, created_at DESC` — der zuletzt
+  angelegte Datensatz auf der hoechsten Stufe gewinnt. `GetHighestLevelByInvoiceID` und
+  `GetByInvoiceID` sind derzeit ausserhalb des `dunning`-Pakets nirgends aufgerufen (nur
+  `GetByInvoiceIDs` via `service.go:184`) — geprueft mit gezieltem Grep auf `backend/cmd` und
+  `backend/internal`, kein toter Code im Sinne von "entfernen", da Teil des `Repository`-Interfaces
+  und offensichtlich fuer kuenftige Aufrufer (z. B. Detail-Ansicht einer Rechnung) vorgesehen.
+- gate: build ok (`./internal/biz/dunning/... ./internal/gateway/... ./cmd/biz/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/biz/dunning/`, 10
+  Postgres-Tests real gelaufen, 0 SKIP, `-v`-Log geprueft) | test restliche Unterpakete ok
+  (`go test -count=1 ./internal/biz/dunning/...`) | migration n.a. (keine Schema-Aenderung) |
+  rls-smoke n.a. formal (keine neue Tabelle/Policy), inhaltlich durch
+  `TestPostgresRepository_GetByInvoiceID_OrderedByLevel_CrossTenantEmpty` und
+  `TestPostgresRepository_GetHighestLevelByInvoiceID_NoRecords_ReturnsNilNil` (Fremdtenant-Fall)
+  erbracht | gateway-Test nicht gelaufen, da keine Route/kein Proto beruehrt (nicht Pflicht laut
+  Schritt 5)
+- coverage: internal/biz/dunning 81,0 % -> 88,7 % (eigens gemessen: Vorher-Wert per
+  `git stash push -u -- postgres_repository.go postgres_repository_db_test.go` +
+  `go test -coverprofile` auf dem dadurch wiederhergestellten Vor-Unit-Stand, danach
+  `git stash pop`; coverage_start aus dem Backlog nennt 61,8 % CI-Stand 32570176303 — die Differenz
+  zum selbst gemessenen 81,0 % ist die kumulierte Bewegung durch Iteration 19
+  (`cov-dunning-repository-core-real-sql`) seit diesem CI-Lauf)
+- mutations-probe: `ORDER BY level DESC, created_at DESC` zurueck auf `ORDER BY level DESC` gesetzt ->
+  `TestPostgresRepository_GetHighestLevelByInvoiceID_TieBreaksOnMostRecent` sofort ROT
+  (erwartete `tieNewer.ID`, bekam die aeltere Gleichstand-ID zurueck). Zurueckgedreht,
+  `git diff` auf `postgres_repository.go` zeigt danach nur die beabsichtigte Fix-Zeile plus
+  den erklaerenden Kommentar, keinen Rest der Mutation.
+- verify vorgaenger: sauber — `54e6b37a` (Iteration 19) aendert laut `git show --stat` und Diff
+  ausschliesslich `backend/internal/biz/dunning/postgres_repository.go` (die `COALESCE`-Fix-Zeile,
+  Caller `service.go:343` und `service_gobd.go:50` gegengeprueft — beide bleiben kompatibel) sowie
+  eine neue Testdatei (`postgres_repository_db_test.go`) und JOURNAL.md/BACKLOG.yml. Keine der acht
+  Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt, kein Stub/TODO, kein `.proto`, keine
+  Migration, kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein
+  ersetzter Guard-Key.
+- neue-units: keine
+- offen: `internal/biz/dunning/postgres_repository.go` hat jetzt DB-Tests fuer alle sieben
+  Methoden von `PostgresRepository`; `PostgresConfigRepository.Get`/`Upsert` (Zeile 274/310) sind
+  weiterhin ungetestet — genau das Ziel der naechsten Unit in der Block-B-Reihe
+  (`cov-dunning-config-repository-real-sql`, deps: `[]`, sofort ziehbar).

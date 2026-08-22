@@ -210,6 +210,9 @@ func (r *PostgresRepository) GetByInvoiceIDs(ctx context.Context, tenantID uuid.
 }
 
 // GetHighestLevelByInvoiceID returns the dunning record with the highest level for an invoice.
+// Level alone does not uniquely order rows (no unique constraint on
+// invoice_id+level), so ties break on the most recently created record —
+// otherwise Postgres could return either one nondeterministically.
 func (r *PostgresRepository) GetHighestLevelByInvoiceID(ctx context.Context, tenantID, invoiceID uuid.UUID) (*models.DunningRecord, error) {
 	var record models.DunningRecord
 	var feeStr, interestStr string
@@ -218,7 +221,7 @@ func (r *PostgresRepository) GetHighestLevelByInvoiceID(ctx context.Context, ten
 			fee, interest, sent_at, created_by, created_at
 		FROM finance_dunning_records
 		WHERE tenant_id = $1 AND invoice_id = $2
-		ORDER BY level DESC
+		ORDER BY level DESC, created_at DESC
 		LIMIT 1`,
 		tenantID, invoiceID,
 	).Scan(

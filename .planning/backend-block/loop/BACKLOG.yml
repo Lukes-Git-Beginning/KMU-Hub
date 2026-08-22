@@ -993,7 +993,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-dunning-repository-core-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz/dunning 61,8 % (CI-Stand 32570176303)"
     scope: >
       Die drei Lesewege von der Rechnung zur Mahnung: `GetByInvoiceID` (150),
