@@ -5334,7 +5334,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine. DB-Gate lief real (kmuhub_app, 0 SKIP).
 
 ## Iteration 90 — fix-work-erasure-preview-overcounts-vs-execute — done — 2026-08-22 12:21
-- commit: (siehe naechster docs-Commit)
+- commit: 599779a3
 - gebaut: `WorkErasureHandler.PreviewErasure` (erasure.go:424) zaehlte zwei Faelle mit, die
   `ExecuteErasure` nachweislich NICHT aendert — beide beim Ziehen der Unit im selben Sichtungsschritt
   gefunden, beide in derselben Query, deshalb in einer Unit gefixt statt aufgeteilt:
