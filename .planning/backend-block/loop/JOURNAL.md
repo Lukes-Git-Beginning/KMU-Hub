@@ -484,3 +484,62 @@ Frühere Läufe liegen vollständig im Archiv:
   Backlog. `internal/biz/einvoice` hat weiterhin keine DB-Tests,
   DATABASE_URL-Gate daher für diese Unit nicht einschlägig (wie schon
   Iterationen 5 bis 7).
+
+## Iteration 9 — fix-booking-page-orphaned-after-owner-erasure — done — 2026-08-23 00:07
+- commit: 6e2d97a4
+- gebaut: neuer `BookingPageErasureHandler` (`internal/security/gdpr/erasure.go`),
+  registriert in `cmd/auth/main.go` direkt nach `CalendarErasureHandler`. Setzt
+  `booking_pages.active = false` für jede noch aktive Buchungsseite, deren
+  Kalender-Eigentümer (`calendars.owner_id`) der geloeschte Nutzer ist —
+  unabhaengig von `calendar_type`, weil der Befund genau diesen Fall meint
+  (ein gelöschter Mitarbeiter darf keine öffentliche Terminseite mehr
+  bedienen). Fasst NUR `booking_pages.active` an, nie `calendars` oder
+  `public_bookings` — deckungsgleich mit der bestehenden Entscheidung in
+  `CalendarErasureHandler`, die genau diese Kalender bewusst nicht löscht.
+  Neue Konstante `ErasureDeactivate ErasureAction = "deactivate"` fürs
+  Preview/Execute-Actionfeld. `PreviewErasure` zählt dieselbe Menge, die
+  `ExecuteErasure` anfasst (eigene, separate Zeile in der Modul-Liste des
+  Service — `ModuleErasurePreview.ModuleName = "calendar_booking_pages"`),
+  damit die Buchungsseite nicht mehr schweigend im Kalender-Zähler
+  verschwindet: `CalendarErasureHandler` schließt sie ja per NOT-EXISTS aus
+  der Zählung aus, zählt sie aber auch nirgendwo hin.
+  `CalendarErasureHandler` selbst unveraendert — die NOT-EXISTS-Subquery, die
+  den Ausschluss traegt, existierte schon.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok
+  (internal/security/gdpr, internal/work/calendar, internal/server,
+  internal/gateway — TestOpenAPIRouteDrift trotz keiner Routenänderung
+  pflichtgemäß gelaufen) | migration n.a. (keine neue Tabelle/Spalte/Policy)
+  | rls-smoke n.a. (keine neue Tabelle/Policy — `booking_pages` und
+  `calendars` tragen ihre RLS-Policies seit Migration 000142 unverändert,
+  der Handler läuft wie alle anderen Erasure-Handler über den
+  tenant-gestempelten Pool-Kontext)
+- coverage: internal/security/gdpr 70,9 % (Lauf-10-Referenzwert) -> eigene
+  Vorher-Messung nicht separat gezogen (Paket hat sich seit Iteration 8
+  nicht verändert) -> 72,1 % nach dieser Unit (go tool cover -func, ein
+  Lauf, 159 Tests, 0 SKIP)
+- mutations-probe: in `BookingPageErasureHandler.ExecuteErasure` das
+  `active = false` aus dem SET entfernt (Kopie via `cp`, nicht
+  `git checkout`) -> `TestBookingPageErasureHandler_Integration` rot an drei
+  Assertions ("must be deactivated", "must find nothing left to deactivate"
+  je zweimal) — `TestBookingPageErasureHandler_ExecuteErasure_DeadPool`
+  weiterhin grün (Pool-Fehler unabhängig von der SET-Klausel). Aus der Kopie
+  zurückgeschrieben, `diff` gegen die Sicherungskopie danach identisch
+  (0 Zeilen Unterschied).
+- verify vorgaenger: sauber — `e45d2d02` (feat-einvoice-allowance-charge-rules)
+  ändert nur `internal/biz/einvoice/validation.go` und seinen Test, keine der
+  acht Fehlerklassen einschlägig (kein gRPC-Handler, kein Proto, keine
+  Migration, kein neuer Guard, keine neue Tabelle, keine Route, kein
+  Wire-Shape-Wechsel, kein ersetzter Guard-Key).
+- neue-units: keine
+- offen: der Fall "mehrere Personenkalender, nur einer mit Buchungsseite"
+  ist per Test belegt (`TestBookingPageErasureHandler_Integration`), ebenso
+  eine bereits inaktive Buchungsseite (wird nicht doppelt gezählt) und ein
+  zweiter Lauf (Idempotenz). Der bestehende
+  `TestCalendarErasureHandler_ExecuteErasure_Integration` bleibt unverändert
+  grün und deckt weiterhin den Kalender-Teil ab. Luke pruefen: ob eine
+  Buchungsseite auf einem GETEILTEN Kalender (nicht `calendar_type =
+  'personal'`), dessen Eigentuemer geloescht wird, tatsaechlich ebenfalls
+  deaktiviert werden soll — diese Unit tut das (Filter ist nur `owner_id`,
+  nicht `calendar_type`), weil `CalendarErasureHandler` einen solchen
+  Kalender ohnehin nie loescht und die Buchungsseite sonst für immer aktiv
+  bliebe.

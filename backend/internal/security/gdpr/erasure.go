@@ -48,6 +48,9 @@ const (
 	ErasureDelete ErasureAction = "delete"
 	// ErasureRetain keeps records unchanged (e.g., audit logs for compliance).
 	ErasureRetain ErasureAction = "retain"
+	// ErasureDeactivate flips a record inactive without deleting or anonymizing
+	// it (e.g., a public booking page whose calendar owner was erased).
+	ErasureDeactivate ErasureAction = "deactivate"
 )
 
 // ErasureHandler defines the interface for per-module GDPR right-to-erasure execution.
@@ -709,6 +712,68 @@ func (h *CalendarErasureHandler) ExecuteErasure(ctx context.Context, userID uuid
 	}
 
 	slog.Info("gdpr calendar erasure: complete",
+		"user_id", userID,
+		"records_affected", affected,
+	)
+	return affected, nil
+}
+
+// BookingPageErasureHandler handles the public-facing fallout of erasing a
+// calendar owner: any booking_pages row hanging off a calendar the subject
+// owns. CalendarErasureHandler deliberately keeps such a calendar alive (see
+// its doc comment) so the public_bookings customer records attached to the
+// booking page are not collaterally destroyed, but that leaves the page
+// itself untouched -- still active, still taking customer appointments for a
+// staff member who no longer exists. This handler is the other half: it does
+// not touch calendars or public_bookings, only booking_pages.active.
+type BookingPageErasureHandler struct {
+	pool *pgxpool.Pool
+}
+
+// NewBookingPageErasureHandler creates a new BookingPageErasureHandler with DB access.
+func NewBookingPageErasureHandler(pool *pgxpool.Pool) *BookingPageErasureHandler {
+	return &BookingPageErasureHandler{pool: pool}
+}
+
+func (h *BookingPageErasureHandler) ModuleName() string { return "calendar_booking_pages" }
+
+func (h *BookingPageErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUID) (*models.ModuleErasurePreview, error) {
+	var count int
+	if err := h.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM booking_pages bp
+		   JOIN calendars c ON c.id = bp.calendar_id
+		  WHERE c.owner_id = $1 AND bp.active = true`, userID,
+	).Scan(&count); err != nil {
+		return &models.ModuleErasurePreview{
+			ModuleName:  "calendar_booking_pages",
+			RecordCount: 0,
+			Action:      string(ErasureDeactivate),
+		}, nil
+	}
+
+	return &models.ModuleErasurePreview{
+		ModuleName:  "calendar_booking_pages",
+		RecordCount: count,
+		Action:      string(ErasureDeactivate),
+	}, nil
+}
+
+func (h *BookingPageErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUID, anonymizedLabel string, action ErasureAction) (int, error) {
+	// Deactivate rather than delete: the public_bookings customer history
+	// attached to the page is a business record, not personal data of the
+	// erased owner, and must survive for the tenant. A deactivated page just
+	// stops the public URL from accepting new appointments.
+	res, err := h.pool.Exec(ctx,
+		`UPDATE booking_pages bp SET active = false, updated_at = NOW()
+		   FROM calendars c
+		  WHERE c.id = bp.calendar_id AND c.owner_id = $1 AND bp.active = true`, userID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("booking page erasure: failed to deactivate booking pages: %w", err)
+	}
+	affected := int(res.RowsAffected())
+
+	slog.Info("gdpr booking page erasure: complete",
 		"user_id", userID,
 		"records_affected", affected,
 	)

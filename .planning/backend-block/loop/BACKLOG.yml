@@ -527,7 +527,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 70,9 % (lokal gemessen 2026-08-22, Lauf 10 Iteration 65)"
     scope: >
       Übernommen aus Lauf 10 (dort blockiert, jetzt entschieden).

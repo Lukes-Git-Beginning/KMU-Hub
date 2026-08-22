@@ -111,6 +111,7 @@ func main() {
 	gdprService.RegisterErasureHandler(gdpr.NewChatErasureHandler(pool))
 	gdprService.RegisterErasureHandler(gdpr.NewWorkErasureHandler(pool))
 	gdprService.RegisterErasureHandler(gdpr.NewCalendarErasureHandler(pool))
+	gdprService.RegisterErasureHandler(gdpr.NewBookingPageErasureHandler(pool))
 	gdprService.RegisterErasureHandler(gdpr.NewNotificationErasureHandler(pool))
 	gdprService.RegisterErasureHandler(gdpr.NewSettingsErasureHandler(pool))
 	gdprService.RegisterErasureHandler(&gdpr.AuditErasureHandler{})
