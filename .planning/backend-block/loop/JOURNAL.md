@@ -5283,7 +5283,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (im Systemkontext).
 
 ## Iteration 89 — feat-dsar-search-user-hr-time-leave-module — done — 2026-08-22 12:10
-- commit: (folgt im naechsten Journal-Doku-Commit)
+- commit: 9689d1e1
 - gebaut: Vier neue DSAR-Module in `internal/security/gdpr/dsar_search.go`, alle in `matchUsers`
   eingehaengt: `hrLeaveRequestsModule` (Liste, join `hr_leave_types` fuer den Klarnamen und `users`
   fuer den Genehmiger), `hrLeaveBalanceModules` (ein Feld/Wert-Modul "Urlaubskonto <Jahr>" pro
@@ -5331,6 +5331,4 @@ Frühere Läufe liegen vollständig im Archiv:
   WHERE EXISTS`), Wire-Shape der PUT-Antwort unveraendert. Der dazwischenliegende `48609599` ist
   ein reiner Journal-Doku-Commit.
 - neue-units: keine.
-- offen: Commit-SHA fehlt oben noch (wird im naechsten Doku-Commit nachgetragen, wie in Lauf 9/10
-  ueblich). DB-Gate lief real (kmuhub_app, 0 SKIP) — nichts fuer Luke offen ausser der ueblichen
-  CI-Bestaetigung.
+- offen: keine. DB-Gate lief real (kmuhub_app, 0 SKIP).
