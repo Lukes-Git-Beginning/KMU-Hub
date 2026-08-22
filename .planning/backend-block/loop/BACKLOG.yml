@@ -1249,7 +1249,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/biz/dashboard 79,3 % (Run 32508843776)"
     scope: >
       `route_dashboard.go` (239 Zeilen, 10 Funktionen) ohne Testdatei. Das Dashboard aggregiert

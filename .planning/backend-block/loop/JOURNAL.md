@@ -2152,3 +2152,57 @@ Frühere Läufe liegen vollständig im Archiv:
     `fix-gateway-advisory-product-riskclass-not-validated` (seit
     Iteration 28), `fix-gateway-booking-page-services-no-dive` (seit
     Iteration 33). Fuer den naechsten Lauf vormerken, sie vorzuziehen.
+
+## Iteration 35 — cov-gateway-dashboard — done — 2026-08-22 05:35
+- commit: (nach diesem Eintrag)
+- gebaut: `route_dashboard_test.go` deckt alle 10 Funktionen von
+  `route_dashboard.go` ab (HandleGetDashboard, HandleSaveDashboard,
+  HandleResetToDefaults, HandleGetDefaults, HandleSaveDefaults,
+  ServiceName, primaryRole, isValidRole) plus einen Router-Guard-Test
+  (`TestDashboardRoutes_Guards`), der RequireAuthenticated auf den
+  User-Endpunkten und RequireRole("admin") auf den /defaults/{role}-
+  Endpunkten belegt. `mockDashboardRepo` (bereits vorhanden in
+  `cached_dashboard_repository_test.go`) additiv um fuenf
+  Error-Injection-Felder (`get*Err`/`upsert*Err`/`deleteUserErr`) erweitert,
+  Default nil aendert am Verhalten der zwoelf bestehenden Cache-Tests
+  nichts. Dokumentiert statt getestet: die beiden `!json.Valid(...)`-Checks
+  in HandleSaveDashboard/HandleSaveDefaults sind nach `decodeAndValidate`
+  unerreichbar, weil `json.NewDecoder` ein `json.RawMessage`-Feld nur mit
+  einem bereits syntaktisch gueltigen JSON-Span befuellt — ein Body, der
+  das brechen wuerde, scheitert schon vorher an "invalid request body".
+- gate: build ok (`-p 2` gateway/..., cmd/gateway/...) | vet ok | lint ok
+  (0 issues, gateway/...) | test ok (`internal/gateway` 2510 PASS / 0 SKIP /
+  0 FAIL aus `go test -v -count=1 ./internal/gateway/`; `TestOpenAPIRouteDrift`
+  gruen, keine neue Route) | migration n.a. (keine Schemaaenderung) |
+  rls-smoke n.a. (Tenant-Isolation der `dashboard_defaults`-Tabelle ist
+  bereits durch `rls_dashboard_defaults_test.go` abgedeckt, hier nicht
+  erneut angefasst)
+- coverage: internal/gateway 53,1 % (eigene Messung, neue Dateien kurz
+  ausgelagert) -> 53,4 % (eigene Messung nach dieser Unit)
+- mutations-probe: In `HandleGetDefaults` (`route_dashboard.go:153`) den
+  Not-Found-Statuscode von `http.StatusNotFound` auf `http.StatusTeapot`
+  gedreht -> `TestHandleGetDefaults_NotFound` wird rot (418 statt 404).
+  Zurueckgedreht -> gruen, `git diff --stat internal/gateway/route_dashboard.go`
+  zeigt 0 Zeilen.
+- verify vorgaenger: sauber. `e7de0eca` (Iteration 34,
+  cov-gateway-registrar-global-search) gegen alle acht Fehlerklassen
+  geprueft: `git show --stat e7de0eca` zeigt nur eine neue reine
+  Gateway-Testdatei (`route_search_global_test.go`) plus BACKLOG/JOURNAL —
+  kein gRPC-Bypass, kein Stub/TODO, kein `.proto` angefasst, keine neue
+  `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung,
+  kein Guard ersetzt, keine neue Route. Folgecommit `ccf0ba7c` ist nur ein
+  docs-SHA-Nachtrag im Journal, unkritisch.
+- neue-units: keine
+- offen:
+  - Weiterhin unbearbeitet am Backlog-Ende (jetzt acht/sieben/zwei
+    Iterationen ohne Beruehrung, weil die Coverage-Bloecke sie lexikalisch
+    nach hinten sortieren):
+    `fix-email-contacts-csv-export-formula-injection` (seit Iteration 27),
+    `fix-gateway-advisory-product-riskclass-not-validated` (seit
+    Iteration 28), `fix-gateway-booking-page-services-no-dive` (seit
+    Iteration 33). Fuer den naechsten Lauf vormerken, sie vorzuziehen —
+    dieser Hinweis steht jetzt seit drei Iterationen unveraendert im
+    Journal und wurde bislang nicht aufgegriffen.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
+    keine neue Tabelle/Policy in dieser Iteration; `dashboard_defaults`
+    RLS war bereits durch A-Vorlauf/frueheren Fix abgedeckt).
