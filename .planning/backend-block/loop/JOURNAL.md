@@ -3420,7 +3420,7 @@ Frühere Läufe liegen vollständig im Archiv:
     mit vollem Parallelbetrieb.
 
 ## Iteration 55 — fix-gateway-booking-page-services-no-dive — done — 2026-08-22 07:57
-- commit: (siehe naechster Eintrag)
+- commit: eeee6b40
 - gebaut: Gleiche Fehlerklasse wie der Advisory-Fix aus Iteration 54, hier auf
   `route_booking.go`: `createBookingPageRequest.Services` und
   `updateBookingPageRequest.Services` bekommen `validate:"dive"`. Anders als beim
