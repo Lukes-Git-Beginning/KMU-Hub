@@ -526,11 +526,30 @@ func (r *PostgresWorkTimeRepo) GetProjectBreakdown(ctx context.Context, tenantID
 	return result, rows.Err()
 }
 
-// AggregateWorkTimeForInvoice returns the total net_work_minutes and entry IDs
-// for the billable work time entries of the given employee within [from, to] —
-// finished entries and approved corrections, never the originals they replaced.
-func (r *PostgresWorkTimeRepo) AggregateWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (int, []string, error) {
-	rows, err := r.pool.Query(ctx,
+// ReserveWorkTimeForInvoice locks the billable work time entries of the given
+// employee within [from, to] — finished entries and approved corrections,
+// never the originals they replaced, and never an entry already billed — and
+// marks them billed in the same transaction before returning their total.
+//
+// The SELECT ... FOR UPDATE and the UPDATE that stamps billed_at happen
+// inside one transaction, so a second call for the same employee/period
+// (double-click, retry after timeout, two staff members working the same
+// invoice) blocks on the row lock until the first call commits, then sees
+// billed_at already set and returns zero — never a second overlapping set of
+// entries. Returns (0, nil, nil) if nothing was available to bill.
+//
+// If the caller fails to turn the reservation into an invoice, it must call
+// ReleaseInvoiceReservation with the returned entry IDs, or the hours are
+// stuck billed with no invoice. If it succeeds, it should call
+// ConfirmInvoiceReservation to record which invoice claimed them.
+func (r *PostgresWorkTimeRepo) ReserveWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (int, []string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	rows, err := tx.Query(ctx,
 		`SELECT id, net_work_minutes
 		 FROM hr_work_time_entries
 		 WHERE tenant_id = $1
@@ -538,13 +557,14 @@ func (r *PostgresWorkTimeRepo) AggregateWorkTimeForInvoice(ctx context.Context, 
 		   AND status = ANY($5)
 		   AND clock_in >= $3
 		   AND clock_in <= $4
-		   AND net_work_minutes IS NOT NULL`,
+		   AND net_work_minutes IS NOT NULL
+		   AND billed_at IS NULL
+		 FOR UPDATE`,
 		tenantID, employeeID, from, to, billableStatuses,
 	)
 	if err != nil {
 		return 0, nil, err
 	}
-	defer rows.Close()
 
 	var total int
 	var entryIDs []string
@@ -552,12 +572,66 @@ func (r *PostgresWorkTimeRepo) AggregateWorkTimeForInvoice(ctx context.Context, 
 		var entryID uuid.UUID
 		var netMinutes int
 		if scanErr := rows.Scan(&entryID, &netMinutes); scanErr != nil {
+			rows.Close()
 			return 0, nil, scanErr
 		}
 		total += netMinutes
 		entryIDs = append(entryIDs, entryID.String())
 	}
-	return total, entryIDs, rows.Err()
+	if scanErr := rows.Err(); scanErr != nil {
+		rows.Close()
+		return 0, nil, scanErr
+	}
+	rows.Close()
+
+	if len(entryIDs) == 0 {
+		return 0, nil, tx.Commit(ctx)
+	}
+
+	if _, err = tx.Exec(ctx,
+		`UPDATE hr_work_time_entries SET billed_at = NOW()
+		 WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+		tenantID, entryIDs,
+	); err != nil {
+		return 0, nil, err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return 0, nil, err
+	}
+	return total, entryIDs, nil
+}
+
+// ConfirmInvoiceReservation stamps the invoice that claimed a set of entries
+// reserved by ReserveWorkTimeForInvoice. Best-effort traceability: the
+// double-billing guard is already enforced by billed_at, set at reservation
+// time, so a failure here does not need to roll back the invoice.
+func (r *PostgresWorkTimeRepo) ConfirmInvoiceReservation(ctx context.Context, tenantID, invoiceID uuid.UUID, entryIDs []string) error {
+	if len(entryIDs) == 0 {
+		return nil
+	}
+	_, err := r.pool.Exec(ctx,
+		`UPDATE hr_work_time_entries SET invoice_id = $1
+		 WHERE tenant_id = $2 AND id = ANY($3::uuid[])`,
+		invoiceID, tenantID, entryIDs,
+	)
+	return err
+}
+
+// ReleaseInvoiceReservation undoes a reservation whose invoice was never
+// created (e.g. invoiceService.Create failed after the reserve). Scoped to
+// invoice_id IS NULL so it can never clear an entry a concurrent, already
+// confirmed invoice claimed in between.
+func (r *PostgresWorkTimeRepo) ReleaseInvoiceReservation(ctx context.Context, tenantID uuid.UUID, entryIDs []string) error {
+	if len(entryIDs) == 0 {
+		return nil
+	}
+	_, err := r.pool.Exec(ctx,
+		`UPDATE hr_work_time_entries SET billed_at = NULL
+		 WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND invoice_id IS NULL`,
+		tenantID, entryIDs,
+	)
+	return err
 }
 
 // ============================================================================

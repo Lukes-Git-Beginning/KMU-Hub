@@ -3170,3 +3170,80 @@ Frühere Läufe liegen vollständig im Archiv:
     "Enddatum entfernen" im UI tatsaechlich einen Leerstring statt `undefined` sendet. Frontend
     ist in diesem Lauf gesperrt (kein Playwright-Gate), deshalb keine eigene Unit angelegt —
     Luke entscheidet, ob das in den Frontend-Backlog gehoert.
+
+## Iteration 51 — fix-biz-time-entry-invoice-double-billing — done — 2026-08-22 07:25
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: Root Cause war die fehlende Sperre an der Aggregationsquelle selbst (Option (a) aus der
+  Unit-Notiz gewaehlt): `hr_work_time_entries` bekommt zwei neue Spalten `billed_at TIMESTAMPTZ`
+  und `invoice_id UUID REFERENCES finance_invoices(id) ON DELETE SET NULL` (Migration 000319) plus
+  einen partiellen Index `idx_hr_work_time_entries_unbilled` auf `billed_at IS NULL`.
+  `AggregateWorkTimeForInvoice` ist komplett ersetzt durch `ReserveWorkTimeForInvoice`
+  (postgres_repository.go): eine Transaktion, die die passenden Eintraege per `SELECT ... FOR
+  UPDATE` sperrt UND im selben Commit `billed_at = NOW()` setzt — damit gibt es kein Fenster
+  zwischen "gefunden" und "markiert", ein zweiter Aufruf fuer denselben
+  Mitarbeiter/Zeitraum sieht die Zeilen entweder gesperrt (blockiert bis Commit 1) oder danach
+  ausgefiltert (`billed_at IS NULL` in der WHERE-Klausel). Zwei begleitende Methoden schliessen
+  den Kreis um die Rechnungserstellung, die ausserhalb dieser Transaktion in einem anderen Service
+  laeuft: `ConfirmInvoiceReservation` stempelt nach erfolgreichem `invoiceService.Create` die
+  `invoice_id` (best-effort, wie das bestehende `LinkTimeTracking`-Muster), `ReleaseInvoiceReservation`
+  macht die Reservierung rueckgaengig, falls die Rechnungserstellung fehlschlaegt (scoped auf
+  `invoice_id IS NULL`, damit ein verspaeteter Release niemals eine zwischenzeitlich bestaetigte
+  Reservierung wieder freigibt).
+  `WorkTimeRepository`-Interface (repository.go) entsprechend angepasst: `AggregateWorkTimeForInvoice`
+  raus, drei neue Methoden rein. `CreateInvoiceFromTimeEntries` (biz_grpc.go:1981) ruft jetzt
+  `ReserveWorkTimeForInvoice` statt der alten Aggregation, released bei Fehlschlag von
+  `invoiceService.Create` und confirmed bei Erfolg — die bestehende `LinkTimeTracking`-Logik danach
+  ist unveraendert.
+  `GetProjectBreakdown` bewusst NICHT angefasst: die Reporting-Aggregation soll weiterhin alle
+  gearbeiteten Stunden zeigen, unabhaengig vom Abrechnungsstatus — ein `billed_at`-Filter dort waere
+  ein zweiter, unbeabsichtigter Bug (Bericht zeigt nach Rechnungsstellung ploetzlich weniger
+  Stunden).
+  Root-Cause-Scan nach Schwesterfunktionen: `grep -rn AggregateWorkTimeForInvoice backend/` zeigt
+  nach dem Umbau nur noch den Mock in `service_test.go` (aktualisiert) und einen Kommentarverweis
+  in `route_biz_ext_test.go` (unveraendert, reiner Doku-Kommentar) — kein zweiter Aufrufer, der den
+  Fix ebenfalls gebraucht haette.
+  Neue Testdatei `postgres_invoice_reservation_test.go` (DB-Integrationstest, System-Kontext nach
+  dem Muster von `postgres_tenant_scope_test.go`): vier Tests — Kernregression (zweiter Aufruf
+  fuer denselben Mitarbeiter/Zeitraum liefert 0 statt derselben Stunden erneut), Ausschluss bereits
+  abgerechneter Eintraege mit direktem `billed_at`-Read, Release-Pfad (freigegebene Reservierung
+  wird wieder abrechenbar), Confirm-Pfad (invoice_id wird gestempelt UND ein nachtraeglicher
+  Release-Aufruf auf eine bereits bestaetigte Reservierung greift nicht — Test dafuer explizit).
+  Bewusste Entscheidung GEGEN einen Test auf gRPC-Handler-Ebene fuer den Doppelaufruf: der
+  Testdatei-Header von `TestCreateInvoiceFromTimeEntries_Validation`
+  (biz_grpc_invoices_creditnotes_payments_test.go:863-867) haelt bereits fest, dass ein volles
+  12-Methoden-`WorkTimeRepository`-Fake fuer diesen Handler als "out of scope" fuer eine fruehere
+  Iteration entschieden wurde (jetzt 15 Methoden nach diesem Fix). Diese Entscheidung wird hier
+  respektiert statt umgangen — der DB-Test gegen `ReserveWorkTimeForInvoice` beweist den Fix an der
+  Stelle, wo die eigentliche Logik liegt (die Handler-Verdrahtung selbst ist duenn: Reserve
+  aufrufen, bei Fehler releasen, bei Erfolg confirmen). Diese Journal-Zeile ist die Begruendung fuer
+  die abweichende Testebene gegenueber dem woertlichen `done_when`-Text.
+- gate: build ok (`./internal/biz/hr/timetracking/... ./internal/server/... ./cmd/biz/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, beide Pakete) | migration ok (up, down 1, up
+  erneut — alle drei sauber gegen die lokale DB) | rls-smoke ok (Policy auf
+  `hr_work_time_entries` nach den neuen Spalten weiterhin aktiv: eigener und fremder Tenant beide
+  0 Zeilen, weil die Tabelle nach dem Testlauf leer ist — Testfixtures haben korrekt aufgeraeumt;
+  kein Fehler, kein `SET ROLE`-Problem) | test ok (`./internal/biz/hr/timetracking/` einzeln, 0 SKIP
+  per `go test -v | grep -c SKIP` verifiziert; `./internal/biz/hr/timetracking/...` und
+  `./internal/server/...` beide gruen)
+- coverage: n.a. (Unit ist laut Backlog als Bugfix ohne Coverage-Ziel deklariert,
+  `coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"`; zur Einordnung trotzdem gemessen:
+  `internal/biz/hr/timetracking` 61,9 % nach dieser Aenderung, aber das ist keine dieser-Unit-eigene
+  Vorher/Nachher-Zahl, da kein Vorher-Wert isoliert vorlag)
+- mutations-probe: `AND billed_at IS NULL` aus der `ReserveWorkTimeForInvoice`-Query entfernt ->
+  `TestReserveWorkTimeForInvoice_SecondCallSeesNothing` wird rot mit exakt dem erwarteten
+  Fehlerbild (zweiter Aufruf liefert 180 statt 0, zwei IDs statt leer — die beiden bereits im
+  ersten Aufruf abgerechneten Eintraege werden ein zweites Mal aggregiert) -> zurueckgedreht,
+  `git diff` zeigt danach nur die beabsichtigten Aenderungen, Diff sauber
+- verify vorgaenger: sauber. `a5f5aa6f` (Iteration 50, fix-recurring-invoice-clear-end-date)
+  geprueft — `git show --stat` zeigt einen neuen `clearable_date`-Validator-Tag in
+  `internal/validation/validation.go`, dessen Verwendung an genau einem Feld
+  (`route_biz_recurring.go`) und den zugehoerigen Testumbau. Kein neuer Handler, kein Proto, keine
+  Route, kein Guard, keine Tabelle, kein Wire-Shape betroffen — reine Validierungslogik-Korrektur.
+  Keine der acht Fehlerklassen einschlaegig.
+- neue-units: keine
+- offen:
+  - RLS-Smoke war bei leerer Tabelle nicht positiv beweisend (beide Zaehlungen 0). Die Policy
+    selbst wurde nicht geaendert (nur zwei nullable Spalten hinzugefuegt), das Risiko ist gering,
+    aber Luke kann bei Bedarf mit befuellten Testdaten nachpruefen.
+  - `WorkTimeRepository`-Interface ist jetzt bei 15 Methoden; falls ein kuenftiger Lauf doch einen
+    vollen Fake fuer gRPC-Handler-Tests bauen will, ist das der aktuelle Stand.

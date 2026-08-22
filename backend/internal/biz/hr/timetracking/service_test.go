@@ -162,8 +162,16 @@ func (m *mockWorkTimeRepo) GetActiveShiftEmployeeIDs(_ context.Context, tenantID
 	return result, nil
 }
 
-func (m *mockWorkTimeRepo) AggregateWorkTimeForInvoice(_ context.Context, _, _ uuid.UUID, _, _ time.Time) (int, []string, error) {
+func (m *mockWorkTimeRepo) ReserveWorkTimeForInvoice(_ context.Context, _, _ uuid.UUID, _, _ time.Time) (int, []string, error) {
 	return 0, nil, nil
+}
+
+func (m *mockWorkTimeRepo) ConfirmInvoiceReservation(_ context.Context, _, _ uuid.UUID, _ []string) error {
+	return nil
+}
+
+func (m *mockWorkTimeRepo) ReleaseInvoiceReservation(_ context.Context, _ uuid.UUID, _ []string) error {
+	return nil
 }
 
 func (m *mockWorkTimeRepo) GetProjectBreakdown(_ context.Context, _, _ uuid.UUID, _, _ time.Time) ([]ProjectBreakdown, error) {

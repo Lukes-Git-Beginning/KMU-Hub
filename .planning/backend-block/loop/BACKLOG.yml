@@ -1817,7 +1817,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"
     scope: >
       `HandleCreateInvoiceFromTime` (route_biz_ext.go:51) erzeugt ueber

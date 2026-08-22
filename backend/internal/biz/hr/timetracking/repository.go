@@ -59,10 +59,19 @@ type WorkTimeRepository interface {
 	// GetActiveShiftEmployeeIDs returns the set of employee IDs that currently have an
 	// active shift, in a single query, replacing N per-employee GetActiveShift calls.
 	GetActiveShiftEmployeeIDs(ctx context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error)
-	// AggregateWorkTimeForInvoice returns the total completed net_work_minutes and the
-	// individual entry IDs for an employee in the given inclusive date range.
-	// Only billable entries (see billableStatuses) with a non-NULL net_work_minutes count.
-	AggregateWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (totalMinutes int, entryIDs []string, err error)
+	// ReserveWorkTimeForInvoice locks and marks billed, in one transaction, the
+	// billable entries (see billableStatuses) with a non-NULL net_work_minutes
+	// for an employee in the given inclusive date range that are not already
+	// billed. Returns the total completed net_work_minutes and the individual
+	// entry IDs. A second call for the same employee/period sees zero — the
+	// double-billing guard for CreateInvoiceFromTimeEntries.
+	ReserveWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (totalMinutes int, entryIDs []string, err error)
+	// ConfirmInvoiceReservation records which invoice claimed a reservation
+	// (best-effort traceability; the double-billing guard is already enforced).
+	ConfirmInvoiceReservation(ctx context.Context, tenantID, invoiceID uuid.UUID, entryIDs []string) error
+	// ReleaseInvoiceReservation undoes a reservation whose invoice was never
+	// created, so the entries become billable again.
+	ReleaseInvoiceReservation(ctx context.Context, tenantID uuid.UUID, entryIDs []string) error
 	// GetProjectBreakdown returns per-project aggregated net_work_minutes for the given employee and date range.
 	GetProjectBreakdown(ctx context.Context, tenantID, employeeID uuid.UUID, dateFrom, dateTo time.Time) ([]ProjectBreakdown, error)
 }
