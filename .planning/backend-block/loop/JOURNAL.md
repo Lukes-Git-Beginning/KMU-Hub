@@ -4488,3 +4488,60 @@ Frühere Läufe liegen vollständig im Archiv:
   korrekt um den 409-Fall ergaenzt, keine Wire-Shape-Aenderung.
 - neue-units: keine
 - offen: keine
+
+## Iteration 75 — feat-retention-worker-handler-work-tasks — done — 2026-08-22 10:16
+- commit: (siehe naechster Eintrag)
+- gebaut: `TaskRetentionHandler` (`backend/internal/security/gdpr/retention_work_tasks.go`) als
+  sechster Handler auf der Retention-Registry aus A10, `resource_type` "tasks", verdrahtet in
+  `cmd/auth/main.go` neben den fuenf bestehenden Handlern. Scope sind abgeschlossene Aufgaben:
+  `completed_at IS NOT NULL AND completed_at < cutoff` (bei anonymize zusaetzlich
+  `updated_at < cutoff` fuer Idempotenz, wie bei `HelpdeskTicketRetentionHandler`).
+  `completed_at` wird von `task.Service.MoveTask` genau einmal beim Uebergang in eine
+  geschlossene Status-Kategorie gesetzt und beim Wiedereroeffnen wieder geleert
+  (`service.go:423-426`) — damit ist die Spalte zugleich Abschlusszeitpunkt und zuverlaessiges
+  "ist wirklich fertig"-Flag, ohne separaten Blick auf `project_statuses`.
+  `task_comments.task_id` ist `ON DELETE CASCADE` auf `tasks` (Migration 000026) — Delete nutzt
+  das fuer den Kommentar-Trail, ein Handler auf "tasks" allein reicht fuer beide Tabellen. Bei
+  anonymize wird `task_comments.content` explizit geleert, analog zu `ticket_messages.body`
+  in A13.
+  Zusatz-Sicherung gegenueber dem Ticket-Vorbild: `tasks.parent_task_id` ist ebenfalls
+  `ON DELETE CASCADE` auf `tasks` (Subtask-Beziehung, Migration 000025). Ein Delete-Plan
+  wuerde ohne Guard eine noch aktive Unteraufgabe (`completed_at IS NULL`) unbemerkt per
+  Kaskade mitloeschen. `Plan` prueft deshalb vor dem Delete-Fall per Zweitabfrage, welche
+  Kandidaten einen direkten aktiven Kind-Task haben, und verschiebt die betroffenen von `Due`
+  nach `Skipped` mit Begruendung — Anonymize ist davon nicht betroffen, weil dort keine Zeile
+  geloescht wird. Tiefere Hierarchien (aktiver Enkel unter abgeschlossenem Kind) werden nicht
+  rekursiv geprueft, im Code als bewusste Grenze kommentiert — im aktuellen Modul-Gebrauch
+  kommt eine dritte Ebene nicht vor.
+  `time_entries` bleibt wie in den Notes gefordert unangetastet (eigene, bereits offene Unit
+  `fix-work-erasure-time-entries-retention-conflict`), keine Migration noetig — `tenant_id` auf
+  `tasks`/`task_comments` existiert bereits (Retrofit-Spalte, nicht in der urspruenglichen
+  Migration 000025/000026 sichtbar, aber `\d tasks`/`\d task_comments` gegen die lokale DB
+  bestaetigt NOT NULL + RLS-Policy auf beiden Tabellen — vor dem Bauen geprueft statt
+  angenommen, wie in den Notes verlangt).
+- gate: build ok (`./internal/security/... ./cmd/auth/...`) | vet ok (`./internal/security/...`)
+  | lint ok (0 issues, `./internal/security/...`) | test ok (`./internal/security/gdpr/` 6 neue
+  Tests PASS, 0 SKIP; volle `./internal/security/gdpr/...`- und `./internal/work/...`-Suiten
+  gruen) | migration: n.a. (keine neue Migration, `tenant_id`/RLS auf beiden Tabellen bereits
+  vorhanden) | rls-smoke: n.a. (keine Policy geaendert; Tenant-Scoping ueber `WHERE tenant_id
+  = $1` in jeder Query, per DB-Test mit zwei Tenants explizit belegt statt nur angenommen)
+- coverage: `internal/security/gdpr` 71,0 % -> 71,3 % (selbst gemessen: neue Dateien
+  `retention_work_tasks.go`/`_test.go` kurzzeitig nach `/tmp` verschoben, `go test
+  -coverprofile` vor der Aenderung, Dateien zurueckgeholt, `go test -coverprofile` danach;
+  `coverage_start:` in der Unit war unbeziffert — "zur Laufzeit messen" stand ausdruecklich in
+  der Unit)
+- mutations-probe: den Subtask-Guard in `Plan` mit `if true || action != ...` entwertet ->
+  `TestTaskRetentionHandler_PlanDeleteSkipsTaskWithActiveSubtask` bricht mit zwei Assert-Fehlern
+  ab (aktive Unteraufgabe waere doch in `Due` gelandet, `Skipped` leer statt 1 Eintrag).
+  Zurueckgedreht, `grep -n "true ||"` liefert keinen Treffer mehr, volle Testdatei erneut gruen.
+- verify vorgaenger: sauber. `8752962c` (Iteration 74, fix-gdpr-deletion-request-cascade-loss)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `service.go`,
+  `repository.go`, `postgres_repository.go`, `crm_grpc.go`, Migration 000322) — kein
+  Gateway-Handler betroffen, kein Stub, `.proto` unveraendert, kein neuer/ersetzter
+  `RequirePermission`-Guard, keine neue Tabelle (Spalten-Aenderung auf bestehender Tabelle mit
+  RLS-Policy, die nicht angefasst wurde), keine neue Route, keine Wire-Shape-Aenderung. Alle
+  weiteren `.ContactID`-Dereferenzierungen im Repo geprueft (`crm_grpc.go:3112`/`3155`
+  betreffen `ConsentRecord`/`ConsentSummary`, ein anderer, nicht-nullable Typ — kein
+  Nil-Pointer-Risiko durch die Aenderung).
+- neue-units: keine
+- offen: keine
