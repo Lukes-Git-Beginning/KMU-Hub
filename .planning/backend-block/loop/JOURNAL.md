@@ -132,7 +132,7 @@ Frühere Läufe liegen vollständig im Archiv:
 ---
 
 ## Iteration 2 — fix-tax-rounding-divergence-across-implementations — done — 2026-08-22 23:10
-- commit: <sha>
+- commit: 90353058
 - gebaut: Die vier Steuerarithmetiken runden weiterhin unterschiedlich — aber jetzt steht an
   jeder Stelle, welche Regel ihre Reihenfolge fordert, und die zwei Stellen, die gegen EN 16931
   verstießen, sind korrigiert. Im E-Rechnungs-Generator (`einvoice/generator_doc.go`) wird der
