@@ -3364,7 +3364,7 @@ Frühere Läufe liegen vollständig im Archiv:
     sich das lohnt, sobald drei weitere Stellen dieselbe Funktion brauchen.
 
 ## Iteration 54 — fix-gateway-advisory-product-riskclass-not-validated — done — 2026-08-22 07:44
-- commit: (siehe naechster docs-Commit)
+- commit: 69cecf89
 - gebaut: Zweistufiger Fix fuer die in Iteration 28 gepinnte Luecke. (b) Root Cause in
   `internal/crm/advisoryprotocol/service.go` `Update`: neue Schleife ueber `in.Products`
   validiert jedes `Product.RiskClass` gegen 1-7 und liefert `ErrInvalidRiskClass` (denselben
