@@ -434,6 +434,36 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *hrChangeRequests)
 		}
 
+		leaveRequests, lrErr := hrLeaveRequestsModule(ctx, pool, tenantID, u.id)
+		if lrErr != nil {
+			return nil, lrErr
+		}
+		if leaveRequests != nil {
+			person.Modules = append(person.Modules, *leaveRequests)
+		}
+
+		leaveBalances, lbErr := hrLeaveBalanceModules(ctx, pool, tenantID, u.id)
+		if lbErr != nil {
+			return nil, lbErr
+		}
+		person.Modules = append(person.Modules, leaveBalances...)
+
+		workTime, wtErr := hrWorkTimeModule(ctx, pool, tenantID, u.id)
+		if wtErr != nil {
+			return nil, wtErr
+		}
+		if workTime != nil {
+			person.Modules = append(person.Modules, *workTime)
+		}
+
+		workTimeCorrections, wtcErr := hrWorkTimeCorrectionsModule(ctx, pool, tenantID, u.id)
+		if wtcErr != nil {
+			return nil, wtcErr
+		}
+		if workTimeCorrections != nil {
+			person.Modules = append(person.Modules, *workTimeCorrections)
+		}
+
 		sessions, sessErr := userSessionsModule(ctx, pool, tenantID, u.id)
 		if sessErr != nil {
 			return nil, sessErr
@@ -1178,6 +1208,219 @@ func hrProfileChangeRequestsModule(ctx context.Context, pool *pgxpool.Pool, tena
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: hr profile change request rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrLeaveRequestsModule discloses the matched user's leave requests -- type,
+// period, days, status and how it was decided. hr_leave_requests carries
+// plain tenant_isolation RLS (migration 000123), not the role-gated policy
+// hr_employee_documents has, so this reads under the caller's normal
+// tenant-scoped context like hrProfileModule above, no sysctx needed.
+func hrLeaveRequestsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT lt.name, lr.start_date, lr.end_date, lr.total_days::float8, lr.status,
+		        COALESCE(lr.reason, ''), COALESCE(lr.approval_comment, ''),
+		        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', au.first_name, au.last_name)), ''), ''),
+		        lr.approved_at
+		 FROM hr_leave_requests lr
+		 JOIN hr_leave_types lt ON lt.id = lr.leave_type_id
+		 LEFT JOIN users au ON au.id = lr.approved_by
+		 WHERE lr.tenant_id = $1 AND lr.employee_id = $2
+		 ORDER BY lr.start_date DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr leave requests: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module: "Urlaubsanträge",
+		Columns: []string{
+			"Art", "Zeitraum", "Tage", "Status", "Grund", "Entscheidungskommentar", "Genehmigt von", "Genehmigt am",
+		},
+	}
+	for rows.Next() {
+		var leaveType, status, reason, comment, approverName string
+		var start, end time.Time
+		var days float64
+		var approvedAt *time.Time
+		if scanErr := rows.Scan(&leaveType, &start, &end, &days, &status, &reason, &comment, &approverName, &approvedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr leave request: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Art", Value: leaveType},
+			{Key: "Zeitraum", Value: start.Format(dsarDateLayout) + " – " + end.Format(dsarDateLayout)},
+			{Key: "Tage", Value: fmt.Sprintf("%.1f", days)},
+			{Key: "Status", Value: status},
+			{Key: "Grund", Value: reason},
+			{Key: "Entscheidungskommentar", Value: comment},
+			{Key: "Genehmigt von", Value: approverName},
+			{Key: "Genehmigt am", Value: derefDateTimeOrEmpty(approvedAt)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr leave request rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrLeaveBalanceModules discloses the matched user's per-year leave account --
+// entitlement, carry-over, used and remaining days. hr_leave_balances is a
+// snapshot per (employee, year), the same one-row-per-key shape
+// hr_employee_profiles has per user, so -- like advisoryProtocolModules for
+// consultation protocols -- each year becomes its own Feld/Wert module
+// instead of forcing every year's columns into one wide record.
+func hrLeaveBalanceModules(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) ([]DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT year, entitlement::float8, carried_over::float8, used::float8, remaining::float8,
+		        carryover_expires_at
+		 FROM hr_leave_balances
+		 WHERE tenant_id = $1 AND employee_id = $2
+		 ORDER BY year ASC`, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr leave balances: %w", err)
+	}
+	defer rows.Close()
+
+	var modules []DSARModule
+	for rows.Next() {
+		var year int
+		var entitlement, carriedOver, used, remaining float64
+		var carryoverExpiresAt *time.Time
+		if scanErr := rows.Scan(&year, &entitlement, &carriedOver, &used, &remaining, &carryoverExpiresAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr leave balance: %w", scanErr)
+		}
+		modules = append(modules, DSARModule{
+			Module:  fmt.Sprintf("Urlaubskonto %d", year),
+			Columns: []string{"Feld", "Wert"},
+			Records: []DSARRecord{
+				fieldValueRecord("Anspruch (Tage)", fmt.Sprintf("%.1f", entitlement)),
+				fieldValueRecord("Übertrag (Tage)", fmt.Sprintf("%.1f", carriedOver)),
+				fieldValueRecord("Verwendet (Tage)", fmt.Sprintf("%.1f", used)),
+				fieldValueRecord("Verbleibend (Tage)", fmt.Sprintf("%.1f", remaining)),
+				fieldValueRecord("Übertrag läuft ab am", derefDateOrEmpty(carryoverExpiresAt)),
+			},
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr leave balance rows: %w", err)
+	}
+	return modules, nil
+}
+
+// hrWorkTimeBalanceStatuses mirrors balanceStatuses in
+// internal/biz/hr/timetracking/repository.go -- kept as its own copy because
+// that var is unexported and this package has no reason to import a whole
+// service package for one string slice. If the source list there changes,
+// this one must change with it.
+var hrWorkTimeBalanceStatuses = []string{"active", "completed", "correction_approved"}
+
+// hrWorkTimeModule discloses the matched user's tracked work time, aggregated
+// by month like timeEntriesModule -- entries can run into the thousands for a
+// long-tenured employee. Corrections make hr_work_time_entries unlike
+// time_entries: an approved correction leaves the original row in place with
+// status 'superseded' so nothing is deleted, but summing it alongside its
+// replacement double-counts the same shift -- the exact bug migration 000248
+// fixed for the balance queries. The status filter mirrors
+// hrWorkTimeBalanceStatuses for the same reason: active, completed and
+// correction_approved are the only states that represent a shift's current
+// duration. The correction history itself is disclosed separately below,
+// individually rather than aggregated away.
+func hrWorkTimeModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT to_char(date_trunc('month', clock_in), 'YYYY-MM'),
+		        COUNT(*), COALESCE(SUM(COALESCE(net_work_minutes, 0)), 0)
+		 FROM hr_work_time_entries
+		 WHERE tenant_id = $1 AND employee_id = $2
+		   AND status = ANY($3)
+		 GROUP BY 1
+		 ORDER BY 1 DESC`, tenantID, userID, hrWorkTimeBalanceStatuses)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr work time entries: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Arbeitszeit (aggregiert pro Monat)", Columns: []string{"Monat", "Einträge", "Dauer"}}
+	for rows.Next() {
+		var month string
+		var count, totalMinutes int
+		if scanErr := rows.Scan(&month, &count, &totalMinutes); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr work time entry: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Monat", Value: month},
+			{Key: "Einträge", Value: strconv.Itoa(count)},
+			{Key: "Dauer", Value: fmt.Sprintf("%.1f Std.", float64(totalMinutes)/60)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr work time entry rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrWorkTimeCorrectionsModule discloses the matched user's work time
+// correction history individually -- original and corrected times, reason,
+// decision -- rather than folding it into the monthly aggregate above. A
+// corrected day otherwise reads as a single final number; the correction
+// itself (what was wrong, who approved the fix) is personal data about the
+// employee that the aggregate would hide.
+func hrWorkTimeCorrectionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT c.created_at, orig.clock_in, orig.clock_out, c.clock_in, c.clock_out,
+		        COALESCE(c.correction_reason, ''), c.status,
+		        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', au.first_name, au.last_name)), ''), ''),
+		        c.correction_approved_at
+		 FROM hr_work_time_entries c
+		 LEFT JOIN hr_work_time_entries orig ON orig.id = c.original_entry_id
+		 LEFT JOIN users au ON au.id = c.correction_approved_by
+		 WHERE c.tenant_id = $1 AND c.employee_id = $2 AND c.is_correction
+		 ORDER BY c.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr work time corrections: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module: "Arbeitszeitkorrekturen",
+		Columns: []string{
+			"Eingereicht am", "Ursprünglicher Beginn", "Ursprüngliches Ende",
+			"Korrigierter Beginn", "Korrigiertes Ende", "Grund", "Status", "Genehmigt von", "Genehmigt am",
+		},
+	}
+	for rows.Next() {
+		var submittedAt, correctedClockIn time.Time
+		var origClockIn, origClockOut, correctedClockOut, approvedAt *time.Time
+		var reason, status, approverName string
+		if scanErr := rows.Scan(&submittedAt, &origClockIn, &origClockOut, &correctedClockIn, &correctedClockOut,
+			&reason, &status, &approverName, &approvedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr work time correction: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Eingereicht am", Value: submittedAt.Format(dsarTimeLayout)},
+			{Key: "Ursprünglicher Beginn", Value: derefDateTimeOrEmpty(origClockIn)},
+			{Key: "Ursprüngliches Ende", Value: derefDateTimeOrEmpty(origClockOut)},
+			{Key: "Korrigierter Beginn", Value: correctedClockIn.Format(dsarTimeLayout)},
+			{Key: "Korrigiertes Ende", Value: derefDateTimeOrEmpty(correctedClockOut)},
+			{Key: "Grund", Value: reason},
+			{Key: "Status", Value: status},
+			{Key: "Genehmigt von", Value: approverName},
+			{Key: "Genehmigt am", Value: derefDateTimeOrEmpty(approvedAt)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr work time correction rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil

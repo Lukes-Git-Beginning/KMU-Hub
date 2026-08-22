@@ -5281,3 +5281,56 @@ Frühere Läufe liegen vollständig im Archiv:
   neue. Ein Aufraeum-SELECT waere `SELECT COUNT(*) FROM task_custom_field_values tcfv JOIN
   work_custom_field_definitions d ON d.id = tcfv.field_id WHERE d.tenant_id <> tcfv.tenant_id`
   (im Systemkontext).
+
+## Iteration 89 — feat-dsar-search-user-hr-time-leave-module — done — 2026-08-22 12:10
+- commit: (folgt im naechsten Journal-Doku-Commit)
+- gebaut: Vier neue DSAR-Module in `internal/security/gdpr/dsar_search.go`, alle in `matchUsers`
+  eingehaengt: `hrLeaveRequestsModule` (Liste, join `hr_leave_types` fuer den Klarnamen und `users`
+  fuer den Genehmiger), `hrLeaveBalanceModules` (ein Feld/Wert-Modul "Urlaubskonto <Jahr>" pro
+  Jahr, `ORDER BY year ASC`, Vorbild `advisoryProtocolModules`), `hrWorkTimeModule` (aggregiert
+  pro Monat wie `timeEntriesModule`, aber mit Status-Filter `hrWorkTimeBalanceStatuses =
+  {active, completed, correction_approved}` — derselbe Statussatz wie `balanceStatuses` in
+  `internal/biz/hr/timetracking/repository.go`, hier als eigene Kopie, weil der Originalwert
+  unexportiert ist) und `hrWorkTimeCorrectionsModule` (jede Korrektur einzeln mit
+  urspruenglichem und korrigiertem Beginn/Ende, Grund, Status, Genehmiger — nicht in die
+  Monatsaggregation gefaltet).
+- Rollen-Gate-Pruefung (done_when-Pflichtpunkt): `hr_leave_requests`, `hr_leave_balances` und
+  `hr_work_time_entries` tragen laut `migrations/000123_rls_phase2c_hr.up.sql:49-51` alle drei
+  `enable_tenant_rls()` (reine `tenant_isolation`), KEIN rollenbasiertes Gate wie
+  `hr_document_access` auf `hr_employee_documents`. Kein `sysctx.With`-Fix noetig — die drei neuen
+  Module lesen im normalen tenant-gescopten Kontext des Aufrufers, wie `hrProfileModule`.
+- Korrekturhistorie (done_when-Pflichtpunkt): `hrWorkTimeModule` filtert `status = ANY($3)` auf
+  `{active, completed, correction_approved}` und laesst `superseded` (die durch eine genehmigte
+  Korrektur ersetzte Originalzeile, seit Migration 000248) aussen vor — sonst zaehlt ein
+  korrigierter Tag doppelt, exakt der Bug, den 000248 fuer die Bilanz-Queries behoben hat.
+  `hrWorkTimeCorrectionsModule` zeigt jede Korrektur separat mit beiden Zeitpaaren, damit die
+  Korrektur selbst (nicht nur der finale Wert) in der Auskunft sichtbar bleibt.
+- gate: build ok (`go build -p 2 ./internal/security/... ./internal/gateway/... ./cmd/gateway/...`)
+  | vet ok | lint ok (`golangci-lint run` ueber `internal/security/gdpr`: 0 issues) | test ok —
+  `go test -count=1 -v ./internal/security/gdpr/`: 155 PASS, 0 FAIL, **0 SKIP**
+  (`DATABASE_URL` gegen `kmuhub_app`); `go test -count=1 ./internal/security/...` (alle
+  Unterpakete) gruen | migration: n.a. (keine neue Tabelle/Spalte — reine Lese-Module auf
+  bestehendem Schema aus Migration 000046/000123/000182/000212/000248/000319) | rls-smoke: n.a.,
+  keine Tabelle/Policy angefasst; die Rollen-Gate-Frage ist stattdessen oben dokumentiert und
+  durch den gruenen Testlauf im normalen Tenant-Kontext belegt (kein sysctx noetig)
+- coverage: `internal/security/gdpr` 71,5 % -> 71,9 % (per `git stash -u` auf demselben Tree
+  vor/nach gemessen). Die Unit nannte `coverage_start: "70,1 % (selbst gemessen, Iteration 59,
+  CI kann abweichen)"` — die Abweichung zu meinem 71,5-%-Vorher-Wert kommt daher, dass
+  Iterationen 65-88 dasselbe Paket seither mehrfach angefasst haben; meine Vor-Messung gilt.
+- mutations-probe: Status-Filter `AND status = ANY($3)` aus der SQL-Query in `hrWorkTimeModule`
+  entfernt (Parameter `$3`/`hrWorkTimeBalanceStatuses` mit ausgebaut) ->
+  `TestSearchByQuery_UserHRWorkTime_Integration` sofort rot: Juni zeigte "2" Eintraege und
+  "14.0 Std." statt "1"/"8.0 Std." — die vom `superseded`-Original mitgezaehlten 360 Minuten
+  addierten sich auf die 480 Minuten der Korrektur, exakt der 000248-Doppelzaehl-Bug. Filter
+  zurueckgedreht, `git diff internal/security/gdpr/dsar_search.go` danach exakt der Soll-Diff
+  (keine Restspur), alle Pakete erneut gruen.
+- verify vorgaenger: sauber. `9273da16` (Iteration 88) gegen alle acht Fehlerklassen geprueft:
+  kein neuer Gateway-Handler (bestehende Route, nur zwei Statuscodes in `openapi.yaml`
+  nachgetragen), kein Stub, keine `.proto`-Aenderung, kein `RequirePermission`, keine neue
+  Tabelle/Migration — reiner Tenant-Scoping-Fix auf bestehendem Schema (`INSERT ... SELECT ...
+  WHERE EXISTS`), Wire-Shape der PUT-Antwort unveraendert. Der dazwischenliegende `48609599` ist
+  ein reiner Journal-Doku-Commit.
+- neue-units: keine.
+- offen: Commit-SHA fehlt oben noch (wird im naechsten Doku-Commit nachgetragen, wie in Lauf 9/10
+  ueblich). DB-Gate lief real (kmuhub_app, 0 SKIP) — nichts fuer Luke offen ausser der ueblichen
+  CI-Bestaetigung.

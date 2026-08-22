@@ -1950,6 +1950,335 @@ func TestSearchByQuery_UserHRProfileChangeRequests_Integration(t *testing.T) {
 	assert.Empty(t, foreign, "another tenant must not see this user, let alone their change requests")
 }
 
+func TestSearchByQuery_UserHRLeaveRequests_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR HR Leave Requests Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR HR Leave Requests Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	approverID := seedDSARUser(t, pool, tenantOwn, "Marlene", "Ostwald", true)
+	defer testutil.CleanupRow(t, pool, "users", approverID)
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Karsten", "Wiegand", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	leaveTypeID := testutil.SeedRow(t, pool, "hr_leave_types", map[string]any{
+		"tenant_id": tenantOwn,
+		"name":      "Erholungsurlaub",
+		"key":       fmt.Sprintf("vacation-%s", uuid.New()),
+	})
+	defer testutil.CleanupRow(t, pool, "hr_leave_types", leaveTypeID)
+
+	approvedAt := time.Now().UTC().Truncate(time.Minute)
+	reqID := testutil.SeedRow(t, pool, "hr_leave_requests", map[string]any{
+		"tenant_id":        tenantOwn,
+		"employee_id":      subjectID,
+		"leave_type_id":    leaveTypeID,
+		"start_date":       "2025-06-02",
+		"end_date":         "2025-06-06",
+		"total_days":       "5.0",
+		"reason":           "Sommerurlaub",
+		"status":           "approved",
+		"approved_by":      approverID,
+		"approval_comment": "Genehmigt",
+		"approved_at":      approvedAt,
+	})
+	defer testutil.CleanupRow(t, pool, "hr_leave_requests", reqID)
+
+	// Read back rather than format the pre-insertion Go time: pgx scans a
+	// timestamptz into the session's timezone, not necessarily UTC, so the
+	// only value that is guaranteed to match what SearchByQuery discloses is
+	// the one read back through the same driver.
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT approved_at FROM hr_leave_requests WHERE id = $1`, reqID).Scan(&approvedAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Karsten")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	mod := dsarModule(t, persons[0], "Urlaubsanträge")
+	assert.Equal(t, []string{
+		"Art", "Zeitraum", "Tage", "Status", "Grund", "Entscheidungskommentar", "Genehmigt von", "Genehmigt am",
+	}, mod.Columns)
+	assert.Equal(t, []map[string]string{{
+		"Art":                    "Erholungsurlaub",
+		"Zeitraum":               "2025-06-02 – 2025-06-06",
+		"Tage":                   "5.0",
+		"Status":                 "approved",
+		"Grund":                  "Sommerurlaub",
+		"Entscheidungskommentar": "Genehmigt",
+		"Genehmigt von":          "Marlene Ostwald",
+		"Genehmigt am":           approvedAt.Format(dsarTimeLayout),
+	}}, recordMaps(mod))
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Karsten")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their leave requests")
+}
+
+func TestSearchByQuery_UserHRLeaveBalances_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR HR Leave Balances Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR HR Leave Balances Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Ilonka", "Freimuth", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	bal2024 := testutil.SeedRow(t, pool, "hr_leave_balances", map[string]any{
+		"tenant_id":    tenantOwn,
+		"employee_id":  subjectID,
+		"year":         2024,
+		"entitlement":  "28.0",
+		"carried_over": "2.0",
+		"used":         "30.0",
+		"remaining":    "0.0",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_leave_balances", bal2024)
+
+	bal2025 := testutil.SeedRow(t, pool, "hr_leave_balances", map[string]any{
+		"tenant_id":            tenantOwn,
+		"employee_id":          subjectID,
+		"year":                 2025,
+		"entitlement":          "28.0",
+		"carried_over":         "0.0",
+		"used":                 "5.0",
+		"remaining":            "23.0",
+		"carryover_expires_at": "2025-03-31",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_leave_balances", bal2025)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Ilonka")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	var idx2024, idx2025 = -1, -1
+	for i, m := range persons[0].Modules {
+		switch m.Module {
+		case "Urlaubskonto 2024":
+			idx2024 = i
+		case "Urlaubskonto 2025":
+			idx2025 = i
+		}
+	}
+	require.NotEqual(t, -1, idx2024, "2024 balance module missing")
+	require.NotEqual(t, -1, idx2025, "2025 balance module missing")
+	assert.Less(t, idx2024, idx2025, "years must disclose oldest first, one module per year")
+
+	bal := fieldValueMap(t, dsarModule(t, persons[0], "Urlaubskonto 2025"))
+	assert.Equal(t, "28.0", bal["Anspruch (Tage)"])
+	assert.Equal(t, "0.0", bal["Übertrag (Tage)"])
+	assert.Equal(t, "5.0", bal["Verwendet (Tage)"])
+	assert.Equal(t, "23.0", bal["Verbleibend (Tage)"])
+	assert.Equal(t, "2025-03-31", bal["Übertrag läuft ab am"])
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Ilonka")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their leave balances")
+}
+
+// TestSearchByQuery_UserHRWorkTime_Integration also pins the migration 000248
+// fix: a superseded original must not add its minutes on top of the
+// correction that replaced it, or a corrected day would count twice.
+func TestSearchByQuery_UserHRWorkTime_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR HR Work Time Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR HR Work Time Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Torben", "Landmann", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	may := time.Date(2025, 5, 12, 8, 0, 0, 0, time.UTC)
+	entryMay := testutil.SeedRow(t, pool, "hr_work_time_entries", map[string]any{
+		"id":               uuid.New(),
+		"tenant_id":        tenantOwn,
+		"employee_id":      subjectID,
+		"clock_in":         may,
+		"clock_out":        may.Add(8 * time.Hour),
+		"net_work_minutes": 480,
+		"status":           "completed",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_work_time_entries", entryMay)
+
+	june := time.Date(2025, 6, 3, 8, 0, 0, 0, time.UTC)
+	supersededID := testutil.SeedRow(t, pool, "hr_work_time_entries", map[string]any{
+		"id":               uuid.New(),
+		"tenant_id":        tenantOwn,
+		"employee_id":      subjectID,
+		"clock_in":         june,
+		"clock_out":        june.Add(6 * time.Hour),
+		"net_work_minutes": 360,
+		"status":           "superseded",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_work_time_entries", supersededID)
+
+	correctionID := testutil.SeedRow(t, pool, "hr_work_time_entries", map[string]any{
+		"id":                 uuid.New(),
+		"tenant_id":          tenantOwn,
+		"employee_id":        subjectID,
+		"clock_in":           june,
+		"clock_out":          june.Add(8 * time.Hour),
+		"net_work_minutes":   480,
+		"status":             "correction_approved",
+		"is_correction":      true,
+		"original_entry_id":  supersededID,
+		"correction_reason":  "Vergessen auszustempeln",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_work_time_entries", correctionID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Torben")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	mod := dsarModule(t, persons[0], "Arbeitszeit (aggregiert pro Monat)")
+	byMonth := make(map[string]map[string]string)
+	for _, r := range recordMaps(mod) {
+		byMonth[r["Monat"]] = r
+	}
+	assert.Equal(t, "1", byMonth["2025-05"]["Einträge"])
+	assert.Equal(t, "8.0 Std.", byMonth["2025-05"]["Dauer"])
+	assert.Equal(t, "1", byMonth["2025-06"]["Einträge"],
+		"only the correction counts for June, not the superseded original")
+	assert.Equal(t, "8.0 Std.", byMonth["2025-06"]["Dauer"],
+		"360+480 would be the double-counted total the migration 000248 comment warns about")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Torben")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their work time")
+}
+
+// TestSearchByQuery_UserHRWorkTimeCorrections_Integration pins that a
+// correction is disclosed individually with its original and corrected
+// times, not folded into the monthly aggregate above.
+func TestSearchByQuery_UserHRWorkTimeCorrections_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR HR Work Time Corrections Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR HR Work Time Corrections Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	approverID := seedDSARUser(t, pool, tenantOwn, "Rosalinde", "Herbst", true)
+	defer testutil.CleanupRow(t, pool, "users", approverID)
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Detlef", "Wachsmuth", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	origIn := time.Date(2025, 4, 8, 8, 0, 0, 0, time.UTC)
+	origID := testutil.SeedRow(t, pool, "hr_work_time_entries", map[string]any{
+		"id":               uuid.New(),
+		"tenant_id":        tenantOwn,
+		"employee_id":      subjectID,
+		"clock_in":         origIn,
+		"clock_out":        origIn.Add(6 * time.Hour),
+		"net_work_minutes": 360,
+		"status":           "superseded",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_work_time_entries", origID)
+
+	approvedAt := time.Now().UTC().Truncate(time.Minute)
+	corrIn := origIn
+	corrOut := origIn.Add(8 * time.Hour)
+	corrID := testutil.SeedRow(t, pool, "hr_work_time_entries", map[string]any{
+		"id":                     uuid.New(),
+		"tenant_id":              tenantOwn,
+		"employee_id":            subjectID,
+		"clock_in":               corrIn,
+		"clock_out":              corrOut,
+		"net_work_minutes":       480,
+		"status":                 "correction_approved",
+		"is_correction":          true,
+		"original_entry_id":      origID,
+		"correction_reason":      "Auszeit vergessen",
+		"correction_approved_by": approverID,
+		"correction_approved_at": approvedAt,
+	})
+	defer testutil.CleanupRow(t, pool, "hr_work_time_entries", corrID)
+
+	// Read every timestamp back rather than format the pre-insertion Go
+	// values: pgx scans a timestamptz into the session's timezone, not
+	// necessarily UTC, so only a value read back through the same driver is
+	// guaranteed to match what SearchByQuery discloses.
+	var submittedAt, origOut, corrInReadBack, corrOutReadBack time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at, clock_in, clock_out FROM hr_work_time_entries WHERE id = $1`, corrID).
+		Scan(&submittedAt, &corrInReadBack, &corrOutReadBack))
+	var origInReadBack time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT clock_in, clock_out FROM hr_work_time_entries WHERE id = $1`, origID).
+		Scan(&origInReadBack, &origOut))
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT correction_approved_at FROM hr_work_time_entries WHERE id = $1`, corrID).Scan(&approvedAt))
+	corrIn, corrOut = corrInReadBack, corrOutReadBack
+	origIn = origInReadBack
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Detlef")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	mod := dsarModule(t, persons[0], "Arbeitszeitkorrekturen")
+	assert.Equal(t, []string{
+		"Eingereicht am", "Ursprünglicher Beginn", "Ursprüngliches Ende",
+		"Korrigierter Beginn", "Korrigiertes Ende", "Grund", "Status", "Genehmigt von", "Genehmigt am",
+	}, mod.Columns)
+	assert.Equal(t, []map[string]string{{
+		"Eingereicht am":        submittedAt.Format(dsarTimeLayout),
+		"Ursprünglicher Beginn": origIn.Format(dsarTimeLayout),
+		"Ursprüngliches Ende":   origOut.Format(dsarTimeLayout),
+		"Korrigierter Beginn":   corrIn.Format(dsarTimeLayout),
+		"Korrigiertes Ende":     corrOut.Format(dsarTimeLayout),
+		"Grund":                 "Auszeit vergessen",
+		"Status":                "correction_approved",
+		"Genehmigt von":         "Rosalinde Herbst",
+		"Genehmigt am":          approvedAt.Format(dsarTimeLayout),
+	}}, recordMaps(mod))
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Detlef")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their work time corrections")
+}
+
 func TestSearchByQuery_UserSessions_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()

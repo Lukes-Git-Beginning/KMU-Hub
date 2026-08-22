@@ -3514,7 +3514,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 70,1 % (selbst gemessen, Iteration 59, CI kann abweichen)"
     scope: >
       Zweite Haelfte des in Iteration 59 gesplitteten `feat-dsar-search-user-hr-employee-module`
