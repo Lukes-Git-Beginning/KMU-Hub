@@ -3172,7 +3172,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Luke entscheidet, ob das in den Frontend-Backlog gehoert.
 
 ## Iteration 51 — fix-biz-time-entry-invoice-double-billing — done — 2026-08-22 07:25
-- commit: <wird nach dem Commit ergaenzt>
+- commit: 5f442703
 - gebaut: Root Cause war die fehlende Sperre an der Aggregationsquelle selbst (Option (a) aus der
   Unit-Notiz gewaehlt): `hr_work_time_entries` bekommt zwei neue Spalten `billed_at TIMESTAMPTZ`
   und `invoice_id UUID REFERENCES finance_invoices(id) ON DELETE SET NULL` (Migration 000319) plus
