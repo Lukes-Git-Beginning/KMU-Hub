@@ -1367,3 +1367,51 @@ Frühere Läufe liegen vollständig im Archiv:
     fremden Tenant annehmen koennte — TenantId/UserId kommen ausschliesslich aus dem
     Auth-Kontext, nie aus Body oder URL.
   - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).
+
+## Iteration 24 — cov-gateway-settings-license-subscription-verify — done — 2026-08-22 03:55
+- commit: (siehe unten)
+- gebaut: Neue Testdatei `route_settings_license_subscription_test.go` fuer den dritten und
+  letzten Teil von `route_settings.go`: HandleGetTenantLicense, HandleSetTenantModuleActive,
+  HandleGetTenantSubscription. Eigene Messung vor dem Schreiben bestaetigt: alle drei lagen bei
+  0,0 % (toTenantModuleJSON/moduleAvailable waren bereits ueber route_settings_license_test.go
+  bei 100 %, wie in Iteration 22 vermerkt). Muster wie in den beiden Vorgaenger-Units:
+  ServiceUnavailable, MissingTenant, NoCallerID, InvalidJSON, ReachesRPC (503 gegen die
+  Dummy-Verbindung). HandleSetTenantModuleActive zusaetzlich mit den vier Faellen, die den
+  eigentlichen Handler-Wert ausmachen: MissingActive (400), UnknownModule (404, Katalog-Lookup),
+  ModuleNotAvailable (409 — Aktivieren eines Moduls, dessen Deployment-Flag aus ist, wuerde eine
+  Zeile schreiben, die die naechste GET sofort wieder maskiert) und
+  DeactivateUnavailableModule, das die bewusste Asymmetrie dokumentiert: Deaktivieren ist NICHT
+  hinter demselben Gate wie Aktivieren. Kein Feature-Flag umgestellt ausser lokal in der
+  Testfixture (`flagsWithHelpdeskEnabled`, analog zur Vorlage aus
+  `route_settings_license_test.go`), keine Preiszahl in einem Test.
+- gate: build ok (`-p 2` gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) | test ok
+  (neue Testdatei einzeln gruen: 14/14, ganzes `internal/gateway` gruen inkl.
+  `TestOpenAPIRouteDrift` [836 Routen gegen 838 dokumentierte Pfade, unveraendert], DATABASE_URL
+  gegen kmuhub_app, 0 SKIP im Gateway-Paketlauf)
+- coverage: internal/gateway 48,9 % -> 49,1 % (eigene Messung vor/nach genau dieser Testdatei im
+  selben Arbeitsbaum). HandleGetTenantLicense 0,0 % -> 75,0 %, HandleSetTenantModuleActive
+  0,0 % -> 96,7 %, HandleGetTenantSubscription 0,0 % -> 60,0 % (Rest ist der
+  BillingPeriodEnd/TotalSeats-Zweig, der ohne bufconn-Fake-Client fuer eine echte RPC-Antwort
+  nicht erreichbar ist).
+- mutations-probe: `if *req.Active && !sr.moduleAvailable(req.ModuleID)` in
+  `HandleSetTenantModuleActive` auf `if false && ...` gesetzt ->
+  `TestHandleSetTenantModuleActive_ModuleNotAvailable` wird rot (503 statt erwartetem 409).
+  Zurueckgedreht -> `git diff --stat` zeigt fuer `route_settings.go` 0 Zeilen Diff, nur die neue
+  Testdatei und die Backlog-Statuszeile geaendert.
+- verify vorgaenger: sauber. `833e454d` (Iteration 23, Branding/Tenant/User-Settings-Coverage)
+  gegen alle acht Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`,
+  `JOURNAL.md` und eine neue reine Testdatei (`route_settings_branding_tenant_user_test.go`, +364
+  Zeilen). `grep -n "client\.\|Unimplemented\|TODO\|t.Skip\|RequirePermission\|\.proto"` auf der
+  neuen Testdatei liefert null Treffer, kein gRPC-Bypass, kein Stub, kein `.proto` angefasst,
+  keine neue `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein Guard
+  ersetzt, keine neue Route.
+- neue-units: keine
+- offen:
+  - Damit ist `route_settings.go` komplett getestet — alle drei Coverage-Units aus diesem
+    Backlog (Modul-Leads/Grants, Branding/Tenant/User, Lizenz/Abo) sind jetzt `done`.
+  - Wie bei jeder Coverage-Unit dieses Laufs: "fremder Tenant liefert 404/403" ist fuer diese
+    drei Handler nicht ueber einen Live-RPC-Roundtrip getestet (kein bufconn-/Fake-Client-
+    Harness fuer SettingsServiceClient im Paket). Bei allen drei Handlern gibt es ohnehin keinen
+    Code-Pfad, der einen fremden Tenant annehmen koennte — TenantId kommt ausschliesslich aus
+    dem Auth-Kontext.
+  - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).

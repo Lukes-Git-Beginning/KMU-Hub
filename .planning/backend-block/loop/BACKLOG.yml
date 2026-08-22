@@ -926,7 +926,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/settings 60,3 % (Run 32508843776)"
     scope: >
       Dritter Teil von `route_settings.go`: Lizenz- und Abonnementstatus. Diese Routen
