@@ -647,3 +647,66 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine. Diese Unit ist inhaltlich erledigt, ohne dass Code geändert
   wurde — der Commit dieser Iteration ist ein reiner Doku-Commit
   (BACKLOG.yml-Status + dieser Journal-Eintrag).
+
+## Iteration 12 — verify-dunning-calculate-interest-unreachable — done — 2026-08-23 00:17
+- commit: (siehe unten)
+- gebaut: VERIFY-UNIT, keine Verzugszins-Verdrahtung. Aufrufgraph von
+  `dunning.CalculateInterest` (`service.go:415`) über `internal/`, `cmd/` und
+  `proto/biz/v1/biz.proto` geprüft: null Aufrufer außer den fünf Tests in
+  `service_test.go`. Die Backlog-Prämisse war aber nur zur Hälfte richtig:
+  `models.DunningConfig` trägt tatsächlich keinen Basiszinssatz — ABER
+  `models.CompanySettings.Basiszinssatz` (proto Feld 19, `biz.proto:374`)
+  existiert bereits und ist voll verdrahtet: `route_biz.go:353/396`
+  (`HandleUpdateCompanySettings`) -> `biz_grpc.go:229-234` -> persistiert via
+  `quote.PostgresCompanySettingsRepo` (round-trip-getestet in
+  `postgres_repository_db_test.go:351-418`, inkl. negativer Werte). Der
+  Parameter KANN also befüllt werden — die Lücke ist ausschließlich, dass ihn
+  niemand liest. Zweiter Fund: der Kommentar an der Record-Erstellung
+  (`service.go:257`, vor dieser Iteration) behauptete "Interest is calculated
+  separately at send time or display time" — das ist falsch, weder
+  `sendAndNotify`/`SendDunningNotice` (Zeilen 380-403) noch die
+  gRPC-Antwort (`biz_grpc.go:1640`, gibt nur den gespeicherten Wert zurück)
+  berechnen je etwas. Dritter Fund: kein B2B/B2C-Flag auf `models.Invoice`
+  oder Customer — die Wire-Entscheidung braucht also zusätzlich noch dieses
+  Datenmodell-Stück, nicht nur den Basiszinssatz.
+  ENTSCHEIDUNG: lean-Marker statt Entfernung. Fünf bestehende Tests
+  (B2C/B2B/NotYetOverdue/ZeroDays/LargeAmount) beweisen korrekte Arithmetik;
+  der fehlende Teil ist reine Verkabelung plus ein Datenmodell-Feld, kein
+  räumbarer Ballast. Zwei Code-Änderungen, beide reine Kommentare:
+  (1) `service.go:257` — irreführenden Kommentar durch `lean:`-Marker mit
+  korrektem Sachstand ersetzt (Basiszinssatz verfügbar, aber nicht gelesen).
+  (2) `service.go:415-431` (Funktionskopf `CalculateInterest`) — `lean:`-Marker
+  mit Upgrade-Trigger (B2B/B2C-Flag + Basiszinssatz lesen) und die beiden
+  fachlichen Mängel aus dem Backlog als Kommentar direkt an der Stelle
+  festgehalten: fixer 365-Divisor (Schaltjahr) und die halbjährliche
+  Basiszinssatz-Änderung nach § 247 BGB (Zeitraum müsste beim Satzwechsel
+  gesplittet werden, nicht mit einem Satz über die ganze Spanne gerechnet).
+  Kein Verzugszins-Pfad wurde verdrahtet.
+- gate: build ok (`./internal/biz/dunning/...`) | vet ok | lint ok (0 issues)
+  | test ok (`go test -count=1 ./internal/biz/dunning/`, alle PASS, 0 SKIP)
+  | migration n.a. (keine Tabelle/Spalte angefasst) | rls-smoke n.a. (keine
+  Policy berührt) | TestOpenAPIRouteDrift nicht gelaufen — keine Route
+  angefasst
+- coverage: internal/biz/dunning 65,1 % -> 65,1 % (unverändert; reine
+  Kommentaränderung, keine ausführbare Zeile geändert). Weicht vom
+  `coverage_start` (61,8 %, CI-Stand 32570176303) ab — vermutlich hat eine
+  frühere Iteration dieses Laufs das Paket bereits angefasst; eigene Messung
+  vor und nach dem Diff ist identisch (65,1 % beidseitig), also kein
+  Widerspruch zu "kein Verhalten geändert"
+- mutations-probe: n.a. — VERIFY-UNIT, reine Kommentaränderung, keine
+  Fix-Logik zum Brechen
+- verify vorgaenger: sauber — `22dba25c` (docs, Iteration 11) ändert nur
+  `BACKLOG.yml` und `JOURNAL.md`, keine der acht Fehlerklassen einschlägig
+- neue-units: keine. Kein Wiring, weil (a) Produktions-Verhaltensänderung
+  außerhalb einer VERIFY-Unit und (b) zwei fehlende Voraussetzungen (B2B/B2C-
+  Flag im Datenmodell, tatsächliches Lesen von Basiszinssatz in
+  DetectAndCreateDunnings) — das ist eine Produktentscheidung, keine
+  Coverage- oder Fix-Unit. Falls gewünscht, gehört sie mit `blocked_reason`
+  in BACKLOG-NEXT.yml wie schon `wire-biz-event-emitters-for-finance-triggers`
+  aus Iteration 10 — hier bewusst nicht angelegt, weil die Entscheidung
+  "Verzugszinsen anbieten oder nicht" eine reine Produktfrage ohne
+  verifizierten Schaden ist (anders als die toten Automations-Trigger, die
+  in der UI bereits sichtbar sind)
+- offen: Luke kann entscheiden, ob Verzugszinsen als Feature überhaupt
+  gewünscht sind (Wettbewerbsdifferenzierung vs. Komplexität); die
+  Voraussetzungen dafür stehen jetzt präzise im Code-Kommentar

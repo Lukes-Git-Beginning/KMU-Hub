@@ -654,7 +654,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/dunning 61,8 % (CI-Stand 32570176303)"
     scope: >
       VERIFY-UNIT mit anschließender Aufräumentscheidung. `dunning.CalculateInterest`
