@@ -1267,7 +1267,7 @@ Frühere Läufe liegen vollständig im Archiv:
   fuer denselben Empfaengerkreis.
 
 ## Iteration 23 — cov-invoice-repository-list-filter-real-sql — done — 2026-08-23 01:29
-- commit: (folgt)
+- commit: c4564870
 - gebaut: neue ungetaggte Testdatei `postgres_repository_list_db_test.go` fuer
   `PostgresRepository.List` (postgres_repository.go:195-306), gegen echtes Postgres statt Mock:
   Statusfilter (samt Total-Zaehler unter Filter), Datumsgrenzen (beide inklusiv, per Test belegt und
