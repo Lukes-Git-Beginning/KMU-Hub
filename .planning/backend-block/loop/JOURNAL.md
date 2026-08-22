@@ -4322,7 +4322,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 72 — fix-document-folder-delete-nonempty-fk-crash — done — 2026-08-22 09:48
-- commit: (folgt nach Commit unten)
+- commit: 7346120a
 - gebaut: `document_files.folder_id` traegt `NOT NULL REFERENCES document_folders(id)` ohne
   `ON DELETE`-Klausel (= NO ACTION, `migrations/000043_create_document_tables.up.sql:26`).
   `document_folders.parent_id` traegt dagegen `ON DELETE CASCADE`
