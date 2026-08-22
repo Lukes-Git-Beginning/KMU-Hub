@@ -199,11 +199,24 @@ func (r *postgresRepository) Cleanup(ctx context.Context) (int, error) {
 }
 
 func (r *postgresRepository) CleanupWithLock(ctx context.Context, lockKey int64) (int, error) {
+	// A session-level advisory lock belongs to the connection that took it.
+	// Acquiring through r.pool and releasing through r.pool hands out two
+	// different pooled connections whenever more than one is warm, so the
+	// unlock targets a connection that never held the lock: it silently
+	// returns false and the lock survives until its connection is recycled.
+	// Every later tick then finds the lock held and skips — the cleanup stops
+	// running altogether. One connection therefore carries lock and unlock.
+	conn, err := r.pool.Acquire(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Release()
+
 	// pg_try_advisory_lock returns true if we acquired the session-level lock,
 	// false if another session already holds it. We release immediately after the
 	// delete so the lock is not held for the full hour.
 	var locked bool
-	if err := r.pool.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, lockKey).Scan(&locked); err != nil {
+	if err := conn.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, lockKey).Scan(&locked); err != nil {
 		return 0, err
 	}
 	if !locked {
@@ -211,8 +224,7 @@ func (r *postgresRepository) CleanupWithLock(ctx context.Context, lockKey int64)
 		return 0, nil
 	}
 	defer func() {
-		// Release advisory lock (best-effort — connection returns to pool on function exit).
-		_, _ = r.pool.Exec(ctx, `SELECT pg_advisory_unlock($1)`, lockKey)
+		_, _ = conn.Exec(ctx, `SELECT pg_advisory_unlock($1)`, lockKey)
 	}()
 
 	return r.Cleanup(ctx)

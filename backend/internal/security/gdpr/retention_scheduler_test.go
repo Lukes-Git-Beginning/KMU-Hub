@@ -8,6 +8,7 @@ package gdpr
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -115,4 +116,95 @@ func TestListTenantIDs_ContainsSeededTenant(t *testing.T) {
 	ids, err := listTenantIDs(testutil.WithSystemCtx(context.Background()), pool)
 	require.NoError(t, err)
 	assert.Contains(t, ids, tenantID)
+}
+
+// TestWithScheduleLock_ReleasesOnTheAcquiringConnection is the regression test
+// for the leak CI run 32569420247 exposed in the sibling implementation this
+// scheduler was modelled on (idempotency.CleanupWithLock): the lock was taken
+// through the pool and released through the pool, so with any warm pool the
+// unlock landed on a connection that never held the lock. It returned false,
+// the lock survived, and every later tick skipped -- a scheduler that runs
+// exactly once and then never again, silently.
+//
+// The verifier connection is acquired FIRST and held for the whole test. That
+// buys two things at once: withScheduleLock cannot be handed the same
+// connection, so a leak cannot hide behind the fact that advisory locks are
+// re-entrant within a single session; and the check afterwards runs from a
+// session that provably did not take the lock.
+func TestWithScheduleLock_ReleasesOnTheAcquiringConnection(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	ctx := context.Background()
+
+	verifier, err := pool.Acquire(ctx)
+	require.NoError(t, err)
+	defer verifier.Release()
+
+	// Own key rather than retentionScheduleLockKey, so this never races
+	// TestRunScheduledRetention_SkipsWhenLockHeldElsewhere, which works
+	// against the real one.
+	lockKey := int64(uuid.New().ID())
+
+	calls := 0
+	ran, err := withScheduleLock(ctx, pool, lockKey, func(context.Context) error {
+		calls++
+		return nil
+	})
+	require.NoError(t, err)
+	require.True(t, ran, "the lock was free, so fn must have run")
+	require.Equal(t, 1, calls)
+
+	var free bool
+	require.NoError(t, verifier.QueryRow(ctx,
+		`SELECT pg_try_advisory_lock($1)`, lockKey).Scan(&free))
+	if !free {
+		t.Fatalf("advisory lock %d is still held after withScheduleLock returned -- "+
+			"acquire and release ran on different pooled connections, leaking the lock", lockKey)
+	}
+	_, _ = verifier.Exec(ctx, `SELECT pg_advisory_unlock($1)`, lockKey)
+}
+
+// TestWithScheduleLock_SkipsAndReturnsErrorFromFn covers the two remaining
+// paths in one place: a held lock must skip without calling fn, and an error
+// from fn must come back with ran=true, because that call did own the tick.
+func TestWithScheduleLock_SkipsAndReturnsErrorFromFn(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	ctx := context.Background()
+	lockKey := int64(uuid.New().ID())
+
+	holder, err := pool.Acquire(ctx)
+	require.NoError(t, err)
+	defer holder.Release()
+
+	var held bool
+	require.NoError(t, holder.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, lockKey).Scan(&held))
+	require.True(t, held, "test setup must win the lock first")
+
+	called := false
+	ran, err := withScheduleLock(ctx, pool, lockKey, func(context.Context) error {
+		called = true
+		return nil
+	})
+	require.NoError(t, err)
+	assert.False(t, ran, "a held lock must make the call skip")
+	assert.False(t, called, "fn must not run while another session holds the lock")
+
+	_, err = holder.Exec(ctx, `SELECT pg_advisory_unlock($1)`, lockKey)
+	require.NoError(t, err)
+
+	wantErr := errors.New("tenant enumeration failed")
+	ran, err = withScheduleLock(ctx, pool, lockKey, func(context.Context) error {
+		return wantErr
+	})
+	assert.True(t, ran, "this call owned the tick even though fn failed")
+	assert.ErrorIs(t, err, wantErr)
 }

@@ -45,26 +45,52 @@ const retentionScheduleLockKey int64 = 0x52544E4E // "RTNN"
 func RunScheduledRetention(ctx context.Context, pool *pgxpool.Pool, engine *RetentionEngine, mode RetentionMode) (bool, error) {
 	sysCtx := sysctx.With(ctx)
 
+	return withScheduleLock(sysCtx, pool, retentionScheduleLockKey, func(lockedCtx context.Context) error {
+		tenantIDs, err := listTenantIDs(lockedCtx, pool)
+		if err != nil {
+			return err
+		}
+		runForTenants(lockedCtx, engine, mode, tenantIDs)
+		return nil
+	})
+}
+
+// withScheduleLock runs fn while holding lockKey, and reports whether it ran
+// at all: false means another replica already held the lock, which is a
+// normal skip and not an error. An error from fn is returned with true --
+// this call owned the tick either way.
+//
+// The dedicated connection is the entire point of this function. A
+// session-level advisory lock belongs to the connection that took it. Taking
+// it through the pool and releasing it through the pool hands out two
+// different connections whenever more than one is warm: the unlock targets a
+// connection that never held the lock, silently returns false, and the lock
+// survives. Every later tick then finds it held and skips -- the scheduler
+// would run exactly once and never again. The same defect existed in
+// idempotency.CleanupWithLock, where a DB test caught it (CI run
+// 32569420247); this is the same fix on the copy of that pattern.
+//
+// The connection stays checked out for the whole run, i.e. one of ten pool
+// slots. That is the price of the lock meaning anything.
+func withScheduleLock(ctx context.Context, pool *pgxpool.Pool, lockKey int64, fn func(context.Context) error) (bool, error) {
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer conn.Release()
+
 	var locked bool
-	if err := pool.QueryRow(sysCtx, `SELECT pg_try_advisory_lock($1)`, retentionScheduleLockKey).Scan(&locked); err != nil {
+	if err := conn.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, lockKey).Scan(&locked); err != nil {
 		return false, err
 	}
 	if !locked {
 		return false, nil
 	}
 	defer func() {
-		// Best-effort release: the session returns to the pool either way,
-		// and a lock outliving one dropped connection is not fatal -- the
-		// next tick simply skips until Postgres reclaims it on disconnect.
-		_, _ = pool.Exec(sysCtx, `SELECT pg_advisory_unlock($1)`, retentionScheduleLockKey)
+		_, _ = conn.Exec(ctx, `SELECT pg_advisory_unlock($1)`, lockKey)
 	}()
 
-	tenantIDs, err := listTenantIDs(sysCtx, pool)
-	if err != nil {
-		return true, err
-	}
-	runForTenants(sysCtx, engine, mode, tenantIDs)
-	return true, nil
+	return true, fn(ctx)
 }
 
 // listTenantIDs enumerates every tenant. Data is single-tenant in practice

@@ -539,6 +539,23 @@ func TestPostgresCleanupWithLock_AcquiresAndReleases(t *testing.T) {
 	// cleanupCtx) because the worker has no per-request tenant. Without that,
 	// the DELETE below matches zero rows, not because nothing is expired but
 	// because RLS admits nothing.
+	// The verifier is acquired BEFORE the call, not after, and held for the
+	// rest of the test. Both halves of that matter:
+	//   - holding one connection forces CleanupWithLock onto a different one,
+	//     so the check below runs from a session that provably never took the
+	//     lock. Advisory locks are re-entrant within a session, so a verifier
+	//     that happened to be handed the locking connection would report the
+	//     lock as free and the leak would pass unnoticed.
+	//   - with only one warm connection in the pool the leaking version gets
+	//     the same connection twice and cleans up after itself by accident.
+	//     That is exactly what happened here: this test passed locally and
+	//     failed in CI (run 32569420247), where the pool was warmer.
+	verifier, err := pool.Acquire(bg)
+	if err != nil {
+		t.Fatalf("acquire verifier connection: %v", err)
+	}
+	defer verifier.Release()
+
 	deleted, err := repo.CleanupWithLock(testutil.WithSystemCtx(bg), lockKey)
 	if err != nil {
 		t.Fatalf("CleanupWithLock: %v", err)
@@ -549,12 +566,6 @@ func TestPostgresCleanupWithLock_AcquiresAndReleases(t *testing.T) {
 	if _, err := repo.Get(ctx, tenantID, key); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("expected the expired reservation removed, got %v", err)
 	}
-
-	verifier, err := pool.Acquire(bg)
-	if err != nil {
-		t.Fatalf("acquire verifier connection: %v", err)
-	}
-	defer verifier.Release()
 
 	var stillFree bool
 	if err := verifier.QueryRow(bg, "SELECT pg_try_advisory_lock($1)", lockKey).Scan(&stillFree); err != nil {
