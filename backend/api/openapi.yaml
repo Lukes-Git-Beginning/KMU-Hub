@@ -8828,8 +8828,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Quote is not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/quotes/{id}/accept:
     post:
@@ -8845,6 +8853,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Quote is not in sent status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/quotes/{id}/reject:
     post:
@@ -8860,6 +8877,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Quote is not in sent status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/quotes/{id}/convert:
     post:
@@ -8893,6 +8919,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Quote must be accepted before conversion to invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/quotes/{id}/pdf:
     get:

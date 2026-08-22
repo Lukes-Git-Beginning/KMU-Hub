@@ -4917,3 +4917,46 @@ Frühere Läufe liegen vollständig im Archiv:
   Wire-Shape-Aenderung.
 - neue-units: keine.
 - offen: keine
+
+## Iteration 83 — fix-gateway-quote-lifecycle-routes-missing-error-responses — done — 2026-08-22 11:20
+- commit: (folgt)
+- gebaut: Fund aus scan-gateway-openapi-response-code-drift (Iteration 46), Nachtrag zu
+  cov-gateway-biz-quotes. Reine Spec-Korrektur in `backend/api/openapi.yaml`, kein
+  Code-Verhalten geaendert. Die vier Angebots-Statusuebergangsrouten
+  (`POST /api/v1/finance/quotes/{id}/{send,accept,reject,convert}`) dokumentierten fast keine
+  ihrer tatsaechlichen Fehlerantworten, obwohl alle vier ueber `respondGRPCError` gehen und
+  hinter Permission-Middleware liegen (`route_biz.go:99-102`: `quoteSend`, `quoteWrite` x2,
+  `quoteConvert`). Ergaenzt je Route uebergangsspezifisch:
+  - send: 401/403 neu, 404 blieb, 409 neu mit "Quote is not in draft status"
+    (`quote.ErrQuoteNotDraft`, service.go:389 — Send prueft `QuoteStatusDraft`).
+  - accept/reject: 401/403/404/409 komplett neu, 409 mit "Quote is not in sent status"
+    (`quote.ErrQuoteNotSent`, service.go:437/459 — beide pruefen `QuoteStatusSent`).
+  - convert: 400/401/403/404/409 komplett neu. 400 zusaetzlich zum verlangten Umfang ergaenzt,
+    weil `HandleConvertQuoteToInvoice` als einzige der vier Routen einen validierten Request-Body
+    hat (`decodeAndValidate[convertQuoteRequest]`, `helpers.go:225-239` liefert dort nachweislich
+    400) — ohne den Eintrag waere die Spec fuer diese Route unvollstaendig geblieben, obwohl der
+    Scan-Fund genau diese Luecke sucht. 409 mit "Quote must be accepted before conversion to
+    invoice" (`invoice.ErrQuoteNotAccepted`, invoice/service.go:779 — `CreateFromQuote` prueft
+    `QuoteStatusAccepted`, NICHT `quote.ErrQuoteNotDraft/NotSent` wie die drei anderen Routen;
+    das ist der in den notes verlangte eigene, vom Quote-Paket-Fehler verschiedene Fall).
+  Stilvorlage fuer den inline-409 (Description + `ErrorResponse`-Schema statt generischem
+  `Conflict`-Ref) ist die strukturell aehnliche Route bei openapi.yaml:8467-8480
+  (Meeting-Serien-Konflikt), nicht die urspruenglich im Unit-Text genannte Zeilennummer fuer
+  `admin/license` (die Spec ist seit dem Scan gewachsen, die Zeile dort traegt inzwischen kein
+  409 mehr — per Grep neu verifiziert statt der alten Zeilennummer vertraut).
+- gate: swagger-cli validate ok ("api/openapi.yaml is valid") | build ok
+  (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok
+  (`go test ./internal/gateway/ -run TestOpenAPIRouteDrift`: 836 Routen gegen 838 dokumentierte
+  Pfade, PASS; volles `./internal/gateway/` PASS, 0 SKIP, DATABASE_URL gegen kmuhub_app gesetzt)
+  | migration: n.a. | rls-smoke: n.a. (keine Tabelle/Policy angefasst)
+- coverage: n.a. (Bugfix/Spec-Korrektur, kein Coverage-Ziel laut Unit-Kopf)
+- mutations-probe: n.a. (reine YAML-Spec-Aenderung, kein Go-Testverhalten zu mutieren;
+  Korrektheit der Zuordnung ist durch Volltextlesung von quote/service.go und
+  invoice/service.go gegen `biz_grpc_errormap_settings_quotes_test.go` belegt, nicht durch
+  einen brechbaren Test)
+- verify vorgaenger: sauber. `feb725e1` (Iteration 82, fix-gateway-file-import-413-response-undocumented)
+  geprueft (`git show --stat`) — reine `.yaml`-Aenderung, kein Go-Code betroffen, damit fuer
+  alle acht Fehlerklassen automatisch sauber (kein gRPC-Layer-Bezug, kein Stub, kein
+  `.proto`-Change, kein Guard, keine Tabelle, keine neue Route, keine Wire-Shape-Aenderung).
+- neue-units: keine.
+- offen: keine
