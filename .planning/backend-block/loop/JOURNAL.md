@@ -3830,7 +3830,7 @@ Frühere Läufe liegen vollständig im Archiv:
   - keine
 
 ## Iteration 62 — feat-dsar-search-invitation-history-module — done — 2026-08-22 08:41
-- commit: (siehe naechster docs-Commit)
+- commit: 3c92ac90
 - gebaut: neues Modul `invitationHistoryModule` in `dsar_search.go`/`matchUsers` —
   "Einladungshistorie" (Name bei Einladung, Rolle, Eingeladen von, Eingeladen am, Angenommen am),
   gematcht ueber `invitations.email = users.email` (beide Spalten seit Migration 000148 auf
