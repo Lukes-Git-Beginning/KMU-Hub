@@ -535,7 +535,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Tabelle wert.
 
 ## Iteration 11 — feat-retention-worker-handler-contacts — done — 2026-08-22 02:10
-- commit: (siehe unten, nach diesem Eintrag)
+- commit: ebc4a43b
 - gebaut: `ContactRetentionHandler` implementiert `gdpr.RetentionHandler` fuer
   `resource_type "contacts"` — der erste echte Handler auf dem Motor aus A10.
   Liegt bewusst NICHT in `internal/crm/contact` (wie im Backlog-Scope notiert), sondern in
