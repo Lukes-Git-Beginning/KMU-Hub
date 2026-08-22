@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -850,5 +851,333 @@ func TestRepository_MergeInto_ReassignsRelationsMergesTagsAndCustomFieldsThenSof
 	svc := NewService(repo)
 	if _, err := svc.MergeContacts(ctxOwn, primary.ID, duplicate.ID, tenantOwn); !errors.Is(err, ErrAlreadyMerged) {
 		t.Fatalf("MergeContacts (already merged): expected ErrAlreadyMerged, got %v", err)
+	}
+}
+
+func TestRepository_DeletionImpact_TenantScopedLiveFromCatalog(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "CRM Contact DeletionImpact Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "CRM Contact DeletionImpact Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	userOwn := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         fmt.Sprintf("crm-contact-impact-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userOwn)
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+	now := time.Now().UTC()
+
+	target := &models.Contact{ID: uuid.New(), TenantID: tenantOwn, FirstName: "Target", LastName: "Contact", Visibility: "shared", CreatedBy: userOwn, CreatedAt: now, UpdatedAt: now}
+	if err := repo.Create(ctxOwn, target); err != nil {
+		t.Fatalf("Create target: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contacts", target.ID)
+
+	// CASCADE reference.
+	tagID := testutil.SeedRow(t, pool, "tags", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantOwn, "name": fmt.Sprintf("Impact-Tag-%s", uuid.New().String()[:8]), "entity_type": "contact",
+	})
+	defer testutil.CleanupRow(t, pool, "tags", tagID)
+	if err := repo.AddTags(ctxOwn, target.ID, []uuid.UUID{tagID}); err != nil {
+		t.Fatalf("AddTags: %v", err)
+	}
+
+	// SET NULL reference.
+	activityID := testutil.SeedRow(t, pool, "activities", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantOwn, "activity_type": "note", "subject": "Impact test activity",
+		"contact_id": target.ID, "created_by": userOwn,
+	})
+	defer testutil.CleanupRow(t, pool, "activities", activityID)
+
+	// RESTRICT reference.
+	protocolID := testutil.SeedRow(t, pool, "advisory_protocols", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantOwn, "contact_id": target.ID, "created_by": userOwn,
+	})
+	defer testutil.CleanupRow(t, pool, "advisory_protocols", protocolID)
+
+	items, err := repo.DeletionImpact(ctxOwn, target.ID, tenantOwn)
+	if err != nil {
+		t.Fatalf("DeletionImpact: %v", err)
+	}
+
+	byTable := make(map[string]DeletionImpactItem, len(items))
+	for _, item := range items {
+		byTable[item.Table] = item
+	}
+
+	if got, ok := byTable["contact_tags"]; !ok || got.Action != "cascade" || got.Count != 1 {
+		t.Fatalf("contact_tags impact = %+v, ok=%v, want action=cascade count=1", got, ok)
+	}
+	if got, ok := byTable["activities"]; !ok || got.Action != "set_null" || got.Count != 1 {
+		t.Fatalf("activities impact = %+v, ok=%v, want action=set_null count=1", got, ok)
+	}
+	if got, ok := byTable["advisory_protocols"]; !ok || got.Action != "restrict" || got.Count != 1 {
+		t.Fatalf("advisory_protocols impact = %+v, ok=%v, want action=restrict count=1", got, ok)
+	}
+	// A table with zero matching rows for this contact (e.g. deals, never
+	// seeded here) must not show up at all -- the preview lists impact, not
+	// every table pg_constraint knows about.
+	if _, ok := byTable["deals"]; ok {
+		t.Fatalf("deals should not appear with zero rows referencing the contact, got %+v", byTable["deals"])
+	}
+
+	// Cross-tenant: the same contact ID under the wrong tenant context must
+	// come back empty, not a leaked count. RLS scopes the session to
+	// tenantOther, and DeletionImpact's own tenant_id filter (where the
+	// referencing table has one) reinforces that as defense-in-depth.
+	foreignItems, err := repo.DeletionImpact(ctxOther, target.ID, tenantOther)
+	if err != nil {
+		t.Fatalf("DeletionImpact (foreign tenant): %v", err)
+	}
+	if len(foreignItems) != 0 {
+		t.Fatalf("DeletionImpact (foreign tenant) = %+v, want empty", foreignItems)
+	}
+}
+
+// TestRepository_ListRetentionCandidates covers the query the retention
+// engine's ContactRetentionHandler (internal/security/gdpr/retention_contacts.go)
+// relies on: the later of updated_at and the most recent activity decides
+// whether a contact is due, not updated_at alone.
+func TestRepository_ListRetentionCandidates(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "CRM Contact Retention Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "CRM Contact Retention Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	userOwn := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         fmt.Sprintf("crm-contact-retention-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userOwn)
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	old := time.Now().UTC().AddDate(0, 0, -400)
+	fresh := time.Now().UTC().AddDate(0, 0, -2)
+	cutoff := time.Now().UTC().AddDate(0, 0, -90)
+
+	// Due: no activity, updated_at alone is past cutoff.
+	due := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id": tenantOwn, "first_name": "Due", "last_name": "Contact",
+		"created_by": userOwn, "created_at": old, "updated_at": old,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", due)
+
+	// Not due: updated_at is recent.
+	recent := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id": tenantOwn, "first_name": "Recent", "last_name": "Contact",
+		"created_by": userOwn, "created_at": fresh, "updated_at": fresh,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", recent)
+
+	// Not due despite an old updated_at: a recent activity keeps the retention
+	// clock from elapsing -- the whole reason ListRetentionCandidates joins
+	// activities instead of reading updated_at alone.
+	stillWorked := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id": tenantOwn, "first_name": "StillWorked", "last_name": "Contact",
+		"created_by": userOwn, "created_at": old, "updated_at": old,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", stillWorked)
+	recentActivity := testutil.SeedRow(t, pool, "activities", map[string]any{
+		"tenant_id": tenantOwn, "activity_type": "note", "subject": "Still in progress",
+		"contact_id": stillWorked, "created_by": userOwn, "created_at": fresh,
+	})
+	defer testutil.CleanupRow(t, pool, "activities", recentActivity)
+
+	// Foreign tenant, old updated_at -- must never appear for tenantOwn.
+	foreign := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id": tenantOther, "first_name": "Foreign", "last_name": "Contact",
+		"created_by": userOwn, "created_at": old, "updated_at": old,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", foreign)
+
+	got, err := repo.ListRetentionCandidates(ctxOwn, tenantOwn, cutoff)
+	if err != nil {
+		t.Fatalf("ListRetentionCandidates: %v", err)
+	}
+
+	byID := make(map[uuid.UUID]bool, len(got))
+	for _, id := range got {
+		byID[id] = true
+	}
+	if !byID[due] {
+		t.Fatalf("ListRetentionCandidates = %v, want it to include the due contact %s", got, due)
+	}
+	if byID[recent] {
+		t.Fatalf("ListRetentionCandidates = %v, must not include the recently updated contact %s", got, recent)
+	}
+	if byID[stillWorked] {
+		t.Fatalf("ListRetentionCandidates = %v, must not include the contact with a recent activity %s", got, stillWorked)
+	}
+	if byID[foreign] {
+		t.Fatalf("ListRetentionCandidates = %v, must not include the foreign-tenant contact %s", got, foreign)
+	}
+}
+
+// TestRepository_IsInUse_AdvisoryProtocolBlocksDeletion_DB proves the RESTRICT
+// path end to end against real Postgres, not the in-memory MockRepository that
+// contact/service_test.go uses for TestService_Delete_InUse: a contact with a
+// hanging advisory_protocols row (migration 000137, ON DELETE RESTRICT) must
+// come back from IsInUse with the "advisory protocols" reason, and
+// Service.Delete must surface that reason wrapped in ErrContactInUse instead
+// of letting the RESTRICT constraint bubble up as a raw SQL error. Gateway/
+// gRPC map ErrContactInUse to codes.FailedPrecondition -> HTTP 409
+// (internal/server/crm_grpc.go), so this is also the DB-level half of
+// cov-gateway-crm-advisory-protocols' "409 with reason, not 500" done_when.
+func TestRepository_IsInUse_AdvisoryProtocolBlocksDeletion_DB(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "CRM Contact IsInUse Advisory Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantID,
+		"email":         fmt.Sprintf("crm-contact-isinuse-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	repo := NewPostgresRepository(pool)
+	svc := NewService(repo)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	now := time.Now().UTC()
+
+	target := &models.Contact{ID: uuid.New(), TenantID: tenantID, FirstName: "Advisory", LastName: "Bound", Visibility: "shared", CreatedBy: userID, CreatedAt: now, UpdatedAt: now}
+	if err := repo.Create(ctx, target); err != nil {
+		t.Fatalf("Create target: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contacts", target.ID)
+
+	inUse, reason, err := repo.IsInUse(ctx, target.ID, tenantID)
+	if err != nil {
+		t.Fatalf("IsInUse (before protocol): %v", err)
+	}
+	if inUse {
+		t.Fatalf("IsInUse (before protocol) = true, reason %q, want false", reason)
+	}
+
+	protocolID := testutil.SeedRow(t, pool, "advisory_protocols", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantID, "contact_id": target.ID, "created_by": userID,
+	})
+	defer testutil.CleanupRow(t, pool, "advisory_protocols", protocolID)
+
+	inUse, reason, err = repo.IsInUse(ctx, target.ID, tenantID)
+	if err != nil {
+		t.Fatalf("IsInUse (with protocol): %v", err)
+	}
+	if !inUse {
+		t.Fatalf("IsInUse (with protocol) = false, want true")
+	}
+	if !strings.Contains(reason, "advisory protocols") {
+		t.Fatalf("IsInUse reason = %q, want it to mention advisory protocols", reason)
+	}
+
+	err = svc.Delete(ctx, target.ID, tenantID)
+	if !errors.Is(err, ErrContactInUse) {
+		t.Fatalf("Delete error = %v, want ErrContactInUse", err)
+	}
+	if !strings.Contains(err.Error(), "advisory protocols") {
+		t.Fatalf("Delete error = %q, want it to mention advisory protocols", err.Error())
+	}
+
+	// Not deleted: the RESTRICT constraint was never reached because the
+	// service-level check short-circuits first.
+	if _, getErr := repo.GetByID(ctx, target.ID, tenantID); getErr != nil {
+		t.Fatalf("GetByID after blocked delete: %v, want the contact to still exist", getErr)
+	}
+}
+
+// TestRepository_Delete_MergedPrimaryContact_DB proves the fix for
+// contacts_merged_into_id_fkey: before migration 000318, deleting a contact
+// that served as the primary of a completed merge failed with a raw
+// unhandled FK violation (confdeltype NO ACTION), because IsInUse only ever
+// checked the two RESTRICT FKs (advisory_protocols, dialer_campaign_contacts)
+// and never knew about merged_into_id. Deleting the primary must now succeed
+// and clear the duplicate's merged_into_id rather than blocking or erroring.
+func TestRepository_Delete_MergedPrimaryContact_DB(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "CRM Contact Delete-Merged-Primary Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantID,
+		"email":         fmt.Sprintf("crm-contact-delete-merged-%s@tenant.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	now := time.Now().UTC()
+
+	primary := &models.Contact{ID: uuid.New(), TenantID: tenantID, FirstName: "Primary", LastName: "ToDelete", Visibility: "shared", CreatedBy: userID, CreatedAt: now, UpdatedAt: now}
+	duplicate := &models.Contact{ID: uuid.New(), TenantID: tenantID, FirstName: "Duplicate", LastName: "Survives", Visibility: "shared", CreatedBy: userID, CreatedAt: now, UpdatedAt: now}
+	if err := repo.Create(ctx, primary); err != nil {
+		t.Fatalf("Create primary: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contacts", primary.ID)
+	if err := repo.Create(ctx, duplicate); err != nil {
+		t.Fatalf("Create duplicate: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contacts", duplicate.ID)
+
+	if err := repo.MergeInto(ctx, primary.ID, duplicate.ID, tenantID); err != nil {
+		t.Fatalf("MergeInto: %v", err)
+	}
+
+	inUse, reason, err := repo.IsInUse(ctx, primary.ID, tenantID)
+	if err != nil {
+		t.Fatalf("IsInUse (merge primary): %v", err)
+	}
+	if inUse {
+		t.Fatalf("IsInUse (merge primary) = true (%q), want false — merged_into_id is not one of the RESTRICT FKs IsInUse checks", reason)
+	}
+
+	if err := repo.Delete(ctx, primary.ID, tenantID); err != nil {
+		t.Fatalf("Delete primary of a completed merge: %v — merged_into_id must be ON DELETE SET NULL, not NO ACTION (migration 000318)", err)
+	}
+
+	if _, getErr := repo.GetByID(ctx, primary.ID, tenantID); getErr == nil {
+		t.Fatal("GetByID: primary still exists after Delete")
+	}
+
+	var mergedInto *uuid.UUID
+	if err := pool.QueryRow(sysCtx, `SELECT merged_into_id FROM contacts WHERE id = $1`, duplicate.ID).Scan(&mergedInto); err != nil {
+		t.Fatalf("read duplicate after primary deletion: %v", err)
+	}
+	if mergedInto != nil {
+		t.Fatalf("duplicate.merged_into_id = %v after its primary was deleted, want NULL (ON DELETE SET NULL)", *mergedInto)
 	}
 }

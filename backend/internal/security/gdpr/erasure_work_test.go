@@ -8,14 +8,32 @@ package gdpr
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
+
+// seedProjectMember inserts into project_members, which has a composite
+// primary key (project_id, user_id) and no id column — testutil.SeedRow
+// cannot be used because it relies on RETURNING id.
+func seedProjectMember(t *testing.T, pool *pgxpool.Pool, tenantID, projectID, userID uuid.UUID, role string) {
+	t.Helper()
+	ctx := testutil.WithSystemCtx(context.Background())
+	_, err := pool.Exec(ctx,
+		`INSERT INTO project_members (project_id, user_id, role, tenant_id)
+		 VALUES ($1, $2, $3, $4)`,
+		projectID, userID, role, tenantID,
+	)
+	if err != nil {
+		t.Fatalf("seed project_members: %v", err)
+	}
+}
 
 func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
@@ -76,13 +94,26 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "tasks", foreignTaskID)
 
-	timeEntryID := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+	// Older than the two-year ArbZG retention window (relative to "now" at
+	// authoring time, 2026-08-22) -- must be hard-deleted.
+	oldTimeEntryID := testutil.SeedRow(t, pool, "time_entries", map[string]any{
+		"tenant_id":  tenantOwn,
+		"task_id":    bothTaskID,
+		"user_id":    userID,
+		"started_at": "2020-01-01T09:00:00Z",
+		"ended_at":   "2020-01-01T10:00:00Z",
+	})
+
+	// Inside the retention window -- must survive; the retention duty does not
+	// lapse just because erasure was requested.
+	recentTimeEntryID := testutil.SeedRow(t, pool, "time_entries", map[string]any{
 		"tenant_id":  tenantOwn,
 		"task_id":    bothTaskID,
 		"user_id":    userID,
 		"started_at": "2026-08-11T09:00:00Z",
 		"ended_at":   "2026-08-11T10:00:00Z",
 	})
+	defer testutil.CleanupRow(t, pool, "time_entries", recentTimeEntryID)
 
 	commentID := testutil.SeedRow(t, pool, "task_comments", map[string]any{
 		"tenant_id": tenantOwn,
@@ -92,15 +123,35 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "task_comments", commentID)
 
+	// project_members.user_id is CASCADE on users(id), but AuthErasureHandler
+	// anonymizes the user row instead of deleting it, so the CASCADE never
+	// fires — the membership must be deleted explicitly.
+	projectID := testutil.SeedRow(t, pool, "projects", map[string]any{
+		"tenant_id":   tenantOwn,
+		"name":        "Projekt Loeschtest",
+		"project_key": fmt.Sprintf("PL%d", uuid.New().ID()%1000),
+		"created_by":  colleagueID,
+	})
+	defer testutil.CleanupRow(t, pool, "projects", projectID)
+	seedProjectMember(t, pool, tenantOwn, projectID, userID, "member")
+	seedProjectMember(t, pool, tenantOwn, projectID, colleagueID, "owner")
+
 	h := NewWorkErasureHandler(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenantOwn)
 
+	preview, err := h.PreviewErasure(ctx, userID)
+	require.NoError(t, err)
+
 	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
 	require.NoError(t, err)
-	// 3 tasks touched (both-task counts once, created-only counts once,
-	// assigned-only counts once; the foreign task is untouched) + 1 time entry
-	// deleted + 1 comment anonymized = 5.
-	assert.Equal(t, 5, affected, "each task is counted exactly once, regardless of matching both branches")
+	// 2 tasks unassigned (both-task and assigned-only; the created-only task keeps its
+	// assignee and is therefore not changed at all, and the foreign task is untouched)
+	// + 1 time entry (the one past the retention window) deleted + 1 comment anonymized
+	// + 1 project membership deleted = 5.
+	// recentTimeEntryID is inside the window and must not be counted.
+	const wantAffected = 5
+	assert.Equal(t, wantAffected, affected, "only rows this run actually changed are counted")
+	assert.Equal(t, wantAffected, preview.RecordCount, "PreviewErasure must report the same total ExecuteErasure later affects on the first run")
 
 	// The both-task loses its assignment.
 	var assignee *uuid.UUID
@@ -129,17 +180,32 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	require.NotNil(t, assignee)
 	assert.Equal(t, colleagueID, *assignee)
 
-	// Time entries are deleted outright.
-	var timeEntryRows int
+	// Time entry past the ArbZG retention window is deleted outright.
+	var oldTimeEntryRows int
 	require.NoError(t, pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM time_entries WHERE id = $1`, timeEntryID).Scan(&timeEntryRows))
-	assert.Equal(t, 0, timeEntryRows, "time entries must be deleted, not anonymized")
+		`SELECT COUNT(*) FROM time_entries WHERE id = $1`, oldTimeEntryID).Scan(&oldTimeEntryRows))
+	assert.Equal(t, 0, oldTimeEntryRows, "time entries past the retention window must be deleted")
+
+	// Time entry still inside the retention window survives the erasure run.
+	var recentTimeEntryRows int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM time_entries WHERE id = $1`, recentTimeEntryID).Scan(&recentTimeEntryRows))
+	assert.Equal(t, 1, recentTimeEntryRows, "time entries inside the retention window must survive erasure")
 
 	// Task comments are anonymized, not deleted.
 	var commentContent string
 	require.NoError(t, pool.QueryRow(ctx,
 		`SELECT content FROM task_comments WHERE id = $1`, commentID).Scan(&commentContent))
 	assert.Equal(t, "["+erasureLabel+"]", commentContent, "comment content must be replaced by the bracketed anonymized label")
+
+	// Only the subject's project membership is gone.
+	var ownMemberships, colleagueMemberships int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM project_members WHERE user_id = $1`, userID).Scan(&ownMemberships))
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM project_members WHERE user_id = $1`, colleagueID).Scan(&colleagueMemberships))
+	assert.Equal(t, 0, ownMemberships, "the subject's project membership must be deleted")
+	assert.Equal(t, 1, colleagueMemberships, "another project member must keep their membership")
 }
 
 func TestWorkErasureHandler_DeadPool(t *testing.T) {

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
 	"strings"
 	"testing"
@@ -995,6 +996,29 @@ func TestVermietung_ExportRentalReport(t *testing.T) {
 	assert.True(t, strings.HasPrefix(string(resp.GetPayload()), "id,object_id,renter_name,start_date,end_date,status,total_price,deposit_paid"))
 	assert.Contains(t, string(resp.GetPayload()), "Muster GmbH")
 	assert.Contains(t, resp.GetFilename(), tenantID[:8])
+}
+
+func TestVermietung_ExportRentalReport_NeutralizesFormulaInjection(t *testing.T) {
+	repo := newStubVermietungRepo()
+	srv := newVermietungServerWithRepo(repo)
+	ctx := context.Background()
+	tenantID := uuid.New().String()
+	objectID := createTestObject(t, srv, tenantID)
+
+	start := time.Now().Add(24 * time.Hour)
+	_, err := srv.CreateRental(ctx, &vermietungv1.CreateRentalRequest{
+		TenantId: tenantID, ObjectId: objectID, RenterName: "=cmd|'/c calc'!A1",
+		StartDate: timestamppb.New(start), EndDate: timestamppb.New(start.Add(time.Hour)), TotalPrice: 1,
+	})
+	require.NoError(t, err)
+
+	resp, err := srv.ExportRentalReport(ctx, &vermietungv1.ExportRentalReportRequest{TenantId: tenantID})
+	require.NoError(t, err)
+
+	rows, err := csv.NewReader(strings.NewReader(string(resp.GetPayload()))).ReadAll()
+	require.NoError(t, err)
+	require.Len(t, rows, 2) // header + 1 rental
+	assert.Equal(t, "'=cmd|'/c calc'!A1", rows[1][2], "renter_name")
 }
 
 // ---------------------------------------------------------------------------

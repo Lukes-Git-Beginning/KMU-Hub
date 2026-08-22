@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kmuhub/kmuhub/internal/csvutil"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -45,11 +46,11 @@ func ExportCSV(entries []*models.AuditEntry) ([]byte, error) {
 			e.Timestamp.UTC().Format(time.RFC3339),
 			userID,
 			e.Action,
-			e.Target,
+			csvutil.NeutralizeFormulaCell(e.Target),
 			e.TargetType,
-			e.Details,
+			csvutil.NeutralizeFormulaCell(e.Details),
 			e.IPAddress,
-			e.UserAgent,
+			csvutil.NeutralizeFormulaCell(e.UserAgent),
 			e.Result,
 			e.EntryHash,
 		}

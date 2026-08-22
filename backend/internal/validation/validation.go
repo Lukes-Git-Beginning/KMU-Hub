@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/shopspring/decimal"
@@ -93,6 +94,22 @@ func validate() *validator.Validate {
 				return false
 			}
 			return d.GreaterThanOrEqual(decimal.Zero)
+		})
+		// clearable_date is for *string PATCH fields where "absent" (nil pointer)
+		// means leave the value alone and "present but empty" is a deliberate
+		// signal to clear it. go-playground/validator's omitempty only skips a
+		// pointer field when the pointer itself is nil — a non-nil pointer to ""
+		// still runs the rest of the tag chain, so a plain "datetime" tag rejects
+		// the clear signal with a 400 before the handler ever sees it. Combine
+		// with omitempty (which still short-circuits the true nil case): an empty
+		// string always passes here, anything else must be a valid 2006-01-02 date.
+		mustRegister(v, "clearable_date", func(fl validator.FieldLevel) bool {
+			s := fl.Field().String()
+			if s == "" {
+				return true
+			}
+			_, err := time.Parse("2006-01-02", s)
+			return err == nil
 		})
 
 		instance = v

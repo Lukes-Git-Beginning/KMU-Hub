@@ -31,15 +31,23 @@ type ConsentSummary struct {
 }
 
 // GDPRDeletionRequest represents a GDPR Art. 17 erasure request.
+//
+// ContactID is nullable and set to NULL if the contact is later hard-deleted
+// (migration 000322, ON DELETE SET NULL) -- the request row is Art. 5(2)
+// accountability evidence and must outlive the contact it was about.
+// OriginalContactID has no foreign key and is populated once at creation, so
+// it identifies the (possibly since-deleted) contact even after ContactID
+// goes NULL.
 type GDPRDeletionRequest struct {
-	ID          uuid.UUID  `json:"id"`
-	TenantID    uuid.UUID  `json:"tenant_id"`
-	ContactID   uuid.UUID  `json:"contact_id"`
-	RequestedBy *uuid.UUID `json:"requested_by,omitempty"`
-	Reason      string     `json:"reason,omitempty"`
-	Status      string     `json:"status"` // pending, processing, completed
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID                uuid.UUID  `json:"id"`
+	TenantID          uuid.UUID  `json:"tenant_id"`
+	ContactID         *uuid.UUID `json:"contact_id"`
+	OriginalContactID uuid.UUID  `json:"original_contact_id"`
+	RequestedBy       *uuid.UUID `json:"requested_by,omitempty"`
+	Reason            string     `json:"reason,omitempty"`
+	Status            string     `json:"status"` // pending, processing, completed
+	CompletedAt       *time.Time `json:"completed_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 // Repository defines the interface for consent persistence.

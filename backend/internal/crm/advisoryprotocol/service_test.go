@@ -373,6 +373,33 @@ func TestUpdate_InvalidRiskClass(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidRiskClass)
 }
 
+// TestUpdate_InvalidProductRiskClass proves fix-gateway-advisory-product-riskclass-not-validated
+// at the service layer: a Product.RiskClass outside 1-7 is rejected even though the
+// protocol-level RiskClass is valid. This is the root-cause check, independent of
+// whatever validate tags the gateway's HTTP struct carries.
+func TestUpdate_InvalidProductRiskClass(t *testing.T) {
+	svc, _, tenantID, contactID := setupService(t)
+
+	p, err := svc.Create(context.Background(), CreateInput{
+		TenantID:  tenantID,
+		ContactID: contactID,
+		CreatedBy: uuid.New(),
+	})
+	require.NoError(t, err)
+
+	in := UpdateInput{Advisor: "ok", RiskClass: 3, Products: []Product{{ID: "p1", Name: "Fund A", RiskClass: 0}}}
+	_, err = svc.Update(context.Background(), p.ID, tenantID, in)
+	assert.ErrorIs(t, err, ErrInvalidRiskClass)
+
+	in2 := UpdateInput{Advisor: "ok", RiskClass: 3, Products: []Product{{ID: "p1", Name: "Fund A", RiskClass: 99}}}
+	_, err = svc.Update(context.Background(), p.ID, tenantID, in2)
+	assert.ErrorIs(t, err, ErrInvalidRiskClass)
+
+	in3 := UpdateInput{Advisor: "ok", RiskClass: 3, Products: []Product{{ID: "p1", Name: "Fund A", RiskClass: 4}}}
+	_, err = svc.Update(context.Background(), p.ID, tenantID, in3)
+	assert.NoError(t, err)
+}
+
 // ---------------------------------------------------------------------------
 // Segment rule / referral report
 // ---------------------------------------------------------------------------

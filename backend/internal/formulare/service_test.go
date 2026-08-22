@@ -1118,6 +1118,60 @@ func TestExportSubmissions_CSV_ReturnsValidCSVWithBOM(t *testing.T) {
 	}
 }
 
+func TestExportSubmissions_CSV_NeutralizesFormulaInjection(t *testing.T) {
+	svc, _ := newSvc()
+	schema := mustCreateSchema(t, svc)
+	schemaID := schema.ID
+
+	submittedBy := "=HYPERLINK(\"http://evil.example/\",\"x\")"
+	_, err := svc.CreateSubmission(context.Background(), CreateSubmissionInput{
+		TenantID:     testTenant,
+		FormSchemaID: &schemaID,
+		SubmittedBy:  &submittedBy,
+		Answers:      []byte(`{"comment":"+cmd|'/C calc'!A0","normal":"Test"}`),
+	})
+	if err != nil {
+		t.Fatalf("create test submission: %v", err)
+	}
+
+	result, err := svc.ExportSubmissions(context.Background(), ExportInput{
+		TenantID:     testTenant,
+		FormSchemaID: schemaID,
+		Format:       ExportFormatCSV,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	r := csv.NewReader(bytes.NewReader(result.Content[3:]))
+	records, err := r.ReadAll()
+	if err != nil {
+		t.Fatalf("CSV parse error: %v", err)
+	}
+	header := records[0]
+	dataRow := records[1]
+
+	col := func(name string) string {
+		for i, h := range header {
+			if h == name {
+				return dataRow[i]
+			}
+		}
+		t.Fatalf("column %q not found in header %v", name, header)
+		return ""
+	}
+
+	if got := col("submitted_by"); got != "'"+submittedBy {
+		t.Errorf("expected submitted_by neutralized to %q, got %q", "'"+submittedBy, got)
+	}
+	if got := col("comment"); got != "'+cmd|'/C calc'!A0" {
+		t.Errorf("expected comment neutralized, got %q", got)
+	}
+	if got := col("normal"); got != "Test" {
+		t.Errorf("expected normal answer untouched, got %q", got)
+	}
+}
+
 func TestExportSubmissions_XLSX_ReturnsValidXLSX(t *testing.T) {
 	svc, _ := newSvc()
 	schemaID := prepareExportData(t, svc)

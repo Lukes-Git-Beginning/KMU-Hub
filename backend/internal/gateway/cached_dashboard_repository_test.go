@@ -28,6 +28,14 @@ type mockDashboardRepo struct {
 	upsertDefaultCalls int
 	upsertUserCalls    int
 	deleteUserCalls    int
+
+	// Error injection for route_dashboard_test.go's repository-failure cases.
+	// Left nil by every cache test below, so existing behaviour is unchanged.
+	getDefaultErr    error
+	getUserErr       error
+	upsertDefaultErr error
+	upsertUserErr    error
+	deleteUserErr    error
 }
 
 func newMockDashboardRepo() *mockDashboardRepo {
@@ -50,6 +58,9 @@ func (m *mockDashboardRepo) setDefault(tenantID uuid.UUID, def *models.Dashboard
 
 func (m *mockDashboardRepo) GetDefaultLayout(_ context.Context, tenantID uuid.UUID, role string) (*models.DashboardDefault, error) {
 	m.getDefaultCalls++
+	if m.getDefaultErr != nil {
+		return nil, m.getDefaultErr
+	}
 	if d, ok := m.defaults[defaultKey(tenantID, role)]; ok {
 		return d, nil
 	}
@@ -58,12 +69,18 @@ func (m *mockDashboardRepo) GetDefaultLayout(_ context.Context, tenantID uuid.UU
 
 func (m *mockDashboardRepo) UpsertDefaultLayout(_ context.Context, tenantID uuid.UUID, def *models.DashboardDefault) (*models.DashboardDefault, error) {
 	m.upsertDefaultCalls++
+	if m.upsertDefaultErr != nil {
+		return nil, m.upsertDefaultErr
+	}
 	m.setDefault(tenantID, def)
 	return def, nil
 }
 
 func (m *mockDashboardRepo) GetUserLayout(_ context.Context, _ uuid.UUID, userID string) (*models.UserDashboardLayout, error) {
 	m.getUserCalls++
+	if m.getUserErr != nil {
+		return nil, m.getUserErr
+	}
 	if l, ok := m.users[userID]; ok {
 		return l, nil
 	}
@@ -72,12 +89,18 @@ func (m *mockDashboardRepo) GetUserLayout(_ context.Context, _ uuid.UUID, userID
 
 func (m *mockDashboardRepo) UpsertUserLayout(_ context.Context, layout *models.UserDashboardLayout) (*models.UserDashboardLayout, error) {
 	m.upsertUserCalls++
+	if m.upsertUserErr != nil {
+		return nil, m.upsertUserErr
+	}
 	m.users[layout.UserID] = layout
 	return layout, nil
 }
 
 func (m *mockDashboardRepo) DeleteUserLayout(_ context.Context, _ uuid.UUID, userID string) error {
 	m.deleteUserCalls++
+	if m.deleteUserErr != nil {
+		return m.deleteUserErr
+	}
 	if _, ok := m.users[userID]; !ok {
 		return ErrDashboardNotFound
 	}

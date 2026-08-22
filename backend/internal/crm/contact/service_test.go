@@ -15,27 +15,30 @@ import (
 
 // MockRepository implements Repository for testing
 type MockRepository struct {
-	contacts      map[uuid.UUID]*models.Contact
-	contactTags   map[uuid.UUID][]*models.Tag
-	customFields  map[uuid.UUID]map[uuid.UUID]any
-	companies     map[uuid.UUID]string // companyID -> name
-	validTags     map[uuid.UUID]models.EntityType
-	inUseContacts map[uuid.UUID]bool
-	createErr     error
-	getErr        error
-	listErr       error
-	updateErr     error
-	deleteErr     error
+	contacts       map[uuid.UUID]*models.Contact
+	contactTags    map[uuid.UUID][]*models.Tag
+	customFields   map[uuid.UUID]map[uuid.UUID]any
+	companies      map[uuid.UUID]string // companyID -> name
+	validTags      map[uuid.UUID]models.EntityType
+	inUseContacts  map[uuid.UUID]bool
+	deletionImpact map[uuid.UUID][]DeletionImpactItem
+	retentionCandidates []uuid.UUID
+	createErr      error
+	getErr         error
+	listErr        error
+	updateErr      error
+	deleteErr      error
 }
 
 func NewMockRepository() *MockRepository {
 	return &MockRepository{
-		contacts:      make(map[uuid.UUID]*models.Contact),
-		contactTags:   make(map[uuid.UUID][]*models.Tag),
-		customFields:  make(map[uuid.UUID]map[uuid.UUID]any),
-		companies:     make(map[uuid.UUID]string),
-		validTags:     make(map[uuid.UUID]models.EntityType),
-		inUseContacts: make(map[uuid.UUID]bool),
+		contacts:       make(map[uuid.UUID]*models.Contact),
+		contactTags:    make(map[uuid.UUID][]*models.Tag),
+		customFields:   make(map[uuid.UUID]map[uuid.UUID]any),
+		companies:      make(map[uuid.UUID]string),
+		validTags:      make(map[uuid.UUID]models.EntityType),
+		inUseContacts:  make(map[uuid.UUID]bool),
+		deletionImpact: make(map[uuid.UUID][]DeletionImpactItem),
 	}
 }
 
@@ -160,6 +163,14 @@ func (m *MockRepository) IsInUse(ctx context.Context, id uuid.UUID, _ uuid.UUID)
 		return true, "call campaign history", nil
 	}
 	return false, "", nil
+}
+
+func (m *MockRepository) DeletionImpact(ctx context.Context, id uuid.UUID, _ uuid.UUID) ([]DeletionImpactItem, error) {
+	return m.deletionImpact[id], nil
+}
+
+func (m *MockRepository) ListRetentionCandidates(_ context.Context, _ uuid.UUID, _ time.Time) ([]uuid.UUID, error) {
+	return m.retentionCandidates, nil
 }
 
 func (m *MockRepository) CompanyExists(ctx context.Context, companyID uuid.UUID, _ uuid.UUID) (bool, error) {
@@ -889,6 +900,48 @@ func TestService_Delete_InUse(t *testing.T) {
 
 	assert.ErrorIs(t, err, ErrContactInUse)
 	assert.Contains(t, repo.contacts, contactID) // Not deleted
+}
+
+// ============================================================================
+// PreviewDeletion Tests
+// ============================================================================
+
+func TestService_PreviewDeletion_ReturnsRepoImpacts(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	repo.deletionImpact[contactID] = []DeletionImpactItem{
+		{Table: "activities", Column: "contact_id", Action: "set_null", Count: 2},
+		{Table: "advisory_protocols", Column: "contact_id", Action: "restrict", Count: 1},
+	}
+
+	impacts, err := svc.PreviewDeletion(context.Background(), contactID, tenantID)
+
+	require.NoError(t, err)
+	assert.Equal(t, repo.deletionImpact[contactID], impacts)
+}
+
+func TestService_PreviewDeletion_NotFoundForUnknownOrForeignContact(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	// A contact that a foreign tenant looks up by its real ID is indistinguishable
+	// from one that doesn't exist at all: GetByID is tenant-scoped and errors the
+	// same way in both cases, so PreviewDeletion never leaks a 200-with-zero-impacts
+	// for someone else's contact.
+	_, err := svc.PreviewDeletion(context.Background(), uuid.New(), uuid.New())
+
+	assert.ErrorIs(t, err, ErrContactNotFound)
 }
 
 // ============================================================================

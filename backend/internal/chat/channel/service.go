@@ -241,6 +241,14 @@ func (s *Service) Delete(ctx context.Context, id, userID, tenantID uuid.UUID) er
 		return ErrNotAuthorized
 	}
 
+	hasCallSessions, callSessionsErr := s.repo.HasCallSessions(ctx, id)
+	if callSessionsErr != nil {
+		return callSessionsErr
+	}
+	if hasCallSessions {
+		return ErrChannelHasCallSessions
+	}
+
 	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}

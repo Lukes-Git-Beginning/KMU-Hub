@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/csvutil"
 	"github.com/kmuhub/kmuhub/internal/vermietung"
 	vermietungv1 "github.com/kmuhub/kmuhub/proto/vermietung/v1"
 )
@@ -599,7 +600,7 @@ func (s *VermietungGRPCServer) ExportRentalReport(ctx context.Context, req *verm
 		row := []string{
 			r.ID.String(),
 			r.ObjectID.String(),
-			r.RenterName,
+			csvutil.NeutralizeFormulaCell(r.RenterName),
 			r.StartDate.Format(time.RFC3339),
 			r.EndDate.Format(time.RFC3339),
 			string(r.Status),

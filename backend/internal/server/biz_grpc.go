@@ -2032,11 +2032,14 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 		return nil, status.Error(codes.Unavailable, "time tracking repository not configured")
 	}
 
-	// Aggregate completed work time entries via HR repository
-	totalMinutes, entryIDs, err := s.timetrackingRepo.AggregateWorkTimeForInvoice(ctx, tenantID, employeeID, dateFrom, dateTo)
+	// Reserve (lock + mark billed, atomically) the completed work time entries via
+	// HR repository. A second call for the same employee/period — however close in
+	// time — sees these entries excluded once this commits, so it cannot also bill
+	// them: this is the double-billing guard, not just an aggregation step.
+	totalMinutes, entryIDs, err := s.timetrackingRepo.ReserveWorkTimeForInvoice(ctx, tenantID, employeeID, dateFrom, dateTo)
 	if err != nil {
-		slog.Error("aggregate work time failed", "tenant_id", tenantID, "employee_id", employeeID, "error", err)
-		return nil, status.Error(codes.Internal, fmt.Sprintf("aggregate work time: %s", err.Error()))
+		slog.Error("reserve work time for invoice failed", "tenant_id", tenantID, "employee_id", employeeID, "error", err)
+		return nil, status.Error(codes.Internal, fmt.Sprintf("reserve work time: %s", err.Error()))
 	}
 
 	if totalMinutes == 0 {
@@ -2074,8 +2077,22 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 		UserID:          userID,
 	})
 	if err != nil {
+		// The reservation already marked these entries billed; if the invoice
+		// never came into being, release them so they are billable again instead
+		// of stuck reserved forever.
+		if relErr := s.timetrackingRepo.ReleaseInvoiceReservation(ctx, tenantID, entryIDs); relErr != nil {
+			slog.Error("failed to release work time reservation after invoice create failure",
+				"tenant_id", tenantID, "error", relErr)
+		}
 		slog.Error("create invoice from time entries failed", "tenant_id", tenantID, "error", err)
 		return nil, mapBizError(err)
+	}
+
+	// Record which invoice claimed the reservation (best-effort traceability;
+	// the double-billing guard is already enforced by the reservation itself).
+	if confErr := s.timetrackingRepo.ConfirmInvoiceReservation(ctx, tenantID, inv.ID, entryIDs); confErr != nil {
+		slog.Warn("failed to confirm work time invoice reservation",
+			"invoice_id", inv.ID, "error", confErr)
 	}
 
 	// Build time_tracking_source audit trail

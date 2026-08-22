@@ -149,7 +149,7 @@ type updateAdvisoryProtocolRequest struct {
 	EsgDetails            string            `json:"esg_details"`
 	OneTimeAmount         *float64          `json:"one_time_amount,omitempty"`
 	MonthlySavings        *float64          `json:"monthly_savings,omitempty"`
-	Products              []advisoryProduct `json:"products"`
+	Products              []advisoryProduct `json:"products" validate:"dive"`
 	RecommendationSummary string            `json:"recommendation_summary"`
 	SuitabilityReasoning  string            `json:"suitability_reasoning"`
 	GoalReference         string            `json:"goal_reference"`

@@ -4,6 +4,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	settingsv1 "github.com/kmuhub/kmuhub/proto/settings/v1"
 )
 
 func newModuleAccessRoutes(registry *ServiceRegistry) *SettingsRoutes {
@@ -349,6 +354,59 @@ func TestHandleBulkRevokeModuleAccess_MissingPairs(t *testing.T) {
 	req = withTenantID(req, testTenantID)
 	routes.HandleBulkRevokeModuleAccess(rec, req)
 	assertValidationError(t, rec, "pairs")
+}
+
+// --- toUserModuleGrantJSON ---
+//
+// Isolated from the gRPC layer, same pattern as toDocumentChainWire in
+// route_biz_document_chains_test.go: there is no bufconn-/fake-client harness
+// for SettingsServiceClient in this package, so HandleListModuleGrants and
+// HandleGrantModuleAccess never exercise this transform in a handler-level
+// test (every existing test above stops at "ReachesRPC" -- 503 against the
+// dummy connection). This is the one part of the marshaling path that is
+// testable without that harness.
+
+func TestToUserModuleGrantJSON_WithLastActiveAt(t *testing.T) {
+	granted := time.Date(2026, 1, 15, 10, 30, 0, 0, time.UTC)
+	active := time.Date(2026, 2, 1, 8, 0, 0, 0, time.UTC)
+	g := &settingsv1.UserModuleGrant{
+		UserId:       testModuleAccessUserID,
+		UserName:     "Jane Doe",
+		ModuleId:     testModuleAccessModule,
+		GrantedAt:    timestamppb.New(granted),
+		LastActiveAt: timestamppb.New(active),
+	}
+
+	out := toUserModuleGrantJSON(g)
+
+	if out.UserID != testModuleAccessUserID || out.UserName != "Jane Doe" || out.ModuleID != testModuleAccessModule {
+		t.Fatalf("unexpected identity fields: %+v", out)
+	}
+	if out.GrantedAt != granted.Format(time.RFC3339) {
+		t.Fatalf("GrantedAt = %q, want %q", out.GrantedAt, granted.Format(time.RFC3339))
+	}
+	if out.LastActiveAt == nil || *out.LastActiveAt != active.Format(time.RFC3339) {
+		t.Fatalf("LastActiveAt = %v, want %q", out.LastActiveAt, active.Format(time.RFC3339))
+	}
+}
+
+// A grant that was never used (no login since the grant, e.g. a fresh
+// invitation) carries no last_active_at in the proto -- the JSON field must
+// stay nil, not a zero-time string, or the frontend would render a fake
+// "last active" date for a user who never logged in.
+func TestToUserModuleGrantJSON_NilLastActiveAt(t *testing.T) {
+	granted := time.Date(2026, 1, 15, 10, 30, 0, 0, time.UTC)
+	g := &settingsv1.UserModuleGrant{
+		UserId:    testModuleAccessUserID,
+		ModuleId:  testModuleAccessModule,
+		GrantedAt: timestamppb.New(granted),
+	}
+
+	out := toUserModuleGrantJSON(g)
+
+	if out.LastActiveAt != nil {
+		t.Fatalf("LastActiveAt = %v, want nil", out.LastActiveAt)
+	}
 }
 
 func TestHandleBulkRevokeModuleAccess_ReachesRPC(t *testing.T) {

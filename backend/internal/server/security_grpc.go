@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -959,6 +961,128 @@ func (s *SecurityGRPCServer) DeleteRetentionPolicy(ctx context.Context, req *sec
 	slog.Info("retention policy deleted", "policy_id", policyID)
 
 	return &securityv1.DeleteRetentionPolicyResponse{}, nil
+}
+
+// GetLatestRetentionRun reads the run log written by the scheduler
+// (internal/security/gdpr/retention_scheduler.go) -- it has no engine
+// reference of its own and never triggers a run, it only shows what the
+// last one did. RLS on retention_runs/retention_run_items (both created in
+// 000316) scopes both queries to the caller's tenant automatically, the
+// same pattern ListRetentionPolicies relies on.
+func (s *SecurityGRPCServer) GetLatestRetentionRun(ctx context.Context, _ *securityv1.GetLatestRetentionRunRequest) (*securityv1.GetLatestRetentionRunResponse, error) {
+	var (
+		runID                                                          uuid.UUID
+		mode, runStatus, triggeredBy                                   string
+		policiesTotal, recordsMatched, recordsAffected, recordsSkipped int
+		runError                                                       *string
+		startedAt                                                      time.Time
+		finishedAt                                                     *time.Time
+	)
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, mode, status, triggered_by, policies_total, records_matched,
+		        records_affected, records_skipped, error, started_at, finished_at
+		   FROM retention_runs
+		  ORDER BY started_at DESC
+		  LIMIT 1`,
+	).Scan(&runID, &mode, &runStatus, &triggeredBy, &policiesTotal,
+		&recordsMatched, &recordsAffected, &recordsSkipped, &runError, &startedAt, &finishedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return &securityv1.GetLatestRetentionRunResponse{HasRun: false}, nil
+	}
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load latest retention run")
+	}
+
+	pbRun := &securityv1.RetentionRun{
+		Id:              runID.String(),
+		Mode:            mode,
+		Status:          runStatus,
+		TriggeredBy:     triggeredBy,
+		PoliciesTotal:   int32(policiesTotal),
+		RecordsMatched:  int32(recordsMatched),
+		RecordsAffected: int32(recordsAffected),
+		RecordsSkipped:  int32(recordsSkipped),
+		StartedAt:       timestamppb.New(startedAt),
+	}
+	if runError != nil {
+		pbRun.Error = *runError
+	}
+	if finishedAt != nil {
+		pbRun.FinishedAt = timestamppb.New(*finishedAt)
+	}
+
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, resource_type, action, retention_days, cutoff, status,
+		        matched, affected, skipped, skip_reasons, message
+		   FROM retention_run_items
+		  WHERE run_id = $1
+		  ORDER BY resource_type ASC`,
+		runID,
+	)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load retention run items")
+	}
+	defer rows.Close()
+
+	items := make([]*securityv1.RetentionRunItem, 0)
+	for rows.Next() {
+		var (
+			itemID                            uuid.UUID
+			resourceType, action, itemStatus  string
+			retentionDays                     int
+			cutoff                            time.Time
+			matched, affected, skipped        int
+			skipReasonsRaw                    []byte
+			message                           *string
+		)
+		if scanErr := rows.Scan(&itemID, &resourceType, &action, &retentionDays, &cutoff,
+			&itemStatus, &matched, &affected, &skipped, &skipReasonsRaw, &message,
+		); scanErr != nil {
+			return nil, status.Error(codes.Internal, "failed to scan retention run item")
+		}
+
+		var skipReasons []struct {
+			RecordID uuid.UUID `json:"record_id"`
+			Reason   string    `json:"reason"`
+		}
+		if unmarshalErr := json.Unmarshal(skipReasonsRaw, &skipReasons); unmarshalErr != nil {
+			return nil, status.Error(codes.Internal, "failed to parse retention skip reasons")
+		}
+		pbSkips := make([]*securityv1.RetentionSkipReason, 0, len(skipReasons))
+		for _, sr := range skipReasons {
+			pbSkips = append(pbSkips, &securityv1.RetentionSkipReason{
+				RecordId: sr.RecordID.String(),
+				Reason:   sr.Reason,
+			})
+		}
+
+		pbItem := &securityv1.RetentionRunItem{
+			Id:            itemID.String(),
+			ResourceType:  resourceType,
+			Action:        action,
+			RetentionDays: int32(retentionDays),
+			Cutoff:        timestamppb.New(cutoff),
+			Status:        itemStatus,
+			Matched:       int32(matched),
+			Affected:      int32(affected),
+			Skipped:       int32(skipped),
+			SkipReasons:   pbSkips,
+		}
+		if message != nil {
+			pbItem.Message = *message
+		}
+		items = append(items, pbItem)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, status.Error(codes.Internal, "failed to iterate retention run items")
+	}
+
+	return &securityv1.GetLatestRetentionRunResponse{
+		HasRun: true,
+		Run:    pbRun,
+		Items:  items,
+	}, nil
 }
 
 // ============================================================================

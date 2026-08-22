@@ -436,6 +436,20 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) 
 	return nil
 }
 
+// PreviewDeletion reports what deleting a contact would do to every table
+// that references it, without changing anything. Used to show the user the
+// blast radius before they confirm a delete.
+func (s *Service) PreviewDeletion(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) ([]DeletionImpactItem, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+	if _, err := s.repo.GetByID(ctx, id, tenantID); err != nil {
+		return nil, ErrContactNotFound
+	}
+
+	return s.repo.DeletionImpact(ctx, id, tenantID)
+}
+
 // AddTags adds tags to a contact scoped to a tenant
 func (s *Service) AddTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
 	if tenantID == uuid.Nil {

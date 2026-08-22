@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -29,6 +31,10 @@ type stubInventarRepo struct {
 	sessionStatus  inventar.InventurStatus
 	pickingStatus  inventar.PickingStatus
 	bookingClaimed bool
+
+	// listItems, when set, is returned verbatim by ListItems (default nil keeps
+	// the existing always-empty behaviour other tests rely on).
+	listItems []*inventar.Item
 }
 
 func newStubInventarRepo() *stubInventarRepo {
@@ -68,7 +74,7 @@ func (r *stubInventarRepo) ListItems(_ context.Context, _ uuid.UUID, _ inventar.
 	if r.err != nil {
 		return nil, 0, r.err
 	}
-	return nil, 0, nil
+	return r.listItems, len(r.listItems), nil
 }
 
 func (r *stubInventarRepo) SKUExists(_ context.Context, _ uuid.UUID, _ string, _ *uuid.UUID) (bool, error) {
@@ -1273,4 +1279,42 @@ func TestInventarItemAttachmentHandlers(t *testing.T) {
 		_, err := s.DeleteItemAttachment(ctx, &inventarv1.DeleteItemAttachmentRequest{TenantId: tenantID.String(), AttachmentId: "bad"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
+}
+
+func TestInventar_ExportInventory_NeutralizesFormulaInjection(t *testing.T) {
+	tenantID := uuid.New()
+	barcode := "=1+1"
+	location := "+cmd|'/c calc'!A1"
+	repo := newStubInventarRepo()
+	repo.listItems = []*inventar.Item{
+		{
+			ID: uuid.New(), TenantID: tenantID,
+			Name: "=SUM(A1:A9)", SKU: "@import(evil)", Barcode: &barcode,
+			Quantity: 3, MinQuantity: 1, Unit: "-1", Location: &location,
+		},
+		{
+			ID: uuid.New(), TenantID: tenantID,
+			Name: "Normale Schraube", SKU: "SKU-42", Quantity: 10, MinQuantity: 2, Unit: "pcs",
+		},
+	}
+	s := newInventarTestServer(repo)
+
+	resp, err := s.ExportInventory(context.Background(), &inventarv1.ExportInventoryRequest{TenantId: tenantID.String()})
+	require.NoError(t, err)
+
+	rows, err := csv.NewReader(strings.NewReader(string(resp.Payload))).ReadAll()
+	require.NoError(t, err)
+	require.Len(t, rows, 3) // header + 2 items
+
+	dangerous := rows[1]
+	require.Equal(t, "'=SUM(A1:A9)", dangerous[1], "name")
+	require.Equal(t, "'@import(evil)", dangerous[2], "sku")
+	require.Equal(t, "'=1+1", dangerous[3], "barcode")
+	require.Equal(t, "'-1", dangerous[6], "unit")
+	require.Equal(t, "'+cmd|'/c calc'!A1", dangerous[7], "location")
+
+	normal := rows[2]
+	require.Equal(t, "Normale Schraube", normal[1])
+	require.Equal(t, "SKU-42", normal[2])
+	require.Equal(t, "pcs", normal[6])
 }

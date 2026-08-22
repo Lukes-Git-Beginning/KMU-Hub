@@ -34,7 +34,7 @@ func TestHandleCreateAccount_ServiceUnavailable(t *testing.T) {
 	}))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleCreateAccount(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleCreateAccount_InvalidJSON(t *testing.T) {
@@ -69,7 +69,7 @@ func TestHandleGetAccount_ServiceUnavailable(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/email/accounts/?user_id="+uuid.New().String(), nil)
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleGetAccount(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleGetAccount_ReachesRPC(t *testing.T) {
@@ -91,7 +91,7 @@ func TestHandleListAccounts_ServiceUnavailable(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/email/accounts/list", nil)
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleListAccounts(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleListAccounts_ReachesRPC(t *testing.T) {
@@ -151,7 +151,7 @@ func TestHandleUpdateAccount_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleUpdateAccount(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleUpdateAccount_InvalidJSON(t *testing.T) {
@@ -207,7 +207,7 @@ func TestHandleDeleteAccount_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleDeleteAccount(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleDeleteAccount_ReachesRPC(t *testing.T) {
@@ -233,7 +233,7 @@ func TestHandleSetDefaultAccount_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleSetDefaultAccount(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleSetDefaultAccount_ReachesRPC(t *testing.T) {
@@ -260,7 +260,7 @@ func TestHandleTestConnection_ServiceUnavailable(t *testing.T) {
 	}))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleTestConnection(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleTestConnection_InvalidJSON(t *testing.T) {

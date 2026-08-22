@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/csvutil"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -162,7 +163,7 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 		_ = w.Write([]string{
 			r.InvoiceNumber,
 			r.InvoiceDate,
-			r.CustomerName,
+			csvutil.NeutralizeFormulaCell(r.CustomerName),
 			r.Account,
 			r.TaxKey,
 			r.TaxRate,

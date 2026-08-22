@@ -178,6 +178,11 @@ func (s *Service) Update(ctx context.Context, id, tenantID uuid.UUID, in UpdateI
 	if in.RiskClass < 1 || in.RiskClass > 7 {
 		return nil, ErrInvalidRiskClass
 	}
+	for _, prod := range in.Products {
+		if prod.RiskClass < 1 || prod.RiskClass > 7 {
+			return nil, ErrInvalidRiskClass
+		}
+	}
 
 	// Apply all fields
 	p.Date = in.Date

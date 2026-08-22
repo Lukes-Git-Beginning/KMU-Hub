@@ -89,3 +89,42 @@ func TestEmailExportContactsCSV_MissingTenant(t *testing.T) {
 	})
 	require.Error(t, err)
 }
+
+// TestEmailExportContactsCSV_ExcludesOtherTenantContact proves that requesting a
+// foreign tenant's contact ID does not leak that tenant's row into the export. The
+// tenant-scoped adapter's ListByIDs filters by the caller's tenant_id (see
+// internal/crm/contact/postgres_repository.go ListByIDs: "WHERE id = ANY($1) AND
+// tenant_id = $2"), so a foreign ID is simply dropped rather than erroring — this
+// pins that no-error/no-leak behavior against a second, independently seeded tenant
+// instead of assuming it.
+func TestEmailExportContactsCSV_ExcludesOtherTenantContact(t *testing.T) {
+	pool, srv, tenantOwn, actorOwn := emailImportSetup(t)
+	ctxOwn := emailImportCtx(tenantOwn, actorOwn)
+
+	tenantOther := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOther, "EmailExportOtherTenant")
+	actorOther := uuid.New()
+	_, err := pool.Exec(testutil.WithSystemCtx(context.Background()),
+		`INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name)
+		 VALUES ($1, $2, $3, 'x', 'Email', 'OtherImporter')`,
+		actorOther, tenantOther, actorOther.String()+"@email-export-other.test.local")
+	require.NoError(t, err)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", actorOther) })
+	ctxOther := emailImportCtx(tenantOther, actorOther)
+
+	ownContactID := seedEmailExportContact(t, pool, srv, ctxOwn, tenantOwn, "own-tenant@email-export.test.local")
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "contacts", ownContactID) })
+
+	otherContactID := seedEmailExportContact(t, pool, srv, ctxOther, tenantOther, "other-tenant@email-export.test.local")
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "contacts", otherContactID) })
+
+	resp, err := srv.ExportContactsCSV(ctxOwn, &emailv1.ExportContactsRequest{
+		ContactIds: []string{ownContactID.String(), otherContactID.String()},
+	})
+	require.NoError(t, err)
+
+	out := string(resp.FileContent)
+	require.Contains(t, out, "own-tenant@email-export.test.local")
+	require.NotContains(t, out, "other-tenant@email-export.test.local",
+		"cross-tenant export leaked a foreign tenant's contact row")
+}

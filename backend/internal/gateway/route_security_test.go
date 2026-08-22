@@ -324,3 +324,10 @@ func TestHandleUpdatePasswordPolicy_ValidEmptyBody(t *testing.T) {
 		t.Errorf("expected non-400 for valid body, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+// --- HandleGetLatestRetentionRun ---
+
+func TestHandleGetLatestRetentionRun_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleGetLatestRetentionRun)
+}

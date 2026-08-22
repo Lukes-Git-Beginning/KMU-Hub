@@ -288,20 +288,28 @@ func (r *stubPrefRepo) UpsertQuietHours(_ context.Context, qh *models.QuietHours
 // account-link/link-token surface exercised by the RPCs under test.
 type notifIntegStub struct {
 	integration.Repository
-	mu       sync.Mutex
-	configs  map[uuid.UUID]*integration.IntegrationConfig
-	mappings map[uuid.UUID]*integration.ChannelMapping
-	links    map[string]*integration.AccountLink
-	tokens   map[string]*integration.LinkToken
+	mu              sync.Mutex
+	configs         map[uuid.UUID]*integration.IntegrationConfig
+	mappings        map[uuid.UUID]*integration.ChannelMapping
+	links           map[string]*integration.AccountLink
+	tokens          map[string]*integration.LinkToken
+	mappingsInUse   map[uuid.UUID]bool
 }
 
 func newNotifIntegStub() *notifIntegStub {
 	return &notifIntegStub{
-		configs:  make(map[uuid.UUID]*integration.IntegrationConfig),
-		mappings: make(map[uuid.UUID]*integration.ChannelMapping),
-		links:    make(map[string]*integration.AccountLink),
-		tokens:   make(map[string]*integration.LinkToken),
+		configs:       make(map[uuid.UUID]*integration.IntegrationConfig),
+		mappings:      make(map[uuid.UUID]*integration.ChannelMapping),
+		links:         make(map[string]*integration.AccountLink),
+		tokens:        make(map[string]*integration.LinkToken),
+		mappingsInUse: make(map[uuid.UUID]bool),
 	}
+}
+
+func (r *notifIntegStub) HasDeliveryLogs(_ context.Context, mappingID uuid.UUID) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.mappingsInUse[mappingID], nil
 }
 
 func notifLinkKey(platform string, userID uuid.UUID) string {
@@ -1380,6 +1388,13 @@ func TestChannelMappingCRUD_HappyPath(t *testing.T) {
 	requireGRPCOK(t, err)
 	assert.Equal(t, "#general-renamed", updated.Mapping.ChannelName)
 	assert.False(t, updated.Mapping.IsActive)
+
+	mappingID, err := uuid.Parse(created.Mapping.Id)
+	require.NoError(t, err)
+	repo.mappingsInUse[mappingID] = true
+	_, err = srv.DeleteChannelMapping(ctx, &notificationv1.DeleteChannelMappingRequest{Id: created.Mapping.Id})
+	requireGRPCCode(t, err, codes.FailedPrecondition)
+	repo.mappingsInUse[mappingID] = false
 
 	_, err = srv.DeleteChannelMapping(ctx, &notificationv1.DeleteChannelMappingRequest{Id: created.Mapping.Id})
 	requireGRPCOK(t, err)

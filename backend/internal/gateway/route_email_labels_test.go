@@ -27,20 +27,20 @@ func TestEmailLabelRoutes_Guards(t *testing.T) {
 		perms  []string
 		want   int
 	}{
-		{"list with read", http.MethodGet, "/api/v1/email/labels", "", []string{"email:read"}, http.StatusBadGateway},
+		{"list with read", http.MethodGet, "/api/v1/email/labels", "", []string{"email:read"}, http.StatusServiceUnavailable},
 		{"list without read", http.MethodGet, "/api/v1/email/labels", "", nil, http.StatusForbidden},
 		{"list with write only", http.MethodGet, "/api/v1/email/labels", "", []string{"email:write"}, http.StatusForbidden},
 
-		{"create with write", http.MethodPost, "/api/v1/email/labels", "{}", []string{"email:write"}, http.StatusBadGateway},
+		{"create with write", http.MethodPost, "/api/v1/email/labels", "{}", []string{"email:write"}, http.StatusServiceUnavailable},
 		{"create without write", http.MethodPost, "/api/v1/email/labels", "{}", []string{"email:read"}, http.StatusForbidden},
 
-		{"patch with write", http.MethodPatch, "/api/v1/email/labels/" + labelID, "{}", []string{"email:write"}, http.StatusBadGateway},
+		{"patch with write", http.MethodPatch, "/api/v1/email/labels/" + labelID, "{}", []string{"email:write"}, http.StatusServiceUnavailable},
 		{"patch without write", http.MethodPatch, "/api/v1/email/labels/" + labelID, "{}", nil, http.StatusForbidden},
 
-		{"delete with delete", http.MethodDelete, "/api/v1/email/labels/" + labelID, "", []string{"email:delete"}, http.StatusBadGateway},
+		{"delete with delete", http.MethodDelete, "/api/v1/email/labels/" + labelID, "", []string{"email:delete"}, http.StatusServiceUnavailable},
 		{"delete with write only", http.MethodDelete, "/api/v1/email/labels/" + labelID, "", []string{"email:write"}, http.StatusForbidden},
 
-		{"assign with write", http.MethodPost, "/api/v1/email/messages/" + messageID + "/labels", "{}", []string{"email:write"}, http.StatusBadGateway},
+		{"assign with write", http.MethodPost, "/api/v1/email/messages/" + messageID + "/labels", "{}", []string{"email:write"}, http.StatusServiceUnavailable},
 		{"assign without write", http.MethodPost, "/api/v1/email/messages/" + messageID + "/labels", "{}", []string{"email:read"}, http.StatusForbidden},
 	}
 

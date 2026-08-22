@@ -420,6 +420,28 @@ func TestExport_HeaderConsultantClientAndForeignCurrency(t *testing.T) {
 // DATEV import ever turns out to require cp1252 in practice, that is a
 // product decision (a real encoding step, a new dependency) — out of scope
 // for a coverage-only unit, and not something to silently invent here.
+//
+// RESEARCH UPDATE (2026-08-22, verify-datev-extf-encoding-requirement,
+// iteration 39): could not find a directly quotable, version-numbered
+// primary source that settles this. developer.datev.de's own booking-batch
+// and header field specs for format 700 / category 21 (fetched directly,
+// not from a search snippet) say nothing about character encoding at all.
+// A dedicated "Zeichensatz" page exists on that portal but 404s without a
+// login. Search-engine synthesis of that page's indexed content (not
+// independently verified by reading the page myself) claims: default
+// import charset is ISO-8859-1/CP1252, but Unicode (UTF-8/-16/-32) is also
+// accepted if a BOM is present — restricted to manual import in DATEV
+// Rechnungswesen or the "accounting:extf-files" Online API, i.e. exactly
+// what this exporter produces. Separately, the independent open-source
+// "ledermann/datev" Ruby gem (unrelated to DATEV or this project)
+// hardcodes CP1252 for its EXTF booking-batch export, which is real-world
+// signal that automated/non-API import paths may still expect CP1252.
+// Net: evidence is mixed and doesn't clear the bar this unit set for
+// itself. Do NOT reinterpret this as either a confirmation or a refutation
+// — it's an open question that needs either paid developer.datev.de portal
+// access to the primary spec, or an empirical test against a real DATEV
+// import. Unit is `blocked` for that reason; encoding behavior here is
+// unchanged.
 func TestExport_GoldenBytesWithUmlauts(t *testing.T) {
 	exporter := NewExporter()
 	items := []models.LineItem{{

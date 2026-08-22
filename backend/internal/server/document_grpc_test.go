@@ -51,6 +51,7 @@ func TestMapDocumentError_AllSentinels(t *testing.T) {
 		{"CannotRenameSystemFolder", folder.ErrCannotRenameSystemFolder, codes.FailedPrecondition},
 		{"FolderNameConflict", folder.ErrFolderNameConflict, codes.AlreadyExists},
 		{"CircularParent", folder.ErrCircularParent, codes.FailedPrecondition},
+		{"FolderNotEmpty", folder.ErrFolderNotEmpty, codes.FailedPrecondition},
 
 		// file
 		{"FileNotFound", file.ErrFileNotFound, codes.NotFound},

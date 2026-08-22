@@ -2,6 +2,7 @@ package contact
 
 import (
 	"context"
+	"encoding/csv"
 	"strings"
 	"testing"
 
@@ -274,6 +275,87 @@ func TestExportImportRoundTrip_CompanyCSV(t *testing.T) {
 	if importProvider.companyNames[*imported.CompanyID] != "Acme GmbH" {
 		t.Errorf("expected company Acme GmbH to survive the round trip, got %q", importProvider.companyNames[*imported.CompanyID])
 	}
+}
+
+func TestExportCSV_FormulaInjectionNeutralized(t *testing.T) {
+	provider := newMockProvider()
+	email := "formula@example.com"
+	lastName := "=HYPERLINK(\"http://evil.example/\",\"x\")"
+	notes := "+cmd|'/C calc'!A0"
+	c := &models.Contact{
+		ID:        uuid.New(),
+		FirstName: "-2+3",
+		LastName:  lastName,
+		Email:     &email,
+		Notes:     &notes,
+	}
+	provider.contacts[email] = c
+
+	svc := NewExportService(provider, nil)
+	data, err := svc.ExportCSV(context.Background(), []uuid.UUID{c.ID}, []string{"first_name", "last_name", "email", "notes"})
+	if err != nil {
+		t.Fatalf("ExportCSV failed: %v", err)
+	}
+
+	rows := parseCSVRows(t, data)
+	dataRow := rows[1] // rows[0] is the header
+
+	if dataRow[0] != "'-2+3" {
+		t.Errorf("expected first_name neutralized to %q, got %q", "'-2+3", dataRow[0])
+	}
+	if dataRow[1] != "'"+lastName {
+		t.Errorf("expected last_name neutralized to %q, got %q", "'"+lastName, dataRow[1])
+	}
+	if dataRow[2] != email {
+		t.Errorf("expected email untouched (no formula prefix), got %q", dataRow[2])
+	}
+	if dataRow[3] != "'"+notes {
+		t.Errorf("expected notes neutralized to %q, got %q", "'"+notes, dataRow[3])
+	}
+}
+
+func TestExportCSV_NormalValuesUnchanged(t *testing.T) {
+	provider := newMockProvider()
+	email := "normal@example.com"
+	notes := "Regular note about the customer"
+	c := &models.Contact{
+		ID:        uuid.New(),
+		FirstName: "Max",
+		LastName:  "Mustermann",
+		Email:     &email,
+		Notes:     &notes,
+	}
+	provider.contacts[email] = c
+
+	svc := NewExportService(provider, nil)
+	data, err := svc.ExportCSV(context.Background(), []uuid.UUID{c.ID}, []string{"first_name", "last_name", "email", "notes"})
+	if err != nil {
+		t.Fatalf("ExportCSV failed: %v", err)
+	}
+
+	rows := parseCSVRows(t, data)
+	dataRow := rows[1]
+
+	if dataRow[0] != "Max" {
+		t.Errorf("expected first_name unchanged, got %q", dataRow[0])
+	}
+	if dataRow[1] != "Mustermann" {
+		t.Errorf("expected last_name unchanged, got %q", dataRow[1])
+	}
+	if dataRow[3] != notes {
+		t.Errorf("expected notes unchanged, got %q", dataRow[3])
+	}
+}
+
+// parseCSVRows strips the BOM and parses the CSV body into rows for cell-level assertions.
+func parseCSVRows(t *testing.T, data []byte) [][]string {
+	t.Helper()
+	r := csv.NewReader(strings.NewReader(trimBOM(data)))
+	rows, err := r.ReadAll()
+	if err != nil {
+		t.Fatalf("failed to parse exported CSV: %v", err)
+	}
+	return rows
 }
 
 func trimBOM(data []byte) string {

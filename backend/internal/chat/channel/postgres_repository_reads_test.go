@@ -422,3 +422,45 @@ func TestPostgresRepository_UnreadCounts(t *testing.T) {
 		t.Fatalf("GetUnreadCountsForUser: expected 1 for fx.channel, got %d", counts[fx.channel])
 	}
 }
+
+// TestPostgresRepository_HasCallSessions proves both sides of
+// fix-channel-delete-call-sessions-fk-crash: HasCallSessions correctly
+// detects an attached call_sessions row, and — without that guard — deleting
+// the channel really does fail with a raw FK violation (call_sessions.channel_id
+// is ON DELETE NO ACTION), confirming the crash this unit prevents is real.
+func TestPostgresRepository_HasCallSessions(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	fx := newReadFixture(t, pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), fx.tenant)
+	repo := NewPostgresRepository(pool)
+
+	if has, err := repo.HasCallSessions(ctxOwn, fx.channel); err != nil || has {
+		t.Fatalf("HasCallSessions before seeding: expected false, got %v (err %v)", has, err)
+	}
+
+	callSession := testutil.SeedRow(t, pool, "call_sessions", map[string]any{
+		"tenant_id":    fx.tenant,
+		"call_type":    "group",
+		"status":       "ended",
+		"room_name":    fmt.Sprintf("channel-hascalls-%s", uuid.New().String()[:8]),
+		"initiator_id": fx.userA,
+		"channel_id":   fx.channel,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "call_sessions", callSession) })
+
+	if has, err := repo.HasCallSessions(ctxOwn, fx.channel); err != nil || !has {
+		t.Fatalf("HasCallSessions after seeding: expected true, got %v (err %v)", has, err)
+	}
+
+	// A raw delete (bypassing the guard this unit adds to Service.Delete) must
+	// still fail with the FK violation — otherwise the guard is defending
+	// against a bug that no longer exists.
+	if _, err := pool.Exec(ctxOwn, `DELETE FROM channels WHERE id = $1`, fx.channel); err == nil {
+		t.Fatalf("raw DELETE with attached call_sessions: expected FK violation, got no error")
+	}
+}

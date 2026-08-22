@@ -1,9 +1,11 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -206,6 +208,55 @@ func TestHandleTestConnection_AuthFailure(t *testing.T) {
 	}
 	if !strings.Contains(result.Message, "authentication failed") {
 		t.Fatalf("message = %q, want it to name the auth failure", result.Message)
+	}
+}
+
+// TestBasicAuthMiddleware_FailedLogin_DoesNotLogRawUsername belongs to
+// fix-gateway-caldav-basic-auth-username-log-leakage: CalDAV clients
+// conventionally send an email address as the Basic-Auth username (the
+// expected value is a user UUID), and /caldav/ is reachable without prior
+// authentication -- a failed attempt must not put that email in the log
+// verbatim.
+func TestBasicAuthMiddleware_FailedLogin_DoesNotLogRawUsername(t *testing.T) {
+	userID, tenantID := uuid.New(), uuid.New()
+	pwSvc := newFakeCalDAVPasswordService()
+	pwSvc.forceInvalid = true
+
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), "")
+
+	r := chi.NewRouter()
+	routes.RegisterRoutes(r)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	var logBuf bytes.Buffer
+	prevLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, nil)))
+	defer slog.SetDefault(prevLogger)
+
+	const email = "leaks@example.com"
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/caldav/", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.SetBasicAuth(email, "wrong-password")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET /caldav/: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", resp.StatusCode)
+	}
+
+	logged := logBuf.String()
+	if strings.Contains(logged, email) {
+		t.Fatalf("log output leaked the raw Basic-Auth username: %s", logged)
+	}
+	if !strings.Contains(logged, fingerprintCaldavUsername(email)) {
+		t.Fatalf("log output missing fingerprint for anomaly/rate-limit analysis: %s", logged)
 	}
 }
 

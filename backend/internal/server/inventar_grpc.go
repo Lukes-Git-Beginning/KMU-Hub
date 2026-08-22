@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/csvutil"
 	"github.com/kmuhub/kmuhub/internal/inventar"
 	inventarv1 "github.com/kmuhub/kmuhub/proto/inventar/v1"
 )
@@ -499,13 +500,13 @@ func (s *InventarGRPCServer) ExportInventory(ctx context.Context, req *inventarv
 		}
 		row := []string{
 			item.ID.String(),
-			item.Name,
-			item.SKU,
-			barcode,
+			csvutil.NeutralizeFormulaCell(item.Name),
+			csvutil.NeutralizeFormulaCell(item.SKU),
+			csvutil.NeutralizeFormulaCell(barcode),
 			strconv.FormatInt(item.Quantity, 10),
 			strconv.FormatInt(item.MinQuantity, 10),
-			item.Unit,
-			location,
+			csvutil.NeutralizeFormulaCell(item.Unit),
+			csvutil.NeutralizeFormulaCell(location),
 		}
 		if writeErr := w.Write(row); writeErr != nil {
 			return nil, status.Errorf(codes.Internal, "write csv row: %v", writeErr)

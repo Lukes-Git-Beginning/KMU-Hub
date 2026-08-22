@@ -6113,6 +6113,10 @@ paths:
       responses:
         "200":
           description: Custom fields updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/work/search:
     get:
@@ -8828,8 +8832,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Quote is not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/quotes/{id}/accept:
     post:
@@ -8845,6 +8857,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Quote is not in sent status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/quotes/{id}/reject:
     post:
@@ -8860,6 +8881,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Quote is not in sent status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/quotes/{id}/convert:
     post:
@@ -8893,6 +8923,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Quote must be accepted before conversion to invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/quotes/{id}/pdf:
     get:
@@ -13718,9 +13759,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/GobdDocument"
         "400":
-          description: Validation error (empty file, unknown doc_type, file too large)
+          description: Validation error (empty file, unknown doc_type)
         "401":
           description: Unauthorized
+        "413":
+          description: Document exceeds the 50 MiB limit
 
   /api/v1/finance/gobd-archive/from-invoice/{invoiceId}:
     post:
@@ -13869,6 +13912,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           description: Duplicate invoice (same supplier + invoice number already imported)
+        "413":
+          description: Uploaded file exceeds the 10 MiB limit
         "415":
           description: Unsupported media type
         "401":
@@ -20342,6 +20387,30 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/v1/security/retention-runs/latest:
+    get:
+      summary: Show the last scheduled retention run (admin only)
+      description: >-
+        Read-only view of what the retention scheduler last did: mode
+        (dry_run/enforce), status per policy, and skipped records with their
+        reason. There is no trigger endpoint -- the run itself starts from
+        the scheduler goroutine, not from this route.
+      tags: [security]
+      operationId: getLatestRetentionRun
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Latest retention run, or has_run=false if none ever executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetLatestRetentionRunResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   # --------------------------------------------------------------------------
   # Vendor Access (RBAC R-5 B, GDAP-light v3). Own top-level prefix, not under
@@ -28920,7 +28989,9 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
       summary: Delete a channel mapping
-      description: Requires admin role.
+      description: >-
+        Requires admin role. Fails with 409 if the mapping has delivery log
+        entries (integration_delivery_log.mapping_id is ON DELETE NO ACTION).
       tags: [integrations]
       operationId: deleteIntegrationChannelMapping
       security: [{ bearerAuth: [] }]
@@ -28939,6 +29010,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /api/v1/integrations/link:
     post:
@@ -30865,6 +30937,26 @@ paths:
                 $ref: "#/components/schemas/CrmContactTimelineResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/contacts/{id}/deletion-preview:
+    get:
+      summary: Preview what deleting a contact would do to referencing records
+      description: Pure read, changes nothing. Lists every table that references the contact, the delete rule that governs it (cascade/set_null/restrict/no_action, read live from pg_constraint), and how many rows are affected.
+      tags: [contacts]
+      operationId: previewContactDeletion
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Deletion impact per referencing table
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmContactDeletionPreviewResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/contacts/{id}/consents:
     get:
@@ -41138,6 +41230,88 @@ components:
         description:
           type: string
 
+    RetentionSkipReason:
+      type: object
+      properties:
+        record_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+
+    RetentionRunItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        resource_type:
+          type: string
+        action:
+          type: string
+          enum: [delete, anonymize]
+        retention_days:
+          type: integer
+        cutoff:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        status:
+          type: string
+          enum: [dry_run, applied, unmapped, unsupported, failed]
+        matched:
+          type: integer
+        affected:
+          type: integer
+        skipped:
+          type: integer
+        skip_reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetentionSkipReason"
+        message:
+          type: string
+
+    RetentionRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum: [dry_run, enforce]
+        status:
+          type: string
+          enum: [running, completed, failed]
+        triggered_by:
+          type: string
+        policies_total:
+          type: integer
+        records_matched:
+          type: integer
+        records_affected:
+          type: integer
+        records_skipped:
+          type: integer
+        error:
+          type: string
+        started_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        finished_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    GetLatestRetentionRunResponse:
+      type: object
+      properties:
+        has_run:
+          type: boolean
+          description: False when retention has never run for this tenant.
+        run:
+          $ref: "#/components/schemas/RetentionRun"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetentionRunItem"
+
     # -----------------------------------------------------------------------
     # Vendor Access (RBAC R-5 B, GDAP-light v3)
     # -----------------------------------------------------------------------
@@ -46302,6 +46476,30 @@ components:
             $ref: "#/components/schemas/CrmTimelineEvent"
         total:
           type: integer
+
+    CrmContactDeletionImpact:
+      type: object
+      properties:
+        table:
+          type: string
+        column:
+          type: string
+        action:
+          type: string
+          enum: [cascade, set_null, restrict, no_action]
+        count:
+          type: integer
+
+    CrmContactDeletionPreviewResponse:
+      type: object
+      properties:
+        contact_id:
+          type: string
+          format: uuid
+        impacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmContactDeletionImpact"
 
     # -----------------------------------------------------------------------
     # route_crm_ext.go -- GDPR consent + deletion-request proto messages, as

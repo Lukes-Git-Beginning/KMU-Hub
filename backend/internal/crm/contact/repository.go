@@ -2,6 +2,7 @@ package contact
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -45,6 +46,12 @@ type Repository interface {
 	CompanyExists(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (bool, error)
 	TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error)
 
+	// DeletionImpact previews what deleting a contact would do to every table
+	// that references it via foreign key (read live from pg_constraint, not
+	// hardcoded — see postgres_repository.go). Only tables with at least one
+	// matching row are returned.
+	DeletionImpact(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) ([]DeletionImpactItem, error)
+
 	// Duplicate detection
 	FindDuplicateCandidates(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID) ([]*DuplicateCandidate, error)
 	MergeInto(ctx context.Context, primaryID, duplicateID uuid.UUID, tenantID uuid.UUID) error
@@ -52,6 +59,14 @@ type Repository interface {
 	// Lead lifecycle (same contacts rows, filtered by lifecycle_stage)
 	ListLeads(ctx context.Context, filter LeadFilter, offset, limit int) ([]*models.ContactWithRelations, int, error)
 	UpdateLead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, patch LeadPatch) (*models.ContactWithRelations, error)
+
+	// ListRetentionCandidates returns contact IDs whose retention clock has
+	// elapsed: the later of the contact's own last edit (updated_at) and its
+	// most recent activity. Using created_at alone would retire contacts a
+	// user is still actively working with, and AnonymizeContact bumping
+	// updated_at to NOW() is exactly what keeps a handler from re-matching the
+	// same row on every subsequent run.
+	ListRetentionCandidates(ctx context.Context, tenantID uuid.UUID, cutoff time.Time) ([]uuid.UUID, error)
 }
 
 // LeadFilter narrows the lead inbox. TenantID is always applied.
@@ -71,6 +86,15 @@ type LeadPatch struct {
 	Score            *int16
 	Temperature      *string
 	ClearTemperature bool
+}
+
+// DeletionImpactItem is one referencing table/column pair that would be
+// affected by deleting a contact, per DeletionImpact.
+type DeletionImpactItem struct {
+	Table  string
+	Column string
+	Action string // lowercased delete_rule: cascade, set_null, restrict, no_action
+	Count  int
 }
 
 // ListFilter contains filtering options for listing contacts

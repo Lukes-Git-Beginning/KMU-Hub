@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -36,6 +38,10 @@ type stubFuhrparkRepo struct {
 
 	gpsPositions []fuhrpark.GpsPosition
 	routes       []fuhrpark.VehicleRouteAggregation
+
+	// listVehicles, when set, is returned verbatim by ListVehicles (default nil
+	// keeps the existing always-empty behaviour other tests rely on).
+	listVehicles []*fuhrpark.Vehicle
 }
 
 func newStubFuhrparkRepo() *stubFuhrparkRepo { return &stubFuhrparkRepo{} }
@@ -73,7 +79,7 @@ func (r *stubFuhrparkRepo) ListVehicles(_ context.Context, _ uuid.UUID, _ fuhrpa
 	if r.err != nil {
 		return nil, 0, r.err
 	}
-	return nil, 0, nil
+	return r.listVehicles, len(r.listVehicles), nil
 }
 
 func (r *stubFuhrparkRepo) PlateExists(_ context.Context, _ uuid.UUID, _ string, _ *uuid.UUID) (bool, error) {
@@ -788,6 +794,29 @@ func TestFuhrparkHistoryAndReportHandlers(t *testing.T) {
 		requireGRPCOK(t, err)
 		require.Equal(t, "text/csv; charset=utf-8", resp.ContentType)
 		require.Contains(t, string(resp.Payload), "License Plate")
+	})
+
+	t.Run("ExportVehicleReport neutralizes formula injection in free-text fields", func(t *testing.T) {
+		repo := newStubFuhrparkRepo()
+		repo.listVehicles = []*fuhrpark.Vehicle{
+			{
+				ID: uuid.New(), TenantID: tenantID,
+				LicensePlate: "=cmd|'/c calc'!A1", Make: "+Evil", Model: "-Corp", Year: 2020,
+				FuelType: "@diesel", Status: fuhrpark.VehicleStatusActive, MileageKm: 1000,
+			},
+		}
+		s := newFuhrparkTestServer(repo)
+		resp, err := s.ExportVehicleReport(ctx, &fuhrparkv1.ExportVehicleReportRequest{TenantId: tenantID.String()})
+		requireGRPCOK(t, err)
+
+		rows, err := csv.NewReader(strings.NewReader(string(resp.Payload))).ReadAll()
+		require.NoError(t, err)
+		require.Len(t, rows, 2) // header + 1 vehicle
+		row := rows[1]
+		require.Equal(t, "'=cmd|'/c calc'!A1", row[1], "license plate")
+		require.Equal(t, "'+Evil", row[2], "make")
+		require.Equal(t, "'-Corp", row[3], "model")
+		require.Equal(t, "'@diesel", row[5], "fuel type")
 	})
 }
 

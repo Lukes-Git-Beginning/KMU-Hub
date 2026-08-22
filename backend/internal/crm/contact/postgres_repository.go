@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -338,9 +340,31 @@ func (r *PostgresRepository) ListAll(ctx context.Context, userID uuid.UUID, isAd
 	return contacts, rows.Err()
 }
 
+// Delete hard-deletes a contact scoped to a tenant. This is the regular path
+// (no RESTRICT hit, see IsInUse) and, unlike AnonymizeContact, it does not
+// stop for audit/compliance FKs -- so it must scrub the same dependent tables
+// itself before the row disappears, or activities.description, consent_records
+// identifiers, and external tickets' requester identity would survive the
+// contact they name (fix-contact-erasure-incomplete-set-null-table-scrub).
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM contacts WHERE id = $1 AND tenant_id = $2`, id, tenantID)
-	return err
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("contact delete: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := consent.ScrubDependentPII(ctx, tx, id, tenantID); err != nil {
+		return fmt.Errorf("contact delete: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, `DELETE FROM contacts WHERE id = $1 AND tenant_id = $2`, id, tenantID); err != nil {
+		return fmt.Errorf("contact delete: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("contact delete: commit: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresRepository) GetCompanyName(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (string, error) {
@@ -568,6 +592,146 @@ func (r *PostgresRepository) IsInUse(ctx context.Context, id uuid.UUID, tenantID
 		return false, "", nil
 	}
 	return true, strings.Join(reasons, ", "), nil
+}
+
+// ListRetentionCandidates returns contact IDs whose retention clock elapsed
+// before cutoff: the later of the contact's own updated_at and the most
+// recent activities row logged against it. A contact with no activities uses
+// its own updated_at only.
+func (r *PostgresRepository) ListRetentionCandidates(ctx context.Context, tenantID uuid.UUID, cutoff time.Time) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT c.id
+		FROM contacts c
+		LEFT JOIN (
+			SELECT contact_id, MAX(created_at) AS last_activity_at
+			FROM activities
+			WHERE contact_id IS NOT NULL
+			GROUP BY contact_id
+		) a ON a.contact_id = c.id
+		WHERE c.tenant_id = $1
+		  AND GREATEST(c.updated_at, COALESCE(a.last_activity_at, c.updated_at)) < $2
+		ORDER BY c.created_at ASC`,
+		tenantID, cutoff,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list retention candidates: %w", err)
+	}
+	defer rows.Close()
+
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			return nil, fmt.Errorf("scan retention candidate: %w", scanErr)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// DeletionImpact reports which tables reference a contact and what deleting
+// it would do to each: read live from pg_constraint/pg_attribute rather than a
+// hardcoded table list, so a future migration that adds or changes a foreign
+// key to contacts(id) is reflected automatically instead of silently going
+// stale. Uses pg_catalog, not information_schema: the constraint-related
+// information_schema views (table_constraints, key_column_usage,
+// constraint_column_usage, referential_constraints) are privilege-filtered
+// and return zero rows for kmuhub_app even though it holds SELECT on every
+// table -- verified against the local DB (2026-08-22). pg_catalog has no such
+// filtering.
+func (r *PostgresRepository) DeletionImpact(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) ([]DeletionImpactItem, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT rel.relname, att.attname, con.confdeltype::text,
+		  EXISTS(
+		    SELECT 1 FROM pg_attribute ta
+		    WHERE ta.attrelid = con.conrelid AND ta.attname = 'tenant_id' AND NOT ta.attisdropped
+		  ) AS has_tenant_id
+		FROM pg_constraint con
+		JOIN pg_class rel ON rel.oid = con.conrelid
+		JOIN pg_namespace ns ON ns.oid = rel.relnamespace
+		JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = con.conkey[1]
+		WHERE con.contype = 'f'
+		  AND ns.nspname = 'public'
+		  AND con.confrelid = 'public.contacts'::regclass
+		ORDER BY rel.relname, att.attname`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query referencing foreign keys: %w", err)
+	}
+
+	type refConstraint struct {
+		table       string
+		column      string
+		ruleCode    string
+		hasTenantID bool
+	}
+	var refs []refConstraint
+	for rows.Next() {
+		var c refConstraint
+		if scanErr := rows.Scan(&c.table, &c.column, &c.ruleCode, &c.hasTenantID); scanErr != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan referencing foreign key: %w", scanErr)
+		}
+		refs = append(refs, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+
+	items := make([]DeletionImpactItem, 0, len(refs))
+	for _, ref := range refs {
+		// table/column come from the database catalog, not user input, so
+		// interpolating them (quoted) into the query is safe.
+		table := pgx.Identifier{ref.table}.Sanitize()
+		column := pgx.Identifier{ref.column}.Sanitize()
+
+		var count int
+		var scanErr error
+		if ref.hasTenantID {
+			// Explicit tenant filter as defense-in-depth alongside RLS, matching
+			// IsInUse above. Not every referencing table carries tenant_id
+			// (e.g. contact_custom_field_values scopes via a join back to
+			// contacts in its RLS policy instead) -- for those, RLS alone scopes
+			// the count, which is exactly what that policy is for.
+			query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE %s = $1 AND tenant_id = $2`, table, column)
+			scanErr = r.pool.QueryRow(ctx, query, id, tenantID).Scan(&count)
+		} else {
+			query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE %s = $1`, table, column)
+			scanErr = r.pool.QueryRow(ctx, query, id).Scan(&count)
+		}
+		if scanErr != nil {
+			return nil, fmt.Errorf("count rows referencing contact via %s.%s: %w", ref.table, ref.column, scanErr)
+		}
+		if count == 0 {
+			continue
+		}
+		items = append(items, DeletionImpactItem{
+			Table:  ref.table,
+			Column: ref.column,
+			Action: deletionRuleAction(ref.ruleCode),
+			Count:  count,
+		})
+	}
+	return items, nil
+}
+
+// deletionRuleAction maps a pg_constraint.confdeltype code to the name used
+// in DeletionImpactItem.Action. See postgres.h FKCONSTR_ACTION_* / the
+// pg_constraint docs for the single-letter codes.
+func deletionRuleAction(code string) string {
+	switch code {
+	case "c":
+		return "cascade"
+	case "n":
+		return "set_null"
+	case "r":
+		return "restrict"
+	case "d":
+		return "set_default"
+	default: // "a" (no action) and anything unforeseen
+		return "no_action"
+	}
 }
 
 func (r *PostgresRepository) CompanyExists(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (bool, error) {

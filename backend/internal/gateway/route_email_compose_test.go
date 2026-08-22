@@ -42,7 +42,7 @@ func TestHandleMarkRead_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleMarkRead(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleMarkRead_ReachesRPC(t *testing.T) {
@@ -64,7 +64,7 @@ func TestHandleMarkUnread_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleMarkUnread(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleMarkUnread_ReachesRPC(t *testing.T) {
@@ -86,7 +86,7 @@ func TestHandleToggleStar_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleToggleStar(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleToggleStar_ReachesRPC(t *testing.T) {
@@ -114,7 +114,7 @@ func TestHandleMoveToFolder_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleMoveToFolder(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleMoveToFolder_InvalidJSON(t *testing.T) {
@@ -193,7 +193,7 @@ func TestHandleDeleteMessage_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withChiURLParam(req, "id", id)
 	routes.HandleDeleteMessage(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 // TestHandleDeleteMessage_InvalidIDUUID documents the same missing local
@@ -235,7 +235,7 @@ func TestHandleBulkMessageAction_ServiceUnavailable(t *testing.T) {
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	req = withPermissions(req, "email:write")
 	routes.HandleBulkMessageAction(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleBulkMessageAction_InvalidJSON(t *testing.T) {
@@ -360,7 +360,7 @@ func TestHandleSendEmail_ServiceUnavailable(t *testing.T) {
 	}))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleSendEmail(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleSendEmail_InvalidJSON(t *testing.T) {
@@ -429,7 +429,7 @@ func TestHandleSaveDraft_ServiceUnavailable(t *testing.T) {
 	}))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleSaveDraft(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleSaveDraft_InvalidJSON(t *testing.T) {
@@ -478,7 +478,7 @@ func TestHandleReplyEmail_ServiceUnavailable(t *testing.T) {
 	}))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleReplyEmail(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleReplyEmail_InvalidJSON(t *testing.T) {
@@ -525,7 +525,7 @@ func TestHandleForwardEmail_ServiceUnavailable(t *testing.T) {
 	}))
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleForwardEmail(rec, req)
-	assertStatus(t, rec, http.StatusBadGateway)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleForwardEmail_InvalidJSON(t *testing.T) {

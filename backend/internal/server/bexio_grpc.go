@@ -50,10 +50,7 @@ func (s *BexioGRPCServer) HandleBexioOAuthCallback(ctx context.Context, req *biz
 
 	if err := s.bexioService.HandleOAuthCallback(ctx, tenantID, req.GetCode()); err != nil {
 		slog.Error("bexio oauth callback failed", "tenant_id", tenantID, "error", err)
-		return &bizv1.HandleBexioOAuthCallbackResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		return nil, mapBexioError(err)
 	}
 
 	return &bizv1.HandleBexioOAuthCallbackResponse{Success: true}, nil
@@ -261,10 +258,7 @@ func (s *BexioGRPCServer) PushInvoiceToBexio(ctx context.Context, req *bizv1.Pus
 	}
 
 	if err := s.bexioService.PushInvoice(ctx, tenantID, invoiceID); err != nil {
-		return &bizv1.PushInvoiceToBexioResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		return nil, mapBexioError(err)
 	}
 
 	return &bizv1.PushInvoiceToBexioResponse{Success: true}, nil
@@ -282,10 +276,7 @@ func (s *BexioGRPCServer) PushQuoteToBexio(ctx context.Context, req *bizv1.PushQ
 	}
 
 	if err := s.bexioService.PushQuote(ctx, tenantID, quoteID); err != nil {
-		return &bizv1.PushQuoteToBexioResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		return nil, mapBexioError(err)
 	}
 
 	return &bizv1.PushQuoteToBexioResponse{Success: true}, nil

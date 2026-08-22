@@ -24,6 +24,7 @@ type MockRepository struct {
 	updateErr    error
 	deleteErr    error
 	memberAddErr error
+	callSessions map[uuid.UUID]bool
 }
 
 func NewMockRepository() *MockRepository {
@@ -103,6 +104,10 @@ func (m *MockRepository) GetByIDForTenant(ctx context.Context, id, _ uuid.UUID) 
 		return nil, ErrChannelNotFound
 	}
 	return channel, nil
+}
+
+func (m *MockRepository) HasCallSessions(ctx context.Context, channelID uuid.UUID) (bool, error) {
+	return m.callSessions[channelID], nil
 }
 
 func (m *MockRepository) Delete(ctx context.Context, id, _ uuid.UUID) error {
@@ -554,6 +559,27 @@ func TestService_Delete(t *testing.T) {
 		err = service.Delete(context.Background(), created.ID, adminID, uuid.Nil)
 
 		assert.Equal(t, ErrNotAuthorized, err)
+	})
+
+	t.Run("blocked by archived call sessions", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+
+		created, err := service.Create(context.Background(), CreateInput{Name: "HasCalls", CreatedBy: userID})
+		require.NoError(t, err)
+
+		repo.callSessions = map[uuid.UUID]bool{created.ID: true}
+
+		err = service.Delete(context.Background(), created.ID, userID, uuid.Nil)
+
+		assert.Equal(t, ErrChannelHasCallSessions, err)
+
+		// Channel must still exist - the blocked delete must not have gone through
+		_, err = service.GetByID(context.Background(), created.ID, userID, uuid.Nil)
+		require.NoError(t, err)
 	})
 }
 

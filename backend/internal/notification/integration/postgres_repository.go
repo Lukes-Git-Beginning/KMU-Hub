@@ -308,6 +308,15 @@ func (r *PostgresRepository) UpdateMapping(ctx context.Context, m *ChannelMappin
 	return nil
 }
 
+func (r *PostgresRepository) HasDeliveryLogs(ctx context.Context, mappingID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		"SELECT EXISTS(SELECT 1 FROM integration_delivery_log WHERE mapping_id = $1)",
+		mappingID,
+	).Scan(&exists)
+	return exists, err
+}
+
 func (r *PostgresRepository) DeleteMapping(ctx context.Context, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
 		"DELETE FROM integration_channel_mappings WHERE id = $1",

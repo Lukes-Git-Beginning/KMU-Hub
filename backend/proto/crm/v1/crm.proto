@@ -93,6 +93,9 @@ service CRMService {
   // Contact Timeline
   rpc GetContactTimeline(GetContactTimelineRequest) returns (GetContactTimelineResponse);
 
+  // Contact Deletion Impact Preview
+  rpc PreviewContactDeletion(PreviewContactDeletionRequest) returns (PreviewContactDeletionResponse);
+
   // GDPR Consent Management
   rpc GetContactConsents(GetContactConsentsRequest) returns (GetContactConsentsResponse);
   rpc GrantConsent(GrantConsentRequest) returns (GrantConsentResponse);
@@ -1096,6 +1099,22 @@ message GetContactTimelineRequest {
 message GetContactTimelineResponse {
   repeated TimelineEvent events = 1;
   int32 total = 2;
+}
+
+message ContactDeletionImpact {
+  string table = 1;   // referencing table, read live from pg_constraint
+  string column = 2;  // referencing column, distinguishes multiple FKs to the same table
+  string action = 3;  // lowercased delete_rule: cascade, set_null, restrict, no_action
+  int32 count = 4;    // rows in `table` currently referencing this contact
+}
+
+message PreviewContactDeletionRequest {
+  string contact_id = 1;
+}
+
+message PreviewContactDeletionResponse {
+  string contact_id = 1;
+  repeated ContactDeletionImpact impacts = 2;
 }
 
 // ============================================================================

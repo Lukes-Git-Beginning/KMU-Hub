@@ -2,12 +2,19 @@ package gdpr
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/crm/advisoryprotocol"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // ---------------------------------------------------------------------------
@@ -86,6 +93,36 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			}},
 		}
 
+		customFields, cfErr := customFieldsModule(ctx, pool, tenantID, c.id)
+		if cfErr != nil {
+			return nil, cfErr
+		}
+		if customFields != nil {
+			person.Modules = append(person.Modules, *customFields)
+		}
+
+		tags, tgErr := tagsModule(ctx, pool, tenantID, c.id)
+		if tgErr != nil {
+			return nil, tgErr
+		}
+		if tags != nil {
+			person.Modules = append(person.Modules, *tags)
+		}
+
+		documents, docErr := documentsModule(ctx, pool, tenantID, c.id)
+		if docErr != nil {
+			return nil, docErr
+		}
+		if documents != nil {
+			person.Modules = append(person.Modules, *documents)
+		}
+
+		advisoryProtocols, apErr := advisoryProtocolModules(ctx, pool, tenantID, c.id)
+		if apErr != nil {
+			return nil, apErr
+		}
+		person.Modules = append(person.Modules, advisoryProtocols...)
+
 		consent, cErr := consentModule(ctx, pool, c.id)
 		if cErr != nil {
 			return nil, cErr
@@ -126,6 +163,14 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *tickets)
 		}
 
+		helpdeskMessages, hmErr := helpdeskMessagesModule(ctx, pool, tenantID, c.id)
+		if hmErr != nil {
+			return nil, hmErr
+		}
+		if helpdeskMessages != nil {
+			person.Modules = append(person.Modules, *helpdeskMessages)
+		}
+
 		contracts, ctErr := contractsModule(ctx, pool, tenantID, c.id)
 		if ctErr != nil {
 			return nil, ctErr
@@ -148,6 +193,14 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 		}
 		if deals != nil {
 			person.Modules = append(person.Modules, *deals)
+		}
+
+		formSubmissions, fsErr := formSubmissionsModule(ctx, pool, tenantID, c.email)
+		if fsErr != nil {
+			return nil, fsErr
+		}
+		if formSubmissions != nil {
+			person.Modules = append(person.Modules, *formSubmissions)
 		}
 
 		activities, acErr := activitiesModule(ctx, pool, tenantID, c.id)
@@ -210,6 +263,13 @@ func matchContacts(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 	return out, nil
 }
 
+type dsarUserRow struct {
+	id                 uuid.UUID
+	email, first, last string
+	isActive           bool
+	createdAt          time.Time
+}
+
 func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pattern string) ([]DSARPerson, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT id, COALESCE(email, ''), first_name, last_name, is_active, created_at
@@ -222,39 +282,1437 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 	if err != nil {
 		return nil, fmt.Errorf("dsar: query users: %w", err)
 	}
-	defer rows.Close()
 
-	var out []DSARPerson
+	var users []dsarUserRow
 	for rows.Next() {
-		var id uuid.UUID
-		var email, first, last string
-		var isActive bool
-		var createdAt time.Time
-		if scanErr := rows.Scan(&id, &email, &first, &last, &isActive, &createdAt); scanErr != nil {
+		var u dsarUserRow
+		if scanErr := rows.Scan(&u.id, &u.email, &u.first, &u.last, &u.isActive, &u.createdAt); scanErr != nil {
+			rows.Close()
 			return nil, fmt.Errorf("dsar: scan user: %w", scanErr)
 		}
-		name := joinName(first, last)
-		out = append(out, DSARPerson{
-			ID:     id.String(),
+		users = append(users, u)
+	}
+	rowsErr := rows.Err()
+	rows.Close()
+	if rowsErr != nil {
+		return nil, fmt.Errorf("dsar: user rows: %w", rowsErr)
+	}
+
+	// Enrichment queries run after the user rows are collected and rows.Close()
+	// has run, matching the contacts path (matchContacts returns a slice before
+	// SearchByQuery layers on per-contact modules) rather than nesting a second
+	// pool.Query while the first result set is still open.
+	var out []DSARPerson
+	for _, u := range users {
+		name := joinName(u.first, u.last)
+		person := DSARPerson{
+			ID:     u.id.String(),
 			Name:   name,
-			Email:  email,
-			Avatar: initials(first, last),
+			Email:  u.email,
+			Avatar: initials(u.first, u.last),
 			Modules: []DSARModule{{
 				Module:  "Benutzerkonto",
 				Columns: []string{"Feld", "Wert"},
 				Records: []DSARRecord{
 					fieldValueRecord("Name", name),
-					fieldValueRecord("E-Mail", email),
-					fieldValueRecord("Aktiv", boolLabel(isActive)),
-					fieldValueRecord("Erstellt", createdAt.Format(dsarTimeLayout)),
+					fieldValueRecord("E-Mail", u.email),
+					fieldValueRecord("Aktiv", boolLabel(u.isActive)),
+					fieldValueRecord("Erstellt", u.createdAt.Format(dsarTimeLayout)),
 				},
 			}},
+		}
+
+		chatMessages, cmErr := chatMessagesModule(ctx, pool, tenantID, u.id)
+		if cmErr != nil {
+			return nil, cmErr
+		}
+		if chatMessages != nil {
+			person.Modules = append(person.Modules, *chatMessages)
+		}
+
+		chatMemberships, chErr := chatMembershipsModule(ctx, pool, tenantID, u.id)
+		if chErr != nil {
+			return nil, chErr
+		}
+		if chatMemberships != nil {
+			person.Modules = append(person.Modules, *chatMemberships)
+		}
+
+		tasks, tErr := tasksModule(ctx, pool, tenantID, u.id)
+		if tErr != nil {
+			return nil, tErr
+		}
+		if tasks != nil {
+			person.Modules = append(person.Modules, *tasks)
+		}
+
+		taskComments, tcErr := taskCommentsModule(ctx, pool, tenantID, u.id)
+		if tcErr != nil {
+			return nil, tcErr
+		}
+		if taskComments != nil {
+			person.Modules = append(person.Modules, *taskComments)
+		}
+
+		timeEntries, teErr := timeEntriesModule(ctx, pool, tenantID, u.id)
+		if teErr != nil {
+			return nil, teErr
+		}
+		if timeEntries != nil {
+			person.Modules = append(person.Modules, *timeEntries)
+		}
+
+		calendarEvents, ceErr := calendarEventsModule(ctx, pool, tenantID, u.id)
+		if ceErr != nil {
+			return nil, ceErr
+		}
+		if calendarEvents != nil {
+			person.Modules = append(person.Modules, *calendarEvents)
+		}
+
+		calendarPrefs, cpErr := calendarPreferencesModule(ctx, pool, tenantID, u.id)
+		if cpErr != nil {
+			return nil, cpErr
+		}
+		if calendarPrefs != nil {
+			person.Modules = append(person.Modules, *calendarPrefs)
+		}
+
+		notifications, nErr := notificationsModule(ctx, pool, tenantID, u.id)
+		if nErr != nil {
+			return nil, nErr
+		}
+		if notifications != nil {
+			person.Modules = append(person.Modules, *notifications)
+		}
+
+		notificationPrefs, npErr := notificationPreferencesModule(ctx, pool, tenantID, u.id)
+		if npErr != nil {
+			return nil, npErr
+		}
+		if notificationPrefs != nil {
+			person.Modules = append(person.Modules, *notificationPrefs)
+		}
+
+		quietHours, qhErr := notificationQuietHoursModule(ctx, pool, tenantID, u.id)
+		if qhErr != nil {
+			return nil, qhErr
+		}
+		if quietHours != nil {
+			person.Modules = append(person.Modules, *quietHours)
+		}
+
+		mutes, muErr := notificationMutesModule(ctx, pool, tenantID, u.id)
+		if muErr != nil {
+			return nil, muErr
+		}
+		if mutes != nil {
+			person.Modules = append(person.Modules, *mutes)
+		}
+
+		hrProfile, hpErr := hrProfileModule(ctx, pool, tenantID, u.id)
+		if hpErr != nil {
+			return nil, hpErr
+		}
+		if hrProfile != nil {
+			person.Modules = append(person.Modules, *hrProfile)
+		}
+
+		hrDocuments, hdErr := hrEmployeeDocumentsModule(ctx, pool, tenantID, u.id)
+		if hdErr != nil {
+			return nil, hdErr
+		}
+		if hrDocuments != nil {
+			person.Modules = append(person.Modules, *hrDocuments)
+		}
+
+		hrChangeRequests, hcErr := hrProfileChangeRequestsModule(ctx, pool, tenantID, u.id)
+		if hcErr != nil {
+			return nil, hcErr
+		}
+		if hrChangeRequests != nil {
+			person.Modules = append(person.Modules, *hrChangeRequests)
+		}
+
+		leaveRequests, lrErr := hrLeaveRequestsModule(ctx, pool, tenantID, u.id)
+		if lrErr != nil {
+			return nil, lrErr
+		}
+		if leaveRequests != nil {
+			person.Modules = append(person.Modules, *leaveRequests)
+		}
+
+		leaveBalances, lbErr := hrLeaveBalanceModules(ctx, pool, tenantID, u.id)
+		if lbErr != nil {
+			return nil, lbErr
+		}
+		person.Modules = append(person.Modules, leaveBalances...)
+
+		workTime, wtErr := hrWorkTimeModule(ctx, pool, tenantID, u.id)
+		if wtErr != nil {
+			return nil, wtErr
+		}
+		if workTime != nil {
+			person.Modules = append(person.Modules, *workTime)
+		}
+
+		workTimeCorrections, wtcErr := hrWorkTimeCorrectionsModule(ctx, pool, tenantID, u.id)
+		if wtcErr != nil {
+			return nil, wtcErr
+		}
+		if workTimeCorrections != nil {
+			person.Modules = append(person.Modules, *workTimeCorrections)
+		}
+
+		sessions, sessErr := userSessionsModule(ctx, pool, tenantID, u.id)
+		if sessErr != nil {
+			return nil, sessErr
+		}
+		if sessions != nil {
+			person.Modules = append(person.Modules, *sessions)
+		}
+
+		accountSecurity, asErr := accountSecurityModule(ctx, pool, tenantID, u.id)
+		if asErr != nil {
+			return nil, asErr
+		}
+		if accountSecurity != nil {
+			person.Modules = append(person.Modules, *accountSecurity)
+		}
+
+		driverLicenses, dlErr := driverLicensesModule(ctx, pool, tenantID, u.id)
+		if dlErr != nil {
+			return nil, dlErr
+		}
+		if driverLicenses != nil {
+			person.Modules = append(person.Modules, *driverLicenses)
+		}
+
+		vehicleBookings, vbErr := vehicleBookingsModule(ctx, pool, tenantID, u.id)
+		if vbErr != nil {
+			return nil, vbErr
+		}
+		if vehicleBookings != nil {
+			person.Modules = append(person.Modules, *vehicleBookings)
+		}
+
+		invitationHistory, ihErr := invitationHistoryModule(ctx, pool, tenantID, u.email)
+		if ihErr != nil {
+			return nil, ihErr
+		}
+		if invitationHistory != nil {
+			person.Modules = append(person.Modules, *invitationHistory)
+		}
+
+		out = append(out, person)
+	}
+	return out, nil
+}
+
+// chatMessagesModule discloses a matched user's own chat message content —
+// not the messages of other participants in a shared channel. Scope mirrors
+// ChatErasureHandler.ExecuteErasure, which anonymizes exactly the rows
+// WHERE created_by = userID (erasure.go:296).
+func chatMessagesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT c.name, m.content, m.created_at
+		 FROM messages m
+		 JOIN channels c ON c.id = m.channel_id
+		 WHERE m.tenant_id = $1 AND m.created_by = $2 AND NOT m.is_deleted
+		 ORDER BY m.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows+1)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query chat messages: %w", err)
+	}
+	defer rows.Close()
+
+	type message struct {
+		channel, content string
+		at               time.Time
+	}
+	var messages []message
+	for rows.Next() {
+		var m message
+		if scanErr := rows.Scan(&m.channel, &m.content, &m.at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan chat message: %w", scanErr)
+		}
+		messages = append(messages, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: chat message rows: %w", err)
+	}
+	if len(messages) == 0 {
+		return nil, nil
+	}
+
+	// Query fetched dsarMaxRows+1 newest-first so truncation, if any, drops
+	// the oldest messages rather than silently hiding the most recent ones.
+	truncated := len(messages) > dsarMaxRows
+	if truncated {
+		messages = messages[:dsarMaxRows]
+	}
+	// Reverse to chronological (oldest-first) order for a readable transcript.
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	mod := DSARModule{Module: "Chat-Nachrichten", Columns: []string{"Kanal", "Nachricht", "Datum"}}
+	if truncated {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Kanal", Value: ""},
+			{Key: "Nachricht", Value: fmt.Sprintf("(gekürzt auf die %d neuesten Nachrichten)", dsarMaxRows)},
+			{Key: "Datum", Value: ""},
+		}})
+	}
+	for _, m := range messages {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Kanal", Value: m.channel},
+			{Key: "Nachricht", Value: m.content},
+			{Key: "Datum", Value: m.at.Format(dsarTimeLayout)},
+		}})
+	}
+	return &mod, nil
+}
+
+// chatMembershipsModule discloses which channels a matched user belongs to —
+// the second table ChatErasureHandler.ExecuteErasure clears, DELETE FROM
+// channel_memberships WHERE user_id = userID (erasure.go:308).
+func chatMembershipsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT c.name, cm.role::text, cm.joined_at
+		 FROM channel_memberships cm
+		 JOIN channels c ON c.id = cm.channel_id
+		 WHERE cm.tenant_id = $1 AND cm.user_id = $2
+		 ORDER BY cm.joined_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query chat memberships: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Chat-Kanalmitgliedschaften", Columns: []string{"Kanal", "Rolle", "Beigetreten"}}
+	for rows.Next() {
+		var channel, role string
+		var joinedAt time.Time
+		if scanErr := rows.Scan(&channel, &role, &joinedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan chat membership: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Kanal", Value: channel},
+			{Key: "Rolle", Value: role},
+			{Key: "Beigetreten", Value: joinedAt.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: chat membership rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// tasksModule discloses tasks a matched user created or was assigned — both
+// directions count, since either makes the task the subject's personal data.
+// Scope mirrors WorkErasureHandler.ExecuteErasure, which touches exactly the
+// rows WHERE assignee_id = userID OR created_by = userID (erasure.go:385).
+func tasksModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.title, COALESCE(ps.name, ''), (t.assignee_id IS NOT DISTINCT FROM $2), (t.created_by = $2), t.created_at
+		 FROM tasks t
+		 LEFT JOIN project_statuses ps ON ps.id = t.status_id
+		 WHERE t.tenant_id = $1 AND (t.assignee_id = $2 OR t.created_by = $2)
+		 ORDER BY t.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query tasks: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Aufgaben", Columns: []string{"Titel", "Status", "Rolle", "Erstellt"}}
+	for rows.Next() {
+		var title, status string
+		var isAssignee, isCreator bool
+		var createdAt time.Time
+		if scanErr := rows.Scan(&title, &status, &isAssignee, &isCreator, &createdAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan task: %w", scanErr)
+		}
+		var roles []string
+		if isCreator {
+			roles = append(roles, "Ersteller")
+		}
+		if isAssignee {
+			roles = append(roles, "Zugewiesen")
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: title},
+			{Key: "Status", Value: status},
+			{Key: "Rolle", Value: strings.Join(roles, ", ")},
+			{Key: "Erstellt", Value: createdAt.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: task rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// taskCommentsModule discloses a matched user's own task comments — the
+// second table WorkErasureHandler.ExecuteErasure anonymizes, WHERE
+// author_id = userID (erasure.go:406).
+func taskCommentsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.title, tc.content, tc.created_at
+		 FROM task_comments tc
+		 JOIN tasks t ON t.id = tc.task_id
+		 WHERE tc.tenant_id = $1 AND tc.author_id = $2
+		 ORDER BY tc.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows+1)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query task comments: %w", err)
+	}
+	defer rows.Close()
+
+	type comment struct {
+		task, content string
+		at            time.Time
+	}
+	var comments []comment
+	for rows.Next() {
+		var c comment
+		if scanErr := rows.Scan(&c.task, &c.content, &c.at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan task comment: %w", scanErr)
+		}
+		comments = append(comments, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: task comment rows: %w", err)
+	}
+	if len(comments) == 0 {
+		return nil, nil
+	}
+
+	// Query fetched dsarMaxRows+1 newest-first so truncation, if any, drops
+	// the oldest comments rather than silently hiding the most recent ones.
+	truncated := len(comments) > dsarMaxRows
+	if truncated {
+		comments = comments[:dsarMaxRows]
+	}
+	for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
+		comments[i], comments[j] = comments[j], comments[i]
+	}
+
+	mod := DSARModule{Module: "Aufgaben-Kommentare", Columns: []string{"Aufgabe", "Kommentar", "Datum"}}
+	if truncated {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Aufgabe", Value: ""},
+			{Key: "Kommentar", Value: fmt.Sprintf("(gekürzt auf die %d neuesten Kommentare)", dsarMaxRows)},
+			{Key: "Datum", Value: ""},
+		}})
+	}
+	for _, c := range comments {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Aufgabe", Value: c.task},
+			{Key: "Kommentar", Value: c.content},
+			{Key: "Datum", Value: c.at.Format(dsarTimeLayout)},
+		}})
+	}
+	return &mod, nil
+}
+
+// timeEntriesModule discloses a matched user's tracked work time — the third
+// table WorkErasureHandler.ExecuteErasure deletes outright, WHERE
+// user_id = userID (erasure.go:394). Individual entries can accumulate into
+// the thousands for a long-tenured user, so this module aggregates by month
+// rather than truncating a row list — the aggregation is named in the module
+// title so it never reads as a raw, complete entry list.
+func timeEntriesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT to_char(date_trunc('month', started_at), 'YYYY-MM'),
+		        COUNT(*), COALESCE(SUM(duration_seconds), 0)
+		 FROM time_entries
+		 WHERE tenant_id = $1 AND user_id = $2
+		 GROUP BY 1
+		 ORDER BY 1 DESC`, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query time entries: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Zeiterfassung (aggregiert pro Monat)", Columns: []string{"Monat", "Eintraege", "Dauer"}}
+	for rows.Next() {
+		var month string
+		var count, totalSeconds int
+		if scanErr := rows.Scan(&month, &count, &totalSeconds); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan time entry: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Monat", Value: month},
+			{Key: "Eintraege", Value: strconv.Itoa(count)},
+			{Key: "Dauer", Value: fmt.Sprintf("%.1f Std.", float64(totalSeconds)/3600)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: time entry rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// calendarEventsModule discloses calendar events a matched user created or
+// attends. Both event_attendees (participation) and calendar_events
+// (created_by) are the two tables CalendarErasureHandler.ExecuteErasure
+// touches for events (erasure.go:461); the third, user_calendar_preferences,
+// is its own module below. Only the subject's own role and RSVP are
+// disclosed — an event with other attendees does not list who else is on it,
+// same rule as chat rooms and calendar entries with multiple participants.
+func calendarEventsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT e.title, e.start_time, COALESCE(e.location, ''),
+		        (e.created_by = $2) AS is_creator,
+		        ea.rsvp_status
+		 FROM calendar_events e
+		 LEFT JOIN event_attendees ea ON ea.event_id = e.id AND ea.user_id = $2
+		 WHERE e.tenant_id = $1 AND (e.created_by = $2 OR ea.user_id = $2)
+		 ORDER BY e.start_time DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query calendar events: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Kalendertermine", Columns: []string{"Titel", "Beginn", "Ort", "Rolle"}}
+	for rows.Next() {
+		var title, location string
+		var start time.Time
+		var isCreator bool
+		var rsvpStatus *string
+		if scanErr := rows.Scan(&title, &start, &location, &isCreator, &rsvpStatus); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan calendar event: %w", scanErr)
+		}
+		var roles []string
+		if isCreator {
+			roles = append(roles, "Ersteller")
+		}
+		if rsvpStatus != nil {
+			roles = append(roles, "Teilnehmer ("+*rsvpStatus+")")
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: title},
+			{Key: "Beginn", Value: start.Format(dsarTimeLayout)},
+			{Key: "Ort", Value: location},
+			{Key: "Rolle", Value: strings.Join(roles, ", ")},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: calendar event rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// calendarPreferencesModule discloses a matched user's calendar defaults —
+// the third table CalendarErasureHandler.ExecuteErasure deletes outright
+// (erasure.go:490). One row per user at most, so it renders like the
+// "Benutzerkonto" field/value module rather than a record list.
+func calendarPreferencesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	var defaultView, subdivisionCode *string
+	var weekDays, reminderMinutes, alldayReminderMinutes int
+	var showTaskDeadlines bool
+	err := pool.QueryRow(ctx,
+		`SELECT default_view, week_days, default_reminder_minutes, default_allday_reminder_minutes,
+		        subdivision_code, show_task_deadlines
+		 FROM user_calendar_preferences
+		 WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID,
+	).Scan(&defaultView, &weekDays, &reminderMinutes, &alldayReminderMinutes, &subdivisionCode, &showTaskDeadlines)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("dsar: query calendar preferences: %w", err)
+	}
+
+	view := ""
+	if defaultView != nil {
+		view = *defaultView
+	}
+	subdivision := ""
+	if subdivisionCode != nil {
+		subdivision = *subdivisionCode
+	}
+	mod := DSARModule{Module: "Kalendereinstellungen", Columns: []string{"Feld", "Wert"}, Records: []DSARRecord{
+		fieldValueRecord("Standardansicht", view),
+		fieldValueRecord("Wochentage", strconv.Itoa(weekDays)),
+		fieldValueRecord("Erinnerung (Minuten)", strconv.Itoa(reminderMinutes)),
+		fieldValueRecord("Erinnerung ganztaegig (Minuten)", strconv.Itoa(alldayReminderMinutes)),
+		fieldValueRecord("Feiertagsregion", subdivision),
+		fieldValueRecord("Aufgaben-Termine anzeigen", boolLabel(showTaskDeadlines)),
+	}}
+	return &mod, nil
+}
+
+// notificationsModule discloses a matched user's delivered notifications —
+// the first table NotificationErasureHandler.ExecuteErasure deletes
+// (erasure.go:560).
+func notificationsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT title, COALESCE(body, ''), created_at, is_read
+		 FROM notifications
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows+1)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query notifications: %w", err)
+	}
+	defer rows.Close()
+
+	type notif struct {
+		title, body string
+		at          time.Time
+		read        bool
+	}
+	var notifs []notif
+	for rows.Next() {
+		var n notif
+		if scanErr := rows.Scan(&n.title, &n.body, &n.at, &n.read); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan notification: %w", scanErr)
+		}
+		notifs = append(notifs, n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: notification rows: %w", err)
+	}
+	if len(notifs) == 0 {
+		return nil, nil
+	}
+
+	truncated := len(notifs) > dsarMaxRows
+	if truncated {
+		notifs = notifs[:dsarMaxRows]
+	}
+
+	mod := DSARModule{Module: "Benachrichtigungen", Columns: []string{"Titel", "Text", "Datum", "Gelesen"}}
+	for _, n := range notifs {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: n.title},
+			{Key: "Text", Value: n.body},
+			{Key: "Datum", Value: n.at.Format(dsarTimeLayout)},
+			{Key: "Gelesen", Value: boolLabel(n.read)},
+		}})
+	}
+	if truncated {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: fmt.Sprintf("(gekürzt auf die %d neuesten Benachrichtigungen)", dsarMaxRows)},
+			{Key: "Text", Value: ""},
+			{Key: "Datum", Value: ""},
+			{Key: "Gelesen", Value: ""},
+		}})
+	}
+	return &mod, nil
+}
+
+// notificationPreferencesModule discloses a matched user's per-event-type
+// and per-module delivery settings — the second table
+// NotificationErasureHandler.ExecuteErasure deletes (erasure.go:567).
+func notificationPreferencesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT COALESCE(event_type_key, ''), COALESCE(module_id, ''), in_app, desktop_push, COALESCE(sound, '')
+		 FROM notification_preferences
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY module_id, event_type_key
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query notification preferences: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Benachrichtigungseinstellungen", Columns: []string{"Ereignistyp", "Modul", "In-App", "Desktop", "Ton"}}
+	for rows.Next() {
+		var eventType, moduleID, sound string
+		var inApp, desktopPush bool
+		if scanErr := rows.Scan(&eventType, &moduleID, &inApp, &desktopPush, &sound); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan notification preference: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Ereignistyp", Value: eventType},
+			{Key: "Modul", Value: moduleID},
+			{Key: "In-App", Value: boolLabel(inApp)},
+			{Key: "Desktop", Value: boolLabel(desktopPush)},
+			{Key: "Ton", Value: sound},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: notification preference rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// notificationQuietHoursModule discloses a matched user's do-not-disturb
+// schedule — the third table NotificationErasureHandler.ExecuteErasure
+// deletes (erasure.go:574). At most one row per user (UNIQUE(user_id)), so
+// it renders as a field/value module.
+func notificationQuietHoursModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	var startTime, endTime, timezone string
+	var enabled, manualDND bool
+	err := pool.QueryRow(ctx,
+		`SELECT start_time::text, end_time::text, timezone, enabled, manual_dnd
+		 FROM notification_quiet_hours
+		 WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID,
+	).Scan(&startTime, &endTime, &timezone, &enabled, &manualDND)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("dsar: query quiet hours: %w", err)
+	}
+
+	mod := DSARModule{Module: "Ruhezeiten", Columns: []string{"Feld", "Wert"}, Records: []DSARRecord{
+		fieldValueRecord("Aktiviert", boolLabel(enabled)),
+		fieldValueRecord("Von", startTime),
+		fieldValueRecord("Bis", endTime),
+		fieldValueRecord("Zeitzone", timezone),
+		fieldValueRecord("Manuell aktiv", boolLabel(manualDND)),
+	}}
+	return &mod, nil
+}
+
+// notificationMutesModule discloses which resources a matched user has
+// muted — the fourth table NotificationErasureHandler.ExecuteErasure
+// deletes (erasure.go:581).
+func notificationMutesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT module_id, resource_id, created_at
+		 FROM notification_mutes
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query notification mutes: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Stummgeschaltete Ressourcen", Columns: []string{"Modul", "Ressource", "Seit"}}
+	for rows.Next() {
+		var moduleID, resourceID string
+		var createdAt time.Time
+		if scanErr := rows.Scan(&moduleID, &resourceID, &createdAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan notification mute: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Modul", Value: moduleID},
+			{Key: "Ressource", Value: resourceID},
+			{Key: "Seit", Value: createdAt.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: notification mute rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrProfileModule discloses the matched user's employment record --
+// department, contract terms, address, emergency contact, hourly rate,
+// exit data and the is_minor flag. hr_employee_profiles carries a UNIQUE
+// constraint on user_id (uq_hr_employee_user), so at most one row exists.
+//
+// is_minor is disclosed as a plain boolean like any other field: the schema
+// has no separate guardian/representative contact to route the disclosure
+// through, and Art. 15 does not carve out a different mechanism for a minor
+// employee's own record -- the special handling GDPR requires for minors is
+// about consent and parental notice at data collection, not about narrowing
+// what a later access request returns.
+func hrProfileModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	var (
+		department, position, contractType, emergencyName, emergencyPhone                   *string
+		addressStreet, addressCity, addressPostalCode, addressCountry, exitType, exitReason *string
+		managerFirst, managerLast                                                           *string
+		workDaysPerWeek, annualLeaveDays                                                    int
+		startDate                                                                           time.Time
+		lastWorkDay, exitDate                                                               *time.Time
+		hourlyRate                                                                          *float64
+		status                                                                              string
+		isMinor                                                                             bool
+	)
+	err := pool.QueryRow(ctx,
+		`SELECT hep.department, hep.position_title, hep.contract_type, hep.work_days_per_week,
+		        hep.annual_leave_days, m.first_name, m.last_name, hep.start_date,
+		        hep.emergency_contact_name, hep.emergency_contact_phone, hep.address_street,
+		        hep.address_city, hep.address_postal_code, hep.address_country, hep.hourly_rate,
+		        hep.status, hep.last_work_day, hep.exit_date, hep.exit_type, hep.exit_reason,
+		        hep.is_minor
+		 FROM hr_employee_profiles hep
+		 LEFT JOIN users m ON m.id = hep.manager_user_id
+		 WHERE hep.tenant_id = $1 AND hep.user_id = $2`, tenantID, userID,
+	).Scan(&department, &position, &contractType, &workDaysPerWeek, &annualLeaveDays,
+		&managerFirst, &managerLast, &startDate, &emergencyName, &emergencyPhone, &addressStreet,
+		&addressCity, &addressPostalCode, &addressCountry, &hourlyRate, &status, &lastWorkDay,
+		&exitDate, &exitType, &exitReason, &isMinor)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr employee profile: %w", err)
+	}
+
+	manager := ""
+	if managerFirst != nil || managerLast != nil {
+		manager = joinName(derefOrEmpty(managerFirst), derefOrEmpty(managerLast))
+	}
+	address := strings.TrimSpace(strings.Join([]string{
+		derefOrEmpty(addressStreet), derefOrEmpty(addressPostalCode) + " " + derefOrEmpty(addressCity),
+		derefOrEmpty(addressCountry),
+	}, ", "))
+
+	return &DSARModule{
+		Module:  "Personalprofil",
+		Columns: []string{"Feld", "Wert"},
+		Records: []DSARRecord{
+			fieldValueRecord("Abteilung", derefOrEmpty(department)),
+			fieldValueRecord("Position", derefOrEmpty(position)),
+			fieldValueRecord("Vertragsart", derefOrEmpty(contractType)),
+			fieldValueRecord("Arbeitstage pro Woche", strconv.Itoa(workDaysPerWeek)),
+			fieldValueRecord("Urlaubsanspruch (Tage/Jahr)", strconv.Itoa(annualLeaveDays)),
+			fieldValueRecord("Vorgesetzte(r)", manager),
+			fieldValueRecord("Eintrittsdatum", startDate.Format(dsarDateLayout)),
+			fieldValueRecord("Notfallkontakt", derefOrEmpty(emergencyName)),
+			fieldValueRecord("Notfallkontakt Telefon", derefOrEmpty(emergencyPhone)),
+			fieldValueRecord("Adresse", address),
+			fieldValueRecord("Stundenlohn", moneyOrEmpty(hourlyRate)),
+			fieldValueRecord("Status", status),
+			fieldValueRecord("Letzter Arbeitstag", derefDateOrEmpty(lastWorkDay)),
+			fieldValueRecord("Austrittsdatum", derefDateOrEmpty(exitDate)),
+			fieldValueRecord("Austrittsart", derefOrEmpty(exitType)),
+			fieldValueRecord("Austrittsgrund", derefOrEmpty(exitReason)),
+			fieldValueRecord("Minderjährig", boolLabel(isMinor)),
+		},
+	}, nil
+}
+
+func derefDateOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(dsarDateLayout)
+}
+
+// hrEmployeeDocumentsModule discloses metadata only for personnel documents
+// -- title, filename, category, size, upload/expiry dates -- never the file
+// content, path or a download URL, same rule as documentsModule for contact
+// files: a disclosure export leaves the building, and a link inside it would
+// be a route to the document store that bypasses its own access checks.
+//
+// Unlike every other table this file reads, hr_employee_documents carries a
+// role-gated RLS policy (hr_document_access, migration 000127/000128) on top
+// of tenant_isolation: a plain tenant-scoped caller only sees rows their own
+// HR role or self-access would allow, not everything in the tenant. A DSAR
+// search is a legal disclosure obligation triggered by a security/compliance
+// permission already checked upstream (DSARSearch RPC), not an HR workflow
+// -- it must see every document regardless of the caller's HR role, so the
+// read runs under sysctx like RunScheduledRetention does in the same
+// package (retention_scheduler.go) for the identical reason. The explicit
+// tenant_id and employee_id predicates below still do the real scoping.
+func hrEmployeeDocumentsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(sysctx.With(ctx),
+		`SELECT hd.title, hd.file_name, dc.name, hd.file_size, hd.created_at, hd.expires_at
+		 FROM hr_employee_documents hd
+		 JOIN hr_document_categories dc ON dc.id = hd.category_id
+		 WHERE hd.tenant_id = $1 AND hd.employee_id = $2
+		 ORDER BY hd.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr employee documents: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Personaldokumente (Metadaten)",
+		Columns: []string{"Titel", "Dateiname", "Kategorie", "Größe", "Hochgeladen am", "Läuft ab am"},
+	}
+	for rows.Next() {
+		var title, fileName, category, fileSize string
+		var uploadedAt time.Time
+		var expiresAt *time.Time
+		if scanErr := rows.Scan(&title, &fileName, &category, &fileSize, &uploadedAt, &expiresAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr employee document: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: title},
+			{Key: "Dateiname", Value: fileName},
+			{Key: "Kategorie", Value: category},
+			{Key: "Größe", Value: fileSize},
+			{Key: "Hochgeladen am", Value: uploadedAt.Format(dsarTimeLayout)},
+			{Key: "Läuft ab am", Value: derefDateOrEmpty(expiresAt)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr employee document rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrProfileChangeRequestsModule discloses the matched user's self-service
+// profile change history -- what they asked to change, the old and new
+// value, and how it was decided. Both drawers (personal, job) share one
+// table and are disclosed together; the drawer value tells them apart.
+func hrProfileChangeRequestsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT drawer, field_label, old_value, new_value, status, reason, created_at, decided_at
+		 FROM hr_profile_change_requests
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr profile change requests: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module: "Änderungsanträge (Profil)",
+		Columns: []string{
+			"Bereich", "Feld", "Alter Wert", "Neuer Wert", "Status", "Grund", "Erstellt am", "Entschieden am",
+		},
+	}
+	for rows.Next() {
+		var drawer, fieldLabel, oldValue, newValue, status, reason string
+		var createdAt time.Time
+		var decidedAt *time.Time
+		if scanErr := rows.Scan(&drawer, &fieldLabel, &oldValue, &newValue, &status, &reason, &createdAt, &decidedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr profile change request: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Bereich", Value: drawer},
+			{Key: "Feld", Value: fieldLabel},
+			{Key: "Alter Wert", Value: oldValue},
+			{Key: "Neuer Wert", Value: newValue},
+			{Key: "Status", Value: status},
+			{Key: "Grund", Value: reason},
+			{Key: "Erstellt am", Value: createdAt.Format(dsarTimeLayout)},
+			{Key: "Entschieden am", Value: derefDateTimeOrEmpty(decidedAt)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr profile change request rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrLeaveRequestsModule discloses the matched user's leave requests -- type,
+// period, days, status and how it was decided. hr_leave_requests carries
+// plain tenant_isolation RLS (migration 000123), not the role-gated policy
+// hr_employee_documents has, so this reads under the caller's normal
+// tenant-scoped context like hrProfileModule above, no sysctx needed.
+func hrLeaveRequestsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT lt.name, lr.start_date, lr.end_date, lr.total_days::float8, lr.status,
+		        COALESCE(lr.reason, ''), COALESCE(lr.approval_comment, ''),
+		        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', au.first_name, au.last_name)), ''), ''),
+		        lr.approved_at
+		 FROM hr_leave_requests lr
+		 JOIN hr_leave_types lt ON lt.id = lr.leave_type_id
+		 LEFT JOIN users au ON au.id = lr.approved_by
+		 WHERE lr.tenant_id = $1 AND lr.employee_id = $2
+		 ORDER BY lr.start_date DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr leave requests: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module: "Urlaubsanträge",
+		Columns: []string{
+			"Art", "Zeitraum", "Tage", "Status", "Grund", "Entscheidungskommentar", "Genehmigt von", "Genehmigt am",
+		},
+	}
+	for rows.Next() {
+		var leaveType, status, reason, comment, approverName string
+		var start, end time.Time
+		var days float64
+		var approvedAt *time.Time
+		if scanErr := rows.Scan(&leaveType, &start, &end, &days, &status, &reason, &comment, &approverName, &approvedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr leave request: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Art", Value: leaveType},
+			{Key: "Zeitraum", Value: start.Format(dsarDateLayout) + " – " + end.Format(dsarDateLayout)},
+			{Key: "Tage", Value: fmt.Sprintf("%.1f", days)},
+			{Key: "Status", Value: status},
+			{Key: "Grund", Value: reason},
+			{Key: "Entscheidungskommentar", Value: comment},
+			{Key: "Genehmigt von", Value: approverName},
+			{Key: "Genehmigt am", Value: derefDateTimeOrEmpty(approvedAt)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr leave request rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrLeaveBalanceModules discloses the matched user's per-year leave account --
+// entitlement, carry-over, used and remaining days. hr_leave_balances is a
+// snapshot per (employee, year), the same one-row-per-key shape
+// hr_employee_profiles has per user, so -- like advisoryProtocolModules for
+// consultation protocols -- each year becomes its own Feld/Wert module
+// instead of forcing every year's columns into one wide record.
+func hrLeaveBalanceModules(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) ([]DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT year, entitlement::float8, carried_over::float8, used::float8, remaining::float8,
+		        carryover_expires_at
+		 FROM hr_leave_balances
+		 WHERE tenant_id = $1 AND employee_id = $2
+		 ORDER BY year ASC`, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr leave balances: %w", err)
+	}
+	defer rows.Close()
+
+	var modules []DSARModule
+	for rows.Next() {
+		var year int
+		var entitlement, carriedOver, used, remaining float64
+		var carryoverExpiresAt *time.Time
+		if scanErr := rows.Scan(&year, &entitlement, &carriedOver, &used, &remaining, &carryoverExpiresAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr leave balance: %w", scanErr)
+		}
+		modules = append(modules, DSARModule{
+			Module:  fmt.Sprintf("Urlaubskonto %d", year),
+			Columns: []string{"Feld", "Wert"},
+			Records: []DSARRecord{
+				fieldValueRecord("Anspruch (Tage)", fmt.Sprintf("%.1f", entitlement)),
+				fieldValueRecord("Übertrag (Tage)", fmt.Sprintf("%.1f", carriedOver)),
+				fieldValueRecord("Verwendet (Tage)", fmt.Sprintf("%.1f", used)),
+				fieldValueRecord("Verbleibend (Tage)", fmt.Sprintf("%.1f", remaining)),
+				fieldValueRecord("Übertrag läuft ab am", derefDateOrEmpty(carryoverExpiresAt)),
+			},
 		})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("dsar: user rows: %w", err)
+		return nil, fmt.Errorf("dsar: hr leave balance rows: %w", err)
 	}
-	return out, nil
+	return modules, nil
+}
+
+// hrWorkTimeBalanceStatuses mirrors balanceStatuses in
+// internal/biz/hr/timetracking/repository.go -- kept as its own copy because
+// that var is unexported and this package has no reason to import a whole
+// service package for one string slice. If the source list there changes,
+// this one must change with it.
+var hrWorkTimeBalanceStatuses = []string{"active", "completed", "correction_approved"}
+
+// hrWorkTimeModule discloses the matched user's tracked work time, aggregated
+// by month like timeEntriesModule -- entries can run into the thousands for a
+// long-tenured employee. Corrections make hr_work_time_entries unlike
+// time_entries: an approved correction leaves the original row in place with
+// status 'superseded' so nothing is deleted, but summing it alongside its
+// replacement double-counts the same shift -- the exact bug migration 000248
+// fixed for the balance queries. The status filter mirrors
+// hrWorkTimeBalanceStatuses for the same reason: active, completed and
+// correction_approved are the only states that represent a shift's current
+// duration. The correction history itself is disclosed separately below,
+// individually rather than aggregated away.
+func hrWorkTimeModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT to_char(date_trunc('month', clock_in), 'YYYY-MM'),
+		        COUNT(*), COALESCE(SUM(COALESCE(net_work_minutes, 0)), 0)
+		 FROM hr_work_time_entries
+		 WHERE tenant_id = $1 AND employee_id = $2
+		   AND status = ANY($3)
+		 GROUP BY 1
+		 ORDER BY 1 DESC`, tenantID, userID, hrWorkTimeBalanceStatuses)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr work time entries: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Arbeitszeit (aggregiert pro Monat)", Columns: []string{"Monat", "Einträge", "Dauer"}}
+	for rows.Next() {
+		var month string
+		var count, totalMinutes int
+		if scanErr := rows.Scan(&month, &count, &totalMinutes); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr work time entry: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Monat", Value: month},
+			{Key: "Einträge", Value: strconv.Itoa(count)},
+			{Key: "Dauer", Value: fmt.Sprintf("%.1f Std.", float64(totalMinutes)/60)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr work time entry rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrWorkTimeCorrectionsModule discloses the matched user's work time
+// correction history individually -- original and corrected times, reason,
+// decision -- rather than folding it into the monthly aggregate above. A
+// corrected day otherwise reads as a single final number; the correction
+// itself (what was wrong, who approved the fix) is personal data about the
+// employee that the aggregate would hide.
+func hrWorkTimeCorrectionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT c.created_at, orig.clock_in, orig.clock_out, c.clock_in, c.clock_out,
+		        COALESCE(c.correction_reason, ''), c.status,
+		        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', au.first_name, au.last_name)), ''), ''),
+		        c.correction_approved_at
+		 FROM hr_work_time_entries c
+		 LEFT JOIN hr_work_time_entries orig ON orig.id = c.original_entry_id
+		 LEFT JOIN users au ON au.id = c.correction_approved_by
+		 WHERE c.tenant_id = $1 AND c.employee_id = $2 AND c.is_correction
+		 ORDER BY c.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr work time corrections: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module: "Arbeitszeitkorrekturen",
+		Columns: []string{
+			"Eingereicht am", "Ursprünglicher Beginn", "Ursprüngliches Ende",
+			"Korrigierter Beginn", "Korrigiertes Ende", "Grund", "Status", "Genehmigt von", "Genehmigt am",
+		},
+	}
+	for rows.Next() {
+		var submittedAt, correctedClockIn time.Time
+		var origClockIn, origClockOut, correctedClockOut, approvedAt *time.Time
+		var reason, status, approverName string
+		if scanErr := rows.Scan(&submittedAt, &origClockIn, &origClockOut, &correctedClockIn, &correctedClockOut,
+			&reason, &status, &approverName, &approvedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr work time correction: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Eingereicht am", Value: submittedAt.Format(dsarTimeLayout)},
+			{Key: "Ursprünglicher Beginn", Value: derefDateTimeOrEmpty(origClockIn)},
+			{Key: "Ursprüngliches Ende", Value: derefDateTimeOrEmpty(origClockOut)},
+			{Key: "Korrigierter Beginn", Value: correctedClockIn.Format(dsarTimeLayout)},
+			{Key: "Korrigiertes Ende", Value: derefDateTimeOrEmpty(correctedClockOut)},
+			{Key: "Grund", Value: reason},
+			{Key: "Status", Value: status},
+			{Key: "Genehmigt von", Value: approverName},
+			{Key: "Genehmigt am", Value: derefDateTimeOrEmpty(approvedAt)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr work time correction rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// userSessionsModule discloses a matched user's login/session history --
+// device, IP address, location, last activity and whether the underlying
+// refresh token is still active. host(ip_address) mirrors the pattern
+// AuthRepository already uses for reading this inet column
+// (internal/auth/postgres_repository.go) -- binding it as anything but text
+// trips the pgx inet/net.IPNet mismatch that pattern exists to avoid.
+// Status is computed in SQL against now() rather than in Go so the
+// active/expired cutoff can't drift from the database's own clock, the same
+// authority every session-expiry check in the auth package already defers
+// to.
+func userSessionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT COALESCE(us.device_name, ''), COALESCE(us.device_type, ''),
+		        COALESCE(host(us.ip_address), ''), COALESCE(us.location, ''), us.last_active_at,
+		        CASE
+		          WHEN rt.id IS NULL THEN 'Beendet'
+		          WHEN rt.revoked THEN 'Widerrufen'
+		          WHEN rt.expires_at < now() THEN 'Abgelaufen'
+		          ELSE 'Aktiv'
+		        END AS status
+		 FROM user_sessions us
+		 LEFT JOIN refresh_tokens rt ON rt.id = us.refresh_token_id
+		 WHERE us.tenant_id = $1 AND us.user_id = $2
+		 ORDER BY us.last_active_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query user sessions: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Sitzungsverlauf",
+		Columns: []string{"Gerät", "Typ", "IP-Adresse", "Standort", "Letzte Aktivität", "Status"},
+	}
+	for rows.Next() {
+		var deviceName, deviceType, ip, location, status string
+		var lastActive time.Time
+		if scanErr := rows.Scan(&deviceName, &deviceType, &ip, &location, &lastActive, &status); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan user session: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Gerät", Value: deviceName},
+			{Key: "Typ", Value: deviceType},
+			{Key: "IP-Adresse", Value: ip},
+			{Key: "Standort", Value: location},
+			{Key: "Letzte Aktivität", Value: lastActive.Format(dsarTimeLayout)},
+			{Key: "Status", Value: status},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: user session rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// accountSecurityModule discloses account-level security status for a
+// matched user: 2FA enrollment, password change history and recovery code
+// usage -- counts and timestamps only, never a password hash, a TOTP secret
+// or a usable recovery code value.
+//
+// Unlike most modules in this file, this one never returns nil for an empty
+// result: two_factor_enabled is a NOT NULL column on users itself, so "never
+// changed a password, never enabled 2FA" is itself the disclosed status, not
+// an absence of data -- the same reasoning that keeps the base
+// "Benutzerkonto" module in matchUsers unconditional.
+//
+// Deviates from the unit's premise: two_factor_policy is a per-ROLE
+// enforcement setting (unique on tenant_id+role_name), not a per-user
+// status, so it names something the tenant configured for a role, not
+// personal data of this user -- it is deliberately left out. The user's own
+// 2FA state lives on the users row instead (two_factor_enabled,
+// two_factor_enabled_at).
+func accountSecurityModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	var twoFactorEnabled bool
+	var twoFactorEnabledAt *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT two_factor_enabled, two_factor_enabled_at FROM users WHERE tenant_id = $1 AND id = $2`,
+		tenantID, userID,
+	).Scan(&twoFactorEnabled, &twoFactorEnabledAt); err != nil {
+		return nil, fmt.Errorf("dsar: query user two-factor status: %w", err)
+	}
+
+	var passwordChanges int
+	var lastPasswordChange *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*), max(created_at) FROM password_history WHERE tenant_id = $1 AND user_id = $2`,
+		tenantID, userID,
+	).Scan(&passwordChanges, &lastPasswordChange); err != nil {
+		return nil, fmt.Errorf("dsar: query password history: %w", err)
+	}
+
+	var recoveryCodesTotal, recoveryCodesUsed int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*), count(*) FILTER (WHERE used_at IS NOT NULL)
+		 FROM recovery_codes WHERE tenant_id = $1 AND user_id = $2`,
+		tenantID, userID,
+	).Scan(&recoveryCodesTotal, &recoveryCodesUsed); err != nil {
+		return nil, fmt.Errorf("dsar: query recovery codes: %w", err)
+	}
+
+	return &DSARModule{
+		Module:  "Kontosicherheit",
+		Columns: []string{"Feld", "Wert"},
+		Records: []DSARRecord{
+			fieldValueRecord("Zwei-Faktor-Authentifizierung", boolLabel(twoFactorEnabled)),
+			fieldValueRecord("Aktiviert am", derefDateTimeOrEmpty(twoFactorEnabledAt)),
+			fieldValueRecord("Passwortänderungen (Anzahl)", strconv.Itoa(passwordChanges)),
+			fieldValueRecord("Letzte Passwortänderung", derefDateTimeOrEmpty(lastPasswordChange)),
+			fieldValueRecord("Wiederherstellungscodes (gesamt)", strconv.Itoa(recoveryCodesTotal)),
+			fieldValueRecord("Wiederherstellungscodes (genutzt)", strconv.Itoa(recoveryCodesUsed)),
+		},
+	}, nil
+}
+
+// driverLicensesModule discloses a matched user's driver license checks
+// (Führerscheinkontrolle) when they are on record as a fuhrpark driver.
+// driver_licenses.driver_id is CASCADE to users, so the disclosure and the
+// deletion agree on what exists -- unlike matchUsers itself before this
+// module, which knew nothing about this table.
+func driverLicensesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT license_classes, expiry_date, checked_at, next_check_due_date, COALESCE(notes, '')
+		 FROM driver_licenses
+		 WHERE tenant_id = $1 AND driver_id = $2
+		 ORDER BY checked_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query driver licenses: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Führerscheinkontrolle",
+		Columns: []string{"Führerscheinklassen", "Ablaufdatum", "Geprüft am", "Nächste Prüfung fällig", "Notizen"},
+	}
+	for rows.Next() {
+		var classes []string
+		var expiry *time.Time
+		var checkedAt, nextCheckDue time.Time
+		var notes string
+		if scanErr := rows.Scan(&classes, &expiry, &checkedAt, &nextCheckDue, &notes); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan driver license: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Führerscheinklassen", Value: strings.Join(classes, ", ")},
+			{Key: "Ablaufdatum", Value: derefDateOrEmpty(expiry)},
+			{Key: "Geprüft am", Value: checkedAt.Format(dsarDateLayout)},
+			{Key: "Nächste Prüfung fällig", Value: nextCheckDue.Format(dsarDateLayout)},
+			{Key: "Notizen", Value: notes},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: driver license rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// vehicleBookingsModule discloses a matched user's pool vehicle reservations
+// -- both bookings made FOR them (vehicle_bookings.user_id) and bookings
+// they made for someone else (vehicle_bookings.created_by). The two columns
+// name different roles (the person the vehicle is reserved for vs. the
+// person who booked it) and can point at different users, so each record
+// carries its role explicitly rather than assuming they're the same person.
+func vehicleBookingsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT v.license_plate, v.make, v.model, vb.starts_at, vb.ends_at, vb.purpose, vb.status,
+		        vb.user_id = $2, vb.created_by = $2
+		 FROM vehicle_bookings vb
+		 JOIN vehicles v ON v.id = vb.vehicle_id
+		 WHERE vb.tenant_id = $1 AND (vb.user_id = $2 OR vb.created_by = $2)
+		 ORDER BY vb.starts_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query vehicle bookings: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Fahrzeugbuchungen",
+		Columns: []string{"Fahrzeug", "Beginn", "Ende", "Zweck", "Status", "Rolle"},
+	}
+	for rows.Next() {
+		var plate, make_, model, purpose, status string
+		var starts, ends time.Time
+		var reservedForSubject, bookedBySubject bool
+		if scanErr := rows.Scan(&plate, &make_, &model, &starts, &ends, &purpose, &status,
+			&reservedForSubject, &bookedBySubject); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan vehicle booking: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Fahrzeug", Value: fmt.Sprintf("%s %s (%s)", make_, model, plate)},
+			{Key: "Beginn", Value: starts.Format(dsarTimeLayout)},
+			{Key: "Ende", Value: ends.Format(dsarTimeLayout)},
+			{Key: "Zweck", Value: purpose},
+			{Key: "Status", Value: status},
+			{Key: "Rolle", Value: vehicleBookingRoleLabel(reservedForSubject, bookedBySubject)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: vehicle booking rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func vehicleBookingRoleLabel(reservedForSubject, bookedBySubject bool) string {
+	switch {
+	case reservedForSubject && bookedBySubject:
+		return "Fahrer und Buchender"
+	case reservedForSubject:
+		return "Fahrer"
+	case bookedBySubject:
+		return "Buchender"
+	default:
+		return ""
+	}
+}
+
+// invitationHistoryModule discloses how a matched user came to have an
+// account: who invited them, with which legacy role preset, and when the
+// invitation was accepted. invitations rows carry email/first_name/last_name
+// directly (not a users FK) and survive acceptance untouched -- matchUsers
+// never read them before this module.
+//
+// Only accepted invitations are matched. An invitation that was never
+// accepted has no corresponding users row for SearchByQuery to attach it to
+// -- that gap is a separate, larger change than this unit (see JOURNAL.md).
+func invitationHistoryModule(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, userEmail string) (*DSARModule, error) {
+	if userEmail == "" {
+		return nil, nil
+	}
+	rows, err := pool.Query(ctx,
+		`SELECT i.first_name, i.last_name, i.role, i.created_at, i.accepted_at,
+		        inviter.first_name, inviter.last_name
+		 FROM invitations i
+		 JOIN users inviter ON inviter.id = i.created_by
+		 WHERE i.tenant_id = $1 AND i.email = $2 AND i.accepted_at IS NOT NULL
+		 ORDER BY i.created_at DESC
+		 LIMIT $3`, tenantID, userEmail, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query invitation history: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Einladungshistorie",
+		Columns: []string{"Name bei Einladung", "Rolle", "Eingeladen von", "Eingeladen am", "Angenommen am"},
+	}
+	for rows.Next() {
+		var invFirst, invLast, role string
+		var createdAt, acceptedAt time.Time
+		var inviterFirst, inviterLast string
+		if scanErr := rows.Scan(&invFirst, &invLast, &role, &createdAt, &acceptedAt, &inviterFirst, &inviterLast); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan invitation history: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Name bei Einladung", Value: joinName(invFirst, invLast)},
+			{Key: "Rolle", Value: role},
+			{Key: "Eingeladen von", Value: joinName(inviterFirst, inviterLast)},
+			{Key: "Eingeladen am", Value: createdAt.Format(dsarTimeLayout)},
+			{Key: "Angenommen am", Value: acceptedAt.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: invitation history rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func derefDateTimeOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(dsarTimeLayout)
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +1757,403 @@ func consentModule(ctx context.Context, pool *pgxpool.Pool, contactID uuid.UUID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: consent rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// customFieldsModule reads a contact's custom field values. There is no
+// tenant_id on contact_custom_field_values itself -- its RLS policy scopes
+// via a join back to contacts, so this query joins the same way rather than
+// relying on RLS alone (defense-in-depth, matching every other module here).
+func customFieldsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT cfd.field_label, cfv.value
+		 FROM contact_custom_field_values cfv
+		 JOIN custom_field_definitions cfd ON cfd.id = cfv.field_id
+		 JOIN contacts c ON c.id = cfv.contact_id
+		 WHERE cfv.contact_id = $1 AND c.tenant_id = $2
+		 ORDER BY cfd.sort_order, cfd.field_label
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query custom fields: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Benutzerdefinierte Felder", Columns: []string{"Feld", "Wert"}}
+	for rows.Next() {
+		var label string
+		var valueJSON []byte
+		if scanErr := rows.Scan(&label, &valueJSON); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan custom field: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, fieldValueRecord(label, formatCustomFieldValue(valueJSON)))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: custom field rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// formatCustomFieldValue renders a contact_custom_field_values.value JSONB
+// cell as plain text for the disclosure. field_type on the definition
+// (text/number/date/boolean/select/multiselect) governs how the value was
+// written, but decoding by Go type covers all of them without needing to
+// look up the definition's field_type separately.
+func formatCustomFieldValue(raw []byte) string {
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return string(raw)
+	}
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return val
+	case bool:
+		return boolLabel(val)
+	case float64:
+		return strconv.FormatFloat(val, 'f', -1, 64)
+	case []any:
+		parts := make([]string, len(val))
+		for i, item := range val {
+			parts[i] = fmt.Sprintf("%v", item)
+		}
+		return strings.Join(parts, ", ")
+	default:
+		return fmt.Sprintf("%v", val)
+	}
+}
+
+func tagsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.name, ct.created_at
+		 FROM contact_tags ct
+		 JOIN tags t ON t.id = ct.tag_id
+		 WHERE ct.contact_id = $1 AND ct.tenant_id = $2
+		 ORDER BY ct.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query tags: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Tags", Columns: []string{"Tag", "Zugewiesen"}}
+	for rows.Next() {
+		var name string
+		var at time.Time
+		if scanErr := rows.Scan(&name, &at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan tag: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Tag", Value: name},
+			{Key: "Zugewiesen", Value: at.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: tag rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// documentsModule discloses metadata only for files linked to a contact via
+// document_entity_links (entity_type="contact", the literal used throughout
+// internal/gateway/route_crm_contact_files.go and internal/document/file --
+// there is no shared constant for it). No storage_key, thumbnail_key or
+// content_text leaves this function: an Art. 15 export leaves the building,
+// and a path or signed URL in it would be a document-store access path that
+// bypasses the permission check a real download goes through.
+//
+// Soft-deleted files (is_deleted) are excluded: from the data subject's
+// perspective they no longer exist once moved to trash, same as the file
+// list UI already treats them.
+func documentsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT f.filename, f.mime_type, f.file_size, f.created_at
+		 FROM document_files f
+		 JOIN document_entity_links del ON del.file_id = f.id
+		 WHERE del.entity_type = 'contact' AND del.entity_id = $1 AND del.tenant_id = $2
+		   AND f.tenant_id = $2 AND NOT f.is_deleted
+		 ORDER BY f.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query documents: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Dokumente", Columns: []string{"Dateiname", "Typ", "Größe", "Hochgeladen am"}}
+	for rows.Next() {
+		var filename, mimeType string
+		var size int64
+		var at time.Time
+		if scanErr := rows.Scan(&filename, &mimeType, &size, &at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan document: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Dateiname", Value: filename},
+			{Key: "Typ", Value: mimeType},
+			{Key: "Größe", Value: fmt.Sprintf("%d Bytes", size)},
+			{Key: "Hochgeladen am", Value: at.Format(dsarTimeLayout)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: document rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// advisoryProtocolModules discloses every advisory session document tied to
+// a contact via the RESTRICT FK enforced by IsInUse (postgres_repository.go:549)
+// -- of the 14 tables that FK onto contacts, this is the only one with no
+// DSAR module, and it carries the most sensitive data in the whole schema:
+// birth date, marital status, tax status, income, assets, liabilities, risk
+// profile, existing insurance, discussed products.
+//
+// Reuses advisoryprotocol.PostgresRepository.ListByContact instead of
+// duplicating its ~50-column tenant-scoped scan; that repository query is
+// already the mechanism every field here is read through elsewhere in the
+// codebase.
+//
+// internal_notes is deliberately excluded, the same rule as the internal
+// helpdesk flag in helpdeskMessagesModule: it is the advisor's own working
+// assessment of the client, not communication addressed to them or a fact
+// about their situation.
+//
+// A contact can have several protocols (consultation history). Each becomes
+// its own module -- one module per protocol keeps ~40 disclosed fields
+// readable per session instead of forcing them into one table's columns --
+// ordered oldest first so the sequence reads as a timeline.
+func advisoryProtocolModules(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) ([]DSARModule, error) {
+	repo := advisoryprotocol.NewPostgresRepository(pool)
+	protocols, err := repo.ListByContact(ctx, contactID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query advisory protocols: %w", err)
+	}
+	if len(protocols) == 0 {
+		return nil, nil
+	}
+
+	// ListByContact orders newest first for the editor UI; a disclosure reads
+	// better as a consultation history, oldest first.
+	for i, j := 0, len(protocols)-1; i < j; i, j = i+1, j-1 {
+		protocols[i], protocols[j] = protocols[j], protocols[i]
+	}
+
+	modules := make([]DSARModule, 0, len(protocols))
+	for i, p := range protocols {
+		date := derefOrEmpty(p.Date)
+		if date == "" {
+			date = "ohne Datum"
+		}
+		modules = append(modules, DSARModule{
+			Module:  fmt.Sprintf("Beratungsprotokoll %d (%s, %s)", i+1, date, advisoryStatusLabel(p.Status)),
+			Columns: []string{"Feld", "Wert"},
+			Records: advisoryProtocolRecords(p),
+		})
+	}
+	return modules, nil
+}
+
+func advisoryStatusLabel(status string) string {
+	if status == "finalized" {
+		return "abgeschlossen"
+	}
+	return "Entwurf"
+}
+
+func advisoryProtocolRecords(p *advisoryprotocol.Protocol) []DSARRecord {
+	products := make([]string, len(p.Products))
+	for i, prod := range p.Products {
+		rec := "empfohlen"
+		if !prod.Recommended {
+			rec = "nicht empfohlen"
+		}
+		products[i] = fmt.Sprintf("%s (SRI %d, %s)", prod.Name, prod.RiskClass, rec)
+	}
+
+	return []DSARRecord{
+		fieldValueRecord("Datum", derefOrEmpty(p.Date)),
+		fieldValueRecord("Zeit", strings.TrimSpace(strings.Trim(p.TimeFrom+"–"+p.TimeTo, "–"))),
+		fieldValueRecord("Ort", p.Location),
+		fieldValueRecord("Berater", p.Advisor),
+		fieldValueRecord("Anlass", p.Occasion),
+		fieldValueRecord("Anlass-Notiz", p.OccasionNote),
+		fieldValueRecord("Kundenkategorie", p.CustomerCategory),
+		fieldValueRecord("Geburtsdatum", derefOrEmpty(p.BirthDate)),
+		fieldValueRecord("Familienstand", p.MaritalStatus),
+		fieldValueRecord("Steuerstatus", p.TaxStatus),
+		fieldValueRecord("Bekannte Anlageklassen", strings.Join(p.KnownAssetClasses, ", ")),
+		fieldValueRecord("Bisherige Transaktionen", p.PastTransactions),
+		fieldValueRecord("Finanzbildung", p.FinancialEducation),
+		fieldValueRecord("Berufserfahrung", p.ProfessionalExperience),
+		fieldValueRecord("Selbsteinschätzung (1-5)", derefIntOrEmpty(p.SelfAssessment)),
+		fieldValueRecord("Monatliches Nettoeinkommen", moneyOrEmpty(p.MonthlyNetIncome)),
+		fieldValueRecord("Laufende Verbindlichkeiten", moneyOrEmpty(p.RecurringLiabilities)),
+		fieldValueRecord("Liquide Mittel", moneyOrEmpty(p.LiquidAssets)),
+		fieldValueRecord("Bestehende Anlagen", moneyOrEmpty(p.CurrentInvestments)),
+		fieldValueRecord("Immobilien", p.RealEstate),
+		fieldValueRecord("Bestehende Versicherungen", p.ExistingInsurance),
+		fieldValueRecord("Maximale Verlusttragfähigkeit (absolut)", moneyOrEmpty(p.MaxLossCapacityAbs)),
+		fieldValueRecord("Maximale Verlusttragfähigkeit (%)", percentOrEmpty(p.MaxLossCapacityPct)),
+		fieldValueRecord("Anlagezweck", strings.Join(p.InvestmentPurpose, ", ")),
+		fieldValueRecord("Anlagehorizont", p.Horizon),
+		fieldValueRecord("Risikobereitschaft", p.RiskTolerance),
+		fieldValueRecord("Risikotragfähigkeit", p.RiskCapacity),
+		fieldValueRecord("Risikoklasse (SRI 1-7)", strconv.Itoa(p.RiskClass)),
+		fieldValueRecord("ESG-Präferenz", boolLabel(p.EsgPreference)),
+		fieldValueRecord("ESG-Details", p.EsgDetails),
+		fieldValueRecord("Einmalbetrag", moneyOrEmpty(p.OneTimeAmount)),
+		fieldValueRecord("Monatliche Sparrate", moneyOrEmpty(p.MonthlySavings)),
+		fieldValueRecord("Besprochene Produkte", strings.Join(products, "; ")),
+		fieldValueRecord("Empfehlungszusammenfassung", p.RecommendationSummary),
+		fieldValueRecord("Geeignetheitsbegründung", p.SuitabilityReasoning),
+		fieldValueRecord("Zielbezug", p.GoalReference),
+		fieldValueRecord("Alternativen", p.Alternatives),
+		fieldValueRecord("Nicht empfohlen", p.NotRecommended),
+		fieldValueRecord("Wesentliche Anliegen", p.MainConcerns),
+		fieldValueRecord("Erteilte Warnhinweise", strings.Join(p.WarningsGiven, ", ")),
+		fieldValueRecord("Dokument ausgehändigt", boolLabel(p.DocumentDelivered)),
+		fieldValueRecord("Ausgehändigt am", derefOrEmpty(p.DocumentDeliveredDate)),
+		fieldValueRecord("Übermittlungsform", p.DeliveryForm),
+		fieldValueRecord("Berater-Unterschrift", p.AdvisorSignature),
+		fieldValueRecord("Kundenbestätigung", boolLabel(p.CustomerConfirmation)),
+		fieldValueRecord("Dokumentenverzicht", boolLabel(p.DocumentWaiver)),
+		fieldValueRecord("Folgetermin", derefOrEmpty(p.FollowupDate)),
+	}
+}
+
+func derefOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func derefIntOrEmpty(v *int) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.Itoa(*v)
+}
+
+func moneyOrEmpty(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	// lean: EUR hardcoded, same reasoning as financeModule below -- the
+	// product is DACH/EUR-only and advisory_protocols carries no currency
+	// column of its own.
+	return fmt.Sprintf("%.2f EUR", *v)
+}
+
+func percentOrEmpty(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%.2f %%", *v)
+}
+
+// formFieldMeta is a partial decode of one entry in form_schemas.fields --
+// enough to label an answer for disclosure without importing the formulare
+// package's full FormField (which also carries options/conditional logic a
+// data subject export has no use for).
+type formFieldMeta struct {
+	ID    string `json:"id"`
+	Type  string `json:"type"`
+	Label string `json:"label"`
+}
+
+// formSubmissionsModule discloses public form submissions matched to a
+// contact by comparing an "email"-typed field's answer against the contact's
+// own address. This is a heuristic, not a foreign key: form_submissions
+// carries no contact_id at all, and submitted_by is not the respondent's
+// identity -- it holds the staff user who logged an authenticated
+// submission, or nothing whatsoever for a public share-link submission
+// (formulare/form_share.go SubmitByShareToken never sets it). The
+// respondent's own data lives only inside the JSONB answers, keyed by
+// whichever field id the form author chose, which is why the match has to
+// go through the schema's field definitions instead of a column.
+//
+// A submission whose schema has since been deleted (form_schema_id set NULL
+// by form_schemas' ON DELETE SET NULL) is excluded: without the schema there
+// is no way to tell which answer, if any, held an email address.
+func formSubmissionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, contactEmail string) (*DSARModule, error) {
+	if contactEmail == "" {
+		return nil, nil
+	}
+	rows, err := pool.Query(ctx,
+		`SELECT fs.title, fs.fields, fsub.answers, fsub.submitted_at
+		 FROM form_submissions fsub
+		 JOIN form_schemas fs ON fs.id = fsub.form_schema_id
+		 WHERE fsub.tenant_id = $1 AND fs.tenant_id = $1
+		   AND EXISTS (
+		     SELECT 1 FROM jsonb_array_elements(fs.fields) AS field(elem)
+		     WHERE field.elem ->> 'type' = 'email'
+		       AND LOWER(fsub.answers ->> (field.elem ->> 'id')) = LOWER($2)
+		   )
+		 ORDER BY fsub.submitted_at DESC
+		 LIMIT $3`, tenantID, contactEmail, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query form submissions: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Formulareinreichungen", Columns: []string{"Formular", "Datum", "Feld", "Wert"}}
+	for rows.Next() {
+		var title string
+		var fieldsRaw, answersRaw []byte
+		var at time.Time
+		if scanErr := rows.Scan(&title, &fieldsRaw, &answersRaw, &at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan form submission: %w", scanErr)
+		}
+
+		var defs []formFieldMeta
+		if err := json.Unmarshal(fieldsRaw, &defs); err != nil {
+			return nil, fmt.Errorf("dsar: decode form fields: %w", err)
+		}
+		var answers map[string]json.RawMessage
+		if err := json.Unmarshal(answersRaw, &answers); err != nil {
+			// The disclosure must still surface stored data even if it is not
+			// the JSON object shape every submission is expected to have.
+			mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+				{Key: "Formular", Value: title},
+				{Key: "Datum", Value: at.Format(dsarTimeLayout)},
+				{Key: "Feld", Value: "(unstrukturiert)"},
+				{Key: "Wert", Value: string(answersRaw)},
+			}})
+			continue
+		}
+
+		for _, def := range defs {
+			raw, ok := answers[def.ID]
+			if !ok {
+				continue
+			}
+			label := def.Label
+			if label == "" {
+				label = def.ID
+			}
+			mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+				{Key: "Formular", Value: title},
+				{Key: "Datum", Value: at.Format(dsarTimeLayout)},
+				{Key: "Feld", Value: label},
+				{Key: "Wert", Value: formatCustomFieldValue(raw)},
+			}})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: form submission rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil
@@ -447,6 +2302,73 @@ func helpdeskModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil
+	}
+	return &mod, nil
+}
+
+// helpdeskMessagesModule discloses the customer-facing conversation on a
+// contact's tickets — what the person wrote and what they were told, which is
+// the actual personal content behind the ticket metadata in helpdeskModule.
+// Internal notes (internal = true) are excluded on purpose: they are agent
+// working material and routinely contain a colleague's assessment OF the
+// data subject, not communication addressed to them.
+func helpdeskMessagesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.subject, tm.body, tm.created_at
+		 FROM ticket_messages tm
+		 JOIN tickets t ON t.id = tm.ticket_id
+		 WHERE t.contact_id = $1 AND tm.tenant_id = $2 AND NOT tm.internal
+		 ORDER BY tm.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows+1)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query helpdesk messages: %w", err)
+	}
+	defer rows.Close()
+
+	type message struct {
+		subject, body string
+		at            time.Time
+	}
+	var messages []message
+	for rows.Next() {
+		var m message
+		if scanErr := rows.Scan(&m.subject, &m.body, &m.at); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan helpdesk message: %w", scanErr)
+		}
+		messages = append(messages, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: helpdesk message rows: %w", err)
+	}
+	if len(messages) == 0 {
+		return nil, nil
+	}
+
+	// Query fetched dsarMaxRows+1 newest-first so truncation, if any, drops
+	// the oldest messages rather than silently hiding the most recent ones.
+	truncated := len(messages) > dsarMaxRows
+	if truncated {
+		messages = messages[:dsarMaxRows]
+	}
+	// Reverse to chronological (oldest-first) order for a readable transcript.
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	mod := DSARModule{Module: "Helpdesk-Nachrichten", Columns: []string{"Ticket", "Nachricht", "Datum"}}
+	if truncated {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Ticket", Value: ""},
+			{Key: "Nachricht", Value: fmt.Sprintf("(gekürzt auf die %d neuesten Nachrichten)", dsarMaxRows)},
+			{Key: "Datum", Value: ""},
+		}})
+	}
+	for _, m := range messages {
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Ticket", Value: m.subject},
+			{Key: "Nachricht", Value: m.body},
+			{Key: "Datum", Value: m.at.Format(dsarTimeLayout)},
+		}})
 	}
 	return &mod, nil
 }

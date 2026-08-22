@@ -3,6 +3,7 @@ package gateway
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 
@@ -10,6 +11,16 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
+
+// redirectBexioError sends the browser back to the integrations settings page
+// with a bexio_error query param. code is always escaped: it may be the fixed
+// strings this file passes in, but it may also be a value read straight off
+// the incoming request (the "error" query param Bexio's redirect carries, or
+// -- until the server-side fix landed -- a raw internal error string), and
+// neither is safe to splice into a URL unescaped (query/header injection).
+func redirectBexioError(w http.ResponseWriter, r *http.Request, code string) {
+	http.Redirect(w, r, "/settings/integrations?bexio_error="+url.QueryEscape(code), http.StatusFound)
+}
 
 // BexioRoutes handles HTTP routes for the Bexio integration.
 type BexioRoutes struct {
@@ -89,7 +100,7 @@ func (br *BexioRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.Reques
 		if errorMsg == "" {
 			errorMsg = "missing authorization code"
 		}
-		http.Redirect(w, r, "/settings/integrations?bexio_error="+errorMsg, http.StatusFound)
+		redirectBexioError(w, r, errorMsg)
 		return
 	}
 
@@ -114,13 +125,12 @@ func (br *BexioRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.Reques
 		TenantId: tenantID,
 		Code:     code,
 	})
-	if err != nil {
-		http.Redirect(w, r, "/settings/integrations?bexio_error=connection_failed", http.StatusFound)
-		return
-	}
-
-	if !resp.GetSuccess() {
-		http.Redirect(w, r, "/settings/integrations?bexio_error="+resp.GetErrorMessage(), http.StatusFound)
+	// The server now reports failure as a gRPC error (mapBexioError), never as
+	// Success:false with a raw error string — !resp.GetSuccess() is checked
+	// alongside err != nil purely as a defensive backstop so a future
+	// regression there still can't reflect an unmasked message back out.
+	if err != nil || !resp.GetSuccess() {
+		redirectBexioError(w, r, "connection_failed")
 		return
 	}
 

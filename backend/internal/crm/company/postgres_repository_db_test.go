@@ -697,3 +697,74 @@ func TestRepository_MergeInto_ReassignsRelationsMergesTagsAndCustomFieldsThenSof
 		t.Fatalf("MergeCompanies (already merged): expected ErrAlreadyMerged, got %v", err)
 	}
 }
+
+// TestRepository_Delete_MergedPrimaryCompany_DB proves the fix for
+// companies_merged_into_id_fkey: before migration 000321, deleting a company
+// that served as the primary of a completed merge failed with a raw
+// unhandled FK violation (confdeltype NO ACTION), because Service.Delete
+// only ever checked HasContacts and never knew about merged_into_id.
+// Deleting the primary must now succeed and clear the duplicate's
+// merged_into_id rather than blocking or erroring — mirrors the identical
+// fix already applied to contacts.merged_into_id.
+func TestRepository_Delete_MergedPrimaryCompany_DB(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "CRM Company Delete-Merged-Primary Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantID,
+		"email":         fmt.Sprintf("crm-company-delete-merged-%s@tenant.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	now := time.Now().UTC()
+
+	primary := &models.Company{ID: uuid.New(), TenantID: tenantID, Name: "Primary ToDelete", CreatedBy: userID, CreatedAt: now, UpdatedAt: now}
+	duplicate := &models.Company{ID: uuid.New(), TenantID: tenantID, Name: "Duplicate Survives", CreatedBy: userID, CreatedAt: now, UpdatedAt: now}
+	if err := repo.Create(ctx, primary); err != nil {
+		t.Fatalf("Create primary: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "companies", primary.ID)
+	if err := repo.Create(ctx, duplicate); err != nil {
+		t.Fatalf("Create duplicate: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "companies", duplicate.ID)
+
+	if err := repo.MergeInto(ctx, primary.ID, duplicate.ID, tenantID); err != nil {
+		t.Fatalf("MergeInto: %v", err)
+	}
+
+	hasContacts, err := repo.HasContacts(ctx, primary.ID, tenantID)
+	if err != nil {
+		t.Fatalf("HasContacts (merge primary): %v", err)
+	}
+	if hasContacts {
+		t.Fatalf("HasContacts (merge primary) = true, want false — merged_into_id is not a contact")
+	}
+
+	if err := repo.Delete(ctx, primary.ID, tenantID); err != nil {
+		t.Fatalf("Delete primary of a completed merge: %v — merged_into_id must be ON DELETE SET NULL, not NO ACTION (migration 000321)", err)
+	}
+
+	if _, getErr := repo.GetByID(ctx, primary.ID, tenantID); getErr == nil {
+		t.Fatal("GetByID: primary still exists after Delete")
+	}
+
+	var mergedInto *uuid.UUID
+	if err := pool.QueryRow(sysCtx, `SELECT merged_into_id FROM companies WHERE id = $1`, duplicate.ID).Scan(&mergedInto); err != nil {
+		t.Fatalf("read duplicate after primary deletion: %v", err)
+	}
+	if mergedInto != nil {
+		t.Fatalf("duplicate.merged_into_id = %v after its primary was deleted, want NULL (ON DELETE SET NULL)", *mergedInto)
+	}
+}

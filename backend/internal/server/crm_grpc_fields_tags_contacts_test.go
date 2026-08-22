@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -313,6 +314,14 @@ func (r *stubContactRepo) IsInUse(_ context.Context, id, _ uuid.UUID) (bool, str
 		return true, "call campaign history", nil
 	}
 	return false, "", nil
+}
+
+func (r *stubContactRepo) DeletionImpact(_ context.Context, _, _ uuid.UUID) ([]contact.DeletionImpactItem, error) {
+	return nil, nil
+}
+
+func (r *stubContactRepo) ListRetentionCandidates(_ context.Context, _ uuid.UUID, _ time.Time) ([]uuid.UUID, error) {
+	return nil, nil
 }
 
 func (r *stubContactRepo) CompanyExists(_ context.Context, companyID, _ uuid.UUID) (bool, error) {

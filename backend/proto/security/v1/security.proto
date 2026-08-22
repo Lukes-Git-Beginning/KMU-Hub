@@ -44,6 +44,7 @@ service SecurityService {
   rpc CreateRetentionPolicy(CreateRetentionPolicyRequest) returns (CreateRetentionPolicyResponse);
   rpc UpdateRetentionPolicy(UpdateRetentionPolicyRequest) returns (UpdateRetentionPolicyResponse);
   rpc DeleteRetentionPolicy(DeleteRetentionPolicyRequest) returns (DeleteRetentionPolicyResponse);
+  rpc GetLatestRetentionRun(GetLatestRetentionRunRequest) returns (GetLatestRetentionRunResponse);
 
   // Vendor Access (RBAC R-5 B, GDAP-light v3)
   rpc ListVendorAccessRequests(ListVendorAccessRequestsRequest) returns (ListVendorAccessRequestsResponse);
@@ -435,6 +436,52 @@ message DeleteRetentionPolicyRequest {
 }
 
 message DeleteRetentionPolicyResponse {}
+
+// RetentionRun and RetentionRunItem mirror retention_runs / retention_run_items
+// (migration 000316) -- the executor's log, not the policy configuration.
+message RetentionRun {
+  string id = 1;
+  string mode = 2; // "dry_run" or "enforce"
+  string status = 3; // "running", "completed", "failed"
+  string triggered_by = 4;
+  int32 policies_total = 5;
+  int32 records_matched = 6;
+  int32 records_affected = 7;
+  int32 records_skipped = 8;
+  string error = 9;
+  google.protobuf.Timestamp started_at = 10;
+  google.protobuf.Timestamp finished_at = 11;
+}
+
+message RetentionSkipReason {
+  string record_id = 1;
+  string reason = 2;
+}
+
+message RetentionRunItem {
+  string id = 1;
+  string resource_type = 2;
+  string action = 3;
+  int32 retention_days = 4;
+  google.protobuf.Timestamp cutoff = 5;
+  // "dry_run", "applied", "unmapped", "unsupported", "failed"
+  string status = 6;
+  int32 matched = 7;
+  int32 affected = 8;
+  int32 skipped = 9;
+  repeated RetentionSkipReason skip_reasons = 10;
+  string message = 11;
+}
+
+message GetLatestRetentionRunRequest {}
+
+message GetLatestRetentionRunResponse {
+  // False when no run has ever executed for this tenant -- distinguishes
+  // "never ran" from a run with zero matched records.
+  bool has_run = 1;
+  RetentionRun run = 2;
+  repeated RetentionRunItem items = 3;
+}
 
 // ---------------------------------------------------------------------------
 // Vendor Access (RBAC R-5 B, GDAP-light v3)

@@ -18,6 +18,11 @@ type Repository interface {
 	List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Channel, int, error)
 	Update(ctx context.Context, channel *models.Channel) error
 	Delete(ctx context.Context, id, tenantID uuid.UUID) error
+	// HasCallSessions reports whether any call_sessions row still references this
+	// channel. call_sessions.channel_id has ON DELETE NO ACTION and is not reached
+	// by any retention handler, so Delete must check this itself instead of letting
+	// the raw FK violation surface as a 500.
+	HasCallSessions(ctx context.Context, channelID uuid.UUID) (bool, error)
 
 	// Membership operations
 	AddMember(ctx context.Context, membership *models.ChannelMembership) error
