@@ -86,7 +86,7 @@ func TestCRMErasureHandler_PreviewErasure_Integration(t *testing.T) {
 	require.NotNil(t, preview)
 	assert.Equal(t, "crm", preview.ModuleName)
 	assert.Equal(t, string(ErasureAnonymize), preview.Action)
-	assert.Equal(t, 3, preview.RecordCount, "one contact + one company + one activity")
+	assert.Equal(t, 1, preview.RecordCount, "only the activity -- contacts/companies are retained business records and excluded from the count")
 
 	// Preview must not write: the activity still carries its assignment and
 	// its description afterwards.
@@ -181,8 +181,8 @@ func TestCRMErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
 	require.NoError(t, err)
 	// Two activities touched (assigned+created activity counts once, created-only
-	// activity counts once) + one contact + one company = 4.
-	assert.Equal(t, 4, affected, "each activity is counted exactly once, regardless of matching both branches")
+	// activity counts once). Contact and company are retained and not counted.
+	assert.Equal(t, 2, affected, "each activity is counted exactly once, regardless of matching both branches")
 
 	// The assigned activity loses both its assignment and its description.
 	var assignedTo *uuid.UUID
@@ -217,8 +217,8 @@ func TestCRMErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 		`SELECT COUNT(*) FROM contacts WHERE id = $1`, contactID).Scan(&contactRows))
 	require.NoError(t, pool.QueryRow(ctx,
 		`SELECT COUNT(*) FROM companies WHERE id = $1`, companyID).Scan(&companyRows))
-	assert.Equal(t, 1, contactRows, "contacts are counted, not deleted")
-	assert.Equal(t, 1, companyRows, "companies are counted, not deleted")
+	assert.Equal(t, 1, contactRows, "contacts are retained, not deleted")
+	assert.Equal(t, 1, companyRows, "companies are retained, not deleted")
 }
 
 func TestCRMErasureHandler_ExecuteErasure_IgnoresAction(t *testing.T) {
@@ -259,7 +259,7 @@ func TestCRMErasureHandler_ExecuteErasure_IgnoresAction(t *testing.T) {
 	// ErasureDelete does NOT delete: the handler ignores its action parameter.
 	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureDelete)
 	require.NoError(t, err)
-	assert.Equal(t, 2, affected, "one activity counted once + one contact")
+	assert.Equal(t, 1, affected, "one activity counted once; the contact is retained and not counted")
 
 	var contactRows int
 	require.NoError(t, pool.QueryRow(ctx,

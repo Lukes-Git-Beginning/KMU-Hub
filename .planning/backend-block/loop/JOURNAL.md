@@ -4056,3 +4056,55 @@ Frühere Läufe liegen vollständig im Archiv:
     Calendar-Anteil enger geworden (nur noch Termine auf fremden/retinierten Kalendern), Scope-Text
     im Backlog entsprechend ergaenzt — kein neuer Fund, nur Praezisierung fuer die naechste
     Iteration, die diese Unit zieht.
+
+## Iteration 66 — fix-crm-erasure-contacts-companies-preview-execute-mismatch — done — 2026-08-22 09:15
+- commit: -
+- gebaut: `CRMErasureHandler.PreviewErasure` zaehlte `contacts` und `companies` (created_by) als
+  "betroffene" Datensaetze; `ExecuteErasure` liess beide Tabellen unveraendert und zaehlte sie
+  nur erneut in `affected` — Preview versprach eine Wirkung, die nie eintrat. Entscheidung (Option
+  a aus den Backlog-Notizen): contacts/companies werden aus BEIDEN Zaehlungen entfernt, weil sich
+  an ihnen inhaltlich nichts aendert (created_by bleibt via anonymisiertem User-Sentinel gueltige
+  FK) — ehrliche Zahl statt vorgetaeuschter Wirkung. Preview und Execute zaehlen jetzt
+  ausschliesslich `activities`. Struct-Doc-Kommentar auf `CRMErasureHandler` entsprechend
+  neu geschrieben (beschreibt jetzt Rueckbehaltung von contacts/companies/Pipeline explizit als
+  bewusste Business-Record-Entscheidung, nicht laenger "Anonymizes contacts and activities").
+- gebaut (Tests): `erasure_crm_chat_test.go` — `TestCRMErasureHandler_PreviewErasure_Integration`
+  (3 -> 1, Kontakt/Firma bleiben geseedet, um zu belegen dass sie NICHT mehr zaehlen),
+  `TestCRMErasureHandler_ExecuteErasure_Integration` (4 -> 2), `TestCRMErasureHandler_ExecuteErasure_IgnoresAction`
+  (2 -> 1) angepasst; Retain-Checks fuer contacts/companies bleiben unveraendert (weiterhin nicht
+  geloescht). `erasure_idempotency_test.go` —
+  `TestCRMErasureHandler_ExecuteErasure_SecondRunRecountsCreatedByForever` (n1 2 -> 1, Kommentar
+  von "activity+contact" auf "activity" praezisiert) — die verbleibende Doppellauf-Luecke betrifft
+  jetzt ausschliesslich `activities.created_by` und bleibt Teil von
+  `fix-erasure-handlers-not-idempotent-on-second-run`.
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/... ./internal/gateway/...`) | lint ok (0 issues,
+  `./internal/security/...`) | test ok (`./internal/security/gdpr/` 126 Subtests PASS, 0 SKIP
+  gegen `kmuhub_app`; `./internal/security/...` alle 7 Unterpakete ok) | migration n.a. (keine
+  Schema-Aenderung) | rls-smoke n.a. (kein Schema/Policy-Wechsel) | TestOpenAPIRouteDrift nicht
+  gelaufen — keine Route in dieser Unit angefasst, daher nicht Pflicht.
+- coverage: `internal/security/gdpr` 70,9 % -> 70,8 % (selbst gemessen: `git stash push -u` auf
+  genau die drei geaenderten Dateien, `go test -coverprofile` davor/danach, `stash pop`; leichter
+  Ruecktritt ist erwartbar, da entfernter Zaehlcode auch Coverage-Zeilen entfernt hat — reine
+  Bugfix-Unit, kein Coverage-Ziel).
+- mutations-probe: die entfernte Contact-Zaehlung probeweise wieder in `ExecuteErasure` eingefuegt
+  (`affected += contactCount`) → drei Tests werden rot
+  (`TestCRMErasureHandler_ExecuteErasure_IgnoresAction`,
+  `TestCRMErasureHandler_ExecuteErasure_SecondRunRecountsCreatedByForever`,
+  `TestCRMErasureHandler_ExecuteErasure_Integration`, jeweils erwartete vs. tatsaechliche Zahl um
+  1 daneben). Zurueckgedreht, `git diff --stat erasure.go` zeigt wieder ausschliesslich 11
+  Insertions/14 Deletions, Paket erneut vollstaendig gruen.
+- verify vorgaenger: sauber. `fdfa18cc` (Iteration 65, fix-calendar-erasure-incomplete-and-doc-mismatch)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `erasure.go`) —
+  reine interne Erasure-Logik-Aenderung (Kalender/Mitgliedschaften/Push-Subscriptions loeschen),
+  kein Gateway-Handler (keine gRPC-Umgehung moeglich), kein Stub, kein `.proto`, kein
+  neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle (alle betroffenen Tabellen
+  bestanden bereits), keine Route, keine Wire-Shape-Aenderung. Keine `tenant_id`-Filterung in den
+  Queries dieser Datei, aber konsistent mit allen Schwester-Handlern in derselben Datei (bereits
+  bestehendes Muster, RLS-getragen, nicht neu in diesem Commit). Mutations-Probe der
+  Vorgaenger-Iteration im Journal dokumentiert und plausibel.
+- neue-units: keine
+- offen:
+  - `fix-erasure-handlers-not-idempotent-on-second-run` (bereits im Backlog) ist im Scope fuer den
+    CRM-Anteil unveraendert (weiterhin `activities.created_by` matcht bei jedem Lauf erneut) —
+    kein neuer Fund, nur Bestaetigung nach dieser Iteration.

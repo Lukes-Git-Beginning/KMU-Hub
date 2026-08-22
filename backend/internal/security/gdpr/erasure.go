@@ -189,8 +189,12 @@ func (h *AuthErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 }
 
 // CRMErasureHandler handles erasure for CRM data.
-// Anonymizes contacts and activities owned by the user; retains deal/pipeline history
-// as this may be legally required for business records (GoBD-adjacent).
+// Anonymizes activities owned by the user. Contacts, companies and deal/pipeline
+// history are retained unchanged: they are business records belonging to the
+// tenant, not personal data of this user, and their created_by FK stays valid
+// via the anonymized user sentinel (AuthErasureHandler). Preview and execute
+// therefore both report only activities as affected -- contacts/companies are
+// deliberately excluded from the count since nothing about them changes.
 type CRMErasureHandler struct {
 	pool *pgxpool.Pool
 }
@@ -205,11 +209,7 @@ func (h *CRMErasureHandler) ModuleName() string { return "crm" }
 func (h *CRMErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUID) (*models.ModuleErasurePreview, error) {
 	var count int
 	if err := h.pool.QueryRow(ctx,
-		`SELECT
-		   (SELECT COUNT(*) FROM contacts WHERE created_by = $1) +
-		   (SELECT COUNT(*) FROM companies WHERE created_by = $1) +
-		   (SELECT COUNT(*) FROM activities WHERE assigned_to = $1 OR created_by = $1)
-		`, userID,
+		`SELECT COUNT(*) FROM activities WHERE assigned_to = $1 OR created_by = $1`, userID,
 	).Scan(&count); err != nil {
 		return &models.ModuleErasurePreview{
 			ModuleName:  "crm",
@@ -254,14 +254,11 @@ func (h *CRMErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUID
 	}
 	affected += int(res.RowsAffected())
 
-	// Note: contacts.created_by and companies.created_by are NOT NULL FKs to users(id).
+	// contacts.created_by and companies.created_by are NOT NULL FKs to users(id).
 	// The user record is anonymized (not deleted) by AuthErasureHandler, so the FK
-	// reference remains valid with the anonymized user as creator. No update needed here.
-	// Count contacts/companies for reporting purposes only.
-	var contactCount, companyCount int
-	_ = tx.QueryRow(ctx, `SELECT COUNT(*) FROM contacts WHERE created_by = $1`, userID).Scan(&contactCount)
-	_ = tx.QueryRow(ctx, `SELECT COUNT(*) FROM companies WHERE created_by = $1`, userID).Scan(&companyCount)
-	affected += contactCount + companyCount
+	// reference remains valid with the anonymized user as creator. Nothing about
+	// these rows changes, so they are deliberately not counted as affected --
+	// counting them without touching them made the preview lie about impact.
 
 	if commitErr := tx.Commit(ctx); commitErr != nil {
 		return 0, fmt.Errorf("crm erasure: failed to commit: %w", commitErr)

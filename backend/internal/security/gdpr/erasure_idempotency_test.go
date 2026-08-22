@@ -118,17 +118,16 @@ func TestCRMErasureHandler_ExecuteErasure_SecondRunRecountsCreatedByForever(t *t
 
 	n1, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
 	require.NoError(t, err)
-	assert.Equal(t, 2, n1, "first run: 1 activity + 1 contact")
+	assert.Equal(t, 1, n1, "first run: 1 activity; the contact is retained and not counted")
 
 	// Second run: the activity's description is already NULL and assigned_to already NULL,
 	// but the UPDATE's WHERE clause matches on created_by, which never changes -- so it
-	// matches again. contacts.created_by is likewise a permanent, non-erasable FK that gets
-	// re-counted on every call.
+	// matches again.
 	n2, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
 	require.NoError(t, err)
 	// BUG: reports the exact same count again, though nothing changed this round.
 	// See fix-erasure-handlers-not-idempotent-on-second-run.
-	assert.Equal(t, n1, n2, "BUG: second run recounts the same activity+contact as if freshly erased")
+	assert.Equal(t, n1, n2, "BUG: second run recounts the same activity as if freshly erased")
 }
 
 func TestChatErasureHandler_ExecuteErasure_SecondRunOverwritesAnonymizedContent(t *testing.T) {
