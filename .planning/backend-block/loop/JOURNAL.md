@@ -1804,3 +1804,60 @@ Frühere Läufe liegen vollständig im Archiv:
     unbearbeitet am Backlog-Ende und sollten vor Block C gezogen werden.
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
     beruehrt in dieser Iteration).
+
+## Iteration 30 — cov-gateway-crm-ext-duplicates-merge-gdpr — done — 2026-08-22 05:01
+- commit: (wird nach diesem Eintrag gesetzt, siehe Folgecommit)
+- gebaut: `internal/gateway/route_crm_ext_test.go` neu — deckt alle 12 Handler aus
+  `route_crm_ext.go` ab (FindContactDuplicates, MergeContacts, FindCompanyDuplicates,
+  MergeCompanies, ContactTimeline, ContactDeletionPreview, GetConsents, GrantConsent,
+  RevokeConsent, GetConsentHistory, RequestDeletion, ProcessDeletion), diese Datei war die
+  groesste ungetestete CRM-Routendatei (389 Zeilen, 16 Funktionen inkl. der drei
+  Registrierungshelfer). Kern der Unit ist `TestGDPRDeletionRoutes_RequestAndProcessRequireDifferent
+  Guards`: ein Router-Level-Test (echtes `NewCRMRoutes`+`NewCRMExtRoutes`-Wiring, kein Direktaufruf),
+  der die Vier-Augen-Trennung zwischen Beantragen (`/contacts/{id}/gdpr/deletion-request`, Guard
+  `RequirePermission("contacts","write")`) und Ausfuehren (`/gdpr/deletion-requests/{id}/process`,
+  Guard `middleware.RequireRole("admin")`) beweist — insbesondere, dass `contacts:write` ALLEIN das
+  Ausfuehren NICHT freischaltet (gleiches Muster wie die bestehende Automation-Stats-Rollenpruefung
+  in `route_capability_guard_test.go`). Die Trennung existierte bereits im Code, war nur ungetestet
+  — kein Fix noetig.
+  Merge-Kollision (kollidierende Tags/Custom-Fields zwischen Primary und Duplicate) und
+  Cross-Tenant-/Already-merged-Faelle sind NICHT auf Gateway-Ebene nachgebaut, sondern per
+  Kommentar auf bereits bestehende, tiefere Tests verwiesen: `TestRepository_MergeInto_
+  ReassignsRelationsMergesTagsAndCustomFieldsThenSoftDeletes` (contact UND company, je eigene
+  `postgres_repository_db_test.go`, `ON CONFLICT DO NOTHING` bzw. `ON CONFLICT (contact_id,
+  field_id) DO NOTHING`) sowie `TestService_MergeContacts_*`/`TestService_MergeCompanies_*` und
+  `TestService_CrossTenant_Merge{Contacts,Companies}_NilTenantRejected`. Ebenso
+  `TestService_PreviewDeletion_NotFoundForUnknownOrForeignContact` fuer die Tenant-Scope der
+  Loeschvorschau (A2, bereits fertig) und `internal/crm/consent/rls_test.go` +
+  `tenant_write_test.go` fuer die komplette Consent-Flaeche.
+- gate: build ok (`-p 2` gateway/..., crm/..., security/..., cmd/gateway/..., cmd/crm/...) | vet ok
+  (gateway/..., crm/...) | lint ok (0 issues, gateway/...) | test ok (`internal/gateway` komplett
+  gruen inkl. TestOpenAPIRouteDrift [836 Routen gegen 838 dokumentierte Pfade, unveraendert — keine
+  neue Route], 0 SKIP von `go test -v ... | grep -c "^--- SKIP"`; `internal/crm/contact`,
+  `internal/crm/company`, `internal/crm/consent` unveraendert gruen, DATABASE_URL gegen
+  kmuhub_app) | migration n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine neue Tabelle/
+  Policy)
+- coverage: internal/gateway 51,2 % (Iteration-29-Endstand, per `git tag`-freie Referenzmessung im
+  vorigen Eintrag) -> 51,8 % (eigene Messung `go tool cover -func` nach dieser Unit)
+- mutations-probe: In `route_crm_ext.go` `mergeContactsRequest.PrimaryID`s Validate-Tag von
+  `"required,uuid"` auf leer gesetzt -> zwei Tests werden rot
+  (`TestHandleMergeContacts_MissingIDs`: erwartete Feld `primary_id` fehlt in den Validierungs-
+  Details, weil nur noch `duplicate_id` als required erkannt wird; `TestHandleMergeContacts_
+  InvalidUUID`: erwartete 400/`validation_failed` wird zu 503, weil der ungueltige `primary_id`-Wert
+  jetzt unvalidiert durchrutscht und die RPC erreicht). Zurueckgedreht -> gruen
+  (`go test -run TestHandleMergeContacts ./internal/gateway/`), `git diff --stat` zeigt 0 Zeilen
+  fuer `route_crm_ext.go`.
+- verify vorgaenger: sauber. `e679cad4` (Iteration 29, CRM-Companies-Routen) gegen alle acht
+  Fehlerklassen geprueft: `git show --stat` zeigt nur eine neue reine Gateway-Testdatei plus
+  BACKLOG.yml/JOURNAL.md — kein gRPC-Bypass (Handler bleiben thin pass-throughs), kein Stub/TODO,
+  kein `.proto` angefasst, keine neue `RequirePermission`, keine neue Tabelle, keine
+  Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route. Testdatei selbst gegengelesen
+  (nicht nur `git show --stat`): reine `httptest`-Handler-Aufrufe, keine direkte Service-Injektion.
+- neue-units: keine
+- offen:
+  - `fix-email-contacts-csv-export-formula-injection` (Iteration 27) und
+    `fix-gateway-advisory-product-riskclass-not-validated` (Iteration 28) stehen weiterhin
+    unbearbeitet am Backlog-Ende und sollten vor Block C gezogen werden — jetzt drei Iterationen
+    unbearbeitet.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
+    beruehrt in dieser Iteration).

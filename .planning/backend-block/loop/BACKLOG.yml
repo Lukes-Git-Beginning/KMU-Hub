@@ -1107,7 +1107,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       `route_crm_ext.go` (389 Zeilen, 16 Funktionen) ohne Testdatei — die groesste ungetestete
