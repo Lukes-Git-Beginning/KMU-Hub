@@ -767,7 +767,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/biz/recurring 88,1 % (Run 32508843776)"
     scope: >
       `route_biz_recurring.go` (274 Zeilen, 9 Funktionen) ohne Testdatei. Wiederkehrende
@@ -1729,3 +1729,57 @@ units:
         Loeschen eines gemergten Primary-Kontakts) und zeigt danach das saubere 409-Verhalten
       - go test -count=1 ./internal/crm/contact/... gruen, DATABASE_URL gesetzt
       - Falls Migration: rls-smoke/Migrationslauf (up und down) dokumentiert
+
+  - id: fix-recurring-invoice-clear-end-date
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"
+    scope: >
+      `HandleUpdateRecurringInvoice` (route_biz_recurring.go:139) liest ein leeres
+      `end_date`-Feld als Sentinel dafuer, dass der Client das Enddatum eines Abo-Rechnungs-
+      Zeitplans ausdruecklich loeschen will (`grpcReq.ClearEndDate = true`, Zeile 179 ff.). Dieser
+      Zweig ist ueber HTTP nicht erreichbar: `decodeAndValidate` prueft das
+      `validate:"omitempty,datetime=2006-01-02"`-Tag auf `EndDate *string`, BEVOR der Handler
+      seine eigene Sentinel-Logik sieht. go-playground/validator behandelt `omitempty` bei einem
+      Pointer-Feld so, dass nur ein NIL-Pointer uebersprungen wird — ein Pointer, der auf einen
+      leeren String zeigt, gilt als vorhanden und wird gegen `datetime` geprueft, wo ein leerer
+      String durchfaellt. Ein Client, der `{"end_date": ""}` sendet, bekommt also 400
+      ("end_date: failed datetime") statt der beabsichtigten Loeschung des Enddatums — die
+      Funktion "Enddatum entfernen" ist damit fuer jeden echten API-Aufruf toter Code.
+      Verifiziert am 2026-08-22 waehrend `cov-gateway-biz-recurring-invoices` (Iteration 18):
+      `TestHandleUpdateRecurringInvoice_EmptyEndDateRejectedByValidationBeforeClearLogicRuns` in
+      `route_biz_recurring_test.go` belegt den 400 empirisch. Diese Coverage-Unit durfte laut
+      Auftrag kein Verhalten aendern, deshalb ist der Fund hier als eigene Unit angelegt statt
+      nebenbei gefixt.
+    sources:
+      - backend/internal/gateway/route_biz_recurring.go
+      - backend/internal/gateway/route_biz_recurring_test.go
+      - backend/internal/biz/recurring/service.go
+    notes: >
+      Root Cause statt Symptom: nicht die `datetime`-Regel um `omitempty` fuer den Leerstring-Fall
+      herumbauen (z. B. eine benutzerdefinierte Validierungsfunktion), sondern zuerst pruefen, ob
+      derselbe Pointer-vs-omitempty-Fall noch in anderen `update*Request`-Structs mit einem
+      "Enddatum loeschen"-Sentinel vorkommt (Kandidat: andere `Clear*`-Felder im `biz`-Paket) —
+      findet sich das Muster ein zweites Mal, gehoert der Fix in eine gemeinsame Loesung, nicht
+      zweimal einzeln.
+      Zwei legitime Fixrichtungen, eine davon waehlen und begruenden:
+      (a) Ein zweites JSON-Feld einfuehren (z. B. `clear_end_date: true`), das die
+      Enddatum-Loeschung eindeutig macht und `EndDate` nur noch fuer echte Datumswerte validiert.
+      (b) Die Validierung des `EndDate`-Felds so anpassen, dass ein leerer String explizit als
+      "loeschen" durchgelassen wird (z. B. eigene Validierungsfunktion statt des generischen
+      `datetime`-Tags, die einen leeren String zulaesst und alles andere gegen das Format prueft).
+      Das Frontend, das dieses Feld heute setzt, gehoert vor der Entscheidung gegengeprueft — ob
+      es ueberhaupt einen Weg anbietet, das Enddatum zu leeren, und in welcher Form.
+    done_when:
+      - Root Cause entschieden und begruendet (neues Feld ODER angepasste Validierung), nicht
+        eine Notloesung um das Symptom herum
+      - Ein Test sendet den bisherigen "leeres end_date"-Request und belegt jetzt die
+        tatsaechliche Loeschung des Enddatums (nicht mehr 400)
+      - Der bisherige Regressionstest fuer den 400-Fehlzustand
+        (`TestHandleUpdateRecurringInvoice_EmptyEndDateRejectedByValidationBeforeClearLogicRuns`)
+        wird durch den neuen Test ersetzt bzw. umgedreht, nicht daneben stehen gelassen
+      - go test -count=1 ./internal/gateway/ ./internal/biz/recurring/... gruen,
+        DATABASE_URL gesetzt

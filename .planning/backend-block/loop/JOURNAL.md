@@ -1006,3 +1006,67 @@ Frühere Läufe liegen vollständig im Archiv:
     (`postgres_repository.go`, DB-Tests) statt in der Service-Logik. Nicht Teil dieser Unit
     (Scope war die Gateway-Route), aber ein Kandidat fuer eine eigene DB-Coverage-Unit, falls
     Block E das Paket noch einmal aufgreift.
+
+## Iteration 18 — cov-gateway-biz-recurring-invoices — done — 2026-08-22 03:14
+- commit: (folgt im naechsten Schritt)
+- gebaut: `route_biz_recurring_test.go` (neue Datei, 30 Tests) deckt alle 9 Funktionen von
+  `route_biz_recurring.go` ab (`HandleListRecurringInvoices`, `HandleCreateRecurringInvoice`,
+  `HandleGetRecurringInvoice`, `HandleUpdateRecurringInvoice`, `HandleDeleteRecurringInvoice`,
+  `HandlePauseRecurringInvoice`, `HandleResumeRecurringInvoice`, `HandleGenerateRecurringInvoice`
+  sowie den gemeinsam genutzten `setRecurringStatus`-Helfer ueber beide Aufrufstellen). Guard-
+  Wiring der ganzen Gruppe ist bereits vollstaendig in `route_capability_guard_test.go`
+  ("finance: recurring invoices") getestet und wird hier bewusst NICHT dupliziert.
+  Doppelausloesung von `HandleGenerateRecurringInvoice` wurde wie von der Unit gefordert
+  ueberprueft: `internal/biz/recurring/service.go:282` (`Service.Generate`) beansprucht die
+  Periode ueber `repo.ClaimPeriod` VOR dem Erzeugen der Rechnung und beantwortet einen zweiten
+  Aufruf mit der bereits erzeugten Rechnung (Replay), belegt durch die bestehende
+  `TestGenerate_IsIdempotentPerPeriod`. Kein Fund, kein Fix noetig — die Route ist ein reiner
+  Pass-Through ohne eigene Idempotenz-Logik. Monatsgrenzen (31. in einem 30-Tage-Monat, 29.
+  Februar) sind ebenfalls bereits an der Service-Schicht abgedeckt
+  (`TestNextRunFor_AnchorsAtStartAndClampsMonthEnd`) und dort nicht Sache der Route.
+  ECHTER FUND waehrend des Bauens: `HandleUpdateRecurringInvoice`s Leerstring-Sentinel fuer
+  "Enddatum loeschen" (`if *req.EndDate == "" { grpcReq.ClearEndDate = true }`,
+  route_biz_recurring.go:179) ist ueber HTTP nie erreichbar. `decodeAndValidate` prueft
+  `validate:"omitempty,datetime=2006-01-02"` auf dem `*string`-Feld, BEVOR der Handler seinen
+  eigenen Zweig sieht; go-playground/validators `omitempty` ueberspringt bei einem Pointer-Feld
+  nur einen NIL-Pointer, nicht einen Pointer auf einen leeren String — ein per JSON gesendetes
+  `"end_date": ""` faellt also mit 400 "failed datetime" durch, bevor die Sentinel-Logik greift.
+  Empirisch belegt durch
+  `TestHandleUpdateRecurringInvoice_EmptyEndDateRejectedByValidationBeforeClearLogicRuns` (400,
+  Feld "end_date" statt der beabsichtigten Loeschung). Nicht selbst gefixt (Coverage-Unit darf
+  kein Verhalten aendern) — neue Unit `fix-recurring-invoice-clear-end-date` ans Backlog-Ende
+  gehaengt, inklusive zweier legitimer Fixrichtungen zur Auswahl.
+- gate: build ok (`-p 2` ueber gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (ganzes `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift`, 836 Routen gegen 838
+  dokumentierte Pfade, keine neue Route) | migration n.a. (keine Schemaaenderung)
+- coverage: internal/gateway 47,4 % -> 47,7 % (eigene Messung: Testdatei nach `/tmp`
+  verschoben, `go test -coverprofile` vorher/nachher; 47,4 % ist der reale lokale Stand nach
+  Iteration 17, nicht der `coverage_start` der Unit aus dem CI-Snapshot 1b49a1f3 — Abweichung,
+  weil vier vorherige Iterationen dasselbe Paket in diesem Lauf bereits angehoben haben)
+- mutations-probe: in `createRecurringRequest.LineItems` das Tag von `required,min=1` auf
+  `required,min=0` gesenkt -> `TestHandleCreateRecurringInvoice_MissingLineItems` wird rot (503
+  statt 400, RPC-Layer erreicht statt Validierungs-Guard). Zurueckgedreht -> Test wieder gruen,
+  `git diff --stat` auf `route_biz_recurring.go` zeigt keine Aenderung mehr, ganzes
+  `internal/gateway` gruen.
+- verify vorgaenger: sauber, mit einer nachgetragenen Korrektur. `5f8c9871` (Iteration 17,
+  Quote-Route-Tests) gegen alle acht Fehlerklassen geprueft: `git show --stat` zeigt nur
+  `BACKLOG.yml`, `JOURNAL.md` und die neue `route_biz_quotes_test.go` — reine Testdatei, kein
+  Produktionscode, kein gRPC-Layer-Bypass (Handler-Aufrufe ausschliesslich ueber `client.<RPC>`),
+  kein Stub/TODO, kein `.proto` angefasst, keine neue `RequirePermission` (Guard-Wiring laut
+  Journal bereits vollstaendig in `route_capability_guard_test.go` abgedeckt), keine neue
+  Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt. Die Journal-SHA fuer Iteration 17
+  fehlte noch ("folgt im naechsten Schritt") — vor dieser Unit in einem separaten docs-Commit
+  nachgetragen (`82032b5f`, Wert `5f8c9871` durch `git log`/`git show --stat` gegen den
+  tatsaechlichen Commit-Inhalt bestaetigt).
+- neue-units: fix-recurring-invoice-clear-end-date
+- offen:
+  - "Fremder Tenant liefert 404" ist an dieser Route wie in jeder vorigen Coverage-Unit dieses
+    Laufs NICHT ueber einen Live-RPC-Roundtrip getestet (kein bufconn-/Fake-Client-Harness fuer
+    `FinanceServiceClient` im ganzen Paket, gleiche dokumentierte Infrastrukturgrenze wie in den
+    Iterationen 15-17). Die serverseitige Tenant-Durchsetzung liegt bei `internal/biz/recurring`
+    (WHERE tenant_id = $1), ausserhalb des Scopes dieser Route-Unit.
+  - Der neue Fund `fix-recurring-invoice-clear-end-date` betrifft ausschliesslich das
+    Enddatum-Feld beim Update; ob dasselbe Pointer-vs-omitempty-Muster fuer ein "Leerstring
+    loescht"-Sentinel noch anderswo im `biz`-Paket vorkommt, ist als offene Frage in die neue
+    Unit selbst geschrieben (Notes-Feld), nicht hier separat geprueft — das haette den Scope
+    dieser Coverage-Unit gesprengt.
