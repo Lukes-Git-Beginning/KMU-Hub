@@ -4189,7 +4189,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 69 — feat-erasure-handler-user-settings-preferences — done — 2026-08-22 09:33
-- commit: (siehe naechste docs-Iteration)
+- commit: ed2e41ec
 - gebaut: achter `ErasureHandler` `SettingsErasureHandler` (ModuleName "settings") fuer vier
   Tabellen mit CASCADE-FK auf `users(id)`, die zu keiner der sieben bestehenden Domaenen
   gehoeren: `user_settings` (composite PK tenant_id/user_id/module_id/key), 
