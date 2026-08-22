@@ -3,6 +3,7 @@ package caldav
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
 
@@ -102,7 +103,7 @@ func (s *AppPasswordService) Validate(ctx context.Context, username, password st
 	userID, err := uuid.Parse(username)
 	if err != nil {
 		slog.Warn("caldav auth: invalid username format",
-			"username", username,
+			"username_fingerprint", fingerprintUsername(username),
 		)
 		return uuid.Nil, ErrInvalidCredentials
 	}
@@ -136,6 +137,17 @@ func (s *AppPasswordService) Validate(ctx context.Context, username, password st
 	}
 
 	return uuid.Nil, ErrInvalidCredentials
+}
+
+// fingerprintUsername returns a short, non-reversible fingerprint of a
+// Basic-Auth username for logging. The expected value is a user UUID, but
+// CalDAV clients conventionally send an email address here -- logging the
+// raw value would regularly leak plaintext email addresses into the
+// application log. The fingerprint still lets repeated invalid values be
+// spotted for anomaly/rate-limit analysis.
+func fingerprintUsername(username string) string {
+	sum := sha256.Sum256([]byte(username))
+	return hex.EncodeToString(sum[:4])
 }
 
 // List returns all app-specific passwords (active + revoked) for display.

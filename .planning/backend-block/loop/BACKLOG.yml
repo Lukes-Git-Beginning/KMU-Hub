@@ -3057,7 +3057,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Fund aus scan-gateway-pii-in-logs (Iteration 45). `basicAuthMiddleware`

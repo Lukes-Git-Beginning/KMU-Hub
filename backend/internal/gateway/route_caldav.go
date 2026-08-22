@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -181,7 +183,7 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 			userID, err := c.pwService.Validate(r.Context(), username, password)
 			if err != nil {
 				slog.Warn("caldav basic auth failed",
-					"username", username,
+					"username_fingerprint", fingerprintCaldavUsername(username),
 					"error", err,
 				)
 				w.Header().Set("WWW-Authenticate", `Basic realm="KMU Hub CalDAV"`)
@@ -193,6 +195,18 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// fingerprintCaldavUsername returns a short, non-reversible fingerprint of a
+// Basic-Auth username for logging. The route is reachable without prior
+// authentication, and CalDAV clients conventionally send an email address
+// here (the expected value is a user UUID) -- logging the raw value would
+// regularly leak plaintext email addresses into the application log. The
+// fingerprint still lets repeated invalid values be spotted for anomaly/
+// rate-limit analysis.
+func fingerprintCaldavUsername(username string) string {
+	sum := sha256.Sum256([]byte(username))
+	return hex.EncodeToString(sum[:4])
 }
 
 // =========================================================================

@@ -4835,3 +4835,51 @@ Frühere Läufe liegen vollständig im Archiv:
   (`redirectDatevError` ist ein interner Helper), keine Wire-Shape-Aenderung.
 - neue-units: keine.
 - offen: keine
+
+## Iteration 81 — fix-gateway-caldav-basic-auth-username-log-leakage — done — 2026-08-22 11:11
+- commit: (folgt, siehe naechster Journal-Eintrag)
+- gebaut: Fund aus scan-gateway-pii-in-logs (Iteration 45). Zwei Log-Aufrufe mit identischem
+  Root Cause (roher Basic-Auth-Username landet ungeprueft im Log) gefixt:
+  `basicAuthMiddleware` in `route_caldav.go:183-186` (`slog.Warn("caldav basic auth failed",
+  "username", username, ...)`, erreichbar ohne vorherige Authentifizierung) und
+  `AppPasswordService.Validate` in `app_password.go:104-106` (`slog.Warn("caldav auth: invalid
+  username format", "username", username)`, derselbe Wert, Service-Schicht als Nebeneingang).
+  Beide Stellen loggen jetzt `username_fingerprint` statt `username` — ein package-lokaler
+  `fingerprintCaldavUsername`/`fingerprintUsername` (sha256, erste 4 Bytes als 8 Hex-Zeichen),
+  in gateway UND caldav dupliziert statt geteilt, weil `internal/caldav` bereits
+  `internal/gateway` importiert (caldav_backend.go/carddav_backend.go) — ein Import in die
+  Gegenrichtung waere ein Zyklus. Zwei Zeilen Duplikat sind hier die schlankere Wahl als ein
+  neues Shared-Package fuer eine Ein-Zeilen-Funktion.
+  Die Debug-Information selbst (ungueltiges Format / unbekannte ID / falsches Passwort) bleibt
+  unveraendert im "error"-Feld; der Fingerprint erlaubt weiterhin, wiederholte Versuche
+  desselben (ungueltigen) Werts fuer Anomalie-/Rate-Limit-Analyse zu erkennen, ohne die
+  E-Mail-Adresse im Klartext zu zeigen.
+- gate: build ok (`./internal/gateway/... ./internal/caldav/... ./cmd/gateway/...`) | vet ok
+  (dieselben Pakete) | lint ok (0 issues) | test ok (`./internal/gateway/` inkl.
+  `TestOpenAPIRouteDrift`, 0 SKIP; `./internal/caldav/` 0 SKIP), DATABASE_URL gegen kmuhub_app
+  gesetzt | migration: n.a. (kein Schema-Change) | rls-smoke: n.a. (keine Tabelle/Policy
+  angefasst)
+- coverage: `internal/caldav` 54,8 % -> 54,9 % (per `git stash` der vier geaenderten Dateien
+  selbst gemessen). `internal/gateway` unveraendert bei 54,1 % (kein neuer Codepfad, nur ein
+  Log-Feld ersetzt) — Fix-Unit, keine Coverage-Unit, beides Nebenprodukt der zwei neuen Tests.
+- mutations-probe: zweimal durchgefuehrt, je Fundstelle einmal. (1)
+  `route_caldav.go`: `fingerprintCaldavUsername(username)` durch `username` ersetzt ->
+  `TestBasicAuthMiddleware_FailedLogin_DoesNotLogRawUsername` bricht ab und zeigt
+  `username=leaks@example.com` im Log. Zurueckgedreht, `git diff --stat` wieder exakt 15
+  Einfuegungen/1 Loeschung wie vor der Probe, Test erneut gruen. (2) `app_password.go`:
+  `fingerprintUsername(username)` durch `username` ersetzt ->
+  `TestAppPasswordService_Validate_InvalidUsernameFormat_DoesNotLogRawEmail` (DB-Test, neu in
+  `app_password_db_test.go`) bricht ab und zeigt dieselbe E-Mail im Log. Zurueckgedreht,
+  `git diff --stat` wieder exakt 13 Einfuegungen/1 Loeschung wie vor der Probe, Test erneut
+  gruen.
+- verify vorgaenger: sauber. `48ba72ff` (Iteration 80, fix-gateway-lexware-error-message-leakage)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextlesung von
+  `lexware_grpc.go` und `route_lexware.go`) — alle vier RPCs bleiben ueber den generierten
+  `bizv1`-Client erreichbar (kein direkter Service-Aufruf im Gateway), kein Stub, kein
+  `.proto`-Change (`Success`/`ErrorMessage`-Felder bleiben bestehen, nur bei Erfolg genutzt),
+  kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine neue Route (die vier
+  Handler existierten bereits), keine Wire-Shape-Aenderung. `mapLexwareError` ist derselbe
+  bereits bestehende Mechanismus, den `DisconnectLexware`/`TriggerLexwareSync` schon vorher
+  nutzten — kein zweiter Maskierungspfad.
+- neue-units: keine.
+- offen: keine

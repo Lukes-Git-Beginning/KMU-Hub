@@ -14,8 +14,10 @@ package caldav
 // and is covered thoroughly below.
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -114,6 +116,38 @@ func TestAppPasswordService_Validate_DBBacked(t *testing.T) {
 		_, err := svc.Validate(context.Background(), userID.String(), plaintext)
 		assert.ErrorIs(t, err, ErrInvalidCredentials)
 	})
+}
+
+// TestAppPasswordService_Validate_InvalidUsernameFormat_DoesNotLogRawEmail
+// belongs to fix-gateway-caldav-basic-auth-username-log-leakage: CalDAV
+// clients conventionally send an email address as the Basic-Auth username
+// (the expected value is a user UUID), and this route is reachable without
+// prior authentication. Validate must fingerprint the rejected value instead
+// of logging it in the clear.
+func TestAppPasswordService_Validate_InvalidUsernameFormat_DoesNotLogRawEmail(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	svc := NewAppPasswordService(NewPostgresAppPasswordRepository(pool), pool)
+	withOrgEnabledRestored(t, svc)
+	require.NoError(t, svc.SetOrgEnabled(context.Background(), true))
+
+	var logBuf bytes.Buffer
+	prevLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, nil)))
+	t.Cleanup(func() { slog.SetDefault(prevLogger) })
+
+	const email = "leaks@example.com"
+	_, err := svc.Validate(context.Background(), email, "irrelevant")
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
+
+	logged := logBuf.String()
+	assert.NotContains(t, logged, email,
+		"log output must not contain the raw Basic-Auth username")
+	assert.Contains(t, logged, fingerprintUsername(email),
+		"log output should still carry a fingerprint for anomaly/rate-limit analysis")
 }
 
 // TestAppPasswordService_Revoke_List_ErrorPaths covers Revoke's not-found and
