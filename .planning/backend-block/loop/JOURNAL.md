@@ -1072,7 +1072,7 @@ Frühere Läufe liegen vollständig im Archiv:
     dieser Coverage-Unit gesprengt.
 
 ## Iteration 19 — cov-gateway-biz-open-items-time-entries — done — 2026-08-22 03:22
-- commit: (folgt im naechsten Schritt)
+- commit: e8b862e9
 - gebaut: neue Datei `route_biz_open_items_time_entries_test.go` deckt beide Handler ab, die
   in dieser Unit im Fokus standen: `HandleListOpenItems` (route_biz_open_items.go, 1 Funktion)
   und `HandleListTimeEntries` (route_biz_time_entries.go, 1 Funktion). Je Handler: Service-
