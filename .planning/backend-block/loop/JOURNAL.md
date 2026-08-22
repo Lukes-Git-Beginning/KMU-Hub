@@ -1137,7 +1137,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (`cov-dunning-config-repository-real-sql`, deps: `[]`, sofort ziehbar).
 
 ## Iteration 21 — cov-dunning-config-repository-real-sql — done — 2026-08-23 01:15
-- commit: <wird nach commit ergaenzt>
+- commit: 5bca2b78
 - gebaut: Vier DB-Tests fuer `PostgresConfigRepository` (Get/Upsert der Mahnkonfiguration je Mandant)
   gegen echtes Postgres: `Get` ohne existierende Konfiguration liefert `(nil, nil)` (belegt, dass
   `Service.GetConfig` sich zurecht darauf verlaesst, um den Default anzulegen); `Upsert` Insert-Zweig
