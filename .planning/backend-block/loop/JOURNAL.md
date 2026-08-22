@@ -748,7 +748,7 @@ Frühere Läufe liegen vollständig im Archiv:
     anders erwartet wird.
 
 ## Iteration 14 — feat-retention-worker-scheduling-and-admin-visibility — done — 2026-08-22 02:29
-- commit: (folgt im naechsten Schritt)
+- commit: 3f97bc8b
 - gebaut: Trigger- und Sicht-Haelfte von A10-A13, die den Motor tatsaechlich laufen laesst.
   `internal/security/gdpr/retention_scheduler.go`: `RunScheduledRetention` haelt den
   `pg_try_advisory_lock`-Schluessel `0x52544E4E` ("RTNN", distinct von
