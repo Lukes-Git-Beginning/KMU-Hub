@@ -3728,3 +3728,62 @@ Frühere Läufe liegen vollständig im Archiv:
     Vorgesetzte selbst gematchter DSAR-Subjekt ist — das ist beabsichtigt (die Auskunft betrifft
     nur den einen Nutzer), aber falls die Oberfläche Vorgesetzten-Namen anklickbar macht, wäre
     das ein eigener Datenpfad, kein Fund hier.
+
+## Iteration 60 — feat-dsar-search-user-account-security-history-module — done — 2026-08-22 08:27
+- commit: 8f4c7982
+- gebaut: zwei neue DSAR-Module in `dsar_search.go`/`matchUsers` — `userSessionsModule`
+  ("Sitzungsverlauf": Gerät, Typ, IP via `host(ip_address)`, Standort, letzte Aktivität, Status
+  per SQL-CASE gegen `refresh_tokens` — Aktiv/Widerrufen/Abgelaufen/Beendet) und
+  `accountSecurityModule` ("Kontosicherheit": 2FA-Status aus `users.two_factor_enabled(_at)`,
+  Passwortänderungen-Anzahl+Datum aus `password_history`, Wiederherstellungscodes gesamt/genutzt
+  aus `recovery_codes` — ausschließlich Metadaten, nie ein Hash/Secret/Code im Klartext).
+  Abweichung von der Backlog-Praemisse: `two_factor_policy` ist eine ROLLENBASIERTE
+  Tenant-Einstellung (unique auf tenant_id+role_name), keine personenbezogene Angabe des
+  gematchten Nutzers — bewusst NICHT eingebaut, stattdessen die beiden `users`-Spalten
+  verwendet, die den tatsächlichen 2FA-Status des Kontos tragen. `accountSecurityModule` ist
+  das einzige Modul in dieser Datei, das NIE nil zurückgibt (zwei_factor_enabled ist NOT NULL —
+  "nie geändert/nie aktiviert" ist der Auskunftsinhalt, keine Datenabwesenheit), analog zum
+  immer vorhandenen Basismodul "Benutzerkonto"; dafür musste die bestehende
+  `TestSearchByQuery_MatchesUsers_Integration` von `require.Len(..., 1)` auf `2` angepasst
+  werden (bewusste, im Diff sichtbare Anpassung eines Bestandstests, kein Kollateralschaden).
+- gebaut (Tests): `TestSearchByQuery_UserSessions_Integration` (4 Sitzungen decken alle vier
+  Status ab, plus eine fünfte Sitzung eines zweiten Benutzers beweist "nur eigene Sitzungen"),
+  `TestSearchByQuery_UserAccountSecurity_Integration` (2 Passwortwechsel, 3 Recovery-Codes davon
+  1 genutzt, 2FA aktiv — plus Grep gegen alle Feldwerte auf "secret"/"recovery-hash"),
+  `TestSearchByQuery_UserAccountSecurity_DefaultsWhenNoHistory_Integration` (frisches Konto ohne
+  jede Historie, Modul erscheint trotzdem mit "Nein"/"0"/leeren Zeitangaben). Alle drei inkl.
+  Tenant-Isolation.
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/...`) | lint ok (0 issues, `./internal/security/...`) | test ok
+  (`./internal/security/gdpr/` 121 PASS / 0 SKIP / 0 FAIL gegen `kmuhub_app`; gesamtes
+  `./internal/security/...` ebenfalls grün) | migration n.a. (keine neue Tabelle/Policy, reine
+  Lesequeries auf bestehende Tabellen) | rls-smoke n.a. (kein Schema/Policy-Wechsel) |
+  TestOpenAPIRouteDrift nicht gelaufen — keine Route in dieser Unit angefasst, daher nicht
+  Pflicht.
+- coverage: `internal/security/gdpr` 70,1 % -> 70,3 % (selbst gemessen: `git stash push` auf
+  genau die zwei geänderten Dateien, `go test -coverprofile` davor/danach, `stash pop`).
+  `coverage_start` der Unit war bewusst als Platzhalter "zur Laufzeit messen" eingetragen — das
+  ist die Laufzeitmessung.
+- mutations-probe: `WHEN rt.revoked THEN 'Widerrufen'` im SQL-CASE von `userSessionsModule` zu
+  `WHEN false THEN 'Widerrufen'` verfälscht → `TestSearchByQuery_UserSessions_Integration` wird
+  rot (die Sitzung mit widerrufenem Token zeigt fälschlich "Aktiv" statt "Widerrufen").
+  Zurückgedreht, `git diff --stat dsar_search.go` zeigt wieder ausschließlich die
+  ursprünglichen 133 Insertions, Paket erneut vollständig grün (121 PASS).
+- verify vorgänger: sauber. `b90c5328` (Iteration 59, feat-dsar-search-user-hr-employee-module)
+  gegen alle acht Fehlerklassen geprüft (`git show --stat` + Volltextdiff von
+  `dsar_search.go`) — reine interne DSAR-Suchpfad-Erweiterung (kein Gateway-Handler, daher keine
+  gRPC-Umgehung möglich), kein Stub, kein `.proto`, kein neuer/ersetzter
+  `RequirePermission`-Guard, keine neue Tabelle, keine Route, keine Wire-Shape-Änderung
+  (reine Go-Struct-Rückgabe innerhalb des Pakets). Der dort dokumentierte RLS-Fund
+  (`sysctx.With` um `hr_employee_documents`) ist durch die eigene Mutations-Probe der
+  Vorgänger-Iteration belegt, nicht nur behauptet.
+- neue-units: keine
+- offen:
+  - `two_factor_policy` (rollenbasierte 2FA-Erzwingung) ist tenantweite Konfiguration und damit
+    außerhalb des Art.-15-Umfangs für den einzelnen Nutzer — falls die Oberfläche das je anders
+    einordnet, ist das eine Produktentscheidung, kein technischer Nachtrag.
+  - `user_sessions` hat kein eigenes `expires_at`; der Status stützt sich auf das verknüpfte
+    `refresh_tokens.expires_at`/`revoked` und behandelt eine Sitzung ohne (mehr existierenden)
+    Token als "Beendet". Sollte sich das Rotationsschema je ändern (z. B. `refresh_token_id`
+    bleibt nach Rotation erhalten statt auf eine neue Zeile zu zeigen), müsste dieses Mapping
+    neu geprüft werden — aktuell zeigt `auth/postgres_repository.go` klar `ON DELETE SET NULL`.
