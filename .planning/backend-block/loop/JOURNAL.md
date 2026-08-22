@@ -830,3 +830,54 @@ Frühere Läufe liegen vollständig im Archiv:
     alle enabled Policies eines Tenants ab), nicht als eigene Läufe — das entspricht dem
     bestehenden `RetentionEngine.Run`-Modell aus A10 und ist keine neue Verhaltensannahme dieser
     Unit.
+
+## Iteration 15 — cov-gateway-biz-gobd-archive — done — 2026-08-22 02:52
+- commit: (folgt in separatem docs-Commit)
+- gebaut: `route_biz_gobd_archive_test.go` (26 neue Tests) fuer alle 7 Funktionen von
+  `route_biz_gobd_archive.go` (`HandleArchiveDocument`, `HandleArchiveInvoiceDocument`,
+  `HandleListGobdDocuments`, `HandleGetGobdDocument`, `HandleDownloadGobdDocument`,
+  `HandleAddDocumentAnnotation`, `parsePageParam`). Deckt ab: ServiceUnavailable (503),
+  fehlende TenantID (401), kaputtes Multipart (400), fehlendes `file`-/`doc_type`-Feld (400),
+  Ueberschreitung von `maxGobdDocumentBytes` um genau 1 Byte -> 413 (echter 50 MiB+1-Upload,
+  kein verkuerzter Test), leere/zu lange Annotation (`decodeAndValidate`, Feldname `note` aus
+  dem JSON-Tag, nicht `Note`), gueltige Requests bis zur RPC-Schicht (503 gegen Dummy-Adresse)
+  sowie zwei Permission-Guard-Tests ueber einen echten `chi.Router` (`gobdArchiveRouter`,
+  Vorlage `route_datev_upload_test.go`): `finance:write` allein oeffnet `HandleArchiveDocument`
+  NICHT, nur `gobd-archive:write` tut es; `gobd-archive:read` oeffnet `HandleAddDocumentAnnotation`
+  NICHT, nur `gobd-archive:write`. `multipartBody` (aus `route_crm_contacts_test.go`) und
+  `withPermissions`/`guardTestAuth` (aus `route_capability_guard_test.go`) wiederverwendet, keine
+  Duplikate angelegt.
+- gate: build ok (`-p 2` ueber gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (ganzes `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift` — keine neue Route in
+  dieser Unit, nur Tests)
+- coverage: internal/gateway 46,1 % -> 46,6 % (eigene Messung: Vorher per Wegverschieben der
+  neuen Testdatei und erneutem `go test -coverprofile`, Nachher mit der Datei; deckt sich mit dem
+  `coverage_start` der Unit)
+- mutations-probe: in `HandleArchiveDocument` die Groessenpruefung `if len(fileBytes) >
+  maxGobdDocumentBytes` auf `if false && len(fileBytes) > maxGobdDocumentBytes` verstellt (die
+  413-Guard-Bedingung faktisch deaktiviert) — `TestHandleArchiveDocument_ExceedsSizeLimit` wird
+  rot (503 statt 413, RPC-Layer erreicht statt Guard). Zurueckgedreht -> Test wieder gruen,
+  `git diff --stat` auf `route_biz_gobd_archive.go` zeigt keine Aenderung mehr.
+- verify vorgaenger: sauber. `3f97bc8b` (Iteration 14, Retention-Scheduler + Admin-RPC) gegen
+  alle acht Fehlerklassen geprueft: gRPC-Layer korrekt ueber `client.GetLatestRetentionRun`
+  (kein direkter Service-Aufruf), kein Stub/TODO, `.proto` geaendert UND `security.pb.go`/
+  `security_grpc.pb.go` im selben Commit regeneriert, keine neue `RequirePermission`
+  (`RequireRole("admin")`, konsistent mit den Nachbarrouten in derselben Gruppe, kein Seed
+  noetig), keine neue Tabelle (liest nur `retention_runs`/`retention_run_items` aus 000316),
+  RLS-Scoping der neuen RPC per dediziertem `TestSecurityGRPCServer_GetLatestRetentionRun_
+  TenantIsolation`-DB-Test bewiesen (fremder Tenant -> `has_run=false`), keine Wire-Shape-
+  Aenderung an bestehenden Routen, kein Guard ersetzt.
+- neue-units: keine
+- offen:
+  - `TestHandleArchiveDocument_ExceedsSizeLimit` allokiert einen echten ~50 MiB Byte-Slice pro
+    Testlauf (`bytes.Repeat`) — lief lokal in ~0,1 s, aber falls das Paket kuenftig deutlich
+    langsamer wird, ist das der erste Kandidat zum Nachsehen.
+  - "Fremder Tenant liefert 404" aus den harten Regeln fuer Block B ist an dieser Route NICHT
+    ueber einen Live-RPC-Roundtrip getestet — dieses Paket hat wie in jeder vorigen
+    Coverage-Unit dieses Laufs keinen bufconn-/Fake-Client-Harness fuer
+    `FinanceServiceClient` (bestaetigt: `grep -rn "bufconn\." internal/gateway` liefert 0
+    Treffer im ganzen Paket, nur Kommentare erwaehnen die fehlende Infrastruktur). Der Handler
+    liest die TenantID ausschliesslich aus `getTenantID(r)` (JWT-Context), es gibt keinen
+    Code-Pfad, der einen Client-seitig gelieferten Tenant-Wert uebernehmen wuerde — die
+    eigentliche Tenant-Durchsetzung passiert serverseitig in `internal/biz/gobdarchive` und ist
+    dort Sache der jeweiligen Coverage-Unit, nicht dieser Route-Unit.
