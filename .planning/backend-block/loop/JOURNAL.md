@@ -486,7 +486,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Iterationen 5 bis 7).
 
 ## Iteration 9 — fix-booking-page-orphaned-after-owner-erasure — done — 2026-08-23 00:07
-- commit: 6e2d97a4
+- commit: 4ae9605e
 - gebaut: neuer `BookingPageErasureHandler` (`internal/security/gdpr/erasure.go`),
   registriert in `cmd/auth/main.go` direkt nach `CalendarErasureHandler`. Setzt
   `booking_pages.active = false` für jede noch aktive Buchungsseite, deren
