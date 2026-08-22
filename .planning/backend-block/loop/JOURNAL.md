@@ -1415,3 +1415,83 @@ Frühere Läufe liegen vollständig im Archiv:
     Code-Pfad, der einen fremden Tenant annehmen koennte — TenantId kommt ausschliesslich aus
     dem Auth-Kontext.
   - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).
+
+## Iteration 25 — cov-gateway-email-messages-folders-sync — done — 2026-08-22 04:00
+- commit: (siehe naechster Journal-Eintrag)
+- gebaut: Neue Testdatei `route_email_folders_messages_sync_test.go` fuer den Rest des
+  "Kernpfad Nachrichten/Ordner/Sync" von `route_email.go`. WICHTIGER BEFUND vor dem Bauen:
+  die Backlog-Praemisse (Befund 5 im Laufkopf: "23 route_*.go ohne eigene Testdatei") zaehlte
+  route_email.go als komplett ungetestet. Das stimmt nicht — `route_email_accounts_test.go`
+  und `route_email_compose_test.go` (Lauf 8, Commits b46fc88b/071b5bf1, beide bereits in main
+  gemergt) decken Accounts, Send/Compose, Bulk-Action, Move/Delete/MarkRead bereits vollstaendig
+  ab, `route_email_rules_test.go`/`route_email_labels_test.go` decken Rules/Labels teilweise
+  (28,6–44,4 %) ab. `go tool cover -func` auf route_email.go VOR dem Schreiben gezogen, um die
+  echte Luecke zu finden statt zu raten: 0,0 % waren nur noch ServiceName (trivial),
+  HandleListFolders, HandleGetFolder, HandleSyncFolders, HandleGetMessage,
+  HandleGetThreadMessages, HandleTriggerSync, HandleGetSyncStatus, HandleSetReadFlag,
+  HandleUploadAttachment, HandleGetAttachmentDownloadURL — genau die zehn Handler plus
+  ServiceName, die die neue Datei jetzt abdeckt (Muster: ServiceUnavailable [502, siehe unten],
+  InvalidJSON wo decodeAndValidate/json.Decode greift, ReachesRPC [503]).
+  Test-Funktionsnamen sind mit `Email` praefixiert (`TestEmailHandleGetFolder_...` statt
+  `TestHandleGetFolder_...`), weil route_bexio.go/route_document.go/route_wiki.go Handler mit
+  identischen Methodennamen (TriggerSync, GetSyncStatus, GetFolder, ListFolders,
+  UploadAttachment) auf eigenen Route-Structs deklarieren und Go-Testfunktionsnamen
+  paketweit eindeutig sein muessen — die urspruengliche Fassung dieser Datei kollidierte
+  deshalb beim ersten Anlauf mit sieben bestehenden Dateien (dokumentiert im
+  Diagnostics-Log dieser Iteration) und wurde vor dem Commit korrigiert.
+- gate: build ok (`-p 2` gateway/..., email/..., cmd/gateway/...) | vet ok | lint ok
+  (0 issues) | test ok (neue Datei einzeln gruen: 21/21 inkl. TestEmailRoutes_ServiceName,
+  ganzes `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift` [836 Routen gegen 838
+  dokumentierte Pfade, unveraendert — keine neue Route], `internal/email/...` komplett gruen,
+  DATABASE_URL gegen kmuhub_app, 0 SKIP im Gateway-Paketlauf)
+- coverage: internal/gateway 49,1 % -> 49,6 % (eigene Messung vor/nach genau dieser
+  Testdatei im selben Arbeitsbaum, Startwert deckt sich mit dem in Iteration 24 gemessenen
+  Endstand). internal/email/sync bleibt unveraendert bei 34,6 % — siehe offen:.
+- mutations-probe: In `HandleUploadAttachment` die Fehlermeldung des `file is required`-Zweigs
+  auf "no file field required" geaendert (Wortreihenfolge vertauscht, damit die
+  Substring-Pruefung wirklich bricht — ein erster Versuch mit einem reinen Praefix
+  "MUTATION_PROBE file is required" blieb faelschlich gruen, weil assertErrorContains nur auf
+  Teilstring prueft. Daraus gelernt und dokumentiert). `TestEmailHandleUploadAttachment_
+  MissingFile` wird rot ("error = \"no file field required\", want to contain
+  \"file is required\""). Zurueckgedreht -> `git diff --stat` zeigt fuer `route_email.go`
+  0 Zeilen Diff.
+- verify vorgaenger: sauber. `1dc3368f` (Iteration 24, Lizenz/Abo-Coverage) gegen alle acht
+  Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`, `JOURNAL.md` und eine neue
+  reine Testdatei (`route_settings_license_subscription_test.go`, +175 Zeilen). Grep auf
+  "Unimplemented|TODO|t.Skip|RequirePermission|.proto|client\." liefert null Treffer auf der
+  neuen Testdatei, kein gRPC-Bypass, kein Stub, kein `.proto` angefasst, keine neue
+  `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt,
+  keine neue Route.
+- neue-units: fix-gateway-email-service-unavailable-status-code. Fund: route_email.go weicht in
+  allen 58 Client-Fetch-Fehlerpfaden vom Rest des Gateways ab — statt des gemeinsamen
+  `respondServiceUnavailable`-Helpers (503, ueberall sonst verwendet) schreibt jeder Handler von
+  Hand `response.Error(w, http.StatusBadGateway, "email service unavailable")` (502). Innerhalb
+  der Datei konsistent, aber sowohl gegen die Konvention des restlichen Gateways als auch in
+  sich zweideutig: "Service nicht registriert" -> 502, "Service registriert, RPC schlaegt mit
+  codes.Unavailable fehl" -> 503 ueber respondGRPCError, zwei Codes fuer dieselbe Bedeutung.
+  Coverage-Units aendern kein Verhalten, deshalb als eigene Fix-Unit angelegt statt nebenbei
+  behoben; die neuen Tests in dieser Iteration pruefen bewusst das TATSAECHLICHE Verhalten (502
+  via eigenem `testEmailServiceUnavailable`-Helper), nicht das gewuenschte.
+  Ausserdem B13 (`cov-gateway-email-contact-linking-import-export`) mit einer Korrektur-Notiz
+  versehen: die dort noch offene Rules/Labels-Annahme ist teilweise ueberholt (siehe oben),
+  echte 0,0-%-Luecke ist nur noch Contact-Links + Import/Export CSV/vCard.
+- offen:
+  - `internal/email/sync` (34,6 % Coverage_start) konnte NICHT vertieft werden: bis auf die
+    bereits bestehenden Tests (unconnected-IMAPClient-Fehlerpfade in worker_state_test.go) haengt
+    praktisch jede verbleibende Funktion (syncFolder-Erfolgspfad, syncCycle, Run, idleLoop,
+    pollLoop, alle IMAPClient-Methoden) hinter einer echten IMAP-Verbindung — `syncFolder` selbst
+    scheitert schon an der ersten Zeile (`client.SelectFolder`) ohne Netzwerk, es gibt keine
+    IMAPClient-Interface-Abstraktion zum Faken. Das ist keine Coverage-Luecke, die sich mit mehr
+    Tests schliessen liesse, sondern eine Netzwerkgrenze — ein Fake-IMAP-Server waere eine neue
+    Testinfrastruktur-Investition, keine Coverage-Unit. "Abbruch mitten in der Synchronisation"
+    aus dem done_when ist am naechstmoeglichen Punkt abgedeckt: HandleTriggerSync/
+    HandleGetSyncStatus/HandleSetReadFlag zeigen jetzt, dass ein Sync-Fehlschlag (RPC
+    Unavailable) sauber als 503 durchgereicht wird statt eines 500 mit internem Fehlertext.
+  - "Fremder Tenant liefert 404" fuer eine Nachrichten-ID ist NICHT ueber einen Live-RPC-
+    Roundtrip getestet (kein bufconn-/Fake-Client-Harness fuer EmailServiceClient im Paket, wie
+    bei jeder vorigen Coverage-Unit dieses Laufs). Stattdessen auf die bereits bestehende
+    DB-Probe verwiesen: `TestPostgresRepository_CreateAndGetByID`/"GetByID is tenant-scoped" in
+    internal/email/message/postgres_repository_test.go seedet eine Nachricht unter Tenant A und
+    zeigt, dass `GetByID(id, tenantOther)` `ErrMessageNotFound` liefert.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
+    beruehrt).

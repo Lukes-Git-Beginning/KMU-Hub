@@ -954,7 +954,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/email/sync 34,6 % (Run 32508843776)"
     scope: >
       `route_email.go` ist mit 1.612 Zeilen und 63 Funktionen die groesste ungetestete
@@ -1023,6 +1023,18 @@ units:
       - backend/internal/email/contactlink/
       - backend/internal/email/contact/
     notes: >
+      KORREKTUR (2026-08-22, waehrend cov-gateway-email-messages-folders-sync/Iteration 25
+      gemessen): die "23 route_*.go ohne Testdatei"-Praemisse des Laufkopfs (Befund 5) zaehlt
+      route_email.go komplett ungetestet — das stimmt nicht mehr. `route_email_rules_test.go`
+      und `route_email_labels_test.go` (beide bereits im Repo, Lauf 8) decken
+      HandleListEmailRules/HandleListEmailLabels bereits zu 44,4 % ab, die uebrigen
+      Rule/Label-Handler zu 28,6–30,8 %. ECHT UNGETESTET (0,0 %, per
+      `go tool cover -func` auf route_email.go verifiziert) sind nur: HandleGetEmailContactLinks,
+      HandleLinkEmailToContact, HandleUnlinkEmailFromContact, HandleGetContactEmails,
+      HandleImportContactsCSV, HandleImportContactsVCard, HandleExportContactsCSV,
+      HandleExportContactsVCard. ZUERST `go tool cover -func` auf route_email.go neu ziehen,
+      bevor diese Unit angefasst wird — nicht diese Liste ungeprueft uebernehmen, sie kann sich
+      durch B12 (Signaturen/Vorlagen) verschoben haben.
       CSV-FORMEL-INJECTION: ein Feld, das mit =, +, - oder @ beginnt, wird von Excel und
       LibreOffice als Formel ausgefuehrt. Wenn der Export das nicht neutralisiert, ist das ein
       Fund und eine Fix-Unit — kein Test, der das Verhalten festschreibt.
@@ -1847,3 +1859,48 @@ units:
       - go test -count=1 ./internal/server/... ./internal/biz/hr/timetracking/... gruen,
         DATABASE_URL gesetzt
       - migration ok (up und down lokal gefahren), falls Option (a) gewaehlt
+
+  - id: fix-gateway-email-service-unavailable-status-code
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"
+    scope: >
+      Gefunden 2026-08-22 waehrend `cov-gateway-email-messages-folders-sync` (Iteration 25).
+      Jeder andere Route-File im Gateway meldet "Service nicht erreichbar" ueber den
+      gemeinsamen Helper `respondServiceUnavailable` (helpers.go:83), der einheitlich 503
+      liefert — sowohl wenn der Service gar nicht in der Registry steht als auch wenn die
+      Registrierung existiert, die Verbindung aber fehlschlaegt. `route_email.go` allein weicht
+      davon ab: alle 58 Vorkommen des Client-Fetch-Fehlerpfads schreiben stattdessen von Hand
+      `response.Error(w, http.StatusBadGateway, "email service unavailable")` (502). Innerhalb
+      dieser einen Datei ist das konsistent, aber inkonsistent mit dem Rest des Gateways UND in
+      sich selbst zweideutig: "Service nicht registriert" liefert 502, "Service registriert,
+      aber RPC schlaegt mit codes.Unavailable fehl" liefert ueber `respondGRPCError` 503 — zwei
+      Codes fuer dieselbe Bedeutung ("Email-Backend gerade nicht da"), abhaengig vom internen
+      Registrierungszustand, den ein Client nicht kennt und nicht kennen sollte.
+    sources:
+      - backend/internal/gateway/route_email.go
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Root Cause statt Symptom: alle 58 Vorkommen des Musters
+      `response.Error(w, http.StatusBadGateway, "email service unavailable")` durch
+      `respondServiceUnavailable(w, e.ServiceName())` ersetzen (ServiceName() liefert "email",
+      route_email.go:121) — nicht einzelne Stellen von Hand pflegen. Ein Grep auf
+      `StatusBadGateway` in route_email.go muss danach 0 Treffer liefern.
+      Frontend-Auswirkung vor dem Fix pruefen: falls das Frontend 502 vs. 503 unterschiedlich
+      behandelt (z. B. 502 als "dauerhaft kaputt", 503 als "gleich nochmal versuchen"), gehoert
+      das in die Unit-Notizen, nicht stillschweigend geaendert.
+      Alle bestehenden Tests in route_email_accounts_test.go, route_email_compose_test.go und
+      route_email_folders_messages_sync_test.go, die 502 erwarten (Suchbegriff
+      `StatusBadGateway` bzw. `testEmailServiceUnavailable`), muessen im selben Commit auf 503
+      umgestellt werden — sonst faellt das Gate sofort rot.
+    done_when:
+      - route_email.go verwendet ausschliesslich respondServiceUnavailable statt eines
+        hartkodierten StatusBadGateway fuer den Client-Fetch-Fehlerpfad
+      - Alle betroffenen Tests erwarten jetzt 503 statt 502; testEmailServiceUnavailable
+        entfaellt zugunsten von testServiceUnavailable (oder wird entsprechend angepasst)
+      - go test -count=1 ./internal/gateway/ gruen, TestOpenAPIRouteDrift unveraendert gruen
+      - Frontend-Verhalten bei 502 vs. 503 im Journal dokumentiert (unveraendert lassen oder
+        Grund fuer die Aenderung nennen)
