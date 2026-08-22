@@ -43,20 +43,18 @@ type Breakdown struct {
 // Calculate computes the tax breakdown for a set of line items under the given tax mode.
 // This is a pure function: no database access, no side effects, fully deterministic.
 //
-// Tax is calculated per line item and rounded to 2 decimal places at the line level
-// (not at the total level). This prevents cent discrepancies that arise from rounding
-// a sum vs. summing rounded values.
+// Both the line net and the line tax are rounded to 2 decimal places at the line
+// level (not at the total level) before they are summed. This prevents cent
+// discrepancies that arise from rounding a sum vs. summing rounded values, and it
+// matches the order the PDF uses: it prints a net and a tax column per line, so the
+// printed lines have to add up to the printed total.
 //
-// Rounding order, and why it is NOT the one the e-invoice generator uses:
-// this breakdown backs the document the customer reads — the PDF prints a tax
-// column per line, so the printed lines have to add up to the printed total, which
-// forces per-line rounding. EN 16931 asks the opposite of the XML: BR-CO-17 derives
-// the group tax (BT-117) from the group net (BT-116) in one step. Both are right for
-// their medium; over many fractional lines they can drift apart by cents.
-// einvoice.buildLinesAndTaxGroups carries the counterpart note.
-//
-// Note the asymmetry that remains: the line TAX is rounded here, the line NET is
-// not — see fix-tax-calculator-line-total-unrounded in the loop backlog.
+// Remaining rounding-order difference from the e-invoice XML: this breakdown sums
+// per-line tax (round each line's tax, then add), while EN 16931's BR-CO-17 derives
+// the group tax (BT-117) from the already-rounded group net (BT-116) in one step.
+// Both are right for their medium; over many fractional lines with mixed rates they
+// can still drift apart by a cent or two. einvoice.buildLinesAndTaxGroups carries
+// the counterpart note, and einvoice.totalsTolerance is sized for exactly this gap.
 //
 // For ReverseCharge and Kleinunternehmer modes, all tax is zero regardless of the
 // tax rates specified on line items.
@@ -68,8 +66,11 @@ func Calculate(items []LineItem, mode TaxMode) Breakdown {
 	taxExempt := mode == ModeReverseCharge || mode == ModeKleinunternehmer
 
 	for _, item := range items {
-		// Line total = quantity * unit_price
-		lineTotal := item.Quantity.Mul(item.UnitPrice)
+		// Line total = quantity * unit_price, rounded to 2 decimal places before
+		// summing (same rounding order the e-invoice generator uses for BT-106,
+		// see fix-tax-calculator-line-total-unrounded in the loop backlog) so the
+		// stored subtotal and the exported document net agree line by line.
+		lineTotal := item.Quantity.Mul(item.UnitPrice).Round(2)
 		subtotal = subtotal.Add(lineTotal)
 
 		if !taxExempt {

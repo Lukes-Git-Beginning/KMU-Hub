@@ -175,6 +175,24 @@ func TestCalculate_FractionalRate_DoesNotCollideWithWholeRate(t *testing.T) {
 	assert.True(t, result.TotalTax.Equal(d("14.50")), "total tax should be 14.50, got %s", result.TotalTax)
 }
 
+func TestCalculate_FractionalQuantity_RoundsLineNetBeforeSumming(t *testing.T) {
+	// 1.5 hours at 33.333 EUR/hour = 49.9995 unrounded. The line net must be
+	// rounded to 50.00 before it enters the subtotal -- an unrounded sum would
+	// leave the stored net at 49.9995, three decimal places deep, which then
+	// disagrees with the e-invoice's BT-106 (also rounded per line, see
+	// einvoice.buildLinesAndTaxGroups) by fractions of a cent.
+	items := []LineItem{
+		{Quantity: d("1.5"), UnitPrice: d("33.333"), TaxRate: d("19.00")},
+	}
+
+	result := Calculate(items, ModeStandard)
+
+	assert.True(t, result.Subtotal.Equal(d("50.00")), "subtotal should be rounded to 50.00, got %s", result.Subtotal)
+	assert.True(t, result.TaxByRate["19"].Equal(d("9.50")), "tax at 19%% should be 9.50, got %s", result.TaxByRate["19"])
+	assert.True(t, result.TotalTax.Equal(d("9.50")), "total tax should be 9.50, got %s", result.TotalTax)
+	assert.True(t, result.GrossTotal.Equal(d("59.50")), "gross total should be 59.50, got %s", result.GrossTotal)
+}
+
 func TestCalculate_ZeroRateLineInStandardMode_CreatesNoRateGroup(t *testing.T) {
 	// A 0% line alongside taxable lines must not create a "0" TaxByRate group --
 	// that would render and export as VAT category S at 0%, which EN 16931 rejects.

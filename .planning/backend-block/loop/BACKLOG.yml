@@ -333,7 +333,7 @@ units:
     service: biz
     model: sonnet
     deps: [fix-tax-calculator-rate-key-collision]
-    status: todo
+    status: done
     coverage_start: "internal/biz/tax 100 % (CI-Stand 32570176303)"
     scope: >
       `tax.Calculate` rundet die Zeilensteuer auf zwei Stellen, aber nicht den Zeilenbetrag
