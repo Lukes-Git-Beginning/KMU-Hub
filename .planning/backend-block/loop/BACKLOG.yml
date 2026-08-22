@@ -1275,7 +1275,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/work/label 15,2 % (Run 32508843776)"
     scope: >
       `route_work_labels.go` (328 Zeilen, 12 Funktionen) ohne Testdatei. Die Pakete dahinter
@@ -2039,3 +2039,68 @@ units:
       - Die vier *_ReachesRPC-Tests in route_booking_admin_test.go erwarten nach dem Fix 400 statt
         503
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-work-task-custom-field-values-wrong-fk
+    phase: 4
+    service: work
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Schema-Fix, kein Coverage-Ziel)"
+    scope: >
+      Gefunden in cov-gateway-work-labels-custom-fields (Iteration 36, 2026-08-22), live gegen die
+      lokale DB verifiziert: `task_custom_field_values.field_id` traegt noch die urspruengliche FK
+      aus Migration 000026 (`REFERENCES custom_field_definitions(id) ON DELETE CASCADE`) —
+      der GENERISCHEN, CRM-only Tabelle aus Migration 000005, deren `entity_type`-Check-Constraint
+      NUR 'contact', 'company', 'deal', 'activity' erlaubt ('task' ist kein gueltiger Wert).
+      Migration 000146 hat spaeter `work_custom_field_definitions` als EIGENE Tabelle mit eigenem
+      ID-Raum angelegt, exponiert ueber `/api/v1/work/custom-fields` (internal/work/customfield).
+      Jede ID, die `HandleCreateCustomFieldDefinition` zurueckgibt, stammt aus
+      `work_custom_field_definitions` — aber `HandleSetTaskCustomFieldValues`
+      (route_work_tasks.go) reicht genau diese ID als `field_id` an
+      `work/task/postgres_repository.go:586` (`SetCustomFieldValues`) durch, welches sie in
+      `task_custom_field_values` einfuegt. Die FK zeigt auf die falsche Tabelle: JEDER Versuch,
+      einen Custom-Field-Wert an einer Aufgabe zu setzen, schlaegt mit
+      `foreign_key_violation` auf `task_custom_field_values_field_id_fkey` fehl. Live bestaetigt:
+
+        DO $$ ... INSERT INTO task_custom_field_values (..., field_id, ...)
+        VALUES (..., <echte work_custom_field_definitions.id>, ...)
+        -- ERROR: insert or update on table "task_custom_field_values" violates
+        -- foreign key constraint "task_custom_field_values_field_id_fkey"
+
+      `GetCustomFieldValues` (postgres_repository.go:613) hat denselben Fehler auf der Lesenseite:
+      `JOIN custom_field_definitions cfd ON tcfv.field_id = cfd.id` statt
+      `work_custom_field_definitions`. Beide Pfade sind seit Migration 000146 (nicht datierbar aus
+      dem Repo, aber klar VOR diesem Lauf) tot — die Custom-Fields-Sektion der TaskDetailPage kann
+      nie erfolgreich einen Wert speichern.
+    sources:
+      - backend/migrations/000026_create_task_collaboration.up.sql
+      - backend/migrations/000146_work_custom_field_definitions.up.sql
+      - backend/internal/work/task/postgres_repository.go
+      - backend/internal/work/customfield/postgres_repository.go
+      - backend/internal/gateway/route_work_tasks.go
+    notes: >
+      Migration statt Code-Fix: die FK muss von `custom_field_definitions(id)` auf
+      `work_custom_field_definitions(id)` umgehaengt werden (DROP CONSTRAINT + ADD CONSTRAINT mit
+      `REFERENCES work_custom_field_definitions(id) ON DELETE CASCADE`). Vor dem DROP pruefen, ob in
+      Produktion ueberhaupt Zeilen in `task_custom_field_values` liegen — wenn ja, sind das
+      Karteileichen mit IDs aus der falschen Tabelle und muessen vor dem ALTER geloescht werden
+      (mit Begruendung im Migrationskopf, nicht stillschweigend), sonst schlaegt die neue FK beim
+      Anlegen fehl.
+      `GetCustomFieldValues`s JOIN im selben Commit auf `work_custom_field_definitions` umstellen,
+      sonst bleibt die Lesenseite kaputt, obwohl die Schreibseite repariert ist.
+      Root Cause, nicht Symptom: NICHT die App-Schicht so bauen, dass sie den FK-Fehler abfaengt und
+      stillschweigend verwirft — das wuerde den Bug nur verstecken.
+      Nach dem Fix: ein DB-Test in `internal/work/task` oder `internal/work/customfield`, der einen
+      echten Custom-Field-Wert ueber eine `work_custom_field_definitions`-ID setzt und liest, als
+      Regressionsschutz — bislang existiert dafuer kein Test (die Luecke ist nie aufgefallen, weil
+      niemand sie DB-gestuetzt getestet hat).
+    done_when:
+      - Migration haengt task_custom_field_values.field_id auf work_custom_field_definitions(id) um,
+        mit Begruendung im Kopf und einer Aussage zu bestehenden Karteileichen-Zeilen
+      - GetCustomFieldValues joint auf work_custom_field_definitions statt custom_field_definitions
+      - Ein DB-Test setzt einen Wert mit einer echten work_custom_field_definitions-ID und liest ihn
+        zurueck, ohne FK-Fehler
+      - down-Migration stellt die alte FK wieder her
+      - go test -count=1 ./internal/work/task/... ./internal/work/customfield/... gruen,
+        DATABASE_URL gegen kmuhub_app

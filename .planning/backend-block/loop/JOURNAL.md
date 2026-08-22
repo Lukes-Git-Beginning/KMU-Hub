@@ -2206,3 +2206,84 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
     keine neue Tabelle/Policy in dieser Iteration; `dashboard_defaults`
     RLS war bereits durch A-Vorlauf/frueheren Fix abgedeckt).
+
+## Iteration 36 — cov-gateway-work-labels-custom-fields — done — 2026-08-22 05:42
+- commit: (siehe naechster docs-Eintrag)
+- gebaut: `route_work_labels_test.go` deckt alle 12 Funktionen aus
+  `route_work_labels.go` ab (5 Label-Handler, HandleSetTaskLabels,
+  5 Custom-Field-Definition-Handler, `labelIDsFromQuery`) nach dem
+  etablierten ReachesRPC-Muster (`registryWithService`/`emptyRegistry`),
+  plus zwei neue Router-Guard-Tests (`TestWorkLabelRoutes_Guards`,
+  `TestWorkCustomFieldRoutes_Guards`), weil `work_labels`/
+  `work_custom_fields` bewusst NICHT im additiven Catalogue-Rollout stehen
+  (route_work.go:224-227) und deshalb in route_capability_guard_test.go
+  fehlen — einfache `RequirePermission`-Guards, kein
+  `RequirePermissionAny`. Zusaetzlich `internal/work/label/
+  postgres_repository_db_test.go` (neu, gegen die echte DB statt Mock):
+  `TestLabelDelete_CascadesTaskLabels` belegt die in
+  `label.Repository.Delete`s Doc-Kommentar behauptete Kaskade
+  (`work_labels(id) -> task_labels ON DELETE CASCADE`, Migration 000145)
+  am echten pg_constraint, `TestLabelRepository_TenantIsolation` denselben
+  Pfad fuer RLS.
+  BEFUND (kein Fix in dieser Unit, siehe unten): beim Nachgehen der
+  done_when-Frage "Loeschverhalten benutzter Labels an pg_constraint
+  pruefen" bin ich auf die Custom-Field-Seite gestossen und live gegen die
+  lokale DB verifiziert, dass `task_custom_field_values.field_id` noch die
+  Original-FK aus Migration 000026 auf `custom_field_definitions` (CRM-only,
+  `entity_type`-Check erlaubt kein 'task') traegt statt auf
+  `work_custom_field_definitions` (Migration 000146, die tatsaechlich von
+  `internal/work/customfield` bedient wird). Jeder Versuch, einen
+  Task-Custom-Field-Wert zu setzen, schlaegt mit `foreign_key_violation`
+  fehl — bestaetigt per Live-INSERT gegen die lokale DB (Fehlertext in der
+  neuen Fix-Unit dokumentiert). `GetCustomFieldValues` hat denselben Fehler
+  auf der Lesenseite (joint ebenfalls auf die falsche Tabelle). Als
+  `fix-work-task-custom-field-values-wrong-fk` ans Backlog-Ende gehaengt.
+- gate: build ok (`-p 2` gateway/..., cmd/gateway/...) | vet ok
+  (gateway/..., work/label/...) | lint ok (0 issues, gateway/...,
+  work/label/...) | test ok (`internal/gateway` komplett gruen inkl.
+  `TestOpenAPIRouteDrift`: 836 Routen gegen 838 dokumentierte Pfade, keine
+  neue Route in dieser Unit; `internal/work/...` mit `-p 1` seriell komplett
+  gruen — Standard-Parallelitaet reproduziert den seit Iteration 34/35
+  bekannten SQLSTATE-53300-Verbindungslimit-Flake auf zwei unveraenderten
+  Paketen, kein Bezug zu dieser Unit) | migration n.a. (keine
+  Schemaaenderung in dieser Unit — der Fund braucht eine eigene Migration,
+  siehe Fix-Unit) | rls-smoke ok (neue DB-Tests in `internal/work/label`
+  sind der RLS-Nachweis; als `kmuhub_app` gelaufen)
+- coverage: internal/gateway 53,4 % (Stand Iteration 35) -> 54,0 % (eigene
+  Messung) · internal/work/label 15,2 % (Baseline aus coverage_start,
+  eigene Messung mit ausgelagerter DB-Testdatei bestaetigt exakt denselben
+  Wert) -> 49,5 % (eigene Messung nach dieser Unit)
+- mutations-probe: In `HandleUpdateLabel` (`route_work_labels.go:99`) den
+  Statuscode der "missing label id"-Antwort von `http.StatusBadRequest` auf
+  `http.StatusTeapot` gedreht -> `TestHandleUpdateLabel_MissingID` wird rot
+  (418 statt 400 erwartet). Zurueckgedreht -> gruen,
+  `git diff --stat internal/gateway/route_work_labels.go` zeigt 0 Zeilen.
+- verify vorgaenger: sauber. `6db12cf0` (Iteration 35,
+  cov-gateway-dashboard) gegen alle acht Fehlerklassen geprueft:
+  `git show --stat 6db12cf0` zeigt nur eine neue reine Gateway-Testdatei
+  plus eine additive Erweiterung von `mockDashboardRepo` um fuenf
+  nil-defaultete Error-Injection-Felder (Diff einzeln gelesen, aendert das
+  Verhalten der zwoelf bestehenden Cache-Tests nachweislich nicht) plus
+  BACKLOG/JOURNAL — kein gRPC-Bypass, kein Stub/TODO, kein `.proto`
+  angefasst, keine neue `RequirePermission`, keine neue Tabelle, keine
+  Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route. Folgecommit
+  `7e090ead` ist nur ein docs-SHA-Nachtrag im Journal, unkritisch.
+- neue-units: fix-work-task-custom-field-values-wrong-fk (kritischer,
+  live-verifizierter Produktionsbug: Task-Custom-Field-Werte lassen sich
+  nie speichern, siehe BEFUND oben und BACKLOG.yml)
+- offen:
+  - Der neue Fix hat `model: opus` (Migration + FK-Umhaengen +
+    Karteileichen-Frage in Produktion) und `phase: 4`, steht aber
+    lexikalisch nach den drei seit Iteration 27/28/33 liegen gebliebenen
+    Fix-Units (`fix-email-contacts-csv-export-formula-injection`,
+    `fix-gateway-advisory-product-riskclass-not-validated`,
+    `fix-gateway-booking-page-services-no-dive`) — der Treiber zieht
+    weiterhin strikt die erste `todo`-Unit mit erfuellten `deps`, das ist
+    nicht diese Reihenfolge. Fuer den naechsten Lauf: alle vier Fix-Units
+    vorziehen, bevor weitere Coverage-Units laufen — das steht jetzt seit
+    vier Iterationen im Journal.
+  - Kein DB-Gate fuer eine Migration noetig (diese Unit aendert kein
+    Schema). Der Fix selbst braucht vor der Migration eine Pruefung, ob in
+    Produktion bereits Zeilen in `task_custom_field_values` liegen
+    (Karteileichen mit falschen field_id-Werten), sonst schlaegt die neue
+    FK beim Anlegen fehl — siehe notes der neuen Fix-Unit.
