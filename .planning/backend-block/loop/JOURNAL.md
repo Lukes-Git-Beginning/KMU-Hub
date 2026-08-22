@@ -4058,7 +4058,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Iteration, die diese Unit zieht.
 
 ## Iteration 66 — fix-crm-erasure-contacts-companies-preview-execute-mismatch — done — 2026-08-22 09:15
-- commit: -
+- commit: f0d108c7
 - gebaut: `CRMErasureHandler.PreviewErasure` zaehlte `contacts` und `companies` (created_by) als
   "betroffene" Datensaetze; `ExecuteErasure` liess beide Tabellen unveraendert und zaehlte sie
   nur erneut in `affected` — Preview versprach eine Wirkung, die nie eintrat. Entscheidung (Option
