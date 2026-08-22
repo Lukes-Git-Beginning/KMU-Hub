@@ -1201,7 +1201,7 @@ Frühere Läufe liegen vollständig im Archiv:
     nur eine falsche Annahme im urspruenglichen Unit-Entwurf richtigzustellen.
 
 ## Iteration 21 — cov-gateway-biz-ext-time-billing — done — 2026-08-22 03:47
-- commit: -
+- commit: 68e59ffe
 - gebaut: neue Testdatei `route_biz_ext_test.go` deckt die einzige Funktion in
   `route_biz_ext.go` ab (`HandleCreateInvoiceFromTime`; `NewBizExtRoutes`/`getBizClient` werden
   implizit mitgetestet, `registerTimeExtRoutes` war bereits über `openapi_drift_test.go`
