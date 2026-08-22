@@ -3581,7 +3581,7 @@ Frühere Läufe liegen vollständig im Archiv:
     `-race`; wenn dort etwas auffällt, dann in `internal/idempotency`.
 
 ## Iteration 58 — feat-dsar-search-contact-advisory-protocol-module — done — 2026-08-22 08:08
-- commit: (siehe nächster docs-Commit)
+- commit: 8b490d2d
 - gebaut: `advisoryProtocolModules` in `internal/security/gdpr/dsar_search.go` schließt die
   letzte der 14 FK-auf-`contacts`-Tabellen ohne DSAR-Modul. Statt den ~50-Spalten-Scan aus
   `advisoryprotocol/postgres_repository.go` zu duplizieren, ruft die Funktion
