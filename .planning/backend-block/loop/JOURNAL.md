@@ -1315,7 +1315,7 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).
 
 ## Iteration 23 — cov-gateway-settings-branding-tenant-user — done — 2026-08-22 03:50
-- commit: (folgt in Zeile nach diesem Eintrag)
+- commit: 833e454d
 - gebaut: Neue Testdatei `route_settings_branding_tenant_user_test.go` fuer die sieben
   verbleibenden ungetesteten Handler aus `route_settings.go`: HandleGetResolvedSettings,
   HandleGetTenantSettings, HandlePutTenantSettings, HandleGetUserSettings,
