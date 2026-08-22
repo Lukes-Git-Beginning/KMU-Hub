@@ -4649,3 +4649,51 @@ Frühere Läufe liegen vollständig im Archiv:
   SHA-Eintragung ins Journal, kein eigenstaendiger Code-Commit.
 - neue-units: keine
 - offen: keine
+
+## Iteration 78 — fix-gateway-bexio-error-message-leakage — done — 2026-08-22 10:37
+- commit: (siehe unten, wird nach Commit als eigener docs-Eintrag nachgetragen)
+- gebaut: Root Cause statt Symptom gefixt. `HandleBexioOAuthCallback`, `PushInvoiceToBexio`,
+  `PushQuoteToBexio` (`backend/internal/server/bexio_grpc.go`) bauten bei Fehler bisher
+  `Success:false, ErrorMessage: err.Error()` statt eines echten gRPC-Fehlers und umgingen damit
+  `mapBexioError` vollstaendig (der Maskierungsmechanismus, den alle anderen Bexio-RPCs schon
+  nutzen) — Vault-/DB-Rohtexte konnten so bis zur HTTP-Antwort durchsickern. Alle drei geben jetzt
+  `nil, mapBexioError(err)` zurueck, exakt das Muster von `DisconnectBexio`/`TriggerBexioSync`/etc.
+  Zweiter, separater Fund in derselben Handler-Umgebung: `route_bexio.go`s
+  `HandleOAuthCallback` schrieb sowohl den externen Query-Parameter `error` (von Bexio selbst
+  gesendet, oeffentlicher Endpunkt, damit angreiferkontrollierbar) als auch (defensiv, siehe unten)
+  `resp.GetErrorMessage()` UNESCAPED in eine Redirect-Location — ein rohes `&` haette einen
+  zusaetzlichen Query-Parameter injiziert, ein rohes CRLF waere Response-Splitting vor manchen
+  Proxies gewesen. Neue Helper-Funktion `redirectBexioError` (`route_bexio.go`) escaped jeden
+  Bexio-Error-Code ueber `url.QueryEscape`, bevor er in die Location wandert; beide Redirect-Stellen
+  (missing-code-Pfad und OAuth-Callback-Ergebnis) nutzen sie jetzt.
+  `!resp.GetSuccess()` bleibt als Verteidigungslinie neben `err != nil` erhalten (auskommentiert
+  begruendet im Code) statt geloescht: nach dem Server-Fix kann Success bei `err == nil` nicht mehr
+  false sein, aber die Kombiprüfung verhindert, dass eine kuenftige Regression dort wieder einen
+  unmaskierten String durchreicht.
+  Kein `.proto`-Change: `Success`/`ErrorMessage` bleiben als Felder bestehen (harmlos ungenutzt bei
+  Erfolg), keine Regenerierung noetig.
+- gate: build ok (`./internal/gateway/... ./internal/server/... ./cmd/gateway/...`) | vet ok
+  (dieselben Pakete) | lint ok (0 issues, `./internal/gateway/... ./internal/server/...`) | test ok
+  (`./internal/gateway/...` und `./internal/server/...` inkl. `TestOpenAPIRouteDrift` — keine Route
+  geaendert, 836 registrierte gegen 838 dokumentierte Pfade, gruen; `./internal/biz/bexio/...` zur
+  Kontrolle ebenfalls gruen) | migration: n.a. (keine Tabellen-/Policy-Aenderung) | rls-smoke: n.a.
+- coverage: `internal/gateway` 54,0 % -> 54,0 % (kein messbarer Unterschied auf eine Nachkommastelle,
+  vor/nach selbst gemessen per `git stash` der vier geaenderten Dateien) | `internal/server` 70,2 %
+  -> 70,2 % (gleiches Verfahren). Fix-Unit, keine Coverage-Unit — die Zahl ist Nebenprodukt, nicht
+  Ziel; die eigentliche Baseline `internal/gateway 46,1 %` aus dem Laufkopf ist durch die
+  vorangegangenen Block-B-Iterationen laengst ueberholt, 54,0 % ist der tatsaechliche Ist-Stand vor
+  UND nach dieser Unit.
+- mutations-probe: in `redirectBexioError` das `url.QueryEscape(code)` durch das rohe `code` ersetzt
+  -> `TestHandleOAuthCallback_MissingCode_ErrorParamIsEscaped` bricht mit sichtbarem rohen CRLF in der
+  Location ab. Zurueckgedreht, `git diff` zeigt wieder exakt den urspruenglichen Fix-Diff (24
+  geaenderte Zeilen wie vor der Probe), volle Testdatei erneut gruen.
+- verify vorgaenger: sauber. `7c5436bc` (Iteration 77, feat-retention-worker-handler-notifications)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextlesung von
+  `retention_notifications.go` und Diff von `cmd/auth/main.go`) — kein Gateway-Handler betroffen
+  (reiner `internal/security/gdpr`-Handler auf dem bestehenden Retention-Motor), kein Stub, kein
+  `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle (`notifications.tenant_id`
+  + RLS bereits seit 000106/000122 vorhanden, im Journal selbst gegengeprueft), keine neue Route,
+  keine Wire-Shape-Aenderung. Der separate `0b81c936`-Commit davor war nur die nachtraegliche
+  SHA-Eintragung ins Journal, kein eigenstaendiger Code-Commit.
+- neue-units: keine
+- offen: keine

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -50,6 +51,32 @@ func TestHandleOAuthCallback_MissingCode_WithErrorParam(t *testing.T) {
 	loc := rec.Header().Get("Location")
 	if !strings.Contains(loc, "bexio_error=access_denied") {
 		t.Errorf("Location = %q, want to contain %q", loc, "bexio_error=access_denied")
+	}
+}
+
+// TestHandleOAuthCallback_MissingCode_ErrorParamIsEscaped is the mutations-probe
+// target for fix-gateway-bexio-error-message-leakage: the "error" query param
+// is attacker/Bexio-controlled (this is the public, unauthenticated callback
+// route) and reaches the redirect Location unescaped before the fix. A raw "&"
+// would let the value inject an extra query param, and a raw newline would be
+// header/response splitting in front of some proxies. Both must come out
+// percent-encoded, and the Location header itself must be a single line.
+func TestHandleOAuthCallback_MissingCode_ErrorParamIsEscaped(t *testing.T) {
+	routes := NewBexioRoutes(registryWithService("biz"), testStateSecret)
+	rec := httptest.NewRecorder()
+	malicious := "evil&injected=1\r\nSet-Cookie: pwned=1"
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/integrations/bexio/oauth/callback?error="+url.QueryEscape(malicious), nil)
+	routes.HandleOAuthCallback(rec, req)
+	assertStatus(t, rec, http.StatusFound)
+	loc := rec.Header().Get("Location")
+	if strings.Contains(loc, "\r") || strings.Contains(loc, "\n") {
+		t.Fatalf("Location contains a raw CR/LF: %q", loc)
+	}
+	if strings.Contains(loc, "injected=1") || strings.Contains(loc, "Set-Cookie:") {
+		t.Errorf("Location = %q, the malicious param leaked unescaped into the redirect", loc)
+	}
+	if !strings.Contains(loc, "bexio_error=evil%26injected") {
+		t.Errorf("Location = %q, want the value percent-encoded (e.g. %%26 for '&')", loc)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/biz/banking"
 	"github.com/kmuhub/kmuhub/internal/biz/bexio"
@@ -74,6 +75,26 @@ func TestMapBexioError(t *testing.T) {
 	t.Run("nil_is_nil", func(t *testing.T) {
 		require.NoError(t, mapBexioError(nil))
 	})
+}
+
+// TestMapBexioError_UnmappedErrorMasksMessage extends the table above (which
+// only asserts on codes.Code) with the actual leak fix from
+// fix-gateway-bexio-error-message-leakage: HandleBexioOAuthCallback,
+// PushInvoiceToBexio and PushQuoteToBexio used to return
+// Success:false + ErrorMessage: err.Error() directly to the client, bypassing
+// this function entirely. Now all three funnel through mapBexioError like
+// every other Bexio RPC, so an unmapped error (a wrapped DB/Vault/network
+// error, never a bexio.Err* sentinel) must come out with the fixed "internal
+// error" message — never the original text, which the gateway would go on to
+// embed unescaped in a redirect Location (route_bexio.go) or a JSON body.
+func TestMapBexioError_UnmappedErrorMasksMessage(t *testing.T) {
+	raw := errors.New("bexio push invoice: get field mappings: dial tcp 10.0.0.5:5432: connect: \nSet-Cookie: evil=1&x=y")
+
+	err := mapBexioError(raw)
+	requireGRPCCode(t, err, codes.Internal)
+
+	st, _ := status.FromError(err)
+	require.Equal(t, "internal error", st.Message())
 }
 
 // ---------------------------------------------------------------------------
