@@ -1460,7 +1460,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Gegenstueck zu C1, auf der Loeschseite. Sieben Erasure-Handler (audit, auth, calendar,
@@ -2370,4 +2370,230 @@ units:
       - Der ungeloeste Fall "nie angenommene Einladung" ist im Journal dieser Unit als offener
         Befund benannt (nicht als neue Unit — das ist eine Architekturfrage fuer Luke)
       - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+# ==========================================================================================
+# FUNDE AUS scan-erasure-handlers-missing-personal-data-tables (Iteration 41, 2026-08-22).
+# Grundgesamtheit: alle 139 FKs auf users(id) aus pg_constraint (lokale DB, 2026-08-22).
+# Zentraler Befund vorweg, gilt fuer ALLE sieben Units unten: `AuthErasureHandler.ExecuteErasure`
+# fuehrt NIEMALS ein `DELETE FROM users` aus (grep ueber internal/ bestaetigt: kein Treffer,
+# 2026-08-22) — die users-Zeile wird nur anonymisiert (UPDATE), nie geloescht. Damit feuert JEDE
+# CASCADE-FK (`ON DELETE CASCADE`) auf users(id) NIE als Aufraeummechanismus. Tabellen mit
+# `delete_rule = 'c'`, die von keinem der sieben Handler bedient werden, behalten ihre
+# Personendaten also fuer immer — nicht "bis zum naechsten Cascade", sondern dauerhaft.
+# ==========================================================================================
+
+  - id: fix-work-erasure-time-entries-retention-conflict
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      `WorkErasureHandler.ExecuteErasure` (erasure.go:393-399) loescht `time_entries` per
+      hartem `DELETE FROM time_entries WHERE user_id = $1`, mit dem Codekommentar "personal
+      data, no business retention need". Das widerspricht der eigenen Feststellung aus
+      Iteration 40 (Unit `feat-dsar-search-user-work-module`, Journal-Eintrag vom 2026-08-22):
+      Zeiteintraege sind arbeitsrechtlich relevant und koennen einer Aufbewahrungspflicht
+      unterliegen (ArbZG-nahe Fristen). Ein unbedingtes, sofortiges DELETE vor jeder
+      Fristpruefung ist eine irreversible Compliance-Luecke — genau die Ueberreichweite, nach
+      der dieser Scan laut seinen eigenen `notes` explizit sucht ("fasst ein Handler eine
+      Tabelle an, die er gar nicht anfassen duerfte").
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/work/timeentry/postgres_repository.go
+      - backend/internal/models (Aufbewahrungsfrist-Konstanten suchen, falls vorhanden)
+    notes: >
+      Nicht blind auf "nie loeschen" umstellen — pruefen, ob eine Aufbewahrungsfrist im Code
+      oder in einer Migration bereits definiert ist (z. B. im Zusammenhang mit
+      `retention_policies` aus A10/A11-A13, falls diese Units zum Zeitpunkt der Bearbeitung
+      bereits existieren). Ist keine Frist vorhanden, ist der sicherste Fix: nur Zeiteintraege
+      aelter als eine konservative Mindestfrist hart loeschen, juengere anonymisieren (Bezug
+      zum Nutzer entfernen, Dauer/Projekt behalten) statt sie sofort zu vernichten.
+      Diese Unit AENDERT Verhalten (kein Scan) — Mutations-Probe ist Pflicht.
+    done_when:
+      - Die Frist-Herkunft ist im Code kommentiert und im Journal begruendet (woher die Zahl
+        stammt, nicht geraten)
+      - Zeiteintraege innerhalb der Frist werden nicht mehr hart geloescht
+      - Ein Test belegt den neuen Pfad UND den Altfall (Eintrag jenseits der Frist wird weiterhin
+        entfernt)
+      - go test -count=1 ./internal/security/gdpr/... ./internal/work/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-auth-erasure-missing-security-tables
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      `AuthErasureHandler` (erasure.go:61-158) loescht `user_sessions`, `refresh_tokens`,
+      `recovery_codes`, `password_history` und anonymisiert `users`. Zwei sicherheitsrelevante
+      Tabellen mit CASCADE-FK auf `users(id)` liegen im selben Auth-Themenbereich, werden aber
+      nicht angefasst: `password_reset_tokens` (offene Passwort-Reset-Tokens) und
+      `app_specific_passwords` (vom Nutzer selbst erzeugte App-Passwoerter/API-Keys). Beide
+      CASCADE-FKs feuern nie (siehe Kopf dieses Blocks) — die Zeilen bleiben fuer immer stehen.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/auth (Repository fuer password_reset_tokens und app_specific_passwords
+        suchen, Tabellennamen im Code bestaetigen statt aus pg_constraint zu raten)
+    notes: >
+      Preview UND Execute gleichzeitig erweitern (Vorlage: die vier bestehenden Zaehler in
+      `PreviewErasure`), sonst entsteht dieselbe Preview/Execute-Luecke, die diese Scan-Unit bei
+      CRM und Calendar gefunden hat. Ein offenes Reset-Token nach der Loeschung ist ein
+      Angriffsvektor (jemand mit dem alten Link koennte ein Passwort fuer einen anonymisierten
+      Account setzen) — das gehoert in die Fehlerklassen-Begruendung im Commit.
+    done_when:
+      - PreviewErasure UND ExecuteErasure zaehlen/loeschen beide neuen Tabellen
+      - Ein Test seedet je einen Reset-Token und ein App-Passwort und belegt die Loeschung
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-calendar-erasure-incomplete-and-doc-mismatch
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      Der Doc-Kommentar von `CalendarErasureHandler` (erasure.go:424-426) behauptet: "Deletes
+      personal calendars and owned events". Der Code tut keins von beidem: `calendars`
+      (owner_id) wird nirgends angefasst, und `calendar_events` (created_by) wird in
+      `ExecuteErasure` nur GEZAEHLT (`evtCreatedCount`), nicht geloescht oder anonymisiert —
+      derselbe Preview/Execute-Bruch wie bei CRM (siehe Schwester-Unit). Zusaetzlich fehlen
+      `calendar_members` (Team-Kalender-Mitgliedschaft, Pendant zu `channel_memberships`, das
+      der Chat-Handler bereits loescht) und `caldav_push_subscriptions` — beide CASCADE auf
+      users(id), feuern also nie von selbst.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/work/calendar/postgres_repository.go
+    notes: >
+      Vier Teilbefunde in einer Unit, weil sie alle denselben Handler betreffen: (1) eigene
+      Kalender des Nutzers loeschen oder deren Besitz umhaengen, (2) calendar_events tatsaechlich
+      anonymisieren/loeschen statt nur zaehlen — Team-Termine mit anderen Teilnehmern beachten
+      (nicht den ganzen Termin fuer alle loeschen, nur den Organisator-Bezug), (3)
+      calendar_members entfernen, (4) caldav_push_subscriptions entfernen. Preview und Execute
+      MUESSEN nach dieser Unit deckungsgleich sein — das ist das Kernkriterium.
+    done_when:
+      - Preview- und Execute-Tabellenmenge sind identisch (kein Zaehlen ohne Wirkung mehr)
+      - calendars, calendar_members, caldav_push_subscriptions sind abgedeckt
+      - Ein Test belegt: Termine mit mehreren Teilnehmern verlieren nur den Bezug des geloeschten
+        Nutzers, nicht den ganzen Termin
+      - Der Doc-Kommentar der Handler-Struct beschreibt wieder, was der Code tatsaechlich tut
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-crm-erasure-contacts-companies-preview-execute-mismatch
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      `CRMErasureHandler.PreviewErasure` (erasure.go:174-195) zaehlt `contacts` und `companies`
+      als Teil der "betroffenen" Datensaetze. `ExecuteErasure` (erasure.go:197-244) aendert an
+      diesen beiden Tabellen NICHTS — sie werden nur erneut gezaehlt (`contactCount`,
+      `companyCount`) und zur `affected`-Summe addiert, ohne dass ein UPDATE laeuft. Der
+      Struct-Kommentar behauptet zusaetzlich "Anonymizes contacts and activities", was fuer
+      contacts nicht zutrifft. Wer die Preview sieht ("N Kontakte betroffen") und danach
+      ausfuehrt, bekommt unveraendert dieselben N Kontakte zurueck — die Zahl in der Preview ist
+      irrefuehrend, auch wenn das Zurueckbehalten selbst (FK auf anonymisierten Sentinel)
+      inhaltlich begruendbar ist.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      Zwei moegliche Fixes, KEINE der beiden ist automatisch richtig — das ist eine
+      Produktentscheidung: (a) contacts/companies aus der Preview-Zaehlung entfernen, wenn ihr
+      Zustand tatsaechlich unveraendert bleibt (ehrliche Zahl statt Wirkung vortaeuschen), oder
+      (b) die Preview-Zahl behalten und begruenden, warum "betroffen" hier "referenziert, nicht
+      veraendert" bedeutet, und das im DSGVO-Auskunftstext an der Oberflaeche entsprechend
+      formulieren. Diese Unit trifft die Entscheidung nicht vorab — sie dokumentiert sie im
+      Commit und im Doc-Kommentar der Struct, damit Code und Text wieder zusammenpassen.
+    done_when:
+      - Preview-Zahl und tatsaechliche Wirkung auf contacts/companies stimmen ueberein (entweder
+        durch echte Aenderung oder durch Entfernen aus der Zaehlung)
+      - Der Struct-Kommentar beschreibt wieder, was der Code tatsaechlich tut
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-work-erasure-missing-project-membership
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      `project_members` (user_id, CASCADE auf users(id)) wird von `WorkErasureHandler` nicht
+      angefasst, obwohl das Pendant `channel_memberships` im Chat-Handler bereits geloescht wird
+      (dieselbe Datenform: "wer ist Mitglied wo"). Die CASCADE-FK feuert nie (siehe Kopf dieses
+      Blocks) — Projektmitgliedschaften eines geloeschten Nutzers bleiben dauerhaft stehen.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/work/project/postgres_repository.go
+    notes: >
+      Vorlage ist `ChatErasureHandler`s `DELETE FROM channel_memberships` (erasure.go:308-314) —
+      dieselbe Form. Preview UND Execute erweitern.
+    done_when:
+      - PreviewErasure UND ExecuteErasure erfassen project_members
+      - Ein Test seedet eine Projektmitgliedschaft und belegt die Loeschung
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-chat-erasure-missing-bookmarks-mentions
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      `message_bookmarks` und `message_mentions` (beide user_id, CASCADE auf users(id)) sind
+      persoenliche Interaktionsdaten im Chat-Kontext (was hat der Nutzer sich gemerkt, wo wurde
+      er erwaehnt), werden aber von `ChatErasureHandler` nicht geloescht. Beide CASCADE-FKs
+      feuern nie (siehe Kopf dieses Blocks).
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/chat/postgres_repository.go
+    notes: >
+      Bookmarks sind reine Eigendaten (loeschen, keine Ruecksicht auf Dritte noetig). Mentions
+      koennen fremde Nachrichten referenzieren (jemand erwaehnt den geloeschten Nutzer) — hier
+      nur die Zeilen loeschen, in denen der geloeschte Nutzer die ERWAEHNTE Person ist
+      (`user_id`), nicht die Nachricht selbst anfassen.
+    done_when:
+      - PreviewErasure UND ExecuteErasure erfassen beide Tabellen
+      - Ein Test belegt: eine Mention in einer fremden Nachricht wird entfernt, die Nachricht
+        selbst bleibt bestehen
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-erasure-handler-user-settings-preferences
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      Vier Tabellen mit persoenlichen Einstellungen des Nutzers haben CASCADE-FK auf users(id)
+      und liegen in KEINEM der sieben Domaenen der bestehenden Handler: `user_settings`,
+      `user_dashboard_layouts`, `user_project_preferences`, `saved_filters` (created_by). Sie
+      feuern nie von selbst (siehe Kopf dieses Blocks) und gehoeren zu keiner der sieben
+      ModuleName-Domaenen (auth, crm, chat, work, calendar, notifications, audit) — es fehlt ein
+      achter Handler, keine Erweiterung eines bestehenden.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/security/gdpr/service.go
+      - backend/cmd/auth/main.go (Registrierungsstelle: RegisterErasureHandler-Aufrufe, Zeile
+        109-115 — neuer Handler gehoert dort als achte Zeile dazu)
+    notes: >
+      Vorlage ist `NotificationErasureHandler` (erasure.go:509-596) — kleinster bestehender
+      Handler, reine DELETE-Kette ohne Sonderfaelle, gleiche Struktur uebernehmen.
+      `saved_filters.created_by` ist zwar eine "created_by"-Spalte wie viele Attributions-Spalten
+      im Schema, aber inhaltlich eine persoenliche Einstellung (die gespeicherten Filter GEHOEREN
+      dem Nutzer, sie sind kein Business-Record ueber Dritte) — deshalb hier loeschen, anders als
+      z. B. `contacts.created_by`.
+    done_when:
+      - Neuer Handler mit ModuleName "settings" (oder passenderer Name, im Commit begruendet)
+      - PreviewErasure und ExecuteErasure decken alle vier Tabellen ab
+      - Handler ist in cmd/auth/main.go registriert
+      - Ein Test seedet je einen Datensatz pro Tabelle und belegt die Loeschung
       - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt

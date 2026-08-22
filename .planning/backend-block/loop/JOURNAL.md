@@ -2547,3 +2547,65 @@ Frühere Läufe liegen vollständig im Archiv:
     angenommene Einladungen (`accepted_at IS NULL`) bleiben unloesbar mit der aktuellen
     Zwei-Quellen-Matching-Architektur (Kontakte, Benutzer) — dieselbe Grenze wie bei
     guest_sessions, aus demselben Grund nicht in dieser Nacht geloest.
+
+## Iteration 41 — scan-erasure-handlers-missing-personal-data-tables — done — 2026-08-22 06:21
+- commit: 42dea15c
+- gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Alle 139 FKs auf
+  `users(id)` aus `pg_constraint` gezogen (lokale DB, 2026-08-22) und gegen die sieben
+  registrierten Erasure-Handler (`cmd/auth/main.go:109-115`: auth, crm, chat, work, calendar,
+  notifications, audit) abgeglichen, je Tabellenmenge (PreviewErasure vs. ExecuteErasure) und
+  je Domaenen-Vollstaendigkeit.
+  Zentraler Befund vorweg: `AuthErasureHandler.ExecuteErasure` fuehrt NIE ein
+  `DELETE FROM users` aus (`grep -rn "DELETE FROM users" backend/internal/` liefert null
+  Treffer) — die `users`-Zeile wird nur anonymisiert (UPDATE), nie geloescht. Damit feuert JEDE
+  `ON DELETE CASCADE`-FK auf `users(id)` NIE als Aufraeummechanismus; Tabellen mit
+  `delete_rule = 'c'`, die kein Handler bedient, behalten ihre Personendaten dauerhaft, nicht
+  nur "bis zum naechsten Cascade".
+  Sieben Funde, alle als Unit angelegt:
+  1. `fix-work-erasure-time-entries-retention-conflict` — WorkErasureHandler loescht
+     `time_entries` hart mit Kommentar "no business retention need", was der eigenen Feststellung
+     aus Iteration 40 widerspricht (Zeiteintraege sind arbeitsrechtlich relevant). Ueberreichweite,
+     nicht Luecke.
+  2. `fix-auth-erasure-missing-security-tables` — `password_reset_tokens`,
+     `app_specific_passwords` (beide CASCADE, Auth-Domaene) von AuthErasureHandler nicht erfasst.
+  3. `fix-calendar-erasure-incomplete-and-doc-mismatch` — Doc-Kommentar behauptet "Deletes
+     personal calendars and owned events", Code tut keins von beidem (`calendars` unberuehrt,
+     `calendar_events` nur gezaehlt); zusaetzlich `calendar_members`,
+     `caldav_push_subscriptions` fehlen.
+  4. `fix-crm-erasure-contacts-companies-preview-execute-mismatch` — Preview zaehlt
+     contacts/companies als "betroffen", Execute aendert an beiden Tabellen nichts (nur erneut
+     gezaehlt) — Preview/Execute-Bruch, genau der in den Unit-Notes gesuchte gefaehrlichste Fund.
+  5. `fix-work-erasure-missing-project-membership` — `project_members` (CASCADE, Pendant zu
+     `channel_memberships`, das der Chat-Handler bereits loescht) von WorkErasureHandler nicht
+     erfasst.
+  6. `fix-chat-erasure-missing-bookmarks-mentions` — `message_bookmarks`, `message_mentions`
+     (beide CASCADE) von ChatErasureHandler nicht erfasst.
+  7. `feat-erasure-handler-user-settings-preferences` — `user_settings`,
+     `user_dashboard_layouts`, `user_project_preferences`, `saved_filters` (alle CASCADE) liegen
+     in keiner der sieben ModuleName-Domaenen; es fehlt ein achter Handler.
+  Kein Fund bei: NotificationErasureHandler (alle vier Tabellen vollstaendig, Preview=Execute),
+  AuditErasureHandler (korrekter No-op nach DSGVO Art. 17(3)(e), keine Ueberreichweite),
+  ChatErasureHandler-Kernpfad (messages/channel_memberships selbst deckungsgleich).
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — done_when verlangt
+  kein go test)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geaenderter Testfall)
+- verify vorgaenger: sauber. `67007bf0` (Iteration 40, journal-sha-Nachtrag) geprueft: `git show
+  --stat` zeigt ausschliesslich JOURNAL.md — kein Produktionscode, keine der acht
+  Fehlerklassen einschlaegig.
+- neue-units: fix-work-erasure-time-entries-retention-conflict,
+  fix-auth-erasure-missing-security-tables, fix-calendar-erasure-incomplete-and-doc-mismatch,
+  fix-crm-erasure-contacts-companies-preview-execute-mismatch,
+  fix-work-erasure-missing-project-membership, fix-chat-erasure-missing-bookmarks-mentions,
+  feat-erasure-handler-user-settings-preferences
+- offen:
+  - `BACKLOG.yml` ist an sich schon seit einer frueheren Iteration kein strikt parsebares YAML
+    mehr (`python -c "import yaml; yaml.safe_load(...)"` bricht bei Zeile ~2175 in einer
+    laengst bestehenden `fix-idempotency-reserve-inflight-race`-Unit mit einem Backtick-Token
+    ab, verifiziert gegen HEAD vor dieser Iteration). Der Treiber parst laut Kopf der Datei
+    ohnehin per Zeilen-Regex, nicht per YAML-Parser — insofern folgenlos, aber falls je ein
+    strikter YAML-Parser eingesetzt wird, muss das behoben werden.
+  - Reihenfolge der sieben neuen Units ist bewusst nicht priorisiert; `fix-work-erasure-time-
+    entries-retention-conflict` (Punkt 1) hat das groesste Compliance-Risiko (Ueberreichweite,
+    nicht nur Luecke) und sollte als naechstes gezogen werden, wenn die Blockreihenfolge das
+    zulaesst.
