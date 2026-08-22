@@ -1269,7 +1269,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/biz/invoice 34,8 % (CI-Stand 32570176303)"
     scope: >
       `postgres_transactions.go` (135 Zeilen) kapselt die Transaktionsklammer, unter der
