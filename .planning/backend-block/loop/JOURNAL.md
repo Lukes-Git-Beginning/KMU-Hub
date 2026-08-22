@@ -883,7 +883,7 @@ Frühere Läufe liegen vollständig im Archiv:
     dort Sache der jeweiligen Coverage-Unit, nicht dieser Route-Unit.
 
 ## Iteration 16 — cov-gateway-biz-einvoice — done — 2026-08-22 03:07
-- commit: (folgt im naechsten Schritt)
+- commit: 4fabe7e3
 - gebaut: `route_biz_einvoice_test.go` (29 neue Tests) fuer alle 5 Funktionen von
   `route_biz_einvoice.go` (`HandleImportInvoice`, `HandleListIncomingInvoices`,
   `HandleGetIncomingInvoice`, `HandleUpdateIncomingInvoiceStatus`, `isEInvoiceMIME`). Deckt ab:
