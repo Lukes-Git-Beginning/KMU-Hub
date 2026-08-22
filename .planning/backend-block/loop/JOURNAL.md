@@ -712,7 +712,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Voraussetzungen dafür stehen jetzt präzise im Code-Kommentar
 
 ## Iteration 13 — fix-invoice-pdf-ustg14-mandatory-fields — done — 2026-08-23 00:20
-- commit: (siehe Schritt 6, wird nach diesem Eintrag committet)
+- commit: e4f78e4b
 - gebaut: `templates.go`/`generator.go` gegen § 14 Abs. 4 UStG abgeglichen (Nr. 1-8, die
   vom Backlog vorgegebene Liste). Sieben von acht Punkten waren bereits vollständig
   abgedeckt (Name/Anschrift beider Parteien, Steuernummer/USt-IdNr., Ausstellungsdatum,
