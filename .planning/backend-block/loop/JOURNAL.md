@@ -289,3 +289,44 @@ Frühere Läufe liegen vollständig im Archiv:
   tragen weiterhin dieselbe Diskrepanz auf Anzeige-/PDF-Ebene, das ist die separate, bereits im
   Backlog stehende `fix-write-path-line-total-unrounded-everywhere` (deps auf diese Unit). (3)
   `assertTotalsMatch` selbst wurde nicht angefasst und ist mit den Bestandstests weiterhin grün.
+
+## Iteration 5 — feat-einvoice-codelist-validation — done — 2026-08-22 23:36
+- commit: 6d5816c3
+- gebaut: `validateInvoiceDoc` (`internal/biz/einvoice/validation.go`) prüft jetzt zwei
+  Codelisten, die bisher gar nicht geprüft wurden: BR-CL-04 (Rechnungswährung BT-5 muss
+  ISO 4217 sein) und BR-CL-14 (Verkäufer-/Käuferland BT-40/BT-55 muss ISO 3166-1 alpha-2
+  sein). `doc.Currency` ist reiner Freitext (`invoice.Currency`, ungeprüft bis hierher) —
+  eine Rechnung mit "EURO" statt "EUR" wäre bisher unbeanstandet generiert worden.
+  `isoCountryCode` (`generator_doc.go`) normalisiert bekannte Schreibweisen von DE/AT/CH,
+  reicht aber jeden anderen exakt zweistelligen String unverändert durch (z. B. "FR", "XX")
+  — genau diese Lücke schließt der neue Check. Whitelist bewusst DACH-scoped
+  (EUR/CHF/USD, DE/AT/CH) mit `lean:`-Marker: CHF/USD sind bereits im DATEV-WKZ-Export
+  vorgesehen (`datev/exporter.go:289` Kommentar "Hardcoding EUR mis-booked foreign-currency
+  (CHF/USD) documents"), DE/AT/CH ist die Zielgruppe laut CLAUDE.md. Mengeneinheit (immer
+  "C62"), Belegart (immer "380") und Zahlungsmittel (immer "58") werden NICHT geprüft —
+  der Generator erzeugt sie fest verdrahtet, es gibt für keine der drei einen variablen
+  Eingabepfad, den eine Prüfung abfangen könnte (per Grep in generator_cii.go/generator_ubl.go
+  bestätigt: `unitCodePiece`/`invoiceTypeCodeCommercial`/`paymentMeansCodeSEPACredit` sind
+  Konstanten, `models.LineItem` trägt kein Unit-Feld). USt-Kategorie (S/Z/E/AE) ebenso nicht
+  geprüft — `taxCategoryFor` liefert ausschließlich diese vier Werte, kein Eingabepfad kann
+  einen fünften erzeugen. Diese vier Streichungen stehen hier im Journal statt im Code, wie
+  von der Unit verlangt.
+  Rule-IDs BR-CL-04/BR-CL-14 per Websuche gegen die offizielle Peppol-BIS-3.0-Doku
+  verifiziert (docs.peppol.eu/poacc/billing/3.0/rules/ubl-tc434/BR-CL-14/), nicht geraten.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/biz/einvoice 81,9 % (CI-Stand) -> 82,3 % (eigene Messung, `go tool cover
+  -func`, vor/nach identisch gemessen).
+- mutations-probe: zwei separate Proben gegen eine `cp`-Sicherungskopie (nicht `git
+  checkout`, siehe Iteration-3-Lehre). (1) `allowedCurrencies`-Check mit `if false && ...`
+  stillgelegt -> `TestValidate_RejectsUnsupportedCurrency` rot ("expected a *ValidationError,
+  got <nil>"). (2) beide `allowedCountries`-Checks (Seller + Buyer) mit `if false && ...`
+  stillgelegt -> `TestValidate_RejectsUnsupportedCountry` rot, derselbe Fehler. Beide Male
+  aus der Sicherungskopie zurückgeschrieben, `git diff --stat` danach identisch zum Stand vor
+  der Probe (45 Zeilen, nur die beabsichtigte Änderung).
+- verify vorgaenger: sauber — `aeb8725e` (letzter Commit vor dieser Iteration) ändert nur
+  JOURNAL.md (44 Zeilen, Iteration-4-Eintrag), kein Codewechsel, keine der acht Fehlerklassen
+  anwendbar.
+- neue-units: keine
+- offen: keine — Paket hat keine DB-Tests, DATABASE_URL-Gate daher nicht einschlägig für
+  diese Unit. `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` lief grün, obwohl keine
+  Route angefasst wurde (Pflicht laut Prompt, unabhängig vom Anlass).
