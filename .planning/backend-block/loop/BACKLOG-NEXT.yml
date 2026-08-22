@@ -1,4 +1,4 @@
-# Backend-Nachtloop — Arbeitsqueue für den NÄCHSTEN Lauf (Lauf 11)
+# Backend-Nachtloop — Arbeitsqueue für den NÄCHSTEN Lauf (Lauf 12)
 #
 # Diese Datei liest der Treiber NICHT. Sie ist die Schleuse vor `BACKLOG.yml`.
 #
@@ -9,55 +9,37 @@
 #
 # FREIGABE FÜR EINEN LAUF: Units aus dieser Datei nach `BACKLOG.yml` verschieben (nicht
 # kopieren), Blöcke und Reihenfolge dort festlegen, `coverage_start` gegen den dann aktuellen
-# CI-Stand nachziehen. Muster: PROMPT-VORBEREITUNG-LAUF-8.md.
+# CI-Stand nachziehen. Muster: PROMPT-VORBEREITUNG-LAUF-11.md.
 #
 # ==========================================================================================
-# STAND NACH LAUF 10 (Nachbearbeitung 2026-08-22)
+# STAND NACH DER VORBEREITUNG VON LAUF 11 (2026-08-22)
 #
-# Lauf 10: 92 Iterationen, 91 Units done, 2 blocked. Gemergt als `f87ffdcf`, deployt.
-# Migrationskopf 314 -> 322. Backlog und Journal im Archiv unter archive/lauf-10/.
+# Lauf 11 ist ausgeschrieben: 64 Units in BACKLOG.yml, davon 10 Scans. Roter Faden
+# "Geld- und Compliance-Pfade vor dem ersten zahlenden Kunden" (G2).
 #
-# WAS DIE NACHBEREITUNG GEFUNDEN HAT — beim Ausschreiben berücksichtigen:
+# NACH BACKLOG.yml VERSCHOBEN und deshalb hier ENTFERNT:
+#   - `fix-booking-page-orphaned-after-owner-erasure` (entblockt, Entscheidung: deaktivieren)
+#   - Journal-Befund 1 aus Lauf 10 (409/Retry-After nicht in openapi.yaml)
+#     -> `fix-idempotency-inflight-409-not-in-openapi`
+#   - Journal-Befund 6 (OpenAPI-Drift-Scan, Rest des Gateways)
+#     -> `scan-gateway-openapi-response-code-drift-remaining`
+#   - Journal-Befund 7 (RLS-Smoke hr_work_time_entries ohne Daten)
+#     -> `fix-rls-smoke-hr-work-time-entries-with-data`
+#   - Retention-Ausweitung auf die übrigen Services
+#     -> `scan-retention-mapping-remaining-services`
 #
-#   - Das CI-Signal war nicht dekorativ. Der erste Lauf über die 183 Commits war ROT:
-#     `TestPostgresCleanupWithLock_AcquiresAndReleases` deckte einen Advisory-Lock-Leak auf,
-#     den `idempotency.CleanupWithLock` und der in Lauf 10 NEU gebaute Retention-Scheduler
-#     teilten — Lock über den Pool genommen, über den Pool freigegeben, das Unlock landet auf
-#     einer fremden Verbindung und tut nichts. Der Scheduler wäre nach dem ersten Tick
-#     dauerhaft eingeschlafen, lautlos. Behoben in `778a2e44`.
-#     KONSEQUENZ 1: Ein DB-Test, der lokal grün ist, weil der Pool nur EINE warme Verbindung
-#     hatte, beweist nichts. Wer eine Ressource pro Verbindung testet (Advisory Locks,
-#     Session-GUCs, temporäre Tabellen), hält vorher eine zweite Verbindung fest.
-#     KONSEQUENZ 2: Wird ein bestehendes Muster als Vorlage kopiert, wird sein Fehler mit
-#     kopiert. Die Vorlage vorher prüfen, nicht nur nachbauen.
-#
-#   - `-race` ist in Lauf 10 lokal NIE gelaufen (kein `gcc` im PATH dieser Maschine). Units,
-#     deren `done_when` `-race` verlangt, können lokal nicht abgeschlossen werden — das
-#     gehört in die `offen:`-Zeile, und CI ist der Beweis.
-#
-#   - Lokales Postgres-Verbindungslimit: `go test` über mehrere DB-Pakete mit vollem
-#     Parallelismus reißt mit `53300 remaining connection slots are reserved` ab. `-p 1`
-#     verwenden. Kein Code-Fehler. (Journal Lauf 10, Iterationen 11 und 54, in der
-#     Nachbereitung reproduziert.)
-#
-#   - Die lokale Dev-Postgres trägt 13.8k Zeilen in `tenants` aus alten Läufen. Produktion
-#     hat genau 1. Jeder Test, der über `tenants` iteriert, ist lokal unbrauchbar langsam und
-#     verschmutzt `retention_runs`.
+# ERSATZLOS GESTRICHEN bei der Vorbereitung, weil die Gegenprüfung die Prämisse widerlegt hat:
+#   - Die geplante Lexware-Doppelzustellungs-Sperre. `NewService` setzt `noopEmitter{}`
+#     (`internal/biz/lexware/service.go:59-60`) und `SetEventEmitter` wird in `cmd/biz/main.go`
+#     NIE aufgerufen — es läuft kein Automations-Workflow doppelt. `SyncContactByLexwareID`
+#     schreibt auch keinen Sync-Log-Eintrag. An ihre Stelle traten
+#     `verify-biz-event-emitters-never-wired` und der Scan
+#     `scan-inbound-paths-without-duplicate-delivery-guard`.
+#   - Eine Schematron-Validierung für EN 16931. `go.mod` führt keine XML-/XPath-/XSLT-
+#     Dependency, eine reife Go-Bibliothek existiert nicht, und die Rechenregeln deckt
+#     `assertTotalsMatch` bereits ab. Ersetzt durch vier Regelfamilien-Units in Go.
 #
 # ==========================================================================================
-# ENTSCHEIDUNGEN, DIE JETZT GEFALLEN SIND
-#
-#   - `fix-booking-page-orphaned-after-owner-erasure` ist ENTBLOCKT.
-#     ENTSCHEIDUNG (Luke, 2026-08-22): DEAKTIVIEREN. Beim Erasure des Kalender-Eigentümers
-#     wird die Buchungsseite auf `active = false` gesetzt. Nicht umhängen, nicht nur warnen.
-#     Zusatzauflage aus der Unit selbst: `PreviewErasure` MUSS die betroffene Buchungsseite
-#     als eigenen Posten ausweisen, nicht schweigend im Kalender-Zähler verschwinden lassen —
-#     wer seine Löschung beantragt, soll wissen, dass eine öffentliche Seite betroffen ist.
-#     Ansatzpunkt steht: die `NOT EXISTS`-Subquery im `CalendarErasureHandler`, die heute den
-#     Ausschluss trägt, kennt die `booking_pages.id` bereits.
-#     Die Unit liegt vollständig ausgeschrieben in archive/lauf-10/BACKLOG.yml — von dort
-#     übernehmen, `blocked_reason` durch die Entscheidung ersetzen, `status: todo`.
-#
 # OFFEN, BRAUCHT LUKE — NICHT AUSSCHREIBEN, BEVOR DAS ENTSCHIEDEN IST
 #
 #   - `verify-datev-extf-encoding-requirement` bleibt `blocked`. Der Exporter schreibt heute
@@ -74,78 +56,88 @@
 #
 #   - `resource_type`-Whitelist/Enum für Retention-Policies. Produktentscheidung, nicht
 #     Loop-Arbeit — der Worker arbeitet solange defensiv und meldet Unbekanntes als
-#     "nicht zugeordnet".
+#     "nicht zugeordnet". Die Lauf-11-Unit
+#     `cov-gateway-security-retention-ip-password-routes` hält den Ist-Zustand nur fest und
+#     führt ausdrücklich KEINE Whitelist ein.
+#
+#   - DSAR-LÜCKE, ARCHITEKTURFRAGE (Lauf 10, Iteration 62): Eine nie angenommene Einladung
+#     (`accepted_at IS NULL`) hat weder `users`- noch `contacts`-Zeile, an die `SearchByQuery`
+#     sie hängen könnte — Name, E-Mail und Rolle stehen in `invitations`, sind für eine
+#     Auskunftsanfrage aber nicht auffindbar. Das wäre eine dritte Subjekt-Matching-Quelle
+#     neben Kontakten und Benutzern. Größer als eine Unit; erst entscheiden, dann bauen.
+#
+#   - ANNAHME, NICHT BELEG (Lauf 10, Iteration 63): Die 730-Tage-Frist, mit der die
+#     Work-Erasure Zeiteinträge zurückhält, ist eine konservative Ableitung aus
+#     § 16 Abs. 2 ArbZG, keine aus einer Konfigurationsquelle gelesene Zahl. Gilt für die
+#     Task-Zeiterfassung, nicht für `hr_work_time_entries`. Von Luke zu bestätigen.
+#
+#   - VERZUGSZINSEN (bei der Vorbereitung von Lauf 11 gefunden, 2026-08-22):
+#     `dunning.CalculateInterest` hat null Aufrufer, und `models.DunningConfig` trägt keinen
+#     Basiszinssatz — Verzugszinsen nach § 288 BGB werden nie berechnet. Die Lauf-11-Unit
+#     `verify-dunning-calculate-interest-unreachable` belegt das und räumt auf, VERDRAHTET
+#     aber nichts. Woher der Basiszinssatz kommt (Konfiguration, Pflege durch den Kunden,
+#     Abruf bei der Bundesbank) ist eine Produktentscheidung. Er ändert sich halbjährlich
+#     nach § 247 BGB.
+#
+#   - EVENT-EMITTER IN `cmd/biz/main.go` (dito): weder Lexware noch invoice noch quote setzen
+#     einen Emitter, während `automationConsumer` auf "*" hört. Ob die Oberfläche
+#     Automations-Trigger auf Finanzereignisse anbietet, klärt die Lauf-11-Unit
+#     `verify-biz-event-emitters-never-wired`. Bietet sie welche an, ist das eine tote Zusage
+#     an den Kunden — die Verdrahtung selbst ändert Produktionsverhalten und gehört Luke, nicht
+#     einer Nachtlauf-Iteration.
+#
+#   - FREMDWÄHRUNG: soll das Produkt sie können? Mehrere Tabellen tragen eine
+#     Währungsspalte, die E-Rechnung liest sie, andere Stellen nehmen EUR an. Der Lauf-11-Scan
+#     `scan-hardcoded-eur-vs-currency-column` liefert den Ist-Zustand; die Richtungsfrage ist
+#     eine Produktentscheidung.
+#
+#   - TESTSTRATEGIE `//go:build integration`: elf Testdateien laufen nur im separaten CI-Job
+#     "Finance & HR Integration Tests" und zählen nicht in der Coverage. Ob sie umgestellt
+#     werden, ist eine Entscheidung mit CI-Wirkung — der Loop darf `deploy/` und die
+#     CI-Struktur nicht anfassen. Der Lauf-11-Scan `scan-build-tag-excluded-money-tests`
+#     liefert die Liste und eine Empfehlung, mehr nicht.
 #
 # ==========================================================================================
-# BEFUNDE AUS LAUF 10, DIE NIRGENDS ALS UNIT STEHEN
-# (aus den `offen:`-Zeilen des Journals herausgezogen — sie wären sonst verloren)
+# FRONTEND-NACHZÜGE — gehören NICHT in diesen Loop (kein Playwright-Gate)
 #
-#   1. VERHALTENSÄNDERUNG IN PRODUKTION, bewusst so gebaut (Iteration 57): Ein Request,
-#      dessen erster Versuch abstürzte BEVOR `Complete` lief, bekommt beim Retry mit
-#      demselben Idempotency-Key jetzt 409 (`Retry-After: 2`) statt durchzulaufen — bis der
-#      Key nach `expires_at` verfällt. Das ist die dokumentierte Semantik und die
-#      Voraussetzung dafür, dass der Schlüssel Doppelbuchungen überhaupt verhindert. Vorher
-#      konnte nichts davon greifen. Keine Aufgabe, aber es muss jemand wissen.
-#
-#   2. FRONTEND-NACHZUG, ohne den ein Backend-Fix wirkungslos bleibt (Iteration 50):
-#      `RecurringInvoiceDialog.tsx:158` sendet beim Entfernen des Enddatums weiterhin
+#   1. `RecurringInvoiceDialog.tsx:158` sendet beim Entfernen des Enddatums weiterhin
 #      `undefined` statt eines Leerstrings. Das Backend akzeptiert das Lösch-Signal seit
-#      `a5f5aa6f`, im UI passiert trotzdem nichts. Gehört in den Frontend-Backlog, nicht
-#      hierher (dieser Loop hat kein Playwright-Gate).
+#      `a5f5aa6f`, im UI passiert trotzdem nichts. (Lauf 10, Iteration 50.)
 #
-#   3. FRONTEND, SICHERHEITSRELEVANT (Iteration 26): In `handleTemplateSelect`
-#      (ComposeInline.tsx / ComposeModal.tsx) fehlt der `sanitizeHtml()`-Aufruf, den die
-#      übrigen Pfade haben. Eine E-Mail-Vorlage geht damit ungefiltert in den Editor. Lässt
-#      sich mit keiner Backend-Änderung schließen. Frontend-Session.
+#   2. SICHERHEITSRELEVANT: In `handleTemplateSelect` (ComposeInline.tsx / ComposeModal.tsx)
+#      fehlt der `sanitizeHtml()`-Aufruf, den die übrigen Pfade haben. Eine E-Mail-Vorlage geht
+#      damit ungefiltert in den Editor. Lässt sich mit keiner Backend-Änderung schließen.
+#      (Lauf 10, Iteration 26.)
 #
-#   4. DSAR-LÜCKE, ARCHITEKTURFRAGE (Iteration 62): Eine nie angenommene Einladung
-#      (`accepted_at IS NULL`) hat weder `users`- noch `contacts`-Zeile, an die `SearchByQuery`
-#      sie hängen könnte — Name, E-Mail und Rolle stehen in `invitations`, sind für eine
-#      Auskunftsanfrage aber nicht auffindbar. Das wäre eine dritte Subjekt-Matching-Quelle
-#      neben Kontakten und Benutzern. Größer als eine Unit; erst entscheiden, dann bauen.
-#
-#   5. ANNAHME, NICHT BELEG (Iteration 63): Die 730-Tage-Frist, mit der die Work-Erasure
-#      Zeiteinträge zurückhält, ist eine konservative Ableitung aus § 16 Abs. 2 ArbZG, keine
-#      aus einer Konfigurationsquelle gelesene Zahl. Gilt für die Task-Zeiterfassung, nicht
-#      für `hr_work_time_entries`. Von Luke zu bestätigen.
-#
-#   6. SCAN BEWUSST ABGEBROCHEN (Iteration 46): Der OpenAPI-Antwortcode-Drift-Scan hat 52
-#      weitere `route_*.go` NICHT geprüft. Was tief geprüft, was nur gegrept und was gar nicht
-#      angesehen wurde, steht im Journal-Eintrag. Eine zweite Scan-Unit für den Rest des
-#      Gateways ist der naheliegende Nachfolger.
-#
-#   7. RLS-SMOKE NICHT BEWEISEND (Iteration 51): Bei `hr_work_time_entries` waren beide
-#      Zählungen 0, weil die Tabelle leer war. Die Policy wurde nicht angefasst (nur zwei
-#      nullable Spalten kamen dazu), das Risiko ist gering — mit befüllten Testdaten
-#      nachprüfbar.
+#   3. Frontend für die Kaskaden-Impact-Vorschau aus Lauf 10 / A2.
 #
 # ==========================================================================================
-# KANDIDATEN FÜR LAUF 11 — noch nicht entworfen, nur vorgemerkt
+# KANDIDATEN FÜR LAUF 12 — noch nicht entworfen, nur vorgemerkt
 #
-#   - Ausweitung des Retention-Workers auf die übrigen Services. Registriert sind acht
-#     Handler (contacts, dialer_call_sessions, messages, tickets, form_submissions, tasks,
-#     calendar_events, notifications). Der C4-Scan aus Lauf 10 hat die Nicht-Zuordnungen
-#     begründet: `time_entries`/`hr_work_time_entries` (arbeitsrechtliche Aufbewahrung),
-#     `finance_invoices` (GoBD), `gobd_*` (WORM), `advisory_protocols` (Verdacht auf
-#     Dokumentationspflicht, NICHT belegt — das wäre zu klären). Die Ausweitung auf alle 24
-#     Services ist noch offen.
-#   - Ein dauerhafter Test gegen die Antwortcode-Drift in `openapi.yaml`. Ob daraus ein Gate
-#     wird, ist eine eigene Entscheidung.
 #   - Ein gemeinsamer Helper für `pg_advisory_lock` auf einer dedizierten Verbindung. Es gibt
-#     jetzt ZWEI Implementierungen desselben Musters (idempotency, gdpr), und die zweite ist
-#     als Kopie der ersten samt Fehler entstanden. `internal/database` scheidet als Zuhause
-#     aus: database -> middleware -> idempotency wäre ein Import-Zyklus. Ein eigenes kleines
-#     Paket (etwa `internal/pglock`) wäre der Weg — das ist eine Architekturentscheidung und
-#     gehört Luke, nicht dem Loop.
-#   - Frontend für die Kaskaden-Impact-Vorschau aus A2. Braucht ein Playwright-Gate.
-#   - Die schwächsten Pakete jenseits des Gateways: `internal/work/customfield` (14,0 %),
-#     `internal/work/label` (15,2 %), `internal/email/attachment` (22,1 %),
-#     `internal/biz/creditnote` (28,2 %), `internal/biz/quote` (33,3 %),
-#     `internal/document/share` (33,3 %). Stand CI-Run 32508843776 — vor dem Ausschreiben
-#     gegen den aktuellen CI-Stand nachziehen, Lauf 10 hat den Gateway-Wert bewegt.
+#     ZWEI Implementierungen desselben Musters (idempotency, gdpr), und die zweite ist als
+#     Kopie der ersten samt Fehler entstanden. `internal/database` scheidet als Zuhause aus:
+#     database -> middleware -> idempotency wäre ein Import-Zyklus. Ein eigenes kleines Paket
+#     (etwa `internal/pglock`) wäre der Weg — Architekturentscheidung, gehört Luke.
+#   - Ein dauerhafter Test gegen die Antwortcode-Drift in `openapi.yaml`. Ob daraus ein Gate
+#     wird, ist eine eigene Entscheidung. Der Lauf-11-Scan D2 liefert die Datengrundlage.
+#   - Die schwächsten Pakete jenseits der Geldwelt (Stand CI-Run 32570176303 aus dem
+#     Kopf von BACKLOG.yml ableiten, nicht die alten Werte übernehmen):
+#     `internal/work/customfield`, `internal/work/label`, `internal/email/attachment`,
+#     `internal/document/share`.
+#   - Gateway-Routen mit ungeprüften Handlern ausserhalb der Geldwelt. Handler-Ebene gemessen
+#     (2026-08-22): route_produktion_ext 1/17, route_customization 2/5, route_crm_leads 0/4,
+#     route_files 0/2, route_work_time 2/10, route_wiki 10/20, route_vertraege 5/15,
+#     route_einkauf 5/18. Die Messmethode steht in Befund 6 im Kopf von BACKLOG.yml — nach
+#     DATEINAMEN gemessen sähe all das grün aus.
+#   - Die fünf öffentlichen Slack-/Teams-Endpunkte in `route_integration.go`
+#     (Webhook, Interaktion, Slash-Command, OAuth-Installation und -Rückruf). Die Lauf-11-Unit
+#     `cov-gateway-integration-config-routes` nimmt ausdrücklich nur die dreizehn
+#     Konfigurations-Handler; die öffentliche Fläche ist ein eigener Zuschnitt und berührt die
+#     gesperrte Public-Web-Surface-Frage.
 #   - CSAT und die übrigen Public-Token-Routen bleiben gesperrt (BACKLOG-PARKED.yml, Projekt
 #     "Public Web Surface"), bis dazu eine Entscheidung fällt.
-#   - Aufräumen der lokalen Dev-Postgres (13.8k Müll-Tenants), damit tenant-iterierende Tests
+#   - Aufräumen der lokalen Dev-Postgres (13,8k Müll-Tenants), damit tenant-iterierende Tests
 #     lokal wieder bezahlbar sind.
 #
 # ==========================================================================================

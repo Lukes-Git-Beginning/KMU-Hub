@@ -545,8 +545,11 @@ while ($i -lt $MaxIterations) {
         # zurueckgelassen haben. Get-NextUnitModel und der Iterations-Prompt
         # ziehen ausschliesslich 'todo' - eine verwaiste in_progress-Unit waere
         # fuer den Rest des Laufs unsichtbar und bliebe liegen. Kein Set-Content:
-        # BACKLOG.yml enthaelt zwar keine Umlaute, aber Set-Content wuerde
-        # trotzdem eine BOM setzen, die den YAML-Parser stoert.
+        # es wuerde eine BOM setzen, die den YAML-Parser stoert, UND die Umlaute
+        # zerschiessen - ab Lauf 11 ist BACKLOG.yml voll umlautbehaftet (vorher
+        # stand hier die Annahme, die Datei sei reines ASCII). ReadAllText
+        # dekodiert eine BOM-lose Datei korrekt als UTF-8, WriteAllText mit
+        # UTF8Encoding($false) schreibt sie ohne BOM zurueck - dieser Weg bleibt.
         $txt = [System.IO.File]::ReadAllText($Backlog)
         $new = [regex]::Replace($txt, '(?m)^(\s*status:\s*)in_progress\s*$', '${1}todo')
         if ($new -ne $txt) {
