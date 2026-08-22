@@ -1132,3 +1132,70 @@ Frühere Läufe liegen vollständig im Archiv:
   - Der `lean:`-Marker in `HandleListTimeEntries` (billed=true liefert immer eine leere Liste,
     ohne dass irgendetwas je als "billed" markiert wird) ist bereits im Code als bewusste
     Vereinfachung mit eigenem Upgrade-Trigger dokumentiert — kein neuer Fund, keine Unit noetig.
+
+## Iteration 20 — cov-gateway-biz-banking-document-chains — done — 2026-08-22 03:30
+- commit: (folgt im naechsten Schritt)
+- gebaut: zwei neue Testdateien fuer die letzten beiden ungetesteten `route_biz_*`-Dateien
+  dieser Nachbarschaft. `route_biz_banking_test.go` deckt alle drei Funktionen von
+  `route_biz_banking.go` ab (HandleImportBankStatement, HandleListBankStatements,
+  HandleGetBankStatement): Service-Unavailable, fehlender Tenant, ungueltiges Multipart,
+  fehlendes Dateifeld, leere Datei, Datei ueber dem 10-MiB-Limit, sowie ReachesRPC-Faelle fuer
+  Standard-/explizite Pagination. `route_biz_document_chains_test.go` deckt
+  `HandleListDocumentChains` (Service-Unavailable, fehlender Tenant, ReachesRPC) sowie die drei
+  reinen Formatierfunktionen im selben File (`toDocumentChainWire`, `formatChainAmount`,
+  `groupThousands`) isoliert: Rundung, Vorzeichen, Tausendertrennzeichen-Grenzen (999/1000/1e6),
+  unparsierbarer/leerer Betrag faellt auf "0,00" zurueck, Em-Dash-Platzhalter fuer den
+  nummer-/datumslosen synthetischen "offener Saldo"-Knoten, leere Knotenliste marshalt zu `[]`
+  nicht `null`.
+  ZWEI PRAEMISSEN AUS DEM UNIT-ENTWURF KORRIGIERT (beide gegen den Code geprueft, nicht nur
+  behauptet):
+  1. "IBAN-Formatierung und -Maskierung isoliert testen" trifft auf `route_biz_banking.go` nicht
+     zu. Es gibt in der gesamten Codebase (Gateway UND `internal/biz/banking`) keine
+     IBAN-Maskierung — nur eine Formatierung/Gruppierung, und die liegt ausschliesslich in
+     `route_biz_bank_accounts.go` (`dachfmt.FormatIBAN`, bereits durch
+     `route_biz_bank_accounts_test.go` abgedeckt). `BankStatement.account_iban` und
+     `BankTransaction.counterparty_iban` laufen unformatiert durch `hrMarshalProto`/
+     `hrMarshalSlice` — deckungsgleich mit dem OpenAPI-Schema (`account_iban?: string`, keine
+     Formatierungsangabe). Nichts zu maskieren, nichts isoliert zu testen; im Testdatei-Header
+     dokumentiert statt stillschweigend uebergangen.
+  2. "Eine Kette mit Luecke oder Zyklus darf keine Endlosschleife ausloesen" setzt eine
+     Graph-Traversierung voraus, die nirgends existiert. Gelesen:
+     `internal/biz/invoice/postgres_document_chains.go` — jede Kette wird pro Rechnung als
+     flacher Fan-out ueber fuenf unabhaengige, tenant-gescopte Queries plus Map-Lookup nach
+     Rechnungs-ID zusammengesetzt, keine Adjazenzliste, keine Rekursion. Auf Gateway-Seite
+     iteriert `HandleListDocumentChains`/`toDocumentChainWire` einmalig ueber eine endliche
+     Slice. Es gibt also weder auf Service- noch auf Gateway-Ebene einen Codepfad, den ein
+     Luecken-/Zyklus-Test ueberhaupt treffen koennte — kein Test gebaut, Begruendung im
+     Testdatei-Header festgehalten statt eine Attrappe drumherum zu bauen.
+- gate: build ok (`-p 2` ueber gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (ganzes `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift`, `internal/biz/banking`
+  unveraendert gruen, keine neue Route, kein OpenAPI-Eintrag noetig, 0 SKIP in
+  `internal/gateway` mit `DATABASE_URL` gesetzt)
+- coverage: internal/gateway 47,8 % -> 48,2 % (eigene Messung: beide neuen Testdateien per
+  `git stash push -u` vollstaendig entfernt, `go test -coverprofile` vor/nach auf demselben
+  Arbeitsbaum, danach `git stash pop`; 47,8 % deckt sich mit dem in Iteration 19 gemessenen
+  Zwischenwert)
+- mutations-probe: in `HandleImportBankStatement` die Groessenlimit-Pruefung
+  `if len(content) > maxBankStatementUploadBytes` auf `if false && len(content) > ...` gesetzt
+  -> `TestHandleImportBankStatement_ExceedsSizeLimit` wird rot (503 gegen die Dummy-Verbindung
+  statt 413, RPC-Layer statt Guard erreicht). Zurueckgedreht -> `git diff --stat` auf
+  `route_biz_banking.go` zeigt keinen Rest, ganzes `internal/gateway` wieder gruen.
+- verify vorgaenger: sauber. `e8b862e9` (Iteration 19, Open-Items/Time-Entries-Route-Tests)
+  gegen alle acht Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`,
+  `JOURNAL.md`, die neue Testdatei und einen additiven Guard-Testeintrag sowie eine reine
+  Doc-Kommentar-Korrektur in `route_biz_open_items.go` (`per_page=` -> `page_size=`, kein
+  Verhalten geaendert). `grep -n "client\.\|Unimplemented\|TODO\|t.Skip"` auf der neuen
+  Testdatei liefert null Treffer, kein gRPC-Bypass, kein `.proto` angefasst, keine neue
+  `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt,
+  keine neue Route.
+- neue-units: keine
+- offen:
+  - "Fremder Tenant liefert 404" ist an allen vier Routen dieser Unit wie in jeder vorigen
+    Coverage-Unit dieses Laufs NICHT ueber einen Live-RPC-Roundtrip getestet (kein bufconn-/
+    Fake-Client-Harness fuer FinanceServiceClient im ganzen Paket, gleiche dokumentierte
+    Infrastrukturgrenze wie in den Iterationen 15-19). Die serverseitige Tenant-Durchsetzung
+    liegt bei `internal/biz/banking` bzw. `internal/biz/invoice`.
+  - Die zwei korrigierten Praemissen (IBAN-Maskierung existiert nicht, Belegketten sind kein
+    traversierbarer Graph) sind ausschliesslich im Header der jeweiligen neuen Testdatei
+    dokumentiert, nicht als eigene Backlog-Units — es gibt nichts zu fixen oder nachzubauen,
+    nur eine falsche Annahme im urspruenglichen Unit-Entwurf richtigzustellen.

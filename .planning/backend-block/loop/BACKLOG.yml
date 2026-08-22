@@ -819,7 +819,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/biz/banking 77,0 % (Run 32508843776)"
     scope: >
       `route_biz_banking.go` (172 Zeilen, 3 Funktionen) und `route_biz_document_chains.go`
