@@ -3362,3 +3362,59 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein gemeinsames Helper-Paket fuer CSV-Zell-Neutralisierung angelegt (waere eine vierte
     Kopie ohne echten Konsumenten in dieser Iteration gewesen) — die neue Unit entscheidet, ob
     sich das lohnt, sobald drei weitere Stellen dieselbe Funktion brauchen.
+
+## Iteration 54 — fix-gateway-advisory-product-riskclass-not-validated — done — 2026-08-22 07:44
+- commit: (siehe naechster docs-Commit)
+- gebaut: Zweistufiger Fix fuer die in Iteration 28 gepinnte Luecke. (b) Root Cause in
+  `internal/crm/advisoryprotocol/service.go` `Update`: neue Schleife ueber `in.Products`
+  validiert jedes `Product.RiskClass` gegen 1-7 und liefert `ErrInvalidRiskClass` (denselben
+  Fehler wie beim Protokoll-Level-Feld) — greift fuer JEDEN Aufrufer von `Service.Update`, nicht
+  nur den Gateway-Pfad. (a) HTTP-Rand in `route_crm_advisory.go`: `dive` auf das
+  `Products`-Validate-Tag ergaenzt (Muster aus `route_customization.go:473`), damit
+  `advisoryProduct.RiskClass`s bestehendes `validate:"min=1,max=7"` beim Decodieren ueberhaupt
+  greift und die Anfrage schon vor der RPC mit 400 abgewiesen wird, statt erst am Service
+  gestoppt zu werden.
+  Bestehenden Test `TestHandleUpdateAdvisoryProtocol_ProductRiskClassNotValidated` wie in den
+  Notes gefordert umgedreht (nicht geloescht) zu
+  `TestHandleUpdateAdvisoryProtocol_ProductRiskClassRejected`: erwartet jetzt 400 via
+  `assertValidationError(t, rec, "risk_class")` statt 503. Feldname im `validate.Errors`-Body ist
+  der json-Tag-Name (`risk_class`), nicht der Go-Feldname `RiskClass` — per Testlauf verifiziert,
+  nicht geraten.
+  Neuer Service-Test `TestUpdate_InvalidProductRiskClass` in `service_test.go` deckt den
+  Root-Cause-Pfad direkt ab: risk_class=0, risk_class=99 und risk_class=4 (gueltig) gegen
+  `Service.Update`.
+- gate: build ok (`./internal/gateway/... ./internal/crm/advisoryprotocol/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues, beide Pakete) | test ok
+  (`./internal/gateway/` komplett gruen inkl. `TestOpenAPIRouteDrift` — 836 Routen gegen 838
+  dokumentierte Pfade, unveraendert weil kein neuer Pfad; `./internal/crm/... ./internal/email/contact/...`
+  seriell mit `-p 1` gruen, 0 SKIP) | migration n.a. (keine Schemaaenderung) | rls-smoke n.a.
+  (keine Tabelle/Policy beruehrt)
+  Randnotiz: ein paralleler Lauf von `go test ./internal/crm/...` traf lokal auf
+  "sorry, too many clients already" (Postgres-Connection-Limit bei vollem Parallelbetrieb aller
+  crm-Unterpakete gleichzeitig) — kein Bug dieser Unit, `internal/crm/contact` beruehrt dieser
+  Diff nicht; seriell mit `-p 1` reproduzierbar gruen.
+- coverage: n.a. (Validierungs-Fix, kein Coverage-Ziel, wie in `coverage_start` deklariert). Zur
+  Einordnung gemessen: `internal/crm/advisoryprotocol` unveraendert bei 65,9 % (neuer Test
+  kompensiert die vier neuen Codezeilen).
+- mutations-probe: Product-Schleife in `service.go` auf `if prod.RiskClass < -999` gesetzt
+  (erste Variante `if false` scheiterte am Compiler mit "declared and not used: prod", zweite
+  Variante mit garantiert-falscher Bedingung kompiliert und bleibt bei jedem Eingabewert falsch)
+  -> `TestUpdate_InvalidProductRiskClass` wird rot mit zwei Assertions ("Expected error ... but
+  got nil"). Zurueckgedreht -> `git diff --stat` zeigt fuer `service.go` nur die urspruengliche
+  Aenderung (5 Insertions, reine Schleife). Gateway-seitiger `dive`-Fix separat per Testlauf
+  belegt (Test schlug vor dem Tag-Zusatz mit 503 fehl, siehe oben).
+- verify vorgaenger: sauber. `bace843a` (Iteration 53, fix-email-contacts-csv-export-formula-
+  injection) gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff) — reine
+  Umstrukturierung von sieben switch-Faellen auf einen gemeinsamen `val` plus neue reine
+  Hilfsfunktion `neutralizeFormulaCell`, kein neuer Handler, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, kein ersetzter Alt-Guard, keine neue Tabelle/Migration, kein
+  Wire-Shape-Bruch, keine neue Route. `default`-Zweig des switch entfernt, aber Verhalten
+  aequivalent (Zero-Value `val` bleibt leer wie zuvor der explizite `""`-Append).
+- neue-units: keine
+- offen:
+  - Iteration-53-Folgeunit `fix-csv-formula-injection-remaining-exports` (Backlog-Ende) bleibt
+    offen und unangetastet von dieser Iteration.
+  - Lokales Postgres-Connection-Limit ist knapp bemessen fuer volle Parallelitaet aller
+    `internal/crm/...`-Unterpakete gleichzeitig — fuer kuenftige Iterationen, die dieses Paket
+    komplett gegenpruefen wollen, `-p 1` oder ein gezielteres Paket-Set verwenden statt `...`
+    mit vollem Parallelbetrieb.

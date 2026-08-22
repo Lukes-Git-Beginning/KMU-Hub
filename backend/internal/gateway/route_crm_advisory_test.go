@@ -186,18 +186,15 @@ func TestHandleUpdateAdvisoryProtocol_InvalidSelfAssessment(t *testing.T) {
 	assertValidationError(t, rec, "self_assessment")
 }
 
-// TestHandleUpdateAdvisoryProtocol_ProductRiskClassNotValidated pins a real
-// gap found while writing this test file: updateAdvisoryProtocolRequest.Products
-// has no `dive` on its validate tag, so advisoryProduct's own `min=1,max=7` on
-// RiskClass never runs (go-playground/validator only recurses into a slice of
-// structs when the slice field itself carries `dive`; compare
-// route_customization.go's `validate:"required,min=1,dive"` on a similar
-// nested slice). A product with risk_class=0 or 99 reaches the RPC unvalidated
-// instead of failing with 400. Not fixed here -- this is a coverage unit and
-// the actual bug is pre-existing production code, not something introduced
-// by this file. Filed as fix-gateway-advisory-product-riskclass-not-validated
-// at the end of BACKLOG.yml.
-func TestHandleUpdateAdvisoryProtocol_ProductRiskClassNotValidated(t *testing.T) {
+// TestHandleUpdateAdvisoryProtocol_ProductRiskClassRejected proves the fix for
+// fix-gateway-advisory-product-riskclass-not-validated: updateAdvisoryProtocolRequest
+// .Products now carries `dive` on its validate tag, so advisoryProduct's own
+// `min=1,max=7` on RiskClass runs for every element (go-playground/validator only
+// recurses into a slice of structs when the slice field itself carries `dive`;
+// compare route_customization.go's `validate:"required,min=1,dive"` on a similar
+// nested slice). A product with risk_class=0 is now rejected with 400 before the
+// RPC is ever reached, instead of reaching the (unreachable-in-this-test) client.
+func TestHandleUpdateAdvisoryProtocol_ProductRiskClassRejected(t *testing.T) {
 	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/advisory-protocols/"+advisoryTestID, jsonBody(t, map[string]interface{}{
@@ -209,9 +206,7 @@ func TestHandleUpdateAdvisoryProtocol_ProductRiskClassNotValidated(t *testing.T)
 	}))
 	req = withChiURLParam(req, "id", advisoryTestID)
 	routes.HandleUpdateAdvisoryProtocol(rec, req)
-	// Documents the gap: an out-of-range product risk_class reaches the RPC
-	// (503 here, since the client is unreachable) instead of failing with 400.
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertValidationError(t, rec, "risk_class")
 }
 
 func TestHandleUpdateAdvisoryProtocol_ReachesRPC(t *testing.T) {

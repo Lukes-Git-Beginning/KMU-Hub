@@ -1969,7 +1969,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Validierungs-Fix, kein Coverage-Ziel)"
     scope: >
       `updateAdvisoryProtocolRequest.Products` (`backend/internal/gateway/route_crm_advisory.go`,
