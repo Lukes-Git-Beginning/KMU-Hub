@@ -4547,7 +4547,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 76 — feat-retention-worker-handler-calendar-events — done — 2026-08-22 10:24
-- commit: (siehe naechster Eintrag)
+- commit: 2ae62384fbe9f97ab875eb785f52078c92223edc
 - gebaut: `CalendarEventRetentionHandler` (`backend/internal/security/gdpr/retention_calendar_events.go`)
   als siebter Handler auf der Retention-Registry aus A10, `resource_type` "calendar_events",
   verdrahtet in `cmd/auth/main.go` neben den sechs bestehenden Handlern.
