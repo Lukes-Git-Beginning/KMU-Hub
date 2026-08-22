@@ -2087,3 +2087,68 @@ Frühere Läufe liegen vollständig im Archiv:
     sie vorzuziehen.
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
     keine neue Tabelle/Policy in dieser Iteration).
+
+## Iteration 34 — cov-gateway-registrar-global-search — done — 2026-08-22 05:29
+- commit: (wird im Folgecommit nachgetragen)
+- gebaut: `route_search_global_test.go` deckt HandleGlobalSearch (leere Query,
+  leere Registry, registrierte Services mit RPC-Fehlschlag, den fest
+  verdrahteten Email-Stub, fehlerhafte/gueltige `limit`-Werte) und die
+  ServiceName-Methode ab. `route_registrar.go` (reine Interface-Definition,
+  keine ausfuehrbaren Zeilen) via Compile-Time-Assertion
+  `var _ RouteRegistrar = (*GlobalSearchRoutes)(nil)` erfasst.
+  Zwei Punkte im `done_when` explizit als "belegt" statt als Fund
+  dokumentiert (Kommentarblock im Testfile): (1) Tenant-Isolation laeuft
+  nicht handlerlokal, sondern ueber denselben
+  `middleware.TenantOutboundUnaryInterceptor`, den jede andere
+  Gateway-Route auch nutzt (`registry.go:112`) — kein routenspezifisches
+  Loch. (2) Die Berechtigungspruefung sitzt bewusst einmal an der
+  Routengruppe (`RequirePermission("search","read")`), nicht je Teilsuche —
+  das ist dasselbe Thin-Handler-Muster wie ueberall sonst im Gateway, kein
+  neuer Befund.
+- gate: build ok (`-p 2` gateway/..., cmd/gateway/...) | vet ok | lint ok
+  (0 issues, gateway/...) | test ok (`internal/gateway` 2479 PASS / 0 SKIP /
+  0 FAIL aus `go test -v -count=1 ./internal/gateway/`; `TestOpenAPIRouteDrift`
+  gruen, keine neue Route) | test ok (`internal/crm/...` mit `-p 1` gegen
+  echtes Verbindungslimit-Flackern bei paralleler Paketausfuehrung erneut
+  sauber gruen — Details unter offen:) | migration n.a. (keine
+  Schemaaenderung) | rls-smoke n.a. (keine neue Tabelle/Policy)
+- coverage: internal/gateway 52,8 % (eigene Messung, Testdatei kurz
+  entfernt) -> 53,1 % (eigene Messung nach dieser Unit)
+- mutations-probe: In `searchCRM` (`route_search_global.go:117`) den
+  Fehlertext von `"service unavailable"` auf `"temporarily unavailable"`
+  gedreht -> `TestHandleGlobalSearch_EmptyRegistry_AllModulesReportUnavailable`
+  wird rot. Zurueckgedreht -> gruen,
+  `git diff --stat internal/gateway/route_search_global.go` zeigt 0 Zeilen.
+- verify vorgaenger: sauber. `c88eeb09` (Iteration 33,
+  cov-gateway-booking-admin) gegen alle acht Fehlerklassen geprueft:
+  `git show --stat c88eeb09` zeigt nur eine neue reine Gateway-Testdatei
+  (`route_booking_admin_test.go`) plus BACKLOG/JOURNAL — kein gRPC-Bypass,
+  kein Stub/TODO im Produktionscode, kein `.proto` angefasst, keine neue
+  `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein
+  Guard ersetzt, keine neue Route. Der genannte Fund (`Services` ohne
+  `dive`) wurde korrekt als eigene Fix-Unit ans Backlog-Ende gehaengt statt
+  nebenbei gefixt. Folgecommit `21f1f984` ist nur ein docs-SHA-Nachtrag,
+  unkritisch.
+- neue-units: keine
+- offen:
+  - Beim ersten Lauf von `go test -count=1 ./internal/crm/...` (Standard-
+    Parallelitaet) sind zwei DB-Tests in `internal/crm/contact` mit
+    `SQLSTATE 53300` ("remaining connection slots are reserved for roles
+    with the SUPERUSER attribute" / "too many clients already")
+    fehlgeschlagen — kein Bezug zu dieser Unit (reine Testdatei-Ergaenzung
+    in `internal/gateway`, kein `crm`-Code angefasst). Mit `-p 1` (seriell)
+    zweimal sauber gruen reproduziert, ebenso `internal/crm/contact/...`
+    isoliert. Sieht nach einer niedrigen `max_connections`-Grenze der
+    lokalen Docker-Postgres im Verhaeltnis zur Paket-Parallelitaet der
+    Go-Testsuite aus, nicht nach einem Produktionsproblem — aber es lohnt
+    sich, `max_connections` der lokalen Dev-DB zu pruefen, falls das in
+    kuenftigen Laeufen wieder auftritt.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
+    keine neue Tabelle/Policy in dieser Iteration).
+  - Weiterhin unbearbeitet am Backlog-Ende (jetzt sieben bzw. sechs
+    Iterationen ohne Beruehrung, weil die Coverage-Bloecke sie lexikalisch
+    nach hinten sortieren):
+    `fix-email-contacts-csv-export-formula-injection` (seit Iteration 27),
+    `fix-gateway-advisory-product-riskclass-not-validated` (seit
+    Iteration 28), `fix-gateway-booking-page-services-no-dive` (seit
+    Iteration 33). Fuer den naechsten Lauf vormerken, sie vorzuziehen.

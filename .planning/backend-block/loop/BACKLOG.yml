@@ -1219,7 +1219,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/crm/search 59,4 % (Run 32508843776)"
     scope: >
       `route_search_global.go` (167 Zeilen, 7 Funktionen) und `route_registrar.go` (20 Zeilen,
