@@ -1452,7 +1452,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ist informativ, keine Aktion noetig.
 
 ## Iteration 27 — cov-invoice-repository-payment-stats-real-sql — done — 2026-08-23 02:20
-- commit: (wird nach Commit ergänzt)
+- commit: 5bae68ed
 - gebaut: neue ungetaggte Testdatei `postgres_repository_payment_stats_db_test.go` für
   `AggregatePaymentStats` (postgres_repository.go:530-570), gegen echtes Postgres: leerer
   Zeitraum liefert Nullwerte, Status-Klassifizierung (paid/sent/overdue/cancelled) inkl.
