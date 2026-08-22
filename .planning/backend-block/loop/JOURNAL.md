@@ -775,7 +775,7 @@ Frühere Läufe liegen vollständig im Archiv:
   bereits transitiv über maroto vorhanden).
 
 ## Iteration 14 — cov-invoice-pdf-generator-and-templates — done — 2026-08-23 00:28
-- commit: -
+- commit: c0d36487
 - gebaut: neue Testdatei `internal/biz/pdf/generator_coverage_test.go`, sechs Tests,
   kein Produktionscode geändert (reine Coverage-Unit, kein Fund erzwang einen Fix).
   (1) `ValidateCompanySettingsForPDF` hatte laut `zugferd_test.go` nur "alles fehlt" und
