@@ -4837,7 +4837,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 81 — fix-gateway-caldav-basic-auth-username-log-leakage — done — 2026-08-22 11:11
-- commit: (folgt, siehe naechster Journal-Eintrag)
+- commit: 16550c5e
 - gebaut: Fund aus scan-gateway-pii-in-logs (Iteration 45). Zwei Log-Aufrufe mit identischem
   Root Cause (roher Basic-Auth-Username landet ungeprueft im Log) gefixt:
   `basicAuthMiddleware` in `route_caldav.go:183-186` (`slog.Warn("caldav basic auth failed",
