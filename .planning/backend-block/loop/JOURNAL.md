@@ -4885,7 +4885,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 82 — fix-gateway-file-import-413-response-undocumented — done — 2026-08-22 11:17
-- commit: (siehe unten, wird nach Commit ergaenzt)
+- commit: feb725e1
 - gebaut: Fund aus scan-gateway-openapi-response-code-drift (Iteration 46). Reine
   Spec-Korrektur in `backend/api/openapi.yaml`, kein Code-Verhalten geaendert. Zwei
   Datei-Upload-Routen lieferten bereits `http.StatusRequestEntityTooLarge` (413), das die
