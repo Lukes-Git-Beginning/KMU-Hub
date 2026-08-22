@@ -109,17 +109,15 @@ func (lr *LexwareRoutes) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := client.ConnectLexware(r.Context(), &bizv1.ConnectLexwareRequest{
+	// The server now reports a failed connect as a masked gRPC error
+	// (mapLexwareError) rather than Success:false+ErrorMessage, so a
+	// non-error response here is always a full success.
+	_, err = client.ConnectLexware(r.Context(), &bizv1.ConnectLexwareRequest{
 		TenantId: tenantID,
 		ApiKey:   body.APIKey,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
-		return
-	}
-
-	if !resp.GetSuccess() {
-		response.Error(w, http.StatusBadRequest, resp.GetErrorMessage())
 		return
 	}
 
@@ -197,7 +195,10 @@ func (lr *LexwareRoutes) HandleTestConnection(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	resp, err := client.TestLexwareConnection(r.Context(), &bizv1.TestLexwareConnectionRequest{
+	// The server now reports a failed test as a masked gRPC error
+	// (mapLexwareError) rather than Success:false+ErrorMessage, so a
+	// non-error response here is always a full success.
+	_, err = client.TestLexwareConnection(r.Context(), &bizv1.TestLexwareConnectionRequest{
 		TenantId: tenantID,
 	})
 	if err != nil {
@@ -205,14 +206,7 @@ func (lr *LexwareRoutes) HandleTestConnection(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	result := map[string]interface{}{
-		"success": resp.GetSuccess(),
-	}
-	if resp.GetErrorMessage() != "" {
-		result["error_message"] = resp.GetErrorMessage()
-	}
-
-	response.JSON(w, http.StatusOK, result)
+	response.JSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // ============================================================================
@@ -447,14 +441,14 @@ func (lr *LexwareRoutes) HandlePushInvoice(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// The server now reports a failed push as a masked gRPC error
+	// (mapLexwareError) rather than Success:false+ErrorMessage, so a
+	// non-error response here is always a full success.
 	result := map[string]interface{}{
 		"success": resp.GetSuccess(),
 	}
 	if resp.GetLexwareId() != "" {
 		result["lexware_id"] = resp.GetLexwareId()
-	}
-	if resp.GetErrorMessage() != "" {
-		result["error_message"] = resp.GetErrorMessage()
 	}
 
 	response.JSON(w, http.StatusOK, result)
@@ -484,14 +478,14 @@ func (lr *LexwareRoutes) HandlePushQuote(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// The server now reports a failed push as a masked gRPC error
+	// (mapLexwareError) rather than Success:false+ErrorMessage, so a
+	// non-error response here is always a full success.
 	result := map[string]interface{}{
 		"success": resp.GetSuccess(),
 	}
 	if resp.GetLexwareId() != "" {
 		result["lexware_id"] = resp.GetLexwareId()
-	}
-	if resp.GetErrorMessage() != "" {
-		result["error_message"] = resp.GetErrorMessage()
 	}
 
 	response.JSON(w, http.StatusOK, result)

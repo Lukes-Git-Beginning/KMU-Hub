@@ -38,10 +38,7 @@ func (s *LexwareGRPCServer) ConnectLexware(ctx context.Context, req *bizv1.Conne
 
 	if err := s.lexwareService.Connect(ctx, tenantID, req.GetApiKey()); err != nil {
 		slog.Error("lexware connect failed", "tenant_id", tenantID, "error", err)
-		return &bizv1.ConnectLexwareResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		return nil, mapLexwareError(err)
 	}
 
 	return &bizv1.ConnectLexwareResponse{Success: true}, nil
@@ -89,10 +86,7 @@ func (s *LexwareGRPCServer) TestLexwareConnection(ctx context.Context, req *bizv
 	}
 
 	if err := s.lexwareService.TestConnection(ctx); err != nil {
-		return &bizv1.TestLexwareConnectionResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		return nil, mapLexwareError(err)
 	}
 
 	return &bizv1.TestLexwareConnectionResponse{Success: true}, nil
@@ -232,10 +226,7 @@ func (s *LexwareGRPCServer) PushInvoiceToLexware(ctx context.Context, req *bizv1
 	}
 
 	if err := s.lexwareService.PushInvoice(ctx, tenantID, invoiceID); err != nil {
-		return &bizv1.PushInvoiceToLexwareResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		return nil, mapLexwareError(err)
 	}
 
 	return &bizv1.PushInvoiceToLexwareResponse{Success: true}, nil
@@ -253,10 +244,7 @@ func (s *LexwareGRPCServer) PushQuoteToLexware(ctx context.Context, req *bizv1.P
 	}
 
 	if err := s.lexwareService.PushQuote(ctx, tenantID, quoteID); err != nil {
-		return &bizv1.PushQuoteToLexwareResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		return nil, mapLexwareError(err)
 	}
 
 	return &bizv1.PushQuoteToLexwareResponse{Success: true}, nil

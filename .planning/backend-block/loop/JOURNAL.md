@@ -4772,3 +4772,66 @@ Frühere Läufe liegen vollständig im Archiv:
   Lean-Cleanup mitentfernt statt als eigene Unit angelegt — kein Verhalten geaendert, nur toter
   Code weg.
 - offen: keine
+
+## Iteration 80 — fix-gateway-lexware-error-message-leakage — done — 2026-08-22 11:02
+- commit: (folgt, siehe naechste Iteration)
+- gebaut: vierter Fund derselben Fehlerklasse (nach Bexio, DATEV OAuth, DATEV Upload):
+  `ConnectLexware`, `TestLexwareConnection`, `PushInvoiceToLexware`, `PushQuoteToLexware`
+  (`internal/server/lexware_grpc.go`) gaben bei Fehler `Success:false, ErrorMessage:
+  err.Error()` zurueck statt eines echten gRPC-Status — `Connect`/`TestConnection` wickeln
+  Vault- bzw. HTTP-Fehler mit `fmt.Errorf("lexware: ...: %w", err)`, deren Text bei einem
+  Vault-Ausfall oder ungueltigem Key direkt beim Client landete. Alle vier Stellen rufen jetzt
+  `mapLexwareError(err)` — der bereits bestehende, seit laengerem fuer `DisconnectLexware`,
+  `TriggerLexwareSync` usw. genutzte Mechanismus (kein neuer zweiter Maskierungspfad). Bekannte
+  Lexware-Sentinelfehler (unauthorized, rate limited, not found, sync conflict, ...) bleiben
+  ueber `errors.Is`-Unwrapping korrekt klassifiziert; alles andere faellt auf den
+  default-Zweig `codes.Internal, "internal error"`.
+  `route_lexware.go`: die vier zugehoerigen `if resp.GetErrorMessage() != "" { ... }`-Zweige in
+  `HandleConnect`, `HandleTestConnection`, `HandlePushInvoice`, `HandlePushQuote` sind jetzt
+  toter Code (die Response ist bei `err == nil` immer ein voller Erfolg) und wurden im selben
+  Commit entfernt — `HandleConnect` verlor damit auch seinen 400-Pfad
+  (`response.Error(w, http.StatusBadRequest, resp.GetErrorMessage())`), der laut Scope der
+  unmittelbarste der drei/vier Funde war, weil dort kein Escaping-Umweg half, sondern der
+  Fehlertext selbst nicht ankommen durfte.
+  BEWUSST NICHT angefasst (wie im Scope explizit als "separates, kleineres Risiko" markiert):
+  `route_lexware.go` HandleListSyncLogs (`entry["error_message"]`) und HandleGetSyncStatus
+  (`last_sync_error`) — beide lesen `l.ErrorMessage`/`status.LastSyncError`, das aus
+  `latestLog.ErrorMessage` (`service.go:331`, historische, bereits in der DB gespeicherte
+  Sync-Log-Eintraege, `contact_sync.go:114`) stammt. Route liegt hinter
+  `middleware.RequireRole("admin")` und ist tenant-gescoped. Gleiche Entscheidung und
+  Begruendung wie bei `fix-gateway-datev-oauth-callback-error-leakage` (Iteration 79) fuer
+  `ListDatevUploadLogs`.
+  `HandleLexwareWebhookEvent` (server) wurde NICHT angefasst: sie gibt bei Fehler nur
+  `Success:false` ohne `ErrorMessage` zurueck — kein Leak vorhanden.
+  Kein `.proto`-Change: `Success`/`ErrorMessage`-Felder bleiben bestehen (ungenutzt bei
+  Erfolg), keine Regenerierung noetig.
+  Neue Testdatei `internal/server/lexware_grpc_test.go`: `TestMapLexwareError` (Tabellentest
+  ueber alle Sentinel-Codes + unbekannte Ursache), `TestMapLexwareErrorHidesUnknownCause` und
+  `TestConnectLexware_MasksInternalError` (Mutations-Probe-Ziel, mit einem `leakyLexwareVaultStub`
+  nach Vorbild des DATEV-Fixes aus Iteration 79 — `SetSecret` liefert einen Fehlertext mit
+  CRLF und IP/Port, der frueher im Klartext in der Antwort gelandet waere).
+- gate: build ok (`./internal/gateway/... ./internal/server/... ./cmd/gateway/...`) | vet ok
+  (dieselben Pakete) | lint ok (0 issues, `./internal/gateway/... ./internal/server/...`) |
+  test ok (`./internal/server/` 0 SKIP, `./internal/gateway/` inkl. `TestOpenAPIRouteDrift` —
+  keine Route/Pfad-Aenderung, gruen; `./internal/biz/lexware/...` gruen), DATABASE_URL gegen
+  kmuhub_app gesetzt | migration: n.a. (keine Tabellen-/Policy-Aenderung) | rls-smoke: n.a.
+- coverage: `internal/server` 70,3 % -> 70,4 % | `internal/gateway` 54,1 % -> 54,1 %
+  (vor/nach per `git stash` der drei geaenderten Dateien selbst gemessen — Gateway-Zahl
+  unveraendert, da nur Handler-Inhalt, keine neue Codepfad-Verzweigung, gestrichen wurde).
+  Fix-Unit, keine Coverage-Unit — Nebenprodukt der neuen Testdatei und der entfernten
+  toten Zweige, nicht Ziel.
+- mutations-probe: `ConnectLexware`s `mapLexwareError(err)` durch
+  `status.Error(codes.Internal, err.Error())` ersetzt (Rohtext durchgereicht) ->
+  `TestConnectLexware_MasksInternalError` bricht ab und zeigt den vollen Vault-Fehlertext
+  inkl. CRLF, IP und `Set-Cookie`-Injection-Versuch im Message-Feld. Zurueckgedreht,
+  `git diff --stat` zeigt wieder exakt 4 Einfuegungen/16 Loeschungen wie vor der Probe (vier
+  Fundstellen), Testdatei erneut gruen.
+- verify vorgaenger: sauber. `c4aa55e0` (Iteration 79, fix-gateway-datev-oauth-callback-error-leakage)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextlesung von
+  `route_datev_upload.go` und `datev_upload_grpc.go`) — Gateway-Handler ruft weiterhin ueber
+  `dr.getDatevUploadClient()`/`bizv1.DatevUploadServiceClient` (kein direkter Service-Aufruf,
+  bestaetigt per Grep auf `dr.registry`), kein Stub, kein `.proto`-Change, kein
+  neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine neue Route
+  (`redirectDatevError` ist ein interner Helper), keine Wire-Shape-Aenderung.
+- neue-units: keine.
+- offen: keine
