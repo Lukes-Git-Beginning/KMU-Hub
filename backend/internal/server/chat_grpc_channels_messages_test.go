@@ -94,6 +94,10 @@ func (r *stubChannelRepo) Delete(_ context.Context, id, _ uuid.UUID) error {
 	return nil
 }
 
+func (r *stubChannelRepo) HasCallSessions(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 func (r *stubChannelRepo) AddMember(_ context.Context, m *models.ChannelMembership) error {
 	r.memberships[chMembershipKey(m.ChannelID, m.UserID)] = m
 	return nil

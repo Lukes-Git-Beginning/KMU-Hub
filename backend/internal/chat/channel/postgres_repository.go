@@ -136,6 +136,14 @@ func (r *PostgresRepository) Update(ctx context.Context, channel *models.Channel
 	return nil
 }
 
+func (r *PostgresRepository) HasCallSessions(ctx context.Context, channelID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM call_sessions WHERE channel_id = $1)`, channelID,
+	).Scan(&exists)
+	return exists, err
+}
+
 func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM channels WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	if err != nil {

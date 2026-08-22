@@ -4269,3 +4269,54 @@ Frühere Läufe liegen vollständig im Archiv:
   Tenant-Filter in Query noetig — konsistent mit allen sieben Geschwister-Handlern, kein Befund.
 - neue-units: keine
 - offen: keine
+
+## Iteration 71 — fix-channel-delete-call-sessions-fk-crash — done — 2026-08-22 09:47
+- commit: (siehe naechster docs-Commit)
+- gebaut: `call_sessions.channel_id` traegt seit Migration 000036 `ON DELETE NO ACTION`
+  (nullable FK, kein spaeteres ALTER gefunden — Grep ueber alle Migrationen bestaetigt).
+  `channel/service.go` (`Delete`) prueft vor dem Loeschen nur DM-Status und Owner-Rolle, nicht ob
+  noch archivierte `call_sessions` am Channel haengen — der rohe FK-Fehler faellt in
+  `mapChatError`s `default:`-Zweig und kommt als 500 "internal server error" heraus statt eines
+  verstaendlichen 409. Verifiziert, dass der Fall in der Praxis erreichbar bleibt: der
+  Kopf-Kommentar in `retention_dialer_chat.go:8-11` (aus der bereits gebauten Unit
+  `feat-retention-worker-handler-dialer-chat`) haelt fest, dass `call_sessions` (Video/Voice,
+  Migration 000036 — nicht zu verwechseln mit `dialer_call_sessions`) von KEINEM
+  Retention-Handler erreicht wird; die Zeilen bleiben also unbegrenzt liegen.
+  Fix ist ein Anwendungs-Guard, keine Migration: neue Methode `HasCallSessions` im
+  `channel.Repository`-Interface (`SELECT EXISTS(... WHERE channel_id = $1)`,
+  `postgres_repository.go`), in `Service.Delete` nach der Owner-Pruefung und vor `repo.Delete`
+  aufgerufen. Neuer Fehler `ErrChannelHasCallSessions`, gemappt auf `codes.FailedPrecondition`
+  in `chat_grpc.go` — exakt das bestehende Muster von `ErrCannotDeleteDM` zwei Zeilen darueber
+  (FailedPrecondition -> HTTP 409 via `grpcStatusToHTTP`, per `helpers_test.go:23` belegt).
+  Zwei Repository-Mocks mussten die neue Interface-Methode nachziehen:
+  `MockRepository` (`channel/service_test.go`, neues Feld `callSessions map[uuid.UUID]bool`) und
+  `stubChannelRepo` (`server/chat_grpc_channels_messages_test.go`, immer `false, nil` — dieser
+  Stub deckt Channel-Delete-Tests nicht ab).
+  Migration bewusst NICHT gewaehlt (anders als bei A2/company/contact-Fixes): eine Video-Call-
+  Aufzeichnung auf SET NULL zu stellen wuerde die Zuordnung Anruf->Channel stillschweigend
+  verlieren, obwohl der Anruf als archivierter Datensatz weiterhin existiert — das ist ein
+  anderer Charakter als der reine Selbstbezug bei `merged_into_id`.
+- gate: build ok (`./internal/chat/... ./internal/server/... ./internal/gateway/... ./cmd/...`)
+  | vet ok (`./internal/chat/... ./internal/server/...`) | lint ok (0 issues, dieselben Pfade)
+  | test ok (`./internal/chat/channel/` einzeln gruen inkl. neuer Tests; volle
+  `./internal/chat/...`-Suite mit `-p 1` gruen — paralleler Lauf riss wie in Iteration 70 mit
+  "too many clients already" ab, lokale `max_connections`-Grenze der Docker-DB, keine Regression)
+  | `./internal/server/` gruen | `./internal/gateway/` gruen (TestOpenAPIRouteDrift enthalten,
+  keine Route angefasst) | migration n.a. (kein Schema-Wechsel) | rls-smoke n.a. (kein
+  Tabellen-/Policy-Wechsel, reine Anwendungslogik + neue Repository-Methode)
+- coverage: `internal/chat/channel` 82,4 % -> 82,5 % (selbst gemessen: `git stash push -u` auf
+  alle sechs geaenderten `channel/`-Dateien inkl. beider Testdateien, `go test -coverprofile`
+  davor/danach, `stash pop`).
+- mutations-probe: die neue `if hasCallSessions { return ErrChannelHasCallSessions }`-Zeile
+  probeweise mit `if false && hasCallSessions` entwertet → `TestService_Delete/blocked_by_archived_call_sessions`
+  wird rot (bekommt `channel not found` statt des erwarteten Fehlers, weil das Delete durchlief).
+  Zurueckgedreht, `git diff --stat service.go` zeigt wieder ausschliesslich 8 Insertions/0
+  Deletions, `./internal/chat/channel/...` erneut vollstaendig gruen.
+- verify vorgaenger: sauber. `097d3737` (Iteration 70, fix-company-delete-merged-into-fk-crash)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltext der Migration
+  `000321_companies_merged_into_set_null`) — reine FK-Constraint-Migration (DROP+ADD wie beim
+  bereits gefixten Contact-Vorbild 000318), kein Gateway-Handler, kein Stub, kein `.proto`, kein
+  neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine Route, keine
+  Wire-Shape-Aenderung.
+- neue-units: keine
+- offen: keine

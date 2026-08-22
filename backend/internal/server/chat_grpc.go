@@ -1270,6 +1270,8 @@ func mapChatError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, channel.ErrCannotDeleteDM):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, channel.ErrChannelHasCallSessions):
+		return status.Error(codes.FailedPrecondition, err.Error())
 
 	// Message errors
 	case errors.Is(err, message.ErrMessageNotFound):

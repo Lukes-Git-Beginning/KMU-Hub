@@ -2653,7 +2653,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/chat (zur Laufzeit messen)"
     scope: >
       `call_sessions.channel_id` traegt `ON DELETE NO ACTION`. `channel/service.go:224-255`
