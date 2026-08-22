@@ -1183,7 +1183,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ziehbar).
 
 ## Iteration 22 — cov-dunning-service-gobd-real-sql — done — 2026-08-23 01:20
-- commit: (siehe unten)
+- commit: ff1f3cd3
 - gebaut: `service_gobd.go` (UpdateDunningStatus, SendDunningNotice, GenerateGoBDExport/buildGoBDCSV)
   war bereits fast vollstaendig ueber Mocks getestet (94,4-100 % je Funktion); die vier
   `done_when`-Punkte waren zum Teil schon erfuellt (Formel-Injektions-Schutz existiert seit
