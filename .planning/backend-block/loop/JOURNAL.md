@@ -4699,7 +4699,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 79 — fix-gateway-datev-upload-error-message-leakage — done — 2026-08-22 10:50
-- commit: (folgt, siehe naechste Iteration)
+- commit: c4aa55e0
 - gebaut: Identisches Muster wie fix-gateway-bexio-error-message-leakage (Iteration 78), andere
   Integration. `HandleDatevOAuthCallback` (`internal/server/datev_upload_grpc.go`) baute bei
   Fehler `Success:false, ErrorMessage: err.Error()` statt eines echten gRPC-Status — `err` kommt
