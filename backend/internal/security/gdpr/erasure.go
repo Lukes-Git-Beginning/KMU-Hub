@@ -461,8 +461,14 @@ func (h *WorkErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 }
 
 // CalendarErasureHandler handles erasure for calendar data.
-// Deletes personal calendars and owned events; removes attendee records.
-// Shared-team calendars: only attendee participation is removed, event itself is retained.
+// Deletes the user's own personal calendars (cascading to their events,
+// attendees, exceptions and reminders) unless a booking_pages row still
+// depends on the calendar, in which case it is kept intact to protect the
+// public_bookings customer records attached to it. Any remaining event the
+// user created elsewhere (e.g. on a colleague's shared calendar) is
+// anonymized, not deleted, so the event survives for other attendees.
+// Removes attendee records, calendar memberships, CalDAV push registrations,
+// personal event categories and calendar preferences.
 type CalendarErasureHandler struct {
 	pool *pgxpool.Pool
 }
@@ -478,8 +484,13 @@ func (h *CalendarErasureHandler) PreviewErasure(ctx context.Context, userID uuid
 	var count int
 	if err := h.pool.QueryRow(ctx,
 		`SELECT
+		   (SELECT COUNT(*) FROM calendars c WHERE c.owner_id = $1 AND c.calendar_type = 'personal'
+		      AND NOT EXISTS (SELECT 1 FROM booking_pages bp WHERE bp.calendar_id = c.id)) +
 		   (SELECT COUNT(*) FROM calendar_events WHERE created_by = $1) +
 		   (SELECT COUNT(*) FROM event_attendees WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM calendar_members WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM caldav_push_subscriptions WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM event_categories WHERE user_id = $1) +
 		   (SELECT COUNT(*) FROM user_calendar_preferences WHERE user_id = $1)
 		`, userID,
 	).Scan(&count); err != nil {
@@ -510,20 +521,91 @@ func (h *CalendarErasureHandler) ExecuteErasure(ctx context.Context, userID uuid
 
 	affected := 0
 
-	// Remove attendee records (participation data is personal)
+	// Pre-count rows that the personal-calendar cascade below can silently
+	// remove before their own DELETE/UPDATE statements run, so the reported
+	// total stays in sync with what PreviewErasure showed.
+	var eventCount, attendeeCount, memberCount int
+	if err = tx.QueryRow(ctx,
+		`SELECT
+		   (SELECT COUNT(*) FROM calendar_events WHERE created_by = $1),
+		   (SELECT COUNT(*) FROM event_attendees WHERE user_id = $1),
+		   (SELECT COUNT(*) FROM calendar_members WHERE user_id = $1)
+		`, userID,
+	).Scan(&eventCount, &attendeeCount, &memberCount); err != nil {
+		return 0, fmt.Errorf("calendar erasure: failed to count affected rows: %w", err)
+	}
+
+	// Delete the user's personal calendars. calendar_id ON DELETE CASCADE takes
+	// their events, attendee records, exceptions and reminders with them in the
+	// same statement -- already counted above, not via RowsAffected here.
+	// Calendars still referenced by a booking_pages row are excluded: deleting
+	// them would cascade-delete the booking page and, with it, the
+	// public_bookings rows holding real customer name/email/phone data that
+	// has nothing to do with this erasure subject.
 	res, err := tx.Exec(ctx,
-		`DELETE FROM event_attendees WHERE user_id = $1`, userID,
+		`DELETE FROM calendars c
+		 WHERE c.owner_id = $1 AND c.calendar_type = 'personal'
+		   AND NOT EXISTS (SELECT 1 FROM booking_pages bp WHERE bp.calendar_id = c.id)`,
+		userID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("calendar erasure: failed to delete attendances: %w", err)
+		return 0, fmt.Errorf("calendar erasure: failed to delete personal calendars: %w", err)
 	}
 	affected += int(res.RowsAffected())
 
-	// calendar_events.created_by is NOT NULL FK; the user record persists as anonymized sentinel,
-	// so FK integrity is maintained. Count for reporting only.
-	var evtCreatedCount int
-	_ = tx.QueryRow(ctx, `SELECT COUNT(*) FROM calendar_events WHERE created_by = $1`, userID).Scan(&evtCreatedCount)
-	affected += evtCreatedCount
+	// Anonymize any event the user created that is still standing (on a
+	// shared/booking-page calendar, or their own if retained above): the event
+	// stays for other attendees or the booking page, only the
+	// organizer-authored content disappears.
+	if _, err = tx.Exec(ctx,
+		`UPDATE calendar_events SET
+		   title = '[' || $2 || ']',
+		   description = NULL,
+		   location = NULL,
+		   updated_at = NOW()
+		 WHERE created_by = $1`, userID, anonymizedLabel,
+	); err != nil {
+		return 0, fmt.Errorf("calendar erasure: failed to anonymize remaining events: %w", err)
+	}
+	affected += eventCount
+
+	// Remove attendee records (participation data is personal)
+	if _, err = tx.Exec(ctx,
+		`DELETE FROM event_attendees WHERE user_id = $1`, userID,
+	); err != nil {
+		return 0, fmt.Errorf("calendar erasure: failed to delete attendances: %w", err)
+	}
+	affected += attendeeCount
+
+	// Remove membership in other users' shared calendars.
+	if _, err = tx.Exec(ctx,
+		`DELETE FROM calendar_members WHERE user_id = $1`, userID,
+	); err != nil {
+		return 0, fmt.Errorf("calendar erasure: failed to delete calendar memberships: %w", err)
+	}
+	affected += memberCount
+
+	// Remove CalDAV push registrations (device sync callbacks). CASCADE on
+	// users(id) never fires because erasure anonymizes the users row in place
+	// instead of deleting it.
+	res, err = tx.Exec(ctx,
+		`DELETE FROM caldav_push_subscriptions WHERE user_id = $1`, userID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("calendar erasure: failed to delete push subscriptions: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Remove personal event categories. ON DELETE SET NULL on
+	// calendar_events.category_id clears the reference on any surviving event
+	// automatically.
+	res, err = tx.Exec(ctx,
+		`DELETE FROM event_categories WHERE user_id = $1`, userID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("calendar erasure: failed to delete event categories: %w", err)
+	}
+	affected += int(res.RowsAffected())
 
 	// Delete calendar preferences
 	res, err = tx.Exec(ctx,

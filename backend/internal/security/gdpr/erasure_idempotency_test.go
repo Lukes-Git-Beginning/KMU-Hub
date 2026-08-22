@@ -13,13 +13,19 @@ package gdpr
 // Teil ihrer eigenen Units (A11-A13) mit Tests belegt -- hier nicht dupliziert.
 //
 // Ergebnis (siehe JOURNAL Iteration 47 fuer die volle Einordnung):
-//   - Auth, CRM, Chat, Work, Calendar sind NICHT doppellauf-fest: jeder Handler matcht seine
-//     Zeilen ueber eine Spalte, die die Erasure selbst nicht aendert (users.id, activities/
-//     tasks/messages/task_comments.created_by bzw. .author_id, calendar_events.created_by), und
-//     zaehlt sie deshalb bei jedem Lauf erneut als "affected" -- ohne dass beim zweiten Lauf
-//     noch etwas Sinnvolles passiert waere. Bei Chat und Work wird der Nachrichten-/
-//     Kommentarinhalt beim zweiten Lauf sogar mit dem NEUEN Label ueberschrieben, wenn Service
-//     ein frisches Label zieht. Je ein Fix-Unit ist ans Backlog-Ende angehaengt.
+//   - Auth, CRM, Chat, Work sind NICHT doppellauf-fest: jeder Handler matcht seine Zeilen ueber
+//     eine Spalte, die die Erasure selbst nicht aendert (users.id, activities/tasks/messages/
+//     task_comments.created_by bzw. .author_id), und zaehlt sie deshalb bei jedem Lauf erneut als
+//     "affected" -- ohne dass beim zweiten Lauf noch etwas Sinnvolles passiert waere. Bei Chat und
+//     Work wird der Nachrichten-/Kommentarinhalt beim zweiten Lauf sogar mit dem NEUEN Label
+//     ueberschrieben, wenn Service ein frisches Label zieht. Je ein Fix-Unit ist ans Backlog-Ende
+//     angehaengt.
+//   - Calendar ist TEILWEISE doppellauf-fest seit fix-calendar-erasure-incomplete-and-doc-mismatch
+//     (Lauf 10): ein Termin auf der EIGENEN, jetzt geloeschten Personenkalender-Zeile verschwindet
+//     mit ihr und zaehlt beim zweiten Lauf nicht mehr. Ein Termin, den der Nutzer auf einem
+//     FREMDEN (geteilten) Kalender organisiert hat, wird weiterhin nur anonymisiert statt
+//     geloescht und matcht `calendar_events.created_by` bei jedem erneuten Lauf erneut -- dieser
+//     Rest-Fall bleibt Teil von fix-erasure-handlers-not-idempotent-on-second-run.
 //   - Notification ist doppellauf-fest (reine DELETEs, zweiter Lauf meldet 0).
 //   - Audit ist ein No-Op und damit trivial doppellauf-fest (bereits durch
 //     TestAuditErasureHandler_NoOp abgedeckt, hier nicht dupliziert).
@@ -291,18 +297,26 @@ func TestCalendarErasureHandler_ExecuteErasure_SecondRunStillReportsCreatedEvent
 
 	n1, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureDelete)
 	require.NoError(t, err)
-	// 1 attendee record deleted + 1 created event counted (reporting only, never written) +
-	// 1 preference row deleted.
-	assert.Equal(t, 3, n1, "first run: attendee deleted, event counted, preferences deleted")
+	// This calendar is the subject's own personal calendar with no booking_pages
+	// row attached, so fix-calendar-erasure-incomplete-and-doc-mismatch (Lauf 10)
+	// now deletes it outright: 1 calendar + 1 event (cascaded, pre-counted) +
+	// 1 attendee record + 1 preference row.
+	assert.Equal(t, 4, n1, "first run: calendar and its event deleted, attendee and preference rows deleted")
 
-	// Second run: the attendee row and preference row are both gone (0 each), but
-	// calendar_events.created_by is a permanent FK that is never cleared or flagged --
-	// evtCreatedCount is added to `affected` unconditionally on every call.
+	// Second run: the calendar, its event, the attendee row and the preference
+	// row are all already gone from the first run, so nothing matches anymore.
+	// This specific scenario (an event on the subject's OWN personal calendar)
+	// is now genuinely idempotent because the calendar-deletion path removes
+	// the event with it. That does NOT generalize: an event the subject
+	// organizes on a calendar it does NOT own (shared calendar, or its own
+	// calendar retained because a booking_pages row depends on it) is only
+	// anonymized, never deleted, and calendar_events.created_by keeps matching
+	// it on every subsequent run -- that half of
+	// fix-erasure-handlers-not-idempotent-on-second-run's Calendar finding is
+	// unresolved and out of scope here.
 	n2, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureDelete)
 	require.NoError(t, err)
-	// BUG: reports 1 record affected though this run deleted nothing at all.
-	// See fix-erasure-handlers-not-idempotent-on-second-run.
-	assert.Equal(t, 1, n2, "BUG: second run reports the created event as affected though no write happened")
+	assert.Equal(t, 0, n2, "second run: everything from the first run is already gone, nothing left to match")
 }
 
 func TestNotificationErasureHandler_ExecuteErasure_SecondRunIsTrulyIdempotent(t *testing.T) {

@@ -3981,3 +3981,78 @@ Frühere Läufe liegen vollständig im Archiv:
     `fix-chat-erasure-missing-bookmarks-mentions`) beschreiben denselben Fehlerklassen-Typ
     (Preview/Execute-Luecke, fehlende CASCADE-Tabellen) fuer andere Handler — unveraendert offen,
     keine Ueberschneidung mit dieser Unit.
+
+## Iteration 65 — fix-calendar-erasure-incomplete-and-doc-mismatch — done — 2026-08-22 09:20
+- commit: (siehe Folge-Commit unten)
+- gebaut: `CalendarErasureHandler`s Doc-Kommentar behauptete "Deletes personal calendars and owned
+  events", der Code tat keins von beidem: `calendars` (owner_id) wurde nirgends angefasst,
+  `calendar_events` (created_by) wurde in `ExecuteErasure` nur GEZAEHLT statt geloescht/
+  anonymisiert, und `calendar_members` sowie `caldav_push_subscriptions` fehlten komplett — beide
+  CASCADE auf `users(id)`, feuern aber nie, weil ExecuteErasure die `users`-Zeile nur anonymisiert
+  (UPDATE), nie loescht (DELETE). Fix in `erasure.go`: (1) eigene Personenkalender werden geloescht
+  (cascadet Events/Attendees/Exceptions/Reminders via `calendar_id ON DELETE CASCADE`) — AUSSER
+  eine `booking_pages`-Zeile haengt daran, dann bleibt der Kalender stehen, um die
+  `public_bookings`-Kundendaten (Name/E-Mail/Telefon fremder Personen) nicht kollateral zu
+  vernichten; (2) verbleibende, vom Nutzer organisierte Termine (auf fremden/retinierten
+  Kalendern) werden anonymisiert (Titel/Beschreibung/Ort geloescht) statt nur gezaehlt — der
+  Termin bleibt fuer andere Teilnehmer bestehen; (3) `calendar_members` (Mitgliedschaft in
+  fremden Kalendern) wird geloescht; (4) `caldav_push_subscriptions` wird geloescht; (5) als
+  direkter Fund im selben Handler zusaetzlich `event_categories` (gleiche CASCADE-nie-Problematik)
+  geloescht, wodurch `calendar_events.category_id` via bestehendes `ON DELETE SET NULL`
+  automatisch bereinigt wird. `affected`-Zaehlung fuer `calendar_events`/`event_attendees`/
+  `calendar_members` wird VOR der Kalender-Loeschung vorab gezaehlt, weil die Kaskade sie sonst
+  unter der Hand verschwinden liesse, bevor die eigentlichen DELETE/UPDATE-Statements laufen —
+  sonst waere Preview/Execute wieder auseinandergelaufen.
+- gebaut (Test): neue Datei `erasure_calendar_test.go` —
+  `TestCalendarErasureHandler_ExecuteErasure_Integration` deckt alle sieben betroffenen Tabellen
+  ab: personal ohne Buchungsseite (geloescht), personal MIT Buchungsseite (bleibt stehen, Termin
+  anonymisiert), Termin auf fremdem Team-Kalender (anonymisiert, Kalender bleibt), Termin mit zwei
+  Teilnehmern (nur die eigene Teilnahme verschwindet, der Termin und die Teilnahme des Kollegen
+  bleiben unangetastet), Kalendermitgliedschaft, Push-Subscription, Event-Kategorie (inkl. Beleg,
+  dass die Referenz auf NULL faellt statt zu haengen). Preview- und Execute-Zahl werden
+  gegeneinander geprueft (beide 8). `TestCalendarErasureHandler_ExecuteErasure_DeadPool` als
+  Pendant zu den anderen Handlern ergaenzt.
+- gebaut (Folgeaenderung an bestehendem Test): `erasure_idempotency_test.go` —
+  `TestCalendarErasureHandler_ExecuteErasure_SecondRunStillReportsCreatedEvents` pinnte bisher das
+  ALTE, fehlerhafte Verhalten (zweiter Lauf meldet faelschlich einen weiteren Treffer). Durch
+  diesen Fix ist genau das seeded Szenario (Termin auf der EIGENEN, jetzt geloeschten
+  Personenkalender-Zeile) nun echt doppellauf-fest: Kalender und Termin sind nach dem ersten Lauf
+  bereits weg, der zweite Lauf matcht nichts mehr (n1: 3->4, n2: 1->0). Kommentar und Assertions
+  entsprechend aktualisiert; der Rest-Fall (Termin auf fremdem/retiniertem Kalender bleibt bei
+  jedem Lauf zaehlbar, weil nur anonymisiert, nie geloescht) ist weiterhin offen und bleibt Teil
+  von `fix-erasure-handlers-not-idempotent-on-second-run` — deren Scope-Text im Backlog ist um
+  diese Praezisierung ergaenzt, damit die spaetere Iteration nicht am jetzt gruenen Test stolpert.
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/... ./internal/gateway/...`) | lint ok (0 issues, `./internal/security/...`)
+  | test ok (`./internal/security/gdpr/` alle Tests inkl. neue und geaenderte gruen, 0 SKIP gegen
+  `kmuhub_app`; `./internal/security/...` alle 7 Unterpakete ok) | migration n.a. (keine
+  Schema-Aenderung, alle betroffenen Tabellen bestehen bereits) | rls-smoke n.a. (kein
+  Schema/Policy-Wechsel) | gofmt: `erasure.go` und beide Testdateien nachtraeglich formatiert
+  (Edit-Tool hatte nicht-kanonische Einrueckung erzeugt) | TestOpenAPIRouteDrift nicht gelaufen —
+  keine Route in dieser Unit angefasst, daher nicht Pflicht.
+- coverage: `internal/security/gdpr` 70,8 % -> 70,9 % (selbst gemessen: `git stash push -u` auf
+  genau die drei geaenderten/neuen Dateien, `go test -coverprofile` davor/danach, `stash pop`).
+- mutations-probe: `DELETE FROM calendar_members WHERE user_id = $1` um `AND false` ergaenzt →
+  `TestCalendarErasureHandler_ExecuteErasure_Integration` wird rot ("calendar membership must be
+  removed on erasure", expected 0 actual 1). Zurueckgedreht, `git diff --stat erasure.go` zeigt
+  wieder ausschliesslich 91 Insertions/9 Deletions, Paket erneut vollstaendig gruen.
+- verify vorgaenger: sauber. `f0694012` (Iteration 64, fix-auth-erasure-missing-security-tables)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `erasure.go` und
+  `handlers_test.go`) — reine interne Erasure-Logik-Aenderung (zwei zusaetzliche DELETE-Schritte
+  in AuthErasureHandler), kein Gateway-Handler (keine gRPC-Umgehung moeglich), kein Stub, kein
+  `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle (beide Tabellen
+  bestanden bereits), keine Route, keine Wire-Shape-Aenderung. Mutations-Probe der
+  Vorgaenger-Iteration im Journal dokumentiert und plausibel (Guard-Bedingung negiert, Test wird
+  rot).
+- neue-units: fix-booking-page-orphaned-after-owner-erasure (Fund waehrend dieser Iteration: die
+  bewusste Ausnahme "Personenkalender mit Buchungsseite wird nicht geloescht" verhindert
+  Datenverlust bei `public_bookings`, laesst aber offen, was mit der oeffentlich weiter aktiven
+  Buchungsseite eines geloeschten/anonymisierten Mitarbeiters geschehen soll — Produktentscheidung
+  fuer Luke, nicht eigenmaechtig im Code entschieden)
+- offen:
+  - `fix-booking-page-orphaned-after-owner-erasure` (neue Unit) braucht Lukes Entscheidung
+    (deaktivieren/umhaengen/nur warnen), bevor daran gebaut werden kann.
+  - `fix-erasure-handlers-not-idempotent-on-second-run` (bereits im Backlog) ist im Scope fuer den
+    Calendar-Anteil enger geworden (nur noch Termine auf fremden/retinierten Kalendern), Scope-Text
+    im Backlog entsprechend ergaenzt — kein neuer Fund, nur Praezisierung fuer die naechste
+    Iteration, die diese Unit zieht.

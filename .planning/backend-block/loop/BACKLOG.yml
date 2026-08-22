@@ -2468,7 +2468,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
     scope: >
       Der Doc-Kommentar von `CalendarErasureHandler` (erasure.go:424-426) behauptet: "Deletes
@@ -3231,6 +3231,15 @@ units:
         - CalendarErasureHandler: `evtCreatedCount` (COUNT auf `calendar_events.created_by`)
           wird bedingungslos zu `affected` addiert, obwohl dieser Zweig NIEMALS schreibt — ein
           Lauf, der nichts geloescht hat, meldet trotzdem "1 Datensatz betroffen".
+          KORREKTUR (Lauf 10, fix-calendar-erasure-incomplete-and-doc-mismatch): der Handler
+          loescht seither die EIGENEN Personenkalender des Nutzers vollstaendig (ausser ein
+          `booking_pages`-Eintrag haengt daran), wodurch ein Termin auf so einem geloeschten
+          Kalender mitkaskadiert und beim zweiten Lauf nicht mehr zaehlt — dieser Teilfall ist
+          bereits doppellauf-fest (siehe `TestCalendarErasureHandler_ExecuteErasure_
+          SecondRunStillReportsCreatedEvents`, aktualisiert). Der Rest-Befund bleibt: ein Termin,
+          den der Nutzer auf einem FREMDEN oder retinierten Kalender organisiert, wird nur
+          anonymisiert statt geloescht und zaehlt bei jedem weiteren Lauf erneut. Nur dieser
+          Rest-Fall ist noch Teil dieser Unit.
       NotificationErasureHandler ist doppellauf-fest (reine DELETEs); AuditErasureHandler ist ein
       No-Op und trivial doppellauf-fest. Beide sind NICHT Teil dieser Unit.
       Die Konsequenz ist zweifach: (1) das Compliance-Protokoll (`gdpr_erasure_log.modules_affected`)
@@ -3538,3 +3547,47 @@ units:
         belegt, sonst im Journal "kein Rollen-Gate, geprueft" vermerkt
       - DB-Test inkl. Tenant-Isolation
       - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gegen kmuhub_app
+
+  - id: fix-booking-page-orphaned-after-owner-erasure
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 70,9 % (lokal gemessen 2026-08-22, Iteration 65)"
+    scope: >
+      Gefunden 2026-08-22 waehrend fix-calendar-erasure-incomplete-and-doc-mismatch (Iteration 65).
+      `CalendarErasureHandler.ExecuteErasure` loescht jetzt die eigenen Personenkalender eines
+      erasten Nutzers, ausser eine `booking_pages`-Zeile haengt daran (`booking_pages.calendar_id`
+      ON DELETE CASCADE) — sonst wuerden mit dem Kalender auch die `public_bookings`
+      (Kundenname/-email/-telefon, voellig fremde Personendaten) kaskadierend geloescht. Der
+      Ausschluss ist bewusst und richtig, aber er loest die eigentliche Frage nicht: eine
+      Buchungsseite, deren Kalender-Eigentuemer geloescht/anonymisiert wurde, bleibt unter ihrer
+      oeffentlichen URL fuer immer aktiv (`booking_pages.active` bleibt `true`) und nimmt
+      weiterhin Kundentermine fuer einen Mitarbeiter an, der das Unternehmen laengst verlassen
+      oder seine Loeschung beantragt hat. Niemand wird davon benachrichtigt.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/work/calendar/booking_service.go
+      - backend/internal/work/calendar/booking_postgres_repository.go
+      - backend/migrations/000135_create_booking_pages.up.sql
+    notes: >
+      Dies ist eine Produktentscheidung, keine reine Code-Frage: deaktivieren
+      (`active = false`), auf einen Vorgesetzten/Admin umhaengen, oder dem Admin nur eine
+      Warnung anzeigen? Luke muss entscheiden, bevor hier Code entsteht — nicht eigenmaechtig
+      eine Variante waehlen.
+      `CalendarErasureHandler` kennt zum Zeitpunkt der Erasure bereits die betroffene
+      `booking_pages.id` (dieselbe NOT EXISTS-Subquery, die den Ausschluss traegt) — das ist der
+      natuerliche Ansatzpunkt, unabhaengig davon, welche Aktion beschlossen wird.
+      Falls Deaktivierung die gewaehlte Variante ist: `PreviewErasure` muss die betroffene Seite
+      als eigenen Posten ausweisen, nicht schweigend im Kalender-Zaehler verschwinden — der
+      Nutzer, der die Loeschung beantragt, sollte wissen, dass eine oeffentliche Buchungsseite
+      betroffen ist.
+    done_when:
+      - Eine Entscheidung (deaktivieren/umhaengen/nur warnen) ist getroffen und im Journal mit
+        Begruendung dokumentiert, nicht stillschweigend implementiert
+      - Der gewaehlte Mechanismus ist gebaut und per Test belegt, inklusive des Falls "Nutzer hat
+        mehrere Personenkalender, nur einer traegt eine Buchungsseite"
+      - PreviewErasure weist eine betroffene Buchungsseite sichtbar aus, falls die Wahl das
+        erfordert
+      - go test -count=1 ./internal/security/gdpr/... ./internal/work/calendar/... gruen
