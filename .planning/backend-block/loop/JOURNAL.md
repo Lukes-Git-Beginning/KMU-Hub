@@ -3521,7 +3521,7 @@ Frühere Läufe liegen vollständig im Archiv:
     `fix-work-task-custom-field-foreign-tenant-writable` ans Backlog-Ende gehaengt.
 
 ## Iteration 57 — fix-idempotency-reserve-inflight-race — done — 2026-08-22 08:03
-- commit: <wird im Folge-Commit nachgetragen>
+- commit: a12c6a02
 - gebaut: `postgresRepository.Reserve` unterscheidet jetzt den eigenen INSERT vom
   ON-CONFLICT-Zweig — `RETURNING …, (xmax = 0) AS inserted`. Bei `completed_at IS NULL`
   liefert nur der Gewinner weiterhin `(nil, nil)`; der Verlierer bekommt `ErrInFlight`,
