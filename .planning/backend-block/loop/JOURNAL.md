@@ -3460,3 +3460,62 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen:
   - Iteration-53-Folgeunit `fix-csv-formula-injection-remaining-exports`
     (Backlog-Ende) bleibt offen und unangetastet von dieser Iteration.
+
+## Iteration 56 — fix-work-task-custom-field-values-wrong-fk — done — 2026-08-22 07:57
+- commit: <pending>
+- gebaut: Migration `000320_task_custom_field_values_fk_to_work_defs` haengt
+  `task_custom_field_values.field_id` von `custom_field_definitions(id)` (CRM-Tabelle aus
+  000005, deren `valid_entity_type`-CHECK 'task' gar nicht kennt) auf
+  `work_custom_field_definitions(id)` um — die Tabelle, aus der `/api/v1/work/custom-fields`
+  seine IDs vergibt. Vor dem ALTER loescht die Migration Zeilen, deren `field_id` in der
+  neuen Zieltabelle nicht existiert (Begruendung im Migrationskopf: solche Zeilen koennen nur
+  CRM-IDs tragen, der Work-Schreibpfad konnte seit 000146 nie erfolgreich schreiben; lokal
+  0 Zeilen betroffen). `down` spiegelt das forward-only-sauber zurueck.
+  Lesenseite mitgezogen: `GetCustomFieldValues` (work/task/postgres_repository.go:613) joint
+  jetzt `work_custom_field_definitions wcfd` und selektiert `wcfd.name` statt
+  `cfd.field_name` — die neue Tabelle hat kein `field_name`, sondern `name`.
+  Regressionstest `TestCustomFieldValues_RoundTripAgainstWorkDefinitions` in
+  `postgres_repository_db_test.go`: Set/Get-Roundtrip mit echter
+  `work_custom_field_definitions`-ID, Upsert auf dem Composite-PK, und negativ eine
+  CRM-Definitions-ID, die die FK jetzt ablehnen muss.
+- gate: build ok (`./internal/work/... ./internal/gateway/... ./cmd/work/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues, `./internal/work/task/... ./internal/work/customfield/...`)
+  | test ok (`./internal/work/task/` 60 PASS / **0 SKIP** gegen `kmuhub_app`,
+  `./internal/work/customfield/...` ok, `./migrations/` + `./internal/testutil/` ok)
+  | migration ok (up 320 angewandt, `\d task_custom_field_values` zeigt die FK jetzt auf
+  `work_custom_field_definitions`; down 1 + up erneut durchgespielt, beide Richtungen sauber)
+  | rls-smoke ok (`task_custom_field_values` als `kmuhub_app`: eigener Tenant 1, fremder
+  Tenant 0; Fixtures danach entfernt — der CASCADE der neuen FK hat die Wertzeile beim
+  Loeschen der Definition mitgenommen, also auch das verifiziert)
+- coverage: `internal/work/task` 63,5 % -> 67,5 % (selbst gemessen mit `go tool cover -func`
+  vor und nach dem neuen Test, identisches Paket). `coverage_start` der Unit war
+  "n.a. (Schema-Fix)" — der Zuwachs ist ein Nebeneffekt des Regressionstests, kein Ziel.
+- mutations-probe: zwei getrennte Proben, beide rot.
+  (1) Schema: `migrate down 1` setzt die FK zurueck auf `custom_field_definitions`
+  (per `pg_constraint.confrelid` verifiziert) -> Test faellt mit exakt dem Produktionsfehler
+  `violates foreign key constraint "task_custom_field_values_field_id_fkey" (SQLSTATE 23503)`.
+  Danach `up` -> wieder gruen.
+  (2) Code: JOIN und SELECT im Repository per `sed` auf den alten Stand
+  (`custom_field_definitions` / `cfd.field_name`) zurueckgedreht -> Test faellt mit
+  `GetCustomFieldValues[...] = <nil>, want "high"`. Zurueckgedreht,
+  `git diff --stat postgres_repository.go` zeigt nur die urspruenglichen 2 Insertions /
+  2 Deletions.
+- verify vorgaenger: sauber. `eeee6b40` (Iteration 55,
+  fix-gateway-booking-page-services-no-dive) gegen alle acht Fehlerklassen geprueft
+  (`git show --stat` + Volltextdiff) — zwei `validate:"dive"`-Tags plus umgebaute Tests,
+  kein neuer Handler, kein direkter Service-Aufruf am gRPC-Client vorbei, kein Stub,
+  kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine Tabelle, keine
+  neue Route, keine Wire-Shape-Aenderung.
+- neue-units: fix-work-task-custom-field-foreign-tenant-writable (ans Backlog-Ende gehaengt)
+- offen:
+  - Migration 000320 ist lokal angewandt, in Produktion noch nicht — beim naechsten Deploy
+    laeuft das `DELETE` auf `task_custom_field_values` mit. Vorher dort einmal
+    `SELECT count(*) FROM task_custom_field_values;` pruefen: alles > 0 waeren Zeilen mit
+    CRM-Feld-IDs (fachlich wertlos, aber Luke sollte es gesehen haben, bevor sie weg sind).
+  - Der Gateway-Handler `HandleSetTaskCustomFieldValues` validiert nicht, ob die uebergebene
+    `field_id` ueberhaupt zum Tenant gehoert — die FK erzwingt nur Existenz, die RLS-Policy
+    auf `work_custom_field_definitions` greift beim FK-Check nicht. Fremdtenant-IDs sind
+    dadurch zwar nicht lesbar (der JOIN in `GetCustomFieldValues` ist RLS-gefiltert), aber
+    schreibbar. Kein Datenleck, aber Karteileichen plus ein schmales Existenz-Oracle. Nicht
+    in dieser Unit mitgefixt (Schema-Unit), sondern als Unit
+    `fix-work-task-custom-field-foreign-tenant-writable` ans Backlog-Ende gehaengt.

@@ -2061,7 +2061,7 @@ units:
     service: work
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Schema-Fix, kein Coverage-Ziel)"
     scope: >
       Gefunden in cov-gateway-work-labels-custom-fields (Iteration 36, 2026-08-22), live gegen die
@@ -3434,3 +3434,46 @@ units:
         Wert (unveraendert)
       - GoBD-Exportentscheidung (Apostroph vs. Alternative) im Journal begruendet
       - go test -count=1 ./internal/formulare/... ./internal/security/audit/... ./internal/biz/dunning/... gruen
+
+  - id: fix-work-task-custom-field-foreign-tenant-writable
+    phase: 4
+    service: work
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Validierungs-Fix, kein Coverage-Ziel)"
+    scope: >
+      Gefunden in fix-work-task-custom-field-values-wrong-fk (Iteration 56, 2026-08-22).
+      Nach dem FK-Umhaengen auf `work_custom_field_definitions` erzwingt die Fremdschluessel-
+      pruefung nur noch die EXISTENZ der `field_id`, nicht ihre Tenant-Zugehoerigkeit: der
+      FK-Check laeuft im Systemkontext an der RLS-Policy vorbei. `HandleSetTaskCustomFieldValues`
+      (internal/gateway/route_work_tasks.go:781) und der Service-/Repository-Pfad
+      (`work/task/postgres_repository.go` SetCustomFieldValues) pruefen ebenfalls nicht, ob die
+      uebergebene Definition dem aufrufenden Tenant gehoert. Ein Aufrufer kann damit eine
+      Definitions-ID eines FREMDEN Tenants als `field_id` schreiben. Kein Datenleck auf der
+      Leseseite — `GetCustomFieldValues` joint gegen die RLS-gefilterte Definitions-Tabelle,
+      der Wert faellt beim Lesen einfach weg — aber es entstehen unsichtbare Karteileichen,
+      und die Existenz einer fremden Definitions-ID laesst sich per Erfolg/Fehlschlag des
+      Schreibvorgangs abfragen (schmales Oracle).
+    sources:
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/work/task/service.go
+      - backend/internal/work/task/postgres_repository.go
+      - backend/internal/work/customfield/postgres_repository.go
+    notes: >
+      Thick service, thin handler: die Pruefung gehoert in `work/task`s Service (bzw. in
+      SetCustomFieldValues als tenant-gescopter Existenz-Check), nicht in den Gateway-Handler.
+      Schlankeste Form ohne zweiten Roundtrip: das INSERT gegen einen tenant-gescopten
+      SELECT auf `work_custom_field_definitions` absichern
+      (`INSERT ... SELECT $1,$2,$3,$4 WHERE EXISTS (SELECT 1 FROM work_custom_field_definitions
+      WHERE id = $3 AND tenant_id = $2)`) und eine Zeilenzahl von 0 als
+      "unbekanntes Feld" -> 400/404 melden, statt still zu schlucken.
+      Fehlercode gegen den FE-Typ pruefen, nicht raten.
+    done_when:
+      - Eine field_id, die einem fremden Tenant gehoert, wird beim Setzen abgelehnt (nicht
+        stillschweigend verworfen)
+      - Eine field_id, die gar nicht existiert, liefert denselben Fehler (kein Unterschied
+        zwischen "fremd" und "gibt es nicht" — sonst bleibt das Oracle bestehen)
+      - DB-Test in internal/work/task deckt beide Faelle plus den Positivfall ab
+      - go test -count=1 ./internal/work/task/... ./internal/gateway/ gruen, DATABASE_URL
+        gegen kmuhub_app

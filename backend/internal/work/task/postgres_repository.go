@@ -612,9 +612,9 @@ func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, taskID uu
 
 func (r *PostgresRepository) GetCustomFieldValues(ctx context.Context, taskID uuid.UUID) (map[string]any, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT cfd.field_name, tcfv.value
+		`SELECT wcfd.name, tcfv.value
 		 FROM task_custom_field_values tcfv
-		 JOIN custom_field_definitions cfd ON tcfv.field_id = cfd.id
+		 JOIN work_custom_field_definitions wcfd ON tcfv.field_id = wcfd.id
 		 WHERE tcfv.task_id = $1`,
 		taskID,
 	)

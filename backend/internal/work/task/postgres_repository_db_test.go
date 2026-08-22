@@ -525,3 +525,80 @@ func TestHasCycle_DirectAndTransitiveDetection(t *testing.T) {
 		t.Fatalf("HasCycle (unrelated after chain growth): expected false for D->C")
 	}
 }
+
+// TestCustomFieldValues_RoundTripAgainstWorkDefinitions pins the write and read
+// path of task custom fields to work_custom_field_definitions — the table the
+// /api/v1/work/custom-fields API actually hands ids out of. Until Migration
+// 000320 the FK on task_custom_field_values.field_id still pointed at the CRM
+// table custom_field_definitions (Migration 000026), so every SetCustomFieldValues
+// failed with a foreign_key_violation and GetCustomFieldValues joined the wrong
+// table. See BACKLOG.yml unit fix-work-task-custom-field-values-wrong-fk.
+func TestCustomFieldValues_RoundTripAgainstWorkDefinitions(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Task Custom Field Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+
+	userOwn := seedWorkUser(t, pool, tenantOwn)
+	defer testutil.CleanupRow(t, pool, "users", userOwn)
+	projectOwn := seedWorkProject(t, pool, tenantOwn, userOwn)
+	defer testutil.CleanupRow(t, pool, "projects", projectOwn)
+	taskID := seedWorkTask(t, pool, tenantOwn, projectOwn, userOwn, "Custom Field Task")
+	defer testutil.CleanupRow(t, pool, "tasks", taskID)
+
+	fieldName := "severity-" + uuid.New().String()[:8]
+	fieldID := testutil.SeedRow(t, pool, "work_custom_field_definitions", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       fieldName,
+		"field_type": "text",
+	})
+	defer testutil.CleanupRow(t, pool, "work_custom_field_definitions", fieldID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantOwn)
+
+	if err := repo.SetCustomFieldValues(ctx, taskID, tenantOwn, map[uuid.UUID]any{fieldID: "high"}); err != nil {
+		t.Fatalf("SetCustomFieldValues with a work_custom_field_definitions id must succeed: %v", err)
+	}
+
+	values, err := repo.GetCustomFieldValues(ctx, taskID)
+	if err != nil {
+		t.Fatalf("GetCustomFieldValues: %v", err)
+	}
+	if got := values[fieldName]; got != "high" {
+		t.Fatalf("GetCustomFieldValues[%q] = %v, want \"high\" (join must resolve work_custom_field_definitions.name)", fieldName, got)
+	}
+
+	// Upsert on the composite PK keeps a single row and returns the new value.
+	if err := repo.SetCustomFieldValues(ctx, taskID, tenantOwn, map[uuid.UUID]any{fieldID: "low"}); err != nil {
+		t.Fatalf("SetCustomFieldValues (upsert): %v", err)
+	}
+	values, err = repo.GetCustomFieldValues(ctx, taskID)
+	if err != nil {
+		t.Fatalf("GetCustomFieldValues (after upsert): %v", err)
+	}
+	if len(values) != 1 || values[fieldName] != "low" {
+		t.Fatalf("after upsert got %v, want exactly {%q: \"low\"}", values, fieldName)
+	}
+
+	// A field id that exists in the CRM definition table must not be accepted —
+	// that is the wiring the old FK allowed and the work API can never produce.
+	crmFieldID := testutil.SeedRow(t, pool, "custom_field_definitions", map[string]any{
+		"tenant_id":   tenantOwn,
+		"entity_type": "contact",
+		"field_name":  "crm-" + uuid.New().String()[:8],
+		"field_label": "CRM Field",
+		"field_type":  "text",
+		"created_by":  userOwn,
+	})
+	defer testutil.CleanupRow(t, pool, "custom_field_definitions", crmFieldID)
+
+	if err := repo.SetCustomFieldValues(ctx, taskID, tenantOwn, map[uuid.UUID]any{crmFieldID: "nope"}); err == nil {
+		t.Fatalf("SetCustomFieldValues with a CRM definition id must be rejected by the FK, got nil error")
+	}
+}
