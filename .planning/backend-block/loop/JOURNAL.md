@@ -1806,7 +1806,7 @@ Frühere Läufe liegen vollständig im Archiv:
     beruehrt in dieser Iteration).
 
 ## Iteration 30 — cov-gateway-crm-ext-duplicates-merge-gdpr — done — 2026-08-22 05:01
-- commit: (wird nach diesem Eintrag gesetzt, siehe Folgecommit)
+- commit: 666cade4
 - gebaut: `internal/gateway/route_crm_ext_test.go` neu — deckt alle 12 Handler aus
   `route_crm_ext.go` ab (FindContactDuplicates, MergeContacts, FindCompanyDuplicates,
   MergeCompanies, ContactTimeline, ContactDeletionPreview, GetConsents, GrantConsent,
