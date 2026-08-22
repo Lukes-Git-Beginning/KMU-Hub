@@ -1199,3 +1199,56 @@ Frühere Läufe liegen vollständig im Archiv:
     traversierbarer Graph) sind ausschliesslich im Header der jeweiligen neuen Testdatei
     dokumentiert, nicht als eigene Backlog-Units — es gibt nichts zu fixen oder nachzubauen,
     nur eine falsche Annahme im urspruenglichen Unit-Entwurf richtigzustellen.
+
+## Iteration 21 — cov-gateway-biz-ext-time-billing — done — 2026-08-22 03:47
+- commit: -
+- gebaut: neue Testdatei `route_biz_ext_test.go` deckt die einzige Funktion in
+  `route_biz_ext.go` ab (`HandleCreateInvoiceFromTime`; `NewBizExtRoutes`/`getBizClient` werden
+  implizit mitgetestet, `registerTimeExtRoutes` war bereits über `openapi_drift_test.go`
+  abgedeckt, das den vollen Router inkl. `BizExtRoutes` baut): Service-Unavailable (mit
+  gültigem Body, siehe unten), fehlender Tenant, ungültiges JSON, fehlende/ungültige
+  `employee_id`, fehlender `customer_name`, ungültige `customer_email`, ungültiges
+  `date_from`-Format, fehlendes `date_to`, fehlender/null/negativer/nicht-numerischer
+  `hourly_rate` (`decimal_gt0`), ungültiger `tax_mode`, leerer `tax_mode` (erlaubt, Service
+  leitet ihn aus den Firmeneinstellungen ab), gültiger Request erreicht die RPC-Schicht.
+  ABWEICHUNG VON DER STANDARD-VORLAGE: `HandleCreateInvoiceFromTime` prüft Tenant, dann
+  `decodeAndValidate`, erst DANACH den gRPC-Client — die meisten anderen `biz`-Handler prüfen
+  den Client zuerst. Der generische `testServiceUnavailable`-Helfer (leerer `{}`-Body) griff
+  deshalb nicht (400 vor 503); der Test baut stattdessen einen gültigen Body von Hand und ist
+  im Code kommentiert, warum.
+  FUND WÄHREND DES BAUENS, NICHT SELBST GEFIXT (Coverage-Unit darf kein Verhalten ändern):
+  `AggregateWorkTimeForInvoice` (postgres_repository.go:532) filtert nur auf
+  Tenant/Mitarbeiter/Status/Zeitfenster — kein Ausschluss bereits abgerechneter Einträge, keine
+  `billed`-Spalte auf `hr_work_time_entries` überhaupt (gegenverifiziert:
+  migrations/000046_create_hr_tables.up.sql:120, und `LinkTimeTracking` schreibt den
+  Audit-Trail nur, liest ihn nie zurück). Zwei Aufrufe mit demselben Mitarbeiter/Zeitraum
+  erzeugen zwei Rechnungen über dieselben Stunden. Neue Unit
+  `fix-biz-time-entry-invoice-double-billing` ans Backlog-Ende angehängt.
+- gate: build ok (`-p 2` über gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (ganzes `internal/gateway` grün inkl. `TestOpenAPIRouteDrift` — 836 Routen gegen 838
+  dokumentierte Pfade, 0 SKIP mit `DATABASE_URL` gesetzt, keine neue Route/kein OpenAPI-Eintrag
+  nötig)
+- coverage: internal/gateway 48,2 % -> 48,3 % (eigene Messung: neue Testdatei per
+  `git stash push -u` vollständig entfernt, `go test -coverprofile` vor/nach auf demselben
+  Arbeitsbaum, danach `git stash pop`; 48,2 % deckt sich mit dem in Iteration 20 gemessenen
+  Nachher-Wert)
+- mutations-probe: `validate:"required,decimal_gt0"` auf `HourlyRate` entfernt -> vier Tests
+  rot (`MissingHourlyRate`, `ZeroHourlyRateRejected`, `NegativeHourlyRateRejected`,
+  `NonNumericHourlyRateRejected` — alle erreichen jetzt die RPC-Schicht statt 400).
+  Zurückgedreht -> `git diff --stat` auf `route_biz_ext.go` zeigt keinen Rest, ganzes
+  `internal/gateway` wieder grün.
+- verify vorgaenger: sauber. `2b621da2` (Iteration 20, Banking/Document-Chains-Route-Tests)
+  gegen alle acht Fehlerklassen geprüft: `git show --stat` zeigt nur `BACKLOG.yml`,
+  `JOURNAL.md` und zwei neue reine Testdateien. `grep -n "client\.\|Unimplemented\|TODO\|
+  t.Skip"` auf beiden liefert null Treffer, kein gRPC-Bypass, kein `.proto` angefasst, keine
+  neue `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Änderung, kein Guard ersetzt,
+  keine neue Route.
+- neue-units: fix-biz-time-entry-invoice-double-billing
+- offen:
+  - Wie in jeder vorigen Coverage-Unit dieses Laufs ist "fremder Tenant liefert 404" nicht über
+    einen Live-RPC-Roundtrip getestet (kein bufconn-/Fake-Client-Harness für
+    FinanceServiceClient im ganzen Paket). Die serverseitige Tenant-Durchsetzung liegt bei
+    `internal/server/biz_grpc.go`.
+  - Der Double-Billing-Fund ist ausschließlich im Header der neuen Testdatei und in der neuen
+    Backlog-Unit dokumentiert, nicht anderswo — nichts an dieser Iteration selbst ändert
+    Produktionsverhalten.

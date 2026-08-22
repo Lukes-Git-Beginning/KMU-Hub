@@ -846,7 +846,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       `route_biz_ext.go` (101 Zeilen, 4 Funktionen) ohne Testdatei — die Bruecke zwischen
@@ -1783,3 +1783,67 @@ units:
         wird durch den neuen Test ersetzt bzw. umgedreht, nicht daneben stehen gelassen
       - go test -count=1 ./internal/gateway/ ./internal/biz/recurring/... gruen,
         DATABASE_URL gesetzt
+
+  - id: fix-biz-time-entry-invoice-double-billing
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. — Bugfix, kein Coverage-Ziel"
+    scope: >
+      `HandleCreateInvoiceFromTime` (route_biz_ext.go:51) erzeugt ueber
+      `BizGRPCServer.CreateInvoiceFromTimeEntries` (biz_grpc.go:1981) eine Rechnung aus
+      aggregierter Arbeitszeit. Die Aggregation
+      (`PostgresWorkTimeRepo.AggregateWorkTimeForInvoice`, postgres_repository.go:532) filtert
+      NUR auf Tenant, Mitarbeiter, Status und das `clock_in`-Zeitfenster — sie prueft nicht, ob
+      einer der gefundenen `hr_work_time_entries`-Eintraege bereits in einer frueheren Rechnung
+      abgerechnet wurde. `LinkTimeTracking` (biz_grpc.go:2101) schreibt den
+      `time_tracking_source` nur als Audit-Trail auf die neu erzeugte Rechnung — er wird
+      nirgends zurueckgelesen, um bereits abgerechnete Eintraege beim naechsten Aufruf
+      auszuschliessen. Ruft ein Nutzer denselben Endpunkt zweimal mit identischem
+      Mitarbeiter/Zeitraum auf (Doppelklick, Retry nach Timeout, zwei Sachbearbeiter parallel),
+      entstehen zwei vollstaendig getrennte Rechnungen ueber dieselben Stunden.
+      Verifiziert am 2026-08-22 waehrend `cov-gateway-biz-ext-time-billing` (Iteration 21):
+      `hr_work_time_entries` (migrations/000046_create_hr_tables.up.sql:120) hat ueberhaupt
+      keine `billed`/`invoice_id`-Spalte — anders als `internal/work/timeentry`, das fuer eine
+      voellig andere Tabelle ein `billed`-Flag fuehrt (route_biz_time_entries.go). Diese
+      Coverage-Unit durfte laut Auftrag kein Verhalten aendern, deshalb ist der Fund hier als
+      eigene Unit angelegt statt nebenbei gefixt.
+    sources:
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/biz/hr/timetracking/postgres_repository.go
+      - backend/internal/biz/hr/timetracking/repository.go
+      - backend/migrations/000046_create_hr_tables.up.sql
+      - backend/internal/gateway/route_biz_ext.go
+    notes: >
+      Root Cause statt Symptom: die Sperre gehoert an die Aggregationsquelle
+      (`AggregateWorkTimeForInvoice`), nicht als nachtraeglicher Guard im Gateway oder im
+      RPC-Handler — jeder kuenftige Aufrufer der Repository-Methode muss denselben Schutz
+      bekommen, nicht nur dieser eine Endpunkt.
+      Zwei legitime Fixrichtungen, eine davon waehlen und begruenden:
+      (a) Neue Spalten `billed_at`/`invoice_id` auf `hr_work_time_entries` (Migration + Index),
+      von `AggregateWorkTimeForInvoice` per `AND billed_at IS NULL` ausgeschlossen und von
+      `CreateInvoiceFromTimeEntries` nach erfolgreichem `invoiceService.Create` in derselben
+      Transaktion gesetzt (sonst Race zwischen Aggregation und Markierung).
+      (b) `entry_ids` aus jeder vorherigen Rechnung in einer eigenen Zuordnungstabelle
+      festhalten (statt nur im JSON-Audit-Trail) und die Aggregation dagegen per NOT EXISTS
+      filtern.
+      (a) ist die einfachere und direkt am Symptom liegende Loesung, hat aber Implikationen fuer
+      jeden Bericht, der `hr_work_time_entries` heute ungefiltert liest — vor der Entscheidung
+      pruefen, ob ein solcher Bericht existiert und die neue Spalte dort mitgedacht werden muss.
+      Zwei parallele Aufrufe fuer denselben Zeitraum sind der Kernfall — ein Test mit zwei
+      direkt aufeinanderfolgenden Aufrufen muss beim zweiten entweder 0 Stunden aggregieren
+      (FailedPrecondition "no completed work time entries found") oder eine explizite
+      Konflikt-Antwort liefern, nicht stillschweigend eine zweite Rechnung erzeugen.
+    done_when:
+      - Root Cause entschieden und begruendet (Spalte ODER Zuordnungstabelle), nicht eine
+        Notloesung, die nur diesen einen Aufrufer schuetzt
+      - Ein Test ruft `CreateInvoiceFromTimeEntries` zweimal mit identischem Mitarbeiter/Zeitraum
+        auf und belegt, dass der zweite Aufruf KEINE zweite Rechnung ueber dieselben Stunden
+        erzeugt
+      - Markierung als abgerechnet und Rechnungserstellung sind atomar (kein Fenster, in dem ein
+        dritter, gleichzeitiger Aufruf dieselben Eintraege noch sieht)
+      - go test -count=1 ./internal/server/... ./internal/biz/hr/timetracking/... gruen,
+        DATABASE_URL gesetzt
+      - migration ok (up und down lokal gefahren), falls Option (a) gewaehlt
