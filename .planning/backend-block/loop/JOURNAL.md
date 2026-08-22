@@ -3069,3 +3069,43 @@ Frühere Läufe liegen vollständig im Archiv:
   - `AnonymizeContact` und der neue Hard-Delete-Scrub sollen laut Notes dieselbe SQL-Logik
     teilen — der Builder muss entscheiden, ob das eine gemeinsame Funktion im consent- oder im
     contact-Paket wird (beide Pakete sind an der bisherigen Anonymisierung beteiligt).
+
+## Iteration 49 — fix-contact-delete-merged-into-no-action-unchecked — done — 2026-08-22 07:13
+- commit: (siehe naechster Eintrag)
+- gebaut: Migration 000318 stellt `contacts_merged_into_id_fkey` von NO ACTION (Default seit
+  000059) auf `ON DELETE SET NULL`, konsistent mit dem Selbstbezug `referred_by_contact_id`
+  (000137). Root-Cause-Entscheidung fuer Option (a) aus der Unit-Notiz statt (b) IsInUse-
+  Erweiterung: Grep ueber `merged_into_id`/`MergedIntoID` zeigt, dass kein Lesepfad (weder
+  Repository noch Gateway) das Feld nutzt, um einen soft-geloeschten Duplicate-Kontakt auf seinen
+  Primary aufzuloesen — es dient nur als Filter (`merged_into_id IS NULL` in der
+  Duplicate-Kandidatensuche) und als reiner Merge-Marker. SET NULL ist damit die staerkere Loesung
+  (kein Sonderfall im Anwendungscode), IsInUse haette einen dritten Guard fuer einen Fall gebaut,
+  der gar keinen 409 braucht.
+  Neuer DB-Test `TestRepository_Delete_MergedPrimaryContact_DB`
+  (postgres_repository_db_test.go, ans Dateiende angehaengt): mergt zwei Kontakte, loescht den
+  Primary, belegt `Delete` gibt keinen Fehler zurueck UND `duplicate.merged_into_id` ist danach
+  NULL statt auf eine geloeschte ID zu zeigen.
+- gate: build ok (`./internal/crm/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) |
+  migration ok (up/down/up gegen lokale DB durchlaufen) | rls-smoke n.a. (Constraint-Aenderung an
+  bestehender Tabelle, keine neue Tabelle/Policy) | test ok
+- coverage: internal/crm/contact 80,4 % (Laufkopf-Referenz) -> 81,4 % (eigen gemessen,
+  `go tool cover -func` nach dem Fix)
+- mutations-probe: Migration 000318 per `migrate down 1` zurueckgedreht (Constraint wieder NO
+  ACTION) -> `go test -run TestRepository_Delete_MergedPrimaryContact_DB` wird rot mit exakt dem
+  beschriebenen Fehlerbild (`SQLSTATE 23503 ... contacts_merged_into_id_fkey`), danach `migrate up`
+  wieder angewandt -> Test gruen, Diff sauber (keine Code-Aenderung durch die Probe zurueckgeblieben)
+- verify vorgaenger: sauber. `22aa54d1` (Iteration 48, scan-contact-set-null-residual-personal-
+  data) geprueft — `git show --stat` zeigt ausschliesslich BACKLOG.yml/JOURNAL.md, keine
+  Code-Aenderung. Keine der acht Fehlerklassen einschlaegig.
+- neue-units: fix-company-delete-merged-into-no-action-unchecked (dieselbe Konstruktionslücke auf
+  `companies.merged_into_id`, andere Datei/anderer Service, deshalb eigene Unit statt Anhaengsel)
+- offen:
+  - `internal/crm/deal`, `internal/crm/pipelinestage/report` Pakete brechen bei vollem
+    `go test ./internal/crm/...` mit "too many clients already" / "remaining connection slots
+    reserved for SUPERUSER" (Postgres max_connections bei paralleler Package-Ausfuehrung
+    erschoepft) — mit `-p 1` alle gruen, 0 SKIP. Kein Zusammenhang mit dieser Unit, aber ein
+    Hinweis fuer kuenftige Iterationen: `go test ./internal/crm/...` ohne `-p 1` ist auf dieser
+    lokalen DB kein verlaessliches Gate mehr, sobald genug Pakete DB-Tests haben.
+  - fix-company-delete-merged-into-no-action-unchecked braucht vor dem Bauen eine eigene Pruefung,
+    ob `company/service.go` ueberhaupt eine IsInUse-Aequivalent-Funktion hat (im Gegensatz zu
+    contact) — im Journal der neuen Unit als offene Frage vermerkt.

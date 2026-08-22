@@ -1707,7 +1707,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/contact 80,4 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Beim Bauen von `feat-contact-deletion-cascade-impact-preview` (Lauf 10) kam eine neunte
@@ -3338,3 +3338,43 @@ units:
       - Bestehender Anonymize-Pfad (RESTRICT-Fall) bleibt gruen und deckt jetzt zusaetzlich Tickets ab
       - go test -count=1 ./internal/crm/... ./internal/helpdesk/... ./internal/security/... gruen,
         DATABASE_URL gesetzt
+
+  - id: fix-company-delete-merged-into-no-action-unchecked
+    phase: 3
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/crm/company 79,7 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Derselbe Bug wie bei Kontakten (siehe fix-contact-delete-merged-into-no-action-unchecked,
+      Iteration 49), aber auf `companies` statt `contacts`. `000059_add_duplicate_detection.up.sql:6`
+      legt `companies.merged_into_id UUID REFERENCES companies(id)` ohne ON DELETE-Klausel an —
+      Default NO ACTION. `internal/crm/company/postgres_repository.go` kennt exakt dieselbe
+      Merge-Mechanik (Zeile 456: `UPDATE companies SET merged_into_id = $1 ... WHERE id = $2`)
+      wie contacts, aber es existiert dort kein IsInUse-Aequivalent ueberhaupt — bei companies gibt
+      es nach jetzigem Kenntnisstand keinen 409-Anonymisierungspfad wie bei contacts, das Loeschen
+      einer Firma, die als Merge-Primary dient, laeuft direkt bis zur Datenbank und schlaegt dort
+      mit einem unbehandelten FK-Fehler fehl.
+    sources:
+      - backend/internal/crm/company/postgres_repository.go
+      - backend/internal/crm/company/service.go
+      - backend/migrations/000059_add_duplicate_detection.up.sql
+      - backend/migrations/000318_contacts_merged_into_set_null.up.sql
+    notes: >
+      Fund aus Iteration 49 (nicht mitgebaut, weil andere Datei/anderer Service — die Grenzziehung
+      "gleiche Funktion, gleiche Unit" trifft hier nicht zu). Fuer contacts wurde entschieden:
+      ON DELETE SET NULL, weil kein Lesepfad merged_into_id nutzt, um eine geloeschte Firma
+      aufzuloesen (nur Filter `merged_into_id IS NULL` in der Duplicate-Suche). ERST pruefen, ob
+      das bei companies genauso ist — falls ein Lesepfad companies.merged_into_id doch fuer eine
+      Weiterleitung braucht, aendert das die Entscheidung. Migration 000318 ist die Vorlage fuer
+      Constraint-Name-Ermittlung und Aufbau (down stellt NO ACTION wieder her).
+      Vor dem Fix pruefen, ob `company/service.go` ueberhaupt ein IsInUse-Aequivalent hat — wenn
+      nicht, ist das ein zweiter, eigenstaendiger Befund (keine RESTRICT-Pruefung vor dem Loeschen
+      einer Firma ueberhaupt), der im Journal separat benannt gehoert.
+    done_when:
+      - Root Cause entschieden und begruendet (Migration ODER Service-Guard-Erweiterung)
+      - Ein Test reproduziert den bisherigen Fehlzustand (unbehandelter FK-Fehler beim Loeschen
+        einer gemergten Primary-Firma) und zeigt danach das saubere Verhalten
+      - go test -count=1 ./internal/crm/company/... gruen, DATABASE_URL gesetzt
+      - Falls Migration: rls-smoke/Migrationslauf (up und down) dokumentiert
