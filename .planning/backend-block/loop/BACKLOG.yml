@@ -1639,7 +1639,7 @@ units:
     service: security
     model: sonnet
     deps: [feat-retention-worker-handler-contacts]
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Ein Loesch- oder Anonymisierungslauf, der zweimal hintereinander laeuft, muss beim
@@ -3183,3 +3183,88 @@ units:
         Beschreibung
       - swagger-cli validate gegen backend/api/openapi.yaml gruen
       - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen
+
+  - id: fix-erasure-handlers-not-idempotent-on-second-run
+    phase: 4
+    service: security
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 69,3 % (lokal gemessen 2026-08-22, Iteration 47 —
+      hoeher als der CI-Stand 61,2 % aus dem Lauf-Kopf, weil A2-A13 seither dasselbe Paket
+      erweitert haben; siehe Iteration 47 im Journal)"
+    scope: >
+      Gefunden 2026-08-22 waehrend scan-erasure-retention-idempotency-double-run (Iteration 47).
+      Fuenf der sieben Erasure-Handler in `erasure.go` sind NICHT doppellauf-fest: ruft
+      `Service.ExecuteErasure` denselben Benutzer ein zweites Mal auf (z. B. nach einem
+      abgebrochenen und neu gestarteten Lauf — `GetNextAnonymizedLabel`,
+      postgres_repository.go:197, zieht dabei garantiert ein NEUES Label, keine alte Referenz),
+      passiert Folgendes:
+        - AuthErasureHandler: die UPDATE-Query auf `users` hat keine Bedingung gegen einen
+          bereits anonymisierten Zustand (kein `WHERE is_active = true` o. ae.) und matcht immer
+          `WHERE id = $1`. Der zweite Lauf ueberschreibt die E-Mail des ersten Laufs klaglos mit
+          dem neuen Label und meldet erneut "1 Datensatz betroffen", als waere das eine frische
+          Loeschung.
+        - CRMErasureHandler: `activities` wird ueber `WHERE assigned_to = $1 OR created_by = $1`
+          gematcht — `created_by` aendert sich nie, also matcht die Zeile fuer immer, auch wenn
+          `description` bereits NULL ist. `contacts`/`companies` werden per reinem COUNT gezaehlt
+          (nie geschrieben) und deshalb bei jedem Aufruf erneut als "betroffen" gemeldet.
+        - ChatErasureHandler: `messages` wird ueber `WHERE created_by = $1` gematcht (aendert
+          sich nie) und der Content wird bei jedem Lauf mit dem NEUEN Label ueberschrieben — das
+          erste Anonymisierungs-Label geht dabei kommentarlos verloren.
+        - WorkErasureHandler: gleiches Muster wie CRM/Chat bei `tasks` (created_by/assignee_id)
+          und `task_comments` (author_id) — Content wird bei jedem Lauf neu ueberschrieben.
+        - CalendarErasureHandler: `evtCreatedCount` (COUNT auf `calendar_events.created_by`)
+          wird bedingungslos zu `affected` addiert, obwohl dieser Zweig NIEMALS schreibt — ein
+          Lauf, der nichts geloescht hat, meldet trotzdem "1 Datensatz betroffen".
+      NotificationErasureHandler ist doppellauf-fest (reine DELETEs); AuditErasureHandler ist ein
+      No-Op und trivial doppellauf-fest. Beide sind NICHT Teil dieser Unit.
+      Die Konsequenz ist zweifach: (1) das Compliance-Protokoll (`gdpr_erasure_log.modules_affected`)
+      behauptet bei jedem wiederholten Lauf erneut, es seien Datensaetze geloescht/anonymisiert
+      worden, obwohl in vier von fuenf Faellen nichts Neues passiert ist — eine falsche Aussage
+      in genau dem Dokument, das im Ernstfall als Nachweis dient. (2) Chat/Work/CRM ueberschreiben
+      bei jedem erneuten Lauf den vorherigen Anonymisierungs-Content mit dem neuesten Label, was
+      als Datenkorruption zu werten ist, sobald ein zweiter Lauf jemals stattfindet.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/security/gdpr/erasure_idempotency_test.go
+      - backend/internal/security/gdpr/service.go
+      - backend/internal/security/gdpr/postgres_repository.go
+    notes: >
+      Alle fuenf Befunde sitzen in derselben Datei (`erasure.go`) und teilen denselben Root
+      Cause — eine UPDATE/COUNT-Bedingung, die auf einer Spalte matcht, die die Erasure selbst
+      nie aendert (FK-Spalte oder reine Kennzahl) — deshalb EINE Unit statt fuenf, siehe harte
+      Regel 1 im Lauf-Kopf ("Sitzt derselbe Bug in einer Schwesterfunktion, gehoert er in
+      dieselbe Unit"). `erasure_idempotency_test.go` (Iteration 47) pinnt das aktuelle,
+      fehlerhafte Verhalten fuer alle fuenf Handler UND fuer den korrekten Notification-Fall zum
+      Vergleich — beim Fixen diese Tests auf das KORREKTE Verhalten umschreiben (sie duerfen sich
+      inhaltlich aendern, sie sind explizit als Pin-Tests markiert, nicht als Vertrag).
+      Zwei Fix-Strategien sind denkbar und muessen pro Handler einzeln entschieden werden, nicht
+      pauschal:
+        1. WHERE-Guard: die Query so erweitern, dass sie den bereits erledigten Zustand erkennt
+           (z. B. Auth: `AND is_active = true`; Chat: `AND is_deleted = false`). Funktioniert
+           dort, wo der erste Lauf ein Flag/einen Zustand hinterlaesst, der sich abfragen laesst.
+        2. Reporting-Korrektur: wo gar nichts geschrieben wird (Calendar: `evtCreatedCount`;
+           CRM/Work: die reinen COUNT-Zweige fuer contacts/companies), gehoert der Wert NICHT in
+           `affected`, weil `affected` "in diesem Lauf veraendert" bedeutet, nicht "existiert und
+           gehoert dem Benutzer". Das ist der einfachere Fix, aendert aber die von
+           erasure_crm_chat_test.go/erasure_work_test.go bereits gepinnten Zahlen (4 bzw. 5) —
+           diese Tests MUESSEN mitgezogen werden, nicht nur die neuen.
+      CRM/Work haben zusaetzlich das Problem, dass `activities`/`tasks` teils via COUNT (created-
+      only-Zweig) und teils via UPDATE (assigned-Zweig) gezaehlt werden — ein reiner WHERE-Guard
+      auf der UPDATE-Seite loest nicht automatisch das COUNT-Ueberzaehlen auf der anderen Seite.
+      Beide Strategien pro betroffener Spalte pruefen, nicht die erste greifbare uebernehmen.
+      Dieser Fix aendert das Wire-Format von `Service.ExecuteErasure`s `modulesAffected`-Map
+      nicht, nur die Zahlen darin — kein OpenAPI-Eintrag noetig.
+    done_when:
+      - Alle fuenf Handler (Auth, CRM, Chat, Work, Calendar) melden bei einem zweiten,
+        unmittelbar folgenden ExecuteErasure-Aufruf mit neuem Label 0 tatsaechlich veraenderte
+        Datensaetze, wo nichts mehr zu tun ist
+      - Chat/Work/CRM ueberschreiben bereits anonymisierten Content bei einem zweiten Lauf NICHT
+        mehr mit dem neuen Label — der Content des ersten Laufs bleibt stehen
+      - "erasure_idempotency_test.go ist von Pin-Tests auf Korrektheits-Tests umgeschrieben
+        (Assertions auf das jetzt korrekte Verhalten, nicht mehr auf 'BUG: ...')"
+      - erasure_crm_chat_test.go und erasure_work_test.go sind gegen die neuen affected-Zahlen
+        aktualisiert, falls sich die Reporting-Korrektur auf sie auswirkt
+      - Bestehende Einzellauf-Tests (Preview/Execute-Happy-Path je Handler) bleiben gruen
+      - go test -count=1 ./internal/security/... gruen, DATABASE_URL gesetzt

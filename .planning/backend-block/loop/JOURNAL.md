@@ -2934,3 +2934,79 @@ Frühere Läufe liegen vollständig im Archiv:
     fuer generische 5xx, siehe Vorlauf-Recherche zu A1/gobd-archive-GRANT), sondern ein
     HTTP-Semantik-Bug (502 statt 503 fuer denselben "Service-Registry-leer"-Zustand). Bereits
     als eigene Unit erfasst (Iteration 44), hier nur bestaetigt, nicht dupliziert.
+
+## Iteration 47 — scan-erasure-retention-idempotency-double-run — done — 2026-08-22 06:58
+- commit: (folgt, siehe SHA-Nachtrag)
+- gebaut: neue Testdatei `backend/internal/security/gdpr/erasure_idempotency_test.go` mit je
+  einem Doppellauf-Test fuer alle sieben Erasure-Handler aus `erasure.go`
+  (Auth/CRM/Chat/Work/Calendar/Notification/Audit). Kein Produktionscode geaendert — die Unit
+  ist ein Scan, DARF aber laut Notes Tests anlegen, weil der Nachweis nur als Test existieren
+  kann. Retention-Handler (contacts, dialer/chat, helpdesk/formulare, Engine) NICHT erneut
+  getestet — sie haben ihre Doppellauf-Festigkeit bereits als Teil von A10-A13 belegt
+  (`retention_test.go:193-198`, `retention_dialer_chat_test.go:118`,
+  `retention_helpdesk_formulare_test.go:118+255` — alle mit "Idempotent"/"second run" im
+  Testnamen bzw. Kommentar).
+  ERGEBNIS: 5 von 7 Erasure-Handlern sind NICHT doppellauf-fest.
+    - Auth: UPDATE auf `users` matcht immer `WHERE id = $1`, kein Guard gegen bereits
+      anonymisierten Zustand. Zweiter Lauf mit neuem Label (wie `GetNextAnonymizedLabel`,
+      postgres_repository.go:197, es bei jedem echten Aufruf liefert) ueberschreibt die E-Mail
+      des ersten Laufs und meldet erneut "1 betroffen".
+    - CRM: `activities` matcht ueber `WHERE assigned_to = $1 OR created_by = $1` — `created_by`
+      aendert sich nie, die Zeile matcht fuer immer. `contacts`/`companies` sind reine COUNTs
+      (nie geschrieben) und werden bei jedem Aufruf erneut als "betroffen" gezaehlt.
+    - Chat: `messages` matcht ueber `WHERE created_by = $1` (aendert sich nie); der Content wird
+      bei jedem Lauf mit dem neuesten Label ueberschrieben, das Label des ersten Laufs geht
+      verloren.
+    - Work: identisches Muster bei `tasks` (assignee_id/created_by) und `task_comments`
+      (author_id).
+    - Calendar (bisher OHNE jede Integrationstest-Abdeckung fuer ExecuteErasure — nur ein
+      Name-Only-Test mit nil-Pool existierte): `evtCreatedCount` (COUNT auf
+      `calendar_events.created_by`) wird bedingungslos zu `affected` addiert, obwohl dieser
+      Zweig nie schreibt. Ein Lauf, der nichts geloescht hat, meldet trotzdem "1 betroffen".
+    - Notification: doppellauf-fest (reine DELETEs, zweiter Lauf meldet 0) — als Referenz/
+      Kontrast-Test mitgeschrieben.
+    - Audit: No-Op, trivial doppellauf-fest, bereits durch `TestAuditErasureHandler_NoOp`
+      abgedeckt, nicht dupliziert.
+  Alle sechs neuen Tests pinnen das TATSAECHLICHE (fehlerhafte bzw. bei Notification korrekte)
+  Verhalten mit expliziten `assert.Equal`/`assert.Contains` und "BUG: ..."-Kommentaren, damit
+  das Gate gruen bleibt, ohne Verhalten zu aendern (Scan-Unit-Regel).
+- gate: build ok | vet ok | lint ok (`golangci-lint ./internal/security/...` — 0 issues) |
+  test ok (`go test -count=1 ./internal/security/...` — alle 7 Unterpakete ok, 0 SKIP) |
+  migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/security/gdpr 69,3 % (lokal gemessen, `go tool cover -func` nach der neuen
+  Testdatei) — der `coverage_start`-Wert im Backlog-Kopf (61,2 %, CI-Stand 1b49a1f3) ist veraltet,
+  weil A2-A13 (Iterationen 3-13 dieses Laufs) dasselbe Paket seither erheblich erweitert haben.
+  Kein "vorher/nachher" im engeren Sinn moeglich, da diese Unit als Scan explizit kein
+  Coverage-Ziel hat — 69,3 % ist der Nachher-Wert inklusive der sechs neuen Tests.
+- mutations-probe: n.a. — die neuen Tests pinnen bestehendes (fehlerhaftes) Verhalten, es gibt
+  keine Fix-Logik in dieser Unit, die man brechen koennte. Verifiziert stattdessen durch
+  Gegenprobe: alle sechs Assertions wurden vor dem Schreiben anhand des Codes hergeleitet
+  (WHERE-Klauseln in erasure.go durchgegangen) und stimmten beim ersten Testlauf sofort —
+  keine einzige musste nachtraeglich an ein unerwartetes Ergebnis angepasst werden.
+- verify vorgaenger: sauber. `b9889b04` (Iteration 46, scan-gateway-openapi-response-code-drift)
+  und `7134b306` (SHA-Nachtrag) geprueft: beide `git show --stat` zeigen ausschliesslich
+  BACKLOG.yml und JOURNAL.md — kein Produktionscode, keine der acht Fehlerklassen einschlaegig.
+- neue-units: fix-erasure-handlers-not-idempotent-on-second-run
+- offen:
+  - `fix-erasure-handlers-not-idempotent-on-second-run` buendelt alle fuenf durchgefallenen
+    Handler in EINER Unit statt fuenf, obwohl die Notes von scan-erasure-retention-idempotency-
+    double-run "je eine Fix-Unit" verlangen — Begruendung: alle fuenf Befunde sitzen in
+    derselben Datei und teilen denselben Root Cause (WHERE/COUNT auf einer Spalte, die die
+    Erasure nie aendert), siehe harte Regel 1 des Lauf-Kopfes ("Sitzt derselbe Bug in einer
+    Schwesterfunktion, gehoert er in dieselbe Unit") sowie das Praezedens aus Iteration 46
+    (`fix-gateway-file-import-413-response-undocumented` buendelt ebenfalls zwei Funde mit
+    identischer Ursache). Falls das beim Bauen falsch erscheint, dort aufteilen und begruenden.
+  - CalendarErasureHandler.ExecuteErasure hatte vor dieser Iteration KEINE Integrationstest-
+    Abdeckung ueberhaupt (nur Name-Only mit nil-Pool). Der neue Test ist gleichzeitig der erste
+    echte Beleg, dass der Handler ueberhaupt funktioniert — das ist ein Nebenbefund dieser Scan-
+    Unit, keine eigene Unit noetig, da bereits abgedeckt.
+  - Beim Bauen der Fix-Unit muessen `erasure_crm_chat_test.go` und `erasure_work_test.go`
+    (bestehende Einzellauf-Tests, die die aktuellen affected-Zahlen 4 bzw. 5 pinnen) mitgezogen
+    werden, falls die gewaehlte Fix-Strategie die COUNT-Zweige aus `affected` herausnimmt — das
+    steht bereits so in den notes der neuen Unit, hier nur als Warnung fuer den naechsten Blick
+    wiederholt.
+  - Beim Anlegen von `event_attendees` und `user_calendar_preferences` in Tests: beide Tabellen
+    haben KEINE `id`-Spalte (`event_attendees` PK ist (event_id, user_id), `user_calendar_
+    preferences` PK ist user_id) — `testutil.SeedRow` (verlangt `RETURNING id`) schlaegt dort
+    fehl, direkter INSERT unter `testutil.WithSystemCtx` ist der richtige Weg (Vorbild:
+    `seedChannelMembership` in export_crm_chat_test.go).
