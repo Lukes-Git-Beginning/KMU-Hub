@@ -127,12 +127,13 @@ func TestGDPRDeletionRequestWrites_LandInCallerTenant(t *testing.T) {
 	sysCtx := testutil.WithSystemCtx(context.Background())
 
 	req := &GDPRDeletionRequest{
-		ID:        uuid.New(),
-		TenantID:  tenantOwn,
-		ContactID: contactID,
-		Reason:    "write-surface test",
-		Status:    "pending",
-		CreatedAt: time.Now().UTC(),
+		ID:                uuid.New(),
+		TenantID:          tenantOwn,
+		ContactID:         &contactID,
+		OriginalContactID: contactID,
+		Reason:            "write-surface test",
+		Status:            "pending",
+		CreatedAt:         time.Now().UTC(),
 	}
 
 	// Create with the victim tenant's real TenantID, called from the attacker

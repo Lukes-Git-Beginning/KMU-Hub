@@ -142,13 +142,14 @@ func (s *Service) RequestDeletion(ctx context.Context, tenantID, contactID uuid.
 
 	now := time.Now()
 	req := &GDPRDeletionRequest{
-		ID:          uuid.New(),
-		TenantID:    tenantID,
-		ContactID:   contactID,
-		RequestedBy: requestedBy,
-		Reason:      reason,
-		Status:      "pending",
-		CreatedAt:   now,
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		ContactID:         &contactID,
+		OriginalContactID: contactID,
+		RequestedBy:       requestedBy,
+		Reason:            reason,
+		Status:            "pending",
+		CreatedAt:         now,
 	}
 
 	if err := s.repo.CreateDeletionRequest(ctx, req); err != nil {
@@ -172,8 +173,15 @@ func (s *Service) ProcessDeletion(ctx context.Context, tenantID, requestID uuid.
 	if req.Status == "completed" {
 		return ErrDeletionAlreadyComplete
 	}
+	if req.ContactID == nil {
+		// The contact was hard-deleted (e.g. by the retention worker) after
+		// the request was created but before it was processed. There is
+		// nothing left to anonymize; report it rather than silently marking
+		// the request "completed" for an anonymization that never happened.
+		return ErrContactNotFound
+	}
 
-	if err := s.repo.AnonymizeContact(ctx, req.ContactID, tenantID); err != nil {
+	if err := s.repo.AnonymizeContact(ctx, *req.ContactID, tenantID); err != nil {
 		return err
 	}
 
@@ -186,7 +194,7 @@ func (s *Service) ProcessDeletion(ctx context.Context, tenantID, requestID uuid.
 
 	slog.Info("gdpr.deletion_processed",
 		"request_id", requestID,
-		"contact_id", req.ContactID,
+		"contact_id", *req.ContactID,
 	)
 
 	return nil

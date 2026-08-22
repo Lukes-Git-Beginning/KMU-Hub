@@ -460,7 +460,8 @@ func TestService_RequestDeletion_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, req.ID)
-	assert.Equal(t, contactID, req.ContactID)
+	assert.Equal(t, &contactID, req.ContactID)
+	assert.Equal(t, contactID, req.OriginalContactID)
 	assert.Equal(t, &requestedBy, req.RequestedBy)
 	assert.Equal(t, "GDPR Art. 17 request from data subject", req.Reason)
 	assert.Equal(t, "pending", req.Status)
@@ -499,10 +500,11 @@ func TestService_ProcessDeletion_Success(t *testing.T) {
 	requestID := uuid.New()
 
 	repo.AddDeletionRequest(&GDPRDeletionRequest{
-		ID:        requestID,
-		ContactID: contactID,
-		Status:    "pending",
-		CreatedAt: time.Now(),
+		ID:                requestID,
+		ContactID:         &contactID,
+		OriginalContactID: contactID,
+		Status:            "pending",
+		CreatedAt:         time.Now(),
 	})
 
 	err := svc.ProcessDeletion(context.Background(), uuid.New(), requestID)
@@ -521,18 +523,45 @@ func TestService_ProcessDeletion_AlreadyComplete(t *testing.T) {
 
 	requestID := uuid.New()
 	completedAt := time.Now()
+	contactID := uuid.New()
 
 	repo.AddDeletionRequest(&GDPRDeletionRequest{
-		ID:          requestID,
-		ContactID:   uuid.New(),
-		Status:      "completed",
-		CompletedAt: &completedAt,
-		CreatedAt:   time.Now(),
+		ID:                requestID,
+		ContactID:         &contactID,
+		OriginalContactID: contactID,
+		Status:            "completed",
+		CompletedAt:       &completedAt,
+		CreatedAt:         time.Now(),
 	})
 
 	err := svc.ProcessDeletion(context.Background(), uuid.New(), requestID)
 
 	assert.ErrorIs(t, err, ErrDeletionAlreadyComplete)
+}
+
+func TestService_ProcessDeletion_ContactAlreadyGone(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	requestID := uuid.New()
+	originalContactID := uuid.New()
+
+	// Simulates a request whose contact was hard-deleted (contact_id SET
+	// NULL by the FK, migration 000322) after the request was created but
+	// before it was processed.
+	repo.AddDeletionRequest(&GDPRDeletionRequest{
+		ID:                requestID,
+		ContactID:         nil,
+		OriginalContactID: originalContactID,
+		Status:            "pending",
+		CreatedAt:         time.Now(),
+	})
+
+	err := svc.ProcessDeletion(context.Background(), uuid.New(), requestID)
+
+	assert.ErrorIs(t, err, ErrContactNotFound)
+	// Must not be silently marked completed for an anonymization that never happened.
+	assert.Equal(t, "pending", repo.deletionRequests[requestID].Status)
 }
 
 func TestService_ProcessDeletion_NotFound(t *testing.T) {
@@ -552,10 +581,11 @@ func TestService_ProcessDeletion_AnonymizeError(t *testing.T) {
 	requestID := uuid.New()
 
 	repo.AddDeletionRequest(&GDPRDeletionRequest{
-		ID:        requestID,
-		ContactID: contactID,
-		Status:    "pending",
-		CreatedAt: time.Now(),
+		ID:                requestID,
+		ContactID:         &contactID,
+		OriginalContactID: contactID,
+		Status:            "pending",
+		CreatedAt:         time.Now(),
 	})
 	repo.anonymizeErr = errors.New("anonymization failed")
 

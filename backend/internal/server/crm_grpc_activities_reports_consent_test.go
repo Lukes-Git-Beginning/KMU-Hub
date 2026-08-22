@@ -1405,13 +1405,15 @@ func TestProcessDeletion_AlreadyComplete(t *testing.T) {
 	srv := newCRMServerWithConsentRepo(repo)
 	tenantID := uuid.New()
 	now := time.Now()
+	contactID := uuid.New()
 	req := &consent.GDPRDeletionRequest{
-		ID:          uuid.New(),
-		TenantID:    tenantID,
-		ContactID:   uuid.New(),
-		Status:      "completed",
-		CompletedAt: &now,
-		CreatedAt:   now,
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		ContactID:         &contactID,
+		OriginalContactID: contactID,
+		Status:            "completed",
+		CompletedAt:       &now,
+		CreatedAt:         now,
 	}
 	repo.deletionRequests[req.ID] = req
 
@@ -1425,11 +1427,12 @@ func TestProcessDeletion_HappyPath(t *testing.T) {
 	tenantID := uuid.New()
 	contactID := uuid.New()
 	req := &consent.GDPRDeletionRequest{
-		ID:        uuid.New(),
-		TenantID:  tenantID,
-		ContactID: contactID,
-		Status:    "pending",
-		CreatedAt: time.Now(),
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		ContactID:         &contactID,
+		OriginalContactID: contactID,
+		Status:            "pending",
+		CreatedAt:         time.Now(),
 	}
 	repo.deletionRequests[req.ID] = req
 

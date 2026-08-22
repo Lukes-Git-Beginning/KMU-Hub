@@ -3275,7 +3275,7 @@ func (s *CRMGRPCServer) RequestDeletion(ctx context.Context, req *crmv1.RequestD
 
 	proto := &crmv1.GDPRDeletionRequest{
 		Id:        deletionReq.ID.String(),
-		ContactId: deletionReq.ContactID.String(),
+		ContactId: deletionReq.OriginalContactID.String(),
 		Reason:    deletionReq.Reason,
 		Status:    deletionReq.Status,
 		CreatedAt: deletionReq.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),

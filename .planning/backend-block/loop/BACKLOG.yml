@@ -2741,7 +2741,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/consent (zur Laufzeit messen)"
     scope: >
       `gdpr_deletion_requests.contact_id` traegt `ON DELETE CASCADE` (Befund 2 im Laufkopf, keine

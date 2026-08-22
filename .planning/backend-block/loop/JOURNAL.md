@@ -4413,3 +4413,78 @@ Frühere Läufe liegen vollständig im Archiv:
   `GetByID(ctx, tenantID, id)` am Funktionsanfang — bereits tenant-verifiziert, kein Befund.
 - neue-units: keine
 - offen: keine
+
+## Iteration 74 — fix-gdpr-deletion-request-audit-trail-cascade-loss — done — 2026-08-22 10:01
+- commit: (siehe unten, wird nach Commit ergaenzt)
+- gebaut: `gdpr_deletion_requests.contact_id` trug `ON DELETE CASCADE` (Migration 000082).
+  `consent.Service.ProcessDeletion` loescht den Kontakt nie, sondern anonymisiert ihn nur — der
+  Kontakt konnte danach trotzdem ueber einen zweiten, unabhaengigen Pfad hart geloescht werden
+  (`contact.Service.Delete` manuell, oder automatisiert `ContactRetentionHandler.Apply` mit
+  `action=delete`), und keiner der beiden prueft auf existierende `gdpr_deletion_requests`-Zeilen.
+  Der CASCADE loeschte dann die abgeschlossene Loeschanfrage mit — genau der Nachweis, dass eine
+  Art.-17-Anfrage bearbeitet wurde, verschwand mit dem Datensatz, den sie betraf.
+  Migration 000322: `contact_id` FK auf `ON DELETE SET NULL` umgestellt (Spalte dafuer
+  NULL-faehig gemacht), neue Spalte `original_contact_id UUID NOT NULL` OHNE FK als permanenter
+  Snapshot, einmalig bei INSERT gesetzt und damit immun gegen jede kuenftige CASCADE/SET NULL auf
+  `contacts`. Migration 000082 hatte SET NULL explizit verworfen ("ohne den Contact-Bezug nicht
+  mehr auf das Subjekt zurueckfuehrbar") und stattdessen eine "dedizierte Snapshot-Tabelle" als
+  Alternative genannt, falls Audit-Trail-Pflicht real wird — genau das liefert
+  `original_contact_id`, als Spalte auf der bestehenden Tabelle statt einer neuen, weil die
+  Tabelle bereits alle anderen Felder (status, reason, timestamps) traegt, die eine zweite Tabelle
+  duplizieren muesste. down-Migration stellt CASCADE wieder her und versucht `contact_id`
+  zurueckzubacken (nur fuer Zeilen, deren Kontakt noch existiert; genuin verwaiste Zeilen bleiben
+  NULL, NOT NULL wird nur restauriert, wenn das fuer alle Zeilen moeglich ist).
+  Go: `GDPRDeletionRequest.ContactID` wird `*uuid.UUID` (nullable), neues Feld
+  `OriginalContactID uuid.UUID`. `ProcessDeletion` bekommt einen Guard fuer `ContactID == nil`
+  (Kontakt zwischen Request und Processing bereits hart geloescht) — gibt `ErrContactNotFound`
+  zurueck statt eines Nil-Pointer-Panics oder eines stillen "completed" ohne echte Anonymisierung.
+  `crm_grpc.go` (`RequestDeletion`-Proto-Mapping) nutzt `OriginalContactID` (zum Erstellzeitpunkt
+  identisch mit `ContactID`, aber garantiert non-nil). Vier Testdateien angepasst
+  (`service_test.go`, `tenant_write_test.go`, `crm_grpc_activities_reports_consent_test.go`,
+  `tenant_isolation_phase2_test.go` — deren `SeedRow` fuer `gdpr_deletion_requests` kannte die neue
+  NOT-NULL-Spalte nicht und war der einzige weitere Caller). Neuer DB-Test
+  `TestGetDeletionRequest_SurvivesContactHardDelete` (cascade_audit_test.go) haertet den
+  Kernfall: Kontakt mit "completed"-Request wird per rohem SQL-DELETE hart geloescht (simuliert
+  den Retention-/manuellen Pfad, der `gdpr_deletion_requests` nicht kennt), Request-Zeile bleibt
+  lesbar, `ContactID` NULL, `OriginalContactID` erhalten. Neuer Unit-Test
+  `TestService_ProcessDeletion_ContactAlreadyGone` fuer den Guard.
+- gate: build ok (`./internal/crm/... ./internal/server/... ./internal/security/...
+  ./internal/gateway/... ./cmd/...`) | vet ok (`./internal/crm/... ./internal/server/...`) | lint
+  ok (0 issues, `./internal/crm/consent/... ./internal/server/... ./internal/security/gdpr/...`)
+  | test ok (`./internal/crm/consent/` 0 SKIP / 34 PASS; volle `./internal/crm/...`-Suite mit
+  `-p 1` gruen — mit `-p N` traten "too many clients"-Verbindungsfehler auf, reines
+  Ressourcenlimit des lokalen Postgres bei paralleler Paketausfuehrung, kein Befund zu meiner
+  Aenderung; `./internal/security/gdpr/...` mit `-p 1` gruen; `./internal/server/` gruen;
+  `./internal/gateway/` gruen inkl. `TestOpenAPIRouteDrift`, obwohl keine Route angefasst wurde)
+  | migration ok (000322 up/down/up-Zyklus manuell gegen die lokale DB verifiziert, Schema nach
+  up: `contact_id` nullable + `ON DELETE SET NULL`, `original_contact_id NOT NULL` ohne FK; nach
+  down: exakter Ursprungszustand `contact_id NOT NULL` + `ON DELETE CASCADE`) | rls-smoke:
+  kein separates manuelles psql-Skript, stattdessen die bereits vorhandenen automatisierten
+  RLS-Tests fuer exakt diese Tabelle verifiziert (`TestTenantIsolation_GDPR`,
+  `TestGDPRDeletionRequestWrites_LandInCallerTenant`, `TestContactExistsAndAnonymize_...`, alle
+  gruen) — keine Policy geaendert, nur eine FK-Aktion und eine neue Spalte ohne RLS-Bezug.
+- coverage: `internal/crm/consent` 62,7 % -> 63,1 % (selbst gemessen: `git stash push -u` auf
+  alle acht geaenderten/neuen Dateien, Migration mit `migrate down 1` auf Vorzustand gebracht,
+  `go test -coverprofile` vor der Aenderung, `stash pop`, Migration wieder `up`, `go test
+  -coverprofile` nach der Aenderung; `coverage_start:` in der Unit war unbeziffert — "zur
+  Laufzeit messen" stand ausdruecklich in der Unit).
+- mutations-probe: zwei getrennte Proben fuer die zwei Teile des Fixes. (1) Anwendungscode:
+  `if req.ContactID == nil` in `ProcessDeletion` zu `if false && req.ContactID == nil` entwertet
+  -> `TestService_ProcessDeletion_ContactAlreadyGone` bricht mit Nil-Pointer-Panic ab (nicht nur
+  ein fehlgeschlagener Assert — der Guard verhindert einen echten Crash). Zurueckgedreht,
+  `git diff --stat service.go` zeigt wieder ausschliesslich die vorgesehenen Aenderungen,
+  `./internal/crm/consent/` erneut gruen. (2) DB-Migration: FK testweise per manuellem `ALTER
+  TABLE ... ON DELETE CASCADE` auf den Vorzustand zurueckgesetzt (ohne die .sql-Datei zu
+  aendern) -> `TestGetDeletionRequest_SurvivesContactHardDelete` bricht mit "deletion request not
+  found" ab, exakt der Bug, den die Migration behebt. FK per `ALTER TABLE ... ON DELETE SET NULL`
+  zurueckgedreht, Test erneut gruen — beweist, dass der Test die Migration tatsaechlich testet und
+  nicht zufaellig gruen ist.
+- verify vorgaenger: sauber. `b6498957` (Iteration 73, fix-integration-mapping-delete-fk-crash)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `notification_grpc.go`,
+  `postgres_repository.go`, `errors.go`, `openapi.yaml`) — Anwendungs-Guard nach dem
+  `HasDeals`/`pipelinestage`-Muster, kein Gateway-Handler direkt betroffen (Aenderung liegt im
+  gRPC-Server, nicht im Gateway), kein Stub, kein `.proto`, kein neuer/ersetzter
+  `RequirePermission`-Guard, keine neue Tabelle, Route existierte schon und wurde in openapi.yaml
+  korrekt um den 409-Fall ergaenzt, keine Wire-Shape-Aenderung.
+- neue-units: keine
+- offen: keine

@@ -97,8 +97,8 @@ func (r *PostgresRepository) GetLatestConsents(ctx context.Context, tenantID, co
 
 func (r *PostgresRepository) CreateDeletionRequest(ctx context.Context, req *GDPRDeletionRequest) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO gdpr_deletion_requests (id, tenant_id, contact_id, requested_by, reason, status, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO gdpr_deletion_requests (id, tenant_id, contact_id, original_contact_id, requested_by, reason, status, created_at)
+		 VALUES ($1, $2, $3, $3, $4, $5, $6, $7)`,
 		req.ID, req.TenantID, req.ContactID, req.RequestedBy, req.Reason, req.Status, req.CreatedAt,
 	)
 	return err
@@ -107,10 +107,10 @@ func (r *PostgresRepository) CreateDeletionRequest(ctx context.Context, req *GDP
 func (r *PostgresRepository) GetDeletionRequest(ctx context.Context, id, tenantID uuid.UUID) (*GDPRDeletionRequest, error) {
 	var req GDPRDeletionRequest
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, contact_id, requested_by, reason, status, completed_at, created_at
+		`SELECT id, tenant_id, contact_id, original_contact_id, requested_by, reason, status, completed_at, created_at
 		 FROM gdpr_deletion_requests WHERE id = $1 AND tenant_id = $2`,
 		id, tenantID,
-	).Scan(&req.ID, &req.TenantID, &req.ContactID, &req.RequestedBy, &req.Reason, &req.Status, &req.CompletedAt, &req.CreatedAt)
+	).Scan(&req.ID, &req.TenantID, &req.ContactID, &req.OriginalContactID, &req.RequestedBy, &req.Reason, &req.Status, &req.CompletedAt, &req.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrDeletionRequestNotFound
 	}
