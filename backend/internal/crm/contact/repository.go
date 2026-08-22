@@ -2,6 +2,7 @@ package contact
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -58,6 +59,14 @@ type Repository interface {
 	// Lead lifecycle (same contacts rows, filtered by lifecycle_stage)
 	ListLeads(ctx context.Context, filter LeadFilter, offset, limit int) ([]*models.ContactWithRelations, int, error)
 	UpdateLead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, patch LeadPatch) (*models.ContactWithRelations, error)
+
+	// ListRetentionCandidates returns contact IDs whose retention clock has
+	// elapsed: the later of the contact's own last edit (updated_at) and its
+	// most recent activity. Using created_at alone would retire contacts a
+	// user is still actively working with, and AnonymizeContact bumping
+	// updated_at to NOW() is exactly what keeps a handler from re-matching the
+	// same row on every subsequent run.
+	ListRetentionCandidates(ctx context.Context, tenantID uuid.UUID, cutoff time.Time) ([]uuid.UUID, error)
 }
 
 // LeadFilter narrows the lead inbox. TenantID is always applied.

@@ -532,7 +532,7 @@ units:
     service: crm
     model: sonnet
     deps: [feat-retention-worker-schema-and-engine]
-    status: todo
+    status: done
     coverage_start: "internal/crm/contact 80,4 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Erster echter Handler am Motor aus A10: Kontakte. Er ist der schwierigste von allen und

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -568,6 +569,41 @@ func (r *PostgresRepository) IsInUse(ctx context.Context, id uuid.UUID, tenantID
 		return false, "", nil
 	}
 	return true, strings.Join(reasons, ", "), nil
+}
+
+// ListRetentionCandidates returns contact IDs whose retention clock elapsed
+// before cutoff: the later of the contact's own updated_at and the most
+// recent activities row logged against it. A contact with no activities uses
+// its own updated_at only.
+func (r *PostgresRepository) ListRetentionCandidates(ctx context.Context, tenantID uuid.UUID, cutoff time.Time) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT c.id
+		FROM contacts c
+		LEFT JOIN (
+			SELECT contact_id, MAX(created_at) AS last_activity_at
+			FROM activities
+			WHERE contact_id IS NOT NULL
+			GROUP BY contact_id
+		) a ON a.contact_id = c.id
+		WHERE c.tenant_id = $1
+		  AND GREATEST(c.updated_at, COALESCE(a.last_activity_at, c.updated_at)) < $2
+		ORDER BY c.created_at ASC`,
+		tenantID, cutoff,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list retention candidates: %w", err)
+	}
+	defer rows.Close()
+
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			return nil, fmt.Errorf("scan retention candidate: %w", scanErr)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // DeletionImpact reports which tables reference a contact and what deleting

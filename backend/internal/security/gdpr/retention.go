@@ -119,8 +119,13 @@ type RetentionHandler interface {
 	// cannot anonymize must say so instead of deleting instead.
 	SupportsAction(action string) bool
 
-	// Plan lists the records older than cutoff. It must not modify data.
-	Plan(ctx context.Context, tenantID uuid.UUID, cutoff time.Time) (*RetentionPlan, error)
+	// Plan lists the records older than cutoff. action is the policy's
+	// configured action (models.RetentionActionDelete / ...Anonymize) — a
+	// handler whose delete path is blocked for some records (e.g. by a
+	// RESTRICT foreign key) needs to know which action is in play to decide
+	// whether those records belong in Due or Skipped; the same records can be
+	// perfectly fine for anonymize. Plan must not modify data.
+	Plan(ctx context.Context, tenantID uuid.UUID, cutoff time.Time, action string) (*RetentionPlan, error)
 
 	// Apply performs action on the given records and returns how many were
 	// affected. Only ever called in enforce mode.
@@ -347,7 +352,7 @@ func (e *RetentionEngine) runPolicy(
 		return item
 	}
 
-	plan, err := handler.Plan(ctx, tenantID, item.Cutoff)
+	plan, err := handler.Plan(ctx, tenantID, item.Cutoff, p.Action)
 	if err != nil {
 		item.Status = RetentionItemFailed
 		item.Message = err.Error()

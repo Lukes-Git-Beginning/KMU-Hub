@@ -533,3 +533,86 @@ Frühere Läufe liegen vollständig im Archiv:
     Policy gekappt (`lean:`-Marker im Code); die Zaehler `skipped`/`matched` bleiben exakt.
     Sollte A14 die vollstaendige Liste in der Admin-Sicht brauchen, ist das eine eigene
     Tabelle wert.
+
+## Iteration 11 — feat-retention-worker-handler-contacts — done — 2026-08-22 02:10
+- commit: (siehe unten, nach diesem Eintrag)
+- gebaut: `ContactRetentionHandler` implementiert `gdpr.RetentionHandler` fuer
+  `resource_type "contacts"` — der erste echte Handler auf dem Motor aus A10.
+  Liegt bewusst NICHT in `internal/crm/contact` (wie im Backlog-Scope notiert), sondern in
+  `internal/security/gdpr/retention_contacts.go`: `dsar_search_test.go` (Paket `gdpr`,
+  interner Testfile) importiert bereits `crm/contact` fuer Fixtures; haette der Handler in
+  `crm/contact` gelegen und `security/gdpr` importiert (fuer `RetentionPlan`/`RetentionSkip`),
+  waere das ein Importzyklus gewesen (`go build` bestaetigt: "import cycle not allowed in
+  test"). Mit dem Handler in `gdpr` importiert nur `gdpr` -> `crm/contact` + `crm/consent`,
+  keine Rueckrichtung, kein Zyklus. `RetentionHandler.Plan` hat dafuer eine vierte Signatur-
+  Aenderung bekommen (`action string` zusaetzlich zu ctx/tenantID/cutoff) — noetig, weil nur
+  bei `action=delete` die zwei RESTRICT-FKs (`dialer_campaign_contacts`, `advisory_protocols`)
+  ueberhaupt eine Rolle spielen: `repo.IsInUse` (postgres_repository.go:549, unveraendert
+  wiederverwendet) schiebt blockierte Kontakte bei `delete` in `plan.Skipped` mit Klartext-
+  Grund statt sie zu werfen; bei `action=anonymize` sind sie ganz normal `Due`, weil
+  `consent.AnonymizeContact` die RESTRICT-Tabellen nie anfasst. Zwei Test-Doubles in
+  `retention_test.go` (aus Iteration 10) mussten auf die neue Signatur nachgezogen werden.
+  Neue Repository-Methode `contact.Repository.ListRetentionCandidates(ctx, tenantID, cutoff)`
+  waehlt bewusst NICHT `created_at`, sondern `GREATEST(contacts.updated_at,
+  MAX(activities.created_at))` — ein Kontakt mit juengerer Aktivitaet gilt nicht als reif,
+  auch wenn er vor Jahren angelegt wurde (Datumswahl wie im Scope gefordert kommentiert und
+  per Test belegt: `TestRepository_ListRetentionCandidates` in
+  `postgres_repository_db_test.go`). Idempotenz kommt strukturell mit: `AnonymizeContact`
+  setzt `updated_at = NOW()`, also faellt ein frisch anonymisierter Kontakt aus dem GREATEST-
+  Filter, bis eine volle Aufbewahrungsfrist erneut verstrichen ist — kein zusaetzlicher
+  Anonymisiert-Marker noetig. Dafuer wurden `consent.AnonymizedFirstName`/`AnonymizedLastName`
+  ("Gelöschte"/"Person") als exportierte Konstanten aus dem bisherigen String-Literal in
+  `AnonymizeContact` gezogen (jetzt per Query-Parameter statt String-Konkatenation in SQL),
+  damit der Test denselben Wert referenziert statt ihn zu duplizieren.
+- gate: build ok (`-p 2` ueber crm/security/server/gateway/cmd) | vet ok | lint ok (0 issues,
+  `golangci-lint run` ueber contact, consent, security/gdpr, server) | test ok
+  (`internal/crm/...` 12/12 Pakete gruen bei `-p 1` — ein erster `-p 4`-Lauf riss mit
+  "too many clients already" ab, reine Verbindungspool-Erschoepfung durch parallele Pakete,
+  kein Codefehler, siehe `offen:`; `internal/security/...` 7/7 gruen; `internal/server/` gruen
+  inkl. `crm_grpc_fields_tags_contacts_test.go`, wo `stubContactRepo` die neue Interface-
+  Methode nachziehen musste; `internal/gateway/` inkl. `TestOpenAPIRouteDrift` gruen, obwohl
+  keine Route beruehrt) | migration n.a. (keine neue Tabelle) | rls-smoke n.a. (keine Tabelle/
+  Policy angefasst — RLS auf `contacts` bereits aktiv, `ListRetentionCandidates` filtert
+  zusaetzlich explizit auf `tenant_id`)
+- coverage: internal/security/gdpr 68,3 % -> 68,7 % (eigene Messung: Nachher im Arbeitsbaum,
+  Vorher per `git worktree add /tmp/covbase11 HEAD` gegen `982690b0`; deckt sich mit dem
+  Endwert aus Iteration 10). internal/crm/contact 80,4 % -> 80,4 % (Netto null: die neue
+  `ListRetentionCandidates`-Query fuegt Zeilen hinzu, aber `TestRepository_
+  ListRetentionCandidates` deckt sie im selben Paket ab — ohne diesen Test waere der Wert auf
+  79,4 % gefallen, weil `go test ./internal/crm/contact/` die Aufrufe aus den gdpr-Tests nicht
+  sieht; genau die "falsches Bezugspaket"-Falle aus dem Backlog-Kopf, hier durch einen echten
+  Repository-Test statt eines `n.a.` geloest).
+- mutations-probe: in `ContactRetentionHandler.Plan` die Bedingung `if inUse {` zu
+  `if false && inUse {` verfaelscht — `TestContactRetentionHandler_Plan_DeleteSkipsBlocked`
+  wird rot (blockierter Kontakt taucht in `Due` auf, `Skipped` bleibt leer statt 1 Eintrag).
+  Zurueckgedreht -> `go build ./internal/...` und der Test wieder gruen; `git diff --stat`
+  zeigt nur die beabsichtigten Dateien.
+- verify vorgaenger: sauber. `c1edcb15` (Retention-Motor, Iteration 10) gegen alle acht
+  Fehlerklassen geprueft: kein gRPC-Handler und damit kein Layer-Bypass, kein Stub/TODO/
+  Unimplemented (Grep auf `retention.go` liefert nichts), kein `.proto`, kein neuer
+  `RequirePermission`-Guard, Migration 000316 legt `tenant_id UUID NOT NULL` + `enable_
+  tenant_rls` auf beiden neuen Tabellen an, keine Wire-Shape-Aenderung (Engine ist noch
+  nirgends an eine Route gebunden), keine neue Route.
+- neue-units: keine
+- offen:
+  - Der erste `go test ./internal/crm/...` mit dem Standard-Parallelismus (`-p 4`, mehrere
+    Pakete gleichzeitig, jedes mit eigenem `t.Parallel()`-Pool) riss mit "remaining connection
+    slots are reserved for roles with the SUPERUSER attribute" ab. Nach Entfernen der
+    Baseline-Worktree und einer kurzen Verschnaufpause lief derselbe Lauf mit `-p 1` sauber
+    durch. Kein Befund an meinem Code — aber ein Hinweis, dass die lokale Postgres-Instanz
+    unter voller Parallelitaet plus einer offenen Zusatz-Worktree an ihre `max_connections`
+    stoesst. Falls das oefter auftritt, waere `-p 1` oder ein hoeheres `max_connections` fuer
+    den lokalen Compose-Postgres ein Thema fuer Luke, kein Code-Fix.
+  - `ContactRetentionHandler` ist gebaut und getestet, aber wie der Motor selbst NOCH NICHT
+    verdrahtet: keine Produktionsstelle registriert ihn in einer `RetentionRegistry`. Das ist
+    Absicht — die Verdrahtung liegt in `feat-retention-worker-scheduling-and-admin-
+    visibility`, die auf `feat-retention-worker-schema-and-engine` deppt, nicht auf diese
+    Unit. Bis dahin aendert dieser Commit am Laufzeitverhalten der Anwendung nichts.
+  - Bewusst NICHT behoben: `consent.Repository.AnonymizeContact` nimmt kein
+    `anonymizedLabel`-Argument, obwohl `RetentionHandler.Apply` eines durchreicht (aus
+    `GetNextAnonymizedLabel`, Iteration 10). Der Kontakt-Handler ignoriert es (`_` im
+    Funktionskopf) und verlaesst sich auf die fest verdrahteten Platzhalter "Gelöschte"/
+    "Person" aus dem bestehenden GDPR-Loeschantrags-Pfad (`consent.Service.ProcessDeletion`).
+    Zwei Anonymisierungs-Mechaniken (fester Platzhalter vs. laufender Zaehler) leben damit
+    nebeneinander im selben Package — kein Bug, aber ein Normalisierungs-Kandidat fuer einen
+    spaeteren C-Scan, falls weitere Retention-Handler denselben Zaehler brauchen.

@@ -311,7 +311,7 @@ func (h *fakeRetentionHandler) SupportsAction(action string) bool {
 	return true
 }
 
-func (h *fakeRetentionHandler) Plan(_ context.Context, _ uuid.UUID, _ time.Time) (*RetentionPlan, error) {
+func (h *fakeRetentionHandler) Plan(_ context.Context, _ uuid.UUID, _ time.Time, _ string) (*RetentionPlan, error) {
 	if h.planErr != nil {
 		return nil, h.planErr
 	}
@@ -341,7 +341,7 @@ func (h *notificationRetentionHandler) SupportsAction(action string) bool {
 	return action == models.RetentionActionDelete
 }
 
-func (h *notificationRetentionHandler) Plan(ctx context.Context, tenantID uuid.UUID, cutoff time.Time) (*RetentionPlan, error) {
+func (h *notificationRetentionHandler) Plan(ctx context.Context, tenantID uuid.UUID, cutoff time.Time, _ string) (*RetentionPlan, error) {
 	rows, err := h.pool.Query(ctx,
 		`SELECT id FROM notifications WHERE tenant_id = $1 AND created_at < $2 ORDER BY created_at ASC`,
 		tenantID, cutoff)

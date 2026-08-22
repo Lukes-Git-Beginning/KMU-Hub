@@ -17,6 +17,15 @@ type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
 
+// AnonymizedFirstName and AnonymizedLastName are the placeholder names
+// AnonymizeContact writes. Exported so callers (e.g. the contact retention
+// handler) can recognise an already-anonymized row without a second copy of
+// the literal.
+const (
+	AnonymizedFirstName = "Gelöschte"
+	AnonymizedLastName  = "Person"
+)
+
 // NewPostgresRepository creates a new PostgreSQL consent repository.
 func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
@@ -151,8 +160,8 @@ func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID, te
 
 	res, err := tx.Exec(ctx,
 		`UPDATE contacts SET
-			first_name = 'Gelöschte',
-			last_name = 'Person',
+			first_name = $3,
+			last_name = $4,
 			email = NULL,
 			phone = NULL,
 			mobile = NULL,
@@ -170,7 +179,7 @@ func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID, te
 			xing = NULL,
 			updated_at = NOW()
 		 WHERE id = $1 AND tenant_id = $2`,
-		contactID, tenantID,
+		contactID, tenantID, AnonymizedFirstName, AnonymizedLastName,
 	)
 	if err != nil {
 		return fmt.Errorf("gdpr contact anonymize: update contact: %w", err)

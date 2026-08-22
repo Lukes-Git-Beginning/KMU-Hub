@@ -22,6 +22,7 @@ type MockRepository struct {
 	validTags      map[uuid.UUID]models.EntityType
 	inUseContacts  map[uuid.UUID]bool
 	deletionImpact map[uuid.UUID][]DeletionImpactItem
+	retentionCandidates []uuid.UUID
 	createErr      error
 	getErr         error
 	listErr        error
@@ -166,6 +167,10 @@ func (m *MockRepository) IsInUse(ctx context.Context, id uuid.UUID, _ uuid.UUID)
 
 func (m *MockRepository) DeletionImpact(ctx context.Context, id uuid.UUID, _ uuid.UUID) ([]DeletionImpactItem, error) {
 	return m.deletionImpact[id], nil
+}
+
+func (m *MockRepository) ListRetentionCandidates(_ context.Context, _ uuid.UUID, _ time.Time) ([]uuid.UUID, error) {
+	return m.retentionCandidates, nil
 }
 
 func (m *MockRepository) CompanyExists(ctx context.Context, companyID uuid.UUID, _ uuid.UUID) (bool, error) {

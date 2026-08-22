@@ -944,3 +944,91 @@ func TestRepository_DeletionImpact_TenantScopedLiveFromCatalog(t *testing.T) {
 		t.Fatalf("DeletionImpact (foreign tenant) = %+v, want empty", foreignItems)
 	}
 }
+
+// TestRepository_ListRetentionCandidates covers the query the retention
+// engine's ContactRetentionHandler (internal/security/gdpr/retention_contacts.go)
+// relies on: the later of updated_at and the most recent activity decides
+// whether a contact is due, not updated_at alone.
+func TestRepository_ListRetentionCandidates(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "CRM Contact Retention Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "CRM Contact Retention Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	userOwn := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         fmt.Sprintf("crm-contact-retention-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userOwn)
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	old := time.Now().UTC().AddDate(0, 0, -400)
+	fresh := time.Now().UTC().AddDate(0, 0, -2)
+	cutoff := time.Now().UTC().AddDate(0, 0, -90)
+
+	// Due: no activity, updated_at alone is past cutoff.
+	due := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id": tenantOwn, "first_name": "Due", "last_name": "Contact",
+		"created_by": userOwn, "created_at": old, "updated_at": old,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", due)
+
+	// Not due: updated_at is recent.
+	recent := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id": tenantOwn, "first_name": "Recent", "last_name": "Contact",
+		"created_by": userOwn, "created_at": fresh, "updated_at": fresh,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", recent)
+
+	// Not due despite an old updated_at: a recent activity keeps the retention
+	// clock from elapsing -- the whole reason ListRetentionCandidates joins
+	// activities instead of reading updated_at alone.
+	stillWorked := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id": tenantOwn, "first_name": "StillWorked", "last_name": "Contact",
+		"created_by": userOwn, "created_at": old, "updated_at": old,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", stillWorked)
+	recentActivity := testutil.SeedRow(t, pool, "activities", map[string]any{
+		"tenant_id": tenantOwn, "activity_type": "note", "subject": "Still in progress",
+		"contact_id": stillWorked, "created_by": userOwn, "created_at": fresh,
+	})
+	defer testutil.CleanupRow(t, pool, "activities", recentActivity)
+
+	// Foreign tenant, old updated_at -- must never appear for tenantOwn.
+	foreign := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id": tenantOther, "first_name": "Foreign", "last_name": "Contact",
+		"created_by": userOwn, "created_at": old, "updated_at": old,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", foreign)
+
+	got, err := repo.ListRetentionCandidates(ctxOwn, tenantOwn, cutoff)
+	if err != nil {
+		t.Fatalf("ListRetentionCandidates: %v", err)
+	}
+
+	byID := make(map[uuid.UUID]bool, len(got))
+	for _, id := range got {
+		byID[id] = true
+	}
+	if !byID[due] {
+		t.Fatalf("ListRetentionCandidates = %v, want it to include the due contact %s", got, due)
+	}
+	if byID[recent] {
+		t.Fatalf("ListRetentionCandidates = %v, must not include the recently updated contact %s", got, recent)
+	}
+	if byID[stillWorked] {
+		t.Fatalf("ListRetentionCandidates = %v, must not include the contact with a recent activity %s", got, stillWorked)
+	}
+	if byID[foreign] {
+		t.Fatalf("ListRetentionCandidates = %v, must not include the foreign-tenant contact %s", got, foreign)
+	}
+}
