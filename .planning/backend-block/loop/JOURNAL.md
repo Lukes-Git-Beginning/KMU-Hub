@@ -5112,3 +5112,47 @@ Frühere Läufe liegen vollständig im Archiv:
   sauber.
 - neue-units: keine.
 - offen: keine.
+
+## Iteration 86 — fix-company-delete-merged-into-no-action-unchecked — done — 2026-08-22 11:48
+- commit: -
+- gebaut: nichts Neues. Die gezogene Unit ist ein unbereinigtes Duplikat von
+  `fix-company-delete-merged-into-fk-crash` (bereits `status: done`, Commit `097d3737`,
+  Migration `000321_companies_merged_into_set_null`). Beide Units beschreiben denselben Fehler
+  (`companies.merged_into_id UUID REFERENCES companies(id)` ohne ON DELETE-Klausel, Default
+  NO ACTION seit Migration 000059 — Loeschen einer gemergten Primary-Firma ohne eigene Kontakte
+  lief bis zur DB durch und schlug dort mit unbehandeltem FK-Fehler fehl) und dieselbe
+  Root-Cause-Entscheidung (SET NULL statt Service-Guard, analog `contacts.merged_into_id` aus
+  Migration 000318 — kein Lesepfad braucht `merged_into_id`, um eine geloeschte Firma
+  aufzuloesen, nur der Duplicate-Search-Filter `merged_into_id IS NULL`). Geprueft: `git show
+  097d3737 --stat` zeigt Migration 000321 (up/down, SET NULL) und
+  `postgres_repository_db_test.go` mit `TestRepository_Delete_MergedPrimaryCompany_DB`, die
+  genau den hier verlangten `done_when`-Fall abdeckt (gemergte Primary-Firma ohne Kontakte
+  loeschen -> Erfolg statt FK-Crash, Duplikat behaelt seine eigene Existenz, `merged_into_id`
+  wird NULL). `go test -count=1 -v ./internal/crm/company/...` gegen die aktuelle DB: 53 PASS /
+  0 SKIP / 0 FAIL, `DATABASE_URL` gegen `kmuhub_app` gesetzt. Beide Units stammen offenkundig aus
+  derselben Vorbereitungsrunde (die `notes:`-Zeile dieser Unit verweist bereits explizit auf die
+  Schwester-Unit "fix-contact-delete-merged-into-no-action-unchecked" als Vorlage) und wurden nie
+  dedupliziert, bevor `BACKLOG.yml` fuer Lauf 10 gestaged wurde. Unit auf `done` gesetzt statt auf
+  `blocked` — es gibt keine offene Entscheidung, nur eine Redundanz in der Backlog-Datei selbst,
+  und Weglassen des Duplikat-Hinweises im Journal haette die naechste Iteration denselben Umweg
+  nochmal laufen lassen.
+- gate: build: n.a. (kein Code geaendert) | vet: n.a. | lint: n.a. | test ok
+  (`./internal/crm/company/...` 53 PASS/0 SKIP/0 FAIL, `-count=1`, DATABASE_URL gesetzt) |
+  migration: n.a. (Migration 000321 ist bereits Teil des Baums, nichts Neues anzuwenden) |
+  rls-smoke: n.a.
+- coverage: n.a. (keine Verhaltensaenderung, kein neuer Code)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber. `5ef54498` (Iteration 85) per `git show --stat` und vollem Diff
+  geprueft (`consent/scrub.go` neu, `consent/postgres_repository.go` und
+  `contact/postgres_repository.go` geaendert) — reines Repository-Layer, kein gRPC-Handler
+  betroffen (Aufrufer bleiben `contact.PostgresRepository.Delete` bzw.
+  `consent.PostgresRepository.AnonymizeContact`, beide unveraendert von aussen aufgerufen), kein
+  Stub, kein `.proto`, kein neuer `RequirePermission`-Guard, keine neue Tabelle/RLS (alle
+  UPDATEs bleiben `WHERE contact_id = $1 AND tenant_id = $2`-gescoped auf bestehende Tabellen),
+  keine neue Route, keine Wire-Shape-Aenderung. Damit fuer alle acht Fehlerklassen automatisch
+  sauber.
+- neue-units: keine.
+- offen: Die Schwester-Situation koennte sich in Block C (Muster-Scan-Units) wiederholen — falls
+  eine der noch offenen `scan-*`-Units auf denselben unverarbeiteten Vorbereitungs-Entwurf
+  zurueckgeht, lohnt sich ein kurzer Blick, ob dort noch mehr unbereinigte Duplikate stecken.
+  Kein konkreter Verdacht, nur eine Beobachtung fuer die naechste Iteration.

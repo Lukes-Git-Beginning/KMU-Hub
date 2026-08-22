@@ -3367,7 +3367,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/company 79,7 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Derselbe Bug wie bei Kontakten (siehe fix-contact-delete-merged-into-no-action-unchecked,
@@ -3395,6 +3395,14 @@ units:
       Vor dem Fix pruefen, ob `company/service.go` ueberhaupt ein IsInUse-Aequivalent hat — wenn
       nicht, ist das ein zweiter, eigenstaendiger Befund (keine RESTRICT-Pruefung vor dem Loeschen
       einer Firma ueberhaupt), der im Journal separat benannt gehoert.
+
+      ITERATION 86: als Duplikat geschlossen, nicht neu gebaut. `fix-company-delete-merged-into-fk-crash`
+      (Iteration ~85/097d3737) hat exakt diesen Bug bereits behoben — Migration 000321 setzt
+      `companies.merged_into_id` auf ON DELETE SET NULL, `TestRepository_Delete_MergedPrimaryCompany_DB`
+      (postgres_repository_db_test.go:709) beweist genau den hier verlangten Fall (gemergte
+      Primary-Firma ohne Kontakte loeschen). Root-Cause-Entscheidung war identisch: SET NULL statt
+      Service-Guard, kein Lesepfad braucht die Weiterleitung. `go test ./internal/crm/company/...`
+      53 PASS/0 SKIP/0 FAIL bestaetigt.
     done_when:
       - Root Cause entschieden und begruendet (Migration ODER Service-Guard-Erweiterung)
       - Ein Test reproduziert den bisherigen Fehlzustand (unbehandelter FK-Fehler beim Loeschen
