@@ -593,21 +593,21 @@ func TestSearchByQuery_ContactAdvisoryProtocols_Integration(t *testing.T) {
 
 	// Older, finalized protocol -- must appear first in a chronological export.
 	oldID := testutil.SeedRow(t, pool, "advisory_protocols", map[string]any{
-		"tenant_id":            tenantOwn,
-		"contact_id":           contactID,
-		"created_by":           agentID,
-		"status":               "finalized",
-		"date":                 "2025-01-15",
-		"advisor":              "Herr Bergmann",
-		"marital_status":       "verheiratet",
-		"known_asset_classes":  []string{"stocks", "etf"},
-		"investment_purpose":   []string{"retirement", "growth"},
-		"risk_class":           4,
-		"products":             products,
-		"warnings_given":       []string{"risk", "costs"},
-		"internal_notes":       "Kunde wirkt unsicher, im Folgetermin nochmal Risiko erklären.",
-		"monthly_net_income":   4200.50,
-		"created_at":           "2025-01-15T09:00:00Z",
+		"tenant_id":           tenantOwn,
+		"contact_id":          contactID,
+		"created_by":          agentID,
+		"status":              "finalized",
+		"date":                "2025-01-15",
+		"advisor":             "Herr Bergmann",
+		"marital_status":      "verheiratet",
+		"known_asset_classes": []string{"stocks", "etf"},
+		"investment_purpose":  []string{"retirement", "growth"},
+		"risk_class":          4,
+		"products":            products,
+		"warnings_given":      []string{"risk", "costs"},
+		"internal_notes":      "Kunde wirkt unsicher, im Folgetermin nochmal Risiko erklären.",
+		"monthly_net_income":  4200.50,
+		"created_at":          "2025-01-15T09:00:00Z",
 	})
 	defer testutil.CleanupRow(t, pool, "advisory_protocols", oldID)
 
@@ -1648,12 +1648,12 @@ func TestSearchByQuery_UserNotificationQuietHours_Integration(t *testing.T) {
 	defer testutil.CleanupRow(t, pool, "users", subjectID)
 
 	qhID := testutil.SeedRow(t, pool, "notification_quiet_hours", map[string]any{
-		"tenant_id":   tenantOwn,
-		"user_id":     subjectID,
-		"start_time":  "20:00",
-		"end_time":    "07:00",
-		"enabled":     true,
-		"manual_dnd":  false,
+		"tenant_id":  tenantOwn,
+		"user_id":    subjectID,
+		"start_time": "20:00",
+		"end_time":   "07:00",
+		"enabled":    true,
+		"manual_dnd": false,
 	})
 	defer testutil.CleanupRow(t, pool, "notification_quiet_hours", qhID)
 
@@ -1721,6 +1721,232 @@ func TestSearchByQuery_UserNotificationMutes_Integration(t *testing.T) {
 	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Hartwig")
 	require.NoError(t, err)
 	assert.Empty(t, foreign, "another tenant must not see this user, let alone their muted resources")
+}
+
+func TestSearchByQuery_UserHRProfile_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR HR Profile Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR HR Profile Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	managerID := seedDSARUser(t, pool, tenantOwn, "Roswitha", "Kessler", true)
+	defer testutil.CleanupRow(t, pool, "users", managerID)
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Falk", "Brennecke", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	profileID := testutil.SeedRow(t, pool, "hr_employee_profiles", map[string]any{
+		"tenant_id":               tenantOwn,
+		"user_id":                 subjectID,
+		"department":              "Fuhrpark",
+		"position_title":          "Disponent",
+		"contract_type":           "part_time",
+		"work_days_per_week":      4,
+		"annual_leave_days":       24,
+		"manager_user_id":         managerID,
+		"start_date":              "2024-03-01",
+		"emergency_contact_name":  "Ines Brennecke",
+		"emergency_contact_phone": "+49 151 2233445",
+		"address_street":          "Kastanienallee 9",
+		"address_city":            "Leipzig",
+		"address_postal_code":     "04109",
+		"address_country":         "DE",
+		"hourly_rate":             "21.50",
+		"status":                  "active",
+		"is_minor":                false,
+	})
+	defer testutil.CleanupRow(t, pool, "hr_employee_profiles", profileID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Falk")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	profile := fieldValueMap(t, dsarModule(t, persons[0], "Personalprofil"))
+	assert.Equal(t, "Fuhrpark", profile["Abteilung"])
+	assert.Equal(t, "Disponent", profile["Position"])
+	assert.Equal(t, "part_time", profile["Vertragsart"])
+	assert.Equal(t, "4", profile["Arbeitstage pro Woche"])
+	assert.Equal(t, "24", profile["Urlaubsanspruch (Tage/Jahr)"])
+	assert.Equal(t, "Roswitha Kessler", profile["Vorgesetzte(r)"])
+	assert.Equal(t, "2024-03-01", profile["Eintrittsdatum"])
+	assert.Equal(t, "Ines Brennecke", profile["Notfallkontakt"])
+	assert.Equal(t, "+49 151 2233445", profile["Notfallkontakt Telefon"])
+	assert.Equal(t, "Kastanienallee 9, 04109 Leipzig, DE", profile["Adresse"])
+	assert.Equal(t, "21.50 EUR", profile["Stundenlohn"])
+	assert.Equal(t, "active", profile["Status"])
+	assert.Equal(t, "Nein", profile["Minderjährig"])
+	assert.Equal(t, "", profile["Austrittsdatum"], "an active employee has no exit date")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Falk")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their HR profile")
+}
+
+func TestSearchByQuery_UserHRProfile_NoneIsNoModule_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR HR Profile None Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Gudrun", "Vossberg", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Gudrun")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	assert.NotContains(t, moduleNames(persons[0]), "Personalprofil", "a user with no HR record must carry no HR profile module")
+}
+
+// TestSearchByQuery_UserHRDocuments_Integration also pins the RLS fix:
+// hr_employee_documents carries a role-gated policy (hr_document_access) on
+// top of tenant_isolation, so this seeds and queries the row with a caller
+// context that holds neither an HR role nor a user identity -- exactly what
+// DSARSearch's caller looks like -- and would return zero rows without the
+// sysctx.With wrap in hrEmployeeDocumentsModule.
+func TestSearchByQuery_UserHRDocuments_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR HR Documents Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR HR Documents Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Elmar", "Habicht", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	categoryID := testutil.SeedRow(t, pool, "hr_document_categories", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Arbeitsvertrag",
+		"key":        fmt.Sprintf("contract-%s", uuid.New()),
+		"visibility": "hr_only",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_document_categories", categoryID)
+
+	docID := testutil.SeedRow(t, pool, "hr_employee_documents", map[string]any{
+		"tenant_id":   tenantOwn,
+		"employee_id": subjectID,
+		"category_id": categoryID,
+		"uploaded_by": subjectID,
+		"title":       "Arbeitsvertrag 2024",
+		"file_name":   "vertrag_2024.pdf",
+		"file_size":   "184 KB",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_employee_documents", docID)
+
+	var uploadedAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at FROM hr_employee_documents WHERE id = $1`, docID).Scan(&uploadedAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Elmar")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	docs := dsarModule(t, persons[0], "Personaldokumente (Metadaten)")
+	assert.Equal(t, []string{"Titel", "Dateiname", "Kategorie", "Größe", "Hochgeladen am", "Läuft ab am"}, docs.Columns)
+	assert.Equal(t, []map[string]string{{
+		"Titel":          "Arbeitsvertrag 2024",
+		"Dateiname":      "vertrag_2024.pdf",
+		"Kategorie":      "Arbeitsvertrag",
+		"Größe":          "184 KB",
+		"Hochgeladen am": uploadedAt.Format(dsarTimeLayout),
+		"Läuft ab am":    "",
+	}}, recordMaps(docs), "an hr_only-visibility document must still surface to a DSAR caller with no HR role")
+
+	for _, r := range docs.Records {
+		for _, f := range r.Fields {
+			assert.NotContains(t, f.Value, "/", "no path or URL segment may appear in document metadata")
+		}
+	}
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Elmar")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their HR documents")
+}
+
+func TestSearchByQuery_UserHRProfileChangeRequests_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR HR Change Requests Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR HR Change Requests Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Petra", "Sonnenschein", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+
+	reqID := testutil.SeedRow(t, pool, "hr_profile_change_requests", map[string]any{
+		"tenant_id":   tenantOwn,
+		"user_id":     subjectID,
+		"drawer":      "personal",
+		"field":       "address_city",
+		"field_label": "Stadt",
+		"old_value":   "Erfurt",
+		"new_value":   "Jena",
+		"status":      "pending",
+		"reason":      "Umzug",
+	})
+	defer testutil.CleanupRow(t, pool, "hr_profile_change_requests", reqID)
+
+	var createdAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT created_at FROM hr_profile_change_requests WHERE id = $1`, reqID).Scan(&createdAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Petra")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	reqs := dsarModule(t, persons[0], "Änderungsanträge (Profil)")
+	assert.Equal(t, []string{
+		"Bereich", "Feld", "Alter Wert", "Neuer Wert", "Status", "Grund", "Erstellt am", "Entschieden am",
+	}, reqs.Columns)
+	assert.Equal(t, []map[string]string{{
+		"Bereich":        "personal",
+		"Feld":           "Stadt",
+		"Alter Wert":     "Erfurt",
+		"Neuer Wert":     "Jena",
+		"Status":         "pending",
+		"Grund":          "Umzug",
+		"Erstellt am":    createdAt.Format(dsarTimeLayout),
+		"Entschieden am": "",
+	}}, recordMaps(reqs))
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Petra")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their change requests")
 }
 
 // TestSearchByQuery_NoMinimumLengthGuard_Integration pins where the guard for

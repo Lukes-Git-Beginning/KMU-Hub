@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/crm/advisoryprotocol"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // ---------------------------------------------------------------------------
@@ -407,6 +408,30 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 		}
 		if mutes != nil {
 			person.Modules = append(person.Modules, *mutes)
+		}
+
+		hrProfile, hpErr := hrProfileModule(ctx, pool, tenantID, u.id)
+		if hpErr != nil {
+			return nil, hpErr
+		}
+		if hrProfile != nil {
+			person.Modules = append(person.Modules, *hrProfile)
+		}
+
+		hrDocuments, hdErr := hrEmployeeDocumentsModule(ctx, pool, tenantID, u.id)
+		if hdErr != nil {
+			return nil, hdErr
+		}
+		if hrDocuments != nil {
+			person.Modules = append(person.Modules, *hrDocuments)
+		}
+
+		hrChangeRequests, hcErr := hrProfileChangeRequestsModule(ctx, pool, tenantID, u.id)
+		if hcErr != nil {
+			return nil, hcErr
+		}
+		if hrChangeRequests != nil {
+			person.Modules = append(person.Modules, *hrChangeRequests)
 		}
 
 		out = append(out, person)
@@ -926,6 +951,205 @@ func notificationMutesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, 
 		return nil, nil
 	}
 	return &mod, nil
+}
+
+// hrProfileModule discloses the matched user's employment record --
+// department, contract terms, address, emergency contact, hourly rate,
+// exit data and the is_minor flag. hr_employee_profiles carries a UNIQUE
+// constraint on user_id (uq_hr_employee_user), so at most one row exists.
+//
+// is_minor is disclosed as a plain boolean like any other field: the schema
+// has no separate guardian/representative contact to route the disclosure
+// through, and Art. 15 does not carve out a different mechanism for a minor
+// employee's own record -- the special handling GDPR requires for minors is
+// about consent and parental notice at data collection, not about narrowing
+// what a later access request returns.
+func hrProfileModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	var (
+		department, position, contractType, emergencyName, emergencyPhone                   *string
+		addressStreet, addressCity, addressPostalCode, addressCountry, exitType, exitReason *string
+		managerFirst, managerLast                                                           *string
+		workDaysPerWeek, annualLeaveDays                                                    int
+		startDate                                                                           time.Time
+		lastWorkDay, exitDate                                                               *time.Time
+		hourlyRate                                                                          *float64
+		status                                                                              string
+		isMinor                                                                             bool
+	)
+	err := pool.QueryRow(ctx,
+		`SELECT hep.department, hep.position_title, hep.contract_type, hep.work_days_per_week,
+		        hep.annual_leave_days, m.first_name, m.last_name, hep.start_date,
+		        hep.emergency_contact_name, hep.emergency_contact_phone, hep.address_street,
+		        hep.address_city, hep.address_postal_code, hep.address_country, hep.hourly_rate,
+		        hep.status, hep.last_work_day, hep.exit_date, hep.exit_type, hep.exit_reason,
+		        hep.is_minor
+		 FROM hr_employee_profiles hep
+		 LEFT JOIN users m ON m.id = hep.manager_user_id
+		 WHERE hep.tenant_id = $1 AND hep.user_id = $2`, tenantID, userID,
+	).Scan(&department, &position, &contractType, &workDaysPerWeek, &annualLeaveDays,
+		&managerFirst, &managerLast, &startDate, &emergencyName, &emergencyPhone, &addressStreet,
+		&addressCity, &addressPostalCode, &addressCountry, &hourlyRate, &status, &lastWorkDay,
+		&exitDate, &exitType, &exitReason, &isMinor)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr employee profile: %w", err)
+	}
+
+	manager := ""
+	if managerFirst != nil || managerLast != nil {
+		manager = joinName(derefOrEmpty(managerFirst), derefOrEmpty(managerLast))
+	}
+	address := strings.TrimSpace(strings.Join([]string{
+		derefOrEmpty(addressStreet), derefOrEmpty(addressPostalCode) + " " + derefOrEmpty(addressCity),
+		derefOrEmpty(addressCountry),
+	}, ", "))
+
+	return &DSARModule{
+		Module:  "Personalprofil",
+		Columns: []string{"Feld", "Wert"},
+		Records: []DSARRecord{
+			fieldValueRecord("Abteilung", derefOrEmpty(department)),
+			fieldValueRecord("Position", derefOrEmpty(position)),
+			fieldValueRecord("Vertragsart", derefOrEmpty(contractType)),
+			fieldValueRecord("Arbeitstage pro Woche", strconv.Itoa(workDaysPerWeek)),
+			fieldValueRecord("Urlaubsanspruch (Tage/Jahr)", strconv.Itoa(annualLeaveDays)),
+			fieldValueRecord("Vorgesetzte(r)", manager),
+			fieldValueRecord("Eintrittsdatum", startDate.Format(dsarDateLayout)),
+			fieldValueRecord("Notfallkontakt", derefOrEmpty(emergencyName)),
+			fieldValueRecord("Notfallkontakt Telefon", derefOrEmpty(emergencyPhone)),
+			fieldValueRecord("Adresse", address),
+			fieldValueRecord("Stundenlohn", moneyOrEmpty(hourlyRate)),
+			fieldValueRecord("Status", status),
+			fieldValueRecord("Letzter Arbeitstag", derefDateOrEmpty(lastWorkDay)),
+			fieldValueRecord("Austrittsdatum", derefDateOrEmpty(exitDate)),
+			fieldValueRecord("Austrittsart", derefOrEmpty(exitType)),
+			fieldValueRecord("Austrittsgrund", derefOrEmpty(exitReason)),
+			fieldValueRecord("Minderjährig", boolLabel(isMinor)),
+		},
+	}, nil
+}
+
+func derefDateOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(dsarDateLayout)
+}
+
+// hrEmployeeDocumentsModule discloses metadata only for personnel documents
+// -- title, filename, category, size, upload/expiry dates -- never the file
+// content, path or a download URL, same rule as documentsModule for contact
+// files: a disclosure export leaves the building, and a link inside it would
+// be a route to the document store that bypasses its own access checks.
+//
+// Unlike every other table this file reads, hr_employee_documents carries a
+// role-gated RLS policy (hr_document_access, migration 000127/000128) on top
+// of tenant_isolation: a plain tenant-scoped caller only sees rows their own
+// HR role or self-access would allow, not everything in the tenant. A DSAR
+// search is a legal disclosure obligation triggered by a security/compliance
+// permission already checked upstream (DSARSearch RPC), not an HR workflow
+// -- it must see every document regardless of the caller's HR role, so the
+// read runs under sysctx like RunScheduledRetention does in the same
+// package (retention_scheduler.go) for the identical reason. The explicit
+// tenant_id and employee_id predicates below still do the real scoping.
+func hrEmployeeDocumentsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(sysctx.With(ctx),
+		`SELECT hd.title, hd.file_name, dc.name, hd.file_size, hd.created_at, hd.expires_at
+		 FROM hr_employee_documents hd
+		 JOIN hr_document_categories dc ON dc.id = hd.category_id
+		 WHERE hd.tenant_id = $1 AND hd.employee_id = $2
+		 ORDER BY hd.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr employee documents: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Personaldokumente (Metadaten)",
+		Columns: []string{"Titel", "Dateiname", "Kategorie", "Größe", "Hochgeladen am", "Läuft ab am"},
+	}
+	for rows.Next() {
+		var title, fileName, category, fileSize string
+		var uploadedAt time.Time
+		var expiresAt *time.Time
+		if scanErr := rows.Scan(&title, &fileName, &category, &fileSize, &uploadedAt, &expiresAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr employee document: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Titel", Value: title},
+			{Key: "Dateiname", Value: fileName},
+			{Key: "Kategorie", Value: category},
+			{Key: "Größe", Value: fileSize},
+			{Key: "Hochgeladen am", Value: uploadedAt.Format(dsarTimeLayout)},
+			{Key: "Läuft ab am", Value: derefDateOrEmpty(expiresAt)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr employee document rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// hrProfileChangeRequestsModule discloses the matched user's self-service
+// profile change history -- what they asked to change, the old and new
+// value, and how it was decided. Both drawers (personal, job) share one
+// table and are disclosed together; the drawer value tells them apart.
+func hrProfileChangeRequestsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT drawer, field_label, old_value, new_value, status, reason, created_at, decided_at
+		 FROM hr_profile_change_requests
+		 WHERE tenant_id = $1 AND user_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query hr profile change requests: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module: "Änderungsanträge (Profil)",
+		Columns: []string{
+			"Bereich", "Feld", "Alter Wert", "Neuer Wert", "Status", "Grund", "Erstellt am", "Entschieden am",
+		},
+	}
+	for rows.Next() {
+		var drawer, fieldLabel, oldValue, newValue, status, reason string
+		var createdAt time.Time
+		var decidedAt *time.Time
+		if scanErr := rows.Scan(&drawer, &fieldLabel, &oldValue, &newValue, &status, &reason, &createdAt, &decidedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan hr profile change request: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Bereich", Value: drawer},
+			{Key: "Feld", Value: fieldLabel},
+			{Key: "Alter Wert", Value: oldValue},
+			{Key: "Neuer Wert", Value: newValue},
+			{Key: "Status", Value: status},
+			{Key: "Grund", Value: reason},
+			{Key: "Erstellt am", Value: createdAt.Format(dsarTimeLayout)},
+			{Key: "Entschieden am", Value: derefDateTimeOrEmpty(decidedAt)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: hr profile change request rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func derefDateTimeOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(dsarTimeLayout)
 }
 
 // ---------------------------------------------------------------------------

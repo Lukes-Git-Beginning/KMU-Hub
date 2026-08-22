@@ -2232,43 +2232,57 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
-    coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
+    status: done
+    coverage_start: "internal/security/gdpr 69,6 % (selbst gemessen, Iteration 59)"
     scope: >
-      Fuer einen gematchten Benutzer fehlt in der Auskunft die komplette HR-Flaeche:
+      SPLIT in Iteration 59 (siehe notes unten, ausdruecklich erlaubt): diese Unit liefert
+      Stammdaten+Dokumente+Aenderungsantraege (`hr_employee_profiles`, `hr_employee_documents`,
+      `hr_profile_change_requests`). Urlaub+Arbeitszeit (`hr_leave_requests`,
+      `hr_leave_balances`, `hr_work_time_entries`) ist als eigene Unit
+      `feat-dsar-search-user-hr-time-leave-module` ans Backlog-Ende gewandert.
+      Fuer einen gematchten Benutzer fehlte in der Auskunft die komplette HR-Flaeche:
       `hr_employee_profiles` (Adresse, Notfallkontakt, Vertragsart, Stundenlohn, Austrittsdaten,
-      `is_minor`), `hr_leave_requests`/`hr_leave_balances` (Urlaub), `hr_work_time_entries`
-      (Arbeitszeit inkl. Korrekturen), `hr_employee_documents` (hochgeladene Personaldokumente),
-      `hr_profile_change_requests`. Sechs Tabellen, alle ueber `user_id`/`employee_id` an `users`
-      gebunden, keine davon in `dsar_search.go` erwaehnt. Beschaeftigtendaten sind eine der
-      sensibelsten Kategorien unter der DSGVO.
+      `is_minor`), `hr_employee_documents` (hochgeladene Personaldokumente),
+      `hr_profile_change_requests`. Alle ueber `user_id`/`employee_id` an `users` gebunden, keine
+      davon in `dsar_search.go` erwaehnt. Beschaeftigtendaten sind eine der sensibelsten
+      Kategorien unter der DSGVO.
     sources:
       - backend/internal/security/gdpr/dsar_search.go
       - backend/internal/biz/hr/employee/postgres_repository.go
-      - backend/internal/biz/hr/leave/postgres_repository.go
-      - backend/internal/biz/hr/absence/postgres_repository.go
-      - backend/internal/biz/hr/timetracking/postgres_repository.go
       - backend/internal/biz/hr/changerequest/postgres_repository.go
     notes: >
-      Sechs Tabellen sind zu viel fuer eine einzige Funktion — je Tabelle ein eigenes Modul nach
-      dem Muster aus A7/A8, sonst wird die Funktion unlesbar. Wird die Unit dabei zu gross, nach
-      Vorbild von A9 in zwei Units teilen (z. B. Stammdaten+Dokumente vs. Zeit+Urlaub) und die
-      zweite ans Backlog-Ende haengen.
-      `hourly_rate` ist eine Geldangabe der eigenen Vergueltung — personenbezogen, gehoert rein.
-      `is_minor` ist ein Sonderfall (Daten Minderjaehriger) — nicht weglassen, aber pruefen, ob
-      dafuer eine zusaetzliche Handhabung noetig ist (z. B. gesetzlicher Vertreter), und die
-      Entscheidung im Journal begruenden statt stillschweigend zu setzen.
+      SPLIT durchgefuehrt wie in der urspruenglichen Notiz vorgeschlagen: "Stammdaten+Dokumente
+      vs. Zeit+Urlaub". Aenderungsantraege sind bei Stammdaten gelandet (dieselbe Tabellenform,
+      dieselbe RLS-Klasse: tenant_isolation ohne Rollen-Gate).
+      `hourly_rate` ist eine Geldangabe der eigenen Vergueltung — personenbezogen, ist drin.
+      `is_minor` wird als normales boolesches Feld offengelegt, OHNE Sonderbehandlung — begruendet
+      im Code-Kommentar bei `hrProfileModule`: das Schema hat keinen Vertreter-/Vormund-Kontakt,
+      an den eine Auskunft stattdessen geroutet werden koennte, und Art. 15 sieht fuer
+      Minderjaehrige keinen anderen Auskunftsmechanismus vor als fuer Erwachsene — die
+      DSGVO-Sonderbehandlung Minderjaehriger betrifft Einwilligung/Information bei der
+      Datenerhebung, nicht den Umfang eines spaeteren Auskunftsexports.
       `hr_employee_documents` folgt derselben Metadaten-only-Regel wie A5 (Dokumente): kein
-      Pfad, keine URL, kein Inhalt.
-      Korrigierte Zeiteintraege (`hr_work_time_entries.correction_approved_by`) gehoeren mit
-      Korrekturhistorie rein, nicht nur der finale Wert — sonst ist die Auskunft irrefuehrend.
+      Pfad, keine URL, kein Inhalt — per Test belegt (kein "/" in keinem Feldwert).
+      ECHTER FUND beim Bauen, in dieser Unit mitbehoben (kein eigener Fix-Unit-Eintrag noetig,
+      weil es dieselbe neue Query betrifft, die diese Unit ohnehin einfuehrt): anders als jede
+      andere von `dsar_search.go` gelesene Tabelle traegt `hr_employee_documents` eine
+      ROLLENBASIERTE RLS-Policy (`hr_document_access`, Migration 000127/000128) zusaetzlich zur
+      reinen `tenant_isolation` — sie verlangt `current_user_has_hr_role('admin'|'hr_admin')` oder
+      Manager/Self-Access je nach Dokumentkategorie-Sichtbarkeit. `DSARSearch`
+      (`security_grpc.go:579`) laeuft aber im normalen Anfrage-Kontext des Callers, nicht unter
+      `is_system_context()` — ein Security-/Compliance-Admin ohne HR-Rolle haette bei jeder
+      Auskunftsanfrage lautlos NULL Personaldokumente gesehen, obwohl sie existieren. Behoben mit
+      `sysctx.With(ctx)` um exakt diese eine Query, gleiches Muster wie
+      `RunScheduledRetention` bereits im selben Package (`retention_scheduler.go:46`) fuer den
+      identischen Fall nutzt. Mutations-Probe (siehe unten) belegt, dass die Luecke ohne den Fix
+      real war: Test faellt ohne `sysctx.With` auf "Modul nicht gefunden".
     done_when:
-      - Module fuer Profil, Urlaub, Arbeitszeit, Dokumente (Metadaten) und Aenderungsantraege
-        haengen an einem gematchten Benutzer
+      - Module fuer Profil, Dokumente (Metadaten) und Aenderungsantraege haengen an einem
+        gematchten Benutzer
       - is_minor-Behandlung ist im Code begruendet
       - Dokumente enthalten ausschliesslich Metadaten, per Test belegt
       - DB-Test inkl. Tenant-Isolation
-      - go test -count=1 ./internal/security/gdpr/... ./internal/biz/hr/... gruen
+      - go test -count=1 ./internal/security/gdpr/... gruen
 
   - id: feat-dsar-search-user-account-security-history-module
     phase: 3
@@ -3477,3 +3491,50 @@ units:
       - DB-Test in internal/work/task deckt beide Faelle plus den Positivfall ab
       - go test -count=1 ./internal/work/task/... ./internal/gateway/ gruen, DATABASE_URL
         gegen kmuhub_app
+
+  - id: feat-dsar-search-user-hr-time-leave-module
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr 70,1 % (selbst gemessen, Iteration 59, CI kann abweichen)"
+    scope: >
+      Zweite Haelfte des in Iteration 59 gesplitteten `feat-dsar-search-user-hr-employee-module`
+      (siehe dessen `notes` fuer die Split-Begruendung). Fuer einen gematchten Benutzer fehlt in
+      der Auskunft weiterhin: `hr_leave_requests` + `hr_leave_balances` (Urlaubsantraege und
+      -konto) und `hr_work_time_entries` (Arbeitszeit inkl. Korrekturhistorie).
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/biz/hr/leave/postgres_repository.go
+      - backend/internal/biz/hr/timetracking/postgres_repository.go
+    notes: >
+      Vorlage fuer die Modulform ist `hrProfileModule`/`hrEmployeeDocumentsModule`/
+      `hrProfileChangeRequestsModule` (alle drei neu in Iteration 59, direkt oberhalb von
+      `consentModule` in dsar_search.go) — gleiches fieldValueRecord-/DSARRecord-Muster, gleiche
+      Testform (`seedDSARUser`, `testutil.SeedRow`, `fieldValueMap`/`recordMaps`,
+      Tenant-Isolation).
+      RLS-Falle zuerst pruefen, nicht annehmen: `hr_employee_documents` hatte in Iteration 59 eine
+      rollenbasierte Policy (`hr_document_access`) statt reiner `tenant_isolation`, die die neue
+      DSAR-Query lautlos leerlaufen liess, weil `DSARSearch` (`security_grpc.go:579`) im normalen
+      Anfrage-Kontext ohne HR-Rolle laeuft. `\d hr_leave_requests`, `\d hr_leave_balances` und
+      `\d hr_work_time_entries` zeigen nach Stand Iteration 59 reine `tenant_isolation` — pruefen,
+      ob das noch stimmt, und falls eine der drei ebenfalls ein Rollen-Gate traegt, dasselbe
+      `sysctx.With(ctx)`-Muster anwenden wie in `hrEmployeeDocumentsModule`, mit Mutations-Probe
+      als Beleg.
+      Korrigierte Zeiteintraege (`hr_work_time_entries.correction_reason`,
+      `correction_approved_by`, `correction_approved_at`, `original_entry_id`, `status`
+      correction_pending/correction_approved/superseded) gehoeren mit Korrekturhistorie rein,
+      nicht nur der finale Wert — sonst ist die Auskunft irrefuehrend. Bei grosser Menge
+      aggregieren (Vorbild `timeEntriesModule`, pro Monat) UND die Korrekturen einzeln sichtbar
+      lassen, nicht wegaggregieren.
+      Urlaubskonto (`hr_leave_balances`) ist ein Snapshot pro Jahr, keine Liste — eigenes
+      Feld/Wert-Modul pro Jahr wie `advisoryProtocolModules` es pro Protokoll macht.
+    done_when:
+      - Module fuer Urlaubsantraege, Urlaubskonto und Arbeitszeit (inkl. Korrekturhistorie)
+        haengen an einem gematchten Benutzer
+      - Korrigierte Zeiteintraege zeigen die Korrektur, nicht nur den finalen Wert, per Test belegt
+      - Falls eine der drei Tabellen ein Rollen-Gate traegt: sysctx-Fix mit Mutations-Probe
+        belegt, sonst im Journal "kein Rollen-Gate, geprueft" vermerkt
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gegen kmuhub_app

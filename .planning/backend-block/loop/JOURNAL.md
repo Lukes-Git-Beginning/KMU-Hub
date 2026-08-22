@@ -3647,3 +3647,84 @@ Frühere Läufe liegen vollständig im Archiv:
     eigenen Inline-Query — bewusst so gewählt wegen der Feldzahl, aber ein Muster, das die
     übrigen Module in dieser Datei nicht verwenden. Falls das nicht gewünscht ist, wäre die
     Alternative eine Inline-Query analog zu den anderen Modulen, mit dupliziertem Scan.
+
+## Iteration 59 — feat-dsar-search-user-hr-employee-module — done — 2026-08-22 08:16
+- commit: (siehe nächster docs-Commit)
+- gebaut: Drei neue DSAR-Module in `internal/security/gdpr/dsar_search.go`, eingehängt in
+  `matchUsers` direkt nach den Notification-Modulen: `hrProfileModule` ("Personalprofil",
+  ein Feld/Wert-Modul aus `hr_employee_profiles`, LEFT JOIN auf `users` für den Vorgesetzten-
+  Namen — Abteilung, Position, Vertragsart, Arbeitstage/Woche, Urlaubsanspruch, Eintrittsdatum,
+  Notfallkontakt, Adresse, Stundenlohn, Status, Austrittsdaten, `is_minor`),
+  `hrEmployeeDocumentsModule` ("Personaldokumente (Metadaten)", reine Metadaten aus
+  `hr_employee_documents` + Kategorie-Name via JOIN — kein Pfad, keine URL, kein Inhalt, gleiche
+  Regel wie A5) und `hrProfileChangeRequestsModule` ("Änderungsanträge (Profil)", Bereich/Feld/
+  Alter Wert/Neuer Wert/Status/Grund/Zeitstempel aus `hr_profile_change_requests`).
+  `is_minor` wird als normales Boolean-Feld offengelegt, ohne Sonderroute — begründet im
+  Docstring von `hrProfileModule`: kein Vertreter-/Vormund-Kontakt im Schema, an den eine
+  Auskunft stattdessen gehen könnte, und Art. 15 unterscheidet den AuskunftsUMFANG nicht nach
+  Alter (die DSGVO-Sonderbehandlung Minderjähriger betrifft Einwilligung/Information bei der
+  Erhebung, nicht den späteren Export).
+  SPLIT gegenüber der ursprünglichen Unit (die sechs Tabellen wollte): Urlaub
+  (`hr_leave_requests`, `hr_leave_balances`) und Arbeitszeit (`hr_work_time_entries`) sind als
+  neue Unit `feat-dsar-search-user-hr-time-leave-module` ans Backlog-Ende gewandert — die Notiz
+  der Original-Unit erlaubte diesen Split ausdrücklich ("Stammdaten+Dokumente vs. Zeit+Urlaub").
+  ECHTER FUND, in dieser Unit direkt mitbehoben statt als Fix-Unit angelegt (dieselbe neue Query
+  betrifft es unmittelbar): `hr_employee_documents` trägt als einzige der sechs HR-Tabellen eine
+  rollenbasierte RLS-Policy (`hr_document_access`, Migration 000127/000128) statt der reinen
+  `tenant_isolation`, die alle übrigen von `dsar_search.go` gelesenen Tabellen haben — sie
+  verlangt `current_user_has_hr_role('admin'|'hr_admin')` oder Manager-/Self-Access je nach
+  Dokumentkategorie-Sichtbarkeit. `DSARSearch` (`security_grpc.go:579`) läuft im normalen
+  Anfrage-Kontext des aufrufenden Nutzers, nicht unter `is_system_context()` — ein Security-/
+  Compliance-Admin ohne HR-Rolle hätte bei jeder Auskunftsanfrage lautlos null Personaldokumente
+  gesehen, obwohl sie existieren (mit `hr_only`-Sichtbarkeit sogar garantiert null). Fix:
+  `sysctx.With(ctx)` um genau diese eine Query, exakt das Muster, das `RunScheduledRetention`
+  bereits im selben Package (`retention_scheduler.go:46`) für denselben Fall nutzt — die
+  tenant_id- und employee_id-Prädikate in der WHERE-Klausel bleiben die eigentliche Zugriffs-
+  eingrenzung, sysctx entfernt nur das zusätzliche Rollen-Gate, das für eine gesetzliche
+  Offenlegungspflicht nicht greifen darf.
+  Sechs neue DB-Tests: `TestSearchByQuery_UserHRProfile_Integration`,
+  `..._UserHRProfile_NoneIsNoModule_Integration` (Nutzer ohne HR-Profil trägt kein Modul),
+  `..._UserHRDocuments_Integration` (seedet ein Dokument mit `hr_only`-Sichtbarkeit und beweist
+  über den normalen, rollenlosen Tenant-Kontext, dass es trotzdem erscheint — das ist der
+  Beleg für den RLS-Fix; zusätzlich ein Grep über alle Feldwerte, dass kein "/" auftaucht),
+  `..._UserHRProfileChangeRequests_Integration`, alle mit Tenant-Isolation.
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/...`, testkompiliert) | lint ok (0 issues, `./internal/security/...`)
+  | test ok (`./internal/security/gdpr/` vollständig grün, 0 SKIP gegen `kmuhub_app`;
+  `./internal/security/...` gesamt ebenfalls grün) | migration n.a. (keine neue Tabelle, keine
+  Policy geändert — nur eine bestehende Policy im Code umgangen, nicht in der DB verändert)
+  | rls-smoke n.a. (kein Schema/Policy-Wechsel; die RLS-Wirkung selbst ist über die
+  `UserHRDocuments`-Integrationstests bereits als echter Tenant-/Rollen-Test erbracht)
+  | TestOpenAPIRouteDrift nicht gelaufen — keine Route in dieser Unit angefasst, daher nicht
+  Pflicht (Regel greift "sobald du eine Route angefasst hast")
+- coverage: `internal/security/gdpr` 69,6 % -> 70,1 % (selbst gemessen: `git stash push` auf
+  genau die zwei geänderten Dateien, danach `stash pop`). `coverage_start` der Unit war als
+  Platzhalter "seit Iteration 40 mehrfach verändert" eingetragen — das ist die Laufzeitmessung.
+- mutations-probe: `sysctx.With(ctx)` in `hrEmployeeDocumentsModule` durch `ctx` ersetzt (den
+  RLS-Fix aufgehoben) → `TestSearchByQuery_UserHRDocuments_Integration` wird rot mit
+  `module "Personaldokumente (Metadaten)" not found, have [Benutzerkonto]` — das Modul
+  verschwindet komplett, nicht nur einzelne Felder, weil die Query unter der role-gated Policy
+  null Zeilen liefert. Zurückgedreht, `git diff --stat dsar_search.go` zeigt wieder exakt die
+  ursprünglichen 224 Insertions, Paket erneut vollständig grün.
+- verify vorgänger: sauber. `8b490d2d` (Iteration 58, feat-dsar-search-contact-advisory-protocol-
+  module) gegen alle acht Fehlerklassen geprüft (`git show` Volltextdiff) — reine
+  Repository-Wiederverwendung (`advisoryprotocol.NewPostgresRepository(pool).ListByContact`),
+  kein direkter Service-Aufruf am gRPC-Client vorbei (dies ist ohnehin kein Gateway-Handler,
+  sondern derselbe interne DSAR-Suchpfad wie alle anderen Module in der Datei), kein Stub, kein
+  `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine Route,
+  keine Wire-Shape-Änderung (reine Go-Struct-Rückgabe innerhalb des Pakets).
+- neue-units: feat-dsar-search-user-hr-time-leave-module (Urlaub + Arbeitszeit, Restarbeit aus
+  dem Split, ans Backlog-Ende gehängt, inkl. Hinweis, das RLS-Rollen-Gate-Muster aus dieser
+  Iteration bei den drei verbleibenden Tabellen gegenzuprüfen)
+- offen:
+  - Der RLS-Fund ist wahrscheinlich kein Einzelfall: `hr_document_access` war laut seiner
+    eigenen Migrationsnotiz (000127) eine bewusste Verschärfung gegenüber einer vorherigen
+    reinen `tenant_isolation`-Policy auf genau dieser einen Tabelle. Andere rollen- oder
+    sichtbarkeitsgated Policies (falls es sie z. B. bei Finance- oder Vertrags-Tabellen gibt)
+    könnten denselben stillen Leerlauf für jede künftige DSAR-Erweiterung erzeugen. Wäre ein
+    guter Kandidat für einen der Block-C-Scans (Muster: "role-gated RLS policy joined from
+    dsar_search.go under a non-system caller context").
+  - `hrProfileModule` liest `manager_user_id` nur zur Namensauflösung, prüft aber nicht, ob der
+    Vorgesetzte selbst gematchter DSAR-Subjekt ist — das ist beabsichtigt (die Auskunft betrifft
+    nur den einen Nutzer), aber falls die Oberfläche Vorgesetzten-Namen anklickbar macht, wäre
+    das ein eigener Datenpfad, kein Fund hier.
