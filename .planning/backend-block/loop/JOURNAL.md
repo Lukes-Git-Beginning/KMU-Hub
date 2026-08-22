@@ -3249,7 +3249,7 @@ Frühere Läufe liegen vollständig im Archiv:
     vollen Fake fuer gRPC-Handler-Tests bauen will, ist das der aktuelle Stand.
 
 ## Iteration 52 — fix-gateway-email-service-unavailable-status-code — done — 2026-08-22 07:34
-- commit: (siehe naechste docs(loop)-Iteration)
+- commit: edceea8e
 - gebaut: Root Cause war die hartkodierte Fehlerantwort in `route_email.go` selbst, nicht in
   einer Schwesterfunktion: alle 58 Vorkommen von `response.Error(w, http.StatusBadGateway,
   "email service unavailable")` im Client-Fetch-Fehlerpfad sind durch
