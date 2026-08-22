@@ -160,6 +160,38 @@ func TestCalculate_MultipleItemsSameRate_Aggregation(t *testing.T) {
 	assert.True(t, result.GrossTotal.Equal(d("119.00")), "gross total should be 119.00, got %s", result.GrossTotal)
 }
 
+func TestCalculate_FractionalRate_DoesNotCollideWithWholeRate(t *testing.T) {
+	// 7.5% and 7% must aggregate into two separate groups, not one "7" bucket.
+	items := []LineItem{
+		{Quantity: d("1"), UnitPrice: d("100.00"), TaxRate: d("7.50")},
+		{Quantity: d("1"), UnitPrice: d("100.00"), TaxRate: d("7.00")},
+	}
+
+	result := Calculate(items, ModeStandard)
+
+	assert.Len(t, result.TaxByRate, 2, "7.5%% and 7%% must be distinct groups, got %v", result.TaxByRate)
+	assert.True(t, result.TaxByRate["7.5"].Equal(d("7.50")), "tax at 7.5%% should be 7.50, got %s", result.TaxByRate["7.5"])
+	assert.True(t, result.TaxByRate["7"].Equal(d("7.00")), "tax at 7%% should be 7.00, got %s", result.TaxByRate["7"])
+	assert.True(t, result.TotalTax.Equal(d("14.50")), "total tax should be 14.50, got %s", result.TotalTax)
+}
+
+func TestCalculate_ZeroRateLineInStandardMode_CreatesNoRateGroup(t *testing.T) {
+	// A 0% line alongside taxable lines must not create a "0" TaxByRate group --
+	// that would render and export as VAT category S at 0%, which EN 16931 rejects.
+	items := []LineItem{
+		{Quantity: d("1"), UnitPrice: d("100.00"), TaxRate: d("19.00")},
+		{Quantity: d("1"), UnitPrice: d("50.00"), TaxRate: d("0.00")},
+	}
+
+	result := Calculate(items, ModeStandard)
+
+	assert.Len(t, result.TaxByRate, 1, "the 0%% line must not create its own group, got %v", result.TaxByRate)
+	_, hasZeroGroup := result.TaxByRate["0"]
+	assert.False(t, hasZeroGroup, "TaxByRate must not carry a \"0\" key")
+	assert.True(t, result.Subtotal.Equal(d("150.00")), "subtotal should still include the 0%% line, got %s", result.Subtotal)
+	assert.True(t, result.TotalTax.Equal(d("19.00")), "total tax should be unaffected, got %s", result.TotalTax)
+}
+
 func TestRequiresReverseChargeNote(t *testing.T) {
 	assert.True(t, RequiresReverseChargeNote(ModeReverseCharge))
 	assert.False(t, RequiresReverseChargeNote(ModeStandard))

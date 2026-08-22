@@ -195,3 +195,53 @@ Frühere Läufe liegen vollständig im Archiv:
   hätte beim Empfänger abgelehnt werden können. Beide Zahlen decken sich erst wieder, wenn die
   Schreibseite nachzieht. (4) Nicht angefasst, weil eigene Units: `tax.Calculate` rundet die
   Zeilensteuer, aber nicht das Zeilennetto (A4), und sein Rate-Key trunkiert weiterhin (A3).
+
+---
+
+## Iteration 3 — fix-tax-calculator-rate-key-collision — done — 2026-08-22 23:25
+- commit: <sha>
+- gebaut: `tax.Calculate` (`internal/biz/tax/calculator.go`) hatte zwei Fehler in einer Zeile
+  (`rateKey := item.TaxRate.Truncate(0).StringFixed(0)`). Erstens fiel ein Satz von 7,5 % unter
+  denselben Schlüssel "7" wie 7 % — beide Sätze wurden zu einer Gruppe verschmolzen, mit dem
+  falschen Steuerbetrag je Satz. Neue Funktion `rateGroupKey` formatiert stattdessen minimal
+  (`"19"`, `"7"`, aber `"7.5"` bleibt `"7.5"`), per `StringFixed(2)` + `TrimRight` auf Nullen und
+  Punkt — kein Float, wie vom Package-Kommentar gefordert. Zweitens erzeugte eine 0-%-Zeile im
+  Standardmodus (z. B. eine Position ausserhalb des Anwendungsbereichs auf einer sonst
+  steuerpflichtigen Rechnung) eine eigene Gruppe "0" mit 0,00 Steuer; diese Nullgruppe hätte in
+  der Rechnung und der E-Rechnung als USt-Kategorie S mit Satz 0 auftauchen können, was ein
+  EN-16931-Validator zurückweist (S verlangt einen positiven Satz). Die Zeile wird jetzt zwar
+  weiter besteuert (0 EUR Steuer, korrekt) und geht ins Subtotal ein, erzeugt aber keinen
+  TaxByRate-Eintrag mehr.
+  Alle fünf Aufrufer geprüft (`invoice/service.go`, `quote/service.go`, `creditnote/service.go`,
+  `recurring/service.go`, `server/biz_grpc.go:parseProtoTaxBreakdown`, `pdf/templates.go`): keiner
+  parst den Rate-Key als Zahl, alle reichen ihn als String-Map-Key durch (JSONB-Storage bzw.
+  `fmt.Sprintf("MwSt %s%%", rate)` im PDF) — kein Aufrufer musste mitgezogen werden.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/biz/tax 100 % -> 100 % (eigene Messung vor/nach, `go tool cover -func`; das
+  Paket war schon vor dem Fix voll gedeckt — der Fund war ein Korrektheitsbug, keine Lücke,
+  Coverage sagt hier nichts aus, siehe Scope-Text der Unit).
+- mutations-probe: zwei Läufe, jeweils per sed-Mutation gegen eine Kopie geprüft und aus der
+  Kopie zurückgestellt (kein `git checkout`, siehe offen (1)), Diff am Ende sauber.
+  (a) `rateGroupKey(item.TaxRate)` zurück auf `item.TaxRate.Truncate(0).StringFixed(0)` ->
+  `TestCalculate_FractionalRate_DoesNotCollideWithWholeRate` rot: `map[7:14.5]` statt zwei
+  getrennter Gruppen, "tax at 7.5% should be 7.50, got 0".
+  (b) `if !item.TaxRate.IsZero()` zu `if true` -> `TestCalculate_ZeroRateLineInStandardMode_
+  CreatesNoRateGroup` rot: `map[0:0 19:19]` statt einer Gruppe, "TaxByRate must not carry a \"0\"
+  key".
+- verify vorgaenger: sauber — `90353058` (Iteration 2) rundet Zeilennetto vor der Summierung im
+  E-Rechnungs-Generator und leitet BT-117 aus dem fertigen Gruppennetto ab; kein neuer
+  Gateway-Handler, kein Stub/TODO, kein `.proto`, keine Migration, kein `RequirePermission`,
+  keine neue Tabelle, keine Route, keine Response-Form geändert. `e357c10c` trägt nur die
+  fehlende SHA im Journal nach, kein Codewechsel.
+- neue-units: keine
+- offen: (1) Bei dieser Iteration hat `git checkout -- <datei>` nach der ersten Mutations-Probe
+  den kompletten unversionierten Fix auf den letzten Commit zurückgesetzt statt nur die Probe
+  rückgängig zu machen (der Fix war ja selbst noch nicht committet). Der Fix musste danach neu
+  geschrieben werden — inhaltlich identisch (per Diff verglichen), aber ein vermeidbarer
+  Zeitverlust. Für künftige Iterationen: Mutations-Proben gegen eine `cp`-Sicherungskopie fahren
+  und aus der Kopie zurückschreiben, nicht `git checkout` auf einer Datei mit uncommiteten
+  Änderungen. (2) DB-Gate lief mit `DATABASE_URL` als `kmuhub_app`, 0 übersprungene Tests über
+  tax/invoice/quote/creditnote/recurring/pdf/server. `go test ./internal/gateway/ -run
+  TestOpenAPIRouteDrift` grün, obwohl keine Route angefasst wurde. (3) `fix-tax-calculator-line-
+  total-unrounded` (nächste Unit, deps auf diese) rundet das Zeilennetto — dort wird auch
+  `assertTotalsMatch`/`totalsTolerance` aus A2 gegengeprüft, wie in deren Notes verlangt.

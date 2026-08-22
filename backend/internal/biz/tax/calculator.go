@@ -5,6 +5,8 @@
 package tax
 
 import (
+	"strings"
+
 	"github.com/shopspring/decimal"
 )
 
@@ -75,13 +77,18 @@ func Calculate(items []LineItem, mode TaxMode) Breakdown {
 			lineTax := lineTotal.Mul(item.TaxRate).Div(hundred).Round(2)
 			totalTax = totalTax.Add(lineTax)
 
-			// Aggregate by rate key (strip trailing zeros for clean keys: "19.00" -> "19")
-			rateKey := item.TaxRate.Truncate(0).StringFixed(0)
-			existing, ok := taxByRate[rateKey]
-			if !ok {
-				existing = decimal.Zero
+			// A 0% line in standard mode (e.g. an out-of-scope item on an otherwise
+			// taxable invoice) must not create a rate group: TaxByRate has no category
+			// of its own, so a "0" key renders and exports as VAT category S at 0%,
+			// which every EN 16931 validator rejects (S requires a positive rate).
+			if !item.TaxRate.IsZero() {
+				rateKey := rateGroupKey(item.TaxRate)
+				existing, ok := taxByRate[rateKey]
+				if !ok {
+					existing = decimal.Zero
+				}
+				taxByRate[rateKey] = existing.Add(lineTax)
 			}
-			taxByRate[rateKey] = existing.Add(lineTax)
 		}
 	}
 
@@ -98,6 +105,17 @@ func Calculate(items []LineItem, mode TaxMode) Breakdown {
 		TotalTax:   totalTax,
 		GrossTotal: grossTotal,
 	}
+}
+
+// rateGroupKey formats a tax rate as a TaxByRate map key: whole rates stay bare
+// ("19", "7"), fractional rates keep the decimal ("7.5"). Truncating to an integer
+// (the previous behaviour) collided 7.5% into the same key as 7% — two different
+// legal rates aggregated into one, silently picking whichever's revenue account
+// happened to be looked up last.
+func rateGroupKey(rate decimal.Decimal) string {
+	s := rate.StringFixed(2)
+	s = strings.TrimRight(s, "0")
+	return strings.TrimRight(s, ".")
 }
 
 // RequiresReverseChargeNote returns true if the tax mode requires a Reverse Charge note
