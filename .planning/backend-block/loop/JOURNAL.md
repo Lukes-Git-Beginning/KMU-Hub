@@ -1041,7 +1041,7 @@ Frühere Läufe liegen vollständig im Archiv:
   bedingungslos wahr machen (`$N::uuid IS NOT NULL OR true`) als den Platzhalter ganz zu entfernen.
 
 ## Iteration 19 — cov-dunning-repository-core-real-sql — done — 2026-08-23 01:05
-- commit: <wird nach dem Commit ergaenzt>
+- commit: 54e6b37a
 - gebaut: `internal/biz/dunning` hatte wie `payment` (vor Lauf 11) keinen einzigen DB-Test. Neue
   ungetaggte `postgres_repository_db_test.go` deckt Create/GetByID (Decimal-Roundtrip fuer fee und
   interest ADR-0007, Fremdtenant -> ErrDunningNotFound), List mit Filter+Paginierung (Status-Filter,
