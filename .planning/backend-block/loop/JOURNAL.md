@@ -4370,7 +4370,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 73 — fix-integration-mapping-delete-fk-crash — done — 2026-08-22 09:54
-- commit: (folgt nach Commit unten)
+- commit: b6498957
 - gebaut: `integration_delivery_log.mapping_id` traegt `ON DELETE NO ACTION`
   (`migrations/000053_create_integration_tables.up.sql:55`), `DeleteChannelMapping`
   (`notification_grpc.go`) rief `s.integrationRepo.DeleteMapping` bisher ohne Vorab-Pruefung auf —
