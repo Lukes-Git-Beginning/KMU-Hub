@@ -1742,3 +1742,65 @@ Frühere Läufe liegen vollständig im Archiv:
     zurueckgedreht.
   - Kein DB-Gate ausser dem regulaeren Testlauf und dem neuen DB-Test noetig (keine Migration,
     keine Tabelle/Policy beruehrt).
+
+## Iteration 29 — cov-gateway-crm-companies — done — 2026-08-22 04:53
+- commit: (wird nach diesem Eintrag gesetzt, siehe Folgecommit)
+- gebaut: `internal/gateway/route_crm_companies_test.go` neu — deckt alle 6 Handler aus
+  `route_crm_companies.go` ab (Create, Get, List, Update, Delete, GetCompanyContacts). Ein Teil
+  war schon in `route_crm_test.go` gestreut (Create ServiceUnavailable/NoUserID/InvalidJSON/
+  MissingName, Get InvalidUUID) — diese wurden NICHT dupliziert (Buildfehler durch doppelte
+  Funktionsnamen zeigte das sofort), sondern im Header der neuen Datei referenziert. Neu
+  hinzugekommen: ServiceUnavailable fuer die vier bislang ungetesteten Handler (List/Update/
+  Delete/GetCompanyContacts), Create InvalidTagID (dive+uuid-Validierung auf `tag_ids`),
+  Update InvalidID/InvalidJSON/BlankNameRejected, Delete InvalidID, GetCompanyContacts InvalidID,
+  sowie je ein ReachesRPC-Test pro Handler.
+  Loeschverhalten bei haengenden Kontakten gegen `pg_constraint` geprueft statt vermutet: die FK
+  `contacts.company_id -> companies(id)` ist `ON DELETE SET NULL` (Migration 000007) — anders als
+  bei `contacts` selbst gibt es HIER keine RESTRICT-FK auf dieser Kante. Der 409-Block kommt
+  ausschliesslich aus `company.Service.Delete`s eigenem `HasContacts`-Check (`ErrCompanyInUse`),
+  bereits vollstaendig getestet in `internal/crm/company/service_test.go` und
+  `postgres_repository_db_test.go` (`TestService_Delete_HangingContactsBlockDeletionButForeign
+  TenantContactDoesNot`). Die einzige RESTRICT-foermige FK auf `companies` ist die
+  selbstreferenzielle `merged_into_id` (Migration 000059, kein `ON DELETE` = NO ACTION) — sie
+  haengt aber an einem eigenen Merge-Endpunkt (`route_crm_ext.go:118` `HandleMergeCompanies`,
+  Route `/api/v1/companies/merge`), nicht an `HandleDeleteCompany`; per Grep bestaetigt, keine
+  Fix-Unit noetig. Cross-Tenant-Isolation ist bereits per RLS-Test belegt
+  (`internal/crm/company/rls_test.go`) und per tenant-gescopter Query in
+  `PostgresRepository.GetByID` (`WHERE id = $1 AND tenant_id = $2`) — keine neue Duplizierung
+  auf Gateway-Ebene noetig, wie schon in Iteration 28 fuer Advisory Protocols begruendet.
+  Berechtigungsgrenze (403) liegt am Router (`route_crm.go:51-54`,
+  `RequirePermissionAny{"companies","..."} | {"crm:contact","..."}`), nicht im Handler — wie bei
+  Advisory ist das kein Testfall auf Handler-Ebene.
+- gate: build ok (`-p 2` gateway/..., crm/..., cmd/gateway/..., cmd/crm/...) | vet ok
+  (gateway/..., crm/...) | lint ok (0 issues, gateway/..., crm/...) | test ok (`internal/gateway`
+  komplett gruen inkl. TestOpenAPIRouteDrift [836 Routen gegen 838 dokumentierte Pfade,
+  unveraendert — keine neue Route], 0 SKIP; `internal/crm/...` komplett gruen mit `-p 1`
+  [Parallel-Lauf ueber alle CRM-Pakete sprengt lokal die Postgres-Verbindungsgrenze, kein Befund
+  an meinem Code], 0 SKIP in `internal/crm/company`; DATABASE_URL gegen kmuhub_app) | migration
+  n.a. (keine Schemaaenderung) | rls-smoke n.a. (keine neue Tabelle/Policy; bestehender
+  `rls_test.go` deckt `companies` bereits ab, nicht Gegenstand dieser Unit)
+- coverage: internal/gateway 50,9 % -> 51,2 % (eigene Messung per `git stash -u` gegen den
+  Vorgaenger-Commit, danach `git stash pop`; deckt sich mit dem in Iteration 28 protokollierten
+  Endstand, nicht mit dem veralteten `coverage_start` der Unit von 46,1 %). internal/crm/company
+  unveraendert (diese Unit hat dort keine neue Testdatei angelegt, nur die bestehenden Service-/
+  Repository-Tests als Beleg referenziert).
+- mutations-probe: In `route_crm_companies.go` `createCompanyRequest.TagIDs`s Validate-Tag von
+  `"omitempty,dive,uuid"` auf `"omitempty"` verkuerzt -> `TestHandleCreateCompany_InvalidTagID`
+  wird rot (503 mit gRPC-Connection-Error statt 400 mit `validation_failed` auf `tag_ids[0]`, weil
+  die Validierung nicht mehr greift und der Request unvalidiert die RPC erreicht). Zurueckgedreht
+  -> gruen (`go test ./internal/gateway/`), `git diff --stat` zeigt 0 Zeilen fuer
+  `route_crm_companies.go`.
+- verify vorgaenger: sauber. `0bef55d2` (reines Journal-SHA-Nachtragen, 1 Zeile) und `2ac82165`
+  (Iteration 28, Advisory-Protocol-Routen) gegen alle acht Fehlerklassen geprueft: `git show
+  --stat` zeigt bei `2ac82165` nur `BACKLOG.yml`, `JOURNAL.md`, eine neue reine Gateway-Testdatei
+  und eine neue DB-Testfunktion in `postgres_repository_db_test.go` — kein gRPC-Bypass (Handler
+  bleiben thin pass-throughs ueber den CRM-Client), kein Stub/TODO, kein `.proto` angefasst, keine
+  neue `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt,
+  keine neue Route.
+- neue-units: keine
+- offen:
+  - `fix-email-contacts-csv-export-formula-injection` (Iteration 27) und
+    `fix-gateway-advisory-product-riskclass-not-validated` (Iteration 28) stehen weiterhin
+    unbearbeitet am Backlog-Ende und sollten vor Block C gezogen werden.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
+    beruehrt in dieser Iteration).
