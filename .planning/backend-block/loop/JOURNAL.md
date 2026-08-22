@@ -5156,3 +5156,63 @@ Frühere Läufe liegen vollständig im Archiv:
   eine der noch offenen `scan-*`-Units auf denselben unverarbeiteten Vorbereitungs-Entwurf
   zurueckgeht, lohnt sich ein kurzer Blick, ob dort noch mehr unbereinigte Duplikate stecken.
   Kein konkreter Verdacht, nur eine Beobachtung fuer die naechste Iteration.
+
+## Iteration 87 — fix-csv-formula-injection-remaining-exports — done — 2026-08-22 11:52
+- commit: 31c6f439
+- gebaut: `internal/csvutil/formula.go` (neues Paket, `NeutralizeFormulaCell` — dieselbe
+  Regel wie bisher in `email/contact/export_service.go`: fuehrendes `=`,`+`,`-`,`@` bekommt ein
+  vorangestelltes `'`). Die alte private Kopie in `export_service.go` ist geloescht, die Datei
+  ruft jetzt `csvutil.NeutralizeFormulaCell`. Angewandt auf drei bestaetigte Stellen:
+  `internal/formulare/service.go:buildCSV` (SubmittedBy und jeder stringifizierte Antwortwert
+  aus dem JSONB-`answers`-Payload, NACH `fmt.Sprintf("%v", v)` wie in den Notes gefordert),
+  `internal/security/audit/export.go:ExportCSV` (Target, Details, UserAgent — Action/TargetType/
+  Result blieben unveraendert, das sind interne Enums/IDs, keine Freitextfelder),
+  `internal/biz/dunning/service_gobd.go:buildGoBDCSV` (CustomerName; BookingText geprueft und
+  NICHT angefasst — `biz_grpc.go:2533` baut ihn als `fmt.Sprintf("Rechnung %s %s", number,
+  customer)`, das erste Zeichen ist immer das literale `R`, also nie vom Kunden auf Position 0
+  kontrollierbar).
+- GoBD-Entscheidung (Pflichtzeile laut Unit-Notes): Apostroph-Praefix statt Anfuehrungszeichen-
+  Zwang gewaehlt. Begruendung: das GoBD-CSV wird in diesem Repo an keiner Stelle re-importiert
+  (Grep nach einem Parser fuer `buildGoBDCSV`-Output ergab nichts — der Zweck ist Pruefer-Export
+  fuer IDEA/Excel-Review, keine Round-Trip-Buchhaltungsschnittstelle), es gibt also keinen
+  eigenen Test, der eine Apostroph-Toleranz belegen oder widerlegen koennte. Eine unneutralisierte
+  Formel in einem Export, der routinemaessig in Excel geoeffnet wird (Betriebspruefung), ist das
+  groessere Risiko als ein optisches fuehrendes Zeichen in einer Textzelle — dieselbe Abwaegung,
+  die Iteration 53 fuer den Kontaktexport bereits getroffen hat. Non-Goal ausdruecklich beachtet:
+  der Datensatz selbst (GoBDExportRow.CustomerName) bleibt unveraendert, nur die CSV-Zelle in
+  `buildGoBDCSV` aendert sich.
+- gate: build ok (`go build -p 2` ueber alle fuenf betroffenen Pakete plus `internal/gateway`,
+  keine Route angefasst) | vet ok | lint ok (`golangci-lint run` ueber alle fuenf Pakete: 0
+  issues) | test ok — `go test -count=1 -v` ueber `internal/csvutil`, `internal/email/contact`,
+  `internal/formulare`, `internal/security/audit`, `internal/biz/dunning`: alle vier bestehenden
+  Pakete weiterhin gruen, 0 SKIP (`grep -c "^--- SKIP"` = 0, `DATABASE_URL` gegen `kmuhub_app`
+  gesetzt) | migration: n.a. (keine neue Tabelle/Spalte) | rls-smoke: n.a. (keine Tabelle/Policy
+  angefasst, reine Praesentationsschicht in CSV-Export-Funktionen)
+- coverage: `internal/csvutil` n.a. -> 100,0 % (neues Paket, 5 Zeilen, vollstaendig getestet)
+  `internal/email/contact` 80,4 % -> 80,2 % (Datei nur intern verschoben, minimal negativ durch
+  Paketgroessen-Rundung, kein Verhalten geaendert) `internal/formulare` 53,5 % -> 53,6 %
+  `internal/security/audit` 80,1 % -> 80,1 % (unveraendert trotz neuer Testdatei — das Paket ist
+  bereits sehr gut abgedeckt, `ExportCSV` selbst war zuvor ungetestet und ist es jetzt nicht mehr,
+  das Delta verschwindet aber in der Rundung auf eine Nachkommastelle) `internal/biz/dunning`
+  61,8 % -> 61,8 % (gleicher Effekt: `buildGoBDCSV` war schon indirekt ueber die bestehenden
+  GenerateGoBDExport-Tests abgedeckt, die zwei neuen Tests pruefen jetzt zusaetzlich das
+  Neutralisierungsverhalten, ohne neue Zeilen zu durchlaufen, die vorher nie liefen). Alle vier
+  Werte per `git stash -u` auf demselben Tree vs. danach gemessen, `coverage_start:` der Unit war
+  "n.a." (Sicherheits-Fix ohne Coverage-Ziel), insofern nur zur Dokumentation.
+- mutations-probe: in `csvutil/formula.go` `case '=', '+', '-', '@':` zu `case '=', '+', '-':`
+  verkuerzt (das `@`-Praefix entfernt) — `TestNeutralizeFormulaCell` in
+  `internal/csvutil/formula_test.go` wurde sofort rot (`NeutralizeFormulaCell("@SUM(1,2)") =
+  "@SUM(1,2)", want "'@SUM(1,2)"`). Zurueckgedreht, `git diff internal/csvutil/formula.go` danach
+  leer (Datei ist neu/untracked, Soll-Inhalt manuell gegenkontrolliert), alle fuenf Pakete erneut
+  gruen.
+- verify vorgaenger: Iteration 86 hatte `commit: -` (reines Dedup-Erkennen ohne Codeaenderung,
+  siehe deren Journal-Eintrag). Der letzte echte Code-Commit ist `5ef54498` (Iteration 85) und
+  wurde bereits in Iteration 86 gegen alle acht Fehlerklassen geprueft ("sauber"). Der
+  dazwischenliegende `2571436c` ist ein reiner Journal/Backlog-Doku-Commit (`git show --stat`:
+  nur `BACKLOG.yml` und `JOURNAL.md`), fuer die acht Fehlerklassen nicht relevant.
+- neue-units: fix-csv-xlsx-formula-injection-remaining-writers (deckt `buildXLSX` in
+  `internal/formulare/service.go` — dieselbe Antwort-Map, aber ueber excelize statt CSV
+  geschrieben, vermutlich ein anderer Neutralisierungsmechanismus noetig — sowie die drei laut
+  Scope dieser Unit ausdruecklich ungeprueften `csv.NewWriter`-Stellen in
+  `internal/server/inventar_grpc.go`, `vermietung_grpc.go`, `fuhrpark_grpc.go`).
+- offen: keine.
