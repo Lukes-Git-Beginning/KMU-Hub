@@ -3316,7 +3316,7 @@ Frühere Läufe liegen vollständig im Archiv:
     in den Notes genannten drei Dateien zu verlassen.
 
 ## Iteration 53 — fix-email-contacts-csv-export-formula-injection — done — 2026-08-22 07:52
-- commit: (wird nach diesem Eintrag gesetzt)
+- commit: bace843a
 - gebaut: `neutralizeFormulaCell` in `internal/email/contact/export_service.go` — eine
   Hilfsfunktion, die jedem der sieben CSV-Feldwerte in `ExportCSV` unmittelbar vor
   `row = append(row, ...)` vorgeschaltet ist (Umbau der switch-Faelle auf ein gemeinsames `val`,
