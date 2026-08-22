@@ -5434,3 +5434,54 @@ Frühere Läufe liegen vollständig im Archiv:
   `todo`-Unit im Backlog — naechste Iteration zieht sie. `fix-booking-page-orphaned-after-owner-erasure`
   bleibt `blocked` auf Lukes Produktentscheidung (unveraendert seit Iteration 90). DB-Gate lief
   real (kmuhub_app, 0 SKIP).
+
+## Iteration 92 — fix-work-task-custom-field-errors-swallowed-on-create-update — done — 2026-08-22 12:52
+- commit: (siehe naechster Eintrag, wird nach dem Commit ergaenzt)
+- gebaut: `CreateTask` (work_grpc.go:606) und `UpdateTask` (:818) werfen den Fehler von
+  `SetCustomFieldValues` nicht mehr per `_ =` weg. Gewaehlter Weg ist (b) aus den Unit-notes: der
+  Task ist zu diesem Zeitpunkt bereits angelegt/aktualisiert, ein nachtraeglicher Fehlschlag der
+  Antwort wuerde dem Client einen Fehlschlag fuer eine teilweise abgeschlossene Operation
+  vortaeuschen. Stattdessen `slog.Warn("task custom field values not applied", "task_id", ...,
+  "tenant_id", ..., "field_ids", ..., "error", cfErr)`, Wire-Antwort unveraendert. `field_ids`
+  listet ALLE versuchten Feld-IDs (nicht nur eine): `SetCustomFieldValues` laeuft in einer
+  einzigen Transaktion und meldet nur den ersten Fehler zurueck, welches Feld genau schuld war,
+  ist aus dem Rueckgabewert nicht rekonstruierbar — der volle versuchte Satz ist das, was im
+  Ernstfall noch diagnostizierbar bleibt. Neuer Helper `customFieldIDStrings` fuer beide Stellen
+  gemeinsam (drittes Mal waere Kopie gewesen, siehe Warnung in den notes von A8).
+  Zwei neue Tests in `work_project_task_test.go`
+  (`TestCreateTask_CustomFieldFailureIsLoggedNotSwallowed`,
+  `TestUpdateTask_CustomFieldFailureIsLoggedNotSwallowed`): forcieren
+  `task.ErrCustomFieldNotFound` ueber `workTaskMockRepo.forceErr`, faengt den slog-Output via
+  `slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, nil)))` ab (Vorlage:
+  `route_caldav_test.go:234`, exakt das schon verwendete Muster fuer Log-Assertions in diesem
+  Repo) und belegt: (1) die Antwort ist trotzdem Erfolg, (2) die Log-Zeile enthaelt Marker-Text,
+  field_id UND tenant_id.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/work/task/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run` 0 issues) | test ok —
+  `go test -count=1 -v ./internal/server/`: 1852 PASS, 0 FAIL, **0 SKIP** (`DATABASE_URL` gegen
+  `kmuhub_app`); `go test -count=1 ./internal/work/task/...` gruen; `go test -count=1
+  ./internal/gateway/` gruen (TestOpenAPIRouteDrift mitgelaufen, keine Route angefasst) |
+  migration: n.a. (keine Schema-Aenderung) | rls-smoke: n.a. (keine Tabelle/Policy angefasst)
+- coverage: `internal/server` 70,4 % -> 70,5 % (vor/nach mit `git stash -u` auf demselben Tree
+  gemessen). Kein Coverage-Ziel dieser Unit (Fehlerbehandlungs-Fix), Zahl trotzdem gemessen und
+  hier dokumentiert.
+- mutations-probe: beide `if cfErr := ...; cfErr != nil { slog.Warn(...) }`-Bloecke einzeln auf
+  `_ = s.taskRepo.SetCustomFieldValues(...)` zurueckgesetzt. (A) CreateTask-Zweig ->
+  `TestCreateTask_CustomFieldFailureIsLoggedNotSwallowed` sofort rot (Log enthaelt nur "task
+  created", weder Marker-Text noch field_id/tenant_id). (B) UpdateTask-Zweig ->
+  `TestUpdateTask_CustomFieldFailureIsLoggedNotSwallowed` sofort rot (Log enthaelt nur "task
+  updated"). Beide einzeln zurueckgedreht, `git diff internal/server/work_grpc.go` danach exakt
+  der Soll-Diff, beide Tests wieder gruen.
+- verify vorgaenger: sauber. `474d525e` (Iteration 91) gegen alle acht Fehlerklassen geprueft:
+  reine CSV-Zellwert-Neutralisierung in drei bestehenden `_grpc.go`-Exportfunktionen plus ein
+  neuer Regressionstest in `internal/formulare` fuer `buildXLSX` (kein Fix dort, experimentell
+  begruendet) — kein neuer Gateway-Handler, kein direkter Service-Aufruf statt gRPC-Client, kein
+  Stub, keine `.proto`-Aenderung, kein `RequirePermission`, keine neue Tabelle/Migration, keine
+  Route. Diff gegen `inventar_grpc.go`/`fuhrpark_grpc.go`/`vermietung_grpc.go` selbst gelesen:
+  jede Aenderung ist ein `csvutil.NeutralizeFormulaCell(...)`-Wrap um ein bestehendes
+  Freitextfeld, ID/Zahlenfelder unangetastet.
+- neue-units: keine. Die Unit war bereits vollstaendig aus dem Fund von Iteration 88 spezifiziert.
+- offen: **Backlog hat ab dieser Iteration keine `status: todo`-Unit mehr** (letzter Treffer war
+  genau diese). Naechster Lauf braucht neue Units, bevor der Treiber wieder eine Iteration
+  ausloest. `fix-booking-page-orphaned-after-owner-erasure` bleibt `blocked` auf Lukes
+  Produktentscheidung (unveraendert seit Iteration 90). DB-Gate lief real (kmuhub_app, 0 SKIP).

@@ -3709,7 +3709,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fehlerbehandlungs-Fix, kein Coverage-Ziel)"
     scope: >
       Gefunden in fix-work-task-custom-field-foreign-tenant-writable (Iteration 88, 2026-08-22).

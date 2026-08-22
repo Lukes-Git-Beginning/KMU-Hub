@@ -1,7 +1,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -727,6 +729,67 @@ func TestUpdateTask_MissingTenant(t *testing.T) {
 	srv := newWorkValidationTestServer()
 	_, err := srv.UpdateTask(context.Background(), &workv1.UpdateTaskRequest{Id: uuid.NewString(), UpdatedBy: uuid.NewString()})
 	requireGRPCCode(t, err, codes.Unauthenticated)
+}
+
+// TestCreateTask_CustomFieldFailureIsLoggedNotSwallowed belongs to
+// fix-work-task-custom-field-errors-swallowed-on-create-update: CreateTask
+// used to discard the error from SetCustomFieldValues with `_ =`, so an
+// unknown or foreign-tenant field_id vanished silently -- the task was
+// created, the response looked like full success, and nothing said the
+// custom field values never landed.
+func TestCreateTask_CustomFieldFailureIsLoggedNotSwallowed(t *testing.T) {
+	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
+	taskRepo.forceErr = task.ErrCustomFieldNotFound
+	tenantID := uuid.New()
+	createdBy := uuid.New()
+	fieldID := uuid.New()
+
+	var logBuf bytes.Buffer
+	prevLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, nil)))
+	defer slog.SetDefault(prevLogger)
+
+	resp, err := srv.CreateTask(ctxWithWorkTenant(tenantID), &workv1.CreateTaskRequest{
+		Title: "T", CreatedBy: createdBy.String(), Priority: models.TaskPriorityNormal,
+		CustomFields: []*workv1.CustomFieldValueInput{{FieldId: fieldID.String(), Value: `"x"`}},
+	})
+	require.NoError(t, err, "an unknown field_id must not fail the whole create")
+	assert.Equal(t, "T", resp.Task.Title)
+
+	logged := logBuf.String()
+	assert.Contains(t, logged, "task custom field values not applied")
+	assert.Contains(t, logged, fieldID.String())
+	assert.Contains(t, logged, tenantID.String())
+}
+
+// TestUpdateTask_CustomFieldFailureIsLoggedNotSwallowed is the UpdateTask
+// counterpart of TestCreateTask_CustomFieldFailureIsLoggedNotSwallowed.
+func TestUpdateTask_CustomFieldFailureIsLoggedNotSwallowed(t *testing.T) {
+	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
+	tenantID := uuid.New()
+	tid := uuid.New()
+	fieldID := uuid.New()
+	taskRepo.tasks[tid] = &models.TaskWithRelations{Task: models.Task{
+		ID: tid, TenantID: tenantID, Title: "Original", Priority: models.TaskPriorityNormal, CreatedBy: uuid.New(),
+	}}
+	taskRepo.forceErr = task.ErrCustomFieldNotFound
+
+	var logBuf bytes.Buffer
+	prevLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, nil)))
+	defer slog.SetDefault(prevLogger)
+
+	resp, err := srv.UpdateTask(ctxWithWorkTenant(tenantID), &workv1.UpdateTaskRequest{
+		Id: tid.String(), UpdatedBy: uuid.NewString(),
+		CustomFields: []*workv1.CustomFieldValueInput{{FieldId: fieldID.String(), Value: `"x"`}},
+	})
+	require.NoError(t, err, "an unknown field_id must not fail the whole update")
+	assert.Equal(t, "Original", resp.Task.Title)
+
+	logged := logBuf.String()
+	assert.Contains(t, logged, "task custom field values not applied")
+	assert.Contains(t, logged, fieldID.String())
+	assert.Contains(t, logged, tenantID.String())
 }
 
 func TestDeleteTask_InvalidID(t *testing.T) {

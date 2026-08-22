@@ -526,6 +526,19 @@ func (s *WorkGRPCServer) ListProjectStatuses(ctx context.Context, req *workv1.Li
 // Tasks
 // ============================================================================
 
+// customFieldIDStrings renders the keys of a custom field value map for
+// logging. SetCustomFieldValues writes them in a single transaction and
+// reports only the first failure, so the caller cannot tell which field_id
+// was the offender -- logging the whole attempted set is what stays
+// diagnosable.
+func customFieldIDStrings(cfMap map[uuid.UUID]any) []string {
+	ids := make([]string, 0, len(cfMap))
+	for fieldID := range cfMap {
+		ids = append(ids, fieldID.String())
+	}
+	return ids
+}
+
 func (s *WorkGRPCServer) CreateTask(ctx context.Context, req *workv1.CreateTaskRequest) (*workv1.CreateTaskResponse, error) {
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
@@ -603,7 +616,10 @@ func (s *WorkGRPCServer) CreateTask(ctx context.Context, req *workv1.CreateTaskR
 			}
 			cfMap[fieldID] = value
 		}
-		_ = s.taskRepo.SetCustomFieldValues(ctx, result.ID, taskTenantID, cfMap)
+		if cfErr := s.taskRepo.SetCustomFieldValues(ctx, result.ID, taskTenantID, cfMap); cfErr != nil {
+			slog.Warn("task custom field values not applied", "task_id", result.ID,
+				"tenant_id", taskTenantID, "field_ids", customFieldIDStrings(cfMap), "error", cfErr)
+		}
 		// Refresh result
 		if result, err = s.taskService.GetByID(ctx, taskTenantID, result.ID); err != nil {
 			return nil, mapWorkError(err)
@@ -815,7 +831,10 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 			}
 			cfMap[fieldID] = value
 		}
-		_ = s.taskRepo.SetCustomFieldValues(ctx, id, tenantID, cfMap)
+		if cfErr := s.taskRepo.SetCustomFieldValues(ctx, id, tenantID, cfMap); cfErr != nil {
+			slog.Warn("task custom field values not applied", "task_id", id,
+				"tenant_id", tenantID, "field_ids", customFieldIDStrings(cfMap), "error", cfErr)
+		}
 		if result, err = s.taskService.GetByID(ctx, tenantID, id); err != nil {
 			return nil, mapWorkError(err)
 		}
