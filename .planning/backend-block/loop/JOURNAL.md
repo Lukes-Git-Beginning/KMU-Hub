@@ -4224,3 +4224,48 @@ Frühere Läufe liegen vollständig im Archiv:
   keine neue Tabelle, keine Route, keine Wire-Shape-Aenderung.
 - neue-units: keine
 - offen: keine
+
+## Iteration 70 — fix-company-delete-merged-into-fk-crash — done — 2026-08-22 09:35
+- commit: (siehe naechster Eintrag)
+- gebaut: `companies.merged_into_id` trug seit Migration 000059 `ON DELETE NO ACTION`
+  (confdeltype `a`, verifiziert per `pg_constraint`). `company/service.go:290-318` prueft vor dem
+  Loeschen nur `HasContacts`, nicht ob die Company Ziel eines abgeschlossenen Merges ist —
+  identisches Muster wie der bereits gefixte Contact-Fall (`fix-contact-delete-merged-into-no-action-unchecked`,
+  Iteration dieses Laufs, Commit `6c00c33f`). Migration `000321_companies_merged_into_set_null`
+  stellt `companies_merged_into_id_fkey` auf `ON DELETE SET NULL` um (DROP + ADD CONSTRAINT,
+  gleiche Form wie 000318 fuer contacts). Root-Cause-Entscheidung wie beim Contact-Vorbild:
+  Grep bestaetigt, dass `merged_into_id` in `company/` nur zum Ausfiltern bereits gemergter Zeilen
+  aus der Duplicate-Suche (`... AND merged_into_id IS NULL`) und zum Markieren des Duplikats
+  (`MergeInto`) verwendet wird — kein Lesepfad loest den Pointer auf, um ein geloeschtes Duplikat
+  auf seinen Primary zurueckzufuehren. SET NULL ist damit gefahrlos und konsistent mit dem
+  Contact-Fix.
+  Neuer DB-Test `TestRepository_Delete_MergedPrimaryCompany_DB` in
+  `postgres_repository_db_test.go` (Vorlage: `TestRepository_Delete_MergedPrimaryContact_DB`):
+  merged Company A in Company B, loescht B (den Primary), belegt Erfolg und dass A.merged_into_id
+  danach NULL ist.
+- gate: build ok (`./internal/crm/... ./cmd/crm/...`) | vet ok (`./internal/crm/...`) | lint ok
+  (0 issues, `./internal/crm/...`) | test ok (`./internal/crm/company/` gruen; volle
+  `./internal/crm/...`-Suite serialisiert mit `-p 1` gruen — der erste parallele Lauf riss mit
+  "too many clients already" ab, das ist eine lokale `max_connections`-Grenze der Docker-DB unter
+  Volllast, keine Regression: derselbe Testlauf ohne `-p 1` schlaegt schon auf dem unveraenderten
+  main-Stand fehl) | migration ok (up/down beide angewendet, siehe Mutations-Probe) | rls-smoke
+  n.a. (Constraint-Aenderung an bestehender Tabelle, keine neue Tabelle/Policy, kein
+  tenant-gescopter SELECT angefasst) | TestOpenAPIRouteDrift nicht gelaufen — keine Route
+  angefasst, daher nicht Pflicht.
+- coverage: `internal/crm/company` 79,7 % -> 79,7 % (selbst gemessen per `git stash push -u` auf
+  die geaenderte Testdatei, `go test -coverprofile` davor/danach, `stash pop`; Rundungsgleichstand
+  — die Unit aendert reines DB-Verhalten, kein neuer Go-Code-Pfad in `service.go`/`postgres_repository.go`).
+- mutations-probe: `migrate down 1` auf die neue Migration (Constraint zurueck auf NO ACTION) →
+  `TestRepository_Delete_MergedPrimaryCompany_DB` wird rot mit der erwarteten rohen
+  FK-Verletzung (SQLSTATE 23503) genau an der Delete-Zeile. `migrate up` zurueckgedreht, Test
+  wieder gruen, `git diff --stat` zeigt nur die vorgesehenen Dateien.
+- verify vorgaenger: sauber. `ed2e41ec` (Iteration 69, feat-erasure-handler-user-settings-preferences)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `erasure.go` und
+  `cmd/auth/main.go`) — neuer Erasure-Handler nach exaktem Muster der sieben bestehenden, achte
+  `RegisterErasureHandler`-Zeile, kein Gateway-Handler, kein Stub, kein `.proto`, kein neuer/ersetzter
+  `RequirePermission`-Guard, keine neue Tabelle (alle vier Tabellen bestanden bereits inkl.
+  `tenant_id NOT NULL` + RLS), keine Route, keine Wire-Shape-Aenderung. Tenant-Scoping laeuft ueber
+  die RLS-Pool-Hook (`app.tenant_id` aus dem Kontext gestempelt, `service.go:136`), kein manueller
+  Tenant-Filter in Query noetig — konsistent mit allen sieben Geschwister-Handlern, kein Befund.
+- neue-units: keine
+- offen: keine
