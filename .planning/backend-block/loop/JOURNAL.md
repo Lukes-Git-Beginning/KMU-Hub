@@ -2678,7 +2678,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Sackgasse.
 
 ## Iteration 43 — scan-personal-data-tables-without-retention-mapping — done — 2026-08-22 06:44
-- commit: (siehe naechste Journal-Iteration fuer den sha-Nachtrag)
+- commit: a83334af
 - gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Die Retention-Registry
   aus A10 (`cmd/auth/main.go:122-128`) gegen die Personendaten-Domaenen abgeglichen, die dieser
   Lauf selbst bereits als personenbezogen identifiziert hat (DSAR-Module aus den Iterationen 2-9
