@@ -893,7 +893,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ist und das Backlog explizit vor unbelegten Funden warnt.
 
 ## Iteration 16 — verify-invoice-number-gap-detection-gobd — done — 2026-08-23 00:45
-- commit: (wird nach diesem Eintrag erstellt)
+- commit: 2c602e67
 - gebaut: VERIFY-UNIT, ein Test ergaenzt. (1) Lueckenerkennung existiert bereits vollstaendig:
   `Service.GetJournalSummary` (`service_gobd.go:137`) vergleicht `seq.CurrentNumber`
   (`numberSeqRepo.GetSequenceInfo`, jahresgescopte Zeile in
