@@ -439,3 +439,48 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: `internal/biz/pdf` und `internal/biz/einvoice` haben keine DB-Tests,
   DATABASE_URL-Gate daher für diese Unit nicht einschlägig (wie schon
   Iterationen 5 und 6).
+
+## Iteration 8 — feat-einvoice-allowance-charge-rules — done — 2026-08-22 23:56
+- commit: e45d2d02
+- gebaut: vierte und letzte EN-16931-Regelfamilie (A8). Erst geklärt, ob das
+  Datenmodell Abschläge/Zuschläge kennt: Grep nach Discount/Allowance/Charge/
+  Rabatt/Nachlass/Zuschlag über internal/models liefert 0 Treffer außer der
+  unabhängigen Konstante TaxModeReverseCharge. Weder models.Invoice noch
+  models.LineItem trägt ein solches Feld, buildInvoiceDoc hat also nichts zum
+  Lesen und kein Generator emittiert eine AllowanceCharge-Gruppe. BR-31 bis
+  BR-42 sind damit gegenstandslos — lean-Marker mit Upgrade-Trigger an
+  validation.go statt einer Prüfung gegen nicht existierende Felder.
+  BR-CO-9 (USt-ID-Präfix muss gültiger Ländercode sein) ist dagegen ein
+  echter, unabhängiger Fund: weder Verkäufer- noch Käufer-VATID wurden bisher
+  auf ihr Präfix geprüft. Neue Prüfung `hasAllowedVATCountryPrefix` in
+  validateInvoiceDoc, für BT-31 (Seller.VATID) und BT-48 (Buyer.VATID) —
+  reicht auf `allowedCountries` (DE/AT/CH) aus A5 zurück, keine zweite Liste
+  angelegt (Kommentar hält fest, dass VAT-Präfixe nicht immer mit ISO 3166-1
+  identisch sind — z. B. Griechenland "EL" — innerhalb der DACH-Whitelist
+  aber schon).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok
+  (internal/biz/einvoice, go test ./internal/gateway/ trotz keiner
+  Routenänderung pflichtgemäß gelaufen) | migration n.a. | rls-smoke n.a.
+- coverage: internal/biz/einvoice 82,5 % (eigene Messung vor der Änderung,
+  go tool cover -func) -> 82,5 % (eigene Messung danach) — unverändert in
+  der angezeigten Nachkommastelle: zwei neue Tests decken die zwei neuen
+  if-Zweige exakt ab, keine Nettoveränderung im Prozentsatz des Pakets.
+- mutations-probe: `hasAllowedVATCountryPrefix` in validation.go (Kopie via
+  `cp`, nicht `git checkout`) auf `return true` verkürzt (Whitelist-Check
+  entfernt) -> beide neuen Tests
+  (TestValidate_RejectsSellerVATIdentifierWithBadCountryPrefix,
+  TestValidate_RejectsBuyerVATIdentifierWithBadCountryPrefix) rot ("expected
+  a *ValidationError, got nil"), alle übrigen Tests im Paket weiterhin grün.
+  Aus der Kopie zurückgeschrieben, `diff` gegen die Sicherungskopie danach
+  identisch (0 Zeilen Unterschied).
+- verify vorgaenger: sauber — `ca59a98f` (feat-einvoice-cardinality-rules)
+  fügt nur Regel-IDs zu bereits bestehenden Ablehnungen und Kommentare hinzu,
+  keine der acht Fehlerklassen einschlägig (kein gRPC-Handler, kein Proto,
+  keine Migration, kein neuer Guard, keine neue Tabelle, keine Route, kein
+  Wire-Shape-Wechsel, kein ersetzter Guard-Key).
+- neue-units: keine
+- offen: Block A (A1-A8) ist damit vollständig abgeschlossen. Block B
+  (Geld-Repositories gegen echtes SQL) ist die nächste offene Gruppe im
+  Backlog. `internal/biz/einvoice` hat weiterhin keine DB-Tests,
+  DATABASE_URL-Gate daher für diese Unit nicht einschlägig (wie schon
+  Iterationen 5 bis 7).
