@@ -5332,3 +5332,50 @@ Frühere Läufe liegen vollständig im Archiv:
   ein reiner Journal-Doku-Commit.
 - neue-units: keine.
 - offen: keine. DB-Gate lief real (kmuhub_app, 0 SKIP).
+
+## Iteration 90 — fix-work-erasure-preview-overcounts-vs-execute — done — 2026-08-22 12:21
+- commit: (siehe naechster docs-Commit)
+- gebaut: `WorkErasureHandler.PreviewErasure` (erasure.go:424) zaehlte zwei Faelle mit, die
+  `ExecuteErasure` nachweislich NICHT aendert — beide beim Ziehen der Unit im selben Sichtungsschritt
+  gefunden, beide in derselben Query, deshalb in einer Unit gefixt statt aufgeteilt:
+  (1) `tasks WHERE assignee_id = $1 OR created_by = $1` zaehlte auch nur-erstellte Aufgaben mit,
+  obwohl das UPDATE nur `assignee_id = $1` trifft (der urspruengliche Scope-Fund aus Iteration 84).
+  (2) `time_entries WHERE user_id = $1` zaehlte ALLE Zeiteintraege, obwohl das DELETE nur Eintraege
+  aelter als die 730-Tage-ArbZG-Aufbewahrungsfrist trifft (`started_at < $2`) — dieselbe Bugklasse,
+  beim Nachbau der Query direkt daneben entdeckt (Root-Cause-Regel: gleiche Funktion, gleiches
+  Symptom, gehoert in dieselbe Unit). Beide Zweige jetzt exakt auf die WHERE-Klauseln von
+  `ExecuteErasure` ausgerichtet, mit Kommentar, der auf die jeweilige Stelle im UPDATE/DELETE
+  verweist. `task_comments` und `project_members` waren bereits deckungsgleich (der
+  `NOT LIKE`-Idempotenz-Guard bei comments greift laut Notiz erst ab dem zweiten Lauf und ist
+  bewusst nicht Teil dieser Unit).
+- gate: build ok (`go build -p 2 ./internal/security/... ./internal/gateway/... ./cmd/gateway/...`)
+  | vet ok | lint ok (`golangci-lint run` ueber `internal/security/...`: 0 issues) | test ok —
+  `go test -count=1 -v ./internal/security/gdpr/`: 155 PASS, 0 FAIL, **0 SKIP**
+  (`DATABASE_URL` gegen `kmuhub_app`); `go test -count=1 ./internal/security/...` (alle
+  Unterpakete: security, audit, gdpr, password, safehttp, vault, vendoraccess) gruen |
+  migration: n.a. (keine Schema-Aenderung) | rls-smoke: n.a. (keine Tabelle/Policy angefasst,
+  reine WHERE-Klausel-Korrektur auf bestehenden Queries)
+- coverage: `internal/security/gdpr` 71,9 % -> 71,9 % (per `git stash -u` auf demselben Tree
+  vor/nach gemessen). Unveraendert, weil beide Zweige der Query schon vorher durch
+  `TestWorkErasureHandler_ExecuteErasure_Integration` durchlaufen wurden — der Fix aendert WELCHE
+  Zeilen gezaehlt werden, nicht OB die Zeile ausgefuehrt wird.
+- mutations-probe: zwei Proben, beide zurueckgedreht, `git diff` danach exakt der Soll-Diff.
+  (A) `tasks`-Filter auf `assignee_id = $1 OR created_by = $1` zurueckgesetzt ->
+  `TestWorkErasureHandler_ExecuteErasure_Integration` rot (preview 6 statt erwartet 5 — die
+  nur-erstellte `createdOnlyTaskID` wieder mitgezaehlt). (B) den Retention-Cutoff der
+  `time_entries`-Subquery per Testmutation 100 Jahre in die Zukunft verschoben (statt den
+  Parameter ganz zu entfernen, was wegen der pgx-Parameteranzahl nur einen SQL-Fehler und damit
+  den 0-Fallback ausgeloest haette, keine aussagekraeftige Probe) -> derselbe Test rot (preview 6
+  statt 5 — `recentTimeEntryID` innerhalb der Frist wieder mitgezaehlt). Beide Zweige der
+  korrigierten Query sind damit einzeln belegt.
+- verify vorgaenger: sauber. `9689d1e1` (Iteration 89) gegen alle acht Fehlerklassen geprueft:
+  reine Lese-Module (vier neue DSAR-Funktionen), alle vier Queries tenant-gescoped
+  (`tenant_id = $1`), kein Gateway-Handler/keine Route, kein Stub, keine `.proto`-Aenderung, kein
+  `RequirePermission`, keine neue Tabelle/Migration. Der dazwischenliegende `35e92224` ist ein
+  reiner Journal-Doku-Commit.
+- neue-units: keine. `fix-booking-page-orphaned-after-owner-erasure` (naechste Unit in der Queue)
+  wurde beim Ziehen sofort auf `blocked` gesetzt, nicht neu angelegt — sie stand schon im Backlog
+  und ihre eigenen `notes:` verlangen ausdruecklich eine Produktentscheidung von Luke
+  (deaktivieren/umhaengen/nur-warnen), bevor Code entstehen darf.
+- offen: `fix-booking-page-orphaned-after-owner-erasure` wartet auf Lukes Entscheidung
+  (blocked_reason im Backlog). DB-Gate lief real (kmuhub_app, 0 SKIP).

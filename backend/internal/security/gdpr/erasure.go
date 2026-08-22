@@ -423,13 +423,20 @@ func (h *WorkErasureHandler) ModuleName() string { return "work" }
 
 func (h *WorkErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUID) (*models.ModuleErasurePreview, error) {
 	var count int
+	// tasks counts assignee_id only, matching ExecuteErasure's UPDATE below: a
+	// task the subject merely created is deliberately unchanged there (see the
+	// comment on that UPDATE), so counting created_by here would promise a
+	// number ExecuteErasure never delivers. time_entries is likewise scoped to
+	// the same retention cutoff ExecuteErasure's DELETE uses below -- an entry
+	// still inside the ArbZG window survives there, so counting it here would
+	// promise the same thing.
 	if err := h.pool.QueryRow(ctx,
 		`SELECT
-		   (SELECT COUNT(*) FROM tasks WHERE assignee_id = $1 OR created_by = $1) +
-		   (SELECT COUNT(*) FROM time_entries WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM tasks WHERE assignee_id = $1) +
+		   (SELECT COUNT(*) FROM time_entries WHERE user_id = $1 AND started_at < $2) +
 		   (SELECT COUNT(*) FROM task_comments WHERE author_id = $1) +
 		   (SELECT COUNT(*) FROM project_members WHERE user_id = $1)
-		`, userID,
+		`, userID, time.Now().UTC().AddDate(0, 0, -timeEntryRetentionDays),
 	).Scan(&count); err != nil {
 		return &models.ModuleErasurePreview{
 			ModuleName:  "work",

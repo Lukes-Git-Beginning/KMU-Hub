@@ -139,6 +139,9 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	h := NewWorkErasureHandler(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenantOwn)
 
+	preview, err := h.PreviewErasure(ctx, userID)
+	require.NoError(t, err)
+
 	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
 	require.NoError(t, err)
 	// 2 tasks unassigned (both-task and assigned-only; the created-only task keeps its
@@ -146,7 +149,9 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	// + 1 time entry (the one past the retention window) deleted + 1 comment anonymized
 	// + 1 project membership deleted = 5.
 	// recentTimeEntryID is inside the window and must not be counted.
-	assert.Equal(t, 5, affected, "only rows this run actually changed are counted")
+	const wantAffected = 5
+	assert.Equal(t, wantAffected, affected, "only rows this run actually changed are counted")
+	assert.Equal(t, wantAffected, preview.RecordCount, "PreviewErasure must report the same total ExecuteErasure later affects on the first run")
 
 	// The both-task loses its assignment.
 	var assignee *uuid.UUID

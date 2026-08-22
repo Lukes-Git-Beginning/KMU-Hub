@@ -3561,7 +3561,12 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Produktentscheidung noetig, nicht eigenmaechtig waehlbar (siehe notes): deaktivieren
+      (active=false), auf Vorgesetzten/Admin umhaengen, oder Admin nur warnen? Luke muss
+      entscheiden, danach ist die Unit sofort bebaubar (Ansatzpunkt in CalendarErasureHandler
+      bereits identifiziert).
     coverage_start: "internal/security/gdpr 70,9 % (lokal gemessen 2026-08-22, Iteration 65)"
     scope: >
       Gefunden 2026-08-22 waehrend fix-calendar-erasure-incomplete-and-doc-mismatch (Iteration 65).
@@ -3605,7 +3610,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 71,5 % (lokal gemessen 2026-08-22, Iteration 84)"
     scope: >
       Gefunden 2026-08-22 waehrend fix-erasure-handlers-not-idempotent-on-second-run
