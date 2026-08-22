@@ -2818,3 +2818,52 @@ Frühere Läufe liegen vollständig im Archiv:
     als fuer die Redirect- und 400-Body-Faelle, weil sie tenant-eigene, bereits in der DB
     liegende historische Fehlertexte zeigen und nur ueber eine authentifizierte
     Settings-Ansicht erreichbar sind — trotzdem im selben Fix-Scope, nicht separat verschoben.
+
+## Iteration 45 — scan-gateway-pii-in-logs — done — 2026-08-22 07:10
+- commit: -
+- gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Alle 100 `slog.*`-
+  Aufrufe in den 18 Gateway-Dateien mit slog-Nutzung geprueft
+  (route_dashboard.go, route_booking.go, route_lexware.go, reset_password_page.go,
+  route_video.go, route_hr.go, helpers.go, route_formulare.go, route_bexio.go, route_inbox.go,
+  route_caldav.go, dashboard_service.go, route_integration.go, route_datev_upload.go,
+  registry.go, ip_filter.go, route_guest.go, bexio_state.go) — Zaehlung per
+  `grep -c 'slog\.(Info|Warn|Error|Debug)\('` bestaetigt: 100/100 Fundstellen einzeln gelesen
+  (2x -A6-Dump + gezielte Nachschau), keine Stichprobe.
+  Nicht-Funde (mit Begruendung): IDs (user_id, tenant_id, submission_id, password_id,
+  target_user_id, egress_id, form_schema_id, record_id) — personenbeziehbar, aber ohne DB
+  wertlos, wie in den Notes der Unit vorgegeben. Statuscodes, Service-/Rollennamen,
+  Fehlerobjekte ("error", err) ohne PII-Inhalt (die untersuchten err-Werte sind technische
+  Fehler wie "invalid state token", "connection refused" — keine Nutzdaten). `remote_addr`/
+  `remote_ip`/`clientIP` (route_bexio.go:107, route_datev_upload.go:149, route_booking.go:355,
+  369, ip_filter.go:83, 119) bewusst NICHT als Fund gewertet: IP-Adressen fuer
+  Sicherheitsmonitoring bei Auth-/Captcha-Fehlschlaegen und IP-Filter-Entscheidungen sind wie
+  das Auditlog eine eigene legitime Verarbeitung (Missbrauchserkennung, Art. 6 Abs. 1 lit. f
+  DSGVO) — dieselbe Rechtsgrundlage, die die Unit-Notes explizit fuer das Auditlog nennen, gilt
+  hier fuer die IP-Filter-Middleware und die oeffentlichen Anti-Abuse-Pfade sinngemaess.
+  `route_video.go` `identity`-Feld (Zeilen 1505, 1511) ist die LiveKit-Raum-Identity (technische
+  ID, kein Name) — geprueft gegen `callerDisplayName`/`GetAvatarUrl` in derselben Datei, die
+  NICHT geloggt werden.
+  Echter Fund (1): `route_caldav.go:183-186` loggt bei fehlgeschlagenem CalDAV-Basic-Auth den
+  vom Client gesendeten `username`-Wert im Klartext auf Warn-Level. Erwartet ist eine UUID
+  (`internal/caldav/app_password.go:101-108` parst per `uuid.Parse`), aber CalDAV-Clients tragen
+  dort ueblicherweise die E-Mail-Adresse ein (Konvention fast aller anderen CalDAV-Server) — ein
+  Tippfehler oder Fehlkonfiguration fuellt das Log damit mit Klartext-E-Mail-Adressen, auf einer
+  Route, die ohne vorherige Authentifizierung erreichbar ist. Derselbe Log-Aufruf mit derselben
+  Ursache steckt zusaetzlich in der Service-Schicht (`internal/caldav/app_password.go:104-106`).
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — done_when verlangt kein
+  go test)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geaenderter Testfall)
+- verify vorgaenger: sauber. `046630fa` (Iteration 44, scan-gateway-sql-error-leakage) und
+  `bbc951ad` (SHA-Nachtrag) geprueft: beide `git show --stat` zeigen ausschliesslich
+  BACKLOG.yml und JOURNAL.md — kein Produktionscode, keine der acht Fehlerklassen einschlaegig.
+- neue-units: fix-gateway-caldav-basic-auth-username-log-leakage
+- offen:
+  - `remote_addr`/`clientIP`-Logging bei Auth-/Captcha-Fehlschlaegen ist bewusst als Nicht-Fund
+    eingestuft (Sicherheitsmonitoring-Begruendung oben) — falls ein spaeterer Lauf das anders
+    bewertet, steht die Abwaegung hier zur Nachpruefung, nicht stillschweigend uebernehmen.
+  - Die neue Fix-Unit deckt beide Fundstellen (Gateway-Middleware UND Service-Schicht) in einem
+    Commit ab, weil die Ursache identisch ist (roher Client-Input ungeprueft geloggt) — beim
+    Bauen pruefen, ob `internal/caldav` ausserhalb des Gateway-Scopes dieses Blocks liegt; falls
+    das ein Problem ist, die Service-Schicht-Haelfte als eigene Unit abspalten und im Journal
+    der jeweiligen Iteration begruenden.

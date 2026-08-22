@@ -1578,7 +1578,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Personendaten im Anwendungslog sind eine eigene Verarbeitung mit eigener Rechtsgrundlage
@@ -3037,3 +3037,53 @@ units:
         belegt, dass sein Text nicht mehr im 400-Body auftaucht
       - go test -count=1 ./internal/gateway/ ./internal/server/... ./internal/biz/lexware/...
         gruen, DATABASE_URL gesetzt
+
+  - id: fix-gateway-caldav-basic-auth-username-log-leakage
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Fund aus scan-gateway-pii-in-logs (Iteration 45). `basicAuthMiddleware`
+      (`route_caldav.go:171-194`) validiert HTTP-Basic-Auth fuer die CalDAV-Route ueber
+      `c.pwService.Validate(ctx, username, password)`. Schlaegt das fehl, loggt
+      `route_caldav.go:183-186` den vom Client gesendeten `username`-Wert im Klartext auf
+      Warn-Level: `slog.Warn("caldav basic auth failed", "username", username, "error", err)`.
+      Erwartet ist als Username eine UUID (`internal/caldav/app_password.go:101-108` parst ihn
+      per `uuid.Parse`) — aber CalDAV-Clients tragen dort ueblicherweise die E-Mail-Adresse des
+      Nutzers ein, weil das bei praktisch jedem anderen CalDAV-/CardDAV-Server so verlangt wird.
+      Ein Tippfehler im App-Passwort oder ein falsch konfigurierter Client fuellt das
+      Anwendungslog damit regelmaessig mit Klartext-E-Mail-Adressen — auf einer Route, die ohne
+      vorherige Authentifizierung erreichbar ist (Basic-Auth-Header kommt vom nicht
+      eingeloggten Client). Derselbe Log-Aufruf mit derselben Begruendung steckt zusaetzlich in
+      der Service-Schicht selbst: `internal/caldav/app_password.go:104-106`
+      (`slog.Warn("caldav auth: invalid username format", "username", username)`) — Root Cause
+      ist an beiden Stellen identisch (der rohe Client-Input landet ungeprueft im Log), deshalb
+      eine Unit statt zwei.
+    sources:
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/caldav/app_password.go
+    notes: >
+      Kein Fund war die Zeile selbst noetig fuer die Fehlersuche: die eigentliche
+      Debug-Information ist bereits im "error"-Feld (ungueltiges Format / unbekannte ID /
+      falsches Passwort). Der Username-Wert bringt keinen zusaetzlichen Erkenntnisgewinn, der
+      das Leak-Risiko rechtfertigt.
+      Fix ist Entfernen oder Maskieren, nicht Weglassen der ganzen Zeile: fuer
+      Rate-Limiting-/Anomalie-Analyse ist es hilfreich zu sehen, DASS wiederholt derselbe
+      (ungueltige) Wert versucht wird, ohne ihn im Klartext zu zeigen. Ein kurzer Hash
+      (z. B. die ersten 8 Hex-Zeichen von sha256(username)) oder schlicht Laenge+Praefix-Typ
+      ("sieht wie E-Mail aus" vs. "sieht wie UUID aus") sind beide vertretbar — die einfachere
+      Variante waehlen.
+      Beide Stellen im selben Commit fixen, sonst bleibt die Service-Schicht als Nebeneingang
+      offen, ueber den derselbe Wert weiterhin im Klartext landet (z. B. falls ein kuenftiger
+      zweiter Caller `Validate` direkt aufruft, ohne durch die Gateway-Middleware zu gehen).
+    done_when:
+      - Kein Log-Aufruf in route_caldav.go oder app_password.go schreibt den rohen
+        Basic-Auth-Username mehr im Klartext
+      - Ein Test belegt: ein fehlgeschlagener Login mit einer E-Mail-Adresse als Username
+        erzeugt keine Log-Zeile, die diese E-Mail-Adresse im Klartext enthaelt
+      - Die verbleibende Log-Zeile bleibt fuer Anomalie-/Rate-Limit-Analyse brauchbar (maskiert,
+        nicht ersatzlos gestrichen)
+      - go test -count=1 ./internal/gateway/ ./internal/caldav/... gruen, DATABASE_URL gesetzt
