@@ -2154,7 +2154,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Iteration 33). Fuer den naechsten Lauf vormerken, sie vorzuziehen.
 
 ## Iteration 35 — cov-gateway-dashboard — done — 2026-08-22 05:35
-- commit: (nach diesem Eintrag)
+- commit: 6db12cf0
 - gebaut: `route_dashboard_test.go` deckt alle 10 Funktionen von
   `route_dashboard.go` ab (HandleGetDashboard, HandleSaveDashboard,
   HandleResetToDefaults, HandleGetDefaults, HandleSaveDefaults,
