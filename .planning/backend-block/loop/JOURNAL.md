@@ -2549,7 +2549,7 @@ Frühere Läufe liegen vollständig im Archiv:
     guest_sessions, aus demselben Grund nicht in dieser Nacht geloest.
 
 ## Iteration 41 — scan-erasure-handlers-missing-personal-data-tables — done — 2026-08-22 06:21
-- commit: 42dea15c
+- commit: dded309a
 - gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Alle 139 FKs auf
   `users(id)` aus `pg_constraint` gezogen (lokale DB, 2026-08-22) und gegen die sieben
   registrierten Erasure-Handler (`cmd/auth/main.go:109-115`: auth, crm, chat, work, calendar,
