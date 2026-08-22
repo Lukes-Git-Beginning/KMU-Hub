@@ -1369,7 +1369,7 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).
 
 ## Iteration 24 — cov-gateway-settings-license-subscription-verify — done — 2026-08-22 03:55
-- commit: (siehe unten)
+- commit: 1dc3368f
 - gebaut: Neue Testdatei `route_settings_license_subscription_test.go` fuer den dritten und
   letzten Teil von `route_settings.go`: HandleGetTenantLicense, HandleSetTenantModuleActive,
   HandleGetTenantSubscription. Eigene Messung vor dem Schreiben bestaetigt: alle drei lagen bei
