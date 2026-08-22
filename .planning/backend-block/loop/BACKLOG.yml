@@ -1200,7 +1200,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice 34,8 % (CI-Stand 32570176303)"
     scope: >
       `InvoiceNumberExists` (492) und `CountByFiscalYear` (509) tragen die GoBD-Zusage der

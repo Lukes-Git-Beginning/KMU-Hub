@@ -1398,3 +1398,55 @@ Frühere Läufe liegen vollständig im Archiv:
   `verify-invoice-list-for-gobd-export-unreachable` vor einer moeglichen Aenderung an
   `GenerateGoBDExport` lesen — dort steckt die fachliche Entscheidung, ob cancelled-Rechnungen
   in den GoBD-Export gehoeren.
+
+## Iteration 26 — cov-invoice-repository-number-and-fiscal-year-real-sql — done — 2026-08-23 01:45
+- commit: (siehe naechster Schritt)
+- gebaut: neue ungetaggte Testdatei `postgres_repository_number_fiscal_year_db_test.go` fuer
+  `InvoiceNumberExists` (postgres_repository.go:494-507) und `CountByFiscalYear` (509-526), gegen
+  echtes Postgres: Tenant-Scoping bei InvoiceNumberExists (dieselbe Nummer in zwei Mandanten),
+  Negativfall fuer nie vergebene Nummer, Jahresgrenze 31.12./01.01. bei CountByFiscalYear,
+  Ausschluss von Entwuerfen und nummernlosen Rechnungen, Fremdtenant-Isolation bei
+  CountByFiscalYear.
+  NEBENFUND (RLS als Verteidigungslinie bestaetigt): die Mutations-Probe auf den expliziten
+  `tenant_id = $1`-Filter in `InvoiceNumberExists` (Filter entfernt, Vergleich durch eine
+  triviale, immer wahre `$1::uuid = $1::uuid`-Bedingung ersetzt, um den Parameter syntaktisch
+  weiter zu nutzen) blieb GRUEN — kein Datenleck, weil die RLS-Policy auf `finance_invoices`
+  bereits vor der WHERE-Klausel der Anwendung greift und die Session auf `app.tenant_id`
+  beschraenkt. Der App-seitige Filter ist damit defense-in-depth, nicht die einzige Schranke.
+  Kein Fund, kein Fix noetig — aber dokumentiert, weil es die naechste Mutations-Probe auf einer
+  RLS-geschuetzten Tabelle spart, blind denselben Fehler zu erwarten.
+  Die Fiskaljahr=Kalenderjahr-Annahme aus den Notes ist am Code belegt: `GetJournalSummary`
+  (service_gobd.go:137-170) uebergibt denselben `year`-Parameter sowohl an
+  `numberSeqRepo.GetSequenceInfo` (Sequenznummer im Format RE-YYYY-NNNN) als auch an
+  `CountByFiscalYear`, und es existiert keine separate Konfiguration fuer ein abweichendes
+  Geschaeftsjahr (Grep nach "FiscalYear"/"fiscal_year" ueber internal/ liefert keinen Treffer
+  ausserhalb dieser beiden Aufrufer und der DATEV/E-Rechnungs-Exporte, die denselben
+  Kalenderjahr-Parameter weiterreichen). Kein Fund.
+- gate: build ok (`./internal/biz/invoice/... ./internal/gateway/... ./cmd/biz/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v ./internal/biz/invoice/`, alle
+  gruen, 0 SKIP, DATABASE_URL gegen kmuhub_app) | gateway-Gate zusaetzlich gelaufen
+  (`go test ./internal/gateway/ -run TestOpenAPIRouteDrift`, gruen) obwohl keine Route beruehrt
+  wurde | migration n.a. (keine Schema-Aenderung) | rls-smoke erbracht durch
+  `TestPostgresRepository_InvoiceNumberExists_IsTenantScoped` und
+  `TestPostgresRepository_CountByFiscalYear_IsTenantScoped`
+- coverage: internal/biz/invoice 51,4 % (eigens gemessen Iteration 25, naeherer Vergleichspunkt
+  als der CI-Stand 34,8 % aus coverage_start) -> 52,3 % (eigens gemessen, `go tool cover -func`,
+  lokaler Lauf nach der Aenderung)
+- mutations-probe: `status != 'draft'` in `CountByFiscalYear` auf `status != 'nonexistent-status'`
+  verstuemmelt (schliesst dann keine Entwuerfe mehr aus) -> `TestPostgresRepository_
+  CountByFiscalYear_ExcludesDraftAndUnnumbered` rot (erwartet 1, erhalten 2). Zurueckgedreht,
+  `git diff --stat` auf postgres_repository.go danach leer. Eine zweite Probe auf den
+  `tenant_id`-Filter in `InvoiceNumberExists` blieb gruen (siehe RLS-Nebenfund oben) und wurde
+  deshalb durch die obige Probe auf CountByFiscalYear ersetzt, um tatsaechlich eine rote
+  Assertion zu belegen.
+- verify vorgaenger: sauber — `0b56911b` (Iteration 25) aendert laut `git show --stat` und Diff
+  nur eine neue Testdatei (`postgres_repository_gobd_export_db_test.go`, 239 Zeilen, untagged,
+  6 Testfunktionen, kein Skip/TODO/Unimplemented) sowie BACKLOG.yml/JOURNAL.md. Keine der acht
+  Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt, kein Stub/TODO, kein `.proto`, keine
+  Migration, kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein
+  ersetzter Guard-Key.
+- neue-units: keine
+- offen: naechste Unit laut Backlog-Reihenfolge ist `cov-invoice-repository-payment-stats-real-sql`
+  (deps: [cov-invoice-repository-number-and-fiscal-year-real-sql], jetzt ziehbar). Luke pruefen:
+  keine besonderen Punkte — reine Coverage-Unit ohne Verhaltensaenderung. Der RLS-Nebenfund oben
+  ist informativ, keine Aktion noetig.
