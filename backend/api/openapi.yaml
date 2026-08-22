@@ -28944,7 +28944,9 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
       summary: Delete a channel mapping
-      description: Requires admin role.
+      description: >-
+        Requires admin role. Fails with 409 if the mapping has delivery log
+        entries (integration_delivery_log.mapping_id is ON DELETE NO ACTION).
       tags: [integrations]
       operationId: deleteIntegrationChannelMapping
       security: [{ bearerAuth: [] }]
@@ -28963,6 +28965,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /api/v1/integrations/link:
     post:

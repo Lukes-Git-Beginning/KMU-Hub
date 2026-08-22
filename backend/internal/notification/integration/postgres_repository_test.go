@@ -609,6 +609,32 @@ func TestPostgresRepository_DeliveryLog(t *testing.T) {
 		}
 	})
 
+	t.Run("HasDeliveryLogs", func(t *testing.T) {
+		inUse, err := repo.HasDeliveryLogs(ctxA, mappingID)
+		if err != nil {
+			t.Fatalf("HasDeliveryLogs: %v", err)
+		}
+		if !inUse {
+			t.Fatalf("HasDeliveryLogs: want true for mapping with log entries")
+		}
+
+		emptyMapping := testutil.SeedRow(t, pool, "integration_channel_mappings", map[string]any{
+			"tenant_id":    tenantA,
+			"config_id":    configID,
+			"channel_id":   "C" + uuid.New().String()[:8],
+			"channel_name": "no-logs",
+		})
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "integration_channel_mappings", emptyMapping) })
+
+		inUse, err = repo.HasDeliveryLogs(ctxA, emptyMapping)
+		if err != nil {
+			t.Fatalf("HasDeliveryLogs (empty): %v", err)
+		}
+		if inUse {
+			t.Fatalf("HasDeliveryLogs: want false for mapping without log entries")
+		}
+	})
+
 	t.Run("CleanupOldLogs deletes only entries older than cutoff", func(t *testing.T) {
 		cutoff := base.Add(15 * time.Minute)
 		n, err := repo.CleanupOldLogs(ctxA, cutoff)

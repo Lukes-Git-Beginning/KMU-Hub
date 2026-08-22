@@ -710,6 +710,8 @@ func mapNotificationError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, integration.ErrMappingNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, integration.ErrMappingInUse):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, integration.ErrAccountLinkNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, integration.ErrAccountNotLinked):
@@ -1010,6 +1012,16 @@ func (s *NotificationGRPCServer) DeleteChannelMapping(ctx context.Context, req *
 	mappingID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	// integration_delivery_log.mapping_id is ON DELETE NO ACTION - deleting a
+	// mapping with log history would otherwise crash with a raw FK violation.
+	inUse, err := s.integrationRepo.HasDeliveryLogs(ctx, mappingID)
+	if err != nil {
+		return nil, mapNotificationError(err)
+	}
+	if inUse {
+		return nil, mapNotificationError(integration.ErrMappingInUse)
 	}
 
 	if err := s.integrationRepo.DeleteMapping(ctx, mappingID); err != nil {

@@ -23,6 +23,7 @@ type Repository interface {
 	ListActiveMappingsForModule(ctx context.Context, moduleID string) ([]*ChannelMapping, error)
 	UpdateMapping(ctx context.Context, m *ChannelMapping) error
 	DeleteMapping(ctx context.Context, id uuid.UUID) error
+	HasDeliveryLogs(ctx context.Context, mappingID uuid.UUID) (bool, error)
 
 	// Account Links
 	CreateAccountLink(ctx context.Context, link *AccountLink) error

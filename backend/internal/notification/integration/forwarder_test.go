@@ -70,6 +70,9 @@ func (f *fakeRepository) UpdateMapping(_ context.Context, m *ChannelMapping) err
 	return nil
 }
 func (f *fakeRepository) DeleteMapping(context.Context, uuid.UUID) error { return nil }
+func (f *fakeRepository) HasDeliveryLogs(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
+}
 
 func (f *fakeRepository) CreateAccountLink(context.Context, *AccountLink) error { return nil }
 func (f *fakeRepository) GetAccountLink(context.Context, string, string) (*AccountLink, error) {

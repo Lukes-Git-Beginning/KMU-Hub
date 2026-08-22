@@ -12,6 +12,12 @@ var (
 	// ErrMappingNotFound is returned when a channel mapping does not exist.
 	ErrMappingNotFound = errors.New("channel mapping not found")
 
+	// ErrMappingInUse is returned when a channel mapping has delivery log
+	// entries. integration_delivery_log.mapping_id is ON DELETE NO ACTION
+	// (migration 000053), so deleting a mapping with log history would crash
+	// with a raw FK violation instead of a clear error.
+	ErrMappingInUse = errors.New("channel mapping has delivery log entries and cannot be deleted")
+
 	// ErrAccountLinkNotFound is returned when an account link does not exist.
 	ErrAccountLinkNotFound = errors.New("account link not found")
 

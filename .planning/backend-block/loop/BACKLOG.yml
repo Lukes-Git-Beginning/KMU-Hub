@@ -2714,7 +2714,7 @@ units:
     service: integration
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/notification/integration (zur Laufzeit messen)"
     scope: >
       `integration_delivery_log.mapping_id` traegt `ON DELETE NO ACTION`.

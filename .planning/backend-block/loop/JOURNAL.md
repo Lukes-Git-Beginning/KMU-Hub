@@ -4368,3 +4368,48 @@ Frühere Läufe liegen vollständig im Archiv:
   aufgerufen wird — kein Befund.
 - neue-units: keine
 - offen: keine
+
+## Iteration 73 — fix-integration-mapping-delete-fk-crash — done — 2026-08-22 09:54
+- commit: (folgt nach Commit unten)
+- gebaut: `integration_delivery_log.mapping_id` traegt `ON DELETE NO ACTION`
+  (`migrations/000053_create_integration_tables.up.sql:55`), `DeleteChannelMapping`
+  (`notification_grpc.go`) rief `s.integrationRepo.DeleteMapping` bisher ohne Vorab-Pruefung auf —
+  eine Mapping-Loeschung mit vorhandenen Delivery-Log-Eintraegen waere als roher FK-Fehler in
+  `mapNotificationError`s default-Zweig gelandet (500 statt 409). Fix nach dem
+  `HasDeals`/`pipelinestage`-Muster: neue Repository-Methode `HasDeliveryLogs(ctx, mappingID)
+  (bool, error)` (SELECT EXISTS, RLS traegt die Tenant-Isolation wie bei den bestehenden
+  Delivery-Log-Methoden), neuer Sentinel `integration.ErrMappingInUse`, neuer Case in
+  `mapNotificationError` -> `codes.FailedPrecondition` (Gateway mappt das bereits generisch auf
+  409, `grpcStatusToHTTP` unveraendert). `DeleteChannelMapping` prueft jetzt vor dem Delete.
+  OpenAPI-Eintrag `/api/v1/integrations/mappings/{id}` DELETE um `409` samt Beschreibung ergaenzt
+  (Route existierte schon, keine neue Route). Zwei Testfakes ergaenzt, die die Interface-Methode
+  jetzt mit erfuellen muessen: `fakeRepository` (forwarder_test.go, immer false) und
+  `notifIntegStub` (notification_grpc_test.go, ueber neue Map `mappingsInUse` steuerbar) —
+  `TestChannelMappingCRUD_HappyPath` deckt jetzt zusaetzlich den 409-Pfad ab. DB-Test
+  `HasDeliveryLogs` in `postgres_repository_test.go` (Mapping mit Log-Eintraegen -> true, frisch
+  geseedetes Mapping ohne Eintraege -> false), eingehaengt in die bestehende
+  `TestPostgresRepository_DeliveryLog`.
+- gate: build ok (`./internal/notification/... ./internal/gateway/... ./internal/server/...
+  ./cmd/notification/... ./cmd/gateway/...`) | vet ok (`./internal/notification/...
+  ./internal/gateway/... ./internal/server/...`) | lint ok (0 issues, dieselben Pfade) | test ok
+  (`./internal/notification/integration/` 0 SKIP / 71 PASS inkl. Subtests; volle
+  `./internal/notification/...`-Suite gruen; `./internal/server/` gruen; `./internal/gateway/`
+  gruen inkl. `TestOpenAPIRouteDrift`) | migration n.a. (kein Schema-Wechsel) | rls-smoke n.a.
+  (keine Tabelle/Policy angefasst, nur eine bestehende SELECT-Query wiederverwendet).
+- coverage: `internal/notification/integration` 73,5 % -> 73,6 % (selbst gemessen via
+  `git stash push -u` auf alle sieben geaenderten Dateien, `go test -coverprofile` davor/danach,
+  `stash pop`; `coverage_start:` in der Unit war unbeziffert — "zur Laufzeit messen" stand
+  ausdruecklich in der Unit).
+- mutations-probe: `if inUse {` in `DeleteChannelMapping` zu `if false && inUse {` entwertet ->
+  `TestChannelMappingCRUD_HappyPath` wird rot ("An error is expected but got nil"). Zurueckgedreht,
+  `git diff internal/server/notification_grpc.go` zeigt wieder ausschliesslich die vorgesehenen
+  12 Insertions, `./internal/server/` erneut gruen.
+- verify vorgaenger: sauber. `7346120a` (Iteration 72, fix-document-folder-delete-nonempty-fk-crash)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `service.go`,
+  `errors.go`, `document_grpc.go`) — Anwendungs-Guard nach dem `ErrCircularParent`-Muster, kein
+  Gateway-Handler direkt betroffen, kein Stub, kein `.proto`, kein neuer/ersetzter
+  `RequirePermission`-Guard, keine neue Tabelle, keine Route, keine Wire-Shape-Aenderung.
+  `CountFiles(ctx, id)` nimmt keinen expliziten Tenant-Parameter, aber `id` stammt aus
+  `GetByID(ctx, tenantID, id)` am Funktionsanfang — bereits tenant-verifiziert, kein Befund.
+- neue-units: keine
+- offen: keine
