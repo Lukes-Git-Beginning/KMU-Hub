@@ -1548,7 +1548,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Ein Handler, der einen Datenbankfehler mit `err.Error()` an den Aufrufer durchreicht,
@@ -2903,3 +2903,137 @@ units:
       - DB-Test inkl. Tenant-Isolation
       - go test -count=1 ./internal/security/... ./internal/notification/... gruen,
         DATABASE_URL gesetzt
+
+  - id: fix-gateway-bexio-error-message-leakage
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Fund aus scan-gateway-sql-error-leakage (Iteration 44). `HandleBexioOAuthCallback`,
+      `PushInvoiceToBexio` und `PushQuoteToBexio` (`internal/server/bexio_grpc.go:43,266,287`)
+      geben bei einem Fehler NICHT `status.Error(...)` zurueck, sondern eine Erfolgsantwort mit
+      `Success: false, ErrorMessage: err.Error()` — das umgeht `respondGRPCError`
+      (`internal/gateway/helpers.go:28`) vollstaendig, die genau dafuer da ist, interne
+      Fehlertexte bei Internal-Fehlern zu maskieren. `err` stammt u. a. aus
+      `bexioService.HandleOAuthCallback`/`PushInvoice`/`PushQuote`, die Vault- und
+      Datenbank-Aufrufe (Config-Upsert, Token-Speicherung) machen koennen.
+      Der Gateway-Code reicht das dann an drei Stellen unveraendert weiter:
+      `route_bexio.go:123` schreibt `resp.GetErrorMessage()` UNESCAPED in eine
+      Redirect-Location (`http.Redirect(w, r, "/settings/integrations?bexio_error="+..., 302)`)
+      — ein interner Fehlertext (moeglicherweise mit Zeilenumbruechen oder Sonderzeichen aus
+      einer SQL-Fehlermeldung) landet damit in einem HTTP-Location-Header ohne
+      `url.QueryEscape`. `route_bexio.go:411-412` und `524-525`/`561-562` betten dieselbe
+      Rohmeldung in JSON-Statusantworten (`error_message`) ein.
+      Separater, aber verwandter Fund in derselben Handler-Umgebung: `route_bexio.go:92`
+      reflektiert den externen Query-Parameter `error` (von Bexio selbst gesendet, also
+      grundsaetzlich auch von einem Angreifer faelschbar, da der Endpunkt oeffentlich ist) ohne
+      Escaping in dieselbe Redirect-Location. Beide Stellen gehoeren in denselben Fix, weil sie
+      denselben Handler und denselben ungesicherten String-Concat-Pfad betreffen.
+    sources:
+      - backend/internal/server/bexio_grpc.go
+      - backend/internal/gateway/route_bexio.go
+      - backend/internal/gateway/helpers.go
+      - backend/internal/biz/bexio/
+    notes: >
+      Zwei getrennte Probleme, ein Fix-Umfang: (1) interne Fehlertexte (Vault/DB) duerfen nicht
+      im Klartext beim Client landen — entweder `mapBexioError`-Stil-Codes verwenden (bereits
+      vorhanden fuer `DisconnectBexio`, als Vorlage nehmen) oder im Gateway vor der Ausgabe auf
+      eine feste, sichere Meldung abbilden und den Rohtext nur ins `slog` loggen. (2) JEDER
+      String, der in eine Redirect-Location eingebettet wird, muss durch `url.QueryEscape`
+      (oder `url.Values.Encode()`), sonst ist das ein Header-/Query-Injection-Risiko —
+      unabhaengig davon, ob die Quelle intern (ErrorMessage) oder extern (Query-Param) ist.
+      Root Cause zuerst pruefen: `mapBexioError` existiert bereits fuer den
+      `status.Error`-Rueckgabepfad — der naheliegende Fix ist, `HandleOAuthCallback`,
+      `PushInvoice` und `PushQuote` auf denselben Pfad umzustellen (echten gRPC-Status-Fehler
+      zurueckgeben statt Success:false+Klartext), statt im Gateway einen zweiten
+      Maskierungsmechanismus danebenzubauen.
+    done_when:
+      - Kein Vault-/DB-/interner Fehlertext erreicht mehr die HTTP-Antwort (Redirect-Query oder
+        JSON), weder bei der OAuth-Callback- noch bei der Push-Route
+      - Jeder String, der in eine Redirect-Location eingebettet wird (intern oder extern),
+        ist ge-escaped
+      - Ein Test provoziert einen Fehler mit einem Sonderzeichen (z. B. Zeilenumbruch oder `&`)
+        im simulierten Fehlertext und belegt, dass er weder im Location-Header noch im
+        JSON-Body im Klartext auftaucht
+      - go test -count=1 ./internal/gateway/ ./internal/server/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-gateway-datev-upload-error-message-leakage
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Zweiter Fund aus scan-gateway-sql-error-leakage (Iteration 44), identisches Muster wie
+      fix-gateway-bexio-error-message-leakage, andere Integration. `HandleOAuthCallback` in
+      `internal/server/datev_upload_grpc.go:69` gibt bei Fehler `Success: false,
+      ErrorMessage: err.Error()` zurueck statt eines gRPC-Status. `route_datev_upload.go:172`
+      schreibt das UNESCAPED in eine Redirect-Location
+      (`"/settings/integrations?datev_error="+resp.GetErrorMessage()`), `route_datev_upload.go:
+      278-279`, `315-316` und `431-432` betten dieselbe Rohmeldung in JSON-Statusantworten ein.
+    sources:
+      - backend/internal/server/datev_upload_grpc.go
+      - backend/internal/gateway/route_datev_upload.go
+      - backend/internal/gateway/helpers.go
+      - backend/internal/biz/datev/
+    notes: >
+      Gleicher Fix-Ansatz wie bei Bexio: echten `status.Error` statt Klartext-ErrorMessage
+      zurueckgeben, und jeden String vor `http.Redirect` escapen. Pruefen, ob es bereits einen
+      `mapDatevError` o. ae. gibt (Vorlage aus dem Bexio-Fix uebernehmen, falls die beiden
+      Units in derselben oder aufeinanderfolgenden Iterationen laufen).
+    done_when:
+      - Kein interner Fehlertext erreicht mehr die HTTP-Antwort (Redirect-Query oder JSON)
+      - Jeder String in einer Redirect-Location ist ge-escaped
+      - Ein Test provoziert einen Fehler mit Sonderzeichen im simulierten Fehlertext und belegt,
+        dass er weder im Location-Header noch im JSON-Body im Klartext auftaucht
+      - go test -count=1 ./internal/gateway/ ./internal/server/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-gateway-lexware-error-message-leakage
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      Dritter Fund aus scan-gateway-sql-error-leakage (Iteration 44), identisches Muster.
+      `ConnectLexware`, `PushInvoiceToLexware` (o. ae.) in `internal/server/lexware_grpc.go:43,
+      94, 237, 258` geben bei Fehler `Success: false, ErrorMessage: err.Error()` zurueck.
+      `err` in `ConnectLexware` stammt direkt aus `lexwareService.Connect`
+      (`internal/biz/lexware/service.go:78`), die `fmt.Errorf("lexware: store api key: %w",
+      err)` und `fmt.Errorf("lexware: save integration config: %w", err)` um Vault- bzw.
+      Postgres-Upsert-Fehler wickelt — bei einem Constraint-Verstoss stuende der
+      Datenbank-Fehlertext also im Klartext in der HTTP-Antwort.
+      `route_lexware.go:122` gibt das DIREKT als 400-Body aus
+      (`response.Error(w, http.StatusBadRequest, resp.GetErrorMessage())`), ohne Umweg ueber
+      einen Redirect — der unmittelbarste der drei Funde, weil hier kein Escaping-Workaround
+      hilft: der Fehlertext selbst darf so nicht beim Client ankommen.
+      `route_lexware.go:211-212`, `343-344`, `456-457`, `493-494` betten dieselbe Rohmeldung in
+      JSON-Statusantworten ein (teils aus historischen Sync-Logs, nicht nur aus der aktuellen
+      Anfrage — dort ist der Fehlertext zwar tenant-eigen und schon in der DB gespeichert, aber
+      immer noch ein potenzieller SQL-/Interna-Leak an einen Nicht-Techniker).
+    sources:
+      - backend/internal/server/lexware_grpc.go
+      - backend/internal/gateway/route_lexware.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Gleicher Fix-Ansatz: `ConnectLexware` etc. sollen einen echten `status.Error` liefern
+      (Vorbild `mapLexwareError`, bereits vorhanden fuer `DisconnectLexware`), damit
+      `respondGRPCError` die Maskierung uebernimmt. Die historischen Sync-Log-Meldungen
+      (`error_message` in den Status-/History-Endpunkten) sind ein separates, kleineres Risiko
+      als der direkte 400-Pfad — beide im selben Commit fixen, aber im Journal den
+      Unterschied in der Dringlichkeit benennen.
+    done_when:
+      - route_lexware.go:122 gibt bei einem Connect-Fehler keinen rohen internen Fehlertext
+        mehr aus (weder Vault- noch DB-Herkunft)
+      - Die JSON-Statusendpunkte zeigen historische Fehlertexte nur noch gefiltert/generisiert,
+        oder es ist begruendet, warum der Rohtext dort vertretbar bleibt
+      - Ein Test provoziert einen simulierten Postgres-Constraint-Fehler beim Connect und
+        belegt, dass sein Text nicht mehr im 400-Body auftaucht
+      - go test -count=1 ./internal/gateway/ ./internal/server/... ./internal/biz/lexware/...
+        gruen, DATABASE_URL gesetzt

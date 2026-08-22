@@ -2748,3 +2748,73 @@ Frühere Läufe liegen vollständig im Archiv:
   - `event_attendees`, `event_reminders`, `event_exceptions` sind fuer diesen Scan nicht einzeln
     per `pg_constraint` auf ihr CASCADE-Verhalten gegen `calendar_events` geprueft — das steht
     als Aufgabe in den Notes der neuen Kalender-Unit, nicht hier vorweggenommen.
+
+## Iteration 44 — scan-gateway-sql-error-leakage — done — 2026-08-22 06:42
+- commit: (folgt im gleichen Commit wie dieser Journal-Eintrag)
+- gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Alle 75 `route_*.go`
+  auf Fehlertexte in der HTTP-Antwort geprueft: `err.Error()`/`%v`/`%s` mit err-Argument in
+  `response.Error(...)`, direktes `http.Error`, `w.Write([]byte(err...`, `fmt.Fprintf(w...err`,
+  `Encode(map[string]string{"error"...`, pgconn/pq/SQLSTATE-Referenzen sowie `GetErrorMessage()`
+  aus Proto-Antworten. Fuenf `err.Error()`-Fundstellen ausserhalb des Kernmusters vorab einzeln
+  geprueft und als Nicht-Fund verworfen: `route_biz_banking.go:38`, `route_biz_einvoice.go:38`
+  (Multipart-Parse-Fehler, reiner Client-Input, keine DB-Beruehrung) und
+  `route_settings.go:543/619/732` (`rawMapToSettingEntries` wrappt `json.Unmarshal`/
+  `structpb.NewValue`, ebenfalls reiner Client-Input-Fehler).
+  Echter Fund: ein durchgaengiges Muster in drei Integrations-Domaenen (Bexio, DATEV, Lexware).
+  Alle drei Server-GRPC-Handler (`internal/server/bexio_grpc.go`, `datev_upload_grpc.go`,
+  `lexware_grpc.go`) geben bei bestimmten Operationen (OAuth-Callback, Push, Connect) KEINEN
+  `status.Error(...)` zurueck, sondern eine Erfolgsantwort mit `Success: false,
+  ErrorMessage: err.Error()` — das umgeht `respondGRPCError` (`gateway/helpers.go:28`)
+  vollstaendig, die genau dafuer gebaut ist, interne Fehlertexte bei Internal-Fehlercodes zu
+  maskieren (der Maskierungs-Zweig greift nur bei `httpCode == http.StatusInternalServerError`,
+  hier kommt aber gar kein Status-Fehler an, sondern eine getarnte 200er/302er-Antwort).
+  Konkret: `err` in `lexware_grpc.go:43` (ConnectLexware) stammt aus
+  `lexwareService.Connect` (`biz/lexware/service.go:78`), die `fmt.Errorf("lexware: store api
+  key: %w", err)` und `fmt.Errorf("lexware: save integration config: %w", err)` um Vault- bzw.
+  Postgres-Upsert-Fehler wickelt — ein Constraint-Verstoss stuende damit im Klartext in der
+  Antwort. Drei Austrittspunkte im Gateway:
+  1. `route_lexware.go:122` — DIREKT als 400-Body (`response.Error(w,
+     http.StatusBadRequest, resp.GetErrorMessage())`), der unmittelbarste Fund.
+  2. `route_bexio.go:123` und `route_datev_upload.go:172` — UNESCAPED in eine
+     Redirect-Location (`http.Redirect(w, r, ".../?xxx_error="+resp.GetErrorMessage(), 302)`),
+     zusaetzlich zum Inhalts-Leak ein Header-/Query-Injection-Risiko, weil kein
+     `url.QueryEscape` verwendet wird.
+  3. JSON-Statusendpunkte in allen drei Dateien (`route_bexio.go:411-412/524-525/561-562`,
+     `route_datev_upload.go:278-279/315-316/431-432`, `route_lexware.go:211-212/343-344/
+     456-457/493-494`) betten dieselbe Rohmeldung als `error_message`-Feld ein — teils aus
+     historischen Sync-Logs (tenant-eigen, dadurch geringere Dringlichkeit als 1./2.).
+  Separater, aber verwandter Fund im selben Handler: `route_bexio.go:92` reflektiert den
+  externen, vom Aufrufer kontrollierbaren Query-Parameter `error` (oeffentlicher Endpunkt, kein
+  Auth) ebenfalls ohne Escaping in dieselbe Redirect-Location — anderer Ursprung (extern statt
+  intern), aber derselbe ungesicherte String-Concat-Pfad, deshalb in denselben Fix-Unit-Scope
+  aufgenommen statt eine vierte Unit zu eroeffnen.
+  `mapBexioError`/`mapLexwareError` existieren bereits als sauberer Status-Error-Pfad fuer
+  andere Operationen (z. B. `DisconnectBexio`, `DisconnectLexware`) in denselben Dateien — das
+  ist die Vorlage fuer den Fix, nicht ein neuer Maskierungsmechanismus im Gateway.
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — done_when verlangt kein
+  go test)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geaenderter Testfall)
+- verify vorgaenger: sauber. `a83334af` (Iteration 43,
+  scan-personal-data-tables-without-retention-mapping) geprueft: `git show --stat` zeigt
+  ausschliesslich `BACKLOG.yml` und `JOURNAL.md` — kein Produktionscode, keine der acht
+  Fehlerklassen einschlaegig.
+- neue-units: fix-gateway-bexio-error-message-leakage, fix-gateway-datev-upload-error-message-
+  leakage, fix-gateway-lexware-error-message-leakage
+- offen:
+  - Die drei neuen Fix-Units sind bewusst je Routendatei gebuendelt (nicht eine gemeinsame
+    Unit), obwohl die Ursache identisch ist — jede haengt an einem eigenen Service
+    (`internal/biz/bexio`, `internal/biz/datev`, `internal/biz/lexware`) mit eigenem
+    `map*Error`-Vorbild, das als Fix-Vorlage dient. Sollte sich beim Bauen zeigen, dass ein
+    gemeinsamer Gateway-Helfer sauberer ist als drei Service-seitige Fixes, ist das eine
+    legitime Abweichung — im Journal der jeweiligen Iteration begruenden.
+  - Nicht als eigene Unit angelegt: `route_bexio.go:92` (Reflection des externen
+    `error`-Query-Parameters) ist eine andere Fehlerklasse als DB-Error-Leakage (reflektierter
+    externer Input statt interner Fehlertext) und faellt strikt genommen nicht unter den
+    Scan-Scope dieser Unit — aber da er im selben Handler und demselben ungesicherten
+    String-Concat-Pfad liegt wie Fund 2, ist er in den Scope von
+    fix-gateway-bexio-error-message-leakage aufgenommen statt separat verloren zu gehen.
+  - Fuer die JSON-Statusendpunkte (Fund 3) ist die Dringlichkeit bewusst niedriger eingestuft
+    als fuer die Redirect- und 400-Body-Faelle, weil sie tenant-eigene, bereits in der DB
+    liegende historische Fehlertexte zeigen und nur ueber eine authentifizierte
+    Settings-Ansicht erreichbar sind — trotzdem im selben Fix-Scope, nicht separat verschoben.
