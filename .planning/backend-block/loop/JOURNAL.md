@@ -3649,7 +3649,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Alternative eine Inline-Query analog zu den anderen Modulen, mit dupliziertem Scan.
 
 ## Iteration 59 — feat-dsar-search-user-hr-employee-module — done — 2026-08-22 08:16
-- commit: (siehe nächster docs-Commit)
+- commit: b90c5328
 - gebaut: Drei neue DSAR-Module in `internal/security/gdpr/dsar_search.go`, eingehängt in
   `matchUsers` direkt nach den Notification-Modulen: `hrProfileModule` ("Personalprofil",
   ein Feld/Wert-Modul aus `hr_employee_profiles`, LEFT JOIN auf `users` für den Vorgesetzten-
