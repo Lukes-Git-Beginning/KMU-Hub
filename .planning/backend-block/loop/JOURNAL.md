@@ -2358,3 +2358,81 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein DB-Gate fuer eine Migration noetig (diese Unit aendert kein
     Schema). Der neue Fix (`fix-idempotency-reserve-inflight-race`) ist
     reine Code-Aenderung ueber `xmax = 0`, ebenfalls ohne Migration.
+
+## Iteration 38 — fix-idempotency-real-sql-coverage-cleanup-concurrency — done — 2026-08-22 06:02
+- commit: (siehe naechster docs-Commit)
+- gebaut: drei neue Tests in `internal/idempotency/postgres_repository_db_test.go`
+  gegen echtes SQL statt Mock: `TestPostgresCleanup_DeletesOnlyExpired` (eine
+  frische und eine zwangsweise abgelaufene Reservierung, Cleanup entfernt nur
+  die abgelaufene), `TestPostgresCleanupWithLock_SkipsWhenLockHeld` (eine
+  eigens gehaltene `pg_try_advisory_lock`-Session auf einer separaten
+  Connection zwingt `CleanupWithLock` zu sofortigem `(0, nil)` ohne zu
+  blockieren — belegt ueber Postgres' Non-Blocking-Semantik der
+  try-Variante, nicht ueber Timing) und
+  `TestPostgresCleanupWithLock_AcquiresAndReleases` (belegt zusaetzlich,
+  dass der Advisory Lock nach Rueckkehr wirklich frei ist, geprueft von
+  einer dritten, unabhaengig erworbenen Connection — nicht nur dass
+  irgendetwas geloescht wurde).
+  RECHERCHE-BEFUND UNTERWEGS (kein Bug, aber wert festzuhalten): die zweite
+  Version von `TestPostgresCleanupWithLock_AcquiresAndReleases` schlug
+  zunaechst mit "expected the expired reservation to be deleted, got 0" fehl,
+  weil ich `CleanupWithLock` mit blankem `context.Background()` aufgerufen
+  hatte. Produktionscode (`internal/middleware/idempotency.go:228`,
+  `cleanupCtx`) wrappt den Worker-Context IMMER mit `sysctx.With(...)`, bevor
+  er `CleanupWithLock` ruft — ohne das laeuft die DELETE-Query durch dieselbe
+  RLS-Policy wie jeder andere Write und matcht ohne System- oder
+  Tenant-Kontext keine Zeile, meldet aber `(0, nil)`, keinen Fehler. Das ist
+  also ein impliziter Caller-Vertrag von `CleanupWithLock`, den nur der
+  Middleware-Kommentar dokumentiert, nicht die Repository-Methode selbst.
+  Testfehler war meiner, nicht der Produktionscode — nach Korrektur auf
+  `testutil.WithSystemCtx` gruen. Kein Fix-Unit-Bedarf, aber der
+  Test-Kommentar an der Stelle haelt die Falle fest, damit sie nicht ein
+  zweites Mal jemanden trifft.
+  Meine urspruengliche Hypothese aus den Unit-Notes — dass `CleanupWithLock`
+  Lock und Unlock ueber unterschiedliche, aus dem Pool gezogene Connections
+  laufen lassen und den Advisory Lock damit leaken koennte — wurde durch
+  `TestPostgresCleanupWithLock_AcquiresAndReleases` GEPRUEFT UND WIDERLEGT:
+  der Lock ist nach Rueckkehr nachweislich frei. Kein Fund, aber eine
+  begruendete Nicht-Findung, die die Notes der Unit direkt beantwortet.
+- gate: build ok (`-p 2` idempotency/..., middleware/..., cmd/automation/...,
+  cmd/gateway/...) | vet ok | lint ok (0 issues) | test ok (24/24 PASS,
+  0 SKIP, 0 FAIL — DATABASE_URL gesetzt, Rolle kmuhub_app) | migration n.a.
+  (keine Schemaaenderung) | rls-smoke ok (Tenant- und System-Context-Pfade
+  beider neuen Cleanup-Tests laufen bewusst unterschiedlich durch RLS,
+  bestehende RLS-Tests weiterhin gruen) | gateway-route-drift n.a. (keine
+  Route angefasst, `go test ./internal/gateway/` daher nicht Pflicht) |
+  `-race` NICHT gelaufen, siehe offen:
+- coverage: internal/idempotency 59,0 % (Iteration-37-Stand nach deren
+  Postgres-Testdatei) -> 87,2 % (eigene Messung nach dieser Unit)
+- mutations-probe: in `Cleanup` (`postgres_repository.go:180`) die
+  DELETE-Bedingung von `expires_at < NOW()` auf `expires_at > NOW()`
+  invertiert -> `TestPostgresCleanup_DeletesOnlyExpired` UND
+  `TestPostgresCleanupWithLock_AcquiresAndReleases` werden beide rot
+  (erstere: die frische Reservierung verschwindet statt zu ueberleben;
+  zweite: die abgelaufene bleibt liegen statt geloescht zu werden).
+  Zurueckgedreht -> `git diff --stat internal/idempotency/postgres_repository.go`
+  zeigt 0 inhaltliche Zeilen (nur die uebliche LF/CRLF-Warnung).
+- verify vorgaenger: sauber. `6507e475` (Iteration 37,
+  fix-idempotency-real-sql-coverage-core) gegen alle acht Fehlerklassen
+  geprueft: `git show --stat 6507e475` zeigt ausschliesslich eine neue
+  Testdatei (`internal/idempotency/postgres_repository_db_test.go`) plus
+  BACKLOG/JOURNAL — kein Produktionscode angefasst, kein gRPC-Bypass, kein
+  Stub/TODO, kein `.proto` geaendert, keine neue `RequirePermission`, keine
+  neue Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt, keine neue
+  Route.
+- neue-units: keine
+- offen:
+  - `-race` konnte auf dieser Maschine nicht laufen: `go test -race`
+    braucht cgo, und `gcc` ist hier nicht installiert (`cgo: C compiler
+    "gcc" not found`). Alle drei neuen Tests liefen ohne `-race`, aber
+    grundsaetzlich nebenlaeufig (`t.Parallel()`, echte zweite/dritte
+    Connections). CI hat vermutlich einen C-Compiler — dort einmal mit
+    `-race` gegenpruefen, wie die Unit-Notes es fordern.
+  - `CleanupWithLock` braucht zwingend einen System- oder Tenant-Context
+    (RLS), sonst liefert es `(0, nil)` ohne jeden Hinweis auf den Grund.
+    Das ist heute nur als Kommentar an `cleanupCtx` in
+    `internal/middleware/idempotency.go` dokumentiert, nicht an der
+    Repository-Methode selbst — waere ein guter Kandidat fuer einen
+    Doc-Kommentar an `Repository.CleanupWithLock`/`Cleanup` in einer
+    kuenftigen Unit, aendert aber kein Verhalten und war hier nicht der
+    Auftrag.

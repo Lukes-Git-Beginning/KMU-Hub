@@ -1336,7 +1336,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-idempotency-real-sql-coverage-core]
-    status: todo
+    status: done
     coverage_start: "internal/idempotency (Paketwert im CI-Log nachschlagen, Run 32508843776)"
     scope: >
       Zweite Haelfte: `Cleanup` (postgres_repository.go:179) und `CleanupWithLock` (188). Der

@@ -8,6 +8,7 @@ package idempotency_test
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -20,6 +21,13 @@ import (
 	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
+
+// lockKeyFromUUID derives a pg_advisory_lock key from a fresh UUID so
+// parallel tests (t.Parallel()) never collide on the same session-level
+// lock in the shared test database.
+func lockKeyFromUUID(id uuid.UUID) int64 {
+	return int64(binary.BigEndian.Uint64(id[:8]))
+}
 
 func cleanupIdempotencyKey(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, key string) {
 	t.Helper()
@@ -345,4 +353,161 @@ func TestPostgresComplete_CrossTenant_ReturnsErrKeyMissing(t *testing.T) {
 	if !errors.Is(err, idempotency.ErrKeyMissing) {
 		t.Fatalf("expected ErrKeyMissing when tenant B completes tenant A's key, got %v", err)
 	}
+}
+
+func TestPostgresCleanup_DeletesOnlyExpired(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Idempotency Cleanup Expiry")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := idempotency.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	userID := uuid.New()
+
+	freshKey := "db-cleanup-fresh-" + uuid.New().String()
+	expiredKey := "db-cleanup-expired-" + uuid.New().String()
+	defer cleanupIdempotencyKey(t, pool, tenantID, freshKey)
+	defer cleanupIdempotencyKey(t, pool, tenantID, expiredKey)
+
+	if _, err := repo.Reserve(ctx, freshKey, tenantID, userID, "POST", "/api/v1/test", "hash-fresh"); err != nil {
+		t.Fatalf("Reserve fresh: %v", err)
+	}
+	if _, err := repo.Reserve(ctx, expiredKey, tenantID, userID, "POST", "/api/v1/test", "hash-expired"); err != nil {
+		t.Fatalf("Reserve expired: %v", err)
+	}
+
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	if _, err := pool.Exec(sysCtx,
+		"UPDATE idempotency_keys SET expires_at = NOW() - INTERVAL '1 hour' WHERE tenant_id=$1 AND key=$2",
+		tenantID, expiredKey); err != nil {
+		t.Fatalf("force-expire: %v", err)
+	}
+
+	if _, err := repo.Cleanup(ctx); err != nil {
+		t.Fatalf("Cleanup: %v", err)
+	}
+
+	if _, err := repo.Get(ctx, tenantID, freshKey); err != nil {
+		t.Fatalf("expected fresh (non-expired) reservation to survive Cleanup, got %v", err)
+	}
+	if _, err := repo.Get(ctx, tenantID, expiredKey); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("expected expired reservation removed by Cleanup, got %v", err)
+	}
+}
+
+// TestPostgresCleanupWithLock_SkipsWhenLockHeld proves the non-blocking half
+// of the contract: pg_try_advisory_lock never blocks, so a second replica
+// holding the same lockKey on its own connection must make CleanupWithLock
+// return (0, nil) immediately instead of deleting anything.
+func TestPostgresCleanupWithLock_SkipsWhenLockHeld(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	ctx := context.Background()
+	lockKey := lockKeyFromUUID(uuid.New())
+
+	holder, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("acquire holder connection: %v", err)
+	}
+	defer holder.Release()
+
+	var locked bool
+	if err := holder.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", lockKey).Scan(&locked); err != nil {
+		t.Fatalf("holder pg_try_advisory_lock: %v", err)
+	}
+	if !locked {
+		t.Fatal("expected the holder connection to acquire the lock first")
+	}
+	defer func() {
+		_, _ = holder.Exec(ctx, "SELECT pg_advisory_unlock($1)", lockKey)
+	}()
+
+	repo := idempotency.NewPostgresRepository(pool)
+	deleted, err := repo.CleanupWithLock(ctx, lockKey)
+	if err != nil {
+		t.Fatalf("CleanupWithLock: %v", err)
+	}
+	if deleted != 0 {
+		t.Fatalf("expected CleanupWithLock to skip while another session holds the lock, got %d deleted", deleted)
+	}
+}
+
+// TestPostgresCleanupWithLock_AcquiresAndReleases proves the other half:
+// once free, CleanupWithLock acquires the lock, deletes expired rows, and —
+// critically — actually releases the lock afterwards. pool.QueryRow and
+// pool.Exec each acquire a connection independently and are not guaranteed
+// to reuse the same physical session, so the acquire and the release inside
+// CleanupWithLock could silently run on different sessions; this test
+// verifies from a second, independently acquired connection that the lock
+// is genuinely free again, not leaked on whichever connection acquired it.
+func TestPostgresCleanupWithLock_AcquiresAndReleases(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Idempotency CleanupWithLock Free")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := idempotency.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	userID := uuid.New()
+	key := "db-lock-free-" + uuid.New().String()
+	defer cleanupIdempotencyKey(t, pool, tenantID, key)
+
+	if _, err := repo.Reserve(ctx, key, tenantID, userID, "POST", "/api/v1/test", "hash-lock-free"); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	if _, err := pool.Exec(sysCtx,
+		"UPDATE idempotency_keys SET expires_at = NOW() - INTERVAL '1 hour' WHERE tenant_id=$1 AND key=$2",
+		tenantID, key); err != nil {
+		t.Fatalf("force-expire: %v", err)
+	}
+
+	lockKey := lockKeyFromUUID(uuid.New())
+	bg := context.Background()
+	// CleanupWithLock's DELETE goes through the same RLS policies as any
+	// other write; production wraps it with sysctx (middleware/idempotency.go
+	// cleanupCtx) because the worker has no per-request tenant. Without that,
+	// the DELETE below matches zero rows, not because nothing is expired but
+	// because RLS admits nothing.
+	deleted, err := repo.CleanupWithLock(testutil.WithSystemCtx(bg), lockKey)
+	if err != nil {
+		t.Fatalf("CleanupWithLock: %v", err)
+	}
+	if deleted < 1 {
+		t.Fatalf("expected the expired reservation to be deleted, got %d", deleted)
+	}
+	if _, err := repo.Get(ctx, tenantID, key); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("expected the expired reservation removed, got %v", err)
+	}
+
+	verifier, err := pool.Acquire(bg)
+	if err != nil {
+		t.Fatalf("acquire verifier connection: %v", err)
+	}
+	defer verifier.Release()
+
+	var stillFree bool
+	if err := verifier.QueryRow(bg, "SELECT pg_try_advisory_lock($1)", lockKey).Scan(&stillFree); err != nil {
+		t.Fatalf("verifier pg_try_advisory_lock: %v", err)
+	}
+	if !stillFree {
+		t.Fatalf("advisory lock %d is still held after CleanupWithLock returned -- "+
+			"acquire and release ran on different pooled connections, leaking the lock", lockKey)
+	}
+	_, _ = verifier.Exec(bg, "SELECT pg_advisory_unlock($1)", lockKey)
 }
