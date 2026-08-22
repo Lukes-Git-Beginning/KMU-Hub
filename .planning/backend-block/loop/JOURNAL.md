@@ -4147,7 +4147,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 68 — fix-chat-erasure-missing-bookmarks-mentions — done — 2026-08-22 09:26
-- commit: (folgt im naechsten Commit-Eintrag)
+- commit: 80794966
 - gebaut: `ChatErasureHandler` erfasste `message_bookmarks` und `message_mentions` (beide
   `user_id`, CASCADE auf `users(id)`) weder in `PreviewErasure` noch in `ExecuteErasure` — beide
   CASCADE-FKs feuern nie, weil `AuthErasureHandler` den Nutzer anonymisiert statt loescht
