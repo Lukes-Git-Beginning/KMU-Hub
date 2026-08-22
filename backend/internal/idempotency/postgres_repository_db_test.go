@@ -143,20 +143,14 @@ func TestPostgresReserve_Conflict_DifferentHash(t *testing.T) {
 	}
 }
 
-// TestPostgresReserve_ConcurrentSameKey_NoErrorEitherSide documents a real gap
-// in the Postgres-backed Reserve rather than the mock's contract: unlike
-// mockRepository.Reserve in repository_test.go, which returns ErrInFlight for
-// a second in-flight reservation, the real INSERT ... ON CONFLICT DO UPDATE
-// path cannot distinguish "I just inserted this row" from "someone else beat
-// me to it a moment ago" — both return (nil, nil) as long as completed_at is
-// still unset. Two concurrent callers with the same key therefore both
-// believe they own the reservation and may both proceed to run the handler.
-// Already flagged as a pre-existing, out-of-scope gap at
-// internal/automation/workflow/webhook.go:164 for the webhook trigger path;
-// this test proves it against the shared repository directly, under real
-// concurrent connections, so it is not unique to that one caller. See
-// fix-idempotency-reserve-inflight-race filed at the end of BACKLOG.yml.
-func TestPostgresReserve_ConcurrentSameKey_NoErrorEitherSide(t *testing.T) {
+// TestPostgresReserve_ConcurrentSameKey_OneWinnerOneInFlight pins the contract
+// documented on Repository.Reserve: of two callers racing the same key, exactly
+// one creates the reservation and gets (nil, nil), the other must see
+// ErrInFlight instead of also believing it owns the key. The distinction comes
+// from `(xmax = 0) AS inserted` in the INSERT ... ON CONFLICT DO UPDATE — before
+// that, both sides returned (nil, nil) and both ran the handler, which is the
+// double booking the idempotency key exists to prevent.
+func TestPostgresReserve_ConcurrentSameKey_OneWinnerOneInFlight(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -189,13 +183,25 @@ func TestPostgresReserve_ConcurrentSameKey_NoErrorEitherSide(t *testing.T) {
 	close(start)
 	wg.Wait()
 
+	winners, inFlight := 0, 0
 	for i, err := range errs {
-		if err != nil {
-			t.Fatalf("goroutine %d: expected no error from concurrent Reserve (documented gap, not a hardened lock), got %v", i, err)
+		switch {
+		case err == nil:
+			winners++
+			if recs[i] != nil {
+				t.Fatalf("goroutine %d: winner must get a nil record (no response stored yet), got %+v", i, recs[i])
+			}
+		case errors.Is(err, idempotency.ErrInFlight):
+			inFlight++
+			if recs[i] != nil {
+				t.Fatalf("goroutine %d: ErrInFlight must come with a nil record, got %+v", i, recs[i])
+			}
+		default:
+			t.Fatalf("goroutine %d: expected nil or ErrInFlight, got %v", i, err)
 		}
-		if recs[i] != nil {
-			t.Fatalf("goroutine %d: expected nil record (neither side sees a completed response yet), got %+v", i, recs[i])
-		}
+	}
+	if winners != 1 || inFlight != 1 {
+		t.Fatalf("expected exactly one winner and one ErrInFlight, got %d winners / %d in-flight", winners, inFlight)
 	}
 
 	// Exactly one row must exist despite two INSERTs racing the same key —
@@ -206,6 +212,55 @@ func TestPostgresReserve_ConcurrentSameKey_NoErrorEitherSide(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("expected exactly one row for the raced key, got %d", count)
+	}
+}
+
+// TestPostgresReserve_SequentialSameKey_SecondIsInFlight is the non-racy half of
+// the same contract: a second Reserve for a key that was reserved but never
+// completed is in flight, not a fresh reservation.
+func TestPostgresReserve_SequentialSameKey_SecondIsInFlight(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Idempotency Reserve Sequential")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := idempotency.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	userID := uuid.New()
+	key := "db-sequential-" + uuid.New().String()
+	defer cleanupIdempotencyKey(t, pool, tenantID, key)
+
+	rec, err := repo.Reserve(ctx, key, tenantID, userID, "POST", "/api/v1/test", "hash-sequential")
+	if err != nil {
+		t.Fatalf("first Reserve: %v", err)
+	}
+	if rec != nil {
+		t.Fatalf("first Reserve must return a nil record, got %+v", rec)
+	}
+
+	rec, err = repo.Reserve(ctx, key, tenantID, userID, "POST", "/api/v1/test", "hash-sequential")
+	if !errors.Is(err, idempotency.ErrInFlight) {
+		t.Fatalf("second Reserve on an uncompleted key: expected ErrInFlight, got %v", err)
+	}
+	if rec != nil {
+		t.Fatalf("ErrInFlight must come with a nil record, got %+v", rec)
+	}
+
+	// Once completed, the same key replays the cached response instead of reporting in flight.
+	if err := repo.Complete(ctx, tenantID, key, 201, []byte(`{"ok":true}`)); err != nil {
+		t.Fatalf("Complete: %v", err)
+	}
+	rec, err = repo.Reserve(ctx, key, tenantID, userID, "POST", "/api/v1/test", "hash-sequential")
+	if err != nil {
+		t.Fatalf("Reserve after Complete: %v", err)
+	}
+	if rec == nil || rec.ResponseStatus == nil || *rec.ResponseStatus != 201 {
+		t.Fatalf("expected replay of the completed record with status 201, got %+v", rec)
 	}
 }
 

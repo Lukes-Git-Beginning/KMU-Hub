@@ -3519,3 +3519,63 @@ Frühere Läufe liegen vollständig im Archiv:
     schreibbar. Kein Datenleck, aber Karteileichen plus ein schmales Existenz-Oracle. Nicht
     in dieser Unit mitgefixt (Schema-Unit), sondern als Unit
     `fix-work-task-custom-field-foreign-tenant-writable` ans Backlog-Ende gehaengt.
+
+## Iteration 57 — fix-idempotency-reserve-inflight-race — done — 2026-08-22 08:03
+- commit: <wird im Folge-Commit nachgetragen>
+- gebaut: `postgresRepository.Reserve` unterscheidet jetzt den eigenen INSERT vom
+  ON-CONFLICT-Zweig — `RETURNING …, (xmax = 0) AS inserted`. Bei `completed_at IS NULL`
+  liefert nur der Gewinner weiterhin `(nil, nil)`; der Verlierer bekommt `ErrInFlight`,
+  das bis dahin von KEINER Stelle in `postgres_repository.go` je zurückgegeben wurde
+  (nur vom Mock in `repository_test.go`). Damit hält der Code den Vertrag ein, der seit
+  jeher auf `Repository.Reserve` dokumentiert ist (Zeile 47).
+  Beide Aufrufer blieben unverändert und sehen den Fehler jetzt tatsächlich:
+  `internal/middleware/idempotency.go:124` → 409 + `Retry-After: 2`,
+  `internal/automation/workflow/webhook.go:213` → `Duplicate: true`.
+  Der `lean:`-Marker über `TriggerWebhook` ist auf "resolved" umgeschrieben.
+  Test `TestPostgresReserve_ConcurrentSameKey_NoErrorEitherSide` durch
+  `…_OneWinnerOneInFlight` ersetzt (erwartet genau 1 Gewinner + 1 `ErrInFlight` aus
+  zwei echten Goroutinen) und `TestPostgresReserve_SequentialSameKey_SecondIsInFlight`
+  ergänzt (nicht-nebenläufige Hälfte desselben Vertrags plus Replay nach `Complete`).
+- gate: build ok (`./internal/idempotency/... ./internal/middleware/... ./internal/automation/...
+  ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues,
+  `./internal/idempotency/... ./internal/automation/workflow/...`)
+  | test ok (`./internal/idempotency/` 25 PASS / **0 SKIP** gegen `kmuhub_app`, davon
+  13 echte Postgres-Tests; `./internal/middleware/` ok, `./internal/automation/workflow/` ok,
+  `./internal/gateway/` ok) | migration n.a. (xmax ist System-Spalte, kein Schema-Wechsel)
+  | rls-smoke n.a. (keine Tabelle und keine Policy angefasst)
+- coverage: `internal/idempotency` 87,2 % -> 88,1 % (selbst gemessen, identisches Paket:
+  Vorher-Wert über `git stash push` auf genau die drei geänderten Dateien, danach
+  `stash pop` und erneut gemessen). `coverage_start` der Unit war
+  "n.a. (Verhaltens-Fix, kein Coverage-Ziel)" — der Zuwachs ist Nebeneffekt des
+  neuen `ErrInFlight`-Zweigs plus des zweiten Tests.
+- mutations-probe: zwei Proben, beide rot.
+  (1) `if inserted` → `if true` (Erkennung ausgehebelt, alter Zustand) →
+  `…_OneWinnerOneInFlight` fällt mit "got 2 winners / 0 in-flight",
+  `…_SecondIsInFlight` mit "expected ErrInFlight, got <nil>" — exakt der Produktionsfehler.
+  (2) `if inserted` → `if !inserted` (Bedingung invertiert) → vier Tests rot, darunter
+  `TestPostgresReserve_FreshKey` und `…_Replay_ReturnsCachedRecord` mit
+  "idempotency key request in flight" — der Gewinner-Pfad ist also ebenfalls abgedeckt.
+  Zurückgedreht, `git diff --stat postgres_repository.go` zeigt wieder die
+  ursprünglichen 17 Insertions / 4 Deletions, Paket grün.
+- verify vorgänger: sauber. `28837c84` (Iteration 56,
+  fix-work-task-custom-field-definitions-fk) gegen alle acht Fehlerklassen geprüft
+  (`git show --stat` + Volltextdiff von Code und Migration) — Migration 000320 hängt nur
+  eine FK auf einer bestehenden Tabelle um (kein neues `tenant_id`/RLS-Thema), `.up`/`.down`
+  beide gefüllt und spiegelbildlich, Karteileichen-Löschung im Kopf begründet, JOIN in
+  `GetCustomFieldValues` im selben Commit mitgezogen. Kein neuer Handler, kein direkter
+  Service-Aufruf am gRPC-Client vorbei, kein Stub, kein `.proto`, kein neuer oder ersetzter
+  `RequirePermission`-Guard, keine neue Route, keine Wire-Shape-Änderung.
+- neue-units: keine
+- offen:
+  - **Verhaltensänderung mit Produktionswirkung, bewusst so gebaut:** ein Request, dessen
+    erster Versuch abgestürzt ist, BEVOR `Complete` lief, bekommt beim Retry mit demselben
+    Idempotency-Key jetzt 409 statt durchzulaufen — bis der Key nach `expires_at` weg ist.
+    Das ist genau die dokumentierte Semantik ("same hash, no response yet → ErrInFlight")
+    und die Voraussetzung dafür, dass der Schlüssel Doppelbuchungen überhaupt verhindert;
+    Luke sollte es trotzdem gesehen haben, weil vorher nichts davon greifen konnte.
+    Der Client bekommt `Retry-After: 2` mit.
+  - `-race` konnte lokal nicht laufen: `go test -race` verlangt cgo, und auf dieser Maschine
+    ist kein `gcc` im PATH ("C compiler \"gcc\" not found"). Die `done_when`-Zeile der Unit
+    fordert `-race` — gelaufen ist der identische Testsatz ohne Detektor (inklusive der
+    nebenläufigen Zwei-Goroutinen-Reservierung, die real gegen die DB grün ist). CI fährt
+    `-race`; wenn dort etwas auffällt, dann in `internal/idempotency`.

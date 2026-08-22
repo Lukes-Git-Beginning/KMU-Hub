@@ -82,19 +82,26 @@ func (r *postgresRepository) Reserve(
 	tenantID, userID uuid.UUID,
 	method, path, hash string,
 ) (*Record, error) {
-	// INSERT … ON CONFLICT (tenant_id, key) DO UPDATE SET xmax_trick = ...
+	// INSERT … ON CONFLICT (tenant_id, key) DO UPDATE.
 	// Pattern: we use a sentinel column update (expires_at = expires_at, a no-op) so
 	// RETURNING fires for both insert and conflict paths, giving us the stored record
 	// atomically without a separate SELECT — eliminating the TOCTOU window.
+	// `(xmax = 0) AS inserted` tells the two paths apart: a row version produced by our
+	// own INSERT carries xmax 0, while the ON CONFLICT branch updates an existing row and
+	// leaves the locking transaction id in xmax. Without it a caller that lost the race
+	// looks exactly like the winner (both see completed_at IS NULL) and both run the
+	// handler — the double-booking the key exists to prevent.
 	const insertSQL = `
 		INSERT INTO idempotency_keys
 			(key, tenant_id, user_id, method, path, request_hash)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (tenant_id, key) DO UPDATE SET expires_at = idempotency_keys.expires_at
 		RETURNING key, tenant_id, user_id, method, path, request_hash,
-		          response_status, response_body, created_at, completed_at, expires_at`
+		          response_status, response_body, created_at, completed_at, expires_at,
+		          (xmax = 0) AS inserted`
 
 	rec := &Record{}
+	var inserted bool
 	err := r.pool.QueryRow(ctx, insertSQL, key, tenantID, userID, method, path, hash).Scan(
 		&rec.Key,
 		&rec.TenantID,
@@ -107,6 +114,7 @@ func (r *postgresRepository) Reserve(
 		&rec.CreatedAt,
 		&rec.CompletedAt,
 		&rec.ExpiresAt,
+		&inserted,
 	)
 	if err != nil {
 		return nil, err
@@ -117,9 +125,14 @@ func (r *postgresRepository) Reserve(
 		return nil, ErrConflict
 	}
 
-	// No completion yet — in-flight or just-inserted (both safe: caller will wait/proceed).
 	if rec.CompletedAt == nil {
-		return nil, nil
+		if inserted {
+			// We created the reservation — the caller owns it and may run the handler.
+			return nil, nil
+		}
+		// The row already existed and nobody has stored a response yet: another
+		// request holds this key right now.
+		return nil, ErrInFlight
 	}
 
 	// Completed replay — return existing record so middleware can serve cached response.

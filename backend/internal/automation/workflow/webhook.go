@@ -161,13 +161,10 @@ func jsonPayload(rawBody []byte) json.RawMessage {
 // an exact resend of the same delivery (the common webhook retry pattern)
 // dedupes even when the sender sets no such header.
 //
-// lean: internal/idempotency.Reserve does not fully distinguish a fresh key
-// from a concurrent in-flight one under the real Postgres backend (both
-// currently return (nil, nil) if completed_at hasn't been set yet) -- a very
-// narrow window where two near-simultaneous deliveries of the same key could
-// both execute. Pre-existing gap in shared infra used across the codebase,
-// not specific to this trigger; out of scope here. Upgrade when
-// internal/idempotency's Reserve is hardened for that race.
+// The former lean: note about concurrent deliveries is resolved:
+// internal/idempotency.Reserve now tells a fresh reservation apart from a
+// concurrent one via the xmax trick and returns ErrInFlight to the loser, which
+// this function reports as a duplicate instead of executing the automation twice.
 func (s *Service) TriggerWebhook(ctx context.Context, automationID uuid.UUID, rawBody []byte, signatureHeader, idempotencyKey string) (*WebhookTriggerResult, error) {
 	if len(rawBody) > maxWebhookBodyBytes {
 		return nil, ErrWebhookPayloadTooLarge

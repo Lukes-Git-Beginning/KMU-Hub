@@ -2126,7 +2126,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
     scope: >
       Gefunden in fix-idempotency-real-sql-coverage-core (Iteration 37, 2026-08-22), live gegen
