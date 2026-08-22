@@ -1520,7 +1520,7 @@ units:
     service: security
     model: sonnet
     deps: [feat-retention-worker-schema-and-engine]
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr 61,2 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Nach A10 gibt es eine Registry resource_type -> Tabelle und vier Handler (A11 bis A13).
@@ -2767,4 +2767,139 @@ units:
         (z. B. ueber den Retention-Handler), die Anfrage-Zeile bleibt lesbar erhalten
       - down-Migration vorhanden, falls eine Migration noetig ist
       - go test -count=1 ./internal/crm/consent/... ./internal/security/gdpr/... gruen,
+        DATABASE_URL gesetzt
+
+  - id: feat-retention-worker-handler-work-tasks
+    phase: 3
+    service: security
+    model: sonnet
+    deps: [feat-retention-worker-schema-and-engine]
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      Fund aus scan-personal-data-tables-without-retention-mapping (Iteration 43): das Work-
+      Modul (`tasks`, `task_comments`) sammelt Personendaten (Titel, Beschreibungen, Kommentare
+      mit Namensbezug) unbefristet an, ohne dass die Retention-Registry aus A10
+      (`cmd/auth/main.go:122`) auch nur einen Eintrag dafuer kennt. Die fuenf registrierten
+      Handler decken contacts, dialer_call_sessions, messages (Chat), tickets (Helpdesk) und
+      form_submissions ab — Work fehlt vollstaendig, obwohl A8
+      (`feat-dsar-search-user-work-module`) dieselben Tabellen laengst als personenbezogen
+      identifiziert und in die Auskunft aufgenommen hat. Auskunft kennt die Daten, Loeschfrist
+      nicht — dieselbe Asymmetrie wie in Befund 3 des Lauf-10-Kopfes fuer die Benutzerseite
+      insgesamt.
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_contacts.go
+      - backend/internal/security/gdpr/dsar_search.go (tasksModule/taskCommentsModule, Iteration 8)
+      - backend/internal/work/task/postgres_repository.go
+      - backend/migrations/000025_create_tasks.up.sql
+      - backend/migrations/000026_create_task_collaboration.up.sql
+      - backend/cmd/auth/main.go
+    notes: >
+      `time_entries` ausdruecklich AUSSER SCOPE: arbeitsrechtliche Aufbewahrungspflicht
+      (aehnlich GoBD), siehe die bereits offene `fix-work-erasure-time-entries-retention-
+      conflict` (Iteration 41) — eine generische Loeschfrist waere dort das falsche Werkzeug,
+      nicht nur eine fehlende Zuordnung.
+      `tasks.project_id` ist `ON DELETE CASCADE` auf `projects`, `tasks` selbst hat kein eigenes
+      `tenant_id` (retrofit ueber `project_id` pruefen, nicht annehmen) — vor dem Bauen klaeren,
+      wie der Tenant-Filter tatsaechlich laeuft.
+      `task_comments.task_id` cascadiert vermutlich auf `tasks` (per pg_constraint pruefen, nicht
+      raten) — falls ja, ist ein Handler auf `tasks` allein ausreichend fuer beide Tabellen bei
+      `action=delete`; bei `anonymize` braucht `task_comments.body` vermutlich einen eigenen
+      Schritt wie bei `ticket_messages` in A13.
+      Aufgaben, die einer offenen Anfrage/einem laufenden Projekt zugeordnet sind, duerfen nicht
+      blind nach Alter geloescht werden — Datumsgrundlage und ggf. ein Status-Filter (nur
+      abgeschlossene Aufgaben/Projekte) muessen im Code begruendet werden, analog zur
+      Schliessungslogik der Helpdesk-Tickets in A13.
+      A11 (`ContactRetentionHandler`) und A13 (`HelpdeskTicketRetentionHandler`) sind die
+      Vorlagen fuer Struktur und Idempotenz-Beweis.
+    done_when:
+      - ResourceType "tasks" (und ggf. "task_comments", falls kein gemeinsamer Handler moeglich)
+        ist in der Registry aus A10 eingetragen und in cmd/auth/main.go verdrahtet
+      - Handler respektiert Dry-Run wie im scharfen Modus, wie alle bestehenden Handler
+      - time_entries bleibt unangetastet; die Ausgrenzung ist im Code kommentiert
+      - Ein Test belegt einen zweiten Lauf direkt nach dem ersten aendert nichts (Idempotenz)
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/... ./internal/work/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-retention-worker-handler-calendar-events
+    phase: 3
+    service: security
+    model: sonnet
+    deps: [feat-retention-worker-schema-and-engine]
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      Zweiter Fund aus scan-personal-data-tables-without-retention-mapping (Iteration 43): das
+      Kalender-Modul (`calendar_events`, `event_attendees`) hat ebenfalls keinen Eintrag in der
+      Retention-Registry, obwohl A9 (`feat-dsar-search-user-calendar-notification-modules`)
+      Termininhalte (Titel, Beschreibung, Ort, Teilnahmestatus) bereits als personenbezogen in
+      die Auskunft aufgenommen hat. Alte Kalendertermine (insbesondere mit Freitext in
+      `description`/`location`) sammeln sich damit unbefristet an.
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/dsar_search.go (calendarEventsModule, Iteration 9)
+      - backend/internal/work/calendar/postgres_repository.go
+      - backend/migrations/000033_create_events.up.sql
+      - backend/cmd/auth/main.go
+    notes: >
+      Termine mit mehreren Teilnehmern sind wie Chat-Raeume zu behandeln (siehe A9-Notes): ein
+      Handler darf beim Loeschen/Anonymisieren nicht die Teilnahme Dritter beschaedigen, die noch
+      aktive Kalendereintraege haben (z. B. wiederkehrende Serientermine, `rrule`).
+      Wiederkehrende Termine (`rrule IS NOT NULL`) brauchen eine explizite Entscheidung: ein
+      Serientermin, dessen naechstes Vorkommen in der Zukunft liegt, darf nicht ueber das
+      `created_at`/`start_time` der urspruenglichen Zeile geloescht werden — sonst verschwindet
+      ein noch aktiver Serientermin.
+      `event_attendees`/`event_reminders`/`event_exceptions` per pg_constraint auf ihr
+      CASCADE-Verhalten pruefen (nicht raten), bevor entschieden wird, ob der Handler nur
+      `calendar_events` anfassen muss oder mehr.
+      A9 (`feat-dsar-search-user-calendar-notification-modules`) und A11 sind die Vorlagen.
+    done_when:
+      - ResourceType "calendar_events" ist in der Registry aus A10 eingetragen und in
+        cmd/auth/main.go verdrahtet
+      - Wiederkehrende Termine (rrule) sind explizit behandelt, nicht blind nach Alter geloescht
+      - Handler respektiert Dry-Run wie im scharfen Modus
+      - Ein Test belegt einen zweiten Lauf direkt nach dem ersten aendert nichts (Idempotenz)
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/... ./internal/work/... gruen, DATABASE_URL gesetzt
+
+  - id: feat-retention-worker-handler-notifications
+    phase: 3
+    service: security
+    model: sonnet
+    deps: [feat-retention-worker-schema-and-engine]
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      Dritter Fund aus scan-personal-data-tables-without-retention-mapping (Iteration 43): die
+      `notifications`-Tabelle (Titel, Freitext-`body`, `actor_id`) hat keinen Eintrag in der
+      Retention-Registry und wird auch von keinem der fuenf bestehenden Handler beruehrt. Anders
+      als bei Kontakten oder Tickets gibt es hier keinen fachlichen Grund, alte, bereits gelesene
+      Benachrichtigungen aufzuheben — das ist der klarste der drei Faelle dieses Scans.
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/migrations/000021_create_notifications.up.sql
+      - backend/internal/notification/
+      - backend/cmd/auth/main.go
+    notes: >
+      Ungelesene Benachrichtigungen (`is_read = false`) sollten von einer altersbasierten
+      Loeschung ausgenommen oder zumindest deutlich laenger gehalten werden als gelesene — eine
+      Frist, die eine wichtige, noch ungelesene Benachrichtigung wegraeumt, waere ein
+      Funktionsverlust, keine Aufraeumung. Die Unterscheidung gehoert in Plan, nicht als
+      nachtraegliche Ausnahme.
+      `action` bei Notifications ist praktisch immer "delete" — eine anonymisierte
+      Benachrichtigung ("[geloescht] hat ... erwaehnt") ist fuer den Empfaenger wertlos;
+      `SupportsAction` sollte das begruenden, nicht stillschweigend beide Aktionen zulassen.
+      A10 registriert `notifications` bereits als Testfall in `retention_test.go:336` (Fake-
+      Handler) — das ist kein Produktionscode, aber ein Hinweis, dass die Form bereits einmal
+      durchdacht wurde. Pruefen, ob sich daraus etwas uebernehmen laesst.
+    done_when:
+      - ResourceType "notifications" ist in der Registry aus A10 eingetragen und in
+        cmd/auth/main.go verdrahtet
+      - Ungelesene Benachrichtigungen sind explizit von blinder Alters-Loeschung ausgenommen,
+        mit Begruendung im Code
+      - Handler respektiert Dry-Run wie im scharfen Modus
+      - Ein Test belegt einen zweiten Lauf direkt nach dem ersten aendert nichts (Idempotenz)
+      - DB-Test inkl. Tenant-Isolation
+      - go test -count=1 ./internal/security/... ./internal/notification/... gruen,
         DATABASE_URL gesetzt

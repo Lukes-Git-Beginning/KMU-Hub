@@ -2676,3 +2676,75 @@ Frühere Läufe liegen vollständig im Archiv:
   - Die drei RESTRICT-FKs auf `users(id)` (Gruppe 2) sind reine Beobachtung fuer den Fall eines
     kuenftigen User-Hard-Deletes, keine Unit angelegt — heute unerreichbar und damit keine
     Sackgasse.
+
+## Iteration 43 — scan-personal-data-tables-without-retention-mapping — done — 2026-08-22 06:44
+- commit: (siehe naechste Journal-Iteration fuer den sha-Nachtrag)
+- gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Die Retention-Registry
+  aus A10 (`cmd/auth/main.go:122-128`) gegen die Personendaten-Domaenen abgeglichen, die dieser
+  Lauf selbst bereits als personenbezogen identifiziert hat (DSAR-Module aus den Iterationen 2-9
+  plus die sieben Erasure-Handler-Domaenen aus Iteration 41) — die Ausweitung auf alle 24
+  Services ist laut Unit-Notes ausdruecklich nicht Teil dieser Unit.
+  Registriert sind fuenf `resource_type`-Eintraege: contacts, dialer_call_sessions, messages
+  (Chat), tickets (Helpdesk), form_submissions. Deren Cascade-Reichweite ist per Code-Kommentar
+  in den vier Handler-Dateien bereits dokumentiert und per `pg_constraint` stichprobenartig
+  nachvollzogen: `message_bookmarks` (000262) und `message_mentions` (000017) kaskadieren beide
+  CASCADE auf `messages.id`, `ticket_messages` kaskadiert CASCADE auf `tickets.id`
+  (Migrationskopf-Kommentar in `retention_helpdesk_formulare.go:9`) — beide sind bei
+  `action=delete` also kostenlos mitabgedeckt, kein eigener Handler noetig.
+  Vier Kategorien:
+  1. Registriert + Cascade-abgedeckt: contacts (+ contact_custom_field_values, contact_tags,
+     email_contact_links, gdpr_deletion_requests bei delete), dialer_call_sessions (Recordings
+     bewusst separat, eigener Expiry-Mechanismus laut Code-Kommentar), messages (+ bookmarks,
+     mentions), tickets (+ ticket_messages), form_submissions.
+  2. Bereits als eigene Unit erfasst, hier nicht dupliziert: die acht SET-NULL-Tabellen an
+     `contacts` sind Gegenstand von `scan-contact-set-null-residual-personal-data` (todo).
+  3. Legitime Nicht-Zuordnung (gegenlaeufige Aufbewahrungspflicht, kein Befund): `time_entries`
+     und `hr_work_time_entries` (arbeitsrechtliche Aufbewahrung, deckt sich mit der bereits
+     offenen `fix-work-erasure-time-entries-retention-conflict` aus Iteration 41),
+     `finance_invoices` (GoBD, zusaetzlich WORM-artig ueber die SET-NULL-Kaskade an contacts
+     bereits von der Loeschung des Kontakts entkoppelt), `gobd_documents`/`gobd_document_events`
+     (WORM seit Iteration 1, duerfen innerhalb der Aufbewahrungsfrist gar nicht angefasst
+     werden), `advisory_protocols` (RESTRICT-geschuetzt, vermutlich WpHG-aehnliche
+     Dokumentationspflicht — keine Migration gefunden, die das explizit belegt, daher als
+     Verdacht und nicht als Fakt notiert).
+  4. Echte Luecken (Personendaten, kein Gegenbeleg fuer eine Aufbewahrungspflicht gefunden, keine
+     Registry-Zuordnung moeglich): Work (`tasks`, `task_comments`), Kalender
+     (`calendar_events`, `event_attendees`), Notifications (`notifications`). Alle drei sind
+     durch die bereits gebauten DSAR-Module (A8/A9, Iterationen 8-9) als personenbezogen belegt
+     — die Auskunft kennt diese Daten, eine Loeschfrist gibt es fuer keine von ihnen. Drei neue
+     Units angelegt, jeweils nach dem Muster A11-A13 (ResourceType + Registry-Eintrag +
+     Idempotenz-Test), mit den jeweiligen Sonderfaellen im Voraus benannt: task_comments-Cascade
+     vorab per pg_constraint pruefen statt annehmen, wiederkehrende Kalendertermine (`rrule`)
+     duerfen nicht blind nach Alter geloescht werden, ungelesene Notifications brauchen eine
+     Ausnahme von der Alters-Loeschung.
+  Nicht als Luecke gewertet, mit Begruendung: `channel_memberships`/`project_members` sind
+  Mitgliedschafts-Zustand, kein akkumulierender Personendaten-Bestand, der eine Alters-Loeschung
+  braucht (anders als die Iteration-41-Erasure-Luecke, die einen ANDEREN Mechanismus betrifft —
+  eine Person, die ihre Loeschung beantragt, nicht eine Alters-basierte Routine). `users`/Auth
+  (inaktive Konten loeschen) ist eine Produktentscheidung mit hoeherer Tragweite als die anderen
+  drei Faelle, keine Unit angelegt, nur als Beobachtung notiert. `user_settings`,
+  `user_dashboard_layouts`, `user_project_preferences`, `saved_filters` (Iteration 41, Fund 7)
+  sind Praeferenz-Daten ohne eigenstaendigen Alterungsbedarf — sie verlieren ihren Bezug, sobald
+  das Konto selbst geloescht/anonymisiert wird, kein separater Handler noetig.
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — done_when verlangt kein
+  go test)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geaenderter Testfall)
+- verify vorgaenger: sauber. `eb4bf4b6` (Iteration 42, scan-restrict-fk-without-ui-path)
+  geprueft: `git show --stat` zeigt ausschliesslich `BACKLOG.yml` und `JOURNAL.md` — kein
+  Produktionscode, keine der acht Fehlerklassen einschlaegig.
+- neue-units: feat-retention-worker-handler-work-tasks,
+  feat-retention-worker-handler-calendar-events, feat-retention-worker-handler-notifications
+- offen:
+  - Der Verdacht zu `advisory_protocols` (WpHG-aehnliche Dokumentationspflicht) ist NICHT an
+    einer Migration oder einem Gesetzestext im Repo verifiziert, nur als plausible Annahme
+    notiert, weil die Tabelle ohnehin RESTRICT-geschuetzt ist und keine der drei neuen Units
+    daran haengt. Sollte ein spaeterer Lauf eine Retention-Unit fuer advisory_protocols in
+    Erwaegung ziehen, gehoert diese Annahme zuerst geprueft.
+  - `tasks` hat laut `000025_create_tasks.up.sql` kein eigenes `tenant_id`, sondern haengt ueber
+    `project_id -> projects` (vermutlich Retrofit wie bei anderen Altdaten-Tabellen). Fuer
+    `feat-retention-worker-handler-work-tasks` ist das die erste zu klaerende Frage, nicht
+    angenommen.
+  - `event_attendees`, `event_reminders`, `event_exceptions` sind fuer diesen Scan nicht einzeln
+    per `pg_constraint` auf ihr CASCADE-Verhalten gegen `calendar_events` geprueft — das steht
+    als Aufgabe in den Notes der neuen Kalender-Unit, nicht hier vorweggenommen.
