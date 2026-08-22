@@ -5436,7 +5436,7 @@ Frühere Läufe liegen vollständig im Archiv:
   real (kmuhub_app, 0 SKIP).
 
 ## Iteration 92 — fix-work-task-custom-field-errors-swallowed-on-create-update — done — 2026-08-22 12:52
-- commit: (siehe naechster Eintrag, wird nach dem Commit ergaenzt)
+- commit: eeb9d0d9
 - gebaut: `CreateTask` (work_grpc.go:606) und `UpdateTask` (:818) werfen den Fehler von
   `SetCustomFieldValues` nicht mehr per `_ =` weg. Gewaehlter Weg ist (b) aus den Unit-notes: der
   Task ist zu diesem Zeitpunkt bereits angelegt/aktualisiert, ein nachtraeglicher Fehlschlag der
