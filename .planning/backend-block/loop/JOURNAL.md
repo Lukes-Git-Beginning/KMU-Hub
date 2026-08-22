@@ -2936,7 +2936,7 @@ Frühere Läufe liegen vollständig im Archiv:
     als eigene Unit erfasst (Iteration 44), hier nur bestaetigt, nicht dupliziert.
 
 ## Iteration 47 — scan-erasure-retention-idempotency-double-run — done — 2026-08-22 06:58
-- commit: (folgt, siehe SHA-Nachtrag)
+- commit: 96bcbc7f
 - gebaut: neue Testdatei `backend/internal/security/gdpr/erasure_idempotency_test.go` mit je
   einem Doppellauf-Test fuer alle sieben Erasure-Handler aus `erasure.go`
   (Auth/CRM/Chat/Work/Calendar/Notification/Audit). Kein Produktionscode geaendert — die Unit
