@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/crm/advisoryprotocol"
 )
 
 // ---------------------------------------------------------------------------
@@ -113,6 +115,12 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 		if documents != nil {
 			person.Modules = append(person.Modules, *documents)
 		}
+
+		advisoryProtocols, apErr := advisoryProtocolModules(ctx, pool, tenantID, c.id)
+		if apErr != nil {
+			return nil, apErr
+		}
+		person.Modules = append(person.Modules, advisoryProtocols...)
 
 		consent, cErr := consentModule(ctx, pool, c.id)
 		if cErr != nil {
@@ -1116,6 +1124,157 @@ func documentsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactI
 		return nil, nil
 	}
 	return &mod, nil
+}
+
+// advisoryProtocolModules discloses every advisory session document tied to
+// a contact via the RESTRICT FK enforced by IsInUse (postgres_repository.go:549)
+// -- of the 14 tables that FK onto contacts, this is the only one with no
+// DSAR module, and it carries the most sensitive data in the whole schema:
+// birth date, marital status, tax status, income, assets, liabilities, risk
+// profile, existing insurance, discussed products.
+//
+// Reuses advisoryprotocol.PostgresRepository.ListByContact instead of
+// duplicating its ~50-column tenant-scoped scan; that repository query is
+// already the mechanism every field here is read through elsewhere in the
+// codebase.
+//
+// internal_notes is deliberately excluded, the same rule as the internal
+// helpdesk flag in helpdeskMessagesModule: it is the advisor's own working
+// assessment of the client, not communication addressed to them or a fact
+// about their situation.
+//
+// A contact can have several protocols (consultation history). Each becomes
+// its own module -- one module per protocol keeps ~40 disclosed fields
+// readable per session instead of forcing them into one table's columns --
+// ordered oldest first so the sequence reads as a timeline.
+func advisoryProtocolModules(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) ([]DSARModule, error) {
+	repo := advisoryprotocol.NewPostgresRepository(pool)
+	protocols, err := repo.ListByContact(ctx, contactID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query advisory protocols: %w", err)
+	}
+	if len(protocols) == 0 {
+		return nil, nil
+	}
+
+	// ListByContact orders newest first for the editor UI; a disclosure reads
+	// better as a consultation history, oldest first.
+	for i, j := 0, len(protocols)-1; i < j; i, j = i+1, j-1 {
+		protocols[i], protocols[j] = protocols[j], protocols[i]
+	}
+
+	modules := make([]DSARModule, 0, len(protocols))
+	for i, p := range protocols {
+		date := derefOrEmpty(p.Date)
+		if date == "" {
+			date = "ohne Datum"
+		}
+		modules = append(modules, DSARModule{
+			Module:  fmt.Sprintf("Beratungsprotokoll %d (%s, %s)", i+1, date, advisoryStatusLabel(p.Status)),
+			Columns: []string{"Feld", "Wert"},
+			Records: advisoryProtocolRecords(p),
+		})
+	}
+	return modules, nil
+}
+
+func advisoryStatusLabel(status string) string {
+	if status == "finalized" {
+		return "abgeschlossen"
+	}
+	return "Entwurf"
+}
+
+func advisoryProtocolRecords(p *advisoryprotocol.Protocol) []DSARRecord {
+	products := make([]string, len(p.Products))
+	for i, prod := range p.Products {
+		rec := "empfohlen"
+		if !prod.Recommended {
+			rec = "nicht empfohlen"
+		}
+		products[i] = fmt.Sprintf("%s (SRI %d, %s)", prod.Name, prod.RiskClass, rec)
+	}
+
+	return []DSARRecord{
+		fieldValueRecord("Datum", derefOrEmpty(p.Date)),
+		fieldValueRecord("Zeit", strings.TrimSpace(strings.Trim(p.TimeFrom+"–"+p.TimeTo, "–"))),
+		fieldValueRecord("Ort", p.Location),
+		fieldValueRecord("Berater", p.Advisor),
+		fieldValueRecord("Anlass", p.Occasion),
+		fieldValueRecord("Anlass-Notiz", p.OccasionNote),
+		fieldValueRecord("Kundenkategorie", p.CustomerCategory),
+		fieldValueRecord("Geburtsdatum", derefOrEmpty(p.BirthDate)),
+		fieldValueRecord("Familienstand", p.MaritalStatus),
+		fieldValueRecord("Steuerstatus", p.TaxStatus),
+		fieldValueRecord("Bekannte Anlageklassen", strings.Join(p.KnownAssetClasses, ", ")),
+		fieldValueRecord("Bisherige Transaktionen", p.PastTransactions),
+		fieldValueRecord("Finanzbildung", p.FinancialEducation),
+		fieldValueRecord("Berufserfahrung", p.ProfessionalExperience),
+		fieldValueRecord("Selbsteinschätzung (1-5)", derefIntOrEmpty(p.SelfAssessment)),
+		fieldValueRecord("Monatliches Nettoeinkommen", moneyOrEmpty(p.MonthlyNetIncome)),
+		fieldValueRecord("Laufende Verbindlichkeiten", moneyOrEmpty(p.RecurringLiabilities)),
+		fieldValueRecord("Liquide Mittel", moneyOrEmpty(p.LiquidAssets)),
+		fieldValueRecord("Bestehende Anlagen", moneyOrEmpty(p.CurrentInvestments)),
+		fieldValueRecord("Immobilien", p.RealEstate),
+		fieldValueRecord("Bestehende Versicherungen", p.ExistingInsurance),
+		fieldValueRecord("Maximale Verlusttragfähigkeit (absolut)", moneyOrEmpty(p.MaxLossCapacityAbs)),
+		fieldValueRecord("Maximale Verlusttragfähigkeit (%)", percentOrEmpty(p.MaxLossCapacityPct)),
+		fieldValueRecord("Anlagezweck", strings.Join(p.InvestmentPurpose, ", ")),
+		fieldValueRecord("Anlagehorizont", p.Horizon),
+		fieldValueRecord("Risikobereitschaft", p.RiskTolerance),
+		fieldValueRecord("Risikotragfähigkeit", p.RiskCapacity),
+		fieldValueRecord("Risikoklasse (SRI 1-7)", strconv.Itoa(p.RiskClass)),
+		fieldValueRecord("ESG-Präferenz", boolLabel(p.EsgPreference)),
+		fieldValueRecord("ESG-Details", p.EsgDetails),
+		fieldValueRecord("Einmalbetrag", moneyOrEmpty(p.OneTimeAmount)),
+		fieldValueRecord("Monatliche Sparrate", moneyOrEmpty(p.MonthlySavings)),
+		fieldValueRecord("Besprochene Produkte", strings.Join(products, "; ")),
+		fieldValueRecord("Empfehlungszusammenfassung", p.RecommendationSummary),
+		fieldValueRecord("Geeignetheitsbegründung", p.SuitabilityReasoning),
+		fieldValueRecord("Zielbezug", p.GoalReference),
+		fieldValueRecord("Alternativen", p.Alternatives),
+		fieldValueRecord("Nicht empfohlen", p.NotRecommended),
+		fieldValueRecord("Wesentliche Anliegen", p.MainConcerns),
+		fieldValueRecord("Erteilte Warnhinweise", strings.Join(p.WarningsGiven, ", ")),
+		fieldValueRecord("Dokument ausgehändigt", boolLabel(p.DocumentDelivered)),
+		fieldValueRecord("Ausgehändigt am", derefOrEmpty(p.DocumentDeliveredDate)),
+		fieldValueRecord("Übermittlungsform", p.DeliveryForm),
+		fieldValueRecord("Berater-Unterschrift", p.AdvisorSignature),
+		fieldValueRecord("Kundenbestätigung", boolLabel(p.CustomerConfirmation)),
+		fieldValueRecord("Dokumentenverzicht", boolLabel(p.DocumentWaiver)),
+		fieldValueRecord("Folgetermin", derefOrEmpty(p.FollowupDate)),
+	}
+}
+
+func derefOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func derefIntOrEmpty(v *int) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.Itoa(*v)
+}
+
+func moneyOrEmpty(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	// lean: EUR hardcoded, same reasoning as financeModule below -- the
+	// product is DACH/EUR-only and advisory_protocols carries no currency
+	// column of its own.
+	return fmt.Sprintf("%.2f EUR", *v)
+}
+
+func percentOrEmpty(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%.2f %%", *v)
 }
 
 // formFieldMeta is a partial decode of one entry in form_schemas.fields --

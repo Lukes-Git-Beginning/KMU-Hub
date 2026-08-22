@@ -565,6 +565,151 @@ func TestSearchByQuery_ContactDocuments_Integration(t *testing.T) {
 	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
 }
 
+func TestSearchByQuery_ContactAdvisoryProtocols_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Advisory Protocol Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Advisory Protocol Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	agentID := seedDSARUser(t, pool, tenantOwn, "Dsar", "AdvisorAgent", true)
+	defer testutil.CleanupRow(t, pool, "users", agentID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Sieglinde",
+		"last_name":  "Falkenrath",
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+
+	products := []byte(`[{"id":"p1","name":"Global Equity ETF","riskClass":4,"risks":"Marktrisiko","recommended":true}]`)
+
+	// Older, finalized protocol -- must appear first in a chronological export.
+	oldID := testutil.SeedRow(t, pool, "advisory_protocols", map[string]any{
+		"tenant_id":            tenantOwn,
+		"contact_id":           contactID,
+		"created_by":           agentID,
+		"status":               "finalized",
+		"date":                 "2025-01-15",
+		"advisor":              "Herr Bergmann",
+		"marital_status":       "verheiratet",
+		"known_asset_classes":  []string{"stocks", "etf"},
+		"investment_purpose":   []string{"retirement", "growth"},
+		"risk_class":           4,
+		"products":             products,
+		"warnings_given":       []string{"risk", "costs"},
+		"internal_notes":       "Kunde wirkt unsicher, im Folgetermin nochmal Risiko erklären.",
+		"monthly_net_income":   4200.50,
+		"created_at":           "2025-01-15T09:00:00Z",
+	})
+	defer testutil.CleanupRow(t, pool, "advisory_protocols", oldID)
+
+	// Newer draft protocol -- must appear second.
+	newID := testutil.SeedRow(t, pool, "advisory_protocols", map[string]any{
+		"tenant_id":      tenantOwn,
+		"contact_id":     contactID,
+		"created_by":     agentID,
+		"status":         "draft",
+		"date":           "2026-03-10",
+		"advisor":        "Frau Bergmann",
+		"risk_class":     3,
+		"products":       []byte(`[]`),
+		"internal_notes": "Vertrauliche Einschätzung: eher risikoscheu trotz Angabe.",
+		"created_at":     "2026-03-10T09:00:00Z",
+	})
+	defer testutil.CleanupRow(t, pool, "advisory_protocols", newID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Falkenrath")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	p := persons[0]
+
+	var protocolModules []DSARModule
+	for _, m := range p.Modules {
+		if strings.HasPrefix(m.Module, "Beratungsprotokoll ") {
+			protocolModules = append(protocolModules, m)
+		}
+	}
+	require.Len(t, protocolModules, 2, "one module per protocol, have %v", moduleNames(p))
+
+	assert.Contains(t, protocolModules[0].Module, "2025-01-15", "the older protocol must be disclosed first")
+	assert.Contains(t, protocolModules[0].Module, "abgeschlossen")
+	assert.Contains(t, protocolModules[1].Module, "2026-03-10", "the newer protocol must be disclosed second")
+	assert.Contains(t, protocolModules[1].Module, "Entwurf")
+
+	oldFields := fieldValueMap(t, protocolModules[0])
+	assert.Equal(t, "2025-01-15", oldFields["Datum"])
+	assert.Equal(t, "Herr Bergmann", oldFields["Berater"])
+	assert.Equal(t, "verheiratet", oldFields["Familienstand"])
+	assert.Equal(t, "stocks, etf", oldFields["Bekannte Anlageklassen"], "an array column must render as readable text, not Postgres array syntax")
+	assert.Equal(t, "retirement, growth", oldFields["Anlagezweck"])
+	assert.Equal(t, "risk, costs", oldFields["Erteilte Warnhinweise"])
+	assert.Equal(t, "4200.50 EUR", oldFields["Monatliches Nettoeinkommen"])
+	assert.Equal(t, "Global Equity ETF (SRI 4, empfohlen)", oldFields["Besprochene Produkte"],
+		"a JSONB product list must render as readable text, not raw JSON")
+
+	for _, m := range protocolModules {
+		fields := fieldValueMap(t, m)
+		_, hasInternalNotes := fields["Interne Notizen"]
+		assert.False(t, hasInternalNotes, "internal_notes must never appear as a labeled field")
+		for label, value := range fields {
+			assert.NotContains(t, value, "unsicher", "internal note content must not leak via any field (checked %s)", label)
+			assert.NotContains(t, value, "Vertrauliche Einschätzung", "internal note content must not leak via any field (checked %s)", label)
+		}
+	}
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Falkenrath")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this contact, let alone its advisory protocols")
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Falkenrath")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
+}
+
+func TestSearchByQuery_ContactAdvisoryProtocols_NoneIsNoModule_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Advisory Protocol None Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+
+	agentID := seedDSARUser(t, pool, tenantOwn, "Dsar", "NoAdvisorAgent", true)
+	defer testutil.CleanupRow(t, pool, "users", agentID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Waldemar",
+		"last_name":  "Ohnehistorie",
+		"created_by": agentID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Ohnehistorie")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	for _, m := range persons[0].Modules {
+		assert.NotContains(t, m.Module, "Beratungsprotokoll", "a contact without any protocol must carry no advisory module at all")
+	}
+}
+
 func TestSearchByQuery_ContactHelpdeskMessages_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()

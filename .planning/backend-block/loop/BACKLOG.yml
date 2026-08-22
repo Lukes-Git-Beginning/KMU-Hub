@@ -2193,7 +2193,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (Wert zur Laufzeit messen, seit Iteration 40 mehrfach veraendert)"
     scope: >
       `advisory_protocols` haengt per RESTRICT-FK an `contacts` (Grund fuer den 409-Pfad in

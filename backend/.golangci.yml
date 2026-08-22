@@ -16,6 +16,7 @@ linters:
         - produktion   # German module name (Produktion/PRODUKTION)
         - Produktion
         - PRODUKTION
+        - Immobilien   # German DSAR field label, not the English "immobile"
     govet:
       enable: []          # Remove shadow — too aggressive for short if-err patterns
     errcheck:

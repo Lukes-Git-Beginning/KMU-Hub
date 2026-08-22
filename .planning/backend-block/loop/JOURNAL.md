@@ -3579,3 +3579,71 @@ Frühere Läufe liegen vollständig im Archiv:
     fordert `-race` — gelaufen ist der identische Testsatz ohne Detektor (inklusive der
     nebenläufigen Zwei-Goroutinen-Reservierung, die real gegen die DB grün ist). CI fährt
     `-race`; wenn dort etwas auffällt, dann in `internal/idempotency`.
+
+## Iteration 58 — feat-dsar-search-contact-advisory-protocol-module — done — 2026-08-22 08:08
+- commit: (siehe nächster docs-Commit)
+- gebaut: `advisoryProtocolModules` in `internal/security/gdpr/dsar_search.go` schließt die
+  letzte der 14 FK-auf-`contacts`-Tabellen ohne DSAR-Modul. Statt den ~50-Spalten-Scan aus
+  `advisoryprotocol/postgres_repository.go` zu duplizieren, ruft die Funktion
+  `advisoryprotocol.NewPostgresRepository(pool).ListByContact` auf und formatiert jedes
+  zurückgegebene `Protocol` in ein eigenes `DSARModule` — ein Modul pro Beratungsprotokoll
+  ("Beratungsprotokoll N (Datum, Status)"), chronologisch aufsteigend (die Repository-Query
+  liefert neueste zuerst, hier umgedreht). Jedes Modul listet alle ~40 fachlichen Felder aus
+  §1-§8 als Feld/Wert-Zeilen: Arrays (`known_asset_classes`, `investment_purpose`,
+  `warnings_given`) als kommagetrennter Klartext statt Postgres-Array-Syntax, das
+  JSONB-`products`-Feld als lesbare "Name (SRI X, empfohlen/nicht empfohlen)"-Liste statt
+  Rohformat, Geldfelder mit "EUR"-Suffix (gleiche `lean:`-Begründung wie in `financeModule`).
+  `internal_notes` ist bewusst ausgeschlossen — gleiche Regel wie die interne Helpdesk-Notiz
+  in `helpdeskMessagesModule`: Arbeitsmaterial des Beraters über den Kunden, keine an ihn
+  gerichtete Kommunikation oder Tatsachenangabe. In `SearchByQuery` zwischen `documentsModule`
+  und `consentModule` eingehängt.
+  `.golangci.yml` um einen `misspell`-Ignore-Eintrag für "Immobilien" ergänzt (False Positive
+  gegen das englische "immobile" — gleiches Muster wie der bestehende Produktion-Eintrag).
+  Zwei neue DB-Tests: `TestSearchByQuery_ContactAdvisoryProtocols_Integration` (zwei Protokolle
+  je Kontakt — ein Entwurf, ein abgeschlossenes —, chronologische Reihenfolge, Array-/JSONB-
+  Klartext, Ausschluss von `internal_notes` inklusive Volltext-Leck-Check über alle Feldwerte,
+  Tenant-Isolation) und `…_NoneIsNoModule_Integration` (Kontakt ohne Protokoll trägt kein
+  Beratungsprotokoll-Modul, analog zum nil-Modul-Vertrag der übrigen Module in dieser Datei).
+- gate: build ok (`./internal/security/... ./internal/crm/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, `./internal/security/...`, inkl. des
+  behobenen misspell-Fundes) | test ok (`./internal/security/gdpr/` vollständig gruen,
+  0 SKIP von den insgesamt gelaufenen Tests, gegen `kmuhub_app`;
+  `./internal/crm/advisoryprotocol/...` unverändert gruen) | migration n.a. (keine Tabelle
+  angefasst, nur eine bestehende Repository-Query wiederverwendet) | rls-smoke n.a. (keine
+  Tabelle/Policy geändert — RLS auf `advisory_protocols` besteht bereits seit Migration 000218
+  und wird von den neuen Tests über echte Tenant-Isolation mitgeprüft, nicht neu aufgesetzt)
+  | TestOpenAPIRouteDrift PASS (836 Routen gegen 838 dokumentierte Pfade, unverändert — keine
+  neue Route in dieser Unit)
+- coverage: `internal/security/gdpr` 69,3 % -> 69,6 % (selbst gemessen: Vorher via
+  `git stash push` auf genau die drei geänderten Dateien, danach `stash pop` und erneut
+  gemessen). `coverage_start` der Unit war als Platzhalter "Wert zur Laufzeit messen"
+  eingetragen — das ist die Laufzeitmessung.
+- mutations-probe: `advisoryProtocolRecords` um eine zusätzliche Zeile
+  `fieldValueRecord("Interne Notizen", p.InternalNotes)` ergänzt (den dokumentierten
+  Ausschluss von `internal_notes` aufgehoben) → `TestSearchByQuery_ContactAdvisoryProtocols_Integration`
+  wird mit drei Assertion-Fehlschlägen rot ("internal_notes must never appear as a labeled
+  field" plus zwei Volltext-Leck-Treffer auf die genau dafür geseedeten internen Notizen).
+  Zurückgedreht, `git diff --stat dsar_search.go` zeigt wieder exakt die ursprünglichen 159
+  Insertions, Paket erneut vollständig gruen.
+- verify vorgänger: sauber. `a12c6a02` (Iteration 57, fix-idempotency-reserve-inflight-race)
+  gegen alle acht Fehlerklassen geprüft (`git show --stat` + Volltextdiff) — reine
+  Postgres-Repository- und Aufrufer-Änderung (Middleware/Webhook unverändert gelassen), keine
+  neue Route, kein neuer Handler, kein direkter Service-Aufruf am gRPC-Client vorbei, kein
+  Stub, kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle,
+  keine Wire-Shape-Änderung. `(xmax = 0) AS inserted` ist eine reine RETURNING-Erweiterung auf
+  eine System-Spalte, kein Schema-Wechsel.
+- neue-units: keine
+- offen:
+  - Die Modulbenennung "Beratungsprotokoll N (Datum, Status)" ist pro Kontakt fortlaufend
+    nummeriert (1, 2, ...), nicht global eindeutig — bei zwei gematchten Kontakten mit
+    Historie sieht die UI pro Person wieder bei 1 an. Das ist beabsichtigt (Nummerierung ist
+    Session-relativ zur Konsultationshistorie dieses einen Kontakts), aber falls die
+    Auskunfts-Oberfläche Module tenant-/personenübergreifend flach auflistet statt gruppiert
+    nach Person, sollte das gegengeprüft werden — hier nicht sichtbar, weil DSARPerson.Modules
+    bereits pro Person geschachtelt ist.
+  - `advisoryprotocol.PostgresRepository` wird hier zum ersten Mal aus `internal/security/gdpr`
+    heraus importiert. Kein Zyklus (advisoryprotocol importiert gdpr nicht), aber es ist die
+    erste modul-übergreifende Repository-Wiederverwendung in `dsar_search.go` statt einer
+    eigenen Inline-Query — bewusst so gewählt wegen der Feldzahl, aber ein Muster, das die
+    übrigen Module in dieser Datei nicht verwenden. Falls das nicht gewünscht ist, wäre die
+    Alternative eine Inline-Query analog zu den anderen Modulen, mit dupliziertem Scan.
