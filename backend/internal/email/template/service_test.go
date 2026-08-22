@@ -209,3 +209,38 @@ func TestRender_NotFoundPropagates(t *testing.T) {
 	_, _, _, err := svc.Render(context.Background(), uuid.New(), testTenantID, uuid.New(), false, nil)
 	assert.ErrorIs(t, err, ErrTemplateNotFound)
 }
+
+// TestRender_SelfReferentialValueGetsChainResolved pins the actual (not the
+// intended) behaviour of Render's substitution loop: it walks
+// AllowedPlaceholders in a fixed order and calls strings.ReplaceAll once per
+// key, so a value supplied for an earlier key that itself contains a later
+// key's "{{token}}" text IS resolved on that later iteration -- the
+// substitution chains instead of running as one single non-recursive pass.
+// contact_first_name is processed before today (AllowedPlaceholders'
+// declared order), so a contact_first_name value of "{{today}}" ends up
+// replaced by today's value. This isn't an escalation (the caller already
+// supplies every value in the same "values" map, so it discloses nothing it
+// didn't already have), but it does mean the substitution isn't the single
+// non-recursive pass the "no template engine" design comment promises. Not
+// fixed here -- coverage units don't change behaviour -- see JOURNAL.md.
+func TestRender_SelfReferentialValueGetsChainResolved(t *testing.T) {
+	id := uuid.New()
+	tpl := &models.EmailTemplate{
+		ID: id, TenantID: testTenantID,
+		BodyText: "Hi {{contact_first_name}}",
+	}
+	repo := &MockRepository{
+		GetByIDFn: func(_ context.Context, _, _, _ uuid.UUID, _ bool) (*models.EmailTemplate, error) {
+			return tpl, nil
+		},
+	}
+	svc := NewService(repo)
+
+	_, _, bodyText, err := svc.Render(context.Background(), id, testTenantID, uuid.New(), false, map[string]string{
+		"contact_first_name": "{{today}}",
+		"today":              "2026-08-22",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Hi 2026-08-22", bodyText,
+		"contact_first_name's literal {{today}} token got chain-resolved by the later today substitution")
+}

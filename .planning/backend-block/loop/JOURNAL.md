@@ -1495,3 +1495,84 @@ Frühere Läufe liegen vollständig im Archiv:
     zeigt, dass `GetByID(id, tenantOther)` `ErrMessageNotFound` liefert.
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
     beruehrt).
+
+## Iteration 26 — cov-gateway-email-signatures-templates — done — 2026-08-22 04:22
+- commit: (folgt im naechsten Eintrag)
+- gebaut: Neue Testdatei `route_email_signatures_templates_test.go` fuer den dritten Teil von
+  `route_email.go`: Signaturen und Vorlagen (12 Handler: HandleListSignatures,
+  HandleGetSignature, HandleCreateSignature, HandleUpdateSignature, HandleDeleteSignature,
+  HandleSetDefaultSignature, HandleListEmailTemplates, HandleGetEmailTemplate,
+  HandleCreateEmailTemplate, HandleUpdateEmailTemplate, HandleDeleteEmailTemplate,
+  HandleRenderEmailTemplate) — mit `go tool cover -func` vorab gegen die tatsaechliche 0,0-%-Liste
+  geprueft, keine Annahme geraten. Muster wie Iteration 25: ServiceUnavailable (502, ueber den
+  bestehenden `testEmailServiceUnavailable`-Helper), InvalidJSON/Validation (400) wo
+  decodeAndValidate greift, ReachesRPC (503). Zusaetzlich eine neue Testdatei-Zeile in
+  `internal/email/template/service_test.go`:
+  `TestRender_SelfReferentialValueGetsChainResolved` pinnt das TATSAECHLICHE Verhalten von
+  `Service.Render` — die Substitutionsschleife laeuft `AllowedPlaceholders` in fester Reihenfolge
+  durch und ruft je Key einmal `strings.ReplaceAll` auf; ein Wert fuer einen frueher verarbeiteten
+  Key, der selbst wie der Token eines spaeter verarbeiteten Keys aussieht (`contact_first_name`
+  vor `today`), wird deshalb auf der spaeteren Iteration doch noch aufgeloest — die Substitution
+  ist trotz des Kommentars "keine allgemeine Template-Engine" kein einziger nicht-rekursiver
+  Durchlauf. Live am Testlauf verifiziert (Wert "{{today}}" fuer contact_first_name wird durch den
+  Wert von "today" ersetzt). Keine Eskalation, weil der Aufrufer beide Werte ohnehin selbst im
+  "values"-Objekt mitliefert — nichts wird offengelegt, was er nicht schon hatte — aber eine reale
+  Abweichung vom im Code versprochenen Design. Nicht gefixt (Coverage-Units aendern kein
+  Verhalten), im Testkommentar und hier dokumentiert.
+  HTML-Sanitizing-Pfad benannt (done_when-Pflicht): weder `internal/email/signature` noch
+  `internal/email/template` sanitisiert `HTMLContent`/`BodyHtml` beim Schreiben oder Lesen — beide
+  reichen den Wert unveraendert durch (per Lesen von `service.go` in beiden Paketen bestaetigt,
+  kein sanitiz*/dompurify/bluemonday-Import). Auf der Desktop-Seite ruft
+  `EmailTemplateDialog.tsx` `sanitizeHtml()` (DOMPurify-Wrapper, `lib/sanitize.ts`) fuer die
+  eigene Vorlagen-Vorschau auf — aber `ComposeInline.tsx`/`ComposeModal.tsx` uebergeben beim
+  tatsaechlichen Auswaehlen einer Vorlage (`handleTemplateSelect`) `tmpl.body` roh an `setBody()`,
+  ohne `sanitizeHtml`-Aufruf. Nur die Dialog-Vorschau ist sanitisiert, nicht der Wert, der am Ende
+  im Compose-Editor landet. Das ist eine reine Frontend-Luecke — Frontend/Desktop ist in diesem
+  Lauf gesperrt, ein Backend-Fix kann sie nicht schliessen, deshalb hier dokumentiert statt als
+  Unit angelegt.
+- gate: build ok (`-p 2` gateway/..., email/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (neue Gateway-Testdatei einzeln gruen: 33/33 `TestEmail*`-Faelle inkl. der 26 aus
+  Iteration 25, `internal/gateway` komplett gruen inkl. `TestOpenAPIRouteDrift`, `internal/email/...`
+  komplett gruen [12 Pakete], DATABASE_URL gegen kmuhub_app, 0 SKIP) | migration n.a. (keine
+  Schemaaenderung) | rls-smoke n.a. (keine neue Tabelle/Policy beruehrt)
+- coverage: internal/gateway 49,6 % -> 50,1 % (eigene Messung vor/nach genau dieser Iteration im
+  selben Arbeitsbaum, Startwert deckt sich mit dem in Iteration 25 gemessenen Endstand, nicht mit
+  dem veralteten `coverage_start` der Unit von 46,1 %). internal/email/signature bleibt bei
+  43,0 % unveraendert (`coverage_start` deckt sich exakt) — die neuen Tests liegen alle im
+  gateway-Paket und brechen vor dem echten Signature-Service ab (ReachesRPC scheitert am
+  Transport, nicht am Service), decken also keine zusaetzliche Zeile in `internal/email/signature`
+  ab; das ist erwartungsgemaess, dieselbe Grenze wie bei jeder anderen `cov-gateway-*`-Unit dieses
+  Laufs. internal/email/template bleibt bei 79,1 % unveraendert — die neue
+  `TestRender_SelfReferentialValueGetsChainResolved` deckt ausschliesslich bereits von
+  `TestRender_SubstitutesOnlyAllowedPlaceholders` erreichte Zeilen erneut ab (derselbe Schleifenkoerper,
+  ein anderer Eingabewert), keine neue Verzweigung.
+- mutations-probe: `setDefaultSignatureDTO.UserID` das `validate:"required,uuid"`-Tag entfernt ->
+  `TestEmailHandleSetDefaultSignature_MissingUserID` und `_InvalidUserID` werden rot (400 statt
+  der erwarteten Validierungsantwort, `ReachesRPC` bleibt gruen). Zurueckgedreht -> gruen
+  (`go test ./internal/gateway/` komplett), `git diff --stat` zeigt fuer `route_email.go` 0 Zeilen
+  Diff.
+- verify vorgaenger: sauber. `75635aae` (Iteration 25, Messages/Folders/Sync-Coverage) gegen alle
+  acht Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`, `JOURNAL.md` und eine
+  neue reine Testdatei (`route_email_folders_messages_sync_test.go`, +266 Zeilen). Grep auf
+  "Unimplemented|TODO|t\.Skip|RequirePermission|\.proto" liefert null Treffer, kein gRPC-Bypass,
+  kein Stub, kein `.proto` angefasst, keine neue `RequirePermission`, keine neue Tabelle, keine
+  Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route.
+- neue-units: keine
+- offen:
+  - Das HTML-Sanitizing-Frontend-Luecke (siehe gebaut:) ist bewusst NICHT als Unit angelegt, weil
+    Frontend/Desktop fuer diesen Lauf komplett gesperrt ist und der fehlende `sanitizeHtml()`-Aufruf
+    in `handleTemplateSelect` (ComposeInline.tsx/ComposeModal.tsx) sich nicht mit einer
+    Backend-Aenderung schliessen laesst. Kandidat fuer eine Frontend-Session oder eine spaetere
+    Entscheidungsrunde (Muster: `BACKLOG-PARKED.yml` "GEPARKT — Frontend-Arbeit").
+  - Der Render-Chain-Resolve-Fund (siehe gebaut:) ist eine reale, aber nicht eskalierende
+    Abweichung vom Non-Recursive-Design-Kommentar in `internal/email/template/service.go`. Kein
+    Fix-Unit-Kandidat, weil der Aufrufer alle beteiligten Werte im selben Request bereits selbst
+    liefert — reine Dokumentation der Ist-Situation fuer eine kuenftige Refactoring-Entscheidung
+    (z. B. ein einziger Durchlauf mit vorab gesammelten Ersetzungen statt sequenziellem
+    ReplaceAll).
+  - Damit ist `route_email.go` (63 Funktionen) mit B11+B12 in diesem Lauf vollstaendig auf
+    Kernpfad + Signaturen/Vorlagen abgedeckt; `cov-gateway-email-contact-linking-import-export`
+    (dritter/letzter Teil: Kontakt-Verknuepfung, Import/Export) ist die naechste offene
+    `todo`-Unit im Block.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
+    beruehrt).

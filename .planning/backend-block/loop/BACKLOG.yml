@@ -984,7 +984,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/email/signature 43,0 % (Run 32508843776)"
     scope: >
       Zweiter Teil von `route_email.go`: Signaturen und Vorlagen. Beide werden vom Benutzer
