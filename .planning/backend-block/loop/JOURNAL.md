@@ -4774,7 +4774,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 80 — fix-gateway-lexware-error-message-leakage — done — 2026-08-22 11:02
-- commit: (folgt, siehe naechste Iteration)
+- commit: 48ba72ff
 - gebaut: vierter Fund derselben Fehlerklasse (nach Bexio, DATEV OAuth, DATEV Upload):
   `ConnectLexware`, `TestLexwareConnection`, `PushInvoiceToLexware`, `PushQuoteToLexware`
   (`internal/server/lexware_grpc.go`) gaben bei Fehler `Success:false, ErrorMessage:
