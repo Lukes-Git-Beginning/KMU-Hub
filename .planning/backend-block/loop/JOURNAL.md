@@ -1943,3 +1943,74 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
     keine neue Tabelle/Policy in dieser Iteration; der WOPI-Test nutzt
     ausschliesslich bereits bestehende Tabellen/Policies).
+
+## Iteration 32 — cov-gateway-lexware-integration — done — 2026-08-22 05:13
+- commit: (folgt im selben Commit, SHA wird im naechsten docs-Eintrag festgehalten)
+- gebaut: `internal/gateway/route_lexware_test.go` neu — deckt `route_lexware.go`
+  (610 Zeilen, alle 18 Funktionen) ab: ServiceName, alle elf RPC-Handler
+  (Connect/Disconnect/GetConnectionStatus/TestConnection/TriggerSync/
+  GetSyncStatus/ListSyncLogs/GetFieldMappings/UpdateFieldMappings/
+  PushInvoice/PushQuote) je mit ServiceUnavailable-, NoTenantID- und
+  RPCFails-Fall (Vorlage `route_bexio_test.go`, dieselbe Integrationsform).
+  Fuer HandleConnect zusaetzlich InvalidJSON und die fehlende Pflichtangabe
+  `api_key` (Validation-Error). Fuer HandleTriggerSync der
+  ContentLength==0-Kurzschluss (leerer Body darf nicht als ungueltiges JSON
+  abgelehnt werden). HandleWebhookEvent (der einzige oeffentliche Pfad,
+  ohne Auth-Middleware) deckt alle vier Faelle des HMAC-Gates ab: Secret
+  fehlt + Prod (500, Defense-in-Depth), Secret fehlt + Dev (Signatur wird
+  uebersprungen, faellt bis zum RPC-Dispatch durch), fehlender
+  X-Signature-Header (401), falsche Signatur (401), sowie gueltige Signatur
+  mit kaputtem JSON-Body (400) und mit gueltigem Body (503, Dispatch
+  erreicht). `parseLexwareWebhookBody` und `firstNonEmpty` sind direkt als
+  reine Funktionen getestet: camelCase-Decodierung, snake_case-Fallback,
+  camelCase gewinnt bei doppelter Belegung (das ist der Kern der
+  Mutations-Probe), und invalides JSON liefert einen Fehler.
+  Ein struktureller Test (`TestLexwareResponseProtos_NeverExposeCredentials`,
+  Vorlage `TestBexioResponseProtos_NeverExposeOAuthTokens`) sperrt fest,
+  dass keine der 14 Lexware-Response-Protos je ein Feld mit "apikey",
+  "secret" oder "password" im Namen bekommt — dieselbe Grenze wie bei
+  Bexio, nur dass Lexware kein OAuth macht, sondern einen rohen API-Key
+  entgegennimmt (`ConnectLexwareRequest.ApiKey`), der serverseitig
+  gespeichert wird und in keiner Response-Message vorkommt.
+  Alle Testnamen mussten mit dem Praefix `TestLexware` versehen werden,
+  weil Lexware dieselben Handler-Namen wie Bexio traegt
+  (HandleDisconnect, HandleTriggerSync usw.) und `route_bexio_test.go`
+  bzw. `route_email_accounts_test.go`/`route_caldav_test.go` dieselben
+  `TestHandleX_*`-Namen bereits belegt hatten — beim ersten Build-Versuch
+  als `DuplicateDecl` aufgefallen und korrigiert, bevor irgendetwas
+  committet wurde.
+- gate: build ok (`-p 2` gateway/..., biz/lexware/..., cmd/gateway/...) |
+  vet ok (gateway/..., biz/lexware/...) | lint ok (0 issues,
+  gateway/..., biz/lexware/...) | test ok (`internal/gateway` komplett
+  gruen inkl. TestOpenAPIRouteDrift [836 Routen gegen 838 dokumentierte
+  Pfade, unveraendert — keine neue Route], 0 SKIP / 0 FAIL aus
+  `go test -v -count=1 ./internal/gateway/`; `internal/biz/lexware/...`
+  unveraendert gruen, DATABASE_URL gegen kmuhub_app) | migration n.a.
+  (keine Schemaaenderung) | rls-smoke n.a. (keine neue Tabelle/Policy)
+- coverage: internal/gateway 51,9 % (Iteration-31-Endstand, eigene Messung
+  `go tool cover -func` vor dieser Unit) -> 52,6 % (eigene Messung nach
+  dieser Unit)
+- mutations-probe: In `parseLexwareWebhookBody` die Prioritaet in
+  `firstNonEmpty(body.EventType, body.EventTypeSnake)` auf
+  `firstNonEmpty(body.EventTypeSnake, body.EventType)` gedreht ->
+  `TestParseLexwareWebhookBody_CamelCaseWinsOverSnakeCase` wird rot
+  (`EventType:snake ResourceID:r`, want camelCase). Zurueckgedreht ->
+  gruen, `git diff --stat internal/gateway/route_lexware.go` zeigt 0
+  Zeilen.
+- verify vorgaenger: sauber. `28caea24` (Iteration 31, CRM-Contact-Files/
+  WOPI-Routen) gegen alle acht Fehlerklassen geprueft: `git show --stat
+  28caea24` zeigt nur zwei neue reine Gateway-Testdateien
+  (`route_crm_contact_files_test.go`, `route_wopi_test.go`) plus
+  BACKLOG/JOURNAL — kein gRPC-Bypass, kein Stub/TODO, kein `.proto`
+  angefasst, keine neue `RequirePermission`, keine neue Tabelle, keine
+  Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route.
+- neue-units: keine
+- offen:
+  - `fix-email-contacts-csv-export-formula-injection` (seit Iteration 27)
+    und `fix-gateway-advisory-product-riskclass-not-validated` (seit
+    Iteration 28) stehen weiterhin unbearbeitet am Backlog-Ende — jetzt
+    fuenf Iterationen unbeachtet, weil Block B (Coverage-Reihenfolge) sie
+    lexikalisch nach hinten sortiert. Fuer den naechsten Lauf vormerken,
+    sie vorzuziehen.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
+    keine neue Tabelle/Policy in dieser Iteration).

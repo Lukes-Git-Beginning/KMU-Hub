@@ -1165,7 +1165,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/biz/lexware 74,4 % (Run 32508843776)"
     scope: >
       `route_lexware.go` (610 Zeilen, 18 Funktionen) ohne Testdatei — die groesste ungetestete
