@@ -617,7 +617,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/hr (Paketwert im CI-Log nachschlagen, Run 32570176303)"
     scope: >
       Journal-Befund 7 aus Lauf 10 (Iteration 51): der RLS-Smoke auf `hr_work_time_entries`

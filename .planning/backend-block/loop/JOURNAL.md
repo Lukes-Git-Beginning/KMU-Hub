@@ -602,3 +602,48 @@ Frühere Läufe liegen vollständig im Archiv:
   und "Angebot erstellt" wählbare, aber tote Automations-Trigger in der
   Produktions-UI — das ist ein bestehender, nicht durch diese Unit
   verschlechterter Zustand.
+
+## Iteration 11 — fix-rls-smoke-hr-work-time-entries-with-data — done — 2026-08-23 00:14
+- commit: -
+- gebaut: NICHTS NEU GEBAUT — Prämisse widerlegt, done_when war bereits vollständig
+  erfüllt. `TestTenantIsolation_HR_Standard/hr_work_time_entries`
+  (`backend/internal/biz/hr/tenant_isolation_phase2_test.go:81-101`) existiert
+  bereits seit `2863fbb3` (2026-05-11, welle3) bzw. `0b30a62c` (2026-06-05,
+  Reparatur für den ersten echten DB-Lauf) — also lange vor dem Lauf-10-Fund
+  UND vor dieser Lauf-11-Staging. Der Test seedet `hr_work_time_entries` selbst
+  (eigener User als `employee_id`, echter `clock_in`-Wert) über
+  `testutil.SeedRow` mit System-Kontext, liest danach als `kmuhub_app` einmal
+  unter TenantA-Kontext (erwartet 1 Zeile) und einmal unter TenantB-Kontext
+  (erwartet 0 Zeilen) — exakt die im Backlog geforderte Form, keine
+  Zwei-Nullen-Messung. `TenantA`/`TenantB` sind laut `testutil/rls.go:137-143`
+  bewusst stabile, nie gelöschte Fixture-UUIDs (Konvention über den ganzen
+  Testbaum) — "Tenants wieder aufräumen" heißt hier bestehend zu Recht nur
+  Zeilen (per `defer testutil.CleanupRow`), nicht die Fixture-Tenants selbst.
+  Der Lauf-10-Befund ("beide Zählungen 0") bezog sich erkennbar auf einen
+  Ad-hoc-psql-Smoke gegen die damals leere Tabelle, nicht auf diesen
+  seedenden Go-Test — der lief zu keinem Zeitpunkt gegen leere Daten.
+  Mutations-Probe durchgeführt: `ALTER TABLE hr_work_time_entries DISABLE ROW
+  LEVEL SECURITY` per `docker exec docker-postgres-1 psql -U kmuhub -d kmuhub`
+  → `go test -run TestTenantIsolation_HR_Standard` wird rot exakt am
+  `hr_work_time_entries`-Subtest ("expected 0 row(s), got 1"), alle anderen
+  Subtests bleiben grün. Danach `ENABLE ROW LEVEL SECURITY` zurückgedreht,
+  Test wieder grün. Kein Diff im Repo — die Probe lief ausschließlich gegen
+  den laufenden DB-Zustand, keine Migration angefasst.
+- gate: build n.a. (kein Code geändert) | vet n.a. | lint n.a. | test ok
+  (`go test -count=1 ./internal/biz/hr/ -run TestTenantIsolation_HR_Standard`,
+  0 SKIP, DATABASE_URL gegen `kmuhub_app`) | migration n.a. | rls-smoke ok
+  (Mutations-Probe siehe oben, das IST der Smoke)
+- coverage: internal/biz/hr n.a. — kein Verhalten und keine Zeile geändert,
+  reine Verifikation eines bestehenden Tests
+- mutations-probe: RLS testweise deaktiviert (siehe oben) → Subtest
+  `hr_work_time_entries` rot ("expected 0 row(s), got 1") → RLS wieder
+  aktiviert → grün. Kein Diff übrig.
+- verify vorgaenger: sauber — `7ece4294` (verify-biz-event-emitters-never-
+  wired) ändert nur einen Kommentar in `webhook_handler.go` (7 Zeilen,
+  `lean:`-Marker), keine der acht Fehlerklassen einschlägig: kein neuer
+  Gateway-Handler, kein Stub, kein `.proto` angefasst, kein neuer Guard, keine
+  neue Tabelle, kein Wire-Shape, keine neue Route, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: keine. Diese Unit ist inhaltlich erledigt, ohne dass Code geändert
+  wurde — der Commit dieser Iteration ist ein reiner Doku-Commit
+  (BACKLOG.yml-Status + dieser Journal-Eintrag).
