@@ -142,4 +142,74 @@
 #
 # ==========================================================================================
 
-units: []
+units:
+  - id: wire-biz-event-emitters-for-finance-triggers
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Produktions-Verhaltensänderung, nicht Loop-Iteration — braucht Freigabe von Luke, bevor
+      sie geschrieben wird (COSMI_ENV=production ist live, CD deployt automatisch nach dem
+      Merge).
+    coverage_start: "n.a. — kein Coverage-Ziel, Verkabelungsentscheidung"
+    scope: >
+      VERIFIZIERT in Lauf 11 (`verify-biz-event-emitters-never-wired`): das Automations-Modul
+      bietet in der UI zwei Finanz-Trigger an, die niemals feuern.
+      `GET /triggers` (`internal/gateway/route_automation.go:96` ->
+      `AutomationGRPCServer.ListTriggerDefinitions` -> `TriggerRegistry.All()`,
+      `internal/automation/trigger/registry.go:182-218`) liefert "Rechnung versendet"
+      (`biz.invoice.sent`) und "Angebot erstellt" (`biz.quote.created`) als wählbare
+      Automations-Ausloeser. Beide hängen an `EmitBizEvent`, das der jeweilige Service nur
+      aufruft, wenn `SetEventEmitter` gesetzt wurde (`internal/biz/invoice/service.go:80-107`,
+      analog `internal/biz/quote/service.go`). `cmd/biz/main.go` ruft `SetEventEmitter` für
+      `invoiceSvc`, `quoteSvc` UND `lexwareSvc` an KEINER Stelle auf (Grep über die gesamte
+      Datei: 0 Treffer für `SetEventEmitter`) — alle drei laufen mit ihrem
+      Konstruktor-Default, der bei invoice/quote `nil` ist (`emitEvent` ist dadurch ein No-op,
+      siehe `if s.emitter == nil { return }`) und bei lexware `noopEmitter{}`
+      (`internal/biz/lexware/service.go:59-60`).
+      Ein Kunde kann also eine Automation "wenn Rechnung versendet wird, sende Slack-Nachricht"
+      anlegen, die niemals auslöst. Der dritte registrierte Finanz-Trigger,
+      `biz.invoice.overdue`, ist davon NICHT betroffen — er ist `TimeBased: true` und wird per
+      5-Minuten-Poller direkt gegen `finance_invoices` aufgelöst
+      (`internal/automation/trigger/due_postgres.go:41` `overdueInvoices`), nicht über den
+      Emitter.
+    sources:
+      - backend/cmd/biz/main.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/invoice/event_emitter.go
+      - backend/internal/biz/quote/service.go
+      - backend/internal/biz/quote/event_emitter.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/lexware/webhook_handler.go
+      - backend/internal/automation/trigger/registry.go
+      - backend/cmd/crm/main.go
+      - backend/cmd/work/main.go
+      - backend/cmd/chat/main.go
+    notes: >
+      Vorlage für die Verdrahtung existiert bereits und ist trivial (eine Zeile je Service):
+      `cmd/crm/main.go:88`, `cmd/work/main.go:82`, `cmd/chat/main.go:99` setzen
+      `svc.SetEventEmitter(event.NewPGEventEmitter(pool))` direkt nach der Konstruktion.
+      Trotzdem gehört das NICHT in eine Nachtlauf-Iteration: das Setzen ändert sofortiges
+      Produktionsverhalten (Events fließen live, Automationen mit diesen Triggern feuern ab
+      dem Deploy für jeden Kunden, der eine angelegt hat, ohne Vorwarnung), und
+      `COSMI_ENV=production` ist scharf mit automatischem CD.
+      Luke entscheidet: (a) einfach verdrahten (Nutzen: die beiden UI-Trigger funktionieren
+      endlich wie beworben), oder (b) die beiden Trigger-Definitionen aus der Registry
+      entfernen, bis eine bewusste Entscheidung für Finanz-Automationen ansteht. Bestehende
+      Kunden-Workflows mit diesen Triggern (falls es welche gibt) sollten vor dem Verdrahten
+      geprüft werden, damit sie nicht überraschend anfangen zu feuern.
+      Nebenfund mitgenommen (Lauf 11, `verify-biz-event-emitters-never-wired`): der Lexware-
+      `EventWebhookReceived`-Emit in `webhook_handler.go:176` ist ebenfalls tot, aber OHNE
+      Außenwirkung — kein Trigger in der Registry hört auf "lexware.*", der Emit ist reiner
+      Log-Ersatz. Ein `lean:`-Marker dort ist bereits gesetzt (Lauf 11, Iteration 10).
+    done_when:
+      - Luke hat (a) oder (b) entschieden
+      - "Bei (a): invoiceSvc, quoteSvc erhalten SetEventEmitter(event.NewPGEventEmitter(pool))
+        in cmd/biz/main.go, nach dem Muster von cmd/crm/main.go"
+      - "Bei (a): ein Test belegt, dass ein erzeugtes/versendetes Invoice bzw. ein erzeugtes
+        Quote ein biz.invoice.sent bzw. biz.quote.created Event auf dem Bus erzeugt"
+      - "Bei (b): die beiden Trigger-Definitionen sind aus der Registry entfernt, mit
+        Begründung im Commit"
+      - go test -count=1 ./internal/biz/invoice/ ./internal/biz/quote/ ./internal/automation/... grün

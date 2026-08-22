@@ -155,6 +155,13 @@ func (wh *WebhookHandler) UnregisterWebhooks(ctx context.Context, configID, tena
 // Pre-JWT path (HMAC-validated webhook, no user JWT): wrap in sysctx so any
 // downstream emitter writes that touch RLS-enabled tables pass WITH CHECK.
 //
+// lean: today wh.emitter is always noopEmitter{} in production -- NewService wires
+// it as the default and cmd/biz/main.go never calls SetEventEmitter on the Lexware
+// service -- so the Emit call below and the sysctx wrap it justifies have no live
+// effect yet. No automation trigger in the registry listens for "lexware.*" either.
+// Upgrade note lives with the follow-up decision in BACKLOG-NEXT.yml
+// (wire-biz-event-emitters-for-finance-triggers).
+//
 // Contact events pull the changed record and apply it to the CRM immediately —
 // that is the whole point of subscribing to them, and it keeps the CRM current
 // between the scheduler's polling intervals.

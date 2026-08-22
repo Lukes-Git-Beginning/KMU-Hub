@@ -543,3 +543,62 @@ Frühere Läufe liegen vollständig im Archiv:
   nicht `calendar_type`), weil `CalendarErasureHandler` einen solchen
   Kalender ohnehin nie loescht und die Buchungsseite sonst für immer aktiv
   bliebe.
+
+## Iteration 10 — verify-biz-event-emitters-never-wired — done — 2026-08-23 00:35
+- commit: <wird nach dem Commit ergänzt>
+- gebaut: VERIFY-UNIT, verdrahtet nichts. Belegt per Grep + Read:
+  `cmd/biz/main.go` ruft `SetEventEmitter` an KEINER Stelle auf (0 Treffer für
+  `invoiceSvc`, `quoteSvc`, `lexwareSvc`) — alle drei laufen mit
+  Konstruktor-Default (`invoice`/`quote`: `emitter == nil` -> `emitEvent` ist
+  No-op; `lexware`: `noopEmitter{}`, `service.go:59-60`).
+  Die UI-Frage ist eindeutig JA beantwortet: `GET /triggers`
+  (`internal/gateway/route_automation.go:96` ->
+  `AutomationGRPCServer.ListTriggerDefinitions` -> `TriggerRegistry.All()`,
+  `internal/automation/trigger/registry.go:182-218`) liefert live zwei
+  Finanz-Trigger mit deutschem UI-Label — "Rechnung versendet"
+  (`biz.invoice.sent`) und "Angebot erstellt" (`biz.quote.created`) — beide
+  hängen an `EmitBizEvent`, das wegen der fehlenden Verkabelung nie aufgerufen
+  wird. Ein Kunde kann diese Trigger in einer Automation auswählen; sie feuern
+  nie. Der dritte registrierte Finanz-Trigger, `biz.invoice.overdue`, ist NICHT
+  betroffen — er ist `TimeBased: true` und wird per 5-Minuten-Poller direkt
+  gegen `finance_invoices` aufgelöst (`due_postgres.go:41`), unabhängig vom
+  Emitter.
+  Nebenbefund aus den Notes bestätigt und behoben: die `HandleEvent`-Kommentare
+  in `internal/biz/lexware/webhook_handler.go` (Zeile 154-166) behaupteten eine
+  Emitter-Wirkung ("wrap in sysctx so any downstream emitter writes... pass
+  WITH CHECK"), die es nicht gibt, weil `wh.emitter` in Produktion immer
+  `noopEmitter{}` ist. Einzige Code-Änderung dieser Unit: ein `lean:`-Marker
+  direkt über dem `Emit`-Aufruf, der das festhält und auf die neue
+  BACKLOG-NEXT-Unit verweist. Kein Trigger in der Registry hört auf
+  "lexware.*" — der Lexware-Fall bleibt folgenlos (deckt sich mit Befund 1 im
+  Kopf von BACKLOG.yml).
+- gate: build ok (`./internal/biz/lexware/...`, `./internal/automation/...`,
+  `./internal/gateway/...`, `./cmd/biz/...`, `./cmd/gateway/...`) | vet ok
+  | lint ok (0 issues, `internal/biz/lexware`) | test ok (93 PASS, 0 SKIP,
+  `internal/biz/lexware`) | migration n.a. | rls-smoke n.a. (keine Tabelle/
+  Policy berührt) | TestOpenAPIRouteDrift nicht gelaufen — keine Route
+  angefasst, nur ein Kommentar in `internal/biz/lexware`
+- coverage: internal/biz/lexware 74,4 % -> 74,4 % (unverändert, reiner
+  Kommentar, kein Verhalten geändert) | internal/biz 63,7 % (Referenz aus
+  coverage_start) -> n.a., diese Unit ist kein Coverage-Ziel
+- mutations-probe: n.a. — VERIFY-UNIT ändert kein Verhalten, es gibt keine
+  Fix-Logik zum Brechen
+- verify vorgaenger: sauber — `4ae9605e` (fix-booking-page-orphaned-after-
+  owner-erasure) ruft `h.pool` direkt auf wie alle anderen Erasure-Handler
+  (kein Gateway-Handler, kein gRPC-Layer-Bypass einschlägig), keine Stubs,
+  kein Proto berührt, kein neuer `RequirePermission`-Guard, keine neue Tabelle,
+  keine neue Route, kein Wire-Shape-Wechsel, kein ersetzter Guard-Key. Eigene
+  Journal-Notiz der Vor-Iteration bestätigt dieselbe Prüfung. Docs-Commit
+  `364383c3` ändert nur eine Zeile in JOURNAL.md, unauffällig.
+- neue-units: keine in BACKLOG.yml. Eine Folge-Unit
+  `wire-biz-event-emitters-for-finance-triggers` mit `status: blocked` und
+  `blocked_reason` in `BACKLOG-NEXT.yml` angelegt (Produktions-Verhaltens-
+  änderung, braucht Lukes Entscheidung (a) verdrahten oder (b) Trigger aus der
+  Registry entfernen) — der bereits vorbereitete Platzhalter-Abschnitt "EVENT-
+  EMITTER IN cmd/biz/main.go" in derselben Datei wurde dabei nicht entfernt,
+  weil er den Hintergrund erklärt; die neue Unit ist der ausführbare Nachfolger.
+- offen: Luke muss `wire-biz-event-emitters-for-finance-triggers` entscheiden
+  (a) oder (b), siehe BACKLOG-NEXT.yml. Bis dahin bleiben "Rechnung versendet"
+  und "Angebot erstellt" wählbare, aber tote Automations-Trigger in der
+  Produktions-UI — das ist ein bestehender, nicht durch diese Unit
+  verschlechterter Zustand.
