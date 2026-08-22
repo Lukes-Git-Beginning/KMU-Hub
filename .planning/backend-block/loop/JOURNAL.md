@@ -618,7 +618,7 @@ Frühere Läufe liegen vollständig im Archiv:
     spaeteren C-Scan, falls weitere Retention-Handler denselben Zaehler brauchen.
 
 ## Iteration 12 — feat-retention-worker-handler-dialer-chat — done — 2026-08-22 02:08
-- commit: (folgt im naechsten Schritt)
+- commit: 4c0da577
 - gebaut: `DialerCallRetentionHandler` und `ChatMessageRetentionHandler`
   (`internal/security/gdpr/retention_dialer_chat.go`), zweiter und dritter Handler an der
   Registry aus A10. Beide arbeiten roh gegen `*pgxpool.Pool`, im selben Stil wie
