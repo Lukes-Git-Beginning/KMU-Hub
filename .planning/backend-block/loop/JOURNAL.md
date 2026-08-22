@@ -4415,7 +4415,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 74 — fix-gdpr-deletion-request-audit-trail-cascade-loss — done — 2026-08-22 10:01
-- commit: (siehe unten, wird nach Commit ergaenzt)
+- commit: 8752962c
 - gebaut: `gdpr_deletion_requests.contact_id` trug `ON DELETE CASCADE` (Migration 000082).
   `consent.Service.ProcessDeletion` loescht den Kontakt nie, sondern anonymisiert ihn nur — der
   Kontakt konnte danach trotzdem ueber einen zweiten, unabhaengigen Pfad hart geloescht werden
