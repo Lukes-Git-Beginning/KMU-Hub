@@ -649,7 +649,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (BACKLOG.yml-Status + dieser Journal-Eintrag).
 
 ## Iteration 12 — verify-dunning-calculate-interest-unreachable — done — 2026-08-23 00:17
-- commit: (siehe unten)
+- commit: 7941c1b7
 - gebaut: VERIFY-UNIT, keine Verzugszins-Verdrahtung. Aufrufgraph von
   `dunning.CalculateInterest` (`service.go:415`) über `internal/`, `cmd/` und
   `proto/biz/v1/biz.proto` geprüft: null Aufrufer außer den fünf Tests in
