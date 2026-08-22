@@ -4883,3 +4883,37 @@ Frühere Läufe liegen vollständig im Archiv:
   nutzten — kein zweiter Maskierungspfad.
 - neue-units: keine.
 - offen: keine
+
+## Iteration 82 — fix-gateway-file-import-413-response-undocumented — done — 2026-08-22 11:17
+- commit: (siehe unten, wird nach Commit ergaenzt)
+- gebaut: Fund aus scan-gateway-openapi-response-code-drift (Iteration 46). Reine
+  Spec-Korrektur in `backend/api/openapi.yaml`, kein Code-Verhalten geaendert. Zwei
+  Datei-Upload-Routen lieferten bereits `http.StatusRequestEntityTooLarge` (413), das die
+  Spec nicht kannte: (1) `POST /api/v1/finance/gobd-archive` — "400"-Beschreibung nannte
+  faelschlich "file too large" (der Code liefert dafuer nachweislich 413,
+  `route_biz_gobd_archive.go:61`), Text auf "empty file, unknown doc_type" gekuerzt und
+  "413": "Document exceeds the 50 MiB limit" ergaenzt. (2) `POST /api/v1/finance/invoices/import`
+  — "413": "Uploaded file exceeds the 10 MiB limit" ergaenzt, Stil und Formulierung von der
+  strukturell identischen Route `POST /api/v1/finance/bank-statements/import`
+  (openapi.yaml:9564-9569) uebernommen, aber ohne deren `content`/`schema`-Block, weil der
+  gobd-archive/invoices-import-Block in der Spec durchgaengig ohne Content-Schema fuer
+  Fehlerantworten dokumentiert ist (Stil folgt dem direkten Nachbarblock, nicht der
+  banking-Route).
+- gate: swagger-cli validate ok ("api/openapi.yaml is valid") | test ok
+  (`go test ./internal/gateway/ -run TestOpenAPIRouteDrift`: 836 Routen gegen 838 dokumentierte
+  Pfade, PASS; volles `./internal/gateway/` PASS, 0 SKIP, DATABASE_URL gegen kmuhub_app gesetzt)
+  | build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint: n.a. (keine
+  `.go`-Datei geaendert) | migration: n.a. | rls-smoke: n.a.
+- coverage: n.a. (Bugfix, kein Coverage-Ziel — laut Unit-Kopf)
+- mutations-probe: n.a. (reine YAML-Spec-Aenderung, kein Testverhalten zu mutieren; die
+  Korrektheit wird durch `swagger-cli validate` und `TestOpenAPIRouteDrift` belegt, die beide
+  vor der Aenderung bereits gruen waren und die inhaltliche Aussage der Response-Codes nicht
+  pruefen koennen)
+- verify vorgaenger: sauber. `16550c5e` (Iteration 81, fix-gateway-caldav-basic-auth-username-log-leakage)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextlesung von
+  `route_caldav.go` und `app_password.go`) — reine Logging-Aenderung (Klartext-Username ->
+  sha256-Fingerprint), kein gRPC-Layer-Bezug, kein Stub, kein `.proto`-Change, kein
+  neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine neue Route, keine
+  Wire-Shape-Aenderung.
+- neue-units: keine.
+- offen: keine
