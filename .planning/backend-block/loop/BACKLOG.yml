@@ -778,7 +778,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       Journal-Befund 1 aus Lauf 10 (Iteration 57): seit Lauf 10 bekommt ein Request, dessen
@@ -2792,3 +2792,108 @@ units:
         identisch sind (nicht nur beide "plausibel")
       - Die Toleranzfrage in einvoice.totalsTolerance ist entschieden und begruendet
       - go test -count=1 ./internal/biz/... gruen
+
+# ==========================================================================================
+# Aus Iteration 15 (fix-idempotency-inflight-409-not-in-openapi) nachgelegt.
+# ==========================================================================================
+
+  - id: fix-idempotency-409-rollout-remaining-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, keine Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `fix-idempotency-inflight-409-not-in-openapi` (Iteration 15, Lauf 11).
+      Diese Unit hat die Idempotency-Middleware-Semantik (409 + Retry-After bei In-Flight-Retry,
+      400 bei fehlendem Key nur in HardMode) als globalen Vertrag in `info.description` von
+      `api/openapi.yaml` dokumentiert und exemplarisch auf sechs Finanz-/Dialer-/Schichten-
+      Buchungsrouten angewendet (POST /api/v1/finance/invoices, POST
+      /api/v1/finance/invoices/{id}/payments, POST /api/v1/dialer/calls/{id}/outcome, PUT
+      /api/v1/dialer/calls/{id}/notes, POST /api/v1/dialer/calls/{id}/complete, POST
+      /api/v1/schichten/swap-requests). Der volle Schutzbereich der Middleware umfasst aber
+      praktisch die gesamte authentifizierte API: 836 registrierte `/api/v1/*`-Routen, davon
+      laufen alle POST/PUT/PATCH/DELETE ausser den unten genannten Ausnahmen durch
+      `middleware.Idempotency`. Ein Grep auf mutierende Operationen in `api/openapi.yaml`
+      (`^\s+(post|put|patch|delete):\s*$`) zaehlte zum Zeitpunkt dieser Unit 739 Treffer — die
+      grosse Mehrheit davon traegt noch kein 409.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/cmd/gateway/main.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/gateway/openapi_drift_test.go
+    notes: >
+      DIE AUSSCHLUSSLISTE IST BEREITS VERIFIZIERT, NICHT NEU HERLEITEN: geschuetzt sind exakt
+      die Routen, die in `cmd/gateway/main.go` ueber die `registrars`-Liste (Zeilen ~276-326)
+      plus `crmRoutes.RegisterAdvisoryRoutes` plus die Plugin-Routen (wenn `plugins.api` an ist)
+      mit `authWithIdempotency` registriert werden. NICHT geschuetzt: `/api/v1/public/*`,
+      `/api/v1/guest/*`, `/api/v1/caldav/*` und `/api/v1/admin/caldav/*` (registriert mit einer
+      eigenen, nackten `authMiddleware` in `route_caldav.go:146,161` — die einzige Route-Datei,
+      die den uebergebenen Middleware-Parameter komplett ignoriert), WOPI/CalDAV/CardDAV-
+      Protokollrouten, `/reset-password`, und die Pfade, die `/auth/login`, `/auth/refresh`
+      bzw. `/auth/2fa` als Teilstring enthalten (siehe `idempotencyWhitelist` in
+      `idempotency.go:36`, `strings.Contains`-Match, nicht Praefix-Match).
+      MECHANISCH, ABER RISIKOBEHAFTET: die Aenderung selbst ist fuer jede betroffene Operation
+      identisch (ein `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` in den
+      `responses:`-Block einfuegen), ein Python-Skript mit reinem Zeilen-/Regex-Scan ist daher
+      sinnvoll — KEIN vollstaendiges YAML-Parse-und-Reserialize (PyYAML ist installiert, aber
+      ein Round-Trip zerstoert Formatierung/Kommentare/Quoting-Stil ueber die ganze 47k-Zeilen-
+      Datei und macht den Diff unlesbar). Etwa 20 Operationen tragen bereits ein `"409":` fuer
+      einen ANDEREN Grund (z. B. Konflikt bei Duplikat) — dort nicht blind ueberschreiben,
+      sondern pruefen, ob eine gemeinsame Beschreibung oder zwei Saetze im bestehenden Feld
+      noetig sind. Nach dem Lauf: Zeilenzahl-Sanity (nur `responses:`-Bloecke sollen wachsen,
+      kein bestehender Inhalt verschwindet) plus `git diff` stichprobenartig lesen, nicht nur
+      `swagger-cli validate` vertrauen.
+      In sinnvolle Teil-Units aufteilen (z. B. je Registrar-Gruppe, aehnliche Koernung wie die
+      bestehenden `cov-gateway-*`-Units), statt alles in einem Commit — 739 Operationen in einem
+      Diff sind fuer eine Nachtlauf-Iteration nicht reviewbar.
+    done_when:
+      - Alle POST/PUT/PATCH/DELETE-Operationen unter den oben verifiziert-geschuetzten Pfaden
+        tragen ein 409 IdempotencyInFlight (oder eine begruendete Ausnahme)
+      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben
+      - swagger-cli validate gruen
+      - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen
+
+  - id: fix-hr-time-entries-manual-post-not-in-openapi
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Doku-Luecke, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER FUND aus Iteration 15 (Lauf 11), beim Suchen nach einem HR-Buchungsbeispiel
+      fuer `fix-idempotency-inflight-409-not-in-openapi`: `POST /api/v1/hr/time/entries`
+      (`HandleCreateManualEntry`, registriert in `route_hr.go:110`) hat KEINEN Eintrag in
+      `api/openapi.yaml`. Der Pfad `/api/v1/hr/time/entries` existiert dort nur mit einer
+      `get:`-Operation (Zeile ~11144 zum Zeitpunkt dieses Funds); die `post:` fehlt komplett.
+      `TestOpenAPIRouteDrift` faengt das NICHT ab — der Test ist laut eigenem Kommentar
+      "method-agnostic: this guard checks path-level drift, not per-method drift" und sieht nur,
+      dass der PFAD dokumentiert ist, nicht dass die Methode fehlt. Damit ist ein manuelles
+      Buchen einer Arbeitszeit (mit eigener serverseitiger Idempotency-Key-Pflicht,
+      `route_hr.go:1621-1625`, unabhaengig vom Gateway-Modus) vollstaendig undokumentiert —
+      betrifft auch generierte Frontend-Typen, falls diese aus der Spec generiert werden.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/gateway/openapi_drift_test.go
+    notes: >
+      ERST PRUEFEN, ob es weitere solche Faelle gibt (dieselbe Fehlerklasse: Pfad dokumentiert,
+      eine Methode fehlt) — ein Grep, der fuer jeden registrierten `r.With(...).Post/Put/Patch/
+      Delete(...)`-Aufruf in `internal/gateway/route_*.go` das volle Pfad+Methode-Paar gegen die
+      Methoden unter dem passenden `openapi.yaml`-Pfadschluessel prueft. Diese Unit selbst hat
+      dafuer keine Zeit gehabt (nur der eine Fall wurde beim Recherchieren fuer eine andere Unit
+      entdeckt) — ein systematischer Scan ist eine Erweiterung von `TestOpenAPIRouteDrift`
+      selbst (per-Methode statt nur per-Pfad) und waere der robustere, dauerhafte Fix.
+      Falls weitere Faelle auftauchen, gehoeren sie in dieselbe Unit (root cause: der Drift-Test
+      pruefte nie auf Methodenebene), nicht in Einzel-Units je Route.
+    done_when:
+      - POST /api/v1/hr/time/entries hat einen vollstaendigen Operation-Eintrag (Request-Body,
+        Responses inkl. 400 fuer fehlenden Idempotency-Key) in api/openapi.yaml
+      - Ein Scan auf weitere Pfad-dokumentiert-aber-Methode-fehlt-Faelle ist gelaufen, Ergebnis
+        im Journal genannt
+      - Idealerweise: TestOpenAPIRouteDrift oder ein neuer Test prueft kuenftig Methodenebene,
+        damit dieselbe Luecke nicht wieder unbemerkt entsteht (sonst als eigene Folge-Unit)
+      - swagger-cli validate gruen
+      - go test -count=1 ./internal/gateway/ gruen

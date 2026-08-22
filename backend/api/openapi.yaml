@@ -1,7 +1,41 @@
 openapi: 3.0.3
 info:
   title: KMU Hub API
-  description: All-in-One CRM for DACH SMEs with EU data sovereignty
+  description: >-
+    All-in-One CRM for DACH SMEs with EU data sovereignty.
+
+
+    ### Idempotency-Key contract
+
+    Every POST/PUT/PATCH/DELETE registered through the gateway's standard
+    route registrars (cmd/gateway/main.go, the `registrars` slice plus the
+    CRM advisory routes and the plugin API routes) runs behind
+    `middleware.Idempotency`: send an `Idempotency-Key` header to deduplicate
+    retries. A retry with the same key while the first attempt is still
+    in flight gets `409` (`#/components/responses/IdempotencyInFlight`,
+    `Retry-After: 2`); replaying a completed request returns the original
+    cached response with `Idempotency-Replayed: true`; reusing a key with a
+    different request body gets `422`. A missing key returns
+    `400` (`#/components/responses/IdempotencyKeyRequired`) only when the
+    gateway runs `IDEMPOTENCY_MODE=hard` — production default is WarnMode
+    (missing key is logged, request proceeds undeduplicated).
+
+
+    NOT covered by this middleware, so the responses above do not apply
+    there: `/api/v1/public/*` and `/api/v1/guest/*` (no auth, no tenant
+    context to key on), `/api/v1/caldav/*` and `/api/v1/admin/caldav/*`
+    (registered with a bare auth middleware outside the registrar loop),
+    `/api/v1/auth/login`, `/api/v1/auth/refresh` and `/api/v1/auth/2fa`
+    (explicitly whitelisted — not idempotent by design), the WOPI/CalDAV/
+    CardDAV protocol routes and `/reset-password` (registered without any
+    of the standard middleware).
+
+
+    Per-operation `409`/`400` documentation below is not yet exhaustive —
+    it currently covers the finance and dialer booking endpoints named in
+    the backend loop's Lauf 11 backlog (`fix-idempotency-inflight-409-not-
+    in-openapi`); rolling it out to the remaining protected routes is
+    tracked as a follow-up unit.
   version: 0.1.0
 
 servers:
@@ -8974,6 +9008,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List invoices
       tags: [invoices]
@@ -9207,6 +9243,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Payment"
+        "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List payments for an invoice
       tags: [payments]
@@ -16095,6 +16133,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenSwapRequest'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/swap-requests/{id}/approve:
     post:
@@ -23443,6 +23482,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/dialer/calls/{id}/notes:
     put:
@@ -23474,6 +23514,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/dialer/calls/{id}/complete:
     post:
@@ -23504,6 +23545,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/dialer/agent-status:
     get:
@@ -47720,6 +47762,30 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     Conflict:
       description: Conflict (e.g. duplicate email)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    IdempotencyInFlight:
+      description: >-
+        A request with this Idempotency-Key is already being processed (the
+        first attempt has not called Complete yet). Retry after the given
+        delay with the same key and body; a client that does not honour
+        Retry-After and abandons the request risks re-submitting a payload
+        that will still be executed exactly once server-side.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying, currently always "2".
+          schema: { type: integer }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    IdempotencyKeyRequired:
+      description: >-
+        Missing Idempotency-Key header on a mutating request. Only returned
+        when the gateway runs in IDEMPOTENCY_MODE=hard (opt-in; production
+        default is WarnMode, which logs and proceeds without this response).
       content:
         application/json:
           schema:

@@ -838,3 +838,56 @@ Frühere Läufe liegen vollständig im Archiv:
   Tabellenkopf ohne Zeilen; kein Absturz, aber auch kein Fund, da das Backlog dafür kein
   eigenes done_when nennt und die Frage, ob eine Rechnung ohne Positionen überhaupt
   fachlich zulässig sein soll, eine Produktentscheidung ist, keine Coverage-Frage.
+
+## Iteration 15 — fix-idempotency-inflight-409-not-in-openapi — done — 2026-08-23 00:34
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: `api/openapi.yaml` erweitert, kein Produktionscode angefasst (reine Doku-Unit,
+  Middleware-Verhalten unveraendert). (1) Zwei neue wiederverwendbare Response-Components
+  `IdempotencyInFlight` (409, mit Retry-After-Header-Doku) und `IdempotencyKeyRequired` (400,
+  nur bei IDEMPOTENCY_MODE=hard) unter `components/responses`. (2) Globaler Vertrag in
+  `info.description`: was die Middleware tut (409+Retry-After bei In-Flight-Retry, Replay via
+  gecachter Antwort, 422 bei Payload-Aenderung, 400 nur HardMode) UND die vollstaendig
+  verifizierte Ausschlussliste (was NICHT geschuetzt ist: `/api/v1/public/*`, `/api/v1/guest/*`,
+  `/api/v1/caldav/*` + `/api/v1/admin/caldav/*` — `route_caldav.go` ist die einzige Route-Datei,
+  die den uebergebenen Middleware-Parameter komplett ignoriert und eine eigene nackte
+  `authMiddleware` verwendet —, WOPI/CalDAV/CardDAV-Protokoll, `/reset-password`,
+  `/auth/login|refresh|2fa`). (3) 409 konkret dokumentiert auf sechs Finanz-/Dialer-/
+  Schichten-Buchungsrouten (die im Scope explizit genannte Prioritaet): POST
+  /api/v1/finance/invoices, POST /api/v1/finance/invoices/{id}/payments (beide zusaetzlich mit
+  400 IdempotencyKeyRequired, da vorher GAR KEIN Error-Response dokumentiert war), POST
+  /api/v1/dialer/calls/{id}/outcome, PUT /api/v1/dialer/calls/{id}/notes, POST
+  /api/v1/dialer/calls/{id}/complete, POST /api/v1/schichten/swap-requests (deklariert bereits
+  `Idempotency-Key` als required Header-Parameter, hatte aber kein 409).
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) |
+  test ok (`go test -count=1 ./internal/gateway/`, 0 SKIP) |
+  `go test -run 'TestOpenAPIRouteDrift|TestOpenAPISpecDrift' -v`: 836 registrierte gegen 838
+  dokumentierte Pfade, beide gruen | `npx @apidevtools/swagger-cli validate api/openapi.yaml`:
+  "api/openapi.yaml is valid" | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Doku-Unit, keine Coverage-relevante Code-Aenderung)
+- mutations-probe: n.a. — reine OpenAPI-Spec-Aenderung, keine Produktionslogik zum Brechen.
+  TestOpenAPIRouteDrift/-SpecDrift liefen vor UND nach der Aenderung identisch gruen (838 statt
+  837 dokumentierte Pfade — die Differenz ist ausschliesslich die neue Beschreibung, keine neue
+  Pfad-Zeile), das belegt strukturell, dass nichts an der Routenmenge selbst verschoben wurde.
+- verify vorgaenger: sauber — `c0d36487` (Iteration 14) fuegt ausschliesslich eine neue Testdatei
+  `internal/biz/pdf/generator_coverage_test.go` hinzu (siehe `git show --stat`), keine der acht
+  Fehlerklassen einschlaegig: kein gRPC-Handler, kein Stub/TODO, kein `.proto`, keine Migration,
+  kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein ersetzter
+  Guard-Key. `377ad9ef` aendert nur JOURNAL.md/BACKLOG.yml.
+- neue-units: fix-idempotency-409-rollout-remaining-routes (Fortsetzung — 739 mutierende
+  Operationen insgesamt, diese Iteration deckt 6 explizit im Scope genannte ab, der Rest ist zu
+  gross fuer einen Commit und braucht eine sichere Skript-Strategie plus Konflikt-Behandlung mit
+  ~20 bereits bestehenden 409-Eintraegen anderer Bedeutung), fix-hr-time-entries-manual-post-not-
+  in-openapi (echter Fund: POST /api/v1/hr/time/entries ist komplett undokumentiert,
+  TestOpenAPIRouteDrift prueft nachweislich nur Pfad- nicht Methodenebene und faengt das nicht)
+- offen: (a) Die Ausschlussliste in `info.description` wurde durch Code-Lesen verifiziert
+  (`cmd/gateway/main.go` Registrar-Liste + jede `RegisterRoutes`-Signatur in
+  `internal/gateway/route_*.go` auf Middleware-Parameter-Nutzung geprueft), nicht durch einen
+  automatisierten Test — bei einer zukuenftigen Aenderung an der Registrar-Verdrahtung kann die
+  Doku veralten, ohne dass CI das merkt. (b) Die zwei neuen Response-Components sind bislang nur
+  auf 6 von 739 mutierenden Operationen angewendet — vollstaendige Rollout-Unit ist angelegt.
+  (c) `route_caldav.go` registriert `/api/v1/caldav/*` und `/api/v1/admin/caldav/*` mit einer
+  eigenen `authMiddleware` OHNE Idempotency-Schutz, obwohl es POST/PUT/DELETE-Operationen sind
+  (App-Passwoerter erstellen/widerrufen) — das ist eine bewusste Entscheidung im bestehenden Code
+  (nicht neu durch diese Iteration), aber nicht als eigener Fund geprueft, ob das gewollt ist;
+  nur als Beobachtung im Journal, keine Unit angelegt, da unklar ob das ein Fehler oder Absicht
+  ist und das Backlog explizit vor unbelegten Funden warnt.
