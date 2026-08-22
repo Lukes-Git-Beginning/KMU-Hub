@@ -1008,7 +1008,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Block E das Paket noch einmal aufgreift.
 
 ## Iteration 18 — cov-gateway-biz-recurring-invoices — done — 2026-08-22 03:14
-- commit: (folgt im naechsten Schritt)
+- commit: 791ba2bf
 - gebaut: `route_biz_recurring_test.go` (neue Datei, 30 Tests) deckt alle 9 Funktionen von
   `route_biz_recurring.go` ab (`HandleListRecurringInvoices`, `HandleCreateRecurringInvoice`,
   `HandleGetRecurringInvoice`, `HandleUpdateRecurringInvoice`, `HandleDeleteRecurringInvoice`,
