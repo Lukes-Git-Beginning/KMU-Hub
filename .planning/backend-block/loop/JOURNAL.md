@@ -1497,7 +1497,7 @@ Frühere Läufe liegen vollständig im Archiv:
     beruehrt).
 
 ## Iteration 26 — cov-gateway-email-signatures-templates — done — 2026-08-22 04:22
-- commit: (folgt im naechsten Eintrag)
+- commit: 143108a0
 - gebaut: Neue Testdatei `route_email_signatures_templates_test.go` fuer den dritten Teil von
   `route_email.go`: Signaturen und Vorlagen (12 Handler: HandleListSignatures,
   HandleGetSignature, HandleCreateSignature, HandleUpdateSignature, HandleDeleteSignature,
