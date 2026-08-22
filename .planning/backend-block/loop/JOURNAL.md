@@ -1861,3 +1861,85 @@ Frühere Läufe liegen vollständig im Archiv:
     unbearbeitet.
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
     beruehrt in dieser Iteration).
+
+## Iteration 31 — cov-gateway-crm-contact-files-wopi — done — 2026-08-22 05:02
+- commit: (siehe unten, wird nach dem Commit nachgetragen)
+- gebaut: `internal/gateway/route_crm_contact_files_test.go` neu — deckt
+  `route_crm_contact_files.go` (7 Funktionen) ab: ServiceUnavailable fuer beide
+  Handler, invalide Contact-ID vor jeder RPC, ReachesRPC fuer beide Handler,
+  und explizit die Reihenfolge in `HandleCreateContactFile` (Ownership-Check
+  laeuft VOR der Body-Validierung: ein kaputtes JSON liefert trotzdem 503, nicht
+  400). `toContactFileResponse` ist als reine Funktion getestet (flaches Wire-
+  Shape, keine verschachtelte Proto-Struktur). `resolveContactFilesFolder`/
+  `findContactFilesFolder`/`getDocumentClient` sind wie in jeder vorigen
+  Gateway-Coverage-Unit dieses Laufs NICHT erreichbar, weil es fuer
+  CRMServiceClient/DocumentServiceClient keinen Fake-Client/bufconn gibt — die
+  Ownership-Pruefung scheitert immer zuerst an der Fake-Verbindung. Der
+  tatsaechliche Cross-Tenant-Beweis fuer `verifyContactOwnership` liegt
+  serverseitig bereits vor: `internal/crm/contact/service_test.go`
+  `TestService_CrossTenant_GetByID_DifferentTenantGetsNotFound` und
+  `TestService_GetByID_InvalidTenant` (im Dateikopf referenziert, nicht
+  nochmal als Gateway-Fake nachgebaut).
+  `internal/gateway/route_wopi_test.go` neu — deckt `route_wopi.go` (3
+  Funktionen: ServiceName, RegisterRoutes, NewWOPIRoutes) ab. Anders als jede
+  andere Gateway-Route hat WOPI KEINE gRPC-Client-Grenze (die Routen
+  umgehen die App-Auth-Middleware komplett, siehe route_wopi.go-Kommentar) —
+  deshalb ist hier der volle Stack durchtestbar: echter chi-Router, echter
+  `wopi.TokenService`, echter DB-gestuetzter `wopi.LockService` (Migration
+  000044/000114/000122, FK auf `document_files`/`users`, RLS via
+  `enable_tenant_rls`), Fake `FileServiceInterface`/`chatfile.FileStore` fuer
+  die beiden DB-freien Interfaces. `TestWOPIRoutes_Dispatch` beweist, dass alle
+  vier Sub-Pfade (GET /, GET /contents, POST /contents, POST / mit
+  X-WOPI-Override) auf die richtige Handler-Methode routen und der
+  {fileID}-Chi-Param korrekt durchgereicht wird — inklusive eines echten
+  LOCK/UNLOCK-Zyklus gegen die Datenbank. Abgelaufenes, manipuliertes und
+  fremdes Token sind NICHT hier neu gebaut, sondern bereits vollstaendig in
+  `internal/document/wopi/token_test.go`
+  (`TestTokenService_Validate_RejectsExpiredToken`,
+  `TestTokenService_Validate_RejectsTamperedSignature`) und
+  `handler_test.go` ("token file_id mismatch") abgedeckt — im Dateikopf
+  referenziert. Ein zusaetzlicher Router-Level-Test fuer den Fremd-Token-Fall
+  ("wrong file_id in URL vs token") ist trotzdem enthalten, weil er zugleich
+  die {fileID}-Param-Extraktion durch den echten Router beweist, nicht nur
+  die Handler-Logik isoliert.
+- gate: build ok (`-p 2` gateway/..., document/..., cmd/gateway/...) | vet ok
+  (gateway/..., document/...) | lint ok (0 issues, gateway/..., document/...)
+  | test ok (`internal/gateway` komplett gruen inkl. TestOpenAPIRouteDrift
+  [836 Routen gegen 838 dokumentierte Pfade, unveraendert — keine neue Route],
+  0 SKIP von `go test -v ... | grep -c "^--- SKIP"`; `internal/document/...`
+  [file, folder, search, share, tag, virtual, wopi] unveraendert gruen,
+  DATABASE_URL gegen kmuhub_app) | migration n.a. (keine Schemaaenderung,
+  wopi_locks existiert bereits seit Migration 000044/000114/000122) |
+  rls-smoke n.a. (keine neue Tabelle/Policy — der LOCK/UNLOCK-Test in
+  `TestWOPIRoutes_Dispatch` laeuft bereits unter Tenant-Kontext gegen die
+  bestehende RLS-Policy und beweist implizit, dass ein falscher Tenant keine
+  Zeile schreiben wuerde, testet aber keinen Fremd-Tenant-Lesefall explizit,
+  weil dieser bereits in `lock_test.go` TestLockService_* abgedeckt ist)
+- coverage: internal/gateway 51,8 % (Iteration-30-Endstand, eigene Messung
+  `go tool cover -func` vor dieser Unit) -> 51,9 % (eigene Messung nach
+  dieser Unit)
+- mutations-probe: In `route_crm_contact_files.go` `toContactFileResponse`s
+  `ContactID: contactID` auf `ContactID: f.Id` geaendert ->
+  `TestToContactFileResponse_FlatShape` wird rot (`ContactID = "file-1", want
+  "10101010-1010-1010-1010-101010101010"`). Zurueckgedreht -> gruen
+  (`go test -run TestToContactFileResponse_FlatShape`), `git diff --stat`
+  zeigt 0 Zeilen fuer `route_crm_contact_files.go`.
+- verify vorgaenger: sauber. `666cade4` (Iteration 30, CRM-Ext-Duplicates/
+  Merge/GDPR-Routen) gegen alle acht Fehlerklassen geprueft: `git diff --stat
+  0ca728a1 666cade4 -- backend/` zeigt nur eine neue reine Gateway-Testdatei
+  (`route_crm_ext_test.go`, 468 Zeilen) — kein gRPC-Bypass, kein Stub/TODO,
+  kein `.proto` angefasst, keine neue `RequirePermission`, keine neue
+  Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route.
+- neue-units: keine
+- offen:
+  - `fix-email-contacts-csv-export-formula-injection` (Iteration 27) und
+    `fix-gateway-advisory-product-riskclass-not-validated` (Iteration 28)
+    stehen weiterhin unbearbeitet am Backlog-Ende und sollten vor Block C
+    gezogen werden — jetzt vier Iterationen unbearbeitet.
+  - `resolveContactFilesFolder`/`findContactFilesFolder`/`getDocumentClient`
+    in `route_crm_contact_files.go` bleiben ohne Fake-CRM/Document-Client
+    strukturell ungetestet auf Gateway-Ebene (wie bei jeder anderen
+    RPC-basierten Route dieses Laufs) — kein Fix noetig, nur Grenze notiert.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
+    keine neue Tabelle/Policy in dieser Iteration; der WOPI-Test nutzt
+    ausschliesslich bereits bestehende Tabellen/Policies).

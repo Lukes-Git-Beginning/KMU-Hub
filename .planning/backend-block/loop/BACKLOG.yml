@@ -1139,7 +1139,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/document/wopi 86,5 % (Run 32508843776)"
     scope: >
       `route_crm_contact_files.go` (237 Zeilen, 7 Funktionen) und `route_wopi.go` (56 Zeilen,
