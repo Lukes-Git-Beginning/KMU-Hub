@@ -4110,7 +4110,7 @@ Frühere Läufe liegen vollständig im Archiv:
     kein neuer Fund, nur Bestaetigung nach dieser Iteration.
 
 ## Iteration 67 — fix-work-erasure-missing-project-membership — done — 2026-08-22 09:26
-- commit: (nachtragen nach Commit)
+- commit: d72c0760
 - gebaut: `WorkErasureHandler` erfasste `project_members` (user_id, CASCADE auf users(id)) weder
   in `PreviewErasure` noch in `ExecuteErasure` — die CASCADE-FK feuert nie, weil
   `AuthErasureHandler` den Nutzer anonymisiert statt loescht (dasselbe Muster wie
