@@ -991,7 +991,7 @@ Frühere Läufe liegen vollständig im Archiv:
   der Block-B-Reihe) offen.
 
 ## Iteration 18 — cov-payment-repository-sums-and-idempotency-real-sql — done — 2026-08-23 01:05
-- commit: (siehe unten)
+- commit: 76b41d02
 - gebaut: Zweite Haelfte zu Iteration 17. `postgres_repository_db_test.go` (weiter ungetaggt,
   package `payment`) bekommt neun weitere Tests fuer `SumByInvoiceID`, `SumByInvoiceIDInTx` und
   `GetByIdempotencyKey` gegen echtes Postgres: keine Zahlung (COALESCE liefert 0, nicht NULL/Fehler),
