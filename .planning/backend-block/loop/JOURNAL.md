@@ -4600,7 +4600,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 77 — feat-retention-worker-handler-notifications — done — 2026-08-22 10:31
-- commit: <wird im naechsten Commit eingetragen>
+- commit: 7c5436bc
 - gebaut: `NotificationRetentionHandler` (`backend/internal/security/gdpr/retention_notifications.go`)
   als achter Handler auf der Retention-Registry aus A10, `resource_type` "notifications",
   verdrahtet in `cmd/auth/main.go` neben den sieben bestehenden Handlern.
