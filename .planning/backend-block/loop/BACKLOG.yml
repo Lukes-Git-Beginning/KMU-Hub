@@ -1489,7 +1489,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       Ein RESTRICT-Fremdschluessel ohne Weg in der Oberflaeche, ihn aufzuloesen, ist eine
@@ -2597,3 +2597,174 @@ units:
       - Handler ist in cmd/auth/main.go registriert
       - Ein Test seedet je einen Datensatz pro Tabelle und belegt die Loeschung
       - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-company-delete-merged-into-fk-crash
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/crm/company 79,7 % (CI-Stand 1b49a1f3, Run 32508843776)"
+    scope: >
+      `companies.merged_into_id` traegt `ON DELETE NO ACTION` (Selbstbezug, wie
+      `contacts.merged_into_id` in `fix-contact-delete-merged-into-no-action-unchecked`).
+      `company/service.go:290-318` prueft vor dem Loeschen nur `HasContacts` (sauber als 409
+      `ErrCompanyInUse`) — nicht, ob die Company Ziel eines abgeschlossenen Merges ist. Eine
+      gemergte Zielfirma ohne eigene Kontakte laesst sich damit anstossen: der DELETE laeuft bis
+      zur DB durch, die FK-Verletzung wird von `mapCRMError` (`crm_grpc.go`) nicht per
+      `errors.Is` erkannt und landet im `default:`-Zweig als `codes.Internal` -> 500 mit rohem
+      DB-Fehler statt eines verstaendlichen 409.
+    sources:
+      - backend/internal/crm/company/service.go
+      - backend/internal/crm/company/postgres_repository.go
+      - backend/internal/server/crm_grpc.go
+      - backend/internal/crm/contact/postgres_repository.go (Vorlage: `IsInUse` fuer die analoge
+        Contact-Situation)
+    notes: >
+      Gleiches Muster wie bei `fix-contact-delete-merged-into-no-action-unchecked` — beide Units
+      koennen dieselbe Grundsatzentscheidung teilen (Migration auf SET NULL vs. Anwendungs-Check),
+      muessen aber unabhaengig gebaut werden, weil es zwei verschiedene Tabellen/Services sind.
+      `pipelinestage/service.go:208-234` (`HasDeals` -> `ErrStageHasDeals` -> 409 ueber
+      `mapCRMError`) ist die Vorlage fuer die saubere Fehlerkette in genau diesem Paket.
+    done_when:
+      - Entscheidung dokumentiert: Migration `merged_into_id` auf SET NULL, oder Service-Check
+        analog `HasContacts` vor dem Delete
+      - Loeschen einer gemergten Zielfirma ohne eigene Kontakte liefert 409 mit verstaendlicher
+        Meldung statt 500
+      - Test belegt den Fall (Company A gemergt in Company B, B ohne Kontakte loeschen)
+      - go test -count=1 ./internal/crm/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-channel-delete-call-sessions-fk-crash
+    phase: 4
+    service: chat
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/chat (zur Laufzeit messen)"
+    scope: >
+      `call_sessions.channel_id` traegt `ON DELETE NO ACTION`. `channel/service.go:224-255`
+      prueft vor dem Loeschen eines Channels nur DM-Status und Owner-Berechtigung, nicht ob noch
+      `call_sessions` (archivierte Anrufe) am Channel haengen. `mapChatError`
+      (`chat_grpc.go:1332-1337`) reicht unbekannte DB-Constraint-Fehler laut eigenem Kommentar
+      bewusst als 500 durch — das deckt hier aber einen konkreten, erreichbaren Fall ab, keinen
+      theoretischen.
+    sources:
+      - backend/internal/chat/channel/service.go
+      - backend/internal/chat/channel/postgres_repository.go
+      - backend/internal/server/chat_grpc.go
+      - backend/internal/chat/postgres_repository.go (call_sessions-Zugriff)
+    notes: >
+      Erst pruefen, ob `call_sessions` fuer einen Channel ueberhaupt in der Praxis erreichbar
+      bleibt (Aufbewahrungsfrist? Retention-Handler aus `feat-retention-worker-handler-dialer-chat`
+      koennte das schon entschaerfen — nachsehen, bevor blind ein neuer Check gebaut wird).
+      Fehlermeldung soll sagen, dass archivierte Anrufe den Channel blockieren, nicht nur
+      "Loeschung fehlgeschlagen".
+    done_when:
+      - Loeschen eines Channels mit vorhandenen call_sessions liefert 409 mit verstaendlicher
+        Meldung statt 500
+      - Test belegt den Fall
+      - go test -count=1 ./internal/chat/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-document-folder-delete-nonempty-fk-crash
+    phase: 4
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/document (zur Laufzeit messen)"
+    scope: >
+      `document_files.folder_id` traegt `ON DELETE NO ACTION`. `folder/service.go:199-219` prueft
+      vor dem Loeschen nur `IsSystem`, nicht ob noch Dateien im Ordner liegen. Ein nicht-leerer,
+      nicht-System-Ordner laesst sich anstossen und crasht ueber `mapDocumentError`
+      (`document_grpc.go:1842-1845`, default-Zweig) als 500 statt eines verstaendlichen Fehlers.
+      Das ist der haeufigste der in diesem Scan gefundenen Faelle — ein leerer Ordner ist der
+      Sonderfall, ein befuellter der Normalfall.
+    sources:
+      - backend/internal/document/folder/service.go
+      - backend/internal/document/folder/postgres_repository.go
+      - backend/internal/server/document_grpc.go
+    notes: >
+      Alternative statt hartem 409: Unterordner/Dateien beim Loeschen mit hochziehen (in den
+      Elternordner verschieben) oder eine "rekursiv loeschen"-Option anbieten. Welche der beiden
+      UX-Varianten richtig ist, ist eine Produktentscheidung — diese Unit muss sie wenigstens
+      treffen und begruenden, nicht nur den 500 durch einen 409 ersetzen ohne dass der Nutzer
+      einen Ausweg hat.
+    done_when:
+      - Loeschen eines nicht-leeren Ordners liefert eine verstaendliche Antwort (409 mit Grund,
+        oder eine dokumentierte Alternative) statt 500
+      - Test belegt den Fall
+      - go test -count=1 ./internal/document/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-integration-mapping-delete-fk-crash
+    phase: 4
+    service: integration
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/notification/integration (zur Laufzeit messen)"
+    scope: >
+      `integration_delivery_log.mapping_id` traegt `ON DELETE NO ACTION`.
+      `notification_grpc.go:1005` (`DeleteChannelMapping`) ruft `DeleteMapping` direkt ohne
+      Vorab-Pruefung auf vorhandene Delivery-Log-Eintraege auf; `mapNotificationError`
+      (`notification_grpc.go:729-731`, default-Zweig) liefert dafuer 500. Geringeres Risiko als
+      die anderen drei Funde dieses Scans (Admin-only, seltener Pfad), aber derselbe Fehlerklasse
+      und mit vertretbarem Aufwand mitzufixen.
+    sources:
+      - backend/internal/notification/integration/postgres_repository.go
+      - backend/internal/server/notification_grpc.go
+      - backend/internal/gateway/route_integration.go
+    notes: >
+      Kleinste der vier Units in diesem Scan — voraussichtlich reicht ein Vorab-Check analog
+      `pipelinestage.HasDeals` plus 409-Mapping in `mapNotificationError`.
+    done_when:
+      - Loeschen eines Mappings mit vorhandenen Delivery-Log-Eintraegen liefert 409 mit
+        verstaendlicher Meldung statt 500
+      - Test belegt den Fall
+      - go test -count=1 ./internal/notification/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-gdpr-deletion-request-audit-trail-cascade-loss
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/crm/consent (zur Laufzeit messen)"
+    scope: >
+      `gdpr_deletion_requests.contact_id` traegt `ON DELETE CASCADE` (Befund 2 im Laufkopf, keine
+      Korrektur noetig, aber der Kopf klaerte nicht die Erreichbarkeit — das leistet diese Unit).
+      `consent.Service.ProcessDeletion` (der einzige Weg, wie eine `gdpr_deletion_requests`-Zeile
+      auf "completed" gesetzt wird) LOESCHT den Kontakt nie, sondern anonymisiert ihn nur
+      (`AnonymizeContact`) — der Kontakt bleibt als Zeile bestehen. Der Primary-Kontakt kann
+      danach trotzdem ueber einen ZWEITEN, unabhaengigen Pfad hart geloescht werden:
+      `contact.Service.Delete` (manuell) oder — automatisiert und damit der wahrscheinlichere
+      Ausloeser — `ContactRetentionHandler.Apply` mit `action=delete`
+      (`retention_contacts.go:110-116`), die keine Pruefung auf existierende
+      `gdpr_deletion_requests`-Zeilen kennt. Der CASCADE loescht dann die abgeschlossene
+      Auskunfts-/Loeschanfrage MIT — genau der Nachweis, dass eine Art.-17-Anfrage bearbeitet
+      wurde, verschwindet zusammen mit dem Datensatz, den sie betraf. Das ist ein
+      Compliance-Nachweis-Verlust (Art. 5 Abs. 2 Rechenschaftspflicht), kein UI-Sackgassen-Fall,
+      und deshalb explizit ausserhalb des RESTRICT/NO-ACTION-Rahmens dieses Scans, aber vom
+      Backlog-Kopf ausdruecklich hierher verwiesen.
+    sources:
+      - backend/migrations/ (Migration fuer `gdpr_deletion_requests_contact_id_fkey`, vermutlich
+        in der urspruenglichen Tabellen-Migration zu finden)
+      - backend/internal/crm/consent/postgres_repository.go
+      - backend/internal/crm/consent/service.go
+      - backend/internal/security/gdpr/retention_contacts.go
+    notes: >
+      Vorlage fuer den Fix ist `retention_run_items.policy_id` (Migration 000316, Iteration 10):
+      `ON DELETE SET NULL`, "damit das Protokoll lesbar bleibt, wenn die Policy spaeter geaendert
+      oder geloescht wird" — exakt dieselbe Situation. Die Migration muesste `contact_id` auf
+      NULL-faehig SET NULL umstellen (Constraint DROP + neu anlegen), damit die
+      `gdpr_deletion_requests`-Zeile den geloeschten Kontakt ueberlebt, ihre `contact_id` aber
+      NULL wird. Anzeige/Export muss dann tolerieren, dass `contact_id` fehlt (z. B. Anzeige der
+      urspruenglichen Kontakt-ID oder eines Snapshots als Text-Spalte, falls die reine NULL-Spalte
+      fuer den Nachweis nicht reicht — das ist die eigentliche Entscheidung dieser Unit).
+    done_when:
+      - Root Cause entschieden und begruendet: Migration auf SET NULL, oder eine gleichwertige
+        Snapshot-Loesung, die die abgeschlossene Anfrage nachweisbar haelt
+      - Ein Test belegt: Kontakt mit "completed" gdpr_deletion_requests-Zeile wird hart geloescht
+        (z. B. ueber den Retention-Handler), die Anfrage-Zeile bleibt lesbar erhalten
+      - down-Migration vorhanden, falls eine Migration noetig ist
+      - go test -count=1 ./internal/crm/consent/... ./internal/security/gdpr/... gruen,
+        DATABASE_URL gesetzt

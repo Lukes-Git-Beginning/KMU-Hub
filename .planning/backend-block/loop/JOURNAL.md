@@ -2609,3 +2609,70 @@ Frühere Läufe liegen vollständig im Archiv:
     entries-retention-conflict` (Punkt 1) hat das groesste Compliance-Risiko (Ueberreichweite,
     nicht nur Luecke) und sollte als naechstes gezogen werden, wenn die Blockreihenfolge das
     zulaesst.
+
+## Iteration 42 — scan-restrict-fk-without-ui-path — done — 2026-08-22 06:35
+- commit: -
+- gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Alle RESTRICT- und
+  NO-ACTION-FKs (`confdeltype` 'r'/'a') aus `pg_constraint` gezogen (lokale DB, 2026-08-22,
+  ~155 Treffer) und in vier Gruppen bewertet.
+  Gruppe 1 (unreachable, ~40 Treffer): alle `fk_*_tenant`-FKs auf `tenants(id)` (NO ACTION).
+  `grep -rn "DELETE FROM tenants" backend/internal/` findet ausser Test-Cleanup-Code
+  (`rls_tenants_policy_test.go`) keinen Treffer — es gibt keine Tenant-Loeschfunktion. Diese FKs
+  koennen nie feuern.
+  Gruppe 2 (unreachable, ~73 Treffer): alle FKs auf `users(id)` (70 NO ACTION + 3 RESTRICT:
+  `dialer_agent_status_log.user_id`, `dialer_call_sessions.agent_id`,
+  `dialer_campaigns.created_by`). Deckt sich mit dem Zentralbefund aus Iteration 41:
+  `AuthErasureHandler` fuehrt nie `DELETE FROM users` aus, nur `grep -rn "DELETE FROM users"` in
+  `internal/` ausser Test-Fixtures liefert null Treffer. Die drei RESTRICT-FKs kodieren Absicht
+  fuer ein Feature (User-Hard-Delete), das es nicht gibt — kein aktueller Bug, aber vermerkt fuer
+  den Fall, dass ein Hard-Delete-Pfad je gebaut wird.
+  Gruppe 3 (bereits bekannt/abgedeckt, 4 Treffer): `advisory_protocols.contact_id` und
+  `dialer_campaign_contacts.contact_id` (beide RESTRICT auf `contacts`) sind ueber `IsInUse` +
+  409 + Anonymisierungsangebot geloest (Lauf-10-Vorbereitung). `contacts.merged_into_id` (NO
+  ACTION, Selbstbezug) hat bereits eine offene Fix-Unit aus Iteration 2
+  (`fix-contact-delete-merged-into-no-action-unchecked`, status: todo) — nicht dupliziert.
+  Gruppe 4 (echte Funde, 12 verbleibende Kandidaten aus Business-Tabellen per Explore-Agent
+  gegen Gateway-Routen und Services geprueft): 7 der 12 sind unerreichbar, weil kein
+  Delete-Pfad existiert (`call_sessions`, `finance_invoices`, `hr_document_categories`,
+  `hr_leave_types`, `hr_work_time_entries`, `dialer_campaign_contacts` selbst, `meetings` —
+  Repository hat `Delete`, aber keine Gateway-Route ruft es auf). `pipeline_stages` ist sauber
+  behandelt (`HasDeals` -> `ErrStageHasDeals` -> 409 ueber `mapCRMError`, Vorlage fuer alle
+  Fixes). Vier sind echte Sackgassen: `companies.merged_into_id` (Merge-Ziel ohne eigene
+  Kontakte loeschen -> 500 statt 409, `crm_grpc.go` default-Zweig), `channels` (Channel mit
+  archivierten `call_sessions` loeschen -> 500, `chat_grpc.go` default-Zweig, dort laut
+  Code-Kommentar sogar bewusst so belassen), `document_folders` (nicht-leeren Ordner loeschen
+  -> 500, `document_grpc.go` default-Zweig — der haeufigste Alltagsfall der vier), und
+  `integration_channel_mappings` (Mapping mit Delivery-Log loeschen -> 500, geringes Risiko,
+  Admin-only-Pfad).
+  Zusaetzlich der vom Backlog-Kopf ausdruecklich verlangte Punkt `gdpr_deletion_requests.contact_id`
+  (CASCADE, kein RESTRICT/NO-ACTION, deshalb ausserhalb der eigentlichen FK-Liste dieses Scans,
+  aber explizit im `done_when`): Erreichbarkeit geklaert — `consent.Service.ProcessDeletion`
+  loescht den Kontakt nie (nur `AnonymizeContact`), die Anfrage-Zeile ueberlebt also die eigene
+  "completed"-Markierung. Sie stirbt aber, sobald derselbe Kontakt spaeter ueber einen zweiten,
+  unabhaengigen Pfad hart geloescht wird — am wahrscheinlichsten automatisiert ueber
+  `ContactRetentionHandler.Apply(action=delete)` (Iteration 11), die keine Pruefung auf
+  bestehende `gdpr_deletion_requests`-Zeilen kennt. Der CASCADE loescht dann den Nachweis, dass
+  eine Art.-17-Anfrage bearbeitet wurde, zusammen mit dem Datensatz, den sie betraf — ein
+  Compliance-Nachweis-Verlust, real erreichbar ueber den bereits gebauten Retention-Pfad.
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — done_when verlangt kein
+  go test)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geaenderter Testfall)
+- verify vorgaenger: sauber. `dded309a` (Iteration 41, scan-erasure-handlers) geprueft: `git show
+  --stat` zeigt ausschliesslich `BACKLOG.yml` und `JOURNAL.md` — kein Produktionscode, keine der
+  acht Fehlerklassen einschlaegig.
+- neue-units: fix-company-delete-merged-into-fk-crash, fix-channel-delete-call-sessions-fk-crash,
+  fix-document-folder-delete-nonempty-fk-crash, fix-integration-mapping-delete-fk-crash,
+  fix-gdpr-deletion-request-audit-trail-cascade-loss
+- offen:
+  - Die Delete-Pfad-Reichweitenpruefung fuer die zwoelf Business-Tabellen-Kandidaten lief ueber
+    einen Explore-Subagenten (Grep + Lesen ueber Repository/Service/Gateway-Schichten), nicht
+    selbst nachvollzogen Zeile fuer Zeile — die Datei:Zeile-Angaben in den vier neuen Units
+    stammen aus diesem Agentenbericht und sollten beim Bauen kurz gegengeprueft werden.
+  - `meetings.Repository.Delete` existiert, wird aber von keiner Gateway-Route aufgerufen (nur
+    `DELETE /meetings/{id}/cohosts/{userId}` fuer Co-Hosts existiert) — toter Code oder fehlende
+    Route, keine eigene Unit angelegt, da unklar ist, ob ein Meeting-Hard-Delete ueberhaupt
+    gewollt ist (Produktentscheidung, kein Bug).
+  - Die drei RESTRICT-FKs auf `users(id)` (Gruppe 2) sind reine Beobachtung fuer den Fall eines
+    kuenftigen User-Hard-Deletes, keine Unit angelegt — heute unerreichbar und damit keine
+    Sackgasse.
