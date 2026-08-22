@@ -15,6 +15,8 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/config"
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
+	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
@@ -111,6 +113,30 @@ func main() {
 	gdprService.RegisterErasureHandler(gdpr.NewCalendarErasureHandler(pool))
 	gdprService.RegisterErasureHandler(gdpr.NewNotificationErasureHandler(pool))
 	gdprService.RegisterErasureHandler(&gdpr.AuditErasureHandler{})
+
+	// Retention engine (A10-A13) + scheduler (A14): the CRUD routes on
+	// SecurityGRPCServer only let an admin configure a policy, this is what
+	// actually executes one. Registry stays explicit so a resource_type
+	// with no handler here reports "nicht zugeordnet" in the run log
+	// instead of silently doing nothing (see retention.go).
+	retentionRegistry := gdpr.NewRetentionRegistry(
+		gdpr.NewContactRetentionHandler(contact.NewPostgresRepository(pool), consent.NewPostgresRepository(pool)),
+		gdpr.NewDialerCallRetentionHandler(pool),
+		gdpr.NewChatMessageRetentionHandler(pool),
+		gdpr.NewHelpdeskTicketRetentionHandler(pool),
+		gdpr.NewFormSubmissionRetentionHandler(pool),
+	)
+	retentionEngine := gdpr.NewRetentionEngine(pool, gdprRepo, retentionRegistry)
+
+	// Deliberately os.Getenv-level, never config.RequireX: an absent or
+	// mistyped value must degrade to the safe dry-run default, not fail
+	// startup -- same reasoning as IDEMPOTENCY_MODE in cmd/gateway.
+	retentionMode, modeRecognised := gdpr.ParseRetentionMode(os.Getenv("RETENTION_MODE"))
+	if !modeRecognised {
+		slog.Warn("RETENTION_MODE not recognised, defaulting to dry_run", "value", os.Getenv("RETENTION_MODE"))
+	}
+	go gdpr.RetentionScheduler(ctx, pool, retentionEngine, retentionMode,
+		1*time.Minute /* startup delay */, 24*time.Hour /* interval */)
 
 	vendorAccessRepo := vendoraccess.NewPostgresRepository(pool)
 	vendorAccessService := vendoraccess.NewService(vendorAccessRepo)

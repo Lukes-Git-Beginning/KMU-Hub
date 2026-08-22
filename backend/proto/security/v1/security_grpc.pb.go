@@ -45,6 +45,7 @@ const (
 	SecurityService_CreateRetentionPolicy_FullMethodName             = "/security.v1.SecurityService/CreateRetentionPolicy"
 	SecurityService_UpdateRetentionPolicy_FullMethodName             = "/security.v1.SecurityService/UpdateRetentionPolicy"
 	SecurityService_DeleteRetentionPolicy_FullMethodName             = "/security.v1.SecurityService/DeleteRetentionPolicy"
+	SecurityService_GetLatestRetentionRun_FullMethodName             = "/security.v1.SecurityService/GetLatestRetentionRun"
 	SecurityService_ListVendorAccessRequests_FullMethodName          = "/security.v1.SecurityService/ListVendorAccessRequests"
 	SecurityService_ApproveVendorAccessRequest_FullMethodName        = "/security.v1.SecurityService/ApproveVendorAccessRequest"
 	SecurityService_DeclineVendorAccessRequest_FullMethodName        = "/security.v1.SecurityService/DeclineVendorAccessRequest"
@@ -88,6 +89,7 @@ type SecurityServiceClient interface {
 	CreateRetentionPolicy(ctx context.Context, in *CreateRetentionPolicyRequest, opts ...grpc.CallOption) (*CreateRetentionPolicyResponse, error)
 	UpdateRetentionPolicy(ctx context.Context, in *UpdateRetentionPolicyRequest, opts ...grpc.CallOption) (*UpdateRetentionPolicyResponse, error)
 	DeleteRetentionPolicy(ctx context.Context, in *DeleteRetentionPolicyRequest, opts ...grpc.CallOption) (*DeleteRetentionPolicyResponse, error)
+	GetLatestRetentionRun(ctx context.Context, in *GetLatestRetentionRunRequest, opts ...grpc.CallOption) (*GetLatestRetentionRunResponse, error)
 	// Vendor Access (RBAC R-5 B, GDAP-light v3)
 	ListVendorAccessRequests(ctx context.Context, in *ListVendorAccessRequestsRequest, opts ...grpc.CallOption) (*ListVendorAccessRequestsResponse, error)
 	ApproveVendorAccessRequest(ctx context.Context, in *ApproveVendorAccessRequestRequest, opts ...grpc.CallOption) (*ApproveVendorAccessRequestResponse, error)
@@ -364,6 +366,16 @@ func (c *securityServiceClient) DeleteRetentionPolicy(ctx context.Context, in *D
 	return out, nil
 }
 
+func (c *securityServiceClient) GetLatestRetentionRun(ctx context.Context, in *GetLatestRetentionRunRequest, opts ...grpc.CallOption) (*GetLatestRetentionRunResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetLatestRetentionRunResponse)
+	err := c.cc.Invoke(ctx, SecurityService_GetLatestRetentionRun_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *securityServiceClient) ListVendorAccessRequests(ctx context.Context, in *ListVendorAccessRequestsRequest, opts ...grpc.CallOption) (*ListVendorAccessRequestsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListVendorAccessRequestsResponse)
@@ -450,6 +462,7 @@ type SecurityServiceServer interface {
 	CreateRetentionPolicy(context.Context, *CreateRetentionPolicyRequest) (*CreateRetentionPolicyResponse, error)
 	UpdateRetentionPolicy(context.Context, *UpdateRetentionPolicyRequest) (*UpdateRetentionPolicyResponse, error)
 	DeleteRetentionPolicy(context.Context, *DeleteRetentionPolicyRequest) (*DeleteRetentionPolicyResponse, error)
+	GetLatestRetentionRun(context.Context, *GetLatestRetentionRunRequest) (*GetLatestRetentionRunResponse, error)
 	// Vendor Access (RBAC R-5 B, GDAP-light v3)
 	ListVendorAccessRequests(context.Context, *ListVendorAccessRequestsRequest) (*ListVendorAccessRequestsResponse, error)
 	ApproveVendorAccessRequest(context.Context, *ApproveVendorAccessRequestRequest) (*ApproveVendorAccessRequestResponse, error)
@@ -543,6 +556,9 @@ func (UnimplementedSecurityServiceServer) UpdateRetentionPolicy(context.Context,
 }
 func (UnimplementedSecurityServiceServer) DeleteRetentionPolicy(context.Context, *DeleteRetentionPolicyRequest) (*DeleteRetentionPolicyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteRetentionPolicy not implemented")
+}
+func (UnimplementedSecurityServiceServer) GetLatestRetentionRun(context.Context, *GetLatestRetentionRunRequest) (*GetLatestRetentionRunResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetLatestRetentionRun not implemented")
 }
 func (UnimplementedSecurityServiceServer) ListVendorAccessRequests(context.Context, *ListVendorAccessRequestsRequest) (*ListVendorAccessRequestsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListVendorAccessRequests not implemented")
@@ -1048,6 +1064,24 @@ func _SecurityService_DeleteRetentionPolicy_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SecurityService_GetLatestRetentionRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLatestRetentionRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).GetLatestRetentionRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_GetLatestRetentionRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).GetLatestRetentionRun(ctx, req.(*GetLatestRetentionRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SecurityService_ListVendorAccessRequests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListVendorAccessRequestsRequest)
 	if err := dec(in); err != nil {
@@ -1248,6 +1282,10 @@ var SecurityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteRetentionPolicy",
 			Handler:    _SecurityService_DeleteRetentionPolicy_Handler,
+		},
+		{
+			MethodName: "GetLatestRetentionRun",
+			Handler:    _SecurityService_GetLatestRetentionRun_Handler,
 		},
 		{
 			MethodName: "ListVendorAccessRequests",

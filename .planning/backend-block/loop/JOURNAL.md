@@ -746,3 +746,87 @@ Frühere Läufe liegen vollständig im Archiv:
     seine Frist automatisch neu (Status faellt bei `Plan` heraus, solange es nicht wieder
     `closed` ist) — beabsichtigtes Verhalten, aber im Journal festgehalten, falls es spaeter
     anders erwartet wird.
+
+## Iteration 14 — feat-retention-worker-scheduling-and-admin-visibility — done — 2026-08-22 02:29
+- commit: (folgt im naechsten Schritt)
+- gebaut: Trigger- und Sicht-Haelfte von A10-A13, die den Motor tatsaechlich laufen laesst.
+  `internal/security/gdpr/retention_scheduler.go`: `RunScheduledRetention` haelt den
+  `pg_try_advisory_lock`-Schluessel `0x52544E4E` ("RTNN", distinct von
+  `idempotencyCleanupLockKey`=0x49444D50), zaehlt bei Erfolg per `listTenantIDs` (`SELECT id FROM
+  tenants`) alle Tenants und laesst `runForTenants` die Engine je Tenant unter
+  `sysctx.With(ctx) + context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())` laufen
+  (RLS-Bypass zum Lesen der Tenant-Liste, aber die Engine selbst filtert weiterhin explizit auf
+  ihre Tenant-ID). `RetentionScheduler` ist der duenne Ticker-Wrapper (1 Min Startup-Delay, danach
+  alle 24 h, Vorlage `cmd/work/main.go`s Recording-Cleanup-Goroutine). `cmd/auth/main.go` registriert
+  die Registry mit allen fuenf bisherigen Handlern (Contacts, Dialer, Chat, Helpdesk, Formulare),
+  liest `RETENTION_MODE` per `os.Getenv` (deliberately kein `config.RequireX` — Default bleibt
+  `dry_run` bei fehlendem/falsch geschriebenem Wert, `ParseRetentionMode` gibt das schon so vor)
+  und startet die Scheduler-Goroutine. Damit aendert dieser Commit — anders als A11/A12/A13 —
+  tatsaechlich Laufzeitverhalten: der Motor laeuft ab diesem Deploy taeglich, im Dry-Run-Default.
+  Admin-Sicht: neue RPC `GetLatestRetentionRun` in `security.proto` (regeneriert), liest
+  `retention_runs`/`retention_run_items` (Migration 000316) direkt per `s.pool`-Query ohne
+  Engine-Referenz — reiner Leser, kein Trigger-Endpunkt (der Lauf startet aus der Scheduler-
+  Goroutine, nicht per Admin-Klick, wie in den `notes` der Unit gefordert). Route
+  `GET /api/v1/security/retention-runs/latest` (admin-only, gleiche Rolle wie die bestehenden
+  Retention-CRUD-Routen), Antwort `{has_run, run, items[]}` — `has_run=false` unterscheidet "nie
+  gelaufen" von einem echten Lauf mit null Treffern.
+- gate: build ok (`-p 2` ueber security/..., server/..., gateway/..., cmd/auth/..., cmd/gateway/...,
+  danach volles `go build ./...` gruen) | vet ok | lint ok (0 issues) | test ok
+  (`internal/security/gdpr` alle Tests gruen inkl. 4 neue; `internal/security/...` alle
+  Unterpakete gruen; `internal/server` gruen inkl. 3 neue DB-Tests; `internal/gateway` gruen
+  inkl. `TestOpenAPIRouteDrift` — 836 registrierte gegen 838 dokumentierte Pfade, meine neue Route
+  ist in beiden Zahlen enthalten) | migration n.a. (keine neue Tabelle/Spalte, `retention_runs`/
+  `retention_run_items` bestehen bereits seit 000316) | rls-smoke: kein neuer Policy-Bedarf; die
+  Tenant-Isolation der neuen RPC ist stattdessen per DB-Test bewiesen
+  (`TestSecurityGRPCServer_GetLatestRetentionRun_TenantIsolation`: ein fremder Tenant mit echtem
+  `retention_runs`-Eintrag liefert `has_run=false` fuer den eigenen Tenant-Kontext)
+- coverage: internal/security/gdpr 69,1 % -> 68,3 % (eigene Messung: Vorher per
+  `git worktree add /tmp/covbase14 539d6ada`, Nachher im Arbeitsbaum — der Ruckgang ist real und
+  erklaerbar, nicht gemessen falsch: `RetentionScheduler` selbst, der Ticker-Wrapper mit
+  Startup-Delay/Select-Loop, ist bewusst ungetestet (Vorlage `IdempotencyCleanupWorker`, die
+  ebenfalls keinen eigenen Test hat) und zieht den Paketschnitt herunter, obwohl die drei
+  darunterliegenden, testbaren Funktionen (`RunScheduledRetention`, `listTenantIDs`,
+  `runForTenants`) alle abgedeckt sind); internal/server 70,2 % -> 70,3 %; internal/gateway
+  46,1 % -> 46,1 % (Route + ein ServiceUnavailable-Test sind zu klein, um den Paketschnitt zu
+  bewegen)
+- mutations-probe: in `RunScheduledRetention` das Lock-Gate von `if !locked` auf
+  `if false && !locked` verstellt (die Guard-Bedingung faktisch deaktiviert, sodass ein Aufruf mit
+  fremd gehaltenem Lock trotzdem durchlaeuft) — `TestRunScheduledRetention_SkipsWhenLockHeldElsewhere`
+  wird rot, UND die Mutation demonstriert live den Schaden, den die Probe verhindern soll: der
+  mutierte Lauf iterierte tatsaechlich ueber alle ~13.800 Tenants der lokalen Dev-DB und schrieb je
+  einen `retention_runs`-Eintrag, obwohl das Lock extern gehalten wurde (siehe naechster Absatz).
+  Zurueckgedreht -> Test wieder gruen, `git status --short` zeigt nur die beabsichtigten Dateien.
+- verify vorgaenger: sauber. `539d6ada` (Iteration 13, Helpdesk/Formulare-Handler) gegen alle acht
+  Fehlerklassen geprueft: kein gRPC-Layer-Bypass (Handler liegen in security/gdpr, nirgends an
+  eine Route gebunden), kein Stub/TODO/Unimplemented, kein `.proto` in diesem Commit, kein neuer
+  `RequirePermission`-Guard, Migration 000317 ist ein reines `ALTER TABLE ... ADD COLUMN` auf einer
+  bestehenden RLS-Tabelle (kein neues Tenant-/RLS-Thema, `relrowsecurity`/`relforcerowsecurity`
+  im Commit selbst gegengeprueft), keine Wire-Shape-Aenderung (kein Response-Pfad beruehrt), keine
+  neue Route, kein Guard ersetzt.
+- neue-units: keine (siehe unten — ein echter Befund, aber kein Code-Bug, den eine Unit fixen
+  koennte)
+- offen:
+  - **Fund, kein Code-Bug:** die lokale Dev-Postgres (`docker-postgres-1`) trug zu Beginn dieser
+    Iteration **13.811 Zeilen in `tenants`**. Mein erster Testentwurf (ein direkter Aufruf von
+    `RunScheduledRetention` bei freiem Lock, seither wieder entfernt) lief deshalb 70 s und schrieb
+    ueber jeden dieser Tenants einen `retention_runs`-Eintrag — die Mutations-Probe oben hat das
+    Muster nochmal reproduziert. Beide Male habe ich die selbst erzeugten `retention_runs`-Zeilen
+    per `DELETE ... WHERE triggered_by='schedule' AND started_at > NOW() - INTERVAL '1 hour'`
+    wieder entfernt (`retention_runs` stand am Ende der Iteration wieder bei 0 durch mich erzeugten
+    Zeilen). Die 13.811 `tenants`-Zeilen selbst habe ich NICHT angefasst — das ist Debris aus
+    frueheren Nachtlaeufen (vermutlich Tests, deren `defer testutil.CleanupRow` durch einen Absturz
+    oder ein Timeout nie erreicht wurde, ueber viele Iterationen aufsummiert), kein Produktbug und
+    ausserhalb des Scopes dieser Unit. Für den `RunScheduledRetention`-Erfolgspfad selbst folgt
+    daraus aber ein bewusster Test-Verzicht (siehe coverage-Absatz und Kommentar in
+    `retention_scheduler_test.go`) — bevor irgendein weiterer Job nach demselben "for jeden Tenant"-
+    Muster gebaut wird, sollte die lokale `tenants`-Tabelle aufgeraeumt werden, sonst wird jeder
+    solche Test/Job lokal unbrauchbar langsam.
+  - `RetentionScheduler` startet ab diesem Commit produktiv beim naechsten `cmd/auth`-Deploy, im
+    Dry-Run-Default (`RETENTION_MODE` ist in keiner `.env` gesetzt, `ParseRetentionMode("")` ->
+    `dry_run, true`). Scharfschalten ist eine bewusste, separate Entscheidung ueber
+    `RETENTION_MODE=enforce` und explizit NICHT Teil dieses Commits.
+  - `GetLatestRetentionRun` zeigt nur den zuletzt gestarteten Lauf. Mehrere Policies mit
+    unterschiedlichen `resource_type` erscheinen darin als `items[]` des EINEN Laufs (ein Run deckt
+    alle enabled Policies eines Tenants ab), nicht als eigene Läufe — das entspricht dem
+    bestehenden `RetentionEngine.Run`-Modell aus A10 und ist keine neue Verhaltensannahme dieser
+    Unit.

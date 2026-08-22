@@ -79,6 +79,7 @@ func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequireRole("admin")).Post("/retention-policies", sr.HandleCreateRetentionPolicy)
 		r.With(middleware.RequireRole("admin")).Put("/retention-policies/{id}", sr.HandleUpdateRetentionPolicy)
 		r.With(middleware.RequireRole("admin")).Delete("/retention-policies/{id}", sr.HandleDeleteRetentionPolicy)
+		r.With(middleware.RequireRole("admin")).Get("/retention-runs/latest", sr.HandleGetLatestRetentionRun)
 	})
 
 	r.Route("/api/v1/vendor-access", func(r chi.Router) {
@@ -862,6 +863,26 @@ func (sr *SecurityRoutes) HandleDeleteRetentionPolicy(w http.ResponseWriter, r *
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "retention policy deleted"})
+}
+
+// HandleGetLatestRetentionRun shows the last scheduled run: whether it ran
+// at all, what mode it ran in, and the outcome per policy including skip
+// reasons. There is no trigger endpoint here on purpose -- the run is
+// started by the scheduler goroutine in cmd/auth, not by an admin click.
+func (sr *SecurityRoutes) HandleGetLatestRetentionRun(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	resp, err := client.GetLatestRetentionRun(r.Context(), &securityv1.GetLatestRetentionRunRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================

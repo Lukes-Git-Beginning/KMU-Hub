@@ -20343,6 +20343,30 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/security/retention-runs/latest:
+    get:
+      summary: Show the last scheduled retention run (admin only)
+      description: >-
+        Read-only view of what the retention scheduler last did: mode
+        (dry_run/enforce), status per policy, and skipped records with their
+        reason. There is no trigger endpoint -- the run itself starts from
+        the scheduler goroutine, not from this route.
+      tags: [security]
+      operationId: getLatestRetentionRun
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Latest retention run, or has_run=false if none ever executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetLatestRetentionRunResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   # --------------------------------------------------------------------------
   # Vendor Access (RBAC R-5 B, GDAP-light v3). Own top-level prefix, not under
   # /api/v1/security -- matches the path the frontend already calls
@@ -41157,6 +41181,88 @@ components:
           type: boolean
         description:
           type: string
+
+    RetentionSkipReason:
+      type: object
+      properties:
+        record_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+
+    RetentionRunItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        resource_type:
+          type: string
+        action:
+          type: string
+          enum: [delete, anonymize]
+        retention_days:
+          type: integer
+        cutoff:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        status:
+          type: string
+          enum: [dry_run, applied, unmapped, unsupported, failed]
+        matched:
+          type: integer
+        affected:
+          type: integer
+        skipped:
+          type: integer
+        skip_reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetentionSkipReason"
+        message:
+          type: string
+
+    RetentionRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum: [dry_run, enforce]
+        status:
+          type: string
+          enum: [running, completed, failed]
+        triggered_by:
+          type: string
+        policies_total:
+          type: integer
+        records_matched:
+          type: integer
+        records_affected:
+          type: integer
+        records_skipped:
+          type: integer
+        error:
+          type: string
+        started_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        finished_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    GetLatestRetentionRunResponse:
+      type: object
+      properties:
+        has_run:
+          type: boolean
+          description: False when retention has never run for this tenant.
+        run:
+          $ref: "#/components/schemas/RetentionRun"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetentionRunItem"
 
     # -----------------------------------------------------------------------
     # Vendor Access (RBAC R-5 B, GDAP-light v3)
