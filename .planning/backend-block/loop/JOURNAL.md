@@ -1349,3 +1349,52 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: naechste Unit laut Backlog-Reihenfolge ist `cov-invoice-repository-gobd-export-real-sql`
   (deps: [cov-invoice-repository-datev-export-keyset-real-sql], jetzt ziehbar). Luke pruefen: keine
   besonderen Punkte — reine Coverage-Unit ohne Verhaltensaenderung.
+
+## Iteration 25 — cov-invoice-repository-gobd-export-real-sql — done — 2026-08-23 01:52
+- commit: (siehe unten, nach Journal-Commit)
+- gebaut: neue ungetaggte Testdatei `postgres_repository_gobd_export_db_test.go` fuer
+  `PostgresRepository.ListForGoBDExport` (postgres_repository.go:574-620), gegen echtes Postgres:
+  Statusfilter (alle vier Nicht-Entwurfsstatus inkl. cancelled enthalten, draft ausgeschlossen —
+  mit ausfuehrlichem Testkommentar zur bewussten Divergenz gegenueber ListForDATEVExport, das
+  cancelled zusaetzlich ausschliesst), leere Rechnungsnummer ausgeschlossen (invoice_number != ''
+  greift auch bei status=sent), Datumsgrenzen inklusive, Sortierung nach invoice_number statt
+  invoice_date/Einfuegereihenfolge (Beweis fuer die "gap-free journal"-Zusage im Doc-Kommentar),
+  Zeilenpositionen werden mitgeliefert, Fremdtenant-Isolation.
+  NEBENFUND (root cause fuer die Divergenz-Frage aus den Notes der Unit): `Service.ListForGoBDExport`
+  hat NULL Aufrufer im Produktionscode — der tatsaechliche GoBD-CSV-Export
+  (`biz_grpc.go:2451 GenerateGoBDExport`) baut seine Zeilen ueber `invoiceService.ListForDATEVExport`
+  (schliesst cancelled aus) plus `creditNoteService.ListForDATEVExport` als negative Stornozeilen,
+  NICHT ueber `ListForGoBDExport`. Die abweichende Statuslogik der getesteten Methode wird also nie
+  ausgefuehrt — sie ist entweder abgeloester Alt-Code oder eine nie verdrahtete zweite Export-Variante.
+  Root-Cause-Entscheidung (Entfernen vs. verdrahten) gehoert Luke, siehe neue-units.
+- gate: build ok (`./internal/biz/invoice/... ./internal/gateway/... ./cmd/biz/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v ./internal/biz/invoice/`, alle gruen,
+  0 SKIP, DATABASE_URL gegen kmuhub_app) | restliche Unterpakete ok (keine Unterpakete unter
+  internal/biz/invoice) | migration n.a. (keine Schema-Aenderung) | rls-smoke erbracht durch
+  `TestPostgresRepository_ListForGoBDExport_CrossTenantIsolation` | gateway-Gate zusaetzlich
+  gelaufen (`go test ./internal/gateway/ -run TestOpenAPIRouteDrift`, gruen) obwohl keine Route
+  beruehrt wurde
+- coverage: internal/biz/invoice 34,8 % (CI-Stand, coverage_start) -> 51,4 % (eigens gemessen,
+  `go tool cover -func`, lokaler Lauf nach der Aenderung; Vorher-Wert 49,1 % aus Iteration 24 ist
+  der naehere Vergleichspunkt, da diese Unit direkt auf der vorigen aufsetzt — Beitrag dieser
+  Iteration 49,1 % -> 51,4 %)
+- mutations-probe: `status != 'draft'`-Filter entfernt UND `ORDER BY invoice_number ASC` auf
+  `ORDER BY invoice_date ASC` verstuemmelt (eine Codezeile, zwei Bedingungen gleichzeitig
+  betroffen) -> zwei Tests rot: `TestPostgresRepository_ListForGoBDExport_StatusFilter` (draft
+  erscheint im Export, 5 statt 4 Eintraege) und `TestPostgresRepository_ListForGoBDExport_
+  OrderedByInvoiceNumber` (RE-2026-0001 und RE-2026-0003 vertauscht). Zurueckgedreht,
+  `git diff --stat` auf postgres_repository.go danach leer.
+- verify vorgaenger: sauber — `1a8ecf64` (Iteration 24) aendert laut `git show --stat` und Diff nur
+  eine neue Testdatei (`postgres_repository_datev_export_db_test.go`, 254 Zeilen) sowie
+  BACKLOG.yml/JOURNAL.md. Keine der acht Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt,
+  kein Stub/TODO, kein `.proto`, keine Migration, kein neuer Guard, keine neue Tabelle, keine
+  Route, kein Wire-Shape-Wechsel, kein ersetzter Guard-Key.
+- neue-units: `verify-invoice-list-for-gobd-export-unreachable` (ans Backlog-Ende angehaengt) —
+  klaert den oben genannten Nebenfund: Service.ListForGoBDExport hat keinen Aufrufer, der echte
+  Export laeuft ueber ListForDATEVExport + CreditNote-Stornos. Entscheidung Entfernen vs.
+  Verdrahten liegt bei Luke.
+- offen: naechste Unit laut Backlog-Reihenfolge ist `cov-invoice-repository-number-and-fiscal-year-
+  real-sql` (deps: [], sofort ziehbar). Luke pruefen: die neue Verify-Unit
+  `verify-invoice-list-for-gobd-export-unreachable` vor einer moeglichen Aenderung an
+  `GenerateGoBDExport` lesen — dort steckt die fachliche Entscheidung, ob cancelled-Rechnungen
+  in den GoBD-Export gehoeren.

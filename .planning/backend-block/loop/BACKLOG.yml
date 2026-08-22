@@ -1166,7 +1166,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-invoice-repository-datev-export-keyset-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice 34,8 % (CI-Stand 32570176303)"
     scope: >
       `ListForGoBDExport` (572-623) ist der zweite Exportlesepfad, ohne Paginierung, aber mit
@@ -2897,3 +2897,61 @@ units:
         damit dieselbe Luecke nicht wieder unbemerkt entsteht (sonst als eigene Folge-Unit)
       - swagger-cli validate gruen
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: verify-invoice-list-for-gobd-export-unreachable
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verify-Unit, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER FUND aus Iteration 25 (Lauf 11), beim Bauen von
+      `cov-invoice-repository-gobd-export-real-sql`. `invoice.Service.ListForGoBDExport`
+      (`service_gobd.go:189`, ruft `repo.ListForGoBDExport`) hat NULL Aufrufer im
+      Produktionscode. Ein vollstaendiger Grep nach `ListForGoBDExport` ueber das ganze Repo
+      findet nur: die Repository-Implementierung, das Interface, die Service-Methode selbst,
+      und drei Test-Doubles (MockRepository, stubInvoiceRepo). Kein `cmd/`, kein Gateway-Handler,
+      kein anderer Service ruft sie auf.
+      Der tatsaechliche GoBD-CSV-Export laeuft ueber einen VOELLIG ANDEREN Pfad:
+      `GenerateGoBDExport` (`internal/server/biz_grpc.go:2451`) baut seine Zeilen aus
+      `invoiceService.ListForDATEVExport` (sent/paid/overdue, OHNE cancelled) plus
+      `creditNoteService.ListForDATEVExport` als negative Buchungen fuer Stornos. Die
+      abweichende Statuslogik von `ListForGoBDExport` (schliesst nur draft aus, NIMMT cancelled
+      MIT — dokumentiert als bewusste Divergenz in der neuen Testdatei) wird also nie ausgefuehrt.
+      `ListForGoBDExport` ist damit entweder (a) eine fruehere, abgeloeste Implementierung, die
+      beim Umbau auf den Credit-Note-Storno-Ansatz (siehe `BuildGoBDRows` mit `sign=-1` fuer
+      Gutschriften) vergessen wurde zu entfernen, oder (b) eine geplante, aber nie verdrahtete
+      zweite Export-Variante.
+    sources:
+      - backend/internal/biz/invoice/service_gobd.go
+      - backend/internal/biz/invoice/postgres_repository.go
+      - backend/internal/biz/invoice/repository.go
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/biz/dunning/service_gobd.go
+    notes: >
+      DIESE UNIT AENDERT KEIN PRODUKTIONSVERHALTEN — weder den GoBD-Export-Handler umbauen noch
+      `ListForGoBDExport` verdrahten, das ist eine Entscheidung Luke (welcher Ansatz ist fachlich
+      richtig: Stornos als eigene Positionen mit negativem Vorzeichen aus Credit Notes, oder
+      cancelled-Rechnungen direkt im Invoice-Export mitfuehren — beides zusammen waere eine
+      Doppelzaehlung).
+      Erst pruefen, ob `dunning.BuildGoBDRows` fuer den Credit-Note-Pfad tatsaechlich aequivalent
+      zum Invoice-Pfad rechnet (`sign=-1`), sonst ist die Antwort auf "welcher Ansatz ist richtig"
+      nicht trivial.
+      Zwei zulaessige Ausgaenge: entweder Entfernung von `ListForGoBDExport`
+      (Repository-Methode, Interface-Eintrag, Service-Methode, alle Test-Doubles) mit Verweis auf
+      den tatsaechlichen Pfad im Kommentar an `ListForDATEVExport`, oder ein `lean:`-Marker mit
+      Upgrade-Trigger an der toten Methode, falls sie als Grundlage fuer einen kuenftigen
+      zweiten Export-Modus dienen soll. Die im Zuge dieser Verify-Unit hinzugekommene
+      Testdatei (`postgres_repository_gobd_export_db_test.go`) muss im Fall "Entfernung"
+      mitentfernt werden.
+    done_when:
+      - Der leere Aufrufgraph von Service.ListForGoBDExport ist ueber internal/, cmd/ und
+        proto/ belegt (kein RPC erreicht sie ueber eine Zwischenschicht)
+      - Der tatsaechliche GoBD-Export-Pfad (ListForDATEVExport + CreditNote-Stornos) ist als
+        Vergleich im Journal benannt, inklusive der Frage ob beide Ansaetze kombiniert eine
+        Doppelzaehlung erzeugen wuerden
+      - Entweder Entfernung (Repository, Interface, Service, Test-Doubles, zugehoerige
+        DB-Testdatei) oder lean-Marker mit Upgrade-Trigger, im Journal begruendet
+      - Kein Verhalten wurde verdrahtet oder umgebaut, per Diff belegt
+      - go test -count=1 ./internal/biz/invoice/ ./internal/server/ gruen
