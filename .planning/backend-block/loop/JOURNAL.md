@@ -4651,7 +4651,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 78 — fix-gateway-bexio-error-message-leakage — done — 2026-08-22 10:37
-- commit: (siehe unten, wird nach Commit als eigener docs-Eintrag nachgetragen)
+- commit: 161d94a5
 - gebaut: Root Cause statt Symptom gefixt. `HandleBexioOAuthCallback`, `PushInvoiceToBexio`,
   `PushQuoteToBexio` (`backend/internal/server/bexio_grpc.go`) bauten bei Fehler bisher
   `Success:false, ErrorMessage: err.Error()` statt eines echten gRPC-Fehlers und umgingen damit
