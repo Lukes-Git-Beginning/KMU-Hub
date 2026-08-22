@@ -245,3 +245,47 @@ Frühere Läufe liegen vollständig im Archiv:
   TestOpenAPIRouteDrift` grün, obwohl keine Route angefasst wurde. (3) `fix-tax-calculator-line-
   total-unrounded` (nächste Unit, deps auf diese) rundet das Zeilennetto — dort wird auch
   `assertTotalsMatch`/`totalsTolerance` aus A2 gegengeprüft, wie in deren Notes verlangt.
+
+---
+
+## Iteration 4 — fix-tax-calculator-line-total-unrounded — done — 2026-08-22 23:31
+- commit: 0c99c0b3
+- gebaut: `tax.Calculate` rundete die Zeilensteuer, aber nicht den Zeilenbetrag selbst
+  (`lineTotal := item.Quantity.Mul(item.UnitPrice)` ging ungerundet in `subtotal`), obwohl der
+  Funktionskommentar ausdrücklich das Gegenteil versprach. Jetzt wird `lineTotal` mit `.Round(2)`
+  gerundet, bevor es sowohl in `subtotal` einläuft als auch als Basis für die Zeilensteuer dient
+  (`lineTax := lineTotal.Mul(item.TaxRate)...`). Damit rundet die Funktion Netto UND Steuer auf
+  derselben Zeilenebene, in derselben Reihenfolge wie der E-Rechnungs-Generator seit A2
+  (BR-CO-10: Zeilennetto runden, dann summieren) — die beiden Schreibpfade zum Nettobetrag
+  stimmen jetzt überein. Der Funktionskommentar ist entsprechend korrigiert: die alte Aussage
+  "Rounding order ... is NOT the one the e-invoice generator uses" war nach A2 bereits falsch
+  (A2 hat den Generator genau auf diese Reihenfolge umgestellt) und beschrieb jetzt nur noch den
+  verbleibenden Unterschied — Zeilensteuer-Summe hier vs. Gruppensteuer-aus-Gruppennetto in
+  BR-CO-17 der XML.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/biz/tax 100 % -> 100 % (eigene Messung vor/nach, `go tool cover -func`; das
+  Paket war schon vor dem Fix voll gedeckt — Korrektheitsbug, keine Lücke).
+- mutations-probe: ein Lauf gegen eine `cp`-Sicherungskopie (nicht `git checkout`, siehe
+  Iteration-3-Lehre), zurückgeschrieben, Diff sauber. `.Round(2)` von `lineTotal` entfernt ->
+  `TestCalculate_FractionalQuantity_RoundsLineNetBeforeSumming` rot: "subtotal should be rounded
+  to 50.00, got 49.9995" und "gross total should be 59.50, got 59.4995".
+- verify vorgaenger: sauber — `db1210bb` (letzter Commit vor dieser Iteration) ändert nur eine
+  Zeile im JOURNAL (SHA nachgetragen für Iteration 3), kein Codewechsel, keine der acht
+  Fehlerklassen anwendbar.
+- neue-units: keine
+- offen: (1) DB-Gate lief: `DATABASE_URL` als `kmuhub_app`, **0 übersprungene Tests** über
+  tax/einvoice/invoice/quote/creditnote/recurring. `go test ./internal/gateway/` grün, obwohl
+  keine Route angefasst wurde. (2) Auswirkung auf `assertTotalsMatch`/`totalsTolerance`
+  (`einvoice/generator_doc.go`), wie von der Unit verlangt: die **Netto-Seite** der Toleranz ist
+  jetzt größtenteils entwertet, weil `tax.Calculate` denselben Rundungsschritt (Zeilennetto vor
+  dem Summieren runden) wie der Generator macht — die Subtotal-Drift, die die Toleranz von
+  0,005/Zeile ursprünglich auffangen sollte, entsteht auf diesem Weg nicht mehr. Die
+  **Steuer-Seite** bleibt different: hier summiert die Zeilensteuer je Zeile, während BR-CO-17
+  die Gruppensteuer aus dem fertigen Gruppennetto ableitet — dieser Rest-Unterschied ist es, für
+  den `totalsTolerance` weiterhin gebraucht wird. `totalsTolerance` selbst wurde NICHT geändert
+  (0,005/Zeile, Boden 0,01) — die Zahl ist nur nicht mehr auf beide Ursachen zurückzuführen,
+  sondern nur noch auf die Steuer-Rundungsreihenfolge. Verkleinern wäre verfrüht: die
+  Zeilenposten selbst (`invoice.LineItems[i].LineTotal = Quantity.Mul(UnitPrice)`, ungerundet)
+  tragen weiterhin dieselbe Diskrepanz auf Anzeige-/PDF-Ebene, das ist die separate, bereits im
+  Backlog stehende `fix-write-path-line-total-unrounded-everywhere` (deps auf diese Unit). (3)
+  `assertTotalsMatch` selbst wurde nicht angefasst und ist mit den Bestandstests weiterhin grün.
