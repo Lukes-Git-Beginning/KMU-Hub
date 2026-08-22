@@ -2360,7 +2360,7 @@ Frühere Läufe liegen vollständig im Archiv:
     reine Code-Aenderung ueber `xmax = 0`, ebenfalls ohne Migration.
 
 ## Iteration 38 — fix-idempotency-real-sql-coverage-cleanup-concurrency — done — 2026-08-22 06:02
-- commit: (siehe naechster docs-Commit)
+- commit: 254120eb
 - gebaut: drei neue Tests in `internal/idempotency/postgres_repository_db_test.go`
   gegen echtes SQL statt Mock: `TestPostgresCleanup_DeletesOnlyExpired` (eine
   frische und eine zwangsweise abgelaufene Reservierung, Cleanup entfernt nur
