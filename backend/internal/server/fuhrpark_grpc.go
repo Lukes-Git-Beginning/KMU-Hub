@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/csvutil"
 	"github.com/kmuhub/kmuhub/internal/fuhrpark"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	fuhrparkv1 "github.com/kmuhub/kmuhub/proto/fuhrpark/v1"
@@ -606,8 +607,13 @@ func (s *FuhrparkGRPCServer) ExportVehicleReport(ctx context.Context, req *fuhrp
 			tuev = v.TuevDueDate.Format("2006-01-02")
 		}
 		_ = w.Write([]string{
-			v.ID.String(), v.LicensePlate, v.Make, v.Model,
-			fmt.Sprintf("%d", v.Year), v.FuelType, string(v.Status),
+			v.ID.String(),
+			csvutil.NeutralizeFormulaCell(v.LicensePlate),
+			csvutil.NeutralizeFormulaCell(v.Make),
+			csvutil.NeutralizeFormulaCell(v.Model),
+			fmt.Sprintf("%d", v.Year),
+			csvutil.NeutralizeFormulaCell(v.FuelType),
+			string(v.Status),
 			fmt.Sprintf("%d", v.MileageKm), tuev,
 		})
 	}

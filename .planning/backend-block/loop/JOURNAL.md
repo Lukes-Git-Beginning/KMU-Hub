@@ -5379,3 +5379,58 @@ Frühere Läufe liegen vollständig im Archiv:
   (deaktivieren/umhaengen/nur-warnen), bevor Code entstehen darf.
 - offen: `fix-booking-page-orphaned-after-owner-erasure` wartet auf Lukes Entscheidung
   (blocked_reason im Backlog). DB-Gate lief real (kmuhub_app, 0 SKIP).
+
+## Iteration 91 — fix-csv-xlsx-formula-injection-remaining-writers — done — 2026-08-22 12:27
+- commit: (folgt im nächsten Journal-Doku-Commit)
+- gebaut: Zwei separate Fundstellenklassen aus dem Unit-Scope abgearbeitet.
+  (1) `internal/formulare/service.go:buildXLSX` — experimentell geprüft statt vermutet: eine
+  kleine Probe (Testdatei mit `excelize.SetCellValue`, Wert beginnt mit `=`, rohe Sheet-XML aus
+  dem erzeugten Workbook gelesen) zeigt `<c r="A1" t="s"><v>0</v></c>` mit dem Rohtext in
+  `sharedStrings.xml` — die Zelle ist explizit als String typisiert (`t="s"`), kein `<f>`-Element.
+  Anders als bei CSV/TXT-Import (wo Excel den Zelltyp per Heuristik aus dem führenden Zeichen
+  errät) liest Excel bei nativem XLSX den Typ aus der XML und fuehrt einen als String getypten
+  Wert NICHT als Formel aus. Ergebnis: `buildXLSX` braucht KEINEN Fix — `NeutralizeFormulaCell`
+  waere hier sogar schaedlich, weil excelize das fuehrende `'` nicht als Text-Marker konsumiert
+  (anders als CSV/Excel-Import), sondern als literales Zeichen mitschreibt: die Probe zeigte
+  `sharedStrings` mit dem Eintrag `&#39;=1+1` fuer den Testwert `'=1+1` — der Anwender saehe also
+  einen sichtbaren Apostroph in seinen Daten, ohne jeden Schutzgewinn. Der Probe-Test wurde nach
+  der Erkenntnis geloescht; an seiner Stelle steht jetzt
+  `TestBuildXLSX_FormulaLikeAnswerIsStoredAsPlainString`
+  (`internal/formulare/xlsx_formula_injection_test.go`) als DAUERHAFTE Regression: sie prueft auf
+  echtem `buildXLSX`-Output, dass kein `<f>`-Element existiert und die Antwortzelle als `t="s"`
+  typisiert ist — faellt rot, sollte ein kuenftiger Umbau `SetCellFormula` statt `SetCellValue`
+  verwenden oder sonst die Typisierung aendern.
+  (2) Drei CSV-Exporte (`internal/server/inventar_grpc.go:ExportInventory`,
+  `vermietung_grpc.go:ExportRentalReport`, `fuhrpark_grpc.go:ExportVehicleReport`) einzeln gegen
+  echten `csv.NewWriter`-Output geprueft: alle drei serialisieren nutzer-editierbare Freitextfelder
+  ungeprueft. Gefixt mit `csvutil.NeutralizeFormulaCell` (bestehende Vorlage aus Iteration 87,
+  kein zweiter Mechanismus): Inventar `Name/SKU/Barcode/Unit/Location` (ID, Quantity, MinQuantity
+  bleiben numerisch unangetastet), Vermietung `RenterName` (einziges Freitextfeld in der Export-Zeile
+  — ObjectID/Status/Preise/Flag sind system- bzw. enum-generiert), Fuhrpark `LicensePlate/Make/
+  Model/FuelType` (Status ist ein Enum-String aus `VehicleStatus`, kein Nutzereingabefeld, bewusst
+  nicht neutralisiert). `internal/biz/datev/exporter.go` unangetastet, wie in den notes gefordert
+  (eigenes Thema, `verify-datev-extf-encoding-requirement`).
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/formulare/... ./internal/csvutil/...
+  ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run` über alle drei Pakete: 0 issues) |
+  test ok — `go test -count=1 -v ./internal/server/`: 1850 PASS, 0 FAIL, **0 SKIP**
+  (`DATABASE_URL` gegen `kmuhub_app`); `go test -count=1 ./internal/formulare/... ./internal/gateway/
+  ./internal/csvutil/...` alle gruen | migration: n.a. (keine Schema-Aenderung) | rls-smoke: n.a.
+  (keine Tabelle/Policy angefasst, reine Zellwert-Serialisierung)
+- coverage: n.a. (Sicherheits-Fix, kein Coverage-Ziel — wie in `coverage_start:` der Unit vermerkt)
+- mutations-probe: `csvutil.NeutralizeFormulaCell(item.Name)` in `inventar_grpc.go:ExportInventory`
+  auf `item.Name` zurueckgesetzt (Aufruf entfernt) -> `TestInventar_ExportInventory_
+  NeutralizesFormulaInjection` sofort rot (`"=SUM(A1:A9)"` statt erwartetem `"'=SUM(A1:A9)"`).
+  Zurueckgedreht, `git diff internal/server/inventar_grpc.go` danach exakt der Soll-Diff, Test
+  wieder gruen. Repraesentativ fuer alle drei `_grpc.go`-Fixes, da identisches Muster (Aufruf von
+  `csvutil.NeutralizeFormulaCell` je Feld).
+- verify vorgaenger: sauber. `599779a3` (Iteration 90) gegen alle acht Fehlerklassen geprueft:
+  reine WHERE-Klausel-Korrektur in `PreviewErasure` (kein neuer Gateway-Handler, kein Stub, keine
+  `.proto`-Aenderung, kein `RequirePermission`, keine neue Tabelle/Migration, Wire-Shape der
+  Preview-Antwort unveraendert). Kein dazwischenliegender Doku-Commit vor dieser Iteration.
+- neue-units: keine. Beide vorher offenen Units (diese und
+  `fix-work-task-custom-field-errors-swallowed-on-create-update`) waren bereits vollstaendig im
+  Backlog spezifiziert, keine neuen Funde ausserhalb des Scopes dieser Unit.
+- offen: `fix-work-task-custom-field-errors-swallowed-on-create-update` ist die letzte verbleibende
+  `todo`-Unit im Backlog — naechste Iteration zieht sie. `fix-booking-page-orphaned-after-owner-erasure`
+  bleibt `blocked` auf Lukes Produktentscheidung (unveraendert seit Iteration 90). DB-Gate lief
+  real (kmuhub_app, 0 SKIP).

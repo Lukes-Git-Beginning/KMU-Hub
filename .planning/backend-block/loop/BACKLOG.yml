@@ -3652,7 +3652,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
     scope: >
       Gefunden 2026-08-22 waehrend fix-csv-formula-injection-remaining-exports (Iteration 87).
