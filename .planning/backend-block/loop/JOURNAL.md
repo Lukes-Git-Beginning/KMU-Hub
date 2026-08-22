@@ -545,7 +545,7 @@ Frühere Läufe liegen vollständig im Archiv:
   bliebe.
 
 ## Iteration 10 — verify-biz-event-emitters-never-wired — done — 2026-08-23 00:35
-- commit: <wird nach dem Commit ergänzt>
+- commit: 7ece4294
 - gebaut: VERIFY-UNIT, verdrahtet nichts. Belegt per Grep + Read:
   `cmd/biz/main.go` ruft `SetEventEmitter` an KEINER Stelle auf (0 Treffer für
   `invoiceSvc`, `quoteSvc`, `lexwareSvc`) — alle drei laufen mit
