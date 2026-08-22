@@ -1400,7 +1400,7 @@ Frühere Läufe liegen vollständig im Archiv:
   in den GoBD-Export gehoeren.
 
 ## Iteration 26 — cov-invoice-repository-number-and-fiscal-year-real-sql — done — 2026-08-23 01:45
-- commit: (siehe naechster Schritt)
+- commit: ea99721d
 - gebaut: neue ungetaggte Testdatei `postgres_repository_number_fiscal_year_db_test.go` fuer
   `InvoiceNumberExists` (postgres_repository.go:494-507) und `CountByFiscalYear` (509-526), gegen
   echtes Postgres: Tenant-Scoping bei InvoiceNumberExists (dieselbe Nummer in zwei Mandanten),
