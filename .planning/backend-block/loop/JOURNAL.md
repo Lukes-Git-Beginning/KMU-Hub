@@ -881,3 +881,59 @@ Frühere Läufe liegen vollständig im Archiv:
     Code-Pfad, der einen Client-seitig gelieferten Tenant-Wert uebernehmen wuerde — die
     eigentliche Tenant-Durchsetzung passiert serverseitig in `internal/biz/gobdarchive` und ist
     dort Sache der jeweiligen Coverage-Unit, nicht dieser Route-Unit.
+
+## Iteration 16 — cov-gateway-biz-einvoice — done — 2026-08-22 03:07
+- commit: (folgt im naechsten Schritt)
+- gebaut: `route_biz_einvoice_test.go` (29 neue Tests) fuer alle 5 Funktionen von
+  `route_biz_einvoice.go` (`HandleImportInvoice`, `HandleListIncomingInvoices`,
+  `HandleGetIncomingInvoice`, `HandleUpdateIncomingInvoiceStatus`, `isEInvoiceMIME`). Deckt ab:
+  ServiceUnavailable (503), fehlende TenantID (401), kaputtes Multipart (400), fehlendes
+  `file`-Feld (400), abgelehnter MIME-Typ ueber einen echten Multipart-Part mit expliziten
+  Content-Type-Header `image/png` -> 415 (dafuer `multipartBodyWithFileContentType` als lokaler
+  Helper ergaenzt, weil `multipartBody`/`CreateFormFile` den Datei-Part immer hart auf
+  `application/octet-stream` setzt und damit den MIME-Reject-Pfad ueber HTTP nie erreicht haette),
+  leere Datei (400 "uploaded file is empty"), Ueberschreitung von `maxEInvoiceUploadBytes` um
+  genau 1 Byte -> 413 (echter 10 MiB+1-Upload), kaputtes/ungueltiges JSON und den
+  `oneof=reviewed booked rejected`-Constraint auf `status` (400 Validation), gueltige Requests
+  bis zur RPC-Schicht (503 gegen Dummy-Adresse) sowie drei Permission-Guard-Tests ueber einen
+  echten `chi.Router`: Import und Status-Update verlangen `finance:write`, Liste verlangt
+  `finance:read` — beide bleiben laut `route_biz.go:50-57` bewusst auf dem alten grob-koernigen
+  `finance`-Guard und NICHT auf dem gesplitteten `finance:invoice`-Catalogue-Key. Isolierter
+  Tabellentest fuer `isEInvoiceMIME` inkl. Gross-/Kleinschreibungs-Grenzfall (kein Case-Folding).
+  `gobdArchiveRouter` aus Iteration 15 in `bizRouter` umbenannt (mountet ohnehin alle
+  Finance-Routen, nicht nur gobd-archive) und in beiden Testdateien wiederverwendet statt einen
+  zweiten, identischen Router-Helper anzulegen.
+- gate: build ok (`-p 2` ueber gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (ganzes `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift` — keine neue Route,
+  nur Tests)
+- coverage: internal/gateway 46,6 % -> 46,9 % (eigene Messung: Vorher per Wegverschieben der
+  neuen Testdatei und erneutem `go test -coverprofile`, Nachher mit der Datei; 46,6 % ist der
+  reale lokale Stand nach Iteration 15, nicht der `coverage_start` der Unit aus dem CI-Snapshot
+  1b49a1f3 — die beiden weichen um 0,5 Punkte voneinander ab, weil Iteration 15 dasselbe Paket
+  bereits angehoben hat)
+- mutations-probe: in `HandleImportInvoice` die MIME-Pruefung `if !isEInvoiceMIME(mimeType)` auf
+  `if false && !isEInvoiceMIME(mimeType)` verstellt (den 415-Guard faktisch deaktiviert) —
+  `TestHandleImportInvoice_UnsupportedMIMEType` wird rot (503 statt 415, RPC-Layer erreicht statt
+  Guard). Zurueckgedreht -> Test wieder gruen, `git diff --stat` auf `route_biz_einvoice.go`
+  zeigt keine Aenderung mehr.
+- verify vorgaenger: sauber. `27225234` (Iteration 15, GoBD-Belegarchiv-Route-Tests) gegen alle
+  acht Fehlerklassen geprueft: reine Testdatei, kein Produktionscode geaendert, kein
+  gRPC-Layer-Bypass (Tests rufen ausschliesslich `client.<RPC>` ueber die Handler auf), kein
+  Stub/TODO, kein `.proto` angefasst, keine neue `RequirePermission` (die verwendeten
+  `gobd-archive:write`/`:read`-Keys sind seit Migration 000139 bestehende Guards in
+  `route_biz.go:291-296`, kein neuer Seed noetig, per `grep -rn "gobd-archive" backend/migrations`
+  bestaetigt), keine neue Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt.
+- neue-units: keine
+- offen:
+  - `TestHandleImportInvoice_ExceedsSizeLimit` allokiert einen echten ~10 MiB Byte-Slice pro
+    Testlauf (`bytes.Repeat`), analog zum 50-MiB-Fall aus Iteration 15 — lief lokal in Bruchteilen
+    einer Sekunde, gleicher Beobachtungspunkt wie dort.
+  - "Fremder Tenant liefert 404" ist an dieser Route wie in jeder vorigen Coverage-Unit dieses
+    Laufs NICHT ueber einen Live-RPC-Roundtrip getestet (kein bufconn-/Fake-Client-Harness fuer
+    `FinanceServiceClient` im ganzen Paket). Der Handler liest die TenantID ausschliesslich aus
+    `getTenantID(r)` (JWT-Context) — kein Code-Pfad uebernimmt einen client-seitig gelieferten
+    Tenant-Wert; die serverseitige Durchsetzung liegt bei `internal/biz/einvoice`, ausserhalb des
+    Scopes dieser Route-Unit.
+  - `route_biz.go:50-57` dokumentiert bereits, dass Invoice-Import/Incoming-Invoices bewusst auf
+    dem alten `finance`-Guard bleiben statt auf den gesplitteten `finance:invoice`-Key zu wechseln
+    (kein FE-Caller heute) — bestaetigt beim Bauen dieser Unit, kein neuer Befund.

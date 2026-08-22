@@ -25,10 +25,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// gobdArchiveRouter registers only the gobd-archive group on a fresh chi router, mirroring how
+// bizRouter registers all Finance routes on a fresh chi router, mirroring how
 // cmd/gateway/main.go mounts BizRoutes, so permission-guard tests exercise the real middleware
-// chain (authMiddleware -> RequirePermission) instead of calling handlers directly.
-func gobdArchiveRouter(registry *ServiceRegistry) *chi.Mux {
+// chain (authMiddleware -> RequirePermission) instead of calling handlers directly. Shared with
+// route_biz_einvoice_test.go — it mounts every finance route, not just gobd-archive.
+func bizRouter(registry *ServiceRegistry) *chi.Mux {
 	r := chi.NewRouter()
 	NewBizRoutes(registry).RegisterRoutes(r, guardTestAuth)
 	return r
@@ -118,7 +119,7 @@ func TestHandleArchiveDocument_ValidRequestReachesRPC(t *testing.T) {
 // with only general finance write access must NOT be able to write into the
 // retention-locked archive.
 func TestHandleArchiveDocument_PermissionGuard(t *testing.T) {
-	r := gobdArchiveRouter(emptyRegistry())
+	r := bizRouter(emptyRegistry())
 	body, contentType := multipartBody(t, map[string]string{"doc_type": "invoice"}, "file", "beleg.pdf", []byte("%PDF-1.4"))
 
 	rec := httptest.NewRecorder()
@@ -308,7 +309,7 @@ func TestHandleAddDocumentAnnotation_ValidRequestReachesRPC(t *testing.T) {
 // require gobd-archive:write specifically, same reasoning as
 // TestHandleArchiveDocument_PermissionGuard.
 func TestHandleAddDocumentAnnotation_PermissionGuard(t *testing.T) {
-	r := gobdArchiveRouter(emptyRegistry())
+	r := bizRouter(emptyRegistry())
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/finance/gobd-archive/550e8400-e29b-41d4-a716-446655440000/annotations", jsonBody(t, map[string]interface{}{
