@@ -208,6 +208,8 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		argNum++
 	}
 
+	// Both bounds are inclusive — an invoice dated exactly on DateFrom or DateTo
+	// is included. Belegt durch TestPostgresRepository_List_DateRangeInclusiveBoundaries.
 	if filter.DateFrom != nil {
 		conditions = append(conditions, fmt.Sprintf("invoice_date >= $%d", argNum))
 		args = append(args, *filter.DateFrom)

@@ -1265,3 +1265,47 @@ Frühere Läufe liegen vollständig im Archiv:
   korrekt gewesen) — fuer DATEV/Lexware/deutsches Excel ist Komma dagegen die Voraussetzung, damit
   die Zahl ueberhaupt als Zahl importiert wird, siehe `datev/exporter.go` als bestehende Referenz
   fuer denselben Empfaengerkreis.
+
+## Iteration 23 — cov-invoice-repository-list-filter-real-sql — done — 2026-08-23 01:29
+- commit: (folgt)
+- gebaut: neue ungetaggte Testdatei `postgres_repository_list_db_test.go` fuer
+  `PostgresRepository.List` (postgres_repository.go:195-306), gegen echtes Postgres statt Mock:
+  Statusfilter (samt Total-Zaehler unter Filter), Datumsgrenzen (beide inklusiv, per Test belegt und
+  jetzt als Kommentar in `postgres_repository.go:211-221` festgehalten), Overdue (nur sent+ueberfaellig,
+  nicht draft+ueberfaellig, nicht sent+nicht-faellig), ContactID- und RecurringID-Filter (inkl.
+  Ausschluss NULL-Zeilen und Fremd-ID), Total-Zaehler unabhaengig vom Limit (5 passende + 2
+  nicht-passende Zeilen, Limit 2 -> total 5, Seite 2), Fremdtenant-Isolation ueber die echte
+  RLS-Verbindung. Freitextsuche entfaellt — `ListFilter` hat kein Suchfeld, siehe `repository.go:90-102`.
+  Helfer fuer contacts (users->contacts FK-Kette) und finance_recurring_invoices neu angelegt, da
+  bislang niemand in diesem Paket contact_id/recurring_id ungetaggt geseedet hat.
+- gate: build ok (`./internal/biz/invoice/... ./internal/gateway/... ./cmd/biz/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v ./internal/biz/invoice/`, 81 PASS,
+  0 SKIP, DATABASE_URL gegen kmuhub_app) | restliche Unterpakete ok (keine Unterpakete unter
+  internal/biz/invoice) | migration n.a. (keine Schema-Aenderung) | rls-smoke erbracht durch
+  `TestPostgresRepository_List_CrossTenantIsolation` (eigener Tenant total=1, fremder Tenant taucht
+  weder in Liste noch Zaehler auf) | gateway-Gate n.a. formal (keine Route beruehrt, deshalb nicht
+  pflichtgemaess gelaufen)
+- coverage: internal/biz/invoice 34,8 % (CI-Stand, coverage_start) -> 46,0 % (eigens gemessen,
+  `go tool cover -func`, lokaler Lauf nach der Aenderung; kein Vorher-Lauf mangels Testdatei zum
+  Vergleich noetig, da vorher exakt 0 Tests fuer List existierten)
+- mutations-probe: `invoice_date <= $N` (DateTo-Bedingung, postgres_repository.go:218) auf
+  `invoice_date < $N` verstuemmelt -> `TestPostgresRepository_List_DateRangeInclusiveBoundaries` rot
+  (total 2 statt 1 erwartet — Test selbst hatte den falschen erwarteten Wert im ersten Anlauf, siehe
+  unten — nach Korrektur: total 1 statt 2, "invoice dated exactly on DateTo must be included" false).
+  Zurueckgedreht, `git diff --stat` auf postgres_repository.go danach leer.
+  Nebenbefund beim Bauen (kein Produktionsfehler, Testfehler): `defer testutil.CleanupRow(...,
+  "tenants", tenantID)` in der Contact-ID-Testfunktion lief vor den `t.Cleanup`-registrierten
+  User/Contact-Loeschungen (defer laeuft vor t.Cleanup, nicht danach) und riss dadurch eine
+  FK-Verletzung beim Testende (non-fatal, nur t.Logf). Behoben: Tenant-Cleanup selbst als
+  `t.Cleanup` registriert, direkt nach `EnsureTenant`, damit LIFO die Reihenfolge korrekt umkehrt.
+- verify vorgaenger: sauber — `ff1f3cd3` (Iteration 22) aendert laut `git show --stat` und Diff
+  `service_gobd.go` (germanDecimal-Helper, reine String-Transformation), zwei neue Testdateien/-faelle
+  und BACKLOG.yml/JOURNAL.md. Keine der acht Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt,
+  kein Stub/TODO, kein `.proto`, keine Migration, kein neuer Guard, keine neue Tabelle, keine Route,
+  kein Wire-Shape-Wechsel gegen das FE (CSV-Exportformat ist kein FE-Vertrag), kein ersetzter
+  Guard-Key.
+- neue-units: keine
+- offen: naechste Unit laut Backlog-Reihenfolge ist `cov-invoice-repository-datev-export-keyset-real-sql`
+  (deps: [cov-invoice-repository-list-filter-real-sql], jetzt ziehbar). Luke pruefen: die
+  Datumsgrenzen-Entscheidung (beide inklusiv) ist reines Bestandsverhalten, keine Aenderung — nur
+  jetzt erstmals per Test belegt und im Code kommentiert.
