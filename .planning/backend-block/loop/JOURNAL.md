@@ -5036,7 +5036,7 @@ Frühere Läufe liegen vollständig im Archiv:
   der Inhalt der neu angelegten Unit, nicht ein Nebeneffekt, der hier haette mitlaufen sollen.
 
 ## Iteration 85 — fix-contact-erasure-incomplete-set-null-table-scrub — done — 2026-08-22 11:35
-- commit: (siehe naechster Journal-Nachtrag)
+- commit: 5ef54498
 - gebaut: Beide Erasure-Pfade fuer Kontakte (Hard-Delete `contact.PostgresRepository.Delete`
   UND `consent.PostgresRepository.AnonymizeContact`, der RESTRICT-Anonymisierungspfad) scrubben
   jetzt dieselben drei abhaengigen Tabellen ueber eine gemeinsame neue Funktion
