@@ -3111,7 +3111,7 @@ Frühere Läufe liegen vollständig im Archiv:
     contact) — im Journal der neuen Unit als offene Frage vermerkt.
 
 ## Iteration 50 — fix-recurring-invoice-clear-end-date — done — 2026-08-22 07:19
-- commit: <wird nach dem Commit ergaenzt>
+- commit: a5f5aa6f
 - gebaut: Root Cause war die Validierung, nicht die Handler-Logik (`grpcReq.ClearEndDate = true`
   bei leerem `*string` existierte bereits und war korrekt) — go-playground/validator's
   `omitempty` ueberspringt bei einem Pointer-Feld nur den NIL-Fall; ein nicht-nil Pointer auf ""
