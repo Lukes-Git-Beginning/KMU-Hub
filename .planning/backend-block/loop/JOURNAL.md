@@ -4545,3 +4545,56 @@ Frühere Läufe liegen vollständig im Archiv:
   Nil-Pointer-Risiko durch die Aenderung).
 - neue-units: keine
 - offen: keine
+
+## Iteration 76 — feat-retention-worker-handler-calendar-events — done — 2026-08-22 10:24
+- commit: (siehe naechster Eintrag)
+- gebaut: `CalendarEventRetentionHandler` (`backend/internal/security/gdpr/retention_calendar_events.go`)
+  als siebter Handler auf der Retention-Registry aus A10, `resource_type` "calendar_events",
+  verdrahtet in `cmd/auth/main.go` neben den sechs bestehenden Handlern.
+  Kernproblem: `calendar_events.start_time`/`end_time` sind nur die ERSTE Vorkommnis eines
+  Termins. Ein taeglicher Serientermin (`rrule` gesetzt), vor zwei Jahren angelegt, laeuft
+  heute noch, wenn `recurrence_end` NULL ist (unbefristete Serie). `Plan` behandelt beide Faelle
+  getrennt: Einzeltermine (`rrule IS NULL`) sind faellig ueber `end_time < cutoff`, Serien nur
+  ueber `recurrence_end IS NOT NULL AND recurrence_end < cutoff` — eine unbefristete Serie
+  taucht bei KEINEM Cutoff auf, weil ihr naechstes Vorkommen unbekannt ist. Das ist die
+  "explizite Behandlung" aus dem `done_when`, nicht nur ein Kommentar.
+  `event_attendees`, `event_exceptions`, `event_reminders` cascadieren alle per FK direkt auf
+  `calendar_events(id) ON DELETE CASCADE` (Migration 000033, im Code gegengeprueft, nicht
+  geraten) — ein Hard-Delete nimmt alle drei in derselben Anweisung mit. Bei `anonymize` (die
+  Zeile bleibt bestehen) leert der Handler zusaetzlich `title`/`description`/`location` auf
+  `calendar_events` UND setzt ein etwaiges Override in `event_exceptions` (dieselben drei
+  Felder) auf NULL zurueck statt auf das Label — NULL bedeutet in diesem Schema "erbt vom
+  Elternereignis", ein Bracket-Label haette dort eine zweite, redundante Anonymisierung neben
+  der bereits anonymisierten Elternzeile stehen lassen.
+  `calendar_events.tenant_id` existiert bereits als Retrofit-Spalte (Migration 000106) mit
+  RLS-Policy (Migration 000122, `enable_tenant_rls('calendar_events')`) — vor dem Bauen an der
+  Migrationshistorie gegengeprueft, nicht angenommen. Keine neue Migration noetig.
+- gate: build ok (`./internal/security/... ./internal/work/... ./cmd/auth/...`) | vet ok
+  (`./internal/security/... ./internal/work/...`) | lint ok (0 issues, beide Pakete) | test ok
+  (`./internal/security/gdpr/` 7 neue Tests PASS, 0 SKIP; volle `./internal/security/gdpr/...`-
+  und `./internal/work/...`-Suiten gruen, 143 PASS / 0 SKIP im gdpr-Paket) | migration: n.a.
+  (keine neue Migration, `tenant_id`/RLS auf `calendar_events` bereits vorhanden) | rls-smoke:
+  n.a. (keine Policy geaendert; Tenant-Isolation per DB-Test mit zwei Tenants explizit belegt,
+  `TestCalendarEventRetentionHandler_PlanOnlyMatchesPastCutoffAndIsTenantScoped`)
+- coverage: `internal/security/gdpr` 71,3 % -> 71,4 % (selbst gemessen: neue Dateien
+  `retention_calendar_events.go`/`_test.go` kurzzeitig nach `/tmp` verschoben, `go test
+  -coverprofile` vor der Aenderung, Dateien zurueckgeholt, `go test -coverprofile` danach;
+  `coverage_start:` in der Unit war unbeziffert — "zur Laufzeit messen" stand ausdruecklich in
+  der Unit)
+- mutations-probe: die Serien-Klausel `rrule IS NOT NULL AND recurrence_end IS NOT NULL AND
+  recurrence_end < $2` zu `rrule IS NOT NULL` verkuerzt (jede Serie unabhaengig von
+  `recurrence_end` faellig) -> `TestCalendarEventRetentionHandler_PlanExcludesOpenEndedRecurringSeries`
+  UND `TestCalendarEventRetentionHandler_PlanRecurringSeriesUsesRecurrenceEnd` brechen beide ab
+  (unbefristete Serie waere doch faellig, in Zukunft rekurrierende Serie ebenso). Zurueckgedreht,
+  `git status`/Volltextvergleich zeigt wieder ausschliesslich die vorgesehene Klausel, beide
+  Tests erneut gruen, volle Testdatei erneut gruen.
+- verify vorgaenger: sauber. `33bea578` (Iteration 75, feat-retention-worker-handler-work-tasks)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von
+  `retention_work_tasks.go`, `retention_work_tasks_test.go`, `cmd/auth/main.go`) — kein
+  Gateway-Handler betroffen, kein Stub, kein `.proto`, kein neuer/ersetzter
+  `RequirePermission`-Guard, keine neue Tabelle (reine Registry-Erweiterung auf bestehenden,
+  tenant-gescopten Tabellen), keine neue Route, keine Wire-Shape-Aenderung. Der separate
+  `f8b8ac20`-Commit direkt davor war nur die nachtraegliche SHA-Eintragung ins Journal (Muster
+  aus fruaheren Laeufen), kein eigenstaendiger Code-Commit.
+- neue-units: keine
+- offen: keine

@@ -2841,7 +2841,7 @@ units:
     service: security
     model: sonnet
     deps: [feat-retention-worker-schema-and-engine]
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
     scope: >
       Zweiter Fund aus scan-personal-data-tables-without-retention-mapping (Iteration 43): das
