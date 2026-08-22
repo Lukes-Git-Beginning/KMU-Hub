@@ -678,7 +678,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Flag mit Inhaltsloeschung) leben im selben Feld.
 
 ## Iteration 13 — feat-retention-worker-handler-helpdesk-formulare — done — 2026-08-22 02:19
-- commit: (folgt im naechsten Schritt)
+- commit: 539d6ada
 - gebaut: `HelpdeskTicketRetentionHandler` und `FormSubmissionRetentionHandler`
   (`internal/security/gdpr/retention_helpdesk_formulare.go`), vierter und fuenfter Handler an
   der Registry aus A10. Tickets: `resource_type="helpdesk_tickets"`, Tabelle `tickets`, Scope
