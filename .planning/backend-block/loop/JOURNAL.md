@@ -392,3 +392,50 @@ Frühere Läufe liegen vollständig im Archiv:
   zur Buyer-VATID, ist im Datenmodell nicht abgebildet (`docParty` kennt nur
   `VATID`) — kein Fund im engeren Sinn, weil das Produkt nur die VATID-Variante
   je erzeugt, aber falls das je zur eigenen Unit wird: hier ansetzen.
+
+## Iteration 7 — feat-einvoice-cardinality-rules — done — 2026-08-22 23:51
+- commit: ca59a98f
+- gebaut: alle 17 EN-16931-Kardinalitätsregeln BR-01 bis BR-17 sind jetzt
+  entweder als Regel-ID im Fehlertext geprüft oder als "gilt durch Konstruktion"
+  dokumentiert. Drei echte Funde ohne Regel-ID nachgerüstet: BR-02 (Rechnungs-
+  nummer BT-1), BR-03 (Ausstellungsdatum BT-2), BR-16 (mindestens eine Position
+  BG-25) — alle drei in `buildInvoiceDoc`s bestehenden Ablehnungen, jetzt in
+  der Fehlermeldung enthalten und per Test belegt (`TestGenerateCII_Rejections`,
+  `TestGenerateUBL_Rejections`). Die übrigen 14 Regeln waren KEIN Fund, sondern
+  bereits garantiert — dokumentiert statt neu geprüft: BR-01 (Spezifikations-
+  kennung) und BR-04 (Belegart "380") sind Konstanten, die beide Generatoren
+  unbedingt schreiben (bereits durch `generator_ubl_test.go:93/99` und
+  `generator_cii_test.go:36` bewiesen). BR-05 (Währung) ist durch den
+  Default-Fallback in `buildInvoiceDoc` nie leer. BR-08/BR-10 (Postanschrift-
+  Gruppen) folgen aus den bestehenden BR-09/BR-11-Ländercode-Prüfungen, weil
+  Land das einzige von EN 16931 verlangte Element in beiden Gruppen ist.
+  BR-12/13/14/15 (Summenfelder) folgen daraus, dass LineTotal/TaxTotal/
+  GrossTotal unbedingte Structfelder sind, die beide Generatoren immer
+  rendern. BR-17 (Zahlungsempfänger-Name) ist gegenstandslos: das Datenmodell
+  kennt keinen vom Verkäufer abweichenden Payee — lean-Marker mit
+  Upgrade-Trigger an `invoiceDoc`. BR-06/07/09/11 waren schon vor dieser
+  Iteration mit Regel-ID versehen (keine Änderung nötig).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok
+  (internal/biz/einvoice, TestOpenAPIRouteDrift trotz keiner Routenänderung
+  pflichtgemäß gelaufen) | migration n.a. | rls-smoke n.a.
+- coverage: internal/biz/einvoice 82,5 % (Iteration-6-Messung) -> 82,5 %
+  (eigene Messung, `go tool cover -func`, vor/nach identisch) — unverändert,
+  weil die Änderung nur Regel-IDs im bereits abgedeckten Fehlerpfad ergänzt
+  und Kommentare, keine neue Verzweigung.
+- mutations-probe: `BR-02` in der Rechnungsnummer-Fehlermeldung
+  (`generator_doc.go`) zu `BR-99` verstümmelt (Kopie via `cp`, nicht
+  `git checkout`) -> `TestGenerateCII_Rejections/missing_invoice_number` UND
+  `TestGenerateUBL_Rejections/missing_invoice_number` beide rot ("does not
+  contain BR-02"), alle übrigen Subtests weiterhin grün. Aus der Kopie
+  zurückgeschrieben, `diff` gegen die Sicherungskopie danach identisch
+  (0 Zeilen Unterschied).
+- verify vorgaenger: sauber — `3917fe4d` (feat-einvoice-vat-category-rules)
+  ändert nur `internal/biz/einvoice` (Regel-ID-Korrektur BR-AE-03->BR-AE-02,
+  neuer Zero-Rated-Test, Kommentar in `taxCategoryFor`), keine der acht
+  Fehlerklassen anwendbar: kein gRPC-Handler, kein Proto, keine Migration,
+  kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel,
+  kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: `internal/biz/pdf` und `internal/biz/einvoice` haben keine DB-Tests,
+  DATABASE_URL-Gate daher für diese Unit nicht einschlägig (wie schon
+  Iterationen 5 und 6).
