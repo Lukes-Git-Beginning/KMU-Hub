@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -165,10 +166,10 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 			csvutil.NeutralizeFormulaCell(r.CustomerName),
 			r.Account,
 			r.TaxKey,
-			r.TaxRate,
-			r.NetAmount,
-			r.TaxAmount,
-			r.GrossTotal,
+			germanDecimal(r.TaxRate),
+			germanDecimal(r.NetAmount),
+			germanDecimal(r.TaxAmount),
+			germanDecimal(r.GrossTotal),
 			r.Status,
 			r.TaxMode,
 			r.BookingText,
@@ -176,4 +177,13 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 	}
 	w.Flush()
 	return buf.Bytes()
+}
+
+// germanDecimal converts a period-decimal string (as produced by BuildGoBDRows,
+// e.g. "38.00" or "7.5") to the comma-decimal form German accounting software
+// expects (same convention as datev.formatDecimalForDATEV). Without this, Excel
+// DE/DATEV/Lexware import "38.00" as text rather than a number — the CSV would
+// no longer be the machine-auditable journal GoBD requires.
+func germanDecimal(s string) string {
+	return strings.Replace(s, ".", ",", 1)
 }

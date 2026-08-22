@@ -1181,3 +1181,87 @@ Frühere Läufe liegen vollständig im Archiv:
   Block-B-Dunning-Reihe laut Backlog ist `cov-dunning-service-gobd-real-sql`
   (deps: `[cov-dunning-repository-core-real-sql]`, bereits `done` seit Iteration 19 — damit sofort
   ziehbar).
+
+## Iteration 22 — cov-dunning-service-gobd-real-sql — done — 2026-08-23 01:20
+- commit: (siehe unten)
+- gebaut: `service_gobd.go` (UpdateDunningStatus, SendDunningNotice, GenerateGoBDExport/buildGoBDCSV)
+  war bereits fast vollstaendig ueber Mocks getestet (94,4-100 % je Funktion); die vier
+  `done_when`-Punkte waren zum Teil schon erfuellt (Formel-Injektions-Schutz existiert seit
+  `csvutil.NeutralizeFormulaCell`, Idempotenz von `SendDunningNotice` ueber
+  `ErrDunningNotDraft`). Echter Fund beim Gegenpruefen der CSV-Struktur gegen die Dezimal-
+  konvention: `buildGoBDCSV` schrieb TaxRate/NetAmount/TaxAmount/GrossTotal mit Punkt-Dezimal
+  (`"38.00"`, `"7.5"`), waehrend der bestehende DATEV-Export (`datev/exporter.go:317`
+  `formatDecimalForDATEV`) fuer denselben Empfaengerkreis (DATEV/Lexware/Excel-DE) explizit auf
+  Komma umstellt — genau die Regel, die der eigene Kommentar an `buildGoBDCSV`
+  ("DATEV / Lexware / Excel render Umlaute ... when opened locally") schon fuer die
+  Kundennamen-Spalte einhaelt, aber fuer die Zahlenspalten nie zog. Ohne Komma importiert
+  deutsches Excel/DATEV "38.00" als Text statt als Zahl — die GoBD/IDEA-Journalspalten waeren
+  fuer die Maschine, an die sie adressiert sind, nicht auswertbar. Fix: neue Funktion
+  `germanDecimal` (gleiche Ersetzung wie `formatDecimalForDATEV`, `strings.Replace(s, ".", ",", 1)`)
+  auf TaxRate/NetAmount/TaxAmount/GrossTotal in `buildGoBDCSV` angewandt. Kein interner Go-Parser
+  liest die CSV zurueck (per Grep bestaetigt: einzige Verwender sind der gRPC-Handler
+  `biz_grpc.go:2512` und der Download-Response, keine Rueckparsung) — Aenderung risikofrei.
+  Bestehenden Test `TestService_GenerateGoBDExport_PostingColumns` auf "200,00"/"38,00"
+  angepasst, neuen Test `TestService_GenerateGoBDExport_GermanDecimalSeparator` ergaenzt
+  (prueft alle vier Spalten inkl. Bruchsatz "7.5" -> "7,5" und dass keine Zelle mehr einen
+  bloßen Punkt traegt).
+  Fuer den Block-B-Auftrag "gegen echtes SQL" vier neue Tests in
+  `service_gobd_db_test.go` (neue Datei, ungetaggt): `Service.UpdateDunningStatus` und
+  `Service.SendDunningNotice` ueber die echte `PostgresRepository` statt `MockRepository`
+  getrieben — die Mock-Tests in `service_test.go` belegen nur die Verzweigungslogik, diese
+  hier beweisen dieselbe Logik nach einem echten SQL-Roundtrip. Abgedeckt: Draft->Sent setzt
+  `sent_at` persistent (nicht nur am In-Memory-Record); der in den Notes verlangte
+  Uebergangs-Check "Sprung von versendet zurueck auf offen: erlaubt und begruendet oder Fund" —
+  Ergebnis: erlaubt und begruendet (Doc-Kommentar an `UpdateDunningStatus` nennt es explizit
+  "intentionally permissive" fuer Admin-Korrekturen), per Test belegt, dass der Ruecksprung den
+  bereits gesetzten `sent_at` NICHT loescht (haengt an der `COALESCE(sent_at)`-Fix aus
+  Iteration 19); Cross-Tenant-Update auf Service-Ebene liefert `ErrDunningNotFound`; die in den
+  Notes verlangte Idempotenz-Frage bei doppeltem `SendDunningNotice` — zweiter Aufruf ueber
+  echtes SQL liefert `ErrDunningNotDraft`, `sent_at` bleibt exakt der Wert des ersten Sendevorgangs
+  (kein zweiter Versand, kein ueberschriebener Zeitstempel).
+- gate: build ok (`./internal/biz/dunning/... ./internal/gateway/... ./cmd/biz/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v ./internal/biz/dunning/`, alle Tests
+  gruen inkl. 4 neuer Real-SQL-Tests, 18 Postgres-Tests im Paket insgesamt, 0 SKIP) | test restliche
+  Unterpakete ok (`go test -count=1 -p 1 ./internal/biz/dunning/...`) | `go test -count=1
+  ./internal/gateway/` gruen (TestOpenAPIRouteDrift, obwohl keine Route beruehrt, pflichtgemaess
+  gelaufen) | migration n.a. (keine Schema-Aenderung) | rls-smoke n.a. formal (keine neue
+  Tabelle/Policy), inhaltlich durch `TestService_UpdateDunningStatus_RealSQL_CrossTenant_NotFound`
+  erbracht
+- coverage: internal/biz/dunning 92,2 % -> 92,2 % (eigens gemessen, `go tool cover -func`, vor/nach
+  identisch gemessen). Unveraendert, weil `service_gobd.go` bereits vor dieser Iteration ueber
+  Mock-Tests zu 94,4-100 % pro Funktion abgedeckt war (`UpdateDunningStatus` 94,4 %,
+  `SendDunningNotice`/`GenerateGoBDExport`/`buildGoBDCSV` je 100 %) — der Auftrag dieser Unit war
+  laut Scope Bug-Suche und Fundamentabsicherung gegen echtes SQL, nicht Zeilenabdeckung; die
+  Coverage-Zahl sagt hier bewusst nichts aus (`germanDecimal` selbst liegt bei 100 %, die eine
+  verbleibende Luecke in `UpdateDunningStatus` ist der Repo-Fehlerpfad bei `UpdateStatus`, gegen
+  Mock bereits geprueft, siehe TestService_UpdateDunningStatus_NotFound-Nachbarn in service_test.go).
+- mutations-probe: zwei Laeufe, beide gegen `cp`-Sicherungskopien (nicht `git checkout`),
+  zurueckgeschrieben, `git diff --stat` danach je nur die beabsichtigte Aenderung.
+  (a) `germanDecimal` auf `strings.Replace(s, "X", ",", 1)` verstuemmelt (Identitaet auf "."
+  waere wegen ungenutztem Import nicht kompiliert) -> `TestService_GenerateGoBDExport_
+  GermanDecimalSeparator` rot an allen vier Spalten-Assertions ("100.00 should not contain .").
+  (b) `if record.Status != models.DunningStatusDraft` in `sendAndNotify` (service.go) auf
+  `if false` gesetzt -> `TestService_SendDunningNotice_RealSQL_DoubleCall_SecondCallRejected` rot:
+  zweiter Aufruf liefert keinen Fehler mehr UND `sent_at` bewegt sich beim zweiten (unnoetigen)
+  Send-Vorgang weiter (Beweis, dass der Guard tatsaechlich sowohl den Fehler als auch den
+  Zeitstempel-Schutz traegt, nicht nur einen der beiden). Beide Male zurueckgedreht, Diff sauber.
+  Anmerkung zur Arbeitsweise: die ersten beiden eigenen Real-SQL-Tests verglichen anfangs den
+  In-Memory-`time.Now()`-Rueckgabewert des Service direkt gegen den aus Postgres zurueckgelesenen
+  `sent_at` — TIMESTAMPTZ rundet auf Mikrosekunden, das schlug bei exaktem `.Equal()` fehl. Kein
+  Produktionsfehler, sondern ein Testfehler: korrigiert, indem der Vergleichswert per zweitem
+  `GetByID` aus der DB gelesen wird statt aus dem Rueckgabewert.
+- verify vorgaenger: sauber — `5bca2b78` (Iteration 21) aendert laut `git show --stat` und Diff
+  ausschliesslich eine neue Testdatei (`postgres_repository_db_test.go`, 153 Zeilen fuer
+  `PostgresConfigRepository`) sowie JOURNAL.md/BACKLOG.yml. Keine der acht Fehlerklassen
+  einschlaegig: kein gRPC-Handler beruehrt, kein Stub/TODO, kein `.proto`, keine Migration, kein
+  neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: Block-B-Dunning-Reihe ist damit vollstaendig (Repository-Core, Invoice-Lookups,
+  Config-Repository, Service-GoBD). Naechste Units laut Backlog-Reihenfolge sind die
+  `cov-invoice-repository-*`-Serie (ab `cov-invoice-repository-list-filter-real-sql`, deps: `[]`,
+  sofort ziehbar). Luke pruefen: die geaenderte CSV-Ausgabe (Komma statt Punkt bei
+  Steuersatz/Netto/MwSt/Brutto) ist eine sichtbare Formatanaenderung fuer jeden, der den GoBD-Export
+  bereits einmal heruntergeladen und in einem NICHT-deutschen Tool geoeffnet hat (dort waere Punkt
+  korrekt gewesen) — fuer DATEV/Lexware/deutsches Excel ist Komma dagegen die Voraussetzung, damit
+  die Zahl ueberhaupt als Zahl importiert wird, siehe `datev/exporter.go` als bestehende Referenz
+  fuer denselben Empfaengerkreis.
