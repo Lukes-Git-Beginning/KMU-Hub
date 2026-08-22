@@ -880,7 +880,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/payment 46,4 % (CI-Stand 32570176303)"
     scope: >
       `internal/biz/payment` hat KEINEN einzigen DB-Test und steht auch nicht im CI-Job

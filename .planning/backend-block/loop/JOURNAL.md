@@ -941,3 +941,51 @@ Frühere Läufe liegen vollständig im Archiv:
   `invoice.PostgresRepository.CountByFiscalYear` ist als `cov-invoice-repository-number-and-
   fiscal-year-real-sql` bereits eigenstaendig im Backlog (Block B) vorgesehen und wuerde die
   Jahresgrenze dort zusaetzlich gegen echtes Postgres pruefen.
+
+## Iteration 17 — cov-payment-repository-core-real-sql — done — 2026-08-23 00:49
+- commit: (siehe unten, wird nach Commit ergaenzt)
+- gebaut: `internal/biz/payment` hatte keinen einzigen DB-Test. Neue Datei
+  `postgres_repository_db_test.go` (ungetaggt, package `payment`) deckt den Schreib-/Lesekern
+  gegen echtes Postgres ab: `Create`+`GetByID` mit exaktem Dezimal-Roundtrip (Betrag 1029.33,
+  zusaetzlich per `amount::text` roh gegen die NUMERIC-Spalte verglichen — kein Float64 im Pfad),
+  `GetByID` cross-tenant (fremder Tenant bekommt `ErrNotFound`, nicht nur eine leere Struktur),
+  `List` tenant- und invoice-gescoped inkl. `ORDER BY payment_date DESC, created_at DESC`,
+  `Delete` cross-tenant als Bestaetigung eines wirkungslosen No-ops vs. eigener Tenant, sowie
+  `CreateInTx`/`DeleteInTx` je einmal mit Commit und einmal mit Rollback (vier Tests), um zu
+  beweisen, dass beide Varianten wirklich auf der aufrufereigenen Transaktion laufen und nicht
+  auf einer zweiten Pool-Connection committen. `SumByInvoiceID`/`GetByIdempotencyKey` bewusst
+  NICHT angefasst — das ist die Folge-Unit `cov-payment-repository-sums-and-idempotency-real-sql`.
+  Seed-Helfer `seedPaymentInvoice` legt eine minimale `finance_invoices`-Zeile fuer die FK an
+  (Vorlage: `hr/timetracking/postgres_invoice_reservation_test.go`), NICHT das
+  `//go:build integration`-Muster aus `creditnote` (Befund 2: getaggte Tests bewegen weder Gate
+  noch Coverage-Zahl).
+- gate: build ok (`./internal/biz/payment/...`) | vet ok | lint ok (0 issues) |
+  test ok (`go test -count=1 -v ./internal/biz/payment/`, 30 Tests gesamt davon 8 neu, 0 SKIP,
+  0 FAIL) | migration n.a. (keine Schema-Aenderung) | rls-smoke n.a. formal (keine Tabellen-/
+  Policy-Aenderung in dieser Unit), inhaltlich aber durch die neuen Tests selbst erbracht:
+  `TestPostgresRepository_GetByID_CrossTenant_ReturnsNotFound` und
+  `TestPostgresRepository_Delete_TenantScoped` belegen die Tenant-Isolation auf `finance_payments`
+  als kmuhub_app gegen echtes Postgres.
+- coverage: internal/biz/payment 46,4 % -> 71,5 % (eigens gemessen: Testdatei kurz beiseite
+  verschoben, `go test -coverprofile` lief 46,4 % — bestaetigt `coverage_start` exakt — dann
+  zurueckgelegt und erneut gemessen: 71,5 %)
+- mutations-probe: erster Versuch an `Delete`s WHERE-Klausel (tenant_id-Filter entfernt) blieb
+  GRUEN, weil RLS (`enable_tenant_rls('finance_payments')`, Migration 000122) den fehlenden
+  App-Filter bereits allein abfaengt — das ist ein echter, dokumentierter Befund (Defense-in-Depth
+  funktioniert), aber keine gueltige Probe fuer DIESEN Test. Zweiter Versuch an `List`s
+  `ORDER BY payment_date DESC, created_at DESC` -> `ASC, ASC`: `TestPostgresRepository_
+  List_TenantScopedAndOrdered` wurde sofort rot (erwartete vs. tatsaechliche UUID-Reihenfolge
+  vertauscht). Zurueckgedreht, `git diff --stat` auf `postgres_repository.go` zeigt danach keine
+  Aenderung (leerer Diff).
+- verify vorgaenger: sauber — `2c602e67` (Iteration 16) aendert laut `git show --stat` und Diff
+  ausschliesslich `backend/internal/biz/invoice/service_test.go` (neuer Testfall) sowie
+  JOURNAL.md/BACKLOG.yml. Keine der acht Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt,
+  kein Stub/TODO, kein `.proto`, keine Migration, kein neuer Guard, keine neue Tabelle, keine
+  Route, kein Wire-Shape-Wechsel, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: (a) Der erste, wirkungslose Mutations-Versuch an `Delete` ist ein Befund wert, aber kein
+  Bug: RLS ist die tatsaechlich wirksame Verteidigungsschicht auf `finance_payments`, der
+  App-seitige `tenant_id`-Filter im SQL ist redundant (aber richtig, als zweite Schicht). Keine
+  Aktion noetig. (b) `SumByInvoiceID`/`SumByInvoiceIDInTx`/`GetByIdempotencyKey` bleiben laut Scope
+  fuer `cov-payment-repository-sums-and-idempotency-real-sql` (deps auf diese Unit, naechste in
+  der Block-B-Reihe) offen.
