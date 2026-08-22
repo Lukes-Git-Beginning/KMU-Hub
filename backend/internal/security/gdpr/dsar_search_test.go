@@ -2217,6 +2217,176 @@ func TestSearchByQuery_UserAccountSecurity_DefaultsWhenNoHistory_Integration(t *
 	assert.Equal(t, "0", security["Wiederherstellungscodes (genutzt)"])
 }
 
+func TestSearchByQuery_UserDriverLicenses_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Driver License Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Driver License Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Falk", "Sonnenschein", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherUserID := seedDSARUser(t, pool, tenantOwn, "Rieke", "Dornbusch", true)
+	defer testutil.CleanupRow(t, pool, "users", otherUserID)
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	nextDue := today.AddDate(1, 0, 0)
+	expiry := today.AddDate(5, 0, 0)
+
+	licenseID := testutil.SeedRow(t, pool, "driver_licenses", map[string]any{
+		"tenant_id":           tenantOwn,
+		"driver_id":           subjectID,
+		"license_classes":     []string{"B", "BE"},
+		"expiry_date":         expiry,
+		"checked_at":          today,
+		"next_check_due_date": nextDue,
+		"notes":               "Kopie im Personalordner",
+	})
+	defer testutil.CleanupRow(t, pool, "driver_licenses", licenseID)
+
+	otherLicenseID := testutil.SeedRow(t, pool, "driver_licenses", map[string]any{
+		"tenant_id":           tenantOwn,
+		"driver_id":           otherUserID,
+		"license_classes":     []string{"C"},
+		"checked_at":          today,
+		"next_check_due_date": nextDue,
+	})
+	defer testutil.CleanupRow(t, pool, "driver_licenses", otherLicenseID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Falk")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	licenses := dsarModule(t, persons[0], "Führerscheinkontrolle")
+	assert.Equal(t, []string{"Führerscheinklassen", "Ablaufdatum", "Geprüft am", "Nächste Prüfung fällig", "Notizen"}, licenses.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Führerscheinklassen": "B, BE", "Ablaufdatum": expiry.Format(dsarDateLayout),
+			"Geprüft am": today.Format(dsarDateLayout), "Nächste Prüfung fällig": nextDue.Format(dsarDateLayout),
+			"Notizen": "Kopie im Personalordner",
+		},
+	}, recordMaps(licenses), "only the subject's own driver license check, not the other driver's")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Falk")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their driver license history")
+}
+
+func TestSearchByQuery_UserVehicleBookings_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Vehicle Booking Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Vehicle Booking Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Traugott", "Wiesengrund", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	colleagueID := seedDSARUser(t, pool, tenantOwn, "Hilde", "Ackermann", true)
+	defer testutil.CleanupRow(t, pool, "users", colleagueID)
+
+	plate := "M-DS " + uuid.New().String()[:6]
+	vehicleID := testutil.SeedRow(t, pool, "vehicles", map[string]any{
+		"tenant_id":     tenantOwn,
+		"license_plate": plate,
+		"make":          "VW",
+		"model":         "Caddy",
+		"year":          2023,
+	})
+	defer testutil.CleanupRow(t, pool, "vehicles", vehicleID)
+	vehicleLabel := fmt.Sprintf("VW Caddy (%s)", plate)
+
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// Subject is both driver and booker.
+	ownBooking := testutil.SeedRow(t, pool, "vehicle_bookings", map[string]any{
+		"tenant_id":  tenantOwn,
+		"vehicle_id": vehicleID,
+		"user_id":    subjectID,
+		"created_by": subjectID,
+		"starts_at":  now.Add(24 * time.Hour),
+		"ends_at":    now.Add(26 * time.Hour),
+		"purpose":    "Kundentermin",
+		"status":     "booked",
+	})
+	defer testutil.CleanupRow(t, pool, "vehicle_bookings", ownBooking)
+
+	// Subject booked the vehicle for a colleague -- "Buchender", not "Fahrer".
+	bookedForColleague := testutil.SeedRow(t, pool, "vehicle_bookings", map[string]any{
+		"tenant_id":  tenantOwn,
+		"vehicle_id": vehicleID,
+		"user_id":    colleagueID,
+		"created_by": subjectID,
+		"starts_at":  now.Add(48 * time.Hour),
+		"ends_at":    now.Add(50 * time.Hour),
+		"purpose":    "Materialtransport",
+		"status":     "booked",
+	})
+	defer testutil.CleanupRow(t, pool, "vehicle_bookings", bookedForColleague)
+
+	// Neither driver nor booker -- must not appear.
+	unrelatedBooking := testutil.SeedRow(t, pool, "vehicle_bookings", map[string]any{
+		"tenant_id":  tenantOwn,
+		"vehicle_id": vehicleID,
+		"user_id":    colleagueID,
+		"created_by": colleagueID,
+		"starts_at":  now.Add(72 * time.Hour),
+		"ends_at":    now.Add(74 * time.Hour),
+		"purpose":    "Werkstatt",
+		"status":     "booked",
+	})
+	defer testutil.CleanupRow(t, pool, "vehicle_bookings", unrelatedBooking)
+
+	// starts_at/ends_at round-trip through the DB session's own time zone
+	// setting, so the expected strings are read back from Postgres rather
+	// than formatted from the Go-side `now` value used to seed them (see
+	// querySessionLastActive above).
+	ownStarts, ownEnds := queryVehicleBookingWindow(t, pool, ownBooking)
+	colleagueStarts, colleagueEnds := queryVehicleBookingWindow(t, pool, bookedForColleague)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Traugott")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	bookings := dsarModule(t, persons[0], "Fahrzeugbuchungen")
+	assert.Equal(t, []string{"Fahrzeug", "Beginn", "Ende", "Zweck", "Status", "Rolle"}, bookings.Columns)
+	assert.Equal(t, []map[string]string{
+		{
+			"Fahrzeug": vehicleLabel, "Beginn": colleagueStarts.Format(dsarTimeLayout),
+			"Ende": colleagueEnds.Format(dsarTimeLayout), "Zweck": "Materialtransport",
+			"Status": "booked", "Rolle": "Buchender",
+		},
+		{
+			"Fahrzeug": vehicleLabel, "Beginn": ownStarts.Format(dsarTimeLayout),
+			"Ende": ownEnds.Format(dsarTimeLayout), "Zweck": "Kundentermin",
+			"Status": "booked", "Rolle": "Fahrer und Buchender",
+		},
+	}, recordMaps(bookings), "own bookings ordered by start time, each carrying the right role -- the unrelated booking must not appear")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Traugott")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their vehicle bookings")
+}
+
 // TestSearchByQuery_NoMinimumLengthGuard_Integration pins where the guard for
 // short queries lives. SearchByQuery itself has none: the pattern is built as
 // "%" + query + "%", so an empty query lists every subject of the tenant up to
@@ -2275,6 +2445,13 @@ func querySessionLastActive(t *testing.T, pool *pgxpool.Pool, sessionID uuid.UUI
 	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
 		`SELECT last_active_at FROM user_sessions WHERE id = $1`, sessionID).Scan(&lastActive))
 	return lastActive
+}
+
+func queryVehicleBookingWindow(t *testing.T, pool *pgxpool.Pool, bookingID uuid.UUID) (starts, ends time.Time) {
+	t.Helper()
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT starts_at, ends_at FROM vehicle_bookings WHERE id = $1`, bookingID).Scan(&starts, &ends))
+	return starts, ends
 }
 
 func seedDSARUser(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, first, last string, active bool) uuid.UUID {

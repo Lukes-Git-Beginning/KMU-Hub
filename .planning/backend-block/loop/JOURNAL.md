@@ -3787,3 +3787,44 @@ Frühere Läufe liegen vollständig im Archiv:
     Token als "Beendet". Sollte sich das Rotationsschema je ändern (z. B. `refresh_token_id`
     bleibt nach Rotation erhalten statt auf eine neue Zeile zu zeigen), müsste dieses Mapping
     neu geprüft werden — aktuell zeigt `auth/postgres_repository.go` klar `ON DELETE SET NULL`.
+
+## Iteration 61 — feat-dsar-search-user-fuhrpark-driver-module — done — 2026-08-22 08:35
+- commit: (folgt)
+- gebaut: zwei neue DSAR-Module in `dsar_search.go`/`matchUsers` — `driverLicensesModule`
+  ("Führerscheinkontrolle": Klassen, Ablaufdatum, geprüft am, nächste Prüfung fällig, Notizen aus
+  `driver_licenses`, gefiltert auf `driver_id = subject`) und `vehicleBookingsModule`
+  ("Fahrzeugbuchungen": Fahrzeug — Marke/Modell/Kennzeichen aus `vehicles` —, Beginn, Ende, Zweck,
+  Status aus `vehicle_bookings`, gefiltert auf `user_id = subject OR created_by = subject`).
+  `vehicle_bookings.user_id` (Fahrer/Nutznießer) und `created_by` (Buchender) können
+  unterschiedliche Personen sein — jede Zeile trägt deshalb ein explizites Rollenfeld
+  ("Fahrer"/"Buchender"/"Fahrer und Buchender") statt beide Spalten stillschweigend
+  gleichzusetzen.
+- gebaut (Tests): `TestSearchByQuery_UserDriverLicenses_Integration` (eigene vs. fremde
+  Führerscheinkontrolle, Tenant-Isolation), `TestSearchByQuery_UserVehicleBookings_Integration`
+  (drei Buchungen — selbst gefahren+gebucht, für Kollegen gebucht, weder-noch — beweist Rollenlabel
+  und dass die unbeteiligte Buchung fehlt, plus Tenant-Isolation). Zeitstempel werden wie beim
+  Sessions-Modul aus Iteration 60 aus der DB zurückgelesen statt aus dem Go-seitigen `now`
+  formatiert (Zeitzonen-Rundreise über die DB-Session).
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/...`) | lint ok (0 issues, `./internal/security/...`) | test ok
+  (`./internal/security/gdpr/` 123 PASS / 0 SKIP / 0 FAIL gegen `kmuhub_app`; gesamtes
+  `./internal/security/...` ebenfalls grün) | migration n.a. (keine neue Tabelle/Policy, reine
+  Lesequeries auf `driver_licenses`/`vehicle_bookings`/`vehicles`) | rls-smoke n.a.
+  (kein Schema/Policy-Wechsel) | TestOpenAPIRouteDrift nicht gelaufen — keine Route in dieser Unit
+  angefasst, daher nicht Pflicht.
+- coverage: `internal/security/gdpr` 70,3 % -> 70,6 % (selbst gemessen: `git stash push` auf genau
+  die zwei geänderten Dateien, `go test -coverprofile` davor/danach, `stash pop`).
+- mutations-probe: `case reservedForSubject && bookedBySubject: return "Fahrer und Buchender"` zu
+  `return "Fahrer"` verfälscht → `TestSearchByQuery_UserVehicleBookings_Integration` wird rot
+  (die Buchung, bei der der Nutzer Fahrer UND Buchender ist, zeigt fälschlich nur "Fahrer").
+  Zurückgedreht, `git diff --stat dsar_search.go` zeigt wieder ausschließlich die ursprünglichen
+  125 Insertions, Paket erneut vollständig grün.
+- verify vorgänger: sauber. `8f4c7982` (Iteration 60, feat-dsar-search-user-account-security-history-module)
+  gegen alle acht Fehlerklassen geprüft (`git show --stat` + Volltextdiff von `dsar_search.go`) —
+  reine interne DSAR-Suchpfad-Erweiterung, kein Gateway-Handler (keine gRPC-Umgehung möglich), kein
+  Stub, kein `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine
+  Route, keine Wire-Shape-Änderung. Tenant-Filter (`tenant_id = $1`) und Secret-Ausschluss
+  (Passwort-Hashes, Recovery-Code-Hashes) durch die eigenen Tests der Vorgänger-Iteration belegt.
+- neue-units: keine
+- offen:
+  - keine

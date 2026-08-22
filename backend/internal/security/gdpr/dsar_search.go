@@ -450,6 +450,22 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *accountSecurity)
 		}
 
+		driverLicenses, dlErr := driverLicensesModule(ctx, pool, tenantID, u.id)
+		if dlErr != nil {
+			return nil, dlErr
+		}
+		if driverLicenses != nil {
+			person.Modules = append(person.Modules, *driverLicenses)
+		}
+
+		vehicleBookings, vbErr := vehicleBookingsModule(ctx, pool, tenantID, u.id)
+		if vbErr != nil {
+			return nil, vbErr
+		}
+		if vehicleBookings != nil {
+			person.Modules = append(person.Modules, *vehicleBookings)
+		}
+
 		out = append(out, person)
 	}
 	return out, nil
@@ -1276,6 +1292,115 @@ func accountSecurityModule(ctx context.Context, pool *pgxpool.Pool, tenantID, us
 			fieldValueRecord("Wiederherstellungscodes (genutzt)", strconv.Itoa(recoveryCodesUsed)),
 		},
 	}, nil
+}
+
+// driverLicensesModule discloses a matched user's driver license checks
+// (Führerscheinkontrolle) when they are on record as a fuhrpark driver.
+// driver_licenses.driver_id is CASCADE to users, so the disclosure and the
+// deletion agree on what exists -- unlike matchUsers itself before this
+// module, which knew nothing about this table.
+func driverLicensesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT license_classes, expiry_date, checked_at, next_check_due_date, COALESCE(notes, '')
+		 FROM driver_licenses
+		 WHERE tenant_id = $1 AND driver_id = $2
+		 ORDER BY checked_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query driver licenses: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Führerscheinkontrolle",
+		Columns: []string{"Führerscheinklassen", "Ablaufdatum", "Geprüft am", "Nächste Prüfung fällig", "Notizen"},
+	}
+	for rows.Next() {
+		var classes []string
+		var expiry *time.Time
+		var checkedAt, nextCheckDue time.Time
+		var notes string
+		if scanErr := rows.Scan(&classes, &expiry, &checkedAt, &nextCheckDue, &notes); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan driver license: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Führerscheinklassen", Value: strings.Join(classes, ", ")},
+			{Key: "Ablaufdatum", Value: derefDateOrEmpty(expiry)},
+			{Key: "Geprüft am", Value: checkedAt.Format(dsarDateLayout)},
+			{Key: "Nächste Prüfung fällig", Value: nextCheckDue.Format(dsarDateLayout)},
+			{Key: "Notizen", Value: notes},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: driver license rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// vehicleBookingsModule discloses a matched user's pool vehicle reservations
+// -- both bookings made FOR them (vehicle_bookings.user_id) and bookings
+// they made for someone else (vehicle_bookings.created_by). The two columns
+// name different roles (the person the vehicle is reserved for vs. the
+// person who booked it) and can point at different users, so each record
+// carries its role explicitly rather than assuming they're the same person.
+func vehicleBookingsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT v.license_plate, v.make, v.model, vb.starts_at, vb.ends_at, vb.purpose, vb.status,
+		        vb.user_id = $2, vb.created_by = $2
+		 FROM vehicle_bookings vb
+		 JOIN vehicles v ON v.id = vb.vehicle_id
+		 WHERE vb.tenant_id = $1 AND (vb.user_id = $2 OR vb.created_by = $2)
+		 ORDER BY vb.starts_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query vehicle bookings: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Fahrzeugbuchungen",
+		Columns: []string{"Fahrzeug", "Beginn", "Ende", "Zweck", "Status", "Rolle"},
+	}
+	for rows.Next() {
+		var plate, make_, model, purpose, status string
+		var starts, ends time.Time
+		var reservedForSubject, bookedBySubject bool
+		if scanErr := rows.Scan(&plate, &make_, &model, &starts, &ends, &purpose, &status,
+			&reservedForSubject, &bookedBySubject); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan vehicle booking: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Fahrzeug", Value: fmt.Sprintf("%s %s (%s)", make_, model, plate)},
+			{Key: "Beginn", Value: starts.Format(dsarTimeLayout)},
+			{Key: "Ende", Value: ends.Format(dsarTimeLayout)},
+			{Key: "Zweck", Value: purpose},
+			{Key: "Status", Value: status},
+			{Key: "Rolle", Value: vehicleBookingRoleLabel(reservedForSubject, bookedBySubject)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: vehicle booking rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+func vehicleBookingRoleLabel(reservedForSubject, bookedBySubject bool) string {
+	switch {
+	case reservedForSubject && bookedBySubject:
+		return "Fahrer und Buchender"
+	case reservedForSubject:
+		return "Fahrer"
+	case bookedBySubject:
+		return "Buchender"
+	default:
+		return ""
+	}
 }
 
 func derefDateTimeOrEmpty(t *time.Time) string {
