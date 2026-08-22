@@ -2750,7 +2750,7 @@ Frühere Läufe liegen vollständig im Archiv:
     als Aufgabe in den Notes der neuen Kalender-Unit, nicht hier vorweggenommen.
 
 ## Iteration 44 — scan-gateway-sql-error-leakage — done — 2026-08-22 06:42
-- commit: (folgt im gleichen Commit wie dieser Journal-Eintrag)
+- commit: 046630fa
 - gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Alle 75 `route_*.go`
   auf Fehlertexte in der HTTP-Antwort geprueft: `err.Error()`/`%v`/`%s` mit err-Argument in
   `response.Error(...)`, direktes `http.Error`, `w.Write([]byte(err...`, `fmt.Fprintf(w...err`,
