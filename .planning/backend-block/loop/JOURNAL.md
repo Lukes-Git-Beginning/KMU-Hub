@@ -2289,7 +2289,7 @@ Frühere Läufe liegen vollständig im Archiv:
     FK beim Anlegen fehl — siehe notes der neuen Fix-Unit.
 
 ## Iteration 37 — fix-idempotency-real-sql-coverage-core — done — 2026-08-22 05:55
-- commit: (siehe naechster docs-Commit)
+- commit: 6507e475
 - gebaut: `internal/idempotency/postgres_repository_db_test.go` (neu) testet
   `postgresRepository` (Reserve, Get, Complete) gegen echtes SQL statt gegen
   den In-Memory-Mock aus `repository_test.go`: frische Reservierung,
