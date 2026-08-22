@@ -4962,7 +4962,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 84 — fix-erasure-handlers-not-idempotent-on-second-run — done — 2026-08-22 11:24
-- commit: <sha>
+- commit: 9060cef0
 - gebaut: Alle fuenf nicht doppellauf-festen Erasure-Handler in
   `backend/internal/security/gdpr/erasure.go` gefixt. Zwei Guard-Muster, pro Handler einzeln
   entschieden statt pauschal:
