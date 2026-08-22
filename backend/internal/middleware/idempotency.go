@@ -218,8 +218,14 @@ func (c *capturingResponseWriter) Write(b []byte) (int, error) {
 	return c.ResponseWriter.Write(b)
 }
 
-// idempotencyCleanupLockKey is a stable int64 used as the pg_try_advisory_xact_lock key
+// idempotencyCleanupLockKey is a stable int64 used as the pg_try_advisory_lock key
 // so only one replica runs the cleanup per hour. Value is arbitrary but must be constant.
+//
+// Session-level, NOT pg_try_advisory_xact_lock -- this comment claimed the latter
+// until 2026-08-22 and the difference matters: a transaction lock releases itself at
+// COMMIT, a session lock belongs to its connection and has to be released on that
+// same connection. CleanupWithLock did not, and the lock leaked; see the comment
+// there.
 const idempotencyCleanupLockKey int64 = 0x49444D50 // "IDMP" in ASCII
 
 // cleanupCtx returns the ctx the cleanup worker uses for repo calls. Wrapped

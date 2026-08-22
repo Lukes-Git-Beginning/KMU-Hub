@@ -1,4 +1,4 @@
-# Projekt-Status-Snapshot — Cosmi/Zentria CRM (Stand: 2026-08-12)
+# Projekt-Status-Snapshot — Cosmi/Zentria CRM (Stand: 2026-08-22)
 
 > Deskriptiver Ist-Stand. **Keine** Empfehlungen, keine Priorisierung — reine Lagebeschreibung.
 > Die Zahlen sind am 2026-08-11 selbst gemessen und am 2026-08-12 um Lauf 9 fortgeschrieben — nicht
@@ -46,6 +46,26 @@ kaputte Verhalten festgenagelt hatten, sind allesamt **umgedreht statt gelöscht
 jetzt das korrekte Verhalten. Migrationen stehen dadurch auf **313** (311 `DEFERRABLE`-Unique für
 den Schichttausch, 312+313 Tenant-Verbreiterung dreier Notification-Unique-Indexe).
 
+**Nachtlauf 10 (22.08., 00:18–12:43) ist gemergt** (`f87ffdcf`) **und deployt.** 92 Iterationen,
+91 `done`, 2 `blocked` (beides Rechercheergebnisse: DATEV-Kodierung ohne zitierbare Primärquelle,
+Buchungsseiten-Erasure als Produktentscheidung — inzwischen entschieden: deaktivieren). Der Lauf hat
+die **DSGVO-Mechanik aus Gate 3** gebaut: die Auskunft kennt zwölf Datenbereiche mehr, acht
+Erasure-Handler sind korrigiert oder neu und **alle doppellauf-fest**, und die seit Migration 000233
+existierenden `retention_policies` werden zum ersten Mal von einer Engine ausgeführt — im auth-Service,
+Default `dry_run`, erster Produktionslauf am 22.08. 11:52 UTC bestätigt. Dazu Gateway-Härtung
+(Fehler-Leakage in drei Integrationsrouten, CSV-Formel-Injection in sechs Exporten, fünf Delete-Pfade,
+die mit `foreign_key_violation` abstürzten) und 21 Routen-Testsuiten. Coverage 60,0 → **62,7 %**,
+`internal/gateway` 46,1 → **54,1 %**. Migrationen **314 → 322**.
+
+**Das CI-Signal dieses Laufs war der eigentliche Fund.** Der erste Lauf über die 183 Commits war rot:
+ein Advisory-Lock-Leak, den der bestehende Idempotency-Cleanup und der *neu gebaute*
+Retention-Scheduler teilten — der Lock wurde über den Pool genommen und über den Pool freigegeben,
+also auf einer anderen Verbindung, wo das Unlock wirkungslos ist. Beide Worker wären nach dem ersten
+Tick dauerhaft eingeschlafen, ohne eine Zeile Fehlerausgabe. Zwei Lehren, die über diesen Fall
+hinausgehen: ein DB-Test, der lokal grün ist, weil der Pool nur eine warme Verbindung hatte, beweist
+nichts — und wer ein vorhandenes Muster als Vorlage kopiert, kopiert seine Fehler mit. Behoben in
+`778a2e44`, in Produktion gegengeprüft (null hängende Advisory Locks).
+
 Was die Scans über den Zustand des Codes sagen, ist mindestens so wertvoll wie die Fixes: Muster A
 (ON-CONFLICT-Ziel vs. echter Index) ergab über 41 Klauseln in 29 Dateien **null** Funde, Muster B
 (INSERT ohne `tenant_id`) über 26 Zielpakete genau **einen**. Die Fehlerdichte konzentriert sich
@@ -65,25 +85,27 @@ ist einer der 13 Posten, gekoppelt an die UG-Gründung, und liegt in Etappe 4.
 | Bereich | Wert | Δ zum 06.08. | Messung |
 |---|---|---|---|
 | Services | **24** (23 µSvc + Gateway) | — | `ls backend/cmd/` |
-| Go-Dateien | 1.709, davon **711 Test-Dateien** | +214 / +208 | `find backend -name "*.go"` |
-| gRPC-RPCs | **1.154** über 32 `.proto` | +20 | `grep -cE "^\s*rpc\s+"` |
-| REST | **836 OpenAPI-Pfade** / 1.192 Operationen | +15 / +21 | `grep -cE "^  /"` in `openapi.yaml` |
-| Route-Dateien | 87 Quell-`route_*.go` (+71 Testdateien) | Zählmethode korrigiert¹ | `ls internal/gateway/` |
-| Migrationen | Kopf **313**, 282 `.up.sql` | +16 / +16 | Lücken durch Reverts/Renumber |
-| **Prod-Migrationskopf** | **310, `dirty=false`** | +13 | `psql -U kmuhub -d kmuhub` über SSH |
+| Go-Dateien | 1.774, davon **765 Test-Dateien** | +65 / +54 | `find backend -name "*.go"` |
+| gRPC-RPCs | **1.156** über 32 `.proto` | +2 | `grep -cE "^\s*rpc\s+"` |
+| REST | **838 OpenAPI-Pfade** | +2 | `grep -cE "^  /"` in `openapi.yaml` |
+| Route-Dateien | **75 Quell-`route_*.go` + 106 Testdateien** | Zählmethode erneut geschärft¹ | `ls internal/gateway/` |
+| Migrationen | Kopf **322**, 291 `.up.sql` | +9 / +9 | Lücken durch Reverts/Renumber |
+| **Prod-Migrationskopf** | **322, `dirty=false`** — Repo = Prod | +12 | `psql -U kmuhub -d kmuhub` über SSH |
 | Prod-Container | 36 laufend, **30 healthy, 0 unhealthy** | +1 / — | `docker ps` |
-| Test-Coverage | **60,0 %** gesamt (Gate 15 %) | **+29,8 pp** | CI-Lauf 31471247645 |
+| Test-Coverage | **62,7 %** gesamt (Gate 15 %) | **+2,7 pp** | CI-Lauf 32570176303 |
 | Feature-Flags | **17** (16 default OFF, 1 ON) | — | Registry |
 | RLS-Lücken | **0** (`knownRLSGaps` leer) | — | `testutil/rls_regression_test.go` |
 | Frontend | **34 Module**, 81 API-Hook-Dateien (993 Hooks), 1.234 TS/TSX | +3 TS/TSX | |
 | i18n | **12.072 Keys × 4 Sprachen, Parität vollständig** | fr/it +34, BOM weg | `locale-parity.test.ts` |
-| Loop-Backlog | **0 todo**, 37 done, 0 blocked | 21 todo abgearbeitet | `backend-block/loop/BACKLOG.yml` |
+| Loop-Backlog | **leer** (Lauf 10: 91 done, 2 blocked, archiviert) | 93 Units abgearbeitet | `backend-block/loop/BACKLOG.yml` |
 
-¹ Die alte Zahl „127 `route_*.go`" zählte Testdateien mit. Getrennt sind es **87 Quelldateien**,
-davon **29 ohne eigene Testdatei** — die größten `route_email.go` (1.612 LOC) und
-`route_settings.go` (1.029 LOC).
+¹ 181 `route_*.go` insgesamt, davon 106 Testdateien → **75 Quelldateien**. Die Zuordnung ist nicht
+1:1: `route_email.go` hat keine gleichnamige Testdatei, wird aber von sieben `route_email_*_test.go`
+abgedeckt. Nach Präfix gemessen bleiben **drei** Quelldateien ohne jede eigene Testdatei —
+`route_health.go` (67 LOC), `route_registrar.go` (20) und `route_biz_time_entries.go` (80, im
+Nachbartest `route_biz_open_items_test.go` mit abgedeckt). Vor Lauf 10 waren es 29.
 
-### Coverage nach Paket (CI-Lauf 31471247645, gesamt 60,0 %)
+### Coverage nach Paket (CI-Lauf 32570176303, gesamt 62,7 %)
 
 | Paket | Coverage | | Paket | Coverage |
 |---|---:|---|---|---:|
@@ -97,7 +119,7 @@ davon **29 ohne eigene Testdatei** — die größten `route_email.go` (1.612 LOC
 | `internal/email` | 59,7 % | | `internal/work` | 50,3 % |
 | `internal/fuhrpark` | 54,5 % | | `internal/caldav` | 54,2 % |
 | `internal/wiki` / `formulare` | 53,5 % | | `internal/vermietung` | 48,2 % |
-| **`internal/gateway`** | **46,0 %** | | `internal/database` | 44,3 % |
+| **`internal/gateway`** | **54,1 %** (war 46,1) | | `internal/database` | 44,3 % |
 | `internal/testutil` | 15,6 % | | `internal/idempotency` | **0,0 %** |
 
 `internal/gateway` ist damit das schwächste Kernpaket. `internal/idempotency` mit 0,0 % ist der

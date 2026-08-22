@@ -1,13 +1,13 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-08-12
+updated: 2026-08-22
 ---
 # Datenbank
 
-## Aktueller Stand (2026-08-12, gegen Production verifiziert)
+## Aktueller Stand (2026-08-22, gegen Production verifiziert)
 
-**Repo-Kopf = lokaler Kopf = Produktionskopf = `313`, `dirty=false`.** Nächste freie Nummer ist
-`314` — aber immer zur Laufzeit ermitteln, nicht aus dieser Note ableiten:
+**Repo-Kopf = lokaler Kopf = Produktionskopf = `322`, `dirty=false`.** Nächste freie Nummer ist
+`323` — aber immer zur Laufzeit ermitteln, nicht aus dieser Note ableiten:
 
 ```bash
 ls backend/migrations | grep -E '^[0-9]{6}' | sort | tail -1
@@ -45,6 +45,43 @@ Schreibpfad: nennt der Code ein `ON CONFLICT`-Ziel, validiert Postgres den Index
 Fehler erst als 23505 im Cross-Tenant-Fall, weil der tenant-gescopte Vorab-Check die fremde Zeile
 nicht sieht (so bei `notification_mutes`). Der Scan aus Lauf 9 hat die restliche Fläche abgesucht:
 41 `ON CONFLICT`-Klauseln in 29 Dateien, **null** weitere Funde.
+
+**314 stammt aus der Lauf-10-Vorbereitung** (`contact_profile_fields`), **315–322 aus Nachtlauf 10**
+(gemergt als `f87ffdcf`, Prod-Deploy am 2026-08-22 mittags, `322|f` live verifiziert):
+
+- **`000315`** entzieht `kmuhub_app` UPDATE und DELETE auf `gobd_documents` und
+  `gobd_document_events`. Das Belegarchiv war seit 000139 als append-only *gedacht*, aber
+  `000121` erteilt der App-Rolle schema-weit alle vier Rechte plus passende
+  `ALTER DEFAULT PRIVILEGES` — jede künftige Query und jede SQL-Injection hätte ein archiviertes
+  Dokument überschreiben können. Der Go-Code kennt ohnehin nur Create/Get/List/AppendEvent.
+  ⚠ **Jede Migration, die eine neue `gobd_*`-Tabelle anlegt, muss den REVOKE wiederholen** —
+  die Default-Privileges aus 000121 vergeben die Rechte sonst automatisch wieder.
+  `TestGobdArchive_WormPrivileges_AllArchiveTables` scannt alle `gobd_%`-Tabellen und wird rot,
+  wenn eine davon UPDATE oder DELETE trägt.
+- **`000316`** legt `retention_runs` + `retention_run_items` an (beide `tenant_id NOT NULL` + RLS
+  via `enable_tenant_rls`). `retention_policies` existiert seit 000233, aber nichts hat je eine
+  ausgeführt — diese zwei Tabellen sind das Protokoll dessen, was eine Ausführung wirklich getan
+  hat. `status='unmapped'` an einem Item heißt: für diesen `resource_type` ist kein Handler
+  registriert, die Policy sieht in der Oberfläche erfüllt aus und löscht nichts.
+- **`000317`** `form_submissions.anonymized_at`.
+- **`000318`/`000321`** stellen `contacts.merged_into_id` und `companies.merged_into_id` von
+  `NO ACTION` auf `SET NULL`. Vorher fiel das Löschen des Primär-Kontakts eines abgeschlossenen
+  Merges nicht mit sauberem 409 durch, sondern mit einem unbehandelten FK-Fehler aus der DB.
+- **`000319`** `hr_work_time_entries.billed_at` + `invoice_id` samt Partial-Index auf die
+  unabgerechneten Einträge — vorher erzeugten zwei Aufrufe von `CreateInvoiceFromTimeEntries`
+  über dieselben Stunden zwei Rechnungen.
+- **`000320`** hängt `task_custom_field_values.field_id` von `custom_field_definitions` (CRM,
+  dessen `valid_entity_type`-CHECK 'task' gar nicht zulässt) auf `work_custom_field_definitions`
+  um. Seit 000146 war das Setzen eines Custom-Field-Werts an einer Aufgabe damit unmöglich —
+  jeder Schreibversuch lief in eine `foreign_key_violation`. Die Migration löscht vorhandene
+  Waisen; in Produktion war die Tabelle leer (vor dem Deploy geprüft).
+- **`000322`** ergänzt `gdpr_deletion_requests.original_contact_id` (UUID **ohne** FK) und stellt
+  `contact_id` von CASCADE auf SET NULL. Grund: Wird ein Kontakt mit abgeschlossenem Löschantrag
+  später hart gelöscht — manuell oder künftig durch den Retention-Worker — nahm die Kaskade den
+  Nachweis mit, dass eine Art.-17-Löschung durchgeführt wurde. Das ist ein Verlust der
+  Rechenschaftspflicht nach Art. 5(2), keine UI-Sackgasse. `000082` hatte SET NULL damals
+  ausdrücklich verworfen, weil der Antrag ohne Kontaktbezug nicht mehr zuordenbar sei; genau
+  dafür ist die neue Spalte da.
 
 Die vollständige, historisch gewachsene Migrations-Chronik steht unten im Überblick.
 

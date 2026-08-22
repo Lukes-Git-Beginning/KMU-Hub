@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-08-06
+updated: 2026-08-22
 ---
 # API-Referenz
 
@@ -19,7 +19,7 @@ updated: 2026-08-06
 | Domain | Praefix | Notizen |
 |--------|---------|---------|
 | Auth | `/api/v1/auth/…` | Login, Register, 2FA, Refresh, /auth/me, **forgot-password** (rate-limited/IP+email, kein User-Enumeration-Leak), **reset-password** (single-use SHA-256-Token, Refresh-Token-Revocation) |
-| CRM | `/api/v1/contacts`, `/companies`, `/deals` | Pipeline-Stages, Activities, Custom-Fields, Tags. **CSV/vCard-Import/Export scharfgeschaltet (2026-07-05, `e375b6e4`):** `contacts/import/{csv,vcard,preview}` + `export/{csv,vcard}` waren 501 Unimplemented — `SetImportExportServices` wurde nie in `cmd/crm/main.go` aufgerufen (Services waren fertig gebaut); zusätzlich FE-Client-Pfad-Bug (`/api/v1/crm/contacts/…` → `/api/v1/contacts/…`). E2E verifiziert (preview/import/export je 200). Import braucht `contacts:write` (member hat nur `:read`) |
+| CRM | `/api/v1/contacts`, `/companies`, `/deals` | Pipeline-Stages, Activities, Custom-Fields, Tags. **CSV/vCard-Import/Export scharfgeschaltet (2026-07-05, `e375b6e4`):** `contacts/import/{csv,vcard,preview}` + `export/{csv,vcard}` waren 501 Unimplemented — `SetImportExportServices` wurde nie in `cmd/crm/main.go` aufgerufen (Services waren fertig gebaut); zusätzlich FE-Client-Pfad-Bug (`/api/v1/crm/contacts/…` → `/api/v1/contacts/…`). E2E verifiziert (preview/import/export je 200). Import braucht `contacts:write` (member hat nur `:read`). **2026-08-22:** `GET /contacts/{id}/deletion-preview` (`contacts:read`) zeigt vor dem Bestaetigen, was eine Loeschung kaskadierend mitnimmt. |
 | CRM Extended | `/api/v1/contacts/…/consent`, `/…/duplicates` | Consent-Management, Duplicate Detection (pg_trgm) |
 | **Advisory Protocols** | `/api/v1/contacts/{id}/advisory-protocols`, `/api/v1/advisory-protocols/{id}` (+`/hand-over`, `/pdf`), `/api/v1/contacts/referral-report` | Beratungsprotokoll ZFA (2026-06-10, Migr. 000137): CRUD nur im Draft (410 nach Finalisierung), `POST /hand-over` setzt immutable (idempotent), PDF-Endpoint aktuell 501 (FE nutzt `window.print()`). RBAC `advisory-protocols:{read,write,delete}` — siehe [[datenbank]] |
 | **Settings/Module-Leads** | `/api/v1/tenant/module-leads…` (+`/me`), `/api/v1/settings/{module_id}` (+`/tenant`, `/user`) | 3-Ebenen-Scope (2026-06-10, Migr. 000138): `GET /settings/{module_id}` = serverseitig resolved (user > tenant), tenant-Writes nur Module-Lead/Admin (service-enforced), PUT mit Patch-Semantik `{"settings": {key: value}}`. RBAC `module-leads:{read,write}`, `settings:{read,write}` — siehe [[security]] |
@@ -36,7 +36,7 @@ updated: 2026-08-06
 | Inbox | `/api/v1/inbox` | Messages, Routing Rules, Teams (Unified Inbox) |
 | Automation | `/api/v1/automations` | Workflow CRUD, Execution Logs, Templates |
 | HR | `/api/v1/hr/employees`, `/hr/leave`, `/hr/absences` | Teilt "biz" gRPC-Server. **Seit 2026-06-11:** `POST /hr/employees` (CreateEmployee mit Schema-Defaults `97f30324`), FE↔BE-Shape via `adaptEmployee()` (camelCase, ContractType `intern`/`temporary`/`mini_job` statt `praktikum`/`freelance`, `67fd78b9`); hr_grpc komplett auf `middleware.GetTenantID(ctx)` (`6ff7989a`) |
-| Security | `/api/v1/security/…` | Audit Logs, 2FA, App-Passwords, GDPR Export/Erasure (seit 2026-06-10 echte Handler statt Stubs, siehe [[security]]) — teilt "auth" gRPC |
+| Security | `/api/v1/security/…` | Audit Logs, 2FA, App-Passwords, GDPR Export/Erasure (seit 2026-06-10 echte Handler statt Stubs, siehe [[security]]) — teilt "auth" gRPC. **Nachtlauf 10 (2026-08-22):** DSAR-Auskunft um 12 Module erweitert, Erasure-Handler doppellauf-fest; neu `GET /retention-runs/latest` (`RequireRole("admin")`) — letzter Lauf der Retention-Engine inkl. nicht zugeordneter `resource_type`-Werte. Der Scheduler selbst laeuft im **auth**-Service, Default `dry_run` |
 | Plugin | `/api/v1/plugins/…` | Manifests, Installations, Execution-Logs, Templates |
 | Global Search | `/api/v1/search` | Cross-Service (CRM + Dokumente), 500ms Timeout |
 | Guest Chat | `/api/v1/guest/…` | Public, kein Auth, eigene Session-Tokens |

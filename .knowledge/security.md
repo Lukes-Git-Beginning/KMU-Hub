@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-08-06
+updated: 2026-08-22
 ---
 # Security & Compliance
 
@@ -148,13 +148,67 @@ Seed-Risiko gekostet.
 - Error-Matching ueber `errors.Is(err, idempotency.ErrInFlight|ErrConflict|ErrKeyMissing)`. Welle 3.5 ersetzt String-Equality durch `errors.Is`, damit gewrappte Errors nicht fail-open durchrutschen. Reserve-Failure-Default ist absichtlich fail-open (`next.ServeHTTP` ohne Dedup) — DB-Outage darf keine Mutations blocken.
 - Async Complete laeuft in `goroutine` mit `context.WithoutCancel(r.Context())`, damit der Handler-Return nicht das Speichern abbricht (Welle-3.5-Fix: vorher Deadlock auf in-flight Connection bei kurzen Handler-Latenzen).
 - Speicher: Tabelle `idempotency_keys` (Migration 000105). PK `(tenant_id, key)` (Welle 3.5, Migration 000108) — Cross-Tenant-Cache-Replay-Schutz fuer HardMode. Tenant-scoped Index `(tenant_id, user_id, created_at DESC)`. TTL 24h via `expires_at`-Spalte.
-- Cleanup-Worker: `IdempotencyCleanupWorker` tickt 1h und ruft `repo.CleanupWithLock(ctx, key=0x49444D50)`. Welle 3.5 macht den Lock echt: `pg_try_advisory_xact_lock` fuer Leader-Election (analog `fuhrpark/worker.go`). Nur eine Replica delete-`WHERE expires_at < NOW()` pro Tick.
+- Cleanup-Worker: `IdempotencyCleanupWorker` tickt 1h und ruft `repo.CleanupWithLock(ctx, key=0x49444D50)` fuer Leader-Election — nur eine Replica delete-`WHERE expires_at < NOW()` pro Tick.
+  ⚠ **Korrektur 2026-08-22:** Diese Note behauptete hier `pg_try_advisory_xact_lock`. Der Code nutzt einen **Session-Level**-Lock (`pg_try_advisory_lock`), und genau daraus entstand ein Fehler, den CI-Run 32569420247 aufdeckte: Lock ueber den Pool genommen, ueber den Pool freigegeben — bei mehr als einer warmen Verbindung landet das Unlock auf einer Connection, die den Lock nie hielt, gibt still `false` zurueck, und der Lock ueberlebt. Jeder spaetere Tick findet ihn gehalten und ueberspringt: **der Worker laeuft einmal und dann nie wieder, ohne Fehlermeldung.** Seit `778a2e44` holen beide Fundstellen (hier und der Retention-Scheduler) eine dedizierte Verbindung und fahren Lock, Arbeit und Unlock darauf.
+  **Regel fuer jeden kuenftigen Worker:** Ein Session-Advisory-Lock gehoert der Verbindung. Entweder eine dedizierte Connection ueber den ganzen Vorgang halten, oder `pg_advisory_xact_lock` in einer Transaktion nehmen (gibt beim COMMIT automatisch frei) — aber nie ueber den Pool nehmen und ueber den Pool freigeben. Ein DB-Test dazu ist nur aussagekraeftig, wenn er vorher eine zweite Verbindung festhaelt; mit nur einer warmen Connection raeumt die fehlerhafte Variante zufaellig hinter sich auf und der Test ist gruen.
+- **In-Flight ist seit Nachtlauf 10 wirklich scharf** (`a12c6a02`): Der Verlierer eines gleichzeitigen `Reserve` bekommt `ErrInFlight` statt durchzulaufen. Praktische Folge, die vorher niemand sah: Ein Request, dessen erster Versuch abstuerzte, **bevor** `Complete` lief, bekommt beim Retry mit demselben Key 409 — bis der Key nach `expires_at` verfaellt. Das ist die oben dokumentierte Semantik und die Voraussetzung dafuer, dass der Schluessel Doppelbuchungen ueberhaupt verhindert.
 - Modus-Toggle: `middleware.WarnMode` vs `middleware.HardMode` ueber Env-Var `IDEMPOTENCY_MODE` (Welle 4B, Default `warn`). WarnMode loggt `slog.Warn("idempotency_key_missing", ...)` und gibt der Mutation den freien Lauf. HardMode rejectet 400 Bad Request bei fehlendem Header. **Dev-Default ist Hard** via `deploy/docker/docker-compose.yml` (`IDEMPOTENCY_MODE=hard` im Gateway-Environment) — fuer Production bleibt `IDEMPOTENCY_MODE` unset → WarnMode default. Prod-Cutover ist Sprint-3-Aktion nach Pilot-1.
 
 ### Welle 4B Update (2026-05-07): `Complete()` Composite-PK-Fix
 - **Problem:** Bis Welle 4B hatte `idempotency.PostgresRepository.Complete(ctx, key, status, body)` nur `WHERE key = $1` — kein tenant_id-Filter im UPDATE-Pfad. Composite-PK aus 000108 war damit nur halb wirksam: Get/Reserve waren sicher, Complete konnte cross-tenant ueberschreiben.
 - **Fix:** Neue Sig `Complete(ctx, tenantID, key, status, body)` mit `WHERE tenant_id = $1 AND key = $2`. Middleware-Caller extrahiert tenantID aus Context. Migration 000113 fuegt einen partial Index `idx_idempotency_keys_tenant_completed (tenant_id, key, completed_at) WHERE completed_at IS NULL` fuer Replay-Detection-Performance hinzu.
 - **Tests:** 4 neue Cases — `TestComplete_TenantFilter`, `TestGet_TenantIsolation`, `TestHardMode_MissingKey_Returns400`, `TestHardMode_CrossTenantKeyRejected`.
+
+## DSGVO-Mechanik: Auskunft, Loeschung, Aufbewahrung (Nachtlauf 10, 2026-08-22)
+
+Der Lauf hat die drei Saeulen von Gate 3 gebaut ("eine Auskunfts- und eine Loeschanfrage sind
+vollstaendig ueber die Oberflaeche bedienbar"). Stand nach `f87ffdcf`:
+
+**Auskunft (Art. 15) — `internal/security/gdpr/dsar_search.go`.** 12 neue Module: Formulare,
+verknuepfte Dokumente, Helpdesk-Konversationen, Chat-Verlauf + Kanal-Mitgliedschaften, Aufgaben +
+Kommentare + Zeiterfassung, Kalender + Benachrichtigungen, HR-Profil/-Dokumente/-Aenderungsantraege,
+Sitzungshistorie + Kontosicherheit, Fuhrpark (Fuehrerschein, Fahrzeugbuchungen), Einladungshistorie,
+HR-Urlaub + Arbeitszeit inkl. Korrekturhistorie.
+⚠ **RLS-Falle, real passiert:** `DSARSearch` (`security_grpc.go`) laeuft im normalen Anfrage-Kontext
+ohne HR-Rolle. Traegt eine Tabelle statt reiner `tenant_isolation` eine rollenbasierte Policy (wie
+`hr_employee_documents` mit `hr_document_access`, Migr. 000127), laeuft die DSAR-Query **lautlos
+leer** — kein Fehler, nur keine Daten. Loesung ist `sysctx.With(ctx)` an der Stelle, mit
+Mutations-Probe als Beleg. Vor jedem neuen Modul `\d <tabelle>` pruefen, nicht annehmen.
+**Bekannte Luecke:** Eine nie angenommene Einladung (`accepted_at IS NULL`) hat weder `users`- noch
+`contacts`-Zeile, an die `SearchByQuery` sie haengen koennte — Name, E-Mail und Rolle stehen in
+`invitations`, sind aber nicht auffindbar. Braucht eine dritte Subjekt-Matching-Quelle, offen.
+
+**Loeschung (Art. 17) — `internal/security/gdpr/erasure.go` + Handler je Domaene.** Acht Handler
+korrigiert oder neu (Auth-Token/App-Passwoerter, Chat-Lesezeichen + Mentions, Projekt-
+Mitgliedschaften, Nutzereinstellungen, Kalender + Push-Subscriptions, CRM-Aktivitaeten/Consent/
+Ticket-Requester). **Alle Handler sind doppellauf-fest** — ein zweiter Lauf zaehlt nicht erneut und
+faellt nicht um. `PreviewErasure` und `ExecuteErasure` zaehlen dieselben Mengen (vorher wich die
+Vorschau ab, was den Nutzer ueber den Umfang taeuschte).
+**Aufbewahrungs-Konflikt, bewusst aufgeloest:** Zeiteintraege innerhalb des ArbZG-Fensters werden
+NICHT geloescht. Die 730-Tage-Frist ist eine konservative Ableitung aus § 16 Abs. 2 ArbZG, keine
+konfigurierte Zahl — noch zu bestaetigen.
+**Offene Produktentscheidung, umgesetzt in Lauf 11:** Eine oeffentliche Buchungsseite, deren
+Kalender-Eigentuemer geloescht wurde, bleibt heute aktiv und nimmt weiter Kundentermine an.
+Entscheidung vom 2026-08-22: **deaktivieren** (`active = false`), und `PreviewErasure` weist sie als
+eigenen Posten aus.
+
+**Aufbewahrung (Art. 5(1)(e)) — Retention-Engine + Scheduler.** `retention_policies` gibt es seit
+Migr. 000233, ausgefuehrt hat sie nie jemand. Jetzt: Engine (`retention.go`), acht Handler
+(contacts, dialer_call_sessions, messages, tickets, form_submissions, tasks, calendar_events,
+notifications) und ein Scheduler im **auth**-Service (`cmd/auth/main.go`), der 1 min nach Start und
+dann alle 24 h laeuft. Protokoll in `retention_runs`/`retention_run_items` (Migr. 000316).
+- **Modus: `RETENTION_MODE`, Default `dry_run`.** Bewusst `os.Getenv`, **nicht** `config.RequireX`:
+  ein fehlender oder vertippter Wert degradiert auf den sicheren Modus, statt den Start zu
+  verhindern. Produktion laeuft auf `dry_run` — erster Lauf am 2026-08-22 11:52 UTC bestaetigt
+  (`mode=dry_run`, 0 Policies, `triggered_by=schedule`). Scharfstellen ist eine eigene Entscheidung.
+- **`status='unmapped'`** an einem Run-Item heisst: fuer diesen `resource_type` ist kein Handler
+  registriert. Die Policy sieht in der Oberflaeche erfuellt aus und loescht nichts — deshalb muss
+  der Zustand sichtbar bleiben statt still zu verschwinden.
+- Leader-Election ueber Advisory Lock, siehe die Warnung im Idempotency-Abschnitt oben.
+
+**Belegarchiv-Unveraenderbarkeit (§ 147 AO):** Migr. 000315 entzieht `kmuhub_app` UPDATE und DELETE
+auf beide `gobd_*`-Tabellen — in Produktion gegengeprueft (`permission denied`). Details und die
+Pflicht, den REVOKE bei jeder neuen `gobd_*`-Tabelle zu wiederholen: [[datenbank]].
 
 ## Pre-Recording-Consent (2026-04-28, Sprint 2 Welle 3, R2-P0.4 — gehaertet in Welle 3.5)
 
