@@ -138,9 +138,14 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 	return records, total, rows.Err()
 }
 
+// UpdateStatus sets the status and, when sentAt is non-nil, the sent_at
+// timestamp. A nil sentAt leaves the column unchanged rather than clearing
+// it — callers pass nil for status transitions that are not "the notice was
+// just sent" (e.g. an admin override back to draft), and overwriting sent_at
+// with NULL in that case would silently erase the historical send timestamp.
 func (r *PostgresRepository) UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string, sentAt *time.Time) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE finance_dunning_records SET status = $1, sent_at = $2
+		`UPDATE finance_dunning_records SET status = $1, sent_at = COALESCE($2, sent_at)
 		WHERE tenant_id = $3 AND id = $4`,
 		status, sentAt, tenantID, id,
 	)

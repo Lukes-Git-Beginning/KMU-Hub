@@ -1039,3 +1039,49 @@ Frühere Läufe liegen vollständig im Archiv:
   Mutations-Proben auf demselben Muster: ein WHERE-Praedikat mit unreferenziertem `$N`-Platzhalter
   kann `go test` unter pgx haengen lassen statt sauber zu fehlern — lieber das Praedikat
   bedingungslos wahr machen (`$N::uuid IS NOT NULL OR true`) als den Platzhalter ganz zu entfernen.
+
+## Iteration 19 — cov-dunning-repository-core-real-sql — done — 2026-08-23 01:05
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: `internal/biz/dunning` hatte wie `payment` (vor Lauf 11) keinen einzigen DB-Test. Neue
+  ungetaggte `postgres_repository_db_test.go` deckt Create/GetByID (Decimal-Roundtrip fuer fee und
+  interest ADR-0007, Fremdtenant -> ErrDunningNotFound), List mit Filter+Paginierung (Status-Filter,
+  Level-Filter, InvoiceID-Filter, jeweils mit Limit kleiner als Treffermenge — Gesamtzaehler bleibt
+  vom LIMIT unberuehrt, tenant-scope) und UpdateStatus. Beim Bauen der UpdateStatus-Tests einen
+  echten Produktionsbug gefunden und in derselben Unit behoben (Block B ist laut BACKLOG.yml-Kopf
+  ausdruecklich Bug-Suche, kein reines Coverage-Schneiden, und der Fix beruehrt keine der
+  Unverhandelbaren Grenzen — kein Guard, keine Route, keine Migration): `UpdateStatus` setzte
+  `sent_at = $2` bedingungslos. `service_gobd.go:UpdateDunningStatus` (Admin-Override, z. B.
+  Ruecknahme von "sent" auf "draft") ruft `repo.UpdateStatus(..., sentAt)` mit `sentAt = nil` fuer
+  jeden Uebergang ausser dem tatsaechlichen Versand — genau der im Scope beschriebene Fall
+  "sentAt = nil muss die Spalte unveraendert lassen". Vorher wurde bei jeder Korrektur (z. B.
+  faelschlich auf "sent" gesetzt, dann zurueckgenommen) der historische Versandzeitstempel
+  stillschweigend auf NULL gesetzt — der GoBD-relevante Beleg, wann eine Mahnung wirklich verschickt
+  wurde, ging verloren. Fix: `sent_at = COALESCE($2, sent_at)`. Beide Aufrufer (service.go:343 mit
+  immer gesetztem `&now`, service_gobd.go:50 mit dem beschriebenen nil-Fall) bleiben unveraendert
+  kompatibel.
+- gate: build ok (`./internal/biz/dunning/...`) | vet ok | lint ok (0 issues) |
+  test ok (`go test -count=1 ./internal/biz/dunning/...`, alle Subpakete gruen, 0 SKIP) |
+  migration n.a. (keine Schema-Aenderung) | rls-smoke n.a. formal (keine neue Tabelle/Policy),
+  inhaltlich durch `TestPostgresRepository_GetByID_CrossTenant_ReturnsNotFound`,
+  `TestPostgresRepository_List_TenantScoped` und
+  `TestPostgresRepository_UpdateStatus_CrossTenant_ZeroRowsAffected` erbracht
+- coverage: internal/biz/dunning 65,1 % -> 81,0 % (eigens gemessen: Vorher-Wert per
+  `git stash push -u -- postgres_repository.go postgres_repository_db_test.go` +
+  `go test -coverprofile` auf dem dadurch wiederhergestellten Vor-Unit-Stand, danach
+  `git stash pop`; coverage_start aus dem Backlog nennt 61,8 % CI-Stand 32570176303 — die Differenz
+  zum selbst gemessenen 65,1 % ist die kumulierte Bewegung durch die uebrigen Block-A/B-Units seit
+  diesem CI-Lauf, siehe Regel aus Lauf 8 zu coverage_start als reine Plausibilitaetskontrolle)
+- mutations-probe: `COALESCE($2, sent_at)` zurueck auf reines `sent_at = $2` gesetzt ->
+  `TestPostgresRepository_UpdateStatus_SentAtNil_LeavesColumnUnchanged` sofort ROT ("Expected value
+  not to be nil"). Zurueckgedreht, `git diff --stat` auf `postgres_repository.go` zeigt danach nur
+  die beabsichtigte Fix-Zeile (Kommentar + COALESCE), keinen Rest der Mutation.
+- verify vorgaenger: sauber — `76b41d02` (Iteration 18) aendert laut `git show --stat` ausschliesslich
+  eine neue Testdatei (`internal/biz/payment/postgres_repository_db_test.go`, 226 Zeilen) sowie
+  JOURNAL.md/BACKLOG.yml. Keine Produktionslogik beruehrt, keine der acht Fehlerklassen einschlaegig.
+- neue-units: keine
+- offen: Der gefundene Bug (`sent_at`-Verlust bei Admin-Override) ist in dieser Unit selbst behoben,
+  nicht nur dokumentiert — siehe Begruendung oben (Block-B-Mandat, keine Unverhandelbare Grenze
+  beruehrt). `GetByInvoiceID`/`GetByInvoiceIDs`/`GetHighestLevelByInvoiceID` bleiben laut Scope fuer
+  `cov-dunning-repository-invoice-lookups-real-sql` (naechste in der Block-B-Reihe, deps auf diese
+  Unit) offen — inklusive der dort explizit genannten Gleichstand-Frage bei
+  `GetHighestLevelByInvoiceID`.
