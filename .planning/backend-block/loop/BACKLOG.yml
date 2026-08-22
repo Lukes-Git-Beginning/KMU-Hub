@@ -871,7 +871,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/settings 60,3 % (Run 32508843776)"
     scope: >
       `route_settings.go` ist mit 1.029 Zeilen und 28 Funktionen die zweitgroesste ungetestete

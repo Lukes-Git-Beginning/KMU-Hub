@@ -1252,3 +1252,64 @@ Frühere Läufe liegen vollständig im Archiv:
   - Der Double-Billing-Fund ist ausschließlich im Header der neuen Testdatei und in der neuen
     Backlog-Unit dokumentiert, nicht anderswo — nichts an dieser Iteration selbst ändert
     Produktionsverhalten.
+
+## Iteration 22 — cov-gateway-settings-module-leads-grants — done — 2026-08-22 03:56
+- commit: -
+- gebaut: PRAEMISSE DES UNIT-ENTWURFS WIDERLEGT, statt sie ungeprueft nachzubauen: die Datei
+  `route_settings.go` hat entgegen Befund 5 im Backlog-Kopf ("23 von 75 route_*.go ohne eigene
+  Testdatei", route_settings.go als Beispiel genannt) bereits DREI Testdateien
+  (`route_settings_module_access_test.go`, `route_settings_license_test.go`,
+  `route_settings_preferences_test.go`), alle aus Commit `5fc601af` vom 2026-08-11 — vor Beginn
+  dieses Laufs, auf `main`. Der Modul-/Grant-Teil dieser Unit (`HandleListModuleLeads` bis
+  `HandleBulkRevokeModuleAccess`, Zeilen 121-444) ist darin bereits mit 8 Funktionstests
+  abgedeckt: Service-Unavailable, fehlender Tenant/Caller, ungueltige UUID, fehlende
+  `module_id`, ReachesRPC — je Handler. Eigene Coverage-Messung vor jeder Aenderung
+  (`go tool cover -func`) bestaetigt 76-100 % fuer alle acht Handler; nur die reine
+  Marshaling-Funktion `toUserModuleGrantJSON` lag bei 0,0 %, weil kein Test in diesem Paket je
+  ueber die RPC-Schicht hinauskommt (kein bufconn-/Fake-Client-Harness fuer
+  `SettingsServiceClient`, dieselbe dokumentierte Infrastrukturgrenze wie in den Iterationen
+  15-21 fuer andere Clients). Genau diese eine Luecke geschlossen: zwei neue isolierte Tests
+  fuer `toUserModuleGrantJSON` (RFC3339-Formatierung von `GrantedAt`, `LastActiveAt` nil vs.
+  gesetzt — ein nie aktiver, frisch eingeladener Nutzer darf keine erfundene "zuletzt aktiv"-Zeit
+  bekommen). Die beiden anderen done_when-Kriterien sind ueber Bestehendes erfuellt, nicht neu
+  gebaut: Permission-Seed fuer `module-leads`/`module-grants` existiert bereits
+  (`000221_seed_module_grants_permissions.up.sql`); der Rechteausweitungs-Test ("Benutzer gibt
+  sich selbst ein fehlendes Recht") ist generisch am Guard-Mechanismus selbst abgedeckt
+  (`internal/middleware/rbac_test.go:TestRequirePermission`), nicht pro Route dupliziert — ein
+  Route-Handler-Test kann das ohnehin nicht pruefen, weil `RequirePermission` als
+  Router-Middleware (`chi.Router.With(...)`) VOR dem Handler sitzt, nicht im Handler selbst; die
+  bestehenden Tests rufen die Handler-Methoden direkt auf und liefen nie durch die Middleware.
+- gate: build ok (`-p 2` ueber gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) |
+  test ok (ganzes `internal/gateway` gruen, `internal/settings` gruen, DATABASE_URL gegen
+  kmuhub_app; kein neuer Guard, keine neue Route, `TestOpenAPIRouteDrift` unveraendert im
+  Gesamtlauf mitgelaufen)
+- coverage: internal/gateway 48,3 % -> 48,4 % (eigene Messung: vor/nach genau der beiden neuen
+  Testfaelle im selben Arbeitsbaum; `route_settings.go`-Funktionsdeckung fuer den Modul-/
+  Grant-Teil lag schon bei 76-100 %, `toUserModuleGrantJSON` ging von 0,0 % auf 100 %)
+- mutations-probe: `if g.LastActiveAt != nil` in `toUserModuleGrantJSON` auf `if true` gesetzt ->
+  `TestToUserModuleGrantJSON_NilLastActiveAt` wird rot (LastActiveAt-Pointer gesetzt statt nil).
+  Zurueckgedreht -> gruen, `git diff --stat` zeigt fuer `route_settings.go` keinen Rest (0
+  Zeilen Diff), nur die Testdatei und die Backlog-Statuszeile geaendert.
+- verify vorgaenger: sauber. `68e59ffe` (Iteration 21, Time-Entry-Ext-Route-Tests) gegen alle
+  acht Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`, `JOURNAL.md` und eine
+  neue reine Testdatei. `grep -n "client\.\|Unimplemented\|TODO\|t.Skip"` auf der neuen Testdatei
+  liefert null Treffer, kein gRPC-Bypass, kein `.proto` angefasst, keine neue
+  `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt, keine
+  neue Route. Die im Journal genannte neue Unit `fix-biz-time-entry-invoice-double-billing`
+  steht tatsaechlich in `BACKLOG.yml` (Zeile 1787).
+- neue-units: keine
+- offen:
+  - BEFUND FUER DEN LAUFKOPF: Befund 5 ("23 von 75 route_*.go ohne Testdatei, groesste
+    UNGETESTETE route_settings.go") stimmt fuer `route_settings.go` nicht mehr — die Datei hat
+    seit 2026-08-11 (vor diesem Lauf) drei Testdateien. Die verbleibenden zwei Backlog-Units zu
+    dieser Datei (`cov-gateway-settings-branding-tenant-user`,
+    `cov-gateway-settings-license-subscription-verify`) muessen deshalb VOR dem Bauen erst ihre
+    eigene Ist-Abdeckung messen (das fordern ihre `notes:` ohnehin schon so) — nach Stichprobe
+    mit `go tool cover -func` sind `HandleGetBranding`, `HandlePutBranding`,
+    `HandleGetTenantSettings`, `HandlePutTenantSettings`, `HandleGetResolvedSettings`,
+    `HandleGetUserSettings`, `HandlePutUserSettings`, `HandleGetTenantLicense`,
+    `HandleSetTenantModuleActive`, `HandleGetTenantSubscription` weiterhin bei 0,0 % (nur
+    `toTenantModuleJSON`/`moduleAvailable` sind ueber den License-Test bei 100 %) — fuer diese
+    beiden Folge-Units bleibt also echte Arbeit, nur eben kleiner als der urspruengliche
+    28-Funktionen-Umfang suggeriert.
+  - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).
