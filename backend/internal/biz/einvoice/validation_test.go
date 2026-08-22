@@ -281,6 +281,42 @@ func TestValidate_RejectsUnsupportedCountry(t *testing.T) {
 }
 
 // ============================================================================
+// BR-CO-9 (VAT identifier country prefix)
+// ============================================================================
+
+func TestValidate_RejectsSellerVATIdentifierWithBadCountryPrefix(t *testing.T) {
+	t.Parallel()
+
+	settings := testSettings()
+
+	settings.UStIDNr = "123456789" // no country prefix at all
+	err := Validate(testInvoice(t), settings, "", ProfileEN16931)
+	assert.Equal(t, []string{"BT-31"}, violationTerms(t, err))
+	assert.Contains(t, err.Error(), "BR-CO-9")
+
+	settings.UStIDNr = "FR12345678901" // a real ISO 3166-1 code, but outside the DACH whitelist
+	err = Validate(testInvoice(t), settings, "", ProfileEN16931)
+	assert.Equal(t, []string{"BT-31"}, violationTerms(t, err))
+
+	settings.UStIDNr = "DE123456789"
+	assert.NoError(t, Validate(testInvoice(t), settings, "", ProfileEN16931))
+}
+
+func TestValidate_RejectsBuyerVATIdentifierWithBadCountryPrefix(t *testing.T) {
+	t.Parallel()
+
+	inv := testInvoice(t)
+
+	inv.CustomerUStIDNr = "987654321"
+	err := Validate(inv, testSettings(), "", ProfileEN16931)
+	assert.Equal(t, []string{"BT-48"}, violationTerms(t, err))
+	assert.Contains(t, err.Error(), "BR-CO-9")
+
+	inv.CustomerUStIDNr = "ATU12345678"
+	assert.NoError(t, Validate(inv, testSettings(), "", ProfileEN16931))
+}
+
+// ============================================================================
 // BT-32 fallback
 // ============================================================================
 

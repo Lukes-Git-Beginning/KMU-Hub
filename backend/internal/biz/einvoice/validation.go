@@ -174,6 +174,19 @@ func validateInvoiceDoc(doc *invoiceDoc, profile Profile) error {
 		add("BR-AE-02", "BT-48", "reverse charge requires the customer VAT identifier")
 	}
 
+	// BR-CO-9: whichever VAT identifier is present has to open with a valid
+	// country code prefix — the most common data-entry mistake on this field
+	// (a stray digit, a missing prefix), and one a receiver's validator catches
+	// immediately. Reuses allowedCountries (BR-CL-14) rather than a second list:
+	// the VAT prefix alphabet is not identical to ISO 3166-1 in general (Greece
+	// uses "EL"), but within the DACH whitelist this product emits, it is.
+	if vatID := strings.TrimSpace(doc.Seller.VATID); vatID != "" && !hasAllowedVATCountryPrefix(vatID) {
+		add("BR-CO-9", "BT-31", "seller VAT identifier %q does not start with a supported country code", vatID)
+	}
+	if vatID := strings.TrimSpace(doc.Buyer.VATID); vatID != "" && !hasAllowedVATCountryPrefix(vatID) {
+		add("BR-CO-9", "BT-48", "customer VAT identifier %q does not start with a supported country code", vatID)
+	}
+
 	for _, l := range doc.Lines {
 		if strings.TrimSpace(l.Description) == "" {
 			add("BR-25", "BT-153", "line %d has no item name", l.Position)
@@ -265,3 +278,21 @@ func usesTaxCategory(groups []docTaxGroup, category string) bool {
 	}
 	return false
 }
+
+// hasAllowedVATCountryPrefix reports whether vatID opens with a country code
+// from allowedCountries (BR-CO-9).
+func hasAllowedVATCountryPrefix(vatID string) bool {
+	if len(vatID) < 2 {
+		return false
+	}
+	return allowedCountries[strings.ToUpper(vatID[:2])]
+}
+
+// lean: BR-31 through BR-42 (document- and line-level allowances/charges,
+// BG-20/BG-21/BG-27/BG-28) have no runtime check because neither models.Invoice
+// nor models.LineItem carries a discount or surcharge concept — buildInvoiceDoc
+// has nothing to read one from, and no generator emits an AllowanceCharge group.
+// A rebate applied only to the stored total, with no allowance line to show for
+// it, would be a calculation bug rather than a missing validation and belongs in
+// its own unit. Add the fields, the docTaxGroup wiring and these checks the day
+// the product supports invoice-level discounts.
