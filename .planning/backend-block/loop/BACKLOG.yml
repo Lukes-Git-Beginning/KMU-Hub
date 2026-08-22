@@ -920,7 +920,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-payment-repository-core-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz/payment 46,4 % (CI-Stand 32570176303)"
     scope: >
       Zweite Hälfte: `SumByInvoiceID` (118), `SumByInvoiceIDInTx` (124) und

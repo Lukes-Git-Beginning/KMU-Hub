@@ -989,3 +989,53 @@ Frühere Läufe liegen vollständig im Archiv:
   Aktion noetig. (b) `SumByInvoiceID`/`SumByInvoiceIDInTx`/`GetByIdempotencyKey` bleiben laut Scope
   fuer `cov-payment-repository-sums-and-idempotency-real-sql` (deps auf diese Unit, naechste in
   der Block-B-Reihe) offen.
+
+## Iteration 18 — cov-payment-repository-sums-and-idempotency-real-sql — done — 2026-08-23 01:05
+- commit: (siehe unten)
+- gebaut: Zweite Haelfte zu Iteration 17. `postgres_repository_db_test.go` (weiter ungetaggt,
+  package `payment`) bekommt neun weitere Tests fuer `SumByInvoiceID`, `SumByInvoiceIDInTx` und
+  `GetByIdempotencyKey` gegen echtes Postgres: keine Zahlung (COALESCE liefert 0, nicht NULL/Fehler),
+  drei Teilzahlungen mit Bruchcent die in Summe eine Ueberzahlung ergeben (exakter Dezimalvergleich
+  100.10+100.10+100.10=300.30), eine Zahlung eines FREMDEN Tenants auf dieselbe invoice_id (die FK
+  `fk_finance_payments_invoice` referenziert nur `finance_invoices(id)`, nicht `(tenant_id,id)` — ein
+  Tenant kann eine Payment-Zeile mit fremder invoice_id anlegen, die Summe darf sie trotzdem nicht
+  aufnehmen), eine geloeschte/stornierte Zahlung (dieses Paket kennt keinen Status, Stornierung =
+  Delete), sowie der zentrale Unterschied `SumByInvoiceIDInTx` sieht die eigene noch nicht committete
+  Zahlung, ein Pool-Read ausserhalb der Transaktion sieht sie erst nach Commit (READ COMMITTED).
+  `GetByIdempotencyKey`: derselbe Key in zwei Tenants aufgeloest — der partielle Unique-Index aus
+  Migration 000215 ist `(tenant_id, idempotency_key)`, also bewusst PRO TENANT eindeutig, kein globaler
+  Konflikt (kein Fund, Bestaetigung). Zusaetzlich unbekannter Key -> (nil, nil), keine Fehlerbehandlung
+  auf jeder Call-Site noetig.
+- gate: build ok (`./internal/biz/payment/...`) | vet ok | lint ok (0 issues) |
+  test ok (`go test -count=1 -v ./internal/biz/payment/`, 38 Tests gesamt davon 9 neu, 0 SKIP,
+  0 FAIL) | migration n.a. (keine Schema-Aenderung) | rls-smoke n.a. formal (keine Tabellen-/
+  Policy-Aenderung in dieser Unit), inhaltlich durch
+  `TestSumByInvoiceID_ExcludesForeignTenantPaymentOnSameInvoiceID` erbracht
+- coverage: internal/biz/payment 71,5 % -> 84,8 % (eigens gemessen mit
+  `go test -coverprofile=/tmp/cov_payment_final.out ./internal/biz/payment/` nach Iteration-17-Stand,
+  bestaetigt `coverage_start`-Bezugswert 46,4 % ueber beide Iterationen der Unit-Reihe hinweg als
+  konsistent)
+- mutations-probe: erster Versuch (WHERE-Klausel von `sumByInvoiceID` auf reines `invoice_id = $2`
+  gekuerzt, `$1` unreferenziert) fuehrte zu einem HAENGENDEN `go test`-Prozess (pgx extended-protocol
+  Bind mit ueberzaehligem, unreferenziertem Parameter — kein Timeout, musste per TaskStop beendet
+  werden; kein Produktionscode-Fund, nur eine untaugliche Mutation). Zweiter Versuch mit
+  `WHERE ($1::uuid IS NOT NULL OR true) AND invoice_id = $2` (syntaktisch gueltig, Tenant-Filter
+  faktisch deaktiviert) blieb GRUEN — derselbe Befund wie in Iteration 17 bei `Delete`: RLS
+  (`enable_tenant_rls('finance_payments')`) faengt den fehlenden App-Filter bereits ab, bevor die
+  Zeile die Query verlaesst. Dritter, gueltiger Versuch traf den tatsaechlichen Witz der Unit:
+  `SumByInvoiceIDInTx` auf `r.pool` statt `tx` umgestellt (Tx-Parameter ignoriert) ->
+  `TestSumByInvoiceIDInTx_SeesUncommittedPayment_PoolDoesNotUntilCommit` sofort ROT ("got 0" statt
+  "70.00"). Zurueckgedreht, `git diff --stat` auf `postgres_repository.go` zeigt danach keine
+  Aenderung (leerer Diff).
+- verify vorgaenger: sauber — `482434ef` (Iteration 17) aendert laut `git show --stat` und Diff
+  ausschliesslich `backend/internal/biz/payment/postgres_repository_db_test.go` (neue Testdatei) sowie
+  JOURNAL.md/BACKLOG.yml. Keine der acht Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt,
+  kein Stub/TODO, kein `.proto`, keine Migration, kein neuer Guard, keine neue Tabelle, keine Route,
+  kein Wire-Shape-Wechsel, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: Der wirkungslose erste Mutations-Versuch bestaetigt erneut (wie schon in Iteration 17 bei
+  `Delete`), dass der App-seitige `tenant_id`-Filter auf `finance_payments`-Lesepfaden gegenueber RLS
+  redundant, aber als zweite Schicht korrekt ist — kein Bug, keine Aktion noetig. Fuer kuenftige
+  Mutations-Proben auf demselben Muster: ein WHERE-Praedikat mit unreferenziertem `$N`-Platzhalter
+  kann `go test` unter pgx haengen lassen statt sauber zu fehlern — lieber das Praedikat
+  bedingungslos wahr machen (`$N::uuid IS NOT NULL OR true`) als den Platzhalter ganz zu entfernen.
