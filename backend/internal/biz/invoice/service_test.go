@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -1377,4 +1378,55 @@ func TestService_GetJournalSummary_CountsCancelledInvoices(t *testing.T) {
 	assert.Equal(t, 3, summary.HighestSequence)
 	assert.Equal(t, 0, summary.GapsDetected,
 		"no gaps expected when all sequence numbers have matching invoices")
+}
+
+// TestService_GetJournalSummary_FiscalYearBoundaryNoFalseGap verifies that the
+// year rollover itself is not misreported as a gap: the sequence restarts at 1
+// for the new fiscal year (see quote.PostgresNumberSequenceRepo, one row per
+// tenant+document_type+fiscal_year), and the prior year's invoices must not be
+// counted into — or create a phantom gap against — the new year's summary.
+func TestService_GetJournalSummary_FiscalYearBoundaryNoFalseGap(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	priorYear, currentYear := 2025, 2026
+
+	makeInvoice := func(status, number string, year int) {
+		t.Helper()
+		lineItemsJSON, err := json.Marshal(testLineItems())
+		require.NoError(t, err)
+		inv := &models.Invoice{
+			ID:            uuid.New(),
+			TenantID:      tenantID,
+			Status:        status,
+			InvoiceNumber: number,
+			InvoiceDate:   time.Date(year, 6, 1, 0, 0, 0, 0, time.UTC),
+			LineItems:     lineItemsJSON,
+			CreatedBy:     uuid.New(),
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+		repo.invoices[inv.ID] = inv
+	}
+
+	// Prior year: 5 invoices fully using up its own sequence (RE-2025-0001..0005).
+	for i := 1; i <= 5; i++ {
+		makeInvoice(models.InvoiceStatusPaid, fmt.Sprintf("RE-%d-%04d", priorYear, i), priorYear)
+	}
+	// Current year: sequence has restarted at 1, only 3 invoices issued so far.
+	makeInvoice(models.InvoiceStatusSent, fmt.Sprintf("RE-%d-0001", currentYear), currentYear)
+	makeInvoice(models.InvoiceStatusPaid, fmt.Sprintf("RE-%d-0002", currentYear), currentYear)
+	makeInvoice(models.InvoiceStatusSent, fmt.Sprintf("RE-%d-0003", currentYear), currentYear)
+
+	// The number sequence for the current fiscal year reports 3, independent of
+	// the prior year's much higher count — a per-year row, not a running total.
+	numSeq.seqInfo = &SequenceInfo{FiscalYear: currentYear, CurrentNumber: 3}
+
+	summary, err := svc.GetJournalSummary(context.Background(), tenantID, currentYear)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, summary.TotalInvoicesIssued,
+		"the prior year's 5 invoices must not leak into the current year's count")
+	assert.Equal(t, 3, summary.HighestSequence)
+	assert.Equal(t, 0, summary.GapsDetected,
+		"the fiscal year rollover itself must never be reported as a gap")
 }

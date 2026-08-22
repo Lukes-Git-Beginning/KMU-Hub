@@ -891,3 +891,53 @@ Frühere Läufe liegen vollständig im Archiv:
   (nicht neu durch diese Iteration), aber nicht als eigener Fund geprueft, ob das gewollt ist;
   nur als Beobachtung im Journal, keine Unit angelegt, da unklar ob das ein Fehler oder Absicht
   ist und das Backlog explizit vor unbelegten Funden warnt.
+
+## Iteration 16 — verify-invoice-number-gap-detection-gobd — done — 2026-08-23 00:45
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: VERIFY-UNIT, ein Test ergaenzt. (1) Lueckenerkennung existiert bereits vollstaendig:
+  `Service.GetJournalSummary` (`service_gobd.go:137`) vergleicht `seq.CurrentNumber`
+  (`numberSeqRepo.GetSequenceInfo`, jahresgescopte Zeile in
+  `quote.PostgresNumberSequenceRepo`) gegen `repo.CountByFiscalYear` (nicht-Entwuerfe mit
+  gesetzter Nummer im Jahr) und liefert `GapsDetected = max(CurrentNumber - Count, 0)` — das ist
+  der bestehende, per gRPC (`biz_grpc.go:2291`) exponierte Bericht, den ein Pruefer sehen kann.
+  Keine neue Tabelle, kein neuer Endpunkt noetig. (2) Der Fall "versendete Rechnung storniert"
+  ist bereits korrekt behandelt UND bereits getestet: `Service.Cancel` (`service.go:669-733`)
+  loescht eine versendete/ueberfaellige Rechnung NIE physisch (kein `Delete` existiert im
+  gesamten `invoice`-Paket — Grep bestaetigt 0 Treffer), sondern kehrt sie ueber eine
+  Stornorechnung (`stornoCreator.StornoInvoice`) um und setzt nur `status = cancelled`; die
+  `invoice_number`-Spalte bleibt unangetastet. `CountByFiscalYear` filtert `status != 'draft'`,
+  zaehlt eine stornierte Rechnung also weiter mit — belegt durch den bereits bestehenden Test
+  `TestService_GetJournalSummary_CountsCancelledInvoices`. (3) Die einzige echte Luecke im
+  Beleg war die Fiskaljahresgrenze aus `done_when`: kein Test hatte bislang zwei Jahre
+  gleichzeitig im Repo. Neuer Test `TestService_GetJournalSummary_FiscalYearBoundaryNoFalseGap`
+  (`service_test.go`) seedet 5 Rechnungen in 2025 (eigene, voll ausgeschoepfte Sequenz) und 3 in
+  2026, setzt die Mock-Sequenz auf `CurrentNumber=3` fuer 2026 und belegt
+  `TotalInvoicesIssued=3`, `GapsDetected=0` fuer 2026 — die 5 Rechnungen aus dem Vorjahr duerfen
+  weder mitgezaehlt werden noch eine Phantom-Luecke erzeugen.
+- gate: build ok (`./internal/biz/invoice/...`) | vet ok | lint ok (0 issues) |
+  test ok (`go test -count=1 -v ./internal/biz/invoice/...`, 0 SKIP, 0 FAIL) | migration n.a. |
+  rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/biz/invoice 34,8 % -> 34,8 % (Vorgabe `coverage_start` bestaetigt; die
+  neue Zeile deckt denselben bereits vollstaendig getesteten `GetJournalSummary`-Pfad ab wie
+  der bestehende Cancelled-Test, keine neuen Zeilen erreicht — erwartet fuer eine Verify-Unit,
+  die eine Regressionsluecke schliesst statt neuen Code zu bauen)
+- mutations-probe: Jahresfilter `inv.InvoiceDate.Year() == year` im `MockRepository.
+  CountByFiscalYear` (Testdatei, service_test.go) entfernt -> neuer Test wird rot
+  (TotalInvoicesIssued erwartet 3, tatsaechlich 8 — die 5 Vorjahresrechnungen leaken durch),
+  bestehender Cancelled-Test bleibt gruen (kein zweites Jahr im Setup). Zurueckgedreht, Diff
+  sauber (`git diff --stat` zeigt nur die Netto-Testergaenzung, 52 Zeilen).
+- verify vorgaenger: sauber — `ff353639` (Iteration 15) aendert laut `git show --stat` und Diff
+  ausschliesslich `backend/api/openapi.yaml` (neue Response-Components + Beschreibungstext +
+  409/400 auf sechs benannten Pfaden) sowie JOURNAL.md/BACKLOG.yml. Keine der acht
+  Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt, kein Stub/TODO, kein `.proto`, keine
+  Migration, kein neuer Guard, keine neue Tabelle, keine neue Route (nur Response-Doku auf
+  bestehenden Pfaden), kein Wire-Shape-Wechsel, kein ersetzter Guard-Key.
+- neue-units: keine — die Unit war Verify-first, die einzige gefundene Luecke (Fiskaljahresgrenze)
+  war klein genug fuer dieselbe Iteration (ein Testfall, keine neue Produktionslogik), damit
+  entfaellt "als eigene Unit anlegen" laut Scope-Vorgabe.
+- offen: keine DB-seitige Verifikation von `CountByFiscalYear`/`GetSequenceInfo` gegen echtes
+  SQL in dieser Unit — der Test bleibt wie sein Vorbild `TestService_GetJournalSummary_
+  CountsCancelledInvoices` auf Service-Ebene mit Mock-Repos. Ein SQL-Test fuer
+  `invoice.PostgresRepository.CountByFiscalYear` ist als `cov-invoice-repository-number-and-
+  fiscal-year-real-sql` bereits eigenstaendig im Backlog (Block B) vorgesehen und wuerde die
+  Jahresgrenze dort zusaetzlich gegen echtes Postgres pruefen.
