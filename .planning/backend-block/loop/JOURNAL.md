@@ -710,3 +710,66 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: Luke kann entscheiden, ob Verzugszinsen als Feature überhaupt
   gewünscht sind (Wettbewerbsdifferenzierung vs. Komplexität); die
   Voraussetzungen dafür stehen jetzt präzise im Code-Kommentar
+
+## Iteration 13 — fix-invoice-pdf-ustg14-mandatory-fields — done — 2026-08-23 00:20
+- commit: (siehe Schritt 6, wird nach diesem Eintrag committet)
+- gebaut: `templates.go`/`generator.go` gegen § 14 Abs. 4 UStG abgeglichen (Nr. 1-8, die
+  vom Backlog vorgegebene Liste). Sieben von acht Punkten waren bereits vollständig
+  abgedeckt (Name/Anschrift beider Parteien, Steuernummer/USt-IdNr., Ausstellungsdatum,
+  Rechnungsnummer, Menge/Art der Leistung, Entgelt je Steuersatz, Steuersatz+Steuerbetrag
+  bzw. Befreiungshinweis). DER FUND war Nr. 6 (Leistungszeitpunkt), wie im Backlog
+  vorausgesagt: `GenerateInvoicePDF` zeigte die Zeile "Lieferdatum: ..." nur, wenn
+  `invoice.DeliveryDate != nil` — bei nil (ein regulärer, häufiger Fall laut
+  `internal/biz/invoice/service.go:434`, das Feld ist rein optional gesetzt) fehlte die
+  Pflichtangabe komplett, statt auf das Rechnungsdatum zurückzufallen. Genau diese
+  Fallback-Konvention (BT-72) existiert bereits in `einvoice/generator_doc.go:163` und
+  ist dort per Test belegt (`generator_ubl_test.go:365`) — auf das PDF übertragen.
+  FIX: `deliveryDate := invoice.InvoiceDate; if invoice.DeliveryDate != nil && !IsZero()
+  { deliveryDate = *invoice.DeliveryDate }`, Zeile wird jetzt IMMER gerendert
+  (`generator.go:180-194`). Begründung im Code: Abschn. 14.5 Abs. 17 UStAE erlaubt das
+  Rechnungsdatum als Leistungsdatum, wenn beide zusammenfallen — keine separate
+  Kennzeichnung nötig, das ist konsistent mit der bestehenden `einvoice`-Konvention.
+  ZWEITENS: `GenerateInvoicePDF` in Build (`buildInvoiceDoc`, gibt `core.Maroto` statt
+  `[]byte` zurück) und Generate (`generate(m)`) aufgeteilt — reiner Strukturschnitt, kein
+  Verhaltensunterschied —, damit Tests die maroto-Dokumentstruktur über `m.GetStructure()`
+  prüfen können, statt PDF-Bytes zu vergleichen (explizit verboten laut `done_when`).
+  Neue Testdatei `internal/biz/pdf/invoice_ustg14_test.go`: ein Walker
+  (`renderedTexts`) läuft den `node.Node[core.Structure]`-Baum ab und sammelt alle
+  `Type == "text"`-Werte — das ist die "extrahierte Textinhalt"-Ebene aus der
+  Backlog-Notiz, kein Golden-Vergleich. Sechs Tests: alle acht Pflichtangaben an einer
+  vollständigen Rechnung, der Lieferdatum-Fallback (Regressionstest für den Fix), ein
+  explizit gesetztes Lieferdatum (beweist, dass der Fallback ein echtes Datum nicht
+  überschreibt), der Kleinunternehmer-Befreiungshinweis (Nr. 8, Befreiungsfall), und die
+  Ablehnung bei unvollständigen Company-Settings (Nr. 1/2 vor dem Rendern erzwungen).
+  NICHT geprüft (bewusst außerhalb der § 14 Abs. 4-Liste des Backlogs): die USt-IdNr.
+  des Käufers wird im PDF nirgends gedruckt, auch nicht bei Reverse-Charge-Rechnungen
+  (nur der Text "Steuerschuldnerschaft ... Abschnitt 13b UStG" erscheint). Das beträfe
+  eher § 14a UStG (nicht § 14 Abs. 4, die Grundlage dieser Unit) und ist NICHT verifiziert
+  als Verstoß — kein Fix, kein Fund, nur eine offene Beobachtung für einen künftigen Scan.
+  `CreditNote` (Gutschrift) hat gar kein `DeliveryDate`-Feld im Datenmodell; nicht
+  angefasst, da außerhalb des Titels dieser Unit ("invoice-pdf") und ein Datenmodell-Feld
+  bräuchte eine Migration — siehe offen:.
+- gate: build ok (`./internal/biz/pdf/... ./internal/biz/invoice/... ./internal/biz/einvoice/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/biz/pdf/`, alle
+  PASS, 0 SKIP) | migration n.a. (kein Schema angefasst) | rls-smoke n.a. (keine
+  Policy/Tabelle) | TestOpenAPIRouteDrift nicht gelaufen — keine Route angefasst
+- coverage: internal/biz/pdf 48,4 % -> 51,6 % (eigene Messung vor/nach dem Diff via
+  `git stash` auf genau `generator.go` + `go.mod`, nicht die restlichen Iterationen
+  dieses Laufs — `coverage_start` im Backlog war ein Platzhalter "im CI-Log nachschlagen",
+  daher hier direkt gemessen statt übernommen)
+- mutations-probe: Fallback-Logik testweise auf den alten Zustand zurückgesetzt
+  (`if invoice.DeliveryDate != nil { ... }` ohne Fallback) -> `TestInvoicePDF_
+  DeliveryDateFallsBackToInvoiceDate` rot ("expected ... to contain Lieferdatum:
+  01.08.2026, got [...ohne Lieferdatum-Zeile...]") -> zurückgedreht (`cp` aus Backup
+  vor der Probe) -> `go test ./internal/biz/pdf/` wieder grün, `git diff --stat` zeigt
+  nur den beabsichtigten Diff (24 insertions, 7 deletions in generator.go)
+- verify vorgaenger: sauber — `7941c1b7` (Iteration 12) ändert nur Kommentare in
+  `service.go` (siehe `git show`), keine der acht Fehlerklassen einschlägig
+- neue-units: keine
+- offen: (a) Buyer-USt-IdNr. fehlt im gedruckten PDF bei Reverse-Charge — nicht
+  verifiziert, ob § 14a UStG das für § 13b-Fälle verlangt; als Beobachtung für einen
+  künftigen Scan, nicht als Fund angelegt. (b) `CreditNote` trägt kein `DeliveryDate`-Feld
+  — falls ein künftiger Fund das für Gutschriften braucht, ist das eine Migration, kein
+  reiner Code-Fix. (c) `go-tree` wurde durch den neuen Test zur direkten Dependency in
+  `go.mod` (`go mod tidy` mitcommittet, keine neue externe Dependency — das Modul war
+  bereits transitiv über maroto vorhanden).

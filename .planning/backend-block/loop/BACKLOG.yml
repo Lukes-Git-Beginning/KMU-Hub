@@ -696,7 +696,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/pdf (Paketwert im CI-Log nachschlagen, Run 32570176303)"
     scope: >
       `internal/biz/pdf/templates.go` (404 Zeilen) und `generator.go` (353 Zeilen) haben

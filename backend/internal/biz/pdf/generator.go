@@ -148,6 +148,17 @@ func (g *Generator) GenerateQuotePDF(quote models.Quote) ([]byte, error) {
 // GenerateInvoicePDF generates a PDF for an invoice (Rechnung).
 // Uses snapshot_data if available (sent invoice), otherwise live data (draft preview).
 func (g *Generator) GenerateInvoicePDF(invoice models.Invoice) ([]byte, error) {
+	m, err := g.buildInvoiceDoc(invoice)
+	if err != nil {
+		return nil, err
+	}
+	return g.generate(m)
+}
+
+// buildInvoiceDoc assembles the invoice maroto document without finalizing it to PDF
+// bytes, so tests can inspect the rendered content via m.GetStructure() instead of a
+// binary PDF diff.
+func (g *Generator) buildInvoiceDoc(invoice models.Invoice) (core.Maroto, error) {
 	if err := ValidateCompanySettingsForPDF(g.settings); err != nil {
 		return nil, err
 	}
@@ -166,15 +177,21 @@ func (g *Generator) GenerateInvoicePDF(invoice models.Invoice) ([]byte, error) {
 	dateStr := invoice.InvoiceDate.Format("02.01.2006")
 	m.AddRows(buildDocumentTitle("Rechnung", invoice.InvoiceNumber, dateStr, accentColor))
 
-	// Due date and delivery date info
+	// Due date and delivery date info. Lieferdatum is a Pflichtangabe (§14 Abs. 4 Nr. 6
+	// UStG) and must always render -- it falls back to the invoice date when unset, the
+	// same BT-72 convention already used in einvoice/generator_doc.go, rather than being
+	// silently omitted (Abschn. 14.5 Abs. 17 UStAE permits stating the invoice date when
+	// it coincides with the delivery date).
+	deliveryDate := invoice.InvoiceDate
+	if invoice.DeliveryDate != nil && !invoice.DeliveryDate.IsZero() {
+		deliveryDate = *invoice.DeliveryDate
+	}
 	m.AddRows(row.New(5).Add(
 		buildTextCol(6, fmt.Sprintf("Faellig: %s", invoice.DueDate.Format("02.01.2006")), 8),
 	))
-	if invoice.DeliveryDate != nil {
-		m.AddRows(row.New(5).Add(
-			buildTextCol(6, fmt.Sprintf("Lieferdatum: %s", invoice.DeliveryDate.Format("02.01.2006")), 8),
-		))
-	}
+	m.AddRows(row.New(5).Add(
+		buildTextCol(6, fmt.Sprintf("Lieferdatum: %s", deliveryDate.Format("02.01.2006")), 8),
+	))
 	m.AddRows(row.New(3))
 
 	// Line items
@@ -210,7 +227,7 @@ func (g *Generator) GenerateInvoicePDF(invoice models.Invoice) ([]byte, error) {
 	// Payment terms and notes
 	m.AddRows(buildNotesSection(invoice.PaymentTerms, invoice.Notes)...)
 
-	return g.generate(m)
+	return m, nil
 }
 
 // GenerateCreditNotePDF generates a PDF for a credit note (Gutschrift).
