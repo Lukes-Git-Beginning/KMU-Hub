@@ -3415,7 +3415,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
     scope: >
       Fund waehrend fix-email-contacts-csv-export-formula-injection (Iteration 53, 2026-08-22):
@@ -3641,3 +3641,60 @@ units:
       - Ein Test belegt preview.RecordCount == affected fuer das Work-Modul beim ersten Lauf
       - TestWorkErasureHandler_Preview_Integration ist gegen die korrigierte Zahl aktualisiert
       - go test -count=1 ./internal/security/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-csv-xlsx-formula-injection-remaining-writers
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
+    scope: >
+      Gefunden 2026-08-22 waehrend fix-csv-formula-injection-remaining-exports (Iteration 87).
+      Diese Unit hat `csvutil.NeutralizeFormulaCell` (neu: `internal/csvutil/formula.go`,
+      verschoben aus `internal/email/contact/export_service.go`) auf drei bestaetigte CSV-Stellen
+      angewandt (`internal/formulare/service.go:buildCSV`, `internal/security/audit/export.go:
+      ExportCSV`, `internal/biz/dunning/service_gobd.go:buildGoBDCSV`). Zwei Klassen von Fundstellen
+      blieben dabei ausdruecklich UNGEPRUEFT und sind hier nachzuholen:
+        1. `internal/formulare/service.go:buildXLSX` (Zeile ~625-676) — dieselbe Antwort-Map wie
+           `buildCSV`, aber ueber `excelize.SetCellValue` roh geschrieben
+           (`f.SetCellValue(sheet, cell, fmt.Sprintf("%v", v))`, Zeile ~666). XLSX-Zellen mit
+           fuehrendem `=` werden von Excel beim Oeffnen als Formel ausgefuehrt, unabhaengig vom
+           Text/CSV-Escape-Mechanismus — `csvutil.NeutralizeFormulaCell` ist dafuer vermutlich
+           NICHT die richtige Funktion (bei XLSX bewirkt ein fuehrendes `'` etwas anderes als bei
+           CSV/Excel-Text-Import, vor dem Bauen mit einer echten `excelize`-Datei pruefen, ob ein
+           `'`-Praefix dort ueberhaupt neutralisiert oder nur sichtbar mitgeschrieben wird — ggf.
+           braucht es stattdessen `SetCellStyle`/einen expliziten Text-Zellformat oder
+           `excelize`-eigene Sanitisierung).
+        2. Drei CSV-Exporte, die die Vorbereitung fuer Iteration 87 explizit als "NICHT geprueft"
+           markiert hat: `internal/server/inventar_grpc.go`, `internal/server/vermietung_grpc.go`,
+           `internal/server/fuhrpark_grpc.go` (alle `csv.NewWriter`, gefunden per
+           `grep -rln "csv.NewWriter" internal/`). Jede Datei einzeln pruefen: welches Feld ist
+           nutzer-editierbar (Stammdaten, Freitext) und landet ungeprueft in einer CSV-Zelle?
+           Nur bestaetigte Treffer fixen, keine Praemisse blind uebernehmen (Muster siehe Befund 1
+           im Kopf dieser Datei).
+      `internal/biz/datev/exporter.go` (ebenfalls `csv.NewWriter`) NICHT anfassen — dafuer existiert
+      bereits `verify-datev-extf-encoding-requirement` (blocked, eigenes Thema Encoding statt
+      Injection; ob dort zusaetzlich Injection vorliegt, ist eine eigene Pruefung wert, aber nicht
+      Teil dieser Unit).
+    sources:
+      - backend/internal/formulare/service.go
+      - backend/internal/server/inventar_grpc.go
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/csvutil/formula.go
+    notes: >
+      `csvutil.NeutralizeFormulaCell` ist die fertige Vorlage fuer die drei `_grpc.go`-Dateien,
+      sofern sie tatsaechlich rohes `csv.NewWriter` nutzen (bestaetigen, nicht annehmen). Fuer
+      `buildXLSX` erst experimentell pruefen (kleine Testdatei mit `=`-Praefix schreiben, mit
+      Excel-kompatiblem Reader zuruecklesen), was excelize mit einem fuehrenden `'` tatsaechlich
+      tut, bevor irgendein Fix geschrieben wird — sonst wird eine Vermutung committet, die nichts
+      neutralisiert.
+    done_when:
+      - Fuer buildXLSX ist experimentell geklärt und im Journal begruendet, ob/wie ein
+        Formel-Praefix in einer excelize-Zelle neutralisiert wird, und der gewaehlte Mechanismus
+        ist gebaut und getestet
+      - Jede der drei `_grpc.go`-Dateien ist einzeln gegen echten CSV-Output geprueft; bestaetigte
+        Treffer sind gefixt und mit Formel-Praefix-Test plus Normalwert-Test belegt, unbestaetigte
+        sind im Journal als geprueft-und-sauber vermerkt
+      - go test -count=1 ./internal/formulare/... ./internal/server/... gruen

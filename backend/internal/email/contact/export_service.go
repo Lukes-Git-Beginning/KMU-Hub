@@ -11,6 +11,7 @@ import (
 	"github.com/emersion/go-vcard"
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/csvutil"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -113,7 +114,7 @@ func (s *ExportService) ExportCSV(ctx context.Context, contactIDs []uuid.UUID, f
 					val = *c.Notes
 				}
 			}
-			row = append(row, neutralizeFormulaCell(val))
+			row = append(row, csvutil.NeutralizeFormulaCell(val))
 		}
 		if err := writer.Write(row); err != nil {
 			return nil, err
@@ -217,22 +218,6 @@ func (s *ExportService) ExportVCard(ctx context.Context, contactIDs []uuid.UUID)
 	s.logger.Info("vCard export complete", "contacts", len(contacts))
 
 	return buf.Bytes(), nil
-}
-
-// neutralizeFormulaCell defuses CSV formula injection: if val starts with a character
-// that Excel/LibreOffice would interpret as the start of a formula (=, +, -, @), a
-// leading apostrophe forces the cell to be read as text instead of executed. The value
-// itself is never truncated or dropped — export/disclosure obligations still apply.
-func neutralizeFormulaCell(val string) string {
-	if val == "" {
-		return val
-	}
-	switch val[0] {
-	case '=', '+', '-', '@':
-		return "'" + val
-	default:
-		return val
-	}
 }
 
 // resolveCompanyNames batches company_id -> name lookups for the given contacts in a

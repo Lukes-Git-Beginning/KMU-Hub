@@ -1,7 +1,9 @@
 package dunning
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
 	"errors"
 	"testing"
 	"time"
@@ -1314,6 +1316,51 @@ func TestService_GenerateGoBDExport_PostingColumns(t *testing.T) {
 	assert.Contains(t, content, "200.00", "row must carry the net amount")
 	assert.Contains(t, content, "38.00", "row must carry the VAT amount")
 	assert.Contains(t, content, "Beratung", "row must carry the Buchungstext")
+}
+
+func TestService_GenerateGoBDExport_NeutralizesFormulaInjection(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	customerName := "=HYPERLINK(\"http://evil.example/\",\"x\")"
+	rows := []GoBDExportRow{
+		{
+			InvoiceNumber: "RE-2026-0007", InvoiceDate: "2026-03-01", CustomerName: customerName,
+			Account: "8400", TaxKey: "3", TaxRate: "19", NetAmount: "200.00", TaxAmount: "38.00",
+			GrossTotal: "238.00", Status: "sent", TaxMode: "standard", BookingText: "Beratung",
+		},
+	}
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, rows)
+
+	require.NoError(t, err)
+	r := csv.NewReader(bytes.NewReader(result.CSVData[3:]))
+	r.Comma = ';'
+	records, err := r.ReadAll()
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+	assert.Equal(t, "'"+customerName, records[1][2], "Empfaenger must be neutralized against formula injection")
+}
+
+func TestService_GenerateGoBDExport_NormalCustomerNameUnchanged(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	rows := []GoBDExportRow{
+		{InvoiceNumber: "RE-2026-0001", InvoiceDate: "2026-01-15", CustomerName: "Alpha GmbH", GrossTotal: "100.00", Status: "sent", TaxMode: "standard"},
+	}
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, rows)
+
+	require.NoError(t, err)
+	r := csv.NewReader(bytes.NewReader(result.CSVData[3:]))
+	r.Comma = ';'
+	records, err := r.ReadAll()
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+	assert.Equal(t, "Alpha GmbH", records[1][2], "unaffected customer name must stay unchanged")
 }
 
 func TestService_GenerateGoBDExport_RowCount(t *testing.T) {

@@ -14,6 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/xuri/excelize/v2"
+
+	"github.com/kmuhub/kmuhub/internal/csvutil"
 )
 
 // ============================================================================
@@ -231,10 +233,10 @@ type ListSubmissionsInput struct {
 
 // ExportInput drives a submission export.
 type ExportInput struct {
-	TenantID     uuid.UUID
-	FormSchemaID uuid.UUID
-	Format       ExportFormat
-	Status       *FormSubmissionStatus
+	TenantID        uuid.UUID
+	FormSchemaID    uuid.UUID
+	Format          ExportFormat
+	Status          *FormSubmissionStatus
 	SubmittedAfter  *time.Time
 	SubmittedBefore *time.Time
 }
@@ -595,7 +597,7 @@ func buildCSV(submissions []*FormSubmission, headerKeys []string) ([]byte, error
 		row = append(row, sub.SubmittedAt.Format(time.RFC3339))
 		row = append(row, string(sub.Status))
 		if sub.SubmittedBy != nil {
-			row = append(row, *sub.SubmittedBy)
+			row = append(row, csvutil.NeutralizeFormulaCell(*sub.SubmittedBy))
 		} else {
 			row = append(row, "")
 		}
@@ -606,7 +608,7 @@ func buildCSV(submissions []*FormSubmission, headerKeys []string) ([]byte, error
 		}
 		for _, k := range headerKeys {
 			if v, ok := answers[k]; ok {
-				row = append(row, fmt.Sprintf("%v", v))
+				row = append(row, csvutil.NeutralizeFormulaCell(fmt.Sprintf("%v", v)))
 			} else {
 				row = append(row, "")
 			}
