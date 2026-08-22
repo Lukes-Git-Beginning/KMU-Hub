@@ -1351,7 +1351,7 @@ Frühere Läufe liegen vollständig im Archiv:
   besonderen Punkte — reine Coverage-Unit ohne Verhaltensaenderung.
 
 ## Iteration 25 — cov-invoice-repository-gobd-export-real-sql — done — 2026-08-23 01:52
-- commit: (siehe unten, nach Journal-Commit)
+- commit: 0b56911b
 - gebaut: neue ungetaggte Testdatei `postgres_repository_gobd_export_db_test.go` fuer
   `PostgresRepository.ListForGoBDExport` (postgres_repository.go:574-620), gegen echtes Postgres:
   Statusfilter (alle vier Nicht-Entwurfsstatus inkl. cancelled enthalten, draft ausgeschlossen —
