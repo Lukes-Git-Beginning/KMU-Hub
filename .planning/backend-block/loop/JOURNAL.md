@@ -330,3 +330,65 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine — Paket hat keine DB-Tests, DATABASE_URL-Gate daher nicht einschlägig für
   diese Unit. `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` lief grün, obwohl keine
   Route angefasst wurde (Pflicht laut Prompt, unabhängig vom Anlass).
+
+## Iteration 6 — feat-einvoice-vat-category-rules — done — 2026-08-22 23:59
+- commit: 3917fe4d
+- gebaut: zwei echte Funde in der bestehenden VAT-Kategorie-Prüfung, keiner davon
+  im ursprünglich vermuteten Umfang ("Satz muss 0 sein + Befreiungsgrund Pflicht").
+  (1) Der Buyer-VATID-Check für Reverse Charge trug die Regel-ID "BR-AE-03" —
+  gegen die offizielle Peppol-BIS-3.0-Regeltextsammlung geprüft (zwei unabhängige
+  Quellen, docs.peppol.eu und peppolvalidator.com) ist BR-AE-03 tatsächlich eine
+  Regel für Document-Level-Allowances (BG-20), die dieses Produkt nie erzeugt.
+  Die zutreffende Regel für eine Reverse-Charge-Rechnungszeile ist BR-AE-02 — sie
+  bündelt Seller- UND Buyer-Identifikation in einer Anforderung, und
+  `sellerTaxRuleFor` trägt für den Seller-Teil bereits korrekt "BR-AE-02". Der
+  Buyer-Check war also nur der falsch beschriftete zweite Teil derselben Regel.
+  Korrigiert in validation.go, im zugehörigen Test und in einem erläuternden
+  Kommentar in `internal/biz/pdf/zugferd_test.go` (dort keine Assertion, nur
+  Prosakommentar, aber derselbe Fehler). (2) Die Zero-Rated-Kategorie (Z) hatte
+  KEINEN Test: `sellerTaxRuleFor` liefert seit jeher "BR-Z-02" für sie, aber die
+  bestehende Tabelle `TestValidate_SellerTaxRuleFollowsTheCategory` erreicht nur
+  Standard/Kleinunternehmer/Reverse-Charge über `inv.TaxMode` — Zero-Rated ist ein
+  Zeilenmerkmal (Standardmodus, Zeile mit Satz 0), keine Dokumenteinstellung, und
+  fällt durch die bestehende Testkonstruktion. Neuer eigener Test
+  `TestValidate_ZeroRatedNeedsSellerIdentification` mit Positiv- und Negativfall.
+  Die eigentlich befürchteten Regeln (BR-Z-05/09/10, BR-E-05/09/10, BR-AE-05/09/10:
+  Satz muss 0 sein, Befreiungsgrund Pflicht bzw. verboten) sind NACH PRÜFUNG
+  bereits vollständig strukturell garantiert: `taxCategoryFor`
+  (`generator_doc.go:358`) ist die einzige Stelle, die Kategorie UND
+  Befreiungsgrund setzt — beide Reverse-Charge/Kleinunternehmer-Zweige liefern
+  immer einen nicht-leeren Grund, der Zero-Rated-Zweig immer einen leeren, und
+  `omitempty` auf beiden XML-Feldern (CII wie UBL) sorgt dafür, dass ein leerer
+  Grund nie gerendert wird. Der Satz ist für alle drei Kategorien vor dem Aufruf
+  von `taxCategoryFor` bereits auf 0 erzwungen bzw. (bei Zero-Rated) die
+  Bedingung, unter der die Kategorie überhaupt gewählt wird. Diese Garantien sind
+  jetzt als Kommentar mit den zutreffenden Regel-IDs an `taxCategoryFor`
+  dokumentiert, statt als tote Laufzeitprüfung gegen einen Zustand gebaut, den der
+  Code selbst nie erzeugen kann — das wäre kein Fund, sondern nur Bestätigung.
+  BR-G/BR-IC/BR-O (Ausfuhr, innergemeinschaftlich, außerhalb Anwendungsbereich)
+  sind für dieses Produkt unerreichbar: `models.TaxMode` kennt nur
+  standard/reverse_charge/kleinunternehmer (per Grep in `internal/models/finance.go`
+  bestätigt) — lean-Marker mit Upgrade-Trigger an `taxCategoryFor`.
+- gate: build ok | vet ok | lint ok (0 issues, beide Pakete) | test ok
+  (internal/biz/einvoice, internal/biz/pdf) | migration n.a. | rls-smoke n.a.
+- coverage: internal/biz/einvoice 82,3 % (Iteration-5-Messung, `go tool cover
+  -func`) -> 82,5 % (eigene Messung, gleiches Kommando, vor/nach identisch).
+- mutations-probe: zwei Proben gegen eine `cp`-Sicherungskopie (nicht `git
+  checkout`). (1) `"BR-AE-02"` im Buyer-Check zu `"BR-AE-99"` verstümmelt ->
+  `TestValidate_ReverseChargeNeedsBuyerVATID` rot ("does not contain BR-AE-02").
+  (2) `sellerTaxRuleFor`s Zero-Rated-Zweig von `"BR-Z-02"` auf `"BR-S-02"`
+  umgebogen -> `TestValidate_ZeroRatedNeedsSellerIdentification` rot ("does not
+  contain BR-Z-02"). Beide Male aus der Sicherungskopie zurückgeschrieben,
+  `diff` gegen die Kopie danach identisch (0 Zeilen Unterschied).
+- verify vorgaenger: sauber — `6d5816c3` (feat-einvoice-codelist-validation)
+  fügt nur eine begründete Whitelist plus Tests hinzu, keine der acht
+  Fehlerklassen einschlägig (kein gRPC-Handler, kein Proto, keine Migration,
+  kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel,
+  kein ersetzter Guard-Key).
+- neue-units: keine
+- offen: (1) `internal/biz/pdf` hat keine DB-Tests, DATABASE_URL-Gate daher für
+  diese Unit nicht einschlägig (wie schon Iteration 5 für einvoice). (2) BT-47
+  (Buyer legal registration identifier), die per BR-AE-02 zulässige Alternative
+  zur Buyer-VATID, ist im Datenmodell nicht abgebildet (`docParty` kennt nur
+  `VATID`) — kein Fund im engeren Sinn, weil das Produkt nur die VATID-Variante
+  je erzeugt, aber falls das je zur eigenen Unit wird: hier ansetzen.
