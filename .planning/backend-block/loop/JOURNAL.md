@@ -3071,7 +3071,7 @@ Frühere Läufe liegen vollständig im Archiv:
     contact-Paket wird (beide Pakete sind an der bisherigen Anonymisierung beteiligt).
 
 ## Iteration 49 — fix-contact-delete-merged-into-no-action-unchecked — done — 2026-08-22 07:13
-- commit: (siehe naechster Eintrag)
+- commit: 6c00c33f
 - gebaut: Migration 000318 stellt `contacts_merged_into_id_fkey` von NO ACTION (Default seit
   000059) auf `ON DELETE SET NULL`, konsistent mit dem Selbstbezug `referred_by_contact_id`
   (000137). Root-Cause-Entscheidung fuer Option (a) aus der Unit-Notiz statt (b) IsInUse-
