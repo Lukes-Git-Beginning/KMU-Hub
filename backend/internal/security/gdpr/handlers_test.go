@@ -139,6 +139,25 @@ func TestAuthErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "user_sessions", sessionID)
 
+	// Seed an open password-reset token -- must not survive erasure, or a link
+	// still held by an attacker could set a password on the anonymized account.
+	resetTokenID := testutil.SeedRow(t, pool, "password_reset_tokens", map[string]any{
+		"tenant_id":  testutil.TenantA,
+		"user_id":    userID,
+		"token_hash": "erasure-test-hash-" + uuid.New().String(),
+		"expires_at": "2099-01-01T00:00:00Z",
+	})
+
+	// Seed an app-specific password (CalDAV/CardDAV Basic Auth credential) --
+	// authenticates independently of the primary password and must not survive.
+	appPasswordID := testutil.SeedRow(t, pool, "app_specific_passwords", map[string]any{
+		"tenant_id":       testutil.TenantA,
+		"user_id":         userID,
+		"label":           "Erasure Test Device",
+		"password_hash":   "$argon2id$v=19$test",
+		"password_prefix": "abcd",
+	})
+
 	ctx := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
 
 	h := NewAuthErasureHandler(pool)
@@ -155,6 +174,19 @@ func TestAuthErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 
 	assert.Contains(t, email, "@deleted.invalid")
 	assert.False(t, isActive)
+
+	// The reset token and app-specific password must be gone, not just the user row.
+	var resetTokenRows int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM password_reset_tokens WHERE id = $1`, resetTokenID,
+	).Scan(&resetTokenRows))
+	assert.Equal(t, 0, resetTokenRows, "password reset tokens must be deleted on erasure")
+
+	var appPasswordRows int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM app_specific_passwords WHERE id = $1`, appPasswordID,
+	).Scan(&appPasswordRows))
+	assert.Equal(t, 0, appPasswordRows, "app-specific passwords must be deleted on erasure")
 
 	// Cleanup anonymized user
 	testutil.CleanupRow(t, pool, "users", userID)

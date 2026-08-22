@@ -2439,8 +2439,8 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
-    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    status: done
+    coverage_start: "internal/security/gdpr 70,7 % (selbst gemessen, Iteration 63)"
     scope: >
       `AuthErasureHandler` (erasure.go:61-158) loescht `user_sessions`, `refresh_tokens`,
       `recovery_codes`, `password_history` und anonymisiert `users`. Zwei sicherheitsrelevante

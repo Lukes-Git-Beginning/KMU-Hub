@@ -55,7 +55,8 @@ type ErasureHandler interface {
 
 // AuthErasureHandler handles erasure for authentication data.
 // Anonymizes user profile (name/email), clears 2FA secrets, deletes sessions,
-// recovery codes, refresh tokens, and password history.
+// recovery codes, refresh tokens, password history, password-reset tokens,
+// and app-specific passwords.
 type AuthErasureHandler struct {
 	pool *pgxpool.Pool
 }
@@ -70,13 +71,16 @@ func (h *AuthErasureHandler) ModuleName() string { return "auth" }
 func (h *AuthErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUID) (*models.ModuleErasurePreview, error) {
 	var count int
 	// Count: 1 user profile + sessions + refresh_tokens + recovery_codes + password_history
+	// + password_reset_tokens + app_specific_passwords
 	if err := h.pool.QueryRow(ctx,
 		`SELECT
 		   1 +
 		   (SELECT COUNT(*) FROM user_sessions WHERE user_id = $1) +
 		   (SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1) +
 		   (SELECT COUNT(*) FROM recovery_codes WHERE user_id = $1) +
-		   (SELECT COUNT(*) FROM password_history WHERE user_id = $1)
+		   (SELECT COUNT(*) FROM password_history WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM password_reset_tokens WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM app_specific_passwords WHERE user_id = $1)
 		 FROM users WHERE id = $1`, userID,
 	).Scan(&count); err != nil {
 		// User might not exist — return 0
@@ -132,6 +136,24 @@ func (h *AuthErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 	res, err = tx.Exec(ctx, `DELETE FROM password_history WHERE user_id = $1`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("auth erasure: failed to delete password history: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// 4a. Delete open password-reset tokens. A stale token left behind after
+	// erasure would let anyone still holding the link set a password on an
+	// already-anonymized account.
+	res, err = tx.Exec(ctx, `DELETE FROM password_reset_tokens WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("auth erasure: failed to delete password reset tokens: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// 4b. Delete app-specific passwords (CalDAV/CardDAV Basic Auth credentials
+	// the user generated). These authenticate independently of the primary
+	// password/2FA cleared below and must not survive erasure.
+	res, err = tx.Exec(ctx, `DELETE FROM app_specific_passwords WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("auth erasure: failed to delete app-specific passwords: %w", err)
 	}
 	affected += int(res.RowsAffected())
 

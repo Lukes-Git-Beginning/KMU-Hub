@@ -3928,3 +3928,56 @@ Frühere Läufe liegen vollständig im Archiv:
     aus einer bestehenden Konfigurationsquelle gelesene Zahl — falls es fuer die Task-Zeiterfassung
     (im Unterschied zu `hr_work_time_entries`, dem eigentlichen ArbZG-Clock-in/out) eine andere
     verbindliche Frist gibt, gehoert das von Luke geprueft.
+
+## Iteration 64 — fix-auth-erasure-missing-security-tables — done — 2026-08-22 08:55
+- commit: (siehe naechster docs-Commit)
+- gebaut: `AuthErasureHandler` (`erasure.go`) loeschte bislang `user_sessions`,
+  `refresh_tokens`, `recovery_codes`, `password_history` und anonymisierte `users` — zwei
+  sicherheitsrelevante Tabellen mit CASCADE-FK auf `users(id)` blieben unberuehrt:
+  `password_reset_tokens` (offene Passwort-Reset-Tokens) und `app_specific_passwords`
+  (selbst erzeugte CalDAV/CardDAV-Basic-Auth-Zugangsdaten). Beide CASCADE-FKs feuern nie, weil
+  ExecuteErasure niemals die `users`-Zeile loescht, nur anonymisiert (UPDATE, kein DELETE) — die
+  Zeilen blieben also fuer immer stehen. Fix: zwei neue DELETE-Schritte (4a, 4b) in
+  `ExecuteErasure`, VOR dem Anonymisieren des User-Profils, sowie zwei neue Summanden in der
+  `PreviewErasure`-Zaehlquery, damit Preview und Execute deckungsgleich bleiben. Tabellennamen und
+  Spaltennamen gegen die Migrationen bestaetigt (`000134_create_password_reset_tokens.up.sql`,
+  `000049_create_app_passwords.up.sql` + `tenant_id`-Nachtrag in
+  `000114_option_b_phase2_settings_preferences.up.sql`), nicht aus pg_constraint geraten. Der
+  Doc-Kommentar des Handlers ist um beide Tabellen ergaenzt.
+  Sicherheitsbegruendung (gehoert in den Commit): ein stehen gebliebenes Reset-Token ist ein
+  Angriffsvektor — wer den alten Link haelt, koennte nach der Loeschung ein neues Passwort auf
+  dem bereits anonymisierten Account setzen. Ein stehen gebliebenes App-Passwort authentifiziert
+  unabhaengig vom Hauptpasswort/2FA weiter und ueberlebt die Erasure komplett unbemerkt.
+- gebaut (Test): `handlers_test.go` — `TestAuthErasureHandler_ExecuteErasure_Integration` um zwei
+  Seeds erweitert (offener Reset-Token, aktives App-Passwort) und zwei neue Assertions nach dem
+  ExecuteErasure-Lauf: beide Zeilen sind per COUNT(*) verschwunden. Keine neue Testdatei, bestehender
+  Auth-Erasure-Test war die richtige Stelle (Vorlage: gleiche Datei, gleicher Test, bereits mit
+  Session-Seed).
+- gate: build ok (`./internal/security/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/security/... ./internal/gateway/...`) | lint ok (0 issues,
+  `./internal/security/gdpr/...`) | test ok (`./internal/security/gdpr/` 124 PASS / 0 SKIP / 0 FAIL
+  gegen `kmuhub_app`; `./internal/security/...` alle 7 Unterpakete ok) | migration n.a. (keine
+  Schema-Aenderung, beide Tabellen existieren bereits) | rls-smoke n.a. (kein Schema/Policy-Wechsel)
+  | TestOpenAPIRouteDrift nicht gelaufen — keine Route in dieser Unit angefasst, daher nicht
+  Pflicht.
+- coverage: `internal/security/gdpr` 70,7 % -> 70,8 % (selbst gemessen: `go test -coverprofile`
+  vor und nach der Aenderung, `go tool cover -func` Gesamtzeile).
+- mutations-probe: `DELETE FROM password_reset_tokens WHERE user_id = $1` um `AND false` ergaenzt
+  → `TestAuthErasureHandler_ExecuteErasure_Integration` wird rot ("password reset tokens must be
+  deleted on erasure", expected 0 actual 1). Zurueckgedreht, `git diff --stat erasure.go` zeigt
+  wieder ausschliesslich die urspruenglichen 24 Insertions/2 Deletions, Paket erneut vollstaendig
+  gruen (124 PASS).
+- verify vorgaenger: sauber. `24ff9444` (Iteration 63, fix-work-erasure-time-entries-retention-conflict)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `erasure.go` und
+  `erasure_work_test.go`) — reine interne Erasure-Logik-Aenderung (Retention-Fenster fuer
+  Zeiteintraege), kein Gateway-Handler (keine gRPC-Umgehung moeglich), kein Stub, kein `.proto`,
+  kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine Route, keine
+  Wire-Shape-Aenderung. Mutations-Probe der Vorgaenger-Iteration im Journal dokumentiert und
+  plausibel (Vergleichsoperator umgedreht, Test wird rot).
+- neue-units: keine
+- offen:
+  - Die Sibling-Units in diesem Backlog-Abschnitt (`fix-calendar-erasure-incomplete-and-doc-mismatch`,
+    `fix-crm-erasure-contacts-companies-preview-execute-mismatch`, `fix-work-erasure-missing-project-membership`,
+    `fix-chat-erasure-missing-bookmarks-mentions`) beschreiben denselben Fehlerklassen-Typ
+    (Preview/Execute-Luecke, fehlende CASCADE-Tabellen) fuer andere Handler — unveraendert offen,
+    keine Ueberschneidung mit dieser Unit.
