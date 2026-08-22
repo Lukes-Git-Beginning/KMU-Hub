@@ -1576,3 +1576,87 @@ Frühere Läufe liegen vollständig im Archiv:
     `todo`-Unit im Block.
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
     beruehrt).
+
+## Iteration 27 — cov-gateway-email-contact-linking-import-export — done — 2026-08-22 04:31
+- commit: (siehe naechster Eintrag)
+- gebaut: Neue Testdatei `route_email_contact_links_import_export_test.go` fuer den
+  dritten/letzten Teil von `route_email.go`: Nachricht-Kontakt-Verknuepfung
+  (HandleGetEmailContactLinks, HandleLinkEmailToContact, HandleUnlinkEmailFromContact,
+  HandleGetContactEmails) sowie Kontakt-Import/Export (HandleImportContactsCSV,
+  HandleImportContactsVCard, HandleExportContactsCSV, HandleExportContactsVCard) — mit
+  `go tool cover -func` vorab gegen die tatsaechliche 0,0-%-Liste geprueft (deckt sich exakt
+  mit der Korrektur-Notiz der Unit). Muster wie B11/B12: ServiceUnavailable (502, bestehender
+  `testEmailServiceUnavailable`-Helper), InvalidJSON (400) wo `json.NewDecoder(r.Body).Decode`
+  greift, ReachesRPC (503).
+  Zusaetzlich ein DB-Test in `internal/server/email_grpc_export_test.go`:
+  `TestEmailExportContactsCSV_ExcludesOtherTenantContact` erfuellt das explizite
+  done_when "Export mit zwei geseedeten Tenants". Seedet je einen Kontakt in zwei
+  unabhaengigen Tenants ueber den bereits bewiesenen Import-Pfad, exportiert beide
+  Kontakt-IDs im Kontext des ersten Tenants und belegt: eigener Kontakt erscheint, fremder
+  nicht. WAEHREND DER MUTATIONS-PROBE ENTDECKT (siehe unten): der App-Layer-Tenant-Filter in
+  `ListByIDs` (`postgres_repository.go:301`) ist nicht die alleinige Verteidigung — RLS auf
+  `contacts` faengt einen fremden Tenant unabhaengig vom WHERE-Filter ab (Entfernen von
+  `AND tenant_id = $2` liess den Test gruen bleiben). Kein Sicherheitsloch, sondern
+  Defense-in-Depth; im Journal dokumentiert, weil die erste Mutationszeile deshalb keine
+  aussagekraeftige Probe war und durch eine zweite ersetzt wurde (siehe mutations-probe:).
+  CSV-FORMEL-INJEKTION (echter Fund, nicht gefixt): `internal/email/contact/export_service.go`
+  `ExportCSV` (Zeile 86-131) schreibt first_name/last_name/email/phone/company/position/notes
+  unveraendert in CSV-Zellen — kein Praefix-Check auf `=`/`+`/`-`/`@`. Ein Kontakt mit
+  entsprechendem Namens- oder Notizfeld fuehrt beim Oeffnen der Export-Datei in Excel/
+  LibreOffice eine Formel aus. Als Fix-Unit `fix-email-contacts-csv-export-formula-injection`
+  ans Backlog-Ende angehaengt (Coverage-Units aendern kein Verhalten, siehe Regel 2 des
+  Laufkopfs) statt mit einem Test gefixt, der die Luecke nur festschreiben wuerde.
+  `ExportVCard` (gleiche Datei) ist nicht betroffen — vCard-Felder werden nicht als
+  Tabellenkalkulations-Formeln interpretiert, in der Fix-Unit gegengeprueft statt angenommen.
+  Tenant-Isolation der Verknuepfungsroute (`email_contact_links`) ist bereits an der
+  Repository-Ebene bewiesen (`internal/email/contactlink/tenant_isolation_test.go`,
+  `TestTenantIsolation_EmailContactLinks_DB`) — die vier neuen Gateway-Handler sind reine
+  Pass-Throughs zum gRPC-Client und fuegen dort nichts hinzu, das isoliert zu testen waere.
+- gate: build ok (`-p 2` gateway/..., server/..., email/..., cmd/gateway/...) | vet ok
+  (gateway/..., server/..., email/...) | lint ok (0 issues, gateway/... und server/...) |
+  test ok (neue Gateway-Testdatei: 20/20 `TestEmail*`-Faelle gruen, `internal/gateway`
+  komplett gruen inkl. `TestOpenAPIRouteDrift`, `internal/email/...` komplett gruen
+  [12 Pakete], `internal/server` komplett gruen inkl. der neuen Tenant-Isolation-Probe,
+  DATABASE_URL gegen kmuhub_app, 0 SKIP) | migration n.a. (keine Schemaaenderung) |
+  rls-smoke n.a. (keine neue Tabelle/Policy beruehrt — RLS-Wirkung auf `contacts` nur
+  gegengeprueft, nicht veraendert)
+- coverage: internal/gateway 50,1 % -> 50,5 % (eigene Messung vor/nach genau dieser
+  Iteration im selben Arbeitsbaum; Startwert deckt sich mit dem in Iteration 26 gemessenen
+  Endstand, nicht mit dem veralteten `coverage_start` der Unit von 46,1 %).
+  internal/email/contactlink bleibt bei 35,0 % unveraendert (`coverage_start` deckt sich
+  exakt) — die vier neuen Verknuepfungs-Handler-Tests liegen im gateway-Paket und brechen vor
+  dem echten Service ab (ReachesRPC scheitert am Transport), decken also keine zusaetzliche
+  Zeile in `internal/email/contactlink` ab; dieselbe erwartungsgemaesse Grenze wie bei jeder
+  anderen `cov-gateway-*`-Unit dieses Laufs. internal/server (nicht `coverage_start` der
+  Unit, aber vom neuen DB-Test beruehrt): 70,3 % nach dieser Iteration gemessen, kein
+  Vorher-Wert dieser Iteration verfuegbar (keine fruehere Unit dieses Laufs hat dieses Paket
+  als Ziel gemessen) — als Kontext genannt, nicht als Beitrag dieser Unit ausgewiesen.
+- mutations-probe: ERSTE PROBE VERWORFEN (siehe gebaut:) — `AND tenant_id = $2` in
+  `ListByIDs` (`postgres_repository.go:301`) zu `FROM contacts WHERE id = ANY($1)` (Filter
+  entfernt) gebrochen -> `TestEmailExportContactsCSV_ExcludesOtherTenantContact` blieb
+  GRUEN, weil RLS auf `contacts` unabhaengig vom App-Filter greift. Zurueckgedreht (`git diff`
+  auf die Datei zeigte danach 0 Zeilen). ZWEITE, aussagekraeftige PROBE: dieselbe Zeile zu
+  `AND tenant_id != $2` gebrochen (Filter invertiert, schliesst den eigenen Tenant aus statt
+  ihn einzuschliessen) -> Test wird ROT (`does not contain "own-tenant@email-export.test.local"`,
+  0 Kontakte im Export). Zurueckgedreht -> gruen (`go test ./internal/server/
+  ./internal/crm/contact/... ./internal/gateway/` komplett), `git diff --stat` auf
+  `postgres_repository.go` zeigt 0 Zeilen Diff.
+- verify vorgaenger: sauber. `143108a0` (Iteration 26, Signaturen/Vorlagen-Coverage) gegen
+  alle acht Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`, `JOURNAL.md`,
+  eine neue reine Testdatei (`route_email_signatures_templates_test.go`, +335 Zeilen) und
+  eine neue Testzeile in `internal/email/template/service_test.go` (+35 Zeilen). Grep auf
+  "Unimplemented|TODO|t\.Skip\(|RequirePermission|\.proto" liefert null Treffer, kein
+  gRPC-Bypass, kein Stub, kein `.proto` angefasst, keine neue `RequirePermission`, keine neue
+  Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route.
+- neue-units: fix-email-contacts-csv-export-formula-injection (CSV-Formel-Injection in
+  `internal/email/contact/export_service.go`, Details siehe gebaut:)
+- offen:
+  - `fix-email-contacts-csv-export-formula-injection` ist die einzige neue Unit dieses Laufs
+    und sicherheitsrelevant — sollte vor Block C priorisiert werden, nicht am Ende der Queue
+    verhungern.
+  - Damit sind alle drei `cov-gateway-email-*`-Units aus Block B abgeschlossen
+    (Messages/Folders/Sync, Signaturen/Vorlagen, Kontakt-Verknuepfung/Import/Export);
+    `route_email.go` ist vollstaendig auf Kernpfad-Ebene abgedeckt.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration, keine Tabelle/Policy
+    beruehrt). Die RLS-Defense-in-Depth-Beobachtung (siehe gebaut:/mutations-probe:) ist
+    dokumentiert, kein Fund, der eine eigene Unit braucht.

