@@ -1313,3 +1313,57 @@ Frühere Läufe liegen vollständig im Archiv:
     beiden Folge-Units bleibt also echte Arbeit, nur eben kleiner als der urspruengliche
     28-Funktionen-Umfang suggeriert.
   - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).
+
+## Iteration 23 — cov-gateway-settings-branding-tenant-user — done — 2026-08-22 03:50
+- commit: (folgt in Zeile nach diesem Eintrag)
+- gebaut: Neue Testdatei `route_settings_branding_tenant_user_test.go` fuer die sieben
+  verbleibenden ungetesteten Handler aus `route_settings.go`: HandleGetResolvedSettings,
+  HandleGetTenantSettings, HandlePutTenantSettings, HandleGetUserSettings,
+  HandlePutUserSettings, HandleGetBranding, HandlePutBranding. Eigene Messung vor dem Schreiben
+  (wie von den notes gefordert, siehe auch Befund aus Iteration 22) bestaetigt: alle sieben lagen
+  bei 0,0 %, `rawMapToSettingEntries` bei 80,0 %. Pro Handler das Muster aus
+  `route_settings_module_access_test.go`/`route_bexio_test.go`: ServiceUnavailable,
+  MissingTenant, fehlende Auth (NoUserID/NoCallerID wo zutreffend), Validierungsfehler
+  (InvalidJSON, fehlendes Pflichtfeld ueber `assertValidationError`), ReachesRPC (503 gegen die
+  Dummy-Verbindung, kein bufconn-/Fake-Client-Harness fuer SettingsServiceClient im Paket).
+  `HandlePutBranding` zusaetzlich mit `TestHandlePutBranding_NameTooLong` (max=200-Grenze) und
+  einem Kommentar, der begruendet, warum `accent_color`/`logo_object_key`/`icon_object_key` am
+  Gateway bewusst NICHT gegen die Cosmi-Swatch-Palette bzw. das Tenant-Praefix geprueft werden:
+  diese Validierung liegt in `internal/settings/branding.go`
+  (`allowedAccentColors`/`brandingObjectKeyValid`) und ist dort bereits in `branding_test.go`
+  abgedeckt — Thick-Services/Thin-Handlers, keine Duplikat-Pruefung am Gateway. Fuer
+  `HandleGetTenantSettings` zusaetzlich `TestHandleGetTenantSettings_CrossTenant` mit Kommentar,
+  der dokumentiert, warum es keinen Code-Pfad fuer einen fremden Tenant an dieser Stelle gibt
+  (TenantId kommt ausschliesslich aus dem Auth-Kontext, nie aus der Anfrage) — die serverseitige
+  Durchsetzung liegt in `internal/server/settings_grpc.go`, ausserhalb der Reichweite dieses
+  Pakets ohne Live-RPC-Harness.
+- gate: build ok (`-p 2` gateway/..., cmd/gateway/...) | vet ok | lint ok (0 issues) | test ok
+  (neue Testdatei einzeln gruen, ganzes `internal/gateway` gruen inkl. `TestOpenAPIRouteDrift`
+  [836 Routen gegen 838 dokumentierte Pfade, unveraendert], `internal/settings` gruen,
+  DATABASE_URL gegen kmuhub_app, 0 SKIP im Gateway-Paketlauf)
+- coverage: internal/gateway 48,4 % -> 48,9 % (eigene Messung vor/nach genau dieser Testdatei im
+  selben Arbeitsbaum). Alle sieben Handler 0,0 % -> 88,0-94,4 %; `rawMapToSettingEntries`
+  unveraendert bei 80,0 % (die verbleibende Luecke ist der `structpb.NewValue`-Fehlerpfad, der aus
+  `encoding/json`-dekodiertem `interface{}` praktisch nicht erreichbar ist — jeder JSON-Wert
+  mappt auf einen von structpb unterstuetzten Go-Typ).
+- mutations-probe: `if callerID == ""` in `HandlePutBranding` auf `if false` gesetzt ->
+  `TestHandlePutBranding_NoCallerID` wird rot (503 statt erwartetem 401). Zurueckgedreht -> gruen,
+  `git diff --stat` zeigt fuer `route_settings.go` 0 Zeilen Diff, nur die neue Testdatei und die
+  Backlog-Statuszeile geaendert.
+- verify vorgaenger: sauber. `2658c110` (Iteration 22, Modul-Grant-JSON-Marshaling-Coverage)
+  gegen alle acht Fehlerklassen geprueft: `git show --stat` zeigt nur `BACKLOG.yml`,
+  `JOURNAL.md` und eine neue reine Testdatei (`route_settings_module_access_test.go`, +58
+  Zeilen). `grep -n "client\.\|Unimplemented\|TODO\|t.Skip\|RequirePermission"` auf der neuen
+  Testdatei liefert null Treffer, kein gRPC-Bypass, kein `.proto` angefasst, keine neue
+  `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, kein Guard ersetzt, keine
+  neue Route.
+- neue-units: keine
+- offen:
+  - Wie in jeder vorigen Coverage-Unit dieses Laufs ist "fremder Tenant liefert 404/403" fuer
+    diese Handler nicht ueber einen Live-RPC-Roundtrip getestet (kein bufconn-/Fake-Client-
+    Harness fuer SettingsServiceClient im ganzen Paket). Die serverseitige Tenant-Durchsetzung
+    liegt bei `internal/server/settings_grpc.go`. Bei `HandleGetTenantSettings`/`HandleGetUserSettings`/
+    `HandlePutTenantSettings`/`HandlePutUserSettings` gibt es ohnehin keinen Code-Pfad, der einen
+    fremden Tenant annehmen koennte — TenantId/UserId kommen ausschliesslich aus dem
+    Auth-Kontext, nie aus Body oder URL.
+  - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).
