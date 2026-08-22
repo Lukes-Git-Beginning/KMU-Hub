@@ -2014,3 +2014,76 @@ Frühere Läufe liegen vollständig im Archiv:
     sie vorzuziehen.
   - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
     keine neue Tabelle/Policy in dieser Iteration).
+
+## Iteration 33 — cov-gateway-booking-admin — done — 2026-08-22 05:19
+- commit: (wird nach dem Commit in einem docs-Folgeeintrag nachgetragen)
+- gebaut: `route_booking_admin_test.go` (Admin-CRUD-Teil von `route_booking.go`:
+  HandleListBookingPages, HandleCreateBookingPage, HandleGetBookingPage,
+  HandleUpdateBookingPage, HandleDeleteBookingPage — 5 Handler + ServiceName,
+  32 Tests). Der oeffentliche Teil (HandleGetPublicBookingPage,
+  HandleGetAvailability, HandleCreatePublicBooking, ueber
+  RegisterPublicRoutes ausserhalb der Registrar-Schleife gemountet) ist Teil
+  der stillgelegten Public-Web-Surface (BACKLOG-PARKED.yml) und bleibt
+  unangetastet — vorab bestimmt und hier benannt, wie in den Notes verlangt.
+  Muster: `route_calendar_events_resources_test.go` (ServiceUnavailable /
+  Validation / `*_ReachesRPC`, kein bufconn-Stub fuer CalendarServiceClient
+  in diesem Repo).
+  Zwei Befunde beim Schreiben, beide dokumentiert statt stillschweigend
+  angenommen:
+  1. Die im Backlog genannte "Doppelbuchung desselben Zeitfensters" als
+     fachlicher Kernfall des Admin-Teils existiert dort nicht. Die gesamte
+     Slot-Kollisionspruefung (`ErrBookingSlotUnavailable`, `bookedSet`,
+     `overlapsCalendarEvents`) liegt in `BookingService.CreatePublicBooking`
+     und `GetAvailability` (`internal/work/calendar/booking_service.go`) —
+     beide oeffentlich, beide out of scope. Die Admin-CRUD-Handler
+     persistieren nur Seiten-Konfiguration; `errToStatus`
+     (`internal/server/calendar_grpc.go:1672`) mapped fuer BookingPage auch
+     keinen AlreadyExists-Fall. Naechstliegende ehrliche Entsprechung:
+     `TestHandleUpdateBookingPage_ChangedAvailabilityRules_ReachesRPC`
+     dokumentiert, dass eine Config-Aenderung ohne lokale Konfliktpruefung
+     direkt zur RPC durchgereicht wird.
+  2. `createBookingPageRequest.Services` und `updateBookingPageRequest.Services`
+     tragen kein `dive` im `validate`-Tag — dieselbe Fehlerklasse wie die
+     bereits im Backlog stehende `fix-gateway-advisory-product-riskclass-not-validated`
+     (Referenzmuster fuer den Fix: `route_customization.go:473`,
+     `validate:"required,min=1,dive"`). Ein Service-Item mit leerem Namen,
+     leerem Preis oder `duration_min: 0` erreicht ungeprueft die RPC. Zuerst
+     als echte Validierungstests geschrieben (4 Stueck), liefen rot gegen
+     den Ist-Code, dann — konsistent mit dem bereits etablierten
+     `*_ReachesRPC`-Muster fuer genau diese Situation
+     (`route_calendar_events_resources_test.go`, InvertedRange-Fall) — zu
+     `*_ReachesRPC`-Dokumentationstests umgebaut statt das Verhalten in
+     einem Coverage-only-Commit nebenbei zu aendern. Fix-Unit ans
+     Backlog-Ende gehaengt (siehe neue-units).
+- gate: build ok (`-p 2` gateway/..., cmd/gateway/...) | vet ok | lint ok
+  (0 issues, gateway/...) | test ok (`internal/gateway` komplett gruen,
+  2471 PASS / 0 SKIP / 0 FAIL aus `go test -v -count=1 ./internal/gateway/`;
+  `TestOpenAPIRouteDrift` unveraendert 836 Routen gegen 838 dokumentierte
+  Pfade, keine neue Route) | migration n.a. (keine Schemaaenderung) |
+  rls-smoke n.a. (keine neue Tabelle/Policy)
+- coverage: internal/gateway 52,6 % (eigene Messung vor dieser Unit,
+  Testdatei kurz entfernt und neu gemessen) -> 52,8 % (eigene Messung nach
+  dieser Unit)
+- mutations-probe: In `HandleGetBookingPage` (`route_booking.go:206`)
+  `if !ok { return }` nach `validateUUIDParam` auf `if ok { return }`
+  gedreht -> `TestHandleGetBookingPage_InvalidIDUUID` und
+  `TestHandleGetBookingPage_ReachesRPC` werden rot. Zurueckgedreht -> gruen,
+  `git diff --stat internal/gateway/route_booking.go` zeigt 0 Zeilen.
+- verify vorgaenger: sauber. `9b54ee7b` (Iteration 32, Lexware-Route-Coverage)
+  gegen alle acht Fehlerklassen geprueft: `git show --stat 9b54ee7b` zeigt
+  nur eine neue reine Gateway-Testdatei (`route_lexware_test.go`) plus
+  BACKLOG/JOURNAL — kein gRPC-Bypass, kein Stub/TODO, kein `.proto`
+  angefasst, keine neue `RequirePermission`, keine neue Tabelle, keine
+  Wire-Shape-Aenderung, kein Guard ersetzt, keine neue Route. Der Folgecommit
+  `47e76798` ist nur ein docs-SHA-Nachtrag im Journal, unkritisch.
+- neue-units: `fix-gateway-booking-page-services-no-dive` (Befund 2 oben,
+  ans Backlog-Ende gehaengt, `status: todo`)
+- offen:
+  - `fix-email-contacts-csv-export-formula-injection` (seit Iteration 27)
+    und `fix-gateway-advisory-product-riskclass-not-validated` (seit
+    Iteration 28) stehen weiterhin unbearbeitet am Backlog-Ende — jetzt
+    sechs Iterationen unbeachtet, weil Block B (Coverage-Reihenfolge) sie
+    lexikalisch nach hinten sortiert. Fuer den naechsten Lauf vormerken,
+    sie vorzuziehen.
+  - Kein DB-Gate ausser dem regulaeren Testlauf noetig (keine Migration,
+    keine neue Tabelle/Policy in dieser Iteration).

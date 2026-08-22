@@ -1193,7 +1193,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 46,1 % (CI-Stand 1b49a1f3, Run 32508843776)"
     scope: >
       `route_booking.go` (403 Zeilen, 13 Funktionen) ohne Testdatei. Diese Unit nimmt den
@@ -1992,3 +1992,50 @@ units:
         statt 503
       - go test -count=1 ./internal/gateway/ ./internal/crm/advisoryprotocol/... gruen
       - go test -count=1 ./internal/email/contact/... gruen
+
+  - id: fix-gateway-booking-page-services-no-dive
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Validierungs-Fix, kein Coverage-Ziel)"
+    scope: >
+      Dieselbe Fehlerklasse wie `fix-gateway-advisory-product-riskclass-not-validated`, diesmal in
+      `backend/internal/gateway/route_booking.go`: `createBookingPageRequest.Services` (Zeile 94)
+      und `updateBookingPageRequest.Services` (Zeile 109) tragen `json:"services"` (bzw.
+      `json:"services,omitempty"`) OHNE `dive` im `validate`-Tag. `bookingServiceRequestItem` hat
+      `validate:"required"` auf ID/Name/Price und `validate:"required,gt=0"` auf DurationMin —
+      aber go-playground/validator rekursiert nur dann in ein Slice von Structs, wenn das
+      Slice-Feld selbst `dive` traegt (Referenzmuster `route_customization.go:473`:
+      `validate:"required,min=1,dive"`). Ein Service-Item mit leerem Namen, leerem Preis oder
+      `duration_min: 0` erreicht deshalb ungeprueft die RPC statt mit 400 abgewiesen zu werden —
+      belegt durch drei `*_ReachesRPC`-Tests in `route_booking_admin_test.go`
+      (`TestHandleCreateBookingPage_ServiceItemMissingName_ReachesRPC`,
+      `TestHandleCreateBookingPage_ServiceItemZeroDuration_ReachesRPC`,
+      `TestHandleCreateBookingPage_ServiceItemMissingPrice_ReachesRPC`, dazu das Gegenstueck auf
+      dem Update-Pfad), Iteration 33, 2026-08-22, die den aktuellen (fehlerhaften) 503-Pfad bewusst
+      als Ist-Zustand pinnen statt eine 400-Erwartung zu erzwingen. Anders als beim Advisory-Fall
+      ist hier kein Crash-Risiko dokumentiert: `duration_min: 0` wird in
+      `internal/work/calendar/booking_service.go` (`GetAvailability`) defensiv aufgefangen
+      (Fallback auf `rules.SlotDurationMin`, dann auf 30 Minuten) — es ist eine Datenqualitaets-
+      luecke, keine Sicherheitsluecke.
+    sources:
+      - backend/internal/gateway/route_booking.go
+      - backend/internal/gateway/route_booking_admin_test.go
+      - backend/internal/gateway/route_customization.go
+      - backend/internal/work/calendar/booking_service.go
+    notes: >
+      Einfacher als der Advisory-Fall: nur eine Fixstelle, `validate:"dive"` auf beide
+      `Services`-Tags ergaenzen (Gateway-seitig reicht, `BookingService.CreateBookingPage`/
+      `UpdateBookingPage` in `internal/work/calendar/booking_service.go` haben ohnehin keine
+      eigene Service-Feld-Validierung, es gibt also keinen Root-Cause-Layer wie beim Advisory-Fall).
+      Bestehende `*_ReachesRPC`-Tests NICHT loeschen, sondern umdrehen: nach dem Fix erwarten sie
+      400 mit dem jeweiligen Feldnamen (Namespace-Format des Validators vorher pruefen, nicht
+      raten — beim Advisory-Fix als offener Punkt vermerkt).
+    done_when:
+      - Ein Service-Item mit leerem Namen, leerem Preis oder duration_min <= 0 wird abgelehnt,
+        bevor es die RPC erreicht (Create UND Update)
+      - Die vier *_ReachesRPC-Tests in route_booking_admin_test.go erwarten nach dem Fix 400 statt
+        503
+      - go test -count=1 ./internal/gateway/ gruen
