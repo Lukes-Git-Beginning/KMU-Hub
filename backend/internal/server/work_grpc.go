@@ -2490,6 +2490,8 @@ func mapWorkError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, task.ErrViewerCannotEdit):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, task.ErrCustomFieldNotFound):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, task.ErrParentInDiffProject):
 		return status.Error(codes.InvalidArgument, err.Error())
 	// Comment errors

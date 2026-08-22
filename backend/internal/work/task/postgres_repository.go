@@ -596,14 +596,28 @@ func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, taskID uu
 		if marshalErr != nil {
 			return marshalErr
 		}
-		_, execErr := tx.Exec(ctx,
+		// The FK on field_id only enforces that the definition exists, and it is
+		// checked in system context — it never sees the tenant. Without the EXISTS
+		// guard a caller could write a definition id belonging to a foreign tenant:
+		// invisible on read (GetCustomFieldValues joins the RLS-filtered definitions
+		// table) but a persisted orphan row, and a probe for foreign definition ids.
+		// The explicit tenant_id predicate is not redundant with RLS — it is the only
+		// thing left when this runs in system context.
+		tag, execErr := tx.Exec(ctx,
 			`INSERT INTO task_custom_field_values (task_id, tenant_id, field_id, value, created_at, updated_at)
-			 VALUES ($1, $2, $3, $4, $5, $5)
-			 ON CONFLICT (task_id, field_id) DO UPDATE SET value = $4, updated_at = $5`,
+			 SELECT $1::uuid, $2::uuid, $3::uuid, $4::jsonb, $5::timestamptz, $5::timestamptz
+			 WHERE EXISTS (
+			     SELECT 1 FROM work_custom_field_definitions
+			     WHERE id = $3::uuid AND tenant_id = $2::uuid
+			 )
+			 ON CONFLICT (task_id, field_id) DO UPDATE SET value = $4::jsonb, updated_at = $5::timestamptz`,
 			taskID, tenantID, fieldID, jsonVal, now,
 		)
 		if execErr != nil {
 			return execErr
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrCustomFieldNotFound
 		}
 	}
 

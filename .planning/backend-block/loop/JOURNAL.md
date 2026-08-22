@@ -5216,3 +5216,68 @@ Frühere Läufe liegen vollständig im Archiv:
   Scope dieser Unit ausdruecklich ungeprueften `csv.NewWriter`-Stellen in
   `internal/server/inventar_grpc.go`, `vermietung_grpc.go`, `fuhrpark_grpc.go`).
 - offen: keine.
+
+## Iteration 88 — fix-work-task-custom-field-foreign-tenant-writable — done — 2026-08-22 12:01
+- commit: <pending>
+- gebaut: `SetCustomFieldValues` (`internal/work/task/postgres_repository.go:586`) schreibt nicht
+  mehr blind per `INSERT ... VALUES`, sondern per `INSERT ... SELECT ... WHERE EXISTS (SELECT 1
+  FROM work_custom_field_definitions WHERE id = $3 AND tenant_id = $2)` mit `ON CONFLICT` wie
+  bisher; `RowsAffected() == 0` liefert das neue Sentinel `task.ErrCustomFieldNotFound`
+  ("unknown custom field", `internal/work/task/errors.go`), das `mapWorkError`
+  (`internal/server/work_grpc.go`) auf `codes.InvalidArgument` -> HTTP 400 abbildet. Fremde und
+  gar nicht existierende field_ids liefern denselben Fehler mit demselben Text — das Oracle aus
+  dem Unit-Scope ist damit zu. `api/openapi.yaml`: PUT `/api/v1/tasks/{id}/custom-fields`
+  dokumentiert jetzt 400 und 401 (Route existierte, keine neue Route).
+- Fehlercode-Wahl (gegen den FE-Typ, nicht geraten): `useSetTaskCustomFields`
+  (`desktop/src/renderer/src/api/hooks/useTasks.ts:447`) wirft den Fehler unveraendert weiter und
+  verzweigt nicht nach Statuscode. 400 ist damit korrekt und unschaedlich: der Client hat eine
+  field_id geschickt, die es fuer ihn nicht gibt — 404 wuerde die Task-Ressource meinen, die es
+  sehr wohl gibt.
+- Befund aus der ersten Mutations-Probe (gehoert ins Protokoll, weil er das Bild praezisiert):
+  in der normalen Tenant-Session traegt das explizite `tenant_id = $2` nichts bei — RLS auf
+  `work_custom_field_definitions` (`tenant_isolation`, Migration 000146) filtert die
+  EXISTS-Unterabfrage bereits, die fremde Definition ist dort unsichtbar. Load-bearing ist das
+  Praedikat erst im Systemkontext (`is_system_context()` laesst jede Zeile durch). Der Test wurde
+  deshalb um einen Systemkontext-Aufruf erweitert, sonst waere die Probe nicht diskriminierend
+  gewesen. Der urspruengliche Bug bestand trotzdem: vorher gab es GAR KEINE Unterabfrage, nur den
+  FK-Check, und der laeuft immer im Systemkontext.
+- gate: build ok (`go build -p 2` ueber `internal/work/...`, `internal/server/...`,
+  `internal/gateway/...`, `cmd/work/...`, `cmd/gateway/...`) | vet ok | lint ok (`golangci-lint
+  run` ueber work/task, server, gateway: 0 issues) | test ok — `go test -count=1 -v
+  ./internal/work/task/`: 39 PASS, 0 FAIL, **0 SKIP** (`DATABASE_URL` gegen `kmuhub_app`, also
+  liefen die DB-Tests real); `./internal/work/...` und `./internal/server/` gruen;
+  `./internal/gateway/` gruen inkl. `TestOpenAPIRouteDrift`; `swagger-cli validate
+  api/openapi.yaml` = valid | migration: n.a. (keine neue Tabelle/Spalte, keine Migration —
+  reiner Query-Guard auf bestehendem Schema) | rls-smoke: n.a. keine Tabelle oder Policy
+  angefasst; die Tenant-Isolation wird stattdessen direkt im neuen DB-Test geprueft (eigener
+  Tenant schreibt, fremder Tenant wird abgelehnt, Waisenzeile im Systemkontext nachgezaehlt = 0)
+- coverage: `internal/work/task` 67,5 % -> 67,4 % (per `git stash -u` auf demselben Tree vor/nach
+  gemessen). Der Wert sinkt um eine Rundungsstelle, obwohl beide neuen Statements abgedeckt sind:
+  `SetCustomFieldValues` selbst geht von 5 auf 8 abgedeckte von jetzt 10 Statements (80,0 %), die
+  zwei weiterhin unabgedeckten Fehlerpfade (`tx.Begin`-Fehler, `json.Marshal`-Fehler) waren vorher
+  ebenfalls unabgedeckt und wiegen im groesseren Nenner minimal staerker. `coverage_start:` der
+  Unit war "n.a. (Validierungs-Fix, kein Coverage-Ziel)" — passt.
+- mutations-probe: zwei Proben, beide zurueckgedreht, `git diff` danach exakt der Soll-Diff
+  (17+/3-). (A) `AND tenant_id = $2::uuid` aus der EXISTS-Unterabfrage entfernt ->
+  `TestSetCustomFieldValues_RejectsForeignAndUnknownDefinitions` rot
+  ("in system context with a foreign-tenant definition = <nil>, want ErrCustomFieldNotFound").
+  (B) den `RowsAffected() == 0`-Zweig durch `_ = tag` ersetzt -> derselbe Test rot an der ersten
+  Assertion ("with a foreign-tenant definition = <nil>"). Beide Haelften des Guards sind damit
+  einzeln belegt.
+- verify vorgaenger: sauber. `31c6f439` (Iteration 87) gegen alle acht Fehlerklassen geprueft:
+  keine `.proto`-Aenderung, keine Route, kein `RequirePermission`, keine Tabelle, keine
+  Migration, kein Stub — die Aenderung ist reine Praesentationsschicht in fuenf CSV-Schreibpfaden
+  plus dem neuen Paket `internal/csvutil`, Wire-Shape der Exporte unveraendert (nur Zellinhalt).
+  Der dazwischenliegende `18471ea3` ist ein reiner Journal-Doku-Commit.
+- neue-units: fix-work-task-custom-field-errors-swallowed-on-create-update — `CreateTask`
+  (`work_grpc.go:606`) und `UpdateTask` (`:818`) rufen `SetCustomFieldValues` mit `_ =` auf und
+  verwerfen jeden Fehler, auch das neue `ErrCustomFieldNotFound` und echte DB-Fehler. Der
+  Sicherheitsteil ist ueber diese Pfade jetzt trotzdem dicht (die Zeile wird schlicht nicht mehr
+  geschrieben), offen ist nur die Rueckmeldung an den Aufrufer — deshalb eigene Unit statt
+  Nebenbei-Fix, sie braucht eine Entscheidung (Vorab-Validierung vs. slog-Warnung).
+- offen: Bestandsdaten wurden NICHT geprueft — falls in `task_custom_field_values` bereits
+  Waisenzeilen mit fremder `field_id` liegen (moeglich seit Migration 000320, praktisch
+  unwahrscheinlich bei Single-Tenant-Daten), raeumt dieser Commit sie nicht auf; er verhindert nur
+  neue. Ein Aufraeum-SELECT waere `SELECT COUNT(*) FROM task_custom_field_values tcfv JOIN
+  work_custom_field_definitions d ON d.id = tcfv.field_id WHERE d.tenant_id <> tcfv.tenant_id`
+  (im Systemkontext).

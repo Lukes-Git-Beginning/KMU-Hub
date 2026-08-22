@@ -3471,7 +3471,7 @@ units:
     service: work
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Validierungs-Fix, kein Coverage-Ziel)"
     scope: >
       Gefunden in fix-work-task-custom-field-values-wrong-fk (Iteration 56, 2026-08-22).
@@ -3698,3 +3698,42 @@ units:
         Treffer sind gefixt und mit Formel-Praefix-Test plus Normalwert-Test belegt, unbestaetigte
         sind im Journal als geprueft-und-sauber vermerkt
       - go test -count=1 ./internal/formulare/... ./internal/server/... gruen
+
+  - id: fix-work-task-custom-field-errors-swallowed-on-create-update
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fehlerbehandlungs-Fix, kein Coverage-Ziel)"
+    scope: >
+      Gefunden in fix-work-task-custom-field-foreign-tenant-writable (Iteration 88, 2026-08-22).
+      `CreateTask` (internal/server/work_grpc.go:606) und `UpdateTask` (:818) rufen
+      `s.taskRepo.SetCustomFieldValues(...)` mit `_ =` auf und verwerfen JEDEN Rueckgabefehler.
+      Seit Iteration 88 liefert die Methode fuer eine unbekannte oder fremde `field_id`
+      `task.ErrCustomFieldNotFound` — ueber diese beiden Pfade sieht der Aufrufer davon nichts:
+      Task wird angelegt bzw. aktualisiert, die Custom-Field-Werte fallen still weg, das FE
+      zeigt Erfolg. Dasselbe gilt fuer echte DB-Fehler (Pool weg, Constraint) — die sind heute
+      unsichtbar. Nur der dedizierte Pfad `SetTaskCustomFieldValues` (:1350) wertet den Fehler aus.
+    sources:
+      - backend/internal/server/work_grpc.go
+      - backend/internal/work/task/postgres_repository.go
+      - desktop/src/renderer/src/api/hooks/useTasks.ts
+    notes: >
+      Die Entscheidung, die dranhaengt: `CreateTask` hat den Task zu diesem Zeitpunkt bereits
+      angelegt. Einen Fehler danach zurueckzugeben liefert dem Client ein Fehlschlag-Signal fuer
+      eine Operation, die teilweise stattgefunden hat. Zwei vertretbare Wege, einen davon waehlen
+      und im Journal begruenden: (a) Validierung der field_ids VOR dem Task-INSERT (tenant-gescopter
+      Existenz-Check im Service), dann kann der Fehler sauber vor jeder Schreiboperation kommen;
+      (b) Fehler nach dem Anlegen nur loggen (slog.Warn mit task_id/field_id/tenant_id) statt still
+      zu verwerfen, und die Wire-Antwort unveraendert lassen. (a) ist sauberer, (b) ist der kleinere
+      Diff — nicht beides halb.
+      In keinem Fall den Fehler weiterhin per `_ =` verwerfen; das ist der eigentliche Befund.
+    done_when:
+      - Weder CreateTask noch UpdateTask verwerfen den Rueckgabewert von SetCustomFieldValues
+        stillschweigend
+      - Eine unbekannte field_id bei CreateTask/UpdateTask ist fuer den Aufrufer erkennbar
+        (Fehlerantwort oder mindestens ein slog-Eintrag, je nach gewaehltem Weg)
+      - Test in internal/server deckt den gewaehlten Weg ab
+      - go test -count=1 ./internal/server/ ./internal/work/task/ ./internal/gateway/ gruen,
+        DATABASE_URL gegen kmuhub_app

@@ -18,4 +18,9 @@ var (
 	ErrTaskNumberConflict    = errors.New("task number conflict")
 	ErrParentInDiffProject   = errors.New("parent task must be in the same project")
 	ErrInvalidDateRange      = errors.New("start_date must not be after due_date")
+	// ErrCustomFieldNotFound is returned for a field_id that does not resolve to a
+	// custom field definition of the calling tenant. Deliberately identical for
+	// "belongs to another tenant" and "does not exist at all" so the write result
+	// cannot be used to probe foreign definition ids.
+	ErrCustomFieldNotFound   = errors.New("unknown custom field")
 )
