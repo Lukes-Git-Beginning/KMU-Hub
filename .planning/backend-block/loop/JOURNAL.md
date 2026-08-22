@@ -1417,7 +1417,7 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein DB-Gate noetig (keine Migration, keine Tabelle/Policy beruehrt).
 
 ## Iteration 25 — cov-gateway-email-messages-folders-sync — done — 2026-08-22 04:00
-- commit: (siehe naechster Journal-Eintrag)
+- commit: 75635aae
 - gebaut: Neue Testdatei `route_email_folders_messages_sync_test.go` fuer den Rest des
   "Kernpfad Nachrichten/Ordner/Sync" von `route_email.go`. WICHTIGER BEFUND vor dem Bauen:
   die Backlog-Praemisse (Befund 5 im Laufkopf: "23 route_*.go ohne eigene Testdatei") zaehlte
