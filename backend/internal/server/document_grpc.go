@@ -1776,6 +1776,8 @@ func mapDocumentError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, folder.ErrCircularParent):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, folder.ErrFolderNotEmpty):
+		return status.Error(codes.FailedPrecondition, err.Error())
 
 	// File errors
 	case errors.Is(err, file.ErrFileNotFound),

@@ -2684,7 +2684,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/document (zur Laufzeit messen)"
     scope: >
       `document_files.folder_id` traegt `ON DELETE NO ACTION`. `folder/service.go:199-219` prueft

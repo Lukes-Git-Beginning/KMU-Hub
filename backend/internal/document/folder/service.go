@@ -206,6 +206,26 @@ func (s *Service) Delete(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) 
 		return ErrCannotDeleteSystemFolder
 	}
 
+	// document_files.folder_id is a NOT NULL FK with ON DELETE NO ACTION, and
+	// subfolders cascade-delete silently (ON DELETE CASCADE on parent_id) - a
+	// folder with files anywhere in its subtree would either crash with a raw
+	// FK violation or wipe descendants without the caller asking for it. Block
+	// both cases explicitly instead.
+	fileCount, countErr := s.repo.CountFiles(ctx, id)
+	if countErr != nil {
+		return countErr
+	}
+	if fileCount > 0 {
+		return ErrFolderNotEmpty
+	}
+	children, childrenErr := s.repo.GetChildren(ctx, tenantID, id)
+	if childrenErr != nil {
+		return childrenErr
+	}
+	if len(children) > 0 {
+		return ErrFolderNotEmpty
+	}
+
 	if err := s.repo.Delete(ctx, tenantID, id); err != nil {
 		return err
 	}

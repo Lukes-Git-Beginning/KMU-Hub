@@ -314,6 +314,31 @@ func TestDelete_SystemFolder(t *testing.T) {
 	assert.True(t, ok)
 }
 
+func TestDelete_NonEmptyFolder_Files(t *testing.T) {
+	svc, repo := newTestService()
+	seeded := seedFolder(repo, "Has Files", false)
+	repo.fileCounts[seeded.ID] = 1
+
+	err := svc.Delete(context.Background(), uuid.Nil, seeded.ID)
+
+	assert.ErrorIs(t, err, ErrFolderNotEmpty)
+	_, ok := repo.folders[seeded.ID]
+	assert.True(t, ok)
+}
+
+func TestDelete_NonEmptyFolder_Subfolders(t *testing.T) {
+	svc, repo := newTestService()
+	parent := seedFolder(repo, "Has Subfolder", false)
+	child := seedFolder(repo, "Child", false)
+	child.ParentID = &parent.ID
+
+	err := svc.Delete(context.Background(), uuid.Nil, parent.ID)
+
+	assert.ErrorIs(t, err, ErrFolderNotEmpty)
+	_, ok := repo.folders[parent.ID]
+	assert.True(t, ok)
+}
+
 func TestGetPath_Success(t *testing.T) {
 	svc, repo := newTestService()
 	seeded := seedFolder(repo, "Deep Folder", false)

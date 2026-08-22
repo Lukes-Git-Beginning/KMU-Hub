@@ -4320,3 +4320,51 @@ Frühere Läufe liegen vollständig im Archiv:
   Wire-Shape-Aenderung.
 - neue-units: keine
 - offen: keine
+
+## Iteration 72 — fix-document-folder-delete-nonempty-fk-crash — done — 2026-08-22 09:48
+- commit: (folgt nach Commit unten)
+- gebaut: `document_files.folder_id` traegt `NOT NULL REFERENCES document_folders(id)` ohne
+  `ON DELETE`-Klausel (= NO ACTION, `migrations/000043_create_document_tables.up.sql:26`).
+  `document_folders.parent_id` traegt dagegen `ON DELETE CASCADE`
+  (`000043...up.sql:10`) — ein Ordner mit Unterordnern liesse sich also loeschen und wuerde
+  seinen kompletten Unterbaum lautlos mitnehmen, bis in der Tiefe ein Unterordner mit Dateien
+  die FK-Verletzung ausloest (Postgres prueft alle Kaskadeneffekte in derselben Transaktion).
+  `folder/service.go` (`Delete`) pruefte vorher nur `IsSystem`. Fix nutzt zwei bereits
+  vorhandene, bereits getestete Repository-Methoden (`CountFiles`, `GetChildren`) statt neuer
+  SQL — beide waren im Interface und im Postgres-Repository schon vorhanden, nur an keiner
+  Delete-Stelle verdrahtet. Blockt jetzt VOR dem Delete: direkte Dateien ODER direkte
+  Unterordner -> `ErrFolderNotEmpty` -> `FailedPrecondition` (409) statt 500. Bewusst keine
+  "hochziehen"/"rekursiv loeschen"-Variante gebaut (Notes nannten das als Alternative): ein
+  harter 409 ist die einzige Variante ohne Produktentscheidung, und Rekursiv-Loeschen eines
+  Unterordner-Baums mit Dateien waere exakt das stillschweigende Verhalten, das der Bug-Report
+  kritisiert.
+  Mapping in `document_grpc.go:mapDocumentError` als neuer Case neben
+  `ErrCircularParent` (identisches Muster: FailedPrecondition). Tests: zwei neue Service-Tests
+  mit dem bestehenden `MockRepository` (Dateien vorhanden / Unterordner vorhanden, beide
+  erwarten `ErrFolderNotEmpty` und dass der Ordner nicht geloescht wurde) plus ein neuer Fall
+  in der Tabelle `TestMapDocumentError_AllSentinels`.
+- gate: build ok (`./internal/document/... ./internal/server/... ./internal/gateway/... ./cmd/...`)
+  | vet ok (`./internal/document/... ./internal/server/...`) | lint ok (0 issues, dieselben
+  Pfade) | test ok (`./internal/document/folder/` einzeln gruen inkl. beider neuer Tests; volle
+  `./internal/document/...`-Suite mit `-p 1` gruen; `./internal/server/` gruen) | migration n.a.
+  (kein Schema-Wechsel, reiner Anwendungs-Guard) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst) | `./internal/gateway/` (TestOpenAPIRouteDrift) NICHT gelaufen — keine Route
+  angefasst, daher laut Anleitung nicht Pflicht.
+- coverage: `internal/document/folder` 82,2 % -> 82,1 % (selbst gemessen: `git stash push -u`
+  auf `service.go`/`errors.go`/`service_test.go`, `go test -coverprofile` davor/danach,
+  `stash pop`; minimal negative Verschiebung reiner Rundungseffekt — neue Zeilen sind durch die
+  zwei neuen Tests vollstaendig abgedeckt, der Nenner an Gesamtstatements waechst mit).
+- mutations-probe: `if fileCount > 0` probeweise zu `if false && fileCount > 0` entwertet ->
+  `TestDelete_NonEmptyFolder_Files` wird rot ("Expected error ... but got nil"). Zurueckgedreht,
+  `git diff --stat service.go` zeigt wieder ausschliesslich die vorgesehenen 20 Insertions,
+  `./internal/document/folder/` erneut gruen.
+- verify vorgaenger: sauber. `78339951` (Iteration 71, fix-channel-delete-call-sessions-fk-crash)
+  gegen alle acht Fehlerklassen geprueft (`git show --stat` + Volltextdiff von `service.go`,
+  `repository.go`, `postgres_repository.go`, `errors.go`, `chat_grpc.go`) — Anwendungs-Guard
+  nach exaktem Muster von `ErrCannotDeleteDM`, kein Gateway-Handler betroffen, kein Stub, kein
+  `.proto`, kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine Route,
+  keine Wire-Shape-Aenderung. `HasCallSessions` braucht keinen Tenant-Filter, weil `id` schon
+  ueber `GetByIDForTenant` tenant-gescoped in `Delete` ankommt, bevor die neue Methode
+  aufgerufen wird — kein Befund.
+- neue-units: keine
+- offen: keine
