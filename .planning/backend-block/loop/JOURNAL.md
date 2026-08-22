@@ -2470,7 +2470,7 @@ Frühere Läufe liegen vollständig im Archiv:
     DATEV-Instanz/einem Steuerberater. Bis dahin bleibt der Exporter unveraendert (UTF-8 mit BOM).
 
 ## Iteration 40 — scan-dsar-missing-contact-user-tables — done — 2026-08-22 06:15
-- commit: (siehe BACKLOG/JOURNAL-Commit unten)
+- commit: 8170ee62
 - gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Vollstaendige Liste der
   Kandidatentabellen gezogen: `pg_constraint` (FK auf `contacts(id)` bzw. `users(id)`, 154 Zeilen)
   gegen die lokale DB plus eine zweite Abfrage auf Spaltennamen
