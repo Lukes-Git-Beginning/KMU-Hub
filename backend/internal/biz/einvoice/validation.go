@@ -161,9 +161,12 @@ func validateInvoiceDoc(doc *invoiceDoc, profile Profile) error {
 	}
 
 	// Reverse charge moves the tax liability to the buyer, so the buyer has to be
-	// identifiable for tax as well.
+	// identifiable for tax as well. This is the buyer half of BR-AE-02 (the seller
+	// half is the sellerTaxRuleFor check above, for the same category) — BR-AE-03 is
+	// a different rule entirely: it covers a document-level allowance (BG-20) with
+	// its own VAT category, which this product does not emit.
 	if usesTaxCategory(doc.TaxGroups, taxCategoryReverseCharge) && strings.TrimSpace(doc.Buyer.VATID) == "" {
-		add("BR-AE-03", "BT-48", "reverse charge requires the customer VAT identifier")
+		add("BR-AE-02", "BT-48", "reverse charge requires the customer VAT identifier")
 	}
 
 	for _, l := range doc.Lines {

@@ -313,6 +313,9 @@ func buildLinesAndTaxGroups(items []models.LineItem, taxMode string) ([]docLine,
 		rate := item.TaxRate
 		if taxFree {
 			// BR-AE-05 / BR-E-05: a reverse-charge or exempt line must carry rate 0.
+			// BR-Z-05 (zero-rated) needs no assignment here: taxCategoryFor only
+			// returns taxCategoryZeroRated when rate is already zero (default case
+			// below), so the rate-0 condition holds by construction, not by force.
 			rate = decimal.Zero
 		}
 		category, exemptionReason := taxCategoryFor(taxMode, rate)
@@ -355,6 +358,26 @@ func buildLinesAndTaxGroups(items []models.LineItem, taxMode string) ([]docLine,
 
 // taxCategoryFor maps the invoice tax mode and the effective rate to the EN 16931
 // VAT category code and, where the category demands one, its exemption reason.
+//
+// This is the single place category and exemption reason are decided, so the
+// per-category VAT breakdown rules hold by construction and are not re-checked
+// in validateInvoiceDoc:
+//   - BR-Z-05/E-05/AE-05 (line VAT rate must be 0 for these three categories):
+//     the caller already forces rate to 0 for reverse charge/Kleinunternehmer, and
+//     the zero-rated branch below only fires when rate is already 0.
+//   - BR-Z-09/E-09/AE-09 (VAT category tax amount must be 0): follows from the
+//     rate-0 guarantee above — buildLinesAndTaxGroups computes tax as
+//     taxableNet * rate / 100.
+//   - BR-E-10/AE-10 (exemption reason code or text is mandatory): both branches
+//     below always return a non-empty reason.
+//   - BR-Z-10 (zero-rated must NOT carry an exemption reason): the zero-rated
+//     branch returns "", and generator_cii.go/generator_ubl.go both mark the
+//     field omitempty, so an empty reason is never rendered.
+//
+// lean: BR-G/BR-IC/BR-O (export, intra-community, out-of-scope) are not handled
+// anywhere in this switch — models.TaxMode has no value that would select them.
+// Add a branch (and the matching rule family) the day this product invoices
+// outside the EU or ships goods cross-border within it.
 func taxCategoryFor(taxMode string, rate decimal.Decimal) (category, exemptionReason string) {
 	switch taxMode {
 	case models.TaxModeReverseCharge:

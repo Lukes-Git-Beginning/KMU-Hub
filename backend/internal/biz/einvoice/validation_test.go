@@ -136,10 +136,53 @@ func TestValidate_ReverseChargeNeedsBuyerVATID(t *testing.T) {
 
 	err := Validate(inv, testSettings(), "", ProfileEN16931)
 	assert.Equal(t, []string{"BT-48"}, violationTerms(t, err))
-	assert.Contains(t, err.Error(), "BR-AE-03")
+	// BR-AE-02 covers reverse charge on an invoice line (BG-25) and requires both
+	// seller and buyer identification — this is its buyer half. BR-AE-03 is a
+	// different rule (document-level allowance, BG-20) this product never emits.
+	assert.Contains(t, err.Error(), "BR-AE-02")
 
 	inv.CustomerUStIDNr = "ATU12345678"
 	assert.NoError(t, Validate(inv, testSettings(), "", ProfileEN16931))
+}
+
+// TestValidate_ZeroRatedNeedsSellerIdentification covers the one VAT category
+// TestValidate_SellerTaxRuleFollowsTheCategory cannot reach by flipping TaxMode:
+// zero-rated is a per-line outcome (TaxMode stays "standard", a line's own rate
+// is 0), not a document-wide setting like Kleinunternehmer or reverse charge.
+func TestValidate_ZeroRatedNeedsSellerIdentification(t *testing.T) {
+	t.Parallel()
+
+	items := []models.LineItem{
+		{Position: 1, Description: "Ausfuhrlieferung", Quantity: decimal.NewFromInt(1), UnitPrice: decimal.RequireFromString("500.00"), TaxRate: decimal.Zero, LineTotal: decimal.RequireFromString("500.00")},
+	}
+	raw, err := json.Marshal(items)
+	require.NoError(t, err)
+
+	inv := models.Invoice{
+		InvoiceNumber:   "RE-2026-0100",
+		CustomerName:    "Beispielkunde AG",
+		CustomerAddress: "Musterweg 1\n8001 Zürich",
+		TaxMode:         models.TaxModeStandard,
+		LineItems:       raw,
+		Subtotal:        decimal.RequireFromString("500.00"),
+		TotalTax:        decimal.Zero,
+		GrossTotal:      decimal.RequireFromString("500.00"),
+		Currency:        "EUR",
+		InvoiceDate:     time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		DueDate:         time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC),
+	}
+
+	settings := testSettings()
+	settings.UStIDNr = ""
+	settings.Steuernummer = ""
+
+	verr := Validate(inv, settings, "", ProfileEN16931)
+	require.Error(t, verr)
+	assert.Contains(t, verr.Error(), "BR-Z-02")
+	assert.Equal(t, []string{"BT-31"}, violationTerms(t, verr))
+
+	settings.Steuernummer = "143/815/08154"
+	assert.NoError(t, Validate(inv, settings, "", ProfileEN16931))
 }
 
 // TestValidate_PaymentTermsSatisfyTheDueDateRequirement guards against rejecting
