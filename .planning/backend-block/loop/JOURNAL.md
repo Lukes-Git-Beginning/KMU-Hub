@@ -3876,7 +3876,7 @@ Frühere Läufe liegen vollständig im Archiv:
     done_when dieser Unit).
 
 ## Iteration 63 — fix-work-erasure-time-entries-retention-conflict — done — 2026-08-22 08:48
-- commit: (siehe naechster docs-Commit)
+- commit: 24ff9444
 - gebaut: `WorkErasureHandler.ExecuteErasure` (`erasure.go`) loeschte bislang JEDEN Zeiteintrag
   eines Nutzers sofort und unbedingt (`DELETE FROM time_entries WHERE user_id = $1`), mit dem
   Kommentar "personal data, no business retention need" — ein Widerspruch zur eigenen Feststellung
