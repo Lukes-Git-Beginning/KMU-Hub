@@ -4076,7 +4076,12 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Notes verlangen explizit eine Architekturentscheidung von Luke (Middleware-Idempotency
+      wie bei den Finance-Routen vs. eigene idempotency_key-Spalte+Unique-Index auf
+      hr_work_time_entries) — "ENTSCHEIDUNG GEHOERT LUKE, keine Standardwahl aus diesem Lauf
+      treffen". Iteration 88 hat ohne Bauversuch geblockt und die naechste Unit gezogen.
     coverage_start: "internal/biz/hr/timetracking (Paketwert im CI-Log nachschlagen, letzter Run)"
     scope: >
       VERIFIZIERTER FUND aus Iteration 67 (Lauf 11), beim Dokumentieren von
@@ -4133,7 +4138,7 @@ units:
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "n.a. (FE/BE-Vertragsluecke aus fix-quote-to-invoice-duplicate-creation, Lauf 11 Iteration 70)"
     scope: >
       VERIFIZIERTE FE/BE-VERTRAGSLUECKE: `QuoteDetailPanel.tsx` liest an drei Stellen
