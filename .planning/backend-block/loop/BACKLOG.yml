@@ -5488,7 +5488,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-status-code-drift-baseline-non-systemic-4]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Fortsetzung von `fix-status-code-drift-baseline-non-systemic-4` (Iteration 105 hat die
@@ -5687,3 +5687,55 @@ units:
         IdempotencyInFlight-$ref wird testweise verbogen (nicht existierender
         Komponentenname), swagger-cli wird rot, Aenderung zurueckgedreht"
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-status-code-drift-baseline-non-systemic-6
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-status-code-drift-baseline-non-systemic-5]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `fix-status-code-drift-baseline-non-systemic-5` (Iteration 108 hat die
+      Registrar-Gruppe **dashboard** vollstaendig geschlossen - 5 Eintraege, alle `{500}`:
+      `GET/PUT/DELETE /api/v1/dashboard/layout` -> `HandleGetDashboard`/`HandleSaveDashboard`/
+      `HandleResetToDefaults` und `GET/PUT /api/v1/dashboard/defaults/{role}` ->
+      `HandleGetDefaults`/`HandleSaveDefaults` in `route_dashboard.go`, alle mit
+      `response.Error(w, http.StatusInternalServerError, "<konkreter Text>")` statt
+      `respondGRPCError`. `statusDriftBaseline` von 16 auf 11 Eintraege gesunken).
+      Verbleibende Eintraege in `internal/gateway/openapi_status_code_drift_test.go`
+      (`statusDriftBaseline`, Stand nach Iteration 108, 11 Eintraege, alle "Rest verstreut" -
+      keine grosse Gruppe mehr, es lohnt sich, mehrere in einem Commit zu erledigen):
+      `DELETE/POST /api/v1/activities/{id}/tags` und `DELETE/POST /api/v1/deals/{id}/tags`
+      (501 - NICHT hierher, siehe `fix-crm-tag-endpoints-are-501-stubs`, bleiben bewusst in
+      der Baseline stehen bis diese Unit entschieden ist); `POST /api/v1/guest/sessions`
+      (500); `POST /api/v1/email/attachments/upload` (500); `POST/PUT
+      /api/v1/inbox/canned-responses` bzw. `/api/v1/inbox/canned-responses/{id}` (500);
+      `POST /api/v1/webhooks/livekit` (401); `PUT /api/v1/customization/labels` (500 -
+      Customization ist FE-seitig gesperrt, trotzdem reine Doku hier vermutlich unkritisch,
+      im Zweifel auslassen); `GET /api/v1/security/gdpr/exports` (403).
+      Damit bleiben nach Abzug der vier Tag-Stubs effektiv nur noch 6 offene, verstreute
+      Eintraege - diese Unit kann die Baseline auf die vier Tag-Stubs (plus ggf.
+      Customization, falls bewusst ausgelassen) verkleinern.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_guest.go
+      - backend/internal/gateway/route_email.go
+      - backend/internal/gateway/route_inbox.go
+      - backend/internal/gateway/route_video.go
+      - backend/internal/gateway/route_customization.go
+      - backend/internal/gateway/route_security.go
+    notes: >
+      Gleiche Mechanik wie die vorigen Teil-Units: Handler/Service pruefen (nicht raten),
+      Beschreibung am tatsaechlichen `response.Error`-Text orientieren, $ref auf
+      `#/components/responses/Unauthorized` fuer 401/`Forbidden` fuer 403 wo ein generischer
+      Response existiert, sonst inline `description:`. Numerisch einsortieren.
+      Mutations-Probe: einen frisch eingefuegten Eintrag testweise entfernen,
+      `TestOpenAPIStatusCodeDrift` muss dafuer rot werden, danach zurueckdrehen.
+    done_when:
+      - Mindestens ein weiterer Eintrag der verbliebenen 11 ist in api/openapi.yaml
+        dokumentiert
+      - Die erledigten Eintraege sind aus statusDriftBaseline entfernt
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"

@@ -6617,3 +6617,46 @@ Frühere Läufe liegen vollständig im Archiv:
   Mutations-Probe-Vorlage aus dieser Iteration).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
   Migration und keine Tabelle beruehrt.
+
+## Iteration 108 — fix-status-code-drift-baseline-non-systemic-5 — done — 2026-08-23 12:33
+- commit: 08c4ff07
+- gebaut: Registrar-Gruppe **dashboard** vollstaendig auf 500-Doku umgestellt - 5 Eintraege in
+  `route_dashboard.go`: `GET /api/v1/dashboard/layout` (HandleGetDashboard, "failed to get
+  dashboard layout"), `PUT /api/v1/dashboard/layout` (HandleSaveDashboard, "failed to save
+  dashboard layout"), `DELETE /api/v1/dashboard/layout` (HandleResetToDefaults, "failed to
+  reset dashboard layout"), `GET /api/v1/dashboard/defaults/{role}` (HandleGetDefaults,
+  "failed to get default layout"), `PUT /api/v1/dashboard/defaults/{role}`
+  (HandleSaveDefaults, "failed to save default layout") - alle fuenf antworten bei DB-/
+  Service-Fehlern mit `response.Error(w, http.StatusInternalServerError, "<text>")`, kein
+  `respondGRPCError`. Jede Operation bekam `"500": { description: "<konkreter Text>" }`
+  numerisch ans Blockende einsortiert (nach dem jeweils letzten vorhandenen Code -
+  401/409/403/404, je nach Operation). Geaenderte Dateien:
+  `backend/api/openapi.yaml` (10 neue Zeilen), `backend/internal/gateway/
+  openapi_status_code_drift_test.go` (5 Zeilen aus `statusDriftBaseline` entfernt).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 2682 PASS, 0 FAIL,
+  `TestOpenAPIStatusCodeDrift` gruen, `11 baselined operations` (vorher 16)) | swagger-cli
+  validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: `GET /api/v1/dashboard/layout` frisch eingefuegtes `"500"` testweise aus
+  `api/openapi.yaml` entfernt - `go test -run TestOpenAPIStatusCodeDrift ./internal/gateway/
+  -v` meldet `GET /api/v1/dashboard/layout writes [500] - not documented`, Test rot.
+  Aenderung aus Sicherungskopie zurueckgedreht (`git diff --stat` danach leer fuer die
+  YAML), normaler Testlauf mit vollstaendiger `statusDriftBaseline` wieder gruen bestaetigt.
+  Zusaetzlich mit testweise geleerter `systemicUndocumentedCodes`-Map bestaetigt, dass **keine**
+  `/api/v1/dashboard/...`-Zeile mehr in den Findings auftaucht (die einzigen verbliebenen
+  "dashboard"-Treffer sind `/api/v1/dialer/campaigns/{id}/dashboard` und
+  `/api/v1/dialer/dashboard/agent`, andere Registrar-Gruppe).
+- verify vorgaenger: sauber. `363fc6dd` (Iteration 107) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (9 neue Zeilen, additive 409-IdempotencyInFlight-Refs auf der
+  Registrar-Gruppe vertraege), reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route,
+  `RequirePermission`, Tabelle oder Wire-Shape-Aenderung; keine der acht Fehlerklassen
+  betroffen. Der zusaetzliche Commit `44126e89` ("docs(loop): record iteration 107 commit
+  sha") ist reine Treiber-Housekeeping, kein Produktionscode.
+- neue-units: `fix-status-code-drift-baseline-non-systemic-6` (Rest verstreut: 11
+  Baseline-Eintraege, davon 4 bewusst ausgenommene Tag-501-Stubs, 6 echte Kandidaten plus
+  Customization als Kann-Auslassung).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt.
