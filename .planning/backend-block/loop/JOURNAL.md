@@ -2015,7 +2015,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `cov-banking-accounts-and-matcher-real-sql` bereits als deps-Nachfolger aufgreift.
 
 ## Iteration 35 — cov-banking-accounts-and-matcher-real-sql — done — 2026-08-23 03:01
-- commit: (siehe naechster docs-Commit)
+- commit: 66972511
 - gebaut: `matcher_test.go` (129 -> 147 Zeilen) deckt jetzt auch den Waehrungs-Default
   (`entryCurrency`/`itemCurrency` fielen leer auf "EUR" zurueck, bislang ungetestet):
   `TestMatchEntryEmptyCurrencyDefaultsToEUR` schickt einen Entry ohne Currency-Feld und ein
