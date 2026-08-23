@@ -5100,7 +5100,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 79 — feat-retention-worker-handler-auth-invitations — done — 2026-08-23 08:56
-- commit: (folgt)
+- commit: 0913ebf7
 - gebaut: `internal/security/gdpr/retention_invitations.go` — neunter Handler
   auf der Retention-Engine (`InvitationRetentionHandler`, resource_type
   "invitations"). Anders als die acht bestehenden Handler hat eine Einladung
