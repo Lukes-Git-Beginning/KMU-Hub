@@ -3793,6 +3793,43 @@ units:
       - Keine Änderung an der Gruppierungslogik selbst
       - go test -count=1 ./internal/biz/dunning/ ./internal/server/ grün
 
+  - id: fix-gobd-export-currency-empty-for-legacy-documents
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/server (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      Verify-Fund zu Iteration 83 (`ac6bf34a`, Unit fix-gobd-export-missing-currency-column).
+      `GenerateGoBDExport` (`internal/server/biz_grpc.go:2495,2517`) reicht `inv.Currency` bzw.
+      `cn.Currency` roh an `dunning.BuildGoBDRows` durch, statt sie durch den bereits
+      existierenden `documentCurrency()`-Helper (`biz_grpc.go:1806-1811`) zu schicken. Laut
+      dessen eigenem Kommentar tragen Rechnungen/Gutschriften, die vor Einführung der
+      Currency-Spalte angelegt wurden, dort einen leeren String — die drei anderen Call-Sites
+      (`:1500`, `:1537`, `:1604`) normalisieren das bewusst auf `models.DefaultCurrency`
+      ("EUR"), die beiden neuen GoBD-Call-Sites nicht. Ergebnis: ein Legacy-Dokument im
+      Export-Zeitraum bekommt eine LEERE `Waehrung`-Spalte in der GoBD-CSV statt "EUR" —
+      für den Steuerberater nicht von einem Datenfehler zu unterscheiden.
+    sources:
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/biz/dunning/gobd_rows.go
+      - backend/internal/biz/dunning/gobd_rows_test.go
+      - backend/internal/biz/dunning/service_test.go
+    notes: >
+      Kleinstmöglicher Fix: an den beiden `BuildGoBDRows(...)`-Aufrufen in
+      `GenerateGoBDExport` `inv.Currency`/`cn.Currency` durch `documentCurrency(inv.Currency)`
+      bzw. `documentCurrency(cn.Currency)` ersetzen — exakt das Muster der drei bestehenden
+      Call-Sites. Kein Feld, keine Signatur, keine Gruppierung ändern.
+      Test: ein Fall mit leerem `Currency`-Feld auf Invoice/CreditNote-Ebene, der belegt, dass
+      die CSV-Zeile "EUR" statt "" in der Waehrung-Spalte trägt.
+    done_when:
+      - Beide BuildGoBDRows-Aufrufe in GenerateGoBDExport laufen durch documentCurrency()
+      - Ein Test mit leerem Currency-Feld belegt "EUR" in der CSV-Zeile, nicht ""
+      - Keine Änderung an Gruppierung, Signatur oder den bereits bestehenden Tests mit
+        gesetzter Currency
+      - go test -count=1 ./internal/biz/dunning/ ./internal/server/ grün
+
   - id: fix-payment-delete-bypasses-invoice-lock
     phase: 4
     service: biz
@@ -4318,3 +4355,43 @@ units:
         Lauf durch Duplicate-Key- oder verfaelschte Delta-Fehler zeigen
       - Keine neuen verwaisten Zeilen fuer die jeweiligen Test-Tenant-UUIDs
         nach einem vollen Testlauf (stichprobenartig per psql geprueft)
+
+  - id: fix-bexio-state-test-flaky-tamper-byte
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Testcode-Fix, kein Coverage-Ziel)"
+    scope: >
+      Beim Gate der Unit fix-gobd-export-currency-empty-for-legacy-documents (Iteration 84)
+      inzidentell gefunden: `go test ./internal/gateway/` schlug in genau einem von mehreren
+      Läufen mit `--- FAIL: TestDecodeBexioState_ManipulatedSignature` fehl
+      (`bexio_state_test.go:48: expected error for tampered signature, got nil`), zweimal
+      direkt danach wieder grün. `TestDecodeBexioState_ManipulatedSignature`
+      (`internal/gateway/bexio_state_test.go:34-53`) ersetzt das erste Zeichen der
+      Base64URL-Signatur durch das feste Literal `"X"`. `encodeBexioState`
+      (`internal/gateway/bexio_state.go:45-58`) hängt an denselben Payload einen
+      zufallsabhängigen Nonce (`crypto/rand`, `bexioStateNonceLen` Bytes) und berechnet die
+      HMAC-Signatur danach — das erste Zeichen der Signatur ist also pro Testlauf
+      zufallsverteilt über das Base64URL-Alphabet. Trifft dieses Zeichen zufällig genau `X`
+      (~1/64 Aufrufe), ist das "manipulierte" Token mit dem Original identisch, `decodeBexioState`
+      verifiziert korrekt, der Test erwartet trotzdem einen Fehler und schlägt fehl. Kein
+      Produktionscode betroffen — `encodeBexioState`/`decodeBexioState` selbst verifizieren
+      korrekt, der Bug sitzt ausschließlich im Testaufbau.
+    sources:
+      - backend/internal/gateway/bexio_state_test.go
+      - backend/internal/gateway/bexio_state.go
+    notes: >
+      Kleinstmöglicher Fix: das getauschte Zeichen deterministisch von seinem Original
+      unterscheiden, z. B. `if tampered[dot+1] == 'X' { ... 'Y' statt 'X' ... }` oder das
+      Zeichen per XOR auf einen garantiert anderen Wert kippen, statt eines festen Literals.
+      Alternative: mehrere Positionen/Zeichen tauschen, um die Kollisionswahrscheinlichkeit auf
+      praktisch null zu senken. Nur der Testcode ändert sich.
+    done_when:
+      - TestDecodeBexioState_ManipulatedSignature tamper ist nicht mehr No-Op-faehig,
+        unabhaengig vom zufaelligen Nonce
+      - go test -count=1 ./internal/gateway/ -run TestDecodeBexioState -count=50 bleibt in
+        allen 50 Wiederholungen gruen (Nonce ist pro Aufruf neu zufaellig, das ist der
+        eigentliche Flake-Beweis)
+      - go test -count=1 ./internal/gateway/ gruen

@@ -5373,3 +5373,54 @@ Frühere Läufe liegen vollständig im Archiv:
   Guard-Ersatz — keine der acht Klassen einschlaegig.
 - neue-units: keine
 - offen: keine
+
+## Iteration 84 — fix-gobd-export-currency-empty-for-legacy-documents — done — 2026-08-23 09:26
+- commit: (siehe naechste docs(loop)-Iteration fuer SHA-Nachtrag)
+- gebaut: `GenerateGoBDExport` (`internal/server/biz_grpc.go:2495,2517`) reicht `inv.Currency`
+  bzw. `cn.Currency` jetzt durch `documentCurrency(...)` statt roh an
+  `dunning.BuildGoBDRows` — exakt das Muster der drei bestehenden Call-Sites
+  (`:1500,1537,1604`). Legacy-Rechnungen/-Gutschriften ohne gespeicherte Currency
+  (leerer String, siehe Kommentar an `documentCurrency`) tragen dadurch "EUR" statt ""
+  in der Waehrung-Spalte der GoBD-CSV. Neuer Test `TestDocumentCurrency`
+  (`biz_grpc_amounts_test.go`) pinnt den Helper direkt (leer -> EUR, "CHF" -> "CHF"),
+  weil ein Handler-Test fuer `GenerateGoBDExport` architektonisch nicht moeglich ist
+  (siehe Kommentarblock ueber `TestGenerateGoBDExport_Validation`: invoiceService/
+  creditNoteService sind konkrete Struct-Felder, kein Interface, heavyweight
+  Konstruktion noetig — bereits fuer andere Handler als out-of-scope markiert).
+- gate: build ok (`go build -p 2` server + dunning + gateway + cmd/biz + cmd/gateway) |
+  vet ok | lint ok (0 issues, server + dunning) | test ok (`go test -count=1
+  ./internal/server/...` gruen inkl. `internal/server/response`, `go test -count=1
+  ./internal/biz/dunning/...` gruen, `go test -count=1 ./internal/gateway/` gruen —
+  alle mit gesetztem `DATABASE_URL=...kmuhub_app...`, 0 uebersprungen) | migration n.a.
+  (keine Schema-Aenderung) | rls-smoke n.a. (keine neue Tabelle/Policy) | Route: keine
+  (keine Gateway-Route/OpenAPI-Aenderung, `go test ./internal/gateway/` trotzdem
+  gefahren, weil `internal/server` angefasst wurde — 1× ist er dabei mit
+  `TestDecodeBexioState_ManipulatedSignature` flakig rot gelaufen, unabhaengig von
+  dieser Aenderung, siehe `verify vorgaenger` unten und `neue-units`)
+- coverage: internal/server 70,8 % -> 70,8 % (vorher per `git stash`/`stash pop` selbst
+  gemessen; unveraendert, weil `documentCurrency` als Funktion bereits existierte und
+  vollstaendig abgedeckt war — die Aenderung fuegt an den beiden GoBD-Call-Sites nur
+  einen bereits getesteten Funktionsaufruf ein, keine neue Verzweigung.
+  Beweisfuehrung liegt in der Mutations-Probe)
+- mutations-probe: `documentCurrency` auf `return stored` gekuerzt (EUR-Fallback
+  entfernt), `go test -run TestDocumentCurrency ./internal/server/` wurde rot (erwartet
+  "EUR", bekam ""), Mutation zurueckgedreht, `git diff --stat biz_grpc.go` zeigt danach
+  wieder nur die zwei beabsichtigten Call-Site-Zeilen
+- verify vorgaenger: Fund. `ac6bf34a` (Iteration 83, fix-gobd-export-missing-currency-column)
+  geprueft (`git show --stat` + gezielt `biz_grpc.go`/`gobd_rows.go`/`service_gobd.go`
+  gegen die acht Fehlerklassen): kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`, keine neue Tabelle, kein Route-Verstoss, kein Guard-Ersatz — ABER
+  ein neunter, nicht in der Liste stehender Fund: die beiden neuen `BuildGoBDRows`-Aufrufe
+  in `GenerateGoBDExport` reichen `inv.Currency`/`cn.Currency` roh durch, statt sie wie die
+  drei bestehenden Call-Sites im selben File durch `documentCurrency()` zu schicken —
+  Legacy-Dokumente ohne gespeicherte Currency haetten eine leere statt "EUR"
+  Waehrung-Spalte im GoBD-Export bekommen. Als fix-gobd-export-currency-empty-for-legacy-documents
+  ganz vorne im Backlog angelegt und in dieser Iteration selbst abgearbeitet (Schritt 1
+  der Anleitung).
+- neue-units: fix-bexio-state-test-flaky-tamper-byte (inzidentell beim Pflicht-Gateway-Gate
+  gefunden: `TestDecodeBexioState_ManipulatedSignature` ersetzt das erste
+  Signatur-Zeichen durch das feste Literal "X" — trifft der zufallsabhaengige Nonce das
+  Signatur-Zeichen zufaellig auch auf "X" (~1/64), ist das "manipulierte" Token
+  unveraendert und der Test schlaegt fehl. Reiner Testcode-Bug, kein Produktionscode
+  betroffen, zweimal direkt danach wieder gruen reproduziert)
+- offen: keine
