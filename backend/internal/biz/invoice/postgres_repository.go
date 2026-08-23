@@ -526,25 +526,37 @@ func (r *PostgresRepository) CountByFiscalYear(ctx context.Context, tenantID uui
 }
 
 // AggregatePaymentStats returns aggregated payment statistics for invoices
-// with invoice_date within [fromDate, toDate].
+// with invoice_date within [fromDate, toDate]. total_outstanding_amount and
+// total_paid_amount are netted against finance_payments the same way
+// postgres_open_items.go's openItemsBase nets the Open-Items view: a partial
+// payment lowers the outstanding amount, and an overpayment shows up in the
+// paid amount. Where no payment row exists for a 'paid' invoice (marked paid
+// without a tracked payment), gross_total is used as the fallback so a
+// manually-closed invoice still counts as fully paid.
 func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) (PaymentStats, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT
 			COUNT(*) AS total_invoices,
-			COUNT(*) FILTER (WHERE status = 'paid') AS total_paid,
-			COUNT(*) FILTER (WHERE status NOT IN ('paid', 'cancelled')) AS total_outstanding,
-			COALESCE(SUM(gross_total) FILTER (WHERE status = 'paid'), 0) AS total_paid_amount,
-			COALESCE(SUM(gross_total) FILTER (WHERE status NOT IN ('paid', 'cancelled')), 0) AS total_outstanding_amount,
+			COUNT(*) FILTER (WHERE i.status = 'paid') AS total_paid,
+			COUNT(*) FILTER (WHERE i.status NOT IN ('paid', 'cancelled')) AS total_outstanding,
+			COALESCE(SUM(COALESCE(p.paid, i.gross_total)) FILTER (WHERE i.status = 'paid'), 0) AS total_paid_amount,
+			COALESCE(SUM(i.gross_total - COALESCE(p.paid, 0)) FILTER (WHERE i.status NOT IN ('paid', 'cancelled')), 0) AS total_outstanding_amount,
 			COALESCE(
 				AVG(
-					EXTRACT(EPOCH FROM (updated_at - invoice_date)) / 86400.0
-				) FILTER (WHERE status = 'paid'),
+					EXTRACT(EPOCH FROM (i.updated_at - i.invoice_date)) / 86400.0
+				) FILTER (WHERE i.status = 'paid'),
 				0
 			) AS avg_days_to_pay
-		FROM finance_invoices
-		WHERE tenant_id = $1
-		  AND invoice_date >= $2
-		  AND invoice_date <= $3`,
+		FROM finance_invoices i
+		LEFT JOIN (
+		    SELECT invoice_id, SUM(amount) AS paid
+		    FROM finance_payments
+		    WHERE tenant_id = $1
+		    GROUP BY invoice_id
+		) p ON p.invoice_id = i.id
+		WHERE i.tenant_id = $1
+		  AND i.invoice_date >= $2
+		  AND i.invoice_date <= $3`,
 		tenantID, fromDate, toDate,
 	)
 

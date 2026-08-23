@@ -8,15 +8,15 @@ package invoice
 // (testutil.SkipIfNoDB) so it runs in the local gate and counts toward this
 // package's coverage number, unlike integration_test.go.
 //
-// FINDING (documented, not fixed here — see BACKLOG.yml
-// fix-payment-stats-outstanding-ignores-recorded-payments for the fix unit):
-// unlike postgres_open_items.go (openItemsBase), which nets a partially paid
-// invoice's outstanding amount against finance_payments, AggregatePaymentStats
-// never joins finance_payments at all. It sums the invoice's full gross_total
-// for any non-paid, non-cancelled status. A partially paid invoice therefore
-// shows as fully outstanding on the dashboard, and TotalPaidAmount reflects
-// the paid invoice's gross_total rather than cash actually collected (so an
-// overpayment recorded in finance_payments never surfaces either).
+// FIXED (see BACKLOG.yml fix-payment-stats-outstanding-ignores-recorded-payments):
+// AggregatePaymentStats used to sum the invoice's full gross_total for any
+// non-paid, non-cancelled status, the same bug postgres_open_items.go's
+// openItemsBase already fixed once for the Open-Items view by netting against
+// finance_payments. It now joins finance_payments the same way: a partial
+// payment lowers total_outstanding_amount, and total_paid_amount reflects
+// cash actually collected (an overpayment surfaces) rather than the invoice's
+// gross_total — except where a 'paid' invoice has no payment row at all, in
+// which case gross_total is the only figure available and is used as-is.
 
 import (
 	"context"
@@ -122,15 +122,11 @@ func TestPostgresRepository_AggregatePaymentStats_ClassifiesByStatusAndSumsGross
 	assert.True(t, decimal.RequireFromString("500.00").Equal(stats.TotalOutstandingAmount), "300 (sent) + 200 (overdue), the 9000 cancelled invoice must not appear; got %s", stats.TotalOutstandingAmount)
 }
 
-// TestPostgresRepository_AggregatePaymentStats_PartialPaymentNotNettedFromOutstanding
-// documents the finding above: a sent invoice with a partial payment already
-// recorded in finance_payments still contributes its FULL gross_total to
-// total_outstanding_amount, because AggregatePaymentStats never joins
-// finance_payments (unlike postgres_open_items.go's openItemsBase, which does
-// net partial payments for the Open-Items view). This is the exact bug class
-// postgres_open_items.go's own header comment describes as already fixed once
-// for that other read path — it is not fixed here.
-func TestPostgresRepository_AggregatePaymentStats_PartialPaymentNotNettedFromOutstanding(t *testing.T) {
+// TestPostgresRepository_AggregatePaymentStats_PartialPaymentIsNettedFromOutstanding
+// proves a sent invoice's recorded partial payment is netted off
+// total_outstanding_amount, the same way postgres_open_items.go's
+// openItemsBase already nets partial payments for the Open-Items view.
+func TestPostgresRepository_AggregatePaymentStats_PartialPaymentIsNettedFromOutstanding(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
@@ -164,16 +160,15 @@ func TestPostgresRepository_AggregatePaymentStats_PartialPaymentNotNettedFromOut
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, stats.TotalOutstanding)
-	assert.True(t, decimal.RequireFromString("1000.00").Equal(stats.TotalOutstandingAmount),
-		"current behaviour: the recorded 400.00 partial payment is NOT netted off, outstanding still reports the full 1000.00; got %s", stats.TotalOutstandingAmount)
+	assert.True(t, decimal.RequireFromString("600.00").Equal(stats.TotalOutstandingAmount),
+		"the recorded 400.00 partial payment must be netted off the 1000.00 gross_total; got %s", stats.TotalOutstandingAmount)
 }
 
-// TestPostgresRepository_AggregatePaymentStats_PaidAmountIgnoresOverpayment
+// TestPostgresRepository_AggregatePaymentStats_PaidAmountReflectsOverpayment
 // is the paid-side counterpart: an invoice marked paid after an overpayment
-// (450.00 collected against a 400.00 invoice) still contributes only its own
-// gross_total to total_paid_amount, because the query sums gross_total, never
-// finance_payments.amount. The extra 50.00 is invisible to this KPI.
-func TestPostgresRepository_AggregatePaymentStats_PaidAmountIgnoresOverpayment(t *testing.T) {
+// (450.00 collected against a 400.00 invoice) contributes the actually
+// collected 450.00 to total_paid_amount, not its own gross_total.
+func TestPostgresRepository_AggregatePaymentStats_PaidAmountReflectsOverpayment(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
@@ -207,8 +202,8 @@ func TestPostgresRepository_AggregatePaymentStats_PaidAmountIgnoresOverpayment(t
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, stats.TotalPaid)
-	assert.True(t, decimal.RequireFromString("400.00").Equal(stats.TotalPaidAmount),
-		"current behaviour: the invoice's gross_total (400.00) is reported, not the 450.00 actually collected; got %s", stats.TotalPaidAmount)
+	assert.True(t, decimal.RequireFromString("450.00").Equal(stats.TotalPaidAmount),
+		"the 450.00 actually collected must be reported, not the invoice's 400.00 gross_total; got %s", stats.TotalPaidAmount)
 }
 
 // TestPostgresRepository_AggregatePaymentStats_AverageDaysToPayIsArithmeticMean

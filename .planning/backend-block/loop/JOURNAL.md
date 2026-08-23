@@ -4513,3 +4513,54 @@ Frühere Läufe liegen vollständig im Archiv:
     direkt statt ueber Credit-Note-Stornos), ist das eine Produktentscheidung Luke — der
     Kommentar an `ListForDATEVExport` verweist auf den heutigen alleinigen Pfad, damit eine
     kuenftige Wiedereinfuehrung nicht denselben unklaren Zustand reproduziert.
+
+## Iteration 69 — fix-payment-stats-outstanding-ignores-recorded-payments — done — 2026-08-23 07:47
+- commit: <PENDING>
+- gebaut: `AggregatePaymentStats` (`postgres_repository.go:528-561`) joint jetzt gegen
+  `finance_payments` wie `postgres_open_items.go`s `openItemsBase`. `total_outstanding_amount`
+  summiert `gross_total - COALESCE(paid, 0)` statt des vollen Brutto — eine Teilzahlung senkt
+  den ausgewiesenen offenen Betrag. `total_paid_amount` summiert `COALESCE(paid, gross_total)`
+  je bezahlter Rechnung — ist eine Zahlung erfasst, zaehlt der tatsaechlich vereinnahmte
+  Betrag (Ueberzahlung sichtbar), ist keine erfasst (manuell auf "paid" gesetzt ohne
+  Zahlungs-Tracking), bleibt `gross_total` der Rueckfallwert. Cashflow-vs-Umsatz-Entscheidung:
+  KEINE UI-Beschriftung vorhanden, die die Frage beantworten koennte — `usePaymentStats`
+  (`desktop/src/renderer/src/api/hooks/useFinance.ts:646`) ist definiert, hat aber null
+  Aufrufer in `.tsx`/`.ts` (Dashboard rendert die KPI aktuell nicht). Entscheidung daher aus
+  dem Feldnamen selbst: "TotalPaidAmount" heisst tatsaechlich vereinnahmtes Geld, nicht
+  Rechnungswert — konsistent mit der Netting-Logik der Gegenseite. Die beiden
+  "current behaviour"-Tests (`PartialPaymentNotNettedFromOutstanding`,
+  `PaidAmountIgnoresOverpayment`) sind auf das neue Verhalten umgeschrieben und umbenannt
+  (`PartialPaymentIsNettedFromOutstanding` → 600 statt 1000,
+  `PaidAmountReflectsOverpayment` → 450 statt 400), die vier uebrigen Tests (leer, Klassifizierung
+  ohne Zahlungssatz, Durchschnittstage, Tenant-Scope) blieben unveraendert gruen — die
+  Klassifizierungs-Testrechnung (bezahlt ohne Zahlungssatz, 500) beweist den Rueckfallpfad
+  `COALESCE(paid, gross_total)`.
+- gate: build ok (`go build -p 2` invoice+server+cmd/biz) | vet ok | lint ok (0 issues,
+  invoice+server) | test ok (`go test -v ./internal/biz/invoice/` 125/125 PASS, 0 SKIP;
+  `go test ./internal/server/` gruen) | migration n.a. (kein Schema-Bezug) | rls-smoke n.a.
+  (keine Tabelle/Policy angefasst)
+- coverage: n.a. (coverage_start deklariert "Fix-Unit, kein Coverage-Ziel"; gemessen
+  internal/biz/invoice 60,9 % nach der Aenderung, als Beleg dass kein Regress)
+- mutations-probe: `total_outstanding_amount`-Netting testweise auf reines `SUM(gross_total)`
+  zurueckgedreht (Zeile 543) → `TestPostgresRepository_AggregatePaymentStats_
+  PartialPaymentIsNettedFromOutstanding` wurde rot mit exakt der erwarteten Meldung ("got
+  1000" statt 600), alle uebrigen fuenf Tests blieben gruen (bestaetigt, dass die anderen
+  Assertions unabhaengig von dieser einen Zeile sind). Zurueckgedreht per `cp` vom Backup,
+  `grep -n "total_outstanding_amount\|total_paid_amount"` gegen die Datei bestaetigt den
+  wiederhergestellten Zustand, `git diff --stat` zeigt danach wieder denselben Umfang (23
+  Einfuegungen/11 Loeschungen) wie vor der Probe.
+- verify vorgaenger: sauber. `d0388b26` (Iteration 68, verify-invoice-list-for-gobd-export-
+  unreachable) geprueft: reine Entfernung toten Codes (Repository-Methode, Interface-Eintrag,
+  Service-Wrapper, zwei Test-Doubles, eine DB-Testdatei). Eigener Grep
+  `grep -rn ListForGoBDExport backend` bestaetigt null verbleibende Treffer im gesamten
+  Backend — die Entfernung ist vollstaendig, keine der acht Fehlerklassen einschlaegig (kein
+  neuer Handler/Proto/Guard/Route/Tabelle).
+- neue-units: keine
+- offen:
+  - Kein DB-Schema-Bezug, daher kein RLS-Smoke faellig.
+  - Der Fallback `COALESCE(paid, gross_total)` fuer als "paid" markierte Rechnungen ohne
+    `finance_payments`-Zeile ist eine bewusste Annahme (manuell geschlossen = voll bezahlt).
+    Sollte KMU Hub kuenftig erzwingen, dass jede "paid"-Rechnung eine Zahlung traegt, kann
+    dieser Fallback entfallen — hier nicht angefasst, da ausserhalb des Fund-Scopes.
+  - `usePaymentStats` bleibt ohne Aufrufer im Desktop-Client (Frontend gesperrt, nur lesend
+    geprueft) — die KPI existiert im Backend, wird aber aktuell nirgends angezeigt.
