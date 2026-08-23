@@ -4815,7 +4815,7 @@ Frühere Läufe liegen vollständig im Archiv:
     je ein Aufrufer dazukommen, braucht auch Create einen `logVendorAccessEvent`-Ruf.
 
 ## Iteration 74 — fix-datev-upload-log-stuck-uploading-no-reconciliation — done — 2026-08-23 08:24
-- commit: <PENDING>
+- commit: 3cc5b79b
 - gebaut: Reine Leseschicht-Kennzeichnung, keine Migration, kein neuer Status,
   kein Cron/Scheduler. `UploadService.ListUploadLogs` (`upload_service.go`)
   berechnet nach jedem Read `IsStale` pro Zeile ueber die neue reine Funktion
