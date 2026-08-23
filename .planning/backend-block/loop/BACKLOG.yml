@@ -3720,7 +3720,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/berichte/downstream (Paketwert im CI-Log nachschlagen)"
     scope: >
       `kpiSnapshotQuery` und `kpiSeriesQuery` (`internal/berichte/downstream/kpi_postgres.go:53-65`
@@ -4234,3 +4234,87 @@ units:
         ungueltige UUID), nicht nur eine
       - swagger-cli validate gegen backend/api/openapi.yaml laeuft fehlerfrei
       - go test -count=1 ./internal/gateway/ gruen (inkl. TestOpenAPIRouteDrift)
+
+  - id: fix-db-test-cleanup-order-leaks-fixtures
+    phase: 4
+    service: testutil
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Test-Infrastruktur-Fix, keine Coverage-relevante Produktionscodeaenderung)"
+    scope: >
+      Fund aus fix-berichte-kpi-blind-currency-sum (Lauf 11, Iteration 82):
+      in internal/berichte/downstream/kpi_postgres_test.go registrierten
+      sechs Testfunktionen `defer pool.Close()` UND riefen in ihren Seed-Helfern
+      (seedKPIFixtures, seedKPISeriesFixture) `t.Cleanup(func() {
+      testutil.CleanupRow(...) })` fuer dieselben Zeilen auf. Go fuehrt
+      `defer`-Statements einer Testfunktion beim Return der Funktion aus --
+      also VOR den per `t.Cleanup` registrierten Funktionen, die erst nach
+      vollstaendiger Rueckkehr der Funktion laufen. Der Pool war beim
+      Cleanup-Aufruf also bereits geschlossen; `testutil.CleanupRow` (rls.go:99-108)
+      loggt den Fehler nur per `t.Logf`, laesst den Test aber gruen durchlaufen
+      -- die Zeilen blieben in der lokalen Docker-Postgres liegen. Belegt: die
+      lokale DB hatte fuer die zwei kpi_postgres_test.go-Testtenants
+      (cccc0000-...-0001/-0002) 78 verwaiste finance_invoices-, 78
+      deals-, 72 tickets-, 50 stock_warnings/inventory_items- und eine
+      company_settings-Zeile (default_currency=CHF) angesammelt, aus
+      vermutlich vielen vorherigen Lauf-Naechten -- die stehengebliebene
+      CHF-Zeile hat einen neuen currency-scoped Test in dieser Iteration
+      sichtbar verfaelscht (Revenue-Delta 0 statt 1000, dann falsches
+      Vorzeichen), bevor der Zusammenhang klar war. Iteration 82 hat NUR
+      kpi_postgres_test.go repariert (`defer pool.Close()` ->
+      `t.Cleanup(func() { pool.Close() })`, sodass Cleanup-Funktionen in
+      LIFO-Reihenfolge vor dem Pool-Close laufen) und die lokale DB fuer die
+      zwei betroffenen Test-Tenant-UUIDs manuell bereinigt. Das gleiche
+      Doppelmuster (`defer pool.Close()` UND `t.Cleanup(func()` im selben
+      Testfile) existiert in mindestens 11 weiteren Dateien, jede mit dem
+      gleichen stillen Leck:
+        - internal/biz/expense/integration_test.go
+        - internal/biz/hr/personnel_documents_read_test.go
+        - internal/biz/hr/salary_document_category_test.go
+        - internal/chat/bookmark/postgres_repository_test.go
+        - internal/crm/customfield/value_tenant_isolation_test.go
+        - internal/crm/report/postgres_repository_db_test.go
+        - internal/email/contactlink/tenant_isolation_test.go
+        - internal/email/label/postgres_repository_test.go
+        - internal/email/rule/postgres_repository_test.go
+        - internal/notification/integration/postgres_repository_test.go
+        - internal/notification/notification/postgres_repository_test.go
+      (per `grep -rlZ "defer pool.Close()" --include=*_test.go internal |
+      xargs -0 grep -l "t.Cleanup(func()"` im Repo-Root von backend/ --
+      erneut laufen lassen, falls seither weitere Dateien dazugekommen sind).
+    sources:
+      - backend/internal/berichte/downstream/kpi_postgres_test.go (bereits gefixt, als Referenzmuster)
+      - backend/internal/testutil/rls.go (CleanupRow, Zeile 99-108 -- loggt nur, faellt nie)
+      - die elf oben gelisteten Dateien
+    notes: >
+      Reiner Testcode-Fix, kein Produktionsverhalten betroffen. Zwei
+      moegliche Reparaturen pro Datei: (a) `defer pool.Close()` durch
+      `t.Cleanup(func() { pool.Close() })` ersetzen -- dann laufen alle
+      Cleanups in echter LIFO-Reihenfolge und pool.Close() garantiert
+      zuletzt, ohne dass eine einzelne Zeile im Aufrufer umgestellt werden
+      muss; das ist der in kpi_postgres_test.go verwendete Fix. (b)
+      alternativ jede `t.Cleanup(func() { testutil.CleanupRow(...) })`-Stelle
+      durch ein direktes `defer testutil.CleanupRow(...)` ersetzen (wie es
+      einige aeltere Tests in kpi_postgres_test.go schon taten) -- das ist
+      aber pro Zeile fehleranfaelliger, weil es die Bindung an `t.Cleanup`
+      verliert, die auch bei einem Sub-Test oder einem `t.Fatalf` mitten in
+      der Funktion noch garantiert ausgefuehrt wird. (a) ist der schlankere,
+      einheitlichere Fix. Vor dem Aendern jeder Datei pruefen, ob die
+      Cleanup-Reihenfolge sonst etwas kaputt macht (z. B. falls eine
+      Test-Assertion explizit auf den geschlossenen Pool danach angewiesen
+      waere -- unwahrscheinlich, aber nicht ungeprueft annehmen). Nach dem
+      Fix jeder Datei: einmal pruefen, ob die lokale Docker-Postgres fuer die
+      dortigen Test-Tenant-UUIDs bereits verwaiste Zeilen angesammelt hat
+      (analog zur manuellen Bereinigung in Iteration 82) und die bei Bedarf
+      loeschen, sonst bleiben alte Datensaetze liegen, obwohl der Code ab
+      jetzt sauber aufraeumt.
+    done_when:
+      - In allen elf gelisteten Dateien (und jeder seither neu betroffenen)
+        laeuft pool.Close() nach allen registrierten Row-Cleanups, nicht davor
+      - go test -count=1 gegen jedes betroffene Package laeuft mit
+        DATABASE_URL gruen, und beim Wiederholen (`go test -count=1` zweimal
+        hintereinander) bleibt es gruen -- ein Leck wuerde sich beim zweiten
+        Lauf durch Duplicate-Key- oder verfaelschte Delta-Fehler zeigen
+      - Keine neuen verwaisten Zeilen fuer die jeweiligen Test-Tenant-UUIDs
+        nach einem vollen Testlauf (stichprobenartig per psql geprueft)

@@ -544,6 +544,14 @@ func changePercentInt(cur, prev int) *float64 {
 // Kind implementations
 // ============================================================================
 
+// revenueByMonth, invoicesOpen and pipeline below are currently unreachable
+// (e.finance/e.crm are nil, see cmd/berichte/main.go) and therefore not
+// touched by fix-berichte-kpi-blind-currency-sum, but they carry the same bug
+// as the dashboard KPI queries did: `total += r.Revenue`/`total += r.Amount`/
+// `totalVolume += s.Volume` sum across currencies into a single figure
+// without checking the row's currency field, even though it is scanned right
+// alongside. Apply the same tenant-default-currency scoping fix-dashboard-metrics-blind-currency-sum
+// and fix-berichte-kpi-blind-currency-sum used before wiring these in.
 func (e *Executor) revenueByMonth(ctx context.Context, def *berichte.Definition, cfg *queryConfig) (*berichte.ReportResult, error) {
 	if e.finance == nil {
 		return emptyResult(def, warningDownstreamMissing), nil
