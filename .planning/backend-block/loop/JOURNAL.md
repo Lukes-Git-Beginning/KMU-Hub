@@ -5472,7 +5472,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 86 — fix-lexware-config-lookup-cross-tenant-under-sysctx — done — 2026-08-23 09:40
-- commit: (siehe naechster Eintrag, wird nach `git commit` durch die Treiber-Notiz ergaenzt)
+- commit: 3dcb02f3
 - gebaut: `Service.SyncContacts` (`internal/biz/lexware/service.go:201-209`) in zwei
   Funktionen aufgeteilt — `SyncContacts(ctx, tenantID)` bleibt der authentifizierte
   gRPC-/manuelle Trigger-Pfad (`getConfigID(ctx)` unter echtem RLS-Kontext), das neue
