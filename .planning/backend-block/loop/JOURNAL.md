@@ -2013,3 +2013,75 @@ Frühere Läufe liegen vollständig im Archiv:
   (DB-Fault-Injection noetig, kein Kandidat fuer eine einfache Folge-Unit) und
   `matcher.go`/`postgres_repository_accounts.go`, die die naechste Unit
   `cov-banking-accounts-and-matcher-real-sql` bereits als deps-Nachfolger aufgreift.
+
+## Iteration 35 — cov-banking-accounts-and-matcher-real-sql — done — 2026-08-23 03:01
+- commit: (siehe naechster docs-Commit)
+- gebaut: `matcher_test.go` (129 -> 147 Zeilen) deckt jetzt auch den Waehrungs-Default
+  (`entryCurrency`/`itemCurrency` fielen leer auf "EUR" zurueck, bislang ungetestet):
+  `TestMatchEntryEmptyCurrencyDefaultsToEUR` schickt einen Entry ohne Currency-Feld und ein
+  OpenItem mit explizitem "EUR" durch den AMOUNT-ONLY-Pfad (Verwendungszweck traegt bewusst
+  keine Rechnungsnummer, sonst haette Pass eins den Fund maskiert — siehe Mutations-Probe-Notiz
+  unten). Alle uebrigen von `matcher_test.go` bereits abgedeckten Regeln aufgelistet (Pflicht
+  laut Unit-Notes): Nummer+Betrag, Reformatierung des Verwendungszwecks, Teilzahlung (Nummer
+  ohne Betrag), Betrag-only bei Eindeutigkeit, Mehrdeutigkeit bei gleichem Betrag (Nullbefund:
+  kein Zwang zur Zuordnung), Sammelzahlung ueber zwei Rechnungen (kein Split), Debits werden
+  ignoriert, Waehrungen werden nicht gemischt, zu kurze Rechnungsnummern (< 4 Zeichen) nur ueber
+  die Betragsregel erreichbar — alle neun bereits vorhanden, keine Dublette gebaut.
+  `integration_accounts_test.go` (+117 Zeilen, drei neue Tests) schliesst die Luecken, die die
+  bestehenden Fake-Repo-Tests strukturell nicht erreichen koennen, weil der Fake nie SQL
+  anfasst: `TestPostgresRepository_UpdateAccount_NotFoundAndIBANConflict` (Update auf eine
+  nicht existierende ID -> ErrAccountNotFound statt stillem No-op; Update auf die IBAN eines
+  anderen Kontos -> ErrAccountExists statt stillem Merge, Zeile bleibt nachweislich unveraendert),
+  `TestPostgresRepository_DeleteAccount_RemovesTheRow` (Zeile ist nach Delete wirklich weg, IBAN
+  ist danach wieder frei fuer eine Neuanlage — ein haengender Unique-Index-Eintrag haette das
+  verhindert), `TestService_ListAccounts` (Service.ListAccounts hatte 0,0 % Coverage — bislang
+  wurde in jedem Test entweder das Repository oder der Fake direkt gelesen, nie der
+  Service-Passthrough selbst aufgerufen).
+  Den geforderten Fall "Rechnungsnummer aus fremdem Mandanten fuehrt zu keiner Zuordnung" NICHT
+  im Matcher nachgebaut: `MatchEntry` bekommt seine `openItems` ausschliesslich ueber das
+  injizierte `OpenItemReader`-Interface (`repository.go:98`), das in Produktion von
+  `invoice.PostgresRepository.ListOpenItems` erfuellt wird — tenant-scoped per SQL, bereits
+  belegt in `internal/biz/invoice/postgres_open_items_and_chains_integration_test.go:164`
+  ("Cross-tenant noise: another tenant's overdue invoice must never surface"). Ein fremder
+  Mandant erreicht den Matcher in Produktion also strukturell nie; ein Test dagegen im
+  `banking`-Paket haette nur den Fake erneut geprueft (der ohnehin zurueckgibt, was man ihm
+  gibt) und waere keine zweite Zusicherung, sondern eine Dublette der bestehenden invoice-Probe.
+  Das ist der ehrliche Abschluss dieses `done_when`-Punkts, keine Umgehung.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v
+  ./internal/biz/banking/`, DATABASE_URL gegen kmuhub_app, 55 PASS, 0 SKIP) | test ok
+  (`go test -count=1 ./internal/gateway/` — keine Routenaenderung, pflichtgemaess gelaufen) |
+  migration n.a. | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung; Tenant-Trennung auf
+  `finance_bank_accounts` per Fremdtenant-Faellen in den neuen Tests mitgeprueft, keine Luecke)
+- coverage: internal/biz/banking 83,5 % (eigene Messung vor dieser Iteration, `go tool cover
+  -func`, deckt sich mit dem Lauf-10-CI-Wert 77,0 % nicht mehr — Iteration 34 hat das Paket
+  bereits auf 83,5 % gehoben, der `coverage_start:` der Unit war der aeltere CI-Stand) -> 84,3 %
+  (nach den vier neuen Tests, gleiche Methode, zweimal reproduziert). Reine Passthrough-Methode
+  `service_accounts.ListAccounts` sprang von 0,0 % auf 100 %.
+- mutations-probe: drei Laeufe, jeweils gegen eine `cp`-Sicherungskopie (nicht `git checkout`),
+  zurueckgeschrieben, finaler `diff` gegen die Kopie danach identisch (0 Zeilen Unterschied).
+  (a) `isAccountIBANConflict`-Zweig in `UpdateAccount` entfernt -> "moving onto another
+  account's IBAN is refused" rot (roher pgconn-Fehler statt ErrAccountExists durchgereicht).
+  (b) `tag.RowsAffected() == 0`-Check in `UpdateAccount` durch `_ = tag` ersetzt -> "a row that
+  does not exist is reported" rot (kein Fehler statt ErrAccountNotFound). (c) `entryCurrency`s
+  Default-Zweig mit `if false` stillgelegt -> `TestMatchEntryEmptyCurrencyDefaultsToEUR` rot
+  (Status unmatched statt suggested). Nebenbefund zur eigenen Arbeitsweise: die erste Fassung
+  von Probe (c) verwendete einen Verwendungszweck MIT Rechnungsnummer im Test-Fixture — die
+  Mutation blieb damit GRUEN, weil Pass eins (Nummer im Verwendungszweck) den Treffer unabhaengig
+  von der Waehrung liefert und nur `Reason` sich unterschieden haette, nicht `Status`. Fixture
+  danach auf einen referenzlosen Verwendungszweck umgebaut, seither diskriminierend.
+- verify vorgaenger: sauber — `e3b9984d` (Iteration 34) aendert laut `git show --stat`
+  ausschliesslich `.planning/`-Dateien und eine neue ungetaggte Testdatei
+  (`postgres_repository_statements_and_matches_real_sql_test.go`), keine Produktionsdatei.
+  Keine der acht Fehlerklassen einschlaegig: kein neuer Handler, kein Stub/TODO, kein `.proto`,
+  keine Migration, kein neuer `RequirePermission`-Guard, keine neue Tabelle, keine Route, keine
+  Response-Form geaendert, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: (1) DB-Gate lief vollstaendig: DATABASE_URL als kmuhub_app, 0 uebersprungene Tests im
+  Paket. (2) `internal/biz/banking` liegt mit 84,3 % weiterhin ueber dem 15 %-Gate, aber unter
+  dem 60 %-Zielband fuer kritische Pfade — die verbleibenden Luecken sind laut `go tool cover
+  -func` durchgaengig Fehlerzweige der `pool.Query`/`pool.Exec`/`rows.Err()`-Aufrufe in
+  `postgres_repository.go`/`postgres_repository_accounts.go`, die ohne DB-Fault-Injection nicht
+  erreichbar sind — kein Kandidat fuer eine einfache Folge-Unit. (3) Block B ist NICHT
+  abgeschlossen: `cov-banking-mt940-camt053-parser-edge-cases`, `cov-expense-repository-real-sql`
+  und `cov-recurring-generation-run-real-sql` stehen weiterhin auf `todo`, alle drei `deps: []`
+  und damit sofort ziehbar.
