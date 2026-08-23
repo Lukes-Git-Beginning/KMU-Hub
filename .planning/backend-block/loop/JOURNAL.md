@@ -5324,7 +5324,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 83 — fix-gobd-export-missing-currency-column — done — 2026-08-23 09:18
-- commit: (siehe naechster Schritt)
+- commit: ac6bf34a
 - gebaut: `GoBDExportRow` (`internal/biz/dunning/service_gobd.go`) traegt jetzt
   ein `Currency`-Feld; `buildGoBDCSV` schreibt eine zusaetzliche `Waehrung`-
   Spalte direkt nach `Bruttobetrag` (Header + Datenzeilen, Reihenfolge-
