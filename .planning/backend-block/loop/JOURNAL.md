@@ -3295,3 +3295,61 @@ Frühere Läufe liegen vollständig im Archiv:
   TestUploadBuchungsstapel_Retries5xxThenSucceeds) vollstaendig abgedeckt —
   gehoert zur naechsten Unit `cov-datev-uploader-oauth-token-refresh`
   (deps darauf), hier nur verifiziert, nicht dupliziert.
+
+## Iteration 51 — cov-datev-uploader-oauth-token-refresh — done — 2026-08-23 05:22
+- commit: (siehe unten nach git commit)
+- gebaut: Zwei neue Tests in `internal/biz/datev`, keine Produktionscode-
+  Aenderung. `TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint`
+  (oauth_test.go) belegt deterministisch (Server-seitige Rendezvous-Schranke
+  mit 2s-Timeout-Fallback statt Wanduhr-Abhaengigkeit) den im Scope
+  vermuteten Fund: `GetAccessToken` haelt kein Per-Tenant-Lock um Cache-Read
+  und Refresh — zwei parallele Aufrufe mit kaltem Cache loesen beide
+  unabhaengig `RefreshAccessToken` aus und senden dabei denselben (noch
+  nicht rotierten) Refresh-Token an den Token-Endpoint. Bei einem
+  Token-Server mit Rotation wuerde einer der beiden Requests den Token des
+  anderen verbrennen und mit ErrReauthRequired zurueckkommen, obwohl die
+  Verbindung Sekunden zuvor gueltig war. `TestUploadBuchungsstapel_
+  ReauthRequiredIsNotRetried` (uploader_test.go) belegt zusaetzlich, dass
+  ErrReauthRequired durch `doWithRetry`s `fmt.Errorf("...: %w", err)`-Wrap
+  hindurch per `errors.Is` erreichbar bleibt und die Upload-Route nie
+  kontaktiert wird (0 Calls) — die Kette bis zur admin-verstaendlichen
+  "reconnect"-Meldung ist bereits serverseitig getestet
+  (datev_upload_grpc_test.go:36-78, mapDatevUploadError), diese Unit deckt
+  den fehlenden Zwischenschritt (Uploader-Ebene) ab.
+- gate: build ok (`-p 2`, internal/biz/datev) | vet ok | lint ok (0 issues)
+  | test ok (`go test -count=1 -v ./internal/biz/datev/`, 100 PASS, 0 SKIP)
+  | migration n.a. | rls-smoke n.a. (kein DB-/Tabellen-Zugriff in dieser
+  Unit) | OpenAPI-Drift n.a. (kein Route-/Handler-Code angefasst)
+- coverage: internal/biz/datev 80,7 % -> 80,7 % (eigene Messung vor/nach
+  mit `go tool cover -func`, DATABASE_URL gegen kmuhub_app). Unveraendert,
+  weil beide neuen Tests bereits durchlaufene Codezeilen erneut ausueben
+  (der Token-Fehlerzweig lief schon ueber `TestUploadBuchungsstapel_
+  TokenErrorIsNotRetried`, die Concurrency ueber denselben `RefreshAccessToken`-
+  Pfad wie die bestehenden Tests) — der Wert dieser Unit ist ein belegtes
+  Verhalten (Nebenlaeufigkeitsluecke), keine neue Zeilenabdeckung.
+- mutations-probe: in `GetAccessToken` testweise ein globales
+  `sync.Mutex` um Cache-Read+Refresh gelegt (simuliert die naheliegende
+  Serialisierung als Fix) -> `TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint`
+  wird rot ("token endpoint called 1 times, want 2"), zurueckgedreht,
+  `git diff --stat backend/internal/biz/datev/oauth.go` zeigt keine
+  Aenderung (leer).
+- verify vorgaenger: sauber. `e2d2a490` (Iteration 50,
+  cov-datev-upload-service-error-paths) geprueft: `git show --stat` zeigt
+  ausschliesslich zwei neue/erweiterte Testdateien plus BACKLOG.yml/
+  JOURNAL.md — kein neuer Handler, kein Stub/TODO, kein `.proto`-Change,
+  keine Migration, kein neuer/ersetzter RequirePermission-Guard, keine neue
+  Tabelle, keine neue Route, kein Wire-Shape-Wechsel; keine der acht
+  Fehlerklassen einschlaegig.
+- neue-units: keine. Der im Scope vermutete Fund wurde in dieser Unit
+  selbst als Test dokumentiert (per done_when explizit "das Rennen selbst
+  ist an CI verwiesen", kein Backend-Fix vorgesehen) — ein tatsaechlicher
+  Fix (Per-Tenant-Lock um Refresh) waere eine Verhaltensaenderung auf einem
+  Produktionspfad und gehoert nicht in eine Coverage-Unit; falls Luke einen
+  Fix will, ist das eine eigene, von ihm freizugebende Unit (Refresh-Token-
+  Rotation bei DATEV ist aktuell nicht bestaetigt aktiv, daher kein
+  akuter Schaden ohne weitere Klaerung).
+- offen: Ob DATEV Unternehmen online Refresh-Token-Rotation tatsaechlich
+  einsetzt, ist unbelegt (kein Zugriff auf DATEV-Doku aus diesem Lauf) —
+  falls ja, ist ein Per-Tenant-Lock in `GetAccessToken` die naheliegende
+  Fix-Richtung (siehe Mutations-Probe oben als Skizze). Die -race-Bestaetigung
+  des Rennens selbst bleibt CI vorbehalten (kein gcc lokal).

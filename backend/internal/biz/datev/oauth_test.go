@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -85,6 +86,68 @@ func TestGetAccessToken_RefreshesWhenCacheNearExpiry(t *testing.T) {
 	}
 	if token != "fresh-token" {
 		t.Errorf("token = %q, want fresh-token", token)
+	}
+}
+
+// TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint documents
+// (does not fix) a gap: GetAccessToken takes no per-tenant lock around the
+// refresh. With a cold cache, every concurrent caller independently reaches
+// RefreshAccessToken and sends the SAME refresh token loaded from the vault
+// (neither has stored a rotated one yet). At a token endpoint that rotates
+// refresh tokens on use, one of the two concurrent requests would invalidate
+// the token the other is still presenting — that caller comes back with
+// ErrReauthRequired even though the connection was valid moments earlier,
+// forcing a reconnect. This test proves today's code makes 2 independent
+// requests instead of deduplicating/serializing them; the actual race (which
+// of the two wins at a real, rotating token endpoint) is a data race the
+// -race detector must confirm in CI (no gcc in this local environment).
+func TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint(t *testing.T) {
+	tenantID := uuid.New()
+
+	var mu sync.Mutex
+	calls := 0
+	release := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls++
+		n := calls
+		mu.Unlock()
+
+		if n == 1 {
+			// Hold the first response until the second request has also
+			// reached the server (or a bounded timeout), so the test proves
+			// both calls were in flight at once, not merely sequential.
+			select {
+			case <-release:
+			case <-time.After(2 * time.Second):
+			}
+		} else {
+			close(release)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600}`))
+	}))
+	defer server.Close()
+
+	vault := &vaultStub{secret: "refresh-shared"}
+	om := NewOAuthManager(vault, "cid", "csecret", server.URL)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for range 2 {
+		go func() {
+			defer wg.Done()
+			if _, err := om.GetAccessToken(context.Background(), tenantID); err != nil {
+				t.Errorf("GetAccessToken: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	if calls != 2 {
+		t.Errorf("token endpoint called %d times, want 2 (both concurrent GetAccessToken calls refresh independently — no per-tenant lock exists)", calls)
 	}
 }
 

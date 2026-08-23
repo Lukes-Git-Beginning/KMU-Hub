@@ -2150,7 +2150,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-datev-upload-service-error-paths]
-    status: todo
+    status: done
     coverage_start: "internal/biz/datev 79,7 % (CI-Stand 32570176303)"
     scope: >
       `datev/oauth.go` (208 Zeilen) und `uploader.go` (232) tragen die Anmeldung an DATEV
