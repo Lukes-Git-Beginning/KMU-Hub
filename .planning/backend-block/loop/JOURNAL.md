@@ -6147,3 +6147,45 @@ Frühere Läufe liegen vollständig im Archiv:
   beides risikofrei: `desktop/src/renderer/src` nutzt Tag-Routen nur unter
   `/api/v1/contacts/{id}/tags`.
   Sonst nichts offen — DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests.
+
+## Iteration 98 — fix-idempotency-409-rollout-non-finance-routes-4 — done — 2026-08-23 11:12
+- commit: (siehe naechster Eintrag — wird nach `git commit` als Iteration-98-SHA dokumentiert)
+- gebaut: Registrar-Gruppe **Chat** vollstaendig auf `409` umgestellt — 16 mutierende
+  Operationen unter `/api/v1/channels`, `/api/v1/messages` und `/api/v1/files`
+  (createChannel, updateChannel, deleteChannel, archiveChannel, joinChannel, leaveChannel,
+  updateMemberRole, sendMessage, getOrCreateDM, markChannelRead, updateMessage,
+  deleteMessage, toggleReaction, getReactionSummary, toggleBookmark, deleteFile).
+  15 davon reiner Anhaeng-Fall (`"409": { $ref: "#/components/responses/IdempotencyInFlight" }`,
+  numerisch nach dem letzten bestehenden Code einsortiert). Ein Merge-Fall:
+  `POST /api/v1/channels/{id}/join` hatte bereits ein Business-409
+  (`$ref: "#/components/responses/Conflict"`, generische Komponente ohne konkrete
+  Beschreibung). Handler/Service geprueft (`ErrAlreadyMember`,
+  `internal/chat/channel/errors.go:11`, `service.go:317/470`) und den `$ref` auf eine
+  Inline-`description: >-` umgestellt: "User is already a member of this channel." plus
+  Idempotenz-Satz und `Retry-After`-Header mit dem Vermerk, dass er fuer den
+  Konfliktfall oben nicht gesetzt ist — Vorbild `f6d4a3ad` (Finance), dort aber gegen eine
+  konkrete Inline-Description statt eines generischen `Conflict`-`$ref` gemerged.
+  `getReactionSummary` (`POST /api/v1/messages/reactions/summary`) bewusst mitgenommen,
+  obwohl die RequirePermission-Semantik "read" ist: die Idempotency-Middleware filtert nur
+  nach HTTP-Methode (`mutationMethods`, `idempotency.go:43`), nicht nach Guard-Bedeutung —
+  ein POST mit Idempotency-Key-Header durchlaeuft `Reserve`/`Complete` unabhaengig davon,
+  ob der Handler tatsaechlich schreibt.
+  Kein Go-Produktionscode angefasst, nur `backend/api/openapi.yaml`.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`
+  0 issues) | test ok (`go test -count=1 ./internal/gateway/` gruen, 2682 PASS, 0 SKIP mit
+  gesetztem `DATABASE_URL`) | `TestOpenAPIRouteDrift` gruen (836 Routen gegen 838 Pfade) |
+  swagger-cli validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, kein Coverage-Ziel — reine Spec-Aenderung, kein Go-Code)
+- mutations-probe: den frisch eingefuegten `$ref: "#/components/responses/IdempotencyInFlight"`
+  auf `POST /api/v1/channels` testweise auf `IdempotencyInFlightX` verbogen: `swagger-cli
+  validate` rot ("Token \"IdempotencyInFlightX\" does not exist."). Zurueckgedreht, danach
+  wieder gruen, `git diff --stat` zeigt exakt 44 Einfuegungen / 1 Loeschung (die Loeschung
+  ist der ersetzte Inline-`$ref: Conflict` im Merge-Fall — erwartet).
+- verify vorgaenger: sauber. `a782d41c` (Iteration 97) geprueft: reine `openapi.yaml`-Doku
+  fuer die Inbox-Gruppe (27x 400, 37x 503), keine der acht Fehlerklassen betroffen (kein
+  gRPC-Bypass, kein Stub, kein `.proto`, kein neuer `RequirePermission`, keine Tabelle,
+  kein Wire-Shape-Wechsel, keine neue Route, kein ersetzter Guard).
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-5` (Rest der ~32 verbleibenden
+  Registrar-Gruppen, Chat aus der Liste entfernt).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests.

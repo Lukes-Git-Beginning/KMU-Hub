@@ -3316,6 +3316,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List channels the current user is a member of
       tags: [chat-channels]
@@ -3391,6 +3393,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Delete a channel (owner only)
       tags: [chat-channels]
@@ -3406,6 +3410,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/channels/{id}/archive:
     post:
@@ -3427,6 +3433,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/channels/{id}/join:
     post:
@@ -3447,7 +3455,20 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/Conflict"
+          description: >-
+            User is already a member of this channel. Also returned when a
+            request carrying the same Idempotency-Key is still in flight;
+            retry after the delay in Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: >-
+                Seconds to wait before retrying an in-flight duplicate; not
+                set for the already-a-member conflict above.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/channels/{id}/leave:
     post:
@@ -3465,6 +3486,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/channels/{id}/members:
     get:
@@ -3534,6 +3557,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   # ==========================================================================
   # Chat: Messages
@@ -3618,6 +3643,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/messages/{id}:
     put:
@@ -3651,6 +3678,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Delete a message (author or channel admin/owner)
       tags: [chat-messages]
@@ -3666,6 +3695,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/messages/{id}/thread:
     get:
@@ -3743,6 +3774,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List direct message channels for the current user
       tags: [chat-channels]
@@ -3812,6 +3845,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/messages/mentions:
     get:
@@ -3971,6 +4006,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/channels/{id}/files:
     get:
@@ -8156,6 +8193,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List individual reactions for a message
       tags: [reactions]
@@ -8201,6 +8240,8 @@ paths:
                 $ref: "#/components/schemas/ReactionSummaryResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/messages/bookmarks:
     get:
@@ -8248,6 +8289,8 @@ paths:
           description: Caller is not a member of the message's channel
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   # ===========================================================================
   # Meetings
