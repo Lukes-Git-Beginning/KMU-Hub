@@ -6991,3 +6991,51 @@ Frühere Läufe liegen vollständig im Archiv:
   Iteration 107/109 uebernommen).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
   keine Migration und keine Tabelle beruehrt.
+
+## Iteration 116 — doc-status-code-systemic-400-503-sweep-8 — done — 2026-08-23 13:20
+- commit: d462e00b
+- gebaut: Registrar-Gruppe **reports** vollstaendig auf 400/503-Drift-Nulllage gebracht
+  (3 Operationen, Pfadpraefix `/api/v1/reports` in `backend/api/openapi.yaml`): `GET
+  /api/v1/reports/pipeline`, `GET /api/v1/reports/conversion`, `GET
+  /api/v1/reports/activities` bekamen je eine neue `"503": { ... $ref:
+  "#/components/responses/ServiceUnavailable" }`-Zeile nach dem jeweils letzten
+  vorhandenen Code (`401`). Alle drei hatten 400+401 schon dokumentiert, es fehlte nur 503 -
+  reiner Additiv-Fall. Einzige geaenderte Produktionsdatei: `api/openapi.yaml` (6 neue
+  Zeilen). Diese Unit war nach Datei-Reihenfolge und erfuellten `deps` (sweep-7 = done) die
+  tatsaechlich erste offene `todo`-Unit im Backlog, VOR der bereits als naechste
+  vorgeschlagenen `fix-idempotency-409-rollout-non-finance-routes-11` (die erst spaeter im
+  File steht) - `doc-status-code-systemic-400-503-sweep-8` war in der vorigen
+  Iteration liegen geblieben, waehrend die idempotency-409-Serie fortlaufend
+  weiterbearbeitet wurde.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 ./internal/gateway/...`
+  gruen, mit gesetztem `DATABASE_URL`, 0 SKIP) | swagger-cli validate gruen | migration n.a.
+  | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: `systemicUndocumentedCodes` testweise auf `map[int]string{}` geleert,
+  frisch eingefuegten `503`-Eintrag bei `GET /api/v1/reports/pipeline` entfernt -
+  `go test -run TestOpenAPIStatusCodeDrift` meldete sofort wieder `GET
+  /api/v1/reports/pipeline writes [503] - not documented` (rot wie erwartet, Exit 1).
+  Beide Dateien (Testdatei und `api/openapi.yaml`) danach aus Sicherungskopien
+  (`/tmp/drift_test_backup_116.go`, `/tmp/openapi_backup_116.yaml`) zurueckgesetzt, `git
+  diff` auf die Testdatei leer, `api/openapi.yaml`-Diff zeigt danach nur noch die
+  erwarteten 6 Zeilen. `go test -count=1 ./internal/gateway/...` und `swagger-cli validate`
+  erneut gruen bestaetigt.
+- verify vorgaenger: sauber. `47a8d827` (Iteration 115) geprueft: Diff beruehrt
+  ausschliesslich `api/openapi.yaml` (11 neue Zeilen, vermietung-Registrar-Gruppe, alle
+  409-Zeilen additiv nach dem jeweils letzten vorhandenen Code); reine Spec-Doku ohne
+  Go-Produktionscode, `.proto`, Route, `RequirePermission`, Tabelle oder
+  Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen.
+- neue-units: `doc-status-code-systemic-400-503-sweep-9` (Restliste aktualisiert, reports
+  als erledigt markiert, verbleibende Registrar-Gruppen unveraendert aus Iteration 113
+  uebernommen - Zahlen fuer die naechste Gruppe vor dem Bauen per Neuzaehlung
+  gegenpruefen, da die idempotency-409-Serie parallel an anderen Registrar-Gruppen
+  arbeitet und Drift moeglich ist).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
+  keine Migration und keine Tabelle beruehrt. Randnotiz: `BACKLOG.yml` hat aktuell zwei
+  parallele offene Serien am Backlog-Ende (`fix-idempotency-409-rollout-non-finance-routes-11`
+  bei 409 und `doc-status-code-systemic-400-503-sweep-9` bei 400/503) - beide fassen
+  `api/openapi.yaml` an, aber unterschiedliche Response-Codes auf denselben Pfaden; kein
+  Konflikt beobachtet, aber kuenftige Iterationen sollten vor dem Bauen pruefen, ob die
+  jeweils andere Serie dieselbe Registrar-Gruppe inzwischen schon angefasst hat.
