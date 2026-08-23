@@ -1501,7 +1501,7 @@ Frühere Läufe liegen vollständig im Archiv:
   UI-Beschriftung ist gesperrt, aber lesbar.
 
 ## Iteration 28 — cov-invoice-postgres-transactions-real-sql — done — 2026-08-23 02:35
-- commit: (siehe naechster docs-Commit)
+- commit: 5aa17392
 - gebaut: neue ungetaggte Testdatei `postgres_transactions_bracket_db_test.go` (5 Tests, real
   Postgres) fuer die Transaktionsklammer aus `Create` und `UpdateInTx`
   (`postgres_repository.go:48` bzw. `:328`), die auch `Service.Send` fuer die gekoppelte
