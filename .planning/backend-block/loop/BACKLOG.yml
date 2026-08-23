@@ -2633,7 +2633,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-invoice-service-gobd-lock-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz 63,7 % (CI-Stand 32570176303)"
     scope: >
       Lauf 10 hat dem Belegarchiv die Unveränderbarkeit auf Datenbankebene gegeben (Migration
@@ -3795,3 +3795,55 @@ units:
       - Ein Test mit gemischten Währungen belegt beide Zeilen mit korrekter Spalte
       - Keine Änderung an der Gruppierungslogik selbst
       - go test -count=1 ./internal/biz/dunning/ ./internal/server/ grün
+
+  - id: fix-payment-delete-bypasses-invoice-lock
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/payment (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      Gefunden im Scan `scan-gobd-immutability-beyond-belegarchiv`. `payment.Service.Delete`
+      (`internal/biz/payment/service.go:172-201`) prüft vor dem Löschen einer Zahlung nur
+      `inv.Status == models.InvoiceStatusCancelled` (Zeile 186-188) — die GoBD-§146-Sperre
+      `inv.LockedAt != nil` fehlt hier, obwohl genau dieselbe Datei sie an zwei anderen Stellen
+      exakt für diesen Zweck wiederholt: `transitionToPaidInTx` (Zeile 233-238) und
+      `revertPaidStatusInTx` (Zeile 270-273), beide mit dem Kommentar, dass die Prüfung "hat to
+      be repeated here rather than inherited", weil dieser Service die Rechnung über einen
+      schmalen `InvoiceStatusUpdater` schreibt statt über `invoice.Service`.
+      Zwei RPCs erreichen `Service.Delete` ungeschützt: `DeletePayment`
+      (`internal/server/biz_grpc.go:931`) und `DeleteFinanceTransaction`
+      (`internal/server/biz_grpc_transactions.go:51`, Präfix `pay-`).
+      Schaden: eine gesperrte, bereits bezahlte Rechnung bleibt zwar korrekt mit Status `paid`
+      stehen (`revertPaidStatusInTx` blockt den Statuswechsel), aber ihr Zahlungsbeleg — Betrag,
+      Datum, Referenz, Zahlungsart — wird trotzdem unwiderruflich aus `finance_payments`
+      gelöscht. Ein festgeschriebener Buchungsnachweis verschwindet spurlos, während die
+      Rechnung, die ihn referenziert, als bezahlt stehen bleibt: ein GoBD-Verstoß.
+    sources:
+      - backend/internal/biz/payment/service.go
+      - backend/internal/biz/payment/service_test.go
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/server/biz_grpc_transactions.go
+    notes: >
+      Root Cause, nicht Symptom: der Guard gehört an dieselbe Stelle wie die beiden
+      Schwester-Prüfungen — vor `s.repo.DeleteInTx` in `Service.Delete`, mit demselben
+      Fehlerbild wie `ErrInvoiceLocked` (aus `invoice`-Paket, hier ggf. ein eigener
+      `payment.ErrInvoiceLocked` oder Wiederverwendung, je nachdem was der Gateway-Handler
+      bereits auf einen HTTP-Code mappt — dort nachsehen, nicht raten).
+      Mutations-Probe: den neuen Guard testweise auskommentieren, ein Test mit gesperrter
+      Rechnung muss dann grün werden statt rot — das belegt, dass der Test wirklich die neue
+      Zeile prüft und nicht zufällig aus einem anderen Grund durchfällt.
+      `LinkTimeTracking` (`invoice/service.go:352`) wurde im selben Scan ebenfalls als
+      ungeschützter Schreibweg identifiziert, ist aber NICHT Teil dieser Unit: er ist nur einmal
+      aus `biz_grpc.go:2126` unmittelbar nach Invoice-Neuanlage erreichbar (Invoice ist dort
+      zwingend `draft`, kann noch nicht gesperrt sein) — kein realer Bypass, kein Fix nötig.
+    done_when:
+      - Service.Delete prüft inv.LockedAt vor dem Löschen und lehnt mit demselben Fehlermuster
+        wie transitionToPaidInTx/revertPaidStatusInTx ab
+      - Ein Test belegt: Löschversuch einer Zahlung auf einer gesperrten Rechnung schlägt fehl,
+        die Zahlungszeile bleibt in finance_payments erhalten
+      - Ein Test belegt: Löschversuch auf einer nicht gesperrten Rechnung funktioniert weiterhin
+      - Mutations-Probe dokumentiert (Guard-Zeile testweise entfernt, Test wird grün statt rot,
+        zurückgedreht)
+      - go test -count=1 ./internal/biz/payment/ ./internal/server/ grün

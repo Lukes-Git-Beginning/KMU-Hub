@@ -4079,3 +4079,62 @@ Frühere Läufe liegen vollständig im Archiv:
   - Die zwei echten Produktentscheidungen (Payment-Currency-Spalte, Ad-hoc-Invoice-Currency)
     sind bewusst NICHT als Unit ausgeschrieben, weil beide eine Migration bzw. einen
     Proto-Vertragswechsel voraussetzen — Luke entscheidet, dann Unit.
+
+## Iteration 62 — scan-gobd-immutability-beyond-belegarchiv — done — 2026-08-23 06:51
+- commit: (siehe unten)
+- gebaut: reiner Scan, kein Produktionscode geändert. Grundgesamtheit über alle Migrationen
+  erhoben (Explore-Subagent, gegen Datei:Zeile geprüft, nicht geraten): finance_quotes,
+  finance_invoices, finance_credit_notes, finance_payments, finance_dunning_records,
+  finance_invoice_lines/finance_quote_lines/finance_credit_note_lines, gobd_documents/
+  gobd_document_events, finance_incoming_invoices, finance_recurring_invoices/
+  finance_recurring_runs, finance_bank_statements/finance_bank_transactions, finance_expenses,
+  finance_bank_accounts, lexware_sync_log/datev_upload_log.
+  GRANTS: vollständiger Scan aller `backend/migrations/*.sql` nach `REVOKE` bestätigt — außer
+  `gobd_documents`/`gobd_document_events` (Migration 315, `REVOKE UPDATE, DELETE` für
+  `kmuhub_app`) trägt KEINE weitere Geldtabelle ein DB-seitiges REVOKE; alle laufen unter dem
+  schemaweiten GRANT aus `000121_create_app_role.up.sql:49,55-56`.
+  FESTSCHREIBUNGSPRÜFUNGEN je Tabelle geprüft (Code, nicht DB): finance_invoices sauber über
+  `Update`/`MarkPaid`/`Cancel` (`invoice/service.go:394-413,653-655,698-700`) und
+  `LockInvoice` (`service_gobd.go:86-123`); finance_credit_notes sauber (kein aktiver
+  Update-Schreibpfad außerhalb `Send`/`StornoInvoice`); finance_quotes, finance_recurring_
+  invoices, finance_bank_*, finance_expenses jeweils mit Status-Guards, kein Bypass gefunden;
+  finance_dunning_records bewusst ohne Sperre ("intentionally permissive to support admin
+  overrides", `service_gobd.go:25-28`) — kein Fund, weil keine Prüfung existiert, die umgangen
+  würde.
+  ECHTER FUND: `payment.Service.Delete` (`internal/biz/payment/service.go:172-201`) prüft vor
+  dem Löschen einer Zahlung nur `inv.Status == Cancelled` (Zeile 186-188) — die
+  GoBD-§146-Sperre `inv.LockedAt != nil` fehlt, obwohl dieselbe Datei sie an zwei
+  Schwesterstellen exakt für diesen Zweck wiederholt (`transitionToPaidInTx:233-238`,
+  `revertPaidStatusInTx:270-273`, beide mit Kommentar "the lock check has to be repeated here
+  rather than inherited"). Selbst gegengeprüft (Read auf service.go:160-279): Fund bestätigt.
+  Zwei RPCs erreichen den ungeschützten Pfad, beide gegengeprüft:
+  `DeletePayment` (`biz_grpc.go:931`) und `DeleteFinanceTransaction`
+  (`biz_grpc_transactions.go:51`, Präfix `pay-`). Schaden: eine gesperrte, bezahlte Rechnung
+  bleibt korrekt `paid` (der Statuswechsel selbst ist geschützt), aber ihr Zahlungsbeleg
+  (Betrag, Datum, Referenz, Zahlungsart) wird trotzdem unwiderruflich gelöscht — ein
+  festgeschriebener Buchungsnachweis verschwindet spurlos.
+  NEBENBEFUND, KEIN FUND: `invoice.LinkTimeTracking` (`invoice/service.go:352-354`→
+  `postgres_repository.go:472`) prüft `isInvoiceLocked` ebenfalls nicht, ist aber nur einmal
+  aus `biz_grpc.go:2126` unmittelbar nach Invoice-Neuanlage erreichbar (Invoice ist dort
+  zwingend `draft`, kann noch nicht gesperrt sein) — selbst gegengeprüft, kein zweiter
+  Aufrufer gefunden, kein realer Bypass, keine Unit angelegt.
+  RETENTION/GDPR: `internal/security/gdpr/dsar_search.go` liest aus Finanztabellen für
+  Auskunftsanfragen, enthält aber kein DELETE/UPDATE gegen eine der genannten Tabellen — kein
+  Retention-Worker mit Schreibzugriff auf finance_*/gobd_* gefunden.
+- gate: n.a. (Scan-Unit, kein Produktionscode/keine Migration/kein Test angefasst)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geänderter Testfall)
+- verify vorgaenger: sauber. `8e7f2ec5` (Iteration 61, scan-hardcoded-eur-vs-currency-column)
+  geprüft: `git show --stat` zeigt ausschliesslich BACKLOG.yml, BACKLOG-NEXT.yml und
+  JOURNAL.md, kein Produktionscode — keine der acht Fehlerklassen einschlägig.
+- neue-units: fix-payment-delete-bypasses-invoice-lock (BACKLOG.yml, todo)
+- offen:
+  - Jeder REVOKE-Vorschlag auf weiteren Geldtabellen (falls Luke das für sinnvoll hält) muss
+    laut Vorgabe dieser Unit einen Katalog-Scan gegen `ALTER DEFAULT PRIVILEGES`
+    (`000121` Abschnitt 4) tragen, sonst ist er beim nächsten `CREATE TABLE` still wieder weg —
+    diese Unit selbst schlägt aber kein REVOKE vor, weil kein Bypass an einer DB-Sperre hängt,
+    sondern an einer fehlenden Code-Prüfung.
+  - `fix-payment-delete-bypasses-invoice-lock` sollte klären, ob der Gateway-Handler
+    `DeletePayment`/`DeleteFinanceTransaction` einen neuen Fehler (z.B. `ErrInvoiceLocked` aus
+    dem invoice-Paket oder ein eigener) bereits auf einen HTTP-Code mappt oder ob dafür Code
+    in `internal/gateway` nötig wird — im Scan nicht geprüft, gehört in die bauende Iteration.
