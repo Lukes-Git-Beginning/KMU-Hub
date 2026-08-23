@@ -1870,7 +1870,7 @@ Frühere Läufe liegen vollständig im Archiv:
   nächsten Iteration die Recherche.
 
 ## Iteration 33 — cov-creditnote-repository-remaining-real-sql — done — 2026-08-23 02:45
-- commit: (siehe Abschluss unten)
+- commit: 29e982ed
 - gebaut: `postgres_repository_get_and_update_real_sql_test.go` (neu, ungetaggt, `package
   creditnote`) mit vier real-SQL-Tests. SCOPE-KORREKTUR gegenüber der Unit-Beschreibung: die
   Repository-Schnittstelle (`repository.go`) hat weder `UpdateStatus` noch `Delete` — Statuswechsel
