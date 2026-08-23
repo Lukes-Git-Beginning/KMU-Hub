@@ -7093,3 +7093,47 @@ Frühere Läufe liegen vollständig im Archiv:
   bricht dort ab") - meine beiden neuen/geaenderten Abschnitte (Zeilen 6141-6378) sind isoliert
   mit `yaml.safe_load` gegengeprueft und parsen sauber; ein separater Fix-Durchgang fuer die
   Gesamtdatei bleibt offen fuer Luke.
+
+## Iteration 118 — doc-status-code-systemic-400-503-sweep-9 — done — 2026-08-23 13:34
+- commit: b8bcfe67
+- gebaut: Registrar-Gruppe **invitations** vollstaendig auf fehlende 400/503 umgestellt
+  (4 Operationen, Pfadpraefix `/api/v1/invitations`): `POST /api/v1/invitations` (503),
+  `GET /api/v1/invitations` (503), `POST /api/v1/invitations/{token}/accept` (503),
+  `DELETE /api/v1/invitations/{id}` (400 UND 503). Alle vier reiner Additiv-Fall - bestehende
+  401/403/404/409-Eintraege unveraendert, neue Codes jeweils ans Ende des `responses:`-Blocks
+  angehaengt. Stil des direkt umgebenden Datei-Abschnitts uebernommen (mehrzeilig
+  `"503":\n  $ref: ...`, nicht der Einzeiler-Stil aus der berichte-Gruppe von Iteration 117 -
+  der Stil ist pro Datei-Abschnitt uneinheitlich). Einzige geaenderte Datei:
+  `backend/api/openapi.yaml` (10 neue Zeilen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, 0 SKIP, 0 FAIL, mit gesetztem `DATABASE_URL`) | swagger-cli validate gruen |
+  migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: `systemicUndocumentedCodes` testweise auf `map[int]string{}` geleert
+  (Vorher/Nachher-Vergleich: 910 -> 906, exakt -4, keine `invitations`-Zeile mehr im
+  Testlog). Danach zusaetzlich den frisch eingefuegten `503`-Eintrag bei `DELETE
+  /api/v1/invitations/{id}` entfernt und mit weiterhin geleerter Map erneut getestet -
+  `TestOpenAPIStatusCodeDrift` meldete sofort wieder `DELETE /api/v1/invitations/{id}
+  writes [503] - not documented` (rot wie erwartet, Exit 1). Beide Dateien (Testdatei und
+  `api/openapi.yaml`) danach aus Sicherungskopien (`/tmp/drift_test_backup_118b.go`,
+  `/tmp/openapi_backup_118_good.yaml`) zurueckgesetzt, `git diff` auf die Testdatei leer,
+  `api/openapi.yaml`-Diff zeigt danach nur noch die erwarteten 10 Zeilen. `go test -count=1
+  ./internal/gateway/...` und `swagger-cli validate` erneut gruen bestaetigt.
+- verify vorgaenger: sauber. `0be5c739` (Iteration 117) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (15 neue Zeilen, berichte-Registrar-Gruppe, alle 409-Zeilen additiv nach
+  dem jeweils letzten vorhandenen Code, Inhalt stichprobenartig gegen die Journal-Beschreibung
+  gegengeprueft); reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route,
+  `RequirePermission`, Tabelle oder Wire-Shape-Aenderung; keine der acht Fehlerklassen
+  betroffen.
+- neue-units: `doc-status-code-systemic-400-503-sweep-10` (Restliste aktualisiert, invitations
+  als erledigt markiert, verbleibende Registrar-Gruppen unveraendert aus Iteration 113
+  uebernommen, `leads`-Gruppe als naechster kleiner Kandidat sichtbar).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt. Randnotiz: `.planning/backend-block/loop/BACKLOG.yml`
+  hat weiterhin den VORBESTEHENDEN YAML-Parse-Fehler bei Zeile ~2893 (unabhaengig von dieser
+  Iteration, seit Iteration 114 im Journal vermerkt) - mein neuer Abschnitt
+  (`doc-status-code-systemic-400-503-sweep-10`) ist isoliert mit `yaml.safe_load`
+  gegengeprueft und parst sauber; ein separater Fix-Durchgang fuer die Gesamtdatei bleibt
+  offen fuer Luke.
