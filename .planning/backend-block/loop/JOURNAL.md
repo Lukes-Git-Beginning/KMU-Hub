@@ -6395,3 +6395,52 @@ Frühere Läufe liegen vollständig im Archiv:
   Pfaden zu verwechseln).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
   Migration und keine Tabelle beruehrt.
+
+## Iteration 103 — doc-status-code-systemic-400-503-sweep-3 — done — 2026-08-23 11:47
+- commit: -
+- gebaut: Registrar-Gruppe **calendar** vollstaendig aus den systemischen 400/503-Luecken
+  geschlossen — 44 Operationen, 14x 400 (aus `validateUUIDParam`/`decodeAndValidate` auf
+  UUID-Pfadparametern bzw. Query-Validierung) + 44x 503 (aus `respondServiceUnavailable`,
+  jeder Handler in `route_calendar.go` ruft ihn beim gRPC-Verbindungsfehler auf). Arbeitsliste
+  wie in Iteration 100 erzeugt: `systemicUndocumentedCodes` testweise auf `map[int]string{}`
+  gesetzt, `TestOpenAPIStatusCodeDrift` gelaufen, alle 44 `/api/v1/calendar/...`-Zeilen aus dem
+  Output genommen (44 = exakt die im Vorgaenger-Scope genannten 14/44), danach Testdatei aus
+  Sicherungskopie zurueckgesetzt (`git diff` leer bestaetigt). Beim ersten Durchlauf eine
+  Operation uebersehen (`DELETE /api/v1/calendar/calendars/{id}/subscribe`,
+  `unsubscribeFromCalendar` — der 503-Fund lag auf dem `delete:`-Block desselben Pfads wie das
+  schon bearbeitete `post:` `subscribeToCalendar`, im ersten Editier-Durchgang nur bis zum Ende
+  des `post`-Blocks bearbeitet); beim Kontroll-Lauf mit erneut leerer
+  `systemicUndocumentedCodes`-Map aufgefallen und nachgetragen, danach 0 verbliebene
+  `/api/v1/calendar/`-Treffer bestaetigt. Lehre dazu als Hinweis in die neue Folge-Unit
+  geschrieben. Antwortstil pro Block an den lokalen Stil angepasst: multi-line `"503":\n  $ref:`
+  fuer die regulaeren Calendar-Bloecke, inline `{$ref: ...}` fuer den `booking-pages`-Block
+  (dort war der bestehende Stil bereits inline). Kein Go-Produktionscode angefasst, einzige
+  geaenderte Datei ist `api/openapi.yaml` (108 eingefuegte Zeilen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 2682 PASS, 0 FAIL) |
+  `TestOpenAPIStatusCodeDrift` gruen, geloggte systemische Zaehler `400: 304 -> 290` und
+  `503: 1003 -> 959` (Differenz exakt 14 bzw. 44, wie erwartet) | swagger-cli validate gruen |
+  migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: `systemicUndocumentedCodes` testweise auf `map[int]string{}` gesetzt und den
+  frisch eingefuegten `"503": { $ref: "#/components/responses/ServiceUnavailable" }` unter
+  `GET /api/v1/calendar/preferences` entfernt: `TestOpenAPIStatusCodeDrift` rot
+  (`GET /api/v1/calendar/preferences writes [503] - not documented`). Beide Aenderungen
+  zurueckgedreht (Eintrag wiederhergestellt, Testdatei aus Sicherungskopie), danach
+  `swagger-cli validate` gruen und `go test -count=1 ./internal/gateway/...` gruen;
+  `git diff --stat backend/` zeigt exakt die 108 Einfuegungen in `api/openapi.yaml` und sonst
+  nichts.
+- verify vorgaenger: sauber. `d1e94833` (Iteration 102) geprueft: Diff beruehrt
+  `api/openapi.yaml` (50 additive Zeilen, 17x 401 + 6x 500 fuer die Registrar-Gruppe hr) und
+  `internal/gateway/openapi_status_code_drift_test.go` (23 Zeilen aus `statusDriftBaseline`
+  entfernt), reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`,
+  Tabelle oder Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen. Stichprobe des
+  Diffs (Testdatei-Entfernungen + YAML-Ausschnitt) bestaetigt sauberes additives/entfernendes
+  Muster.
+- neue-units: `doc-status-code-systemic-400-503-sweep-4` (naechste Zielgruppe meetings,
+  aktualisierte Restliste, Hinweis auf den Mehrfach-Methoden-Pfad-Fallstrick aus dieser
+  Iteration).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt.
