@@ -1064,6 +1064,38 @@ func TestAuditRPCs_HappyPaths(t *testing.T) {
 	assert.Empty(t, verifyResp.ErrorMessage)
 }
 
+// TestExportAuditLog_UnsupportedFormatIsInvalidArgument proves the fix for a
+// bug found while building cov-gateway-security-audit-and-vault-routes:
+// ExportAuditLog used to wrap ANY error from Service.ExportEntries (including
+// the audit.ErrUnsupportedFormat client-input error) as codes.Internal, so an
+// unknown ?format=xml query returned a bare 500 "internal error" through
+// respondGRPCError instead of a clear 400. It now routes the error through
+// mapSecurityError, which maps audit.ErrUnsupportedFormat to InvalidArgument.
+func TestExportAuditLog_UnsupportedFormatIsInvalidArgument(t *testing.T) {
+	srv, _ := newTestSecurityGRPCServer(t)
+	ctx := ctxWithTenant(uuid.New())
+
+	_, err := srv.ExportAuditLog(ctx, &securityv1.ExportAuditLogRequest{Format: "xml"})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+}
+
+// TestVerifyAuditChain_BrokenChainReportsError proves a broken hash chain is
+// reported as such in the response body (Valid=false, ErrorMessage set) and
+// not silently returned as a successful, empty-result verification.
+func TestVerifyAuditChain_BrokenChainReportsError(t *testing.T) {
+	srv, repos := newTestSecurityGRPCServer(t)
+	ctx := ctxWithTenant(uuid.New())
+
+	repos.audit.chainValid = false
+	repos.audit.firstBad = 5
+
+	resp, err := srv.VerifyAuditChain(ctx, &securityv1.VerifyAuditChainRequest{})
+	require.NoError(t, err)
+	assert.False(t, resp.Valid)
+	assert.Equal(t, int64(5), resp.FirstInvalidSequence)
+	assert.NotEmpty(t, resp.ErrorMessage)
+}
+
 func TestGDPRExportRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	srv, repos := newTestSecurityGRPCServer(t)
 	tenantID := uuid.New()

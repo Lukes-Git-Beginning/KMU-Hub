@@ -165,7 +165,7 @@ func (s *SecurityGRPCServer) ExportAuditLog(ctx context.Context, req *securityv1
 
 	data, err := s.auditService.ExportEntries(ctx, filter, format)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "export failed: %v", err)
+		return nil, mapSecurityError(err)
 	}
 
 	contentType := "text/csv"
@@ -1246,6 +1246,8 @@ func mapSecurityError(err error) error {
 	}
 
 	switch {
+	case errors.Is(err, audit.ErrUnsupportedFormat):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, vault.ErrSecretNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, vault.ErrEmptyKeyName),

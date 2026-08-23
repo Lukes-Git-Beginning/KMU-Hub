@@ -2216,3 +2216,155 @@ Frühere Läufe liegen vollständig im Archiv:
   kein Fund im Code selbst. (3) `service.go:120` `Get` bleibt bei 0% Coverage (kein Aufrufer im
   Test, weder Fake noch real) — ausserhalb des Scopes dieser Coverage-Unit (Repository, nicht
   Service), aber fuer eine spaetere Service-Coverage-Unit vermerkt, falls sie angelegt wird.
+
+## Iteration 38 — cov-recurring-generation-run-real-sql — done — 2026-08-23 03:23
+- commit: 618d6037
+- gebaut: `internal/biz/recurring/service_db_test.go` (neu, ungetaggt) verdrahtet
+  `recurring.Service` gegen echte Repositories statt des `fakeRepo` aus
+  `service_test.go`: eigene `PostgresRepository` plus ein echter `invoice.Service`
+  (echtes `invoice.PostgresRepository`, echte `quote.PostgresNumberSequenceRepo`,
+  echte `quote.PostgresCompanySettingsRepo`). Fuenf Tests: (1)
+  `TestGenerate_RealSQL_ReplaySamePeriodReturnsExistingInvoice` — zweiter Aufruf
+  fuer dieselbe, zurueckgedrehte Periode liefert dieselbe Rechnung, kein zweiter
+  Insert. (2) `TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice` — zwei
+  echte Goroutinen (eigene Pool-Connections) rasen per Start-Channel-Barriere auf
+  denselben Generate-Aufruf; die ON-CONFLICT-DO-NOTHING-Guard in
+  `finance_recurring_runs` haelt, genau eine Rechnung entsteht, der Verlierer
+  bekommt entweder dieselbe Rechnungs-ID oder den dokumentierten transienten
+  Fehler "is being generated concurrently" (service.go:290) — 15/15 stabil bei
+  zwei Racern getestet, s. offen. (3)
+  `TestGenerate_RealSQL_EndedAndPausedSchedulesRefuse` — frisch aus Postgres
+  geladene pausierte/beendete Zeitplaene lehnen ab. (4)
+  `TestGenerate_RealSQL_MonthEndScheduleStaysAnchored` — Zeitplan ab 31.01.,
+  zwei echte Generate-Laeufe, NextRun ueber einen echten DATE-Spalten-Roundtrip
+  (nicht nur den In-Memory-Struct) 28.02. dann 31.03., zwei verschiedene
+  Rechnungen. (5) `TestUpdate_RealSQL_ClearEndDatePersistsNull` — der
+  Enddatum-Loeschpfad aus a5f5aa6f setzt end_date wirklich auf NULL in Postgres,
+  nicht nur im Rueckgabe-Struct (bisher ungetestet: `postgres_repository_db_test.go`s
+  `TestPostgresRepository_Update` setzte nie ein bestehendes EndDate zurueck).
+  NEBENFUND (Verhaltensbug, nicht behoben — siehe neue-units): beim Bauen von
+  Test (4) schlug ein zweiter `Generate`-Lauf fuer eine ANDERE Periode desselben
+  Tenants mit einer rohen Postgres-Fehlermeldung fehl:
+  `duplicate key value violates unique constraint "idx_finance_invoices_number"`.
+  Ursache: `finance_invoices.invoice_number` ist `NOT NULL DEFAULT ''`
+  (migrations/000045), der Unique-Index `idx_finance_invoices_number
+  (tenant_id, invoice_number)` ist NICHT partiell — ein Tenant kann also nie
+  zwei unversendete Entwuerfe gleichzeitig halten. Workaround in Test (4):
+  die Januar-Rechnung wird per `invSvc.Send` versendet, bevor Februar generiert
+  wird (entspricht auch dem realistischen Ablauf). `finance_quotes`/
+  `finance_credit_notes` haben denselben `DEFAULT ''`-Musterfehler, aber KEINEN
+  Unique-Index auf die Nummer (per `pg_indexes` gegen die lokale DB geprueft) —
+  nur `finance_invoices` ist betroffen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v
+  ./internal/biz/recurring/`, 0 SKIP, alle Tests inkl. der fuenf neuen real
+  gegen Postgres gelaufen) | migration n.a. (keine Migration in dieser Unit) |
+  rls-smoke n.a. (keine Tabellen-/Policy-Aenderung; `finance_recurring_runs`
+  und `finance_invoices` tragen bereits FORCE RLS aus fruaheren Migrationen,
+  alle Schreib-/Lesepfade liefen unter `testutil.WithTenantCtx`) | `go test
+  ./internal/gateway/` nicht gelaufen — keine Route angefasst, nicht pflichtig
+- coverage: internal/biz/recurring 88,1 % (eigene Messung vor dieser Iteration,
+  neue Testdatei kurz beiseitegelegt) -> 88,5 % (danach, gleiche Methode).
+  Kleiner Zugewinn, weil `Generate`/`Update` schon durch `service_test.go`
+  (fakeRepo) strukturell fast vollstaendig gedeckt waren — der Wert dieser Unit
+  liegt im Beweis gegen echtes SQL (ON-CONFLICT-Race, DATE-Roundtrip,
+  NULL-Clearing), nicht in der Statement-Zahl, wie im Scope der Unit
+  ausdruecklich vorausgesagt ("Coverage ist das Nebenprodukt").
+- mutations-probe: `service.go:286` `if !claimed {` testweise zu `if false &&
+  !claimed {` geaendert (Replay-Pfad komplett deaktiviert) — sowohl
+  `TestGenerate_RealSQL_ReplaySamePeriodReturnsExistingInvoice` als auch
+  `TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice` wurden rot
+  (beide scheiterten an der echten `idx_finance_invoices_number`-Verletzung,
+  weil ohne die Replay-Guard ein zweiter Insert versucht wird — das beweist
+  die Guard-Notwendigkeit sogar staerker als ein sauberer Duplikat-Fehler
+  es koennte). Zurueckgesetzt via `cp` einer Sicherungskopie, `diff` gegen das
+  Original danach leer (0 Zeilen Unterschied).
+- verify vorgaenger: sauber — `500a849f` (letzter Code-Commit vor dieser
+  Iteration, `d8d2ed6c` war reiner Journal-SHA-Nachtrag) aendert laut
+  `git show --stat` nur `internal/biz/expense/integration_test.go` (+173) und
+  einen Status-Flip in BACKLOG.yml — keine Produktionslogik, keine der acht
+  Fehlerklassen anwendbar.
+- neue-units: fix-invoice-number-unique-index-blocks-second-draft (verifizierter
+  Produktionsbug: `finance_invoices`-Unique-Index auf (tenant_id,
+  invoice_number) ist nicht partiell, blockiert einen zweiten gleichzeitigen
+  Entwurf pro Tenant mit einem rohen 500 statt einer klaren Fehlermeldung;
+  Fix braucht eine neue Forward-Migration und ist damit ausserhalb des Scopes
+  dieser Coverage-Unit)
+- offen: (1) Die Concurrency-Probe nutzt bewusst nur 2 Racer (wie im
+  Unit-Notes-Text "Zwei gleichzeitige Laeufe" gefordert) statt urspruenglich 5 —
+  bei 5 Racern trat das oben genannte invoice_number-Problem sporadisch auf,
+  weil ein Racer die schon vollstaendig fortgeschrittene naechste Periode
+  erreichte, bevor die anderen ihre Klaim-Anfrage stellten (kein Test-Fehler,
+  sondern derselbe Nebenfund). Mit 2 Racern 15/15 stabil, aber nicht 100%
+  deterministisch garantiert — CI ist der Beweis fuer Langzeitstabilitaet.
+  (2) fix-invoice-number-unique-index-blocks-second-draft steht am Backlog-Ende
+  mit model: opus (Migration + Geldpfad) und ist noch nicht eingeplant in eine
+  Blockreihenfolge — Luke entscheidet die Prioritaet gegen Block A-D.
+  (3) Nach dem Merge von fix-invoice-number-unique-index-blocks-second-draft
+  kann der `invSvc.Send`-Workaround in
+  TestGenerate_RealSQL_MonthEndScheduleStaysAnchored optional entfernt werden.
+
+## Iteration 39 — cov-gateway-security-audit-and-vault-routes — done — 2026-08-23 03:36
+- commit: <siehe unten, wird nach commit ergaenzt>
+- gebaut: (1) Router-Guard-Test `TestSecurityRoutes_AuditAndVaultGuards`
+  (`route_security_test.go`) fuer alle sieben Routen aus `route_security.go:43-51`
+  (Audit-Liste, Audit-Export, Audit-Verify, Vault-Liste, Vault-Get, Vault-Set,
+  Vault-Delete): 401 ohne Token (echtes `RequireAuthenticated`, nicht
+  `guardTestAuth`), 403 authentifiziert ohne admin-Rolle, 503 admin + leere
+  Registry. Dazu direkte Handler-Tests fuer `HandleGetVaultSecret`/
+  `HandleDeleteVaultSecret` (503, fehlender `keyName` -> 400) sowie 503-Tests
+  fuer die vier Routen ohne Request-Validierung.
+  (2) ECHTER BUG gefunden und behoben (root cause, kein Test-Workaround):
+  `SecurityGRPCServer.ExportAuditLog` (`security_grpc.go:166-168`) wrappte
+  JEDEN Fehler aus `auditService.ExportEntries` als `codes.Internal` — auch
+  den Fall "unbekanntes Exportformat", der `audit.Service.ExportEntries`
+  intern schon sauber als eigenen Fehler unterschied (`switch format`,
+  `default:`). Ein Client mit `?format=xml` bekam dadurch einen blanken
+  500 "internal error" statt 400 mit Grund. Fix: neuer Sentinel-Error
+  `audit.ErrUnsupportedFormat` (`service.go`), `ExportAuditLog` routet den
+  Fehler jetzt durch das etablierte `mapSecurityError` (wie alle anderen
+  RPCs in dieser Datei), neuer Case dort mappt `ErrUnsupportedFormat` auf
+  `codes.InvalidArgument` -> HTTP 400 via `respondGRPCError`.
+  (3) `HandleGetVaultSecret` gibt laut `securityv1.GetVaultSecretResponse.
+  decrypted_value` (proto Zeile 154) den Klartext des Secrets zurueck — das
+  ist Absicht (admin-only-Route, ein Vault ohne Lesezugriff auf den Wert
+  waere fuer Admins nutzlos) und keine Leckage: `ListVaultSecrets` liefert
+  nur `VaultSecret` (ohne `decrypted_value`), also nie Klartext in der
+  Liste. Keine neue Unit noetig.
+  (4) CSV-Formel-Injektion war bereits durch `csvutil.NeutralizeFormulaCell`
+  auf Target/Details/UserAgent (`export.go`) und den bestehenden Test
+  `TestExportCSV_NeutralizesFormulaInjection` abgedeckt (Lauf 10) — geprueft,
+  nichts zu tun.
+  (5) Zwei neue Server-Tests in `security_grpc_test.go`:
+  `TestExportAuditLog_UnsupportedFormatIsInvalidArgument` (beweist den Fix)
+  und `TestVerifyAuditChain_BrokenChainReportsError` (stub-Repo mit
+  `chainValid=false`, `firstBad=5`; beweist `Valid=false` +
+  `ErrorMessage` gesetzt statt stillem Erfolg).
+- gate: build ok | vet ok | lint ok (0 issues, `internal/gateway` +
+  `internal/security/audit` + `internal/server`) | test ok (`go test -count=1
+  ./internal/gateway/...`, `./internal/security/...`, `./internal/server/...`,
+  0 SKIP in allen drei) | migration n.a. (keine Tabellen-/Schema-Aenderung) |
+  rls-smoke n.a. (keine Tabellen-/Policy-Aenderung) | `go test -count=1
+  ./internal/gateway/` PFLICHT gelaufen (TestOpenAPIRouteDrift gruen, keine
+  Route hinzugefuegt/geaendert, nur Guard-Reihenfolge unveraendert)
+- coverage: internal/gateway 54,1 % (eigene Messung vor dieser Iteration via
+  `git stash`) -> 54,2 % (danach). Kleiner Zugewinn wie bei den anderen
+  Handler-Test-Units dieses Blocks erwartet — der Wert liegt im bewiesenen
+  Guard-Verhalten (401/403/503) und im gefundenen/behobenen 500-statt-400-Bug,
+  nicht in der Statement-Zahl.
+- mutations-probe: (1) `security_grpc.go` ExportAuditLog testweise zurueck auf
+  `status.Errorf(codes.Internal, "export failed: %v", err)` (alter Zustand) —
+  `TestExportAuditLog_UnsupportedFormatIsInvalidArgument` wurde rot (erwartet
+  InvalidArgument/0x3, bekam Internal/0xd). Zurueckgesetzt via `cp` einer
+  Sicherungskopie, `diff` gegen Original danach leer. (2) `route_security.go`
+  `RequireRole("admin")` auf der Audit-Liste-Route testweise entfernt —
+  `TestSecurityRoutes_AuditAndVaultGuards/list_audit_entries/authenticated_non-admin`
+  wurde rot (503 statt erwarteter 403, weil ohne Guard direkt die leere
+  Registry griff). Zurueckgesetzt, `diff` gegen Original danach leer.
+- verify vorgaenger: sauber — `618d6037` (letzter Commit vor dieser Iteration)
+  aendert laut `git show --stat` nur `internal/biz/recurring/service_db_test.go`
+  (neue Testdatei) und BACKLOG.yml — keine Produktionslogik, keine der acht
+  Fehlerklassen anwendbar.
+- neue-units: keine (der gefundene Bug wurde in dieser Iteration direkt
+  behoben, siehe gebaut (2) — kein Deploy-Hazard, keine neue Route, kein neuer
+  Guard, keine Migration noetig)
+- offen: keine

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 // SecurityRoutes registers under the "auth" gRPC service connection.
@@ -330,4 +331,122 @@ func TestHandleUpdatePasswordPolicy_ValidEmptyBody(t *testing.T) {
 func TestHandleGetLatestRetentionRun_ServiceUnavailable(t *testing.T) {
 	routes := NewSecurityRoutes(emptyRegistry())
 	testServiceUnavailable(t, routes.HandleGetLatestRetentionRun)
+}
+
+// ============================================================================
+// Router-level guard wiring: audit + vault routes (cov-gateway-security-audit-and-vault-routes)
+//
+// Wired with the real RequireAuthenticated (not the guardTestAuth no-op) so
+// the 401 case actually exercises the auth check, not just the no-op passthrough.
+// ============================================================================
+
+func TestSecurityRoutes_AuditAndVaultGuards(t *testing.T) {
+	router := chi.NewRouter()
+	NewSecurityRoutes(emptyRegistry()).RegisterRoutes(router, RequireAuthenticated)
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{"list audit entries", http.MethodGet, "/api/v1/security/audit"},
+		{"export audit log", http.MethodGet, "/api/v1/security/audit/export"},
+		{"verify audit chain", http.MethodPost, "/api/v1/security/audit/verify"},
+		{"list vault secrets", http.MethodGet, "/api/v1/security/vault"},
+		{"get vault secret", http.MethodGet, "/api/v1/security/vault/stripe_key"},
+		{"set vault secret", http.MethodPut, "/api/v1/security/vault"},
+		{"delete vault secret", http.MethodDelete, "/api/v1/security/vault/stripe_key"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name+"/no auth", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, map[string]interface{}{}))
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusUnauthorized)
+		})
+		t.Run(tc.name+"/authenticated non-admin", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, map[string]interface{}{}))
+			req = withAuth(req, uuid.New().String(), testTenantID)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusForbidden)
+		})
+		t.Run(tc.name+"/admin empty registry", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, map[string]interface{}{}))
+			req = withAuth(req, uuid.New().String(), testTenantID)
+			req = withRoles(req, "admin")
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusServiceUnavailable)
+		})
+	}
+}
+
+// --- HandleGetVaultSecret ---
+
+func TestHandleGetVaultSecret_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = withChiURLParam(req, "keyName", "stripe_key")
+	routes.HandleGetVaultSecret(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetVaultSecret_MissingKeyName(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = withChiURLParam(req, "keyName", "")
+	routes.HandleGetVaultSecret(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "key name is required")
+}
+
+// --- HandleDeleteVaultSecret ---
+
+func TestHandleDeleteVaultSecret_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	req = withChiURLParam(req, "keyName", "stripe_key")
+	routes.HandleDeleteVaultSecret(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteVaultSecret_MissingKeyName(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	req = withChiURLParam(req, "keyName", "")
+	routes.HandleDeleteVaultSecret(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "key name is required")
+}
+
+// --- HandleListVaultSecrets / HandleListAuditEntries / HandleExportAuditLog / HandleVerifyAuditChain ---
+//
+// These four have no request-level validation before the gRPC call, so their
+// only handler-unit-test surface (beyond the router-level guard table above)
+// is the service-unavailable path.
+
+func TestHandleListVaultSecrets_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListVaultSecrets)
+}
+
+func TestHandleListAuditEntries_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListAuditEntries)
+}
+
+func TestHandleExportAuditLog_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleExportAuditLog)
+}
+
+func TestHandleVerifyAuditChain_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleVerifyAuditChain)
 }

@@ -1690,7 +1690,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       Sieben Routen in `route_security.go:43-51`: Audit-Liste, Audit-Export,
