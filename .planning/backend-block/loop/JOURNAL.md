@@ -3355,7 +3355,7 @@ Frühere Läufe liegen vollständig im Archiv:
   des Rennens selbst bleibt CI vorbehalten (kein gcc lokal).
 
 ## Iteration 52 — cov-einvoice-parser-foreign-format-inbound — done — 2026-08-23 05:38
-- commit: <wird nach dem Commit ergaenzt>
+- commit: b6da7373
 - gebaut: Neue Testdatei `parser_inbound_hardening_test.go` (11 Tests) plus
   eine Produktionscode-Ergaenzung in `parser.go`: `assertInboundTotalsConsistent`
   (aufgerufen am Ende von `ParseCII` und `ParseUBL`) lehnt ein Fremddokument
