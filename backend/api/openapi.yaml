@@ -22250,6 +22250,7 @@ paths:
                   contract: { $ref: "#/components/schemas/VertraegeContract" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vertraege/contracts/{id}:
     get:
@@ -22305,6 +22306,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a contract
       tags: [vertraege]
@@ -22317,6 +22319,7 @@ paths:
           description: Contract deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vertraege/contracts/{id}/export:
     get:
@@ -22403,6 +22406,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vertraege/contracts/{id}/parties:
     get:
@@ -22458,6 +22462,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vertraege/contracts/{id}/parties/{partyId}:
     delete:
@@ -22473,6 +22478,7 @@ paths:
           description: Party removed
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vertraege/contracts/{id}/reminders:
     get:
@@ -22526,6 +22532,7 @@ paths:
                   reminder: { $ref: "#/components/schemas/VertraegeContractReminder" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vertraege/contracts/{id}/reminders/{reminderId}:
     patch:
@@ -22560,6 +22567,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a contract reminder
       tags: [vertraege]
@@ -22573,6 +22581,7 @@ paths:
           description: Reminder deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ---------------------------------------------------------------------------
   # Modul: mails
