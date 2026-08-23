@@ -4893,7 +4893,7 @@ Frühere Läufe liegen vollständig im Archiv:
     FE-Entscheidung.
 
 ## Iteration 75 — fix-datev-oauth-callback-503-breaks-redirect-contract — done — 2026-08-23 08:36
-- commit: (siehe naechster Befehl)
+- commit: 9d7fc6f8
 - gebaut: Ein-Zeilen-Fix in `HandleOAuthCallback` (`route_datev_upload.go:167`):
   die einzige Fehlerstelle im Handler, die noch `respondServiceUnavailable`
   (rohes 503-JSON) aufrief, ruft jetzt `redirectDatevError(w, r,
