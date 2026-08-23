@@ -5039,3 +5039,62 @@ Frühere Läufe liegen vollständig im Archiv:
   keine neue Tabelle, keine neue Route, kein ersetzter Guard-Key.
 - neue-units: keine
 - offen: keine
+
+## Iteration 78 — fix-gateway-billing-recurring-routes-missing-401-503-docs — done — 2026-08-23 08:45
+- commit: (wird nach dem Commit unten ergaenzt)
+- gebaut: `route_biz_billing.go` (24 Handler) und `route_biz_recurring.go` (8
+  Handler) schreiben in praktisch jedem Handler literal 401 (`getTenantID`),
+  503 (`respondServiceUnavailable`) und laufen zusaetzlich durch
+  `RequirePermission`/`RequirePermissionAny`-Middleware (403) — die
+  `responses:`-Bloecke in `openapi.yaml` dokumentierten das fuer beide
+  Dateien fast durchgaengig nicht, teils nur den Erfolgscode. Per
+  Explore-Agent alle 32 Routen einzeln gegen Handler-Code (Zeilennummern)
+  und bestehende Spec-Blocke geprueft, danach 401/403/503 im Stil von
+  `route_biz_expenses.go` (`"401": { $ref: Unauthorized }`, `"403": { $ref:
+  Forbidden }`, `"503": { description: Finance service unavailable }` —
+  kompakte Form ohne content/schema, wie zuletzt in Iteration 77 fuer
+  denselben Datei-Block etabliert) ergaenzt: credit-notes (4 Routen),
+  invoices/{id}/payments (2), recurring (8), payments/{id} (1), dunning (6),
+  dashboard (1), export/datev (1) — alle 401+403+503 neu. Fuer den in der
+  Unit-Notiz benannten Ausnahmeblock (`route_biz_billing.go:649-900`) wurde
+  die Behauptung "400/401 schon dokumentiert, nur 503 fehlt" einzeln
+  verifiziert: traf zu fuer `journal/summary`, `stats/payments` (beide
+  zusaetzlich ohne 403 — ergaenzt), `dunning/{id}/status`,
+  `dunning/{id}/notice`, `export/gobd` (503 ergaenzt, 401/403/400 bereits
+  vorhanden); `invoices/validate-number` ebenfalls ohne 403 (ergaenzt);
+  `invoices/{id}/lock` hatte 401/403/404 aber kein 503 (ergaenzt, 400 fuer
+  die dortige `validateUUIDParam` bleibt offen, siehe unten).
+  BEWUSST NICHT gefixt (ausserhalb des 401/403/503-Scopes dieser Unit, echte
+  Verhaltensdoku-Luecken statt Guard-Codes): `HandleLockInvoice` schreibt
+  literal 400 bei ungueltiger UUID (`route_biz_billing.go:727`) — Spec
+  dokumentiert 400 dort gar nicht; `HandleSendDunningNotice` schreibt 400
+  (uuid, `:834`) UND 500 (Marshal-Fehler, `:850`) — Spec dokumentiert keins
+  von beiden; `HandleListCreditNotes`, `HandleListPayments` (invoice-scoped),
+  `HandleListDunnings` schreiben je einen 500 bei `hrMarshalSlice`-Fehlern,
+  ebenfalls undokumentiert; `HandleRecordPayment` hat einen bereits
+  bestehenden `"400": { $ref: IdempotencyKeyRequired }`-Eintrag, der NICHT
+  den real geschriebenen Validierungs-400 (ungueltige Payment-UUID) abdeckt
+  — YAML erlaubt keinen zweiten `400`-Schluessel, eine Zusammenfuehrung
+  waere ein eigener Fund gewesen, kein mechanischer 401/403/503-Fix. Diese
+  fuenf Luecken sind jetzt als eigene Unit am Backlog-Ende erfasst (siehe
+  neue-units).
+- gate: build ok (`go build -p 2` gateway + cmd/gateway) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 ./internal/gateway/` gruen, inkl.
+  `TestOpenAPIRouteDrift` — 836 Routen gegen 838 Pfade, unveraendert, 0
+  uebersprungene Tests) | swagger-cli validate: "api/openapi.yaml is valid"
+  | migration n.a. (reine Spec-Aenderung) | rls-smoke n.a. (keine
+  Tabelle/Policy beruehrt)
+- coverage: n.a. (reine OpenAPI-Spec-Korrektur, keine Codeaenderung —
+  `internal/gateway` unveraendert)
+- mutations-probe: n.a. (kein Code-Verhalten geaendert, keine neue
+  Testassertion — die Pruefung ist strukturell: swagger-cli validate +
+  TestOpenAPIRouteDrift, beide gruen)
+- verify vorgaenger: sauber. `fe67d1b9` (Iteration 77) geprueft: nur
+  `openapi.yaml` (plus Loop-Metadateien) im Diff, keine Codeaenderung, kein
+  Gateway-Handler-Bypass, kein Stub, keine `.proto`-Aenderung, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, keine neue Route, kein
+  ersetzter Guard-Key.
+- neue-units: fix-gateway-billing-lock-dunning-notice-listroutes-missing-400-500-docs
+  (ans Backlog-Ende gehaengt — deckt die fuenf oben genannten 400/500-Luecken
+  plus den 400-Schluessel-Konflikt bei `HandleRecordPayment` ab)
+- offen: keine

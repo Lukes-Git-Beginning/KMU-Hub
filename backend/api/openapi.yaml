@@ -9377,6 +9377,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/Payment"
         "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List payments for an invoice
@@ -9400,6 +9404,10 @@ paths:
                       $ref: "#/components/schemas/Payment"
                   total:
                     type: integer
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   # ===========================================================================
   # Finance: Credit Notes
@@ -9431,6 +9439,10 @@ paths:
                       $ref: "#/components/schemas/RecurringInvoice"
                   total:
                     type: integer
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
     post:
       summary: Create a recurring invoice schedule
       tags: [recurring-invoices]
@@ -9453,6 +9465,10 @@ paths:
                     $ref: "#/components/schemas/RecurringInvoice"
         "400":
           description: Invalid interval, date range or empty line items
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}:
@@ -9472,6 +9488,10 @@ paths:
                 properties:
                   recurring:
                     $ref: "#/components/schemas/RecurringInvoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
     put:
@@ -9498,6 +9518,10 @@ paths:
                     $ref: "#/components/schemas/RecurringInvoice"
         "400":
           description: Invalid interval or date range
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -9514,6 +9538,10 @@ paths:
             application/json:
               schema:
                 type: object
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -9535,6 +9563,10 @@ paths:
                 properties:
                   recurring:
                     $ref: "#/components/schemas/RecurringInvoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -9557,6 +9589,10 @@ paths:
                 properties:
                   recurring:
                     $ref: "#/components/schemas/RecurringInvoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -9583,6 +9619,10 @@ paths:
                     $ref: "#/components/schemas/Invoice"
                   recurring:
                     $ref: "#/components/schemas/RecurringInvoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
         "409":
@@ -9617,6 +9657,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditNote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List credit notes
@@ -9643,6 +9687,10 @@ paths:
                       $ref: "#/components/schemas/CreditNote"
                   total:
                     type: integer
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/credit-notes/{id}:
     get:
@@ -9658,6 +9706,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditNote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/credit-notes/{id}/send:
     post:
@@ -9673,6 +9725,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditNote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/credit-notes/{id}/pdf:
@@ -9690,6 +9746,10 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   # ===========================================================================
   # Finance: Payments (top-level)
@@ -9704,6 +9764,10 @@ paths:
       responses:
         "200":
           description: Payment deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
@@ -10953,6 +11017,10 @@ paths:
                       $ref: "#/components/schemas/DunningRecord"
                   total:
                     type: integer
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/dunning/detect:
     post:
@@ -10975,6 +11043,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/send:
@@ -10991,6 +11063,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/escalate:
@@ -11017,6 +11093,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/pdf:
@@ -11034,6 +11114,10 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/dunning/config:
     get:
@@ -11047,6 +11131,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningConfig"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
     put:
       summary: Update dunning configuration (admin only)
       tags: [dunning]
@@ -11064,6 +11152,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningConfig"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
@@ -11081,6 +11173,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FinanceDashboard"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   # ===========================================================================
   # Finance: DATEV Export
@@ -11120,6 +11216,10 @@ paths:
               schema:
                 type: string
                 example: 'attachment; filename="EXTF_Buchungsstapel_20260101_20261231.csv"'
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
@@ -31524,6 +31624,9 @@ paths:
                 $ref: "#/components/schemas/FinanceJournalSummary"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/invoices/validate-number:
     get:
@@ -31546,6 +31649,9 @@ paths:
                 $ref: "#/components/schemas/FinanceInvoiceNumberValidation"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/invoices/{id}/lock:
     post:
@@ -31564,6 +31670,8 @@ paths:
                 $ref: "#/components/schemas/FinanceInvoiceLockResult"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/finance/stats/payments:
@@ -31590,6 +31698,9 @@ paths:
                 $ref: "#/components/schemas/FinancePaymentStats"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/dunning/{id}/status:
     put:
@@ -31620,6 +31731,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/finance/dunning/{id}/notice:
@@ -31645,6 +31758,8 @@ paths:
                     description: False until the dunning-notice email integration is wired up (Sprint 3 TODO)
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/finance/export/gobd:
@@ -31682,6 +31797,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/deals/{dealId}/quote:
     post:

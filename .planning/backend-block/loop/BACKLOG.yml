@@ -3436,7 +3436,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (reine OpenAPI-Spec-Korrektur, keine Coverage-relevante Codeänderung)"
     scope: >
       Systemisches Muster ueber zwei Dateien: praktisch jede Route in
@@ -4188,3 +4188,49 @@ units:
         nicht als roher pg-Fehler (500)
       - go test -count=1 ./internal/biz/invoice/ ./internal/server/ gruen, DATABASE_URL
         gegen kmuhub_app
+
+  - id: fix-gateway-billing-lock-dunning-notice-listroutes-missing-400-500-docs
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (reine OpenAPI-Spec-Korrektur, keine Coverage-relevante Codeaenderung)"
+    scope: >
+      Fund aus fix-gateway-billing-recurring-routes-missing-401-503-docs
+      (Lauf 12, Iteration 78) beim Durcharbeiten des 401/403/503-Scopes:
+      fuenf einzelne Routen in route_biz_billing.go schreiben zusaetzlich
+      literale 400- und/oder 500-Codes, die openapi.yaml gar nicht kennt.
+      `HandleLockInvoice` (POST /finance/invoices/{id}/lock,
+      route_biz_billing.go:727) schreibt 400 bei ungueltiger UUID -- Spec
+      (openapi.yaml, Pfad /api/v1/finance/invoices/{id}/lock) dokumentiert
+      dort kein 400. `HandleSendDunningNotice` (POST
+      /finance/dunning/{id}/notice, :834 uuid-400, :850 Marshal-500) --
+      Spec dokumentiert keins von beiden. `HandleListCreditNotes` (GET
+      /finance/credit-notes), `HandleListPayments` (GET
+      /finance/invoices/{id}/payments), `HandleListDunnings` (GET
+      /finance/dunning) schreiben je einen 500 bei hrMarshalSlice-Fehlern,
+      undokumentiert. Zusaetzlich: `HandleRecordPayment` (POST
+      /finance/invoices/{id}/payments) hat bereits einen
+      `"400": { $ref: IdempotencyKeyRequired }`-Eintrag im Spec, der NICHT
+      den real vom Handler geschriebenen Validierungs-400 (ungueltige
+      Payment-UUID) abdeckt -- YAML erlaubt keinen zweiten 400-Schluessel,
+      die beiden Ursachen muessen zu einem 400-Block zusammengefuehrt
+      werden (Vorbild: wie in Iteration 76 zwei 409-Ursachen unter einem
+      Schluessel zusammengefuehrt wurden).
+    sources:
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/api/openapi.yaml
+    notes: >
+      Reine Dokumentationsluecken, kein Verhalten aendert sich -- der Code
+      schreibt diese Codes bereits, die Spec bildet es nur nicht ab. Beim
+      Zusammenfuehren des 400-Blocks bei HandleRecordPayment beide Ursachen
+      im description-Text unterscheidbar machen (Idempotency-Key fehlt vs.
+      ungueltige UUID), nicht nur eine der beiden behalten.
+    done_when:
+      - Alle fuenf oben genannten Luecken sind in openapi.yaml dokumentiert
+      - Der 400-Block bei POST /finance/invoices/{id}/payments deckt beide
+        real geschriebenen Ursachen ab (IdempotencyKeyRequired UND
+        ungueltige UUID), nicht nur eine
+      - swagger-cli validate gegen backend/api/openapi.yaml laeuft fehlerfrei
+      - go test -count=1 ./internal/gateway/ gruen (inkl. TestOpenAPIRouteDrift)
