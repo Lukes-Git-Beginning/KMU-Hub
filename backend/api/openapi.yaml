@@ -9144,6 +9144,14 @@ paths:
                       $ref: "#/components/schemas/Invoice"
                   total:
                     type: integer
+        "400":
+          description: contact_id or recurring_id is not a valid UUID
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/invoices/{id}:
     get:
@@ -10909,6 +10917,8 @@ paths:
           description: Missing or invalid tenant
         "403":
           description: Missing finance read permission
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
 
@@ -29748,6 +29758,10 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: OAuth state secret not configured, or failed to generate the OAuth state
+        "503":
+          description: Biz service unavailable
 
   /api/v1/finance/datev/disconnect:
     post:

@@ -4999,3 +4999,43 @@ Frühere Läufe liegen vollständig im Archiv:
   ersetzter Guard-Key.
 - neue-units: keine
 - offen: keine
+
+## Iteration 77 — fix-gateway-finance-list-routes-missing-error-response-docs — done — 2026-08-23 08:42
+- commit: PENDING
+- gebaut: Drei Routen dokumentierten in `openapi.yaml` nicht alle Statuscodes, die
+  ihr Handler tatsaechlich schreibt. GET `/finance/open-items`
+  (`route_biz_open_items.go:42,49,54`) schreibt `500` bei drei Marshal-Fehlern
+  (items/totals/buckets) — Spec dokumentierte nur 200/400/401/403/503, jetzt
+  zusaetzlich `500`. GET `/finance/invoices` (`route_biz_invoices.go:100-107`
+  invalid contact_id, `:114-121` invalid recurring_id, `:134` Marshal-Fehler,
+  plus `respondServiceUnavailable`/`getTenantID` und `invoiceRead`-Permission-
+  Middleware in `route_biz.go:58,112`) dokumentierte ausschliesslich `200` —
+  jetzt zusaetzlich `400`/`401`/`403`/`500`/`503`. GET
+  `/finance/datev/oauth/authorize` (`route_datev_upload.go:96,115` je `500`,
+  plus `respondServiceUnavailable` Zeile 102) hatte den 500-Fall nur in der
+  Freitext-Beschreibung erwaehnt, nicht im formalen `responses:`-Block, und
+  503 fehlte komplett — beide jetzt ergaenzt. Fuer 401/403 an den ersten
+  beiden Stellen sowie `open-items` 403 wurde verifiziert, dass sie bereits
+  vorher korrekt dokumentiert waren (Handler-Code bzw. Permission-Middleware
+  bestaetigt) — Scope-Notiz "Spec dokumentiert nur 200" war fuer open-items
+  bereits durch eine fruehere Iteration ueberholt, fuer /finance/invoices
+  aber weiterhin zutreffend. Keine bestehende `500`-Response-Komponente im
+  Spec gefunden (grep ueber die gesamte Datei) — als literale Inline-
+  Beschreibung ergaenzt, im gleichen Stil wie die Nachbar-503-Eintraege.
+- gate: build ok (`go build -p 2` gateway + cmd/gateway) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 ./internal/gateway/` gruen, inkl.
+  `TestOpenAPIRouteDrift` — 836 Routen gegen 838 Pfade, unveraendert, 0
+  uebersprungene Tests) | swagger-cli validate: "api/openapi.yaml is valid" |
+  migration n.a. (reine Spec-Aenderung) | rls-smoke n.a. (keine
+  Tabelle/Policy beruehrt)
+- coverage: n.a. (reine OpenAPI-Spec-Korrektur, keine Codeaenderung —
+  `internal/gateway` unveraendert)
+- mutations-probe: n.a. (kein Code-Verhalten geaendert, keine neue
+  Testassertion — die Pruefung ist strukturell: swagger-cli validate +
+  TestOpenAPIRouteDrift, beide gruen)
+- verify vorgaenger: sauber. `2a1b66fc` (Iteration 76) geprueft: nur
+  `openapi.yaml` im Diff, keine Codeaenderung, kein Gateway-Handler-Bypass,
+  kein Stub, keine `.proto`-Aenderung, kein neuer `RequirePermission`-Guard,
+  keine neue Tabelle, keine neue Route, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: keine

@@ -3392,7 +3392,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (reine OpenAPI-Spec-Korrektur, keine Coverage-relevante Codeänderung)"
     scope: >
       Drei Routen schreiben im Handler-Body literal Fehlercodes, die `openapi.yaml` fuer
