@@ -2614,7 +2614,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (soll ein Revoke einen echten Kanal schliessen?) liegt bei Luke.
 
 ## Iteration 43 — cov-gateway-billing-payments-and-creditnotes-routes — done — 2026-08-23 04:14
-- commit: <wird nach dem Commit unten eingetragen>
+- commit: 13dbdf8f
 - gebaut: Erste Haelfte von `route_biz_billing.go` (Gutschrift- + Zahlungs-
   Handler) gegen die vier `done_when`-Punkte geprueft. Ein echter Fund
   behoben, drei bereits erfuellt und mit Test/Kommentar belegt statt
