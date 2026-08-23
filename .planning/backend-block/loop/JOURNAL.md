@@ -5996,7 +5996,7 @@ Frühere Läufe liegen vollständig im Archiv:
   weiterhin unbearbeitet im Backlog und sind fuer eine der naechsten Iterationen faellig.
 
 ## Iteration 95 — fix-status-code-drift-baseline-non-systemic — done — 2026-08-23 10:50
-- commit: (siehe naechster Schritt)
+- commit: 2a549d4b
 - gebaut: Die 11 caldav-Eintraege aus `statusDriftBaseline` dokumentiert und entfernt (alle
   reine 500er): `GET/POST /api/v1/caldav/passwords`, `DELETE /api/v1/caldav/passwords/{id}`,
   `GET /api/v1/caldav/status`, `POST /api/v1/caldav/test`, `PUT /api/v1/caldav/enable`,
