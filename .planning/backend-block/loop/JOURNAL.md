@@ -5813,7 +5813,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `done_when`-Doppelpunkte) — praktisch folgenlos, da der Treiber per Regex liest.
 
 ## Iteration 92 — fix-idempotency-409-rollout-non-finance-routes-2 — done — 2026-08-23 10:26
-- commit: <sha>
+- commit: e7076da2
 - gebaut: Die **Formulare**-Registrar-Gruppe auf 409 umgestellt — 11 mutierende Operationen aus
   `route_formulare.go` (Schemas POST/PATCH/DELETE, `schemas/{id}/duplicate` POST,
   `schemas/{id}/submissions` POST, `schemas/{id}/share-links` POST, `schemas/{id}/webhooks` POST,
