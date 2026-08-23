@@ -5249,3 +5249,76 @@ Frühere Läufe liegen vollständig im Archiv:
   hard` literal) bestaetigt die Korrektur.
 - neue-units: keine
 - offen: keine
+
+## Iteration 82 — fix-berichte-kpi-blind-currency-sum — done — 2026-08-23 09:10
+- commit: 119e2a3a
+- gebaut: `internal/berichte/downstream/kpi_postgres.go` — `kpiSnapshotQuery` und
+  `kpiSeriesQuery` filtern die `SUM(gross_total) FROM finance_invoices`- und
+  `SUM(value) FROM deals`-Subqueries jetzt auf
+  `currency = COALESCE((SELECT default_currency FROM company_settings WHERE
+  tenant_id = $1), 'EUR')` — exakt dieselbe Filterentscheidung wie in
+  fix-dashboard-metrics-blind-currency-sum (Iteration 81), damit Dashboard-
+  und Berichte-KPI fuer denselben Tenant dieselbe Zahl zeigen. Beide Sub-
+  Selects (revenue und pipeline_volume) sind betroffen, in beiden Queries.
+  `internal/berichte/executor/executor.go` — Kommentar oberhalb von
+  `revenueByMonth`/`invoicesOpen`/`pipeline` (aktuell tot, `e.finance`/
+  `e.crm` sind laut `cmd/berichte/main.go:54-57` nil) markiert dasselbe
+  ungefixte Muster (`total += r.Revenue` etc. ohne Currency-Check), damit die
+  kuenftige Verdrahtung nicht denselben Fehler erbt — laut Unit-Notes bewusst
+  NICHT mitgefixt, da toter Pfad. `kpi_postgres_test.go` — zwei neue Snapshot-
+  Tests (`TestKPISnapshot_ForeignCurrencyInvoiceAndDealExcluded`,
+  `TestKPISnapshot_UsesTenantDefaultCurrencyNotHardcodedEUR`) und ein neuer
+  Series-Test (`TestKPISeries_ForeignCurrencyExcludedFromBucket`) mit
+  gemischten Waehrungen (EUR+CHF gleichzeitig fuer Invoice UND Deal), belegen
+  sowohl impliziten EUR-Default als auch expliziten CHF-Tenant-Default.
+  Nebenfund beim Testen: sechs bestehende Testfunktionen registrierten
+  `defer pool.Close()` UND `t.Cleanup(...)`-Row-Cleanup im selben Test — Go
+  fuehrt Defers vor t.Cleanup aus, der Pool war beim Cleanup-Aufruf also
+  schon zu, `testutil.CleanupRow` loggt den Fehler nur (`t.Logf`, faellt nie)
+  → Fixture-Zeilen blieben liegen. Lokale DB hatte fuer die zwei
+  kpi-Test-Tenants (cccc0000-...-0001/-0002) 78 verwaiste finance_invoices,
+  78 deals, 72 tickets, 50 stock_warnings/inventory_items und eine
+  company_settings-Zeile (default_currency=CHF) angesammelt — genau diese
+  CHF-Altzeile hat meinen ersten Testlauf mit falschem Vorzeichen verfaelscht
+  (Revenue-Delta 0 statt 1000). Fix: alle sechs `defer pool.Close()` in
+  dieser Datei zu `t.Cleanup(func() { pool.Close() })` gemacht (LIFO ⇒
+  Row-Cleanups laufen jetzt vor dem Pool-Close), lokale DB fuer die zwei
+  betroffenen Test-Tenant-UUIDs manuell bereinigt (`DELETE ... WHERE
+  tenant_id IN (...)` fuer alle sieben betroffenen Tabellen). Gleiches
+  Doppelmuster in 11 weiteren Testdateien gefunden, nicht gefixt (siehe
+  neue-units).
+- gate: build ok (`go build -p 2` berichte + gateway + cmd/berichte +
+  cmd/gateway) | vet ok | lint ok (0 issues,
+  `golangci-lint ./internal/berichte/...`) | test ok
+  (`go test -count=1 ./internal/berichte/...` gruen, alle 6 Unterpakete,
+  inkl. downstream mit 6/6 gruenen Tests bei gesetztem
+  `DATABASE_URL=...kmuhub_app...`, 0 uebersprungen) | migration n.a. (keine
+  Schema-Aenderung, `currency`/`default_currency` existieren seit Migration
+  000009 bzw. 000216) | rls-smoke n.a. (keine neue Tabelle/Policy, bestehende
+  Tenant-Filter auf `finance_invoices`/`deals`/`company_settings` genutzt) |
+  Route: keine (keine Gateway-Route/OpenAPI-Aenderung,
+  `go test ./internal/gateway/` daher nicht Pflicht, aber im Build
+  mitgefahren)
+- coverage: internal/berichte/downstream 77,8 % -> 77,8 % (Paketwert vor UND
+  nach der Aenderung identisch gemessen per `git stash`/`stash pop` auf
+  `kpi_postgres.go`+`kpi_postgres_test.go`+`executor.go` — der Fix aendert
+  nur SQL-String-Literale innerhalb bestehender Statements, keine neuen
+  Go-Verzweigungen; Beweisfuehrung liegt in der Mutations-Probe, nicht in der
+  Coverage-Zahl. `coverage_start` der Unit nannte nur "Paketwert im CI-Log
+  nachschlagen" ohne Zahl — 77,8 % ist die selbst gemessene Referenz)
+- mutations-probe: `AND currency = COALESCE(...)`-Zeile aus dem
+  `finance_invoices`-Subquery in `kpiSnapshotQuery` entfernt (deals-Zeile
+  unveraendert gelassen), `go test -run
+  "TestKPISnapshot_ForeignCurrencyInvoiceAndDealExcluded|
+  TestKPISnapshot_UsesTenantDefaultCurrencyNotHardcodedEUR"` wurde rot
+  (revenue delta 10110 statt 111 bzw. 8110 statt 333 — die
+  Fremdwaehrungs-/Ausreisser-Betraege wurden wieder blind mitsummiert),
+  Mutation zurueckgedreht, `diff` gegen vor-Mutation-Kopie identisch
+- verify vorgaenger: sauber. `a0c07416` geprueft: reine
+  Journal-Textkorrektur (1 Zeile, Commit-SHA-Nachtrag fuer Iteration 81),
+  kein Go-Code veraendert — die acht Fehlerklassen greifen an Code, hier
+  nicht einschlaegig.
+- neue-units: fix-db-test-cleanup-order-leaks-fixtures (elf weitere
+  Testdateien mit demselben `defer pool.Close()` + `t.Cleanup`-Doppelmuster,
+  Liste und Fix-Vorschlag in der Unit)
+- offen: keine
