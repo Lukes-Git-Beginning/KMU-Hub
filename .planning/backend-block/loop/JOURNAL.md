@@ -4566,7 +4566,7 @@ Frühere Läufe liegen vollständig im Archiv:
     geprueft) — die KPI existiert im Backend, wird aber aktuell nirgends angezeigt.
 
 ## Iteration 70 — fix-quote-to-invoice-duplicate-creation — done — 2026-08-23 07:52
-- commit: <SHA>
+- commit: db991347
 - gebaut: `Service.CreateFromQuote` (`service.go:797-816`) liest vor dem `Create` ueber
   `repo.GetByQuoteID` und lehnt mit dem neuen Sentinel `ErrQuoteAlreadyConverted` ab, wenn
   bereits eine NICHT stornierte Rechnung zum Angebot existiert (`mapBizError` →
