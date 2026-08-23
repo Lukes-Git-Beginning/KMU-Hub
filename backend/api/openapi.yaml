@@ -17215,6 +17215,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Create (register) a vehicle
       tags: [fuhrpark]
@@ -17251,6 +17252,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkVehicle'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}:
     get:
@@ -17270,8 +17272,10 @@ paths:
                 properties:
                   vehicle:
                     $ref: '#/components/schemas/FuhrparkVehicle'
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     patch:
       summary: Update a vehicle
       tags: [fuhrpark]
@@ -17311,6 +17315,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a vehicle
       tags: [fuhrpark]
@@ -17321,8 +17326,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/history:
     get:
@@ -17340,7 +17347,9 @@ paths:
           content:
             application/json:
               schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/services:
     get:
@@ -17366,7 +17375,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkService'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Schedule a service for a vehicle
       tags: [fuhrpark]
@@ -17401,6 +17412,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkService'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/damages:
     get:
@@ -17426,7 +17438,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkDamage'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Report damage for a vehicle
       tags: [fuhrpark]
@@ -17460,6 +17474,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkDamage'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/fuel-logs:
     get:
@@ -17485,7 +17500,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkFuelLog'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Add a fuel log entry for a vehicle
       tags: [fuhrpark]
@@ -17519,6 +17536,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkFuelLog'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/trip-logs:
     get:
@@ -17544,7 +17562,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkTripLog'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Add a trip log entry for a vehicle
       tags: [fuhrpark]
@@ -17582,6 +17602,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkTripLog'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/documents:
     get:
@@ -17607,7 +17628,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkDocument'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Attach a document to a vehicle
       tags: [fuhrpark]
@@ -17639,6 +17662,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkDocument'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/services:
     get:
@@ -17666,6 +17690,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/services/upcoming:
     get:
@@ -17691,6 +17716,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/services/{id}:
     patch:
@@ -17728,6 +17754,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a vehicle service record
       tags: [fuhrpark]
@@ -17738,8 +17765,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/services/{id}/complete:
     post:
@@ -17768,8 +17797,10 @@ paths:
                 properties:
                   service:
                     $ref: '#/components/schemas/FuhrparkService'
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/damages:
     get:
@@ -17797,6 +17828,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/damages/{id}:
     patch:
@@ -17832,6 +17864,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/damages/{id}/resolve:
     post:
@@ -17860,8 +17893,10 @@ paths:
                 properties:
                   damage:
                     $ref: '#/components/schemas/FuhrparkDamage'
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/fuel-logs:
     get:
@@ -17888,6 +17923,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/fuel-logs/{id}:
     patch:
@@ -17923,6 +17959,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a fuel log entry
       tags: [fuhrpark]
@@ -17933,8 +17970,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/trip-logs:
     get:
@@ -17961,6 +18000,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/trip-logs/export:
     get:
@@ -17981,6 +18021,7 @@ paths:
               schema: { type: string, format: binary }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/trip-logs/{id}:
     patch:
@@ -18020,6 +18061,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a trip log entry
       tags: [fuhrpark]
@@ -18030,8 +18072,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/bookings:
     get:
@@ -18069,6 +18113,7 @@ paths:
                     type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Book a pool vehicle for a time interval
       description: >
@@ -18105,6 +18150,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/bookings/{id}:
     patch:
@@ -18142,6 +18188,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a vehicle booking
       tags: [fuhrpark]
@@ -18152,8 +18199,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/documents/{id}:
     delete:
@@ -18166,8 +18215,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/driver-licenses:
     get:
@@ -18194,6 +18245,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Record a new driver license check
       tags: [fuhrpark]
@@ -18226,6 +18278,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/driver-licenses/{id}:
     patch:
@@ -18261,6 +18314,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a driver license check entry
       tags: [fuhrpark]
@@ -18271,8 +18325,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/gps/ingest:
     post:
@@ -18312,6 +18368,7 @@ paths:
                     type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/gps/routes:
     get:
@@ -18336,6 +18393,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/FuhrparkRoute'
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/gps/positions:
     get:
@@ -18361,6 +18419,7 @@ paths:
                       $ref: '#/components/schemas/FuhrparkGpsPosition'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/tuev-due:
     get:
@@ -18381,6 +18440,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/FuhrparkVehicle'
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/export:
     get:
@@ -18397,6 +18457,7 @@ paths:
             application/octet-stream:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   # ===========================================================================
   # Einkauf (Purchasing)

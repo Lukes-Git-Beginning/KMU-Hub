@@ -4969,7 +4969,13 @@ units:
     service: crm
     model: opus
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Entscheidungsvorlage - der scope verbietet den Start ohne Lukes Freigabe ("nicht ohne
+      Freigabe starten"), und done_when[0] lautet woertlich "Luke hat einen der beiden Wege
+      freigegeben". Weg A legt vier neue gRPC-RPCs an, Weg B loescht vier spezifizierte,
+      fachlich fertig implementierte Endpunkte - beides Produktentscheidung, nicht Loop-Arbeit.
+      Iteration 100 hat die Unit deshalb nicht angefasst und die naechste Unit gezogen.
     coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
     scope: >
       ENTSCHEIDUNGSVORLAGE FUER LUKE, nicht ohne Freigabe starten — sie enthaelt vier neue
@@ -5028,7 +5034,7 @@ units:
     service: gateway
     model: sonnet
     deps: [doc-status-code-systemic-400-503-sweep]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Fortsetzung von `doc-status-code-systemic-400-503-sweep`. Iteration 97 hat die
@@ -5184,5 +5190,47 @@ units:
       - Mindestens eine weitere Gruppe der verbliebenen 45 Eintraege ist in api/openapi.yaml
         dokumentiert
       - Die erledigten Eintraege sind aus statusDriftBaseline entfernt
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
+
+  - id: doc-status-code-systemic-400-503-sweep-3
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [doc-status-code-systemic-400-503-sweep-2]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `doc-status-code-systemic-400-503-sweep-2`. Iteration 100 hat die
+      Registrar-Gruppe **fuhrpark** vollstaendig geschlossen (16x `400`, 45x `503` = 61
+      Eintraege auf 45 Operationen). Die geloggten Zaehler stehen damit auf `400: 304`
+      (vorher 320) und `503: 1003` (vorher 1048).
+      Verbleibende groesste Gruppen, gezaehlt am Pfad-Praefix `/api/v1/<gruppe>` (Stand nach
+      Iteration 100): fuer `400` meetings 18, einkauf 17, produktion 15, finance 15,
+      calendar 14, rapporte 13, formulare 13, video 12, dialer 12, tasks 11, wiki 10;
+      fuer `503` email 58, hr 56, documents 45, calendar 44, inventar 39, integrations 39,
+      helpdesk 36, finance 36, einkauf 36, produktion 34, meetings 33.
+      Weiter je Iteration genau eine Gruppe, beide Codes zusammen.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Arbeitsliste erzeugen wie in Iteration 100: `systemicUndocumentedCodes`
+      (openapi_status_code_drift_test.go:430) testweise auf `map[int]string{}` setzen,
+      `go test -count=1 -run TestOpenAPIStatusCodeDrift ./internal/gateway/` laufen lassen und
+      die Zeilen `METHOD /pfad writes [400 503]` als Liste nehmen - so bekommt man beide Codes
+      pro Operation in einem Durchgang. Danach die Testdatei aus der Sicherungskopie
+      zuruecksetzen und `git diff` darauf pruefen (muss leer sein).
+      Einsortiert wird numerisch in den `responses:`-Block der jeweiligen Operation: `400` vor
+      einem vorhandenen `401`/`404`, `503` ans Ende. Die Leerzeile zwischen zwei Pfad-Bloecken
+      gehoert NICHT in den `responses:`-Block - beim Bestimmen des Blockendes die
+      Trailing-Leerzeilen abschneiden, sonst rutscht der Eintrag hinter die Leerzeile.
+      Nur auf den Operationen eintragen, die der Test wirklich nennt.
+      Sobald ein Zaehler 0 erreicht, den Code aus `systemicUndocumentedCodes` entfernen -
+      dann faellt er wieder als normaler Befund an.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe hat ihre fehlenden 400 UND 503 dokumentiert
+      - Die im Test geloggten Zaehler sind nachweislich gesunken (Zahlen im Journal)
       - "swagger-cli validate gruen"
       - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"

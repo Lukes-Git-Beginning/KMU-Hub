@@ -6243,3 +6243,65 @@ Frühere Läufe liegen vollständig im Archiv:
   handelt und keinen der acht Verify-Fehlerklassen darstellt — Luke kann das bei Gelegenheit
   als Ein-Zeilen-Fix mitnehmen. DB-Gate lief mit gesetztem `DATABASE_URL`, keine
   uebersprungenen Tests.
+
+## Iteration 100 — doc-status-code-systemic-400-503-sweep-2 — done — 2026-08-23 11:37
+- commit: <SHA>
+- gebaut: Registrar-Gruppe **fuhrpark** im systemischen 400/503-Sweep vollstaendig geschlossen.
+  61 Response-Eintraege in `backend/api/openapi.yaml` nachgetragen: 16x
+  `"400": $ref BadRequest` und 45x `"503": $ref ServiceUnavailable`, verteilt auf alle 45
+  `/api/v1/fuhrpark`-Operationen (vehicles inkl. history/services/damages/fuel-logs/trip-logs/
+  documents, services inkl. upcoming/complete, damages inkl. resolve, fuel-logs, trip-logs
+  inkl. export, bookings, documents/{id}, driver-licenses, gps ingest/routes/positions,
+  tuev-due, export). Arbeitsliste wie in den notes vorgesehen erzeugt: `systemicUndocumentedCodes`
+  (openapi_status_code_drift_test.go:430) testweise auf `map[int]string{}` gesetzt — beide Codes
+  in einem Durchgang, also `writes [400 503]` je Operation statt zwei Laeufen —, Ausgabe als
+  Liste genommen, Testdatei aus der Sicherungskopie zurueckgesetzt; sie ist im Commit
+  unveraendert (`git diff` darauf leer). Einsortiert wurde numerisch (400 vor vorhandenem
+  401/404, 503 ans Ende des `responses:`-Blocks nach Abschneiden der Trailing-Leerzeilen);
+  0 Operationen hatten den Code schon, es wurde also nichts doppelt gesetzt und keine
+  Pfad-Leerzeile verschoben (`git diff -U2` zeigt keinen Kontext-Blank vor einem `+`).
+  Kein Go-Produktionscode angefasst, einzige geaenderte Backend-Datei ist `api/openapi.yaml`.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 ./internal/gateway/` und
+  `./internal/gateway/...` gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`) |
+  `TestOpenAPIStatusCodeDrift` gruen (1196 dokumentierte Operationen geprueft, 0 Handler
+  unaufloesbar, 45 baselined — unveraendert) | `TestOpenAPIRouteDrift` gruen (836 Routen /
+  838 Pfade) | swagger-cli validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle
+  angefasst)
+- coverage: internal/gateway 56,6 % -> 56,6 % (unveraendert — reine Spec-Doku, kein Go-Code;
+  eigene Messung mit `go tool cover -func` vor und nach der Aenderung, deckt sich mit dem
+  `coverage_start`-Bezugswert aus Iteration 93)
+- mutations-probe: zwei Proben. (1) `systemicUndocumentedCodes` erneut auf leer gesetzt und den
+  Test gegen den fertigen YAML-Stand laufen lassen: **0** Findings mit `/api/v1/fuhrpark`
+  (vor der Aenderung 45), Gesamtzahl der Operationen mit Findings 1063 -> 1018, also exakt die
+  45 bearbeiteten. Das beweist, dass die Eintraege genau dort gelandet sind, wo der Test sucht.
+  Testdatei danach zurueckgesetzt, `git diff` darauf leer. (2) Einen
+  `$ref: "#/components/responses/ServiceUnavailable"` testweise auf `ServiceUnavailableX`
+  verbogen: `swagger-cli validate` rot ("Token \"ServiceUnavailableX\" does not exist.").
+  Zurueckgedreht, danach wieder gruen; `git diff --stat` zeigt exakt die 61 Einfuegungen in
+  `api/openapi.yaml` und sonst nichts im `backend/`-Baum.
+  Zaehler-Beleg fuer die `done_when`-Zeile: `400: 320 -> 304`, `503: 1048 -> 1003`,
+  `statusDriftBaseline` unveraendert bei 45 Eintraegen.
+- verify vorgaenger: sauber. `c7fdb5b4` (Iteration 99) gegen alle acht Fehlerklassen geprueft:
+  Diff beruehrt `api/openapi.yaml` (44 Zeilen = 22 additive Response-Eintraege) und die
+  `statusDriftBaseline`-Map plus deren Kopfkommentar; kein Go-Produktionscode, kein `.proto`,
+  keine Route, kein `RequirePermission`, keine Tabelle, keine Wire-Shape-Aenderung. Die 22
+  entfernten Baseline-Zeilen decken sich mit den 22 dokumentierten Operationen (11 GET/DELETE,
+  9 POST, Rest PUT/DELETE), und der Restzaehler 69 -> 45 stimmt mit dem heute gemessenen
+  Baseline-Stand von 45 ueberein.
+- neue-units: `doc-status-code-systemic-400-503-sweep-3` (Rest des Sweeps mit den nach fuhrpark
+  aktualisierten Gruppenzahlen und dem effizienteren Ein-Durchgang-Rezept fuer die Arbeitsliste).
+- offen: **`feat-crm-activity-deal-tag-rpcs` ist auf `blocked` gesetzt und braucht eine
+  Entscheidung von Luke.** Es war die erste `todo`-Unit dieser Iteration, ihr scope verbietet
+  aber ausdruecklich den Start ohne Freigabe ("ENTSCHEIDUNGSVORLAGE FUER LUKE, nicht ohne
+  Freigabe starten") und `done_when[0]` lautet woertlich "Luke hat einen der beiden Wege
+  freigegeben". Die Frage ist unveraendert die aus Iteration 97: Weg A = vier neue gRPC-RPCs
+  (`AddActivityTags`/`RemoveActivityTags`/`AddDealTags`/`RemoveDealTags`) nach dem exakten
+  Muster von `AddContactTags` bauen und damit vier fertig implementierte, aber unerreichbare
+  Endpunkte anschliessen; Weg B = Routen, Handler, Spec-Pfade und die toten Service-/Repo-
+  Methoden entfernen. Beides ist FE-seitig risikofrei, beides ist Produktentscheidung.
+  Solange die Unit offen ist, zieht jede Iteration sie zuerst und legt sie wieder weg —
+  eine Zeile Freigabe von Luke im Backlog loest das.
+  Sonst nichts offen: DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
+  keine Migration und keine Tabelle beruehrt.
