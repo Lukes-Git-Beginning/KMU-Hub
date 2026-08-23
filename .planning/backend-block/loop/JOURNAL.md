@@ -6805,3 +6805,49 @@ Frühere Läufe liegen vollständig im Archiv:
   Teil-Unit noetig, diese Fix-Baseline-Serie ist damit inhaltlich am Ende angekommen.
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
   keine Migration und keine Tabelle beruehrt.
+
+## Iteration 112 — doc-status-code-systemic-400-503-sweep-6 — done — 2026-08-23 12:57
+- commit: 3bbda610
+- gebaut: Registrar-Gruppe **companies** vollstaendig geschlossen (8 Operationen,
+  `route_crm_companies.go` + `route_crm_ext.go`, Pfadpraefix `/api/v1/companies`): `POST
+  /api/v1/companies` (503, Handler pruefte 400/401/403 schon), `GET /api/v1/companies`
+  (503, nur 401 vorhanden), `GET /api/v1/companies/{id}` (400+503, nur 401/404
+  vorhanden), `PUT /api/v1/companies/{id}` (503), `DELETE /api/v1/companies/{id}`
+  (400+503), `GET /api/v1/companies/{id}/contacts` (400+503),
+  `GET /api/v1/companies/{id}/duplicates` (503, Handler validiert `id` NICHT ueber
+  `validateUUIDParam`, deshalb korrekt nur 503 ohne 400), `POST /api/v1/companies/merge`
+  (503). Alle 503 aus `respondServiceUnavailable` beim `getCRMClient()`-Fehlerpfad, alle
+  400 aus `validateUUIDParam`/`decodeAndValidate` - Handler-Code vor jeder Zeile geprueft,
+  nicht geraten. Einzige geaenderte Datei: `api/openapi.yaml` (20 neue Zeilen, "$ref"
+  Multi-Line-Stil passend zum lokalen Stil der Nachbar-Operationen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 0 FAIL,
+  `TestOpenAPIStatusCodeDrift` meldet "1196 checked, 5 baselined operations") |
+  swagger-cli validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: `systemicUndocumentedCodes` (openapi_status_code_drift_test.go:430)
+  testweise auf `map[int]string{}` gesetzt, `go test -run TestOpenAPIStatusCodeDrift
+  -v > /tmp/drift.txt 2>&1` VOR der Aenderung: 926 Gesamtfunde, 8 davon auf
+  `/api/v1/companies`. Nach Einfuegen aller 20 Zeilen erneut geleerter Testlauf: 918
+  Gesamtfunde (exakt -8), `grep -c "/api/v1/companies" /tmp/drift2.txt` = 0. Danach den
+  frisch eingefuegten `"503"` von `GET /api/v1/companies/{id}` testweise entfernt -
+  geleerter Testlauf meldete exakt `919 operation(s)` mit
+  `GET /api/v1/companies/{id} writes [503] - not documented`, FAIL wie erwartet. Zeile
+  zurueckgedreht, Testdatei aus Sicherungskopie (`/tmp/openapi_status_code_drift_test.go.bak`)
+  zurueckgesetzt (`diff` bestaetigt identisch), `git diff --stat` zeigt danach nur noch
+  `api/openapi.yaml` mit 20 Zeilen, `go test -count=1 ./internal/gateway/...` mit normal
+  gefuellter Map erneut gruen bestaetigt (0 uebersprungen, 0 FAIL).
+- verify vorgaenger: sauber. `b69733cd` (Iteration 111) geprueft: Diff beruehrt
+  ausschliesslich `api/openapi.yaml` (12 neue Zeilen, 6 dokumentierte 500/401/403-Antworten)
+  und `openapi_status_code_drift_test.go` (6 Zeilen aus `statusDriftBaseline` entfernt,
+  keine Verhaltensaenderung am Test selbst); reine Spec-Doku ohne Go-Produktionscode,
+  `.proto`, Route, `RequirePermission`, Tabelle oder Wire-Shape-Aenderung; keine der acht
+  Fehlerklassen betroffen.
+- neue-units: `doc-status-code-systemic-400-503-sweep-7` (Restliste aktualisiert, companies
+  als erledigt markiert, verbleibende Registrar-Gruppen aus dem geleerten Testlauf frisch
+  gezaehlt - Zahlen fuer die kleineren Gruppen unter 8 jetzt erstmals mit aufgefuehrt:
+  vendor-access 5, tags 5, settings 5, saved-filters 5).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
+  keine Migration und keine Tabelle beruehrt.

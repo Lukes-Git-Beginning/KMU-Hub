@@ -5745,7 +5745,7 @@ units:
     service: gateway
     model: sonnet
     deps: [doc-status-code-systemic-400-503-sweep-5]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Fortsetzung von `doc-status-code-systemic-400-503-sweep-5`. Iteration 109 hat die
@@ -5902,3 +5902,71 @@ units:
         IdempotencyInFlight-$ref wird testweise verbogen (nicht existierender
         Komponentenname), swagger-cli wird rot, Aenderung zurueckgedreht"
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: doc-status-code-systemic-400-503-sweep-7
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [doc-status-code-systemic-400-503-sweep-6]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `doc-status-code-systemic-400-503-sweep-6`. Iteration 112 hat die
+      Registrar-Gruppe **companies** vollstaendig geschlossen (8 Operationen in
+      `route_crm_companies.go` und `route_crm_ext.go`, Pfadpraefix `/api/v1/companies`):
+      `POST /api/v1/companies`, `GET /api/v1/companies`, `GET /api/v1/companies/{id}`,
+      `PUT /api/v1/companies/{id}`, `DELETE /api/v1/companies/{id}`,
+      `GET /api/v1/companies/{id}/contacts`, `GET /api/v1/companies/{id}/duplicates`,
+      `POST /api/v1/companies/merge`. Frisch gezaehlter Gesamtstand mit geleerter
+      `systemicUndocumentedCodes`-Map: **926 vor** dieser Iteration, **918 danach**
+      (exakt -8, passend zu den 8 companies-Operationen; Testlauf mit `> /tmp/drift.txt 2>&1`
+      umgeleitet und vollstaendig gelesen, nicht aus der Tool-Preview).
+      Fertig sind bisher (in dieser Sweep-Serie): vertraege, companies.
+      Noch offen, frisch gezaehlt nach Iteration 112 (Pfadpraefix `/api/v1/<gruppe>`,
+      400+503 zusammen pro Operation): email 58, hr 56, finance 47, documents 45,
+      inventar 39, integrations 39, helpdesk 36, einkauf 36, produktion 34, rapporte 31,
+      contacts 28, dialer 27, security 26, plugins 26, video 24, berichte 24, tasks 23,
+      auth 22, formulare 21, vermietung 20, schichten 20, wiki 19, projects 19, admin 19,
+      notifications 17, channels 17, automations 16, work 11, customization 10, messages 9,
+      tenant 8, users 7, pipeline-stages 6, deals 6, activities 6, vendor-access 5, tags 5,
+      settings 5, saved-filters 5 (Rest kleiner, per Neuzaehlung ermitteln).
+      Weiter je Iteration genau eine Gruppe, beide Codes zusammen, VOLLSTAENDIG (also alle
+      Methoden GET/POST/PUT/PATCH/DELETE der Gruppe, nicht nur die zuerst sichtbaren) -
+      siehe Lehre in sweep-6 zu abgeschnittenen Testlauf-Logs.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Arbeitsliste erzeugen wie in Iteration 100/103/106/109/112: `systemicUndocumentedCodes`
+      (openapi_status_code_drift_test.go:430) testweise auf `map[int]string{}` setzen,
+      `go test -count=1 -run TestOpenAPIStatusCodeDrift ./internal/gateway/ -v > /tmp/drift.txt 2>&1`
+      laufen lassen (IMMER mit Datei-Redirect, nie nur die Konsolen-Vorschau lesen) und die
+      Zeilen `METHOD /pfad writes [...] - not documented` fuer die gewaehlte Gruppe
+      vollstaendig sammeln (`grep "/api/v1/<gruppe>" /tmp/drift.txt`) - das umfasst i.d.R.
+      auch GET/PATCH/DELETE-Operationen, die nur teilweise (z. B. nur 503, ohne 400)
+      fehlen; nicht bei den ersten paar POST-Treffern aufhoeren. Danach die Testdatei aus
+      der Sicherungskopie zuruecksetzen und `git diff` darauf pruefen (muss leer sein).
+      Einsortiert wird numerisch in den `responses:`-Block der jeweiligen Operation: `400`
+      vor einem vorhandenen `401`/`404`, `503` ans Ende (nach `409`, falls vorhanden). Die
+      Leerzeile zwischen zwei Pfad-Bloecken gehoert NICHT in den `responses:`-Block.
+      Nur auf den Operationen eintragen, die der Test wirklich nennt - manche Operationen
+      einer Gruppe haben schon ein `400` und brauchen nur `503`, oder umgekehrt.
+      Sobald eine Gruppe vollstaendig geschlossen ist, mit demselben emptied-Map-Testlauf
+      gegenpruefen, dass `grep -c "/api/v1/<gruppe>" /tmp/drift.txt` nach den Aenderungen 0
+      ergibt (Vorher/Nachher-Zeilenzahl-Differenz muss exakt der Anzahl neu eingefuegter
+      Response-Zeilen entsprechen).
+      ACHTUNG (Lehre aus Iteration 106/109): fuer die Mutations-Probe reicht es NICHT, nur
+      einen frisch eingefuegten Eintrag zu entfernen und den normalen Testlauf (mit
+      gefuellter `systemicUndocumentedCodes`-Map) zu pruefen - 400/503 sind dort systemisch
+      unterdrueckt und der Test bleibt IMMER gruen, egal was in `api/openapi.yaml` steht.
+      Fuer die Mutations-Probe muss die Map ZUSAETZLICH testweise geleert werden, dann erst
+      wird ein entfernter Eintrag als Fund sichtbar; danach beide Aenderungen (Testdatei und
+      YAML) zurueckdrehen und normal-gruen erneut bestaetigen.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe hat ihre fehlenden 400 UND 503 VOLLSTAENDIG
+        dokumentiert (alle Methoden der Gruppe, nicht nur ein Teil)
+      - Die im Test geloggten Zaehler sind nachweislich gesunken (Zahlen im Journal, aus
+        einem vollstaendig in eine Datei umgeleiteten Testlauf, nicht aus der Tool-Preview)
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
