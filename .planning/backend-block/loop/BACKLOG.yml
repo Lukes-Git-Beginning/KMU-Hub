@@ -4734,7 +4734,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
     scope: >
       Verifizierter Befund von `TestOpenAPIStatusCodeDrift` (Iteration 93): zwei Operationen

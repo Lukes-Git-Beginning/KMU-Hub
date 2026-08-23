@@ -6031,3 +6031,54 @@ Frühere Läufe liegen vollständig im Archiv:
   `fix-crm-tag-endpoints-are-501-stubs`, `doc-status-code-systemic-400-503-sweep`) und die
   Idempotency-409-Fortsetzung (`fix-idempotency-409-rollout-non-finance-routes-4`) stehen
   weiterhin unbearbeitet im Backlog.
+
+## Iteration 96 — fix-204-documented-but-200-written — done — 2026-08-23 10:56
+- commit: (siehe naechster Eintrag)
+- gebaut: Beide Vertragsabweichungen aus `TestOpenAPIStatusCodeDrift` (Iteration 93) behoben —
+  Spec und Handler stimmen jetzt ueberein, beide auf `204 No Content`:
+  1. `POST /api/v1/channels/{id}/read` — `ChatRoutes.HandleMarkChannelRead` (route_chat.go:736)
+     schrieb `response.JSON(w, http.StatusOK, map[string]string{"status": "channel marked as
+     read"})`; Spec dokumentiert bereits `"204"` (openapi.yaml:3806). Handler auf
+     `w.WriteHeader(http.StatusNoContent)` umgestellt, Stil uebernommen von den ~20 anderen
+     Stellen in `internal/gateway`, die denselben Pattern nutzen (z. B. route_auth.go:1025).
+  2. `DELETE /api/v1/files/{id}` — `ChatRoutes.HandleDeleteFile` (route_chat.go:869, chat-files-
+     Tag) schrieb ebenso 200+Body; Spec dokumentiert `"204"` (openapi.yaml:3966). Gleiche
+     Umstellung.
+  FE-Nutzung geprueft (Grund fuer die Entscheidung gegen die Default-Empfehlung "Spec an Code
+  angleichen"): kein Hook in `desktop/src/renderer/src` liest den Response-Body einer der
+  beiden Operationen. `useMarkChannelRead` (api/hooks/useChannels.ts:227) destrukturiert nur
+  `error`, ignoriert `data`. Fuer `DELETE /api/v1/files/{id}` (operationId `deleteFile`,
+  chat-files) existiert im Desktop-Code aktuell **kein** Aufrufer ueberhaupt (nur
+  `route_document.go`s eigenstaendiges, andres `HandleDeleteFile` unter documents/files wird
+  vom FE genutzt, ueber `/api/v1/documents/files/{id}` — separater Endpoint, nicht angefasst).
+  Da kein FE-Konsument den Body braucht und kein bestehender Test den 200er festschreibt, ist
+  der Handler an die Spec angepasst worden statt umgekehrt — sauberere REST-Semantik, kein
+  Risiko fuer einen kuenftigen Aufrufer, der auf einen 200er-Body baut, der es nie wert war,
+  dokumentiert zu werden.
+  Testdatei mitgezogen: `TestOpenAPIStatusCodeDriftParserSanity` (openapi_status_code_drift_test.go:629)
+  fixierte bisher explizit, dass `HandleMarkChannelRead` 200 via `response.JSON` schreibt —
+  auf 204 via `w.WriteHeader` umgestellt, sonst waere der Sanity-Test nach dem Fix rot
+  geworden. Beide Eintraege aus `statusDriftBaseline` entfernt (69 -> 67 verbleibende
+  Baseline-Operationen), erklaerender Kommentar zu den zwei 200er-Sonderfaellen entfernt.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (`golangci-lint run ./internal/gateway/...` 0 issues) | test ok (`go test -count=1
+  ./internal/gateway/` gruen) | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: internal/gateway 56,6 % -> 56,6 % (unveraendert — Verhaltensfix, keine neue
+  Testabdeckung noetig, bestehende Tests decken beide Handler bereits ab)
+- mutations-probe: `HandleMarkChannelRead` testweise zurueck auf
+  `response.JSON(w, http.StatusOK, ...)` gesetzt. `TestOpenAPIStatusCodeDrift` wurde rot
+  ("POST /api/v1/channels/{id}/read writes [200] - not documented"),
+  `TestOpenAPIStatusCodeDriftParserSanity` ebenfalls rot ("expected ... to write 204 ..., got
+  map[200:true 400:true 503:true]"). Zurueckgedreht, `git diff --stat` zeigt wieder genau die
+  urspruengliche Aenderung (2 Zeilen route_chat.go, 8 Zeilen openapi_status_code_drift_test.go),
+  `go test ./internal/gateway/` danach wieder gruen.
+- verify vorgaenger: sauber. `2a549d4b` (Iteration 95, caldav-500-Doku) gegen alle acht
+  Fehlerklassen geprueft: Diff aendert ausschliesslich `api/openapi.yaml` (22 neue Zeilen) und
+  entfernt 11 Eintraege aus der Test-Baseline — kein Go-Produktionscode, kein gRPC-Bypass, kein
+  Stub, kein `.proto`, kein neuer `RequirePermission`, keine neue Tabelle, keine
+  Wire-Shape-Aenderung, keine neue Route, kein ersetzter Guard.
+- neue-units: keine.
+- offen: keine neuen Befunde. Die zwei verbliebenen Iteration-93-Folgeeinheiten
+  (`fix-crm-tag-endpoints-are-501-stubs`, `doc-status-code-systemic-400-503-sweep`) sowie
+  `fix-idempotency-409-rollout-non-finance-routes-4` und
+  `fix-status-code-drift-baseline-non-systemic-2` stehen weiterhin unbearbeitet im Backlog.

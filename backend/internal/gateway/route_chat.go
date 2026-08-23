@@ -733,7 +733,7 @@ func (ch *ChatRoutes) HandleMarkChannelRead(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"status": "channel marked as read"})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (ch *ChatRoutes) HandleGetUnreadCounts(w http.ResponseWriter, r *http.Request) {
@@ -889,7 +889,7 @@ func (ch *ChatRoutes) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"status": "file deleted"})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ============================================================================

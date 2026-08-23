@@ -443,14 +443,11 @@ var systemicUndocumentedCodes = map[int]string{
 // ownerFilterForScope (helpers.go:166, "missing user in token"); 500 marks
 // handlers that answer with a plain internal error instead of going through
 // respondGRPCError; 501 marks the four tag endpoints that still reply
-// http.StatusNotImplemented; 502 marks the Slack/Teams webhook bridges; and the
-// two 200 entries are real contract mismatches - both operations document 204,
-// but the handler writes a JSON body with 200.
+// http.StatusNotImplemented; 502 marks the Slack/Teams webhook bridges.
 var statusDriftBaseline = map[string][]int{
 	"DELETE /api/v1/activities/{id}/tags": {501},
 	"DELETE /api/v1/dashboard/layout": {500},
 	"DELETE /api/v1/deals/{id}/tags": {501},
-	"DELETE /api/v1/files/{id}": {200},
 	"DELETE /api/v1/finance/quotes/{id}": {401},
 	"GET /api/v1/dashboard/defaults/{role}": {500},
 	"GET /api/v1/dashboard/layout": {500},
@@ -483,7 +480,6 @@ var statusDriftBaseline = map[string][]int{
 	"GET /api/v1/integrations/bexio/oauth/callback": {500},
 	"GET /api/v1/security/gdpr/exports": {403},
 	"POST /api/v1/activities/{id}/tags": {501},
-	"POST /api/v1/channels/{id}/read": {200},
 	"POST /api/v1/deals/{id}/tags": {501},
 	"POST /api/v1/email/attachments/upload": {500},
 	"POST /api/v1/finance/bank-statements/import": {500},
@@ -633,7 +629,7 @@ func TestOpenAPIStatusCodeDriftParserSanity(t *testing.T) {
 	const handler = "(*ChatRoutes).HandleMarkChannelRead"
 	written := idx.writtenStatusCodes(handler, 0, make(map[string]bool))
 	for code, via := range map[int]string{
-		200: "response.JSON in the handler body",
+		204: "w.WriteHeader in the handler body",
 		400: "validateUUIDParam / decodeAndValidate",
 		503: "respondServiceUnavailable",
 	} {
