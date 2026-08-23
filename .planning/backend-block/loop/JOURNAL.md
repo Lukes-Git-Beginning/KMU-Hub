@@ -2791,7 +2791,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 45 — cov-gateway-datev-upload-routes — done — 2026-08-23 04:33
-- commit: (siehe Schritt 6, wird nach Commit ergänzt)
+- commit: 1b5eaccb
 - gebaut:
   Zwei falsche Prämissen aus dem Backlog-Eintrag widerlegt (Regel 11), ein
   echter Fund behoben, acht zuvor ungetestete Gateway-Handler abgedeckt.
