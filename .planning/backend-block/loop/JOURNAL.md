@@ -2304,7 +2304,7 @@ Frühere Läufe liegen vollständig im Archiv:
   TestGenerate_RealSQL_MonthEndScheduleStaysAnchored optional entfernt werden.
 
 ## Iteration 39 — cov-gateway-security-audit-and-vault-routes — done — 2026-08-23 03:36
-- commit: <siehe unten, wird nach commit ergaenzt>
+- commit: 556e8d6461976a6a47844a96a673e39f69512595
 - gebaut: (1) Router-Guard-Test `TestSecurityRoutes_AuditAndVaultGuards`
   (`route_security_test.go`) fuer alle sieben Routen aus `route_security.go:43-51`
   (Audit-Liste, Audit-Export, Audit-Verify, Vault-Liste, Vault-Get, Vault-Set,
