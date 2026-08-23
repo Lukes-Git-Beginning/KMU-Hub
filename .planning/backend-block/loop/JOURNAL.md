@@ -1636,7 +1636,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Produktentscheidung, keine Coverage-Unit.
 
 ## Iteration 30 — cov-invoice-service-gobd-journal-summary-real-sql — done — 2026-08-23 02:19
-- commit: PENDING (siehe naechste docs(loop)-Iteration)
+- commit: 517f9226
 - gebaut: Berichtsteil der GoBD-Flaeche (`GetJournalSummary`, `ValidateInvoiceNumber`,
   `GetPaymentStats`) auf echte Luecken untersucht statt nur Zeilen abzudecken.
   ECHTER FUND UND GEFIXT: `invoiceNumberPattern` (`service_gobd.go:19`) hatte einen
