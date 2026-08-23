@@ -31,6 +31,12 @@ type querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
+// Create persists a credit note and its lines. It does not validate cn's
+// amount against the original invoice's open balance — a credit note larger
+// than the invoice it credits is accepted (see
+// TestCreate_AmountNotValidatedAgainstInvoiceOpenBalance). Answered: this is
+// current behavior, not a bug filed here — an over-credit is a business
+// decision (partial vs. full storno) the caller is trusted to make.
 func (r *PostgresRepository) Create(ctx context.Context, cn *models.CreditNote) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {

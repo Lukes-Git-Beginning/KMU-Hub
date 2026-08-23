@@ -1868,3 +1868,75 @@ Frühere Läufe liegen vollständig im Archiv:
   `fix-quote-to-invoice-duplicate-creation` braucht vor dem Bauen eine Antwort auf die
   Teilrechnungs-Frage — falls Luke die aus Produktkenntnis sofort beantworten kann, spart das der
   nächsten Iteration die Recherche.
+
+## Iteration 33 — cov-creditnote-repository-remaining-real-sql — done — 2026-08-23 02:45
+- commit: (siehe Abschluss unten)
+- gebaut: `postgres_repository_get_and_update_real_sql_test.go` (neu, ungetaggt, `package
+  creditnote`) mit vier real-SQL-Tests. SCOPE-KORREKTUR gegenüber der Unit-Beschreibung: die
+  Repository-Schnittstelle (`repository.go`) hat weder `UpdateStatus` noch `Delete` — Statuswechsel
+  laufen ausschließlich über `Update`/`UpdateInTx` (voller Zeilen-Replace), ein Hard-Delete existiert
+  für Gutschriften nicht. Die Nummernvergabe (`NextNumberInTx`) ist eine injizierte, in
+  `internal/biz/quote` implementierte Abhängigkeit, kein Repository-Code dieses Pakets. Beide Punkte
+  sind daher als "nicht anwendbar, weil nicht existent" behandelt statt erzwungen nachgebaut.
+  Katalog der bereits per `//go:build integration` (testcontainer-gestützt, `pgtc`) abgedeckten Fälle
+  — NICHT gedoppelt:
+  - `integration_test.go`: `TestCreditNoteLinesRelationalRoundtrip` (GetByID mit Zeilen),
+    `TestCreditNoteUpdateReplacesLines` (Update löscht+fügt Zeilen neu ein),
+    `TestCreditNoteTenantIsolation` (RLS blockt fremden Tenant bei GetByID).
+  - `repository_coverage_integration_test.go`: `TestList_FiltersPaginationAndTenantScoping`,
+    `TestGetByInvoiceID_TenantScopedAndOrderedDescending`,
+    `TestListForDATEVExport_DateRangeStatusAndKeysetPaging`,
+    `TestCreate_AmountNotValidatedAgainstInvoiceOpenBalance` (die im `done_when` verlangte Frage
+    "Gutschrift über Rechnungsbetrag hinaus" — bereits beantwortet: Create prüft das nicht, bewusst
+    keine Sperre, siehe unten), `TestCreate_DecimalAmountsSurviveDBRoundTripAsExactStrings`
+    (Zeilen-Dezimalwerte via Create).
+  - `send_atomic_integration_test.go`: `TestCreditNoteSend_AtomicRollback_NumberNotConsumed`
+    (Service.Send koppelt Nummernvergabe + UpdateInTx atomar).
+  Neu und NICHT vorher abgedeckt (die vier neuen Tests):
+  `TestPostgresRepository_GetByID_NotFound` (unbekannte ID im eigenen Tenant ->
+  `ErrCreditNoteNotFound`), `TestPostgresRepository_UpdateInTx_RolledBackTransactionPersistsNothing`
+  (Statuswechsel + Nummernvergabe in einer zurückgerollten Transaktion hinterlassen nichts),
+  `TestPostgresRepository_Update_CrossTenantIsNoop` (Update mit fremder `tenant_id` im Objekt betrifft
+  0 Zeilen, kein Fehler — gleiches Muster wie `LinkTimeTracking` bei Invoices),
+  `TestPostgresRepository_UpdateInTx_HeaderTotalsSurviveRoundTripAsExactStrings` (Header-Summen
+  `subtotal`/`total_tax`/`gross_total` — vom Aufrufer direkt gesetzt, nicht DB-berechnet — überleben
+  den Roundtrip exakt, inklusive eines negativen `total_tax`, das `tax.Calculate` nie produzieren
+  würde: das Repository validiert Vorzeichen/Bereich hier nicht).
+  Die Frage "Gutschrift über den Rechnungsbetrag hinaus" (bereits durch
+  `TestCreate_AmountNotValidatedAgainstInvoiceOpenBalance` belegt) zusätzlich als Kommentar direkt am
+  Code verankert: `postgres_repository.go` `Create`-Funktion trägt jetzt einen Doc-Kommentar, der auf
+  den Test verweist und das Verhalten als bewusst (nicht als Bug) festhält.
+- gate: build ok (`./internal/biz/creditnote/... ./internal/gateway/...`) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 -v ./internal/biz/creditnote/`, DATABASE_URL gegen
+  kmuhub_app, 22 PASS, 0 SKIP) | test ok (`go test -count=1 ./internal/biz/creditnote/...`) | test ok
+  (`go test -count=1 ./internal/gateway/` — keine Routenänderung, trotzdem pflichtgemäß gelaufen) |
+  migration n.a. (keine Schema-Änderung) | rls-smoke n.a. (keine Tabellen-/Policy-Änderung)
+- coverage: internal/biz/creditnote 28,2 % (eigene Messung vor dieser Iteration, neue Testdatei
+  temporär entfernt, `go tool cover -func`, stimmt mit `coverage_start:` überein) -> 49,5 % (eigene
+  Messung nach den vier neuen Tests, gleiche Methode)
+- mutations-probe: gegen eine `cp`-Sicherungskopie (nicht `git checkout`) zurückgeschrieben, finaler
+  `diff` gegen die Kopie identisch (0 Zeilen Unterschied). (a) `scanCreditNote`s Mapping von
+  `pgx.ErrNoRows` auf `ErrCreditNoteNotFound` durch ein bloßes Durchreichen von `pgx.ErrNoRows`
+  ersetzt -> `TestPostgresRepository_GetByID_NotFound` rot (`errors.Is`-Kette enthält
+  `ErrCreditNoteNotFound` nicht mehr). (b) in `UpdateInTx`s `Exec`-Aufruf die Argumente für
+  `total_tax = $10` und `gross_total = $11` vertauscht (Parameter-Reihenfolge im SQL unverändert
+  gelassen, nur die übergebenen Werte getauscht) ->
+  `TestPostgresRepository_UpdateInTx_HeaderTotalsSurviveRoundTripAsExactStrings` rot (beide Werte
+  seitenverkehrt zurückgelesen).
+- verify vorgaenger: sauber — `1b19c957` (Iteration 32) fügt ausschließlich eine neue, ungetaggte
+  Testdatei plus Backlog/Journal-Änderungen hinzu (per `git show --stat` geprüft: nur
+  `postgres_repository_quote_link_time_tracking_db_test.go` + `.planning/`-Dateien, keine
+  Produktionsdatei). Keine der acht Fehlerklassen einschlägig: kein neuer Handler, kein Stub/TODO,
+  kein `.proto`, keine Migration, kein neuer `RequirePermission`-Guard, keine neue Tabelle, keine
+  Route, keine Response-Form geändert, kein ersetzter Guard-Key. Test-Inhalt selbst gelesen (235
+  Zeilen) — echte `testutil.SkipIfNoDB`/`PoolFromEnv`-Tests, keine leeren Stubs.
+- neue-units: keine — die einzige während dieser Iteration entdeckte Abweichung (Backlog-Scope nennt
+  `UpdateStatus`/`Delete`, die es nicht gibt) ist keine Produktionslücke, sondern eine ungenaue
+  Backlog-Beschreibung; kein Fix-/Coverage-Bedarf daraus.
+- offen: (1) DB-Gate lief vollständig: DATABASE_URL als kmuhub_app, 0 übersprungene Tests im Paket.
+  (2) `internal/biz/creditnote`-Coverage bleibt trotz 28,2 % -> 49,5 % noch unter dem 60 %-Zielband für
+  kritische Pfade (Payments/Finance) — `Service.Send`/`Service.StornoInvoice` sind bereits über
+  `service_test.go` (gemockt) und die drei getaggten Integrationstests atomar geprüft; verbleibende
+  Lücken liegen laut `go tool cover -func` primär in `List`/`ListForDATEVExport`s Query-Building-
+  Verzweigungen (Filter-Kombinationen) — Kandidat für eine weitere, engere Coverage-Unit, falls Lauf 9
+  das priorisiert.
