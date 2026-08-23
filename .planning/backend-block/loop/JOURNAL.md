@@ -2702,3 +2702,90 @@ Frühere Läufe liegen vollständig im Archiv:
   belegten Schaden, siehe oben; per harter Regel 11 keine Unit ohne echten
   Fund)
 - offen: keine
+
+## Iteration 44 — cov-gateway-billing-dunning-and-gobd-routes — done — 2026-08-23 04:25
+- commit: 1e89739b
+- gebaut: Zweite Hälfte von `route_biz_billing.go` gegen die vier `done_when`-
+  Punkte geprüft. Ein echter Fund behoben, drei bereits erfüllt und mit Test
+  bzw. Kommentar belegt statt doppelt gebaut:
+  (1) `HandleGenerateGoBDExport` (859) prüfte `from_date`/`to_date` nur auf
+  Format, nie auf Reihenfolge — anders als die beiden Schwester-Handler im
+  selben File: `ExportDATEV` bekommt seinen Schutz über `datev.ErrInvalidPeriod`
+  im Builder, `GetPaymentStats` (biz_grpc.go:2383) hat exakt denselben
+  Inline-Vergleich. Eine vertauschte Spanne (`from` nach `to`) traf in
+  `ListForDATEVExport`/`ListForDATEVExport` (invoice.Service, credit-note-
+  Pendant) nie auf ein `invoice_date`, das beide Bedingungen erfüllt — die
+  Schleifen liefen leer durch, und `GenerateGoBDExport` (dunning-Service)
+  baute daraus eine valide, leere CSV mit HTTP 200. Ununterscheidbar von
+  "keine Umsätze in diesem Zeitraum", genau der im Scope beschriebene
+  Schaden. Fix: `if toDate.Before(fromDate) { return InvalidArgument }`
+  direkt nach dem Parsing, vor der Paging-Schleife — dieselbe Formulierung
+  wie in `GetPaymentStats` ("to_date must be after from_date").
+  (2) Eskalation über die höchste Stufe hinaus: bereits bewiesen
+  (`TestEscalateDunning/max_level_reached`, `biz_grpc_dunning_dashboard_
+  exports_test.go:359`). Eskalation auf einer bereits bezahlten Rechnung
+  hatte KEINEN eigenen Test — mechanisch derselbe Pfad (die Rechnung taucht
+  nicht in `DetectAndCreateDunnings`' Ergebnis auf), aber die Garantie dafür
+  liegt in einer anderen Datei: `PostgresRepository.GetOverdue`
+  (`invoice/postgres_repository.go:402`) filtert `status = 'sent'` fest,
+  eine bezahlte Rechnung kann dort nie erscheinen. Neuer Test
+  `TestEscalateDunning/paid_invoice` verankert genau diese Garantie explizit,
+  statt sie nur implizit über den Max-Level-Test mitlaufen zu lassen.
+  (3) `HandleLockInvoice` auf bereits gesperrter Rechnung: bereits
+  vollständig bewiesen — `TestLockInvoice/already_locked_maps_to_
+  FailedPrecondition` (`biz_grpc_invoices_creditnotes_payments_test.go`)
+  deckt `invoice.ErrInvoiceLocked` -> `codes.FailedPrecondition` -> HTTP 409
+  über `mapBizError`/`grpcStatusToHTTP` ab.
+  (4) Fremdsystem-Fehlermeldungen: nicht einschlägig für dieses Handler-Set.
+  `HandleExportDATEV` und `HandleGenerateGoBDExport` bauen ihre CSVs beide
+  lokal (Buchungsstapel-Builder bzw. `dunning.BuildGoBDCSV`) — keiner der
+  beiden ruft eine externe API auf. Der Fund aus Lauf 10, auf den die Notes
+  verweisen, betrifft ausschließlich `route_datev_upload.go` (eigene Unit
+  `cov-gateway-datev-upload-routes`, noch offen im Backlog).
+- gate: build ok | vet ok | lint ok (0 issues, `internal/server` +
+  `internal/gateway`) | test ok (`go test -count=1 ./internal/server/...
+  ./internal/gateway/`, 0 SKIP) | migration n.a. (keine Tabellen-/Schema-
+  Änderung) | rls-smoke n.a. (keine Tabellen-/Policy-Änderung) |
+  `go test -count=1 ./internal/gateway/` PFLICHT gelaufen, grün — keine
+  Route hinzugefügt/geändert, `TestOpenAPIRouteDrift` unberührt
+- coverage: internal/server 70,7 % (eigene Messung vor dieser Iteration via
+  `git stash`) -> 70,7 % (danach, unverändert bei einer Nachkommastelle —
+  das Paket hat mehrere Tausend Zeilen, sieben neue Zeilen Fix plus zwei
+  neue Testfälle bewegen die Prozentzahl nicht sichtbar; die neue
+  Verzweigung selbst ist real abgedeckt, siehe Mutations-Probe). Bezugswert
+  der Unit (`internal/gateway 54,1 %`) trifft nicht zu: der Fund und beide
+  neuen Tests liegen in `internal/server` (biz_grpc.go + zugehöriger Test),
+  weil dort die Datumsvergleichs-Logik sitzt — `internal/gateway` selbst
+  reicht `from_date`/`to_date` nur unverändert an die RPC durch und wurde in
+  dieser Iteration nicht verändert; `go test ./internal/gateway/` lief
+  trotzdem pflichtgemäß grün.
+- mutations-probe: zwei Läufe, beide gegen eine `cp`-Sicherungskopie (nicht
+  `git checkout`), zurückgeschrieben, `diff` gegen die Kopie danach jeweils
+  identisch (0 Zeilen Unterschied).
+  (a) `if toDate.Before(fromDate)` in `GenerateGoBDExport` zu
+  `if false && toDate.Before(fromDate)` entschärft ->
+  `TestGenerateGoBDExport_Validation/end_before_start_maps_to_invalid_
+  argument` rot — nicht nur falscher Code, sondern ein Panic (Nil-Pointer
+  in `invoiceService.ListForDATEVExport`, weil der Test-Server absichtlich
+  ohne echten Service konstruiert ist), was den erwarteten Schaden noch
+  deutlicher zeigt: ohne die Prüfung läuft die Anfrage bis zur ersten
+  echten Abhängigkeit durch, statt an der Eingabegrenze abgewiesen zu
+  werden. Die beiden `invalid_*_date`-Subtests blieben grün (eigener Pfad).
+  (b) `codes.FailedPrecondition` im Fallback-Return von `EscalateDunning`
+  (biz_grpc.go:1061) zu `codes.Internal` verstümmelt -> sowohl
+  `TestEscalateDunning/max_level_reached` als auch das neue
+  `TestEscalateDunning/paid_invoice` wurden rot (erwarteter Code 9, erhalten
+  13) — beweist, dass beide Tests denselben Codepfad wirklich erreichen und
+  ihn absichern, nicht nur zufällig grün sind. `happy_path` blieb grün.
+- verify vorgaenger: sauber — `13dbdf8f` (Iteration 43) ändert
+  `route_biz_billing.go` (neuer `max_2dp`-Validator-Tag auf einem
+  bestehenden Feld, keine neue Route), `validation.go` (neue Validator-
+  Funktion, additiv registriert) und den zugehörigen Test. Keine der acht
+  Fehlerklassen einschlägig: kein neuer Gateway-Handler, kein Stub/TODO,
+  kein `.proto`, keine Migration, kein neuer `RequirePermission`-Guard,
+  keine neue Tabelle, keine neue Route, kein Wire-Shape-Wechsel, kein
+  ersetzter Guard-Key.
+- neue-units: keine — beide Funde (GoBD-Datumsvergleich, fehlender Test für
+  bezahlte Rechnung) sind in dieser Iteration selbst behoben, kein
+  aufgeschobener Rest.
+- offen: keine
