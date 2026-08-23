@@ -5426,7 +5426,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 85 — fix-payment-delete-bypasses-invoice-lock — done — 2026-08-23 09:34
-- commit: <pending, siehe unten>
+- commit: 42439f4c
 - gebaut: `payment.Service.Delete` (`internal/biz/payment/service.go:172`) prueft jetzt
   `inv.LockedAt != nil` vor dem Loeschen und lehnt mit dem neuen Sentinel `ErrInvoiceLocked`
   (`internal/biz/payment/repository.go`) ab — GoBD-§146-Guard analog zu
