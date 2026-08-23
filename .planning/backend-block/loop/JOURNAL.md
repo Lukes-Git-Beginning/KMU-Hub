@@ -5777,7 +5777,7 @@ Frühere Läufe liegen vollständig im Archiv:
   liest, aber unveraendert ein offener Punkt fuer jeden kuenftigen YAML-Parser-Zugriff.
 
 ## Iteration 91 — fix-bexio-state-test-flaky-tamper-byte — done — 2026-08-23 10:31
-- commit: (siehe naechster Eintrag/CLI-Ausgabe)
+- commit: 98c64283
 - gebaut: `TestDecodeBexioState_ManipulatedSignature`
   (`internal/gateway/bexio_state_test.go:34-53`) ersetzte das erste Zeichen der Signatur immer
   durch das feste Literal `"X"`. Da `encodeBexioState` einen zufaelligen Nonce einbindet, ist
