@@ -213,3 +213,102 @@ units:
       - "Bei (b): die beiden Trigger-Definitionen sind aus der Registry entfernt, mit
         Begründung im Commit"
       - go test -count=1 ./internal/biz/invoice/ ./internal/biz/quote/ ./internal/automation/... grün
+
+  - id: decide-retention-policy-for-unmapped-personal-data-domains
+    phase: 4
+    service: security
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >
+      Reine Produkt-/Rechtsentscheidungen (welche Aufbewahrungsfrist gilt, ob überhaupt
+      gelöscht werden darf) — kein Nachtloop-Fix. Jede der sechs Domänen unten braucht Lukes
+      Entscheidung, teils mit Rechtsberatung (HR-Personalakte, Vertragsunterlagen), bevor ein
+      Retention-Handler gebaut werden kann.
+    coverage_start: "n.a. — Produktentscheidung, kein Coverage-Ziel"
+    scope: >
+      Fund aus `scan-retention-mapping-remaining-services` (Lauf 11, Iteration 57). Acht von
+      24 Services haben einen Retention-Handler; für sechs weitere Domänen mit belegtem
+      Personenbezug fehlt die Entscheidung, ob und wie lange aufbewahrt werden muss —
+      keine davon ist ein mechanischer Fall wie die drei bereits gebauten Handler
+      (work_tasks, calendar_events, notifications) oder die neu vorgeschlagene
+      `feat-retention-worker-handler-auth-invitations`.
+
+      1. HR-Personaldaten (`internal/biz/hr`): hr_employee_profiles (Adresse, Notfallkontakt),
+         hr_leave_requests, hr_leave_balances, hr_employee_documents, hr_profile_change_requests.
+         DSAR-Modul existiert (Lauf 10 Iteration 59). Deutsches Arbeitsrecht kennt je nach
+         Dokumenttyp unterschiedliche Fristen (Lohnunterlagen bis zu 10 Jahre nach § 147 AO /
+         § 257 HGB, reine Personalakte kürzer nach Verjährung möglicher Ansprüche) — eine
+         pauschale Löschfrist wäre falsch, eine differenzierte braucht Rechtsberatung.
+
+      2. Fuhrpark (`internal/fuhrpark`): driver_licenses, vehicles (assigned_driver_id,
+         license_plate), vehicle_bookings, trip_logs (driver_name). DSAR existiert (Lauf 10
+         Iteration 61). Offene Frage: Aufbewahrung wegen Unfall-/Versicherungsansprüchen
+         (Verjährung typischerweise 3 Jahre) vs. reine Betriebsdaten ohne Frist.
+
+      3. E-Mail (`internal/email`): email_messages, email_accounts, email_contact_links.
+         DSAR-Modul existiert laut Lauf-10-Recherche bereits. Geschäftskorrespondenz kann
+         unter § 257 HGB fallen (6 Jahre) — muss geklärt werden, ob email_messages
+         Handelsbriefe im Sinn der Norm sind oder reine interne Kommunikation.
+
+      4. Verträge (`internal/vertraege`): contracts, contract_parties. DSAR existiert (Lauf 10
+         Iteration 40 erwähnt das Modul). Vertragsunterlagen unterliegen typischerweise § 257
+         HGB (6 Jahre) oder länger je nach Vertragstyp — eine Löschfrist vor Ablauf der
+         zivilrechtlichen Verjährung wäre riskant.
+
+      5. `advisory_protocols` (`internal/crm/advisoryprotocol`): NEU BELEGT in dieser Unit
+         (`backend/migrations/000137_advisory_protocols.up.sql:1-6`, Kommentar zitiert MiFID II
+         / § 64 WpHG / § 16-18 FinVermV / § 61 VVG (IDD) sowie eine 10-Jahres-Frist nach
+         FinVermV § 18a). Der C4-Scan aus Lauf 10 (Iteration 43) hatte das als "Verdacht, nicht
+         belegt" eingestuft — das ist mit dieser Quelle widerlegt: die Rechtsgrundlage UND die
+         Frist stehen im Migrationskommentar. Es fehlt aber jede technische Durchsetzung
+         (kein Retention-Handler, keine Ablauf-Spalte, nur die RESTRICT-FK auf contacts).
+         Offene Frage für Luke: reicht die heutige RESTRICT-FK-Absicherung (Löschung eines
+         Kontakts mit Beratungsprotokoll ist blockiert), oder braucht es eine aktive
+         Lösch-NACH-10-Jahren-Funktion? Da die Tabelle laut Migration "immutable nach
+         Aushändigung" ist, ist eine vorzeitige Löschung ohnehin technisch nicht das Risiko —
+         das Risiko wäre eine verfrühte Löschung durch einen künftigen generischen
+         Bereinigungs-Job, der die 10-Jahres-Frist nicht kennt.
+
+      6. `guest_sessions` (`internal/chat`): email, display_name, ip_address von anonymen
+         Chat-Gästen. Bereits in Lauf 10 (Iteration 40, JOURNAL.md:2518-2522) als bewusst OHNE
+         DSAR-Modul dokumentiert, weil ein Auskunftsersuchen eine dritte Subjekt-Matching-Quelle
+         bräuchte (weder contacts noch users) — dieselbe Hürde gilt für Retention. War bisher in
+         keiner Backlog-Datei erfasst; hier zum ersten Mal als offener Punkt festgehalten, damit
+         er nicht wieder verloren geht.
+
+      Zusätzlich zwei Klassifikations-Hinweise ohne offene Frage (informativ, keine Entscheidung
+      nötig): `consent_records` (ip_address) sollte vermutlich NICHT gelöscht werden — die
+      Aufzeichnung ist der Nachweis der Einwilligung nach Art. 7 Abs. 1 DSGVO, also das
+      Gegenteil einer Löschpflicht. `public_bookings`/`booking_pages` (Kundenname/-mail/-telefon
+      externer Buchender) wurden in keinem bisherigen Scan geprüft und sind noch nicht
+      klassifiziert.
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/biz/hr/
+      - backend/internal/fuhrpark/
+      - backend/internal/email/
+      - backend/internal/vertraege/
+      - backend/internal/crm/advisoryprotocol/
+      - backend/migrations/000137_advisory_protocols.up.sql
+      - backend/internal/chat/
+      - .planning/backend-block/loop/archive/lauf-10/JOURNAL.md
+    notes: >
+      Diese Unit baut NICHTS. Sie ist die Sammelstelle für sechs Einzelentscheidungen, die
+      Luke treffen muss, bevor je Domäne eine eigene Retention-Handler-Unit entstehen kann
+      (Muster: die drei bereits gebauten Handler bzw. `feat-retention-worker-handler-auth-
+      invitations`). Nach jeder Entscheidung wandert die zugehörige Domäne als eigene,
+      spitze Unit nach BACKLOG.yml — nicht diese Sammel-Unit am Stück.
+      HR und Fuhrpark sind am dringendsten (grösste Datenmenge, sensibelste Kategorien), Email
+      und Verträge folgen der gleichen HGB-Frage und können zusammen entschieden werden,
+      advisory_protocols ist eine reine Ja/Nein-Frage zur technischen Durchsetzung einer
+      bereits bekannten Frist, guest_sessions hängt an der ungelösten
+      Subjekt-Matching-Architekturfrage aus Lauf 10.
+    done_when:
+      - Luke hat je Domäne entschieden: Löschpflicht (mit Frist), Aufbewahrungspflicht (mit
+        Frist) oder keins von beidem
+      - Jede Domäne mit Löschpflicht-Entscheidung ist als eigene Unit in BACKLOG.yml angelegt
+      - advisory_protocols: Entscheidung, ob die RESTRICT-FK ausreicht oder eine aktive
+        Lösch-nach-Frist-Funktion nötig ist
+      - guest_sessions: Entscheidung, ob die Subjekt-Matching-Architekturfrage vorher gelöst
+        werden muss oder eine zeitbasierte Löschung ohne DSAR-Anbindung genügt

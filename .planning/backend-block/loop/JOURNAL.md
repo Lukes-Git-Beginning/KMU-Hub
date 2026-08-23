@@ -3763,3 +3763,89 @@ Frühere Läufe liegen vollständig im Archiv:
     Integrationen). Ein künftiger Lauf kann daraus eine dritte Fortsetzungs-Unit ableiten,
     analog zu dieser hier — hier nicht selbst angelegt, da die Notes dieser Unit keine
     Nachfolge-Unit verlangen, sondern nur "wenn Zeit reicht" in die Breite gehen.
+
+## Iteration 57 — scan-retention-mapping-remaining-services — done — 2026-08-23 06:12
+- commit: (siehe nächster docs-Commit dieser Iteration)
+- gebaut: reiner Scan, kein Produktionscode geändert (Scan-Unit-Regel). Ein Explore-
+  Subagent hat (1) den C4-Scan aus Lauf 10 (Iteration 43, `scan-personal-data-tables-
+  without-retention-mapping`) und dessen Grundgesamtheit zitiert, (2) alle 24
+  `backend/cmd/*`-Services gegen ihre Domain-Pakete und Migrationen auf personenbezogene
+  Spalten geprüft, (3) `internal/security/gdpr/retention.go` (RetentionHandler-Interface,
+  Registry-Pattern) gelesen, (4) gezielt nach `advisory_protocols` gesucht (Migration,
+  Code, Doku) und (5) die Differenzmenge zwischen registrierten Handlern und real
+  personenbezogenen Tabellen gebildet.
+  KERNBEFUND 1 — advisory_protocols ist NEU BELEGT, Lauf 10 lag falsch: Iteration 43
+  hatte notiert "keine Migration gefunden, die das explizit belegt". Der Kopfkommentar
+  von `backend/migrations/000137_advisory_protocols.up.sql:1-6` zitiert aber wörtlich
+  MiFID II / § 64 WpHG / § 16-18 FinVermV / § 61 VVG (IDD) und eine 10-Jahres-Frist nach
+  FinVermV § 18a. Einordnung damit: Aufbewahrungspflicht (10 Jahre nach Aushändigung),
+  nicht Löschpflicht — und die Frist ist am Code als Prosakommentar dokumentiert, aber
+  NICHT technisch durchgesetzt (keine Ablauf-Spalte, kein Retention-Handler, nur die
+  RESTRICT-FK auf contacts, die eine Kontakt-Löschung mit offenem Protokoll blockiert).
+  Damit ist der Punkt "advisory_protocols entweder mit Quelle entschieden oder offene
+  Frage in BACKLOG-NEXT.yml" erfüllt: entschieden, mit Quelle — trotzdem als Kontext in
+  die neue Sammel-Unit `decide-retention-policy-for-unmapped-personal-data-domains`
+  aufgenommen, weil die Frage "reicht die RESTRICT-FK oder braucht es eine aktive
+  Lösch-nach-10-Jahren-Funktion gegen einen künftigen generischen Bereinigungs-Job" offen
+  bleibt.
+  KERNBEFUND 2 — sechs Domänen mit belegtem Personenbezug ohne Retention-Handler, davon
+  eine (invitations) mechanisch und risikoarm genug für eine direkte Unit, fünf mit
+  echtem Klärungsbedarf (Rechtsfragen zu Aufbewahrungsfristen, eine Architekturfrage):
+    - `invitations` (auth): email/first_name/last_name, DSAR existiert (Lauf 10 Iteration
+      62), kein Retention-Handler. Migration 000004 legt bereits einen Index "for cleanup
+      of expired invitations" an (Zeile 20) — die Aufräumung war von Anfang an geplant,
+      nie gebaut. Kein Zielkonflikt mit einer Aufbewahrungspflicht gefunden.
+      → feat-retention-worker-handler-auth-invitations (BACKLOG.yml, todo)
+    - HR-Personaldaten (biz/hr): hr_employee_profiles/leave_requests/leave_balances/
+      employee_documents/profile_change_requests. DSAR existiert (Lauf 10 Iteration 59).
+      Deutsches Arbeitsrecht kennt je nach Dokumenttyp unterschiedliche Fristen (bis 10
+      Jahre für Lohnunterlagen nach § 147 AO/§ 257 HGB) — pauschale Frist wäre falsch.
+    - Fuhrpark: driver_licenses/vehicles/vehicle_bookings/trip_logs. DSAR existiert (Lauf
+      10 Iteration 61). Offen: Aufbewahrung wegen Unfall-/Versicherungsansprüchen vs.
+      fristlose Betriebsdaten.
+    - E-Mail (email_messages/email_accounts/email_contact_links): DSAR-Modul existiert
+      laut Recherche bereits. Offen: fällt Geschäftskorrespondenz unter § 257 HGB (6 J.)?
+    - Verträge (contracts/contract_parties): DSAR existiert. Offen: § 257 HGB oder länger
+      je Vertragstyp — Löschung vor Verjährungsablauf wäre riskant.
+    - `guest_sessions` (chat): email/display_name/ip_address anonymer Chat-Gäste. War in
+      Lauf 10 (Iteration 40) bewusst OHNE DSAR-Modul dokumentiert (fehlende dritte
+      Subjekt-Matching-Quelle) — dieselbe Hürde gilt für Retention. Bisher in KEINER
+      Backlog-Datei erfasst; hier zum ersten Mal festgehalten.
+  Alle sechs zusammen in einer Sammel-Unit gebündelt (nicht sechs Einzel-Stubs mit
+  erratener Frist), weil jede eine echte Entscheidung von Luke braucht, bevor eine
+  spitze Build-Unit sinnvoll ist:
+      → decide-retention-policy-for-unmapped-personal-data-domains (BACKLOG-NEXT.yml,
+        blocked, blocked_reason: Produkt-/Rechtsentscheidung)
+  NEBENBEFUND (informativ, keine Unit): `consent_records` (ip_address) sollte vermutlich
+  NICHT gelöscht werden — die Aufzeichnung ist der Nachweis der Einwilligung nach Art. 7
+  Abs. 1 DSGVO, also das Gegenteil einer Löschpflicht. `public_bookings`/`booking_pages`
+  wurden in keinem bisherigen Scan geprüft und sind unklassifiziert — beides in der
+  Sammel-Unit als Kontext vermerkt, keine eigene Unit mangels tieferer Prüfung.
+  NICHT-FUND: die acht bereits registrierten Handler (contacts, dialer_call_sessions,
+  messages, tickets, form_submissions, tasks, calendar_events, notifications) und die in
+  Lauf 10 bereits begründeten Nicht-Zuordnungen (time_entries/hr_work_time_entries
+  arbeitsrechtlich, finance_invoices GoBD, gobd_* WORM, companies/company_settings B2B)
+  bleiben unverändert bestehen — kein neuer Zweifel an diesen Einordnungen.
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — die neue Unit
+  `feat-retention-worker-handler-auth-invitations` trägt ihr eigenes go test als
+  done_when, die Sammel-Unit baut nichts)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geänderter Testfall)
+- verify vorgaenger: sauber. `46bccdd3` (Iteration 56, scan-gateway-openapi-response-
+  code-drift-remaining) geprüft: `git show --stat` zeigt ausschliesslich BACKLOG.yml und
+  JOURNAL.md, kein Produktionscode — keine der acht Fehlerklassen einschlägig.
+- neue-units: feat-retention-worker-handler-auth-invitations (BACKLOG.yml, todo)
+- offen:
+  - decide-retention-policy-for-unmapped-personal-data-domains steht in BACKLOG-NEXT.yml
+    (nicht BACKLOG.yml, der Treiber liest die Datei nicht) — braucht Lukes Entscheidung
+    zu sechs Domänen, teils mit Rechtsberatung (HR-Personalakte, Vertragsunterlagen),
+    bevor daraus einzelne Build-Units werden.
+  - advisory_protocols: Widerspruch zu Lauf 10 Iteration 43 im Journal dokumentiert
+    (dort "nicht belegt", jetzt mit Migrationskommentar als Quelle belegt) — falls ein
+    künftiger Lauf den alten Lauf-10-Eintrag liest, sollte er diesen hier als aktuelleren
+    Stand nehmen.
+  - Die strukturelle Migrations-Suche (295 CREATE TABLE, Grep nach PII-Feldnamen) fand
+    71 Tabellen mit Substring-Treffer, davon rund 30 echte Personenbezugsträger nach
+    manueller Prüfung — eine erschöpfende Tabelle-für-Tabelle-Bewertung über alle
+    FK-Transitivitäten (139 FKs auf users, 154 auf contacts/users laut Lauf 10) wurde
+    nicht geleistet und würde den Rahmen eines einzelnen Scans sprengen.

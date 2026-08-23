@@ -2416,7 +2416,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (Paketwert im CI-Log nachschlagen, Run 32570176303)"
     scope: >
       Acht Retention-Handler sind registriert (`cmd/auth/main.go:123`): contacts,
@@ -3488,3 +3488,57 @@ units:
         tatsaechlich schreibt, dokumentiert das in openapi.yaml
       - swagger-cli validate gegen backend/api/openapi.yaml laeuft fehlerfrei
       - go test -count=1 ./internal/gateway/ gruen (inkl. TestOpenAPIRouteDrift)
+
+  - id: feat-retention-worker-handler-auth-invitations
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      Fund aus `scan-retention-mapping-remaining-services` (Lauf 11, Iteration 57). Die
+      `invitations`-Tabelle (`email`, `role`, `token_hash`, `expires_at`, `accepted_at`,
+      `backend/migrations/000004_create_invitations.up.sql`) traegt personenbezogene Daten
+      (E-Mail, in `feat-dsar-search-invitations` — Lauf 10 Iteration 62 — bereits als
+      Auskunftsquelle erschlossen) und hat KEINEN Retention-Handler, obwohl die Migration
+      selbst schon 2026 einen Index "for cleanup of expired invitations"
+      (`idx_invitations_expires_at`, Zeile 20) anlegt — die Aufraeumung war also von Anfang an
+      vorgesehen, aber nie gebaut.
+      Anders als bei den drei bereits gebauten Handlern (work_tasks, calendar_events,
+      notifications) gibt es hier ZWEI unterschiedliche Alterszustaende: eine nie angenommene,
+      abgelaufene Einladung (`accepted_at IS NULL AND expires_at < now`) ist reiner Datenmuell
+      ohne Aussagewert; eine ANGENOMMENE Einladung (`accepted_at IS NOT NULL`) hat ihren Zweck
+      erfuellt, sobald der zugehoerige `users`-Eintrag existiert — die Person selbst lebt dann
+      in `users`, nicht mehr in `invitations`.
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_notifications.go
+      - backend/internal/security/gdpr/retention_work_tasks.go
+      - backend/cmd/auth/main.go
+      - backend/migrations/000004_create_invitations.up.sql
+      - backend/migrations/000249_invitations_tenant_scope.up.sql
+      - backend/internal/auth/
+    notes: >
+      Vorlage ist `NotificationRetentionHandler`
+      (`backend/internal/security/gdpr/retention_notifications.go`) — kleinstes der drei
+      bestehenden Handler-Beispiele, delete-only, mit einer Ausschlussbedingung direkt in der
+      Plan-Query statt als Post-hoc-Filter. Vor dem Bauen `retention.go` lesen (RetentionHandler-
+      Interface, `RetentionRegistry`) und `cmd/auth/main.go:124-133` (wo die acht bestehenden
+      Handler registriert werden — Muster kopieren, nicht neu erfinden).
+      Klaeren, ob PENDING (nie angenommen, abgelaufen) und ACCEPTED (angenommen) EINE Policy mit
+      zwei Faellen sind oder zwei getrennte `resource_type`-Werte brauchen — die bestehenden acht
+      Handler kennen nur einen Alterszustand je Tabelle, das ist hier anders und muss im Code
+      begruendet werden, nicht stillschweigend vereinheitlicht.
+      `token_hash` ist ein Passwort-aehnliches Geheimnis (SHA-256 des Einladungs-Tokens) —
+      bei einer abgelaufenen, nie angenommenen Einladung ist Loeschen die einzig sinnvolle
+      Option (kein Anonymisieren, der Hash selbst ist bereits pseudonym).
+      RETENTION_MODE bleibt dry_run — dieser Loop stellt nichts scharf.
+    done_when:
+      - Ein neuer RetentionHandler fuer invitations ist gebaut und in cmd/auth/main.go
+        registriert (analog den acht bestehenden)
+      - Pending-abgelaufene und angenommene Einladungen sind als Faelle im Code unterschieden
+        und begruendet (eine oder zwei Policies)
+      - Mutations-Probe: eine Grenzbedingung (expires_at-Vergleich oder accepted_at-Filter)
+        testweise gebrochen, Test wird rot, zurueckgedreht
+      - go test -count=1 ./internal/security/gdpr/ ./internal/auth/... gruen
