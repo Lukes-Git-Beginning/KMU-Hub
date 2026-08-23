@@ -4188,7 +4188,21 @@ units:
     service: biz
     model: opus
     deps: [fix-quote-to-invoice-duplicate-creation]
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Die Unit verlangt in ihren eigenen Notes einen Produktionsbefund, den der Loop
+      nicht erheben darf (kein Prod-Zugriff): existieren in Produktion nicht-stornierte
+      Mehrfach-Rechnungen zum selben `source_quote_id`? Der partielle Unique-Index wuerde
+      bei der Migration hart scheitern, CD deployt automatisch — also Deploy-Hazard ohne
+      diesen Befund. Luke braucht dafuer genau eine Abfrage auf Prod
+      (`-U kmuhub -d kmuhub`):
+      SELECT tenant_id, source_quote_id, count(*) FROM finance_invoices
+      WHERE source_quote_id IS NOT NULL AND status <> 'cancelled'
+      GROUP BY 1,2 HAVING count(*) > 1;
+      Leeres Ergebnis => Unit auf todo zuruecksetzen, Migration ist gefahrlos.
+      Treffer => vorher eine Entscheidung ueber die Altdaten (welche Rechnung storniert
+      wird) — das ist eine Datenaenderung in Produktion und gehoert Luke, nicht dem Loop.
+      Kein Bauversuch unternommen, Arbeitsbaum unberuehrt.
     coverage_start: "n.a. (Race-Haertung zu fix-quote-to-invoice-duplicate-creation, Lauf 11 Iteration 70)"
     scope: >
       Restrisiko aus Iteration 70: die Doppelkonversions-Sperre in
@@ -4237,7 +4251,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (reine OpenAPI-Spec-Korrektur, keine Coverage-relevante Codeaenderung)"
     scope: >
       Fund aus fix-gateway-billing-recurring-routes-missing-401-503-docs
@@ -4547,3 +4561,66 @@ units:
       - Was noch offen bleibt, steht als neue Teil-Unit mit aktualisierter Liste am Backlog-Ende
       - swagger-cli validate gruen
       - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen
+
+  - id: test-openapi-documented-status-codes-vs-handlers
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 56,6 % (gemessen Iteration 89)"
+    scope: >
+      Belegter Befund aus der Mutations-Probe in Iteration 89: es gibt im Repo KEINEN
+      Test, der die in `api/openapi.yaml` dokumentierten Response-Codes gegen die vom
+      Handler real geschriebenen abgleicht. `TestOpenAPIRouteDrift` vergleicht
+      ausschliesslich registrierte Pfade gegen Spec-Pfade, keine Status-Codes;
+      `swagger-cli validate` prueft rein strukturell und ist fuer einen FEHLENDEN Code
+      blind. Folge: die Luecke wird immer nur dort gefunden, wo gerade jemand von Hand
+      liest — allein dieser Lauf hat daraus vier Fix-Units erzeugt (Iteration 76, 78, 87,
+      89), und jede deckte nur die Routen ab, die in ihrem Scope standen. Der Rest der
+      838 Pfade ist ungeprueft.
+      Umfang: ein Test in `internal/gateway`, der die literalen Status-Codes aus den
+      Handler-Quelldateien (`response.Error(w, http.StatusX, ...)`,
+      `response.JSON(w, http.StatusX, ...)`, `response.Proto(w, http.StatusX, ...)`)
+      der jeweils registrierten Route zuordnet und gegen den `responses:`-Block des
+      passenden Spec-Pfads haelt. KEIN neuer Endpunkt, keine Verhaltensaenderung.
+    sources:
+      - backend/internal/gateway/openapi_drift_test.go
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/gateway/helpers.go
+      - backend/api/openapi.yaml
+    notes: >
+      `openapi_drift_test.go` hat die halbe Mechanik schon: es baut den Chi-Router und
+      laeuft ihn ab. Wiederverwenden, nicht neu bauen (lean).
+      Die harte Stelle ist NICHT das Parsen, sondern die indirekten Schreiber: die
+      meisten 400er kommen gar nicht literal im Handler vor, sondern aus Helfern —
+      `validateUUIDParam` (helpers.go:120, 400), `decodeAndValidate` (helpers.go:225,
+      400), `validateDateParam` (400), `respondServiceUnavailable` (503),
+      `respondGRPCError` (variabel, aus dem gRPC-Code gemappt), `getTenantID`-Fehler
+      (401). Ein reiner AST-Scan auf `http.Status*` im Handler-Body findet die nicht und
+      wuerde massenhaft falsche "undokumentiert"-Treffer und falsche "unerreichbar
+      dokumentiert"-Treffer liefern. Also erst die Helfer-Tabelle Helper -> Codes
+      aufbauen und den Aufruf des Helfers im Handler als Beleg fuer dessen Codes zaehlen.
+      `respondGRPCError` ist NICHT statisch aufloesbar (Code haengt am gRPC-Status des
+      Service). Diese Codes (404/409/422/500) duerfen NICHT als "undokumentiert"
+      gemeldet werden — sonst rauscht der Test und wird abgeschaltet.
+      DESHALB: der Test faengt in eine ALLOWLIST-Form. Erst die heutige Ist-Menge der
+      Abweichungen als akzeptierte Baseline im Test festschreiben (mit Kommentar, dass
+      jeder Eintrag eine offene Doku-Luecke ist), dann faellt jede NEUE Abweichung sofort
+      auf. Ohne diese Baseline ist der Test am Tag eins rot und damit wertlos.
+      Beim Bauen die Baseline-Liste ins Journal schreiben — sie ist die Arbeitsliste fuer
+      alle weiteren Spec-Fix-Units und ersetzt das bisherige Von-Hand-Suchen.
+      Beachten: `respondServiceUnavailable` ist im Repo als "Finance service unavailable"
+      o.ae. dokumentiert, der Code ist immer 503 — statisch also gut aufloesbar.
+    done_when:
+      - Ein Test in internal/gateway vergleicht pro registrierter Route die statisch
+        aufloesbaren geschriebenen Status-Codes gegen den responses:-Block der Spec
+      - Helfer-vermittelte Codes (validateUUIDParam, decodeAndValidate, validateDateParam,
+        respondServiceUnavailable, getTenantID) werden korrekt zugerechnet, nicht
+        uebersehen
+      - respondGRPCError-Codes erzeugen keine Falschmeldung
+      - Die heutige Abweichungsmenge liegt als kommentierte Baseline im Test und steht
+        vollstaendig im Journal
+      - "Ein Gegenbeweis ist gefahren: ein dokumentierter Code wird testweise aus
+        openapi.yaml entfernt, der Test wird rot, Aenderung zurueckgedreht"
+      - go test -count=1 ./internal/gateway/ gruen

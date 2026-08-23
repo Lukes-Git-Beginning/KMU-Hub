@@ -9377,7 +9377,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Payment"
-        "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
+        "400":
+          description: >-
+            The invoice id in the path is not a valid UUID, or the body is
+            malformed or fails validation. Also returned when the
+            Idempotency-Key header is missing on this mutating request: that
+            only applies while the gateway runs in IDEMPOTENCY_MODE=hard, but
+            every shipped compose file (dev and prod) hard-sets it, so it is
+            the response in every operated environment, not an opt-in special
+            case.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -9405,8 +9417,12 @@ paths:
                       $ref: "#/components/schemas/Payment"
                   total:
                     type: integer
+        "400":
+          description: id is not a valid UUID
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
 
@@ -9690,6 +9706,8 @@ paths:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
 
@@ -11020,6 +11038,8 @@ paths:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
 
@@ -31680,6 +31700,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FinanceInvoiceLockResult"
+        "400":
+          description: id is not a valid UUID
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -31768,8 +31790,12 @@ paths:
                   email_queued:
                     type: boolean
                     description: False until the dunning-notice email integration is wired up (Sprint 3 TODO)
+        "400":
+          description: id is not a valid UUID
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
         "404": { $ref: "#/components/responses/NotFound" }

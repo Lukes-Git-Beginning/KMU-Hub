@@ -5636,3 +5636,76 @@ Frühere Läufe liegen vollständig im Archiv:
   Unit (`feat-quote-converted-invoice-number-on-read`) gezogen.
 - neue-units: keine
 - offen: keine
+
+## Iteration 89 — fix-gateway-billing-lock-dunning-notice-listroutes-missing-400-500-docs — done — 2026-08-23 10:06
+- commit: <wird unten nachgetragen>
+- gebaut: Sechs Doku-Luecken in `api/openapi.yaml` geschlossen, alle vorher am Handler
+  verifiziert (nicht aus der Unit uebernommen): `POST /finance/invoices/{id}/lock` +400
+  (`validateUUIDParam`, helpers.go:120-127 schreibt 400 "invalid id");
+  `POST /finance/dunning/{id}/notice` +400 (dito) und +500
+  (`cannedResponseMarshaler.Marshal`-Fehler, route_biz_billing.go:848-851);
+  `GET /finance/credit-notes`, `GET /finance/dunning`, `GET /finance/invoices/{id}/payments`
+  je +500 (`hrMarshalSlice`-Fehler); `GET /finance/invoices/{id}/payments` zusaetzlich +400
+  (Pfad-UUID). Der 400-Block von `POST /finance/invoices/{id}/payments` wurde vom blossen
+  `$ref: IdempotencyKeyRequired` auf einen inline zusammengefuehrten Block umgestellt, der
+  ALLE DREI real geschriebenen Ursachen unterscheidbar nennt: ungueltige Pfad-UUID,
+  malformed/validation-failed Body (`decodeAndValidate`, helpers.go:225-240 — die Unit nannte
+  nur zwei Ursachen, die dritte kam beim Nachlesen des Handlers dazu) und fehlender
+  Idempotency-Key. Stil von der Iteration-76-Vorlage uebernommen (openapi.yaml:8940ff:
+  inline `description` + `content`), weil YAML keinen zweiten `"400"`-Schluessel erlaubt.
+  Kein Verhalten geaendert — reine Spec, kein Go-Diff.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok |
+  lint ok (0 issues) | swagger-cli validate ok (`api/openapi.yaml is valid`) | test ok
+  (`go test -count=1 ./internal/gateway/` gruen, coverage 56,6 %, inkl.
+  `TestOpenAPIRouteDrift` und `TestOpenAPIRouteDriftParserSanity` explizit gruen;
+  `DATABASE_URL` auf `kmuhub_app` gesetzt, `-v`-Lauf zeigt **0 SKIP**) | migration n.a. |
+  rls-smoke n.a. (keine Tabelle, keine Policy, kein SQL)
+- coverage: internal/gateway 56,6 % -> 56,6 % (eigene Messung vor/nach; die Aenderung
+  enthaelt keine Go-Zeile, eine Verschiebung waere hier ein Messfehler)
+- mutations-probe: Der naheliegende naive Weg wurde als Mutation gefahren — statt den
+  400-Block zusammenzufuehren, den bestehenden `"400": { $ref: IdempotencyKeyRequired }`
+  stehenlassen und einen zweiten `"400"`-Schluessel danebensetzen. `swagger-cli validate`
+  wurde sofort rot: `Error parsing ... duplicated mapping key (9381:9)`. Zurueckgedreht,
+  danach wieder `is valid`, `git diff --stat` identisch mit dem Stand vor der Mutation.
+  ACHTUNG fuer kuenftige Spec-Units: `TestOpenAPIRouteDrift` haette diese Mutation NICHT
+  gefangen — er vergleicht nur registrierte Pfade gegen Spec-Pfade, keine Response-Codes.
+  Der einzige Waechter fuer Status-Code-Doku ist `swagger-cli validate` (rein strukturell,
+  fuer fehlende Codes blind) plus das Lesen des Handlers. Es gibt im Repo keinen Test, der
+  dokumentierte gegen real geschriebene Status-Codes abgleicht — daraus die neue Unit unten.
+- verify vorgaenger: sauber. `51cd455d` (Iteration 88,
+  feat-quote-converted-invoice-number-on-read) gegen alle acht Fehlerklassen geprueft:
+  kein gRPC-Bypass (nur Repository/`toProtoQuote`, kein neuer Handler), kein Stub, `.proto`
+  im selben Commit regeneriert (`biz.pb.go` liegt im `--stat`), kein neuer
+  `RequirePermission`, keine neue Tabelle — der LATERAL-Join ist ueber
+  `fi.tenant_id = q.tenant_id` tenant-gescoped, also keine Tenant-Luecke; Wire-Shape
+  snake_case `converted_invoice_number` passend zum FE-Lookup; keine neue Route,
+  Quote-Schema in `openapi.yaml` ergaenzt; kein Guard ersetzt. Zusaetzlich geprueft, dass
+  der unqualifizierte `whereClause` in `List` durch den Join nicht mehrdeutig wird: die
+  LATERAL-Subquery exportiert nur `invoice_number`, eine Spalte, die `finance_quotes` nicht
+  hat — kein Ambiguitaetsrisiko.
+- neue-units: test-openapi-documented-status-codes-vs-handlers (ans Backlog-Ende gehaengt) —
+  belegter Befund aus der Mutations-Probe: kein Test im Repo gleicht die in `openapi.yaml`
+  dokumentierten Response-Codes gegen die vom Handler real geschriebenen ab. Genau diese
+  Luecke hat inzwischen vier eigene Fix-Units erzeugt (Iterationen 76, 78, 87 und diese) —
+  jedes Mal von Hand gefunden, jedes Mal nur fuer die gerade gelesenen Routen.
+- offen: `harden-quote-conversion-unique-index` wurde OHNE Bauversuch auf `blocked` gesetzt
+  (Arbeitsbaum unberuehrt) und braucht eine Entscheidung von Luke. Die Unit verlangt in
+  ihren eigenen Notes einen Produktionsbefund, den der Loop nicht erheben darf; der
+  partielle Unique-Index scheitert bei der Migration hart, wenn Altdaten kollidieren, und
+  CD deployt automatisch. Die eine noetige Abfrage steht als `blocked_reason` in
+  `BACKLOG.yml` (`SELECT tenant_id, source_quote_id, count(*) FROM finance_invoices WHERE
+  source_quote_id IS NOT NULL AND status <> 'cancelled' GROUP BY 1,2 HAVING count(*) > 1;`,
+  Prod mit `-U kmuhub -d kmuhub`). Leeres Ergebnis => Unit auf `todo` zuruecksetzen, dann
+  ist sie im naechsten Lauf gefahrlos baubar.
+  ZWEITER BEFUND, nicht gefixt: `BACKLOG.yml` ist **kein gueltiges YAML** und war es schon
+  am Stand `51cd455d` (also nicht durch diese Iteration entstanden — gegen `git show HEAD:`
+  gegengeprueft). Ursache sind 15 `done_when`-Listeneintraege, die einen unquotierten
+  Doppelpunkt-Leerzeichen enthalten (`- Idealerweise: ...` Zeile 2892, `- Mutations-Probe: ...`
+  Zeile 649, `- Ein Test belegt: ...` Zeile 3177 usw.) — YAML liest die als Mapping-Key und
+  bricht ab. Praktisch folgenlos, weil der Treiber die Datei per Regex liest und nicht per
+  YAML-Parser (der Kopfkommentar "`model:` muss VOR `status:` stehen" ist genau der Beleg
+  dafuer). Ich habe die Stelle testweise quotiert, danach brach die naechste, und habe es
+  bewusst zurueckgedreht: eine Teilkorrektur haette den Diff aufgeblaeht und faelschlich den
+  Eindruck erzeugt, die Datei sei nun YAML-rein. Wer sie irgendwann mit einem echten Parser
+  auswerten will (Reporting, Statistik), muss alle 15 Stellen in einem eigenen Durchgang
+  quotieren. Mein eigener neuer Unit-Eintrag ist frei davon (Zeile gezielt quotiert).
