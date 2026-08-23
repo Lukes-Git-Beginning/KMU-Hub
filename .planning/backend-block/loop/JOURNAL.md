@@ -2553,7 +2553,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 42 — cov-gateway-security-vendor-access-routes — done — 2026-08-23 04:06
-- commit: (folgt nach diesem Eintrag)
+- commit: 9fc4ef78
 - gebaut: Router-Level 401/403/503-Guard-Tests fuer die fuenf
   Vendor-Access-Routen (`route_security.go:85-93`) plus eine
   Validierungsluecke geschlossen (`proposed_start` required bei
