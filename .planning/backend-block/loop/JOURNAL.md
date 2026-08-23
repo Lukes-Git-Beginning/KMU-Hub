@@ -6149,7 +6149,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Sonst nichts offen — DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests.
 
 ## Iteration 98 — fix-idempotency-409-rollout-non-finance-routes-4 — done — 2026-08-23 11:12
-- commit: (siehe naechster Eintrag — wird nach `git commit` als Iteration-98-SHA dokumentiert)
+- commit: 5e1ba595
 - gebaut: Registrar-Gruppe **Chat** vollstaendig auf `409` umgestellt — 16 mutierende
   Operationen unter `/api/v1/channels`, `/api/v1/messages` und `/api/v1/files`
   (createChannel, updateChannel, deleteChannel, archiveChannel, joinChannel, leaveChannel,
