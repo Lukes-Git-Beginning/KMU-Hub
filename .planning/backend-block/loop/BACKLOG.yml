@@ -3681,7 +3681,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/dashboard (Paketwert im CI-Log nachschlagen)"
     scope: >
       `GetDashboardMetrics` (`internal/biz/dashboard/postgres_repository.go:34-38`) summiert

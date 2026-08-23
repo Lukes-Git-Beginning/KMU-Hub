@@ -5186,3 +5186,66 @@ Frühere Läufe liegen vollständig im Archiv:
   kein Stub, keine `.proto`-Aenderung, kein ersetzter Guard-Key.
 - neue-units: keine
 - offen: keine
+
+## Iteration 81 — fix-dashboard-metrics-blind-currency-sum — done — 2026-08-23 09:05
+- commit: <wird nach Commit ergaenzt>
+- gebaut: `internal/biz/dashboard/postgres_repository.go` — Query 1 (Revenue aus
+  `finance_invoices`) und Query 2 (`avg_deal_size` aus `finance_quotes`)
+  summieren/mitteln jetzt nur noch Zeilen, deren `currency` mit dem
+  aufgeloesten Tenant-Default uebereinstimmt: `COALESCE((SELECT
+  default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')`.
+  Bewusst NICHT hart auf `'EUR'` gefiltert — `internal/biz/invoice/service.go:195-197`
+  und `internal/biz/quote/service.go:159-161` setzen die Waehrung neuer
+  Ad-hoc-Dokumente aus `company_settings.default_currency`, faellt das nur
+  auf `models.DefaultCurrency` (EUR) zurueck, wenn kein Settings-Datensatz
+  existiert oder das Feld leer ist. Ein hartkodiertes `currency = 'EUR'`
+  haette also jeden Tenant mit z. B. CHF als Default komplett leerlaufen
+  lassen (schlimmer als der Ausgangsbug). `quotesPending`/`quotesTotal`/
+  `quotesAccepted` bleiben bewusst waehrungs-agnostische Zaehlungen (kein
+  Summen-/Durchschnittswert) — nur `avg_deal_size` bekam den Filter. Query 3
+  (Status-Breakdown, reine Counts) unveraendert, war nicht Teil des Funds.
+  Kein Wire-Shape-Wechsel (weiterhin einzelne Decimal-Werte, keine
+  Currency-Map) — laut Notes der Unit bewusst vermieden, da
+  `RevenueMetrics`/`PipelineMetrics` FE-Vertrag sind; `lean:`-Marker im Code
+  mit Upgrade-Trigger "wenn ein Tenant tatsaechlich ausserhalb seiner
+  Default-Waehrung bucht und die Einzelkennzahl nicht mehr ehrlich ist".
+  Zwei neue DB-Tests belegen genau diese Entscheidung: einmal impliziter
+  EUR-Default (kein `company_settings`-Datensatz) mit einer CHF-Rechnung,
+  die ausgeschlossen bleibt, und einmal ein Tenant mit
+  `default_currency = 'CHF'`, dessen CHF-Rechnung zaehlt und dessen
+  EUR-Ausreisser-Rechnung ausgeschlossen wird — letzterer Test haette bei
+  einer hartkodierten `'EUR'`-Loesung nicht bestanden. Ein dritter Test
+  deckt Query 2 (CHF-Angebot faellt nicht in den EUR-Durchschnitt,
+  `QuotesPending`-Zaehler bleibt waehrungsunabhaengig unveraendert).
+- gate: build ok (`go build -p 2` dashboard + gateway + cmd/gateway) | vet ok
+  | lint ok (0 issues) | test ok (`go test -count=1 ./internal/biz/dashboard/...`
+  gruen, 14 Tests, 0 uebersprungen bei gesetztem `DATABASE_URL=...kmuhub_app...`)
+  | migration n.a. (keine Schema-Aenderung, `currency`/`default_currency`
+  existieren seit Migration 000216) | rls-smoke n.a. (keine neue
+  Tabelle/Policy, bestehende Tenant-Filter auf `finance_invoices`/
+  `finance_quotes`/`company_settings` genutzt) | Route: keine (keine
+  Gateway-Route/OpenAPI-Aenderung, `go test ./internal/gateway/` daher nicht
+  Pflicht — nur als Teil des Builds mitgefahren)
+- coverage: internal/biz/dashboard 79,3 % -> 79,3 % (Paket-Gesamtwert,
+  vor UND nach der Aenderung identisch gemessen per `git stash` auf
+  `postgres_repository.go`+`_db_test.go` — der Fix aendert nur SQL-String-
+  Literale innerhalb bestehender Statements, keine neuen Go-Verzweigungen,
+  daher bewegt sich die Zeilen-Coverage-Prozentzahl nicht; die eigentliche
+  Beweisführung liegt in der Mutations-Probe, nicht in der Coverage-Zahl)
+- mutations-probe: `AND currency = COALESCE(...)`-Zeile aus Query 1
+  entfernt (Query 2 unveraendert gelassen), `go test -run
+  "TestGetDashboardMetrics_ForeignCurrencyInvoiceExcludedFromRevenueSum|
+  TestGetDashboardMetrics_UsesTenantDefaultCurrencyNotHardcodedEUR"` wurde
+  rot (TotalInvoiced 6000 statt 1000 bzw. 11999 statt 2000 — die
+  Fremdwaehrungs-/Ausreisser-Betraege wurden wieder blind mitsummiert),
+  Mutation zurueckgedreht, `diff` gegen vor-Mutation-Kopie sauber
+- verify vorgaenger: sauber. `9d5028b3` (Iteration 80) geprueft: reine
+  `openapi.yaml`-Textkorrektur an zwei Stellen (info.description +
+  IdempotencyKeyRequired-Response), kein Go-Code veraendert — die acht
+  Fehlerklassen greifen an Code, hier nicht einschlaegig. `swagger-cli
+  validate` laut Journal-Eintrag gruen, `go test ./internal/gateway/`
+  ebenfalls; Stichprobe der beiden geaenderten Textstellen gegen die
+  belegten Fakten (docker-compose.yml/prod.yml setzen `IDEMPOTENCY_MODE:
+  hard` literal) bestaetigt die Korrektur.
+- neue-units: keine
+- offen: keine
