@@ -4741,6 +4741,8 @@ paths:
                 $ref: "#/components/schemas/DashboardLayoutResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to get dashboard layout
     put:
       summary: Save personal dashboard layout
       tags: [dashboard]
@@ -4766,6 +4768,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to save dashboard layout
     delete:
       summary: Reset dashboard to role defaults
       tags: [dashboard]
@@ -4786,6 +4790,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to reset dashboard layout
 
   /api/v1/dashboard/defaults/{role}:
     get:
@@ -4816,6 +4822,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Failed to get default layout
     put:
       summary: Save default dashboard layout for a role (admin only)
       tags: [dashboard]
@@ -4850,6 +4858,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to save default layout
 
   # ===========================================================================
   # Work / Project Management

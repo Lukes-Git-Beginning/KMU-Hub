@@ -446,10 +446,7 @@ var systemicUndocumentedCodes = map[int]string{
 // http.StatusNotImplemented.
 var statusDriftBaseline = map[string][]int{
 	"DELETE /api/v1/activities/{id}/tags": {501},
-	"DELETE /api/v1/dashboard/layout": {500},
 	"DELETE /api/v1/deals/{id}/tags": {501},
-	"GET /api/v1/dashboard/defaults/{role}": {500},
-	"GET /api/v1/dashboard/layout": {500},
 	"GET /api/v1/security/gdpr/exports": {403},
 	"POST /api/v1/activities/{id}/tags": {501},
 	"POST /api/v1/deals/{id}/tags": {501},
@@ -458,8 +455,6 @@ var statusDriftBaseline = map[string][]int{
 	"POST /api/v1/inbox/canned-responses": {500},
 	"POST /api/v1/webhooks/livekit": {401},
 	"PUT /api/v1/customization/labels": {500},
-	"PUT /api/v1/dashboard/defaults/{role}": {500},
-	"PUT /api/v1/dashboard/layout": {500},
 	"PUT /api/v1/inbox/canned-responses/{id}": {500},
 }
 
