@@ -6950,3 +6950,44 @@ Frühere Läufe liegen vollständig im Archiv:
   die Gesamtdatei bricht dort ab. Betrifft nicht meine Aenderung (isoliert erfolgreich
   geparst), aber falls ein kuenftiges Tooling die Datei maschinell parsen will, lohnt sich
   ein separater Fix-Durchgang.
+
+## Iteration 115 — fix-idempotency-409-rollout-non-finance-routes-10 — done — 2026-08-23 13:15
+- commit: 47a8d827
+- gebaut: Registrar-Gruppe **vermietung** vollstaendig auf 409 umgestellt (11 mutierende
+  Operationen in `route_vermietung.go`, Basispfad `/api/v1/vermietung`, Idempotency-Middleware
+  greift auf allen Methoden ausser GET): `POST /api/v1/vermietung/objects`, `PATCH
+  /api/v1/vermietung/objects/{id}`, `DELETE /api/v1/vermietung/objects/{id}`, `POST
+  /api/v1/vermietung/rentals`, `PATCH /api/v1/vermietung/rentals/{id}`, `DELETE
+  /api/v1/vermietung/rentals/{id}`, `POST /api/v1/vermietung/rentals/{id}/start`, `POST
+  /api/v1/vermietung/rentals/{id}/end`, `PUT /api/v1/vermietung/rentals/{id}/signature`,
+  `POST /api/v1/vermietung/rentals/{id}/inspections`, `PATCH
+  /api/v1/vermietung/inspections/{id}` bekamen je eine neue `"409": { $ref:
+  "#/components/responses/IdempotencyInFlight" }`-Zeile, kompakter Einzeiler-Stil (lokaler
+  Stil im Datei-Abschnitt). Keine der 11 Operationen hatte vorher ein `409` - reiner
+  Additiv-Fall, kein Merge-Fall. Alle 409-Zeilen numerisch nach dem jeweils letzten
+  vorhandenen Code eingefuegt (nach `404` wo vorhanden, sonst nach `403`). Registrar-Gruppe
+  ist nicht in der `idempotencyWhitelist` (`idempotency.go:36`, nur `/auth/login|refresh|2fa`),
+  Middleware greift also real; Middleware ist global verdrahtet, nicht in `route_vermietung.go`
+  selbst. Einzige geaenderte Datei: `api/openapi.yaml` (11 neue Zeilen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, 2682 Subtests PASS, **0 SKIP**, 0 FAIL, mit gesetztem `DATABASE_URL`) | swagger-cli
+  validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: frisch eingefuegten `IdempotencyInFlight`-$ref bei `endVermietungRental`
+  (`POST /api/v1/vermietung/rentals/{id}/end`) testweise auf `IdempotencyInFlightXXX` verbogen
+  - `swagger-cli validate` meldete sofort `Token "IdempotencyInFlightXXX" does not exist.`
+  (rot wie erwartet). Datei danach aus Sicherungskopie (`/tmp/openapi_backup_115.yaml`)
+  zurueckgesetzt, `diff` bestaetigt identisch, `swagger-cli validate` erneut gruen,
+  `go test -count=1 ./internal/gateway/...` erneut gruen bestaetigt. `git diff --stat` zeigt
+  danach nur noch die erwarteten 11 Zeilen in `api/openapi.yaml`.
+- verify vorgaenger: sauber. `ff204469` (Iteration 114) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (12 neue Zeilen, schichten-Registrar-Gruppe); reine Spec-Doku ohne
+  Go-Produktionscode, `.proto`, Route, `RequirePermission`, Tabelle oder Wire-Shape-Aenderung;
+  keine der acht Fehlerklassen betroffen.
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-11` (Restliste aktualisiert,
+  vermietung als erledigt markiert, verbleibende Registrar-Gruppen unveraendert aus
+  Iteration 107/109 uebernommen).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
+  keine Migration und keine Tabelle beruehrt.
