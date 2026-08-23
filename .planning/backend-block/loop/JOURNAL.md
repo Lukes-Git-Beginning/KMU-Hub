@@ -1942,7 +1942,7 @@ Frühere Läufe liegen vollständig im Archiv:
   das priorisiert.
 
 ## Iteration 34 — cov-banking-repository-real-sql — done — 2026-08-23 02:53
-- commit: (siehe unten, nach Journal-Commit)
+- commit: e3b9984d
 - gebaut: `postgres_repository_statements_and_matches_real_sql_test.go` (neu, ungetaggt,
   `package banking`) mit sieben real-SQL-Tests gegen die zuvor ungedeckten
   Repository-Methoden: `GetStatementByHash` (Treffer, Fremdtenant mit identischem Hash,
