@@ -6245,7 +6245,7 @@ Frühere Läufe liegen vollständig im Archiv:
   uebersprungenen Tests.
 
 ## Iteration 100 — doc-status-code-systemic-400-503-sweep-2 — done — 2026-08-23 11:37
-- commit: <SHA>
+- commit: 77265bb0
 - gebaut: Registrar-Gruppe **fuhrpark** im systemischen 400/503-Sweep vollstaendig geschlossen.
   61 Response-Eintraege in `backend/api/openapi.yaml` nachgetragen: 16x
   `"400": $ref BadRequest` und 45x `"503": $ref ServiceUnavailable`, verteilt auf alle 45
