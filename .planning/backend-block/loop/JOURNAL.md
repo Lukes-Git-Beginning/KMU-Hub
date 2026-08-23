@@ -4275,7 +4275,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Tenant?) — im Scan nicht geprüft, gehört in die bauende Iteration.
 
 ## Iteration 65 — fix-write-path-line-total-unrounded-everywhere — done — 2026-08-23 07:13
-- commit: <PLACEHOLDER>
+- commit: be1dea4d
 - gebaut: Root-Cause-Fix statt sieben Einzel-Guards. Neue exportierte Funktion
   `tax.LineTotal(quantity, unitPrice) = quantity.Mul(unitPrice).Round(2)` in
   `internal/biz/tax/calculator.go` ist ab jetzt die EINZIGE Definition des Zeilennettos;
