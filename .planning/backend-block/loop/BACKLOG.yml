@@ -3188,7 +3188,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (kein Coverage-Ziel, Verhaltensaenderung)"
     scope: >
       Gefunden in cov-gateway-security-vendor-access-routes (Lauf 11, Iteration 42): keine

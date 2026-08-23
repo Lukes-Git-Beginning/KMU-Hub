@@ -4746,3 +4746,70 @@ Frühere Läufe liegen vollständig im Archiv:
     Nummer (im Scope der Unit gegen `pg_indexes` geprueft) — sie sind nicht betroffen,
     aber falls dort je ein Unique-Index nachgezogen wird, muss er von Anfang an partiell
     sein.
+
+## Iteration 73 — feat-vendor-access-audit-trail — done — 2026-08-23 08:13
+- commit: <PENDING>
+- gebaut: `SecurityGRPCServer.logVendorAccessEvent` (neuer schmaler Wrapper in
+  `internal/server/security_grpc.go`, Vorlage `AuthGRPCServer.logPermissionEvent`)
+  schreibt nach jedem erfolgreichen Approve/Decline/CounterPropose/Revoke einen
+  `audit_log`-Eintrag (`vendor_access.approve` / `.decline` / `.counter_propose` /
+  `.revoke`, target = Request-ID, target_type = `vendor_access_request`). Keine
+  Wiring-Aenderung noetig: `auditService` und `vendorAccessService` waren in
+  `NewSecurityGRPCServer` bereits beide vorhanden. Fuer Approve/Revoke kommt der
+  Actor weiterhin aus dem expliziten `ActorId`-Feld (unveraendert); Decline und
+  CounterPropose hatten nie ein solches Feld im Proto, daher lesen sie den
+  Actor jetzt ueber `callerID(ctx)` aus dem per gRPC-Metadata propagierten
+  Caller (`middleware.TenantInboundUnaryInterceptor`) und lehnen fehlenden
+  Caller-Context mit dem Standard-Unauthenticated-Fehler ab, bevor der
+  Service ueberhaupt aufgerufen wird — die Vendor-Access-Routen liegen alle
+  hinter `authMiddleware`, das ist in Produktion also immer gegeben.
+  `List` bleibt bewusst ungeloggt: reiner Lesezugriff auf die eigenen,
+  bereits in der UI sichtbaren Requests des Tenants, kein Statuswechsel und
+  kein neuer Datenzugriff im Sinne des Auftragsverarbeitungs-Nachweises —
+  anders als bei den vier Statusaenderungen gibt es hier nichts zu belegen,
+  das nicht schon aus den vier anderen Eintraegen hervorgeht.
+  Neue Testdatei `internal/server/vendor_access_audit_events_db_test.go`
+  (echtes SQL, `audit.NewPostgresRepository` + `vendoraccess.NewPostgresRepository`,
+  Vorlage `rbac_audit_events_db_test.go`): acht Subtests, je ein Erfolgs- und
+  ein Ablehnungsfall pro Aktion, Ablehnungsfaelle pruefen explizit "kein
+  Eintrag". Bestehender Test `TestVendorAccessRPCs_HappyPathAndDomainErrors`
+  (`security_grpc_test.go`) mit einem echten Caller im Kontext ausgestattet
+  (`ctxWithTenantAndUser` statt `ctxWithTenant`), weil CounterPropose/Decline
+  jetzt einen Caller brauchen — reiner Test-Fixture-Fix, keine Verhaltensaenderung
+  an dem, was der Test pruefen sollte.
+- gate: build ok (`go build -p 2 ./internal/security/vendoraccess/... ./internal/server/...`) |
+  vet ok | lint ok (0 issues, beide Pakete) | test ok (`go test -count=1`
+  `internal/security/vendoraccess` 14/14 und `internal/server` komplett gruen,
+  **0 SKIP** bei `-v` gezaehlt in beiden Paketen, DATABASE_URL gegen `kmuhub_app`) |
+  migration n.a. (keine Migration, keine neue Tabelle, keine Policy) |
+  rls-smoke n.a. (kein Schema-/Policy-Eingriff, nur neue `audit_log`-Schreibpfade
+  ueber den bereits RLS-geschuetzten bestehenden Insert-Pfad von `audit.Service.LogEvent`) |
+  openapi n.a. (keine Route, kein Proto geaendert)
+- coverage: `internal/server` 70,8 % -> 70,8 % (eigene Messung vor/nach per
+  `git stash`/`stash pop`, gleiche Testdatei in beiden Laeufen). Unveraendert
+  bei dieser Praezision ist plausibel: `internal/server` hat ueber 6.000
+  ungedeckte Zeilen (CI-Stand), die gut ein Dutzend neuen Zeilen in
+  `logVendorAccessEvent` plus vier Einzeiler-Aufrufe bewegen die
+  Prozentzahl nicht sichtbar — bewiesen ist das Verhalten durch die acht
+  neuen Subtests, nicht durch die Coverage-Zahl. `coverage_start` der Unit
+  war ohnehin "n.a., Verhaltensaenderung".
+- mutations-probe: `s.logVendorAccessEvent(...)`-Aufruf in
+  `ApproveVendorAccessRequest` testweise auskommentiert -> exakt der Subtest
+  `TestVendorAccessAuditEvents_DB/approve_writes_one_event` wurde rot
+  (Event-Zaehler blieb bei 4 statt 5, alle anderen sieben Subtests blieben
+  gruen). Danach zurueckgedreht, `git diff` auf `security_grpc.go` wieder
+  sauber, voller Testlauf erneut gruen.
+- verify vorgaenger: sauber. `ccee9d4f` (Iteration 72) geprueft: kein Gateway-Handler
+  und keine gRPC-Umgehung (nur ein Index getauscht), kein Stub, keine `.proto`-Datei,
+  kein neuer `RequirePermission`-Guard, keine neue Tabelle/RLS-Policy, Wire-Shape
+  unveraendert, keine neue Route. `.up.sql` und `.down.sql` beide gefuellt und mit
+  begruendeter Asymmetrie (Lockern kann nicht scheitern, Verschaerfen schon).
+- neue-units: keine
+- offen:
+  - Die Entscheidung "List bleibt ungeloggt" ist im gebaut-Feld begruendet, aber
+    eine reine Journal-Entscheidung dieser Iteration — falls Luke das anders sieht
+    (z. B. weil ein Vendor beim blossen Ansehen der Liste schon personenbezogene
+    Daten in Vorschau sieht), ist das eine Zeile nachzuziehen, keine grosse Aenderung.
+  - `Service.Create` bleibt weiterhin ohne Audit-Eintrag (laut Kommentar "Not wired
+    to an HTTP route" — kein produktiver Aufrufer, daher nicht mitgezogen). Sollte
+    je ein Aufrufer dazukommen, braucht auch Create einen `logVendorAccessEvent`-Ruf.

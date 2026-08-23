@@ -1293,7 +1293,13 @@ func TestPasswordRPCs_HappyPaths(t *testing.T) {
 func TestVendorAccessRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	srv, repos := newTestSecurityGRPCServer(t)
 	tenantID := uuid.New()
-	ctx := ctxWithTenant(tenantID)
+	// Decline and CounterPropose read the actor from context (gRPC-metadata
+	// propagated caller, see logVendorAccessEvent) rather than a request
+	// field, so this ctx needs a caller like the real
+	// TenantInboundUnaryInterceptor would set — unlike the plain
+	// ctxWithTenant most other RPCs in this file use.
+	actorID := uuid.New()
+	ctx := ctxWithTenantAndUser(tenantID, actorID)
 
 	pending := &models.VendorAccessRequest{
 		ID:             uuid.New(),
@@ -1315,7 +1321,6 @@ func TestVendorAccessRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	require.Len(t, listResp.Requests, 1)
 
 	// Non-sensitive scope: approve succeeds without sensitive_ack.
-	actorID := uuid.New()
 	approveResp, err := srv.ApproveVendorAccessRequest(ctx, &securityv1.ApproveVendorAccessRequestRequest{
 		RequestId: pending.ID.String(), ActorId: actorID.String(),
 	})

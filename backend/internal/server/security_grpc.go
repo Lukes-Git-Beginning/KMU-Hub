@@ -425,6 +425,21 @@ func (s *SecurityGRPCServer) ListVendorAccessRequests(ctx context.Context, req *
 	return &securityv1.ListVendorAccessRequestsResponse{Requests: pbRequests}, nil
 }
 
+// logVendorAccessEvent appends one audit_log entry for a vendor-access status
+// change. Called only after the write already succeeded -- Approve, Decline,
+// CounterPropose and Revoke all reject an invalid transition
+// (ErrInvalidStatus, ErrSensitiveAckRequired) inside vendorAccessService
+// before ever reaching here, so a rejected attempt never writes an event.
+// Mirrors AuthGRPCServer.logPermissionEvent (grpc.go), the established
+// pattern for RPC-layer audit logging in this codebase.
+func (s *SecurityGRPCServer) logVendorAccessEvent(ctx context.Context, actorID uuid.UUID, action string, req *models.VendorAccessRequest) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return
+	}
+	s.auditService.LogEvent(ctx, tenantID, &actorID, action, req.ID.String(), "vendor_access_request", nil, "", "", "success")
+}
+
 func (s *SecurityGRPCServer) ApproveVendorAccessRequest(ctx context.Context, req *securityv1.ApproveVendorAccessRequestRequest) (*securityv1.ApproveVendorAccessRequestResponse, error) {
 	id, err := uuid.Parse(req.RequestId)
 	if err != nil {
@@ -440,6 +455,8 @@ func (s *SecurityGRPCServer) ApproveVendorAccessRequest(ctx context.Context, req
 		return nil, mapSecurityError(err)
 	}
 
+	s.logVendorAccessEvent(ctx, actorID, "vendor_access.approve", updated)
+
 	return &securityv1.ApproveVendorAccessRequestResponse{
 		Request: toProtoVendorAccessRequest(updated),
 	}, nil
@@ -450,11 +467,21 @@ func (s *SecurityGRPCServer) DeclineVendorAccessRequest(ctx context.Context, req
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request_id")
 	}
+	// Decline carries no actor_id field (unlike Approve/Revoke) -- the caller
+	// comes from the gRPC-metadata-propagated auth context instead (see
+	// middleware.TenantInboundUnaryInterceptor). The vendor-access route group
+	// requires authMiddleware, so this is expected to always resolve.
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	updated, err := s.vendorAccessService.Decline(ctx, id)
 	if err != nil {
 		return nil, mapSecurityError(err)
 	}
+
+	s.logVendorAccessEvent(ctx, actorID, "vendor_access.decline", updated)
 
 	return &securityv1.DeclineVendorAccessRequestResponse{
 		Request: toProtoVendorAccessRequest(updated),
@@ -470,11 +497,18 @@ func (s *SecurityGRPCServer) CounterProposeVendorAccessRequest(ctx context.Conte
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid proposed_start, expected YYYY-MM-DD")
 	}
+	// CounterPropose carries no actor_id field either -- see DeclineVendorAccessRequest.
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	updated, err := s.vendorAccessService.CounterPropose(ctx, id, proposedStart)
 	if err != nil {
 		return nil, mapSecurityError(err)
 	}
+
+	s.logVendorAccessEvent(ctx, actorID, "vendor_access.counter_propose", updated)
 
 	return &securityv1.CounterProposeVendorAccessRequestResponse{
 		Request: toProtoVendorAccessRequest(updated),
@@ -495,6 +529,8 @@ func (s *SecurityGRPCServer) RevokeVendorAccessRequest(ctx context.Context, req 
 	if err != nil {
 		return nil, mapSecurityError(err)
 	}
+
+	s.logVendorAccessEvent(ctx, actorID, "vendor_access.revoke", updated)
 
 	return &securityv1.RevokeVendorAccessRequestResponse{
 		Request: toProtoVendorAccessRequest(updated),
