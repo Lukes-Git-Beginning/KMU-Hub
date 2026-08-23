@@ -3301,7 +3301,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       `DatevUploadRoutes.HandleOAuthCallback` (`route_datev_upload.go:135-188`) ist laut

@@ -4891,3 +4891,51 @@ Frühere Läufe liegen vollständig im Archiv:
     ist reines Backend-Signal, ob und wie die DATEV-Upload-Log-Ansicht im
     Desktop-Client eine verwaiste Zeile anders darstellt, ist eine
     FE-Entscheidung.
+
+## Iteration 75 — fix-datev-oauth-callback-503-breaks-redirect-contract — done — 2026-08-23 08:36
+- commit: (siehe naechster Befehl)
+- gebaut: Ein-Zeilen-Fix in `HandleOAuthCallback` (`route_datev_upload.go:167`):
+  die einzige Fehlerstelle im Handler, die noch `respondServiceUnavailable`
+  (rohes 503-JSON) aufrief, ruft jetzt `redirectDatevError(w, r,
+  "connection_failed")` — denselben Code-String, den Zeile 183 desselben
+  Handlers fuer den selben Fehlermodus (biz-Service nicht erreichbar) bereits
+  dokumentiert und verwendet. Diese Route ist die public OAuth-Callback-Route,
+  die DATEV direkt im Browser ansteuert; laut `openapi.yaml` ist "immer ein
+  302-Redirect, nie ein JSON-Fehlerkoerper" die einzige dokumentierte Garantie
+  dieser Route. Kein Spec-Edit noetig, kein Verhaltenswechsel an den anderen
+  sieben Handlern in derselben Datei (die sind normale JSON-APIs, dort ist
+  `respondServiceUnavailable` weiterhin korrekt).
+  Neuer Test `TestDatevHandleOAuthCallback_ServiceUnavailableRedirects` in
+  `route_datev_upload_test.go`: `emptyRegistry()` simuliert die nicht
+  erreichbare gRPC-Verbindung, erwartet 302 + `datev_error=connection_failed`
+  statt 503.
+- gate: build ok (`go build -p 2` gateway + cmd/gateway) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 ./internal/gateway/` gruen, inkl.
+  `TestOpenAPIRouteDrift` — 836 Routen gegen 838 Pfade, unveraendert, da keine
+  Route/kein Response-Code hinzukam) | migration n.a. (kein Schema-Eingriff) |
+  rls-smoke n.a. (keine Tabelle/Policy beruehrt)
+- coverage: `internal/gateway` 56,6 % -> 56,6 % (eigene Messung per
+  `git stash`/`stash pop`, `-coverprofile` vor/nach; Ein-Zeilen-Fix + ein Test
+  bewegen die Paket-Prozentzahl nicht messbar ueber die Rundung hinaus).
+  `coverage_start` der Unit ("54,1 %, CI-Stand 32570176303") ist ein aelterer
+  Lauf-Gesamtwert, nicht meine eigene Vorher-Messung — siehe `offen:`.
+- mutations-probe: Zeile 167 testweise zurueck auf
+  `respondServiceUnavailable(w, dr.ServiceName())` -> exakt
+  `TestDatevHandleOAuthCallback_ServiceUnavailableRedirects` wurde rot
+  ("status = 503, want 302"), alle anderen Tests im Paket blieben unberuehrt.
+  Danach zurueckgedreht, `git diff internal/gateway/route_datev_upload.go`
+  zeigt nur die eine beabsichtigte Zeile.
+- verify vorgaenger: sauber. `3cc5b79b` (Iteration 74) geprueft: kein
+  Gateway-Handler ruft eine Service-Instanz direkt (Handler geht ueber
+  `datevUploadLogToProto`/gRPC), kein Stub, `.proto` geaendert UND
+  `datev_upload.pb.go` im selben Commit neu generiert (Diff zeigt nur das neue
+  Feld + Rawdesc), kein neuer `RequirePermission`-Guard, keine neue Tabelle,
+  Wire-Shape nur additiv erweitert (`is_stale` in der bestehenden
+  Bare-Array-Response), keine neue Route, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen:
+  - `coverage_start` in der Unit-Definition war ein aggregierter CI-Wert aus
+    einem frueheren Lauf, nicht paket-eigen zum Zeitpunkt dieser Iteration
+    (aktueller eigener Vorher/Nachher-Messwert: 56,6 % / 56,6 %). Kuenftige
+    Coverage-Units fuer `internal/gateway` sollten den Bezugswert aus einer
+    frischen eigenen Messung ziehen, nicht aus `coverage_start:` uebernehmen.

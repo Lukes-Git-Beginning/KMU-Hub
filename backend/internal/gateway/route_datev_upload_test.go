@@ -170,6 +170,31 @@ func TestDatevHandleOAuthCallback_ValidState_RPCFailsRedirectsGenerically(t *tes
 	}
 }
 
+// TestDatevHandleOAuthCallback_ServiceUnavailableRedirects pins that a biz-gRPC
+// connection failure on this public, browser-redirect-only route still yields a
+// 302 with a datev_error code — never the raw 503 JSON body
+// respondServiceUnavailable would write on every other handler in this file.
+// DATEV redirects the browser straight here with no frontend fetch handler in
+// between, so a JSON body would render as a bare error page instead of sending
+// the user back to /settings/integrations.
+func TestDatevHandleOAuthCallback_ServiceUnavailableRedirects(t *testing.T) {
+	routes := NewDatevUploadRoutes(emptyRegistry(), "test-state-secret")
+	state, err := encodeBexioState("test-state-secret", "550e8400-e29b-41d4-a716-446655440000")
+	if err != nil {
+		t.Fatalf("encodeBexioState: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/finance/datev/oauth/callback?code=abc&state="+state, nil)
+	routes.HandleOAuthCallback(rec, req)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("status = %d, want %d (redirect, not the raw 503 JSON body)", rec.Code, http.StatusFound)
+	}
+	loc := rec.Header().Get("Location")
+	if !strings.Contains(loc, "datev_error=connection_failed") {
+		t.Errorf("Location = %q, want to contain %q", loc, "datev_error=connection_failed")
+	}
+}
+
 // ============================================================================
 // ServiceUnavailable / NoTenant — every handler below calls getDatevUploadClient
 // first and getTenantID second (HandleGetAuthURL checks the state secret before
