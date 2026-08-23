@@ -4016,3 +4016,66 @@ Frühere Läufe liegen vollständig im Archiv:
   - Die Feststellung "HardMode gilt in jeder ausgelieferten Umgebung" stützt sich auf die beiden
     Compose-Dateien im Repo; ob eine mögliche zukünftige dritte Compose-Variante (Staging o. ä.)
     denselben Wert setzt, wurde nicht geprüft, da keine solche Datei existiert.
+
+## Iteration 61 — scan-hardcoded-eur-vs-currency-column — done — 2026-08-23 06:41
+- commit: (siehe unten)
+- gebaut: reiner Scan, kein Produktionscode geändert. Vollständige Grundgesamtheit erhoben
+  (Explore-Subagent, gegen Datei:Zeile geprüft, nicht geraten):
+  WÄHRUNGSSPALTEN (15 Migrationen): deals, purchase_orders, finance_incoming_invoices,
+  inventory_items (nullable!), supplier_catalog_items, framework_contracts,
+  framework_contract_calls, finance_invoices, finance_credit_notes, finance_quotes,
+  company_settings.default_currency, finance_recurring_invoices, finance_bank_statements,
+  finance_bank_transactions, finance_bank_accounts — alle NOT NULL DEFAULT 'EUR' ausser
+  inventory_items. NEGATIVBEFUND: `finance_payments`
+  (`000045_create_finance_tables.up.sql:129-146`) hat bis heute KEINE currency-Spalte.
+  EUR-LITERALE: durchweg Fallback-Werte (models.DefaultCurrency, Parser-Fallback bei leerem
+  Feld, Banking-Matcher-Fallback, Deal/Bankkonto/Einkauf-Defaults) — kein Fund für sich.
+  AGGREGATE GEPRÜFT: DATEV-Export (pro Zeile, kein Cross-Doc-SUM — sauber), Offene-Posten
+  (`postgres_open_items.go:176-183` SUM...GROUP BY currency, bucket_index — sauber, currency-
+  aware gebaut), Banking-Matcher (`matcher.go:118-127` vergleicht Currency explizit vor dem
+  Settlement — sauber). DREI ECHTE FUNDE: (1) GetDashboardMetrics
+  (`dashboard/postgres_repository.go:34-38,86`) summiert/mittelt gross_total über ALLE
+  Rechnungen/Angebote eines Tenants OHNE Currency-Filter. (2) kpiSnapshotQuery/kpiSeriesQuery
+  (`berichte/downstream/kpi_postgres.go:53-65,126-138`) — AKTIV verdrahtet
+  (`cmd/berichte/main.go:58-60`) — summiert finance_invoices.gross_total UND deals.value ohne
+  Currency-Filter, obwohl deals.currency existiert; Ausgabe trägt hardcoded `Unit: "EUR"`
+  (`berichte/executor/executor.go:446,463`) — falsch beschriftete produktive Kennzahl, der
+  konkreteste Fund. (3) GoBDExportRow (`dunning/service_gobd.go:91-104`) hat kein
+  Currency-Feld, CSV (`buildGoBDCSV`) schreibt keine Währungsspalte — Fremdwährungszeilen im
+  GoBD-Export sind vom Steuerberater nicht mehr unterscheidbar.
+  HERKUNFT DER FREMDWÄHRUNG geklärt: einziger user-eingebbarer Weg ist
+  `CreateRecurringInvoiceRequest.currency` (proto `biz.proto:1378`) — Ad-hoc-Erstellung
+  `CreateInvoiceRequest` hat KEIN Currency-Feld, Quote/CreditNote nie user-eingebbar (Quote
+  = immer Tenant-Default, CreditNote erbt von der Original-Rechnung). Blast-Radius der drei
+  Funde ist also an "läuft mindestens eine Fremdwährungs-Recurring-Rechnung" gebunden, aber
+  real, sobald das zutrifft.
+  NEBENBEFUND ausserhalb des Scopes (gesperrtes Paket `internal/biz/bexio`, G3):
+  `resolveKMUHubCurrency` (`bexio/field_mapper.go:347-353`) gibt immer EUR zurück, unabhängig
+  von der echten Bexio-CurrencyID — bereits im Code-Kommentar als bekannte Lücke
+  dokumentiert, NICHT neu, NICHT als Unit angelegt (Bexio ist in diesem Lauf gesperrt), nur
+  in BACKLOG-NEXT.yml nachgetragen für den Fall einer künftigen Freigabe.
+  Die drei genannten Tests geprüft: `TestGenerateZUGFeRDXML_Currency{FromInvoice,
+  DefaultsToEUR}` bestätigen sauberen Durchgriff der Invoice-Währung in die ZUGFeRD-XML;
+  `TestSummarizeOpenItems_AggregatesByCurrencyAndBucket` testet trotz seines Namens KEINE
+  gemischten Währungen (beide Testrechnungen sind hart auf EUR gesetzt) — Namensversprechen
+  nicht eingelöst, aber kein Fund, da die zugrundeliegende SQL-Query tatsächlich currency-aware
+  ist (siehe Aggregate-Prüfung oben).
+- gate: n.a. (Scan-Unit, kein Produktionscode/keine Migration/kein Test angefasst)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geänderter Testfall)
+- verify vorgaenger: sauber. `c6495588` (Iteration 60, scan-finance-mutations-without-
+  idempotency-key) geprüft: `git show --stat` zeigt ausschliesslich BACKLOG.yml und
+  JOURNAL.md, kein Produktionscode — keine der acht Fehlerklassen einschlägig.
+- neue-units: fix-dashboard-metrics-blind-currency-sum, fix-berichte-kpi-blind-currency-sum,
+  fix-gobd-export-missing-currency-column (alle BACKLOG.yml, todo). Zusätzlich
+  BACKLOG-NEXT.yml-Eintrag "FREMDWÄHRUNG" mit den drei Funden abgeglichen und um zwei echte
+  Produktentscheidungen präzisiert (fehlende currency-Spalte auf finance_payments, Frage ob
+  Ad-hoc-Rechnungen Fremdwährung anbieten sollen) plus dem Bexio-Nebenbefund.
+- offen:
+  - Ob `fix-dashboard-metrics-blind-currency-sum` und `fix-berichte-kpi-blind-currency-sum`
+    dieselbe Filtern-vs-Gruppieren-Entscheidung treffen müssen, ist in beiden Units als
+    Abhängigkeit vermerkt, aber nicht technisch erzwungen (keine `deps:`-Kette, weil beide
+    unabhängig baubar sein sollen) — der bauende Iterationslauf muss die Schwester-Unit lesen.
+  - Die zwei echten Produktentscheidungen (Payment-Currency-Spalte, Ad-hoc-Invoice-Currency)
+    sind bewusst NICHT als Unit ausgeschrieben, weil beide eine Migration bzw. einen
+    Proto-Vertragswechsel voraussetzen — Luke entscheidet, dann Unit.

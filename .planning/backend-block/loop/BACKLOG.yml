@@ -2592,7 +2592,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz 63,7 % (CI-Stand 32570176303)"
     scope: >
       Das Produkt ist auf de-DE und EUR ausgelegt, trägt aber an mehreren Stellen eine
@@ -3673,3 +3673,125 @@ units:
       - npx @apidevtools/swagger-cli validate api/openapi.yaml grün
       - go test -count=1 ./internal/gateway/ grün (TestOpenAPIRouteDrift/-SpecDrift unverändert)
       - Kein Produktionscode/keine Middleware geändert, per Diff belegt
+
+# ==========================================================================================
+# Funde aus scan-hardcoded-eur-vs-currency-column (Iteration 61). Drei echte
+# Blind-Summierungen über Währungsgrenzen hinweg, alle mit Datei:Zeile belegt.
+# ==========================================================================================
+
+  - id: fix-dashboard-metrics-blind-currency-sum
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/dashboard (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      `GetDashboardMetrics` (`internal/biz/dashboard/postgres_repository.go:34-38`) summiert
+      `SUM(CASE WHEN status IN ('sent','paid','overdue') THEN gross_total ELSE 0 END)` über
+      ALLE `finance_invoices` eines Tenants im Zeitraum — ohne Currency-Filter oder
+      `GROUP BY currency`. Ebenso `:86`, `AVG(...)` über `finance_quotes`. Fremdwährungs-
+      Rechnungen entstehen im Produkt heute ausschließlich über wiederkehrende Rechnungen
+      (`CreateRecurringInvoiceRequest.currency`, proto `biz.proto:1378` — der einzige
+      user-eingebbare Currency-Weg; die Ad-hoc-Erstellung `CreateInvoiceRequest` hat kein
+      Currency-Feld). Sobald eine einzige CHF- oder USD-Recurring-Rechnung läuft, verfälscht
+      sie die Dashboard-Umsatzkennzahl, ohne dass irgendwo eine Fehlermeldung entsteht.
+    sources:
+      - backend/internal/biz/dashboard/postgres_repository.go
+      - backend/internal/models/finance.go
+      - backend/internal/biz/recurring/service.go
+    notes: >
+      Kein Multi-Currency-Dashboard bauen — das ist die Produktfrage aus Befund 6 unten, nicht
+      diese Unit. Der schlanke Fix: entweder nach `currency = 'EUR'` (bzw. Tenant-Default)
+      filtern und Fremdwährungsbeträge explizit aus der Kennzahl ausschließen (mit
+      `lean:`-Marker "Multi-Currency-Dashboard, wenn Kunde außerhalb EUR bucht"), oder nach
+      `currency` gruppieren und die Kennzahl als Map ausgeben. Erst prüfen, was der
+      Gateway-Handler/Frontend-Vertrag für `GetDashboardMetrics` heute an Form erwartet
+      (`internal/gateway/route_*dashboard*.go`) — ein Wire-Shape-Wechsel von Zahl auf Map wäre
+      ein Vertragsbruch und gehört nicht heimlich in diese Unit.
+      Test mit einer EUR- und einer CHF-Rechnung im selben Zeitraum, der belegt, dass die
+      Kennzahl die CHF-Zeile nicht mehr blind mitaddiert.
+    done_when:
+      - GetDashboardMetrics summiert Fremdwährungsbeträge nicht mehr blind in die
+        EUR-Kennzahl hinein — per Test mit gemischten Währungen belegt
+      - Entscheidung (Filtern vs. Gruppieren) ist im Journal begründet und gegen den
+        bestehenden Wire-Shape geprüft
+      - go test -count=1 ./internal/biz/dashboard/ grün
+
+  - id: fix-berichte-kpi-blind-currency-sum
+    phase: 4
+    service: berichte
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/berichte/downstream (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      `kpiSnapshotQuery` und `kpiSeriesQuery` (`internal/berichte/downstream/kpi_postgres.go:53-65`
+      und `:126-138`) summieren `SUM(gross_total) FROM finance_invoices` und
+      `SUM(value) FROM deals` ohne jeden Currency-Filter — obwohl `deals.currency`
+      (Migration `000009_create_deals.up.sql`) existiert und explizit ignoriert wird. Dieser
+      Pfad ist AKTIV verdrahtet (`cmd/berichte/main.go:58-60`, einziger nicht-nil
+      Downstream-Reader) und wird als KPI-Kachel mit hardcoded `Unit: "EUR"` ausgegeben
+      (`internal/berichte/executor/executor.go:446,463`) — die Kachel behauptet also
+      ausdrücklich, ein EUR-Betrag zu sein, obwohl er Fremdwährungsanteile enthalten kann.
+      Das ist der konkreteste Fund dieses Scans: eine produktiv laufende Kennzahl mit falscher
+      Einheitsbeschriftung.
+    sources:
+      - backend/internal/berichte/downstream/kpi_postgres.go
+      - backend/internal/berichte/executor/executor.go
+      - backend/cmd/berichte/main.go
+      - backend/migrations/000009_create_deals.up.sql
+    notes: >
+      Gleiche Güterabwägung wie in der Schwester-Unit `fix-dashboard-metrics-blind-currency-sum`
+      (Filtern vs. Gruppieren) — dort die Entscheidung nachlesen und NICHT unabhängig neu
+      treffen, wenn beide Pakete denselben Kennzahltyp (Umsatz) ausgeben; sonst zeigen
+      Dashboard und Berichte-KPI unterschiedliche Zahlen für dieselbe Frage.
+      `revenueByMonth`/`invoicesOpen`/`pipeline` in `executor.go:547-674` haben dasselbe
+      Muster (`total += r.Revenue` ohne Currency-Prüfung, `MonthlyRevenue` ohne
+      Currency-Feld überhaupt), sind aber laut `cmd/berichte/main.go:54-57` aktuell NICHT
+      verdrahtet (nil-Repos, liefert `emptyResult`) — toter Pfad, hier NICHT mitfixen, nur als
+      Kommentar an der Stelle vermerken, damit die künftige Verdrahtung nicht auf demselben
+      Fehler aufsetzt.
+    done_when:
+      - kpiSnapshotQuery und kpiSeriesQuery summieren Fremdwährungsbeträge nicht mehr blind
+        in eine als EUR beschriftete Kennzahl — per Test mit gemischten Währungen belegt
+      - Die Entscheidung ist konsistent mit fix-dashboard-metrics-blind-currency-sum
+      - Der tote Pfad in executor.go trägt einen Kommentar mit dem gleichen Fehler, ohne
+        selbst geändert zu werden
+      - go test -count=1 ./internal/berichte/... grün
+
+  - id: fix-gobd-export-missing-currency-column
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/dunning (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      `GoBDExportRow` (`internal/biz/dunning/service_gobd.go:91-104`) hat KEIN Currency-Feld,
+      und `buildGoBDCSV` (`:147-179`) schreibt keine Währungsspalte. `BuildGoBDRows`
+      (`internal/biz/dunning/gobd_rows.go:76-115`) gruppiert korrekt innerhalb eines
+      Dokuments, aber `GenerateGoBDExport` (`internal/server/biz_grpc.go:2494-2517`) lädt
+      Rechnungen und Gutschriften über den GESAMTEN Zeitraum ohne Currency-Filter in dieselbe
+      `rows`-Liste. Enthält der Export eine Fremdwährungsrechnung (siehe
+      fix-dashboard-metrics-blind-currency-sum: Recurring ist der einzige Weg dorthin), landet
+      ihr Betrag in derselben Spalte wie die EUR-Beträge, ohne jede Kennzeichnung — beim
+      Steuerberater nicht mehr unterscheidbar. Das ist ein GoBD-Nachvollziehbarkeitsproblem,
+      unabhängig vom Gruppierungsfehler aus `fix-gobd-export-tax-grouping-rate-key-collision`.
+    sources:
+      - backend/internal/biz/dunning/service_gobd.go
+      - backend/internal/biz/dunning/gobd_rows.go
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/biz/dunning/service_gobd_test.go
+    notes: >
+      Kleinstmöglicher Fix: `GoBDExportRow` bekommt ein `Currency`-Feld (aus dem Dokument, das
+      `BuildGoBDRows` sowieso schon liest), `buildGoBDCSV` schreibt eine zusätzliche Spalte.
+      Kein Verhalten sonst ändern — insbesondere nicht die Gruppierung selbst, die ist
+      Gegenstand der Schwester-Unit A1.
+      Test: ein Export mit einer EUR- und einer CHF-Zeile, der belegt, dass beide ihre eigene
+      Währung in der CSV tragen.
+    done_when:
+      - GoBDExportRow trägt die Dokumentwährung, die CSV schreibt sie als eigene Spalte
+      - Ein Test mit gemischten Währungen belegt beide Zeilen mit korrekter Spalte
+      - Keine Änderung an der Gruppierungslogik selbst
+      - go test -count=1 ./internal/biz/dunning/ ./internal/server/ grün

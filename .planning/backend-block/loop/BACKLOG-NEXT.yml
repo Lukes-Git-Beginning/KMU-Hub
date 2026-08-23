@@ -86,10 +86,32 @@
 #     an den Kunden — die Verdrahtung selbst ändert Produktionsverhalten und gehört Luke, nicht
 #     einer Nachtlauf-Iteration.
 #
-#   - FREMDWÄHRUNG: soll das Produkt sie können? Mehrere Tabellen tragen eine
-#     Währungsspalte, die E-Rechnung liest sie, andere Stellen nehmen EUR an. Der Lauf-11-Scan
-#     `scan-hardcoded-eur-vs-currency-column` liefert den Ist-Zustand; die Richtungsfrage ist
-#     eine Produktentscheidung.
+#   - FREMDWÄHRUNG: soll das Produkt sie können? Der Lauf-11-Scan
+#     `scan-hardcoded-eur-vs-currency-column` (Iteration 61) hat den Ist-Zustand geliefert:
+#     Fremdwährung entsteht heute AUSSCHLIESSLICH über wiederkehrende Rechnungen
+#     (`CreateRecurringInvoiceRequest.currency`, `biz.proto:1378`) — die Ad-hoc-Erstellung
+#     `CreateInvoiceRequest` hat KEIN Currency-Feld, ist also faktisch immer Tenant-Default
+#     (praktisch immer EUR). Drei echte Blind-Summierungen sind bereits als eigene Units in
+#     BACKLOG.yml angelegt (`fix-dashboard-metrics-blind-currency-sum`,
+#     `fix-berichte-kpi-blind-currency-sum`, `fix-gobd-export-missing-currency-column`) — die
+#     brauchen KEINE Produktentscheidung, sie schließen nur die Lücke bei bereits heute
+#     möglicher Fremdwährung.
+#     Zwei Punkte bleiben echte Produktentscheidungen, weil sie eine Migration bzw. einen
+#     Proto-Vertragswechsel voraussetzen:
+#     (a) `finance_payments` (Migration `000045_create_finance_tables.up.sql:129-146`) hat bis
+#         heute KEINE `currency`-Spalte — Zahlungen tragen keine Währungsangabe, der
+#         Offene-Posten-Abgleich (`payment/postgres_repository.go:128-133`) vertraut
+#         ungeprüft darauf, dass eine Zahlung in Rechnungswährung erfasst wurde.
+#     (b) Soll Ad-hoc-Rechnungserstellung (`CreateInvoiceRequest`) überhaupt Fremdwährung
+#         anbieten, oder bleibt das bewusst der Recurring-Rechnung vorbehalten?
+#     Beide erst entscheiden, dann als Unit ausschreiben (Migration + Proto-Regen +
+#     Wire-Shape-Prüfung).
+#     NEBENBEFUND, NICHT LOOP-RELEVANT (gesperrtes Paket `internal/biz/bexio`, siehe
+#     BACKLOG.yml-Kopf "GESPERRT IN DIESEM LAUF"): `resolveKMUHubCurrency`
+#     (`bexio/field_mapper.go:347-353`) gibt IMMER `models.DefaultCurrency` zurück, unabhängig
+#     von der tatsächlichen Bexio-`CurrencyID` — eine CHF-Rechnung aus Bexio wird im
+#     KMU-Hub-Spiegel als „EUR" importiert. Bereits im Code-Kommentar als bekannte Lücke
+#     dokumentiert (Z.349-350). Erst relevant, falls Bexio je wieder freigegeben wird.
 #
 #   - TESTSTRATEGIE `//go:build integration`: elf Testdateien laufen nur im separaten CI-Job
 #     "Finance & HR Integration Tests" und zählen nicht in der Coverage. Ob sie umgestellt
