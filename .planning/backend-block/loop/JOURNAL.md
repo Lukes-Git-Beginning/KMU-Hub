@@ -1719,3 +1719,80 @@ Frühere Läufe liegen vollständig im Archiv:
   (`models/finance.go:70`), also kein Bug, nur eine kleine Stilinkonsistenz gegenueber
   `service.go:566`, das dieselbe Konstante fuer `NextNumberInTx` verwendet. Nicht angefasst, weil
   ausserhalb des Scopes dieser Coverage-Unit und ohne Verhaltensaenderung.
+
+## Iteration 31 — cov-invoice-repository-status-and-lock-columns-real-sql — done — 2026-08-23 02:34
+- commit: PENDING (siehe naechste docs(loop)-Iteration)
+- gebaut: `UpdateStatus`/`UpdateStatusInTx`/`SetLock` (postgres_repository.go:363/375/386) auf
+  Statusübergangs- und Sperr-Interaktion untersucht statt nur Zeilen abzudecken. SetLock war
+  bereits aus Iteration 29 real-SQL-getestet (postgres_repository_lock_db_test.go) — diese
+  Iteration deckt den fehlenden Rest: UpdateStatus/UpdateStatusInTx.
+  ECHTER FUND UND GEFIXT: die schmalen Statuspfade umgehen genau die Prüfung, die die Scope-
+  Beschreibung vermutet hat. `invoice.Service.MarkPaid`/`Cancel` prüfen `isInvoiceLocked(inv)`
+  vor jedem `UpdateStatus`-Aufruf (GoBD §146 Sperrbarriere) — aber `internal/biz/payment`
+  bekommt in `cmd/biz/main.go:164` (`payment.NewService(paymentRepo, invoiceRepo, invoiceRepo,
+  pool)`) den ROHEN `invoiceRepo` direkt als `InvoiceStatusUpdater` verdrahtet, nicht
+  `invoice.Service`. `payment.Service.transitionToPaidInTx` (automatischer Statuswechsel auf
+  "paid", sobald Zahlungen den Bruttobetrag decken) und `revertPaidStatusInTx` (Rückabwicklung
+  beim Löschen der letzten Zahlung) riefen `UpdateStatusInTx` also OHNE jede Sperrprüfung auf.
+  Konkretes Szenario: `LockInvoice` erlaubt das Sperren einer "sent"-Rechnung (noch nicht
+  bezahlt) — kommt danach eine Zahlung rein, die den Betrag deckt (z. B. per Bank-Matching über
+  `banking` -> `paymentSvc`), flippt der Status still auf "paid", obwohl die Rechnung
+  administrativ unveränderlich ist. Root-Cause-Fix: `inv.LockedAt != nil`-Guard in beiden
+  Funktionen (payment/service.go), Payment-Aufzeichnung/-Löschung selbst bleibt erlaubt (das
+  Geld ist real), nur der Statuswechsel wird übersprungen (mit `slog.Warn`, gleiches Muster wie
+  `DetectOverdue`s bestehender `isInvoiceLocked`-Skip aus Iteration 29).
+  `creditnote.Service.StornoInvoice` ruft `UpdateStatusInTx` ebenfalls direkt auf demselben
+  `invoiceRepo` auf, ist aber NICHT betroffen: erreichbar ausschließlich über
+  `invoice.Service.Cancel()` als `stornoCreator` (per Grep in `internal/server/*.go` bestätigt,
+  kein direkter gRPC-Aufruf), und `Cancel()` prüft `isInvoiceLocked` bereits VOR dem Aufruf.
+  ZWEITER FUND (dokumentiert, nicht gefixt — Design-Entscheidung, keine Lücke): das Repository
+  selbst kennt `locked_at` in keiner UPDATE-WHERE-Klausel; `UpdateStatus` flippt eine gesperrte
+  Rechnung klaglos (`TestPostgresRepository_UpdateStatus_IgnoresLock`, neu). Ein SQL-seitiger
+  Filter (`AND locked_at IS NULL`) wurde geprüft und verworfen: `UpdateStatus`/`UpdateStatusInTx`
+  prüfen betroffene Zeilen heute nirgends (weder für Tenant-Mismatch noch für "nicht gefunden"),
+  ein stiller 0-Zeilen-Erfolg würde bei `transitionToPaidInTx` zu einer FALSCHEN
+  "invoice auto-transitioned to paid"-Logzeile führen, obwohl nichts geschrieben wurde — ein
+  neuer, subtilerer Fehler als der ursprüngliche. Die Sperrprüfung gehört deshalb bewusst in die
+  aufrufende Schicht (dort, wo bereits `inv` mit aktuellem `LockedAt` vorliegt), nicht ins SQL.
+  Übrige `done_when`-Punkte real-SQL bewiesen: Cross-Tenant-Update betrifft 0 Zeilen
+  (`TestPostgresRepository_UpdateStatus_CrossTenantIsNoop`), zurückgerollte
+  `UpdateStatusInTx`-Transaktion hinterlässt nichts
+  (`TestPostgresRepository_UpdateStatusInTx_RollbackLeavesNothing`), sowie ein einfacher
+  Roundtrip-Test (`TestPostgresRepository_UpdateStatus_PersistsAndRoundTrips`).
+- gate: build ok (`./internal/biz/invoice/... ./internal/biz/payment/...`) | vet ok | lint ok
+  (0 issues, beide Pakete) | test ok (`go test -count=1 -v ./internal/biz/invoice/`,
+  DATABASE_URL gegen kmuhub_app, 0 SKIP, alle PASS inkl. 4 neuer DB-Tests) | test ok
+  (`go test -count=1 -v ./internal/biz/payment/`, alle PASS inkl. 2 neuer Mock-Tests) | test ok
+  (`go test -count=1 -p 1 ./internal/biz/invoice/... ./internal/biz/payment/...`) | test ok
+  (`go test -count=1 ./internal/gateway/` — keine Routenänderung, trotzdem pflichtgemäß
+  gelaufen) | migration n.a. (keine Schema-Änderung) | rls-smoke n.a. (keine Tabellen-/
+  Policy-Änderung, nur Statuswert-Schreibpfad)
+- coverage: internal/biz/invoice 59,4 % (eigene Messung vor dieser Iteration, `go tool cover
+  -func`, stimmt mit Iteration-30-Endwert überein) -> 59,9 % | internal/biz/payment 84,8 %
+  (eigene Messung vor dieser Iteration) -> 85,4 % (beide eigene Messungen nach Fix+Tests, gleiche
+  Methode, via `git stash`/`pop` der eigenen Änderungen isoliert)
+- mutations-probe: gegen eine `cp`-Sicherungskopie (nicht `git checkout`), zurückgeschrieben,
+  `diff` gegen die Kopie am Ende identisch (0 Zeilen Unterschied). (a) Lock-Guard in
+  `transitionToPaidInTx` auf `if false` verstümmelt -> `TestRecord_NoAutoTransitionWhenInvoiceLocked`
+  rot (Statuswechsel auf "paid" fand trotz Sperre statt). (b) Lock-Guard in
+  `revertPaidStatusInTx` auf `if false` verstümmelt -> `TestDelete_NoRevertWhenInvoiceLocked` rot
+  (Rückabwicklung fand trotz Sperre statt). Finaler `git diff --stat` zeigt nur die
+  beabsichtigte 23-Zeilen-Ergänzung an payment/service.go.
+- verify vorgaenger: sauber — `517f9226` (Iteration 30) begrenzt nur den Sequenzteil der
+  Rechnungsnummer-Regex auf `\d{4,10}` (1 Zeile Code plus Kommentar) und fügt Tests hinzu (per
+  `git show --stat` und Diff geprüft). Keine der acht Fehlerklassen einschlägig: kein
+  gRPC-Handler berührt, kein Stub/TODO/Unimplemented, kein `.proto`, keine Migration, kein neuer
+  Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein ersetzter Guard-Key.
+- neue-units: keine — der Fund (payment umgeht die Sperrprüfung) war root-cause-fixbar innerhalb
+  dieser Unit (zwei Guards in payment/service.go, im Scope über die genannte "Zusammenspiel mit
+  B13"-Notiz bereits vorgesehen); der zweite Fund (Repository kennt keine Sperre) ist eine
+  bewusste, im Journal begründete Design-Entscheidung, keine offene Lücke, die eine Folge-Unit
+  bräuchte.
+- offen: (1) DB-Gate lief vollständig: DATABASE_URL als kmuhub_app, 0 übersprungene Tests in
+  beiden Paketen. (2) Fachliche Randnotiz für Luke: `payment.Record()` erlaubt weiterhin explizit
+  das Aufzeichnen einer Zahlung auf einer gesperrten Rechnung (nur der automatische
+  Statuswechsel wird übersprungen) — das ist beabsichtigt (das Geld ist real angekommen), aber
+  falls das GoBD-Konzept vorsieht, dass auch die Zahlungserfassung selbst gegen eine gesperrte
+  Rechnung blockiert werden soll, ist das eine Produktentscheidung außerhalb dieser Unit. (3)
+  `banking`-Service matcht Bankbewegungen über `paymentSvc` (kein direkter `invoiceRepo`-Zugriff,
+  per Grep bestätigt) — profitiert also automatisch vom selben Fix, ohne eigene Änderung nötig.

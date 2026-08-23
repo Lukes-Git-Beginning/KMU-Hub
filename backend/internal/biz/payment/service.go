@@ -230,6 +230,19 @@ func (s *Service) transitionToPaidInTx(ctx context.Context, tx pgx.Tx, tenantID,
 		return nil
 	}
 
+	// GoBD §146: an administratively locked invoice is technically immutable, same
+	// barrier invoice.Service.MarkPaid enforces via isInvoiceLocked. This service
+	// writes the status column through a narrow InvoiceStatusUpdater that bypasses
+	// invoice.Service entirely (cmd/biz/main.go wires the raw repository), so the
+	// lock check has to be repeated here rather than inherited.
+	if inv.LockedAt != nil {
+		slog.Warn("skipped auto-transition-to-paid for locked invoice",
+			"invoice_id", invoiceID,
+			"tenant_id", tenantID,
+		)
+		return nil
+	}
+
 	totalPaid, err := s.repo.SumByInvoiceIDInTx(ctx, tx, tenantID, invoiceID)
 	if err != nil {
 		return fmt.Errorf("sum payments: %w", err)
@@ -254,6 +267,16 @@ func (s *Service) transitionToPaidInTx(ctx context.Context, tx pgx.Tx, tenantID,
 // payment is deleted and the remaining total no longer covers the invoice amount,
 // within the caller's transaction (atomic with the deletion).
 func (s *Service) revertPaidStatusInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID, inv *models.Invoice) error {
+	// GoBD §146: same immutability barrier as transitionToPaidInTx above — a locked
+	// invoice's status must not flip even when its last payment is deleted.
+	if inv.LockedAt != nil {
+		slog.Warn("skipped revert-from-paid for locked invoice",
+			"invoice_id", invoiceID,
+			"tenant_id", tenantID,
+		)
+		return nil
+	}
+
 	totalPaid, err := s.repo.SumByInvoiceIDInTx(ctx, tx, tenantID, invoiceID)
 	if err != nil {
 		return fmt.Errorf("sum payments: %w", err)
