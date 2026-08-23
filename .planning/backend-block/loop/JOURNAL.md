@@ -3849,3 +3849,66 @@ Frühere Läufe liegen vollständig im Archiv:
     manueller Prüfung — eine erschöpfende Tabelle-für-Tabelle-Bewertung über alle
     FK-Transitivitäten (139 FKs auf users, 154 auf contacts/users laut Lauf 10) wurde
     nicht geleistet und würde den Rahmen eines einzelnen Scans sprengen.
+
+## Iteration 58 — scan-money-rounding-and-tax-call-sites — done — 2026-08-23 06:47
+- commit: -
+- gebaut: reiner Scan, kein Produktionscode geändert (Scan-Unit-Regel). Ein Explore-
+  Subagent hat alle fünf Aufrufer von `internal/biz/tax` (invoice, creditnote, quote,
+  recurring, server/biz_grpc.go) sowie alle unabhängigen `.Round(`/`.Div(`/`.Mul(`-Stellen
+  auf `decimal.Decimal` in `internal/` erfasst (16 Fundorte, davon 3 Testdateien) und je
+  Stelle die drei Fragen (Geld oder anderes? gleiche Rundungsebene wie biz/tax? Aussenwirkung?)
+  beantwortet.
+  KERNBEFUND — systemische ungerundete `LineTotal`-Speicherung: alle vier Service-Aufrufer
+  von `tax.Calculate` (invoice/service.go:151+473, creditnote/service.go:100,
+  quote/service.go:121+305, recurring/service.go:482) rechnen `LineTotal` nach dem
+  Tax-Aufruf ein zweites Mal selbst — `Quantity.Mul(UnitPrice)`, UNGERUNDET — statt den
+  bereits gerundeten Zeilenwert zu übernehmen, den `biz/tax/calculator.go:73`
+  (`item.Quantity.Mul(item.UnitPrice).Round(2)`) intern für Subtotal/TaxByRate/GrossTotal
+  verwendet. Bei glatten Mengen unsichtbar, bei Bruchmengen (typischerweise Stunden aus der
+  Zeiterfassung) entstehen 3-4 Nachkommastellen. Konkreter, bereits real existierender
+  Auslöser: `server/biz_grpc.go:2058-2059` — Stunden sauber gerundet, `hours.Mul(hourlyRate)`
+  danach nicht. Zwei bestätigte Aussenwirkungen: (1) `datev/exporter.go:259-267` vertraut dem
+  gespeicherten `LineTotal` direkt und rundet nur den finalen Bruttobetrag — der einzige
+  Steuerberater-Export im Code, der das Netto nicht vor der Steuerableitung rundet, anders als
+  `gobd_rows.go` und `generator_doc.go`; (2) `biz_grpc.go:1757` sendet
+  `item.LineTotal.String()` (beliebige Präzision) unverändert auf den gRPC-Draht für die
+  Desktop-Rechnungsansicht. `bexio/field_mapper.go:303` importiert ebenfalls ungerundet und
+  tritt über `toLineItems` in denselben Erzeugungspfad ein — kein separater Fund, gleicher
+  Root Cause.
+  EINGEORDNET, KEIN FUND: `einvoice/generator_doc.go`/`parser.go` runden absichtlich auf
+  USt-Gruppen-Ebene (EN 16931/BR-CO-17), bereits in `fix-tax-rounding-divergence-across-
+  implementations` behandelt und per Roundtrip-Test belegt — nicht Teil dieses Scans.
+  `datev/exporter.go`s Brutto-Rundung selbst ist beabsichtigt (kein Gruppentotal zum Runden
+  vorhanden), nur das ungerundete Netto als Eingabe ist der Fund. `expense/service.go:283`,
+  `dashboard/*` (Konversionsrate, Ø-Dealgrösse, Forecast), `berichte/executor.go:530-536`
+  (Prozent-Änderung) und `route_biz_document_chains.go:73-90` sind Dashboard-/Anzeige-Metriken
+  bzw. bereits in Iteration 54 als wirkungslos belegt (Quellspalten NUMERIC(15,2),
+  Bestätigung erneut geprüft: hält). `pdf/templates.go:154` rechnet nur für die
+  Anzeige (`formatEUR`/`StringFixed(2)`), der Wert fliesst nirgends zurück in Speicherung
+  oder Export. `work/timeentry`/`work_grpc.go`-Stundenrundungen sind `float64`-Dauer, kein
+  Geld, kategorial ausserhalb des Scan-Ziels.
+  BEOBACHTET, BEWUSST KEINE EIGENE UNIT: `biz_grpc_einvoice.go:175` sendet `StringFixed(4)`
+  statt der sonst durchgängigen 2-Dezimalstellen-Konvention im eInvoice-Import-Vorschaupfad —
+  Präzisions-Inkonsistenz, aber kein nachgewiesenes Fehlergebnis (nur mehr Nachkommastellen
+  in einer Vorschau), deshalb im Journal vermerkt statt als Fix-Unit angelegt.
+  B21/C16 (im Backlog-Scope-Text referenzierte Meldestellen): keine neuen Einträge im
+  JOURNAL.md seit Anlage dieser Unit gefunden — nichts einzuarbeiten ausser dem bereits in den
+  Notes der Unit dokumentierten, in Iteration 54 beantworteten `route_biz_document_chains.go`-
+  Fund (erneut bestätigt, s.o.).
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — die neue Unit
+  `fix-unrounded-line-total-in-invoice-service-callers` trägt ihr eigenes go test als
+  done_when, die Sammel-Unit baut nichts)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geänderter Testfall)
+- verify vorgaenger: sauber. `d5daa61d` (Iteration 57, scan-retention-mapping-remaining-
+  services) geprüft: `git show --stat` zeigt ausschliesslich BACKLOG-NEXT.yml, BACKLOG.yml und
+  JOURNAL.md, kein Produktionscode — keine der acht Fehlerklassen einschlägig.
+- neue-units: fix-unrounded-line-total-in-invoice-service-callers (BACKLOG.yml, todo)
+- offen:
+  - fix-unrounded-line-total-in-invoice-service-callers braucht zuerst einen Blick in
+    `tax.Calculate`s Rückgabetyp: gibt die Funktion das bereits gerundete Zeilen-LineTotal
+    zurück (dann Wiederverwendung statt Neuberechnung, der eigentliche Root-Cause-Fix), oder
+    nicht (dann vier explizite `.Round(2)`-Ergänzungen).
+  - `biz_grpc_einvoice.go:175` (StringFixed(4) statt 2 Dezimalstellen) ist notiert, aber nicht
+    als Unit angelegt — falls ein künftiger Scan dort ein echtes Fehlergebnis nachweist, dort
+    ansetzen.

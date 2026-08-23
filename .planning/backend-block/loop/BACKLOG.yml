@@ -2457,7 +2457,7 @@ units:
     service: biz
     model: sonnet
     deps: [fix-tax-rounding-divergence-across-implementations]
-    status: todo
+    status: done
     coverage_start: "internal/biz 63,7 % (CI-Stand 32570176303)"
     scope: >
       Nach A1 bis A4 und B18/B21 ist die Steuerarithmetik an mehreren Stellen angefasst worden.
@@ -3542,3 +3542,86 @@ units:
       - Mutations-Probe: eine Grenzbedingung (expires_at-Vergleich oder accepted_at-Filter)
         testweise gebrochen, Test wird rot, zurueckgedreht
       - go test -count=1 ./internal/security/gdpr/ ./internal/auth/... gruen
+
+  - id: fix-unrounded-line-total-in-invoice-service-callers
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/invoice, internal/biz/datev (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      Fund aus `scan-money-rounding-and-tax-call-sites` (Lauf 11, Iteration 58). Alle vier
+      Aufrufer von `internal/biz/tax` in `internal/biz/*/service.go` (invoice, creditnote,
+      quote, recurring) rechnen `LineTotal` NACH dem Aufruf von `tax.Calculate` ein zweites
+      Mal selbst aus — `Quantity.Mul(UnitPrice)`, UNGERUNDET (invoice/service.go:151+473,
+      creditnote/service.go:100, quote/service.go:121+305, recurring/service.go:482 in
+      `priceLineItems`). `tax.Calculate` selbst rundet intern je Zeile
+      (`biz/tax/calculator.go:73`, `lineTotal := item.Quantity.Mul(item.UnitPrice).Round(2)`),
+      aber dieser gerundete Wert fliesst nur in Subtotal/TaxByRate/GrossTotal ein — die
+      Service-Schicht verwendet ihn NICHT fuer die eigene, separat gespeicherte `LineTotal`.
+      Bei glatten Mengen (z. B. Stueckzahl 3, Preis 10,00) faellt das nie auf. Bei
+      Bruchmengen (Nachkommastellen bei Menge, typischerweise Stunden aus der Zeiterfassung)
+      entsteht ein `LineTotal` mit mehr als zwei Nachkommastellen, das unveraendert
+      gespeichert wird.
+      Konkreter, bereits nachgewiesener Ausloeser: `internal/server/biz_grpc.go:2058-2059`
+      rechnet `hours := ...Round(2)` (Dauer sauber gerundet), dann
+      `lineTotal := hours.Mul(hourlyRate)` (Betrag NICHT gerundet) fuer Rechnungen aus der
+      Zeiterfassung — ein nicht-glatter Stundensatz mal gerundete Stunden ergibt routinemaessig
+      3-4 Nachkommastellen.
+      Zwei bestaetigte Aussenwirkungen des gespeicherten, ungerundeten `LineTotal`:
+      1. `internal/biz/datev/exporter.go:259-267` (`writeBookingLine`) vertraut dem
+         gespeicherten `LineTotal` direkt und rundet nur den finalen Bruttobetrag — der Netto-
+         Wert, der in den DATEV-Buchungssatz einfliesst, ist damit nicht selbst zweistellig
+         sauber, obwohl jede andere Steuerberater-Export-Stelle im Code (`gobd_rows.go`,
+         `generator_doc.go`) das Netto VOR der Steuerableitung rundet.
+      2. `internal/server/biz_grpc.go:1757` (`parseProtoLineItems`) sendet
+         `item.LineTotal.String()` unveraendert (beliebige Praezision) auf den gRPC-Draht fuer
+         die Desktop-Rechnungsansicht.
+    sources:
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/creditnote/service.go
+      - backend/internal/biz/quote/service.go
+      - backend/internal/biz/recurring/service.go
+      - backend/internal/biz/tax/calculator.go
+      - backend/internal/biz/datev/exporter.go
+      - backend/internal/server/biz_grpc.go
+    notes: >
+      ERST pruefen, ob `tax.Calculate` sein bereits gerundetes Zeilen-`LineTotal` im
+      Rueckgabewert mitgibt (Blick in `calculator.go`, Rueckgabetyp der Funktion). Falls ja, ist
+      der eigentliche Root-Cause-Fix, dass die vier Service-Aufrufer DIESEN Wert
+      wiederverwenden statt `Quantity.Mul(UnitPrice)` ein zweites Mal selbst und ungerundet zu
+      rechnen — dann existiert die Rechenlogik nur noch an einer Stelle (Lean Code: Bug-Fix
+      am Root, nicht als vier Einzel-Guards). Gibt `tax.Calculate` diesen Wert nicht zurueck,
+      ist die schlankere Alternative, an allen vier Stellen explizit `.Round(2)` zu ergaenzen
+      UND zu dokumentieren, warum die Neuberechnung ueberhaupt noetig ist statt Wiederverwendung.
+      `internal/biz/bexio/field_mapper.go:303` rechnet beim Bexio-Import ebenfalls ein
+      ungerundetes `total := qty.Mul(unit)`, das anschliessend ueber `toLineItems`
+      (`invoice/service.go:856`) in denselben Erzeugungspfad eintritt — mit demselben Fix
+      erledigt sich dieser Fall automatisch, keine eigene Aenderung dort noetig.
+      NICHT anfassen: `einvoice/generator_doc.go` und `einvoice/parser.go` runden absichtlich
+      auf USt-Gruppen-Ebene (EN 16931 / BR-CO-17, bereits in
+      `fix-tax-rounding-divergence-across-implementations` behandelt und getestet) — das ist
+      eine andere, bewusste Abweichung und gehoert nicht in diese Unit.
+      `internal/biz/pdf/templates.go:154` rechnet zwar auch frisch, aber nur fuer die
+      Anzeige (`formatEUR`/`StringFixed(2)`), der Wert fliesst nirgends zurueck in
+      Speicherung oder Export — kein Fund, nicht anfassen.
+      `internal/server/biz_grpc_einvoice.go:175` sendet `StringFixed(4)` statt der sonst
+      durchgaengigen 2-Dezimalstellen-Konvention fuer den eInvoice-Import-Vorschau-Pfad — im
+      Scan als Praezisions-Inkonsistenz vermerkt, aber NICHT als eigener Fund uebernommen: kein
+      falsches Ergebnis nachgewiesen, nur mehr Nachkommastellen in einer Vorschau. Bei Bedarf
+      separat pruefen, nicht Teil dieser Unit.
+    done_when:
+      - Root Cause dokumentiert: rechnet `tax.Calculate` ein gerundetes Zeilen-LineTotal
+        zurueck, das wiederverwendbar ist, oder nicht (Kommentar am Rueckgabetyp bzw. an
+        jeder der vier Aufrufstellen)
+      - Alle vier Aufrufer (invoice, creditnote, quote, recurring) liefern ein auf 2
+        Dezimalstellen gerundetes LineTotal, konsistent mit `tax.Calculate`s eigener Rundung
+      - Ein Regressionstest mit einer Bruchmenge (z. B. 2,25 Stunden * 83,33 Stundensatz)
+        belegt, dass das gespeicherte LineTotal 2 Dezimalstellen hat und `datev/exporter.go`
+        daraus einen sauberen Bruttobetrag ableitet
+      - Mutations-Probe: die neue Rundung testweise entfernt/gebrochen, Test wird rot,
+        zurueckgedreht, Diff sauber
+      - go test -count=1 ./internal/biz/invoice/ ./internal/biz/creditnote/
+        ./internal/biz/quote/ ./internal/biz/recurring/ ./internal/biz/datev/
+        ./internal/biz/bexio/ ./internal/server/ gruen
