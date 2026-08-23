@@ -1622,7 +1622,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/recurring 88,1 % (CI-Stand 32570176303)"
     scope: >
       Wiederkehrende Rechnungen erzeugen unbeaufsichtigt Geldbelege. Der Generierungslauf ist
@@ -3119,3 +3119,70 @@ units:
         Service.Import zweimal ueber goroutines) mit identischem Hash und belegt, dass
         beide Aufrufer eine gueltige ImportResult-Antwort bekommen, keiner einen 500
       - go test -count=1 ./internal/biz/banking/ gruen, DATABASE_URL gegen kmuhub_app
+
+  - id: fix-invoice-number-unique-index-blocks-second-draft
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltensfund aus cov-recurring-generation-run-real-sql, Lauf 11 Iteration 38)"
+    scope: >
+      Verifizierter Produktionsbug, gefunden beim Bau von echten SQL-Tests fuer
+      `recurring.Service.Generate`. `finance_invoices.invoice_number` ist
+      `VARCHAR(30) NOT NULL DEFAULT ''` (`migrations/000045_create_finance_tables.up.sql:75`)
+      — ein Entwurf traegt also immer den leeren String, nicht NULL, bis `Send` eine echte
+      Nummer vergibt. Der Unique-Index `idx_finance_invoices_number ON
+      finance_invoices(tenant_id, invoice_number)` (Zeile 184) ist NICHT partiell (kein
+      `WHERE invoice_number <> ''`). Folge: EIN Tenant kann zu jedem Zeitpunkt hoechstens
+      EINEN unversendeten Entwurf haben — ein zweiter `Create`-Aufruf (egal ob manuell,
+      aus einem zweiten wiederkehrenden Zeitplan, aus einer Quote-Konversion oder aus
+      einem zweiten `recurring.Generate`-Lauf fuer eine andere, noch offene Periode
+      derselben Rechnung) schlaegt mit einem rohen Postgres-Fehler fehl:
+      `insert finance_invoices: ERROR: duplicate key value violates unique constraint
+      "idx_finance_invoices_number" (SQLSTATE 23505)` — kein sprechender Anwendungsfehler,
+      ein 500 in der API.
+      Live reproduziert (nicht nur gelesen): ein Test, der fuer denselben Tenant zwei
+      unabhaengige `recurring.Service.Generate`-Perioden nacheinander erzeugte (ohne die
+      erste zwischendurch zu versenden), scheiterte genau an diesem Constraint —
+      `internal/biz/recurring/service_db_test.go` (Iteration 38) musste dafuer die erste
+      Rechnung testweise ueber `invSvc.Send` versenden, um den echten Bug zu umgehen; siehe
+      Kommentar dort und in `newRealService`.
+      `finance_quotes.quote_number` und `finance_credit_notes.credit_note_number` tragen
+      denselben Default-Musterfehler (`NOT NULL DEFAULT ''`), haben aber KEINEN Unique-Index
+      auf die Nummer — geprueft per `pg_indexes` gegen die lokale DB, 2026-08-23. Nur
+      `finance_invoices` hat den Index und ist damit betroffen.
+    sources:
+      - backend/migrations/000045_create_finance_tables.up.sql
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/invoice/postgres_repository.go
+      - backend/internal/biz/recurring/service_db_test.go
+    notes: >
+      ROOT CAUSE ist die Migration, nicht der Go-Code — `Create` setzt `InvoiceNumber: ""`
+      ganz bewusst (`service.go:213`, Kommentar "Assigned when sent"), das ist korrekt so.
+      Der schlanke Fix ist eine neue Forward-Migration, die den bestehenden Index durch
+      einen partiellen ersetzt: `DROP INDEX idx_finance_invoices_number;
+      CREATE UNIQUE INDEX idx_finance_invoices_number ON finance_invoices(tenant_id,
+      invoice_number) WHERE invoice_number <> '';` — leere Strings sind dann beliebig oft
+      erlaubt, echte Nummern bleiben pro Tenant eindeutig. `.down.sql` muss den Original-
+      Index (ohne WHERE) wiederherstellen; VORHER pruefen, ob in Produktion inzwischen
+      bereits mehrere Zeilen mit leerem `invoice_number` pro Tenant existieren (sollte laut
+      Bug unmoeglich sein, ist aber vor einer produktiven Migration zu verifizieren, nicht
+      anzunehmen).
+      Migrationskopf zur Laufzeit ermitteln (`ls backend/migrations | grep -E
+      "^[0-9]{6}" | sort | tail -1`), NICHT die hier genannte Nummer 000045 uebernehmen.
+      Nach der Migration: `internal/biz/recurring/service_db_test.go` kann den
+      `invSvc.Send`-Workaround in `TestGenerate_RealSQL_MonthEndScheduleStaysAnchored`
+      wieder entfernen (mit Kommentar-Verweis auf diese Unit) — das ist ein optionales
+      Aufraeumen, kein Muss.
+    done_when:
+      - Der Unique-Index auf finance_invoices(tenant_id, invoice_number) ist partiell
+        (WHERE invoice_number <> ''), per neuer Forward-Migration mit gefuellter .down.sql
+      - Ein Test belegt: zwei Create()-Aufrufe fuer denselben Tenant, beide Entwuerfe ohne
+        Nummer, gelingen beide (kein Unique-Violation-Fehler mehr)
+      - Ein Test belegt: zwei ECHTE Nummern fuer denselben Tenant bleiben weiterhin
+        eindeutig (der Schutzzweck des Index ist nicht verloren gegangen)
+      - Produktionsdaten sind vor der Migration auf bereits vorhandene Mehrfach-Leerstrings
+        pro Tenant geprueft, Ergebnis im Journal
+      - go test -count=1 ./internal/biz/invoice/ ./internal/biz/recurring/ gruen,
+        DATABASE_URL gegen kmuhub_app
