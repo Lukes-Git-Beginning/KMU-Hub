@@ -4138,3 +4138,66 @@ Frühere Läufe liegen vollständig im Archiv:
     `DeletePayment`/`DeleteFinanceTransaction` einen neuen Fehler (z.B. `ErrInvoiceLocked` aus
     dem invoice-Paket oder ein eigener) bereits auf einen HTTP-Code mappt oder ob dafür Code
     in `internal/gateway` nötig wird — im Scan nicht geprüft, gehört in die bauende Iteration.
+
+## Iteration 63 — scan-finance-logs-error-leakage-and-pii — done — 2026-08-23 06:57
+- commit: -
+- gebaut: nichts am Produktionscode (Scan-Unit, aendert kein Verhalten). Fortsetzung von
+  `scan-gateway-sql-error-leakage`/`scan-gateway-pii-in-logs` (Lauf 10), diesmal gezielt auf die
+  Finanzflaeche: Bankdaten (IBAN/Kontoinhaber), Betraege in Verbindung mit Kundennamen,
+  Steuernummern/USt-IdNr., DATEV-/Lexware-Zugangsdaten, SQL-Fehlermeldungen auf Geldpfaden.
+  Geprueft (nach Wortstaemmen, nicht Einzelfeldnamen):
+  - Alle `slog.*`-Aufrufe in `internal/biz/invoice`, `internal/biz/quote`,
+    `internal/biz/creditnote`, `internal/biz/payment`, `internal/biz/dunning`,
+    `internal/biz/recurring`, `internal/biz/banking`, `internal/biz/datev` (oauth.go,
+    upload_service.go, uploader.go, belegbilder.go), `internal/biz/lexware`, `internal/biz/bexio`
+    — durchweg IDs (invoice_id/tenant_id/quote_id/payment_id/dunning_id), Status, Zaehlwerte und
+    Betraege OHNE begleitenden Kunden-/Personennamen. Kein Fund nach dem Muster "Betrag +
+    Kundenname im selben Log-Aufruf".
+  - `iban`/`Iban`/`IBAN`/`account_number`/`bank_account`/`kontoinhaber` ueber `internal/biz/banking`
+    und `internal/gateway/route_biz_bank_accounts*.go`/`route_biz_bank_transactions*.go`: IBAN wird
+    kanonisch gespeichert und beim Rausgeben formatiert (`dachfmt.FormatIBAN`), Validierungsfehler
+    sind bereits per Test abgesichert, dass die zurueckgewiesene IBAN NICHT in der Antwort landet
+    (`route_biz_bank_accounts_gate_test.go:117-125`, Kommentarblock ab Zeile 30 dokumentiert das
+    ausdruecklich als bereits geprueften Fall). Kein neuer Fund.
+  - `tax_number`/`vat_id`/`steuernummer`/`ustid` ueber `internal/biz/*` per Grep auf slog-Aufrufe
+    beschraenkt (nicht auf Modell-/SQL-Felder, die sind kein Log) — keine Fundstelle.
+  - gRPC-Fehlerpfade der Finanzdomaene (`mapBizError` in `biz_grpc.go:2563`, `mapGobdArchiveError`,
+    `mapEInvoiceError`, `mapDatevUploadError`, `bankingError`, `bankAccountError`, `expenseError`):
+    alle folgen demselben Muster wie `mapBexioError`/`mapLexwareError` (Vorlage aus Lauf 10) —
+    benannte Sentinel-Fehler geben ihre eigene, statische Meldung heraus, der `default`-Zweig
+    loggt serverseitig und maskiert die Client-Antwort mit einer generischen Meldung. Keine
+    Fundstelle, an der ein roher SQL-/pgconn-Fehlertext in eine Antwort durchrutscht.
+  - `route_biz_*.go` (invoices, quotes, creditnotes, payments über biz_grpc, banking, expenses,
+    bank_accounts, bank_transactions, transactions) auf `err.Error()` in der HTTP-Antwort: nur
+    zwei Treffer, beide bereits in Lauf 10 als Nicht-Fund geprueft und identisch geblieben
+    (`route_biz_banking.go:38`, `route_biz_einvoice.go:38` — Multipart-Parse-Fehler, reiner
+    Client-Input, keine DB-Beruehrung).
+  - Die drei Lauf-10-Funde bei Bexio/DATEV/Lexware (Success:false+ErrorMessage in Redirect/JSON)
+    sind laut Archiv-Backlog (`archive/lauf-10/BACKLOG.yml:2921/2977/3009`) alle `status: done` —
+    kein erneuter Fund an denselben Stellen.
+  - Einzige Grenzfall-Fundstelle (bewusst NICHT als Fund gewertet): `internal/biz/datev/oauth.go:
+    113-117` (`RefreshAccessToken`) und `:176-180` (`ExchangeCode`) loggen bei einem Non-200 von
+    DATEVs eigenem OAuth-Token-Endpunkt den rohen Response-`body` auf Error-Level
+    ("datev token refresh failed"/"datev code exchange failed"). Das ist die Antwort EINES
+    Fremdsystems auf eine Anfrage, die wir selbst mit unseren eigenen client_id/client_secret
+    gestellt haben — kein von einem Nutzer kontrollierter Input, keine Kundendaten, und OAuth-
+    Token-Endpunkte spiegeln laut Spezifikation Credentials nicht in Fehlerantworten. Landet nur
+    im Server-Log (Klasse a, nicht in der HTTP-Antwort), Zugriff nur fuer Admins mit Log-Zugriff.
+    Gleiche Rechtfertigung wie die IP-Adressen-Ausnahme aus Lauf 10 (legitime technische
+    Fehlerdiagnose einer Fremdsystem-Integration) — deshalb kein Fund, aber hier dokumentiert,
+    falls ein spaeterer Lauf das anders bewertet.
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — done_when verlangt kein
+  go test)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geaenderter Testfall)
+- verify vorgaenger: sauber. `cd2c6fad` (Iteration 62, scan-gobd-immutability-beyond-belegarchiv)
+  geprueft: `git show --stat` zeigt ausschliesslich BACKLOG.yml und JOURNAL.md — kein
+  Produktionscode, keine der acht Fehlerklassen einschlaegig.
+- neue-units: keine
+- offen:
+  - Der DATEV-OAuth-Response-Body-Log (oauth.go:113-117/176-180) ist ein dokumentierter
+    Grenzfall-Nichtfund, keine Unit — falls ein spaeterer Lauf oder Luke das anders bewertet,
+    steht die Abwaegung hier zur Nachpruefung.
+  - Nicht tief geprueft: `internal/gateway/route_integration.go` (Slack/Teams/Webhooks) — liegt
+    ausserhalb der Finanzflaeche, die diese Unit adressiert, und war bereits Gegenstand einer
+    eigenen Coverage-Unit (`cov-gateway-integration-config-routes`).
