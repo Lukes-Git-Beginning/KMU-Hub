@@ -2147,3 +2147,72 @@ Frühere Läufe liegen vollständig im Archiv:
   Datei verwerfen", siehe Code-Kommentar). (3) Block B ist damit vollstaendig abgearbeitet:
   `cov-expense-repository-real-sql` und `cov-recurring-generation-run-real-sql` sind die
   verbleibenden `todo`-Units mit `deps: []`, beide sofort ziehbar.
+
+## Iteration 37 — cov-expense-repository-real-sql — done — 2026-08-23 03:16
+- commit: 500a849f
+- gebaut: `integration_test.go` (+174 Zeilen, vier neue Tests) deckt die Luecken der
+  Real-SQL-Pfade in `postgres_repository.go`, die bisher nur teilweise oder gar nicht ueber
+  echtes Postgres liefen. (1) `TestPostgresRepository_DeleteRemovesOwnRow` — der Erfolgspfad
+  von `Delete` (`return nil` nach `RowsAffected() > 0`) war ungetestet; bisher gab es nur den
+  Cross-Tenant-Fall (`ErrNotFound`). (2) `TestPostgresRepository_UpdateMissingOrForeignRowReturnsNotFound`
+  — `Update` wurde bislang nur ueber `Approve`/`Reject` (immer derselbe Tenant, immer ein
+  existierender Datensatz) real gegen SQL getestet; ein direkter `repo.Update()` auf eine fremde
+  oder nicht existierende ID war ungedeckt (Subtests fuer beide Faelle). (3)
+  `TestPostgresRepository_CreateRejectsNonPositiveAmount` — das Repository hat keine eigene
+  Betragspruefung, verlaesst sich auf den CHECK-Constraint `finance_expenses_amount_positive` als
+  letzte Verteidigungslinie unterhalb der Service-Validierung (`parseAmount`); Test belegt, dass
+  ein direkter `repo.Create()` mit negativem Betrag tatsaechlich abgelehnt wird und der Fehler
+  NICHT als `ErrNotFound` fehlinterpretiert wird (deckt zugleich den generischen Fehlerzweig in
+  `scanExpense`). (4) `TestPostgresRepository_ListRespectsOffset` — alle bisherigen `List`-Tests
+  liefen mit `Offset: 0`; neuer Test mit drei Zeilen unterschiedlichen Datums prueft Seite 1
+  (`Limit:2, Offset:0`) und Seite 2 (`Limit:2, Offset:2`) inklusive stabilem `total` ueber beide
+  Seiten. Keine echten Belegdaten verwendet, alle Fixtures selbst geschrieben.
+  Zusaetzlich zwei Recherche-Befunde ohne Code-Aenderung (`done_when` verlangte die Pruefung,
+  nicht zwingend einen Fund): `service.go:283` rundet den vom Nutzer eingegebenen Betrag auf zwei
+  Stellen (`amount.Round(2)`), das ist reine Normalisierung auf die Spaltenpraezision
+  NUMERIC(15,2), keine Steuerberechnung — gehoert fachlich NICHT zur selben Rundungsregel wie
+  `fix-tax-rounding-divergence-across-implementations` (dort geht es um USt-Rundungsreihenfolge
+  bei Rechnungen/E-Invoicing, hier um einen einzelnen vom Menschen eingegebenen Betrag ohne
+  Steueraufteilung). Kein Fund, keine neue Unit noetig. Die Unit-Notes verlangten ausserdem eine
+  "Vorsteuerbehandlung mit zwei Steuersaetzen" zu belegen — `finance_expenses` (Migration 000257)
+  hat gar kein Steuerfeld (kein Netto/Brutto-Split, kein Steuersatz), `models.Expense` ebenso
+  nicht. Der Punkt ist auf dieses Modul nicht anwendbar; vermutlich eine falsche Annahme in den
+  urspruenglichen Unit-Notes, kein Bug im Code.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v ./internal/biz/expense/`,
+  0 SKIP, 19 Testfunktionen inkl. Subtests real gegen Postgres gelaufen) | migration n.a. (keine
+  Migration in dieser Unit) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung, RLS bereits von
+  Vor-Iterationen abgedeckt) | `go test ./internal/gateway/` nicht gelaufen — keine Route
+  angefasst, daher nicht pflichtig
+- coverage: internal/biz/expense 77,8 % (eigene Messung vor dieser Iteration, `go tool cover -func`)
+  -> 81,5 % (danach, gleiche Methode). Einzelfunktionen: `Create` 83,3% -> 100%, `Update` 83,3% ->
+  100%, `Delete` 66,7% -> 83,3%, `List` 80,6% -> 87,1%, `scanExpense` 77,8% -> 88,9%. Verbleibende
+  Luecken in `Delete`/`List`/`scanExpense` sind ausschliesslich DB-Fault-Injection-Zweige (Exec-
+  bzw. Query-Fehler der Verbindung selbst, `rows.Err()`, ein unparsebarer NUMERIC-Wert aus der
+  DB) — ohne kaputte Verbindung oder korrupte Daten nicht real erreichbar, gleiches Muster wie
+  bei `internal/biz/banking` in Iteration 36.
+- mutations-probe: drei Laeufe, jeweils gegen eine `cp`-Sicherungskopie (nicht `git checkout`),
+  zurueckgeschrieben, `diff` gegen die Kopie danach jedes Mal identisch (0 Zeilen Unterschied).
+  (a) `Delete`s `RowsAffected() == 0` zu `RowsAffected() >= 0` verfaelscht (immer `ErrNotFound`)
+  -> `TestPostgresRepository_DeleteRemovesOwnRow` rot. (b) Erster Mutationsversuch — die Tenant-
+  Bedingung in `Update`s WHERE-Klausel von `AND` auf `OR` geaendert, um einen Cross-Tenant-Write
+  zu simulieren — schlug NICHT fehl: RLS (`FORCE ROW LEVEL SECURITY`, Policy `tenant_id =
+  current_tenant_id()`) blockt den fremden Datensatz bereits auf DB-Ebene, unabhaengig von der
+  Anwendungs-WHERE-Klausel. Das ist kein Test-Defekt, sondern der Beweis, dass RLS hier die
+  eigentliche Kontrollinstanz ist — die WHERE-Klausel im Code ist defense-in-depth. Zurueckgesetzt,
+  stattdessen `scanExpense`s `errors.Is(err, pgx.ErrNoRows)`-Erkennung mit `if false && ...`
+  stillgelegt (die von `Update`/`GetByID` gemeinsam genutzte Umwandlung in `ErrNotFound`) ->
+  `TestPostgresRepository_UpdateMissingOrForeignRowReturnsNotFound` rot in beiden Subtests
+  ("scan expense: no rows in result set" statt `ErrNotFound`). (c) `Offset`-Anwendung in `List`
+  mit `if false && filter.Offset > 0` stillgelegt -> `TestPostgresRepository_ListRespectsOffset`
+  rot (Seite 2 liefert 2 statt 1 Zeile, weil Offset ignoriert wird).
+- verify vorgaenger: sauber — `26d65509` (letzter Commit vor dieser Iteration) aendert laut
+  `git show --stat` ausschliesslich `.planning/backend-block/loop/JOURNAL.md` (SHA-Nachtrag
+  Iteration 36), kein Codewechsel, keine der acht Fehlerklassen anwendbar.
+- neue-units: keine
+- offen: (1) `internal/biz/expense` bleibt bei 81,5 % oberhalb des 15%-Gates, unterhalb des
+  60%-Kritischer-Pfad-Ziels — Restluecken sind DB-Fault-Injection-Zweige, siehe coverage-Zeile.
+  (2) Recherche-Ergebnis ohne Codeaenderung: keine Vorsteuerbehandlung im Ausgaben-Modul
+  vorhanden (Migration 000257 hat kein Steuerfeld) — die Unit-Notes gingen davon faelschlich aus,
+  kein Fund im Code selbst. (3) `service.go:120` `Get` bleibt bei 0% Coverage (kein Aufrufer im
+  Test, weder Fake noch real) — ausserhalb des Scopes dieser Coverage-Unit (Repository, nicht
+  Service), aber fuer eine spaetere Service-Coverage-Unit vermerkt, falls sie angelegt wird.
