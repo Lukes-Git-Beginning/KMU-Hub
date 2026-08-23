@@ -6305,3 +6305,42 @@ Frühere Läufe liegen vollständig im Archiv:
   eine Zeile Freigabe von Luke im Backlog loest das.
   Sonst nichts offen: DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
   keine Migration und keine Tabelle beruehrt.
+
+## Iteration 101 — fix-idempotency-409-rollout-non-finance-routes-5 — done — 2026-08-23 11:35
+- commit: (folgt nach diesem Eintrag)
+- gebaut: Registrar-Gruppe **Dashboard** vollstaendig auf 409 umgestellt — die kleinste
+  Gruppe bisher mit nur 3 mutierenden Operationen: `PUT /api/v1/dashboard/layout`,
+  `DELETE /api/v1/dashboard/layout`, `PUT /api/v1/dashboard/defaults/{role}`
+  (`route_dashboard.go:37-43`). Reiner Anhaeng-Fall, kein bestehender 409 kollidierte. Jede
+  Operation bekam `"409": { $ref: "#/components/responses/IdempotencyInFlight" }`, numerisch
+  nach dem letzten vorhandenen Code einsortiert (nach 401 bei `PUT`/`DELETE /layout`, nach 403
+  bei `PUT /defaults/{role}`). `GET /api/v1/dashboard/defaults/{role}` blieb unveraendert (GET
+  mutiert nicht, laeuft nicht durch die Idempotenz-Middleware). Alle drei Operationen sind
+  nicht in `idempotencyWhitelist` (`idempotency.go:36`, nur `/auth/login`, `/auth/refresh`,
+  `/auth/2fa`), laufen also real durch die Middleware — kein Whitelist-Verstoss. Kein
+  Go-Produktionscode angefasst, einzige geaenderte Backend-Datei ist `api/openapi.yaml`
+  (6 eingefuegte Zeilen, 3x `"409":` + 3x `$ref`).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 2682 PASS, 0 FAIL,
+  ueberprueft mit `-v | grep -c SKIP/PASS/FAIL`) | swagger-cli validate gruen | migration
+  n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: einen frisch eingefuegten `$ref: "#/components/responses/IdempotencyInFlight"`
+  (unter `DELETE /api/v1/dashboard/layout`, Zeile 4768) testweise auf
+  `IdempotencyInFlightX` verbogen: `swagger-cli validate` rot
+  (`Token "IdempotencyInFlightX" does not exist.`). Zurueckgedreht aus vorher angelegter
+  Sicherungskopie, danach wieder gruen; `git diff --stat` zeigt exakt die 6 Einfuegungen in
+  `api/openapi.yaml` und sonst nichts im `backend/`-Baum.
+- verify vorgaenger: sauber. `77265bb0` (Iteration 100) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (61 additive Zeilen, 16x `400` + 45x `503` fuer die Registrar-Gruppe
+  fuhrpark), reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`,
+  Tabelle oder Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen. Stichprobe des
+  Diffs bestaetigt sauberes additives Muster (kein doppelter Eintrag, keine verschobene
+  Leerzeile).
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-6` (Rest der ~31 verbliebenen
+  Registrar-Gruppen, Liste um Dashboard bereinigt, Auth-Sonderfall-Hinweis unveraendert
+  uebernommen).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt.

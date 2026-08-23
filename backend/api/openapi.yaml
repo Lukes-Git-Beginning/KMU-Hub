@@ -4764,6 +4764,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Reset dashboard to role defaults
       tags: [dashboard]
@@ -4782,6 +4784,8 @@ paths:
                     type: string
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/dashboard/defaults/{role}:
     get:
@@ -4844,6 +4848,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   # ===========================================================================
   # Work / Project Management
