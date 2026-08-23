@@ -1992,7 +1992,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       `route_biz_bank_transactions.go` (235 Zeilen, 0 von 4 Handlern geprüft): Import von

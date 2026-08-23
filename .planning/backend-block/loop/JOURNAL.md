@@ -2990,3 +2990,69 @@ Frühere Läufe liegen vollständig im Archiv:
   angefasst, DATABASE_URL-Gate daher für diese Unit nicht einschlägig —
   `go test ./internal/gateway/` lief trotzdem vollständig inklusive
   TestOpenAPIRouteDrift.
+
+## Iteration 47 — cov-gateway-biz-bank-transactions-routes — done — 2026-08-23 04:51
+- commit: (siehe unten, wird nach dem Commit ergänzt)
+- gebaut: neue Datei `route_biz_bank_transactions_gate_test.go` mit 20 Tests
+  über sechs bisher ungeprüfte Handler: `route_biz_bank_transactions.go`
+  (HandleListBankTransactions, HandleMatchBankTransaction,
+  HandleRejectBankTransactionMatch, HandleIgnoreBankTransaction) und
+  `route_biz_transactions.go` (HandleListTransactions,
+  HandleDeleteTransaction). ServiceUnavailable/NoTenant-Tabellen für alle
+  sechs, dazu je Handler der interessante Fehlerfall: unbekannter
+  `status`-Query-Wert (400, weil `bankMatchStatuses` eine geschlossene
+  Whitelist ist), `invoice_id` ohne gültiges UUID4-Format,
+  `invoice_number` über 64 Zeichen, ungültiges JSON.
+- PRÄMISSENKORREKTUR (Regel 11): der Backlog-Scope beschrieb einen
+  Datei-Upload als "Vertrauensgrenze" mit 400/413-Prüfung und einer
+  Dublettenfrage für diese Unit. Beide gescopten Dateien haben aber
+  KEINEN Upload-Handler — der CAMT.053/MT940-Import lebt in
+  `route_biz_banking.go` (`HandleImportBankStatement`), einer dritten,
+  bereits vollständig getesteten Datei
+  (`route_biz_banking_test.go`: 400 bei ungültigem Multipart, 400 bei
+  fehlender/leerer Datei, 413 bei Überschreitung, `AlreadyImported` für
+  den Dublettenfall — alles schon belegt). Die vier hier gescopten
+  Bank-Transaction-Handler bekommen fertige Zeilen aus einem
+  vorangegangenen Import und haben keinen Dateikörper.
+  Ebenso ist "Zuordnung auf eine Rechnung eines fremden Mandanten" kein
+  Gateway-Fall: `ReconcileBankTransaction`
+  (`internal/server/biz_grpc_banking.go:164`) reicht Tenant-ID und
+  Invoice-ID unverändert an `internal/biz/banking` weiter, das die
+  Rechnung tenant-gescoped lädt — eine fremde Rechnung ist dort "nicht
+  gefunden", ohne echte RPC am Gateway nicht simulierbar
+  (`biz_grpc_banking_bexio_test.go` deckt die RPC-Validierung bereits ab).
+  Die Datei-Format-/Größen-/Dubletten-Fragen und die Cross-Tenant-Frage
+  sind damit bereits an anderer Stelle beantwortet, nicht offen — kein
+  Fund, keine neue Unit nötig.
+  Abgrenzung der beiden Dateien (wie vom Scope gefordert, im Kommentarkopf
+  der neuen Testdatei festgehalten): `route_biz_bank_transactions.go` ist
+  die Reconciliation-Queue eines bereits importierten Kontoauszugs;
+  `route_biz_transactions.go` ist die mandantenweite, konsolidierte
+  Zahlungsübersicht über alle Belegarten. Kein gemeinsamer Typ, kein
+  gemeinsamer Aufruf — die Nähe der Dateinamen war die einzige
+  Verwechslungsquelle.
+- gate: build ok (`-p 2`, gateway+cmd/gateway) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 ./internal/gateway/...`) |
+  migration n.a. (keine Tabelle/Spalte/Policy angefasst) | rls-smoke n.a. |
+  `go test -count=1 ./internal/gateway/` inkl. `TestOpenAPIRouteDrift` grün
+  — Pflicht, obwohl keine Route geändert wurde.
+- coverage: internal/gateway 55,5 % -> 55,8 % (eigene Messung vor/nach,
+  `go tool cover -func`, neue Testdatei per `mv` temporär entfernt für die
+  Vorher-Messung, dann zurückgeschrieben; lokaler Ausgangswert weicht vom
+  CI-Stand 54,1 % ab, weil vorangehende Iterationen dasselbe Paket
+  bereits angehoben haben).
+- mutations-probe: `bankMatchStatuses`-Check in `HandleListBankTransactions`
+  testweise mit `if false &&` neutralisiert (Kopie via `cp`, nicht
+  `git checkout`) -> `TestHandleListBankTransactions_UnknownStatusRejected`
+  rot (503 statt 400, RPC erreicht statt lokal abgelehnt). Zurückgeschrieben,
+  `git diff --stat` danach leer.
+- verify vorgaenger: sauber — `cf1594ba` (Iteration 46,
+  cov-gateway-biz-expenses-routes) fügt ausschließlich eine neue Testdatei
+  hinzu; keine der acht Fehlerklassen einschlägig (kein neuer Handler, kein
+  Stub/TODO, kein `.proto`, keine Migration, kein neuer/ersetzter
+  `RequirePermission`-Guard, keine neue Tabelle, keine neue Route, kein
+  Wire-Shape-Wechsel).
+- neue-units: keine — beide geprüften Prämissen (Datei-Upload,
+  Cross-Tenant-Zuordnung) waren bereits an anderer Stelle beantwortetes,
+  bestehendes Verhalten, kein Fund.
+- offen: keine.
