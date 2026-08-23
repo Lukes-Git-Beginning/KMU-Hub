@@ -5869,7 +5869,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Iteration neu angelegte Unit quotet ihre betroffene `done_when`-Zeile korrekt.
 
 ## Iteration 93 - test-openapi-documented-status-codes-vs-handlers - done - 2026-08-23 10:32
-- commit: <SHA>
+- commit: 763df3bc
 - gebaut: `backend/internal/gateway/openapi_status_code_drift_test.go` (neu, ~600 Zeilen,
   reiner Test - keine Zeile Produktionscode). Der Test schliesst die dritte Richtung des
   Spec-Guards: bisher gab es `registrierter Pfad ⊆ dokumentierter Pfad`
