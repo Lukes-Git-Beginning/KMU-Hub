@@ -4697,7 +4697,7 @@ units:
     service: gateway
     model: sonnet
     deps: [test-openapi-documented-status-codes-vs-handlers]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Arbeitsliste aus `statusDriftBaseline` in
@@ -4909,3 +4909,36 @@ units:
         IdempotencyInFlight-$ref wird testweise verbogen, swagger-cli wird rot,
         Aenderung zurueckgedreht"
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-status-code-drift-baseline-non-systemic-2
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-status-code-drift-baseline-non-systemic]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `fix-status-code-drift-baseline-non-systemic` (Iteration 95 hat die
+      11 caldav-Eintraege dokumentiert und aus `statusDriftBaseline` entfernt). Aktuell noch
+      69 offene Eintraege in `internal/gateway/openapi_status_code_drift_test.go`. Groesste
+      zusammenhaengende Gruppen: finance (401, ueberwiegend `ownerFilterForScope`, ~20
+      Operationen), hr (401/500 gemischt, ~20 Operationen), dashboard (500, 5 Operationen),
+      integrations/bexio+slack+teams (500/502, 5 Operationen), Rest verstreut (guest, inbox,
+      email, webhooks, security/gdpr).
+      NICHT alle 69 in einem Commit - je Gruppe (finance zuerst, dann hr, dann Rest) eine
+      Teil-Unit, abgearbeitete Eintraege im selben Commit aus `statusDriftBaseline` entfernen.
+      Kein Go-Code aendern, nur `api/openapi.yaml`.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+    notes: >
+      `DELETE /api/v1/files/{id}` und `POST /api/v1/channels/{id}/read` (200) gehoeren NICHT
+      hierher, siehe `fix-204-documented-but-200-written`. Die vier 501er ebenfalls nicht,
+      siehe `fix-crm-tag-endpoints-are-501-stubs`. Vor jedem Streichen pruefen, welchen Weg
+      der Handler wirklich nimmt - der Test nennt nur den Code, nicht die Zeile.
+    done_when:
+      - Mindestens eine weitere Gruppe der verbliebenen 69 Eintraege ist in api/openapi.yaml
+        dokumentiert
+      - Die erledigten Eintraege sind aus statusDriftBaseline entfernt
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"

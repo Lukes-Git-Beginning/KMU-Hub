@@ -5994,3 +5994,40 @@ Frühere Läufe liegen vollständig im Archiv:
   (`fix-status-code-drift-baseline-non-systemic`, `fix-204-documented-but-200-written`,
   `fix-crm-tag-endpoints-are-501-stubs`, `doc-status-code-systemic-400-503-sweep`) stehen
   weiterhin unbearbeitet im Backlog und sind fuer eine der naechsten Iterationen faellig.
+
+## Iteration 95 — fix-status-code-drift-baseline-non-systemic — done — 2026-08-23 10:50
+- commit: (siehe naechster Schritt)
+- gebaut: Die 11 caldav-Eintraege aus `statusDriftBaseline` dokumentiert und entfernt (alle
+  reine 500er): `GET/POST /api/v1/caldav/passwords`, `DELETE /api/v1/caldav/passwords/{id}`,
+  `GET /api/v1/caldav/status`, `POST /api/v1/caldav/test`, `PUT /api/v1/caldav/enable`,
+  `PUT /api/v1/caldav/disable`, `GET/PUT /api/v1/admin/caldav/settings`,
+  `GET /api/v1/admin/caldav/users`, `DELETE /api/v1/admin/caldav/users/{userId}/passwords`.
+  Jede Operation bekam eine eigene `"500": description:` Zeile, deren Text 1:1 aus der
+  `response.Error(w, http.StatusInternalServerError, "...")`-Message im jeweiligen Handler in
+  `route_caldav.go` uebernommen ist (z. B. "failed to list passwords" -> "Failed to list
+  passwords"), analog zum bestehenden Stil (inline description statt $ref, siehe Finance-
+  Operationen um Zeile 9176). Kein Go-Code geaendert, nur `api/openapi.yaml` +
+  `openapi_status_code_drift_test.go` (Baseline-Map).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (`golangci-lint run ./internal/gateway/...` 0 issues) | test ok (`go test -count=1
+  ./internal/gateway/` gruen, 56,6 % - unveraendert, reine Doku-Aenderung) | migration n.a.
+  | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, kein Coverage-Ziel, wie in der Unit vorgesehen)
+- mutations-probe: `"500": description: Failed to list passwords` bei
+  `GET /api/v1/caldav/passwords` testweise entfernt. `TestOpenAPIStatusCodeDrift` wurde rot
+  mit "GET /api/v1/caldav/passwords writes [500] - not documented". Zurueckgedreht, danach
+  wieder gruen; `git diff --stat` zeigt wieder genau die urspruengliche Aenderung (22 Zeilen
+  openapi.yaml, 11 Zeilen entfernt aus dem Testfile).
+- verify vorgaenger: sauber. `960611c8` (Iteration 94, Notification-409-Rollout) gegen alle
+  acht Fehlerklassen geprueft: reine `api/openapi.yaml`-Ergaenzung (24 Zeilen, 12 x "409"
+  IdempotencyInFlight), kein Go-Code, kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route, kein
+  ersetzter Guard. `a36f3fbc` direkt danach ist reine Journal-Buchhaltung (1 Zeile SHA).
+- neue-units: `fix-status-code-drift-baseline-non-systemic-2` (Backlog-Ende, `status: todo`,
+  Restliste 69 Eintraege ohne caldav, Gruppen finance/hr/dashboard/integrations/Rest benannt).
+- offen: `TestOpenAPIStatusCodeDrift` zeigt jetzt 69 statt 80 baselined operations (verifiziert
+  im Testlog: "checked 1196 documented operations ... 69 baselined operations"). Die vier
+  Iteration-93-Folgeeinheiten (`fix-204-documented-but-200-written`,
+  `fix-crm-tag-endpoints-are-501-stubs`, `doc-status-code-systemic-400-503-sweep`) und die
+  Idempotency-409-Fortsetzung (`fix-idempotency-409-rollout-non-finance-routes-4`) stehen
+  weiterhin unbearbeitet im Backlog.

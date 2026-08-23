@@ -30915,6 +30915,8 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/CaldavPasswordInfo" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to list passwords
     post:
       summary: Create a new CalDAV app-specific password
       tags: [caldav]
@@ -30935,6 +30937,8 @@ paths:
                 $ref: "#/components/schemas/CaldavCreatePasswordResponse"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to create password
 
   /api/v1/caldav/passwords/{id}:
     delete:
@@ -30955,6 +30959,8 @@ paths:
                   status: { type: string, example: revoked }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to revoke password
 
   /api/v1/caldav/status:
     get:
@@ -30970,6 +30976,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/CaldavStatusResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to get status
 
   /api/v1/caldav/test:
     post:
@@ -30992,6 +31000,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/CaldavTestResult"
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to prepare connection test
 
   /api/v1/caldav/enable:
     put:
@@ -31009,6 +31019,8 @@ paths:
                 properties:
                   status: { type: string, example: enabled }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to enable CalDAV
 
   /api/v1/caldav/disable:
     put:
@@ -31026,6 +31038,8 @@ paths:
                 properties:
                   status: { type: string, example: disabled }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to disable CalDAV
 
   # --- CalDAV admin (JWT auth + admin role) ---
 
@@ -31045,6 +31059,8 @@ paths:
                 $ref: "#/components/schemas/CaldavAdminSettings"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to get settings
     put:
       summary: Set the org-wide CalDAV/CardDAV enabled setting
       description: Requires admin role.
@@ -31067,6 +31083,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to update settings
 
   /api/v1/admin/caldav/users:
     get:
@@ -31088,6 +31106,8 @@ paths:
                     items: { $ref: "#/components/schemas/CaldavUserInfo" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to list users
 
   /api/v1/admin/caldav/users/{userId}/passwords:
     delete:
@@ -31113,6 +31133,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to revoke passwords
 
   # ============================================================================
   # Guest chat — public API (route_guest.go). Session endpoints are fully
