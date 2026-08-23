@@ -2032,7 +2032,7 @@ units:
     service: gateway
     model: sonnet
     deps: [cov-gateway-biz-bank-transactions-routes]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       `route_biz_bank_accounts.go` (227 Zeilen Quelle, 106 Zeilen Test): Verwaltung der

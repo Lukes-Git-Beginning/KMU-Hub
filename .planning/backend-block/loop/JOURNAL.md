@@ -3056,3 +3056,68 @@ Frühere Läufe liegen vollständig im Archiv:
   Cross-Tenant-Zuordnung) waren bereits an anderer Stelle beantwortetes,
   bestehendes Verhalten, kein Fund.
 - offen: keine.
+
+## Iteration 48 — cov-gateway-biz-bank-accounts-routes — done — 2026-08-23 05:03
+- commit: (folgt unten)
+- gebaut: `route_biz_bank_accounts_gate_test.go` — HTTP-Level-Tests für alle
+  fünf Handler (`HandleListBankAccounts`, `HandleCreateBankAccount`,
+  `HandleUpdateBankAccount`, `HandleConnectBankAccount`,
+  `HandleDeleteBankAccount`), vorher 0/5. ServiceUnavailable/NoTenant-Tabelle
+  wie bei den Nachbarrouten, plus die für diese Route eigentlich interessante
+  Grenze: die IBAN-Prüfziffer. Ein Test mit strukturell plausibler, aber
+  falscher Prüfziffer (`DE89370400440532013001`, letzte Ziffer der Original-
+  IBAN geflippt) und einer mit unbekanntem Länderpräfix (`XX...`) müssen 400
+  liefern, bevor irgendeine RPC erreicht wird — beide tun das. Zusätzlich ein
+  Test, der belegt, dass die abgelehnte IBAN nicht im Response-Body auftaucht
+  (PII-Leckage-Klasse aus Lauf 10). Ungültige BIC, ungültige Währung
+  ("EURO" statt dreistelligem Code), fehlender Bankname, kaputtes JSON auf
+  Create und Update. Ein Positivfall mit menschlich getippter,
+  leerzeichengruppierter IBAN und Kleinbuchstaben-Währung belegt, dass die
+  Normalisierung vor der Prüfung greift.
+  Zwei Prämissen aus dem Backlog-Scope widerlegt (Regel 11):
+  (a) "Löschen eines Kontos mit Buchungen: 500 oder 409?" ist gegenstandslos.
+  Migration 000258 legt bewusst KEINE Fremdschlüsselbeziehung zwischen
+  `finance_bank_accounts` und `finance_bank_statements` an — die Zuordnung
+  läuft über den freien Text `account_iban`, nicht über eine FK-Spalte.
+  `DeleteAccount` (`postgres_repository_accounts.go:114`) ist ein reines
+  `DELETE ... WHERE tenant_id = $1 AND id = $2` ohne jede Referenz auf
+  Statements; ein Löschen kann nie an einer FK-Constraint scheitern, egal wie
+  viele Buchungen unter derselben IBAN liegen.
+  (b) "Fremdtenant darf weder lesen noch löschen" ist bereits service-seitig
+  belegt (`TestDeleteAccount_StaysInsideTheTenant`,
+  `service_accounts_test.go`) und in SQL erzwungen (`GetAccount`/
+  `DeleteAccount` scopen immer `tenant_id = $1 AND id = $2`,
+  `postgres_repository_accounts.go:64,116`) — am Gateway ohne echte RPC nicht
+  simulierbar, wie bei den vorherigen Routen-Units.
+  IBAN-Prüfziffer selbst ist real und korrekt implementiert
+  (`dachfmt.ValidateIBAN`, ISO 7064 mod-97, `internal/dachfmt/iban.go:37`) —
+  kein Fund, aber jetzt bewiesen statt angenommen. Kein IBAN-Wert erscheint
+  in einem Log-Aufruf im gesamten `banking`-Paket (per Codelesung belegt,
+  `service_accounts.go:6-8` dokumentiert das ausdrücklich).
+- gate: build ok (`-p 2`, gateway+cmd/gateway) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 ./internal/gateway/...`) |
+  migration n.a. (keine Tabelle/Spalte/Policy angefasst) | rls-smoke n.a.
+  (keine Policy angefasst) | `go test -count=1 ./internal/gateway/ -run
+  TestOpenAPIRouteDrift` grün (836 registrierte gegen 838 dokumentierte
+  Pfade) — Pflicht, obwohl keine Route geändert wurde.
+- coverage: internal/gateway 55,8 % -> 56,1 % (eigene Messung vor/nach,
+  `go tool cover -func`, neue Testdatei per `mv` temporär entfernt für die
+  Vorher-Messung, dann zurückgeschrieben; lokaler Ausgangswert weicht vom
+  CI-Stand 54,1 % ab, weil vorangehende Iterationen dasselbe Paket bereits
+  angehoben haben — deckt sich mit dem `nachher`-Wert 55,8 % aus Iteration 47).
+- mutations-probe: `dachfmt.ValidateIBAN` (`internal/dachfmt/iban.go:37`)
+  testweise auf `return true` gesetzt (Prüfziffer deaktiviert) ->
+  `TestHandleCreateBankAccount_WrongCheckDigitRejected` UND
+  `TestHandleUpdateBankAccount_WrongCheckDigitRejected` rot (503 statt 400,
+  RPC erreicht statt lokal abgelehnt). Zurückgeschrieben, `git diff --stat`
+  danach leer.
+- verify vorgaenger: sauber — `22b02b24` (Iteration 47,
+  cov-gateway-biz-bank-transactions-routes) fügt ausschließlich eine neue
+  Testdatei hinzu; keine der acht Fehlerklassen einschlägig (kein neuer
+  Handler, kein Stub/TODO, kein `.proto`, keine Migration, kein neuer/
+  ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine neue Route,
+  kein Wire-Shape-Wechsel).
+- neue-units: keine — beide geprüften Prämissen (FK-Crash beim Löschen,
+  Fremdtenant-Zugriff) waren bereits an anderer Stelle beantwortetes,
+  bestehendes Verhalten, kein Fund.
+- offen: keine.
