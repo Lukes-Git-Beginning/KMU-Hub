@@ -1396,6 +1396,43 @@ func TestService_GenerateGoBDExport_NormalCustomerNameUnchanged(t *testing.T) {
 	assert.Equal(t, "Alpha GmbH", records[1][2], "unaffected customer name must stay unchanged")
 }
 
+// A mixed EUR/CHF export must keep each row's own currency in the CSV's
+// Waehrung column so a tax advisor can tell the two amounts apart — before
+// this fix, GoBDExportRow had no currency field at all and every row looked
+// like an unlabeled EUR amount regardless of the source document's currency.
+func TestService_GenerateGoBDExport_CurrencyColumn(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	rows := []GoBDExportRow{
+		{InvoiceNumber: "RE-2026-0001", InvoiceDate: "2026-01-15", CustomerName: "Alpha GmbH", GrossTotal: "100.00", Currency: "EUR", Status: "sent", TaxMode: "standard"},
+		{InvoiceNumber: "RE-2026-0002", InvoiceDate: "2026-02-10", CustomerName: "Beta AG", GrossTotal: "200.00", Currency: "CHF", Status: "sent", TaxMode: "standard"},
+	}
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, rows)
+
+	require.NoError(t, err)
+	content := string(result.CSVData[3:])
+	assert.Contains(t, content, "Waehrung", "header must contain the currency column")
+
+	r := csv.NewReader(bytes.NewReader(result.CSVData[3:]))
+	r.Comma = ';'
+	records, err := r.ReadAll()
+	require.NoError(t, err)
+	require.Len(t, records, 3)
+	header := records[0]
+	waehrungIdx := -1
+	for i, col := range header {
+		if col == "Waehrung" {
+			waehrungIdx = i
+		}
+	}
+	require.NotEqual(t, -1, waehrungIdx, "Waehrung column must be present in the header")
+	assert.Equal(t, "EUR", records[1][waehrungIdx], "first row must carry its own EUR currency")
+	assert.Equal(t, "CHF", records[2][waehrungIdx], "second row must carry its own CHF currency, not the first row's")
+}
+
 func TestService_GenerateGoBDExport_RowCount(t *testing.T) {
 	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
 	tenantID := uuid.New()

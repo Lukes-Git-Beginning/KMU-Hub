@@ -39,7 +39,7 @@ func TestBuildGoBDRows_SeparatesFractionalRateFromWholeRate(t *testing.T) {
 		{Description: "reduced", Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(100), TaxRate: mustDec(t, "7")},
 		{Description: "fractional", Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(200), TaxRate: mustDec(t, "7.5")},
 	}
-	rows := BuildGoBDRows("RE-1", goBDDate, "Kunde", "sent", models.TaxModeStandard, lineItemsJSON(t, items), decimal.NewFromInt(300), 1)
+	rows := BuildGoBDRows("RE-1", goBDDate, "Kunde", "sent", models.TaxModeStandard, "EUR", lineItemsJSON(t, items), decimal.NewFromInt(300), 1)
 
 	if len(rows) != 2 {
 		t.Fatalf("want 2 posting rows (one per rate), got %d: %+v", len(rows), rows)
@@ -68,7 +68,7 @@ func TestBuildGoBDRows_RoundsLineNetBeforeSumming(t *testing.T) {
 		UnitPrice: mustDec(t, "3.33"),
 		TaxRate:   decimal.NewFromInt(19),
 	}
-	rows := BuildGoBDRows("RE-2", goBDDate, "Kunde", "sent", models.TaxModeStandard,
+	rows := BuildGoBDRows("RE-2", goBDDate, "Kunde", "sent", models.TaxModeStandard, "EUR",
 		lineItemsJSON(t, []models.LineItem{line, line}), decimal.NewFromInt(10), 1)
 
 	if len(rows) != 1 {
@@ -91,7 +91,7 @@ func TestBuildGoBDRows_NormalisesTrailingZeroRates(t *testing.T) {
 		{Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(50), TaxRate: mustDec(t, "19")},
 		{Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(50), TaxRate: mustDec(t, "19.00")},
 	}
-	rows := BuildGoBDRows("RE-3", goBDDate, "Kunde", "sent", models.TaxModeStandard, lineItemsJSON(t, items), decimal.NewFromInt(100), 1)
+	rows := BuildGoBDRows("RE-3", goBDDate, "Kunde", "sent", models.TaxModeStandard, "EUR", lineItemsJSON(t, items), decimal.NewFromInt(100), 1)
 
 	if len(rows) != 1 {
 		t.Fatalf("19 and 19.00 must share one group, got %d rows", len(rows))
@@ -105,7 +105,7 @@ func TestBuildGoBDRows_CreditNoteNegatesAmounts(t *testing.T) {
 	items := []models.LineItem{
 		{Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(100), TaxRate: decimal.NewFromInt(19)},
 	}
-	rows := BuildGoBDRows("GS-1", goBDDate, "Kunde", "credit_note", models.TaxModeStandard, lineItemsJSON(t, items), decimal.NewFromInt(100), -1)
+	rows := BuildGoBDRows("GS-1", goBDDate, "Kunde", "credit_note", models.TaxModeStandard, "EUR", lineItemsJSON(t, items), decimal.NewFromInt(100), -1)
 
 	if len(rows) != 1 {
 		t.Fatalf("want 1 row, got %d", len(rows))
@@ -129,7 +129,7 @@ func TestBuildGoBDRows_ExemptModesEmitOneZeroRatedRow(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.mode, func(t *testing.T) {
-			rows := BuildGoBDRows("RE-4", goBDDate, "Kunde", "sent", tc.mode, lineItemsJSON(t, items), mustDec(t, "250.50"), 1)
+			rows := BuildGoBDRows("RE-4", goBDDate, "Kunde", "sent", tc.mode, "EUR", lineItemsJSON(t, items), mustDec(t, "250.50"), 1)
 			if len(rows) != 1 {
 				t.Fatalf("want 1 exempt row, got %d", len(rows))
 			}
@@ -145,7 +145,7 @@ func TestBuildGoBDRows_ExemptModesEmitOneZeroRatedRow(t *testing.T) {
 }
 
 func TestBuildGoBDRows_UnparseableLineItemsYieldNoRows(t *testing.T) {
-	rows := BuildGoBDRows("RE-5", goBDDate, "Kunde", "sent", models.TaxModeStandard, json.RawMessage(`{"not":"an array"}`), decimal.NewFromInt(100), 1)
+	rows := BuildGoBDRows("RE-5", goBDDate, "Kunde", "sent", models.TaxModeStandard, "EUR", json.RawMessage(`{"not":"an array"}`), decimal.NewFromInt(100), 1)
 	if len(rows) != 0 {
 		t.Fatalf("want no rows for unparseable line items, got %d", len(rows))
 	}
@@ -155,7 +155,7 @@ func TestBuildGoBDRows_CarriesDocumentMetadata(t *testing.T) {
 	items := []models.LineItem{
 		{Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(10), TaxRate: decimal.NewFromInt(19)},
 	}
-	rows := BuildGoBDRows("RE-2026-0007", goBDDate, "Müller GmbH", "paid", models.TaxModeStandard, lineItemsJSON(t, items), decimal.NewFromInt(10), 1)
+	rows := BuildGoBDRows("RE-2026-0007", goBDDate, "Müller GmbH", "paid", models.TaxModeStandard, "EUR", lineItemsJSON(t, items), decimal.NewFromInt(10), 1)
 	if len(rows) != 1 {
 		t.Fatalf("want 1 row, got %d", len(rows))
 	}
@@ -168,5 +168,39 @@ func TestBuildGoBDRows_CarriesDocumentMetadata(t *testing.T) {
 	}
 	if r.BookingText != "Rechnung RE-2026-0007 Müller GmbH" {
 		t.Errorf("booking text = %q", r.BookingText)
+	}
+}
+
+// A foreign-currency invoice must carry its own currency on every posting row,
+// not the tenant's default — otherwise the GoBD CSV export cannot tell a CHF
+// amount from a EUR amount in the same journal (see
+// fix-gobd-export-missing-currency-column).
+func TestBuildGoBDRows_CarriesDocumentCurrency(t *testing.T) {
+	items := []models.LineItem{
+		{Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(100), TaxRate: decimal.NewFromInt(19)},
+		{Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(200), TaxRate: mustDec(t, "7.5")},
+	}
+	eurRows := BuildGoBDRows("RE-6", goBDDate, "Kunde", "sent", models.TaxModeStandard, "EUR", lineItemsJSON(t, items), decimal.NewFromInt(300), 1)
+	chfRows := BuildGoBDRows("RE-7", goBDDate, "Kunde", "sent", models.TaxModeStandard, "CHF", lineItemsJSON(t, items), decimal.NewFromInt(300), 1)
+
+	if len(eurRows) != 2 || len(chfRows) != 2 {
+		t.Fatalf("want 2 rows each (one per VAT rate), got %d / %d", len(eurRows), len(chfRows))
+	}
+	for _, r := range eurRows {
+		if r.Currency != "EUR" {
+			t.Errorf("EUR invoice row = currency %q, want EUR", r.Currency)
+		}
+	}
+	for _, r := range chfRows {
+		if r.Currency != "CHF" {
+			t.Errorf("CHF invoice row = currency %q, want CHF", r.Currency)
+		}
+	}
+
+	// Reverse-charge/Kleinunternehmer take the single-row exempt path — must
+	// carry the currency too.
+	exemptRows := BuildGoBDRows("RE-8", goBDDate, "Kunde", "sent", models.TaxModeReverseCharge, "CHF", lineItemsJSON(t, items), decimal.NewFromInt(300), 1)
+	if len(exemptRows) != 1 || exemptRows[0].Currency != "CHF" {
+		t.Errorf("exempt row currency = %q (len %d), want CHF (len 1)", exemptRows[0].Currency, len(exemptRows))
 	}
 }

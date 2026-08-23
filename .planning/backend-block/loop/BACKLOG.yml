@@ -3762,7 +3762,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/dunning (Paketwert im CI-Log nachschlagen)"
     scope: >
       `GoBDExportRow` (`internal/biz/dunning/service_gobd.go:91-104`) hat KEIN Currency-Feld,

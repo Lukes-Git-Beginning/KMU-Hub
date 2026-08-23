@@ -98,6 +98,7 @@ type GoBDExportRow struct {
 	NetAmount     string // Nettobetrag
 	TaxAmount     string // MwSt-Betrag
 	GrossTotal    string // Bruttobetrag (net + VAT)
+	Currency      string // Waehrung (ISO 4217, e.g. "EUR", "CHF")
 	Status        string
 	TaxMode       string
 	BookingText   string // Buchungstext
@@ -120,7 +121,7 @@ type GoBDExportResult struct {
 // Büchern, Aufzeichnungen und Unterlagen in elektronischer Form (GoBD, BMF 2019).
 //
 // Column order: BelegNr, BelegDatum, Empfaenger, Konto, Steuerschluessel,
-// Steuersatz, Nettobetrag, MwSt, Bruttobetrag, Status, Steuerart, Buchungstext
+// Steuersatz, Nettobetrag, MwSt, Bruttobetrag, Waehrung, Status, Steuerart, Buchungstext
 func (s *Service) GenerateGoBDExport(_ context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, rows []GoBDExportRow) (GoBDExportResult, error) {
 	csvData := buildGoBDCSV(rows)
 
@@ -155,7 +156,7 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 	// Header
 	_ = w.Write([]string{
 		"BelegNr", "BelegDatum", "Empfaenger", "Konto", "Steuerschluessel",
-		"Steuersatz", "Nettobetrag", "MwSt", "Bruttobetrag", "Status",
+		"Steuersatz", "Nettobetrag", "MwSt", "Bruttobetrag", "Waehrung", "Status",
 		"Steuerart", "Buchungstext",
 	})
 
@@ -170,6 +171,7 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 			germanDecimal(r.NetAmount),
 			germanDecimal(r.TaxAmount),
 			germanDecimal(r.GrossTotal),
+			r.Currency,
 			r.Status,
 			r.TaxMode,
 			r.BookingText,

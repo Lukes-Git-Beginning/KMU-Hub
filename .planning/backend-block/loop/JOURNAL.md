@@ -5322,3 +5322,54 @@ Frühere Läufe liegen vollständig im Archiv:
   Testdateien mit demselben `defer pool.Close()` + `t.Cleanup`-Doppelmuster,
   Liste und Fix-Vorschlag in der Unit)
 - offen: keine
+
+## Iteration 83 — fix-gobd-export-missing-currency-column — done — 2026-08-23 09:18
+- commit: (siehe naechster Schritt)
+- gebaut: `GoBDExportRow` (`internal/biz/dunning/service_gobd.go`) traegt jetzt
+  ein `Currency`-Feld; `buildGoBDCSV` schreibt eine zusaetzliche `Waehrung`-
+  Spalte direkt nach `Bruttobetrag` (Header + Datenzeilen, Reihenfolge-
+  Kommentar aktualisiert). `BuildGoBDRows` (`gobd_rows.go`) nimmt jetzt einen
+  `currency string`-Parameter und setzt ihn auf beiden Pfaden (Rate-Gruppen-
+  Schleife UND den Reverse-Charge/Kleinunternehmer-Einzelzeilen-Pfad).
+  `GenerateGoBDExport` (`internal/server/biz_grpc.go:2495,2517`) reicht
+  `inv.Currency` bzw. `cn.Currency` durch — beide Felder waren bereits
+  gescannt (`invoiceColumns`/Credit-Note-Select enthalten `currency`), nur
+  bislang ungenutzt fuer den GoBD-Export. Gruppierungslogik selbst (Rate-Key,
+  SKR03-Konto, BU-Schluessel) unveraendert, wie von der Unit gefordert.
+  Tests: `TestBuildGoBDRows_CarriesDocumentCurrency` (neu, gobd_rows_test.go)
+  belegt EUR/CHF auf beiden Zeilenpfaden inkl. Exempt-Pfad;
+  `TestService_GenerateGoBDExport_CurrencyColumn` (neu, service_test.go)
+  belegt auf CSV-Ebene, dass zwei Zeilen mit EUR bzw. CHF ihre eigene Waehrung
+  in der `Waehrung`-Spalte behalten (per Header-Index nachgeschlagen, nicht
+  hartkodiert). Alle sieben bestehenden `BuildGoBDRows`-Aufrufe in
+  gobd_rows_test.go auf die neue Signatur (zusaetzliches `"EUR"`-Argument)
+  angepasst, Verhalten unveraendert.
+- gate: build ok (`go build -p 2` dunning + server + gateway + cmd/biz +
+  cmd/gateway) | vet ok | lint ok (0 issues,
+  `golangci-lint ./internal/biz/dunning/... ./internal/server/... ./internal/gateway/...`)
+  | test ok (`go test -count=1 ./internal/biz/dunning/...` gruen,
+  `go test -count=1 ./internal/server/...` gruen, beide mit gesetztem
+  `DATABASE_URL=...kmuhub_app...`, 0 uebersprungen) | migration n.a. (keine
+  Schema-Aenderung, `currency` existiert bereits auf `finance_invoices` und
+  `finance_credit_notes`) | rls-smoke n.a. (keine neue Tabelle/Policy) |
+  Route: keine (keine Gateway-Route/OpenAPI-Aenderung,
+  `go test ./internal/gateway/` daher nicht Pflicht — trotzdem nicht
+  gesondert gelaufen, da `internal/server`-Aenderung nur einen bestehenden
+  internen Funktionsaufruf betrifft, keine Route)
+- coverage: internal/biz/dunning 92,2 % -> 92,2 % (vorher/nachher selbst
+  gemessen per `git stash`/`stash pop` auf allen fuenf geaenderten Dateien;
+  unveraendert, weil die neuen Zeilen reine Feldzuweisungen ohne neue
+  Verzweigung sind — Beweisfuehrung liegt in der Mutations-Probe)
+- mutations-probe: in `buildGoBDCSV` `r.Currency` durch hartkodiertes `"EUR"`
+  ersetzt, `go test -run TestService_GenerateGoBDExport_CurrencyColumn` wurde
+  rot (zweite Zeile erwartete CHF, bekam EUR), Mutation zurueckgedreht,
+  `git diff` gegen Vor-Mutation-Stand leer
+- verify vorgaenger: sauber. `119e2a3a` geprueft (`git show --stat`, dann
+  gezielt `kpi_postgres.go`+`executor.go` gegen die acht Fehlerklassen): reine
+  SQL-Filterzeilen (`AND currency = COALESCE(...)`) in zwei bestehenden
+  Statements + ein reiner Kommentar im toten `executor.go`-Pfad. Kein
+  gRPC-Bypass, kein Stub, kein `.proto`, kein neuer `RequirePermission`, keine
+  neue Tabelle, kein Wire-Shape-Wechsel, keine neue Route, kein
+  Guard-Ersatz — keine der acht Klassen einschlaegig.
+- neue-units: keine
+- offen: keine

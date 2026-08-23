@@ -2492,7 +2492,7 @@ func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.Gener
 			break
 		}
 		for _, inv := range page {
-			rows = append(rows, dunning.BuildGoBDRows(inv.InvoiceNumber, inv.InvoiceDate, inv.CustomerName, inv.Status, inv.TaxMode, inv.LineItems, inv.Subtotal, 1)...)
+			rows = append(rows, dunning.BuildGoBDRows(inv.InvoiceNumber, inv.InvoiceDate, inv.CustomerName, inv.Status, inv.TaxMode, inv.Currency, inv.LineItems, inv.Subtotal, 1)...)
 		}
 		last := page[len(page)-1]
 		d, id := last.InvoiceDate, last.ID
@@ -2514,7 +2514,7 @@ func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.Gener
 			break
 		}
 		for _, cn := range page {
-			rows = append(rows, dunning.BuildGoBDRows(cn.CreditNoteNumber, cn.CreatedAt, cn.CustomerName, "credit_note", cn.TaxMode, cn.LineItems, cn.Subtotal, -1)...)
+			rows = append(rows, dunning.BuildGoBDRows(cn.CreditNoteNumber, cn.CreatedAt, cn.CustomerName, "credit_note", cn.TaxMode, cn.Currency, cn.LineItems, cn.Subtotal, -1)...)
 		}
 		last := page[len(page)-1]
 		d, id := last.CreatedAt, last.ID
