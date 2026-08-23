@@ -4381,7 +4381,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Testcode-Fix, kein Coverage-Ziel)"
     scope: >
       Beim Gate der Unit fix-gobd-export-currency-empty-for-legacy-documents (Iteration 84)

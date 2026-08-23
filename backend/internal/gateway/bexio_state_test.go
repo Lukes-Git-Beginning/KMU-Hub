@@ -39,9 +39,15 @@ func TestDecodeBexioState_ManipulatedSignature(t *testing.T) {
 		t.Fatalf("encodeBexioState: %v", err)
 	}
 
-	// Flip a byte in the signature part
+	// Flip a byte in the signature part. The replacement char must differ from the
+	// original — the nonce is random per call, so the original byte at this position
+	// is uniformly distributed over the base64url alphabet and could already be "X".
 	dot := strings.LastIndex(token, ".")
-	tampered := token[:dot+1] + "X" + token[dot+2:]
+	replacement := byte('X')
+	if token[dot+1] == replacement {
+		replacement = 'Y'
+	}
+	tampered := token[:dot+1] + string(replacement) + token[dot+2:]
 
 	_, err = decodeBexioState(testStateSecret, tampered)
 	if err == nil {

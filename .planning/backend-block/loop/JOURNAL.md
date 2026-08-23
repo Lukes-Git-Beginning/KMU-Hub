@@ -5775,3 +5775,39 @@ Frühere Läufe liegen vollständig im Archiv:
   88) bleiben unveraendert offen. `BACKLOG.yml` ist weiterhin kein gueltiges YAML (15 unquotierte
   `done_when`-Doppelpunkte, siehe Iteration 89) — praktisch folgenlos, da der Treiber per Regex
   liest, aber unveraendert ein offener Punkt fuer jeden kuenftigen YAML-Parser-Zugriff.
+
+## Iteration 91 — fix-bexio-state-test-flaky-tamper-byte — done — 2026-08-23 10:31
+- commit: (siehe naechster Eintrag/CLI-Ausgabe)
+- gebaut: `TestDecodeBexioState_ManipulatedSignature`
+  (`internal/gateway/bexio_state_test.go:34-53`) ersetzte das erste Zeichen der Signatur immer
+  durch das feste Literal `"X"`. Da `encodeBexioState` einen zufaelligen Nonce einbindet, ist
+  dieses Zeichen pro Aufruf gleichverteilt ueber das Base64URL-Alphabet — traf es zufaellig `X`
+  (~1/64), war das "manipulierte" Token identisch zum Original und der Test schlug faelschlich
+  fehl. Fix: das Ersatzzeichen wird jetzt gegen das tatsaechliche Originalzeichen geprueft
+  (`if token[dot+1] == replacement { replacement = 'Y' }`), garantiert also immer eine echte
+  Abweichung, unabhaengig vom Nonce. Reiner Testcode-Fix, `bexio_state.go` unveraendert.
+- gate: build ok (`go build -p 2` gegen internal/gateway + cmd/gateway) | vet ok | lint ok
+  (0 issues, golangci-lint gegen internal/gateway) | test ok — `DATABASE_URL` auf `kmuhub_app`,
+  `go test -count=1 ./internal/gateway/ -run TestDecodeBexioState -count=50 -v` 50/50 gruen,
+  `go test -count=1 ./internal/gateway/` (voller Gateway-Testlauf inkl. TestOpenAPIRouteDrift)
+  gruen, **0 SKIP** (per `-v | grep -c SKIP` geprueft) | migration n.a. | rls-smoke n.a. (kein
+  Schema-/Policy-Zugriff)
+- coverage: n.a. (Test-Infrastruktur-Fix, keine Coverage-relevante Produktionscodeaenderung, wie
+  in `coverage_start` der Unit vorgegeben)
+- mutations-probe: Testdatei per `git stash` auf den Vor-Zustand (festes `"X"`-Literal)
+  zurueckgesetzt, `go test -count=500 ./internal/gateway/ -run TestDecodeBexioState_ManipulatedSignature -v`
+  gefahren: **9 von 500 Laeufen schlugen fehl** — exakt der beschriebene Kollisionsbug, empirisch
+  nahe der erwarteten ~1/64-Quote (~7,8/500). `git stash pop` zurueckgeholt, denselben
+  `-count=500`-Lauf mit dem Fix wiederholt: **500/500 gruen**. `git diff --stat` danach nur
+  `bexio_state_test.go` (+ `BACKLOG.yml`) — kein Produktionscode veraendert.
+- verify vorgaenger: sauber. `543924d5` (Iteration 90) gegen alle acht Fehlerklassen geprueft:
+  reiner Testinfrastruktur-Fix (`defer pool.Close()` -> `t.Cleanup(pool.Close)` in sechs
+  Testdateien) — kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer Guard, keine neue
+  Tabelle, keine Wire-Shape-Aenderung, keine neue Route, kein ersetzter Guard. `01dea3ad` direkt
+  danach ist reine Journal-Buchhaltung (SHA-Eintrag).
+- neue-units: keine
+- offen: `harden-lexware-webhook-organization-id-scoping` (ENTSCHEIDUNG GEHOERT LUKE, Variante
+  a/b) bleibt unveraendert offen. `fix-idempotency-409-rollout-non-finance-routes-2` und
+  `test-openapi-documented-status-codes-vs-handlers` bleiben als naechste `todo`-Units mit
+  erfuellten deps liegen. `BACKLOG.yml` ist weiterhin kein gueltiges YAML (unquotierte
+  `done_when`-Doppelpunkte) — praktisch folgenlos, da der Treiber per Regex liest.
