@@ -7039,3 +7039,57 @@ Frühere Läufe liegen vollständig im Archiv:
   `api/openapi.yaml` an, aber unterschiedliche Response-Codes auf denselben Pfaden; kein
   Konflikt beobachtet, aber kuenftige Iterationen sollten vor dem Bauen pruefen, ob die
   jeweils andere Serie dieselbe Registrar-Gruppe inzwischen schon angefasst hat.
+
+## Iteration 117 — fix-idempotency-409-rollout-non-finance-routes-11 — done — 2026-08-23 13:30
+- commit: 0be5c739
+- gebaut: Registrar-Gruppe **berichte** vollstaendig auf 409 umgestellt (15 mutierende
+  Operationen in `route_berichte.go`, Basispfad `/api/v1/berichte`, Idempotency-Middleware
+  greift auf allen Methoden ausser GET): `POST /api/v1/berichte/definitions`, `PATCH
+  /api/v1/berichte/definitions/{id}`, `DELETE /api/v1/berichte/definitions/{id}`, `POST
+  /api/v1/berichte/definitions/{id}/run`, `POST /api/v1/berichte/definitions/{id}/export`,
+  `DELETE /api/v1/berichte/definitions/{id}/cache`, `POST /api/v1/berichte/schedules`,
+  `PATCH /api/v1/berichte/schedules/{id}`, `DELETE /api/v1/berichte/schedules/{id}`, `POST
+  /api/v1/berichte/schedules/{id}/toggle`, `POST /api/v1/berichte/documents`, `PATCH
+  /api/v1/berichte/documents/{id}`, `DELETE /api/v1/berichte/documents/{id}`, `POST
+  /api/v1/berichte/documents/{id}/shares`, `DELETE /api/v1/berichte/shares/{shareId}`
+  bekamen je eine neue `"409": { $ref: "#/components/responses/IdempotencyInFlight" }`-Zeile,
+  kompakter Einzeiler-Stil (lokaler Stil im Datei-Abschnitt). Keine der 15 Operationen hatte
+  vorher ein `409` - reiner Additiv-Fall, kein Merge-Fall. Alle 409-Zeilen numerisch nach dem
+  jeweils letzten vorhandenen Code eingefuegt (nach `404` wo vorhanden, sonst nach `403`).
+  Registrar-Gruppe ist nicht in der `idempotencyWhitelist` (`idempotency.go:36`, nur
+  `/auth/login|refresh|2fa`), Middleware greift also real; Middleware ist global verdrahtet,
+  nicht in `route_berichte.go` selbst. Der public Share-Read (`POST
+  /api/v1/public/berichte/reports/{token}`, per `RegisterPublicRoutes` ausserhalb der
+  `registrars`-Schleife registriert) ist unangetastet geblieben, matched die Ausschlussliste
+  `/api/v1/public/*`. Einzige geaenderte Datei: `api/openapi.yaml` (15 neue Zeilen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, 2682 Subtests PASS, **0 SKIP**, 0 FAIL, mit gesetztem `DATABASE_URL`) | swagger-cli
+  validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: frisch eingefuegten `IdempotencyInFlight`-$ref bei `revokeBerichteDocumentShare`
+  (`DELETE /api/v1/berichte/shares/{shareId}`) testweise auf `IdempotencyInFlightXXX` verbogen
+  - `swagger-cli validate` meldete sofort `Token "IdempotencyInFlightXXX" does not exist.`
+  (rot wie erwartet). Datei danach aus Sicherungskopie (`/tmp/openapi_backup_117_good.yaml`,
+  Stand NACH den 15 Einfuegungen) zurueckgesetzt, `diff` bestaetigt identisch, `swagger-cli
+  validate` erneut gruen, `go test -count=1 ./internal/gateway/...` erneut gruen bestaetigt.
+  `git diff --stat` zeigt danach nur noch die erwarteten 15 Zeilen in `api/openapi.yaml`.
+  Randnotiz: die erste Sicherungskopie war versehentlich VOR den 15 Einfuegungen gezogen worden
+  - der erste Restore-Versuch hat dadurch alle 15 Zeilen mitgeloescht, sofort per `git diff
+  --stat` (0 insertions) bemerkt und alle 15 Edits identisch wiederholt, bevor die eigentliche
+  Mutations-Probe lief.
+- verify vorgaenger: sauber. `d462e00b` (Iteration 116) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (6 neue Zeilen, reports-Registrar-Gruppe, 503 additiv nach 401); reine
+  Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`, Tabelle oder
+  Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen.
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-12` (Restliste aktualisiert,
+  berichte als erledigt markiert, verbleibende Registrar-Gruppen unveraendert aus
+  Iteration 111 uebernommen).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt. Randnotiz: `.planning/backend-block/loop/BACKLOG.yml`
+  hat einen VORBESTEHENDEN YAML-Parse-Fehler bei Zeile ~2893 (unabhaengig von dieser Iteration,
+  bereits in Iteration 114 im Journal vermerkt: "betrifft nicht meine Aenderung, Gesamtdatei
+  bricht dort ab") - meine beiden neuen/geaenderten Abschnitte (Zeilen 6141-6378) sind isoliert
+  mit `yaml.safe_load` gegengeprueft und parsen sauber; ein separater Fix-Durchgang fuer die
+  Gesamtdatei bleibt offen fuer Luke.
