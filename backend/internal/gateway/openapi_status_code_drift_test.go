@@ -443,25 +443,19 @@ var systemicUndocumentedCodes = map[int]string{
 // (helpers.go:166, "missing user in token") or from getTenantID; 500 marks
 // handlers that answer with a plain internal error instead of going through
 // respondGRPCError; 501 marks the four tag endpoints that still reply
-// http.StatusNotImplemented; 502 marks the Slack/Teams webhook bridges.
+// http.StatusNotImplemented.
 var statusDriftBaseline = map[string][]int{
 	"DELETE /api/v1/activities/{id}/tags": {501},
 	"DELETE /api/v1/dashboard/layout": {500},
 	"DELETE /api/v1/deals/{id}/tags": {501},
 	"GET /api/v1/dashboard/defaults/{role}": {500},
 	"GET /api/v1/dashboard/layout": {500},
-	"GET /api/v1/integrations/bexio/oauth/authorize": {500},
-	"GET /api/v1/integrations/bexio/oauth/callback": {500},
 	"GET /api/v1/security/gdpr/exports": {403},
 	"POST /api/v1/activities/{id}/tags": {501},
 	"POST /api/v1/deals/{id}/tags": {501},
 	"POST /api/v1/email/attachments/upload": {500},
 	"POST /api/v1/guest/sessions": {500},
 	"POST /api/v1/inbox/canned-responses": {500},
-	"POST /api/v1/integrations/lexware/webhooks": {500},
-	"POST /api/v1/integrations/slack/commands": {502},
-	"POST /api/v1/integrations/slack/interact": {502},
-	"POST /api/v1/integrations/teams/webhook": {502},
 	"POST /api/v1/webhooks/livekit": {401},
 	"PUT /api/v1/customization/labels": {500},
 	"PUT /api/v1/dashboard/defaults/{role}": {500},

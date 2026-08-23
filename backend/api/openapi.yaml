@@ -30098,6 +30098,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "502":
+          description: Notification service returned a status code outside 100-599
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/slack/interact:
     post:
@@ -30153,6 +30158,11 @@ paths:
               schema: { type: string, example: "unauthorized" }
         "501":
           description: Slack webhooks are not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "502":
+          description: Notification service returned a status code outside 100-599
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -30213,6 +30223,11 @@ paths:
               schema: { type: string, example: "unauthorized" }
         "501":
           description: Slack webhooks are not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "502":
+          description: Notification service returned a status code outside 100-599
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -30592,8 +30607,7 @@ paths:
         param), and for the success path (appends `bexio_connected=true`).
         Two failure paths return a JSON ErrorResponse instead of redirecting:
         an invalid/expired `state` token (400) and a misconfigured
-        BEXIO_STATE_SECRET (500, not formally listed below since it signals
-        server misconfiguration, not a client error).
+        BEXIO_STATE_SECRET (500).
       tags: [bexio]
       operationId: bexioOAuthCallback
       security: []
@@ -30623,6 +30637,11 @@ paths:
             Location:
               schema: { type: string, format: uri }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "500":
+          description: BEXIO_STATE_SECRET is not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/bexio/oauth/authorize:
     get:
@@ -30651,6 +30670,11 @@ paths:
                   authorization_url: { type: string, format: uri }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: BEXIO_STATE_SECRET is not configured, or state-token/authorization-URL generation failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/bexio/disconnect:
     post:
@@ -30965,9 +30989,8 @@ paths:
         the `X-Signature` header is checked against the raw request body,
         rejecting with 401 when missing or invalid. When the secret is unset
         in production the request is rejected with 500 (webhook secret not
-        configured, not formally listed below since it signals server
-        misconfiguration); in dev/staging the check is skipped with a
-        warning log instead.
+        configured); in dev/staging the check is skipped with a warning log
+        instead.
       tags: [lexware]
       operationId: handleLexwareWebhookEvent
       security: []
@@ -30998,6 +31021,11 @@ paths:
                   success: { type: boolean }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: LEXWARE_WEBHOOK_SECRET is not configured on this deployment (production)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/lexware/connect:
     post:
