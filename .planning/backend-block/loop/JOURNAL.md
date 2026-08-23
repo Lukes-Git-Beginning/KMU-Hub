@@ -6344,3 +6344,54 @@ Frühere Läufe liegen vollständig im Archiv:
   uebernommen).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
   Migration und keine Tabelle beruehrt.
+
+## Iteration 102 — fix-status-code-drift-baseline-non-systemic-3 — done — 2026-08-23 11:39
+- commit: -
+- gebaut: Registrar-Gruppe **hr** vollstaendig aus `statusDriftBaseline` geschlossen — 23
+  Eintraege (17x reines 401 `getTenantID` "missing or invalid tenant", 6x reines 500
+  Proto-Serialisierungsfehler). Jeder der 23 Handler in `route_hr.go` einzeln gelesen, um die
+  Fehlerquelle zu verifizieren statt zu raten: alle 401 stammen aus `getTenantID`, KEINER aus
+  `ownerFilterForScope` — der Kopfkommentar nennt beide Quellen als moeglich, in dieser Gruppe
+  trifft ausschliesslich die erste zu. Alle 500 stammen aus `hrMarshalSlice`/
+  `cannedResponseMarshaler.Marshal` (protojson-Fehler nach erfolgreichem gRPC-Call), nicht aus
+  `respondGRPCError` (der ist fuer den drift-Test unsichtbar, s. Testkopf). 17 Operationen im
+  aelteren Teil der Spec (`/api/v1/hr/leave/*`, `/api/v1/hr/time/{active,clock-in,clock-out,
+  corrections,entries}`, `/api/v1/hr/absences/calendar`, `/api/v1/hr/employees*`,
+  `/api/v1/hr/settings`) hatten bislang GAR KEINE Fehler-Responses dokumentiert und bekamen 401
+  und/oder 500 frisch ergaenzt; 6 Operationen im neueren Teil (`/api/v1/hr/time/{analytics,team,
+  categories,templates,projects,weeks/status}`) hatten 401/403 bereits dokumentiert und
+  bekamen nur das fehlende 500 nachgetragen. `$ref` auf `#/components/responses/Unauthorized`
+  fuer alle 401 (existierende generische Komponente), 500 als Inline-`description: Failed to
+  serialize the response` (gleicher Wortlaut wie Iteration 99 bei Finance). Numerisch
+  einsortiert. Kein Go-Produktionscode angefasst, einzige geaenderten Dateien sind
+  `api/openapi.yaml` (50 eingefuegte Zeilen) und `internal/gateway/
+  openapi_status_code_drift_test.go` (23 Zeilen aus `statusDriftBaseline` entfernt).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 2682 PASS, 0 FAIL) |
+  `TestOpenAPIStatusCodeDrift` gruen (`checked 1196 documented operations ... 22 baselined
+  operations`, vorher 45) | swagger-cli validate gruen | migration n.a. | rls-smoke n.a.
+  (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert — die Aenderung an
+  der Testdatei betrifft nur eine Datenliteral-Map, keine ausfuehrbare Logik)
+- mutations-probe: einen frisch eingefuegten `"401": { $ref:
+  "#/components/responses/Unauthorized" }` unter `GET /api/v1/hr/settings` testweise entfernt
+  (aus vorher angelegter Sicherungskopie der ganzen Datei): `TestOpenAPIStatusCodeDrift` rot
+  (`GET /api/v1/hr/settings writes [401] - not documented`), Baseline-Zaehler dabei unveraendert
+  bei 22 (der Test schlaegt VOR der Baseline-Pruefung fehl, kein Fallback-Eintrag). Aus der
+  Sicherungskopie zurueckgestellt, `go test` danach wieder gruen, `swagger-cli validate` danach
+  wieder gruen, `git diff --stat backend/api/openapi.yaml` zeigt exakt 50 Einfuegungen (17
+  Operationen mit vorher keinen Fehler-Responses x 2-4 Zeilen + 6 Operationen mit vorhandenem
+  401/403 x 1 Zeile 500), sonst nichts im `backend/`-Baum veraendert.
+- verify vorgaenger: sauber. `55cf661a` (Iteration 101) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (6 additive Zeilen, 3x `409` fuer die Registrar-Gruppe dashboard aus
+  `fix-idempotency-409-rollout-non-finance-routes-5`), reine Spec-Doku ohne Go-Produktionscode,
+  `.proto`, Route, `RequirePermission`, Tabelle oder Wire-Shape-Aenderung; keine der acht
+  Fehlerklassen betroffen.
+- neue-units: `fix-status-code-drift-baseline-non-systemic-4` (Rest der 22 verbliebenen
+  Eintraege: integrations 6, dashboard 5, verstreut 11 — mit aktualisierter Liste und dem
+  Hinweis, dashboard-500 nicht mit der schon erledigten Idempotenz-409-Unit auf denselben
+  Pfaden zu verwechseln).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt.

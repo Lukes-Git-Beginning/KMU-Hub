@@ -5150,7 +5150,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-status-code-drift-baseline-non-systemic-2]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Fortsetzung von `fix-status-code-drift-baseline-non-systemic-2` (Iteration 99 hat die
@@ -5305,3 +5305,54 @@ units:
         IdempotencyInFlight-$ref wird testweise verbogen, swagger-cli wird rot,
         Aenderung zurueckgedreht"
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-status-code-drift-baseline-non-systemic-4
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-status-code-drift-baseline-non-systemic-3]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `fix-status-code-drift-baseline-non-systemic-3` (Iteration 102 hat die
+      Registrar-Gruppe **hr** vollstaendig geschlossen - 23 Eintraege, 17x reines 401 aus
+      `getTenantID` "missing or invalid tenant", 6x 500 aus fehlgeschlagener
+      Proto-Serialisierung; `statusDriftBaseline` von 45 auf 22 Eintraege gesunken, siehe
+      `checked ... (22 baselined operations)` in `TestOpenAPIStatusCodeDrift`).
+      Verbleibende Gruppen in `internal/gateway/openapi_status_code_drift_test.go`
+      (`statusDriftBaseline`, Stand nach Iteration 102):
+      **integrations** (6 Eintraege, naechste Zielgruppe - GET bexio oauth authorize/callback
+      500, POST lexware webhooks 500, POST slack commands/interact 502, POST teams webhook 502
+      - Slack/Teams laufen ueber Webhook-Bridges, die 502 vermutlich aus einer eigenen
+      respond-Helper-Funktion schreiben, vor dem Eintragen im jeweiligen Handler verifizieren),
+      **dashboard** (5 Eintraege: GET/PUT/DELETE layout 500, GET/PUT defaults/{role} 500 -
+      ACHTUNG nicht verwechseln mit der bereits erledigten Idempotenz-409-Unit auf denselben
+      Pfaden, hier geht es um den 500-Fehlerpfad, nicht um Idempotenz),
+      Rest verstreut (11 Eintraege: `DELETE/POST /api/v1/activities/{id}/tags` und
+      `DELETE/POST /api/v1/deals/{id}/tags` 501 - NICHT hierher, siehe
+      `fix-crm-tag-endpoints-are-501-stubs`, bleiben bewusst in der Baseline stehen bis diese
+      Unit entschieden ist; `POST /api/v1/guest/sessions` 500; `POST
+      /api/v1/email/attachments/upload` 500; `POST/PUT /api/v1/inbox/canned-responses` 500;
+      `POST /api/v1/webhooks/livekit` 401; `PUT /api/v1/customization/labels` 500 -
+      Customization ist FE-seitig gesperrt, trotzdem reine Doku hier vermutlich unkritisch, im
+      Zweifel auslassen; `GET /api/v1/security/gdpr/exports` 403).
+      Je Iteration eine Gruppe (integrations zuerst), abgearbeitete Eintraege im selben Commit
+      aus `statusDriftBaseline` entfernen. Kein Go-Code aendern, nur `api/openapi.yaml`.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_integrations*.go
+    notes: >
+      Gleiche Mechanik wie Iteration 99 (Finance) und 102 (HR): Handler/Service pruefen (nicht
+      raten, welcher Guard/welche Fehlerquelle den Code schreibt), Beschreibung am tatsaechlichen
+      `response.Error`-Text bzw. der Kopfkommentar-Erklaerung in `statusDriftBaseline`
+      orientieren, $ref auf `#/components/responses/Unauthorized` fuer 401 wo ein generischer
+      Unauthorized-Response existiert, sonst inline `description:`. Numerisch einsortieren.
+      Mutations-Probe: einen frisch eingefuegten Eintrag testweise entfernen,
+      `TestOpenAPIStatusCodeDrift` muss dafuer rot werden, danach zurueckdrehen.
+    done_when:
+      - Mindestens eine weitere Gruppe der verbliebenen 22 Eintraege ist in api/openapi.yaml
+        dokumentiert
+      - Die erledigten Eintraege sind aus statusDriftBaseline entfernt
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"

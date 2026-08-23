@@ -11369,6 +11369,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     get:
       summary: List leave requests (filtered)
       tags: [hr-leave]
@@ -11401,6 +11403,10 @@ paths:
                     items:
                       $ref: "#/components/schemas/LeaveRequest"
                   total: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/hr/leave/requests/{id}:
     get:
@@ -11488,6 +11494,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/leave/balance/{userId}:
     get:
@@ -11503,6 +11511,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/leave/types:
     get:
@@ -11518,6 +11528,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LeaveType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/leave/sick:
     post:
@@ -11546,6 +11558,10 @@ paths:
                   leave_request:
                     $ref: "#/components/schemas/LeaveRequest"
                   au_document_required: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   # ===========================================================================
   # HR: Time Tracking
@@ -11562,6 +11578,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkTimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/time/clock-out:
     post:
@@ -11580,6 +11598,10 @@ paths:
                     $ref: "#/components/schemas/WorkTimeEntry"
                   severity: { type: string, enum: [none, info, warning, error] }
                   arbzg_message: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/hr/time/break/start:
     post:
@@ -11625,6 +11647,8 @@ paths:
                   is_on_break: { type: boolean }
                   active_break:
                     $ref: "#/components/schemas/BreakEntry"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/hr/time/status:
     get:
@@ -11663,6 +11687,10 @@ paths:
                     items:
                       $ref: "#/components/schemas/WorkTimeEntry"
                   total: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
     post:
       summary: Create a manual work time entry
       tags: [hr-time]
@@ -11764,6 +11792,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkTimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/time/corrections/{id}/approve:
     post:
@@ -11801,6 +11831,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AbsenceEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ===========================================================================
   # HR: Employee Profiles
@@ -11827,6 +11859,10 @@ paths:
                     items:
                       $ref: "#/components/schemas/EmployeeProfile"
                   total: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
     post:
       summary: Create employee profile
       description: Creates a new HR employee profile for an existing auth user. Auth user creation is a separate step.
@@ -11883,6 +11919,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmployeeProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "409":
           description: Employee profile already exists for this user
 
@@ -12253,6 +12291,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmployeeDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ===========================================================================
   # HR: Personalakte (tenant-wide personnel documents)
@@ -12374,6 +12414,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HRSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     put:
       summary: Update HR company settings
       tags: [hr-settings]
@@ -12391,6 +12433,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HRSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # =========================================================================
   # Inbox
@@ -33350,6 +33394,7 @@ paths:
               schema: { $ref: "#/components/schemas/HrTimeAnalytics" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
 
   /api/v1/hr/time/balance:
     get:
@@ -33390,6 +33435,7 @@ paths:
                     items: { $ref: "#/components/schemas/HrTimeTeamEntry" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
 
   /api/v1/hr/time/categories:
     get:
@@ -33410,6 +33456,7 @@ paths:
                     items: { $ref: "#/components/schemas/HrTimeCategory" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
     post:
       summary: Create a time category
       tags: [hr-time]
@@ -33486,6 +33533,7 @@ paths:
                     items: { $ref: "#/components/schemas/HrTimeTemplate" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
     post:
       summary: Create a time template
       tags: [hr-time]
@@ -33540,6 +33588,7 @@ paths:
                     items: { $ref: "#/components/schemas/HrTimeProject" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
     post:
       summary: Create a time project
       tags: [hr-time]
@@ -33584,6 +33633,7 @@ paths:
                   target_minutes: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
 
   /api/v1/hr/time/weeks/submit:
     post:
