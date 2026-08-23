@@ -22229,6 +22229,7 @@ paths:
                   total: { type: integer }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Create a contract
       tags: [vertraege]
@@ -22261,6 +22262,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}:
     get:
@@ -22280,8 +22282,10 @@ paths:
                 type: object
                 properties:
                   contract: { $ref: "#/components/schemas/VertraegeContract" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     patch:
       summary: Update a contract
       tags: [vertraege]
@@ -22317,6 +22321,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a contract
       tags: [vertraege]
@@ -22327,9 +22332,11 @@ paths:
       responses:
         "204":
           description: Contract deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/export:
     get:
@@ -22347,8 +22354,10 @@ paths:
               schema: { type: string, format: binary }
             application/pdf:
               schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/events:
     get:
@@ -22381,6 +22390,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/signature:
     put:
@@ -22417,6 +22427,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/parties:
     get:
@@ -22437,8 +22448,10 @@ paths:
                   parties:
                     type: array
                     items: { $ref: "#/components/schemas/VertraegeContractParty" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Add a party to a contract
       tags: [vertraege]
@@ -22473,6 +22486,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/parties/{partyId}:
     delete:
@@ -22486,9 +22500,11 @@ paths:
       responses:
         "204":
           description: Party removed
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/reminders:
     get:
@@ -22510,8 +22526,10 @@ paths:
                   reminders:
                     type: array
                     items: { $ref: "#/components/schemas/VertraegeContractReminder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Create a reminder for a contract
       tags: [vertraege]
@@ -22543,6 +22561,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/reminders/{reminderId}:
     patch:
@@ -22578,6 +22597,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a contract reminder
       tags: [vertraege]
@@ -22589,9 +22609,11 @@ paths:
       responses:
         "204":
           description: Reminder deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   # ---------------------------------------------------------------------------
   # Modul: mails
