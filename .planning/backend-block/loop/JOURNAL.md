@@ -2992,7 +2992,7 @@ Frühere Läufe liegen vollständig im Archiv:
   TestOpenAPIRouteDrift.
 
 ## Iteration 47 — cov-gateway-biz-bank-transactions-routes — done — 2026-08-23 04:51
-- commit: (siehe unten, wird nach dem Commit ergänzt)
+- commit: 22b02b24
 - gebaut: neue Datei `route_biz_bank_transactions_gate_test.go` mit 20 Tests
   über sechs bisher ungeprüfte Handler: `route_biz_bank_transactions.go`
   (HandleListBankTransactions, HandleMatchBankTransaction,
