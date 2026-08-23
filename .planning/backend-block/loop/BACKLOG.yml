@@ -2318,7 +2318,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       Jeder Eingangspfad, den ein Fremdsystem auslöst, kann doppelt ankommen — Netzwerkfehler,

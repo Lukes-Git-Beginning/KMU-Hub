@@ -3604,3 +3604,73 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine. Die 838-vs-836-Differenz bei TestOpenAPIRouteDrift ist
   vorbestehend und unveraendert durch diese Unit (keine Route angefasst) —
   nicht neu, nicht Teil dieser Iteration.
+
+## Iteration 55 — scan-inbound-paths-without-duplicate-delivery-guard — done — 2026-08-23 05:54
+- commit: (siehe naechster Commit auf diesem Branch)
+- gebaut: reiner Scan, kein Code geändert. Vollständige Liste aller Eingangspfade
+  geprüft, die ein Fremdsystem/Scheduler/Poller auslösen kann, gegen die Frage
+  "was passiert bei Doppelzustellung/überlappendem Lauf". Ein Explore-Subagent
+  hat die HTTP-Webhooks aus `internal/gateway/` und die Scheduler/Poller aus
+  `cmd/*/main.go` (automation, berichte, work, document, gateway) durchsucht;
+  ich habe danach selbst drei Lücken in seiner Abdeckung nachgezogen, die die
+  Backlog-Anker explizit offen liessen bzw. die er nicht angefasst hatte:
+  (1) `route_automation.go:683` `HandleTriggerWebhook` — die im Backlog
+  benannte offene Frage "Verhalten OHNE Idempotency-Key" ist im Code bereits
+  gelöst: `internal/automation/workflow/webhook.go:198-206` fällt ohne Header
+  auf den SHA-256-Hash des Bodys zurück (`dedupeKey = bodyHash`), reserviert
+  über den gemeinsamen `internal/idempotency`-Store mit `auto.OwnerID` als
+  `user_id` (löst die im Backlog genannte `user_id NOT NULL`-Einschränkung
+  über den Automations-Owner statt eines Systemnutzers) und ist mit
+  `TestTriggerWebhook_DuplicateViaBodyHashFallback` sowie
+  `TestTriggerWebhook_IdempotencyConflict` abgedeckt. NICHT-FUND, keine offene
+  Frage mehr.
+  (2) Bexio-Poller (`internal/biz/bexio/scheduler.go`) und Lexware-Scheduler
+  (`internal/biz/lexware/scheduler.go`), die als bekannter Anker im Backlog
+  standen, aber ohne vorab beantwortetes Ergebnis (anders als die übrigen
+  Anker): je Tenant genau eine Goroutine mit `for { select {...} }` über
+  mehrere `time.Ticker`s — dieselbe Goroutine kann `SyncContacts`/
+  `PollPayments`/`PullInvoicesWithConfig` nie überlappend ausführen, weil
+  `select` sequenziell bearbeitet und ein `time.Ticker`-Channel nur ein
+  ungelesenes Tick puffert statt zu stauen. Kein prozessinterner Overlap
+  möglich. Cross-Replica-Overlap (zwei Instanzen von `cmd/biz`) ist im
+  aktuellen Ein-Server-pro-Kunde-Deployment-Modell kein reales Risiko (keine
+  horizontale Skalierung dieses Service). NICHT-FUND.
+  (3) `gdpr.RetentionScheduler` (`internal/security/gdpr/retention_scheduler.go`,
+  `cmd/auth/main.go:143`) — vom Explore-Agenten nicht erfasst, da nur
+  `cmd/document` und `cmd/work` per Grep-Muster `time.NewTicker`/`for {`
+  auffielen. Bereits per `pg_try_advisory_lock` mit dediziertem Connection-
+  Acquire/Release (derselbe Fix, der `IdempotencyCleanupWorker` in CI-Lauf
+  32569420247 fehlte) gegen Mehrfachausführung über Replicas gehärtet.
+  NICHT-FUND.
+  Vom Explore-Agenten geprüft und mit Begründung als NICHT-FUND übernommen:
+  Teams/Slack-Webhook (`route_integration.go:98-100/547`, alle Schreibpfade
+  State-Overwrite oder Delete, kein Zeilen-Duplikat), Automations-
+  Poller (`internal/automation/trigger/poller.go`, CAS-Claim), Berichte-
+  Scheduler (`internal/berichte/scheduler/scheduler.go`, CAS-Claim gegen
+  doppelten Mailversand), Work-Recording-Cleanup, Meeting-Auto-Close-Sweeper
+  (Terminalzustands-Check, eigener Test gegen Doppel-Aufruf), WOPI-Lock-
+  Cleanup, Gateway-Idempotency-Cleanup-Worker (Advisory-Lock). Bereits vorab
+  im Backlog-Draft als NICHT-FUND belegt (nicht erneut geprüft, nur
+  referenziert): Lexware-Webhook, LiveKit-Webhook, Formulare-Webhooks,
+  Kontoauszugsimport, DATEV-Upload.
+  Bewusst ausgeklammert (Begründung: kein Fremdsystem-Trigger, keine
+  Signatur-/JWT-Prüfung gegen ein externes System): Booking-, Berichte-Share-,
+  Document-Share-, Helpdesk-CSAT-, Wiki-Share- und Guest-Session-Routen unter
+  `RegisterPublicRoutes` — das sind menschlich ausgelöste Formulare/Links,
+  keine Webhook-/Scheduler-Eingänge im Sinne der Scope-Definition.
+- gate: n.a. (reiner Scan, kein Code/keine Tests geändert, `go build`/`go
+  test` nicht einschlägig)
+- coverage: n.a. (kein Coverage-Ziel, Scan-Unit)
+- mutations-probe: n.a. (kein Verhalten geändert)
+- verify vorgaenger: sauber. `a896d604` (Iteration 54) geprüft: `git show
+  --stat` zeigt nur zwei Testdateien plus BACKLOG.yml/JOURNAL.md, kein neuer
+  Handler/Service-Direktaufruf, kein Stub/TODO, kein `.proto`-Change, keine
+  Migration, kein neuer/ersetzter RequirePermission-Guard, keine neue
+  Tabelle, keine neue Route, kein Wire-Shape-Wechsel — keine der acht
+  Fehlerklassen einschlägig.
+- neue-units: keine. Alle geprüften Pfade sind NICHT-FUND — entweder bereits
+  durch CAS-Claim/Advisory-Lock/Terminalzustands-Check gehärtet, oder die
+  Schreibvorgänge sind von Natur aus idempotent (Overwrite/Delete-by-
+  Bedingung), oder (Automations-Webhook ohne Key) bereits per Body-Hash-
+  Fallback gelöst und getestet.
+- offen: keine.
