@@ -26425,6 +26425,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/definitions/{id}:
     get:
@@ -26489,6 +26490,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a report definition
       description: Requires berichte:reports:write permission.
@@ -26504,6 +26506,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/definitions/{id}/run:
     post:
@@ -26545,6 +26548,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/definitions/{id}/export:
     post:
@@ -26588,6 +26592,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/definitions/{id}/cache:
     delete:
@@ -26611,6 +26616,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/schedules:
     get:
@@ -26676,6 +26682,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/schedules/{id}:
     patch:
@@ -26723,6 +26730,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a report delivery schedule
       description: Requires berichte:reports:write permission.
@@ -26738,6 +26746,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/schedules/{id}/toggle:
     post:
@@ -26770,6 +26779,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/documents:
     get:
@@ -26853,6 +26863,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/documents/{id}:
     get:
@@ -26924,6 +26935,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a report document
       description: Requires berichte:reports:write permission.
@@ -26939,6 +26951,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/documents/{id}/export/pdf:
     get:
@@ -27046,6 +27059,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/shares/{shareId}:
     delete:
@@ -27069,6 +27083,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/public/berichte/reports/{token}:
     post:
