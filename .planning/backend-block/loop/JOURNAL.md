@@ -3297,7 +3297,7 @@ Frühere Läufe liegen vollständig im Archiv:
   (deps darauf), hier nur verifiziert, nicht dupliziert.
 
 ## Iteration 51 — cov-datev-uploader-oauth-token-refresh — done — 2026-08-23 05:22
-- commit: (siehe unten nach git commit)
+- commit: 9a48cc01
 - gebaut: Zwei neue Tests in `internal/biz/datev`, keine Produktionscode-
   Aenderung. `TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint`
   (oauth_test.go) belegt deterministisch (Server-seitige Rendezvous-Schranke
