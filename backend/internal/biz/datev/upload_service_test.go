@@ -93,6 +93,9 @@ type uploadRepoStub struct {
 	listErr       error
 	listConfigIDs []uuid.UUID
 	upsertCalls   []*models.DatevUploadConfig
+	createLogErr  error
+	updateLogErr  error
+	updateCalls   []*models.DatevUploadLog
 }
 
 func (s *uploadRepoStub) GetUploadConfig(_ context.Context, _ uuid.UUID) (*models.DatevUploadConfig, error) {
@@ -103,11 +106,15 @@ func (s *uploadRepoStub) UpsertUploadConfig(_ context.Context, cfg *models.Datev
 	return nil
 }
 func (s *uploadRepoStub) CreateUploadLog(_ context.Context, l *models.DatevUploadLog) error {
+	if s.createLogErr != nil {
+		return s.createLogErr
+	}
 	s.logs = append(s.logs, l)
 	return nil
 }
-func (s *uploadRepoStub) UpdateUploadLog(_ context.Context, _ *models.DatevUploadLog) error {
-	return nil
+func (s *uploadRepoStub) UpdateUploadLog(_ context.Context, l *models.DatevUploadLog) error {
+	s.updateCalls = append(s.updateCalls, l)
+	return s.updateLogErr
 }
 func (s *uploadRepoStub) ListUploadLogs(_ context.Context, configID uuid.UUID, _ int) ([]models.DatevUploadLog, error) {
 	s.listConfigIDs = append(s.listConfigIDs, configID)
@@ -426,6 +433,77 @@ func TestUploadBuchungsstapel_FailedTransferIsNoSuccess(t *testing.T) {
 	}
 }
 
+func TestUploadBuchungsstapel_RefusesWithoutBuilder(t *testing.T) {
+	up := &uploaderSpy{}
+	svc, _ := connectedService(t, periodBuilder([]*models.Invoice{sentInvoice("RE-1")}, configuredSettings()), up)
+	svc.builder = nil
+
+	_, err := svc.UploadBuchungsstapel(context.Background(), uuid.New(),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if !errors.Is(err, ErrBuilderNotConfigured) {
+		t.Fatalf("err = %v, want ErrBuilderNotConfigured", err)
+	}
+	if up.calls != 0 {
+		t.Errorf("platform contacted %d times, want 0", up.calls)
+	}
+}
+
+func TestUploadBuchungsstapel_PropagatesBuilderError(t *testing.T) {
+	up := &uploaderSpy{}
+	failingBuilder := periodBuilder(nil, configuredSettings())
+	svc, _ := connectedService(t, failingBuilder, up)
+
+	// An inverted period makes the builder itself fail, distinct from the
+	// "nothing bookable" case, which the builder reports as a nil error and
+	// zero documents rather than an error.
+	_, err := svc.UploadBuchungsstapel(context.Background(), uuid.New(),
+		time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if !errors.Is(err, ErrInvalidPeriod) {
+		t.Fatalf("err = %v, want ErrInvalidPeriod (the builder's own error, propagated unwrapped)", err)
+	}
+	if up.calls != 0 {
+		t.Errorf("platform contacted %d times, want 0", up.calls)
+	}
+}
+
+// TestUploadBuchungsstapel_TransferSucceedsEvenWhenLogWriteFails documents an
+// existing state-machine property, not a new one: CreateUploadLog is
+// best-effort (its error is only slog'd, never returned). A tenant whose
+// audit-log INSERT fails for any reason still gets its batch transferred —
+// the upload log is observability, not a gate on the transfer itself.
+func TestUploadBuchungsstapel_TransferSucceedsEvenWhenLogWriteFails(t *testing.T) {
+	up := &uploaderSpy{}
+	svc, repo := connectedService(t, periodBuilder([]*models.Invoice{sentInvoice("RE-1")}, configuredSettings()), up)
+	repo.createLogErr = errors.New("insert failed")
+
+	batch, err := svc.UploadBuchungsstapel(context.Background(), uuid.New(),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("UploadBuchungsstapel: %v, want the transfer to proceed despite the log-write failure", err)
+	}
+	if up.calls != 1 {
+		t.Fatalf("platform contacted %d times, want 1", up.calls)
+	}
+	if batch == nil {
+		t.Fatal("expected a batch even though the upload log could not be created")
+	}
+	if len(repo.logs) != 0 {
+		t.Errorf("logs = %+v, want none (CreateUploadLog failed, so nothing was persisted)", repo.logs)
+	}
+	// completeUploadLog still tries to UPDATE a row that was never INSERTed;
+	// that UpdateUploadLog error (if any) is swallowed the same way — the
+	// stub reports it via updateCalls regardless of outcome.
+	if len(repo.updateCalls) != 1 {
+		t.Errorf("UpdateUploadLog calls = %d, want 1 (completeUploadLog still runs)", len(repo.updateCalls))
+	}
+}
+
 // ============================================================================
 // Belegbild
 // ============================================================================
@@ -478,6 +556,42 @@ func TestUploadInvoiceBeleg_RefusesWhenNothingRendered(t *testing.T) {
 				t.Errorf("platform contacted %d times, want 0", belegUp.calls)
 			}
 		})
+	}
+}
+
+func TestUploadInvoiceBeleg_RefusesWithoutRenderer(t *testing.T) {
+	belegUp := &belegUploaderSpy{}
+	svc := NewUploadService(
+		periodBuilder(nil, configuredSettings()), nil, &uploaderSpy{}, belegUp,
+		&uploadRepoStub{uploadConfig: &models.DatevUploadConfig{ClientNumber: "55555"}},
+		&configRepoStub{config: &IntegrationConfig{ID: uuid.New(), IsActive: true}},
+		&OAuthManager{},
+	)
+
+	err := svc.UploadInvoiceBeleg(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, ErrBuilderNotConfigured) {
+		t.Fatalf("err = %v, want ErrBuilderNotConfigured", err)
+	}
+	if belegUp.calls != 0 {
+		t.Errorf("platform contacted %d times, want 0", belegUp.calls)
+	}
+}
+
+func TestUploadInvoiceBeleg_RefusesWithoutBelegUploader(t *testing.T) {
+	source := &belegSourceStub{pdf: []byte("%PDF-1.4"), filename: "x.pdf"}
+	svc := NewUploadService(
+		periodBuilder(nil, configuredSettings()), source, &uploaderSpy{}, nil,
+		&uploadRepoStub{uploadConfig: &models.DatevUploadConfig{ClientNumber: "55555"}},
+		&configRepoStub{config: &IntegrationConfig{ID: uuid.New(), IsActive: true}},
+		&OAuthManager{},
+	)
+
+	err := svc.UploadInvoiceBeleg(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, ErrNotConnected) {
+		t.Fatalf("err = %v, want ErrNotConnected", err)
+	}
+	if source.calls != 0 {
+		t.Errorf("renderer invoked %d times, want 0 (the connectivity check must run before rendering)", source.calls)
 	}
 }
 
@@ -661,6 +775,23 @@ func TestUploadBeleg_FailedTransferLogsFailedStatus(t *testing.T) {
 	}
 	if len(repo.logs) != 1 || repo.logs[0].Status != "failed" {
 		t.Fatalf("logs = %+v, want one failed log", repo.logs)
+	}
+}
+
+func TestUploadBeleg_TransferSucceedsEvenWhenLogWriteFails(t *testing.T) {
+	up := &belegUploaderSpy{}
+	repo := &uploadRepoStub{uploadConfig: &models.DatevUploadConfig{ClientNumber: "55555"}, createLogErr: errors.New("insert failed")}
+	svc := NewUploadService(nil, nil, nil, up, repo,
+		&configRepoStub{config: &IntegrationConfig{IsActive: true}}, &OAuthManager{})
+
+	if err := svc.UploadBeleg(context.Background(), uuid.New(), []byte("%PDF-1.4"), "x.pdf"); err != nil {
+		t.Fatalf("UploadBeleg: %v, want the transfer to proceed despite the log-write failure", err)
+	}
+	if up.calls != 1 {
+		t.Fatalf("platform contacted %d times, want 1", up.calls)
+	}
+	if len(repo.logs) != 0 {
+		t.Errorf("logs = %+v, want none (CreateUploadLog failed, so nothing was persisted)", repo.logs)
 	}
 }
 

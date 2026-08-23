@@ -3236,3 +3236,62 @@ Frühere Läufe liegen vollständig im Archiv:
   ListMappings, CreateMapping — alle mit vorgelagertem
   `GetIntegrationConfig`-RPC) bleiben ohne Fake-Client ungetestet; dasselbe
   strukturelle Limit wie bei `route_lexware_test.go`, kein neuer Befund.
+
+## Iteration 50 — cov-datev-upload-service-error-paths — done — 2026-08-23 05:14
+- commit: (siehe Schritt 6, wird unten gesetzt)
+- gebaut: Zehn neue Tests fuer `internal/biz/datev` (upload_service.go +
+  postgres_upload_repo.go), keine Produktionscode-Aenderung. Service-Ebene:
+  `UploadBuchungsstapel` ohne Builder (ErrBuilderNotConfigured) und mit
+  fehlschlagendem `builder.Build` (propagiert ErrInvalidPeriod unveraendert);
+  `UploadInvoiceBeleg` ohne belegRenderer/belegUploader (zwei getrennte
+  Preconditions, vorher beide ungetestet); zwei Tests belegen, dass ein
+  fehlschlagendes `CreateUploadLog` (Audit-Log-INSERT) weder
+  `UploadBuchungsstapel` noch `UploadBeleg` blockiert — der Transfer laeuft
+  durch, nur der Log-Schreibversuch wird geloggt und verworfen (bestehendes
+  Verhalten, jetzt belegt statt implizit). Repository-Ebene: ein neuer
+  RLS-Test `TestListUploadLogs_InvisibleToForeignTenant` liest ueber
+  `ListUploadLogs` (nicht nur `AssertRowCount` wie der bestehende Write-Test)
+  mit dem echten `config_id` eines fremden Tenants — 0 Zeilen trotz
+  korrekter ID, weil RLS filtert, nicht die WHERE-Klausel der Query.
+- gate: build ok (`-p 2`, internal/biz/datev) | vet ok | lint ok (0 issues)
+  | test ok (`go test -count=1 -v ./internal/biz/datev/`, 98 PASS, 0 SKIP)
+  | migration n.a. | rls-smoke ok (siehe TestListUploadLogs_InvisibleToForeignTenant
+  oben — eigener Tenant liefert die Zeile, fremder Tenant 0) | OpenAPI-Drift
+  n.a. (kein Route-/Handler-Code angefasst, nur `internal/biz/datev`)
+- coverage: internal/biz/datev 79,6 % -> 80,7 % (eigene Messung vor/nach mit
+  `go tool cover -func`, DATABASE_URL gegen kmuhub_app, 0 DB-Tests
+  uebersprungen in beiden Laeufen)
+- mutations-probe: in `UploadBuchungsstapel` testweise ein `return nil, err`
+  nach dem `CreateUploadLog`-Fehlerzweig eingefuegt (simuliert die
+  naheliegende Fehlkorrektur "Log-Fehler soll den Transfer blockieren") ->
+  `TestUploadBuchungsstapel_TransferSucceedsEvenWhenLogWriteFails` wird rot
+  ("UploadBuchungsstapel: insert failed, want the transfer to proceed..."),
+  zurueckgedreht, `git diff --stat backend/internal/biz/datev/upload_service.go`
+  zeigt wieder keine Aenderung (nur die beiden Testdateien im finalen Diff).
+- verify vorgaenger: sauber. `01c59c57` (Iteration 49,
+  cov-gateway-integration-config-routes) geprueft: `git show --stat` zeigt
+  eine neue Testdatei, einen Ein-Zeilen-Fix in `notification_grpc.go`
+  (Fremdsystem-Fehlertext maskiert, Kommentar erklaert die vierte Instanz
+  dieser Leck-Klasse in diesem Lauf) plus dessen eigenen Test, keine
+  Proto-Aenderung, keine Migration, kein neuer/ersetzter
+  RequirePermission-Guard, keine neue Route, kein Wire-Shape-Wechsel; keine
+  der acht Fehlerklassen einschlaegig.
+- neue-units: fix-datev-upload-log-stuck-uploading-no-reconciliation (Fund:
+  `datev_upload_log` kann bei einem Prozessabbruch zwischen CreateUploadLog
+  und dem Transferergebnis fuer immer im Status "uploading" haengen bleiben
+  — kein Cron/Scheduler prueft darauf, `ListUploadLogs` zeigt eine verwaiste
+  Zeile ununterscheidbar von einer echten. Ausweg bewusst nicht selbst
+  gebaut: ein Reconciliation-Mechanismus ist eine `cmd/`-Wiring-Entscheidung
+  und gehoert nach den Lauf-Leitplanken nicht in eine Coverage-Unit).
+- offen: Der Zeilenzweig 124-126 in `upload_service.go` (Disconnect,
+  `RevokeTokens`-Fehlerpfad) bleibt ungetestet — `oauthManager` ist ein
+  konkreter `*OAuthManager`-Pointer, keine Interface, und `RevokeTokens`
+  kann in der aktuellen Implementierung (reines In-Memory-Cache-Delete)
+  nie einen Fehler liefern. Eine Interface-Extraktion nur fuer diese eine
+  Log-Zeile waere Overengineering fuer eine Coverage-Unit — nicht gebaut,
+  keine Folge-Unit noetig (kein Bug, nur eine strukturell unerreichbare
+  Zeile). Die 4xx/5xx-Retry-Unterscheidung aus `done_when` ist bereits in
+  `uploader.go`/`uploader_test.go` (TestUploadBuchungsstapel_DoesNotRetry4xx,
+  TestUploadBuchungsstapel_Retries5xxThenSucceeds) vollstaendig abgedeckt —
+  gehoert zur naechsten Unit `cov-datev-uploader-oauth-token-refresh`
+  (deps darauf), hier nur verifiziert, nicht dupliziert.

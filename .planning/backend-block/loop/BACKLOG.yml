@@ -2113,7 +2113,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-gateway-datev-upload-routes]
-    status: todo
+    status: done
     coverage_start: "internal/biz/datev 79,7 % (CI-Stand 32570176303)"
     scope: >
       `datev/upload_service.go` (320 Zeilen) und `postgres_upload_repo.go` (171) verwalten den
@@ -3237,3 +3237,56 @@ units:
       - Die Entscheidung zu List (protokollieren oder nicht) ist im Journal begruendet
       - go test -count=1 ./internal/security/vendoraccess/ ./internal/server/ gruen,
         DATABASE_URL gegen kmuhub_app fuer jeden DB-Test
+
+  - id: fix-datev-upload-log-stuck-uploading-no-reconciliation
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (kein Coverage-Ziel, Verhaltensaenderung)"
+    scope: >
+      Gefunden in cov-datev-upload-service-error-paths (Lauf 11, Iteration 50). Sowohl
+      `UploadBuchungsstapel` als auch `UploadBeleg`
+      (`internal/biz/datev/upload_service.go:146-216` und `:263-300`) schreiben synchron in
+      derselben Funktion: `CreateUploadLog` (Status "uploading") -> `uploader.UploadX(...)`
+      -> `completeUploadLog`/`failUploadLog`. Stirbt der Prozess zwischen der ersten und der
+      letzten Zeile (Pod-Restart waehrend eines Deploys, OOM, Panik in einer tieferen
+      Schicht), bleibt die `datev_upload_log`-Zeile fuer immer im Status "uploading" —
+      niemand markiert sie als abgebrochen, kein Scheduler prueft auf Alter. Ein Grep nach
+      "cron|scheduler|worker|retention|cleanup" ueber alle `datev`-Referenzen in `internal/`
+      und `cmd/` ergab null Treffer; es existiert kein Reconciliation-Mechanismus fuer diesen
+      Zustand. `ListUploadLogs` (`postgres_upload_repo.go:133`) zeigt die Zeile unveraendert
+      als "uploading" an, ohne Hinweis, dass sie verwaist sein koennte.
+      Das Risikofenster ist klein (die eigentliche Uebertragung inklusive Retry-Backoff
+      dauert Sekunden, siehe `uploader.go`), aber nicht null — und ein verwaister Eintrag ist
+      fuer den Kunden nicht von einer echten haengenden Uebertragung zu unterscheiden.
+    sources:
+      - backend/internal/biz/datev/upload_service.go
+      - backend/internal/biz/datev/postgres_upload_repo.go
+      - backend/internal/biz/datev/upload_service_test.go
+      - backend/internal/biz/datev/postgres_upload_repo_test.go
+    notes: >
+      KEINEN neuen Cron/Scheduler-Prozess bauen — das ist eine `cmd/`-Wiring-Entscheidung
+      (welcher Service faehrt den Reconciliation-Lauf, welches Intervall) und gehoert Luke
+      zur Freigabe, nicht stillschweigend in eine Coverage-Unit.
+      Der schlanke erste Schritt ist wahrscheinlich lesend: `ListUploadLogs` oder ein neuer
+      Repository-Query markiert/kennzeichnet Zeilen im Status "uploading", deren
+      `started_at` laenger als ein plausibles Timeout (z. B. 10 Minuten — die tatsaechliche
+      Obergrenze aus Retry-Konstanten in `uploader.go` ableiten, nicht raten) zurueckliegt,
+      als "stale" statt sie unveraendert als laufend anzuzeigen. Ob das serverseitig als
+      eigener Status ("failed_orphaned") in einer neuen Migration landet oder nur eine
+      abgeleitete Kennzeichnung in der Leseschicht ist, ist eine Entscheidung dieser Unit.
+      Falls eine Migration noetig wird: `datev_upload_log.status` traegt eine CHECK-Constraint
+      (siehe `TestUpdateUploadLog_RejectsInvalidStatus`) — der neue Wert muss dort aufgenommen
+      werden.
+    done_when:
+      - Ein Eintrag im Status "uploading", dessen started_at das Timeout ueberschreitet, ist
+        von einem echten laufenden Auftrag unterscheidbar (Lesepfad oder Statuswert), per Test
+        belegt
+      - Die Entscheidung Migration vs. reine Leseschicht-Kennzeichnung ist im Journal
+        begruendet
+      - Kein neuer Cron-Prozess/Scheduler wurde verdrahtet, falls das die gewaehlte Loesung
+        nahelegt — das bleibt eine Folge-Unit mit blocked_reason an Luke
+      - go test -count=1 ./internal/biz/datev/ gruen, DATABASE_URL gegen kmuhub_app fuer
+        DB-Tests
