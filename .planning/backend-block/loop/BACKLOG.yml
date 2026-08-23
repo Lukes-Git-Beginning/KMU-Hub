@@ -1806,7 +1806,7 @@ units:
     service: gateway
     model: sonnet
     deps: [cov-gateway-security-retention-ip-password-routes]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       Fünf Routen in `route_security.go:88-92`: Zugriffsanfragen des Anbieters auflisten,
@@ -3186,3 +3186,54 @@ units:
         pro Tenant geprueft, Ergebnis im Journal
       - go test -count=1 ./internal/biz/invoice/ ./internal/biz/recurring/ gruen,
         DATABASE_URL gegen kmuhub_app
+
+  - id: feat-vendor-access-audit-trail
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (kein Coverage-Ziel, Verhaltensaenderung)"
+    scope: >
+      Gefunden in cov-gateway-security-vendor-access-routes (Lauf 11, Iteration 42): keine
+      der fuenf Vendor-Access-Aktionen (List/Approve/Decline/CounterPropose/Revoke,
+      `internal/security/vendoraccess/service.go`) schreibt einen `audit_log`-Eintrag. Jede
+      Methode ruft nur `slog.Info` (Server-Log, nicht die manipulationssichere Audit-Kette
+      unter `internal/security/audit`). Im Auslieferungsmodell "ein Server pro Kunde" ist
+      dieser Mechanismus der einzige legitime Fernzugriffskanal von Zentria auf Kundendaten
+      und damit der Beleg fuer Auftragsverarbeitung — ohne Audit-Eintrag ist "wer hat wann
+      welchen Zugriff genehmigt/widerrufen" nur aus Server-Logs rekonstruierbar, die keine
+      Kette, keine Integritaetspruefung (`VerifyChainIntegrity`) und keine Export-Funktion
+      haben.
+    sources:
+      - backend/internal/security/vendoraccess/service.go
+      - backend/internal/security/audit/service.go
+      - backend/cmd/auth/main.go
+      - backend/internal/server/security_grpc.go
+      - backend/internal/server/grpc.go
+    notes: >
+      `cmd/auth/main.go:147` konstruiert `vendoraccess.NewService(vendorAccessRepo)` bereits
+      im selben Scope wie `auditService` (Zeile 166 uebergibt beide an
+      `NewSecurityGRPCServer`) — die Verdrahtung ist ein Konstruktor-Parameter, keine neue
+      Systemgrenze.
+      Vorlage ist `AuthGRPCServer.logPermissionEvent`
+      (`internal/server/grpc.go:48-54`): ein schmaler Wrapper um
+      `auditService.LogEvent(ctx, tenantID, &actorID, action, target, targetType, details,
+      "", "", "success")`, der NACH dem erfolgreichen Schreiben aufgerufen wird — ein
+      abgelehnter Versuch (ErrInvalidStatus, ErrSensitiveAckRequired) erzeugt keinen
+      Eintrag.
+      Jede der fuenf Methoden braucht einen eigenen `action`-String (z. B.
+      "vendor_access.approve") und `target`/`targetType` = die Request-ID / "vendor_access_request".
+      `List` ist ein Lesezugriff auf eine Liste, kein Statuswechsel — ob ein Lesezugriff auf
+      diesen Mechanismus selbst protokollierungswuerdig ist, im Journal begruenden statt
+      anzunehmen.
+      `Create` hat laut Kommentar in `service.go:51` keine HTTP-Route ("Not wired to an HTTP
+      route") — trotzdem mitziehen, falls ein anderer Aufrufer sie erreicht.
+    done_when:
+      - Approve, Decline, CounterPropose und Revoke schreiben je einen audit_log-Eintrag nach
+        erfolgreichem Statuswechsel, mit aussagekraeftigem action-String
+      - Ein abgelehnter Versuch (ErrInvalidStatus, ErrSensitiveAckRequired) erzeugt KEINEN
+        Eintrag, per Test belegt
+      - Die Entscheidung zu List (protokollieren oder nicht) ist im Journal begruendet
+      - go test -count=1 ./internal/security/vendoraccess/ ./internal/server/ gruen,
+        DATABASE_URL gegen kmuhub_app fuer jeden DB-Test

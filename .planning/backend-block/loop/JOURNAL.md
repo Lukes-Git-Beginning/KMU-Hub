@@ -2551,3 +2551,64 @@ Frühere Läufe liegen vollständig im Archiv:
   gefordert; als Code-Kommentar an `CreateIPRule` UND hier dokumentiert, damit
   er bei einer spaeteren IP-Regel-Ueberarbeitung nicht verloren geht)
 - offen: keine
+
+## Iteration 42 — cov-gateway-security-vendor-access-routes — done — 2026-08-23 04:06
+- commit: (folgt nach diesem Eintrag)
+- gebaut: Router-Level 401/403/503-Guard-Tests fuer die fuenf
+  Vendor-Access-Routen (`route_security.go:85-93`) plus eine
+  Validierungsluecke geschlossen (`proposed_start` required bei
+  Counter-Propose). Zwei Befunde dokumentiert statt behoben (siehe unten):
+  fehlende Audit-Eintraege (neue Unit `feat-vendor-access-audit-trail`) und
+  keine Enforcement-Wirkung des Revoke (Code-Kommentar an `Service.Revoke`).
+- gate: build ok | vet ok | lint ok (0 issues, `internal/gateway` +
+  `internal/security/vendoraccess`) | test ok (`go test -count=1 -p 1
+  ./internal/gateway/... ./internal/server/... ./internal/security/vendoraccess/...`,
+  0 SKIP) | migration n.a. (keine Tabellen-/Schema-Aenderung) | rls-smoke n.a.
+  (keine Tabellen-/Policy-Aenderung) | `go test -count=1 -run
+  TestOpenAPIRouteDrift ./internal/gateway/` PFLICHT gelaufen (836 Routen
+  gegen 838 Spec-Pfade, gruen — keine Route hinzugefuegt/geaendert)
+- coverage: internal/gateway 54,5 % (eigene Messung vor dieser Iteration via
+  `git stash`) -> 54,6 % (danach).
+- mutations-probe: `guard` in der Route-Registrierung testweise von
+  `RequirePermission("security:vendor_access", "manage")` auf
+  `RequirePermission("security:vendor_access", "read")` geaendert —
+  `TestSecurityRoutes_VendorAccessGuards` wurde fuer alle fuenf
+  "authorized empty registry"-Faelle rot (403 statt 503, "insufficient
+  permissions"), genau der Beweis, dass der Test den richtigen Permission-Key
+  pruefte und nicht nur "irgendein Guard greift". Zurueckgesetzt via `cp`
+  einer Sicherungskopie, `diff` gegen Original danach leer.
+- verify vorgaenger: sauber — `8e25a9f8` (letzter Commit vor dieser
+  Iteration) aendert laut `git show --stat` `route_security_test.go` (neue
+  Guard-Tests, additiv), `internal/server/security_grpc.go` (CIDR-Validierung
+  in `CreateIPRule`, ROOT CAUSE im Service, kein gRPC-Layer-Umgehung, kein
+  neuer Guard, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue
+  Route), `security_grpc_retention_policies_db_test.go` (neuer DB-Test,
+  ungetaggt) und `security_grpc_test.go` — keine der acht Fehlerklassen
+  anwendbar.
+- neue-units: `feat-vendor-access-audit-trail` (ans Backlog-Ende gehaengt) —
+  keine der fuenf Vendor-Access-Aktionen
+  (`internal/security/vendoraccess/service.go`) schreibt einen
+  `audit_log`-Eintrag, nur `slog.Info`. Im Auslieferungsmodell "ein Server
+  pro Kunde" ist dieser Mechanismus der einzige legitime Fernzugriffskanal
+  von Zentria auf Kundendaten — ohne Audit-Kette ist "wer hat wann welchen
+  Zugriff genehmigt/widerrufen" nicht nachweisbar. `cmd/auth/main.go:147+166`
+  konstruiert `vendoraccess.Service` und `auditService` bereits im selben
+  Scope, die Verdrahtung ist ein Konstruktor-Parameter. Nicht selbst
+  behoben, weil diese Coverage-Unit laut Scope kein Verhalten aendern soll
+  (harte Regel 2 / Befund 2 des Lauf-Kopfs) und weil Wire-Format
+  (action-Strings) eine eigene Entscheidung verdient.
+- offen: Zwei Befunde aus dem Scope sind bewusst dokumentiert, nicht
+  behoben: (1) Doppelte Genehmigung ist bereits Ende-zu-Ende bewiesen —
+  `vendoraccess.ErrInvalidStatus` -> `codes.FailedPrecondition` (
+  `TestVendorAccessRPCs_HappyPathAndDomainErrors`,
+  `internal/server/security_grpc_test.go`) -> HTTP 409 (generisch bewiesen
+  in `helpers_test.go`); eine dritte, gateway-eigene Kopie derselben
+  Assertion haette keinen neuen Pfad geprueft. (2) Revoke hat KEINE
+  Enforcement-Wirkung — ein Grep nach `VendorAccessStatusActive` und
+  `vendor_access_requests` ueber `internal/` und `cmd/` findet ausschliesslich
+  die fuenf Dateien, die diese Unit ohnehin anfasst; kein Middleware- oder
+  Sitzungs-Check liest die Tabelle. Der Datensatz ist ein
+  Einwilligungs-/Audit-Beleg fuer die Auftragsverarbeitung, kein
+  Zugriffs-Gate. Als Kommentar an `Service.Revoke` festgehalten, damit der
+  naechste Bearbeiter es nicht erneut recherchieren muss. Produktentscheidung
+  (soll ein Revoke einen echten Kanal schliessen?) liegt bei Luke.

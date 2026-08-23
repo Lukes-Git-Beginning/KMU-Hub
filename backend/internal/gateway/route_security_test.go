@@ -780,3 +780,114 @@ func TestHandleDeleteIPRule_ServiceUnavailable(t *testing.T) {
 	routes.HandleDeleteIPRule(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- Vendor Access routes ---
+//
+// Unlike the admin-only routes above, /api/v1/vendor-access is guarded by
+// middleware.RequirePermission("security:vendor_access", "manage") -- a
+// fine-grained catalogue key baked into the JWT at login/refresh
+// (rbac_phase1a seed, migrations/000256), not the coarse "admin" role. The
+// "authenticated non-admin" case below therefore carries an unrelated
+// permission rather than a non-admin role, to prove the guard checks the
+// specific key and not just "is authenticated".
+
+func TestSecurityRoutes_VendorAccessGuards(t *testing.T) {
+	router := chi.NewRouter()
+	NewSecurityRoutes(emptyRegistry()).RegisterRoutes(router, RequireAuthenticated)
+
+	const validID = "550e8400-e29b-41d4-a716-446655440000"
+	const requiredPerm = "security:vendor_access:manage"
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		body   map[string]interface{}
+	}{
+		{"list vendor access requests", http.MethodGet, "/api/v1/vendor-access/", nil},
+		{"approve vendor access request", http.MethodPost, "/api/v1/vendor-access/" + validID + "/approve", map[string]interface{}{
+			"sensitive_ack": false,
+		}},
+		{"decline vendor access request", http.MethodPost, "/api/v1/vendor-access/" + validID + "/decline", nil},
+		{"counter-propose vendor access request", http.MethodPost, "/api/v1/vendor-access/" + validID + "/counter-propose", map[string]interface{}{
+			"proposed_start": "2026-12-01",
+		}},
+		{"revoke vendor access request", http.MethodPost, "/api/v1/vendor-access/" + validID + "/revoke", nil},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name+"/no auth", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, tc.body))
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusUnauthorized)
+		})
+
+		t.Run(tc.name+"/authenticated without the permission", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, tc.body))
+			req = withAuth(req, uuid.New().String(), testTenantID)
+			req = withPermissions(req, "security:audit:read")
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusForbidden)
+		})
+
+		t.Run(tc.name+"/authorized empty registry", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, tc.body))
+			req = withAuth(req, uuid.New().String(), testTenantID)
+			req = withPermissions(req, requiredPerm)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusServiceUnavailable)
+		})
+	}
+}
+
+// --- HandleCounterProposeVendorAccessRequest: proposed_start required ---
+
+func TestHandleCounterProposeVendorAccessRequest_MissingProposedStart(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	requestID := uuid.New().String()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/vendor-access/"+requestID+"/counter-propose", jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", requestID)
+	routes.HandleCounterProposeVendorAccessRequest(rec, req)
+	assertValidationError(t, rec, "proposed_start")
+}
+
+// --- Double approval and post-revoke enforcement ---
+//
+// Both are proven, but not by a gateway-layer test:
+//   - Double approval: approving an already-active request hits
+//     vendoraccess.ErrInvalidStatus -> codes.FailedPrecondition
+//     (security_grpc.go mapSecurityError) -> HTTP 409. The domain-error path
+//     is covered end to end in
+//     TestVendorAccessRPCs_HappyPathAndDomainErrors
+//     (internal/server/security_grpc_test.go); the FailedPrecondition->409
+//     mapping itself is proven generically in helpers_test.go. A third,
+//     gateway-layer copy of the same assertion would not add coverage of a
+//     new code path.
+//   - Post-revoke enforcement: there is NO enforcement to test. A grep across
+//     internal/ and cmd/ for VendorAccessStatusActive and
+//     vendor_access_requests finds exactly the five files this unit already
+//     touches (service.go, security_grpc.go, route_security.go, and their
+//     tests) -- no middleware, session check, or other gate reads this
+//     table. The "active" status is a consent/audit record for the
+//     ein-Server-pro-Kunde delivery model, not an access-control mechanism:
+//     revoking a request changes what a compliance report shows, not what
+//     any vendor account can actually do. Documented at
+//     vendoraccess.Service.Revoke.
+
+func TestHandleListVendorAccessRequests_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListVendorAccessRequests)
+}
+
+func TestHandleDeclineVendorAccessRequest_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleDeclineVendorAccessRequest(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
