@@ -66,8 +66,10 @@ type ImportResult struct {
 //
 // Importing the same file twice is a no-op that returns the first import. The
 // file hash is what makes that true, and it is enforced by a unique constraint
-// rather than by the lookup below: two uploads arriving at once would both pass
-// a check-then-write.
+// rather than by the lookup below: two uploads arriving at once both pass this
+// check-then-write, so CreateStatement below can still lose the insert to
+// whichever request the constraint let through first -- that case is caught
+// there and answered the same way as the early check.
 func (s *Service) Import(ctx context.Context, input ImportInput) (*ImportResult, error) {
 	if input.TenantID == uuid.Nil {
 		return nil, fmt.Errorf("%w: tenant is required", ErrMalformed)
@@ -76,14 +78,8 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*ImportResult,
 	sum := sha256.Sum256(input.Content)
 	hash := hex.EncodeToString(sum[:])
 
-	if existing, err := s.repo.GetStatementByHash(ctx, input.TenantID, hash); err == nil {
-		txs, listErr := s.repo.ListTransactionsByStatement(ctx, input.TenantID, existing.ID)
-		if listErr != nil {
-			return nil, fmt.Errorf("list transactions of existing statement: %w", listErr)
-		}
-		s.logger.InfoContext(ctx, "bank statement already imported",
-			"tenant_id", input.TenantID, "statement_id", existing.ID, "filename", input.Filename)
-		return &ImportResult{Statement: existing, Transactions: txs, AlreadyImported: true}, nil
+	if _, err := s.repo.GetStatementByHash(ctx, input.TenantID, hash); err == nil {
+		return s.alreadyImported(ctx, input, hash)
 	} else if !errors.Is(err, ErrStatementNotFound) {
 		return nil, fmt.Errorf("look up statement by hash: %w", err)
 	}
@@ -151,6 +147,13 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*ImportResult,
 	}
 
 	if err := s.repo.CreateStatement(ctx, stmt, txs); err != nil {
+		if errors.Is(err, ErrStatementHashConflict) {
+			// The check-then-write comment above just became true: another
+			// upload of the same file won the race between our hash lookup
+			// and this insert. That import is the winner, not an error --
+			// re-read it exactly like the early return above does.
+			return s.alreadyImported(ctx, input, hash)
+		}
 		return nil, fmt.Errorf("create statement: %w", err)
 	}
 
@@ -159,6 +162,23 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*ImportResult,
 		"entries", len(txs), "suggested", countSuggested(txs))
 
 	return &ImportResult{Statement: stmt, Transactions: txs}, nil
+}
+
+// alreadyImported reads back the statement already stored under hash and
+// reports it as the import result. Called both when the pre-check finds it
+// and when CreateStatement loses the insert to a concurrent winner.
+func (s *Service) alreadyImported(ctx context.Context, input ImportInput, hash string) (*ImportResult, error) {
+	existing, err := s.repo.GetStatementByHash(ctx, input.TenantID, hash)
+	if err != nil {
+		return nil, fmt.Errorf("look up statement by hash: %w", err)
+	}
+	txs, err := s.repo.ListTransactionsByStatement(ctx, input.TenantID, existing.ID)
+	if err != nil {
+		return nil, fmt.Errorf("list transactions of existing statement: %w", err)
+	}
+	s.logger.InfoContext(ctx, "bank statement already imported",
+		"tenant_id", input.TenantID, "statement_id", existing.ID, "filename", input.Filename)
+	return &ImportResult{Statement: existing, Transactions: txs, AlreadyImported: true}, nil
 }
 
 // loadOpenItems fetches the receivables to match against. A failure here costs

@@ -4632,3 +4632,49 @@ Frühere Läufe liegen vollständig im Archiv:
   - Die 409-Beschreibung der Route `/api/v1/finance/quotes/{id}/convert` in `openapi.yaml`
     nennt jetzt beide Konfliktfaelle (nicht akzeptiert / bereits umgewandelt). Keine neue
     Route, kein Drift.
+
+## Iteration 71 — fix-banking-import-race-returns-raw-pg-error — done — 2026-08-23 08:01
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: `CreateStatement` mappt die Unique-Violation auf
+  `finance_bank_statements_hash_unique` jetzt ueber den Constraint-Namen auf den neuen
+  Sentinel `ErrStatementHashConflict` (`isStatementHashConflict`, Vorlage
+  `isAccountIBANConflict`). `Service.Import` faengt den Sentinel ab und beantwortet den
+  Verlierer der Race ueber den neuen Helper `alreadyImported` genauso wie den regulaeren
+  Re-Import-Fall (gleicher Code-Pfad, keine Verzweigung mehr im Aufrufer). Der frueher
+  inline im "Verlierer"-Zweig stehende Code ist jetzt derselbe Helper, den auch der
+  fruehe Check am Funktionsanfang nutzt.
+- gate: build ok (`go build -p 2 ./internal/biz/banking/...`) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1` banking, 0 SKIP, DATABASE_URL gegen
+  `kmuhub_app`) | migration n.a. (kein Schema-Bezug) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst) | openapi n.a. (keine Route beruehrt)
+- coverage: `internal/biz/banking` 85,6 % -> 85,7 % (eigene Messung vor/nach per
+  `git stash`; `coverage_start` der Unit deklariert "n.a., Verhaltensfund")
+- mutations-probe: `isStatementHashConflict`s Constraint-Namen-Vergleich testweise auf
+  einen falschen String gesetzt (`"wrong_constraint_name_mutation_probe"`) →
+  `TestPostgresRepository_CreateStatement_DuplicateContentHashIsRejectedNotDuplicated`
+  UND die neue `TestServiceImport_ConcurrentUploadsOfSameFile_BothGetAValidResult`
+  wurden beide rot (roher `23505`-Fehler statt `ErrStatementHashConflict` bzw. ein
+  Import-Aufruf gab einen Fehler statt eines gueltigen Ergebnisses zurueck).
+  Zurueckgedreht per `cp` vom Backup, `diff` gegen das Backup leer, Gate danach wieder
+  gruen.
+- verify vorgaenger: sauber. `db991347` (Iteration 70) geprueft: kein neuer
+  Gateway-Handler (bestehende Route, Aufruf laeuft weiter ueber den vorhandenen
+  gRPC-Pfad), kein Proto/`.pb.go`-Bezug (`git show --stat` zeigt keine `.proto`-Datei),
+  kein neuer `RequirePermission`-Guard, `GetByQuoteID` bleibt tenant-gescoped
+  (`WHERE tenant_id = $1`), der neue `codes.AlreadyExists`-Fall ist konsistent zur
+  OpenAPI-409-Doku-Aktualisierung im selben Commit, keine neue Tabelle. Keine der acht
+  Fehlerklassen.
+- neue-units: keine
+- offen:
+  - Die neue Race-Probe (`TestServiceImport_ConcurrentUploadsOfSameFile_BothGetAValidResult`,
+    8 parallele `svc.Import`-Aufrufe mit identischem Hash) lief lokal reproduzierbar
+    gruen (1 Gewinner per `CreateStatement`, 7 ueber `ErrStatementHashConflict` auf
+    "already imported" gemappt) — sie treibt die Race ueber echte, fast gleichzeitige
+    Requests gegen dieselbe Postgres-Instanz, ist aber naturgemaess timing-abhaengig;
+    sollte sie in CI je flaky werden, ist die Anzahl der Attempts der erste Hebel.
+  - `alreadyImported`-Helper macht im regulaeren (nicht-race) Re-Import-Pfad denselben
+    `GetStatementByHash`-Aufruf, den der fruehe Check schon gemacht hat, ein zweites
+    Mal (statt das erste Ergebnis durchzureichen) — bewusst so belassen, weil der
+    Race-Zweig zwingend neu lesen muss (der fruehe Check hat dort ja "not found"
+    gesehen) und zwei separate Codepfade fuer denselben Rueckgabewert die schlechtere
+    Wahl waeren. Eine zusaetzliche DB-Rundreise pro Re-Import, kein Korrektheitsproblem.

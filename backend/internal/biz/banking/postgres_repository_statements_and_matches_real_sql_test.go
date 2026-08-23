@@ -10,11 +10,11 @@ package banking
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -405,9 +405,8 @@ func TestPostgresRepository_CreateStatement_DuplicateContentHashIsRejectedNotDup
 	if err == nil {
 		t.Fatal("CreateStatement with a duplicate content_hash succeeded, want the unique constraint to fire")
 	}
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
-		t.Fatalf("err = %v, want a wrapped unique-violation (23505) — unlike CreateAccount, CreateStatement maps no sentinel for this case", err)
+	if !errors.Is(err, ErrStatementHashConflict) {
+		t.Fatalf("err = %v, want ErrStatementHashConflict, mapped from the constraint like isAccountIBANConflict", err)
 	}
 
 	// The failed second attempt must not have left a dangling transaction row —
@@ -432,5 +431,82 @@ func TestPostgresRepository_CreateStatement_DuplicateContentHashIsRejectedNotDup
 	}
 	if txCount != 0 {
 		t.Fatalf("orphaned transactions for the rejected statement = %d, want 0 (rollback must be atomic)", txCount)
+	}
+}
+
+// TestServiceImport_ConcurrentUploadsOfSameFile_BothGetAValidResult drives the
+// race the "two uploads arriving at once" comment in service.go describes:
+// both requests pass GetStatementByHash before either has written anything, so
+// only the unique constraint on CreateStatement decides a winner. Before this
+// fix the loser's raw duplicate-key error reached the caller as a 500 instead
+// of the "already imported" answer the sequential path gives.
+func TestServiceImport_ConcurrentUploadsOfSameFile_BothGetAValidResult(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "Bank Import Race Tenant")
+
+	repo := NewPostgresRepository(pool)
+	svc := NewService(repo, nil, nil, nil)
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+	input := ImportInput{TenantID: tenant, Filename: "race.xml", Content: []byte(camtSample)}
+
+	const attempts = 8
+	results := make([]*ImportResult, attempts)
+	errs := make([]error, attempts)
+	var wg sync.WaitGroup
+	wg.Add(attempts)
+	for i := range attempts {
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = svc.Import(ctx, input)
+		}(i)
+	}
+	wg.Wait()
+
+	var wonByCreate, wonByConflict int
+	var statementID uuid.UUID
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("attempt %d: Import returned an error instead of a valid result: %v", i, err)
+		}
+		res := results[i]
+		if res.AlreadyImported {
+			wonByConflict++
+		} else {
+			wonByCreate++
+			statementID = res.Statement.ID
+		}
+		if len(res.Transactions) != 2 {
+			t.Errorf("attempt %d: transactions = %d, want 2 regardless of which side of the race it landed on", i, len(res.Transactions))
+		}
+	}
+	if wonByCreate != 1 {
+		t.Errorf("attempts that created the statement = %d, want exactly 1 (the constraint must pick a single winner)", wonByCreate)
+	}
+	if wonByConflict != attempts-1 {
+		t.Errorf("attempts reporting already imported = %d, want %d", wonByConflict, attempts-1)
+	}
+
+	t.Cleanup(func() {
+		if _, err := pool.Exec(ctx, `DELETE FROM finance_bank_transactions WHERE statement_id = $1`, statementID); err != nil {
+			t.Errorf("cleanup transactions: %v", err)
+		}
+		testutil.CleanupRow(t, pool, "finance_bank_statements", statementID)
+	})
+
+	var count int
+	if scanErr := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM finance_bank_statements WHERE tenant_id = $1 AND content_hash = (SELECT content_hash FROM finance_bank_statements WHERE id = $2)`,
+		tenant, statementID,
+	).Scan(&count); scanErr != nil {
+		t.Fatalf("count statements: %v", scanErr)
+	}
+	if count != 1 {
+		t.Fatalf("statements with this hash after the race = %d, want 1", count)
 	}
 }

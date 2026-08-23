@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
@@ -115,6 +116,9 @@ func (r *PostgresRepository) CreateStatement(ctx context.Context, stmt *models.B
 		decimalPtrText(stmt.OpeningBalance), decimalPtrText(stmt.ClosingBalance),
 		stmt.StatementDate, stmt.TransactionCount, stmt.ImportedBy, stmt.CreatedAt,
 	); err != nil {
+		if isStatementHashConflict(err) {
+			return ErrStatementHashConflict
+		}
 		return fmt.Errorf("insert statement: %w", err)
 	}
 
@@ -136,6 +140,17 @@ func (r *PostgresRepository) CreateStatement(ctx context.Context, stmt *models.B
 	}
 
 	return tx.Commit(ctx)
+}
+
+// isStatementHashConflict reports whether err is the unique violation on
+// (tenant_id, content_hash). Matching the constraint name rather than the bare
+// SQLSTATE keeps a future second unique index from being reported as a
+// duplicate import, mirroring isAccountIBANConflict.
+func isStatementHashConflict(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) &&
+		pgErr.Code == "23505" &&
+		pgErr.ConstraintName == "finance_bank_statements_hash_unique"
 }
 
 func (r *PostgresRepository) GetTransaction(ctx context.Context, tenantID, id uuid.UUID) (*models.BankTransaction, error) {
