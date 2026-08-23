@@ -4771,7 +4771,28 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: >
+      Beide im scope vorgesehenen Wege sind in Iteration 97 verschlossen. Durchreichen geht
+      nicht: `proto/crm/v1/crm.proto` hat Tag-RPCs nur fuer Contacts
+      (`AddContactTags`/`RemoveContactTags`, Zeilen 28/29); `AddActivityTags`,
+      `RemoveActivityTags`, `AddDealTags`, `RemoveDealTags` existieren weder als RPC noch als
+      Message, und in `internal/proto/crm/v1/` gibt es keine passenden generierten Typen. Vier
+      neue RPCs anzulegen ist laut notes dieser Unit ausdruecklich Lukes Entscheidung.
+      Entfernen geht ebenfalls nicht guten Gewissens: die Annahme des scope, dass ohne RPC
+      auch keine Faehigkeit da ist, ist falsch. Die Fachlogik ist vollstaendig gebaut und
+      tenant-gescoped — `activity.Service.AddTags/RemoveTags` (activity/service.go:441/466),
+      `deal.Service.AddTags/RemoveTags` (deal/service.go:458/483), beide inkl.
+      Tag-Existenzpruefung ueber `TagExists`, dazu Repository-Methoden, die Join-Tabellen
+      `activity_tags`/`deal_tags` (Migration 000006, `tenant_id` seit 000111) und die
+      Permission-Guards `activities:write`/`deals:write` am Router (route_crm.go:165/166/178/179).
+      Die openapi-Eintraege beschreiben den Vertrag bereits fertig
+      (`200` + `DealResponse`/`ActivityResponse`, openapi.yaml:2731/2964) — genau das, was die
+      Services liefern koennen. Es fehlt ausschliesslich der gRPC-Hop. Beide Service-Methoden
+      haben aktuell null Nicht-Test-Aufrufer (verifiziert per grep), sind also toter Code.
+      Vier fertig spezifizierte, fachlich implementierte Endpunkte zu loeschen, weil eine
+      Verdrahtungsschicht fehlt, ist eine Produktentscheidung, keine Loop-Aufgabe.
+      Entscheidungsvorlage als Unit `feat-crm-activity-deal-tag-rpcs` am Backlog-Ende.
     coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
     scope: >
       Verifizierter Befund von `TestOpenAPIStatusCodeDrift` (Iteration 93): vier registrierte,
@@ -4808,7 +4829,7 @@ units:
     service: gateway
     model: sonnet
     deps: [test-openapi-documented-status-codes-vs-handlers]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Zweiter Teil des Befunds aus Iteration 93, absichtlich vom Rest getrennt:
@@ -4940,5 +4961,106 @@ units:
       - Mindestens eine weitere Gruppe der verbliebenen 69 Eintraege ist in api/openapi.yaml
         dokumentiert
       - Die erledigten Eintraege sind aus statusDriftBaseline entfernt
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
+
+  - id: feat-crm-activity-deal-tag-rpcs
+    phase: 4
+    service: crm
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
+    scope: >
+      ENTSCHEIDUNGSVORLAGE FUER LUKE, nicht ohne Freigabe starten — sie enthaelt vier neue
+      gRPC-RPCs, und genau das hat `fix-crm-tag-endpoints-are-501-stubs` als Lukes
+      Entscheidung markiert. Ausgangslage (Iteration 97 verifiziert): Tagging von Activities
+      und Deals ist end-to-end gebaut ausser einer Schicht. Vorhanden sind Join-Tabellen
+      `activity_tags`/`deal_tags` (Migration 000006, `tenant_id` seit 000111),
+      Repository-Methoden `AddTags`/`RemoveTags`/`GetTags`, die Service-Methoden
+      `activity.Service.AddTags/RemoveTags` (activity/service.go:441/466) und
+      `deal.Service.AddTags/RemoveTags` (deal/service.go:458/483) inkl. Tag-Existenzpruefung,
+      die Router-Registrierung mit `RequirePermission("activities","write")` bzw.
+      `("deals","write")` (route_crm.go:165/166/178/179) und die vollstaendigen
+      openapi-Eintraege (openapi.yaml:2731 fuer deals, :2964 fuer activities, je `200` mit
+      `DealResponse`/`ActivityResponse`). Es fehlt allein der gRPC-Hop, weshalb die vier
+      Handler dauerhaft `501` antworten und die Service-Methoden null Nicht-Test-Aufrufer haben.
+      Umfang bei Freigabe: `AddActivityTags`/`RemoveActivityTags`/`AddDealTags`/`RemoveDealTags`
+      in `proto/crm/v1/crm.proto` nach dem exakten Vorbild von `AddContactTags` (Request mit
+      `activity_id`/`deal_id` + `repeated string tag_ids`, Response mit dem jeweiligen
+      Info-Message), `make proto-crm` im selben Commit, vier Server-Methoden in
+      `internal/server/crm_grpc.go` nach dem Muster von `AddContactTags` (crm_grpc.go:673) mit
+      `middleware.GetTenantID`, uuid-Parsing und `mapCRMError`, und die vier Gateway-Handler
+      von `response.Error(501, ...)` auf `crmClient.<RPC>` + `response.Proto` umstellen.
+      Keine neue Route, keine neue Permission, keine Migration.
+    sources:
+      - backend/proto/crm/v1/crm.proto
+      - backend/internal/server/crm_grpc.go
+      - backend/internal/crm/activity/service.go
+      - backend/internal/crm/deal/service.go
+      - backend/internal/gateway/route_crm_activities.go
+      - backend/internal/gateway/route_crm_pipeline.go
+      - backend/api/openapi.yaml
+    notes: >
+      Alternative, falls Luke das Feature nicht will: die vier Routen aus route_crm.go, die
+      vier Handler und die zwei Pfad-Eintraege aus `api/openapi.yaml` entfernen, dazu die
+      toten Service- und Repository-Methoden. Dann faellt auch `TagIdsRequest` fuer diese
+      beiden Pfade weg — pruefen, ob das Schema noch von den Contact-Tag-Routen gebraucht wird
+      (ja, `/api/v1/contacts/{id}/tags`), also stehen lassen.
+      In beiden Faellen muessen die Tests mitgezogen werden, die den 501er heute festschreiben:
+      `TestHandleAddActivityTags_NotImplemented`, `TestHandleRemoveActivityTags_NotImplemented`
+      (route_crm_activities_test.go:354/375),
+      `TestHandleAddDealTags_ValidReturnsNotImplemented`,
+      `TestHandleRemoveDealTags_ValidReturnsNotImplemented`
+      (route_crm_pipeline_test.go:573/602), dazu die erklaerenden Kommentare in
+      route_capability_guard_test.go:313 und den Kopfkommentaren beider Testdateien.
+      Kein FE-Aufrufer existiert (verifiziert: `desktop/src/renderer/src` nutzt Tag-Routen nur
+      unter `/api/v1/contacts/{id}/tags`), der Umbau ist also FE-seitig risikofrei.
+    done_when:
+      - Luke hat einen der beiden Wege freigegeben und er ist umgesetzt
+      - Kein Handler in route_crm_activities.go oder route_crm_pipeline.go antwortet mehr 501
+      - Die vier 501-Eintraege sind aus statusDriftBaseline entfernt
+      - Bei Weg A - .proto und generierte .pb.go liegen im selben Commit
+      - "go test -count=1 ./internal/gateway/ ./internal/server/ gruen"
+
+  - id: doc-status-code-systemic-400-503-sweep-2
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [doc-status-code-systemic-400-503-sweep]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `doc-status-code-systemic-400-503-sweep`. Iteration 97 hat die
+      Registrar-Gruppe **Inbox** vollstaendig geschlossen (27x `400`, 37x `503` in
+      `api/openapi.yaml` nachgetragen, 64 Eintraege). Damit stehen die geloggten Zaehler auf
+      `400: 320` (vorher 347) und `503: 1048` (vorher 1085).
+      Verbleibende groesste Gruppen, gezaehlt am Pfad-Praefix `/api/v1/<gruppe>`:
+      fuer `400` meetings 18, einkauf 17, fuhrpark 16, produktion 15, finance 15, calendar 14,
+      rapporte 13, formulare 13, video 12, dialer 12, tasks 11, wiki 10;
+      fuer `503` email 58, hr 56, fuhrpark 45, documents 45, calendar 44, inventar 39,
+      integrations 39, helpdesk 36, finance 36, einkauf 36, produktion 34, meetings 33.
+      Weiter je Iteration genau eine Gruppe, beide Codes zusammen - so schliesst man die
+      Gruppe wirklich ab statt zweimal durchzugehen.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Arbeitsliste erzeugen wie in Iteration 97: den Code testweise aus
+      `systemicUndocumentedCodes` (openapi_status_code_drift_test.go:430) entfernen,
+      `go test -count=1 -run TestOpenAPIStatusCodeDrift ./internal/gateway/` laufen lassen und
+      die Zeilen `METHOD /pfad writes [400]` als Liste nehmen, danach die Testdatei
+      zuruecksetzen. Eingetragen wird `"400": $ref BadRequest` bzw.
+      `"503": $ref ServiceUnavailable`, jeweils numerisch einsortiert (400 vor 404, 503 ans
+      Ende) und nur auf den Operationen, die der Test wirklich nennt.
+      Achtung bei automatisierten Einfuegungen: die Leerzeile zwischen zwei Pfad-Bloecken
+      gehoert NICHT in den `responses:`-Block - sonst rutscht der neue Eintrag hinter die
+      Leerzeile und der Pfad-Abstand verschwindet.
+      Sobald ein Zaehler 0 erreicht, den Code aus `systemicUndocumentedCodes` entfernen -
+      dann faellt er wieder als normaler Befund an.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe hat ihre fehlenden 400 UND 503 dokumentiert
+      - Die im Test geloggten Zaehler sind nachweislich gesunken (Zahlen im Journal)
       - "swagger-cli validate gruen"
       - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"

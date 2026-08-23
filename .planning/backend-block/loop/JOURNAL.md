@@ -6082,3 +6082,68 @@ Frühere Läufe liegen vollständig im Archiv:
   (`fix-crm-tag-endpoints-are-501-stubs`, `doc-status-code-systemic-400-503-sweep`) sowie
   `fix-idempotency-409-rollout-non-finance-routes-4` und
   `fix-status-code-drift-baseline-non-systemic-2` stehen weiterhin unbearbeitet im Backlog.
+
+## Iteration 97 — doc-status-code-systemic-400-503-sweep — done — 2026-08-23 11:03
+- commit: <sha>
+- gebaut: Registrar-Gruppe **Inbox** im systemischen 400/503-Sweep vollstaendig geschlossen.
+  64 Response-Eintraege in `backend/api/openapi.yaml` nachgetragen: 27x `"400": $ref BadRequest`
+  und 37x `"503": $ref ServiceUnavailable`, verteilt auf alle 37 `/api/v1/inbox`-Operationen
+  (messages inkl. read/unread/star/status/tags/forward/archive/unarchive/snooze/unsnooze/reply/
+  assign/claim/thread, bulk-read, bulk-archive, unread-count, teams inkl. members, rules inkl.
+  rules/test, canned-responses). Arbeitsliste wie in den notes vorgesehen erzeugt: Code testweise
+  aus `systemicUndocumentedCodes` (openapi_status_code_drift_test.go:430) entfernt, Test rot
+  laufen lassen, Fehlermeldung als Liste genommen, Testdatei danach zurueckgesetzt — sie ist im
+  Commit unveraendert. Eingetragen wurde ausschliesslich auf den Operationen, die der Test
+  wirklich nennt, numerisch einsortiert (400 vor einem vorhandenen 404, 503 ans Ende); die
+  bereits dokumentierten 400er (z. B. `POST /messages/{id}/status`) sind nicht doppelt gesetzt.
+  Kein Go-Produktionscode angefasst.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (`golangci-lint run ./internal/gateway/...` 0 issues) | test ok (`go test -count=1
+  ./internal/gateway/` gruen, 0 uebersprungene Tests von 3849 mit gesetztem `DATABASE_URL`) |
+  swagger-cli validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: internal/gateway 56,6 % -> 56,6 % (unveraendert — reine Spec-Doku, kein Go-Code)
+- mutations-probe: zwei Proben. (1) `503` testweise aus `systemicUndocumentedCodes` entfernt und
+  den Test laufen lassen: 1048 Findings, davon **0** mit `/api/v1/inbox` — vor der Aenderung
+  waren es 1085 mit 37 Inbox-Treffern. Das beweist, dass die Eintraege genau dort gelandet sind,
+  wo der Test sucht. Testdatei zurueckgesetzt, `git diff` darauf leer. (2) Den neuen
+  `$ref: "#/components/responses/ServiceUnavailable"` auf `GET /api/v1/inbox/messages` auf
+  `ServiceUnavailableX` verbogen: `swagger-cli validate` rot ("Token \"ServiceUnavailableX\"
+  does not exist."). Zurueckgedreht, danach wieder gruen, `git diff --stat` zeigt exakt die
+  128 Einfuegungen der eigentlichen Aenderung.
+  Zaehler-Beleg fuer die `done_when`-Zeile: `400: 347 -> 320`, `503: 1085 -> 1048`,
+  `statusDriftBaseline` unveraendert bei 67 Eintraegen, 1196 dokumentierte Operationen geprueft,
+  0 Handler unaufloesbar.
+- verify vorgaenger: sauber. `a82e0838` (Iteration 96) gegen alle acht Fehlerklassen geprueft:
+  Diff aendert zwei Zeilen in `route_chat.go` (200+Body -> `w.WriteHeader(204)`), die passende
+  Sanity-Test-Erwartung und zwei Baseline-Eintraege. Kein gRPC-Bypass, kein Stub, kein `.proto`,
+  kein neuer `RequirePermission`, keine Tabelle, keine neue Route. Wire-Shape gegengeprueft
+  statt uebernommen: `useMarkChannelRead` (useChannels.ts:229-236) destrukturiert wirklich nur
+  `error` und ignoriert `data` — der entfernte Body hat keinen Konsumenten.
+- neue-units: `feat-crm-activity-deal-tag-rpcs` (Entscheidungsvorlage aus der geblockten Unit,
+  siehe unten), `doc-status-code-systemic-400-503-sweep-2` (Rest des Sweeps mit aktualisierten
+  Gruppenzahlen).
+- offen: **`fix-crm-tag-endpoints-are-501-stubs` ist auf `blocked` gesetzt und braucht eine
+  Entscheidung von Luke.** Recherche dieser Iteration: beide im scope vorgesehenen Wege sind zu.
+  Durchreichen geht nicht — `proto/crm/v1/crm.proto` kennt Tag-RPCs nur fuer Contacts (Zeilen
+  28/29), `AddActivityTags`/`RemoveActivityTags`/`AddDealTags`/`RemoveDealTags` existieren weder
+  als RPC noch als Message, und in `internal/proto/crm/v1/` gibt es keine generierten Typen
+  dafuer; vier neue RPCs sind laut den notes der Unit ausdruecklich Lukes Entscheidung.
+  Entfernen geht aber ebenso wenig, weil die Grundannahme des scope falsch ist: die Faehigkeit
+  IST gebaut. `activity.Service.AddTags/RemoveTags` (activity/service.go:441/466) und
+  `deal.Service.AddTags/RemoveTags` (deal/service.go:458/483) sind vollstaendig implementiert,
+  tenant-gescoped und pruefen die Tag-Existenz; Repository-Methoden, die Join-Tabellen
+  `activity_tags`/`deal_tags` (Migration 000006, `tenant_id` seit 000111), die Guards
+  `activities:write`/`deals:write` (route_crm.go:165/166/178/179) und die fertigen
+  openapi-Vertraege (`200` + `DealResponse`/`ActivityResponse`, openapi.yaml:2731/2964) sind
+  alle da. Es fehlt ausschliesslich der gRPC-Hop. Beide Service-Methodenpaare haben aktuell
+  **null Nicht-Test-Aufrufer** (per grep verifiziert) — also fertig gebauter, toter Code.
+  Vier spezifizierte, fachlich implementierte Endpunkte zu loeschen, weil eine
+  Verdrahtungsschicht fehlt, ist eine Produktentscheidung. Die Umsetzung beider Wege liegt
+  fertig beschrieben in `feat-crm-activity-deal-tag-rpcs` (Weg A: vier RPCs nach dem exakten
+  Muster von `AddContactTags`, crm_grpc.go:673, plus `make proto-crm` im selben Commit;
+  Weg B: Routen, Handler, Spec-Pfade und die toten Service-/Repo-Methoden entfernen). In beiden
+  Faellen muessen die vier Tests mitgezogen werden, die den 501er heute festschreiben
+  (route_crm_activities_test.go:354/375, route_crm_pipeline_test.go:573/602). FE-seitig ist
+  beides risikofrei: `desktop/src/renderer/src` nutzt Tag-Routen nur unter
+  `/api/v1/contacts/{id}/tags`.
+  Sonst nichts offen — DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests.

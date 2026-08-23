@@ -12337,6 +12337,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageList"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}:
     get:
@@ -12353,6 +12355,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/read:
     post:
@@ -12369,6 +12375,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/unread:
     post:
@@ -12385,6 +12395,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/star:
     post:
@@ -12401,6 +12415,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/status:
     post:
@@ -12428,6 +12446,8 @@ paths:
                 $ref: "#/components/schemas/InboxMessageWrapper"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/tags:
     post:
@@ -12457,6 +12477,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Remove a tag from a message
       tags: [inbox-messages]
@@ -12484,6 +12506,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/forward:
     post:
@@ -12518,6 +12542,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "501":
           description: Forwarding is not supported for this message's channel
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/archive:
     post:
@@ -12534,6 +12560,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/unarchive:
     post:
@@ -12550,6 +12580,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/snooze:
     post:
@@ -12575,6 +12609,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/unsnooze:
     post:
@@ -12591,6 +12629,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/reply:
     post:
@@ -12618,6 +12660,10 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/assign:
     post:
@@ -12643,6 +12689,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/unread-count:
     get:
@@ -12657,6 +12707,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxUnreadCount"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/bulk-read:
     post:
@@ -12684,6 +12736,10 @@ paths:
                 type: object
                 properties:
                   updated_count: { type: integer }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/bulk-archive:
     post:
@@ -12711,6 +12767,10 @@ paths:
                 type: object
                 properties:
                   updated_count: { type: integer }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/teams:
     post:
@@ -12731,6 +12791,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamInbox"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List team inboxes for current user
       tags: [inbox-teams]
@@ -12748,6 +12812,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/TeamInbox"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/teams/{id}:
     put:
@@ -12770,6 +12836,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamInbox"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete a team inbox (admin/manager only)
       tags: [inbox-teams]
@@ -12780,6 +12850,10 @@ paths:
       responses:
         "200":
           description: Team inbox deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/teams/{id}/members:
     post:
@@ -12806,6 +12880,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamInboxMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List team inbox members
       tags: [inbox-teams]
@@ -12825,6 +12903,10 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/TeamInboxMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/teams/{id}/members/{user_id}:
     delete:
@@ -12838,6 +12920,10 @@ paths:
       responses:
         "200":
           description: Member removed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/claim:
     post:
@@ -12854,6 +12940,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/rules:
     post:
@@ -12874,6 +12964,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RoutingRule"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List routing rules
       tags: [inbox-routing]
@@ -12891,6 +12985,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/RoutingRule"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/rules/{id}:
     put:
@@ -12913,6 +13009,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RoutingRule"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete a routing rule (admin/manager only)
       tags: [inbox-routing]
@@ -12923,6 +13023,10 @@ paths:
       responses:
         "200":
           description: Routing rule deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/rules/test:
     post:
@@ -12950,6 +13054,10 @@ paths:
                 type: object
                 properties:
                   matches: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # =========================================================================
   # Automations
@@ -33726,6 +33834,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxCannedResponseList"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Create an inbox canned (template) reply
       tags: [inbox-messages]
@@ -33744,6 +33854,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxCannedResponseWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/canned-responses/{id}:
     put:
@@ -33766,6 +33880,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxCannedResponseWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete an inbox canned (template) reply
       tags: [inbox-messages]
@@ -33780,6 +33898,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/thread:
     get:
@@ -33796,6 +33918,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxThreadMessagesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/unread-count:
     get:
@@ -33814,6 +33940,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxUnreadCount"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # --- Inventar: item attachments (backend/internal/gateway/route_inventar.go) ---
   # response.JSON on raw inventar proto messages — timestamps serialize as
