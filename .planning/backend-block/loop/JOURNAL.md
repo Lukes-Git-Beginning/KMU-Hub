@@ -4350,7 +4350,7 @@ Frühere Läufe liegen vollständig im Archiv:
     ist bewusst nicht passiert.
 
 ## Iteration 66 — fix-idempotency-409-rollout-remaining-routes — done — 2026-08-23 07:25
-- commit: (folgt)
+- commit: f6d4a3ad
 - gebaut: Erste Teil-Unit des 739-Operationen-Rollouts (Iteration 15 legte den Vertrag +
   sechs Beispielrouten an, diese Unit deckt jetzt die komplette Registrar-Gruppe
   `finance` (`BizRoutes`) ab, statt weiter alles in einem `done_when` zu buendeln — die
