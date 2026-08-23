@@ -5638,7 +5638,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 89 — fix-gateway-billing-lock-dunning-notice-listroutes-missing-400-500-docs — done — 2026-08-23 10:06
-- commit: <wird unten nachgetragen>
+- commit: ab44674e
 - gebaut: Sechs Doku-Luecken in `api/openapi.yaml` geschlossen, alle vorher am Handler
   verifiziert (nicht aus der Unit uebernommen): `POST /finance/invoices/{id}/lock` +400
   (`validateUUIDParam`, helpers.go:120-127 schreibt 400 "invalid id");
