@@ -207,6 +207,10 @@ type Quote struct {
 	CreatedBy       uuid.UUID       `json:"created_by"`
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
+	// ConvertedInvoiceNumber is the number of the newest non-cancelled invoice this
+	// quote was converted into (nil if none). Read-only and populated by a join at
+	// query time — there is no such column on finance_quotes and it is never written.
+	ConvertedInvoiceNumber *string `json:"converted_invoice_number,omitempty"`
 }
 
 // Invoice represents a bill (Rechnung) sent to a customer.

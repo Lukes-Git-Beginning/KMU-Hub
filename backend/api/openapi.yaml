@@ -38728,6 +38728,12 @@ components:
           type: string
           description: ISO 4217 code of the document currency. EUR for rows written before the column existed.
           example: EUR
+        converted_invoice_number:
+          type: string
+          description: >-
+            Number of the newest non-cancelled invoice this quote was converted into.
+            Empty if none — a cancelled conversion leaves this empty too, since the quote
+            may be invoiced again. Read-only.
 
     CreateQuoteRequest:
       type: object

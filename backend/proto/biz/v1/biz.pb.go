@@ -733,9 +733,13 @@ type Quote struct {
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// ISO 4217 code of the document currency. Without it every amount renders
 	// with the EUR symbol, whatever the stored currency is.
-	Currency      string `protobuf:"bytes,16,opt,name=currency,proto3" json:"currency,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Currency string `protobuf:"bytes,16,opt,name=currency,proto3" json:"currency,omitempty"`
+	// Number of the newest non-cancelled invoice this quote was converted into.
+	// Empty if none — a cancelled conversion leaves this empty too, since the
+	// quote may be invoiced again. Read-only, populated by a join at query time.
+	ConvertedInvoiceNumber string `protobuf:"bytes,17,opt,name=converted_invoice_number,json=convertedInvoiceNumber,proto3" json:"converted_invoice_number,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Quote) Reset() {
@@ -876,6 +880,13 @@ func (x *Quote) GetUpdatedAt() *timestamppb.Timestamp {
 func (x *Quote) GetCurrency() string {
 	if x != nil {
 		return x.Currency
+	}
+	return ""
+}
+
+func (x *Quote) GetConvertedInvoiceNumber() string {
+	if x != nil {
+		return x.ConvertedInvoiceNumber
 	}
 	return ""
 }
@@ -14407,7 +14418,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	" \x01(\tR\x04iban\x12\x10\n" +
 	"\x03bic\x18\v \x01(\tR\x03bic\x12\x19\n" +
 	"\blogo_url\x18\f \x01(\tR\alogoUrl\x12!\n" +
-	"\faccent_color\x18\r \x01(\tR\vaccentColor\"\xfb\x04\n" +
+	"\faccent_color\x18\r \x01(\tR\vaccentColor\"\xb5\x05\n" +
 	"\x05Quote\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fquote_number\x18\x02 \x01(\tR\vquoteNumber\x12+\n" +
@@ -14430,7 +14441,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1a\n" +
-	"\bcurrency\x18\x10 \x01(\tR\bcurrency\"\xa5\b\n" +
+	"\bcurrency\x18\x10 \x01(\tR\bcurrency\x128\n" +
+	"\x18converted_invoice_number\x18\x11 \x01(\tR\x16convertedInvoiceNumber\"\xa5\b\n" +
 	"\aInvoice\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12%\n" +
 	"\x0einvoice_number\x18\x02 \x01(\tR\rinvoiceNumber\x12-\n" +

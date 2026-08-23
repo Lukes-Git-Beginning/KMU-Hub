@@ -5579,3 +5579,60 @@ Frühere Läufe liegen vollständig im Archiv:
 - neue-units: fix-idempotency-409-rollout-non-finance-routes-2 (Rest-Liste der Registrar-Gruppen,
   Wiki entfernt)
 - offen: keine
+
+## Iteration 88 — feat-quote-converted-invoice-number-on-read — done — 2026-08-23 09:53
+- commit: <pending, siehe naechster Eintrag>
+- gebaut: `finance_quotes`-Lesepfad (`GetByID`, `List`, `GetByDealID` in
+  `internal/biz/quote/postgres_repository.go`) traegt jetzt `converted_invoice_number`
+  ueber einen `LEFT JOIN LATERAL` gegen `finance_invoices` (`fi.source_quote_id = q.id
+  AND fi.status <> 'cancelled', ORDER BY fi.created_at DESC LIMIT 1`) — exakt ein Join-Kandidat
+  pro Quote-Zeile, damit weder `List`s Pagination noch `Count` durch die bekannte Race
+  (mehrere nicht-stornierte Rechnungen pro Quote, siehe `harden-quote-conversion-unique-index`)
+  verdoppelt werden koennen. Neues Modellfeld `models.Quote.ConvertedInvoiceNumber *string`
+  (nur gelesen, keine Spalte, kein Write-Pfad). `bizv1.Quote.converted_invoice_number`
+  (Feld 17) ergaenzt und `make proto-biz`-Aequivalent per direktem `protoc`-Aufruf regeneriert
+  (`make` ist in dieser Bash-Umgebung nicht vorhanden — Kommando aus dem Makefile-Target
+  uebernommen). `toProtoQuote` (`internal/server/biz_grpc.go`) setzt das Feld. `openapi.yaml`
+  Quote-Schema um das Feld ergaenzt (Beschreibung: leer nach Storno, da erneut umwandelbar).
+  FACHFRAGE "Entwurf ohne Nummer" (siehe Notes der Unit) beantwortet: es wird bewusst NUR
+  `invoice_number` exponiert, keine zusaetzliche `invoice_id`. Solange die neu erzeugte
+  Rechnung ein Entwurf ist (leere `invoice_number`, siehe
+  `fix-invoice-number-unique-index-blocks-second-draft`), bleibt das Feld leer und der
+  FE-Button "In Rechnung umwandeln" (`QuoteDetailPanel.tsx:368`) sichtbar — das ist eine
+  hinnehmbare UX-Luecke, KEIN Duplikat-Risiko: `Service.CreateFromQuote` blockt seit
+  `fix-quote-to-invoice-duplicate-creation` (Iteration 70) jede zweite Konversion serverseitig,
+  unabhaengig davon, was das FE anzeigt. Eine `invoice_id`-Ergaenzung wuerde eine FE-Aenderung
+  voraussetzen (heutiger Lookup ist `invoices.find(inv => inv.invoice_number === convertedNumber)`),
+  die aus diesem Backend-Loop heraus nicht sinnvoll mitgeliefert werden kann — bewusst nicht
+  gebaut, um keinen ungenutzten Wire-Feld-Zusatz zu erzeugen (YAGNI).
+  Zusaetzlich `fix-hr-manual-entry-idempotency-key-not-enforced` OHNE Bauversuch auf `blocked`
+  gesetzt (siehe verify-vorgaenger-Absatz unten fuer den Grund) und
+  `feat-quote-converted-invoice-number-on-read` stattdessen gezogen.
+- gate: build ok (`go build -p 2` quote+server+gateway+cmd/biz+cmd/gateway) | vet ok
+  (quote+server+gateway) | lint ok (0 issues, quote+server+gateway) | swagger-cli validate ok
+  (`api/openapi.yaml is valid`) | test ok (`go test -count=1 ./internal/biz/quote/` gruen inkl.
+  der 2 neuen DB-Tests; `go test -count=1 ./internal/server/` gruen; `go test -count=1
+  ./internal/gateway/` gruen inkl. `TestOpenAPIRouteDrift`, mit gesetztem
+  `DATABASE_URL=...kmuhub_app...`) | migration n.a. (keine neue Spalte, reiner Read-Join) |
+  rls-smoke n.a. (keine neue Tabelle/Policy, bestehende RLS auf finance_quotes/finance_invoices
+  unveraendert)
+- coverage: internal/biz/quote 33,3 % -> 49,6 % (eigene Messung vor/nach, `go tool cover -func`)
+- mutations-probe: den `fi.status <> 'cancelled'`-Filter im LATERAL-Join von `GetByID` entfernt
+  -> `TestPostgresRepository_GetByID_CancelledConversionLeavesFieldEmpty` wurde rot
+  ("Expected nil, but got: (*string)"), `TestPostgresRepository_GetByID_PopulatesConvertedInvoiceNumber`
+  blieb gruen (Positivfall unveraendert). Zurueckgedreht, `git diff --stat` danach identisch mit
+  dem Stand vor der Mutation, beide Tests wieder gruen.
+- verify vorgaenger: sauber. `5499043b` (Iteration 87, fix-idempotency-409-rollout-non-finance-routes)
+  geprueft (`git show --stat` + Diff auf `openapi.yaml`): reine OpenAPI-Response-Doku (11×
+  `"409": IdempotencyInFlight` auf Wiki-Routen), keine der acht Fehlerklassen einschlaegig
+  (kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer Guard, keine neue Tabelle, kein
+  Wire-Shape-Wechsel, keine neue Route, kein Guard-Ersatz). Zusaetzlich den ausstehenden
+  Commit-SHA-Platzhalter aus Iteration 87 im Journal nachgetragen (`5499043b`, per Diff-Inhalt
+  verifiziert) und dafuer committet (`98c7eb7f`).
+  Die zuerst gezogene Unit `fix-hr-manual-entry-idempotency-key-not-enforced` verlangt in ihren
+  eigenen Notes explizit eine Architekturentscheidung von Luke ("ENTSCHEIDUNG GEHOERT LUKE ...
+  keine Standardwahl aus diesem Lauf treffen" — Middleware-Idempotency vs. eigene
+  `idempotency_key`-Spalte mit Unique-Index). Ohne Bauversuch auf `blocked` gesetzt, naechste
+  Unit (`feat-quote-converted-invoice-number-on-read`) gezogen.
+- neue-units: keine
+- offen: keine

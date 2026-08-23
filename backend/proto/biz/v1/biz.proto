@@ -258,6 +258,10 @@ message Quote {
   // ISO 4217 code of the document currency. Without it every amount renders
   // with the EUR symbol, whatever the stored currency is.
   string currency = 16;
+  // Number of the newest non-cancelled invoice this quote was converted into.
+  // Empty if none — a cancelled conversion leaves this empty too, since the
+  // quote may be invoiced again. Read-only, populated by a join at query time.
+  string converted_invoice_number = 17;
 }
 
 message Invoice {

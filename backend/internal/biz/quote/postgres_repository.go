@@ -77,14 +77,19 @@ func (r *PostgresRepository) Create(ctx context.Context, q *models.Quote) error 
 
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Quote, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, quote_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			valid_until, notes, deal_id, source_quote_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_quotes
-		WHERE tenant_id = $1 AND id = $2`,
+		`SELECT q.id, q.tenant_id, q.quote_number, q.status,
+			q.customer_name, q.customer_address, q.customer_email, q.customer_ust_id_nr,
+			q.tax_mode, q.tax_breakdown,
+			q.subtotal, q.total_tax, q.gross_total,
+			q.valid_until, q.notes, q.deal_id, q.source_quote_id,
+			q.created_by, q.created_at, q.updated_at, q.currency, civ.invoice_number
+		FROM finance_quotes q
+		LEFT JOIN LATERAL (
+			SELECT invoice_number FROM finance_invoices fi
+			WHERE fi.tenant_id = q.tenant_id AND fi.source_quote_id = q.id AND fi.status <> 'cancelled'
+			ORDER BY fi.created_at DESC LIMIT 1
+		) civ ON true
+		WHERE q.tenant_id = $1 AND q.id = $2`,
 		tenantID, id,
 	)
 	q, err := r.scanQuote(row)
@@ -161,14 +166,20 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 
 	// Query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, tenant_id, quote_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			valid_until, notes, deal_id, source_quote_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_quotes %s
-		ORDER BY created_at DESC
+		SELECT q.id, q.tenant_id, q.quote_number, q.status,
+			q.customer_name, q.customer_address, q.customer_email, q.customer_ust_id_nr,
+			q.tax_mode, q.tax_breakdown,
+			q.subtotal, q.total_tax, q.gross_total,
+			q.valid_until, q.notes, q.deal_id, q.source_quote_id,
+			q.created_by, q.created_at, q.updated_at, q.currency, civ.invoice_number
+		FROM finance_quotes q
+		LEFT JOIN LATERAL (
+			SELECT invoice_number FROM finance_invoices fi
+			WHERE fi.tenant_id = q.tenant_id AND fi.source_quote_id = q.id AND fi.status <> 'cancelled'
+			ORDER BY fi.created_at DESC LIMIT 1
+		) civ ON true
+		%s
+		ORDER BY q.created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, whereClause, argNum, argNum+1)
 
@@ -284,15 +295,20 @@ func (r *PostgresRepository) UpdateStatus(ctx context.Context, tenantID, id uuid
 
 func (r *PostgresRepository) GetByDealID(ctx context.Context, tenantID, dealID uuid.UUID) ([]*models.Quote, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, quote_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			valid_until, notes, deal_id, source_quote_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_quotes
-		WHERE tenant_id = $1 AND deal_id = $2
-		ORDER BY created_at DESC`,
+		`SELECT q.id, q.tenant_id, q.quote_number, q.status,
+			q.customer_name, q.customer_address, q.customer_email, q.customer_ust_id_nr,
+			q.tax_mode, q.tax_breakdown,
+			q.subtotal, q.total_tax, q.gross_total,
+			q.valid_until, q.notes, q.deal_id, q.source_quote_id,
+			q.created_by, q.created_at, q.updated_at, q.currency, civ.invoice_number
+		FROM finance_quotes q
+		LEFT JOIN LATERAL (
+			SELECT invoice_number FROM finance_invoices fi
+			WHERE fi.tenant_id = q.tenant_id AND fi.source_quote_id = q.id AND fi.status <> 'cancelled'
+			ORDER BY fi.created_at DESC LIMIT 1
+		) civ ON true
+		WHERE q.tenant_id = $1 AND q.deal_id = $2
+		ORDER BY q.created_at DESC`,
 		tenantID, dealID,
 	)
 	if err != nil {
@@ -548,7 +564,7 @@ func (r *PostgresRepository) scanQuote(row pgx.Row) (*models.Quote, error) {
 		&q.TaxMode, &q.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
-		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt, &q.Currency,
+		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt, &q.Currency, &q.ConvertedInvoiceNumber,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrQuoteNotFound
@@ -573,7 +589,7 @@ func (r *PostgresRepository) scanQuoteFromRows(rows pgx.Rows) (*models.Quote, er
 		&q.TaxMode, &q.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
-		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt, &q.Currency,
+		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt, &q.Currency, &q.ConvertedInvoiceNumber,
 	)
 	if err != nil {
 		return nil, err

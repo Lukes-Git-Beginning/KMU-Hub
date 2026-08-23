@@ -1514,6 +1514,9 @@ func toProtoQuote(q *models.Quote) *bizv1.Quote {
 	if q.SourceQuoteID != nil {
 		pq.SourceQuoteId = q.SourceQuoteID.String()
 	}
+	if q.ConvertedInvoiceNumber != nil {
+		pq.ConvertedInvoiceNumber = *q.ConvertedInvoiceNumber
+	}
 
 	return pq
 }
