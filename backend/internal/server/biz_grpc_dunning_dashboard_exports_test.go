@@ -375,6 +375,20 @@ func TestEscalateDunning(t *testing.T) {
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 
+	// A paid invoice is never returned by GetOverdue (PostgresRepository.GetOverdue
+	// filters status = 'sent', see postgres_repository.go) — this proves the
+	// resulting "not found in the overdue set" path maps to the same client-safe
+	// FailedPrecondition as the max-level case, not a 500 or a silent no-op.
+	t.Run("paid invoice: no escalation available", func(t *testing.T) {
+		invoiceID := uuid.New()
+		invReader := &stubDunningInvoiceReader{overdue: []*models.Invoice{}}
+		srv := newDunningTestServer(newStubDunningRecordRepo(), &stubDunningConfigRepo{config: defaultDunningConfig(tenantID)}, invReader)
+		_, err := srv.EscalateDunning(context.Background(), &bizv1.EscalateDunningRequest{
+			TenantId: tenantID.String(), InvoiceId: invoiceID.String(),
+		})
+		requireGRPCCode(t, err, codes.FailedPrecondition)
+	})
+
 	t.Run("happy path escalates to level 1", func(t *testing.T) {
 		invoiceID := uuid.New()
 		invReader := &stubDunningInvoiceReader{overdue: []*models.Invoice{{
@@ -689,6 +703,17 @@ func TestGenerateGoBDExport_Validation(t *testing.T) {
 	t.Run("invalid to_date", func(t *testing.T) {
 		_, err := srv.GenerateGoBDExport(context.Background(), &bizv1.GenerateGoBDExportRequest{
 			TenantId: tenantID.String(), FromDate: "2026-01-01", ToDate: "not-a-date",
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	// Before this check existed, a swapped range reached ListForDATEVExport
+	// (fromDate > toDate can never match an invoice_date), which silently
+	// returned zero rows — a 200 with an empty CSV, indistinguishable from
+	// "no revenue in this period" instead of a rejected request.
+	t.Run("end before start maps to invalid argument", func(t *testing.T) {
+		_, err := srv.GenerateGoBDExport(context.Background(), &bizv1.GenerateGoBDExportRequest{
+			TenantId: tenantID.String(), FromDate: "2026-02-01", ToDate: "2026-01-01",
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})

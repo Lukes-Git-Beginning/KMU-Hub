@@ -1881,7 +1881,7 @@ units:
     service: gateway
     model: sonnet
     deps: [cov-gateway-billing-payments-and-creditnotes-routes]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       Zweite Hälfte von `route_biz_billing.go`: die sieben Mahn-Handler (318-567), das

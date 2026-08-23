@@ -2461,6 +2461,13 @@ func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.Gener
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid to_date")
 	}
+	// Unlike ExportDATEV (ErrInvalidPeriod inside the builder) and GetPaymentStats
+	// (checked inline just like this), this handler had no order check at all: a
+	// swapped range silently matched zero rows in ListForDATEVExport and returned
+	// an empty-but-200 CSV, indistinguishable from "no revenue in this period".
+	if toDate.Before(fromDate) {
+		return nil, status.Error(codes.InvalidArgument, "to_date must be after from_date")
+	}
 
 	const pageSize = 1000
 	var rows []dunning.GoBDExportRow
