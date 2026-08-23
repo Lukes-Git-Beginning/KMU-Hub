@@ -3963,7 +3963,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Entwickler-Ergonomie, nicht CI-Abdeckung), aber notiert falls das mal auffällt.
 
 ## Iteration 60 — scan-finance-mutations-without-idempotency-key — done — 2026-08-23 06:39
-- commit: (wird nach diesem Eintrag erstellt)
+- commit: c6495588
 - gebaut: reiner Scan, kein Produktionscode geändert. Zuerst den in Produktion geltenden
   `IdempotencyMode` belegt (nicht angenommen, wie die Unit-Notes verlangen):
   `cmd/gateway/main.go:199` setzt den Go-Default auf `WarnMode`, aber
