@@ -14059,6 +14059,7 @@ paths:
               schema: { $ref: "#/components/schemas/ModuleLead" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Revoke module-lead rights from a user (admin only)
       operationId: revokeModuleLead
@@ -14079,6 +14080,7 @@ paths:
           description: Module lead revoked
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/settings/{module_id}:
     get:
@@ -14145,6 +14147,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403":
           description: Forbidden — caller is not a module-lead or admin for this module
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/settings/{module_id}/user:
     get:
@@ -14189,6 +14192,7 @@ paths:
               schema: { $ref: "#/components/schemas/SettingsResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/users/preferences:
     get:
@@ -14233,6 +14237,7 @@ paths:
               schema: { $ref: "#/components/schemas/SettingsResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/customization/labels:
     get:
@@ -32445,7 +32450,14 @@ paths:
         "404":
           description: Unknown module id
         "409":
-          description: Module is not available in this deployment (feature flag off)
+          description: >-
+            Module is not available in this deployment (feature flag off). Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
 
   /api/v1/admin/subscription:
     get:
@@ -32546,6 +32558,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/tenant/module-grants:
     get:
@@ -32615,6 +32628,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/tenant/module-grants/{user_id}/{module_id}:
     put:
@@ -32640,6 +32654,7 @@ paths:
                 $ref: "#/components/schemas/SettingsModuleGrant"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Revoke a user's access to a module (admin only)
       tags: [Settings]
@@ -32659,6 +32674,7 @@ paths:
           description: Module access revoked
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ==========================================================================
   # route_files.go -- generic presigned upload/download URL endpoints, backed

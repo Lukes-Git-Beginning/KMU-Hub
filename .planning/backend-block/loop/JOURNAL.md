@@ -6444,3 +6444,42 @@ Frühere Läufe liegen vollständig im Archiv:
   Iteration).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
   Migration und keine Tabelle beruehrt.
+
+## Iteration 104 — fix-idempotency-409-rollout-non-finance-routes-6 — done — 2026-08-23 11:57
+- commit: -
+- gebaut: Registrar-Gruppe **Settings** vollstaendig auf `409 IdempotencyInFlight` umgestellt -
+  10 mutierende Operationen: `PUT/DELETE /api/v1/tenant/module-leads/{user_id}/{module_id}`,
+  `POST /api/v1/tenant/module-grants/bulk-revoke`,
+  `PUT/DELETE /api/v1/tenant/module-grants/{user_id}/{module_id}`,
+  `PUT /api/v1/admin/branding`, `PUT /api/v1/settings/{module_id}/tenant`,
+  `PUT /api/v1/settings/{module_id}/user`, `PUT /api/v1/users/preferences` - alle bisher
+  ohne 409, reiner Anhaeng-Fall. Plus `PATCH /api/v1/admin/license` als Merge-Fall: der
+  bestehende Business-409 ("Module is not available in this deployment") auf
+  `description: >-` mit angehaengtem Idempotenz-Satz umgestellt und `headers.Retry-After`
+  mit Vermerk ergaenzt, dass er fuer den urspruenglichen Konfliktfall nicht gesetzt ist -
+  exakt die Vorlage aus `f6d4a3ad` (Finance). `FeatureFlagRoutes` und vermutlich
+  `HealthRoutes` haben keine mutierenden Operationen (nur `GET /api/v1/feature-flags`
+  verifiziert) - als Hinweis in die Folge-Unit uebernommen, damit die naechste Iteration
+  sie nicht nochmal pruefen muss. Einzige geaenderte Datei ist `api/openapi.yaml`
+  (17 Einfuegungen, 1 Loeschung durch den Merge-Fall).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 2682 PASS, 0 FAIL,
+  `TestOpenAPIRouteDrift` + `TestOpenAPIStatusCodeDrift` beide gruen) | swagger-cli validate
+  gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: einen frisch eingefuegten `$ref: "#/components/responses/IdempotencyInFlight"`
+  (PUT /api/v1/admin/branding) testweise auf `IdempotencyInFlightXXX` verbogen -
+  `swagger-cli validate` rot (`Token "IdempotencyInFlightXXX" does not exist.`), zurueckgedreht,
+  danach `swagger-cli validate` wieder gruen; `git diff --stat backend/` zeigt exakt die
+  17 Einfuegungen + 1 Loeschung in `api/openapi.yaml` und sonst nichts.
+- verify vorgaenger: sauber. `aef07625` (Iteration 103) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (108 additive Zeilen, 14x 400 + 44x 503 fuer die Registrar-Gruppe
+  calendar), reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`,
+  Tabelle oder Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen.
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-7` (Rest der ueber 30
+  verbliebenen Registrar-Gruppen, mit dem Hinweis, dass FeatureFlag und vermutlich Health
+  keine mutierenden Routen haben und uebersprungen werden koennen).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt.
