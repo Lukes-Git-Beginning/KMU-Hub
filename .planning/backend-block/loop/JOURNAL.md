@@ -2612,3 +2612,93 @@ Frühere Läufe liegen vollständig im Archiv:
   Zugriffs-Gate. Als Kommentar an `Service.Revoke` festgehalten, damit der
   naechste Bearbeiter es nicht erneut recherchieren muss. Produktentscheidung
   (soll ein Revoke einen echten Kanal schliessen?) liegt bei Luke.
+
+## Iteration 43 — cov-gateway-billing-payments-and-creditnotes-routes — done — 2026-08-23 04:14
+- commit: <wird nach dem Commit unten eingetragen>
+- gebaut: Erste Haelfte von `route_biz_billing.go` (Gutschrift- + Zahlungs-
+  Handler) gegen die vier `done_when`-Punkte geprueft. Ein echter Fund
+  behoben, drei bereits erfuellt und mit Test/Kommentar belegt statt
+  doppelt gebaut:
+  (1) Neuer Validator `max_2dp` (`internal/validation/validation.go`) —
+  `payments.amount` ist `NUMERIC(15,2)` (migrations/000045), aber
+  `decimal_gt0` liess beliebige Nachkommastellen durch; ein Wert wie
+  "10.999" waere auf dem INSERT-Weg still auf "11.00" gerundet worden statt
+  an der Vertrauensgrenze abgewiesen zu werden. `max_2dp` ist bewusst ein
+  eigener Tag, nicht in `decimal_gt0` eingebaut: `decimal_gt0` wird auch von
+  `route_biz_ext.go` (hourly_rate) und `route_einkauf.go` (quantity,
+  NUMERIC(15,4)/(12,4)) verwendet, die eine andere Skala brauchen — eine
+  gemeinsame Aenderung haette dort etwas kaputt gemacht, das nicht in dieser
+  Unit's `sources` steht.
+  (2) Idempotency-Key fehlt: bereits vollstaendig bewiesen in
+  `internal/middleware/idempotency_test.go`
+  (TestIdempotency_MissingKey_WarnMode_Passes,
+  TestIdempotency_MissingKey_HardMode_Blocks,
+  TestHardMode_MissingKey_Returns400) — der Gateway-Test ruft Handler direkt
+  auf und liegt damit hinter der Middleware, kann diesen Pfad also gar nicht
+  pruefen. In Produktion gilt HardMode (Compose-Env-Var
+  `IDEMPOTENCY_MODE=hard`) — ein POST ohne Header bekommt dort 400, kein
+  stiller Pass-Through. Als Kommentar in `route_biz_billing_test.go`
+  verankert.
+  (3) `HandleDeletePayment` auf einer GoBD-gesperrten Rechnung: die
+  Payment-Zeile wird IMMER geloescht, nur der gekoppelte Status-Rueckfall
+  wird bei `LockedAt != nil` uebersprungen (`payment/service.go:270-278`,
+  eigener GoBD-§146-Kommentar) — bereits bewiesen in
+  `TestDelete_NoRevertWhenInvoiceLocked` (`internal/biz/payment/service_test.go`).
+  Ob das Loeschen der Zahlungszeile selbst bei einer gesperrten Rechnung
+  verboten sein sollte (nicht nur der Status-Rueckfall), ist eine
+  Compliance-Frage fuer Luke — als Kommentar dokumentiert, keine eigene Unit
+  angelegt (kein belegter Schaden, nur eine offene Frage).
+  (4) `HandleGenerateCreditNotePDF` ohne Firmeneinstellungen: bereits
+  sauber geloest — `requireCompanySettings` (`biz_grpc.go:142`) liefert
+  `codes.FailedPrecondition("company settings not configured")`, generisch
+  auf HTTP 409 gemappt (`helpers_test.go`). Kein leeres PDF, kein 500er.
+  Neue Tests: `TestHandleRecordPayment_InvalidAmountFormats` (6 Faelle:
+  negativ, null, nicht-numerisch, leer, >2 Nachkommastellen, wissenschaftliche
+  Notation mit zu hoher Praezision — alle 400 ueber `amount`),
+  `TestHandleRecordPayment_ScientificNotationWithinPrecision` ("1e2" = 100,
+  0 Nachkommastellen, muss durchgehen), `TestHandleRecordPayment_AmountAsJSONNumber`
+  (JSON-Zahl statt String scheitert am Decode, nicht an der Validierung —
+  eigener 400-Pfad). Bestehender Test
+  `TestHandleRecordPayment_AmountStaysStringHighPrecision` musste angepasst
+  werden (Fixture hatte 9 Nachkommastellen, waere jetzt am neuen `max_2dp`
+  gescheitert) — Wert auf ".12" gekuerzt, Praezisions-Aussage (grosser
+  Integer-Teil, kein float64-Parse) bleibt unveraendert bewiesen.
+- gate: build ok | vet ok | lint ok (0 issues, `internal/gateway` +
+  `internal/validation`) | test ok (`go test -count=1
+  ./internal/gateway/ ./internal/validation/...`, 0 SKIP) | migration n.a.
+  (keine Tabellen-/Schema-Aenderung) | rls-smoke n.a. (keine Tabellen-/
+  Policy-Aenderung) | `go test -count=1 -run TestOpenAPIRouteDrift
+  ./internal/gateway/` PFLICHT gelaufen (836 Routen gegen 838 Spec-Pfade,
+  gruen — keine Route hinzugefuegt/geaendert)
+- coverage: internal/gateway 54,6 % (eigene Messung vor dieser Iteration via
+  `git stash`) -> 54,6 % (danach, kein Sprung bei einer Nachkommastelle —
+  das Paket hat ueber 10.000 ungedeckte Zeilen, sechs neue Testfaelle in
+  zwei bereits teilweise abgedeckten Handlern bewegen die Prozentzahl nicht
+  sichtbar; die neuen Zweige selbst sind aber real abgedeckt, siehe
+  Mutations-Probe).
+- mutations-probe: `max_2dp` in `internal/validation/validation.go` auf
+  `return true` (immer erfolgreich) gesetzt —
+  `TestHandleRecordPayment_InvalidAmountFormats/MoreThanTwoDecimalPlaces`
+  und `.../ScientificNotationTooPrecise` wurden rot (503 statt 400, weil die
+  Anfrage nun bis zur nicht erreichbaren RPC durchlief), die anderen vier
+  Faelle blieben gruen (sie werden von `decimal_gt0` bzw. `required`
+  abgefangen, nicht von `max_2dp`) — genau der erwartete, isolierte
+  Bruch. Zurueckgesetzt via `cp` einer Sicherungskopie, `diff` gegen
+  Original danach leer (nur die urspruengliche 13-Zeilen-Ergaenzung bleibt).
+- verify vorgaenger: sauber — `9fc4ef78` (letzter Commit vor dieser
+  Iteration) aendert laut `git show --stat` nur `route_security_test.go`
+  (neue Guard-Tests + ein neuer Kardinalitaets-Test, additiv),
+  `security/vendoraccess/service.go` (reiner Kommentar an `Revoke`, keine
+  Verhaltensaenderung) — keine der acht Fehlerklassen anwendbar. Kleine
+  Ungenauigkeit notiert, kein Fund: die Commit-Message von `9fc4ef78`
+  behauptet, eine "Validierungsluecke" bei fehlendem `proposed_start`
+  geschlossen zu haben, aber `route_security.go` selbst ist in diesem Diff
+  gar nicht veraendert — `validate:"required"` auf `ProposedStart` existiert
+  bereits seit einem deutlich aelteren Commit (`d3b7cb01`). Der neue Test
+  beweist bestehendes, korrektes Verhalten, behebt aber nichts; kein
+  Schaden, da nichts Falsches ausgeliefert wurde.
+- neue-units: keine (der einzige offene Punkt — Loeschen einer Payment-Zeile
+  auf gesperrter Rechnung — ist eine reine Produktentscheidung ohne
+  belegten Schaden, siehe oben; per harter Regel 11 keine Unit ohne echten
+  Fund)
+- offen: keine

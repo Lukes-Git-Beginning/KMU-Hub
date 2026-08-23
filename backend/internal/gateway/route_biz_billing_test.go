@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -198,16 +199,19 @@ func TestHandleCreateCreditNote_InvalidCustomerVAT(t *testing.T) {
 
 // ============================================================================
 // Payments — amounts must survive the JSON->validate->proto path unchanged
-// as a decimal string. A value with more precision than float64 can hold
-// exactly (20 digits) reaching the gRPC layer (503, not 400) proves no float
-// conversion happens anywhere before the RPC call.
+// as a decimal string. A value whose integer part has more precision than
+// float64 can hold exactly (20 digits) reaching the gRPC layer (503, not
+// 400) proves no float conversion happens anywhere before the RPC call.
+// The two decimal places are load-bearing here, not incidental — see
+// max_2dp below; a float64 parse would also mangle a 20-digit integer part
+// regardless of scale, which is what this test actually proves.
 // ============================================================================
 
 func TestHandleRecordPayment_AmountStaysStringHighPrecision(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", jsonBody(t, map[string]interface{}{
-		"amount":       "12345678901234567890.123456789",
+		"amount":       "12345678901234567890.12",
 		"payment_date": "2026-01-01",
 		"method":       "bank_transfer",
 	}))
@@ -242,6 +246,106 @@ func TestHandleRecordPayment_IdempotencyKeyForwarded(t *testing.T) {
 	routes.HandleRecordPayment(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// A request with NO Idempotency-Key header is not this package's concern to
+// prove: the header is enforced by middleware.Idempotency, which wraps the
+// router in front of every handler here and is never in the call path when a
+// test invokes routes.HandleRecordPayment directly (as every test in this
+// file does). That behaviour is proven at its own layer:
+// TestIdempotency_MissingKey_WarnMode_Passes and
+// TestIdempotency_MissingKey_HardMode_Blocks / TestHardMode_MissingKey_Returns400
+// (internal/middleware/idempotency_test.go). The mode actually running in
+// production is IDEMPOTENCY_MODE=hard (deploy/docker/docker-compose.prod.yml)
+// — a POST without the header gets 400 there, not a silent pass-through.
+
+// TestHandleRecordPayment_InvalidAmountFormats proves every malformed amount
+// at this trust boundary lands on 400 through the decimal_gt0/max_2dp
+// validator tags (route_biz_billing.go:196), never reaches the RPC layer as
+// a downstream 500. payments.amount is NUMERIC(15,2) (migrations/000045) —
+// the "more than two decimal places" cases exist because that scale would
+// otherwise silently round the value away instead of rejecting it here.
+func TestHandleRecordPayment_InvalidAmountFormats(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+
+	cases := map[string]string{
+		"Negative":                     "-10.00",
+		"Zero":                         "0",
+		"NonNumeric":                   "not-a-number",
+		"Empty":                        "",
+		"MoreThanTwoDecimalPlaces":     "10.999",
+		"ScientificNotationTooPrecise": "1.005e0", // = 1.005, three decimal places
+	}
+	for name, amount := range cases {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", jsonBody(t, map[string]interface{}{
+				"amount":       amount,
+				"payment_date": "2026-01-01",
+				"method":       "bank_transfer",
+			}))
+			req = withTenantID(req, testTenantID)
+			req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+			routes.HandleRecordPayment(rec, req)
+			assertValidationError(t, rec, "amount")
+		})
+	}
+}
+
+// TestHandleRecordPayment_ScientificNotationWithinPrecision documents the
+// other side of the case above: "1e2" == 100, zero decimal places — a
+// legitimate (if unusual) value that must reach the RPC layer like any other
+// valid amount, not be rejected merely for its notation.
+func TestHandleRecordPayment_ScientificNotationWithinPrecision(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", jsonBody(t, map[string]interface{}{
+		"amount":       "1e2",
+		"payment_date": "2026-01-01",
+		"method":       "bank_transfer",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleRecordPayment(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleRecordPayment_AmountAsJSONNumber: the field is typed string, so a
+// bare JSON number ("amount": 100.5 instead of "100.50") fails to unmarshal
+// before validation ever runs — a decode error (400 "invalid request body"),
+// not a validation error naming the field.
+func TestHandleRecordPayment_AmountAsJSONNumber(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	body := `{"amount": 100.5, "payment_date": "2026-01-01", "method": "bank_transfer"}`
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", strings.NewReader(body))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleRecordPayment(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+// HandleDeletePayment on a payment belonging to a GoBD-locked (LockedAt !=
+// nil) invoice: the row itself is always deleted (payment.Service.Delete
+// only skips the coupled invoice-status revert when locked, per its own
+// GoBD §146 comment — internal/biz/payment/service.go:270-278). This gateway
+// package has no fake FinanceServiceClient to script that distinction
+// end-to-end (same boundary noted for IdempotencyKeyForwarded above), so the
+// behaviour is proven where the logic actually lives:
+// TestDelete_NoRevertWhenInvoiceLocked and TestDelete_RevertsFromPaid
+// (internal/biz/payment/service_test.go). Whether deleting the payment row
+// itself should also be blocked on a locked invoice (not just the status
+// revert) is a compliance question for Luke, not a gateway coverage fix —
+// noted here so the next person touching this handler sees it.
+
+// HandleGenerateCreditNotePDF without company settings: the server layer
+// already turns this into a comprehensible error, not a 500 or an empty
+// PDF — BizGRPCServer.requireCompanySettings (internal/server/biz_grpc.go:147)
+// returns codes.FailedPrecondition("company settings not configured") when
+// none exist, which internal/gateway/helpers.go maps to HTTP 409 (proven
+// generically in helpers_test.go, same mapping used by
+// TestHandleGenerateCreditNotePDF's sibling handlers). No local gateway logic
+// to add or test here.
 
 // ============================================================================
 // Dunning
