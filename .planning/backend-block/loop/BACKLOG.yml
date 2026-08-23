@@ -4568,7 +4568,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 56,6 % (gemessen Iteration 89)"
     scope: >
       Belegter Befund aus der Mutations-Probe in Iteration 89: es gibt im Repo KEINEN
@@ -4691,3 +4691,152 @@ units:
         IdempotencyInFlight-$ref wird testweise verbogen, swagger-cli wird rot,
         Aenderung zurueckgedreht"
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-status-code-drift-baseline-non-systemic
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [test-openapi-documented-status-codes-vs-handlers]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Arbeitsliste aus `statusDriftBaseline` in
+      `internal/gateway/openapi_status_code_drift_test.go` (Iteration 93): 80 Operationen
+      schreiben einen Status-Code, den ihre OpenAPI-Operation nicht dokumentiert. Die Liste
+      ist maschinell erzeugt und im Test eingefroren, damit NEUE Abweichungen sofort rot
+      werden. Jeder Eintrag ist eine offene Doku-Luecke.
+      Grobe Gliederung: 401 (33x, aus `ownerFilterForScope`, vor allem Finance und HR),
+      500 (42x, Handler mit eigenem Internal-Error statt `respondGRPCError`, vor allem
+      caldav, dashboard, hr/time, inbox), 502 (3x, Slack/Teams-Webhook-Bruecken),
+      403 (1x, `GET /api/v1/security/gdpr/exports`).
+      NICHT in einem Commit: je Gruppe (finance, hr, caldav, dashboard, integrations, Rest)
+      eine Teil-Unit, und die abgearbeiteten Eintraege im selben Commit aus
+      `statusDriftBaseline` entfernen - der Test muss danach gruen bleiben, das IST der Beleg.
+      Kein Go-Code aendern, nur `api/openapi.yaml`.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+    notes: >
+      Die zwei 200er-Eintraege der Liste (`DELETE /api/v1/files/{id}` und
+      `POST /api/v1/channels/{id}/read`) gehoeren NICHT hierher - das sind echte
+      Vertragsabweichungen gegen das Frontend, siehe `fix-204-documented-but-200-written`.
+      Die vier 501er ebenfalls nicht, siehe `fix-crm-tag-endpoints-are-501-stubs`.
+      Beim Streichen eines Eintrags immer erst pruefen, welchen Weg der Code wirklich nimmt -
+      der Test nennt nur den Code, nicht die Zeile.
+    done_when:
+      - Mindestens eine Gruppe der 80 Eintraege ist in api/openapi.yaml dokumentiert
+      - Die erledigten Eintraege sind aus statusDriftBaseline entfernt
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
+
+  - id: fix-204-documented-but-200-written
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
+    scope: >
+      Verifizierter Befund von `TestOpenAPIStatusCodeDrift` (Iteration 93): zwei Operationen
+      dokumentieren `204 No Content`, ihr Handler antwortet aber mit `200` UND einem
+      JSON-Body. Das ist eine Vertragsabweichung gegen den generierten FE-Typ, kein
+      Doku-Detail.
+      1. `POST /api/v1/channels/{id}/read` - Spec sagt `"204": Channel marked as read`,
+         Handler `ChatRoutes.HandleMarkChannelRead` (route_chat.go:735) schreibt
+         `response.JSON(w, http.StatusOK, map[string]string{"status": ...})`.
+      2. `DELETE /api/v1/files/{id}` - dieselbe Form, Handler in route_file.go pruefen.
+      Zu entscheiden ist pro Route, welche Seite recht hat. Default-Empfehlung: die Spec an
+      den Code angleichen (200 plus Body dokumentieren), weil der Handler produktiv laeuft
+      und ein Wechsel auf 204 den Body entfernt, den ein FE-Aufrufer eventuell liest.
+      Erst pruefen, ob desktop/src/renderer/src den Body benutzt.
+    sources:
+      - backend/internal/gateway/route_chat.go
+      - backend/internal/gateway/route_file.go
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/api/types.ts
+    notes: >
+      Beleg reproduzieren: den betroffenen Eintrag aus `statusDriftBaseline` in
+      `openapi_status_code_drift_test.go` entfernen, `go test ./internal/gateway/` wird rot
+      und nennt die Operation. Nach dem Fix bleibt er entfernt und der Test wieder gruen.
+      Wird der Handler geaendert statt der Spec, ist das eine Verhaltensaenderung - dann
+      zusaetzlich pruefen, ob ein bestehender Test den 200er festschreibt.
+    done_when:
+      - Fuer beide Operationen stimmen Spec und Handler ueberein
+      - Die beiden Eintraege sind aus statusDriftBaseline entfernt
+      - Die FE-Nutzung des Response-Body ist geprueft und im Journal vermerkt
+      - "go test -count=1 ./internal/gateway/ gruen"
+
+  - id: fix-crm-tag-endpoints-are-501-stubs
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
+    scope: >
+      Verifizierter Befund von `TestOpenAPIStatusCodeDrift` (Iteration 93): vier registrierte,
+      in `api/openapi.yaml` dokumentierte CRM-Routen sind dauerhafte Stubs und antworten
+      immer `501 Not Implemented`:
+      `POST` und `DELETE /api/v1/activities/{id}/tags` (route_crm_activities.go:300 und :312,
+      "add/remove activity tags not implemented via HTTP, use gRPC") sowie
+      `POST` und `DELETE /api/v1/deals/{id}/tags` (route_crm_pipeline.go:500 und :512).
+      Fuer einen FE-Aufrufer sind das vier Endpunkte, die es laut Spec gibt und die nie
+      funktionieren. Zu klaeren ist, ob der gRPC-Weg existiert (dann Handler ueber den
+      Client durchreichen und die Fehlerklasse "Stub statt Implementierung" schliessen) oder
+      nicht (dann Routen und Spec-Eintraege entfernen).
+      Ebenfalls in der Liste, aber bewusst getrennt: `route_integration.go:609`
+      ("slack oauth install is not available on this deployment") - das ist ein
+      absichtliches Deployment-Nein, kein Stub, und bleibt.
+    sources:
+      - backend/internal/gateway/route_crm_activities.go
+      - backend/internal/gateway/route_crm_pipeline.go
+      - backend/api/openapi.yaml
+    notes: >
+      Erst pruefen, ob der CRM-Service die passenden RPCs ueberhaupt hat. Kein `.proto`
+      erweitern, ohne im selben Commit zu regenerieren - und waere dafuer ein neuer RPC
+      noetig, ist das eine Entscheidung fuer Luke, dann `blocked` mit Begruendung.
+      Werden Routen entfernt: `TestOpenAPISpecDrift` und `TestOpenAPIMethodDrift` erzwingen,
+      dass die Spec-Eintraege im selben Commit mitgehen.
+    done_when:
+      - Fuer alle vier Routen ist entschieden und umgesetzt (durchgereicht oder entfernt)
+      - Kein Handler in route_crm_activities.go oder route_crm_pipeline.go antwortet mehr 501
+      - Die vier Eintraege sind aus statusDriftBaseline entfernt
+      - "go test -count=1 ./internal/gateway/ gruen"
+
+  - id: doc-status-code-systemic-400-503-sweep
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [test-openapi-documented-status-codes-vs-handlers]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Zweiter Teil des Befunds aus Iteration 93, absichtlich vom Rest getrennt:
+      `400` fehlt auf 347 Operationen und `503` auf 1085, weil praktisch jeder Handler diese
+      Codes ueber die gemeinsamen Helfer erbt statt sie selbst zu schreiben (400 aus
+      `validateUUIDParam` / `decodeAndValidate` / `validateDateParam`, 503 aus
+      `respondServiceUnavailable`). Diese beiden Codes stehen deshalb in
+      `systemicUndocumentedCodes` und werden vom Test nur gezaehlt und geloggt, nicht
+      gemeldet - sonst waere er am Tag eins mit 1125 Zeilen rot.
+      Umfang: die fehlenden `"400"` und `"503"` in `api/openapi.yaml` nachziehen,
+      gruppenweise, mit dem geloggten Zaehler als Fortschrittsmass
+      (`go test -v -run TestOpenAPIStatusCodeDrift` gibt beide Zahlen aus).
+      Sobald ein Zaehler 0 erreicht, den Code aus `systemicUndocumentedCodes` entfernen -
+      dann faellt er wieder als normaler Befund an.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Grosse, stumpfe Sweep-Arbeit - je Iteration eine Registrar-Gruppe, nicht mehr.
+      Nicht blind auf jede Operation setzen: nur dort, wo der Handler den Code laut Test
+      wirklich schreibt. Die Liste je Gruppe bekommt man, indem man den Code testweise aus
+      `systemicUndocumentedCodes` entfernt und den Test einmal rot laufen laesst - die
+      Fehlermeldung ist die Arbeitsliste. Danach zurueckdrehen.
+      Vorlage fuer den Stil der Eintraege: die Idempotenz-409-Units (`f6d4a3ad`, `5499043b`,
+      `e7076da2`).
+    done_when:
+      - Mindestens eine Registrar-Gruppe hat ihre fehlenden 400/503 dokumentiert
+      - Die im Test geloggten Zaehler sind nachweislich gesunken (Zahlen im Journal)
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen"

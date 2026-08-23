@@ -5867,3 +5867,96 @@ Frühere Läufe liegen vollständig im Archiv:
   `BACKLOG.yml` ist weiterhin kein gueltiges YAML (unquotierte `done_when`-Doppelpunkte aus
   frueheren Iterationen) — praktisch folgenlos, da der Treiber per Regex liest; die in dieser
   Iteration neu angelegte Unit quotet ihre betroffene `done_when`-Zeile korrekt.
+
+## Iteration 93 - test-openapi-documented-status-codes-vs-handlers - done - 2026-08-23 10:32
+- commit: <SHA>
+- gebaut: `backend/internal/gateway/openapi_status_code_drift_test.go` (neu, ~600 Zeilen,
+  reiner Test - keine Zeile Produktionscode). Der Test schliesst die dritte Richtung des
+  Spec-Guards: bisher gab es `registrierter Pfad ⊆ dokumentierter Pfad`
+  (`TestOpenAPIRouteDrift`) und `registriertes METHOD+Pfad ⊆ dokumentiertes METHOD+Pfad`
+  (`TestOpenAPIMethodDrift`), aber nichts, was die vom Handler wirklich geschriebenen
+  Status-Codes gegen den `responses:`-Block haelt.
+  Mechanik in vier Schritten: (1) `buildGatewayRouter` wiederverwenden und den Router
+  ablaufen, dabei je Endpoint ueber `runtime.FuncForPC` auf dem gebundenen Method-Value die
+  Go-Funktion zurueckholen (`(*ChatRoutes).HandleMarkChannelRead`); chi legt Handler hinter
+  `r.With(...)` in einen `*chi.ChainHandler`, der wird vorher ausgepackt. **1196 von 1196
+  registrierten `/api/v1/*`-Endpoints loesen so auf, null unaufgeloest.** (2) das
+  gateway-Paket mit `go/parser` einlesen und alle Funktionen/Methoden unter demselben
+  Schluessel indizieren. (3) je Handler die Codes der bekannten Writer einsammeln
+  (`response.JSON/Proto/ProtoList/ProtoListWrapped/Error`, `w.WriteHeader`, `http.Error`,
+  `http.Redirect`) und dabei in paket-lokale Aufrufe hinabsteigen - dadurch zaehlen die
+  helfer-vermittelten Codes mit, ohne dass eine Helfer-Tabelle von Hand gepflegt werden
+  muss: `validateUUIDParam`/`decodeAndValidate`/`validateDateParam` (400),
+  `respondServiceUnavailable` (503), `ownerFilterForScope` (401/403) fallen automatisch an.
+  (4) Vergleich gegen den `responses:`-Block der passenden Operation.
+  `respondGRPCError` ist statisch NICHT aufloesbar (Code kommt aus dem gRPC-Status) - der
+  Abstieg stoppt dort, statt 404/409/422/500 dem Handler zuzurechnen. Zweiter Test
+  `TestOpenAPIStatusCodeDriftParserSanity` prueft beide Parser gegen bekannte Werte, damit
+  ein stiller Parser-Ausfall den Guard nicht gruen faelscht.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok |
+  lint ok (golangci-lint `./internal/gateway/...`, 0 issues) | test ok - `DATABASE_URL` auf
+  `kmuhub_app`, `go test -count=1 -v ./internal/gateway/`: **3849 PASS, 0 SKIP**
+  (per `grep -c` geprueft; +2 gegenueber Iteration 92 = die beiden neuen Tests) |
+  migration n.a. | rls-smoke n.a. (kein Schema-/Policy-Zugriff)
+- coverage: `internal/gateway` **56,6 % -> 56,6 %** (unveraendert, und das ist korrekt: der
+  Test analysiert Quelltext statisch und fuehrt keinen Handler aus. Der Wert deckt sich
+  exakt mit `coverage_start` der Unit.)
+- mutations-probe: Gegenbeweis auf der Spec-Seite gefahren - in `api/openapi.yaml` wurde der
+  Response-Key `"200":` unter `POST /api/v1/auth/login` testweise auf `"299":` umbenannt
+  (strukturell weiter gueltiges YAML, damit wirklich der neue Test anschlaegt und nicht der
+  Validator). `go test -run TestOpenAPIStatusCodeDrift` wurde rot mit genau
+  `POST /api/v1/auth/login writes [200] - not documented`. Zurueckgedreht per
+  `git checkout -- api/openapi.yaml`, danach wieder gruen; `git status` zeigt die Spec
+  unveraendert.
+  Zweiter, waehrend des Bauens gefundener Parser-Fehler, der ohne diese Probe durchgegangen
+  waere: die erste Fassung des Spec-Scanners akzeptierte nur `"200":`, die Spec mischt aber
+  beide Quoting-Stile (`'200':` bei den advisory-protocols-Bloecken). Das erzeugte acht
+  falsche 200/201/204-Treffer. Regex auf `['"]?` erweitert, Falschtreffer weg.
+- verify vorgaenger: sauber. `e7076da2` (Iteration 92,
+  fix-idempotency-409-rollout-non-finance-routes-2) gegen alle acht Fehlerklassen geprueft:
+  der Diff beruehrt ausschliesslich `backend/api/openapi.yaml` (+19/-1, zehn neue
+  `IdempotencyInFlight`-Refs plus ein Merge-Block auf der share-links-Mint-Operation) - kein
+  Go-Code, kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer `RequirePermission`, keine
+  neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route, kein ersetzter Guard.
+  `ea3b8f00` direkt danach ist reine Journal-Buchhaltung (1 Zeile SHA).
+- neue-units: `fix-status-code-drift-baseline-non-systemic`,
+  `fix-204-documented-but-200-written`, `fix-crm-tag-endpoints-are-501-stubs`,
+  `doc-status-code-systemic-400-503-sweep` (alle vier am Backlog-Ende, `status: todo`).
+- offen: **Die Befundmenge am Tag eins ist gross und in zwei Toepfe geteilt.** Roh meldete
+  der Test 1125 Operationen. Davon sind zwei Codes systemisch, weil sie aus den gemeinsamen
+  Helfern kommen und fast nirgends dokumentiert sind: **400 auf 347 Operationen** und
+  **503 auf 1085**. Die stehen in `systemicUndocumentedCodes` und werden nur gezaehlt und
+  geloggt, nicht gemeldet - ein 1100-Zeilen-Literal liest niemand, und ein Test, der am Tag
+  eins rot ist, wird abgeschaltet. Fortschritt daran ist am geloggten Zaehler ablesbar
+  (`go test -v -run TestOpenAPIStatusCodeDrift`), Arbeitspaket ist
+  `doc-status-code-systemic-400-503-sweep`.
+  Uebrig bleiben **80 Operationen** als eingefrorene, kommentierte Baseline
+  (`statusDriftBaseline` im Test - die vollstaendige Liste steht dort, nach Operation
+  sortiert, und ist die Arbeitsliste, die dieses Von-Hand-Suchen ersetzt). Verteilung:
+  **401 auf 33** Operationen (aus `ownerFilterForScope`, Schwerpunkt finance und hr),
+  **500 auf 42** (Handler mit eigenem Internal-Error statt `respondGRPCError`; caldav,
+  dashboard, hr/time, inbox), **502 auf 3** (Slack/Teams-Webhook-Bruecken), **403 auf 1**
+  (`GET /api/v1/security/gdpr/exports`), **501 auf 4** und **200 auf 2**.
+  Zwei Teilmengen davon sind KEINE Doku-Luecken, sondern echte Befunde und haben deshalb
+  eigene Units bekommen:
+  1. **204 dokumentiert, 200 geschrieben** - `POST /api/v1/channels/{id}/read` dokumentiert
+     `"204": Channel marked as read`, der Handler (`route_chat.go:735`) antwortet
+     `response.JSON(w, http.StatusOK, map[string]string{"status": ...})`, also 200 MIT Body.
+     Dasselbe bei `DELETE /api/v1/files/{id}`. Das ist eine Vertragsabweichung gegen den
+     generierten FE-Typ, nicht bloss ein fehlender Spec-Eintrag
+     (`fix-204-documented-but-200-written`).
+  2. **Vier dokumentierte CRM-Routen sind dauerhafte 501-Stubs** -
+     `POST`/`DELETE /api/v1/activities/{id}/tags` (`route_crm_activities.go:300`, `:312`) und
+     `POST`/`DELETE /api/v1/deals/{id}/tags` (`route_crm_pipeline.go:500`, `:512`) antworten
+     immer `501 "not implemented via HTTP, use gRPC"`. Laut Spec existieren sie, real
+     funktionieren sie nie (`fix-crm-tag-endpoints-are-501-stubs`). Der fuenfte 501-Treffer,
+     `route_integration.go:609` ("slack oauth install is not available on this deployment"),
+     ist ein absichtliches Deployment-Nein und bleibt.
+  Bewusste Grenze des Guards, damit sie niemand fuer einen Ausfall haelt: die
+  Gegenrichtung - dokumentiert, aber nie geschrieben - ist NICHT geprueft. Mit
+  `respondGRPCError` im Aufrufgraph laesst sich nicht beweisen, dass ein dokumentierter Code
+  unerreichbar ist. Der 204-Befund oben ist genau deshalb nur ueber die Vorwaertsrichtung
+  (200 undokumentiert) aufgefallen und nicht ueber das nie geschriebene 204.
+  `BACKLOG.yml` ist weiterhin kein gueltiges YAML (unquotierte `done_when`-Doppelpunkte aus
+  frueheren Iterationen); die vier hier neu angelegten Units quoten ihre betroffenen Zeilen
+  korrekt.
