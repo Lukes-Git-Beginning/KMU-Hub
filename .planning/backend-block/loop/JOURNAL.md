@@ -1798,7 +1798,7 @@ Frühere Läufe liegen vollständig im Archiv:
   per Grep bestätigt) — profitiert also automatisch vom selben Fix, ohne eigene Änderung nötig.
 
 ## Iteration 32 — cov-invoice-repository-quote-link-and-time-tracking-real-sql — done — 2026-08-23 02:35
-- commit: (siehe unten, nach Commit-Erstellung)
+- commit: 1b19c957
 - gebaut: `GetByQuoteID` (postgres_repository.go:446) und `LinkTimeTracking` (:472) mit sechs
   neuen real-SQL-Tests in `postgres_repository_quote_link_time_tracking_db_test.go` untersucht.
   ECHTER FUND (dokumentiert, NICHT gefixt — siehe unten): `GetByQuoteID`s Signatur gibt genau eine
