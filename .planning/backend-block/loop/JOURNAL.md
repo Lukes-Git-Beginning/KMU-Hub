@@ -5001,7 +5001,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 77 — fix-gateway-finance-list-routes-missing-error-response-docs — done — 2026-08-23 08:42
-- commit: PENDING
+- commit: fe67d1b9
 - gebaut: Drei Routen dokumentierten in `openapi.yaml` nicht alle Statuscodes, die
   ihr Handler tatsaechlich schreibt. GET `/finance/open-items`
   (`route_biz_open_items.go:42,49,54`) schreibt `500` bei drei Marshal-Fehlern
