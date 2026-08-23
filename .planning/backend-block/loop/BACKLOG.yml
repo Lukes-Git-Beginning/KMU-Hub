@@ -4425,7 +4425,8 @@ units:
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG GEHOERT LUKE (Variante a/b/c, siehe notes) — kein Loop-Auftrag; stand seit Iteration 86 als todo am Backlog-Kopf und wurde in jeder Iteration uebersprungen. Wieder auf todo setzen, sobald Luke die Variante gewaehlt hat."
     coverage_start: "n.a. (Datenmodell-Entscheidung vor jeder Coverage-Zahl, siehe scope)"
     scope: >
       Restrisiko aus fix-lexware-config-lookup-cross-tenant-under-sysctx (Iteration 86):
@@ -4501,7 +4502,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Rest von `fix-idempotency-409-rollout-non-finance-routes` (Iteration 87, Lauf 12): dort ist
@@ -4623,4 +4624,70 @@ units:
         vollstaendig im Journal
       - "Ein Gegenbeweis ist gefahren: ein dokumentierter Code wird testweise aus
         openapi.yaml entfernt, der Test wird rot, Aenderung zurueckgedreht"
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-idempotency-409-rollout-non-finance-routes-3
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Rest von `fix-idempotency-409-rollout-non-finance-routes-2` (Iteration 92, Lauf 13).
+      Fertig sind bisher: Finance (Iteration ~76, `f6d4a3ad`), Wiki (Iteration 90, `5499043b`)
+      und Formulare (Iteration 92 — 11 mutierende Operationen: Schemas POST/PATCH/DELETE,
+      schemas/{id}/duplicate POST, schemas/{id}/submissions POST, schemas/{id}/share-links POST
+      (Merge-Fall, bestehendes Geschaefts-409 erweitert), schemas/{id}/webhooks POST,
+      submissions/{id} PATCH, share-links/{id} DELETE, webhooks/{id} PATCH/DELETE; die public
+      Route `/api/v1/public/formulare/submit/{token}` bleibt ausgeschlossen).
+      Noch offen sind die uebrigen knapp 37 Registrar-Gruppen aus `cmd/gateway/main.go`
+      (`registrars`-Liste, Zeilen ~276-325): Auth, CRM, Chat, Notification, Work, Calendar,
+      Video, Security, Email, Document, Biz (non-finance), Bexio, DATEV-Upload, Lexware,
+      Integration, HR, Inbox, Automation, Dialer, Helpdesk, Berichte, Inventar, Einkauf,
+      Produktion, Vertraege, Rapporte, Schichten, Vermietung, Fuhrpark, File, GlobalSearch,
+      Dashboard, FeatureFlag, Health, Booking, Settings, Customization.
+      Auswahl-Hinweise unveraendert: `Customization` ist gesperrt (FE-Vertrag im Wechsel) und
+      erst nach allen anderen Gruppen anfassen oder explizit auslassen; `Bexio` ist produktiv
+      aus (G3) — die reine Route-Doku ist harmlos, trotzdem eine ungesperrte Gruppe bevorzugen.
+      `Auth` braucht besondere Sorgfalt: `/auth/login`, `/auth/refresh` und `/auth/2fa` stehen
+      als Teilstring in der `idempotencyWhitelist` (`idempotency.go:36`) und laufen NICHT durch
+      die Middleware — die duerfen kein In-Flight-409 dokumentiert bekommen.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/cmd/gateway/main.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/gateway/openapi_drift_test.go
+    notes: >
+      GLEICHE MECHANIK, NICHT NEU ERFINDEN — Vorlage `git show 5499043b` (Wiki, reiner
+      Anhaeng-Fall) und `git show f6d4a3ad` (Finance, enthaelt auch den Merge-Fall).
+      Pro Operation der gewaehlten Gruppe (nur POST/PUT/PATCH/DELETE, GET nie) pruefen, ob
+      schon ein `"409":` existiert. Fehlt es: eine Zeile
+      `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` in den `responses:`-Block
+      einfuegen — NUMERISCH SORTIERT, also vor einem eventuellen `"503"`, nicht stumpf ans
+      Blockende (so in Iteration 92 gehandhabt, siehe `/api/v1/formulare/share-links/{id}`).
+      Existiert schon ein 409 aus Geschaeftsgruenden: NICHT ueberschreiben, sondern die
+      `description` auf `>-` umstellen, den Idempotenz-Satz anhaengen und einen
+      `headers.Retry-After` ergaenzen mit dem Vermerk, dass er fuer den urspruenglichen
+      Konfliktfall nicht gesetzt ist.
+      Operationen einer Gruppe finden: im passenden `route_*.go` nach `.Post(`/`.Put(`/
+      `.Patch(`/`.Delete(` greppen (Registrierung laeuft ueber `r.With(guard).Post(...)`, ein
+      reiner `r\.Post\(`-Grep uebersieht die meisten Treffer), dann die vollen
+      `/api/v1/...`-Pfade aus dem `RegisterRoutes`-Block zusammensetzen und im YAML suchen.
+      Ausschlussliste (nicht durch die Middleware geschuetzt) unveraendert: `/api/v1/public/*`,
+      `/api/v1/guest/*`, `/api/v1/caldav/*`, `/api/v1/admin/caldav/*`, WOPI/CalDAV/CardDAV-
+      Protokollrouten, `/reset-password`, sowie Pfade mit `/auth/login`, `/auth/refresh`,
+      `/auth/2fa` als Teilstring.
+      NICHT den ganzen Rest in einem Commit — je Registrar-Gruppe schneiden (oder wenige kleine
+      benachbarte zusammen) und jede Iteration eine neue Teil-Unit mit aktualisierter Restliste
+      ans Backlog-Ende haengen, bis die Liste leer ist.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe aus der obigen Liste ist vollstaendig auf 409
+        umgestellt, mit demselben Beleg wie die Finance-, Wiki- und Formulare-Teil-Units
+      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben
+      - Whitelist-Routen aus idempotency.go haben KEIN In-Flight-409 bekommen
+      - Was noch offen bleibt, steht als neue Teil-Unit mit aktualisierter Liste am Backlog-Ende
+      - "swagger-cli validate gruen, und ein Gegenbeweis ist gefahren: ein neuer
+        IdempotencyInFlight-$ref wird testweise verbogen, swagger-cli wird rot,
+        Aenderung zurueckgedreht"
       - go test -count=1 ./internal/gateway/ gruen

@@ -5811,3 +5811,59 @@ Frühere Läufe liegen vollständig im Archiv:
   `test-openapi-documented-status-codes-vs-handlers` bleiben als naechste `todo`-Units mit
   erfuellten deps liegen. `BACKLOG.yml` ist weiterhin kein gueltiges YAML (unquotierte
   `done_when`-Doppelpunkte) — praktisch folgenlos, da der Treiber per Regex liest.
+
+## Iteration 92 — fix-idempotency-409-rollout-non-finance-routes-2 — done — 2026-08-23 10:26
+- commit: <sha>
+- gebaut: Die **Formulare**-Registrar-Gruppe auf 409 umgestellt — 11 mutierende Operationen aus
+  `route_formulare.go` (Schemas POST/PATCH/DELETE, `schemas/{id}/duplicate` POST,
+  `schemas/{id}/submissions` POST, `schemas/{id}/share-links` POST, `schemas/{id}/webhooks` POST,
+  `submissions/{id}` PATCH, `share-links/{id}` DELETE, `webhooks/{id}` PATCH/DELETE).
+  Zehn davon bekamen die Zeile `"409": { $ref: "#/components/responses/IdempotencyInFlight" }`,
+  **numerisch einsortiert** statt stumpf ans Blockende — bei `/api/v1/formulare/share-links/{id}`
+  steht sie deshalb vor dem bestehenden `"503"`. Der elfte Fall,
+  `POST /api/v1/formulare/schemas/{id}/share-links`, trug bereits ein 409 mit
+  Geschaeftsbedeutung ("schema is not public"): dort nicht ueberschrieben, sondern nach der
+  Finance-Vorlage (`f6d4a3ad`) die `description` auf `>-` umgestellt, den In-Flight-Satz
+  angehaengt und `headers.Retry-After` mit dem Vermerk ergaenzt, dass der Header fuer den
+  urspruenglichen Konfliktfall nicht gesetzt ist. Die public Route
+  `POST /api/v1/public/formulare/submit/{token}` bleibt bewusst unangetastet — sie liegt
+  ausserhalb des `authWithIdempotency`-Blocks und laeuft nicht durch die Middleware.
+  Reine Spec-Doku, keine Zeile Go-Code geaendert.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (golangci-lint `./internal/gateway/...`, 0 issues) | test ok — `DATABASE_URL` auf `kmuhub_app`,
+  `go test -count=1 -v ./internal/gateway/`: **3847 PASS, 0 SKIP** (per
+  `grep -c -- '--- SKIP'` geprueft), darin `TestOpenAPIRouteDrift` gruen;
+  `npx swagger-cli validate backend/api/openapi.yaml` = "is valid" | migration n.a. |
+  rls-smoke n.a. (kein Schema-/Policy-Zugriff)
+- coverage: n.a. (Doku-Unit, kein Coverage-Ziel — `coverage_start` der Unit sagt dasselbe;
+  es wurde kein Produktionscode angefasst, an dem eine Zeilenabdeckung haengen koennte)
+- mutations-probe: Der `$ref` der ersten neu eingefuegten 409-Zeile
+  (`POST /api/v1/formulare/schemas`) wurde testweise auf `IdempotencyInFlightBROKEN` verbogen:
+  `swagger-cli validate` schlug fehl mit `Token "IdempotencyInFlightBROKEN" does not exist.`,
+  Exit 1. Damit ist belegt, dass der Validator die neuen Zeilen wirklich aufloest und sie nicht
+  etwa auf einer falschen Einrueckungsebene ignoriert werden. Zurueckgedreht, danach wieder
+  "is valid"; `git diff --stat` zeigt nur `api/openapi.yaml` (+19/-1: 10 neue Ref-Zeilen plus
+  der 9-Zeilen-Merge-Block, der eine `description`-Zeile ersetzt) und die beiden Loop-Dateien.
+- verify vorgaenger: sauber. `98c64283` (Iteration 91, fix-bexio-state-test-flaky-tamper-byte)
+  gegen alle acht Fehlerklassen geprueft: der Diff beruehrt ausschliesslich
+  `internal/gateway/bexio_state_test.go` (+10/-2, deterministisches Ersatzzeichen statt festem
+  `"X"`) — kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer `RequirePermission`, keine
+  neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route, kein ersetzter Guard.
+  `bexio_state.go` selbst ist unveraendert. `14a2ca3e` direkt danach ist reine
+  Journal-Buchhaltung (1 Zeile SHA).
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-3` (Restliste jetzt ~37 Gruppen,
+  Formulare gestrichen; zusaetzlich aufgenommen: der Hinweis auf die numerische Einsortierung
+  und die Warnung, dass `/auth/login`, `/auth/refresh`, `/auth/2fa` in der
+  `idempotencyWhitelist` stehen und deshalb KEIN In-Flight-409 bekommen duerfen).
+- offen: **`harden-lexware-webhook-organization-id-scoping` ist von `todo` auf `blocked`
+  gesetzt** — sie stand seit Iteration 86 als erste `todo`-Unit am Backlog-Kopf, verlangt aber
+  laut eigenen `notes` eine Datenmodell-Entscheidung von Luke (Variante a: `organization_id`
+  bei `Connect` per `GET /v1/profile` holen und in `IntegrationConfig.Metadata` persistieren,
+  plus eine `GetActiveByPlatform`-Variante; Variante b: Webhook-Pfad/Secret pro Tenant, was den
+  bei Lexware hinterlegten Callback-URL aendert und damit ein externer Vertrag ist). Sie wurde
+  deshalb in jeder Iteration stillschweigend uebersprungen, was den Backlog-Kopf verstopft hat.
+  `blocked_reason` gesetzt, wieder auf `todo` stellen, sobald die Variante gewaehlt ist —
+  Luke muss hier entscheiden, nicht der Loop.
+  `BACKLOG.yml` ist weiterhin kein gueltiges YAML (unquotierte `done_when`-Doppelpunkte aus
+  frueheren Iterationen) — praktisch folgenlos, da der Treiber per Regex liest; die in dieser
+  Iteration neu angelegte Unit quotet ihre betroffene `done_when`-Zeile korrekt.

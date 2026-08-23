@@ -21088,6 +21088,7 @@ paths:
                   schema: { $ref: "#/components/schemas/FormSchema" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/schemas/{id}:
     get:
@@ -21141,6 +21142,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a form schema
       tags: [formulare]
@@ -21153,6 +21155,7 @@ paths:
           description: Form schema deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/schemas/{id}/duplicate:
     post:
@@ -21181,6 +21184,7 @@ paths:
                   schema: { $ref: "#/components/schemas/FormSchema" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/schemas/{id}/stats:
     get:
@@ -21254,6 +21258,7 @@ paths:
                   submission: { $ref: "#/components/schemas/FormSubmission" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/schemas/{id}/submissions/export:
     get:
@@ -21350,7 +21355,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: The schema is not public, so no link may be minted for it
+          description: >-
+            The schema is not public, so no link may be minted for it. Also returned when a request
+            carrying the same Idempotency-Key is still in flight; retry after the delay in
+            Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -21380,6 +21392,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/public/formulare/submit/{token}:
@@ -21514,6 +21527,7 @@ paths:
                   webhook: { $ref: "#/components/schemas/FormWebhook" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/submissions/{id}:
     get:
@@ -21562,6 +21576,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/webhooks/{id}:
     get:
@@ -21615,6 +21630,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a webhook
       tags: [formulare]
@@ -21627,6 +21643,7 @@ paths:
           description: Webhook deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/webhooks/{id}/deliveries:
     get:
