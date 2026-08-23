@@ -7180,3 +7180,47 @@ Frühere Läufe liegen vollständig im Archiv:
   (`fix-idempotency-409-rollout-non-finance-routes-13`) ist isoliert mit `yaml.safe_load`
   gegengeprueft und parst sauber; ein separater Fix-Durchgang fuer die Gesamtdatei bleibt
   offen fuer Luke.
+
+## Iteration 120 — doc-status-code-systemic-400-503-sweep-10 — done — 2026-08-23 13:45
+- commit: 0ca9c34f
+- gebaut: Registrar-Gruppe **leads** vollstaendig geschlossen (4 Operationen, Pfadpraefix
+  `/api/v1/leads`): `GET /api/v1/leads`, `POST /api/v1/leads`, `PATCH /api/v1/leads/{id}`,
+  `POST /api/v1/leads/{id}/convert`. Alle vier Handler in `route_crm_leads.go` gehen ueber
+  `respondServiceUnavailable`, keine davon hatte `503` dokumentiert - `400` fehlte bei
+  keiner (bereits vorhanden). `"503": { $ref: "#/components/responses/ServiceUnavailable"
+  }` additiv ans Ende jedes `responses:`-Blocks angehaengt (multi-line-Stil des umgebenden
+  Datei-Abschnitts uebernommen, bestehende 401/403/404/409-Eintraege unveraendert). Einzige
+  geaenderte Datei: `backend/api/openapi.yaml` (8 neue Zeilen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 ./internal/gateway/...`
+  gruen, 0 SKIP, 0 FAIL, mit gesetztem `DATABASE_URL`) | swagger-cli validate gruen |
+  migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: Gesamtzaehler mit geleerter `systemicUndocumentedCodes`-Map vorher/nachher
+  gemessen: 906 -> 902 (exakt -4, `grep "/api/v1/leads" /tmp/drift120_after.txt` liefert
+  0 Treffer, vorher 4). Zusaetzlich einen frisch eingefuegten `ServiceUnavailable`-$ref bei
+  `GET /api/v1/leads` testweise auf `ServiceUnavailableXXX` (nicht existierender
+  Komponentenname) verbogen - `swagger-cli validate` meldete sofort `Token
+  "ServiceUnavailableXXX" does not exist.` (rot wie erwartet). Datei danach aus
+  Sicherungskopie zurueckgesetzt und die vier 503-Zeilen sauber neu eingetragen (die
+  Sicherungskopie war vor dem eigentlichen Edit gezogen worden, das Zuruecksetzen hatte
+  daher auch die beabsichtigte Aenderung entfernt - per `git diff --stat` sofort bemerkt und
+  korrigiert, siehe Lehre in der neuen Teil-Unit). `git diff --stat` zeigt danach nur die 8
+  erwarteten Zeilen, `swagger-cli validate` und `go test -count=1 ./internal/gateway/...`
+  erneut gruen bestaetigt.
+- verify vorgaenger: sauber. `7cdb5d26` (Iteration 119) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (1 neue Zeile, `409` bei `POST /api/v1/files/presign-upload` additiv
+  nach dem vorhandenen `403`, Inhalt gegen die Journal-Beschreibung gegengeprueft); reine
+  Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`, Tabelle oder
+  Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen.
+- neue-units: `doc-status-code-systemic-400-503-sweep-11` (Restliste aktualisiert, leads als
+  erledigt markiert, verbleibende Registrar-Gruppen unveraendert aus Iteration 118
+  uebernommen, `public` als naechster kleiner Kandidat sichtbar).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt. Randnotiz: `.planning/backend-block/loop/BACKLOG.yml`
+  hat weiterhin den VORBESTEHENDEN YAML-Parse-Fehler bei Zeile ~2893 (unabhaengig von dieser
+  Iteration, seit Iteration 114 im Journal vermerkt) - mein neuer Abschnitt
+  (`doc-status-code-systemic-400-503-sweep-11`) ist isoliert mit `yaml.safe_load`
+  gegengeprueft und parst sauber; ein separater Fix-Durchgang fuer die Gesamtdatei bleibt
+  offen fuer Luke.
