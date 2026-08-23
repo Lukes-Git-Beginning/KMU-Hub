@@ -2899,3 +2899,94 @@ Frühere Läufe liegen vollständig im Archiv:
   `scan-finance-mutations-without-idempotency-key`) abgedeckt; eine neue Unit
   dafür wäre doppelte Buchführung.
 - offen: keine
+
+---
+
+## Iteration 46 — cov-gateway-biz-expenses-routes — done — 2026-08-23 04:44
+- commit: (siehe unten, nach dem Commit einzutragen)
+- gebaut:
+  Alle sieben Handler in `route_biz_expenses.go` hatten vor dieser Iteration
+  keinen einzigen HTTP-Level-Test (nur die Wire-Shape-Mapping-Tests in
+  `route_biz_expenses_test.go` existierten). Neue Datei
+  `route_biz_expenses_gate_test.go` nach dem etablierten Muster aus
+  `route_biz_billing_test.go`/`route_datev_upload_test.go`: eine
+  ServiceUnavailable- und eine NoTenant-Tabelle für alle sieben Handler auf
+  einmal, danach je Handler der interessante Fehlerfall statt nur des
+  200-Pfads.
+  Zwei Prämissen aus dem Backlog-Scope geprüft und beide bestätigt statt
+  widerlegt: (1) Ausgaben mit negativem Betrag (Erstattung) sind heute NICHT
+  möglich — sowohl der Handler (`createExpenseRequest.Amount
+  validate:"required,gt=0"`, `updateExpenseRequest.Amount
+  validate:"omitempty,gt=0"`) als auch der Service (`parseAmount` ->
+  `!amount.IsPositive()` -> `ErrInvalidAmount`) weisen einen Betrag <= 0
+  unabhängig voneinander zurück. Das ist eine bestehende, konsistente
+  Entscheidung, kein Fund — ob Erstattungen künftig unterstützt werden
+  sollen, ist eine Datenmodell-/Produktfrage und nicht Gegenstand dieser
+  Unit. Per Test belegt (negativ UND exakt null, getrennt getestet, weil ein
+  Mutant nur einen der beiden Fälle bricht). (2) Belegupload/Archivierung:
+  `route_biz_expenses.go` nimmt an keiner Stelle eine Datei entgegen —
+  `HandleAttachExpenseReceipt` speichert nur einen vom Client gesendeten
+  Dateinamen als String. Das ist bereits als `lean:`-Marker mit
+  Upgrade-Trigger im Kopfkommentar von `internal/biz/expense/service.go`
+  dokumentiert ("Add the presign upload from
+  internal/chat/file/minio_store.go ... when the receipt has to be
+  retrievable"). Kein 413- oder GoBD-Archiv-Test ist hier sinnvoll, weil es
+  keinen Dateikörper gibt, den man ablehnen oder archivieren könnte — die
+  Lücke ist bereits benannt, kein neuer Fund.
+  Löschen nach Festschreibung: `expense.Delete` weist eine bereits
+  entschiedene (approved/rejected) Ausgabe mit `ErrDecided` zurück
+  (FailedPrecondition -> 409 am Gateway, wie bei allen übrigen
+  "decided"-Fehlern). Ein GoBD-Perioden-Sperrmechanismus existiert in
+  diesem Repo für KEINE Entität (Grep über `internal/biz` und
+  `internal/models` nach PeriodLock/FiscalPeriod/IsLocked liefert 0
+  Treffer) — nur `LockInvoice` sperrt einzelne Rechnungen manuell, und
+  Expenses teilen diesen Mechanismus nicht. Der "Schutzgedanke" aus dem
+  Backlog-Scope ist also bereits durch die bestehende
+  Decided-Status-Sperre erfüllt; ein Periodensperren-Test wäre ein Test
+  gegen einen Mechanismus, den es nicht gibt.
+  20 neue Tests, alle grün: ServiceUnavailable (7 Subtests),
+  NoTenant (7 Subtests), CreateExpense (fehlende Beschreibung, negativer
+  Betrag, Nullbetrag, ungültiges Datumsformat, ungültiges JSON, gültiger
+  Body erreicht die RPC), UpdateExpense (Teil-Body erreicht die RPC,
+  negativer Betrag abgelehnt, ungültiges JSON), Approve/Reject (erreichen
+  die RPC), AttachReceipt (fehlender Dateiname abgelehnt, gültiger Body
+  erreicht die RPC), DeleteExpense (erreicht die RPC), ListExpenses
+  (erreicht die RPC).
+- gate: build ok (`-p 2`, gateway+cmd/gateway) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 ./internal/gateway/...`) |
+  migration n.a. (keine Tabelle/Spalte/Policy angefasst) | rls-smoke n.a. |
+  `go test -count=1 -run TestOpenAPIRouteDrift ./internal/gateway/` grün
+  (836 registrierte gegen 838 dokumentierte Pfade) — Pflicht, obwohl keine
+  Route geändert wurde.
+- coverage: internal/gateway 55,1 % -> 55,5 % (eigene Messung vor/nach,
+  `go tool cover -func`, neue Testdatei per `mv` temporär entfernt für die
+  Vorher-Messung, dann zurückgeschrieben; lokaler Ausgangswert weicht vom
+  CI-Stand 54,1 % ab, weil dazwischen mehrere Iterationen dasselbe Paket
+  bereits angehoben haben — siehe die vorangehenden Journal-Einträge).
+- mutations-probe: zwei Läufe, beide gegen eine `cp`-Sicherungskopie (nicht
+  `git checkout`), beide zurückgeschrieben, `git diff --stat` danach leer.
+  (a) `Amount validate:"required,gt=0"` in `createExpenseRequest` auf
+  `validate:"required"` verkürzt ->
+  `TestHandleCreateExpense_NegativeAmountRejected` rot (503 statt 400,
+  RPC erreicht statt lokal abgelehnt), `TestHandleCreateExpense_
+  ZeroAmountRejected` blieb GRÜN (required allein fängt den Nullwert
+  bereits ab) — zeigt, dass die beiden Tests wirklich unterschiedliche
+  Aspekte der Regel prüfen, nicht denselben Pfad zweimal. (b)
+  `attachReceiptRequest.ReceiptName` von `validate:"required,max=255"` auf
+  `validate:"max=255"` gekürzt -> `TestHandleAttachExpenseReceipt_
+  MissingReceiptName` rot (503 statt 400).
+- verify vorgaenger: sauber — `1b5eaccb` (Iteration 45,
+  cov-gateway-datev-upload-routes) ändert eine begründete
+  OAuth-Fehlerklassifizierung (`ErrReauthRequired`, 4xx vs. 5xx vom
+  DATEV-Token-Endpoint) plus Tests; keine der acht Fehlerklassen
+  einschlägig: kein neuer Gateway-Handler, kein Stub/TODO, kein `.proto`,
+  keine Migration, kein neuer/ersetzter `RequirePermission`-Guard, keine
+  neue Tabelle, keine neue Route, kein Wire-Shape-Wechsel.
+- neue-units: keine — beide geprüften Prämissen (negativer Betrag,
+  Perioden-Sperre) bestätigten bestehendes, korrektes Verhalten statt einen
+  Fund zu erzeugen; die Beleg-Archivierungslücke trägt bereits einen
+  lean-Marker im Code.
+- offen: `internal/biz/expense` hat keine DB-Tests und wurde nicht
+  angefasst, DATABASE_URL-Gate daher für diese Unit nicht einschlägig —
+  `go test ./internal/gateway/` lief trotzdem vollständig inklusive
+  TestOpenAPIRouteDrift.

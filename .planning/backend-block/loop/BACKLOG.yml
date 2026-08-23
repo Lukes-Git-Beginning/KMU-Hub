@@ -1958,7 +1958,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       `route_biz_expenses.go` (325 Zeilen Quelle, 108 Zeilen Test) — das schlechteste
