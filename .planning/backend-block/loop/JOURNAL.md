@@ -2087,7 +2087,7 @@ Frühere Läufe liegen vollständig im Archiv:
   und damit sofort ziehbar.
 
 ## Iteration 36 — cov-banking-mt940-camt053-parser-edge-cases — done — 2026-08-23 03:16
-- commit: (siehe naechster docs-Commit)
+- commit: 4ba17f10
 - gebaut: `parse_test.go` (+128 Zeilen, sieben neue Tests) deckt die Luecken, die
   `mt940.go`/`camt053.go`/`parse.go` bislang unbelegt liessen. Bereits vorhandene Faelle (Pflicht
   laut Unit-Notes, keine Dublette gebaut): Vorzeichen (CR/DR, CRDT/DBIT, RC/RD-Storno) fuer beide
