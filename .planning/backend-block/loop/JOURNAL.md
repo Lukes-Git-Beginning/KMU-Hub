@@ -4400,3 +4400,72 @@ Frühere Läufe liegen vollständig im Archiv:
     zusammen) geschnitten werden — nicht in einem Commit, aus demselben Grund wie hier:
     39 Registrar-Gruppen in einem Diff sind fuer eine Nachtlauf-Iteration nicht reviewbar.
   - Kein DB-Bezug in dieser Unit, daher kein RLS-Smoke faellig.
+
+## Iteration 67 — fix-hr-time-entries-manual-post-not-in-openapi — done — 2026-08-23 07:32
+- commit: (siehe naechster docs-Commit)
+- gebaut: `POST /api/v1/hr/time/entries` (`HandleCreateManualEntry`) war der urspruengliche
+  Fund — dokumentiert, mit Request-Body (alle Felder aus `createManualEntryHTTPReq`),
+  Idempotency-Key als Pflicht-Header und Responses 201/400/401/403/409/503 (409 fuer
+  `ErrWeekLocked` ueber `assertWeekEditable`, per Codepfad in `hr_grpc.go:2135` belegt).
+  Der geforderte systematische Scan wurde NICHT als separates Skript gebaut, sondern als
+  dauerhafter Test: `internal/gateway/openapi_drift_test.go` bekam
+  `registeredAPIv1MethodPaths` (chi.Walk liefert Methode UND Pfad, bisher wurde die Methode
+  verworfen), `documentedMethodPaths` (derselbe Zeilen-Scan-Ansatz wie `documentedPaths`,
+  nur eine Ebene tiefer auf `get|post|put|patch|delete|head|options`-Schluessel) und
+  `TestOpenAPIMethodDrift`, das beide Mengen als "METHOD /pfad"-Paare vergleicht — die
+  robuste, dauerhafte Variante, die die Unit-Notes selbst als Alternative zum
+  Einmal-Scan nannten.
+  Der erste Testlauf fand neun weitere Faelle derselben Fehlerklasse (Pfad dokumentiert,
+  Methode fehlt): `GET`+`DELETE /api/v1/notifications/dnd` (nur `post:` war dokumentiert;
+  dabei nebenbei einen echten Wire-Shape-Fund behoben — die bestehende `post:`-Antwort
+  behauptete `$ref: QuietHours`, tatsaechlich liefert `HandleToggleDND` seit jeher die flache
+  Form aus `dndStatusFromQuietHours` (`{is_active, expires_at?}`); neues Schema `DNDStatus`
+  fuer alle drei Operationen), `DELETE /api/v1/projects/{id}` (`HandleDeleteProject`, war
+  komplett undokumentiert), und sechs CRM-`PUT`-Routen (`companies`, `contacts`,
+  `custom-fields`, `deals`, `pipeline-stages`, `tags` je `/{id}`), die alle als `patch:`
+  dokumentiert waren, aber `route_crm.go` registriert sie durchgehend als `Put(...)`.
+  Vor dem Fix im Desktop-Client gegengeprueft (lesend, Frontend ist gesperrt): `useCompanies.ts`,
+  `useContacts.ts`, `useDeals.ts`, `usePipelineStages.ts`, `useContactTags.ts` senden alle
+  tatsaechlich `PUT` — die Spec war falsch, nicht der Code. Fuer `custom-fields` fand sich kein
+  Frontend-Aufrufer (die Manager-Komponente ruft die Route nicht auf); da alle uebrigen fuenf
+  eindeutig PUT sind, auf `put:` vereinheitlicht statt eine Ausnahme zu bauen.
+  Alle neun Faelle sind reine Dokumentationskorrekturen (`patch:`→`put:` bzw. fehlende
+  Operation ergaenzt) — root cause laut Unit-Notes gehoert in dieselbe Unit, nicht in
+  Einzel-Units je Route.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 uebersprungen, DATABASE_URL als
+  kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst).
+  `swagger-cli validate api/openapi.yaml` → "is valid". `python3 -c yaml.safe_load` zaehlt
+  weiterhin 838 Pfade (unveraendert — nur Methoden/Schemas ergaenzt, kein neuer Pfad).
+  `go test -count=1 ./internal/gateway/...` gruen, alle vier `TestOpenAPI*`-Tests einzeln
+  gruen (`TestOpenAPIRouteDrift`, `TestOpenAPIMethodDrift` NEU, `TestOpenAPISpecDrift`,
+  `TestOpenAPIRouteDriftParserSanity`).
+- coverage: n.a. (Doku-Luecke, kein Coverage-Ziel — deckt die eigene coverage_start-Zeile)
+- mutations-probe: `get:` unter `/api/v1/hr/time/entries` testweise zu `getx:` verstuemmelt →
+  `TestOpenAPIMethodDrift` wurde rot mit exakt der erwarteten Meldung ("GET
+  /api/v1/hr/time/entries" fehlt), zurueckgedreht (`cp` vom Backup vor der Aenderung),
+  `git diff --stat backend/api/openapi.yaml` zeigt danach wieder denselben Stand wie vor der
+  Probe (142 Zeilen Delta, keine Restspur). Damit ist belegt, dass der neue Test echte
+  Methoden-Luecken faengt, nicht nur gruen bleibt.
+- verify vorgaenger: sauber. `f6d4a3ad` (Iteration 66, fix-idempotency-409-rollout-remaining-
+  routes) geprueft: reiner `openapi.yaml`-Diff (167 Zeilen, ausschliesslich `409`-Response-
+  Ergaenzungen/-Zusammenfuehrungen unter `/api/v1/finance/*`), kein Go-Code veraendert, also
+  keine der acht Fehlerklassen einschlaegig (kein Handler, keine Route, kein Proto, kein
+  Guard). Eigener `python3 -c yaml.safe_load`-Lauf bestaetigt 838 Pfade, deckungsgleich mit
+  der im Journal behaupteten Zahl.
+- neue-units: fix-hr-manual-entry-idempotency-key-not-enforced (Backlog-Ende) — Nebenfund beim
+  Bauen der `POST /entries`-Doku: der Pflicht-Header `Idempotency-Key` wird bis
+  `ManualEntryInput.IdempotencyKey` durchgereicht, dort aber nie gelesen (kein Uniqueness-
+  Check, keine Spalte auf `hr_work_time_entries`) — ein wiederholter Request mit demselben Key
+  erzeugt zwei bezahlte Arbeitszeiteintraege statt einem. Fixentscheidung (Middleware-Ebene vs.
+  eigene Spalte+Unique-Index) gehoert Luke, siehe `blocked`-artige Notes in der neuen Unit.
+- offen:
+  - `fix-hr-manual-entry-idempotency-key-not-enforced` braucht eine Architekturentscheidung von
+    Luke (Idempotency-Middleware vs. eigene DB-Spalte), bevor sie gebaut werden kann.
+  - Der DNDStatus-Schema-Fix (QuietHours→DNDStatus) auf der bestehenden `post:`-Operation ist
+    eine Verhaltens-neutrale Doku-Korrektur (der Handler-Code aenderte sich nicht), aber falls
+    ein Frontend-Codegen aus der Spec bisher `QuietHours`-Felder fuer die POST-Antwort erwartet
+    hat, greift das ins Leere — lesend gegengeprueft (kein Treffer fuer `user_id`/`start_time`
+    aus der DND-Antwort im Desktop-Code), aber nicht mit einem laufenden Frontend-Build
+    verifiziert (Frontend ist in diesem Lauf gesperrt).
+  - Kein DB-Bezug in dieser Unit (reine OpenAPI-Doku + ein neuer Go-Test), daher kein
+    RLS-Smoke faellig.

@@ -1614,7 +1614,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update custom field
       tags: [custom-fields]
       operationId: updateCustomField
@@ -1739,7 +1739,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update tag
       tags: [tags]
       operationId: updateTag
@@ -2037,7 +2037,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update contact
       tags: [contacts]
       operationId: updateContact
@@ -2302,7 +2302,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update company
       tags: [companies]
       operationId: updateCompany
@@ -2441,7 +2441,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update pipeline stage
       tags: [pipeline-stages]
       operationId: updatePipelineStage
@@ -2645,7 +2645,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update deal
       tags: [deals]
       operationId: updateDeal
@@ -4593,6 +4593,23 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
   /api/v1/notifications/dnd:
+    get:
+      summary: Get current manual Do Not Disturb status
+      tags: [notifications]
+      operationId: getDND
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current DND status (disabled default when no quiet-hours record exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DNDStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Toggle manual Do Not Disturb mode
       tags: [notifications]
@@ -4619,11 +4636,28 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuietHours"
+                $ref: "#/components/schemas/DNDStatus"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Disable manual Do Not Disturb mode
+      tags: [notifications]
+      operationId: disableDND
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: DND disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DNDStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ========================================================================
   # Dashboard Endpoints
@@ -4887,6 +4921,34 @@ paths:
                     $ref: "#/components/schemas/ProjectResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete project
+      tags: [projects]
+      operationId: deleteProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Project deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: project deleted }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -11342,6 +11404,58 @@ paths:
                     items:
                       $ref: "#/components/schemas/WorkTimeEntry"
                   total: { type: integer }
+    post:
+      summary: Create a manual work time entry
+      tags: [hr-time]
+      operationId: createManualTimeEntry
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clock_in, clock_out]
+              properties:
+                clock_in: { type: string, format: date-time }
+                clock_out: { type: string, format: date-time }
+                break_minutes: { type: integer, minimum: 0 }
+                category_id: { type: string, format: uuid }
+                activity: { type: string }
+                note: { type: string }
+                billable: { type: boolean }
+                location_lat: { type: number, format: double }
+                location_lng: { type: number, format: double }
+                location_address: { type: string }
+      responses:
+        "201":
+          description: Manual entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeEntry"
+        "400":
+          description: >-
+            Missing Idempotency-Key header, clock_in/clock_out not RFC3339, or clock_out not
+            after clock_in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: The employee's week is submitted or approved and no longer accepts time entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/hr/time/summary/daily:
     get:
@@ -36066,6 +36180,20 @@ components:
         manual_dnd_until:
           type: string
           format: date-time
+
+    DNDStatus:
+      type: object
+      description: >-
+        Flat manual-DND status the desktop client consumes, derived from the
+        QuietHours backing record (internal/gateway/route_notification.go:
+        dndStatusFromQuietHours) — not the full QuietHours record itself.
+      properties:
+        is_active:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          description: Present only when a DND end time is set
 
     UpdateQuietHoursRequest:
       type: object

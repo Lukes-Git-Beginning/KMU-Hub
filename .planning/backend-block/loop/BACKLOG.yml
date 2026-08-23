@@ -2856,7 +2856,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Luecke, kein Coverage-Ziel)"
     scope: >
       VERIFIZIERTER FUND aus Iteration 15 (Lauf 11), beim Suchen nach einem HR-Buchungsbeispiel
@@ -4032,3 +4032,60 @@ units:
       - Was noch offen bleibt, steht als neue Teil-Unit mit aktualisierter Liste am Backlog-Ende
       - swagger-cli validate gruen
       - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen
+
+  - id: fix-hr-manual-entry-idempotency-key-not-enforced
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/hr/timetracking (Paketwert im CI-Log nachschlagen, letzter Run)"
+    scope: >
+      VERIFIZIERTER FUND aus Iteration 67 (Lauf 11), beim Dokumentieren von
+      `POST /api/v1/hr/time/entries` (`fix-hr-time-entries-manual-post-not-in-openapi`).
+      `HandleCreateManualEntry` (`route_hr.go:1621-1625`) verlangt zwingend einen
+      `Idempotency-Key`-Header (400 ohne) und reicht den Wert bis in
+      `timetracking.ManualEntryInput.IdempotencyKey` (`repository.go:184`) durch — aber DORT
+      endet die Kette. Ein Grep ueber `internal/biz/hr/timetracking/` (Nicht-Test-Dateien) zeigt
+      GENAU EINEN Treffer fuer `IdempotencyKey`: die Feld-Deklaration selbst. `Service.
+      CreateManualEntry` (`service.go:485-537`) liest das Feld nie, es gibt keine
+      `idempotency_key`-Spalte auf `hr_work_time_entries` (Migrationen geprueft, kein Treffer),
+      und keinen Uniqueness-Check vor dem `Create`. Der Header wird also nur auf Anwesenheit
+      geprueft, nicht auf Wirkung — ein Client, der wegen eines Netzwerk-Timeouts denselben
+      Request mit demselben Key erneut schickt (der Normalfall, den ein Idempotency-Key-Vertrag
+      eigentlich abfedern soll), bekommt zwei bezahlte Arbeitszeiteintraege statt einem. Das ist
+      eine stille Zusage an den Client, die nicht eingeloest wird — schlimmer als kein Header,
+      weil der Header Sicherheit suggeriert, die nicht besteht.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/timetracking/service.go
+      - backend/internal/biz/hr/timetracking/repository.go
+      - backend/internal/biz/hr/timetracking/postgres_repository.go
+      - backend/internal/idempotency/postgres_repository.go
+      - backend/internal/idempotency/postgres_repository_db_test.go
+    notes: >
+      ERST KLAEREN, welcher Mechanismus hier passt, bevor gebaut wird: der generische
+      `internal/idempotency`-Store (Middleware-Ebene, Vorlage fuer die 409-Rollout-Units oben)
+      dedupliziert auf HTTP-Ebene VOR dem Handler und passt nur, wenn diese Route durch
+      `middleware.Idempotency` laeuft — aktuell laeuft sie NICHT darueber (Grep bestaetigt,
+      der Key geht direkt als gRPC-Feld durch). Zwei ehrliche Wege: (a) die Route unter die
+      bestehende Idempotency-Middleware haengen wie die Finance-Routen (dann ist der
+      `route_hr.go`-eigene 400-Check redundant und sollte raus, die Middleware liefert ihn
+      bereits) oder (b) eine `idempotency_key`-Spalte mit Unique-Index auf
+      `hr_work_time_entries` plus Konflikt-Behandlung im Service (naeher am Domain-Modell, aber
+      mehr Aufwand). ENTSCHEIDUNG GEHOERT LUKE — beide sind valide, keine Standardwahl aus
+      diesem Lauf treffen.
+      Falls (a): pruefen, ob `middleware.Idempotency` bereits global oder pro Route eingehaengt
+      wird (`cmd/gateway/main.go`) und ob HR ueberhaupt in der Registrar-Kette dafuer vorgesehen
+      ist.
+      Migration noetig fuer (b) — Nummer zur Laufzeit ermitteln, forward-only, `.up.sql` UND
+      `.down.sql`.
+    done_when:
+      - Entscheidung (a) oder (b) liegt vor (von Luke oder mit expliziter Freigabe) und ist im
+        Journal begruendet
+      - Ein wiederholter Request mit demselben Idempotency-Key erzeugt nachweislich nur einen
+        Arbeitszeiteintrag (Test)
+      - Ein Request mit einem ANDEREN Idempotency-Key aber sonst identischem Body erzeugt einen
+        zweiten, unabhaengigen Eintrag (Negativtest, sonst ist es keine Idempotency-Key-Pruefung
+        sondern ein Duplikat-Filter auf dem Inhalt)
+      - go test -count=1 ./internal/biz/hr/timetracking/... ./internal/gateway/ gruen
