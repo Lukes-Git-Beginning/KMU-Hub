@@ -3851,7 +3851,7 @@ Frühere Läufe liegen vollständig im Archiv:
     nicht geleistet und würde den Rahmen eines einzelnen Scans sprengen.
 
 ## Iteration 58 — scan-money-rounding-and-tax-call-sites — done — 2026-08-23 06:47
-- commit: -
+- commit: 6bc48470
 - gebaut: reiner Scan, kein Produktionscode geändert (Scan-Unit-Regel). Ein Explore-
   Subagent hat alle fünf Aufrufer von `internal/biz/tax` (invoice, creditnote, quote,
   recurring, server/biz_grpc.go) sowie alle unabhängigen `.Round(`/`.Div(`/`.Mul(`-Stellen
