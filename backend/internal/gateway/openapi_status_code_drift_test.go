@@ -447,15 +447,9 @@ var systemicUndocumentedCodes = map[int]string{
 var statusDriftBaseline = map[string][]int{
 	"DELETE /api/v1/activities/{id}/tags": {501},
 	"DELETE /api/v1/deals/{id}/tags": {501},
-	"GET /api/v1/security/gdpr/exports": {403},
 	"POST /api/v1/activities/{id}/tags": {501},
 	"POST /api/v1/deals/{id}/tags": {501},
-	"POST /api/v1/email/attachments/upload": {500},
-	"POST /api/v1/guest/sessions": {500},
-	"POST /api/v1/inbox/canned-responses": {500},
-	"POST /api/v1/webhooks/livekit": {401},
 	"PUT /api/v1/customization/labels": {500},
-	"PUT /api/v1/inbox/canned-responses/{id}": {500},
 }
 
 // TestOpenAPIStatusCodeDrift fails when a handler writes a status code its

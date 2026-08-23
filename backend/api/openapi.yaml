@@ -9007,6 +9007,8 @@ paths:
           description: Webhook acknowledged
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Missing or invalid webhook signature (JWT Authorization header)
 
   # ===========================================================================
   # Finance: Company Settings
@@ -20912,6 +20914,8 @@ paths:
                 $ref: "#/components/schemas/ListGDPRExportsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/v1/security/gdpr/export/{id}/approve:
     post:
@@ -23968,6 +23972,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to read uploaded file
 
   /api/v1/email/attachments/{id}/download:
     get:
@@ -31723,6 +31729,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/GuestCreateSessionResponse"
         "400": { $ref: "#/components/responses/BadRequest" }
+        "500":
+          description: Failed to create session
 
   /api/v1/guest/sessions/validate:
     post:
@@ -34371,6 +34379,8 @@ paths:
                 $ref: "#/components/schemas/InboxCannedResponseWrapper"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          description: Response marshaling failed
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -34397,6 +34407,8 @@ paths:
                 $ref: "#/components/schemas/InboxCannedResponseWrapper"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          description: Response marshaling failed
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
