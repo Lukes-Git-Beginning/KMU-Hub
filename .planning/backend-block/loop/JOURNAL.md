@@ -6711,7 +6711,7 @@ Frühere Läufe liegen vollständig im Archiv:
   keine Migration und keine Tabelle beruehrt.
 
 ## Iteration 110 — fix-idempotency-409-rollout-non-finance-routes-8 — done — 2026-08-23 12:47
-- commit: (siehe naechste Zeile nach Commit)
+- commit: e4db7f41
 - gebaut: Registrar-Gruppe **automation** vollstaendig auf In-Flight-409 umgestellt - 8
   mutierende Operationen in `route_automation.go` (Basispfad `/api/v1/automations`):
   `POST /api/v1/automations`, `PUT /api/v1/automations/{id}`,
