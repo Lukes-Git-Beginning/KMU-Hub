@@ -5098,3 +5098,57 @@ Frühere Läufe liegen vollständig im Archiv:
   (ans Backlog-Ende gehaengt — deckt die fuenf oben genannten 400/500-Luecken
   plus den 400-Schluessel-Konflikt bei `HandleRecordPayment` ab)
 - offen: keine
+
+## Iteration 79 — feat-retention-worker-handler-auth-invitations — done — 2026-08-23 08:56
+- commit: (folgt)
+- gebaut: `internal/security/gdpr/retention_invitations.go` — neunter Handler
+  auf der Retention-Engine (`InvitationRetentionHandler`, resource_type
+  "invitations"). Anders als die acht bestehenden Handler hat eine Einladung
+  zwei getrennte Alterszustaende, die beide aufgeraeumt gehoeren: PENDING
+  (`accepted_at IS NULL`) ist ab `expires_at` reiner Datenmuell (niemand kann
+  sie mehr annehmen), ACCEPTED (`accepted_at IS NOT NULL`) hat ihren Zweck
+  erfuellt, sobald der User existiert. Entscheidung (im Datei-Header
+  begruendet): EIN `resource_type` "invitations" mit einer Plan-Query, die
+  beide Faelle per OR gegen denselben Cutoff prueft (`expires_at < cutoff`
+  fuer pending, `accepted_at < cutoff` fuer accepted) — nicht zwei getrennte
+  resource_types, weil beide Zustaende dieselbe Retention-Days-Policy und
+  dieselbe operator-sichtbare Tabelle teilen; `DateColumn()` legt beide Uhren
+  offen. Delete-only (kein Anonymize) wie bei Notifications: `token_hash` ist
+  bereits ein SHA-256-Pseudonym, Anonymisieren einer zwecklosen Einladung
+  bringt nichts. In `cmd/auth/main.go` als neunter Eintrag in
+  `retentionRegistry` registriert (Vorlage: `NewNotificationRetentionHandler`
+  aus `retention_notifications.go`, kleinster der drei existierenden
+  Delete-only-Handler). `retention_invitations_test.go` deckt: SupportsAction
+  (nur Delete), Plan trifft pending-expired UND accepted-past-cutoff, Plan
+  schliesst frische Zeilen in beiden Zustaenden aus, Tenant-Isolation (fremder
+  Tenant leakt nicht ins Plan), Apply-Delete idempotent (zweiter Lauf 0
+  betroffen), Apply lehnt Anonymize ab. Keine Migration noetig — `tenant_id`
+  + RLS-Policy existieren bereits seit Migration 000249, Migrationskopf war
+  vor und nach dieser Unit bei 323.
+- gate: build ok (`go build -p 2` gdpr + auth + cmd/auth) | vet ok | lint ok
+  (0 issues, beide Pakete) | test ok (`go test -count=1 ./internal/security/gdpr/...`
+  und `./internal/auth/...` gruen, 0 uebersprungene Tests bei gesetztem
+  `DATABASE_URL=...kmuhub_app...`) | migration n.a. (keine neue Tabelle/Spalte,
+  Migrationskopf 323 unveraendert) | rls-smoke n.a. (keine neue Tabelle/Policy
+  — bestehende RLS-Policy auf `invitations` genutzt, Tenant-Isolation ueber
+  den Plan-Test mit zweitem Tenant statt separatem RLS-Smoke-Kommando belegt,
+  da kein Schema/Policy-Diff vorliegt) | Route: keine (interner Handler,
+  `go test ./internal/gateway/` daher nicht Pflicht — nicht gefahren)
+- coverage: internal/security/gdpr 72,1 % -> 72,2 % (isoliert gemessen: neue
+  Dateien kurz beiseite verschoben, Baseline-Lauf, dann zurueckgeholt — die
+  1 gemessene NotificationsRetentionHandler-Nachbarschaft im Paket ist schon
+  sehr dicht getestet, daher kleiner Sprung trotz vollstaendig neuem Handler)
+- mutations-probe: `Plan`-Query mutiert (`accepted_at < $2` -> `accepted_at >
+  $2`, ACCEPTED-Zweig invertiert), `TestInvitationRetentionHandler_
+  PlanMatchesBothAgeStatesPastCutoffAndIsTenantScoped` wurde rot
+  (assert.NotContains schlug fehl, frische accepted-Einladung erschien im
+  Plan), Mutation zurueckgedreht, Diff gegen Original per `diff` verifiziert
+  sauber
+- verify vorgaenger: sauber. `136e9f52` (Iteration 78) geprueft: nur
+  `openapi.yaml` (117 Zeilen) plus Loop-Metadateien im Diff, keine
+  Go-Datei angefasst — die acht Fehlerklassen greifen ausschliesslich an
+  Code, hier gibt es keinen. Stichprobe der neuen 401/403/503-Bloecke gegen
+  bestehende Vorlage (`route_biz_expenses.go`-Stil) zeigt saubere,
+  konsistente Ergaenzungen ohne inhaltliche Abweichung.
+- neue-units: keine
+- offen: keine

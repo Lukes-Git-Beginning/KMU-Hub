@@ -3480,7 +3480,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (Paketwert im CI-Log nachschlagen)"
     scope: >
       Fund aus `scan-retention-mapping-remaining-services` (Lauf 11, Iteration 57). Die
