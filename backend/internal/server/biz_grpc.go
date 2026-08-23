@@ -1308,10 +1308,13 @@ func (s *BizGRPCServer) GenerateDunningPDF(ctx context.Context, req *bizv1.Gener
 		return nil, mapBizError(err)
 	}
 
-	// Dunning PDF requires the linked invoice for customer data and amounts
+	// Dunning PDF requires the linked invoice for customer data and amounts.
+	// Routed through mapBizError like every other lookup here: a missing invoice
+	// is invoice.ErrInvoiceNotFound and must reach the client as NotFound, not a
+	// blanket Internal that hides a fixable case (e.g. wrong ID) behind a 500.
 	inv, err := s.invoiceService.GetByID(ctx, tenantID, dr.InvoiceID)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to load linked invoice for dunning PDF")
+		return nil, mapBizError(err)
 	}
 
 	settings, err := s.requireCompanySettings(ctx, tenantID)
@@ -2038,8 +2041,13 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 	// them: this is the double-billing guard, not just an aggregation step.
 	totalMinutes, entryIDs, err := s.timetrackingRepo.ReserveWorkTimeForInvoice(ctx, tenantID, employeeID, dateFrom, dateTo)
 	if err != nil {
+		// err is whatever the repository's tx.Begin/Query/Exec returned — a raw
+		// driver/SQL error, not a domain sentinel. Logged in full server-side;
+		// the client only gets a generic message, never the driver text (same
+		// leakage class scan-gateway-sql-error-leakage fixed on the gateway side
+		// in Lauf 10, just not yet checked at the gRPC layer).
 		slog.Error("reserve work time for invoice failed", "tenant_id", tenantID, "employee_id", employeeID, "error", err)
-		return nil, status.Error(codes.Internal, fmt.Sprintf("reserve work time: %s", err.Error()))
+		return nil, status.Error(codes.Internal, "failed to reserve work time entries")
 	}
 
 	if totalMinutes == 0 {

@@ -2224,7 +2224,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 70,5 % (CI-Stand 32570176303)"
     scope: >
       `internal/server/biz_grpc.go` (2.719 Zeilen) bildet die Fehler der Finanzservices auf

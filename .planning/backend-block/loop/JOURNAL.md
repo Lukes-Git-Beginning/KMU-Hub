@@ -3420,3 +3420,109 @@ Frühere Läufe liegen vollständig im Archiv:
   Testdatei). `pdf_extract.go` selbst ist unveraendert und hatte bereits
   volle Testabdeckung vor dieser Unit (`pdf_extract_test.go`) — kein neuer
   Test dort noetig, im Scope aber mitgelesen.
+
+## Iteration 53 — cov-server-biz-grpc-money-error-mapping — done — 2026-08-23 05:36
+- commit: (siehe naechster Commit auf diesem Branch)
+- gebaut: Erst die volle RPC-Liste in `biz_grpc.go` gegen alle bestehenden
+  Error-Mapping-Tests abgeglichen (`biz_grpc_errormap_settings_quotes_test.go`,
+  `biz_grpc_invoices_creditnotes_payments_test.go`,
+  `biz_grpc_dunning_dashboard_exports_test.go`, `biz_grpc_dunning_test.go`) —
+  `mapBizError` selbst ist bereits vollstaendig per Tabellentest abgedeckt
+  (jeder Sentinel einzeln), und praktisch jeder Geld-RPC-Fehlerpfad hatte
+  schon einen Test. Zwei echte Luecken gefunden und behoben, beide root-cause
+  in `biz_grpc.go`, keine Symptom-Guards:
+  1. `GenerateDunningPDF` (Zeile ~1312): der Ladefehler der verknuepften
+     Rechnung (`s.invoiceService.GetByID(ctx, tenantID, dr.InvoiceID)`) war
+     hart auf `codes.Internal` verdrahtet, unabhaengig vom Fehlertyp. Eine
+     nicht mehr existierende/verknuepfte Rechnung (`invoice.ErrInvoiceNotFound`)
+     kam beim Client als 500 an statt als NotFound — die einzige Stelle im
+     ganzen `biz_grpc.go`, an der eine domaenenspezifische NotFound-Situation
+     nicht durch `mapBizError` lief. Fix: `mapBizError(err)` statt der festen
+     Meldung; ein wirklich opaker Fehler (DB down o.ae.) faellt weiterhin
+     durch `mapBizError`s Default-Case auf Internal.
+  2. `CreateInvoiceFromTimeEntries` (Zeile ~2042): der Fehler aus
+     `s.timetrackingRepo.ReserveWorkTimeForInvoice` ist ein roher
+     pgx/Treiber-Fehler ohne Sentinel-Wrapping (siehe
+     `postgres_repository.go:545-603` — `tx.Begin`/`tx.Query`/`tx.Exec`-Fehler
+     werden unveraendert durchgereicht). Der Handler baute daraus
+     `fmt.Sprintf("reserve work time: %s", err.Error())` und gab das als
+     `codes.Internal`-Statusmeldung an den Client — ein SQL-Fehler (Constraint-
+     Name, ggf. Spaltenname) auf dem Finanz-Abschlusspfad haette den API-Aufrufer
+     erreicht. Dieselbe Fehlerklasse, die Lauf 10 mit
+     `scan-gateway-sql-error-leakage` auf der Gateway-Ebene dreimal gefixt hat,
+     hier aber auf der gRPC-Ebene noch nie geprueft. Fix: generische Meldung
+     ("failed to reserve work time entries"), voller Fehler bleibt im
+     `slog.Error` (serverseitig, nicht im Response).
+  Vier neue Testdateien-Erweiterungen (keine neue Datei, bestehende Form
+  wiederverwendet — Notes verlangten ausdruecklich "dieselbe Form anwenden,
+  nicht eine zweite daneben"):
+  - `biz_grpc_dunning_dashboard_exports_test.go`:
+    `TestGenerateDunningPDF_LinkedInvoiceLoadFailure` (zwei Subtests: Sentinel
+    -> NotFound, opaker Fehler -> weiterhin Internal).
+  - `biz_grpc_invoices_creditnotes_payments_test.go`: neuer
+    `stubWorkTimeRepo` (volles 14-Methoden-Interface
+    `timetracking.WorkTimeRepository`, nur die drei von
+    `CreateInvoiceFromTimeEntries` tatsaechlich aufgerufenen Methoden
+    konfigurierbar) plus vier neue Tests — die bisherige Einschraenkung
+    "Happy Path braucht volles Fake, out of scope" (Kommentar im Code seit
+    der vorigen Invoice-Coverage-Iteration) ist damit aufgeloest:
+    `TestCreateInvoiceFromTimeEntries_ReserveErrorDoesNotLeak` (der Fund),
+    `TestCreateInvoiceFromTimeEntries_NoCompletedEntries` (0-Minuten-Pfad,
+    FailedPrecondition), `TestCreateInvoiceFromTimeEntries_HappyPath` mit
+    zwei Subtests (voller Erfolgspfad inkl. Confirm-Aufruf; Invoice-Create
+    schlaegt fehl -> Reservierung wird per `ReleaseInvoiceReservation`
+    freigegeben, damit die Zeiteintraege nicht fuer immer "billed" haengen
+    bleiben).
+- gate: build ok (`-p 2`, internal/server + internal/gateway) | vet ok |
+  lint ok (golangci-lint, 0 issues) | test ok (`go test -count=1 -v`, 1862
+  PASS, 0 FAIL, 0 SKIP in internal/server; `internal/server/response`
+  ebenfalls gruen) | migration n.a. (keine Tabelle/Policy angefasst) |
+  rls-smoke n.a. | OpenAPI-Drift n.a. (kein Route-/Handler-Code im Gateway
+  angefasst, nur `internal/server`; `go test ./internal/gateway/` trotzdem
+  mitgelaufen als Teil des `-p 2`-Builds, keine separate Pflicht hier)
+- coverage: internal/server 70,7 % -> 70,8 % (eigene Messung vor/nach per
+  `git stash`/`go test -coverprofile` und `go tool cover -func`, DATABASE_URL
+  gegen kmuhub_app). `coverage_start:` in der Unit nennt 70,5 % (CI-Stand);
+  die eigene 70,7-%-Vorher-Messung gilt, da das Paket seit A1 (Gruppierung
+  aus dem Handler entfernt) und weiteren Iterationen Code verloren/gewonnen
+  hat. Kleine Verschiebung, weil der Fund selbst klein war (zwei Zeilen
+  Handler-Code) und der Rest der Arbeit bestehende Luecken bestaetigte statt
+  neue Pfade zu schaffen.
+- mutations-probe: beide Fixes einzeln zurueckgedreht und beweisend rot
+  gemacht, dann sauber zurueckgedreht. (1) `mapBizError(err)` in
+  `GenerateDunningPDF` durch `status.Error(codes.Internal, "MUTATION_PROBE")`
+  ersetzt -> `TestGenerateDunningPDF_LinkedInvoiceLoadFailure/invoice_not_found...`
+  wird rot ("expected gRPC code NotFound, got Internal: MUTATION_PROBE").
+  (2) generische Meldung in `CreateInvoiceFromTimeEntries` durch das alte
+  `fmt.Sprintf("reserve work time: %s", err.Error())` ersetzt ->
+  `TestCreateInvoiceFromTimeEntries_ReserveErrorDoesNotLeak` wird rot (beide
+  `NotContains`-Assertions schlagen fehl, der rohe Postgres-Fehlertext
+  erscheint wieder in der gRPC-Meldung). Beide zurueckgedreht,
+  `git diff --stat backend/internal/server/biz_grpc.go` zeigt danach wieder
+  exakt 11 Einfuegungen/3 Loeschungen (nur die zwei beabsichtigten Fixes).
+- verify vorgaenger: sauber. `b6da7373` (Iteration 52,
+  cov-einvoice-parser-foreign-format-inbound) geprueft: `git show --stat`
+  zeigt ausschliesslich `parser.go` (38 Zeilen, kein neuer Handler/Service-
+  Direktaufruf) plus eine neue Testdatei — `ErrParseFailed` bereits vorhanden
+  und konsistent verwendet, kein Stub/TODO, kein `.proto`-Change, keine
+  Migration, kein neuer/ersetzter RequirePermission-Guard, keine neue
+  Tabelle, keine neue Route, kein Wire-Shape-Wechsel; keine der acht
+  Fehlerklassen einschlaegig.
+- neue-units: keine. Beide gefundenen Bugs (hartes Internal statt
+  mapBizError, SQL-Fehlertext im gRPC-Status) sind in dieser Unit selbst
+  behoben, nicht nur dokumentiert — root-cause-Fixes von je einer Zeile im
+  bereits angefassten Handler, kein Deploy-Hazard, keine neue Route, keine
+  Verhaltensaenderung ausserhalb der Fehlerpfad-Korrektheit. Die uebrigen
+  Geld-RPCs (Quote/Invoice/CreditNote/Payment/Dunning/ExportDATEV/
+  GenerateGoBDExport/GetFinanceDashboard) hatten bereits vollstaendige
+  Error-Mapping-Tests aus frueheren Iterationen; keine weiteren Internal-
+  Fehlmappings oder Fremdsystem-/SQL-Leckagen gefunden (gezielt nach
+  `status.Error(codes.Internal` und `err.Error()` in Statusmeldungen
+  gegrept, alle Treffer einzeln gegen ihre Fehlerquelle geprueft).
+- offen: keine offenen DB-/Proto-/Route-Fragen. Der aufgeloeste Kommentar
+  "Happy Path braucht volles WorkTimeRepository-Fake, out of scope" stand
+  noch im Code der vorigen Invoice-Coverage-Iteration als Abschnitts-
+  kommentar ueber `TestCreateInvoiceFromTimeEntries_Validation` — der
+  Kommentar selbst wurde nicht angefasst (beschreibt weiterhin korrekt, was
+  in diesem Test-Func steht), der neue `stubWorkTimeRepo` liegt in einem
+  eigenen Abschnitt direkt danach.

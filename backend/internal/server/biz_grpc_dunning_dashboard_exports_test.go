@@ -15,6 +15,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
+	"github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
@@ -564,6 +565,50 @@ func TestGenerateDunningPDF_NotFound(t *testing.T) {
 		TenantId: tenantID.String(), Id: uuid.New().String(),
 	})
 	requireGRPCCode(t, err, codes.NotFound)
+}
+
+// TestGenerateDunningPDF_LinkedInvoiceLoadFailure guards the fix for a found
+// bug: the handler used to hardcode codes.Internal whenever s.invoiceService.
+// GetByID(dr.InvoiceID) failed, regardless of *why* — a missing invoice
+// (invoice.ErrInvoiceNotFound, e.g. a wrong/stale ID) surfaced identically to
+// a genuine DB outage. Routed through mapBizError like every other lookup in
+// this file, a sentinel error now maps to its real code and only a truly
+// opaque error still falls through to Internal.
+func TestGenerateDunningPDF_LinkedInvoiceLoadFailure(t *testing.T) {
+	tenantID := uuid.New()
+	dunningID := uuid.New()
+	invoiceID := uuid.New()
+
+	newSrv := func(invRepo *stubInvoiceRepo) *BizGRPCServer {
+		dunningRepo := newStubDunningRecordRepo()
+		dunningRepo.records[dunningID] = &models.DunningRecord{
+			ID: dunningID, TenantID: tenantID, InvoiceID: invoiceID, Level: 1,
+			Status: models.DunningStatusSent, Fee: decimal.Zero, Interest: decimal.Zero,
+			CreatedBy: uuid.New(), CreatedAt: time.Now(),
+		}
+		return &BizGRPCServer{
+			dunningService: dunning.NewService(dunningRepo, &stubDunningConfigRepo{}, &stubDunningInvoiceReader{}),
+			invoiceService: invoice.NewService(invRepo, nil, &stubCompanySettingsRepo{}, nil, fakeTxBeginner{}),
+		}
+	}
+
+	t.Run("invoice not found maps to NotFound, not Internal", func(t *testing.T) {
+		srv := newSrv(newStubInvoiceRepo()) // empty repo: GetByID returns invoice.ErrInvoiceNotFound
+		_, err := srv.GenerateDunningPDF(context.Background(), &bizv1.GenerateDunningPDFRequest{
+			TenantId: tenantID.String(), Id: dunningID.String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
+
+	t.Run("opaque repo error still maps to Internal", func(t *testing.T) {
+		invRepo := newStubInvoiceRepo()
+		invRepo.getErr = errors.New("connection reset by peer")
+		srv := newSrv(invRepo)
+		_, err := srv.GenerateDunningPDF(context.Background(), &bizv1.GenerateDunningPDFRequest{
+			TenantId: tenantID.String(), Id: dunningID.String(),
+		})
+		requireGRPCCode(t, err, codes.Internal)
+	})
 }
 
 // ============================================================================
