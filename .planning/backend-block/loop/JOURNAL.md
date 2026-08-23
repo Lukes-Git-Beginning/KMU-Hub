@@ -4471,7 +4471,7 @@ Frühere Läufe liegen vollständig im Archiv:
     RLS-Smoke faellig.
 
 ## Iteration 68 — verify-invoice-list-for-gobd-export-unreachable — done — 2026-08-23 07:42
-- commit: -
+- commit: d0388b26
 - gebaut: VERIFY-UNIT mit Entfernung. Aufrufgraph von `invoice.Service.ListForGoBDExport`
   belegt: Grep ueber gesamtes Repo (`internal/`, `cmd/`, `.proto`) findet nur die
   Repository-Implementierung, das Interface, die Service-Methode und drei Test-Doubles
