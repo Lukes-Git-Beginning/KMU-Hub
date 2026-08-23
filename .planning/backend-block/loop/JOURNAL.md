@@ -6084,7 +6084,7 @@ Frühere Läufe liegen vollständig im Archiv:
   `fix-status-code-drift-baseline-non-systemic-2` stehen weiterhin unbearbeitet im Backlog.
 
 ## Iteration 97 — doc-status-code-systemic-400-503-sweep — done — 2026-08-23 11:03
-- commit: <sha>
+- commit: a782d41c
 - gebaut: Registrar-Gruppe **Inbox** im systemischen 400/503-Sweep vollstaendig geschlossen.
   64 Response-Eintraege in `backend/api/openapi.yaml` nachgetragen: 27x `"400": $ref BadRequest`
   und 37x `"503": $ref ServiceUnavailable`, verteilt auf alle 37 `/api/v1/inbox`-Operationen
