@@ -6899,3 +6899,54 @@ Frühere Läufe liegen vollständig im Archiv:
   reports 3).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
   keine Migration und keine Tabelle beruehrt.
+
+## Iteration 114 — fix-idempotency-409-rollout-non-finance-routes-9 — done — 2026-08-23 13:08
+- commit: ff204469
+- gebaut: Registrar-Gruppe **schichten** vollstaendig auf 409 umgestellt (13 mutierende
+  Operationen in `route_schichten.go`, Basispfad `/api/v1/schichten`, Idempotency-Middleware
+  greift auf allen Methoden ausser GET): `POST /api/v1/schichten/shifts`, `POST
+  /api/v1/schichten/shifts/publish`, `PATCH /api/v1/schichten/shifts/{id}`, `DELETE
+  /api/v1/schichten/shifts/{id}`, `POST /api/v1/schichten/shifts/{id}/assignments`, `DELETE
+  /api/v1/schichten/shifts/{id}/assignments/{employee_id}`, `POST
+  /api/v1/schichten/templates`, `PATCH /api/v1/schichten/templates/{id}`, `DELETE
+  /api/v1/schichten/templates/{id}`, `POST /api/v1/schichten/templates/{id}/apply`, `POST
+  /api/v1/schichten/swap-requests/{id}/approve`, `POST
+  /api/v1/schichten/swap-requests/{id}/reject` bekamen je eine neue `"409": { $ref:
+  "#/components/responses/IdempotencyInFlight" }`-Zeile, kompakter Einzeiler-Stil (lokaler
+  Stil im Datei-Abschnitt). `POST /api/v1/schichten/swap-requests` hatte bereits ein 409
+  aus einem frueheren Durchgang und wurde nicht angefasst - kein Merge-Fall, da keine der
+  12 neu dokumentierten Operationen einen bestehenden Business-409 hatte. Alle 409-Zeilen
+  standen numerisch am Blockende (nach 400/401/404, da 409 > 404 gilt) - keine Umsortierung
+  noetig. Registrar-Gruppe ist nicht in der `idempotencyWhitelist`
+  (`idempotency.go:36`, nur `/auth/login|refresh|2fa`), Middleware greift also real.
+  Einzige geaenderte Datei: `api/openapi.yaml` (12 neue Zeilen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, 2682 Subtests PASS, **0 SKIP**, 0 FAIL, mit gesetztem `DATABASE_URL`) | swagger-cli
+  validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: frisch eingefuegten `IdempotencyInFlight`-$ref bei
+  `unassignEmployeeFromShift` (`DELETE /api/v1/schichten/shifts/{id}/assignments/{employee_id}`)
+  testweise auf `IdempotencyInFlightXXX` verbogen - `swagger-cli validate` meldete sofort
+  `Token "IdempotencyInFlightXXX" does not exist.` (rot wie erwartet). Datei danach aus
+  Sicherungskopie (`/tmp/openapi_backup.yaml`) zurueckgesetzt, `diff` bestaetigt identisch,
+  `swagger-cli validate` erneut gruen, `go test -count=1 ./internal/gateway/...` erneut
+  gruen bestaetigt. `git diff --stat` zeigt danach nur noch die erwarteten 12 Zeilen in
+  `api/openapi.yaml`.
+- verify vorgaenger: sauber. `c495dada` (Iteration 113) geprueft: Diff beruehrt
+  ausschliesslich `api/openapi.yaml` (14 neue Zeilen, saved-filters-Registrar-Gruppe); reine
+  Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`, Tabelle oder
+  Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen.
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-10` (Restliste aktualisiert,
+  schichten als erledigt markiert, verbleibende Registrar-Gruppen unveraendert aus
+  Iteration 107/109 uebernommen - Zahlen fuer die neu genannten kleineren Gruppen weiterhin
+  ungeprueft, Vermietung (11) als naechster schneller Kandidat vorgeschlagen).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
+  keine Migration und keine Tabelle beruehrt. Randnotiz (kein Fund, nur Beobachtung):
+  `.planning/backend-block/loop/BACKLOG.yml` hat eine vorbestehende YAML-Einrueckungs-
+  Unregelmaessigkeit bei Zeile ~2893 (Unit `fix-hr-time-entries-post-method-missing` o.ae.,
+  weit vor dieser Iteration, von mir nicht beruehrt) - ein strikter `yaml.safe_load()` ueber
+  die Gesamtdatei bricht dort ab. Betrifft nicht meine Aenderung (isoliert erfolgreich
+  geparst), aber falls ein kuenftiges Tooling die Datei maschinell parsen will, lohnt sich
+  ein separater Fix-Durchgang.
