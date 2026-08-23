@@ -5154,7 +5154,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 80 — fix-openapi-idempotency-doc-wrong-production-default — done — 2026-08-23 09:02
-- commit: (folgt nach diesem Eintrag)
+- commit: 9d5028b3
 - gebaut: `backend/api/openapi.yaml` an zwei Stellen korrigiert
   (`info.description` und die `IdempotencyKeyRequired`-Response-Beschreibung).
   Beide behaupteten bisher, der Produktions-Default fuer `IDEMPOTENCY_MODE`
