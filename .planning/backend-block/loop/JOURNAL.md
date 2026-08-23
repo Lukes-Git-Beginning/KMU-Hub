@@ -1796,3 +1796,75 @@ Frühere Läufe liegen vollständig im Archiv:
   Rechnung blockiert werden soll, ist das eine Produktentscheidung außerhalb dieser Unit. (3)
   `banking`-Service matcht Bankbewegungen über `paymentSvc` (kein direkter `invoiceRepo`-Zugriff,
   per Grep bestätigt) — profitiert also automatisch vom selben Fix, ohne eigene Änderung nötig.
+
+## Iteration 32 — cov-invoice-repository-quote-link-and-time-tracking-real-sql — done — 2026-08-23 02:35
+- commit: (siehe unten, nach Commit-Erstellung)
+- gebaut: `GetByQuoteID` (postgres_repository.go:446) und `LinkTimeTracking` (:472) mit sechs
+  neuen real-SQL-Tests in `postgres_repository_quote_link_time_tracking_db_test.go` untersucht.
+  ECHTER FUND (dokumentiert, NICHT gefixt — siehe unten): `GetByQuoteID`s Signatur gibt genau eine
+  Rechnung zurück, aber weder das Schema (keine UNIQUE-Constraint auf
+  `finance_invoices.source_quote_id`) noch `invoice.Service.CreateFromQuote` (service.go:779,
+  aufgerufen von der `ConvertQuoteToInvoice`-RPC, server/biz_grpc.go:506) garantieren, dass ein
+  Angebot höchstens eine Rechnung hat — `CreateFromQuote` prüft ausschließlich
+  `quote.Status == accepted`, ruft `GetByQuoteID` nirgends auf. Ein zweiter Aufruf (Doppelklick,
+  Netzwerk-Retry) legt anstandslos eine zweite volle Rechnung für dasselbe Angebot an.
+  `TestPostgresRepository_GetByQuoteID_MultipleInvoices` beweist das konkret: zwei Rechnungen mit
+  identischem `source_quote_id` lassen sich anlegen, `GetByQuoteID` liefert danach ohne Fehler
+  eine der beiden zurück (kein `ORDER BY`, welche ist nicht definiert). Dieselbe Fehlerklasse wie
+  der in Lauf 10 gefixte Zeiterfassungs-Doppelabrechnungs-Bug, nur auf der Quote-Seite — als
+  eigene Unit `fix-quote-to-invoice-duplicate-creation` ans Backlog-Ende gehängt (siehe
+  neue-units), NICHT hier gefixt: die Fachfrage, ob Teilrechnungen zu einem Angebot irgendwo
+  vorgesehen sind, ist ungeklärt (Grep über `internal/biz/invoice` und `internal/biz/quote`
+  findet keinen Hinweis auf partielle Fakturierung — kein "remaining amount", keine
+  Positions-Zuordnung —, aber das beweist nicht, dass die Absicht fehlt) und ein Fix müsste diese
+  Frage vor der Sperre beantworten, nicht raten.
+  Übrige `done_when`-Punkte belegt: zweiter `LinkTimeTracking`-Aufruf überschreibt (nicht
+  Merge/Append) statt anzuhängen; ungültiges JSON wird von Postgres selbst als jsonb-Typfehler
+  abgelehnt, die Spalte bleibt dabei unverändert (kein teilweise angewandter Write); Fremdtenant-
+  Aufrufe beider Methoden betreffen null Zeilen; `GetByQuoteID` mit Fremdtenant liefert
+  `ErrInvoiceNotFound` (Tenant-Scoping hängt an der eigenen `tenant_id` der Rechnung, nicht an der
+  des Angebots); `GetByQuoteID` befüllt `LineItems` wie `GetByID` (derselbe
+  `loadInvoiceLines`/`marshalLineItems`-Pfad).
+- gate: build ok (`./internal/biz/invoice/... ./internal/gateway/...`) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 -v ./internal/biz/invoice/`, DATABASE_URL gegen
+  kmuhub_app, 0 SKIP, 129 PASS inkl. 6 neuer DB-Tests) | test ok
+  (`go test -count=1 -p 1 ./internal/biz/invoice/...`) | test ok (`go test -count=1
+  ./internal/gateway/` — keine Routenänderung, trotzdem pflichtgemäß gelaufen) | migration n.a.
+  (keine Schema-Änderung) | rls-smoke n.a. (keine Tabellen-/Policy-Änderung, reine Lesart-/
+  Schreibart-Untersuchung bestehender Spalten)
+- coverage: internal/biz/invoice 59,9 % (eigene Messung vor dieser Iteration, `go tool cover
+  -func`, stimmt mit Iteration-31-Endwert überein) -> 61,4 % (eigene Messung nach den sechs neuen
+  Tests, gleiche Methode, via `git stash`/`pop` der eigenen Testdatei isoliert)
+- mutations-probe: gegen eine `cp`-Sicherungskopie (nicht `git checkout`), zurückgeschrieben,
+  finaler `diff` gegen die Kopie identisch (0 Zeilen Unterschied), `git diff --stat` auf
+  `postgres_repository.go` danach leer. (a) `LinkTimeTracking`s UPDATE um
+  `AND time_tracking_source IS NULL` ergänzt (zweiter Aufruf würde still nichts mehr schreiben) ->
+  `TestPostgresRepository_LinkTimeTracking_PersistsAndSecondCallOverwrites` rot ("emp-1"/120 statt
+  "emp-2"/45 — der zweite Schreibvorgang griff nicht). Anmerkung: eine erste Mutation (die
+  `AND tenant_id = $3`-Klausel aus dem UPDATE entfernt, um den Fremdtenant-Test zu prüfen) blieb
+  GRÜN — RLS greift hier als zweite, unabhängige Schranke unter `kmuhub_app` und blendet fremde
+  Tenant-Zeilen bereits vor der WHERE-Klausel aus; das ist kein blinder Fleck der Probe, sondern
+  zeigt, dass die explizite SQL-Klausel bewusst redundant zur RLS-Policy ist (Defense-in-Depth) —
+  deshalb Wechsel auf eine Mutation, die NICHT von RLS abgefangen wird. (b) `GetByQuoteID`s
+  `loadInvoiceLines`/`marshalLineItems`-Block entfernt (nur noch das nackte `scanInvoice`) ->
+  `TestPostgresRepository_GetByQuoteID_ReturnsInvoiceWithLineItems` rot ("unexpected end of JSON
+  input" beim Unmarshal von `LineItems`, weil das Feld leer blieb).
+- verify vorgaenger: sauber — `a2ea5ab5` (Iteration 31) fügt zwei `inv.LockedAt != nil`-Guards in
+  `payment/service.go` plus real-SQL-Tests für `UpdateStatus`/`UpdateStatusInTx` hinzu (per
+  `git show --stat` und vollständigem Diff von `service.go` geprüft). Keine der acht
+  Fehlerklassen einschlägig: kein neuer gRPC-Handler (reine Service-interne Guards), kein
+  Stub/TODO/Unimplemented, kein `.proto`, keine Migration, kein neuer `RequirePermission`-Guard,
+  keine neue Tabelle, keine Route, keine Response-Form geändert, kein ersetzter Guard-Key.
+- neue-units: `fix-quote-to-invoice-duplicate-creation` (ans Backlog-Ende, deps: [], Block 4) —
+  echter, verifizierter Produktionsbug (fehlende Duplikat-Sperre bei Quote-zu-Rechnung-Konversion),
+  außerhalb des Scopes dieser Coverage-Unit und mit einer offenen Fachfrage (Teilrechnungen
+  vorgesehen?), die vor einem Fix beantwortet werden muss.
+- offen: (1) DB-Gate lief vollständig: DATABASE_URL als kmuhub_app, 0 übersprungene Tests im
+  Paket. (2) Fachliche Randnotiz für Luke: `LinkTimeTracking` wird produktiv nur genau einmal pro
+  Invoice aufgerufen, direkt nach `Create` (server/biz_grpc.go:2118, Audit-Trail für die
+  Zeiterfassungs-Rechnung) — das "überschreibt statt merged"-Verhalten ist heute folgenlos, aber
+  falls `LinkTimeTracking` künftig für Nachträge (weitere Zeiteinträge auf eine bestehende
+  Rechnung) wiederverwendet wird, geht die erste Charge stillschweigend verloren. (3) Die neue Unit
+  `fix-quote-to-invoice-duplicate-creation` braucht vor dem Bauen eine Antwort auf die
+  Teilrechnungs-Frage — falls Luke die aus Produktkenntnis sofort beantworten kann, spart das der
+  nächsten Iteration die Recherche.

@@ -1411,7 +1411,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-invoice-repository-status-and-lock-columns-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice 34,8 % (CI-Stand 32570176303)"
     scope: >
       `GetByQuoteID` (444) und `LinkTimeTracking` (470) verbinden die Rechnung mit ihrer
@@ -3015,3 +3015,54 @@ units:
       - Die beiden "current behaviour"-Tests aus postgres_repository_payment_stats_db_test.go
         sind auf das neue, korrekte Verhalten umgeschrieben, nicht dupliziert
       - go test -count=1 ./internal/biz/invoice/ ./internal/server/ gruen
+
+  - id: fix-quote-to-invoice-duplicate-creation
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltensfund aus cov-invoice-repository-quote-link-and-time-tracking-real-sql, Lauf 11 Iteration 32)"
+    scope: >
+      Befund aus der Recherche zu GetByQuoteID (postgres_repository.go:446):
+      `invoice.Service.CreateFromQuote` (service.go:779, aufgerufen von der
+      `ConvertQuoteToInvoice`-RPC in server/biz_grpc.go:506) prueft vor dem Erzeugen
+      NICHTS ausser `quote.Status == accepted` — weder ruft sie `GetByQuoteID` noch
+      gibt es eine `finance_quotes`/`finance_invoices`-Unique-Constraint auf
+      `source_quote_id`. Ein zweiter Aufruf (Doppelklick auf "In Rechnung umwandeln",
+      Netzwerk-Retry auf dieselbe RPC) erzeugt eine zweite, vollstaendige Rechnung fuer
+      dasselbe Angebot — derselbe Fehlerklasse wie der in Lauf 10 gefixte
+      Zeiterfassungs-Doppelabrechnungs-Bug, nur auf der Quote-Seite. Der Quote-Status
+      bleibt nach der Konversion unveraendert "accepted", es gibt also auch keinen
+      spaeteren Statuswechsel, der einen zweiten Versuch verhindern wuerde.
+      TestPostgresRepository_GetByQuoteID_MultipleInvoices
+      (postgres_repository_quote_link_time_tracking_db_test.go) beweist die fehlende
+      DB-Constraint bereits: zwei Rechnungen mit demselben source_quote_id lassen sich
+      anstandslos anlegen.
+      Offene Fachfrage, die vor dem Fix zu klaeren ist: sind Teilrechnungen (mehrere
+      Rechnungen zu einem Angebot) irgendwo im Produkt vorgesehen? Falls ja, ist die
+      Sperre praeziser zu fassen (z. B. nur bei identischem Betrag/identischen
+      Positionen) statt eines pauschalen Verbots.
+    sources:
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/invoice/postgres_repository.go
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/biz/invoice/postgres_repository_quote_link_time_tracking_db_test.go
+    notes: >
+      ROOT CAUSE naheliegend: `CreateFromQuote` ruft vor dem `Create`-Call
+      `s.repo.GetByQuoteID(ctx, tenantID, quoteID)` und lehnt mit einem klaren
+      Fehler ab, wenn bereits eine (nicht stornierte) Rechnung existiert — analog zum
+      Muster in `isInvoiceLocked`. Ein DB-seitiger Unique-Index auf
+      `(tenant_id, source_quote_id) WHERE source_quote_id IS NOT NULL` waere die
+      robustere Grenze (schliesst auch Rennbedingungen zwischen zwei parallelen
+      Requests, die der Service-Check allein nicht abfaengt), braucht aber eine neue
+      Migration und die obige Fachfrage zuerst geklaert.
+    done_when:
+      - Die Fachfrage zu Teilrechnungen ist im Journal beantwortet (Code-Grep und/oder
+        vorhandene Dokumentation als Beleg, nicht geraten)
+      - Ein zweiter CreateFromQuote-Aufruf auf ein bereits abgerechnetes Angebot schlaegt
+        mit einem eindeutigen Fehler fehl, belegt per Test
+      - TestPostgresRepository_GetByQuoteID_MultipleInvoices bleibt gruen (Repository-
+        Verhalten selbst aendert sich nicht, nur der Service-Aufrufer bekommt eine Sperre)
+      - go test -count=1 ./internal/biz/invoice/ ./internal/server/ gruen, DATABASE_URL
+        gegen kmuhub_app
