@@ -2903,7 +2903,7 @@ Frühere Läufe liegen vollständig im Archiv:
 ---
 
 ## Iteration 46 — cov-gateway-biz-expenses-routes — done — 2026-08-23 04:44
-- commit: (siehe unten, nach dem Commit einzutragen)
+- commit: cf1594ba
 - gebaut:
   Alle sieben Handler in `route_biz_expenses.go` hatten vor dieser Iteration
   keinen einzigen HTTP-Level-Test (nur die Wire-Shape-Mapping-Tests in
