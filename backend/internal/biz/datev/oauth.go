@@ -3,6 +3,7 @@ package datev
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -14,6 +15,13 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// ErrReauthRequired means DATEV rejected the stored refresh token (a 4xx from
+// the token endpoint — typically invalid_grant because the token expired or
+// was revoked). Retrying the same request cannot succeed; the admin has to
+// go through the OAuth flow again. Distinct from a 5xx/network failure at the
+// token endpoint, which is transient and worth retrying.
+var ErrReauthRequired = errors.New("datev: reauthorization required, please reconnect")
 
 type VaultService interface {
 	GetSecret(ctx context.Context, keyName string) (string, error)
@@ -107,6 +115,12 @@ func (om *OAuthManager) RefreshAccessToken(ctx context.Context, tenantID uuid.UU
 			"status", resp.StatusCode,
 			"body", string(body),
 		)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			// The token endpoint rejected the refresh token itself (invalid_grant),
+			// not a transient server problem — reissuing the same request will
+			// fail again until the admin reconnects.
+			return "", fmt.Errorf("%w (status %d)", ErrReauthRequired, resp.StatusCode)
+		}
 		return "", fmt.Errorf("datev: token refresh returned status %d", resp.StatusCode)
 	}
 

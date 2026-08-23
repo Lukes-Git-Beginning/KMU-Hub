@@ -33,6 +33,8 @@ func TestMapDatevUploadError(t *testing.T) {
 		{"advisor numbers missing", datev.ErrAdvisorNumbersMissing, codes.FailedPrecondition},
 		{"company settings incomplete", datev.ErrCompanySettingsIncomplete, codes.FailedPrecondition},
 		{"nothing to upload", datev.ErrNothingToUpload, codes.FailedPrecondition},
+		{"reauth required", datev.ErrReauthRequired, codes.FailedPrecondition},
+		{"wrapped reauth required", fmt.Errorf("datev upload failed: %w", datev.ErrReauthRequired), codes.FailedPrecondition},
 		{"wrapped sentinel", fmt.Errorf("datev upload failed: %w", datev.ErrNotConnected), codes.FailedPrecondition},
 		{"invoice not found", datev.ErrInvoiceNotFound, codes.NotFound},
 		{"inverted period", datev.ErrInvalidPeriod, codes.InvalidArgument},
@@ -55,6 +57,25 @@ func TestMapDatevUploadErrorHidesUnknownCause(t *testing.T) {
 	err := mapDatevUploadError(errors.New("dial tcp 10.0.0.5:5432: refused"))
 	if msg := status.Convert(err).Message(); msg != "DATEV upload failed" {
 		t.Errorf("message = %q, want the generic one", msg)
+	}
+}
+
+// TestMapDatevUploadErrorReauthMessageIsActionable is the mutations-probe
+// target for the ErrReauthRequired case: before it existed, an expired or
+// revoked DATEV refresh token fell into the default branch and came back as
+// the same "DATEV upload failed" an actual internal bug would produce,
+// leaving the admin no next step. It must now carry a fixed, actionable
+// message telling them to reconnect — distinct from the generic one, and
+// without leaking the DATEV token endpoint's status code or body (those stay
+// server-side in the slog.Error call in oauth.go).
+func TestMapDatevUploadErrorReauthMessageIsActionable(t *testing.T) {
+	err := mapDatevUploadError(fmt.Errorf("datev upload failed: %w", datev.ErrReauthRequired))
+	msg := status.Convert(err).Message()
+	if msg == "DATEV upload failed" {
+		t.Fatalf("message = %q, want a distinct actionable message, not the generic internal-error one", msg)
+	}
+	if !strings.Contains(msg, "reconnect") {
+		t.Errorf("message = %q, want it to tell the admin to reconnect", msg)
 	}
 }
 

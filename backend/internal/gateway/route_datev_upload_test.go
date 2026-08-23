@@ -169,3 +169,163 @@ func TestDatevHandleOAuthCallback_ValidState_RPCFailsRedirectsGenerically(t *tes
 		t.Errorf("Location = %q, want to contain %q", loc, "datev_error=connection_failed")
 	}
 }
+
+// ============================================================================
+// ServiceUnavailable / NoTenant — every handler below calls getDatevUploadClient
+// first and getTenantID second (HandleGetAuthURL checks the state secret before
+// either, but with one configured it falls into the same order). Before this
+// unit only the OAuth callback flow had any coverage; the other eight handlers
+// — including the two that actually move money-adjacent documents to a third
+// party — had none.
+// ============================================================================
+
+func TestDatevUploadRoutes_ServiceUnavailable(t *testing.T) {
+	routes := NewDatevUploadRoutes(emptyRegistry(), "test-state-secret")
+
+	handlers := map[string]http.HandlerFunc{
+		"HandleGetAuthURL":           routes.HandleGetAuthURL,
+		"HandleDisconnect":           routes.HandleDisconnect,
+		"HandleGetConnectionStatus":  routes.HandleGetConnectionStatus,
+		"HandleUploadBuchungsstapel": routes.HandleUploadBuchungsstapel,
+		"HandleUploadBeleg":          routes.HandleUploadBeleg,
+		"HandleGetUploadConfig":      routes.HandleGetUploadConfig,
+		"HandleUpdateUploadConfig":   routes.HandleUpdateUploadConfig,
+		"HandleListUploadLogs":       routes.HandleListUploadLogs,
+	}
+
+	for name, h := range handlers {
+		t.Run(name, func(t *testing.T) {
+			testServiceUnavailable(t, h)
+		})
+	}
+}
+
+func TestDatevUploadRoutes_NoTenant(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+
+	handlers := map[string]http.HandlerFunc{
+		"HandleGetAuthURL":           routes.HandleGetAuthURL,
+		"HandleDisconnect":           routes.HandleDisconnect,
+		"HandleGetConnectionStatus":  routes.HandleGetConnectionStatus,
+		"HandleUploadBuchungsstapel": routes.HandleUploadBuchungsstapel,
+		"HandleUploadBeleg":          routes.HandleUploadBeleg,
+		"HandleGetUploadConfig":      routes.HandleGetUploadConfig,
+		"HandleUpdateUploadConfig":   routes.HandleUpdateUploadConfig,
+		"HandleListUploadLogs":       routes.HandleListUploadLogs,
+	}
+
+	for name, h := range handlers {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{}"))
+			// Deliberately no withTenantID — simulates a token without a tid claim.
+			h(rec, req)
+			assertStatus(t, rec, http.StatusUnauthorized)
+			assertErrorContains(t, rec, "missing or invalid tenant")
+		})
+	}
+}
+
+// TestHandleUploadBuchungsstapel_MissingDates pins the transport-layer boundary
+// check: start_date/end_date are required here even though the RPC field is
+// technically optional proto3, because an absent range used to mean "every
+// booking the tenant ever made" (see the handler's comment).
+func TestHandleUploadBuchungsstapel_MissingDates(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/finance/datev/upload", strings.NewReader("{}"))
+	req = withTenantID(req, testTenantID)
+	routes.HandleUploadBuchungsstapel(rec, req)
+	assertValidationError(t, rec, "start_date")
+}
+
+// TestHandleUploadBuchungsstapel_ValidBodyReachesRPC proves a well-formed
+// request clears the transport-layer checks and reaches the RPC (which then
+// fails against the dummy localhost:0 connection as Unavailable -> 503,
+// same pattern as the rest of the gateway package's "_ReachesRPC" tests).
+func TestHandleUploadBuchungsstapel_ValidBodyReachesRPC(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+	rec := httptest.NewRecorder()
+	body := `{"start_date":"2026-01-01","end_date":"2026-01-31"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/finance/datev/upload", strings.NewReader(body))
+	req = withTenantID(req, testTenantID)
+	routes.HandleUploadBuchungsstapel(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleUploadBeleg_InvalidInvoiceID pins that a malformed invoice_id path
+// param is rejected locally (400) rather than reaching the RPC as a downstream
+// error, the same guarantee route_biz_billing.go's id-bearing handlers give.
+func TestHandleUploadBeleg_InvalidInvoiceID(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/finance/datev/upload/beleg/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "invoice_id", "not-a-uuid")
+	routes.HandleUploadBeleg(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid invoice_id")
+}
+
+func TestHandleUploadBeleg_ValidIDReachesRPC(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+	rec := httptest.NewRecorder()
+	invoiceID := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/finance/datev/upload/beleg/"+invoiceID, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "invoice_id", invoiceID)
+	routes.HandleUploadBeleg(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleUpdateUploadConfig_InvalidJSON pins the malformed-body 400 path;
+// TestHandleUpdateUploadConfig_ValidBodyReachesRPC pins that a well-formed one
+// clears validation (the struct has no `validate` tags — any JSON object with
+// the right field types passes) and reaches the RPC.
+func TestHandleUpdateUploadConfig_InvalidJSON(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/finance/datev/config", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	routes.HandleUpdateUploadConfig(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleUpdateUploadConfig_ValidBodyReachesRPC(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+	rec := httptest.NewRecorder()
+	body := `{"client_number":"12345","auto_upload_enabled":true,"upload_after_export":false}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/finance/datev/config", strings.NewReader(body))
+	req = withTenantID(req, testTenantID)
+	routes.HandleUpdateUploadConfig(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestDatevUploadRoutes_ReachRPC covers the four remaining handlers that take
+// no body and no URL param, so the only two states possible are "no tenant"
+// (covered above) and "reaches the RPC".
+func TestDatevUploadRoutes_ReachRPC(t *testing.T) {
+	routes := NewDatevUploadRoutes(registryWithService("biz"), "test-state-secret")
+
+	handlers := map[string]struct {
+		method string
+		path   string
+		h      http.HandlerFunc
+	}{
+		"HandleGetAuthURL":          {http.MethodGet, "/api/v1/finance/datev/oauth/authorize", routes.HandleGetAuthURL},
+		"HandleDisconnect":          {http.MethodPost, "/api/v1/finance/datev/disconnect", routes.HandleDisconnect},
+		"HandleGetConnectionStatus": {http.MethodGet, "/api/v1/finance/datev/status", routes.HandleGetConnectionStatus},
+		"HandleGetUploadConfig":     {http.MethodGet, "/api/v1/finance/datev/config", routes.HandleGetUploadConfig},
+		"HandleListUploadLogs":      {http.MethodGet, "/api/v1/finance/datev/upload/logs", routes.HandleListUploadLogs},
+	}
+
+	for name, tc := range handlers {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req = withTenantID(req, testTenantID)
+			tc.h(rec, req)
+			assertStatus(t, rec, http.StatusServiceUnavailable)
+		})
+	}
+}

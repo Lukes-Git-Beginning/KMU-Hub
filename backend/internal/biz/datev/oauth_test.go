@@ -133,6 +133,11 @@ func TestRefreshAccessToken_SendsExpectedFormAndCachesToken(t *testing.T) {
 	}
 }
 
+// TestRefreshAccessToken_NonOKStatusReturnsError covers the invalid_grant case
+// DATEV returns for an expired or revoked refresh token: a 4xx from the token
+// endpoint. This must come back as ErrReauthRequired, not a generic error —
+// mapDatevUploadError uses errors.Is on it to give the admin an actionable
+// "please reconnect" instead of an opaque "DATEV upload failed".
 func TestRefreshAccessToken_NonOKStatusReturnsError(t *testing.T) {
 	tenantID := uuid.New()
 	server := tokenServer(t, http.StatusUnauthorized, `{"error":"invalid_grant"}`, nil)
@@ -144,6 +149,31 @@ func TestRefreshAccessToken_NonOKStatusReturnsError(t *testing.T) {
 	_, err := om.RefreshAccessToken(context.Background(), tenantID)
 	if err == nil || !strings.Contains(err.Error(), "401") {
 		t.Fatalf("err = %v, want a status-401 error", err)
+	}
+	if !errors.Is(err, ErrReauthRequired) {
+		t.Errorf("err = %v, want errors.Is(err, ErrReauthRequired)", err)
+	}
+}
+
+// TestRefreshAccessToken_ServerErrorIsNotReauthRequired distinguishes a DATEV
+// outage (5xx) from a rejected refresh token (4xx): only the latter means
+// retrying is futile. A 5xx must NOT be wrapped as ErrReauthRequired, or an
+// admin would be told to reconnect DATEV when the actual connection is fine
+// and DATEV is just down.
+func TestRefreshAccessToken_ServerErrorIsNotReauthRequired(t *testing.T) {
+	tenantID := uuid.New()
+	server := tokenServer(t, http.StatusServiceUnavailable, `{"error":"unavailable"}`, nil)
+	defer server.Close()
+
+	vault := &vaultStub{secret: "refresh-xyz"}
+	om := NewOAuthManager(vault, "cid", "csecret", server.URL)
+
+	_, err := om.RefreshAccessToken(context.Background(), tenantID)
+	if err == nil || !strings.Contains(err.Error(), "503") {
+		t.Fatalf("err = %v, want a status-503 error", err)
+	}
+	if errors.Is(err, ErrReauthRequired) {
+		t.Errorf("err = %v, must not be ErrReauthRequired for a 5xx", err)
 	}
 }
 

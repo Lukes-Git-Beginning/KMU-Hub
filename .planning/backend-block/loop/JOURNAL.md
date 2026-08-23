@@ -2789,3 +2789,113 @@ Frühere Läufe liegen vollständig im Archiv:
   bezahlte Rechnung) sind in dieser Iteration selbst behoben, kein
   aufgeschobener Rest.
 - offen: keine
+
+## Iteration 45 — cov-gateway-datev-upload-routes — done — 2026-08-23 04:33
+- commit: (siehe Schritt 6, wird nach Commit ergänzt)
+- gebaut:
+  Zwei falsche Prämissen aus dem Backlog-Eintrag widerlegt (Regel 11), ein
+  echter Fund behoben, acht zuvor ungetestete Gateway-Handler abgedeckt.
+  (1) WIDERLEGT: "Uploadgrössen: eine zu grosse Datei muss 413 liefern."
+  `route_datev_upload.go` nimmt an keiner Stelle eine client-gesendete Datei
+  entgegen — `HandleUploadBuchungsstapel` rendert das CSV serverseitig aus
+  einem Datumsbereich (`UploadService.UploadBuchungsstapel`), `HandleUploadBeleg`
+  rendert die Rechnungs-PDF serverseitig aus einer `invoice_id`
+  (`UploadService.UploadInvoiceBeleg` -> `belegRenderer.RenderInvoice`). Es
+  gibt keinen multipart/Datei-Body auf dieser Route, also keine 413-Klasse.
+  (2) WIDERLEGT (teilweise): "Fortschritt und Statusabfrage, falls
+  vorhanden: ein unbekannter Auftrag muss 404 liefern." Es existiert keine
+  Statusabfrage für einen einzelnen Upload-Auftrag — nur `HandleListUploadLogs`
+  (Liste, kein Einzel-GET per ID). Gegenstandslos.
+  (3) ECHTER FUND, BEHOBEN: `mapDatevUploadError`
+  (`internal/server/datev_upload_grpc.go`) kannte bis zu dieser Iteration nur
+  "fehlender Connect" (ErrNotConnected/ErrNoAPIConfig -> FailedPrecondition/409)
+  als admin-behebbaren Fall. Ein abgelaufener oder widerrufener DATEV-Refresh-
+  Token lief dagegen unbenannt durch den `default`-Zweig und kam beim Admin als
+  identisches "DATEV upload failed" (Internal/500) an wie ein echter interner
+  Bug — kein Hinweis, dass ein simples Reconnect reicht. Root Cause lag in
+  `OAuthManager.RefreshAccessToken` (`internal/biz/datev/oauth.go`): ein
+  Non-200 vom DATEV-Token-Endpoint wurde immer als derselbe generische Fehler
+  zurückgegeben, egal ob 4xx (Token abgelehnt, invariant unter Retry) oder 5xx
+  (transiente DATEV-Störung). Fix: neuer Sentinel `ErrReauthRequired`, gesetzt
+  nur bei 4xx (die bereits bestehende Testfixture nutzt exakt den
+  DATEV-typischen Fall `401 {"error":"invalid_grant"}`); 5xx bleibt bewusst
+  unverändert generisch, weil dort erneutes Versuchen sinnvoll ist und "bitte
+  neu verbinden" die falsche Anweisung wäre. `mapDatevUploadError` bekommt
+  einen neuen Case, der `ErrReauthRequired` auf FailedPrecondition mit fester,
+  aktionabler Nachricht ("datev: connection expired, please reconnect")
+  mapped — am Gateway wird daraus über `grpcStatusToHTTP` ein 409, keine
+  Fremdsystem-Details im Text (nur "status %d", niemals der Response-Body,
+  landet weiterhin ausschliesslich im `slog.Error`).
+  Root-Cause-Statt-Symptom geprüft: `GetAccessToken` wird auch von
+  `BelegbilderUploader.UploadBeleg` genutzt (Belegbild-Pfad) — der Fix in
+  `OAuthManager` deckt beide Upload-Pfade (Buchungsstapel UND Belegbild) mit
+  einer einzigen Änderung ab, keine zweite Stelle nötig.
+  Die vom Backlog befürchtete Gefahr ("401 vom Fremdsystem erscheint als
+  eigenes 401 und wirft den Nutzer aus der Sitzung") ist NICHT eingetreten
+  und war es vorher schon nicht: `mapDatevUploadError` gibt an keiner Stelle
+  `codes.Unauthenticated` zurück (das einzige, was `grpcStatusToHTTP` auf HTTP
+  401 abbildet), auch nicht in dieser Iteration. Damit bleibt es fachlich
+  korrekt bei "Verbindung abgelaufen" (409), niemals "deine Session ist
+  abgelaufen" (401).
+  Coverage-Teil: acht der neun Handler in `route_datev_upload.go` hatten vor
+  dieser Iteration keinen einzigen Test (nur der OAuth-Callback-Flow war
+  abgedeckt, siehe Lauf 10). Neue Tests decken für alle acht die Reihenfolge
+  Client-Check -> Tenant-Check ab (503 bzw. 401, Tabellen-Tests analog zum
+  Muster aus `route_biz_billing_test.go`), dazu gezielt: fehlende
+  start_date/end_date bei `HandleUploadBuchungsstapel` (400, Validierung),
+  eine ungültige `invoice_id` bei `HandleUploadBeleg` (400, kein Downstream-
+  Fehler), fehlerhaftes JSON bei `HandleUpdateUploadConfig` (400), sowie je
+  ein "erreicht die RPC"-Beleg (503 gegen die Dummy-Verbindung) für jeden
+  Handler mit gültigem Input.
+  Idempotenz/Doppel-Upload NICHT selbst gebaut (Scope-Grenze dieser Unit):
+  `UploadBuchungsstapel` und `UploadBeleg` haben keinerlei Idempotenz-Schutz
+  (kein Idempotency-Key, keine Duplikatsprüfung) — ein zweiter Klick oder ein
+  Retry nach Timeout erzeugt eine zweite echte DATEV-Buchung/-Belegbild. Wie
+  im Scope vorgegeben an die bereits im Backlog stehenden Scan-Units
+  `scan-inbound-paths-without-duplicate-delivery-guard` und
+  `scan-finance-mutations-without-idempotency-key` gemeldet (beide noch
+  `status: todo`) statt selbst als Feature gebaut.
+- gate: build ok (`-p 2`, gateway+server+biz/datev+cmd/gateway+cmd/biz) |
+  vet ok | lint ok (0 issues, golangci-lint auf allen drei Paketen) |
+  test ok (`go test -count=1 ./internal/gateway/ ./internal/server/...
+  ./internal/biz/datev/...`, 0 SKIP) | migration n.a. (keine Tabelle/Policy
+  angefasst) | rls-smoke n.a. | `go test -count=1 -run TestOpenAPIRouteDrift
+  ./internal/gateway/` PFLICHT gelaufen, grün (836 registrierte gegen 838
+  dokumentierte Pfade, keine Route geändert)
+- coverage: internal/gateway 54,6 % (eigene Messung vor dieser Iteration via
+  `git stash`) -> 55,1 % (danach) | internal/biz/datev 79,5 % -> 79,6 %
+  (Bezugswert der Unit "internal/gateway 54,1 %" leicht abweichend von meiner
+  Vorher-Messung 54,6 % — eine der Iterationen 42-44 hat dasselbe Paket
+  bereits bewegt, siehe HARTE REGELN Block-Kopf; die eigene Messung gilt)
+- mutations-probe: zwei Läufe, beide gegen `cp`-Sicherungskopien
+  (`/tmp/oauth.go.bak`, `/tmp/datev_upload_grpc.go.bak`), zurückgeschrieben,
+  `diff` gegen die Kopie danach je 0 Zeilen Unterschied.
+  (a) `if resp.StatusCode >= 400 && resp.StatusCode < 500` in
+  `RefreshAccessToken` zu `if false && ...` entschärft ->
+  `TestRefreshAccessToken_NonOKStatusReturnsError` rot (erwartete
+  `errors.Is(err, ErrReauthRequired)`, bekam den alten generischen Fehler);
+  `TestRefreshAccessToken_ServerErrorIsNotReauthRequired` blieb grün (eigener
+  Pfad, 5xx nie betroffen).
+  (b) `case errors.Is(err, datev.ErrReauthRequired):` in `mapDatevUploadError`
+  zu `case false && errors.Is(...):` entschärft -> drei Tests rot:
+  `TestMapDatevUploadError/reauth_required`,
+  `TestMapDatevUploadError/wrapped_reauth_required` (beide erwarteten
+  FailedPrecondition, bekamen Internal aus dem default-Zweig) und
+  `TestMapDatevUploadErrorReauthMessageIsActionable` (erwartete eine von
+  "DATEV upload failed" verschiedene Nachricht, bekam exakt diese). Die
+  übrigen zehn Subtests von `TestMapDatevUploadError` blieben grün.
+- verify vorgaenger: sauber — `1e89739b` (Iteration 44) fügt in
+  `GenerateGoBDExport` (`internal/server/biz_grpc.go`) eine
+  Datumsvergleichsprüfung hinzu und einen Dunning-Test für eine bezahlte
+  Rechnung. Keine der acht Fehlerklassen einschlägig: kein neuer
+  Gateway-Handler/Service-Bypass, kein Stub/TODO, kein `.proto`, keine
+  Migration, kein neuer `RequirePermission`-Guard, keine neue Tabelle, keine
+  neue Route, kein Wire-Shape-Wechsel, kein ersetzter Guard-Key. Diff selbst
+  gegengelesen (`git show 1e89739b -- backend/internal/server/biz_grpc.go`),
+  nicht nur den Journal-Text übernommen.
+- neue-units: keine — der einzige nicht selbst behebbare Fund (fehlender
+  Idempotenz-Schutz auf beiden Upload-RPCs) ist bereits durch zwei bestehende
+  Scan-Units (`scan-inbound-paths-without-duplicate-delivery-guard`,
+  `scan-finance-mutations-without-idempotency-key`) abgedeckt; eine neue Unit
+  dafür wäre doppelte Buchführung.
+- offen: keine
