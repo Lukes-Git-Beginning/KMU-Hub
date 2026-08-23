@@ -4297,7 +4297,7 @@ units:
     service: testutil
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Test-Infrastruktur-Fix, keine Coverage-relevante Produktionscodeaenderung)"
     scope: >
       Fund aus fix-berichte-kpi-blind-currency-sum (Lauf 11, Iteration 82):

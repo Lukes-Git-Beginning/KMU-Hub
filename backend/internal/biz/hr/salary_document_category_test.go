@@ -43,7 +43,7 @@ func TestSalaryDocumentCategory_VisibleToEmployee_NotHROnly_DB(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	tenantOwn := uuid.New()
 	testutil.EnsureTenant(t, pool, tenantOwn, "Salary Doc Category Own")

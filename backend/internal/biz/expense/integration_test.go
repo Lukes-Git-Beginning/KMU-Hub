@@ -64,7 +64,7 @@ func TestPostgresRepository_TenantScopedReadsAndWrites(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	// Private tenants rather than the shared TenantA/TenantB constants: these
 	// tests count every row of their tenant, so a neighbour's fixture under
@@ -80,8 +80,6 @@ func TestPostgresRepository_TenantScopedReadsAndWrites(t *testing.T) {
 	submitter := seedUser(t, pool, mine, "submitter")
 	foreignSubmitter := seedUser(t, pool, theirs, "foreign")
 
-	// Cleanup by defer, not t.Cleanup: the latter runs after the deferred
-	// pool.Close() above and would leave the rows behind on a dead pool.
 	ours := newExpenseRow(t, myCtx, repo, mine, submitter, "Ours")
 	defer testutil.CleanupRow(t, pool, "finance_expenses", ours.ID)
 	foreign := newExpenseRow(t, theirCtx, repo, theirs, foreignSubmitter, "Theirs")
@@ -137,7 +135,7 @@ func TestService_ApprovalPersists(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	tenant := uuid.New()
 	testutil.EnsureTenant(t, pool, tenant, "Expense Approval Tenant")
@@ -192,7 +190,7 @@ func TestPostgresRepository_DeleteRemovesOwnRow(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	tenant := uuid.New()
 	testutil.EnsureTenant(t, pool, tenant, "Expense Delete Tenant")
@@ -219,7 +217,7 @@ func TestPostgresRepository_UpdateMissingOrForeignRowReturnsNotFound(t *testing.
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	mine, theirs := uuid.New(), uuid.New()
 	testutil.EnsureTenant(t, pool, mine, "Expense Update Mine")
@@ -301,7 +299,7 @@ func TestPostgresRepository_ListNarrowsRowsAndTotalTogether(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	tenant := uuid.New()
 	testutil.EnsureTenant(t, pool, tenant, "Expense Own Scope Tenant")
@@ -359,7 +357,7 @@ func TestPostgresRepository_ListRespectsOffset(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	tenant := uuid.New()
 	testutil.EnsureTenant(t, pool, tenant, "Expense Offset Tenant")

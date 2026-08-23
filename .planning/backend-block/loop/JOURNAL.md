@@ -5709,3 +5709,69 @@ Frühere Läufe liegen vollständig im Archiv:
   Eindruck erzeugt, die Datei sei nun YAML-rein. Wer sie irgendwann mit einem echten Parser
   auswerten will (Reporting, Statistik), muss alle 15 Stellen in einem eigenen Durchgang
   quotieren. Mein eigener neuer Unit-Eintrag ist frei davon (Zeile gezielt quotiert).
+
+## Iteration 90 — fix-db-test-cleanup-order-leaks-fixtures — done — 2026-08-23 10:13
+- commit: (folgt)
+- gebaut: Der aus Iteration 82 (kpi_postgres_test.go) bekannte Bug — `defer pool.Close()` UND
+  `t.Cleanup(func() { testutil.CleanupRow(...) })` (direkt oder ueber einen Seed-Helfer) in
+  derselben Testfunktion, wobei `defer` VOR `t.Cleanup` laeuft und die Row-Cleanups auf einem
+  bereits geschlossenen Pool landen — in 6 der 11 gemeldeten Dateien gefixt: `defer pool.Close()`
+  -> `t.Cleanup(func() { pool.Close() })`, damit alle Cleanups derselben Funktion in echter LIFO-
+  Reihenfolge laufen (Fix (a) aus der Unit-Note, identisch zum kpi_postgres_test.go-Vorbild):
+  `internal/biz/expense/integration_test.go` (6 von 7 Vorkommen — die siebte Funktion,
+  `TestPostgresRepository_CreateRejectsNonPositiveAmount`, registriert gar kein `t.Cleanup`,
+  blieb unangetastet; zusaetzlich eine jetzt falsche erklaerende Code-Kommentarzeile entfernt,
+  die noch von einem `defer pool.Close()` sprach), `internal/biz/hr/personnel_documents_read_test.go`
+  (1/1), `internal/biz/hr/salary_document_category_test.go` (1 von 2 — die zweite Funktion,
+  `TestSalaryDocumentCategory_SeedRow_DB`, seedet nichts und registriert kein `t.Cleanup`),
+  `internal/chat/bookmark/postgres_repository_test.go` (3/3), `internal/email/label/postgres_repository_test.go`
+  (6/6), `internal/email/rule/postgres_repository_test.go` (5/5).
+  Die verbleibenden 4 der urspruenglich 11 gemeldeten Dateien
+  (`internal/crm/customfield/value_tenant_isolation_test.go`,
+  `internal/email/contactlink/tenant_isolation_test.go`,
+  `internal/notification/integration/postgres_repository_test.go`,
+  `internal/notification/notification/postgres_repository_test.go`) sind FALSCH-POSITIV: der
+  urspruengliche Grep-Befehl matcht den literalen String "defer pool.Close()" auch in
+  erklaerenden Code-Kommentaren, die genau diesen Bug beschreiben und bewusst vermeiden (Code
+  nutzt dort bereits `t.Cleanup(pool.Close)` bzw. `t.Cleanup(func() { pool.Close() })`) — bei
+  Nachlesen kein einziges echtes `defer pool.Close()`-Statement in diesen vier Dateien gefunden.
+  EIN WEITERER FALSCH-POSITIV, in der Unit nicht gelistet, aber vom selben Grep erfasst und
+  beim Bauen entdeckt: `internal/crm/report/postgres_repository_db_test.go`. Der Haupt-Fixture-
+  Helfer `newReportFixture` nutzt bereits korrekt `t.Cleanup(pool.Close)`; sechs Testfunktionen
+  rufen zusaetzlich `testutil.PoolFromEnv(t)` ein ZWEITES Mal auf einen eigenen, unabhaengigen
+  `pool`, der per `defer pool.Close()` geschlossen wird — dieser zweite Pool traegt aber keine
+  eigenen `t.Cleanup`-Registrierungen (nur ein reiner Read-Call gegen den Report), also keine
+  Race zwischen defer und t.Cleanup auf demselben Objekt. Redundant (zwei offene Connections
+  statt einer), aber kein Leck — bewusst NICHT angefasst, um den Diff auf den belegten Bug zu
+  beschraenken.
+- gate: build ok (`go build -p 2` gegen alle 5 betroffenen Pakete) | vet ok | lint ok (0 issues,
+  golangci-lint gegen alle 5 Pakete) | gofmt -l leer (alle 6 Dateien) | test ok — `DATABASE_URL`
+  auf `kmuhub_app`, `go test -count=1` zweimal hintereinander gegen
+  `internal/biz/expense`, `internal/biz/hr` (+ 5 Unterpakete), `internal/chat/bookmark`,
+  `internal/email/label`, `internal/email/rule` UND zur Kontrolle `internal/crm/report`
+  (unveraendert) — alle 12 Pakete beide Male gruen, **0 SKIP** | migration n.a. | rls-smoke n.a.
+  (kein Schema-/Policy-Zugriff, reiner Testcode)
+- coverage: n.a. (Test-Infrastruktur-Fix, keine Coverage-relevante Produktionscodeaenderung, wie
+  in `coverage_start` der Unit vorgegeben)
+- mutations-probe: `internal/biz/hr/personnel_documents_read_test.go` testweise auf den
+  Vor-Zustand zurueckgesetzt (`t.Cleanup(func() { pool.Close() })` -> `defer pool.Close()`),
+  `go test -v -run TestPersonnelDocuments_ListByTenant_RespectsVisibility_DB` gefahren: 10×
+  `cleanup <table> id=...: closed pool` in `t.Logf` (3× hr_employee_documents, 3×
+  hr_document_categories, 4× users) — Test bleibt trotzdem `--- PASS`, exakt der stille Fehler
+  aus dem Scope. Die 10 verwaisten Zeilen manuell per `psql -U kmuhub` geloescht (die
+  `kmuhub_app`-Rolle sah sie wegen RLS gar nicht, `DELETE 0`; erst unter dem RLS-freien
+  `kmuhub`-Superuser griffen die drei `DELETE`-Statements mit `DELETE 3/3/4`). Fix
+  zurueckgedreht, `go test -v` erneut: 0 `cleanup`-Log-Zeilen, weiterhin `--- PASS`, `git diff`
+  identisch mit dem Stand vor der Mutation.
+- verify vorgaenger: sauber. `ab44674e` (Iteration 89) gegen alle acht Fehlerklassen geprueft:
+  reine `openapi.yaml`-Doku-Ergaenzung (400/500-Response-Bloecke), 0 Zeilen Go-Diff — kein
+  gRPC-Bypass, kein Stub, kein `.proto`, kein neuer Guard, keine neue Tabelle, keine Wire-Shape-
+  Aenderung, keine neue Route, kein ersetzter Guard. `512ec730` direkt danach ist reine
+  Journal-Buchhaltung (1 Zeile).
+- neue-units: keine — der einzige neue Befund (der falsch-positive `internal/crm/report`-Match)
+  ist oben dokumentiert, keine eigene Unit noetig, da kein Bug vorliegt.
+- offen: `harden-lexware-webhook-organization-id-scoping` (ENTSCHEIDUNG GEHOERT LUKE, Variante a/b)
+  und `harden-quote-conversion-unique-index` (blocked, wartet auf die Prod-Abfrage aus Iteration
+  88) bleiben unveraendert offen. `BACKLOG.yml` ist weiterhin kein gueltiges YAML (15 unquotierte
+  `done_when`-Doppelpunkte, siehe Iteration 89) — praktisch folgenlos, da der Treiber per Regex
+  liest, aber unveraendert ein offener Punkt fuer jeden kuenftigen YAML-Parser-Zugriff.
