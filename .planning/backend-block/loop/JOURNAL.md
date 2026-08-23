@@ -3422,7 +3422,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Test dort noetig, im Scope aber mitgelesen.
 
 ## Iteration 53 — cov-server-biz-grpc-money-error-mapping — done — 2026-08-23 05:36
-- commit: (siehe naechster Commit auf diesem Branch)
+- commit: 920a7f73
 - gebaut: Erst die volle RPC-Liste in `biz_grpc.go` gegen alle bestehenden
   Error-Mapping-Tests abgeglichen (`biz_grpc_errormap_settings_quotes_test.go`,
   `biz_grpc_invoices_creditnotes_payments_test.go`,
