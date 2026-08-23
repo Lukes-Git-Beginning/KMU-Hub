@@ -2085,3 +2085,65 @@ Frühere Läufe liegen vollständig im Archiv:
   abgeschlossen: `cov-banking-mt940-camt053-parser-edge-cases`, `cov-expense-repository-real-sql`
   und `cov-recurring-generation-run-real-sql` stehen weiterhin auf `todo`, alle drei `deps: []`
   und damit sofort ziehbar.
+
+## Iteration 36 — cov-banking-mt940-camt053-parser-edge-cases — done — 2026-08-23 03:16
+- commit: (siehe naechster docs-Commit)
+- gebaut: `parse_test.go` (+128 Zeilen, sieben neue Tests) deckt die Luecken, die
+  `mt940.go`/`camt053.go`/`parse.go` bislang unbelegt liessen. Bereits vorhandene Faelle (Pflicht
+  laut Unit-Notes, keine Dublette gebaut): Vorzeichen (CR/DR, CRDT/DBIT, RC/RD-Storno) fuer beide
+  Formate, Dezimaltrennzeichen (Komma bei MT940), Datumsformat (YYMMDD inkl. Jahreswechsel-Buchung
+  bei MT940, ISO-Datum bei CAMT), leerer/zu grosser/abgeschnittener/formatloser Upload, BOM-Erkennung.
+  Neu: (1) `TestParseMT940WrappedInformationField` — ein :86:-Feld, das mitten im Token auf eine
+  zweite physische Zeile umbricht (reales Bankverhalten bei fixer Zeilenlaenge); deckt den
+  Continuation-Zweig in `splitMT940Fields` erstmals ab (81,8% -> 100%). (2)
+  `TestParseCAMT053JoinsMultipleUnstructuredRemittanceLines` — eine Sammelzahlung mit zwei
+  `<Ustrd>`-Elementen in einer TxDtls, muessen mit Leerzeichen zusammengefuegt werden. (1)+(2)
+  zusammen erfuellen den Pflichtpunkt "Mehrzeilen-Verwendungszweck fuer beide Formate belegt".
+  (3) `TestParseMT940RejectsUnparseableBookingDateWithoutFailingTheEntry` — ein MMDD-Buchungsdatum,
+  das kein echtes Kalenderdatum ist (29.02. in einem Format ohne Jahr), dokumentiert bestehendes
+  Verhalten: die Datei wird NICHT verworfen, nur `BookingDate` bleibt leer (`ValueDate` bleibt
+  unabhaengig korrekt). Kein Fund, sondern Beleg fuer eine bewusste Entwurfsentscheidung.
+  (4) `TestParseRejectsTooManyEntries` — `ErrTooManyEntries` war komplett ungetestet (`Parse`
+  92,9% -> 100%), erzeugt 20001 MT940-Buchungszeilen und prueft die Ablehnung. (5)
+  `TestParseCAMT053FallsBackToBookingDateWhenValueDateMissing` und (6)
+  `TestParseCAMT053RejectsEntryWithoutAnyUsableDate` — der Buchungsdatum-Fallback (manche Banken
+  lassen `ValDt` bei Gebuehrenpositionen weg) UND der Fehlerfall ganz ohne Datum waren beide
+  ungetestet (`camtEntryToParsed` 82,4% -> 94,1%). (7) `TestParseCAMT053RejectsEntryWithEmptyAmount`
+  — ein `<Amt>` ohne Wert muss `ErrMalformed` liefern statt eine 0,00-Buchung zu erzeugen
+  (`camtSignedAmount` 81,8% -> 90,9%). Keine Kontoauszugsdaten echter Banken verwendet, alle
+  Fixtures selbst geschrieben.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/biz/banking/`,
+  0 SKIP) | test ok (`go test -count=1 ./internal/gateway/` — keine Routenaenderung, pflichtgemaess
+  gelaufen; ein isolierter Flake in `TestDecodeBexioState_ManipulatedSignature` beim ersten Lauf,
+  danach zweimal in Folge gruen und auch dreimal isoliert gruen — Vorbestand, nicht mit `banking`
+  oder dieser Unit verbunden, siehe offen) | migration n.a. | rls-smoke n.a. (reine Parser-Tests,
+  keine DB-Beruehrung)
+- coverage: internal/biz/banking 84,3 % (eigene Messung vor dieser Iteration, `go tool cover -func`)
+  -> 85,6 % (danach, gleiche Methode). Einzelfunktionen: `splitMT940Fields` 81,8% -> 100%,
+  `Parse` 92,9% -> 100%, `camtEntryToParsed` 82,4% -> 94,1%, `camtSignedAmount` 81,8% -> 90,9%,
+  `parseMT940BookingDate` 75% -> 87,5%.
+- mutations-probe: drei Laeufe, jeweils gegen eine `cp`-Sicherungskopie (nicht `git checkout`,
+  Iteration-3-Lehre), zurueckgeschrieben, `diff` gegen die Kopie danach jedes Mal identisch (0
+  Zeilen Unterschied). (a) Continuation-Append in `splitMT940Fields` mit `if false && ...`
+  stillgelegt -> `TestParseMT940WrappedInformationField` rot ("Zahlung Rechn" statt "Zahlung
+  Rechnung RE-2026-0001" — die zweite physische Zeile geht verloren). (b) Booking-Date-Fallback in
+  `camtEntryToParsed` entfernt -> `TestParseCAMT053FallsBackToBookingDateWhenValueDateMissing` rot
+  ("entry without a usable date" statt erfolgreichem Parse). (c) `ErrTooManyEntries`-Pruefung in
+  `Parse` geloescht -> `TestParseRejectsTooManyEntries` rot (kein Fehler statt der Obergrenze).
+- verify vorgaenger: sauber — `dd276091` (letzter Commit vor dieser Iteration) aendert laut
+  `git show --stat` ausschliesslich `.planning/loop/JOURNAL.md` (SHA-Nachtrag Iteration 35), kein
+  Codewechsel, keine der acht Fehlerklassen anwendbar.
+- neue-units: keine
+- offen: (1) `TestDecodeBexioState_ManipulatedSignature` in `internal/gateway` fiel beim ersten
+  vollen Gate-Lauf dieser Iteration einmal durch ("expected error for tampered signature, got nil"),
+  bestand aber isoliert dreimal in Folge und im vollen Paket zweimal in Folge danach — sieht nach
+  Test-Reihenfolge-/Zustandsleck in `internal/gateway` aus (bexio ist ohnehin gesperrte Flaeche in
+  diesem Lauf), kein Zusammenhang mit `banking` oder dieser Unit erkennbar. Verdient eine eigene
+  Untersuchung, falls es sich wiederholt. (2) `internal/biz/banking` bleibt bei 85,6 % oberhalb des
+  15%-Gates, unterhalb des 60%-Kritischer-Pfad-Ziels — Restluecken sind laut `go tool cover -func`
+  ueberwiegend `pool.Query`/`pool.Exec`-Fehlerzweige (DB-Fault-Injection noetig) plus
+  `parseMT940Balance`/`parseMT940BalanceDate` (66,7%/71,4%, ungetestete Fehlerpfade bei
+  kaputten `:60F:`/`:62F:`-Zeilen — kein Fund, das Verhalten dort ist bereits "ignorieren statt
+  Datei verwerfen", siehe Code-Kommentar). (3) Block B ist damit vollstaendig abgearbeitet:
+  `cov-expense-repository-real-sql` und `cov-recurring-generation-run-real-sql` sind die
+  verbleibenden `todo`-Units mit `deps: []`, beide sofort ziehbar.

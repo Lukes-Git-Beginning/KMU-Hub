@@ -301,3 +301,131 @@ func TestDetectFormatIgnoresBOM(t *testing.T) {
 		t.Fatalf("format = %q, want camt053 despite the BOM", got)
 	}
 }
+
+func TestParseMT940WrappedInformationField(t *testing.T) {
+	// German banks wrap :86: onto a second physical line without repeating the
+	// tag; a continuation line belongs to the field still open, mid-token.
+	content := ":20:WRAP\r\n:60F:C260101EUR0,00\r\n" +
+		":61:260116CR119,00NTRFNONREF\r\n" +
+		":86:?00GUTSCHRIFT?20Zahlung Rechn\r\n" +
+		"ung RE-2026-0001?32Muster GmbH\r\n"
+	stmt, err := Parse([]byte(content))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(stmt.Entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(stmt.Entries))
+	}
+	if got := stmt.Entries[0].RemittanceInfo; got != "Zahlung Rechnung RE-2026-0001" {
+		t.Fatalf("remittance = %q, want the wrapped line joined mid-token", got)
+	}
+	if got := stmt.Entries[0].CounterpartyName; got != "Muster GmbH" {
+		t.Fatalf("counterparty = %q", got)
+	}
+}
+
+func TestParseMT940RejectsUnparseableBookingDateWithoutFailingTheEntry(t *testing.T) {
+	// MMDD carries no year and no calendar validation of its own; a value that is
+	// not a real date (Feb 31) must not fail the whole import \u2014 it silently
+	// leaves BookingDate unset rather than guessing.
+	content := ":20:BADBOOK\r\n:60F:C260101EUR0,00\r\n:61:2601160231CR10,00NTRFNONREF\r\n"
+	stmt, err := Parse([]byte(content))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(stmt.Entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(stmt.Entries))
+	}
+	if stmt.Entries[0].BookingDate != nil {
+		t.Fatalf("booking date = %v, want nil for an unparseable MMDD", stmt.Entries[0].BookingDate)
+	}
+	if !stmt.Entries[0].ValueDate.Equal(time.Date(2026, 1, 16, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("value date = %v, must still parse independently of the bad booking date", stmt.Entries[0].ValueDate)
+	}
+}
+
+func TestParseRejectsTooManyEntries(t *testing.T) {
+	var b strings.Builder
+	b.WriteString(":20:BULK\r\n:60F:C260101EUR0,00\r\n")
+	for range maxEntriesPerStatement + 1 {
+		b.WriteString(":61:260101CR1,00NTRFNONREF\r\n")
+	}
+	if _, err := Parse([]byte(b.String())); !errors.Is(err, ErrTooManyEntries) {
+		t.Fatalf("err = %v, want ErrTooManyEntries", err)
+	}
+}
+
+const camtMultiRemittanceSample = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr><MsgId>MSG-2</MsgId><CreDtTm>2026-02-01T06:00:00</CreDtTm></GrpHdr>
+    <Stmt>
+      <Id>STMT-2026-02</Id>
+      <Acct><Id><IBAN>DE02120300000000202051</IBAN></Id><Ccy>EUR</Ccy></Acct>
+      <Ntry>
+        <NtryRef>ENTRY-1</NtryRef>
+        <Amt Ccy="EUR">250.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <ValDt><Dt>2026-01-15</Dt></ValDt>
+        <NtryDtls><TxDtls>
+          <RltdPties><Dbtr><Nm>Muster GmbH</Nm></Dbtr></RltdPties>
+          <RmtInf><Ustrd>Sammelzahlung RE-1</Ustrd><Ustrd>und RE-2</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>ENTRY-2</NtryRef>
+        <Amt Ccy="EUR">30.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-01-20</Dt></BookgDt>
+        <NtryDtls><TxDtls>
+          <RltdPties><Dbtr><Nm>Ohne Valuta</Nm></Dbtr></RltdPties>
+        </TxDtls></NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>`
+
+func TestParseCAMT053JoinsMultipleUnstructuredRemittanceLines(t *testing.T) {
+	stmt, err := Parse([]byte(camtMultiRemittanceSample))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if got := stmt.Entries[0].RemittanceInfo; got != "Sammelzahlung RE-1 und RE-2" {
+		t.Fatalf("remittance = %q, want both Ustrd lines joined with a space", got)
+	}
+}
+
+func TestParseCAMT053FallsBackToBookingDateWhenValueDateMissing(t *testing.T) {
+	// Some banks omit ValDt on fee-style entries; reconciliation still needs a
+	// date to work with, so BookgDt stands in rather than failing the entry.
+	stmt, err := Parse([]byte(camtMultiRemittanceSample))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	entry := stmt.Entries[1]
+	want := time.Date(2026, 1, 20, 0, 0, 0, 0, time.UTC)
+	if !entry.ValueDate.Equal(want) {
+		t.Fatalf("value date = %v, want the booking date as fallback %v", entry.ValueDate, want)
+	}
+	if entry.BookingDate == nil || !entry.BookingDate.Equal(want) {
+		t.Fatalf("booking date = %v, want %v", entry.BookingDate, want)
+	}
+}
+
+func TestParseCAMT053RejectsEntryWithoutAnyUsableDate(t *testing.T) {
+	sample := strings.Replace(camtMultiRemittanceSample,
+		"<BookgDt><Dt>2026-01-20</Dt></BookgDt>", "", 1)
+	if _, err := Parse([]byte(sample)); !errors.Is(err, ErrMalformed) {
+		t.Fatalf("err = %v, want ErrMalformed for an entry with neither ValDt nor BookgDt", err)
+	}
+}
+
+func TestParseCAMT053RejectsEntryWithEmptyAmount(t *testing.T) {
+	sample := strings.Replace(camtMultiRemittanceSample,
+		`<Amt Ccy="EUR">250.00</Amt>`, `<Amt Ccy="EUR"></Amt>`, 1)
+	if _, err := Parse([]byte(sample)); !errors.Is(err, ErrMalformed) {
+		t.Fatalf("err = %v, want ErrMalformed for an entry without an amount", err)
+	}
+}

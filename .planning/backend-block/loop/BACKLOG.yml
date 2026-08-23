@@ -1554,7 +1554,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/banking 77,0 % (CI-Stand 32570176303)"
     scope: >
       `mt940.go` (295 Zeilen), `camt053.go` (279) und `parse.go` (133) lesen Kontoauszüge
