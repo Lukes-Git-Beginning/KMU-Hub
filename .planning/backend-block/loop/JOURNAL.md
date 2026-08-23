@@ -4515,7 +4515,7 @@ Frühere Läufe liegen vollständig im Archiv:
     kuenftige Wiedereinfuehrung nicht denselben unklaren Zustand reproduziert.
 
 ## Iteration 69 — fix-payment-stats-outstanding-ignores-recorded-payments — done — 2026-08-23 07:47
-- commit: <PENDING>
+- commit: 3ee7705d
 - gebaut: `AggregatePaymentStats` (`postgres_repository.go:528-561`) joint jetzt gegen
   `finance_payments` wie `postgres_open_items.go`s `openItemsBase`. `total_outstanding_amount`
   summiert `gross_total - COALESCE(paid, 0)` statt des vollen Brutto — eine Teilzahlung senkt
