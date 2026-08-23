@@ -3353,3 +3353,70 @@ Frühere Läufe liegen vollständig im Archiv:
   falls ja, ist ein Per-Tenant-Lock in `GetAccessToken` die naheliegende
   Fix-Richtung (siehe Mutations-Probe oben als Skizze). Die -race-Bestaetigung
   des Rennens selbst bleibt CI vorbehalten (kein gcc lokal).
+
+## Iteration 52 — cov-einvoice-parser-foreign-format-inbound — done — 2026-08-23 05:38
+- commit: <wird nach dem Commit ergaenzt>
+- gebaut: Neue Testdatei `parser_inbound_hardening_test.go` (11 Tests) plus
+  eine Produktionscode-Ergaenzung in `parser.go`: `assertInboundTotalsConsistent`
+  (aufgerufen am Ende von `ParseCII` und `ParseUBL`) lehnt ein Fremddokument
+  ab, dessen eigene deklarierte Zahlen nicht zusammenpassen — Summe der
+  Positionszeilen vs. deklariertem Zwischensumme-Header, und Zwischensumme
+  plus Steuer vs. deklariertem Bruttobetrag. Toleranz ist die bereits
+  bestehende `totalsTolerance(lineCount)` aus `generator_doc.go` (halber Cent
+  je Zeile), damit ein vom eigenen Ausgangspfad erzeugtes Dokument garantiert
+  roundtrip-faehig bleibt. Vor dieser Aenderung wurden Subtotal/Tax/Gross aus
+  dem Fremd-XML ungeprueft direkt in `Service.Import` persistiert
+  (`Status: IncomingInvoiceStatusReceived`) — ein manipuliertes oder defektes
+  Dokument haette unbemerkt eine falsche Buchung erzeugt (der im Scope
+  beschriebene Fund, jetzt behoben).
+  Sicherheitsfaelle geprueft und mit Test belegt: XXE (externe Entity via
+  SYSTEM-DOCTYPE) und Billion-Laughs (verschachtelte Custom-Entities) werden
+  von Gos `encoding/xml` beide bereits ohne jede Aenderung abgewiesen
+  ("invalid character entity", kein Entity-Map gesetzt) — verifiziert per
+  Scratch-Test vor dem Schreiben der Assertions, nicht geglaubt. Tiefe
+  Verschachtelung (50k Ebenen in einem vom CII-Struct nicht gemappten,
+  uebersprungenen Element) und ein grosses Dokument (3.000 Positionszeilen)
+  laufen beide gebunden durch (Timeout-Wrapper 10s/5s als Absicherung gegen
+  einen haengenden Parser, tatsaechliche Laufzeit < 100ms). Unbekannte
+  Waehrung und unbekannte USt-Kategorie-ID sind bewusst NICHT abgewiesen
+  (nur der numerische Satz wird beim UBL-Import ueberhaupt gelesen) — als
+  `lean:`-Marker mit Upgrade-Trigger in der neuen Testdatei dokumentiert,
+  nicht als Fix verkauft (Begruendung: Fremdwaehrung ist keine Sache, die
+  der Parser beim Einlesen ablehnen darf, und Eingangsrechnungen werden vor
+  dem Verbuchen manuell geprueft).
+- gate: build ok (`-p 2`, internal/biz/einvoice) | vet ok | lint ok
+  (golangci-lint, 0 issues) | test ok (`go test -count=1 -v`, 75 PASS,
+  0 SKIP, 0 FAIL) | migration n.a. (keine Tabelle/Policy angefasst) |
+  rls-smoke n.a. | OpenAPI-Drift n.a. (kein Route-/Handler-Code, `go test
+  ./internal/gateway/` daher nicht Pflicht in dieser Unit)
+- coverage: internal/biz/einvoice 82,5 % -> 85,9 % (eigene Messung vor/nach
+  per `git stash`/`go test -coverprofile` und `go tool cover -func`,
+  DATABASE_URL gegen kmuhub_app). `coverage_start:` in der Unit nennt 81,9 %
+  (CI-Stand vor A5–A8); das Paket hat seither mehrfach Code bekommen, daher
+  gilt die eigene 82,5-%-Vorher-Messung, nicht der Backlog-Wert.
+- mutations-probe: `tolerance` in `assertInboundTotalsConsistent` testweise
+  auf `decimal.New(999999, 0)` gesetzt (macht die Pruefung wirkungslos) ->
+  alle vier neuen `TotalsMismatch`-Tests (CII x2, UBL x2) werden rot
+  ("An error is expected but got nil"), zurueckgedreht,
+  `git diff --stat backend/internal/biz/einvoice/parser.go` zeigt wieder
+  exakt 38 Zeilen Zusatz (nur die beabsichtigte Aenderung, keine Reste).
+- verify vorgaenger: sauber. `9a48cc01` (Iteration 51,
+  cov-datev-uploader-oauth-token-refresh) geprueft: `git show --stat` zeigt
+  ausschliesslich zwei neue/erweiterte Testdateien plus BACKLOG.yml/
+  JOURNAL.md — kein neuer Handler, kein direkter Service-Aufruf im Gateway,
+  kein Stub/TODO, kein `.proto`-Change, keine Migration, kein neuer/ersetzter
+  RequirePermission-Guard, keine neue Tabelle, keine neue Route, kein
+  Wire-Shape-Wechsel, kein hart ersetzter Guard; keine der acht
+  Fehlerklassen einschlaegig.
+- neue-units: keine. Der einzige echte Fund (Summenpruefung fehlte) ist in
+  dieser Unit selbst behoben, nicht nur dokumentiert — das war nach
+  Scope/Notes/done_when explizit gefordert ("Ein Dokument, dessen Summen
+  nicht aufgehen, darf NICHT stillschweigend importiert werden"), anders als
+  bei reinen Coverage-Units sonst ueblich.
+- offen: Die Waehrungs-/Kategorie-Whitelist aus A5
+  (feat-einvoice-codelist-validation) deckt nur den OUTBOUND-Generator ab;
+  ob Eingangsrechnungen ebenfalls gegen sie laufen sollen, ist eine
+  Produktentscheidung (Upgrade-Trigger steht als Kommentar in der neuen
+  Testdatei). `pdf_extract.go` selbst ist unveraendert und hatte bereits
+  volle Testabdeckung vor dieser Unit (`pdf_extract_test.go`) — kein neuer
+  Test dort noetig, im Scope aber mitgelesen.
