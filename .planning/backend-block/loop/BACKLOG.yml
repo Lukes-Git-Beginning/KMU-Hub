@@ -6305,7 +6305,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Rest von `fix-idempotency-409-rollout-non-finance-routes-11`. Iteration 117 hat die
@@ -6469,3 +6469,91 @@ units:
         einem vollstaendig in eine Datei umgeleiteten Testlauf, nicht aus der Tool-Preview)
       - "swagger-cli validate gruen"
       - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
+
+  - id: fix-idempotency-409-rollout-non-finance-routes-13
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Rest von `fix-idempotency-409-rollout-non-finance-routes-12`. Iteration 119 hat die
+      Registrar-Gruppe **File** geschlossen: `internal/gateway/route_files.go` registriert
+      genau zwei Routen (`POST /api/v1/files/presign-upload`, `GET
+      /api/v1/files/presign-download`) - nur die POST ist mutierend. Sie hatte weder `409`
+      noch `503` dokumentiert; `409` additiv nach `403` eingefuegt (Einzeiler-Stil des
+      umgebenden Abschnitts). Die Vorbereitungsnotiz "GlobalSearch/File (0 - vermutlich
+      uebersprungen werden koennen)" war fuer File FALSCH: die Gruppe hatte 1 mutierende
+      Operation, nicht 0 - verifizieren statt der Notiz vertrauen war hier noetig.
+      **GlobalSearch** dagegen ist bestaetigt leer: `route_search_global.go` registriert nur
+      `GET /api/v1/search/global` (`RequirePermission("search","read")`), keine
+      POST/PUT/PATCH/DELETE - Gruppe kann ohne weitere Pruefung uebersprungen werden.
+      Fertig sind bisher: Finance, Wiki, Formulare, Notification, Chat, Dashboard, Settings,
+      Vertraege, Automation, Schichten, Vermietung, Berichte, File. Erledigt/leer (kein 409
+      noetig): Booking, GlobalSearch.
+      Noch offen sind die uebrigen Registrar-Gruppen aus `cmd/gateway/main.go`
+      (`registrars`-Liste, Zeilen ~276-325): Auth, CRM, Work, Calendar, Video, Security,
+      Email, Document, Biz (non-finance), Bexio, DATEV-Upload, Lexware, Integration, HR,
+      Inbox, Dialer, Helpdesk, Inventar, Einkauf, Produktion,
+      Rapporte, Fuhrpark.
+      Auswahl-Hinweise unveraendert: `Customization` ist gesperrt (FE-Vertrag im Wechsel) und
+      erst nach allen anderen Gruppen anfassen oder explizit auslassen; `Bexio` ist produktiv
+      aus (G3) - die reine Route-Doku ist harmlos, trotzdem eine ungesperrte Gruppe bevorzugen.
+      `Auth` braucht besondere Sorgfalt: `/auth/login`, `/auth/refresh` und `/auth/2fa` stehen
+      als Teilstring in der `idempotencyWhitelist` (`idempotency.go:36`) und laufen NICHT durch
+      die Middleware - die duerfen kein In-Flight-409 dokumentiert bekommen.
+      `FeatureFlag` (nur `GET /api/v1/feature-flags`) und `Health` (nur `GET /health`) haben
+      KEINE mutierenden Routen und sind ebenfalls uebersprungen, nicht mehr in der Restliste.
+      Kleinere, schnell abzuarbeitende Kandidaten (Zahlen ungeprueft, vor Bearbeitung
+      verifizieren statt raten - siehe die File-Lehre oben): Dialer, HR, Inbox.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/cmd/gateway/main.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/gateway/openapi_drift_test.go
+    notes: >
+      GLEICHE MECHANIK, NICHT NEU ERFINDEN - Vorlage `git show f6d4a3ad` (Finance, enthaelt
+      auch den Merge-Fall), die Settings-Iteration (Iteration 104, kleinster Merge-Fall bisher
+      als Referenz), die Vertraege-Iteration (Iteration 107), die Automation-Iteration
+      (Iteration 110), die Schichten-Iteration (Iteration 114), die Vermietung-Iteration
+      (Iteration 115), die Berichte-Iteration (Iteration 117) und die File-Iteration
+      (Iteration 119, kleinste Gruppe bisher: genau 1 Operation).
+      Pro Operation der gewaehlten Gruppe (nur POST/PUT/PATCH/DELETE, GET nie; die
+      Middleware filtert nach HTTP-Methode, nicht nach RequirePermission-Semantik) pruefen, ob
+      schon ein `409:` existiert. Fehlt es: eine Zeile
+      `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` (oder Multi-Line-Form,
+      je nach lokalem Stil) in den `responses:`-Block einfuegen - NUMERISCH SORTIERT, also vor
+      einem eventuellen `422`/`503`, nicht stumpf ans Blockende.
+      Existiert schon ein 409 aus Geschaeftsgruenden (egal ob Inline-Description oder $ref
+      auf eine generische Komponente wie `Conflict`): NICHT ueberschreiben, sondern auf eine
+      Inline-`description: >-` umstellen, den urspruenglichen Konfliktgrund konkret benennen
+      (Handler/Service pruefen, nicht raten), den Idempotenz-Satz anhaengen und einen
+      `headers.Retry-After` ergaenzen mit dem Vermerk, dass er fuer den urspruenglichen
+      Konfliktfall nicht gesetzt ist.
+      Operationen einer Gruppe finden: im passenden `route_*.go` nach `.Post(`/`.Put(`/
+      `.Patch(`/`.Delete(` greppen (Registrierung laeuft ueber `r.With(guard).Post(...)`, ein
+      reiner `r\.Post\(`-Grep uebersieht die meisten Treffer), dann die vollen
+      `/api/v1/...`-Pfade aus dem `RegisterRoutes`-Block zusammensetzen und im YAML suchen.
+      Ausschlussliste (nicht durch die Middleware geschuetzt) unveraendert: `/api/v1/public/*`,
+      `/api/v1/guest/*`, `/api/v1/caldav/*`, `/api/v1/admin/caldav/*`, WOPI/CalDAV/CardDAV-
+      Protokollrouten, `/reset-password`, sowie Pfade mit `/auth/login`, `/auth/refresh`,
+      `/auth/2fa` als Teilstring.
+      Mutations-Probe (Vorlage Iteration 107/110/114/115/117/119): einen frisch eingefuegten
+      `IdempotencyInFlight`-$ref testweise auf einen nicht existierenden Komponentennamen
+      verbiegen (z.B. `IdempotencyInFlightXXX`) - `swagger-cli validate` muss dann mit "Token
+      ... does not exist" rot werden, danach die Datei aus der Sicherungskopie zuruecksetzen
+      und `git diff --stat` gegenpruefen (nur die erwarteten Zeilen).
+      NICHT den ganzen Rest in einem Commit - je Registrar-Gruppe schneiden (oder wenige kleine
+      benachbarte zusammen) und jede Iteration eine neue Teil-Unit mit aktualisierter Restliste
+      ans Backlog-Ende haengen, bis die Liste leer ist.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe aus der obigen Liste ist vollstaendig auf 409
+        umgestellt, mit demselben Beleg wie die bisherigen Teil-Units
+      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben
+      - Whitelist-Routen aus idempotency.go haben KEIN In-Flight-409 bekommen
+      - Was noch offen bleibt, steht als neue Teil-Unit mit aktualisierter Liste am Backlog-Ende
+      - "swagger-cli validate gruen, und ein Gegenbeweis ist gefahren: ein neuer
+        IdempotencyInFlight-$ref wird testweise verbogen (nicht existierender
+        Komponentenname), swagger-cli wird rot, Aenderung zurueckgedreht"
+      - go test -count=1 ./internal/gateway/ gruen

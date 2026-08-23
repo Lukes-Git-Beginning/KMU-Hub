@@ -7137,3 +7137,46 @@ Frühere Läufe liegen vollständig im Archiv:
   (`doc-status-code-systemic-400-503-sweep-10`) ist isoliert mit `yaml.safe_load`
   gegengeprueft und parst sauber; ein separater Fix-Durchgang fuer die Gesamtdatei bleibt
   offen fuer Luke.
+
+## Iteration 119 — fix-idempotency-409-rollout-non-finance-routes-12 — done — 2026-08-23 13:39
+- commit: 7cdb5d26
+- gebaut: Registrar-Gruppe **File** vollstaendig auf 409 umgestellt. `route_files.go`
+  registriert genau zwei Routen (`POST /api/v1/files/presign-upload`,
+  `GET /api/v1/files/presign-download`) - nur die POST ist mutierend und hatte weder `409`
+  noch `403`+`409`-Kombination dokumentiert. `"409": { $ref:
+  "#/components/responses/IdempotencyInFlight" }` additiv nach dem vorhandenen `403`
+  eingefuegt (bestehender Einzeiler-Stil des Abschnitts uebernommen). Zusaetzlich
+  **GlobalSearch** geprueft und verifiziert leer: `route_search_global.go` registriert nur
+  `GET /api/v1/search/global`, keine mutierende Operation - Gruppe kann ohne weitere Arbeit
+  als erledigt gelten. Die Vorbereitungsnotiz "GlobalSearch/File (0 - vermutlich
+  uebersprungen werden koennen)" war fuer File falsch (1 Operation, nicht 0) - Beleg dafuer,
+  dass Verifizieren statt Vertrauen auf die Notiz hier den Unterschied gemacht hat. Einzige
+  geaenderte Datei: `backend/api/openapi.yaml` (1 neue Zeile).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, 0 SKIP, 0 FAIL, mit gesetztem `DATABASE_URL`) | swagger-cli validate gruen |
+  migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: frisch eingefuegten `IdempotencyInFlight`-$ref bei
+  `POST /api/v1/files/presign-upload` testweise auf `IdempotencyInFlightXXX` (nicht
+  existierender Komponentenname) verbogen - `swagger-cli validate` meldete sofort
+  `Token "IdempotencyInFlightXXX" does not exist.` (Exit 1, rot wie erwartet). Datei danach
+  aus Sicherungskopie (`/tmp/openapi_backup_119_good.yaml`) zurueckgesetzt, `git diff --stat`
+  zeigt danach nur die eine erwartete Zeile, `swagger-cli validate` und
+  `go test -count=1 ./internal/gateway/...` erneut gruen bestaetigt.
+- verify vorgaenger: sauber. `b8bcfe67` (Iteration 118) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (10 neue Zeilen, invitations-Registrar-Gruppe, 400/503 additiv nach den
+  jeweils letzten vorhandenen Codes, Inhalt gegen die Journal-Beschreibung gegengeprueft);
+  reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`, Tabelle oder
+  Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen.
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-13` (Restliste aktualisiert,
+  File als erledigt markiert, GlobalSearch als verifiziert-leer aus der Restliste entfernt,
+  FeatureFlag/Health als mutationsfrei bestaetigt und ebenfalls aus der Restliste entfernt).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt. Randnotiz: `.planning/backend-block/loop/BACKLOG.yml`
+  hat weiterhin den VORBESTEHENDEN YAML-Parse-Fehler bei Zeile ~2893 (unabhaengig von dieser
+  Iteration, seit Iteration 114 im Journal vermerkt) - mein neuer Abschnitt
+  (`fix-idempotency-409-rollout-non-finance-routes-13`) ist isoliert mit `yaml.safe_load`
+  gegengeprueft und parst sauber; ein separater Fix-Durchgang fuer die Gesamtdatei bleibt
+  offen fuer Luke.
