@@ -4348,3 +4348,55 @@ Frühere Läufe liegen vollständig im Archiv:
     `LineTotal`/`Subtotal` in der JSONB-Spalte. Der Export bleibt dank der beibehaltenen
     skalierenden Toleranz moeglich; ein Backfill waere eine Aenderung gebuchter Betraege und
     ist bewusst nicht passiert.
+
+## Iteration 66 — fix-idempotency-409-rollout-remaining-routes — done — 2026-08-23 07:25
+- commit: (folgt)
+- gebaut: Erste Teil-Unit des 739-Operationen-Rollouts (Iteration 15 legte den Vertrag +
+  sechs Beispielrouten an, diese Unit deckt jetzt die komplette Registrar-Gruppe
+  `finance` (`BizRoutes`) ab, statt weiter alles in einem `done_when` zu buendeln — die
+  Unit selbst hatte gefordert, je Registrar-Gruppe zu schneiden).
+  In `backend/api/openapi.yaml`, Zeilen 8710-10893 (44 mutierende POST/PUT/PATCH/DELETE-
+  Operationen unter `/api/v1/finance/*`): 27 Operationen ohne jedes 409 haben jetzt
+  `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` ans Ende ihres
+  `responses:`-Blocks angehaengt bekommen. 15 Operationen mit einem BESTEHENDEN 409 fuer
+  einen anderen Grund (Geschaeftszustandskonflikt, z. B. "Quote is not in draft status")
+  wurden NICHT ueberschrieben, sondern zusammengefuehrt: die Beschreibung traegt jetzt
+  beide Bedeutungen in einem Satzpaar, und ein `headers.Retry-After` wurde ergaenzt mit
+  dem Hinweis, dass er fuer den Konfliktfall oben nicht gesetzt ist. Zwei Operationen
+  (POST /finance/invoices, POST /finance/invoices/{id}/payments) trugen den korrekten
+  $ref bereits aus Iteration 15 und blieben unangetastet.
+  Werkzeug: ein Python-Skript mit reinem Zeilen-/Indentations-Scan (kein YAML-Parse-und-
+  Reserialize — zerstoert Formatierung auf der 47k-Zeilen-Datei), Edits von unten nach
+  oben ausgefuehrt, damit Zeilennummern beim Einfuegen stabil bleiben.
+  `fix-idempotency-409-rollout-remaining-routes` in BACKLOG.yml ist umgeschrieben auf den
+  tatsaechlich gelieferten Scope (Finance) und auf `done` gesetzt; die Folge-Unit
+  `fix-idempotency-409-rollout-non-finance-routes` deckt die restlichen ~40
+  Registrar-Gruppen und steht am Backlog-Ende.
+- gate: build ok | vet ok | lint n.a. (kein Go-Code geaendert, nur openapi.yaml) | test ok
+  | migration n.a. (keine Tabelle/Migration angefasst) | rls-smoke n.a. (keine
+  Tabelle/Policy angefasst). `python3 -c "yaml.safe_load(...)"` parst die Datei fehlerfrei
+  (838 Pfade), `npx swagger-cli validate api/openapi.yaml` -> "api/openapi.yaml is valid",
+  `go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen,
+  `go test -count=1 ./internal/gateway/...` gruen (voller Paketlauf, 0 uebersprungen,
+  DATABASE_URL als kmuhub_app gesetzt). `git diff --stat` zeigt 43 Hunks, alle innerhalb
+  der Zeilen 8710-11025 (Finance-Block) — kein Fund ausserhalb des beabsichtigten Bereichs.
+- coverage: n.a. (Doku-Unit, keine Coverage-Ziel — spiegelt die eigene coverage_start-Zeile
+  der Unit)
+- mutations-probe: n.a. (kein Testverhalten, sondern eine OpenAPI-Spec-Erweiterung; das
+  Gate hierfuer ist `swagger-cli validate` + `TestOpenAPIRouteDrift`, keine Testlogik zum
+  Brechen)
+- verify vorgaenger: sauber. `be1dea4d` (Iteration 65, fix-write-path-line-total-unrounded-
+  everywhere) geprueft: `git show --stat` zeigt Aenderungen ausschliesslich in
+  `internal/biz/{creditnote,invoice,quote,recurring,tax,pdf,einvoice}` und
+  `internal/server/biz_grpc.go` (eine Zeile). Kein neuer Handler mit direktem Service-
+  Call statt gRPC-Client, keine neue Tabelle, kein `.proto` ohne Regen, kein
+  `RequirePermission` ohne Seed, keine neue Route, kein hart ersetzter Guard. Die neuen
+  `tax.LineTotal`-Aufrufe laufen alle innerhalb bestehender Service-Methoden, keine
+  Umgehung des gRPC-Layers.
+- neue-units: fix-idempotency-409-rollout-non-finance-routes (deckt die verbleibenden
+  ~40 Registrar-Gruppen, Backlog-Ende)
+- offen:
+  - Die Folge-Unit muss weiter in Teil-Units je Registrar-Gruppe (oder wenige kleine
+    zusammen) geschnitten werden — nicht in einem Commit, aus demselben Grund wie hier:
+    39 Registrar-Gruppen in einem Diff sind fuer eine Nachtlauf-Iteration nicht reviewbar.
+  - Kein DB-Bezug in dieser Unit, daher kein RLS-Smoke faellig.

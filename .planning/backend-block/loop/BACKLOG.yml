@@ -2812,56 +2812,42 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, keine Coverage-Ziel)"
     scope: >
       Fortsetzung von `fix-idempotency-inflight-409-not-in-openapi` (Iteration 15, Lauf 11).
-      Diese Unit hat die Idempotency-Middleware-Semantik (409 + Retry-After bei In-Flight-Retry,
-      400 bei fehlendem Key nur in HardMode) als globalen Vertrag in `info.description` von
-      `api/openapi.yaml` dokumentiert und exemplarisch auf sechs Finanz-/Dialer-/Schichten-
-      Buchungsrouten angewendet (POST /api/v1/finance/invoices, POST
-      /api/v1/finance/invoices/{id}/payments, POST /api/v1/dialer/calls/{id}/outcome, PUT
-      /api/v1/dialer/calls/{id}/notes, POST /api/v1/dialer/calls/{id}/complete, POST
-      /api/v1/schichten/swap-requests). Der volle Schutzbereich der Middleware umfasst aber
-      praktisch die gesamte authentifizierte API: 836 registrierte `/api/v1/*`-Routen, davon
-      laufen alle POST/PUT/PATCH/DELETE ausser den unten genannten Ausnahmen durch
-      `middleware.Idempotency`. Ein Grep auf mutierende Operationen in `api/openapi.yaml`
-      (`^\s+(post|put|patch|delete):\s*$`) zaehlte zum Zeitpunkt dieser Unit 739 Treffer — die
-      grosse Mehrheit davon traegt noch kein 409.
+      GESCHNITTEN AUF DIE ERSTE TEIL-UNIT (siehe notes): alle POST/PUT/PATCH/DELETE-Operationen
+      unter `/api/v1/finance/*` (BizRoutes-Registrar, Zeilen 8710-10893 in `api/openapi.yaml`,
+      44 mutierende Operationen) tragen jetzt ein 409 IdempotencyInFlight. Die restlichen
+      knapp 40 Registrar-Gruppen sind NICHT Teil dieser Unit — dafuer steht die Folge-Unit
+      `fix-idempotency-409-rollout-non-finance-routes` am Backlog-Ende.
     sources:
       - backend/api/openapi.yaml
       - backend/cmd/gateway/main.go
       - backend/internal/middleware/idempotency.go
       - backend/internal/gateway/openapi_drift_test.go
     notes: >
-      DIE AUSSCHLUSSLISTE IST BEREITS VERIFIZIERT, NICHT NEU HERLEITEN: geschuetzt sind exakt
-      die Routen, die in `cmd/gateway/main.go` ueber die `registrars`-Liste (Zeilen ~276-326)
-      plus `crmRoutes.RegisterAdvisoryRoutes` plus die Plugin-Routen (wenn `plugins.api` an ist)
-      mit `authWithIdempotency` registriert werden. NICHT geschuetzt: `/api/v1/public/*`,
-      `/api/v1/guest/*`, `/api/v1/caldav/*` und `/api/v1/admin/caldav/*` (registriert mit einer
-      eigenen, nackten `authMiddleware` in `route_caldav.go:146,161` — die einzige Route-Datei,
-      die den uebergebenen Middleware-Parameter komplett ignoriert), WOPI/CalDAV/CardDAV-
-      Protokollrouten, `/reset-password`, und die Pfade, die `/auth/login`, `/auth/refresh`
-      bzw. `/auth/2fa` als Teilstring enthalten (siehe `idempotencyWhitelist` in
-      `idempotency.go:36`, `strings.Contains`-Match, nicht Praefix-Match).
-      MECHANISCH, ABER RISIKOBEHAFTET: die Aenderung selbst ist fuer jede betroffene Operation
-      identisch (ein `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` in den
-      `responses:`-Block einfuegen), ein Python-Skript mit reinem Zeilen-/Regex-Scan ist daher
-      sinnvoll — KEIN vollstaendiges YAML-Parse-und-Reserialize (PyYAML ist installiert, aber
-      ein Round-Trip zerstoert Formatierung/Kommentare/Quoting-Stil ueber die ganze 47k-Zeilen-
-      Datei und macht den Diff unlesbar). Etwa 20 Operationen tragen bereits ein `"409":` fuer
-      einen ANDEREN Grund (z. B. Konflikt bei Duplikat) — dort nicht blind ueberschreiben,
-      sondern pruefen, ob eine gemeinsame Beschreibung oder zwei Saetze im bestehenden Feld
-      noetig sind. Nach dem Lauf: Zeilenzahl-Sanity (nur `responses:`-Bloecke sollen wachsen,
-      kein bestehender Inhalt verschwindet) plus `git diff` stichprobenartig lesen, nicht nur
-      `swagger-cli validate` vertrauen.
-      In sinnvolle Teil-Units aufteilen (z. B. je Registrar-Gruppe, aehnliche Koernung wie die
-      bestehenden `cov-gateway-*`-Units), statt alles in einem Commit — 739 Operationen in einem
-      Diff sind fuer eine Nachtlauf-Iteration nicht reviewbar.
+      ENTSCHEIDUNG DIESER ITERATION: die urspruengliche Unit deckte alle 739 mutierenden
+      Operationen der gesamten API in einem `done_when` ab, wies aber selbst darauf hin, dass
+      739 Operationen in einem Diff nicht reviewbar sind, und forderte den Schnitt in
+      Teil-Units je Registrar-Gruppe. Diese Iteration setzt genau das um und liefert die erste
+      Teil-Unit (finance/BizRoutes, 27 Operationen ganz ohne 409, 15 mit einem bestehenden
+      409 fuer einen anderen Grund — Geschaeftszustandskonflikt statt In-Flight-Duplikat).
+      Bei den 15 Merge-Faellen wurde NICHT ueberschrieben: die Beschreibung traegt jetzt beide
+      Bedeutungen in einem Feld ("<urspruenglicher Grund>. Also returned when a request
+      carrying the same Idempotency-Key is still in flight..."), und ein `headers.Retry-After`
+      wurde ergaenzt mit dem Hinweis, dass er fuer den Konfliktfall oben nicht gesetzt ist.
+      Zwei Operationen (POST /finance/invoices, POST /finance/invoices/{id}/payments) hatten
+      bereits den korrekten $ref aus Iteration 15 und wurden nicht angefasst.
+      Mechanik: ein Python-Skript mit Zeilen-/Indentations-Scan (kein YAML-Reserialize), von
+      unten nach oben editiert, damit Zeilennummern stabil bleiben. `swagger-cli validate` und
+      `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` sind gruen, `git diff --stat`
+      zeigt ausschliesslich Zeilen 8710-11025 (der Finance-Block).
     done_when:
-      - Alle POST/PUT/PATCH/DELETE-Operationen unter den oben verifiziert-geschuetzten Pfaden
-        tragen ein 409 IdempotencyInFlight (oder eine begruendete Ausnahme)
-      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben
+      - Alle POST/PUT/PATCH/DELETE-Operationen unter /api/v1/finance/* tragen ein 409
+        IdempotencyInFlight (oder eine begruendete, dokumentierte Ausnahme)
+      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben,
+        sondern in einer gemeinsamen Beschreibung zusammengefuehrt
       - swagger-cli validate gruen
       - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen
 
@@ -3990,3 +3976,59 @@ units:
         PollPayments über den Scheduler-Pfad
       - go test -count=1 ./internal/biz/bexio/ grün
       - Falls in Lauf 11 gezogen: sofort blocked mit obigem Grund, kein Bauversuch
+
+# ==========================================================================================
+# Aus Iteration 66 (fix-idempotency-409-rollout-remaining-routes, Lauf 11) nachgelegt: die
+# Finance-Teil-Unit ist fertig, die uebrigen Registrar-Gruppen fehlen noch.
+# ==========================================================================================
+
+  - id: fix-idempotency-409-rollout-non-finance-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, keine Coverage-Ziel)"
+    scope: >
+      Rest von `fix-idempotency-409-rollout-remaining-routes` (Iteration 66, Lauf 11): dort ist
+      /api/v1/finance/* fertig (44 Operationen), sechs weitere Routen tragen das 409 bereits aus
+      Iteration 15 (zwei Dialer-, eine Schichten-Route). Alle uebrigen knapp 40 Registrar-Gruppen
+      aus `cmd/gateway/main.go` (`registrars`-Liste, siehe dortige Zeilen ~276-326) sind noch
+      offen — CRM, Chat, Notification, Work, Calendar, Video, Security, Email, Document, Biz
+      (non-finance), Bexio, DATEV-Upload, Lexware, Integration, HR, Inbox, Automation, Dialer
+      (Rest), Wiki, Helpdesk, Berichte, Formulare, Inventar, Einkauf, Produktion, Vertraege,
+      Rapporte, Schichten (Rest), Vermietung, Fuhrpark, File, GlobalSearch, Dashboard,
+      FeatureFlag, Health, Booking, Settings, Customization.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/cmd/gateway/main.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/gateway/openapi_drift_test.go
+    notes: >
+      GLEICHE MECHANIK WIE DIE FINANCE-TEIL-UNIT, NICHT NEU ERFINDEN: pro betroffener Operation
+      pruefen, ob bereits ein `"409":` existiert. Existiert keins: eine Zeile
+      `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` ans Ende des
+      `responses:`-Blocks anhaengen. Existiert eins fuer einen anderen Grund (Geschaeftszustand):
+      NICHT ueberschreiben, sondern die Beschreibung um einen zweiten Satz zur In-Flight-
+      Bedeutung erweitern und einen `headers.Retry-After` ergaenzen, der vermerkt, dass er fuer
+      den urspruenglichen Konfliktfall nicht gesetzt ist (Vorlage: der Finance-Diff dieser
+      Vorgaenger-Unit, `git log -p` auf `fix-idempotency-409-rollout-remaining-routes`).
+      NICHT den ganzen Rest in einem Commit — wieder je Registrar-Gruppe schneiden (oder wenige
+      benachbarte kleine Gruppen zusammen), jede Iteration eine neue Teil-Unit ans Backlog-Ende
+      haengen fuer das, was noch offen bleibt, bis die Liste oben leer ist. Ausschlussliste
+      (nicht durch die Middleware geschuetzt) unveraendert: `/api/v1/public/*`, `/api/v1/guest/*`,
+      `/api/v1/caldav/*`, `/api/v1/admin/caldav/*` (eigene nackte `authMiddleware` in
+      `route_caldav.go:146,161`), WOPI/CalDAV/CardDAV-Protokollrouten, `/reset-password`, sowie
+      Pfade mit `/auth/login`, `/auth/refresh`, `/auth/2fa` als Teilstring
+      (`idempotencyWhitelist` in `idempotency.go:36`).
+      Python-Skript mit Zeilen-/Indentations-Scan, kein YAML-Reserialize (zerstoert Formatierung
+      auf der 47k-Zeilen-Datei). Von unten nach oben editieren. Nach jedem Lauf: `git diff --stat`
+      pruefen, dass nur der bearbeitete Pfad-Bereich waechst, `swagger-cli validate` UND
+      `go test ./internal/gateway/ -run TestOpenAPIRouteDrift`.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe aus der obigen Liste ist vollstaendig auf 409
+        umgestellt, mit demselben Beleg wie die Finance-Teil-Unit
+      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben
+      - Was noch offen bleibt, steht als neue Teil-Unit mit aktualisierter Liste am Backlog-Ende
+      - swagger-cli validate gruen
+      - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen

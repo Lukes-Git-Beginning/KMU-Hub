@@ -8742,6 +8742,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # Finance: Quotes
@@ -8768,6 +8769,7 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List quotes
       tags: [quotes]
@@ -8840,6 +8842,7 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a quote
       tags: [quotes]
@@ -8851,6 +8854,7 @@ paths:
           description: Quote deleted
         "404":
           $ref: "#/components/responses/NotFound"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/quotes/{id}/send:
     post:
@@ -8871,7 +8875,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Quote is not in draft status
+          description: >-
+            Quote is not in draft status. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -8895,7 +8906,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Quote is not in sent status
+          description: >-
+            Quote is not in sent status. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -8919,7 +8937,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Quote is not in sent status
+          description: >-
+            Quote is not in sent status. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -8963,7 +8988,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Quote must be accepted before conversion to invoice
+          description: >-
+            Quote must be accepted before conversion to invoice. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9084,6 +9116,7 @@ paths:
                 $ref: "#/components/schemas/Invoice"
         "410":
           description: Invoice is immutable (already sent)
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/send:
     post:
@@ -9099,6 +9132,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/mark-paid:
     post:
@@ -9114,6 +9148,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/cancel:
     post:
@@ -9129,6 +9164,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/pdf:
     get:
@@ -9162,7 +9198,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Invoice does not meet the e-invoice requirements
+          description: >-
+            Invoice does not meet the e-invoice requirements. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9217,7 +9260,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Invoice does not meet the e-invoice requirements
+          description: >-
+            Invoice does not meet the e-invoice requirements. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9320,6 +9370,7 @@ paths:
                     $ref: "#/components/schemas/RecurringInvoice"
         "400":
           description: Invalid interval, date range or empty line items
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}:
     get:
@@ -9366,6 +9417,7 @@ paths:
           description: Invalid interval or date range
         "404":
           description: Schedule not found
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a recurring invoice schedule
       tags: [recurring-invoices]
@@ -9381,6 +9433,7 @@ paths:
                 type: object
         "404":
           description: Schedule not found
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}/pause:
     post:
@@ -9401,6 +9454,7 @@ paths:
                     $ref: "#/components/schemas/RecurringInvoice"
         "404":
           description: Schedule not found
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}/resume:
     post:
@@ -9422,6 +9476,7 @@ paths:
                     $ref: "#/components/schemas/RecurringInvoice"
         "404":
           description: Schedule not found
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}/generate:
     post:
@@ -9449,6 +9504,7 @@ paths:
           description: Schedule not found
         "412":
           description: Schedule is paused, ended or past its end date
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/credit-notes:
     post:
@@ -9468,6 +9524,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditNote"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List credit notes
       tags: [credit-notes]
@@ -9523,6 +9580,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditNote"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/credit-notes/{id}/pdf:
     get:
@@ -9553,6 +9611,7 @@ paths:
       responses:
         "200":
           description: Payment deleted
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # Finance: Dunning
@@ -9652,6 +9711,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/bank-statements/{id}:
     get:
@@ -9817,6 +9877,13 @@ paths:
           description: >
             Already reconciled, or the entry is a debit — money leaving the
             account cannot settle a receivable.
+            Also returned when a request carrying the same
+            Idempotency-Key is still in flight; retry after the delay in
+            Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9871,6 +9938,13 @@ paths:
           description: >
             The entry is booked or was set aside — both are reversals, not
             rejections.
+            Also returned when a request carrying the same
+            Idempotency-Key is still in flight; retry after the delay in
+            Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9915,7 +9989,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: The transaction is already booked
+          description: >-
+            The transaction is already booked. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9995,7 +10076,14 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          description: The tenant already holds an account with this IBAN
+          description: >-
+            The tenant already holds an account with this IBAN. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10053,7 +10141,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Another account of the tenant already holds this IBAN
+          description: >-
+            Another account of the tenant already holds this IBAN. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10103,6 +10198,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/bank-accounts/{id}/connect:
     post:
@@ -10149,6 +10245,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/expenses:
     get:
@@ -10231,6 +10328,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/expenses/{id}:
     put:
@@ -10279,7 +10377,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: The expense was already decided and the edit reaches past account and receipt
+          description: >-
+            The expense was already decided and the edit reaches past account and receipt. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10318,7 +10423,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: The expense was already decided
+          description: >-
+            The expense was already decided. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10369,7 +10481,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Already decided, or the caller is the submitter
+          description: >-
+            Already decided, or the caller is the submitter. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10418,7 +10537,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Already decided, or the caller is the submitter
+          description: >-
+            Already decided, or the caller is the submitter. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10486,6 +10612,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/transactions:
     get:
@@ -10556,7 +10683,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: The entry names an approved expense, which cannot be withdrawn
+          description: >-
+            The entry names an approved expense, which cannot be withdrawn. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10746,6 +10880,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/send:
     post:
@@ -10761,6 +10896,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/escalate:
     post:
@@ -10786,6 +10922,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/pdf:
     get:
@@ -10832,6 +10969,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningConfig"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # Finance: Dashboard
@@ -10887,6 +11025,7 @@ paths:
               schema:
                 type: string
                 example: 'attachment; filename="EXTF_Buchungsstapel_20260101_20261231.csv"'
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # HR: Leave Management
