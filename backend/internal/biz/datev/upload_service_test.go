@@ -859,3 +859,62 @@ func TestListUploadLogs_ResolvesConfigIDThenListsLogs(t *testing.T) {
 		t.Fatalf("listConfigIDs = %v, want exactly [%s]", repo.listConfigIDs, configID)
 	}
 }
+
+// TestListUploadLogs_MarksOrphanedUploadingEntriesStale documents the fix for
+// an upload log stuck in "uploading" forever when the process that owned it
+// dies mid-transfer (Pod restart, OOM, panic) between CreateUploadLog and
+// completeUploadLog/failUploadLog -- there is no scheduler that reconciles
+// this state, so ListUploadLogs must flag it on every read instead.
+func TestListUploadLogs_MarksOrphanedUploadingEntriesStale(t *testing.T) {
+	configID := uuid.New()
+	now := time.Now().UTC()
+	repo := &uploadRepoStub{listResult: []models.DatevUploadLog{
+		{ConfigID: configID, Status: "uploading", StartedAt: now.Add(-15 * time.Minute)}, // orphaned
+		{ConfigID: configID, Status: "uploading", StartedAt: now.Add(-1 * time.Minute)},  // genuinely in flight
+		{ConfigID: configID, Status: "failed", StartedAt: now.Add(-15 * time.Minute)},    // already resolved
+		{ConfigID: configID, Status: "completed", StartedAt: now.Add(-15 * time.Minute)}, // already resolved
+	}}
+	svc := NewUploadService(nil, nil, nil, nil, repo, &configRepoStub{config: &IntegrationConfig{ID: configID}}, &OAuthManager{})
+
+	got, err := svc.ListUploadLogs(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ListUploadLogs: %v", err)
+	}
+	if len(got) != 4 {
+		t.Fatalf("logs = %+v, want 4", got)
+	}
+	if !got[0].IsStale {
+		t.Error("uploading entry older than the stale threshold must be flagged IsStale")
+	}
+	if got[1].IsStale {
+		t.Error("uploading entry younger than the stale threshold must not be flagged IsStale")
+	}
+	if got[2].IsStale || got[3].IsStale {
+		t.Error("a resolved (failed/completed) entry must never be flagged IsStale regardless of age")
+	}
+}
+
+func TestIsUploadLogStale(t *testing.T) {
+	now := time.Now().UTC()
+
+	tests := []struct {
+		name      string
+		status    string
+		startedAt time.Time
+		want      bool
+	}{
+		{"uploading, just started", "uploading", now, false},
+		{"uploading, just under the threshold", "uploading", now.Add(-datevUploadStaleThreshold + time.Second), false},
+		{"uploading, just over the threshold", "uploading", now.Add(-datevUploadStaleThreshold - time.Second), true},
+		{"failed, ancient", "failed", now.Add(-24 * time.Hour), false},
+		{"completed, ancient", "completed", now.Add(-24 * time.Hour), false},
+		{"pending, ancient", "pending", now.Add(-24 * time.Hour), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isUploadLogStale(tt.status, tt.startedAt, now); got != tt.want {
+				t.Errorf("isUploadLogStale(%q, %v) = %v, want %v", tt.status, tt.startedAt, got, tt.want)
+			}
+		})
+	}
+}

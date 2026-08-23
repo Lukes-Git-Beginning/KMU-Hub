@@ -3239,7 +3239,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (kein Coverage-Ziel, Verhaltensaenderung)"
     scope: >
       Gefunden in cov-datev-upload-service-error-paths (Lauf 11, Iteration 50). Sowohl

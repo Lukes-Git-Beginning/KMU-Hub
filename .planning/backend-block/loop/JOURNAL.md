@@ -4813,3 +4813,81 @@ Frühere Läufe liegen vollständig im Archiv:
   - `Service.Create` bleibt weiterhin ohne Audit-Eintrag (laut Kommentar "Not wired
     to an HTTP route" — kein produktiver Aufrufer, daher nicht mitgezogen). Sollte
     je ein Aufrufer dazukommen, braucht auch Create einen `logVendorAccessEvent`-Ruf.
+
+## Iteration 74 — fix-datev-upload-log-stuck-uploading-no-reconciliation — done — 2026-08-23 08:24
+- commit: <PENDING>
+- gebaut: Reine Leseschicht-Kennzeichnung, keine Migration, kein neuer Status,
+  kein Cron/Scheduler. `UploadService.ListUploadLogs` (`upload_service.go`)
+  berechnet nach jedem Read `IsStale` pro Zeile ueber die neue reine Funktion
+  `isUploadLogStale(status, startedAt, now)`: true nur fuer Status "uploading"
+  aelter als `datevUploadStaleThreshold` (10 Minuten). Der Schwellwert ist aus
+  der tatsaechlichen Retry-Konfiguration in `uploader.go` abgeleitet, nicht
+  geraten: `datevMaxRetries=3` (4 Versuche) * neu benannte Konstante
+  `datevUploadTimeout=60s` (vorher ein anonymes Literal im `http.Client`) +
+  Backoff 1s+2s+4s = 247s (~4,1 Min) Worst-Case fuer eine echte Uebertragung —
+  10 Minuten geben gut das Doppelte an Marge. Nichts wird zurueckgeschrieben,
+  ein echter laufender Auftrag wird also nie markiert.
+  `models.DatevUploadLog` traegt jetzt `IsStale bool` (explizit als "derived,
+  never persisted" kommentiert). Das Feld ist bis zum Frontend durchgezogen,
+  weil `ListUploadLogs` ueber eine echte gRPC-Response laeuft (kein Bypass):
+  `.proto` (`DatevUploadLogEntry.is_stale`, Feld 9) geaendert und mit
+  `protoc --go_out ... --go-grpc_out ...` (Makefile-Target `proto-biz`,
+  `make` selbst war im Bash-Tool nicht auffindbar, daher der Protoc-Aufruf
+  direkt) neu generiert, `datevUploadLogToProto`
+  (`internal/server/datev_upload_grpc.go`) setzt `IsStale: l.IsStale`,
+  `HandleListUploadLogs` (`internal/gateway/route_datev_upload.go`) mappt
+  `is_stale` in die bestehende Bare-Array-Response (Wire-Shape unveraendert
+  gelassen, nicht meine Baustelle), `backend/api/openapi.yaml` bekommt das
+  Feld im selben Commit unter `DatevUploadLogEntry`.
+  Neue Tests in `upload_service_test.go`: `TestIsUploadLogStale` (Tabelle,
+  Grenzwerte knapp unter/ueber der Schwelle, alle Nicht-"uploading"-Status
+  bleiben immer false) und
+  `TestListUploadLogs_MarksOrphanedUploadingEntriesStale` (vier Zeilen:
+  verwaist/uploading-frisch/failed-alt/completed-alt — nur die verwaiste
+  wird markiert).
+- gate: build ok (`go build -p 2` ueber datev/models/server/gateway/
+  cmd/gateway) | vet ok (datev/models/server/gateway) | lint ok (0 issues,
+  alle vier Pakete) | test ok (`go test -count=1` ./internal/biz/datev/...
+  komplett gruen inkl. `TestTenantIsolation_Datev_DB`, DATABASE_URL gegen
+  kmuhub_app, **0 SKIP**; ./internal/gateway/... und ./internal/server/...
+  komplett gruen) | migration n.a. (keine neue Tabelle/Spalte, IsStale wird
+  nie persistiert) | rls-smoke n.a. (kein Schema-/Policy-Eingriff) |
+  openapi: `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen
+  (836 Routen gegen 838 Pfade), zusaetzlich `npx swagger-cli validate
+  backend/api/openapi.yaml` -> "is valid" | proto-regen: `datev_upload.pb.go`
+  neu generiert, Diff zeigt ausschliesslich das neue `IsStale`-Feld plus den
+  passenden Rawdesc-Bytes-Block, `biz.pb.go`/`biz_grpc.pb.go` liefen beim
+  selben Aufruf mit durch (Makefile-Target buendelt alle vier .proto-Dateien),
+  hatten aber laut `git diff --numstat` **keinen** inhaltlichen Unterschied
+  (nur ein CRLF-Normalisierungs-Fehlalarm in `git status`, nach `stash`/`pop`
+  bereits wieder verschwunden) — nicht mitcommittet, weil nichts zu committen
+  war.
+- coverage: `internal/biz/datev` 80,7 % -> 80,8 % (eigene Messung per
+  `git stash`/`stash pop`, `-coverprofile` vor/nach). `coverage_start` der
+  Unit war "n.a., Verhaltensaenderung" — die Zahl ist hier nur Beleg, kein
+  Ziel.
+- mutations-probe: Die `IsStale`-Zuweisungsschleife in `ListUploadLogs`
+  testweise entfernt -> exakt `TestListUploadLogs_MarksOrphanedUploadingEntriesStale`
+  wurde rot ("uploading entry older than the stale threshold must be flagged
+  IsStale"), alle anderen Tests im Paket blieben gruen. Danach
+  zurueckgedreht, `git diff upload_service.go` zeigt wieder nur den
+  beabsichtigten Diff, `go test ./internal/biz/datev/...` erneut komplett
+  gruen.
+- verify vorgaenger: sauber. `0c217b5e` (Iteration 73) geprueft: kein
+  Gateway-Handler ruft eine Service-Instanz direkt, kein Stub, keine
+  `.proto`-Aenderung, kein neuer `RequirePermission`-Guard, keine neue
+  Tabelle/Policy, Wire-Shape unveraendert (nur ein neuer `audit_log`-Schreib-
+  pfad ueber den bestehenden RLS-geschuetzten Insert), keine neue Route, kein
+  ersetzter Guard-Key.
+- neue-units: keine
+- offen:
+  - Die Entscheidung "Leseschicht statt Migration/neuer Status" ist im
+    gebaut-Feld begruendet; falls Luke stattdessen einen persistierten
+    Status ("failed_orphaned") will, ist der CHECK-Constraint in
+    `datev_upload_log` (`migrations/000056_add_lexware_datev_api.up.sql`)
+    entsprechend zu erweitern — bewusst nicht in dieser Unit gemacht, siehe
+    `notes:` der Unit ("Cron/Scheduler-Wiring gehoert Luke zur Freigabe").
+  - Kein Frontend-seitiges Rendering des neuen `is_stale`-Felds gebaut — das
+    ist reines Backend-Signal, ob und wie die DATEV-Upload-Log-Ansicht im
+    Desktop-Client eine verwaiste Zeile anders darstellt, ist eine
+    FE-Entscheidung.

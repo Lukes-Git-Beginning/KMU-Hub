@@ -46153,6 +46153,9 @@ components:
           type: string
           format: date-time
           description: "Present only once the upload run has finished"
+        is_stale:
+          type: boolean
+          description: "True when status is 'uploading' and started_at is older than the worst-case real transfer time -- the process that owned this upload most likely died mid-transfer"
 
     # === openapi-drift sweep: wp4-bexio-lexware ===
     # -----------------------------------------------------------------------

@@ -968,6 +968,10 @@ type DatevUploadLogEntry struct {
 	ErrorMessage  string                 `protobuf:"bytes,6,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	CompletedAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	// True when status is "uploading" and started_at is older than the
+	// worst-case real transfer time -- the process that owned this upload
+	// most likely died mid-transfer and nothing will ever complete it.
+	IsStale       bool `protobuf:"varint,9,opt,name=is_stale,json=isStale,proto3" json:"is_stale,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1058,6 +1062,13 @@ func (x *DatevUploadLogEntry) GetCompletedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *DatevUploadLogEntry) GetIsStale() bool {
+	if x != nil {
+		return x.IsStale
+	}
+	return false
+}
+
 var File_proto_biz_v1_datev_upload_proto protoreflect.FileDescriptor
 
 const file_proto_biz_v1_datev_upload_proto_rawDesc = "" +
@@ -1118,7 +1129,7 @@ const file_proto_biz_v1_datev_upload_proto_rawDesc = "" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\"T\n" +
 	"\x1bListDatevUploadLogsResponse\x125\n" +
-	"\aentries\x18\x01 \x03(\v2\x1b.biz.v1.DatevUploadLogEntryR\aentries\"\xc1\x02\n" +
+	"\aentries\x18\x01 \x03(\v2\x1b.biz.v1.DatevUploadLogEntryR\aentries\"\xdc\x02\n" +
 	"\x13DatevUploadLogEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vupload_type\x18\x02 \x01(\tR\n" +
@@ -1129,7 +1140,8 @@ const file_proto_biz_v1_datev_upload_proto_rawDesc = "" +
 	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\x129\n" +
 	"\n" +
 	"started_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
-	"\fcompleted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt2\x92\a\n" +
+	"\fcompleted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12\x19\n" +
+	"\bis_stale\x18\t \x01(\bR\aisStale2\x92\a\n" +
 	"\x12DatevUploadService\x12R\n" +
 	"\x0fGetDatevAuthURL\x12\x1e.biz.v1.GetDatevAuthURLRequest\x1a\x1f.biz.v1.GetDatevAuthURLResponse\x12m\n" +
 	"\x18HandleDatevOAuthCallback\x12'.biz.v1.HandleDatevOAuthCallbackRequest\x1a(.biz.v1.HandleDatevOAuthCallbackResponse\x12R\n" +

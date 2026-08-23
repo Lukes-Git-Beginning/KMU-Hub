@@ -140,4 +140,8 @@ message DatevUploadLogEntry {
   string error_message = 6;
   google.protobuf.Timestamp started_at = 7;
   google.protobuf.Timestamp completed_at = 8;
+  // True when status is "uploading" and started_at is older than the
+  // worst-case real transfer time -- the process that owned this upload
+  // most likely died mid-transfer and nothing will ever complete it.
+  bool is_stale = 9;
 }

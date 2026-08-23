@@ -432,6 +432,7 @@ func (dr *DatevUploadRoutes) HandleListUploadLogs(w http.ResponseWriter, r *http
 			"file_size":      e.GetFileSize(),
 			"document_count": e.GetDocumentCount(),
 			"started_at":     e.GetStartedAt().AsTime(),
+			"is_stale":       e.GetIsStale(),
 		}
 		if e.GetErrorMessage() != "" {
 			entry["error_message"] = e.GetErrorMessage()

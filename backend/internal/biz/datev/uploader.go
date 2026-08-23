@@ -18,6 +18,7 @@ import (
 const (
 	datevMaxRetries     = 3
 	datevInitialBackoff = 1 * time.Second
+	datevUploadTimeout  = 60 * time.Second
 )
 
 // ErrDatevCircuitOpen is returned when the Uploader's circuit breaker is open
@@ -44,7 +45,7 @@ type Uploader struct {
 func NewUploader(oauthManager *OAuthManager, baseURL string) *Uploader {
 	return &Uploader{
 		oauthManager: oauthManager,
-		httpClient:   &http.Client{Timeout: 60 * time.Second},
+		httpClient:   &http.Client{Timeout: datevUploadTimeout},
 		baseURL:      baseURL,
 		breaker:      circuitbreaker.New("datev"),
 	}

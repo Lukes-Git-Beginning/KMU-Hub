@@ -274,6 +274,7 @@ func datevUploadLogToProto(l models.DatevUploadLog) *bizv1.DatevUploadLogEntry {
 		FileSize:      int32(l.FileSize),
 		DocumentCount: int32(l.DocumentCount),
 		StartedAt:     timestamppb.New(l.StartedAt),
+		IsStale:       l.IsStale,
 	}
 
 	if l.ErrorMessage != nil {

@@ -316,5 +316,32 @@ func (s *UploadService) ListUploadLogs(ctx context.Context, limit int) ([]models
 	if err != nil {
 		return nil, err
 	}
-	return s.uploadRepo.ListUploadLogs(ctx, config.ID, limit)
+	logs, err := s.uploadRepo.ListUploadLogs(ctx, config.ID, limit)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	for i := range logs {
+		logs[i].IsStale = isUploadLogStale(logs[i].Status, logs[i].StartedAt, now)
+	}
+	return logs, nil
+}
+
+// datevUploadStaleThreshold is the age past which an upload log still in
+// status "uploading" is more likely orphaned (the process that owned it died
+// mid-transfer) than genuinely in flight.
+//
+// Worst-case real transfer time, derived from uploader.go's retry policy:
+// (datevMaxRetries+1) attempts * datevUploadTimeout, plus the backoff before
+// each retry (1s+2s+4s) = 4*60s + 7s = 247s (~4.1 min). This threshold gives
+// more than 2x margin over that worst case, so a real transfer never gets
+// flagged.
+const datevUploadStaleThreshold = 10 * time.Minute
+
+// isUploadLogStale reports whether an upload log entry stuck in "uploading"
+// has aged past datevUploadStaleThreshold. Purely derived at read time --
+// nothing is written back, so this has no effect on a transfer that is
+// genuinely still running.
+func isUploadLogStale(status string, startedAt, now time.Time) bool {
+	return status == "uploading" && now.Sub(startedAt) > datevUploadStaleThreshold
 }
