@@ -4201,3 +4201,75 @@ Frühere Läufe liegen vollständig im Archiv:
   - Nicht tief geprueft: `internal/gateway/route_integration.go` (Slack/Teams/Webhooks) — liegt
     ausserhalb der Finanzflaeche, die diese Unit adressiert, und war bereits Gegenstand einer
     eigenen Coverage-Unit (`cov-gateway-integration-config-routes`).
+
+## Iteration 64 — scan-money-reads-without-tenant-scope — done — 2026-08-23 07:02
+- commit: -
+- gebaut: nichts am Produktionscode (Scan-Unit, ändert kein Verhalten). Recherche über einen
+  Explore-Subagenten plus eigene Nachprüfung der DATEV-Fläche.
+  Mechanismus verifiziert: `sysctx.With`/`database.WithSystemContext` setzt beim
+  Connection-Checkout `app.role='system', app.tenant_id=''`
+  (`internal/database/postgres.go` PrepareConn-Hook). Migration 000118 definiert
+  `is_system_context()` und baut sie in JEDE RLS-Policy als
+  `USING (tenant_id = current_tenant_id() OR is_system_context())` ein — unter Systemkontext
+  filtert RLS auf KEINER Tabelle mehr irgendetwas; jede Query muss sich selbst nach tenant_id
+  filtern.
+  Geprüfte Grundgesamtheit: alle `sysctx.With`/`database.WithSystemContext`-Aufrufstellen
+  (47 Fundorte über den gesamten Baum) plus alle Scheduler/Worker aus `cmd/*/main.go`
+  (12 registrierte Ticker/Poller/Worker).
+  Ergebnis je Geldfläche:
+  - GDPR-Retention (`retention_scheduler.go`): sauber — iteriert explizit pro Tenant, jede
+    Handler-Query filtert `WHERE tenant_id = $1`. Keine Geldtabellen unter den acht
+    registrierten Retention-Handlern.
+  - Automation-Poller / Invoice-Overdue-Dunning (`internal/automation/trigger/poller.go` +
+    `due_postgres.go`): sauber, sogar mit explizitem Warnkommentar im Code
+    ("... the poller runs under system context ... the WHERE clause is the only thing keeping
+    tenant A's automation off tenant B's invoices."). Positivbeispiel.
+  - Berichte-Scheduler (`internal/berichte/scheduler`): Code selbst tenant-gefiltert
+    (`GetDefinition(ctx, in.TenantID, ...)`), aber `FinanceRepo`/`DatevBridge` sind in
+    `cmd/berichte/main.go:58-60` aktuell `nil` — Finanz-Reportkinds sind inert, kein aktives
+    Risiko.
+  - Idempotenz-Cleanup (`internal/middleware/idempotency.go` cleanupCtx): ungefiltertes
+    `DELETE FROM idempotency_keys WHERE expires_at < NOW()` — bewusst cross-tenant, reines
+    Delete auf abgelaufenen Schlüsseln, keine Geldwert-Exposition, kein Fund.
+  - DATEV-Upload (`internal/biz/datev/upload_service.go`): selbst nachgeprüft (vom Subagenten
+    als unverifiziert offengelassen). `GetByPlatform(ctx, "datev_api")` ist an sechs Stellen
+    ungefiltert nach tenant_id — ABER keine dieser sechs Stellen läuft unter Systemkontext.
+    Der einzige `sysctx.With`-Aufruf im Paket (`HandleOAuthCallback:118`) wrapt `ExchangeCode`,
+    und `ExchangeCode` (`oauth.go:149-202`) ruft `GetByPlatform` nicht auf (nur
+    `vault.SetSecret` mit tenant-gescoptem Key). `UploadService` hat zudem keinen
+    Scheduler/Worker in `cmd/biz/main.go` — nur gRPC-Server unter authentifiziertem Kontext.
+    RLS bleibt dort aktiv, kein Fund.
+  - Bexio (`internal/biz/bexio`): FUND. `postgres_config_repo.go:GetByPlatform` filtert nicht
+    nach tenant_id. Unter dem Scheduler-Systemkontext lösen `SyncContacts` und `PollPayments`
+    die Integration-Config über `getConfigID(ctx)` auf, OHNE das bereits bekannte `tenantID` zu
+    nutzen — bei >1 aktivem Bexio-Tenant kann die falsche Config zurückkommen. Im Code selbst
+    als "G8"-Bug kommentiert, aber nur für `PullInvoicesWithConfig` gefixt (Scheduler übergibt
+    dort `ts.configID` direkt). `PollPayments` liest zusätzlich `ListEntityMappings` über
+    `config_id` ohne tenant_id-Filter → Cross-Tenant-Verwechslung externer Bexio-Rechnungs-IDs
+    im Zahlungsabgleich (Schreibseite selbst bleibt tenant-sicher, weil `invoices.GetByID`/
+    `MarkPaid` korrekt `tenant_id` mitgeben).
+  - Lexware (`internal/biz/lexware`): FUND, identisches Muster, aber OHNE jeden Fix-Kommentar.
+    Betrifft zusätzlich zum Scheduler (`SyncContacts`) den WEBHOOK-Handler
+    (`HandleWebhookEvent`, `service.go:262-280`) — jedes eingehende Lexware-Webhook-Event löst
+    die Config über dasselbe ungefilterte `GetByPlatform` auf. Bei >1 aktivem Lexware-Tenant
+    kann ein Kontakt-Update dem falschen Tenant zugeordnet werden.
+  Beide Bugs sind laut Scheduler-Kommentaren aktuell latent (Produktivbetrieb ist
+  Single-Tenant je Plattform), werden aber beim zweiten aktiven Tenant je Plattform sofort
+  wirksam — passt zum G2-Fokus dieses Laufs (Geld- und Compliance-Pfade vor dem ersten
+  zahlenden Kunden).
+- gate: n.a. (Scan-Unit, kein Produktionscode/keine Migration/kein Test angefasst)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geänderter Testfall)
+- verify vorgaenger: sauber. `52b4a28b` (Iteration 63, scan-finance-logs-error-leakage-and-pii)
+  geprüft: `git show --stat` zeigt ausschliesslich BACKLOG.yml und JOURNAL.md, kein
+  Produktionscode — keine der acht Fehlerklassen einschlägig.
+- neue-units: fix-lexware-config-lookup-cross-tenant-under-sysctx (BACKLOG.yml, todo),
+  fix-bexio-config-lookup-cross-tenant-under-sysctx (BACKLOG.yml, todo — betrifft gesperrtes
+  Paket `internal/biz/bexio`, muss bei Ziehung in diesem Lauf sofort blocked werden)
+- offen:
+  - `fix-bexio-config-lookup-cross-tenant-under-sysctx` darf in Lauf 11 nicht gebaut werden
+    (bexio-Sperre G3) — nur sofort blocken, falls sie dennoch gezogen wird.
+  - `fix-lexware-config-lookup-cross-tenant-under-sysctx` muss für den Webhook-Pfad klären, ob
+    es überhaupt ein Unterscheidungsmerkmal gibt, über das sich bei >1 Lexware-Tenant die
+    richtige Config eindeutig auswählen lässt (Config-ID im Webhook-Pfad? Signatur-Secret pro
+    Tenant?) — im Scan nicht geprüft, gehört in die bauende Iteration.

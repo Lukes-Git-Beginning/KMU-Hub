@@ -2716,7 +2716,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz 63,7 % (CI-Stand 32570176303)"
     scope: >
       RLS liegt lückenlos über 336 Tabellen — aber RLS schützt nur, wenn `app.tenant_id`
@@ -3847,3 +3847,135 @@ units:
       - Mutations-Probe dokumentiert (Guard-Zeile testweise entfernt, Test wird grün statt rot,
         zurückgedreht)
       - go test -count=1 ./internal/biz/payment/ ./internal/server/ grün
+
+# ==========================================================================================
+# Aus scan-money-reads-without-tenant-scope (Iteration 64, Lauf 11) nachgelegt.
+# ==========================================================================================
+
+  - id: fix-lexware-config-lookup-cross-tenant-under-sysctx
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/lexware (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      Gefunden im Scan `scan-money-reads-without-tenant-scope`. `PostgresIntegrationConfigRepo
+      .GetByPlatform` (`internal/biz/lexware/postgres_config_repo.go:26-30`) filtert NICHT nach
+      `tenant_id`: `SELECT ... FROM integration_configs WHERE platform = $1`. Unter normalem
+      Request-Kontext ist das unproblematisch (RLS filtert über `current_tenant_id()`), aber
+      zwei Aufrufpfade laufen bewusst im Systemkontext, wo RLS für diese Tabelle wirkungslos ist
+      (`is_system_context()` macht die Policy-Klausel `true`, siehe Migration 000118):
+      1. `Scheduler.runTenantScheduler` (`lexware/scheduler.go:47` setzt
+         `database.WithSystemContext`) tickt pro Tenant und ruft
+         `s.service.SyncContacts(ctx, ts.tenantID)`. `SyncContacts` löst die Config aber über
+         `s.getConfigID(ctx)` (`service.go:387-396`) auf, die `GetByPlatform` OHNE das
+         übergebene `ts.tenantID` aufruft — bei mehr als einem aktiven Lexware-Tenant kann die
+         Konfiguration eines FREMDEN Tenants zurückkommen (Postgres liefert irgendeine
+         `platform = 'lexware'`-Zeile).
+      2. `HandleWebhookEvent` (`service.go:262-280`, ebenfalls unter
+         `sysctx.With(ctx)`, Zeile 263) löst die Config für JEDEN eingehenden Webhook genauso
+         über `s.configRepo.GetByPlatform(ctx, "lexware")` auf und verarbeitet das Event danach
+         mit `config.ID`/`config.TenantID` — bei mehr als einem aktiven Lexware-Tenant kann ein
+         Kontakt-Update dem falschen Tenant zugeordnet werden.
+      Bexio hat exakt dasselbe Muster (`bexio/postgres_config_repo.go:27-31`), dort aber bereits
+      als "G8"-Bug im Code kommentiert (`bexio/scheduler.go:183-187`, `service.go:220-224`) und
+      für den Invoice-Pull-Pfad schon umgangen (`PullInvoicesWithConfig` erhält `ts.configID`
+      direkt statt es neu aufzulösen). Der Bexio-Fix ist eine EIGENE Unit
+      (`fix-bexio-config-lookup-cross-tenant-under-sysctx`) und NICHT Teil dieser Unit, weil
+      `internal/biz/bexio` in diesem Lauf gesperrt ist (G3, produktiv aus) — Lexware ist nicht
+      gesperrt und hat zudem den zusätzlichen, ungefixten Webhook-Pfad.
+    sources:
+      - backend/internal/biz/lexware/postgres_config_repo.go
+      - backend/internal/biz/lexware/scheduler.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/bexio/scheduler.go
+      - backend/internal/biz/bexio/service.go
+    notes: >
+      Root Cause: `GetByPlatform` selbst braucht eine tenant-gescopte Variante (z.B.
+      `GetByPlatformAndTenant(ctx, platform, tenantID)`) oder — dem bereits vorhandenen
+      Bexio-Muster folgend (`PullInvoicesWithConfig`) — die Aufrufer, die `tenantID` schon
+      kennen (`SyncContacts(ctx, tenantID)`, der Scheduler-Tick), reichen den `configID` direkt
+      durch statt ihn unter Systemkontext neu aufzulösen.
+      Der Webhook-Pfad (`HandleWebhookEvent`) kennt `tenantID` VOR dem Lookup nicht (der
+      Webhook trägt keine Tenant-Info, nur eine Lexware-Ressourcen-ID) — dort MUSS die
+      SQL-Query selbst gehärtet werden, ein reines "tenantID durchreichen" funktioniert hier
+      nicht. Prüfen, ob der Webhook eine andere Kennung (Config-ID im Pfad, Signatur-Secret pro
+      Tenant) trägt, über die sich die richtige Config eindeutig auswählen lässt — falls nicht,
+      ist das ein Datenmodell-Problem und gehört als eigene Folge-Unit ans Backlog-Ende, nicht
+      heimlich hier gelöst.
+      Einordnung nach den Scheduler-Kommentaren: das System läuft aktuell produktiv
+      Single-Tenant je Plattform ("Data is single-tenant in practice today",
+      `retention_scheduler.go:15-16` als Referenz für dieselbe Aussage) — der Bug ist also
+      aktuell latent, nicht aktiv ausgenutzt, wird aber beim zweiten aktiven Lexware-Tenant
+      sofort wirksam. Kein Grund, ihn liegen zu lassen: die Sperre G2 ("Geld- und
+      Compliance-Pfade vor dem ersten zahlenden Kunden") gilt gerade für sowas.
+    done_when:
+      - GetByPlatform-Aufrufe unter Systemkontext (Scheduler-Tick, Webhook-Handler) wählen
+        nachweislich die Config des richtigen Tenants, auch wenn mehr als ein Lexware-Tenant
+        aktiv ist
+      - Ein Test mit zwei aktiven Lexware-Configs (zwei Tenants) belegt, dass SyncContacts über
+        den Scheduler-Pfad nicht die falsche Config verwendet
+      - Der Webhook-Pfad ist entweder gehärtet oder das fehlende Unterscheidungsmerkmal ist als
+        Datenmodell-Folge-Unit ans Backlog-Ende gehängt, mit Begründung im Journal
+      - go test -count=1 ./internal/biz/lexware/ grün
+
+  - id: fix-bexio-config-lookup-cross-tenant-under-sysctx
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/bexio (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      Gefunden im Scan `scan-money-reads-without-tenant-scope`, Schwester-Unit zu
+      `fix-lexware-config-lookup-cross-tenant-under-sysctx` — exakt derselbe Root-Cause-Bug,
+      hier bei Bexio statt Lexware. `PostgresIntegrationConfigRepo.GetByPlatform`
+      (`internal/biz/bexio/postgres_config_repo.go:27-31`) filtert nicht nach `tenant_id`.
+      Betroffen unter Systemkontext (`bexio/scheduler.go:45`,
+      `database.WithSystemContext`): `SyncContacts` (`service.go:127-131`) und `PollPayments`
+      (`service.go:177-181`) lösen die Config je Tick über `s.getConfigID(ctx)`
+      (`service.go:386-395`) auf, OHNE das bereits bekannte `ts.tenantID` zu nutzen — bei mehr
+      als einem aktiven Bexio-Tenant kann die Config eines fremden Tenants zurückkommen.
+      Der Bug ist im Code selbst bereits als "G8" dokumentiert
+      (`scheduler.go:183-187`, `service.go:220-224`), aber nur für `PullInvoicesWithConfig`
+      umgangen (Scheduler übergibt dort `ts.configID` direkt) — `SyncContacts` und
+      `PollPayments` sind es NICHT.
+      Konkrete Auswirkung auf `PollPayments` (`payment_poll.go`): `ListEntityMappings(ctx,
+      configID, "invoice")` (Zeile 55, Repo `bexio/postgres_repository.go:171-181`,
+      `WHERE bem.config_id = $1 AND bem.entity_type = $2`, ebenfalls ohne `tenant_id`) liest mit
+      dem potenziell falschen `configID` externe Bexio-Rechnungs-IDs eines fremden Tenants,
+      fragt sie dann mit den API-Credentials des EIGENEN Tenants
+      (`pp.client.ListInvoicePayments(ctx, tenantID, mapping.BexioID)`, Zeile 75) bei Bexio ab —
+      eine Cross-Tenant-Verwechslung externer Rechnungs-IDs. Die abschließenden Schreiboperationen
+      (`invoices.GetByID`/`MarkPaid`) sind selbst korrekt tenant-gefiltert
+      (`invoice/postgres_repository.go:172,367`), begrenzen den Schaden also auf Fehlzuordnung
+      im Abgleich, nicht auf einen direkten Cross-Tenant-Schreibzugriff.
+    sources:
+      - backend/internal/biz/bexio/postgres_config_repo.go
+      - backend/internal/biz/bexio/scheduler.go
+      - backend/internal/biz/bexio/service.go
+      - backend/internal/biz/bexio/payment_poll.go
+      - backend/internal/biz/bexio/postgres_repository.go
+    notes: >
+      GESPERRT IN LAUF 11: `internal/biz/bexio` ist in diesem Lauf gesperrt (G3, produktiv aus,
+      Schweizer Software außerhalb der DE-Fokussierung — siehe BACKLOG.yml Kopf,
+      "GESPERRT IN DIESEM LAUF"). Wird diese Unit in Lauf 11 gezogen, ist sie SOFORT mit
+      `blocked_reason: bexio gesperrt (G3), siehe BACKLOG.yml Kopf` abzuschließen, ohne
+      Bauversuch. Bleibt gültig für den Lauf, in dem Bexio wieder freigegeben wird.
+      Root Cause identisch zur Lexware-Unit: entweder `GetByPlatform` bekommt eine
+      tenant-gescopte Variante, oder die Aufrufer mit bekanntem `tenantID`
+      (`SyncContacts(ctx, tenantID)`, `PollPayments(ctx, tenantID)`) reichen — analog zu
+      `PullInvoicesWithConfig` — den `configID` direkt durch statt ihn unter Systemkontext neu
+      aufzulösen. `ListEntityMappings` sollte defensiv zusätzlich nach `tenant_id` filtern (die
+      Tabelle `bexio_entity_mappings` hat vermutlich eine solche Spalte — prüfen), auch wenn der
+      Schaden durch einen korrekt aufgelösten `configID` bereits entfällt.
+    done_when:
+      - GetByPlatform-Aufrufe unter Systemkontext (Scheduler-Tick für SyncContacts UND
+        PollPayments) wählen nachweislich die Config des richtigen Tenants, auch wenn mehr als
+        ein Bexio-Tenant aktiv ist
+      - ListEntityMappings filtert zusätzlich nach tenant_id, sofern die Tabelle die Spalte trägt
+      - Ein Test mit zwei aktiven Bexio-Configs (zwei Tenants) belegt SyncContacts UND
+        PollPayments über den Scheduler-Pfad
+      - go test -count=1 ./internal/biz/bexio/ grün
+      - Falls in Lauf 11 gezogen: sofort blocked mit obigem Grund, kein Bauversuch
