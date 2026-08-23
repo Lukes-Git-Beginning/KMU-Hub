@@ -6574,3 +6574,46 @@ Frühere Läufe liegen vollständig im Archiv:
   aufgenommen).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
   Migration und keine Tabelle beruehrt.
+
+## Iteration 107 — fix-idempotency-409-rollout-non-finance-routes-7 — done — 2026-08-23 12:25
+- commit: 363fc6dd
+- gebaut: Registrar-Gruppe **Vertraege** vollstaendig auf 409-Idempotenz-Dokumentation
+  umgestellt - 9 mutierende Operationen in `route_vertraege.go`: `POST
+  /api/v1/vertraege/contracts` (HandleCreateContract), `PATCH/DELETE
+  /api/v1/vertraege/contracts/{id}` (HandleUpdateContract/HandleDeleteContract), `PUT
+  /api/v1/vertraege/contracts/{id}/signature` (HandleSaveContractSignature), `POST
+  /api/v1/vertraege/contracts/{id}/parties` (HandleAddParty), `DELETE
+  /api/v1/vertraege/contracts/{id}/parties/{partyId}` (HandleRemoveParty), `POST
+  /api/v1/vertraege/contracts/{id}/reminders` (HandleCreateReminder), `PATCH/DELETE
+  /api/v1/vertraege/contracts/{id}/reminders/{reminderId}`
+  (HandleUpdateReminder/HandleDeleteReminder). Keine der neun hatte einen bestehenden
+  Business-409 - reiner Additiv-Fall, kein Merge-Fall wie bei Settings/Finance. Jede
+  Operation bekam `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` numerisch
+  einsortiert (nach 400/401, vor 404 wo vorhanden). Keine der Routen steht auf der
+  `idempotencyWhitelist` (nur `/auth/login`, `/auth/refresh`, `/auth/2fa`) und keine faellt
+  unter die Ausschlussliste (`/api/v1/public/*` etc.). Einzige geaenderte Datei:
+  `api/openapi.yaml` (9 neue Zeilen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 0 FAIL) | swagger-cli
+  validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: einen der neun frisch eingefuegten `IdempotencyInFlight`-$ref testweise
+  auf einen nicht existierenden Komponentennamen verbogen (`IdempotencyInFlightXXX`) -
+  `swagger-cli validate` wurde rot (`Token "IdempotencyInFlightXXX" does not exist.`),
+  Aenderung aus Sicherungskopie zurueckgedreht, danach `swagger-cli validate` und `go test
+  -count=1 ./internal/gateway/...` wieder gruen bestaetigt; `git diff --stat` zeigt exakt
+  9 neue Zeilen in `api/openapi.yaml` und sonst nichts.
+- verify vorgaenger: sauber. `5d004585` (Iteration 106) geprueft: Diff beruehrt
+  ausschliesslich `api/openapi.yaml` (102 neue Zeilen, 400/503 auf der Registrar-Gruppe
+  meetings), reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`,
+  Tabelle oder Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen. Der zusaetzliche
+  Commit `c0445a44` ("docs(loop): record iteration 106 commit sha") ist reine
+  Treiber-Housekeeping (Backlog/Journal-Buchhaltung), kein Produktionscode.
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-8` (Rest der uebrigen
+  Registrar-Gruppen mit aktualisierter Fertig-Liste inkl. Vertraege, Hinweis auf kleine
+  Kandidaten wie Automation/Booking/Schichten/Vermietung sowie die praezisere
+  Mutations-Probe-Vorlage aus dieser Iteration).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt.
