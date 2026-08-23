@@ -2460,7 +2460,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 41 — cov-gateway-security-retention-ip-password-routes — done — 2026-08-23 04:05
-- commit: (wird nach diesem Eintrag erzeugt)
+- commit: 8e25a9f8
 - gebaut:
   (1) ECHTER BUG gefunden und behoben, gleiche Fehlerklasse wie Iteration 39/40:
   `CreateIPRule` (`internal/server/security_grpc.go`) validierte `ip_cidr` nur
