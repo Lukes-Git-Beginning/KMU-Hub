@@ -5693,7 +5693,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-status-code-drift-baseline-non-systemic-5]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Fortsetzung von `fix-status-code-drift-baseline-non-systemic-5` (Iteration 108 hat die

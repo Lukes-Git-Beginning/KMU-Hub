@@ -6757,3 +6757,51 @@ Frühere Läufe liegen vollständig im Archiv:
   ungeprueft und muessen in Iteration 111 frisch verifiziert werden).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
   keine Migration und keine Tabelle beruehrt.
+
+## Iteration 111 — fix-status-code-drift-baseline-non-systemic-6 — done — 2026-08-23 12:51
+- commit: b69733cd
+- gebaut: 6 der 11 verbliebenen `statusDriftBaseline`-Eintraege in `api/openapi.yaml`
+  dokumentiert (jeweils Handler geprueft, nicht geraten): `POST /api/v1/guest/sessions`
+  (500 `HandleCreateSession` - `guestService.CreateSession` Fehlerpfad, "failed to create
+  session"); `POST /api/v1/email/attachments/upload` (500 `HandleUploadAttachment` -
+  `io.ReadAll(file)`-Fehlerpfad, "failed to read file"; das vorher schon dokumentierte 400
+  bleibt unberuehrt); `POST /api/v1/inbox/canned-responses` und
+  `PUT /api/v1/inbox/canned-responses/{id}` (je 500 `HandleCreateCannedResponse`/
+  `HandleUpdateCannedResponse` - `cannedResponseMarshaler.Marshal`-Fehlerpfad, "internal
+  server error"); `POST /api/v1/webhooks/livekit` (401 `HandleLiveKitWebhook` - fehlender
+  oder ungueltiger JWT-Signatur-Header, inline `description:` statt `$ref` weil die Route
+  `security: []` hat und `#/components/responses/Unauthorized` bearer-spezifisch
+  formuliert ist); `GET /api/v1/security/gdpr/exports` (403 `HandleListDataExports` - Nicht-
+  Admin fragt fremde `user_id` ab, "only admins may view another user's exports", $ref auf
+  bestehenden `#/components/responses/Forbidden`). Alle sechs Eintraege aus
+  `statusDriftBaseline` (openapi_status_code_drift_test.go:447) entfernt. `PUT
+  /api/v1/customization/labels` (500) bewusst ausgelassen (Customization-Flaeche gesperrt,
+  Scope-Notiz "im Zweifel auslassen"); die vier 501-Tag-Stubs bleiben unveraendert in der
+  Baseline (eigene, bereits blockierte Unit `fix-crm-tag-endpoints-are-501-stubs`
+  entscheidet ueber deren Weg). Baseline damit von 11 auf 5 Eintraege gesunken (4 Tag-Stubs
+  + Customization).
+  Geaenderte Dateien: `api/openapi.yaml` (12 neue Zeilen),
+  `openapi_status_code_drift_test.go` (6 Zeilen aus `statusDriftBaseline` entfernt, keine
+  Verhaltensaenderung).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 0 FAIL,
+  `TestOpenAPIStatusCodeDrift` meldet "5 baselined operations") | swagger-cli validate
+  gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: den frisch eingefuegten `"403": { $ref: "#/components/responses/
+  Forbidden" }` von `GET /api/v1/security/gdpr/exports` testweise entfernt -
+  `TestOpenAPIStatusCodeDrift` meldete exakt `GET /api/v1/security/gdpr/exports writes
+  [403] - not documented`, `FAIL`, sonst keine weiteren neuen Funde. Datei aus
+  Sicherungskopie (`/tmp/openapi_backup.yaml`) zurueckgesetzt, `swagger-cli validate` und
+  `go test -count=1 ./internal/gateway/...` danach erneut gruen bestaetigt.
+- verify vorgaenger: sauber. `4f7e3c50` (Iteration 110 Nachtrag) geprueft: reiner
+  Ein-Zeilen-Edit in `JOURNAL.md` (Commit-SHA nachgetragen), kein Produktionscode, keine der
+  acht Fehlerklassen betroffen.
+- neue-units: keine. Die verbleibenden 5 Baseline-Eintraege sind bereits vollstaendig
+  erklaert: 4 Tag-Stubs haengen an der blockierten Unit `fix-crm-tag-endpoints-are-501-stubs`,
+  `customization/labels` ist an die gesperrte Customization-Flaeche gebunden. Keine neue
+  Teil-Unit noetig, diese Fix-Baseline-Serie ist damit inhaltlich am Ende angekommen.
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
+  keine Migration und keine Tabelle beruehrt.
