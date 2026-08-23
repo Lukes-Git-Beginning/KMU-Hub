@@ -6033,7 +6033,7 @@ Frühere Läufe liegen vollständig im Archiv:
   weiterhin unbearbeitet im Backlog.
 
 ## Iteration 96 — fix-204-documented-but-200-written — done — 2026-08-23 10:56
-- commit: (siehe naechster Eintrag)
+- commit: a82e0838
 - gebaut: Beide Vertragsabweichungen aus `TestOpenAPIStatusCodeDrift` (Iteration 93) behoben —
   Spec und Handler stimmen jetzt ueberein, beide auf `204 No Content`:
   1. `POST /api/v1/channels/{id}/read` — `ChatRoutes.HandleMarkChannelRead` (route_chat.go:736)
