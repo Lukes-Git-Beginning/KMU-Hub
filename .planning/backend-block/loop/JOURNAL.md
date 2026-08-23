@@ -5041,7 +5041,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 78 — fix-gateway-billing-recurring-routes-missing-401-503-docs — done — 2026-08-23 08:45
-- commit: (wird nach dem Commit unten ergaenzt)
+- commit: 136e9f52
 - gebaut: `route_biz_billing.go` (24 Handler) und `route_biz_recurring.go` (8
   Handler) schreiben in praktisch jedem Handler literal 401 (`getTenantID`),
   503 (`respondServiceUnavailable`) und laufen zusaetzlich durch
