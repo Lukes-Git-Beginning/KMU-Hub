@@ -6191,7 +6191,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests.
 
 ## Iteration 99 — fix-status-code-drift-baseline-non-systemic-2 — done — 2026-08-23 11:19
-- commit: (siehe naechster Eintrag)
+- commit: c7fdb5b4
 - gebaut: Registrar-Gruppe **Finance** vollstaendig aus `statusDriftBaseline`
   (`internal/gateway/openapi_status_code_drift_test.go`) entfernt — 22 Eintraege in
   `backend/api/openapi.yaml` nachgetragen. 20x `401` (Handler nutzt durchweg
