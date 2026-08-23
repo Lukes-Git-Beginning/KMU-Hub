@@ -3628,7 +3628,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (reine Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Fund aus `scan-finance-mutations-without-idempotency-key` (Iteration 60): `api/openapi.yaml`

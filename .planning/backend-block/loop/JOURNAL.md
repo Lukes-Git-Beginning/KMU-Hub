@@ -5152,3 +5152,37 @@ Frühere Läufe liegen vollständig im Archiv:
   konsistente Ergaenzungen ohne inhaltliche Abweichung.
 - neue-units: keine
 - offen: keine
+
+## Iteration 80 — fix-openapi-idempotency-doc-wrong-production-default — done — 2026-08-23 09:02
+- commit: (folgt nach diesem Eintrag)
+- gebaut: `backend/api/openapi.yaml` an zwei Stellen korrigiert
+  (`info.description` und die `IdempotencyKeyRequired`-Response-Beschreibung).
+  Beide behaupteten bisher, der Produktions-Default fuer `IDEMPOTENCY_MODE`
+  sei `WarnMode` und ein fehlender Idempotency-Key werde in Produktion
+  stillschweigend durchgelassen. Verifiziert: die dev- und prod-Compose-Datei
+  setzen `IDEMPOTENCY_MODE: hard` als literalen Wert (kein `${VAR:-default}`)
+  — identisch in beiden Stacks. Der Go-Code selbst (`cmd/gateway/main.go:193-202`)
+  hat zwar `WarnMode` als Default-Variable, wird aber in jeder ausgelieferten
+  Compose-Datei hart auf `hard` ueberschrieben. Beide Stellen jetzt so
+  formuliert, dass sie den tatsaechlichen Stand nennen: Go-Default ist
+  WarnMode, aber jede ausgelieferte Compose-Datei (dev UND prod) setzt
+  IDEMPOTENCY_MODE=hard, also ist der fehlende-Key-400 der reale Zustand
+  in jeder betriebenen Umgebung, kein Opt-in-Sonderfall.
+- gate: build n.a. (reine Spec-Aenderung, kein Go-Code) | vet n.a. | lint n.a.
+  | test ok (`go test -count=1 ./internal/gateway/` gruen, inkl.
+  `TestOpenAPIRouteDrift`) | swagger-cli validate: "backend/api/openapi.yaml
+  is valid" | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (reine OpenAPI-Spec-Korrektur, keine Codeaenderung)
+- mutations-probe: n.a. (kein Code-Verhalten geaendert, keine neue
+  Testassertion — Pruefung ist strukturell: swagger-cli validate + go test
+  ./internal/gateway/, beide gruen)
+- verify vorgaenger: sauber. `0913ebf7` (Iteration 79, neunter
+  Retention-Handler fuer invitations) geprueft: Registrierung in
+  `cmd/auth/main.go` konsistent mit den acht bestehenden Handlern (gleicher
+  Konstruktor-Stil), `Plan`/`Apply` tenant-gescoped (`WHERE tenant_id = $1`),
+  kein neuer `RequirePermission`-Guard, keine neue Route, keine neue Tabelle
+  (bestehende RLS-Policy auf `invitations` seit Migration 000249 genutzt),
+  kein Gateway-Handler-Bypass (interner Retention-Handler, kein Route-Pfad),
+  kein Stub, keine `.proto`-Aenderung, kein ersetzter Guard-Key.
+- neue-units: keine
+- offen: keine

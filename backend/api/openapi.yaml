@@ -17,8 +17,9 @@ info:
     cached response with `Idempotency-Replayed: true`; reusing a key with a
     different request body gets `422`. A missing key returns
     `400` (`#/components/responses/IdempotencyKeyRequired`) only when the
-    gateway runs `IDEMPOTENCY_MODE=hard` — production default is WarnMode
-    (missing key is logged, request proceeds undeduplicated).
+    gateway runs `IDEMPOTENCY_MODE=hard` — the Go code defaults to WarnMode,
+    but every shipped compose file (dev and prod) hard-sets `IDEMPOTENCY_MODE:
+    hard`, so a missing key returns 400 in every operated environment.
 
 
     NOT covered by this middleware, so the responses above do not apply
@@ -48208,8 +48209,10 @@ components:
     IdempotencyKeyRequired:
       description: >-
         Missing Idempotency-Key header on a mutating request. Only returned
-        when the gateway runs in IDEMPOTENCY_MODE=hard (opt-in; production
-        default is WarnMode, which logs and proceeds without this response).
+        when the gateway runs in IDEMPOTENCY_MODE=hard; the Go code defaults
+        to WarnMode, but every shipped compose file (dev and prod) hard-sets
+        IDEMPOTENCY_MODE=hard, so this is the response in every operated
+        environment, not an opt-in special case.
       content:
         application/json:
           schema:
