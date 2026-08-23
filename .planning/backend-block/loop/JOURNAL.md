@@ -6346,7 +6346,7 @@ Frühere Läufe liegen vollständig im Archiv:
   Migration und keine Tabelle beruehrt.
 
 ## Iteration 102 — fix-status-code-drift-baseline-non-systemic-3 — done — 2026-08-23 11:39
-- commit: -
+- commit: d1e94833
 - gebaut: Registrar-Gruppe **hr** vollstaendig aus `statusDriftBaseline` geschlossen — 23
   Eintraege (17x reines 401 `getTenantID` "missing or invalid tenant", 6x reines 500
   Proto-Serialisierungsfehler). Jeder der 23 Handler in `route_hr.go` einzeln gelesen, um die
