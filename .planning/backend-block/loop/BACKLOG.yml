@@ -2376,7 +2376,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       Fortsetzung des in Lauf 10 bewusst abgebrochenen Scans (Iteration 46, Commit `b9889b04`).
@@ -3300,3 +3300,191 @@ units:
         nahelegt — das bleibt eine Folge-Unit mit blocked_reason an Luke
       - go test -count=1 ./internal/biz/datev/ gruen, DATABASE_URL gegen kmuhub_app fuer
         DB-Tests
+
+# ==========================================================================================
+# FUNDE AUS scan-gateway-openapi-response-code-drift-remaining (Lauf 11, Iteration 56).
+# Elf Geld-Dateien tief gegen openapi.yaml geprueft (Liste siehe Journal-Eintrag der Iteration):
+# route_biz_bank_accounts.go, route_biz_bank_transactions.go, route_biz_billing.go,
+# route_biz_expenses.go, route_biz_invoices.go, route_biz_open_items.go,
+# route_biz_recurring.go, route_biz_time_entries.go, route_biz_transactions.go,
+# route_biz_document_chains.go, route_datev_upload.go. Vier Funde, vier Units.
+# ==========================================================================================
+
+  - id: fix-datev-oauth-callback-503-breaks-redirect-contract
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
+    scope: >
+      `DatevUploadRoutes.HandleOAuthCallback` (`route_datev_upload.go:135-188`) ist laut
+      `openapi.yaml:29437` eine Route mit einer einzigen dokumentierten Garantie: "Always
+      responds with a 302 redirect... there is no JSON error body on failure" — jeder
+      Fehlerfall haengt seinen Grund als `?datev_error=<code>` an den Redirect an
+      (`missing_authorization_code|state_not_configured|invalid_state|connection_failed|
+      {service error message}`), ueber den gemeinsamen Helper `redirectDatevError`
+      (Zeile 21-23). Genau EINE Fehlerstelle im Handler haelt sich nicht daran: Zeile 168
+      ruft bei nicht erreichbarem biz-gRPC-Client `respondServiceUnavailable(w,
+      dr.ServiceName())` auf — das schreibt einen rohen 503-JSON-Body statt eines Redirects.
+      Diese Route ist public (DATEV leitet den Browser direkt hierher, keine Auth-Middleware,
+      kein Frontend-Fetch-Handler dazwischen); der Nutzer sieht im Browser einen nackten
+      JSON-Fehler statt zurueck auf `/settings/integrations?datev_error=...` geleitet zu
+      werden, genau in dem Moment, in dem der Service-Client aus welchem Grund auch immer
+      nicht verfuegbar ist.
+    sources:
+      - backend/internal/gateway/route_datev_upload.go
+      - backend/internal/gateway/route_datev_upload_test.go
+      - backend/api/openapi.yaml
+    notes: >
+      ROOT CAUSE, nicht Symptom: an ALLEN anderen fuenf Fehlerstellen dieses Handlers
+      (Zeilen 140, 151, 162, 183) wird bereits konsequent `redirectDatevError` verwendet —
+      Zeile 168 ist die einzige Ausnahme im selben Handler, kein systemisches Muster in
+      anderen Dateien (`respondServiceUnavailable` ist in den zehn uebrigen geprueften
+      Dateien korrekt, weil deren Routen normale JSON-APIs sind, keine Browser-Redirects).
+      Der Fix ist eine Zeile: `redirectDatevError(w, r, "service_unavailable")` oder
+      `"connection_failed"` (der bereits dokumentierte Catch-all-Code fuer denselben
+      Fehlermodus an anderer Stelle im selben Handler, Zeile 183) — welcher Code-String
+      gewaehlt wird, im Journal kurz begruenden. Kein Spec-Edit noetig, `openapi.yaml`
+      beschreibt bereits korrekt "no JSON error body on failure".
+      Test: `getDatevUploadClient` faelschen/faelen lassen und pruefen, dass die Response
+      ein 302 mit `datev_error`-Query-Parameter ist, kein 503-JSON — Vorlage sind die
+      bestehenden Tests fuer die anderen Fehlerzweige in `route_datev_upload_test.go`.
+    done_when:
+      - Zeile 168 antwortet mit einem 302-Redirect inklusive datev_error-Query-Parameter,
+        nicht mehr mit 503-JSON
+      - Ein Test belegt den Redirect fuer den Fall "biz-Service nicht erreichbar", analog zu
+        den bestehenden Tests der anderen Fehlerzweige
+      - go test -count=1 ./internal/gateway/ gruen (inkl. TestOpenAPIRouteDrift)
+
+  - id: fix-invoice-recurring-grpc-status-mapping-doc-mismatch
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (reine OpenAPI-Spec-Korrektur, keine Coverage-relevante Codeänderung)"
+    scope: >
+      Zwei Routen dokumentieren in `openapi.yaml` einen HTTP-Statuscode, den der Handler
+      strukturell nie erzeugen kann: PUT `/finance/invoices/{id}` dokumentiert `410`
+      "Invoice is immutable" (`openapi.yaml:9085`), POST
+      `/finance/recurring/{id}/generate` dokumentiert `412`
+      "Schedule is paused, ended or past its end date" (`openapi.yaml:9450`). Beide Handler
+      geben gRPC-Fehler ausschliesslich ueber `respondGRPCError` an `grpcStatusToHTTP`
+      weiter (`helpers.go:47-80`), und dort mappt `FailedPrecondition` fest auf `409` — kein
+      Codepfad in diesem Repo kann 410 oder 412 erzeugen. Ein Client, der sich beim
+      Fehlerhandling auf die Spec verlaesst (generierter SDK-Code, Frontend-Switch auf
+      response.status), behandelt den tatsaechlich eintreffenden 409 nie, weil er nur 410
+      bzw. 412 erwartet.
+    sources:
+      - backend/internal/gateway/route_biz_invoices.go
+      - backend/internal/gateway/route_biz_recurring.go
+      - backend/internal/gateway/helpers.go
+      - backend/api/openapi.yaml
+    notes: >
+      ENTSCHEIDUNG NOETIG, nicht mechanisch: entweder die Spec auf den tatsaechlichen Code
+      409 korrigieren, oder `grpcStatusToHTTP` bzw. eine lokale Sonderbehandlung so erweitern,
+      dass diese beiden FailedPrecondition-Faelle wirklich 410/412 zurueckgeben.
+      Der lean Weg ist vermutlich die Spec-Korrektur: `grpcStatusToHTTP` ist ein zentraler,
+      von sehr vielen Routen geteilter Mapper (siehe alle elf in diesem Scan gepruefte
+      Dateien) — ihn um zwei routenspezifische Sonderfaelle zu erweitern erhoeht die
+      Kopplung zwischen einer generischen Fehlerbehandlung und zwei einzelnen Endpunkten.
+      Wird die Spec korrigiert, muss geprueft werden, ob das Frontend (gesperrt fuer diesen
+      Lauf, nur LESEN erlaubt) bereits auf 410/412 pruefte — falls ja, gehoert das als
+      blocked_reason an Luke, nicht in diese Unit.
+      Die Entscheidung inklusive Begruendung gehoert ins Journal, nicht stillschweigend
+      gewaehlt.
+    done_when:
+      - Entweder die Spec dokumentiert fuer beide Routen den tatsaechlichen 409-Code, oder
+        der Handler erzeugt nachweislich den dokumentierten 410/412-Code — Entscheidung im
+        Journal begruendet
+      - swagger-cli validate gegen backend/api/openapi.yaml laeuft fehlerfrei
+      - go test -count=1 ./internal/gateway/ gruen (inkl. TestOpenAPIRouteDrift)
+
+  - id: fix-gateway-finance-list-routes-missing-error-response-docs
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (reine OpenAPI-Spec-Korrektur, keine Coverage-relevante Codeänderung)"
+    scope: >
+      Drei Routen schreiben im Handler-Body literal Fehlercodes, die `openapi.yaml` fuer
+      diese Route gar nicht kennt:
+      GET `/finance/open-items` (`route_biz_open_items.go:42,49,54`) schreibt an drei
+      Stellen `500` bei einem Marshal-Fehler auf items/totals/buckets — die Spec
+      (`openapi.yaml:10672`) dokumentiert fuer diese Route ausschliesslich `200`.
+      GET `/finance/invoices` (`route_biz_invoices.go:100-107` "invalid contact_id",
+      `:114-121` "invalid recurring_id", `:134` Marshal-Fehler) schreibt zweimal `400` und
+      einmal `500` — die Spec (`openapi.yaml:9038`) dokumentiert ausschliesslich `200`.
+      GET `/finance/datev/oauth/authorize` schreibt zweimal literal `500`
+      (`route_datev_upload.go:96` fehlender state secret, `:115` Encode-Fehler) — die
+      Freitext-Beschreibung in `openapi.yaml:29454` erwaehnt den 500-Fall zwar in Prosa,
+      der formale `responses:`-Block listet ihn aber nicht.
+      Alle drei sind reine Dokumentationsluecken: der Code verhaelt sich bereits so, nur die
+      Spec bildet es nicht ab.
+    sources:
+      - backend/internal/gateway/route_biz_open_items.go
+      - backend/internal/gateway/route_biz_invoices.go
+      - backend/internal/gateway/route_datev_upload.go
+      - backend/api/openapi.yaml
+    notes: >
+      Gebuendelt nach Lauf-10-Praezedens (Iteration 46): gleiche Ursache (Handler schreibt
+      bereits vorhandene Fehlercodes, Spec dokumentiert sie nicht), gleicher Fix
+      (`responses:`-Eintraege ergaenzen), keine gemeinsame Code-/Testaenderung noetig.
+      Style von benachbarten, bereits korrekt dokumentierten Routen desselben Musters
+      abschauen (z. B. `route_biz_expenses.go` GET, das 401/403/503 vollstaendig
+      dokumentiert) statt neu zu erfinden.
+      Bei GET /finance/invoices und /finance/open-items zusaetzlich pruefen, ob 401/403/503
+      ebenfalls fehlen (laut Scan: ja, beide Routen dokumentieren NUR 200) — falls ja, in
+      derselben Unit mit ergaenzen, nicht als weiteren Fund verbuchen.
+    done_when:
+      - Alle drei Routen dokumentieren die tatsaechlich vom Handler geschriebenen
+        Statuscodes vollstaendig (inklusive Standard-Guard-Codes 401/403/503, wo der
+        Handler sie schreibt)
+      - swagger-cli validate gegen backend/api/openapi.yaml laeuft fehlerfrei
+      - go test -count=1 ./internal/gateway/ gruen (inkl. TestOpenAPIRouteDrift)
+
+  - id: fix-gateway-billing-recurring-routes-missing-401-503-docs
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (reine OpenAPI-Spec-Korrektur, keine Coverage-relevante Codeänderung)"
+    scope: >
+      Systemisches Muster ueber zwei Dateien: praktisch jede Route in
+      `route_biz_billing.go` (23 Handler) und `route_biz_recurring.go` (7 Handler) schreibt
+      literal `401` (fehlende/ungueltige Tenant-ID) und `503`
+      (`respondServiceUnavailable`, biz-Service nicht erreichbar) im Handler-Body, aber die
+      `responses:`-Bloecke in `openapi.yaml` dokumentieren fuer diese beiden Dateien fast
+      durchgaengig NUR den Erfolgscode (teils plus ein dokumentiertes 400/404). Beispiele:
+      POST `/finance/credit-notes` (`openapi.yaml:9465`, nur 201), GET `/finance/dunning`
+      (`:10714`, nur 200), GET `/finance/recurring` (`:9288`, nur 200).
+      Alle zehn anderen in diesem Scan geprueften Dateien (bank_accounts, bank_transactions,
+      expenses, transactions, document_chains, datev_upload) dokumentieren 401/503
+      ueberwiegend korrekt — billing und recurring sind die konsistente Ausnahme. Eine
+      Ausnahme: `route_biz_billing.go` Zeilen 649-900 (journal/summary,
+      invoices/validate-number, invoices/{id}/lock, stats/payments, dunning/{id}/status,
+      dunning/{id}/notice, export/gobd) dokumentiert 400/401 bereits korrekt, aber 503
+      durchgaengig NICHT — auch das gehoert in diese Unit.
+    sources:
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/gateway/route_biz_recurring.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_biz_expenses.go
+    notes: >
+      GROESSTE der vier Units aus diesem Scan (rund 30 Routen betroffen) — mechanisch, aber
+      nicht klein. Vorlage ist `route_biz_expenses.go`, das denselben Handler-Aufbau hat und
+      401/503 bereits vollstaendig dokumentiert; Copy-Pattern von dort, nicht neu erfinden.
+      Bei jeder Route zusaetzlich pruefen, ob der Handler ueberhaupt 401 UND 503 schreibt
+      (nicht bei allen der Fall — z. B. schreiben reine No-Auth-Routen anders), damit nicht
+      blind ergaenzt wird, was der Code gar nicht liefert.
+      Wenn beim Durcharbeiten auffaellt, dass eine einzelne Route eine ECHTE Verhaltens-
+      luecke hat (nicht nur Doku), NICHT stillschweigend mitfixen — als eigene Unit ans
+      Backlog-Ende, mit Verweis auf diese Unit.
+    done_when:
+      - Jede Route in route_biz_billing.go und route_biz_recurring.go, die 401 und/oder 503
+        tatsaechlich schreibt, dokumentiert das in openapi.yaml
+      - swagger-cli validate gegen backend/api/openapi.yaml laeuft fehlerfrei
+      - go test -count=1 ./internal/gateway/ gruen (inkl. TestOpenAPIRouteDrift)

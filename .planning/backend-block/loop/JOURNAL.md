@@ -3674,3 +3674,92 @@ Frühere Läufe liegen vollständig im Archiv:
   Bedingung), oder (Automations-Webhook ohne Key) bereits per Body-Hash-
   Fallback gelöst und getestet.
 - offen: keine.
+
+## Iteration 56 — scan-gateway-openapi-response-code-drift-remaining — done — 2026-08-23 06:20
+- commit: (folgt, siehe unten)
+- gebaut: reiner Scan, kein Produktionscode geändert (Scan-Unit-Regel). Fortsetzung des in
+  Lauf 10 Iteration 46 (Commit `b9889b04`) bewusst abgebrochenen Scans: tatsächlich
+  geschriebene HTTP-Statuscodes gegen `openapi.yaml` diffed, mit Priorität auf den
+  verbleibenden Geld-Routen (Vorgabe der Unit-Notes: "erst die verbliebenen Geld- und
+  Compliance-Routen"). Ein Explore-Subagent hat pro Datei alle Handler-Statuscodes
+  (mit Zeilennummer) gegen die zugehörigen `responses:`-Blöcke in `openapi.yaml`
+  (ebenfalls mit Zeilennummer) zusammengetragen; ich habe den schwerwiegendsten Fund
+  (DATEV-OAuth-Callback) direkt am Code gegengeprüft, bevor ich Units daraus abgeleitet
+  habe.
+  TIEF GEPRÜFT (Code gegen Spec-Zeile diffed, alle Handler der Datei):
+    route_biz_bank_accounts.go, route_biz_bank_transactions.go, route_biz_billing.go,
+    route_biz_expenses.go, route_biz_invoices.go, route_biz_open_items.go,
+    route_biz_recurring.go, route_biz_time_entries.go, route_biz_transactions.go,
+    route_biz_document_chains.go, route_datev_upload.go — elf Dateien, alle in Block A/B
+    von Lauf 11 nicht angefasst und in Lauf 10 nur oberflächlich gegrept bzw. gar nicht
+    geprüft.
+  VIER FUNDE, VIER NEUE UNITS:
+    1. `route_datev_upload.go:168` — echter Verhaltens-Bug, keine reine Doku-Lücke: die
+       Spec garantiert für den OAuth-Callback explizit "Always responds with a 302
+       redirect... there is no JSON error body on failure" (`openapi.yaml:29437`), aber
+       genau eine von sechs Fehlerstellen im selben Handler bricht das mit
+       `respondServiceUnavailable` (503-JSON statt Redirect) — alle anderen fünf
+       Fehlerstellen im selben Handler nutzen korrekt `redirectDatevError`. Da die Route
+       public ist und DATEV den Browser direkt hierher leitet, sieht der Nutzer im
+       Fehlerfall einen nackten JSON-Body statt der erwarteten Weiterleitung.
+       → fix-datev-oauth-callback-503-breaks-redirect-contract
+    2. PUT `/finance/invoices/{id}` dokumentiert 410, POST
+       `/finance/recurring/{id}/generate` dokumentiert 412 — beide strukturell
+       unerreichbar, weil `grpcStatusToHTTP` (helpers.go:47-80) `FailedPrecondition`
+       fest auf 409 mappt. Kein Codepfad kann 410/412 erzeugen; ein spec-treuer Client
+       würde den tatsächlichen 409 nie behandeln. Braucht eine Entscheidung (Spec
+       korrigieren vs. Mapping erweitern), deshalb eigene Unit mit offener Frage, nicht
+       mechanisch gelöst.
+       → fix-invoice-recurring-grpc-status-mapping-doc-mismatch
+    3. Drei Routen schreiben literal Fehlercodes, die die Spec für sie gar nicht kennt:
+       GET /finance/open-items (3× 500 bei Marshal-Fehlern, Spec nur 200), GET
+       /finance/invoices (2× 400 + 1× 500, Spec nur 200), GET
+       /finance/datev/oauth/authorize (2× 500 nur in Freitext-Beschreibung erwähnt, nicht
+       im formalen responses-Block). Gebündelt nach Lauf-10-Präzedens: gleiche Ursache
+       (Handler verhält sich schon so, Spec bildet es nicht ab), gleicher Fix
+       (responses ergänzen).
+       → fix-gateway-finance-list-routes-missing-error-response-docs
+    4. Systemisches Muster: route_biz_billing.go (23 Handler) und
+       route_biz_recurring.go (7 Handler) schreiben praktisch überall literal 401/503,
+       dokumentieren das in der Spec aber fast durchgängig nicht — im Gegensatz zu den
+       übrigen neun geprüften Dateien, die das überwiegend korrekt tun. Grösste der vier
+       Units (~30 Routen), eigene Unit wegen des Umfangs.
+       → fix-gateway-billing-recurring-routes-missing-401-503-docs
+  NICHT-FUNDE, explizit geprüft und verworfen:
+    - Acht Handler (bank-accounts PATCH/POST-connect/DELETE, bank-transactions
+      reject-match, transactions DELETE, expenses approve/reject) validieren die Pfad-`id`
+      nicht lokal (kein validateUUIDParam) — das dokumentierte 400 "Invalid id" ist dort
+      nur über die gRPC-Fehlerkette erreichbar, nie literal im Handler. Kein Doku-Drift
+      (die Spec-Zeile ist über den grpc-Pfad erreichbar), also kein Fund — nur ein
+      Code-Stil-Unterschied zwischen den Dateien.
+    - route_biz_time_entries.go GET /finance/time-entries prüft 401 nicht lokal im
+      Handler-Body (TenantId wird nicht mal an den Work-gRPC-Call übergeben) — 401/403
+      kämen ausschliesslich aus der Middleware. Kein Statuscode-Drift gegen die Spec
+      (200/401/403/503 stimmen alle), nur auffällig im Vergleich zu den Nachbardateien;
+      keine eigene Unit, da hier keine Diskrepanz zur Spec vorliegt.
+    - Alle elf geprüften Dateien haben eine passende Pfad-Definition in openapi.yaml —
+      keine fehlende Spec-Zeile (anders als Lauf 10 Iteration 46, wo zwei Routen ganz
+      ohne Statuscodes dastanden).
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test angefasst — die vier neuen
+  Units tragen ihr eigenes go test/swagger-cli validate als done_when)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geänderter Testfall)
+- verify vorgaenger: sauber. `948b0db4` (Iteration 55, scan-inbound-paths-without-
+  duplicate-delivery-guard) geprüft: `git show --stat` zeigt ausschliesslich BACKLOG.yml
+  und JOURNAL.md, kein Produktionscode — keine der acht Fehlerklassen einschlägig.
+- neue-units: fix-datev-oauth-callback-503-breaks-redirect-contract,
+  fix-invoice-recurring-grpc-status-mapping-doc-mismatch,
+  fix-gateway-finance-list-routes-missing-error-response-docs,
+  fix-gateway-billing-recurring-routes-missing-401-503-docs
+- offen:
+  - Der Scan ist wieder bewusst abgebrochen, bevor er in die Breite ging: von den nach
+    Lauf 10 Iteration 46 verbliebenen ~52 route_*.go sind mit dieser Iteration elf weitere
+    (die Geld-Kern-Dateien) tief geprüft. NICHT geprüft bleiben u. a. route_security.go
+    (1016 Zeilen, laut Backlog-Kopf nur 10/31 Handler getestet — nächster Kandidat mit
+    höchster Priorität, da sicherheitsrelevant), die HR-Routen (route_hr*.go, mehrere
+    Compliance-Bezug), route_settings.go (Rest ausserhalb der bereits geprüften
+    module-grant-Route), sowie alle übrigen Nicht-Geld-Routen (CRM, Work, Chat, Video,
+    Wiki, Booking, Fuhrpark/Vermietung/Einkauf/Produktion/Rapporte/Schichten,
+    Integrationen). Ein künftiger Lauf kann daraus eine dritte Fortsetzungs-Unit ableiten,
+    analog zu dieser hier — hier nicht selbst angelegt, da die Notes dieser Unit keine
+    Nachfolge-Unit verlangen, sondern nur "wenn Zeit reicht" in die Breite gehen.
