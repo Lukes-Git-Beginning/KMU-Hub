@@ -2370,7 +2370,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 40 — cov-gateway-security-gdpr-export-erasure-dsar-routes — done — 2026-08-23 03:45
-- commit: <siehe unten>
+- commit: a777859d
 - gebaut: (1) Router-Guard-Test `TestSecurityRoutes_GDPRGuards`
   (`route_security_test.go`) fuer alle acht Routen aus `route_security.go:54-65`
   (Export anfragen, genehmigen, ablehnen, herunterladen, auflisten;
