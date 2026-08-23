@@ -16,8 +16,14 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
-// invoiceNumberPattern matches RE-YYYY-NNNN (prefix RE, 4-digit year, 4+ digit seq).
-var invoiceNumberPattern = regexp.MustCompile(`^([A-Z]{2})-(\d{4})-(\d{4,})$`)
+// invoiceNumberPattern matches RE-YYYY-NNNN (prefix RE, 4-digit year, 4-10 digit
+// seq). The upper bound on the sequence group is deliberate: strconv.Atoi below
+// silently discards its error, so an unbounded \d{4,} let a caller-supplied
+// number long enough to overflow int64 (e.g. 25 nines) pass ValidFormat=true
+// with a nonsense canonical form (Atoi clamps to math.MaxInt64 on ErrRange
+// instead of returning it). 10 digits (up to ~10 billion invoices/year) is far
+// beyond any realistic sequence and stays safely inside int range.
+var invoiceNumberPattern = regexp.MustCompile(`^([A-Z]{2})-(\d{4})-(\d{4,10})$`)
 
 // ============================================================================
 // ValidateInvoiceNumber

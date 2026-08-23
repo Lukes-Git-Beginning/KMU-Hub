@@ -1344,7 +1344,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-invoice-service-gobd-lock-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice 34,8 % (CI-Stand 32570176303)"
     scope: >
       `GetJournalSummary` (`service_gobd.go:137`), `GetPaymentStats` (179) und

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -1364,6 +1365,48 @@ func TestService_ValidateInvoiceNumber_CanonicalLowercase(t *testing.T) {
 	assert.Empty(t, result.Canonical)
 }
 
+// TestService_ValidateInvoiceNumber_SpecialCharacters proves the pattern rejects
+// anything outside its exact grammar — a trust-boundary input, since the value
+// comes straight from the gRPC request (biz_grpc.go ValidateInvoiceNumber).
+func TestService_ValidateInvoiceNumber_SpecialCharacters(t *testing.T) {
+	svc, _, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	cases := []string{
+		"RE-2026-00@1",
+		"RE-2026-0001;DROP TABLE finance_invoices;",
+		"RE-2026-0001\n",
+		"RE-2026-00 1",
+		"RE/2026/0001",
+		"RE-2026-000€",
+		"RE-2026-0001\x00",
+	}
+
+	for _, tc := range cases {
+		result, err := svc.ValidateInvoiceNumber(context.Background(), tenantID, tc)
+		require.NoError(t, err, "case %q", tc)
+		assert.False(t, result.ValidFormat, "case %q should be invalid", tc)
+		assert.Empty(t, result.Canonical, "case %q should have no canonical form", tc)
+	}
+}
+
+// TestService_ValidateInvoiceNumber_ExcessivelyLongSequenceRejected proves the
+// sequence group's upper bound (\d{4,10}) actually rejects an overlong digit
+// run. Without the bound, strconv.Atoi in ValidateInvoiceNumber silently
+// discards ErrRange on overflow and reports ValidFormat=true with a nonsense
+// canonical (RE-2026-9223372036854775807) for caller-supplied garbage.
+func TestService_ValidateInvoiceNumber_ExcessivelyLongSequenceRejected(t *testing.T) {
+	svc, _, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	overlong := "RE-2026-" + strings.Repeat("9", 25)
+	result, err := svc.ValidateInvoiceNumber(context.Background(), tenantID, overlong)
+
+	require.NoError(t, err)
+	assert.False(t, result.ValidFormat, "a 25-digit sequence must not pass format validation")
+	assert.Empty(t, result.Canonical)
+}
+
 // ============================================================================
 // GetPaymentStats Tests (Review-Befund #15)
 // ============================================================================
@@ -1504,4 +1547,71 @@ func TestService_GetJournalSummary_FiscalYearBoundaryNoFalseGap(t *testing.T) {
 	assert.Equal(t, 3, summary.HighestSequence)
 	assert.Equal(t, 0, summary.GapsDetected,
 		"the fiscal year rollover itself must never be reported as a gap")
+}
+
+// TestService_GetJournalSummary_EmptyYearReturnsZeroesNotError covers
+// GetSequenceInfo returning nil (no invoice ever issued for that fiscal
+// year) — the report a Prüfer sees for a fresh tenant or an unused year must
+// be an all-zero summary, not an error.
+func TestService_GetJournalSummary_EmptyYearReturnsZeroesNotError(t *testing.T) {
+	svc, _, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	numSeq.seqInfo = nil // default, spelled out: no sequence row exists for this year
+
+	summary, err := svc.GetJournalSummary(context.Background(), tenantID, 2099)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2099, summary.Year)
+	assert.Equal(t, 0, summary.TotalInvoicesIssued)
+	assert.Equal(t, 0, summary.GapsDetected)
+	assert.Equal(t, 0, summary.HighestSequence)
+	assert.Empty(t, summary.FirstNumber)
+	assert.Empty(t, summary.LastNumber)
+}
+
+// TestService_GetJournalSummary_DetectsRealGap is the positive case none of
+// the existing tests proved: the sequence counter ahead of the actually
+// persisted, numbered invoice count. This is the exact scenario GoBD §146
+// gap-detection exists to catch (a number consumed — e.g. by a request that
+// crashed after NextNumberInTx but before commit reached the caller's
+// retry-safe path — never reaching a stored invoice) and, before this test,
+// GapsDetected > 0 had never actually been exercised.
+func TestService_GetJournalSummary_DetectsRealGap(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	fiscalYear := 2026
+
+	// Sequence advanced to 5, but only numbers 1-3 ended up as persisted,
+	// numbered invoices — 2 and 5 were "consumed" without a matching row.
+	numSeq.seqInfo = &SequenceInfo{FiscalYear: fiscalYear, CurrentNumber: 5}
+
+	makeInvoice := func(number string) {
+		t.Helper()
+		lineItemsJSON, err := json.Marshal(testLineItems())
+		require.NoError(t, err)
+		inv := &models.Invoice{
+			ID:            uuid.New(),
+			TenantID:      tenantID,
+			Status:        models.InvoiceStatusSent,
+			InvoiceNumber: number,
+			InvoiceDate:   time.Date(fiscalYear, 3, 1, 0, 0, 0, 0, time.UTC),
+			LineItems:     lineItemsJSON,
+			CreatedBy:     uuid.New(),
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+		repo.invoices[inv.ID] = inv
+	}
+	makeInvoice("RE-2026-0001")
+	makeInvoice("RE-2026-0003")
+	makeInvoice("RE-2026-0004")
+
+	summary, err := svc.GetJournalSummary(context.Background(), tenantID, fiscalYear)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, summary.TotalInvoicesIssued)
+	assert.Equal(t, 5, summary.HighestSequence)
+	assert.Equal(t, 2, summary.GapsDetected,
+		"5 numbers consumed, only 3 persisted as numbered invoices -> 2 gaps must be reported")
 }

@@ -1634,3 +1634,88 @@ Frühere Läufe liegen vollständig im Archiv:
   Handlungsaufforderung dieser Iteration — falls ein Servicelayer-Bypass fuer `finance_invoices`
   je denkbar wird, waere ein DB-seitiger Trigger die robustere Absicherung, aber das ist eine
   Produktentscheidung, keine Coverage-Unit.
+
+## Iteration 30 — cov-invoice-service-gobd-journal-summary-real-sql — done — 2026-08-23 02:19
+- commit: PENDING (siehe naechste docs(loop)-Iteration)
+- gebaut: Berichtsteil der GoBD-Flaeche (`GetJournalSummary`, `ValidateInvoiceNumber`,
+  `GetPaymentStats`) auf echte Luecken untersucht statt nur Zeilen abzudecken.
+  ECHTER FUND UND GEFIXT: `invoiceNumberPattern` (`service_gobd.go:19`) hatte einen
+  unbegrenzten Sequenzteil `\d{4,}`. `ValidateInvoiceNumber` verwirft den Fehler von
+  `strconv.Atoi(m[3])` (`seq, _ := strconv.Atoi(...)`) — ein vom Aufrufer (gRPC-Request,
+  `biz_grpc.go:2324`, direkte Vertrauensgrenze) gelieferter, ausreichend langer Ziffernstring
+  (z. B. 25 Neunen) ueberlaeuft int64, `strconv.Atoi` klemmt bei `ErrRange` still auf
+  `math.MaxInt64` statt den Fehler zu melden, und `ValidateInvoiceNumber` meldet `ValidFormat:
+  true` mit dem Kauderwelsch-Kanonwert `RE-2026-9223372036854775807`. Per eigenem Go-Snippet
+  gegen die echte Regex/Atoi-Kombination verifiziert (nicht geraten), bevor gefixt wurde.
+  Root-Cause-Fix: Sequenzteil auf `\d{4,10}` begrenzt (bis zu 10 Mrd. Rechnungen/Jahr, weit
+  ueber jedem realistischen Wert, sicher innerhalb des int-Bereichs) statt eine Laengenpruefung
+  hinter dem Atoi-Aufruf nachzuruesten — die Grenze gehoert an die Stelle, die die Garantie
+  eigentlich geben soll (die Regex selbst).
+  ZWEITER FUND (nur getestet, kein Fix noetig): `GetJournalSummary`s Kernbehauptung — eine echte
+  Luecke (`GapsDetected > 0`) wird tatsaechlich gemeldet — war in keinem bestehenden Test
+  bewiesen; alle drei bisherigen Tests (Cancelled/FiscalYearBoundary/import_test.go) trafen nur
+  den `GapsDetected == 0`-Zweig. Neuer `TestService_GetJournalSummary_DetectsRealGap`
+  (Sequenz auf 5, nur 3 nummerierte Rechnungen persistiert -> `GapsDetected = 2`) schliesst das.
+  Der leere-Jahr-Zweig (`seq == nil`, kein einziges Invoice je ausgestellt) war ebenfalls
+  ungetestet -> `TestService_GetJournalSummary_EmptyYearReturnsZeroesNotError` (Nullwerte, kein
+  Fehler statt Nil-Pointer-Panik).
+  `ValidateInvoiceNumber` zusaetzlich mit Sonderzeichen (`@`, SQL-Fragment, Zeilenumbruch,
+  Leerzeichen, `/`, `€`, Nullbyte — sieben Faelle, alle `ValidFormat: false`) und der
+  Ueberlaenge-Regression (25-stellige Sequenz) belegt; Leerstring und vergebene Nummer waren
+  schon vorher abgedeckt (`TestService_ValidateInvoiceNumber_InvalidFormat`/`_AlreadyUsed`).
+  `GetPaymentStats` NICHT erneut angefasst: Service-Ebene (Mock) bereits in
+  `TestService_GetPaymentStats_Empty`/`_Aggregates` getestet, Repo-Ebene (`AggregatePaymentStats`)
+  bereits gegen echtes Postgres in Iteration 27 (`postgres_repository_payment_stats_db_test.go`)
+  — dort blieb nichts offen, das diese Unit nachziehen musste.
+  Beitrag zur Nummernluecken-Frage aus A16 (`verify-invoice-number-gap-detection-gobd`,
+  Iteration 16, bereits `status: done`): keine neue Antwort noetig — Iteration 16 hat die
+  Existenz der Erkennung bereits am Code belegt (`GapsDetected = max(CurrentNumber - Count, 0)`,
+  ueber gRPC exponiert). Diese Iteration ergaenzt nur den bislang fehlenden Beweis, dass der
+  positive Zweig (`GapsDetected > 0`) auch wirklich feuert — vorher war das reine Behauptung
+  ohne Testabdeckung.
+  Kein DB-seitiger Test in dieser Unit: `GetSequenceInfo` (die einzige der drei Funktionen mit
+  echter SQL-Implementierung, in `quote.PostgresNumberSequenceRepo`) traegt bereits real-SQL-Tests
+  aus dem `quote`-Paket (`TestNumberSequenceRepo_SequentialWithinTenantAndYear`,
+  `_GetSequenceInfo_NilForUnseenSequence`), documentType-agnostisch — ein invoice-spezifischer
+  Duplikat-Test haette nichts Neues bewiesen. `InvoiceNumberExists`/`CountByFiscalYear` (die von
+  `ValidateInvoiceNumber`/`GetJournalSummary` tatsaechlich aufgerufenen Repo-Methoden) sind
+  bereits real-SQL-getestet aus einer fruehren Iteration (`postgres_repository_number_fiscal_
+  year_db_test.go`). Diese Unit haengt sich also bewusst auf der Service-Ebene ein (Mock-Repos),
+  wo der eigentliche Fund lag — nicht als Coverage-Uebung fehlplaziert auf der Repo-Ebene.
+- gate: build ok (`./internal/biz/invoice/... ./internal/gateway/...`) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 -v ./internal/biz/invoice/`, DATABASE_URL gegen
+  kmuhub_app, 0 SKIP, 119 PASS) | test ok (`go test -count=1 -p 1 ./internal/biz/invoice/...`) |
+  test ok (`go test -count=1 ./internal/gateway/` — TestOpenAPIRouteDrift trotz keiner
+  Routenaenderung pflichtgemaess gelaufen) | migration n.a. (keine Schema-Aenderung) |
+  rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/biz/invoice 59,3 % (Iteration-29-Messung, `go tool cover -func`) -> 59,4 %
+  (eigene Messung, `go tool cover -func`, gleiche Methode, lokaler Lauf nach Fix+Tests)
+- mutations-probe: drei Laeufe, alle gegen eine `cp`-Sicherungskopie (nicht `git checkout`),
+  alle zurueckgeschrieben, `diff` gegen die Kopie am Ende identisch (0 Zeilen Unterschied),
+  finaler `git diff --stat` zeigt nur die beabsichtigte 8-Zeilen-Ergaenzung an service_gobd.go.
+  (a) Regex zurueck auf unbegrenztes `\d{4,}` ->
+  `TestService_ValidateInvoiceNumber_ExcessivelyLongSequenceRejected` rot: `ValidFormat` true
+  statt false, Canonical `RE-2026-9223372036854775807` statt leer — Produktionsschaden woertlich
+  reproduziert. (b) `gaps := max(seq.CurrentNumber-invoiceCount, 0)` zu `gaps := 0` verstuemmelt ->
+  `TestService_GetJournalSummary_DetectsRealGap` rot (erwartet 2, bekommen 0). (c) den
+  `if seq == nil { ... }`-Fruehausstieg komplett entfernt ->
+  `TestService_GetJournalSummary_EmptyYearReturnsZeroesNotError` nicht nur rot, sondern Panik
+  (Nil-Pointer-Dereferenzierung auf `seq.CurrentNumber` in Zeile 151) — der Test faengt also
+  nicht nur eine falsche Zahl, sondern einen echten Crash-Pfad ab.
+- verify vorgaenger: sauber — `7608b602` (Iteration 29) fuegt nur einen `isInvoiceLocked`-Check
+  in `DetectOverdue` (11 Zeilen) plus zwei neue, ungetaggte Testdateien hinzu (per `git show
+  --stat` und Diff geprueft). Keine der acht Fehlerklassen einschlaegig: kein gRPC-Handler
+  beruehrt (reine Service-Methode), kein Stub/TODO/Unimplemented, kein `.proto`, keine Migration,
+  kein neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein ersetzter
+  Guard-Key.
+- neue-units: keine — beide Funde (Atoi-Overflow, ungetesteter Gap-Zweig) waren klein genug, um
+  root-cause bzw. per Test in dieser Unit selbst geschlossen zu werden, statt eine eigene Unit
+  anzulegen (Regel 1 dieses Laufs: Root Cause statt Symptom, in derselben Iteration wenn moeglich).
+- offen: (1) DB-Gate lief: `DATABASE_URL` als `kmuhub_app`, 0 uebersprungene Tests im
+  Hauptpaket. Diese Unit selbst fuegt keine neuen DB-Tests hinzu (siehe Begruendung oben, warum
+  das nicht noetig war) — die bereits bestehenden DB-Tests im Paket liefen alle mit. (2) Fachliche
+  Randnotiz fuer Luke: `service_gobd.go:144` ruft `GetSequenceInfo` mit dem String-Literal
+  `"invoice"` statt der Konstante `models.DocumentTypeInvoice` auf — beide haben denselben Wert
+  (`models/finance.go:70`), also kein Bug, nur eine kleine Stilinkonsistenz gegenueber
+  `service.go:566`, das dieselbe Konstante fuer `NextNumberInTx` verwendet. Nicht angefasst, weil
+  ausserhalb des Scopes dieser Coverage-Unit und ohne Verhaltensaenderung.
