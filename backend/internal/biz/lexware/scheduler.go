@@ -168,7 +168,9 @@ func (s *Scheduler) runTenantScheduler(ctx context.Context, ts *tenantScheduler,
 
 		case <-contactTicker.C:
 			if syncConfig.ContactSyncEnabled {
-				if _, err := s.service.SyncContacts(ctx, ts.tenantID); err != nil {
+				// G8-correct: pass the tenant's own configID explicitly instead of
+				// re-resolving it under system context (see SyncContactsWithConfig).
+				if _, err := s.service.SyncContactsWithConfig(ctx, ts.configID, ts.tenantID); err != nil {
 					slog.Error("lexware scheduled contact sync failed",
 						"tenant_id", ts.tenantID,
 						"error", err,

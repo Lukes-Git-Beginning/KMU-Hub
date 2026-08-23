@@ -289,6 +289,55 @@ func TestSyncContacts_DelegatesToSyncer(t *testing.T) {
 	assert.Equal(t, 3, storedMapping.LexwareVersion)
 }
 
+// TestSyncContactsWithConfig_SchedulerPathDoesNotResolveViaGetByPlatform proves
+// the G8 fix: with more than one active Lexware tenant, GetByPlatform has no
+// tenant filter and could return either tenant's config. The scheduler ticker
+// now calls SyncContactsWithConfig with its own known configID and must never
+// touch GetByPlatform at all — a call would panic the test.
+func TestSyncContactsWithConfig_SchedulerPathDoesNotResolveViaGetByPlatform(t *testing.T) {
+	configID, tenantID := uuid.New(), uuid.New()
+	email := "kunde@example.com"
+
+	stub := newStubAPI(t, map[string]http.HandlerFunc{
+		"GET /v1/contacts": jsonRoute(http.StatusOK, LexwareListResponse[LexwareContact]{
+			Content: []LexwareContact{{
+				ID:             "lx-contact-a",
+				Version:        1,
+				Person:         &LexwareContactPerson{FirstName: "Erika", LastName: "Musterfrau"},
+				EmailAddresses: &LexwareEmails{Business: []string{email}},
+				UpdatedDate:    "2026-07-01T10:00:00.000Z",
+			}},
+			Last: true,
+		}),
+	})
+
+	contacts := newMockContactService()
+	var storedMapping *models.LexwareEntityMapping
+	repo := &mockRepository{
+		getSyncConfigFn: func(context.Context, uuid.UUID) (*models.LexwareSyncConfig, error) {
+			return &models.LexwareSyncConfig{ConfigID: configID, ContactSyncEnabled: true}, nil
+		},
+		upsertEntityMappingFn: func(_ context.Context, m *models.LexwareEntityMapping) error {
+			storedMapping = m
+			return nil
+		},
+	}
+	cr := &mockConfigRepo{
+		getByPlatformFn: func(context.Context, string) (*IntegrationConfig, error) {
+			t.Fatal("SyncContactsWithConfig must not re-resolve the config via GetByPlatform under system context")
+			return nil, nil
+		},
+	}
+
+	svc := newWiredService(stub, repo, cr, keyVault("k"), contacts, nil, nil)
+
+	result, err := svc.SyncContactsWithConfig(context.Background(), configID, tenantID)
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ItemsCreated)
+	require.NotNil(t, storedMapping)
+	assert.Equal(t, "lx-contact-a", storedMapping.LexwareID)
+}
+
 // --- PushInvoice / PushQuote ---
 
 func testInvoice(email string) *models.Invoice {

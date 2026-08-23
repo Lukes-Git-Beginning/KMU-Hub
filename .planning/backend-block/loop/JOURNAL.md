@@ -5470,3 +5470,69 @@ Frühere Läufe liegen vollständig im Archiv:
   keine neue Route, kein Guard-Ersatz — keine der acht Klassen einschlaegig.
 - neue-units: keine
 - offen: keine
+
+## Iteration 86 — fix-lexware-config-lookup-cross-tenant-under-sysctx — done — 2026-08-23 09:40
+- commit: (siehe naechster Eintrag, wird nach `git commit` durch die Treiber-Notiz ergaenzt)
+- gebaut: `Service.SyncContacts` (`internal/biz/lexware/service.go:201-209`) in zwei
+  Funktionen aufgeteilt — `SyncContacts(ctx, tenantID)` bleibt der authentifizierte
+  gRPC-/manuelle Trigger-Pfad (`getConfigID(ctx)` unter echtem RLS-Kontext), das neue
+  `SyncContactsWithConfig(ctx, configID, tenantID)` (Zeile 210-241) ist die eigentliche
+  Sync-Logik fuer einen bereits bekannten `configID` — exakt das Muster aus
+  `bexio.Service.PullInvoicesWithConfig`. Der Scheduler-Ticker
+  (`internal/biz/lexware/scheduler.go:170-179`) ruft jetzt
+  `s.service.SyncContactsWithConfig(ctx, ts.configID, ts.tenantID)` statt
+  `SyncContacts(ctx, ts.tenantID)` — er loest den Config nicht mehr unter Systemkontext
+  per `GetByPlatform` (ohne Tenant-Filter) neu auf, sondern nutzt den beim
+  `AddTenant`-Aufruf bereits bekannten `configID` direkt. Damit kann der Scheduler bei
+  mehr als einem aktiven Lexware-Tenant nicht mehr versehentlich die Config eines
+  fremden Tenants fuer den periodischen Contact-Sync verwenden.
+  Der WEBHOOK-Pfad (`HandleWebhookEvent`) ist bewusst NICHT gefixt — siehe
+  `verify vorgaenger`-Abschnitt unten fuer die Begruendung, es ist eine
+  Datenmodell-Entscheidung, keine Code-Korrektur; stattdessen ein `lean:`-Marker im
+  Code (`service.go:262-267`) mit Verweis auf die neue Folge-Unit.
+- gate: build ok (`go build -p 2` lexware + server + gateway + cmd/biz + cmd/gateway) |
+  vet ok (lexware) | lint ok (0 issues, lexware) | test ok (`go test -count=1
+  ./internal/biz/lexware/...` gruen, 94 Tests laut `-v`-Lauf, 0 uebersprungen;
+  `go test -count=1 ./internal/gateway/` gruen, mit gesetztem
+  `DATABASE_URL=...kmuhub_app...`) | migration n.a. (keine Schema-Aenderung) |
+  rls-smoke n.a. (keine neue Tabelle/Policy) | Route: keine (keine
+  Gateway-Route/OpenAPI-Aenderung, `go test ./internal/gateway/` trotzdem gefahren,
+  weil die Unit sicherheitsnah ist und der Fix in einem regelmaessig vom Gateway
+  aufgerufenen Paket liegt)
+- coverage: internal/biz/lexware 74,4 % -> 74,5 % (selbst gemessen per `git stash`/
+  `stash pop`, `go tool cover -func`; kaum Bewegung, weil die neue
+  `SyncContactsWithConfig`-Funktion nur den bereits vollstaendig getesteten Koerper der
+  alten `SyncContacts`-Funktion uebernimmt — die neue Zeile ist im Wesentlichen der
+  duenne `SyncContacts`-Wrapper, der `getConfigID` aufruft)
+- mutations-probe: in `SyncContactsWithConfig` testweise `configID, _ =
+  s.getConfigID(ctx)` als erste Zeile eingefuegt (re-resolved den Parameter statt ihn zu
+  nutzen), `go test -run
+  TestSyncContactsWithConfig_SchedulerPathDoesNotResolveViaGetByPlatform
+  ./internal/biz/lexware/` wurde rot (der eingebaute `t.Fatal` im
+  `getByPlatformFn`-Mock griff: "SyncContactsWithConfig must not re-resolve the config
+  via GetByPlatform under system context"), Mutation zurueckgedreht, `git diff --stat
+  service.go` zeigt danach wieder nur die beabsichtigten Aenderungen
+- verify vorgaenger: sauber. `42439f4c` (Iteration 85, fix-payment-delete-bypasses-invoice-lock)
+  geprueft (`git show --stat` + gezielt `service.go`/`repository.go`/`biz_grpc.go`
+  gegen die acht Fehlerklassen): kein gRPC-Bypass, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`, keine neue Tabelle, kein Wire-Shape-Wechsel, keine neue Route,
+  kein Guard-Ersatz — keine der acht Klassen einschlaegig.
+  Zur eigenen Unit: der Webhook-Pfad (`HandleWebhookEvent`) ist laut `done_when`
+  entweder zu haerten ODER die fehlende Unterscheidungsmoeglichkeit als
+  Datenmodell-Folge-Unit anzulegen. Recherche ergab: der Webhook traegt zwar optional
+  eine `organization_id` im Payload (`route_lexware.go:579-592`), aber
+  `Service.Connect` (`service.go:78-125`) speichert bei der Verbindung KEINE
+  Lexware-Organisations-Kennung in `IntegrationConfig.Metadata` — ein Abgleich
+  "Webhook-OrgID gegen gespeicherte Config-OrgID" ist mit dem heutigen Datenmodell
+  technisch unmoeglich, das Feld existiert nirgends. Zusaetzlich ist
+  `LEXWARE_WEBHOOK_SECRET` ein einziges globales Secret (kein Secret pro Tenant), kann
+  also auch nicht zur Tenant-Unterscheidung dienen. Beide moeglichen Loesungen (Profil-
+  Abruf + Metadata-Erweiterung vs. eigener Webhook-Pfad/Secret pro Tenant) veraendern
+  entweder das Datenmodell oder den mit Lexware zu hinterlegenden Callback-Vertrag —
+  keine ist "nebenbei" in dieser Unit zu entscheiden, deshalb als eigene Unit
+  `harden-lexware-webhook-organization-id-scoping` ans Backlog-Ende gehaengt statt
+  hier zu raten.
+- neue-units: harden-lexware-webhook-organization-id-scoping (Datenmodell-Entscheidung
+  fuer den Webhook-Pfad, GEHOERT LUKE — siehe Notes der Unit fuer die zwei
+  vorgeschlagenen Loesungswege)
+- offen: keine

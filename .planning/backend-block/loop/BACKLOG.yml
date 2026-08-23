@@ -3891,7 +3891,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/lexware (Paketwert im CI-Log nachschlagen)"
     scope: >
       Gefunden im Scan `scan-money-reads-without-tenant-scope`. `PostgresIntegrationConfigRepo
@@ -4395,3 +4395,78 @@ units:
         allen 50 Wiederholungen gruen (Nonce ist pro Aufruf neu zufaellig, das ist der
         eigentliche Flake-Beweis)
       - go test -count=1 ./internal/gateway/ gruen
+
+# ==========================================================================================
+# Aus fix-lexware-config-lookup-cross-tenant-under-sysctx (Iteration 86, Lauf 12) nachgelegt.
+# ==========================================================================================
+
+  - id: harden-lexware-webhook-organization-id-scoping
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Datenmodell-Entscheidung vor jeder Coverage-Zahl, siehe scope)"
+    scope: >
+      Restrisiko aus fix-lexware-config-lookup-cross-tenant-under-sysctx (Iteration 86):
+      der Scheduler-Pfad (SyncContacts) ist gefixt (der Ticker übergibt jetzt sein eigenes
+      `ts.configID` statt es unter Systemkontext neu über `GetByPlatform` aufzulösen,
+      analog zu bexios `PullInvoicesWithConfig`-Muster). Der WEBHOOK-Pfad
+      (`Service.HandleWebhookEvent`, `internal/biz/lexware/service.go:262-280`) bleibt
+      bewusst UNGEFIXT: er läuft unter `sysctx.With(ctx)` (kein Tenant im Context, die
+      Anfrage kommt von Lexware, authentifiziert per HMAC über `LEXWARE_WEBHOOK_SECRET`)
+      und ruft `s.configRepo.GetByPlatform(ctx, "lexware")` — bei mehr als einem aktiven
+      Lexware-Tenant kann das die Config eines FREMDEN Tenants zurückgeben, und
+      `webhookHandler.HandleEvent` verarbeitet das Event danach mit dessen
+      `config.ID`/`config.TenantID`.
+      Anders als beim Scheduler-Pfad kennt der Aufrufer die `tenantID` hier VOR dem
+      Lookup nicht — der Webhook trägt keine Tenant-Info, nur eine Lexware-Ressourcen-ID
+      (`resource_id`) und optional eine `organization_id`
+      (`internal/gateway/route_lexware.go:579-592` liest sie aus dem Body, camelCase
+      oder snake_case). Diese `organization_id` wird aber NIRGENDS beim Verbinden
+      gespeichert: `Service.Connect` (`service.go:78-125`) legt die Config nur mit
+      `Metadata: map[string]any{"auth_type": "api_key"}` an — keine Lexware-Organisations-
+      Kennung. Ein Abgleich "Webhook-OrgID gegen gespeicherte Config-OrgID" ist also HEUTE
+      technisch nicht möglich, das Feld existiert nicht.
+      Ebenso ist `LEXWARE_WEBHOOK_SECRET` ein einziges globales Secret
+      (`internal/gateway/route_lexware.go:517-531`), kein Secret pro Tenant — die
+      HMAC-Prüfung kann also nicht zur Tenant-Unterscheidung dienen, nur zur
+      Herkunftsprüfung "kommt wirklich von Lexware".
+    sources:
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/lexware/webhook_handler.go
+      - backend/internal/gateway/route_lexware.go
+      - backend/internal/biz/lexware/profile.go
+      - backend/internal/biz/lexware/postgres_config_repo.go
+    notes: >
+      ENTSCHEIDUNG GEHÖRT LUKE, nicht dem Loop: mindestens zwei valide Wege, keiner
+      trivial nebenbei zu bauen.
+      (a) `organization_id` bei `Connect` per `GET /v1/profile`-Call abfragen
+      (`LexwareProfile.OrganizationID`, bereits genutzt in `TestConnection`,
+      `profile.go:15`) und in `IntegrationConfig.Metadata` speichern; `GetByPlatform`
+      um eine `GetByPlatformAndOrgID`- oder `GetActiveByPlatform`-Variante ergänzen, die
+      im Systemkontext über ALLE aktiven Configs iteriert und die mit passender
+      `organization_id` aus dem Webhook-Payload wählt (analog zu bexios
+      `ListActiveByPlatform`, `bexio/scheduler.go:48`, das bereits über mehrere Configs
+      iterieren kann).
+      (b) pro Tenant einen eigenen Webhook-Pfad/eigenes Secret ausgeben (z. B.
+      `/api/v1/integrations/lexware/webhooks/{config_id}` mit Secret aus dem Vault statt
+      der globalen Env-Var) — verändert den bei Lexware zu hinterlegenden Callback-URL,
+      ist also ein Vertrag mit einem externen System, nicht nur interner Code.
+      Solange das System produktiv Single-Tenant je Plattform läuft (Kommentar
+      `retention_scheduler.go:15-16`), ist der Bug latent, nicht aktiv ausgenutzt — genau
+      wie beim Bexio-Pendant. Kein Grund, ihn liegen zu lassen, aber auch kein Grund für
+      eine überstürzte Lösung ohne Rücksprache: G2 (Geld-/Compliance-Pfade vor dem ersten
+      zahlenden Kunden) verlangt den Fix VOR dem zweiten aktiven Lexware-Tenant, nicht
+      sofort.
+      `.proto`/Migrationen nur falls (a) gewählt wird und `organization_id` dauerhaft
+      persistiert werden soll — Nummer zur Laufzeit ermitteln, forward-only.
+    done_when:
+      - Entscheidung (a), (b) oder eine dritte, von Luke freigegebene Variante liegt vor
+        und ist im Journal begründet
+      - HandleWebhookEvent wählt die Config nachweislich anhand eines
+        Tenant-eindeutigen Merkmals (nicht mehr "erste Zeile für platform=lexware")
+      - Ein Test mit zwei aktiven Lexware-Configs (zwei Tenants, zwei organization_ids
+        oder zwei Webhook-Secrets, je nach gewählter Variante) belegt, dass ein
+        eingehender Webhook nachweislich beim richtigen Tenant landet
+      - go test -count=1 ./internal/biz/lexware/... ./internal/gateway/ gruen
