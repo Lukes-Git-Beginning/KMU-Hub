@@ -3606,7 +3606,7 @@ Frühere Läufe liegen vollständig im Archiv:
   nicht neu, nicht Teil dieser Iteration.
 
 ## Iteration 55 — scan-inbound-paths-without-duplicate-delivery-guard — done — 2026-08-23 05:54
-- commit: (siehe naechster Commit auf diesem Branch)
+- commit: 948b0db4
 - gebaut: reiner Scan, kein Code geändert. Vollständige Liste aller Eingangspfade
   geprüft, die ein Fremdsystem/Scheduler/Poller auslösen kann, gegen die Frage
   "was passiert bei Doppelzustellung/überlappendem Lauf". Ein Explore-Subagent
