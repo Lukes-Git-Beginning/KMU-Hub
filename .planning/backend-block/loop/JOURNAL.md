@@ -1570,7 +1570,7 @@ Frühere Läufe liegen vollständig im Archiv:
   erscheinen — kein Fund in dieser Iteration ausserhalb der neuen Datei geprueft.
 
 ## Iteration 29 — cov-invoice-service-gobd-lock-real-sql — done — 2026-08-23 02:12
-- commit: (siehe Schritt 6, unten eingetragen)
+- commit: 7608b6027a330acc7c06be7e7441ac233a20c433
 - gebaut: GoBD-Sperrfläche (`LockInvoice`/`isInvoiceLocked`/`SetLock`) gegen echtes SQL und
   jeder Schreibweg auf `invoices` auf Sperrprüfung untersucht. ECHTER FUND UND GEFIXT:
   `DetectOverdue` (`service.go:737`) rief `repo.UpdateStatus` direkt auf, ohne `isInvoiceLocked`
