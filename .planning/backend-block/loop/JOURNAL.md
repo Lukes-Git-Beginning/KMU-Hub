@@ -5538,7 +5538,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 87 — fix-idempotency-409-rollout-non-finance-routes — done — 2026-08-23 09:47
-- commit: <pending, siehe unten>
+- commit: 5499043b
 - gebaut: erste Registrar-Gruppe der Nicht-Finance-409-Ausrollung: `wiki`. 11 mutierende
   Operationen in `backend/api/openapi.yaml` (Zeilen ~15638-16000, Tags `wiki-articles` +
   `wiki-categories`) tragen jetzt `"409": { $ref: "#/components/responses/IdempotencyInFlight" }`
