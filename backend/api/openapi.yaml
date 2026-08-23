@@ -15683,6 +15683,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}:
     get:
@@ -15728,6 +15729,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a wiki article
       tags: [wiki-articles]
@@ -15740,6 +15742,7 @@ paths:
           description: Deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}/versions:
     get:
@@ -15775,6 +15778,7 @@ paths:
               schema: { type: object }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}/attachments:
     get:
@@ -15817,6 +15821,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}/attachments/{attachmentId}:
     delete:
@@ -15832,6 +15837,7 @@ paths:
           description: Attachment deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/search:
     get:
@@ -15888,6 +15894,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/categories/{id}:
     patch:
@@ -15916,6 +15923,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a wiki category
       tags: [wiki-categories]
@@ -15928,6 +15936,7 @@ paths:
           description: Category deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}/share:
     get:
@@ -15969,6 +15978,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/share/{tokenId}:
     delete:
@@ -15989,6 +15999,7 @@ paths:
           description: Share token revoked
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/public/wiki/articles/{token}:
     post:

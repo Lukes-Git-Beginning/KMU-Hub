@@ -3959,7 +3959,8 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: "bexio gesperrt (G3), siehe BACKLOG.yml Kopf — sofort geblockt ohne Bauversuch, wie in den Notes dieser Unit vorgeschrieben"
     coverage_start: "internal/biz/bexio (Paketwert im CI-Log nachschlagen)"
     scope: >
       Gefunden im Scan `scan-money-reads-without-tenant-scope`, Schwester-Unit zu
@@ -4024,7 +4025,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, keine Coverage-Ziel)"
     scope: >
       Rest von `fix-idempotency-409-rollout-remaining-routes` (Iteration 66, Lauf 11): dort ist
@@ -4470,3 +4471,74 @@ units:
         oder zwei Webhook-Secrets, je nach gewählter Variante) belegt, dass ein
         eingehender Webhook nachweislich beim richtigen Tenant landet
       - go test -count=1 ./internal/biz/lexware/... ./internal/gateway/ gruen
+
+# ==========================================================================================
+# Aus fix-idempotency-409-rollout-non-finance-routes (Iteration 87, Lauf 12) nachgelegt: die
+# Wiki-Registrar-Gruppe ist fertig, alle uebrigen Registrar-Gruppen fehlen noch.
+# ==========================================================================================
+
+  - id: fix-idempotency-409-rollout-non-finance-routes-2
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Rest von `fix-idempotency-409-rollout-non-finance-routes` (Iteration 87, Lauf 12): dort ist
+      die Wiki-Registrar-Gruppe fertig (11 Operationen — Articles CRUD, Versionen-Restore,
+      Attachments, Categories CRUD, Share-Tokens; die public Redemption-Route bleibt
+      ausgeschlossen, sie laeuft ausserhalb von authWithIdempotency). Alle uebrigen knapp 39
+      Registrar-Gruppen aus `cmd/gateway/main.go` (`registrars`-Liste, Zeilen ~269-317) sind noch
+      offen: CRM, Chat, Notification, Work, Calendar, Video, Security, Email, Document, Biz
+      (non-finance), Bexio, DATEV-Upload, Lexware, Integration, HR, Inbox, Automation, Dialer
+      (Rest), Helpdesk, Berichte, Formulare, Inventar, Einkauf, Produktion, Vertraege,
+      Rapporte, Schichten (Rest), Vermietung, Fuhrpark, File, GlobalSearch, Dashboard,
+      FeatureFlag, Health, Booking, Settings, Customization.
+      Hinweis fuer die Auswahl der naechsten Gruppe: `Customization` ist in diesem Lauf gesperrt
+      (Draft/Deploy-Overlay, `moduleAreas`-Persistenz — FE-Vertrag im Wechsel, siehe BACKLOG.yml
+      Kopf "GESPERRT IN DIESEM LAUF"); ihre 409-Doku ist trotzdem harmlos, aber sicherheitshalber
+      erst NACH allen anderen Gruppen anfassen, oder auslassen und explizit vermerken. `Bexio` ist
+      ebenfalls gesperrt (G3, produktiv aus) — die Route-Doku betrifft keinen Bexio-Code, ist also
+      unkritischer als ein Verhaltens-Fix, trotzdem zuerst eine ungesperrte Gruppe waehlen, wenn
+      eine da ist.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/cmd/gateway/main.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/gateway/openapi_drift_test.go
+    notes: >
+      GLEICHE MECHANIK WIE DIE FINANCE- UND WIKI-TEIL-UNITS, NICHT NEU ERFINDEN: pro Operation
+      der gewaehlten Registrar-Gruppe (nur POST/PUT/PATCH/DELETE, GET nie) pruefen, ob bereits
+      ein `"409":` existiert. Existiert keins: eine Zeile
+      `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` ans Ende des
+      `responses:`-Blocks anhaengen. Existiert eins fuer einen anderen Grund (Geschaeftszustand):
+      NICHT ueberschreiben, sondern die Beschreibung um einen zweiten Satz zur In-Flight-
+      Bedeutung erweitern und einen `headers.Retry-After` ergaenzen, der vermerkt, dass er fuer
+      den urspruenglichen Konfliktfall nicht gesetzt ist (Vorlage: `git show f6d4a3ad` oder
+      `git show <sha-dieser-wiki-unit>` -- `git log --oneline --grep=idempotency -i`).
+      Um die Operationen einer Gruppe zu finden: im passenden `route_*.go` nach
+      `.Post(`/`.Put(`/`.Patch(`/`.Delete(` greppen (Achtung, Registrierung laeuft ueber
+      `r.With(guard).Post(...)`, ein reiner `r\.Post\(` -Grep uebersieht die meisten Treffer),
+      dann die vollen `/api/v1/...`-Pfade im `RegisterRoutes`-Codeblock nachvollziehen und im
+      YAML suchen. Routen ausserhalb des per `r.Use(authMiddleware)` geschuetzten `r.Route(...)`-
+      Blocks (z. B. `/api/v1/public/*`-Redemption-Endpunkte) NICHT anfassen — sie laufen nicht
+      durch die Idempotency-Middleware.
+      NICHT den ganzen Rest in einem Commit — wieder je Registrar-Gruppe schneiden (oder wenige
+      benachbarte kleine Gruppen zusammen, wenn eine Gruppe sehr wenige Operationen hat), jede
+      Iteration eine neue Teil-Unit ans Backlog-Ende haengen fuer das, was noch offen bleibt, bis
+      die Liste oben leer ist. Ausschlussliste (nicht durch die Middleware geschuetzt)
+      unveraendert: `/api/v1/public/*`, `/api/v1/guest/*`, `/api/v1/caldav/*`,
+      `/api/v1/admin/caldav/*` (eigene nackte `authMiddleware` in `route_caldav.go:146,161`),
+      WOPI/CalDAV/CardDAV-Protokollrouten, `/reset-password`, sowie Pfade mit `/auth/login`,
+      `/auth/refresh`, `/auth/2fa` als Teilstring (`idempotencyWhitelist` in `idempotency.go:36`).
+      Nach jedem Lauf: `git diff --stat` pruefen, dass nur der bearbeitete Pfad-Bereich waechst,
+      `npx swagger-cli validate backend/api/openapi.yaml` UND
+      `go test ./internal/gateway/ -run TestOpenAPIRouteDrift`.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe aus der obigen Liste ist vollstaendig auf 409
+        umgestellt, mit demselben Beleg wie die Finance- und Wiki-Teil-Units
+      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben
+      - Was noch offen bleibt, steht als neue Teil-Unit mit aktualisierter Liste am Backlog-Ende
+      - swagger-cli validate gruen
+      - go test -count=1 ./internal/gateway/ -run TestOpenAPIRouteDrift gruen

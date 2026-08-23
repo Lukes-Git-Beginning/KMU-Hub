@@ -5536,3 +5536,46 @@ Frühere Läufe liegen vollständig im Archiv:
   fuer den Webhook-Pfad, GEHOERT LUKE — siehe Notes der Unit fuer die zwei
   vorgeschlagenen Loesungswege)
 - offen: keine
+
+## Iteration 87 — fix-idempotency-409-rollout-non-finance-routes — done — 2026-08-23 09:47
+- commit: <pending, siehe unten>
+- gebaut: erste Registrar-Gruppe der Nicht-Finance-409-Ausrollung: `wiki`. 11 mutierende
+  Operationen in `backend/api/openapi.yaml` (Zeilen ~15638-16000, Tags `wiki-articles` +
+  `wiki-categories`) tragen jetzt `"409": { $ref: "#/components/responses/IdempotencyInFlight" }`
+  — createWikiArticle, updateWikiArticle, deleteWikiArticle, restoreWikiArticleVersion,
+  uploadWikiArticleAttachment, deleteWikiArticleAttachment, createWikiCategory,
+  updateWikiCategory, deleteWikiCategory, createWikiShareToken, revokeWikiShareToken. Keine
+  dieser Operationen hatte vorher ein `"409":` fuer einen Geschaeftszustand, also reines
+  Anhaengen, kein Merge noetig (anders als bei den Quote-Routen der Finance-Vorgaenger-Unit).
+  Die public Redemption-Route `POST /api/v1/public/wiki/articles/{token}` bleibt unangetastet:
+  sie liegt ausserhalb des per `r.Use(authMiddleware)` geschuetzten `r.Route("/api/v1/wiki", ...)`
+  -Blocks in `route_wiki.go:135` und laeuft nicht durch `authWithIdempotency`.
+  Neue Teil-Unit `fix-idempotency-409-rollout-non-finance-routes-2` mit der um Wiki bereinigten
+  Restliste (39 Registrar-Gruppen) ans Backlog-Ende gehaengt.
+- gate: build ok (`go build -p 2` gateway + cmd/gateway) | vet ok (gateway) | lint ok
+  (0 issues, gateway) | swagger-cli validate ok (`npx swagger-cli validate api/openapi.yaml` →
+  "api/openapi.yaml is valid") | test ok (`go test -count=1 ./internal/gateway/
+  -run TestOpenAPIRouteDrift` gruen; `go test -count=1 ./internal/gateway/...` gesamt gruen, mit
+  gesetztem `DATABASE_URL=...kmuhub_app...`) | migration n.a. (keine Schema-Aenderung) |
+  rls-smoke n.a. (keine neue Tabelle/Policy)
+- coverage: n.a. (Doku-Unit, reine OpenAPI-Response-Ergaenzung, kein Verhalten geaendert —
+  Coverage-Ziel laut `coverage_start:` der Unit selbst n.a.)
+- mutations-probe: n.a. (kein Code-Verhalten geaendert; die einzige mechanische Probe ist
+  `git diff --stat api/openapi.yaml` = "1 file changed, 11 insertions(+)" — exakt die 11
+  beabsichtigten `"409":`-Zeilen, keine Nebenwirkung auf andere Pfade)
+- verify vorgaenger: sauber. `3dcb02f3` (Iteration 86, fix-lexware-config-lookup-cross-tenant-
+  under-sysctx) geprueft (`git show` auf `service.go`/`scheduler.go`/`service_wiring_test.go`
+  gegen die acht Fehlerklassen): kein gRPC-Bypass (rein interner Service-Split, kein
+  Gateway-Handler betroffen), kein Stub, kein `.proto`, kein neuer `RequirePermission`, keine
+  neue Tabelle, kein Wire-Shape-Wechsel, keine neue Route, kein Guard-Ersatz — keine der acht
+  Klassen einschlaegig. Die vorige Iteration hatte selbst schon die Vor-Vorgaenger-Iteration 85
+  (`42439f4c`) sauber verifiziert.
+  Zusaetzlich verify auf die erste gezogene Unit dieser Iteration,
+  `fix-bexio-config-lookup-cross-tenant-under-sysctx`: ihre eigenen Notes verlangen "GESPERRT IN
+  LAUF 11: ... SOFORT mit `blocked_reason` abzuschliessen, ohne Bauversuch" — `internal/biz/bexio`
+  steht im aktuellen Lauf-12-Kopf weiterhin unter "GESPERRT IN DIESEM LAUF" (G3, produktiv aus).
+  Unit auf `status: blocked` gesetzt, kein Bauversuch, naechste Unit
+  (`fix-idempotency-409-rollout-non-finance-routes`) gezogen.
+- neue-units: fix-idempotency-409-rollout-non-finance-routes-2 (Rest-Liste der Registrar-Gruppen,
+  Wiki entfernt)
+- offen: keine
