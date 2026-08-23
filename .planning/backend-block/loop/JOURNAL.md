@@ -4402,7 +4402,7 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein DB-Bezug in dieser Unit, daher kein RLS-Smoke faellig.
 
 ## Iteration 67 — fix-hr-time-entries-manual-post-not-in-openapi — done — 2026-08-23 07:32
-- commit: (siehe naechster docs-Commit)
+- commit: d171d8f7
 - gebaut: `POST /api/v1/hr/time/entries` (`HandleCreateManualEntry`) war der urspruengliche
   Fund — dokumentiert, mit Request-Body (alle Felder aus `createManualEntryHTTPReq`),
   Idempotency-Key als Pflicht-Header und Responses 201/400/401/403/409/503 (409 fuer
