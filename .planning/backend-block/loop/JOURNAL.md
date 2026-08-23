@@ -4634,7 +4634,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Route, kein Drift.
 
 ## Iteration 71 — fix-banking-import-race-returns-raw-pg-error — done — 2026-08-23 08:01
-- commit: <wird nach dem Commit ergaenzt>
+- commit: 1d160dae
 - gebaut: `CreateStatement` mappt die Unique-Violation auf
   `finance_bank_statements_hash_unique` jetzt ueber den Constraint-Namen auf den neuen
   Sentinel `ErrStatementHashConflict` (`isStatementHashConflict`, Vorlage
