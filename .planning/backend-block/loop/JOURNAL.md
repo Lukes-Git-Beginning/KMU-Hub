@@ -3961,3 +3961,58 @@ Frühere Läufe liegen vollständig im Archiv:
   - Kein Makefile-Kurzbefehl für `go test -tags=integration` existiert — lokale Entwickler
     müssen den vollen Befehl von Hand tippen. Kein Fund im Sinne dieser Unit (betrifft
     Entwickler-Ergonomie, nicht CI-Abdeckung), aber notiert falls das mal auffällt.
+
+## Iteration 60 — scan-finance-mutations-without-idempotency-key — done — 2026-08-23 06:39
+- commit: (wird nach diesem Eintrag erstellt)
+- gebaut: reiner Scan, kein Produktionscode geändert. Zuerst den in Produktion geltenden
+  `IdempotencyMode` belegt (nicht angenommen, wie die Unit-Notes verlangen):
+  `cmd/gateway/main.go:199` setzt den Go-Default auf `WarnMode`, aber
+  `deploy/docker/docker-compose.prod.yml:306` UND `deploy/docker/docker-compose.yml:1013`
+  überschreiben ihn mit dem literalen Wert `IDEMPOTENCY_MODE: hard` (kein `${VAR:-default}`,
+  also über `.env.production` nicht änderbar) — in jeder ausgelieferten Umgebung gilt HardMode.
+  Damit lehnt die globale Middleware (`cmd/gateway/main.go:204`, montiert als
+  `authWithIdempotency` für alle Registrar-Routen) JEDE mutierende Anfrage ohne
+  `Idempotency-Key`-Header mit 400 ab, ausser den drei whitelisteten Auth-Pfaden
+  (`/auth/login`, `/auth/refresh`, `/auth/2fa`) — vor jedem Handler, nicht danach.
+  Vollständige Grundgesamtheit gegen `route_biz.go` (zentrale Registrierung aller
+  `/api/v1/finance/*`-Routen) und `route_datev_upload.go` geprüft: Quotes (create/update/delete/
+  send/accept/reject/convert), Invoices (create/import/update/send/mark-paid/cancel/erechnung/
+  lock/payments), Recurring (create/update/delete/pause/resume/generate), Credit-Notes (create/
+  send), Payments (delete), Dunning (detect/send/escalate/config/status/notice), Bank-Statements
+  (import), Bank-Transactions (match/reject-match/ignore), Bank-Accounts (create/patch/connect/
+  delete), Expenses (create/update/approve/reject/receipt/delete), Transactions (delete), Export
+  (datev/gobd), GoBD-Archive (archive/from-invoice/annotations), Incoming-Invoices (status-patch),
+  DATEV-Upload (upload/upload-beleg/config) — alle liegen unter `r.Route(...)` mit
+  `r.Use(authMiddleware)`, wobei `authMiddleware` in jedem Fall der von `main.go` übergebene
+  `authWithIdempotency` ist (verifiziert: BizRoutes und DatevUploadRoutes stehen in der
+  `registrars`-Liste, `reg.RegisterRoutes(r, authWithIdempotency)`). ERGEBNIS: für keine dieser
+  Routen kann ein fehlender Key durchrutschen — HardMode blockt strukturell vor dem Handler,
+  nicht als Frage der einzelnen Route. Die beiden im Scope zitierten "harten"
+  Handler-Eigenchecks (`route_hr.go:1621`, `route_schichten.go:790`, ausserhalb des
+  Finanz-Scopes dieser Unit) sind damit erwiesenermassen redundant (die Middleware hätte schon
+  vorher 400 geliefert) — keine Bugs, nur totes Duplikat, keine eigene Unit wert.
+  DELETE-Routen (Payments, Transactions, Bank-Accounts, Quotes, Expenses) sind Nicht-Funde: sie
+  laufen ebenfalls hinter HardMode und sind zusätzlich von Natur aus idempotent (zweites DELETE
+  auf dieselbe ID trifft eine bereits gelöschte Zeile).
+  ECHTER FUND: `api/openapi.yaml` behauptet an zwei Stellen (Zeile ~20 `info.description`,
+  Zeile ~47787 `IdempotencyKeyRequired`-Response) wörtlich "production default is WarnMode" —
+  das ist nachweislich falsch (s. o.). Der Code selbst weiss es richtig
+  (`route_biz_billing_test.go:258`, `route_biz_billing.go:234`) — nur die nach aussen lesbare
+  API-Spezifikation widerspricht der Realität. Diese Doku wurde in Iteration 15
+  (`fix-idempotency-inflight-409-not-in-openapi`) genau mit dieser (unverifizierten) Annahme
+  geschrieben. Neue Unit `fix-openapi-idempotency-doc-wrong-production-default` angelegt.
+- gate: n.a. (Scan-Unit, kein Produktionscode/keine Migration/kein Test angefasst)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geänderter Testfall)
+- verify vorgaenger: sauber. `94509d58` (Iteration 59, scan-build-tag-excluded-money-tests)
+  geprüft: `git show --stat` zeigt ausschliesslich BACKLOG.yml und JOURNAL.md, kein
+  Produktionscode — keine der acht Fehlerklassen einschlägig.
+- neue-units: fix-openapi-idempotency-doc-wrong-production-default (BACKLOG.yml, todo)
+- offen:
+  - `route_caldav.go` registriert `/api/v1/caldav/*` + `/api/v1/admin/caldav/*` (App-Passwörter
+    erstellen/widerrufen, POST/PUT/DELETE) mit einer eigenen bare `authMiddleware` OHNE
+    Idempotency-Schutz — bereits in Iteration 15 als unbelegte Beobachtung notiert, hier nur
+    bestätigt gesehen, nicht erneut geprüft (kein Finanzpfad, ausserhalb des Scopes dieser Unit).
+  - Die Feststellung "HardMode gilt in jeder ausgelieferten Umgebung" stützt sich auf die beiden
+    Compose-Dateien im Repo; ob eine mögliche zukünftige dritte Compose-Variante (Staging o. ä.)
+    denselben Wert setzt, wurde nicht geprüft, da keine solche Datei existiert.

@@ -2551,7 +2551,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-idempotency-inflight-409-not-in-openapi]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       `middleware.Idempotency` ist in `cmd/gateway/main.go:204` montiert, aber nicht jede
@@ -3625,3 +3625,51 @@ units:
       - go test -count=1 ./internal/biz/invoice/ ./internal/biz/creditnote/
         ./internal/biz/quote/ ./internal/biz/recurring/ ./internal/biz/datev/
         ./internal/biz/bexio/ ./internal/server/ gruen
+
+  - id: fix-openapi-idempotency-doc-wrong-production-default
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (reine Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `scan-finance-mutations-without-idempotency-key` (Iteration 60): `api/openapi.yaml`
+      behauptet an zwei Stellen, der Produktions-Default sei `WarnMode` — `info.description`
+      (Zeile ~20: "A missing key returns 400 ... only when the gateway runs
+      `IDEMPOTENCY_MODE=hard` — production default is WarnMode") und die
+      `IdempotencyKeyRequired`-Response (Zeile ~47787: "Only returned when the gateway runs in
+      IDEMPOTENCY_MODE=hard (opt-in; production default is WarnMode ...)"). Beides ist falsch:
+      `deploy/docker/docker-compose.prod.yml:306` setzt `IDEMPOTENCY_MODE: hard` als literalen
+      Wert (kein `${VAR:-default}`, also über `.env.production` nicht überschreibbar), identisch
+      zum Dev-Stack `deploy/docker/docker-compose.yml:1013`. Der Code selbst weiss es richtig
+      (`route_biz_billing_test.go:258`: "production is IDEMPOTENCY_MODE=hard"; `route_biz_billing.go:234`
+      Kommentar "already required by the idempotency middleware in HardMode"; `cmd/gateway/main.go:199`
+      Default-Variable heisst `WarnMode`, wird aber in jeder ausgelieferten Compose-Datei auf
+      `hard` überschrieben) — nur die von aussen lesbare API-Spezifikation behauptet das
+      Gegenteil. Ein Client-Entwickler, der sich an der Spec orientiert, geht davon aus, ein
+      fehlender Idempotency-Key werde in Produktion stillschweigend durchgelassen — tatsächlich
+      bekommt er ohne den Header auf jeder mutierenden Route (ausser den drei whitelisteten
+      Auth-Pfaden) sofort 400.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/cmd/gateway/main.go
+      - deploy/docker/docker-compose.prod.yml
+      - deploy/docker/docker-compose.yml
+      - backend/internal/gateway/route_biz_billing_test.go
+    notes: >
+      Reine Textkorrektur, keine Code-/Middleware-Änderung. Beide Stellen so umformulieren, dass
+      sie den tatsächlichen Stand wiedergeben: die Variable existiert und der Default im
+      Go-Code ist zwar `WarnMode`, aber JEDE ausgelieferte Compose-Datei (dev UND prod) setzt
+      ihn hart auf `hard` — Missing-Key-400 ist also der reale Zustand in jeder betriebenen
+      Umgebung, nicht ein Opt-in-Sonderfall. Nicht nur "production" korrigieren, falls die
+      docker-compose.yml (Dev) ebenfalls erwähnt wird — beide Stacks haben denselben Wert.
+      `swagger-cli validate` danach fahren, wie in der Schwester-Unit
+      `fix-idempotency-inflight-409-not-in-openapi` üblich.
+    done_when:
+      - info.description und die IdempotencyKeyRequired-Response-Beschreibung nennen den
+        tatsächlichen Stand (hard in jeder ausgelieferten Compose-Datei), nicht "production
+        default is WarnMode"
+      - npx @apidevtools/swagger-cli validate api/openapi.yaml grün
+      - go test -count=1 ./internal/gateway/ grün (TestOpenAPIRouteDrift/-SpecDrift unverändert)
+      - Kein Produktionscode/keine Middleware geändert, per Diff belegt
