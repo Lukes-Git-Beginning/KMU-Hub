@@ -6660,3 +6660,52 @@ Frühere Läufe liegen vollständig im Archiv:
   Customization als Kann-Auslassung).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
   Migration und keine Tabelle beruehrt.
+
+## Iteration 109 — doc-status-code-systemic-400-503-sweep-5 — done — 2026-08-23 12:37
+- commit: 9e2f2bb7
+- gebaut: Registrar-Gruppe **vertraege** vollstaendig auf fehlende 400/503-Doku umgestellt -
+  11 Operationen in `route_vertraege.go`: `GET /api/v1/vertraege/contracts` (503),
+  `GET/PATCH/DELETE /api/v1/vertraege/contracts/{id}` (GET: 400+503, PATCH: 503,
+  DELETE: 400+503), `GET /api/v1/vertraege/contracts/{id}/export` (400+503),
+  `GET /api/v1/vertraege/contracts/{id}/events` (503),
+  `GET /api/v1/vertraege/contracts/{id}/parties` (400+503),
+  `DELETE /api/v1/vertraege/contracts/{id}/parties/{partyId}` (400+503),
+  `GET /api/v1/vertraege/contracts/{id}/reminders` (400+503),
+  `PATCH/DELETE /api/v1/vertraege/contracts/{id}/reminders/{reminderId}` (PATCH: 503,
+  DELETE: 400+503). Alle Handler verwenden `respondServiceUnavailable`/`validateUUIDParam`
+  (systemische Helfer), `503` als `{ $ref: "#/components/responses/ServiceUnavailable" }`,
+  `400` als `{ $ref: "#/components/responses/BadRequest" }`, numerisch einsortiert. Einzige
+  geaenderte Datei: `api/openapi.yaml` (22 neue Zeilen).
+  WICHTIGER BEFUND: die urspruengliche Recherche (Bash-Tool-Vorschau, bei ~30 KB gekappt)
+  zeigte fuer vertraege faelschlich nur 4 Operationen (nur die drei POST + das PUT
+  Signature). Nach vollstaendigem Redirect der Testausgabe in eine Datei (`> /tmp/... 2>&1`
+  statt Tool-Preview) waren es tatsaechlich 11 - die GET/PATCH/DELETE-Operationen fehlten
+  in der abgeschnittenen Vorschau komplett. Alle 11 wurden dokumentiert, nicht nur die
+  urspruenglich sichtbaren 4. Details und Warnung fuer kuenftige Iterationen in der neu
+  angelegten Folge-Unit.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 0 FAIL) | swagger-cli
+  validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: das frisch eingefuegte `"503"` von `GET /api/v1/vertraege/contracts/{id}`
+  testweise entfernt UND `systemicUndocumentedCodes` zusaetzlich testweise auf
+  `map[int]string{}` gesetzt (Pflicht laut ACHTUNG-Hinweis, sonst bleibt 503 systemisch
+  unterdrueckt und der Test faelschlich gruen) - `TestOpenAPIStatusCodeDrift` meldete
+  exakt `GET /api/v1/vertraege/contracts/{id} writes [503] - not documented`, keine
+  weiteren vertraege-Treffer. Beide Dateien (`api/openapi.yaml`,
+  `openapi_status_code_drift_test.go`) aus Sicherungskopie zurueckgedreht, `git diff`
+  danach nur noch die beabsichtigten 22 YAML-Zeilen, Testdatei exakt wie zuvor.
+- verify vorgaenger: sauber. `08c4ff07` (Iteration 108) geprueft: Diff beruehrt
+  `api/openapi.yaml` (10 neue Zeilen, additive 500-Doku auf der Registrar-Gruppe dashboard)
+  und `openapi_status_code_drift_test.go` (5 Zeilen aus `statusDriftBaseline` entfernt,
+  keine Verhaltensaenderung), reine Spec-Doku ohne Produktionscode, `.proto`, Route,
+  `RequirePermission`, Tabelle oder Wire-Shape-Aenderung; keine der acht Fehlerklassen
+  betroffen. Der zusaetzliche Commit `d91f147e` ("docs(loop): record iteration 108 commit
+  sha") ist reine Treiber-Housekeeping.
+- neue-units: `doc-status-code-systemic-400-503-sweep-6` (Rest der Registrar-Gruppen mit
+  frisch nachgezaehlten, vollstaendigen 400+503-Summen inkl. der Korrektur-Warnung zur
+  abgeschnittenen Tool-Preview).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
+  keine Migration und keine Tabelle beruehrt.
