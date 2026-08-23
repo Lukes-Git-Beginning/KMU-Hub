@@ -3914,7 +3914,7 @@ Frühere Läufe liegen vollständig im Archiv:
     ansetzen.
 
 ## Iteration 59 — scan-build-tag-excluded-money-tests — done — 2026-08-23 06:32
-- commit: (siehe naechster docs-commit)
+- commit: 94509d58
 - gebaut: reiner Scan, kein Produktionscode/keine CI-Datei geändert. Ein Explore-Subagent hat
   alle Go-Testdateien mit ausschliessendem Build-Tag unter `backend/` erfasst (20 Dateien, alle
   im neuen `//go:build`-Stil, kein `// +build` mehr im Repo) und jede gegen `ci.yml`,
