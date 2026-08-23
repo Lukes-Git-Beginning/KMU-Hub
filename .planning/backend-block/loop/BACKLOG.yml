@@ -1483,7 +1483,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/banking 77,0 % (CI-Stand 32570176303)"
     scope: >
       `banking/postgres_repository.go` (348 Zeilen) verwaltet die importierten
@@ -3066,3 +3066,56 @@ units:
         Verhalten selbst aendert sich nicht, nur der Service-Aufrufer bekommt eine Sperre)
       - go test -count=1 ./internal/biz/invoice/ ./internal/server/ gruen, DATABASE_URL
         gegen kmuhub_app
+
+  - id: fix-banking-import-race-returns-raw-pg-error
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltensfund aus cov-banking-repository-real-sql, Lauf 11 Iteration 34)"
+    scope: >
+      Befund aus der Coverage-Arbeit an `banking/postgres_repository.go`. `Service.Import`
+      (`service.go:71-89`) macht den Re-Import derselben Datei nur im SEQUENZIELLEN Fall
+      elegant: `GetStatementByHash` findet die vorhandene Zeile, und die Funktion gibt
+      `AlreadyImported: true` zurueck. Der Kommentar direkt darueber sagt es selbst: "two
+      uploads arriving at once would both pass a check-then-write" — der eigentliche
+      Schutz ist die UNIQUE-Constraint `finance_bank_statements_hash_unique
+      (tenant_id, content_hash)`, nicht der Lookup davor.
+      Trifft die Constraint zu (zwei nahezu gleichzeitige Uploads derselben Datei, oder
+      ein doppelt gefeuerter Frontend-Request), scheitert `CreateStatement`
+      (`postgres_repository.go:100`) mit einem rohen, nur gewrappten
+      Unique-Violation-Fehler ("insert statement: ERROR: duplicate key ... 23505") — anders
+      als `CreateAccount`/`UpdateAccount` in `postgres_repository_accounts.go`, die den
+      Konflikt ueber `isAccountIBANConflict` (Constraint-Name-Check) auf `ErrAccountExists`
+      abbilden. `Service.Import` faengt diesen Fall nicht ab und gibt ihn als
+      `fmt.Errorf("create statement: %w", err)` weiter — der Nutzer sieht einen 500 statt
+      der erwarteten "bereits importiert"-Antwort. Kein Datenverlust und keine doppelte
+      Buchung (die Constraint haelt, per
+      TestPostgresRepository_CreateStatement_DuplicateContentHashIsRejectedNotDuplicated
+      belegt) — nur eine haessliche Fehlerantwort in einem seltenen Race-Fenster.
+    sources:
+      - backend/internal/biz/banking/service.go
+      - backend/internal/biz/banking/postgres_repository.go
+      - backend/internal/biz/banking/postgres_repository_accounts.go
+      - backend/internal/biz/banking/postgres_repository_statements_and_matches_real_sql_test.go
+    notes: >
+      Vorlage ist `isAccountIBANConflict` (Constraint-Name statt bloßer SQLSTATE, damit ein
+      spaeterer zweiter Unique-Index nicht faelschlich hierher faellt): eine
+      `isStatementHashConflict(err) bool` pruefend auf `pgErr.ConstraintName ==
+      "finance_bank_statements_hash_unique"`, in `CreateStatement` gegen einen neuen
+      Sentinel `ErrStatementHashConflict` (Analog zu `ErrAccountExists`) gemappt.
+      `Service.Import` faengt `ErrStatementHashConflict` danach genauso wie den
+      `ErrStatementNotFound`-Nichttreffer: bei Konflikt `GetStatementByHash` erneut lesen
+      und `AlreadyImported: true` zurueckgeben statt den Fehler durchzureichen.
+      Mutations-Probe: den Constraint-Namen-Check testweise auf einen falschen String
+      setzen, ein Test muss rot werden.
+    done_when:
+      - CreateStatement mappt die Unique-Violation auf (tenant_id, content_hash) ueber den
+        Constraint-Namen auf einen Sentinel, analog zu isAccountIBANConflict
+      - Service.Import faengt diesen Sentinel ab und liefert AlreadyImported: true statt
+        den Fehler durchzureichen
+      - Ein Test treibt zwei nahezu gleichzeitige CreateStatement-Aufrufe (oder ruft
+        Service.Import zweimal ueber goroutines) mit identischem Hash und belegt, dass
+        beide Aufrufer eine gueltige ImportResult-Antwort bekommen, keiner einen 500
+      - go test -count=1 ./internal/biz/banking/ gruen, DATABASE_URL gegen kmuhub_app

@@ -1940,3 +1940,76 @@ Frühere Läufe liegen vollständig im Archiv:
   Lücken liegen laut `go tool cover -func` primär in `List`/`ListForDATEVExport`s Query-Building-
   Verzweigungen (Filter-Kombinationen) — Kandidat für eine weitere, engere Coverage-Unit, falls Lauf 9
   das priorisiert.
+
+## Iteration 34 — cov-banking-repository-real-sql — done — 2026-08-23 02:53
+- commit: (siehe unten, nach Journal-Commit)
+- gebaut: `postgres_repository_statements_and_matches_real_sql_test.go` (neu, ungetaggt,
+  `package banking`) mit sieben real-SQL-Tests gegen die zuvor ungedeckten
+  Repository-Methoden: `GetStatementByHash` (Treffer, Fremdtenant mit identischem Hash,
+  Nichttreffer -> ErrStatementNotFound, Opening/Closing-Balance-Roundtrip inkl. negativem
+  Saldo), `GetStatement` (Fremdtenant-ID -> ErrStatementNotFound), `ListStatements`
+  (Pagination, total zaehlt nur den eigenen Tenant, leerer Tenant -> `[]` nicht `null`),
+  `ListTransactionsByStatement` (Sortierung nach value_date aufsteigend, Fremdtenant liest
+  0 Zeilen statt Fehler), `UpdateTransactionMatch` (schreibt Reconciliation-Spalten, laesst
+  die vom-Bank-gemeldeten Spalten unangetastet, Fremdtenant-Aufruf ist ein Noop mit
+  ErrTransactionNotFound und ohne Seiteneffekt auf die Zeile), und die Kernfrage der Unit:
+  `CreateStatement` mit doppeltem `content_hash` im selben Tenant — die
+  UNIQUE-Constraint (tenant_id, content_hash) greift zuverlaessig (0 Duplikate, 0 verwaiste
+  Transaktionszeilen dank Rollback in einer Transaktion), aber `CreateStatement` mappt den
+  23505-Fehler NICHT auf einen Sentinel (anders als `CreateAccount`/`isAccountIBANConflict`)
+  — der Aufrufer bekommt einen rohen pgconn-Fehler durchgereicht. Das ist Fund 1, siehe
+  `neue-units`.
+  Scope-Praezisierung ueber die vorhandenen Integrationstests hinaus (nicht dupliziert):
+  `integration_transactions_test.go`/`integration_accounts_test.go` decken bereits
+  GetTransaction/ListTransactions/FindInvoiceIDByNumber und den Account-Pfad ab — dort nicht
+  angefasst.
+- gate: build ok | vet ok | lint ok (0 issues, inkl. `rangeint`-Hinweis behoben) | test ok
+  (`go test -count=1 -v ./internal/biz/banking/`, DATABASE_URL gegen kmuhub_app, 0 SKIP) |
+  test ok (`go test -count=1 ./internal/biz/banking/...`) | test ok
+  (`go test -count=1 ./internal/gateway/` — keine Routenaenderung, pflichtgemaess gelaufen) |
+  migration n.a. | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung; RLS auf
+  finance_bank_statements/-transactions besteht bereits, per Fremdtenant-Faellen in jedem
+  neuen Test mitprobiert, keine Luecke gefunden)
+- coverage: internal/biz/banking 77,0 % (eigene Messung vor dieser Iteration, `go tool
+  cover -func`, stimmt mit `coverage_start:` ueberein) -> 83,5 % (nach den sieben neuen
+  Tests, gleiche Methode). Ungedeckte Methoden vor dem Schreiben aufgelistet (Pflicht laut
+  Unit-Notes): GetStatementByHash/GetStatement/ListStatements/ListTransactionsByStatement/
+  UpdateTransactionMatch/scanStatement/parseDecimalPtr waren bei 0,0 %, jetzt alle ueber
+  70 % (ListStatements 78,6 %, CreateStatement 81,8 %, ListTransactionsByStatement 81,8 %,
+  UpdateTransactionMatch 83,3 %, scanStatement 72,7 %, parseDecimal 66,7 % — Restluecken sind
+  Fehlerzweige der `pool.Query`/`rows.Err()`-Aufrufe, die ohne DB-Fault-Injection nicht
+  erreichbar sind).
+- mutations-probe: gegen eine `cp`-Sicherungskopie zurueckgeschrieben, finaler `diff` gegen
+  die Kopie identisch (0 Zeilen Unterschied). (a) `scanStatement`s
+  `errors.Is(err, pgx.ErrNoRows)`-Zweig mit `false &&` deaktiviert ->
+  `TestPostgresRepository_GetStatementByHash_FoundNotFoundAndTenantScoped/an_unknown_hash_is_not_found`
+  rot (Fehler kommt als "scan statement: no rows in result set" statt ErrStatementNotFound
+  durch). (b) `ListStatements`s `ORDER BY created_at DESC` auf `ASC` gedreht ->
+  `TestPostgresRepository_ListStatements_PaginationTotalAndTenantScoping` rot auf beiden
+  Seiten (Seite 1 und Seite 2 liefern die falschen IDs). Nebenbefund aus einem verworfenen
+  dritten Versuch: eine `WHERE tenant_id = $1 OR true`-Mutation auf ListStatements blieb
+  GRUEN, weil die RLS-Policy auf `finance_bank_statements` die Fremdtenant-Zeilen ohnehin
+  herausfiltert, unabhaengig vom App-Praedikat — Defense-in-Depth bestaetigt, aber als
+  Mutation fuer diese Probe ungeeignet, deshalb verworfen zugunsten von (b).
+- verify vorgaenger: sauber — `29e982ed` (Iteration 33) aendert an Produktionscode nur einen
+  6-zeiligen Doc-Kommentar in `creditnote/postgres_repository.go` (per `git show
+  -- backend/internal/biz/creditnote/postgres_repository.go` geprueft), sonst ausschliesslich
+  eine neue ungetaggte Testdatei plus Backlog/Journal. Keine der acht Fehlerklassen
+  einschlaegig: kein neuer Handler, kein Stub/TODO, kein `.proto`, keine Migration, kein
+  neuer `RequirePermission`-Guard, keine neue Tabelle, keine Route, keine Response-Form
+  geaendert, kein ersetzter Guard-Key.
+- neue-units: fix-banking-import-race-returns-raw-pg-error (Block A/Fix-Kandidat, ans
+  Backlog-Ende gehaengt) — `CreateStatement` mappt die Unique-Violation auf
+  `finance_bank_statements_hash_unique` nicht auf einen Sentinel, anders als
+  `isAccountIBANConflict` im selben Paket; `Service.Import` gibt bei einem echten
+  Gleichzeitigkeits-Race (zwei Uploads derselben Datei fast zeitgleich) daher einen rohen
+  500 statt der erwarteten "bereits importiert"-Antwort zurueck. Kein Datenverlust, keine
+  doppelte Buchung (Constraint haelt, per Test belegt) — nur eine haessliche Fehlerantwort
+  in einem seltenen Fenster.
+- offen: (1) DB-Gate lief vollstaendig: DATABASE_URL als kmuhub_app, 0 uebersprungene Tests
+  im Paket. (2) `internal/biz/banking` liegt mit 83,5 % ueber dem allgemeinen 15 %-Gate, aber
+  unter dem 60 %-Zielband fuer kritische Pfade — Restluecken sind laut `go tool cover -func`
+  primaer die Fehlerzweige in `CreateStatement`/`ListStatements`/`ListTransactionsByStatement`
+  (DB-Fault-Injection noetig, kein Kandidat fuer eine einfache Folge-Unit) und
+  `matcher.go`/`postgres_repository_accounts.go`, die die naechste Unit
+  `cov-banking-accounts-and-matcher-real-sql` bereits als deps-Nachfolger aufgreift.
