@@ -5711,7 +5711,7 @@ Frühere Läufe liegen vollständig im Archiv:
   quotieren. Mein eigener neuer Unit-Eintrag ist frei davon (Zeile gezielt quotiert).
 
 ## Iteration 90 — fix-db-test-cleanup-order-leaks-fixtures — done — 2026-08-23 10:13
-- commit: (folgt)
+- commit: 543924d5
 - gebaut: Der aus Iteration 82 (kpi_postgres_test.go) bekannte Bug — `defer pool.Close()` UND
   `t.Cleanup(func() { testutil.CleanupRow(...) })` (direkt oder ueber einen Seed-Helfer) in
   derselben Testfunktion, wobei `defer` VOR `t.Cleanup` laeuft und die Row-Cleanups auf einem
