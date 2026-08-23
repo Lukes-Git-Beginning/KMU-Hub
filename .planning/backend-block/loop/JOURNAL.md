@@ -4680,7 +4680,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Wahl waeren. Eine zusaetzliche DB-Rundreise pro Re-Import, kein Korrektheitsproblem.
 
 ## Iteration 72 — fix-invoice-number-unique-index-blocks-second-draft — done — 2026-08-23 08:07
-- commit: <PENDING>
+- commit: ccee9d4f
 - gebaut: Neue Forward-Migration `000323_finance_invoice_number_partial_unique`
   ersetzt den nicht-partiellen Unique-Index `idx_finance_invoices_number` durch
   `... (tenant_id, invoice_number) WHERE invoice_number <> ''`. Damit darf ein Tenant
