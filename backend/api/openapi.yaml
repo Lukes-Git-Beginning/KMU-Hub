@@ -9178,9 +9178,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
-        "410":
-          description: Invoice is immutable (already sent)
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >-
+            Invoice is immutable (already sent) and can no longer be edited. Also
+            returned when a request carrying the same Idempotency-Key is still in
+            flight; retry after the delay in Retry-After with the same key and
+            body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the immutability conflict above.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/invoices/{id}/send:
     post:
@@ -9566,9 +9577,19 @@ paths:
                     $ref: "#/components/schemas/RecurringInvoice"
         "404":
           description: Schedule not found
-        "412":
-          description: Schedule is paused, ended or past its end date
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >-
+            Schedule is paused, ended or past its end date. Also returned when a
+            request carrying the same Idempotency-Key is still in flight; retry
+            after the delay in Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the schedule-state conflict above.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/credit-notes:
     post:

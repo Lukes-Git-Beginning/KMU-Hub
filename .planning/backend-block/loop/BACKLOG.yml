@@ -3348,7 +3348,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (reine OpenAPI-Spec-Korrektur, keine Coverage-relevante Codeänderung)"
     scope: >
       Zwei Routen dokumentieren in `openapi.yaml` einen HTTP-Statuscode, den der Handler

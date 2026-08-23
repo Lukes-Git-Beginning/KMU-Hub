@@ -4939,3 +4939,63 @@ Frühere Läufe liegen vollständig im Archiv:
     (aktueller eigener Vorher/Nachher-Messwert: 56,6 % / 56,6 %). Kuenftige
     Coverage-Units fuer `internal/gateway` sollten den Bezugswert aus einer
     frischen eigenen Messung ziehen, nicht aus `coverage_start:` uebernehmen.
+
+## Iteration 76 — fix-invoice-recurring-grpc-status-mapping-doc-mismatch — done — 2026-08-23 08:36
+- commit: (siehe naechste Zeile nach dem Commit)
+- gebaut: Zwei Stellen in `openapi.yaml` dokumentierten einen HTTP-Statuscode,
+  den der jeweilige Handler strukturell nie erzeugen kann: PUT
+  `/finance/invoices/{id}` dokumentierte `410` "Invoice is immutable"
+  (`openapi.yaml:9181`), POST `/finance/recurring/{id}/generate`
+  dokumentierte `412` "Schedule is paused, ended or past its end date"
+  (`openapi.yaml:9580`). Beide Handler (`route_biz_invoices.go:HandleUpdateInvoice`,
+  `route_biz_recurring.go:HandleGenerateRecurringInvoice`) geben gRPC-Fehler
+  ausschliesslich ueber `respondGRPCError` -> `grpcStatusToHTTP` weiter
+  (`helpers.go:59-63`), und dort mappt `FailedPrecondition` fest und mit
+  explizitem Kommentar ("Not 410 Gone — the resource is not permanently
+  removed") auf `409`.
+  ENTSCHEIDUNG (wie in den Notes als "vermutlich lean" vorgeschlagen):
+  Spec-Korrektur statt Code-Erweiterung. Begruendung: `grpcStatusToHTTP` ist
+  ein zentraler, von sehr vielen Routen geteilter Mapper — ihn um zwei
+  routenspezifische Sonderfaelle zu erweitern haette die Kopplung zwischen
+  generischer Fehlerbehandlung und zwei Endpunkten erhoeht. Zusaetzlicher
+  Praezedenzfall gefunden: `desktop/src/renderer/src/api/types.ts:27920`
+  dokumentiert fuer eine andere Route bereits denselben Fix mit Kommentar
+  "changed from 410 in the R3 hardening wave" — die Codebase hat dieses
+  Muster (FailedPrecondition -> 409, nicht 410) also schon vorher etabliert.
+  FE-Pruefung: `desktop/src/renderer/src/api/types.ts` ist auto-generiert aus
+  `openapi.yaml` ("Do not make direct changes to the file"), kein echter
+  FE-Vertrag. Grep nach `=== 410` / `=== 412` im gesamten `desktop/src` findet
+  keinen Treffer — kein Frontend-Code verzweigt auf diese Codes. Die
+  Spec-Korrektur ist also gefahrlos.
+  Beide Routen hatten bereits einen `"409": {$ref: IdempotencyInFlight}`-Eintrag
+  fuer denselben Statuscode — YAML erlaubt keinen doppelten Schluessel, also
+  wurden die beiden Ursachen (FailedPrecondition + Idempotency-Key-in-flight)
+  zu EINEM 409-Block zusammengefuehrt, nach dem bereits bestehenden Vorbild an
+  `openapi.yaml:9052` (POST convert-quote-to-invoice, das exakt dasselbe
+  Kombinationsmuster mit Retry-After-Hinweis "not set for the conflict above"
+  verwendet). Vor dem Zusammenfuehren verifiziert, dass der
+  Idempotency-Key-Teil fuer beide Routen tatsaechlich zutrifft: `BizRoutes`
+  wird in `cmd/gateway/main.go:329` ueber `reg.RegisterRoutes(r,
+  authWithIdempotency)` registriert, und `authWithIdempotency` (main.go:205)
+  verkettet `middleware.Idempotency` vor jeden Handler — beide Routen laufen
+  also durch die generische Idempotency-Middleware, der `409`-in-flight-Fall
+  ist fuer sie real, keine Fehlinformation.
+- gate: build ok (`go build -p 2` gateway + cmd/gateway) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 ./internal/gateway/` gruen, inkl.
+  `TestOpenAPIRouteDrift` — 836 Routen gegen 838 Pfade, unveraendert) |
+  swagger-cli validate: "api/openapi.yaml is valid" | migration n.a. (reine
+  Spec-Aenderung) | rls-smoke n.a. (keine Tabelle/Policy beruehrt)
+- coverage: n.a. (reine OpenAPI-Spec-Korrektur, keine Codeaenderung —
+  `internal/gateway` unveraendert bei 56,6 %, wie in Iteration 75 gemessen)
+- mutations-probe: n.a. (kein Code-Verhalten geaendert, keine neue
+  Testassertion, die einen Mutationstest rechtfertigen wuerde — die einzige
+  Pruefung ist struktureller Natur: `swagger-cli validate` +
+  `TestOpenAPIRouteDrift`, beide gruen)
+- verify vorgaenger: sauber. `9d7fc6f8` (Iteration 75) geprueft: kein
+  Gateway-Handler ruft eine Service-Instanz direkt (Redirect-Helper, kein
+  gRPC-Bypass), kein Stub, keine `.proto`-Aenderung, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, Wire-Shape unveraendert (nur
+  Redirect-Ziel gewechselt, keine JSON-Form), keine neue Route, kein
+  ersetzter Guard-Key.
+- neue-units: keine
+- offen: keine
