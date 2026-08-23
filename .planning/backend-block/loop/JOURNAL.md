@@ -6307,7 +6307,7 @@ Frühere Läufe liegen vollständig im Archiv:
   keine Migration und keine Tabelle beruehrt.
 
 ## Iteration 101 — fix-idempotency-409-rollout-non-finance-routes-5 — done — 2026-08-23 11:35
-- commit: (folgt nach diesem Eintrag)
+- commit: 55cf661a
 - gebaut: Registrar-Gruppe **Dashboard** vollstaendig auf 409 umgestellt — die kleinste
   Gruppe bisher mit nur 3 mutierenden Operationen: `PUT /api/v1/dashboard/layout`,
   `DELETE /api/v1/dashboard/layout`, `PUT /api/v1/dashboard/defaults/{role}`
