@@ -2243,6 +2243,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     get:
       summary: List companies
@@ -2281,6 +2283,8 @@ paths:
                 $ref: "#/components/schemas/ListCompaniesResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/companies/{id}:
     get:
@@ -2298,10 +2302,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CompanyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     put:
       summary: Update company
@@ -2332,6 +2340,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     delete:
       summary: Delete company
@@ -2348,12 +2358,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/companies/{id}/contacts:
     get:
@@ -2371,10 +2385,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListContactsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # Pipeline Stages
   /api/v1/pipeline-stages:
@@ -32188,6 +32206,7 @@ paths:
                 $ref: "#/components/schemas/CrmCompanyDuplicatesResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/companies/merge:
     post:
@@ -32213,6 +32232,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/gdpr/deletion-requests/{id}/process:
     post:
