@@ -6483,3 +6483,46 @@ Frühere Läufe liegen vollständig im Archiv:
   keine mutierenden Routen haben und uebersprungen werden koennen).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
   Migration und keine Tabelle beruehrt.
+
+## Iteration 105 — fix-status-code-drift-baseline-non-systemic-4 — done — 2026-08-23 12:15
+- commit: d70632a9
+- gebaut: Registrar-Gruppe **integrations** vollstaendig aus `statusDriftBaseline` geschlossen -
+  6 Eintraege. Handler geprueft statt geraten: `route_bexio.go` `HandleOAuthCallback` (500 aus
+  "OAuth state validation not configured" wenn `BEXIO_STATE_SECRET` leer) und
+  `HandleGetAuthURL` (500 aus "OAuth state secret not configured" bzw. "failed to generate
+  OAuth state"); `route_lexware.go` `HandleWebhookEvent` (500 aus "webhook secret not
+  configured" wenn `LEXWARE_WEBHOOK_SECRET` in Produktion leer ist); `route_integration.go`
+  `proxyPlatformWebhook` (gemeinsamer Helper fuer Slack commands/interact + Teams webhook,
+  502 aus "invalid response from notification service" wenn der Notification-Service einen
+  Statuscode ausserhalb 100-599 liefert). Bei Bexio-Callback und Lexware-Webhooks stand der
+  500-Fall bereits als Prosa in der `description:`, aber mit dem expliziten Vermerk "not
+  formally listed below since it signals server misconfiguration" bewusst aus `responses:`
+  ferngehalten - ein Widerspruch zur Kopfzeile ueber `statusDriftBaseline` ("EVERY ENTRY IS AN
+  OPEN DOCUMENTATION GAP, not an exemption on principle"). Beide Stellen dokumentiert und die
+  widerspruechliche Prosa entfernt, damit Text und Spec wieder uebereinstimmen. Einzige
+  geaenderten Dateien: `api/openapi.yaml` (6 neue Statuscode-Bloecke, 2 Beschreibungen
+  bereinigt) und `internal/gateway/openapi_status_code_drift_test.go` (6 Eintraege aus
+  `statusDriftBaseline` entfernt, veralteter 502-Hinweis im Kopfkommentar entfernt).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 2682 PASS, 0 FAIL,
+  `TestOpenAPIRouteDrift` + `TestOpenAPIStatusCodeDrift` beide gruen, Baseline-Zaehler
+  "22" -> "16 baselined operations") | swagger-cli validate gruen | migration n.a. |
+  rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: den frisch eingefuegten `"502"`-Block unter
+  `POST /api/v1/integrations/teams/webhook` testweise entfernt - `TestOpenAPIStatusCodeDrift`
+  rot (`POST /api/v1/integrations/teams/webhook writes [502] - not documented`), Aenderung
+  zurueckgedreht, danach `go test -count=1 ./internal/gateway/...` und `swagger-cli validate`
+  wieder gruen; `git diff --stat backend/` zeigt exakt die erwarteten Aenderungen in beiden
+  Dateien und sonst nichts.
+- verify vorgaenger: sauber. `36e7d7d6` (Iteration 104) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (18 additive Zeilen, 409-Idempotenz auf der Registrar-Gruppe Settings),
+  reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`, Tabelle oder
+  Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen.
+- neue-units: `fix-status-code-drift-baseline-non-systemic-5` (naechste Zielgruppe dashboard,
+  5 Eintraege mit Handler-Zuordnung, aktualisierte Restliste von 16 auf 11 nach Abschluss,
+  Hinweis auf den "not formally listed"-Fallstrick aus dieser Iteration).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt.

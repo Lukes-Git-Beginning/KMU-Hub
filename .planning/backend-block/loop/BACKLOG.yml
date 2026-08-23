@@ -5311,7 +5311,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-status-code-drift-baseline-non-systemic-3]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Fortsetzung von `fix-status-code-drift-baseline-non-systemic-3` (Iteration 102 hat die
@@ -5482,3 +5482,65 @@ units:
         IdempotencyInFlight-$ref wird testweise verbogen, swagger-cli wird rot,
         Aenderung zurueckgedreht"
       - go test -count=1 ./internal/gateway/ gruen
+
+  - id: fix-status-code-drift-baseline-non-systemic-5
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-status-code-drift-baseline-non-systemic-4]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `fix-status-code-drift-baseline-non-systemic-4` (Iteration 105 hat die
+      Registrar-Gruppe **integrations** vollstaendig geschlossen - 6 Eintraege: Bexio
+      oauth/authorize + oauth/callback 500 aus `BEXIO_STATE_SECRET` nicht konfiguriert
+      bzw. Statetoken-/Auth-URL-Generierung fehlgeschlagen, Lexware webhooks 500 aus
+      `LEXWARE_WEBHOOK_SECRET` nicht konfiguriert (Produktion), Slack commands/interact +
+      Teams webhook 502 aus dem gemeinsamen `proxyPlatformWebhook`-Helper in
+      `route_integration.go` (Notification-Service liefert einen Statuscode ausserhalb
+      100-599); `statusDriftBaseline` von 22 auf 16 Eintraege gesunken).
+      Verbleibende Gruppen in `internal/gateway/openapi_status_code_drift_test.go`
+      (`statusDriftBaseline`, Stand nach Iteration 105):
+      **dashboard** (5 Eintraege, naechste Zielgruppe - `route_dashboard.go`:
+      `GET/PUT/DELETE /api/v1/dashboard/layout` -> `HandleGetDashboard`/`HandleSaveDashboard`/
+      `HandleResetToDefaults`, `GET/PUT /api/v1/dashboard/defaults/{role}` ->
+      `HandleGetDefaults`/`HandleSaveDefaults`; alle fuenf antworten bei DB-/Service-Fehlern
+      mit `response.Error(w, http.StatusInternalServerError, "failed to ...")`, kein
+      `respondGRPCError` - ACHTUNG nicht verwechseln mit der bereits erledigten
+      Idempotenz-409-Unit auf denselben Pfaden, hier geht es um den 500-Fehlerpfad),
+      Rest verstreut (7 Eintraege: `DELETE/POST /api/v1/activities/{id}/tags` und
+      `DELETE/POST /api/v1/deals/{id}/tags` 501 - NICHT hierher, siehe
+      `fix-crm-tag-endpoints-are-501-stubs`, bleiben bewusst in der Baseline stehen bis diese
+      Unit entschieden ist; `POST /api/v1/guest/sessions` 500; `POST
+      /api/v1/email/attachments/upload` 500; `POST/PUT /api/v1/inbox/canned-responses` 500;
+      `POST /api/v1/webhooks/livekit` 401; `PUT /api/v1/customization/labels` 500 -
+      Customization ist FE-seitig gesperrt, trotzdem reine Doku hier vermutlich unkritisch, im
+      Zweifel auslassen; `GET /api/v1/security/gdpr/exports` 403).
+      Je Iteration eine Gruppe (dashboard zuerst), abgearbeitete Eintraege im selben Commit
+      aus `statusDriftBaseline` entfernen. Kein Go-Code aendern, nur `api/openapi.yaml`.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_dashboard.go
+    notes: >
+      Gleiche Mechanik wie Iteration 99 (Finance), 102 (HR), 103 (Calendar) und 105
+      (Integrations): Handler/Service pruefen (nicht raten, welcher Guard/welche Fehlerquelle
+      den Code schreibt), Beschreibung am tatsaechlichen `response.Error`-Text orientieren,
+      $ref auf `#/components/responses/Unauthorized` fuer 401 wo ein generischer
+      Unauthorized-Response existiert, sonst inline `description:`. Numerisch einsortieren.
+      Traf Iteration 105 zusaetzlich an: zwei der Bexio/Lexware-Beschreibungstexte hatten
+      den 500-Fall bereits in Prosa erwaehnt, aber bewusst mit dem Vermerk "not formally
+      listed below since it signals server misconfiguration" von den `responses:` ferngehalten
+      - das war eine fruehere, bewusste Abweichung von der Kopfzeile ueber
+      `statusDriftBaseline` ("EVERY ENTRY IS AN OPEN DOCUMENTATION GAP, not an exemption on
+      principle"). Iteration 105 hat sie dokumentiert und die widerspruechliche Prosa entfernt;
+      falls in den verbleibenden Gruppen aehnliche "not formally listed"-Vermerke auftauchen,
+      genauso aufloesen statt sie als Exemption zu lesen.
+      Mutations-Probe: einen frisch eingefuegten Eintrag testweise entfernen,
+      `TestOpenAPIStatusCodeDrift` muss dafuer rot werden, danach zurueckdrehen.
+    done_when:
+      - Mindestens eine weitere Gruppe der verbliebenen 16 Eintraege ist in api/openapi.yaml
+        dokumentiert
+      - Die erledigten Eintraege sind aus statusDriftBaseline entfernt
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
