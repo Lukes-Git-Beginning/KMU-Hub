@@ -25846,6 +25846,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/objects/{id}:
     get:
@@ -25902,6 +25903,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a rental object
       tags: [vermietung]
@@ -25915,6 +25917,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/objects/{id}/availability:
     get:
@@ -26004,6 +26007,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}:
     get:
@@ -26058,6 +26062,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a rental
       tags: [vermietung]
@@ -26071,6 +26076,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}/start:
     post:
@@ -26092,6 +26098,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}/end:
     post:
@@ -26113,6 +26120,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}/signature:
     put:
@@ -26145,6 +26153,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}/inspections:
     get:
@@ -26208,6 +26217,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/inspections/{id}:
     get:
@@ -26269,6 +26279,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/calendar:
     get:
