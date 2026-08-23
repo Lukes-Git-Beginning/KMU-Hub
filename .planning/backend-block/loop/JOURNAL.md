@@ -3765,7 +3765,7 @@ Frühere Läufe liegen vollständig im Archiv:
     Nachfolge-Unit verlangen, sondern nur "wenn Zeit reicht" in die Breite gehen.
 
 ## Iteration 57 — scan-retention-mapping-remaining-services — done — 2026-08-23 06:12
-- commit: (siehe nächster docs-Commit dieser Iteration)
+- commit: d5daa61d
 - gebaut: reiner Scan, kein Produktionscode geändert (Scan-Unit-Regel). Ein Explore-
   Subagent hat (1) den C4-Scan aus Lauf 10 (Iteration 43, `scan-personal-data-tables-
   without-retention-mapping`) und dessen Grundgesamtheit zitiert, (2) alle 24
