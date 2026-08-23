@@ -617,3 +617,166 @@ func TestHandleVerifyAuditChain_ServiceUnavailable(t *testing.T) {
 	routes := NewSecurityRoutes(emptyRegistry())
 	testServiceUnavailable(t, routes.HandleVerifyAuditChain)
 }
+
+// ============================================================================
+// Router-level guard wiring: retention, IP rule and password routes
+// (cov-gateway-security-retention-ip-password-routes)
+//
+// /password/policy (GET) and /password/validate (POST) are deliberately not
+// admin-only -- every authenticated user needs to read the active policy and
+// validate a candidate password against it before submitting a change. Both
+// still require authentication (401 without it), and both sit behind the
+// gateway's global per-IP rate limiter wired in cmd/gateway/main.go
+// (rateLimiter.Middleware, applied to the whole router before route
+// registration) -- there is no route-local gap to close here, and adding a
+// second limiter would be redundant, not a fix.
+// ============================================================================
+
+func TestSecurityRoutes_RetentionIPRulePasswordGuards(t *testing.T) {
+	router := chi.NewRouter()
+	NewSecurityRoutes(emptyRegistry()).RegisterRoutes(router, RequireAuthenticated)
+
+	const validID = "550e8400-e29b-41d4-a716-446655440000"
+
+	cases := []struct {
+		name      string
+		method    string
+		path      string
+		body      map[string]interface{}
+		adminOnly bool
+	}{
+		{"list ip rules", http.MethodGet, "/api/v1/security/ip-rules", nil, true},
+		{"create ip rule", http.MethodPost, "/api/v1/security/ip-rules", map[string]interface{}{
+			"ip_cidr": "10.0.0.0/8", "rule_type": "allow",
+		}, true},
+		{"delete ip rule", http.MethodDelete, "/api/v1/security/ip-rules/" + validID, nil, true},
+		{"list retention policies", http.MethodGet, "/api/v1/security/retention-policies", nil, true},
+		{"create retention policy", http.MethodPost, "/api/v1/security/retention-policies", map[string]interface{}{
+			"resource_type": "audit_log", "retention_days": 30, "action": "delete",
+		}, true},
+		{"update retention policy", http.MethodPut, "/api/v1/security/retention-policies/" + validID, map[string]interface{}{
+			"retention_days": 30, "action": "delete",
+		}, true},
+		{"delete retention policy", http.MethodDelete, "/api/v1/security/retention-policies/" + validID, nil, true},
+		{"latest retention run", http.MethodGet, "/api/v1/security/retention-runs/latest", nil, true},
+		{"get password policy", http.MethodGet, "/api/v1/security/password/policy", nil, false},
+		{"update password policy", http.MethodPut, "/api/v1/security/password/policy", map[string]interface{}{}, true},
+		{"validate password", http.MethodPost, "/api/v1/security/password/validate", map[string]interface{}{
+			"password": "irrelevant",
+		}, false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name+"/no auth", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, tc.body))
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusUnauthorized)
+		})
+
+		if tc.adminOnly {
+			t.Run(tc.name+"/authenticated non-admin", func(t *testing.T) {
+				req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, tc.body))
+				req = withAuth(req, uuid.New().String(), testTenantID)
+				rec := httptest.NewRecorder()
+				router.ServeHTTP(rec, req)
+				assertStatus(t, rec, http.StatusForbidden)
+			})
+		}
+
+		t.Run(tc.name+"/authorized empty registry", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, tc.body))
+			req = withAuth(req, uuid.New().String(), testTenantID)
+			if tc.adminOnly {
+				req = withRoles(req, "admin")
+			}
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusServiceUnavailable)
+		})
+	}
+}
+
+// --- HandleCreateIPRule: invalid CIDR ---
+//
+// The router-level test above proves valid bodies reach the (unreachable in
+// this test) gRPC layer; CreateIPRule's actual CIDR-format rejection is a
+// gRPC-layer concern (net.ParseCIDR, added alongside this unit) and is
+// covered in security_grpc_test.go's TestSecurityGRPC_ValidationErrors --
+// there is no HTTP-layer struct tag for CIDR shape, so this handler has
+// nothing further to validate before the call.
+
+// --- HandleUpdateRetentionPolicy / HandleCreateRetentionPolicy: retention days ---
+//
+// Both createRetentionPolicyRequest and updateRetentionPolicyRequest carry
+// `validate:"required,min=1"` on retention_days, so 0 and negative values are
+// already rejected by decodeAndValidate before the gRPC call.
+
+func TestHandleCreateRetentionPolicy_ZeroRetentionDaysRejected(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/security/retention-policies", jsonBody(t, map[string]interface{}{
+		"resource_type": "audit_log", "retention_days": 0, "action": "delete",
+	}))
+	req = withUserID(req, "admin-123")
+	routes.HandleCreateRetentionPolicy(rec, req)
+	assertValidationError(t, rec, "retention_days")
+}
+
+func TestHandleCreateRetentionPolicy_NegativeRetentionDaysRejected(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/security/retention-policies", jsonBody(t, map[string]interface{}{
+		"resource_type": "audit_log", "retention_days": -5, "action": "delete",
+	}))
+	req = withUserID(req, "admin-123")
+	routes.HandleCreateRetentionPolicy(rec, req)
+	assertValidationError(t, rec, "retention_days")
+}
+
+func TestHandleUpdateRetentionPolicy_ZeroRetentionDaysRejected(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	policyID := uuid.New().String()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/security/retention-policies/"+policyID, jsonBody(t, map[string]interface{}{
+		"retention_days": 0, "action": "delete",
+	}))
+	req = withUserID(req, "admin-123")
+	req = withChiURLParam(req, "id", policyID)
+	routes.HandleUpdateRetentionPolicy(rec, req)
+	assertValidationError(t, rec, "retention_days")
+}
+
+func TestHandleCreateRetentionPolicy_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleCreateRetentionPolicy)
+}
+
+func TestHandleUpdateRetentionPolicy_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleUpdateRetentionPolicy)
+}
+
+func TestHandleDeleteRetentionPolicy_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleDeleteRetentionPolicy)
+}
+
+func TestHandleListRetentionPolicies_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListRetentionPolicies)
+}
+
+func TestHandleListIPRules_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListIPRules)
+}
+
+func TestHandleDeleteIPRule_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleDeleteIPRule(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}

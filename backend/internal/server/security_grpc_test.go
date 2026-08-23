@@ -857,6 +857,17 @@ func TestSecurityGRPC_ValidationErrors(t *testing.T) {
 			_, err := srv.CreateIPRule(ctx, &securityv1.CreateIPRuleRequest{IpCidr: "10.0.0.0/8", RuleType: "maybe"})
 			return err
 		}},
+		{"CreateIPRule/malformed_cidr", codes.InvalidArgument, func() error {
+			_, err := srv.CreateIPRule(ctx, &securityv1.CreateIPRuleRequest{IpCidr: "not-a-cidr", RuleType: models.IPRuleAllow})
+			return err
+		}},
+		{"CreateIPRule/cidr_host_bits_set", codes.InvalidArgument, func() error {
+			// Postgres' CIDR column rejects non-network-aligned addresses (e.g.
+			// a /24 with a non-zero host octet) -- reject before it reaches the
+			// INSERT and surfaces as a generic 500 instead.
+			_, err := srv.CreateIPRule(ctx, &securityv1.CreateIPRuleRequest{IpCidr: "192.168.1.5/24", RuleType: models.IPRuleAllow})
+			return err
+		}},
 		{"DeleteIPRule/invalid_rule_id", codes.InvalidArgument, func() error {
 			_, err := srv.DeleteIPRule(ctx, &securityv1.DeleteIPRuleRequest{RuleId: "not-a-uuid"})
 			return err

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	"strings"
 	"time"
 
@@ -742,9 +743,23 @@ func (s *SecurityGRPCServer) ListIPRules(ctx context.Context, req *securityv1.Li
 	}, nil
 }
 
+// CreateIPRule persists an allow/block rule. It does NOT check whether the
+// calling admin's own IP would still pass the resulting rule set --
+// gateway.IPFilterMiddleware enforces rules on every request once loaded, so
+// a "block 0.0.0.0/0" or an "allow" rule that excludes the admin's own
+// network can lock every admin out (verified: no self-lockout guard exists
+// anywhere in this path). Fixing that is a product decision (soft warning?
+// hard block? break-glass bypass?) and is out of scope here; documented
+// per cov-gateway-security-retention-ip-password-routes (2026-08-23).
 func (s *SecurityGRPCServer) CreateIPRule(ctx context.Context, req *securityv1.CreateIPRuleRequest) (*securityv1.CreateIPRuleResponse, error) {
 	if req.IpCidr == "" {
 		return nil, status.Error(codes.InvalidArgument, "ip_cidr is required")
+	}
+	// Postgres' CIDR column type rejects any value with host bits set (e.g.
+	// "192.168.1.5/24" -- valid inet, invalid cidr). Mirror that here so the
+	// rejection surfaces as 400 instead of a generic 500 from the INSERT.
+	if ip, network, err := net.ParseCIDR(req.IpCidr); err != nil || !ip.Equal(network.IP) {
+		return nil, status.Error(codes.InvalidArgument, "ip_cidr must be valid CIDR notation with no host bits set")
 	}
 	if req.RuleType != models.IPRuleAllow && req.RuleType != models.IPRuleBlock {
 		return nil, status.Error(codes.InvalidArgument, "rule_type must be 'allow' or 'block'")

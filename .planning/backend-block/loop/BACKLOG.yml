@@ -1766,7 +1766,7 @@ units:
     service: gateway
     model: sonnet
     deps: [cov-gateway-security-gdpr-export-erasure-dsar-routes]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       Zehn Routen in `route_security.go:68-82`: Passwortrichtlinie lesen, ändern, prüfen;

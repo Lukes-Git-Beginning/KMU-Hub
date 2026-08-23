@@ -2458,3 +2458,96 @@ Frühere Läufe liegen vollständig im Archiv:
   `RequireRole("admin")`-Guard auf approve/deny/preview/execute/dsar-search
   blieb unveraendert, nur der Inline-Check auf `/gdpr/exports` kam hinzu)
 - offen: keine
+
+## Iteration 41 — cov-gateway-security-retention-ip-password-routes — done — 2026-08-23 04:05
+- commit: (wird nach diesem Eintrag erzeugt)
+- gebaut:
+  (1) ECHTER BUG gefunden und behoben, gleiche Fehlerklasse wie Iteration 39/40:
+  `CreateIPRule` (`internal/server/security_grpc.go`) validierte `ip_cidr` nur
+  auf "nicht leer" — jede syntaktisch kaputte oder nicht netzwerk-ausgerichtete
+  CIDR-Notation (z. B. `"not-a-cidr"` oder `"192.168.1.5/24"` mit gesetzten
+  Host-Bits) fiel erst beim `INSERT` gegen die Postgres-`CIDR`-Spalte auf und
+  wurde dort als generischer `codes.Internal` ("failed to create IP rule")
+  zurückgegeben — 500 statt 400. Fix: `net.ParseCIDR` plus Host-Bit-Check
+  (`ip.Equal(network.IP)`) vor dem Insert, spiegelt exakt Postgres' eigene
+  CIDR-Semantik (die `inet`-Werte mit Host-Bits akzeptiert, `cidr`-Werte aber
+  ablehnt). Zwei neue Faelle in der bestehenden
+  `TestSecurityGRPC_ValidationErrors`-Tabelle (`security_grpc_test.go`):
+  `CreateIPRule/malformed_cidr`, `CreateIPRule/cidr_host_bits_set`, beide
+  `codes.InvalidArgument`.
+  (2) Router-Level-Guard-Tabelle `TestSecurityRoutes_RetentionIPRulePasswordGuards`
+  (`route_security_test.go`) fuer die zehn Routen aus `route_security.go:68-82`
+  plus `HandleValidatePassword`: 401 ohne Auth, 403 fuer Nicht-Admin auf den
+  acht admin-only Routen (ip-rules ×3, retention-policies ×4,
+  retention-runs/latest), 503 bei leerer Registry fuer alle elf. Fuer
+  `GET /password/policy` und `POST /password/validate` (bewusst nicht
+  admin-only) nur 401/503 geprueft, kein 403-Fall.
+  (3) Retention-Tage 0/negativ: bereits vor dieser Iteration durch
+  `validate:"required,min=1"` auf `createRetentionPolicyRequest.RetentionDays`
+  UND `updateRetentionPolicyRequest.RetentionDays` abgedeckt (HTTP-Layer) plus
+  `req.RetentionDays <= 0` am gRPC-Layer (Verteidigung in der Tiefe, beide
+  Ebenen bereits vorhanden) — kein Fund, aber bislang unbewiesen. Drei neue
+  Tests: `TestHandleCreateRetentionPolicy_ZeroRetentionDaysRejected`,
+  `_NegativeRetentionDaysRejected`, `TestHandleUpdateRetentionPolicy_ZeroRetentionDaysRejected`
+  (alle 400 mit `retention_days` im Validation-Detail).
+  (4) Unbekannter `resource_type`: Ist-Zustand wie im Scope beschrieben belegt
+  — `gdpr.RetentionEngine.runPolicy` meldet einen nicht registrierten Typ
+  bereits als `RetentionItemUnmapped` ("nicht zugeordnet"), das ist seit
+  Lauf 10 vollstaendig getestet (`retention_test.go`,
+  `TestRetentionEngine_EmptyRegistryReportsUnmapped`,
+  `TestRetentionEngine_Run_Integration`). Neu: DB-Test
+  `TestSecurityGRPCServer_CreateRetentionPolicy_AcceptsUnknownResourceType`
+  (`security_grpc_retention_policies_db_test.go`) belegt, dass die Erstellung
+  selbst einen Tippfehler-Typ NICHT ablehnt — genau der Zustand, den der
+  Scope als "festhalten, ohne Whitelist einzufuehren" verlangt hat. Keine
+  Whitelist eingefuehrt.
+  (5) `HandleValidatePassword` (Auth, Rate-Limit) belegt: Route sitzt unter
+  `authMiddleware` (401 ohne Token, per Router-Guard-Test bewiesen) UND unter
+  dem globalen Per-IP-Rate-Limiter aus `cmd/gateway/main.go:161-162`
+  (`rateLimiter.Middleware`, vor jeder Route-Registrierung auf den ganzen
+  Router angewandt) — kein routen-lokaler Rate-Limit-Fund, kein Fix noetig.
+  `userID` kommt immer aus dem eigenen Token (`middleware.GetUserID`), die
+  RPC kann also nicht als Orakel fuer fremde Passwort-Historien missbraucht
+  werden. Kein Fund.
+  (6) Admin-Selbstaussperrung durch IP-Regeln: VERIFIZIERT als real
+  existierendes Risiko, NICHT behoben (wie im Scope vorgegeben — "falls ja,
+  gehoert das als Fund notiert, nicht behoben"). `gateway.IPFilterMiddleware`
+  (`internal/gateway/ip_filter.go`) wendet Block-/Allow-Regeln aus
+  `ip_access_rules` auf JEDEN Request an, sobald sie geladen sind — es gibt
+  keinen Schutz dagegen, dass ein Admin sich selbst per `block 0.0.0.0/0`
+  oder einer Allow-Regel ohne die eigene Range aussperrt. Nur der Kaltstart
+  ist "fail open" (Zeile 132-141), der Normalbetrieb nicht. Dokumentiert als
+  Kommentar direkt an `CreateIPRule` (Code-Referenz statt nur Journal-Notiz,
+  damit der naechste Bearbeiter der Funktion es sieht) und hier im Journal.
+  Kein Fix — Produktentscheidung (Warnung? harte Sperre? Break-Glass?).
+- gate: build ok | vet ok | lint ok (0 issues, `internal/gateway` +
+  `internal/server`) | test ok (`go test -count=1 -p 1 ./internal/gateway/...
+  ./internal/server/...`, 0 SKIP) | migration n.a. (keine Tabellen-/
+  Schema-Aenderung) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung) |
+  `go test -count=1 -run TestOpenAPIRouteDrift ./internal/gateway/` PFLICHT
+  gelaufen (836 Routen gegen 838 Spec-Pfade, gruen — keine Route
+  hinzugefuegt/geaendert)
+- coverage: internal/gateway 54,3 % (eigene Messung vor dieser Iteration via
+  `git stash`) -> 54,5 % (danach). internal/server 70,7 % -> 70,7 %
+  (unveraendert — der Fix ist eine schmale Validierungszeile, der Wert liegt
+  im gefundenen Bug, nicht in der Statement-Zahl).
+- mutations-probe: `net.ParseCIDR`-Check in `CreateIPRule` testweise durch
+  `if false { _, _, _ = net.ParseCIDR(...) }` ersetzt (Import bleibt benutzt,
+  damit der Build durchlaeuft) — `TestSecurityGRPC_ValidationErrors/CreateIPRule/malformed_cidr`
+  wurde rot: die ungueltige CIDR erreichte ohne Check `s.pool.Exec` gegen den
+  nil-Pool des Test-Setups und panickte dort (`pgxpool.(*Pool).Acquire` auf
+  `0x0`) — genau der Beweis, dass der Check das ist, was die Funktion vor dem
+  Erreichen des generischen 500-Pfads bewahrt. Zurueckgesetzt via `cp` einer
+  Sicherungskopie, `diff` gegen Original danach leer.
+- verify vorgaenger: sauber — `a777859d` (letzter Commit vor dieser
+  Iteration) aendert laut `git show --stat` nur `route_security.go` (ein
+  neuer Inline-Admin-Check auf `/gdpr/exports`, additiv), `route_security_test.go`,
+  `security_grpc.go` (zwei neue Fehler-Mapping-Cases, additiv),
+  `security_grpc_test.go` — keine der acht Fehlerklassen anwendbar, bereits
+  im Detail gegengeprueft (siehe eigener Journal-Eintrag der Vorgaenger-
+  Iteration).
+- neue-units: keine (der Selbstaussperrungs-Fund ist laut Scope-Vorgabe
+  dieser Unit ausdruecklich "notiert, nicht behoben" — keine eigene Unit
+  gefordert; als Code-Kommentar an `CreateIPRule` UND hier dokumentiert, damit
+  er bei einer spaeteren IP-Regel-Ueberarbeitung nicht verloren geht)
+- offen: keine
