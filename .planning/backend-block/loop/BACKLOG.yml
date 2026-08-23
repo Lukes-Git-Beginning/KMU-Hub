@@ -2260,7 +2260,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       `route_biz_document_chains.go` (137/187) und `route_biz_open_items.go` (66/132) zeigen
@@ -2485,6 +2485,16 @@ units:
       B21 und C16 melden ihre Befunde hierher — beide vor dem Abschluss dieses Scans lesen.
       KEINE Vereinheitlichung in dieser Unit. Der Scan liefert die Liste; jede Zusammenführung
       ist eine eigene Unit mit eigenem Test.
+      GEMELDET (Lauf 11, Iteration 54, cov-gateway-document-chains-and-open-items-routes):
+      `route_biz_document_chains.go:78` (`formatChainAmount`, `rounded := amount.Round(2)`)
+      ist BEANTWORTET, keine neue Divergenz. Alle drei Quellspalten
+      (finance_invoices.gross_total, finance_payments.amount,
+      finance_credit_notes.gross_total) sind NUMERIC(15,2); jeder Wert kommt per `::text`
+      direkt aus einer dieser Spalten oder aus einer Subtraktion zweier solcher Werte
+      (invGross.Sub(paid).Sub(credited) in postgres_document_chains.go) — beides kann nie
+      mehr als zwei Nachkommastellen tragen. Round(2) im Gateway rundet also nie tatsächlich
+      etwas weg; überflüssig, aber harmlos. Beleg steht ausführlich als Kommentar in
+      route_biz_document_chains_test.go (oberhalb der Testfunktionen).
     done_when:
       - Vollständige Liste aller Geld-Rundungs- und Steuerrechenstellen aus internal/
       - Je Stelle die drei Fragen beantwortet, mit Angabe ob das Ergebnis nach aussen geht

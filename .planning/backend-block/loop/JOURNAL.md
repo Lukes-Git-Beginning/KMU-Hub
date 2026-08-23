@@ -3526,3 +3526,81 @@ Frühere Läufe liegen vollständig im Archiv:
   Kommentar selbst wurde nicht angefasst (beschreibt weiterhin korrekt, was
   in diesem Test-Func steht), der neue `stubWorkTimeRepo` liegt in einem
   eigenen Abschnitt direkt danach.
+
+## Iteration 54 — cov-gateway-document-chains-and-open-items-routes — done — 2026-08-23 05:45
+- commit: (siehe naechster Commit, unmittelbar nach diesem Journal-Eintrag)
+- gebaut: kein Fix, keine neue Route. Ein echter Coverage-Fund behoben
+  (`groupThousands` in `route_biz_document_chains.go:95`: der Zweig
+  `if first == 0 { first = 3 }` war durch keinen Bestandstest erreichbar,
+  weil alle drei bisherigen Faelle 4 oder 7 Stellen hatten, first also nie 0
+  wurde — ein neuer Fall mit sechs Stellen ("123456.00" -> "EUR 123.456,00")
+  schliesst genau diese Luecke). Die drei uebrigen Praemissen aus dem
+  Backlog-Scope sind gegen Code und Migrationen geprueft und ALS FALSCH
+  bzw. BEREITS ERLEDIGT widerlegt, mit Beleg als Kommentar in den beiden
+  Testdateien statt als stiller Nichtbefund:
+  (1) Rundung: `formatChainAmount`s `Round(2)` rundet nie tatsaechlich etwas
+  weg, weil alle drei Quellspalten (`finance_invoices.gross_total`,
+  `finance_payments.amount`, `finance_credit_notes.gross_total`) NUMERIC(15,2)
+  sind (migrations/000045) und jede im Gateway ankommende Zahl entweder
+  direkt aus einer dieser Spalten oder aus einer Subtraktion zweier solcher
+  Werte stammt — beides kann nie mehr als zwei Nachkommastellen haben.
+  Ueberfluessig, keine Divergenz. In die D4-Scan-Unit
+  (`scan-money-rounding-and-tax-call-sites`) als vorab beantwortete Stelle
+  eingetragen.
+  (2) Faelligkeitsgrenze: `HandleListOpenItems` klassifiziert selbst nichts
+  (bucket ist ein durchgereichter Query-String) — die eigentliche
+  Grenzwertlogik (`AgingBucketIndexFor`) hat bereits exakte
+  Grenzwerttests (0/30/60 und Grenze+1) in
+  `internal/biz/dunning/service_open_items_test.go`, die SQL-Seite in
+  `internal/biz/invoice/open_items_chains_helpers_test.go`. Eine dritte
+  Kopie am Gateway wuerde nur `parsePagination` testen, nicht die Grenze.
+  (3) Belegkette ohne Angebot / Gutschrift ohne Rechnung: eine Rechnung ohne
+  Angebot ist der Normalfall (quoteID nil ueberspringt nur den Quote-Knoten,
+  keine Sonderbehandlung); eine Gutschrift ohne Rechnung kann nicht
+  existieren (`finance_credit_notes.original_invoice_id` ist NOT NULL mit
+  ON DELETE RESTRICT FK, migrations/000045). Beide Faelle sind Knotenzahl 1,
+  und `toDocumentChainWire` behandelt 0/1/2-Knoten-Faelle identisch (Proto-
+  Getter sind nil-sicher) — kein Zweig, der brechen koennte, bereits durch
+  `TestToDocumentChainWire_EmptyNumberAndDate_UseEmDash` und
+  `TestToDocumentChainWire_NoNodes_ProducesEmptySliceNotNil` belegt.
+  Die vor diesem Lauf schon existierenden Testdateien
+  (`route_biz_document_chains_test.go`, `route_biz_open_items_time_entries_test.go`,
+  Commits `2b621da2`/`e8b862e9` aus Lauf 10) hatten die im Backlog-Draft
+  genannten Zeilenverhaeltnisse (137/187, 66/132) bereits ueberholt — Draft
+  war zum Zeitpunkt der Vorbereitung (2026-08-22) nicht mehr aktuell.
+- gate: build ok (`-p 2`, internal/gateway + cmd/gateway) | vet ok | lint ok
+  (golangci-lint, 0 issues) | test ok (`go test -count=1`, internal/gateway
+  gruen, inkl. `TestOpenAPIRouteDrift` explizit: 836 registrierte Routen
+  gegen 838 dokumentierte Pfade, PASS — keine Route veraendert) | migration
+  n.a. | rls-smoke n.a.
+- coverage: internal/gateway 56,6 % -> 56,6 % (eigene Messung vor/nach per
+  `go test -coverprofile` + `go tool cover -func`, DATABASE_URL gegen
+  kmuhub_app; `coverage_start:` der Unit nennt 54,1 % CI-Stand, die
+  Abweichung kommt von den vielen Iterationen dieses Laufs seit dem
+  CI-Stand). Auf Gesamtpaketebene rundet eine einzelne neue Testzeile weg,
+  der eigene Beitrag ist auf Funktionsebene sichtbar:
+  `route_biz_document_chains.go` `groupThousands` 90,9 % -> 100,0 %.
+- mutations-probe: `first = 3` in `groupThousands` (Zeile 102) zu
+  `first = 1` geaendert -> `TestFormatChainAmount_GroupingBoundary` wird rot
+  (Panic: `slice bounds out of range` beim Aufbau von "123456.00", da
+  `digits[:1]` + Schrittweite 3 ab Index 1 den String falsch zerlegt).
+  Zurueckgedreht per `git checkout -- route_biz_document_chains.go` (der
+  sed-Edit hatte nur die Zeilenenden der einen Zeile beruehrt, `git diff`
+  zeigte danach 0 inhaltliche Aenderungen; sicherheitshalber trotzdem per
+  Checkout exakt auf den Ausgangsstand zurueckgesetzt). `git status` zeigt
+  fuer diese Datei jetzt clean.
+- verify vorgaenger: sauber. `920a7f73` (Iteration 53) geprueft: `git show
+  --stat` zeigt nur `internal/server/biz_grpc.go` (14 Zeilen) plus zwei
+  Testdateien, kein neuer Handler/Service-Direktaufruf, kein Stub/TODO, kein
+  `.proto`-Change, keine Migration, kein neuer/ersetzter RequirePermission-
+  Guard, keine neue Tabelle, keine neue Route, kein Wire-Shape-Wechsel;
+  `GenerateDunningPDF` und `CreateInvoiceFromTimeEntries` routen jetzt beide
+  ueber `mapBizError`/eine generische Meldung statt Internal-Hardcode bzw.
+  rohem SQL-Fehlertext — keine der acht Fehlerklassen einschlaegig.
+- neue-units: keine. Der einzige echte Fund (groupThousands-Luecke) ist in
+  dieser Unit selbst behoben; die drei widerlegten Praemissen brauchen keine
+  Folge-Unit, weil sie keine echten Luecken sind (Beleg jeweils als
+  Code-Kommentar hinterlegt, D4 zusaetzlich vorab beantwortet).
+- offen: keine. Die 838-vs-836-Differenz bei TestOpenAPIRouteDrift ist
+  vorbestehend und unveraendert durch diese Unit (keine Route angefasst) —
+  nicht neu, nicht Teil dieser Iteration.

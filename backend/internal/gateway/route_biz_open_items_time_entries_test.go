@@ -29,6 +29,19 @@ package gateway
 //     `lean:` marker at route_biz_time_entries.go:52) — that is an existing,
 //     already-flagged simplification with its own upgrade trigger, not a new
 //     finding, and is out of scope for a coverage-only unit to change.
+//
+// A third premise from the backlog draft for this file — "an invoice exactly
+// on an aging bucket boundary needs a test" — does not belong here either.
+// HandleListOpenItems does no bucket classification of its own: bucket is an
+// opaque query string forwarded to ListOpenItemsRequest, and the summary
+// buckets it returns are marshalled as-is. The classification itself
+// (AgingBucketIndexFor, the Go mirror of postgres_open_items.go's SQL CASE)
+// already has exact-boundary tests at every bound (0/30/60 and bound+1) in
+// internal/biz/dunning/service_open_items_test.go, and the SQL side's
+// argument construction has its own boundary test in
+// internal/biz/invoice/open_items_chains_helpers_test.go. Duplicating either
+// at the gateway layer would test parsePagination-shaped code, not the
+// boundary.
 
 import (
 	"net/http"
