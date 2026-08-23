@@ -5960,3 +5960,37 @@ Frühere Läufe liegen vollständig im Archiv:
   `BACKLOG.yml` ist weiterhin kein gueltiges YAML (unquotierte `done_when`-Doppelpunkte aus
   frueheren Iterationen); die vier hier neu angelegten Units quoten ihre betroffenen Zeilen
   korrekt.
+
+## Iteration 94 — fix-idempotency-409-rollout-non-finance-routes-3 — done — 2026-08-23 11:05
+- commit: 960611c8
+- gebaut: "409 IdempotencyInFlight" auf allen 12 mutierenden Notification-Operationen ergaenzt
+  (`/api/v1/notifications/read-all`, `{id}/read`, `{id}/pin` POST/DELETE, `{id}/dismiss`,
+  `{id}/snooze`, `preferences` PUT, `mutes` POST, `mutes/{muteId}` DELETE, `quiet-hours` PUT,
+  `dnd` POST/DELETE). Alle Pfade liegen unter `authWithIdempotency`, kein Whitelist-Konflikt
+  (`/auth/*` nicht betroffen), kein bestehendes Geschaefts-409 zum Mergen gefunden — reiner
+  Anhaeng-Fall wie bei Wiki. Lokaler YAML-Stil in diesem Abschnitt ist Multi-Line
+  (`"409":` / `  $ref: ...`) statt Inline-Klammern wie bei Formulare — dem Umgebungsstil gefolgt,
+  nicht stur ein Muster kopiert.
+- gate: build n.a. (kein Go-Code geaendert) | vet n.a. | lint n.a. | test ok
+  (`go test -count=1 ./internal/gateway/` gruen, inkl. `TestOpenAPIRouteDrift` und dem neuen
+  `TestOpenAPIStatusCodeDrift` aus Iteration 93) | migration n.a. | rls-smoke n.a. (keine Tabelle
+  angefasst)
+- coverage: n.a. (Doku-Unit, kein Coverage-Ziel, wie in der Unit vorgesehen)
+- mutations-probe: Gegenbeweis auf der Spec-Seite gefahren — ein neuer
+  `IdempotencyInFlight`-$ref (auf `POST /api/v1/notifications/{id}/read`) testweise auf
+  `IdempotencyInFlightTYPO` verbogen. `npx swagger-cli validate api/openapi.yaml` wurde rot mit
+  `Token "IdempotencyInFlightTYPO" does not exist.`. Zurueckgedreht, `git diff --stat` zeigt
+  wieder genau 24 Netto-Zeilen (12 Operationen x 2 Zeilen), `swagger-cli validate` und
+  `go test ./internal/gateway/` danach wieder gruen.
+- verify vorgaenger: sauber. `763df3bc` (Iteration 93, `test-openapi-documented-status-codes-vs-handlers`)
+  gegen alle acht Fehlerklassen geprueft: der Diff fuegt ausschliesslich eine neue Testdatei
+  (`internal/gateway/openapi_status_code_drift_test.go`) plus BACKLOG/JOURNAL hinzu — kein
+  Go-Produktionscode, kein gRPC-Bypass, kein Stub im Produktionspfad, kein `.proto`, kein neuer
+  `RequirePermission`, keine neue Tabelle, keine Wire-Shape-Aenderung, keine neue Route, kein
+  ersetzter Guard. `2406e49e` direkt danach ist reine Journal-Buchhaltung (1 Zeile SHA).
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-4` (Backlog-Ende, `status: todo`,
+  aktualisierte Restliste ohne Notification, jetzt gut 33 offene Registrar-Gruppen).
+- offen: keine neuen Befunde. Die vier Iteration-93-Folgeeinheiten
+  (`fix-status-code-drift-baseline-non-systemic`, `fix-204-documented-but-200-written`,
+  `fix-crm-tag-endpoints-are-501-stubs`, `doc-status-code-systemic-400-503-sweep`) stehen
+  weiterhin unbearbeitet im Backlog und sind fuer eine der naechsten Iterationen faellig.
