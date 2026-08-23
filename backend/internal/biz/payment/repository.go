@@ -20,6 +20,12 @@ var ErrDuplicatePayment = errors.New("duplicate payment: idempotency key already
 // writing) when no payment matches the given tenant and id.
 var ErrNotFound = errors.New("payment not found")
 
+// ErrInvoiceLocked is returned by Delete when the payment's invoice is
+// administratively locked (GoBD §146) — the same immutability barrier
+// transitionToPaidInTx/revertPaidStatusInTx already enforce on the
+// auto-transition side, now also guarding the payment record itself.
+var ErrInvoiceLocked = errors.New("cannot delete payment: invoice is locked")
+
 // Repository defines the interface for payment persistence.
 type Repository interface {
 	Create(ctx context.Context, payment *models.Payment) error

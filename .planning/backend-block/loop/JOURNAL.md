@@ -5424,3 +5424,49 @@ Frühere Läufe liegen vollständig im Archiv:
   unveraendert und der Test schlaegt fehl. Reiner Testcode-Bug, kein Produktionscode
   betroffen, zweimal direkt danach wieder gruen reproduziert)
 - offen: keine
+
+## Iteration 85 — fix-payment-delete-bypasses-invoice-lock — done — 2026-08-23 09:34
+- commit: <pending, siehe unten>
+- gebaut: `payment.Service.Delete` (`internal/biz/payment/service.go:172`) prueft jetzt
+  `inv.LockedAt != nil` vor dem Loeschen und lehnt mit dem neuen Sentinel `ErrInvoiceLocked`
+  (`internal/biz/payment/repository.go`) ab — GoBD-§146-Guard analog zu
+  `transitionToPaidInTx`/`revertPaidStatusInTx`, aber bewusst als Ablehnung statt stillem
+  Ueberspringen: eine geloeschte Zahlung kann nicht wie ein Auto-Statuswechsel wortlos
+  verschwinden, sonst fehlt der Buchungsnachweis waehrend die Rechnung weiter als bezahlt
+  gilt. `internal/server/biz_grpc.go` mappt den neuen Sentinel auf
+  `codes.FailedPrecondition` (Muster von `invoice.ErrInvoiceLocked`). Beide RPCs, die
+  `Service.Delete` erreichen (`DeletePayment`, `DeleteFinanceTransaction` mit `pay-`-Praefix),
+  laufen bereits ueber `mapBizError` — keine Handler-Aenderung noetig.
+  Root-Cause-Aufraeumung: da `revertPaidStatusInTx` jetzt nur noch erreicht wird, wenn
+  `inv.LockedAt == nil` (der neue Guard in `Delete` liegt davor), war ihr eigener
+  `LockedAt`-Check darin toter Code — entfernt, Funktionskommentar auf den neuen Aufrufpfad
+  umgeschrieben, statt eine nie mehr greifende Sicherheitszeile stehen zu lassen.
+  Bestehender Test `TestDelete_NoRevertWhenInvoiceLocked` erwartete das alte Verhalten
+  (Loeschen erlaubt, nur Revert uebersprungen) — umgebaut zu
+  `TestDelete_RejectedWhenInvoiceLocked` (ganze Operation abgelehnt, Zahlungszeile bleibt
+  erhalten) + neuer Gegentest `TestDelete_AllowedWhenInvoiceNotLocked` (unveraendertes
+  Verhalten fuer nicht gesperrte Rechnungen). `TestMapBizError` bekam den neuen Sentinel-Fall.
+- gate: build ok (`go build -p 2` payment + server + cmd/biz + cmd/gateway) | vet ok
+  (payment + server) | lint ok (0 issues, payment + server) | test ok (`go test -count=1
+  ./internal/biz/payment/... ./internal/server/... ./internal/gateway/` gruen, 0
+  uebersprungen, mit gesetztem `DATABASE_URL=...kmuhub_app...`) | migration n.a. (keine
+  Schema-Aenderung) | rls-smoke n.a. (keine neue Tabelle/Policy) | Route: keine
+  (`go test ./internal/gateway/` trotzdem gefahren, weil `internal/server` angefasst wurde)
+- coverage: internal/biz/payment 85,4 % -> 85,3 % (selbst gemessen per `git stash`/`stash
+  pop`, `go tool cover -func`; die neue Guard-Zeile UND ein jetzt toter, entfernter Zweig
+  in `revertPaidStatusInTx` heben sich fast auf — kein Coverage-Ziel dieser Unit, reiner
+  Bugfix)
+- mutations-probe: den neuen `if inv.LockedAt != nil { return ErrInvoiceLocked }`-Block in
+  `Service.Delete` testweise entfernt, `go test -run TestDelete_RejectedWhenInvoiceLocked
+  ./internal/biz/payment/` wurde rot ("Expected error ... but got nil"), Mutation
+  zurueckgedreht, `git diff internal/biz/payment/service.go` zeigt danach wieder nur die
+  beabsichtigten zwei Aenderungen (neuer Guard in Delete + Kommentar-/Dead-Code-Aufraeumung
+  in revertPaidStatusInTx)
+- verify vorgaenger: sauber. `3fe6b86d` (Iteration 84) geprueft (`git show --stat`, dann
+  gezielt `biz_grpc.go`+`biz_grpc_amounts_test.go` gegen die acht Fehlerklassen): beide
+  `BuildGoBDRows`-Aufrufe routen jetzt exakt wie die drei bestehenden Call-Sites durch
+  `documentCurrency()`, neuer Test pinnt den Helper direkt. Kein gRPC-Bypass, kein Stub,
+  kein `.proto`, kein neuer `RequirePermission`, keine neue Tabelle, kein Wire-Shape-Wechsel,
+  keine neue Route, kein Guard-Ersatz — keine der acht Klassen einschlaegig.
+- neue-units: keine
+- offen: keine

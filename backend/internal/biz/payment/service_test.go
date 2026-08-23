@@ -697,10 +697,14 @@ func TestDelete_RevertsFromPaid(t *testing.T) {
 	assert.Equal(t, models.InvoiceStatusSent, updater.updates[invoiceID])
 }
 
-// TestDelete_NoRevertWhenInvoiceLocked is the Delete-side counterpart of
-// TestRecord_NoAutoTransitionWhenInvoiceLocked: deleting the last payment on a
-// locked, paid invoice must not revert its status back to sent/overdue either.
-func TestDelete_NoRevertWhenInvoiceLocked(t *testing.T) {
+// TestDelete_RejectedWhenInvoiceLocked is the Delete-side counterpart of
+// TestRecord_NoAutoTransitionWhenInvoiceLocked, but stricter: unlike the
+// auto-transition side (which can silently skip a status change), deleting a
+// payment record itself must not disappear silently from a locked invoice — a
+// committed GoBD §146 booking proof would vanish while the invoice still shows
+// paid. So Delete rejects the whole operation instead of proceeding without the
+// status revert (fix-payment-delete-bypasses-invoice-lock).
+func TestDelete_RejectedWhenInvoiceLocked(t *testing.T) {
 	svc, repo, reader, updater := newTestService()
 
 	tenantID := uuid.New()
@@ -727,9 +731,45 @@ func TestDelete_NoRevertWhenInvoiceLocked(t *testing.T) {
 
 	err := svc.Delete(context.Background(), tenantID, paymentID)
 
-	require.NoError(t, err, "deleting the payment itself is still allowed")
+	require.ErrorIs(t, err, ErrInvoiceLocked)
+	_, exists := repo.payments[paymentID]
+	assert.True(t, exists, "the payment booking proof must survive a rejected delete")
 	_, statusUpdated := updater.updates[invoiceID]
-	assert.False(t, statusUpdated, "a locked invoice must not revert from paid")
+	assert.False(t, statusUpdated, "a rejected delete must not touch the invoice status")
+}
+
+// TestDelete_AllowedWhenInvoiceNotLocked is the negative counterpart of
+// TestDelete_RejectedWhenInvoiceLocked: an unlocked, paid invoice still allows
+// the payment delete and the accompanying revert-from-paid.
+func TestDelete_AllowedWhenInvoiceNotLocked(t *testing.T) {
+	svc, repo, reader, updater := newTestService()
+
+	tenantID := uuid.New()
+	invoiceID := uuid.New()
+	paymentID := uuid.New()
+
+	reader.invoices[invoiceID] = &models.Invoice{
+		ID:         invoiceID,
+		TenantID:   tenantID,
+		Status:     models.InvoiceStatusPaid,
+		GrossTotal: decimal.NewFromInt(1000),
+		DueDate:    time.Now().Add(30 * 24 * time.Hour),
+	}
+
+	repo.payments[paymentID] = &models.Payment{
+		ID:        paymentID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Amount:    decimal.NewFromInt(1000),
+		CreatedAt: time.Now(),
+	}
+
+	err := svc.Delete(context.Background(), tenantID, paymentID)
+
+	require.NoError(t, err)
+	_, exists := repo.payments[paymentID]
+	assert.False(t, exists)
+	assert.Equal(t, models.InvoiceStatusSent, updater.updates[invoiceID])
 }
 
 func TestDelete_RevertsToOverdueWhenPastDue(t *testing.T) {

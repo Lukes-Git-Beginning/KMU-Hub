@@ -69,6 +69,7 @@ func TestMapBizError(t *testing.T) {
 		{"einvoice totals mismatch", einvoice.ErrTotalsMismatch, codes.FailedPrecondition},
 		// Payment errors
 		{"payment not found", payment.ErrNotFound, codes.NotFound},
+		{"payment invoice locked", payment.ErrInvoiceLocked, codes.FailedPrecondition},
 		// Dunning errors
 		{"dunning not found", dunning.ErrDunningNotFound, codes.NotFound},
 		{"dunning not draft", dunning.ErrDunningNotDraft, codes.FailedPrecondition},

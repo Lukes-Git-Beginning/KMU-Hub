@@ -2638,6 +2638,8 @@ func mapBizError(err error) error {
 	// Payment errors
 	case errors.Is(err, payment.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, payment.ErrInvoiceLocked):
+		return status.Error(codes.FailedPrecondition, err.Error())
 
 	// Dunning errors
 	case errors.Is(err, dunning.ErrDunningNotFound):
