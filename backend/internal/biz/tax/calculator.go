@@ -40,6 +40,19 @@ type Breakdown struct {
 	GrossTotal decimal.Decimal
 }
 
+// LineTotal is the single definition of a document line's net amount: quantity
+// times unit price, rounded to cents at the line level.
+//
+// Every write path that stores a LineItem has to use this, not its own
+// Quantity.Mul(UnitPrice): the stored line amount is what the PDF prints and what
+// the e-invoice generator emits as BT-131, and BR-CO-10 compares BT-106 against the
+// sum of those line amounts exactly, with no tolerance. A line net carrying more
+// than two decimals (fractional quantities, e.g. 2.25 hours at 83.33) makes the
+// stored subtotal and the exported document net disagree by cents.
+func LineTotal(quantity, unitPrice decimal.Decimal) decimal.Decimal {
+	return quantity.Mul(unitPrice).Round(2)
+}
+
 // Calculate computes the tax breakdown for a set of line items under the given tax mode.
 // This is a pure function: no database access, no side effects, fully deterministic.
 //
@@ -70,7 +83,7 @@ func Calculate(items []LineItem, mode TaxMode) Breakdown {
 		// summing (same rounding order the e-invoice generator uses for BT-106,
 		// see fix-tax-calculator-line-total-unrounded in the loop backlog) so the
 		// stored subtotal and the exported document net agree line by line.
-		lineTotal := item.Quantity.Mul(item.UnitPrice).Round(2)
+		lineTotal := LineTotal(item.Quantity, item.UnitPrice)
 		subtotal = subtotal.Add(lineTotal)
 
 		if !taxExempt {

@@ -37,12 +37,22 @@ var halfCent = decimal.New(5, -3) // 0.005
 // totalsTolerance returns the largest difference between recomputed and stored
 // totals that is still a rounding artefact rather than a data defect.
 //
-// The write path (invoice.Service, tax.Calculate) sums UNROUNDED line nets, this
-// document rounds every line net to cents before summing (BR-CO-10, see
-// buildLinesAndTaxGroups). The two orders can disagree by up to half a cent per
-// line, so a fixed 0.01 would reject perfectly good three-line invoices with
-// fractional quantities. Anything beyond that bound is not a rounding order — it
-// is a stale stored figure, and that is what this guard is for.
+// The NET side no longer needs a scaling tolerance: since
+// fix-write-path-line-total-unrounded-everywhere the write path rounds each line
+// net to cents through tax.LineTotal before summing, exactly like
+// buildLinesAndTaxGroups does for BR-CO-10, so a freshly written invoice agrees on
+// the subtotal to the cent. Two reasons the tolerance still scales with line count:
+//
+//  1. TAX and GROSS still differ by rounding ORDER — this breakdown sums per-line
+//     tax, EN 16931's BR-CO-17 derives the group tax from the already-rounded group
+//     net (see the note on tax.Calculate). Up to half a cent per line, and one
+//     tolerance covers all three comparisons in assertTotalsMatch.
+//  2. Invoices written BEFORE that fix carry unrounded stored subtotals. Tightening
+//     the net bound would make them fail to export — a stored-figure problem that a
+//     validation guard must not be the one to discover.
+//
+// Anything beyond that bound is not a rounding order — it is a stale stored figure,
+// and that is what this guard is for.
 func totalsTolerance(lineCount int) decimal.Decimal {
 	if lineCount < 2 {
 		return decimal.New(1, -2) // 0.01 — floor, one line can never drift further

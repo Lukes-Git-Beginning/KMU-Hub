@@ -4273,3 +4273,78 @@ Frühere Läufe liegen vollständig im Archiv:
     es überhaupt ein Unterscheidungsmerkmal gibt, über das sich bei >1 Lexware-Tenant die
     richtige Config eindeutig auswählen lässt (Config-ID im Webhook-Pfad? Signatur-Secret pro
     Tenant?) — im Scan nicht geprüft, gehört in die bauende Iteration.
+
+## Iteration 65 — fix-write-path-line-total-unrounded-everywhere — done — 2026-08-23 07:13
+- commit: <PLACEHOLDER>
+- gebaut: Root-Cause-Fix statt sieben Einzel-Guards. Neue exportierte Funktion
+  `tax.LineTotal(quantity, unitPrice) = quantity.Mul(unitPrice).Round(2)` in
+  `internal/biz/tax/calculator.go` ist ab jetzt die EINZIGE Definition des Zeilennettos;
+  `tax.Calculate` benutzt sie selbst. Umgestellt sind alle sieben Schreibstellen aus dem
+  Unit-Scope — `invoice/service.go:151` (Create) und `:473` (Update), `quote/service.go:121`
+  (Create) und `:305` (Update), `creditnote/service.go:100`, `recurring/service.go:482`
+  (`priceLineItems`, Schreibpfad fuer Schedule UND jede daraus erzeugte Rechnung),
+  `pdf/templates.go:154` — plus `internal/server/biz_grpc.go:2059`, der in der Unit nicht
+  gelistete, aber in `fix-unrounded-line-total-in-invoice-service-callers` nachgewiesene
+  Ausloeser (Rechnung aus der Zeiterfassung: `hours.Round(2).Mul(hourlyRate)` ungerundet).
+  `pdf/templates.go` ist ehrlich ein reiner Konsolidierungs-Change ohne Ausgabeaenderung:
+  `formatEUR` nutzt `StringFixed(2)`, das ohnehin half-away-from-zero rundet — steht so im
+  Kommentar, damit niemand daraus einen Fix liest, der es nicht ist.
+  Toleranzfrage in `einvoice.totalsTolerance` ENTSCHIEDEN: Toleranz bleibt mit der Zeilenzahl
+  skalierend, der Doc-Kommentar war seit A4 falsch und ist korrigiert. Zwei Gruende, beide im
+  Code: (1) die NETTO-Seite braucht sie nicht mehr (beide Seiten runden jetzt je Zeile), aber
+  dieselbe Toleranz deckt in `assertTotalsMatch` auch STEUER und BRUTTO ab, und dort bleibt
+  die Rundungs-REIHENFOLGE unterschiedlich (per-Zeile-Steuer vs. BR-CO-17-Gruppensteuer,
+  bis zu einem halben Cent je Zeile); (2) Rechnungen, die VOR diesem Commit geschrieben
+  wurden, tragen weiterhin ungerundete Subtotals — ein engeres Netto-Limit haette deren
+  Export gekippt. Kein Migrations-Backfill (gebuchte Betraege, gehoert Luke).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a.
+  (keine Tabelle/Policy/Route/Proto angefasst). `go test -count=1 -p 2 ./internal/biz/...
+  ./internal/server/ ./internal/gateway/` gruen auf dem FINALEN Tree (nach dem `stash`/`pop`
+  der Baseline-Messung erneut gelaufen). Im ausfuehrlichen Lauf ueber die sieben
+  betroffenen Pakete: 411 Tests gelaufen, **0 uebersprungen**, 0 rot — `DATABASE_URL` als
+  `kmuhub_app` gesetzt, die DB-Integrationstests in invoice/quote/creditnote/recurring liefen
+  also wirklich.
+- coverage: eigene Messung je Paket, vorher -> nachher (Baseline via `git stash -u`, also
+  ohne die neuen Testdateien, gegen denselben Tree): tax 100,0 % -> 100,0 % ·
+  invoice 61,4 % -> 61,4 % · quote 33,3 % -> 33,3 % · creditnote 49,5 % -> 49,5 % ·
+  recurring 88,5 % -> 88,5 % · pdf 52,0 % -> 52,0 % · einvoice 85,9 % -> 85,9 %.
+  Delta 0 in allen sieben, und das ist kein Versaeumnis: die sechs neuen Tests fahren
+  ausschliesslich Pfade, die schon abgedeckt WAREN (Create/Update/priceLineItems/
+  buildInvoiceDoc) — sie beweisen ein anderes ERGEBNIS auf denselben Zeilen. Diese Unit
+  hat kein Coverage-Ziel. `coverage_start:` der Unit nannte "internal/biz/invoice 43,1 %";
+  gemessen sind 61,4 % — frueherer Lauf hat das Paket zwischenzeitlich angehoben, es gilt
+  die eigene Messung.
+- mutations-probe: `.Round(2)` in `tax.LineTotal` entfernt (`calculator.go:53`,
+  `return quantity.Mul(unitPrice)`). Rot wurden daraufhin ALLE sechs Testpakete:
+  `internal/biz/tax`, `invoice`, `quote`, `creditnote`, `recurring`, `einvoice` — die Probe
+  belegt also nicht nur, dass irgendein Test anschlaegt, sondern dass jeder der sechs
+  Schreibpfade seinen eigenen Waechter hat. Zurueckgedreht, `grep` auf die Zeile bestaetigt
+  `.Round(2)`, `git diff --stat` sauber (14 Insertions in calculator.go, keine Reste).
+- verify vorgaenger: sauber. `9c9c601d` (Iteration 64, scan-sysctx-money-reads-missing-tenant-
+  filter) geprueft: `git show --stat` zeigt ausschliesslich BACKLOG.yml und JOURNAL.md, kein
+  Produktionscode, keine Migration, kein Proto — keine der acht Fehlerklassen einschlaegig.
+- neue-units: keine. Stattdessen ZWEI Backlog-Statusaenderungen:
+  `fix-write-path-line-total-unrounded-everywhere` -> done, und
+  `fix-unrounded-line-total-in-invoice-service-callers` -> done als von dieser Unit
+  aufgeloest (dieselbe Fehlerklasse, dieselben Aufrufer; sie war die spaetere, praezisere
+  Beschreibung desselben Bugs). Ein YAML-Kommentar an dieser zweiten Unit nennt, was
+  bewusst NICHT nachgezogen wurde, damit das nicht als stiller Cut durchgeht.
+- offen:
+  - Kein eigener Regressionstest in `internal/biz/datev`. `exporter.go:265-267` liest den
+    GESPEICHERTEN `LineTotal` und rundet den Bruttobetrag bereits selbst (mit Begruendung im
+    Code, warum das Netto dort absichtlich ungerundet bleibt: es wird gar nicht geschrieben).
+    Ein Test dort wuerde die Fixture pruefen statt den Code — die Invariante haengt jetzt an
+    der Schreibseite und ist dort sechsfach getestet. Falls Luke das anders sieht: eigene Unit.
+  - `internal/biz/bexio/field_mapper.go:303` rechnet beim Import weiterhin selbst
+    `qty.Mul(unit)` ungerundet. Nicht angefasst — bexio ist in Lauf 11 gesperrt (G3). Der Wert
+    laeuft ueber `invoice.toLineItems` in denselben Erzeugungspfad, und `toLineItems`
+    uebernimmt den Fremdwert laut eigenem Kommentar ABSICHTLICH unveraendert ("imported
+    invoices are read-only mirrors"). Das ist also kein Fall, den dieser Fix nebenbei mit
+    erledigt — entgegen der Annahme in der Unit-Notiz von
+    `fix-unrounded-line-total-in-invoice-service-callers`. Wenn importierte Bexio-Rechnungen
+    exportiert werden sollen, braucht das eine eigene Entscheidung (Spiegel bleiben oder auf
+    Cent normalisieren) und damit eine eigene Unit nach Aufhebung der bexio-Sperre.
+  - Bestandsdaten: Rechnungen aus der Zeit vor diesem Commit haben weiterhin ungerundete
+    `LineTotal`/`Subtotal` in der JSONB-Spalte. Der Export bleibt dank der beibehaltenen
+    skalierenden Toleranz moeglich; ein Backfill waere eine Aenderung gebuchter Betraege und
+    ist bewusst nicht passiert.

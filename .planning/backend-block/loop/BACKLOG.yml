@@ -2759,7 +2759,7 @@ units:
     service: biz
     model: opus
     deps: [fix-tax-rounding-divergence-across-implementations]
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice 43,1 % · internal/biz/quote · internal/biz/creditnote · internal/biz/recurring · internal/biz/pdf (je eigene Messung)"
     scope: >
       Befund aus A2 (Iteration 2, Lauf 11). Der E-Rechnungs-Generator rundet den Zeilenbetrag
@@ -3548,7 +3548,18 @@ units:
     service: biz
     model: opus
     deps: []
-    status: todo
+    # ERLEDIGT durch fix-write-path-line-total-unrounded-everywhere (Iteration 65, Lauf 11):
+    # dieselbe Fehlerklasse, dieselben vier Aufrufer. Root Cause ist dort als exportierter
+    # tax.LineTotal(quantity, unitPrice) geloest — eine Definition der Formel statt vier
+    # (bzw. acht) Kopien, alle Aufrufer umgestellt inkl. server/biz_grpc.go:2059
+    # (Zeiterfassungs-Rechnung, der in dieser Unit genannte Ausloeser).
+    # NICHT abgedeckt und bewusst nicht nachgezogen: kein eigener Regressionstest in
+    # internal/biz/datev — exporter.go liest den GESPEICHERTEN LineTotal und rundet den
+    # Bruttobetrag bereits selbst (exporter.go:265-267, mit Begruendung im Code). Ein Test
+    # dort wuerde die Fixture pruefen, nicht den Code; die Invariante haengt jetzt an der
+    # Schreibseite und ist dort getestet. Ebenso kein eigener Test fuer den Bexio-Importpfad
+    # (Paket in Lauf 11 gesperrt) — er laeuft ueber toLineItems in denselben Erzeugungspfad.
+    status: done
     coverage_start: "internal/biz/invoice, internal/biz/datev (Paketwert im CI-Log nachschlagen)"
     scope: >
       Fund aus `scan-money-rounding-and-tax-call-sites` (Lauf 11, Iteration 58). Alle vier

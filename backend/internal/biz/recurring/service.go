@@ -479,7 +479,7 @@ func priceLineItems(items []models.LineItem, taxMode string) (lineItemsJSON, bre
 	priced := make([]models.LineItem, len(items))
 	taxItems := make([]tax.LineItem, len(items))
 	for i, item := range items {
-		item.LineTotal = item.Quantity.Mul(item.UnitPrice)
+		item.LineTotal = tax.LineTotal(item.Quantity, item.UnitPrice)
 		if item.Position == 0 {
 			item.Position = i + 1
 		}

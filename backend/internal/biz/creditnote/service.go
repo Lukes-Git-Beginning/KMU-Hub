@@ -95,9 +95,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Credit
 	taxItems := toTaxLineItems(input.LineItems)
 	breakdown := tax.Calculate(taxItems, taxMode)
 
-	// Apply calculated line totals
+	// Apply calculated line totals, rounded exactly like tax.Calculate rounds them
+	// internally.
 	for i := range input.LineItems {
-		input.LineItems[i].LineTotal = input.LineItems[i].Quantity.Mul(input.LineItems[i].UnitPrice)
+		input.LineItems[i].LineTotal = tax.LineTotal(input.LineItems[i].Quantity, input.LineItems[i].UnitPrice)
 	}
 
 	// Marshal for JSONB storage

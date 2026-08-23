@@ -2056,7 +2056,7 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 
 	// Convert minutes to hours (2 decimal places)
 	hours := decimal.NewFromInt(int64(totalMinutes)).Div(decimal.NewFromInt(60)).Round(2)
-	lineTotal := hours.Mul(hourlyRate)
+	lineTotal := tax.LineTotal(hours, hourlyRate)
 
 	description := req.GetDescription()
 	if description == "" {
