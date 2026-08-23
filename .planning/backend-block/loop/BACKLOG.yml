@@ -5362,7 +5362,7 @@ units:
     service: gateway
     model: sonnet
     deps: [doc-status-code-systemic-400-503-sweep-3]
-    status: todo
+    status: done
     coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
     scope: >
       Fortsetzung von `doc-status-code-systemic-400-503-sweep-3`. Iteration 103 hat die
@@ -5542,5 +5542,60 @@ units:
       - Mindestens eine weitere Gruppe der verbliebenen 16 Eintraege ist in api/openapi.yaml
         dokumentiert
       - Die erledigten Eintraege sind aus statusDriftBaseline entfernt
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
+
+  - id: doc-status-code-systemic-400-503-sweep-5
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [doc-status-code-systemic-400-503-sweep-4]
+    status: todo
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `doc-status-code-systemic-400-503-sweep-4`. Iteration 106 hat die
+      Registrar-Gruppe **meetings** vollstaendig geschlossen (18x `400`, 33x `503` = 33
+      Operationen in `route_video.go`, Pfadpraefix `/api/v1/meetings`). Die geloggten Zaehler
+      stehen damit auf `400: 272` (vorher 290) und `503: 926` (vorher 959) - exakte Differenz
+      18 bzw. 33, mit `git stash`-losem Vorher/Nachher-Vergleich per leerer
+      `systemicUndocumentedCodes`-Map verifiziert.
+      Verbleibende groesste Gruppen, frisch gezaehlt nach Iteration 106 (Pfadpraefix
+      `/api/v1/<gruppe>`, beide Codes separat): fuer `400` einkauf 17, produktion 15,
+      finance 15, rapporte 13, formulare 13, video 12, dialer 12, tasks 11, wiki 10,
+      projects 10, inventar 10, hr 10; fuer `503` email 58, hr 56, documents 45, inventar 39,
+      integrations 39, helpdesk 36, finance 36, einkauf 36, produktion 34, rapporte 31,
+      contacts 28, dialer 27.
+      Weiter je Iteration genau eine Gruppe, beide Codes zusammen.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Arbeitsliste erzeugen wie in Iteration 100/103/106: `systemicUndocumentedCodes`
+      (openapi_status_code_drift_test.go:430) testweise auf `map[int]string{}` setzen,
+      `go test -count=1 -run TestOpenAPIStatusCodeDrift ./internal/gateway/ -v` laufen lassen und
+      die Zeilen `METHOD /pfad writes [400 503]` als Liste nehmen - so bekommt man beide Codes
+      pro Operation in einem Durchgang. Danach die Testdatei aus der Sicherungskopie
+      zuruecksetzen und `git diff` darauf pruefen (muss leer sein).
+      Einsortiert wird numerisch in den `responses:`-Block der jeweiligen Operation: `400` vor
+      einem vorhandenen `401`/`404`, `503` ans Ende. Die Leerzeile zwischen zwei Pfad-Bloecken
+      gehoert NICHT in den `responses:`-Block - beim Bestimmen des Blockendes die
+      Trailing-Leerzeilen abschneiden, sonst rutscht der Eintrag hinter die Leerzeile.
+      Nur auf den Operationen eintragen, die der Test wirklich nennt - manche Operationen
+      einer Gruppe haben schon ein `400` (aus einer frueheren Iteration) und brauchen nur `503`,
+      oder umgekehrt (Beispiel meetings: `PUT /api/v1/meetings/{id}` hatte bereits `400`,
+      brauchte nur `503`).
+      Sobald ein Zaehler 0 erreicht, den Code aus `systemicUndocumentedCodes` entfernen -
+      dann faellt er wieder als normaler Befund an.
+      ACHTUNG (Lehre aus Iteration 106): fuer die Mutations-Probe reicht es NICHT, nur einen
+      frisch eingefuegten Eintrag zu entfernen und den normalen Testlauf (mit gefuellter
+      `systemicUndocumentedCodes`-Map) zu pruefen - 400/503 sind dort systemisch unterdrueckt
+      und der Test bleibt IMMER gruen, egal was in `api/openapi.yaml` steht. Fuer die
+      Mutations-Probe muss die Map ZUSAETZLICH testweise geleert werden, dann erst wird ein
+      entfernter Eintrag als Fund sichtbar; danach beide Aenderungen (Testdatei und YAML)
+      zurueckdrehen und normal-gruen erneut bestaetigen.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe hat ihre fehlenden 400 UND 503 dokumentiert
+      - Die im Test geloggten Zaehler sind nachweislich gesunken (Zahlen im Journal)
       - "swagger-cli validate gruen"
       - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"

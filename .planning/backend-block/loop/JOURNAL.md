@@ -6526,3 +6526,51 @@ Frühere Läufe liegen vollständig im Archiv:
   Hinweis auf den "not formally listed"-Fallstrick aus dieser Iteration).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
   Migration und keine Tabelle beruehrt.
+
+## Iteration 106 — doc-status-code-systemic-400-503-sweep-4 — done — 2026-08-23 12:13
+- commit: 5d004585
+- gebaut: Registrar-Gruppe **meetings** vollstaendig aus dem systemischen 400/503-Befund
+  geschlossen (`route_video.go`, Pfadpraefix `/api/v1/meetings`, 33 Operationen). Liste per
+  testweise geleerter `systemicUndocumentedCodes`-Map ermittelt (`go test -run
+  TestOpenAPIStatusCodeDrift -v`), danach Testdatei aus Sicherungskopie zurueckgesetzt (`git
+  diff` leer bestaetigt) und ausschliesslich `api/openapi.yaml` bearbeitet. 18 Operationen
+  bekamen ein neues `"400": $ref BadRequest` (validateUUIDParam/decodeAndValidate-Herkunft,
+  Handler geprueft statt geraten), alle 33 Operationen ein neues `"503": $ref
+  ServiceUnavailable` (aus `getVideoClient()`-Fehler -> `respondServiceUnavailable`). Numerisch
+  einsortiert (400 vor 401/403, 503 ans Blockende). Betroffene Handler u.a. `HandleGetMeeting`,
+  `HandleDeleteMeeting`, `HandleStartMeeting`, `HandleJoinMeeting`, `HandleEndMeeting`,
+  `HandleGetMeetingNotes`, `HandleGetPreviousMeetingNotes`, `HandleListActionItems`,
+  `HandleDeleteActionItem`, `HandleListBreakoutRooms`, `HandleJoinBreakoutRoom`,
+  `HandleGetBreakoutAssignment`, `HandleCloseBreakoutRooms`, `HandleGenerateMeetingSummary`,
+  `HandleListMeetingChatMessages`, `HandleListCoHosts`, `HandleDemoteCoHost`,
+  `HandleMuteAllMeetingParticipants` (400-Neuzugang) sowie 17 weitere Handler, die nur das
+  503 brauchten (createMeeting, createBreakoutRooms, promoteCoHost, setMeetingLock etc., da
+  400 dort schon dokumentiert war). Einzige geaenderte Datei: `api/openapi.yaml` (102 neue
+  Zeilen, 33 Operationen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, 2682 PASS, 0 FAIL,
+  `TestOpenAPIStatusCodeDrift` gruen, `16 baselined operations` unveraendert - diese Unit
+  aendert nur die systemischen Zaehler, nicht `statusDriftBaseline`) | swagger-cli validate
+  gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: mit geleerter `systemicUndocumentedCodes`-Map bestaetigt, dass **keine**
+  `/api/v1/meetings`-Zeile mehr in den Findings auftaucht (vorher 33 Zeilen). Danach das frisch
+  eingefuegte `"503"` unter `POST /api/v1/meetings` testweise entfernt (Map weiterhin leer) -
+  `TestOpenAPIStatusCodeDrift` rot (`POST /api/v1/meetings writes [503] - not documented`),
+  beide Aenderungen (YAML-Zeile, Testdatei-Map) zurueckgedreht, danach normaler Testlauf mit
+  gefuellter Map wieder gruen. **Wichtige Falle, ins Backlog fuer die naechste Teil-Unit
+  geschrieben:** mit normal gefuellter `systemicUndocumentedCodes`-Map bleibt der Test bei
+  einer entfernten 400/503-Doku IMMER gruen, weil diese Codes dort global unterdrueckt sind -
+  die Probe muss zwingend mit geleerter Map laufen, sonst beweist sie nichts.
+- verify vorgaenger: sauber. `d70632a9` (Iteration 105) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (6 neue Statuscode-Bloecke) und `openapi_status_code_drift_test.go` (6
+  Eintraege aus `statusDriftBaseline` entfernt, kein Verhaltenscode), keine der acht
+  Fehlerklassen betroffen.
+- neue-units: `doc-status-code-systemic-400-503-sweep-5` (naechste Zielgruppen nach 400
+  einkauf 17/produktion 15/finance 15 usw., nach 503 email 58/hr 56/documents 45 usw., frisch
+  gezaehlt nach dieser Iteration; Hinweis auf die Mutations-Probe-Falle mit der geleerten Map
+  aufgenommen).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests, keine
+  Migration und keine Tabelle beruehrt.
