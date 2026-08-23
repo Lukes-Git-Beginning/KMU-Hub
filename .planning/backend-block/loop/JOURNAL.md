@@ -4941,7 +4941,7 @@ Frühere Läufe liegen vollständig im Archiv:
     frischen eigenen Messung ziehen, nicht aus `coverage_start:` uebernehmen.
 
 ## Iteration 76 — fix-invoice-recurring-grpc-status-mapping-doc-mismatch — done — 2026-08-23 08:36
-- commit: (siehe naechste Zeile nach dem Commit)
+- commit: 2a1b66fc
 - gebaut: Zwei Stellen in `openapi.yaml` dokumentierten einen HTTP-Statuscode,
   den der jeweilige Handler strukturell nie erzeugen kann: PUT
   `/finance/invoices/{id}` dokumentierte `410` "Invoice is immutable"
