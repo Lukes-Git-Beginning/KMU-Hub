@@ -6709,3 +6709,51 @@ Frühere Läufe liegen vollständig im Archiv:
   abgeschnittenen Tool-Preview).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
   keine Migration und keine Tabelle beruehrt.
+
+## Iteration 110 — fix-idempotency-409-rollout-non-finance-routes-8 — done — 2026-08-23 12:47
+- commit: (siehe naechste Zeile nach Commit)
+- gebaut: Registrar-Gruppe **automation** vollstaendig auf In-Flight-409 umgestellt - 8
+  mutierende Operationen in `route_automation.go` (Basispfad `/api/v1/automations`):
+  `POST /api/v1/automations`, `PUT /api/v1/automations/{id}`,
+  `DELETE /api/v1/automations/{id}`, `POST /api/v1/automations/{id}/enable`,
+  `POST /api/v1/automations/{id}/disable`,
+  `POST /api/v1/automations/templates/{templateId}/create`,
+  `POST /api/v1/automations/test-condition`, `POST /api/v1/automations/dry-run`. Keine
+  hatte einen bestehenden Business-409 (kein Merge-Fall), reine additive Zeilen im
+  lokalen Multi-Line-Stil (`"409":` / `$ref:` auf eigener Zeile, wie die Nachbar-Codes in
+  derselben Datei - anders als der Compact-Stil bei vertraege). `test-condition` und
+  `dry-run` hatten vorher gar keine Fehler-Responses dokumentiert; dort wurde
+  ausschliesslich 409 ergaenzt, kein 400/401 nachgezogen (ausserhalb des Scopes).
+  Die public Webhook-Route `/api/v1/public/automations/webhooks/{automationId}` bleibt
+  bewusst ausgenommen (Whitelist-Praefix `/api/v1/public/*`).
+  Nebenbefund verifiziert (nicht gebaut, nur geprueft): `Booking` hat als einzige
+  mutierende Route `/api/v1/public/bookings` - ebenfalls public/ausgenommen. Die Gruppe
+  gilt damit als erledigt/leer, kein eigener Durchgang mehr noetig (im Backlog-Notes-Feld
+  der Folge-Unit vermerkt statt als offene Kandidatin stehen zu bleiben).
+  Einzige geaenderte Datei: `api/openapi.yaml` (16 neue Zeilen).
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/gateway/...` 0 issues) | test ok (`go test -count=1 -v ./internal/gateway/...`
+  gruen, **0 uebersprungene Tests** mit gesetztem `DATABASE_URL`, `TestOpenAPIRouteDrift`/
+  `TestOpenAPIMethodDrift`/`TestOpenAPISpecDrift`/`TestOpenAPIStatusCodeDrift` alle gruen)
+  | swagger-cli validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, reine Spec-Aenderung, kein Go-Code veraendert)
+- mutations-probe: das frisch eingefuegte `$ref: "#/components/responses/IdempotencyInFlight"`
+  von `POST /api/v1/automations` testweise auf einen nicht existierenden Komponentennamen
+  (`IdempotencyInFlightXXX`) verbogen - `npx swagger-cli validate backend/api/openapi.yaml`
+  meldet exakt `Token "IdempotencyInFlightXXX" does not exist.`, rot wie erwartet. Datei aus
+  Sicherungskopie (`/tmp/openapi_backup.yaml`) zurueckgesetzt, `git diff --stat` danach exakt
+  16 Zeilen (die 8 beabsichtigten Operationen), `swagger-cli validate` erneut gruen,
+  `go test -count=1 ./internal/gateway/...` erneut gruen bestaetigt.
+- verify vorgaenger: sauber. `9e2f2bb7` (Iteration 109) geprueft: Diff beruehrt ausschliesslich
+  `api/openapi.yaml` (22 neue Zeilen, additive 400/503-Doku auf der Registrar-Gruppe
+  vertraege), reine Spec-Doku ohne Go-Produktionscode, `.proto`, Route, `RequirePermission`,
+  Tabelle oder Wire-Shape-Aenderung; keine der acht Fehlerklassen betroffen. Der zusaetzliche
+  Commit `d91f147e`/`c3fc62e8` (Treiber-Housekeeping, Commit-SHA-Protokollierung) ist reine
+  Metadaten-Pflege, kein Produktionscode.
+- neue-units: `fix-idempotency-409-rollout-non-finance-routes-9` (Restliste aktualisiert,
+  Automation und Booking als erledigt markiert, verbleibende Registrar-Gruppen unveraendert
+  aus Iteration 107 uebernommen - Zahlen fuer Berichte/Schichten/Vermietung dort weiterhin
+  ungeprueft und muessen in Iteration 111 frisch verifiziert werden).
+- offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests,
+  keine Migration und keine Tabelle beruehrt.

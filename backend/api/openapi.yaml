@@ -13382,6 +13382,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List automations
       tags: [automations]
@@ -13475,6 +13477,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Delete automation
       tags: [automations]
@@ -13496,6 +13500,8 @@ paths:
                   status: { type: string }
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/{id}/enable:
     post:
@@ -13520,6 +13526,8 @@ paths:
                     $ref: "#/components/schemas/Automation"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/{id}/disable:
     post:
@@ -13544,6 +13552,8 @@ paths:
                     $ref: "#/components/schemas/Automation"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/{id}/executions:
     get:
@@ -13698,6 +13708,8 @@ paths:
                     $ref: "#/components/schemas/Automation"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/test-condition:
     post:
@@ -13723,6 +13735,8 @@ paths:
                 type: object
                 properties:
                   result: { type: boolean }
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/dry-run:
     post:
@@ -13753,6 +13767,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/DryRunStep"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/stats:
     get:
