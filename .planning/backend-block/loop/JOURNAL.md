@@ -3676,7 +3676,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine.
 
 ## Iteration 56 — scan-gateway-openapi-response-code-drift-remaining — done — 2026-08-23 06:20
-- commit: (folgt, siehe unten)
+- commit: 46bccdd3
 - gebaut: reiner Scan, kein Produktionscode geändert (Scan-Unit-Regel). Fortsetzung des in
   Lauf 10 Iteration 46 (Commit `b9889b04`) bewusst abgebrochenen Scans: tatsächlich
   geschriebene HTTP-Statuscodes gegen `openapi.yaml` diffed, mit Priorität auf den
