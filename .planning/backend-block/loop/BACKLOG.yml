@@ -2899,7 +2899,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verify-Unit, kein Coverage-Ziel)"
     scope: >
       VERIFIZIERTER FUND aus Iteration 25 (Lauf 11), beim Bauen von

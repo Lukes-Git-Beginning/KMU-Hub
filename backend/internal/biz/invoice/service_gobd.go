@@ -190,12 +190,6 @@ func (s *Service) GetPaymentStats(ctx context.Context, tenantID uuid.UUID, fromD
 	return stats, nil
 }
 
-// ListForGoBDExport returns non-draft invoices with invoice_number assigned within
-// the date range. Used by the gRPC handler to populate the GoBD CSV export.
-func (s *Service) ListForGoBDExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error) {
-	return s.repo.ListForGoBDExport(ctx, tenantID, fromDate, toDate)
-}
-
 // ============================================================================
 // Lock-state helper
 // ============================================================================

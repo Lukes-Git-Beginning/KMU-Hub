@@ -144,10 +144,6 @@ func (r *stubInvoiceRepo) AggregatePaymentStats(context.Context, uuid.UUID, time
 	return r.aggregatePaymentStats, r.aggregatePaymentStatsErr
 }
 
-func (r *stubInvoiceRepo) ListForGoBDExport(context.Context, uuid.UUID, time.Time, time.Time) ([]*models.Invoice, error) {
-	return nil, nil
-}
-
 func (r *stubInvoiceRepo) ListForDATEVExport(context.Context, uuid.UUID, time.Time, time.Time, *time.Time, *uuid.UUID, int) ([]*models.Invoice, error) {
 	return nil, nil
 }

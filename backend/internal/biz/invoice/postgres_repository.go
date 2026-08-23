@@ -569,60 +569,13 @@ func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID
 	}, nil
 }
 
-// ListForGoBDExport returns all non-draft, numbered invoices in the date range,
-// ordered by invoice_number for gap-free journal verification.
-func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error) {
-	rows, err := r.pool.Query(ctx,
-		"SELECT "+invoiceColumns+" FROM finance_invoices "+
-			"WHERE tenant_id = $1 AND status != 'draft' AND invoice_number != '' "+
-			"AND source = 'cosmi' AND invoice_date >= $2 AND invoice_date <= $3 "+
-			"ORDER BY invoice_number ASC",
-		tenantID, fromDate, toDate,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("list invoices for GoBD export: %w", err)
-	}
-	defer rows.Close()
-
-	var invoices []*models.Invoice
-	for rows.Next() {
-		inv, scanErr := r.scanInvoiceFromRows(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		invoices = append(invoices, inv)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate GoBD export rows: %w", err)
-	}
-
-	if len(invoices) > 0 {
-		ids := make([]uuid.UUID, len(invoices))
-		for i, inv := range invoices {
-			ids[i] = inv.ID
-		}
-		linesByID, linesErr := loadInvoiceLines(ctx, r.pool, ids)
-		if linesErr != nil {
-			return nil, linesErr
-		}
-		for _, inv := range invoices {
-			if lines, ok := linesByID[inv.ID]; ok {
-				raw, marshalErr := marshalLineItems(lines)
-				if marshalErr != nil {
-					return nil, marshalErr
-				}
-				inv.LineItems = raw
-			}
-		}
-	}
-
-	return invoices, nil
-}
-
 // ListForDATEVExport returns sent/paid/overdue invoices in [fromDate, toDate],
 // keyset-paged by (invoice_date, id) so a DATEV export can stream pages without
 // holding the whole result set in memory. afterDate/afterID are the cursor from
 // the previous page (nil for the first page). Ordered by (invoice_date, id) ASC.
+// This is also the path GenerateGoBDExport (biz_grpc.go) builds its CSV from,
+// combined with creditNoteService.ListForDATEVExport as negative storno rows —
+// there is no separate GoBD-specific export method.
 func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.Invoice, error) {
 	args := []any{tenantID, fromDate, toDate}
 	cursorClause := ""

@@ -4469,3 +4469,47 @@ Frühere Läufe liegen vollständig im Archiv:
     verifiziert (Frontend ist in diesem Lauf gesperrt).
   - Kein DB-Bezug in dieser Unit (reine OpenAPI-Doku + ein neuer Go-Test), daher kein
     RLS-Smoke faellig.
+
+## Iteration 68 — verify-invoice-list-for-gobd-export-unreachable — done — 2026-08-23 07:42
+- commit: -
+- gebaut: VERIFY-UNIT mit Entfernung. Aufrufgraph von `invoice.Service.ListForGoBDExport`
+  belegt: Grep ueber gesamtes Repo (`internal/`, `cmd/`, `.proto`) findet nur die
+  Repository-Implementierung, das Interface, die Service-Methode und drei Test-Doubles
+  (`MockRepository` in `service_test.go`, `stubInvoiceRepo` in
+  `biz_grpc_invoices_creditnotes_payments_test.go`, sowie die eigene DB-Testdatei) — kein
+  `cmd/`, kein Gateway-Handler, kein anderer Service ruft sie auf. Der tatsaechliche
+  GoBD-Export (`GenerateGoBDExport`, `internal/server/biz_grpc.go:2459`) laeuft nachweislich
+  ueber `invoiceService.ListForDATEVExport` (sign=1) + `creditNoteService.ListForDATEVExport`
+  (sign=-1, Stornos) via `dunning.BuildGoBDRows` — voellig unabhaengig von
+  `ListForGoBDExport`. Da kein Produktvorhaben fuer einen zweiten Export-Modus erkennbar ist
+  (keine offene Unit, kein Kommentar, kein Frontend-Hinweis — Frontend gesperrt, nur lesend
+  geprueft) und die Methode aktiv irrefuehrend ist (sieht aus wie DER GoBD-Pfad, ist es aber
+  nicht — inklusive einer bewusst abweichenden Statuslogik, die nie ausgefuehrt wird),
+  ENTSCHEIDUNG: Entfernung statt lean-Marker. Entfernt: Repository-Methode
+  (`postgres_repository.go`, 49 Zeilen inkl. Line-Item-Ladung), Interface-Eintrag
+  (`repository.go`), Service-Wrapper (`service_gobd.go`), `MockRepository`-Implementierung
+  (`service_test.go`, unbenutzt — kein Testfall rief sie auf), `stubInvoiceRepo`-Implementierung
+  (`biz_grpc_invoices_creditnotes_payments_test.go`), gesamte DB-Testdatei
+  `postgres_repository_gobd_export_db_test.go` (7 Tests gegen eine nie aufgerufene Methode).
+  Am tatsaechlichen Pfad (`ListForDATEVExport`-Doc-Kommentar in `postgres_repository.go`)
+  einen Verweis hinterlassen, damit klar ist, dass es keine separate GoBD-Export-Methode gibt.
+- gate: build ok (`go build -p 2` ueber invoice/server/einvoice/recurring/cmd/biz) | vet ok |
+  lint ok (0 issues, invoice+server) | test ok (invoice, server, server/response, einvoice,
+  recurring alle gruen, 0 uebersprungen in invoice mit -v gegengeprueft) | migration n.a.
+  (kein Schema-Bezug) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: n.a. (Verify-Unit mit Entfernung, kein Coverage-Ziel — Backlog-Zeile deckt das)
+- mutations-probe: n.a. (Entfernung toten Codes, keine neue Verhaltenslogik zum Brechen;
+  der Beweis ist der leere Aufrufgraph selbst, nicht ein Testverhalten)
+- verify vorgaenger: sauber. `d171d8f7` (Iteration 67) geprueft: reine
+  OpenAPI-Doku-Korrektur (openapi.yaml + neuer Drift-Test), kein Handler-/Service-Code
+  geaendert. Stichprobe `dndStatusFromQuietHours`/`HandleGetDND`/`HandleDisableDND` im echten
+  Code bestaetigt die im Journal behaupteten Signaturen und die DNDStatus-Wire-Shape-Korrektur
+  — keine der acht Fehlerklassen einschlaegig. `539e2ca0` (nur Sha-Nachtrag im Journal-Text,
+  keine Code-Aenderung) separat gegengeprueft, ist ein Ein-Zeilen-Diff in JOURNAL.md.
+- neue-units: keine
+- offen:
+  - Kein DB-Bezug, daher kein RLS-Smoke faellig.
+  - Falls spaeter doch ein zweiter GoBD-Export-Modus gebraucht wird (z. B. cancelled-Rechnungen
+    direkt statt ueber Credit-Note-Stornos), ist das eine Produktentscheidung Luke — der
+    Kommentar an `ListForDATEVExport` verweist auf den heutigen alleinigen Pfad, damit eine
+    kuenftige Wiedereinfuehrung nicht denselben unklaren Zustand reproduziert.
