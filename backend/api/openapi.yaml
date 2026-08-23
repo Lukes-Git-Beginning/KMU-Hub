@@ -4217,6 +4217,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/{id}/pin:
     post:
@@ -4247,6 +4249,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Unpin a notification
       description: Removes the pin for the current user. Response wraps the updated notification under `notification`.
@@ -4275,6 +4279,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/{id}/dismiss:
     post:
@@ -4305,6 +4311,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/{id}/snooze:
     post:
@@ -4350,6 +4358,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
         "422":
           description: Snooze time is in the past
 
@@ -4381,6 +4391,8 @@ paths:
                     type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/preferences:
     get:
@@ -4432,6 +4444,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/event-types:
     get:
@@ -4491,6 +4505,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List muted resources
       tags: [notifications]
@@ -4552,6 +4568,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/quiet-hours:
     get:
@@ -4592,6 +4610,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/dnd:
     get:
@@ -4642,6 +4662,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Disable manual Do Not Disturb mode
       tags: [notifications]
@@ -4657,6 +4679,8 @@ paths:
                 $ref: "#/components/schemas/DNDStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
