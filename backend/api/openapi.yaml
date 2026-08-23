@@ -8434,6 +8434,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List meetings for the authenticated user
       tags: [meetings]
@@ -8475,6 +8477,8 @@ paths:
                 $ref: "#/components/schemas/ListMeetingsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}:
     get:
@@ -8492,10 +8496,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update a meeting
       tags: [meetings]
@@ -8523,6 +8531,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete a meeting
       tags: [meetings]
@@ -8542,10 +8552,14 @@ paths:
                   status:
                     type: string
                     example: meeting deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/start:
     post:
@@ -8563,10 +8577,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StartMeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/join:
     post:
@@ -8584,10 +8602,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JoinMeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/end:
     post:
@@ -8605,10 +8627,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EndMeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting Notes
@@ -8642,6 +8668,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: Get meeting notes
       tags: [meeting-notes]
@@ -8657,10 +8685,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingNotesListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/previous-notes:
     get:
@@ -8678,10 +8710,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingNotesListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/occurrences:
     get:
@@ -8793,6 +8829,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List action items for a meeting
       tags: [action-items]
@@ -8808,10 +8846,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListActionItemsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/action-items/{itemId}:
     put:
@@ -8846,6 +8888,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete an action item
       tags: [action-items]
@@ -8870,10 +8914,14 @@ paths:
                   status:
                     type: string
                     example: action item deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/action-items/convert:
     post:
@@ -8903,6 +8951,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # LiveKit Webhook
@@ -32794,6 +32844,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List breakout rooms and current participant assignments for a meeting
       tags: [meetings]
@@ -32809,10 +32861,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListBreakoutRoomsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/assign:
     post:
@@ -32846,6 +32902,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/join:
     post:
@@ -32863,12 +32921,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JoinBreakoutRoomResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/assignment:
     get:
@@ -32886,10 +32948,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GetBreakoutAssignmentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/return:
     post:
@@ -32923,6 +32989,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/close:
     post:
@@ -32944,10 +33012,14 @@ paths:
                   status:
                     type: string
                     example: breakout rooms closed
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting AI Summary (Wave 7C — host/co-host authz enforced in the service)
@@ -32969,10 +33041,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting Chat (persisted in-call messages)
@@ -33011,6 +33087,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List persisted chat messages for a meeting
       tags: [meetings]
@@ -33037,10 +33115,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListMeetingChatMessagesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting Host Controls — Co-Hosts (Wave 3 — organizer-only, enforced in the service)
@@ -33083,6 +33165,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List co-hosts for a meeting
       tags: [meetings]
@@ -33103,10 +33187,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListCoHostsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{meetingId}/cohosts/{userId}:
     delete:
@@ -33139,10 +33227,14 @@ paths:
                   status:
                     type: string
                     example: co-host demoted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting Host Controls — Lock and Moderation (Wave 3 — host/co-host authz
@@ -33186,6 +33278,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{meetingId}/moderation/mute:
     post:
@@ -33224,6 +33318,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{meetingId}/moderation/mute-all:
     post:
@@ -33250,10 +33346,14 @@ paths:
                   status:
                     type: string
                     example: all participants muted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{meetingId}/moderation/kick:
     post:
@@ -33292,6 +33392,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Recordings by Meeting
