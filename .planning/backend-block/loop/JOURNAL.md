@@ -5375,7 +5375,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 84 — fix-gobd-export-currency-empty-for-legacy-documents — done — 2026-08-23 09:26
-- commit: (siehe naechste docs(loop)-Iteration fuer SHA-Nachtrag)
+- commit: 3fe6b86d
 - gebaut: `GenerateGoBDExport` (`internal/server/biz_grpc.go:2495,2517`) reicht `inv.Currency`
   bzw. `cn.Currency` jetzt durch `documentCurrency(...)` statt roh an
   `dunning.BuildGoBDRows` — exakt das Muster der drei bestehenden Call-Sites
