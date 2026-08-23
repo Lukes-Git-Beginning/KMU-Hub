@@ -5188,7 +5188,7 @@ Frühere Läufe liegen vollständig im Archiv:
 - offen: keine
 
 ## Iteration 81 — fix-dashboard-metrics-blind-currency-sum — done — 2026-08-23 09:05
-- commit: <wird nach Commit ergaenzt>
+- commit: 0ce7935a
 - gebaut: `internal/biz/dashboard/postgres_repository.go` — Query 1 (Revenue aus
   `finance_invoices`) und Query 2 (`avg_deal_size` aus `finance_quotes`)
   summieren/mitteln jetzt nur noch Zeilen, deren `currency` mit dem
