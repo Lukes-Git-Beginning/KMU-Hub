@@ -2507,7 +2507,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz 63,7 % (CI-Stand 32570176303)"
     scope: >
       Elf Testdateien tragen `//go:build integration` und laufen damit weder im lokalen

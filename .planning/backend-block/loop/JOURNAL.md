@@ -3912,3 +3912,52 @@ Frühere Läufe liegen vollständig im Archiv:
   - `biz_grpc_einvoice.go:175` (StringFixed(4) statt 2 Dezimalstellen) ist notiert, aber nicht
     als Unit angelegt — falls ein künftiger Scan dort ein echtes Fehlergebnis nachweist, dort
     ansetzen.
+
+## Iteration 59 — scan-build-tag-excluded-money-tests — done — 2026-08-23 06:32
+- commit: (siehe naechster docs-commit)
+- gebaut: reiner Scan, kein Produktionscode/keine CI-Datei geändert. Ein Explore-Subagent hat
+  alle Go-Testdateien mit ausschliessendem Build-Tag unter `backend/` erfasst (20 Dateien, alle
+  im neuen `//go:build`-Stil, kein `// +build` mehr im Repo) und jede gegen `ci.yml`,
+  `nightly.yml` und `Makefile` abgeglichen.
+  BEFUND: 11 Dateien mit `//go:build integration` (creditnote ×3, hr/absence, hr/employee,
+  hr/leave, invoice ×3, quote ×2) — alle liegen unter den vier Paketbäumen, die der Job
+  "Finance & HR Integration Tests" (`ci.yml:139-178`, `-tags=integration`) tatsächlich abdeckt
+  (`./internal/biz/{invoice,quote,creditnote,hr}/...`). Dieser Job ist laut eigenem
+  Inline-Kommentar bewusst aus dem nicht-blockierenden nightly.yml nach ci.yml verschoben
+  worden, "damit ... jeden Merge gaten" — er läuft auf `push`+`pull_request` gegen main ohne
+  `needs:`, also PR-blockierend (harte Grenze: ob er als GitHub-Branch-Protection-Required-Check
+  eingetragen ist, steht nicht im Workflow-YAML und wurde nicht geprüft, siehe offen:).
+  7 Dateien mit `//go:build e2e` (`test/e2e/*.go`) laufen im ebenfalls PR-blockierenden Job
+  "E2E Tests" (`ci.yml`, `needs: [lint, test]`). 2 Dateien mit `//go:build smoke`
+  (`test/smoke/*.go`) laufen NUR in `nightly.yml` (`schedule`+`workflow_dispatch`, explizit
+  nicht PR-blockierend) — betreffen aber keine Geld-/Finanzpfade, sondern generische
+  Health-Checks, deshalb kein Fund im Sinne dieser Unit.
+  KEIN toter Test gefunden: alle 20 getaggten Dateien laufen in genau einem der drei Jobs, kein
+  Paketpfad fällt aus der Abdeckung der vier Job-Paketbäume heraus, kein verwaister Tag-Wert.
+  Die ursprüngliche Vorbereitungs-Prämisse aus dem Backlog-Kopf ("elf Testdateien ... laufen
+  damit weder im lokalen Loop-Gate noch im Coverage-Job — nur im separaten CI-Job") ist damit
+  präzisiert, nicht widerlegt: die Zahl 11 (integration-getaggt) stimmt exakt, und sie laufen
+  tatsächlich NICHT im lokalen Loop-Gate und NICHT im Coverage-Job (der Job sammelt kein
+  `-coverprofile`) — sie laufen aber sehr wohl PR-blockierend in ci.yml. Das bestätigt Regel 4
+  im Backlog-Kopf (neue DB-Tests ungetaggt schreiben, damit sie im Loop-Gate UND im
+  Coverage-Job zählen) als weiterhin richtig, ändert aber nichts an einer bereits laufenden
+  Absicherung.
+  Kein Makefile-Target ruft `-tags=integration` auf (kein Kurzbefehl für lokale Entwicklung),
+  und keine Workflow-Datei ruft ein Makefile-Target auf — alle Jobs rufen `go test -tags=...`
+  direkt.
+- gate: n.a. (Scan-Unit, kein Produktionscode/Migration/Test/CI-Datei angefasst)
+- coverage: n.a. (Scan-Unit ohne Coverage-Ziel)
+- mutations-probe: n.a. (Scan-Unit, kein neuer/geänderter Testfall)
+- verify vorgaenger: sauber. `6bc48470` (Iteration 58, scan-money-rounding-and-tax-call-sites)
+  geprüft: `git show --stat` zeigt ausschliesslich BACKLOG.yml und JOURNAL.md, kein
+  Produktionscode — keine der acht Fehlerklassen einschlägig.
+- neue-units: keine (kein toter Test gefunden, keine Zusage hängt an einem nicht laufenden
+  Test — Empfehlung ist "kein Handlungsbedarf", siehe done_when-Vorgabe der Unit)
+- offen:
+  - Ob "Finance & HR Integration Tests" und "E2E Tests" als GitHub-Branch-Protection-Required-
+    Checks eingetragen sind (statt nur faktisch bei jedem PR zu laufen), steht nicht im
+    Workflow-YAML und wurde nicht geprüft — für die Frage dieser Unit (läuft der Test
+    irgendwo PR-gatend) ausreichend, für eine vollständige Aussage zur Merge-Blockade nicht.
+  - Kein Makefile-Kurzbefehl für `go test -tags=integration` existiert — lokale Entwickler
+    müssen den vollen Befehl von Hand tippen. Kein Fund im Sinne dieser Unit (betrifft
+    Entwickler-Ergonomie, nicht CI-Abdeckung), aber notiert falls das mal auffällt.
