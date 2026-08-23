@@ -4678,3 +4678,71 @@ Frühere Läufe liegen vollständig im Archiv:
     Race-Zweig zwingend neu lesen muss (der fruehe Check hat dort ja "not found"
     gesehen) und zwei separate Codepfade fuer denselben Rueckgabewert die schlechtere
     Wahl waeren. Eine zusaetzliche DB-Rundreise pro Re-Import, kein Korrektheitsproblem.
+
+## Iteration 72 — fix-invoice-number-unique-index-blocks-second-draft — done — 2026-08-23 08:07
+- commit: <PENDING>
+- gebaut: Neue Forward-Migration `000323_finance_invoice_number_partial_unique`
+  ersetzt den nicht-partiellen Unique-Index `idx_finance_invoices_number` durch
+  `... (tenant_id, invoice_number) WHERE invoice_number <> ''`. Damit darf ein Tenant
+  beliebig viele unversendete Entwuerfe (`invoice_number = ''`) halten, waehrend
+  vergebene Nummern pro Tenant eindeutig bleiben. Kein Go-Code am Produktivpfad
+  geaendert — `Create` setzt `InvoiceNumber: ""` weiterhin bewusst, die Ursache lag
+  allein im Schema. Neue Datei
+  `internal/biz/invoice/postgres_repository_draft_number_uniqueness_db_test.go` mit
+  drei Real-SQL-Tests (drei unnummerierte Entwuerfe pro Tenant gelingen; dieselbe
+  vergebene Nummer zweimal wird weiterhin mit 23505 auf genau diesem Index abgelehnt;
+  dieselbe Nummer in zwei Tenants bleibt erlaubt). Der `invSvc.Send`-Workaround in
+  `recurring/TestGenerate_RealSQL_MonthEndScheduleStaysAnchored` ist entfernt — der
+  Test erzeugt jetzt zwei Perioden als echte Entwuerfe hintereinander, so wie ein
+  echter Zeitplan es tut.
+- gate: build ok (`go build -p 2 ./internal/biz/invoice/... ./internal/biz/recurring/...`) |
+  vet ok | lint ok (0 issues) | test ok (`go test -count=1` invoice + recurring,
+  **0 SKIP** bei `-v` gezaehlt, DATABASE_URL gegen `kmuhub_app`; zusaetzlich
+  `./migrations/` und `./internal/testutil/` gruen) | migration ok (323 up angewendet,
+  danach `down 1` + `up` als Roundtrip gefahren, Indexdefinition per `pg_indexes`
+  in beiden Richtungen verifiziert) | rls-smoke n.a. (nur ein Index getauscht, keine
+  Tabelle, keine Policy, keine Spalte) | openapi n.a. (keine Route beruehrt)
+- coverage: `internal/biz/invoice` 61,1 % -> 61,1 % (eigene Messung vor/nach, die neue
+  Testdatei zum Messen des Vorher-Werts herausgenommen). Unveraendert und das ist
+  korrekt so: der Fix sitzt im Schema, die drei neuen Tests fahren mit `repo.Create`
+  einen bereits abgedeckten Go-Pfad — sie beweisen Verhalten, keine neuen Zeilen.
+  `coverage_start` der Unit deklariert "n.a., Verhaltensfund".
+- mutations-probe: Mutiert wurde die Migration selbst (die eigentliche Fix-Stelle):
+  `migrate down 1` setzt den Index auf die nicht-partielle Form zurueck. Daraufhin
+  wurden BEIDE Seiten rot — `TestPostgresRepository_Create_MultipleUnnumberedDraftsPerTenant`
+  ("draft 2 without an invoice number must be creatable alongside the earlier ones")
+  und `TestGenerate_RealSQL_MonthEndScheduleStaysAnchored` mit exakt dem im Scope
+  beschriebenen Fehler `insert finance_invoices: ERROR: duplicate key value violates
+  unique constraint "idx_finance_invoices_number" (SQLSTATE 23505)`. Danach `migrate up`,
+  beide Pakete wieder gruen, Arbeitsbaum unveraendert (die Probe fasste keine Datei an).
+- verify vorgaenger: sauber. `1d160dae` (Iteration 71) geprueft: kein Gateway-Handler und
+  damit keine gRPC-Umgehung, kein Stub (`isStatementHashConflict` prueft real gegen
+  `pgconn.PgError`), keine `.proto`-Datei im Commit, kein neuer `RequirePermission`-Guard
+  und kein ersetzter Alt-Key, keine neue Tabelle, Wire-Shape unveraendert (`ImportResult`
+  gleich, nur `AlreadyImported: true` statt Fehler), keine neue Route. Zusaetzlich
+  geprueft, weil der neue Early-Return in einer offenen Transaktion sitzt: `CreateStatement`
+  hat `defer func() { _ = tx.Rollback(ctx) }()` gleich nach `Begin`, der
+  `return ErrStatementHashConflict` laesst also keine Transaktion offen. Auch der
+  Re-Read im Race-Zweig ist korrekt: Postgres liefert die Unique-Violation erst,
+  nachdem der Gewinner committet hat (der Insert blockt bis dahin), die Zeile ist
+  fuer den anschliessenden `GetStatementByHash` also sichtbar.
+- neue-units: keine
+- offen:
+  - **Produktionsdatenpruefung war aus dem Loop heraus nicht moeglich** (kein
+    Prod-Zugriff, per Grenze des Laufs). Sie ist fuer die Up-Richtung auch nicht
+    noetig und das steht als Begruendung im Migrationskopf: eine Unique-Bedingung zu
+    LOCKERN kann an Bestandsdaten nie scheitern, jede Zeilenmenge, die den alten Index
+    erfuellte, erfuellt auch den neuen. Lokal geprueft (2026-08-23):
+    `SELECT tenant_id, count(*) FROM finance_invoices WHERE invoice_number='' GROUP BY 1
+    HAVING count(*)>1` liefert 0 Zeilen — erwartungsgemaess, weil der alte Index genau
+    das verhinderte.
+  - Die **`.down.sql` kann dagegen sehr wohl scheitern**, sobald die partielle Fassung
+    eine Weile live war und ein Tenant mehrere Entwuerfe haelt. Das ist im
+    `.down.sql`-Kopf samt Aufraeum-Query dokumentiert; ein Rollback ueber diese
+    Migration hinweg ist also nichts, was blind laufen darf. Beim lokalen Roundtrip
+    ging er durch, weil dort keine Mehrfach-Entwuerfe lagen.
+  - `finance_quotes.quote_number` und `finance_credit_notes.credit_note_number` tragen
+    denselben `NOT NULL DEFAULT ''`-Musterfehler, haben aber keinen Unique-Index auf die
+    Nummer (im Scope der Unit gegen `pg_indexes` geprueft) — sie sind nicht betroffen,
+    aber falls dort je ein Unique-Index nachgezogen wird, muss er von Anfang an partiell
+    sein.

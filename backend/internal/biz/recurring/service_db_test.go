@@ -27,11 +27,8 @@ import (
 
 // newRealService wires the recurring service to real repositories: its own
 // PostgresRepository plus a real invoice.Service backed by the real invoice
-// repository, real number sequence and real pool — so tests can also call
-// invSvc.Send to move a draft out of the way (finance_invoices has a single
-// UNIQUE(tenant_id, invoice_number) index and every draft's number is the
-// empty string, so a tenant can only ever hold ONE unsent draft at a time;
-// see fix-invoice-number-unique-index-blocks-second-draft).
+// repository, real number sequence and real pool — so tests exercise the same
+// numbering and persistence path production uses, not a stub.
 func newRealService(pool *pgxpool.Pool) (*Service, *PostgresRepository, *invoice.Service) {
 	repo := NewPostgresRepository(pool)
 	invRepo := invoice.NewPostgresRepository(pool)
@@ -213,7 +210,7 @@ func TestGenerate_RealSQL_MonthEndScheduleStaysAnchored(t *testing.T) {
 
 	tenantID, userID := seedRecurringFixture(t, pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
-	svc, repo, invSvc := newRealService(pool)
+	svc, repo, _ := newRealService(pool)
 
 	rec := newRecurringFixture(tenantID, userID)
 	rec.LineItems = billableLineItems(t)
@@ -234,14 +231,12 @@ func TestGenerate_RealSQL_MonthEndScheduleStaysAnchored(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "2026-02-28", reloaded.NextRun.Format(dateLayout))
 
-	// Send the January invoice before generating February's: finance_invoices
-	// carries a single UNIQUE(tenant_id, invoice_number) index and every draft's
-	// number is the empty string, so this tenant could not hold two drafts at
-	// once (see fix-invoice-number-unique-index-blocks-second-draft) — sending
-	// is also what a real schedule would do between two periods in practice.
-	require.NoError(t, invSvc.Send(ctx, tenantID, inv1.ID, userID))
-
-	// February -> back to the 31st, not stuck on the 28th forever.
+	// February -> back to the 31st, not stuck on the 28th forever. Both
+	// invoices stay unsent drafts on purpose: until migration 000323 made
+	// idx_finance_invoices_number partial, this second Generate failed with a
+	// raw 23505 because both drafts carry invoice_number = '' and the index
+	// was not partial (fix-invoice-number-unique-index-blocks-second-draft).
+	// The invSvc.Send call that used to sit here to work around it is gone.
 	inv2, updated2, err := svc.Generate(ctx, tenantID, rec.ID, userID)
 	require.NoError(t, err)
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_invoices", inv2.ID) })

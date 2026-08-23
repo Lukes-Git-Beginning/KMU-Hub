@@ -3121,7 +3121,7 @@ units:
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verhaltensfund aus cov-recurring-generation-run-real-sql, Lauf 11 Iteration 38)"
     scope: >
       Verifizierter Produktionsbug, gefunden beim Bau von echten SQL-Tests fuer
