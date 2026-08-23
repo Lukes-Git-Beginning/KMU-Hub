@@ -8932,6 +8932,8 @@ paths:
                     type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/finance/quotes/{id}:
     get:
@@ -8947,6 +8949,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
     put:
@@ -8970,6 +8974,8 @@ paths:
                 $ref: "#/components/schemas/Quote"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -8982,6 +8988,8 @@ paths:
       responses:
         "200":
           description: Quote deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -9148,6 +9156,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "501":
           description: PDF generation not yet available via gateway
 
@@ -9173,6 +9183,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Invoice"
         "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List invoices
@@ -9235,6 +9246,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     put:
       summary: Update a draft invoice
       tags: [invoices]
@@ -9254,6 +9267,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "409":
           description: >-
             Invoice is immutable (already sent) and can no longer be edited. Also
@@ -9283,6 +9298,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/mark-paid:
@@ -9299,6 +9315,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/cancel:
@@ -9315,6 +9332,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/pdf:
@@ -9346,6 +9364,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -9408,6 +9428,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -9886,6 +9908,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
           content:
@@ -9948,6 +9972,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to read the uploaded file, or failed to serialize the response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Finance service unavailable
           content:
@@ -9988,6 +10018,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
           content:
@@ -14411,6 +14443,8 @@ paths:
                 $ref: "#/components/schemas/GobdDocument"
         "400":
           description: Invoice not locked
+        "401":
+          description: Unauthorized
         "404":
           description: Invoice not found
 
@@ -14435,6 +14469,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GobdDocumentWithEvents"
+        "401":
+          description: Unauthorized
         "404":
           description: Document not found
 
@@ -14459,6 +14495,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GobdDownloadResponse"
+        "401":
+          description: Unauthorized
         "404":
           description: Document not found
 
@@ -14494,6 +14532,8 @@ paths:
       responses:
         "201":
           description: Annotation added
+        "401":
+          description: Unauthorized
         "404":
           description: Document not found
 
@@ -14538,6 +14578,8 @@ paths:
           description: Unsupported media type
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to read the uploaded file
 
   /api/v1/finance/incoming-invoices:
     get:
@@ -14589,6 +14631,8 @@ paths:
                     type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/finance/incoming-invoices/{id}:
     get:

@@ -6189,3 +6189,57 @@ Frühere Läufe liegen vollständig im Archiv:
 - neue-units: `fix-idempotency-409-rollout-non-finance-routes-5` (Rest der ~32 verbleibenden
   Registrar-Gruppen, Chat aus der Liste entfernt).
 - offen: keine. DB-Gate lief mit gesetztem `DATABASE_URL`, keine uebersprungenen Tests.
+
+## Iteration 99 — fix-status-code-drift-baseline-non-systemic-2 — done — 2026-08-23 11:19
+- commit: (siehe naechster Eintrag)
+- gebaut: Registrar-Gruppe **Finance** vollstaendig aus `statusDriftBaseline`
+  (`internal/gateway/openapi_status_code_drift_test.go`) entfernt — 22 Eintraege in
+  `backend/api/openapi.yaml` nachgetragen. 20x `401` (Handler nutzt durchweg
+  `getTenantID(r)`, Fehlermeldung "missing or invalid tenant" — je Handler verifiziert, nicht
+  angenommen), 2x `500` (`hrMarshalSlice`/`hrMarshalProto`-Fehlschlag, "internal server error"
+  bzw. Sammel-Beschreibung "Failed to serialize the response"). Betroffene Operationen:
+  `DELETE /finance/quotes/{id}`, `GET/PUT/DELETE finance/quotes(/{id})`,
+  `GET finance/quotes/{id}/pdf` (dort zusaetzlich ein bestehender, vermutlich veralteter
+  `501`-Eintrag entdeckt — `HandleGenerateQuotePDF` ist voll implementiert und schreibt nie
+  501; nicht angefasst, da ausserhalb des Baseline-Scopes dieser Unit, siehe `offen:`),
+  `GET/POST finance/invoices(/{id})`, `.../send`, `.../mark-paid`, `.../cancel`,
+  `.../pdf`, `.../erechnung`, `POST finance/invoices/import`, `GET finance/incoming-invoices`,
+  `GET finance/bank-statements(/{id})`, `POST finance/bank-statements/import`,
+  `GET/POST finance/gobd-archive/{id}(/download)`, `POST
+  finance/gobd-archive/from-invoice/{invoiceId}`, `POST finance/gobd-archive/{id}/annotations`.
+  Numerisch einsortiert (401 vor 404/409, 500 vor 503 wo vorhanden); bei
+  `finance/invoices/import` war die bestehende Reihenfolge bereits nicht numerisch (401 nach
+  415) — dort nicht umsortiert, nur 500 ans Ende angehaengt, um den Diff auf die eigene
+  Aenderung zu begrenzen. `statusDriftBaseline`-Kopfkommentar von "finance and HR routes" auf
+  "HR routes" korrigiert (Finance ist raus) und um die `getTenantID`-Quelle ergaenzt.
+  Kein Go-Produktionscode angefasst, nur `backend/api/openapi.yaml` und die Baseline-Map in
+  der Testdatei.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`go vet ./internal/gateway/...`) | lint ok (`golangci-lint run ./internal/gateway/...`
+  0 issues) | test ok (`go test -count=1 ./internal/gateway/...` gruen, gesetztes
+  `DATABASE_URL`) | `TestOpenAPIStatusCodeDrift` gruen (1196 Operationen geprueft, 45
+  baselined, 0 unresolved) | `TestOpenAPIRouteDrift` gruen (836 Routen / 838 Pfade) |
+  swagger-cli validate gruen | migration n.a. | rls-smoke n.a. (keine Tabelle angefasst)
+- coverage: n.a. (Doku-Unit, kein Coverage-Ziel — reine Spec-/Test-Baseline-Aenderung, kein
+  Produktionscode)
+- mutations-probe: den frisch eingefuegten `"401": { $ref: Unauthorized }` auf
+  `DELETE /api/v1/finance/quotes/{id}` testweise entfernt: `TestOpenAPIStatusCodeDrift` rot
+  ("DELETE /api/v1/finance/quotes/{id} writes [401] - not documented"). Zurueckgedreht, danach
+  wieder gruen; `git diff --stat` zeigt genau die drei bearbeiteten Dateien, keine
+  ueberzaehligen Hunks.
+- verify vorgaenger: sauber. `5e1ba595` (Iteration 98) geprueft: reine
+  `openapi.yaml`-Doku fuer die Chat-Gruppe (15 additive 409-Eintraege + 1 Merge-Fall gegen
+  einen bestehenden `Conflict`-`$ref`), Zaehlung 15+1=16 stimmt mit dem Journal-Text ueberein,
+  keine der acht Fehlerklassen betroffen.
+- neue-units: `fix-status-code-drift-baseline-non-systemic-3` (Rest der 45 verbliebenen
+  Baseline-Eintraege — hr 23, integrations 6, dashboard 5, Rest verstreut 11 — Finance aus der
+  Liste entfernt, hr als naechste Zielgruppe markiert).
+- offen: `GET /api/v1/finance/quotes/{id}/pdf` dokumentiert weiterhin `501` ("PDF generation
+  not yet available via gateway"), obwohl der Handler (`HandleGenerateQuotePDF`,
+  route_biz_quotes.go:326) voll implementiert ist und diesen Code nie schreibt — vermutlich
+  seit dem Ausbau der Gateway-PDF-Generierung stehengelassene Falschdokumentation. Ausserhalb
+  des Scopes dieser Unit (die behandelt fehlende, nicht ueberzaehlige Eintraege); kein
+  Backlog-Eintrag angelegt, da es sich um eine reine Spec-Korrektur ohne Verhaltensaenderung
+  handelt und keinen der acht Verify-Fehlerklassen darstellt — Luke kann das bei Gelegenheit
+  als Ein-Zeilen-Fix mitnehmen. DB-Gate lief mit gesetztem `DATABASE_URL`, keine
+  uebersprungenen Tests.

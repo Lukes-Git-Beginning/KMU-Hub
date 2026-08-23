@@ -439,8 +439,8 @@ var systemicUndocumentedCodes = map[int]string{
 // is verified. Do not add to this list to silence a new finding; document the
 // code in api/openapi.yaml instead.
 //
-// Reading the list: 401 on the finance and HR routes comes from
-// ownerFilterForScope (helpers.go:166, "missing user in token"); 500 marks
+// Reading the list: 401 on the HR routes comes from ownerFilterForScope
+// (helpers.go:166, "missing user in token") or from getTenantID; 500 marks
 // handlers that answer with a plain internal error instead of going through
 // respondGRPCError; 501 marks the four tag endpoints that still reply
 // http.StatusNotImplemented; 502 marks the Slack/Teams webhook bridges.
@@ -448,19 +448,8 @@ var statusDriftBaseline = map[string][]int{
 	"DELETE /api/v1/activities/{id}/tags": {501},
 	"DELETE /api/v1/dashboard/layout": {500},
 	"DELETE /api/v1/deals/{id}/tags": {501},
-	"DELETE /api/v1/finance/quotes/{id}": {401},
 	"GET /api/v1/dashboard/defaults/{role}": {500},
 	"GET /api/v1/dashboard/layout": {500},
-	"GET /api/v1/finance/bank-statements": {500},
-	"GET /api/v1/finance/bank-statements/{id}": {500},
-	"GET /api/v1/finance/gobd-archive/{id}": {401},
-	"GET /api/v1/finance/gobd-archive/{id}/download": {401},
-	"GET /api/v1/finance/incoming-invoices": {500},
-	"GET /api/v1/finance/invoices/{id}": {401},
-	"GET /api/v1/finance/invoices/{id}/pdf": {401},
-	"GET /api/v1/finance/quotes": {500},
-	"GET /api/v1/finance/quotes/{id}": {401},
-	"GET /api/v1/finance/quotes/{id}/pdf": {401},
 	"GET /api/v1/hr/absences/calendar": {401},
 	"GET /api/v1/hr/employees": {401, 500},
 	"GET /api/v1/hr/leave/balance": {401},
@@ -482,15 +471,6 @@ var statusDriftBaseline = map[string][]int{
 	"POST /api/v1/activities/{id}/tags": {501},
 	"POST /api/v1/deals/{id}/tags": {501},
 	"POST /api/v1/email/attachments/upload": {500},
-	"POST /api/v1/finance/bank-statements/import": {500},
-	"POST /api/v1/finance/gobd-archive/from-invoice/{invoiceId}": {401},
-	"POST /api/v1/finance/gobd-archive/{id}/annotations": {401},
-	"POST /api/v1/finance/invoices": {401},
-	"POST /api/v1/finance/invoices/import": {500},
-	"POST /api/v1/finance/invoices/{id}/cancel": {401},
-	"POST /api/v1/finance/invoices/{id}/erechnung": {401},
-	"POST /api/v1/finance/invoices/{id}/mark-paid": {401},
-	"POST /api/v1/finance/invoices/{id}/send": {401},
 	"POST /api/v1/guest/sessions": {500},
 	"POST /api/v1/hr/employees": {401},
 	"POST /api/v1/hr/employees/{id}/documents": {401},
@@ -508,8 +488,6 @@ var statusDriftBaseline = map[string][]int{
 	"PUT /api/v1/customization/labels": {500},
 	"PUT /api/v1/dashboard/defaults/{role}": {500},
 	"PUT /api/v1/dashboard/layout": {500},
-	"PUT /api/v1/finance/invoices/{id}": {401},
-	"PUT /api/v1/finance/quotes/{id}": {401},
 	"PUT /api/v1/hr/settings": {401},
 	"PUT /api/v1/inbox/canned-responses/{id}": {500},
 }
