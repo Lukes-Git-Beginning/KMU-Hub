@@ -1499,3 +1499,72 @@ Frühere Läufe liegen vollständig im Archiv:
   `fix-payment-stats-outstanding-ignores-recorded-payments` enthält auch die offene Frage, ob
   TotalPaidAmount künftig Umsatz oder tatsächlichen Cashflow zeigen soll — Produktentscheidung,
   UI-Beschriftung ist gesperrt, aber lesbar.
+
+## Iteration 28 — cov-invoice-postgres-transactions-real-sql — done — 2026-08-23 02:35
+- commit: (siehe naechster docs-Commit)
+- gebaut: neue ungetaggte Testdatei `postgres_transactions_bracket_db_test.go` (5 Tests, real
+  Postgres) fuer die Transaktionsklammer aus `Create` und `UpdateInTx`
+  (`postgres_repository.go:48` bzw. `:328`), die auch `Service.Send` fuer die gekoppelte
+  Nummernvergabe+Status-Aenderung verwendet: (1) Fehler beim Anlegen der Rechnung
+  (`chk_finance_invoices_status` verletzt) — Header UND Positionen bleiben leer; (2) Fehler beim
+  Anlegen der Positionen (`chk_invoice_lines_quantity` verletzt auf der zweiten von zwei Zeilen)
+  — Header UND die erste, gueltige Zeile werden ebenfalls zurueckgerollt; (3) Fehler beim
+  Header-UPDATE innerhalb von `UpdateInTx` — die urspruengliche Zeile bleibt komplett unberuehrt,
+  weil das DELETE nie laeuft; (4) Fehler beim Loeschen-und-Neueinfuegen der Zeilen — Header UND
+  die zwischenzeitlich geloeschte Zeile werden wiederhergestellt (isoliert die Garantie, die
+  `send_atomic_integration_test.go` sonst nur ueber den vollen Send-Flow zeigt); (5) Fehler beim
+  Commit — ein gueltiges `UpdateInTx` in einer Transaktion, die durch eine andere Anweisung
+  (`SELECT 1/0`) vorher abgebrochen wird: `tx.Commit()` liefert tatsaechlich einen Fehler
+  ("commit unexpectedly resulted in rollback", empirisch mit `-v` verifiziert, nicht geraten),
+  und das eigentlich gueltige Update persistiert nicht.
+  ABWEICHUNG vom Backlog-Scope: die Unit-Beschreibung passt nicht zur Datei
+  `postgres_transactions.go` — die enthaelt seit Commit `120b32a4` ("add consolidated
+  transaction ledger") ausschliesslich `ListTransactions`/`incomeTransactions`/
+  `expenseTransactions`, eine reine Read-Union ueber `finance_payments`+`finance_expenses` ohne
+  jede Transaktionsklammer. Die im Scope beschriebene "Transaktionsklammer... unter der Rechnung,
+  Positionen und Nummernvergabe gemeinsam geschrieben werden" existiert tatsaechlich in
+  `service.go:Send` (Zeile 519) + `postgres_repository.go:Create/UpdateInTx` — beide standen
+  bereits in `sources`. Dorthin gebaut statt gegen den falschen Dateinamen.
+  Ausserdem: der urspruenglich geplante Test fuer "Fehler bei der Nummernvergabe selbst"
+  (`NextNumberInTx`) liess sich mit echtem SQL nicht deterministisch erzwingen, ohne den
+  Unique-Constraint der Sequenztabelle aufzubrechen (wie es der getaggte Test fuer einen anderen
+  Zweck tut) — `pgx.QueryRow.Scan` verwirft bei mehreren Treffern stillschweigend alle bis auf
+  die erste Zeile, es entsteht kein Fehler. Stattdessen ueber den Header-UPDATE- und
+  Commit-Fehler abgedeckt, die real reproduzierbar sind.
+- gate: build ok (`./internal/biz/invoice/... ./internal/gateway/... ./cmd/biz/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 -v ./internal/biz/invoice/`, 108
+  PASS, 0 SKIP, DATABASE_URL gegen kmuhub_app) | gateway-Gate zusaetzlich gelaufen
+  (`TestOpenAPIRouteDrift`, 836 Routen gegen 838 Pfade, gruen) obwohl keine Route beruehrt wurde
+  | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst, nur Transaktionsverhalten)
+- coverage: internal/biz/invoice 53,2 % (eigens gemessen Iteration 27, gleiche Messmethode) ->
+  56,3 % (eigens gemessen, `go tool cover -func`, lokaler Lauf mit und ohne die neue Datei
+  verglichen)
+- mutations-probe: `UpdateInTx` am Ende auf `_ = r.insertInvoiceLines(ctx, tx, inv); return nil`
+  verstuemmelt (Fehler beim Zeilen-Reinsert wird verschluckt) ->
+  `TestPostgresRepository_UpdateInTx_RollbackOnLineReinsertRestoresDeletedLine` rot ("An error is
+  expected but got nil"). Zurueckgedreht, `git diff --stat` auf postgres_repository.go danach
+  leer. WICHTIGER NEBENFUND beim ersten Versuch dieser Probe: mit einem manuellen
+  `require.NoError(t, tx.Rollback(ctx))` als letzter Handlungsschritt (statt `defer` direkt nach
+  `Begin`) haengt der Testlauf, wenn eine fruehere Assertion per `require.Error` fehlschlaegt —
+  `t.FailNow()` (`runtime.Goexit`) ueberspringt den manuellen Rollback-Aufruf, die Transaktion
+  haelt eine Connection aus dem Pool, und `pool.Close()` im `t.Cleanup` blockiert, bis diese
+  Connection zurueckkommt (120 s Tool-Timeout, Task musste per TaskStop beendet werden). Fix: in
+  allen drei `UpdateInTx`-Tests sofort nach `pool.Begin` ein `defer tx.Rollback(ctx)` als
+  Sicherheitsnetz ergaenzt (Goexit fuehrt Defers weiterhin aus). Damit lief dieselbe Mutation beim
+  zweiten Versuch sauber in unter einer Sekunde rot statt zu haengen.
+- verify vorgaenger: sauber — `5bae68ed` (Iteration 27) aendert laut `git show --stat` und Diff
+  nur eine neue Testdatei (`postgres_repository_payment_stats_db_test.go`, 280 Zeilen, untagged,
+  kein Skip/TODO/Unimplemented) sowie BACKLOG.yml/JOURNAL.md. Keine der acht Fehlerklassen
+  einschlaegig: kein gRPC-Handler beruehrt, kein Stub/TODO, kein `.proto`, keine Migration, kein
+  neuer Guard, keine neue Tabelle, keine Route, kein Wire-Shape-Wechsel, kein ersetzter
+  Guard-Key.
+- neue-units: keine
+- offen: naechste Unit laut Backlog-Reihenfolge ist `cov-invoice-service-gobd-lock-real-sql`
+  (deps: [cov-invoice-postgres-transactions-real-sql], jetzt ziehbar). Luke pruefen: (1) die oben
+  dokumentierte Scope/Sources-Abweichung bei dieser Unit — falls in `BACKLOG.yml` noch weitere
+  Units auf denselben irrefuehrenden Dateinamen `postgres_transactions.go` verweisen, lohnt ein
+  kurzer Grep vor dem naechsten Lauf; (2) der Mutations-Probe-Nebenfund zu haengenden
+  Test-Pools ist keine Aktion fuer Luke, aber falls in aelteren `_db_test.go`-Dateien dasselbe
+  Pattern (manuelles `tx.Rollback` ohne vorgeschalteten `defer`) vorkommt, waere das ein
+  latentes Risiko fuer kuenftige rote Testlaeufe, die dann als Haenger statt als klarer Fail
+  erscheinen — kein Fund in dieser Iteration ausserhalb der neuen Datei geprueft.
