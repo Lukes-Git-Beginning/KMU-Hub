@@ -3238,7 +3238,7 @@ Frühere Läufe liegen vollständig im Archiv:
   strukturelle Limit wie bei `route_lexware_test.go`, kein neuer Befund.
 
 ## Iteration 50 — cov-datev-upload-service-error-paths — done — 2026-08-23 05:14
-- commit: (siehe Schritt 6, wird unten gesetzt)
+- commit: e2d2a490
 - gebaut: Zehn neue Tests fuer `internal/biz/datev` (upload_service.go +
   postgres_upload_repo.go), keine Produktionscode-Aenderung. Service-Ebene:
   `UploadBuchungsstapel` ohne Builder (ErrBuilderNotConfigured) und mit
