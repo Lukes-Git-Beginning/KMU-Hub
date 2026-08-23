@@ -1728,7 +1728,7 @@ units:
     service: gateway
     model: sonnet
     deps: [cov-gateway-security-audit-and-vault-routes]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 54,1 % (CI-Stand 32570176303)"
     scope: >
       Acht Routen in `route_security.go:55-65`: Datenexport beantragen, genehmigen, ablehnen,

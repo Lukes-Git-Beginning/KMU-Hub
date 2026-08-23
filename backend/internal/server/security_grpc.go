@@ -1253,6 +1253,9 @@ func mapSecurityError(err error) error {
 	case errors.Is(err, vault.ErrEmptyKeyName),
 		errors.Is(err, vault.ErrEmptyPayload):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, gdpr.ErrExportNotFound),
+		errors.Is(err, gdpr.ErrTokenNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, gdpr.ErrExportAlreadyPending):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, gdpr.ErrInvalidExportStatus):

@@ -295,6 +295,173 @@ func TestGDPRExportRoutes_DownloadUsesTokenNotID(t *testing.T) {
 	assertErrorContains(t, rec, "download token is required")
 }
 
+// ============================================================================
+// Router-level guard wiring: GDPR export/erasure/DSAR routes
+// (cov-gateway-security-gdpr-export-erasure-dsar-routes)
+// ============================================================================
+
+func TestSecurityRoutes_GDPRGuards(t *testing.T) {
+	router := chi.NewRouter()
+	NewSecurityRoutes(emptyRegistry()).RegisterRoutes(router, RequireAuthenticated)
+
+	cases := []struct {
+		name      string
+		method    string
+		path      string
+		adminOnly bool
+	}{
+		{"request export", http.MethodPost, "/api/v1/security/gdpr/export/request", false},
+		{"approve export", http.MethodPost, "/api/v1/security/gdpr/export/550e8400-e29b-41d4-a716-446655440000/approve", true},
+		{"deny export", http.MethodPost, "/api/v1/security/gdpr/export/550e8400-e29b-41d4-a716-446655440000/deny", true},
+		{"download export", http.MethodGet, "/api/v1/security/gdpr/export/some-token/download", false},
+		{"list exports", http.MethodGet, "/api/v1/security/gdpr/exports", false},
+		{"preview erasure", http.MethodPost, "/api/v1/security/gdpr/erasure/preview", true},
+		{"execute erasure", http.MethodPost, "/api/v1/security/gdpr/erasure/execute", true},
+		{"dsar search", http.MethodGet, "/api/v1/security/dsar/search?q=ab", true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name+"/no auth", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, map[string]interface{}{}))
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusUnauthorized)
+		})
+
+		if tc.adminOnly {
+			t.Run(tc.name+"/authenticated non-admin", func(t *testing.T) {
+				req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, map[string]interface{}{}))
+				req = withAuth(req, uuid.New().String(), testTenantID)
+				rec := httptest.NewRecorder()
+				router.ServeHTTP(rec, req)
+				assertStatus(t, rec, http.StatusForbidden)
+			})
+		}
+
+		t.Run(tc.name+"/authorized empty registry", func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, jsonBody(t, map[string]interface{}{}))
+			req = withAuth(req, uuid.New().String(), testTenantID)
+			if tc.adminOnly {
+				req = withRoles(req, "admin")
+			}
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assertStatus(t, rec, http.StatusServiceUnavailable)
+		})
+	}
+}
+
+// --- HandleRequestDataExport ---
+
+func TestHandleRequestDataExport_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req = withUserID(req, "user-123")
+	routes.HandleRequestDataExport(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListDataExports ---
+//
+// The gateway's own doc comment used to claim "Only admins can view other
+// users' exports -- gateway trusts RBAC middleware", but no guard actually
+// enforced that on this route (no RequireRole on "/gdpr/exports" in
+// RegisterRoutes) -- any authenticated user could pass ?user_id=<someone
+// else> and read another user's export request metadata (status, reviewer
+// notes, timestamps). Fixed by checking middleware.IsAdmin inline before
+// honoring a user_id override that isn't the caller's own.
+
+func TestHandleListDataExports_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = withUserID(req, "user-123")
+	routes.HandleListDataExports(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListDataExports_CrossUserRequiresAdmin(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?user_id=other-user-456", nil)
+	req = withUserID(req, "user-123") // not admin, not the queried user
+	routes.HandleListDataExports(rec, req)
+	assertStatus(t, rec, http.StatusForbidden)
+	assertErrorContains(t, rec, "only admins")
+}
+
+func TestHandleListDataExports_OwnUserIDAllowed(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?user_id=user-123", nil)
+	req = withUserID(req, "user-123") // queries own id explicitly -- must not be blocked
+	routes.HandleListDataExports(rec, req)
+	if rec.Code == http.StatusForbidden {
+		t.Errorf("querying own user_id must not be forbidden, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleListDataExports_NoUserIDFilterAllowed(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = withUserID(req, "user-123") // no override -- defaults to caller's own exports
+	routes.HandleListDataExports(rec, req)
+	if rec.Code == http.StatusForbidden {
+		t.Errorf("no user_id filter must not be forbidden, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleListDataExports_AdminCanFilterOtherUser(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?user_id=other-user-456", nil)
+	req = withUserID(req, "admin-123")
+	req = withRoles(req, "admin")
+	routes.HandleListDataExports(rec, req)
+	if rec.Code == http.StatusForbidden {
+		t.Errorf("admin filtering by another user_id must not be forbidden, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// --- HandleDSARSearch ---
+
+func TestHandleDSARSearch_ServiceUnavailable(t *testing.T) {
+	routes := NewSecurityRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=ab", nil)
+	routes.HandleDSARSearch(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDSARSearch_EmptyQuery(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	routes.HandleDSARSearch(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "at least 2 characters")
+}
+
+func TestHandleDSARSearch_TooShortQuery(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=a", nil)
+	routes.HandleDSARSearch(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "at least 2 characters")
+}
+
+func TestHandleDSARSearch_WhitespaceOnlyQuery(t *testing.T) {
+	routes := NewSecurityRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=%20%20", nil) // "  " trims to empty
+	routes.HandleDSARSearch(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "at least 2 characters")
+}
+
 // --- HandleUpdatePasswordPolicy ---
 
 func TestHandleUpdatePasswordPolicy_ServiceUnavailable(t *testing.T) {

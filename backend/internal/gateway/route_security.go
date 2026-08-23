@@ -372,8 +372,11 @@ func (sr *SecurityRoutes) HandleListDataExports(w http.ResponseWriter, r *http.R
 
 	// Admin can filter by user_id
 	filterUserID := userID
-	if qUserID := r.URL.Query().Get("user_id"); qUserID != "" {
-		// Only admins can view other users' exports -- gateway trusts RBAC middleware
+	if qUserID := r.URL.Query().Get("user_id"); qUserID != "" && qUserID != userID {
+		if !middleware.IsAdmin(r.Context()) {
+			response.Error(w, http.StatusForbidden, "only admins may view another user's exports")
+			return
+		}
 		filterUserID = qUserID
 	}
 

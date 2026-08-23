@@ -179,8 +179,6 @@ func newStubGDPRRepo() *stubGDPRRepo {
 	return &stubGDPRRepo{exports: make(map[uuid.UUID]*models.GDPRExportRequest)}
 }
 
-var errGDPRExportNotFound = errors.New("stub: export request not found")
-
 func (r *stubGDPRRepo) CreateExportRequest(_ context.Context, req *models.GDPRExportRequest) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -194,7 +192,7 @@ func (r *stubGDPRRepo) GetExportRequest(_ context.Context, _, id uuid.UUID) (*mo
 	defer r.mu.Unlock()
 	req, ok := r.exports[id]
 	if !ok {
-		return nil, errGDPRExportNotFound
+		return nil, gdpr.ErrExportNotFound
 	}
 	cp := *req
 	return &cp, nil
@@ -221,7 +219,7 @@ func (r *stubGDPRRepo) UpdateExportStatus(_ context.Context, _ uuid.UUID, req *m
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.exports[req.ID]; !ok {
-		return errGDPRExportNotFound
+		return gdpr.ErrExportNotFound
 	}
 	cp := *req
 	r.exports[req.ID] = &cp
@@ -233,7 +231,7 @@ func (r *stubGDPRRepo) StoreExportResult(_ context.Context, _, id uuid.UUID, dat
 	defer r.mu.Unlock()
 	req, ok := r.exports[id]
 	if !ok {
-		return errGDPRExportNotFound
+		return gdpr.ErrExportNotFound
 	}
 	req.ExportData = data
 	req.DownloadToken = token
@@ -252,7 +250,7 @@ func (r *stubGDPRRepo) GetExportByToken(_ context.Context, _ uuid.UUID, token st
 			return &cp, nil
 		}
 	}
-	return nil, errGDPRExportNotFound
+	return nil, gdpr.ErrTokenNotFound
 }
 
 func (r *stubGDPRRepo) MarkDownloaded(_ context.Context, _, id uuid.UUID) error {
@@ -260,7 +258,7 @@ func (r *stubGDPRRepo) MarkDownloaded(_ context.Context, _, id uuid.UUID) error 
 	defer r.mu.Unlock()
 	req, ok := r.exports[id]
 	if !ok {
-		return errGDPRExportNotFound
+		return gdpr.ErrExportNotFound
 	}
 	now := time.Now().UTC()
 	req.DownloadedAt = &now
@@ -457,6 +455,8 @@ func TestMapSecurityError_AllSentinels(t *testing.T) {
 		{"vault_secret_not_found", vault.ErrSecretNotFound, codes.NotFound},
 		{"vault_empty_key_name", vault.ErrEmptyKeyName, codes.InvalidArgument},
 		{"vault_empty_payload", vault.ErrEmptyPayload, codes.InvalidArgument},
+		{"gdpr_export_not_found", gdpr.ErrExportNotFound, codes.NotFound},
+		{"gdpr_token_not_found", gdpr.ErrTokenNotFound, codes.NotFound},
 		{"gdpr_export_already_pending", gdpr.ErrExportAlreadyPending, codes.AlreadyExists},
 		{"gdpr_invalid_export_status", gdpr.ErrInvalidExportStatus, codes.FailedPrecondition},
 		{"gdpr_export_expired", gdpr.ErrExportExpired, codes.FailedPrecondition},
@@ -1155,6 +1155,40 @@ func TestGDPRExportRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	repos.gdpr.mu.Unlock()
 	_, err = srv.GetExportDownload(ctx, &securityv1.GetExportDownloadRequest{DownloadToken: "tok-ready"})
 	requireGRPCCode(t, err, codes.FailedPrecondition)
+}
+
+// TestGDPRExportRPCs_NotFoundSentinelsMapToNotFound proves the mapSecurityError
+// fix: before this fix gdpr.ErrExportNotFound and gdpr.ErrTokenNotFound fell
+// through to the default codes.Internal case (a blank 500), so an unknown
+// download token or a valid-but-nonexistent export ID looked like a server
+// failure instead of "not found". Same class of bug as the ExportAuditLog
+// format-mapping fix.
+func TestGDPRExportRPCs_NotFoundSentinelsMapToNotFound(t *testing.T) {
+	srv, _ := newTestSecurityGRPCServer(t)
+	ctx := ctxWithTenant(uuid.New())
+
+	t.Run("GetExportDownload/unknown_token", func(t *testing.T) {
+		_, err := srv.GetExportDownload(ctx, &securityv1.GetExportDownloadRequest{
+			DownloadToken: "a-token-nobody-issued",
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
+
+	t.Run("ApproveDataExport/nonexistent_export_id", func(t *testing.T) {
+		_, err := srv.ApproveDataExport(ctx, &securityv1.ApproveDataExportRequest{
+			ExportId:   uuid.New().String(),
+			ReviewedBy: uuid.New().String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
+
+	t.Run("DenyDataExport/nonexistent_export_id", func(t *testing.T) {
+		_, err := srv.DenyDataExport(ctx, &securityv1.DenyDataExportRequest{
+			ExportId:   uuid.New().String(),
+			ReviewedBy: uuid.New().String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
 }
 
 func TestGDPRErasure_PreviewIsSafeExecuteIsValidationOnly(t *testing.T) {

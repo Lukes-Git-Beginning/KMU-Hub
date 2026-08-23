@@ -2368,3 +2368,93 @@ Frühere Läufe liegen vollständig im Archiv:
   behoben, siehe gebaut (2) — kein Deploy-Hazard, keine neue Route, kein neuer
   Guard, keine Migration noetig)
 - offen: keine
+
+## Iteration 40 — cov-gateway-security-gdpr-export-erasure-dsar-routes — done — 2026-08-23 03:45
+- commit: <siehe unten>
+- gebaut: (1) Router-Guard-Test `TestSecurityRoutes_GDPRGuards`
+  (`route_security_test.go`) fuer alle acht Routen aus `route_security.go:54-65`
+  (Export anfragen, genehmigen, ablehnen, herunterladen, auflisten;
+  Erasure-Vorschau und -Ausfuehrung; DSAR-Suche): 401 ohne Token (echtes
+  `RequireAuthenticated`), 403 authentifiziert ohne admin-Rolle (nur fuer die
+  vier admin-only Routen: approve/deny/preview/execute/dsar-search), 503
+  admin/auth + leere Registry.
+  (2) ECHTER BUG gefunden und behoben (root cause, gleiche Klasse wie
+  Iteration 39s ExportAuditLog-Fund): `mapSecurityError` (`security_grpc.go`)
+  kannte `gdpr.ErrExportNotFound` und `gdpr.ErrTokenNotFound` nicht — beide
+  Sentinel-Errors aus `postgres_repository.go` (unbekannter Download-Token,
+  nicht existierende Export-ID bei Approve/Deny) fielen auf den
+  default-Case und wurden als `codes.Internal` (blanker 500 "internal
+  error") an den Client zurueckgegeben statt als `codes.NotFound` (404).
+  Fix: zwei neue Cases in `mapSecurityError`. Regressionstest
+  `TestGDPRExportRPCs_NotFoundSentinelsMapToNotFound` in
+  `security_grpc_test.go` beweist den Fix fuer alle drei betroffenen RPCs
+  (GetExportDownload/ApproveDataExport/DenyDataExport), plus zwei neue
+  Zeilen in der bestehenden `TestMapSecurityError_AllSentinels`-Tabelle.
+  Der Stub-GDPR-Repo in `security_grpc_test.go` gab bisher einen lokalen
+  `errGDPRExportNotFound` (kein Sentinel) zurueck — auf die echten
+  `gdpr.ErrExportNotFound`/`gdpr.ErrTokenNotFound` umgestellt, damit der
+  Stub die Produktionsfehlerpfade tatsaechlich spiegelt und der Test den
+  Bug ueberhaupt erreichen kann.
+  (3) ZWEITER ECHTER BUG gefunden und behoben: `HandleListDataExports`
+  (`route_security.go`) hatte KEINEN `RequireRole("admin")`-Guard auf
+  `/gdpr/exports` (im Gegensatz zu approve/deny/preview/execute) UND keine
+  Autorisierungspruefung im Handler selbst. Der Kommentar im Code behauptete
+  "Only admins can view other users' exports -- gateway trusts RBAC
+  middleware" — es gab aber gar keine RBAC-Middleware auf dieser Route. Jeder
+  authentifizierte Nutzer konnte per `?user_id=<fremde-id>` die GDPR-
+  Export-Anfragen eines anderen Nutzers einsehen (Status, Reviewer-Notizen,
+  Zeitstempel) — genau die Klasse Fund, die diese Unit fuer den
+  Download-Pfad erwartet hatte, hier aber im List-Pfad lag. Fix: Inline-Check
+  `middleware.IsAdmin(ctx)`, wenn `user_id` gesetzt und ungleich der eigenen
+  ID ist, sonst 403. Vier neue Handler-Tests beweisen self-view (own id),
+  no-filter (default eigene Exporte), admin-override (fremde id erlaubt) und
+  den 403-Fall (nicht-admin fremde id).
+  (4) Der Download-Pfad selbst (`HandleGetExportDownload`) ist bereits sauber:
+  kein `RequireRole`, aber tenant-gescopter 32-Byte-Zufallstoken
+  (`GetExportByToken`) — "ein Nutzer kann den Export eines anderen nicht
+  herunterladen" ist durch Token-Unerratbarkeit + Tenant-Scope belegt, nicht
+  durch Rollen. Kein Fund, im Journal festgehalten statt "behoben" verkauft.
+  (5) Alle Invalid-UUID-Faelle fuer `user_id` in Approve/Deny/RequestExport/
+  ListExports/PreviewErasure/ExecuteErasure sind bereits vollstaendig am
+  gRPC-Layer abgedeckt (`security_grpc_test.go` Zeilen 771-813) — nichts
+  Neues noetig, im Journal statt im Code verifiziert.
+- gate: build ok | vet ok | lint ok (0 issues, `internal/gateway` +
+  `internal/server` + `internal/security`) | test ok (`go test -count=1
+  ./internal/gateway/`, `./internal/server/`, `./internal/security/...`,
+  0 SKIP, 4590 PASS-Subtests in den drei Kernpaketen) | migration n.a.
+  (keine Tabellen-/Schema-Aenderung) | rls-smoke n.a. (keine Tabellen-/
+  Policy-Aenderung) | `go test -count=1 -run TestOpenAPIRouteDrift
+  ./internal/gateway/` PFLICHT gelaufen (836 Routen gegen 838 Spec-Pfade,
+  gruen — keine Route hinzugefuegt/geaendert)
+- coverage: internal/gateway 54,2 % (eigene Messung vor dieser Iteration via
+  `git stash`) -> 54,3 % (danach). Kleiner Zugewinn wie beim Schwesterblock
+  erwartet — der Wert liegt in den beiden gefundenen/behobenen Bugs
+  (500-statt-404 bei unbekanntem Token/Export-ID, fehlender Admin-Guard bei
+  Cross-User-Export-Liste), nicht in der Statement-Zahl.
+- mutations-probe: (1) `mapSecurityError` testweise auf den Stand vor dieser
+  Iteration zurueckgesetzt (die beiden neuen Cases entfernt) —
+  `TestMapSecurityError_AllSentinels/gdpr_export_not_found`,
+  `/gdpr_token_not_found` und alle drei Subtests von
+  `TestGDPRExportRPCs_NotFoundSentinelsMapToNotFound` wurden rot (erwartet
+  NotFound/0x5, bekamen Internal/0xd). Zurueckgesetzt via `cp` einer
+  Sicherungskopie, `diff` gegen Original danach leer.
+  (2) `HandleListDataExports` testweise auf den alten Zustand zurueckgesetzt
+  (Admin-Check entfernt, `user_id`-Override ungeprueft uebernommen) —
+  `TestHandleListDataExports_CrossUserRequiresAdmin` wurde rot (503 statt
+  erwarteter 403, weil die registrierte Dummy-Verbindung ohne fruehen
+  403-Return direkt bis zum echten gRPC-Dial durchlief und dort scheiterte).
+  Zurueckgesetzt, `diff` gegen Original danach leer.
+- verify vorgaenger: sauber — `556e8d64` (letzter Commit vor dieser
+  Iteration) aendert laut `git show --stat` nur
+  `internal/gateway/route_security_test.go` (neue Testdatei-Ergaenzung),
+  `internal/security/audit/service.go` (neuer Sentinel-Error),
+  `internal/server/security_grpc.go` (Fehler-Mapping-Fix) und
+  `internal/server/security_grpc_test.go` (Regressionstests) — Diff geprueft
+  (`git show`), sauberer root-cause-Fix nach demselben Muster wie hier,
+  keine der acht Fehlerklassen anwendbar.
+- neue-units: keine (beide gefundenen Bugs wurden in dieser Iteration direkt
+  behoben — kein Deploy-Hazard, keine neue Route, kein neuer
+  `RequirePermission`-Guard, keine Migration noetig; der bestehende
+  `RequireRole("admin")`-Guard auf approve/deny/preview/execute/dsar-search
+  blieb unveraendert, nur der Inline-Check auf `/gdpr/exports` kam hinzu)
+- offen: keine
