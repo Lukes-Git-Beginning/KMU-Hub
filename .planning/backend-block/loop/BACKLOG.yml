@@ -1304,7 +1304,7 @@ units:
     service: biz
     model: sonnet
     deps: [cov-invoice-postgres-transactions-real-sql]
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice 34,8 % (CI-Stand 32570176303)"
     scope: >
       `LockInvoice` (`service_gobd.go:80`), `isInvoiceLocked` (199) und `SetLock`

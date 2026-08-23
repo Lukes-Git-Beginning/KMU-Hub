@@ -1568,3 +1568,69 @@ Frühere Läufe liegen vollständig im Archiv:
   Pattern (manuelles `tx.Rollback` ohne vorgeschalteten `defer`) vorkommt, waere das ein
   latentes Risiko fuer kuenftige rote Testlaeufe, die dann als Haenger statt als klarer Fail
   erscheinen — kein Fund in dieser Iteration ausserhalb der neuen Datei geprueft.
+
+## Iteration 29 — cov-invoice-service-gobd-lock-real-sql — done — 2026-08-23 02:12
+- commit: (siehe Schritt 6, unten eingetragen)
+- gebaut: GoBD-Sperrfläche (`LockInvoice`/`isInvoiceLocked`/`SetLock`) gegen echtes SQL und
+  jeder Schreibweg auf `invoices` auf Sperrprüfung untersucht. ECHTER FUND UND GEFIXT:
+  `DetectOverdue` (`service.go:737`) rief `repo.UpdateStatus` direkt auf, ohne `isInvoiceLocked`
+  zu prüfen — der einzige Schreibweg ohne den Guard, den `Update`/`MarkPaid`/`Cancel` bereits
+  alle tragen. Ein administrativ gesperrtes, versendetes, überfälliges Invoice wurde beim
+  naechsten Overdue-Sweep trotzdem auf `overdue` geflippt, obwohl derselbe Übergang über
+  `MarkPaid`/`Cancel` explizit mit `ErrInvoiceLocked` verweigert wird — Inkonsistenz zum Rest der
+  GoBD-§146-Barriere im selben File. Root-Cause-Fix: `isInvoiceLocked`-Check vor dem
+  `UpdateStatus`-Aufruf in `DetectOverdue`, mit `slog.Warn` und `continue` statt Fehler (bulk-Sweep
+  darf an einer gesperrten Rechnung nicht abbrechen). `GetOverdue` selbst bleibt bewusst
+  ungefiltert nach `locked_at` — `dunning.Service.invReader.GetOverdue` (`dunning/service.go:173`)
+  nutzt dieselbe Query fuer Mahnkandidaten, und eine gesperrte Rechnung ist weiterhin fällig; die
+  Barriere gehört also in `invoice.Service.DetectOverdue`, nicht in die gemeinsame Repo-Query.
+  Neue Tests: `postgres_repository_lock_db_test.go` (untagged, echtes Postgres) — SetLock/GetByID
+  Roundtrip (Ersatz fuer das getaggte `TestInvoiceLockColumns`), SetLock gegen unbekannte
+  Invoice-ID ist ein stiller No-op (kein Fehler — dokumentiert, warum `LockInvoice`s
+  vorgeschaltetes `GetByID` load-bearing ist, nicht redundant), `GetOverdue` liefert eine
+  gesperrte Rechnung weiterhin zurueck (Read-Seite des Fundes). In `service_test.go` (Mock-Repo):
+  `DetectOverdue` überspringt gesperrte Rechnung (der Fix-Beweis), doppeltes Sperren liefert
+  `ErrInvoiceLocked` und veraendert weder `LockedAt` noch `LockedBy` der ersten Sperre, Sperren
+  eines Entwurfs schlaegt fehl, Sperren einer Bexio-importierten Rechnung liefert
+  `ErrExternalReadOnly`.
+  GEPRUEFT, KEIN FUND: `LinkTimeTracking` (`service.go:352`) hat KEINEN Status-/Sperr-Check —
+  aber der einzige Aufrufer im gesamten Repo ist `biz_grpc.go:2118`, direkt nach `invoiceService
+  .Create` mit der gerade erst erzeugten (also zwingend `draft`) Invoice-ID; kein eigener RPC
+  exponiert die Methode. Kein erreichbarer Schreibpfad auf eine gesperrte Rechnung — bewusst
+  NICHT abgesichert (lean: Validierung fuer einen Zustand, der nicht eintreten kann, waere
+  Symptombekaempfung ohne Wirkung).
+  Entsperren: existiert nicht im gesamten `internal/biz/invoice`-Paket (Grep auf "Unlock" und auf
+  `locked_at = NULL` uber Migrationen liefert null Treffer) — die GoBD-Sperre ist einseitig, wie
+  von `notes:` der Unit erwartet.
+  WORM-Vergleich (von notes: gefordert): anders als das Belegarchiv (Migration 315, Lauf 10 —
+  DB-seitiger WORM-Trigger) erzwingt hier ausschliesslich Go-Code (`isInvoiceLocked`-Checks in
+  Service-Methoden) die Unveraenderlichkeit; ein direktes UPDATE gegen `finance_invoices` unter
+  `kmuhub_app` (z. B. ein zukuenftiges Feature, das den Service-Layer umgeht) waere von der DB aus
+  nicht blockiert.
+- gate: build ok (`./internal/biz/invoice/... ./internal/gateway/... ./cmd/biz/... ./cmd/gateway/...`)
+  | vet ok | lint ok (0 issues) | test ok (`go test -count=1 ./internal/biz/invoice/...`, `-p 1`,
+  DATABASE_URL gegen kmuhub_app, 0 SKIP, 115 PASS im Hauptpaket) | migration n.a. (keine neue
+  Tabelle/Spalte) | rls-smoke n.a. (bestehende Policy nicht angefasst) | gateway-Gate nicht
+  gesondert gelaufen, da keine Route beruehrt wurde (nur `go build` gegen `internal/gateway`
+  als Teil des Build-Schritts, gruen)
+- coverage: internal/biz/invoice 56,3 % (eigens gemessen Iteration 28, `go tool cover -func`,
+  gleiche Messmethode) -> 59,3 % (eigens gemessen, `go tool cover -func`, lokaler Lauf nach
+  Fix+Tests)
+- mutations-probe: den `isInvoiceLocked(inv)`-Check in `DetectOverdue` durch `if false` ersetzt ->
+  `TestService_DetectOverdue_SkipsLockedInvoice` rot ("expected: sent, actual: overdue").
+  Zurueckgedreht, `git diff --stat` auf service.go zeigt danach nur die eine beabsichtigte
+  11-Zeilen-Ergaenzung (keine Restspur der Mutation).
+- verify vorgaenger: sauber — `5aa17392` (Iteration 28) aendert laut `git show --stat` nur eine
+  neue, untagged Testdatei (`postgres_transactions_bracket_db_test.go`, 240 Zeilen) plus
+  BACKLOG.yml/JOURNAL.md. Keine der acht Fehlerklassen einschlaegig: kein gRPC-Handler beruehrt,
+  kein Stub/TODO/Unimplemented, kein `.proto`, keine Migration, kein neuer Guard, keine neue
+  Tabelle, keine Route, kein Wire-Shape-Wechsel, kein ersetzter Guard-Key.
+- neue-units: keine — der einzige gefundene Bug (DetectOverdue vs. Lock) war klein genug, um
+  root-cause in dieser Unit selbst gefixt zu werden (Regel 1 dieses Laufs), statt als eigene Unit
+  angelegt zu werden.
+- offen: naechste Unit laut Backlog-Reihenfolge ist `cov-invoice-service-gobd-journal-summary-real-sql`
+  (deps: [cov-invoice-service-gobd-lock-real-sql], jetzt ziehbar). Luke pruefen: der WORM-Vergleich
+  oben (Go-Code-Sperre vs. DB-Trigger beim Belegarchiv) ist eine reine Beobachtung, keine
+  Handlungsaufforderung dieser Iteration — falls ein Servicelayer-Bypass fuer `finance_invoices`
+  je denkbar wird, waere ein DB-seitiger Trigger die robustere Absicherung, aber das ist eine
+  Produktentscheidung, keine Coverage-Unit.

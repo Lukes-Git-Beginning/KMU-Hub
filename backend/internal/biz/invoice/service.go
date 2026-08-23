@@ -742,6 +742,17 @@ func (s *Service) DetectOverdue(ctx context.Context, tenantID uuid.UUID) (int, e
 
 	count := 0
 	for _, inv := range overdueInvoices {
+		// GoBD §146: an administratively locked invoice is technically immutable,
+		// same barrier Update/MarkPaid/Cancel already enforce via isInvoiceLocked.
+		// GetOverdue does not filter by locked_at (dunning.Service reuses it and
+		// must still see a locked invoice as due), so the skip belongs here.
+		if isInvoiceLocked(inv) {
+			slog.Warn("skipped overdue transition for locked invoice",
+				"invoice_id", inv.ID,
+				"tenant_id", tenantID,
+			)
+			continue
+		}
 		if updateErr := s.repo.UpdateStatus(ctx, tenantID, inv.ID, models.InvoiceStatusOverdue); updateErr != nil {
 			slog.Warn("failed to mark invoice as overdue",
 				"invoice_id", inv.ID,

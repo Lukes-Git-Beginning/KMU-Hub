@@ -997,6 +997,81 @@ func TestService_DetectOverdue_RepoError(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
+// TestService_DetectOverdue_SkipsLockedInvoice verifies that an administratively
+// locked invoice returned by GetOverdue is left untouched: DetectOverdue must
+// enforce the same GoBD §146 write barrier as Update/MarkPaid/Cancel instead of
+// flipping the status straight from the repo result set.
+func TestService_DetectOverdue_SkipsLockedInvoice(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	locked := createDraftInvoice(t, repo, tenantID)
+	locked.Status = models.InvoiceStatusSent
+	locked.DueDate = time.Now().AddDate(0, 0, -7)
+	lockedAt := time.Now()
+	locked.LockedAt = &lockedAt
+
+	unlocked := createDraftInvoice(t, repo, tenantID)
+	unlocked.Status = models.InvoiceStatusSent
+	unlocked.DueDate = time.Now().AddDate(0, 0, -1)
+
+	count, err := svc.DetectOverdue(context.Background(), tenantID)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, count, "only the unlocked invoice must be counted")
+	assert.Equal(t, models.InvoiceStatusSent, repo.invoices[locked.ID].Status,
+		"locked invoice must keep its status (GoBD §146 write barrier)")
+	assert.Equal(t, models.InvoiceStatusOverdue, repo.invoices[unlocked.ID].Status)
+}
+
+// TestService_LockInvoice_RejectsAlreadyLocked verifies that locking an
+// already-locked invoice returns ErrInvoiceLocked instead of silently
+// overwriting locked_at/locked_by (which would let a second administrator move
+// the audit-trail timestamp).
+func TestService_LockInvoice_RejectsAlreadyLocked(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv, firstLockedBy := createLockedSentInvoice(t, svc, repo, numSeq, tenantID)
+	firstLockedAt := *repo.invoices[inv.ID].LockedAt
+
+	_, err := svc.LockInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrInvoiceLocked)
+	stored := repo.invoices[inv.ID]
+	assert.Equal(t, firstLockedAt, *stored.LockedAt, "re-locking must not move the original lock timestamp")
+	assert.Equal(t, firstLockedBy, *stored.LockedBy, "re-locking must not change the original locked_by")
+}
+
+// TestService_LockInvoice_RejectsDraft verifies that a draft invoice cannot be
+// administratively locked: it should be cancelled or sent first, not frozen
+// mid-edit.
+func TestService_LockInvoice_RejectsDraft(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID)
+
+	_, err := svc.LockInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	assert.Error(t, err)
+	assert.Nil(t, repo.invoices[inv.ID].LockedAt)
+}
+
+// TestService_LockInvoice_RejectsBexioImported verifies that an imported
+// (source=bexio) invoice cannot be locked via the Cosmi GoBD path -- it is a
+// read-only mirror of the external book, not a document this system issued.
+func TestService_LockInvoice_RejectsBexioImported(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID)
+	inv.Status = models.InvoiceStatusSent
+	inv.Source = models.InvoiceSourceBexio
+
+	_, err := svc.LockInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrExternalReadOnly)
+	assert.Nil(t, repo.invoices[inv.ID].LockedAt)
+}
+
 // ============================================================================
 // CreateFromQuote Tests
 // ============================================================================
