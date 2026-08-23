@@ -47,6 +47,7 @@ type MockRepository struct {
 	overdueErr           error
 	aggregateStatsResult PaymentStats
 	aggregateStatsErr    error
+	quoteLinkErr         error
 }
 
 func NewMockRepository() *MockRepository {
@@ -142,11 +143,25 @@ func (m *MockRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID) ([]
 	return result, nil
 }
 
+// GetByQuoteID mirrors the real query's ordering: a live invoice wins over a
+// cancelled one (map iteration order is random, so picking the first match would
+// make the duplicate-conversion check flaky).
 func (m *MockRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error) {
+	if m.quoteLinkErr != nil {
+		return nil, m.quoteLinkErr
+	}
+	var fallback *models.Invoice
 	for _, inv := range m.invoices {
-		if inv.TenantID == tenantID && inv.SourceQuoteID != nil && *inv.SourceQuoteID == quoteID {
+		if inv.TenantID != tenantID || inv.SourceQuoteID == nil || *inv.SourceQuoteID != quoteID {
+			continue
+		}
+		if inv.Status != models.InvoiceStatusCancelled {
 			return inv, nil
 		}
+		fallback = inv
+	}
+	if fallback != nil {
+		return fallback, nil
 	}
 	return nil, ErrInvoiceNotFound
 }
@@ -1103,6 +1118,78 @@ func TestService_CreateFromQuote_Success(t *testing.T) {
 	assert.Equal(t, "14 Tage netto", inv.PaymentTerms)
 	assert.True(t, inv.GrossTotal.GreaterThan(decimal.Zero))
 	assert.Contains(t, repo.invoices, inv.ID)
+}
+
+// acceptedQuoteFixture registers an accepted quote the conversion tests can convert.
+func acceptedQuoteFixture(t *testing.T, qr *MockQuoteReader, tenantID, quoteID uuid.UUID) {
+	t.Helper()
+	lineItemsJSON, err := json.Marshal(testLineItems())
+	require.NoError(t, err)
+	qr.quotes[quoteID] = &models.Quote{
+		ID:           quoteID,
+		TenantID:     tenantID,
+		Status:       models.QuoteStatusAccepted,
+		CustomerName: "Quote Customer",
+		TaxMode:      models.TaxModeStandard,
+		LineItems:    lineItemsJSON,
+	}
+}
+
+// TestService_CreateFromQuote_RejectsSecondConversion covers the double-click /
+// retry case: the quote keeps its "accepted" status after a conversion, so
+// without the guard a second call produced a second complete invoice.
+func TestService_CreateFromQuote_RejectsSecondConversion(t *testing.T) {
+	svc, repo, _, _, qr := newTestService()
+	tenantID := uuid.New()
+	quoteID := uuid.New()
+	acceptedQuoteFixture(t, qr, tenantID, quoteID)
+
+	first, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+	require.NoError(t, err)
+
+	second, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrQuoteAlreadyConverted)
+	assert.Nil(t, second)
+	assert.Len(t, repo.invoices, 1, "the rejected second conversion must not have written an invoice")
+	assert.Contains(t, repo.invoices, first.ID)
+}
+
+// TestService_CreateFromQuote_AllowsReconversionAfterStorno proves the guard is
+// scoped to live invoices: a cancelled invoice stays in the table for GoBD, but
+// the quote may be invoiced again after a storno.
+func TestService_CreateFromQuote_AllowsReconversionAfterStorno(t *testing.T) {
+	svc, repo, _, _, qr := newTestService()
+	tenantID := uuid.New()
+	quoteID := uuid.New()
+	acceptedQuoteFixture(t, qr, tenantID, quoteID)
+
+	first, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+	require.NoError(t, err)
+	repo.invoices[first.ID].Status = models.InvoiceStatusCancelled
+
+	second, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+
+	require.NoError(t, err)
+	assert.NotEqual(t, first.ID, second.ID)
+	assert.Len(t, repo.invoices, 2)
+}
+
+// TestService_CreateFromQuote_PropagatesQuoteLinkLookupError makes sure an
+// unavailable database is not mistaken for "no invoice yet" -- only
+// ErrInvoiceNotFound clears the way for a conversion.
+func TestService_CreateFromQuote_PropagatesQuoteLinkLookupError(t *testing.T) {
+	svc, repo, _, _, qr := newTestService()
+	tenantID := uuid.New()
+	quoteID := uuid.New()
+	acceptedQuoteFixture(t, qr, tenantID, quoteID)
+	repo.quoteLinkErr = errors.New("connection refused")
+
+	_, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "connection refused")
+	assert.Empty(t, repo.invoices, "a failed lookup must not fall through to creating an invoice")
 }
 
 func TestService_CreateFromQuote_RejectsNonAccepted(t *testing.T) {

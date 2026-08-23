@@ -3017,7 +3017,7 @@ units:
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verhaltensfund aus cov-invoice-repository-quote-link-and-time-tracking-real-sql, Lauf 11 Iteration 32)"
     scope: >
       Befund aus der Recherche zu GetByQuoteID (postgres_repository.go:446):
@@ -4089,3 +4089,102 @@ units:
         zweiten, unabhaengigen Eintrag (Negativtest, sonst ist es keine Idempotency-Key-Pruefung
         sondern ein Duplikat-Filter auf dem Inhalt)
       - go test -count=1 ./internal/biz/hr/timetracking/... ./internal/gateway/ gruen
+
+  - id: feat-quote-converted-invoice-number-on-read
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (FE/BE-Vertragsluecke aus fix-quote-to-invoice-duplicate-creation, Lauf 11 Iteration 70)"
+    scope: >
+      VERIFIZIERTE FE/BE-VERTRAGSLUECKE: `QuoteDetailPanel.tsx` liest an drei Stellen
+      `quote.converted_invoice_number` (Zeile 98 Ableitung, Zeile 173 der Link
+      "Umgewandelt in {number}", Zeile 368 die Bedingung
+      `quote.status === 'accepted' && !convertedNumber` fuer den Button
+      "In Rechnung umwandeln"). Das Feld existiert im Backend NIRGENDS:
+      `grep -rn converted_invoice_number backend` liefert null Treffer, auch nicht in
+      `biz.proto`/`biz.pb.go`. Folge: der Wert ist dauerhaft `undefined`, der
+      Umwandeln-Button bleibt nach der Konversion sichtbar, und der Sprung zur
+      erzeugten Rechnung wird nie angeboten. Genau dadurch war der in Iteration 70
+      gefixte Doppel-Konversions-Bug im UI ueberhaupt ausloesbar.
+      Umfang: Quote-Read-Pfad (GetQuote und ListQuotes, je nachdem wo das FE liest)
+      um die Nummer der zugehoerigen nicht-stornierten Rechnung ergaenzen. Kein
+      Neubau, keine neue Route — Feld an bestehendem Response.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/QuoteDetailPanel.tsx
+      - backend/internal/biz/quote/postgres_repository.go
+      - backend/internal/server/biz_grpc.go
+      - backend/proto/biz/v1/biz.proto
+      - backend/internal/gateway/route_biz_quotes.go
+    notes: >
+      Die Verknuepfung existiert bereits als `finance_invoices.source_quote_id` — ein
+      LEFT JOIN wie in `postgres_document_chains.go:70` reicht, keine neue Spalte und
+      keine Migration. Auf die nicht-stornierte Rechnung filtern (dieselbe Regel wie
+      `Service.CreateFromQuote`s Sperre seit Iteration 70: nach einem Storno darf
+      wieder umgewandelt werden, dann muss das Feld wieder leer sein).
+      ACHTUNG Entwuerfe haben eine LEERE `invoice_number` (siehe Unit
+      fix-invoice-number-unique-index-blocks-second-draft) — eine frisch erzeugte
+      Rechnung traegt erst nach `Send` eine Nummer. Das FE sucht die Rechnung ueber
+      `invoices.find(inv => inv.invoice_number === convertedNumber)`, findet einen
+      Entwurf also nie. Deshalb pruefen, ob statt/zusaetzlich zur Nummer die
+      Rechnungs-ID gebraucht wird — das ist die eigentliche Fachfrage dieser Unit und
+      beruehrt den FE-Vertrag, also im Zweifel `blocked` mit der Frage an Luke.
+      `.proto` aendern heisst im selben Commit regenerieren (`make proto-biz`).
+    done_when:
+      - Der Quote-Read-Pfad liefert die Verknuepfung zur erzeugten, nicht stornierten
+        Rechnung; Wire-Shape snake_case und gegen den FE-Typ geprueft, nicht geraten
+      - Nach einem Storno ist das Feld wieder leer (Test)
+      - Die Entwurf-ohne-Nummer-Frage ist im Journal beantwortet oder die Unit ist
+        mit genau dieser Frage blocked
+      - openapi.yaml traegt das neue Feld am Quote-Schema
+      - go test -count=1 ./internal/biz/quote/ ./internal/server/ ./internal/gateway/ gruen
+
+  - id: harden-quote-conversion-unique-index
+    phase: 4
+    service: biz
+    model: opus
+    deps: [fix-quote-to-invoice-duplicate-creation]
+    status: todo
+    coverage_start: "n.a. (Race-Haertung zu fix-quote-to-invoice-duplicate-creation, Lauf 11 Iteration 70)"
+    scope: >
+      Restrisiko aus Iteration 70: die Doppelkonversions-Sperre in
+      `Service.CreateFromQuote` ist ein Service-seitiger Read-vor-Write-Check
+      (`lean:`-Marker im Code). Zwei wirklich gleichzeitige Requests lesen beide
+      "keine Rechnung" und schreiben beide. Die robuste Grenze waere ein partieller
+      Unique-Index auf `finance_invoices (tenant_id, source_quote_id)
+      WHERE source_quote_id IS NOT NULL AND status <> 'cancelled'`.
+    sources:
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/invoice/postgres_repository.go
+      - backend/internal/biz/invoice/postgres_repository_quote_link_time_tracking_db_test.go
+      - backend/migrations
+    notes: >
+      VORAB ZU KLAEREN, nicht anzunehmen: existieren in Produktion bereits mehrere
+      nicht-stornierte Rechnungen zum selben `source_quote_id`? Dann schlaegt die
+      Migration beim Anlegen des Index fehl. Luke hat Prod-Zugriff, der Loop nicht —
+      ohne diesen Befund ist die Unit `blocked`.
+      Der Index ist partiell ueber die MUTABLE Spalte `status`: ein UPDATE auf
+      'cancelled' entfernt die Zeile aus dem Index, ein UPDATE zurueck fuegt sie wieder
+      ein und kann dann kollidieren. Das ist gewollt (zwei lebende Rechnungen zu einem
+      Angebot bleiben verboten), muss aber im Storno-Pfad getestet werden.
+      `TestPostgresRepository_GetByQuoteID_MultipleInvoices` legt heute ZWEI nicht
+      stornierte Rechnungen zum selben Quote an und wuerde am Index scheitern — der
+      Test ist dann anzupassen (eine der beiden auf 'cancelled'), nicht zu loeschen:
+      seine Aussage (GetByQuoteID muss mit mehreren Treffern deterministisch umgehen)
+      bleibt gueltig.
+      Die Unique-Violation ist im Repository auf einen Sentinel zu mappen — Vorlage
+      `isAccountIBANConflict` in `internal/biz/banking` (Constraint-NAME pruefen, nicht
+      blossen SQLSTATE) — und im Service auf `ErrQuoteAlreadyConverted` zu falten,
+      damit beide Wege denselben 409 liefern.
+      Migrationsnummer zur Laufzeit ermitteln, forward-only, `.up.sql` UND `.down.sql`.
+    done_when:
+      - Der Produktionsbefund zu vorhandenen Mehrfach-Rechnungen pro Quote steht im
+        Journal (oder die Unit ist genau deswegen blocked)
+      - Partieller Unique-Index per neuer Forward-Migration, .down.sql gefuellt
+      - Ein Test belegt: nach Storno der ersten Rechnung gelingt eine zweite Konversion
+        weiterhin (der Index blockiert den legitimen Weg nicht)
+      - Die Unique-Violation kommt als ErrQuoteAlreadyConverted (409) beim Aufrufer an,
+        nicht als roher pg-Fehler (500)
+      - go test -count=1 ./internal/biz/invoice/ ./internal/server/ gruen, DATABASE_URL
+        gegen kmuhub_app

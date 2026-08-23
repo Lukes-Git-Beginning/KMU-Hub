@@ -17,6 +17,11 @@ var (
 	ErrNoLineItems = errors.New("invoice must have at least one line item")
 	// ErrQuoteNotAccepted is returned when trying to create an invoice from a non-accepted quote.
 	ErrQuoteNotAccepted = errors.New("quote must be accepted before conversion to invoice")
+	// ErrQuoteAlreadyConverted is returned when a quote already has a non-cancelled
+	// invoice. A quote converts into exactly one invoice; the quote keeps its
+	// "accepted" status afterwards, so nothing else stops a second conversion from
+	// a double click or a retried request.
+	ErrQuoteAlreadyConverted = errors.New("quote has already been converted into an invoice")
 	// ErrStornoUnavailable is returned when a sent/overdue invoice cannot be
 	// cancelled because no StornoCreator is wired — the invoice is never silently
 	// flipped to cancelled without issuing the reversing credit note (GoBD §146).

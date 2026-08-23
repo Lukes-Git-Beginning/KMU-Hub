@@ -9051,9 +9051,11 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: >-
-            Quote must be accepted before conversion to invoice. Also returned when a request carrying the same Idempotency-Key is
-            still in flight; retry after the delay in Retry-After with the same
-            key and body.
+            Quote must be accepted before conversion to invoice, or the quote has already
+            been converted (a quote yields exactly one live invoice; after a storno it can
+            be converted again). Also returned when a request carrying the same
+            Idempotency-Key is still in flight; retry after the delay in Retry-After with
+            the same key and body.
           headers:
             Retry-After:
               description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.

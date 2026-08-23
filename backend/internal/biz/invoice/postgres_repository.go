@@ -443,9 +443,17 @@ func (r *PostgresRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID)
 	return invoices, nil
 }
 
+// GetByQuoteID returns the invoice a quote was converted into. The schema does
+// not enforce one invoice per quote (a storno leaves the cancelled invoice in
+// place and the quote may be invoiced again), so the ordering is explicit: a
+// live invoice wins over a cancelled one, the newest wins among equals. Service
+// callers use this as the duplicate-conversion check and must not depend on
+// whichever row the planner happens to return first.
 func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error) {
 	row := r.pool.QueryRow(ctx,
-		"SELECT "+invoiceColumns+" FROM finance_invoices WHERE tenant_id = $1 AND source_quote_id = $2",
+		"SELECT "+invoiceColumns+" FROM finance_invoices "+
+			"WHERE tenant_id = $1 AND source_quote_id = $2 "+
+			"ORDER BY (status = 'cancelled'), created_at DESC LIMIT 1",
 		tenantID, quoteID,
 	)
 	inv, err := r.scanInvoice(row)

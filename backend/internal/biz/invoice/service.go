@@ -7,6 +7,7 @@ package invoice
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -789,6 +790,28 @@ func (s *Service) CreateFromQuote(ctx context.Context, tenantID, quoteID, userID
 
 	if quote.Status != models.QuoteStatusAccepted {
 		return nil, ErrQuoteNotAccepted
+	}
+
+	// A quote converts into exactly one invoice. Without this check a double click
+	// on "In Rechnung umwandeln" or a retried request creates a second complete
+	// invoice for the same quote: the quote stays "accepted" after the conversion,
+	// so no later state change blocks a repeat. A cancelled invoice does not block
+	// -- after a storno the quote may be invoiced again.
+	// lean: service-side check only; two genuinely simultaneous requests can still
+	// both pass. Tighten with a partial unique index on
+	// (tenant_id, source_quote_id) WHERE status <> 'cancelled' if concurrent
+	// conversions ever show up in production.
+	existing, existingErr := s.repo.GetByQuoteID(ctx, tenantID, quoteID)
+	switch {
+	case existingErr == nil && existing.Status != models.InvoiceStatusCancelled:
+		slog.Warn("rejected duplicate quote-to-invoice conversion",
+			"tenant_id", tenantID,
+			"quote_id", quoteID,
+			"existing_invoice_id", existing.ID,
+		)
+		return nil, ErrQuoteAlreadyConverted
+	case existingErr != nil && !errors.Is(existingErr, ErrInvoiceNotFound):
+		return nil, existingErr
 	}
 
 	// Parse the quote's line items for reuse

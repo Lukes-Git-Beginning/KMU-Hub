@@ -2607,6 +2607,8 @@ func mapBizError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, invoice.ErrQuoteNotAccepted):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, invoice.ErrQuoteAlreadyConverted):
+		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, invoice.ErrInvoiceLocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, invoice.ErrStornoUnavailable):

@@ -4564,3 +4564,71 @@ Frühere Läufe liegen vollständig im Archiv:
     dieser Fallback entfallen — hier nicht angefasst, da ausserhalb des Fund-Scopes.
   - `usePaymentStats` bleibt ohne Aufrufer im Desktop-Client (Frontend gesperrt, nur lesend
     geprueft) — die KPI existiert im Backend, wird aber aktuell nirgends angezeigt.
+
+## Iteration 70 — fix-quote-to-invoice-duplicate-creation — done — 2026-08-23 07:52
+- commit: <SHA>
+- gebaut: `Service.CreateFromQuote` (`service.go:797-816`) liest vor dem `Create` ueber
+  `repo.GetByQuoteID` und lehnt mit dem neuen Sentinel `ErrQuoteAlreadyConverted` ab, wenn
+  bereits eine NICHT stornierte Rechnung zum Angebot existiert (`mapBizError` →
+  `codes.AlreadyExists` → HTTP 409, `helpers.go:51`). Ein Storno hebt die Sperre bewusst
+  wieder auf. Damit dieser Check ueberhaupt tragen kann, hat `GetByQuoteID`
+  (`postgres_repository.go:450-458`) jetzt eine explizite Ordnung
+  (`ORDER BY (status = 'cancelled'), created_at DESC LIMIT 1`) — vorher waehlte der Planner
+  bei mehreren Treffern beliebig, eine stornierte Rechnung haette die lebende maskieren und
+  die Sperre aushebeln koennen. `MockRepository.GetByQuoteID` in service_test.go spiegelt
+  diese Ordnung (Map-Iteration ist zufaellig, sonst waere der Test flaky). Vier neue Tests:
+  zweite Konversion abgelehnt und KEINE zweite Rechnung geschrieben, Re-Konversion nach
+  Storno erlaubt, Lookup-Fehler wird durchgereicht statt als "noch keine Rechnung"
+  fehlinterpretiert, plus ein DB-Test, der die Ordnung an echtem Postgres festnagelt
+  (die stornierte Rechnung ist dort absichtlich die NEUERE).
+- gate: build ok (`go build -p 2` invoice+server+gateway+cmd/biz+cmd/gateway) | vet ok |
+  lint ok (0 issues, invoice+server+gateway) | test ok (`go test -count=1` invoice 138 PASS
+  / **0 SKIP** — alle DB-Tests real gelaufen, DATABASE_URL gegen `kmuhub_app`; server ok;
+  gateway ok inkl. TestOpenAPIRouteDrift) | migration n.a. (kein Schema-Bezug, siehe
+  neue-units) | rls-smoke n.a. (keine Tabelle/Policy angefasst) | openapi:
+  `swagger-cli validate` = valid
+- coverage: `internal/biz/invoice` 60,9 % -> 61,1 % (eigene Messung vor/nach; die 60,9 %
+  stammen aus Iteration 69, `coverage_start` der Unit deklariert "n.a., Fix-Unit")
+- mutations-probe: zwei Mutationen gleichzeitig gesetzt. (1) `ORDER BY (status =
+  'cancelled'),` aus der Query entfernt (also nur noch `created_at DESC`) →
+  `TestPostgresRepository_GetByQuoteID_PrefersLiveInvoiceOverCancelled` rot (bekam die
+  stornierte, neuere Rechnung). (2) `return nil, ErrQuoteAlreadyConverted` durch einen
+  No-Op ersetzt → `TestService_CreateFromQuote_RejectsSecondConversion` rot mit allen drei
+  Assertions (kein Fehler, zweite Rechnung zurueckgegeben, zwei Rechnungen im Repo). Alle
+  uebrigen Tests des Pakets blieben in beiden Faellen gruen. Zurueckgedreht per `cp` vom
+  Backup, per `grep` an beiden Stellen verifiziert, `git diff --stat` danach wieder
+  identisch (8 Dateien, 187/19).
+- verify vorgaenger: sauber. `3ee7705d` (Iteration 69) geprueft: reine SQL-Aenderung in
+  `AggregatePaymentStats`, kein neuer Handler/Guard/Route/Proto/Tabelle. Der neu
+  eingefuehrte LEFT-JOIN auf `finance_payments` traegt sein eigenes `WHERE tenant_id = $1`
+  in der Subquery — keine Tenant-Luecke ueber den Join. Keine der acht Fehlerklassen.
+- neue-units: `feat-quote-converted-invoice-number-on-read`,
+  `harden-quote-conversion-unique-index`
+- offen:
+  - **Fachfrage Teilrechnungen beantwortet: NEIN, im Produkt nicht vorgesehen.** Belege
+    (nicht geraten): `grep -rni "teilrechnung|partial.invoice|abschlagsrechnung|
+    anzahlungsrechnung" backend desktop/src docs .knowledge` = **null Treffer**;
+    `postgres_document_chains.go:3-13` modelliert die Belegkette ausdruecklich als
+    Angebot→Rechnung 1:1 und listet ein Angebot als "standalone", solange KEINE Rechnung
+    daran haengt (`NOT EXISTS`, Zeile 184-187); `QuoteDetailPanel.tsx:98` erwartet ein
+    einzelnes `converted_invoice_number` (Singular), keine Liste. Der pauschale Riegel ist
+    damit richtig, eine betragsbezogene Feinunterscheidung waere Spekulation.
+  - **Neuer verifizierter FE/BE-Befund (deshalb Unit `feat-quote-converted-invoice-number-
+    on-read`):** das FE blendet den Button "In Rechnung umwandeln" ueber
+    `!convertedNumber` aus (`QuoteDetailPanel.tsx:368`), aber `converted_invoice_number`
+    existiert im Backend nirgends (`grep -rn converted_invoice_number backend` = 0 Treffer,
+    auch nicht im generierten `biz.pb.go`). Der Guard ist also dauerhaft wirkungslos — der
+    Button bleibt nach der Konversion sichtbar, und genau deshalb war der hier gefixte Bug
+    im UI ueberhaupt mit einem zweiten Klick ausloesbar. Der 409 faengt das jetzt ab, aber
+    die UI zeigt weiterhin eine Aktion an, die nicht mehr geht.
+  - **DB-Index bewusst NICHT gebaut** (Unit `harden-quote-conversion-unique-index`): das
+    `done_when` dieser Unit verlangt ausdruecklich, dass
+    `TestPostgresRepository_GetByQuoteID_MultipleInvoices` (legt zwei nicht stornierte
+    Rechnungen zum selben Quote an) gruen bleibt — ein Unique-Index haette ihn gebrochen.
+    Ausserdem laesst sich ohne Prod-Zugriff nicht pruefen, ob heute schon Mehrfach-
+    Rechnungen pro Angebot existieren; die Migration wuerde dann beim Deploy scheitern.
+    Der verbleibende Race (zwei wirklich gleichzeitige Requests) ist im Code mit einem
+    `lean:`-Marker samt Upgrade-Trigger vermerkt.
+  - Die 409-Beschreibung der Route `/api/v1/finance/quotes/{id}/convert` in `openapi.yaml`
+    nennt jetzt beide Konfliktfaelle (nicht akzeptiert / bereits umgewandelt). Keine neue
+    Route, kein Drift.

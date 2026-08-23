@@ -4,19 +4,19 @@ package invoice
 // (postgres_repository.go:446) and LinkTimeTracking (postgres_repository.go:472)
 // against real Postgres.
 //
-// FINDING (documented, not fixed here — a business-logic decision, not a
-// repository bug): GetByQuoteID's signature returns exactly one *models.Invoice,
-// but neither the schema (no UNIQUE constraint on finance_invoices.source_quote_id)
-// nor Service.CreateFromQuote (internal/biz/invoice/service.go:779, called from
-// the ConvertQuoteToInvoice RPC with no prior existence check) guarantees a quote
-// has at most one invoice. TestPostgresRepository_GetByQuoteID_MultipleInvoices
-// proves the repository silently returns an arbitrary one of several matching rows
-// (no ORDER BY) instead of erroring — the same shape of gap that caused the time-entry
-// double-billing bug fixed in Lauf 10 (fix-biz-time-entry-invoice-double-billing).
-// A retried or double-clicked "convert quote to invoice" call today creates a second,
-// full-amount invoice for the same accepted quote. Filed as
-// fix-quote-to-invoice-duplicate-creation for a future iteration: this repository's
-// scope is proving the read behavior, not changing CreateFromQuote's validation.
+// FINDING (resolved in fix-quote-to-invoice-duplicate-creation): GetByQuoteID's
+// signature returns exactly one *models.Invoice, but the schema still has no UNIQUE
+// constraint on finance_invoices.source_quote_id -- a quote CAN carry several
+// invoices (after a storno it legitimately does), which is what
+// TestPostgresRepository_GetByQuoteID_MultipleInvoices still proves. What changed:
+// the query now orders explicitly (live invoice before cancelled, newest first)
+// and Service.CreateFromQuote rejects a second conversion with
+// ErrQuoteAlreadyConverted, so a retried or double-clicked "convert quote to
+// invoice" no longer creates a second full-amount invoice -- the same shape of gap
+// that caused the time-entry double-billing bug fixed in Lauf 10
+// (fix-biz-time-entry-invoice-double-billing). Still open: two genuinely
+// simultaneous requests, which only a DB-side partial unique index would close.
+
 import (
 	"context"
 	"encoding/json"
@@ -139,6 +139,47 @@ func TestPostgresRepository_GetByQuoteID_MultipleInvoices(t *testing.T) {
 	require.NoError(t, err, "no schema constraint rejects a second invoice for the same quote -- this is the gap")
 	assert.Contains(t, []uuid.UUID{first.ID, second.ID}, got.ID,
 		"GetByQuoteID returns one of the two matching invoices with no defined ordering -- neither is wrong, but a caller expecting exactly-one would be")
+}
+
+// TestPostgresRepository_GetByQuoteID_PrefersLiveInvoiceOverCancelled pins the
+// ordering the duplicate-conversion guard in Service.CreateFromQuote depends on:
+// after a storno the quote may be invoiced again, so both rows exist -- and the
+// cancelled one is the NEWER of the two here, which is exactly the case an
+// unordered query (or a plain created_at DESC) would get wrong.
+func TestPostgresRepository_GetByQuoteID_PrefersLiveInvoiceOverCancelled(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "GetByQuoteID Storno Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	quoteID := testutil.SeedRow(t, pool, "finance_quotes", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantID,
+		"status": "accepted", "customer_name": "Quote Link Storno Test GmbH",
+		"created_by": uuid.New(),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_quotes", quoteID) })
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	now := time.Now().UTC()
+	live := newListTestInvoice(tenantID, now, now.AddDate(0, 0, 14))
+	live.SourceQuoteID = &quoteID
+	createListTestInvoice(t, repo, pool, ctx, live)
+
+	cancelled := newListTestInvoice(tenantID, now, now.AddDate(0, 0, 14))
+	cancelled.SourceQuoteID = &quoteID
+	createListTestInvoice(t, repo, pool, ctx, cancelled)
+	require.NoError(t, repo.UpdateStatus(ctx, tenantID, cancelled.ID, models.InvoiceStatusCancelled))
+
+	got, err := repo.GetByQuoteID(ctx, tenantID, quoteID)
+
+	require.NoError(t, err)
+	assert.Equal(t, live.ID, got.ID,
+		"a cancelled invoice must never mask the live one -- CreateFromQuote would otherwise allow a duplicate conversion")
 }
 
 func TestPostgresRepository_LinkTimeTracking_PersistsAndSecondCallOverwrites(t *testing.T) {
