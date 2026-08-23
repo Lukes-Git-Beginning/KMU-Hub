@@ -16648,6 +16648,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenShift'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/shifts/publish:
     post:
@@ -16677,6 +16678,7 @@ paths:
                     type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/shifts/{id}:
     get:
@@ -16730,6 +16732,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a shift
       tags: [schichten]
@@ -16742,6 +16745,7 @@ paths:
           description: Deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/shifts/{id}/assignments:
     get:
@@ -16793,6 +16797,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenAssignment'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/shifts/{id}/assignments/{employee_id}:
     delete:
@@ -16808,6 +16813,7 @@ paths:
           description: Unassigned
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/templates:
     get:
@@ -16865,6 +16871,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenTemplate'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/templates/{id}:
     patch:
@@ -16901,6 +16908,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a shift template
       tags: [schichten]
@@ -16913,6 +16921,7 @@ paths:
           description: Deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/templates/{id}/apply:
     post:
@@ -16949,6 +16958,7 @@ paths:
                     type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/compliance:
     get:
@@ -17065,6 +17075,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenSwapRequest'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/swap-requests/{id}/reject:
     post:
@@ -17086,6 +17097,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenSwapRequest'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # Produktion (Production)
