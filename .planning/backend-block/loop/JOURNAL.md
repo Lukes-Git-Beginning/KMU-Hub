@@ -1721,7 +1721,7 @@ Frühere Läufe liegen vollständig im Archiv:
   ausserhalb des Scopes dieser Coverage-Unit und ohne Verhaltensaenderung.
 
 ## Iteration 31 — cov-invoice-repository-status-and-lock-columns-real-sql — done — 2026-08-23 02:34
-- commit: PENDING (siehe naechste docs(loop)-Iteration)
+- commit: a2ea5ab5
 - gebaut: `UpdateStatus`/`UpdateStatusInTx`/`SetLock` (postgres_repository.go:363/375/386) auf
   Statusübergangs- und Sperr-Interaktion untersucht statt nur Zeilen abzudecken. SetLock war
   bereits aus Iteration 29 real-SQL-getestet (postgres_repository_lock_db_test.go) — diese
