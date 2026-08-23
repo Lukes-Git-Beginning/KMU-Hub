@@ -3121,3 +3121,118 @@ Frühere Läufe liegen vollständig im Archiv:
   Fremdtenant-Zugriff) waren bereits an anderer Stelle beantwortetes,
   bestehendes Verhalten, kein Fund.
 - offen: keine.
+
+## Iteration 49 — cov-gateway-integration-config-routes — done — 2026-08-23 05:03
+- commit: (siehe unten)
+- gebaut: Neue Testdatei `route_integration_config_test.go` fuer die dreizehn
+  Konfigurations-/Mapping-Handler in `route_integration.go` (0/18 -> 13
+  Handler jetzt namentlich getestet; die fuenf Slack/Teams-Webhook-/OAuth-
+  Handler waren bereits durch `route_integration_test.go` abgedeckt und
+  bleiben ausserhalb dieser Unit). Belegt, was die beiden bestehenden
+  Testdateien pruefen: `route_integration_test.go` deckt Registrierung, die
+  fuenf unauthentifizierten Webhook-/OAuth-Pfade (503/501, kein Panic) und
+  dass alle zehn Admin-Routen hinter `RequireRole("admin")` sitzen (403) —
+  keiner der Konfigurations-Handler wird dort namentlich aufgerufen.
+  `route_integration_wiring_test.go` prueft nur die Erreichbarkeit ueber den
+  echten `cmd/gateway/main.go`-Router. Diese Unit deckt das Gateway-Paket
+  hat keinen bufconn/Fake-Client fuer `NotificationServiceClient` (dasselbe
+  bereits in `route_lexware_test.go` dokumentierte Muster) — testbar sind
+  daher der ServiceUnavailable-Pfad (leere Registry) und der RPC-Fehler-Pfad
+  (registrierte, aber unerreichbare Dummy-Verbindung -> gRPC-Fehler -> 503),
+  nicht ein erfolgreicher Roundtrip. `HandleCreateConfig` ist der einzige
+  Handler, dessen Validierung vor jeder RPC laeuft (Platform kommt direkt im
+  Body, keine vorgelagerte `GetIntegrationConfig`-Aufloesung) — dort sind
+  InvalidJSON/MissingPlatform/MissingCredentialsVaultKey erreichbar.
+  `HandleUpdateConfig`/`HandleDeleteConfig`/`HandleListMappings`/
+  `HandleCreateMapping` loesen den Platform-Parameter zuerst per
+  `GetIntegrationConfig`-RPC auf, die im Test immer zuerst fehlschlaegt —
+  ihre 400-Pfade sind ohne funktionierenden Fake-Client nicht erreichbar,
+  im Journal statt stillschweigend uebersprungen dokumentiert.
+  `HandleUpdateMapping`/`HandleDeleteMapping` haben keine vorgelagerte RPC
+  (nur `validateUUIDParam` bzw. zusaetzlich `decodeAndValidate`), daher dort
+  alle 400-Pfade (invalid id, invalid JSON, missing channel_id/modules)
+  vollstaendig getestet.
+  ECHTER FUND, gefixt (nicht nur an D9 gemeldet, weil `done_when` dieser
+  Unit "HandleTestConfig reicht keine Fremdsystem-Fehlermeldung durch"
+  ausdruecklich verlangt): `TestIntegrationConfig`
+  (`internal/server/notification_grpc.go:910-920`) baute den Fehler bei
+  fehlgeschlagenem `prober.ProbeConnection` bisher als
+  `status.Errorf(codes.FailedPrecondition, "%s rejected the connection
+  test: %v", platform, err)` — der vierte Fund derselben Fehlerklasse, die
+  Lauf 10 in dieser Nacht schon dreimal gefixt hat (Bexio, DATEV, Lexware):
+  eine externe Systemantwort erreicht den Client unmaskiert. Konkret: der
+  Teams-Client (`internal/notification/integration/teams/client.go:81-87`)
+  haengt bis zu 2 KB der rohen AAD-Fehlerseite an den zurueckgegebenen
+  Fehler, der Slack-Client die rohe `auth.test`-Fehlermeldung. Zwei Zeilen
+  darueber im selben Handler (`GetConfigByPlatform`-Fehler, Zeile 898) laeuft
+  bereits ueber die bestehende Maskierungsfunktion `mapNotificationError`
+  (default-Zweig: `codes.Internal, "internal error"`), aber der
+  ProbeConnection-Fehlerpfad umging sie komplett — dieselbe Asymmetrie wie
+  bei den drei vorherigen Funden. Fix: Meldung an den Client bleibt bei
+  `codes.FailedPrecondition` (409, kein "internal error", der Status bleibt
+  aussagekraeftig) und dem bereits validierten `platform`-Namen, aber ohne
+  `err`-Text; die volle Meldung geht weiterhin per `slog.Warn` serverseitig
+  ins Log (unveraendert). Test
+  `TestTestIntegrationConfigDoesNotLeakProbeErrorDetail`
+  (`internal/server/notification_integration_test.go`) belegt das mit einem
+  Fehlertext, der CRLF, eine Trace-ID und einen `Set-Cookie`-Versuch traegt.
+  Praezisierung zum Backlog-Scope: der `sources`-Eintrag
+  `backend/internal/biz/lexware/postgres_config_repo.go` ist falsch — das
+  ist der Lexware-eigene Config-Repo, nicht das fuer Slack/Teams
+  zustaendige. Die tatsaechliche Implementierung liegt in
+  `internal/notification/integration/postgres_repository.go` und
+  `internal/server/notification_grpc.go`; dort auch der Fund.
+  Kein Zugangsdaten-Leck in Get/List/Create/Update: `IntegrationConfigInfo`
+  (Proto) traegt `credentials_vault_key` bewusst nicht (Kommentar im
+  `.proto` bestaetigt das) — als Reflection-Test
+  `TestIntegrationConfigResponseProtos_NeverExposeCredentials` ueber alle
+  zehn Response-Messages festgeschrieben (Vorlage:
+  `TestLexwareResponseProtos_NeverExposeCredentials`), damit ein
+  kuenftig hinzugefuegtes Feld den Test bricht statt den Client zu
+  erreichen. Kein Handler in `route_integration.go` loggt
+  `credentials_vault_key` oder `metadata` (per Codelesung belegt — die
+  einzigen `slog`-Aufrufe im Datei-Ausschnitt sind `respondServiceUnavailable`
+  und der generische Webhook-Fehlerpfad).
+  Fremdtenant-Zugriff auf eine Mapping-ID: am Gateway ohne echte RPC nicht
+  simulierbar (wie bei den vorherigen Routen-Units), aber auf Repository-
+  Ebene bereits durch `tenant_isolation_phase2_test.go` und
+  `tenant_write_test.go` (`internal/notification/integration/`) belegt —
+  kein neuer Test noetig, keine offene Luecke.
+- gate: build ok (`-p 2`, gateway+server+cmd/gateway) | vet ok | lint ok
+  (0 issues, gateway+server) | test ok (`go test -count=1
+  ./internal/gateway/...` und `./internal/server/...`, 0 SKIP in
+  `internal/server`, 1858 PASS) | migration n.a. (keine Tabelle/Spalte/
+  Policy angefasst) | rls-smoke n.a. | `go test -count=1 ./internal/gateway/
+  -run TestOpenAPIRouteDrift` gruen (836 registrierte gegen 838
+  dokumentierte Pfade) — Pflicht, obwohl keine Route geaendert wurde.
+- coverage: internal/gateway 56,1 % -> 56,6 % (eigene Messung vor/nach,
+  neue Testdatei per `mv` temporaer entfernt fuer die Vorher-Messung, dann
+  zurueckgeschrieben; lokaler Ausgangswert weicht vom CI-Stand 54,1 % ab,
+  weil vorangehende Iterationen dasselbe Paket bereits angehoben haben).
+  internal/server 70,7 % -> 70,7 % (eigene Messung per `git stash` der
+  beiden geaenderten Dateien — der neue Test und der Ein-Zeilen-Fix sind zu
+  klein, um die gerundete Prozentzahl des grossen Pakets zu bewegen; Fix-
+  Nebenprodukt, kein Coverage-Ziel dieser Unit).
+- mutations-probe: `notification_grpc.go`s maskierte Meldung
+  (`"%s rejected the connection test", platform`) zurueck auf die
+  urspruengliche Leck-Zeile gesetzt (`"%s rejected the connection test: %v",
+  platform, err`) -> `TestTestIntegrationConfigDoesNotLeakProbeErrorDetail`
+  bricht ab und zeigt den vollen AAD-Fehlertext inkl. CRLF, Trace-ID und
+  `Set-Cookie`-Versuch in der Fehlermeldung. Zurueckgedreht, `git diff
+  --stat` zeigt wieder exakt 17 Einfuegungen/10 Loeschungen wie vor der
+  Probe (die eigentliche Fix-Aenderung inkl. erklaerendem Kommentar), Test
+  erneut gruen.
+- verify vorgaenger: sauber. `c599ef40` (Iteration 48,
+  cov-gateway-biz-bank-accounts-routes) geprueft: `git show --stat` zeigt
+  ausschliesslich eine neue Testdatei plus BACKLOG.yml/JOURNAL.md — kein
+  neuer Handler, kein Stub/TODO, kein `.proto`-Change, keine Migration,
+  kein neuer/ersetzter `RequirePermission`-Guard, keine neue Tabelle, keine
+  neue Route, kein Wire-Shape-Wechsel; keine der acht Fehlerklassen
+  einschlaegig.
+- neue-units: keine. Der einzige echte Fund (Fremdsystem-Fehlertext-Leak in
+  `TestIntegrationConfig`) wurde direkt in dieser Unit behoben, weil
+  `done_when` genau das verlangt — kein Backlog-Eintrag noetig.
+- offen: die vier unreachable 400-Pfade (Update/Delete Config,
+  ListMappings, CreateMapping — alle mit vorgelagertem
+  `GetIntegrationConfig`-RPC) bleiben ohne Fake-Client ungetestet; dasselbe
+  strukturelle Limit wie bei `route_lexware_test.go`, kein neuer Befund.
