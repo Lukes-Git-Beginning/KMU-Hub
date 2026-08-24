@@ -49,6 +49,7 @@ package gateway_test
 // for the next person to read the spec by hand.
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -452,6 +453,83 @@ var statusDriftBaseline = map[string][]int{
 	"PUT /api/v1/customization/labels": {500},
 }
 
+// ------------------------------------------------------------------- dump
+//
+// OPENAPI_DRIFT_DUMP, when set, makes the test write every checked
+// operation's full drift picture to that path as JSON, in addition to its
+// normal pass/fail behavior. Unset (the default, including in CI), nothing
+// below this comment runs and the test is exactly what it was before this
+// dump existed. Consumed by
+// .planning/backend-block/loop/hooks/openapi-status-fill.py, which inserts
+// the missing responses into api/openapi.yaml so the gap does not have to be
+// closed by hand, four to ten YAML lines at a time.
+
+// driftDumpOperation is one entry of the dump. Unlike `findings` above,
+// `Missing` is NOT filtered by statusDriftBaseline or systemicUndocumentedCodes
+// - it lists every written code the spec does not document, because the fill
+// hook needs the whole gap, not just the subset this test still fails on.
+type driftDumpOperation struct {
+	Method     string `json:"method"`
+	Path       string `json:"path"`
+	Written    []int  `json:"written"`
+	Documented []int  `json:"documented"`
+	Missing    []int  `json:"missing"`
+	Mutating   bool   `json:"mutating"`
+	Baselined  bool   `json:"baselined"`
+}
+
+type driftDump struct {
+	Operations []driftDumpOperation `json:"operations"`
+}
+
+var mutatingHTTPMethods = map[string]bool{"POST": true, "PUT": true, "PATCH": true, "DELETE": true}
+
+// newDriftDumpOperation renders one dump entry, written/documented/missing
+// sorted so the JSON file is stable and diffable across runs.
+func newDriftDumpOperation(method, path string, written, documented map[int]bool, baselined bool) driftDumpOperation {
+	entry := driftDumpOperation{
+		Method:     method,
+		Path:       path,
+		Mutating:   mutatingHTTPMethods[method],
+		Baselined:  baselined,
+		Written:    []int{},
+		Documented: []int{},
+		Missing:    []int{},
+	}
+	for c := range written {
+		entry.Written = append(entry.Written, c)
+		if !documented[c] {
+			entry.Missing = append(entry.Missing, c)
+		}
+	}
+	for c := range documented {
+		entry.Documented = append(entry.Documented, c)
+	}
+	sort.Ints(entry.Written)
+	sort.Ints(entry.Documented)
+	sort.Ints(entry.Missing)
+	return entry
+}
+
+// writeDriftDump marshals ops and writes them to path. Called only when
+// OPENAPI_DRIFT_DUMP is set.
+func writeDriftDump(t *testing.T, path string, ops []driftDumpOperation) {
+	t.Helper()
+	sort.Slice(ops, func(i, j int) bool {
+		if ops[i].Path != ops[j].Path {
+			return ops[i].Path < ops[j].Path
+		}
+		return ops[i].Method < ops[j].Method
+	})
+	data, err := json.MarshalIndent(driftDump{Operations: ops}, "", "  ")
+	if err != nil {
+		t.Fatalf("marshaling OPENAPI_DRIFT_DUMP failed: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("writing OPENAPI_DRIFT_DUMP to %s failed: %v", path, err)
+	}
+}
+
 // TestOpenAPIStatusCodeDrift fails when a handler writes a status code its
 // OpenAPI operation does not document and the pair is not in the frozen
 // baseline above.
@@ -477,6 +555,9 @@ func TestOpenAPIStatusCodeDrift(t *testing.T) {
 	checked, unresolved := 0, 0
 	systemic := make(map[int]int, len(systemicUndocumentedCodes))
 
+	dumpPath := os.Getenv("OPENAPI_DRIFT_DUMP")
+	var dumpOps []driftDumpOperation
+
 	err := chi.Walk(r, func(method, route string, handler http.Handler, mws ...func(http.Handler) http.Handler) error {
 		route = normalizeChiRoute(route)
 		if !strings.HasPrefix(route, "/api/v1/") || !restVerbs[method] {
@@ -494,8 +575,10 @@ func TestOpenAPIStatusCodeDrift(t *testing.T) {
 		}
 		checked++
 
+		writtenCodes := idx.writtenStatusCodes(key, 0, make(map[string]bool))
+
 		var missing []int
-		for code := range idx.writtenStatusCodes(key, 0, make(map[string]bool)) {
+		for code := range writtenCodes {
 			if docCodes[code] || baseline[op][code] {
 				continue
 			}
@@ -509,10 +592,19 @@ func TestOpenAPIStatusCodeDrift(t *testing.T) {
 			sort.Ints(missing)
 			findings = append(findings, finding{op: op, codes: missing})
 		}
+
+		if dumpPath != "" {
+			_, baselined := statusDriftBaseline[op]
+			dumpOps = append(dumpOps, newDriftDumpOperation(method, route, writtenCodes, docCodes, baselined))
+		}
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("chi.Walk failed: %v", err)
+	}
+
+	if dumpPath != "" {
+		writeDriftDump(t, dumpPath, dumpOps)
 	}
 
 	if len(findings) > 0 {
