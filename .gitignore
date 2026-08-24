@@ -52,14 +52,12 @@ desktop/scripts/screenshots/
 # === IDE / Tools ===
 .idea/
 .vscode/
-# Claude Code — keep shared config, ignore GSD and personal files
+# Claude Code — geteilte Konfiguration einchecken, persoenliche Dateien nicht
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
-.claude/hooks/gsd-*
+!.claude/agents/
 !.claude/commands/
-.claude/commands/gsd/
-.claude/commands/gsd-*
 # Design/agent skills relocated from .agents/ (npx skills, vercel-labs/skills) —
 # install future skills with `npx skills add <pkg> --agent claude-code`
 !.claude/skills/
