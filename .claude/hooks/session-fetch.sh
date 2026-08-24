@@ -2,7 +2,10 @@
 # SessionStart-Hook: holt den neuesten Stand von origin und meldet Rueckstand.
 # Luke pusht in dichten Wellen direct-to-main. Nicht-blockierend, faellt nie die Session.
 # GIT_TERMINAL_PROMPT=0 = nie auf eine Credential-Abfrage warten (schnell scheitern statt haengen).
-# timeout 20 = den Sessionstart nie laenger als 20s an einem langsamen Netz aufhalten.
+# timeout 8 = den Sessionstart nie laenger als 8s an einem langsamen Netz aufhalten. Vorher 20s:
+# der Doctor-Lauf am 2026-08-24 mass ueber 38 Sessionstarts einen Median von 2,4s, aber ein
+# Maximum von 20,99s — also exakt den alten Timeout, an dem der Start voll ausgesessen wurde.
+# 8s deckt den Median mit Reserve; laeuft der Fetch laenger, ist der Stand eben eine Session alt.
 #
 # WARUM ZWEI AUSGABEKANAELE:
 # Die Vorgaengerfassung schrieb nur `systemMessage`. Das zeigt die Warnung dem NUTZER, legt sie
@@ -16,7 +19,7 @@
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
-GIT_TERMINAL_PROMPT=0 timeout 20 git fetch -q 2>/dev/null
+GIT_TERMINAL_PROMPT=0 timeout 8 git fetch -q 2>/dev/null
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 

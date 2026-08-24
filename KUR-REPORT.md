@@ -196,3 +196,83 @@ Sync sie oder sie fehlen in den anderen Projekten.
 - **Ein ganzer Schritt:** die vier Commits sind getrennt rollbar —
   `git revert 0dbff8e4` (Skill-Beschreibungen) · `55a5f7b9` (Hooks und Agent) ·
   `09795a25` (Streichungen in CLAUDE.md, MCP, gitignore) · `465cc007` (Archiv).
+
+---
+
+## Nachtrag: `/context`, `/doctor` und der MCP-Befund (2026-08-24, nach dem Umbau)
+
+### Gemessene Zahlen — und eine Korrektur
+
+`/context` liefert für die immer geladenen Anteile:
+
+| Kategorie | gemessen |
+|---|---:|
+| Memory files (3 Dateien) | **16,2k Tokens** |
+| davon MEMORY.md | 10k |
+| davon CLAUDE.md (Projekt) | 4,5k |
+| davon CLAUDE.md (global) | 1,6k |
+| Skills (53 Einträge) | 4,5k |
+| Custom agents (`browser-operator`) | 117 |
+| MCP-Tools | 188 (deferred) |
+
+**Korrektur zur Schätzung oben:** Aus der Zeichenzahl hatte ich für die Memory-Dateien ≈ 4,8k
+Tokens gerechnet, gemessen sind es 16,2k. `/context` zählt offenbar mehr als den reinen
+Dateiinhalt (Wrapper und Instruktions-Präambeln). Belastbar bleibt die **Zeichenreduktion von
+−37 %**; die absolute Token-Schätzung in der Tabelle oben ist zu niedrig.
+
+Die Skill-Zahl bestätigt dagegen die Rechnung: 4,5k für 53 Skills, davon ~2,2k für die 33 eigenen —
+das passt zu den gemessenen 7.686 Zeichen.
+
+### Nutzung im 30-Tage-Fenster (16 Sessions, 17.471 Transkriptzeilen)
+
+- **0 MCP-Tool-Aufrufe** bei 1.234 Bash-Calls. Die CLAUDE.md schrieb `mcp__knowledge__read_text_file`
+  vor; benutzt wurde es in 30 Tagen nie. Bestätigt die Streichung nachträglich.
+- 2 Skill-Aufrufe, 2 Slash-Aufrufe. Das Fenster ist für die Design-Skills **nicht repräsentativ**
+  (die Wochen waren Backend-, DSGVO- und Deployment-lastig) — deshalb bleiben sie, zumal sie nach
+  der Kürzung nur noch ~2,2k Tokens kosten.
+- `teach-impeccable` abgeschaltet (`skillOverrides` in `.claude/settings.local.json`, wirkt nur
+  lokal): Einmal-Setup-Skill, nie gelaufen, die `DESIGN.md` die er erzeugen soll existiert nicht.
+
+### Der SessionStart hat bis zu 21 Sekunden blockiert
+
+Über 38 gemessene Sessionstarts: Median 2.378 ms, **Maximum 20.993 ms** — exakt das `timeout 20`
+aus dem `git fetch`. Bei langsamem Netz wurde der Timeout voll ausgesessen. Auf **8 s** gesenkt;
+läuft der Fetch länger, ist der Stand eben eine Session alt. Die anderen Hooks sind unauffällig
+(PreToolUse 103 ms Median über 1.234 Läufe).
+
+### Warum keiner der drei MCP-Server je verband
+
+`context7` war mit `@latest` konfiguriert — das schickt npx bei **jedem** Sessionstart zur
+Registry: 14–16 s bei kaltem Cache. Mit drei solchen Servern in der Datei summierte sich das über
+den Verbindungs-Timeout. Auf `4.0.3` gepinnt startet er in **2,7 s** (zweimal gemessen), dazu
+`MCP_TIMEOUT=60000` als Netz.
+
+**Der `cmd /c`-Wrapper bleibt und darf nicht entfernt werden.** Er sieht nach Ballast aus, ist unter
+Windows aber zwingend: Node-`spawn` gibt für `npx` ENOENT und für `npx.cmd` EINVAL (Batch-Dateien
+werden seit CVE-2024-27980 ohne Shell verweigert). Beides verifiziert. Wieder Kur-Regel 2 — die
+vorhandene Konfiguration hatte recht.
+
+### Widerspruch G1 hat sich erledigt
+
+`claude update` lief: **2.1.221 → 2.1.241** — genau die Version, unter der die Kur-Vorlage
+geschrieben wurde. Die beiden Altlasten-Einträge, die auf dieser Maschine nicht galten
+(`/ultraplan` entfernt mit 2.1.222, `/review` als Alias seit 2.1.223), **gelten ab dem nächsten
+Sessionstart doch**. G1 oben ist damit historisch.
+
+Der Grund für den Rückstand steht: `autoUpdates: false` in `~/.claude.json` schlug den
+`autoUpdatesChannel: latest` und den Update-Hook. Der Hook ist weg, aktualisiert wird von Hand.
+
+### Weitere Änderung: auto mode ist Standard
+
+`permissions.defaultMode: "auto"` in `~/.claude/settings.json` — gilt für alle Projekte. Ein
+Sicherheits-Klassifikator entscheidet Routine-Aktionen statt einer Nachfrage pro Aktion. Sperrt
+nicht aus: ist auto mode nicht verfügbar, fällt die CLI mit Hinweis auf den normalen Modus zurück.
+**Keine** neuen Allow-Regeln — in 30 Tagen gab es nur 3 Ablehnungen, zu wenig Signal für eine
+stehende Vorab-Genehmigung.
+
+### Setup-Gesundheit (unauffällig)
+
+Eine Installation (npm global, `installMethod` stimmt überein), keine Leftovers, kein zweiter
+Launcher, alle fünf Settings-Dateien parsebar, die eine Agent-Definition valide und ohne
+Namenskollision. `node` und `npx` liegen auf `E:\` (Git-Installation) und sind über den PATH
+auffindbar — ungewöhnlich, aber funktionierend.
