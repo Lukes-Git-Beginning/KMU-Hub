@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -86,18 +87,18 @@ func (s *Service) SendDunningNotice(ctx context.Context, tenantID, id, userID uu
 // GoBDExportRow represents one posting line in the GoBD CSV export. One row is
 // emitted per (invoice, VAT-rate) so each posting carries its own net amount,
 // VAT amount, tax key and revenue account — the columns GoBD/IDEA require for a
-// machine-auditable journal. The caller builds the rows (see invoicesToGoBDRows
-// in the biz gRPC server).
+// machine-auditable journal. Rows are built by BuildGoBDRows.
 type GoBDExportRow struct {
 	InvoiceNumber string
 	InvoiceDate   string
 	CustomerName  string
 	Account       string // SKR03 revenue account (Konto)
 	TaxKey        string // DATEV BU-Schluessel (Steuerschluessel)
-	TaxRate       string // whole-number percent, e.g. "19"
+	TaxRate       string // exact percent, e.g. "19", "7", "7.5"
 	NetAmount     string // Nettobetrag
 	TaxAmount     string // MwSt-Betrag
 	GrossTotal    string // Bruttobetrag (net + VAT)
+	Currency      string // Waehrung (ISO 4217, e.g. "EUR", "CHF")
 	Status        string
 	TaxMode       string
 	BookingText   string // Buchungstext
@@ -112,15 +113,15 @@ type GoBDExportResult struct {
 }
 
 // GenerateGoBDExport produces a GoBD-compliant CSV export from the provided rows.
-// The caller (gRPC handler) is responsible for fetching and converting invoice data
-// to []GoBDExportRow before calling this method. This design avoids a circular
-// dependency between the dunning and invoice packages.
+// The caller (gRPC handler) is responsible for fetching the documents and passing
+// them through BuildGoBDRows first. This design avoids a circular dependency
+// between the dunning and invoice packages.
 //
 // The CSV follows Grundsätze zur ordnungsmäßigen Führung und Aufbewahrung von
 // Büchern, Aufzeichnungen und Unterlagen in elektronischer Form (GoBD, BMF 2019).
 //
 // Column order: BelegNr, BelegDatum, Empfaenger, Konto, Steuerschluessel,
-// Steuersatz, Nettobetrag, MwSt, Bruttobetrag, Status, Steuerart, Buchungstext
+// Steuersatz, Nettobetrag, MwSt, Bruttobetrag, Waehrung, Status, Steuerart, Buchungstext
 func (s *Service) GenerateGoBDExport(_ context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, rows []GoBDExportRow) (GoBDExportResult, error) {
 	csvData := buildGoBDCSV(rows)
 
@@ -155,7 +156,7 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 	// Header
 	_ = w.Write([]string{
 		"BelegNr", "BelegDatum", "Empfaenger", "Konto", "Steuerschluessel",
-		"Steuersatz", "Nettobetrag", "MwSt", "Bruttobetrag", "Status",
+		"Steuersatz", "Nettobetrag", "MwSt", "Bruttobetrag", "Waehrung", "Status",
 		"Steuerart", "Buchungstext",
 	})
 
@@ -166,10 +167,11 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 			csvutil.NeutralizeFormulaCell(r.CustomerName),
 			r.Account,
 			r.TaxKey,
-			r.TaxRate,
-			r.NetAmount,
-			r.TaxAmount,
-			r.GrossTotal,
+			germanDecimal(r.TaxRate),
+			germanDecimal(r.NetAmount),
+			germanDecimal(r.TaxAmount),
+			germanDecimal(r.GrossTotal),
+			r.Currency,
 			r.Status,
 			r.TaxMode,
 			r.BookingText,
@@ -177,4 +179,13 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 	}
 	w.Flush()
 	return buf.Bytes()
+}
+
+// germanDecimal converts a period-decimal string (as produced by BuildGoBDRows,
+// e.g. "38.00" or "7.5") to the comma-decimal form German accounting software
+// expects (same convention as datev.formatDecimalForDATEV). Without this, Excel
+// DE/DATEV/Lexware import "38.00" as text rather than a number — the CSV would
+// no longer be the machine-auditable journal GoBD requires.
+func germanDecimal(s string) string {
+	return strings.Replace(s, ".", ",", 1)
 }

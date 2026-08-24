@@ -116,9 +116,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Quote,
 	taxItems := toTaxLineItems(input.LineItems)
 	breakdown := tax.Calculate(taxItems, taxMode)
 
-	// Apply calculated line totals back to the model items
+	// Apply calculated line totals back to the model items, rounded exactly like
+	// tax.Calculate rounds them internally.
 	for i := range input.LineItems {
-		input.LineItems[i].LineTotal = input.LineItems[i].Quantity.Mul(input.LineItems[i].UnitPrice)
+		input.LineItems[i].LineTotal = tax.LineTotal(input.LineItems[i].Quantity, input.LineItems[i].UnitPrice)
 	}
 
 	// Marshal for JSONB storage
@@ -302,7 +303,7 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 
 		// Update line totals
 		for i := range lineItems {
-			lineItems[i].LineTotal = lineItems[i].Quantity.Mul(lineItems[i].UnitPrice)
+			lineItems[i].LineTotal = tax.LineTotal(lineItems[i].Quantity, lineItems[i].UnitPrice)
 		}
 
 		lineItemsJSON, marshalErr := marshalLineItems(lineItems)

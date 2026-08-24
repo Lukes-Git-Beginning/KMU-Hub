@@ -182,6 +182,121 @@ func TestPostgresRepository_AccountBalanceComesFromTheNewestStatement(t *testing
 	}
 }
 
+// UpdateAccount at the repository level has two error branches
+// service_accounts_test.go's fake repo cannot exercise, because the fake never
+// touches SQL: a row that plain does not exist, and a write that would collide
+// with another row's unique IBAN. Both must be reported, not silently dropped.
+func TestPostgresRepository_UpdateAccount_NotFoundAndIBANConflict(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "Bank Account Update Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+
+	first := newAccountRow(t, ctx, repo, tenant, "Commerzbank", testIBAN)
+	secondIBAN := "DE02120300000000202051"
+	second := newAccountRow(t, ctx, repo, tenant, "DKB", secondIBAN)
+
+	t.Run("a row that does not exist is reported, not silently ignored", func(t *testing.T) {
+		ghost := &models.BankAccount{
+			TenantID: tenant, ID: uuid.New(), BankName: "Ghost",
+			IBAN: "DE89370400440532013099", Currency: "EUR",
+		}
+		if err := repo.UpdateAccount(ctx, ghost); !errors.Is(err, ErrAccountNotFound) {
+			t.Fatalf("UpdateAccount on a nonexistent id: err = %v, want ErrAccountNotFound", err)
+		}
+	})
+
+	t.Run("moving onto another account's IBAN is refused, not silently merged", func(t *testing.T) {
+		clash := *second
+		clash.IBAN = first.IBAN
+		if err := repo.UpdateAccount(ctx, &clash); !errors.Is(err, ErrAccountExists) {
+			t.Fatalf("UpdateAccount onto a taken IBAN: err = %v, want ErrAccountExists", err)
+		}
+		reread, err := repo.GetAccount(ctx, tenant, second.ID)
+		if err != nil {
+			t.Fatalf("GetAccount after the refused update: %v", err)
+		}
+		if reread.IBAN != secondIBAN {
+			t.Errorf("iban after a refused update = %s, want unchanged %s", reread.IBAN, secondIBAN)
+		}
+	})
+}
+
+// DeleteAccount's success path: the row is gone afterward, not just reported as
+// deleted. integration_accounts_test.go's tenant-scoping test only exercises
+// the not-found branch (a foreign id), never the row actually vanishing.
+func TestPostgresRepository_DeleteAccount_RemovesTheRow(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "Bank Account Delete Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+
+	acc := &models.BankAccount{
+		TenantID: tenant, BankName: "Sparkasse", IBAN: testIBAN, Currency: "EUR",
+	}
+	if err := repo.CreateAccount(ctx, acc); err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+
+	if err := repo.DeleteAccount(ctx, tenant, acc.ID); err != nil {
+		t.Fatalf("DeleteAccount: %v", err)
+	}
+	if _, err := repo.GetAccount(ctx, tenant, acc.ID); !errors.Is(err, ErrAccountNotFound) {
+		t.Fatalf("GetAccount after delete: err = %v, want ErrAccountNotFound", err)
+	}
+	// The IBAN is free again: a delete that left a phantom unique-index entry
+	// would refuse this and nobody could re-add the same account.
+	again := &models.BankAccount{
+		TenantID: tenant, BankName: "Sparkasse (erneut)", IBAN: testIBAN, Currency: "EUR",
+	}
+	if err := repo.CreateAccount(ctx, again); err != nil {
+		t.Fatalf("re-creating the same IBAN after delete: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_bank_accounts", again.ID) })
+}
+
+// Service.ListAccounts itself is a one-line passthrough, but until this test it
+// had zero coverage — every existing test read through the repository or the
+// fake directly.
+func TestService_ListAccounts(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "Bank Account Service List Tenant")
+
+	repo := NewPostgresRepository(pool)
+	svc := NewService(repo, nil, nil, nil)
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+
+	acc := newAccountRow(t, ctx, repo, tenant, "Commerzbank", testIBAN)
+
+	rows, err := svc.ListAccounts(ctx, tenant)
+	if err != nil {
+		t.Fatalf("ListAccounts: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != acc.ID {
+		t.Fatalf("ListAccounts = %+v, want exactly %s", rows, acc.ID)
+	}
+}
+
 // The service path over real rows: connect persists, and a corrected IBAN moves
 // the account onto that IBAN's statements instead of keeping the old balance.
 func TestService_AccountConnectAndIBANCorrectionPersist(t *testing.T) {

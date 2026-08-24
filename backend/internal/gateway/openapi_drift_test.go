@@ -208,6 +208,28 @@ func normalizeChiRoute(route string) string {
 	return route
 }
 
+// registeredAPIv1MethodPaths walks the router and returns the set of
+// distinct "METHOD /path" pairs it exposes for /api/v1/*. Unlike
+// registeredAPIv1Paths, this is method-sensitive: a path documented with
+// only "get:" but registered with both GET and POST shows up here as two
+// entries, only one of which is documented.
+func registeredAPIv1MethodPaths(t *testing.T, r chi.Router) map[string]bool {
+	t.Helper()
+
+	methodPaths := make(map[string]bool)
+	err := chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		route = normalizeChiRoute(route)
+		if strings.HasPrefix(route, "/api/v1/") {
+			methodPaths[method+" "+route] = true
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("chi.Walk failed: %v", err)
+	}
+	return methodPaths
+}
+
 // openapiPathKeyRE matches a top-level path key under the "paths:" map in
 // api/openapi.yaml, e.g. "  /api/v1/contacts/{id}:". OpenAPI/YAML always
 // indents these two spaces under "paths:", one level deeper than the
@@ -248,6 +270,58 @@ func documentedPaths(t *testing.T, specPath string) map[string]bool {
 
 	if len(documented) == 0 {
 		t.Fatalf("parsed 0 documented paths from %s — parser is broken or file moved", specPath)
+	}
+	return documented
+}
+
+// openapiMethodKeyRE matches an HTTP-method operation key nested one level
+// under a path key, e.g. "    post:". Four-space indent, one level deeper
+// than the two-space path key — the same rigid, consistent format
+// documentedPaths relies on. Deliberately excludes "parameters:" and other
+// path-level siblings by only matching the seven verbs OpenAPI defines.
+var openapiMethodKeyRE = regexp.MustCompile(`^    (get|post|put|patch|delete|head|options):\s*$`)
+
+// documentedMethodPaths parses api/openapi.yaml and returns the set of
+// "METHOD /path" pairs actually documented — one entry per HTTP verb found
+// under each path key, not just the path itself. This is what makes drift
+// detection method-sensitive: a path with only "get:" documented no longer
+// silently covers a "post:" the gateway also registers.
+func documentedMethodPaths(t *testing.T, specPath string) map[string]bool {
+	t.Helper()
+
+	data, err := os.ReadFile(specPath)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", specPath, err)
+	}
+
+	documented := make(map[string]bool)
+	inPaths := false
+	currentPath := ""
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimRight(line, "\r")
+		if !inPaths {
+			if strings.HasPrefix(line, "paths:") {
+				inPaths = true
+			}
+			continue
+		}
+		if line != "" && line[0] != ' ' && line[0] != '\t' {
+			break
+		}
+		if m := openapiPathKeyRE.FindStringSubmatch(line); m != nil {
+			currentPath = m[1]
+			continue
+		}
+		if currentPath == "" {
+			continue
+		}
+		if m := openapiMethodKeyRE.FindStringSubmatch(line); m != nil {
+			documented[strings.ToUpper(m[1])+" "+currentPath] = true
+		}
+	}
+
+	if len(documented) == 0 {
+		t.Fatalf("parsed 0 documented method+path pairs from %s — parser is broken or file moved", specPath)
 	}
 	return documented
 }
@@ -295,6 +369,69 @@ func TestOpenAPIRouteDrift(t *testing.T) {
 	}
 
 	t.Logf("checked %d registered /api/v1/* routes against %d documented paths", len(registered), len(documented))
+}
+
+// restVerbs is the set of HTTP methods documentedMethodPaths can extract
+// from api/openapi.yaml (openapiMethodKeyRE only matches these seven). Used
+// to filter registeredAPIv1MethodPaths down to the same universe before
+// comparing — a WebDAV verb like PROPFIND (CalDAV/CardDAV, registered under
+// /api/v1/caldav/*) is real and correct but not "REST", so it is out of
+// scope for this guard the same way the path-level guard's package doc
+// already excludes WebDAV verbs.
+var restVerbs = map[string]bool{
+	"GET": true, "POST": true, "PUT": true, "PATCH": true, "DELETE": true, "HEAD": true, "OPTIONS": true,
+}
+
+// apiV1MethodDriftAllowlist lists "METHOD /api/v1/..." pairs the gateway
+// registers that are deliberately not expected to carry their own method
+// entry in api/openapi.yaml, with a reason per entry. Keep this empty by
+// default, same convention as apiV1UndocumentedAllowlist.
+var apiV1MethodDriftAllowlist = map[string]string{}
+
+// TestOpenAPIMethodDrift is the per-method sibling of TestOpenAPIRouteDrift.
+// The path-level guard only proves a path key exists in api/openapi.yaml —
+// it does not prove every HTTP method the gateway registers under that path
+// has its own documented operation. That gap is real: POST
+// /api/v1/hr/time/entries sat undocumented for an unknown number of runs
+// while GET /api/v1/hr/time/entries (same path, different method) kept the
+// path-level guard green. This test closes it by comparing "METHOD /path"
+// pairs instead of bare paths.
+func TestOpenAPIMethodDrift(t *testing.T) {
+	r := buildGatewayRouter(t)
+	registered := registeredAPIv1MethodPaths(t, r)
+
+	specPath := filepath.Join("..", "..", "api", "openapi.yaml")
+	documented := documentedMethodPaths(t, specPath)
+
+	var undocumented []string
+	checked := 0
+	for methodPath := range registered {
+		method, _, _ := strings.Cut(methodPath, " ")
+		if !restVerbs[method] {
+			continue // WebDAV verb etc. — out of scope, see restVerbs doc
+		}
+		checked++
+		if documented[methodPath] {
+			continue
+		}
+		if reason, ok := apiV1MethodDriftAllowlist[methodPath]; ok {
+			t.Logf("allowlisted undocumented method+path %s: %s", methodPath, reason)
+			continue
+		}
+		undocumented = append(undocumented, methodPath)
+	}
+
+	if len(undocumented) > 0 {
+		sort.Strings(undocumented)
+		t.Errorf(
+			"%d registered /api/v1/* method+path pair(s) missing their own operation in api/openapi.yaml "+
+				"(the path key exists, but not this HTTP method under it — add the operation, or add a "+
+				"justified apiV1MethodDriftAllowlist entry):\n  %s",
+			len(undocumented), strings.Join(undocumented, "\n  "),
+		)
+	}
+
+	t.Logf("checked %d registered /api/v1/* method+path pairs (of %d total) against %d documented", checked, len(registered), len(documented))
 }
 
 // apiV1UnregisteredAllowlist lists /api/v1/* paths api/openapi.yaml documents

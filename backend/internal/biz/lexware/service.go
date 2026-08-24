@@ -198,13 +198,26 @@ func (s *Service) GetConnectionStatus(ctx context.Context) (*ConnectionStatus, e
 
 // --- Sync Operations ---
 
-// SyncContacts triggers a contact sync (manual or from scheduler).
+// SyncContacts resolves the active config and triggers a contact sync (manual
+// / gRPC trigger path, which runs under an authenticated context where RLS
+// scopes the config lookup correctly).
 func (s *Service) SyncContacts(ctx context.Context, tenantID uuid.UUID) (*SyncResult, error) {
 	configID, err := s.getConfigID(ctx)
 	if err != nil {
 		return nil, err
 	}
+	return s.SyncContactsWithConfig(ctx, configID, tenantID)
+}
 
+// SyncContactsWithConfig triggers a contact sync for an explicit config ID.
+//
+// The scheduler runs under system context (database.WithSystemContext), where
+// RLS is bypassed and GetByPlatform has no tenant filter in SQL — re-resolving
+// the config there could select the wrong tenant's config when more than one
+// Lexware integration is active. The scheduler therefore passes its own
+// ts.configID here instead of calling SyncContacts (same G8 pattern as
+// bexio.Service.PullInvoicesWithConfig).
+func (s *Service) SyncContactsWithConfig(ctx context.Context, configID, tenantID uuid.UUID) (*SyncResult, error) {
 	_ = s.emitter.Emit(ctx, EventPayload{
 		Type:     EventSyncStarted,
 		TenantID: tenantID.String(),
@@ -259,6 +272,13 @@ func (s *Service) PushQuote(ctx context.Context, tenantID uuid.UUID, quoteID uui
 // there is no tenant in the context. Without the system marker the very first
 // read (integration_configs, RLS-enabled since mig 000125) returns zero rows and
 // every webhook would look like "integration not configured".
+//
+// lean: GetByPlatform under system context has no tenant filter and the shared
+// LEXWARE_WEBHOOK_SECRET/HMAC signs the payload, not a config — with more than
+// one active Lexware tenant this can route a webhook to the wrong tenant's
+// config. No per-tenant identifier (organization_id, distinct webhook path/
+// secret) is captured today to disambiguate; harden when a second Lexware
+// tenant goes active, see harden-lexware-webhook-organization-id-scoping.
 func (s *Service) HandleWebhookEvent(ctx context.Context, eventType string, payload map[string]any) error {
 	ctx = sysctx.With(ctx)
 

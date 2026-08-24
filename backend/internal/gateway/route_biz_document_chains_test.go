@@ -17,6 +17,30 @@ package gateway
 // the hand-mapped wire shape: toDocumentChainWire/formatChainAmount/
 // groupThousands are the only formatting logic in this file and are pure
 // functions, testable without a live RPC.
+//
+// Two more premises from the backlog draft for this file, checked against the
+// code and against Postgres rather than assumed:
+//
+//  1. "Does formatChainAmount's Round(2) round a value the service already
+//     rounded, or one it doesn't?" — finance_invoices.gross_total,
+//     finance_payments.amount and finance_credit_notes.gross_total are all
+//     NUMERIC(15,2) (migrations/000045_create_finance_tables.up.sql); every
+//     value in postgres_document_chains.go is read via ::text off one of
+//     these columns or computed by subtracting two of them, which cannot
+//     produce more than two decimal places. Round(2) here is therefore
+//     redundant, not a second rounding stage — it never sees a value with
+//     more than two decimals to round away. Reported to
+//     scan-money-rounding-and-tax-call-sites (D4) so its call-site list
+//     records this one as answered rather than re-deriving it.
+//  2. "Belegkette ohne Angebot / Gutschrift ohne Rechnung darf nicht
+//     abbrechen": an invoice without a source quote is the ordinary case
+//     (quoteID nil in ListDocumentChains just skips the quote node — no
+//     special casing) and a credit note without an invoice cannot exist
+//     (finance_credit_notes.original_invoice_id is NOT NULL with an
+//     ON DELETE RESTRICT FK, migrations/000045). Both premises describe
+//     invoice/credit-note node counts of 1, which toDocumentChainWire
+//     already handles identically to the 0- and 2-node cases below — proto
+//     getters are nil-safe and there is no branch on node count to break.
 
 import (
 	"encoding/json"
@@ -85,9 +109,14 @@ func TestFormatChainAmount_EmptyString_FallsBackToZero(t *testing.T) {
 // where a grouping dot appears — the classic off-by-one in grouping code.
 func TestFormatChainAmount_GroupingBoundary(t *testing.T) {
 	cases := []struct{ raw, want string }{
-		{"999.00", "EUR 999,00"},        // exactly three digits: no dot yet
-		{"1000.00", "EUR 1.000,00"},     // fourth digit: dot appears
+		{"999.00", "EUR 999,00"},           // exactly three digits: no dot yet
+		{"1000.00", "EUR 1.000,00"},        // fourth digit: dot appears
 		{"1000000.00", "EUR 1.000.000,00"}, // two dots
+		// Digit count exactly divisible by 3 (>3): groupThousands' "first == 0"
+		// branch (first = len % 3, then reset to 3) is unreachable by the three
+		// cases above — 4 and 7 digits both leave first at 1. Only a 6-, 9-, ...
+		// digit whole part hits it.
+		{"123456.00", "EUR 123.456,00"},
 	}
 	for _, c := range cases {
 		if got := formatChainAmount(c.raw, "EUR"); got != c.want {

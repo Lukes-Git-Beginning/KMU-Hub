@@ -62,7 +62,7 @@ func seedMailbox(t *testing.T, pool *pgxpool.Pool, name string) mailbox {
 func TestRepository_CreateAndListAreTenantScoped(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := label.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "own")
@@ -104,7 +104,7 @@ func TestRepository_CreateAndListAreTenantScoped(t *testing.T) {
 func TestRepository_DuplicateNameIsPerTenantNotGlobal(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := label.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "dup-own")
@@ -143,7 +143,7 @@ func TestRepository_DuplicateNameIsPerTenantNotGlobal(t *testing.T) {
 func TestRepository_UpdateIsTenantScoped(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := label.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "update-own")
@@ -179,7 +179,7 @@ func TestRepository_UpdateIsTenantScoped(t *testing.T) {
 func TestRepository_LabelIDsBelongToTenant(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := label.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "belong-own")
@@ -223,7 +223,7 @@ func TestRepository_LabelIDsBelongToTenant(t *testing.T) {
 func TestRepository_AssignToMessageIsTenantScoped(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := label.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "assign-own")
@@ -264,7 +264,7 @@ func TestRepository_AssignToMessageIsTenantScoped(t *testing.T) {
 func TestRepository_DeleteStripsLabelFromMessages(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := label.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "delete-strip")

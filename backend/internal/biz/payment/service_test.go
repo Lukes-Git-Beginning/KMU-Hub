@@ -422,6 +422,30 @@ func TestRecord_AutoTransitionToPaid(t *testing.T) {
 	assert.Equal(t, models.InvoiceStatusPaid, updater.updates[inv.ID])
 }
 
+// TestRecord_NoAutoTransitionWhenInvoiceLocked guards the GoBD §146 immutability
+// barrier: transitionToPaidInTx writes through a narrow InvoiceStatusUpdater that
+// bypasses invoice.Service.MarkPaid (and its isInvoiceLocked check) entirely, so a
+// locked invoice must not be silently flipped to paid just because a later payment
+// happens to cover the total.
+func TestRecord_NoAutoTransitionWhenInvoiceLocked(t *testing.T) {
+	svc, _, reader, updater := newTestService()
+
+	tenantID := uuid.New()
+	inv := newSentInvoice(tenantID, decimal.NewFromInt(1000))
+	lockedAt := time.Now().Add(-24 * time.Hour)
+	inv.LockedAt = &lockedAt
+	reader.invoices[inv.ID] = inv
+
+	input := newRecordInput(tenantID, inv.ID, decimal.NewFromInt(1000))
+	payment, err := svc.Record(context.Background(), input)
+
+	require.NoError(t, err, "recording the payment itself is still allowed")
+	assert.NotEqual(t, uuid.Nil, payment.ID)
+	// The status transition must have been skipped, not just failed silently.
+	_, statusUpdated := updater.updates[inv.ID]
+	assert.False(t, statusUpdated, "a locked invoice must not auto-transition to paid")
+}
+
 func TestRecord_NoTransitionWhenPartialPayment(t *testing.T) {
 	svc, _, reader, updater := newTestService()
 
@@ -670,6 +694,81 @@ func TestDelete_RevertsFromPaid(t *testing.T) {
 
 	require.NoError(t, err)
 	// After deleting the only payment, sum = 0 < 1000, so status reverts to sent
+	assert.Equal(t, models.InvoiceStatusSent, updater.updates[invoiceID])
+}
+
+// TestDelete_RejectedWhenInvoiceLocked is the Delete-side counterpart of
+// TestRecord_NoAutoTransitionWhenInvoiceLocked, but stricter: unlike the
+// auto-transition side (which can silently skip a status change), deleting a
+// payment record itself must not disappear silently from a locked invoice — a
+// committed GoBD §146 booking proof would vanish while the invoice still shows
+// paid. So Delete rejects the whole operation instead of proceeding without the
+// status revert (fix-payment-delete-bypasses-invoice-lock).
+func TestDelete_RejectedWhenInvoiceLocked(t *testing.T) {
+	svc, repo, reader, updater := newTestService()
+
+	tenantID := uuid.New()
+	invoiceID := uuid.New()
+	paymentID := uuid.New()
+	lockedAt := time.Now().Add(-24 * time.Hour)
+
+	reader.invoices[invoiceID] = &models.Invoice{
+		ID:         invoiceID,
+		TenantID:   tenantID,
+		Status:     models.InvoiceStatusPaid,
+		GrossTotal: decimal.NewFromInt(1000),
+		DueDate:    time.Now().Add(30 * 24 * time.Hour),
+		LockedAt:   &lockedAt,
+	}
+
+	repo.payments[paymentID] = &models.Payment{
+		ID:        paymentID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Amount:    decimal.NewFromInt(1000),
+		CreatedAt: time.Now(),
+	}
+
+	err := svc.Delete(context.Background(), tenantID, paymentID)
+
+	require.ErrorIs(t, err, ErrInvoiceLocked)
+	_, exists := repo.payments[paymentID]
+	assert.True(t, exists, "the payment booking proof must survive a rejected delete")
+	_, statusUpdated := updater.updates[invoiceID]
+	assert.False(t, statusUpdated, "a rejected delete must not touch the invoice status")
+}
+
+// TestDelete_AllowedWhenInvoiceNotLocked is the negative counterpart of
+// TestDelete_RejectedWhenInvoiceLocked: an unlocked, paid invoice still allows
+// the payment delete and the accompanying revert-from-paid.
+func TestDelete_AllowedWhenInvoiceNotLocked(t *testing.T) {
+	svc, repo, reader, updater := newTestService()
+
+	tenantID := uuid.New()
+	invoiceID := uuid.New()
+	paymentID := uuid.New()
+
+	reader.invoices[invoiceID] = &models.Invoice{
+		ID:         invoiceID,
+		TenantID:   tenantID,
+		Status:     models.InvoiceStatusPaid,
+		GrossTotal: decimal.NewFromInt(1000),
+		DueDate:    time.Now().Add(30 * 24 * time.Hour),
+	}
+
+	repo.payments[paymentID] = &models.Payment{
+		ID:        paymentID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Amount:    decimal.NewFromInt(1000),
+		CreatedAt: time.Now(),
+	}
+
+	err := svc.Delete(context.Background(), tenantID, paymentID)
+
+	require.NoError(t, err)
+	_, exists := repo.payments[paymentID]
+	assert.False(t, exists)
 	assert.Equal(t, models.InvoiceStatusSent, updater.updates[invoiceID])
 }
 

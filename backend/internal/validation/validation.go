@@ -95,6 +95,19 @@ func validate() *validator.Validate {
 			}
 			return d.GreaterThanOrEqual(decimal.Zero)
 		})
+		// max_2dp rejects a decimal string carrying more than two digits after the
+		// decimal point (scientific notation included — "1e-3" has three). Combine
+		// with decimal_gt0/decimal_gte0 for fields backed by a NUMERIC(*, 2) column:
+		// without this, extra precision (e.g. "10.999") is silently rounded on
+		// INSERT instead of rejected at the boundary. Not for quantity/rate fields
+		// backed by a wider scale (NUMERIC(*, 4)) — check the column before reusing.
+		mustRegister(v, "max_2dp", func(fl validator.FieldLevel) bool {
+			d, err := decimal.NewFromString(strings.TrimSpace(fl.Field().String()))
+			if err != nil {
+				return false
+			}
+			return d.Exponent() >= -2
+		})
 		// clearable_date is for *string PATCH fields where "absent" (nil pointer)
 		// means leave the value alone and "present but empty" is a deliberate
 		// signal to clear it. go-playground/validator's omitempty only skips a

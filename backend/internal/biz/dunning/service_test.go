@@ -1313,9 +1313,42 @@ func TestService_GenerateGoBDExport_PostingColumns(t *testing.T) {
 	content := string(result.CSVData[3:])
 	// The posting line carries net, VAT, tax key and revenue account.
 	assert.Contains(t, content, "8400", "row must carry the SKR03 revenue account")
-	assert.Contains(t, content, "200.00", "row must carry the net amount")
-	assert.Contains(t, content, "38.00", "row must carry the VAT amount")
+	assert.Contains(t, content, "200,00", "row must carry the net amount with German comma decimal")
+	assert.Contains(t, content, "38,00", "row must carry the VAT amount with German comma decimal")
 	assert.Contains(t, content, "Beratung", "row must carry the Buchungstext")
+}
+
+func TestService_GenerateGoBDExport_GermanDecimalSeparator(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	rows := []GoBDExportRow{
+		{
+			InvoiceNumber: "RE-2026-0009", InvoiceDate: "2026-03-01", CustomerName: "Test GmbH",
+			Account: "8300", TaxKey: "2", TaxRate: "7.5", NetAmount: "100.00", TaxAmount: "7.50",
+			GrossTotal: "107.50", Status: "sent", TaxMode: "standard", BookingText: "Beratung",
+		},
+	}
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, rows)
+
+	require.NoError(t, err)
+	r := csv.NewReader(bytes.NewReader(result.CSVData[3:]))
+	r.Comma = ';'
+	records, err := r.ReadAll()
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+	row := records[1]
+	// TaxRate, NetAmount, TaxAmount, GrossTotal must use German comma, never a
+	// bare period — German Excel/DATEV/Lexware import "7.5" as text, not a number.
+	assert.Equal(t, "7,5", row[5], "Steuersatz must use comma decimal")
+	assert.Equal(t, "100,00", row[6], "Nettobetrag must use comma decimal")
+	assert.Equal(t, "7,50", row[7], "MwSt must use comma decimal")
+	assert.Equal(t, "107,50", row[8], "Bruttobetrag must use comma decimal")
+	for _, cell := range row {
+		assert.NotContains(t, cell, ".", "no CSV cell may contain a bare period decimal separator")
+	}
 }
 
 func TestService_GenerateGoBDExport_NeutralizesFormulaInjection(t *testing.T) {
@@ -1361,6 +1394,43 @@ func TestService_GenerateGoBDExport_NormalCustomerNameUnchanged(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, records, 2)
 	assert.Equal(t, "Alpha GmbH", records[1][2], "unaffected customer name must stay unchanged")
+}
+
+// A mixed EUR/CHF export must keep each row's own currency in the CSV's
+// Waehrung column so a tax advisor can tell the two amounts apart — before
+// this fix, GoBDExportRow had no currency field at all and every row looked
+// like an unlabeled EUR amount regardless of the source document's currency.
+func TestService_GenerateGoBDExport_CurrencyColumn(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	rows := []GoBDExportRow{
+		{InvoiceNumber: "RE-2026-0001", InvoiceDate: "2026-01-15", CustomerName: "Alpha GmbH", GrossTotal: "100.00", Currency: "EUR", Status: "sent", TaxMode: "standard"},
+		{InvoiceNumber: "RE-2026-0002", InvoiceDate: "2026-02-10", CustomerName: "Beta AG", GrossTotal: "200.00", Currency: "CHF", Status: "sent", TaxMode: "standard"},
+	}
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, rows)
+
+	require.NoError(t, err)
+	content := string(result.CSVData[3:])
+	assert.Contains(t, content, "Waehrung", "header must contain the currency column")
+
+	r := csv.NewReader(bytes.NewReader(result.CSVData[3:]))
+	r.Comma = ';'
+	records, err := r.ReadAll()
+	require.NoError(t, err)
+	require.Len(t, records, 3)
+	header := records[0]
+	waehrungIdx := -1
+	for i, col := range header {
+		if col == "Waehrung" {
+			waehrungIdx = i
+		}
+	}
+	require.NotEqual(t, -1, waehrungIdx, "Waehrung column must be present in the header")
+	assert.Equal(t, "EUR", records[1][waehrungIdx], "first row must carry its own EUR currency")
+	assert.Equal(t, "CHF", records[2][waehrungIdx], "second row must carry its own CHF currency, not the first row's")
 }
 
 func TestService_GenerateGoBDExport_RowCount(t *testing.T) {

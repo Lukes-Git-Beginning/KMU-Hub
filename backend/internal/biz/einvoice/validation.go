@@ -34,6 +34,33 @@ const (
 	ProfileXRechnung Profile = "xrechnung"
 )
 
+// allowedCurrencies are the ISO 4217 codes BR-CL-04 lets an invoice currency
+// (BT-5) carry.
+//
+// lean: DACH-only whitelist, not the full ISO 4217 list (180+ entries this
+// product never emits). USD/CHF are already handled downstream (see the WKZ
+// comment in datev/exporter.go); widen here the day a customer bills in
+// another currency, not before.
+var allowedCurrencies = map[string]bool{
+	"EUR": true,
+	"CHF": true,
+	"USD": true,
+}
+
+// allowedCountries are the ISO 3166-1 alpha-2 codes BR-CL-14 lets a seller
+// (BT-40) or buyer (BT-55) country carry.
+//
+// lean: DE/AT/CH whitelist, per the DACH-KMU target market (CLAUDE.md
+// Zielgruppe). isoCountryCode (generator_doc.go) already normalises common
+// spellings of these three to their code; anything else it passes through
+// unchecked as a bare two-letter guess, which is exactly the gap this closes.
+// Widen once a customer invoices outside DE/AT/CH.
+var allowedCountries = map[string]bool{
+	"DE": true,
+	"AT": true,
+	"CH": true,
+}
+
 // ValidationViolation is a single unmet requirement.
 type ValidationViolation struct {
 	// Rule is the business rule identifier (e.g. "BR-S-02"), empty where the CIUS
@@ -95,6 +122,11 @@ func validateInvoiceDoc(doc *invoiceDoc, profile Profile) error {
 
 	// BG-4 seller, BG-7 buyer. Name and country are the identifying minimum; the
 	// address parts below are only mandatory under the German CIUS.
+	//
+	// BR-08 (seller postal address, BG-5) and BR-10 (buyer postal address, BG-8)
+	// need no check of their own: country (BT-40/BT-55) is the only element EN
+	// 16931 actually requires inside either group, so the BR-09/BR-11 checks below
+	// already prove the group is present.
 	if strings.TrimSpace(doc.Seller.Name) == "" {
 		add("BR-06", "BT-27", "the company settings carry no company name")
 	}
@@ -108,6 +140,24 @@ func validateInvoiceDoc(doc *invoiceDoc, profile Profile) error {
 		add("BR-11", "BT-55", "the invoice has no customer country")
 	}
 
+	// BR-CL-04: the invoice currency has to be a real ISO 4217 code, not
+	// whatever a caller happened to pass in — buildInvoiceDoc only defaults an
+	// empty one, it never validates it.
+	if !allowedCurrencies[doc.Currency] {
+		add("BR-CL-04", "BT-5", "currency %q is not a supported ISO 4217 code", doc.Currency)
+	}
+
+	// BR-CL-14: seller and buyer country both have to be real ISO 3166-1
+	// alpha-2 codes. isoCountryCode maps known spellings to DE/AT/CH but
+	// passes anything else through as a bare two-letter guess (e.g. settings
+	// carrying "XX" comes out as "XX") — that guess is what this catches.
+	if doc.Seller.Country != "" && !allowedCountries[doc.Seller.Country] {
+		add("BR-CL-14", "BT-40", "seller country %q is not a supported ISO 3166-1 code", doc.Seller.Country)
+	}
+	if doc.Buyer.Country != "" && !allowedCountries[doc.Buyer.Country] {
+		add("BR-CL-14", "BT-55", "customer country %q is not a supported ISO 3166-1 code", doc.Buyer.Country)
+	}
+
 	// Whichever VAT category an invoice uses, the seller has to be identified for
 	// tax purposes — a VAT identifier (BT-31) or, failing that, a tax number (BT-32).
 	if strings.TrimSpace(doc.Seller.VATID) == "" && strings.TrimSpace(doc.Seller.TaxRegID) == "" {
@@ -116,9 +166,25 @@ func validateInvoiceDoc(doc *invoiceDoc, profile Profile) error {
 	}
 
 	// Reverse charge moves the tax liability to the buyer, so the buyer has to be
-	// identifiable for tax as well.
+	// identifiable for tax as well. This is the buyer half of BR-AE-02 (the seller
+	// half is the sellerTaxRuleFor check above, for the same category) — BR-AE-03 is
+	// a different rule entirely: it covers a document-level allowance (BG-20) with
+	// its own VAT category, which this product does not emit.
 	if usesTaxCategory(doc.TaxGroups, taxCategoryReverseCharge) && strings.TrimSpace(doc.Buyer.VATID) == "" {
-		add("BR-AE-03", "BT-48", "reverse charge requires the customer VAT identifier")
+		add("BR-AE-02", "BT-48", "reverse charge requires the customer VAT identifier")
+	}
+
+	// BR-CO-9: whichever VAT identifier is present has to open with a valid
+	// country code prefix — the most common data-entry mistake on this field
+	// (a stray digit, a missing prefix), and one a receiver's validator catches
+	// immediately. Reuses allowedCountries (BR-CL-14) rather than a second list:
+	// the VAT prefix alphabet is not identical to ISO 3166-1 in general (Greece
+	// uses "EL"), but within the DACH whitelist this product emits, it is.
+	if vatID := strings.TrimSpace(doc.Seller.VATID); vatID != "" && !hasAllowedVATCountryPrefix(vatID) {
+		add("BR-CO-9", "BT-31", "seller VAT identifier %q does not start with a supported country code", vatID)
+	}
+	if vatID := strings.TrimSpace(doc.Buyer.VATID); vatID != "" && !hasAllowedVATCountryPrefix(vatID) {
+		add("BR-CO-9", "BT-48", "customer VAT identifier %q does not start with a supported country code", vatID)
 	}
 
 	for _, l := range doc.Lines {
@@ -212,3 +278,21 @@ func usesTaxCategory(groups []docTaxGroup, category string) bool {
 	}
 	return false
 }
+
+// hasAllowedVATCountryPrefix reports whether vatID opens with a country code
+// from allowedCountries (BR-CO-9).
+func hasAllowedVATCountryPrefix(vatID string) bool {
+	if len(vatID) < 2 {
+		return false
+	}
+	return allowedCountries[strings.ToUpper(vatID[:2])]
+}
+
+// lean: BR-31 through BR-42 (document- and line-level allowances/charges,
+// BG-20/BG-21/BG-27/BG-28) have no runtime check because neither models.Invoice
+// nor models.LineItem carries a discount or surcharge concept — buildInvoiceDoc
+// has nothing to read one from, and no generator emits an AllowanceCharge group.
+// A rebate applied only to the stored total, with no allowance line to show for
+// it, would be a calculation bug rather than a missing validation and belongs in
+// its own unit. Add the fields, the docTaxGroup wiring and these checks the day
+// the product supports invoice-level discounts.

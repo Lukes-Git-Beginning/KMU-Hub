@@ -173,7 +173,16 @@ func (s *Service) CounterPropose(ctx context.Context, id uuid.UUID, proposedStar
 	return req, nil
 }
 
-// Revoke moves an active request to revoked.
+// Revoke moves an active request to revoked. This changes only the request's
+// own status column: there is no other consumer of VendorAccessStatusActive
+// anywhere in internal/ or cmd/ (verified 2026-08-23 per
+// cov-gateway-security-vendor-access-routes) -- no middleware, session check,
+// or connection gate reads vendor_access_requests. The record is a
+// consent/audit trail for the "ein Server pro Kunde" delivery model, not an
+// access-control mechanism; whatever channel the vendor actually used to
+// reach the customer's data (SSH, DB console, etc.) keeps working until it is
+// closed by other means. A revoke here means "we withdrew consent", not "we
+// cut off access".
 func (s *Service) Revoke(ctx context.Context, id, actorID uuid.UUID) (*models.VendorAccessRequest, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {

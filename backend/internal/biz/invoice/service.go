@@ -7,6 +7,7 @@ package invoice
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -146,9 +147,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 	taxItems := toTaxLineItems(input.LineItems)
 	breakdown := tax.Calculate(taxItems, taxMode)
 
-	// Apply calculated line totals
+	// Apply calculated line totals, rounded exactly like tax.Calculate rounds them
+	// internally — the stored line net has to add up to the stored subtotal.
 	for i := range input.LineItems {
-		input.LineItems[i].LineTotal = input.LineItems[i].Quantity.Mul(input.LineItems[i].UnitPrice)
+		input.LineItems[i].LineTotal = tax.LineTotal(input.LineItems[i].Quantity, input.LineItems[i].UnitPrice)
 	}
 
 	// Marshal for JSONB storage
@@ -470,7 +472,7 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 		breakdown := tax.Calculate(taxItems, taxMode)
 
 		for i := range lineItems {
-			lineItems[i].LineTotal = lineItems[i].Quantity.Mul(lineItems[i].UnitPrice)
+			lineItems[i].LineTotal = tax.LineTotal(lineItems[i].Quantity, lineItems[i].UnitPrice)
 		}
 
 		lineItemsJSON, marshalErr := marshalLineItems(lineItems)
@@ -742,6 +744,17 @@ func (s *Service) DetectOverdue(ctx context.Context, tenantID uuid.UUID) (int, e
 
 	count := 0
 	for _, inv := range overdueInvoices {
+		// GoBD §146: an administratively locked invoice is technically immutable,
+		// same barrier Update/MarkPaid/Cancel already enforce via isInvoiceLocked.
+		// GetOverdue does not filter by locked_at (dunning.Service reuses it and
+		// must still see a locked invoice as due), so the skip belongs here.
+		if isInvoiceLocked(inv) {
+			slog.Warn("skipped overdue transition for locked invoice",
+				"invoice_id", inv.ID,
+				"tenant_id", tenantID,
+			)
+			continue
+		}
 		if updateErr := s.repo.UpdateStatus(ctx, tenantID, inv.ID, models.InvoiceStatusOverdue); updateErr != nil {
 			slog.Warn("failed to mark invoice as overdue",
 				"invoice_id", inv.ID,
@@ -777,6 +790,28 @@ func (s *Service) CreateFromQuote(ctx context.Context, tenantID, quoteID, userID
 
 	if quote.Status != models.QuoteStatusAccepted {
 		return nil, ErrQuoteNotAccepted
+	}
+
+	// A quote converts into exactly one invoice. Without this check a double click
+	// on "In Rechnung umwandeln" or a retried request creates a second complete
+	// invoice for the same quote: the quote stays "accepted" after the conversion,
+	// so no later state change blocks a repeat. A cancelled invoice does not block
+	// -- after a storno the quote may be invoiced again.
+	// lean: service-side check only; two genuinely simultaneous requests can still
+	// both pass. Tighten with a partial unique index on
+	// (tenant_id, source_quote_id) WHERE status <> 'cancelled' if concurrent
+	// conversions ever show up in production.
+	existing, existingErr := s.repo.GetByQuoteID(ctx, tenantID, quoteID)
+	switch {
+	case existingErr == nil && existing.Status != models.InvoiceStatusCancelled:
+		slog.Warn("rejected duplicate quote-to-invoice conversion",
+			"tenant_id", tenantID,
+			"quote_id", quoteID,
+			"existing_invoice_id", existing.ID,
+		)
+		return nil, ErrQuoteAlreadyConverted
+	case existingErr != nil && !errors.Is(existingErr, ErrInvoiceNotFound):
+		return nil, existingErr
 	}
 
 	// Parse the quote's line items for reuse

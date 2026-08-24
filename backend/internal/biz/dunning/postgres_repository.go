@@ -138,9 +138,14 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 	return records, total, rows.Err()
 }
 
+// UpdateStatus sets the status and, when sentAt is non-nil, the sent_at
+// timestamp. A nil sentAt leaves the column unchanged rather than clearing
+// it — callers pass nil for status transitions that are not "the notice was
+// just sent" (e.g. an admin override back to draft), and overwriting sent_at
+// with NULL in that case would silently erase the historical send timestamp.
 func (r *PostgresRepository) UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string, sentAt *time.Time) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE finance_dunning_records SET status = $1, sent_at = $2
+		`UPDATE finance_dunning_records SET status = $1, sent_at = COALESCE($2, sent_at)
 		WHERE tenant_id = $3 AND id = $4`,
 		status, sentAt, tenantID, id,
 	)
@@ -205,6 +210,9 @@ func (r *PostgresRepository) GetByInvoiceIDs(ctx context.Context, tenantID uuid.
 }
 
 // GetHighestLevelByInvoiceID returns the dunning record with the highest level for an invoice.
+// Level alone does not uniquely order rows (no unique constraint on
+// invoice_id+level), so ties break on the most recently created record —
+// otherwise Postgres could return either one nondeterministically.
 func (r *PostgresRepository) GetHighestLevelByInvoiceID(ctx context.Context, tenantID, invoiceID uuid.UUID) (*models.DunningRecord, error) {
 	var record models.DunningRecord
 	var feeStr, interestStr string
@@ -213,7 +221,7 @@ func (r *PostgresRepository) GetHighestLevelByInvoiceID(ctx context.Context, ten
 			fee, interest, sent_at, created_by, created_at
 		FROM finance_dunning_records
 		WHERE tenant_id = $1 AND invoice_id = $2
-		ORDER BY level DESC
+		ORDER BY level DESC, created_at DESC
 		LIMIT 1`,
 		tenantID, invoiceID,
 	).Scan(

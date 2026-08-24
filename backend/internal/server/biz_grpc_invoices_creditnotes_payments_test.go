@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -141,10 +142,6 @@ func (r *stubInvoiceRepo) CountByFiscalYear(context.Context, uuid.UUID, int) (in
 
 func (r *stubInvoiceRepo) AggregatePaymentStats(context.Context, uuid.UUID, time.Time, time.Time) (invoice.PaymentStats, error) {
 	return r.aggregatePaymentStats, r.aggregatePaymentStatsErr
-}
-
-func (r *stubInvoiceRepo) ListForGoBDExport(context.Context, uuid.UUID, time.Time, time.Time) ([]*models.Invoice, error) {
-	return nil, nil
 }
 
 func (r *stubInvoiceRepo) ListForDATEVExport(context.Context, uuid.UUID, time.Time, time.Time, *time.Time, *uuid.UUID, int) ([]*models.Invoice, error) {
@@ -922,6 +919,150 @@ func TestCreateInvoiceFromTimeEntries_Validation(t *testing.T) {
 			DateFrom: "2026-01-01", DateTo: "2026-01-31", HourlyRate: "50.00",
 		})
 		requireGRPCCode(t, err, codes.Unavailable)
+	})
+}
+
+// stubWorkTimeRepo is a configurable timetracking.WorkTimeRepository double.
+// Only the three methods CreateInvoiceFromTimeEntries actually calls
+// (ReserveWorkTimeForInvoice/ReleaseInvoiceReservation/ConfirmInvoiceReservation)
+// are configurable; the rest of the 14-method interface is unused by this RPC
+// and returns zero values.
+type stubWorkTimeRepo struct {
+	reserveMinutes  int
+	reserveEntryIDs []string
+	reserveErr      error
+	releaseErr      error
+	confirmErr      error
+	releasedIDs     []string
+	confirmedIDs    []string
+}
+
+func (s *stubWorkTimeRepo) Create(context.Context, *models.HRWorkTimeEntry) error { return nil }
+func (s *stubWorkTimeRepo) GetByID(context.Context, uuid.UUID, uuid.UUID) (*models.HRWorkTimeEntry, error) {
+	return nil, nil
+}
+func (s *stubWorkTimeRepo) GetActiveShift(context.Context, uuid.UUID, uuid.UUID) (*models.HRWorkTimeEntry, error) {
+	return nil, nil
+}
+func (s *stubWorkTimeRepo) Update(context.Context, *models.HRWorkTimeEntry) error { return nil }
+func (s *stubWorkTimeRepo) ApproveCorrection(context.Context, *models.HRWorkTimeEntry, *uuid.UUID) error {
+	return nil
+}
+func (s *stubWorkTimeRepo) List(context.Context, timetracking.WorkTimeFilter) ([]*models.HRWorkTimeEntry, int, error) {
+	return nil, 0, nil
+}
+func (s *stubWorkTimeRepo) GetPreviousShiftEnd(context.Context, uuid.UUID, uuid.UUID, time.Time) (*time.Time, error) {
+	return nil, nil
+}
+func (s *stubWorkTimeRepo) GetDailySummary(context.Context, uuid.UUID, uuid.UUID, time.Time) (*timetracking.DailySummary, error) {
+	return nil, nil
+}
+func (s *stubWorkTimeRepo) GetDailySummaryRange(context.Context, uuid.UUID, uuid.UUID, time.Time, int) ([]timetracking.DailySummary, error) {
+	return nil, nil
+}
+func (s *stubWorkTimeRepo) GetWeeklySummary(context.Context, uuid.UUID, uuid.UUID, time.Time) (*timetracking.WeeklySummary, error) {
+	return nil, nil
+}
+func (s *stubWorkTimeRepo) GetWeeklySummaryBatch(context.Context, uuid.UUID, []uuid.UUID, time.Time) (map[uuid.UUID]*timetracking.WeeklySummary, error) {
+	return nil, nil
+}
+func (s *stubWorkTimeRepo) GetActiveShiftEmployeeIDs(context.Context, uuid.UUID, []uuid.UUID) (map[uuid.UUID]bool, error) {
+	return nil, nil
+}
+func (s *stubWorkTimeRepo) ReserveWorkTimeForInvoice(_ context.Context, _, _ uuid.UUID, _, _ time.Time) (int, []string, error) {
+	if s.reserveErr != nil {
+		return 0, nil, s.reserveErr
+	}
+	return s.reserveMinutes, s.reserveEntryIDs, nil
+}
+func (s *stubWorkTimeRepo) ConfirmInvoiceReservation(_ context.Context, _, _ uuid.UUID, entryIDs []string) error {
+	s.confirmedIDs = entryIDs
+	return s.confirmErr
+}
+func (s *stubWorkTimeRepo) ReleaseInvoiceReservation(_ context.Context, _ uuid.UUID, entryIDs []string) error {
+	s.releasedIDs = entryIDs
+	return s.releaseErr
+}
+func (s *stubWorkTimeRepo) GetProjectBreakdown(context.Context, uuid.UUID, uuid.UUID, time.Time, time.Time) ([]timetracking.ProjectBreakdown, error) {
+	return nil, nil
+}
+
+// TestCreateInvoiceFromTimeEntries_ReserveErrorDoesNotLeak guards the fix for
+// a found bug: ReserveWorkTimeForInvoice returns whatever its own tx.Begin/
+// Query/Exec produced — a raw pgx/driver error, not a domain sentinel — and
+// the handler used to embed err.Error() verbatim in the client-facing gRPC
+// status message (fmt.Sprintf("reserve work time: %s", err.Error())). A
+// financial-close SQL failure (constraint name, column, sometimes a query
+// fragment) would have reached the API caller. Same leakage class Lauf 10's
+// scan-gateway-sql-error-leakage fixed on the gateway side, not yet checked
+// at this gRPC layer.
+func TestCreateInvoiceFromTimeEntries_ReserveErrorDoesNotLeak(t *testing.T) {
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+	rawDBErr := "pq: duplicate key value violates unique constraint \"hr_work_time_entries_pkey\""
+
+	srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+	srv.timetrackingRepo = &stubWorkTimeRepo{reserveErr: errors.New(rawDBErr)}
+
+	_, err := srv.CreateInvoiceFromTimeEntries(context.Background(), &bizv1.CreateInvoiceFromTimeEntriesRequest{
+		TenantId: tenantID.String(), EmployeeId: employeeID.String(), CustomerName: "Acme GmbH",
+		DateFrom: "2026-01-01", DateTo: "2026-01-31", HourlyRate: "50.00",
+	})
+	requireGRPCCode(t, err, codes.Internal)
+	assert.NotContains(t, err.Error(), rawDBErr, "raw repository error text must not reach the gRPC client")
+	assert.NotContains(t, err.Error(), "constraint", "no SQL error fragment must reach the gRPC client")
+}
+
+func TestCreateInvoiceFromTimeEntries_NoCompletedEntries(t *testing.T) {
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+
+	srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+	srv.timetrackingRepo = &stubWorkTimeRepo{reserveMinutes: 0}
+
+	_, err := srv.CreateInvoiceFromTimeEntries(context.Background(), &bizv1.CreateInvoiceFromTimeEntriesRequest{
+		TenantId: tenantID.String(), EmployeeId: employeeID.String(), CustomerName: "Acme GmbH",
+		DateFrom: "2026-01-01", DateTo: "2026-01-31", HourlyRate: "50.00",
+	})
+	requireGRPCCode(t, err, codes.FailedPrecondition)
+}
+
+// TestCreateInvoiceFromTimeEntries_HappyPath exercises the full success path:
+// entries reserved, draft invoice created, reservation confirmed against that
+// invoice. Also guards that a create failure releases the reservation instead
+// of leaving the entries stuck billed-but-uninvoiced forever.
+func TestCreateInvoiceFromTimeEntries_HappyPath(t *testing.T) {
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+
+	t.Run("happy path reserves, creates and confirms", func(t *testing.T) {
+		wtRepo := &stubWorkTimeRepo{reserveMinutes: 90, reserveEntryIDs: []string{uuid.New().String()}}
+		srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+		srv.timetrackingRepo = wtRepo
+
+		resp, err := srv.CreateInvoiceFromTimeEntries(context.Background(), &bizv1.CreateInvoiceFromTimeEntriesRequest{
+			TenantId: tenantID.String(), EmployeeId: employeeID.String(), CustomerName: "Acme GmbH",
+			DateFrom: "2026-01-01", DateTo: "2026-01-31", HourlyRate: "50.00",
+		})
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.GetInvoiceJson())
+		assert.Equal(t, wtRepo.reserveEntryIDs, wtRepo.confirmedIDs)
+		assert.Empty(t, wtRepo.releasedIDs, "a successful create must not release the reservation")
+	})
+
+	t.Run("invoice create failure releases the reservation", func(t *testing.T) {
+		wtRepo := &stubWorkTimeRepo{reserveMinutes: 90, reserveEntryIDs: []string{uuid.New().String()}}
+		invRepo := newStubInvoiceRepo()
+		invRepo.createErr = errors.New("boom")
+		srv := newFinanceTestServer(invRepo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+		srv.timetrackingRepo = wtRepo
+
+		_, err := srv.CreateInvoiceFromTimeEntries(context.Background(), &bizv1.CreateInvoiceFromTimeEntriesRequest{
+			TenantId: tenantID.String(), EmployeeId: employeeID.String(), CustomerName: "Acme GmbH",
+			DateFrom: "2026-01-01", DateTo: "2026-01-31", HourlyRate: "50.00",
+		})
+		requireGRPCCode(t, err, codes.Internal)
+		assert.Equal(t, wtRepo.reserveEntryIDs, wtRepo.releasedIDs, "a failed create must release the reservation so entries become billable again")
 	})
 }
 

@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -88,6 +89,68 @@ func TestGetAccessToken_RefreshesWhenCacheNearExpiry(t *testing.T) {
 	}
 }
 
+// TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint documents
+// (does not fix) a gap: GetAccessToken takes no per-tenant lock around the
+// refresh. With a cold cache, every concurrent caller independently reaches
+// RefreshAccessToken and sends the SAME refresh token loaded from the vault
+// (neither has stored a rotated one yet). At a token endpoint that rotates
+// refresh tokens on use, one of the two concurrent requests would invalidate
+// the token the other is still presenting — that caller comes back with
+// ErrReauthRequired even though the connection was valid moments earlier,
+// forcing a reconnect. This test proves today's code makes 2 independent
+// requests instead of deduplicating/serializing them; the actual race (which
+// of the two wins at a real, rotating token endpoint) is a data race the
+// -race detector must confirm in CI (no gcc in this local environment).
+func TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint(t *testing.T) {
+	tenantID := uuid.New()
+
+	var mu sync.Mutex
+	calls := 0
+	release := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls++
+		n := calls
+		mu.Unlock()
+
+		if n == 1 {
+			// Hold the first response until the second request has also
+			// reached the server (or a bounded timeout), so the test proves
+			// both calls were in flight at once, not merely sequential.
+			select {
+			case <-release:
+			case <-time.After(2 * time.Second):
+			}
+		} else {
+			close(release)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600}`))
+	}))
+	defer server.Close()
+
+	vault := &vaultStub{secret: "refresh-shared"}
+	om := NewOAuthManager(vault, "cid", "csecret", server.URL)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for range 2 {
+		go func() {
+			defer wg.Done()
+			if _, err := om.GetAccessToken(context.Background(), tenantID); err != nil {
+				t.Errorf("GetAccessToken: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	if calls != 2 {
+		t.Errorf("token endpoint called %d times, want 2 (both concurrent GetAccessToken calls refresh independently — no per-tenant lock exists)", calls)
+	}
+}
+
 func TestRefreshAccessToken_VaultErrorPropagates(t *testing.T) {
 	tenantID := uuid.New()
 	vault := &vaultStub{getErr: errors.New("vault down")}
@@ -133,6 +196,11 @@ func TestRefreshAccessToken_SendsExpectedFormAndCachesToken(t *testing.T) {
 	}
 }
 
+// TestRefreshAccessToken_NonOKStatusReturnsError covers the invalid_grant case
+// DATEV returns for an expired or revoked refresh token: a 4xx from the token
+// endpoint. This must come back as ErrReauthRequired, not a generic error —
+// mapDatevUploadError uses errors.Is on it to give the admin an actionable
+// "please reconnect" instead of an opaque "DATEV upload failed".
 func TestRefreshAccessToken_NonOKStatusReturnsError(t *testing.T) {
 	tenantID := uuid.New()
 	server := tokenServer(t, http.StatusUnauthorized, `{"error":"invalid_grant"}`, nil)
@@ -144,6 +212,31 @@ func TestRefreshAccessToken_NonOKStatusReturnsError(t *testing.T) {
 	_, err := om.RefreshAccessToken(context.Background(), tenantID)
 	if err == nil || !strings.Contains(err.Error(), "401") {
 		t.Fatalf("err = %v, want a status-401 error", err)
+	}
+	if !errors.Is(err, ErrReauthRequired) {
+		t.Errorf("err = %v, want errors.Is(err, ErrReauthRequired)", err)
+	}
+}
+
+// TestRefreshAccessToken_ServerErrorIsNotReauthRequired distinguishes a DATEV
+// outage (5xx) from a rejected refresh token (4xx): only the latter means
+// retrying is futile. A 5xx must NOT be wrapped as ErrReauthRequired, or an
+// admin would be told to reconnect DATEV when the actual connection is fine
+// and DATEV is just down.
+func TestRefreshAccessToken_ServerErrorIsNotReauthRequired(t *testing.T) {
+	tenantID := uuid.New()
+	server := tokenServer(t, http.StatusServiceUnavailable, `{"error":"unavailable"}`, nil)
+	defer server.Close()
+
+	vault := &vaultStub{secret: "refresh-xyz"}
+	om := NewOAuthManager(vault, "cid", "csecret", server.URL)
+
+	_, err := om.RefreshAccessToken(context.Background(), tenantID)
+	if err == nil || !strings.Contains(err.Error(), "503") {
+		t.Fatalf("err = %v, want a status-503 error", err)
+	}
+	if errors.Is(err, ErrReauthRequired) {
+		t.Errorf("err = %v, must not be ErrReauthRequired for a 5xx", err)
 	}
 }
 

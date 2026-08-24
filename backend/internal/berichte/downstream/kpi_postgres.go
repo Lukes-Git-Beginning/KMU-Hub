@@ -48,6 +48,12 @@ func NewPostgresKPIRepo(pool *pgxpool.Pool) *PostgresKPIRepo {
 // cast Postgres infers the parameter as `date` from its first use, pgx then
 // sends the bounds date-truncated, and every point-in-time predicate silently
 // clips to midnight — pipeline volume and open tickets read 0 all day.
+// lean: revenue and pipeline_volume sum only the tenant's default currency
+// (company_settings.default_currency, falling back to EUR) and silently drop
+// foreign-currency rows, matching the dashboard's
+// fix-dashboard-metrics-blind-currency-sum decision, instead of building a
+// per-currency KPI tile; upgrade when a tenant actually books outside their
+// default currency and the single-figure KPI stops being honest.
 const kpiSnapshotQuery = `
 	SELECT
 		COALESCE((
@@ -56,12 +62,14 @@ const kpiSnapshotQuery = `
 			  AND status IN ('sent', 'paid', 'overdue')
 			  AND invoice_date >= ($2::timestamptz)::date
 			  AND invoice_date <= ($3::timestamptz)::date
+			  AND currency = COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')
 		), 0)::text AS revenue,
 		COALESCE((
 			SELECT SUM(value) FROM deals
 			WHERE tenant_id = $1
 			  AND created_at <= $3::timestamptz
 			  AND (closed_at IS NULL OR closed_at > $3::timestamptz)
+			  AND currency = COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')
 		), 0)::text AS pipeline_volume,
 		(
 			SELECT COUNT(*) FROM tickets
@@ -129,12 +137,14 @@ const kpiSeriesQuery = `
 			  AND status IN ('sent', 'paid', 'overdue')
 			  AND invoice_date >= p.period_start
 			  AND invoice_date < p.period_end::date
+			  AND currency = COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')
 		), 0)::text AS revenue,
 		COALESCE((
 			SELECT SUM(value) FROM deals
 			WHERE tenant_id = $1
 			  AND created_at < p.period_end
 			  AND (closed_at IS NULL OR closed_at >= p.period_end)
+			  AND currency = COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')
 		), 0)::text AS pipeline_volume,
 		(
 			SELECT COUNT(*) FROM tickets

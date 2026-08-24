@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	"strings"
 	"time"
 
@@ -165,7 +166,7 @@ func (s *SecurityGRPCServer) ExportAuditLog(ctx context.Context, req *securityv1
 
 	data, err := s.auditService.ExportEntries(ctx, filter, format)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "export failed: %v", err)
+		return nil, mapSecurityError(err)
 	}
 
 	contentType := "text/csv"
@@ -424,6 +425,21 @@ func (s *SecurityGRPCServer) ListVendorAccessRequests(ctx context.Context, req *
 	return &securityv1.ListVendorAccessRequestsResponse{Requests: pbRequests}, nil
 }
 
+// logVendorAccessEvent appends one audit_log entry for a vendor-access status
+// change. Called only after the write already succeeded -- Approve, Decline,
+// CounterPropose and Revoke all reject an invalid transition
+// (ErrInvalidStatus, ErrSensitiveAckRequired) inside vendorAccessService
+// before ever reaching here, so a rejected attempt never writes an event.
+// Mirrors AuthGRPCServer.logPermissionEvent (grpc.go), the established
+// pattern for RPC-layer audit logging in this codebase.
+func (s *SecurityGRPCServer) logVendorAccessEvent(ctx context.Context, actorID uuid.UUID, action string, req *models.VendorAccessRequest) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return
+	}
+	s.auditService.LogEvent(ctx, tenantID, &actorID, action, req.ID.String(), "vendor_access_request", nil, "", "", "success")
+}
+
 func (s *SecurityGRPCServer) ApproveVendorAccessRequest(ctx context.Context, req *securityv1.ApproveVendorAccessRequestRequest) (*securityv1.ApproveVendorAccessRequestResponse, error) {
 	id, err := uuid.Parse(req.RequestId)
 	if err != nil {
@@ -439,6 +455,8 @@ func (s *SecurityGRPCServer) ApproveVendorAccessRequest(ctx context.Context, req
 		return nil, mapSecurityError(err)
 	}
 
+	s.logVendorAccessEvent(ctx, actorID, "vendor_access.approve", updated)
+
 	return &securityv1.ApproveVendorAccessRequestResponse{
 		Request: toProtoVendorAccessRequest(updated),
 	}, nil
@@ -449,11 +467,21 @@ func (s *SecurityGRPCServer) DeclineVendorAccessRequest(ctx context.Context, req
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request_id")
 	}
+	// Decline carries no actor_id field (unlike Approve/Revoke) -- the caller
+	// comes from the gRPC-metadata-propagated auth context instead (see
+	// middleware.TenantInboundUnaryInterceptor). The vendor-access route group
+	// requires authMiddleware, so this is expected to always resolve.
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	updated, err := s.vendorAccessService.Decline(ctx, id)
 	if err != nil {
 		return nil, mapSecurityError(err)
 	}
+
+	s.logVendorAccessEvent(ctx, actorID, "vendor_access.decline", updated)
 
 	return &securityv1.DeclineVendorAccessRequestResponse{
 		Request: toProtoVendorAccessRequest(updated),
@@ -469,11 +497,18 @@ func (s *SecurityGRPCServer) CounterProposeVendorAccessRequest(ctx context.Conte
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid proposed_start, expected YYYY-MM-DD")
 	}
+	// CounterPropose carries no actor_id field either -- see DeclineVendorAccessRequest.
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	updated, err := s.vendorAccessService.CounterPropose(ctx, id, proposedStart)
 	if err != nil {
 		return nil, mapSecurityError(err)
 	}
+
+	s.logVendorAccessEvent(ctx, actorID, "vendor_access.counter_propose", updated)
 
 	return &securityv1.CounterProposeVendorAccessRequestResponse{
 		Request: toProtoVendorAccessRequest(updated),
@@ -494,6 +529,8 @@ func (s *SecurityGRPCServer) RevokeVendorAccessRequest(ctx context.Context, req 
 	if err != nil {
 		return nil, mapSecurityError(err)
 	}
+
+	s.logVendorAccessEvent(ctx, actorID, "vendor_access.revoke", updated)
 
 	return &securityv1.RevokeVendorAccessRequestResponse{
 		Request: toProtoVendorAccessRequest(updated),
@@ -742,9 +779,23 @@ func (s *SecurityGRPCServer) ListIPRules(ctx context.Context, req *securityv1.Li
 	}, nil
 }
 
+// CreateIPRule persists an allow/block rule. It does NOT check whether the
+// calling admin's own IP would still pass the resulting rule set --
+// gateway.IPFilterMiddleware enforces rules on every request once loaded, so
+// a "block 0.0.0.0/0" or an "allow" rule that excludes the admin's own
+// network can lock every admin out (verified: no self-lockout guard exists
+// anywhere in this path). Fixing that is a product decision (soft warning?
+// hard block? break-glass bypass?) and is out of scope here; documented
+// per cov-gateway-security-retention-ip-password-routes (2026-08-23).
 func (s *SecurityGRPCServer) CreateIPRule(ctx context.Context, req *securityv1.CreateIPRuleRequest) (*securityv1.CreateIPRuleResponse, error) {
 	if req.IpCidr == "" {
 		return nil, status.Error(codes.InvalidArgument, "ip_cidr is required")
+	}
+	// Postgres' CIDR column type rejects any value with host bits set (e.g.
+	// "192.168.1.5/24" -- valid inet, invalid cidr). Mirror that here so the
+	// rejection surfaces as 400 instead of a generic 500 from the INSERT.
+	if ip, network, err := net.ParseCIDR(req.IpCidr); err != nil || !ip.Equal(network.IP) {
+		return nil, status.Error(codes.InvalidArgument, "ip_cidr must be valid CIDR notation with no host bits set")
 	}
 	if req.RuleType != models.IPRuleAllow && req.RuleType != models.IPRuleBlock {
 		return nil, status.Error(codes.InvalidArgument, "rule_type must be 'allow' or 'block'")
@@ -1246,11 +1297,16 @@ func mapSecurityError(err error) error {
 	}
 
 	switch {
+	case errors.Is(err, audit.ErrUnsupportedFormat):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, vault.ErrSecretNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, vault.ErrEmptyKeyName),
 		errors.Is(err, vault.ErrEmptyPayload):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, gdpr.ErrExportNotFound),
+		errors.Is(err, gdpr.ErrTokenNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, gdpr.ErrExportAlreadyPending):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, gdpr.ErrInvalidExportStatus):

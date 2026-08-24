@@ -256,7 +256,13 @@ func writeBookingLine(
 	docNumber string,
 	isCreditNote bool,
 ) error {
-	// Calculate gross amount for this line item (net + tax)
+	// Calculate gross amount for this line item (net + tax).
+	//
+	// Rounding order: per line, on purpose — every CSV row IS one Buchungssatz, and
+	// DATEV posts the gross "Umsatz" of that row and derives the tax itself from the
+	// BU-Schluessel. There is no group total in this format to round against, so the
+	// EN 16931 group rule (see einvoice.buildLinesAndTaxGroups) does not apply here.
+	// The net is intentionally not rounded separately: it is not written to the file.
 	grossAmount := item.LineTotal.Add(item.LineTotal.Mul(item.TaxRate.Div(decimal.NewFromInt(100))))
 	grossAmount = grossAmount.Round(2)
 
@@ -265,10 +271,10 @@ func writeBookingLine(
 		grossAmount = grossAmount.Abs()
 	}
 
-	// Determine rate key for account mapping
-	rateKey := truncateRate(item.TaxRate)
-	revenueAccount := RevenueAccountForRateAndMode(rateKey, taxMode)
-	buSchluessel := BUSchluesselForRate(rateKey)
+	// Determine account mapping from the exact rate — a truncated key would book
+	// 7.5% on the 7% account with BU key 2 (see RateKey).
+	revenueAccount := RevenueAccountForRateAndMode(item.TaxRate, taxMode)
+	buSchluessel := BUSchluesselForRate(item.TaxRate)
 
 	// Belegdatum: DDMM format (4 digits, no separator)
 	belegdatum := docDate.Format("0201") // Go: day=02, month=01
@@ -312,13 +318,6 @@ func writeBookingLine(
 func formatDecimalForDATEV(d decimal.Decimal) string {
 	s := d.StringFixed(2)
 	return strings.Replace(s, ".", ",", 1)
-}
-
-// truncateRate converts a decimal tax rate to its whole number string representation.
-// e.g., 19.00 -> "19", 7.00 -> "7", 0.00 -> "0"
-func truncateRate(rate decimal.Decimal) string {
-	intPart := rate.IntPart()
-	return fmt.Sprintf("%d", intPart)
 }
 
 // parseLineItems parses JSONB line items from raw JSON.

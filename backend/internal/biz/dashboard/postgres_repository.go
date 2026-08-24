@@ -29,6 +29,10 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 
 	// Query 1: Revenue metrics from invoices within date range.
 	// Monetary sums are scanned as strings + decimal to avoid float64 precision loss (ADR-0007).
+	// lean: sums only the tenant's default currency and silently drops foreign-currency
+	// invoices (currently only reachable via recurring invoices, see biz/recurring/service.go)
+	// instead of building a per-currency dashboard; upgrade when a tenant actually books
+	// outside their default currency and the single-figure metric stops being honest.
 	var totalInvoiced, totalPaid, totalOutstanding, overdueAmount string
 	err := r.pool.QueryRow(ctx,
 		`SELECT
@@ -37,7 +41,8 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 			COALESCE(SUM(CASE WHEN status IN ('sent','overdue') THEN gross_total ELSE 0 END), 0)::text as total_outstanding,
 			COALESCE(SUM(CASE WHEN status = 'overdue' THEN gross_total ELSE 0 END), 0)::text as overdue_amount
 		FROM finance_invoices
-		WHERE tenant_id = $1 AND invoice_date >= $2 AND invoice_date <= $3`,
+		WHERE tenant_id = $1 AND invoice_date >= $2 AND invoice_date <= $3
+			AND currency = COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')`,
 		tenantID, dateFrom, dateTo,
 	).Scan(&totalInvoiced, &totalPaid, &totalOutstanding, &overdueAmount)
 	if err != nil {
@@ -74,7 +79,10 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 	}
 	metrics.MonthsInRange = months
 
-	// Query 2: Pipeline metrics from quotes within date range
+	// Query 2: Pipeline metrics from quotes within date range.
+	// lean: same tenant-default-currency scoping as Query 1 above — quotesPending/
+	// quotesTotal/quotesAccepted stay currency-agnostic (they're counts, not sums),
+	// only avg_deal_size needs the filter.
 	var quotesPending int
 	var quotesTotal, quotesAccepted int
 	var avgDealSize string
@@ -83,7 +91,7 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 			COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) as quotes_pending,
 			COUNT(*) as quotes_total,
 			COALESCE(SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END), 0) as quotes_accepted,
-			COALESCE(AVG(CASE WHEN status IN ('sent','accepted') THEN gross_total END), 0)::text as avg_deal_size
+			COALESCE(AVG(CASE WHEN status IN ('sent','accepted') AND currency = COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR') THEN gross_total END), 0)::text as avg_deal_size
 		FROM finance_quotes
 		WHERE tenant_id = $1 AND created_at >= $2 AND created_at <= $3`,
 		tenantID, dateFrom, dateTo,

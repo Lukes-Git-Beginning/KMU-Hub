@@ -190,6 +190,40 @@ func TestUploadBuchungsstapel_TokenErrorIsNotRetried(t *testing.T) {
 	}
 }
 
+// TestUploadBuchungsstapel_ReauthRequiredIsNotRetried covers the path from an
+// expired/revoked refresh token through to the caller: doWithRetry treats a
+// token error as non-retryable (matching TestUploadBuchungsstapel_
+// TokenErrorIsNotRetried), but this additionally asserts errors.Is still
+// resolves ErrReauthRequired after the fmt.Errorf wrap in doWithRetry — the
+// server layer's mapDatevUploadError relies on exactly that to give the
+// admin a "please reconnect" message instead of an opaque failure.
+func TestUploadBuchungsstapel_ReauthRequiredIsNotRetried(t *testing.T) {
+	tenantID := uuid.New()
+	uploadCalls := 0
+	uploadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uploadCalls++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer uploadServer.Close()
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+	}))
+	defer tokenServer.Close()
+
+	om := NewOAuthManager(&vaultStub{secret: "expired-refresh"}, "cid", "csecret", tokenServer.URL)
+	u := newTestUploader(uploadServer.URL, om)
+
+	err := u.UploadBuchungsstapel(context.Background(), tenantID, "12345", []byte("csv"))
+	if !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("err = %v, want errors.Is(err, ErrReauthRequired)", err)
+	}
+	if uploadCalls != 0 {
+		t.Errorf("DATEV upload endpoint called %d times, want 0 (an expired refresh token must not retry the upload itself)", uploadCalls)
+	}
+}
+
 func TestUploadBuchungsstapel_CircuitBreakerOpensAfterConsecutiveFailures(t *testing.T) {
 	tenantID := uuid.New()
 	calls := 0

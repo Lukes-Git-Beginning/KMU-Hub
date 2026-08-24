@@ -160,6 +160,60 @@ func TestUpsertUploadConfigAndCreateUploadLog_WriteLandsInCallerTenant(t *testin
 	testutil.AssertRowCount(t, pool, ctxOther, "datev_upload_log", log.ID, 0)
 }
 
+// TestListUploadLogs_InvisibleToForeignTenant belongs with the RLS write test
+// above but exercises the read side through the actual accessor callers use:
+// ListUploadLogs filters WHERE config_id = $1 alone — RLS is the only thing
+// stopping a foreign tenant who somehow learned another tenant's config_id
+// from reading their DATEV transfer history.
+func TestListUploadLogs_InvisibleToForeignTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Datev Upload Logs RLS Own Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "Datev Upload Logs RLS Other Tenant")
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantOwn,
+		"email":         fmt.Sprintf("datev-rls-read-%s@tenantown.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userID) })
+
+	configID := testutil.SeedRow(t, pool, "integration_configs", map[string]any{
+		"tenant_id":             tenantOwn,
+		"platform":              "datev_api",
+		"credentials_vault_key": "datev/" + uuid.New().String(),
+		"created_by":            userID,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "integration_configs", configID) })
+
+	logID := seedUploadLog(t, pool, tenantOwn, configID, "completed", time.Now().UTC())
+
+	repo := NewPostgresUploadRepository(pool)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	logs, err := repo.ListUploadLogs(ctxOther, configID, 10)
+	if err != nil {
+		t.Fatalf("ListUploadLogs (foreign tenant): %v", err)
+	}
+	if len(logs) != 0 {
+		t.Fatalf("logs = %+v, want none — RLS must hide tenantOwn's upload history from tenantOther "+
+			"even though the caller supplied tenantOwn's real config_id (log %s)", logs, logID)
+	}
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	logs, err = repo.ListUploadLogs(ctxOwn, configID, 10)
+	if err != nil {
+		t.Fatalf("ListUploadLogs (own tenant): %v", err)
+	}
+	if len(logs) != 1 || logs[0].ID != logID {
+		t.Fatalf("logs = %+v, want exactly the seeded log %s under its own tenant", logs, logID)
+	}
+}
+
 func TestUpsertUploadConfig_FailsWithoutTenantContext(t *testing.T) {
 	repo, _, _, _, configID := setupDatevUploadRepo(t)
 

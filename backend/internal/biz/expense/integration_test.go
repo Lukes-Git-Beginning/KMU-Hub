@@ -64,7 +64,7 @@ func TestPostgresRepository_TenantScopedReadsAndWrites(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	// Private tenants rather than the shared TenantA/TenantB constants: these
 	// tests count every row of their tenant, so a neighbour's fixture under
@@ -80,8 +80,6 @@ func TestPostgresRepository_TenantScopedReadsAndWrites(t *testing.T) {
 	submitter := seedUser(t, pool, mine, "submitter")
 	foreignSubmitter := seedUser(t, pool, theirs, "foreign")
 
-	// Cleanup by defer, not t.Cleanup: the latter runs after the deferred
-	// pool.Close() above and would leave the rows behind on a dead pool.
 	ours := newExpenseRow(t, myCtx, repo, mine, submitter, "Ours")
 	defer testutil.CleanupRow(t, pool, "finance_expenses", ours.ID)
 	foreign := newExpenseRow(t, theirCtx, repo, theirs, foreignSubmitter, "Theirs")
@@ -137,7 +135,7 @@ func TestService_ApprovalPersists(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	tenant := uuid.New()
 	testutil.EnsureTenant(t, pool, tenant, "Expense Approval Tenant")
@@ -185,6 +183,115 @@ func TestService_ApprovalPersists(t *testing.T) {
 	}
 }
 
+// A pending expense is the only thing repo.Delete actually removes; the
+// cross-tenant case above proves the guard, this proves the happy path.
+func TestPostgresRepository_DeleteRemovesOwnRow(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "Expense Delete Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+	submitter := seedUser(t, pool, tenant, "deleter")
+
+	e := newExpenseRow(t, ctx, repo, tenant, submitter, "To delete")
+
+	if err := repo.Delete(ctx, tenant, e.ID); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if _, err := repo.GetByID(ctx, tenant, e.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("GetByID after delete: err = %v, want ErrNotFound", err)
+	}
+}
+
+// Update's WHERE clause carries the tenant the same way GetByID's does; this
+// proves the RETURNING-less-than-one-row case maps to ErrNotFound rather than
+// silently updating nothing and returning success.
+func TestPostgresRepository_UpdateMissingOrForeignRowReturnsNotFound(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	mine, theirs := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, mine, "Expense Update Mine")
+	testutil.EnsureTenant(t, pool, theirs, "Expense Update Theirs")
+
+	repo := NewPostgresRepository(pool)
+	myCtx := testutil.WithTenantCtx(context.Background(), mine)
+	theirCtx := testutil.WithTenantCtx(context.Background(), theirs)
+
+	foreignSubmitter := seedUser(t, pool, theirs, "foreign-update")
+	foreign := newExpenseRow(t, theirCtx, repo, theirs, foreignSubmitter, "Theirs")
+	defer testutil.CleanupRow(t, pool, "finance_expenses", foreign.ID)
+
+	t.Run("a foreign id updates nothing", func(t *testing.T) {
+		e := *foreign
+		e.TenantID = mine
+		e.Description = "Hijacked"
+		if err := repo.Update(myCtx, &e); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Update across tenants: err = %v, want ErrNotFound", err)
+		}
+		stillTheirs, err := repo.GetByID(theirCtx, theirs, foreign.ID)
+		if err != nil {
+			t.Fatalf("GetByID: %v", err)
+		}
+		if stillTheirs.Description != "Theirs" {
+			t.Errorf("description = %q, want unchanged %q", stillTheirs.Description, "Theirs")
+		}
+	})
+
+	t.Run("a missing id updates nothing", func(t *testing.T) {
+		e := *foreign
+		e.ID = uuid.New()
+		e.TenantID = mine
+		if err := repo.Update(myCtx, &e); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Update of a missing row: err = %v, want ErrNotFound", err)
+		}
+	})
+}
+
+// The repository has no amount guard of its own -- Create relies on the
+// finance_expenses_amount_positive CHECK constraint as the last line of
+// defense below the service's own parseAmount validation. This proves that
+// line actually holds and that the failure surfaces as a real error, not as
+// ErrNotFound (scanExpense must not confuse "constraint violation" with
+// "no rows").
+func TestPostgresRepository_CreateRejectsNonPositiveAmount(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "Expense Constraint Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+
+	e := &models.Expense{
+		TenantID:    tenant,
+		Description: "Negative claim",
+		Amount:      decimal.RequireFromString("-5.00"),
+		ExpenseDate: time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC),
+		Status:      models.ExpenseStatusPending,
+	}
+	err := repo.Create(ctx, e)
+	if err == nil {
+		t.Fatal("Create with a non-positive amount succeeded, want the CHECK constraint to reject it")
+	}
+	if errors.Is(err, ErrNotFound) {
+		t.Errorf("err = %v, want a database constraint error, not ErrNotFound", err)
+	}
+}
+
 // The "own" scope has to narrow in SQL, so rows and total agree. A post-filter
 // would leave the pager offering a page of rows the caller may not see.
 func TestPostgresRepository_ListNarrowsRowsAndTotalTogether(t *testing.T) {
@@ -192,7 +299,7 @@ func TestPostgresRepository_ListNarrowsRowsAndTotalTogether(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	tenant := uuid.New()
 	testutil.EnsureTenant(t, pool, tenant, "Expense Own Scope Tenant")
@@ -238,5 +345,69 @@ func TestPostgresRepository_ListNarrowsRowsAndTotalTogether(t *testing.T) {
 	}
 	if len(rows) != 0 || total != 0 {
 		t.Fatalf("own+approved list = %d rows / total %d, want 0 / 0", len(rows), total)
+	}
+}
+
+// Offset was untested against real SQL -- every prior List test used the
+// default of zero. A caller that pages past row 1 must see the next rows in
+// the same order, with the same total, not an empty page or a wrapped-around
+// one.
+func TestPostgresRepository_ListRespectsOffset(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "Expense Offset Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+	submitter := seedUser(t, pool, tenant, "pager")
+
+	mk := func(day int, description string) *models.Expense {
+		e := &models.Expense{
+			TenantID:    tenant,
+			Description: description,
+			Amount:      decimal.RequireFromString("10.00"),
+			ExpenseDate: time.Date(2026, 1, day, 0, 0, 0, 0, time.UTC),
+			Status:      models.ExpenseStatusPending,
+			SubmittedBy: &submitter,
+		}
+		if err := repo.Create(ctx, e); err != nil {
+			t.Fatalf("Create(%s): %v", description, err)
+		}
+		return e
+	}
+
+	// ORDER BY expense_date DESC: the latest day sorts first.
+	newest := mk(3, "Newest")
+	defer testutil.CleanupRow(t, pool, "finance_expenses", newest.ID)
+	middle := mk(2, "Middle")
+	defer testutil.CleanupRow(t, pool, "finance_expenses", middle.ID)
+	oldest := mk(1, "Oldest")
+	defer testutil.CleanupRow(t, pool, "finance_expenses", oldest.ID)
+
+	page1, total, err := repo.List(ctx, tenant, ListFilter{Limit: 2, Offset: 0})
+	if err != nil {
+		t.Fatalf("List page 1: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("total on page 1 = %d, want 3", total)
+	}
+	if len(page1) != 2 || page1[0].ID != newest.ID || page1[1].ID != middle.ID {
+		t.Fatalf("page 1 = %d rows, want [Newest, Middle]", len(page1))
+	}
+
+	page2, total, err := repo.List(ctx, tenant, ListFilter{Limit: 2, Offset: 2})
+	if err != nil {
+		t.Fatalf("List page 2: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("total on page 2 = %d, want 3 (same filter, same total)", total)
+	}
+	if len(page2) != 1 || page2[0].ID != oldest.ID {
+		t.Fatalf("page 2 = %d rows, want [Oldest]", len(page2))
 	}
 }

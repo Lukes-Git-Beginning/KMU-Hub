@@ -16,6 +16,7 @@ import (
 	"github.com/johnfercher/maroto/v2/pkg/props"
 	"github.com/shopspring/decimal"
 
+	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -151,7 +152,11 @@ func buildLineItemHeader() core.Row {
 
 // buildLineItemRow creates a single line item row.
 func buildLineItemRow(position int, item models.LineItem, isAlternate bool) core.Row {
-	lineTotal := item.Quantity.Mul(item.UnitPrice)
+	// Recomputed rather than read from item.LineTotal so a stale stored value cannot
+	// print. Routed through tax.LineTotal for one definition of the formula, not to
+	// change output: formatEUR's StringFixed(2) already rounds half away from zero,
+	// so the printed cents were and stay the same.
+	lineTotal := tax.LineTotal(item.Quantity, item.UnitPrice)
 	r := row.New(6).Add(
 		text.NewCol(1, fmt.Sprintf("%d", position), props.Text{Size: 8, Align: align.Center}),
 		text.NewCol(5, item.Description, props.Text{Size: 8}),

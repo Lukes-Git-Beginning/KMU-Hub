@@ -1,7 +1,42 @@
 openapi: 3.0.3
 info:
   title: KMU Hub API
-  description: All-in-One CRM for DACH SMEs with EU data sovereignty
+  description: >-
+    All-in-One CRM for DACH SMEs with EU data sovereignty.
+
+
+    ### Idempotency-Key contract
+
+    Every POST/PUT/PATCH/DELETE registered through the gateway's standard
+    route registrars (cmd/gateway/main.go, the `registrars` slice plus the
+    CRM advisory routes and the plugin API routes) runs behind
+    `middleware.Idempotency`: send an `Idempotency-Key` header to deduplicate
+    retries. A retry with the same key while the first attempt is still
+    in flight gets `409` (`#/components/responses/IdempotencyInFlight`,
+    `Retry-After: 2`); replaying a completed request returns the original
+    cached response with `Idempotency-Replayed: true`; reusing a key with a
+    different request body gets `422`. A missing key returns
+    `400` (`#/components/responses/IdempotencyKeyRequired`) only when the
+    gateway runs `IDEMPOTENCY_MODE=hard` — the Go code defaults to WarnMode,
+    but every shipped compose file (dev and prod) hard-sets `IDEMPOTENCY_MODE:
+    hard`, so a missing key returns 400 in every operated environment.
+
+
+    NOT covered by this middleware, so the responses above do not apply
+    there: `/api/v1/public/*` and `/api/v1/guest/*` (no auth, no tenant
+    context to key on), `/api/v1/caldav/*` and `/api/v1/admin/caldav/*`
+    (registered with a bare auth middleware outside the registrar loop),
+    `/api/v1/auth/login`, `/api/v1/auth/refresh` and `/api/v1/auth/2fa`
+    (explicitly whitelisted — not idempotent by design), the WOPI/CalDAV/
+    CardDAV protocol routes and `/reset-password` (registered without any
+    of the standard middleware).
+
+
+    Per-operation `409`/`400` documentation below is not yet exhaustive —
+    it currently covers the finance and dialer booking endpoints named in
+    the backend loop's Lauf 11 backlog (`fix-idempotency-inflight-409-not-
+    in-openapi`); rolling it out to the remaining protected routes is
+    tracked as a follow-up unit.
   version: 0.1.0
 
 servers:
@@ -577,6 +612,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     get:
       summary: List pending invitations
@@ -596,6 +633,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/invitations/{token}/accept:
     post:
@@ -638,6 +677,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/invitations/{id}:
     delete:
@@ -661,12 +702,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/users:
     get:
@@ -1580,7 +1625,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update custom field
       tags: [custom-fields]
       operationId: updateCustomField
@@ -1705,7 +1750,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update tag
       tags: [tags]
       operationId: updateTag
@@ -1886,6 +1931,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     post:
       summary: Create lead
@@ -1917,6 +1964,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/leads/{id}:
     patch:
@@ -1953,6 +2002,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/leads/{id}/convert:
     post:
@@ -1981,6 +2032,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/contacts/{id}:
     get:
@@ -2003,7 +2056,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update contact
       tags: [contacts]
       operationId: updateContact
@@ -2208,6 +2261,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     get:
       summary: List companies
@@ -2246,6 +2301,8 @@ paths:
                 $ref: "#/components/schemas/ListCompaniesResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/companies/{id}:
     get:
@@ -2263,12 +2320,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CompanyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
-    patch:
+    put:
       summary: Update company
       tags: [companies]
       operationId: updateCompany
@@ -2297,6 +2358,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     delete:
       summary: Delete company
@@ -2313,12 +2376,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/companies/{id}/contacts:
     get:
@@ -2336,10 +2403,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListContactsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # Pipeline Stages
   /api/v1/pipeline-stages:
@@ -2407,7 +2478,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update pipeline stage
       tags: [pipeline-stages]
       operationId: updatePipelineStage
@@ -2611,7 +2682,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    patch:
+    put:
       summary: Update deal
       tags: [deals]
       operationId: updateDeal
@@ -3049,6 +3120,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     post:
       summary: Create a new saved filter
@@ -3071,6 +3144,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/saved-filters/{id}:
     get:
@@ -3086,10 +3161,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SavedFilterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     patch:
       summary: Update a saved filter
@@ -3118,6 +3197,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     delete:
       summary: Delete a saved filter
@@ -3136,12 +3217,16 @@ paths:
                   status:
                     type: string
                     example: saved filter deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ============================================================================
   # Reports
@@ -3184,6 +3269,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/reports/conversion:
     get:
@@ -3216,6 +3303,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/reports/activities:
     get:
@@ -3254,6 +3343,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ==========================================================================
   # Chat: Channels
@@ -3281,6 +3372,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List channels the current user is a member of
       tags: [chat-channels]
@@ -3356,6 +3449,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Delete a channel (owner only)
       tags: [chat-channels]
@@ -3371,6 +3466,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/channels/{id}/archive:
     post:
@@ -3392,6 +3489,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/channels/{id}/join:
     post:
@@ -3412,7 +3511,20 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/Conflict"
+          description: >-
+            User is already a member of this channel. Also returned when a
+            request carrying the same Idempotency-Key is still in flight;
+            retry after the delay in Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: >-
+                Seconds to wait before retrying an in-flight duplicate; not
+                set for the already-a-member conflict above.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/channels/{id}/leave:
     post:
@@ -3430,6 +3542,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/channels/{id}/members:
     get:
@@ -3499,6 +3613,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   # ==========================================================================
   # Chat: Messages
@@ -3583,6 +3699,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/messages/{id}:
     put:
@@ -3616,6 +3734,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Delete a message (author or channel admin/owner)
       tags: [chat-messages]
@@ -3631,6 +3751,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/messages/{id}/thread:
     get:
@@ -3708,6 +3830,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List direct message channels for the current user
       tags: [chat-channels]
@@ -3777,6 +3901,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/messages/mentions:
     get:
@@ -3936,6 +4062,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/channels/{id}/files:
     get:
@@ -4182,6 +4310,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/{id}/pin:
     post:
@@ -4212,6 +4342,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Unpin a notification
       description: Removes the pin for the current user. Response wraps the updated notification under `notification`.
@@ -4240,6 +4372,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/{id}/dismiss:
     post:
@@ -4270,6 +4404,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/{id}/snooze:
     post:
@@ -4315,6 +4451,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
         "422":
           description: Snooze time is in the past
 
@@ -4346,6 +4484,8 @@ paths:
                     type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/preferences:
     get:
@@ -4397,6 +4537,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/event-types:
     get:
@@ -4456,6 +4598,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List muted resources
       tags: [notifications]
@@ -4517,6 +4661,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/quiet-hours:
     get:
@@ -4557,8 +4703,27 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/notifications/dnd:
+    get:
+      summary: Get current manual Do Not Disturb status
+      tags: [notifications]
+      operationId: getDND
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current DND status (disabled default when no quiet-hours record exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DNDStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Toggle manual Do Not Disturb mode
       tags: [notifications]
@@ -4585,11 +4750,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuietHours"
+                $ref: "#/components/schemas/DNDStatus"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+    delete:
+      summary: Disable manual Do Not Disturb mode
+      tags: [notifications]
+      operationId: disableDND
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: DND disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DNDStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ========================================================================
   # Dashboard Endpoints
@@ -4611,6 +4797,8 @@ paths:
                 $ref: "#/components/schemas/DashboardLayoutResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to get dashboard layout
     put:
       summary: Save personal dashboard layout
       tags: [dashboard]
@@ -4634,6 +4822,10 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to save dashboard layout
     delete:
       summary: Reset dashboard to role defaults
       tags: [dashboard]
@@ -4652,6 +4844,10 @@ paths:
                     type: string
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to reset dashboard layout
 
   /api/v1/dashboard/defaults/{role}:
     get:
@@ -4682,6 +4878,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Failed to get default layout
     put:
       summary: Save default dashboard layout for a role (admin only)
       tags: [dashboard]
@@ -4714,6 +4912,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to save default layout
 
   # ===========================================================================
   # Work / Project Management
@@ -4853,6 +5055,34 @@ paths:
                     $ref: "#/components/schemas/ProjectResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete project
+      tags: [projects]
+      operationId: deleteProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Project deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: project deleted }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -6404,6 +6634,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     get:
       summary: List calendars for current user
@@ -6427,6 +6659,8 @@ paths:
                 $ref: "#/components/schemas/CalendarListResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/calendars/{id}:
     get:
@@ -6444,10 +6678,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CalendarResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     put:
       summary: Update a calendar
@@ -6478,6 +6716,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     delete:
       summary: Delete a calendar
@@ -6494,12 +6734,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Members
@@ -6525,6 +6769,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     post:
       summary: Add a member to a calendar
@@ -6555,6 +6801,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/calendars/{id}/members/{userId}:
     delete:
@@ -6584,6 +6832,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/calendars/{id}/members/{userId}/permission:
     put:
@@ -6621,6 +6871,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Discovery & Subscriptions
@@ -6648,6 +6900,8 @@ paths:
                 $ref: "#/components/schemas/CalendarListResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/calendars/{id}/subscribe:
     post:
@@ -6669,6 +6923,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     delete:
       summary: Unsubscribe from a calendar
@@ -6689,6 +6945,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Preferences
@@ -6710,6 +6968,8 @@ paths:
                 $ref: "#/components/schemas/CalendarPreferencesResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     put:
       summary: Update calendar preferences for current user
@@ -6734,6 +6994,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Event Categories
@@ -6755,6 +7017,8 @@ paths:
                 $ref: "#/components/schemas/EventCategoriesResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     post:
       summary: Create an event category
@@ -6779,6 +7043,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/categories/{id}:
     delete:
@@ -6796,10 +7062,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Events
@@ -6831,6 +7101,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     get:
       summary: List events in a date range
@@ -6873,6 +7145,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/events/{id}:
     get:
@@ -6890,10 +7164,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CalendarEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     put:
       summary: Update a calendar event
@@ -6924,6 +7202,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     delete:
       summary: Delete a calendar event
@@ -6940,12 +7220,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Recurring Events
@@ -6986,6 +7270,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Event Attendees
@@ -7007,10 +7293,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EventAttendeesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – RSVP
@@ -7044,6 +7334,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Reminders
@@ -7065,10 +7357,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EventRemindersResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     put:
       summary: Set reminders for an event (replaces existing)
@@ -7097,6 +7393,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Resources
@@ -7128,6 +7426,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     get:
       summary: List resources
@@ -7170,8 +7470,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResourceListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/resources/{id}:
     get:
@@ -7189,10 +7493,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResourceResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     put:
       summary: Update a resource
@@ -7223,6 +7531,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
     delete:
       summary: Delete a resource (soft-delete)
@@ -7239,12 +7549,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Resource Availability
@@ -7286,6 +7600,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Resource Bookings
@@ -7317,6 +7633,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/bookings/{id}:
     delete:
@@ -7334,10 +7652,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Holidays
@@ -7385,6 +7707,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/holidays/seed:
     post:
@@ -7412,6 +7736,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – Task Deadlines
@@ -7450,6 +7776,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Calendar – LiveKit Video
@@ -7483,6 +7811,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/calendar/booking-pages:
     get:
@@ -7498,6 +7828,7 @@ paths:
         "200": {description: List of booking pages}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
     post:
       summary: Create booking page (admin)
       tags: [calendar]
@@ -7512,6 +7843,7 @@ paths:
         "201": {description: Created booking page}
         "400": {$ref: "#/components/responses/BadRequest"}
         "403": {$ref: "#/components/responses/Forbidden"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
   /api/v1/calendar/booking-pages/{id}:
     get:
       summary: Get booking page (admin)
@@ -7522,7 +7854,9 @@ paths:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
         "200": {description: Booking page}
+        "400": {$ref: "#/components/responses/BadRequest"}
         "404": {$ref: "#/components/responses/NotFound"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
     put:
       summary: Update booking page (admin)
       tags: [calendar]
@@ -7537,7 +7871,9 @@ paths:
             schema: {$ref: "#/components/schemas/BookingPageUpdateInput"}
       responses:
         "200": {description: Updated booking page}
+        "400": {$ref: "#/components/responses/BadRequest"}
         "404": {$ref: "#/components/responses/NotFound"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
     delete:
       summary: Delete booking page (admin)
       tags: [calendar]
@@ -7547,7 +7883,9 @@ paths:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
         "200": {description: Deleted}
+        "400": {$ref: "#/components/responses/BadRequest"}
         "404": {$ref: "#/components/responses/NotFound"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
   /api/v1/public/booking-pages/{slug}:
     get:
       summary: Get public booking page by slug (no auth)
@@ -8035,6 +8373,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List individual reactions for a message
       tags: [reactions]
@@ -8080,6 +8420,8 @@ paths:
                 $ref: "#/components/schemas/ReactionSummaryResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/messages/bookmarks:
     get:
@@ -8127,6 +8469,8 @@ paths:
           description: Caller is not a member of the message's channel
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   # ===========================================================================
   # Meetings
@@ -8156,6 +8500,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List meetings for the authenticated user
       tags: [meetings]
@@ -8197,6 +8543,8 @@ paths:
                 $ref: "#/components/schemas/ListMeetingsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}:
     get:
@@ -8214,10 +8562,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update a meeting
       tags: [meetings]
@@ -8245,6 +8597,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete a meeting
       tags: [meetings]
@@ -8264,10 +8618,14 @@ paths:
                   status:
                     type: string
                     example: meeting deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/start:
     post:
@@ -8285,10 +8643,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StartMeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/join:
     post:
@@ -8306,10 +8668,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JoinMeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/end:
     post:
@@ -8327,10 +8693,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EndMeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting Notes
@@ -8364,6 +8734,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: Get meeting notes
       tags: [meeting-notes]
@@ -8379,10 +8751,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingNotesListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/previous-notes:
     get:
@@ -8400,10 +8776,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingNotesListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/occurrences:
     get:
@@ -8515,6 +8895,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List action items for a meeting
       tags: [action-items]
@@ -8530,10 +8912,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListActionItemsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/action-items/{itemId}:
     put:
@@ -8568,6 +8954,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete an action item
       tags: [action-items]
@@ -8592,10 +8980,14 @@ paths:
                   status:
                     type: string
                     example: action item deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/action-items/convert:
     post:
@@ -8625,6 +9017,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # LiveKit Webhook
@@ -8669,6 +9063,8 @@ paths:
           description: Webhook acknowledged
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Missing or invalid webhook signature (JWT Authorization header)
 
   # ===========================================================================
   # Finance: Company Settings
@@ -8708,6 +9104,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # Finance: Quotes
@@ -8734,6 +9131,7 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List quotes
       tags: [quotes]
@@ -8766,6 +9164,8 @@ paths:
                     type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/finance/quotes/{id}:
     get:
@@ -8781,6 +9181,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
     put:
@@ -8804,8 +9206,11 @@ paths:
                 $ref: "#/components/schemas/Quote"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a quote
       tags: [quotes]
@@ -8815,8 +9220,11 @@ paths:
       responses:
         "200":
           description: Quote deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/quotes/{id}/send:
     post:
@@ -8837,7 +9245,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Quote is not in draft status
+          description: >-
+            Quote is not in draft status. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -8861,7 +9276,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Quote is not in sent status
+          description: >-
+            Quote is not in sent status. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -8885,7 +9307,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Quote is not in sent status
+          description: >-
+            Quote is not in sent status. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -8929,7 +9358,16 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Quote must be accepted before conversion to invoice
+          description: >-
+            Quote must be accepted before conversion to invoice, or the quote has already
+            been converted (a quote yields exactly one live invoice; after a storno it can
+            be converted again). Also returned when a request carrying the same
+            Idempotency-Key is still in flight; retry after the delay in Retry-After with
+            the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -8950,6 +9388,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "501":
           description: PDF generation not yet available via gateway
 
@@ -8974,6 +9414,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List invoices
       tags: [invoices]
@@ -9012,6 +9455,14 @@ paths:
                       $ref: "#/components/schemas/Invoice"
                   total:
                     type: integer
+        "400":
+          description: contact_id or recurring_id is not a valid UUID
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/invoices/{id}:
     get:
@@ -9027,6 +9478,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     put:
       summary: Update a draft invoice
       tags: [invoices]
@@ -9046,8 +9499,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
-        "410":
-          description: Invoice is immutable (already sent)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: >-
+            Invoice is immutable (already sent) and can no longer be edited. Also
+            returned when a request carrying the same Idempotency-Key is still in
+            flight; retry after the delay in Retry-After with the same key and
+            body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the immutability conflict above.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/invoices/{id}/send:
     post:
@@ -9063,6 +9530,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/mark-paid:
     post:
@@ -9078,6 +9547,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/cancel:
     post:
@@ -9093,6 +9564,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/invoices/{id}/pdf:
     get:
@@ -9123,10 +9596,19 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Invoice does not meet the e-invoice requirements
+          description: >-
+            Invoice does not meet the e-invoice requirements. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9178,10 +9660,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Invoice does not meet the e-invoice requirements
+          description: >-
+            Invoice does not meet the e-invoice requirements. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9207,6 +9698,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Payment"
+        "400":
+          description: >-
+            The invoice id in the path is not a valid UUID, or the body is
+            malformed or fails validation. Also returned when the
+            Idempotency-Key header is missing on this mutating request: that
+            only applies while the gateway runs in IDEMPOTENCY_MODE=hard, but
+            every shipped compose file (dev and prod) hard-sets it, so it is
+            the response in every operated environment, not an opt-in special
+            case.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List payments for an invoice
       tags: [payments]
@@ -9229,6 +9738,14 @@ paths:
                       $ref: "#/components/schemas/Payment"
                   total:
                     type: integer
+        "400":
+          description: id is not a valid UUID
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
+        "503":
+          description: Finance service unavailable
 
   # ===========================================================================
   # Finance: Credit Notes
@@ -9260,6 +9777,10 @@ paths:
                       $ref: "#/components/schemas/RecurringInvoice"
                   total:
                     type: integer
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
     post:
       summary: Create a recurring invoice schedule
       tags: [recurring-invoices]
@@ -9282,6 +9803,11 @@ paths:
                     $ref: "#/components/schemas/RecurringInvoice"
         "400":
           description: Invalid interval, date range or empty line items
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}:
     get:
@@ -9300,6 +9826,10 @@ paths:
                 properties:
                   recurring:
                     $ref: "#/components/schemas/RecurringInvoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
     put:
@@ -9326,8 +9856,13 @@ paths:
                     $ref: "#/components/schemas/RecurringInvoice"
         "400":
           description: Invalid interval or date range
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a recurring invoice schedule
       tags: [recurring-invoices]
@@ -9341,8 +9876,13 @@ paths:
             application/json:
               schema:
                 type: object
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}/pause:
     post:
@@ -9361,8 +9901,13 @@ paths:
                 properties:
                   recurring:
                     $ref: "#/components/schemas/RecurringInvoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}/resume:
     post:
@@ -9382,8 +9927,13 @@ paths:
                 properties:
                   recurring:
                     $ref: "#/components/schemas/RecurringInvoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/recurring/{id}/generate:
     post:
@@ -9407,10 +9957,25 @@ paths:
                     $ref: "#/components/schemas/Invoice"
                   recurring:
                     $ref: "#/components/schemas/RecurringInvoice"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404":
           description: Schedule not found
-        "412":
-          description: Schedule is paused, ended or past its end date
+        "409":
+          description: >-
+            Schedule is paused, ended or past its end date. Also returned when a
+            request carrying the same Idempotency-Key is still in flight; retry
+            after the delay in Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the schedule-state conflict above.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/finance/credit-notes:
     post:
@@ -9430,6 +9995,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditNote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     get:
       summary: List credit notes
       tags: [credit-notes]
@@ -9455,6 +10025,12 @@ paths:
                       $ref: "#/components/schemas/CreditNote"
                   total:
                     type: integer
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/credit-notes/{id}:
     get:
@@ -9470,6 +10046,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditNote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/credit-notes/{id}/send:
     post:
@@ -9485,6 +10065,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreditNote"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/credit-notes/{id}/pdf:
     get:
@@ -9501,6 +10086,10 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   # ===========================================================================
   # Finance: Payments (top-level)
@@ -9515,6 +10104,11 @@ paths:
       responses:
         "200":
           description: Payment deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # Finance: Dunning
@@ -9546,6 +10140,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
           content:
@@ -9608,12 +10204,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to read the uploaded file, or failed to serialize the response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Finance service unavailable
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/bank-statements/{id}:
     get:
@@ -9647,6 +10250,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
           content:
@@ -9779,6 +10384,13 @@ paths:
           description: >
             Already reconciled, or the entry is a debit — money leaving the
             account cannot settle a receivable.
+            Also returned when a request carrying the same
+            Idempotency-Key is still in flight; retry after the delay in
+            Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9833,6 +10445,13 @@ paths:
           description: >
             The entry is booked or was set aside — both are reversals, not
             rejections.
+            Also returned when a request carrying the same
+            Idempotency-Key is still in flight; retry after the delay in
+            Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9877,7 +10496,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: The transaction is already booked
+          description: >-
+            The transaction is already booked. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -9957,7 +10583,14 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          description: The tenant already holds an account with this IBAN
+          description: >-
+            The tenant already holds an account with this IBAN. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10015,7 +10648,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Another account of the tenant already holds this IBAN
+          description: >-
+            Another account of the tenant already holds this IBAN. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10065,6 +10705,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/bank-accounts/{id}/connect:
     post:
@@ -10111,6 +10752,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/expenses:
     get:
@@ -10193,6 +10835,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/expenses/{id}:
     put:
@@ -10241,7 +10884,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: The expense was already decided and the edit reaches past account and receipt
+          description: >-
+            The expense was already decided and the edit reaches past account and receipt. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10280,7 +10930,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: The expense was already decided
+          description: >-
+            The expense was already decided. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10331,7 +10988,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Already decided, or the caller is the submitter
+          description: >-
+            Already decided, or the caller is the submitter. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10380,7 +11044,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Already decided, or the caller is the submitter
+          description: >-
+            Already decided, or the caller is the submitter. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10448,6 +11119,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/transactions:
     get:
@@ -10518,7 +11190,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: The entry names an approved expense, which cannot be withdrawn
+          description: >-
+            The entry names an approved expense, which cannot be withdrawn. Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -10652,6 +11331,8 @@ paths:
           description: Missing or invalid tenant
         "403":
           description: Missing finance read permission
+        "500":
+          description: Failed to serialize the response
         "503":
           description: Finance service unavailable
 
@@ -10686,6 +11367,12 @@ paths:
                       $ref: "#/components/schemas/DunningRecord"
                   total:
                     type: integer
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/dunning/detect:
     post:
@@ -10708,6 +11395,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/send:
     post:
@@ -10723,6 +11415,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/escalate:
     post:
@@ -10748,6 +11445,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningRecord"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/finance/dunning/{id}/pdf:
     get:
@@ -10764,6 +11466,10 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/dunning/config:
     get:
@@ -10777,6 +11483,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningConfig"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
     put:
       summary: Update dunning configuration (admin only)
       tags: [dunning]
@@ -10794,6 +11504,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DunningConfig"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # Finance: Dashboard
@@ -10810,6 +11525,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FinanceDashboard"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   # ===========================================================================
   # Finance: DATEV Export
@@ -10849,6 +11568,11 @@ paths:
               schema:
                 type: string
                 example: 'attachment; filename="EXTF_Buchungsstapel_20260101_20261231.csv"'
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # HR: Leave Management
@@ -10871,6 +11595,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     get:
       summary: List leave requests (filtered)
       tags: [hr-leave]
@@ -10903,6 +11629,10 @@ paths:
                     items:
                       $ref: "#/components/schemas/LeaveRequest"
                   total: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/hr/leave/requests/{id}:
     get:
@@ -10990,6 +11720,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/leave/balance/{userId}:
     get:
@@ -11005,6 +11737,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/leave/types:
     get:
@@ -11020,6 +11754,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LeaveType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/leave/sick:
     post:
@@ -11048,6 +11784,10 @@ paths:
                   leave_request:
                     $ref: "#/components/schemas/LeaveRequest"
                   au_document_required: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   # ===========================================================================
   # HR: Time Tracking
@@ -11064,6 +11804,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkTimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/time/clock-out:
     post:
@@ -11082,6 +11824,10 @@ paths:
                     $ref: "#/components/schemas/WorkTimeEntry"
                   severity: { type: string, enum: [none, info, warning, error] }
                   arbzg_message: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/hr/time/break/start:
     post:
@@ -11127,6 +11873,8 @@ paths:
                   is_on_break: { type: boolean }
                   active_break:
                     $ref: "#/components/schemas/BreakEntry"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/hr/time/status:
     get:
@@ -11165,6 +11913,62 @@ paths:
                     items:
                       $ref: "#/components/schemas/WorkTimeEntry"
                   total: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
+    post:
+      summary: Create a manual work time entry
+      tags: [hr-time]
+      operationId: createManualTimeEntry
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clock_in, clock_out]
+              properties:
+                clock_in: { type: string, format: date-time }
+                clock_out: { type: string, format: date-time }
+                break_minutes: { type: integer, minimum: 0 }
+                category_id: { type: string, format: uuid }
+                activity: { type: string }
+                note: { type: string }
+                billable: { type: boolean }
+                location_lat: { type: number, format: double }
+                location_lng: { type: number, format: double }
+                location_address: { type: string }
+      responses:
+        "201":
+          description: Manual entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeEntry"
+        "400":
+          description: >-
+            Missing Idempotency-Key header, clock_in/clock_out not RFC3339, or clock_out not
+            after clock_in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: The employee's week is submitted or approved and no longer accepts time entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/hr/time/summary/daily:
     get:
@@ -11214,6 +12018,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkTimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/hr/time/corrections/{id}/approve:
     post:
@@ -11251,6 +12057,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AbsenceEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ===========================================================================
   # HR: Employee Profiles
@@ -11277,6 +12085,10 @@ paths:
                     items:
                       $ref: "#/components/schemas/EmployeeProfile"
                   total: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
     post:
       summary: Create employee profile
       description: Creates a new HR employee profile for an existing auth user. Auth user creation is a separate step.
@@ -11333,6 +12145,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmployeeProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "409":
           description: Employee profile already exists for this user
 
@@ -11703,6 +12517,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmployeeDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ===========================================================================
   # HR: Personalakte (tenant-wide personnel documents)
@@ -11824,6 +12640,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HRSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     put:
       summary: Update HR company settings
       tags: [hr-settings]
@@ -11841,6 +12659,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HRSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # =========================================================================
   # Inbox
@@ -11868,6 +12688,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageList"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}:
     get:
@@ -11884,6 +12706,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/read:
     post:
@@ -11900,6 +12726,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/unread:
     post:
@@ -11916,6 +12746,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/star:
     post:
@@ -11932,6 +12766,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/status:
     post:
@@ -11959,6 +12797,8 @@ paths:
                 $ref: "#/components/schemas/InboxMessageWrapper"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/tags:
     post:
@@ -11988,6 +12828,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Remove a tag from a message
       tags: [inbox-messages]
@@ -12015,6 +12857,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/forward:
     post:
@@ -12049,6 +12893,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "501":
           description: Forwarding is not supported for this message's channel
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/archive:
     post:
@@ -12065,6 +12911,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/unarchive:
     post:
@@ -12081,6 +12931,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/snooze:
     post:
@@ -12106,6 +12960,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/unsnooze:
     post:
@@ -12122,6 +12980,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/reply:
     post:
@@ -12149,6 +13011,10 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/assign:
     post:
@@ -12174,6 +13040,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/unread-count:
     get:
@@ -12188,6 +13058,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxUnreadCount"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/bulk-read:
     post:
@@ -12215,6 +13087,10 @@ paths:
                 type: object
                 properties:
                   updated_count: { type: integer }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/bulk-archive:
     post:
@@ -12242,6 +13118,10 @@ paths:
                 type: object
                 properties:
                   updated_count: { type: integer }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/teams:
     post:
@@ -12262,6 +13142,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamInbox"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List team inboxes for current user
       tags: [inbox-teams]
@@ -12279,6 +13163,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/TeamInbox"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/teams/{id}:
     put:
@@ -12301,6 +13187,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamInbox"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete a team inbox (admin/manager only)
       tags: [inbox-teams]
@@ -12311,6 +13201,10 @@ paths:
       responses:
         "200":
           description: Team inbox deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/teams/{id}/members:
     post:
@@ -12337,6 +13231,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamInboxMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List team inbox members
       tags: [inbox-teams]
@@ -12356,6 +13254,10 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/TeamInboxMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/teams/{id}/members/{user_id}:
     delete:
@@ -12369,6 +13271,10 @@ paths:
       responses:
         "200":
           description: Member removed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/claim:
     post:
@@ -12385,6 +13291,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/rules:
     post:
@@ -12405,6 +13315,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RoutingRule"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List routing rules
       tags: [inbox-routing]
@@ -12422,6 +13336,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/RoutingRule"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/rules/{id}:
     put:
@@ -12444,6 +13360,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RoutingRule"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete a routing rule (admin/manager only)
       tags: [inbox-routing]
@@ -12454,6 +13374,10 @@ paths:
       responses:
         "200":
           description: Routing rule deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/rules/test:
     post:
@@ -12481,6 +13405,10 @@ paths:
                 type: object
                 properties:
                   matches: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # =========================================================================
   # Automations
@@ -12512,6 +13440,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     get:
       summary: List automations
       tags: [automations]
@@ -12605,6 +13535,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
     delete:
       summary: Delete automation
       tags: [automations]
@@ -12626,6 +13558,8 @@ paths:
                   status: { type: string }
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/{id}/enable:
     post:
@@ -12650,6 +13584,8 @@ paths:
                     $ref: "#/components/schemas/Automation"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/{id}/disable:
     post:
@@ -12674,6 +13610,8 @@ paths:
                     $ref: "#/components/schemas/Automation"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/{id}/executions:
     get:
@@ -12828,6 +13766,8 @@ paths:
                     $ref: "#/components/schemas/Automation"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/test-condition:
     post:
@@ -12853,6 +13793,8 @@ paths:
                 type: object
                 properties:
                   result: { type: boolean }
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/dry-run:
     post:
@@ -12883,6 +13825,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/DryRunStep"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
 
   /api/v1/automations/stats:
     get:
@@ -13249,6 +14193,7 @@ paths:
               schema: { $ref: "#/components/schemas/ModuleLead" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Revoke module-lead rights from a user (admin only)
       operationId: revokeModuleLead
@@ -13269,6 +14214,7 @@ paths:
           description: Module lead revoked
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/settings/{module_id}:
     get:
@@ -13335,6 +14281,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403":
           description: Forbidden — caller is not a module-lead or admin for this module
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/settings/{module_id}/user:
     get:
@@ -13379,6 +14326,7 @@ paths:
               schema: { $ref: "#/components/schemas/SettingsResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/users/preferences:
     get:
@@ -13423,6 +14371,7 @@ paths:
               schema: { $ref: "#/components/schemas/SettingsResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/customization/labels:
     get:
@@ -13791,6 +14740,8 @@ paths:
                 $ref: "#/components/schemas/GobdDocument"
         "400":
           description: Invoice not locked
+        "401":
+          description: Unauthorized
         "404":
           description: Invoice not found
 
@@ -13815,6 +14766,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GobdDocumentWithEvents"
+        "401":
+          description: Unauthorized
         "404":
           description: Document not found
 
@@ -13839,6 +14792,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GobdDownloadResponse"
+        "401":
+          description: Unauthorized
         "404":
           description: Document not found
 
@@ -13874,6 +14829,8 @@ paths:
       responses:
         "201":
           description: Annotation added
+        "401":
+          description: Unauthorized
         "404":
           description: Document not found
 
@@ -13918,6 +14875,8 @@ paths:
           description: Unsupported media type
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to read the uploaded file
 
   /api/v1/finance/incoming-invoices:
     get:
@@ -13969,6 +14928,8 @@ paths:
                     type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to serialize the response
 
   /api/v1/finance/incoming-invoices/{id}:
     get:
@@ -15258,6 +16219,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}:
     get:
@@ -15303,6 +16265,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a wiki article
       tags: [wiki-articles]
@@ -15315,6 +16278,7 @@ paths:
           description: Deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}/versions:
     get:
@@ -15350,6 +16314,7 @@ paths:
               schema: { type: object }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}/attachments:
     get:
@@ -15392,6 +16357,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}/attachments/{attachmentId}:
     delete:
@@ -15407,6 +16373,7 @@ paths:
           description: Attachment deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/search:
     get:
@@ -15463,6 +16430,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/categories/{id}:
     patch:
@@ -15491,6 +16459,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a wiki category
       tags: [wiki-categories]
@@ -15503,6 +16472,7 @@ paths:
           description: Category deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/articles/{id}/share:
     get:
@@ -15544,6 +16514,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/wiki/share/{tokenId}:
     delete:
@@ -15564,6 +16535,7 @@ paths:
           description: Share token revoked
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/public/wiki/articles/{token}:
     post:
@@ -15700,6 +16672,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenShift'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/shifts/publish:
     post:
@@ -15729,6 +16702,7 @@ paths:
                     type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/shifts/{id}:
     get:
@@ -15782,6 +16756,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a shift
       tags: [schichten]
@@ -15794,6 +16769,7 @@ paths:
           description: Deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/shifts/{id}/assignments:
     get:
@@ -15845,6 +16821,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenAssignment'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/shifts/{id}/assignments/{employee_id}:
     delete:
@@ -15860,6 +16837,7 @@ paths:
           description: Unassigned
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/templates:
     get:
@@ -15917,6 +16895,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenTemplate'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/templates/{id}:
     patch:
@@ -15953,6 +16932,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a shift template
       tags: [schichten]
@@ -15965,6 +16945,7 @@ paths:
           description: Deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/templates/{id}/apply:
     post:
@@ -16001,6 +16982,7 @@ paths:
                     type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/compliance:
     get:
@@ -16095,6 +17077,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenSwapRequest'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/swap-requests/{id}/approve:
     post:
@@ -16116,6 +17099,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenSwapRequest'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/schichten/swap-requests/{id}/reject:
     post:
@@ -16137,6 +17121,7 @@ paths:
                     $ref: '#/components/schemas/SchichtenSwapRequest'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ===========================================================================
   # Produktion (Production)
@@ -16539,6 +17524,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Create (register) a vehicle
       tags: [fuhrpark]
@@ -16575,6 +17561,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkVehicle'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}:
     get:
@@ -16594,8 +17581,10 @@ paths:
                 properties:
                   vehicle:
                     $ref: '#/components/schemas/FuhrparkVehicle'
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     patch:
       summary: Update a vehicle
       tags: [fuhrpark]
@@ -16635,6 +17624,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a vehicle
       tags: [fuhrpark]
@@ -16645,8 +17635,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/history:
     get:
@@ -16664,7 +17656,9 @@ paths:
           content:
             application/json:
               schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/services:
     get:
@@ -16690,7 +17684,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkService'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Schedule a service for a vehicle
       tags: [fuhrpark]
@@ -16725,6 +17721,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkService'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/damages:
     get:
@@ -16750,7 +17747,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkDamage'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Report damage for a vehicle
       tags: [fuhrpark]
@@ -16784,6 +17783,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkDamage'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/fuel-logs:
     get:
@@ -16809,7 +17809,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkFuelLog'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Add a fuel log entry for a vehicle
       tags: [fuhrpark]
@@ -16843,6 +17845,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkFuelLog'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/trip-logs:
     get:
@@ -16868,7 +17871,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkTripLog'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Add a trip log entry for a vehicle
       tags: [fuhrpark]
@@ -16906,6 +17911,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkTripLog'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/documents:
     get:
@@ -16931,7 +17937,9 @@ paths:
                       $ref: '#/components/schemas/FuhrparkDocument'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Attach a document to a vehicle
       tags: [fuhrpark]
@@ -16963,6 +17971,7 @@ paths:
                     $ref: '#/components/schemas/FuhrparkDocument'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/services:
     get:
@@ -16990,6 +17999,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/services/upcoming:
     get:
@@ -17015,6 +18025,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/services/{id}:
     patch:
@@ -17052,6 +18063,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a vehicle service record
       tags: [fuhrpark]
@@ -17062,8 +18074,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/services/{id}/complete:
     post:
@@ -17092,8 +18106,10 @@ paths:
                 properties:
                   service:
                     $ref: '#/components/schemas/FuhrparkService'
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/damages:
     get:
@@ -17121,6 +18137,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/damages/{id}:
     patch:
@@ -17156,6 +18173,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/damages/{id}/resolve:
     post:
@@ -17184,8 +18202,10 @@ paths:
                 properties:
                   damage:
                     $ref: '#/components/schemas/FuhrparkDamage'
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/fuel-logs:
     get:
@@ -17212,6 +18232,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/fuel-logs/{id}:
     patch:
@@ -17247,6 +18268,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a fuel log entry
       tags: [fuhrpark]
@@ -17257,8 +18279,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/trip-logs:
     get:
@@ -17285,6 +18309,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/trip-logs/export:
     get:
@@ -17305,6 +18330,7 @@ paths:
               schema: { type: string, format: binary }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/trip-logs/{id}:
     patch:
@@ -17344,6 +18370,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a trip log entry
       tags: [fuhrpark]
@@ -17354,8 +18381,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/bookings:
     get:
@@ -17393,6 +18422,7 @@ paths:
                     type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Book a pool vehicle for a time interval
       description: >
@@ -17429,6 +18459,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/bookings/{id}:
     patch:
@@ -17466,6 +18497,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a vehicle booking
       tags: [fuhrpark]
@@ -17476,8 +18508,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/documents/{id}:
     delete:
@@ -17490,8 +18524,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/driver-licenses:
     get:
@@ -17518,6 +18554,7 @@ paths:
                   total:
                     type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Record a new driver license check
       tags: [fuhrpark]
@@ -17550,6 +18587,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/driver-licenses/{id}:
     patch:
@@ -17585,6 +18623,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a driver license check entry
       tags: [fuhrpark]
@@ -17595,8 +18634,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/gps/ingest:
     post:
@@ -17636,6 +18677,7 @@ paths:
                     type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/gps/routes:
     get:
@@ -17660,6 +18702,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/FuhrparkRoute'
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/gps/positions:
     get:
@@ -17685,6 +18728,7 @@ paths:
                       $ref: '#/components/schemas/FuhrparkGpsPosition'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/tuev-due:
     get:
@@ -17705,6 +18749,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/FuhrparkVehicle'
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/export:
     get:
@@ -17721,6 +18766,7 @@ paths:
             application/octet-stream:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   # ===========================================================================
   # Einkauf (Purchasing)
@@ -19936,6 +20982,8 @@ paths:
                 $ref: "#/components/schemas/ListGDPRExportsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/v1/security/gdpr/export/{id}/approve:
     post:
@@ -20631,6 +21679,7 @@ paths:
                   schema: { $ref: "#/components/schemas/FormSchema" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/schemas/{id}:
     get:
@@ -20684,6 +21733,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a form schema
       tags: [formulare]
@@ -20696,6 +21746,7 @@ paths:
           description: Form schema deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/schemas/{id}/duplicate:
     post:
@@ -20724,6 +21775,7 @@ paths:
                   schema: { $ref: "#/components/schemas/FormSchema" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/schemas/{id}/stats:
     get:
@@ -20797,6 +21849,7 @@ paths:
                   submission: { $ref: "#/components/schemas/FormSubmission" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/schemas/{id}/submissions/export:
     get:
@@ -20893,7 +21946,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: The schema is not public, so no link may be minted for it
+          description: >-
+            The schema is not public, so no link may be minted for it. Also returned when a request
+            carrying the same Idempotency-Key is still in flight; retry after the delay in
+            Retry-After with the same key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -20923,6 +21983,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/public/formulare/submit/{token}:
@@ -21057,6 +22118,7 @@ paths:
                   webhook: { $ref: "#/components/schemas/FormWebhook" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/submissions/{id}:
     get:
@@ -21105,6 +22167,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/webhooks/{id}:
     get:
@@ -21158,6 +22221,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a webhook
       tags: [formulare]
@@ -21170,6 +22234,7 @@ paths:
           description: Webhook deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/formulare/webhooks/{id}/deliveries:
     get:
@@ -21252,6 +22317,7 @@ paths:
                   total: { type: integer }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Create a contract
       tags: [vertraege]
@@ -21283,6 +22349,8 @@ paths:
                   contract: { $ref: "#/components/schemas/VertraegeContract" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}:
     get:
@@ -21302,8 +22370,10 @@ paths:
                 type: object
                 properties:
                   contract: { $ref: "#/components/schemas/VertraegeContract" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     patch:
       summary: Update a contract
       tags: [vertraege]
@@ -21338,6 +22408,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a contract
       tags: [vertraege]
@@ -21348,8 +22420,11 @@ paths:
       responses:
         "204":
           description: Contract deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/export:
     get:
@@ -21367,8 +22442,10 @@ paths:
               schema: { type: string, format: binary }
             application/pdf:
               schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/events:
     get:
@@ -21401,6 +22478,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/signature:
     put:
@@ -21436,6 +22514,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/parties:
     get:
@@ -21456,8 +22536,10 @@ paths:
                   parties:
                     type: array
                     items: { $ref: "#/components/schemas/VertraegeContractParty" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Add a party to a contract
       tags: [vertraege]
@@ -21491,6 +22573,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/parties/{partyId}:
     delete:
@@ -21504,8 +22588,11 @@ paths:
       responses:
         "204":
           description: Party removed
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/reminders:
     get:
@@ -21527,8 +22614,10 @@ paths:
                   reminders:
                     type: array
                     items: { $ref: "#/components/schemas/VertraegeContractReminder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       summary: Create a reminder for a contract
       tags: [vertraege]
@@ -21559,6 +22648,8 @@ paths:
                   reminder: { $ref: "#/components/schemas/VertraegeContractReminder" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/reminders/{reminderId}:
     patch:
@@ -21593,6 +22684,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a contract reminder
       tags: [vertraege]
@@ -21604,8 +22697,11 @@ paths:
       responses:
         "204":
           description: Reminder deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   # ---------------------------------------------------------------------------
   # Modul: mails
@@ -22944,6 +24040,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to read uploaded file
 
   /api/v1/email/attachments/{id}/download:
     get:
@@ -23443,6 +24541,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/dialer/calls/{id}/notes:
     put:
@@ -23474,6 +24573,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/dialer/calls/{id}/complete:
     post:
@@ -23504,6 +24604,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/dialer/agent-status:
     get:
@@ -24769,6 +25870,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/objects/{id}:
     get:
@@ -24825,6 +25927,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a rental object
       tags: [vermietung]
@@ -24838,6 +25941,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/objects/{id}/availability:
     get:
@@ -24927,6 +26031,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}:
     get:
@@ -24981,6 +26086,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a rental
       tags: [vermietung]
@@ -24994,6 +26100,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}/start:
     post:
@@ -25015,6 +26122,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}/end:
     post:
@@ -25036,6 +26144,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}/signature:
     put:
@@ -25068,6 +26177,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/rentals/{id}/inspections:
     get:
@@ -25131,6 +26241,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/inspections/{id}:
     get:
@@ -25192,6 +26303,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/vermietung/calendar:
     get:
@@ -25331,6 +26443,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/definitions/{id}:
     get:
@@ -25395,6 +26508,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a report definition
       description: Requires berichte:reports:write permission.
@@ -25410,6 +26524,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/definitions/{id}/run:
     post:
@@ -25451,6 +26566,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/definitions/{id}/export:
     post:
@@ -25494,6 +26610,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/definitions/{id}/cache:
     delete:
@@ -25517,6 +26634,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/schedules:
     get:
@@ -25582,6 +26700,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/schedules/{id}:
     patch:
@@ -25629,6 +26748,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a report delivery schedule
       description: Requires berichte:reports:write permission.
@@ -25644,6 +26764,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/schedules/{id}/toggle:
     post:
@@ -25676,6 +26797,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/documents:
     get:
@@ -25759,6 +26881,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/documents/{id}:
     get:
@@ -25830,6 +26953,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Delete a report document
       description: Requires berichte:reports:write permission.
@@ -25845,6 +26969,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/documents/{id}/export/pdf:
     get:
@@ -25952,6 +27077,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/berichte/shares/{shareId}:
     delete:
@@ -25975,6 +27101,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/public/berichte/reports/{token}:
     post:
@@ -29178,6 +30305,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "502":
+          description: Notification service returned a status code outside 100-599
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/slack/interact:
     post:
@@ -29233,6 +30365,11 @@ paths:
               schema: { type: string, example: "unauthorized" }
         "501":
           description: Slack webhooks are not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "502":
+          description: Notification service returned a status code outside 100-599
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -29293,6 +30430,11 @@ paths:
               schema: { type: string, example: "unauthorized" }
         "501":
           description: Slack webhooks are not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "502":
+          description: Notification service returned a status code outside 100-599
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -29430,6 +30572,10 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "500":
+          description: OAuth state secret not configured, or failed to generate the OAuth state
+        "503":
+          description: Biz service unavailable
 
   /api/v1/finance/datev/disconnect:
     post:
@@ -29668,8 +30814,7 @@ paths:
         param), and for the success path (appends `bexio_connected=true`).
         Two failure paths return a JSON ErrorResponse instead of redirecting:
         an invalid/expired `state` token (400) and a misconfigured
-        BEXIO_STATE_SECRET (500, not formally listed below since it signals
-        server misconfiguration, not a client error).
+        BEXIO_STATE_SECRET (500).
       tags: [bexio]
       operationId: bexioOAuthCallback
       security: []
@@ -29699,6 +30844,11 @@ paths:
             Location:
               schema: { type: string, format: uri }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "500":
+          description: BEXIO_STATE_SECRET is not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/bexio/oauth/authorize:
     get:
@@ -29727,6 +30877,11 @@ paths:
                   authorization_url: { type: string, format: uri }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: BEXIO_STATE_SECRET is not configured, or state-token/authorization-URL generation failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/bexio/disconnect:
     post:
@@ -30041,9 +31196,8 @@ paths:
         the `X-Signature` header is checked against the raw request body,
         rejecting with 401 when missing or invalid. When the secret is unset
         in production the request is rejected with 500 (webhook secret not
-        configured, not formally listed below since it signals server
-        misconfiguration); in dev/staging the check is skipped with a
-        warning log instead.
+        configured); in dev/staging the check is skipped with a warning log
+        instead.
       tags: [lexware]
       operationId: handleLexwareWebhookEvent
       security: []
@@ -30074,6 +31228,11 @@ paths:
                   success: { type: boolean }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: LEXWARE_WEBHOOK_SECRET is not configured on this deployment (production)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/lexware/connect:
     post:
@@ -30410,6 +31569,8 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/CaldavPasswordInfo" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to list passwords
     post:
       summary: Create a new CalDAV app-specific password
       tags: [caldav]
@@ -30430,6 +31591,8 @@ paths:
                 $ref: "#/components/schemas/CaldavCreatePasswordResponse"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to create password
 
   /api/v1/caldav/passwords/{id}:
     delete:
@@ -30450,6 +31613,8 @@ paths:
                   status: { type: string, example: revoked }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to revoke password
 
   /api/v1/caldav/status:
     get:
@@ -30465,6 +31630,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/CaldavStatusResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to get status
 
   /api/v1/caldav/test:
     post:
@@ -30487,6 +31654,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/CaldavTestResult"
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to prepare connection test
 
   /api/v1/caldav/enable:
     put:
@@ -30504,6 +31673,8 @@ paths:
                 properties:
                   status: { type: string, example: enabled }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to enable CalDAV
 
   /api/v1/caldav/disable:
     put:
@@ -30521,6 +31692,8 @@ paths:
                 properties:
                   status: { type: string, example: disabled }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Failed to disable CalDAV
 
   # --- CalDAV admin (JWT auth + admin role) ---
 
@@ -30540,6 +31713,8 @@ paths:
                 $ref: "#/components/schemas/CaldavAdminSettings"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to get settings
     put:
       summary: Set the org-wide CalDAV/CardDAV enabled setting
       description: Requires admin role.
@@ -30562,6 +31737,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to update settings
 
   /api/v1/admin/caldav/users:
     get:
@@ -30583,6 +31760,8 @@ paths:
                     items: { $ref: "#/components/schemas/CaldavUserInfo" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to list users
 
   /api/v1/admin/caldav/users/{userId}/passwords:
     delete:
@@ -30608,6 +31787,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to revoke passwords
 
   # ============================================================================
   # Guest chat — public API (route_guest.go). Session endpoints are fully
@@ -30642,6 +31823,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/GuestCreateSessionResponse"
         "400": { $ref: "#/components/responses/BadRequest" }
+        "500":
+          description: Failed to create session
 
   /api/v1/guest/sessions/validate:
     post:
@@ -31099,6 +32282,7 @@ paths:
                 $ref: "#/components/schemas/CrmCompanyDuplicatesResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/companies/merge:
     post:
@@ -31124,6 +32308,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/gdpr/deletion-requests/{id}/process:
     post:
@@ -31192,6 +32377,9 @@ paths:
                 $ref: "#/components/schemas/FinanceJournalSummary"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/invoices/validate-number:
     get:
@@ -31214,6 +32402,9 @@ paths:
                 $ref: "#/components/schemas/FinanceInvoiceNumberValidation"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/invoices/{id}/lock:
     post:
@@ -31230,8 +32421,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FinanceInvoiceLockResult"
+        "400":
+          description: id is not a valid UUID
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/finance/stats/payments:
@@ -31258,6 +32453,9 @@ paths:
                 $ref: "#/components/schemas/FinancePaymentStats"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/dunning/{id}/status:
     put:
@@ -31288,6 +32486,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/finance/dunning/{id}/notice:
@@ -31311,8 +32511,14 @@ paths:
                   email_queued:
                     type: boolean
                     description: False until the dunning-notice email integration is wired up (Sprint 3 TODO)
+        "400":
+          description: id is not a valid UUID
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Failed to serialize the response
+        "503":
+          description: Finance service unavailable
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/finance/export/gobd:
@@ -31350,6 +32556,8 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
 
   /api/v1/finance/deals/{dealId}/quote:
     post:
@@ -31481,7 +32689,14 @@ paths:
         "404":
           description: Unknown module id
         "409":
-          description: Module is not available in this deployment (feature flag off)
+          description: >-
+            Module is not available in this deployment (feature flag off). Also returned when a request carrying the same Idempotency-Key is
+            still in flight; retry after the delay in Retry-After with the same
+            key and body.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying an in-flight duplicate; not set for the conflict above.
+              schema: { type: integer }
 
   /api/v1/admin/subscription:
     get:
@@ -31582,6 +32797,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/tenant/module-grants:
     get:
@@ -31651,6 +32867,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/tenant/module-grants/{user_id}/{module_id}:
     put:
@@ -31676,6 +32893,7 @@ paths:
                 $ref: "#/components/schemas/SettingsModuleGrant"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
     delete:
       summary: Revoke a user's access to a module (admin only)
       tags: [Settings]
@@ -31695,6 +32913,7 @@ paths:
           description: Module access revoked
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   # ==========================================================================
   # route_files.go -- generic presigned upload/download URL endpoints, backed
@@ -31728,6 +32947,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
 
   /api/v1/files/presign-download:
     get:
@@ -31786,6 +33006,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List breakout rooms and current participant assignments for a meeting
       tags: [meetings]
@@ -31801,10 +33023,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListBreakoutRoomsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/assign:
     post:
@@ -31838,6 +33064,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/join:
     post:
@@ -31855,12 +33083,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JoinBreakoutRoomResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/assignment:
     get:
@@ -31878,10 +33110,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GetBreakoutAssignmentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/return:
     post:
@@ -31915,6 +33151,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{id}/breakout-rooms/close:
     post:
@@ -31936,10 +33174,14 @@ paths:
                   status:
                     type: string
                     example: breakout rooms closed
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting AI Summary (Wave 7C — host/co-host authz enforced in the service)
@@ -31961,10 +33203,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting Chat (persisted in-call messages)
@@ -32003,6 +33249,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List persisted chat messages for a meeting
       tags: [meetings]
@@ -32029,10 +33277,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListMeetingChatMessagesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting Host Controls — Co-Hosts (Wave 3 — organizer-only, enforced in the service)
@@ -32075,6 +33327,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List co-hosts for a meeting
       tags: [meetings]
@@ -32095,10 +33349,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListCoHostsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{meetingId}/cohosts/{userId}:
     delete:
@@ -32131,10 +33389,14 @@ paths:
                   status:
                     type: string
                     example: co-host demoted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Meeting Host Controls — Lock and Moderation (Wave 3 — host/co-host authz
@@ -32178,6 +33440,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{meetingId}/moderation/mute:
     post:
@@ -32216,6 +33480,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{meetingId}/moderation/mute-all:
     post:
@@ -32242,10 +33508,14 @@ paths:
                   status:
                     type: string
                     example: all participants muted
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/meetings/{meetingId}/moderation/kick:
     post:
@@ -32284,6 +33554,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ===========================================================================
   # Recordings by Meeting
@@ -32538,6 +33810,7 @@ paths:
               schema: { $ref: "#/components/schemas/HrTimeAnalytics" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
 
   /api/v1/hr/time/balance:
     get:
@@ -32578,6 +33851,7 @@ paths:
                     items: { $ref: "#/components/schemas/HrTimeTeamEntry" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
 
   /api/v1/hr/time/categories:
     get:
@@ -32598,6 +33872,7 @@ paths:
                     items: { $ref: "#/components/schemas/HrTimeCategory" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
     post:
       summary: Create a time category
       tags: [hr-time]
@@ -32674,6 +33949,7 @@ paths:
                     items: { $ref: "#/components/schemas/HrTimeTemplate" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
     post:
       summary: Create a time template
       tags: [hr-time]
@@ -32728,6 +34004,7 @@ paths:
                     items: { $ref: "#/components/schemas/HrTimeProject" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
     post:
       summary: Create a time project
       tags: [hr-time]
@@ -32772,6 +34049,7 @@ paths:
                   target_minutes: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: Failed to serialize the response }
 
   /api/v1/hr/time/weeks/submit:
     post:
@@ -33176,6 +34454,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxCannedResponseList"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Create an inbox canned (template) reply
       tags: [inbox-messages]
@@ -33194,6 +34474,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxCannedResponseWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          description: Response marshaling failed
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/canned-responses/{id}:
     put:
@@ -33216,6 +34502,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxCannedResponseWrapper"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          description: Response marshaling failed
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete an inbox canned (template) reply
       tags: [inbox-messages]
@@ -33230,6 +34522,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/{id}/thread:
     get:
@@ -33246,6 +34542,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxThreadMessagesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/inbox/messages/unread-count:
     get:
@@ -33264,6 +34564,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxUnreadCount"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # --- Inventar: item attachments (backend/internal/gateway/route_inventar.go) ---
   # response.JSON on raw inventar proto messages — timestamps serialize as
@@ -35886,6 +37188,20 @@ components:
           type: string
           format: date-time
 
+    DNDStatus:
+      type: object
+      description: >-
+        Flat manual-DND status the desktop client consumes, derived from the
+        QuietHours backing record (internal/gateway/route_notification.go:
+        dndStatusFromQuietHours) — not the full QuietHours record itself.
+      properties:
+        is_active:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          description: Present only when a DND end time is set
+
     UpdateQuietHoursRequest:
       type: object
       required: [start_time, end_time, timezone, enabled]
@@ -38253,6 +39569,12 @@ components:
           type: string
           description: ISO 4217 code of the document currency. EUR for rows written before the column existed.
           example: EUR
+        converted_invoice_number:
+          type: string
+          description: >-
+            Number of the newest non-cancelled invoice this quote was converted into.
+            Empty if none — a cancelled conversion leaves this empty too, since the quote
+            may be invoiced again. Read-only.
 
     CreateQuoteRequest:
       type: object
@@ -45842,6 +47164,9 @@ components:
           type: string
           format: date-time
           description: "Present only once the upload run has finished"
+        is_stale:
+          type: boolean
+          description: "True when status is 'uploading' and started_at is older than the worst-case real transfer time -- the process that owned this upload most likely died mid-transfer"
 
     # === openapi-drift sweep: wp4-bexio-lexware ===
     # -----------------------------------------------------------------------
@@ -47720,6 +49045,32 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     Conflict:
       description: Conflict (e.g. duplicate email)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    IdempotencyInFlight:
+      description: >-
+        A request with this Idempotency-Key is already being processed (the
+        first attempt has not called Complete yet). Retry after the given
+        delay with the same key and body; a client that does not honour
+        Retry-After and abandons the request risks re-submitting a payload
+        that will still be executed exactly once server-side.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying, currently always "2".
+          schema: { type: integer }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    IdempotencyKeyRequired:
+      description: >-
+        Missing Idempotency-Key header on a mutating request. Only returned
+        when the gateway runs in IDEMPOTENCY_MODE=hard; the Go code defaults
+        to WarnMode, but every shipped compose file (dev and prod) hard-sets
+        IDEMPOTENCY_MODE=hard, so this is the response in every operated
+        environment, not an opt-in special case.
       content:
         application/json:
           schema:

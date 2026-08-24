@@ -136,10 +136,53 @@ func TestValidate_ReverseChargeNeedsBuyerVATID(t *testing.T) {
 
 	err := Validate(inv, testSettings(), "", ProfileEN16931)
 	assert.Equal(t, []string{"BT-48"}, violationTerms(t, err))
-	assert.Contains(t, err.Error(), "BR-AE-03")
+	// BR-AE-02 covers reverse charge on an invoice line (BG-25) and requires both
+	// seller and buyer identification — this is its buyer half. BR-AE-03 is a
+	// different rule (document-level allowance, BG-20) this product never emits.
+	assert.Contains(t, err.Error(), "BR-AE-02")
 
 	inv.CustomerUStIDNr = "ATU12345678"
 	assert.NoError(t, Validate(inv, testSettings(), "", ProfileEN16931))
+}
+
+// TestValidate_ZeroRatedNeedsSellerIdentification covers the one VAT category
+// TestValidate_SellerTaxRuleFollowsTheCategory cannot reach by flipping TaxMode:
+// zero-rated is a per-line outcome (TaxMode stays "standard", a line's own rate
+// is 0), not a document-wide setting like Kleinunternehmer or reverse charge.
+func TestValidate_ZeroRatedNeedsSellerIdentification(t *testing.T) {
+	t.Parallel()
+
+	items := []models.LineItem{
+		{Position: 1, Description: "Ausfuhrlieferung", Quantity: decimal.NewFromInt(1), UnitPrice: decimal.RequireFromString("500.00"), TaxRate: decimal.Zero, LineTotal: decimal.RequireFromString("500.00")},
+	}
+	raw, err := json.Marshal(items)
+	require.NoError(t, err)
+
+	inv := models.Invoice{
+		InvoiceNumber:   "RE-2026-0100",
+		CustomerName:    "Beispielkunde AG",
+		CustomerAddress: "Musterweg 1\n8001 Zürich",
+		TaxMode:         models.TaxModeStandard,
+		LineItems:       raw,
+		Subtotal:        decimal.RequireFromString("500.00"),
+		TotalTax:        decimal.Zero,
+		GrossTotal:      decimal.RequireFromString("500.00"),
+		Currency:        "EUR",
+		InvoiceDate:     time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		DueDate:         time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC),
+	}
+
+	settings := testSettings()
+	settings.UStIDNr = ""
+	settings.Steuernummer = ""
+
+	verr := Validate(inv, settings, "", ProfileEN16931)
+	require.Error(t, verr)
+	assert.Contains(t, verr.Error(), "BR-Z-02")
+	assert.Equal(t, []string{"BT-31"}, violationTerms(t, verr))
+
+	settings.Steuernummer = "143/815/08154"
+	assert.NoError(t, Validate(inv, settings, "", ProfileEN16931))
 }
 
 // TestValidate_PaymentTermsSatisfyTheDueDateRequirement guards against rejecting
@@ -191,6 +234,86 @@ func TestValidate_SellerTaxRuleFollowsTheCategory(t *testing.T) {
 			assert.Contains(t, err.Error(), tc.wantRule)
 		})
 	}
+}
+
+// ============================================================================
+// Code lists (BR-CL-04, BR-CL-14)
+// ============================================================================
+
+func TestValidate_RejectsUnsupportedCurrency(t *testing.T) {
+	t.Parallel()
+
+	inv := testInvoice(t)
+	inv.Currency = "EURO"
+
+	err := Validate(inv, testSettings(), "", ProfileEN16931)
+	assert.Equal(t, []string{"BT-5"}, violationTerms(t, err))
+	assert.Contains(t, err.Error(), "BR-CL-04")
+
+	for _, cur := range []string{"EUR", "CHF", "USD"} {
+		inv.Currency = cur
+		assert.NoError(t, Validate(inv, testSettings(), "", ProfileEN16931), "currency %s must be accepted", cur)
+	}
+}
+
+// TestValidate_RejectsUnsupportedCountry uses a two-letter, real ISO 3166-1
+// code outside the DACH whitelist ("FR") rather than a nonsense name: any
+// unrecognised name of a different length already falls back to "DE" inside
+// isoCountryCode (generator_doc.go) and would never reach this check — only a
+// bare two-letter passthrough does. Both BT-40 and BT-55 fire, because
+// buildBuyerParty currently derives the buyer country from the seller's own
+// (see its lean comment) — a receiver's validator still reports them as two
+// distinct terms.
+func TestValidate_RejectsUnsupportedCountry(t *testing.T) {
+	t.Parallel()
+
+	settings := testSettings()
+	settings.Country = "FR"
+
+	err := Validate(testInvoice(t), settings, "", ProfileEN16931)
+	assert.ElementsMatch(t, []string{"BT-40", "BT-55"}, violationTerms(t, err))
+	assert.Contains(t, err.Error(), "BR-CL-14")
+
+	for _, country := range []string{"Deutschland", "Österreich", "Schweiz", "AT", "CH"} {
+		settings.Country = country
+		assert.NoError(t, Validate(testInvoice(t), settings, "", ProfileEN16931), "country %s must be accepted", country)
+	}
+}
+
+// ============================================================================
+// BR-CO-9 (VAT identifier country prefix)
+// ============================================================================
+
+func TestValidate_RejectsSellerVATIdentifierWithBadCountryPrefix(t *testing.T) {
+	t.Parallel()
+
+	settings := testSettings()
+
+	settings.UStIDNr = "123456789" // no country prefix at all
+	err := Validate(testInvoice(t), settings, "", ProfileEN16931)
+	assert.Equal(t, []string{"BT-31"}, violationTerms(t, err))
+	assert.Contains(t, err.Error(), "BR-CO-9")
+
+	settings.UStIDNr = "FR12345678901" // a real ISO 3166-1 code, but outside the DACH whitelist
+	err = Validate(testInvoice(t), settings, "", ProfileEN16931)
+	assert.Equal(t, []string{"BT-31"}, violationTerms(t, err))
+
+	settings.UStIDNr = "DE123456789"
+	assert.NoError(t, Validate(testInvoice(t), settings, "", ProfileEN16931))
+}
+
+func TestValidate_RejectsBuyerVATIdentifierWithBadCountryPrefix(t *testing.T) {
+	t.Parallel()
+
+	inv := testInvoice(t)
+
+	inv.CustomerUStIDNr = "987654321"
+	err := Validate(inv, testSettings(), "", ProfileEN16931)
+	assert.Equal(t, []string{"BT-48"}, violationTerms(t, err))
+	assert.Contains(t, err.Error(), "BR-CO-9")
+
+	inv.CustomerUStIDNr = "ATU12345678"
+	assert.NoError(t, Validate(inv, testSettings(), "", ProfileEN16931))
 }
 
 // ============================================================================

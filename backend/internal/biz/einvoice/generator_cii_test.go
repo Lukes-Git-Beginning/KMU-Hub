@@ -308,6 +308,7 @@ func TestGenerateCII_Rejections(t *testing.T) {
 		invoice.InvoiceNumber = "  "
 		_, err := GenerateCII(invoice, testSettings(), "")
 		require.ErrorIs(t, err, ErrGenerateFailed)
+		assert.Contains(t, err.Error(), "BR-02", "the rejection must be searchable against a receiver's validation report")
 	})
 
 	t.Run("missing issue date", func(t *testing.T) {
@@ -315,6 +316,7 @@ func TestGenerateCII_Rejections(t *testing.T) {
 		invoice.InvoiceDate = time.Time{}
 		_, err := GenerateCII(invoice, testSettings(), "")
 		require.ErrorIs(t, err, ErrGenerateFailed)
+		assert.Contains(t, err.Error(), "BR-03")
 	})
 
 	t.Run("no line items", func(t *testing.T) {
@@ -322,6 +324,7 @@ func TestGenerateCII_Rejections(t *testing.T) {
 		invoice.LineItems = json.RawMessage(`[]`)
 		_, err := GenerateCII(invoice, testSettings(), "")
 		require.ErrorIs(t, err, ErrGenerateFailed)
+		assert.Contains(t, err.Error(), "BR-16")
 	})
 
 	// A stale stored total must never ship silently — the customer would receive a

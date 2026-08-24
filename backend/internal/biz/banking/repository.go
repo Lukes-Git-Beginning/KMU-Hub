@@ -28,6 +28,12 @@ var (
 	// ErrAccountExists is returned when the tenant already holds an account
 	// with that IBAN.
 	ErrAccountExists = errors.New("banking: an account with this IBAN already exists")
+	// ErrStatementHashConflict is returned when CreateStatement collides with the
+	// unique constraint on (tenant_id, content_hash) — two near-simultaneous
+	// imports of the same file both passed the check-then-write in Service.Import
+	// and only one could win the insert. The caller re-reads the winner's row
+	// instead of surfacing a raw duplicate-key error.
+	ErrStatementHashConflict = errors.New("banking: a statement with this content hash already exists")
 	// ErrInvalidIBAN is returned when the given IBAN fails the ISO 7064 check
 	// or is not a shape this system knows.
 	ErrInvalidIBAN = errors.New("banking: invalid IBAN")

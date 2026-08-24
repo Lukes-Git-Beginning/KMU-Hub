@@ -132,6 +132,91 @@ func TestGetDashboardMetrics_RevenueScopedByTenantAndDateRange(t *testing.T) {
 	}
 }
 
+// TestGetDashboardMetrics_ForeignCurrencyInvoiceExcludedFromRevenueSum covers
+// the fix for the blind currency sum: a tenant with no company_settings row
+// (default currency implicitly EUR) has one EUR and one CHF invoice in range.
+// The CHF invoice must not be blindly added into the EUR-denominated revenue
+// figures — only the EUR invoice may count.
+func TestGetDashboardMetrics_ForeignCurrencyInvoiceExcludedFromRevenueSum(t *testing.T) {
+	pool, tenantID, ctx := newDashboardFixture(t)
+	repo := NewPostgresRepository(pool)
+
+	dateFrom := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	dateTo := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	inRange := "2026-03-15"
+
+	seedInvoice(t, pool, tenantID, map[string]any{"status": models.InvoiceStatusSent, "gross_total": "1000.00", "invoice_date": inRange, "currency": "EUR"})
+	seedInvoice(t, pool, tenantID, map[string]any{"status": models.InvoiceStatusSent, "gross_total": "5000.00", "invoice_date": inRange, "currency": "CHF"})
+
+	metrics, err := repo.GetDashboardMetrics(ctx, tenantID, dateFrom, dateTo)
+	if err != nil {
+		t.Fatalf("GetDashboardMetrics: %v", err)
+	}
+
+	if want := mustDecimal(t, "1000.00"); !metrics.Revenue.TotalInvoiced.Equal(want) {
+		t.Errorf("TotalInvoiced = %s, want %s (CHF invoice must not be blindly summed into EUR)", metrics.Revenue.TotalInvoiced, want)
+	}
+	if want := mustDecimal(t, "1000.00"); !metrics.Revenue.TotalOutstanding.Equal(want) {
+		t.Errorf("TotalOutstanding = %s, want %s", metrics.Revenue.TotalOutstanding, want)
+	}
+}
+
+// TestGetDashboardMetrics_UsesTenantDefaultCurrencyNotHardcodedEUR covers a
+// tenant whose company_settings.default_currency is CHF (set via
+// biz/invoice/service.go at document creation time): their own CHF invoices
+// must count, and a stray EUR invoice must be excluded — proving the filter
+// resolves the tenant's actual default rather than hardcoding "EUR".
+func TestGetDashboardMetrics_UsesTenantDefaultCurrencyNotHardcodedEUR(t *testing.T) {
+	pool, tenantID, ctx := newDashboardFixture(t)
+	repo := NewPostgresRepository(pool)
+	settingsID := testutil.SeedRow(t, pool, "company_settings", map[string]any{"tenant_id": tenantID, "default_currency": "CHF"})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "company_settings", settingsID) })
+
+	dateFrom := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	dateTo := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	inRange := "2026-03-15"
+
+	seedInvoice(t, pool, tenantID, map[string]any{"status": models.InvoiceStatusSent, "gross_total": "2000.00", "invoice_date": inRange, "currency": "CHF"})
+	seedInvoice(t, pool, tenantID, map[string]any{"status": models.InvoiceStatusSent, "gross_total": "9999.00", "invoice_date": inRange, "currency": "EUR"})
+
+	metrics, err := repo.GetDashboardMetrics(ctx, tenantID, dateFrom, dateTo)
+	if err != nil {
+		t.Fatalf("GetDashboardMetrics: %v", err)
+	}
+
+	if want := mustDecimal(t, "2000.00"); !metrics.Revenue.TotalInvoiced.Equal(want) {
+		t.Errorf("TotalInvoiced = %s, want %s (tenant's default currency is CHF, the stray EUR invoice must be excluded)", metrics.Revenue.TotalInvoiced, want)
+	}
+}
+
+// TestGetDashboardMetrics_ForeignCurrencyQuoteExcludedFromAverageDealSize
+// covers Query 2's avg_deal_size: a CHF quote must not drag the EUR average
+// off, while quotesPending/quotesTotal/quotesAccepted stay currency-agnostic
+// counts (unaffected by the fix, asserted here to pin that decision).
+func TestGetDashboardMetrics_ForeignCurrencyQuoteExcludedFromAverageDealSize(t *testing.T) {
+	pool, tenantID, ctx := newDashboardFixture(t)
+	repo := NewPostgresRepository(pool)
+
+	dateFrom := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	dateTo := time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC)
+	inRange := time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC)
+
+	seedQuote(t, pool, tenantID, map[string]any{"status": models.QuoteStatusSent, "gross_total": "1000.00", "created_at": inRange, "currency": "EUR"})
+	seedQuote(t, pool, tenantID, map[string]any{"status": models.QuoteStatusAccepted, "gross_total": "50000.00", "created_at": inRange, "currency": "CHF"})
+
+	metrics, err := repo.GetDashboardMetrics(ctx, tenantID, dateFrom, dateTo)
+	if err != nil {
+		t.Fatalf("GetDashboardMetrics: %v", err)
+	}
+
+	if want := mustDecimal(t, "1000.00"); !metrics.Pipeline.AverageDealSize.Equal(want) {
+		t.Errorf("AverageDealSize = %s, want %s (CHF quote must not enter the EUR average)", metrics.Pipeline.AverageDealSize, want)
+	}
+	if metrics.Pipeline.QuotesPending != 1 {
+		t.Errorf("QuotesPending = %d, want 1 (count stays currency-agnostic)", metrics.Pipeline.QuotesPending)
+	}
+}
+
 // TestGetDashboardMetrics_EmptyDateRangeReturnsZeroNotError covers a tenant
 // with zero invoices in range: the SUM(...) aggregates must COALESCE to 0,
 // not surface a scan error from a NULL, and MonthsInRange must still be >= 1

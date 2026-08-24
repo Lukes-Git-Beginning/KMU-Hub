@@ -32,7 +32,7 @@ func TestKPISnapshot_AggregatesOnlyOwnTenant(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	testutil.EnsureTenant(t, pool, kpiTenant, "KPI Tenant")
 	testutil.EnsureTenant(t, pool, kpiOtherTenant, "KPI Other Tenant")
@@ -79,7 +79,7 @@ func TestKPISnapshot_ExcludesClosedDealsAndResolvedTickets(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	testutil.EnsureTenant(t, pool, kpiTenant, "KPI Tenant")
 
@@ -154,7 +154,7 @@ func TestKPISeries_BucketsByCalendarMonthAndExcludesForeignTenant(t *testing.T) 
 	testutil.SkipIfNoDB(t)
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	testutil.EnsureTenant(t, pool, kpiTenant, "KPI Tenant")
 	testutil.EnsureTenant(t, pool, kpiOtherTenant, "KPI Other Tenant")
@@ -217,6 +217,137 @@ func TestKPISeries_BucketsByCalendarMonthAndExcludesForeignTenant(t *testing.T) 
 	if got := after[6].OpenTickets - before[6].OpenTickets; got != 1 {
 		t.Errorf("last-month open ticket delta = %d, want 1 — the ticket was still open through last month's end", got)
 	}
+}
+
+// TestKPISnapshot_ForeignCurrencyInvoiceAndDealExcluded covers
+// fix-berichte-kpi-blind-currency-sum: a tenant with no company_settings row
+// (default currency implicitly EUR) has one EUR and one CHF invoice, and one
+// EUR and one CHF deal, all in range. The CHF rows must not be blindly summed
+// into the EUR-labeled revenue and pipeline_volume KPI tiles (executor.go
+// hardcodes Unit: "EUR" on both).
+func TestKPISnapshot_ForeignCurrencyInvoiceAndDealExcluded(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	testutil.EnsureTenant(t, pool, kpiTenant, "KPI Tenant")
+
+	repo := NewPostgresKPIRepo(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), kpiTenant)
+
+	now := dbNow(t, pool)
+	from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+	before, err := repo.KPISnapshot(ctx, kpiTenant, from, now)
+	if err != nil {
+		t.Fatalf("baseline snapshot: %v", err)
+	}
+
+	seedKPICurrencyFixtures(t, pool, kpiTenant, "EUR", "111.00", "222.00")
+	seedKPICurrencyFixtures(t, pool, kpiTenant, "CHF", "9999.00", "8888.00")
+
+	after, err := repo.KPISnapshot(ctx, kpiTenant, from, dbNow(t, pool))
+	if err != nil {
+		t.Fatalf("snapshot after seed: %v", err)
+	}
+
+	if got, want := after.Revenue.Sub(before.Revenue), decimal.RequireFromString("111.00"); !got.Equal(want) {
+		t.Errorf("revenue delta = %s, want %s (CHF invoice must not be blindly summed into EUR)", got, want)
+	}
+	if got, want := after.PipelineVolume.Sub(before.PipelineVolume), decimal.RequireFromString("222.00"); !got.Equal(want) {
+		t.Errorf("pipeline delta = %s, want %s (CHF deal must not be blindly summed into EUR)", got, want)
+	}
+}
+
+// TestKPISnapshot_UsesTenantDefaultCurrencyNotHardcodedEUR covers a tenant
+// whose company_settings.default_currency is CHF: their own CHF invoice and
+// deal must count, and a stray EUR invoice and deal must be excluded —
+// proving the filter resolves the tenant's actual default rather than
+// hardcoding "EUR".
+func TestKPISnapshot_UsesTenantDefaultCurrencyNotHardcodedEUR(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	testutil.EnsureTenant(t, pool, kpiTenant, "KPI Tenant")
+
+	settingsID := testutil.SeedRow(t, pool, "company_settings", map[string]any{"tenant_id": kpiTenant, "default_currency": "CHF"})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "company_settings", settingsID) })
+
+	repo := NewPostgresKPIRepo(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), kpiTenant)
+
+	now := dbNow(t, pool)
+	from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+	before, err := repo.KPISnapshot(ctx, kpiTenant, from, now)
+	if err != nil {
+		t.Fatalf("baseline snapshot: %v", err)
+	}
+
+	seedKPICurrencyFixtures(t, pool, kpiTenant, "CHF", "333.00", "444.00")
+	seedKPICurrencyFixtures(t, pool, kpiTenant, "EUR", "7777.00", "6666.00")
+
+	after, err := repo.KPISnapshot(ctx, kpiTenant, from, dbNow(t, pool))
+	if err != nil {
+		t.Fatalf("snapshot after seed: %v", err)
+	}
+
+	if got, want := after.Revenue.Sub(before.Revenue), decimal.RequireFromString("333.00"); !got.Equal(want) {
+		t.Errorf("revenue delta = %s, want %s (tenant's default currency is CHF, the stray EUR invoice must be excluded)", got, want)
+	}
+	if got, want := after.PipelineVolume.Sub(before.PipelineVolume), decimal.RequireFromString("444.00"); !got.Equal(want) {
+		t.Errorf("pipeline delta = %s, want %s (tenant's default currency is CHF, the stray EUR deal must be excluded)", got, want)
+	}
+}
+
+// seedKPICurrencyFixtures seeds one open invoice and one open deal in the
+// given currency, registering cleanup for each and their FK dependencies.
+func seedKPICurrencyFixtures(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, currency, grossTotal, dealValue string) {
+	t.Helper()
+
+	today := time.Now().UTC().Format("2006-01-02")
+	due := time.Now().UTC().Add(30 * 24 * time.Hour).Format("2006-01-02")
+
+	invoiceID := testutil.SeedRow(t, pool, "finance_invoices", map[string]any{
+		"tenant_id":      tenantID,
+		"invoice_number": fmt.Sprintf("KPICUR-%s", uuid.New().String()[:16]), // column is varchar(30)
+		"invoice_date":   today,
+		"due_date":       due,
+		"status":         "sent",
+		"gross_total":    grossTotal,
+		"currency":       currency,
+		"created_by":     uuid.New(),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_invoices", invoiceID) })
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"id":            uuid.New(),
+		"email":         fmt.Sprintf("kpi-cur-%s@test.invalid", uuid.New()),
+		"password_hash": "x",
+		"tenant_id":     tenantID,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userID) })
+
+	stageID := testutil.SeedRow(t, pool, "pipeline_stages", map[string]any{
+		"id":        uuid.New(),
+		"tenant_id": tenantID,
+		"name":      fmt.Sprintf("KPI-Cur-Stage-%s", uuid.New()),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "pipeline_stages", stageID) })
+
+	dealID := testutil.SeedRow(t, pool, "deals", map[string]any{
+		"id":         uuid.New(),
+		"tenant_id":  tenantID,
+		"name":       "KPI Currency Deal",
+		"value":      dealValue,
+		"currency":   currency,
+		"stage_id":   stageID,
+		"created_by": userID,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "deals", dealID) })
 }
 
 // dbNow reads the database clock, the same one that stamps created_at.
@@ -296,6 +427,97 @@ func seedKPIFixtures(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, gross
 		"status":    "active",
 	})
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "stock_warnings", warningID) })
+}
+
+// TestKPISeries_ForeignCurrencyExcludedFromBucket covers
+// fix-berichte-kpi-blind-currency-sum for kpiSeriesQuery: a CHF invoice and
+// deal dated into last month's bucket must not be summed into that bucket's
+// EUR-labeled revenue/pipeline_volume, mirroring
+// TestKPISnapshot_ForeignCurrencyInvoiceAndDealExcluded for the snapshot
+// query.
+func TestKPISeries_ForeignCurrencyExcludedFromBucket(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	testutil.EnsureTenant(t, pool, kpiTenant, "KPI Tenant")
+
+	repo := NewPostgresKPIRepo(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), kpiTenant)
+
+	now := dbNow(t, pool).UTC()
+	currentMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	lastMonthStart := currentMonthStart.AddDate(0, -1, 0)
+
+	before, err := repo.KPISeries(ctx, kpiTenant, now, 8)
+	if err != nil {
+		t.Fatalf("baseline series: %v", err)
+	}
+
+	seedKPISeriesCurrencyFixture(t, pool, kpiTenant, lastMonthStart, currentMonthStart, "EUR", "111.00", "222.00")
+	seedKPISeriesCurrencyFixture(t, pool, kpiTenant, lastMonthStart, currentMonthStart, "CHF", "9999.00", "8888.00")
+
+	after, err := repo.KPISeries(ctx, kpiTenant, now, 8)
+	if err != nil {
+		t.Fatalf("series after seed: %v", err)
+	}
+
+	if got, want := after[6].Revenue.Sub(before[6].Revenue), decimal.RequireFromString("111.00"); !got.Equal(want) {
+		t.Errorf("last-month revenue delta = %s, want %s (CHF invoice must not be blindly summed into EUR bucket)", got, want)
+	}
+	if got, want := after[6].PipelineVolume.Sub(before[6].PipelineVolume), decimal.RequireFromString("222.00"); !got.Equal(want) {
+		t.Errorf("last-month pipeline delta = %s, want %s (CHF deal must not be blindly summed into EUR bucket)", got, want)
+	}
+}
+
+// seedKPISeriesCurrencyFixture is seedKPISeriesFixture with an explicit
+// currency and amounts, for the foreign-currency exclusion test above.
+func seedKPISeriesCurrencyFixture(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, lastMonthStart, currentMonthStart time.Time, currency, grossTotal, dealValue string) {
+	t.Helper()
+
+	invoiceDate := lastMonthStart.AddDate(0, 0, 5).Format("2006-01-02")
+	dueDate := currentMonthStart.AddDate(0, 0, 30).Format("2006-01-02")
+
+	invoiceID := testutil.SeedRow(t, pool, "finance_invoices", map[string]any{
+		"tenant_id":      tenantID,
+		"invoice_number": fmt.Sprintf("KPISERCUR-%s", uuid.New().String()[:12]), // column is varchar(30)
+		"invoice_date":   invoiceDate,
+		"due_date":       dueDate,
+		"status":         "sent",
+		"gross_total":    grossTotal,
+		"currency":       currency,
+		"created_by":     uuid.New(),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_invoices", invoiceID) })
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"id":            uuid.New(),
+		"email":         fmt.Sprintf("kpi-series-cur-%s@test.invalid", uuid.New()),
+		"password_hash": "x",
+		"tenant_id":     tenantID,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userID) })
+
+	stageID := testutil.SeedRow(t, pool, "pipeline_stages", map[string]any{
+		"id":        uuid.New(),
+		"tenant_id": tenantID,
+		"name":      fmt.Sprintf("KPI-Series-Cur-Stage-%s", uuid.New()),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "pipeline_stages", stageID) })
+
+	dealID := testutil.SeedRow(t, pool, "deals", map[string]any{
+		"id":         uuid.New(),
+		"tenant_id":  tenantID,
+		"name":       "KPI Series Currency Deal",
+		"value":      dealValue,
+		"currency":   currency,
+		"stage_id":   stageID,
+		"created_by": userID,
+		"created_at": lastMonthStart,
+		"closed_at":  currentMonthStart,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "deals", dealID) })
 }
 
 // seedKPISeriesFixture seeds one invoice dated 5 days into lastMonthStart's

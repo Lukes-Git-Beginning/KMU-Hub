@@ -254,8 +254,12 @@ func (s *Service) DetectAndCreateDunnings(ctx context.Context, tenantID uuid.UUI
 			Level:     nextLevel,
 			Status:    models.DunningStatusDraft,
 			Fee:       fee,
-			Interest:  decimal.Zero, // Interest is calculated separately at send time or display time
-			CreatedBy: uuid.Nil,     // System-generated
+			// lean: Verzugszinsen are never computed — CalculateInterest below has zero
+			// callers (verified 2026-08-23). Not "calculated elsewhere"; simply not wired.
+			// Upgrade trigger: wire once (a) a B2B/B2C flag exists on invoice/customer and
+			// (b) CompanySettings.Basiszinssatz is read here instead of left at zero.
+			Interest:  decimal.Zero,
+			CreatedBy: uuid.Nil, // System-generated
 			CreatedAt: now,
 		}
 
@@ -416,6 +420,18 @@ func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilte
 // B2C: Basiszinssatz + 5 percentage points
 // B2B: Basiszinssatz + 9 percentage points
 // Pro-rata daily calculation from due_date to today.
+//
+// lean: has zero production callers (verified 2026-08-23, grepped internal/, cmd/ and
+// proto/biz/v1/biz.proto). The basiszinssatz parameter itself CAN be populated today —
+// CompanySettings.Basiszinssatz is a persisted, tenant-configurable field wired end to
+// end (route_biz.go HandleUpdateCompanySettings -> biz_grpc.go:229 -> models.CompanySettings)
+// — but nothing reads it into a dunning record. Upgrade trigger: wire this once a B2B/B2C
+// distinction exists on invoice/customer (models.Invoice has none today).
+// Two fachliche Mängel to fix at the same time as the wiring, not before:
+//   - the divisor below is a fixed 365; a full leap year overstates the daily rate slightly.
+//   - Basiszinssatz changes twice a year (section 247 BGB); a period spanning a change
+//     needs to be split and each half rated with the rate that applied during it, not one
+//     rate applied to the whole span.
 func (s *Service) CalculateInterest(
 	_ context.Context,
 	invoiceGrossTotal decimal.Decimal,

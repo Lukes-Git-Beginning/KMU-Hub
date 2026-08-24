@@ -620,15 +620,15 @@ func toMuteInfo(m *models.NotificationMute) *notificationv1.MuteInfo {
 
 func toQuietHoursInfo(qh *models.QuietHours) *notificationv1.QuietHoursInfo {
 	info := &notificationv1.QuietHoursInfo{
-		Id:         qh.ID.String(),
-		UserId:     qh.UserID.String(),
-		StartTime:  qh.StartTime,
-		EndTime:    qh.EndTime,
-		Timezone:   qh.Timezone,
-		Enabled:    qh.Enabled,
-		ManualDnd:  qh.ManualDND,
-		CreatedAt:  timestamppb.New(qh.CreatedAt),
-		UpdatedAt:  timestamppb.New(qh.UpdatedAt),
+		Id:        qh.ID.String(),
+		UserId:    qh.UserID.String(),
+		StartTime: qh.StartTime,
+		EndTime:   qh.EndTime,
+		Timezone:  qh.Timezone,
+		Enabled:   qh.Enabled,
+		ManualDnd: qh.ManualDND,
+		CreatedAt: timestamppb.New(qh.CreatedAt),
+		UpdatedAt: timestamppb.New(qh.UpdatedAt),
 	}
 
 	for _, day := range qh.DaysOfWeek {
@@ -909,8 +909,15 @@ func (s *NotificationGRPCServer) TestIntegrationConfig(ctx context.Context, req 
 
 	result, err := prober.ProbeConnection(probeCtx)
 	if err != nil {
+		// The prober's error carries the platform's raw rejection body (Slack's
+		// auth.test payload, up to 2KB of Bot Framework's AAD error page) —
+		// exactly the class of leak fixed three times already this run for
+		// bexio/DATEV/lexware (mapBexioError/mapDatevError/mapLexwareError):
+		// an external system's response text reaching the client unmasked.
+		// Full detail stays server-side in the log; the client gets only the
+		// platform name it already sent.
 		slog.Warn("integration connection test failed", "platform", platform, "error", err)
-		return nil, status.Errorf(codes.FailedPrecondition, "%s rejected the connection test: %v", platform, err)
+		return nil, status.Errorf(codes.FailedPrecondition, "%s rejected the connection test", platform)
 	}
 
 	return &notificationv1.TestIntegrationConfigResponse{

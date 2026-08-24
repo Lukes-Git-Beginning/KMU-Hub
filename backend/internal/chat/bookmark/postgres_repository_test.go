@@ -51,7 +51,7 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool, name string) fixture {
 func TestRepository_AddExistsRemoveRoundtrip(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := bookmark.NewPostgresRepository(pool)
 	mine := seedFixture(t, pool, "roundtrip")
@@ -89,7 +89,7 @@ func TestRepository_AddExistsRemoveRoundtrip(t *testing.T) {
 func TestRepository_AddIsIdempotent(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := bookmark.NewPostgresRepository(pool)
 	mine := seedFixture(t, pool, "idempotent")
@@ -115,7 +115,7 @@ func TestRepository_AddIsIdempotent(t *testing.T) {
 func TestRepository_ListMessageIDsIsScopedPerUserAndTenant(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := bookmark.NewPostgresRepository(pool)
 	mine := seedFixture(t, pool, "scope-own")

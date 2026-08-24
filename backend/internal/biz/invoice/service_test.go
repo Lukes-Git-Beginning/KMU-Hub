@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,6 +47,7 @@ type MockRepository struct {
 	overdueErr           error
 	aggregateStatsResult PaymentStats
 	aggregateStatsErr    error
+	quoteLinkErr         error
 }
 
 func NewMockRepository() *MockRepository {
@@ -140,11 +143,25 @@ func (m *MockRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID) ([]
 	return result, nil
 }
 
+// GetByQuoteID mirrors the real query's ordering: a live invoice wins over a
+// cancelled one (map iteration order is random, so picking the first match would
+// make the duplicate-conversion check flaky).
 func (m *MockRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error) {
+	if m.quoteLinkErr != nil {
+		return nil, m.quoteLinkErr
+	}
+	var fallback *models.Invoice
 	for _, inv := range m.invoices {
-		if inv.TenantID == tenantID && inv.SourceQuoteID != nil && *inv.SourceQuoteID == quoteID {
+		if inv.TenantID != tenantID || inv.SourceQuoteID == nil || *inv.SourceQuoteID != quoteID {
+			continue
+		}
+		if inv.Status != models.InvoiceStatusCancelled {
 			return inv, nil
 		}
+		fallback = inv
+	}
+	if fallback != nil {
+		return fallback, nil
 	}
 	return nil, ErrInvoiceNotFound
 }
@@ -208,18 +225,6 @@ func (m *MockRepository) AggregatePaymentStats(_ context.Context, _ uuid.UUID, _
 		return PaymentStats{}, m.aggregateStatsErr
 	}
 	return m.aggregateStatsResult, nil
-}
-
-// ListForGoBDExport returns non-draft invoices with invoice_number in the date range.
-func (m *MockRepository) ListForGoBDExport(_ context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error) {
-	var result []*models.Invoice
-	for _, inv := range m.invoices {
-		if inv.TenantID == tenantID && inv.Status != "draft" && inv.InvoiceNumber != "" &&
-			!inv.InvoiceDate.Before(fromDate) && !inv.InvoiceDate.After(toDate) {
-			result = append(result, inv)
-		}
-	}
-	return result, nil
 }
 
 // ListForDATEVExport returns sent/paid/overdue invoices in the date range.
@@ -996,6 +1001,81 @@ func TestService_DetectOverdue_RepoError(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
+// TestService_DetectOverdue_SkipsLockedInvoice verifies that an administratively
+// locked invoice returned by GetOverdue is left untouched: DetectOverdue must
+// enforce the same GoBD §146 write barrier as Update/MarkPaid/Cancel instead of
+// flipping the status straight from the repo result set.
+func TestService_DetectOverdue_SkipsLockedInvoice(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	locked := createDraftInvoice(t, repo, tenantID)
+	locked.Status = models.InvoiceStatusSent
+	locked.DueDate = time.Now().AddDate(0, 0, -7)
+	lockedAt := time.Now()
+	locked.LockedAt = &lockedAt
+
+	unlocked := createDraftInvoice(t, repo, tenantID)
+	unlocked.Status = models.InvoiceStatusSent
+	unlocked.DueDate = time.Now().AddDate(0, 0, -1)
+
+	count, err := svc.DetectOverdue(context.Background(), tenantID)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, count, "only the unlocked invoice must be counted")
+	assert.Equal(t, models.InvoiceStatusSent, repo.invoices[locked.ID].Status,
+		"locked invoice must keep its status (GoBD §146 write barrier)")
+	assert.Equal(t, models.InvoiceStatusOverdue, repo.invoices[unlocked.ID].Status)
+}
+
+// TestService_LockInvoice_RejectsAlreadyLocked verifies that locking an
+// already-locked invoice returns ErrInvoiceLocked instead of silently
+// overwriting locked_at/locked_by (which would let a second administrator move
+// the audit-trail timestamp).
+func TestService_LockInvoice_RejectsAlreadyLocked(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv, firstLockedBy := createLockedSentInvoice(t, svc, repo, numSeq, tenantID)
+	firstLockedAt := *repo.invoices[inv.ID].LockedAt
+
+	_, err := svc.LockInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrInvoiceLocked)
+	stored := repo.invoices[inv.ID]
+	assert.Equal(t, firstLockedAt, *stored.LockedAt, "re-locking must not move the original lock timestamp")
+	assert.Equal(t, firstLockedBy, *stored.LockedBy, "re-locking must not change the original locked_by")
+}
+
+// TestService_LockInvoice_RejectsDraft verifies that a draft invoice cannot be
+// administratively locked: it should be cancelled or sent first, not frozen
+// mid-edit.
+func TestService_LockInvoice_RejectsDraft(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID)
+
+	_, err := svc.LockInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	assert.Error(t, err)
+	assert.Nil(t, repo.invoices[inv.ID].LockedAt)
+}
+
+// TestService_LockInvoice_RejectsBexioImported verifies that an imported
+// (source=bexio) invoice cannot be locked via the Cosmi GoBD path -- it is a
+// read-only mirror of the external book, not a document this system issued.
+func TestService_LockInvoice_RejectsBexioImported(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID)
+	inv.Status = models.InvoiceStatusSent
+	inv.Source = models.InvoiceSourceBexio
+
+	_, err := svc.LockInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrExternalReadOnly)
+	assert.Nil(t, repo.invoices[inv.ID].LockedAt)
+}
+
 // ============================================================================
 // CreateFromQuote Tests
 // ============================================================================
@@ -1038,6 +1118,78 @@ func TestService_CreateFromQuote_Success(t *testing.T) {
 	assert.Equal(t, "14 Tage netto", inv.PaymentTerms)
 	assert.True(t, inv.GrossTotal.GreaterThan(decimal.Zero))
 	assert.Contains(t, repo.invoices, inv.ID)
+}
+
+// acceptedQuoteFixture registers an accepted quote the conversion tests can convert.
+func acceptedQuoteFixture(t *testing.T, qr *MockQuoteReader, tenantID, quoteID uuid.UUID) {
+	t.Helper()
+	lineItemsJSON, err := json.Marshal(testLineItems())
+	require.NoError(t, err)
+	qr.quotes[quoteID] = &models.Quote{
+		ID:           quoteID,
+		TenantID:     tenantID,
+		Status:       models.QuoteStatusAccepted,
+		CustomerName: "Quote Customer",
+		TaxMode:      models.TaxModeStandard,
+		LineItems:    lineItemsJSON,
+	}
+}
+
+// TestService_CreateFromQuote_RejectsSecondConversion covers the double-click /
+// retry case: the quote keeps its "accepted" status after a conversion, so
+// without the guard a second call produced a second complete invoice.
+func TestService_CreateFromQuote_RejectsSecondConversion(t *testing.T) {
+	svc, repo, _, _, qr := newTestService()
+	tenantID := uuid.New()
+	quoteID := uuid.New()
+	acceptedQuoteFixture(t, qr, tenantID, quoteID)
+
+	first, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+	require.NoError(t, err)
+
+	second, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrQuoteAlreadyConverted)
+	assert.Nil(t, second)
+	assert.Len(t, repo.invoices, 1, "the rejected second conversion must not have written an invoice")
+	assert.Contains(t, repo.invoices, first.ID)
+}
+
+// TestService_CreateFromQuote_AllowsReconversionAfterStorno proves the guard is
+// scoped to live invoices: a cancelled invoice stays in the table for GoBD, but
+// the quote may be invoiced again after a storno.
+func TestService_CreateFromQuote_AllowsReconversionAfterStorno(t *testing.T) {
+	svc, repo, _, _, qr := newTestService()
+	tenantID := uuid.New()
+	quoteID := uuid.New()
+	acceptedQuoteFixture(t, qr, tenantID, quoteID)
+
+	first, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+	require.NoError(t, err)
+	repo.invoices[first.ID].Status = models.InvoiceStatusCancelled
+
+	second, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+
+	require.NoError(t, err)
+	assert.NotEqual(t, first.ID, second.ID)
+	assert.Len(t, repo.invoices, 2)
+}
+
+// TestService_CreateFromQuote_PropagatesQuoteLinkLookupError makes sure an
+// unavailable database is not mistaken for "no invoice yet" -- only
+// ErrInvoiceNotFound clears the way for a conversion.
+func TestService_CreateFromQuote_PropagatesQuoteLinkLookupError(t *testing.T) {
+	svc, repo, _, _, qr := newTestService()
+	tenantID := uuid.New()
+	quoteID := uuid.New()
+	acceptedQuoteFixture(t, qr, tenantID, quoteID)
+	repo.quoteLinkErr = errors.New("connection refused")
+
+	_, err := svc.CreateFromQuote(context.Background(), tenantID, quoteID, uuid.New())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "connection refused")
+	assert.Empty(t, repo.invoices, "a failed lookup must not fall through to creating an invoice")
 }
 
 func TestService_CreateFromQuote_RejectsNonAccepted(t *testing.T) {
@@ -1288,6 +1440,48 @@ func TestService_ValidateInvoiceNumber_CanonicalLowercase(t *testing.T) {
 	assert.Empty(t, result.Canonical)
 }
 
+// TestService_ValidateInvoiceNumber_SpecialCharacters proves the pattern rejects
+// anything outside its exact grammar — a trust-boundary input, since the value
+// comes straight from the gRPC request (biz_grpc.go ValidateInvoiceNumber).
+func TestService_ValidateInvoiceNumber_SpecialCharacters(t *testing.T) {
+	svc, _, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	cases := []string{
+		"RE-2026-00@1",
+		"RE-2026-0001;DROP TABLE finance_invoices;",
+		"RE-2026-0001\n",
+		"RE-2026-00 1",
+		"RE/2026/0001",
+		"RE-2026-000€",
+		"RE-2026-0001\x00",
+	}
+
+	for _, tc := range cases {
+		result, err := svc.ValidateInvoiceNumber(context.Background(), tenantID, tc)
+		require.NoError(t, err, "case %q", tc)
+		assert.False(t, result.ValidFormat, "case %q should be invalid", tc)
+		assert.Empty(t, result.Canonical, "case %q should have no canonical form", tc)
+	}
+}
+
+// TestService_ValidateInvoiceNumber_ExcessivelyLongSequenceRejected proves the
+// sequence group's upper bound (\d{4,10}) actually rejects an overlong digit
+// run. Without the bound, strconv.Atoi in ValidateInvoiceNumber silently
+// discards ErrRange on overflow and reports ValidFormat=true with a nonsense
+// canonical (RE-2026-9223372036854775807) for caller-supplied garbage.
+func TestService_ValidateInvoiceNumber_ExcessivelyLongSequenceRejected(t *testing.T) {
+	svc, _, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	overlong := "RE-2026-" + strings.Repeat("9", 25)
+	result, err := svc.ValidateInvoiceNumber(context.Background(), tenantID, overlong)
+
+	require.NoError(t, err)
+	assert.False(t, result.ValidFormat, "a 25-digit sequence must not pass format validation")
+	assert.Empty(t, result.Canonical)
+}
+
 // ============================================================================
 // GetPaymentStats Tests (Review-Befund #15)
 // ============================================================================
@@ -1377,4 +1571,122 @@ func TestService_GetJournalSummary_CountsCancelledInvoices(t *testing.T) {
 	assert.Equal(t, 3, summary.HighestSequence)
 	assert.Equal(t, 0, summary.GapsDetected,
 		"no gaps expected when all sequence numbers have matching invoices")
+}
+
+// TestService_GetJournalSummary_FiscalYearBoundaryNoFalseGap verifies that the
+// year rollover itself is not misreported as a gap: the sequence restarts at 1
+// for the new fiscal year (see quote.PostgresNumberSequenceRepo, one row per
+// tenant+document_type+fiscal_year), and the prior year's invoices must not be
+// counted into — or create a phantom gap against — the new year's summary.
+func TestService_GetJournalSummary_FiscalYearBoundaryNoFalseGap(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	priorYear, currentYear := 2025, 2026
+
+	makeInvoice := func(status, number string, year int) {
+		t.Helper()
+		lineItemsJSON, err := json.Marshal(testLineItems())
+		require.NoError(t, err)
+		inv := &models.Invoice{
+			ID:            uuid.New(),
+			TenantID:      tenantID,
+			Status:        status,
+			InvoiceNumber: number,
+			InvoiceDate:   time.Date(year, 6, 1, 0, 0, 0, 0, time.UTC),
+			LineItems:     lineItemsJSON,
+			CreatedBy:     uuid.New(),
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+		repo.invoices[inv.ID] = inv
+	}
+
+	// Prior year: 5 invoices fully using up its own sequence (RE-2025-0001..0005).
+	for i := 1; i <= 5; i++ {
+		makeInvoice(models.InvoiceStatusPaid, fmt.Sprintf("RE-%d-%04d", priorYear, i), priorYear)
+	}
+	// Current year: sequence has restarted at 1, only 3 invoices issued so far.
+	makeInvoice(models.InvoiceStatusSent, fmt.Sprintf("RE-%d-0001", currentYear), currentYear)
+	makeInvoice(models.InvoiceStatusPaid, fmt.Sprintf("RE-%d-0002", currentYear), currentYear)
+	makeInvoice(models.InvoiceStatusSent, fmt.Sprintf("RE-%d-0003", currentYear), currentYear)
+
+	// The number sequence for the current fiscal year reports 3, independent of
+	// the prior year's much higher count — a per-year row, not a running total.
+	numSeq.seqInfo = &SequenceInfo{FiscalYear: currentYear, CurrentNumber: 3}
+
+	summary, err := svc.GetJournalSummary(context.Background(), tenantID, currentYear)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, summary.TotalInvoicesIssued,
+		"the prior year's 5 invoices must not leak into the current year's count")
+	assert.Equal(t, 3, summary.HighestSequence)
+	assert.Equal(t, 0, summary.GapsDetected,
+		"the fiscal year rollover itself must never be reported as a gap")
+}
+
+// TestService_GetJournalSummary_EmptyYearReturnsZeroesNotError covers
+// GetSequenceInfo returning nil (no invoice ever issued for that fiscal
+// year) — the report a Prüfer sees for a fresh tenant or an unused year must
+// be an all-zero summary, not an error.
+func TestService_GetJournalSummary_EmptyYearReturnsZeroesNotError(t *testing.T) {
+	svc, _, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	numSeq.seqInfo = nil // default, spelled out: no sequence row exists for this year
+
+	summary, err := svc.GetJournalSummary(context.Background(), tenantID, 2099)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2099, summary.Year)
+	assert.Equal(t, 0, summary.TotalInvoicesIssued)
+	assert.Equal(t, 0, summary.GapsDetected)
+	assert.Equal(t, 0, summary.HighestSequence)
+	assert.Empty(t, summary.FirstNumber)
+	assert.Empty(t, summary.LastNumber)
+}
+
+// TestService_GetJournalSummary_DetectsRealGap is the positive case none of
+// the existing tests proved: the sequence counter ahead of the actually
+// persisted, numbered invoice count. This is the exact scenario GoBD §146
+// gap-detection exists to catch (a number consumed — e.g. by a request that
+// crashed after NextNumberInTx but before commit reached the caller's
+// retry-safe path — never reaching a stored invoice) and, before this test,
+// GapsDetected > 0 had never actually been exercised.
+func TestService_GetJournalSummary_DetectsRealGap(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	fiscalYear := 2026
+
+	// Sequence advanced to 5, but only numbers 1-3 ended up as persisted,
+	// numbered invoices — 2 and 5 were "consumed" without a matching row.
+	numSeq.seqInfo = &SequenceInfo{FiscalYear: fiscalYear, CurrentNumber: 5}
+
+	makeInvoice := func(number string) {
+		t.Helper()
+		lineItemsJSON, err := json.Marshal(testLineItems())
+		require.NoError(t, err)
+		inv := &models.Invoice{
+			ID:            uuid.New(),
+			TenantID:      tenantID,
+			Status:        models.InvoiceStatusSent,
+			InvoiceNumber: number,
+			InvoiceDate:   time.Date(fiscalYear, 3, 1, 0, 0, 0, 0, time.UTC),
+			LineItems:     lineItemsJSON,
+			CreatedBy:     uuid.New(),
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+		repo.invoices[inv.ID] = inv
+	}
+	makeInvoice("RE-2026-0001")
+	makeInvoice("RE-2026-0003")
+	makeInvoice("RE-2026-0004")
+
+	summary, err := svc.GetJournalSummary(context.Background(), tenantID, fiscalYear)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, summary.TotalInvoicesIssued)
+	assert.Equal(t, 5, summary.HighestSequence)
+	assert.Equal(t, 2, summary.GapsDetected,
+		"5 numbers consumed, only 3 persisted as numbered invoices -> 2 gaps must be reported")
 }

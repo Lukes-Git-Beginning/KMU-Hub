@@ -29,4 +29,8 @@ type DatevUploadLog struct {
 	StartedAt     time.Time      `json:"started_at"`
 	CompletedAt   *time.Time     `json:"completed_at,omitempty"`
 	Metadata      map[string]any `json:"metadata"`
+	// IsStale is derived at read time, never persisted: true when Status is
+	// "uploading" and StartedAt is older than the worst-case real transfer
+	// time (see datevUploadStaleThreshold in internal/biz/datev).
+	IsStale bool `json:"is_stale"`
 }

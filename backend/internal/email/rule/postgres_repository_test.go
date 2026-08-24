@@ -102,7 +102,7 @@ func seedMailbox(t *testing.T, pool *pgxpool.Pool, label string) mailbox {
 func TestRepository_CreateAndListAreTenantScoped(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := rule.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "own")
@@ -149,7 +149,7 @@ func TestRepository_CreateAndListAreTenantScoped(t *testing.T) {
 func TestRepository_FolderBelongsToTenant(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := rule.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "folder-own")
@@ -176,7 +176,7 @@ func TestRepository_FolderBelongsToTenant(t *testing.T) {
 func TestRepository_LabelBelongsToTenant(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := rule.NewPostgresRepository(pool)
 	mineTenant := uuid.New()
@@ -215,7 +215,7 @@ func TestRepository_LabelBelongsToTenant(t *testing.T) {
 func TestRepository_ApplyCandidatesAndWrite(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := rule.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "apply")
@@ -264,7 +264,7 @@ func TestRepository_ApplyCandidatesAndWrite(t *testing.T) {
 func TestRepository_ApplyToMessageIsTenantScoped(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	repo := rule.NewPostgresRepository(pool)
 	mine := seedMailbox(t, pool, "write-own")

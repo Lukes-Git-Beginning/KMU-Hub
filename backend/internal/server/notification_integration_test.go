@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -133,6 +134,35 @@ func TestTestIntegrationConfigNeverSucceedsWithoutContact(t *testing.T) {
 				t.Fatalf("expected code %v, got %v (%v)", tt.wantCode, got, err)
 			}
 		})
+	}
+}
+
+// TestTestIntegrationConfigDoesNotLeakProbeErrorDetail pins the fix for the
+// fourth occurrence of a leak class fixed three times already this run
+// (bexio, DATEV, lexware): a prober's raw error can carry the external
+// platform's response body verbatim (Teams: up to 2KB of the AAD error page).
+// The client must see only the platform name it sent, never that text.
+func TestTestIntegrationConfigDoesNotLeakProbeErrorDetail(t *testing.T) {
+	cfg := &integration.IntegrationConfig{Platform: integration.PlatformTeams}
+	sensitive := "invalid_client: AADSTS7000215: Invalid client secret provided. Trace ID: deadbeef\r\nSet-Cookie: x=1"
+	srv := newTestConfigServer(
+		&stubIntegrationRepo{cfg: cfg},
+		map[string]integration.ConnectionProber{
+			integration.PlatformTeams: &stubProber{err: errors.New(sensitive)},
+		},
+	)
+
+	resp, err := srv.TestIntegrationConfig(context.Background(), &notificationv1.TestIntegrationConfigRequest{
+		Platform: integration.PlatformTeams,
+	})
+	if err == nil {
+		t.Fatalf("expected an error, got response %+v", resp)
+	}
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("expected FailedPrecondition, got %v", err)
+	}
+	if strings.Contains(status.Convert(err).Message(), sensitive) || strings.Contains(status.Convert(err).Message(), "AADSTS") {
+		t.Fatalf("error message leaks the platform's raw response: %q", status.Convert(err).Message())
 	}
 }
 

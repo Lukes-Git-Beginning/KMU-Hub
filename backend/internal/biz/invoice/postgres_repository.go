@@ -208,6 +208,8 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		argNum++
 	}
 
+	// Both bounds are inclusive — an invoice dated exactly on DateFrom or DateTo
+	// is included. Belegt durch TestPostgresRepository_List_DateRangeInclusiveBoundaries.
 	if filter.DateFrom != nil {
 		conditions = append(conditions, fmt.Sprintf("invoice_date >= $%d", argNum))
 		args = append(args, *filter.DateFrom)
@@ -441,9 +443,17 @@ func (r *PostgresRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID)
 	return invoices, nil
 }
 
+// GetByQuoteID returns the invoice a quote was converted into. The schema does
+// not enforce one invoice per quote (a storno leaves the cancelled invoice in
+// place and the quote may be invoiced again), so the ordering is explicit: a
+// live invoice wins over a cancelled one, the newest wins among equals. Service
+// callers use this as the duplicate-conversion check and must not depend on
+// whichever row the planner happens to return first.
 func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error) {
 	row := r.pool.QueryRow(ctx,
-		"SELECT "+invoiceColumns+" FROM finance_invoices WHERE tenant_id = $1 AND source_quote_id = $2",
+		"SELECT "+invoiceColumns+" FROM finance_invoices "+
+			"WHERE tenant_id = $1 AND source_quote_id = $2 "+
+			"ORDER BY (status = 'cancelled'), created_at DESC LIMIT 1",
 		tenantID, quoteID,
 	)
 	inv, err := r.scanInvoice(row)
@@ -524,25 +534,37 @@ func (r *PostgresRepository) CountByFiscalYear(ctx context.Context, tenantID uui
 }
 
 // AggregatePaymentStats returns aggregated payment statistics for invoices
-// with invoice_date within [fromDate, toDate].
+// with invoice_date within [fromDate, toDate]. total_outstanding_amount and
+// total_paid_amount are netted against finance_payments the same way
+// postgres_open_items.go's openItemsBase nets the Open-Items view: a partial
+// payment lowers the outstanding amount, and an overpayment shows up in the
+// paid amount. Where no payment row exists for a 'paid' invoice (marked paid
+// without a tracked payment), gross_total is used as the fallback so a
+// manually-closed invoice still counts as fully paid.
 func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) (PaymentStats, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT
 			COUNT(*) AS total_invoices,
-			COUNT(*) FILTER (WHERE status = 'paid') AS total_paid,
-			COUNT(*) FILTER (WHERE status NOT IN ('paid', 'cancelled')) AS total_outstanding,
-			COALESCE(SUM(gross_total) FILTER (WHERE status = 'paid'), 0) AS total_paid_amount,
-			COALESCE(SUM(gross_total) FILTER (WHERE status NOT IN ('paid', 'cancelled')), 0) AS total_outstanding_amount,
+			COUNT(*) FILTER (WHERE i.status = 'paid') AS total_paid,
+			COUNT(*) FILTER (WHERE i.status NOT IN ('paid', 'cancelled')) AS total_outstanding,
+			COALESCE(SUM(COALESCE(p.paid, i.gross_total)) FILTER (WHERE i.status = 'paid'), 0) AS total_paid_amount,
+			COALESCE(SUM(i.gross_total - COALESCE(p.paid, 0)) FILTER (WHERE i.status NOT IN ('paid', 'cancelled')), 0) AS total_outstanding_amount,
 			COALESCE(
 				AVG(
-					EXTRACT(EPOCH FROM (updated_at - invoice_date)) / 86400.0
-				) FILTER (WHERE status = 'paid'),
+					EXTRACT(EPOCH FROM (i.updated_at - i.invoice_date)) / 86400.0
+				) FILTER (WHERE i.status = 'paid'),
 				0
 			) AS avg_days_to_pay
-		FROM finance_invoices
-		WHERE tenant_id = $1
-		  AND invoice_date >= $2
-		  AND invoice_date <= $3`,
+		FROM finance_invoices i
+		LEFT JOIN (
+		    SELECT invoice_id, SUM(amount) AS paid
+		    FROM finance_payments
+		    WHERE tenant_id = $1
+		    GROUP BY invoice_id
+		) p ON p.invoice_id = i.id
+		WHERE i.tenant_id = $1
+		  AND i.invoice_date >= $2
+		  AND i.invoice_date <= $3`,
 		tenantID, fromDate, toDate,
 	)
 
@@ -567,60 +589,13 @@ func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID
 	}, nil
 }
 
-// ListForGoBDExport returns all non-draft, numbered invoices in the date range,
-// ordered by invoice_number for gap-free journal verification.
-func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error) {
-	rows, err := r.pool.Query(ctx,
-		"SELECT "+invoiceColumns+" FROM finance_invoices "+
-			"WHERE tenant_id = $1 AND status != 'draft' AND invoice_number != '' "+
-			"AND source = 'cosmi' AND invoice_date >= $2 AND invoice_date <= $3 "+
-			"ORDER BY invoice_number ASC",
-		tenantID, fromDate, toDate,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("list invoices for GoBD export: %w", err)
-	}
-	defer rows.Close()
-
-	var invoices []*models.Invoice
-	for rows.Next() {
-		inv, scanErr := r.scanInvoiceFromRows(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		invoices = append(invoices, inv)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate GoBD export rows: %w", err)
-	}
-
-	if len(invoices) > 0 {
-		ids := make([]uuid.UUID, len(invoices))
-		for i, inv := range invoices {
-			ids[i] = inv.ID
-		}
-		linesByID, linesErr := loadInvoiceLines(ctx, r.pool, ids)
-		if linesErr != nil {
-			return nil, linesErr
-		}
-		for _, inv := range invoices {
-			if lines, ok := linesByID[inv.ID]; ok {
-				raw, marshalErr := marshalLineItems(lines)
-				if marshalErr != nil {
-					return nil, marshalErr
-				}
-				inv.LineItems = raw
-			}
-		}
-	}
-
-	return invoices, nil
-}
-
 // ListForDATEVExport returns sent/paid/overdue invoices in [fromDate, toDate],
 // keyset-paged by (invoice_date, id) so a DATEV export can stream pages without
 // holding the whole result set in memory. afterDate/afterID are the cursor from
 // the previous page (nil for the first page). Ordered by (invoice_date, id) ASC.
+// This is also the path GenerateGoBDExport (biz_grpc.go) builds its CSV from,
+// combined with creditNoteService.ListForDATEVExport as negative storno rows —
+// there is no separate GoBD-specific export method.
 func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.Invoice, error) {
 	args := []any{tenantID, fromDate, toDate}
 	cursorClause := ""

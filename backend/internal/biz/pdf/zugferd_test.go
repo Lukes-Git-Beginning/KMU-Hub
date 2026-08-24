@@ -234,7 +234,7 @@ func TestGenerateZUGFeRDXML_ReverseChargeExemptCategory(t *testing.T) {
 	inv := models.Invoice{
 		InvoiceNumber: "RE-2026-0043",
 		CustomerName:  "Beispiel GmbH",
-		// BR-AE-03: reverse charge shifts the liability, so the buyer has to carry
+		// BR-AE-02: reverse charge shifts the liability, so the buyer has to carry
 		// a VAT identifier of their own.
 		CustomerUStIDNr: "ATU12345678",
 		InvoiceDate:     time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),

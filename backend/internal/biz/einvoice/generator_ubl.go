@@ -23,9 +23,17 @@ const (
 
 	// xrechnungCustomizationID marks the document as XRechnung 3.0, the CIUS German
 	// public-sector buyers require. Receivers reject documents without it.
+	//
+	// BR-01 (specification identifier, BT-24) needs no runtime check: renderUBL
+	// writes this constant into CustomizationID unconditionally (as does renderCII
+	// with its own guideline ID, generator_cii.go), so no code path can emit a
+	// document lacking it.
 	xrechnungCustomizationID = "urn:cen.eu:en16931:2017#compliant#urn:xoev-de:kosit:standard:xrechnung_3.0"
 	peppolBillingProfileID   = "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"
 
+	// BR-04 (invoice type code, BT-3): also unconditional, see BR-01 above — this
+	// product only ever emits commercial invoices ("380"), never a credit note
+	// ("381").
 	invoiceTypeCodeCommercial  = "380" // UNTDID 1001: commercial invoice
 	unitCodePiece              = "C62" // UN/ECE Rec 20: one (piece)
 	paymentMeansCodeSEPACredit = "58"  // UNTDID 4461: SEPA credit transfer

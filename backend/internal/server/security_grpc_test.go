@@ -179,8 +179,6 @@ func newStubGDPRRepo() *stubGDPRRepo {
 	return &stubGDPRRepo{exports: make(map[uuid.UUID]*models.GDPRExportRequest)}
 }
 
-var errGDPRExportNotFound = errors.New("stub: export request not found")
-
 func (r *stubGDPRRepo) CreateExportRequest(_ context.Context, req *models.GDPRExportRequest) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -194,7 +192,7 @@ func (r *stubGDPRRepo) GetExportRequest(_ context.Context, _, id uuid.UUID) (*mo
 	defer r.mu.Unlock()
 	req, ok := r.exports[id]
 	if !ok {
-		return nil, errGDPRExportNotFound
+		return nil, gdpr.ErrExportNotFound
 	}
 	cp := *req
 	return &cp, nil
@@ -221,7 +219,7 @@ func (r *stubGDPRRepo) UpdateExportStatus(_ context.Context, _ uuid.UUID, req *m
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.exports[req.ID]; !ok {
-		return errGDPRExportNotFound
+		return gdpr.ErrExportNotFound
 	}
 	cp := *req
 	r.exports[req.ID] = &cp
@@ -233,7 +231,7 @@ func (r *stubGDPRRepo) StoreExportResult(_ context.Context, _, id uuid.UUID, dat
 	defer r.mu.Unlock()
 	req, ok := r.exports[id]
 	if !ok {
-		return errGDPRExportNotFound
+		return gdpr.ErrExportNotFound
 	}
 	req.ExportData = data
 	req.DownloadToken = token
@@ -252,7 +250,7 @@ func (r *stubGDPRRepo) GetExportByToken(_ context.Context, _ uuid.UUID, token st
 			return &cp, nil
 		}
 	}
-	return nil, errGDPRExportNotFound
+	return nil, gdpr.ErrTokenNotFound
 }
 
 func (r *stubGDPRRepo) MarkDownloaded(_ context.Context, _, id uuid.UUID) error {
@@ -260,7 +258,7 @@ func (r *stubGDPRRepo) MarkDownloaded(_ context.Context, _, id uuid.UUID) error 
 	defer r.mu.Unlock()
 	req, ok := r.exports[id]
 	if !ok {
-		return errGDPRExportNotFound
+		return gdpr.ErrExportNotFound
 	}
 	now := time.Now().UTC()
 	req.DownloadedAt = &now
@@ -457,6 +455,8 @@ func TestMapSecurityError_AllSentinels(t *testing.T) {
 		{"vault_secret_not_found", vault.ErrSecretNotFound, codes.NotFound},
 		{"vault_empty_key_name", vault.ErrEmptyKeyName, codes.InvalidArgument},
 		{"vault_empty_payload", vault.ErrEmptyPayload, codes.InvalidArgument},
+		{"gdpr_export_not_found", gdpr.ErrExportNotFound, codes.NotFound},
+		{"gdpr_token_not_found", gdpr.ErrTokenNotFound, codes.NotFound},
 		{"gdpr_export_already_pending", gdpr.ErrExportAlreadyPending, codes.AlreadyExists},
 		{"gdpr_invalid_export_status", gdpr.ErrInvalidExportStatus, codes.FailedPrecondition},
 		{"gdpr_export_expired", gdpr.ErrExportExpired, codes.FailedPrecondition},
@@ -857,6 +857,17 @@ func TestSecurityGRPC_ValidationErrors(t *testing.T) {
 			_, err := srv.CreateIPRule(ctx, &securityv1.CreateIPRuleRequest{IpCidr: "10.0.0.0/8", RuleType: "maybe"})
 			return err
 		}},
+		{"CreateIPRule/malformed_cidr", codes.InvalidArgument, func() error {
+			_, err := srv.CreateIPRule(ctx, &securityv1.CreateIPRuleRequest{IpCidr: "not-a-cidr", RuleType: models.IPRuleAllow})
+			return err
+		}},
+		{"CreateIPRule/cidr_host_bits_set", codes.InvalidArgument, func() error {
+			// Postgres' CIDR column rejects non-network-aligned addresses (e.g.
+			// a /24 with a non-zero host octet) -- reject before it reaches the
+			// INSERT and surfaces as a generic 500 instead.
+			_, err := srv.CreateIPRule(ctx, &securityv1.CreateIPRuleRequest{IpCidr: "192.168.1.5/24", RuleType: models.IPRuleAllow})
+			return err
+		}},
 		{"DeleteIPRule/invalid_rule_id", codes.InvalidArgument, func() error {
 			_, err := srv.DeleteIPRule(ctx, &securityv1.DeleteIPRuleRequest{RuleId: "not-a-uuid"})
 			return err
@@ -1064,6 +1075,38 @@ func TestAuditRPCs_HappyPaths(t *testing.T) {
 	assert.Empty(t, verifyResp.ErrorMessage)
 }
 
+// TestExportAuditLog_UnsupportedFormatIsInvalidArgument proves the fix for a
+// bug found while building cov-gateway-security-audit-and-vault-routes:
+// ExportAuditLog used to wrap ANY error from Service.ExportEntries (including
+// the audit.ErrUnsupportedFormat client-input error) as codes.Internal, so an
+// unknown ?format=xml query returned a bare 500 "internal error" through
+// respondGRPCError instead of a clear 400. It now routes the error through
+// mapSecurityError, which maps audit.ErrUnsupportedFormat to InvalidArgument.
+func TestExportAuditLog_UnsupportedFormatIsInvalidArgument(t *testing.T) {
+	srv, _ := newTestSecurityGRPCServer(t)
+	ctx := ctxWithTenant(uuid.New())
+
+	_, err := srv.ExportAuditLog(ctx, &securityv1.ExportAuditLogRequest{Format: "xml"})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+}
+
+// TestVerifyAuditChain_BrokenChainReportsError proves a broken hash chain is
+// reported as such in the response body (Valid=false, ErrorMessage set) and
+// not silently returned as a successful, empty-result verification.
+func TestVerifyAuditChain_BrokenChainReportsError(t *testing.T) {
+	srv, repos := newTestSecurityGRPCServer(t)
+	ctx := ctxWithTenant(uuid.New())
+
+	repos.audit.chainValid = false
+	repos.audit.firstBad = 5
+
+	resp, err := srv.VerifyAuditChain(ctx, &securityv1.VerifyAuditChainRequest{})
+	require.NoError(t, err)
+	assert.False(t, resp.Valid)
+	assert.Equal(t, int64(5), resp.FirstInvalidSequence)
+	assert.NotEmpty(t, resp.ErrorMessage)
+}
+
 func TestGDPRExportRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	srv, repos := newTestSecurityGRPCServer(t)
 	tenantID := uuid.New()
@@ -1123,6 +1166,40 @@ func TestGDPRExportRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	repos.gdpr.mu.Unlock()
 	_, err = srv.GetExportDownload(ctx, &securityv1.GetExportDownloadRequest{DownloadToken: "tok-ready"})
 	requireGRPCCode(t, err, codes.FailedPrecondition)
+}
+
+// TestGDPRExportRPCs_NotFoundSentinelsMapToNotFound proves the mapSecurityError
+// fix: before this fix gdpr.ErrExportNotFound and gdpr.ErrTokenNotFound fell
+// through to the default codes.Internal case (a blank 500), so an unknown
+// download token or a valid-but-nonexistent export ID looked like a server
+// failure instead of "not found". Same class of bug as the ExportAuditLog
+// format-mapping fix.
+func TestGDPRExportRPCs_NotFoundSentinelsMapToNotFound(t *testing.T) {
+	srv, _ := newTestSecurityGRPCServer(t)
+	ctx := ctxWithTenant(uuid.New())
+
+	t.Run("GetExportDownload/unknown_token", func(t *testing.T) {
+		_, err := srv.GetExportDownload(ctx, &securityv1.GetExportDownloadRequest{
+			DownloadToken: "a-token-nobody-issued",
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
+
+	t.Run("ApproveDataExport/nonexistent_export_id", func(t *testing.T) {
+		_, err := srv.ApproveDataExport(ctx, &securityv1.ApproveDataExportRequest{
+			ExportId:   uuid.New().String(),
+			ReviewedBy: uuid.New().String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
+
+	t.Run("DenyDataExport/nonexistent_export_id", func(t *testing.T) {
+		_, err := srv.DenyDataExport(ctx, &securityv1.DenyDataExportRequest{
+			ExportId:   uuid.New().String(),
+			ReviewedBy: uuid.New().String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
 }
 
 func TestGDPRErasure_PreviewIsSafeExecuteIsValidationOnly(t *testing.T) {
@@ -1216,7 +1293,13 @@ func TestPasswordRPCs_HappyPaths(t *testing.T) {
 func TestVendorAccessRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	srv, repos := newTestSecurityGRPCServer(t)
 	tenantID := uuid.New()
-	ctx := ctxWithTenant(tenantID)
+	// Decline and CounterPropose read the actor from context (gRPC-metadata
+	// propagated caller, see logVendorAccessEvent) rather than a request
+	// field, so this ctx needs a caller like the real
+	// TenantInboundUnaryInterceptor would set — unlike the plain
+	// ctxWithTenant most other RPCs in this file use.
+	actorID := uuid.New()
+	ctx := ctxWithTenantAndUser(tenantID, actorID)
 
 	pending := &models.VendorAccessRequest{
 		ID:             uuid.New(),
@@ -1238,7 +1321,6 @@ func TestVendorAccessRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	require.Len(t, listResp.Requests, 1)
 
 	// Non-sensitive scope: approve succeeds without sensitive_ack.
-	actorID := uuid.New()
 	approveResp, err := srv.ApproveVendorAccessRequest(ctx, &securityv1.ApproveVendorAccessRequestRequest{
 		RequestId: pending.ID.String(), ActorId: actorID.String(),
 	})

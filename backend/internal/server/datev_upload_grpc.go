@@ -189,6 +189,13 @@ func mapDatevUploadError(err error) error {
 		errors.Is(err, datev.ErrCompanySettingsIncomplete),
 		errors.Is(err, datev.ErrNothingToUpload):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, datev.ErrReauthRequired):
+		// The DATEV token endpoint rejected the stored refresh token (expired or
+		// revoked) — without this case it fell into the default branch below and
+		// came back as an opaque "DATEV upload failed", indistinguishable from an
+		// actual internal bug. FailedPrecondition names the actionable cause the
+		// same way the other "admin can fix this" errors above do.
+		return status.Error(codes.FailedPrecondition, "datev: connection expired, please reconnect")
 	case errors.Is(err, datev.ErrBuilderNotConfigured):
 		return status.Error(codes.Unavailable, err.Error())
 	default:
@@ -267,6 +274,7 @@ func datevUploadLogToProto(l models.DatevUploadLog) *bizv1.DatevUploadLogEntry {
 		FileSize:      int32(l.FileSize),
 		DocumentCount: int32(l.DocumentCount),
 		StartedAt:     timestamppb.New(l.StartedAt),
+		IsStale:       l.IsStale,
 	}
 
 	if l.ErrorMessage != nil {

@@ -187,6 +187,14 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 		return fmt.Errorf("cannot delete payment on cancelled invoice")
 	}
 
+	// GoBD §146: an administratively locked invoice is technically immutable —
+	// same barrier transitionToPaidInTx/revertPaidStatusInTx enforce below. A
+	// deleted payment can't be silently skipped like an auto-transition, so this
+	// rejects the whole operation rather than proceeding without it.
+	if inv.LockedAt != nil {
+		return ErrInvoiceLocked
+	}
+
 	if s.pool == nil {
 		return fmt.Errorf("payment service: pool not configured (required for Delete)")
 	}
@@ -230,6 +238,19 @@ func (s *Service) transitionToPaidInTx(ctx context.Context, tx pgx.Tx, tenantID,
 		return nil
 	}
 
+	// GoBD §146: an administratively locked invoice is technically immutable, same
+	// barrier invoice.Service.MarkPaid enforces via isInvoiceLocked. This service
+	// writes the status column through a narrow InvoiceStatusUpdater that bypasses
+	// invoice.Service entirely (cmd/biz/main.go wires the raw repository), so the
+	// lock check has to be repeated here rather than inherited.
+	if inv.LockedAt != nil {
+		slog.Warn("skipped auto-transition-to-paid for locked invoice",
+			"invoice_id", invoiceID,
+			"tenant_id", tenantID,
+		)
+		return nil
+	}
+
 	totalPaid, err := s.repo.SumByInvoiceIDInTx(ctx, tx, tenantID, invoiceID)
 	if err != nil {
 		return fmt.Errorf("sum payments: %w", err)
@@ -252,7 +273,9 @@ func (s *Service) transitionToPaidInTx(ctx context.Context, tx pgx.Tx, tenantID,
 
 // revertPaidStatusInTx reverts an invoice from paid to sent or overdue when a
 // payment is deleted and the remaining total no longer covers the invoice amount,
-// within the caller's transaction (atomic with the deletion).
+// within the caller's transaction (atomic with the deletion). Delete's own
+// inv.LockedAt guard runs before this is ever called, so a locked invoice never
+// reaches here (fix-payment-delete-bypasses-invoice-lock).
 func (s *Service) revertPaidStatusInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID, inv *models.Invoice) error {
 	totalPaid, err := s.repo.SumByInvoiceIDInTx(ctx, tx, tenantID, invoiceID)
 	if err != nil {

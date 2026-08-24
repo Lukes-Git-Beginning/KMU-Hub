@@ -15,6 +15,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
+	"github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
@@ -375,6 +376,20 @@ func TestEscalateDunning(t *testing.T) {
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 
+	// A paid invoice is never returned by GetOverdue (PostgresRepository.GetOverdue
+	// filters status = 'sent', see postgres_repository.go) — this proves the
+	// resulting "not found in the overdue set" path maps to the same client-safe
+	// FailedPrecondition as the max-level case, not a 500 or a silent no-op.
+	t.Run("paid invoice: no escalation available", func(t *testing.T) {
+		invoiceID := uuid.New()
+		invReader := &stubDunningInvoiceReader{overdue: []*models.Invoice{}}
+		srv := newDunningTestServer(newStubDunningRecordRepo(), &stubDunningConfigRepo{config: defaultDunningConfig(tenantID)}, invReader)
+		_, err := srv.EscalateDunning(context.Background(), &bizv1.EscalateDunningRequest{
+			TenantId: tenantID.String(), InvoiceId: invoiceID.String(),
+		})
+		requireGRPCCode(t, err, codes.FailedPrecondition)
+	})
+
 	t.Run("happy path escalates to level 1", func(t *testing.T) {
 		invoiceID := uuid.New()
 		invReader := &stubDunningInvoiceReader{overdue: []*models.Invoice{{
@@ -552,6 +567,50 @@ func TestGenerateDunningPDF_NotFound(t *testing.T) {
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
+// TestGenerateDunningPDF_LinkedInvoiceLoadFailure guards the fix for a found
+// bug: the handler used to hardcode codes.Internal whenever s.invoiceService.
+// GetByID(dr.InvoiceID) failed, regardless of *why* — a missing invoice
+// (invoice.ErrInvoiceNotFound, e.g. a wrong/stale ID) surfaced identically to
+// a genuine DB outage. Routed through mapBizError like every other lookup in
+// this file, a sentinel error now maps to its real code and only a truly
+// opaque error still falls through to Internal.
+func TestGenerateDunningPDF_LinkedInvoiceLoadFailure(t *testing.T) {
+	tenantID := uuid.New()
+	dunningID := uuid.New()
+	invoiceID := uuid.New()
+
+	newSrv := func(invRepo *stubInvoiceRepo) *BizGRPCServer {
+		dunningRepo := newStubDunningRecordRepo()
+		dunningRepo.records[dunningID] = &models.DunningRecord{
+			ID: dunningID, TenantID: tenantID, InvoiceID: invoiceID, Level: 1,
+			Status: models.DunningStatusSent, Fee: decimal.Zero, Interest: decimal.Zero,
+			CreatedBy: uuid.New(), CreatedAt: time.Now(),
+		}
+		return &BizGRPCServer{
+			dunningService: dunning.NewService(dunningRepo, &stubDunningConfigRepo{}, &stubDunningInvoiceReader{}),
+			invoiceService: invoice.NewService(invRepo, nil, &stubCompanySettingsRepo{}, nil, fakeTxBeginner{}),
+		}
+	}
+
+	t.Run("invoice not found maps to NotFound, not Internal", func(t *testing.T) {
+		srv := newSrv(newStubInvoiceRepo()) // empty repo: GetByID returns invoice.ErrInvoiceNotFound
+		_, err := srv.GenerateDunningPDF(context.Background(), &bizv1.GenerateDunningPDFRequest{
+			TenantId: tenantID.String(), Id: dunningID.String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
+
+	t.Run("opaque repo error still maps to Internal", func(t *testing.T) {
+		invRepo := newStubInvoiceRepo()
+		invRepo.getErr = errors.New("connection reset by peer")
+		srv := newSrv(invRepo)
+		_, err := srv.GenerateDunningPDF(context.Background(), &bizv1.GenerateDunningPDFRequest{
+			TenantId: tenantID.String(), Id: dunningID.String(),
+		})
+		requireGRPCCode(t, err, codes.Internal)
+	})
+}
+
 // ============================================================================
 // GetFinanceDashboard
 // ============================================================================
@@ -689,6 +748,17 @@ func TestGenerateGoBDExport_Validation(t *testing.T) {
 	t.Run("invalid to_date", func(t *testing.T) {
 		_, err := srv.GenerateGoBDExport(context.Background(), &bizv1.GenerateGoBDExportRequest{
 			TenantId: tenantID.String(), FromDate: "2026-01-01", ToDate: "not-a-date",
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	// Before this check existed, a swapped range reached ListForDATEVExport
+	// (fromDate > toDate can never match an invoice_date), which silently
+	// returned zero rows — a 200 with an empty CSV, indistinguishable from
+	// "no revenue in this period" instead of a rejected request.
+	t.Run("end before start maps to invalid argument", func(t *testing.T) {
+		_, err := srv.GenerateGoBDExport(context.Background(), &bizv1.GenerateGoBDExportRequest{
+			TenantId: tenantID.String(), FromDate: "2026-02-01", ToDate: "2026-01-01",
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})

@@ -34,7 +34,7 @@ func TestPersonnelDocuments_ListByTenant_RespectsVisibility_DB(t *testing.T) {
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 
 	// Own tenants rather than the shared TenantA/TenantB, so a parallel test
 	// seeding its own documents cannot change the counts asserted here.

@@ -30,9 +30,35 @@ const (
 	exemptionReasonKleinunternehmer = "Kleinunternehmer gemaess Paragraph 19 UStG"
 )
 
-// totalsTolerance is the largest difference between recomputed and stored totals
-// that is still treated as a rounding artefact rather than a data defect.
-var totalsTolerance = decimal.New(1, -2) // 0.01
+// halfCent is the largest amount a single line can move when its net is rounded
+// to cents. It is the unit the totals tolerance is built from.
+var halfCent = decimal.New(5, -3) // 0.005
+
+// totalsTolerance returns the largest difference between recomputed and stored
+// totals that is still a rounding artefact rather than a data defect.
+//
+// The NET side no longer needs a scaling tolerance: since
+// fix-write-path-line-total-unrounded-everywhere the write path rounds each line
+// net to cents through tax.LineTotal before summing, exactly like
+// buildLinesAndTaxGroups does for BR-CO-10, so a freshly written invoice agrees on
+// the subtotal to the cent. Two reasons the tolerance still scales with line count:
+//
+//  1. TAX and GROSS still differ by rounding ORDER — this breakdown sums per-line
+//     tax, EN 16931's BR-CO-17 derives the group tax from the already-rounded group
+//     net (see the note on tax.Calculate). Up to half a cent per line, and one
+//     tolerance covers all three comparisons in assertTotalsMatch.
+//  2. Invoices written BEFORE that fix carry unrounded stored subtotals. Tightening
+//     the net bound would make them fail to export — a stored-figure problem that a
+//     validation guard must not be the one to discover.
+//
+// Anything beyond that bound is not a rounding order — it is a stale stored figure,
+// and that is what this guard is for.
+func totalsTolerance(lineCount int) decimal.Decimal {
+	if lineCount < 2 {
+		return decimal.New(1, -2) // 0.01 — floor, one line can never drift further
+	}
+	return halfCent.Mul(decimal.NewFromInt(int64(lineCount)))
+}
 
 // invoiceDoc is the format-neutral view of an outbound invoice.
 type invoiceDoc struct {
@@ -53,11 +79,23 @@ type invoiceDoc struct {
 	TaxGroups []docTaxGroup
 
 	// Totals are recomputed from Lines, never copied from the invoice record, so
-	// the emitted document always satisfies EN 16931 BR-CO-10/13/14/15.
+	// the emitted document always satisfies EN 16931 BR-CO-10/13/14/15. Being
+	// struct fields written unconditionally by both generators (LineExtensionAmount
+	// /TaxExclusiveAmount/TaxInclusiveAmount/PayableAmount in generator_ubl.go,
+	// the Summation block in generator_cii.go), they also guarantee presence for
+	// BR-12 (BT-106), BR-13 (BT-109), BR-14 (BT-112) and BR-15 (BT-115, written as
+	// GrossTotal — this product tracks no partial payment to subtract from it).
 	LineTotal  decimal.Decimal
 	TaxTotal   decimal.Decimal
 	GrossTotal decimal.Decimal
 }
+
+// lean: BR-17 (Payee name, BT-59, mandatory when the payee differs from the
+// seller) has no runtime check because the data model has no distinct payee
+// concept to compare against — docBank is the seller's own account, not a
+// separate payee party, and neither generator emits a PayeeParty group. Add the
+// field and this check the day the product supports a factoring or collection
+// agency as payee.
 
 type docParty struct {
 	Name string
@@ -107,10 +145,10 @@ type docTaxGroup struct {
 // be rendered into a well-formed document at all.
 func buildInvoiceDoc(invoice models.Invoice, settings models.CompanySettings, buyerReference string) (*invoiceDoc, error) {
 	if strings.TrimSpace(invoice.InvoiceNumber) == "" {
-		return nil, fmt.Errorf("%w: invoice number (BT-1) is empty", ErrGenerateFailed)
+		return nil, fmt.Errorf("%w: invoice number (BT-1, BR-02) is empty", ErrGenerateFailed)
 	}
 	if invoice.InvoiceDate.IsZero() {
-		return nil, fmt.Errorf("%w: issue date (BT-2) is not set on invoice %s", ErrGenerateFailed, invoice.InvoiceNumber)
+		return nil, fmt.Errorf("%w: issue date (BT-2, BR-03) is not set on invoice %s", ErrGenerateFailed, invoice.InvoiceNumber)
 	}
 
 	var items []models.LineItem
@@ -120,9 +158,12 @@ func buildInvoiceDoc(invoice models.Invoice, settings models.CompanySettings, bu
 		}
 	}
 	if len(items) == 0 {
-		return nil, fmt.Errorf("%w: invoice %s has no line items (BG-25)", ErrGenerateFailed, invoice.InvoiceNumber)
+		return nil, fmt.Errorf("%w: invoice %s has no line items (BG-25, BR-16)", ErrGenerateFailed, invoice.InvoiceNumber)
 	}
 
+	// BR-05: the currency code (BT-5) is mandatory. Never actually empty by the
+	// time it reaches validateInvoiceDoc — this fallback guarantees it — so BR-05
+	// needs no runtime rejection of its own; only BR-CL-04 (the code list) does.
 	currency := strings.TrimSpace(invoice.Currency)
 	if currency == "" {
 		currency = models.DefaultCurrency
@@ -145,7 +186,7 @@ func buildInvoiceDoc(invoice models.Invoice, settings models.CompanySettings, bu
 	}
 	grossTotal := lineTotal.Add(taxTotal)
 
-	if err := assertTotalsMatch(invoice, lineTotal, taxTotal, grossTotal); err != nil {
+	if err := assertTotalsMatch(invoice, len(lines), lineTotal, taxTotal, grossTotal); err != nil {
 		return nil, err
 	}
 
@@ -262,6 +303,22 @@ func isPostalCode(s string) bool {
 // Deriving both from the same figure is what keeps BR-S-08 (category taxable amount
 // equals the sum of its line net amounts) true even when a stored line total was
 // rounded or adjusted.
+//
+// Rounding order (EN 16931, and the order the official Schematron enforces):
+//
+//   - Line net (BT-131) is rounded to cents HERE, before it is summed. BT-106 is
+//     compared against the sum of the line amounts as written, and BR-CO-10 has no
+//     tolerance: "Sum of Invoice line net amount (BT-106) = Σ (BT-131)". Summing
+//     unrounded nets and rounding only on output made BT-106 disagree with its own
+//     lines by a cent per fractional quantity — a document every XRechnung portal
+//     rejects.
+//   - Group tax (BT-117) is computed from the finished group net (BT-116), NOT as
+//     the sum of per-line taxes. BR-CO-17: "VAT category tax amount = VAT category
+//     taxable amount × (rate / 100), rounded to two decimals".
+//
+// This is deliberately NOT the order tax.Calculate uses — see the note there. Both
+// are correct for their purpose; what was wrong was that nobody had written down
+// which is which.
 func buildLinesAndTaxGroups(items []models.LineItem, taxMode string) ([]docLine, []docTaxGroup) {
 	hundred := decimal.NewFromInt(100)
 	taxFree := taxMode == models.TaxModeReverseCharge || taxMode == models.TaxModeKleinunternehmer
@@ -275,10 +332,15 @@ func buildLinesAndTaxGroups(items []models.LineItem, taxMode string) ([]docLine,
 		if net.IsZero() {
 			net = item.Quantity.Mul(item.UnitPrice)
 		}
+		// BR-CO-10 compares BT-106 against the line amounts as written, exactly.
+		net = net.Round(2)
 
 		rate := item.TaxRate
 		if taxFree {
 			// BR-AE-05 / BR-E-05: a reverse-charge or exempt line must carry rate 0.
+			// BR-Z-05 (zero-rated) needs no assignment here: taxCategoryFor only
+			// returns taxCategoryZeroRated when rate is already zero (default case
+			// below), so the rate-0 condition holds by construction, not by force.
 			rate = decimal.Zero
 		}
 		category, exemptionReason := taxCategoryFor(taxMode, rate)
@@ -306,18 +368,41 @@ func buildLinesAndTaxGroups(items []models.LineItem, taxMode string) ([]docLine,
 			order = append(order, key)
 		}
 		g.TaxableNet = g.TaxableNet.Add(net)
-		g.TaxAmount = g.TaxAmount.Add(net.Mul(rate).Div(hundred).Round(2))
 	}
 
 	out := make([]docTaxGroup, 0, len(order))
 	for _, key := range order {
-		out = append(out, *groups[key])
+		g := groups[key]
+		// BR-CO-17: BT-117 is derived from the finished BT-116, not accumulated
+		// from per-line taxes. The two differ once a group holds enough lines.
+		g.TaxAmount = g.TaxableNet.Mul(g.Rate).Div(hundred).Round(2)
+		out = append(out, *g)
 	}
 	return lines, out
 }
 
 // taxCategoryFor maps the invoice tax mode and the effective rate to the EN 16931
 // VAT category code and, where the category demands one, its exemption reason.
+//
+// This is the single place category and exemption reason are decided, so the
+// per-category VAT breakdown rules hold by construction and are not re-checked
+// in validateInvoiceDoc:
+//   - BR-Z-05/E-05/AE-05 (line VAT rate must be 0 for these three categories):
+//     the caller already forces rate to 0 for reverse charge/Kleinunternehmer, and
+//     the zero-rated branch below only fires when rate is already 0.
+//   - BR-Z-09/E-09/AE-09 (VAT category tax amount must be 0): follows from the
+//     rate-0 guarantee above — buildLinesAndTaxGroups computes tax as
+//     taxableNet * rate / 100.
+//   - BR-E-10/AE-10 (exemption reason code or text is mandatory): both branches
+//     below always return a non-empty reason.
+//   - BR-Z-10 (zero-rated must NOT carry an exemption reason): the zero-rated
+//     branch returns "", and generator_cii.go/generator_ubl.go both mark the
+//     field omitempty, so an empty reason is never rendered.
+//
+// lean: BR-G/BR-IC/BR-O (export, intra-community, out-of-scope) are not handled
+// anywhere in this switch — models.TaxMode has no value that would select them.
+// Add a branch (and the matching rule family) the day this product invoices
+// outside the EU or ships goods cross-border within it.
 func taxCategoryFor(taxMode string, rate decimal.Decimal) (category, exemptionReason string) {
 	switch taxMode {
 	case models.TaxModeReverseCharge:
@@ -336,7 +421,7 @@ func taxCategoryFor(taxMode string, rate decimal.Decimal) (category, exemptionRe
 // the ones the customer sees on the PDF. The document itself always uses the
 // recomputed totals; a disagreement beyond rounding means the stored figures are
 // stale, and shipping either version silently would be wrong.
-func assertTotalsMatch(invoice models.Invoice, lineTotal, taxTotal, grossTotal decimal.Decimal) error {
+func assertTotalsMatch(invoice models.Invoice, lineCount int, lineTotal, taxTotal, grossTotal decimal.Decimal) error {
 	if invoice.GrossTotal.IsZero() && invoice.Subtotal.IsZero() {
 		// Totals were never computed for this record — nothing to compare against.
 		return nil
@@ -349,7 +434,7 @@ func assertTotalsMatch(invoice models.Invoice, lineTotal, taxTotal, grossTotal d
 		{"total tax", invoice.TotalTax, taxTotal},
 		{"gross total", invoice.GrossTotal, grossTotal},
 	} {
-		if c.stored.Sub(c.computed).Abs().GreaterThan(totalsTolerance) {
+		if c.stored.Sub(c.computed).Abs().GreaterThan(totalsTolerance(lineCount)) {
 			return fmt.Errorf("%w: invoice %s %s stored %s, recomputed %s",
 				ErrTotalsMismatch, invoice.InvoiceNumber, c.name,
 				c.stored.StringFixed(2), c.computed.StringFixed(2))

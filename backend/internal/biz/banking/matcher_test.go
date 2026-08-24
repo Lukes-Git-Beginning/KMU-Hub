@@ -117,6 +117,28 @@ func TestMatchEntryDoesNotCrossCurrencies(t *testing.T) {
 	}
 }
 
+func TestMatchEntryEmptyCurrencyDefaultsToEUR(t *testing.T) {
+	// The parsed entry names no currency (some MT940 segments omit it); it must
+	// default to EUR and still match an item that spells EUR out explicitly.
+	// The remittance text carries no invoice number, so this only succeeds
+	// through the amount-only pass — which is the one that needs the default.
+	item := &models.OpenItem{
+		InvoiceID:     uuid.New(),
+		InvoiceNumber: "RE-2026-0001",
+		Currency:      "EUR",
+		OpenAmount:    decimal.RequireFromString("119.00"),
+	}
+	entry := &ParsedEntry{
+		Amount:         decimal.RequireFromString("119.00"),
+		RemittanceInfo: "Ueberweisung",
+	}
+
+	got := MatchEntry(entry, []*models.OpenItem{item})
+	if got.Status != models.BankMatchSuggested || got.Reason != MatchReasonAmount {
+		t.Fatalf("got %+v, want a suggestion by amount when the entry's blank currency defaults to EUR", got)
+	}
+}
+
 func TestMatchEntryIgnoresShortInvoiceNumbers(t *testing.T) {
 	// "7" would appear in almost any remittance text; such a number is only
 	// reachable through the amount rule.

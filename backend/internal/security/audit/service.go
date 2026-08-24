@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -12,6 +13,10 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
+
+// ErrUnsupportedFormat is returned by ExportEntries for any format other than
+// "csv" or "json" -- a client input error, not a server failure.
+var ErrUnsupportedFormat = errors.New("audit: unsupported export format")
 
 // Service provides audit logging and chain verification functionality.
 type Service struct {
@@ -133,6 +138,6 @@ func (s *Service) ExportEntries(ctx context.Context, filter *models.AuditFilter,
 	case "json":
 		return ExportJSON(entries)
 	default:
-		return nil, fmt.Errorf("unsupported export format: %s", format)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedFormat, format)
 	}
 }

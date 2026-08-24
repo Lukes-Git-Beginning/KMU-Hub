@@ -269,3 +269,135 @@ func TestCalendarErasureHandler_ExecuteErasure_DeadPool(t *testing.T) {
 	require.Error(t, err, "a dead pool must surface as an error, not as a silent no-op erasure")
 	assert.Equal(t, 0, affected)
 }
+
+// TestBookingPageErasureHandler_Integration covers fix-booking-page-orphaned-
+// after-owner-erasure (Lauf 11): CalendarErasureHandler keeps a personal
+// calendar alive when a booking_pages row depends on it, so the customer
+// records in public_bookings are not collaterally destroyed -- but that left
+// the booking page itself active forever under a departed employee's name.
+// This handler is the other half: it deactivates the page without touching
+// the calendar or public_bookings.
+func TestBookingPageErasureHandler_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Booking Page Erasure Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+
+	userID := seedExportUser(t, pool, tenantOwn, "bp-erasure-subject")
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	newSlug := func() string {
+		return "bp-erasure-" + strings.ReplaceAll(uuid.New().String(), "-", "")[:10]
+	}
+
+	// Two personal calendars owned by the subject, only one carrying a booking
+	// page -- proves the handler selects by booking page presence, not just by
+	// ownership of any calendar.
+	calWithoutPage := testutil.SeedRow(t, pool, "calendars", map[string]any{
+		"tenant_id":     tenantOwn,
+		"name":          "Privatkalender",
+		"calendar_type": "personal",
+		"owner_id":      userID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendars", calWithoutPage)
+
+	calWithPage := testutil.SeedRow(t, pool, "calendars", map[string]any{
+		"tenant_id":     tenantOwn,
+		"name":          "Beratungskalender",
+		"calendar_type": "personal",
+		"owner_id":      userID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendars", calWithPage)
+	activePageID := testutil.SeedRow(t, pool, "booking_pages", map[string]any{
+		"tenant_id":    tenantOwn,
+		"calendar_id":  calWithPage,
+		"slug":         newSlug(),
+		"company_name": "Zentria Beratung",
+	})
+	defer testutil.CleanupRow(t, pool, "booking_pages", activePageID)
+
+	// A second, already-inactive booking page on a third calendar -- must not
+	// be counted or re-touched; it is already in the target state.
+	calWithInactivePage := testutil.SeedRow(t, pool, "calendars", map[string]any{
+		"tenant_id":     tenantOwn,
+		"name":          "Altkalender",
+		"calendar_type": "personal",
+		"owner_id":      userID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendars", calWithInactivePage)
+	inactivePageID := testutil.SeedRow(t, pool, "booking_pages", map[string]any{
+		"tenant_id":    tenantOwn,
+		"calendar_id":  calWithInactivePage,
+		"slug":         newSlug(),
+		"company_name": "Alte Praxis",
+		"active":       false,
+	})
+	defer testutil.CleanupRow(t, pool, "booking_pages", inactivePageID)
+
+	ctx := testutil.WithTenantCtx(context.Background(), tenantOwn)
+
+	h := NewBookingPageErasureHandler(pool)
+
+	preview, err := h.PreviewErasure(ctx, userID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, preview.RecordCount, "only the one still-active booking page must be reported")
+	assert.Equal(t, string(ErasureDeactivate), preview.Action)
+
+	// Preview must not write.
+	var stillActive bool
+	require.NoError(t, pool.QueryRow(ctx, `SELECT active FROM booking_pages WHERE id = $1`, activePageID).Scan(&stillActive))
+	assert.True(t, stillActive, "PreviewErasure must not modify data")
+
+	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected, "affected count must match PreviewErasure exactly")
+	assert.Equal(t, preview.RecordCount, affected)
+
+	var nowActive bool
+	require.NoError(t, pool.QueryRow(ctx, `SELECT active FROM booking_pages WHERE id = $1`, activePageID).Scan(&nowActive))
+	assert.False(t, nowActive, "the booking page on the erased owner's calendar must be deactivated")
+
+	// The calendar and its booking page both survive -- this handler only
+	// flips a flag, it never deletes.
+	testutil.AssertRowCount(t, pool, ctx, "calendars", calWithPage, 1)
+	testutil.AssertRowCount(t, pool, ctx, "booking_pages", activePageID, 1)
+
+	// The calendar with no booking page is untouched by this handler.
+	testutil.AssertRowCount(t, pool, ctx, "calendars", calWithoutPage, 1)
+
+	// The already-inactive page is untouched and not double-counted on a
+	// second run.
+	var stillInactive bool
+	require.NoError(t, pool.QueryRow(ctx, `SELECT active FROM booking_pages WHERE id = $1`, inactivePageID).Scan(&stillInactive))
+	assert.False(t, stillInactive)
+
+	// A second run against the now-fully-deactivated state must be a no-op.
+	secondPreview, err := h.PreviewErasure(ctx, userID)
+	require.NoError(t, err)
+	assert.Equal(t, 0, secondPreview.RecordCount, "a repeated run must find nothing left to deactivate")
+
+	secondAffected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
+	require.NoError(t, err)
+	assert.Equal(t, 0, secondAffected)
+}
+
+func TestBookingPageErasureHandler_ExecuteErasure_DeadPool(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	pool.Close()
+
+	h := NewBookingPageErasureHandler(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+	userID := uuid.New()
+
+	affected, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureAnonymize)
+	require.Error(t, err, "a dead pool must surface as an error, not as a silent no-op erasure")
+	assert.Equal(t, 0, affected)
+}

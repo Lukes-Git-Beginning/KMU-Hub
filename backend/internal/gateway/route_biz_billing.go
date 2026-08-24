@@ -190,7 +190,10 @@ func (b *BizRoutes) HandleGenerateCreditNotePDF(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 type recordPaymentRequest struct {
-	Amount      string `json:"amount"       validate:"required,decimal_gt0"`
+	// max_2dp: payments.amount is NUMERIC(15,2) (migrations/000045) — without
+	// this, extra precision is silently rounded away at INSERT instead of
+	// rejected here.
+	Amount      string `json:"amount"       validate:"required,decimal_gt0,max_2dp"`
 	PaymentDate string `json:"payment_date" validate:"required,datetime=2006-01-02"`
 	Method      string `json:"method"       validate:"required,oneof=bank_transfer cash credit_card other"`
 	Reference   string `json:"reference"`

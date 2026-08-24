@@ -5,6 +5,8 @@
 package tax
 
 import (
+	"strings"
+
 	"github.com/shopspring/decimal"
 )
 
@@ -38,12 +40,34 @@ type Breakdown struct {
 	GrossTotal decimal.Decimal
 }
 
+// LineTotal is the single definition of a document line's net amount: quantity
+// times unit price, rounded to cents at the line level.
+//
+// Every write path that stores a LineItem has to use this, not its own
+// Quantity.Mul(UnitPrice): the stored line amount is what the PDF prints and what
+// the e-invoice generator emits as BT-131, and BR-CO-10 compares BT-106 against the
+// sum of those line amounts exactly, with no tolerance. A line net carrying more
+// than two decimals (fractional quantities, e.g. 2.25 hours at 83.33) makes the
+// stored subtotal and the exported document net disagree by cents.
+func LineTotal(quantity, unitPrice decimal.Decimal) decimal.Decimal {
+	return quantity.Mul(unitPrice).Round(2)
+}
+
 // Calculate computes the tax breakdown for a set of line items under the given tax mode.
 // This is a pure function: no database access, no side effects, fully deterministic.
 //
-// Tax is calculated per line item and rounded to 2 decimal places at the line level
-// (not at the total level). This prevents cent discrepancies that arise from rounding
-// a sum vs. summing rounded values.
+// Both the line net and the line tax are rounded to 2 decimal places at the line
+// level (not at the total level) before they are summed. This prevents cent
+// discrepancies that arise from rounding a sum vs. summing rounded values, and it
+// matches the order the PDF uses: it prints a net and a tax column per line, so the
+// printed lines have to add up to the printed total.
+//
+// Remaining rounding-order difference from the e-invoice XML: this breakdown sums
+// per-line tax (round each line's tax, then add), while EN 16931's BR-CO-17 derives
+// the group tax (BT-117) from the already-rounded group net (BT-116) in one step.
+// Both are right for their medium; over many fractional lines with mixed rates they
+// can still drift apart by a cent or two. einvoice.buildLinesAndTaxGroups carries
+// the counterpart note, and einvoice.totalsTolerance is sized for exactly this gap.
 //
 // For ReverseCharge and Kleinunternehmer modes, all tax is zero regardless of the
 // tax rates specified on line items.
@@ -55,8 +79,11 @@ func Calculate(items []LineItem, mode TaxMode) Breakdown {
 	taxExempt := mode == ModeReverseCharge || mode == ModeKleinunternehmer
 
 	for _, item := range items {
-		// Line total = quantity * unit_price
-		lineTotal := item.Quantity.Mul(item.UnitPrice)
+		// Line total = quantity * unit_price, rounded to 2 decimal places before
+		// summing (same rounding order the e-invoice generator uses for BT-106,
+		// see fix-tax-calculator-line-total-unrounded in the loop backlog) so the
+		// stored subtotal and the exported document net agree line by line.
+		lineTotal := LineTotal(item.Quantity, item.UnitPrice)
 		subtotal = subtotal.Add(lineTotal)
 
 		if !taxExempt {
@@ -64,13 +91,18 @@ func Calculate(items []LineItem, mode TaxMode) Breakdown {
 			lineTax := lineTotal.Mul(item.TaxRate).Div(hundred).Round(2)
 			totalTax = totalTax.Add(lineTax)
 
-			// Aggregate by rate key (strip trailing zeros for clean keys: "19.00" -> "19")
-			rateKey := item.TaxRate.Truncate(0).StringFixed(0)
-			existing, ok := taxByRate[rateKey]
-			if !ok {
-				existing = decimal.Zero
+			// A 0% line in standard mode (e.g. an out-of-scope item on an otherwise
+			// taxable invoice) must not create a rate group: TaxByRate has no category
+			// of its own, so a "0" key renders and exports as VAT category S at 0%,
+			// which every EN 16931 validator rejects (S requires a positive rate).
+			if !item.TaxRate.IsZero() {
+				rateKey := rateGroupKey(item.TaxRate)
+				existing, ok := taxByRate[rateKey]
+				if !ok {
+					existing = decimal.Zero
+				}
+				taxByRate[rateKey] = existing.Add(lineTax)
 			}
-			taxByRate[rateKey] = existing.Add(lineTax)
 		}
 	}
 
@@ -87,6 +119,17 @@ func Calculate(items []LineItem, mode TaxMode) Breakdown {
 		TotalTax:   totalTax,
 		GrossTotal: grossTotal,
 	}
+}
+
+// rateGroupKey formats a tax rate as a TaxByRate map key: whole rates stay bare
+// ("19", "7"), fractional rates keep the decimal ("7.5"). Truncating to an integer
+// (the previous behaviour) collided 7.5% into the same key as 7% — two different
+// legal rates aggregated into one, silently picking whichever's revenue account
+// happened to be looked up last.
+func rateGroupKey(rate decimal.Decimal) string {
+	s := rate.StringFixed(2)
+	s = strings.TrimRight(s, "0")
+	return strings.TrimRight(s, ".")
 }
 
 // RequiresReverseChargeNote returns true if the tax mode requires a Reverse Charge note

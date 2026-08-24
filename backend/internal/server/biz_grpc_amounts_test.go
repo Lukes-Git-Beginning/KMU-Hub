@@ -96,6 +96,16 @@ func TestToProtoInvoice_LegacyCurrencyDefaultsToEUR(t *testing.T) {
 	assert.Empty(t, pi.GetExternalNumber(), "a cosmi invoice carries no external number")
 }
 
+// TestDocumentCurrency pins the helper directly, not just through the three
+// toProto* converters: GenerateGoBDExport's two BuildGoBDRows call sites route
+// through it too (fix-gobd-export-currency-empty-for-legacy-documents), and a
+// converter-only test would not have caught a raw inv.Currency/cn.Currency
+// passed around it there.
+func TestDocumentCurrency(t *testing.T) {
+	assert.Equal(t, models.DefaultCurrency, documentCurrency(""), "legacy documents with no stored currency must default to EUR")
+	assert.Equal(t, "CHF", documentCurrency("CHF"), "a stored currency must pass through unchanged")
+}
+
 // TestToProtoQuoteAndCreditNote_AmountsAndCurrency mirrors the invoice
 // assertions for the other two finance documents — all three lists render from
 // the same converter shape.
