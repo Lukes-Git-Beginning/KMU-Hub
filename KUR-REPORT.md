@@ -128,6 +128,7 @@ Der wertvollste Abschnitt, nach Kur-Regel 2: *ein Unterschied ist keine Richtung
 | **Die 6 `intel-*`-Commands** | Steuern ein Repo, das hier nicht liegt — aber sie sind eingecheckt und gelten fürs Team. Statt zu löschen (das träfe Luke) nur die Beschreibungen gekürzt. Klonst du `zentria-intel`, greifen sie sofort wieder. |
 | **UI/UX-Block in der CLAUDE.md** | Nicht in eine `.claude/rules/`-Datei mit `paths:` ausgelagert, obwohl die Kur das für „Alles-in-einer-CLAUDE.md" vorschlägt. Rules laden erst, wenn eine passende Datei angefasst wird — eine Font-Ban-Regel, die im Design-Gespräch ohne Dateizugriff fehlt, ist genau dann weg, wenn sie gebraucht wird. |
 | **Architektur-Regeln 1–11, Deployment-Reihenfolge, Build-+-Verify-Standard** | Kur-Regel 4: Fachwissen ist heilig. Nur Datum und Zahl gingen, die Regeln stehen wörtlich. |
+| **`web-design-guidelines` als lokaler Fork** | Beim Ladetest aufgefallen: der Skill ist eine bewusst gepinnte lokale Kopie des Vercel-Labs-Originals, weil das Original bei jedem Aufruf `command.md` live von GitHub holt — ein Supply-Chain-Risiko in einem DSGVO-sensiblen Repo. Genau die Art handgeschriebener Entscheidung, die Kur-Regel 2 meint. Nur die Beschreibung gekürzt, sonst unangetastet. |
 | **`context7`-MCP** | Doku-Lookup für Fremdbibliotheken, dupliziert keine eingebaute Fähigkeit. |
 | **`docs/LEARNINGS.md`** | Erfüllt Kur-Zielbild 5 im Kern (Problem → Konsequenz → Learning). Kein zweites System daneben gebaut. |
 
