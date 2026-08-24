@@ -749,8 +749,15 @@ units:
     phase: 4
     service: gateway
     model: sonnet
-    deps: [doc-status-code-systemic-400-503-sweep-10]
+    deps: []
     status: parked
+    deps_note: >-
+      Die urspruengliche deps auf `doc-status-code-systemic-400-503-sweep-10` ist beim
+      Neuaufsetzen von BACKLOG.yml fuer Lauf 12 geleert worden: die Vorgaenger-Unit ist in
+      Lauf 11 gebaut und liegt jetzt in `archive/lauf-11/BACKLOG.yml`. Der Vorflug
+      (`hooks/backlog-check.py --preflight`) verlangt, dass jede deps-ID in einer der drei
+      aktiven Dateien existiert, und brach genau daran ab. Die Kette selbst ist geparkt und
+      durch `hooks/openapi-status-fill.py` ersetzt - die Abhaengigkeit hat keine Wirkung mehr.
     decided: 2026-08-24
     decision: >-
       AUS DEM LOOP GENOMMEN, Entscheidung Luke 2026-08-24 (B2). Diese Kette hat zusammen mit

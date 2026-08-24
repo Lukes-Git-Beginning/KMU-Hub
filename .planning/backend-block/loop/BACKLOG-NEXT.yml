@@ -282,3 +282,159 @@ units:
         Fuer trip_logs ist entschieden, ob Paragraph 147 AO fuer alle Zeilen gilt oder nur fuer
         die mit is_private
       - Jede beantwortete Domaene ist als eigene Unit in BACKLOG.yml angelegt
+
+# ==========================================================================================
+# NACHGETRAGEN 2026-08-24 bei der Vorbereitung von Lauf 12.
+#
+# Die folgenden vier Punkte standen bis heute NUR als Prosa im Kopf dieser Datei. Damit waren
+# sie beim naechsten Archivieren verloren gewesen — genau der Fehlermodus, den Lauf 11 an
+# anderer Stelle gezeigt hat: ein Journal-Eintrag ist kein Backlog-Eintrag. Sie stammen aus
+# den `offen:`-Zeilen von Lauf 11, dedupliziert und gegen alle drei Dateien abgeglichen.
+#
+# Alle vier sind PRODUKTENTSCHEIDUNGEN, keine Bugs. Sie stehen deshalb hier und nicht in
+# BACKLOG.yml — der Vorflug (`hooks/backlog-check.py --preflight`) bricht ab, wenn eine Unit
+# mit Entscheidungsbedarf in der Arbeitsqueue steht.
+# ==========================================================================================
+
+  - id: decide-dunning-interest-feature
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      PRODUKTENTSCHEIDUNG LUKE: sollen Verzugszinsen nach Paragraph 288 BGB ueberhaupt ein
+      Feature sein? Wettbewerbsdifferenzierung gegen zusaetzliche Komplexitaet in einer
+      Geldflaeche.
+    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
+    scope: >
+      BEFUND aus Lauf 11 (`verify-dunning-calculate-interest-unreachable`, done, Iteration 12):
+      `dunning.CalculateInterest` (`internal/biz/dunning/service.go:415-458`) hat NULL Aufrufer
+      im Produktionscode — ein Grep nach "CalculateInterest" findet nur die Definition und die
+      Tests. `models.DunningConfig` (`internal/models/finance.go:318`) traegt keinen
+      Basiszinssatz, nur drei Gebuehren. Verzugszinsen werden also nie berechnet, und der
+      Divisor ist fest 365.
+      Die Verify-Unit aus Lauf 11 hat aufgeraeumt und dokumentiert, aber ausdruecklich NICHTS
+      verdrahtet ("DIESE UNIT VERDRAHTET KEINE VERZUGSZINSEN"). Die eigentliche Frage — bauen
+      wir das Feature? — stand seither nirgends als Unit.
+      WAS ZU ENTSCHEIDEN IST: (a) Feature bauen. Dann braucht `DunningConfig` einen
+      Basiszinssatz, der Basiszinssatz der Bundesbank aendert sich halbjaehrlich und muss
+      gepflegt werden, und der Divisor 365 gehoert geprueft (Paragraph 288 rechnet
+      taggenau). (b) Ersatzlos streichen: `CalculateInterest` entfernen, damit kein
+      spaeterer Scan sie wieder als "toten Code" meldet.
+    sources:
+      - backend/internal/biz/dunning/service.go
+      - backend/internal/models/finance.go
+      - .planning/backend-block/loop/archive/lauf-11/JOURNAL.md
+    notes: >
+      Bei (a) ist der Basiszinssatz das eigentliche Problem, nicht die Rechnung: ein Wert, der
+      sich halbjaehrlich aendert und den niemand pflegt, produziert nach zwei Jahren falsche
+      Mahnungen. Wer (a) waehlt, entscheidet mit, WER ihn pflegt.
+    done_when:
+      - Die Entscheidung (a) oder (b) steht mit Begruendung und Datum in dieser Unit
+      - Bei (a) ist eine spitze Unit in BACKLOG.yml angelegt, inkl. der Pflegefrage
+      - Bei (b) ist eine Aufraeum-Unit in BACKLOG.yml angelegt
+
+  - id: decide-einvoice-inbound-codelist-validation
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      PRODUKTENTSCHEIDUNG LUKE: sollen EINGANGSrechnungen gegen dieselbe Waehrungs- und
+      Kategorie-Whitelist laufen wie ausgehende? Strenger heisst weniger stille Fehler, aber
+      auch abgelehnte Rechnungen von Lieferanten, die es anders machen.
+    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
+    scope: >
+      BEFUND aus Lauf 11, Iteration 52: die Whitelist aus A5
+      (`feat-einvoice-codelist-validation`, done) deckt nur den OUTBOUND-Generator ab. Fuer
+      Eingangsrechnungen (`internal/biz/einvoice/parser.go`) gibt es kein Pendant.
+      Die Wirkung ist asymmetrisch: was wir senden, ist normkonform; was wir empfangen,
+      nehmen wir ungeprueft an. Ein Lieferant mit einem exotischen Waehrungscode oder einer
+      unbekannten Kategorie erzeugt dann eine Rechnung im System, die spaeter beim Export an
+      DATEV auffaellt — an der teuersten Stelle.
+      WAS ZU ENTSCHEIDEN IST: (a) Inbound streng validieren und ablehnen; (b) inbound
+      validieren und nur WARNEN (Rechnung annehmen, Befund protokollieren); (c) so lassen.
+    sources:
+      - backend/internal/biz/einvoice/parser.go
+      - backend/internal/biz/einvoice/validation.go
+      - backend/internal/biz/einvoice/generator_doc.go
+    notes: >
+      (b) ist der wahrscheinlich richtige Kompromiss: eine abgelehnte Eingangsrechnung ist ein
+      Support-Fall beim Kunden, eine protokollierte Auffaelligkeit nicht. Aber das ist eine
+      Produktentscheidung, keine technische — deshalb steht sie hier.
+      Das Paket fuehrt inzwischen 48 EN-16931-Regel-IDs (Stand 2026-08-24); die
+      Regel-Infrastruktur ist also da, es fehlt nur die Anwendung auf den Inbound-Pfad.
+    done_when:
+      - Die Entscheidung (a), (b) oder (c) steht mit Begruendung und Datum in dieser Unit
+      - Bei (a) oder (b) ist eine spitze Unit in BACKLOG.yml angelegt
+
+  - id: decide-payment-currency-column
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      DATENMODELL-ENTSCHEIDUNG LUKE: bekommt `finance_payments` eine eigene
+      `currency`-Spalte? Das ist eine Migration auf einer Geldtabelle und laesst sich nicht
+      halb machen.
+    target: "Entscheidung Luke, danach als opus-Unit mit Migration nach BACKLOG.yml"
+    scope: >
+      BEFUND aus Lauf 11 (Iterationen 61, 64, 69). Drei blinde Waehrungssummierungen wurden
+      behoben (`fix-dashboard-metrics-blind-currency-sum`,
+      `fix-berichte-kpi-blind-currency-sum`, `fix-gobd-export-missing-currency-column`). Bei
+      allen dreien blieb dieselbe Ursache stehen: `finance_payments` traegt keine eigene
+      Waehrung. Eine Zahlung erbt implizit die Waehrung der Rechnung, an der sie haengt —
+      solange jede Zahlung genau einer Rechnung zugeordnet ist, geht das gut.
+      WAS ZU ENTSCHEIDEN IST: (a) Spalte einfuehren (Migration, Backfill aus der Rechnung,
+      alle Lesepfade nachziehen); (b) beim impliziten Erben bleiben und das mit einem
+      `lean:`-Marker samt Upgrade-Trigger festschreiben ("erste Zahlung ohne
+      Rechnungsbezug").
+    sources:
+      - backend/internal/biz/payment/
+      - backend/migrations
+      - backend/internal/biz/dashboard/postgres_repository.go
+    notes: >
+      (b) ist heute vertretbar und kostet nichts. Der Upgrade-Trigger ist wichtig: sobald es
+      eine Zahlung ohne Rechnungsbezug gibt (Vorauszahlung, Gutschrift, Sammelzahlung), ist
+      die implizite Erbung falsch und niemand merkt es.
+      Wenn (a): Backfill und Lesepfade in EINER Unit, nicht in einer Kette.
+    done_when:
+      - Die Entscheidung (a) oder (b) steht mit Begruendung und Datum in dieser Unit
+      - Bei (a) ist eine opus-Unit mit Migration in BACKLOG.yml angelegt
+      - Bei (b) ist eine kleine Unit angelegt, die den lean:-Marker samt Trigger setzt
+
+  - id: decide-adhoc-invoice-currency
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      PRODUKTENTSCHEIDUNG LUKE: soll eine Ad-hoc-Rechnung eine Fremdwaehrung anbieten? Das
+      betrifft die Oberflaeche, nicht nur das Backend.
+    target: "Entscheidung Luke gemeinsam mit Darien, danach als Unit nach BACKLOG.yml"
+    scope: >
+      BEFUND aus Lauf 11, Schwester von `decide-payment-currency-column`. Eine Rechnung, die
+      nicht aus einem Angebot entsteht, bekommt ihre Waehrung heute aus den
+      Tenant-Einstellungen. Ob der Nutzer sie beim Anlegen abweichend setzen koennen soll,
+      ist nicht entschieden.
+      WAS ZU ENTSCHEIDEN IST: (a) Fremdwaehrung anbieten — dann braucht es einen Kurs zum
+      Rechnungsdatum, sonst ist die Umrechnung fuer DATEV und GoBD nicht nachvollziehbar;
+      (b) auf der Tenant-Waehrung bleiben und das festschreiben.
+    sources:
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/settings/
+      - backend/internal/biz/datev/exporter.go
+    notes: >
+      (a) ist deutlich teurer, als es aussieht: ein Waehrungskurs zum Rechnungsdatum ist ein
+      eigener Datenbestand mit eigener Pflege, und DATEV verlangt fuer Fremdwaehrungsbelege
+      Kurs und Umrechnung im Export.
+      Diese Entscheidung beruehrt die Oberflaeche und gehoert deshalb mit Darien abgestimmt,
+      nicht allein technisch getroffen.
+    done_when:
+      - Die Entscheidung (a) oder (b) steht mit Begruendung und Datum in dieser Unit
+      - Bei (a) ist die Kursfrage mitentschieden (woher kommt der Kurs, wer pflegt ihn)
+      - Eine Unit in BACKLOG.yml ist angelegt, die die Entscheidung umsetzt

@@ -105,6 +105,40 @@ Sortiert nach Schadenshöhe. Alle adversarisch gegengeprüft, keiner widerlegt.
 
 ### G1 — vor dem ersten echten personenbezogenen Datensatz
 
+> **NACHTRAG 2026-08-24 — 7 von 16 Befunden sind erledigt, geprüft am Code.**
+> Die Tabelle darunter bleibt unverändert: sie hält den Befundstand vom 12.08. fest. Was
+> seither gebaut wurde, steht hier — jede Zeile mit Beleg, jede bei der Vorbereitung von
+> Nachtlauf 12 einzeln gegengeprüft.
+>
+> | Befund vom 12.08. | Stand 2026-08-24 | Beleg |
+> |---|---|---|
+> | Passwort-Reset-Fix greift nicht | **erledigt** — alle vier Defaults deckungsgleich auf `app.zentria.tech` | `config.go:211`, `docker-compose.yml:126`, `PRODUCTION_TEMPLATE:50`, `env.production.j2:46`; Commits `fe8707ad`, `7e3da706` |
+> | `AnonymizeContact` löscht nur 2 von ≥6 Tabellen | **größtenteils erledigt** — 6 Tabellen, über den gemeinsamen Helper `ScrubDependentPII`, den auch der Hard-Delete-Pfad benutzt. Restlücke benannt: `dialer_call_sessions`, `dialer_campaign_contacts`, `inbox_messages`, `rentals`, `contract_parties` | `crm/consent/scrub.go:41` (Commit `5ef54498`), `crm/consent/postgres_repository.go:157-231` |
+> | Art.-15-Auskunft deckt 3 von ≥6 Datentöpfen ab | **erledigt** — 39 Tabellen über 30 Module, inkl. der drei genannten (Rechnungen, Meetings, Chats). Der Kommentar „deliberate subset“ steht nicht mehr im Code | `security/gdpr/dsar_search.go` (2563 Z.) |
+> | Aufbewahrungs-Policy ist eine Eingabemaske ohne Wirkung | **erledigt** — Engine, Scheduler mit Advisory-Lock und **neun** registrierte Handler | `security/gdpr/retention.go`, `retention_scheduler.go:75`, `cmd/auth/main.go:124-134` |
+> | `/health` prüft nur Redis | **erledigt** — Redis **und** Postgres; die Live-Antwort der Produktion zeigt beide | `cmd/gateway/main.go:135-137` |
+> | `rollback.sh` hat keinen Migrations-Schutz | **erledigt** — gleicher Guard wie `deploy.sh`, Override nur via `--allow-schema-ahead` | `rollback.sh:98-141`, Commit `00240eba` |
+> | GoBD-Archiv nur durch Anwendungsdisziplin unveränderbar | **erledigt** — `REVOKE UPDATE, DELETE` auf beiden Archivtabellen, plus ein Test, der jede `gobd_%`-Tabelle scannt und rot wird, sobald Schreibrechte auftauchen | Migration `000315_gobd_archive_worm_privileges.up.sql`, `worm_privileges_db_test.go` |
+> | Captcha-Default zeigt auf Cloudflare Turnstile | **erledigt** — kein Default mehr; der Kommentar nennt Friendly Captcha (München) als Alternative | `config.go:83-92`, Commit `b843c7bd` |
+>
+> **Teilweise:** `restore.sh` (Code repariert — MinIO-Sidecar, Compose-Pfade, Rollen-Dump zuerst;
+> der zeitgemessene Vollzugslauf aus Gate 3 fehlt weiter, `docs/operations/BACKUP.md`) ·
+> Offsite-Backup (`backup.sh:132-172` hat einen opt-in Pfad mit `age`-Verschlüsselung und
+> Fail-Closed; ob er auf dem Server konfiguriert ist, ist aus dem Repo nicht prüfbar) ·
+> Backup-Alert (`backup.sh` alarmiert per Webhook, aber nur wenn es selbst läuft — der
+> Dead-Man's-Switch fehlt, genau die Lücke des MinIO-Ausfalls) · Kontakt-Löschung
+> (Antragsweg seit `71d830a7` in `KontaktePage.tsx`, die Ausführung `HandleProcessDeletion`
+> hat weiter kein UI).
+>
+> **Unverändert offen:** Consent-Check beim Mailversand (Backend vollständig verdrahtet, kein
+> Frontend-Pfad setzt `contact_id`) · SMTP-Vorlagenwiderspruch · `RUNBOOK.md` (6× `TODO Sprint 5`) ·
+> Secret-Rotation (13 Secrets, keine Rotationslogik).
+>
+> **Folge für die Planung:** von den neun nicht erledigten Punkten kann der Backend-Nachtloop
+> genau einen bauen — die `ScrubDependentPII`-Restlücke. Alles übrige ist Frontend, `deploy/`,
+> Ops oder Legal. Deshalb läuft Nachtlauf 12 nicht gegen G1, sondern gegen die
+> Nicht-Geld-Module (`.planning/backend-block/loop/BACKLOG.yml`, Kopf).
+
 | Befund | Beleg | PT |
 |---|---|---|
 | **Der Passwort-Reset-Fix vom 11.08. greift nicht — am Server verifiziert.** `.env.production` trägt `PASSWORD_RESET_BASE_URL=https://zentria.tech/reset-password`, also zeigen alle Reset-Mails auf die Astro-Seite statt auf die eigens gebaute, gehärtete Gateway-Seite (`10a1a26e`). Die läuft einwandfrei — und wird von keiner Mail angesteuert. Folge: Der Reset-Token läuft durch eine Vercel-Function in **iad1/Virginia**, auf einer Seite mit `Cache-Control: public` statt `no-store` und ohne `X-Robots-Tag`. Die ungenutzte Seite hat beides plus strikte CSP. **Root Cause ist nicht die Env-Var:** `docker-compose.yml:123` setzt den Default auf `zentria.tech` und überschreibt damit den korrekten Go-Default aus `config.go:204`; `PRODUCTION_TEMPLATE:49` trägt denselben Wert seit `0f49fd7f` (16.06.). Wer nur die Env ändert, holt sich den Fehler bei der nächsten Neuinstallation zurück. Nur `cmd/auth` liest den Wert (`main.go:69`) — Neustart genügt nicht, der Container muss neu erstellt werden (`up -d auth`). | Live-Header-Vergleich beider URLs; `docker-compose.yml:123`; `config.go:204`; `PRODUCTION_TEMPLATE:49` | 0,25 |
@@ -125,6 +159,30 @@ Sortiert nach Schadenshöhe. Alle adversarisch gegengeprüft, keiner widerlegt.
 | **Keine Secret-Rotation, keine Leak-Prozedur** für 12–13 Produktionsgeheimnisse. | `roles/secrets/tasks/main.yml:9-24` | 1 |
 
 ### G2 — vor dem ersten zahlenden Kunden
+
+> **NACHTRAG 2026-08-24 — drei der elf Punkte sind erledigt oder anders zu lesen als notiert.**
+>
+> - **EN-16931-Validierung ohne Schematron:** im gewählten Ansatz **erledigt**. Schematron war
+>   nicht machbar (keine reife Go-Bibliothek, keine XML/XPath/XSLT-Dependency in `go.mod`);
+>   Entscheidung Luke vom 2026-08-22 auf vier Go-Regelfamilien. Das Paket führt heute
+>   **48 EN-16931-Regel-IDs** statt der ursprünglichen 13 (`internal/biz/einvoice/`).
+> - **`internal/idempotency` hat real 0 % Coverage:** **erledigt**, das Paket steht bei
+>   **87,0 %** mit echten SQL-Tests (Lauf 10, `6507e475`/`254120eb`).
+> - **22 Route-Dateien ohne Test:** nach Dateinamen **überholt** — von 75 `route_*.go` haben
+>   noch drei keine Testdatei, und die einzige relevante davon ist über eine fremd benannte
+>   Testdatei zu 60 % abgedeckt. Richtig gemessen wird auf **Handler**-Ebene; danach ist die
+>   Lücke real und groß (z. B. `route_hr.go` 33 von 55 Handlern, `route_video.go` 33 von 59).
+>   Diese Messung ist die Grundlage von Nachtlauf 12.
+> - **DATEV-EXTF schreibt UTF-8 statt Windows-1252:** **nicht bestätigt und nicht widerlegt.**
+>   Die Recherche in Lauf 11 (`exporter_test.go:409-444`) fand keine zitierfähige Primärquelle:
+>   developer.datev.de nennt in den Format-700-Spezifikationen gar keine Kodierung, die
+>   „Zeichensatz“-Seite braucht einen bezahlten Login, und die Sekundärquellen widersprechen
+>   sich. Klärt nur Portal-Zugang oder ein empirischer Import gegen echtes DATEV — **kein
+>   Fall für den Nachtloop**, und nicht „vorsichtshalber“ umstellen.
+> - **Lexware-Webhook ohne Doppelzustellungs-Schutz:** der Schaden **existiert heute nicht** —
+>   `NewService` setzt `noopEmitter{}` und `SetEventEmitter` wird für Lexware nie aufgerufen,
+>   das Event erreicht den Bus also nie. Geparkt mit Upgrade-Trigger „zweiter aktiver
+>   Lexware-Tenant“ (`BACKLOG-PARKED.yml`).
 
 DATEV-EXTF schreibt UTF-8 statt Windows-1252 (Umlaute werden beim Steuerberater zu Mojibake,
 `exporter.go:73-76`, 0,5 PT) · EN-16931-Validierung ist Feldprüfung ohne Schematron (3 PT) ·
