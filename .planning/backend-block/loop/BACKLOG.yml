@@ -2889,7 +2889,8 @@ units:
         Responses inkl. 400 fuer fehlenden Idempotency-Key) in api/openapi.yaml
       - Ein Scan auf weitere Pfad-dokumentiert-aber-Methode-fehlt-Faelle ist gelaufen, Ergebnis
         im Journal genannt
-      - Idealerweise: TestOpenAPIRouteDrift oder ein neuer Test prueft kuenftig Methodenebene,
+      - >-
+        Idealerweise: TestOpenAPIRouteDrift oder ein neuer Test prueft kuenftig Methodenebene,
         damit dieselbe Luecke nicht wieder unbemerkt entsteht (sonst als eigene Folge-Unit)
       - swagger-cli validate gruen
       - go test -count=1 ./internal/gateway/ gruen
@@ -3109,7 +3110,8 @@ units:
     done_when:
       - CreateStatement mappt die Unique-Violation auf (tenant_id, content_hash) ueber den
         Constraint-Namen auf einen Sentinel, analog zu isAccountIBANConflict
-      - Service.Import faengt diesen Sentinel ab und liefert AlreadyImported: true statt
+      - >-
+        Service.Import faengt diesen Sentinel ab und liefert AlreadyImported: true statt
         den Fehler durchzureichen
       - Ein Test treibt zwei nahezu gleichzeitige CreateStatement-Aufrufe (oder ruft
         Service.Import zweimal ueber goroutines) mit identischem Hash und belegt, dass
@@ -3174,9 +3176,11 @@ units:
     done_when:
       - Der Unique-Index auf finance_invoices(tenant_id, invoice_number) ist partiell
         (WHERE invoice_number <> ''), per neuer Forward-Migration mit gefuellter .down.sql
-      - Ein Test belegt: zwei Create()-Aufrufe fuer denselben Tenant, beide Entwuerfe ohne
+      - >-
+        Ein Test belegt: zwei Create()-Aufrufe fuer denselben Tenant, beide Entwuerfe ohne
         Nummer, gelingen beide (kein Unique-Violation-Fehler mehr)
-      - Ein Test belegt: zwei ECHTE Nummern fuer denselben Tenant bleiben weiterhin
+      - >-
+        Ein Test belegt: zwei ECHTE Nummern fuer denselben Tenant bleiben weiterhin
         eindeutig (der Schutzzweck des Index ist nicht verloren gegangen)
       - Produktionsdaten sind vor der Migration auf bereits vorhandene Mehrfach-Leerstrings
         pro Tenant geprueft, Ergebnis im Journal
@@ -3525,7 +3529,8 @@ units:
         registriert (analog den acht bestehenden)
       - Pending-abgelaufene und angenommene Einladungen sind als Faelle im Code unterschieden
         und begruendet (eine oder zwei Policies)
-      - Mutations-Probe: eine Grenzbedingung (expires_at-Vergleich oder accepted_at-Filter)
+      - >-
+        Mutations-Probe: eine Grenzbedingung (expires_at-Vergleich oder accepted_at-Filter)
         testweise gebrochen, Test wird rot, zurueckgedreht
       - go test -count=1 ./internal/security/gdpr/ ./internal/auth/... gruen
 
@@ -3609,7 +3614,8 @@ units:
       falsches Ergebnis nachgewiesen, nur mehr Nachkommastellen in einer Vorschau. Bei Bedarf
       separat pruefen, nicht Teil dieser Unit.
     done_when:
-      - Root Cause dokumentiert: rechnet `tax.Calculate` ein gerundetes Zeilen-LineTotal
+      - >-
+        Root Cause dokumentiert: rechnet `tax.Calculate` ein gerundetes Zeilen-LineTotal
         zurueck, das wiederverwendbar ist, oder nicht (Kommentar am Rueckgabetyp bzw. an
         jeder der vier Aufrufstellen)
       - Alle vier Aufrufer (invoice, creditnote, quote, recurring) liefern ein auf 2
@@ -3617,7 +3623,8 @@ units:
       - Ein Regressionstest mit einer Bruchmenge (z. B. 2,25 Stunden * 83,33 Stundensatz)
         belegt, dass das gespeicherte LineTotal 2 Dezimalstellen hat und `datev/exporter.go`
         daraus einen sauberen Bruttobetrag ableitet
-      - Mutations-Probe: die neue Rundung testweise entfernt/gebrochen, Test wird rot,
+      - >-
+        Mutations-Probe: die neue Rundung testweise entfernt/gebrochen, Test wird rot,
         zurueckgedreht, Diff sauber
       - go test -count=1 ./internal/biz/invoice/ ./internal/biz/creditnote/
         ./internal/biz/quote/ ./internal/biz/recurring/ ./internal/biz/datev/
@@ -3875,9 +3882,11 @@ units:
     done_when:
       - Service.Delete prüft inv.LockedAt vor dem Löschen und lehnt mit demselben Fehlermuster
         wie transitionToPaidInTx/revertPaidStatusInTx ab
-      - Ein Test belegt: Löschversuch einer Zahlung auf einer gesperrten Rechnung schlägt fehl,
+      - >-
+        Ein Test belegt: Löschversuch einer Zahlung auf einer gesperrten Rechnung schlägt fehl,
         die Zahlungszeile bleibt in finance_payments erhalten
-      - Ein Test belegt: Löschversuch auf einer nicht gesperrten Rechnung funktioniert weiterhin
+      - >-
+        Ein Test belegt: Löschversuch auf einer nicht gesperrten Rechnung funktioniert weiterhin
       - Mutations-Probe dokumentiert (Guard-Zeile testweise entfernt, Test wird grün statt rot,
         zurückgedreht)
       - go test -count=1 ./internal/biz/payment/ ./internal/server/ grün
@@ -4188,21 +4197,27 @@ units:
     service: biz
     model: opus
     deps: [fix-quote-to-invoice-duplicate-creation]
-    status: blocked
-    blocked_reason: >
-      Die Unit verlangt in ihren eigenen Notes einen Produktionsbefund, den der Loop
-      nicht erheben darf (kein Prod-Zugriff): existieren in Produktion nicht-stornierte
-      Mehrfach-Rechnungen zum selben `source_quote_id`? Der partielle Unique-Index wuerde
-      bei der Migration hart scheitern, CD deployt automatisch — also Deploy-Hazard ohne
-      diesen Befund. Luke braucht dafuer genau eine Abfrage auf Prod
-      (`-U kmuhub -d kmuhub`):
+    status: todo
+    unblocked: >
+      ENTBLOCKT 2026-08-24 durch Luke. Der Produktionsbefund, auf den diese Unit gewartet
+      hat, liegt vor: die Abfrage
       SELECT tenant_id, source_quote_id, count(*) FROM finance_invoices
       WHERE source_quote_id IS NOT NULL AND status <> 'cancelled'
       GROUP BY 1,2 HAVING count(*) > 1;
-      Leeres Ergebnis => Unit auf todo zuruecksetzen, Migration ist gefahrlos.
-      Treffer => vorher eine Entscheidung ueber die Altdaten (welche Rechnung storniert
-      wird) — das ist eine Datenaenderung in Produktion und gehoert Luke, nicht dem Loop.
-      Kein Bauversuch unternommen, Arbeitsbaum unberuehrt.
+      liefert auf Produktion (178.104.38.195, docker-postgres-1, -U kmuhub -d kmuhub)
+      NULL ZEILEN. Es existieren keine mehrfach nicht-stornierten Rechnungen zum selben
+      Angebot, der partielle Unique-Index kann bei der Migration also nicht an
+      Altdaten scheitern. Kein Deploy-Hazard, keine Datenentscheidung noetig.
+      ZWEITER GRUND, sie zu bauen (Befund der Merge-Gegenpruefung Lauf 11): auf
+      finance_invoices existiert HEUTE gar kein Index auf source_quote_id -- nur die
+      Spalte (000045:61) und ein FK auf finance_quotes(id). Der in Iteration 51
+      eingefuegte LEFT JOIN LATERAL fuer converted_invoice_number sitzt in DREI
+      Quote-Lesepfaden (GetByID, List, GetByDealID, quote/postgres_repository.go) und
+      scannt dort ohne Index. Der Unique-Index dieser Unit deckt beides ab: die
+      Race-Haertung und die fehlende Zugriffsstruktur. Beim Bauen die Selektivitaet
+      des partiellen Index gegen den Join pruefen -- deckt WHERE source_quote_id IS
+      NOT NULL AND status <> 'cancelled' die Join-Bedingung ab, braucht es keinen
+      zweiten Index.
     coverage_start: "n.a. (Race-Haertung zu fix-quote-to-invoice-duplicate-creation, Lauf 11 Iteration 70)"
     scope: >
       Restrisiko aus Iteration 70: die Doppelkonversions-Sperre in
@@ -4239,7 +4254,8 @@ units:
       - Der Produktionsbefund zu vorhandenen Mehrfach-Rechnungen pro Quote steht im
         Journal (oder die Unit ist genau deswegen blocked)
       - Partieller Unique-Index per neuer Forward-Migration, .down.sql gefuellt
-      - Ein Test belegt: nach Storno der ersten Rechnung gelingt eine zweite Konversion
+      - >-
+        Ein Test belegt: nach Storno der ersten Rechnung gelingt eine zweite Konversion
         weiterhin (der Index blockiert den legitimen Weg nicht)
       - Die Unique-Violation kommt als ErrQuoteAlreadyConverted (409) beim Aufrufer an,
         nicht als roher pg-Fehler (500)

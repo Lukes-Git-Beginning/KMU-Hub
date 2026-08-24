@@ -327,10 +327,13 @@ units:
       bereits bekannten Frist, guest_sessions hängt an der ungelösten
       Subjekt-Matching-Architekturfrage aus Lauf 10.
     done_when:
-      - Luke hat je Domäne entschieden: Löschpflicht (mit Frist), Aufbewahrungspflicht (mit
+      - >-
+        Luke hat je Domäne entschieden: Löschpflicht (mit Frist), Aufbewahrungspflicht (mit
         Frist) oder keins von beidem
       - Jede Domäne mit Löschpflicht-Entscheidung ist als eigene Unit in BACKLOG.yml angelegt
-      - advisory_protocols: Entscheidung, ob die RESTRICT-FK ausreicht oder eine aktive
+      - >-
+        advisory_protocols: Entscheidung, ob die RESTRICT-FK ausreicht oder eine aktive
         Lösch-nach-Frist-Funktion nötig ist
-      - guest_sessions: Entscheidung, ob die Subjekt-Matching-Architekturfrage vorher gelöst
+      - >-
+        guest_sessions: Entscheidung, ob die Subjekt-Matching-Architekturfrage vorher gelöst
         werden muss oder eine zeitbasierte Löschung ohne DSAR-Anbindung genügt
