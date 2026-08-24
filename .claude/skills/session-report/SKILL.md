@@ -1,6 +1,6 @@
 ---
 name: session-report
-description: Erzeugt am Sessionende einen knappen Übergabe-Report aus dem Git-Kontext (geänderte Dateien, Commits) plus offenen Punkten und vorgeschlagenen nächsten Schritten. Manuell via /session-report aufrufen.
+description: Erzeugt am Sessionende eine knappe Übergabe aus Git-Kontext, offenen Punkten und nächsten Schritten. Manuell via /session-report.
 disable-model-invocation: true
 metadata:
   phase: reflect

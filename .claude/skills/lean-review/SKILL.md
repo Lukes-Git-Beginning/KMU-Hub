@@ -1,6 +1,6 @@
 ---
 name: lean-review
-description: Prüft den aktuellen Diff auf Over-Engineering und schlägt schlankere Alternativen vor (delete/stdlib/native/yagni/shrink). Read-only, ändert nichts. Manuell via /lean-review aufrufen.
+description: Prüft den aktuellen Diff auf Over-Engineering und schlägt schlankere Alternativen vor. Read-only, manuell via /lean-review.
 disable-model-invocation: true
 context: fork
 metadata:

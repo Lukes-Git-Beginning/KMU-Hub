@@ -1,5 +1,5 @@
 ---
-description: Aktualisiert die .knowledge/ Knowledge Base mit allen Aenderungen seit dem letzten Update. Nutzen nach Commits, Feature-Abschluessen oder Architektur-Aenderungen.
+description: Aktualisiert den .knowledge/-Vault mit allen Änderungen seit dem letzten Update. Nach Commits, Feature-Abschlüssen oder Architektur-Änderungen.
 argument-hint: "[bereich oder leer fuer auto-detect]"
 ---
 

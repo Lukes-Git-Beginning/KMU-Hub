@@ -1,6 +1,6 @@
 ---
 name: lean-debt
-description: Erntet alle lean:-Marker (bewusste Vereinfachungen) im Repo zu einem Schulden-Ledger und flaggt Marker ohne Upgrade-Trigger. Read-only. Manuell via /lean-debt aufrufen.
+description: Erntet alle lean:-Marker im Repo zu einem Schulden-Ledger und flaggt Marker ohne Upgrade-Trigger. Read-only, manuell via /lean-debt.
 disable-model-invocation: true
 context: fork
 metadata:

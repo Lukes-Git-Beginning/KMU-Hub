@@ -1,5 +1,5 @@
 ---
-description: Promotet einen Cluster aus zentria-intel/keepers/ in den .knowledge/-Vault als dauerhafte Note. Nutzen wenn ein Cosmi-Modul >= 5 Keepers angesammelt hat.
+description: Promotet einen zentria-intel-Cluster als dauerhafte Note in den .knowledge/-Vault.
 argument-hint: "<modul-oder-thema> [--dry-run]"
 ---
 

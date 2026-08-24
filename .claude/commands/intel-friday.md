@@ -1,5 +1,5 @@
 ---
-description: Manueller Trigger fuer Friday-Synthesis. Nutzen wenn Routine ausfaellt oder ein Wochen-Bericht ad-hoc benoetigt wird (One-Off, zaehlt nicht gegen 15er-Daily-Cap).
+description: Manueller Trigger für die Friday-Synthese aus zentria-intel, wenn die Routine ausfällt.
 argument-hint: "[--week=YYYY-Wxx | leer fuer aktuelle Woche]"
 ---
 

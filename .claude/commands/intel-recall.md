@@ -1,5 +1,5 @@
 ---
-description: Laedt zentria-intel-Keepers fuer ein Cosmi-Modul oder Thema in den Context. Nutzen wenn man an einem Modul arbeitet und Markt-Insights als Hintergrund braucht.
+description: Lädt zentria-intel-Keepers zu einem Modul oder Thema in den Kontext.
 argument-hint: "<modul oder thema> [--days=90]"
 ---
 
