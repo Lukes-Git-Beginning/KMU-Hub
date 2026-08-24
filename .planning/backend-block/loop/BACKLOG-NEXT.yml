@@ -12,7 +12,23 @@
 # CI-Stand nachziehen. Muster: PROMPT-VORBEREITUNG-LAUF-11.md.
 #
 # ==========================================================================================
+# STAND NACH DER ENTSCHEIDUNGSRUNDE 2026-08-24
+#
+# `wire-biz-event-emitters-for-finance-triggers` ist entschieden (verdrahten) und nach
+# BACKLOG.yml gezogen — mit einer neuen dep auf `fix-event-payload-missing-tenant-id`,
+# weil die Gegenprüfung eine zweite Lücke gefunden hat: 20 von 25 EventPayload-Literalen
+# setzen `TenantID` nicht, der Bus kann den Tenant deshalb nicht stempeln.
+#
+# `decide-retention-policy-for-unmapped-personal-data-domains` ist aufgeteilt und heißt
+# jetzt `decide-retention-policy-hgb-ao-domains`. Drei der sechs Domänen sind entschieden
+# und stehen als eigene Units in BACKLOG.yml; hier bleiben die vier mit gesetzlicher
+# Aufbewahrungsfrist, die an Etappe 4 (Legal) hängen — nicht an eine Ad-hoc-Entscheidung.
+# ==========================================================================================
+#
+# ==========================================================================================
 # STAND NACH DER VORBEREITUNG VON LAUF 11 (2026-08-22)
+#
+# ÜBERHOLT von der Entscheidungsrunde 2026-08-24 (siehe Block direkt darunter).
 #
 # Lauf 11 ist ausgeschrieben: 64 Units in BACKLOG.yml, davon 10 Scans. Roter Faden
 # "Geld- und Compliance-Pfade vor dem ersten zahlenden Kunden" (G2).
@@ -165,146 +181,77 @@
 # ==========================================================================================
 
 units:
-  - id: wire-biz-event-emitters-for-finance-triggers
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >
-      Produktions-Verhaltensänderung, nicht Loop-Iteration — braucht Freigabe von Luke, bevor
-      sie geschrieben wird (COSMI_ENV=production ist live, CD deployt automatisch nach dem
-      Merge).
-    coverage_start: "n.a. — kein Coverage-Ziel, Verkabelungsentscheidung"
-    scope: >
-      VERIFIZIERT in Lauf 11 (`verify-biz-event-emitters-never-wired`): das Automations-Modul
-      bietet in der UI zwei Finanz-Trigger an, die niemals feuern.
-      `GET /triggers` (`internal/gateway/route_automation.go:96` ->
-      `AutomationGRPCServer.ListTriggerDefinitions` -> `TriggerRegistry.All()`,
-      `internal/automation/trigger/registry.go:182-218`) liefert "Rechnung versendet"
-      (`biz.invoice.sent`) und "Angebot erstellt" (`biz.quote.created`) als wählbare
-      Automations-Ausloeser. Beide hängen an `EmitBizEvent`, das der jeweilige Service nur
-      aufruft, wenn `SetEventEmitter` gesetzt wurde (`internal/biz/invoice/service.go:80-107`,
-      analog `internal/biz/quote/service.go`). `cmd/biz/main.go` ruft `SetEventEmitter` für
-      `invoiceSvc`, `quoteSvc` UND `lexwareSvc` an KEINER Stelle auf (Grep über die gesamte
-      Datei: 0 Treffer für `SetEventEmitter`) — alle drei laufen mit ihrem
-      Konstruktor-Default, der bei invoice/quote `nil` ist (`emitEvent` ist dadurch ein No-op,
-      siehe `if s.emitter == nil { return }`) und bei lexware `noopEmitter{}`
-      (`internal/biz/lexware/service.go:59-60`).
-      Ein Kunde kann also eine Automation "wenn Rechnung versendet wird, sende Slack-Nachricht"
-      anlegen, die niemals auslöst. Der dritte registrierte Finanz-Trigger,
-      `biz.invoice.overdue`, ist davon NICHT betroffen — er ist `TimeBased: true` und wird per
-      5-Minuten-Poller direkt gegen `finance_invoices` aufgelöst
-      (`internal/automation/trigger/due_postgres.go:41` `overdueInvoices`), nicht über den
-      Emitter.
-    sources:
-      - backend/cmd/biz/main.go
-      - backend/internal/biz/invoice/service.go
-      - backend/internal/biz/invoice/event_emitter.go
-      - backend/internal/biz/quote/service.go
-      - backend/internal/biz/quote/event_emitter.go
-      - backend/internal/biz/lexware/service.go
-      - backend/internal/biz/lexware/webhook_handler.go
-      - backend/internal/automation/trigger/registry.go
-      - backend/cmd/crm/main.go
-      - backend/cmd/work/main.go
-      - backend/cmd/chat/main.go
-    notes: >
-      Vorlage für die Verdrahtung existiert bereits und ist trivial (eine Zeile je Service):
-      `cmd/crm/main.go:88`, `cmd/work/main.go:82`, `cmd/chat/main.go:99` setzen
-      `svc.SetEventEmitter(event.NewPGEventEmitter(pool))` direkt nach der Konstruktion.
-      Trotzdem gehört das NICHT in eine Nachtlauf-Iteration: das Setzen ändert sofortiges
-      Produktionsverhalten (Events fließen live, Automationen mit diesen Triggern feuern ab
-      dem Deploy für jeden Kunden, der eine angelegt hat, ohne Vorwarnung), und
-      `COSMI_ENV=production` ist scharf mit automatischem CD.
-      Luke entscheidet: (a) einfach verdrahten (Nutzen: die beiden UI-Trigger funktionieren
-      endlich wie beworben), oder (b) die beiden Trigger-Definitionen aus der Registry
-      entfernen, bis eine bewusste Entscheidung für Finanz-Automationen ansteht. Bestehende
-      Kunden-Workflows mit diesen Triggern (falls es welche gibt) sollten vor dem Verdrahten
-      geprüft werden, damit sie nicht überraschend anfangen zu feuern.
-      Nebenfund mitgenommen (Lauf 11, `verify-biz-event-emitters-never-wired`): der Lexware-
-      `EventWebhookReceived`-Emit in `webhook_handler.go:176` ist ebenfalls tot, aber OHNE
-      Außenwirkung — kein Trigger in der Registry hört auf "lexware.*", der Emit ist reiner
-      Log-Ersatz. Ein `lean:`-Marker dort ist bereits gesetzt (Lauf 11, Iteration 10).
-    done_when:
-      - Luke hat (a) oder (b) entschieden
-      - "Bei (a): invoiceSvc, quoteSvc erhalten SetEventEmitter(event.NewPGEventEmitter(pool))
-        in cmd/biz/main.go, nach dem Muster von cmd/crm/main.go"
-      - "Bei (a): ein Test belegt, dass ein erzeugtes/versendetes Invoice bzw. ein erzeugtes
-        Quote ein biz.invoice.sent bzw. biz.quote.created Event auf dem Bus erzeugt"
-      - "Bei (b): die beiden Trigger-Definitionen sind aus der Registry entfernt, mit
-        Begründung im Commit"
-      - go test -count=1 ./internal/biz/invoice/ ./internal/biz/quote/ ./internal/automation/... grün
-
-  - id: decide-retention-policy-for-unmapped-personal-data-domains
+  - id: decide-retention-policy-hgb-ao-domains
     phase: 4
     service: security
     model: opus
     deps: []
     status: blocked
-    blocked_reason: >
-      Reine Produkt-/Rechtsentscheidungen (welche Aufbewahrungsfrist gilt, ob überhaupt
-      gelöscht werden darf) — kein Nachtloop-Fix. Jede der sechs Domänen unten braucht Lukes
-      Entscheidung, teils mit Rechtsberatung (HR-Personalakte, Vertragsunterlagen), bevor ein
+    decided: 2026-08-24
+    decision: >-
+      AUFGETEILT, Entscheidung Luke 2026-08-24 (A6). Die urspruengliche Sammel-Unit
+      `decide-retention-policy-for-unmapped-personal-data-domains` hat sechs Domaenen in einer
+      Entscheidung gebuendelt und war dadurch als Ganzes blockiert, obwohl die Haelfte davon
+      keinen Anwalt braucht. Aufteilung:
+      JETZT ENTSCHIEDEN und als eigene Units in BACKLOG.yml angelegt -
+      `feat-retention-handler-fuhrpark-operational` (vehicle_bookings und die historischen
+      driver_licenses-Zeilen, 3 Jahre nach Paragraph 195 BGB),
+      `harden-advisory-protocols-retention-guard` (keine aktive Loeschung, stattdessen Schutz
+      gegen verfruehte) und `feat-retention-handler-guest-sessions` (90 Tage nach
+      last_activity_at).
+      HIER VERBLIEBEN sind die vier Faelle mit gesetzlicher Aufbewahrungsfrist. Neu dazu kam
+      beim Entscheiden `trip_logs`: das Fahrtenbuch traegt ein `is_private`-Flag und ist damit
+      ein steuerlicher Beleg im Sinne von Paragraph 147 AO, sobald es als Alternative zur
+      1-Prozent-Regel gefuehrt wird - es gehoert deshalb nicht in die Fuhrpark-Unit, sondern
+      hierher.
+    target: >-
+      Etappe 4 (Legal), zusammen mit AVV und DPA - das ist der Termin, an dem ohnehin
+      anwaltlich beraten wird. NICHT vorher in BACKLOG.yml zurueckholen: eine pauschale Frist
+      waere bei HR nachweislich falsch (Lohnunterlagen bis 10 Jahre nach Paragraph 147 AO und
+      Paragraph 257 HGB, reine Personalakte kuerzer nach Verjaehrung moeglicher Ansprueche).
+    blocked_reason: >-
+      Wartet auf Etappe 4 (Legal), nicht auf eine Ad-hoc-Entscheidung. Vier Domaenen mit
+      gesetzlicher Aufbewahrungsfrist - HR-Personaldaten, E-Mail, Vertraege und das
+      Fahrtenbuch trip_logs. Jede braucht anwaltliche Beratung zur Frist, bevor ein
       Retention-Handler gebaut werden kann.
     coverage_start: "n.a. — Produktentscheidung, kein Coverage-Ziel"
     scope: >
-      Fund aus `scan-retention-mapping-remaining-services` (Lauf 11, Iteration 57). Acht von
-      24 Services haben einen Retention-Handler; für sechs weitere Domänen mit belegtem
-      Personenbezug fehlt die Entscheidung, ob und wie lange aufbewahrt werden muss —
-      keine davon ist ein mechanischer Fall wie die drei bereits gebauten Handler
-      (work_tasks, calendar_events, notifications) oder die neu vorgeschlagene
-      `feat-retention-worker-handler-auth-invitations`.
+      Rest der aufgeteilten Sammel-Unit (siehe `decision`). Vier Domaenen, alle mit belegtem
+      Personenbezug UND einer gesetzlichen Aufbewahrungsfrist, deren Laenge ohne Beratung
+      nicht festgelegt werden kann.
 
       1. HR-Personaldaten (`internal/biz/hr`): hr_employee_profiles (Adresse, Notfallkontakt),
-         hr_leave_requests, hr_leave_balances, hr_employee_documents, hr_profile_change_requests.
-         DSAR-Modul existiert (Lauf 10 Iteration 59). Deutsches Arbeitsrecht kennt je nach
-         Dokumenttyp unterschiedliche Fristen (Lohnunterlagen bis zu 10 Jahre nach § 147 AO /
-         § 257 HGB, reine Personalakte kürzer nach Verjährung möglicher Ansprüche) — eine
-         pauschale Löschfrist wäre falsch, eine differenzierte braucht Rechtsberatung.
+         hr_leave_requests, hr_leave_balances, hr_employee_documents,
+         hr_profile_change_requests. DSAR-Modul existiert (Lauf 10, Iteration 59). Deutsches
+         Arbeitsrecht kennt je nach Dokumenttyp unterschiedliche Fristen - Lohnunterlagen bis
+         zu 10 Jahre nach Paragraph 147 AO und Paragraph 257 HGB, reine Personalakte kuerzer
+         nach Verjaehrung moeglicher Ansprueche. Eine pauschale Loeschfrist waere falsch, eine
+         differenzierte braucht Rechtsberatung. Groesste Datenmenge und sensibelste Kategorie
+         der vier.
 
-      2. Fuhrpark (`internal/fuhrpark`): driver_licenses, vehicles (assigned_driver_id,
-         license_plate), vehicle_bookings, trip_logs (driver_name). DSAR existiert (Lauf 10
-         Iteration 61). Offene Frage: Aufbewahrung wegen Unfall-/Versicherungsansprüchen
-         (Verjährung typischerweise 3 Jahre) vs. reine Betriebsdaten ohne Frist.
+      2. E-Mail (`internal/email`): email_messages, email_accounts, email_contact_links.
+         DSAR-Modul existiert. Zu klaeren ist, ob email_messages Handelsbriefe im Sinne von
+         Paragraph 257 HGB sind (dann 6 Jahre) oder reine interne Kommunikation.
 
-      3. E-Mail (`internal/email`): email_messages, email_accounts, email_contact_links.
-         DSAR-Modul existiert laut Lauf-10-Recherche bereits. Geschäftskorrespondenz kann
-         unter § 257 HGB fallen (6 Jahre) — muss geklärt werden, ob email_messages
-         Handelsbriefe im Sinn der Norm sind oder reine interne Kommunikation.
+      3. Vertraege (`internal/vertraege`): contracts, contract_parties. DSAR existiert (Lauf 10,
+         Iteration 40). Vertragsunterlagen unterliegen typischerweise Paragraph 257 HGB
+         (6 Jahre) oder laenger je nach Vertragstyp - eine Loeschfrist vor Ablauf der
+         zivilrechtlichen Verjaehrung waere riskant.
 
-      4. Verträge (`internal/vertraege`): contracts, contract_parties. DSAR existiert (Lauf 10
-         Iteration 40 erwähnt das Modul). Vertragsunterlagen unterliegen typischerweise § 257
-         HGB (6 Jahre) oder länger je nach Vertragstyp — eine Löschfrist vor Ablauf der
-         zivilrechtlichen Verjährung wäre riskant.
+      4. `trip_logs` (`internal/fuhrpark`): Fahrtenbuch mit `is_private`-Flag
+         (`000193_create_trip_logs.up.sql`, Spalten date, driver_name, start_location,
+         end_location, purpose). Wird es als Alternative zur 1-Prozent-Regel gefuehrt, ist es
+         ein steuerlicher Beleg nach Paragraph 147 AO (10 Jahre). Zu klaeren: gilt das immer,
+         oder nur fuer die Zeilen mit `is_private = true`? Davon haengt ab, ob ein Handler
+         ueberhaupt zwischen den Zeilen unterscheiden muss.
 
-      5. `advisory_protocols` (`internal/crm/advisoryprotocol`): NEU BELEGT in dieser Unit
-         (`backend/migrations/000137_advisory_protocols.up.sql:1-6`, Kommentar zitiert MiFID II
-         / § 64 WpHG / § 16-18 FinVermV / § 61 VVG (IDD) sowie eine 10-Jahres-Frist nach
-         FinVermV § 18a). Der C4-Scan aus Lauf 10 (Iteration 43) hatte das als "Verdacht, nicht
-         belegt" eingestuft — das ist mit dieser Quelle widerlegt: die Rechtsgrundlage UND die
-         Frist stehen im Migrationskommentar. Es fehlt aber jede technische Durchsetzung
-         (kein Retention-Handler, keine Ablauf-Spalte, nur die RESTRICT-FK auf contacts).
-         Offene Frage für Luke: reicht die heutige RESTRICT-FK-Absicherung (Löschung eines
-         Kontakts mit Beratungsprotokoll ist blockiert), oder braucht es eine aktive
-         Lösch-NACH-10-Jahren-Funktion? Da die Tabelle laut Migration "immutable nach
-         Aushändigung" ist, ist eine vorzeitige Löschung ohnehin technisch nicht das Risiko —
-         das Risiko wäre eine verfrühte Löschung durch einen künftigen generischen
-         Bereinigungs-Job, der die 10-Jahres-Frist nicht kennt.
+      Punkte 2 und 3 folgen derselben HGB-Frage und koennen zusammen entschieden werden.
 
-      6. `guest_sessions` (`internal/chat`): email, display_name, ip_address von anonymen
-         Chat-Gästen. Bereits in Lauf 10 (Iteration 40, JOURNAL.md:2518-2522) als bewusst OHNE
-         DSAR-Modul dokumentiert, weil ein Auskunftsersuchen eine dritte Subjekt-Matching-Quelle
-         bräuchte (weder contacts noch users) — dieselbe Hürde gilt für Retention. War bisher in
-         keiner Backlog-Datei erfasst; hier zum ersten Mal als offener Punkt festgehalten, damit
-         er nicht wieder verloren geht.
-
-      Zusätzlich zwei Klassifikations-Hinweise ohne offene Frage (informativ, keine Entscheidung
-      nötig): `consent_records` (ip_address) sollte vermutlich NICHT gelöscht werden — die
-      Aufzeichnung ist der Nachweis der Einwilligung nach Art. 7 Abs. 1 DSGVO, also das
-      Gegenteil einer Löschpflicht. `public_bookings`/`booking_pages` (Kundenname/-mail/-telefon
-      externer Buchender) wurden in keinem bisherigen Scan geprüft und sind noch nicht
-      klassifiziert.
+      Zwei Klassifikationshinweise ohne offene Frage (informativ): `consent_records`
+      (ip_address) sollte vermutlich NICHT geloescht werden - die Aufzeichnung ist der Nachweis
+      der Einwilligung nach Artikel 7 Absatz 1 DSGVO, also das Gegenteil einer Loeschpflicht.
+      `public_bookings` und `booking_pages` (Name, Mail, Telefon externer Buchender) wurden in
+      keinem bisherigen Scan geprueft und sind noch nicht klassifiziert.
     sources:
       - backend/internal/security/gdpr/retention.go
       - backend/internal/biz/hr/
@@ -316,24 +263,22 @@ units:
       - backend/internal/chat/
       - .planning/backend-block/loop/archive/lauf-10/JOURNAL.md
     notes: >
-      Diese Unit baut NICHTS. Sie ist die Sammelstelle für sechs Einzelentscheidungen, die
-      Luke treffen muss, bevor je Domäne eine eigene Retention-Handler-Unit entstehen kann
-      (Muster: die drei bereits gebauten Handler bzw. `feat-retention-worker-handler-auth-
-      invitations`). Nach jeder Entscheidung wandert die zugehörige Domäne als eigene,
-      spitze Unit nach BACKLOG.yml — nicht diese Sammel-Unit am Stück.
-      HR und Fuhrpark sind am dringendsten (grösste Datenmenge, sensibelste Kategorien), Email
-      und Verträge folgen der gleichen HGB-Frage und können zusammen entschieden werden,
-      advisory_protocols ist eine reine Ja/Nein-Frage zur technischen Durchsetzung einer
-      bereits bekannten Frist, guest_sessions hängt an der ungelösten
-      Subjekt-Matching-Architekturfrage aus Lauf 10.
+      Diese Unit BAUT NICHTS. Sie ist die Sammelstelle fuer vier Rechtsfragen, die in Etappe 4
+      mit dem Anwaltstermin fuer AVV und DPA zusammen beantwortet werden. Nach jeder Antwort
+      wandert die zugehoerige Domaene als eigene, spitze Unit nach BACKLOG.yml - nach dem
+      Muster der drei Handler, die aus derselben Aufteilung schon in BACKLOG.yml stehen, und
+      nach dem Vorbild von `retention_invitations.go`.
+      Wer in der Zwischenzeit einen generischen Bereinigungslauf baut: die vier Domaenen sind
+      dort ausdruecklich AUSZUNEHMEN, solange die Frist nicht feststeht.
     done_when:
       - >-
-        Luke hat je Domäne entschieden: Löschpflicht (mit Frist), Aufbewahrungspflicht (mit
-        Frist) oder keins von beidem
-      - Jede Domäne mit Löschpflicht-Entscheidung ist als eigene Unit in BACKLOG.yml angelegt
+        Fuer HR ist je Dokumenttyp entschieden, welche Frist gilt (Lohnunterlagen getrennt von
+        der reinen Personalakte), mit Verweis auf die Rechtsgrundlage
       - >-
-        advisory_protocols: Entscheidung, ob die RESTRICT-FK ausreicht oder eine aktive
-        Lösch-nach-Frist-Funktion nötig ist
+        Fuer E-Mail ist entschieden, ob email_messages Handelsbriefe nach Paragraph 257 HGB
+        sind
+      - Fuer Vertraege ist die Frist je Vertragstyp entschieden
       - >-
-        guest_sessions: Entscheidung, ob die Subjekt-Matching-Architekturfrage vorher gelöst
-        werden muss oder eine zeitbasierte Löschung ohne DSAR-Anbindung genügt
+        Fuer trip_logs ist entschieden, ob Paragraph 147 AO fuer alle Zeilen gilt oder nur fuer
+        die mit is_private
+      - Jede beantwortete Domaene ist als eigene Unit in BACKLOG.yml angelegt

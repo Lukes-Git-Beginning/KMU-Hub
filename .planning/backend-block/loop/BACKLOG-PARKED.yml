@@ -398,3 +398,447 @@ units:
       Surface ziehen.
     target: >
       Luke, vor dem Launch. Gehört fachlich in denselben Topf wie die Public Web Surface.
+
+  # ========================================================================================
+  # GEPARKT / GESTRICHEN - Entscheidungsrunde 2026-08-24 (nach Lauf 11)
+  # ========================================================================================
+
+  - id: fix-bexio-config-lookup-cross-tenant-under-sysctx
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: parked
+    decided: 2026-08-24
+    decision: >-
+      GEPARKT, Entscheidung Luke 2026-08-24 (A4). Derselbe Root-Cause wie beim Lexware-Fix,
+      aber Bexio ist laut Lagebild G3 produktiv AUS und als Schweizer Software ausserhalb der
+      DE-Fokussierung. Bei einem einzigen aktiven Tenant ist der Schaden nicht real, und die
+      Unit hat in Lauf 11 in jeder Iteration erneut blockiert - genau das Muster, das den
+      Backlog-Kopf verklemmt und neun Iterationen auf dem falschen Modell hat laufen lassen.
+      Der als "G8" dokumentierte Marker im Code (`bexio/scheduler.go:183-187`,
+      `bexio/service.go:220-224`) bleibt stehen und traegt den Befund weiter.
+    target: >-
+      Zurueck nach BACKLOG.yml, sobald Bexio wieder scharfgeschaltet wird ODER ein zweiter
+      Tenant eine Bexio-Verbindung anlegt. Vorlage fuer den Fix ist dann der bereits gebaute
+      Lexware-Scheduler-Pfad aus Lauf 11 (der Ticker uebergibt sein eigenes `ts.configID`,
+      statt es unter Systemkontext ueber `GetByPlatform` neu aufzuloesen).
+    blocked_reason: "bexio gesperrt (G3), siehe BACKLOG.yml Kopf — sofort geblockt ohne Bauversuch, wie in den Notes dieser Unit vorgeschrieben"
+    coverage_start: "internal/biz/bexio (Paketwert im CI-Log nachschlagen)"
+    scope: >
+      Gefunden im Scan `scan-money-reads-without-tenant-scope`, Schwester-Unit zu
+      `fix-lexware-config-lookup-cross-tenant-under-sysctx` — exakt derselbe Root-Cause-Bug,
+      hier bei Bexio statt Lexware. `PostgresIntegrationConfigRepo.GetByPlatform`
+      (`internal/biz/bexio/postgres_config_repo.go:27-31`) filtert nicht nach `tenant_id`.
+      Betroffen unter Systemkontext (`bexio/scheduler.go:45`,
+      `database.WithSystemContext`): `SyncContacts` (`service.go:127-131`) und `PollPayments`
+      (`service.go:177-181`) lösen die Config je Tick über `s.getConfigID(ctx)`
+      (`service.go:386-395`) auf, OHNE das bereits bekannte `ts.tenantID` zu nutzen — bei mehr
+      als einem aktiven Bexio-Tenant kann die Config eines fremden Tenants zurückkommen.
+      Der Bug ist im Code selbst bereits als "G8" dokumentiert
+      (`scheduler.go:183-187`, `service.go:220-224`), aber nur für `PullInvoicesWithConfig`
+      umgangen (Scheduler übergibt dort `ts.configID` direkt) — `SyncContacts` und
+      `PollPayments` sind es NICHT.
+      Konkrete Auswirkung auf `PollPayments` (`payment_poll.go`): `ListEntityMappings(ctx,
+      configID, "invoice")` (Zeile 55, Repo `bexio/postgres_repository.go:171-181`,
+      `WHERE bem.config_id = $1 AND bem.entity_type = $2`, ebenfalls ohne `tenant_id`) liest mit
+      dem potenziell falschen `configID` externe Bexio-Rechnungs-IDs eines fremden Tenants,
+      fragt sie dann mit den API-Credentials des EIGENEN Tenants
+      (`pp.client.ListInvoicePayments(ctx, tenantID, mapping.BexioID)`, Zeile 75) bei Bexio ab —
+      eine Cross-Tenant-Verwechslung externer Rechnungs-IDs. Die abschließenden Schreiboperationen
+      (`invoices.GetByID`/`MarkPaid`) sind selbst korrekt tenant-gefiltert
+      (`invoice/postgres_repository.go:172,367`), begrenzen den Schaden also auf Fehlzuordnung
+      im Abgleich, nicht auf einen direkten Cross-Tenant-Schreibzugriff.
+    sources:
+      - backend/internal/biz/bexio/postgres_config_repo.go
+      - backend/internal/biz/bexio/scheduler.go
+      - backend/internal/biz/bexio/service.go
+      - backend/internal/biz/bexio/payment_poll.go
+      - backend/internal/biz/bexio/postgres_repository.go
+    notes: >
+      GESPERRT IN LAUF 11: `internal/biz/bexio` ist in diesem Lauf gesperrt (G3, produktiv aus,
+      Schweizer Software außerhalb der DE-Fokussierung — siehe BACKLOG.yml Kopf,
+      "GESPERRT IN DIESEM LAUF"). Wird diese Unit in Lauf 11 gezogen, ist sie SOFORT mit
+      `blocked_reason: bexio gesperrt (G3), siehe BACKLOG.yml Kopf` abzuschließen, ohne
+      Bauversuch. Bleibt gültig für den Lauf, in dem Bexio wieder freigegeben wird.
+      Root Cause identisch zur Lexware-Unit: entweder `GetByPlatform` bekommt eine
+      tenant-gescopte Variante, oder die Aufrufer mit bekanntem `tenantID`
+      (`SyncContacts(ctx, tenantID)`, `PollPayments(ctx, tenantID)`) reichen — analog zu
+      `PullInvoicesWithConfig` — den `configID` direkt durch statt ihn unter Systemkontext neu
+      aufzulösen. `ListEntityMappings` sollte defensiv zusätzlich nach `tenant_id` filtern (die
+      Tabelle `bexio_entity_mappings` hat vermutlich eine solche Spalte — prüfen), auch wenn der
+      Schaden durch einen korrekt aufgelösten `configID` bereits entfällt.
+    done_when:
+      - GetByPlatform-Aufrufe unter Systemkontext (Scheduler-Tick für SyncContacts UND
+        PollPayments) wählen nachweislich die Config des richtigen Tenants, auch wenn mehr als
+        ein Bexio-Tenant aktiv ist
+      - ListEntityMappings filtert zusätzlich nach tenant_id, sofern die Tabelle die Spalte trägt
+      - Ein Test mit zwei aktiven Bexio-Configs (zwei Tenants) belegt SyncContacts UND
+        PollPayments über den Scheduler-Pfad
+      - go test -count=1 ./internal/biz/bexio/ grün
+      - Falls in Lauf 11 gezogen: sofort blocked mit obigem Grund, kein Bauversuch
+
+# ==========================================================================================
+# Aus fix-lexware-config-lookup-cross-tenant-under-sysctx (Iteration 86, Lauf 12) nachgelegt.
+# ==========================================================================================
+
+  - id: harden-lexware-webhook-organization-id-scoping
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: parked
+    decided: 2026-08-24
+    decision: >-
+      TEURE HAELFTE GEPARKT, billige Vorbereitung ausgegliedert. Entscheidung Luke 2026-08-24
+      (A3). Der Webhook-Pfad bleibt ungefixt, weil heute genau ein Lexware-Tenant aktiv ist -
+      der Schaden ist nicht real, und der Fix braucht ein Unterscheidungsmerkmal, das es im
+      Datenmodell noch gar nicht gibt. Die Vorbereitung dafuer laeuft als eigene Unit in
+      BACKLOG.yml (`feat-lexware-store-organization-id-on-connect`): sie schreibt die
+      `organization_id` beim Connect und beim Verbindungstest in die Config-Metadata. Ohne
+      diesen Wert ist DIESER Fix spaeter gar nicht baubar, deshalb wird er jetzt schon
+      angelegt.
+    target: >-
+      Zurueck nach BACKLOG.yml, sobald ein ZWEITER Lexware-Tenant aktiv ist. Voraussetzung:
+      `feat-lexware-store-organization-id-on-connect` ist `done` und die Configs tragen den
+      Wert. Der Fix ist dann: `HandleWebhookEvent` loest die Config ueber die
+      `organization_id` aus dem Webhook-Body auf, statt ueber `GetByPlatform(ctx, "lexware")`
+      unter Systemkontext. Bringt ein Webhook keine `organization_id` mit, wird er abgelehnt
+      statt geraten.
+    blocked_reason: "ENTSCHEIDUNG GEHOERT LUKE (Variante a/b/c, siehe notes) — kein Loop-Auftrag; stand seit Iteration 86 als todo am Backlog-Kopf und wurde in jeder Iteration uebersprungen. Wieder auf todo setzen, sobald Luke die Variante gewaehlt hat."
+    coverage_start: "n.a. (Datenmodell-Entscheidung vor jeder Coverage-Zahl, siehe scope)"
+    scope: >
+      Restrisiko aus fix-lexware-config-lookup-cross-tenant-under-sysctx (Iteration 86):
+      der Scheduler-Pfad (SyncContacts) ist gefixt (der Ticker übergibt jetzt sein eigenes
+      `ts.configID` statt es unter Systemkontext neu über `GetByPlatform` aufzulösen,
+      analog zu bexios `PullInvoicesWithConfig`-Muster). Der WEBHOOK-Pfad
+      (`Service.HandleWebhookEvent`, `internal/biz/lexware/service.go:262-280`) bleibt
+      bewusst UNGEFIXT: er läuft unter `sysctx.With(ctx)` (kein Tenant im Context, die
+      Anfrage kommt von Lexware, authentifiziert per HMAC über `LEXWARE_WEBHOOK_SECRET`)
+      und ruft `s.configRepo.GetByPlatform(ctx, "lexware")` — bei mehr als einem aktiven
+      Lexware-Tenant kann das die Config eines FREMDEN Tenants zurückgeben, und
+      `webhookHandler.HandleEvent` verarbeitet das Event danach mit dessen
+      `config.ID`/`config.TenantID`.
+      Anders als beim Scheduler-Pfad kennt der Aufrufer die `tenantID` hier VOR dem
+      Lookup nicht — der Webhook trägt keine Tenant-Info, nur eine Lexware-Ressourcen-ID
+      (`resource_id`) und optional eine `organization_id`
+      (`internal/gateway/route_lexware.go:579-592` liest sie aus dem Body, camelCase
+      oder snake_case). Diese `organization_id` wird aber NIRGENDS beim Verbinden
+      gespeichert: `Service.Connect` (`service.go:78-125`) legt die Config nur mit
+      `Metadata: map[string]any{"auth_type": "api_key"}` an — keine Lexware-Organisations-
+      Kennung. Ein Abgleich "Webhook-OrgID gegen gespeicherte Config-OrgID" ist also HEUTE
+      technisch nicht möglich, das Feld existiert nicht.
+      Ebenso ist `LEXWARE_WEBHOOK_SECRET` ein einziges globales Secret
+      (`internal/gateway/route_lexware.go:517-531`), kein Secret pro Tenant — die
+      HMAC-Prüfung kann also nicht zur Tenant-Unterscheidung dienen, nur zur
+      Herkunftsprüfung "kommt wirklich von Lexware".
+    sources:
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/lexware/webhook_handler.go
+      - backend/internal/gateway/route_lexware.go
+      - backend/internal/biz/lexware/profile.go
+      - backend/internal/biz/lexware/postgres_config_repo.go
+    notes: >
+      ENTSCHEIDUNG GEHÖRT LUKE, nicht dem Loop: mindestens zwei valide Wege, keiner
+      trivial nebenbei zu bauen.
+      (a) `organization_id` bei `Connect` per `GET /v1/profile`-Call abfragen
+      (`LexwareProfile.OrganizationID`, bereits genutzt in `TestConnection`,
+      `profile.go:15`) und in `IntegrationConfig.Metadata` speichern; `GetByPlatform`
+      um eine `GetByPlatformAndOrgID`- oder `GetActiveByPlatform`-Variante ergänzen, die
+      im Systemkontext über ALLE aktiven Configs iteriert und die mit passender
+      `organization_id` aus dem Webhook-Payload wählt (analog zu bexios
+      `ListActiveByPlatform`, `bexio/scheduler.go:48`, das bereits über mehrere Configs
+      iterieren kann).
+      (b) pro Tenant einen eigenen Webhook-Pfad/eigenes Secret ausgeben (z. B.
+      `/api/v1/integrations/lexware/webhooks/{config_id}` mit Secret aus dem Vault statt
+      der globalen Env-Var) — verändert den bei Lexware zu hinterlegenden Callback-URL,
+      ist also ein Vertrag mit einem externen System, nicht nur interner Code.
+      Solange das System produktiv Single-Tenant je Plattform läuft (Kommentar
+      `retention_scheduler.go:15-16`), ist der Bug latent, nicht aktiv ausgenutzt — genau
+      wie beim Bexio-Pendant. Kein Grund, ihn liegen zu lassen, aber auch kein Grund für
+      eine überstürzte Lösung ohne Rücksprache: G2 (Geld-/Compliance-Pfade vor dem ersten
+      zahlenden Kunden) verlangt den Fix VOR dem zweiten aktiven Lexware-Tenant, nicht
+      sofort.
+      `.proto`/Migrationen nur falls (a) gewählt wird und `organization_id` dauerhaft
+      persistiert werden soll — Nummer zur Laufzeit ermitteln, forward-only.
+    done_when:
+      - Entscheidung (a), (b) oder eine dritte, von Luke freigegebene Variante liegt vor
+        und ist im Journal begründet
+      - HandleWebhookEvent wählt die Config nachweislich anhand eines
+        Tenant-eindeutigen Merkmals (nicht mehr "erste Zeile für platform=lexware")
+      - Ein Test mit zwei aktiven Lexware-Configs (zwei Tenants, zwei organization_ids
+        oder zwei Webhook-Secrets, je nach gewählter Variante) belegt, dass ein
+        eingehender Webhook nachweislich beim richtigen Tenant landet
+      - go test -count=1 ./internal/biz/lexware/... ./internal/gateway/ gruen
+
+  - id: fix-crm-tag-endpoints-are-501-stubs
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: parked
+    decided: 2026-08-24
+    decision: >-
+      DUBLETTE, aufgeloest durch Entscheidung Luke 2026-08-24 (A1). Diese Unit und
+      `feat-crm-activity-deal-tag-rpcs` beschreiben denselben Sachverhalt aus zwei Richtungen;
+      Iteration 97 hatte hier beide Wege als verschlossen gemeldet und die Entscheidung an
+      Luke gegeben. Entschieden ist WEG A - die vier gRPC-RPCs werden gebaut. Die Arbeit steht
+      vollstaendig in `feat-crm-activity-deal-tag-rpcs` (BACKLOG.yml, `status: todo`,
+      `model: opus`), inklusive der Begruendung und der Vorabpruefung am Frontend.
+      Zwei Units fuer eine Arbeit haben in Lauf 11 zwei Iterationen gekostet, die beide nur
+      gelesen und weitergezogen haben.
+    target: >-
+      Keine eigene Rueckkehr vorgesehen - die Arbeit lebt in
+      `feat-crm-activity-deal-tag-rpcs` weiter. Dieser Eintrag bleibt als Spur, damit ein
+      spaeterer Scan den 501-Befund nicht ein drittes Mal als neue Unit anlegt.
+    blocked_reason: >
+      Beide im scope vorgesehenen Wege sind in Iteration 97 verschlossen. Durchreichen geht
+      nicht: `proto/crm/v1/crm.proto` hat Tag-RPCs nur fuer Contacts
+      (`AddContactTags`/`RemoveContactTags`, Zeilen 28/29); `AddActivityTags`,
+      `RemoveActivityTags`, `AddDealTags`, `RemoveDealTags` existieren weder als RPC noch als
+      Message, und in `internal/proto/crm/v1/` gibt es keine passenden generierten Typen. Vier
+      neue RPCs anzulegen ist laut notes dieser Unit ausdruecklich Lukes Entscheidung.
+      Entfernen geht ebenfalls nicht guten Gewissens: die Annahme des scope, dass ohne RPC
+      auch keine Faehigkeit da ist, ist falsch. Die Fachlogik ist vollstaendig gebaut und
+      tenant-gescoped — `activity.Service.AddTags/RemoveTags` (activity/service.go:441/466),
+      `deal.Service.AddTags/RemoveTags` (deal/service.go:458/483), beide inkl.
+      Tag-Existenzpruefung ueber `TagExists`, dazu Repository-Methoden, die Join-Tabellen
+      `activity_tags`/`deal_tags` (Migration 000006, `tenant_id` seit 000111) und die
+      Permission-Guards `activities:write`/`deals:write` am Router (route_crm.go:165/166/178/179).
+      Die openapi-Eintraege beschreiben den Vertrag bereits fertig
+      (`200` + `DealResponse`/`ActivityResponse`, openapi.yaml:2731/2964) — genau das, was die
+      Services liefern koennen. Es fehlt ausschliesslich der gRPC-Hop. Beide Service-Methoden
+      haben aktuell null Nicht-Test-Aufrufer (verifiziert per grep), sind also toter Code.
+      Vier fertig spezifizierte, fachlich implementierte Endpunkte zu loeschen, weil eine
+      Verdrahtungsschicht fehlt, ist eine Produktentscheidung, keine Loop-Aufgabe.
+      Entscheidungsvorlage als Unit `feat-crm-activity-deal-tag-rpcs` am Backlog-Ende.
+    coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
+    scope: >
+      Verifizierter Befund von `TestOpenAPIStatusCodeDrift` (Iteration 93): vier registrierte,
+      in `api/openapi.yaml` dokumentierte CRM-Routen sind dauerhafte Stubs und antworten
+      immer `501 Not Implemented`:
+      `POST` und `DELETE /api/v1/activities/{id}/tags` (route_crm_activities.go:300 und :312,
+      "add/remove activity tags not implemented via HTTP, use gRPC") sowie
+      `POST` und `DELETE /api/v1/deals/{id}/tags` (route_crm_pipeline.go:500 und :512).
+      Fuer einen FE-Aufrufer sind das vier Endpunkte, die es laut Spec gibt und die nie
+      funktionieren. Zu klaeren ist, ob der gRPC-Weg existiert (dann Handler ueber den
+      Client durchreichen und die Fehlerklasse "Stub statt Implementierung" schliessen) oder
+      nicht (dann Routen und Spec-Eintraege entfernen).
+      Ebenfalls in der Liste, aber bewusst getrennt: `route_integration.go:609`
+      ("slack oauth install is not available on this deployment") - das ist ein
+      absichtliches Deployment-Nein, kein Stub, und bleibt.
+    sources:
+      - backend/internal/gateway/route_crm_activities.go
+      - backend/internal/gateway/route_crm_pipeline.go
+      - backend/api/openapi.yaml
+    notes: >
+      Erst pruefen, ob der CRM-Service die passenden RPCs ueberhaupt hat. Kein `.proto`
+      erweitern, ohne im selben Commit zu regenerieren - und waere dafuer ein neuer RPC
+      noetig, ist das eine Entscheidung fuer Luke, dann `blocked` mit Begruendung.
+      Werden Routen entfernt: `TestOpenAPISpecDrift` und `TestOpenAPIMethodDrift` erzwingen,
+      dass die Spec-Eintraege im selben Commit mitgehen.
+    done_when:
+      - Fuer alle vier Routen ist entschieden und umgesetzt (durchgereicht oder entfernt)
+      - Kein Handler in route_crm_activities.go oder route_crm_pipeline.go antwortet mehr 501
+      - Die vier Eintraege sind aus statusDriftBaseline entfernt
+      - "go test -count=1 ./internal/gateway/ gruen"
+
+  - id: fix-idempotency-409-rollout-non-finance-routes-13
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: parked
+    decided: 2026-08-24
+    decision: >-
+      AUS DEM LOOP GENOMMEN, Entscheidung Luke 2026-08-24 (B2) - dieselbe Begruendung wie bei
+      `doc-status-code-systemic-400-503-sweep-11`, siehe dort. Der 409-Teil hat eine
+      Besonderheit, die ins Skript eingeflossen ist: der Drift-Test kann den Code gar nicht
+      melden, weil `IdempotencyInFlight` aus der Middleware kommt und kein Handler ihn
+      schreibt. Das Skript leitet die Ziele deshalb aus den mutierenden Operationen ab,
+      abzueglich der Idempotency-Whitelist (`middleware/idempotency.go:36`), der WOPI-Routen
+      (ohne Middleware registriert) und aller Operationen, die bereits ein `409` mit anderer
+      Bedeutung tragen.
+    target: >-
+      Keine Rueckkehr. Die im scope vermerkten Sonderfaelle (Customization gesperrt, Bexio
+      produktiv aus, Auth-Whitelist) sind als Ausschlussliste mit `lean:`-Marker ins Skript
+      uebernommen und muessen dort gepflegt werden, nicht hier.
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Rest von `fix-idempotency-409-rollout-non-finance-routes-12`. Iteration 119 hat die
+      Registrar-Gruppe **File** geschlossen: `internal/gateway/route_files.go` registriert
+      genau zwei Routen (`POST /api/v1/files/presign-upload`, `GET
+      /api/v1/files/presign-download`) - nur die POST ist mutierend. Sie hatte weder `409`
+      noch `503` dokumentiert; `409` additiv nach `403` eingefuegt (Einzeiler-Stil des
+      umgebenden Abschnitts). Die Vorbereitungsnotiz "GlobalSearch/File (0 - vermutlich
+      uebersprungen werden koennen)" war fuer File FALSCH: die Gruppe hatte 1 mutierende
+      Operation, nicht 0 - verifizieren statt der Notiz vertrauen war hier noetig.
+      **GlobalSearch** dagegen ist bestaetigt leer: `route_search_global.go` registriert nur
+      `GET /api/v1/search/global` (`RequirePermission("search","read")`), keine
+      POST/PUT/PATCH/DELETE - Gruppe kann ohne weitere Pruefung uebersprungen werden.
+      Fertig sind bisher: Finance, Wiki, Formulare, Notification, Chat, Dashboard, Settings,
+      Vertraege, Automation, Schichten, Vermietung, Berichte, File. Erledigt/leer (kein 409
+      noetig): Booking, GlobalSearch.
+      Noch offen sind die uebrigen Registrar-Gruppen aus `cmd/gateway/main.go`
+      (`registrars`-Liste, Zeilen ~276-325): Auth, CRM, Work, Calendar, Video, Security,
+      Email, Document, Biz (non-finance), Bexio, DATEV-Upload, Lexware, Integration, HR,
+      Inbox, Dialer, Helpdesk, Inventar, Einkauf, Produktion,
+      Rapporte, Fuhrpark.
+      Auswahl-Hinweise unveraendert: `Customization` ist gesperrt (FE-Vertrag im Wechsel) und
+      erst nach allen anderen Gruppen anfassen oder explizit auslassen; `Bexio` ist produktiv
+      aus (G3) - die reine Route-Doku ist harmlos, trotzdem eine ungesperrte Gruppe bevorzugen.
+      `Auth` braucht besondere Sorgfalt: `/auth/login`, `/auth/refresh` und `/auth/2fa` stehen
+      als Teilstring in der `idempotencyWhitelist` (`idempotency.go:36`) und laufen NICHT durch
+      die Middleware - die duerfen kein In-Flight-409 dokumentiert bekommen.
+      `FeatureFlag` (nur `GET /api/v1/feature-flags`) und `Health` (nur `GET /health`) haben
+      KEINE mutierenden Routen und sind ebenfalls uebersprungen, nicht mehr in der Restliste.
+      Kleinere, schnell abzuarbeitende Kandidaten (Zahlen ungeprueft, vor Bearbeitung
+      verifizieren statt raten - siehe die File-Lehre oben): Dialer, HR, Inbox.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/cmd/gateway/main.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/gateway/openapi_drift_test.go
+    notes: >
+      GLEICHE MECHANIK, NICHT NEU ERFINDEN - Vorlage `git show f6d4a3ad` (Finance, enthaelt
+      auch den Merge-Fall), die Settings-Iteration (Iteration 104, kleinster Merge-Fall bisher
+      als Referenz), die Vertraege-Iteration (Iteration 107), die Automation-Iteration
+      (Iteration 110), die Schichten-Iteration (Iteration 114), die Vermietung-Iteration
+      (Iteration 115), die Berichte-Iteration (Iteration 117) und die File-Iteration
+      (Iteration 119, kleinste Gruppe bisher: genau 1 Operation).
+      Pro Operation der gewaehlten Gruppe (nur POST/PUT/PATCH/DELETE, GET nie; die
+      Middleware filtert nach HTTP-Methode, nicht nach RequirePermission-Semantik) pruefen, ob
+      schon ein `409:` existiert. Fehlt es: eine Zeile
+      `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` (oder Multi-Line-Form,
+      je nach lokalem Stil) in den `responses:`-Block einfuegen - NUMERISCH SORTIERT, also vor
+      einem eventuellen `422`/`503`, nicht stumpf ans Blockende.
+      Existiert schon ein 409 aus Geschaeftsgruenden (egal ob Inline-Description oder $ref
+      auf eine generische Komponente wie `Conflict`): NICHT ueberschreiben, sondern auf eine
+      Inline-`description: >-` umstellen, den urspruenglichen Konfliktgrund konkret benennen
+      (Handler/Service pruefen, nicht raten), den Idempotenz-Satz anhaengen und einen
+      `headers.Retry-After` ergaenzen mit dem Vermerk, dass er fuer den urspruenglichen
+      Konfliktfall nicht gesetzt ist.
+      Operationen einer Gruppe finden: im passenden `route_*.go` nach `.Post(`/`.Put(`/
+      `.Patch(`/`.Delete(` greppen (Registrierung laeuft ueber `r.With(guard).Post(...)`, ein
+      reiner `r\.Post\(`-Grep uebersieht die meisten Treffer), dann die vollen
+      `/api/v1/...`-Pfade aus dem `RegisterRoutes`-Block zusammensetzen und im YAML suchen.
+      Ausschlussliste (nicht durch die Middleware geschuetzt) unveraendert: `/api/v1/public/*`,
+      `/api/v1/guest/*`, `/api/v1/caldav/*`, `/api/v1/admin/caldav/*`, WOPI/CalDAV/CardDAV-
+      Protokollrouten, `/reset-password`, sowie Pfade mit `/auth/login`, `/auth/refresh`,
+      `/auth/2fa` als Teilstring.
+      Mutations-Probe (Vorlage Iteration 107/110/114/115/117/119): einen frisch eingefuegten
+      `IdempotencyInFlight`-$ref testweise auf einen nicht existierenden Komponentennamen
+      verbiegen (z.B. `IdempotencyInFlightXXX`) - `swagger-cli validate` muss dann mit "Token
+      ... does not exist" rot werden, danach die Datei aus der Sicherungskopie zuruecksetzen
+      und `git diff --stat` gegenpruefen (nur die erwarteten Zeilen).
+      NICHT den ganzen Rest in einem Commit - je Registrar-Gruppe schneiden (oder wenige kleine
+      benachbarte zusammen) und jede Iteration eine neue Teil-Unit mit aktualisierter Restliste
+      ans Backlog-Ende haengen, bis die Liste leer ist.
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe aus der obigen Liste ist vollstaendig auf 409
+        umgestellt, mit demselben Beleg wie die bisherigen Teil-Units
+      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben
+      - Whitelist-Routen aus idempotency.go haben KEIN In-Flight-409 bekommen
+      - Was noch offen bleibt, steht als neue Teil-Unit mit aktualisierter Liste am Backlog-Ende
+      - "swagger-cli validate gruen, und ein Gegenbeweis ist gefahren: ein neuer
+        IdempotencyInFlight-$ref wird testweise verbogen (nicht existierender
+        Komponentenname), swagger-cli wird rot, Aenderung zurueckgedreht"
+      - go test -count=1 ./internal/gateway/ gruen
+
+  - id: doc-status-code-systemic-400-503-sweep-11
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [doc-status-code-systemic-400-503-sweep-10]
+    status: parked
+    decided: 2026-08-24
+    decision: >-
+      AUS DEM LOOP GENOMMEN, Entscheidung Luke 2026-08-24 (B2). Diese Kette hat zusammen mit
+      `fix-idempotency-409-rollout-non-finance-routes-*` und
+      `fix-status-code-drift-baseline-non-systemic-*` 27 der letzten 29 Iterationen von Lauf 11
+      verbraucht - rund 3,3 Stunden fuer vier bis zehn YAML-Zeilen je Iteration. Die Restliste
+      nennt noch ueber 900 Operationen in rund 41 Registrar-Gruppen; bei diesem Zuschnitt
+      waeren das mehr als zwanzig weitere Nachtstunden. Der Loop soll Fehler finden, nicht
+      YAML tippen.
+      Ersetzt durch ein Skript: `.planning/backend-block/loop/hooks/openapi-status-fill.py`
+      liest den JSON-Dump des Drift-Tests (neu: Umgebungsvariable `OPENAPI_DRIFT_DUMP` in
+      `openapi_status_code_drift_test.go`) und fuegt die fehlenden `$ref`-Zeilen an numerisch
+      korrekter Stelle ein, ohne bestehende Eintraege anzufassen. Gate bleibt unveraendert:
+      `swagger-cli validate` plus `go test ./internal/gateway/`.
+    target: >-
+      Keine Rueckkehr. Bleibt eine Restdrift stehen, die das Skript nicht abdeckt (etwa
+      Operationen ohne `responses:`-Block), wird sie als EINE spitze Unit neu angelegt - nicht
+      als Kette.
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      Fortsetzung von `doc-status-code-systemic-400-503-sweep-10`. Iteration 120 hat die
+      Registrar-Gruppe **leads** vollstaendig geschlossen (4 Operationen, Pfadpraefix
+      `/api/v1/leads`): `GET /api/v1/leads`, `POST /api/v1/leads`, `PATCH
+      /api/v1/leads/{id}`, `POST /api/v1/leads/{id}/convert` - alle vier brauchten nur `503`
+      (kein `400` in der Drift-Liste). Additiv nach dem jeweils letzten vorhandenen Code
+      eingefuegt (multi-line `"503":\n  $ref: ...`-Stil des umgebenden Blocks uebernommen).
+      Frisch gezaehlter Gesamtstand mit geleerter `systemicUndocumentedCodes`-Map: **906 vor**
+      dieser Iteration, **902 danach** (exakt -4, passend zu den 4 leads-Zeilen; Testlauf mit
+      `> /tmp/drift120.txt 2>&1` bzw. `/tmp/drift120_after.txt` umgeleitet und vollstaendig
+      gelesen, nicht aus der Tool-Preview).
+      Fertig sind bisher (in dieser Sweep-Serie): vertraege, companies, saved-filters, reports,
+      invitations, leads.
+      Noch offen, frisch gezaehlt nach Iteration 118 (Pfadpraefix `/api/v1/<gruppe>`, 400+503
+      zusammen pro Operation, Zahlen unveraendert aus Iteration 113 uebernommen ausser reports,
+      invitations und leads entfernt - vor der naechsten Gruppe per `grep -oE` auf einem
+      frischen geleerten Testlauf gegenpruefen, da Zahlen durch andere parallele Units driften
+      koennen):
+      email 58, hr 56, finance 47, documents 45, inventar 39, integrations 39, helpdesk 36,
+      einkauf 36, produktion 34, rapporte 31, contacts 28, dialer 27, security 26, plugins 26,
+      video 24, berichte 24, tasks 23, auth 22, formulare 21, vermietung 20, schichten 20,
+      wiki 19, projects 19, admin 19, notifications 17, channels 17, automations 16, work 11,
+      customization 10, messages 9, tenant 8, users 7, pipeline-stages 6, deals 6, activities 6,
+      vendor-access 5, tags 5, settings 5, files 5, custom-fields 5, advisory-protocols 5,
+      public 4 (Rest kleiner, per Neuzaehlung ermitteln).
+      Weiter je Iteration genau eine Gruppe, beide Codes zusammen, VOLLSTAENDIG (also alle
+      Methoden GET/POST/PUT/PATCH/DELETE der Gruppe, nicht nur die zuerst sichtbaren) -
+      siehe Lehre in sweep-6 zu abgeschnittenen Testlauf-Logs.
+    sources:
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Arbeitsliste erzeugen wie in Iteration 100/103/106/109/112/113/116/118/120:
+      `systemicUndocumentedCodes` (openapi_status_code_drift_test.go:430) testweise auf
+      `map[int]string{}` setzen, `go test -count=1 -run TestOpenAPIStatusCodeDrift
+      ./internal/gateway/ -v > /tmp/drift.txt 2>&1` laufen lassen (IMMER mit Datei-Redirect,
+      nie nur die Konsolen-Vorschau lesen) und die Zeilen `METHOD /pfad writes [...] - not
+      documented` fuer die gewaehlte Gruppe vollstaendig sammeln (`grep "/api/v1/<gruppe>"
+      /tmp/drift.txt`) - das umfasst i.d.R. auch GET/PATCH/DELETE-Operationen, die nur
+      teilweise (z. B. nur 503, ohne 400) fehlen; nicht bei den ersten paar POST-Treffern
+      aufhoeren. Danach die Testdatei aus der Sicherungskopie zuruecksetzen und `git diff`
+      darauf pruefen (muss leer sein).
+      Einsortiert wird numerisch in den `responses:`-Block der jeweiligen Operation: `400`
+      vor einem vorhandenen `401`/`404`, `503` ans Ende (nach `409`, falls vorhanden). Die
+      Leerzeile zwischen zwei Pfad-Bloecken gehoert NICHT in den `responses:`-Block.
+      Nur auf den Operationen eintragen, die der Test wirklich nennt - manche Operationen
+      einer Gruppe haben schon ein `400` und brauchen nur `503`, oder umgekehrt.
+      Sobald eine Gruppe vollstaendig geschlossen ist, mit demselben emptied-Map-Testlauf
+      gegenpruefen, dass `grep -c "/api/v1/<gruppe>" /tmp/drift.txt` nach den Aenderungen 0
+      ergibt (Vorher/Nachher-Zeilenzahl-Differenz muss exakt der Anzahl neu eingefuegter
+      Response-Zeilen entsprechen).
+      ACHTUNG (Lehre aus Iteration 106/109): fuer die Mutations-Probe reicht es NICHT, nur
+      einen frisch eingefuegten Eintrag zu entfernen und den normalen Testlauf (mit
+      gefuellter `systemicUndocumentedCodes`-Map) zu pruefen - 400/503 sind dort systemisch
+      unterdrueckt und der Test bleibt IMMER gruen, egal was in `api/openapi.yaml` steht.
+      Fuer die Mutations-Probe muss die Map ZUSAETZLICH testweise geleert werden, dann erst
+      wird ein entfernter Eintrag als Fund sichtbar; danach beide Aenderungen (Testdatei und
+      YAML) zurueckdrehen und normal-gruen erneut bestaetigen.
+      ZUSAETZLICHE LEHRE aus Iteration 120: die Backup-Kopie fuer die Mutations-Probe
+      (`/tmp/openapi_backup_..._good.yaml`) IMMER unmittelbar VOR der Mutations-Probe ziehen,
+      NICHT vor dem eigentlichen inhaltlichen Edit - sonst faellt beim Zuruecksetzen der
+      Datei aus der Backup-Kopie auch die eigentliche beabsichtigte Aenderung weg und muss
+      danach nochmal nachgezogen werden (in Iteration 120 passiert, per Diff sofort erkannt
+      und korrigiert, keine Auswirkung auf den finalen Commit).
+    done_when:
+      - Mindestens eine weitere Registrar-Gruppe hat ihre fehlenden 400 UND 503 VOLLSTAENDIG
+        dokumentiert (alle Methoden der Gruppe, nicht nur ein Teil)
+      - Die im Test geloggten Zaehler sind nachweislich gesunken (Zahlen im Journal, aus
+        einem vollstaendig in eine Datei umgeleiteten Testlauf, nicht aus der Tool-Preview)
+      - "swagger-cli validate gruen"
+      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"

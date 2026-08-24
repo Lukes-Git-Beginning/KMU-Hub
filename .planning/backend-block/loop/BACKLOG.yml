@@ -19,6 +19,28 @@
 # entscheidet.
 #
 # ==========================================================================================
+# ENTSCHEIDUNGSRUNDE 2026-08-24 (nach dem Merge von Lauf 11, vor der Vorbereitung von Lauf 12)
+#
+# Die fünf `blocked`-Units, die am Ende von Lauf 11 hier standen, sind aufgelöst. Jede
+# Entscheidung steht als `decided:`+`decision:` IN der Unit, nicht nur im Chat:
+#   - `feat-crm-activity-deal-tag-rpcs`  -> todo (Weg A: vier RPCs). Die Dublette
+#     `fix-crm-tag-endpoints-are-501-stubs` ist geparkt.
+#   - `fix-hr-manual-entry-idempotency-key-not-enforced` -> todo, aber mit KORRIGIERTEM
+#     Scope: die Prämisse war widerlegt, die Route läuft sehr wohl durch die
+#     Idempotency-Middleware. Die Unit belegt das jetzt per Test, statt Schema zu bauen.
+#   - `fix-bexio-...` und `harden-lexware-webhook-...` -> BACKLOG-PARKED.yml, mit
+#     Upgrade-Trigger. Von Lexware bleibt die billige Vorbereitung als eigene Unit hier.
+#   - Die beiden Doku-Ketten (`doc-status-code-systemic-400-503-sweep-11`,
+#     `fix-idempotency-409-rollout-non-finance-routes-13`) sind AUS DEM LOOP GENOMMEN und
+#     durch `hooks/openapi-status-fill.py` ersetzt. Nicht wieder als Kette anlegen.
+# Neu dazugekommen sind sechs Units am Dateiende (A3, A5 ×2, A6 ×3).
+#
+# Der Treiber prüft die Regel oben seit dem 2026-08-24 selbst: `hooks/backlog-check.py`
+# --preflight bricht ab, wenn hier eine `blocked`-Unit, ein `blocked_reason` oder ein
+# `done_when[0]` steht, das eine Entscheidung von Luke verlangt.
+# ==========================================================================================
+#
+# ==========================================================================================
 # STAND DER VORBEREITUNG (2026-08-22, alles gegen den laufenden Code und die lokale DB gemessen)
 #
 #   - Lauf 10 ist gemergt (`f87ffdcf`) und deployt. `main` = `backend-loop` = `832eee78`,
@@ -3963,67 +3985,6 @@ units:
         Datenmodell-Folge-Unit ans Backlog-Ende gehängt, mit Begründung im Journal
       - go test -count=1 ./internal/biz/lexware/ grün
 
-  - id: fix-bexio-config-lookup-cross-tenant-under-sysctx
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: "bexio gesperrt (G3), siehe BACKLOG.yml Kopf — sofort geblockt ohne Bauversuch, wie in den Notes dieser Unit vorgeschrieben"
-    coverage_start: "internal/biz/bexio (Paketwert im CI-Log nachschlagen)"
-    scope: >
-      Gefunden im Scan `scan-money-reads-without-tenant-scope`, Schwester-Unit zu
-      `fix-lexware-config-lookup-cross-tenant-under-sysctx` — exakt derselbe Root-Cause-Bug,
-      hier bei Bexio statt Lexware. `PostgresIntegrationConfigRepo.GetByPlatform`
-      (`internal/biz/bexio/postgres_config_repo.go:27-31`) filtert nicht nach `tenant_id`.
-      Betroffen unter Systemkontext (`bexio/scheduler.go:45`,
-      `database.WithSystemContext`): `SyncContacts` (`service.go:127-131`) und `PollPayments`
-      (`service.go:177-181`) lösen die Config je Tick über `s.getConfigID(ctx)`
-      (`service.go:386-395`) auf, OHNE das bereits bekannte `ts.tenantID` zu nutzen — bei mehr
-      als einem aktiven Bexio-Tenant kann die Config eines fremden Tenants zurückkommen.
-      Der Bug ist im Code selbst bereits als "G8" dokumentiert
-      (`scheduler.go:183-187`, `service.go:220-224`), aber nur für `PullInvoicesWithConfig`
-      umgangen (Scheduler übergibt dort `ts.configID` direkt) — `SyncContacts` und
-      `PollPayments` sind es NICHT.
-      Konkrete Auswirkung auf `PollPayments` (`payment_poll.go`): `ListEntityMappings(ctx,
-      configID, "invoice")` (Zeile 55, Repo `bexio/postgres_repository.go:171-181`,
-      `WHERE bem.config_id = $1 AND bem.entity_type = $2`, ebenfalls ohne `tenant_id`) liest mit
-      dem potenziell falschen `configID` externe Bexio-Rechnungs-IDs eines fremden Tenants,
-      fragt sie dann mit den API-Credentials des EIGENEN Tenants
-      (`pp.client.ListInvoicePayments(ctx, tenantID, mapping.BexioID)`, Zeile 75) bei Bexio ab —
-      eine Cross-Tenant-Verwechslung externer Rechnungs-IDs. Die abschließenden Schreiboperationen
-      (`invoices.GetByID`/`MarkPaid`) sind selbst korrekt tenant-gefiltert
-      (`invoice/postgres_repository.go:172,367`), begrenzen den Schaden also auf Fehlzuordnung
-      im Abgleich, nicht auf einen direkten Cross-Tenant-Schreibzugriff.
-    sources:
-      - backend/internal/biz/bexio/postgres_config_repo.go
-      - backend/internal/biz/bexio/scheduler.go
-      - backend/internal/biz/bexio/service.go
-      - backend/internal/biz/bexio/payment_poll.go
-      - backend/internal/biz/bexio/postgres_repository.go
-    notes: >
-      GESPERRT IN LAUF 11: `internal/biz/bexio` ist in diesem Lauf gesperrt (G3, produktiv aus,
-      Schweizer Software außerhalb der DE-Fokussierung — siehe BACKLOG.yml Kopf,
-      "GESPERRT IN DIESEM LAUF"). Wird diese Unit in Lauf 11 gezogen, ist sie SOFORT mit
-      `blocked_reason: bexio gesperrt (G3), siehe BACKLOG.yml Kopf` abzuschließen, ohne
-      Bauversuch. Bleibt gültig für den Lauf, in dem Bexio wieder freigegeben wird.
-      Root Cause identisch zur Lexware-Unit: entweder `GetByPlatform` bekommt eine
-      tenant-gescopte Variante, oder die Aufrufer mit bekanntem `tenantID`
-      (`SyncContacts(ctx, tenantID)`, `PollPayments(ctx, tenantID)`) reichen — analog zu
-      `PullInvoicesWithConfig` — den `configID` direkt durch statt ihn unter Systemkontext neu
-      aufzulösen. `ListEntityMappings` sollte defensiv zusätzlich nach `tenant_id` filtern (die
-      Tabelle `bexio_entity_mappings` hat vermutlich eine solche Spalte — prüfen), auch wenn der
-      Schaden durch einen korrekt aufgelösten `configID` bereits entfällt.
-    done_when:
-      - GetByPlatform-Aufrufe unter Systemkontext (Scheduler-Tick für SyncContacts UND
-        PollPayments) wählen nachweislich die Config des richtigen Tenants, auch wenn mehr als
-        ein Bexio-Tenant aktiv ist
-      - ListEntityMappings filtert zusätzlich nach tenant_id, sofern die Tabelle die Spalte trägt
-      - Ein Test mit zwei aktiven Bexio-Configs (zwei Tenants) belegt SyncContacts UND
-        PollPayments über den Scheduler-Pfad
-      - go test -count=1 ./internal/biz/bexio/ grün
-      - Falls in Lauf 11 gezogen: sofort blocked mit obigem Grund, kein Bauversuch
-
 # ==========================================================================================
 # Aus Iteration 66 (fix-idempotency-409-rollout-remaining-routes, Lauf 11) nachgelegt: die
 # Finance-Teil-Unit ist fertig, die uebrigen Registrar-Gruppen fehlen noch.
@@ -4085,29 +4046,40 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: blocked
-    blocked_reason: >
-      Notes verlangen explizit eine Architekturentscheidung von Luke (Middleware-Idempotency
-      wie bei den Finance-Routen vs. eigene idempotency_key-Spalte+Unique-Index auf
-      hr_work_time_entries) — "ENTSCHEIDUNG GEHOERT LUKE, keine Standardwahl aus diesem Lauf
-      treffen". Iteration 88 hat ohne Bauversuch geblockt und die naechste Unit gezogen.
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24: Regressionstest, dann schliessen. Die Vorabpruefung am
+      Code hat die Praemisse dieser Unit WIDERLEGT - es gibt keine doppelten
+      Arbeitszeiteintraege. `POST /api/v1/hr/time/entries` wird in `route_hr.go:110` innerhalb
+      von `r.Route("/api/v1/hr/time", ...)` mit `r.Use(authMiddleware)` registriert, und der
+      Registrar bekommt aus `cmd/gateway/main.go:329` `authWithIdempotency` (dort Zeile 205:
+      `authMiddleware(idempotencyMW(next))`). Die Route laeuft also sehr wohl durch
+      `middleware.Idempotency` - die alte notes-Annahme "aktuell laeuft sie NICHT darueber
+      (Grep bestaetigt)" war ein zu enger Grep auf `route_hr.go` statt auf die
+      Registrar-Kette. Die Middleware dedupliziert bei VORHANDENEM Key unabhaengig vom Modus
+      (`middleware/idempotency.go:78-152`): WarnMode und HardMode entscheiden nur ueber den
+      Fall FEHLENDER Key; ist einer da, laeuft immer `Reserve` und daraus Replay (gespeicherte
+      Antwort) oder 409 (in flight). Deshalb weder Middleware-Umbau (Weg a) noch eigene Spalte
+      (Weg b), sondern der Beleg, der bisher fehlt.
     coverage_start: "internal/biz/hr/timetracking (Paketwert im CI-Log nachschlagen, letzter Run)"
     scope: >
-      VERIFIZIERTER FUND aus Iteration 67 (Lauf 11), beim Dokumentieren von
-      `POST /api/v1/hr/time/entries` (`fix-hr-time-entries-manual-post-not-in-openapi`).
-      `HandleCreateManualEntry` (`route_hr.go:1621-1625`) verlangt zwingend einen
-      `Idempotency-Key`-Header (400 ohne) und reicht den Wert bis in
-      `timetracking.ManualEntryInput.IdempotencyKey` (`repository.go:184`) durch — aber DORT
-      endet die Kette. Ein Grep ueber `internal/biz/hr/timetracking/` (Nicht-Test-Dateien) zeigt
-      GENAU EINEN Treffer fuer `IdempotencyKey`: die Feld-Deklaration selbst. `Service.
-      CreateManualEntry` (`service.go:485-537`) liest das Feld nie, es gibt keine
-      `idempotency_key`-Spalte auf `hr_work_time_entries` (Migrationen geprueft, kein Treffer),
-      und keinen Uniqueness-Check vor dem `Create`. Der Header wird also nur auf Anwesenheit
-      geprueft, nicht auf Wirkung — ein Client, der wegen eines Netzwerk-Timeouts denselben
-      Request mit demselben Key erneut schickt (der Normalfall, den ein Idempotency-Key-Vertrag
-      eigentlich abfedern soll), bekommt zwei bezahlte Arbeitszeiteintraege statt einem. Das ist
-      eine stille Zusage an den Client, die nicht eingeloest wird — schlimmer als kein Header,
-      weil der Header Sicherheit suggeriert, die nicht besteht.
+      Diese Unit BAUT KEIN SCHEMA. Sie belegt die vorhandene Absicherung mit einem Test, weil
+      der urspruengliche Befund aus Iteration 67 auf einem zu engen Grep beruhte (siehe
+      `decision`). Zu bauen ist ein DB-gestuetzter Test auf Gateway-Ebene, der zweimal
+      denselben `Idempotency-Key` gegen `POST /api/v1/hr/time/entries` schickt und belegt:
+      genau ein `hr_work_time_entries`-Satz entsteht, und die zweite Antwort traegt den Header
+      `Idempotency-Replayed: true` (`middleware/idempotency.go:145`). Dazu der Negativtest mit
+      einem anderen Key bei identischem Body - der MUSS einen zweiten, unabhaengigen Eintrag
+      erzeugen, sonst waere es ein Inhalts-Duplikatfilter und keine Idempotency-Pruefung.
+      Vorbild fuer den Testaufbau: `internal/idempotency/postgres_repository_db_test.go`
+      (echtes SQL, Nebenlaeufigkeit). Zusaetzlich ein `lean:`-Marker an
+      `timetracking.ManualEntryInput.IdempotencyKey` (`repository.go:184`): das Feld wird
+      durchgereicht und nie gelesen, weil die Deduplizierung eine Ebene hoeher passiert - ohne
+      Marker liest der naechste Scan es wieder als Bug. Der route-eigene 400-Check in
+      `route_hr.go:1621-1625` BLEIBT: die Middleware laeuft produktiv in WarnMode
+      (`IDEMPOTENCY_MODE` ist nicht auf "hard" gesetzt), der Handler ist dort also die einzige
+      Stelle, die den Header wirklich erzwingt.
     sources:
       - backend/internal/gateway/route_hr.go
       - backend/internal/biz/hr/timetracking/service.go
@@ -4116,30 +4088,25 @@ units:
       - backend/internal/idempotency/postgres_repository.go
       - backend/internal/idempotency/postgres_repository_db_test.go
     notes: >
-      ERST KLAEREN, welcher Mechanismus hier passt, bevor gebaut wird: der generische
-      `internal/idempotency`-Store (Middleware-Ebene, Vorlage fuer die 409-Rollout-Units oben)
-      dedupliziert auf HTTP-Ebene VOR dem Handler und passt nur, wenn diese Route durch
-      `middleware.Idempotency` laeuft — aktuell laeuft sie NICHT darueber (Grep bestaetigt,
-      der Key geht direkt als gRPC-Feld durch). Zwei ehrliche Wege: (a) die Route unter die
-      bestehende Idempotency-Middleware haengen wie die Finance-Routen (dann ist der
-      `route_hr.go`-eigene 400-Check redundant und sollte raus, die Middleware liefert ihn
-      bereits) oder (b) eine `idempotency_key`-Spalte mit Unique-Index auf
-      `hr_work_time_entries` plus Konflikt-Behandlung im Service (naeher am Domain-Modell, aber
-      mehr Aufwand). ENTSCHEIDUNG GEHOERT LUKE — beide sind valide, keine Standardwahl aus
-      diesem Lauf treffen.
-      Falls (a): pruefen, ob `middleware.Idempotency` bereits global oder pro Route eingehaengt
-      wird (`cmd/gateway/main.go`) und ob HR ueberhaupt in der Registrar-Kette dafuer vorgesehen
-      ist.
-      Migration noetig fuer (b) — Nummer zur Laufzeit ermitteln, forward-only, `.up.sql` UND
-      `.down.sql`.
+      Zwei Restrisiken, die der Test NICHT abdeckt und die bewusst offen bleiben (keine eigene
+      Unit, aber im Journal erwaehnen): (1) `Reserve` faellt bei einem unerwarteten Repo-Fehler
+      fail-open durch (`middleware/idempotency.go:131-135`) - dann greift keine Deduplizierung.
+      (2) `Complete` laeuft in einer Goroutine (Zeile 165); stirbt der Prozess dazwischen,
+      bleibt der Key reserviert und ein spaeterer Retry bekommt 409, bis der Cleanup-Worker
+      ihn raeumt. Beides ist bestehendes Middleware-Design und gilt fuer alle Routen gleich,
+      nicht nur fuer HR.
     done_when:
-      - Entscheidung (a) oder (b) liegt vor (von Luke oder mit expliziter Freigabe) und ist im
-        Journal begruendet
-      - Ein wiederholter Request mit demselben Idempotency-Key erzeugt nachweislich nur einen
-        Arbeitszeiteintrag (Test)
-      - Ein Request mit einem ANDEREN Idempotency-Key aber sonst identischem Body erzeugt einen
-        zweiten, unabhaengigen Eintrag (Negativtest, sonst ist es keine Idempotency-Key-Pruefung
-        sondern ein Duplikat-Filter auf dem Inhalt)
+      - >-
+        Ein DB-gestuetzter Test belegt, dass ein zweiter POST mit demselben Idempotency-Key
+        keinen zweiten hr_work_time_entries-Satz erzeugt und die Antwort Idempotency-Replayed
+        traegt
+      - Der Negativtest mit einem anderen Key erzeugt nachweislich einen zweiten Eintrag
+      - >-
+        Der Test laeuft wirklich gegen die DB (DATABASE_URL gesetzt, Rolle kmuhub_app, null
+        Skips) und die Zahl der gelaufenen DB-Tests steht im Journal
+      - >-
+        Ein lean:-Marker an ManualEntryInput.IdempotencyKey erklaert, warum das Feld ungelesen
+        bleibt
       - go test -count=1 ./internal/biz/hr/timetracking/... ./internal/gateway/ gruen
 
   - id: feat-quote-converted-invoice-number-on-read
@@ -4433,82 +4400,6 @@ units:
       - go test -count=1 ./internal/gateway/ gruen
 
 # ==========================================================================================
-# Aus fix-lexware-config-lookup-cross-tenant-under-sysctx (Iteration 86, Lauf 12) nachgelegt.
-# ==========================================================================================
-
-  - id: harden-lexware-webhook-organization-id-scoping
-    phase: 4
-    service: biz
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG GEHOERT LUKE (Variante a/b/c, siehe notes) — kein Loop-Auftrag; stand seit Iteration 86 als todo am Backlog-Kopf und wurde in jeder Iteration uebersprungen. Wieder auf todo setzen, sobald Luke die Variante gewaehlt hat."
-    coverage_start: "n.a. (Datenmodell-Entscheidung vor jeder Coverage-Zahl, siehe scope)"
-    scope: >
-      Restrisiko aus fix-lexware-config-lookup-cross-tenant-under-sysctx (Iteration 86):
-      der Scheduler-Pfad (SyncContacts) ist gefixt (der Ticker übergibt jetzt sein eigenes
-      `ts.configID` statt es unter Systemkontext neu über `GetByPlatform` aufzulösen,
-      analog zu bexios `PullInvoicesWithConfig`-Muster). Der WEBHOOK-Pfad
-      (`Service.HandleWebhookEvent`, `internal/biz/lexware/service.go:262-280`) bleibt
-      bewusst UNGEFIXT: er läuft unter `sysctx.With(ctx)` (kein Tenant im Context, die
-      Anfrage kommt von Lexware, authentifiziert per HMAC über `LEXWARE_WEBHOOK_SECRET`)
-      und ruft `s.configRepo.GetByPlatform(ctx, "lexware")` — bei mehr als einem aktiven
-      Lexware-Tenant kann das die Config eines FREMDEN Tenants zurückgeben, und
-      `webhookHandler.HandleEvent` verarbeitet das Event danach mit dessen
-      `config.ID`/`config.TenantID`.
-      Anders als beim Scheduler-Pfad kennt der Aufrufer die `tenantID` hier VOR dem
-      Lookup nicht — der Webhook trägt keine Tenant-Info, nur eine Lexware-Ressourcen-ID
-      (`resource_id`) und optional eine `organization_id`
-      (`internal/gateway/route_lexware.go:579-592` liest sie aus dem Body, camelCase
-      oder snake_case). Diese `organization_id` wird aber NIRGENDS beim Verbinden
-      gespeichert: `Service.Connect` (`service.go:78-125`) legt die Config nur mit
-      `Metadata: map[string]any{"auth_type": "api_key"}` an — keine Lexware-Organisations-
-      Kennung. Ein Abgleich "Webhook-OrgID gegen gespeicherte Config-OrgID" ist also HEUTE
-      technisch nicht möglich, das Feld existiert nicht.
-      Ebenso ist `LEXWARE_WEBHOOK_SECRET` ein einziges globales Secret
-      (`internal/gateway/route_lexware.go:517-531`), kein Secret pro Tenant — die
-      HMAC-Prüfung kann also nicht zur Tenant-Unterscheidung dienen, nur zur
-      Herkunftsprüfung "kommt wirklich von Lexware".
-    sources:
-      - backend/internal/biz/lexware/service.go
-      - backend/internal/biz/lexware/webhook_handler.go
-      - backend/internal/gateway/route_lexware.go
-      - backend/internal/biz/lexware/profile.go
-      - backend/internal/biz/lexware/postgres_config_repo.go
-    notes: >
-      ENTSCHEIDUNG GEHÖRT LUKE, nicht dem Loop: mindestens zwei valide Wege, keiner
-      trivial nebenbei zu bauen.
-      (a) `organization_id` bei `Connect` per `GET /v1/profile`-Call abfragen
-      (`LexwareProfile.OrganizationID`, bereits genutzt in `TestConnection`,
-      `profile.go:15`) und in `IntegrationConfig.Metadata` speichern; `GetByPlatform`
-      um eine `GetByPlatformAndOrgID`- oder `GetActiveByPlatform`-Variante ergänzen, die
-      im Systemkontext über ALLE aktiven Configs iteriert und die mit passender
-      `organization_id` aus dem Webhook-Payload wählt (analog zu bexios
-      `ListActiveByPlatform`, `bexio/scheduler.go:48`, das bereits über mehrere Configs
-      iterieren kann).
-      (b) pro Tenant einen eigenen Webhook-Pfad/eigenes Secret ausgeben (z. B.
-      `/api/v1/integrations/lexware/webhooks/{config_id}` mit Secret aus dem Vault statt
-      der globalen Env-Var) — verändert den bei Lexware zu hinterlegenden Callback-URL,
-      ist also ein Vertrag mit einem externen System, nicht nur interner Code.
-      Solange das System produktiv Single-Tenant je Plattform läuft (Kommentar
-      `retention_scheduler.go:15-16`), ist der Bug latent, nicht aktiv ausgenutzt — genau
-      wie beim Bexio-Pendant. Kein Grund, ihn liegen zu lassen, aber auch kein Grund für
-      eine überstürzte Lösung ohne Rücksprache: G2 (Geld-/Compliance-Pfade vor dem ersten
-      zahlenden Kunden) verlangt den Fix VOR dem zweiten aktiven Lexware-Tenant, nicht
-      sofort.
-      `.proto`/Migrationen nur falls (a) gewählt wird und `organization_id` dauerhaft
-      persistiert werden soll — Nummer zur Laufzeit ermitteln, forward-only.
-    done_when:
-      - Entscheidung (a), (b) oder eine dritte, von Luke freigegebene Variante liegt vor
-        und ist im Journal begründet
-      - HandleWebhookEvent wählt die Config nachweislich anhand eines
-        Tenant-eindeutigen Merkmals (nicht mehr "erste Zeile für platform=lexware")
-      - Ein Test mit zwei aktiven Lexware-Configs (zwei Tenants, zwei organization_ids
-        oder zwei Webhook-Secrets, je nach gewählter Variante) belegt, dass ein
-        eingehender Webhook nachweislich beim richtigen Tenant landet
-      - go test -count=1 ./internal/biz/lexware/... ./internal/gateway/ gruen
-
-# ==========================================================================================
 # Aus fix-idempotency-409-rollout-non-finance-routes (Iteration 87, Lauf 12) nachgelegt: die
 # Wiki-Registrar-Gruppe ist fertig, alle uebrigen Registrar-Gruppen fehlen noch.
 # ==========================================================================================
@@ -4782,64 +4673,6 @@ units:
       - Die FE-Nutzung des Response-Body ist geprueft und im Journal vermerkt
       - "go test -count=1 ./internal/gateway/ gruen"
 
-  - id: fix-crm-tag-endpoints-are-501-stubs
-    phase: 4
-    service: gateway
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: >
-      Beide im scope vorgesehenen Wege sind in Iteration 97 verschlossen. Durchreichen geht
-      nicht: `proto/crm/v1/crm.proto` hat Tag-RPCs nur fuer Contacts
-      (`AddContactTags`/`RemoveContactTags`, Zeilen 28/29); `AddActivityTags`,
-      `RemoveActivityTags`, `AddDealTags`, `RemoveDealTags` existieren weder als RPC noch als
-      Message, und in `internal/proto/crm/v1/` gibt es keine passenden generierten Typen. Vier
-      neue RPCs anzulegen ist laut notes dieser Unit ausdruecklich Lukes Entscheidung.
-      Entfernen geht ebenfalls nicht guten Gewissens: die Annahme des scope, dass ohne RPC
-      auch keine Faehigkeit da ist, ist falsch. Die Fachlogik ist vollstaendig gebaut und
-      tenant-gescoped — `activity.Service.AddTags/RemoveTags` (activity/service.go:441/466),
-      `deal.Service.AddTags/RemoveTags` (deal/service.go:458/483), beide inkl.
-      Tag-Existenzpruefung ueber `TagExists`, dazu Repository-Methoden, die Join-Tabellen
-      `activity_tags`/`deal_tags` (Migration 000006, `tenant_id` seit 000111) und die
-      Permission-Guards `activities:write`/`deals:write` am Router (route_crm.go:165/166/178/179).
-      Die openapi-Eintraege beschreiben den Vertrag bereits fertig
-      (`200` + `DealResponse`/`ActivityResponse`, openapi.yaml:2731/2964) — genau das, was die
-      Services liefern koennen. Es fehlt ausschliesslich der gRPC-Hop. Beide Service-Methoden
-      haben aktuell null Nicht-Test-Aufrufer (verifiziert per grep), sind also toter Code.
-      Vier fertig spezifizierte, fachlich implementierte Endpunkte zu loeschen, weil eine
-      Verdrahtungsschicht fehlt, ist eine Produktentscheidung, keine Loop-Aufgabe.
-      Entscheidungsvorlage als Unit `feat-crm-activity-deal-tag-rpcs` am Backlog-Ende.
-    coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
-    scope: >
-      Verifizierter Befund von `TestOpenAPIStatusCodeDrift` (Iteration 93): vier registrierte,
-      in `api/openapi.yaml` dokumentierte CRM-Routen sind dauerhafte Stubs und antworten
-      immer `501 Not Implemented`:
-      `POST` und `DELETE /api/v1/activities/{id}/tags` (route_crm_activities.go:300 und :312,
-      "add/remove activity tags not implemented via HTTP, use gRPC") sowie
-      `POST` und `DELETE /api/v1/deals/{id}/tags` (route_crm_pipeline.go:500 und :512).
-      Fuer einen FE-Aufrufer sind das vier Endpunkte, die es laut Spec gibt und die nie
-      funktionieren. Zu klaeren ist, ob der gRPC-Weg existiert (dann Handler ueber den
-      Client durchreichen und die Fehlerklasse "Stub statt Implementierung" schliessen) oder
-      nicht (dann Routen und Spec-Eintraege entfernen).
-      Ebenfalls in der Liste, aber bewusst getrennt: `route_integration.go:609`
-      ("slack oauth install is not available on this deployment") - das ist ein
-      absichtliches Deployment-Nein, kein Stub, und bleibt.
-    sources:
-      - backend/internal/gateway/route_crm_activities.go
-      - backend/internal/gateway/route_crm_pipeline.go
-      - backend/api/openapi.yaml
-    notes: >
-      Erst pruefen, ob der CRM-Service die passenden RPCs ueberhaupt hat. Kein `.proto`
-      erweitern, ohne im selben Commit zu regenerieren - und waere dafuer ein neuer RPC
-      noetig, ist das eine Entscheidung fuer Luke, dann `blocked` mit Begruendung.
-      Werden Routen entfernt: `TestOpenAPISpecDrift` und `TestOpenAPIMethodDrift` erzwingen,
-      dass die Spec-Eintraege im selben Commit mitgehen.
-    done_when:
-      - Fuer alle vier Routen ist entschieden und umgesetzt (durchgereicht oder entfernt)
-      - Kein Handler in route_crm_activities.go oder route_crm_pipeline.go antwortet mehr 501
-      - Die vier Eintraege sind aus statusDriftBaseline entfernt
-      - "go test -count=1 ./internal/gateway/ gruen"
-
   - id: doc-status-code-systemic-400-503-sweep
     phase: 4
     service: gateway
@@ -4985,21 +4818,26 @@ units:
     service: crm
     model: opus
     deps: []
-    status: blocked
-    blocked_reason: >
-      Entscheidungsvorlage - der scope verbietet den Start ohne Lukes Freigabe ("nicht ohne
-      Freigabe starten"), und done_when[0] lautet woertlich "Luke hat einen der beiden Wege
-      freigegeben". Weg A legt vier neue gRPC-RPCs an, Weg B loescht vier spezifizierte,
-      fachlich fertig implementierte Endpunkte - beides Produktentscheidung, nicht Loop-Arbeit.
-      Iteration 100 hat die Unit deshalb nicht angefasst und die naechste Unit gezogen.
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24: WEG A - die vier RPCs werden gebaut. Die Vorabpruefung
+      hat ergeben, dass das Desktop-Frontend die vier Endpunkte HEUTE NICHT ruft:
+      `desktop/src/renderer/src/api/types.ts:974` und `:1046` tragen nur die aus der Spec
+      generierten Typen, es gibt weder einen Hook noch UI. Tag-Bedienung existiert im FE fuer
+      Kontakte (`api/hooks/useContactTags.ts`, `modules/kontakte/TagManager.tsx`) und Firmen,
+      fuer Deals und Aktivitaeten nicht. Trotzdem Weg A statt Loeschen: die Fachlogik ist
+      vollstaendig, tenant-gescoped und mit Permissions gebaut, und ein dauerhaftes 501 im
+      ausgelieferten Produkt kostet mehr als vier Durchreich-RPCs. Die Schwester-Unit
+      `fix-crm-tag-endpoints-are-501-stubs` ist als Dublette nach BACKLOG-PARKED.yml gegangen;
+      diese Unit hier ist die einzige zum Thema.
     coverage_start: "internal/gateway 56,6 % (gemessen Iteration 93)"
     scope: >
-      ENTSCHEIDUNGSVORLAGE FUER LUKE, nicht ohne Freigabe starten — sie enthaelt vier neue
-      gRPC-RPCs, und genau das hat `fix-crm-tag-endpoints-are-501-stubs` als Lukes
-      Entscheidung markiert. Ausgangslage (Iteration 97 verifiziert): Tagging von Activities
-      und Deals ist end-to-end gebaut ausser einer Schicht. Vorhanden sind Join-Tabellen
-      `activity_tags`/`deal_tags` (Migration 000006, `tenant_id` seit 000111),
-      Repository-Methoden `AddTags`/`RemoveTags`/`GetTags`, die Service-Methoden
+      Vier gRPC-RPCs anlegen und durchreichen. Ausgangslage (Iteration 97 verifiziert, am
+      2026-08-24 erneut geprueft): Tagging von Activities und Deals ist end-to-end gebaut
+      ausser einer Schicht. Vorhanden sind Join-Tabellen `activity_tags`/`deal_tags`
+      (Migration 000006, `tenant_id` seit 000111), Repository-Methoden
+      `AddTags`/`RemoveTags`/`GetTags`, die Service-Methoden
       `activity.Service.AddTags/RemoveTags` (activity/service.go:441/466) und
       `deal.Service.AddTags/RemoveTags` (deal/service.go:458/483) inkl. Tag-Existenzpruefung,
       die Router-Registrierung mit `RequirePermission("activities","write")` bzw.
@@ -5007,14 +4845,14 @@ units:
       openapi-Eintraege (openapi.yaml:2731 fuer deals, :2964 fuer activities, je `200` mit
       `DealResponse`/`ActivityResponse`). Es fehlt allein der gRPC-Hop, weshalb die vier
       Handler dauerhaft `501` antworten und die Service-Methoden null Nicht-Test-Aufrufer haben.
-      Umfang bei Freigabe: `AddActivityTags`/`RemoveActivityTags`/`AddDealTags`/`RemoveDealTags`
-      in `proto/crm/v1/crm.proto` nach dem exakten Vorbild von `AddContactTags` (Request mit
-      `activity_id`/`deal_id` + `repeated string tag_ids`, Response mit dem jeweiligen
-      Info-Message), `make proto-crm` im selben Commit, vier Server-Methoden in
-      `internal/server/crm_grpc.go` nach dem Muster von `AddContactTags` (crm_grpc.go:673) mit
-      `middleware.GetTenantID`, uuid-Parsing und `mapCRMError`, und die vier Gateway-Handler
-      von `response.Error(501, ...)` auf `crmClient.<RPC>` + `response.Proto` umstellen.
-      Keine neue Route, keine neue Permission, keine Migration.
+      Umfang: `AddActivityTags`/`RemoveActivityTags`/`AddDealTags`/`RemoveDealTags`
+      in `proto/crm/v1/crm.proto` nach dem exakten Vorbild von `AddContactTags` (Zeilen 28/29,
+      Messages 396-411: Request mit `activity_id`/`deal_id` und `repeated string tag_ids`,
+      Response mit dem jeweiligen Info-Message), `make proto-crm` im selben Commit, vier
+      Server-Methoden in `internal/server/crm_grpc.go` nach dem Muster von `AddContactTags`
+      (crm_grpc.go:673) mit `middleware.GetTenantID`, uuid-Parsing und `mapCRMError`, und die
+      vier Gateway-Handler von `response.Error(501, ...)` auf `crmClient.<RPC>` und
+      `response.Proto` umstellen. Keine neue Route, keine neue Permission, keine Migration.
     sources:
       - backend/proto/crm/v1/crm.proto
       - backend/internal/server/crm_grpc.go
@@ -5024,26 +4862,27 @@ units:
       - backend/internal/gateway/route_crm_pipeline.go
       - backend/api/openapi.yaml
     notes: >
-      Alternative, falls Luke das Feature nicht will: die vier Routen aus route_crm.go, die
-      vier Handler und die zwei Pfad-Eintraege aus `api/openapi.yaml` entfernen, dazu die
-      toten Service- und Repository-Methoden. Dann faellt auch `TagIdsRequest` fuer diese
-      beiden Pfade weg — pruefen, ob das Schema noch von den Contact-Tag-Routen gebraucht wird
-      (ja, `/api/v1/contacts/{id}/tags`), also stehen lassen.
-      In beiden Faellen muessen die Tests mitgezogen werden, die den 501er heute festschreiben:
+      Die Tests, die den 501er heute festschreiben, muessen im selben Commit mitgezogen werden:
       `TestHandleAddActivityTags_NotImplemented`, `TestHandleRemoveActivityTags_NotImplemented`
       (route_crm_activities_test.go:354/375),
       `TestHandleAddDealTags_ValidReturnsNotImplemented`,
       `TestHandleRemoveDealTags_ValidReturnsNotImplemented`
       (route_crm_pipeline_test.go:573/602), dazu die erklaerenden Kommentare in
-      route_capability_guard_test.go:313 und den Kopfkommentaren beider Testdateien.
-      Kein FE-Aufrufer existiert (verifiziert: `desktop/src/renderer/src` nutzt Tag-Routen nur
-      unter `/api/v1/contacts/{id}/tags`), der Umbau ist also FE-seitig risikofrei.
+      route_capability_guard_test.go:313 und in den Kopfkommentaren beider Testdateien.
+      `TagIdsRequest` bleibt stehen - es wird weiter von `/api/v1/contacts/{id}/tags` gebraucht.
+      Kein FE-Aufrufer existiert (verifiziert 2026-08-24), der Umbau ist FE-seitig risikofrei;
+      die generierten Typen in `desktop/src/renderer/src/api/types.ts` aendern sich nicht, weil
+      der OpenAPI-Vertrag unveraendert bleibt - nur die Antwort wechselt von 501 auf 200.
     done_when:
-      - Luke hat einen der beiden Wege freigegeben und er ist umgesetzt
+      - Die vier RPCs existieren in crm.proto und die generierten .pb.go liegen im selben Commit
       - Kein Handler in route_crm_activities.go oder route_crm_pipeline.go antwortet mehr 501
+      - >-
+        Ein Test belegt je einmal fuer Deal und Activity, dass ein Tag wirklich in der
+        Join-Tabelle landet und nach RemoveTags wieder weg ist - tenant-gescoped, ueber den
+        gRPC-Weg, nicht ueber eine direkt injizierte Service-Instanz
       - Die vier 501-Eintraege sind aus statusDriftBaseline entfernt
-      - Bei Weg A - .proto und generierte .pb.go liegen im selben Commit
-      - "go test -count=1 ./internal/gateway/ ./internal/server/ gruen"
+      - Die vier Tests, die den 501er festschreiben, sind angepasst statt geloescht
+      - go test -count=1 ./internal/gateway/ ./internal/server/ ./internal/crm/... gruen
 
   - id: doc-status-code-systemic-400-503-sweep-2
     phase: 4
@@ -6486,170 +6325,406 @@ units:
       - "swagger-cli validate gruen"
       - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
 
-  - id: fix-idempotency-409-rollout-non-finance-routes-13
+# ==========================================================================================
+# Entscheidungsrunde 2026-08-24 (Teil A der Sitzung nach Lauf 11). Jede dieser Units
+# traegt ein `decided:`-Feld mit Datum und Begruendung. Die verworfenen und geparkten
+# Gegenstuecke liegen in BACKLOG-PARKED.yml, die Rechtsfragen in BACKLOG-NEXT.yml.
+# ==========================================================================================
+
+  - id: feat-lexware-store-organization-id-on-connect
     phase: 4
-    service: gateway
+    service: biz
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24 (A3): die billige Vorbereitung wird mitgenommen, der teure
+      Webhook-Fix bleibt geparkt. `harden-lexware-webhook-organization-id-scoping` liegt mit
+      Begruendung in BACKLOG-PARKED.yml, Upgrade-Trigger "zweiter aktiver Lexware-Tenant".
+      Der Grund fuer die Aufteilung: ohne gespeicherte `organization_id` ist der spaetere Fix
+      GAR NICHT moeglich, und der zweite Lexware-Kunde kommt ohne Vorwarnung. Die Vorbereitung
+      kostet aber fast nichts, weil `Client.GetProfile` (`internal/biz/lexware/profile.go`)
+      den Wert bereits liefert und `TestConnection` (`service.go:177`) den Aufruf schon fuehrt
+      - kein Proto-Feld, keine FE-Aenderung, keine Migration.
+    coverage_start: "internal/biz/lexware (Paketwert im CI-Log nachschlagen, letzter Run)"
     scope: >
-      Rest von `fix-idempotency-409-rollout-non-finance-routes-12`. Iteration 119 hat die
-      Registrar-Gruppe **File** geschlossen: `internal/gateway/route_files.go` registriert
-      genau zwei Routen (`POST /api/v1/files/presign-upload`, `GET
-      /api/v1/files/presign-download`) - nur die POST ist mutierend. Sie hatte weder `409`
-      noch `503` dokumentiert; `409` additiv nach `403` eingefuegt (Einzeiler-Stil des
-      umgebenden Abschnitts). Die Vorbereitungsnotiz "GlobalSearch/File (0 - vermutlich
-      uebersprungen werden koennen)" war fuer File FALSCH: die Gruppe hatte 1 mutierende
-      Operation, nicht 0 - verifizieren statt der Notiz vertrauen war hier noetig.
-      **GlobalSearch** dagegen ist bestaetigt leer: `route_search_global.go` registriert nur
-      `GET /api/v1/search/global` (`RequirePermission("search","read")`), keine
-      POST/PUT/PATCH/DELETE - Gruppe kann ohne weitere Pruefung uebersprungen werden.
-      Fertig sind bisher: Finance, Wiki, Formulare, Notification, Chat, Dashboard, Settings,
-      Vertraege, Automation, Schichten, Vermietung, Berichte, File. Erledigt/leer (kein 409
-      noetig): Booking, GlobalSearch.
-      Noch offen sind die uebrigen Registrar-Gruppen aus `cmd/gateway/main.go`
-      (`registrars`-Liste, Zeilen ~276-325): Auth, CRM, Work, Calendar, Video, Security,
-      Email, Document, Biz (non-finance), Bexio, DATEV-Upload, Lexware, Integration, HR,
-      Inbox, Dialer, Helpdesk, Inventar, Einkauf, Produktion,
-      Rapporte, Fuhrpark.
-      Auswahl-Hinweise unveraendert: `Customization` ist gesperrt (FE-Vertrag im Wechsel) und
-      erst nach allen anderen Gruppen anfassen oder explizit auslassen; `Bexio` ist produktiv
-      aus (G3) - die reine Route-Doku ist harmlos, trotzdem eine ungesperrte Gruppe bevorzugen.
-      `Auth` braucht besondere Sorgfalt: `/auth/login`, `/auth/refresh` und `/auth/2fa` stehen
-      als Teilstring in der `idempotencyWhitelist` (`idempotency.go:36`) und laufen NICHT durch
-      die Middleware - die duerfen kein In-Flight-409 dokumentiert bekommen.
-      `FeatureFlag` (nur `GET /api/v1/feature-flags`) und `Health` (nur `GET /health`) haben
-      KEINE mutierenden Routen und sind ebenfalls uebersprungen, nicht mehr in der Restliste.
-      Kleinere, schnell abzuarbeitende Kandidaten (Zahlen ungeprueft, vor Bearbeitung
-      verifizieren statt raten - siehe die File-Lehre oben): Dialer, HR, Inbox.
+      `Service.Connect` (`internal/biz/lexware/service.go:78-95`) legt die IntegrationConfig
+      heute mit `Metadata: map[string]any{"auth_type": "api_key"}` an (Zeile 91) und speichert
+      die Lexware-`organizationId` nirgends - obwohl der Webhook sie optional mitbringt
+      (`route_lexware.go`, `parseLexwareWebhookBody` liest `organizationId` und die
+      snake_case-Variante). Zu bauen:
+      (1) In `Connect`, NACH `vault.SetSecret` und VOR `configRepo.Upsert`, `s.client.GetProfile
+      (ctx, tenantID)` aufrufen und ein nicht-leeres `OrganizationID` als
+      `metadata["organization_id"]` mitschreiben. Der Aufruf ist BEST EFFORT: schlaegt er fehl,
+      wird das mit `slog.Warn` protokolliert und `Connect` laeuft normal weiter. Metadata ist
+      hier Vorbereitung, kein Vertrag - ein Profil-Timeout darf keine Lexware-Verbindung
+      verhindern.
+      (2) In `TestConnection` (`service.go:152-185`) den bereits vorhandenen
+      `GetProfile`-Aufruf nutzen: traegt die Config noch keine `organization_id`, wird sie
+      nachgetragen (Upsert der Metadata). Ohne diesen Schritt bekaeme der EINZIGE heute
+      produktiv verbundene Tenant den Wert nie, weil er sich nicht neu verbindet - die
+      Vorbereitung waere dann wirkungslos.
+      (3) Ein `lean:`-Marker am Metadata-Schreiben, der sagt, wofuer der Wert da ist
+      (Tenant-Aufloesung im Webhook-Pfad) und wann er scharf wird (zweiter aktiver Tenant).
     sources:
-      - backend/api/openapi.yaml
-      - backend/cmd/gateway/main.go
-      - backend/internal/middleware/idempotency.go
-      - backend/internal/gateway/openapi_drift_test.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/lexware/profile.go
+      - backend/internal/biz/lexware/postgres_config_repo.go
+      - backend/internal/gateway/route_lexware.go
+      - backend/internal/biz/lexware/service_test.go
     notes: >
-      GLEICHE MECHANIK, NICHT NEU ERFINDEN - Vorlage `git show f6d4a3ad` (Finance, enthaelt
-      auch den Merge-Fall), die Settings-Iteration (Iteration 104, kleinster Merge-Fall bisher
-      als Referenz), die Vertraege-Iteration (Iteration 107), die Automation-Iteration
-      (Iteration 110), die Schichten-Iteration (Iteration 114), die Vermietung-Iteration
-      (Iteration 115), die Berichte-Iteration (Iteration 117) und die File-Iteration
-      (Iteration 119, kleinste Gruppe bisher: genau 1 Operation).
-      Pro Operation der gewaehlten Gruppe (nur POST/PUT/PATCH/DELETE, GET nie; die
-      Middleware filtert nach HTTP-Methode, nicht nach RequirePermission-Semantik) pruefen, ob
-      schon ein `409:` existiert. Fehlt es: eine Zeile
-      `"409": { $ref: "#/components/responses/IdempotencyInFlight" }` (oder Multi-Line-Form,
-      je nach lokalem Stil) in den `responses:`-Block einfuegen - NUMERISCH SORTIERT, also vor
-      einem eventuellen `422`/`503`, nicht stumpf ans Blockende.
-      Existiert schon ein 409 aus Geschaeftsgruenden (egal ob Inline-Description oder $ref
-      auf eine generische Komponente wie `Conflict`): NICHT ueberschreiben, sondern auf eine
-      Inline-`description: >-` umstellen, den urspruenglichen Konfliktgrund konkret benennen
-      (Handler/Service pruefen, nicht raten), den Idempotenz-Satz anhaengen und einen
-      `headers.Retry-After` ergaenzen mit dem Vermerk, dass er fuer den urspruenglichen
-      Konfliktfall nicht gesetzt ist.
-      Operationen einer Gruppe finden: im passenden `route_*.go` nach `.Post(`/`.Put(`/
-      `.Patch(`/`.Delete(` greppen (Registrierung laeuft ueber `r.With(guard).Post(...)`, ein
-      reiner `r\.Post\(`-Grep uebersieht die meisten Treffer), dann die vollen
-      `/api/v1/...`-Pfade aus dem `RegisterRoutes`-Block zusammensetzen und im YAML suchen.
-      Ausschlussliste (nicht durch die Middleware geschuetzt) unveraendert: `/api/v1/public/*`,
-      `/api/v1/guest/*`, `/api/v1/caldav/*`, `/api/v1/admin/caldav/*`, WOPI/CalDAV/CardDAV-
-      Protokollrouten, `/reset-password`, sowie Pfade mit `/auth/login`, `/auth/refresh`,
-      `/auth/2fa` als Teilstring.
-      Mutations-Probe (Vorlage Iteration 107/110/114/115/117/119): einen frisch eingefuegten
-      `IdempotencyInFlight`-$ref testweise auf einen nicht existierenden Komponentennamen
-      verbiegen (z.B. `IdempotencyInFlightXXX`) - `swagger-cli validate` muss dann mit "Token
-      ... does not exist" rot werden, danach die Datei aus der Sicherungskopie zuruecksetzen
-      und `git diff --stat` gegenpruefen (nur die erwarteten Zeilen).
-      NICHT den ganzen Rest in einem Commit - je Registrar-Gruppe schneiden (oder wenige kleine
-      benachbarte zusammen) und jede Iteration eine neue Teil-Unit mit aktualisierter Restliste
-      ans Backlog-Ende haengen, bis die Liste leer ist.
+      NICHT in dieser Unit: den Webhook-Pfad auf die `organization_id` umstellen. Das ist die
+      geparkte Unit. Diese hier legt nur den Wert an, damit der Fix spaeter ueberhaupt gebaut
+      werden kann.
+      Achtung beim Test: `GetProfile` geht ueber HTTP an die Lexware-API. Der Test muss den
+      Client mocken (Muster: `service_test.go`, dort gibt es bereits Faelle mit gemocktem
+      Client) - kein echter Netzaufruf im Gate.
+      Metadata ist eine JSONB-Spalte auf `integration_configs`; ein zusaetzlicher Schluessel
+      ist additiv und braucht keine Migration. Pruefen, dass `Upsert` die Metadata wirklich
+      schreibt und nicht nur beim INSERT setzt.
     done_when:
-      - Mindestens eine weitere Registrar-Gruppe aus der obigen Liste ist vollstaendig auf 409
-        umgestellt, mit demselben Beleg wie die bisherigen Teil-Units
-      - Bestehende 409-Eintraege mit anderer Bedeutung sind nicht kommentarlos ueberschrieben
-      - Whitelist-Routen aus idempotency.go haben KEIN In-Flight-409 bekommen
-      - Was noch offen bleibt, steht als neue Teil-Unit mit aktualisierter Liste am Backlog-Ende
-      - "swagger-cli validate gruen, und ein Gegenbeweis ist gefahren: ein neuer
-        IdempotencyInFlight-$ref wird testweise verbogen (nicht existierender
-        Komponentenname), swagger-cli wird rot, Aenderung zurueckgedreht"
-      - go test -count=1 ./internal/gateway/ gruen
+      - >-
+        Nach einem Connect traegt die IntegrationConfig eines Lexware-Tenants
+        metadata.organization_id, sofern die API sie liefert
+      - >-
+        Schlaegt GetProfile fehl, laeuft Connect trotzdem erfolgreich durch und protokolliert
+        den Fehlschlag (Test)
+      - >-
+        TestConnection traegt eine fehlende organization_id nach - ein Test mit einer Config
+        ohne den Schluessel belegt das
+      - Ein lean:-Marker nennt Zweck und Upgrade-Trigger des Werts
+      - go test -count=1 ./internal/biz/lexware/ gruen
 
-  - id: doc-status-code-systemic-400-503-sweep-11
+  - id: fix-event-payload-missing-tenant-id
     phase: 4
-    service: gateway
-    model: sonnet
-    deps: [doc-status-code-systemic-400-503-sweep-10]
+    service: notification
+    model: opus
+    deps: []
     status: todo
-    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24 (A5): die TenantID-Luecke wird ZUERST geschlossen, erst
+      danach werden die biz-Emitter verdrahtet
+      (`wire-biz-event-emitters-for-finance-triggers`, deps darauf gesetzt). Grund: die
+      Vorlage ging davon aus, `SetEventEmitter` in `cmd/biz/main.go` sei "wenige Zeilen". Die
+      Gegenpruefung am 2026-08-24 zeigt, dass das nicht reicht - und dass es auf den HEUTE
+      verdrahteten Pfaden ein Produktionsfehler ist, kein Vorarbeits-Thema.
+    coverage_start: "internal/notification/event (Paketwert im CI-Log nachschlagen, letzter Run)"
     scope: >
-      Fortsetzung von `doc-status-code-systemic-400-503-sweep-10`. Iteration 120 hat die
-      Registrar-Gruppe **leads** vollstaendig geschlossen (4 Operationen, Pfadpraefix
-      `/api/v1/leads`): `GET /api/v1/leads`, `POST /api/v1/leads`, `PATCH
-      /api/v1/leads/{id}`, `POST /api/v1/leads/{id}/convert` - alle vier brauchten nur `503`
-      (kein `400` in der Drift-Liste). Additiv nach dem jeweils letzten vorhandenen Code
-      eingefuegt (multi-line `"503":\n  $ref: ...`-Stil des umgebenden Blocks uebernommen).
-      Frisch gezaehlter Gesamtstand mit geleerter `systemicUndocumentedCodes`-Map: **906 vor**
-      dieser Iteration, **902 danach** (exakt -4, passend zu den 4 leads-Zeilen; Testlauf mit
-      `> /tmp/drift120.txt 2>&1` bzw. `/tmp/drift120_after.txt` umgeleitet und vollstaendig
-      gelesen, nicht aus der Tool-Preview).
-      Fertig sind bisher (in dieser Sweep-Serie): vertraege, companies, saved-filters, reports,
-      invitations, leads.
-      Noch offen, frisch gezaehlt nach Iteration 118 (Pfadpraefix `/api/v1/<gruppe>`, 400+503
-      zusammen pro Operation, Zahlen unveraendert aus Iteration 113 uebernommen ausser reports,
-      invitations und leads entfernt - vor der naechsten Gruppe per `grep -oE` auf einem
-      frischen geleerten Testlauf gegenpruefen, da Zahlen durch andere parallele Units driften
-      koennen):
-      email 58, hr 56, finance 47, documents 45, inventar 39, integrations 39, helpdesk 36,
-      einkauf 36, produktion 34, rapporte 31, contacts 28, dialer 27, security 26, plugins 26,
-      video 24, berichte 24, tasks 23, auth 22, formulare 21, vermietung 20, schichten 20,
-      wiki 19, projects 19, admin 19, notifications 17, channels 17, automations 16, work 11,
-      customization 10, messages 9, tenant 8, users 7, pipeline-stages 6, deals 6, activities 6,
-      vendor-access 5, tags 5, settings 5, files 5, custom-fields 5, advisory-protocols 5,
-      public 4 (Rest kleiner, per Neuzaehlung ermitteln).
-      Weiter je Iteration genau eine Gruppe, beide Codes zusammen, VOLLSTAENDIG (also alle
-      Methoden GET/POST/PUT/PATCH/DELETE der Gruppe, nicht nur die zuerst sichtbaren) -
-      siehe Lehre in sweep-6 zu abgeschnittenen Testlauf-Logs.
+      VERIFIZIERTER FUND (2026-08-24, Merge-Gegenpruefung Lauf 11).
+      `models.EventPayload` hat ein Feld `TenantID uuid.UUID` (`internal/models/event.go:47`).
+      `EventBus.dispatch` (`internal/notification/event/bus.go:133`) stempelt den Tenant NUR
+      dann in den Handler-Context, wenn `event.TenantID != uuid.Nil` - und der Kommentar direkt
+      darueber (Zeilen 123-131) sagt selbst, was sonst passiert: "every table they touch
+      (events since 000271, notifications since 000122, inbox_messages) is under RLS, whose
+      policy admits nothing when app.tenant_id is empty. Without this the notification insert
+      fails with 'new row violates row-level security policy', ProcessEvent logs it and moves
+      on, and the event disappears."
+      Gezaehlt ueber `internal/` ohne Testdateien: 25 `models.EventPayload{...}`-Literale,
+      davon setzen nur 5 `TenantID` - und zwar ausschliesslich die zeitgesteuerten Pfade, die
+      den Tenant ohnehin aus einer Zeile haben (`automation/trigger/poller.go:203`,
+      `automation/workflow/webhook.go:222`, `fuhrpark/worker.go:211`, `vertraege/worker.go:126`,
+      `notification/event/bus.go:181` im Backlog-Replay). Die 20 request-getriebenen Emitter
+      setzen ihn nicht, darunter `biz/invoice/service.go:92`, `biz/quote/service.go:72`,
+      `crm/deal/service.go:355` und die Helfer in `work/task`, `chat/message`, `email/message`,
+      `document/file`. `event.EmitEvent` (`internal/notification/event/emit.go`) reichert
+      nichts an - es marshalled und ruft `pg_notify('events', ...)`.
+      Zu bauen: die `emitEvent`-Helfer (bzw. die Literale, wo es keinen Helfer gibt) ziehen den
+      Tenant aus dem Request-Context (`middleware.GetTenantID(ctx)`) und setzen ihn. Ist kein
+      Tenant im Context, wird der Emit mit `slog.Warn` uebersprungen statt tenant-los abgesetzt
+      - ein Event ohne Tenant kann von keinem Handler korrekt verarbeitet werden, und ein
+      stiller Fehlschlag eine Ebene tiefer ist genau das Muster, das hier behoben wird.
     sources:
-      - backend/internal/gateway/openapi_status_code_drift_test.go
-      - backend/api/openapi.yaml
-      - backend/internal/gateway/helpers.go
+      - backend/internal/models/event.go
+      - backend/internal/notification/event/bus.go
+      - backend/internal/notification/event/emit.go
+      - backend/internal/notification/notification/service.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/quote/service.go
+      - backend/internal/crm/deal/service.go
+      - backend/internal/work/task/service.go
+      - backend/internal/chat/message/service.go
     notes: >
-      Arbeitsliste erzeugen wie in Iteration 100/103/106/109/112/113/116/118/120:
-      `systemicUndocumentedCodes` (openapi_status_code_drift_test.go:430) testweise auf
-      `map[int]string{}` setzen, `go test -count=1 -run TestOpenAPIStatusCodeDrift
-      ./internal/gateway/ -v > /tmp/drift.txt 2>&1` laufen lassen (IMMER mit Datei-Redirect,
-      nie nur die Konsolen-Vorschau lesen) und die Zeilen `METHOD /pfad writes [...] - not
-      documented` fuer die gewaehlte Gruppe vollstaendig sammeln (`grep "/api/v1/<gruppe>"
-      /tmp/drift.txt`) - das umfasst i.d.R. auch GET/PATCH/DELETE-Operationen, die nur
-      teilweise (z. B. nur 503, ohne 400) fehlen; nicht bei den ersten paar POST-Treffern
-      aufhoeren. Danach die Testdatei aus der Sicherungskopie zuruecksetzen und `git diff`
-      darauf pruefen (muss leer sein).
-      Einsortiert wird numerisch in den `responses:`-Block der jeweiligen Operation: `400`
-      vor einem vorhandenen `401`/`404`, `503` ans Ende (nach `409`, falls vorhanden). Die
-      Leerzeile zwischen zwei Pfad-Bloecken gehoert NICHT in den `responses:`-Block.
-      Nur auf den Operationen eintragen, die der Test wirklich nennt - manche Operationen
-      einer Gruppe haben schon ein `400` und brauchen nur `503`, oder umgekehrt.
-      Sobald eine Gruppe vollstaendig geschlossen ist, mit demselben emptied-Map-Testlauf
-      gegenpruefen, dass `grep -c "/api/v1/<gruppe>" /tmp/drift.txt` nach den Aenderungen 0
-      ergibt (Vorher/Nachher-Zeilenzahl-Differenz muss exakt der Anzahl neu eingefuegter
-      Response-Zeilen entsprechen).
-      ACHTUNG (Lehre aus Iteration 106/109): fuer die Mutations-Probe reicht es NICHT, nur
-      einen frisch eingefuegten Eintrag zu entfernen und den normalen Testlauf (mit
-      gefuellter `systemicUndocumentedCodes`-Map) zu pruefen - 400/503 sind dort systemisch
-      unterdrueckt und der Test bleibt IMMER gruen, egal was in `api/openapi.yaml` steht.
-      Fuer die Mutations-Probe muss die Map ZUSAETZLICH testweise geleert werden, dann erst
-      wird ein entfernter Eintrag als Fund sichtbar; danach beide Aenderungen (Testdatei und
-      YAML) zurueckdrehen und normal-gruen erneut bestaetigen.
-      ZUSAETZLICHE LEHRE aus Iteration 120: die Backup-Kopie fuer die Mutations-Probe
-      (`/tmp/openapi_backup_..._good.yaml`) IMMER unmittelbar VOR der Mutations-Probe ziehen,
-      NICHT vor dem eigentlichen inhaltlichen Edit - sonst faellt beim Zuruecksetzen der
-      Datei aus der Backup-Kopie auch die eigentliche beabsichtigte Aenderung weg und muss
-      danach nochmal nachgezogen werden (in Iteration 120 passiert, per Diff sofort erkannt
-      und korrigiert, keine Auswirkung auf den finalen Commit).
+      REIHENFOLGE: erst alle Emitter auf den Tenant umstellen, dann
+      `wire-biz-event-emitters-for-finance-triggers`. Andersherum wuerden die neu verdrahteten
+      biz-Events sofort tenant-los auf dem Bus landen.
+      Der Umfang ist groesser als eine Datei - such die Stellen zur Laufzeit selbst mit
+      `grep -rn "models.EventPayload{" backend/internal --include=*.go | grep -v _test`, statt
+      der Liste oben blind zu vertrauen; sie ist der Stand vom 2026-08-24.
+      Kein Notification-Spam-Risiko: `notification/service.go:94` iteriert ueber
+      `payload.TargetUserIDs`, und die betroffenen Finanz-Events tragen dort nichts - der Fix
+      macht also keine Benachrichtigungen sichtbar, die vorher unterdrueckt waren, sondern
+      repariert den Weg fuer die, die schon heute feuern sollen.
+      Falls sich beim Bauen zeigt, dass ein Emitter gar keinen Request-Context hat (Worker,
+      Scheduler), gehoert dort der Tenant aus der verarbeiteten Zeile - so machen es die fuenf
+      Stellen, die es heute schon richtig machen.
     done_when:
-      - Mindestens eine weitere Registrar-Gruppe hat ihre fehlenden 400 UND 503 VOLLSTAENDIG
-        dokumentiert (alle Methoden der Gruppe, nicht nur ein Teil)
-      - Die im Test geloggten Zaehler sind nachweislich gesunken (Zahlen im Journal, aus
-        einem vollstaendig in eine Datei umgeleiteten Testlauf, nicht aus der Tool-Preview)
-      - "swagger-cli validate gruen"
-      - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
+      - >-
+        Jedes nicht-Test-Literal von models.EventPayload setzt TenantID, oder der Emit wird
+        nachweislich uebersprungen, wenn kein Tenant ermittelbar ist
+      - >-
+        Ein Test belegt end-to-end, dass ein Event mit gesetztem Tenant beim Handler ankommt
+        und der RLS-geschuetzte notifications-INSERT durchgeht - gegen echte DB, als
+        kmuhub_app, nicht als kmuhub
+      - >-
+        Ein Negativtest belegt, dass ein Emit ohne ermittelbaren Tenant nicht still auf dem Bus
+        landet
+      - Der Zaehler im Journal: wie viele Literale vorher/nachher TenantID setzen
+      - go test -count=1 ./internal/notification/... ./internal/biz/... ./internal/crm/... gruen
+
+  - id: wire-biz-event-emitters-for-finance-triggers
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: [fix-event-payload-missing-tenant-id]
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24 (A5): verdrahten - aber ERST nachdem
+      `fix-event-payload-missing-tenant-id` erledigt ist, daher die neue dep. Die
+      Gegenpruefung am 2026-08-24 hat gezeigt, dass die in den notes beschriebene
+      Ein-Zeilen-Verdrahtung NICHT reicht: `models.EventPayload.TenantID` wird von 20 der 25
+      nicht-Test-Literale gar nicht gesetzt, und `EventBus.dispatch`
+      (`internal/notification/event/bus.go:133`) stempelt den Tenant nur, wenn er belegt ist.
+      Ein jetzt verdrahteter Emitter wuerde also tenant-lose Events auf den Bus legen, die der
+      RLS-geschuetzte Handler nicht verarbeiten kann.
+      Zur Sorge aus den notes ("Automationen feuern ab dem Deploy ohne Vorwarnung"): geprueft
+      und entkraeftet fuer den Benachrichtigungsweg - `notification/service.go:94` iteriert
+      ueber `payload.TargetUserIDs`, und invoice/quote geben dort nichts mit, es entstehen also
+      keine ueberraschenden Benachrichtigungen. Die Verhaltensaenderung beschraenkt sich auf
+      Automations-Workflows, die einen der beiden Trigger nutzen - und genau die sind heute
+      still kaputt. `biz.invoice.created` (`invoice/service.go:252`) faengt ebenfalls an zu
+      feuern, hat aber keinen Trigger in der Registry und damit keine Aussenwirkung.
+    coverage_start: "n.a. — kein Coverage-Ziel, Verkabelungsentscheidung"
+    scope: >
+      VERIFIZIERT in Lauf 11 (`verify-biz-event-emitters-never-wired`): das Automations-Modul
+      bietet in der UI zwei Finanz-Trigger an, die niemals feuern.
+      `GET /triggers` (`internal/gateway/route_automation.go:96` ->
+      `AutomationGRPCServer.ListTriggerDefinitions` -> `TriggerRegistry.All()`,
+      `internal/automation/trigger/registry.go:182-218`) liefert "Rechnung versendet"
+      (`biz.invoice.sent`) und "Angebot erstellt" (`biz.quote.created`) als wählbare
+      Automations-Ausloeser. Beide hängen an `EmitBizEvent`, das der jeweilige Service nur
+      aufruft, wenn `SetEventEmitter` gesetzt wurde (`internal/biz/invoice/service.go:80-107`,
+      analog `internal/biz/quote/service.go`). `cmd/biz/main.go` ruft `SetEventEmitter` für
+      `invoiceSvc`, `quoteSvc` UND `lexwareSvc` an KEINER Stelle auf (Grep über die gesamte
+      Datei: 0 Treffer für `SetEventEmitter`) — alle drei laufen mit ihrem
+      Konstruktor-Default, der bei invoice/quote `nil` ist (`emitEvent` ist dadurch ein No-op,
+      siehe `if s.emitter == nil { return }`) und bei lexware `noopEmitter{}`
+      (`internal/biz/lexware/service.go:59-60`).
+      Ein Kunde kann also eine Automation "wenn Rechnung versendet wird, sende Slack-Nachricht"
+      anlegen, die niemals auslöst. Der dritte registrierte Finanz-Trigger,
+      `biz.invoice.overdue`, ist davon NICHT betroffen — er ist `TimeBased: true` und wird per
+      5-Minuten-Poller direkt gegen `finance_invoices` aufgelöst
+      (`internal/automation/trigger/due_postgres.go:41` `overdueInvoices`), nicht über den
+      Emitter.
+    sources:
+      - backend/cmd/biz/main.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/invoice/event_emitter.go
+      - backend/internal/biz/quote/service.go
+      - backend/internal/biz/quote/event_emitter.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/lexware/webhook_handler.go
+      - backend/internal/automation/trigger/registry.go
+      - backend/cmd/crm/main.go
+      - backend/cmd/work/main.go
+      - backend/cmd/chat/main.go
+    notes: >
+      Vorlage für die Verdrahtung existiert bereits und ist trivial (eine Zeile je Service):
+      `cmd/crm/main.go:88`, `cmd/work/main.go:82`, `cmd/chat/main.go:99` setzen
+      `svc.SetEventEmitter(event.NewPGEventEmitter(pool))` direkt nach der Konstruktion.
+      Trotzdem gehört das NICHT in eine Nachtlauf-Iteration: das Setzen ändert sofortiges
+      Produktionsverhalten (Events fließen live, Automationen mit diesen Triggern feuern ab
+      dem Deploy für jeden Kunden, der eine angelegt hat, ohne Vorwarnung), und
+      `COSMI_ENV=production` ist scharf mit automatischem CD.
+      Luke entscheidet: (a) einfach verdrahten (Nutzen: die beiden UI-Trigger funktionieren
+      endlich wie beworben), oder (b) die beiden Trigger-Definitionen aus der Registry
+      entfernen, bis eine bewusste Entscheidung für Finanz-Automationen ansteht. Bestehende
+      Kunden-Workflows mit diesen Triggern (falls es welche gibt) sollten vor dem Verdrahten
+      geprüft werden, damit sie nicht überraschend anfangen zu feuern.
+      Nebenfund mitgenommen (Lauf 11, `verify-biz-event-emitters-never-wired`): der Lexware-
+      `EventWebhookReceived`-Emit in `webhook_handler.go:176` ist ebenfalls tot, aber OHNE
+      Außenwirkung — kein Trigger in der Registry hört auf "lexware.*", der Emit ist reiner
+      Log-Ersatz. Ein `lean:`-Marker dort ist bereits gesetzt (Lauf 11, Iteration 10).
+    done_when:
+      - >-
+        invoiceSvc und quoteSvc erhalten SetEventEmitter(<pkg>.NewPGEventEmitter(pool)) in
+        cmd/biz/main.go, nach dem Muster von cmd/crm/main.go:88
+      - >-
+        Ein Test belegt, dass ein versendetes Invoice ein biz.invoice.sent und ein erzeugtes
+        Quote ein biz.quote.created Event MIT gesetztem tenant_id auf dem Bus erzeugt
+      - >-
+        Vor dem Bauen ist geprueft und im Journal vermerkt, ob auf Produktion Workflows mit
+        diesen beiden Triggern existieren (SELECT auf die Automations-Tabellen) - sie fangen
+        mit dem Deploy an zu feuern
+      - >-
+        Der Lexware-Emitter bleibt bewusst auf noopEmitter - kein Trigger hoert auf lexware.*,
+        der lean:-Marker aus Lauf 11 bleibt stehen
+      - go test -count=1 ./internal/biz/invoice/ ./internal/biz/quote/ ./internal/automation/... gruen
+
+  - id: feat-retention-handler-fuhrpark-operational
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24 (A6, Teilentscheidung). Die Sammel-Unit
+      `decide-retention-policy-for-unmapped-personal-data-domains` ist aufgeteilt: Domaenen
+      OHNE gesetzliche Aufbewahrungsfrist werden jetzt entschieden, alles mit AO/HGB-Bezug
+      geht an Etappe 4 (Legal). Fuer den Fuhrpark heisst das eine WEITERE Teilung, die beim
+      Entscheiden aufgefallen ist: `trip_logs` ist ein Fahrtenbuch mit `is_private`-Flag
+      (`000193_create_trip_logs.up.sql`) und damit ein steuerlicher Beleg, sobald es als
+      Alternative zur 1-Prozent-Regel gefuehrt wird - das faellt unter Paragraph 147 AO
+      (10 Jahre) und gehoert deshalb NICHT hierher, sondern in
+      `decide-retention-policy-hgb-ao-domains`.
+      Entschieden ist damit nur der betriebliche Rest: `vehicle_bookings` und die HISTORISCHEN
+      Zeilen von `driver_licenses`. Frist: 3 Jahre, orientiert an der regelmaessigen
+      zivilrechtlichen Verjaehrung (Paragraph 195 BGB), innerhalb derer aus einer
+      Fahrzeugueberlassung noch Ansprueche entstehen koennen.
+    coverage_start: "internal/security/gdpr (Paketwert im CI-Log nachschlagen, letzter Run)"
+    scope: >
+      Zwei Retention-Handler nach dem Muster von `retention_invitations.go` (Lauf 11,
+      neuntes Handler-Beispiel) und der Registrierung in `retention.go`:
+      (1) `resource_type: "vehicle_bookings"` - Tabelle `vehicle_bookings`
+      (`000300_vehicle_bookings.up.sql`), Clock auf dem Ende der Buchung. Loeschen, nicht
+      anonymisieren: eine abgelaufene Fahrzeugbuchung hat ohne den zugeordneten Fahrer keinen
+      Rest-Nutzen. `SupportsAction` sagt das explizit, wie `NotificationRetentionHandler`.
+      (2) `resource_type: "driver_licenses"` - Tabelle `driver_licenses`
+      (`000279_create_driver_licenses.up.sql`, eine Zeile je durchgefuehrter Kontrolle,
+      Historie), Clock `checked_at`. WICHTIG: die JEWEILS LETZTE Zeile je `driver_id` ist der
+      aktuelle Kontrollstand und darf NIE geloescht werden, egal wie alt sie ist - sonst
+      verschwindet der Nachweis der Halterpflicht. Der Handler muss sie in `Plan` als
+      `Skipped` mit Grund fuehren, nicht als `Due`. Genau dafuer bekommt `Plan` die `action`
+      mitgegeben (siehe Interface-Kommentar in `retention.go:100-133`).
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_invitations.go
+      - backend/internal/security/gdpr/retention_notifications.go
+      - backend/migrations/000300_vehicle_bookings.up.sql
+      - backend/migrations/000279_create_driver_licenses.up.sql
+    notes: >
+      Kein `trip_logs` in dieser Unit - siehe `decision`. Wer sie baut und dabei versucht ist,
+      das Fahrtenbuch "gleich mitzunehmen": nicht tun, das ist eine Rechtsfrage aus Etappe 4.
+      Die Handler sind dry-run-per-default wie alle anderen (`RetentionModeDryRun`); scharf
+      geschaltet wird nichts in dieser Unit.
+      Beide Handler brauchen ihren Test nach dem Muster der bestehenden
+      `retention_*_test.go` - inkl. des Falls "letzte Kontrollzeile bleibt stehen".
+    done_when:
+      - Beide Handler sind implementiert und in der RetentionRegistry registriert
+      - >-
+        Ein Test belegt, dass die letzte driver_licenses-Zeile je driver_id auch nach Ablauf
+        der Frist als Skipped gefuehrt wird und nicht in Due landet
+      - Ein Test belegt die Idempotenz: nach Apply liefert Plan mit demselben Cutoff nichts mehr
+      - >-
+        Der Test laeuft gegen echte DB als kmuhub_app (DATABASE_URL gesetzt, null Skips), die
+        Zahl steht im Journal
+      - go test -count=1 ./internal/security/gdpr/ gruen
+
+  - id: harden-advisory-protocols-retention-guard
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24 (A6, Teilentscheidung): KEINE aktive Loesch-nach-Frist-
+      Funktion fuer `advisory_protocols`, sondern ein Schutz gegen VERFRUEHTE Loeschung. Die
+      Frist steht bereits fest und ist nicht strittig - der Migrationskommentar
+      (`000137_advisory_protocols.up.sql:1-6`) zitiert MiFID II, Paragraph 64 WpHG,
+      Paragraphen 16-18 FinVermV und Paragraph 61 VVG (IDD) sowie 10 Jahre nach FinVermV
+      Paragraph 18a. Die Tabelle ist nach Aushaendigung unveraenderlich; das reale Risiko ist
+      also nicht, dass zu spaet geloescht wird, sondern dass ein kuenftiger generischer
+      Bereinigungslauf die Frist nicht kennt.
+    coverage_start: "internal/security/gdpr (Paketwert im CI-Log nachschlagen, letzter Run)"
+    scope: >
+      Einen RetentionHandler fuer `resource_type: "advisory_protocols"` registrieren, der
+      NICHT loescht, sondern die Aufbewahrungspflicht sichtbar macht. Heute meldet die Engine
+      einen unbekannten `resource_type` als `RetentionItemUnmapped` ("nicht zugeordnet") -
+      korrekt, aber nicht unterscheidbar von "haben wir vergessen". Nach dieser Unit
+      unterscheidet sich beides:
+      `SupportsAction` gibt fuer Delete und Anonymize `false` zurueck, sodass jede Policy auf
+      diesem `resource_type` als `RetentionItemUnsupported` mit einer Begruendung endet, die
+      die Rechtsgrundlage und die 10-Jahres-Frist nennt. `Plan` zaehlt die Zeilen aelter als
+      der Cutoff, damit im Admin-Bericht sichtbar wird, WIE VIEL unter der Frist liegt, aendert
+      aber nichts. `Table()` und `DateColumn()` legen offen, welche Tabelle und welche Spalte
+      die Uhr starten.
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_invitations.go
+      - backend/migrations/000137_advisory_protocols.up.sql
+      - backend/internal/crm/advisoryprotocol/
+    notes: >
+      Die RESTRICT-FK auf `contacts` bleibt unangetastet - sie verhindert weiterhin, dass ein
+      Kontakt mit Beratungsprotokoll geloescht wird. Dieser Handler ist die zweite Haelfte
+      desselben Schutzes, eine Ebene hoeher.
+      Bewusst KEIN Loesch-Pfad, auch nicht fuer Zeilen jenseits der 10 Jahre: solange kein
+      Kunde eine solche Zeile hat, waere das ungetesteter Code an der empfindlichsten Stelle.
+      Ein `lean:`-Marker mit Upgrade-Trigger ("erster Bestand aelter als 10 Jahre") gehoert an
+      den Handler.
+    done_when:
+      - >-
+        Eine retention_policy auf advisory_protocols endet nachweislich als unsupported mit
+        einer Begruendung, die Frist und Rechtsgrundlage nennt - nicht mehr als unmapped
+      - Plan zaehlt korrekt und aendert nachweislich nichts (Test in enforce-Modus)
+      - Ein lean:-Marker nennt den Upgrade-Trigger fuer einen spaeteren Loesch-Pfad
+      - go test -count=1 ./internal/security/gdpr/ gruen
+
+  - id: feat-retention-handler-guest-sessions
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24 (A6, Teilentscheidung): zeitbasierte Loeschung OHNE
+      DSAR-Anbindung, Frist 90 Tage nach `last_activity_at`. Die ungeloeste
+      Subjekt-Matching-Frage aus Lauf 10 (ein Gast ist weder `contacts` noch `users`, ein
+      Auskunftsersuchen braeuchte eine dritte Quelle) blockiert die Retention NICHT - im
+      Gegenteil: je kuerzer die Gastdaten liegen, desto kleiner ist die offene DSAR-Luecke.
+      90 Tage, weil eine Gast-Chatsitzung keinen handelsrechtlichen Aufbewahrungsgrund hat
+      (die Sitzungszeile traegt Name, E-Mail, IP und User-Agent, nicht die Korrespondenz
+      selbst) und der Support-Bezug nach einem Quartal erledigt ist.
+    coverage_start: "internal/security/gdpr (Paketwert im CI-Log nachschlagen, letzter Run)"
+    scope: >
+      RetentionHandler fuer `resource_type: "guest_sessions"` nach dem Muster von
+      `retention_invitations.go`. Tabelle `guest_sessions` (`000054_add_guest_chat_support.up.sql`),
+      Spalten `display_name`, `email`, `ip_address`, `user_agent`, `last_activity_at`,
+      `expires_at`, `is_active`; `tenant_id` NOT NULL seit `000115`. Clock:
+      `last_activity_at` - nicht `created_at`, weil eine laufende Sitzung sonst mitten im
+      Gespraech faellig wuerde, und nicht `expires_at`, weil das nur das Token betrifft.
+      Loeschen, nicht anonymisieren: an einer Gastsitzung ohne Name, Mail und IP ist nichts
+      mehr, was aufzubewahren waere. `SupportsAction` sagt das explizit.
+      Die Tabelle hat seit dem ersten Tag einen Index fuer genau diesen Zweck
+      (`idx_guest_sessions_cleanup ON guest_sessions(expires_at) WHERE is_active = true`,
+      Zeile 21) - der Cleanup dahinter wurde nie gebaut. Pruefen, ob der Handler ihn nutzen
+      kann oder ob ein Index auf `last_activity_at` sinnvoller ist; falls ja, in derselben
+      Migration mitnehmen (Nummer zur Laufzeit ermitteln, forward-only).
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_invitations.go
+      - backend/migrations/000054_add_guest_chat_support.up.sql
+      - backend/migrations/000115_option_b_phase2_integrations_chat.up.sql
+      - backend/internal/chat/
+    notes: >
+      Die zugehoerigen Chat-Nachrichten des Gastes sind NICHT Teil dieser Unit - sie haengen an
+      `channels`/`messages` und haben ihre eigene Frage (Handelsbrief oder nicht), die in
+      `decide-retention-policy-hgb-ao-domains` mitlaeuft. Diese Unit raeumt die
+      Sitzungs-Metadaten, nicht den Gespraechsinhalt. Wer beim Bauen merkt, dass die Zuordnung
+      Gast-zu-Nachricht nur ueber `guest_sessions` laeuft und mit der Loeschung verloren geht,
+      notiert das im Journal und legt eine eigene Unit an, statt die Frist zu verlaengern.
+      Kein DSAR-Handler in dieser Unit - siehe `decision`.
+    done_when:
+      - Handler ist implementiert und in der RetentionRegistry registriert
+      - >-
+        Ein Test belegt, dass eine Sitzung mit last_activity_at innerhalb der Frist NICHT
+        faellig wird, eine aeltere schon
+      - Ein Test belegt die Idempotenz: nach Apply liefert Plan mit demselben Cutoff nichts mehr
+      - >-
+        Der Test laeuft gegen echte DB als kmuhub_app (DATABASE_URL gesetzt, null Skips), die
+        Zahl steht im Journal
+      - go test -count=1 ./internal/security/gdpr/ gruen
