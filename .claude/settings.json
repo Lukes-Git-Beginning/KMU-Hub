@@ -1,52 +1,63 @@
 {
-    "hooks":  {
-                  "SessionStart":  [
-                                       {
-                                           "hooks":  [
-                                                         {
-                                                             "type":  "command",
-                                                             "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/session-start.sh\"",
-                                                             "description":  "Compact git orientation at session start",
-                                                             "timeout":  5000
-                                                         },
-                                                         {
-                                                             "type":  "command",
-                                                             "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/memory-size-guard.sh\"",
-                                                             "description":  "Warn when MEMORY.md exceeds its 150-line/18KB budget",
-                                                             "timeout":  3000
-                                                         }
-                                                     ]
-                                       }
-                                   ],
-                  "PreToolUse":  [
-                                     {
-                                         "matcher":  "Bash",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-commit-message.sh\"",
-                                                           "description":  "Enforce conventional commit messages (feat:|fix:|docs:|refactor:|test:|chore:)"
-                                                       },
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-no-secrets.sh\"",
-                                                           "description":  "Block staging of files with secrets (.env, credentials, keys)"
-                                                       }
-                                                   ]
-                                     }
-                                 ],
-                  "PostToolUse":  [
-                                      {
-                                          "matcher":  "Write|Edit|MultiEdit",
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-on-write.sh\"",
-                                                            "description":  "Auto-format edited files (prettier --write for .ts/.tsx if installed, ruff format for .py; no-op otherwise)",
-                                                            "timeout":  20000
-                                                        }
-                                                    ]
-                                      }
-                                  ]
-              }
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/session-start.sh\"",
+            "description": "Compact git orientation at session start",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/memory-size-guard.sh\"",
+            "description": "Warn when MEMORY.md exceeds its 150-line/18KB budget",
+            "timeout": 3000
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/session-fetch.sh\"",
+            "description": "Fetch origin and report how far behind the branch is",
+            "timeout": 25000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-commit-message.sh\"",
+            "description": "Enforce conventional commit messages (feat:|fix:|docs:|refactor:|test:|chore:)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-no-secrets.sh\"",
+            "description": "Block staging of files with secrets (.env, credentials, keys)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-no-attribution.sh\"",
+            "description": "Block AI attribution (Co-Authored-By: Claude, Generated with, session links) in commit messages"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-on-write.sh\"",
+            "description": "Auto-format edited files (prettier --write for .ts/.tsx if installed, ruff format for .py; no-op otherwise)",
+            "timeout": 20000
+          }
+        ]
+      }
+    ]
+  }
 }

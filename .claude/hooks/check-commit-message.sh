@@ -7,7 +7,15 @@
 # direkt editieren — Aenderungen hier vornehmen und via sync.ps1 propagieren.
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | grep -o 'git commit.*' || true)
+
+# JSON-Escaping der Doppelquotes VOR der Extraktion aufloesen.
+# Ohne diesen Schritt lief der Hook ins Leere: der PreToolUse-stdin ist JSON, dort steht
+# `git commit -m \"feat: x\"` — der Lookbehind unten sucht aber `-m "` und fand nie etwas.
+# MSG blieb leer, der Hook liess jede doppelt gequotete Message durch. Am 2026-08-24 durch
+# scharfes Ausloesen aufgedeckt: `git commit -m "kaputte message ohne praefix"` ging durch.
+# Single-Quotes waren nie betroffen (JSON escaped die nicht) — deshalb fiel es nicht auf.
+UNESCAPED=$(printf '%s' "$INPUT" | sed 's/\\"/"/g')
+COMMAND=$(echo "$UNESCAPED" | grep -o 'git commit.*' || true)
 
 if [ -z "$COMMAND" ]; then
   exit 0
