@@ -21,22 +21,18 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
 - **RBAC Phase 1 (Welle 1a und 1b) ist ABGESCHLOSSEN** — Datenmodell, Seed, Resolver,
   `/auth/me/permissions`, Rollen-CRUD, Guardrails, Audit-Events, Per-User-Overrides und
   Vendor-Access sind in Lauf 4 gebaut. In diesem Lauf ist kein RBAC-Nachbau vorgesehen.
-- **Freigegeben in diesem Lauf** (Lauf 8, Stand 2026-08-10): acht Fix- und Feature-Units aus
-  Block A, danach reine Test-Coverage in `internal/server`, `internal/security`,
-  `internal/gateway` und den schwaechsten Service-Paketen. Was freigegeben ist, steht als Unit
-  im Backlog — was nicht drinsteht, ist nicht freigegeben.
-- **Schwerpunkt dieses Laufs**, in dieser Reihenfolge (Blockfolge im `BACKLOG.yml`):
-  A Fix-Units → B `internal/server`-Kern → C sicherheitsnahe Flaechen → D Gateway-Routen →
-  E schwaechste Service-Pakete → F Reserve. Block A steht vorn, weil dort sechs verifizierte
-  Produktionsbugs liegen, die Lauf 7 gefunden, aber nicht gefixt hat. Block C steht bewusst vor
-  dem groesseren Block D: `route_auth.go` (33,4 %) und `internal/security` (47,9 %) sind
-  sicherheitsrelevant und verdienen Vorrang vor groesseren, aber harmloseren Flaechen.
-  Zeilen-Abdeckung allein ist wertlos, wenn sie nichts beweist — jede Coverage-Unit muss ihre
-  Mutations-Probe belegen (Details im Kopf von `BACKLOG.yml`).
-- **KEINE NEUEN ROUTEN — mit genau einer Ausnahme.** Freigegeben ist allein
-  `hr-salary-self-service-route` aus Block A; sie braucht ihren Pfad-Eintrag in
-  `backend/api/openapi.yaml` im selben Commit. Findest du in einer Coverage-Unit eine echte
-  Luecke, notier sie im Journal und leg eine Unit fuer Lauf 9 an, statt sie nebenbei zu bauen.
+- **Was in DIESEM Lauf freigegeben ist, steht im Kopf von `BACKLOG.yml`** — Roter Faden,
+  Blockfolge und Sperren werden dort je Lauf gepflegt. Hier stand das bis zum 2026-08-24
+  ausgeschrieben und war seit Lauf 8 nicht mehr nachgezogen: Lauf 11 lief mit einer ganz
+  anderen Blockstruktur gegen einen Prompt, der noch Lauf 8 beschrieb. Lies den Backlog-Kopf,
+  nicht diesen Absatz. Grundsatz bleibt: was als Unit im Backlog steht, ist freigegeben —
+  was nicht drinsteht, ist es nicht.
+- **KEINE NEUEN ROUTEN**, ausser eine Unit verlangt sie ausdruecklich. Dann braucht die Route
+  ihren Pfad-Eintrag in `backend/api/openapi.yaml` im selben Commit. Findest du beim Arbeiten
+  eine echte Luecke, leg eine Unit dafuer ans Backlog-Ende (Schritt 6, `neue-units:`), statt
+  sie nebenbei zu bauen.
+- **Zeilen-Abdeckung allein ist wertlos, wenn sie nichts beweist** — jede Coverage-Unit muss
+  ihre Mutations-Probe belegen (Details im Kopf von `BACKLOG.yml`).
 - **CSAT bleibt gesperrt**, und der Grund steht seit dem 2026-08-10 fest: der SMTP-Passthrough
   an `helpdesk` fehlt UND `CSAT_SURVEY_BASE_URL` zeigt auf eine Seite, die es nicht gibt. Den
   Passthrough allein nachzuziehen waere schaedlich — dann gingen Umfragen mit totem Link an
@@ -44,7 +40,7 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
   `BACKLOG-PARKED.yml`.
 - **Customization Draft/Deploy-Overlay und `moduleAreas`-Persistenz sind GESPERRT.** Ihr
   FE-Vertrag wechselt gerade (Spalten-Panel: `boolean` wird zu `{visible, order, width}`).
-  In Lauf 8 steht dazu keine einzige Unit im Backlog — die Flaeche ist vollstaendig gesperrt.
+  Solange keine Unit im Backlog sie ausdruecklich freigibt, ist die Flaeche vollstaendig gesperrt.
 - **Phase 4 heisst: kein Neubau ganzer Branchen-Module.** Verifizierte Einzelluecken und Bugfixes
   in bereits bestehenden Branchen-Modulen (fuhrpark, inventar, vermietung, einkauf, produktion,
   schichten, rapporte) sind erlaubt und stehen als Units im Backlog — die arbeitest du normal ab.
@@ -133,6 +129,17 @@ Kein Fund → notier "Verify Vorgaenger-Commit: sauber" und geh weiter.
 
 Nimm die **erste** Unit mit `status: todo`, deren `deps` alle `done` sind. Setz sie auf `in_progress` und
 schreib die Datei sofort — stirbt dein Lauf, sieht die naechste Iteration, woran du warst.
+
+**Du ueberspringst diese Unit nicht.** Kannst du sie nicht bauen — die Entscheidung gehoert Luke, sie
+ist ein Deploy-Hazard, die Flaeche ist gesperrt — dann setzt du sie **im selben Commit** auf
+`status: blocked` mit einer praezisen `blocked_reason` und nimmst DANN die naechste. Sie kommentarlos
+liegen zu lassen und weiterzuziehen ist ein Fehlschlag der Iteration, kein zulaessiger Weg.
+
+Der Grund ist gemessen: `harden-lexware-webhook-organization-id-scoping` stand ab Iteration 86 von
+Lauf 11 als `todo` am Backlog-Kopf und wurde laut Journal „in jeder Iteration uebersprungen", ohne dass
+sich ihr Status je aenderte. Der Treiber liest sein Modell aus der ersten baubaren `todo`-Unit — neun
+Iterationen liefen deshalb auf **opus**, obwohl die tatsaechlich gebaute Unit `model: sonnet` trug. Ein
+ehrliches `blocked` haette den Kopf nach EINER Iteration geheilt statt nach 35.
 
 Findest du **keine** Unit, deren `deps` alle `done` sind, obwohl noch `todo`-Units offen sind, ist der
 Backlog verklemmt. Schreib das mit den betroffenen IDs ins Journal, leg

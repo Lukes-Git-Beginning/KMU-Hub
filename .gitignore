@@ -103,3 +103,7 @@ temp/
 .ralph/
 .ralphrc
 .claude/settings.local.json
+
+# Python-Bytecode der Loop-Hilfsskripte
+__pycache__/
+*.pyc

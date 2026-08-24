@@ -67,6 +67,8 @@ $Journal  = Join-Path $LoopDir "JOURNAL.md"
 $StopFile = Join-Path $LoopDir "STOP"
 $LogDir   = Join-Path $LoopDir "logs"
 $Settings = ".planning/backend-block/loop/loop-settings.json"
+$BacklogCheck = Join-Path $LoopDir "hooks\backlog-check.py"
+$RunSummary   = Join-Path $LoopDir "hooks\run-summary.py"
 
 Set-Location $RepoRoot
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
@@ -112,6 +114,16 @@ foreach ($c in @("C:\Program Files\Git\bin\bash.exe",
 }
 if ($GitBash -eq "") {
     Write-Line "ABBRUCH: Git Bash nicht gefunden. Der Guard-Test braucht bash." "Red"
+    exit 1
+}
+
+# --- Python aufloesen --------------------------------------------------------
+# Der Backlog-Vorflug und die Laufbilanz laufen ueber Python (PyYAML). Ohne das
+# faellt der Treiber auf Zeilen-Regexe zurueck - und genau die haben in Lauf 11
+# BEIDE Backlog-Dateien sechs Iterationen lang kaputt durchgewinkt, ohne dass es
+# jemandem auffiel. Deshalb Abbruch, nicht Warnung.
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    Write-Line "ABBRUCH: python nicht im PATH - Backlog-Vorflug und Laufbilanz brauchen ihn." "Red"
     exit 1
 }
 
@@ -222,6 +234,41 @@ if ($env:DATABASE_URL) {
 }
 Write-Line "DB-Gate: Migrationskopf $dbVersion, Anmeldung als kmuhub_app, DATABASE_URL gesetzt." "Green"
 
+# --- Vorflug: Backlog-Gate ---------------------------------------------------
+# Zwei Befunde aus Lauf 11, beide teuer, beide hier fuer eine Sekunde abfangbar:
+#
+#   1. Nach dem Lauf waren BEIDE Backlog-Dateien mit yaml.safe_load nicht ladbar -
+#      13 Stellen, alle nach demselben Muster. Der Fehler stand ab Iteration 114 in
+#      jedem Journal-Eintrag als Randnotiz und wurde nie behoben; der Lauf lief
+#      trotzdem 120 Iterationen durch, weil der Treiber die Dateien nie geparst hat,
+#      sondern nur Zeilen gezaehlt.
+#   2. Regel 6 der Lauf-11-Vorbereitung sagt woertlich: in BACKLOG.yml steht keine
+#      `blocked`-Unit. Am Laufende standen dort fuenf. Jede hat mindestens eine
+#      Iteration gekostet, die sie liest und weiterzieht - und eine davon hat den
+#      Backlog-Kopf so verklemmt, dass neun Iterationen auf dem falschen Modell liefen.
+#
+# Deshalb ABBRUCH, nicht Warnung: beides ist vor dem Lauf in Minuten zu beheben und
+# waehrend des Laufs gar nicht mehr.
+Write-Line "Vorflug: Backlog-Gate" "Cyan"
+$backlogErr = Join-Path $LogDir "backlog-check.err.log"
+Invoke-Native { & python $BacklogCheck --preflight 2>$backlogErr } | ForEach-Object {
+    if ("$_".Trim() -ne "") { Write-Line "  $_" "Green" }
+}
+if ($LASTEXITCODE -ne 0) {
+    Write-Line "ABBRUCH: backlog-check.py meldet Verstoesse:" "Red"
+    if (Test-Path $backlogErr) {
+        foreach ($line in (Get-Content $backlogErr -Encoding UTF8)) {
+            if ("$line".Trim() -ne "") { Write-Line "  $line" "DarkYellow" }
+        }
+    }
+    Write-Line "  Entscheidungsbeduerftiges gehoert nach BACKLOG-PARKED.yml (verworfen/geparkt)" "DarkYellow"
+    Write-Line "  oder BACKLOG-NEXT.yml (spaeterer Lauf) - nicht in die Datei, die der Treiber zieht." "DarkYellow"
+    exit 1
+}
+if ((Test-Path $backlogErr) -and ((Get-Item $backlogErr).Length -eq 0)) {
+    Remove-Item $backlogErr -Force -ErrorAction SilentlyContinue
+}
+
 # Schmutziger Arbeitsbaum: Warnung, kein Abbruch. In Lauf 8 lag ein unkommittierter
 # Patch an dieser Datei ueber den gesamten Lauf herum; rund 90 Journal-Eintraege haben
 # je einen Absatz darauf verwendet zu versichern, dass er nicht von ihnen stammt. Das
@@ -301,26 +348,28 @@ if ($sleepRc -eq 0) {
     Write-Line "Schlafsperre aktiv (System bleibt wach, Display darf ausgehen)." "DarkGray"
 }
 
-# --- Modell der naechsten Unit aus BACKLOG.yml -------------------------------
-# Bewusst simpel: erste 'model:'-Zeile nach der ersten 'status: todo'-Unit.
-function Get-NextUnitModel {
-    if ($ForceModel -ne "") { return $ForceModel }
-    $lines = Get-Content $Backlog
-    $currentModel = "sonnet"
-    foreach ($line in $lines) {
-        if ($line -match '^\s*-\s*id:')        { $currentModel = "sonnet" }
-        if ($line -match '^\s*model:\s*(\S+)') { $currentModel = $Matches[1] }
-        if ($line -match '^\s*status:\s*todo') { return $currentModel }
+# --- Backlog-Zustand aus hooks/backlog-check.py ------------------------------
+# Ersetzt seit dem 2026-08-24 die frueheren Zeilen-Regexe Get-NextUnitModel und
+# Get-OpenUnitCount. Die alte Modellwahl nahm das `model:` der ersten `status: todo`-
+# Unit im Backlog - unabhaengig davon, ob der Agent diese Unit ueberhaupt ziehen kann.
+# In Lauf 11 stand ab Iteration 86 eine opus-Unit am Kopf, die auf eine Entscheidung
+# wartete und in jeder Iteration uebersprungen wurde; die Iterationen 88, 89, 91, 92,
+# 93, 96, 97, 99 und 100 liefen deshalb auf opus, obwohl die dort tatsaechlich gebauten
+# Units alle `model: sonnet` trugen - neun Opus-Iterationen fuer YAML-Zeilen.
+#
+# Das Skript nimmt stattdessen die erste BAUBARE Unit (status todo UND alle deps done)
+# und parst dafuer echtes YAML statt Zeilen zu zaehlen.
+function Get-BacklogState {
+    $out = Invoke-Native { & python $BacklogCheck --state }
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $state = @{ Open = 0; Next = ""; Model = "sonnet" }
+    foreach ($line in $out) {
+        if ($line -match '^OPEN=(\d+)')  { $state.Open  = [int]$Matches[1] }
+        if ($line -match '^NEXT=(.*)$')   { $state.Next  = $Matches[1].Trim() }
+        if ($line -match '^MODEL=(\S+)') { $state.Model = $Matches[1] }
     }
-    return "sonnet"
-}
-
-function Get-OpenUnitCount {
-    $n = 0
-    foreach ($line in (Get-Content $Backlog)) {
-        if ($line -match '^\s*status:\s*(todo|in_progress)\s*$') { $n++ }
-    }
-    return $n
+    if ($ForceModel -ne "") { $state.Model = $ForceModel }
+    return $state
 }
 
 # --- Hauptschleife -----------------------------------------------------------
@@ -337,6 +386,11 @@ $promptText = Get-Content $Prompt -Raw -Encoding UTF8
 $i = $StartAt - 1
 $consecutiveFailures = 0
 $rateLimitBackoffs = 0
+
+# Basis fuer die Laufbilanz (siehe ganz unten): alles, was dieser Lauf committet,
+# liegt hinter dieser SHA. Muss VOR der ersten Iteration erfasst werden.
+$BaseSha = (Invoke-Native { & git rev-parse HEAD }).Trim()
+$TotalMinutes = 0
 
 # Iterationsnummer und Startzeit sind dem Modell sonst nicht bekannt - es raet.
 # Ab Treiber-Iteration 27 schrieb es "## Iteration 28" ins Journal, seitdem lief
@@ -413,7 +467,12 @@ while ($i -lt $MaxIterations) {
     if (Test-Path $StopFile) { Write-Line "STOP-Datei gefunden - Lauf beendet." "Yellow"; break }
     if ((Get-Date) -ge $Deadline) { Write-Line "Deadline erreicht - Lauf beendet." "Yellow"; break }
 
-    $open = Get-OpenUnitCount
+    $state = Get-BacklogState
+    if ($null -eq $state) {
+        Write-Line "ABBRUCH: backlog-check.py --state schlug fehl - ist BACKLOG.yml noch parsebar?" "Red"
+        break
+    }
+    $open = $state.Open
     if ($open -eq 0) { Write-Line "Keine offenen Units mehr im Backlog - Lauf beendet." "Green"; break }
 
     # Pausenfenster. Steht hinter dem Open-Count (sonst wuerde der Loop zwei
@@ -436,10 +495,11 @@ while ($i -lt $MaxIterations) {
     }
 
     $i++
-    $model = Get-NextUnitModel
+    $model       = $state.Model
+    $plannedUnit = $state.Next
     $logFile = Join-Path $LogDir ("iter-{0:d3}.json" -f $i)
 
-    Write-Line "--- Iteration $i / $MaxIterations  (Modell: $model, offen: $open) ---" "Cyan"
+    Write-Line "--- Iteration $i / $MaxIterations  (Modell: $model, offen: $open, geplant: $plannedUnit) ---" "Cyan"
 
     # Zeitstempel EINMAL bilden: er geht in den Prompt und wird nach der Iteration
     # gegen die geschriebene Journal-Ueberschrift geprueft (Drift-Warnung unten). Ein
@@ -494,6 +554,7 @@ while ($i -lt $MaxIterations) {
         Remove-Item $errFile -Force -ErrorAction SilentlyContinue
     }
     $elapsed  = [int]((Get-Date) - $started).TotalMinutes
+    $TotalMinutes += $elapsed
     $body     = ""
     if (Test-Path $logFile) { $body = Get-Content $logFile -Raw }
 
@@ -542,7 +603,7 @@ while ($i -lt $MaxIterations) {
         Write-Line "Iteration $i endete mit Exit $exitCode nach $elapsed min (Fehler in Folge: $consecutiveFailures, subtype=$subtype, terminal_reason=$reason)" "Red"
 
         # Jede fehlgeschlagene Iteration kann eine Unit auf in_progress
-        # zurueckgelassen haben. Get-NextUnitModel und der Iterations-Prompt
+        # zurueckgelassen haben. Get-BacklogState und der Iterations-Prompt
         # ziehen ausschliesslich 'todo' - eine verwaiste in_progress-Unit waere
         # fuer den Rest des Laufs unsichtbar und bliebe liegen. Kein Set-Content:
         # es wuerde eine BOM setzen, die den YAML-Parser stoert, UND die Umlaute
@@ -606,6 +667,24 @@ while ($i -lt $MaxIterations) {
             if ($newest.Line -notmatch [regex]::Escape($stampDay)) {
                 Write-Line "  DRIFT: Ueberschrift traegt nicht das Datum '$stampDay'." "Yellow"
             }
+
+            # MODELL-DRIFT: die Ueberschrift nennt die Unit, die WIRKLICH gebaut wurde
+            # (Form: '## Iteration <n> - <unit-id> - <done|blocked> - <datum>'). Weicht ihr
+            # `model:` von dem ab, auf dem die Iteration lief, haengt die Modellwahl am
+            # Backlog-Kopf statt an der gebauten Unit - der teure Fall aus Lauf 11 (siehe
+            # Get-BacklogState). Bricht nichts ab, steht aber morgens im run.log.
+            if ($newest.Line -match '^##\s+Iteration\s+\d+\s*[-\u2013\u2014]\s*(\S+)') {
+                $builtUnit = $Matches[1]
+                $mOut = Invoke-Native { & python $BacklogCheck --model-of $builtUnit }
+                $builtModel = ""
+                foreach ($l in $mOut) { if ($l -match '^MODEL=(\S*)') { $builtModel = $Matches[1] } }
+                if (($builtModel -ne "") -and ($builtModel -ne $model)) {
+                    Write-Line "  MODELL-DRIFT: Unit '$builtUnit' verlangt '$builtModel', gelaufen auf '$model'." "Yellow"
+                }
+                if (($plannedUnit -ne "") -and ($builtUnit -ne $plannedUnit)) {
+                    Write-Line "  UNIT-DRIFT: geplant war '$plannedUnit', gebaut wurde '$builtUnit'." "Yellow"
+                }
+            }
         } else {
             Write-Line "  DRIFT: keine '## Iteration'-Ueberschrift im Journal - die Iteration hat nichts protokolliert." "Yellow"
         }
@@ -615,6 +694,31 @@ while ($i -lt $MaxIterations) {
 }
 
 Write-Line "Loop beendet nach $i Iteration(en)." "Green"
+
+# --- Laufbilanz --------------------------------------------------------------
+# Am Ende einer Nacht gab es bisher KEINE Zahl, die sagt, wie viel Substanz
+# geliefert wurde. Die `coverage:`-Zeile meldet in der zweiten Laufhaelfte fast
+# durchgehend 'unveraendert', weil Doku-Units keine Coverage bewegen, und die
+# Merge-Sitzung nach Lauf 11 musste die Verteilung aus den Commit-Praefixen
+# rekonstruieren. run-summary.py leitet sie aus Journal und git log ab.
+#
+# Bewusst VOR dem Push und mit eigenem Commit - anders als der `## CI nach Lauf`-
+# Block unten, der erst nach dem Push entstehen kann und deshalb unkommittiert
+# bleibt. Eine Bilanz, die nicht mitgepusht wird, sieht die naechste Sitzung nicht.
+if ((-not $DryRun) -and ($i -ge $StartAt) -and (Test-Path $RunSummary)) {
+    Write-Line "Schreibe Laufbilanz ins Journal." "Cyan"
+    Invoke-Native { & python $RunSummary --base-sha $BaseSha --from $StartAt --to $i --minutes $TotalMinutes }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Line "WARNUNG: run-summary.py schlug fehl - keine Bilanz im Journal." "Yellow"
+    } else {
+        # Nur diesen einen Pfad committen, nicht den Index: der Arbeitsbaum kann
+        # legitim schmutzig sein (Warnung im Vorflug, kein Abbruch).
+        Invoke-Native { & git commit -m "docs(loop): record run balance" -- ".planning/backend-block/loop/JOURNAL.md" }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Line "WARNUNG: Bilanz-Commit schlug fehl - die Bilanz liegt unkommittiert im Journal." "Yellow"
+        }
+    }
+}
 
 # --- CI-Phase ----------------------------------------------------------------
 # Genau ein Push am Ende des Laufs, und damit genau ein CI-Lauf, dessen Ergebnis
