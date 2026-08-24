@@ -5,8 +5,9 @@
 # status: todo | in_progress | done | blocked
 # model:  sonnet (Default) | opus (architektonisch schwer, Proto, Security, Migration+RLS)
 #
-# ACHTUNG Treiber-Parsing: `model:` muss VOR `status:` stehen, und hinter `status: todo`
-# darf kein Kommentar stehen (der Treiber zählt offene Units per Zeilen-Regex).
+# Treiber-Parsing: seit 2026-08-24 lädt `hooks/backlog-check.py` diese Datei mit yaml.safe_load.
+# Die alte Regel "`model:` muss VOR `status:` stehen, kein Kommentar hinter `status: todo`" gilt
+# NICHT mehr — sie stammte aus dem Zeilen-Regex des Treibers, den es nicht mehr gibt.
 #
 # Läufe 1+2 (58 Units): archive/lauf-1-2/ — Lauf 3 (61): archive/lauf-3/
 # Lauf 4 (54): archive/lauf-4/ — Lauf 5 (41): archive/lauf-5/ — Lauf 6 (46): archive/lauf-6/
