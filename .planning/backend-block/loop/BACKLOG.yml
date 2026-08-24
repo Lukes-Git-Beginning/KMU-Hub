@@ -6728,3 +6728,57 @@ units:
         Der Test laeuft gegen echte DB als kmuhub_app (DATABASE_URL gesetzt, null Skips), die
         Zahl steht im Journal
       - go test -count=1 ./internal/security/gdpr/ gruen
+
+  - id: fix-409-double-meaning-on-grpc-conflict-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      BEFUND aus dem 409-Skriptlauf vom 2026-08-24, nicht aus einem Scan. Beim Umstellen der
+      Doku-Kette auf `hooks/openapi-status-fill.py` ist eine Luecke aufgefallen, die alle
+      zwoelf bereits gemergten Iterationen dieser Arbeit teilen - sie wird hier zum ersten
+      Mal festgehalten statt weiter mitgeschleppt.
+    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
+    scope: >
+      `grpcStatusToHTTP` (`internal/gateway/helpers.go:51`) bildet `codes.AlreadyExists` auf
+      `409 Conflict` ab. Rund 58 Stellen in `internal/server/` geben diesen Code zurueck
+      (`grep -rn "codes.AlreadyExists" backend/internal --include=*.go | grep -v _test`).
+      Der Drift-Test kann das nicht sehen: `respondGRPCError` steht in `dynamicStatusFuncs`
+      (`openapi_status_code_drift_test.go:206-209`), der AST-Walk stoppt dort bewusst, weil
+      der Code laufzeitabhaengig ist.
+      Folge: der 409-Skriptlauf hat auf diesen Routen `409 -> IdempotencyInFlight`
+      dokumentiert. Das ist WAHR (die Middleware kann den Code liefern), aber
+      UNVOLLSTAENDIG - dieselbe Route kann auch einen fachlichen Conflict liefern, und in
+      OpenAPI gibt es je Operation nur EIN Response-Objekt pro Status-Code.
+      Zu tun: die betroffenen Operationen ermitteln (Weg: von den
+      `codes.AlreadyExists`-Stellen ueber die RPC zum Gateway-Handler zur Route) und ihren
+      409-Eintrag so fassen, dass er beide Faelle nennt. Vermutlich sauberste Loesung: eine
+      neue Komponente unter `components/responses`, deren `description` beide Ursachen
+      benennt und die auf `ErrorResponse` zeigt wie `IdempotencyInFlight` und `Conflict`
+      auch - dann wechseln nur die betroffenen Operationen auf diese Komponente. Vorher
+      pruefen, ob das FE den Unterschied ueberhaupt auswertet; tut es das nicht, reicht die
+      Beschreibung.
+    sources:
+      - backend/internal/gateway/helpers.go
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/internal/server/
+      - backend/api/openapi.yaml
+      - .planning/backend-block/loop/hooks/openapi-status-fill.py
+    notes: >
+      NICHT die 503 Eintraege aus dem Skriptlauf zurueckdrehen - der
+      IdempotencyInFlight-Fall gilt auf jeder dieser Routen weiterhin. Es geht nur um die
+      Teilmenge, die ZUSAETZLICH einen fachlichen Conflict kennt.
+      Wer das baut, sollte die Zuordnung im Skript hinterlegen (Ausschluss- bzw.
+      Sonderliste neben der bestehenden `lean:`-Ausschlussliste), damit ein spaeterer Lauf
+      sie nicht wieder ueberschreibt.
+    done_when:
+      - >-
+        Die Liste der Operationen, die sowohl IdempotencyInFlight als auch einen fachlichen
+        Conflict liefern koennen, ist ermittelt und im Journal belegt (nicht geschaetzt)
+      - Ihr 409-Eintrag nennt beide Ursachen
+      - Das Skript kennt die Sonderfaelle, sodass ein spaeterer Lauf sie nicht ueberschreibt
+      - "swagger-cli validate gruen"
+      - go test -count=1 ./internal/gateway/ gruen
