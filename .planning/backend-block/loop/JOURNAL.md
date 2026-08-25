@@ -312,3 +312,47 @@ Kopf von `BACKLOG.yml`.
 - offen: keine — der geparkte Webhook-Fix
   (`harden-lexware-webhook-organization-id-scoping`) bleibt bewusst liegen,
   bis ein zweiter Lexware-Tenant aktiv wird; diese Unit legt nur den Wert an.
+
+## Iteration 6 — feat-retention-handler-fuhrpark-operational — done — 2026-08-26 01:08
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: Zwei neue Retention-Handler nach dem Muster von `retention_invitations.go`,
+  registriert in `cmd/auth/main.go`. `VehicleBookingRetentionHandler`
+  (`retention_vehicle_bookings.go`, resource_type `vehicle_bookings`): delete-only,
+  Clock `ends_at` — eine abgelaufene Fahrzeugbuchung hat ohne den Fahrer keinen
+  Rest-Nutzen, eine laufende Buchung (altes `starts_at`, aber `ends_at` in der
+  Zukunft) landet nie in `Due`. `DriverLicenseRetentionHandler`
+  (`retention_driver_licenses.go`, resource_type `driver_licenses`): delete-only,
+  Clock `checked_at`, mit Schutz der aktuellen Kontrollzeile — `Plan` laeuft ein
+  `ROW_NUMBER() OVER (PARTITION BY driver_id ORDER BY checked_at DESC, id DESC)`
+  ueber ALLE Zeilen des Tenants (nicht nur die faelligen), damit auch ein Fahrer
+  mit nur einer, jahrzehntealten Kontrollzeile diese behaelt. Die jeweils
+  juengste Zeile je `driver_id` landet unabhaengig vom Alter in `Skipped` statt
+  `Due`, mit Begruendung ("Nachweis der Halterpflicht"). Beide Handler nur
+  `RetentionActionDelete` in `SupportsAction`. Keine Migration (beide Tabellen
+  tragen bereits RLS aus ihren eigenen Migrationen 000300/000279), kein Proto,
+  keine Route.
+- gate: build ok | vet ok | lint ok (0 issues, `./internal/security/gdpr/...
+  ./cmd/auth/...`) | test ok (gesamtes Paket `./internal/security/gdpr/` gruen,
+  9 neue Tests, keine Skips) | migration n.a. (keine — Migrationskopf lokal
+  bereits 324, deckungsgleich mit beiden Zieltabellen) | rls-smoke n.a. (keine
+  neue Tabelle/Policy, beide Tabellen bereits RLS-geschuetzt seit ihrer
+  jeweiligen Erst-Migration)
+- coverage: internal/security/gdpr 72,2 % -> 72,4 % (beide selbst gemessen,
+  `go test -count=1 -coverprofile`; Vorher-Wert per `git stash push -u --
+  backend/internal/security/gdpr/ backend/cmd/auth/`, danach `stash pop` —
+  deckt sich mit `coverage_start` aus der Unit)
+- mutations-probe: in `DriverLicenseRetentionHandler.Plan` den
+  `if isLatest { ... Skipped ...; continue }`-Block entfernt, sodass jede
+  faellige Zeile unabhaengig vom `is_latest`-Flag nach `Due` faellt (Datei
+  vorher per `cp` gesichert). `TestDriverLicenseRetentionHandler_
+  PlanKeepsLatestPerDriverEvenWhenOnlyRowIsAncient` wurde rot ("Should be
+  empty, but was [...]" — die einzige, jahrzehntealte Kontrollzeile eines
+  Fahrers landete faelschlich in `Due`), Datei per `cp` zurueckgedreht, `diff`
+  gegen die Sicherung identisch, kompletter Testlauf danach wieder gruen.
+- verify vorgaenger: sauber (`a0f28af9` — kein gRPC-Bypass, kein Stub, kein
+  `.proto` im Diff, keine Route, kein `RequirePermission`, keine neue Tabelle;
+  `Connect` ruft `GetProfile` best-effort mit `slog.Warn` bei Fehlschlag,
+  `TestConnection` traegt eine fehlende `organization_id` additiv nach)
+- neue-units: keine
+- offen: keine — `trip_logs` ist bewusst ausgeklammert (siehe `decision` der
+  Unit, gehoert zu `decide-retention-policy-hgb-ao-domains`, Etappe 4/Legal).
