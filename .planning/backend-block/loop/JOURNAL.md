@@ -356,3 +356,63 @@ Kopf von `BACKLOG.yml`.
 - neue-units: keine
 - offen: keine — `trip_logs` ist bewusst ausgeklammert (siehe `decision` der
   Unit, gehoert zu `decide-retention-policy-hgb-ao-domains`, Etappe 4/Legal).
+
+## Iteration 7 — harden-advisory-protocols-retention-guard — done — 2026-08-26 01:14
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: `AdvisoryProtocolRetentionHandler` (`retention_advisory_protocols.go`),
+  registriert in `cmd/auth/main.go`. `SupportsAction` gibt fuer JEDE Aktion
+  `false` zurueck — bewusst kein Loesch- oder Anonymisierungspfad, weil
+  `advisory_protocols` einer 10-Jahres-Aufbewahrungspflicht nach §18a
+  FinVermV (i.V.m. MiFID II, §64 WpHG, §§16-18 FinVermV, §61 VVG/IDD)
+  unterliegt. Damit eine `retention_policies`-Regel auf diesem
+  `resource_type` nicht mehr als generisches "beherrscht die Aktion nicht"
+  oder gar als "nicht zugeordnet" im Run-Report landet, bekommt die Engine
+  einen neuen optionalen Hook: `unsupportedReasoner` (`retention.go`,
+  Interface mit `UnsupportedReason(action string) string`). Implementiert ein
+  Handler es, ersetzt `runPolicy` die generische Message durch den
+  handler-eigenen Text — hier die Rechtsgrundlage plus "10-Jahres"-Frist,
+  wortwoertlich pruefbar im Run-Item. Kein anderer der zehn bestehenden
+  Handler implementiert den Hook, ihr Verhalten aendert sich nicht.
+  `Plan` zaehlt echte Kandidaten (finalisierte Protokolle mit
+  `handed_over_at < cutoff`, `tenant_id`-gescoped) fuer eine spaetere
+  Admin-Auswertung — die Engine ruft `Plan` fuer diesen Handler in der
+  Praxis nie auf, weil `SupportsAction` immer vorher abbricht; die Zaehlung
+  ist trotzdem echt und direkt getestet, nicht totgelegter Code, sondern die
+  Grundlage fuer einen spaeteren Loeschpfad. Ein Draft (`handed_over_at
+  IS NULL`) startet die Frist nicht und taucht nie in `Due` auf. `Apply`
+  liefert immer einen Fehler mit derselben Begruendung — Verteidigung falls
+  die Engine je ohne den `SupportsAction`-Gate aufgerufen wird.
+  `lean:`-Marker im Dateikopf nennt den Upgrade-Trigger (erster Bestand
+  aelter als 10 Jahre). Keine Migration (keine neue Tabelle/Policy noetig,
+  `advisory_protocols` traegt RLS seit Migration 000137), kein Proto, keine
+  Route.
+- gate: build ok | vet ok | lint ok (0 issues, `./internal/security/gdpr/...
+  ./cmd/auth/...`) | test ok (gesamtes Paket `./internal/security/gdpr/`
+  gruen, 177 Tests, 0 Skips, 0 Fails) | migration n.a. (keine) | rls-smoke
+  n.a. (keine neue Tabelle/Policy — advisory_protocols ist seit seiner
+  Erst-Migration RLS-geschuetzt, der Handler liest/schreibt ausschliesslich
+  tenant-gescoped)
+- coverage: internal/security/gdpr 72,36 % -> 72,49 % (beide selbst
+  gemessen via `go tool cover -func` auf echten Statement-Zaehlern, nicht
+  nur der gerundeten Prozentzahl; Vorher-Wert per `git stash push -u --
+  backend/internal/security/gdpr backend/cmd/auth/main.go`, danach `stash
+  pop` — deckt sich mit `coverage_start` aus der Unit, 72,2 % CI-Stand war
+  vor Iteration 6 gemessen). Neue Datei bei 76,9 % (nur der ungetestete
+  Scan-Fehlerpfad in Plan bleibt offen, wie bei allen Geschwister-Handlern).
+- mutations-probe: in `retention.go:runPolicy` den `if reasoner, ok :=
+  handler.(unsupportedReasoner); ok { item.Message = ... }`-Block entfernt
+  (Datei vorher per `cp` gesichert). `TestAdvisoryProtocolRetentionHandler_
+  Run_ReportsUnsupportedWithLegalReasonNotUnmapped` wurde rot (Message
+  enthielt weder "FinVermV" noch "10-Jahres", nur die generische Formel),
+  Datei per `cp` zurueckgedreht, `diff` gegen die Sicherung identisch,
+  kompletter Testlauf danach wieder gruen.
+- verify vorgaenger: sauber (`aa44437a` — kein gRPC-Bypass, kein Stub, kein
+  `.proto` im Diff, keine Route, kein `RequirePermission`, keine neue
+  Tabelle/Migration; beide neuen Retention-Handler lesen/schreiben
+  tenant-gescoped, `DriverLicenseRetentionHandler` schuetzt die jeweils
+  juengste Kontrollzeile je `driver_id` nachweislich per Mutations-Probe)
+- neue-units: keine
+- offen: keine — der `unsupportedReasoner`-Hook ist additiv (Go-Idiom
+  optionales Interface, kein Interface-Bruch fuer die zehn bestehenden
+  Handler); ein spaeterer aktiver Loeschpfad fuer `advisory_protocols`
+  bleibt bewusst ungebaut, siehe `lean:`-Marker im Handler.

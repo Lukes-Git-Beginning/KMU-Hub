@@ -702,7 +702,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-08-24 (A6, Teilentscheidung): KEINE aktive Loesch-nach-Frist-

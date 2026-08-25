@@ -132,6 +132,17 @@ type RetentionHandler interface {
 	Apply(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID, action, anonymizedLabel string) (int, error)
 }
 
+// unsupportedReasoner is an optional hook a RetentionHandler can implement
+// to replace the engine's generic "does not support this action" message
+// with something an auditor can act on — e.g. naming the statute a
+// retention refusal rests on. Most handlers refuse an action because it
+// makes no sense (anonymizing an already-pseudonymous token); a few refuse
+// it because the law requires refusing it, and that difference belongs in
+// the run report, not just in a code comment.
+type unsupportedReasoner interface {
+	UnsupportedReason(action string) string
+}
+
 // RetentionRegistry maps resource_type onto its handler. It is deliberately
 // explicit and empty by default: every policy without a registered handler
 // shows up as "nicht zugeordnet" until somebody wires one.
@@ -349,6 +360,9 @@ func (e *RetentionEngine) runPolicy(
 		item.Status = RetentionItemUnsupported
 		item.Message = fmt.Sprintf("Handler fuer %q beherrscht die Aktion %q nicht",
 			p.ResourceType, p.Action)
+		if reasoner, ok := handler.(unsupportedReasoner); ok {
+			item.Message = reasoner.UnsupportedReason(p.Action)
+		}
 		return item
 	}
 
