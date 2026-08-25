@@ -122,3 +122,24 @@ Kopf von `BACKLOG.yml`.
 - verify vorgaenger: n.a. (erste Iteration dieses Laufs, kein Vorgaenger-Commit im Journal)
 - neue-units: keine
 - offen: Die Praemisse der Unit war widerlegt (kein echter Bug) — gebaut wurde der geforderte Regressionsbeleg. Vollständiger Gate-Lauf `go test -count=1 -p 1 -v ./internal/gateway/ ./internal/biz/hr/timetracking/...`: 2758 PASS, 0 SKIP, 0 FAIL (DATABASE_URL gesetzt, Rolle kmuhub_app). `TestOpenAPIRouteDrift` lief mit (836 Routen gegen 838 Spec-Pfade, PASS) — Unit hat keine Route angefasst, lief trotzdem zur Sicherheit mit.
+
+## Iteration 2 — fix-event-payload-missing-tenant-id — done — 2026-08-26 00:28
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: Root-Cause-Fix in `event.EmitEvent`
+  (`internal/notification/event/emit.go`) statt 20 Einzel-Guards: ist
+  `payload.TenantID == uuid.Nil`, zieht die gemeinsame Funktion den Tenant aus
+  `middleware.GetTenantID(ctx)`; ist auch dort keiner, wird der Emit mit
+  `slog.WarnContext` uebersprungen und `ErrMissingTenant` (neues Sentinel)
+  zurueckgegeben, statt tenant-los auf dem Bus zu landen. Dazu zwei
+  DB-gestuetzte Tests (`emit_db_test.go`): Test 1 schickt ein Literal ohne
+  TenantID durch die echte Kette Request-Ctx -> EmitEvent -> pg_notify ->
+  `EventBus.Listen` -> `dispatch` -> Handler und belegt, dass dessen INSERT in
+  die RLS-forcierte `events`-Tabelle als `kmuhub_app` durchgeht (plus
+  RLS-Smoke: eigener Tenant 1 Zeile, fremder 0). Test 2 belegt den Negativfall
+  gegen einen nachweislich lebenden Listener (Kontroll-Event vorher zugestellt).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. (keine Migration) | rls-smoke ok (events, eigener Tenant 1 / fremder 0)
+- coverage: internal/notification/event 61,7 % -> 80,6 % (beide selbst gemessen, `go test -count=1 -p 1 -coverprofile`; der Vorher-Wert deckt sich exakt mit `coverage_start` aus CI 32735558575)
+- mutations-probe: `emit.go` `payload.TenantID = tenantID` durch `_ = tenantID` ersetzt (cp-Sicherung vorher) — `TestEmitEvent_TenantFromContextSurvivesToRLSGuardedInsert` wurde rot mit exakt dem im Scope beschriebenen Produktionsfehler: `ERROR: new row violates row-level security policy for table "events" (SQLSTATE 42501)`; per `cp` zurueckgedreht, `diff` gegen die Sicherung identisch
+- verify vorgaenger: sauber (`6ea944c3` — Test-only plus `lean:`-Kommentar an `ManualEntryInput.IdempotencyKey`; keine Route, kein Proto, kein Guard, keine Tabelle, kein Stub)
+- neue-units: keine
+- offen: ZAEHLER wie von `done_when` verlangt — 25 Nicht-Test-Literale von `models.EventPayload`, davon setzen weiterhin 5 den Tenant selbst (die vier zeitgesteuerten Pfade + der Backlog-Replay in `bus.go:179`); die restlichen 20 laufen ausnahmslos ueber eine der 13 `PGEventEmitter`-Implementierungen, die alle `event.EmitEvent` aufrufen — nach dem Fix tragen also 25/25 Emits einen Tenant oder werden abgewiesen. Gegengeprueft: die einzigen anderen `pg_notify`-Aufrufe im Code gehen auf den Kanal `notification_delivery`, nicht auf `events`, und sind daher nicht betroffen. Kein Caller bricht ab, wenn der Emit jetzt einen Fehler liefert — alle 20 loggen ihn nur oder verwerfen ihn mit `_ =`. Testlauf ohne uebersprungene Tests: `./internal/notification/... ./internal/biz/... ./internal/crm/... ./internal/work/... ./internal/chat/... ./internal/dialer/... ./internal/document/... ./internal/email/...` und zusaetzlich `./internal/gateway/ ./internal/server/... ./internal/automation/... ./internal/fuhrpark/... ./internal/vertraege/...` alle gruen (DATABASE_URL gesetzt, Rolle `kmuhub_app`, `-p 1`, `-count=1`), inklusive `TestOpenAPIRouteDrift` — die Unit hat keine Route angefasst.

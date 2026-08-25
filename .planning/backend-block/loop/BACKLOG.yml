@@ -355,7 +355,7 @@ units:
     service: notification
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-08-24 (A5): die TenantID-Luecke wird ZUERST geschlossen, erst
