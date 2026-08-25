@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
@@ -85,6 +86,9 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 		inv.Currency, inv.RecurringID,
 	)
 	if err != nil {
+		if isQuoteAlreadyConvertedConflict(err) {
+			return ErrQuoteAlreadyConverted
+		}
 		return fmt.Errorf("insert finance_invoices: %w", err)
 	}
 
@@ -93,6 +97,20 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 	}
 
 	return tx.Commit(ctx)
+}
+
+// isQuoteAlreadyConvertedConflict reports whether err is the unique violation on
+// (tenant_id, source_quote_id) for non-cancelled invoices (Migration 000324).
+// Matching the constraint name rather than the bare SQLSTATE keeps a future
+// second unique index on finance_invoices from being reported as a duplicate
+// quote conversion. This is the race Service.CreateFromQuote's read-then-write
+// check cannot close by itself: two genuinely concurrent conversions of the
+// same quote both pass the read, and the loser hits this constraint on Create.
+func isQuoteAlreadyConvertedConflict(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) &&
+		pgErr.Code == "23505" &&
+		pgErr.ConstraintName == "idx_finance_invoices_source_quote_id_unique"
 }
 
 // UpsertImported inserts or updates a read-only imported invoice keyed by

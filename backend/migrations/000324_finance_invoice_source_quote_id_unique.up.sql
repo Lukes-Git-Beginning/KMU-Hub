@@ -1,0 +1,35 @@
+-- harden-quote-conversion-unique-index
+--
+-- Service.CreateFromQuote (internal/biz/invoice/service.go) guards against a
+-- second conversion of the same quote with a read-then-write check: it looks
+-- up an existing non-cancelled invoice for source_quote_id, and only then
+-- inserts the new one. Two genuinely concurrent requests (a double-click, or
+-- a retried request racing the first) can both pass the read before either
+-- writes, producing two full-amount invoices for one quote -- the schema has
+-- never enforced this, only the service-side check did (lean: marker at
+-- service.go, CreateFromQuote).
+--
+-- Production check (2026-08-24, 178.104.38.195, docker-postgres-1, -U kmuhub
+-- -d kmuhub):
+--   SELECT tenant_id, source_quote_id, count(*) FROM finance_invoices
+--   WHERE source_quote_id IS NOT NULL AND status <> 'cancelled'
+--   GROUP BY 1,2 HAVING count(*) > 1;
+-- returned zero rows -- no existing data violates the constraint below, so
+-- this migration cannot fail on apply.
+--
+-- The predicate matches quote.PostgresRepository's LEFT JOIN LATERAL for
+-- converted_invoice_number exactly (fi.tenant_id = q.tenant_id AND
+-- fi.source_quote_id = q.id AND fi.status <> 'cancelled', three call sites in
+-- internal/biz/quote/postgres_repository.go), so the same index also gives
+-- that lookup a usable access path -- today it scans finance_invoices with no
+-- index on source_quote_id at all. One index, two purposes.
+--
+-- Partial and mutable on purpose: a live (non-cancelled) invoice occupies the
+-- slot for (tenant_id, source_quote_id); a storno removes it from the index
+-- by flipping status to 'cancelled', freeing the quote for a legitimate
+-- re-conversion. Reverting a cancellation back onto a quote that has since
+-- been converted again can violate the index -- that is the intended
+-- behaviour, not a bug.
+CREATE UNIQUE INDEX idx_finance_invoices_source_quote_id_unique
+    ON finance_invoices (tenant_id, source_quote_id)
+    WHERE source_quote_id IS NOT NULL AND status <> 'cancelled';

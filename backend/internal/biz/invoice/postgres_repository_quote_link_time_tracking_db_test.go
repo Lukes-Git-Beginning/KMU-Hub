@@ -4,18 +4,21 @@ package invoice
 // (postgres_repository.go:446) and LinkTimeTracking (postgres_repository.go:472)
 // against real Postgres.
 //
-// FINDING (resolved in fix-quote-to-invoice-duplicate-creation): GetByQuoteID's
-// signature returns exactly one *models.Invoice, but the schema still has no UNIQUE
-// constraint on finance_invoices.source_quote_id -- a quote CAN carry several
-// invoices (after a storno it legitimately does), which is what
-// TestPostgresRepository_GetByQuoteID_MultipleInvoices still proves. What changed:
-// the query now orders explicitly (live invoice before cancelled, newest first)
-// and Service.CreateFromQuote rejects a second conversion with
-// ErrQuoteAlreadyConverted, so a retried or double-clicked "convert quote to
-// invoice" no longer creates a second full-amount invoice -- the same shape of gap
-// that caused the time-entry double-billing bug fixed in Lauf 10
-// (fix-biz-time-entry-invoice-double-billing). Still open: two genuinely
-// simultaneous requests, which only a DB-side partial unique index would close.
+// FINDING (resolved in fix-quote-to-invoice-duplicate-creation, hardened in
+// harden-quote-conversion-unique-index): GetByQuoteID's signature returns exactly
+// one *models.Invoice, and the schema still allows several invoices to share a
+// source_quote_id -- after a storno it legitimately does, which is what
+// TestPostgresRepository_GetByQuoteID_MultipleInvoices still proves. What
+// changed: the query orders explicitly (live invoice before cancelled, newest
+// first), Service.CreateFromQuote rejects a second conversion with
+// ErrQuoteAlreadyConverted via a read-then-write check, and Migration 000324
+// backs that check with a partial unique index on
+// (tenant_id, source_quote_id) WHERE source_quote_id IS NOT NULL AND
+// status <> 'cancelled' -- so two genuinely concurrent conversions no longer
+// both succeed: the loser's Create hits the index and repo.Create maps it to
+// ErrQuoteAlreadyConverted (isQuoteAlreadyConvertedConflict). The index is why
+// this test can no longer create two LIVE invoices for the same quote directly
+// through the repository -- it cancels the first before creating the second.
 
 import (
 	"context"
@@ -103,10 +106,13 @@ func TestPostgresRepository_GetByQuoteID_ForeignTenantReturnsNotFound(t *testing
 }
 
 // TestPostgresRepository_GetByQuoteID_MultipleInvoices is the FINDING documented
-// in the file header made concrete: nothing in the schema or this query prevents
-// two invoices from sharing a source_quote_id, and GetByQuoteID's single-result
-// signature silently picks one (no ORDER BY -- undefined which) instead of
-// signaling the ambiguity to the caller.
+// in the file header made concrete: the schema allows several invoices to share
+// a source_quote_id (a storno legitimately produces this), and GetByQuoteID must
+// resolve the ambiguity deterministically rather than returning an arbitrary row.
+// The two rows can no longer BOTH be live (Migration 000324's partial unique
+// index forbids it, see isQuoteAlreadyConvertedConflict) -- so the first is
+// cancelled before the second is created, mirroring how the shape legitimately
+// arises via Service.Cancel's storno path.
 func TestPostgresRepository_GetByQuoteID_MultipleInvoices(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
@@ -130,22 +136,65 @@ func TestPostgresRepository_GetByQuoteID_MultipleInvoices(t *testing.T) {
 	first := newListTestInvoice(tenantID, now, now.AddDate(0, 0, 14))
 	first.SourceQuoteID = &quoteID
 	createListTestInvoice(t, repo, pool, ctx, first)
+	require.NoError(t, repo.UpdateStatus(ctx, tenantID, first.ID, models.InvoiceStatusCancelled),
+		"the partial unique index only allows one LIVE invoice per quote -- the first must free its slot before the second is created")
 
 	second := newListTestInvoice(tenantID, now, now.AddDate(0, 0, 14))
 	second.SourceQuoteID = &quoteID
 	createListTestInvoice(t, repo, pool, ctx, second)
 
 	got, err := repo.GetByQuoteID(ctx, tenantID, quoteID)
-	require.NoError(t, err, "no schema constraint rejects a second invoice for the same quote -- this is the gap")
-	assert.Contains(t, []uuid.UUID{first.ID, second.ID}, got.ID,
-		"GetByQuoteID returns one of the two matching invoices with no defined ordering -- neither is wrong, but a caller expecting exactly-one would be")
+	require.NoError(t, err, "two invoices for the same quote (one cancelled) is a legitimate, schema-allowed shape")
+	assert.Equal(t, second.ID, got.ID,
+		"GetByQuoteID must deterministically prefer the live invoice over the cancelled one")
+}
+
+// TestPostgresRepository_Create_RejectsSecondLiveInvoiceForSameQuote pins
+// Migration 000324 directly against the repository, independent of
+// Service.CreateFromQuote's read-then-write check: two concurrent inserts for
+// the same (tenant_id, source_quote_id) cannot both land as live invoices, and
+// the loser gets ErrQuoteAlreadyConverted rather than a raw pg unique-violation
+// (isQuoteAlreadyConvertedConflict in postgres_repository.go).
+func TestPostgresRepository_Create_RejectsSecondLiveInvoiceForSameQuote(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Create Duplicate Quote Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	quoteID := testutil.SeedRow(t, pool, "finance_quotes", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantID,
+		"status": "accepted", "customer_name": "Create Duplicate Quote Test GmbH",
+		"created_by": uuid.New(),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_quotes", quoteID) })
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	now := time.Now().UTC()
+	first := newListTestInvoice(tenantID, now, now.AddDate(0, 0, 14))
+	first.SourceQuoteID = &quoteID
+	createListTestInvoice(t, repo, pool, ctx, first)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_invoices", first.ID) })
+
+	second := newListTestInvoice(tenantID, now, now.AddDate(0, 0, 14))
+	second.SourceQuoteID = &quoteID
+	err := repo.Create(ctx, second)
+	require.ErrorIs(t, err, ErrQuoteAlreadyConverted,
+		"the index must map to the same sentinel Service.CreateFromQuote's read-then-write check returns, not a raw pg error")
 }
 
 // TestPostgresRepository_GetByQuoteID_PrefersLiveInvoiceOverCancelled pins the
 // ordering the duplicate-conversion guard in Service.CreateFromQuote depends on:
 // after a storno the quote may be invoiced again, so both rows exist -- and the
 // cancelled one is the NEWER of the two here, which is exactly the case an
-// unordered query (or a plain created_at DESC) would get wrong.
+// unordered query (or a plain created_at DESC) would get wrong. The "cancelled"
+// row is inserted already cancelled (rather than created live and stornoed
+// after) so the fixture itself never puts two live invoices under the same
+// quote at once -- Migration 000324's partial unique index would reject that.
 func TestPostgresRepository_GetByQuoteID_PrefersLiveInvoiceOverCancelled(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
@@ -172,8 +221,8 @@ func TestPostgresRepository_GetByQuoteID_PrefersLiveInvoiceOverCancelled(t *test
 
 	cancelled := newListTestInvoice(tenantID, now, now.AddDate(0, 0, 14))
 	cancelled.SourceQuoteID = &quoteID
+	cancelled.Status = models.InvoiceStatusCancelled
 	createListTestInvoice(t, repo, pool, ctx, cancelled)
-	require.NoError(t, repo.UpdateStatus(ctx, tenantID, cancelled.ID, models.InvoiceStatusCancelled))
 
 	got, err := repo.GetByQuoteID(ctx, tenantID, quoteID)
 

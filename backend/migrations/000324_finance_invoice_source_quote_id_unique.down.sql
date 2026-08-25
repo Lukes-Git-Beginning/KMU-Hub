@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_finance_invoices_source_quote_id_unique;

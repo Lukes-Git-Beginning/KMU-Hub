@@ -143,3 +143,62 @@ Kopf von `BACKLOG.yml`.
 - verify vorgaenger: sauber (`6ea944c3` — Test-only plus `lean:`-Kommentar an `ManualEntryInput.IdempotencyKey`; keine Route, kein Proto, kein Guard, keine Tabelle, kein Stub)
 - neue-units: keine
 - offen: ZAEHLER wie von `done_when` verlangt — 25 Nicht-Test-Literale von `models.EventPayload`, davon setzen weiterhin 5 den Tenant selbst (die vier zeitgesteuerten Pfade + der Backlog-Replay in `bus.go:179`); die restlichen 20 laufen ausnahmslos ueber eine der 13 `PGEventEmitter`-Implementierungen, die alle `event.EmitEvent` aufrufen — nach dem Fix tragen also 25/25 Emits einen Tenant oder werden abgewiesen. Gegengeprueft: die einzigen anderen `pg_notify`-Aufrufe im Code gehen auf den Kanal `notification_delivery`, nicht auf `events`, und sind daher nicht betroffen. Kein Caller bricht ab, wenn der Emit jetzt einen Fehler liefert — alle 20 loggen ihn nur oder verwerfen ihn mit `_ =`. Testlauf ohne uebersprungene Tests: `./internal/notification/... ./internal/biz/... ./internal/crm/... ./internal/work/... ./internal/chat/... ./internal/dialer/... ./internal/document/... ./internal/email/...` und zusaetzlich `./internal/gateway/ ./internal/server/... ./internal/automation/... ./internal/fuhrpark/... ./internal/vertraege/...` alle gruen (DATABASE_URL gesetzt, Rolle `kmuhub_app`, `-p 1`, `-count=1`), inklusive `TestOpenAPIRouteDrift` — die Unit hat keine Route angefasst.
+
+## Iteration 3 — harden-quote-conversion-unique-index — done — 2026-08-26 00:38
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: Migration 000324 (`finance_invoice_source_quote_id_unique`) legt einen
+  partiellen Unique-Index `idx_finance_invoices_source_quote_id_unique` auf
+  `finance_invoices (tenant_id, source_quote_id) WHERE source_quote_id IS NOT
+  NULL AND status <> 'cancelled'` an — schliesst die Race-Luecke in
+  `Service.CreateFromQuote`, deren Read-vor-Write-Check zwei wirklich
+  gleichzeitige Konversionen nicht verhindern kann (lean:-Marker in
+  service.go). Der Index deckt zugleich den fehlenden Zugriffspfad fuer die
+  `LEFT JOIN LATERAL` in `internal/biz/quote/postgres_repository.go` (3
+  Stellen) ab — Praedikat und Spalten sind identisch. `postgres_repository.go`:
+  neue `isQuoteAlreadyConvertedConflict` (Vorlage `isAccountIBANConflict` in
+  `internal/biz/banking`) mappt die Unique-Violation in `Create` auf
+  `ErrQuoteAlreadyConverted` statt sie als rohen pg-Fehler durchzureichen —
+  `internal/server/biz_grpc.go:2613` mappt den Sentinel bereits auf
+  `codes.AlreadyExists` (HTTP 409), keine Aenderung dort noetig.
+  `postgres_repository_quote_link_time_tracking_db_test.go`: zwei Bestandstests
+  angepasst, weil sie zwei LEBENDE Rechnungen zum selben Quote anlegten (Notiz
+  aus der Unit) — `..._MultipleInvoices` storniert die erste vor dem Anlegen
+  der zweiten, `..._PrefersLiveInvoiceOverCancelled` legt die zweite direkt als
+  `cancelled` an (Status im Model vor `Create`, statt per `UpdateStatus`
+  danach), damit die Reihenfolge (juengere Zeile ist die stornierte) erhalten
+  bleibt, ohne kurzzeitig zwei lebende Zeilen zu erzeugen. Neuer Test
+  `TestPostgresRepository_Create_RejectsSecondLiveInvoiceForSameQuote` haelt
+  direkt gegen das Repository fest: zweiter `Create`-Aufruf fuer dieselbe
+  `source_quote_id` liefert `ErrQuoteAlreadyConverted`, kein SQLSTATE 23505.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration ok
+  (000324 angewandt, `migrate ... version` bestaetigt) | rls-smoke n.a. (Index
+  auf Bestandstabelle, keine neue Tabelle/Policy/kein neuer tenant-gescopter
+  SELECT)
+- coverage: internal/biz/invoice 61,1 % -> 61,3 % (beide selbst gemessen,
+  `go test -count=1 -p 1 -coverprofile`; Vorher-Messung per `git stash` auf
+  den unveraenderten Dateien, danach `stash pop`)
+- mutations-probe: `isQuoteAlreadyConvertedConflict` in
+  `postgres_repository.go` auf einen falschen Constraint-Namen geaendert
+  (cp-Sicherung vorher) — `TestPostgresRepository_Create_RejectsSecondLiveInvoiceForSameQuote`
+  wurde rot ("Target error should be in err chain: expected ...
+  ErrQuoteAlreadyConverted, in chain: ... duplicate key value violates unique
+  constraint \"idx_finance_invoices_source_quote_id_unique\""), per `cp`
+  zurueckgedreht, `diff` gegen die Sicherung identisch
+- verify vorgaenger: sauber (`4e1ad006` — Root-Cause-Fix in `event.EmitEvent`,
+  DB-Tests belegen beide Richtungen inkl. RLS-Smoke auf `events`; keine Route,
+  kein Proto, kein Guard, keine neue Tabelle, kein Stub)
+- neue-units: keine
+- offen: `wire-biz-event-emitters-for-finance-triggers` (naechste Unit in
+  Datei-Reihenfolge nach `harden-quote-conversion-unique-index`) zurueck nach
+  `BACKLOG-NEXT.yml` verschoben — ihr eigener `done_when`-Punkt verlangt einen
+  SELECT gegen die PRODUKTIONS-Automations-Tabellen (pruefen, ob Kunden schon
+  Workflows mit `biz.invoice.sent`/`biz.quote.created` angelegt haben, die ab
+  dem Deploy live zu feuern anfingen); der Loop hat keinen Produktionszugriff.
+  `BACKLOG.yml` darf laut Kopf-Kommentar keine `blocked`-Unit fuehren (Vorflug
+  bricht sonst ab) — deshalb Verschiebung statt `status: blocked` inline.
+  Grund und Rueckweg stehen als Block am Ende von `BACKLOG-NEXT.yml`. Sobald
+  Luke den Produktions-SELECT gefahren hat, kann die Unit unveraendert zurueck
+  nach `BACKLOG.yml`. Vollstaendiger Testlauf ohne uebersprungene Tests:
+  `internal/biz/invoice` (0 SKIP) und `internal/server` (0 SKIP, 1864 PASS),
+  beide DATABASE_URL gegen `kmuhub_app`, `-count=1 -p 1`. Migration 000324
+  lokal angewandt (Kopf 324); Produktion hat sie noch nicht.

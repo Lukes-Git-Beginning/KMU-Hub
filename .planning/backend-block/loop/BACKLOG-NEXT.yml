@@ -438,3 +438,107 @@ units:
       - Die Entscheidung (a) oder (b) steht mit Begruendung und Datum in dieser Unit
       - Bei (a) ist die Kursfrage mitentschieden (woher kommt der Kurs, wer pflegt ihn)
       - Eine Unit in BACKLOG.yml ist angelegt, die die Entscheidung umsetzt
+
+# ==========================================================================================
+# AUS BACKLOG.yml ZURUECKGESTELLT (Lauf 12, Iteration 3, 2026-08-26)
+#
+# `wire-biz-event-emitters-for-finance-triggers` war bereits entschieden (verdrahten,
+# 2026-08-24) und in BACKLOG.yml, aber ihr eigener `done_when`-Punkt verlangt eine Pruefung,
+# die der Loop nicht leisten kann: einen SELECT gegen die PRODUKTIONS-Automations-Tabellen,
+# um vorab zu sehen, ob Kunden schon Workflows mit biz.invoice.sent/biz.quote.created
+# angelegt haben, die ab dem Deploy live zu feuern anfingen. Kein Produktionszugriff im Loop
+# (Unverhandelbare Grenzen). Verdrahtung + Test sind mechanisch fertig vorbereitet (scope/
+# sources/notes unten unveraendert) — es fehlt nur diese eine Pruefung durch Luke. Danach
+# kann die Unit unveraendert zurueck nach BACKLOG.yml.
+# ==========================================================================================
+
+  - id: wire-biz-event-emitters-for-finance-triggers
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: [fix-event-payload-missing-tenant-id]
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24 (A5): verdrahten - aber ERST nachdem
+      `fix-event-payload-missing-tenant-id` erledigt ist, daher die neue dep. Die
+      Gegenpruefung am 2026-08-24 hat gezeigt, dass die in den notes beschriebene
+      Ein-Zeilen-Verdrahtung NICHT reicht: `models.EventPayload.TenantID` wird von 20 der 25
+      nicht-Test-Literale gar nicht gesetzt, und `EventBus.dispatch`
+      (`internal/notification/event/bus.go:133`) stempelt den Tenant nur, wenn er belegt ist.
+      Ein jetzt verdrahteter Emitter wuerde also tenant-lose Events auf den Bus legen, die der
+      RLS-geschuetzte Handler nicht verarbeiten kann. `fix-event-payload-missing-tenant-id`
+      ist seit Lauf 12 Iteration 2 (`4e1ad006`) erledigt, diese dep ist also erfuellt.
+      Zur Sorge aus den notes ("Automationen feuern ab dem Deploy ohne Vorwarnung"): geprueft
+      und entkraeftet fuer den Benachrichtigungsweg - `notification/service.go:94` iteriert
+      ueber `payload.TargetUserIDs`, und invoice/quote geben dort nichts mit, es entstehen also
+      keine ueberraschenden Benachrichtigungen. Die Verhaltensaenderung beschraenkt sich auf
+      Automations-Workflows, die einen der beiden Trigger nutzen - und genau die sind heute
+      still kaputt. `biz.invoice.created` (`invoice/service.go:252`) faengt ebenfalls an zu
+      feuern, hat aber keinen Trigger in der Registry und damit keine Aussenwirkung.
+    coverage_start: "n.a. — kein Coverage-Ziel, Verkabelungsentscheidung"
+    scope: >
+      VERIFIZIERT in Lauf 11 (`verify-biz-event-emitters-never-wired`): das Automations-Modul
+      bietet in der UI zwei Finanz-Trigger an, die niemals feuern.
+      `GET /triggers` (`internal/gateway/route_automation.go:96` ->
+      `AutomationGRPCServer.ListTriggerDefinitions` -> `TriggerRegistry.All()`,
+      `internal/automation/trigger/registry.go:182-218`) liefert "Rechnung versendet"
+      (`biz.invoice.sent`) und "Angebot erstellt" (`biz.quote.created`) als wählbare
+      Automations-Ausloeser. Beide hängen an `EmitBizEvent`, das der jeweilige Service nur
+      aufruft, wenn `SetEventEmitter` gesetzt wurde (`internal/biz/invoice/service.go:80-107`,
+      analog `internal/biz/quote/service.go`). `cmd/biz/main.go` ruft `SetEventEmitter` für
+      `invoiceSvc`, `quoteSvc` UND `lexwareSvc` an KEINER Stelle auf (Grep über die gesamte
+      Datei: 0 Treffer für `SetEventEmitter`) — alle drei laufen mit ihrem
+      Konstruktor-Default, der bei invoice/quote `nil` ist (`emitEvent` ist dadurch ein No-op,
+      siehe `if s.emitter == nil { return }`) und bei lexware `noopEmitter{}`
+      (`internal/biz/lexware/service.go:59-60`).
+      Ein Kunde kann also eine Automation "wenn Rechnung versendet wird, sende Slack-Nachricht"
+      anlegen, die niemals auslöst. Der dritte registrierte Finanz-Trigger,
+      `biz.invoice.overdue`, ist davon NICHT betroffen — er ist `TimeBased: true` und wird per
+      5-Minuten-Poller direkt gegen `finance_invoices` aufgelöst
+      (`internal/automation/trigger/due_postgres.go:41` `overdueInvoices`), nicht über den
+      Emitter.
+    sources:
+      - backend/cmd/biz/main.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/invoice/event_emitter.go
+      - backend/internal/biz/quote/service.go
+      - backend/internal/biz/quote/event_emitter.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/biz/lexware/webhook_handler.go
+      - backend/internal/automation/trigger/registry.go
+      - backend/cmd/crm/main.go
+      - backend/cmd/work/main.go
+      - backend/cmd/chat/main.go
+    notes: >
+      Vorlage für die Verdrahtung existiert bereits und ist trivial (eine Zeile je Service):
+      `cmd/crm/main.go:88`, `cmd/work/main.go:82`, `cmd/chat/main.go:99` setzen
+      `svc.SetEventEmitter(event.NewPGEventEmitter(pool))` direkt nach der Konstruktion.
+      Trotzdem gehört das NICHT in eine Nachtlauf-Iteration: das Setzen ändert sofortiges
+      Produktionsverhalten (Events fließen live, Automationen mit diesen Triggern feuern ab
+      dem Deploy für jeden Kunden, der eine angelegt hat, ohne Vorwarnung), und
+      `COSMI_ENV=production` ist scharf mit automatischem CD.
+      Luke entscheidet: (a) einfach verdrahten (Nutzen: die beiden UI-Trigger funktionieren
+      endlich wie beworben), oder (b) die beiden Trigger-Definitionen aus der Registry
+      entfernen, bis eine bewusste Entscheidung für Finanz-Automationen ansteht. Bestehende
+      Kunden-Workflows mit diesen Triggern (falls es welche gibt) sollten vor dem Verdrahten
+      geprüft werden, damit sie nicht überraschend anfangen zu feuern.
+      Nebenfund mitgenommen (Lauf 11, `verify-biz-event-emitters-never-wired`): der Lexware-
+      `EventWebhookReceived`-Emit in `webhook_handler.go:176` ist ebenfalls tot, aber OHNE
+      Außenwirkung — kein Trigger in der Registry hört auf "lexware.*", der Emit ist reiner
+      Log-Ersatz. Ein `lean:`-Marker dort ist bereits gesetzt (Lauf 11, Iteration 10).
+    done_when:
+      - >-
+        invoiceSvc und quoteSvc erhalten SetEventEmitter(<pkg>.NewPGEventEmitter(pool)) in
+        cmd/biz/main.go, nach dem Muster von cmd/crm/main.go:88
+      - >-
+        Ein Test belegt, dass ein versendetes Invoice ein biz.invoice.sent und ein erzeugtes
+        Quote ein biz.quote.created Event MIT gesetztem tenant_id auf dem Bus erzeugt
+      - >-
+        Vor dem Bauen ist geprueft und im Journal vermerkt, ob auf Produktion Workflows mit
+        diesen beiden Triggern existieren (SELECT auf die Automations-Tabellen) - sie fangen
+        mit dem Deploy an zu feuern
+      - >-
+        Der Lexware-Emitter bleibt bewusst auf noopEmitter - kein Trigger hoert auf lexware.*,
+        der lean:-Marker aus Lauf 11 bleibt stehen
+      - go test -count=1 ./internal/biz/invoice/ ./internal/biz/quote/ ./internal/automation/... gruen
