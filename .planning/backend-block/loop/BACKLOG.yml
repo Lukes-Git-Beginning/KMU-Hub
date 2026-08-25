@@ -642,7 +642,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     decided: 2026-08-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-08-24 (A6, Teilentscheidung). Die Sammel-Unit
