@@ -264,3 +264,51 @@ Kopf von `BACKLOG.yml`.
   nicht; einen Aufrufer fuer die vier Endpunkte gibt es weiterhin nicht (nur
   Kontakte und Firmen haben Tag-UI). Wer die UI nachzieht, findet die Antwort
   jetzt gewrappt als `{"deal": {...}}` bzw. `{"activity": {...}}`.
+
+## Iteration 5 — feat-lexware-store-organization-id-on-connect — done — 2026-08-26 01:01
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: `Service.Connect` (`internal/biz/lexware/service.go`) ruft nach dem
+  Aufbau der `IntegrationConfig` und vor `configRepo.Upsert` best-effort
+  `s.client.GetProfile(ctx, tenantID)` auf (nur wenn `s.client != nil` — sonst
+  Nil-Pointer-Panic in `client.do`, betrifft `newTestService` mit `client: nil`).
+  Liefert die API eine nicht-leere `OrganizationID`, landet sie als
+  `metadata["organization_id"]`; schlägt der Aufruf fehl, wird das per
+  `slog.Warn` protokolliert und `Connect` läuft normal weiter — ein
+  Profil-Timeout darf keine Lexware-Verbindung verhindern. `TestConnection`
+  liest zusätzlich das zurückgegebene Profil aus (vorher verworfen) und trägt
+  eine fehlende `organization_id` per erneutem `configRepo.Upsert` nach, aber
+  nur wenn der Schlüssel wirklich fehlt (kein Upsert bei vorhandenem Wert).
+  `lean:`-Marker am Metadata-Schreiben nennt Zweck (Tenant-Auflösung im
+  Webhook-Pfad) und Upgrade-Trigger (zweiter aktiver Lexware-Tenant, siehe
+  `harden-lexware-webhook-organization-id-scoping` in BACKLOG-PARKED.yml).
+  Keine Migration (JSONB-Metadata ist additiv), kein Proto, keine Route.
+  Vier neue Tests in `service_wiring_test.go` über die bestehende
+  `stubAPI`/`newWiredService`-Infrastruktur (echter `*Client` gegen
+  `httptest.NewServer`, kein Mock auf Interface-Ebene, weil `Service.client`
+  konkret `*Client` ist): `TestConnect_StoresOrganizationID`,
+  `TestConnect_ProfileFetchFailsStillConnects` (401 statt 5xx, sonst brennt
+  der Retry/Backoff unnötig Testzeit), `TestTestConnection_BackfillsMissingOrganizationID`,
+  `TestTestConnection_DoesNotReupsertExistingOrganizationID`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (gesamtes Paket
+  `./internal/biz/lexware/` grün, keine neuen Fehlschläge) | migration n.a.
+  (keine) | rls-smoke n.a. (keine neue Tabelle/Policy, nur eine JSONB-Spalte
+  auf einer bestehenden, RLS-geschützten Tabelle beschrieben)
+- coverage: internal/biz/lexware 74,5 % -> 74,8 % (beide selbst gemessen,
+  `go test -count=1 -coverprofile`; Vorher-Wert per `git stash push -u --
+  backend/internal/biz/lexware/`, danach `stash pop` — deckt sich mit
+  `coverage_start` aus der Unit)
+- mutations-probe: in `Connect` die Zeile `config.Metadata["organization_id"]
+  = profile.OrganizationID` durch `_ = profile.OrganizationID` ersetzt (cp
+  gesichert vorher). `TestConnect_StoresOrganizationID` wurde rot
+  ("expected: org-42, actual: nil"), Datei per `cp` zurückgedreht,
+  `git diff` gegen den Ausgangsstand danach leer, kompletter Testlauf wieder
+  grün.
+- verify vorgaenger: sauber (`fdbeab8a` — Handler gehen über `client.<RPC>`
+  aus dem gRPC-Client, nicht über eine direkt injizierte Service-Instanz;
+  `.proto`-Änderung mit regenerierten `crm.pb.go`/`crm_grpc.pb.go` im selben
+  Commit; Tenant kommt serverseitig aus `middleware.GetTenantID`; keine neue
+  Route, keine neue Permission, keine neue Tabelle, kein Stub)
+- neue-units: keine
+- offen: keine — der geparkte Webhook-Fix
+  (`harden-lexware-webhook-organization-id-scoping`) bleibt bewusst liegen,
+  bis ein zweiter Lexware-Tenant aktiv wird; diese Unit legt nur den Wert an.

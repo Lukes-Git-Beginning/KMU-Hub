@@ -241,6 +241,131 @@ func TestTestConnection_RejectedKeyFails(t *testing.T) {
 	assert.Contains(t, err.Error(), "connection test failed")
 }
 
+// --- Connect ---
+
+func TestConnect_StoresOrganizationID(t *testing.T) {
+	tenantID := uuid.New()
+	stub := newStubAPI(t, map[string]http.HandlerFunc{
+		"GET /v1/profile": jsonRoute(http.StatusOK, LexwareProfile{OrganizationID: "org-42"}),
+	})
+
+	var savedConfig *IntegrationConfig
+	cr := &mockConfigRepo{
+		upsertFn: func(_ context.Context, config *IntegrationConfig) error {
+			config.ID = uuid.New()
+			savedConfig = config
+			return nil
+		},
+	}
+	repo := &mockRepository{
+		getSyncConfigFn: func(_ context.Context, id uuid.UUID) (*models.LexwareSyncConfig, error) {
+			return &models.LexwareSyncConfig{ConfigID: id, ContactSyncEnabled: true}, nil
+		},
+	}
+
+	svc := newWiredService(stub, repo, cr, keyVault("test-api-key"), nil, nil, nil)
+
+	require.NoError(t, svc.Connect(context.Background(), tenantID, "test-api-key"))
+
+	require.NotNil(t, savedConfig)
+	assert.Equal(t, "org-42", savedConfig.Metadata["organization_id"])
+}
+
+func TestConnect_ProfileFetchFailsStillConnects(t *testing.T) {
+	tenantID := uuid.New()
+	// 401 fails GetProfile immediately, unlike a 5xx which would burn through
+	// the client's retry/backoff and slow the test down for no reason.
+	stub := newStubAPI(t, map[string]http.HandlerFunc{
+		"GET /v1/profile": jsonRoute(http.StatusUnauthorized, nil),
+	})
+
+	var savedConfig *IntegrationConfig
+	cr := &mockConfigRepo{
+		upsertFn: func(_ context.Context, config *IntegrationConfig) error {
+			config.ID = uuid.New()
+			savedConfig = config
+			return nil
+		},
+	}
+	repo := &mockRepository{
+		getSyncConfigFn: func(_ context.Context, id uuid.UUID) (*models.LexwareSyncConfig, error) {
+			return &models.LexwareSyncConfig{ConfigID: id, ContactSyncEnabled: true}, nil
+		},
+	}
+
+	svc := newWiredService(stub, repo, cr, keyVault("test-api-key"), nil, nil, nil)
+
+	// A profile fetch failure is best-effort metadata capture and must not
+	// block the connection itself.
+	require.NoError(t, svc.Connect(context.Background(), tenantID, "test-api-key"))
+
+	require.NotNil(t, savedConfig)
+	_, hasOrgID := savedConfig.Metadata["organization_id"]
+	assert.False(t, hasOrgID)
+}
+
+func TestTestConnection_BackfillsMissingOrganizationID(t *testing.T) {
+	tenantID := uuid.New()
+	stub := newStubAPI(t, map[string]http.HandlerFunc{
+		"GET /v1/profile": jsonRoute(http.StatusOK, LexwareProfile{OrganizationID: "org-7"}),
+	})
+
+	var upserted *IntegrationConfig
+	cr := &mockConfigRepo{
+		getByPlatformFn: func(context.Context, string) (*IntegrationConfig, error) {
+			return &IntegrationConfig{
+				ID:                  uuid.New(),
+				TenantID:            tenantID,
+				Platform:            "lexware",
+				IsActive:            true,
+				CredentialsVaultKey: apiKeyVaultKey(tenantID),
+				Metadata:            map[string]any{"auth_type": "api_key"},
+			}, nil
+		},
+		upsertFn: func(_ context.Context, config *IntegrationConfig) error {
+			upserted = config
+			return nil
+		},
+	}
+
+	svc := newWiredService(stub, &mockRepository{}, cr, keyVault("valid-api-key"), nil, nil, nil)
+
+	require.NoError(t, svc.TestConnection(context.Background()))
+
+	require.NotNil(t, upserted, "a config missing organization_id must be backfilled")
+	assert.Equal(t, "org-7", upserted.Metadata["organization_id"])
+}
+
+func TestTestConnection_DoesNotReupsertExistingOrganizationID(t *testing.T) {
+	tenantID := uuid.New()
+	stub := newStubAPI(t, map[string]http.HandlerFunc{
+		"GET /v1/profile": jsonRoute(http.StatusOK, LexwareProfile{OrganizationID: "org-7"}),
+	})
+
+	upsertCalled := false
+	cr := &mockConfigRepo{
+		getByPlatformFn: func(context.Context, string) (*IntegrationConfig, error) {
+			return &IntegrationConfig{
+				ID:                  uuid.New(),
+				TenantID:            tenantID,
+				Platform:            "lexware",
+				IsActive:            true,
+				CredentialsVaultKey: apiKeyVaultKey(tenantID),
+				Metadata:            map[string]any{"auth_type": "api_key", "organization_id": "org-7"},
+			}, nil
+		},
+		upsertFn: func(context.Context, *IntegrationConfig) error {
+			upsertCalled = true
+			return nil
+		},
+	}
+
+	svc := newWiredService(stub, &mockRepository{}, cr, keyVault("valid-api-key"), nil, nil, nil)
+
+	require.NoError(t, svc.TestConnection(context.Background()))
+	assert.False(t, upsertCalled, "an already-stored organization_id must not trigger another write")
+}
+
 // --- SyncContacts ---
 
 func TestSyncContacts_DelegatesToSyncer(t *testing.T) {

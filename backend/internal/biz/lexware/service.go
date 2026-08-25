@@ -90,6 +90,23 @@ func (s *Service) Connect(ctx context.Context, tenantID uuid.UUID, apiKey string
 		CreatedBy:           tenantID,
 		Metadata:            map[string]any{"auth_type": "api_key"},
 	}
+
+	// lean: organization_id is captured best-effort so the webhook path can
+	// later resolve the tenant from it instead of GetByPlatform's unscoped
+	// lookup; wiring the webhook itself is parked until a second Lexware
+	// tenant connects (harden-lexware-webhook-organization-id-scoping). A
+	// profile timeout here must not block the connection.
+	if s.client != nil {
+		if profile, err := s.client.GetProfile(ctx, tenantID); err != nil {
+			slog.Warn("lexware: failed to fetch profile during connect",
+				"tenant_id", tenantID,
+				"error", err,
+			)
+		} else if profile.OrganizationID != "" {
+			config.Metadata["organization_id"] = profile.OrganizationID
+		}
+	}
+
 	if err := s.configRepo.Upsert(ctx, config); err != nil {
 		return fmt.Errorf("lexware: save integration config: %w", err)
 	}
@@ -174,8 +191,27 @@ func (s *Service) TestConnection(ctx context.Context) error {
 	// The client resolves the key itself from the vault (lexware_api_key_<tenant>),
 	// the same key Connect stores — so this proves the credential the syncs will
 	// actually use, not just the one this method happened to read.
-	if _, err := s.client.GetProfile(ctx, config.TenantID); err != nil {
+	profile, err := s.client.GetProfile(ctx, config.TenantID)
+	if err != nil {
 		return fmt.Errorf("lexware: connection test failed: %w", err)
+	}
+
+	// Backfill organization_id for tenants that connected before Connect started
+	// capturing it — otherwise the only tenant that will ever call TestConnection
+	// without reconnecting would never get the value.
+	if profile.OrganizationID != "" {
+		if config.Metadata == nil {
+			config.Metadata = map[string]any{}
+		}
+		if _, ok := config.Metadata["organization_id"]; !ok {
+			config.Metadata["organization_id"] = profile.OrganizationID
+			if err := s.configRepo.Upsert(ctx, config); err != nil {
+				slog.Warn("lexware: failed to backfill organization_id",
+					"tenant_id", config.TenantID,
+					"error", err,
+				)
+			}
+		}
 	}
 
 	return nil
