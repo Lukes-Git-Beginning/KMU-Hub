@@ -181,7 +181,12 @@ type ManualEntryInput struct {
 	LocationLat     *float64
 	LocationLng     *float64
 	LocationAddress string
-	IdempotencyKey  string
+	// lean: passed through from the HTTP handler but never read here —
+	// deduplication happens one layer up in middleware.Idempotency
+	// (route_hr.go's authWithIdempotency chain), not in this service. Upgrade
+	// trigger: a caller of CreateManualEntry that bypasses the gateway's
+	// idempotency middleware (e.g. a future internal/worker path).
+	IdempotencyKey string
 }
 
 // TeamTimeEntry holds aggregated time info for one employee for a week.

@@ -100,3 +100,25 @@ Kopf von `BACKLOG.yml`.
   beide als eigene Unit in Block C, beide ohne Compose-Änderung und ohne neues Env.
 
 ---
+
+## Iteration 1 — fix-hr-manual-entry-idempotency-key-not-enforced — done — 2026-08-26 00:25
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: Zwei DB-gestützte Gateway-Tests
+  (`internal/gateway/route_hr_manual_entry_idempotency_db_test.go`), die POST
+  `/api/v1/hr/time/entries` durch die echte Kette
+  `fakeAuth(idempotencyMW(HandleCreateManualEntry))` schicken (Nachbau von
+  `cmd/gateway/main.go:205-206`), gegen einen echten HR-gRPC-Server (loopback
+  TCP, `middleware.TenantInboundUnaryInterceptor`) mit echtem
+  `timetracking.Service` + `PostgresWorkTimeRepo`. Test 1 belegt: derselbe
+  Idempotency-Key erzeugt keinen zweiten `hr_work_time_entries`-Satz, zweite
+  Antwort trägt `Idempotency-Replayed: true`. Test 2 belegt: ein anderer Key
+  bei identischem Body erzeugt einen zweiten, unabhängigen Eintrag. Dazu ein
+  `lean:`-Marker an `timetracking.ManualEntryInput.IdempotencyKey`
+  (repository.go:184) — Feld wird durchgereicht, Dedup passiert eine Ebene
+  höher in `middleware.Idempotency`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. (keine Migration) | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/biz/hr/timetracking 61,9 % -> 61,9 % (unverändert — der neue Test liegt im internal/gateway-Paket, nicht im gemessenen Bezugspaket; die Unit war ein Beleg-Test, kein Coverage-Ziel)
+- mutations-probe: `internal/middleware/idempotency.go:145` (`w.Header().Set("Idempotency-Replayed", "true")`) auf einen falschen Header-Namen geändert (cp-Sicherung vorher), `TestHandleCreateManualEntry_SameIdempotencyKey_ReplaysInsteadOfDuplicating` wurde rot ("second request Idempotency-Replayed header = \"\", want \"true\""), per `cp` zurückgedreht, `git diff` danach leer
+- verify vorgaenger: n.a. (erste Iteration dieses Laufs, kein Vorgaenger-Commit im Journal)
+- neue-units: keine
+- offen: Die Praemisse der Unit war widerlegt (kein echter Bug) — gebaut wurde der geforderte Regressionsbeleg. Vollständiger Gate-Lauf `go test -count=1 -p 1 -v ./internal/gateway/ ./internal/biz/hr/timetracking/...`: 2758 PASS, 0 SKIP, 0 FAIL (DATABASE_URL gesetzt, Rolle kmuhub_app). `TestOpenAPIRouteDrift` lief mit (836 Routen gegen 838 Spec-Pfade, PASS) — Unit hat keine Route angefasst, lief trotzdem zur Sicherheit mit.
