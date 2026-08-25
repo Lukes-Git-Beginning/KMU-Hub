@@ -489,25 +489,59 @@ type modifyDealTagsRequest struct {
 }
 
 func (c *CRMRoutes) HandleAddDealTags(w http.ResponseWriter, r *http.Request) {
-	if _, ok := validateUUIDParam(w, r, "id"); !ok {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
 		return
 	}
 
-	if _, ok := decodeAndValidate[modifyDealTagsRequest](w, r); !ok {
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
-	response.Error(w, http.StatusNotImplemented, "add deal tags not implemented via HTTP, use gRPC")
+	req, ok := decodeAndValidate[modifyDealTagsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.AddDealTags(r.Context(), &crmv1.AddDealTagsRequest{
+		DealId: dealID,
+		TagIds: req.TagIDs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleRemoveDealTags(w http.ResponseWriter, r *http.Request) {
-	if _, ok := validateUUIDParam(w, r, "id"); !ok {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
 		return
 	}
 
-	if _, ok := decodeAndValidate[modifyDealTagsRequest](w, r); !ok {
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
-	response.Error(w, http.StatusNotImplemented, "remove deal tags not implemented via HTTP, use gRPC")
+	req, ok := decodeAndValidate[modifyDealTagsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.RemoveDealTags(r.Context(), &crmv1.RemoveDealTagsRequest{
+		DealId: dealID,
+		TagIds: req.TagIDs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
 }

@@ -5875,6 +5875,198 @@ func (x *UpdateDealResponse) GetDeal() *DealInfo {
 	return nil
 }
 
+type AddDealTagsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DealId        string                 `protobuf:"bytes,1,opt,name=deal_id,json=dealId,proto3" json:"deal_id,omitempty"`
+	TagIds        []string               `protobuf:"bytes,2,rep,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddDealTagsRequest) Reset() {
+	*x = AddDealTagsRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddDealTagsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddDealTagsRequest) ProtoMessage() {}
+
+func (x *AddDealTagsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddDealTagsRequest.ProtoReflect.Descriptor instead.
+func (*AddDealTagsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *AddDealTagsRequest) GetDealId() string {
+	if x != nil {
+		return x.DealId
+	}
+	return ""
+}
+
+func (x *AddDealTagsRequest) GetTagIds() []string {
+	if x != nil {
+		return x.TagIds
+	}
+	return nil
+}
+
+type AddDealTagsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Deal          *DealInfo              `protobuf:"bytes,1,opt,name=deal,proto3" json:"deal,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddDealTagsResponse) Reset() {
+	*x = AddDealTagsResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddDealTagsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddDealTagsResponse) ProtoMessage() {}
+
+func (x *AddDealTagsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddDealTagsResponse.ProtoReflect.Descriptor instead.
+func (*AddDealTagsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *AddDealTagsResponse) GetDeal() *DealInfo {
+	if x != nil {
+		return x.Deal
+	}
+	return nil
+}
+
+type RemoveDealTagsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DealId        string                 `protobuf:"bytes,1,opt,name=deal_id,json=dealId,proto3" json:"deal_id,omitempty"`
+	TagIds        []string               `protobuf:"bytes,2,rep,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveDealTagsRequest) Reset() {
+	*x = RemoveDealTagsRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[88]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveDealTagsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveDealTagsRequest) ProtoMessage() {}
+
+func (x *RemoveDealTagsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[88]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveDealTagsRequest.ProtoReflect.Descriptor instead.
+func (*RemoveDealTagsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{88}
+}
+
+func (x *RemoveDealTagsRequest) GetDealId() string {
+	if x != nil {
+		return x.DealId
+	}
+	return ""
+}
+
+func (x *RemoveDealTagsRequest) GetTagIds() []string {
+	if x != nil {
+		return x.TagIds
+	}
+	return nil
+}
+
+type RemoveDealTagsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Deal          *DealInfo              `protobuf:"bytes,1,opt,name=deal,proto3" json:"deal,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveDealTagsResponse) Reset() {
+	*x = RemoveDealTagsResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveDealTagsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveDealTagsResponse) ProtoMessage() {}
+
+func (x *RemoveDealTagsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveDealTagsResponse.ProtoReflect.Descriptor instead.
+func (*RemoveDealTagsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *RemoveDealTagsResponse) GetDeal() *DealInfo {
+	if x != nil {
+		return x.Deal
+	}
+	return nil
+}
+
 type DeleteDealRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -5885,7 +6077,7 @@ type DeleteDealRequest struct {
 
 func (x *DeleteDealRequest) Reset() {
 	*x = DeleteDealRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[86]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5897,7 +6089,7 @@ func (x *DeleteDealRequest) String() string {
 func (*DeleteDealRequest) ProtoMessage() {}
 
 func (x *DeleteDealRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[86]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5910,7 +6102,7 @@ func (x *DeleteDealRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDealRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDealRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{86}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *DeleteDealRequest) GetId() string {
@@ -5935,7 +6127,7 @@ type DeleteDealResponse struct {
 
 func (x *DeleteDealResponse) Reset() {
 	*x = DeleteDealResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[87]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5947,7 +6139,7 @@ func (x *DeleteDealResponse) String() string {
 func (*DeleteDealResponse) ProtoMessage() {}
 
 func (x *DeleteDealResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[87]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5960,7 +6152,7 @@ func (x *DeleteDealResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDealResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDealResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{87}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{91}
 }
 
 type MoveDealToStageRequest struct {
@@ -5974,7 +6166,7 @@ type MoveDealToStageRequest struct {
 
 func (x *MoveDealToStageRequest) Reset() {
 	*x = MoveDealToStageRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[88]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5986,7 +6178,7 @@ func (x *MoveDealToStageRequest) String() string {
 func (*MoveDealToStageRequest) ProtoMessage() {}
 
 func (x *MoveDealToStageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[88]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5999,7 +6191,7 @@ func (x *MoveDealToStageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveDealToStageRequest.ProtoReflect.Descriptor instead.
 func (*MoveDealToStageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{88}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *MoveDealToStageRequest) GetDealId() string {
@@ -6032,7 +6224,7 @@ type MoveDealToStageResponse struct {
 
 func (x *MoveDealToStageResponse) Reset() {
 	*x = MoveDealToStageResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[89]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6044,7 +6236,7 @@ func (x *MoveDealToStageResponse) String() string {
 func (*MoveDealToStageResponse) ProtoMessage() {}
 
 func (x *MoveDealToStageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[89]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6057,7 +6249,7 @@ func (x *MoveDealToStageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveDealToStageResponse.ProtoReflect.Descriptor instead.
 func (*MoveDealToStageResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{89}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *MoveDealToStageResponse) GetDeal() *DealInfo {
@@ -6093,7 +6285,7 @@ type ActivityInfo struct {
 
 func (x *ActivityInfo) Reset() {
 	*x = ActivityInfo{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[90]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6105,7 +6297,7 @@ func (x *ActivityInfo) String() string {
 func (*ActivityInfo) ProtoMessage() {}
 
 func (x *ActivityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[90]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6118,7 +6310,7 @@ func (x *ActivityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivityInfo.ProtoReflect.Descriptor instead.
 func (*ActivityInfo) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{90}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *ActivityInfo) GetId() string {
@@ -6265,7 +6457,7 @@ type CreateActivityRequest struct {
 
 func (x *CreateActivityRequest) Reset() {
 	*x = CreateActivityRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[91]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6277,7 +6469,7 @@ func (x *CreateActivityRequest) String() string {
 func (*CreateActivityRequest) ProtoMessage() {}
 
 func (x *CreateActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[91]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6290,7 +6482,7 @@ func (x *CreateActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateActivityRequest.ProtoReflect.Descriptor instead.
 func (*CreateActivityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{91}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *CreateActivityRequest) GetTenantId() string {
@@ -6372,7 +6564,7 @@ type CreateActivityResponse struct {
 
 func (x *CreateActivityResponse) Reset() {
 	*x = CreateActivityResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[92]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6384,7 +6576,7 @@ func (x *CreateActivityResponse) String() string {
 func (*CreateActivityResponse) ProtoMessage() {}
 
 func (x *CreateActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[92]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6397,7 +6589,7 @@ func (x *CreateActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateActivityResponse.ProtoReflect.Descriptor instead.
 func (*CreateActivityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{92}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *CreateActivityResponse) GetActivity() *ActivityInfo {
@@ -6417,7 +6609,7 @@ type GetActivityRequest struct {
 
 func (x *GetActivityRequest) Reset() {
 	*x = GetActivityRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[93]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6429,7 +6621,7 @@ func (x *GetActivityRequest) String() string {
 func (*GetActivityRequest) ProtoMessage() {}
 
 func (x *GetActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[93]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6442,7 +6634,7 @@ func (x *GetActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActivityRequest.ProtoReflect.Descriptor instead.
 func (*GetActivityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{93}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *GetActivityRequest) GetId() string {
@@ -6468,7 +6660,7 @@ type GetActivityResponse struct {
 
 func (x *GetActivityResponse) Reset() {
 	*x = GetActivityResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[94]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6480,7 +6672,7 @@ func (x *GetActivityResponse) String() string {
 func (*GetActivityResponse) ProtoMessage() {}
 
 func (x *GetActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[94]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6493,7 +6685,7 @@ func (x *GetActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActivityResponse.ProtoReflect.Descriptor instead.
 func (*GetActivityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{94}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *GetActivityResponse) GetActivity() *ActivityInfo {
@@ -6522,7 +6714,7 @@ type ListActivitiesRequest struct {
 
 func (x *ListActivitiesRequest) Reset() {
 	*x = ListActivitiesRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[95]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6534,7 +6726,7 @@ func (x *ListActivitiesRequest) String() string {
 func (*ListActivitiesRequest) ProtoMessage() {}
 
 func (x *ListActivitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[95]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6547,7 +6739,7 @@ func (x *ListActivitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActivitiesRequest.ProtoReflect.Descriptor instead.
 func (*ListActivitiesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{95}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *ListActivitiesRequest) GetTenantId() string {
@@ -6637,7 +6829,7 @@ type ListActivitiesResponse struct {
 
 func (x *ListActivitiesResponse) Reset() {
 	*x = ListActivitiesResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[96]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6649,7 +6841,7 @@ func (x *ListActivitiesResponse) String() string {
 func (*ListActivitiesResponse) ProtoMessage() {}
 
 func (x *ListActivitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[96]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6662,7 +6854,7 @@ func (x *ListActivitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActivitiesResponse.ProtoReflect.Descriptor instead.
 func (*ListActivitiesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{96}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *ListActivitiesResponse) GetActivities() []*ActivityInfo {
@@ -6696,7 +6888,7 @@ type UpdateActivityRequest struct {
 
 func (x *UpdateActivityRequest) Reset() {
 	*x = UpdateActivityRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[97]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6708,7 +6900,7 @@ func (x *UpdateActivityRequest) String() string {
 func (*UpdateActivityRequest) ProtoMessage() {}
 
 func (x *UpdateActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[97]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6721,7 +6913,7 @@ func (x *UpdateActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateActivityRequest.ProtoReflect.Descriptor instead.
 func (*UpdateActivityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{97}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *UpdateActivityRequest) GetId() string {
@@ -6796,7 +6988,7 @@ type UpdateActivityResponse struct {
 
 func (x *UpdateActivityResponse) Reset() {
 	*x = UpdateActivityResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[98]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6808,7 +7000,7 @@ func (x *UpdateActivityResponse) String() string {
 func (*UpdateActivityResponse) ProtoMessage() {}
 
 func (x *UpdateActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[98]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6821,7 +7013,7 @@ func (x *UpdateActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateActivityResponse.ProtoReflect.Descriptor instead.
 func (*UpdateActivityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{98}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *UpdateActivityResponse) GetActivity() *ActivityInfo {
@@ -6841,7 +7033,7 @@ type DeleteActivityRequest struct {
 
 func (x *DeleteActivityRequest) Reset() {
 	*x = DeleteActivityRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[99]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6853,7 +7045,7 @@ func (x *DeleteActivityRequest) String() string {
 func (*DeleteActivityRequest) ProtoMessage() {}
 
 func (x *DeleteActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[99]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6866,7 +7058,7 @@ func (x *DeleteActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteActivityRequest.ProtoReflect.Descriptor instead.
 func (*DeleteActivityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{99}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *DeleteActivityRequest) GetId() string {
@@ -6891,7 +7083,7 @@ type DeleteActivityResponse struct {
 
 func (x *DeleteActivityResponse) Reset() {
 	*x = DeleteActivityResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[100]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6903,7 +7095,7 @@ func (x *DeleteActivityResponse) String() string {
 func (*DeleteActivityResponse) ProtoMessage() {}
 
 func (x *DeleteActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[100]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6916,7 +7108,7 @@ func (x *DeleteActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteActivityResponse.ProtoReflect.Descriptor instead.
 func (*DeleteActivityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{100}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{104}
 }
 
 type CompleteActivityRequest struct {
@@ -6929,7 +7121,7 @@ type CompleteActivityRequest struct {
 
 func (x *CompleteActivityRequest) Reset() {
 	*x = CompleteActivityRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[101]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6941,7 +7133,7 @@ func (x *CompleteActivityRequest) String() string {
 func (*CompleteActivityRequest) ProtoMessage() {}
 
 func (x *CompleteActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[101]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6954,7 +7146,7 @@ func (x *CompleteActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteActivityRequest.ProtoReflect.Descriptor instead.
 func (*CompleteActivityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{101}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *CompleteActivityRequest) GetId() string {
@@ -6980,7 +7172,7 @@ type CompleteActivityResponse struct {
 
 func (x *CompleteActivityResponse) Reset() {
 	*x = CompleteActivityResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[102]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6992,7 +7184,7 @@ func (x *CompleteActivityResponse) String() string {
 func (*CompleteActivityResponse) ProtoMessage() {}
 
 func (x *CompleteActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[102]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7005,10 +7197,202 @@ func (x *CompleteActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteActivityResponse.ProtoReflect.Descriptor instead.
 func (*CompleteActivityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{102}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *CompleteActivityResponse) GetActivity() *ActivityInfo {
+	if x != nil {
+		return x.Activity
+	}
+	return nil
+}
+
+type AddActivityTagsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ActivityId    string                 `protobuf:"bytes,1,opt,name=activity_id,json=activityId,proto3" json:"activity_id,omitempty"`
+	TagIds        []string               `protobuf:"bytes,2,rep,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddActivityTagsRequest) Reset() {
+	*x = AddActivityTagsRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[107]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddActivityTagsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddActivityTagsRequest) ProtoMessage() {}
+
+func (x *AddActivityTagsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[107]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddActivityTagsRequest.ProtoReflect.Descriptor instead.
+func (*AddActivityTagsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{107}
+}
+
+func (x *AddActivityTagsRequest) GetActivityId() string {
+	if x != nil {
+		return x.ActivityId
+	}
+	return ""
+}
+
+func (x *AddActivityTagsRequest) GetTagIds() []string {
+	if x != nil {
+		return x.TagIds
+	}
+	return nil
+}
+
+type AddActivityTagsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Activity      *ActivityInfo          `protobuf:"bytes,1,opt,name=activity,proto3" json:"activity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddActivityTagsResponse) Reset() {
+	*x = AddActivityTagsResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[108]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddActivityTagsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddActivityTagsResponse) ProtoMessage() {}
+
+func (x *AddActivityTagsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[108]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddActivityTagsResponse.ProtoReflect.Descriptor instead.
+func (*AddActivityTagsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{108}
+}
+
+func (x *AddActivityTagsResponse) GetActivity() *ActivityInfo {
+	if x != nil {
+		return x.Activity
+	}
+	return nil
+}
+
+type RemoveActivityTagsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ActivityId    string                 `protobuf:"bytes,1,opt,name=activity_id,json=activityId,proto3" json:"activity_id,omitempty"`
+	TagIds        []string               `protobuf:"bytes,2,rep,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveActivityTagsRequest) Reset() {
+	*x = RemoveActivityTagsRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[109]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveActivityTagsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveActivityTagsRequest) ProtoMessage() {}
+
+func (x *RemoveActivityTagsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[109]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveActivityTagsRequest.ProtoReflect.Descriptor instead.
+func (*RemoveActivityTagsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{109}
+}
+
+func (x *RemoveActivityTagsRequest) GetActivityId() string {
+	if x != nil {
+		return x.ActivityId
+	}
+	return ""
+}
+
+func (x *RemoveActivityTagsRequest) GetTagIds() []string {
+	if x != nil {
+		return x.TagIds
+	}
+	return nil
+}
+
+type RemoveActivityTagsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Activity      *ActivityInfo          `protobuf:"bytes,1,opt,name=activity,proto3" json:"activity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveActivityTagsResponse) Reset() {
+	*x = RemoveActivityTagsResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[110]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveActivityTagsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveActivityTagsResponse) ProtoMessage() {}
+
+func (x *RemoveActivityTagsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[110]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveActivityTagsResponse.ProtoReflect.Descriptor instead.
+func (*RemoveActivityTagsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{110}
+}
+
+func (x *RemoveActivityTagsResponse) GetActivity() *ActivityInfo {
 	if x != nil {
 		return x.Activity
 	}
@@ -7028,7 +7412,7 @@ type SearchResult struct {
 
 func (x *SearchResult) Reset() {
 	*x = SearchResult{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[103]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7040,7 +7424,7 @@ func (x *SearchResult) String() string {
 func (*SearchResult) ProtoMessage() {}
 
 func (x *SearchResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[103]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7053,7 +7437,7 @@ func (x *SearchResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResult.ProtoReflect.Descriptor instead.
 func (*SearchResult) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{103}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *SearchResult) GetId() string {
@@ -7102,7 +7486,7 @@ type SearchRequest struct {
 
 func (x *SearchRequest) Reset() {
 	*x = SearchRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[104]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7114,7 +7498,7 @@ func (x *SearchRequest) String() string {
 func (*SearchRequest) ProtoMessage() {}
 
 func (x *SearchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[104]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7127,7 +7511,7 @@ func (x *SearchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchRequest.ProtoReflect.Descriptor instead.
 func (*SearchRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{104}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *SearchRequest) GetQuery() string {
@@ -7160,7 +7544,7 @@ type SearchResponse struct {
 
 func (x *SearchResponse) Reset() {
 	*x = SearchResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[105]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7172,7 +7556,7 @@ func (x *SearchResponse) String() string {
 func (*SearchResponse) ProtoMessage() {}
 
 func (x *SearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[105]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7185,7 +7569,7 @@ func (x *SearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResponse.ProtoReflect.Descriptor instead.
 func (*SearchResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{105}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *SearchResponse) GetResults() []*SearchResult {
@@ -7211,7 +7595,7 @@ type SavedFilterInfo struct {
 
 func (x *SavedFilterInfo) Reset() {
 	*x = SavedFilterInfo{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[106]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7223,7 +7607,7 @@ func (x *SavedFilterInfo) String() string {
 func (*SavedFilterInfo) ProtoMessage() {}
 
 func (x *SavedFilterInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[106]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7236,7 +7620,7 @@ func (x *SavedFilterInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SavedFilterInfo.ProtoReflect.Descriptor instead.
 func (*SavedFilterInfo) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{106}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *SavedFilterInfo) GetId() string {
@@ -7308,7 +7692,7 @@ type CreateSavedFilterRequest struct {
 
 func (x *CreateSavedFilterRequest) Reset() {
 	*x = CreateSavedFilterRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[107]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7320,7 +7704,7 @@ func (x *CreateSavedFilterRequest) String() string {
 func (*CreateSavedFilterRequest) ProtoMessage() {}
 
 func (x *CreateSavedFilterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[107]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7333,7 +7717,7 @@ func (x *CreateSavedFilterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSavedFilterRequest.ProtoReflect.Descriptor instead.
 func (*CreateSavedFilterRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{107}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *CreateSavedFilterRequest) GetName() string {
@@ -7380,7 +7764,7 @@ type CreateSavedFilterResponse struct {
 
 func (x *CreateSavedFilterResponse) Reset() {
 	*x = CreateSavedFilterResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[108]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7392,7 +7776,7 @@ func (x *CreateSavedFilterResponse) String() string {
 func (*CreateSavedFilterResponse) ProtoMessage() {}
 
 func (x *CreateSavedFilterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[108]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7405,7 +7789,7 @@ func (x *CreateSavedFilterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSavedFilterResponse.ProtoReflect.Descriptor instead.
 func (*CreateSavedFilterResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{108}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *CreateSavedFilterResponse) GetFilter() *SavedFilterInfo {
@@ -7424,7 +7808,7 @@ type GetSavedFilterRequest struct {
 
 func (x *GetSavedFilterRequest) Reset() {
 	*x = GetSavedFilterRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[109]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7436,7 +7820,7 @@ func (x *GetSavedFilterRequest) String() string {
 func (*GetSavedFilterRequest) ProtoMessage() {}
 
 func (x *GetSavedFilterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[109]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7449,7 +7833,7 @@ func (x *GetSavedFilterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSavedFilterRequest.ProtoReflect.Descriptor instead.
 func (*GetSavedFilterRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{109}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *GetSavedFilterRequest) GetId() string {
@@ -7468,7 +7852,7 @@ type GetSavedFilterResponse struct {
 
 func (x *GetSavedFilterResponse) Reset() {
 	*x = GetSavedFilterResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[110]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7480,7 +7864,7 @@ func (x *GetSavedFilterResponse) String() string {
 func (*GetSavedFilterResponse) ProtoMessage() {}
 
 func (x *GetSavedFilterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[110]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7493,7 +7877,7 @@ func (x *GetSavedFilterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSavedFilterResponse.ProtoReflect.Descriptor instead.
 func (*GetSavedFilterResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{110}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *GetSavedFilterResponse) GetFilter() *SavedFilterInfo {
@@ -7513,7 +7897,7 @@ type ListSavedFiltersRequest struct {
 
 func (x *ListSavedFiltersRequest) Reset() {
 	*x = ListSavedFiltersRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[111]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7525,7 +7909,7 @@ func (x *ListSavedFiltersRequest) String() string {
 func (*ListSavedFiltersRequest) ProtoMessage() {}
 
 func (x *ListSavedFiltersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[111]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7538,7 +7922,7 @@ func (x *ListSavedFiltersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSavedFiltersRequest.ProtoReflect.Descriptor instead.
 func (*ListSavedFiltersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{111}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *ListSavedFiltersRequest) GetEntityType() string {
@@ -7564,7 +7948,7 @@ type ListSavedFiltersResponse struct {
 
 func (x *ListSavedFiltersResponse) Reset() {
 	*x = ListSavedFiltersResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[112]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7576,7 +7960,7 @@ func (x *ListSavedFiltersResponse) String() string {
 func (*ListSavedFiltersResponse) ProtoMessage() {}
 
 func (x *ListSavedFiltersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[112]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7589,7 +7973,7 @@ func (x *ListSavedFiltersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSavedFiltersResponse.ProtoReflect.Descriptor instead.
 func (*ListSavedFiltersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{112}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *ListSavedFiltersResponse) GetFilters() []*SavedFilterInfo {
@@ -7611,7 +7995,7 @@ type UpdateSavedFilterRequest struct {
 
 func (x *UpdateSavedFilterRequest) Reset() {
 	*x = UpdateSavedFilterRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[113]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7623,7 +8007,7 @@ func (x *UpdateSavedFilterRequest) String() string {
 func (*UpdateSavedFilterRequest) ProtoMessage() {}
 
 func (x *UpdateSavedFilterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[113]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7636,7 +8020,7 @@ func (x *UpdateSavedFilterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSavedFilterRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSavedFilterRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{113}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *UpdateSavedFilterRequest) GetId() string {
@@ -7676,7 +8060,7 @@ type UpdateSavedFilterResponse struct {
 
 func (x *UpdateSavedFilterResponse) Reset() {
 	*x = UpdateSavedFilterResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[114]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7688,7 +8072,7 @@ func (x *UpdateSavedFilterResponse) String() string {
 func (*UpdateSavedFilterResponse) ProtoMessage() {}
 
 func (x *UpdateSavedFilterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[114]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7701,7 +8085,7 @@ func (x *UpdateSavedFilterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSavedFilterResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSavedFilterResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{114}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *UpdateSavedFilterResponse) GetFilter() *SavedFilterInfo {
@@ -7720,7 +8104,7 @@ type DeleteSavedFilterRequest struct {
 
 func (x *DeleteSavedFilterRequest) Reset() {
 	*x = DeleteSavedFilterRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[115]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7732,7 +8116,7 @@ func (x *DeleteSavedFilterRequest) String() string {
 func (*DeleteSavedFilterRequest) ProtoMessage() {}
 
 func (x *DeleteSavedFilterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[115]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7745,7 +8129,7 @@ func (x *DeleteSavedFilterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSavedFilterRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSavedFilterRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{115}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *DeleteSavedFilterRequest) GetId() string {
@@ -7763,7 +8147,7 @@ type DeleteSavedFilterResponse struct {
 
 func (x *DeleteSavedFilterResponse) Reset() {
 	*x = DeleteSavedFilterResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[116]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7775,7 +8159,7 @@ func (x *DeleteSavedFilterResponse) String() string {
 func (*DeleteSavedFilterResponse) ProtoMessage() {}
 
 func (x *DeleteSavedFilterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[116]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7788,7 +8172,7 @@ func (x *DeleteSavedFilterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSavedFilterResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSavedFilterResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{116}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{124}
 }
 
 type PipelineStageValue struct {
@@ -7804,7 +8188,7 @@ type PipelineStageValue struct {
 
 func (x *PipelineStageValue) Reset() {
 	*x = PipelineStageValue{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[117]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7816,7 +8200,7 @@ func (x *PipelineStageValue) String() string {
 func (*PipelineStageValue) ProtoMessage() {}
 
 func (x *PipelineStageValue) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[117]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7829,7 +8213,7 @@ func (x *PipelineStageValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PipelineStageValue.ProtoReflect.Descriptor instead.
 func (*PipelineStageValue) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{117}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *PipelineStageValue) GetStageId() string {
@@ -7878,7 +8262,7 @@ type GetPipelineReportRequest struct {
 
 func (x *GetPipelineReportRequest) Reset() {
 	*x = GetPipelineReportRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[118]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7890,7 +8274,7 @@ func (x *GetPipelineReportRequest) String() string {
 func (*GetPipelineReportRequest) ProtoMessage() {}
 
 func (x *GetPipelineReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[118]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7903,7 +8287,7 @@ func (x *GetPipelineReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPipelineReportRequest.ProtoReflect.Descriptor instead.
 func (*GetPipelineReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{118}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *GetPipelineReportRequest) GetOwnerId() string {
@@ -7939,7 +8323,7 @@ type GetPipelineReportResponse struct {
 
 func (x *GetPipelineReportResponse) Reset() {
 	*x = GetPipelineReportResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[119]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7951,7 +8335,7 @@ func (x *GetPipelineReportResponse) String() string {
 func (*GetPipelineReportResponse) ProtoMessage() {}
 
 func (x *GetPipelineReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[119]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7964,7 +8348,7 @@ func (x *GetPipelineReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPipelineReportResponse.ProtoReflect.Descriptor instead.
 func (*GetPipelineReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{119}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *GetPipelineReportResponse) GetStages() []*PipelineStageValue {
@@ -8008,7 +8392,7 @@ type ConversionMetric struct {
 
 func (x *ConversionMetric) Reset() {
 	*x = ConversionMetric{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[120]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8020,7 +8404,7 @@ func (x *ConversionMetric) String() string {
 func (*ConversionMetric) ProtoMessage() {}
 
 func (x *ConversionMetric) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[120]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8033,7 +8417,7 @@ func (x *ConversionMetric) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConversionMetric.ProtoReflect.Descriptor instead.
 func (*ConversionMetric) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{120}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *ConversionMetric) GetFromStage() string {
@@ -8081,7 +8465,7 @@ type GetConversionReportRequest struct {
 
 func (x *GetConversionReportRequest) Reset() {
 	*x = GetConversionReportRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[121]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8093,7 +8477,7 @@ func (x *GetConversionReportRequest) String() string {
 func (*GetConversionReportRequest) ProtoMessage() {}
 
 func (x *GetConversionReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[121]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8106,7 +8490,7 @@ func (x *GetConversionReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetConversionReportRequest.ProtoReflect.Descriptor instead.
 func (*GetConversionReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{121}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *GetConversionReportRequest) GetStartDate() string {
@@ -8134,7 +8518,7 @@ type GetConversionReportResponse struct {
 
 func (x *GetConversionReportResponse) Reset() {
 	*x = GetConversionReportResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[122]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8146,7 +8530,7 @@ func (x *GetConversionReportResponse) String() string {
 func (*GetConversionReportResponse) ProtoMessage() {}
 
 func (x *GetConversionReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[122]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8159,7 +8543,7 @@ func (x *GetConversionReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetConversionReportResponse.ProtoReflect.Descriptor instead.
 func (*GetConversionReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{122}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *GetConversionReportResponse) GetMetrics() []*ConversionMetric {
@@ -8195,7 +8579,7 @@ type ActivityMetric struct {
 
 func (x *ActivityMetric) Reset() {
 	*x = ActivityMetric{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[123]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8207,7 +8591,7 @@ func (x *ActivityMetric) String() string {
 func (*ActivityMetric) ProtoMessage() {}
 
 func (x *ActivityMetric) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[123]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8220,7 +8604,7 @@ func (x *ActivityMetric) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivityMetric.ProtoReflect.Descriptor instead.
 func (*ActivityMetric) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{123}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *ActivityMetric) GetActivityType() string {
@@ -8262,7 +8646,7 @@ type GetActivityReportRequest struct {
 
 func (x *GetActivityReportRequest) Reset() {
 	*x = GetActivityReportRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[124]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8274,7 +8658,7 @@ func (x *GetActivityReportRequest) String() string {
 func (*GetActivityReportRequest) ProtoMessage() {}
 
 func (x *GetActivityReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[124]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8287,7 +8671,7 @@ func (x *GetActivityReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActivityReportRequest.ProtoReflect.Descriptor instead.
 func (*GetActivityReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{124}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *GetActivityReportRequest) GetUserId() string {
@@ -8322,7 +8706,7 @@ type GetActivityReportResponse struct {
 
 func (x *GetActivityReportResponse) Reset() {
 	*x = GetActivityReportResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[125]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8334,7 +8718,7 @@ func (x *GetActivityReportResponse) String() string {
 func (*GetActivityReportResponse) ProtoMessage() {}
 
 func (x *GetActivityReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[125]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8347,7 +8731,7 @@ func (x *GetActivityReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActivityReportResponse.ProtoReflect.Descriptor instead.
 func (*GetActivityReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{125}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *GetActivityReportResponse) GetMetrics() []*ActivityMetric {
@@ -8382,7 +8766,7 @@ type DuplicateContactCandidate struct {
 
 func (x *DuplicateContactCandidate) Reset() {
 	*x = DuplicateContactCandidate{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[126]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8394,7 +8778,7 @@ func (x *DuplicateContactCandidate) String() string {
 func (*DuplicateContactCandidate) ProtoMessage() {}
 
 func (x *DuplicateContactCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[126]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8407,7 +8791,7 @@ func (x *DuplicateContactCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DuplicateContactCandidate.ProtoReflect.Descriptor instead.
 func (*DuplicateContactCandidate) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{126}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *DuplicateContactCandidate) GetContact() *ContactInfo {
@@ -8440,7 +8824,7 @@ type FindContactDuplicatesRequest struct {
 
 func (x *FindContactDuplicatesRequest) Reset() {
 	*x = FindContactDuplicatesRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[127]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8452,7 +8836,7 @@ func (x *FindContactDuplicatesRequest) String() string {
 func (*FindContactDuplicatesRequest) ProtoMessage() {}
 
 func (x *FindContactDuplicatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[127]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8465,7 +8849,7 @@ func (x *FindContactDuplicatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindContactDuplicatesRequest.ProtoReflect.Descriptor instead.
 func (*FindContactDuplicatesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{127}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *FindContactDuplicatesRequest) GetContactId() string {
@@ -8485,7 +8869,7 @@ type FindContactDuplicatesResponse struct {
 
 func (x *FindContactDuplicatesResponse) Reset() {
 	*x = FindContactDuplicatesResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[128]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8497,7 +8881,7 @@ func (x *FindContactDuplicatesResponse) String() string {
 func (*FindContactDuplicatesResponse) ProtoMessage() {}
 
 func (x *FindContactDuplicatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[128]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8510,7 +8894,7 @@ func (x *FindContactDuplicatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindContactDuplicatesResponse.ProtoReflect.Descriptor instead.
 func (*FindContactDuplicatesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{128}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *FindContactDuplicatesResponse) GetDuplicates() []*DuplicateContactCandidate {
@@ -8537,7 +8921,7 @@ type MergeContactsRequest struct {
 
 func (x *MergeContactsRequest) Reset() {
 	*x = MergeContactsRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[129]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8549,7 +8933,7 @@ func (x *MergeContactsRequest) String() string {
 func (*MergeContactsRequest) ProtoMessage() {}
 
 func (x *MergeContactsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[129]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8562,7 +8946,7 @@ func (x *MergeContactsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeContactsRequest.ProtoReflect.Descriptor instead.
 func (*MergeContactsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{129}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *MergeContactsRequest) GetPrimaryId() string {
@@ -8588,7 +8972,7 @@ type MergeContactsResponse struct {
 
 func (x *MergeContactsResponse) Reset() {
 	*x = MergeContactsResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[130]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8600,7 +8984,7 @@ func (x *MergeContactsResponse) String() string {
 func (*MergeContactsResponse) ProtoMessage() {}
 
 func (x *MergeContactsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[130]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8613,7 +8997,7 @@ func (x *MergeContactsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeContactsResponse.ProtoReflect.Descriptor instead.
 func (*MergeContactsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{130}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *MergeContactsResponse) GetContact() *ContactInfo {
@@ -8634,7 +9018,7 @@ type DuplicateCompanyCandidate struct {
 
 func (x *DuplicateCompanyCandidate) Reset() {
 	*x = DuplicateCompanyCandidate{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[131]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8646,7 +9030,7 @@ func (x *DuplicateCompanyCandidate) String() string {
 func (*DuplicateCompanyCandidate) ProtoMessage() {}
 
 func (x *DuplicateCompanyCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[131]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8659,7 +9043,7 @@ func (x *DuplicateCompanyCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DuplicateCompanyCandidate.ProtoReflect.Descriptor instead.
 func (*DuplicateCompanyCandidate) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{131}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *DuplicateCompanyCandidate) GetCompany() *CompanyInfo {
@@ -8692,7 +9076,7 @@ type FindCompanyDuplicatesRequest struct {
 
 func (x *FindCompanyDuplicatesRequest) Reset() {
 	*x = FindCompanyDuplicatesRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[132]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8704,7 +9088,7 @@ func (x *FindCompanyDuplicatesRequest) String() string {
 func (*FindCompanyDuplicatesRequest) ProtoMessage() {}
 
 func (x *FindCompanyDuplicatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[132]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8717,7 +9101,7 @@ func (x *FindCompanyDuplicatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindCompanyDuplicatesRequest.ProtoReflect.Descriptor instead.
 func (*FindCompanyDuplicatesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{132}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *FindCompanyDuplicatesRequest) GetCompanyId() string {
@@ -8737,7 +9121,7 @@ type FindCompanyDuplicatesResponse struct {
 
 func (x *FindCompanyDuplicatesResponse) Reset() {
 	*x = FindCompanyDuplicatesResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[133]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8749,7 +9133,7 @@ func (x *FindCompanyDuplicatesResponse) String() string {
 func (*FindCompanyDuplicatesResponse) ProtoMessage() {}
 
 func (x *FindCompanyDuplicatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[133]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8762,7 +9146,7 @@ func (x *FindCompanyDuplicatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindCompanyDuplicatesResponse.ProtoReflect.Descriptor instead.
 func (*FindCompanyDuplicatesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{133}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *FindCompanyDuplicatesResponse) GetDuplicates() []*DuplicateCompanyCandidate {
@@ -8789,7 +9173,7 @@ type MergeCompaniesRequest struct {
 
 func (x *MergeCompaniesRequest) Reset() {
 	*x = MergeCompaniesRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[134]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8801,7 +9185,7 @@ func (x *MergeCompaniesRequest) String() string {
 func (*MergeCompaniesRequest) ProtoMessage() {}
 
 func (x *MergeCompaniesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[134]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8814,7 +9198,7 @@ func (x *MergeCompaniesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeCompaniesRequest.ProtoReflect.Descriptor instead.
 func (*MergeCompaniesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{134}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *MergeCompaniesRequest) GetPrimaryId() string {
@@ -8840,7 +9224,7 @@ type MergeCompaniesResponse struct {
 
 func (x *MergeCompaniesResponse) Reset() {
 	*x = MergeCompaniesResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[135]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8852,7 +9236,7 @@ func (x *MergeCompaniesResponse) String() string {
 func (*MergeCompaniesResponse) ProtoMessage() {}
 
 func (x *MergeCompaniesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[135]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8865,7 +9249,7 @@ func (x *MergeCompaniesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeCompaniesResponse.ProtoReflect.Descriptor instead.
 func (*MergeCompaniesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{135}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *MergeCompaniesResponse) GetCompany() *CompanyInfo {
@@ -8884,7 +9268,7 @@ type TimelineEventMetadata struct {
 
 func (x *TimelineEventMetadata) Reset() {
 	*x = TimelineEventMetadata{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[136]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8896,7 +9280,7 @@ func (x *TimelineEventMetadata) String() string {
 func (*TimelineEventMetadata) ProtoMessage() {}
 
 func (x *TimelineEventMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[136]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8909,7 +9293,7 @@ func (x *TimelineEventMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimelineEventMetadata.ProtoReflect.Descriptor instead.
 func (*TimelineEventMetadata) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{136}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *TimelineEventMetadata) GetData() map[string]string {
@@ -8934,7 +9318,7 @@ type TimelineEvent struct {
 
 func (x *TimelineEvent) Reset() {
 	*x = TimelineEvent{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[137]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8946,7 +9330,7 @@ func (x *TimelineEvent) String() string {
 func (*TimelineEvent) ProtoMessage() {}
 
 func (x *TimelineEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[137]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8959,7 +9343,7 @@ func (x *TimelineEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimelineEvent.ProtoReflect.Descriptor instead.
 func (*TimelineEvent) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{137}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *TimelineEvent) GetId() string {
@@ -9022,7 +9406,7 @@ type GetContactTimelineRequest struct {
 
 func (x *GetContactTimelineRequest) Reset() {
 	*x = GetContactTimelineRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[138]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9034,7 +9418,7 @@ func (x *GetContactTimelineRequest) String() string {
 func (*GetContactTimelineRequest) ProtoMessage() {}
 
 func (x *GetContactTimelineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[138]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9047,7 +9431,7 @@ func (x *GetContactTimelineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactTimelineRequest.ProtoReflect.Descriptor instead.
 func (*GetContactTimelineRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{138}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *GetContactTimelineRequest) GetContactId() string {
@@ -9081,7 +9465,7 @@ type GetContactTimelineResponse struct {
 
 func (x *GetContactTimelineResponse) Reset() {
 	*x = GetContactTimelineResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[139]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9093,7 +9477,7 @@ func (x *GetContactTimelineResponse) String() string {
 func (*GetContactTimelineResponse) ProtoMessage() {}
 
 func (x *GetContactTimelineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[139]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9106,7 +9490,7 @@ func (x *GetContactTimelineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactTimelineResponse.ProtoReflect.Descriptor instead.
 func (*GetContactTimelineResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{139}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *GetContactTimelineResponse) GetEvents() []*TimelineEvent {
@@ -9135,7 +9519,7 @@ type ContactDeletionImpact struct {
 
 func (x *ContactDeletionImpact) Reset() {
 	*x = ContactDeletionImpact{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[140]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9147,7 +9531,7 @@ func (x *ContactDeletionImpact) String() string {
 func (*ContactDeletionImpact) ProtoMessage() {}
 
 func (x *ContactDeletionImpact) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[140]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9160,7 +9544,7 @@ func (x *ContactDeletionImpact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactDeletionImpact.ProtoReflect.Descriptor instead.
 func (*ContactDeletionImpact) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{140}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *ContactDeletionImpact) GetTable() string {
@@ -9200,7 +9584,7 @@ type PreviewContactDeletionRequest struct {
 
 func (x *PreviewContactDeletionRequest) Reset() {
 	*x = PreviewContactDeletionRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[141]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9212,7 +9596,7 @@ func (x *PreviewContactDeletionRequest) String() string {
 func (*PreviewContactDeletionRequest) ProtoMessage() {}
 
 func (x *PreviewContactDeletionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[141]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9225,7 +9609,7 @@ func (x *PreviewContactDeletionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewContactDeletionRequest.ProtoReflect.Descriptor instead.
 func (*PreviewContactDeletionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{141}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *PreviewContactDeletionRequest) GetContactId() string {
@@ -9245,7 +9629,7 @@ type PreviewContactDeletionResponse struct {
 
 func (x *PreviewContactDeletionResponse) Reset() {
 	*x = PreviewContactDeletionResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[142]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9257,7 +9641,7 @@ func (x *PreviewContactDeletionResponse) String() string {
 func (*PreviewContactDeletionResponse) ProtoMessage() {}
 
 func (x *PreviewContactDeletionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[142]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9270,7 +9654,7 @@ func (x *PreviewContactDeletionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewContactDeletionResponse.ProtoReflect.Descriptor instead.
 func (*PreviewContactDeletionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{142}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *PreviewContactDeletionResponse) GetContactId() string {
@@ -9307,7 +9691,7 @@ type ConsentRecord struct {
 
 func (x *ConsentRecord) Reset() {
 	*x = ConsentRecord{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[143]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9319,7 +9703,7 @@ func (x *ConsentRecord) String() string {
 func (*ConsentRecord) ProtoMessage() {}
 
 func (x *ConsentRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[143]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9332,7 +9716,7 @@ func (x *ConsentRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsentRecord.ProtoReflect.Descriptor instead.
 func (*ConsentRecord) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{143}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *ConsentRecord) GetId() string {
@@ -9429,7 +9813,7 @@ type ConsentSummary struct {
 
 func (x *ConsentSummary) Reset() {
 	*x = ConsentSummary{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[144]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9441,7 +9825,7 @@ func (x *ConsentSummary) String() string {
 func (*ConsentSummary) ProtoMessage() {}
 
 func (x *ConsentSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[144]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9454,7 +9838,7 @@ func (x *ConsentSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsentSummary.ProtoReflect.Descriptor instead.
 func (*ConsentSummary) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{144}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *ConsentSummary) GetContactId() string {
@@ -9480,7 +9864,7 @@ type GetContactConsentsRequest struct {
 
 func (x *GetContactConsentsRequest) Reset() {
 	*x = GetContactConsentsRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[145]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9492,7 +9876,7 @@ func (x *GetContactConsentsRequest) String() string {
 func (*GetContactConsentsRequest) ProtoMessage() {}
 
 func (x *GetContactConsentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[145]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9505,7 +9889,7 @@ func (x *GetContactConsentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactConsentsRequest.ProtoReflect.Descriptor instead.
 func (*GetContactConsentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{145}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *GetContactConsentsRequest) GetContactId() string {
@@ -9524,7 +9908,7 @@ type GetContactConsentsResponse struct {
 
 func (x *GetContactConsentsResponse) Reset() {
 	*x = GetContactConsentsResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[146]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9536,7 +9920,7 @@ func (x *GetContactConsentsResponse) String() string {
 func (*GetContactConsentsResponse) ProtoMessage() {}
 
 func (x *GetContactConsentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[146]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9549,7 +9933,7 @@ func (x *GetContactConsentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactConsentsResponse.ProtoReflect.Descriptor instead.
 func (*GetContactConsentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{146}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *GetContactConsentsResponse) GetSummary() *ConsentSummary {
@@ -9573,7 +9957,7 @@ type GrantConsentRequest struct {
 
 func (x *GrantConsentRequest) Reset() {
 	*x = GrantConsentRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[147]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9585,7 +9969,7 @@ func (x *GrantConsentRequest) String() string {
 func (*GrantConsentRequest) ProtoMessage() {}
 
 func (x *GrantConsentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[147]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9598,7 +9982,7 @@ func (x *GrantConsentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantConsentRequest.ProtoReflect.Descriptor instead.
 func (*GrantConsentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{147}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *GrantConsentRequest) GetContactId() string {
@@ -9652,7 +10036,7 @@ type GrantConsentResponse struct {
 
 func (x *GrantConsentResponse) Reset() {
 	*x = GrantConsentResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[148]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9664,7 +10048,7 @@ func (x *GrantConsentResponse) String() string {
 func (*GrantConsentResponse) ProtoMessage() {}
 
 func (x *GrantConsentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[148]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9677,7 +10061,7 @@ func (x *GrantConsentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantConsentResponse.ProtoReflect.Descriptor instead.
 func (*GrantConsentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{148}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *GrantConsentResponse) GetRecord() *ConsentRecord {
@@ -9699,7 +10083,7 @@ type RevokeConsentRequest struct {
 
 func (x *RevokeConsentRequest) Reset() {
 	*x = RevokeConsentRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[149]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9711,7 +10095,7 @@ func (x *RevokeConsentRequest) String() string {
 func (*RevokeConsentRequest) ProtoMessage() {}
 
 func (x *RevokeConsentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[149]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9724,7 +10108,7 @@ func (x *RevokeConsentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeConsentRequest.ProtoReflect.Descriptor instead.
 func (*RevokeConsentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{149}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *RevokeConsentRequest) GetContactId() string {
@@ -9764,7 +10148,7 @@ type RevokeConsentResponse struct {
 
 func (x *RevokeConsentResponse) Reset() {
 	*x = RevokeConsentResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[150]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9776,7 +10160,7 @@ func (x *RevokeConsentResponse) String() string {
 func (*RevokeConsentResponse) ProtoMessage() {}
 
 func (x *RevokeConsentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[150]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9789,7 +10173,7 @@ func (x *RevokeConsentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeConsentResponse.ProtoReflect.Descriptor instead.
 func (*RevokeConsentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{150}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *RevokeConsentResponse) GetRecord() *ConsentRecord {
@@ -9809,7 +10193,7 @@ type GetConsentHistoryRequest struct {
 
 func (x *GetConsentHistoryRequest) Reset() {
 	*x = GetConsentHistoryRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[151]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9821,7 +10205,7 @@ func (x *GetConsentHistoryRequest) String() string {
 func (*GetConsentHistoryRequest) ProtoMessage() {}
 
 func (x *GetConsentHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[151]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9834,7 +10218,7 @@ func (x *GetConsentHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetConsentHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetConsentHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{151}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *GetConsentHistoryRequest) GetContactId() string {
@@ -9861,7 +10245,7 @@ type GetConsentHistoryResponse struct {
 
 func (x *GetConsentHistoryResponse) Reset() {
 	*x = GetConsentHistoryResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[152]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9873,7 +10257,7 @@ func (x *GetConsentHistoryResponse) String() string {
 func (*GetConsentHistoryResponse) ProtoMessage() {}
 
 func (x *GetConsentHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[152]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9886,7 +10270,7 @@ func (x *GetConsentHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetConsentHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetConsentHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{152}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *GetConsentHistoryResponse) GetHistory() []*ConsentRecord {
@@ -9918,7 +10302,7 @@ type GDPRDeletionRequest struct {
 
 func (x *GDPRDeletionRequest) Reset() {
 	*x = GDPRDeletionRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[153]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9930,7 +10314,7 @@ func (x *GDPRDeletionRequest) String() string {
 func (*GDPRDeletionRequest) ProtoMessage() {}
 
 func (x *GDPRDeletionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[153]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9943,7 +10327,7 @@ func (x *GDPRDeletionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GDPRDeletionRequest.ProtoReflect.Descriptor instead.
 func (*GDPRDeletionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{153}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *GDPRDeletionRequest) GetId() string {
@@ -10006,7 +10390,7 @@ type RequestDeletionRequest struct {
 
 func (x *RequestDeletionRequest) Reset() {
 	*x = RequestDeletionRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[154]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10018,7 +10402,7 @@ func (x *RequestDeletionRequest) String() string {
 func (*RequestDeletionRequest) ProtoMessage() {}
 
 func (x *RequestDeletionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[154]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10031,7 +10415,7 @@ func (x *RequestDeletionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestDeletionRequest.ProtoReflect.Descriptor instead.
 func (*RequestDeletionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{154}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *RequestDeletionRequest) GetContactId() string {
@@ -10064,7 +10448,7 @@ type RequestDeletionResponse struct {
 
 func (x *RequestDeletionResponse) Reset() {
 	*x = RequestDeletionResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[155]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10076,7 +10460,7 @@ func (x *RequestDeletionResponse) String() string {
 func (*RequestDeletionResponse) ProtoMessage() {}
 
 func (x *RequestDeletionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[155]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10089,7 +10473,7 @@ func (x *RequestDeletionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestDeletionResponse.ProtoReflect.Descriptor instead.
 func (*RequestDeletionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{155}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *RequestDeletionResponse) GetDeletionRequest() *GDPRDeletionRequest {
@@ -10108,7 +10492,7 @@ type ProcessDeletionRequest struct {
 
 func (x *ProcessDeletionRequest) Reset() {
 	*x = ProcessDeletionRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[156]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10120,7 +10504,7 @@ func (x *ProcessDeletionRequest) String() string {
 func (*ProcessDeletionRequest) ProtoMessage() {}
 
 func (x *ProcessDeletionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[156]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10133,7 +10517,7 @@ func (x *ProcessDeletionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessDeletionRequest.ProtoReflect.Descriptor instead.
 func (*ProcessDeletionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{156}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *ProcessDeletionRequest) GetRequestId() string {
@@ -10152,7 +10536,7 @@ type ProcessDeletionResponse struct {
 
 func (x *ProcessDeletionResponse) Reset() {
 	*x = ProcessDeletionResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[157]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10164,7 +10548,7 @@ func (x *ProcessDeletionResponse) String() string {
 func (*ProcessDeletionResponse) ProtoMessage() {}
 
 func (x *ProcessDeletionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[157]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10177,7 +10561,7 @@ func (x *ProcessDeletionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessDeletionResponse.ProtoReflect.Descriptor instead.
 func (*ProcessDeletionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{157}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *ProcessDeletionResponse) GetStatus() string {
@@ -10205,7 +10589,7 @@ type AdvisoryProductProto struct {
 
 func (x *AdvisoryProductProto) Reset() {
 	*x = AdvisoryProductProto{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[158]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10217,7 +10601,7 @@ func (x *AdvisoryProductProto) String() string {
 func (*AdvisoryProductProto) ProtoMessage() {}
 
 func (x *AdvisoryProductProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[158]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10230,7 +10614,7 @@ func (x *AdvisoryProductProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvisoryProductProto.ProtoReflect.Descriptor instead.
 func (*AdvisoryProductProto) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{158}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *AdvisoryProductProto) GetId() string {
@@ -10368,7 +10752,7 @@ type AdvisoryProtocolProto struct {
 
 func (x *AdvisoryProtocolProto) Reset() {
 	*x = AdvisoryProtocolProto{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[159]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10380,7 +10764,7 @@ func (x *AdvisoryProtocolProto) String() string {
 func (*AdvisoryProtocolProto) ProtoMessage() {}
 
 func (x *AdvisoryProtocolProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[159]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10393,7 +10777,7 @@ func (x *AdvisoryProtocolProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvisoryProtocolProto.ProtoReflect.Descriptor instead.
 func (*AdvisoryProtocolProto) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{159}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *AdvisoryProtocolProto) GetId() string {
@@ -10804,7 +11188,7 @@ type CreateAdvisoryProtocolRequest struct {
 
 func (x *CreateAdvisoryProtocolRequest) Reset() {
 	*x = CreateAdvisoryProtocolRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[160]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10816,7 +11200,7 @@ func (x *CreateAdvisoryProtocolRequest) String() string {
 func (*CreateAdvisoryProtocolRequest) ProtoMessage() {}
 
 func (x *CreateAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[160]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10829,7 +11213,7 @@ func (x *CreateAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAdvisoryProtocolRequest.ProtoReflect.Descriptor instead.
 func (*CreateAdvisoryProtocolRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{160}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *CreateAdvisoryProtocolRequest) GetContactId() string {
@@ -10848,7 +11232,7 @@ type CreateAdvisoryProtocolResponse struct {
 
 func (x *CreateAdvisoryProtocolResponse) Reset() {
 	*x = CreateAdvisoryProtocolResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[161]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10860,7 +11244,7 @@ func (x *CreateAdvisoryProtocolResponse) String() string {
 func (*CreateAdvisoryProtocolResponse) ProtoMessage() {}
 
 func (x *CreateAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[161]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10873,7 +11257,7 @@ func (x *CreateAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAdvisoryProtocolResponse.ProtoReflect.Descriptor instead.
 func (*CreateAdvisoryProtocolResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{161}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *CreateAdvisoryProtocolResponse) GetProtocol() *AdvisoryProtocolProto {
@@ -10892,7 +11276,7 @@ type GetAdvisoryProtocolRequest struct {
 
 func (x *GetAdvisoryProtocolRequest) Reset() {
 	*x = GetAdvisoryProtocolRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[162]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10904,7 +11288,7 @@ func (x *GetAdvisoryProtocolRequest) String() string {
 func (*GetAdvisoryProtocolRequest) ProtoMessage() {}
 
 func (x *GetAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[162]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10917,7 +11301,7 @@ func (x *GetAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAdvisoryProtocolRequest.ProtoReflect.Descriptor instead.
 func (*GetAdvisoryProtocolRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{162}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *GetAdvisoryProtocolRequest) GetId() string {
@@ -10936,7 +11320,7 @@ type GetAdvisoryProtocolResponse struct {
 
 func (x *GetAdvisoryProtocolResponse) Reset() {
 	*x = GetAdvisoryProtocolResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[163]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10948,7 +11332,7 @@ func (x *GetAdvisoryProtocolResponse) String() string {
 func (*GetAdvisoryProtocolResponse) ProtoMessage() {}
 
 func (x *GetAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[163]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10961,7 +11345,7 @@ func (x *GetAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAdvisoryProtocolResponse.ProtoReflect.Descriptor instead.
 func (*GetAdvisoryProtocolResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{163}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *GetAdvisoryProtocolResponse) GetProtocol() *AdvisoryProtocolProto {
@@ -10980,7 +11364,7 @@ type ListAdvisoryProtocolsRequest struct {
 
 func (x *ListAdvisoryProtocolsRequest) Reset() {
 	*x = ListAdvisoryProtocolsRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[164]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[172]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10992,7 +11376,7 @@ func (x *ListAdvisoryProtocolsRequest) String() string {
 func (*ListAdvisoryProtocolsRequest) ProtoMessage() {}
 
 func (x *ListAdvisoryProtocolsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[164]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[172]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11005,7 +11389,7 @@ func (x *ListAdvisoryProtocolsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAdvisoryProtocolsRequest.ProtoReflect.Descriptor instead.
 func (*ListAdvisoryProtocolsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{164}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *ListAdvisoryProtocolsRequest) GetContactId() string {
@@ -11024,7 +11408,7 @@ type ListAdvisoryProtocolsResponse struct {
 
 func (x *ListAdvisoryProtocolsResponse) Reset() {
 	*x = ListAdvisoryProtocolsResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[165]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[173]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11036,7 +11420,7 @@ func (x *ListAdvisoryProtocolsResponse) String() string {
 func (*ListAdvisoryProtocolsResponse) ProtoMessage() {}
 
 func (x *ListAdvisoryProtocolsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[165]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[173]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11049,7 +11433,7 @@ func (x *ListAdvisoryProtocolsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAdvisoryProtocolsResponse.ProtoReflect.Descriptor instead.
 func (*ListAdvisoryProtocolsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{165}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *ListAdvisoryProtocolsResponse) GetProtocols() []*AdvisoryProtocolProto {
@@ -11069,7 +11453,7 @@ type UpdateAdvisoryProtocolRequest struct {
 
 func (x *UpdateAdvisoryProtocolRequest) Reset() {
 	*x = UpdateAdvisoryProtocolRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[166]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[174]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11081,7 +11465,7 @@ func (x *UpdateAdvisoryProtocolRequest) String() string {
 func (*UpdateAdvisoryProtocolRequest) ProtoMessage() {}
 
 func (x *UpdateAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[166]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[174]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11094,7 +11478,7 @@ func (x *UpdateAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAdvisoryProtocolRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAdvisoryProtocolRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{166}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *UpdateAdvisoryProtocolRequest) GetId() string {
@@ -11120,7 +11504,7 @@ type UpdateAdvisoryProtocolResponse struct {
 
 func (x *UpdateAdvisoryProtocolResponse) Reset() {
 	*x = UpdateAdvisoryProtocolResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[167]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[175]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11132,7 +11516,7 @@ func (x *UpdateAdvisoryProtocolResponse) String() string {
 func (*UpdateAdvisoryProtocolResponse) ProtoMessage() {}
 
 func (x *UpdateAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[167]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[175]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11145,7 +11529,7 @@ func (x *UpdateAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAdvisoryProtocolResponse.ProtoReflect.Descriptor instead.
 func (*UpdateAdvisoryProtocolResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{167}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *UpdateAdvisoryProtocolResponse) GetProtocol() *AdvisoryProtocolProto {
@@ -11164,7 +11548,7 @@ type DeleteAdvisoryProtocolRequest struct {
 
 func (x *DeleteAdvisoryProtocolRequest) Reset() {
 	*x = DeleteAdvisoryProtocolRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[168]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[176]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11176,7 +11560,7 @@ func (x *DeleteAdvisoryProtocolRequest) String() string {
 func (*DeleteAdvisoryProtocolRequest) ProtoMessage() {}
 
 func (x *DeleteAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[168]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[176]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11189,7 +11573,7 @@ func (x *DeleteAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAdvisoryProtocolRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAdvisoryProtocolRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{168}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *DeleteAdvisoryProtocolRequest) GetId() string {
@@ -11208,7 +11592,7 @@ type DeleteAdvisoryProtocolResponse struct {
 
 func (x *DeleteAdvisoryProtocolResponse) Reset() {
 	*x = DeleteAdvisoryProtocolResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[169]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[177]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11220,7 +11604,7 @@ func (x *DeleteAdvisoryProtocolResponse) String() string {
 func (*DeleteAdvisoryProtocolResponse) ProtoMessage() {}
 
 func (x *DeleteAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[169]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[177]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11233,7 +11617,7 @@ func (x *DeleteAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAdvisoryProtocolResponse.ProtoReflect.Descriptor instead.
 func (*DeleteAdvisoryProtocolResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{169}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *DeleteAdvisoryProtocolResponse) GetOk() bool {
@@ -11252,7 +11636,7 @@ type HandOverAdvisoryProtocolRequest struct {
 
 func (x *HandOverAdvisoryProtocolRequest) Reset() {
 	*x = HandOverAdvisoryProtocolRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[170]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[178]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11264,7 +11648,7 @@ func (x *HandOverAdvisoryProtocolRequest) String() string {
 func (*HandOverAdvisoryProtocolRequest) ProtoMessage() {}
 
 func (x *HandOverAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[170]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[178]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11277,7 +11661,7 @@ func (x *HandOverAdvisoryProtocolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandOverAdvisoryProtocolRequest.ProtoReflect.Descriptor instead.
 func (*HandOverAdvisoryProtocolRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{170}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *HandOverAdvisoryProtocolRequest) GetId() string {
@@ -11296,7 +11680,7 @@ type HandOverAdvisoryProtocolResponse struct {
 
 func (x *HandOverAdvisoryProtocolResponse) Reset() {
 	*x = HandOverAdvisoryProtocolResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[171]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[179]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11308,7 +11692,7 @@ func (x *HandOverAdvisoryProtocolResponse) String() string {
 func (*HandOverAdvisoryProtocolResponse) ProtoMessage() {}
 
 func (x *HandOverAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[171]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[179]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11321,7 +11705,7 @@ func (x *HandOverAdvisoryProtocolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandOverAdvisoryProtocolResponse.ProtoReflect.Descriptor instead.
 func (*HandOverAdvisoryProtocolResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{171}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *HandOverAdvisoryProtocolResponse) GetProtocol() *AdvisoryProtocolProto {
@@ -11340,7 +11724,7 @@ type GenerateAdvisoryProtocolPDFRequest struct {
 
 func (x *GenerateAdvisoryProtocolPDFRequest) Reset() {
 	*x = GenerateAdvisoryProtocolPDFRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[172]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[180]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11352,7 +11736,7 @@ func (x *GenerateAdvisoryProtocolPDFRequest) String() string {
 func (*GenerateAdvisoryProtocolPDFRequest) ProtoMessage() {}
 
 func (x *GenerateAdvisoryProtocolPDFRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[172]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[180]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11365,7 +11749,7 @@ func (x *GenerateAdvisoryProtocolPDFRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GenerateAdvisoryProtocolPDFRequest.ProtoReflect.Descriptor instead.
 func (*GenerateAdvisoryProtocolPDFRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{172}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *GenerateAdvisoryProtocolPDFRequest) GetId() string {
@@ -11385,7 +11769,7 @@ type GenerateAdvisoryProtocolPDFResponse struct {
 
 func (x *GenerateAdvisoryProtocolPDFResponse) Reset() {
 	*x = GenerateAdvisoryProtocolPDFResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[173]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[181]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11397,7 +11781,7 @@ func (x *GenerateAdvisoryProtocolPDFResponse) String() string {
 func (*GenerateAdvisoryProtocolPDFResponse) ProtoMessage() {}
 
 func (x *GenerateAdvisoryProtocolPDFResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[173]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[181]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11410,7 +11794,7 @@ func (x *GenerateAdvisoryProtocolPDFResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GenerateAdvisoryProtocolPDFResponse.ProtoReflect.Descriptor instead.
 func (*GenerateAdvisoryProtocolPDFResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{173}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *GenerateAdvisoryProtocolPDFResponse) GetPdfData() []byte {
@@ -11439,7 +11823,7 @@ type ReferralReportEntry struct {
 
 func (x *ReferralReportEntry) Reset() {
 	*x = ReferralReportEntry{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[174]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[182]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11451,7 +11835,7 @@ func (x *ReferralReportEntry) String() string {
 func (*ReferralReportEntry) ProtoMessage() {}
 
 func (x *ReferralReportEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[174]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[182]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11464,7 +11848,7 @@ func (x *ReferralReportEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReferralReportEntry.ProtoReflect.Descriptor instead.
 func (*ReferralReportEntry) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{174}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{182}
 }
 
 func (x *ReferralReportEntry) GetReferrerId() string {
@@ -11503,7 +11887,7 @@ type GetReferralReportRequest struct {
 
 func (x *GetReferralReportRequest) Reset() {
 	*x = GetReferralReportRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[175]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[183]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11515,7 +11899,7 @@ func (x *GetReferralReportRequest) String() string {
 func (*GetReferralReportRequest) ProtoMessage() {}
 
 func (x *GetReferralReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[175]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[183]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11528,7 +11912,7 @@ func (x *GetReferralReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReferralReportRequest.ProtoReflect.Descriptor instead.
 func (*GetReferralReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{175}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{183}
 }
 
 type GetReferralReportResponse struct {
@@ -11540,7 +11924,7 @@ type GetReferralReportResponse struct {
 
 func (x *GetReferralReportResponse) Reset() {
 	*x = GetReferralReportResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[176]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[184]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11552,7 +11936,7 @@ func (x *GetReferralReportResponse) String() string {
 func (*GetReferralReportResponse) ProtoMessage() {}
 
 func (x *GetReferralReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[176]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[184]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11565,7 +11949,7 @@ func (x *GetReferralReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReferralReportResponse.ProtoReflect.Descriptor instead.
 func (*GetReferralReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{176}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{184}
 }
 
 func (x *GetReferralReportResponse) GetEntries() []*ReferralReportEntry {
@@ -11597,7 +11981,7 @@ type LeadInfo struct {
 
 func (x *LeadInfo) Reset() {
 	*x = LeadInfo{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[177]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[185]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11609,7 +11993,7 @@ func (x *LeadInfo) String() string {
 func (*LeadInfo) ProtoMessage() {}
 
 func (x *LeadInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[177]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[185]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11622,7 +12006,7 @@ func (x *LeadInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeadInfo.ProtoReflect.Descriptor instead.
 func (*LeadInfo) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{177}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{185}
 }
 
 func (x *LeadInfo) GetId() string {
@@ -11736,7 +12120,7 @@ type ListLeadsRequest struct {
 
 func (x *ListLeadsRequest) Reset() {
 	*x = ListLeadsRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[178]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[186]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11748,7 +12132,7 @@ func (x *ListLeadsRequest) String() string {
 func (*ListLeadsRequest) ProtoMessage() {}
 
 func (x *ListLeadsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[178]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[186]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11761,7 +12145,7 @@ func (x *ListLeadsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLeadsRequest.ProtoReflect.Descriptor instead.
 func (*ListLeadsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{178}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{186}
 }
 
 func (x *ListLeadsRequest) GetStage() string {
@@ -11809,7 +12193,7 @@ type ListLeadsResponse struct {
 
 func (x *ListLeadsResponse) Reset() {
 	*x = ListLeadsResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[179]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[187]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11821,7 +12205,7 @@ func (x *ListLeadsResponse) String() string {
 func (*ListLeadsResponse) ProtoMessage() {}
 
 func (x *ListLeadsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[179]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[187]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11834,7 +12218,7 @@ func (x *ListLeadsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLeadsResponse.ProtoReflect.Descriptor instead.
 func (*ListLeadsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{179}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{187}
 }
 
 func (x *ListLeadsResponse) GetLeads() []*LeadInfo {
@@ -11867,7 +12251,7 @@ type CreateLeadRequest struct {
 
 func (x *CreateLeadRequest) Reset() {
 	*x = CreateLeadRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[180]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[188]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11879,7 +12263,7 @@ func (x *CreateLeadRequest) String() string {
 func (*CreateLeadRequest) ProtoMessage() {}
 
 func (x *CreateLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[180]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[188]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11892,7 +12276,7 @@ func (x *CreateLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLeadRequest.ProtoReflect.Descriptor instead.
 func (*CreateLeadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{180}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{188}
 }
 
 func (x *CreateLeadRequest) GetFirstName() string {
@@ -11960,7 +12344,7 @@ type CreateLeadResponse struct {
 
 func (x *CreateLeadResponse) Reset() {
 	*x = CreateLeadResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[181]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[189]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11972,7 +12356,7 @@ func (x *CreateLeadResponse) String() string {
 func (*CreateLeadResponse) ProtoMessage() {}
 
 func (x *CreateLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[181]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[189]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11985,7 +12369,7 @@ func (x *CreateLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLeadResponse.ProtoReflect.Descriptor instead.
 func (*CreateLeadResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{181}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{189}
 }
 
 func (x *CreateLeadResponse) GetLead() *LeadInfo {
@@ -12008,7 +12392,7 @@ type UpdateLeadRequest struct {
 
 func (x *UpdateLeadRequest) Reset() {
 	*x = UpdateLeadRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[182]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[190]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12020,7 +12404,7 @@ func (x *UpdateLeadRequest) String() string {
 func (*UpdateLeadRequest) ProtoMessage() {}
 
 func (x *UpdateLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[182]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[190]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12033,7 +12417,7 @@ func (x *UpdateLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLeadRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLeadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{182}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{190}
 }
 
 func (x *UpdateLeadRequest) GetId() string {
@@ -12066,7 +12450,7 @@ type UpdateLeadResponse struct {
 
 func (x *UpdateLeadResponse) Reset() {
 	*x = UpdateLeadResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[183]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[191]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12078,7 +12462,7 @@ func (x *UpdateLeadResponse) String() string {
 func (*UpdateLeadResponse) ProtoMessage() {}
 
 func (x *UpdateLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[183]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[191]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12091,7 +12475,7 @@ func (x *UpdateLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLeadResponse.ProtoReflect.Descriptor instead.
 func (*UpdateLeadResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{183}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{191}
 }
 
 func (x *UpdateLeadResponse) GetLead() *LeadInfo {
@@ -12110,7 +12494,7 @@ type ConvertLeadRequest struct {
 
 func (x *ConvertLeadRequest) Reset() {
 	*x = ConvertLeadRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[184]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[192]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12122,7 +12506,7 @@ func (x *ConvertLeadRequest) String() string {
 func (*ConvertLeadRequest) ProtoMessage() {}
 
 func (x *ConvertLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[184]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[192]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12135,7 +12519,7 @@ func (x *ConvertLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConvertLeadRequest.ProtoReflect.Descriptor instead.
 func (*ConvertLeadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{184}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{192}
 }
 
 func (x *ConvertLeadRequest) GetId() string {
@@ -12154,7 +12538,7 @@ type ConvertLeadResponse struct {
 
 func (x *ConvertLeadResponse) Reset() {
 	*x = ConvertLeadResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[185]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[193]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12166,7 +12550,7 @@ func (x *ConvertLeadResponse) String() string {
 func (*ConvertLeadResponse) ProtoMessage() {}
 
 func (x *ConvertLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[185]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[193]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12179,7 +12563,7 @@ func (x *ConvertLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConvertLeadResponse.ProtoReflect.Descriptor instead.
 func (*ConvertLeadResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{185}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{193}
 }
 
 func (x *ConvertLeadResponse) GetLead() *LeadInfo {
@@ -12203,7 +12587,7 @@ type PromoteContactToLeadRequest struct {
 
 func (x *PromoteContactToLeadRequest) Reset() {
 	*x = PromoteContactToLeadRequest{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[186]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[194]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12215,7 +12599,7 @@ func (x *PromoteContactToLeadRequest) String() string {
 func (*PromoteContactToLeadRequest) ProtoMessage() {}
 
 func (x *PromoteContactToLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[186]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[194]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12228,7 +12612,7 @@ func (x *PromoteContactToLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoteContactToLeadRequest.ProtoReflect.Descriptor instead.
 func (*PromoteContactToLeadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{186}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{194}
 }
 
 func (x *PromoteContactToLeadRequest) GetContactId() string {
@@ -12247,7 +12631,7 @@ type PromoteContactToLeadResponse struct {
 
 func (x *PromoteContactToLeadResponse) Reset() {
 	*x = PromoteContactToLeadResponse{}
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[187]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[195]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12259,7 +12643,7 @@ func (x *PromoteContactToLeadResponse) String() string {
 func (*PromoteContactToLeadResponse) ProtoMessage() {}
 
 func (x *PromoteContactToLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_crm_v1_crm_proto_msgTypes[187]
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[195]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12272,7 +12656,7 @@ func (x *PromoteContactToLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoteContactToLeadResponse.ProtoReflect.Descriptor instead.
 func (*PromoteContactToLeadResponse) Descriptor() ([]byte, []int) {
-	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{187}
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{195}
 }
 
 func (x *PromoteContactToLeadResponse) GetLead() *LeadInfo {
@@ -12942,6 +13326,16 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\x14_expected_close_dateB\b\n" +
 	"\x06_notes\":\n" +
 	"\x12UpdateDealResponse\x12$\n" +
+	"\x04deal\x18\x01 \x01(\v2\x10.crm.v1.DealInfoR\x04deal\"F\n" +
+	"\x12AddDealTagsRequest\x12\x17\n" +
+	"\adeal_id\x18\x01 \x01(\tR\x06dealId\x12\x17\n" +
+	"\atag_ids\x18\x02 \x03(\tR\x06tagIds\";\n" +
+	"\x13AddDealTagsResponse\x12$\n" +
+	"\x04deal\x18\x01 \x01(\v2\x10.crm.v1.DealInfoR\x04deal\"I\n" +
+	"\x15RemoveDealTagsRequest\x12\x17\n" +
+	"\adeal_id\x18\x01 \x01(\tR\x06dealId\x12\x17\n" +
+	"\atag_ids\x18\x02 \x03(\tR\x06tagIds\">\n" +
+	"\x16RemoveDealTagsResponse\x12$\n" +
 	"\x04deal\x18\x01 \x01(\v2\x10.crm.v1.DealInfoR\x04deal\"@\n" +
 	"\x11DeleteDealRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -13078,6 +13472,18 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"L\n" +
 	"\x18CompleteActivityResponse\x120\n" +
+	"\bactivity\x18\x01 \x01(\v2\x14.crm.v1.ActivityInfoR\bactivity\"R\n" +
+	"\x16AddActivityTagsRequest\x12\x1f\n" +
+	"\vactivity_id\x18\x01 \x01(\tR\n" +
+	"activityId\x12\x17\n" +
+	"\atag_ids\x18\x02 \x03(\tR\x06tagIds\"K\n" +
+	"\x17AddActivityTagsResponse\x120\n" +
+	"\bactivity\x18\x01 \x01(\v2\x14.crm.v1.ActivityInfoR\bactivity\"U\n" +
+	"\x19RemoveActivityTagsRequest\x12\x1f\n" +
+	"\vactivity_id\x18\x01 \x01(\tR\n" +
+	"activityId\x12\x17\n" +
+	"\atag_ids\x18\x02 \x03(\tR\x06tagIds\"N\n" +
+	"\x1aRemoveActivityTagsResponse\x120\n" +
 	"\bactivity\x18\x01 \x01(\v2\x14.crm.v1.ActivityInfoR\bactivity\"\x87\x01\n" +
 	"\fSearchResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
@@ -13569,7 +13975,7 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\n" +
 	"contact_id\x18\x01 \x01(\tR\tcontactId\"D\n" +
 	"\x1cPromoteContactToLeadResponse\x12$\n" +
-	"\x04lead\x18\x01 \x01(\v2\x10.crm.v1.LeadInfoR\x04lead2\xa26\n" +
+	"\x04lead\x18\x01 \x01(\v2\x10.crm.v1.LeadInfoR\x04lead2\xec8\n" +
 	"\n" +
 	"CRMService\x12X\n" +
 	"\x11CreateCustomField\x12 .crm.v1.CreateCustomFieldRequest\x1a!.crm.v1.CreateCustomFieldResponse\x12O\n" +
@@ -13618,13 +14024,17 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"UpdateDeal\x12\x19.crm.v1.UpdateDealRequest\x1a\x1a.crm.v1.UpdateDealResponse\x12C\n" +
 	"\n" +
 	"DeleteDeal\x12\x19.crm.v1.DeleteDealRequest\x1a\x1a.crm.v1.DeleteDealResponse\x12R\n" +
-	"\x0fMoveDealToStage\x12\x1e.crm.v1.MoveDealToStageRequest\x1a\x1f.crm.v1.MoveDealToStageResponse\x12O\n" +
+	"\x0fMoveDealToStage\x12\x1e.crm.v1.MoveDealToStageRequest\x1a\x1f.crm.v1.MoveDealToStageResponse\x12F\n" +
+	"\vAddDealTags\x12\x1a.crm.v1.AddDealTagsRequest\x1a\x1b.crm.v1.AddDealTagsResponse\x12O\n" +
+	"\x0eRemoveDealTags\x12\x1d.crm.v1.RemoveDealTagsRequest\x1a\x1e.crm.v1.RemoveDealTagsResponse\x12O\n" +
 	"\x0eCreateActivity\x12\x1d.crm.v1.CreateActivityRequest\x1a\x1e.crm.v1.CreateActivityResponse\x12F\n" +
 	"\vGetActivity\x12\x1a.crm.v1.GetActivityRequest\x1a\x1b.crm.v1.GetActivityResponse\x12O\n" +
 	"\x0eListActivities\x12\x1d.crm.v1.ListActivitiesRequest\x1a\x1e.crm.v1.ListActivitiesResponse\x12O\n" +
 	"\x0eUpdateActivity\x12\x1d.crm.v1.UpdateActivityRequest\x1a\x1e.crm.v1.UpdateActivityResponse\x12O\n" +
 	"\x0eDeleteActivity\x12\x1d.crm.v1.DeleteActivityRequest\x1a\x1e.crm.v1.DeleteActivityResponse\x12U\n" +
-	"\x10CompleteActivity\x12\x1f.crm.v1.CompleteActivityRequest\x1a .crm.v1.CompleteActivityResponse\x127\n" +
+	"\x10CompleteActivity\x12\x1f.crm.v1.CompleteActivityRequest\x1a .crm.v1.CompleteActivityResponse\x12R\n" +
+	"\x0fAddActivityTags\x12\x1e.crm.v1.AddActivityTagsRequest\x1a\x1f.crm.v1.AddActivityTagsResponse\x12[\n" +
+	"\x12RemoveActivityTags\x12!.crm.v1.RemoveActivityTagsRequest\x1a\".crm.v1.RemoveActivityTagsResponse\x127\n" +
 	"\x06Search\x12\x15.crm.v1.SearchRequest\x1a\x16.crm.v1.SearchResponse\x12X\n" +
 	"\x11CreateSavedFilter\x12 .crm.v1.CreateSavedFilterRequest\x1a!.crm.v1.CreateSavedFilterResponse\x12O\n" +
 	"\x0eGetSavedFilter\x12\x1d.crm.v1.GetSavedFilterRequest\x1a\x1e.crm.v1.GetSavedFilterResponse\x12U\n" +
@@ -13674,7 +14084,7 @@ func file_proto_crm_v1_crm_proto_rawDescGZIP() []byte {
 	return file_proto_crm_v1_crm_proto_rawDescData
 }
 
-var file_proto_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 196)
+var file_proto_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 204)
 var file_proto_crm_v1_crm_proto_goTypes = []any{
 	(*CustomFieldInfo)(nil),                     // 0: crm.v1.CustomFieldInfo
 	(*CreateCustomFieldRequest)(nil),            // 1: crm.v1.CreateCustomFieldRequest
@@ -13762,116 +14172,124 @@ var file_proto_crm_v1_crm_proto_goTypes = []any{
 	(*ListDealsResponse)(nil),                   // 83: crm.v1.ListDealsResponse
 	(*UpdateDealRequest)(nil),                   // 84: crm.v1.UpdateDealRequest
 	(*UpdateDealResponse)(nil),                  // 85: crm.v1.UpdateDealResponse
-	(*DeleteDealRequest)(nil),                   // 86: crm.v1.DeleteDealRequest
-	(*DeleteDealResponse)(nil),                  // 87: crm.v1.DeleteDealResponse
-	(*MoveDealToStageRequest)(nil),              // 88: crm.v1.MoveDealToStageRequest
-	(*MoveDealToStageResponse)(nil),             // 89: crm.v1.MoveDealToStageResponse
-	(*ActivityInfo)(nil),                        // 90: crm.v1.ActivityInfo
-	(*CreateActivityRequest)(nil),               // 91: crm.v1.CreateActivityRequest
-	(*CreateActivityResponse)(nil),              // 92: crm.v1.CreateActivityResponse
-	(*GetActivityRequest)(nil),                  // 93: crm.v1.GetActivityRequest
-	(*GetActivityResponse)(nil),                 // 94: crm.v1.GetActivityResponse
-	(*ListActivitiesRequest)(nil),               // 95: crm.v1.ListActivitiesRequest
-	(*ListActivitiesResponse)(nil),              // 96: crm.v1.ListActivitiesResponse
-	(*UpdateActivityRequest)(nil),               // 97: crm.v1.UpdateActivityRequest
-	(*UpdateActivityResponse)(nil),              // 98: crm.v1.UpdateActivityResponse
-	(*DeleteActivityRequest)(nil),               // 99: crm.v1.DeleteActivityRequest
-	(*DeleteActivityResponse)(nil),              // 100: crm.v1.DeleteActivityResponse
-	(*CompleteActivityRequest)(nil),             // 101: crm.v1.CompleteActivityRequest
-	(*CompleteActivityResponse)(nil),            // 102: crm.v1.CompleteActivityResponse
-	(*SearchResult)(nil),                        // 103: crm.v1.SearchResult
-	(*SearchRequest)(nil),                       // 104: crm.v1.SearchRequest
-	(*SearchResponse)(nil),                      // 105: crm.v1.SearchResponse
-	(*SavedFilterInfo)(nil),                     // 106: crm.v1.SavedFilterInfo
-	(*CreateSavedFilterRequest)(nil),            // 107: crm.v1.CreateSavedFilterRequest
-	(*CreateSavedFilterResponse)(nil),           // 108: crm.v1.CreateSavedFilterResponse
-	(*GetSavedFilterRequest)(nil),               // 109: crm.v1.GetSavedFilterRequest
-	(*GetSavedFilterResponse)(nil),              // 110: crm.v1.GetSavedFilterResponse
-	(*ListSavedFiltersRequest)(nil),             // 111: crm.v1.ListSavedFiltersRequest
-	(*ListSavedFiltersResponse)(nil),            // 112: crm.v1.ListSavedFiltersResponse
-	(*UpdateSavedFilterRequest)(nil),            // 113: crm.v1.UpdateSavedFilterRequest
-	(*UpdateSavedFilterResponse)(nil),           // 114: crm.v1.UpdateSavedFilterResponse
-	(*DeleteSavedFilterRequest)(nil),            // 115: crm.v1.DeleteSavedFilterRequest
-	(*DeleteSavedFilterResponse)(nil),           // 116: crm.v1.DeleteSavedFilterResponse
-	(*PipelineStageValue)(nil),                  // 117: crm.v1.PipelineStageValue
-	(*GetPipelineReportRequest)(nil),            // 118: crm.v1.GetPipelineReportRequest
-	(*GetPipelineReportResponse)(nil),           // 119: crm.v1.GetPipelineReportResponse
-	(*ConversionMetric)(nil),                    // 120: crm.v1.ConversionMetric
-	(*GetConversionReportRequest)(nil),          // 121: crm.v1.GetConversionReportRequest
-	(*GetConversionReportResponse)(nil),         // 122: crm.v1.GetConversionReportResponse
-	(*ActivityMetric)(nil),                      // 123: crm.v1.ActivityMetric
-	(*GetActivityReportRequest)(nil),            // 124: crm.v1.GetActivityReportRequest
-	(*GetActivityReportResponse)(nil),           // 125: crm.v1.GetActivityReportResponse
-	(*DuplicateContactCandidate)(nil),           // 126: crm.v1.DuplicateContactCandidate
-	(*FindContactDuplicatesRequest)(nil),        // 127: crm.v1.FindContactDuplicatesRequest
-	(*FindContactDuplicatesResponse)(nil),       // 128: crm.v1.FindContactDuplicatesResponse
-	(*MergeContactsRequest)(nil),                // 129: crm.v1.MergeContactsRequest
-	(*MergeContactsResponse)(nil),               // 130: crm.v1.MergeContactsResponse
-	(*DuplicateCompanyCandidate)(nil),           // 131: crm.v1.DuplicateCompanyCandidate
-	(*FindCompanyDuplicatesRequest)(nil),        // 132: crm.v1.FindCompanyDuplicatesRequest
-	(*FindCompanyDuplicatesResponse)(nil),       // 133: crm.v1.FindCompanyDuplicatesResponse
-	(*MergeCompaniesRequest)(nil),               // 134: crm.v1.MergeCompaniesRequest
-	(*MergeCompaniesResponse)(nil),              // 135: crm.v1.MergeCompaniesResponse
-	(*TimelineEventMetadata)(nil),               // 136: crm.v1.TimelineEventMetadata
-	(*TimelineEvent)(nil),                       // 137: crm.v1.TimelineEvent
-	(*GetContactTimelineRequest)(nil),           // 138: crm.v1.GetContactTimelineRequest
-	(*GetContactTimelineResponse)(nil),          // 139: crm.v1.GetContactTimelineResponse
-	(*ContactDeletionImpact)(nil),               // 140: crm.v1.ContactDeletionImpact
-	(*PreviewContactDeletionRequest)(nil),       // 141: crm.v1.PreviewContactDeletionRequest
-	(*PreviewContactDeletionResponse)(nil),      // 142: crm.v1.PreviewContactDeletionResponse
-	(*ConsentRecord)(nil),                       // 143: crm.v1.ConsentRecord
-	(*ConsentSummary)(nil),                      // 144: crm.v1.ConsentSummary
-	(*GetContactConsentsRequest)(nil),           // 145: crm.v1.GetContactConsentsRequest
-	(*GetContactConsentsResponse)(nil),          // 146: crm.v1.GetContactConsentsResponse
-	(*GrantConsentRequest)(nil),                 // 147: crm.v1.GrantConsentRequest
-	(*GrantConsentResponse)(nil),                // 148: crm.v1.GrantConsentResponse
-	(*RevokeConsentRequest)(nil),                // 149: crm.v1.RevokeConsentRequest
-	(*RevokeConsentResponse)(nil),               // 150: crm.v1.RevokeConsentResponse
-	(*GetConsentHistoryRequest)(nil),            // 151: crm.v1.GetConsentHistoryRequest
-	(*GetConsentHistoryResponse)(nil),           // 152: crm.v1.GetConsentHistoryResponse
-	(*GDPRDeletionRequest)(nil),                 // 153: crm.v1.GDPRDeletionRequest
-	(*RequestDeletionRequest)(nil),              // 154: crm.v1.RequestDeletionRequest
-	(*RequestDeletionResponse)(nil),             // 155: crm.v1.RequestDeletionResponse
-	(*ProcessDeletionRequest)(nil),              // 156: crm.v1.ProcessDeletionRequest
-	(*ProcessDeletionResponse)(nil),             // 157: crm.v1.ProcessDeletionResponse
-	(*AdvisoryProductProto)(nil),                // 158: crm.v1.AdvisoryProductProto
-	(*AdvisoryProtocolProto)(nil),               // 159: crm.v1.AdvisoryProtocolProto
-	(*CreateAdvisoryProtocolRequest)(nil),       // 160: crm.v1.CreateAdvisoryProtocolRequest
-	(*CreateAdvisoryProtocolResponse)(nil),      // 161: crm.v1.CreateAdvisoryProtocolResponse
-	(*GetAdvisoryProtocolRequest)(nil),          // 162: crm.v1.GetAdvisoryProtocolRequest
-	(*GetAdvisoryProtocolResponse)(nil),         // 163: crm.v1.GetAdvisoryProtocolResponse
-	(*ListAdvisoryProtocolsRequest)(nil),        // 164: crm.v1.ListAdvisoryProtocolsRequest
-	(*ListAdvisoryProtocolsResponse)(nil),       // 165: crm.v1.ListAdvisoryProtocolsResponse
-	(*UpdateAdvisoryProtocolRequest)(nil),       // 166: crm.v1.UpdateAdvisoryProtocolRequest
-	(*UpdateAdvisoryProtocolResponse)(nil),      // 167: crm.v1.UpdateAdvisoryProtocolResponse
-	(*DeleteAdvisoryProtocolRequest)(nil),       // 168: crm.v1.DeleteAdvisoryProtocolRequest
-	(*DeleteAdvisoryProtocolResponse)(nil),      // 169: crm.v1.DeleteAdvisoryProtocolResponse
-	(*HandOverAdvisoryProtocolRequest)(nil),     // 170: crm.v1.HandOverAdvisoryProtocolRequest
-	(*HandOverAdvisoryProtocolResponse)(nil),    // 171: crm.v1.HandOverAdvisoryProtocolResponse
-	(*GenerateAdvisoryProtocolPDFRequest)(nil),  // 172: crm.v1.GenerateAdvisoryProtocolPDFRequest
-	(*GenerateAdvisoryProtocolPDFResponse)(nil), // 173: crm.v1.GenerateAdvisoryProtocolPDFResponse
-	(*ReferralReportEntry)(nil),                 // 174: crm.v1.ReferralReportEntry
-	(*GetReferralReportRequest)(nil),            // 175: crm.v1.GetReferralReportRequest
-	(*GetReferralReportResponse)(nil),           // 176: crm.v1.GetReferralReportResponse
-	(*LeadInfo)(nil),                            // 177: crm.v1.LeadInfo
-	(*ListLeadsRequest)(nil),                    // 178: crm.v1.ListLeadsRequest
-	(*ListLeadsResponse)(nil),                   // 179: crm.v1.ListLeadsResponse
-	(*CreateLeadRequest)(nil),                   // 180: crm.v1.CreateLeadRequest
-	(*CreateLeadResponse)(nil),                  // 181: crm.v1.CreateLeadResponse
-	(*UpdateLeadRequest)(nil),                   // 182: crm.v1.UpdateLeadRequest
-	(*UpdateLeadResponse)(nil),                  // 183: crm.v1.UpdateLeadResponse
-	(*ConvertLeadRequest)(nil),                  // 184: crm.v1.ConvertLeadRequest
-	(*ConvertLeadResponse)(nil),                 // 185: crm.v1.ConvertLeadResponse
-	(*PromoteContactToLeadRequest)(nil),         // 186: crm.v1.PromoteContactToLeadRequest
-	(*PromoteContactToLeadResponse)(nil),        // 187: crm.v1.PromoteContactToLeadResponse
-	nil,                                         // 188: crm.v1.ContactInfo.CustomFieldsEntry
-	nil,                                         // 189: crm.v1.ImportContactsCSVRequest.FieldMappingEntry
-	nil,                                         // 190: crm.v1.ImportContactsXLSXRequest.FieldMappingEntry
-	nil,                                         // 191: crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
-	nil,                                         // 192: crm.v1.CompanyInfo.CustomFieldsEntry
-	nil,                                         // 193: crm.v1.DealInfo.CustomFieldsEntry
-	nil,                                         // 194: crm.v1.TimelineEventMetadata.DataEntry
-	nil,                                         // 195: crm.v1.ConsentSummary.ConsentsEntry
+	(*AddDealTagsRequest)(nil),                  // 86: crm.v1.AddDealTagsRequest
+	(*AddDealTagsResponse)(nil),                 // 87: crm.v1.AddDealTagsResponse
+	(*RemoveDealTagsRequest)(nil),               // 88: crm.v1.RemoveDealTagsRequest
+	(*RemoveDealTagsResponse)(nil),              // 89: crm.v1.RemoveDealTagsResponse
+	(*DeleteDealRequest)(nil),                   // 90: crm.v1.DeleteDealRequest
+	(*DeleteDealResponse)(nil),                  // 91: crm.v1.DeleteDealResponse
+	(*MoveDealToStageRequest)(nil),              // 92: crm.v1.MoveDealToStageRequest
+	(*MoveDealToStageResponse)(nil),             // 93: crm.v1.MoveDealToStageResponse
+	(*ActivityInfo)(nil),                        // 94: crm.v1.ActivityInfo
+	(*CreateActivityRequest)(nil),               // 95: crm.v1.CreateActivityRequest
+	(*CreateActivityResponse)(nil),              // 96: crm.v1.CreateActivityResponse
+	(*GetActivityRequest)(nil),                  // 97: crm.v1.GetActivityRequest
+	(*GetActivityResponse)(nil),                 // 98: crm.v1.GetActivityResponse
+	(*ListActivitiesRequest)(nil),               // 99: crm.v1.ListActivitiesRequest
+	(*ListActivitiesResponse)(nil),              // 100: crm.v1.ListActivitiesResponse
+	(*UpdateActivityRequest)(nil),               // 101: crm.v1.UpdateActivityRequest
+	(*UpdateActivityResponse)(nil),              // 102: crm.v1.UpdateActivityResponse
+	(*DeleteActivityRequest)(nil),               // 103: crm.v1.DeleteActivityRequest
+	(*DeleteActivityResponse)(nil),              // 104: crm.v1.DeleteActivityResponse
+	(*CompleteActivityRequest)(nil),             // 105: crm.v1.CompleteActivityRequest
+	(*CompleteActivityResponse)(nil),            // 106: crm.v1.CompleteActivityResponse
+	(*AddActivityTagsRequest)(nil),              // 107: crm.v1.AddActivityTagsRequest
+	(*AddActivityTagsResponse)(nil),             // 108: crm.v1.AddActivityTagsResponse
+	(*RemoveActivityTagsRequest)(nil),           // 109: crm.v1.RemoveActivityTagsRequest
+	(*RemoveActivityTagsResponse)(nil),          // 110: crm.v1.RemoveActivityTagsResponse
+	(*SearchResult)(nil),                        // 111: crm.v1.SearchResult
+	(*SearchRequest)(nil),                       // 112: crm.v1.SearchRequest
+	(*SearchResponse)(nil),                      // 113: crm.v1.SearchResponse
+	(*SavedFilterInfo)(nil),                     // 114: crm.v1.SavedFilterInfo
+	(*CreateSavedFilterRequest)(nil),            // 115: crm.v1.CreateSavedFilterRequest
+	(*CreateSavedFilterResponse)(nil),           // 116: crm.v1.CreateSavedFilterResponse
+	(*GetSavedFilterRequest)(nil),               // 117: crm.v1.GetSavedFilterRequest
+	(*GetSavedFilterResponse)(nil),              // 118: crm.v1.GetSavedFilterResponse
+	(*ListSavedFiltersRequest)(nil),             // 119: crm.v1.ListSavedFiltersRequest
+	(*ListSavedFiltersResponse)(nil),            // 120: crm.v1.ListSavedFiltersResponse
+	(*UpdateSavedFilterRequest)(nil),            // 121: crm.v1.UpdateSavedFilterRequest
+	(*UpdateSavedFilterResponse)(nil),           // 122: crm.v1.UpdateSavedFilterResponse
+	(*DeleteSavedFilterRequest)(nil),            // 123: crm.v1.DeleteSavedFilterRequest
+	(*DeleteSavedFilterResponse)(nil),           // 124: crm.v1.DeleteSavedFilterResponse
+	(*PipelineStageValue)(nil),                  // 125: crm.v1.PipelineStageValue
+	(*GetPipelineReportRequest)(nil),            // 126: crm.v1.GetPipelineReportRequest
+	(*GetPipelineReportResponse)(nil),           // 127: crm.v1.GetPipelineReportResponse
+	(*ConversionMetric)(nil),                    // 128: crm.v1.ConversionMetric
+	(*GetConversionReportRequest)(nil),          // 129: crm.v1.GetConversionReportRequest
+	(*GetConversionReportResponse)(nil),         // 130: crm.v1.GetConversionReportResponse
+	(*ActivityMetric)(nil),                      // 131: crm.v1.ActivityMetric
+	(*GetActivityReportRequest)(nil),            // 132: crm.v1.GetActivityReportRequest
+	(*GetActivityReportResponse)(nil),           // 133: crm.v1.GetActivityReportResponse
+	(*DuplicateContactCandidate)(nil),           // 134: crm.v1.DuplicateContactCandidate
+	(*FindContactDuplicatesRequest)(nil),        // 135: crm.v1.FindContactDuplicatesRequest
+	(*FindContactDuplicatesResponse)(nil),       // 136: crm.v1.FindContactDuplicatesResponse
+	(*MergeContactsRequest)(nil),                // 137: crm.v1.MergeContactsRequest
+	(*MergeContactsResponse)(nil),               // 138: crm.v1.MergeContactsResponse
+	(*DuplicateCompanyCandidate)(nil),           // 139: crm.v1.DuplicateCompanyCandidate
+	(*FindCompanyDuplicatesRequest)(nil),        // 140: crm.v1.FindCompanyDuplicatesRequest
+	(*FindCompanyDuplicatesResponse)(nil),       // 141: crm.v1.FindCompanyDuplicatesResponse
+	(*MergeCompaniesRequest)(nil),               // 142: crm.v1.MergeCompaniesRequest
+	(*MergeCompaniesResponse)(nil),              // 143: crm.v1.MergeCompaniesResponse
+	(*TimelineEventMetadata)(nil),               // 144: crm.v1.TimelineEventMetadata
+	(*TimelineEvent)(nil),                       // 145: crm.v1.TimelineEvent
+	(*GetContactTimelineRequest)(nil),           // 146: crm.v1.GetContactTimelineRequest
+	(*GetContactTimelineResponse)(nil),          // 147: crm.v1.GetContactTimelineResponse
+	(*ContactDeletionImpact)(nil),               // 148: crm.v1.ContactDeletionImpact
+	(*PreviewContactDeletionRequest)(nil),       // 149: crm.v1.PreviewContactDeletionRequest
+	(*PreviewContactDeletionResponse)(nil),      // 150: crm.v1.PreviewContactDeletionResponse
+	(*ConsentRecord)(nil),                       // 151: crm.v1.ConsentRecord
+	(*ConsentSummary)(nil),                      // 152: crm.v1.ConsentSummary
+	(*GetContactConsentsRequest)(nil),           // 153: crm.v1.GetContactConsentsRequest
+	(*GetContactConsentsResponse)(nil),          // 154: crm.v1.GetContactConsentsResponse
+	(*GrantConsentRequest)(nil),                 // 155: crm.v1.GrantConsentRequest
+	(*GrantConsentResponse)(nil),                // 156: crm.v1.GrantConsentResponse
+	(*RevokeConsentRequest)(nil),                // 157: crm.v1.RevokeConsentRequest
+	(*RevokeConsentResponse)(nil),               // 158: crm.v1.RevokeConsentResponse
+	(*GetConsentHistoryRequest)(nil),            // 159: crm.v1.GetConsentHistoryRequest
+	(*GetConsentHistoryResponse)(nil),           // 160: crm.v1.GetConsentHistoryResponse
+	(*GDPRDeletionRequest)(nil),                 // 161: crm.v1.GDPRDeletionRequest
+	(*RequestDeletionRequest)(nil),              // 162: crm.v1.RequestDeletionRequest
+	(*RequestDeletionResponse)(nil),             // 163: crm.v1.RequestDeletionResponse
+	(*ProcessDeletionRequest)(nil),              // 164: crm.v1.ProcessDeletionRequest
+	(*ProcessDeletionResponse)(nil),             // 165: crm.v1.ProcessDeletionResponse
+	(*AdvisoryProductProto)(nil),                // 166: crm.v1.AdvisoryProductProto
+	(*AdvisoryProtocolProto)(nil),               // 167: crm.v1.AdvisoryProtocolProto
+	(*CreateAdvisoryProtocolRequest)(nil),       // 168: crm.v1.CreateAdvisoryProtocolRequest
+	(*CreateAdvisoryProtocolResponse)(nil),      // 169: crm.v1.CreateAdvisoryProtocolResponse
+	(*GetAdvisoryProtocolRequest)(nil),          // 170: crm.v1.GetAdvisoryProtocolRequest
+	(*GetAdvisoryProtocolResponse)(nil),         // 171: crm.v1.GetAdvisoryProtocolResponse
+	(*ListAdvisoryProtocolsRequest)(nil),        // 172: crm.v1.ListAdvisoryProtocolsRequest
+	(*ListAdvisoryProtocolsResponse)(nil),       // 173: crm.v1.ListAdvisoryProtocolsResponse
+	(*UpdateAdvisoryProtocolRequest)(nil),       // 174: crm.v1.UpdateAdvisoryProtocolRequest
+	(*UpdateAdvisoryProtocolResponse)(nil),      // 175: crm.v1.UpdateAdvisoryProtocolResponse
+	(*DeleteAdvisoryProtocolRequest)(nil),       // 176: crm.v1.DeleteAdvisoryProtocolRequest
+	(*DeleteAdvisoryProtocolResponse)(nil),      // 177: crm.v1.DeleteAdvisoryProtocolResponse
+	(*HandOverAdvisoryProtocolRequest)(nil),     // 178: crm.v1.HandOverAdvisoryProtocolRequest
+	(*HandOverAdvisoryProtocolResponse)(nil),    // 179: crm.v1.HandOverAdvisoryProtocolResponse
+	(*GenerateAdvisoryProtocolPDFRequest)(nil),  // 180: crm.v1.GenerateAdvisoryProtocolPDFRequest
+	(*GenerateAdvisoryProtocolPDFResponse)(nil), // 181: crm.v1.GenerateAdvisoryProtocolPDFResponse
+	(*ReferralReportEntry)(nil),                 // 182: crm.v1.ReferralReportEntry
+	(*GetReferralReportRequest)(nil),            // 183: crm.v1.GetReferralReportRequest
+	(*GetReferralReportResponse)(nil),           // 184: crm.v1.GetReferralReportResponse
+	(*LeadInfo)(nil),                            // 185: crm.v1.LeadInfo
+	(*ListLeadsRequest)(nil),                    // 186: crm.v1.ListLeadsRequest
+	(*ListLeadsResponse)(nil),                   // 187: crm.v1.ListLeadsResponse
+	(*CreateLeadRequest)(nil),                   // 188: crm.v1.CreateLeadRequest
+	(*CreateLeadResponse)(nil),                  // 189: crm.v1.CreateLeadResponse
+	(*UpdateLeadRequest)(nil),                   // 190: crm.v1.UpdateLeadRequest
+	(*UpdateLeadResponse)(nil),                  // 191: crm.v1.UpdateLeadResponse
+	(*ConvertLeadRequest)(nil),                  // 192: crm.v1.ConvertLeadRequest
+	(*ConvertLeadResponse)(nil),                 // 193: crm.v1.ConvertLeadResponse
+	(*PromoteContactToLeadRequest)(nil),         // 194: crm.v1.PromoteContactToLeadRequest
+	(*PromoteContactToLeadResponse)(nil),        // 195: crm.v1.PromoteContactToLeadResponse
+	nil,                                         // 196: crm.v1.ContactInfo.CustomFieldsEntry
+	nil,                                         // 197: crm.v1.ImportContactsCSVRequest.FieldMappingEntry
+	nil,                                         // 198: crm.v1.ImportContactsXLSXRequest.FieldMappingEntry
+	nil,                                         // 199: crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
+	nil,                                         // 200: crm.v1.CompanyInfo.CustomFieldsEntry
+	nil,                                         // 201: crm.v1.DealInfo.CustomFieldsEntry
+	nil,                                         // 202: crm.v1.TimelineEventMetadata.DataEntry
+	nil,                                         // 203: crm.v1.ConsentSummary.ConsentsEntry
 }
 var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	0,   // 0: crm.v1.CreateCustomFieldResponse.custom_field:type_name -> crm.v1.CustomFieldInfo
@@ -13883,7 +14301,7 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	11,  // 6: crm.v1.ListTagsResponse.tags:type_name -> crm.v1.TagInfo
 	11,  // 7: crm.v1.UpdateTagResponse.tag:type_name -> crm.v1.TagInfo
 	11,  // 8: crm.v1.ContactInfo.tags:type_name -> crm.v1.TagInfo
-	188, // 9: crm.v1.ContactInfo.custom_fields:type_name -> crm.v1.ContactInfo.CustomFieldsEntry
+	196, // 9: crm.v1.ContactInfo.custom_fields:type_name -> crm.v1.ContactInfo.CustomFieldsEntry
 	22,  // 10: crm.v1.CreateContactRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	23,  // 11: crm.v1.CreateContactResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 12: crm.v1.GetContactResponse.contact:type_name -> crm.v1.ContactInfo
@@ -13892,14 +14310,14 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	23,  // 15: crm.v1.UpdateContactResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 16: crm.v1.AddContactTagsResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 17: crm.v1.RemoveContactTagsResponse.contact:type_name -> crm.v1.ContactInfo
-	189, // 18: crm.v1.ImportContactsCSVRequest.field_mapping:type_name -> crm.v1.ImportContactsCSVRequest.FieldMappingEntry
-	190, // 19: crm.v1.ImportContactsXLSXRequest.field_mapping:type_name -> crm.v1.ImportContactsXLSXRequest.FieldMappingEntry
+	197, // 18: crm.v1.ImportContactsCSVRequest.field_mapping:type_name -> crm.v1.ImportContactsCSVRequest.FieldMappingEntry
+	198, // 19: crm.v1.ImportContactsXLSXRequest.field_mapping:type_name -> crm.v1.ImportContactsXLSXRequest.FieldMappingEntry
 	42,  // 20: crm.v1.ImportContactsResponse.errors:type_name -> crm.v1.ImportContactError
 	48,  // 21: crm.v1.PreviewImportCSVResponse.sample_rows:type_name -> crm.v1.CSVSampleRow
-	191, // 22: crm.v1.PreviewImportCSVResponse.detected_mapping:type_name -> crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
+	199, // 22: crm.v1.PreviewImportCSVResponse.detected_mapping:type_name -> crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
 	23,  // 23: crm.v1.UpdateContactVisibilityResponse.contact:type_name -> crm.v1.ContactInfo
 	11,  // 24: crm.v1.CompanyInfo.tags:type_name -> crm.v1.TagInfo
-	192, // 25: crm.v1.CompanyInfo.custom_fields:type_name -> crm.v1.CompanyInfo.CustomFieldsEntry
+	200, // 25: crm.v1.CompanyInfo.custom_fields:type_name -> crm.v1.CompanyInfo.CustomFieldsEntry
 	22,  // 26: crm.v1.CreateCompanyRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	51,  // 27: crm.v1.CreateCompanyResponse.company:type_name -> crm.v1.CompanyInfo
 	51,  // 28: crm.v1.GetCompanyResponse.company:type_name -> crm.v1.CompanyInfo
@@ -13913,226 +14331,238 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	64,  // 36: crm.v1.UpdatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStageInfo
 	64,  // 37: crm.v1.ReorderPipelineStagesResponse.stages:type_name -> crm.v1.PipelineStageInfo
 	11,  // 38: crm.v1.DealInfo.tags:type_name -> crm.v1.TagInfo
-	193, // 39: crm.v1.DealInfo.custom_fields:type_name -> crm.v1.DealInfo.CustomFieldsEntry
+	201, // 39: crm.v1.DealInfo.custom_fields:type_name -> crm.v1.DealInfo.CustomFieldsEntry
 	22,  // 40: crm.v1.CreateDealRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	77,  // 41: crm.v1.CreateDealResponse.deal:type_name -> crm.v1.DealInfo
 	77,  // 42: crm.v1.GetDealResponse.deal:type_name -> crm.v1.DealInfo
 	77,  // 43: crm.v1.ListDealsResponse.deals:type_name -> crm.v1.DealInfo
 	22,  // 44: crm.v1.UpdateDealRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	77,  // 45: crm.v1.UpdateDealResponse.deal:type_name -> crm.v1.DealInfo
-	77,  // 46: crm.v1.MoveDealToStageResponse.deal:type_name -> crm.v1.DealInfo
-	90,  // 47: crm.v1.CreateActivityResponse.activity:type_name -> crm.v1.ActivityInfo
-	90,  // 48: crm.v1.GetActivityResponse.activity:type_name -> crm.v1.ActivityInfo
-	90,  // 49: crm.v1.ListActivitiesResponse.activities:type_name -> crm.v1.ActivityInfo
-	90,  // 50: crm.v1.UpdateActivityResponse.activity:type_name -> crm.v1.ActivityInfo
-	90,  // 51: crm.v1.CompleteActivityResponse.activity:type_name -> crm.v1.ActivityInfo
-	103, // 52: crm.v1.SearchResponse.results:type_name -> crm.v1.SearchResult
-	106, // 53: crm.v1.CreateSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
-	106, // 54: crm.v1.GetSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
-	106, // 55: crm.v1.ListSavedFiltersResponse.filters:type_name -> crm.v1.SavedFilterInfo
-	106, // 56: crm.v1.UpdateSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
-	117, // 57: crm.v1.GetPipelineReportResponse.stages:type_name -> crm.v1.PipelineStageValue
-	120, // 58: crm.v1.GetConversionReportResponse.metrics:type_name -> crm.v1.ConversionMetric
-	123, // 59: crm.v1.GetActivityReportResponse.metrics:type_name -> crm.v1.ActivityMetric
-	23,  // 60: crm.v1.DuplicateContactCandidate.contact:type_name -> crm.v1.ContactInfo
-	126, // 61: crm.v1.FindContactDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateContactCandidate
-	23,  // 62: crm.v1.MergeContactsResponse.contact:type_name -> crm.v1.ContactInfo
-	51,  // 63: crm.v1.DuplicateCompanyCandidate.company:type_name -> crm.v1.CompanyInfo
-	131, // 64: crm.v1.FindCompanyDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateCompanyCandidate
-	51,  // 65: crm.v1.MergeCompaniesResponse.company:type_name -> crm.v1.CompanyInfo
-	194, // 66: crm.v1.TimelineEventMetadata.data:type_name -> crm.v1.TimelineEventMetadata.DataEntry
-	136, // 67: crm.v1.TimelineEvent.metadata:type_name -> crm.v1.TimelineEventMetadata
-	137, // 68: crm.v1.GetContactTimelineResponse.events:type_name -> crm.v1.TimelineEvent
-	140, // 69: crm.v1.PreviewContactDeletionResponse.impacts:type_name -> crm.v1.ContactDeletionImpact
-	195, // 70: crm.v1.ConsentSummary.consents:type_name -> crm.v1.ConsentSummary.ConsentsEntry
-	144, // 71: crm.v1.GetContactConsentsResponse.summary:type_name -> crm.v1.ConsentSummary
-	143, // 72: crm.v1.GrantConsentResponse.record:type_name -> crm.v1.ConsentRecord
-	143, // 73: crm.v1.RevokeConsentResponse.record:type_name -> crm.v1.ConsentRecord
-	143, // 74: crm.v1.GetConsentHistoryResponse.history:type_name -> crm.v1.ConsentRecord
-	153, // 75: crm.v1.RequestDeletionResponse.deletion_request:type_name -> crm.v1.GDPRDeletionRequest
-	158, // 76: crm.v1.AdvisoryProtocolProto.products:type_name -> crm.v1.AdvisoryProductProto
-	159, // 77: crm.v1.CreateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	159, // 78: crm.v1.GetAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	159, // 79: crm.v1.ListAdvisoryProtocolsResponse.protocols:type_name -> crm.v1.AdvisoryProtocolProto
-	159, // 80: crm.v1.UpdateAdvisoryProtocolRequest.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	159, // 81: crm.v1.UpdateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	159, // 82: crm.v1.HandOverAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	174, // 83: crm.v1.GetReferralReportResponse.entries:type_name -> crm.v1.ReferralReportEntry
-	177, // 84: crm.v1.ListLeadsResponse.leads:type_name -> crm.v1.LeadInfo
-	177, // 85: crm.v1.CreateLeadResponse.lead:type_name -> crm.v1.LeadInfo
-	177, // 86: crm.v1.UpdateLeadResponse.lead:type_name -> crm.v1.LeadInfo
-	177, // 87: crm.v1.ConvertLeadResponse.lead:type_name -> crm.v1.LeadInfo
-	177, // 88: crm.v1.PromoteContactToLeadResponse.lead:type_name -> crm.v1.LeadInfo
-	143, // 89: crm.v1.ConsentSummary.ConsentsEntry.value:type_name -> crm.v1.ConsentRecord
-	1,   // 90: crm.v1.CRMService.CreateCustomField:input_type -> crm.v1.CreateCustomFieldRequest
-	3,   // 91: crm.v1.CRMService.GetCustomField:input_type -> crm.v1.GetCustomFieldRequest
-	5,   // 92: crm.v1.CRMService.ListCustomFields:input_type -> crm.v1.ListCustomFieldsRequest
-	7,   // 93: crm.v1.CRMService.UpdateCustomField:input_type -> crm.v1.UpdateCustomFieldRequest
-	9,   // 94: crm.v1.CRMService.DeleteCustomField:input_type -> crm.v1.DeleteCustomFieldRequest
-	12,  // 95: crm.v1.CRMService.CreateTag:input_type -> crm.v1.CreateTagRequest
-	14,  // 96: crm.v1.CRMService.GetTag:input_type -> crm.v1.GetTagRequest
-	16,  // 97: crm.v1.CRMService.ListTags:input_type -> crm.v1.ListTagsRequest
-	18,  // 98: crm.v1.CRMService.UpdateTag:input_type -> crm.v1.UpdateTagRequest
-	20,  // 99: crm.v1.CRMService.DeleteTag:input_type -> crm.v1.DeleteTagRequest
-	24,  // 100: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
-	26,  // 101: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
-	28,  // 102: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
-	30,  // 103: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
-	32,  // 104: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
-	34,  // 105: crm.v1.CRMService.AddContactTags:input_type -> crm.v1.AddContactTagsRequest
-	36,  // 106: crm.v1.CRMService.RemoveContactTags:input_type -> crm.v1.RemoveContactTagsRequest
-	38,  // 107: crm.v1.CRMService.ImportContactsCSV:input_type -> crm.v1.ImportContactsCSVRequest
-	39,  // 108: crm.v1.CRMService.ImportContactsVCard:input_type -> crm.v1.ImportContactsVCardRequest
-	40,  // 109: crm.v1.CRMService.ImportContactsXLSX:input_type -> crm.v1.ImportContactsXLSXRequest
-	43,  // 110: crm.v1.CRMService.ExportContactsCSV:input_type -> crm.v1.ExportContactsCSVRequest
-	44,  // 111: crm.v1.CRMService.ExportContactsVCard:input_type -> crm.v1.ExportContactsVCardRequest
-	46,  // 112: crm.v1.CRMService.PreviewImportCSV:input_type -> crm.v1.PreviewImportCSVRequest
-	49,  // 113: crm.v1.CRMService.UpdateContactVisibility:input_type -> crm.v1.UpdateContactVisibilityRequest
-	52,  // 114: crm.v1.CRMService.CreateCompany:input_type -> crm.v1.CreateCompanyRequest
-	54,  // 115: crm.v1.CRMService.GetCompany:input_type -> crm.v1.GetCompanyRequest
-	56,  // 116: crm.v1.CRMService.ListCompanies:input_type -> crm.v1.ListCompaniesRequest
-	58,  // 117: crm.v1.CRMService.UpdateCompany:input_type -> crm.v1.UpdateCompanyRequest
-	60,  // 118: crm.v1.CRMService.DeleteCompany:input_type -> crm.v1.DeleteCompanyRequest
-	62,  // 119: crm.v1.CRMService.GetCompanyContacts:input_type -> crm.v1.GetCompanyContactsRequest
-	65,  // 120: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
-	67,  // 121: crm.v1.CRMService.GetPipelineStage:input_type -> crm.v1.GetPipelineStageRequest
-	69,  // 122: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
-	71,  // 123: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
-	73,  // 124: crm.v1.CRMService.DeletePipelineStage:input_type -> crm.v1.DeletePipelineStageRequest
-	75,  // 125: crm.v1.CRMService.ReorderPipelineStages:input_type -> crm.v1.ReorderPipelineStagesRequest
-	78,  // 126: crm.v1.CRMService.CreateDeal:input_type -> crm.v1.CreateDealRequest
-	80,  // 127: crm.v1.CRMService.GetDeal:input_type -> crm.v1.GetDealRequest
-	82,  // 128: crm.v1.CRMService.ListDeals:input_type -> crm.v1.ListDealsRequest
-	84,  // 129: crm.v1.CRMService.UpdateDeal:input_type -> crm.v1.UpdateDealRequest
-	86,  // 130: crm.v1.CRMService.DeleteDeal:input_type -> crm.v1.DeleteDealRequest
-	88,  // 131: crm.v1.CRMService.MoveDealToStage:input_type -> crm.v1.MoveDealToStageRequest
-	91,  // 132: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
-	93,  // 133: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
-	95,  // 134: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
-	97,  // 135: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
-	99,  // 136: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
-	101, // 137: crm.v1.CRMService.CompleteActivity:input_type -> crm.v1.CompleteActivityRequest
-	104, // 138: crm.v1.CRMService.Search:input_type -> crm.v1.SearchRequest
-	107, // 139: crm.v1.CRMService.CreateSavedFilter:input_type -> crm.v1.CreateSavedFilterRequest
-	109, // 140: crm.v1.CRMService.GetSavedFilter:input_type -> crm.v1.GetSavedFilterRequest
-	111, // 141: crm.v1.CRMService.ListSavedFilters:input_type -> crm.v1.ListSavedFiltersRequest
-	113, // 142: crm.v1.CRMService.UpdateSavedFilter:input_type -> crm.v1.UpdateSavedFilterRequest
-	115, // 143: crm.v1.CRMService.DeleteSavedFilter:input_type -> crm.v1.DeleteSavedFilterRequest
-	118, // 144: crm.v1.CRMService.GetPipelineReport:input_type -> crm.v1.GetPipelineReportRequest
-	121, // 145: crm.v1.CRMService.GetConversionReport:input_type -> crm.v1.GetConversionReportRequest
-	124, // 146: crm.v1.CRMService.GetActivityReport:input_type -> crm.v1.GetActivityReportRequest
-	127, // 147: crm.v1.CRMService.FindContactDuplicates:input_type -> crm.v1.FindContactDuplicatesRequest
-	129, // 148: crm.v1.CRMService.MergeContacts:input_type -> crm.v1.MergeContactsRequest
-	132, // 149: crm.v1.CRMService.FindCompanyDuplicates:input_type -> crm.v1.FindCompanyDuplicatesRequest
-	134, // 150: crm.v1.CRMService.MergeCompanies:input_type -> crm.v1.MergeCompaniesRequest
-	138, // 151: crm.v1.CRMService.GetContactTimeline:input_type -> crm.v1.GetContactTimelineRequest
-	141, // 152: crm.v1.CRMService.PreviewContactDeletion:input_type -> crm.v1.PreviewContactDeletionRequest
-	145, // 153: crm.v1.CRMService.GetContactConsents:input_type -> crm.v1.GetContactConsentsRequest
-	147, // 154: crm.v1.CRMService.GrantConsent:input_type -> crm.v1.GrantConsentRequest
-	149, // 155: crm.v1.CRMService.RevokeConsent:input_type -> crm.v1.RevokeConsentRequest
-	151, // 156: crm.v1.CRMService.GetConsentHistory:input_type -> crm.v1.GetConsentHistoryRequest
-	154, // 157: crm.v1.CRMService.RequestDeletion:input_type -> crm.v1.RequestDeletionRequest
-	156, // 158: crm.v1.CRMService.ProcessDeletion:input_type -> crm.v1.ProcessDeletionRequest
-	160, // 159: crm.v1.CRMService.CreateAdvisoryProtocol:input_type -> crm.v1.CreateAdvisoryProtocolRequest
-	162, // 160: crm.v1.CRMService.GetAdvisoryProtocol:input_type -> crm.v1.GetAdvisoryProtocolRequest
-	164, // 161: crm.v1.CRMService.ListAdvisoryProtocols:input_type -> crm.v1.ListAdvisoryProtocolsRequest
-	166, // 162: crm.v1.CRMService.UpdateAdvisoryProtocol:input_type -> crm.v1.UpdateAdvisoryProtocolRequest
-	168, // 163: crm.v1.CRMService.DeleteAdvisoryProtocol:input_type -> crm.v1.DeleteAdvisoryProtocolRequest
-	170, // 164: crm.v1.CRMService.HandOverAdvisoryProtocol:input_type -> crm.v1.HandOverAdvisoryProtocolRequest
-	172, // 165: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:input_type -> crm.v1.GenerateAdvisoryProtocolPDFRequest
-	175, // 166: crm.v1.CRMService.GetReferralReport:input_type -> crm.v1.GetReferralReportRequest
-	178, // 167: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
-	180, // 168: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
-	182, // 169: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
-	184, // 170: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
-	186, // 171: crm.v1.CRMService.PromoteContactToLead:input_type -> crm.v1.PromoteContactToLeadRequest
-	2,   // 172: crm.v1.CRMService.CreateCustomField:output_type -> crm.v1.CreateCustomFieldResponse
-	4,   // 173: crm.v1.CRMService.GetCustomField:output_type -> crm.v1.GetCustomFieldResponse
-	6,   // 174: crm.v1.CRMService.ListCustomFields:output_type -> crm.v1.ListCustomFieldsResponse
-	8,   // 175: crm.v1.CRMService.UpdateCustomField:output_type -> crm.v1.UpdateCustomFieldResponse
-	10,  // 176: crm.v1.CRMService.DeleteCustomField:output_type -> crm.v1.DeleteCustomFieldResponse
-	13,  // 177: crm.v1.CRMService.CreateTag:output_type -> crm.v1.CreateTagResponse
-	15,  // 178: crm.v1.CRMService.GetTag:output_type -> crm.v1.GetTagResponse
-	17,  // 179: crm.v1.CRMService.ListTags:output_type -> crm.v1.ListTagsResponse
-	19,  // 180: crm.v1.CRMService.UpdateTag:output_type -> crm.v1.UpdateTagResponse
-	21,  // 181: crm.v1.CRMService.DeleteTag:output_type -> crm.v1.DeleteTagResponse
-	25,  // 182: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
-	27,  // 183: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
-	29,  // 184: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
-	31,  // 185: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
-	33,  // 186: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
-	35,  // 187: crm.v1.CRMService.AddContactTags:output_type -> crm.v1.AddContactTagsResponse
-	37,  // 188: crm.v1.CRMService.RemoveContactTags:output_type -> crm.v1.RemoveContactTagsResponse
-	41,  // 189: crm.v1.CRMService.ImportContactsCSV:output_type -> crm.v1.ImportContactsResponse
-	41,  // 190: crm.v1.CRMService.ImportContactsVCard:output_type -> crm.v1.ImportContactsResponse
-	41,  // 191: crm.v1.CRMService.ImportContactsXLSX:output_type -> crm.v1.ImportContactsResponse
-	45,  // 192: crm.v1.CRMService.ExportContactsCSV:output_type -> crm.v1.ExportContactsResponse
-	45,  // 193: crm.v1.CRMService.ExportContactsVCard:output_type -> crm.v1.ExportContactsResponse
-	47,  // 194: crm.v1.CRMService.PreviewImportCSV:output_type -> crm.v1.PreviewImportCSVResponse
-	50,  // 195: crm.v1.CRMService.UpdateContactVisibility:output_type -> crm.v1.UpdateContactVisibilityResponse
-	53,  // 196: crm.v1.CRMService.CreateCompany:output_type -> crm.v1.CreateCompanyResponse
-	55,  // 197: crm.v1.CRMService.GetCompany:output_type -> crm.v1.GetCompanyResponse
-	57,  // 198: crm.v1.CRMService.ListCompanies:output_type -> crm.v1.ListCompaniesResponse
-	59,  // 199: crm.v1.CRMService.UpdateCompany:output_type -> crm.v1.UpdateCompanyResponse
-	61,  // 200: crm.v1.CRMService.DeleteCompany:output_type -> crm.v1.DeleteCompanyResponse
-	63,  // 201: crm.v1.CRMService.GetCompanyContacts:output_type -> crm.v1.GetCompanyContactsResponse
-	66,  // 202: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
-	68,  // 203: crm.v1.CRMService.GetPipelineStage:output_type -> crm.v1.GetPipelineStageResponse
-	70,  // 204: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
-	72,  // 205: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
-	74,  // 206: crm.v1.CRMService.DeletePipelineStage:output_type -> crm.v1.DeletePipelineStageResponse
-	76,  // 207: crm.v1.CRMService.ReorderPipelineStages:output_type -> crm.v1.ReorderPipelineStagesResponse
-	79,  // 208: crm.v1.CRMService.CreateDeal:output_type -> crm.v1.CreateDealResponse
-	81,  // 209: crm.v1.CRMService.GetDeal:output_type -> crm.v1.GetDealResponse
-	83,  // 210: crm.v1.CRMService.ListDeals:output_type -> crm.v1.ListDealsResponse
-	85,  // 211: crm.v1.CRMService.UpdateDeal:output_type -> crm.v1.UpdateDealResponse
-	87,  // 212: crm.v1.CRMService.DeleteDeal:output_type -> crm.v1.DeleteDealResponse
-	89,  // 213: crm.v1.CRMService.MoveDealToStage:output_type -> crm.v1.MoveDealToStageResponse
-	92,  // 214: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
-	94,  // 215: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
-	96,  // 216: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
-	98,  // 217: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
-	100, // 218: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
-	102, // 219: crm.v1.CRMService.CompleteActivity:output_type -> crm.v1.CompleteActivityResponse
-	105, // 220: crm.v1.CRMService.Search:output_type -> crm.v1.SearchResponse
-	108, // 221: crm.v1.CRMService.CreateSavedFilter:output_type -> crm.v1.CreateSavedFilterResponse
-	110, // 222: crm.v1.CRMService.GetSavedFilter:output_type -> crm.v1.GetSavedFilterResponse
-	112, // 223: crm.v1.CRMService.ListSavedFilters:output_type -> crm.v1.ListSavedFiltersResponse
-	114, // 224: crm.v1.CRMService.UpdateSavedFilter:output_type -> crm.v1.UpdateSavedFilterResponse
-	116, // 225: crm.v1.CRMService.DeleteSavedFilter:output_type -> crm.v1.DeleteSavedFilterResponse
-	119, // 226: crm.v1.CRMService.GetPipelineReport:output_type -> crm.v1.GetPipelineReportResponse
-	122, // 227: crm.v1.CRMService.GetConversionReport:output_type -> crm.v1.GetConversionReportResponse
-	125, // 228: crm.v1.CRMService.GetActivityReport:output_type -> crm.v1.GetActivityReportResponse
-	128, // 229: crm.v1.CRMService.FindContactDuplicates:output_type -> crm.v1.FindContactDuplicatesResponse
-	130, // 230: crm.v1.CRMService.MergeContacts:output_type -> crm.v1.MergeContactsResponse
-	133, // 231: crm.v1.CRMService.FindCompanyDuplicates:output_type -> crm.v1.FindCompanyDuplicatesResponse
-	135, // 232: crm.v1.CRMService.MergeCompanies:output_type -> crm.v1.MergeCompaniesResponse
-	139, // 233: crm.v1.CRMService.GetContactTimeline:output_type -> crm.v1.GetContactTimelineResponse
-	142, // 234: crm.v1.CRMService.PreviewContactDeletion:output_type -> crm.v1.PreviewContactDeletionResponse
-	146, // 235: crm.v1.CRMService.GetContactConsents:output_type -> crm.v1.GetContactConsentsResponse
-	148, // 236: crm.v1.CRMService.GrantConsent:output_type -> crm.v1.GrantConsentResponse
-	150, // 237: crm.v1.CRMService.RevokeConsent:output_type -> crm.v1.RevokeConsentResponse
-	152, // 238: crm.v1.CRMService.GetConsentHistory:output_type -> crm.v1.GetConsentHistoryResponse
-	155, // 239: crm.v1.CRMService.RequestDeletion:output_type -> crm.v1.RequestDeletionResponse
-	157, // 240: crm.v1.CRMService.ProcessDeletion:output_type -> crm.v1.ProcessDeletionResponse
-	161, // 241: crm.v1.CRMService.CreateAdvisoryProtocol:output_type -> crm.v1.CreateAdvisoryProtocolResponse
-	163, // 242: crm.v1.CRMService.GetAdvisoryProtocol:output_type -> crm.v1.GetAdvisoryProtocolResponse
-	165, // 243: crm.v1.CRMService.ListAdvisoryProtocols:output_type -> crm.v1.ListAdvisoryProtocolsResponse
-	167, // 244: crm.v1.CRMService.UpdateAdvisoryProtocol:output_type -> crm.v1.UpdateAdvisoryProtocolResponse
-	169, // 245: crm.v1.CRMService.DeleteAdvisoryProtocol:output_type -> crm.v1.DeleteAdvisoryProtocolResponse
-	171, // 246: crm.v1.CRMService.HandOverAdvisoryProtocol:output_type -> crm.v1.HandOverAdvisoryProtocolResponse
-	173, // 247: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:output_type -> crm.v1.GenerateAdvisoryProtocolPDFResponse
-	176, // 248: crm.v1.CRMService.GetReferralReport:output_type -> crm.v1.GetReferralReportResponse
-	179, // 249: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
-	181, // 250: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
-	183, // 251: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
-	185, // 252: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
-	187, // 253: crm.v1.CRMService.PromoteContactToLead:output_type -> crm.v1.PromoteContactToLeadResponse
-	172, // [172:254] is the sub-list for method output_type
-	90,  // [90:172] is the sub-list for method input_type
-	90,  // [90:90] is the sub-list for extension type_name
-	90,  // [90:90] is the sub-list for extension extendee
-	0,   // [0:90] is the sub-list for field type_name
+	77,  // 46: crm.v1.AddDealTagsResponse.deal:type_name -> crm.v1.DealInfo
+	77,  // 47: crm.v1.RemoveDealTagsResponse.deal:type_name -> crm.v1.DealInfo
+	77,  // 48: crm.v1.MoveDealToStageResponse.deal:type_name -> crm.v1.DealInfo
+	94,  // 49: crm.v1.CreateActivityResponse.activity:type_name -> crm.v1.ActivityInfo
+	94,  // 50: crm.v1.GetActivityResponse.activity:type_name -> crm.v1.ActivityInfo
+	94,  // 51: crm.v1.ListActivitiesResponse.activities:type_name -> crm.v1.ActivityInfo
+	94,  // 52: crm.v1.UpdateActivityResponse.activity:type_name -> crm.v1.ActivityInfo
+	94,  // 53: crm.v1.CompleteActivityResponse.activity:type_name -> crm.v1.ActivityInfo
+	94,  // 54: crm.v1.AddActivityTagsResponse.activity:type_name -> crm.v1.ActivityInfo
+	94,  // 55: crm.v1.RemoveActivityTagsResponse.activity:type_name -> crm.v1.ActivityInfo
+	111, // 56: crm.v1.SearchResponse.results:type_name -> crm.v1.SearchResult
+	114, // 57: crm.v1.CreateSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
+	114, // 58: crm.v1.GetSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
+	114, // 59: crm.v1.ListSavedFiltersResponse.filters:type_name -> crm.v1.SavedFilterInfo
+	114, // 60: crm.v1.UpdateSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
+	125, // 61: crm.v1.GetPipelineReportResponse.stages:type_name -> crm.v1.PipelineStageValue
+	128, // 62: crm.v1.GetConversionReportResponse.metrics:type_name -> crm.v1.ConversionMetric
+	131, // 63: crm.v1.GetActivityReportResponse.metrics:type_name -> crm.v1.ActivityMetric
+	23,  // 64: crm.v1.DuplicateContactCandidate.contact:type_name -> crm.v1.ContactInfo
+	134, // 65: crm.v1.FindContactDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateContactCandidate
+	23,  // 66: crm.v1.MergeContactsResponse.contact:type_name -> crm.v1.ContactInfo
+	51,  // 67: crm.v1.DuplicateCompanyCandidate.company:type_name -> crm.v1.CompanyInfo
+	139, // 68: crm.v1.FindCompanyDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateCompanyCandidate
+	51,  // 69: crm.v1.MergeCompaniesResponse.company:type_name -> crm.v1.CompanyInfo
+	202, // 70: crm.v1.TimelineEventMetadata.data:type_name -> crm.v1.TimelineEventMetadata.DataEntry
+	144, // 71: crm.v1.TimelineEvent.metadata:type_name -> crm.v1.TimelineEventMetadata
+	145, // 72: crm.v1.GetContactTimelineResponse.events:type_name -> crm.v1.TimelineEvent
+	148, // 73: crm.v1.PreviewContactDeletionResponse.impacts:type_name -> crm.v1.ContactDeletionImpact
+	203, // 74: crm.v1.ConsentSummary.consents:type_name -> crm.v1.ConsentSummary.ConsentsEntry
+	152, // 75: crm.v1.GetContactConsentsResponse.summary:type_name -> crm.v1.ConsentSummary
+	151, // 76: crm.v1.GrantConsentResponse.record:type_name -> crm.v1.ConsentRecord
+	151, // 77: crm.v1.RevokeConsentResponse.record:type_name -> crm.v1.ConsentRecord
+	151, // 78: crm.v1.GetConsentHistoryResponse.history:type_name -> crm.v1.ConsentRecord
+	161, // 79: crm.v1.RequestDeletionResponse.deletion_request:type_name -> crm.v1.GDPRDeletionRequest
+	166, // 80: crm.v1.AdvisoryProtocolProto.products:type_name -> crm.v1.AdvisoryProductProto
+	167, // 81: crm.v1.CreateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	167, // 82: crm.v1.GetAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	167, // 83: crm.v1.ListAdvisoryProtocolsResponse.protocols:type_name -> crm.v1.AdvisoryProtocolProto
+	167, // 84: crm.v1.UpdateAdvisoryProtocolRequest.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	167, // 85: crm.v1.UpdateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	167, // 86: crm.v1.HandOverAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	182, // 87: crm.v1.GetReferralReportResponse.entries:type_name -> crm.v1.ReferralReportEntry
+	185, // 88: crm.v1.ListLeadsResponse.leads:type_name -> crm.v1.LeadInfo
+	185, // 89: crm.v1.CreateLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	185, // 90: crm.v1.UpdateLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	185, // 91: crm.v1.ConvertLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	185, // 92: crm.v1.PromoteContactToLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	151, // 93: crm.v1.ConsentSummary.ConsentsEntry.value:type_name -> crm.v1.ConsentRecord
+	1,   // 94: crm.v1.CRMService.CreateCustomField:input_type -> crm.v1.CreateCustomFieldRequest
+	3,   // 95: crm.v1.CRMService.GetCustomField:input_type -> crm.v1.GetCustomFieldRequest
+	5,   // 96: crm.v1.CRMService.ListCustomFields:input_type -> crm.v1.ListCustomFieldsRequest
+	7,   // 97: crm.v1.CRMService.UpdateCustomField:input_type -> crm.v1.UpdateCustomFieldRequest
+	9,   // 98: crm.v1.CRMService.DeleteCustomField:input_type -> crm.v1.DeleteCustomFieldRequest
+	12,  // 99: crm.v1.CRMService.CreateTag:input_type -> crm.v1.CreateTagRequest
+	14,  // 100: crm.v1.CRMService.GetTag:input_type -> crm.v1.GetTagRequest
+	16,  // 101: crm.v1.CRMService.ListTags:input_type -> crm.v1.ListTagsRequest
+	18,  // 102: crm.v1.CRMService.UpdateTag:input_type -> crm.v1.UpdateTagRequest
+	20,  // 103: crm.v1.CRMService.DeleteTag:input_type -> crm.v1.DeleteTagRequest
+	24,  // 104: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
+	26,  // 105: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
+	28,  // 106: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
+	30,  // 107: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
+	32,  // 108: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
+	34,  // 109: crm.v1.CRMService.AddContactTags:input_type -> crm.v1.AddContactTagsRequest
+	36,  // 110: crm.v1.CRMService.RemoveContactTags:input_type -> crm.v1.RemoveContactTagsRequest
+	38,  // 111: crm.v1.CRMService.ImportContactsCSV:input_type -> crm.v1.ImportContactsCSVRequest
+	39,  // 112: crm.v1.CRMService.ImportContactsVCard:input_type -> crm.v1.ImportContactsVCardRequest
+	40,  // 113: crm.v1.CRMService.ImportContactsXLSX:input_type -> crm.v1.ImportContactsXLSXRequest
+	43,  // 114: crm.v1.CRMService.ExportContactsCSV:input_type -> crm.v1.ExportContactsCSVRequest
+	44,  // 115: crm.v1.CRMService.ExportContactsVCard:input_type -> crm.v1.ExportContactsVCardRequest
+	46,  // 116: crm.v1.CRMService.PreviewImportCSV:input_type -> crm.v1.PreviewImportCSVRequest
+	49,  // 117: crm.v1.CRMService.UpdateContactVisibility:input_type -> crm.v1.UpdateContactVisibilityRequest
+	52,  // 118: crm.v1.CRMService.CreateCompany:input_type -> crm.v1.CreateCompanyRequest
+	54,  // 119: crm.v1.CRMService.GetCompany:input_type -> crm.v1.GetCompanyRequest
+	56,  // 120: crm.v1.CRMService.ListCompanies:input_type -> crm.v1.ListCompaniesRequest
+	58,  // 121: crm.v1.CRMService.UpdateCompany:input_type -> crm.v1.UpdateCompanyRequest
+	60,  // 122: crm.v1.CRMService.DeleteCompany:input_type -> crm.v1.DeleteCompanyRequest
+	62,  // 123: crm.v1.CRMService.GetCompanyContacts:input_type -> crm.v1.GetCompanyContactsRequest
+	65,  // 124: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
+	67,  // 125: crm.v1.CRMService.GetPipelineStage:input_type -> crm.v1.GetPipelineStageRequest
+	69,  // 126: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
+	71,  // 127: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
+	73,  // 128: crm.v1.CRMService.DeletePipelineStage:input_type -> crm.v1.DeletePipelineStageRequest
+	75,  // 129: crm.v1.CRMService.ReorderPipelineStages:input_type -> crm.v1.ReorderPipelineStagesRequest
+	78,  // 130: crm.v1.CRMService.CreateDeal:input_type -> crm.v1.CreateDealRequest
+	80,  // 131: crm.v1.CRMService.GetDeal:input_type -> crm.v1.GetDealRequest
+	82,  // 132: crm.v1.CRMService.ListDeals:input_type -> crm.v1.ListDealsRequest
+	84,  // 133: crm.v1.CRMService.UpdateDeal:input_type -> crm.v1.UpdateDealRequest
+	90,  // 134: crm.v1.CRMService.DeleteDeal:input_type -> crm.v1.DeleteDealRequest
+	92,  // 135: crm.v1.CRMService.MoveDealToStage:input_type -> crm.v1.MoveDealToStageRequest
+	86,  // 136: crm.v1.CRMService.AddDealTags:input_type -> crm.v1.AddDealTagsRequest
+	88,  // 137: crm.v1.CRMService.RemoveDealTags:input_type -> crm.v1.RemoveDealTagsRequest
+	95,  // 138: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
+	97,  // 139: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
+	99,  // 140: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
+	101, // 141: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
+	103, // 142: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
+	105, // 143: crm.v1.CRMService.CompleteActivity:input_type -> crm.v1.CompleteActivityRequest
+	107, // 144: crm.v1.CRMService.AddActivityTags:input_type -> crm.v1.AddActivityTagsRequest
+	109, // 145: crm.v1.CRMService.RemoveActivityTags:input_type -> crm.v1.RemoveActivityTagsRequest
+	112, // 146: crm.v1.CRMService.Search:input_type -> crm.v1.SearchRequest
+	115, // 147: crm.v1.CRMService.CreateSavedFilter:input_type -> crm.v1.CreateSavedFilterRequest
+	117, // 148: crm.v1.CRMService.GetSavedFilter:input_type -> crm.v1.GetSavedFilterRequest
+	119, // 149: crm.v1.CRMService.ListSavedFilters:input_type -> crm.v1.ListSavedFiltersRequest
+	121, // 150: crm.v1.CRMService.UpdateSavedFilter:input_type -> crm.v1.UpdateSavedFilterRequest
+	123, // 151: crm.v1.CRMService.DeleteSavedFilter:input_type -> crm.v1.DeleteSavedFilterRequest
+	126, // 152: crm.v1.CRMService.GetPipelineReport:input_type -> crm.v1.GetPipelineReportRequest
+	129, // 153: crm.v1.CRMService.GetConversionReport:input_type -> crm.v1.GetConversionReportRequest
+	132, // 154: crm.v1.CRMService.GetActivityReport:input_type -> crm.v1.GetActivityReportRequest
+	135, // 155: crm.v1.CRMService.FindContactDuplicates:input_type -> crm.v1.FindContactDuplicatesRequest
+	137, // 156: crm.v1.CRMService.MergeContacts:input_type -> crm.v1.MergeContactsRequest
+	140, // 157: crm.v1.CRMService.FindCompanyDuplicates:input_type -> crm.v1.FindCompanyDuplicatesRequest
+	142, // 158: crm.v1.CRMService.MergeCompanies:input_type -> crm.v1.MergeCompaniesRequest
+	146, // 159: crm.v1.CRMService.GetContactTimeline:input_type -> crm.v1.GetContactTimelineRequest
+	149, // 160: crm.v1.CRMService.PreviewContactDeletion:input_type -> crm.v1.PreviewContactDeletionRequest
+	153, // 161: crm.v1.CRMService.GetContactConsents:input_type -> crm.v1.GetContactConsentsRequest
+	155, // 162: crm.v1.CRMService.GrantConsent:input_type -> crm.v1.GrantConsentRequest
+	157, // 163: crm.v1.CRMService.RevokeConsent:input_type -> crm.v1.RevokeConsentRequest
+	159, // 164: crm.v1.CRMService.GetConsentHistory:input_type -> crm.v1.GetConsentHistoryRequest
+	162, // 165: crm.v1.CRMService.RequestDeletion:input_type -> crm.v1.RequestDeletionRequest
+	164, // 166: crm.v1.CRMService.ProcessDeletion:input_type -> crm.v1.ProcessDeletionRequest
+	168, // 167: crm.v1.CRMService.CreateAdvisoryProtocol:input_type -> crm.v1.CreateAdvisoryProtocolRequest
+	170, // 168: crm.v1.CRMService.GetAdvisoryProtocol:input_type -> crm.v1.GetAdvisoryProtocolRequest
+	172, // 169: crm.v1.CRMService.ListAdvisoryProtocols:input_type -> crm.v1.ListAdvisoryProtocolsRequest
+	174, // 170: crm.v1.CRMService.UpdateAdvisoryProtocol:input_type -> crm.v1.UpdateAdvisoryProtocolRequest
+	176, // 171: crm.v1.CRMService.DeleteAdvisoryProtocol:input_type -> crm.v1.DeleteAdvisoryProtocolRequest
+	178, // 172: crm.v1.CRMService.HandOverAdvisoryProtocol:input_type -> crm.v1.HandOverAdvisoryProtocolRequest
+	180, // 173: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:input_type -> crm.v1.GenerateAdvisoryProtocolPDFRequest
+	183, // 174: crm.v1.CRMService.GetReferralReport:input_type -> crm.v1.GetReferralReportRequest
+	186, // 175: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
+	188, // 176: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
+	190, // 177: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
+	192, // 178: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
+	194, // 179: crm.v1.CRMService.PromoteContactToLead:input_type -> crm.v1.PromoteContactToLeadRequest
+	2,   // 180: crm.v1.CRMService.CreateCustomField:output_type -> crm.v1.CreateCustomFieldResponse
+	4,   // 181: crm.v1.CRMService.GetCustomField:output_type -> crm.v1.GetCustomFieldResponse
+	6,   // 182: crm.v1.CRMService.ListCustomFields:output_type -> crm.v1.ListCustomFieldsResponse
+	8,   // 183: crm.v1.CRMService.UpdateCustomField:output_type -> crm.v1.UpdateCustomFieldResponse
+	10,  // 184: crm.v1.CRMService.DeleteCustomField:output_type -> crm.v1.DeleteCustomFieldResponse
+	13,  // 185: crm.v1.CRMService.CreateTag:output_type -> crm.v1.CreateTagResponse
+	15,  // 186: crm.v1.CRMService.GetTag:output_type -> crm.v1.GetTagResponse
+	17,  // 187: crm.v1.CRMService.ListTags:output_type -> crm.v1.ListTagsResponse
+	19,  // 188: crm.v1.CRMService.UpdateTag:output_type -> crm.v1.UpdateTagResponse
+	21,  // 189: crm.v1.CRMService.DeleteTag:output_type -> crm.v1.DeleteTagResponse
+	25,  // 190: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
+	27,  // 191: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
+	29,  // 192: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
+	31,  // 193: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
+	33,  // 194: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
+	35,  // 195: crm.v1.CRMService.AddContactTags:output_type -> crm.v1.AddContactTagsResponse
+	37,  // 196: crm.v1.CRMService.RemoveContactTags:output_type -> crm.v1.RemoveContactTagsResponse
+	41,  // 197: crm.v1.CRMService.ImportContactsCSV:output_type -> crm.v1.ImportContactsResponse
+	41,  // 198: crm.v1.CRMService.ImportContactsVCard:output_type -> crm.v1.ImportContactsResponse
+	41,  // 199: crm.v1.CRMService.ImportContactsXLSX:output_type -> crm.v1.ImportContactsResponse
+	45,  // 200: crm.v1.CRMService.ExportContactsCSV:output_type -> crm.v1.ExportContactsResponse
+	45,  // 201: crm.v1.CRMService.ExportContactsVCard:output_type -> crm.v1.ExportContactsResponse
+	47,  // 202: crm.v1.CRMService.PreviewImportCSV:output_type -> crm.v1.PreviewImportCSVResponse
+	50,  // 203: crm.v1.CRMService.UpdateContactVisibility:output_type -> crm.v1.UpdateContactVisibilityResponse
+	53,  // 204: crm.v1.CRMService.CreateCompany:output_type -> crm.v1.CreateCompanyResponse
+	55,  // 205: crm.v1.CRMService.GetCompany:output_type -> crm.v1.GetCompanyResponse
+	57,  // 206: crm.v1.CRMService.ListCompanies:output_type -> crm.v1.ListCompaniesResponse
+	59,  // 207: crm.v1.CRMService.UpdateCompany:output_type -> crm.v1.UpdateCompanyResponse
+	61,  // 208: crm.v1.CRMService.DeleteCompany:output_type -> crm.v1.DeleteCompanyResponse
+	63,  // 209: crm.v1.CRMService.GetCompanyContacts:output_type -> crm.v1.GetCompanyContactsResponse
+	66,  // 210: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
+	68,  // 211: crm.v1.CRMService.GetPipelineStage:output_type -> crm.v1.GetPipelineStageResponse
+	70,  // 212: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
+	72,  // 213: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
+	74,  // 214: crm.v1.CRMService.DeletePipelineStage:output_type -> crm.v1.DeletePipelineStageResponse
+	76,  // 215: crm.v1.CRMService.ReorderPipelineStages:output_type -> crm.v1.ReorderPipelineStagesResponse
+	79,  // 216: crm.v1.CRMService.CreateDeal:output_type -> crm.v1.CreateDealResponse
+	81,  // 217: crm.v1.CRMService.GetDeal:output_type -> crm.v1.GetDealResponse
+	83,  // 218: crm.v1.CRMService.ListDeals:output_type -> crm.v1.ListDealsResponse
+	85,  // 219: crm.v1.CRMService.UpdateDeal:output_type -> crm.v1.UpdateDealResponse
+	91,  // 220: crm.v1.CRMService.DeleteDeal:output_type -> crm.v1.DeleteDealResponse
+	93,  // 221: crm.v1.CRMService.MoveDealToStage:output_type -> crm.v1.MoveDealToStageResponse
+	87,  // 222: crm.v1.CRMService.AddDealTags:output_type -> crm.v1.AddDealTagsResponse
+	89,  // 223: crm.v1.CRMService.RemoveDealTags:output_type -> crm.v1.RemoveDealTagsResponse
+	96,  // 224: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
+	98,  // 225: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
+	100, // 226: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
+	102, // 227: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
+	104, // 228: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
+	106, // 229: crm.v1.CRMService.CompleteActivity:output_type -> crm.v1.CompleteActivityResponse
+	108, // 230: crm.v1.CRMService.AddActivityTags:output_type -> crm.v1.AddActivityTagsResponse
+	110, // 231: crm.v1.CRMService.RemoveActivityTags:output_type -> crm.v1.RemoveActivityTagsResponse
+	113, // 232: crm.v1.CRMService.Search:output_type -> crm.v1.SearchResponse
+	116, // 233: crm.v1.CRMService.CreateSavedFilter:output_type -> crm.v1.CreateSavedFilterResponse
+	118, // 234: crm.v1.CRMService.GetSavedFilter:output_type -> crm.v1.GetSavedFilterResponse
+	120, // 235: crm.v1.CRMService.ListSavedFilters:output_type -> crm.v1.ListSavedFiltersResponse
+	122, // 236: crm.v1.CRMService.UpdateSavedFilter:output_type -> crm.v1.UpdateSavedFilterResponse
+	124, // 237: crm.v1.CRMService.DeleteSavedFilter:output_type -> crm.v1.DeleteSavedFilterResponse
+	127, // 238: crm.v1.CRMService.GetPipelineReport:output_type -> crm.v1.GetPipelineReportResponse
+	130, // 239: crm.v1.CRMService.GetConversionReport:output_type -> crm.v1.GetConversionReportResponse
+	133, // 240: crm.v1.CRMService.GetActivityReport:output_type -> crm.v1.GetActivityReportResponse
+	136, // 241: crm.v1.CRMService.FindContactDuplicates:output_type -> crm.v1.FindContactDuplicatesResponse
+	138, // 242: crm.v1.CRMService.MergeContacts:output_type -> crm.v1.MergeContactsResponse
+	141, // 243: crm.v1.CRMService.FindCompanyDuplicates:output_type -> crm.v1.FindCompanyDuplicatesResponse
+	143, // 244: crm.v1.CRMService.MergeCompanies:output_type -> crm.v1.MergeCompaniesResponse
+	147, // 245: crm.v1.CRMService.GetContactTimeline:output_type -> crm.v1.GetContactTimelineResponse
+	150, // 246: crm.v1.CRMService.PreviewContactDeletion:output_type -> crm.v1.PreviewContactDeletionResponse
+	154, // 247: crm.v1.CRMService.GetContactConsents:output_type -> crm.v1.GetContactConsentsResponse
+	156, // 248: crm.v1.CRMService.GrantConsent:output_type -> crm.v1.GrantConsentResponse
+	158, // 249: crm.v1.CRMService.RevokeConsent:output_type -> crm.v1.RevokeConsentResponse
+	160, // 250: crm.v1.CRMService.GetConsentHistory:output_type -> crm.v1.GetConsentHistoryResponse
+	163, // 251: crm.v1.CRMService.RequestDeletion:output_type -> crm.v1.RequestDeletionResponse
+	165, // 252: crm.v1.CRMService.ProcessDeletion:output_type -> crm.v1.ProcessDeletionResponse
+	169, // 253: crm.v1.CRMService.CreateAdvisoryProtocol:output_type -> crm.v1.CreateAdvisoryProtocolResponse
+	171, // 254: crm.v1.CRMService.GetAdvisoryProtocol:output_type -> crm.v1.GetAdvisoryProtocolResponse
+	173, // 255: crm.v1.CRMService.ListAdvisoryProtocols:output_type -> crm.v1.ListAdvisoryProtocolsResponse
+	175, // 256: crm.v1.CRMService.UpdateAdvisoryProtocol:output_type -> crm.v1.UpdateAdvisoryProtocolResponse
+	177, // 257: crm.v1.CRMService.DeleteAdvisoryProtocol:output_type -> crm.v1.DeleteAdvisoryProtocolResponse
+	179, // 258: crm.v1.CRMService.HandOverAdvisoryProtocol:output_type -> crm.v1.HandOverAdvisoryProtocolResponse
+	181, // 259: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:output_type -> crm.v1.GenerateAdvisoryProtocolPDFResponse
+	184, // 260: crm.v1.CRMService.GetReferralReport:output_type -> crm.v1.GetReferralReportResponse
+	187, // 261: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
+	189, // 262: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
+	191, // 263: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
+	193, // 264: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
+	195, // 265: crm.v1.CRMService.PromoteContactToLead:output_type -> crm.v1.PromoteContactToLeadResponse
+	180, // [180:266] is the sub-list for method output_type
+	94,  // [94:180] is the sub-list for method input_type
+	94,  // [94:94] is the sub-list for extension type_name
+	94,  // [94:94] is the sub-list for extension extendee
+	0,   // [0:94] is the sub-list for field type_name
 }
 
 func init() { file_proto_crm_v1_crm_proto_init() }
@@ -14154,30 +14584,30 @@ func file_proto_crm_v1_crm_proto_init() {
 	file_proto_crm_v1_crm_proto_msgTypes[78].OneofWrappers = []any{}
 	file_proto_crm_v1_crm_proto_msgTypes[82].OneofWrappers = []any{}
 	file_proto_crm_v1_crm_proto_msgTypes[84].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[90].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[91].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[94].OneofWrappers = []any{}
 	file_proto_crm_v1_crm_proto_msgTypes[95].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[97].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[113].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[118].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[124].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[137].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[143].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[147].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[149].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[153].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[154].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[158].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[159].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[177].OneofWrappers = []any{}
-	file_proto_crm_v1_crm_proto_msgTypes[182].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[99].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[101].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[121].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[126].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[132].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[145].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[151].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[155].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[157].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[161].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[162].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[166].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[167].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[185].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[190].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_crm_v1_crm_proto_rawDesc), len(file_proto_crm_v1_crm_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   196,
+			NumMessages:   204,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

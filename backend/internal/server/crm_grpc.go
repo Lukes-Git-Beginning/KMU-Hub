@@ -1489,6 +1489,73 @@ func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDeal
 	}, nil
 }
 
+// parseTagIDs converts the wire tag ids of the deal and activity tag RPCs into
+// UUIDs. An empty list is legal and means "no tags to add/remove"; the services
+// treat that as a no-op that still returns the entity with its current tags.
+func parseTagIDs(raw []string) ([]uuid.UUID, error) {
+	tagIDs := make([]uuid.UUID, 0, len(raw))
+	for _, tagIDStr := range raw {
+		tagID, err := uuid.Parse(tagIDStr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid tag_id")
+		}
+		tagIDs = append(tagIDs, tagID)
+	}
+	return tagIDs, nil
+}
+
+func (s *CRMGRPCServer) AddDealTags(ctx context.Context, req *crmv1.AddDealTagsRequest) (*crmv1.AddDealTagsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	dealID, err := uuid.Parse(req.DealId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
+	}
+
+	tagIDs, err := parseTagIDs(req.TagIds)
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := s.dealService.AddTags(ctx, tenantID, dealID, tagIDs)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.AddDealTagsResponse{
+		Deal: toDealInfo(d),
+	}, nil
+}
+
+func (s *CRMGRPCServer) RemoveDealTags(ctx context.Context, req *crmv1.RemoveDealTagsRequest) (*crmv1.RemoveDealTagsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	dealID, err := uuid.Parse(req.DealId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
+	}
+
+	tagIDs, err := parseTagIDs(req.TagIds)
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := s.dealService.RemoveTags(ctx, tenantID, dealID, tagIDs)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.RemoveDealTagsResponse{
+		Deal: toDealInfo(d),
+	}, nil
+}
+
 // ============================================================================
 // Activities
 // ============================================================================
@@ -1771,6 +1838,58 @@ func (s *CRMGRPCServer) CompleteActivity(ctx context.Context, req *crmv1.Complet
 	}
 
 	return &crmv1.CompleteActivityResponse{
+		Activity: toActivityInfo(a),
+	}, nil
+}
+
+func (s *CRMGRPCServer) AddActivityTags(ctx context.Context, req *crmv1.AddActivityTagsRequest) (*crmv1.AddActivityTagsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	activityID, err := uuid.Parse(req.ActivityId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid activity_id")
+	}
+
+	tagIDs, err := parseTagIDs(req.TagIds)
+	if err != nil {
+		return nil, err
+	}
+
+	a, err := s.activityService.AddTags(ctx, tenantID, activityID, tagIDs)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.AddActivityTagsResponse{
+		Activity: toActivityInfo(a),
+	}, nil
+}
+
+func (s *CRMGRPCServer) RemoveActivityTags(ctx context.Context, req *crmv1.RemoveActivityTagsRequest) (*crmv1.RemoveActivityTagsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	activityID, err := uuid.Parse(req.ActivityId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid activity_id")
+	}
+
+	tagIDs, err := parseTagIDs(req.TagIds)
+	if err != nil {
+		return nil, err
+	}
+
+	a, err := s.activityService.RemoveTags(ctx, tenantID, activityID, tagIDs)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.RemoveActivityTagsResponse{
 		Activity: toActivityInfo(a),
 	}, nil
 }

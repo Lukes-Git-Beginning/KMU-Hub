@@ -12,9 +12,9 @@ import (
 const activityTestID = "11111111-1111-1111-1111-111111111111"
 
 // ============================================================================
-// ServiceUnavailable — every handler in this file except the two tag-mutation
-// stubs (HandleAddActivityTags/HandleRemoveActivityTags, which never reach a
-// gRPC client — see their own tests below) resolves the CRM client first.
+// ServiceUnavailable — every handler in this file resolves the CRM client
+// first, the two tag-mutation handlers included since they were wired to
+// AddActivityTags/RemoveActivityTags.
 // ============================================================================
 
 func TestCRMActivitiesRoutes_ServiceUnavailable(t *testing.T) {
@@ -27,6 +27,8 @@ func TestCRMActivitiesRoutes_ServiceUnavailable(t *testing.T) {
 		"HandleUpdateActivity":      routes.HandleUpdateActivity,
 		"HandleDeleteActivity":      routes.HandleDeleteActivity,
 		"HandleCompleteActivity":    routes.HandleCompleteActivity,
+		"HandleAddActivityTags":     routes.HandleAddActivityTags,
+		"HandleRemoveActivityTags":  routes.HandleRemoveActivityTags,
 		"HandleSearch":              routes.HandleSearch,
 		"HandleCreateSavedFilter":   routes.HandleCreateSavedFilter,
 		"HandleGetSavedFilter":      routes.HandleGetSavedFilter,
@@ -323,15 +325,14 @@ func TestHandleCompleteActivity_NoTenant(t *testing.T) {
 }
 
 // ============================================================================
-// HandleAddActivityTags / HandleRemoveActivityTags — these never reach a
-// gRPC client at all; they validate the URL param and body, then always
-// answer 501 (documented as gRPC-only). Testing that explicitly here so the
-// stub-looking 501 is a proven, intentional contract rather than an
-// unverified guess.
+// HandleAddActivityTags / HandleRemoveActivityTags — both go through the CRM
+// gRPC client since AddActivityTags/RemoveActivityTags exist; they used to
+// answer 501 unconditionally. The client is resolved before the body is read,
+// so the validation cases need a registered service to get past that step.
 // ============================================================================
 
 func TestHandleAddActivityTags_InvalidUUID(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/activities/bad/tags", jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
@@ -341,7 +342,7 @@ func TestHandleAddActivityTags_InvalidUUID(t *testing.T) {
 }
 
 func TestHandleAddActivityTags_InvalidTagIDs(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/activities/"+activityTestID+"/tags", jsonBody(t, map[string]interface{}{
 		"tag_ids": []string{"not-a-uuid"},
@@ -351,19 +352,22 @@ func TestHandleAddActivityTags_InvalidTagIDs(t *testing.T) {
 	assertValidationError(t, rec, "tag_ids[0]")
 }
 
-func TestHandleAddActivityTags_NotImplemented(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+// TestHandleAddActivityTags_ValidRequestReachesRPC replaces the former
+// _NotImplemented test: the same request that used to be answered 501 now
+// travels far enough to fail on the unreachable gRPC backend instead.
+func TestHandleAddActivityTags_ValidRequestReachesRPC(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/activities/"+activityTestID+"/tags", jsonBody(t, map[string]interface{}{
 		"tag_ids": []string{activityTestID},
 	}))
 	req = withChiURLParam(req, "id", activityTestID)
 	routes.HandleAddActivityTags(rec, req)
-	assertStatus(t, rec, http.StatusNotImplemented)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleRemoveActivityTags_InvalidUUID(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/activities/bad/tags", jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
@@ -372,15 +376,17 @@ func TestHandleRemoveActivityTags_InvalidUUID(t *testing.T) {
 	assertErrorContains(t, rec, "invalid id")
 }
 
-func TestHandleRemoveActivityTags_NotImplemented(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+// TestHandleRemoveActivityTags_ValidRequestReachesRPC replaces the former
+// _NotImplemented test, see the Add counterpart above.
+func TestHandleRemoveActivityTags_ValidRequestReachesRPC(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/activities/"+activityTestID+"/tags", jsonBody(t, map[string]interface{}{
 		"tag_ids": []string{activityTestID},
 	}))
 	req = withChiURLParam(req, "id", activityTestID)
 	routes.HandleRemoveActivityTags(rec, req)
-	assertStatus(t, rec, http.StatusNotImplemented)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 // ============================================================================

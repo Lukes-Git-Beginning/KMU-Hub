@@ -60,6 +60,8 @@ service CRMService {
   rpc UpdateDeal(UpdateDealRequest) returns (UpdateDealResponse);
   rpc DeleteDeal(DeleteDealRequest) returns (DeleteDealResponse);
   rpc MoveDealToStage(MoveDealToStageRequest) returns (MoveDealToStageResponse);
+  rpc AddDealTags(AddDealTagsRequest) returns (AddDealTagsResponse);
+  rpc RemoveDealTags(RemoveDealTagsRequest) returns (RemoveDealTagsResponse);
 
   // Activities (Sprint 4)
   rpc CreateActivity(CreateActivityRequest) returns (CreateActivityResponse);
@@ -68,6 +70,8 @@ service CRMService {
   rpc UpdateActivity(UpdateActivityRequest) returns (UpdateActivityResponse);
   rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
   rpc CompleteActivity(CompleteActivityRequest) returns (CompleteActivityResponse);
+  rpc AddActivityTags(AddActivityTagsRequest) returns (AddActivityTagsResponse);
+  rpc RemoveActivityTags(RemoveActivityTagsRequest) returns (RemoveActivityTagsResponse);
 
   // Search (Sprint 4)
   rpc Search(SearchRequest) returns (SearchResponse);
@@ -755,6 +759,24 @@ message UpdateDealResponse {
   DealInfo deal = 1;
 }
 
+message AddDealTagsRequest {
+  string deal_id = 1;
+  repeated string tag_ids = 2;
+}
+
+message AddDealTagsResponse {
+  DealInfo deal = 1;
+}
+
+message RemoveDealTagsRequest {
+  string deal_id = 1;
+  repeated string tag_ids = 2;
+}
+
+message RemoveDealTagsResponse {
+  DealInfo deal = 1;
+}
+
 message DeleteDealRequest {
   string id = 1;
   string tenant_id = 2;
@@ -871,6 +893,24 @@ message CompleteActivityRequest {
 }
 
 message CompleteActivityResponse {
+  ActivityInfo activity = 1;
+}
+
+message AddActivityTagsRequest {
+  string activity_id = 1;
+  repeated string tag_ids = 2;
+}
+
+message AddActivityTagsResponse {
+  ActivityInfo activity = 1;
+}
+
+message RemoveActivityTagsRequest {
+  string activity_id = 1;
+  repeated string tag_ids = 2;
+}
+
+message RemoveActivityTagsResponse {
   ActivityInfo activity = 1;
 }
 

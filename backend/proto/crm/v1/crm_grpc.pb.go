@@ -61,12 +61,16 @@ const (
 	CRMService_UpdateDeal_FullMethodName                  = "/crm.v1.CRMService/UpdateDeal"
 	CRMService_DeleteDeal_FullMethodName                  = "/crm.v1.CRMService/DeleteDeal"
 	CRMService_MoveDealToStage_FullMethodName             = "/crm.v1.CRMService/MoveDealToStage"
+	CRMService_AddDealTags_FullMethodName                 = "/crm.v1.CRMService/AddDealTags"
+	CRMService_RemoveDealTags_FullMethodName              = "/crm.v1.CRMService/RemoveDealTags"
 	CRMService_CreateActivity_FullMethodName              = "/crm.v1.CRMService/CreateActivity"
 	CRMService_GetActivity_FullMethodName                 = "/crm.v1.CRMService/GetActivity"
 	CRMService_ListActivities_FullMethodName              = "/crm.v1.CRMService/ListActivities"
 	CRMService_UpdateActivity_FullMethodName              = "/crm.v1.CRMService/UpdateActivity"
 	CRMService_DeleteActivity_FullMethodName              = "/crm.v1.CRMService/DeleteActivity"
 	CRMService_CompleteActivity_FullMethodName            = "/crm.v1.CRMService/CompleteActivity"
+	CRMService_AddActivityTags_FullMethodName             = "/crm.v1.CRMService/AddActivityTags"
+	CRMService_RemoveActivityTags_FullMethodName          = "/crm.v1.CRMService/RemoveActivityTags"
 	CRMService_Search_FullMethodName                      = "/crm.v1.CRMService/Search"
 	CRMService_CreateSavedFilter_FullMethodName           = "/crm.v1.CRMService/CreateSavedFilter"
 	CRMService_GetSavedFilter_FullMethodName              = "/crm.v1.CRMService/GetSavedFilter"
@@ -156,6 +160,8 @@ type CRMServiceClient interface {
 	UpdateDeal(ctx context.Context, in *UpdateDealRequest, opts ...grpc.CallOption) (*UpdateDealResponse, error)
 	DeleteDeal(ctx context.Context, in *DeleteDealRequest, opts ...grpc.CallOption) (*DeleteDealResponse, error)
 	MoveDealToStage(ctx context.Context, in *MoveDealToStageRequest, opts ...grpc.CallOption) (*MoveDealToStageResponse, error)
+	AddDealTags(ctx context.Context, in *AddDealTagsRequest, opts ...grpc.CallOption) (*AddDealTagsResponse, error)
+	RemoveDealTags(ctx context.Context, in *RemoveDealTagsRequest, opts ...grpc.CallOption) (*RemoveDealTagsResponse, error)
 	// Activities (Sprint 4)
 	CreateActivity(ctx context.Context, in *CreateActivityRequest, opts ...grpc.CallOption) (*CreateActivityResponse, error)
 	GetActivity(ctx context.Context, in *GetActivityRequest, opts ...grpc.CallOption) (*GetActivityResponse, error)
@@ -163,6 +169,8 @@ type CRMServiceClient interface {
 	UpdateActivity(ctx context.Context, in *UpdateActivityRequest, opts ...grpc.CallOption) (*UpdateActivityResponse, error)
 	DeleteActivity(ctx context.Context, in *DeleteActivityRequest, opts ...grpc.CallOption) (*DeleteActivityResponse, error)
 	CompleteActivity(ctx context.Context, in *CompleteActivityRequest, opts ...grpc.CallOption) (*CompleteActivityResponse, error)
+	AddActivityTags(ctx context.Context, in *AddActivityTagsRequest, opts ...grpc.CallOption) (*AddActivityTagsResponse, error)
+	RemoveActivityTags(ctx context.Context, in *RemoveActivityTagsRequest, opts ...grpc.CallOption) (*RemoveActivityTagsResponse, error)
 	// Search (Sprint 4)
 	Search(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*SearchResponse, error)
 	// Filters (Sprint 5)
@@ -636,6 +644,26 @@ func (c *cRMServiceClient) MoveDealToStage(ctx context.Context, in *MoveDealToSt
 	return out, nil
 }
 
+func (c *cRMServiceClient) AddDealTags(ctx context.Context, in *AddDealTagsRequest, opts ...grpc.CallOption) (*AddDealTagsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddDealTagsResponse)
+	err := c.cc.Invoke(ctx, CRMService_AddDealTags_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) RemoveDealTags(ctx context.Context, in *RemoveDealTagsRequest, opts ...grpc.CallOption) (*RemoveDealTagsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveDealTagsResponse)
+	err := c.cc.Invoke(ctx, CRMService_RemoveDealTags_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *cRMServiceClient) CreateActivity(ctx context.Context, in *CreateActivityRequest, opts ...grpc.CallOption) (*CreateActivityResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateActivityResponse)
@@ -690,6 +718,26 @@ func (c *cRMServiceClient) CompleteActivity(ctx context.Context, in *CompleteAct
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CompleteActivityResponse)
 	err := c.cc.Invoke(ctx, CRMService_CompleteActivity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) AddActivityTags(ctx context.Context, in *AddActivityTagsRequest, opts ...grpc.CallOption) (*AddActivityTagsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddActivityTagsResponse)
+	err := c.cc.Invoke(ctx, CRMService_AddActivityTags_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) RemoveActivityTags(ctx context.Context, in *RemoveActivityTagsRequest, opts ...grpc.CallOption) (*RemoveActivityTagsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveActivityTagsResponse)
+	err := c.cc.Invoke(ctx, CRMService_RemoveActivityTags_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1089,6 +1137,8 @@ type CRMServiceServer interface {
 	UpdateDeal(context.Context, *UpdateDealRequest) (*UpdateDealResponse, error)
 	DeleteDeal(context.Context, *DeleteDealRequest) (*DeleteDealResponse, error)
 	MoveDealToStage(context.Context, *MoveDealToStageRequest) (*MoveDealToStageResponse, error)
+	AddDealTags(context.Context, *AddDealTagsRequest) (*AddDealTagsResponse, error)
+	RemoveDealTags(context.Context, *RemoveDealTagsRequest) (*RemoveDealTagsResponse, error)
 	// Activities (Sprint 4)
 	CreateActivity(context.Context, *CreateActivityRequest) (*CreateActivityResponse, error)
 	GetActivity(context.Context, *GetActivityRequest) (*GetActivityResponse, error)
@@ -1096,6 +1146,8 @@ type CRMServiceServer interface {
 	UpdateActivity(context.Context, *UpdateActivityRequest) (*UpdateActivityResponse, error)
 	DeleteActivity(context.Context, *DeleteActivityRequest) (*DeleteActivityResponse, error)
 	CompleteActivity(context.Context, *CompleteActivityRequest) (*CompleteActivityResponse, error)
+	AddActivityTags(context.Context, *AddActivityTagsRequest) (*AddActivityTagsResponse, error)
+	RemoveActivityTags(context.Context, *RemoveActivityTagsRequest) (*RemoveActivityTagsResponse, error)
 	// Search (Sprint 4)
 	Search(context.Context, *SearchRequest) (*SearchResponse, error)
 	// Filters (Sprint 5)
@@ -1275,6 +1327,12 @@ func (UnimplementedCRMServiceServer) DeleteDeal(context.Context, *DeleteDealRequ
 func (UnimplementedCRMServiceServer) MoveDealToStage(context.Context, *MoveDealToStageRequest) (*MoveDealToStageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MoveDealToStage not implemented")
 }
+func (UnimplementedCRMServiceServer) AddDealTags(context.Context, *AddDealTagsRequest) (*AddDealTagsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddDealTags not implemented")
+}
+func (UnimplementedCRMServiceServer) RemoveDealTags(context.Context, *RemoveDealTagsRequest) (*RemoveDealTagsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveDealTags not implemented")
+}
 func (UnimplementedCRMServiceServer) CreateActivity(context.Context, *CreateActivityRequest) (*CreateActivityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateActivity not implemented")
 }
@@ -1292,6 +1350,12 @@ func (UnimplementedCRMServiceServer) DeleteActivity(context.Context, *DeleteActi
 }
 func (UnimplementedCRMServiceServer) CompleteActivity(context.Context, *CompleteActivityRequest) (*CompleteActivityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CompleteActivity not implemented")
+}
+func (UnimplementedCRMServiceServer) AddActivityTags(context.Context, *AddActivityTagsRequest) (*AddActivityTagsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddActivityTags not implemented")
+}
+func (UnimplementedCRMServiceServer) RemoveActivityTags(context.Context, *RemoveActivityTagsRequest) (*RemoveActivityTagsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveActivityTags not implemented")
 }
 func (UnimplementedCRMServiceServer) Search(context.Context, *SearchRequest) (*SearchResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Search not implemented")
@@ -2172,6 +2236,42 @@ func _CRMService_MoveDealToStage_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CRMService_AddDealTags_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddDealTagsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).AddDealTags(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_AddDealTags_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).AddDealTags(ctx, req.(*AddDealTagsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_RemoveDealTags_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveDealTagsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).RemoveDealTags(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_RemoveDealTags_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).RemoveDealTags(ctx, req.(*RemoveDealTagsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CRMService_CreateActivity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateActivityRequest)
 	if err := dec(in); err != nil {
@@ -2276,6 +2376,42 @@ func _CRMService_CompleteActivity_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CRMServiceServer).CompleteActivity(ctx, req.(*CompleteActivityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_AddActivityTags_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddActivityTagsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).AddActivityTags(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_AddActivityTags_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).AddActivityTags(ctx, req.(*AddActivityTagsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_RemoveActivityTags_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveActivityTagsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).RemoveActivityTags(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_RemoveActivityTags_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).RemoveActivityTags(ctx, req.(*RemoveActivityTagsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3068,6 +3204,14 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CRMService_MoveDealToStage_Handler,
 		},
 		{
+			MethodName: "AddDealTags",
+			Handler:    _CRMService_AddDealTags_Handler,
+		},
+		{
+			MethodName: "RemoveDealTags",
+			Handler:    _CRMService_RemoveDealTags_Handler,
+		},
+		{
 			MethodName: "CreateActivity",
 			Handler:    _CRMService_CreateActivity_Handler,
 		},
@@ -3090,6 +3234,14 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompleteActivity",
 			Handler:    _CRMService_CompleteActivity_Handler,
+		},
+		{
+			MethodName: "AddActivityTags",
+			Handler:    _CRMService_AddActivityTags_Handler,
+		},
+		{
+			MethodName: "RemoveActivityTags",
+			Handler:    _CRMService_RemoveActivityTags_Handler,
 		},
 		{
 			MethodName: "Search",

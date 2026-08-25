@@ -310,11 +310,11 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"deal stage move, catalogue edit key maps to it", crmRouter, "POST", "/api/v1/deals/" + articleID + "/stage", []string{"crm:deal:edit"}, allowed},
 		{"deal delete, catalogue key only", crmRouter, "DELETE", "/api/v1/deals/" + articleID, []string{"crm:deal:delete"}, allowed},
 
-		// --- crm: deal tags have no FE caller, untouched. HandleAddDealTags is a
-		// permanent 501 stub that decodes the body before ever reaching a gRPC
-		// client, so a passed guard surfaces as 400 (nil body) here, not 503.
+		// --- crm: deal tags have no FE caller, untouched. HandleAddDealTags now
+		// resolves the CRM client before it reads the body, so a passed guard
+		// surfaces as 503 like every other wired handler.
 		{"deal tags add still requires deals:write only", crmRouter, "POST", "/api/v1/deals/" + articleID + "/tags", []string{"crm:deal:edit"}, denied},
-		{"deal tags add with deals:write", crmRouter, "POST", "/api/v1/deals/" + articleID + "/tags", []string{"deals:write"}, http.StatusBadRequest},
+		{"deal tags add with deals:write", crmRouter, "POST", "/api/v1/deals/" + articleID + "/tags", []string{"deals:write"}, allowed},
 
 		// --- crm: activities share the crm:contact:* fine keys (nav-gated with contacts) ---
 		{"activity list, catalogue contact key maps to it", crmRouter, "GET", "/api/v1/activities", []string{"crm:contact:read"}, allowed},

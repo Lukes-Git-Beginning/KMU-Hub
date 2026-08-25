@@ -506,7 +506,7 @@ units:
     service: crm
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-08-24: WEG A - die vier RPCs werden gebaut. Die Vorabpruefung

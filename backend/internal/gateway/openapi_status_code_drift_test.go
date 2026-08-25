@@ -443,13 +443,8 @@ var systemicUndocumentedCodes = map[int]string{
 // Reading the list: 401 on the HR routes comes from ownerFilterForScope
 // (helpers.go:166, "missing user in token") or from getTenantID; 500 marks
 // handlers that answer with a plain internal error instead of going through
-// respondGRPCError; 501 marks the four tag endpoints that still reply
-// http.StatusNotImplemented.
+// respondGRPCError.
 var statusDriftBaseline = map[string][]int{
-	"DELETE /api/v1/activities/{id}/tags": {501},
-	"DELETE /api/v1/deals/{id}/tags": {501},
-	"POST /api/v1/activities/{id}/tags": {501},
-	"POST /api/v1/deals/{id}/tags": {501},
 	"PUT /api/v1/customization/labels": {500},
 }
 

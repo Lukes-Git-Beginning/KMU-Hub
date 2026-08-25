@@ -289,27 +289,61 @@ type modifyActivityTagsRequest struct {
 }
 
 func (c *CRMRoutes) HandleAddActivityTags(w http.ResponseWriter, r *http.Request) {
-	if _, ok := validateUUIDParam(w, r, "id"); !ok {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
 		return
 	}
 
-	if _, ok := decodeAndValidate[modifyActivityTagsRequest](w, r); !ok {
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
-	response.Error(w, http.StatusNotImplemented, "add activity tags not implemented via HTTP, use gRPC")
+	req, ok := decodeAndValidate[modifyActivityTagsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.AddActivityTags(r.Context(), &crmv1.AddActivityTagsRequest{
+		ActivityId: activityID,
+		TagIds:     req.TagIDs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleRemoveActivityTags(w http.ResponseWriter, r *http.Request) {
-	if _, ok := validateUUIDParam(w, r, "id"); !ok {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
 		return
 	}
 
-	if _, ok := decodeAndValidate[modifyActivityTagsRequest](w, r); !ok {
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
-	response.Error(w, http.StatusNotImplemented, "remove activity tags not implemented via HTTP, use gRPC")
+	req, ok := decodeAndValidate[modifyActivityTagsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.RemoveActivityTags(r.Context(), &crmv1.RemoveActivityTagsRequest{
+		ActivityId: activityID,
+		TagIds:     req.TagIDs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================

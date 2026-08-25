@@ -12,9 +12,9 @@ import (
 const pipelineTestID = "22222222-2222-2222-2222-222222222222"
 
 // ============================================================================
-// ServiceUnavailable — every handler in this file except the two tag-mutation
-// stubs (HandleAddDealTags/HandleRemoveDealTags, which never reach a gRPC
-// client — see their own tests below) resolves the CRM client first.
+// ServiceUnavailable — every handler in this file resolves the CRM client
+// first, the two tag-mutation handlers included since they were wired to
+// AddDealTags/RemoveDealTags.
 // ============================================================================
 
 func TestCRMPipelineRoutes_ServiceUnavailable(t *testing.T) {
@@ -33,6 +33,8 @@ func TestCRMPipelineRoutes_ServiceUnavailable(t *testing.T) {
 		"HandleUpdateDeal":            routes.HandleUpdateDeal,
 		"HandleDeleteDeal":            routes.HandleDeleteDeal,
 		"HandleMoveDealToStage":       routes.HandleMoveDealToStage,
+		"HandleAddDealTags":           routes.HandleAddDealTags,
+		"HandleRemoveDealTags":        routes.HandleRemoveDealTags,
 	}
 
 	for name, h := range handlers {
@@ -547,12 +549,14 @@ func TestHandleMoveDealToStage_ValidReachesRPC(t *testing.T) {
 }
 
 // ============================================================================
-// HandleAddDealTags / HandleRemoveDealTags — stubs that validate id and body
-// but never reach a gRPC client; they always answer 501.
+// HandleAddDealTags / HandleRemoveDealTags — both go through the CRM gRPC
+// client since AddDealTags/RemoveDealTags exist; they used to answer 501
+// unconditionally. The client is resolved before the body is read, so the
+// validation cases need a registered service to get past that step.
 // ============================================================================
 
 func TestHandleAddDealTags_InvalidUUID(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/deals/not-a-uuid/tags", jsonBody(t, map[string]interface{}{"tag_ids": []string{}}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
@@ -562,7 +566,7 @@ func TestHandleAddDealTags_InvalidUUID(t *testing.T) {
 }
 
 func TestHandleAddDealTags_InvalidTagID(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/deals/"+pipelineTestID+"/tags", jsonBody(t, map[string]interface{}{"tag_ids": []string{"not-a-uuid"}}))
 	req = withChiURLParam(req, "id", pipelineTestID)
@@ -570,18 +574,20 @@ func TestHandleAddDealTags_InvalidTagID(t *testing.T) {
 	assertValidationError(t, rec, "tag_ids[0]")
 }
 
-func TestHandleAddDealTags_ValidReturnsNotImplemented(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+// TestHandleAddDealTags_ValidRequestReachesRPC replaces the former
+// _ValidReturnsNotImplemented test: the same request that used to be answered
+// 501 now travels far enough to fail on the unreachable gRPC backend instead.
+func TestHandleAddDealTags_ValidRequestReachesRPC(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/deals/"+pipelineTestID+"/tags", jsonBody(t, map[string]interface{}{"tag_ids": []string{pipelineTestID}}))
 	req = withChiURLParam(req, "id", pipelineTestID)
 	routes.HandleAddDealTags(rec, req)
-	assertStatus(t, rec, http.StatusNotImplemented)
-	assertErrorContains(t, rec, "not implemented via HTTP, use gRPC")
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleRemoveDealTags_InvalidUUID(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/deals/not-a-uuid/tags", jsonBody(t, map[string]interface{}{"tag_ids": []string{}}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
@@ -591,7 +597,7 @@ func TestHandleRemoveDealTags_InvalidUUID(t *testing.T) {
 }
 
 func TestHandleRemoveDealTags_InvalidTagID(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/deals/"+pipelineTestID+"/tags", jsonBody(t, map[string]interface{}{"tag_ids": []string{"not-a-uuid"}}))
 	req = withChiURLParam(req, "id", pipelineTestID)
@@ -599,12 +605,13 @@ func TestHandleRemoveDealTags_InvalidTagID(t *testing.T) {
 	assertValidationError(t, rec, "tag_ids[0]")
 }
 
-func TestHandleRemoveDealTags_ValidReturnsNotImplemented(t *testing.T) {
-	routes := NewCRMRoutes(emptyRegistry(), nil)
+// TestHandleRemoveDealTags_ValidRequestReachesRPC replaces the former
+// _ValidReturnsNotImplemented test, see the Add counterpart above.
+func TestHandleRemoveDealTags_ValidRequestReachesRPC(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/deals/"+pipelineTestID+"/tags", jsonBody(t, map[string]interface{}{"tag_ids": []string{pipelineTestID}}))
 	req = withChiURLParam(req, "id", pipelineTestID)
 	routes.HandleRemoveDealTags(rec, req)
-	assertStatus(t, rec, http.StatusNotImplemented)
-	assertErrorContains(t, rec, "not implemented via HTTP, use gRPC")
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }

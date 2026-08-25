@@ -202,3 +202,65 @@ Kopf von `BACKLOG.yml`.
   `internal/biz/invoice` (0 SKIP) und `internal/server` (0 SKIP, 1864 PASS),
   beide DATABASE_URL gegen `kmuhub_app`, `-count=1 -p 1`. Migration 000324
   lokal angewandt (Kopf 324); Produktion hat sie noch nicht.
+
+## Iteration 4 — feat-crm-activity-deal-tag-rpcs — done — 2026-08-26 01:22
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: Die vier fehlenden gRPC-Hops fuer Deal- und Activity-Tags. `crm.proto`:
+  `AddDealTags`/`RemoveDealTags`/`AddActivityTags`/`RemoveActivityTags` plus die
+  acht Messages nach dem exakten Vorbild von `AddContactTags` (Request
+  `deal_id`/`activity_id` + `repeated string tag_ids`, Response `DealInfo`/
+  `ActivityInfo`); `crm.pb.go` und `crm_grpc.pb.go` im selben Commit regeneriert
+  (protoc, Kommando aus dem `proto:`-Target, ein `proto-crm`-Target existiert
+  nicht). `internal/server/crm_grpc.go`: vier Methoden mit
+  `middleware.GetTenantID`, uuid-Parsing und `mapCRMError`, dazu die geteilte
+  `parseTagIDs` — `deal.ErrTagNotFound` und `activity.ErrTagNotFound` waren in
+  `mapCRMError` bereits eingetragen, deshalb 404 statt Internal ohne Zusatzarbeit.
+  Die Service-Signaturen sind `(ctx, tenantID, entityID, tagIDs)`, also anders
+  geordnet als bei Contacts. `route_crm_activities.go` und `route_crm_pipeline.go`:
+  die vier Handler von `response.Error(501, ...)` auf `getCRMClient` ->
+  `client.<RPC>` -> `response.Proto` umgestellt. Keine neue Route, keine neue
+  Permission, keine Migration, kein openapi-Diff — die Spec dokumentierte fuer
+  alle vier Pfade laengst `200` mit `DealResponse`/`ActivityResponse`, nur der
+  Handler hielt nicht Wort. Neu `internal/server/crm_grpc_deal_activity_tags_db_test.go`
+  (6 Tests): Add/Remove ueber den gRPC-Weg gegen echte Postgres-Repositories,
+  Blick direkt in `deal_tags`/`activity_tags` (Zeile da, `tenant_id` = Tenant des
+  Parents, nach Remove weg), Fremd-Tenant auf ein fremdes Deal bekommt
+  `codes.NotFound` und schreibt keine Zeile, Tag mit falschem `entity_type` wird
+  abgewiesen, plus Parse- und Tenant-Kontext-Pfade.
+- gate: build ok | vet ok | lint ok (0 issues auf server+gateway+crm) | test ok
+  (8340 PASS, 0 SKIP, 0 FAIL in `./internal/server/ ./internal/gateway/`,
+  `./internal/crm/...` gruen) | migration n.a. (keine) | rls-smoke n.a. (keine
+  neue Tabelle/Policy; die Tenant-Isolation der bestehenden `deal_tags`-Policy
+  ist im Fremd-Tenant-Test mitbelegt)
+- coverage: internal/server 70,8 % -> 70,9 % und internal/gateway 56,7 % -> 56,7 %
+  (beide selbst gemessen, `go test -count=1 -p 1 -coverprofile`; Vorher-Wert per
+  `git stash push -u -- backend/`, danach `stash pop`). Der Gateway-Wert steht
+  still, weil die vier Handler von je 6 auf je 14 Statements gewachsen sind —
+  die neuen Zeilen sind abgedeckt, aendern aber am Verhaeltnis nichts.
+- mutations-probe: in `AddDealTags`/`RemoveDealTags` zuerst `tenantID` durch
+  `uuid.New()` ersetzt — das ist KEINE gueltige Probe, es bricht schon den Build
+  ("declared and not used"). Stattdessen `RemoveDealTags` auf
+  `RemoveTags(ctx, tenantID, dealID, tagIDs[:0])` mutiert (cp-Sicherung vorher):
+  `TestCRMGRPCServer_DealTags_AddThenRemoveHitsJoinTable` wurde rot
+  ("deal_tags row still present after RemoveDealTags", erwartet uuid.Nil, bekam
+  den Tenant), per `cp` zurueckgedreht, `diff` gegen die Sicherung identisch,
+  Test danach wieder gruen.
+- verify vorgaenger: sauber (`27e29ddb` — Migration 000324 ist neu und forward-only,
+  kein `.proto` im Diff, keine Route, kein `RequirePermission`, keine neue Tabelle;
+  `isQuoteAlreadyConvertedConflict` mappt eine echte Unique-Violation, kein Stub,
+  und `Create` reicht jeden anderen Fehler unveraendert durch)
+- neue-units: keine
+- offen: (1) Die vier 501-Eintraege sind aus `statusDriftBaseline`
+  (`openapi_status_code_drift_test.go`) raus — dort steht jetzt nur noch
+  `PUT /api/v1/customization/labels: {500}`. (2) Der Kommentar-Block in
+  `route_capability_guard_test.go` und die Erwartung "deal tags add with
+  deals:write" mussten von `http.StatusBadRequest` auf `allowed` (503) wechseln:
+  der Handler holt sich jetzt zuerst den Client und liest erst danach den Body,
+  wie alle anderen verdrahteten Handler auch. Aus demselben Grund brauchen die
+  Validierungs-Tests der vier Handler `registryWithService("crm")` statt
+  `emptyRegistry()` — mit leerer Registry kommen sie gar nicht mehr bis zur
+  Validierung. (3) FE-seitig folgenlos: `openapi.yaml` ist unveraendert, also
+  aendern sich die generierten Typen in `desktop/src/renderer/src/api/types.ts`
+  nicht; einen Aufrufer fuer die vier Endpunkte gibt es weiterhin nicht (nur
+  Kontakte und Firmen haben Tag-UI). Wer die UI nachzieht, findet die Antwort
+  jetzt gewrappt als `{"deal": {...}}` bzw. `{"activity": {...}}`.
