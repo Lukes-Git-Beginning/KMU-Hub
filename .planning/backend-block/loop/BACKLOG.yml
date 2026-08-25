@@ -808,7 +808,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     decided: 2026-08-24
     decision: >-
       BEFUND aus dem 409-Skriptlauf vom 2026-08-24, nicht aus einem Scan. Beim Umstellen der
@@ -874,7 +874,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/consent 64,0 % (CI-Stand 32735558575)"
     scope: >
       G1-REST, EINZIGER LOOP-FÄHIGER PUNKT DER GATE-LISTE (siehe Befund 10 im Kopf).

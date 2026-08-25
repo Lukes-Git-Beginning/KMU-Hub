@@ -462,3 +462,57 @@ Kopf von `BACKLOG.yml`.
 - neue-units: keine
 - offen: keine — kein Route-Impact, `go test ./internal/gateway/` daher
   nicht Pflicht und nicht gelaufen.
+
+## Iteration 10 — feat-scrub-dependent-pii-dialer-tables — done — 2026-08-26 01:52
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: `ScrubDependentPII` (`internal/crm/consent/scrub.go`) um zwei
+  tenant-gescopte `tx.Exec`-Bloecke erweitert: `dialer_campaign_contacts.notes`
+  (direkter `contact_id`) und `dialer_call_sessions.notes`/`.next_action`
+  (ueber Subselect auf `dialer_campaign_contacts`, weil die Tabelle keine
+  eigene `contact_id`-Spalte hat, nur `campaign_contact_id`). Beide Bloecke
+  zaehlen in `affected` mit, wie die bestehenden. Godoc-Block um die neu
+  abgedeckten Tabellen erweitert ("Also scrubbed: ..."). Keine Migration,
+  kein Proto, keine Route — reine Erweiterung einer bestehenden Funktion.
+  Beim Recherchieren festgestellt: `dialer_campaign_contacts.contact_id` traegt
+  `ON DELETE RESTRICT` (Migration 000130) — ein Kontakt mit Dialer-Historie
+  kann `contact.PostgresRepository.Delete` (Hard-Delete-Pfad) nie erfolgreich
+  durchlaufen, das scheitert an der FK, bevor committet wird (siehe `IsInUse`).
+  Der Dialer-Scrub laesst sich deshalb nur ueber `AnonymizeContact` beobachten,
+  nicht ueber den Hard-Delete-Pfad — dokumentiert in beiden neuen Testdateien
+  und unten unter `offen:`.
+- gate: build ok (`./internal/crm/... ./cmd/gateway/...`) | vet ok
+  (`./internal/crm/...`) | lint ok (0 issues, `./internal/crm/...`) | test ok
+  (siehe unten) | migration n.a. (keine neue Tabelle/Spalte, reine
+  UPDATE-Statements auf bestehenden RLS-geschuetzten Tabellen) | rls-smoke
+  n.a. (keine neue Tabelle/Policy — beide Tabellen sind seit Migration 000120
+  RLS-geschuetzt, beide neuen Statements filtern `tenant_id` explizit, auch
+  im Subselect)
+- coverage: internal/crm/consent 64,0 % -> 64,5 % (`go tool cover -func`,
+  Vorher-Wert deckt sich mit `coverage_start` aus der Unit — CI-Stand
+  32735558575, seit Laufbeginn unangetastet)
+- mutations-probe: in der `dialer_call_sessions`-UPDATE das `next_action = NULL`
+  entfernt (Datei vorher per `cp` gesichert). `TestAnonymizeContact_
+  ScrubsDialerCampaignAndCallSessionNotes` wurde rot ("expected
+  dialer_call_sessions.notes/.next_action to be scrubbed, got
+  notes=<nil> next_action=0xc00038b160"), Datei per `cp` zurueckgedreht,
+  `diff` gegen die Sicherung identisch, kompletter Testlauf danach wieder
+  gruen.
+- verify vorgaenger: sauber (`66f7341f` — kein gRPC-Bypass, kein Stub, kein
+  `.proto` im Diff, keine Route, kein `RequirePermission`, Migration 000325
+  legt nur einen Index an keine neue Tabelle; `GuestSessionRetentionHandler`
+  liest/schreibt ausschliesslich tenant-gescoped ueber Query-Parameter,
+  registriert korrekt in `cmd/auth/main.go`)
+- neue-units: keine
+- offen: Der Hard-Delete-Pfad (`contact.PostgresRepository.Delete`) kann den
+  Dialer-Scrub strukturell nicht demonstrieren — ein Kontakt mit
+  `dialer_campaign_contacts`-Zeilen loest beim `DELETE FROM contacts` die
+  `ON DELETE RESTRICT`-FK aus (Migration 000130) und die ganze Transaktion
+  rollt zurueck, inklusive des vorher gelaufenen Scrubs. Statt des in
+  `done_when` vorgesehenen "Delete scrubbt sichtbar"-Tests belegt
+  `TestDelete_DialerCampaignContactRestrictsHardDeleteWithoutPartialScrub`
+  (Paket `contact`) die Grenze: Delete schlaegt sauber fehl, keine
+  Teil-Scrubbung bleibt zurueck. `TestAnonymizeContact_
+  ScrubsDialerCampaignAndCallSessionNotes` (Paket `consent`) deckt den
+  einzigen tatsaechlich erreichbaren Pfad End-to-End inklusive
+  Tenant-Negativtest ab. Kein Route-Impact, `go test ./internal/gateway/`
+  daher nicht Pflicht und nicht gelaufen.

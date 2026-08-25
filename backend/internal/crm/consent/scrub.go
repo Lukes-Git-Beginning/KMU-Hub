@@ -29,6 +29,14 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 // the helpdesk package) and these two columns are unused fallback storage,
 // safe to clear to NULL.
 //
+// Also scrubbed: dialer_campaign_contacts.notes (direct contact_id column)
+// and dialer_call_sessions.notes/.next_action -- call notes and next-step
+// text that can carry a caller's name verbatim. dialer_call_sessions has no
+// contact_id of its own; it hangs off dialer_campaign_contacts via
+// campaign_contact_id, so reaching it takes a subselect rather than a plain
+// WHERE contact_id = $1. That join is why these two tables got their own
+// unit instead of a one-line addition to the blocks below.
+//
 // Deliberately NOT scrubbed here:
 //   - finance_invoices (customer_name/-address/-email/-ust_id_nr) -- §147
 //     Abs. 3 AO requires 10 years retention for invoices
@@ -71,6 +79,30 @@ func ScrubDependentPII(ctx context.Context, tx pgx.Tx, contactID, tenantID uuid.
 	)
 	if err != nil {
 		return 0, fmt.Errorf("scrub dependent pii: scrub ticket requester identity: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE dialer_campaign_contacts SET notes = NULL, updated_at = NOW()
+		 WHERE contact_id = $1 AND tenant_id = $2 AND notes IS NOT NULL`,
+		contactID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("scrub dependent pii: clear dialer campaign contact notes: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE dialer_call_sessions SET notes = NULL, next_action = NULL, updated_at = NOW()
+		 WHERE tenant_id = $2
+		   AND (notes IS NOT NULL OR next_action IS NOT NULL)
+		   AND campaign_contact_id IN (
+		     SELECT id FROM dialer_campaign_contacts WHERE contact_id = $1 AND tenant_id = $2
+		   )`,
+		contactID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("scrub dependent pii: clear dialer call session notes: %w", err)
 	}
 	affected += int(res.RowsAffected())
 
