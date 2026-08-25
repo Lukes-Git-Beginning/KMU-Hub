@@ -416,3 +416,49 @@ Kopf von `BACKLOG.yml`.
   optionales Interface, kein Interface-Bruch fuer die zehn bestehenden
   Handler); ein spaeterer aktiver Loeschpfad fuer `advisory_protocols`
   bleibt bewusst ungebaut, siehe `lean:`-Marker im Handler.
+
+## Iteration 8 — feat-retention-handler-guest-sessions — done — 2026-08-26 01:23
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- gebaut: `GuestSessionRetentionHandler` (`retention_guest_sessions.go`),
+  registriert in `cmd/auth/main.go`. Delete-only nach Entscheidung Luke
+  2026-08-24 (A6 Teilentscheidung): 90 Tage nach `last_activity_at`, nicht
+  `created_at` (sonst faellig mitten im Gespraech) und nicht `expires_at`
+  (das betrifft nur das Token). `Plan` filtert `tenant_id` + `last_activity_at
+  < cutoff` UNABHAENGIG von `is_active` — eine aktive, aber seit Monaten
+  stille Sitzung ist genauso faellig wie eine inaktive, das ist im Test
+  explizit belegt (`old-active` und `old-inactive` beide im Plan, `fresh-active`
+  nicht). Migration `000325_guest_sessions_retention_index` legt
+  `idx_guest_sessions_tenant_last_activity (tenant_id, last_activity_at)`
+  an — der bestehende `idx_guest_sessions_cleanup` (`expires_at WHERE
+  is_active = true`, seit Migration 000054 nie von einem Cleanup genutzt)
+  passt nicht zur Handler-Query, weil er `is_active` erzwingt und die
+  falsche Spalte indiziert. Chat-Nachrichten des Gastes sind explizit NICHT
+  Teil dieser Unit (siehe `notes` der Unit) — `messages.guest_session_id`
+  hat `ON DELETE SET NULL` (Migration 000054), die Nachricht bleibt also
+  bei geloeschter Sitzung erhalten, nur die Zuordnung geht verloren.
+- gate: build ok | vet ok | lint ok (0 issues, `./internal/security/gdpr/...
+  ./cmd/auth/...`) | test ok (gesamtes Paket `./internal/security/gdpr/`
+  gruen, DATABASE_URL gesetzt als kmuhub_app, 0 Skips) | migration ok
+  (000325 up gegen lokale DB angewendet, `migrate ... up` lief sauber) |
+  rls-smoke n.a. (keine neue Tabelle/Policy — nur ein Index auf einer
+  Tabelle, die seit Migration 000122 RLS-geschuetzt ist; Handler
+  liest/schreibt ausschliesslich tenant-gescoped per Query-Parameter)
+- coverage: internal/security/gdpr 72,5 % -> 72,6 % (beide selbst gemessen
+  via `go tool cover -func`, Vorher-Wert per `git stash push -u --
+  backend/internal/security/gdpr backend/cmd/auth/main.go` + `stash pop`;
+  deckt sich mit `coverage_start` aus der Unit, 72,2 % CI-Stand war vor
+  Iteration 7 gemessen)
+- mutations-probe: in `retention_guest_sessions.go:Plan` die WHERE-Klausel
+  um `AND is_active = true` erweitert (Datei vorher per `cp` gesichert).
+  `TestGuestSessionRetentionHandler_PlanUsesLastActivityRegardlessOfIsActiveAndIsTenantScoped`
+  wurde rot (die `old-inactive`-Sitzung fehlte im Plan), Datei per `cp`
+  zurueckgedreht, `diff` gegen die Sicherung identisch, kompletter
+  Testlauf danach wieder gruen.
+- verify vorgaenger: sauber (`52a1332b` — kein gRPC-Bypass, kein Stub, kein
+  `.proto` im Diff, keine Route, kein `RequirePermission`, keine neue
+  Tabelle/Migration; `AdvisoryProtocolRetentionHandler` liest/schreibt
+  tenant-gescoped, `unsupportedReasoner`-Hook additiv ohne bestehende
+  Handler zu veraendern)
+- neue-units: keine
+- offen: keine — kein Route-Impact, `go test ./internal/gateway/` daher
+  nicht Pflicht und nicht gelaufen.

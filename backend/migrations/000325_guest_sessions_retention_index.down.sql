@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_guest_sessions_tenant_last_activity;
