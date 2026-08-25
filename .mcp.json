@@ -1,30 +1,13 @@
 {
-    "mcpServers":  {
-                       "knowledge":  {
-                                         "command":  "cmd",
-                                         "args":  [
-                                                      "/c",
-                                                      "npx",
-                                                      "-y",
-                                                      "@modelcontextprotocol/server-filesystem",
-                                                      ".knowledge"
-                                                  ]
-                                     },
-                       "context7":  {
-                                        "command":  "cmd",
-                                        "args":  [
-                                                     "/c",
-                                                     "npx",
-                                                     "-y",
-                                                     "@upstash/context7-mcp@latest"
-                                                 ]
-                                    },
-                       "github":  {
-                                      "type":  "http",
-                                      "url":  "https://api.githubcopilot.com/mcp/",
-                                      "headers":  {
-                                                      "Authorization":  "Bearer ${CLAUDE_GITHUB_TOKEN:-}"
-                                                  }
-                                  }
-                   }
+  "mcpServers": {
+    "context7": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@upstash/context7-mcp@4.0.3"
+      ]
+    }
+  }
 }

@@ -1,5 +1,5 @@
 ---
-description: Erst-Setup des Cosmi Market-Intelligence-Systems. Verifiziert das zentria-intel-Repo, fuehrt Smoketest aus, hilft Discord-Bot-Setup, registriert Routinen.
+description: Erst-Setup des zentria-intel-Markt-Intelligence-Systems (Repo prüfen, Smoketest, Discord-Bot).
 argument-hint: "[--smoke | --routines | --discord | leer fuer voll]"
 ---
 

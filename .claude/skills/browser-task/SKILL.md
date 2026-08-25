@@ -1,6 +1,6 @@
 ---
 name: browser-task
-description: Führt eine Browser-Aufgabe in einem isolierten Subagenten mit Zeitbudget und Zwischenberichten aus. Nutzen für alles, was Klicken, Formulare, Ablesen oder UI-Prüfung im Browser erfordert — hält Screenshots und DOM-Dumps aus dem Hauptkontext.
+description: Führt eine Browser-Aufgabe im Subagenten aus und hält Screenshots und DOM-Dumps aus dem Hauptkontext. Nutzen für Klicken, Formulare, Ablesen oder UI-Prüfung im Browser.
 argument-hint: "[quick|standard|deep|long] <was zu tun ist>"
 context: fork
 agent: browser-operator

@@ -1,5 +1,5 @@
 ---
-description: Markiert einen Friday-Report-Insight aus zentria-intel als keep/followup/inspire/dismiss. Backup wenn Discord-Bot offline ist.
+description: Markiert einen Insight aus dem Friday-Report als keep/followup/inspire/dismiss.
 argument-hint: "<id> [keep|followup|inspire|dismiss] [tags] [note]"
 ---
 
