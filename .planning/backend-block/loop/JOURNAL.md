@@ -2766,3 +2766,60 @@ Kopf von `BACKLOG.yml`.
 - coverage-delta: internal/work/customfield 0,0 -> 82,6 · vorher 3,9 -> 82,6 · Referenzwert 19,4 -> 78,2 · (17 weitere)
 - offen mit entscheidungsbedarf: 15 von 36 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
 - minuten je iteration: 10,4 (425 gesamt)
+
+## Iteration 1 — cov-email-sync-worker-and-imap-client — done — 2026-08-27 01:01
+- commit: (siehe naechste Zeile im selben Commit)
+- gebaut: `internal/email/sync/worker.go` (`syncFolders`/`syncFolder` von konkretem `*IMAPClient`
+  auf schmale Interfaces `folderLister`/`folderFetcher` verengt, `initialBackoff`/`maxBackoff`
+  von `const` auf `var` — Muster von `imapDialTimeout`/`imapHandshakeDeadline` in imap_client.go
+  uebernommen, "vars nur damit Tests sie schrumpfen koennen, Produktion weist nie neu zu").
+  Drei neue Testdateien: `worker_sync_test.go` (syncFolders/syncFolder gegen Fakes:
+  UIDVALIDITY-Wechsel wischt lokale Nachrichten, Erstsync filtert per 30-Tage-Cutoff, Delta-Sync
+  filtert NICHT, ein fehlschlagender CreateSynced-Aufruf mitten im Batch bricht den Rest nicht ab,
+  bereits getrackte Ordner werden nicht doppelt angelegt, ein fehlschlagendes CreateFolder wird
+  geloggt statt den Lauf abzubrechen), `worker_run_test.go` (`newWorker` setzt alle Felder;
+  `Worker.Run` versucht nach einem fehlgeschlagenen `syncCycle` erneut, mit Backoff, und reagiert
+  auf Context-Cancel auch WAEHREND des Backoff-Waits, nicht erst beim naechsten Schleifendurchlauf;
+  `GetDecryptedCredentials` schlaegt ueber einen Fake-`account.Repository` sofort fehl, kein
+  Netzzugriff noetig), `engine_lifecycle_test.go` (`Engine.Start`/`StartWorker`/
+  `startWorkerInternal`: ein Worker pro aktivem Account, `ListAllActive`-Fehler startet keine
+  Worker, unbekannte Account-ID liefert `ErrSyncInProgress`, ein erneuter `StartWorker`-Aufruf fuer
+  dieselbe ID stoppt den alten Worker zuerst). `account.Service` laesst sich vollstaendig ueber
+  seine bestehenden `Repository`/`VaultEncryptor`-Interfaces faken — kein Produktionscode dafuer
+  noetig ausser der oben genannten Interface-Verengung in worker.go.
+  Tenant-Zuordnung (done_when-Punkt): kommt aus `w.account.TenantID` (Worker haelt das geladene
+  `*models.EmailAccount`, das bereits tenant-gescoped aus `accountService.ListAllActive`/
+  `GetByID` kommt) und wird in `envelopeToMessage` auf jede synchronisierte Nachricht geschrieben
+  (`TestEnvelopeToMessage` bestand das schon vor dieser Iteration).
+  IMAP-Client (done_when-Punkt "Abdeckung vorhanden oder eigene Unit"): der Client wrapt
+  `imapclient.Client` konkret, kein Interface — Erfolgspfade brauchen einen antwortenden
+  Fake-IMAP-Server (Wire-Protokoll), nicht nur einen TCP-Listener. Als eigene Unit angelegt
+  (siehe neue-units), Fehlerpfade (nil-Client, Handshake-Timeout, sofortiger Verbindungsabbruch)
+  waren schon vor dieser Iteration abgedeckt.
+- gate: build ok (`go build -p 2 ./internal/email/... ./internal/gateway/... ./cmd/gateway/...`)
+  | vet ok (`go vet ./internal/email/...`) | lint ok (`golangci-lint run ./internal/email/...`,
+  0 issues) | test ok (DATABASE_URL gesetzt, `go test -count=1 ./internal/email/...` — 12
+  Unterpakete, alle `ok`, 0 uebersprungen) | migration n.a. (keine) | rls-smoke n.a. (keine neue
+  Tabelle/Policy) | gateway-test n.a. (keine Route angefasst, Build trotzdem gruen)
+- coverage: internal/email/sync 34,6 % -> 64,6 % (selbst gemessen vor/nach mit
+  `go tool cover -func`; deckt sich mit `coverage_start` der Unit, CI-Stand 32949396303 war
+  noch nicht ueberholt). Funktions-Feinbild: `syncFolders` 16,7 % -> 100 %, `syncFolder`
+  8,3 % -> 97,2 %, `newWorker` 0 % -> 100 %, `Run` 0 % -> 83,3 %, `StartWorker` 0 % -> 95,5 %,
+  `startWorkerInternal` 0 % -> 100 %; `syncCycle` 0 % -> 15,0 %, `idleLoop`/`pollLoop` bleiben
+  0 % (haengen an einem echten IMAP-Client-Erfolgspfad, siehe neue-units).
+- mutations-probe: Cutoff-Filter in `syncFolder` testweise mit `if false && highestUID == 0 &&
+  envDate.Before(cutoff)` deaktiviert -> `TestSyncFolder_InitialSync_FiltersMessagesOlderThanCutoff`
+  wurde rot ("[0xc000250000 0xc0002501c0] should have 1 item(s), but has 2" — die 60 Tage alte
+  Nachricht wurde nicht mehr herausgefiltert) -> zurueckgedreht, `git diff --stat` zeigt danach nur
+  noch die beabsichtigte Interface-Verengung (+21/-3 in worker.go), Test wieder gruen.
+- verify vorgaenger: sauber (`4107e6b8`, letzter Bau-Commit vor dieser Iteration, geprueft gegen
+  alle acht Fehlerklassen — reine Testdatei gegen dreizehn bereits bestehende, ungetestete
+  Gateway-Handler, kein neuer Endpunkt, kein `.proto`, kein `RequirePermission`, kein
+  gRPC-Bypass, kein Stub-Marker). Der Backlog-Kopf-Hinweis aus Iteration 43 zur vorbestehenden
+  `blocked`-Unit `fix-409-double-meaning-on-grpc-conflict-routes` betraf BACKLOG-NEXT.yml, nicht
+  diese Datei — beim Preflight-Lauf dieser Iteration (`hooks/backlog-check.py --preflight`) kam
+  "alle drei Dateien valide, keine Verstoesse", also bereits vor dieser Iteration erledigt.
+- neue-units: cov-imap-client-fake-protocol-server (Erfolgs- und NO/BAD-Fehlerpfade fuer
+  Login/SelectFolder/FetchHeaders/FetchBody/SetFlags/Idle/HasIDLE/Noop/ListFolders brauchen
+  einen antwortenden Fake-IMAP-Server, kein reiner TCP-Listener)
+- offen: keine

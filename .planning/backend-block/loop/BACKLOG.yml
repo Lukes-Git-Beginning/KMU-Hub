@@ -333,7 +333,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/email/sync 34,6 % (233 ungedeckt von 356); worker.go 31,4 %, imap_client.go 38,0 %, engine.go 36,4 % (CI-Stand 32949396303)"
     scope: >
       `internal/email/sync` ist mit 34,6 % das zweitschwaechste Paket mit Substanz. Es holt
@@ -5307,3 +5307,45 @@ units:
         Ob ein Lieferant OHNE `contact_id` per eigenem Namens-/E-Mail-Match auffindbar gemacht wird
         oder das als offene Luecke dokumentiert bleibt, steht mit Begruendung im Journal
       - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: cov-imap-client-fake-protocol-server
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/email/sync/imap_client.go, gemessen 2026-08-27 nach cov-email-sync-worker-and-imap-client: Login 33,3 %, SelectFolder 33,3 %, FetchHeaders 10,0 %, FetchBody 12,5 %, SetFlags 20,0 %, Idle 22,2 %, HasIDLE 50,0 %, Noop 40,0 %, ListFolders 20,0 %, Close 40,0 % (jeweils nur der nil-Client-Guard-Zweig getestet, Paketwert internal/email/sync 64,6 %)"
+    scope: >
+      Abgetrennt aus `cov-email-sync-worker-and-imap-client`, deren eigener `notes:`-Text genau
+      diesen Fall vorsah ("falls nicht [vertretbar], deckt die Unit den Worker und die Engine ab
+      und legt den Client als eigene Unit an"). `IMAPClient` wrapt `imapclient.Client` aus
+      go-imap/v2 konkret (kein Interface) — `Worker.syncCycle` instanziiert es direkt per
+      `NewIMAPClient(...)`. Die bereits vorhandenen Tests (`imap_client_guards_test.go`,
+      `imap_timeout_test.go`) decken den nil-Client-Guard und den Connect/Handshake-Timeout gegen
+      einen rohen TCP-Listener ab, der NIE spricht oder sofort schliesst — das reicht fuer die
+      Fehlerpfade, aber nicht fuer den Erfolgspfad von Login/SelectFolder/FetchHeaders/FetchBody/
+      SetFlags/Idle/Noop/ListFolders, weil die echtes IMAP-Wire-Protokoll (Tag-Response-Zyklen,
+      literale FETCH-Antworten) sprechen muessen, nicht nur eine TCP-Verbindung offenhalten.
+    sources:
+      - backend/internal/email/sync/imap_client.go
+      - backend/internal/email/sync/imap_client_guards_test.go
+      - backend/internal/email/sync/imap_timeout_test.go
+    notes: >
+      Zwei gangbare Wege, beide legitim: (1) ein minimaler Fake-IMAP-Server auf einem echten
+      `net.Listen("tcp", "127.0.0.1:0")`, der genug vom Protokoll spricht (Greeting, `a1 OK LOGIN`,
+      `a2 OK SELECT` mit `* N EXISTS`/`* OK [UIDVALIDITY n]`, `a3 FETCH`-Literale, `a4 OK IDLE`/
+      `+ idling`, `a5 OK NOOP`, `a6 LIST`-Zeilen) — mehr Aufwand, aber deckt den echten Client
+      inklusive go-imap-v2-Parsing. (2) Pruefen, ob `emersion/go-imap/v2` selbst ein Test-Double
+      oder einen In-Memory-Server fuer genau diesen Zweck mitbringt (go.mod/vendor pruefen, nicht
+      raten), bevor Weg (1) von Hand gebaut wird. Scope EINE dieser beiden Optionen, keine dritte
+      (kein neues externes Test-Framework als Dependency, siehe Lean-Code-Regel).
+    done_when:
+      - >-
+        Login, SelectFolder, FetchHeaders, FetchBody, SetFlags, Idle, HasIDLE, Noop und
+        ListFolders haben je mindestens einen Erfolgspfad-Test gegen einen antwortenden
+        Fake-Server (nicht nur den nil-Client-Guard)
+      - >-
+        Mindestens ein Fehlerpfad-Test pro Methode gegen eine Server-Antwort, die IMAP-seitig NO
+        oder BAD zurueckgibt (nicht nur Verbindungsfehler)
+      - go test -count=1 ./internal/email/sync/... gruen, DATABASE_URL gesetzt, 0 Skips, Paketwert
+        vorher/nachher im Journal

@@ -26,8 +26,12 @@ const (
 
 	// Initial sync depth: fetch last 30 days of headers
 	initialSyncDays = 30
+)
 
-	// Reconnection backoff
+// Reconnection backoff. Vars (not consts) only so tests can shrink them;
+// production never reassigns them — mirrors the imapDialTimeout /
+// imapHandshakeDeadline pattern in imap_client.go.
+var (
 	initialBackoff = 1 * time.Second
 	maxBackoff     = 60 * time.Second
 )
@@ -185,8 +189,22 @@ func (w *Worker) syncCycle(ctx context.Context) error {
 	return w.idleOrPoll(ctx, client, folders)
 }
 
+// folderLister is the subset of IMAPClient used by syncFolders, narrowed so
+// tests can exercise the delta-sync logic against a fake instead of a real
+// IMAP server.
+type folderLister interface {
+	ListFolders() ([]*FolderInfo, error)
+}
+
+// folderFetcher is the subset of IMAPClient used by syncFolder, narrowed for
+// the same reason as folderLister.
+type folderFetcher interface {
+	SelectFolder(name string) (*FolderStatus, error)
+	FetchHeaders(uidSet imap.UIDSet) ([]*MessageEnvelope, error)
+}
+
 // syncFolders synchronizes the IMAP folder list to the database.
-func (w *Worker) syncFolders(ctx context.Context, client *IMAPClient) error {
+func (w *Worker) syncFolders(ctx context.Context, client folderLister) error {
 	imapFolders, err := client.ListFolders()
 	if err != nil {
 		return err
@@ -231,7 +249,7 @@ func (w *Worker) syncFolders(ctx context.Context, client *IMAPClient) error {
 }
 
 // syncFolder performs delta sync for a single folder.
-func (w *Worker) syncFolder(ctx context.Context, client *IMAPClient, folder *models.EmailFolder) error {
+func (w *Worker) syncFolder(ctx context.Context, client folderFetcher, folder *models.EmailFolder) error {
 	status, err := client.SelectFolder(folder.IMAPName)
 	if err != nil {
 		return err
