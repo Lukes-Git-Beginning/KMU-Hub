@@ -1778,7 +1778,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 56,6 %; route_inventar.go 45,7 %, 21 von 39 Handlern ungetestet"
     scope: >
       Zweite Inventar-Unit: Inventursitzungen, Anhaenge und Auswertungen. Ungetestet (Stand
