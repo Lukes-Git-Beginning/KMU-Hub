@@ -2198,7 +2198,7 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/vermietung 48,2 %; postgres_repository.go 3,9 % — 173 ungedeckt von 180, die niedrigste Quote im Backend"
     scope: >
       `internal/vermietung/postgres_repository.go` traegt 180 Statements bei 3,9 % Abdeckung.

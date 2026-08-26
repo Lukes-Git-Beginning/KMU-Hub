@@ -9,8 +9,26 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// pgErrCodeExclusionViolation is the SQLSTATE Postgres raises when the
+// uq_rentals_no_overlap GIST exclusion constraint (migration 000101) rejects
+// an overlapping booking. The service pre-checks HasOverlap before INSERT,
+// but that check and the INSERT are not in the same transaction, so two
+// concurrent CreateRental/UpdateRental calls can both pass the pre-check and
+// race to the constraint. Without this mapping the loser surfaces a raw
+// Postgres error instead of ErrRentalConflict.
+const pgErrCodeExclusionViolation = "23P01"
+
+func asRentalConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgErrCodeExclusionViolation {
+		return ErrRentalConflict
+	}
+	return err
+}
 
 // PostgresRepository implements Repository using PostgreSQL.
 type PostgresRepository struct {
@@ -166,7 +184,10 @@ func (r *PostgresRepository) CreateRental(ctx context.Context, rental *Rental) e
 		rental.StartDate, rental.EndDate, rental.Status, rental.TotalPrice, rental.DepositPaid,
 		rental.Notes, rental.CreatedAt, rental.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		return asRentalConflict(err)
+	}
+	return nil
 }
 
 func (r *PostgresRepository) UpdateRental(ctx context.Context, rental *Rental) error {
@@ -180,7 +201,7 @@ func (r *PostgresRepository) UpdateRental(ctx context.Context, rental *Rental) e
 		rental.ID, rental.TenantID,
 	)
 	if err != nil {
-		return err
+		return asRentalConflict(err)
 	}
 	if ct.RowsAffected() == 0 {
 		return ErrRentalNotFound

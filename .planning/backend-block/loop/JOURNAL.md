@@ -2487,3 +2487,80 @@ Kopf von `BACKLOG.yml`.
   getrennte Tabellen, zwei getrennte fachliche Zwecke, keine gemeinsame Rechnung. (3)
   `go test ./internal/work/...` lief in dieser Iteration mit `-p 2` durchgaengig gruen
   (kein Wiederauftreten des Connection-Pool-Problems aus Iteration 38).
+
+## Iteration 40 — cov-vermietung-repository-lowest-coverage-in-backend — done — 2026-08-26 06:55
+- commit: -
+- gebaut: `internal/vermietung/postgres_repository_db_test.go` (neu, 17 Testfunktionen)
+  deckt jede Repository-Methode gegen echtes SQL ab (Objects/Rentals/Inspections CRUD,
+  Listen mit Filtern, HasOverlap, SaveSignature) inkl. Tenant-Grenze auf jedem Lesepfad.
+  Echter Fund dabei behoben: `postgres_repository.go` CreateRental/UpdateRental gaben bei
+  einer durch die GIST-Exclusion-Constraint (`uq_rentals_no_overlap`, Migration 000101)
+  abgelehnten Race den rohen Postgres-Fehler zurueck statt `ErrRentalConflict` — der
+  Service prueft `HasOverlap` VOR dem INSERT, aber Pre-Check und INSERT liegen nicht in
+  derselben Transaktion, zwei gleichzeitige Buchungen fuer denselben Zeitraum koennen also
+  beide den Pre-Check passieren und um die Constraint racen. Ohne Mapping landete der
+  Verlierer via `mapVermietungError`s `default`-Zweig als `codes.Internal` ("internal
+  error") statt als `codes.AlreadyExists` mit brauchbarer Meldung. Neue Funktion
+  `asRentalConflict` mappt SQLSTATE 23P01 (exclusion_violation) auf `ErrRentalConflict`,
+  angewendet in beiden Schreibpfaden. Kein Proto/keine Route/kein RequirePermission/keine
+  neue Tabelle angefasst.
+- gate: build ok (`go build -p 2 ./internal/vermietung/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok (DATABASE_URL gesetzt,
+  17 neue Tests + alle bestehenden vermietung-Tests gruen, 0 uebersprungen) | migration
+  n.a. (keine Tabelle/Policy angefasst, Migrationskopf 325 lokal = Repo, keine neue
+  Migration noetig) | rls-smoke ok (durchgaengig ueber echte Repo-Methoden:
+  GetObject/GetRental/ListObjects/ListRentals/ListInspections liefern fuer fremden
+  Tenant ErrObjectNotFound/ErrRentalNotFound bzw. 0 Treffer, UpdateObject/UpdateRental/
+  SoftDeleteObject/DeleteRental gegen fremden Tenant schlagen mit demselben NotFound
+  fehl statt zu leaken) | route-drift n.a. (keine Route angefasst, `route_vermietung.go`
+  war nur als Kontext-Quelle gelistet, nicht Ziel dieser Unit — die Gateway-Seite ist
+  die separate `cov-gateway-vermietung-objects-and-inspections`)
+- coverage: internal/vermietung/postgres_repository.go vorher 3,9 % (173 von 180
+  Statements ungedeckt, gemessen im CI-Referenzlauf) -> Paket-gesamt jetzt 82,6 %
+  (vorher `internal/vermietung` gesamt 48,2 % laut coverage_start). Je Funktion via
+  `go tool cover -func`: alle 22 Funktionen zwischen 66,7 % (UpdateInspection) und
+  100 % (NewPostgresRepository, CreateObject, CreateRental, HasOverlap,
+  CreateInspection), keine mehr bei 0.
+- mutations-probe: zwei Mutationen (Backup vorher per `cp`, danach zurueckgespielt,
+  `git diff --stat` am Ende zeigt nur die beabsichtigte `asRentalConflict`-Aenderung):
+  (1) in `GetRental` `AND tenant_id = $2` aus der WHERE-Klausel entfernt (Query-Platzhalter
+  blieben, Argumentzahl blieb bei zwei) -> sofortiger Laufzeitfehler "expected 1
+  arguments, got 2" in `TestPostgresRental_GetUpdateDelete_CrossTenant_NotFound` statt
+  eines stillen Cross-Tenant-Leaks — der Test haette auch bei einer subtileren Mutation
+  (z. B. Tautologie) denselben Bug gefangen, da er auf `ErrRentalNotFound` prueft statt
+  nur auf "kein Fehler". (2) `pgErrCodeExclusionViolation` von "23P01" auf "23505"
+  geaendert (falscher SQLSTATE-Code) -> `TestPostgresCreateRental_ConcurrentOverlap_
+  OneWinnerOneConflict` sofort ROT: "expected nil or ErrRentalConflict, got ERROR:
+  conflicting key value violates exclusion constraint ... (SQLSTATE 23P01) (not the raw
+  pg error)" — bestaetigt, dass der Test genau die eben gefixte Luecke haette gefangen,
+  waere sie nicht gefixt worden.
+- verify vorgaenger: sauber (`34d3eba3` — nur drei neue Testdateien
+  (`route_work_time_handlers_test.go`, `work/project/postgres_repository_db_test.go`,
+  `work/timeentry/postgres_repository_db_test.go`) plus BACKLOG.yml/JOURNAL.md im Diff,
+  kein `.proto`, keine neue Route, kein `RequirePermission`, keine neue Tabelle, kein
+  gRPC-Bypass, kein Stub-Marker; Journal-Eintrag selbst dokumentiert bereits eine saubere
+  Mutations-Probe mit Backup/Restore)
+- neue-units: keine (der einzige echte Fund — fehlendes Conflict-Mapping bei
+  Exclusion-Violation — war innerhalb dieser Iteration selbst behebbar, kein Proto/keine
+  Migration/kein Deploy-Hazard, also direkt gefixt statt als Fix-Unit verschoben)
+- offen: (1) Frage aus `done_when` beantwortet: `renter_name` in `rentals` ist ein reines
+  Freitextfeld aus dem Request (`route_vermietung.go:147`, `validate:"required"`),
+  NICHT aus dem optionalen `contact_id` abgeleitet und wird beim Anlegen/Aktualisieren nie
+  automatisch mit dem Kontaktnamen synchronisiert — Service- und Repository-Ebene
+  bestaetigen das (`service.go` CreateRental/UpdateRental setzen `RenterName` nur aus
+  `input.RenterName`). Das ist vermutlich Absicht (Mieter muss keinen CRM-Kontakt haben,
+  z. B. Laufkundschaft), aber falls doch aus dem Kontakt vorbefuellt werden soll, ist das
+  eine Produktentscheidung, kein Bug — daher keine Fix-Unit angelegt. (2) Doppelvermietung
+  (`done_when` Punkt 3): technisch NICHT moeglich dank der GIST-Exclusion-Constraint
+  `uq_rentals_no_overlap` (Migration 000101, bereits vor diesem Lauf vorhanden) — der
+  einzige Bug war die fehlende Fehler-Uebersetzung im Race-Fall, jetzt gefixt und mit
+  einem echten Concurrency-Test belegt. (3) Kleine Inkonsistenz beobachtet, nicht als Bug
+  gewertet: `HasOverlap`s Pre-Check schliesst nur `status = 'cancelled'` aus, die
+  DB-Constraint zusaetzlich auch `'completed'` — ein abgeschlossener historischer
+  Zeitraum blockiert im App-Layer strenger als noetig eine neue Buchung mit denselben
+  Daten. Sehr unwahrscheinlicher Fall (niemand bucht typischerweise denselben
+  Datumsbereich einer bereits abgeschlossenen Miete erneut), daher nur vermerkt, keine
+  Fix-Unit. (4) `route_vermietung.go`/`vermietung_grpc.go`/`service.go` sind fachlich
+  weiterhin ungetestet auf Gateway-/gRPC-Ebene (0,0/48,4 % laut `coverage_start`) — das
+  ist die separate `cov-gateway-vermietung-objects-and-inspections`, absichtlich nicht
+  Teil dieser Unit.
