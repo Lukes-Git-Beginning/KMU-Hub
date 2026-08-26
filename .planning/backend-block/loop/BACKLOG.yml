@@ -1697,7 +1697,7 @@ units:
     service: calendar
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/caldav 54,9 %; carddav_backend.go 22,9 %, 155 ungedeckt von 201"
     scope: >
       Schwester der vorigen Unit: `carddav_backend.go` (201 Statements, 22,9 %) liefert
