@@ -1951,7 +1951,7 @@ Kopf von `BACKLOG.yml`.
   in dieser Iteration nur rapporte selbst untersucht.
 
 ## Iteration 33 — cov-document-file-repository-and-service — done — 2026-08-26 05:38
-- commit: (wird in Folge-Commit nachgetragen)
+- commit: 409850d3
 - gebaut: neue DB-Testdatei `internal/document/file/postgres_repository_file_test.go` (28 Tests)
   fuer die bislang komplett ungetestete Kern-CRUD/Versionierung von `postgres_repository.go`:
   `Create`, `GetByID` (inkl. Cross-Tenant), `List` (Default-Ausschluss geloeschter Dateien,
