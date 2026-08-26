@@ -1,4 +1,4 @@
-# Backend-Nachtloop — Arbeitsqueue (Lauf 12, gestaged 2026-08-24)
+# Backend-Nachtloop — Arbeitsqueue (Lauf 13, gestaged 2026-08-26)
 #
 # Eine Unit = eine Iteration = ein Commit.
 #
@@ -20,125 +20,146 @@
 # Lauf 7 (71): archive/lauf-7/ — Lauf 8 (94): archive/lauf-8/ — Lauf 9 (37): archive/lauf-9/
 # Lauf 10 (93, davon 91 done + 2 blocked): archive/lauf-10/
 # Lauf 11 (131 Einträge, davon 121 done in 120 Iterationen): archive/lauf-11/ (inkl. Bilanz).
+# Lauf 12 (99 Einträge, davon 41 done in 43 Iterationen): archiviert erst nach Lauf 13,
+#   weil 57 seiner `todo`-Units in diesen Lauf weiterlaufen. Bilanz am Ende von JOURNAL.md.
 #
 # Was der Loop NICHT zieht — geparkt oder gestrichen, mit Entscheidung und Zielort:
 # BACKLOG-PARKED.yml. Was auf eine Entscheidung wartet: BACKLOG-NEXT.yml. In DIESER Datei steht
 # keine `blocked`-Unit. Wird eine Unit im Lauf blockiert, gehört ein `blocked_reason` dazu, der
-# sagt, WORAUF sie wartet und WER das entscheidet — und sie muss vor dem nächsten Lauf hier raus.
+# sagt, WORAUF sie wartet und WER das entscheidet — und sie wandert IM SELBEN COMMIT nach
+# BACKLOG-NEXT.yml. Nicht "vor dem nächsten Lauf": eine blocked-Unit, die hier liegen bleibt,
+# lässt den Vorflug des nächsten Laufs abbrechen, bevor die erste Iteration startet (Regel 11).
 #
 # ==========================================================================================
-# STAND DER VORBEREITUNG (2026-08-24, alles gegen den laufenden Code und die lokale DB gemessen)
+# STAND DER VORBEREITUNG (2026-08-26, alles gegen den laufenden Code und die lokale DB gemessen)
 #
-#   - Lauf 11 ist gemergt (`acc48aee`) und deployt. `main` = `backend-loop`, Fast-Forward,
-#     nicht rebased. Produktion antwortet mit `commit: acc48aee`.
-#   - MIGRATIONSKOPF = 323 (Repo, lokale DB und Produktion, `schema_migrations` clean).
-#     Nächste freie Nummer wäre 324 — aber IMMER zur Laufzeit ermitteln:
+#   - Lauf 12 ist gemergt (`1a6cc473`) und deployt. `main` = `backend-loop`, Fast-Forward,
+#     nicht rebased. Produktion antwortet mit `commit: 1a6cc473`.
+#   - MIGRATIONSKOPF = 325 (Repo, lokale DB und Produktion, `schema_migrations` clean).
+#     Nächste freie Nummer wäre 326 — aber IMMER zur Laufzeit ermitteln:
 #     ls backend/migrations | grep -E "^[0-9]{6}" | sort | tail -1
-#   - CI grün auf `acc48aee` (Run 32735558575, alle fünf Jobs inkl. E2E, 57 Steps), CD grün.
+#   - CI grün auf `1a6cc473` (Run 32949396303, alle fünf Jobs inkl. E2E, 57 Steps), CD grün.
 #   - Das DB-Gate ist im Treiber erzwungen: `run-loop.ps1` prüft vor der ersten Iteration
 #     Port, Anmeldung als `kmuhub_app` und Migrationskopf und BRICHT AB, wenn eins fehlt.
+#   - DER BACKLOG IST ERSTMALS NICHT LEER IN EINEN LAUF GEGANGEN. Lauf 12 endete an der
+#     DEADLINE, nicht an der Queue: 43 Iterationen, 41 done, 0 blocked, Ø 10,4 min. Die 57
+#     stehengebliebenen `todo` sind der Grundstock dieses Laufs; nur EINE Unit ist neu
+#     (`scan-409-conflict-error-mapping`, siehe unten).
 #
-# COVERAGE-AUSGANGSLAGE (CI-Run 32735558575, Artefakt 9523355904, gesamt 64,1 % bei Gate 15 %).
-# Sortiert nach UNGEDECKTEN STATEMENTS, weil Prozente allein die Fläche verschweigen:
-#     internal/gateway             56,6 %   9.882 ungedeckt von 22.765
-#     internal/server              70,8 %   5.941 von 20.357
-#     internal/security/gdpr       72,2 %     626 von  2.249
+# COVERAGE-AUSGANGSLAGE (CI-Run 32949396303, Artefakt auf `1a6cc473`, gesamt 69,6 % bei Gate
+# 15 %; Lauf 12 hat 64,1 -> 69,6 gehoben). Sortiert nach UNGEDECKTEN STATEMENTS, weil Prozente
+# allein die Fläche verschweigen:
+#     internal/gateway             69,3 %   7.009 ungedeckt von 22.807
+#     internal/server              71,3 %   5.855 von 20.416
+#     internal/security/gdpr       72,6 %     644 von  2.347
 #     internal/biz/bexio           54,1 %     574 von  1.250   (GESPERRT, G3)
 #     internal/auth                67,9 %     515 von  1.606
-#     internal/caldav              54,9 %     494 von  1.095
-#     internal/fuhrpark            54,5 %     464 von  1.020
-#     internal/formulare           53,6 %     381 von    821
-#     internal/biz/invoice         61,1 %     344 von    885
-#     internal/einkauf             63,9 %     332 von    920
+#     internal/caldav              68,6 %     345 von  1.098
+#     internal/biz/invoice         61,3 %     344 von    889
 #     internal/dialer              65,9 %     321 von    942
-#     internal/biz/hr/timetracking 61,9 %     282 von    741
-#     internal/document/file       55,8 %     262 von    593
-#     internal/work/recording      33,2 %     247 von    370
+#     internal/plugin/wasm          0,0 %     287 von    287   (Feature-Flag OFF)
+#     internal/biz/hr/timetracking 63,7 %     269 von    741
+#     internal/biz/lexware         74,8 %     255 von  1.012
+#     internal/work/meeting        72,0 %     241 von    862
 #     internal/email/sync          34,6 %     233 von    356
-#     internal/vermietung          48,2 %     226 von    436
+#     internal/settings            60,3 %     228 von    574
 #     internal/biz/quote           49,6 %     215 von    427
+#     internal/inventar            73,1 %     208 von    772
+#     internal/helpdesk            81,5 %     204 von  1.102
 #     internal/wiki                53,5 %     199 von    428
+#     internal/einkauf             79,1 %     192 von    920
+#     internal/fuhrpark            81,3 %     191 von  1.020
+#
+# `internal/gateway` und `internal/server` sind zusammen rund 47 % aller 27.542 ungedeckten
+# Statements — nach Prozent ist gateway nicht mehr das schwächste Paket, nach FLÄCHE ist es
+# weiter das größte. Nicht mitgezählt sind die `cmd/*`-Pakete (biz 332, gateway 310,
+# notification 239 ungedeckt, jeweils 0,0 %): das ist Verdrahtung in `main()`, die der Loop
+# nicht sinnvoll testet.
 #
 # `internal/gateway` je Route-Datei — Statement-Coverage UND Handler-Abdeckung (jeder
-# `Handle*`-Name gegen den Text aller `internal/gateway/*_test.go`). Die Handler-Zahl ist die
-# schwächste Form von "getestet" und taugt zur Priorisierung, nicht als Beweis:
-#     route_hr.go              36,4 %   634 ung   33/55 Handler ungetestet   2300 Z.
-#     route_video.go           47,5 %   545 ung   33/59                      2379 Z.
-#     route_fuhrpark.go        45,4 %   515 ung   24/45                      1862 Z.
-#     route_inventar.go        45,7 %   419 ung   21/39                      1613 Z.
-#     route_rapporte.go        31,8 %   407 ung   19/31                      1274 Z.
-#     route_document.go        43,0 %   397 ung   19/46                      1676 Z.
-#     route_calendar.go        45,5 %   382 ung   18/39                      1509 Z.
-#     route_helpdesk.go        40,6 %   365 ung   13/38                      1425 Z.
-#     route_formulare.go       32,2 %   353 ung   14/23                      1203 Z.
-#     route_chat.go            39,0 %   305 ung   14/30                      1100 Z.
-#     route_produktion_ext.go  25,1 %   250 ung   16/17                       717 Z.
-#     route_vertraege.go       23,5 %   251 ung   10/15                       709 Z.
-#     route_einkauf.go         36,6 %   236 ung   13/18                       805 Z.
-#     route_plugin.go          38,8 %   213 ung   14/26                       703 Z.
-#     route_wiki.go            46,5 %   213 ung   10/20                       870 Z.
-#     route_vermietung.go      48,4 %   242 ung    9/20                       979 Z.
-#     route_schichten.go       48,3 %   229 ung    9/20                       927 Z.
-#     route_work_time.go         —                8/10                        395 Z.
+# `Handle*`-Name gegen den Text aller `internal/gateway/*_test.go`, am 2026-08-26 neu
+# gemessen). Die Handler-Zahl ist die schwächste Form von "getestet" und taugt zur
+# Priorisierung, nicht als Beweis:
+#     route_helpdesk.go        40,6 %   365 ung   13/38 Handler ungetestet   1426 Z.
+#     route_auth.go            56,1 %   312 ung    0/46                      1924 Z.
+#     route_chat.go            39,0 %   305 ung   14/30                      1101 Z.
+#     route_berichte.go        54,9 %   268 ung    0/25                      1420 Z.
+#     route_inbox.go           60,9 %   254 ung    0/23
+#     route_vertraege.go       23,5 %   251 ung   11/15                       710 Z.
+#     route_produktion_ext.go  25,1 %   250 ung   17/17                       718 Z.
+#     route_produktion.go      39,7 %   246 ung    8/17                       824 Z.
+#     route_dialer.go          47,5 %   245 ung    5/27                      1020 Z.
+#     route_schichten.go       48,3 %   229 ung    7/20                       928 Z.
+#     route_plugin.go          38,8 %   213 ung   14/26                       704 Z.
+#     route_wiki.go            46,5 %   213 ung    9/20                       871 Z.
+#     route_security.go        54,2 %   205 ung    4/31                      1020 Z.
+#     route_hr.go              79,9 %   200 ung    0/55                       997 Z.
+#     route_document.go        72,6 %   191 ung    0/46
+#     route_customization_fields.go 26,1 %  176 ung
+#     route_video.go           83,6 %   170 ung    3/59                      2380 Z.
+#     route_rapporte.go        73,9 %   156 ung    0/31                       597 Z.
+#     route_caldav.go          41,5 %   114 ung                               195 Z.
+#     route_integration.go     57,6 %   104 ung    8/18                       619 Z.
+#     route_customization.go   44,2 %   101 ung    5/5                        541 Z.
+#     route_guest.go           26,0 %    77 ung    1/5                        284 Z.
+#     route_crm_leads.go        1,9 %    52 ung    4/4                        193 Z.
 #
-# `internal/server` je Datei, nach ungedeckten Statements:
-#     crm_grpc.go 73,4 (404) - biz_grpc.go 67,8 (347) - hr_grpc.go 64,0 (332) -
+# Lauf 12 hat hier stark umsortiert: `route_hr.go` (36,4 -> 79,9), `route_video.go`
+# (47,5 -> 83,6), `route_fuhrpark.go` (45,4 -> 89,0), `route_inventar.go` (45,7 -> 82,8) und
+# `route_calendar.go` (45,5 -> 82,7) sind aus der Spitzengruppe raus. Was oben steht, ist von
+# Lauf 12 NICHT angefasst worden.
+#
+# `internal/server` je Datei, nach ungedeckten Statements — praktisch unverändert gegenüber
+# Lauf 12, weil der Lauf dieses Paket kaum berührt hat:
+#     crm_grpc.go 74,2 (407) - biz_grpc.go 67,8 (347) - hr_grpc.go 64,0 (332) -
 #     websocket.go 38,3 (293) - video_grpc.go 75,4 (291) - helpdesk_grpc.go 60,6 (278) -
 #     document_grpc.go 64,6 (271) - inbox_grpc.go 59,1 (262) - calendar_grpc.go 75,0 (229) -
-#     fuhrpark_grpc.go 70,9 (214) - grpc.go 62,6 (212) - berichte_grpc.go 54,4 (187) -
+#     fuhrpark_grpc.go 70,9 (214) - grpc.go 62,6 (212) - work_grpc.go 83,9 (184) -
 #     formulare_grpc.go 62,3 (153) - biz_grpc_gobd_archive.go 0,0 (136)
 #
 # METHODISCHE WARNUNG (Lehre aus Lauf 11 Iteration 75): `coverage_start` in einer Unit ist ein
 # BEZUGSWERT aus diesem CI-Lauf, keine Messung zum Zeitpunkt der Iteration. Wer eine
-# Coverage-Zahl ins Journal schreibt, misst sein Paket vorher selbst.
+# Coverage-Zahl ins Journal schreibt, misst sein Paket vorher selbst. In Lauf 12 ist genau das
+# schiefgegangen: die `coverage_start`-Werte standen den ganzen Lauf auf dem 08-24-Stand,
+# während der Lauf sie selbst überholte — Iteration 43 musste die Abweichung 56,6 vs. 68,6 von
+# Hand in `offen:` wegerklären. Für Lauf 13 sind alle Werte am 2026-08-26 nachgezogen.
 #
 # ------------------------------------------------------------------------------------------
 # DER ROTE FADEN DIESES LAUFS
 #
-# "NICHT-GELD-MODULE END-TO-END". Entscheidung Luke, 2026-08-24.
+# "TENANT-SCOPING AUF DER LESE-SEITE ZUERST, DANN DIE VERBLIEBENE NICHT-GELD-FLÄCHE."
 #
-# Warum nicht G1 oder G2, wie der Entwurf vorsah: BEIDE GATES SIND BACKEND-SEITIG FAST
-# ABGERÄUMT. Von 16 G1-Punkten sind 7 erledigt, 5 teilweise, 4 offen — und von den 9 nicht
-# erledigten kann der Loop GENAU EINEN bauen. Der Rest ist Frontend (Consent-Plumbing,
-# Löschungs-UI), `deploy/`, Ops (RUNBOOK, Secret-Rotation, Restore-Drill) oder braucht
-# Produktionszugriff. G2 sieht genauso aus. Die Gegenprüfung steht als Befunde 1 bis 10 unten.
+# Lauf 13 startet NICHT auf der grünen Wiese. 57 der 58 offenen Units stammen aus der
+# Lauf-12-Vorbereitung und behalten ihren Zuschnitt; geändert hat sich die REIHENFOLGE und
+# genau eine Unit.
 #
-# Lauf 11 hat die Geldpfade abgearbeitet (payment 46,4 -> 85,3, dunning 61,8 -> 92,2,
-# invoice 34,8 -> 61,1, creditnote/banking/datev/einvoice/gobdarchive/tax alle über 79).
-# Übrig sind die Module, die dabei nicht drankamen — und die sind jetzt die schwächsten
-# Flächen im Backend. Je Unit EINE DOMÄNE DURCH ALLE SCHICHTEN (Route -> gRPC -> Service ->
-# Repo), als BUG-SUCHE geschnitten, nicht als Coverage-Übung.
+#   DER KOPF (7 Units) — DIE DATENLECKS. Lauf 12 hat sechs Befunde verifiziert und keinen
+#     davon gefixt, weil sie auf den Positionen 32 bis 51 von 57 standen. Fünf davon sind
+#     Tenant-Scoping-Fehler, also Datenlecks. Sie stehen jetzt auf den Positionen 2 bis 6,
+#     gefolgt von `scan-tenant-filter-on-read-paths` als systematischer Fassung derselben
+#     Klasse. Position 1 ist eine billige sonnet-Unit zum Warmlaufen. Begründung im
+#     Kommentarblock direkt über den Units.
 #
-#   BLOCK A (10 Units) — DIE ENTSCHIEDENEN. Alle zehn tragen `decided:`+`decision:` aus der
-#     Entscheidungsrunde 2026-08-24. Reihenfolge ist Absicht: eine billige sonnet-Unit zum
-#     Warmlaufen (belegt, dass DB-Gate und Mutations-Probe laufen), dann der einzige echte
-#     Produktionsfehler des Blocks (`fix-event-payload-missing-tenant-id`, opus), dann die
-#     Unit, die davon abhängt, dann die beiden schweren opus (Migration, Proto), dann der Rest.
+#   DER REST (51 Units) — unverändert in der Reihenfolge der Lauf-12-Blöcke B, C und D:
+#     Nicht-Geld-Module end-to-end (je Unit EINE DOMÄNE durch alle Schichten, als BUG-SUCHE
+#     geschnitten, nicht als Coverage-Übung), dann die Sicherheits- und Kernflächen
+#     (`internal/auth`, `security/gdpr`, das GoBD-Archiv auf gRPC-Ebene mit 0,0 % bei sechs
+#     Handlern), dann die Muster-Scans.
 #
-#   BLOCK A2 (5 Units) — DER G1-REST UND DIE JOURNAL-FUNDE. Der eine loop-fähige G1-Punkt
-#     (`ScrubDependentPII` erweitern, zwei Units) plus fünf Funde aus den `offen:`-Zeilen von
-#     Lauf 11, die NIRGENDS als Unit standen und mit dem Archivieren verloren gewesen wären.
+#   ZUSAMMENSETZUNG: 58 Units, davon fix 25 · cov 15 · scan 11 · feat 6 · doc 1;
+#     46 sonnet, 12 opus. Vier der zwölf opus-Units liegen in den ersten sieben Iterationen —
+#     das ist Absicht, aber es macht die erste Laufstunde teuer.
 #
-#   BLOCK B (38 Units) — NICHT-GELD-MODULE END-TO-END. Das ist die Masse. NICHT als
-#     Coverage-Übung schneiden. Gesucht wird: Tenant-Scoping auf der READ-Seite (ein fehlender
-#     Filter dort ist ein Datenleck, kein Testloch), fehlende Fehlerpfade, Business-Logik im
-#     Handler statt im Service, blinde Summierungen über Währungen, fehlende Indizes auf
-#     Join-Spalten. Vorbild sind die beiden `idempotency`-Units aus Lauf 10 (`6507e475`,
-#     `254120eb`): echtes SQL, Nebenläufigkeit, Grenzfälle — die erste hat sofort einen
-#     Produktionsfehler gefunden. Coverage ist das Nebenprodukt und gehört in die
-#     `coverage:`-Journalzeile.
+#   DIE EINE NEUE UNIT: `scan-409-conflict-error-mapping` (Position 24) ist der Neuzuschnitt
+#     der `blocked`-Unit `fix-409-double-meaning-on-grpc-conflict-routes`. Sie stand seit der
+#     Lauf-12-Vorbereitung als `blocked` in DIESER Datei und hat damit ab Iteration 12 in jedem
+#     Vorflug den `backlog-check.py --preflight` rot gemeldet, ohne dass sie jemand wegzog.
+#     Siehe die verschärfte Regel 11 unten.
 #
-#   BLOCK C (7 Units) — SICHERHEITS- UND KERNFLÄCHEN. `internal/auth` (67,9), `security/gdpr`
-#     (72,2), das GoBD-Archiv auf gRPC-Ebene (0,0 % bei sechs Handlern), plus die ZWEI
-#     namentlich freigegebenen `deploy/`-Ausnahmen.
-#
-#   ZUSAMMEN: 70 Units vorab (9 opus, 61 sonnet). Block D legt zur Laufzeit weitere an.
-#
-#   BLOCK D (10 Units) — MUSTER-SCANS, am Schluss. Sie referenzieren die in A bis C gebauten
-#     Fälle als Vorlage und LEGEN JEDEN FUND ALS NEUE UNIT AM BACKLOG-ENDE AN
-#     (`neue-units:` ist Pflichtzeile). Eine Scan-Unit ohne Funde ist ein gültiges Ergebnis —
-#     aber nur mit Beleg, WAS geprüft wurde. Scan-Units ändern selbst KEIN Verhalten außer dem
-#     Anlegen von Units. In Lauf 10 haben 9 Scans 45 Zusatz-Units erzeugt.
+#   DIE SCAN-UNITS LEGEN ZUR LAUFZEIT NACH. Elf der 58 Units sind Scans, und jeder Fund wird
+#     als neue Unit AM DATEIENDE angelegt. Der Backlog wächst also während des Laufs — mit
+#     `OPEN=0` ist in einem 10-h-Fenster nicht zu rechnen. In Lauf 10 haben 9 Scans 45
+#     Zusatz-Units erzeugt.
 #
 # ------------------------------------------------------------------------------------------
 # BEFUNDE DER VORBEREITUNG — vor dem Bauen lesen. Fünf davon sind Dinge, die BEREITS FERTIG
@@ -245,8 +266,13 @@
 #      der System-Global-Liste (ADR-006). Kein stiller dritter Weg. Jeder neue
 #      `RequirePermission`-Guard braucht seine Seed-Migration, sonst 403 für alle.
 #  11. Eine Prämisse aus dem Backlog, die sich am Code als falsch erweist, wird NICHT trotzdem
-#      gebaut. Sie wird im Journal widerlegt und die Unit IM SELBEN COMMIT auf `blocked` mit
-#      `blocked_reason` gesetzt. Kommentarlos überspringen ist ein Fehlschlag der Iteration.
+#      gebaut. Sie wird im Journal widerlegt, auf `blocked` mit `blocked_reason` gesetzt UND
+#      IM SELBEN COMMIT nach BACKLOG-NEXT.yml VERSCHOBEN. Das Verschieben ist kein Beiwerk:
+#      `backlog-check.py --preflight` bricht bei jeder `blocked`-Unit in DIESER Datei ab und
+#      verhindert damit den START DES NÄCHSTEN LAUFS, nicht nur eine Iteration. Genau das
+#      ist mit `fix-409-double-meaning-on-grpc-conflict-routes` passiert: ab Iteration 12
+#      stand der Vorflug rot, 31 Iterationen lang, und niemand hat sie weggezogen.
+#      Kommentarlos überspringen ist ein Fehlschlag der Iteration.
 #  12. Keine neue `config.RequireX`-Assertion, kein Scharfschalten neuer `modules.*`-Flags.
 #
 # GESPERRT IN DIESEM LAUF (nicht anfassen, auch nicht "nur schnell"):
@@ -274,6 +300,423 @@
 # ==========================================================================================
 
 units:
+
+    # ==========================================================================================
+    # KOPF LAUF 13 — DIE DATENLECKS ZUERST. Diese sieben Units sind am 2026-08-26 bewusst nach
+    # vorn gezogen worden; alles darunter behält die Reihenfolge der Lauf-12-Vorbereitung.
+    #
+    # Der Grund: der Treiber zieht die erste baubare Unit in DATEIREIHENFOLGE. Fünf der sechs
+    # verifizierten, ungefixten Befunde aus Lauf 12 standen auf den Positionen 32 bis 51 von 57 —
+    # der schwerste (Cross-Tenant-Presence-Leck) auf 51. Bei Ø 10,4 min je Iteration wären sie
+    # frühestens gegen 09:00 drangekommen, und nur wenn nichts klemmt. Ein Datenleck wartet
+    # nicht auf die letzte Stunde eines Laufs.
+    #
+    # Die Reihenfolge INNERHALB des Kopfs ist ebenfalls Absicht:
+    #   1. eine billige sonnet-Unit zum Warmlaufen — sie belegt, dass DB-Gate und
+    #      Mutations-Probe laufen, bevor eine opus-Unit Zeit kostet (Muster aus Block A).
+    #   2. der schwerste Fund, ebenfalls sonnet: `handlePresenceSubscribe` übernimmt `user_ids`
+    #      roh aus der Client-Nachricht, und Presence liegt in Redis unter `presence:<userID>`
+    #      ganz ohne Tenant-Anteil — dort greift keine RLS.
+    #   3. das zweite sonnet, damit die Startphase billig bleibt.
+    #   4.–6. die drei opus-Fälle derselben Fehlerklasse.
+    #   7. `scan-tenant-filter-on-read-paths` zuletzt im Kopf — die systematische Fassung
+    #      derselben Klasse. Sie steht ABSICHTLICH hinter den Einzelfällen, damit sie die
+    #      gerade gebauten Fälle als Vorlage referenzieren kann.
+    #
+    # `fix-video-get-meeting-notes-returns-empty-stub` ist der sechste Lauf-12-Befund, aber ein
+    # Stub und kein Leck — er bleibt an seiner Stelle und rückt durch diese Umsortierung ohnehin
+    # nach vorn.
+    # ==========================================================================================
+
+  - id: cov-email-sync-worker-and-imap-client
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/email/sync 34,6 % (233 ungedeckt von 356); worker.go 31,4 %, imap_client.go 38,0 %, engine.go 36,4 % (CI-Stand 32949396303)"
+    scope: >
+      `internal/email/sync` ist mit 34,6 % das zweitschwaechste Paket mit Substanz. Es holt
+      Kundenpostfaecher per IMAP ab — ein Dauerlaeufer gegen fremde Server, also die Sorte
+      Code, die im Fehlerfall still stehenbleibt.
+      Bug-Suche mit klarer Hypothese: was passiert, wenn der fremde Server sich schlecht
+      benimmt? Pruefen: (1) Timeout und Wiederaufnahme — bleibt der Worker haengen, wenn ein
+      IMAP-Server nicht antwortet, und laeuft er danach je wieder an? Genau dieses Muster
+      (ein Worker, der einmal laeuft und dann nie wieder, lautlos) war der
+      Advisory-Lock-Leak aus Lauf 10. (2) Teilweise abgerufene Nachrichten: bleibt der
+      Sync-Zeiger korrekt, wenn der Abruf mitten in einem Batch abbricht? (3) Kodierung:
+      was macht der Client mit einer Nachricht in einer exotischen Kodierung oder mit
+      kaputtem MIME? (4) Tenant-Zuordnung: eine abgerufene Nachricht muss dem richtigen
+      Tenant zugeordnet werden — pruefen, woher diese Zuordnung kommt.
+    sources:
+      - backend/internal/email/sync/worker.go
+      - backend/internal/email/sync/imap_client.go
+      - backend/internal/email/sync/engine.go
+      - backend/internal/idempotency/postgres_repository.go
+    notes: >
+      Kein echter Netzzugriff im Gate. Der IMAP-Client gehoert gegen einen Fake getestet;
+      pruefen, ob das Paket bereits eine Schnittstelle dafuer hat, und falls nicht, ob eine
+      einzufuehren im Rahmen dieser Unit vertretbar ist — falls nicht, deckt die Unit den
+      Worker und die Engine ab und legt den Client als eigene Unit an.
+      Zu (1): wer eine Ressource PRO VERBINDUNG prueft, haelt eine zweite Verbindung fest.
+      Das gilt hier fuer jeden Advisory-Lock, den der Worker nimmt.
+    done_when:
+      - >-
+        Worker und Engine sind durch Tests abgedeckt, inkl. des Falls "fremder Server
+        antwortet nicht" und "Abbruch mitten im Batch"
+      - >-
+        Ob der Worker nach einem Fehlschlag wieder anlaeuft, ist durch einen Test belegt —
+        nicht durch Lesen des Codes
+      - >-
+        Fuer den IMAP-Client ist entweder Abdeckung vorhanden oder eine eigene Unit angelegt,
+        mit Begruendung im Journal
+      - Woher die Tenant-Zuordnung einer abgerufenen Nachricht kommt, steht im Journal
+      - go test -count=1 ./internal/email/... gruen, Paketwert vorher/nachher im Journal
+
+  - id: fix-websocket-presence-subscribe-missing-tenant-check
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus cov-work-customfield-and-presence-zero-coverage (Iteration 38): Presence-Status
+      liegt in Redis unter dem Schluessel `presence:<userID>` ganz ohne Tenant-Anteil
+      (backend/internal/work/presence/redis_store.go:51-53) — Redis kennt keine RLS, die
+      Isolation haengt vollstaendig davon ab, dass jeder Aufrufer nur eigene-Tenant-UserIDs
+      uebergibt. `WebSocketHub.handlePresenceSubscribe`
+      (backend/internal/server/websocket.go:1116-1145) nimmt eine `user_ids`-Liste direkt aus
+      der Client-Nachricht entgegen und traegt jede davon ungeprueft in
+      `h.presenceSubscribers[targetUserID][userID]` ein — kein Tenant-Check, keine Pruefung,
+      ob `targetUserID` ueberhaupt in der aufrufenden Session sichtbar ist. Ein authentifizierter
+      User, der (z. B. durch Erraten oder aus einem anderen Leck) die UUID eines Users aus
+      einem FREMDEN Tenant kennt, kann sich auf dessen Presence abonnieren und erhaelt ueber
+      `WSPresenceUpdate`-Broadcasts laufend dessen Online/Away/DND-Status — ein echtes
+      Cross-Tenant-Informationsleck, kein RLS-Fall (Redis), sondern eine fehlende
+      Autorisierungspruefung im WebSocket-Handler selbst.
+      Fix: `handlePresenceSubscribe` muss fuer jede `targetUserID` pruefen, dass sie zum
+      selben Tenant wie der abonnierende `userID` gehoert (z. B. per Lookup gegen `users`
+      oder einen bereits vorhandenen Tenant-Mitgliederindex des Hubs), bevor der Eintrag in
+      `presenceSubscribers` landet. IDs aus fremdem Tenant werden verworfen oder mit
+      `sendError` quittiert, nicht committet.
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/work/presence/redis_store.go
+      - backend/internal/work/presence/service.go
+    notes: >
+      Kein RLS-Fix (Redis hat keine Policies) und kein Tenant-Feld im presence-Key noetig —
+      der Fix gehoert an die Autorisierungsgrenze im WebSocket-Handler, wo der aufrufende
+      User bereits bekannt ist (`userID`-Parameter). Pruef, ob der Hub bereits einen
+      Tenant-Index fuer verbundene User haelt (`h.mu`-geschuetzte Maps) und wiederverwendbar
+      ist, bevor eine neue DB-Anfrage pro Subscribe eingefuehrt wird.
+    done_when:
+      - >-
+        `handlePresenceSubscribe` lehnt oder ignoriert `target_user_id`s ab, die nicht zum
+        Tenant des abonnierenden Users gehoeren
+      - >-
+        Ein Test belegt: User aus Tenant A kann sich NICHT auf Presence-Updates eines Users
+        aus Tenant B abonnieren (kein Broadcast-Empfang), Abonnement innerhalb des eigenen
+        Tenants funktioniert weiterhin
+      - go test -count=1 ./internal/server/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-fuhrpark-gps-ingest-no-vehicle-tenant-check
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).
+      `Service.IngestGpsPositions` (`internal/fuhrpark/service.go:858`) und
+      `PostgresRepository.IngestGpsPositions` (`internal/fuhrpark/postgres_repository.go:979`)
+      pruefen vor dem Insert nur `vehicleID == uuid.UUID{}` und `len(positions) == 0` — nicht,
+      ob `vehicleID` ueberhaupt einem Fahrzeug DES AUFRUFENDEN TENANTS gehoert.
+      `gps_positions.vehicle_id` hat lediglich eine FK auf `vehicles(id)`
+      (`backend/migrations/000195_create_gps_positions.up.sql:4`), und `vehicles` haelt Zeilen
+      ALLER Tenants in einer Tabelle. Ein Aufrufer kann also `vehicle_id` eines fremden Tenants
+      in `POST /api/v1/fuhrpark/gps/ingest?vehicle_id=...` angeben; der Insert schreibt eine
+      `gps_positions`-Zeile mit dem TenantId des Aufrufers, aber `vehicle_id` zeigt auf ein
+      fremdes Fahrzeug. Datenintegritaets-/Zurechnungsproblem: die Zeile ist in Reads des
+      eigenen Tenants unsichtbar (RLS auf `gps_positions` filtert per `tenant_id`), belastet
+      aber dauerhaft eine `vehicles`-Zeile eines anderen Tenants mit fremden Fahrtdaten, sobald
+      irgendein Join (`GetVehicleRoutes` joint `gps_positions` mit `vehicles`) die
+      Tenant-Grenze nicht doppelt prueft.
+      Fix: vor dem Insert `vehicles`-Zeile mit `id=vehicleID AND tenant_id=tenantID` pruefen
+      (wie es `GetVehicleHistory` fuer sein Fahrzeug bereits tut, `service.go:884`) und bei
+      Nichttreffer `ErrVehicleNotFound`/`codes.NotFound` liefern statt stillschweigend zu
+      inserten.
+    sources:
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
+      - backend/migrations/000195_create_gps_positions.up.sql
+    notes: >
+      Vorbild fuer den Ownership-Check: `Service.GetVehicleHistory` ruft vorab
+      `s.repo.GetVehicle(ctx, input.TenantID, input.VehicleID)` und propagiert dessen
+      Not-Found. `IngestGpsPositions` sollte denselben Weg gehen, statt neue Query-Logik zu
+      erfinden.
+    done_when:
+      - >-
+        IngestGpsPositions lehnt eine vehicle_id ab, die nicht zum aufrufenden Tenant gehoert
+        (404/NotFound statt stillem Insert)
+      - Ein DB-Test belegt sowohl den Erfolgsfall (eigenes Fahrzeug) als auch die Ablehnung
+      - go test -count=1 ./internal/fuhrpark/ gruen
+
+  - id: fix-carddav-missing-tenant-context-blocks-all-operations
+    phase: 4
+    service: calendar
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
+      `cov-carddav-backend-real-protocol-paths`), DERSELBE ROOT CAUSE wie
+      `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`, aber mit einem viel
+      groesseren Blast-Radius: nicht zwei Funktionen, sondern die GESAMTE CardDAV-Flaeche.
+      `CardDAVRoutes.basicAuthMiddleware` (`route_caldav.go:195-220`) setzt ueber `c.ctxInjector`
+      (= `caldavpkg.CtxWithUser`, `cmd/gateway/setup.go:147`) NUR die User-ID in den Context —
+      niemals `middleware.TenantIDKey`. `ListAddressObjects`, `GetAddressObject`,
+      `PutAddressObject` und `DeleteAddressObject` (`carddav_backend.go`) rufen alle
+      `client.<RPC>(ctx, ...)` auf dem echten CRM-gRPC-Client auf. Die
+      `TenantOutboundUnaryInterceptor` (`middleware/grpc_tenant.go:37-63`), die
+      `registry.GetConnection` production-seitig JEDEM Client anhaengt, haengt das
+      `x-tenant-id`-Metadata-Feld nur an, wenn `middleware.GetTenantID(ctx)` auf dem CLIENT
+      erfolgreich ist — das ist es hier nie. Server-seitig starten `ListContacts`, `GetContact`,
+      `CreateContact`, `UpdateContact`, `DeleteContact` und `UpdateContactVisibility`
+      (`crm_grpc.go`) JEDE Methode mit `middleware.GetTenantID(ctx)` und liefern
+      `codes.Unauthenticated, "tenant_id missing from context"`, wenn das fehlt —
+      `grpcToWebDAVError` mappt das auf HTTP 401.
+      Empirisch bewiesen (nicht nur hergeleitet): `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401`
+      und `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401`
+      (`internal/caldav/carddav_backend_grpc_db_test.go`) bauen einen echten CRM-gRPC-Server
+      (Loopback-TCP, exakt die production `TenantInboundUnaryInterceptor`-Kette) und rufen
+      `CardDAVBackend` mit exakt dem Context auf, den ein echter CardDAV-Request traegt — beide
+      401en.
+      Konkrete Folge in Produktion: JEDE CardDAV-Operation (Adressbuch-Auflistung,
+      Einzelkontakt-Abruf, Anlegen/Aendern/Loeschen eines Kontakts ueber Apple Kontakte, DAVx5,
+      Thunderbird) schlaegt mit 401 fehl — auch fuer den tatsaechlichen Kontobesitzer. Die
+      Funktion ist in Produktion vollstaendig tot, nicht nur teilweise degradiert.
+      DER RICHTIGE FIX GEHOERT VERMUTLICH AN DIE GEMEINSAME WURZEL, NICHT IN JEDE FUNKTION
+      EINZELN: `basicAuthMiddleware` sollte nach dem `pwService.Validate`-Aufruf den Tenant per
+      `resolveTenantID` (bereits vorhanden, `caldav_backend.go:50-60`) aufloesen und ihn als
+      echten `middleware.TenantIDKey`-Context-Wert setzen — analog zu `authMiddleware`s JWT-Pfad.
+      Das wuerde gleichzeitig (a) diese Unit UND `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`
+      loesen (deren zwei Funktionen dann `sysctx.With` durch den echten Tenant ersetzen koennten
+      statt ihn ganz zu bypassen) UND (b) den `TenantOutboundUnaryInterceptor` fuer JEDEN
+      CalDAV/CardDAV-gRPC-Call automatisch korrekt bestuecken. Vor dem Bauen pruefen, ob beide
+      Units zusammengelegt oder nacheinander mit gemeinsamer Migration/Test-Basis abgearbeitet
+      werden sollten — `opus`, weil eine Aenderung an `basicAuthMiddleware` fuer ALLE
+      CalDAV/CardDAV-Clients gleichzeitig wirkt und die Tenant-Grenze (RLS) korrekt bleiben muss,
+      nicht versehentlich aufgehoben werden darf.
+    sources:
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/caldav/caldav_backend.go
+      - backend/internal/caldav/carddav_backend.go
+      - backend/internal/caldav/carddav_backend_grpc_db_test.go
+      - backend/internal/middleware/grpc_tenant.go
+      - backend/internal/middleware/auth.go
+      - backend/internal/server/crm_grpc.go
+      - backend/cmd/gateway/setup.go
+    notes: >
+      Nach dem Fix muessen `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401` und
+      `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401`
+      (`carddav_backend_grpc_db_test.go`) ihre Erwartung umdrehen (200/2xx statt 401) — sie
+      dokumentieren den Bug, sind kein Ersatz fuer den Fix. Die uebrigen Tests in derselben Datei
+      (`asIfTenantMiddlewareFixed`-Helfer) injizieren den Tenant bereits manuell und bleiben nach
+      dem Fix unveraendert gruen — sie beweisen bereits, was die Listing-/Get-/Anonymisierungs-Logik
+      tut, SOBALD ein Tenant im Context steht.
+    done_when:
+      - >-
+        `basicAuthMiddleware` (oder eine gleichwertige Loesung) setzt einen echten Tenant-Context,
+        sodass `ListAddressObjects`/`GetAddressObject`/`PutAddressObject`/`DeleteAddressObject`
+        unter dem echten CardDAV-Request-Context (Basic Auth, kein JWT) erfolgreich durchlaufen
+      - >-
+        Ein Test belegt weiterhin die Tenant-Grenze: ein App-Passwort aus Tenant A darf keinen
+        Kontakt aus Tenant B lesen/schreiben
+      - >-
+        `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401` und
+        `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401` sind aktualisiert und gruen
+      - >-
+        Koordiniert mit `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`
+        (gleicher Root Cause, siehe scope)
+      - go test -count=1 ./internal/caldav/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-rapporte-measurement-position-cross-tenant-insert
+    phase: 4
+    service: rapporte
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-rapporte-measurements`, siehe
+      `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant`,
+      `internal/rapporte/postgres_repository_test.go`).
+      `PostgresRepository.AddMeasurementPosition` (postgres_repository.go:672) prueft nicht, ob
+      die uebergebene `measurementID` ueberhaupt zu `tenantID` gehoert — es fuegt die Position
+      direkt ein, mit der `measurement_id` als reine FK-Referenz (`REFERENCES measurements(id)
+      ON DELETE CASCADE`, migration 000163). Der FK prueft nur, dass die Zeile in `measurements`
+      EXISTIERT, nicht wem sie gehoert. Die RLS-Policy auf `measurement_positions`
+      (`enable_tenant_rls`, migration 000118) prueft ausschliesslich `tenant_id = current_tenant_id()`
+      der NEUEN Zeile selbst — nicht den Tenant der referenzierten `measurements`-Zeile. Ergebnis:
+      Tenant A kann eine Position (mit abrechnungsrelevanten Feldern: `quantity`, `unit_price`) an
+      JEDE `measurement_id` haengen, die es kennt, auch wenn sie Tenant B gehoert — die RLS-Check
+      auf dem INSERT ist erfuellt (`p.TenantID = A = current_tenant_id()`), der GET-Pfad von
+      Tenant B blendet die fremde Zeile zwar aus (`GetMeasurement` filtert selbst per
+      `tenant_id=$2`), aber die Zeile existiert trotzdem in Tenant B's Aufmass und wird beim
+      Loeschen der Messung durch die CASCADE mitgeloescht — ein stiller Seiteneffekt auf fremde
+      Daten ohne jede Fehlermeldung an Tenant A.
+      `HandleAddMeasurementPosition` (route_gateway/route_rapporte.go:1034) reicht `measurement_id`
+      unveraendert an den gRPC-Client durch, `RapporteGRPCServer.AddMeasurementPosition`
+      (rapporte_grpc.go:706) ebenso an `s.repo.AddMeasurementPosition` — an keiner Stelle in der
+      Kette wird vorher `GetMeasurement(ctx, tenantID, measurementID)` aufgerufen, um Existenz UND
+      Tenant-Zugehoerigkeit zu pruefen.
+      Fix vermutlich: in `PostgresRepository.AddMeasurementPosition` (oder davor im Service, falls
+      es einen gibt) zuerst per `SELECT 1 FROM measurements WHERE id=$1 AND tenant_id=$2` pruefen
+      und bei 0 Zeilen `ErrMeasurementNotFound` zurueckgeben — analog zum bestehenden Muster in
+      `GetMeasurement`/`UpdateMeasurement`. Alternativ: die INSERT-Query um einen Sub-Select auf
+      `measurements` mit Tenant-Filter erweitern (`INSERT ... SELECT ... WHERE EXISTS (...)`),
+      dann `RowsAffected() == 0` als Signal fuer "nicht gefunden ODER falscher Tenant" behandeln.
+    sources:
+      - backend/internal/rapporte/postgres_repository.go
+      - backend/internal/rapporte/postgres_repository_test.go
+      - backend/internal/server/rapporte_grpc.go
+      - backend/internal/gateway/route_rapporte.go
+      - backend/migrations/000163_measurements_and_templates.up.sql
+      - backend/migrations/000118_rls_foundation.up.sql
+    notes: >
+      `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant` dokumentiert den
+      Ist-Zustand (Insert gelingt aktuell mit `err == nil`). Nach dem Fix muss der Test die
+      Ablehnung per `ErrMeasurementNotFound` erwarten (Testname und Kommentar entsprechend
+      anpassen — die Doku-Aussage "currently SUCCEED" verschwindet dann). Gleiches Muster
+      pruefen bei `DeleteMeasurementPosition` und ob `AddMeasurementPosition` in anderen Modulen
+      (falls es ein Codegen-Vorbild o.ae. gibt) denselben Fehler teilt — nicht Teil dieser Unit,
+      aber als Beobachtung ins Journal, falls beim Fixen entdeckt.
+    done_when:
+      - >-
+        `AddMeasurementPosition` lehnt eine `measurementID` ab, die nicht zu `tenantID` gehoert
+        (`ErrMeasurementNotFound` oder aequivalent), statt die Position einzufuegen
+      - >-
+        `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant` ist aktualisiert und
+        gruen (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
+      - go test -count=1 ./internal/rapporte/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-generatejointoken-missing-event-tenant-check
+    phase: 4
+    service: calendar
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus cov-gateway-calendar-resources-and-reminders (Iteration 36): weder
+      `CalendarRoutes.HandleGenerateJoinToken` (route_calendar.go) noch
+      `CalendarGRPCServer.GenerateJoinToken` (internal/server/calendar_grpc.go:1293) pruefen,
+      ob `event_id` ueberhaupt zu einem existierenden Event gehoert, ob dieses Event zum
+      Tenant des Aufrufers gehoert, oder ob der Aufrufer irgendeine Beziehung zum Event hat
+      (Ersteller, Teilnehmer, Kalender-Mitglied). Der Handler parst `event_id` nur als UUID
+      und reicht sie direkt an `livekitService.GenerateRoomName(eventID)` weiter
+      (internal/work/livekit/service.go:74-77, Format `cal-{erste 8 Hex-Zeichen der UUID}`)
+      und dann an `livekitService.GenerateJoinToken(roomName, userID, userName)` — es gibt
+      an keiner Stelle einen Repository-Aufruf, der das Event laedt.
+      Jeder authentifizierte User mit der tenant-weiten Berechtigung "calendars:write" kann
+      also eine BELIEBIGE UUID als {id} posten und erhaelt ein gueltiges, 24h lang signiertes
+      LiveKit-Join-Token fuer den daraus abgeleiteten Raum — auch fuer UUIDs, die zu Events
+      ANDERER TENANTS gehoeren, da nichts nach `tenant_id` scopt (es gibt keinen Lookup).
+      Terminabsage aendert daran nichts: es wird nie geprueft, ob das Event ueberhaupt
+      existiert, also auch nicht, ob es geloescht/abgesagt wurde — das Token bleibt fuer die
+      vollen 24h gueltig, unabhaengig vom Event-Status.
+      Fix: `GenerateJoinToken` im gRPC-Server muss vor der Token-Erzeugung das Event ueber
+      den Calendar-Repository-Layer laden (tenant-gescoped, wie `GetEvent`), pruefen dass es
+      existiert und nicht abgesagt ist, und — analog zu den anderen Event-Lesepfaden in
+      diesem Paket (calendars:read tenant-weit, keine Pro-Event-ACL, siehe Journal Iteration
+      35) — mindestens die Tenant-Zugehoerigkeit erzwingen. Ob zusaetzlich eine
+      Teilnehmer/Ersteller-Pruefung noetig ist, ist dieselbe Architekturfrage wie bei
+      `HandleListEventAttendees`/`GetEvent` (Journal Iteration 35) und keine Voraussetzung
+      fuer diesen Fix — der Tenant-Scope ist das Minimum und steht fuer sich.
+    sources:
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/gateway/route_calendar.go
+      - backend/internal/work/livekit/service.go
+      - backend/internal/server/calendar_grpc_events_categories_reminders_test.go
+    notes: >
+      `TestGenerateJoinToken` (calendar_grpc_events_categories_reminders_test.go:940)
+      dokumentiert den aktuellen Zustand: "happy path" ruft mit einer frei erfundenen
+      `eventID := uuid.New()` auf und erwartet Erfolg, ohne dass ein Event je existiert hat.
+      Nach dem Fix muss dieser Test ein echtes (gestubbtes) Event mitbringen; ein neuer Test
+      fuer "event existiert nicht" und "event gehoert zu einem anderen Tenant" (jeweils
+      erwartete Ablehnung) gehoert dazu.
+      Kein Zusammenhang mit der bereits abgeschlossenen RBAC-Phase 1 — dies ist eine fehlende
+      Tenant-Pruefung auf Repository-Ebene, kein Permission-Guard-Thema.
+    done_when:
+      - >-
+        `GenerateJoinToken` (gRPC-Server) laedt das Event tenant-gescoped und lehnt eine
+        UUID ab, die zu keinem Event des aufrufenden Tenants gehoert (klarer Fehlercode,
+        keine Ausnahme fuer nicht-existente IDs)
+      - >-
+        Ein Test belegt: event_id aus einem ANDEREN Tenant fuehrt zur Ablehnung, nicht zu
+        einem gueltigen Join-Token
+      - >-
+        `TestGenerateJoinToken` ist aktualisiert (echtes Event statt frei erfundener UUID)
+        und dokumentiert nicht mehr den Ist-Zustand als Erfolgsfall
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: scan-tenant-filter-on-read-paths
+    phase: 4
+    service: server
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
+    scope: >
+      Der wichtigste Scan des Laufs. Block B prueft das Tenant-Scoping modulweise; dieser
+      Scan prueft es systematisch ueber alle Repositories hinweg.
+      Hypothese: RLS deckt den Normalfall ab (`kmuhub_app` ist NOSUPERUSER NOBYPASSRLS,
+      336 Tabellen tragen Policies), aber es gibt drei Wege daran vorbei — (1) Code, der als
+      `kmuhub` laeuft (Migrationen, Wartungsjobs); (2) Abfragen, die `app.tenant_id` nicht
+      gesetzt bekommen, weil der Kontext fehlt (dasselbe Loch, das
+      `fix-event-payload-missing-tenant-id` in Block A auf der Event-Seite schliesst);
+      (3) Speicher ausserhalb von Postgres — Redis (Presence, Rate-Limits, Cache) und
+      MinIO/Objektspeicher kennen keine RLS.
+      Zu tun: alle drei Wege systematisch absuchen. Fuer Redis: jeden Schluesselaufbau finden
+      und pruefen, ob der Tenant darin vorkommt. Fuer den Objektspeicher: jeden Pfadaufbau
+      finden und dieselbe Frage stellen. Fuer Postgres: jede Stelle finden, die eine
+      Verbindung OHNE gesetzten Tenant-Kontext benutzt.
+    sources:
+      - backend/internal/
+      - backend/internal/middleware/tenant.go
+      - backend/internal/work/presence/redis_store.go
+      - backend/internal/document/file/
+    notes: >
+      `model: opus`, weil die Frage "wo umgeht der Code RLS" nicht durch Grep zu beantworten
+      ist, sondern durch das Verfolgen von Verbindungen und Kontexten.
+      Ein ausbleibender Treffer ist KEIN Befund. Wer nach `SetTenantContext` grept und nichts
+      findet, hat nicht bewiesen, dass es fehlt — er hat den falschen Namen gesucht. Nach
+      Wortstaemmen suchen, nicht nach Importmustern.
+      Zwei Nullen sind kein bestandener Smoke. Wo der Scan eine Stelle als "sicher" einordnet,
+      gehoert der Grund dazu, nicht nur die Feststellung.
+      Jeder Fund ausserhalb von Postgres (Redis, Objektspeicher) ist eine opus-Unit — dort
+      gibt es kein Netz darunter.
+    done_when:
+      - >-
+        Alle Redis-Schluesselaufbauten sind gefunden und daraufhin geprueft, ob der Tenant
+        darin vorkommt; die Liste steht im Journal
+      - >-
+        Alle Objektspeicher-Pfadaufbauten sind gefunden und ebenso geprueft
+      - >-
+        Alle Stellen, die eine DB-Verbindung ohne gesetzten Tenant-Kontext benutzen, sind
+        gefunden und je als beabsichtigt (mit Grund) oder als Befund eingeordnet
+      - Fuer jeden Befund ausserhalb von Postgres ist eine opus-Unit angelegt
+      - >-
+        Die offen:-Zeile nennt, was tief geprueft, was nur gegrept und was gar nicht angesehen
+        wurde
+      - Kein Verhalten geaendert
+
 
 # ==========================================================================================
 # BLOCK A — die zehn entschiedenen Units. Reihenfolge ist Absicht und steuert die Modellkosten:
@@ -803,82 +1246,6 @@ units:
         Zahl steht im Journal
       - go test -count=1 ./internal/security/gdpr/ gruen
 
-  - id: fix-409-double-meaning-on-grpc-conflict-routes
-    phase: 4
-    service: gateway
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      SCOPE-FEHLEINSCHAETZUNG in der Unit-Vorbereitung, in Iteration 12 am Code verifiziert:
-      die 58 `codes.AlreadyExists`-Fundstellen sind NICHT 58 einzelne RPC-Handler, sondern
-      liegen fast durchgehend in 38 GETEILTEN Error-Mapper-Funktionen (`mapCalendarError`,
-      `mapCRMError`, `mapBizError`, ...), die jeweils von vielen verschiedenen RPC-Methoden
-      aufgerufen werden. Gemessen: `mapCalendarError(err)` wird 41x in `calendar_grpc.go`
-      aufgerufen, `mapCRMError(err)` 60x in `crm_grpc.go`, `mapBizError(err)` 57x in
-      `biz_grpc.go`. Die tatsaechlich betroffene Operationenliste laesst sich deshalb nicht
-      aus den Fundstellen ablesen (der in `scope` beschriebene Weg "von der Fundstelle ueber
-      die RPC zum Handler" geht von einem 1:1-Verhaeltnis aus, das nicht existiert) - sie
-      erfordert je AlreadyExists-Sentinel-Error (z.B. `calendar.ErrMemberAlreadyExists`,
-      `event.ErrAlreadyAttendee`, `resource.ErrBookingConflict`) eine Rueckverfolgung durch
-      die Service-Schicht bis zu den konkreten RPC-Einstiegspunkten, die diesen Error
-      tatsaechlich ausloesen koennen. Das ist eine Groessenordnung ueber eine Iteration
-      hinaus, und `done_when` verlangt ausdruecklich eine belegte, nicht geschaetzte Liste.
-      Eine vorherige Iteration hat die Unit vermutlich bereits als zu gross erkannt und ohne
-      Journal-Eintrag abgebrochen (Iterationsluecke zwischen den Journal-Eintraegen 8 und 10;
-      Status stand seit Iterationsbeginn auf `in_progress` ohne jede Code-Aenderung, `git
-      status` war beim Start dieser Iteration clean).
-      EMPFEHLUNG: die Unit in eine Scan-Unit (Block D) umwandeln, die je Sentinel-Error die
-      aufrufenden RPCs ermittelt und die tatsaechliche Operationenliste als Grundlage fuer
-      eine oder mehrere kleinere Fix-Units anlegt, statt Recherche und Spec-Fix in einer
-      Unit zu buendeln.
-    decided: 2026-08-24
-    decision: >-
-      BEFUND aus dem 409-Skriptlauf vom 2026-08-24, nicht aus einem Scan. Beim Umstellen der
-      Doku-Kette auf `hooks/openapi-status-fill.py` ist eine Luecke aufgefallen, die alle
-      zwoelf bereits gemergten Iterationen dieser Arbeit teilen - sie wird hier zum ersten
-      Mal festgehalten statt weiter mitgeschleppt.
-    coverage_start: "n.a. (Doku-Unit, kein Coverage-Ziel)"
-    scope: >
-      `grpcStatusToHTTP` (`internal/gateway/helpers.go:51`) bildet `codes.AlreadyExists` auf
-      `409 Conflict` ab. Rund 58 Stellen in `internal/server/` geben diesen Code zurueck
-      (`grep -rn "codes.AlreadyExists" backend/internal --include=*.go | grep -v _test`).
-      Der Drift-Test kann das nicht sehen: `respondGRPCError` steht in `dynamicStatusFuncs`
-      (`openapi_status_code_drift_test.go:206-209`), der AST-Walk stoppt dort bewusst, weil
-      der Code laufzeitabhaengig ist.
-      Folge: der 409-Skriptlauf hat auf diesen Routen `409 -> IdempotencyInFlight`
-      dokumentiert. Das ist WAHR (die Middleware kann den Code liefern), aber
-      UNVOLLSTAENDIG - dieselbe Route kann auch einen fachlichen Conflict liefern, und in
-      OpenAPI gibt es je Operation nur EIN Response-Objekt pro Status-Code.
-      Zu tun: die betroffenen Operationen ermitteln (Weg: von den
-      `codes.AlreadyExists`-Stellen ueber die RPC zum Gateway-Handler zur Route) und ihren
-      409-Eintrag so fassen, dass er beide Faelle nennt. Vermutlich sauberste Loesung: eine
-      neue Komponente unter `components/responses`, deren `description` beide Ursachen
-      benennt und die auf `ErrorResponse` zeigt wie `IdempotencyInFlight` und `Conflict`
-      auch - dann wechseln nur die betroffenen Operationen auf diese Komponente. Vorher
-      pruefen, ob das FE den Unterschied ueberhaupt auswertet; tut es das nicht, reicht die
-      Beschreibung.
-    sources:
-      - backend/internal/gateway/helpers.go
-      - backend/internal/gateway/openapi_status_code_drift_test.go
-      - backend/internal/server/
-      - backend/api/openapi.yaml
-      - .planning/backend-block/loop/hooks/openapi-status-fill.py
-    notes: >
-      NICHT die 503 Eintraege aus dem Skriptlauf zurueckdrehen - der
-      IdempotencyInFlight-Fall gilt auf jeder dieser Routen weiterhin. Es geht nur um die
-      Teilmenge, die ZUSAETZLICH einen fachlichen Conflict kennt.
-      Wer das baut, sollte die Zuordnung im Skript hinterlegen (Ausschluss- bzw.
-      Sonderliste neben der bestehenden `lean:`-Ausschlussliste), damit ein spaeterer Lauf
-      sie nicht wieder ueberschreibt.
-    done_when:
-      - >-
-        Die Liste der Operationen, die sowohl IdempotencyInFlight als auch einen fachlichen
-        Conflict liefern koennen, ist ermittelt und im Journal belegt (nicht geschaetzt)
-      - Ihr 409-Eintrag nennt beide Ursachen
-      - Das Skript kennt die Sonderfaelle, sodass ein spaeterer Lauf sie nicht ueberschreibt
-      - "swagger-cli validate gruen"
-      - go test -count=1 ./internal/gateway/ gruen
 # ==========================================================================================
 # BLOCK A2 — der eine loop-fähige G1-Rest und die Funde aus den `offen:`-Zeilen von Lauf 11,
 # die nirgends als Unit standen. Jede Prämisse dieses Blocks ist am 2026-08-24 am Code
@@ -2359,58 +2726,13 @@ units:
       - Ob Lieferanten im DSAR-Umfang auftauchen, steht mit Beleg im Journal
       - go test -count=1 ./internal/gateway/ ./internal/einkauf/ gruen
 
-  - id: cov-email-sync-worker-and-imap-client
-    phase: 4
-    service: email
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "internal/email/sync 34,6 % (233 ungedeckt von 356); worker.go 31,4 %, imap_client.go 38,0 %, engine.go 36,4 %"
-    scope: >
-      `internal/email/sync` ist mit 34,6 % das zweitschwaechste Paket mit Substanz. Es holt
-      Kundenpostfaecher per IMAP ab — ein Dauerlaeufer gegen fremde Server, also die Sorte
-      Code, die im Fehlerfall still stehenbleibt.
-      Bug-Suche mit klarer Hypothese: was passiert, wenn der fremde Server sich schlecht
-      benimmt? Pruefen: (1) Timeout und Wiederaufnahme — bleibt der Worker haengen, wenn ein
-      IMAP-Server nicht antwortet, und laeuft er danach je wieder an? Genau dieses Muster
-      (ein Worker, der einmal laeuft und dann nie wieder, lautlos) war der
-      Advisory-Lock-Leak aus Lauf 10. (2) Teilweise abgerufene Nachrichten: bleibt der
-      Sync-Zeiger korrekt, wenn der Abruf mitten in einem Batch abbricht? (3) Kodierung:
-      was macht der Client mit einer Nachricht in einer exotischen Kodierung oder mit
-      kaputtem MIME? (4) Tenant-Zuordnung: eine abgerufene Nachricht muss dem richtigen
-      Tenant zugeordnet werden — pruefen, woher diese Zuordnung kommt.
-    sources:
-      - backend/internal/email/sync/worker.go
-      - backend/internal/email/sync/imap_client.go
-      - backend/internal/email/sync/engine.go
-      - backend/internal/idempotency/postgres_repository.go
-    notes: >
-      Kein echter Netzzugriff im Gate. Der IMAP-Client gehoert gegen einen Fake getestet;
-      pruefen, ob das Paket bereits eine Schnittstelle dafuer hat, und falls nicht, ob eine
-      einzufuehren im Rahmen dieser Unit vertretbar ist — falls nicht, deckt die Unit den
-      Worker und die Engine ab und legt den Client als eigene Unit an.
-      Zu (1): wer eine Ressource PRO VERBINDUNG prueft, haelt eine zweite Verbindung fest.
-      Das gilt hier fuer jeden Advisory-Lock, den der Worker nimmt.
-    done_when:
-      - >-
-        Worker und Engine sind durch Tests abgedeckt, inkl. des Falls "fremder Server
-        antwortet nicht" und "Abbruch mitten im Batch"
-      - >-
-        Ob der Worker nach einem Fehlschlag wieder anlaeuft, ist durch einen Test belegt —
-        nicht durch Lesen des Codes
-      - >-
-        Fuer den IMAP-Client ist entweder Abdeckung vorhanden oder eine eigene Unit angelegt,
-        mit Begruendung im Journal
-      - Woher die Tenant-Zuordnung einer abgerufenen Nachricht kommt, steht im Journal
-      - go test -count=1 ./internal/email/... gruen, Paketwert vorher/nachher im Journal
-
   - id: cov-email-send-service-consent-path
     phase: 4
     service: email
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/email/send/service.go 32,6 % (87 ungedeckt von 129)"
+    coverage_start: "internal/email/send 57,6 %; service.go 32,6 % (87 ungedeckt von 129) (CI-Stand 32949396303)"
     scope: >
       `internal/email/send/service.go` traegt den Consent-Asserter, der vor jedem Versand an
       einen Kontakt dessen Einwilligung prueft (`service.go:162`). Die Backend-Pipeline ist
@@ -2453,7 +2775,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/wiki 53,5 % (199 ungedeckt von 428); postgres_repository.go 29,9 %, 141 ungedeckt von 201"
+    coverage_start: "internal/wiki 53,5 % (199 ungedeckt von 428); postgres_repository.go 29,9 %, 141 ungedeckt von 201 (CI-Stand 32949396303)"
     scope: >
       Wiki-Repository plus die zugehoerigen Gateway-Handler in einer Unit, weil beide klein
       sind und die interessante Frage sie verbindet: die Freigabe-Token.
@@ -2496,7 +2818,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/gateway 56,6 %; route_helpdesk.go 40,6 %, 365 ungedeckt, 13 von 38 Handlern ungetestet"
+    coverage_start: "internal/gateway 69,3 %; route_helpdesk.go 40,6 %, 365 ungedeckt von 614, 13 von 38 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       Helpdesk-Verwaltung: SLA, Warteschlangen, Geschaeftszeiten, Wissensdatenbank.
       Ungetestet (Stand 2026-08-24): HandleGetSLAStatus, HandleListSLAPolicies,
@@ -2542,7 +2864,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/gateway 56,6 %; route_chat.go 39,0 %, 305 ungedeckt, 14 von 30 Handlern ungetestet"
+    coverage_start: "internal/gateway 69,3 %; route_chat.go 39,0 %, 305 ungedeckt von 500, 14 von 30 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       Chat-Gateway. Ungetestet (Stand 2026-08-24): HandleGetMessages,
       HandleGetThreadReplies, HandleGetUnreadCounts, HandleGetUserMentions,
@@ -2587,7 +2909,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/gateway 56,6 %; route_vertraege.go 23,5 % — die niedrigste Quote im Gateway, 251 ungedeckt, 10 von 15 Handlern ungetestet"
+    coverage_start: "internal/gateway 69,3 %; route_vertraege.go 23,5 % — die niedrigste Quote im Gateway, 251 ungedeckt von 328, 11 von 15 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       `route_vertraege.go` hat mit 23,5 % die niedrigste Statement-Coverage aller
       Routendateien. Vertraege sind eine Geldflaeche (Laufzeiten, Kuendigungsfristen,
@@ -2632,7 +2954,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/gateway 56,6 %; route_schichten.go 48,3 %, 229 ungedeckt, 9 von 20 Handlern ungetestet"
+    coverage_start: "internal/gateway 69,3 %; route_schichten.go 48,3 %, 229 ungedeckt von 443, 7 von 20 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       Schichtplanung. Ungetestet (Stand 2026-08-24): HandleGetShift, HandleUpdateShift,
       HandleDeleteShift, HandleListAssignments, HandleUnassignEmployee, HandleApplyTemplate,
@@ -2674,7 +2996,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/gateway 56,6 %; route_produktion_ext.go 25,1 % (16 von 17 Handlern ungetestet), route_produktion.go 39,7 % (8 von 17)"
+    coverage_start: "internal/gateway 69,3 %; route_produktion_ext.go 25,1 % (250 ungedeckt von 334, 17 von 17 Handlern ungetestet), route_produktion.go 39,7 % (246 von 408, 8 von 17) (CI-Stand 32949396303)"
     scope: >
       Zwei Routendateien in einer Unit, weil `route_produktion_ext.go` mit 16 von 17
       ungetesteten Handlern die schlechteste Quote im ganzen Gateway hat — praktisch
@@ -2717,7 +3039,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/settings 60,3 % (228 ungedeckt von 574); postgres_repository.go 49,6 %, service.go 62,6 %"
+    coverage_start: "internal/settings 60,3 % (228 ungedeckt von 574); postgres_repository.go 49,6 %, service.go 62,6 % (CI-Stand 32949396303)"
     scope: >
       Einstellungen sind die Flaeche, auf der ein Fehler am weitesten streut: sie steuern
       Steuersaetze, Geschaeftszeiten, Nummernkreise und Modulsichtbarkeit. Das Paket steht bei
@@ -2761,7 +3083,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/dialer 65,9 % (321 ungedeckt von 942); service.go 55,2 %, 182 ungedeckt von 406"
+    coverage_start: "internal/dialer 65,9 % (321 ungedeckt von 942); service.go 55,2 %, 182 ungedeckt von 406 (CI-Stand 32949396303)"
     scope: >
       Der Dialer fuehrt Anrufsitzungen mit Notizen und Ergebnissen — die Tabellen, die
       `feat-scrub-dependent-pii-dialer-tables` (Block A2) auf der Loeschseite absichert.
@@ -2809,7 +3131,7 @@ units:
     model: opus
     deps: []
     status: todo
-    coverage_start: "internal/server/biz_grpc_gobd_archive.go 0,0 % — 136 Statements, sechs Handler, null Tests"
+    coverage_start: "internal/server/biz_grpc_gobd_archive.go 0,0 % — 136 Statements, sechs Handler, null Tests (CI-Stand 32949396303)"
     scope: >
       Die einzige Datei mit Substanz im `server`-Paket, die bei exakt null Abdeckung steht —
       und ausgerechnet die des revisionssicheren Belegarchivs (Paragraph 147 AO,
@@ -2861,7 +3183,7 @@ units:
     model: opus
     deps: []
     status: todo
-    coverage_start: "internal/server/websocket.go 38,3 % — 293 ungedeckt von 475"
+    coverage_start: "internal/server/websocket.go 38,3 % — 293 ungedeckt von 475 (CI-Stand 32949396303)"
     scope: >
       `websocket.go` traegt Chat, Anwesenheit und Video-Signalisierung ueber eine einzige
       dauerhafte Verbindung je Nutzer. 38,3 % Abdeckung bei 475 Statements, obwohl vier
@@ -2915,7 +3237,7 @@ units:
     model: opus
     deps: []
     status: todo
-    coverage_start: "internal/auth 67,9 % — 515 ungedeckt von 1606"
+    coverage_start: "internal/auth 67,9 % — 515 ungedeckt von 1606 (CI-Stand 32949396303)"
     scope: >
       Das Auth-Paket ist der kritischste Pfad im System (CLAUDE.md nennt 60 %+ fuer Auth,
       Payments, Data als Ziel; 67,9 % erfuellt das knapp, laesst aber 515 Statements offen).
@@ -2967,7 +3289,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/security/gdpr 72,2 % — 626 ungedeckt von 2249"
+    coverage_start: "internal/security/gdpr 72,6 % — 644 ungedeckt von 2347 (CI-Stand 32949396303)"
     scope: >
       Das GDPR-Paket ist in Lauf 10 und 11 stark gewachsen (Retention-Engine, neun Handler,
       DSAR ueber 39 Tabellen) und steht bei 72,2 % mit 626 ungedeckten Statements — die
@@ -3017,7 +3339,7 @@ units:
     model: sonnet
     deps: []
     status: todo
-    coverage_start: "internal/server/inbox_grpc.go 59,1 % (262 ungedeckt), grpc.go 62,6 % (212 ungedeckt)"
+    coverage_start: "internal/server/inbox_grpc.go 59,1 % (262 ungedeckt von 641), grpc.go 62,6 % (212 von 567) (CI-Stand 32949396303)"
     scope: >
       Zwei Dateien im `server`-Paket mit zusammen 474 ungedeckten Statements.
       (1) `inbox_grpc.go` — der Posteingang buendelt E-Mail, Chat und Benachrichtigungen in
@@ -3180,6 +3502,91 @@ units:
 # In Lauf 10 haben 9 Scans 45 Zusatz-Units erzeugt.
 # ==========================================================================================
 
+  - id: scan-409-conflict-error-mapping
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      BEFUND aus dem 409-Skriptlauf vom 2026-08-24, nicht aus einem Scan. Beim Umstellen der
+      Doku-Kette auf `hooks/openapi-status-fill.py` ist eine Luecke aufgefallen, die alle
+      zwoelf bereits gemergten Iterationen dieser Arbeit teilen - sie wird hier zum ersten
+      Mal festgehalten statt weiter mitgeschleppt.
+      NEUZUSCHNITT 2026-08-26 (Vorbereitung Lauf 13): Iteration 12 von Lauf 12 hat am Code
+      belegt, dass die urspruengliche Buendel-Unit falsch geschnitten war - die 58
+      `codes.AlreadyExists`-Fundstellen liegen NICHT 1:1 in RPC-Handlern, sondern in 38
+      GETEILTEN Error-Mapper-Funktionen (`mapCalendarError` 41x in `calendar_grpc.go`,
+      `mapCRMError` 60x in `crm_grpc.go`, `mapBizError` 57x in `biz_grpc.go`). Der Weg
+      "von der Fundstelle ueber die RPC zum Handler" setzt ein 1:1-Verhaeltnis voraus, das
+      es nicht gibt, und sprengt eine Iteration. Die Unit ist deshalb - der eigenen
+      Empfehlung dieser Iteration folgend - in eine SCAN-Unit umgewandelt: sie
+      inventarisiert die Mapper und legt jeden echten Doppeldeutigkeits-Fall als eigene
+      Fix-Unit an, statt Recherche und Spec-Fix zu buendeln.
+    coverage_start: "n.a. (Scan-Unit, kein Coverage-Ziel)"
+    scope: >
+      `grpcStatusToHTTP` (`internal/gateway/helpers.go:51`) bildet `codes.AlreadyExists` auf
+      `409 Conflict` ab. Der Drift-Test kann das nicht sehen: `respondGRPCError` steht in
+      `dynamicStatusFuncs` (`openapi_status_code_drift_test.go:206-209`), der AST-Walk stoppt
+      dort bewusst, weil der Code laufzeitabhaengig ist. Folge: der 409-Skriptlauf hat auf
+      diesen Routen `409 -> IdempotencyInFlight` dokumentiert. Das ist WAHR (die Middleware
+      kann den Code liefern), aber UNVOLLSTAENDIG - dieselbe Route kann auch einen fachlichen
+      Conflict liefern, und in OpenAPI gibt es je Operation nur EIN Response-Objekt pro
+      Status-Code.
+      ARBEITSWEISE DIESER SCAN-UNIT - inventarisieren, nicht fixen. Einstieg ist die
+      MAPPER-EBENE, nicht die Fundstelle:
+      (1) Die Error-Mapper-Funktionen in `internal/server/` ermitteln, die `codes.AlreadyExists`
+      zurueckgeben (`grep -rn "codes.AlreadyExists" backend/internal/server --include=*.go |
+      grep -v _test`, dann je Treffer die umschliessende Funktion bestimmen). Erwartet werden
+      rund 38 Funktionen - die Zahl selbst nachmessen und im Journal nennen.
+      (2) Je Mapper festhalten, WELCHE Bedeutung 409 dort traegt: "Dublette" (eine Ressource
+      mit diesem Schluessel existiert bereits) oder "Zustandskonflikt" (die Operation passt
+      nicht zum aktuellen Zustand). Der Sentinel-Error-Name ist dafuer meist aussagekraeftig
+      genug (`ErrMemberAlreadyExists` = Dublette, `ErrBookingConflict` = Zustandskonflikt) -
+      wo er es nicht ist, die Fundstelle im Service lesen.
+      (3) NUR wo ein Mapper BEIDE Bedeutungen tragen kann UND von mindestens einer Route
+      erreichbar ist, die auch die Idempotency-Middleware passiert, entsteht ein echter
+      Doppeldeutigkeits-Fall. Jeder solche Fall wird als EIGENE Fix-Unit ans Ende von
+      `BACKLOG.yml` gehaengt (`scope`/`sources`/`notes`/`done_when`, `status: todo`), mit dem
+      Mapper-Namen im Titel und der Liste der betroffenen Operationen im `scope`.
+      (4) Diese Unit aendert selbst KEINE `openapi.yaml` und KEINEN Produktionscode. Der
+      Vorschlag fuer die Fix-Units - eine neue Komponente unter `components/responses`, deren
+      `description` beide Ursachen benennt und die wie `IdempotencyInFlight` und `Conflict`
+      auf `ErrorResponse` zeigt - gehoert in die `notes` der angelegten Fix-Units, nicht in
+      diese hier. Ebenso der Hinweis, dass `hooks/openapi-status-fill.py` die Sonderfaelle
+      kennen muss (Ausschluss- bzw. Sonderliste neben der bestehenden `lean:`-Liste), damit
+      ein spaeterer Skriptlauf sie nicht wieder ueberschreibt.
+      Eine Scan-Unit ohne Funde ist ein gueltiges Ergebnis - aber nur mit Beleg, WAS geprueft
+      wurde: die Mapper-Liste gehoert dann vollstaendig ins Journal.
+    sources:
+      - backend/internal/gateway/helpers.go
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+      - backend/internal/server/
+      - backend/api/openapi.yaml
+      - .planning/backend-block/loop/hooks/openapi-status-fill.py
+    notes: >
+      NICHT die 503 Eintraege aus dem Skriptlauf zurueckdrehen - der
+      IdempotencyInFlight-Fall gilt auf jeder dieser Routen weiterhin. Es geht nur um die
+      Teilmenge, die ZUSAETZLICH einen fachlichen Conflict kennt.
+      Vorgeschichte: Diese Unit stand seit der Lauf-12-Vorbereitung als `blocked` in
+      BACKLOG.yml und hat dort ab Iteration 12 in JEDEM Vorflug-Lauf den
+      `backlog-check.py --preflight` rot gemeldet, ohne dass jemand sie wegzog. Der
+      Neuzuschnitt ist die Lehre daraus: eine Unit, die zweimal an derselben Stelle
+      abbricht, ist falsch geschnitten und nicht zu klein bearbeitet.
+    done_when:
+      - >-
+        Die Liste der Error-Mapper-Funktionen mit `codes.AlreadyExists` ist vollstaendig im
+        Journal belegt (gemessene Zahl, nicht geschaetzt), je Mapper mit der Bedeutung, die
+        409 dort traegt
+      - >-
+        Jeder Mapper, der beide Bedeutungen tragen kann, ist als eigene Fix-Unit am Ende von
+        BACKLOG.yml angelegt und ihre ID steht in der `neue-units:`-Zeile des Journals
+      - >-
+        Kein Fund ist ein gueltiges Ergebnis, aber nur mit der vollstaendigen Mapper-Liste
+        als Beleg
+      - Weder openapi.yaml noch Produktionscode sind in dieser Unit veraendert
+      - go test -count=1 ./internal/gateway/ gruen
   - id: scan-idempotency-on-stock-and-money-mutating-routes
     phase: 4
     service: gateway
@@ -3314,57 +3721,6 @@ units:
       - >-
         Ob ein gemeinsamer Helper existiert, steht im Journal; existiert keiner, ist die Frage
         nach BACKLOG-NEXT.yml eingetragen
-      - Kein Verhalten geaendert
-
-  - id: scan-tenant-filter-on-read-paths
-    phase: 4
-    service: server
-    model: opus
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
-    scope: >
-      Der wichtigste Scan des Laufs. Block B prueft das Tenant-Scoping modulweise; dieser
-      Scan prueft es systematisch ueber alle Repositories hinweg.
-      Hypothese: RLS deckt den Normalfall ab (`kmuhub_app` ist NOSUPERUSER NOBYPASSRLS,
-      336 Tabellen tragen Policies), aber es gibt drei Wege daran vorbei — (1) Code, der als
-      `kmuhub` laeuft (Migrationen, Wartungsjobs); (2) Abfragen, die `app.tenant_id` nicht
-      gesetzt bekommen, weil der Kontext fehlt (dasselbe Loch, das
-      `fix-event-payload-missing-tenant-id` in Block A auf der Event-Seite schliesst);
-      (3) Speicher ausserhalb von Postgres — Redis (Presence, Rate-Limits, Cache) und
-      MinIO/Objektspeicher kennen keine RLS.
-      Zu tun: alle drei Wege systematisch absuchen. Fuer Redis: jeden Schluesselaufbau finden
-      und pruefen, ob der Tenant darin vorkommt. Fuer den Objektspeicher: jeden Pfadaufbau
-      finden und dieselbe Frage stellen. Fuer Postgres: jede Stelle finden, die eine
-      Verbindung OHNE gesetzten Tenant-Kontext benutzt.
-    sources:
-      - backend/internal/
-      - backend/internal/middleware/tenant.go
-      - backend/internal/work/presence/redis_store.go
-      - backend/internal/document/file/
-    notes: >
-      `model: opus`, weil die Frage "wo umgeht der Code RLS" nicht durch Grep zu beantworten
-      ist, sondern durch das Verfolgen von Verbindungen und Kontexten.
-      Ein ausbleibender Treffer ist KEIN Befund. Wer nach `SetTenantContext` grept und nichts
-      findet, hat nicht bewiesen, dass es fehlt — er hat den falschen Namen gesucht. Nach
-      Wortstaemmen suchen, nicht nach Importmustern.
-      Zwei Nullen sind kein bestandener Smoke. Wo der Scan eine Stelle als "sicher" einordnet,
-      gehoert der Grund dazu, nicht nur die Feststellung.
-      Jeder Fund ausserhalb von Postgres (Redis, Objektspeicher) ist eine opus-Unit — dort
-      gibt es kein Netz darunter.
-    done_when:
-      - >-
-        Alle Redis-Schluesselaufbauten sind gefunden und daraufhin geprueft, ob der Tenant
-        darin vorkommt; die Liste steht im Journal
-      - >-
-        Alle Objektspeicher-Pfadaufbauten sind gefunden und ebenso geprueft
-      - >-
-        Alle Stellen, die eine DB-Verbindung ohne gesetzten Tenant-Kontext benutzen, sind
-        gefunden und je als beabsichtigt (mit Grund) oder als Befund eingeordnet
-      - Fuer jeden Befund ausserhalb von Postgres ist eine opus-Unit angelegt
-      - >-
-        Die offen:-Zeile nennt, was tief geprueft, was nur gegrept und was gar nicht angesehen
-        wurde
       - Kein Verhalten geaendert
 
   - id: scan-dsar-and-retention-coverage-of-touched-modules
@@ -3869,51 +4225,6 @@ units:
       - Liste UND Export respektieren die gewaehlte Regel, belegt durch einen DB-Test
       - go test -count=1 ./internal/fuhrpark/ gruen
 
-  - id: fix-fuhrpark-gps-ingest-no-vehicle-tenant-check
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).
-      `Service.IngestGpsPositions` (`internal/fuhrpark/service.go:858`) und
-      `PostgresRepository.IngestGpsPositions` (`internal/fuhrpark/postgres_repository.go:979`)
-      pruefen vor dem Insert nur `vehicleID == uuid.UUID{}` und `len(positions) == 0` — nicht,
-      ob `vehicleID` ueberhaupt einem Fahrzeug DES AUFRUFENDEN TENANTS gehoert.
-      `gps_positions.vehicle_id` hat lediglich eine FK auf `vehicles(id)`
-      (`backend/migrations/000195_create_gps_positions.up.sql:4`), und `vehicles` haelt Zeilen
-      ALLER Tenants in einer Tabelle. Ein Aufrufer kann also `vehicle_id` eines fremden Tenants
-      in `POST /api/v1/fuhrpark/gps/ingest?vehicle_id=...` angeben; der Insert schreibt eine
-      `gps_positions`-Zeile mit dem TenantId des Aufrufers, aber `vehicle_id` zeigt auf ein
-      fremdes Fahrzeug. Datenintegritaets-/Zurechnungsproblem: die Zeile ist in Reads des
-      eigenen Tenants unsichtbar (RLS auf `gps_positions` filtert per `tenant_id`), belastet
-      aber dauerhaft eine `vehicles`-Zeile eines anderen Tenants mit fremden Fahrtdaten, sobald
-      irgendein Join (`GetVehicleRoutes` joint `gps_positions` mit `vehicles`) die
-      Tenant-Grenze nicht doppelt prueft.
-      Fix: vor dem Insert `vehicles`-Zeile mit `id=vehicleID AND tenant_id=tenantID` pruefen
-      (wie es `GetVehicleHistory` fuer sein Fahrzeug bereits tut, `service.go:884`) und bei
-      Nichttreffer `ErrVehicleNotFound`/`codes.NotFound` liefern statt stillschweigend zu
-      inserten.
-    sources:
-      - backend/internal/fuhrpark/service.go
-      - backend/internal/fuhrpark/postgres_repository.go
-      - backend/internal/gateway/route_fuhrpark.go
-      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
-      - backend/migrations/000195_create_gps_positions.up.sql
-    notes: >
-      Vorbild fuer den Ownership-Check: `Service.GetVehicleHistory` ruft vorab
-      `s.repo.GetVehicle(ctx, input.TenantID, input.VehicleID)` und propagiert dessen
-      Not-Found. `IngestGpsPositions` sollte denselben Weg gehen, statt neue Query-Logik zu
-      erfinden.
-    done_when:
-      - >-
-        IngestGpsPositions lehnt eine vehicle_id ab, die nicht zum aufrufenden Tenant gehoert
-        (404/NotFound statt stillem Insert)
-      - Ein DB-Test belegt sowohl den Erfolgsfall (eigenes Fahrzeug) als auch die Ablehnung
-      - go test -count=1 ./internal/fuhrpark/ gruen
-
   - id: fix-hr-approve-correction-self-approval
     phase: 4
     service: biz
@@ -4349,86 +4660,6 @@ units:
       - Die beiden `_RealCalDAVContext_`-Tests in `caldav_backend_db_test.go` sind aktualisiert und gruen
       - go test -count=1 ./internal/caldav/... gruen, DATABASE_URL gesetzt, 0 Skips
 
-  - id: fix-carddav-missing-tenant-context-blocks-all-operations
-    phase: 4
-    service: calendar
-    model: opus
-    deps: []
-    status: todo
-    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
-    scope: >
-      VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
-      `cov-carddav-backend-real-protocol-paths`), DERSELBE ROOT CAUSE wie
-      `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`, aber mit einem viel
-      groesseren Blast-Radius: nicht zwei Funktionen, sondern die GESAMTE CardDAV-Flaeche.
-      `CardDAVRoutes.basicAuthMiddleware` (`route_caldav.go:195-220`) setzt ueber `c.ctxInjector`
-      (= `caldavpkg.CtxWithUser`, `cmd/gateway/setup.go:147`) NUR die User-ID in den Context —
-      niemals `middleware.TenantIDKey`. `ListAddressObjects`, `GetAddressObject`,
-      `PutAddressObject` und `DeleteAddressObject` (`carddav_backend.go`) rufen alle
-      `client.<RPC>(ctx, ...)` auf dem echten CRM-gRPC-Client auf. Die
-      `TenantOutboundUnaryInterceptor` (`middleware/grpc_tenant.go:37-63`), die
-      `registry.GetConnection` production-seitig JEDEM Client anhaengt, haengt das
-      `x-tenant-id`-Metadata-Feld nur an, wenn `middleware.GetTenantID(ctx)` auf dem CLIENT
-      erfolgreich ist — das ist es hier nie. Server-seitig starten `ListContacts`, `GetContact`,
-      `CreateContact`, `UpdateContact`, `DeleteContact` und `UpdateContactVisibility`
-      (`crm_grpc.go`) JEDE Methode mit `middleware.GetTenantID(ctx)` und liefern
-      `codes.Unauthenticated, "tenant_id missing from context"`, wenn das fehlt —
-      `grpcToWebDAVError` mappt das auf HTTP 401.
-      Empirisch bewiesen (nicht nur hergeleitet): `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401`
-      und `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401`
-      (`internal/caldav/carddav_backend_grpc_db_test.go`) bauen einen echten CRM-gRPC-Server
-      (Loopback-TCP, exakt die production `TenantInboundUnaryInterceptor`-Kette) und rufen
-      `CardDAVBackend` mit exakt dem Context auf, den ein echter CardDAV-Request traegt — beide
-      401en.
-      Konkrete Folge in Produktion: JEDE CardDAV-Operation (Adressbuch-Auflistung,
-      Einzelkontakt-Abruf, Anlegen/Aendern/Loeschen eines Kontakts ueber Apple Kontakte, DAVx5,
-      Thunderbird) schlaegt mit 401 fehl — auch fuer den tatsaechlichen Kontobesitzer. Die
-      Funktion ist in Produktion vollstaendig tot, nicht nur teilweise degradiert.
-      DER RICHTIGE FIX GEHOERT VERMUTLICH AN DIE GEMEINSAME WURZEL, NICHT IN JEDE FUNKTION
-      EINZELN: `basicAuthMiddleware` sollte nach dem `pwService.Validate`-Aufruf den Tenant per
-      `resolveTenantID` (bereits vorhanden, `caldav_backend.go:50-60`) aufloesen und ihn als
-      echten `middleware.TenantIDKey`-Context-Wert setzen — analog zu `authMiddleware`s JWT-Pfad.
-      Das wuerde gleichzeitig (a) diese Unit UND `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`
-      loesen (deren zwei Funktionen dann `sysctx.With` durch den echten Tenant ersetzen koennten
-      statt ihn ganz zu bypassen) UND (b) den `TenantOutboundUnaryInterceptor` fuer JEDEN
-      CalDAV/CardDAV-gRPC-Call automatisch korrekt bestuecken. Vor dem Bauen pruefen, ob beide
-      Units zusammengelegt oder nacheinander mit gemeinsamer Migration/Test-Basis abgearbeitet
-      werden sollten — `opus`, weil eine Aenderung an `basicAuthMiddleware` fuer ALLE
-      CalDAV/CardDAV-Clients gleichzeitig wirkt und die Tenant-Grenze (RLS) korrekt bleiben muss,
-      nicht versehentlich aufgehoben werden darf.
-    sources:
-      - backend/internal/gateway/route_caldav.go
-      - backend/internal/caldav/caldav_backend.go
-      - backend/internal/caldav/carddav_backend.go
-      - backend/internal/caldav/carddav_backend_grpc_db_test.go
-      - backend/internal/middleware/grpc_tenant.go
-      - backend/internal/middleware/auth.go
-      - backend/internal/server/crm_grpc.go
-      - backend/cmd/gateway/setup.go
-    notes: >
-      Nach dem Fix muessen `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401` und
-      `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401`
-      (`carddav_backend_grpc_db_test.go`) ihre Erwartung umdrehen (200/2xx statt 401) — sie
-      dokumentieren den Bug, sind kein Ersatz fuer den Fix. Die uebrigen Tests in derselben Datei
-      (`asIfTenantMiddlewareFixed`-Helfer) injizieren den Tenant bereits manuell und bleiben nach
-      dem Fix unveraendert gruen — sie beweisen bereits, was die Listing-/Get-/Anonymisierungs-Logik
-      tut, SOBALD ein Tenant im Context steht.
-    done_when:
-      - >-
-        `basicAuthMiddleware` (oder eine gleichwertige Loesung) setzt einen echten Tenant-Context,
-        sodass `ListAddressObjects`/`GetAddressObject`/`PutAddressObject`/`DeleteAddressObject`
-        unter dem echten CardDAV-Request-Context (Basic Auth, kein JWT) erfolgreich durchlaufen
-      - >-
-        Ein Test belegt weiterhin die Tenant-Grenze: ein App-Passwort aus Tenant A darf keinen
-        Kontakt aus Tenant B lesen/schreiben
-      - >-
-        `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401` und
-        `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401` sind aktualisiert und gruen
-      - >-
-        Koordiniert mit `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`
-        (gleicher Root Cause, siehe scope)
-      - go test -count=1 ./internal/caldav/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
-
   - id: fix-carddav-list-address-objects-silently-truncates-past-page-size-limit
     phase: 4
     service: calendar
@@ -4626,67 +4857,6 @@ units:
         `TestService_GetStockReport_SumsAcrossIncompatibleUnits` ist aktualisiert und gruen
       - go test -count=1 ./internal/inventar/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
 
-  - id: fix-rapporte-measurement-position-cross-tenant-insert
-    phase: 4
-    service: rapporte
-    model: opus
-    deps: []
-    status: todo
-    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
-    scope: >
-      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
-      `cov-gateway-rapporte-measurements`, siehe
-      `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant`,
-      `internal/rapporte/postgres_repository_test.go`).
-      `PostgresRepository.AddMeasurementPosition` (postgres_repository.go:672) prueft nicht, ob
-      die uebergebene `measurementID` ueberhaupt zu `tenantID` gehoert — es fuegt die Position
-      direkt ein, mit der `measurement_id` als reine FK-Referenz (`REFERENCES measurements(id)
-      ON DELETE CASCADE`, migration 000163). Der FK prueft nur, dass die Zeile in `measurements`
-      EXISTIERT, nicht wem sie gehoert. Die RLS-Policy auf `measurement_positions`
-      (`enable_tenant_rls`, migration 000118) prueft ausschliesslich `tenant_id = current_tenant_id()`
-      der NEUEN Zeile selbst — nicht den Tenant der referenzierten `measurements`-Zeile. Ergebnis:
-      Tenant A kann eine Position (mit abrechnungsrelevanten Feldern: `quantity`, `unit_price`) an
-      JEDE `measurement_id` haengen, die es kennt, auch wenn sie Tenant B gehoert — die RLS-Check
-      auf dem INSERT ist erfuellt (`p.TenantID = A = current_tenant_id()`), der GET-Pfad von
-      Tenant B blendet die fremde Zeile zwar aus (`GetMeasurement` filtert selbst per
-      `tenant_id=$2`), aber die Zeile existiert trotzdem in Tenant B's Aufmass und wird beim
-      Loeschen der Messung durch die CASCADE mitgeloescht — ein stiller Seiteneffekt auf fremde
-      Daten ohne jede Fehlermeldung an Tenant A.
-      `HandleAddMeasurementPosition` (route_gateway/route_rapporte.go:1034) reicht `measurement_id`
-      unveraendert an den gRPC-Client durch, `RapporteGRPCServer.AddMeasurementPosition`
-      (rapporte_grpc.go:706) ebenso an `s.repo.AddMeasurementPosition` — an keiner Stelle in der
-      Kette wird vorher `GetMeasurement(ctx, tenantID, measurementID)` aufgerufen, um Existenz UND
-      Tenant-Zugehoerigkeit zu pruefen.
-      Fix vermutlich: in `PostgresRepository.AddMeasurementPosition` (oder davor im Service, falls
-      es einen gibt) zuerst per `SELECT 1 FROM measurements WHERE id=$1 AND tenant_id=$2` pruefen
-      und bei 0 Zeilen `ErrMeasurementNotFound` zurueckgeben — analog zum bestehenden Muster in
-      `GetMeasurement`/`UpdateMeasurement`. Alternativ: die INSERT-Query um einen Sub-Select auf
-      `measurements` mit Tenant-Filter erweitern (`INSERT ... SELECT ... WHERE EXISTS (...)`),
-      dann `RowsAffected() == 0` als Signal fuer "nicht gefunden ODER falscher Tenant" behandeln.
-    sources:
-      - backend/internal/rapporte/postgres_repository.go
-      - backend/internal/rapporte/postgres_repository_test.go
-      - backend/internal/server/rapporte_grpc.go
-      - backend/internal/gateway/route_rapporte.go
-      - backend/migrations/000163_measurements_and_templates.up.sql
-      - backend/migrations/000118_rls_foundation.up.sql
-    notes: >
-      `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant` dokumentiert den
-      Ist-Zustand (Insert gelingt aktuell mit `err == nil`). Nach dem Fix muss der Test die
-      Ablehnung per `ErrMeasurementNotFound` erwarten (Testname und Kommentar entsprechend
-      anpassen — die Doku-Aussage "currently SUCCEED" verschwindet dann). Gleiches Muster
-      pruefen bei `DeleteMeasurementPosition` und ob `AddMeasurementPosition` in anderen Modulen
-      (falls es ein Codegen-Vorbild o.ae. gibt) denselben Fehler teilt — nicht Teil dieser Unit,
-      aber als Beobachtung ins Journal, falls beim Fixen entdeckt.
-    done_when:
-      - >-
-        `AddMeasurementPosition` lehnt eine `measurementID` ab, die nicht zu `tenantID` gehoert
-        (`ErrMeasurementNotFound` oder aequivalent), statt die Position einzufuegen
-      - >-
-        `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant` ist aktualisiert und
-        gruen (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
-      - go test -count=1 ./internal/rapporte/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
-
   - id: fix-rapporte-signature-overwritable-after-signing
     phase: 4
     service: rapporte
@@ -4798,66 +4968,6 @@ units:
         (dokumentieren jetzt die Ablehnung, nicht mehr die Luecke)
       - go test -count=1 ./internal/document/file/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
 
-  - id: fix-generatejointoken-missing-event-tenant-check
-    phase: 4
-    service: calendar
-    model: opus
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus cov-gateway-calendar-resources-and-reminders (Iteration 36): weder
-      `CalendarRoutes.HandleGenerateJoinToken` (route_calendar.go) noch
-      `CalendarGRPCServer.GenerateJoinToken` (internal/server/calendar_grpc.go:1293) pruefen,
-      ob `event_id` ueberhaupt zu einem existierenden Event gehoert, ob dieses Event zum
-      Tenant des Aufrufers gehoert, oder ob der Aufrufer irgendeine Beziehung zum Event hat
-      (Ersteller, Teilnehmer, Kalender-Mitglied). Der Handler parst `event_id` nur als UUID
-      und reicht sie direkt an `livekitService.GenerateRoomName(eventID)` weiter
-      (internal/work/livekit/service.go:74-77, Format `cal-{erste 8 Hex-Zeichen der UUID}`)
-      und dann an `livekitService.GenerateJoinToken(roomName, userID, userName)` — es gibt
-      an keiner Stelle einen Repository-Aufruf, der das Event laedt.
-      Jeder authentifizierte User mit der tenant-weiten Berechtigung "calendars:write" kann
-      also eine BELIEBIGE UUID als {id} posten und erhaelt ein gueltiges, 24h lang signiertes
-      LiveKit-Join-Token fuer den daraus abgeleiteten Raum — auch fuer UUIDs, die zu Events
-      ANDERER TENANTS gehoeren, da nichts nach `tenant_id` scopt (es gibt keinen Lookup).
-      Terminabsage aendert daran nichts: es wird nie geprueft, ob das Event ueberhaupt
-      existiert, also auch nicht, ob es geloescht/abgesagt wurde — das Token bleibt fuer die
-      vollen 24h gueltig, unabhaengig vom Event-Status.
-      Fix: `GenerateJoinToken` im gRPC-Server muss vor der Token-Erzeugung das Event ueber
-      den Calendar-Repository-Layer laden (tenant-gescoped, wie `GetEvent`), pruefen dass es
-      existiert und nicht abgesagt ist, und — analog zu den anderen Event-Lesepfaden in
-      diesem Paket (calendars:read tenant-weit, keine Pro-Event-ACL, siehe Journal Iteration
-      35) — mindestens die Tenant-Zugehoerigkeit erzwingen. Ob zusaetzlich eine
-      Teilnehmer/Ersteller-Pruefung noetig ist, ist dieselbe Architekturfrage wie bei
-      `HandleListEventAttendees`/`GetEvent` (Journal Iteration 35) und keine Voraussetzung
-      fuer diesen Fix — der Tenant-Scope ist das Minimum und steht fuer sich.
-    sources:
-      - backend/internal/server/calendar_grpc.go
-      - backend/internal/gateway/route_calendar.go
-      - backend/internal/work/livekit/service.go
-      - backend/internal/server/calendar_grpc_events_categories_reminders_test.go
-    notes: >
-      `TestGenerateJoinToken` (calendar_grpc_events_categories_reminders_test.go:940)
-      dokumentiert den aktuellen Zustand: "happy path" ruft mit einer frei erfundenen
-      `eventID := uuid.New()` auf und erwartet Erfolg, ohne dass ein Event je existiert hat.
-      Nach dem Fix muss dieser Test ein echtes (gestubbtes) Event mitbringen; ein neuer Test
-      fuer "event existiert nicht" und "event gehoert zu einem anderen Tenant" (jeweils
-      erwartete Ablehnung) gehoert dazu.
-      Kein Zusammenhang mit der bereits abgeschlossenen RBAC-Phase 1 — dies ist eine fehlende
-      Tenant-Pruefung auf Repository-Ebene, kein Permission-Guard-Thema.
-    done_when:
-      - >-
-        `GenerateJoinToken` (gRPC-Server) laedt das Event tenant-gescoped und lehnt eine
-        UUID ab, die zu keinem Event des aufrufenden Tenants gehoert (klarer Fehlercode,
-        keine Ausnahme fuer nicht-existente IDs)
-      - >-
-        Ein Test belegt: event_id aus einem ANDEREN Tenant fuehrt zur Ablehnung, nicht zu
-        einem gueltigen Join-Token
-      - >-
-        `TestGenerateJoinToken` ist aktualisiert (echtes Event statt frei erfundener UUID)
-        und dokumentiert nicht mehr den Ist-Zustand als Erfolgsfall
-      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
-
   - id: fix-berichte-report-cache-never-purged
     phase: 4
     service: berichte
@@ -4904,53 +5014,6 @@ units:
         Ein Test belegt, dass eine abgelaufene `report_cache`-Zeile nach einem Sweep-Zyklus
         entfernt wird und eine frische Zeile erhalten bleibt
       - go test -count=1 ./internal/berichte/... gruen, DATABASE_URL gesetzt, 0 Skips
-
-  - id: fix-websocket-presence-subscribe-missing-tenant-check
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus cov-work-customfield-and-presence-zero-coverage (Iteration 38): Presence-Status
-      liegt in Redis unter dem Schluessel `presence:<userID>` ganz ohne Tenant-Anteil
-      (backend/internal/work/presence/redis_store.go:51-53) — Redis kennt keine RLS, die
-      Isolation haengt vollstaendig davon ab, dass jeder Aufrufer nur eigene-Tenant-UserIDs
-      uebergibt. `WebSocketHub.handlePresenceSubscribe`
-      (backend/internal/server/websocket.go:1116-1145) nimmt eine `user_ids`-Liste direkt aus
-      der Client-Nachricht entgegen und traegt jede davon ungeprueft in
-      `h.presenceSubscribers[targetUserID][userID]` ein — kein Tenant-Check, keine Pruefung,
-      ob `targetUserID` ueberhaupt in der aufrufenden Session sichtbar ist. Ein authentifizierter
-      User, der (z. B. durch Erraten oder aus einem anderen Leck) die UUID eines Users aus
-      einem FREMDEN Tenant kennt, kann sich auf dessen Presence abonnieren und erhaelt ueber
-      `WSPresenceUpdate`-Broadcasts laufend dessen Online/Away/DND-Status — ein echtes
-      Cross-Tenant-Informationsleck, kein RLS-Fall (Redis), sondern eine fehlende
-      Autorisierungspruefung im WebSocket-Handler selbst.
-      Fix: `handlePresenceSubscribe` muss fuer jede `targetUserID` pruefen, dass sie zum
-      selben Tenant wie der abonnierende `userID` gehoert (z. B. per Lookup gegen `users`
-      oder einen bereits vorhandenen Tenant-Mitgliederindex des Hubs), bevor der Eintrag in
-      `presenceSubscribers` landet. IDs aus fremdem Tenant werden verworfen oder mit
-      `sendError` quittiert, nicht committet.
-    sources:
-      - backend/internal/server/websocket.go
-      - backend/internal/work/presence/redis_store.go
-      - backend/internal/work/presence/service.go
-    notes: >
-      Kein RLS-Fix (Redis hat keine Policies) und kein Tenant-Feld im presence-Key noetig —
-      der Fix gehoert an die Autorisierungsgrenze im WebSocket-Handler, wo der aufrufende
-      User bereits bekannt ist (`userID`-Parameter). Pruef, ob der Hub bereits einen
-      Tenant-Index fuer verbundene User haelt (`h.mu`-geschuetzte Maps) und wiederverwendbar
-      ist, bevor eine neue DB-Anfrage pro Subscribe eingefuehrt wird.
-    done_when:
-      - >-
-        `handlePresenceSubscribe` lehnt oder ignoriert `target_user_id`s ab, die nicht zum
-        Tenant des abonnierenden Users gehoeren
-      - >-
-        Ein Test belegt: User aus Tenant A kann sich NICHT auf Presence-Updates eines Users
-        aus Tenant B abonnieren (kein Broadcast-Empfang), Abonnement innerhalb des eigenen
-        Tenants funktioniert weiterhin
-      - go test -count=1 ./internal/server/... gruen, DATABASE_URL gesetzt, 0 Skips
 
   - id: fix-dsar-tasks-module-missing-custom-field-values
     phase: 4
