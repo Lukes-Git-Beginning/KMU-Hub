@@ -1734,7 +1734,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_inventar.go 45,7 %, 419 ungedeckt, 21 von 39 Handlern ungetestet"
     scope: >
       Erste von zwei Inventar-Units: Lagerorte und Kommissionierung. Ungetestet (Stand
@@ -4478,3 +4478,56 @@ units:
       - >-
         `TestListAddressObjects_PersonalBook_SilentlyTruncatesPast20` ist aktualisiert und gruen
       - go test -count=1 ./internal/caldav/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-inventar-location-soft-delete-leaves-dangling-item-references
+    phase: 4
+    service: inventar
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-inventar-locations-and-picking`, siehe
+      `TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID`,
+      `internal/inventar/postgres_repository_test.go`). `inventory_items.location_id` traegt die
+      FK-Klausel `ON DELETE SET NULL` (`migrations/000184_inventory_locations.up.sql`), aber
+      `PostgresRepository.SoftDeleteLocation` fuehrt nie ein echtes `DELETE` aus — es setzt nur
+      `deleted_at`. Die FK-Aktion greift deshalb nie. `Service.DeleteLocation` ruft
+      `SoftDeleteLocation` direkt auf, ohne vorher zu pruefen, ob Items noch per `location_id`
+      auf den Lagerort verweisen. Ergebnis: nach dem Loeschen eines Lagerorts zeigt
+      `GetLocation`/`ListLocations` ihn korrekt als weg, aber jedes Item, das ihn per
+      `location_id` referenzierte, behaelt diese ID unveraendert — eine tote Referenz auf einen
+      Lagerort, den keine API mehr auflösen kann.
+      Einschraenkung: `location_id` ist ueber die REST-Handler (`route_inventar.go`,
+      `createItemRequest`/`updateItemRequest`) aktuell gar nicht setzbar — nur ueber die
+      gRPC-Ebene direkt (`internal/server/inventar_grpc.go:62,121`, `CreateItemRequest`/
+      `UpdateItemRequest` tragen `location_id` im Proto). Das begrenzt den unmittelbaren
+      Blast-Radius (kein Weg ueber die aktuelle Web-UI, sofern die nur REST nutzt), macht das
+      Datenmodell-Problem aber nicht falsch: sobald ein Aufrufer `location_id` setzt (gRPC direkt
+      oder ein kuenftiger REST-Feldabgleich), entsteht die Dangling-Referenz.
+      Fix vermutlich: `Service.DeleteLocation` prueft vor dem Soft-Delete, ob Items mit dieser
+      `location_id` existieren, und lehnt entweder mit einem Konflikt-Fehler ab (analog
+      `ErrPickingListAlreadyBooked`-Stil) oder nullt `location_id` bei betroffenen Items im
+      selben Schritt. Migrationsseitig nichts noetig — die FK-Klausel ist bereits korrekt fuer den
+      Hard-Delete-Fall, das Problem sitzt rein im Service.
+    sources:
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/postgres_repository.go
+      - backend/internal/inventar/postgres_repository_test.go
+      - backend/migrations/000184_inventory_locations.up.sql
+    notes: >
+      `TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID` dokumentiert den
+      Ist-Zustand (Loeschen gelingt trotz referenzierendem Item, `location_id` bleibt bestehen).
+      Nach dem Fix muss dieser Test entweder eine harte Ablehnung (Konflikt) oder eine
+      Null-Bereinigung erwarten — kein stilles Beibehalten der Dangling-Referenz ohne
+      Begruendung.
+    done_when:
+      - >-
+        `Service.DeleteLocation` verhaelt sich bei existierenden Items mit passender `location_id`
+        bewusst (Ablehnung ODER Bereinigung) statt der Referenz stillschweigend ihr Ziel zu
+        entziehen
+      - >-
+        `TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID` ist aktualisiert
+        und gruen
+      - go test -count=1 ./internal/inventar/... gruen, DATABASE_URL gesetzt, 0 Skips

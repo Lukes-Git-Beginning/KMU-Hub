@@ -860,3 +860,686 @@ func TestHandleAcknowledgeWarning_ReachesRPC_FallsBackToAuthenticatedUser(t *tes
 	routes.HandleAcknowledgeWarning(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- HandleListLocations ---
+
+func TestHandleListLocations_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/locations", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListLocations(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListLocations_MissingTenant(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/locations", nil)
+	routes.HandleListLocations(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleListLocations_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/locations?page=2&page_size=10", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListLocations(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleCreateLocation ---
+
+func TestHandleCreateLocation_MissingName(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/locations", jsonBody(t, map[string]interface{}{
+		"address": "Weg 1",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateLocation(rec, req)
+	assertValidationError(t, rec, "name")
+}
+
+func TestHandleCreateLocation_InvalidType(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/locations", jsonBody(t, map[string]interface{}{
+		"name": "Lager A",
+		"type": "spaceship",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateLocation(rec, req)
+	assertValidationError(t, rec, "type")
+}
+
+func TestHandleCreateLocation_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/locations", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateLocation(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleCreateLocation_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/locations", jsonBody(t, map[string]interface{}{
+		"name": "Lager A",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateLocation(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleCreateLocation_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/locations", jsonBody(t, map[string]interface{}{
+		"name": "Lager A",
+		"type": "warehouse",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateLocation(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetLocation ---
+
+func TestHandleGetLocation_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/locations/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetLocation(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleGetLocation_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("GET", "/api/v1/inventar/locations/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleGetLocation(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetLocation_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("GET", "/api/v1/inventar/locations/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleGetLocation(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateLocation ---
+
+func TestHandleUpdateLocation_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/locations/not-a-uuid", jsonBody(t, map[string]interface{}{
+		"name": "Lager B",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateLocation(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpdateLocation_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/locations/"+id, invalidJSON())
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateLocation(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateLocation_InvalidType(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/locations/"+id, jsonBody(t, map[string]interface{}{
+		"type": "spaceship",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateLocation(rec, req)
+	assertValidationError(t, rec, "type")
+}
+
+func TestHandleUpdateLocation_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/locations/"+id, jsonBody(t, map[string]interface{}{
+		"name": "Lager B",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateLocation(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpdateLocation_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/locations/"+id, jsonBody(t, map[string]interface{}{
+		"name": "Lager B",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdateLocation(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteLocation ---
+
+func TestHandleDeleteLocation_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/locations/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteLocation(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleDeleteLocation_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/locations/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeleteLocation(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteLocation_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/locations/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeleteLocation(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListPickingLists ---
+
+func TestHandleListPickingLists_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/picking", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListPickingLists(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListPickingLists_MissingTenant(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/picking", nil)
+	routes.HandleListPickingLists(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleListPickingLists_InvalidStatusFilter(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/picking?status=bogus", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListPickingLists(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid status filter")
+}
+
+func TestHandleListPickingLists_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/picking?status=open&page=2&page_size=10", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListPickingLists(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleCreatePickingList ---
+
+func TestHandleCreatePickingList_MissingReference(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking", jsonBody(t, map[string]interface{}{}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreatePickingList(rec, req)
+	assertValidationError(t, rec, "reference")
+}
+
+func TestHandleCreatePickingList_InvalidItemQuantity(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking", jsonBody(t, map[string]interface{}{
+		"reference": "PICK-1",
+		"items": []map[string]interface{}{
+			{"item_id": "550e8400-e29b-41d4-a716-446655440000", "quantity_requested": 0},
+		},
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreatePickingList(rec, req)
+	assertValidationError(t, rec, "quantity_requested")
+}
+
+func TestHandleCreatePickingList_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreatePickingList(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleCreatePickingList_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking", jsonBody(t, map[string]interface{}{
+		"reference": "PICK-1",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreatePickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleCreatePickingList_ReachesRPC_WithItemsAndCreatedBy covers the two
+// loop/fallback branches route_inventar.go's HandleCreatePickingList carries
+// (items -> CreatePickingListItemInput, CreatedBy from the authenticated user)
+// that a bare ServiceUnavailable-only call would never execute.
+func TestHandleCreatePickingList_ReachesRPC_WithItemsAndCreatedBy(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking", jsonBody(t, map[string]interface{}{
+		"reference": "PICK-1",
+		"items": []map[string]interface{}{
+			{"item_id": "550e8400-e29b-41d4-a716-446655440000", "quantity_requested": 5},
+		},
+	}))
+	req = withAuth(req, "user-1", testTenantID)
+	routes.HandleCreatePickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetPickingList ---
+
+func TestHandleGetPickingList_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/picking/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetPickingList(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleGetPickingList_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("GET", "/api/v1/inventar/picking/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleGetPickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetPickingList_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("GET", "/api/v1/inventar/picking/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleGetPickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdatePickingList ---
+
+func TestHandleUpdatePickingList_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/picking/not-a-uuid", jsonBody(t, map[string]interface{}{
+		"reference": "PICK-2",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdatePickingList(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpdatePickingList_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/picking/"+id, invalidJSON())
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdatePickingList(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+// TestHandleUpdatePickingList_StatusCompletedRejected documents that
+// route_inventar.go's updatePickingListRequest validate tag
+// (oneof=open picking completed) accepts "completed" at the JSON layer —
+// the actual rejection (completion is reached only by booking) happens
+// service-side and surfaces as an RPC error, not a local 400. This handler
+// test proves the request reaches the RPC layer instead of being rejected
+// locally, matching internal/inventar/service_test.go's
+// TestUpdatePickingList_CompletedIsBookingOnly at the service layer.
+func TestHandleUpdatePickingList_StatusCompletedRejected(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/picking/"+id, jsonBody(t, map[string]interface{}{
+		"status": "completed",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdatePickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpdatePickingList_InvalidStatusValue(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/picking/"+id, jsonBody(t, map[string]interface{}{
+		"status": "bogus",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdatePickingList(rec, req)
+	assertValidationError(t, rec, "status")
+}
+
+func TestHandleUpdatePickingList_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/picking/"+id, jsonBody(t, map[string]interface{}{
+		"reference": "PICK-2",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdatePickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpdatePickingList_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("PATCH", "/api/v1/inventar/picking/"+id, jsonBody(t, map[string]interface{}{
+		"reference": "PICK-2",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpdatePickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeletePickingList ---
+
+func TestHandleDeletePickingList_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/picking/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeletePickingList(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleDeletePickingList_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/picking/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeletePickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeletePickingList_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/picking/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeletePickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpsertPickingListItem ---
+
+func TestHandleUpsertPickingListItem_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/not-a-uuid/items", jsonBody(t, map[string]interface{}{
+		"item_id":            "550e8400-e29b-41d4-a716-446655440000",
+		"quantity_requested": 5,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpsertPickingListItem(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpsertPickingListItem_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/items", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertPickingListItem(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpsertPickingListItem_MissingItemID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/items", jsonBody(t, map[string]interface{}{
+		"quantity_requested": 5,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertPickingListItem(rec, req)
+	assertValidationError(t, rec, "item_id")
+}
+
+func TestHandleUpsertPickingListItem_InvalidQuantityRequested(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/items", jsonBody(t, map[string]interface{}{
+		"item_id":            "550e8400-e29b-41d4-a716-446655440001",
+		"quantity_requested": 0,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertPickingListItem(rec, req)
+	assertValidationError(t, rec, "quantity_requested")
+}
+
+func TestHandleUpsertPickingListItem_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/items", jsonBody(t, map[string]interface{}{
+		"item_id":            "550e8400-e29b-41d4-a716-446655440001",
+		"quantity_requested": 5,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertPickingListItem(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpsertPickingListItem_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/items", jsonBody(t, map[string]interface{}{
+		"item_id":            "550e8400-e29b-41d4-a716-446655440001",
+		"quantity_requested": 5,
+		"quantity_picked":    5,
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleUpsertPickingListItem(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeletePickingListItem ---
+
+func TestHandleDeletePickingListItem_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/picking-items/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeletePickingListItem(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleDeletePickingListItem_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/picking-items/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeletePickingListItem(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeletePickingListItem_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/picking-items/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeletePickingListItem(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleBookPickingList ---
+
+// TestHandleBookPickingList_InvalidIDUUID through _ReachesRPC cover the HTTP
+// layer only. Idempotency (a second booking must not move stock twice) and
+// atomicity (a partial failure mid-list must leave no partial booking) are
+// proven below the handler, where the real behaviour lives:
+// service.BookPickingList delegates the claim to
+// PostgresRepository.BookPickingListTx, a single SQL transaction with a
+// conditional UPDATE ... WHERE status != 'completed' claim predicate.
+//   - idempotency: internal/inventar/picking_service_test.go
+//     TestBookPickingList_SecondBookingDoesNotMoveStockAgain (mock repo) and
+//     internal/inventar/picking_booking_tx_test.go
+//     TestBookPickingListTx_UpsertConflictAndClaimAgainstRealSchema's
+//     "claim predicate makes a second booking a no-op" subtest (real Postgres,
+//     asserts stock quantity unchanged after a second BookPickingListTx call).
+//   - atomicity: internal/inventar/picking_service_test.go
+//     TestBookPickingList_InsufficientStockLeavesEverythingUntouched (mock) and
+//     internal/inventar/picking_booking_tx_test.go
+//     TestBookPickingListTx_PartialFailureRollsBackClaimAndStock (real
+//     Postgres: one bookable + one short position, asserts the bookable
+//     position's stock is untouched and zero movement rows exist after the
+//     batch fails on the second position).
+func TestHandleBookPickingList_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/not-a-uuid/book", jsonBody(t, map[string]interface{}{}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleBookPickingList(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleBookPickingList_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/book", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleBookPickingList(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleBookPickingList_InvalidBookedByUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/book", jsonBody(t, map[string]interface{}{
+		"booked_by": "not-a-uuid",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleBookPickingList(rec, req)
+	assertValidationError(t, rec, "booked_by")
+}
+
+func TestHandleBookPickingList_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/book", jsonBody(t, map[string]interface{}{}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleBookPickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleBookPickingList_ReachesRPC_FallsBackToAuthenticatedUser covers
+// the omitted-booked_by branch (route_inventar.go): the handler falls back to
+// middleware.GetUserID(ctx), mirroring HandleAcknowledgeWarning's fallback.
+func TestHandleBookPickingList_ReachesRPC_FallsBackToAuthenticatedUser(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/picking/"+id+"/book", jsonBody(t, map[string]interface{}{}))
+	req = withAuth(req, "user-1", testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleBookPickingList(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}

@@ -399,6 +399,59 @@ func TestLocationLifecycle_UpdateSoftDeleteAndList(t *testing.T) {
 	}
 }
 
+// TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID
+// documents the actual referential-integrity behaviour of SoftDeleteLocation
+// (Service.DeleteLocation calls it directly, with no reference check first):
+// the inventory_items.location_id FK carries ON DELETE SET NULL
+// (migrations/000184_inventory_locations.up.sql), but that clause only fires
+// on a hard DELETE. SoftDeleteLocation only sets deleted_at, so a hard DELETE
+// never happens and the FK action never runs — an item's location_id keeps
+// pointing at a location that GetLocation/ListLocations now treat as gone.
+func TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupRepo(t)
+
+	now := time.Now().UTC()
+	loc := &InventoryLocation{
+		ID: uuid.New(), TenantID: tenantID, Name: "Lager mit Bestand", Address: "Weg 2",
+		Type: LocationTypeWarehouse, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateLocation(ctx, loc); err != nil {
+		t.Fatalf("CreateLocation: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "inventory_locations", loc.ID) })
+
+	item := &Item{
+		ID: uuid.New(), TenantID: tenantID,
+		Name: "Referenziert Lager", SKU: "SKU-" + uuid.New().String()[:8],
+		Quantity: 5, MinQuantity: 0, Unit: "Stk", LocationID: &loc.ID,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateItem(ctx, item); err != nil {
+		t.Fatalf("seed item: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "inventory_items", item.ID) })
+
+	// SoftDeleteLocation succeeds unconditionally -- no check against items
+	// still referencing this location.
+	if err := repo.SoftDeleteLocation(ctx, tenantID, loc.ID); err != nil {
+		t.Fatalf("SoftDeleteLocation: %v", err)
+	}
+	if _, err := repo.GetLocation(ctx, tenantID, loc.ID); !errors.Is(err, ErrLocationNotFound) {
+		t.Fatalf("expected ErrLocationNotFound for the now-deleted location, got %v", err)
+	}
+
+	// The item is untouched: location_id still points at the deleted location
+	// instead of being nulled out, because ON DELETE SET NULL never fired.
+	reloaded, err := repo.GetItem(ctx, tenantID, item.ID)
+	if err != nil {
+		t.Fatalf("GetItem: %v", err)
+	}
+	if reloaded.LocationID == nil || *reloaded.LocationID != loc.ID {
+		t.Fatalf("expected item.location_id to still be the deleted location %s (dangling reference), got %v", loc.ID, reloaded.LocationID)
+	}
+}
+
 // ============================================================================
 // Inventur Sessions
 // ============================================================================
