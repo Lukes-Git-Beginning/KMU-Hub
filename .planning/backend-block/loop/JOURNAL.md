@@ -2564,3 +2564,62 @@ Kopf von `BACKLOG.yml`.
   weiterhin ungetestet auf Gateway-/gRPC-Ebene (0,0/48,4 % laut `coverage_start`) — das
   ist die separate `cov-gateway-vermietung-objects-and-inspections`, absichtlich nicht
   Teil dieser Unit.
+
+## Iteration 41 — cov-gateway-vermietung-objects-and-inspections — done — 2026-08-26 07:03
+- commit: (siehe naechster chore-Commit)
+- gebaut: Gateway-Tests fuer die neun ungetesteten vermietung-Handler
+  (HandleGetObject, HandleUpdateObject, HandleDeleteObject, HandleListRentals,
+  HandleGetInspection, HandleListInspections, HandleUpdateInspection,
+  HandleSaveRentalSignature, HandleExportRentalReport) plus HandleGetRental (nicht im
+  scope-Text genannt, aber ebenfalls 0,0 % und trivial mitgenommen) — je Handler
+  ServiceUnavailable, UUID-/JSON-/Validierungsfehlerpfad und ein ReachesRPC-Test.
+  Zusaetzlich zwei dokumentierende Fund-Tests auf Service-Ebene (mockRepository):
+  `TestSaveRentalSignature_OverwritesExistingSignatureWithoutGuard`
+  (internal/vermietung/signature_test.go) und
+  `TestService_DeleteObject_ActiveRental_NoReferentialIntegrityGuard`
+  (internal/vermietung/service_test.go).
+- gate: build ok (`go build -p 2 ./internal/vermietung/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok (DATABASE_URL gesetzt,
+  ./internal/vermietung/... und ./internal/gateway/... beide gruen, 0 uebersprungen,
+  TestOpenAPIRouteDrift lief mit, keine Route angefasst also erwartungsgemaess ok) |
+  migration n.a. (keine Tabelle/Policy angefasst) | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst, nur Tests)
+- coverage: internal/gateway/route_vermietung.go — informeller Funktions-Mittelwert
+  (26 Funktionen/Methoden laut `go tool cover -func`) 50,9 % -> 81,7 %; die neun
+  scope-Handler + HandleGetRental liegen jetzt alle zwischen 81,2 % und 94,7 % (vorher
+  0,0-37,5 %). Paket `internal/gateway` gesamt 67,9 % -> 68,6 % (vorher-Wert selbst
+  gemessen, coverage_start der Unit nannte den CI-Referenzwert 56,6 % — Differenz durch
+  die vielen zwischen CI-Lauf und dieser Iteration bereits done gebauten Coverage-Units
+  in diesem Paket, siehe methodische Warnung im Backlog-Kopf).
+- mutations-probe: n.a. — reine Coverage-Unit ohne Produktionscode-Aenderung
+  (route_vermietung.go, service.go, postgres_repository.go unveraendert). Die beiden
+  neuen Fund-Tests SIND selbst die Probe in dem Sinn, dass sie den jeweiligen Gap
+  demonstrieren (Signatur-Overwrite gelingt mit err == nil; Objekt-Loeschung trotz
+  aktiver Vermietung gelingt mit err == nil und die Vermietung bleibt danach unveraendert
+  auffindbar) — kein Verhalten geaendert, nur belegt.
+- verify vorgaenger: sauber (`a6d6a187` geprueft — Fix beschraenkt sich auf
+  `pgErrCodeExclusionViolation`/`asRentalConflict` in postgres_repository.go plus
+  DB-Testdatei; kein `.proto`, keine neue Route, kein `RequirePermission`, keine neue
+  Tabelle, kein gRPC-Bypass, kein Stub-Marker; Diff sauber gegen die acht
+  Fehlerklassen)
+- neue-units: fix-vermietung-rental-signature-overwritable-after-signing (SaveSignature
+  ueberschreibt eine bestehende Unterschrift kommentarlos — derselbe Fehler wie bei
+  `fix-rapporte-signature-overwritable-after-signing`, hier fuer vermietung),
+  fix-vermietung-delete-object-with-active-rental-dangling-reference (DeleteObject
+  loescht ein Objekt weich, ohne laufende Vermietungen zu pruefen — die Vermietung
+  bleibt danach mit toter Objektreferenz auffindbar), feat-vermietung-dsar-and-retention-coverage
+  (rentals/rental_inspections fehlen komplett in dsar_search.go und haben keinen
+  Retention-Handler, obwohl rentals.contact_id auf CRM-Kontakte zeigt und
+  rental_inspections Fotos/Freitext personenbezogener Uebergaben traegt)
+- offen: (1) done_when-Frage "Ob Uebergabeprotokolle in DSAR und Retention auftauchen"
+  ist beantwortet: NEIN, weder DSAR noch Retention decken vermietung ab — als eigene
+  Unit `feat-vermietung-dsar-and-retention-coverage` angelegt statt hier mitgebaut
+  (Umfang: neues DSAR-Modul + Registrierung, klar ueber reine Gateway-Coverage hinaus).
+  (2) `HandleExportRentalReport` wurde nur mit Format `csv` (Default) und `json`
+  (unbekanntes Format, landet ungeprueft im ContentType-Fallback) getestet — die
+  gRPC-Ebene (`vermietung_grpc.go:563`) ignoriert `format` faktisch komplett und liefert
+  immer CSV; das ist vermutlich Absicht (nur ein Exportformat implementiert), aber falls
+  JSON/PDF-Export erwartet wird, ist das eine Produktentscheidung, kein Bug — nicht als
+  Fix-Unit angelegt. (3) `HandleListRentals`/`HandleGetRentalCalendar` teilen dasselbe
+  Silently-Ignore-Muster fuer unparsbare Datumsangaben — dokumentiert, nicht als Fund
+  gewertet (konsistent mit dem bereits bestehenden Calendar-Verhalten).

@@ -410,6 +410,41 @@ func TestService_DeleteObject_NotFound(t *testing.T) {
 	assert.ErrorIs(t, err, ErrObjectNotFound)
 }
 
+// TestService_DeleteObject_ActiveRental_NoReferentialIntegrityGuard documents
+// a VERIFIED finding: DeleteObject (service.go:232) only checks that the
+// object exists, then soft-deletes it unconditionally — there is no check for
+// rentals still referencing it. rentals.object_id has ON DELETE CASCADE
+// (migration 000098), but that FK never fires here because the delete is a
+// soft delete (deleted_at = NOW()), not a real DELETE. The result: an object
+// with an active, ongoing rental can be soft-deleted, after which
+// GetObject/ListObjects can no longer find it (both filter deleted_at IS
+// NULL) while the active rental itself survives untouched and still
+// resolves via GetRental/ListRentals — a rental pointing at an object the API
+// can no longer describe. Filed as its own fix-unit (see BACKLOG.yml), not
+// fixed here — a coverage unit changes no behaviour.
+func TestService_DeleteObject_ActiveRental_NoReferentialIntegrityGuard(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	obj := addObject(repo, tenantID, "Bagger")
+	rental := addRental(repo, tenantID, obj.ID, may(2026, 1), may(2026, 10), RentalStatusActive)
+
+	err := svc.DeleteObject(context.Background(), tenantID, obj.ID)
+	require.NoError(t, err, "gap: deleting an object with a running rental is currently accepted")
+
+	// The object is now invisible via the normal read path...
+	_, err = svc.GetObject(context.Background(), tenantID, obj.ID)
+	assert.ErrorIs(t, err, ErrObjectNotFound)
+
+	// ...but the rental that references it is untouched and still resolves,
+	// now pointing at an object the API can no longer describe.
+	stillThere, err := svc.GetRental(context.Background(), tenantID, rental.ID)
+	require.NoError(t, err, "the rental survives the object's deletion unprotected")
+	assert.Equal(t, RentalStatusActive, stillThere.Status)
+	assert.Equal(t, obj.ID, stillThere.ObjectID)
+}
+
 // ============================================================================
 // CreateRental — Date-Range Overlap Tests (CRITICAL PATH)
 // ============================================================================

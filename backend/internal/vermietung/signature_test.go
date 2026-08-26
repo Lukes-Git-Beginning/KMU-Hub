@@ -145,3 +145,40 @@ func TestSaveRentalSignature_RentalNotFound(t *testing.T) {
 
 	assert.ErrorIs(t, err, ErrRentalNotFound)
 }
+
+// TestSaveRentalSignature_OverwritesExistingSignatureWithoutGuard documents
+// the current (gap) behaviour: neither Service.SaveSignature nor
+// PostgresRepository.SaveSignature (postgres_repository.go:504) check whether
+// a rental already carries a signature before writing a new one — no
+// "AND signature_data IS NULL" guard in the UPDATE, no rental-status check.
+// A signature is evidence of a fixed state (who handed over/returned the
+// object, and when); as built it stays mutable indefinitely, even after the
+// rental is completed. This is the same gap already filed for rapporte's
+// HandleSaveReportSignature (see BACKLOG.yml fix-rapporte-signature-overwritable-after-signing)
+// — filed here as its own fix-unit, not fixed in this coverage unit.
+func TestSaveRentalSignature_OverwritesExistingSignatureWithoutGuard(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	obj := addObject(repo, tenantID, "Fahrzeug")
+	rental := addRental(repo, tenantID, obj.ID, may(2026, 1), may(2026, 5), RentalStatusCompleted)
+
+	first, err := svc.SaveSignature(context.Background(),
+		tenantID.String(), rental.ID.String(), validPNGSignature, "Max Mustermann")
+	require.NoError(t, err)
+	require.NotNil(t, first.SignatureData)
+	firstSignedAt := *first.SignedAt
+
+	// Second signature on the SAME (already completed and signed) rental
+	// currently SUCCEEDs and silently overwrites the first signature instead
+	// of being rejected.
+	second, err := svc.SaveSignature(context.Background(),
+		tenantID.String(), rental.ID.String(), validSVGSignature, "Erika Musterfrau")
+	require.NoError(t, err, "gap: a second signature on an already-signed rental is currently accepted")
+	require.NotNil(t, second.SignatureData)
+	assert.Equal(t, validSVGSignature, *second.SignatureData, "the first signature is silently replaced")
+	require.NotNil(t, second.SignedBy)
+	assert.Equal(t, "Erika Musterfrau", *second.SignedBy, "the first signer's name is lost")
+	assert.True(t, second.SignedAt.After(firstSignedAt) || second.SignedAt.Equal(firstSignedAt))
+}

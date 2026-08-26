@@ -441,3 +441,392 @@ func TestHandleGetRentalCalendar_NonNumericYearMonthIgnored(t *testing.T) {
 	routes.HandleGetRentalCalendar(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- HandleGetObject ---
+
+func TestHandleGetObject_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleGetObject)
+}
+
+func TestHandleGetObject_InvalidIDUUID(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/objects/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetObject(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleGetObject_ReachesRPC(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/objects/"+testVermietungObjectID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungObjectID)
+	routes.HandleGetObject(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateObject ---
+
+func TestHandleUpdateObject_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleUpdateObject)
+}
+
+func TestHandleUpdateObject_InvalidIDUUID(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/vermietung/objects/not-a-uuid", jsonBody(t, map[string]interface{}{
+		"name": "Neuer Name",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateObject(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpdateObject_InvalidJSON(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/vermietung/objects/"+testVermietungObjectID, invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungObjectID)
+	routes.HandleUpdateObject(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateObject_ReachesRPC(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	newRate := 99.0
+	req := httptest.NewRequest("PATCH", "/api/v1/vermietung/objects/"+testVermietungObjectID, jsonBody(t, map[string]interface{}{
+		"name":       "Neuer Name",
+		"daily_rate": newRate,
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungObjectID)
+	routes.HandleUpdateObject(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteObject ---
+//
+// The gateway handler is a thin Parse/Call/Respond wrapper with no
+// referential-integrity guard of its own — whether deleting an object with a
+// running rental is allowed is entirely a service-layer decision. Checked at
+// that layer (service.go DeleteObject / mockRepository in service_test.go):
+// DeleteObject only verifies the object exists, then soft-deletes it
+// unconditionally, with no check for rentals still referencing it. This is a
+// VERIFIED finding (see TestService_DeleteObject_ActiveRental_NoReferentialIntegrityGuard
+// in internal/vermietung/service_test.go), filed as its own fix-unit (see
+// BACKLOG.yml), not fixed here — a coverage unit changes no behaviour.
+
+func TestHandleDeleteObject_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleDeleteObject)
+}
+
+func TestHandleDeleteObject_InvalidIDUUID(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/vermietung/objects/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteObject(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleDeleteObject_ReachesRPC(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/vermietung/objects/"+testVermietungObjectID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungObjectID)
+	routes.HandleDeleteObject(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetRental ---
+
+func TestHandleGetRental_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleGetRental)
+}
+
+func TestHandleGetRental_InvalidIDUUID(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/rentals/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetRental(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleGetRental_ReachesRPC(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/rentals/"+testVermietungRentalID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungRentalID)
+	routes.HandleGetRental(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListRentals ---
+
+func TestHandleListRentals_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleListRentals)
+}
+
+func TestHandleListRentals_ReachesRPC(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/rentals?object_id="+testVermietungObjectID+
+		"&status=active&from=2026-07-01T00:00:00Z&to=2026-07-31T00:00:00Z", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListRentals(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleListRentals_UnparsableFromToIgnored documents that unparsable
+// from/to query params are silently dropped (the grpc request field stays
+// unset) rather than rejected — mirrors HandleGetRentalCalendar's year/month
+// handling.
+func TestHandleListRentals_UnparsableFromToIgnored(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/rentals?from=gestern&to=morgen", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListRentals(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleSaveRentalSignature ---
+//
+// Same signature pattern documented at cov-gateway-rapporte-lines-attachments-export
+// (route_rapporte_test.go): the handler is a thin Parse/Call/Respond wrapper
+// with no read-before-write. Whether a second signature on the same rental is
+// allowed is entirely a service/repo decision. Checked at that layer
+// (postgres_repository.go SaveSignature, backend/internal/vermietung/postgres_repository.go:504):
+// the UPDATE has no "AND signature_data IS NULL" guard and no rental-status
+// check, so a rental that is already signed accepts a second SaveSignature
+// call and silently overwrites signature_data/signed_at/signed_by — the same
+// gap as rapporte's HandleSaveReportSignature. VERIFIED finding, see
+// TestSaveRentalSignature_OverwritesExistingSignatureWithoutGuard in
+// internal/vermietung/signature_test.go, filed as its own fix-unit (see
+// BACKLOG.yml), not fixed here — a coverage unit changes no behaviour.
+
+func TestHandleSaveRentalSignature_InvalidIDUUID(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/vermietung/rentals/not-a-uuid/signature", jsonBody(t, map[string]interface{}{
+		"signature_data": "data:image/png;base64,abc123",
+		"signed_by":      "Max Mustermann",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleSaveRentalSignature(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleSaveRentalSignature_MissingSignatureData(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/vermietung/rentals/"+testVermietungRentalID+"/signature", jsonBody(t, map[string]interface{}{
+		"signed_by": "Max Mustermann",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungRentalID)
+	routes.HandleSaveRentalSignature(rec, req)
+	assertValidationError(t, rec, "signature_data")
+}
+
+func TestHandleSaveRentalSignature_MissingSignedBy(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/vermietung/rentals/"+testVermietungRentalID+"/signature", jsonBody(t, map[string]interface{}{
+		"signature_data": "data:image/png;base64,abc123",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungRentalID)
+	routes.HandleSaveRentalSignature(rec, req)
+	assertValidationError(t, rec, "signed_by")
+}
+
+func TestHandleSaveRentalSignature_InvalidJSON(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/vermietung/rentals/"+testVermietungRentalID+"/signature", invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungRentalID)
+	routes.HandleSaveRentalSignature(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleSaveRentalSignature_MissingTenant(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/vermietung/rentals/"+testVermietungRentalID+"/signature", jsonBody(t, map[string]interface{}{
+		"signature_data": "data:image/png;base64,abc123",
+		"signed_by":      "Max Mustermann",
+	}))
+	req = withChiURLParam(req, "id", testVermietungRentalID)
+	routes.HandleSaveRentalSignature(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleSaveRentalSignature_ReachesRPCOnResign(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/vermietung/rentals/"+testVermietungRentalID+"/signature", jsonBody(t, map[string]interface{}{
+		"signature_data": "data:image/png;base64,secondSignatureOverwritingTheFirst",
+		"signed_by":      "Erika Musterfrau",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungRentalID)
+	routes.HandleSaveRentalSignature(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListInspections ---
+
+func TestHandleListInspections_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleListInspections)
+}
+
+func TestHandleListInspections_InvalidRentalIDUUID(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/rentals/not-a-uuid/inspections", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListInspections(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleListInspections_ReachesRPC(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/rentals/"+testVermietungRentalID+"/inspections", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testVermietungRentalID)
+	routes.HandleListInspections(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetInspection ---
+
+func TestHandleGetInspection_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleGetInspection)
+}
+
+func TestHandleGetInspection_InvalidIDUUID(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/inspections/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetInspection(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleGetInspection_ReachesRPC(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	inspectionID := "770e8400-e29b-41d4-a716-446655440002"
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/inspections/"+inspectionID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", inspectionID)
+	routes.HandleGetInspection(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateInspection ---
+
+func TestHandleUpdateInspection_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleUpdateInspection)
+}
+
+func TestHandleUpdateInspection_InvalidIDUUID(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/vermietung/inspections/not-a-uuid", jsonBody(t, map[string]interface{}{
+		"notes": "Kratzer am Heck",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateInspection(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpdateInspection_InvalidJSON(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	inspectionID := "770e8400-e29b-41d4-a716-446655440002"
+	req := httptest.NewRequest("PATCH", "/api/v1/vermietung/inspections/"+inspectionID, invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", inspectionID)
+	routes.HandleUpdateInspection(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateInspection_ReachesRPCWithChecklistReplace(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	inspectionID := "770e8400-e29b-41d4-a716-446655440002"
+	req := httptest.NewRequest("PATCH", "/api/v1/vermietung/inspections/"+inspectionID, jsonBody(t, map[string]interface{}{
+		"notes":             "Rueckgabe geprueft",
+		"replace_checklist": true,
+		"checklist": []map[string]interface{}{
+			{"label": "Lack", "condition": "gut"},
+		},
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", inspectionID)
+	routes.HandleUpdateInspection(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleExportRentalReport ---
+
+func TestHandleExportRentalReport_ServiceUnavailable(t *testing.T) {
+	routes := NewVermietungRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleExportRentalReport)
+}
+
+func TestHandleExportRentalReport_ReachesRPCWithDefaultFormat(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/export", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleExportRentalReport(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleExportRentalReport_ReachesRPCWithExplicitFormat(t *testing.T) {
+	routes := NewVermietungRoutes(registryWithService("vermietung"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/vermietung/export?format=json", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleExportRentalReport(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}

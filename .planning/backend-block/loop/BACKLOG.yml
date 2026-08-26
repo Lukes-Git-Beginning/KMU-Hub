@@ -2241,7 +2241,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_vermietung.go 48,4 %, 242 ungedeckt, 9 von 20 Handlern ungetestet"
     scope: >
       Gateway-Seite der Vermietung. Ungetestet (Stand 2026-08-24): HandleGetObject,
@@ -4993,4 +4993,154 @@ units:
       - >-
         Ein Test belegt: eigene Task-Custom-Field-Werte erscheinen im Export, Werte auf
         Aufgaben eines fremden Tenants oder eines anderen Users nicht
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-vermietung-rental-signature-overwritable-after-signing
+    phase: 4
+    service: vermietung
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-vermietung-objects-and-inspections`, siehe
+      `TestSaveRentalSignature_OverwritesExistingSignatureWithoutGuard`,
+      `internal/vermietung/signature_test.go`). Derselbe Fehler wie bei
+      `fix-rapporte-signature-overwritable-after-signing`, hier in der zweiten Domaene:
+      `PostgresRepository.SaveSignature` (postgres_repository.go:504) hat kein
+      "AND signature_data IS NULL" in der WHERE-Klausel und keinen Status-Check auf
+      `rentals.status` — ein Mietvertrag, der bereits eine Unterschrift traegt (auch ein
+      abgeschlossener, `status = 'completed'`), akzeptiert klaglos einen zweiten
+      `SaveSignature`-Aufruf und ueberschreibt `signature_data`, `signed_at` und `signed_by`
+      unwiderruflich. `Service.SaveSignature` (service.go:663) validiert nur Format/Groesse/
+      Pflichtfelder der NEUEN Signatur, nicht ob bereits eine existiert. Eine Unterschrift ist
+      ein personenbezogenes Datum und Beweismittel fuer einen fixierten Uebergabe-/
+      Ruecknahmezustand — als gebaut ist sie zeitlich unbegrenzt veraenderbar.
+      Fix vermutlich: analog zum Rapporte-Fix — entweder in `Service.SaveSignature` vor dem
+      Repo-Aufruf pruefen, ob `s.repo.GetRental(...).SignatureData != nil` und dann
+      `ErrRentalAlreadySigned` zurueckgeben, oder die SQL-WHERE-Klausel um
+      "AND signature_data IS NULL" erweitern und `RowsAffected() == 0` bei bereits vorhandener
+      Signatur separat von `ErrRentalNotFound` behandeln.
+    sources:
+      - backend/internal/vermietung/postgres_repository.go
+      - backend/internal/vermietung/service.go
+      - backend/internal/vermietung/signature_test.go
+      - backend/internal/gateway/route_vermietung.go
+    notes: >
+      `TestSaveRentalSignature_OverwritesExistingSignatureWithoutGuard` dokumentiert den
+      Ist-Zustand (zweiter Aufruf gelingt aktuell mit `err == nil` und ueberschreibt sichtbar).
+      Nach dem Fix muss der Test die Ablehnung erwarten (Testname und Kommentar entsprechend
+      anpassen). Beim Fixen gegenpruefen, ob `fix-rapporte-signature-overwritable-after-signing`
+      bereits gelaufen ist und ob dort ein wiederverwendbares Muster (z. B. ein gemeinsamer
+      Fehlertyp oder Guard-Helfer) entstanden ist, statt es unabhaengig zu erfinden.
+    done_when:
+      - >-
+        `SaveSignature` lehnt einen zweiten Aufruf auf einem bereits signierten Rental ab
+        (klarer Fehler statt stillem Overwrite), statt die vorhandene Signatur zu ersetzen
+      - >-
+        `TestSaveRentalSignature_OverwritesExistingSignatureWithoutGuard` ist aktualisiert und
+        gruen (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
+      - go test -count=1 ./internal/vermietung/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-vermietung-delete-object-with-active-rental-dangling-reference
+    phase: 4
+    service: vermietung
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-vermietung-objects-and-inspections`, siehe
+      `TestService_DeleteObject_ActiveRental_NoReferentialIntegrityGuard`,
+      `internal/vermietung/service_test.go`). `Service.DeleteObject` (service.go:232) prueft
+      nur, dass das Objekt existiert, und loescht es dann bedingungslos weich (SoftDeleteObject,
+      `deleted_at = NOW()`) — ohne zu pruefen, ob noch Mietvorgaenge (`rentals`) darauf
+      verweisen. `rentals.object_id` traegt zwar `ON DELETE CASCADE` (Migration 000098), aber
+      diese Constraint greift nie, weil geloescht wird weich, nicht per SQL-DELETE. Ergebnis:
+      ein Objekt mit einer laufenden (`reserved`/`active`) Vermietung kann geloescht werden.
+      Danach ist es ueber `GetObject`/`ListObjects` unauffindbar (beide filtern
+      `deleted_at IS NULL`), waehrend die Vermietung selbst unangetastet bestehen bleibt und
+      ueber `GetRental`/`ListRentals` weiterhin aufloest — ein Mietvorgang, der auf ein Objekt
+      verweist, das die API nicht mehr beschreiben kann (Frontend zeigt vermutlich eine leere
+      oder fehlerhafte Objektreferenz). `GetRentalCalendar` faengt den Fall zwar ab (Zeile
+      716-721, ueberspringt Objekte mit `ErrObjectNotFound`), aber die Vermietung selbst bleibt
+      in Listen und Detailansichten sichtbar mit einer toten Objektreferenz.
+      Fix vermutlich: in `Service.DeleteObject` vor dem Soft-Delete pruefen, ob
+      `s.repo.ListRentals(..., Status in {reserved, active})` fuer dieses Objekt leer ist, sonst
+      einen klaren Fehler zurueckgeben (z. B. `ErrObjectHasActiveRentals`). Abzugrenzen von
+      abgeschlossenen/stornierten Vermietungen, die kein Hindernis sein sollten.
+    sources:
+      - backend/internal/vermietung/service.go
+      - backend/internal/vermietung/service_test.go
+      - backend/internal/vermietung/postgres_repository.go
+      - backend/internal/gateway/route_vermietung.go
+    notes: >
+      `TestService_DeleteObject_ActiveRental_NoReferentialIntegrityGuard` dokumentiert den
+      Ist-Zustand (Loeschen gelingt aktuell mit `err == nil`, die Vermietung bleibt danach
+      unveraendert auffindbar). Nach dem Fix muss der Test die Ablehnung erwarten (Testname und
+      Kommentar entsprechend anpassen). Zu klaeren beim Fixen: soll `reserved` (noch nicht
+      begonnen) genauso blockieren wie `active` (laeuft gerade), oder nur `active`? Der
+      scope-Text hier geht von beiden aus, das ist aber eine Produktentscheidung, keine
+      technische Notwendigkeit — falls unklar, an Luke im Journal zurueckspielen statt zu raten.
+    done_when:
+      - >-
+        `DeleteObject` lehnt das Loeschen eines Objekts mit mindestens einer `reserved`- oder
+        `active`-Vermietung ab, statt es bedingungslos weich zu loeschen
+      - >-
+        `TestService_DeleteObject_ActiveRental_NoReferentialIntegrityGuard` ist aktualisiert und
+        gruen (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
+      - >-
+        Ein Test belegt, dass ein Objekt ohne laufende Vermietung (oder nur mit `completed`/
+        `cancelled`) weiterhin loeschbar bleibt
+      - go test -count=1 ./internal/vermietung/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: feat-vermietung-dsar-and-retention-coverage
+    phase: 4
+    service: security-gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Feature-Luecke, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-vermietung-objects-and-inspections`). `backend/internal/security/gdpr/
+      dsar_search.go` hat fuer jedes andere kontaktgebundene Modul ein eigenes `*Module(ctx,
+      pool, tenantID, contactID)` (z. B. `contractsModule`, `financeModule`, `dialerModule`,
+      alle in `SearchByQuery` registriert, Zeilen 66-224) — fuer `vermietung` existiert KEINES.
+      `rentals.contact_id` referenziert `contacts.id` (soft ref laut Migration 000098) und traegt
+      `renter_name`, Zeitraum, Preis, Notizen; `rental_inspections` haengt an `rentals` und traegt
+      `photo_urls` sowie Freitext-`notes` — beides potenziell personenbezogen (Zustandsfotos
+      und -beschreibungen einer Person, die ein Objekt gemietet hat). Ein DSAR-Export fuer einen
+      Kontakt, der auch Mieter war, zeigt aktuell keine seiner Mietvorgaenge und keine seiner
+      Uebergabeprotokolle. Ebenso fehlt ein Retention-Handler (Vergleich:
+      `backend/internal/security/gdpr/retention_*.go`, keine Datei fuer vermietung/rentals) —
+      es gibt keinen automatisierten Loeschpfad fuer alte, abgeschlossene Mietvorgaenge.
+      Getrennt zu behandeln: DSAR-Export ist ein reiner Code-Gap (diese Unit), eine
+      AufbewahrungsFRIST fuer rentals ist eine Produktentscheidung (siehe
+      `decide-retention-policy-hgb-ao-domains` in BACKLOG-NEXT.yml) — diese Unit baut NUR den
+      DSAR-Export-Teil; trifft sie beim Bauen auf eine Frist-Frage, gehoert die dorthin, nicht
+      hierher geraten.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/vermietung/models.go
+      - backend/internal/vermietung/postgres_repository.go
+      - backend/migrations/000098_create_vermietung.up.sql
+    notes: >
+      Vorbild ist `contractsModule` (dsar_search.go:2379) oder `dialerModule` (Zeile 2164) —
+      beide sind kontaktgebundene Module aehnlicher Groesse. `rental_inspections.photo_urls`
+      sind nur URLs/Referenzen (keine Binaerdaten im DSAR-Export noetig, analog zu
+      `documentsModule`, das auch nur Metadaten listet, nicht die Datei selbst). In
+      `SearchByQuery` registrieren wie die anderen contactID-Module.
+    done_when:
+      - >-
+        Ein neues DSAR-Modul liefert Mietvorgaenge (inkl. Zeitraum, Objekt, Status) fuer den
+        angefragten Kontakt, tenant-gescoped
+      - >-
+        Dasselbe oder ein zweites Modul liefert die zugehoerigen Uebergabeprotokolle (Art,
+        Datum, Notizen, Foto-Referenzen)
+      - >-
+        Ein Test belegt: eigene Mietvorgaenge/Protokolle erscheinen im Export, die eines
+        fremden Tenants oder eines anderen Kontakts nicht
       - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt, 0 Skips
