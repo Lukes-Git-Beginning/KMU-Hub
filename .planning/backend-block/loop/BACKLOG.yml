@@ -1574,7 +1574,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/formulare 53,6 %; postgres_repository.go 18,3 %, 299 ungedeckt von 366"
     scope: >
       Zweitgroesste Repository-Luecke nach Fuhrpark und die mit der niedrigsten Quote:
