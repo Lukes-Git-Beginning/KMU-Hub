@@ -1034,6 +1034,33 @@ func TestService_GetStockReport_Success(t *testing.T) {
 	assert.Equal(t, 1, report.ActiveWarnings)
 }
 
+// TestService_GetStockReport_SumsAcrossIncompatibleUnits documents a real gap
+// found while building cov-gateway-inventar-inventur-and-reports:
+// Service.GetStockReport (service.go) sums item.Quantity over every item of
+// the tenant regardless of item.Unit. Summing 50 "Stk" and 30 "kg" into one
+// TotalQuantity of 80 is the inventar-side equivalent of the blind
+// currency sums fixed in Lauf 11 (fix-dashboard-metrics-blind-currency-sum
+// and siblings) — a number presented as one quantity that mixes two
+// incompatible units. Fix tracked as its own backlog unit
+// (fix-inventar-stock-report-blind-unit-sum), not fixed here: a coverage
+// unit documents behaviour, it does not change it.
+func TestService_GetStockReport_SumsAcrossIncompatibleUnits(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	pieces := addItem(repo, tenantID, "Schraube M8", "P-010", 50, 10)
+	pieces.Unit = "Stk"
+	kilos := addItem(repo, tenantID, "Stahlblech", "P-011", 30, 5)
+	kilos.Unit = "kg"
+
+	report, err := svc.GetStockReport(context.Background(), tenantID)
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(80), report.TotalQuantity,
+		"BUG: 50 Stk + 30 kg reported as one unitless total of 80")
+}
+
 // ============================================================================
 // ListMovements Tests
 // ============================================================================

@@ -1543,3 +1543,319 @@ func TestHandleBookPickingList_ReachesRPC_FallsBackToAuthenticatedUser(t *testin
 	routes.HandleBookPickingList(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- HandleGetStockReport ---
+
+func TestHandleGetStockReport_MissingTenant(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/report", nil)
+	routes.HandleGetStockReport(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleGetStockReport_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/report", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleGetStockReport(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetStockReport_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/report", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleGetStockReport(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleExportInventory ---
+
+func TestHandleExportInventory_MissingTenant(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/export", nil)
+	routes.HandleExportInventory(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleExportInventory_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/export", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleExportInventory(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleExportInventory_ReachesRPC_DefaultsFormatToCSV(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/export", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleExportInventory(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleExportInventory_ReachesRPC_ExplicitFormat(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/export?format=json", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleExportInventory(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListInventurSessions ---
+
+func TestHandleListInventurSessions_MissingTenant(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/inventur", nil)
+	routes.HandleListInventurSessions(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleListInventurSessions_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/inventur", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListInventurSessions(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListInventurSessions_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/inventur?page=2&page_size=10", nil)
+	req = withTenantID(req, testTenantID)
+	routes.HandleListInventurSessions(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetInventurSession ---
+
+func TestHandleGetInventurSession_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/inventur/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleGetInventurSession_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("GET", "/api/v1/inventar/inventur/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleGetInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleGetInventurSession_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("GET", "/api/v1/inventar/inventur/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleGetInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteInventurSession ---
+
+func TestHandleDeleteInventurSession_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/inventur/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleDeleteInventurSession_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/inventur/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeleteInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteInventurSession_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/inventur/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeleteInventurSession(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListItemAttachments ---
+
+func TestHandleListItemAttachments_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/inventar/items/not-a-uuid/attachments", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListItemAttachments(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleListItemAttachments_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("GET", "/api/v1/inventar/items/"+id+"/attachments", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleListItemAttachments(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListItemAttachments_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("GET", "/api/v1/inventar/items/"+id+"/attachments", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleListItemAttachments(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleCreateItemAttachment ---
+
+func TestHandleCreateItemAttachment_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/inventar/items/not-a-uuid/attachments", jsonBody(t, map[string]interface{}{
+		"name":       "Foto.jpg",
+		"object_key": "inventar/foto.jpg",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleCreateItemAttachment(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleCreateItemAttachment_MissingName(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/items/"+id+"/attachments", jsonBody(t, map[string]interface{}{
+		"object_key": "inventar/foto.jpg",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleCreateItemAttachment(rec, req)
+	assertValidationError(t, rec, "name")
+}
+
+func TestHandleCreateItemAttachment_MissingObjectKey(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/items/"+id+"/attachments", jsonBody(t, map[string]interface{}{
+		"name": "Foto.jpg",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleCreateItemAttachment(rec, req)
+	assertValidationError(t, rec, "object_key")
+}
+
+func TestHandleCreateItemAttachment_InvalidJSON(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/items/"+id+"/attachments", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleCreateItemAttachment(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleCreateItemAttachment_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/items/"+id+"/attachments", jsonBody(t, map[string]interface{}{
+		"name":       "Foto.jpg",
+		"object_key": "inventar/foto.jpg",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleCreateItemAttachment(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleCreateItemAttachment_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("POST", "/api/v1/inventar/items/"+id+"/attachments", jsonBody(t, map[string]interface{}{
+		"name":       "Foto.jpg",
+		"object_key": "inventar/foto.jpg",
+		"file_type":  "image/jpeg",
+	}))
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleCreateItemAttachment(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteItemAttachment ---
+
+func TestHandleDeleteItemAttachment_InvalidIDUUID(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/attachments/not-a-uuid", nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteItemAttachment(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleDeleteItemAttachment_ServiceUnavailable(t *testing.T) {
+	routes := NewInventarRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/attachments/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeleteItemAttachment(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteItemAttachment_ReachesRPC(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	rec := httptest.NewRecorder()
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest("DELETE", "/api/v1/inventar/attachments/"+id, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", id)
+	routes.HandleDeleteItemAttachment(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}

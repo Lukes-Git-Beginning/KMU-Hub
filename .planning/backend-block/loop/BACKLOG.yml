@@ -1778,7 +1778,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_inventar.go 45,7 %, 21 von 39 Handlern ungetestet"
     scope: >
       Zweite Inventar-Unit: Inventursitzungen, Anhaenge und Auswertungen. Ungetestet (Stand
@@ -4531,3 +4531,97 @@ units:
         `TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID` ist aktualisiert
         und gruen
       - go test -count=1 ./internal/inventar/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-inventur-delete-completed-session-unprotected
+    phase: 4
+    service: inventar
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-inventar-inventur-and-reports`, siehe
+      `TestDeleteInventurSession_CompletedSessionIsNotProtected`,
+      `internal/inventar/inventur_booking_test.go`). `Service.UpdateInventurSessionStatus` und
+      `Service.UpsertInventurCount` (`internal/inventar/service.go`) pruefen beide korrekt
+      `session.Status == InventurStatusCompleted` und lehnen mit `ErrInventurAlreadyCompleted` ab.
+      `Service.DeleteInventurSession` (service.go:878) tut das nicht — es reicht direkt an
+      `PostgresRepository.DeleteInventurSession` durch, ein echtes `DELETE FROM inventur_sessions`
+      (postgres_repository.go:488). Eine abgeschlossene Inventur ist ein handelsrechtlicher Vorgang
+      (Paragraph 240 HGB) und muss nach Abschluss unveraenderlich/aufbewahrungspflichtig bleiben —
+      derselbe Befundtyp wie beim GoBD-Archiv vor Migration 000315. Aktuell kann JEDE
+      abgeschlossene Inventursitzung samt aller Zaehlungen (`inventur_counts` haengt per FK an
+      `inventur_sessions`, vermutlich `ON DELETE CASCADE`) spurlos geloescht werden.
+      Einschraenkung: die Route hat laut Kommentar in `route_inventar.go:136` aktuell keinen
+      FE-Aufrufer ("No FE caller for session deletion — legacy guard stays as-is"), begrenzt den
+      Blast-Radius auf direkte API-Aufrufe, macht die Luecke aber nicht harmlos — jeder mit
+      `inventar:inventur:write` kann sie ueber die Route treffen.
+      Fix vermutlich: `Service.DeleteInventurSession` uebernimmt denselben Guard wie
+      `UpdateInventurSessionStatus`/`UpsertInventurCount` (Session laden, bei
+      `InventurStatusCompleted` mit `ErrInventurAlreadyCompleted` ablehnen). Pruefen, ob
+      `mapInventarError` diesen Fehler bereits auf einen sinnvollen HTTP-Code mappt (409 o.ae.) —
+      wird vermutlich schon fuer die anderen beiden Aufrufe verwendet.
+    sources:
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/postgres_repository.go
+      - backend/internal/inventar/inventur_booking_test.go
+      - backend/internal/gateway/route_inventar.go
+    notes: >
+      `TestDeleteInventurSession_CompletedSessionIsNotProtected` dokumentiert den Ist-Zustand
+      (Loeschen einer abgeschlossenen Session gelingt). Nach dem Fix muss der Test die Ablehnung
+      per `ErrInventurAlreadyCompleted` erwarten statt `require.NoError` — Testname und Kommentar
+      entsprechend anpassen (die Doku-Aussage "BUG" verschwindet dann).
+    done_when:
+      - >-
+        `Service.DeleteInventurSession` lehnt eine bereits abgeschlossene Session ab
+        (`ErrInventurAlreadyCompleted` oder aequivalent), statt sie zu loeschen
+      - >-
+        `TestDeleteInventurSession_CompletedSessionIsNotProtected` ist aktualisiert und gruen
+      - go test -count=1 ./internal/inventar/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-inventar-stock-report-blind-unit-sum
+    phase: 4
+    service: inventar
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-inventar-inventur-and-reports`, siehe
+      `TestService_GetStockReport_SumsAcrossIncompatibleUnits`, `internal/inventar/service_test.go`).
+      `Service.GetStockReport` (service.go:579-606) summiert `item.Quantity` ueber ALLE Items des
+      Tenants in `TotalQuantity`, ohne `item.Unit` zu beruecksichtigen. 50 Stueck einer Schraube
+      plus 30 Kilogramm Stahlblech ergeben `TotalQuantity: 80` — eine Zahl ohne Einheit, die zwei
+      inkompatible Groessen addiert. Das ist die Inventar-Variante der drei blinden
+      Waehrungssummierungen aus Lauf 11 (`fix-dashboard-metrics-blind-currency-sum`,
+      `fix-berichte-kpi-blind-currency-sum`, `fix-gobd-export-missing-currency-column`).
+      `TotalQuantity` geht unveraendert ueber `internal/server/inventar_grpc.go:452-468`
+      (`StockReportResponse.TotalQuantity`) an den REST-Client durch — kein Mapping, keine
+      Einheiten-Normalisierung dazwischen.
+      `HandleExportInventory`/`ExportInventory` (inventar_grpc.go:470ff) ist NICHT betroffen: der
+      CSV-Export schreibt Mengen pro Zeile mit eigener `unit`-Spalte, keine Summierung.
+      Fix vermutlich: `StockReport` gruppiert `TotalQuantity` je `Unit` (z. B. `map[string]int64`
+      oder eine Liste `{unit, quantity}`), oder das Feld wird nur summiert, wenn alle Items
+      dieselbe Einheit tragen (sonst weggelassen/als "gemischt" markiert). Proto-Aenderung noetig
+      (`inventarv1.StockReportResponse`) — im selben Commit regenerieren.
+    sources:
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/service_test.go
+      - backend/internal/server/inventar_grpc.go
+      - backend/proto/inventar/v1 (StockReportResponse)
+    notes: >
+      `TestService_GetStockReport_SumsAcrossIncompatibleUnits` dokumentiert den Ist-Zustand (eine
+      Summe ueber zwei Einheiten). Nach dem Fix muss der Test die neue, einheitenbewusste Form
+      erwarten — kein stilles Beibehalten der blinden Summe ohne Begruendung.
+    done_when:
+      - >-
+        `StockReport`/`StockReportResponse` liefert Mengen NICHT mehr als eine blinde Summe ueber
+        unterschiedliche `Unit`-Werte hinweg
+      - >-
+        Aendert sich das Proto, ist es im selben Commit regeneriert
+        (`make proto-inventar` oder das passende Target)
+      - >-
+        `TestService_GetStockReport_SumsAcrossIncompatibleUnits` ist aktualisiert und gruen
+      - go test -count=1 ./internal/inventar/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
