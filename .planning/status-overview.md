@@ -1,9 +1,12 @@
-# Projekt-Status-Snapshot — Cosmi/Zentria CRM (Stand: 2026-08-22)
+# Projekt-Status-Snapshot — Cosmi/Zentria CRM (Stand: 2026-08-26)
 
 > Deskriptiver Ist-Stand. **Keine** Empfehlungen, keine Priorisierung — reine Lagebeschreibung.
-> Die Zahlen sind am 2026-08-11 selbst gemessen und am 2026-08-12 um Lauf 9 fortgeschrieben — nicht
-> aus Doku übernommen, auch nicht aus `MEMORY.md` oder `.knowledge/`, die am selben Tag nachgezogen
-> wurden und damit keine unabhängige Quelle sind. Wo eine Zahl eine Näherung ist, steht es dabei. Die vorherige Fassung (2026-08-06)
+> Die Zahlen in §1 sind am 2026-08-26 nach dem Merge von Nachtlauf 12 (`1a6cc473`) neu gemessen —
+> Coverage aus dem Artefakt von CI-Lauf 32949396303, alles Übrige per Grep und SSH gegen den
+> deployten Stand — nicht aus Doku übernommen, auch nicht aus `MEMORY.md` oder `.knowledge/`, die
+> derselben Messung nachgezogen werden und damit keine unabhängige Quelle sind. Abschnitte
+> außerhalb von §1 tragen weiterhin ihr eigenes Datum (§2–§5: 2026-08-22). Wo eine Zahl eine
+> Näherung ist, steht es dabei. Die vorherige Fassung (2026-08-06)
 > behauptete Migrationskopf 297, Coverage 30,2 % und einen leeren Loop-Backlog — nach fünf Tagen
 > war jeder dieser Punkte überholt. Wer diese Datei künftig liest: **erst das Datum prüfen, dann
 > glauben.**
@@ -57,6 +60,33 @@ Default `dry_run`, erster Produktionslauf am 22.08. 11:52 UTC bestätigt. Dazu G
 die mit `foreign_key_violation` abstürzten) und 21 Routen-Testsuiten. Coverage 60,0 → **62,7 %**,
 `internal/gateway` 46,1 → **54,1 %**. Migrationen **314 → 322**.
 
+**Nachtlauf 11 (24.08.) ist gemergt** (`acc48aee`) **und deployt** — 121 Units, roter Faden
+Geld- und Compliance-Pfade: `payment` 46,4 → 85,3 %, `dunning` 61,8 → 92,2 %, `invoice`
+34,8 → 61,1 %. Coverage gesamt 62,7 → **64,1 %**, Migrationen **322 → 323**.
+
+**Nachtlauf 12 (25./26.08., bis 07:31) ist gemergt** (`1a6cc473`) **und deployt.** 43 Iterationen,
+41 `done`, **0 `blocked`**, 95 Commits, Ø 10,4 min je Iteration. Roter Faden waren die
+**Nicht-Geld-Module end-to-end** — genau die Flächen, die Lauf 11 ausgelassen hatte. Coverage
+64,1 → **69,6 %**; die größten Einzelsprünge sind `vermietung` 48,2 → 82,6, `fuhrpark`
+54,5 → 81,3, `formulare` 53,6 → 83,2, `work` 50,3 → 72,1 und `idempotency` 0,0 → 87,0.
+
+Der Lauf hat neben 28 Coverage-Units auch Produktionscode geändert (~1.075 Zeilen über 28 Dateien):
+vier neue GDPR-Retention-Handler (`vehicle_bookings`, `driver_licenses`, `advisory_protocols`,
+`guest_sessions`) samt Registrierung im auth-Service, CalDAV-REST-Routen laufen jetzt durch die
+Idempotency-Middleware, die CRM-Deal- und Activity-Tag-Endpunkte sind über gRPC verdrahtet statt
+am Service vorbei, PII-Scrubbing für anonymisierte Kontakte (Dialer-Notizen, Inbox-Nachrichten,
+Mietidentität), DATEV-OAuth-Refresh per Tenant serialisiert, Käufer-USt-IdNr. auf Rechnungs- und
+Gutschrift-PDFs. Migrationen **323 → 325** (beides Indizes auf bestehenden Tabellen: partieller
+UNIQUE gegen die Doppel-Konvertierung eines Angebots, Retention-Index auf `guest_sessions`).
+**Keine neue Route, kein neuer `RequirePermission`-Guard** — `openapi.yaml` ist unverändert.
+
+**Der Loop-Backlog ist erstmals nicht leer:** 57 `todo` bleiben stehen, weil das Zeitfenster und
+nicht die Queue den Lauf beendet hat. Darunter sechs verifizierte, ungefixte Befunde — der
+schwerste ist `handlePresenceSubscribe` (`internal/server/websocket.go:1116`), das `user_ids` roh
+aus der Client-Nachricht übernimmt; Presence liegt in Redis unter `presence:<userID>` ohne
+Tenant-Anteil, wo keine RLS greift. Ein authentifizierter Nutzer kann damit den Online-Status von
+Nutzern fremder Tenants abonnieren.
+
 **Das CI-Signal dieses Laufs war der eigentliche Fund.** Der erste Lauf über die 183 Commits war rot:
 ein Advisory-Lock-Leak, den der bestehende Idempotency-Cleanup und der *neu gebaute*
 Retention-Scheduler teilten — der Lock wurde über den Pool genommen und über den Pool freigegeben,
@@ -85,45 +115,58 @@ ist einer der 13 Posten, gekoppelt an die UG-Gründung, und liegt in Etappe 4.
 | Bereich | Wert | Δ zum 06.08. | Messung |
 |---|---|---|---|
 | Services | **24** (23 µSvc + Gateway) | — | `ls backend/cmd/` |
-| Go-Dateien | 1.774, davon **765 Test-Dateien** | +65 / +54 | `find backend -name "*.go"` |
-| gRPC-RPCs | **1.156** über 32 `.proto` | +2 | `grep -cE "^\s*rpc\s+"` |
-| REST | **838 OpenAPI-Pfade** | +2 | `grep -cE "^  /"` in `openapi.yaml` |
-| Route-Dateien | **75 Quell-`route_*.go` + 106 Testdateien** | Zählmethode erneut geschärft¹ | `ls internal/gateway/` |
-| Migrationen | Kopf **322**, 291 `.up.sql` | +9 / +9 | Lücken durch Reverts/Renumber |
-| **Prod-Migrationskopf** | **322, `dirty=false`** — Repo = Prod | +12 | `psql -U kmuhub -d kmuhub` über SSH |
-| Prod-Container | 36 laufend, **30 healthy, 0 unhealthy** | +1 / — | `docker ps` |
-| Test-Coverage | **62,7 %** gesamt (Gate 15 %) | **+2,7 pp** | CI-Lauf 32570176303 |
+| Go-Dateien | 1.853, davon **838 Test-Dateien** | +79 / +73 | `find backend -name "*.go"` |
+| gRPC-RPCs | **1.160** über 32 `.proto` | +4 | `grep -cE "^\s*rpc\s+"` |
+| REST | **838 OpenAPI-Pfade** | — | `grep -cE "^  /"` in `openapi.yaml` |
+| Route-Dateien | **75 Quell-`route_*.go` + 125 Testdateien** | Testdateien +19¹ | `ls internal/gateway/` |
+| Migrationen | Kopf **325**, 294 `.up.sql` | +3 / +3 | Lücken durch Reverts/Renumber |
+| **Prod-Migrationskopf** | **325, `dirty=false`** — Repo = Prod | +3 | `psql -U kmuhub -d kmuhub` über SSH |
+| Prod-Container | 38 laufend, **32 healthy, 0 unhealthy** | +2 / +2 | `docker ps` |
+| Test-Coverage | **69,6 %** gesamt (Gate 15 %) | **+6,9 pp** | CI-Lauf 32949396303 |
 | Feature-Flags | **17** (16 default OFF, 1 ON) | — | Registry |
 | RLS-Lücken | **0** (`knownRLSGaps` leer) | — | `testutil/rls_regression_test.go` |
 | Frontend | **34 Module**, 81 API-Hook-Dateien (993 Hooks), 1.234 TS/TSX | +3 TS/TSX | |
 | i18n | **12.072 Keys × 4 Sprachen, Parität vollständig** | fr/it +34, BOM weg | `locale-parity.test.ts` |
-| Loop-Backlog | **leer** (Lauf 10: 91 done, 2 blocked, archiviert) | 93 Units abgearbeitet | `backend-block/loop/BACKLOG.yml` |
+| Loop-Backlog | **57 `todo`, 1 `blocked`** (Lauf 12: 41 done) | Queue erstmals nicht leer | `backend-block/loop/BACKLOG.yml` |
 
-¹ 181 `route_*.go` insgesamt, davon 106 Testdateien → **75 Quelldateien**. Die Zuordnung ist nicht
+¹ 200 `route_*.go` insgesamt, davon 125 Testdateien → **75 Quelldateien**. Die Zuordnung ist nicht
 1:1: `route_email.go` hat keine gleichnamige Testdatei, wird aber von sieben `route_email_*_test.go`
 abgedeckt. Nach Präfix gemessen bleiben **drei** Quelldateien ohne jede eigene Testdatei —
 `route_health.go` (67 LOC), `route_registrar.go` (20) und `route_biz_time_entries.go` (80, im
 Nachbartest `route_biz_open_items_test.go` mit abgedeckt). Vor Lauf 10 waren es 29.
+Lauf 12 hat 19 weitere Routen-Testsuiten ergänzt, ohne eine einzige neue Route anzulegen.
 
-### Coverage nach Paket (CI-Lauf 32570176303, gesamt 62,7 %)
+### Coverage nach Paket (CI-Lauf 32949396303, gesamt 69,6 %)
+
+Statement-gewichtet aus `coverage.out` gerechnet, Rollup je `internal/<Domäne>`. „war" = Stand
+CI-Lauf 32735558575 (2026-08-24), also die Ausgangslage von Nachtlauf 12.
 
 | Paket | Coverage | | Paket | Coverage |
 |---|---:|---|---|---:|
-| `internal/schichten` | 79,7 % | | `internal/document` | 71,9 % |
-| `internal/chat` | 79,7 % | | `internal/inventar` | 72,9 % |
-| `internal/security` | 79,5 % | | `internal/crm` | **71,7 %** |
-| `internal/produktion` | 77,8 % | | `internal/biz` | **70,6 %** |
-| `internal/rapporte` | 76,0 % | | `internal/notification` | 68,8 % |
-| `internal/auth` | 67,9 % | | `internal/dialer` | 65,9 % |
-| `internal/einkauf` | 63,9 % | | `internal/inbox` | 60,7 % |
-| `internal/email` | 59,7 % | | `internal/work` | 50,3 % |
-| `internal/fuhrpark` | 54,5 % | | `internal/caldav` | 54,2 % |
-| `internal/wiki` / `formulare` | 53,5 % | | `internal/vermietung` | 48,2 % |
-| **`internal/gateway`** | **54,1 %** (war 46,1) | | `internal/database` | 44,3 % |
-| `internal/testutil` | 15,6 % | | `internal/idempotency` | **0,0 %** |
+| `internal/berichte` | 87,3 % | | `internal/crm` | 76,5 % |
+| `internal/idempotency` | **87,0 %** (war 0,0) | | `internal/security` | 75,2 % |
+| `internal/formulare` | **83,2 %** (war 53,6) | | `internal/inventar` | 73,1 % |
+| `internal/vertraege` | 82,6 % | | `internal/work` | **72,1 %** (war 50,3) |
+| `internal/vermietung` | **82,6 %** (war 48,2) | | `internal/biz` | 71,7 % |
+| `internal/helpdesk` | 81,5 % | | `internal/server` | 71,3 % |
+| `internal/fuhrpark` | **81,3 %** (war 54,5) | | **`internal/gateway`** | **69,3 %** (war 56,6) |
+| `internal/document` | 81,0 % | | `internal/caldav` | **68,6 %** (war 54,9) |
+| `internal/automation` | 80,4 % | | `internal/notification` | 68,2 % |
+| `internal/schichten` | 79,4 % | | `internal/auth` | 67,9 % |
+| `internal/einkauf` | **79,1 %** (war 63,9) | | `internal/inbox` | 66,8 % |
+| `internal/chat` | 78,0 % | | `internal/dialer` | 65,9 % |
+| `internal/produktion` | 77,8 % | | `internal/email` | 62,4 % |
+| `internal/rapporte` | 76,8 % | | `internal/settings` | 60,3 % |
 
-`internal/gateway` ist damit das schwächste Kernpaket. `internal/idempotency` mit 0,0 % ist der
-einzige Nullwert außerhalb von `cmd/*` (dort ist 0 % erwartbar — reine `main`-Verdrahtung).
+Schwächste Flächen jetzt: `internal/middleware` 57,7 %, `internal/wiki` 53,5 %,
+`internal/plugin` 53,8 % (davon `plugin/wasm` **0,0 %** — Feature-Flag OFF, Build-Tag `no_wasm`),
+`internal/database` 44,3 %, `internal/testutil` 7,9 % (Testhilfen, kein Produktionspfad).
+
+Nach **absoluter** Zahl ungedeckter Statements bleibt die Rangfolge unverändert:
+`internal/gateway` **7.009** (war 9.882) und `internal/server` **5.877** (war 5.941) sind zusammen
+für rund 60 % aller ungedeckten Statements im Backend verantwortlich — der Prozentsprung des
+Gateways täuscht darüber hinweg, dass es weiterhin die größte Einzelfläche ist. `internal/server`
+hat der Lauf praktisch nicht angefasst.
 
 ---
 
@@ -202,7 +245,7 @@ Kalender. Etappe 2 ist in der Spanne offen, weil Entscheidung 2 (Desktop-Install
 Web-Auslieferung) noch nicht gefallen ist.*
 
 **Vorgeschichte (Kalendermodell, abgeschlossen):** Sprints 0–4 durch, Sprint 5 als Pre-Launch-Audit
-begonnen. Die Backend-Nachtläufe 1–9 (26.07.–12.08., Migrationen 243–313) sind alle gemergt und
+begonnen. Die Backend-Nachtläufe 1–12 (26.07.–26.08., Migrationen 243–325) sind alle gemergt und
 deployt; Lauf 9 war ein reiner Fix- und Scan-Lauf ohne Coverage-Units.
 
 ---
@@ -212,9 +255,10 @@ deployt; Lauf 9 war ein reiner Fix- und Scan-Lauf ohne Coverage-Units.
 Sortiert nach Nähe zum Nutzer, nicht nach Aufwand. **Zwei Posten sind am 2026-08-12 geschlossen**
 (§4b), vier weitere am 2026-08-11 (§4c).
 
-1. **`internal/gateway` bei 46,0 %** — schwächstes Kernpaket, 29 von 87 Quelldateien ohne eigene
-   Testdatei. Als Trust-Boundary (Auth, RBAC, Input-Validierung) gewichtiger als der Prozentwert
-   allein nahelegt. Bewusst **nicht** Teil von Lauf 9.
+1. **`internal/gateway` bei 69,3 %** (46,0 → 54,1 → 56,6 → 69,3 über die Läufe 9–12) — nach
+   Prozent nicht mehr das schwächste Paket, nach **absoluter** Fläche mit 7.009 ungedeckten
+   Statements aber weiterhin das größte. Als Trust-Boundary (Auth, RBAC, Input-Validierung)
+   gewichtiger als der Prozentwert allein nahelegt. Stand 2026-08-26.
 2. **118 TypeScript-Fehler im Desktop** (`tsc -p tsconfig.web.json --noEmit`). Der Großteil liegt in
    `__tests__`, aber auch Produktionscode ist betroffen: `ReactionBar.tsx` (`.length`/`.map` auf
    `ListReactionsApiResponse` — Signatur des bekannten Nested-Proto-vs-flacher-Typ-Musters),
