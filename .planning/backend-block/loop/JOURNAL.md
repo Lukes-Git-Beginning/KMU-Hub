@@ -2882,7 +2882,7 @@ Kopf von `BACKLOG.yml`.
   `TenantId`) ist am Code verifiziert, nicht spekulativ.
 
 ## Iteration 3 — fix-fuhrpark-gps-ingest-no-vehicle-tenant-check — done — 2026-08-27 01:29
-- commit: PENDING
+- commit: 7a8492c3e7d9bb44662a1f95a545412723c761b9
 - gebaut: `Service.IngestGpsPositions` (`backend/internal/fuhrpark/service.go:858`) prueft jetzt
   vor dem Insert per `s.repo.GetVehicle(ctx, tenantID, vehicleID)`, ob `vehicleID` einem
   Fahrzeug des aufrufenden Tenants gehoert — exakt das Vorbild aus `GetVehicleHistory`
