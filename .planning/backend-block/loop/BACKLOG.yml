@@ -1230,7 +1230,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_fuhrpark.go 45,4 %, 24 von 45 Handlern ungetestet"
     scope: >
       Erste von zwei Gateway-Units fuer den Fuhrpark. Fuehrerscheinkontrolle und
@@ -3732,4 +3732,96 @@ units:
       - >-
         Ein DB-Test belegt einen DailyKm-Wert grösser 0 fuer zwei oder mehr Positionen mit
         bekanntem Abstand
+
+  - id: fix-fuhrpark-delete-driver-license-no-last-check-guard
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12).
+      `driver_licenses` fuehrt eine Zeile je durchgefuehrter Fuehrerscheinkontrolle; die
+      JEWEILS LETZTE Zeile je `driver_id` ist der aktuelle Kontrollstand und der Nachweis
+      der Halterpflicht (siehe `internal/gateway/route_fuhrpark.go` HandleDeleteDriverLicense
+      Doc-Kommentar). `Service.DeleteDriverLicense` (`internal/fuhrpark/service.go:849`)
+      delegiert ungeprueft an `PostgresRepository.DeleteDriverLicense`
+      (`internal/fuhrpark/postgres_repository.go:948`), die jede Zeile per `id` loescht — ohne
+      zu pruefen, ob es die einzige oder juengste Kontrollzeile fuer ihren `driver_id` ist. Der
+      Gateway-Handler `HandleDeleteDriverLicense` (Route `DELETE
+      /api/v1/fuhrpark/driver-licenses/{id}`, Permission `fuhrpark:license:write`) reicht das
+      unveraendert durch. Ein Loeschen der letzten Kontrollzeile eines Fahrers macht die
+      Halterhaftungs-Pruefung fuer diesen Fahrer spurlos verschwinden.
+      Fix: vor dem Loeschen pruefen, ob die Zeile die neueste (`checked_at` bzw. `created_at`
+      MAX) fuer ihren `driver_id` innerhalb des Tenants ist, und in diesem Fall mit einem
+      fachlichen Fehler (z. B. `codes.FailedPrecondition`, HTTP 409) ablehnen. Alternativ, falls
+      Luke das Feature stattdessen fuer nachtraegliche Korrekturen (Tippfehler-Zeile loeschen)
+      offen halten will, wenigstens ein Audit-Event schreiben, das den Verlust nachvollziehbar
+      macht — die Entscheidung zwischen beiden Wegen gehoert Luke, nicht der Unit.
+    sources:
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/repository.go
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/fuhrpark/driver_license_test.go
+    notes: >
+      `driver_license_test.go` deckt DeleteDriverLicense bereits fuer Not-Found und
+      Cross-Tenant ab, aber nicht fuer den Fall "letzte/einzige Kontrollzeile eines Fahrers".
+      Vor dem Bauen mit Luke klaeren, ob ein harter Block (409) oder ein Audit-Trail die
+      richtige Antwort ist — das ist eine Produktentscheidung, kein reiner Bugfix.
+    done_when:
+      - >-
+        DeleteDriverLicense blockiert das Loeschen der neuesten Kontrollzeile eines
+        driver_id (409/FailedPrecondition) ODER schreibt beim Loeschen ein Audit-Event, das
+        den Verlust nachvollziehbar macht — Wahl zwischen beiden Wegen mit Luke vorab klaeren,
+        bevor gebaut wird
+      - Die gewaehlte Absicherung ist implementiert und durch einen Test belegt
+      - >-
+        Ein bestehender Kontrollstand kann nicht mehr spurlos verschwinden, ohne dass es
+        nachvollziehbar ist
+
+  - id: fix-fuhrpark-update-damage-missing-enum-validation
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12).
+      `reportDamageRequest.Severity` traegt `validate:"omitempty,oneof=minor moderate major
+      totalled"` (`internal/gateway/route_fuhrpark.go`, Zeile ~239), aber das Schwester-Struct
+      `updateDamageRequest` traegt auf `Severity` UND `Status` gar kein `validate`-Tag (Zeile
+      ~246-253). `Service.UpdateDamage` (`internal/fuhrpark/service.go:583`) schreibt beide
+      Felder unveraendert in den Datensatz (`d.Severity = *input.Severity`,
+      `d.Status = *input.Status`), ohne den Wertebereich zu pruefen — weder im Handler noch im
+      Service noch im Repository. Ein `PATCH /api/v1/fuhrpark/damages/{id}` mit z. B.
+      `{"severity":"kaputt"}` wird anstandslos gespeichert, obwohl `severity` an anderer
+      Stelle (Reporting, Frontend-Badges) als eines von vier festen Werten behandelt wird.
+      Belegt durch `TestHandleUpdateDamage_ArbitrarySeverityReachesRPCUnvalidated`
+      in `route_fuhrpark_licenses_documents_test.go`: die Anfrage erreicht den RPC-Call statt
+      mit 400 abgelehnt zu werden.
+      Fix: `updateDamageRequest.Severity` und `.Status` mit denselben `oneof`-Wertemengen wie
+      beim Erzeugen (Severity: minor/moderate/major/totalled; Status: an
+      `internal/fuhrpark/models.go` DamageStatus-Konstanten orientieren) validieren.
+    sources:
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/route_fuhrpark_licenses_documents_test.go
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/fuhrpark/models.go
+    notes: >
+      Kleiner, klar umrissener Fix — ein `validate`-Tag je Feld reicht, kein Service- oder
+      Repository-Umbau. Nach dem Fix
+      `TestHandleUpdateDamage_ArbitrarySeverityReachesRPCUnvalidated` auf 400 + die neuen
+      `assertValidationError`-Checks umstellen (Testname entsprechend anpassen).
+    done_when:
+      - >-
+        updateDamageRequest.Severity validiert gegen dieselbe oneof-Menge wie
+        reportDamageRequest.Severity
+      - updateDamageRequest.Status validiert gegen die gueltigen DamageStatus-Werte
+      - >-
+        Ein Request mit einem Severity- oder Status-Wert ausserhalb der erlaubten Menge liefert
+        400 statt den RPC zu erreichen
       - go test -count=1 ./internal/fuhrpark/ gruen

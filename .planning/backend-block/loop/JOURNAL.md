@@ -874,3 +874,67 @@ Kopf von `BACKLOG.yml`.
   datei-gefiltertes Profil nachholen. `fix-fuhrpark-vehicle-routes-daily-km-always-zero`
   ist ein echter Produktionsfehler (falsche Kilometeranzeige im Fuhrpark-Modul), keine
   reine Coverage-Luecke — sollte fuer den naechsten Lauf priorisiert werden.
+
+## Iteration 17 — cov-gateway-fuhrpark-licenses-and-documents — done — 2026-08-26 02:58
+- commit: (siehe unten, wird im selben Schritt erstellt)
+- gebaut: Neue Datei `internal/gateway/route_fuhrpark_licenses_documents_test.go` mit
+  Tests fuer alle elf im Scope genannten Handler (HandleListDriverLicenses,
+  HandleCreateDriverLicense, HandleUpdateDriverLicense, HandleDeleteDriverLicense,
+  HandleListVehicleDocuments, HandleCreateVehicleDocument, HandleDeleteVehicleDocument,
+  HandleListDamages, HandleListVehicleDamages, HandleUpdateDamage, HandleResolveDamage),
+  je Handler mindestens ServiceUnavailable/MissingTenant/ReachesRPC, plus Validierungsfaelle
+  fuer alle `validate`-Tags (driver_id required+uuid, license_classes min=1, next_check_due_date
+  required, doc_type required+oneof, name/object_key required) und InvalidIDUUID fuer jede
+  Route mit Pfad-Parameter. Folgt dem in `route_fuhrpark_crud_test.go` etablierten Muster
+  (dummy `localhost:0`-Registry, Assertion auf 503 als Beleg, dass der Handler die
+  Validierung passiert und die RPC erreicht hat).
+  Unterschied HandleListDamages vs. HandleListVehicleDamages geklaert und im Testfile
+  dokumentiert: HandleListDamages ist die flottenweite Uebersicht unter `/damages`, filterbar
+  per Query nach `status` UND `vehicle_id`; HandleListVehicleDamages haengt unter
+  `/vehicles/{id}/damages`, ist strikt auf die Pfad-ID gescoped und hat keinen Status-Filter.
+  Beide rufen dieselbe `ListDamages`-RPC mit unterschiedlichem Request auf — keiner ist tote
+  Flaeche.
+  Zwei Befunde beim Bauen, beide als Fix-Units angelegt statt hier gefixt (Coverage-Unit
+  aendert kein Verhalten): (1) HandleDeleteDriverLicense/Service.DeleteDriverLicense loescht
+  jede Kontrollzeile ungeprueft, auch die neueste/einzige je driver_id — der im Scope
+  benannte Befund war real; (2) updateDamageRequest hat auf Severity/Status gar kein
+  `validate`-Tag (anders als reportDamageRequest), Service.UpdateDamage schreibt beide Felder
+  ungeprueft durch — belegt durch
+  `TestHandleUpdateDamage_ArbitrarySeverityReachesRPCUnvalidated`, die zeigt, dass ein
+  Nonsense-Wert die RPC statt einer 400 erreicht.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/gateway/...`) | lint ok (0 issues, `golangci-lint run --config .golangci.yml
+  ./internal/gateway/...`) | test ok (`./internal/gateway/`, komplettes Paket gruen, 2741
+  PASS, 0 SKIP, `DATABASE_URL` gesetzt) | migration n.a. (keine Tabelle/Policy angefasst) |
+  rls-smoke n.a. (reine Handler-Unit-Tests gegen Dummy-Registry, keine echte DB-Verbindung —
+  wie die bestehenden `route_fuhrpark_crud_test.go`-Tests) | route-drift ok
+  (`TestOpenAPIRouteDrift`: 836 registrierte Routen gegen 838 dokumentierte Pfade, PASS —
+  keine neue Route in dieser Unit)
+- coverage: internal/gateway 56,8 % -> 57,6 % (selbst gemessen: neue Testdatei kurz nach
+  /tmp verschoben, Paket ohne sie mit `-coverprofile` laufen lassen — 56,8 %, deckt sich mit
+  dem CI-Bezugswert 56,6 % der Unit —, Datei zurueckgeholt, erneut gemessen — 57,6 %). Alle
+  elf Ziel-Handler liegen jetzt bei 82,6-96,2 % (vorher 0 %), Datei-Detailwerte im Diff-Kontext
+  der Iteration.
+- mutations-probe: `oneof=registration insurance tuev other` in `createVehicleDocumentRequest`
+  auf `oneof=registration insurance other` verkuerzt (Datei vorher per `cp` gesichert).
+  `TestHandleCreateVehicleDocument_ReachesRPC` (benutzt `doc_type: tuev`) wurde sofort rot
+  (400 `validation_failed` statt 503). Datei per `cp` zurueckgedreht, `git diff` danach leer,
+  kompletter Paketlauf (`./internal/gateway/`) anschliessend wieder gruen.
+- verify vorgaenger: sauber. `f0976050` (Fuhrpark-Repository-DB-Tests) aendert nur
+  `internal/fuhrpark/postgres_repository_gap_test.go` + Backlog/Journal; kein gRPC-Aufruf im
+  Gateway umgangen, kein `.proto`, keine neue Tabelle/Route/Guard, keine Wire-Shape-Aenderung.
+  Diff mit `git show --stat` nachvollzogen, deckt sich mit der Journal-Beschreibung.
+- neue-units: fix-fuhrpark-delete-driver-license-no-last-check-guard (Backlog-Ende, deps: []) —
+  DeleteDriverLicense schuetzt die letzte/neueste Kontrollzeile eines driver_id nicht, obwohl
+  sie der Halterhaftungs-Nachweis ist; done_when[0] verlangt bewusst KEINE Luke-Entscheidung
+  (Preflight-Regel), sondern nennt beide moeglichen Wege (409-Block oder Audit-Event) und
+  bittet die naechste Iteration, die Wahl vorab mit Luke zu klaeren, bevor sie baut.
+  fix-fuhrpark-update-damage-missing-enum-validation (Backlog-Ende, deps: []) —
+  updateDamageRequest validiert Severity/Status nicht gegen dieselbe Wertemenge wie beim
+  Erzeugen, kleiner klar umrissener Fix (ein validate-Tag je Feld).
+- offen: Preflight (`hooks/backlog-check.py --preflight`) meldet weiterhin die bereits vor
+  dieser Iteration bestehende `fix-409-double-meaning-on-grpc-conflict-routes` mit
+  `status: blocked` + `blocked_reason` direkt in BACKLOG.yml (gehoert nach
+  BACKLOG-PARKED.yml/BACKLOG-NEXT.yml) — mit `git stash` gegen den Stand vor dieser Iteration
+  gegengeprueft, nicht durch diese Iteration verursacht, hier nur dokumentiert statt
+  angefasst (ausserhalb des Scopes dieser Coverage-Unit).
