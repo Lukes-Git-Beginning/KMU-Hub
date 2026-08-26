@@ -1600,3 +1600,108 @@ Kopf von `BACKLOG.yml`.
   Backlog-Ende und wird erst gezogen, wenn alle vorherigen `todo`-Units mit erfuellten `deps`
   durch sind. Gegeben die Schwere (CalDAV-Schreiben ist production-weit kaputt) waere eine
   manuelle Vorziehung durch Luke sinnvoll, statt auf die natuerliche Reihenfolge zu warten.
+
+## Iteration 28 — cov-carddav-backend-real-protocol-paths — done — 2026-08-26 04:45
+- commit: df4b86a1
+- gebaut: Zwei neue Testdateien in `internal/caldav/` fuer `carddav_backend.go` (155/201
+  Statements ungedeckt, 22,9 %).
+  `carddav_backend_grpc_db_test.go`: echter CRM-gRPC-Server (Loopback-TCP, exakt die
+  `middleware.TenantInboundUnaryInterceptor`-Kette aus Production, `contact.Service` +
+  `contact.PostgresRepository` gegen echte Postgres), Vorlage
+  `internal/gateway/route_hr_manual_entry_idempotency_db_test.go` (Iteration 1). Damit erstmals
+  ein echter End-to-End-Roundtrip fuer CardDAV statt nur der Fehlerpfade aus
+  `caldav_backend_grpc_test.go` (503 bei nicht registriertem Service).
+  Befund 1 (VERIFIZIERTER PRODUKTIONSFEHLER, groesserer Bruder von
+  `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx` aus Iteration 27, gleicher Root
+  Cause): `CardDAVRoutes.basicAuthMiddleware` setzt nur die User-ID in den Context
+  (`caldavpkg.CtxWithUser`), nie `middleware.TenantIDKey`. `registry.GetConnection`s
+  `TenantOutboundUnaryInterceptor` haengt `x-tenant-id` deshalb nie an, und `crm_grpc.go`s
+  `ListContacts`/`GetContact`/`CreateContact`/`UpdateContact`/`DeleteContact`/
+  `UpdateContactVisibility` verlangen ALLE `middleware.GetTenantID(ctx)` und liefern sonst
+  `codes.Unauthenticated` → `grpcToWebDAVError` → HTTP 401. Bewiesen (nicht nur hergeleitet) mit
+  dem echten CardDAV-Request-Context: `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401`,
+  `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401`. Folge in Produktion: JEDE
+  CardDAV-Operation (Adressbuch-Auflistung, Einzelkontakt, Anlegen/Aendern/Loeschen) schlaegt mit
+  401 fehl, auch fuer den echten Kontobesitzer — CardDAV ist in Produktion vollstaendig tot, nicht
+  nur teilweise degradiert. Fix-Unit `fix-carddav-missing-tenant-context-blocks-all-operations`
+  (opus) ans Backlog-Ende gehaengt, mit Verweis auf den vermutlich gemeinsamen Root-Cause-Fix in
+  `basicAuthMiddleware` (Tenant per `resolveTenantID` aufloesen und als echten
+  `middleware.TenantIDKey`-Wert setzen — das wuerde beide Units gleichzeitig loesen).
+  Um die eigentliche Scope-Frage (done_when #1) trotzdem zu beantworten, injizieren die uebrigen
+  Tests den Tenant manuell (`asIfTenantMiddlewareFixed`, so als waere der Root-Cause-Fix bereits
+  gelandet) und pruefen die tatsaechliche Listing-Logik:
+  `TestListAddressObjects_PersonalBook_OnlyOwnPersonalContacts` (personal = nur eigene, NICHT
+  tenant-weit — beabsichtigtes Verhalten, in `postgres_repository.go`s Visibility-Klausel
+  korrekt), `TestListAddressObjects_CompanyBook_ReturnsAllSharedRegardlessOfOwner` (shared = alle
+  im Tenant, unabhaengig vom Owner).
+  Befund 2 (VERIFIZIERTER PRODUKTIONSFEHLER, unabhaengig von Befund 1):
+  `TestListAddressObjects_PersonalBook_SilentlyTruncatesPast20` — `ListAddressObjects` fragt mit
+  `PageSize: 1000` an ("Reasonable limit for CalDAV sync"), aber
+  `contact.Service.ListWithVisibility` klemmt jede PageSize > 100 still auf 20
+  (`service.go:722-724`); `ListAddressObjects` liest `resp.Total` nie und paginiert nicht nach.
+  25 geseedete Kontakte → 20 zurueckgegeben, kein Fehler. Jedes Adressbuch mit > 20 Kontakten
+  synchronisiert dauerhaft unvollstaendig. Fix-Unit
+  `fix-carddav-list-address-objects-silently-truncates-past-page-size-limit` (sonnet) ans
+  Backlog-Ende gehaengt.
+  Befund 3 (done_when #3, anonymisierter Kontakt): `TestGetAddressObject_AnonymizedContact_NoRealNameOrPIIInVCard`
+  — `consent.PostgresRepository.AnonymizeContact` setzt `first_name`/`last_name` auf die
+  Platzhalter `"Gelöschte"`/`"Person"` und nullt Email/Phone/Notes; `GetContact` liest diese
+  Zeile unveraendert, `contactInfoToVCard` mappt sie 1:1 — die vCard traegt danach nachweislich
+  keinen Klarnamen und kein Email/Phone/Notes mehr. Kein Bug, Verhalten belegt.
+  Feld-Mapping (done_when #2) war bereits vollstaendig durch `carddav_backend_test.go`
+  (`TestContactInfoToVCard_*`, Vorlauf-Iterationen) abgedeckt — keine Dopplung noetig.
+  `carddav_backend_ownership_db_test.go`: `checkPersonalContactOwnership` (0,0 % vorher, von
+  `DeleteAddressObject` fuer "personal" genutzt) — Owner erlaubt, fremder User 403, nicht
+  existierender Kontakt 404, kaputter Pfad 400.
+- gate: build ok (`./internal/caldav/... ./internal/crm/... ./cmd/gateway/...`) | vet ok | lint ok
+  (0 issues, `./internal/caldav/... ./internal/crm/...`) | test ok (`internal/caldav`,
+  `DATABASE_URL` gesetzt als `kmuhub_app`, 128 Tests, 0 Skips, 0 Fails) | migration n.a. (keine
+  neue Tabelle/Spalte) | rls-smoke n.a. (keine Policy geaendert — die Tests BELEGEN eine
+  bestehende Luecke im Tenant-Context, aendern sie nicht) | route-drift n.a. (keine Route
+  angefasst, `go test ./internal/gateway/` daher nicht Pflicht)
+- coverage: internal/caldav 64,5 % → 68,6 % (`git stash push -u -- backend/internal/caldav/carddav_backend_grpc_db_test.go
+  backend/internal/caldav/carddav_backend_ownership_db_test.go` fuer die Vorher-Messung, danach
+  `stash pop`; Vorher-Wert deckt sich mit dem Coverage-Stand nach Iteration 27, nicht mit dem
+  CI-Referenzwert 54,9 % aus dem Backlog-Kopf — der ist vom 2026-08-24-Lauf und wurde seither von
+  mehreren Iterationen angehoben). `carddav_backend.go` im Speziellen (`go tool cover -func`):
+  `NewCardDAVBackend` 0,0 % → 100 %, `crmClient` 0,0 % → 75 %, `GetAddressObject` 0,0 % → 86,7 %,
+  `ListAddressObjects` 0,0 % → 94,4 %, `checkPersonalContactOwnership` 0,0 % → 100 %.
+  `CreateAddressBook`/`DeleteAddressBook`/`ListAddressBooks`/`GetAddressBook`/
+  `QueryAddressObjects`/`PutAddressObject`/`DeleteAddressObject` bleiben bei 0,0 % — Put/Delete
+  brauchen denselben echten-Server-Ansatz wie hier, aber fuer Schreibpfade (naechster
+  natuerlicher Schnitt, nicht Teil dieser Unit).
+- mutations-probe: in `contact/postgres_repository.go`s `ListWithVisibility`-Query die
+  Bedingung `if filter.VisibilityFilter != ""` zu `if false && filter.VisibilityFilter != ""`
+  mutiert (Backup vorher per `cp`). `TestListAddressObjects_PersonalBook_OnlyOwnPersonalContacts`
+  blieb gruen (die Owner-Bedingung allein reicht fuer dieses Szenario), aber
+  `TestListAddressObjects_CompanyBook_ReturnsAllSharedRegardlessOfOwner` wurde korrekt rot ("has
+  3 item(s)" statt 2 — der eigene personal-Kontakt leckte ins company-Listing). Datei per `cp`
+  zurueckgedreht, `git diff --stat` auf `postgres_repository.go` danach leer.
+- verify vorgaenger: sauber (`a1973183` — `git show --stat` gegengeprueft: `caldav_backend.go`
+  liefert nur den angekuendigten verhaltensgleichen `queryTimeRange`-Refactor, kein `.proto`,
+  keine Route, kein `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass, kein Stub; der
+  dokumentierte Tenant-Bug ist ein BEFUND der beiden `*_db_test.go`-Dateien, keine Code-Aenderung
+  an der Produktionslogik)
+- neue-units: fix-carddav-missing-tenant-context-blocks-all-operations (opus, VERIFIZIERTER
+  Produktionsfehler — CardDAV vollstaendig tot, gleicher Root Cause wie
+  `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`), sowie
+  fix-carddav-list-address-objects-silently-truncates-past-page-size-limit (sonnet, VERIFIZIERTER
+  Produktionsfehler — stille Truncation bei > 20 Kontakten)
+- offen: (1) `BACKLOG.yml`s eigener Vorflug (`hooks/backlog-check.py --preflight`) meldet
+  UNABHAENGIG von dieser Iteration einen Bestandsbefund: `fix-409-double-meaning-on-grpc-conflict-routes`
+  (aus Iteration 12, siehe dortiger Journal-Eintrag) traegt `status: blocked` +
+  `blocked_reason` DIREKT in `BACKLOG.yml`, obwohl der Datei-Kopf das ausdruecklich verbietet
+  ("muss vor dem naechsten Lauf hier raus", nach `BACKLOG-NEXT.yml` oder `BACKLOG-PARKED.yml`
+  verschieben). Nicht in dieser Iteration behoben (ausserhalb des Scopes von
+  `cov-carddav-backend-real-protocol-paths`, und eine Verschiebung ist eine Backlog-Kuration,
+  keine Coverage-Aenderung) — Luke sollte das vor dem naechsten Lauf-Start bereinigen, sonst
+  bricht `run-loop.ps1`s Preflight (falls er `--preflight` tatsaechlich aufruft) ab. (2) Beide
+  neuen Fix-Units enthielten anfangs bare `` `Text` `` YAML-Plain-Scalars direkt nach `- ` ohne
+  `>-` — das ist kein gueltiges YAML (Backtick kann kein Token oeffnen), `--preflight` hat das
+  sofort gefangen (zwei Runden). Alle vier betroffenen `done_when`-Zeilen auf `>-`-Block-Scalare
+  umgestellt und erneut gegen `--preflight` verifiziert (nur noch der oben unter (1) genannte,
+  unabhaengige Befund bleibt). (3) `PutAddressObject`/`DeleteAddressObject` bleiben bei 0,0 % —
+  natuerlicher Anschluss fuer eine Folge-Unit mit demselben Loopback-Server-Ansatz, aber erst
+  sinnvoll NACH `fix-carddav-missing-tenant-context-blocks-all-operations`, sonst 401en auch
+  diese Tests nur den bereits bekannten Bug erneut.
+
