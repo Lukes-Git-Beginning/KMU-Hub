@@ -662,6 +662,35 @@ func TestService_ReceiveGoods_WrongStatus(t *testing.T) {
 	assert.ErrorIs(t, err, ErrPONotReceivable)
 }
 
+// TestService_ReceiveGoods_DoubleReceive_SecondCallRejected answers the
+// idempotency question from cov-gateway-einkauf-purchase-order-lifecycle: does
+// a repeated goods receipt double-book stock/liability? It does not — the
+// first call transitions the PO to "received", and the status guard
+// (service.go:612) then rejects a second call with ErrPONotReceivable before
+// any line's received_quantity is touched again or a second inventar
+// adjustment is recorded.
+func TestService_ReceiveGoods_DoubleReceive_SecondCallRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-007b", POStatusSubmitted)
+	line := addPOLine(repo, tenantID, po.ID, "Widget", "5")
+
+	first, err := svc.ReceiveGoods(context.Background(), tenantID, po.ID)
+	require.NoError(t, err)
+	assert.Equal(t, POStatusReceived, first.Status)
+	assert.Equal(t, "5", repo.lines[line.ID].ReceivedQuantity)
+
+	second, err := svc.ReceiveGoods(context.Background(), tenantID, po.ID)
+
+	assert.Nil(t, second)
+	assert.ErrorIs(t, err, ErrPONotReceivable)
+	// received_quantity is untouched by the rejected second call.
+	assert.Equal(t, "5", repo.lines[line.ID].ReceivedQuantity)
+}
+
 // ============================================================================
 // PartialReceive Tests
 // ============================================================================

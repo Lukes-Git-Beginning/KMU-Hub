@@ -2324,7 +2324,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_einkauf.go 36,6 %, 236 ungedeckt, 13 von 18 Handlern ungetestet"
     scope: >
       Gateway-Seite des Einkaufs — 13 von 18 Handlern ungetestet, die hoechste Quote unter
@@ -5201,3 +5201,46 @@ units:
         durch einen Test belegt (oder die Entscheidung ist an Luke delegiert und die Unit steht
         `blocked`)
       - go test -count=1 ./internal/einkauf/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: feat-gdpr-dsar-search-missing-einkauf-suppliers
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Feature-Luecke, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-einkauf-purchase-order-lifecycle`). `internal/security/gdpr/dsar_search.go`
+      (Art.-15-DSAR-Suche) matcht ausschliesslich CRM-Kontakte und User und aggregiert deren
+      Daten ueber "CRM, consent, dialer, finance, meetings, helpdesk, contracts, email, deals und
+      activities" (Docstring `SearchByQuery`, Zeile 63-65) — `grep -n "einkauf\|supplier\|Supplier"
+      dsar_search.go` liefert null Treffer. `einkauf.suppliers` traegt Name, E-Mail, Telefon,
+      Adresse und einen optionalen `contact_id`-FK (route_einkauf.go:117-125). Ein Lieferant kann
+      ein Einzelunternehmer sein, also eine natuerliche Person mit DSAR-Anspruch — taucht aber in
+      keinem DSAR-Ergebnis auf, auch nicht wenn er per `contact_id` an einen bereits gematchten
+      Kontakt haengt (die Aggregation ist rein modul-basiert, `einkauf` ist keins der gefalteten
+      Module).
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/einkauf/models.go
+      - backend/internal/einkauf/postgres_repository.go
+    notes: >
+      Vorbild fuer den Aufbau eines neuen DSAR-Moduls: eines der bestehenden `match*`/Aggregations-
+      Paare in dsar_search.go (z. B. Contracts oder Helpdesk) abschauen, nicht neu erfinden.
+      Zwei Faelle zu klaeren, kein Rateraum: (1) Lieferant MIT `contact_id` — dessen Datensatz
+      gehoert unter den bereits gematchten `DSARPerson` als zusaetzliches `DSARModule "einkauf"`.
+      (2) Lieferant OHNE `contact_id` (Einzelunternehmer ohne CRM-Verknuepfung) — braucht einen
+      eigenen Namens-/E-Mail-Match auf `suppliers.name`/`suppliers.email`, sonst bleibt er fuer
+      DSAR unauffindbar. Ob (2) in dieser Unit mitgebaut wird oder als Fix-Unit an dieser Stelle
+      genuegt ein dokumentierter Befund, ist eine Bau-Entscheidung, keine Luke-Entscheidung — beide
+      Faelle sind rein additive Read-Erweiterungen ohne Vertragsbruch.
+    done_when:
+      - >-
+        Ein Lieferant mit `contact_id`, der auf einen DSAR-Treffer passt, erscheint im Ergebnis
+        unter einem eigenen `DSARModule "einkauf"` mit Name/E-Mail/Telefon/Adresse; ein Test belegt
+        das
+      - >-
+        Ob ein Lieferant OHNE `contact_id` per eigenem Namens-/E-Mail-Match auffindbar gemacht wird
+        oder das als offene Luecke dokumentiert bleibt, steht mit Begruendung im Journal
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt, 0 Skips

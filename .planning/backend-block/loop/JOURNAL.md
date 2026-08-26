@@ -2688,3 +2688,73 @@ Kopf von `BACKLOG.yml`.
   (3) Die neue Unit feat-einkauf-po-framework-contract-call-off-wiring braucht
   eine Produktentscheidung zum Verhalten bei ErrContractBudgetExceeded waehrend
   eines physischen Wareneingangs — im Zweifel `blocked` mit Frage an Luke.
+
+## Iteration 43 — cov-gateway-einkauf-purchase-order-lifecycle — done — 2026-08-26 07:22
+- commit: <wird nach diesem Eintrag gesetzt, siehe naechster chore-Commit>
+- gebaut: Neue Datei `route_einkauf_lifecycle_test.go` deckt die 13 zuvor
+  ungetesteten Gateway-Handler ab (HandleGetPO, HandleListPOs, HandleUpdatePO,
+  HandleDeletePO, HandleCancelPO, HandleSubmitPO, HandleListPOLines,
+  HandleUpdatePOLine, HandleDeletePOLine, HandleReceiveGoods,
+  HandlePartialReceive, HandleGetSupplier, HandleUpdateSupplier) — je
+  ServiceUnavailable, Invalid-UUID-Validierung, Body-Validierung wo vorhanden,
+  und ein "ReachesRPC"-Dokutest (Muster aus route_vermietung_test.go: die
+  Gateway-Schicht hat keine eigene Statemachine, sie reicht jede syntaktisch
+  gueltige Anfrage direkt an die RPC durch). Zusaetzlich ein neuer Service-Test
+  `TestService_ReceiveGoods_DoubleReceive_SecondCallRejected` in
+  internal/einkauf/service_test.go, der die Idempotenz-Frage aus dem Scope
+  beantwortet: ein zweiter ReceiveGoods-Aufruf auf eine bereits empfangene PO
+  wird vom Status-Guard (service.go:612) mit ErrPONotReceivable abgewiesen,
+  BEVOR received_quantity oder Inventar-Anpassung ein zweites Mal laufen —
+  kein Doppel-Buchen. Die Statusuebergaenge (Draft-only Delete/Update,
+  Nicht-stornierbar nach Empfangsbeginn, Submit nur ab Draft mit Zeilen)
+  waren bereits vollstaendig durch Service-Tests aus fruaeheren Iterationen
+  belegt (TestService_UpdatePO_ClosedRejected, _CancelledRejected,
+  TestService_DeletePO_NonDraftRejected, TestService_CancelPO_
+  NotCancellableRejected, TestService_SubmitPO_NonDraftRejected/_NoLines) —
+  die neuen Gateway-Tests referenzieren sie per Kommentar statt sie zu
+  duplizieren. DSAR-Frage zu Lieferanten beantwortet: `grep -n
+  "einkauf|supplier|Supplier" internal/security/gdpr/dsar_search.go` liefert
+  null Treffer — Lieferanten (potenziell Einzelunternehmer, personenbezogene
+  Daten) tauchen in KEINEM DSAR-Ergebnis auf, auch nicht ueber ihre
+  `contact_id`-Verknuepfung. Als eigene Unit angelegt (siehe neue-units).
+- gate: build ok (`go build -p 2 ./internal/einkauf/... ./internal/gateway/...
+  ./cmd/einkauf/... ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run
+  ./internal/einkauf/... ./internal/gateway/...`, 0 issues) | test ok
+  (DATABASE_URL gesetzt, `go test -count=1 ./internal/einkauf/...` 110 Tests,
+  0 uebersprungen; `go test -count=1 ./internal/gateway/` gruen, inkl.
+  TestOpenAPIRouteDrift da keine Route geaendert) | migration n.a. (keine) |
+  rls-smoke n.a. (keine neue Tabelle/Policy) | gateway-test ok (siehe oben,
+  Pflicht war ohnehin erfuellt, da Gateway-Paket direkt betroffen)
+- coverage: internal/gateway 68,6 % -> 69,3 % (selbst gemessen vor/nach mit
+  Datei rausgenommen/reingenommen; weicht vom `coverage_start` der Unit
+  (56,6 %, CI-Stand 2026-08-24) deutlich ab, weil zwischenzeitliche
+  Iterationen dasselbe Paket bereits angehoben haben — eigene Messung gilt).
+  Funktions-Feinbild fuer route_einkauf.go: alle 13 Ziel-Handler jetzt
+  zwischen 77,8 % (HandleListSuppliers, unveraendert, nicht im Scope) und
+  87,0 % (HandleUpdatePOLine); vorher 0,0 % fuer alle 13. internal/einkauf
+  79,1 % -> 79,1 % unveraendert (der neue Idempotenz-Test durchlaeuft bereits
+  von TestService_ReceiveGoods_Success/_WrongStatus abgedeckte Zeilen kein
+  zweites Mal neu — sein Wert ist der Beweis, nicht neue Coverage).
+- mutations-probe: Status-Guard in ReceiveGoods testweise mit `if false && ...`
+  deaktiviert -> TestService_ReceiveGoods_DoubleReceive_SecondCallRejected
+  wurde rot (`Expected nil, but got: &einkauf.PurchaseOrder{...Status:"received"...}`,
+  zweiter Aufruf lief durch statt ErrPONotReceivable zurueckzugeben) ->
+  zurueckgedreht, `git diff --stat backend/internal/einkauf/service.go` danach
+  leer, Test wieder gruen.
+- verify vorgaenger: sauber (`21879179` geprueft — fuenf Dateien, alles
+  `_test.go`/Journal/Backlog, kein `.proto`, keine neue Route, kein
+  `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass, kein
+  Stub-Marker)
+- neue-units: feat-gdpr-dsar-search-missing-einkauf-suppliers (Lieferanten
+  fehlen komplett im DSAR-Suchergebnis, auch verknuepfte)
+- offen: (1) `hooks/backlog-check.py --preflight` meldet weiterhin die
+  vorbestehende `blocked`-Unit `fix-409-double-meaning-on-grpc-conflict-routes`
+  (Zeile 806, seit Block A der Lauf-12-Vorbereitung so eingetragen) — nicht
+  durch diese Iteration verursacht, aber noch nicht nach BACKLOG-NEXT.yml
+  verschoben. (2) HandleCreateSupplier/HandleDeleteSupplier/HandleCreatePO/
+  HandleAddPOLine/HandleListSuppliers blieben bei ihrer alten Coverage (waren
+  nicht im 13er-Scope dieser Unit, hatten teils schon Tests). (3) Das neue
+  `feat-gdpr-dsar-search-missing-einkauf-suppliers` unterscheidet zwei Faelle
+  (Lieferant mit/ohne `contact_id`) — welcher davon in der Unit selbst gebaut
+  wird, ist im Backlog-Eintrag als Bau-Entscheidung offengelassen, nicht als
+  Luke-Entscheidung.
