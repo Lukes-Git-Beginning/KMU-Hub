@@ -1615,7 +1615,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_formulare.go 32,2 %, 353 ungedeckt, 14 von 23 Handlern ungetestet"
     scope: >
       Gateway-Seite des Formularmoduls. Ungetestet (Stand 2026-08-24): HandleCreateWebhook,

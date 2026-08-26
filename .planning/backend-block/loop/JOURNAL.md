@@ -1456,3 +1456,64 @@ Kopf von `BACKLOG.yml`.
   (nur unbegrenztes Wachstum, kein Datenleck ueber die Tenant-Grenze) — kann regulaer in
   Dateireihenfolge drankommen. Commit-SHA dieser Iteration wird wie ueblich im naechsten
   chore-Commit nachgetragen.
+
+## Iteration 26 — cov-gateway-formulare-webhooks-and-submissions — done — 2026-08-26 04:22
+- commit: (wird im naechsten chore-Commit nachgetragen)
+- gebaut: 74 neue Handler-Tests in `internal/gateway/route_formulare_test.go` fuer die 14 im
+  Scope genannten Handler (HandleListFormSchemas, HandleGetFormSchema, HandleGetSubmission,
+  HandleListSubmissions, HandleExportSubmissions, HandleGetFormStats, HandleListWebhooks,
+  HandleCreateWebhook, HandleGetWebhook, HandleUpdateWebhook, HandleDeleteWebhook,
+  HandleListWebhookDeliveriesForWebhook, HandleListWebhookDeliveries, HandleSubmitByShareToken),
+  je Missing-Tenant/Invalid-UUID/Invalid-JSON/Service-Unavailable/ReachesRPC nach dem
+  bestehenden Muster der Datei.
+  Befund (1, negativ/entkraeftet): SSRF-Absicherung fuer Webhook-Ziele EXISTIERT bereits —
+  `internal/formulare/worker.go:61` baut den `http.Client` des Webhook-Workers ueber
+  `safehttp.New(...)` (`internal/security/safehttp`), derselbe Guard wie bei der
+  Automation-`http.request`-Action. Kein eigener opus-Sicherheitsbefund noetig. Getestet mit
+  `TestHandleCreateWebhook_MalformedURL`, das dokumentiert: die Gateway-Validierung
+  (`validate:"required,url"`) prueft nur Syntax, die SSRF-Pruefung sitzt bewusst eine Ebene
+  tiefer beim Worker (Zustellzeitpunkt), nicht im Gateway (Anfragezeitpunkt) — das Gateway kann
+  zur Anfragezeit keine DNS-Aufloesung/Netzklassifizierung leisten.
+  Befund (2, negativ/entkraeftet): das Verhalten von `HandleSubmitByShareToken` bei
+  abgelaufenem und widerrufenem Token ist bereits vollstaendig auf Service-Ebene abgedeckt
+  (`internal/formulare/form_share_test.go`,
+  `TestSubmitByShareToken_EveryTokenVerdictIsTheSameNotFound`, deckt unknown/empty/over-long/
+  revoked/expired/quota-used-up/schema-private/schema-archived/schema-deleted — alle auf
+  denselben `ErrShareLinkNotFound`). Das Gateway ist ein duenner Durchreicher
+  (`respondGRPCError` mappt `codes.NotFound` auf 404); eine Dopplung dieser Faelle auf
+  Gateway-Ebene wuerde nur den unerreichbaren-Dummy-Client testen, nicht das echte Verhalten.
+  Stattdessen zwei NEUE gateway-eigene Faelle getestet: die Token-Laengen-/Leer-Pruefung, die
+  VOR jedem RPC-Aufruf im Handler selbst laeuft (`HandleSubmitByShareToken`, Zeile ~1124), und
+  der `maxPublicSubmitBody`-Body-Cap (256 KiB) via `http.MaxBytesReader`.
+  Befund (3, negativ/entkraeftet): `HandleExportSubmissions` reicht `TenantId` vollstaendig an
+  `client.ExportSubmissions` durch; `Service.ExportSubmissions` ruft
+  `repo.ListSubmissionsForExport(ctx, FormSchemaID, TenantID, filter)` mit beiden IDs auf —
+  die Methode ist laut Vorgaenger-Iteration (`2c225f9e`) bereits 100 % DB-getestet. Kein Fund.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues,
+  `.golangci.yml`) | test ok (`internal/gateway`, `DATABASE_URL` gesetzt, 0 Skips, 3073 Tests
+  gesamt inkl. `TestOpenAPIRouteDrift`) | migration n.a. (keine Tabelle/Policy angefasst) |
+  rls-smoke n.a. (keine neue Tabelle) | route-drift ok (keine Route angefasst, trotzdem
+  mitgelaufen als Teil von `go test ./internal/gateway/`)
+- coverage: internal/gateway 62,0 % -> 63,1 % (`-coverprofile` vor der Aenderung per
+  `git stash`/nach der Aenderung gemessen, Baseline weicht vom `coverage_start`-Bezugswert
+  56,6 % ab — fruehere Iterationen dieses Laufs haben das Paket schon angehoben, siehe
+  `offen:`). `route_formulare.go` im Speziellen: alle 14 im Scope genannten Handler von 0,0 %
+  bzw. teilweise (HandleExportSubmissions 17,6 %, HandleListWebhooks 37,5 %) auf 64,7–96,2 %
+  (`go tool cover -func` einzeln gegengeprueft vor/nach).
+- mutations-probe: In `HandleSubmitByShareToken` (route_formulare.go) die Token-Laengengrenze
+  von `len(token) > 128` auf `len(token) > 256` geaendert. `TestHandleSubmitByShareToken_
+  OverLongToken` sofort rot ("status = 503, want 404"). Datei per `cp` aus Backup
+  zurueckgedreht, `git diff --stat` auf `route_formulare.go` danach leer, volles
+  `go test ./internal/gateway/` wieder komplett gruen (3073 Tests, 0 Skips).
+- verify vorgaenger: sauber. `2c225f9e` (Postgres-Repository-Formulare-DB-Tests) aendert
+  ausschliesslich eine neue Testdatei + Backlog/Journal; `git show --stat` gegengeprueft —
+  kein `.proto`, keine neue Route, kein neuer `RequirePermission`-Guard, kein direkter
+  Service-Aufruf im Gateway statt Client.
+- neue-units: keine
+- offen: Die `coverage_start`-Bezugswerte fuer `internal/gateway` (56,6 %) und
+  `route_formulare.go` (32,2 %) im Backlog-Kopf sind vom 2026-08-24-CI-Lauf und liegen
+  spuerbar unter der selbst gemessenen Vorher-Zahl (62,0 % / route_formulare.go bereits
+  teilweise getestet) — mehrere Iterationen dieses Laufs (u. a. die Video- und
+  Postgres-Formulare-Units) haben das Gateway-Paket seit dem CI-Referenzlauf schon angehoben.
+  Kein Handlungsbedarf, nur Hinweis fuer die naechste `coverage_start`-Pflege im Backlog-Kopf.
+  Commit-SHA dieser Iteration wird wie ueblich im naechsten chore-Commit nachgetragen.
