@@ -2173,3 +2173,67 @@ Kopf von `BACKLOG.yml`.
   Attendees) ist eine Architekturfrage fuer Luke, keine Coverage-Aenderung —
   falls das je geschaerft werden soll, gehoert das als eigene Design-Unit ins
   Backlog, nicht in diesen Lauf.
+
+## Iteration 36 — cov-gateway-calendar-resources-and-reminders — done — 2026-08-26 06:06
+- commit: (wird im naechsten Commit "chore(loop): record commit sha" nachgetragen)
+- gebaut: `route_calendar_resources_reminders_test.go` (Gateway, 25 Tests fuer die sieben
+  Handler HandleListResources, HandleGetResource, HandleDeleteResource,
+  HandleListResourceAvailability, HandleSetEventReminders, HandleListEventReminders,
+  HandleGenerateJoinToken) + `postgres_repository_db_test.go` (internal/work/resource, 7
+  DB-Testfunktionen gegen echtes SQL: List mit allen Filterkombinationen inkl. Tenant-Scope,
+  SetTags-Replace, CreateBooking Erfolg+Konflikt, CancelBooking inkl. Fremd-Tenant-Versuch,
+  ListBookings/ListBookingsByEvent Overlap-Fenster, FindAvailableResources/FindAlternatives
+  inkl. Ausschluss gebuchter/inaktiver Ressourcen).
+  Schwerpunkt (1) Race-Bedingung Verfuegbarkeit/Buchung: KEINE Luecke gefunden.
+  `resource.Service.Book` prueft Verfuegbarkeit nicht selbst per Read-vor-Write, sondern
+  verlaesst sich auf die `resource_bookings`-EXCLUDE-USING-GIST-Constraint
+  (postgres_repository.go:213-217, pg-Fehler 23P01 -> ErrBookingConflict) — atomar auf
+  DB-Ebene, exakt das Muster, das `harden-quote-conversion-unique-index` als sicher
+  etabliert hat. Durch Mutations-Probe UND einen echten DB-Test
+  (TestPostgresCreateBooking_SuccessAndConflict) belegt. Keine Fix-Unit noetig.
+  Schwerpunkt (2) HandleGenerateJoinToken: ECHTER PRODUKTIONSFEHLER gefunden, siehe
+  neue-units. Weder Handler noch gRPC-Server pruefen, ob event_id zu einem existierenden,
+  zum aufrufenden Tenant gehoerenden Event gehoert — jeder User mit "calendars:write" kann
+  ein gueltiges 24h-LiveKit-Join-Token fuer eine beliebige (auch fremd-tenante) UUID
+  erzeugen. Terminabsage aendert nichts, weil das Event nie geladen wird.
+- gate: build ok (`./internal/work/resource/... ./internal/gateway/... ./cmd/gateway/...`)
+  | vet ok (beide Pakete) | lint ok (0 issues, beide Pakete, golangci-lint run --config
+  .golangci.yml) | gofmt: eine Formatierungsabweichung in postgres_repository_db_test.go
+  (intPtr/strPtr-Ausrichtung) gefunden und mit `gofmt -w` behoben, danach `gofmt -l` leer
+  | test ok (beide Pakete komplett gruen, DATABASE_URL gesetzt, 0 Skips) | migration n.a.
+  (keine Tabelle/Policy angefasst) | rls-smoke ok (ueber die echten Repo-Methoden: List
+  mit fremdem TenantID-Filter liefert 0 Zeilen trotz physisch vorhandener Fremd-Tenant-Row;
+  CancelBooking mit fremder tenantID liefert ErrBookingNotFound statt den Booking zu
+  canceln — beides in postgres_repository_db_test.go) | route-drift ok
+  (`TestOpenAPIRouteDrift`: 836 registrierte gegen 838 dokumentierte Pfade, PASS — keine
+  neue Route)
+- coverage: internal/gateway 67,0 % -> 67,5 % (die sieben Ziel-Handler laut `go tool cover
+  -func`: HandleSetEventReminders 93,3 %, HandleListEventReminders 91,7 %,
+  HandleListResources 95,8 %, HandleGetResource 91,7 %, HandleDeleteResource 91,7 %,
+  HandleListResourceAvailability 96,2 %, HandleGenerateJoinToken 93,8 %, alle vorher 0,0 %).
+  internal/work/resource 42,6 % -> 85,9 % (postgres_repository.go je Methode: List 0,0 % ->
+  95,0 %, SetTags 0,0 % -> 76,9 %, CreateBooking 0,0 % -> 87,5 %, CancelBooking 0,0 % ->
+  85,7 %, ListBookings 0,0 % -> 83,3 %, ListBookingsByEvent 0,0 % -> 83,3 %, GetBooking
+  0,0 % -> 75,0 %, FindAvailableResources 0,0 % -> 73,0 %, FindAlternatives 0,0 % -> 83,3 %,
+  scanBookings 0,0 % -> 85,7 %).
+- mutations-probe: in `CreateBooking` (postgres_repository.go:215) den pg-Fehlercode-Vergleich
+  von `"23P01"` auf `"00000"` geaendert (Backup vorher per `cp`).
+  `TestPostgresCreateBooking_SuccessAndConflict` sofort rot (erwartete ErrBookingConflict,
+  bekam den rohen pg-Fehler "conflicting key value violates exclusion constraint... SQLSTATE
+  23P01" durchgereicht). Datei per `cp` zurueckgedreht, `git diff --stat` gegen
+  postgres_repository.go danach leer, `go test ./internal/work/resource/...` wieder
+  komplett gruen.
+- verify vorgaenger: sauber (`8091d15b` — `git show --stat` gegengeprueft: nur eine neue
+  Testdatei `route_calendar_lists_categories_test.go` plus BACKLOG.yml/JOURNAL.md im Diff,
+  kein `.proto`, keine neue Route, kein `RequirePermission`, keine neue Tabelle, kein
+  gRPC-Bypass)
+- neue-units: `fix-generatejointoken-missing-event-tenant-check` (opus) — der unter
+  Schwerpunkt (2) beschriebene Produktionsfehler. Nicht in dieser Coverage-Unit gefixt, weil
+  eine Coverage-Unit kein Verhalten aendern darf; ans Backlog-Ende angehaengt mit vollem
+  scope/sources/notes/done_when.
+- offen: (1) Die neue Fix-Unit `fix-generatejointoken-missing-event-tenant-check` ist ein
+  echtes Sicherheitsproblem (Cross-Tenant-Zugriff auf LiveKit-Meetings) — sollte in einer der
+  naechsten Iterationen priorisiert werden, nicht bis zum Blockende liegen bleiben. (2) Wie
+  in Iteration 35 vermerkt bleibt die grobe `calendars:read`/`calendars:write`-Berechtigung
+  (keine Pro-Event-ACL) eine Architekturfrage fuer Luke — der neue Fix behebt nur das
+  fehlende Tenant-Scoping, nicht die fehlende Teilnehmer/Ersteller-Pruefung.

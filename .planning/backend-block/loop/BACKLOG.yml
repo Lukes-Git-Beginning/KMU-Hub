@@ -2018,7 +2018,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_calendar.go 45,5 %, 18 von 39 Handlern ungetestet"
     scope: >
       Zweite Kalender-Unit: Ressourcen (Raeume, Geraete), Erinnerungen und Beitritts-Token.
@@ -4797,3 +4797,63 @@ units:
         `TestRedeemShareLink_DeletedFile_StillDownloadable` sind aktualisiert und gruen
         (dokumentieren jetzt die Ablehnung, nicht mehr die Luecke)
       - go test -count=1 ./internal/document/file/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-generatejointoken-missing-event-tenant-check
+    phase: 4
+    service: calendar
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus cov-gateway-calendar-resources-and-reminders (Iteration 36): weder
+      `CalendarRoutes.HandleGenerateJoinToken` (route_calendar.go) noch
+      `CalendarGRPCServer.GenerateJoinToken` (internal/server/calendar_grpc.go:1293) pruefen,
+      ob `event_id` ueberhaupt zu einem existierenden Event gehoert, ob dieses Event zum
+      Tenant des Aufrufers gehoert, oder ob der Aufrufer irgendeine Beziehung zum Event hat
+      (Ersteller, Teilnehmer, Kalender-Mitglied). Der Handler parst `event_id` nur als UUID
+      und reicht sie direkt an `livekitService.GenerateRoomName(eventID)` weiter
+      (internal/work/livekit/service.go:74-77, Format `cal-{erste 8 Hex-Zeichen der UUID}`)
+      und dann an `livekitService.GenerateJoinToken(roomName, userID, userName)` — es gibt
+      an keiner Stelle einen Repository-Aufruf, der das Event laedt.
+      Jeder authentifizierte User mit der tenant-weiten Berechtigung "calendars:write" kann
+      also eine BELIEBIGE UUID als {id} posten und erhaelt ein gueltiges, 24h lang signiertes
+      LiveKit-Join-Token fuer den daraus abgeleiteten Raum — auch fuer UUIDs, die zu Events
+      ANDERER TENANTS gehoeren, da nichts nach `tenant_id` scopt (es gibt keinen Lookup).
+      Terminabsage aendert daran nichts: es wird nie geprueft, ob das Event ueberhaupt
+      existiert, also auch nicht, ob es geloescht/abgesagt wurde — das Token bleibt fuer die
+      vollen 24h gueltig, unabhaengig vom Event-Status.
+      Fix: `GenerateJoinToken` im gRPC-Server muss vor der Token-Erzeugung das Event ueber
+      den Calendar-Repository-Layer laden (tenant-gescoped, wie `GetEvent`), pruefen dass es
+      existiert und nicht abgesagt ist, und — analog zu den anderen Event-Lesepfaden in
+      diesem Paket (calendars:read tenant-weit, keine Pro-Event-ACL, siehe Journal Iteration
+      35) — mindestens die Tenant-Zugehoerigkeit erzwingen. Ob zusaetzlich eine
+      Teilnehmer/Ersteller-Pruefung noetig ist, ist dieselbe Architekturfrage wie bei
+      `HandleListEventAttendees`/`GetEvent` (Journal Iteration 35) und keine Voraussetzung
+      fuer diesen Fix — der Tenant-Scope ist das Minimum und steht fuer sich.
+    sources:
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/gateway/route_calendar.go
+      - backend/internal/work/livekit/service.go
+      - backend/internal/server/calendar_grpc_events_categories_reminders_test.go
+    notes: >
+      `TestGenerateJoinToken` (calendar_grpc_events_categories_reminders_test.go:940)
+      dokumentiert den aktuellen Zustand: "happy path" ruft mit einer frei erfundenen
+      `eventID := uuid.New()` auf und erwartet Erfolg, ohne dass ein Event je existiert hat.
+      Nach dem Fix muss dieser Test ein echtes (gestubbtes) Event mitbringen; ein neuer Test
+      fuer "event existiert nicht" und "event gehoert zu einem anderen Tenant" (jeweils
+      erwartete Ablehnung) gehoert dazu.
+      Kein Zusammenhang mit der bereits abgeschlossenen RBAC-Phase 1 — dies ist eine fehlende
+      Tenant-Pruefung auf Repository-Ebene, kein Permission-Guard-Thema.
+    done_when:
+      - >-
+        `GenerateJoinToken` (gRPC-Server) laedt das Event tenant-gescoped und lehnt eine
+        UUID ab, die zu keinem Event des aufrufenden Tenants gehoert (klarer Fehlercode,
+        keine Ausnahme fuer nicht-existente IDs)
+      - >-
+        Ein Test belegt: event_id aus einem ANDEREN Tenant fuehrt zur Ablehnung, nicht zu
+        einem gueltigen Join-Token
+      - >-
+        `TestGenerateJoinToken` ist aktualisiert (echtes Event statt frei erfundener UUID)
+        und dokumentiert nicht mehr den Ist-Zustand als Erfolgsfall
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
