@@ -1052,7 +1052,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/datev 79,7 % (CI-Stand 32570176303, Paket vorher selbst messen)"
     scope: >
       VERIFIZIERT 2026-08-24, Beobachtung aus Lauf 11 Iteration 51, nie als Unit angelegt.

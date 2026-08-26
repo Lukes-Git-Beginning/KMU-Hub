@@ -672,3 +672,91 @@ Kopf von `BACKLOG.yml`.
   Bewusst so gewaehlt, weil `RequirePermission`-Guards ueberall sonst im Gateway
   ebenfalls INNERHALB von `authWithIdempotency` sitzen — die Unit verlangt
   "dieselbe Kette wie die uebrigen Routen", nicht eine bessere.
+
+## Iteration 14 — fix-datev-token-refresh-thundering-herd — done — 2026-08-26 02:25
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag; Subject
+  `fix(biz): serialize DATEV OAuth refresh per tenant with singleflight`)
+- gebaut: `OAuthManager.GetAccessToken` (`internal/biz/datev/oauth.go:70`) las
+  den Cache unter `RLock`, gab das Lock frei und rief bei Ablauf
+  `RefreshAccessToken` ohne jedes Lock auf — zwei gleichzeitige Aufrufer fuer
+  denselben Tenant loesten damit zwei unabhaengige HTTP-Roundtrips gegen den
+  DATEV-Token-Endpunkt aus, beide mit demselben (noch nicht rotierten)
+  Refresh-Token. Fix: `refreshGroup singleflight.Group` (neues Feld auf
+  `OAuthManager`, `golang.org/x/sync/singleflight` — Paket war bereits
+  indirekte Dependency, `go mod tidy` hat es auf direkt gehoben, keine neue
+  Dependency). `GetAccessToken` prueft den Cache zuerst ausserhalb jeder
+  Sperre (`cachedToken`, reiner Lesezugriff wie bisher), faellt bei Ablauf
+  aber jetzt durch `refreshGroup.Do(tenantID.String(), ...)` statt direkt
+  `RefreshAccessToken` aufzurufen — gleichzeitige Aufrufer fuer denselben
+  Tenant teilen sich EINE Ausfuehrung, verschiedene Tenants blockieren sich
+  nicht (verschiedene Keys). Die eigentliche Arbeit passiert in
+  `refreshLocked`, das den Cache ERNEUT prueft (double-checked), bevor es
+  `RefreshAccessToken` aufruft — sonst wuerde ein Aufrufer, der erst NACH
+  einem bereits abgeschlossenen Refresh in die Gruppe eintritt, unnoetig
+  nochmal refreshen. `RefreshAccessToken` selbst ist unveraendert (immer ein
+  erzwungener Refresh) — bestehende direkte Aufrufer/Tests (`ExchangeCode`
+  ruft es nicht auf, aber sieben Tests rufen `om.RefreshAccessToken` direkt
+  und erwarten IMMER einen Serverhit) haetten sonst ihre Semantik verloren.
+  Caller-Grep (done_when-Pflicht): `GetAccessToken` wird nur von
+  `uploader.go:101,175` und `belegbilder.go:31` aufgerufen — beide ueber den
+  jetzt gesicherten Pfad. `RefreshAccessToken` hat ausserhalb der Tests KEINEN
+  direkten Caller (nur intern von `GetAccessToken`/`refreshLocked`) — kein
+  Reconnect-Pfad umgeht das Lock. Schwesterpruefung: `internal/biz/bexio/
+  auth.go` (`TokenManager.GetAccessToken`/`RefreshAccessToken`) hat exakt
+  dasselbe Muster (RLock lesen, ohne Lock refreshen) — NICHT mitgezogen, weil
+  `internal/biz/bexio` in diesem Lauf explizit gesperrt ist (BACKLOG.yml
+  Kopf, "GESPERRT IN DIESEM LAUF"). `internal/biz/lexware` hat kein
+  aequivalentes Muster: `APIKeyManager` (`lexware/auth.go`) haelt einen
+  statischen API-Key ohne Cache/Refresh-Zyklus.
+- gate: build ok (`./internal/biz/datev/...`) | vet ok | lint ok (0 issues,
+  `golangci-lint run --config .golangci.yml ./internal/biz/datev/...`) |
+  test ok (`./internal/biz/datev/` komplett gruen, 104 Tests, **0 Skips**
+  verifiziert per `go test -v | grep -i SKIP` — nur zwei Testnamen enthalten
+  das Wort "Skip", keine uebersprungenen Faelle; `DATABASE_URL` als
+  `kmuhub_app` gesetzt, die beiden DB-gaeteten Testdateien liefen also echt) |
+  migration n.a. (keine Tabelle, kein Schema angefasst) | rls-smoke n.a.
+  (keine Tabelle/Policy beruehrt) | route-drift n.a. (kein Gateway-Code, keine
+  Route angefasst, `./internal/gateway/` daher nicht Pflicht-Gate hier)
+- coverage: internal/biz/datev 80,8 % -> 81,1 % (selbst gemessen per
+  `git stash push -u -- internal/biz/datev/ go.mod go.sum` / `pop`).
+  `coverage_start` der Unit nennt 79,7 % aus einem aelteren CI-Lauf
+  (32570176303) — die eigene Vorher-Messung weicht leicht ab, vermutlich weil
+  eine der beiden vorangehenden `feat-scrub-dependent-pii-*`- oder
+  `harden-caldav-*`-Iterationen dieses Laufs das Paket nicht beruehrt hat und
+  der Bezugswert schlicht aelter ist als CI-Lauf 32735558575 (64,1 %-Gesamt),
+  auf den der Backlog-Kopf sich sonst bezieht.
+- mutations-probe: (1) `refreshLocked` auf `return om.RefreshAccessToken(ctx,
+  tenantID)` ohne den vorgeschalteten Cache-Check reduziert (Datei vorher per
+  `cp` gesichert) — `TestRefreshLocked_ReturnsCacheHitWithoutHittingVaultOrServer`
+  wurde rot ("must not refresh: the cache is already warm", der Vault-Stub
+  wurde entgegen der Erwartung angefasst), Datei per `cp` zurueckgedreht,
+  `git diff --stat` wieder identisch zum vorherigen Stand, kompletter
+  Testlauf danach gruen. (2) Vor dem Fix, am UNVERAENDERTEN Vorgaengerstand
+  (vor dieser Iteration), lief der alte Test
+  `TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint` bereits
+  gruen bei `calls == 2` — das war der dokumentierte Bug selbst, nicht die
+  Probe. Als Beleg fuer den Fix wurde derselbe Test umbenannt und auf
+  `calls == 1` umgestellt; er waere am alten Code rot gewesen (dort ist es
+  ja gerade der Beleg, dass der Fix vorher fehlte).
+- verify vorgaenger: sauber. `6cdb9ab0` aendert `cmd/gateway/main.go`,
+  `cmd/gateway/setup.go`, `internal/gateway/route_caldav.go` sowie die
+  zugehoerigen Tests — `NewCalDAVRoutes` nimmt jetzt `authMiddleware` und
+  `idempotencyMW` als getrennte Parameter, `useAPIChain` legt beide in
+  derselben Reihenfolge wie `authWithIdempotency` an. Kein `.proto`
+  angefasst, keine neue Route (`openapi.yaml` unveraendert, alle sieben Pfade
+  standen bereits drin), keine neue Tabelle, kein neuer
+  `RequirePermission`-Guard, keine gRPC-Umgehung (reine Middleware-
+  Verdrahtung). Der im Journal genannte Nebenfund (Basic-Auth-Realm-String
+  "KMU Hub CalDAV") ist als Beobachtung fuer Scan D10 vermerkt, nicht
+  gefixt — korrekt gegen die Unit-Notes.
+- neue-units: keine
+- offen: (1) Dieselbe Race existiert strukturidentisch in
+  `internal/biz/bexio/auth.go` (`TokenManager`) — NICHT gefixt, weil
+  `internal/biz/bexio` in diesem Lauf explizit gesperrt ist. Wird die Sperre
+  aufgehoben, ist der Fix hier eine direkte Vorlage. (2) Die
+  Refresh-Token-Rotationsfrage bei DATEV bleibt unbeantwortet (braucht
+  DATEV-Portalzugang) — der Fix ist unabhaengig davon richtig, reduziert aber
+  nur die Haeufigkeit des Problems, loest die Rotationsfrage selbst nicht.
+  (3) `-race`-Bestaetigung bleibt CI vorbehalten (kein gcc lokal); die neuen
+  Tests beweisen die Deduplizierung ueber Aufrufzaehlung am Fake-Server, nicht
+  ueber den Race-Detector.

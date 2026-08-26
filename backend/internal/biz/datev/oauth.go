@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/sync/singleflight"
 )
 
 // ErrReauthRequired means DATEV rejected the stored refresh token (a 4xx from
@@ -50,6 +51,12 @@ type OAuthManager struct {
 
 	mu    sync.RWMutex
 	cache map[uuid.UUID]*tokenCacheEntry
+
+	// refreshGroup collapses concurrent GetAccessToken calls for the same
+	// tenant into one HTTP roundtrip instead of each caller independently
+	// refreshing (and, when DATEV rotates refresh tokens on use, invalidating
+	// each other's requests). Keyed by tenantID.String().
+	refreshGroup singleflight.Group
 }
 
 func NewOAuthManager(vault VaultService, clientID, clientSecret, tokenURL string) *OAuthManager {
@@ -68,15 +75,44 @@ func datevVaultKey(tenantID uuid.UUID) string {
 }
 
 func (om *OAuthManager) GetAccessToken(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	if token, ok := om.cachedToken(tenantID); ok {
+		return token, nil
+	}
+
+	// Per-tenant singleflight: concurrent callers for the SAME tenant share one
+	// refresh instead of each independently hitting the token endpoint (and,
+	// on a token endpoint that rotates refresh tokens, invalidating each
+	// other's requests). Different tenants use different keys and never
+	// block each other.
+	v, err, _ := om.refreshGroup.Do(tenantID.String(), func() (any, error) {
+		return om.refreshLocked(ctx, tenantID)
+	})
+	if err != nil {
+		return "", err
+	}
+	return v.(string), nil
+}
+
+// refreshLocked runs inside refreshGroup's per-tenant section. It re-checks
+// the cache before refreshing (double-checked): a caller that only entered
+// the singleflight group after a previous refresh for this tenant already
+// completed would otherwise trigger a redundant, avoidable HTTP roundtrip.
+func (om *OAuthManager) refreshLocked(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	if token, ok := om.cachedToken(tenantID); ok {
+		return token, nil
+	}
+	return om.RefreshAccessToken(ctx, tenantID)
+}
+
+func (om *OAuthManager) cachedToken(tenantID uuid.UUID) (string, bool) {
 	om.mu.RLock()
 	entry, ok := om.cache[tenantID]
 	om.mu.RUnlock()
 
 	if ok && time.Now().Before(entry.expiresAt.Add(-30*time.Second)) {
-		return entry.accessToken, nil
+		return entry.accessToken, true
 	}
-
-	return om.RefreshAccessToken(ctx, tenantID)
+	return "", false
 }
 
 func (om *OAuthManager) RefreshAccessToken(ctx context.Context, tenantID uuid.UUID) (string, error) {

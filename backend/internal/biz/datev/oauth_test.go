@@ -89,19 +89,14 @@ func TestGetAccessToken_RefreshesWhenCacheNearExpiry(t *testing.T) {
 	}
 }
 
-// TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint documents
-// (does not fix) a gap: GetAccessToken takes no per-tenant lock around the
-// refresh. With a cold cache, every concurrent caller independently reaches
-// RefreshAccessToken and sends the SAME refresh token loaded from the vault
-// (neither has stored a rotated one yet). At a token endpoint that rotates
-// refresh tokens on use, one of the two concurrent requests would invalidate
-// the token the other is still presenting — that caller comes back with
-// ErrReauthRequired even though the connection was valid moments earlier,
-// forcing a reconnect. This test proves today's code makes 2 independent
-// requests instead of deduplicating/serializing them; the actual race (which
-// of the two wins at a real, rotating token endpoint) is a data race the
-// -race detector must confirm in CI (no gcc in this local environment).
-func TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint(t *testing.T) {
+// TestGetAccessToken_ConcurrentColdCacheSameTenantSharesOneRefresh proves the
+// thundering-herd fix: two concurrent GetAccessToken calls for the SAME
+// tenant with a cold cache collapse into exactly one HTTP roundtrip via
+// refreshGroup, instead of each independently reaching RefreshAccessToken
+// with the SAME (not yet rotated) refresh token. At a token endpoint that
+// rotates refresh tokens on use, two independent requests would have one
+// invalidate the token the other is still presenting.
+func TestGetAccessToken_ConcurrentColdCacheSameTenantSharesOneRefresh(t *testing.T) {
 	tenantID := uuid.New()
 
 	var mu sync.Mutex
@@ -115,12 +110,12 @@ func TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint(t *testing.
 		mu.Unlock()
 
 		if n == 1 {
-			// Hold the first response until the second request has also
-			// reached the server (or a bounded timeout), so the test proves
-			// both calls were in flight at once, not merely sequential.
+			// Hold the first response until the second request has had a
+			// chance to arrive, so the test proves a would-be-second call
+			// never reaches the server rather than merely losing a race.
 			select {
 			case <-release:
-			case <-time.After(2 * time.Second):
+			case <-time.After(200 * time.Millisecond):
 			}
 		} else {
 			close(release)
@@ -146,8 +141,82 @@ func TestGetAccessToken_ConcurrentColdCacheCallsBothHitTokenEndpoint(t *testing.
 	}
 	wg.Wait()
 
+	if calls != 1 {
+		t.Errorf("token endpoint called %d times, want exactly 1 (refreshGroup must collapse concurrent same-tenant calls)", calls)
+	}
+}
+
+// TestGetAccessToken_ConcurrentColdCacheDifferentTenantsBothRefresh proves the
+// per-tenant lock does not serialize unrelated tenants against each other —
+// a global lock would fix the herd but wrongly block tenants that share
+// nothing.
+func TestGetAccessToken_ConcurrentColdCacheDifferentTenantsBothRefresh(t *testing.T) {
+	tenantA, tenantB := uuid.New(), uuid.New()
+
+	var mu sync.Mutex
+	calls := 0
+	bothArrived := make(chan struct{})
+	var once sync.Once
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls++
+		n := calls
+		mu.Unlock()
+
+		if n == 1 {
+			// Block the first arrival until the second tenant's request also
+			// reaches the server, proving neither tenant waited on the other.
+			select {
+			case <-bothArrived:
+			case <-time.After(2 * time.Second):
+			}
+		} else {
+			once.Do(func() { close(bothArrived) })
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600}`))
+	}))
+	defer server.Close()
+
+	vault := &vaultStub{secret: "refresh-shared"}
+	om := NewOAuthManager(vault, "cid", "csecret", server.URL)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for _, tenantID := range []uuid.UUID{tenantA, tenantB} {
+		go func() {
+			defer wg.Done()
+			if _, err := om.GetAccessToken(context.Background(), tenantID); err != nil {
+				t.Errorf("GetAccessToken: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+
 	if calls != 2 {
-		t.Errorf("token endpoint called %d times, want 2 (both concurrent GetAccessToken calls refresh independently — no per-tenant lock exists)", calls)
+		t.Errorf("token endpoint called %d times, want 2 (different tenants must not block each other)", calls)
+	}
+}
+
+// TestRefreshLocked_ReturnsCacheHitWithoutHittingVaultOrServer proves the
+// double-checked cache read inside refreshLocked: a caller that enters the
+// per-tenant singleflight section after the cache was already refreshed by
+// someone else must not trigger a second, avoidable HTTP roundtrip. The vault
+// stub errors if touched at all, so any refresh attempt fails the test.
+func TestRefreshLocked_ReturnsCacheHitWithoutHittingVaultOrServer(t *testing.T) {
+	tenantID := uuid.New()
+	vault := &vaultStub{getErr: errors.New("must not refresh: the cache is already warm")}
+	om := NewOAuthManager(vault, "cid", "csecret", "http://unused.invalid")
+	om.cache[tenantID] = &tokenCacheEntry{accessToken: "warm-token", expiresAt: time.Now().Add(time.Hour)}
+
+	token, err := om.refreshLocked(context.Background(), tenantID)
+	if err != nil {
+		t.Fatalf("refreshLocked: %v", err)
+	}
+	if token != "warm-token" {
+		t.Errorf("token = %q, want warm-token (double-checked cache hit, not a fresh refresh)", token)
 	}
 }
 
