@@ -1705,3 +1705,67 @@ Kopf von `BACKLOG.yml`.
   sinnvoll NACH `fix-carddav-missing-tenant-context-blocks-all-operations`, sonst 401en auch
   diese Tests nur den bereits bekannten Bug erneut.
 
+## Iteration 29 — cov-gateway-inventar-locations-and-picking — done — 2026-08-26 05:02
+- commit: f41baa01
+- gebaut: Handler-Tests fuer alle 13 zuvor ungetesteten Inventar-Handler
+  (`internal/gateway/route_inventar_test.go`, Muster der bestehenden Datei: Validation,
+  MissingTenant, ServiceUnavailable, ReachesRPC): HandleListLocations, HandleCreateLocation,
+  HandleGetLocation, HandleUpdateLocation, HandleDeleteLocation, HandleListPickingLists,
+  HandleCreatePickingList, HandleGetPickingList, HandleUpdatePickingList,
+  HandleDeletePickingList, HandleUpsertPickingListItem, HandleDeletePickingListItem,
+  HandleBookPickingList. Zusaetzlich ein DB-gestuetzter Test in
+  `internal/inventar/postgres_repository_test.go`
+  (`TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID`) fuer den
+  Referenz-Integritaets-Teil von `done_when`. Idempotenz von HandleBookPickingList (kein
+  Doppel-Abzug) und Atomaritaet einer fehlgeschlagenen Kommissionierliste (keine Teilbuchung)
+  waren bereits VOR dieser Iteration vollstaendig durch Bestandstests belegt — service-seitig
+  (`internal/inventar/picking_service_test.go`:
+  TestBookPickingList_SecondBookingDoesNotMoveStockAgain,
+  TestBookPickingList_InsufficientStockLeavesEverythingUntouched) und repo-seitig gegen echtes
+  Postgres (`internal/inventar/picking_booking_tx_test.go`:
+  TestBookPickingListTx_UpsertConflictAndClaimAgainstRealSchema,
+  TestBookPickingListTx_PartialFailureRollsBackClaimAndStock) — keine Dopplung gebaut, stattdessen
+  in einem Doc-Kommentar an den neuen HandleBookPickingList-Tests referenziert.
+  Befund beim Bauen: `Service.DeleteLocation` -> `PostgresRepository.SoftDeleteLocation` prueft nie,
+  ob Items noch per `location_id` auf den Lagerort verweisen. Die FK-Klausel `ON DELETE SET NULL`
+  (`migrations/000184_inventory_locations.up.sql`) greift nur bei einem echten `DELETE`, das hier
+  nie passiert — nach dem Soft-Delete bleibt `item.location_id` unveraendert auf einen Lagerort
+  zeigen, den `GetLocation`/`ListLocations` als nicht mehr existent behandeln. Belegt durch den
+  neuen Repo-Test, als Fix-Unit ans Backlog-Ende gehaengt (siehe neue-units).
+- gate: build ok (`./internal/gateway/... ./internal/inventar/... ./cmd/gateway/...`) | vet ok
+  | lint ok (0 issues, `./internal/gateway/... ./internal/inventar/...`) | test ok
+  (`internal/inventar` 67 PASS/0 SKIP/0 FAIL, `internal/gateway` gruen inkl.
+  TestOpenAPIRouteDrift — 836 Routen gegen 838 Spec-Pfade, keine Route in dieser Unit angefasst,
+  Pflichtlauf trotzdem gruen) | migration n.a. (keine neue Tabelle/Spalte) | rls-smoke n.a.
+  (keine neue Tabelle/Policy — der neue Repo-Test dokumentiert eine bestehende
+  Referenz-Integritaets-Luecke, aendert aber keine Policy)
+- coverage: internal/gateway 63,1 % -> 63,9 % (`git stash push -u -- backend/internal/gateway/route_inventar_test.go
+  backend/internal/inventar/postgres_repository_test.go` fuer die Vorher-Messung, danach `stash pop`;
+  route_inventar.go im Speziellen, `go tool cover -func`: alle 13 Ziel-Handler von 0,0 % auf 80-95 %,
+  z. B. HandleBookPickingList 0,0 % -> 87,0 %, HandleDeleteLocation 0,0 % -> 81,2 %,
+  HandleListPickingLists 0,0 % -> 95,5 %). internal/inventar 72,9 % -> 72,9 % (unveraendert —
+  der neue Test deckt SoftDeleteLocation/GetItem, die bereits vollstaendig abgedeckt waren; der
+  Test belegt Verhalten, kein neues Coverage-Ziel, siehe `gebaut:`).
+- mutations-probe: in `HandleListPickingLists` (route_inventar.go) den `default:`-Zweig des
+  Status-Filter-Switch von `response.Error(400, ...)` auf `grpcReq.Status = &raw` geaendert
+  (cp-Sicherung vorher). `TestHandleListPickingLists_InvalidStatusFilter` wurde rot (503 statt
+  400, "connection error" statt "invalid status filter"), per `cp` zurueckgedreht, `git diff`
+  gegen `route_inventar.go` danach leer, betroffener Test wieder gruen.
+- verify vorgaenger: sauber (`df4b86a1` — `git show --stat` gegengeprueft: ausschliesslich zwei
+  neue DB-Testdateien gegen einen echten CardDAV/CRM-gRPC-Server, kein `.proto` im Diff, keine
+  Route, kein `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass, kein Stub; die beiden
+  dokumentierten Produktionsfehler (fehlender Tenant-Context, stille 20er-Truncation) wurden
+  bereits in Iteration 28 korrekt als `neue-units:` angehaengt)
+- neue-units: fix-inventar-location-soft-delete-leaves-dangling-item-references (sonnet,
+  VERIFIZIERTER Befund — SoftDeleteLocation laesst `location_id` an referenzierenden Items
+  unveraendert stehen statt sie zu bereinigen oder das Loeschen abzulehnen; Blast-Radius aktuell
+  begrenzt, weil `location_id` ueber REST derzeit nicht setzbar ist, siehe scope der Unit)
+- offen: (1) Der bereits aus Iteration 28 bekannte, unabhaengige Preflight-Befund
+  (`fix-409-double-meaning-on-grpc-conflict-routes` traegt `status: blocked` DIREKT in
+  `BACKLOG.yml` statt in `BACKLOG-NEXT.yml`/`BACKLOG-PARKED.yml`) besteht unveraendert fort —
+  ausserhalb des Scopes dieser Unit, Luke sollte ihn vor dem naechsten Lauf-Start bereinigen.
+  (2) `HandleGetStockReport`, `HandleExportInventory`, `HandleListInventurSessions`,
+  `HandleGetInventurSession`, `HandleListItemAttachments` bleiben bei 0,0 % in route_inventar.go —
+  nicht Teil dieser Unit (Scope war ausdruecklich auf Locations+Picking begrenzt), natuerlicher
+  Anschluss fuer die zweite der "zwei Inventar-Units" aus dem `scope`-Text.
+
