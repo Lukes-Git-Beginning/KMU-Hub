@@ -1519,7 +1519,7 @@ Kopf von `BACKLOG.yml`.
   Commit-SHA dieser Iteration wird wie ueblich im naechsten chore-Commit nachgetragen.
 
 ## Iteration 27 — cov-caldav-backend-real-protocol-paths — done — 2026-08-26 05:10
-- commit: (wird im naechsten chore-Commit nachgetragen)
+- commit: a1973183
 - gebaut: zwei neue Testdateien in `internal/caldav/` fuer `caldav_backend.go` (259/316
   Statements ungedeckt, 18,0 %):
   `caldav_backend_grpc_test.go` (kein DB-Zugriff): `CurrentUserPrincipal`/`CalendarHomeSetPath`
@@ -1596,8 +1596,7 @@ Kopf von `BACKLOG.yml`.
   Testdatei: kein Treffer).
 - neue-units: fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx (verifizierter
   Produktionsfehler, siehe Befund oben — status: todo, ans Backlog-Ende gehaengt)
-- offen: Commit-SHA dieser Iteration wird wie ueblich im naechsten chore-Commit nachgetragen.
-  Die neue Fix-Unit ist bewusst noch NICHT priorisiert eingeordnet (deps: []) — sie steht am
+- offen: Die neue Fix-Unit ist bewusst noch NICHT priorisiert eingeordnet (deps: []) — sie steht am
   Backlog-Ende und wird erst gezogen, wenn alle vorherigen `todo`-Units mit erfuellten `deps`
   durch sind. Gegeben die Schwere (CalDAV-Schreiben ist production-weit kaputt) waere eine
   manuelle Vorziehung durch Luke sinnvoll, statt auf die natuerliche Reihenfolge zu warten.
