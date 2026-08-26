@@ -1366,7 +1366,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 56,6 %; route_hr.go 36,4 %, 33 von 55 Handlern ungetestet"
     scope: >
       Zweite HR-Unit: die Zeiterfassung. Ungetestet (Stand 2026-08-24):
