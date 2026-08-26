@@ -1889,7 +1889,7 @@ Kopf von `BACKLOG.yml`.
   `report_id`) — nicht Teil dieser Unit untersucht, nur bei den Measurement-Handlern.
 
 ## Iteration 32 — cov-gateway-rapporte-lines-attachments-export — done — 2026-08-26 05:31
-- commit: <wird in Folge-Commit ergaenzt>
+- commit: 94076a6d
 - gebaut: Handler-Tests (MissingTenant/InvalidIDUUID/ServiceUnavailable/ReachesRPC plus
   Validierungsfaelle) fuer alle zwoelf in dieser Unit genannten Handler: HandleUpdateLine,
   HandleDeleteLine, HandleListLines, HandleDeleteAttachment, HandleListAttachments,
