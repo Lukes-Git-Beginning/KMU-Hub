@@ -2690,7 +2690,7 @@ Kopf von `BACKLOG.yml`.
   eines physischen Wareneingangs — im Zweifel `blocked` mit Frage an Luke.
 
 ## Iteration 43 — cov-gateway-einkauf-purchase-order-lifecycle — done — 2026-08-26 07:22
-- commit: <wird nach diesem Eintrag gesetzt, siehe naechster chore-Commit>
+- commit: 4107e6b8
 - gebaut: Neue Datei `route_einkauf_lifecycle_test.go` deckt die 13 zuvor
   ungetesteten Gateway-Handler ab (HandleGetPO, HandleListPOs, HandleUpdatePO,
   HandleDeletePO, HandleCancelPO, HandleSubmitPO, HandleListPOLines,
