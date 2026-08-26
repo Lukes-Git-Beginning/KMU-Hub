@@ -611,7 +611,7 @@ units:
     service: calendar
     model: opus
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
     scope: >
       Fund aus cov-gateway-calendar-resources-and-reminders (Iteration 36): weder
