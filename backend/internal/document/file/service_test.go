@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // --- Mock FileStore ---
@@ -1213,3 +1214,188 @@ func TestRedeemShareLink_IndistinguishableFailures(t *testing.T) {
 }
 
 func timePtr(t time.Time) *time.Time { return &t }
+
+// --- Register (presigned browser-direct upload) ---
+
+func TestRegister_Success(t *testing.T) {
+	svc, repo, _ := newTestService()
+	input := RegisterInput{
+		FolderID: uuid.New(), Filename: "presigned.pdf", MimeType: "application/pdf",
+		FileSize: 2048, StorageKey: "documents/presigned/" + uuid.NewString(), OwnerID: uuid.New(),
+	}
+
+	file, err := svc.Register(context.Background(), input)
+
+	require.NoError(t, err)
+	require.NotNil(t, file)
+	assert.Equal(t, input.StorageKey, file.StorageKey)
+	assert.Equal(t, 1, file.CurrentVersion)
+	_, ok := repo.files[file.ID]
+	assert.True(t, ok)
+	versions := repo.versions[file.ID]
+	require.Len(t, versions, 1)
+	assert.Equal(t, input.StorageKey, versions[0].StorageKey)
+}
+
+func TestRegister_EmptyFilename(t *testing.T) {
+	svc, _, _ := newTestService()
+	_, err := svc.Register(context.Background(), RegisterInput{FileSize: 10, StorageKey: "k", OwnerID: uuid.New()})
+	assert.ErrorIs(t, err, ErrFilenameRequired)
+}
+
+func TestRegister_MissingStorageKey(t *testing.T) {
+	svc, _, _ := newTestService()
+	_, err := svc.Register(context.Background(), RegisterInput{Filename: "a.pdf", FileSize: 10, OwnerID: uuid.New()})
+	assert.ErrorIs(t, err, ErrStorageKeyMissing)
+}
+
+func TestRegister_ZeroSize(t *testing.T) {
+	svc, _, _ := newTestService()
+	_, err := svc.Register(context.Background(), RegisterInput{Filename: "a.pdf", StorageKey: "k", OwnerID: uuid.New()})
+	assert.ErrorIs(t, err, ErrFileSizeZero)
+}
+
+func TestRegister_TooLarge(t *testing.T) {
+	svc, _, _ := newTestService()
+	_, err := svc.Register(context.Background(), RegisterInput{
+		Filename: "a.pdf", FileSize: 100 * 1024 * 1024, StorageKey: "k", OwnerID: uuid.New(),
+	})
+	assert.ErrorIs(t, err, ErrFileTooLarge)
+}
+
+// --- ListVersions / RevertVersion / ListActivity / LogDownload (service wrappers) ---
+
+func TestListVersions_Service(t *testing.T) {
+	svc, repo, _ := newTestService()
+	file := seedFile(repo)
+	v := &models.DocumentFileVersion{ID: uuid.New(), FileID: file.ID, VersionNumber: 1}
+	repo.versions[file.ID] = []*models.DocumentFileVersion{v}
+
+	versions, err := svc.ListVersions(context.Background(), file.ID)
+	require.NoError(t, err)
+	require.Len(t, versions, 1)
+	assert.Equal(t, v.ID, versions[0].ID)
+}
+
+func TestRevertVersion_Success(t *testing.T) {
+	svc, repo, store := newTestService()
+	file := seedFile(repo)
+	file.CurrentVersion = 2
+	oldVersion := &models.DocumentFileVersion{
+		ID: uuid.New(), FileID: file.ID, VersionNumber: 1, StorageKey: "old-key", FileSize: 5,
+	}
+	repo.versions[file.ID] = []*models.DocumentFileVersion{oldVersion}
+
+	reverted, err := svc.RevertVersion(context.Background(), file.ID, 1, uuid.New(), file.TenantID)
+
+	require.NoError(t, err)
+	require.NotNil(t, reverted)
+	assert.Equal(t, 3, reverted.VersionNumber)
+	assert.Contains(t, reverted.StorageKey, file.ID.String())
+	assert.Equal(t, 3, file.CurrentVersion)
+	assert.True(t, store.uploaded[reverted.StorageKey])
+}
+
+func TestRevertVersion_DeletedFile(t *testing.T) {
+	svc, repo, _ := newTestService()
+	file := seedFile(repo)
+	file.IsDeleted = true
+
+	_, err := svc.RevertVersion(context.Background(), file.ID, 1, uuid.New(), file.TenantID)
+	assert.ErrorIs(t, err, ErrFileDeleted)
+}
+
+func TestRevertVersion_UnknownVersion(t *testing.T) {
+	svc, repo, _ := newTestService()
+	file := seedFile(repo)
+
+	_, err := svc.RevertVersion(context.Background(), file.ID, 99, uuid.New(), file.TenantID)
+	assert.ErrorIs(t, err, ErrVersionNotFound)
+}
+
+func TestListActivity_Service(t *testing.T) {
+	svc, repo, _ := newTestService()
+	file := seedFile(repo)
+	activity := &models.DocumentFileActivity{ID: uuid.New(), FileID: file.ID, Action: models.DocumentActivityUploaded}
+	repo.activity[file.ID] = []*models.DocumentFileActivity{activity}
+
+	got, err := svc.ListActivity(context.Background(), file.ID, file.TenantID)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, activity.ID, got[0].ID)
+}
+
+func TestLogDownload_RecordsActivity(t *testing.T) {
+	svc, repo, _ := newTestService()
+	file := seedFile(repo)
+	actor := uuid.New()
+
+	svc.LogDownload(context.Background(), file.ID, file.TenantID, actor)
+
+	activities := repo.activity[file.ID]
+	require.Len(t, activities, 1)
+	assert.Equal(t, models.DocumentActivityDownloaded, activities[0].Action)
+	assert.Equal(t, actor, activities[0].ActorID)
+}
+
+// --- SetEventEmitter ---
+
+type recordingEmitter struct {
+	events []models.EventPayload
+}
+
+func (r *recordingEmitter) EmitDocumentEvent(_ context.Context, payload models.EventPayload) error {
+	r.events = append(r.events, payload)
+	return nil
+}
+
+func TestSetEventEmitter_EmitsOnUpload(t *testing.T) {
+	svc, _, _ := newTestService()
+	emitter := &recordingEmitter{}
+	svc.SetEventEmitter(emitter)
+
+	_, err := svc.Upload(context.Background(), validUploadInput())
+
+	require.NoError(t, err)
+	require.Len(t, emitter.events, 1)
+	assert.Equal(t, event.EventDocumentUploaded, emitter.events[0].Type)
+}
+
+// --- Deleted-file gaps in the share link paths ---
+//
+// Every other read path that starts from a tenant-scoped repo.GetByID
+// (GetDownloadURL, LinkToEntity, Move, Copy, CreateVersion, RevertVersion)
+// checks file.IsDeleted immediately after and refuses with ErrFileDeleted.
+// CreateShareLink and RedeemShareLink do not. Delete() deliberately keeps the
+// object in MinIO to allow recovery — which means a "deleted" file stays
+// reachable through any share link that already existed, and a brand new
+// public link can still be minted for it after deletion. These two tests
+// pin the CURRENT behavior; see the filed fix-unit for the actual guard.
+
+func TestCreateShareLink_DeletedFile_NotRejected(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	require.NoError(t, svc.Delete(context.Background(), file.ID, tenant))
+
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+
+	require.NoError(t, err, "gap: CreateShareLink does not check file.IsDeleted")
+	require.NotNil(t, link)
+}
+
+func TestRedeemShareLink_DeletedFile_StillDownloadable(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+	require.NoError(t, err)
+
+	require.NoError(t, svc.Delete(context.Background(), file.ID, tenant))
+
+	dl, err := svc.RedeemShareLink(context.Background(), link.Token, "")
+
+	require.NoError(t, err, "gap: RedeemShareLink does not check file.IsDeleted, so the link outlives the delete")
+	require.NotNil(t, dl)
+	assert.Equal(t, file.Filename, dl.Filename)
+}

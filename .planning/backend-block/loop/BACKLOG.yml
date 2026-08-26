@@ -1899,7 +1899,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/document/file 55,8 % (262 ungedeckt von 593); postgres_repository.go 38,2 %, service.go 66,3 %"
     scope: >
       Dokumentenablage unter dem Gateway. `postgres_repository.go` steht bei 38,2 % mit 155
@@ -4742,3 +4742,58 @@ units:
         `TestSaveSignature_OverwritesExistingSignatureWithoutGuard` ist aktualisiert und gruen
         (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
       - go test -count=1 ./internal/rapporte/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-document-share-link-survives-file-deletion
+    phase: 4
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-document-file-repository-and-service`, siehe
+      `TestCreateShareLink_DeletedFile_NotRejected` und
+      `TestRedeemShareLink_DeletedFile_StillDownloadable`,
+      `internal/document/file/service_test.go`). Jeder andere Lesepfad in `service.go`, der mit
+      einem tenant-gescopten `s.repo.GetByID` beginnt, prueft danach explizit `file.IsDeleted`
+      und lehnt mit `ErrFileDeleted` ab: `GetDownloadURL` (Zeile 772), `LinkToEntity` (962),
+      `Move` (747), `Copy` (665), `CreateVersion` (820), `RevertVersion` (888),
+      `GetVersionDownloadURL` (788). `CreateShareLink` (224) und `RedeemShareLink` (330) tun das
+      nicht. `Delete` loescht bewusst nicht aus MinIO ("Does NOT remove from MinIO (enables
+      recovery)") — das bedeutet in der Praxis: (1) fuer eine bereits geloeschte Datei kann
+      weiterhin ein neuer, oeffentlicher, unauthentifizierter Share-Link erzeugt werden, und
+      (2) ein Share-Link, der VOR dem Loeschen erzeugt wurde, liefert nach dem Loeschen
+      unveraendert weiter einen funktionierenden Presigned-Download — die Sichtbarkeit endet
+      nicht mit dem "Loeschen" der Datei. Ein Nutzer, der eine Datei aus Compliance- oder
+      Datenschutzgruenden loescht, geht davon aus, dass damit auch der oeffentliche Zugriff
+      endet; das Gegenteil ist der Fall.
+      Fix vermutlich: in beiden Methoden nach dem `s.repo.GetByID`-Aufruf `if file.IsDeleted`
+      pruefen und mit `ErrFileDeleted` (CreateShareLink) bzw. `ErrShareLinkInvalid`
+      (RedeemShareLink — die oeffentliche Route darf wie bei jedem anderen Fehlschlag keine
+      Unterscheidung zwischen "Link ungueltig" und "Datei geloescht" preisgeben, siehe
+      Doku-Kommentar auf `RedeemShareLink`) zurueckgeben.
+    sources:
+      - backend/internal/document/file/service.go
+      - backend/internal/document/file/service_test.go
+      - backend/internal/document/file/errors.go
+    notes: >
+      `TestCreateShareLink_DeletedFile_NotRejected` und
+      `TestRedeemShareLink_DeletedFile_StillDownloadable` dokumentieren den Ist-Zustand (beide
+      Aufrufe gelingen aktuell mit `err == nil`). Nach dem Fix muessen beide Tests die Ablehnung
+      erwarten (Testnamen und Kommentare entsprechend anpassen — die Doku-Aussage "gap:"
+      verschwindet dann). `RedeemShareLink` muss weiterhin die Indistinguishable-Failures-
+      Eigenschaft wahren (`TestRedeemShareLink_IndistinguishableFailures`): eine geloeschte
+      Datei darf nicht zu einer anderen Fehlermeldung fuehren als ein unbekannter Token.
+    done_when:
+      - >-
+        `CreateShareLink` lehnt eine bereits geloeschte Datei ab, statt einen neuen Link zu
+        erzeugen
+      - >-
+        `RedeemShareLink` lehnt einen Link auf eine inzwischen geloeschte Datei ab (mit demselben
+        `ErrShareLinkInvalid` wie jeder andere ungueltige Fall), statt den Download auszuliefern
+      - >-
+        `TestCreateShareLink_DeletedFile_NotRejected` und
+        `TestRedeemShareLink_DeletedFile_StillDownloadable` sind aktualisiert und gruen
+        (dokumentieren jetzt die Ablehnung, nicht mehr die Luecke)
+      - go test -count=1 ./internal/document/file/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips

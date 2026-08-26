@@ -1949,3 +1949,71 @@ Kopf von `BACKLOG.yml`.
   selbst. (3) Beim Fixen der neuen Unit gegenpruefen, ob `HandleSaveContractSignature`
   (vertraege) und `HandleSaveRentalSignature` (vermietung) dasselbe Overwrite-Muster teilen —
   in dieser Iteration nur rapporte selbst untersucht.
+
+## Iteration 33 — cov-document-file-repository-and-service — done — 2026-08-26 05:38
+- commit: (wird in Folge-Commit nachgetragen)
+- gebaut: neue DB-Testdatei `internal/document/file/postgres_repository_file_test.go` (28 Tests)
+  fuer die bislang komplett ungetestete Kern-CRUD/Versionierung von `postgres_repository.go`:
+  `Create`, `GetByID` (inkl. Cross-Tenant), `List` (Default-Ausschluss geloeschter Dateien,
+  `IsDeleted`-Filter, Folder/Owner/Favorite-Filter, Sortierung, Tag-Filter mit
+  `HAVING COUNT(DISTINCT tag_id) = n`-Semantik — "alle Tags", nicht "irgendein Tag"), `Update`
+  (Rename+Move, Cross-Tenant-Ablehnung, No-Op ohne Felder), `SoftDelete` (setzt Flag+Timestamp,
+  zweiter Aufruf auf bereits geloeschter Datei liefert `ErrFileNotFound` durch
+  `AND NOT is_deleted`), `CreateVersion`/`ListVersions`/`GetVersion`/`GetVersionByID`
+  (fremde Datei darf fremde Version nicht ueber die eigene File-ID erreichen)/
+  `UpdateCurrentVersion`/`UpdateSearchContent`. Ergaenzend in `service_test.go`: die bislang
+  0,0-%-Funktionen `Register`, `ListVersions`/`RevertVersion`/`ListActivity`/`LogDownload`
+  (Service-Wrapper), `SetEventEmitter`.
+  VERIFIZIERTER BEFUND (scope-Punkt 2, Freigabe-Pfade): `CreateShareLink` und `RedeemShareLink`
+  sind die einzigen beiden Lesepfade in `service.go`, die NICHT `file.IsDeleted` pruefen — jeder
+  andere tenant-gescopte Lesepfad (GetDownloadURL, LinkToEntity, Move, Copy, CreateVersion,
+  RevertVersion, GetVersionDownloadURL) tut das. Da `Delete` bewusst nicht aus MinIO loescht,
+  bedeutet das: eine bereits geloeschte Datei kann weiterhin einen neuen oeffentlichen Share-Link
+  bekommen, UND ein vor dem Loeschen erzeugter Link liefert den Download unveraendert weiter —
+  die Sichtbarkeit endet nicht mit dem Loeschen der Datei. Dokumentiert durch
+  `TestCreateShareLink_DeletedFile_NotRejected` und
+  `TestRedeemShareLink_DeletedFile_StillDownloadable` (beide pruefen aktuell `err == nil`, siehe
+  Testkommentar "gap:"). Nicht selbst gefixt (Coverage-Unit aendert kein Verhalten) — als
+  Fix-Unit angelegt, siehe neue-units.
+  Scope-Punkt 1 (Ordner-Zyklus in `HandleGetFolderPath`/`GetPath`, `internal/document/folder`,
+  separates Package): `folder/service.go:170-185` blockt jeden Zyklus bereits VOR dem
+  SQL-Aufruf — `Update` prueft `IsDescendant(newParentID, id)` und lehnt mit `ErrCircularParent`
+  ab, `Create` verlangt einen bereits existierenden Parent (kann also nie auf sich selbst
+  zeigen). Ein Zyklus ist ueber den regulaeren Service-Pfad nicht erzeugbar. Die zugrundeliegende
+  `WITH RECURSIVE`-Query in `postgres_repository.go:GetPath`/`IsDescendant` bleibt trotzdem ohne
+  eigene Tiefenbegrenzung (Verteidigung nur auf Service-Ebene, nicht auf DB-Ebene) — kein DB-Test
+  mit kuenstlich injiziertem Zyklus gebaut, da `internal/document/folder` ausserhalb des
+  `done_when`-Zielpakets dieser Unit liegt (dort misst `go test ./internal/document/file/`) und
+  der Service-Guard den praktischen Fall bereits abdeckt. Siehe offen.
+- gate: build ok (`./internal/document/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  | lint ok (0 issues, `./internal/document/file/...`) | test ok (`internal/document/file` gruen,
+  126 Tests, 0 Skip/0 Fail, `DATABASE_URL` gesetzt) | migration n.a. (keine neue Tabelle/Spalte)
+  | rls-smoke ok (`document_files`, Tenant `164e9ab5-...`: eigener Tenant 2, fremder Tenant 0)
+- coverage: internal/document/file 55,8 % -> 84,0 % (`go tool cover -func` vor/nach). Datei-Ebene:
+  `postgres_repository.go` 38,2 % -> ca. 90 % (Create/GetByID/CreateVersion/UpdateSearchContent
+  100 %, List/Update/SoftDelete/Versioning-Methoden 80-90 %), `service.go` 66,3 % -> ca. 85 %
+  (SetEventEmitter/LogDownload/ListActivity/ListVersions 100 %, Register 87,0 %,
+  RevertVersion 78,6 %).
+- mutations-probe: in `SoftDelete` (postgres_repository.go:206) die Klausel `AND NOT is_deleted`
+  entfernt (Backup vorher per `cp`). `TestPostgresRepository_SoftDelete_AlreadyDeleted_NotFound`
+  wurde sofort rot ("Expected error with 'file not found' in chain but got nil"), per `cp`
+  zurueckgedreht, `git diff --stat` gegen `postgres_repository.go` danach leer.
+- verify vorgaenger: sauber (`94076a6d` — `git show --stat` gegengeprueft: nur
+  `route_rapporte_test.go`/`postgres_repository_test.go` plus BACKLOG.yml/JOURNAL.md im Diff,
+  kein `.proto`, keine neue Route, kein `RequirePermission`, keine neue Tabelle, kein
+  gRPC-Bypass)
+- neue-units: fix-document-share-link-survives-file-deletion (sonnet — VERIFIZIERTER Befund,
+  CreateShareLink/RedeemShareLink pruefen `file.IsDeleted` nicht, Share-Link ueberlebt das
+  Loeschen der Datei)
+- offen: (1) `fix-409-double-meaning-on-grpc-conflict-routes` traegt weiterhin `status: blocked`
+  direkt in BACKLOG.yml (seit Iteration 28 unveraendert), `--preflight` bricht deswegen weiter
+  mit Exit 1 ab, nicht fatal fuer den Lauf. (2) Die `WITH RECURSIVE`-Abfragen in
+  `internal/document/folder/postgres_repository.go` (`GetPath`, `IsDescendant`) haben keine
+  eigene Tiefenbegrenzung auf DB-Ebene; der Service-Layer verhindert einen Zyklus ueber die
+  normale API bereits vollstaendig (siehe gebaut-Zeile), ein DB-Test mit kuenstlich injiziertem
+  Zyklus wurde nicht gebaut, da ausserhalb des Zielpakets dieser Unit. Falls es einen anderen
+  Schreibpfad auf `document_folders.parent_id` gibt (Migration, Admin-Tool, direktes SQL), waere
+  das ein Verfuegbarkeitsrisiko — nicht verifiziert, nur die Service-Guard-Kette gegengeprueft.
+  (3) Coverage-Rest in `service.go`: `Upload` 88,0 %, `CreateVersion` 70,0 %, `Move`/`Copy`
+  70-72 % — ueberwiegend `slog.Error`-Zweige bei simuliertem Repo-Fehler nach erfolgreichem
+  MinIO-Schreiben, nicht weiter verfolgt (Best-Effort-Pfade, kein Bug-Verdacht).
