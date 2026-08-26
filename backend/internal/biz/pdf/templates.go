@@ -96,19 +96,32 @@ func buildAccentLine(accentColor *props.Color) core.Row {
 	)
 }
 
-// buildRecipient creates the recipient address block.
-func buildRecipient(name, address string) core.Row {
+// buildRecipient creates the recipient address block, including the buyer's
+// USt-IdNr. when known. The invoice XML (BT-48, einvoice/generator_doc.go
+// buildBuyerParty) always carries CustomerUStIDNr when set -- the PDF must
+// not print something different for the same document. Omitted entirely
+// when empty, like the other optional blocks in this file (buildNotesSection,
+// the ValidUntil row in GenerateQuotePDF), so no dangling "USt-IdNr.: " line
+// appears for buyers without one.
+func buildRecipient(name, address, vatID string) core.Row {
+	lines := []core.Component{
+		text.New(name, props.Text{
+			Size:  10,
+			Style: fontstyle.Bold,
+		}),
+		text.New(address, props.Text{
+			Top:  5,
+			Size: 9,
+		}),
+	}
+	if vatID != "" {
+		lines = append(lines, text.New(fmt.Sprintf("USt-IdNr.: %s", vatID), props.Text{
+			Top:  10,
+			Size: 8,
+		}))
+	}
 	return row.New(20).Add(
-		col.New(8).Add(
-			text.New(name, props.Text{
-				Size:  10,
-				Style: fontstyle.Bold,
-			}),
-			text.New(address, props.Text{
-				Top:  5,
-				Size: 9,
-			}),
-		),
+		col.New(8).Add(lines...),
 		col.New(4),
 	)
 }

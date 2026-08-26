@@ -92,7 +92,7 @@ func (g *Generator) GenerateQuotePDF(quote models.Quote) ([]byte, error) {
 	m.AddRows(row.New(5)) // spacer
 
 	// Recipient
-	m.AddRows(buildRecipient(quote.CustomerName, quote.CustomerAddress))
+	m.AddRows(buildRecipient(quote.CustomerName, quote.CustomerAddress, quote.CustomerUStIDNr))
 	m.AddRows(row.New(5)) // spacer
 
 	// Document title
@@ -170,7 +170,7 @@ func (g *Generator) buildInvoiceDoc(invoice models.Invoice) (core.Maroto, error)
 	m.AddRows(row.New(5))
 
 	// Recipient
-	m.AddRows(buildRecipient(invoice.CustomerName, invoice.CustomerAddress))
+	m.AddRows(buildRecipient(invoice.CustomerName, invoice.CustomerAddress, invoice.CustomerUStIDNr))
 	m.AddRows(row.New(5))
 
 	// Document title
@@ -232,6 +232,17 @@ func (g *Generator) buildInvoiceDoc(invoice models.Invoice) (core.Maroto, error)
 
 // GenerateCreditNotePDF generates a PDF for a credit note (Gutschrift).
 func (g *Generator) GenerateCreditNotePDF(creditNote models.CreditNote) ([]byte, error) {
+	m, err := g.buildCreditNoteDoc(creditNote)
+	if err != nil {
+		return nil, err
+	}
+	return g.generate(m)
+}
+
+// buildCreditNoteDoc assembles the credit note maroto document without
+// finalizing it to PDF bytes, so tests can inspect the rendered content via
+// m.GetStructure() instead of a binary PDF diff -- same split as buildInvoiceDoc.
+func (g *Generator) buildCreditNoteDoc(creditNote models.CreditNote) (core.Maroto, error) {
 	if err := ValidateCompanySettingsForPDF(g.settings); err != nil {
 		return nil, err
 	}
@@ -243,7 +254,7 @@ func (g *Generator) GenerateCreditNotePDF(creditNote models.CreditNote) ([]byte,
 	m.AddRows(row.New(5))
 
 	// Recipient
-	m.AddRows(buildRecipient(creditNote.CustomerName, creditNote.CustomerAddress))
+	m.AddRows(buildRecipient(creditNote.CustomerName, creditNote.CustomerAddress, creditNote.CustomerUStIDNr))
 	m.AddRows(row.New(5))
 
 	// Document title
@@ -292,7 +303,7 @@ func (g *Generator) GenerateCreditNotePDF(creditNote models.CreditNote) ([]byte,
 	}
 	m.AddRows(buildTotalsSection(*breakdown, creditNote.TaxMode)...)
 
-	return g.generate(m)
+	return m, nil
 }
 
 // GenerateZUGFeRDInvoicePDF generates an invoice PDF with embedded Factur-X/ZUGFeRD 2.1 XML.
@@ -319,7 +330,7 @@ func (g *Generator) GenerateDunningPDF(dunning models.DunningRecord, invoice mod
 	m.AddRows(row.New(5))
 
 	// Recipient
-	m.AddRows(buildRecipient(invoice.CustomerName, invoice.CustomerAddress))
+	m.AddRows(buildRecipient(invoice.CustomerName, invoice.CustomerAddress, invoice.CustomerUStIDNr))
 	m.AddRows(row.New(5))
 
 	// Date

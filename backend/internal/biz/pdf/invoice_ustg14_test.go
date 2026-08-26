@@ -233,6 +233,99 @@ func TestInvoicePDF_KleinunternehmerExemptionHint(t *testing.T) {
 	assertContainsOnce(t, texts, "Abschnitt 19 UStG")
 }
 
+// countPrefixed counts how many rendered texts start with prefix -- used
+// where a plain assertNotContains would also match the issuer's own
+// "USt-IdNr.:" line printed in header and footer regardless of the buyer.
+func countPrefixed(texts []string, prefix string) int {
+	n := 0
+	for _, s := range texts {
+		if strings.HasPrefix(s, prefix) {
+			n++
+		}
+	}
+	return n
+}
+
+// TestInvoicePDF_BuyerVATIDPrintedInReverseCharge is the mutation-relevant
+// regression test for the fix in this iteration: the PDF recipient block
+// never printed the buyer's USt-IdNr., while the invoice XML (BT-48,
+// einvoice/generator_doc.go buildBuyerParty) always carries CustomerUStIDNr
+// when set -- the same reverse-charge invoice disagreed with itself across
+// its two output formats.
+func TestInvoicePDF_BuyerVATIDPrintedInReverseCharge(t *testing.T) {
+	t.Parallel()
+
+	g := NewGenerator(fullTestSettings())
+	inv := baseTestInvoice(t)
+	inv.TaxMode = models.TaxModeReverseCharge
+	inv.TotalTax = decimal.Zero
+	inv.GrossTotal = inv.Subtotal
+	inv.TaxBreakdownRaw = nil
+	inv.CustomerUStIDNr = "ATU12345678"
+
+	m, err := g.buildInvoiceDoc(inv)
+	if err != nil {
+		t.Fatalf("buildInvoiceDoc: %v", err)
+	}
+	texts := renderedTexts(t, m.GetStructure())
+
+	assertContainsOnce(t, texts, "USt-IdNr.: ATU12345678")
+}
+
+// TestInvoicePDF_BuyerVATIDOmittedWhenEmpty proves the buyer VAT-ID line is
+// left out entirely (not printed with an empty value) when the customer has
+// none on file. baseTestInvoice leaves CustomerUStIDNr at its zero value.
+// Counts "USt-IdNr.:"-prefixed lines instead of asserting absence of the
+// whole prefix, because the issuer's own USt-IdNr. legitimately prints it
+// twice (header + footer) on every invoice regardless of the buyer.
+func TestInvoicePDF_BuyerVATIDOmittedWhenEmpty(t *testing.T) {
+	t.Parallel()
+
+	g := NewGenerator(fullTestSettings())
+	inv := baseTestInvoice(t)
+
+	m, err := g.buildInvoiceDoc(inv)
+	if err != nil {
+		t.Fatalf("buildInvoiceDoc: %v", err)
+	}
+	texts := renderedTexts(t, m.GetStructure())
+
+	if got := countPrefixed(texts, "USt-IdNr.:"); got != 2 {
+		t.Errorf("expected exactly 2 \"USt-IdNr.:\" lines (issuer header + footer), got %d in %v", got, texts)
+	}
+}
+
+// TestCreditNotePDF_BuyerVATIDPrinted belegt, dass die Gutschrift dasselbe
+// buildRecipient-Template nutzt wie die Rechnung: creditnote/service.go:137
+// kopiert CustomerUStIDNr unveraendert von der Rechnung, GenerateCreditNotePDF
+// reicht es genauso wie GenerateInvoicePDF an buildRecipient durch.
+func TestCreditNotePDF_BuyerVATIDPrinted(t *testing.T) {
+	t.Parallel()
+
+	g := NewGenerator(fullTestSettings())
+	cn := models.CreditNote{
+		ID:                uuid.New(),
+		OriginalInvoiceID:  uuid.New(),
+		CustomerName:       "Kunde AG",
+		CustomerAddress:    "Kundenstraße 5, 20095 Hamburg",
+		CustomerUStIDNr:    "ATU12345678",
+		TaxMode:            models.TaxModeReverseCharge,
+		LineItems:          testInvoiceLineItems(t),
+		TaxBreakdownRaw:    testTaxBreakdownRaw(t, decimal.NewFromInt(200), decimal.Zero, decimal.NewFromInt(200), map[string]decimal.Decimal{}),
+		Subtotal:           decimal.NewFromInt(200),
+		GrossTotal:         decimal.NewFromInt(200),
+		CreatedAt:          time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	m, err := g.buildCreditNoteDoc(cn)
+	if err != nil {
+		t.Fatalf("buildCreditNoteDoc: %v", err)
+	}
+	texts := renderedTexts(t, m.GetStructure())
+
+	assertContainsOnce(t, texts, "USt-IdNr.: ATU12345678")
+}
+
 // TestInvoicePDF_IncompleteCompanySettingsRejected belegt, dass ein
 // unvollständiger Leistender das Dokument gar nicht erst rendert (statt eine
 // Rechnung ohne Nr. 1/2 Pflichtangaben stillschweigend auszugeben).

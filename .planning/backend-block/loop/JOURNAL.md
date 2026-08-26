@@ -760,3 +760,62 @@ Kopf von `BACKLOG.yml`.
   (3) `-race`-Bestaetigung bleibt CI vorbehalten (kein gcc lokal); die neuen
   Tests beweisen die Deduplizierung ueber Aufrufzaehlung am Fake-Server, nicht
   ueber den Race-Detector.
+
+## Iteration 15 — fix-invoice-pdf-missing-buyer-vat-id — done — 2026-08-26 02:32
+- commit: (siehe unten, wird im selben Schritt erstellt)
+- gebaut: `buildRecipient` in `internal/biz/pdf/templates.go` druckt jetzt die
+  Kaeufer-USt-IdNr. (`USt-IdNr.: <wert>`) im Empfaenger-Block, wenn
+  `CustomerUStIDNr` gesetzt ist — konditional, keine leere Zeile bei leerem
+  Feld. Alle vier Aufrufstellen in `generator.go` (Quote, Invoice, CreditNote,
+  Dunning) geben das Feld jetzt durch. `GenerateCreditNotePDF` wurde nach dem
+  Muster von `buildInvoiceDoc` in `buildCreditNoteDoc` (gibt `core.Maroto`
+  zurueck, kein PDF-Byte-Diff noetig) + duennen `GenerateCreditNotePDF`-Wrapper
+  aufgeteilt, damit ein Test die Gutschrift-Struktur direkt inspizieren kann.
+  Entscheidung (siehe `notes:` der Unit, "steht mit Begruendung im Journal"):
+  die Nummer wird NICHT nur im Reverse-Charge-Fall gedruckt, sondern in JEDEM
+  Modus, sobald `CustomerUStIDNr` nicht leer ist — konsistent mit dem
+  bestehenden Header/Footer-Muster (eigene USt-IdNr. wird ebenfalls
+  unconditional gedruckt, sobald gesetzt) und weil die XML-Seite
+  (`buildBuyerParty`, `einvoice/generator_doc.go:257`) das Feld ebenfalls ohne
+  Ruecksicht auf `TaxMode` uebernimmt — eine Beschraenkung auf Reverse Charge
+  haette die Inkonsistenz nur teilweise behoben.
+  Gutschrift-Frage aus den Notes beantwortet: `creditnote/service.go:137`
+  kopiert `CustomerUStIDNr` unveraendert von der Rechnung, und
+  `GenerateCreditNotePDF` nutzt exakt dasselbe `buildRecipient` — belegt durch
+  `TestCreditNotePDF_BuyerVATIDPrinted`.
+- gate: build ok (`./internal/biz/pdf/...`) | vet ok
+  (`./internal/biz/pdf/...`) | lint ok (0 issues,
+  `golangci-lint run --config .golangci.yml ./internal/biz/pdf/...
+  ./internal/biz/einvoice/...`) | test ok (`./internal/biz/pdf/`,
+  `./internal/biz/einvoice/`, `./internal/biz/creditnote/...` alle gruen,
+  keine Skips — reine Unit-Tests ohne DB-Anbindung in diesem Paket) |
+  migration n.a. (keine Tabelle/Schema angefasst) | rls-smoke n.a. (kein
+  DB-Zugriff in diesem Paket) | route-drift n.a. (kein Gateway-Code, keine
+  Route angefasst — `internal/gateway` daher kein Pflicht-Gate hier; trotzdem
+  `go build ./internal/gateway/... ./cmd/gateway/...` zur Sicherheit gruen)
+- coverage: internal/biz/pdf 52,0 % -> 60,8 % (selbst gemessen per
+  `git stash push -u -- generator.go invoice_ustg14_test.go templates.go` /
+  `pop`, DATABASE_URL gesetzt obwohl das Paket keine DB-Tests hat).
+  `coverage_start` der Unit nennt "Paket vorher selbst messen" — keine
+  Diskrepanz.
+- mutations-probe: `if vatID != ""` in `buildRecipient` auf
+  `if false && vatID != ""` reduziert (Datei vorher per `cp` gesichert) —
+  `TestInvoicePDF_BuyerVATIDPrintedInReverseCharge` UND
+  `TestCreditNotePDF_BuyerVATIDPrinted` wurden beide rot (erwarteter Text
+  fehlte im gerenderten Output), `TestInvoicePDF_BuyerVATIDOmittedWhenEmpty`
+  blieb erwartungsgemaess gruen (Gegenprobe: bei leerem Feld aendert die
+  Mutation nichts). Datei per `cp` zurueckgedreht, `git diff --stat` danach
+  wieder identisch zum Stand vor der Mutation, kompletter Testlauf
+  (`./internal/biz/pdf/`) danach erneut gruen.
+- verify vorgaenger: sauber. `3b63d2c1` (DATEV-OAuth-Singleflight) aendert
+  nur `internal/biz/datev/oauth.go` + Test + `go.mod`; reine Business-Logik
+  ohne gRPC-Aufruf, kein `.proto`, keine neue Tabelle/Route/Guard, keine
+  Wire-Shape-Aenderung. Diff selbst nachvollzogen (`git show`), Journal-Eintrag
+  der Vor-Iteration deckt sich mit dem Code.
+- neue-units: keine
+- offen: `GenerateQuotePDF` und `GenerateDunningPDF` drucken die Kaeufer-
+  USt-IdNr. jetzt ebenfalls (ueber denselben `buildRecipient`-Aufruf), sind
+  aber keine GoBD-Belege im engeren Sinn und wurden dafuer NICHT extra
+  getestet — nur die beiden `done_when`-relevanten Faelle (Invoice,
+  CreditNote) tragen eigene Tests. Wer das fuer Angebot/Mahnung ebenfalls
+  belegt haben will, kann das als eigene, sehr kleine Coverage-Unit anlegen.
