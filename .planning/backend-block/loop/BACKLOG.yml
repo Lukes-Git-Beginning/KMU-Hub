@@ -1820,7 +1820,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 56,6 %; route_rapporte.go 31,8 %, 407 ungedeckt, 19 von 31 Handlern ungetestet"
     scope: >
       `route_rapporte.go` hat mit 31,8 % die zweitniedrigste Quote unter den grossen
