@@ -1116,7 +1116,7 @@ Kopf von `BACKLOG.yml`.
   feedback_loop_backlog_yaml_never_parsed.md in memory. Von mir weder erzeugt noch veraendert.
 
 ## Iteration 21 — cov-gateway-hr-analytics-and-settings — done — 2026-08-26 03:29
-- commit: <wird im chore-Commit dieser Iteration gesetzt>
+- commit: 1e6691f1
 - gebaut: Neue Datei `internal/gateway/route_hr_analytics_settings_test.go` mit Tests fuer
   alle fuenf im Scope genannten Handler (HandleDailySummary, HandleWeeklySummary,
   HandleGetTimeAnalytics, HandleGetHRSettings, HandleUpdateHRSettings), je
