@@ -418,3 +418,315 @@ func TestHandleRejectReport_ReachesRPCWithInvalidStatusTransition(t *testing.T) 
 	routes.HandleRejectReport(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- HandleListMeasurements ---
+
+func TestHandleListMeasurements_MissingTenant(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/rapporte/measurements", nil)
+	routes.HandleListMeasurements(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleListMeasurements_ServiceUnavailable(t *testing.T) {
+	routes := NewRapporteRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/rapporte/measurements", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListMeasurements(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListMeasurements_ReachesRPC(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/rapporte/measurements?report_id=550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListMeasurements(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleCreateMeasurement ---
+
+func TestHandleCreateMeasurement_MissingTitle(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements", jsonBody(t, map[string]interface{}{
+		"location": "Halle A",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateMeasurement(rec, req)
+	assertValidationError(t, rec, "title")
+}
+
+func TestHandleCreateMeasurement_InvalidReportIDUUID(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements", jsonBody(t, map[string]interface{}{
+		"title":     "Aufmass Halle",
+		"report_id": "not-a-uuid",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateMeasurement(rec, req)
+	assertValidationError(t, rec, "report_id")
+}
+
+func TestHandleCreateMeasurement_InvalidJSON(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements", invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateMeasurement(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleCreateMeasurement_MissingTenant(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements", jsonBody(t, map[string]interface{}{
+		"title": "Aufmass Halle",
+	}))
+	routes.HandleCreateMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleCreateMeasurement_ServiceUnavailable(t *testing.T) {
+	routes := NewRapporteRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements", jsonBody(t, map[string]interface{}{
+		"title": "Aufmass Halle",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetMeasurement ---
+
+func TestHandleGetMeasurement_InvalidIDUUID(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/rapporte/measurements/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleGetMeasurement_MissingTenant(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGetMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleGetMeasurement_ReachesRPC(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGetMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateMeasurement ---
+
+func TestHandleUpdateMeasurement_InvalidIDUUID(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/rapporte/measurements/not-a-uuid", jsonBody(t, map[string]interface{}{
+		"title": "Updated",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleUpdateMeasurement_MissingTitle(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000", jsonBody(t, map[string]interface{}{
+		"location": "Halle A",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateMeasurement(rec, req)
+	assertValidationError(t, rec, "title")
+}
+
+func TestHandleUpdateMeasurement_InvalidJSON(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000", invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateMeasurement(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateMeasurement_MissingTenant(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000", jsonBody(t, map[string]interface{}{
+		"title": "Updated",
+	}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleUpdateMeasurement_ReachesRPC(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000", jsonBody(t, map[string]interface{}{
+		"title": "Updated",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteMeasurement ---
+
+func TestHandleDeleteMeasurement_InvalidIDUUID(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/rapporte/measurements/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleDeleteMeasurement_MissingTenant(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleDeleteMeasurement_ServiceUnavailable(t *testing.T) {
+	routes := NewRapporteRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteMeasurement(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleAddMeasurementPosition ---
+
+func TestHandleAddMeasurementPosition_InvalidIDUUID(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements/not-a-uuid/positions", jsonBody(t, map[string]interface{}{
+		"description": "Wandflaeche",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleAddMeasurementPosition(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleAddMeasurementPosition_MissingDescription(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000/positions",
+		jsonBody(t, map[string]interface{}{
+			"unit":     "m2",
+			"quantity": 10.0,
+		}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleAddMeasurementPosition(rec, req)
+	assertValidationError(t, rec, "description")
+}
+
+func TestHandleAddMeasurementPosition_InvalidJSON(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000/positions", invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleAddMeasurementPosition(rec, req)
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleAddMeasurementPosition_MissingTenant(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000/positions",
+		jsonBody(t, map[string]interface{}{
+			"description": "Wandflaeche",
+		}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleAddMeasurementPosition(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestHandleAddMeasurementPosition_ReachesRPCWithFractionalQuantity documents
+// that the gateway itself neither rounds nor rejects a krumme Menge — a
+// fractional quantity and unit_price pass decodeAndValidate unchanged and
+// reach the RPC layer (503 via the unreachable registryWithService dummy
+// address). The actual precision/rounding behaviour is verified against the
+// real schema in postgres_repository_test.go
+// (TestAddMeasurementPosition_PreservesFractionalQuantityAndRoundsUnitPrice) —
+// there is no bufconn stub here to assert a computed result against.
+func TestHandleAddMeasurementPosition_ReachesRPCWithFractionalQuantity(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/rapporte/measurements/550e8400-e29b-41d4-a716-446655440000/positions",
+		jsonBody(t, map[string]interface{}{
+			"description": "Fensterflaeche",
+			"unit":        "m2",
+			"quantity":    12.3456,
+			"unit_price":  45.999,
+		}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleAddMeasurementPosition(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteMeasurementPosition ---
+
+func TestHandleDeleteMeasurementPosition_InvalidPosIDUUID(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/rapporte/measurements/positions/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "pos_id", "not-a-uuid")
+	routes.HandleDeleteMeasurementPosition(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleDeleteMeasurementPosition_MissingTenant(t *testing.T) {
+	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/rapporte/measurements/positions/550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withChiURLParam(req, "pos_id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteMeasurementPosition(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleDeleteMeasurementPosition_ServiceUnavailable(t *testing.T) {
+	routes := NewRapporteRoutes(emptyRegistry(), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/rapporte/measurements/positions/550e8400-e29b-41d4-a716-446655440000", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "pos_id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteMeasurementPosition(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}

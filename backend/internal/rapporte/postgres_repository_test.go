@@ -596,6 +596,111 @@ func TestDeleteMeasurementPosition_RemovesRowAndRejectsDoubleDelete(t *testing.T
 	}
 }
 
+// TestDeleteMeasurement_CascadesToPositions belegs point (2) from the unit
+// scope: no orphaned measurement_positions rows survive a deleted parent.
+// The cascade is a DB-level FK (ON DELETE CASCADE, migration 000163), not
+// application code — this test proves it actually fires against the real
+// schema rather than trusting the migration file.
+func TestDeleteMeasurement_CascadesToPositions(t *testing.T) {
+	t.Parallel()
+	repo, _, ctx, tenantID := setupRapporteRepo(t)
+
+	measurement, err := repo.CreateMeasurement(ctx, tenantID, nil, "Aufmass V", "", "", "", "")
+	if err != nil {
+		t.Fatalf("CreateMeasurement: %v", err)
+	}
+
+	position, err := repo.AddMeasurementPosition(ctx, tenantID, measurement.ID, 1, "Deckenflaeche", "m2", 12, 9)
+	if err != nil {
+		t.Fatalf("AddMeasurementPosition: %v", err)
+	}
+
+	if err := repo.DeleteMeasurement(ctx, tenantID, measurement.ID); err != nil {
+		t.Fatalf("DeleteMeasurement: %v", err)
+	}
+
+	if err := repo.DeleteMeasurementPosition(ctx, tenantID, position.ID); !errors.Is(err, ErrPositionNotFound) {
+		t.Fatalf("expected the cascade to have already removed the position, got %v", err)
+	}
+}
+
+// TestAddMeasurementPosition_PreservesFractionalQuantityAndRoundsUnitPrice
+// runs with a krumme Menge (the "1,00" trap from the GoBD grouping bug in
+// Lauf 11): quantity uses all four NUMERIC(12,4) decimal places, unit_price
+// crosses a NUMERIC(12,2) rounding boundary. Both are checked against the
+// actual round-tripped value, not just "no error".
+func TestAddMeasurementPosition_PreservesFractionalQuantityAndRoundsUnitPrice(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupRapporteRepo(t)
+
+	measurement, err := repo.CreateMeasurement(ctx, tenantID, nil, "Aufmass W", "", "", "", "")
+	if err != nil {
+		t.Fatalf("CreateMeasurement: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurements", measurement.ID) })
+
+	const quantity = 12.3456   // exact at NUMERIC(12,4)
+	const unitPrice = 45.999   // NUMERIC(12,2) must round this, not truncate to 45.99
+	position, err := repo.AddMeasurementPosition(ctx, tenantID, measurement.ID, 1, "Fensterflaeche", "m2", quantity, unitPrice)
+	if err != nil {
+		t.Fatalf("AddMeasurementPosition: %v", err)
+	}
+
+	reloaded, err := repo.GetMeasurement(ctx, tenantID, measurement.ID)
+	if err != nil {
+		t.Fatalf("GetMeasurement: %v", err)
+	}
+	if len(reloaded.Positions) != 1 {
+		t.Fatalf("expected exactly one position, got %+v", reloaded.Positions)
+	}
+	got := reloaded.Positions[0]
+	if got.ID != position.ID {
+		t.Fatalf("expected the seeded position, got %+v", got)
+	}
+	if diff := got.Quantity.Float64 - quantity; diff < -0.00005 || diff > 0.00005 {
+		t.Fatalf("expected quantity %.4f preserved at 4 decimals, got %.4f", quantity, got.Quantity.Float64)
+	}
+	if diff := got.UnitPrice.Float64 - 46.00; diff < -0.005 || diff > 0.005 {
+		t.Fatalf("expected unit_price rounded to 46.00 at NUMERIC(12,2), got %.4f", got.UnitPrice.Float64)
+	}
+}
+
+// TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant documents
+// a VERIFIED tenant-isolation gap (reported as a fix-unit, not fixed here —
+// a coverage unit changes no behaviour): AddMeasurementPosition never checks
+// that measurementID belongs to tenantID before inserting. The DB migration
+// only references measurements(id) (ON DELETE CASCADE, no tenant match), and
+// enable_tenant_rls('measurement_positions') checks the new row's own
+// tenant_id column, not the parent measurement's tenant — so the INSERT's
+// RLS WITH CHECK passes as long as the position's tenant_id equals the
+// caller's own tenant, regardless of who owns the referenced measurement.
+// Net effect: tenant A can attach a position (billing-relevant: quantity +
+// unit_price) to any measurement UUID it can obtain, even one owned by
+// tenant B, without ever passing tenant B's ownership check.
+func TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctxA, tenantA := setupRapporteRepo(t)
+	tenantB := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantB, "Rapporte Repo Test Tenant B")
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+
+	measurementB, err := repo.CreateMeasurement(ctxB, tenantB, nil, "Aufmass Tenant B", "", "", "", "")
+	if err != nil {
+		t.Fatalf("CreateMeasurement (tenant B): %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurements", measurementB.ID) })
+
+	position, err := repo.AddMeasurementPosition(ctxA, tenantA, measurementB.ID, 1, "Fremde Flaeche", "m2", 5, 10)
+	if err != nil {
+		t.Fatalf("expected the cross-tenant insert to currently SUCCEED (documenting the gap), got error: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurement_positions", position.ID) })
+
+	if _, err := repo.GetMeasurement(ctxA, tenantA, measurementB.ID); !errors.Is(err, ErrMeasurementNotFound) {
+		t.Fatalf("tenant A must not be able to read tenant B's measurement via GetMeasurement, got %v", err)
+	}
+}
+
 // ============================================================================
 // Templates
 // ============================================================================

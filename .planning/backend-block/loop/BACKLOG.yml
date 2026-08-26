@@ -1820,7 +1820,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_rapporte.go 31,8 %, 407 ungedeckt, 19 von 31 Handlern ungetestet"
     scope: >
       `route_rapporte.go` hat mit 31,8 % die zweitniedrigste Quote unter den grossen
@@ -4625,3 +4625,64 @@ units:
       - >-
         `TestService_GetStockReport_SumsAcrossIncompatibleUnits` ist aktualisiert und gruen
       - go test -count=1 ./internal/inventar/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-rapporte-measurement-position-cross-tenant-insert
+    phase: 4
+    service: rapporte
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-rapporte-measurements`, siehe
+      `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant`,
+      `internal/rapporte/postgres_repository_test.go`).
+      `PostgresRepository.AddMeasurementPosition` (postgres_repository.go:672) prueft nicht, ob
+      die uebergebene `measurementID` ueberhaupt zu `tenantID` gehoert — es fuegt die Position
+      direkt ein, mit der `measurement_id` als reine FK-Referenz (`REFERENCES measurements(id)
+      ON DELETE CASCADE`, migration 000163). Der FK prueft nur, dass die Zeile in `measurements`
+      EXISTIERT, nicht wem sie gehoert. Die RLS-Policy auf `measurement_positions`
+      (`enable_tenant_rls`, migration 000118) prueft ausschliesslich `tenant_id = current_tenant_id()`
+      der NEUEN Zeile selbst — nicht den Tenant der referenzierten `measurements`-Zeile. Ergebnis:
+      Tenant A kann eine Position (mit abrechnungsrelevanten Feldern: `quantity`, `unit_price`) an
+      JEDE `measurement_id` haengen, die es kennt, auch wenn sie Tenant B gehoert — die RLS-Check
+      auf dem INSERT ist erfuellt (`p.TenantID = A = current_tenant_id()`), der GET-Pfad von
+      Tenant B blendet die fremde Zeile zwar aus (`GetMeasurement` filtert selbst per
+      `tenant_id=$2`), aber die Zeile existiert trotzdem in Tenant B's Aufmass und wird beim
+      Loeschen der Messung durch die CASCADE mitgeloescht — ein stiller Seiteneffekt auf fremde
+      Daten ohne jede Fehlermeldung an Tenant A.
+      `HandleAddMeasurementPosition` (route_gateway/route_rapporte.go:1034) reicht `measurement_id`
+      unveraendert an den gRPC-Client durch, `RapporteGRPCServer.AddMeasurementPosition`
+      (rapporte_grpc.go:706) ebenso an `s.repo.AddMeasurementPosition` — an keiner Stelle in der
+      Kette wird vorher `GetMeasurement(ctx, tenantID, measurementID)` aufgerufen, um Existenz UND
+      Tenant-Zugehoerigkeit zu pruefen.
+      Fix vermutlich: in `PostgresRepository.AddMeasurementPosition` (oder davor im Service, falls
+      es einen gibt) zuerst per `SELECT 1 FROM measurements WHERE id=$1 AND tenant_id=$2` pruefen
+      und bei 0 Zeilen `ErrMeasurementNotFound` zurueckgeben — analog zum bestehenden Muster in
+      `GetMeasurement`/`UpdateMeasurement`. Alternativ: die INSERT-Query um einen Sub-Select auf
+      `measurements` mit Tenant-Filter erweitern (`INSERT ... SELECT ... WHERE EXISTS (...)`),
+      dann `RowsAffected() == 0` als Signal fuer "nicht gefunden ODER falscher Tenant" behandeln.
+    sources:
+      - backend/internal/rapporte/postgres_repository.go
+      - backend/internal/rapporte/postgres_repository_test.go
+      - backend/internal/server/rapporte_grpc.go
+      - backend/internal/gateway/route_rapporte.go
+      - backend/migrations/000163_measurements_and_templates.up.sql
+      - backend/migrations/000118_rls_foundation.up.sql
+    notes: >
+      `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant` dokumentiert den
+      Ist-Zustand (Insert gelingt aktuell mit `err == nil`). Nach dem Fix muss der Test die
+      Ablehnung per `ErrMeasurementNotFound` erwarten (Testname und Kommentar entsprechend
+      anpassen — die Doku-Aussage "currently SUCCEED" verschwindet dann). Gleiches Muster
+      pruefen bei `DeleteMeasurementPosition` und ob `AddMeasurementPosition` in anderen Modulen
+      (falls es ein Codegen-Vorbild o.ae. gibt) denselben Fehler teilt — nicht Teil dieser Unit,
+      aber als Beobachtung ins Journal, falls beim Fixen entdeckt.
+    done_when:
+      - >-
+        `AddMeasurementPosition` lehnt eine `measurementID` ab, die nicht zu `tenantID` gehoert
+        (`ErrMeasurementNotFound` oder aequivalent), statt die Position einzufuegen
+      - >-
+        `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant` ist aktualisiert und
+        gruen (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
+      - go test -count=1 ./internal/rapporte/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
