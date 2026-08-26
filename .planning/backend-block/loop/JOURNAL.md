@@ -2093,7 +2093,7 @@ Kopf von `BACKLOG.yml`.
   nicht hier gefixt.
 
 ## Iteration 35 — cov-gateway-calendar-lists-and-categories — done — 2026-08-26 05:57
-- commit: (folgt im naechsten Commit)
+- commit: 8091d15b
 - gebaut: neue Testdatei `route_calendar_lists_categories_test.go` deckt die elf
   bislang ungetesteten Handler aus `route_calendar.go` ab: HandleListCalendars,
   HandleListBrowsableCalendars, HandleListCalendarMembers,
