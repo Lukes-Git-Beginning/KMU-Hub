@@ -1530,7 +1530,7 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/work/recording 33,2 % (247 ungedeckt von 370); service.go 39,7 %, postgres_repository.go 21,1 %"
     scope: >
       Dritte Video-Unit, diesmal unter dem Gateway: `internal/work/recording` ist mit 33,2 %
