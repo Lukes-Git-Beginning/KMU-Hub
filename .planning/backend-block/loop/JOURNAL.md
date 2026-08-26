@@ -2924,7 +2924,7 @@ Kopf von `BACKLOG.yml`.
 - offen: keine
 
 ## Iteration 4 - fix-carddav-missing-tenant-context-blocks-all-operations - done - 2026-08-27 01:36
-- commit: <SHA>
+- commit: cff259b77f84607d9c03ed11ce85e3f46c1177e0
 - gebaut: Root-Cause-Fix an der gemeinsamen Wurzel statt in jeder Funktion. Neu:
   `caldav.NewCtxInjector(pool)` (`caldav_backend.go`) - loest ueber das schon vorhandene
   `resolveTenantID` den Tenant des per App-Passwort authentifizierten Users auf und stempelt
