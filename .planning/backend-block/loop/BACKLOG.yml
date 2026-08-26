@@ -1656,7 +1656,7 @@ units:
     service: calendar
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/caldav 54,9 % (494 ungedeckt von 1095); caldav_backend.go 18,0 %, 259 ungedeckt von 316"
     scope: >
       `caldav_backend.go` traegt 316 Statements bei 18,0 % — die drittduennste Datei mit
