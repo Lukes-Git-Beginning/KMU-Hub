@@ -470,7 +470,7 @@ units:
     service: calendar
     model: opus
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
