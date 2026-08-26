@@ -1887,3 +1887,65 @@ Kopf von `BACKLOG.yml`.
   gegenpruefen, ob dasselbe Copy-Paste-Muster (Insert mit fremder FK ohne Tenant-Check) noch
   woanders im `rapporte`-Paket vorkommt (z. B. `AddLine`, `CreateAttachment` an eine fremde
   `report_id`) — nicht Teil dieser Unit untersucht, nur bei den Measurement-Handlern.
+
+## Iteration 32 — cov-gateway-rapporte-lines-attachments-export — done — 2026-08-26 05:31
+- commit: <wird in Folge-Commit ergaenzt>
+- gebaut: Handler-Tests (MissingTenant/InvalidIDUUID/ServiceUnavailable/ReachesRPC plus
+  Validierungsfaelle) fuer alle zwoelf in dieser Unit genannten Handler: HandleUpdateLine,
+  HandleDeleteLine, HandleListLines, HandleDeleteAttachment, HandleListAttachments,
+  HandleGetTemplate, HandleUpdateTemplate, HandleDeleteTemplate, HandleListPendingApprovals,
+  HandleGetReportStats, HandleSaveReportSignature, HandleExportPDF
+  (`internal/gateway/route_rapporte_test.go`). Dazu ein Repo-Test gegen die echte DB
+  (`internal/rapporte/postgres_repository_test.go`), der Punkt (1) aus dem scope-Text
+  beantwortet: `TestSaveSignature_OverwritesExistingSignatureWithoutGuard` — VERIFIZIERTER
+  Befund. Punkt (2) aus dem scope-Text (Scope von HandleListPendingApprovals) beantwortet:
+  `TestHandleListPendingApprovals_OwnScopeWithoutUserIsRejected` +
+  `TestHandleListPendingApprovals_ReachesRPCWithAuthorFilterAtAllScope` — kein Fund, der
+  Handler nutzt denselben `ownerFilterForScope("rapporte:report","read")`-Pfad wie
+  HandleListReports korrekt. Punkt (3) (HandleExportPDF Tenant-Filter) — kein Fund,
+  `ExportPDFRequest.TenantId` kommt ausschliesslich aus dem authentifizierten Context, nie aus
+  der URL.
+  Signatur-Muster fuer die vertraege/vermietung-Units (HandleSaveContractSignature,
+  HandleSaveRentalSignature): der Gateway-Handler selbst hat KEINEN Overwrite-Guard (thin
+  Parse/Call/Respond) — die Entscheidung liegt vollstaendig im Service/Repo. Bei rapporte
+  fehlt sie dort ebenfalls: `PostgresRepository.SaveSignature` (postgres_repository.go:911)
+  hat kein "AND signature_data IS NULL" und keinen Status-Check, `Service.SaveSignature`
+  (service.go:599) validiert nur Format/Groesse/Pflichtfelder der neuen Signatur. Ein bereits
+  signierter Report akzeptiert klaglos eine zweite Signatur und ueberschreibt sie ohne Spur der
+  ersten — als eigene Fix-Unit angelegt (siehe neue-units), nicht selbst gefixt, eine
+  Coverage-Unit aendert kein Verhalten. Die vertraege/vermietung-Units sollten explizit
+  gegenpruefen, ob sie dasselbe Muster teilen.
+- gate: build ok (`./internal/rapporte/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  | lint ok (0 issues, `./internal/rapporte/... ./internal/gateway/...`) | test ok
+  (`internal/rapporte` gruen 0 Skip/0 Fail, `internal/gateway` gruen inkl.
+  TestOpenAPIRouteDrift — keine Route in dieser Unit angefasst, Pflichtlauf trotzdem gruen,
+  836 registrierte Routen gegen 838 dokumentierte Pfade geprueft)
+  | migration n.a. (keine neue Tabelle/Spalte) | rls-smoke n.a. (keine neue Policy angefasst)
+- coverage: internal/gateway 64,7 % -> 65,4 % (`go tool cover -func` vor/nach, Vorher-Wert per
+  `git stash`/`git stash pop` auf den Ausgangsstand gemessen; alle zwoelf Ziel-Handler von
+  0,0-32,2 % auf 61,5-100,0 %, z. B. HandleListTemplates/HandleCreateTemplate bleiben 0,0 %
+  ausserhalb dieser Unit, HandleUpdateLine 0,0 % -> 79,2 %, HandleSaveReportSignature
+  0,0 % -> 84,2 %, HandleListPendingApprovals 0,0 % -> 94,1 %). internal/rapporte 76,1 % ->
+  76,8 % (der neue Signature-Repo-Test trifft ueberwiegend bereits erreichten Code, Zuwachs
+  kommt aus der zweiten `GetReport`-Assertion am Testende).
+- mutations-probe: in `SaveSignature` (postgres_repository.go:915) die SQL-Platzhalter
+  `$3, $4` (signed_by, signature_data) vertauscht zu `$4, $3` (Backup vorher per `cp`).
+  `TestSaveSignature_OverwritesExistingSignatureWithoutGuard` wurde sofort rot ("expected
+  first signature persisted, got ..." — SignatureData/SignedBy vertauscht), per `cp`
+  zurueckgedreht, `git diff --stat` gegen `postgres_repository.go` danach leer, beide Pakete
+  (`internal/rapporte`, `internal/gateway`) wieder gruen.
+- verify vorgaenger: sauber (`3f151a26` — `git show --stat` gegengeprueft: nur
+  `route_rapporte_test.go`/`postgres_repository_test.go` plus BACKLOG.yml, kein `.proto` im
+  Diff, keine neue Route, kein `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass; Grep
+  auf RequirePermission/Unimplemented/TODO/FIXME/.proto im Testdiff leer)
+- neue-units: fix-rapporte-signature-overwritable-after-signing (sonnet — VERIFIZIERTER
+  Befund, Signatur unbegrenzt ueberschreibbar nach dem Signieren, kein Guard in Service noch
+  Repo)
+- offen: (1) `fix-409-double-meaning-on-grpc-conflict-routes` traegt weiterhin `status: blocked`
+  direkt in BACKLOG.yml (seit Iteration 28 unveraendert) — `--preflight` bricht deswegen weiter
+  mit Exit 1 ab, nicht fatal fuer den Lauf. (2) Die neue Fix-Unit laesst offen, ob es einen
+  legitimen "Unsign"-Workflow (Signatur-Widerruf durch Reviewer) geben soll statt eines
+  einfachen Ablehnungs-Guards — das ist eine Entscheidung von Luke, nicht Teil der Fix-Unit
+  selbst. (3) Beim Fixen der neuen Unit gegenpruefen, ob `HandleSaveContractSignature`
+  (vertraege) und `HandleSaveRentalSignature` (vermietung) dasselbe Overwrite-Muster teilen —
+  in dieser Iteration nur rapporte selbst untersucht.

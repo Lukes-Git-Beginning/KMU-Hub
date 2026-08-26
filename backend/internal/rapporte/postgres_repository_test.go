@@ -838,3 +838,54 @@ func TestDeleteTemplate_RemovesRowAndRejectsDoubleDelete(t *testing.T) {
 		t.Fatalf("expected ErrTemplateNotFound on double delete, got %v", err)
 	}
 }
+
+// ============================================================================
+// Signatures
+// ============================================================================
+
+// TestSaveSignature_OverwritesExistingSignatureWithoutGuard documents a
+// VERIFIED finding against the real schema: SaveSignature's UPDATE
+// (postgres_repository.go:911) has no "AND signature_data IS NULL" clause
+// and no report-status check, so a report that already carries a signature
+// silently accepts and persists a second one — signed_at/signed_by/
+// signature_data are all overwritten, with no trace of the original left
+// anywhere in work_reports. A signature is meant to be evidence of a fixed
+// state (see the scope note in cov-gateway-rapporte-lines-attachments-export);
+// as built, it is mutable indefinitely. Filed as its own fix-unit (not
+// fixed here — a coverage unit changes no behaviour).
+func TestSaveSignature_OverwritesExistingSignatureWithoutGuard(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupRapporteRepo(t)
+	report := newTestReport(t, repo, ctx, pool, tenantID, "Baustelle Signatur", StatusApproved)
+
+	first, err := repo.SaveSignature(ctx, tenantID, report.ID, "data:image/png;base64,firstSignature", "Max Mustermann")
+	if err != nil {
+		t.Fatalf("SaveSignature (first): %v", err)
+	}
+	if first.SignedBy == nil || *first.SignedBy != "Max Mustermann" {
+		t.Fatalf("expected first signature persisted, got %+v", first)
+	}
+	firstSignedAt := *first.SignedAt
+
+	second, err := repo.SaveSignature(ctx, tenantID, report.ID, "data:image/png;base64,secondSignatureReplacingTheFirst", "Erika Musterfrau")
+	if err != nil {
+		t.Fatalf("expected the re-sign to currently SUCCEED (documenting the gap), got error: %v", err)
+	}
+	if second.SignedBy == nil || *second.SignedBy != "Erika Musterfrau" {
+		t.Fatalf("expected the second signer to have overwritten the first, got %+v", second)
+	}
+	if second.SignatureData == nil || *second.SignatureData != "data:image/png;base64,secondSignatureReplacingTheFirst" {
+		t.Fatalf("expected the second signature_data to have overwritten the first, got %+v", second.SignatureData)
+	}
+	if !second.SignedAt.After(firstSignedAt) {
+		t.Fatalf("expected signed_at to have advanced past the first signature, first=%v second=%v", firstSignedAt, *second.SignedAt)
+	}
+
+	reloaded, err := repo.GetReport(ctx, tenantID, report.ID)
+	if err != nil {
+		t.Fatalf("GetReport: %v", err)
+	}
+	if reloaded.SignedBy == nil || *reloaded.SignedBy != "Erika Musterfrau" {
+		t.Fatalf("expected the persisted row to show the second signer with no trace of the first, got %+v", reloaded.SignedBy)
+	}
+}

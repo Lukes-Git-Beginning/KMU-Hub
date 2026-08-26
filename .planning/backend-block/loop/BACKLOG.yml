@@ -1859,7 +1859,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_rapporte.go 31,8 %, 19 von 31 Handlern ungetestet"
     scope: >
       Zweite Rapporte-Unit: Zeilen, Anhaenge, Vorlagen, Freigaben und Export. Ungetestet
@@ -4685,4 +4685,60 @@ units:
       - >-
         `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant` ist aktualisiert und
         gruen (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
+      - go test -count=1 ./internal/rapporte/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-rapporte-signature-overwritable-after-signing
+    phase: 4
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-gateway-rapporte-lines-attachments-export`, siehe
+      `TestSaveSignature_OverwritesExistingSignatureWithoutGuard`,
+      `internal/rapporte/postgres_repository_test.go`). `PostgresRepository.SaveSignature`
+      (postgres_repository.go:911) hat kein "AND signature_data IS NULL" in der WHERE-Klausel
+      und keinen Status-Check auf `work_reports.status` — ein Rapport, der bereits eine
+      Unterschrift traegt, akzeptiert klaglos einen zweiten `SaveSignature`-Aufruf und
+      ueberschreibt `signature_data`, `signed_at` und `signed_by` unwiderruflich, ohne dass die
+      erste Unterschrift irgendwo erhalten bleibt. `Service.SaveSignature` (service.go:599)
+      validiert nur Format/Groesse/Pflichtfelder der NEUEN Signatur, nicht ob bereits eine
+      existiert. Eine Unterschrift ist ein personenbezogenes Datum und Beweismittel fuer einen
+      fixierten Zustand (siehe scope-Text der Coverage-Unit, die den Fund gemacht hat) — als
+      gebaut ist sie zeitlich unbegrenzt veraenderbar, auch nach Freigabe (`StatusApproved`).
+      Fix vermutlich: entweder in `Service.SaveSignature` vor dem Repo-Aufruf pruefen, ob
+      `s.repo.GetReport(...).SignatureData != nil` und dann einen Fehler zurueckgeben (z. B.
+      `ErrReportAlreadySigned`), oder die SQL-WHERE-Klausel um `AND signature_data IS NULL`
+      erweitern und `RowsAffected() == 0` bei bereits vorhandener Signatur separat von
+      `ErrReportNotFound` behandeln (sonst verwechselt der Aufrufer "nicht gefunden" mit
+      "bereits signiert"). Zu klaeren beim Fixen: gibt es einen legitimen Korrektur-Workflow
+      (z. B. Signatur-Widerruf durch einen Reviewer), der einen expliziten
+      "Unsign"-Pfad statt eines stillen Overwrite braeuchte? Nicht Teil dieser Unit,
+      aber die Entscheidung dazu gehoert Luke, falls sie ueber einen einfachen Guard
+      hinausgeht.
+    sources:
+      - backend/internal/rapporte/postgres_repository.go
+      - backend/internal/rapporte/postgres_repository_test.go
+      - backend/internal/rapporte/service.go
+      - backend/internal/rapporte/signature_test.go
+      - backend/internal/gateway/route_rapporte.go
+    notes: >
+      `TestSaveSignature_OverwritesExistingSignatureWithoutGuard` dokumentiert den Ist-Zustand
+      (zweiter Aufruf gelingt aktuell mit `err == nil` und ueberschreibt sichtbar). Nach dem Fix
+      muss der Test die Ablehnung erwarten (Testname und Kommentar entsprechend anpassen — die
+      Doku-Aussage "currently SUCCEED" verschwindet dann). Das Signatur-Muster (thin handler,
+      kein Overwrite-Guard weder im Service noch im Repo) betrifft moeglicherweise auch
+      `HandleSaveContractSignature` (vertraege) und `HandleSaveRentalSignature` (vermietung,
+      referenziert im scope-Text der urspruenglichen Coverage-Unit als noch offene Faelle) —
+      beim Fixen gegenpruefen, ob diese denselben Fehler teilen, und falls ja, eine eigene
+      Fix-Unit dafuer anlegen statt es hier mitzufixen.
+    done_when:
+      - >-
+        `SaveSignature` lehnt einen zweiten Aufruf auf einem bereits signierten Report ab
+        (klarer Fehler statt stillem Overwrite), statt die vorhandene Signatur zu ersetzen
+      - >-
+        `TestSaveSignature_OverwritesExistingSignatureWithoutGuard` ist aktualisiert und gruen
+        (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
       - go test -count=1 ./internal/rapporte/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
