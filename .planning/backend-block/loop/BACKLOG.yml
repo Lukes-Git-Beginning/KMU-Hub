@@ -333,7 +333,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/email/sync 34,6 % (233 ungedeckt von 356); worker.go 31,4 %, imap_client.go 38,0 %, engine.go 36,4 % (CI-Stand 32949396303)"
     scope: >
       `internal/email/sync` ist mit 34,6 % das zweitschwaechste Paket mit Substanz. Es holt
