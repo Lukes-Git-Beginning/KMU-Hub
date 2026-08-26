@@ -1489,7 +1489,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 56,6 %; route_video.go 47,5 %, 33 von 59 Handlern ungetestet"
     scope: >
       Zweite Video-Unit: Meeting-Notizen, Aufgaben und Meeting-Chat. Ungetestet (Stand
