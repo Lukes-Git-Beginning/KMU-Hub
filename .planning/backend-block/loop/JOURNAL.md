@@ -3003,7 +3003,7 @@ Kopf von `BACKLOG.yml`.
   gegen einen echten DAV-Client.
 
 ## Iteration 5 — fix-rapporte-measurement-position-cross-tenant-insert — done — 2026-08-27 01:46
-- commit: <pending>
+- commit: 9db416e3
 - gebaut: `PostgresRepository.AddMeasurementPosition` (postgres_repository.go:672) fuegt nicht
   mehr blind per `VALUES` ein, sondern per `INSERT ... SELECT ... WHERE EXISTS (SELECT 1 FROM
   measurements WHERE id=$3 AND tenant_id=$2)` und meldet bei `RowsAffected()==0`
