@@ -2329,3 +2329,79 @@ Kopf von `BACKLOG.yml`.
   Dateireihenfolge. (2) `fix-berichte-report-cache-never-purged` ist ein reines
   Betriebsproblem (unbegrenztes Tabellenwachstum), kein akuter Bug — kann regulaer in
   Dateireihenfolge einsortiert bleiben.
+
+## Iteration 38 — cov-work-customfield-and-presence-zero-coverage — done — 2026-08-26 06:30
+- commit: (folgt im Abschluss-Commit dieser Iteration)
+- gebaut: DB-Tests fuer `internal/work/customfield/postgres_repository.go` (Create/GetByID/
+  List/Update/Delete, Tenant-Scoping ueber RLS-Smoke fuer jede Methode, (tenant_id, name)
+  Unique-Constraint inkl. "gleicher Name, anderer Tenant funktioniert", Sortierung
+  position ASC/name ASC, leere Liste, sowie der in scope verlangte Fall "Definition mit
+  vorhandenen Task-Werten loeschen"). Redis-Tests fuer
+  `internal/work/presence/redis_store.go` mit miniredis (SetPresence/GetPresence/
+  RemovePresence/UpdateLastActivity/GetBulkPresence, TTL-Pruefung per `mr.TTL`,
+  korrupter JSON-Wert, leere/fehlende Keys).
+  Scope-Fragen beantwortet: (1) Delete mit vorhandenen `task_custom_field_values`: kein Bug,
+  `ON DELETE CASCADE` seit Migration 000320 — Testfall
+  `TestPostgresDelete_WithExistingTaskValues_CascadesValues` belegt das. (2) DSAR:
+  `internal/security/gdpr/dsar_search.go` deckt Task-Custom-Field-Werte NICHT ab —
+  `customFieldsModule` (Zeile 1771) ist ausschliesslich fuer `contact_custom_field_values`
+  (CRM-Kontakte); `tasksModule` (Zeile 619, benutzerbezogener DSAR-Pfad) liefert Titel/Status/
+  Rolle, aber keine Custom-Field-Werte der Aufgabe — echte Luecke, als Unit angelegt (siehe
+  neue-units). (3) Redis-Testaufbau: `miniredis` existiert bereits im Repo (u. a.
+  `internal/dialer/redis_agent_store_io_test.go`), kein neuer Aufbau noetig. (4) TTL/Wachstum:
+  `presenceTTL = 90 * time.Second` auf jedem `SetPresence`/`UpdateLastActivity` — waechst
+  nicht unbegrenzt, per Test gegen `mr.TTL` gepinnt. (5) Tenant im Redis-Schluessel: NEIN —
+  `presenceKey(userID) = "presence:" + userID` (redis_store.go:51-53), userID ist eine
+  global-eindeutige UUID, daher keine Kollisionsgefahr durch Zufall — aber der Schluessel
+  selbst beweist keine Tenant-Zugehoerigkeit. Der wertvolle Fund liegt eine Schicht hoeher:
+  `WebSocketHub.handlePresenceSubscribe` (internal/server/websocket.go:1116) nimmt eine
+  `user_ids`-Liste direkt vom Client entgegen und traegt sie ungeprueft in
+  `presenceSubscribers` ein — kein Tenant-Check. Ein User kann sich damit auf die Presence
+  eines Users aus einem FREMDEN Tenant abonnieren, wenn er dessen UUID kennt — echtes
+  Cross-Tenant-Informationsleck. Nicht in dieser Coverage-Unit gefixt (Verhaltensaenderung),
+  als Fix-Unit angelegt (siehe neue-units).
+- gate: build ok (`./internal/work/...`) | vet ok (`./internal/work/...`) | lint ok
+  (0 issues, golangci-lint run --config .golangci.yml ./internal/work/...) | test ok
+  (`./internal/work/customfield/...` und `./internal/work/presence/...` einzeln UND
+  zusammen gruen, DATABASE_URL gesetzt, 65 Tests in den beiden Paketen, 0 Skips, 0 Fails;
+  `./internal/work/...` gesamt zeigte beim ersten -count=1-Lauf drei Fails durch
+  Connection-Pool-Erschoepfung ("too many clients already", "remaining connection slots
+  reserved for SUPERUSER") in `resource`/`timeentry` — mit `-p 2` reproduzierbar gruen,
+  also Infra-Artefakt der hohen Parallelitaet ueber alle work-Pakete gleichzeitig, keine
+  Regression durch diese Aenderung) | migration n.a. (keine Tabelle/Policy angefasst) |
+  rls-smoke ok (ueber die echten Repo-Methoden unter `kmuhub_app`: GetByID/Update/Delete
+  liefern fuer fremden Tenant durchgaengig ErrNotFound trotz physisch vorhandener Zeile,
+  List liefert fuer fremden Tenant nur eigene 3 von 4 Definitionen) | route-drift n.a.
+  (keine Route angefasst, `go test ./internal/gateway/` daher nicht Pflicht)
+- coverage: internal/work/customfield 0,0 % (postgres_repository.go, 71 Statements)
+  -> 82,6 % Paket-gesamt (Create 83,3 %, GetByID 88,9 %, List 84,6 %, Update 85,7 %,
+  Delete 83,3 %, marshalOptions 100 %, unmarshalOptions 66,7 %, isDuplicateError 71,4 %).
+  internal/work/presence 0,0 % (redis_store.go, 68 Statements) -> 81,2 % Paket-gesamt
+  (SetPresence 75 %, GetPresence 83,3 %, GetBulkPresence 70,4 %, RemovePresence 66,7 %,
+  UpdateLastActivity 80 %, parsePresenceData 85,7 %).
+- mutations-probe: zwei unabhaengige Mutationen (Backup vorher per `cp`, danach
+  zurueckgespielt, `git status --short` auf beiden Dateien leer): (1) in
+  `customfield/postgres_repository.go` List-Query von `ORDER BY position ASC, name ASC`
+  auf `ORDER BY position DESC, name ASC` geaendert — `TestPostgresList_TenantScoped_
+  OrderedByPositionThenName` sofort ROT ("expected order [Prefix Alpha Zeta], got
+  [Alpha Zeta Prefix]"). (2) in `presence/redis_store.go` `SetPresence`s TTL-Parameter
+  von `presenceTTL` auf `0` geaendert — `TestRedisStore_SetPresence_SetsTTL` sofort ROT
+  ("expected: 1m30s, actual: 0s"). Beide zurueckgedreht, Pakete danach wieder gruen.
+- verify vorgaenger: sauber (`c92b0ec7` — `git show --stat` gegengeprueft: nur zwei neue
+  Testdateien plus BACKLOG.yml/JOURNAL.md im Diff, kein `.proto`, keine neue Route, kein
+  `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass)
+- neue-units: `fix-websocket-presence-subscribe-missing-tenant-check` (sonnet) — Presence-
+  Subscribe ohne Tenant-Check, echtes Cross-Tenant-Info-Leck (siehe gebaut). `fix-dsar-
+  tasks-module-missing-custom-field-values` (sonnet) — Task-Custom-Field-Werte fehlen im
+  benutzerbezogenen DSAR-Export (siehe gebaut). Beide mit vollem scope/sources/notes/
+  done_when ans Backlog-Ende angehaengt.
+- offen: (1) `fix-generatejointoken-missing-event-tenant-check` (Iteration 36) steht
+  weiterhin unbearbeitet, der Treiber zieht strikt nach Dateireihenfolge. (2)
+  `fix-berichte-report-cache-never-purged` (Iteration 37) ebenso. (3) Die beiden neuen
+  Units aus dieser Iteration sind reine Verhaltens-Fixes ohne Deploy-Hazard (kein neuer
+  RequirePermission-Guard, keine neue Config-Assertion) und koennen regulaer in
+  Dateireihenfolge einsortiert bleiben. (4) Connection-Pool-Limit fuer `kmuhub_app`/
+  Superuser-reservierte Slots: `go test ./internal/work/...` als Gesamtlauf mit voller
+  Parallelitaet ist auf dieser lokalen DB nicht zuverlaessig gruen (siehe gate) — kein
+  Fund dieser Iteration, aber falls das oefter auftritt, waere `max_connections` oder die
+  Pool-Groesse pro Testpaket ein Thema fuer Luke.

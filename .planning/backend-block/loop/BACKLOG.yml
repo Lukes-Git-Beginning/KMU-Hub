@@ -2109,7 +2109,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/work/customfield/postgres_repository.go 0,0 % (71 Statements); internal/work/presence/redis_store.go 0,0 % (68)"
     scope: >
       Zwei Dateien mit exakt null Abdeckung, zusammen 139 Statements. Beide sind klein genug
@@ -4904,3 +4904,93 @@ units:
         Ein Test belegt, dass eine abgelaufene `report_cache`-Zeile nach einem Sweep-Zyklus
         entfernt wird und eine frische Zeile erhalten bleibt
       - go test -count=1 ./internal/berichte/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-websocket-presence-subscribe-missing-tenant-check
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus cov-work-customfield-and-presence-zero-coverage (Iteration 38): Presence-Status
+      liegt in Redis unter dem Schluessel `presence:<userID>` ganz ohne Tenant-Anteil
+      (backend/internal/work/presence/redis_store.go:51-53) — Redis kennt keine RLS, die
+      Isolation haengt vollstaendig davon ab, dass jeder Aufrufer nur eigene-Tenant-UserIDs
+      uebergibt. `WebSocketHub.handlePresenceSubscribe`
+      (backend/internal/server/websocket.go:1116-1145) nimmt eine `user_ids`-Liste direkt aus
+      der Client-Nachricht entgegen und traegt jede davon ungeprueft in
+      `h.presenceSubscribers[targetUserID][userID]` ein — kein Tenant-Check, keine Pruefung,
+      ob `targetUserID` ueberhaupt in der aufrufenden Session sichtbar ist. Ein authentifizierter
+      User, der (z. B. durch Erraten oder aus einem anderen Leck) die UUID eines Users aus
+      einem FREMDEN Tenant kennt, kann sich auf dessen Presence abonnieren und erhaelt ueber
+      `WSPresenceUpdate`-Broadcasts laufend dessen Online/Away/DND-Status — ein echtes
+      Cross-Tenant-Informationsleck, kein RLS-Fall (Redis), sondern eine fehlende
+      Autorisierungspruefung im WebSocket-Handler selbst.
+      Fix: `handlePresenceSubscribe` muss fuer jede `targetUserID` pruefen, dass sie zum
+      selben Tenant wie der abonnierende `userID` gehoert (z. B. per Lookup gegen `users`
+      oder einen bereits vorhandenen Tenant-Mitgliederindex des Hubs), bevor der Eintrag in
+      `presenceSubscribers` landet. IDs aus fremdem Tenant werden verworfen oder mit
+      `sendError` quittiert, nicht committet.
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/work/presence/redis_store.go
+      - backend/internal/work/presence/service.go
+    notes: >
+      Kein RLS-Fix (Redis hat keine Policies) und kein Tenant-Feld im presence-Key noetig —
+      der Fix gehoert an die Autorisierungsgrenze im WebSocket-Handler, wo der aufrufende
+      User bereits bekannt ist (`userID`-Parameter). Pruef, ob der Hub bereits einen
+      Tenant-Index fuer verbundene User haelt (`h.mu`-geschuetzte Maps) und wiederverwendbar
+      ist, bevor eine neue DB-Anfrage pro Subscribe eingefuehrt wird.
+    done_when:
+      - >-
+        `handlePresenceSubscribe` lehnt oder ignoriert `target_user_id`s ab, die nicht zum
+        Tenant des abonnierenden Users gehoeren
+      - >-
+        Ein Test belegt: User aus Tenant A kann sich NICHT auf Presence-Updates eines Users
+        aus Tenant B abonnieren (kein Broadcast-Empfang), Abonnement innerhalb des eigenen
+        Tenants funktioniert weiterhin
+      - go test -count=1 ./internal/server/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-dsar-tasks-module-missing-custom-field-values
+    phase: 4
+    service: security-gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus cov-work-customfield-and-presence-zero-coverage (Iteration 38): der
+      benutzerbezogene DSAR-Pfad in backend/internal/security/gdpr/dsar_search.go deckt
+      `tasksModule` (Zeile 619) ab — Titel, Status, Rolle, Erstelldatum jeder Aufgabe, der ein
+      User als Assignee oder Ersteller zugeordnet ist — aber NICHT die
+      `task_custom_field_values`, die auf genau diesen Aufgaben stehen (Definitionen ueber
+      `work_custom_field_definitions`, Migration 000146/000320). `customFieldsModule`
+      (Zeile 1771) existiert bereits, deckt aber ausschliesslich
+      `contact_custom_field_values` ab (CRM-Kontakte) — es gibt kein Pendant fuer Task-Werte.
+      Ein User, der z. B. in einem Freitext-Custom-Field auf einer ihm zugewiesenen Aufgabe
+      personenbezogene Angaben eingetragen hat (oder ueber die er dort beschrieben wird), sieht
+      diese in seinem eigenen DSAR-Export nicht — echte Luecke, kein RLS-Fall (die Werte
+      werden korrekt tenant-gescoped gehalten, sie fehlen nur im Export).
+      Fix: neues `taskCustomFieldValuesModule(ctx, pool, tenantID, userID)` analog zu
+      `customFieldsModule`, gejoint ueber `task_custom_field_values` -> `tasks` (WHERE
+      `t.assignee_id = $userID OR t.created_by = $userID`) -> `work_custom_field_definitions`
+      fuer den Feldnamen, tenant-gescoped wie `tasksModule`. In `SearchByQuery` (oder wo immer
+      die userID-Module fuer den Aufruf zusammengestellt werden) registrieren.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/work/customfield/postgres_repository.go
+      - backend/internal/work/task/postgres_repository.go
+    notes: >
+      `formatCustomFieldValue` (dsar_search.go:1803) ist bereits generisch fuer JSONB-Werte
+      egal welcher `field_type` und kann fuer das neue Modul wiederverwendet werden — kein
+      neuer Formatter noetig. Die Query braucht KEINEN Join ueber `contacts`, sondern ueber
+      `tasks` fuer die Tenant- und User-Zuordnung.
+    done_when:
+      - >-
+        Ein neues DSAR-Modul liefert Task-Custom-Field-Werte fuer Aufgaben, denen der
+        angefragte User als Assignee oder Ersteller zugeordnet ist, tenant-gescoped
+      - >-
+        Ein Test belegt: eigene Task-Custom-Field-Werte erscheinen im Export, Werte auf
+        Aufgaben eines fremden Tenants oder eines anderen Users nicht
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt, 0 Skips
