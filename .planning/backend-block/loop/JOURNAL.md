@@ -2019,7 +2019,7 @@ Kopf von `BACKLOG.yml`.
   MinIO-Schreiben, nicht weiter verfolgt (Best-Effort-Pfade, kein Bug-Verdacht).
 
 ## Iteration 34 — cov-gateway-document-wopi-comments-shares — done — 2026-08-26 05:47
-- commit: (wird im naechsten chore-Commit nachgetragen)
+- commit: 151aefd3
 - gebaut: `backend/internal/gateway/route_document_wopi_comments_shares_test.go` — 62 Tests
   fuer die 19 im Scope genannten, zuvor ungetesteten Handler in `route_document.go`:
   HandleGetFolderPath, HandleInitializeUserSpace, HandleInitializeTeamSpace,
