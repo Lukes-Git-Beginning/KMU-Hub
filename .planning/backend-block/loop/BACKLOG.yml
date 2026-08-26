@@ -1366,7 +1366,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_hr.go 36,4 %, 33 von 55 Handlern ungetestet"
     scope: >
       Zweite HR-Unit: die Zeiterfassung. Ungetestet (Stand 2026-08-24):
@@ -3913,3 +3913,49 @@ units:
         (404/NotFound statt stillem Insert)
       - Ein DB-Test belegt sowohl den Erfolgsfall (eigenes Fahrzeug) als auch die Ablehnung
       - go test -count=1 ./internal/fuhrpark/ gruen
+
+  - id: fix-hr-approve-correction-self-approval
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-hr-time-tracking-paths` (Iteration 20, Lauf 12), belegt durch
+      `TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection`
+      (`internal/biz/hr/timetracking/service_test.go`).
+      `Service.ApproveTimeCorrection` (`internal/biz/hr/timetracking/service.go:441`) prueft
+      Status (`WorkTimeStatusCorrectionPending`) und Wochensperre, vergleicht aber
+      `approverID` nie mit `correction.EmployeeID`. Der Gateway-Handler
+      `HandleApproveCorrection` (`internal/gateway/route_hr.go:935`) reicht `approverID`
+      ungeprueft aus `middleware.GetUserID(ctx)` durch. Der Permission-Guard
+      (`hr:write` ODER `zeiterfassung:corrections:approve`, additiv seit RBAC Phase 1) regelt
+      NUR, wer ueberhaupt Korrekturen genehmigen darf — nicht, ob der Genehmiger mit dem
+      Antragsteller identisch sein darf. Wer die Approve-Permission haelt (z. B. die Rolle
+      `manager`, siehe `migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql`), kann
+      also eine eigene `SubmitTimeCorrection` selbst genehmigen und damit die Vier-Augen-Regel
+      der Korrektur-Workflow komplett umgehen — inklusive Auswirkung auf Saldo/Lohnabrechnung
+      (Korrektur zaehlt danach in die Wochensumme, siehe `aggregateDailyBuckets`).
+    sources:
+      - backend/internal/biz/hr/timetracking/service.go
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/timetracking/service_test.go
+    notes: >
+      Fix gehoert in den Service (`ApproveTimeCorrection`), nicht in den Gateway-Handler —
+      die RPC ist der einzige Aufrufpfad, ein reiner Handler-Check waere umgehbar. Bei
+      `approverID == correction.EmployeeID` einen neuen Sentinel-Error liefern (analog
+      `ErrCorrectionNotFound`), im gRPC-Server auf `codes.PermissionDenied` mappen
+      (`mapHRError`, `internal/server/hr_grpc.go`) und im Gateway ueber `respondGRPCError`
+      als 403 durchreichen. `TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection` muss
+      danach auf den neuen Fehler statt auf Erfolg pruefen; `TestApproveTimeCorrection_
+      TransitionsStatus` (fremder Genehmiger) darf sich nicht aendern.
+    done_when:
+      - >-
+        ApproveTimeCorrection lehnt approverID == correction.EmployeeID ab (kein Statuswechsel,
+        kein CorrectionApprovedBy-Write)
+      - Der neue Fehler ist ueber mapHRError/respondGRPCError als 403 sichtbar, nicht als 500
+      - >-
+        TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection ist auf den Ablehnungsfall
+        umgeschrieben; TestApproveTimeCorrection_TransitionsStatus bleibt gruen
+      - go test -count=1 ./internal/biz/hr/timetracking/ ./internal/gateway/ gruen

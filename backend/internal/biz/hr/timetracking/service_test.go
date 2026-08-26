@@ -685,6 +685,83 @@ func TestApproveTimeCorrection_LeavesForeignOriginalAlone(t *testing.T) {
 		"a correction must never retire an entry of another tenant")
 }
 
+// TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection documents a real
+// finding from cov-gateway-hr-time-tracking-paths (BACKLOG.yml): the service
+// never compares approverID against the correction's own EmployeeID. Anyone
+// holding "hr:write" or the narrower "zeiterfassung:corrections:approve" key
+// can submit a correction for themselves and then approve it — the guard
+// controls WHO may approve corrections, not WHOSE. Filed as
+// fix-hr-approve-correction-self-approval at the backlog end; this test pins
+// today's (buggy) behaviour so the fix has something to flip red.
+func TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection(t *testing.T) {
+	svc, workRepo, _ := newTestService()
+	ctx := context.Background()
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+
+	now := time.Now()
+	clockOut := now.Add(-1 * time.Hour)
+	netWork := 450
+	correction := &models.HRWorkTimeEntry{
+		ID:               uuid.New(),
+		TenantID:         tenantID,
+		EmployeeID:       employeeID,
+		ClockIn:          now.Add(-8 * time.Hour),
+		ClockOut:         &clockOut,
+		NetWorkMinutes:   &netWork,
+		Status:           models.WorkTimeStatusCorrectionPending,
+		IsCorrection:     true,
+		CorrectionReason: "Forgot to clock out for lunch",
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	workRepo.entries[correction.ID] = correction
+
+	// approverID == employeeID: the correction's own author approves it.
+	approved, err := svc.ApproveTimeCorrection(ctx, tenantID, correction.ID, employeeID)
+	require.NoError(t, err)
+	assert.Equal(t, models.WorkTimeStatusCorrectionApproved, approved.Status)
+	assert.Equal(t, &employeeID, approved.CorrectionApprovedBy)
+}
+
+// TestGetTimeBalance_FractionalWorkWeek proves the balance subtraction is
+// exact for a non-round weekly total and a non-standard work week, not just
+// for tidy 5×8h numbers: 6 work days × 8h = 2880 target minutes, 2647 worked
+// minutes worked (a Friday cut short by 53 minutes) must yield exactly -233,
+// not a rounded neighbour.
+func TestGetTimeBalance_FractionalWorkWeek(t *testing.T) {
+	workRepo := newMockWorkTimeRepo()
+	workRepo.weeklySummary = &WeeklySummary{NetWorkMinutes: 2647}
+	breakRepo := newMockBreakRepo()
+	empRepo := &mockEmployeeRepo{profile: &models.EmployeeProfile{WorkDaysPerWeek: 6}}
+	svc := NewService(workRepo, breakRepo, empRepo, &mockSettingsRepo{}, nil)
+
+	balance, target, _, err := svc.GetTimeBalance(context.Background(), uuid.New(), uuid.New())
+	require.NoError(t, err)
+	assert.Equal(t, 2880, target)
+	assert.Equal(t, -233, balance)
+}
+
+// TestWeekStartOf_AcrossDSTSpringForward pins weekStartOf against Germany's
+// 2026 spring DST transition (Sunday 2026-03-29, clocks jump 02:00->03:00).
+// A naive Monday-minus-days walk that adds/subtracts calendar days is exactly
+// this function's contract (AddDate, not a duration subtraction), so this
+// guards against a future rewrite reintroducing a fixed-duration walk that
+// would land on the wrong wall-clock hour once a DST jump falls inside the week.
+func TestWeekStartOf_AcrossDSTSpringForward(t *testing.T) {
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	require.NoError(t, err)
+
+	// Wednesday 2026-04-01, 14:17 — the week containing the Sunday DST jump.
+	t1 := time.Date(2026, 4, 1, 14, 17, 0, 0, berlin)
+	got := weekStartOf(t1)
+
+	want := time.Date(2026, 3, 30, 0, 0, 0, 0, berlin)
+	assert.True(t, got.Equal(want), "got %v, want %v", got, want)
+	assert.Equal(t, time.Monday, got.Weekday())
+	assert.Equal(t, 0, got.Hour(), "must land on local midnight, not 23:00 or 01:00 across the DST jump")
+}
+
 func TestClockOut_NotClockedIn(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()

@@ -1051,3 +1051,66 @@ Kopf von `BACKLOG.yml`.
   sich mit der Journal-Beschreibung der Vor-Iteration.
 - neue-units: keine
 - offen: keine
+
+## Iteration 20 — cov-gateway-hr-time-tracking-paths — done — 2026-08-26 03:16
+- commit: (siehe unten, wird im selben Schritt erstellt)
+- gebaut: Neue Datei `internal/gateway/route_hr_time_tracking_test.go` mit Tests fuer alle
+  sechzehn im Scope genannten Handler (HandleCreateManualEntry, HandleApproveCorrection,
+  HandleListWorkTimeEntries, HandleGetWorkTimeStatus, HandleGetMyWeekStatus,
+  HandleGetTimeBalance, HandleGetTeamTime, HandleCreateTimeCategory, HandleUpdateTimeCategory,
+  HandleDeleteTimeCategory, HandleListTimeCategories, HandleCreateTimeProject,
+  HandleListTimeProjects, HandleCreateTimeTemplate, HandleDeleteTimeTemplate,
+  HandleListTimeTemplates), je ServiceUnavailable/MissingTenant/ReachesRPC plus
+  Validierungsfaelle, im selben Dummy-Registry-Muster wie die HR-Vorgaenger-Iteration.
+  Permission-Guard-Wiring fuer HandleApproveCorrection und HandleGetTeamTime ist bereits durch
+  `TestCapabilityGuards_AdditiveWiring` (route_capability_guard_test.go) belegt und nicht
+  dupliziert worden.
+  Echter Berechtigungsfund zu Frage 1 ("kann ein Mitarbeiter seine eigene Korrektur
+  genehmigen?"): JA. `Service.ApproveTimeCorrection` (service.go:441) vergleicht `approverID`
+  nie mit `correction.EmployeeID` — der Guard (`hr:write` ODER
+  `zeiterfassung:corrections:approve`) regelt nur WER genehmigen darf, nicht WESSEN eigene
+  Korrektur. Mit `TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection` in
+  `internal/biz/hr/timetracking/service_test.go` belegt (Test ist gruen, weil der Bug real
+  ist) und als eigene Fix-Unit `fix-hr-approve-correction-self-approval` (model: opus) ans
+  Backlog-Ende gehaengt statt nebenbei gefixt.
+  Frage 2 ("sieht ein Teamleiter nur sein Team?"): NEIN, aber kein Bug — `GetTeamTime`
+  traegt den Kommentar "returns aggregated weekly time for all employees of the tenant" und
+  `GetTeamTimeReq` hat kein Feld zum Team-/Manager-Scoping (Data-Model hat ueberhaupt keinen
+  manager_id/team_id, nur ein freies Department-Textfeld). Explizit dokumentiertes Verhalten,
+  keine stille Luecke — nicht als Fix-Unit angelegt, siehe offen: unten.
+  Saldentest mit krummen Werten: `TestGetTimeBalance_FractionalWorkWeek` (6-Tage-Woche,
+  2647 von 2880 Zielminuten, erwartet exakt -233) plus `TestWeekStartOf_AcrossDSTSpringForward`
+  (Europe/Berlin, Woche mit der Sommerzeitumstellung 2026-03-29, prueft Montag 00:00 lokal).
+  Nebenbefund gepruefte, aber NICHT als Bug gewertet: `DeleteTimeCategory`/`DeleteTimeTemplate`/
+  `UpdateTimeCategory`-GetByID setzen kein `tenant_id` in der SQL — aber `hr_time_categories`/
+  `hr_time_templates` laufen ueber `enable_tenant_rls` mit `FORCE ROW LEVEL SECURITY` und die
+  Policy deckt per Default alle Commands (SELECT/UPDATE/DELETE), `internal/database/postgres.go`
+  stempelt `app.tenant_id` pro Connection-Acquire aus dem Request-Context. Cross-Tenant-Zugriff
+  wird also von RLS abgefangen, nicht von der Anwendung — konsistent mit dem sonstigen Muster
+  im Repo, deshalb keine Fix-Unit.
+- gate: build ok (`./internal/gateway/... ./internal/biz/hr/timetracking/... ./cmd/gateway/...`)
+  | vet ok (beide Pakete) | lint ok (0 issues, `golangci-lint run --config .golangci.yml
+  ./internal/gateway/... ./internal/biz/hr/timetracking/...`) | test ok (beide Pakete komplett
+  gruen, 4142 PASS, 0 FAIL, 0 SKIP, `DATABASE_URL` gesetzt) | migration n.a. (keine
+  Tabelle/Policy angefasst) | rls-smoke n.a. (reine Unit-Tests, keine echte DB-Verbindung fuer
+  die neuen Tests) | route-drift ok (Teil des vollen `./internal/gateway/`-Laufs,
+  `TestOpenAPIRouteDrift` PASS — keine neue Route)
+- coverage: internal/gateway 59,3 % -> 60,1 % (`-coverprofile` vor/nach der neuen Testdatei
+  gemessen); internal/biz/hr/timetracking 61,9 % (Bezugswert Unit) -> 63,4 % (selbst gemessen,
+  neue Tests fuer ApproveTimeCorrection-Selbstgenehmigung, GetTimeBalance und weekStartOf)
+- mutations-probe: `GetTimeBalance` in `internal/biz/hr/timetracking/service.go` von
+  `workDays * 8 * 60` auf `workDays * 7 * 60` verkuerzt (Datei vorher per `cp` gesichert).
+  `TestGetTimeBalance_FractionalWorkWeek` sofort rot (target 2520 statt 2880, balance 127 statt
+  -233). Datei per `cp` zurueckgedreht, `git diff` danach leer, kompletter Paketlauf
+  (`./internal/biz/hr/timetracking/`) anschliessend wieder gruen.
+- verify vorgaenger: sauber. `7a2ab393` (HR-Employee-Profile/Personnel-Document-Gateway-Tests)
+  aendert nur `internal/gateway/route_hr_employees_documents_test.go` + Backlog/Journal; kein
+  gRPC-Aufruf im Gateway umgangen, kein `.proto`, keine neue Tabelle/Route/Guard, keine
+  Wire-Shape-Aenderung. Kein Berechtigungsfehler gefunden, daher korrekt keine Fix-Unit
+  angelegt — mit `git show --stat` gegengeprueft, deckt sich mit der Journal-Beschreibung.
+- neue-units: fix-hr-approve-correction-self-approval (model: opus, Block-Ende)
+- offen: `python3 .planning/backend-block/loop/hooks/backlog-check.py --preflight` schlaegt
+  weiterhin fehl auf der VORBESTEHENDEN Unit `fix-409-double-meaning-on-grpc-conflict-routes`
+  (status: blocked, stammt aus `18b85a4e` vom 2026-08-24, nicht aus dieser Iteration) — gehoert
+  nach BACKLOG-PARKED.yml oder BACKLOG-NEXT.yml, siehe
+  feedback_loop_backlog_yaml_never_parsed.md in memory. Von mir weder erzeugt noch veraendert.
