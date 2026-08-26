@@ -819,3 +819,58 @@ Kopf von `BACKLOG.yml`.
   getestet — nur die beiden `done_when`-relevanten Faelle (Invoice,
   CreditNote) tragen eigene Tests. Wer das fuer Angebot/Mahnung ebenfalls
   belegt haben will, kann das als eigene, sehr kleine Coverage-Unit anlegen.
+
+## Iteration 16 — cov-fuhrpark-postgres-repository-real-sql — done — 2026-08-26 02:41
+- commit: (siehe unten, wird im selben Schritt erstellt)
+- gebaut: Neue Datei `internal/fuhrpark/postgres_repository_gap_test.go` mit sieben
+  DB-Tests (82 PASS inkl. Subtests) gegen echtes Postgres, die den Rest von
+  `postgres_repository.go` abdecken, der bislang von keinem Test angefasst wurde:
+  Services (`GetService`/`ListServices`/`UpdateService`/`DeleteService`,
+  Filter auf VehicleID/Status/ScheduledBefore), Damages (`GetDamage`/`ListDamages`/
+  `UpdateDamage` — kein `DeleteDamage` im Repository-Interface, also nicht getestet),
+  `GetVehicleHistory` (UNION aus vehicle_services + vehicle_damages, DESC-Reihenfolge,
+  Tenant-Scope), Fuel Logs (`ListFuelLogs` mit/ohne Vehicle-Filter, `UpdateFuelLog`,
+  `DeleteFuelLog`), Trip Logs (`ListTripLogs`, `UpdateTripLog` inkl. EndKm<StartKm-Guard,
+  `DeleteTripLog`, generierte `km`-Spalte), Vehicle Documents (`ListVehicleDocuments`,
+  `DeleteVehicleDocument`) und GPS (`IngestGpsPositions`, `GetGpsPositions`,
+  `GetVehicleRoutes` — der einzige echte SQL-JOIN in dieser Datei, gps_positions zu
+  vehicles). Vehicle-Kern, Booking, Driver-License und Trip-Log-Export waren bereits durch
+  `postgres_repository_core_test.go`, `booking_conflict_test.go`, `driver_license_test.go`
+  und `triplog_export_test.go` abgedeckt und wurden nicht dupliziert.
+  Alle Lese- und Schreibpfade sind entweder durch die neuen Tests belegt oder — bei
+  `DeleteDamage` — weil es die Methode im Repository schlicht nicht gibt.
+- gate: build ok (`./internal/fuhrpark/...`) | vet ok (`./internal/fuhrpark/...`) | lint ok
+  (0 issues, `golangci-lint run --config .golangci.yml ./internal/fuhrpark/...`) | test ok
+  (`./internal/fuhrpark/`, komplettes Paket gruen, 82 PASS, 0 SKIP) | migration n.a. (keine
+  Tabelle/Policy angefasst, alle sechs betroffenen Tabellen hatten RLS bereits seit ihrer
+  jeweiligen Erst-Migration) | rls-smoke ok (vier Methoden mit eigenem Tenant > 0 UND
+  fremdem Tenant = 0 belegt: `GetVehicleHistory`, `ListFuelLogs`, `ListVehicleDocuments`,
+  `GetVehicleRoutes` — mehr als die geforderten drei) | route-drift n.a. (kein
+  Gateway-Code, keine Route angefasst — `go build ./internal/gateway/... ./cmd/gateway/...`
+  trotzdem zur Sicherheit gruen)
+- coverage: internal/fuhrpark 54,5 % -> 81,3 % (selbst gemessen: neue Testdatei kurz nach
+  /tmp verschoben, Paket ohne sie mit `-coverprofile` laufen lassen — 54,5 %, deckt sich
+  exakt mit dem CI-Bezugswert der Unit —, Datei zurueckgeholt, erneut gemessen — 81,3 %).
+  `postgres_repository.go` selbst war laut `coverage_start` bei 40,4 % (370/621 ungedeckt);
+  Datei-genaue Nachmessung nicht separat durchgefuehrt, die Paketzahl ist der belastbare
+  Beleg.
+- mutations-probe: `ORDER BY occurred_at DESC` in `GetVehicleHistory`
+  (`postgres_repository.go:445`) auf `ASC` geaendert (Datei vorher per `cp` gesichert).
+  `TestGetVehicleHistory_MergesServicesAndDamagesOrderedAndTenantScoped` wurde sofort rot
+  (`expected the newer damage entry first ... got ... service`). Datei per `cp`
+  zurueckgedreht, `git diff` danach leer, kompletter Paketlauf (`./internal/fuhrpark/`)
+  anschliessend wieder gruen (82 PASS).
+- verify vorgaenger: sauber. `6ae3a10a` (Kaeufer-USt-IdNr. auf PDFs) aendert ausschliesslich
+  `internal/biz/pdf/generator.go` + `templates.go` + Test; kein gRPC-Aufruf, kein `.proto`,
+  keine neue Tabelle/Route/Guard, keine Wire-Shape-Aenderung. Diff mit `git show`
+  nachvollzogen, deckt sich mit der Journal-Beschreibung der Vor-Iteration.
+- neue-units: fix-fuhrpark-vehicle-routes-daily-km-always-zero (Backlog-Ende) —
+  `GetVehicleRoutes` liefert `DailyKm` fuer jede Route hart als 0 aus, obwohl das Feld bis
+  ins Frontend (`fuhrparkv1.VehicleRoute.DailyKm`, `desktop/.../types.ts`) durchgereicht
+  wird und aus den vorliegenden Lat/Lng-Fixes berechenbar waere. Kein Verhalten in dieser
+  Coverage-Unit geaendert, nur dokumentiert und als eigene Fix-Unit angelegt.
+- offen: `postgres_repository.go`-dateigenaue Vorher/Nachher-Coverage wurde nicht separat
+  gemessen (nur die Paketzahl) — bei Bedarf mit `go tool cover -func` gegen ein
+  datei-gefiltertes Profil nachholen. `fix-fuhrpark-vehicle-routes-daily-km-always-zero`
+  ist ein echter Produktionsfehler (falsche Kilometeranzeige im Fuhrpark-Modul), keine
+  reine Coverage-Luecke — sollte fuer den naechsten Lauf priorisiert werden.

@@ -1184,7 +1184,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/fuhrpark 54,5 % (CI-Stand 32735558575); postgres_repository.go 40,4 %, 370 ungedeckt von 621"
     scope: >
       Groesste einzelne Repository-Luecke im Backend nach dem Geldblock von Lauf 11.
@@ -3681,3 +3681,55 @@ units:
         Die Liste der Stellen, die das Produkt als "CRM" bezeichnen, steht gesondert im
         Journal, ohne internal/crm/ als Service-Namen mitzuzaehlen
       - Kein Verhalten geaendert, keine Zeile Code veraendert (git diff belegt das)
+
+  - id: fix-fuhrpark-vehicle-routes-daily-km-always-zero
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-fuhrpark-postgres-repository-real-sql` (Iteration 16, Lauf 12):
+      `PostgresRepository.GetVehicleRoutes` (`internal/fuhrpark/postgres_repository.go:1007`)
+      baut `VehicleRouteAggregation` je Fahrzeug/Tag aus echten `gps_positions`-Zeilen (Lat/Lng
+      pro Fix liegen vor), setzt `DailyKm` dabei aber hart auf `0` (Zeile ~1073:
+      `DailyKm: 0, // calculated from positions if needed`). Das ist kein totes Feld: die
+      Route liegt bis zum Frontend durch — `vehicleRouteToProto`
+      (`internal/server/fuhrpark_grpc.go:1561`) mapt `r.DailyKm` unveraendert in
+      `fuhrparkv1.VehicleRoute.DailyKm`, der Gateway-Handler `HandleGetVehicleRoutes`
+      (`internal/gateway/route_fuhrpark.go:1637`, Route `GET
+      /api/v1/fuhrpark/vehicles/{id}/routes`, Permission `fuhrpark:gps:read`) liefert das
+      Feld aus, und `desktop/src/renderer/src/api/types.ts` +
+      `desktop/src/renderer/src/api/fuhrpark-client.ts` fuehren `dailyKm` als eigenes
+      Frontend-Feld. Jede Route zeigt also 0 km, unabhaengig davon, wie weit das Fahrzeug an
+      dem Tag tatsaechlich gefahren ist.
+      Fix: `DailyKm` aus der Positionsfolge des Tages berechnen (Haversine-Distanz zwischen
+      aufeinanderfolgenden, nach `recorded_at` sortierten Punkten, aufsummiert). Die Positionen
+      liegen in `GetVehicleRoutes` bereits sortiert vor (`ORDER BY recorded_at ASC`,
+      Zeile ~1063), die Aggregation kann also direkt auf `positions` in der bestehenden
+      Schleife (Zeile ~1053-1077) aufsetzen, ohne eine weitere Query.
+    sources:
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/models.go
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/fuhrpark/postgres_repository_gap_test.go
+    notes: >
+      `TestGpsPositions_IngestGetAndRouteAggregation` in
+      `postgres_repository_gap_test.go` deckt `GetVehicleRoutes` bereits ab (Status
+      driving/parked, Tenant-Scoping, Positionsanzahl) — nur `DailyKm` ist dort bewusst nicht
+      geprueft, weil die Unit, die den Test geschrieben hat, keine Coverage-Unit ist und daher
+      kein Verhalten aendern durfte. Nach dem Fix dort einen Assert auf einen plausiblen
+      `DailyKm > 0`-Wert ergaenzen (z. B. zwei Positionen mit bekanntem Lat/Lng-Abstand seeden
+      und die erwartete Distanz mit einer Toleranz pruefen).
+      Kein `.proto`-Feld faellt neu an (`DailyKm` existiert im Proto bereits), also keine
+      Regenerierung noetig — reine Repository-Aenderung.
+    done_when:
+      - >-
+        GetVehicleRoutes berechnet DailyKm aus den echten gps_positions-Koordinaten des
+        jeweiligen Tages statt sie hart auf 0 zu setzen
+      - >-
+        Ein DB-Test belegt einen DailyKm-Wert grösser 0 fuer zwei oder mehr Positionen mit
+        bekanntem Abstand
+      - go test -count=1 ./internal/fuhrpark/ gruen
