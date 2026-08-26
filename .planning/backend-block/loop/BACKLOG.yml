@@ -1489,7 +1489,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_video.go 47,5 %, 33 von 59 Handlern ungetestet"
     scope: >
       Zweite Video-Unit: Meeting-Notizen, Aufgaben und Meeting-Chat. Ungetestet (Stand
@@ -4014,3 +4014,115 @@ units:
         veraenderte Balance/Analytics-Ausgabe fuer denselben Zeitraum — nicht nur, dass der
         Getter/Setter selbst funktioniert
       - go test -count=1 ./internal/biz/hr/timetracking/ ./internal/gateway/ gruen
+
+  - id: fix-video-get-meeting-notes-returns-empty-stub
+    phase: 4
+    service: video
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Verhaltens-Bugfix, kein Coverage-Ziel)
+    scope: >
+      Gefunden in Iteration 23 beim Bauen von `cov-gateway-video-notes-and-action-items`.
+      `VideoGRPCServer.GetMeetingNotes` (backend/internal/server/video_grpc.go:1047-1083)
+      liest KEINE Notizen. Es ruft `meetingService.SaveNotes(ctx, meetingID, userID,
+      tenantID, "", false)` auf — ein WRITE mit leerem Content, um damit einen READ zu
+      simulieren. `Service.SaveNotes` (internal/work/meeting/service.go:667-705) weist
+      leeren Content unbedingt VOR jedem Repo-Zugriff zurueck (Zeile 678-681,
+      `ErrNotesContentRequired`), der Aufruf schlaegt also IMMER fehl. Der Fehlerzweig im
+      gRPC-Handler faengt das ab und liefert einen leeren Stub zurueck
+      (`&videov1.MeetingNotes{MeetingId: ..., AuthorId: ...}`, ohne Content-Feld).
+      `HandleGetMeetingNotes` am Gateway (route_video.go:1056-1079) kann folglich NIEMALS
+      die tatsaechlichen Notizen eines Nutzers zurueckgeben — jeder Aufruf liefert 200 mit
+      leerem Content, egal ob zuvor via `SaveMeetingNotes` echte Notizen gespeichert wurden.
+      Der Code selbst dokumentiert die Verlegenheit in drei Kommentarzeilen ("This is a
+      deviation", "We need a different approach", "Use GetPreviousMeetingNotes as a
+      fallback pattern") — kein Zufallsfund, sondern ein bekannter, nie geschlossener
+      Platzhalter.
+    sources:
+      - backend/internal/server/video_grpc.go
+      - backend/internal/work/meeting/service.go
+      - backend/internal/work/meeting/postgres_repository.go
+      - backend/internal/gateway/route_video.go
+    notes: >
+      Die Reparatur ist klein: `PostgresRepository.GetNotes(ctx, meetingID, authorID)`
+      (postgres_repository.go:323-337) existiert bereits und liefert genau die eigenen
+      Notizen des Aufrufers (privat oder oeffentlich). Es fehlt nur eine
+      `Service.GetNotes(ctx, meetingID, authorID, tenantID)`-Methode, die zuerst per
+      `repo.GetMeeting(meetingID, tenantID)` den Tenant prueft (RLS greift zusaetzlich)
+      und dann `repo.GetNotes` aufruft, inkl. `ErrNotFound`-Fallback auf leere Notizen
+      (kein Fehler, wenn der Nutzer noch keine Notizen geschrieben hat — das ist der
+      Normalfall bei einer neuen Sitzung). Der gRPC-Handler ruft dann diese neue
+      Service-Methode statt `SaveNotes` mit leerem Content auf. Kein neues Proto-Feld
+      noetig, `videov1.MeetingNotes` traegt Content bereits.
+    done_when:
+      - >-
+        `Service.GetNotes` liest echte Notizen des Aufrufers ueber
+        `repo.GetNotes(meetingID, authorID)`, liefert bei `ErrNotFound` eine leere
+        `MeetingNotes` zurueck (kein Fehler) statt eines Schreibversuchs
+      - >-
+        `VideoGRPCServer.GetMeetingNotes` ruft die neue Service-Methode auf, nicht mehr
+        `SaveNotes` mit leerem Content
+      - >-
+        Ein Test beweist den vollen Zyklus: `SaveMeetingNotes` mit echtem Content, danach
+        `GetMeetingNotes` liefert genau diesen Content zurueck (bisher unmoeglich, da jeder
+        GetMeetingNotes-Aufruf einen leeren Stub lieferte)
+      - go test -count=1 ./internal/work/meeting/... ./internal/server/... ./internal/gateway/ gruen
+
+  - id: feat-meeting-notes-and-chat-dsar-and-retention-coverage
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (DSAR/Retention-Luecke, kein Coverage-Ziel)
+    scope: >
+      Gefunden in Iteration 23 beim Bauen von `cov-gateway-video-notes-and-action-items`,
+      Scope-Punkt 3 der Unit (DSAR/Retention-Pruefung fuer Meeting-Notizen/-Chat).
+      `meeting_notes` (Content + author_id, teils `is_private`) und
+      `meeting_chat_messages` (Freitext + sender_name) sind Personenbezug mit freiem Text —
+      dieselbe Kategorie wie `deals.notes` oder `meetings.title/description/agenda`, die in
+      `internal/crm/consent/scrub.go:51` explizit als "accepted residual risk" dokumentiert
+      sind. Fuer die beiden Meeting-Tabellen fehlt diese Entscheidung komplett:
+      - `internal/security/gdpr/dsar_search.go` `meetingsModule` (Zeile 2239-2268) liest
+        NUR `title, status, scheduled_start, scheduled_end` aus `meetings` — kein Zugriff
+        auf `meeting_notes` oder `meeting_chat_messages`. Ein DSAR-Export eines Kontakts
+        zeigt also nie dessen (falls vorhanden) Chat-Beitraege oder Notizen, an denen er als
+        Autor/Sender beteiligt war.
+      - `internal/security/gdpr/retention_*.go` hat keinen Handler fuer `meetings`,
+        `meeting_notes` oder `meeting_chat_messages` (gegengeprueft: keiner der 15
+        bestehenden `retention_*.go`-Handler referenziert eine dieser drei Tabellen).
+        Notizen und Chat-Nachrichten bleiben also unbegrenzt gespeichert, auch nach
+        Kontakt-Loeschung oder Aufbewahrungsfrist-Ablauf.
+      - `internal/crm/consent/scrub.go` nennt nur `meetings.title/description/agenda` als
+        bewusst ausgenommen — `meeting_notes.content` und `meeting_chat_messages.message`
+        sind dort NICHT erwaehnt, die "accepted residual risk"-Entscheidung wurde fuer sie
+        nie getroffen.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_calendar_events.go
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/work/meeting/postgres_repository.go
+    notes: >
+      Das ist eine Entscheidung, keine automatische Ergaenzung: entweder (a) DSAR-Export um
+      einen `meetingNotesModule`/`meetingChatModule` erweitern und einen
+      Retention-Handler nach dem Muster von `retention_calendar_events.go` bauen, oder (b)
+      die Tabellen bewusst in `scrub.go` als "accepted residual risk" ergaenzen wie
+      `meetings.title/description/agenda` — aber NICHT stillschweigend weiter uebergehen.
+      Variante (a) ist der wahrscheinlich richtige Weg, weil Notizen/Chat direkten
+      Personenbezug ueber `author_id`/`sender_name` UND Freitext-Inhalt kombinieren, staerker
+      als die reinen Meeting-Metadaten. Vor dem Bauen mit Luke abstimmen, welche Variante.
+    done_when:
+      - >-
+        Entscheidung getroffen und dokumentiert (Journal + Commit-Message): DSAR/Retention
+        fuer meeting_notes/meeting_chat_messages nachziehen ODER bewusst als "accepted
+        residual risk" in scrub.go ergaenzen
+      - >-
+        Bei Variante (a): DSAR-Export eines Kontakts zeigt seine eigenen
+        Notizen/Chat-Beitraege; ein Retention-Handler loescht/anonymisiert beide Tabellen
+        nach Ablauf der Frist, nach dem Muster von retention_calendar_events.go
+      - >-
+        Bei Variante (b): scrub.go-Kommentar um beide Tabellen ergaenzt, mit derselben
+        Begruendung wie fuer meetings.title/description/agenda
+      - go test -count=1 ./internal/security/gdpr/... ./internal/crm/consent/... gruen

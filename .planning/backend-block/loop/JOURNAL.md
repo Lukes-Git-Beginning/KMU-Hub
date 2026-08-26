@@ -1230,3 +1230,69 @@ Kopf von `BACKLOG.yml`.
   ist `cov-video-recording-service-and-repository` (deckt die verbleibenden fuenf
   Recording-Handler + das `internal/work/recording`-Paket ab), noch `status: todo`. Damit sind
   nach dieser Iteration alle drei Video-Units im Backlog vorhanden, keine fehlt.
+
+## Iteration 23 — cov-gateway-video-notes-and-action-items — done — 2026-08-26 03:53
+- commit: (folgt im selben Commit)
+- gebaut: `backend/internal/gateway/route_video_notes_and_action_items_test.go` — 33 Tests
+  fuer die zehn Handler der zweiten Video-Unit (Meeting-Notizen, Aktionspunkte,
+  Meeting-Chat, AI-Summary): HandleGetMeetingNotes, HandleSaveMeetingNotes,
+  HandleGetPreviousMeetingNotes, HandleGenerateMeetingSummary, HandleCreateActionItem,
+  HandleUpdateActionItem, HandleDeleteActionItem, HandleListActionItems,
+  HandleSaveMeetingChatMessage, HandleListMeetingChatMessages — je ServiceUnavailable/
+  InvalidUUID/ReachesRPC plus Validierungsfaelle (fehlender Content/Description/Message,
+  ungueltige assignee_id), im selben Dummy-Registry-Muster wie die Vorgaenger-Iteration
+  (kein Fake VideoServiceClient in diesem Paket).
+  Schwerpunkt-Fragen der Unit, mit Beleg beantwortet:
+  (1) HandleGetPreviousMeetingNotes-Scope: `Service.GetPreviousMeetingNotes`
+  (service.go:708) prueft NUR Tenant (ueber `repo.GetMeeting`) und Rekurrenz, KEIN
+  Teilnehmer-Kriterium — aber das ist konsistent mit dem Rest des Moduls:
+  `Service.GetMeeting` (service.go:186) hat ebenfalls keinen Attendee-Check, Meetings und
+  ihre OEFFENTLICHEN Notizen (is_private=false, per SQL-Filter in
+  postgres_repository.go:342/372) sind tenant-weit sichtbar by design; nur private Notizen
+  sind per author_id gescoped (`GetNotes`, Zeile 323-337). Kein Fund, kein Fix noetig —
+  gegengeprueft durch Lesen von service.go und postgres_repository.go.
+  (2) HandleGenerateMeetingSummary: die LLM-Zusammenfassung laeuft in
+  `Service.GenerateAISummary` (service.go:556), NICHT im Handler — Architekturregel 1
+  bereits eingehalten, kein Fund.
+  (3) DSAR/Retention fuer Meeting-Notizen/-Chat: NICHT abgedeckt. `dsar_search.go`
+  `meetingsModule` (Zeile 2239) liest nur `meetings`-Metadaten, nie `meeting_notes`/
+  `meeting_chat_messages`. Kein `retention_*.go`-Handler referenziert eine der beiden
+  Tabellen (alle 15 bestehenden Handler gegengeprueft). `crm/consent/scrub.go:51` nennt nur
+  `meetings.title/description/agenda` als "accepted residual risk" — fuer Notizen/Chat
+  wurde diese Entscheidung nie getroffen. Als Unit angelegt (siehe neue-units).
+  Zusaetzlicher, schwerwiegender Fund beim Lesen von `video_grpc.go`:
+  `VideoGRPCServer.GetMeetingNotes` (Zeile 1047-1083) liest NIE echte Notizen — es
+  simuliert den Read per `SaveNotes(ctx, meetingID, userID, tenantID, "", false)`
+  (leerer Content), was `Service.SaveNotes` unbedingt mit `ErrNotesContentRequired`
+  ablehnt (service.go:678-681, vor jedem Repo-Zugriff), sodass der Fehlerzweig immer einen
+  leeren Stub zurueckgibt. `HandleGetMeetingNotes` am Gateway kann folglich NIEMALS die
+  tatsaechlichen Notizen eines Nutzers liefern, unabhaengig davon, was zuvor gespeichert
+  wurde. Der Code kommentiert die eigene Verlegenheit selbst ("This is a deviation",
+  "We need a different approach"). Als Fix-Unit angelegt (siehe neue-units) — Fix ist
+  klein (bestehende `PostgresRepository.GetNotes` fehlt nur eine Service-Methode
+  darueber), aber ausserhalb des Gateway-Scopes dieser Unit und eine Verhaltensaenderung,
+  die eine Coverage-Unit laut Vorgabe nicht selbst vornimmt.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues,
+  `golangci-lint run --config .golangci.yml ./internal/gateway/...`) | test ok (komplettes
+  Paket gruen, `DATABASE_URL` gesetzt, 0 Skips) | migration n.a. (keine Tabelle/Policy
+  angefasst) | rls-smoke n.a. (reine Unit-Tests, kein neuer DB-Zugriff) | route-drift ok
+  (`TestOpenAPIRouteDrift`: 836 registrierte gegen 838 dokumentierte Pfade, PASS — keine
+  neue Route)
+- coverage: internal/gateway 61,2 % -> 61,8 % (`-coverprofile` vor/nach der neuen
+  Testdatei gemessen, Datei temporaer nach /tmp verschoben fuer den Vorher-Lauf)
+- mutations-probe: `validate:"required"` von `Message` in `saveMeetingChatMessageRequest`
+  entfernt (Datei vorher per `cp` gesichert). `TestHandleSaveMeetingChatMessage_
+  MissingMessage` sofort rot (erwartete 400/validation_failed/Feld "message", bekam 503
+  vom Transportfehler, weil die leere Message jetzt gueltig war und bis zur RPC durchlief).
+  Datei per `cp` zurueckgedreht, `git diff` danach leer, `./internal/gateway/`
+  anschliessend wieder komplett gruen.
+- verify vorgaenger: sauber. `dabf02be` (Video-Breakout/CoHost-Gateway-Tests) aendert
+  ausschliesslich eine neue Testdatei + Backlog/Journal — kein gRPC-Aufruf umgangen, kein
+  `.proto`, keine neue Tabelle/Route/Guard, keine Wire-Shape-Aenderung; `git show --stat`
+  gegen den Commit gegengeprueft.
+- neue-units: fix-video-get-meeting-notes-returns-empty-stub,
+  feat-meeting-notes-and-chat-dsar-and-retention-coverage
+- offen: Beide neuen Units sind `sonnet`, `deps: []`, direkt baubar. Die DSAR/Retention-
+  Unit verlangt vorab eine Entscheidung (a) DSAR/Retention nachziehen oder (b) bewusst als
+  "accepted residual risk" in scrub.go dokumentieren — beides ist im `done_when` als
+  gleichwertige Option beschrieben, damit der naechste Lauf nicht auf Luke warten muss.
