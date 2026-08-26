@@ -1769,3 +1769,59 @@ Kopf von `BACKLOG.yml`.
   nicht Teil dieser Unit (Scope war ausdruecklich auf Locations+Picking begrenzt), natuerlicher
   Anschluss fuer die zweite der "zwei Inventar-Units" aus dem `scope`-Text.
 
+
+## Iteration 30 — cov-gateway-inventar-inventur-and-reports — done — 2026-08-26 05:11
+- commit: e9c316b0
+- gebaut: Handler-Tests (ServiceUnavailable, MissingTenant/InvalidIDUUID, ReachesRPC, plus
+  Validierungs-Faelle) fuer die acht in dieser Unit genannten Handler: HandleGetStockReport,
+  HandleExportInventory, HandleListInventurSessions, HandleGetInventurSession,
+  HandleDeleteInventurSession, HandleListItemAttachments, HandleCreateItemAttachment,
+  HandleDeleteItemAttachment. Zusaetzlich zwei Service-Tests, die reale Produktionsluecken
+  belegen statt nur Zeilen abzudecken:
+  `TestDeleteInventurSession_CompletedSessionIsNotProtected`
+  (`internal/inventar/inventur_booking_test.go`) und
+  `TestService_GetStockReport_SumsAcrossIncompatibleUnits` (`internal/inventar/service_test.go`).
+  Befund 1 (HGB Paragraph 240): `Service.DeleteInventurSession` (service.go:878) prueft
+  `session.Status` nicht, im Unterschied zu `UpdateInventurSessionStatus` und
+  `UpsertInventurCount`, die beide korrekt gegen `ErrInventurAlreadyCompleted` absichern — eine
+  abgeschlossene Inventur ist per Test nachweislich vollstaendig loeschbar. Befund 2 (Mengeneinheiten):
+  `Service.GetStockReport` summiert `item.Quantity` ueber alle Items ohne `item.Unit` zu pruefen
+  (50 Stk + 30 kg -> `TotalQuantity: 80`), dieselbe Fehlerklasse wie die drei blinden
+  Waehrungssummierungen aus Lauf 11. `HandleExportInventory`/`ExportInventory` ist NICHT betroffen
+  (CSV-Export schreibt pro Zeile mit eigener `unit`-Spalte, keine Summierung). Beide Befunde als
+  eigene Fix-Units ans Backlog-Ende gehaengt (siehe neue-units), nicht selbst gefixt — eine
+  Coverage-Unit aendert kein Verhalten.
+- gate: build ok (`./internal/inventar/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  | lint ok (0 issues, `./internal/inventar/... ./internal/gateway/...`) | test ok
+  (`internal/inventar` gruen 0 Skip/0 Fail, `internal/gateway` gruen inkl. TestOpenAPIRouteDrift —
+  836 Routen gegen 838 Spec-Pfade, keine Route in dieser Unit angefasst, Pflichtlauf trotzdem
+  gruen) | migration n.a. (keine neue Tabelle/Spalte) | rls-smoke n.a. (keine neue Tabelle/Policy)
+- coverage: internal/gateway 63,9 % -> 64,3 % (`go tool cover -func` vor/nach den neuen Tests in
+  route_inventar_test.go; alle acht Ziel-Handler von 0,0 % auf 75-100 %, z. B.
+  HandleGetStockReport 0,0 % -> 100 %, HandleDeleteInventurSession 0,0 % -> 85,7 %,
+  HandleCreateItemAttachment 0,0 % -> 85,0 %). internal/inventar 72,9 % -> 73,1 % (die beiden
+  neuen Befund-Tests treffen bereits erreichten Code in GetStockReport/DeleteInventurSession,
+  Zuwachs kommt vor allem aus den neuen Assertions selbst).
+- mutations-probe: in `Service.GetStockReport` (service.go:588) `totalQty += item.Quantity` auf
+  `totalQty += item.Quantity * 2` geaendert (cp-Sicherung vorher). Beide GetStockReport-Tests
+  wurden rot (`TestService_GetStockReport_Success`: erwartet 53, bekam 106;
+  `TestService_GetStockReport_SumsAcrossIncompatibleUnits`: erwartet 80, bekam 160), per `cp`
+  zurueckgedreht, `git diff` gegen `service.go` danach leer, beide Tests wieder gruen.
+- verify vorgaenger: sauber (`f41baa01` — `git show --stat` gegengeprueft: ausschliesslich
+  `route_inventar_test.go`/`postgres_repository_test.go` plus BACKLOG.yml-Statuszeile, kein
+  `.proto` im Diff, keine Route, kein `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass
+  im neuen Testcode — Muster `registryWithService`/`emptyRegistry` erreicht den echten gRPC-Client
+  ueber einen unerreichbaren Port, kein Stub)
+- neue-units: fix-inventur-delete-completed-session-unprotected (opus, wie im scope-Text
+  gefordert — VERIFIZIERTER Befund, HGB-Aufbewahrungspflicht verletzt),
+  fix-inventar-stock-report-blind-unit-sum (sonnet, VERIFIZIERTER Befund — blinde Summe ueber
+  Mengeneinheiten, Proto-Aenderung an StockReportResponse vermutlich noetig)
+- offen: (1) `fix-409-double-meaning-on-grpc-conflict-routes` traegt weiterhin `status: blocked`
+  direkt in BACKLOG.yml statt in BACKLOG-NEXT.yml/BACKLOG-PARKED.yml — `--preflight` bricht
+  deswegen mit Exit 1 ab (nicht fatal fuer den Lauf, aber Luke sollte es vor dem naechsten
+  Lauf-Start bereinigen, seit Iteration 28 unveraendert offen). (2) Anhaenge (`HandleCreateItemAttachment`)
+  koennen laut scope-Text personenbezogene Daten tragen (Fotos mit Personen) — geprueft:
+  `inventory_item_attachments` (migration 000240) hat keine FK auf einen Nutzer/Mitarbeiter,
+  nur `item_id`; kein Treffer in `internal/security/gdpr` fuer `item_attachment`/`inventur_session`.
+  Strukturell also kein DSAR/Retention-Anschlusspunkt vorhanden (Inhalt der Fotos selbst ist
+  ausserhalb automatisierter SQL-Scrubbing-Reichweite) — kein Fund, kein Fix-Unit angelegt.
