@@ -2758,3 +2758,11 @@ Kopf von `BACKLOG.yml`.
   (Lieferant mit/ohne `contact_id`) — welcher davon in der Unit selbst gebaut
   wird, ist im Backlog-Eintrag als Bau-Entscheidung offengelassen, nicht als
   Luke-Entscheidung.
+
+## Bilanz Lauf (2026-08-26 07:31)
+- iterationen: 41 im Bereich 1-43, davon 41 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: cov 28 · feat 6 · fix 4 · harden 3
+- commits nach typ: chore 51 · test 28 · feat 7 · fix 6 (92 seit 8f3b92b3)
+- coverage-delta: internal/work/customfield 0,0 -> 82,6 · vorher 3,9 -> 82,6 · Referenzwert 19,4 -> 78,2 · (17 weitere)
+- offen mit entscheidungsbedarf: 15 von 36 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 10,4 (425 gesamt)
