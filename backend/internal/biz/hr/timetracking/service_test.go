@@ -845,6 +845,26 @@ func TestGetTimeAnalytics_BatchesDailyQueries(t *testing.T) {
 	assert.Equal(t, 1, workRepo.dailyRangeCalls)
 }
 
+// TestGetTimeAnalytics_EmptyPeriod proves a period with zero worked minutes
+// (a brand-new employee, or a range before any clock-in exists) returns a
+// well-formed zero result instead of a division-by-zero panic or a negative
+// "overtime" figure. AvgDailyMinutes divides by numDays, which is a route-supplied
+// constant (7 for "week", now.Day() for "month") and therefore always >= 1 —
+// this test pins that invariant rather than re-deriving it.
+func TestGetTimeAnalytics_EmptyPeriod(t *testing.T) {
+	svc, _, _ := newTestService()
+
+	analytics, err := svc.GetTimeAnalytics(context.Background(), uuid.New(), uuid.New(), "week")
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, analytics.TotalMinutes)
+	assert.Equal(t, 0, analytics.OvertimeMinutes, "zero worked minutes must clamp to zero overtime, not go negative")
+	assert.Equal(t, 0, analytics.AvgDailyMinutes)
+	assert.Len(t, analytics.DayTrend, 7)
+	assert.NotNil(t, analytics.ByProject, "must be [] on the wire, never null")
+	assert.Empty(t, analytics.ByProject)
+}
+
 // TestServicePassesCallerTenantToRepo pins the plumbing half of the tenant scope.
 // The queries filter on tenant_id (see postgres_tenant_scope_test.go), but that
 // only helps if the service hands its caller's tenant down instead of uuid.Nil —
@@ -892,6 +912,18 @@ func TestServicePassesCallerTenantToRepo(t *testing.T) {
 		workRepo.entries[correction.ID] = correction
 
 		_, err := svc.ApproveTimeCorrection(context.Background(), tenantID, correction.ID, uuid.New())
+		require.NoError(t, err)
+		assertAllTenants(t, workRepo, tenantID)
+	})
+
+	t.Run("daily, weekly, and range summaries all carry the caller's tenant", func(t *testing.T) {
+		svc, workRepo, _ := newTestService()
+		ctx := context.Background()
+		_, err := svc.GetDailySummary(ctx, tenantID, employeeID, time.Now())
+		require.NoError(t, err)
+		_, err = svc.GetWeeklySummary(ctx, tenantID, employeeID, time.Now())
+		require.NoError(t, err)
+		_, err = svc.GetTimeAnalytics(ctx, tenantID, employeeID, "week")
 		require.NoError(t, err)
 		assertAllTenants(t, workRepo, tenantID)
 	})

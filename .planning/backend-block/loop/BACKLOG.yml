@@ -1411,7 +1411,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_hr.go 36,4 %, 33 von 55 Handlern ungetestet"
     scope: >
       Dritte und letzte HR-Unit: Auswertungen und Einstellungen. Ungetestet (Stand
@@ -3958,4 +3958,59 @@ units:
       - >-
         TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection ist auf den Ablehnungsfall
         umgeschrieben; TestApproveTimeCorrection_TransitionsStatus bleibt gruen
+      - go test -count=1 ./internal/biz/hr/timetracking/ ./internal/gateway/ gruen
+
+  - id: fix-hr-settings-never-consumed-by-timetracking
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-hr-analytics-and-settings` (Iteration 21, Lauf 12). Der
+      `HandleUpdateHRSettings`/`HandleGetHRSettings`-Pfad (`internal/gateway/route_hr.go:1451`,
+      `:1485`; `internal/server/hr_grpc.go:1565`, `:1581`) schreibt/liest `HRCompanySettings`
+      (`au_threshold_days`, `work_hours_per_day`, `max_daily_hours`, `break_after_hours`,
+      `default_annual_leave_days`, `timezone`) korrekt in/aus der DB — aber
+      `internal/biz/hr/timetracking/service.go` bekommt `settingsRepo` zwar per
+      `NewService(..., settingsRepo, ...)` injiziert (Feld `s.settingsRepo`, Zeile 32/53),
+      liest es an KEINER einzigen Stelle im Paket (`grep -n "s\.settingsRepo" service.go`
+      liefert null Treffer). Konkret hartkodiert statt konfiguriert:
+      - `GetTimeBalance` und `GetTimeAnalytics` rechnen `targetWeeklyMinutes = workDays * 8 * 60`
+        — das konfigurierbare `WorkHoursPerDay` hat keinerlei Wirkung auf Saldo oder Analytics.
+      - Der ArbZG-Block in `ClockIn` (`errors.go:21`, `service.go:131`) lehnt bei
+        `todaySummary.NetWorkMinutes >= 600` (10h) ab — `MaxDailyHours` aus den Settings wird
+        nie gelesen, der Grenzwert ist unveraenderlich 10h.
+      - `BreakAfterHours` und `AUThresholdDays` haben ueberhaupt keinen Lesepfad im Paket.
+      Ein Admin, der `HandleUpdateHRSettings` aufruft (Antwort ist 200, `GetHRSettings` liefert
+      danach den neuen Wert zurueck), aendert damit fachlich NICHTS an der Zeiterfassung — das
+      ist kein "wirkt rueckwirkend"-Bug, sondern "wirkt nie". Deploy-Hazard: die Fehlmeldung
+      "Einstellung gespeichert" bei einer UI, die tatsaechlich nichts bewirkt.
+    sources:
+      - backend/internal/biz/hr/timetracking/service.go
+      - backend/internal/biz/hr/timetracking/errors.go
+      - backend/internal/server/hr_grpc.go
+      - backend/internal/gateway/route_hr.go
+    notes: >
+      Vor dem Fix pruefen, ob `HRCompanySettings` bereits ein Repo-Lesemuster in einer
+      Nachbardomaene hat (z. B. `internal/biz/hr/leave` nutzt denselben
+      `leave.HRSettingsRepository` fuer `AUThresholdDays`/`ShowAbsenceReason` — als Vorbild
+      fuer den Lesepfad hier verwenden). Fix ist NICHT nur "Wert einsetzen": ein Cache/TTL-
+      oder Request-Scope-Gedanke ist noetig, damit `s.settingsRepo.GetByTenant` nicht bei
+      jedem `ClockIn`/`GetTimeBalance`-Aufruf eine zusaetzliche DB-Query kostet (Vorbild:
+      wie `employeeRepo.GetByUserID` bereits pro Aufruf gemacht wird — gleiches Muster,
+      keine neue Abstraktion).
+    done_when:
+      - >-
+        GetTimeBalance und GetTimeAnalytics verwenden `WorkHoursPerDay` aus den
+        Tenant-HR-Settings statt der hartkodierten 8h, mit Fallback auf 8h wenn keine
+        Settings-Zeile existiert (neuer Tenant vor dem ersten Speichern)
+      - >-
+        Der ArbZG-10h-Block in ClockIn verwendet `MaxDailyHours` aus den Settings
+        (Fallback 10h), nicht die feste Konstante
+      - >-
+        Ein Test setzt eine Settings-Aenderung (z. B. WorkHoursPerDay=6) und beweist eine
+        veraenderte Balance/Analytics-Ausgabe fuer denselben Zeitraum — nicht nur, dass der
+        Getter/Setter selbst funktioniert
       - go test -count=1 ./internal/biz/hr/timetracking/ ./internal/gateway/ gruen

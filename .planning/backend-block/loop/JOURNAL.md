@@ -1114,3 +1114,62 @@ Kopf von `BACKLOG.yml`.
   (status: blocked, stammt aus `18b85a4e` vom 2026-08-24, nicht aus dieser Iteration) — gehoert
   nach BACKLOG-PARKED.yml oder BACKLOG-NEXT.yml, siehe
   feedback_loop_backlog_yaml_never_parsed.md in memory. Von mir weder erzeugt noch veraendert.
+
+## Iteration 21 — cov-gateway-hr-analytics-and-settings — done — 2026-08-26 03:29
+- commit: <wird im chore-Commit dieser Iteration gesetzt>
+- gebaut: Neue Datei `internal/gateway/route_hr_analytics_settings_test.go` mit Tests fuer
+  alle fuenf im Scope genannten Handler (HandleDailySummary, HandleWeeklySummary,
+  HandleGetTimeAnalytics, HandleGetHRSettings, HandleUpdateHRSettings), je
+  ServiceUnavailable/MissingTenant/ReachesRPC plus Validierungsfaelle
+  (work_hours_per_day > 24, au_threshold_days < 0), im selben Dummy-Registry-Muster wie die
+  beiden HR-Vorgaenger-Iterationen. Zwei neue Service-Tests in
+  `internal/biz/hr/timetracking/service_test.go`: `TestGetTimeAnalytics_EmptyPeriod` (leerer
+  Zeitraum liefert 0 Minuten, 0 statt negativer Overtime, DayTrend mit 7 genullten Eintraegen,
+  ByProject als `[]` statt `nil`) und eine Ergaenzung zu `TestServicePassesCallerTenantToRepo`
+  fuer GetDailySummary/GetWeeklySummary/GetTimeAnalytics.
+  Frage (1) Tenant-Scoping: JA belegt — alle drei Aggregations-Queries in
+  `postgres_repository.go` (`GetDailySummary`, `aggregateDailyBuckets`, das Fundament von
+  GetWeeklySummary/GetDailySummaryRange) filtern `tenant_id = $5`/`$5`, und der Service reicht
+  den Aufrufer-Tenant durch (neuer Subtest, `assertAllTenants` gruen).
+  Frage (2) leerer Zeitraum: kein Crash, keine Division durch Null — `aggregateDailyBuckets`
+  seedet jeden Tag mit einem genullten `DailySummary` VOR der SQL-Antwort, `AvgDailyMinutes`
+  teilt durch `numDays`, das aus der Route immer >=1 kommt (7 fest oder `now.Day()`).
+  Frage (3) HR-Settings rueckwirkend: NEIN, aber schlimmer als das — `s.settingsRepo` wird in
+  `internal/biz/hr/timetracking/service.go` konstruiert (Zeile 32/53), aber IM GANZEN PAKET
+  nie gelesen (`grep -n "s\.settingsRepo" service.go` = 0 Treffer). `GetTimeBalance` und
+  `GetTimeAnalytics` rechnen hart `workDays * 8 * 60`, der ArbZG-10h-Block in `ClockIn`
+  (`errors.go:21`) ist eine feste Konstante. `HandleUpdateHRSettings` persistiert
+  `work_hours_per_day`/`max_daily_hours`/`break_after_hours` korrekt (bestaetigt per
+  Read von `hr_grpc.go:1581`), aber kein Konsument liest sie je zurueck — die Einstellung
+  wirkt nie, weder rueckwirkend noch prospektiv. Als eigene Fix-Unit
+  `fix-hr-settings-never-consumed-by-timetracking` (model: opus) ans Backlog-Ende gehaengt,
+  nicht nebenbei gefixt (Verhaltensaenderung, keine Coverage-Unit).
+  Verbleibender ungetesteter Rest von `route_hr.go`: NULL. Gegengeprueft mit
+  `grep -oP 'func \(h \*HRRoutes\) \KHandle\w+' route_hr.go | sort -u` (55 Handler) gegen alle
+  `route_hr*_test.go`-Dateien — vor dieser Unit waren genau diese fuenf ungetestet, danach
+  keiner mehr. Keine Folge-Unit noetig.
+- gate: build ok (`./internal/gateway/... ./internal/biz/hr/timetracking/... ./cmd/gateway/...`)
+  | vet ok (beide Pakete) | lint ok (0 issues, `golangci-lint run --config .golangci.yml
+  ./internal/gateway/... ./internal/biz/hr/timetracking/...`) | test ok (beide Pakete komplett
+  gruen, 2986 PASS, 0 FAIL, 0 SKIP, `DATABASE_URL` gesetzt) | migration n.a. (keine
+  Tabelle/Policy angefasst) | rls-smoke n.a. (reine Unit-Tests) | route-drift ok
+  (`TestOpenAPIRouteDrift`: 836 registrierte gegen 838 dokumentierte Pfade, PASS — keine
+  neue Route)
+- coverage: internal/gateway 60,1 % -> 60,4 % (`-coverprofile` vor/nach der neuen Testdatei
+  gemessen, Vorher-Lauf mit temporär entfernter Datei); internal/biz/hr/timetracking 63,4 %
+  (Bezugswert aus Vorgaenger-Iteration) -> 63,7 % (selbst gemessen)
+- mutations-probe: `overtimeMinutes < 0 { overtimeMinutes = 0 }`-Clamp in `GetTimeAnalytics`
+  (`internal/biz/hr/timetracking/service.go`) entfernt (Datei vorher per `cp` gesichert).
+  `TestGetTimeAnalytics_EmptyPeriod` sofort rot (erwartet 0, bekam -3360). Datei per `cp`
+  zurueckgedreht, `git diff` danach leer, `./internal/biz/hr/timetracking/` anschliessend
+  wieder komplett gruen.
+- verify vorgaenger: sauber. `28a5d652` (HR-Time-Tracking-Gateway-Tests + Fix-Unit
+  fuer Selbstgenehmigung) aendert nur Testdateien + Backlog/Journal; kein gRPC-Aufruf
+  umgangen, kein `.proto`, keine neue Tabelle/Route/Guard, keine Wire-Shape-Aenderung. Der
+  gefundene Berechtigungsfund wurde korrekt als eigene Fix-Unit angelegt statt nebenbei
+  gefixt — mit `git show --stat` gegen die Journal-Beschreibung gegengeprueft, deckt sich.
+- neue-units: fix-hr-settings-never-consumed-by-timetracking (model: opus, Block-Ende)
+- offen: `route_hr.go` ist jetzt vollstaendig durch Tests referenziert (55/55 Handler-Namen
+  treffen in mind. einer `route_hr*_test.go`-Datei). Die vorbestehende Preflight-Meldung zu
+  `fix-409-double-meaning-on-grpc-conflict-routes` (aus `18b85a4e`, nicht dieser Iteration)
+  besteht unveraendert fort, siehe Iteration 20.
