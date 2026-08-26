@@ -1321,7 +1321,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 56,6 %; route_hr.go 36,4 %, 634 ungedeckt, 33 von 55 Handlern ungetestet"
     scope: >
       `route_hr.go` ist die groesste einzelne Luecke im Gateway: 2300 Zeilen, 36,4 %,
