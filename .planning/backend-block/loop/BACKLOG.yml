@@ -2063,7 +2063,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/berichte 62,0 %; postgres_repository.go 24,6 %, 202 ungedeckt von 268; berichte_grpc.go 54,4 %, 187 ungedeckt"
     scope: >
       Das Berichtsmodul ist die Stelle, an der Lauf 11 eine blinde Waehrungssummierung
