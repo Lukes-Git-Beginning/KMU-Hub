@@ -707,3 +707,53 @@ func TestGpsPositions_IngestGetAndRouteAggregation(t *testing.T) {
 		}
 	})
 }
+
+// TestService_IngestGpsPositions_RejectsForeignTenantVehicle is the DB-backed
+// counterpart to fix-fuhrpark-gps-ingest-no-vehicle-tenant-check: a caller
+// must not be able to attribute GPS positions to a vehicle_id owned by a
+// different tenant, even though gps_positions.vehicle_id only has a bare FK
+// on vehicles(id) with no tenant check of its own.
+func TestService_IngestGpsPositions_RejectsForeignTenantVehicle(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenantA, tenantB := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantA, "GPS Ingest Owner Tenant")
+	testutil.EnsureTenant(t, pool, tenantB, "GPS Ingest Attacker Tenant")
+
+	repo := NewPostgresRepository(pool)
+	svc := NewService(repo)
+	ctxA := testutil.WithTenantCtx(context.Background(), tenantA)
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+
+	vehicle := seedVehicleWithTuev(t, repo, ctxA, pool, tenantA, nil)
+
+	n, err := svc.IngestGpsPositions(ctxB, tenantB, vehicle.ID, []GpsPosition{{Lat: 1, Lng: 2, RecordedAt: time.Now()}})
+	if !errors.Is(err, ErrVehicleNotFound) {
+		t.Fatalf("expected ErrVehicleNotFound for a foreign-tenant vehicle_id, got n=%d err=%v", n, err)
+	}
+
+	var count int
+	if err := pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		"SELECT count(*) FROM gps_positions WHERE vehicle_id=$1", vehicle.ID).Scan(&count); err != nil {
+		t.Fatalf("count gps_positions: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected no gps_positions row inserted for the rejected ingest, got %d", count)
+	}
+
+	own, err := svc.IngestGpsPositions(ctxA, tenantA, vehicle.ID, []GpsPosition{{Lat: 1, Lng: 2, RecordedAt: time.Now()}})
+	if err != nil {
+		t.Fatalf("IngestGpsPositions for the owning tenant: %v", err)
+	}
+	if own != 1 {
+		t.Fatalf("expected 1 position ingested for the owning tenant, got %d", own)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(testutil.WithSystemCtx(context.Background()),
+			"DELETE FROM gps_positions WHERE vehicle_id=$1", vehicle.ID)
+	})
+}

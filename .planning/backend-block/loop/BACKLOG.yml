@@ -425,7 +425,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).

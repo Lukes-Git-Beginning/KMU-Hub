@@ -859,6 +859,10 @@ func (s *Service) IngestGpsPositions(ctx context.Context, tenantID, vehicleID uu
 	if vehicleID == (uuid.UUID{}) || len(positions) == 0 {
 		return 0, ErrInvalidInput
 	}
+	// Verify vehicle belongs to tenant before attributing GPS data to it.
+	if _, err := s.repo.GetVehicle(ctx, tenantID, vehicleID); err != nil {
+		return 0, err
+	}
 	return s.repo.IngestGpsPositions(ctx, tenantID, vehicleID, positions)
 }
 

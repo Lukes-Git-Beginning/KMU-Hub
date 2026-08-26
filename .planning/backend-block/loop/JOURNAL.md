@@ -2880,3 +2880,45 @@ Kopf von `BACKLOG.yml`.
   Lesen/Broadcasten nutzt und Nachrichten ausschliesslich ueber `route_chat.go` sendet, ist
   nicht geprueft — steht als erste Pruef-Frage in der neuen Unit. Der Fund selbst (fehlendes
   `TenantId`) ist am Code verifiziert, nicht spekulativ.
+
+## Iteration 3 — fix-fuhrpark-gps-ingest-no-vehicle-tenant-check — done — 2026-08-27 01:29
+- commit: PENDING
+- gebaut: `Service.IngestGpsPositions` (`backend/internal/fuhrpark/service.go:858`) prueft jetzt
+  vor dem Insert per `s.repo.GetVehicle(ctx, tenantID, vehicleID)`, ob `vehicleID` einem
+  Fahrzeug des aufrufenden Tenants gehoert — exakt das Vorbild aus `GetVehicleHistory`
+  (`service.go:884`). `GetVehicle` liefert bei fremdem Tenant `ErrVehicleNotFound`, der
+  gRPC-Handler `FuhrparkGRPCServer.IngestGpsPositions` mappt das ueber das bereits bestehende
+  `mapFuhrparkError` auf `codes.NotFound` — keine neue Fehlerbehandlung noetig, nur die
+  fehlende Pruefung selbst. Vorher wurde ein `vehicle_id` aus fremdem Tenant klaglos
+  akzeptiert und eine `gps_positions`-Zeile mit dem TenantId des Angreifers, aber
+  `vehicle_id` eines fremden Fahrzeugs, eingefuegt.
+  Tests: `TestService_IngestGpsPositions_ForeignTenantVehicle_Rejected` (Mock-Repository,
+  `service_extended_test.go`) und `TestService_IngestGpsPositions_RejectsForeignTenantVehicle`
+  (echte DB, `postgres_repository_gap_test.go`) — Letzterer haengt die Ablehnung zusaetzlich
+  an eine `SELECT count(*) FROM gps_positions WHERE vehicle_id=...`-Pruefung, dass wirklich
+  keine Zeile geschrieben wurde, und belegt danach im selben Test den Erfolgsfall mit dem
+  eigenen Tenant. `TestService_IngestGpsPositions_Success` (bestehender Test) musste auf ein
+  echtes, per `CreateVehicle` angelegtes Fahrzeug umgestellt werden, weil er vorher zwei
+  freie `uuid.New()`-Werte ohne Fahrzeug-Datensatz verwendete und jetzt sonst selbst am neuen
+  Check gescheitert waere.
+- gate: build ok (`go build -p 2 ./internal/fuhrpark/... ./internal/gateway/... ./internal/server/... ./cmd/gateway/...`)
+  | vet ok (`go vet ./internal/fuhrpark/...`) | lint ok (`golangci-lint run ./internal/fuhrpark/...`,
+  0 issues) | test ok (DATABASE_URL gesetzt, `go test -count=1 ./internal/fuhrpark/...` — gruen,
+  0 SKIP) | gateway-test ok (`go test -count=1 ./internal/gateway/`, gruen — keine Route
+  angefasst, `TestOpenAPIRouteDrift` lief trotzdem mit) | migration n.a. (keine neue
+  Tabelle/Spalte) | rls-smoke n.a. (keine neue Tabelle/Policy, `vehicles`-Tabelle nur gelesen)
+- coverage: n.a. (Bugfix laut Unit-Definition, kein Coverage-Ziel; Gesamtpaket
+  `internal/fuhrpark` zur Referenz 81,3 % (selbst gemessen vor der Aenderung) -> 81,3 % danach —
+  neue Zeilen und neue Tests gleichen sich rechnerisch aus)
+- mutations-probe: den `GetVehicle`-Fehler in `IngestGpsPositions` testweise mit `_ = err`
+  verschluckt statt zurueckzugeben -> `TestService_IngestGpsPositions_ForeignTenantVehicle_Rejected`
+  UND `TestService_IngestGpsPositions_RejectsForeignTenantVehicle` (DB-Test) wurden beide rot
+  (Insert ging durch, `n=1` statt `0`, kein `ErrVehicleNotFound`) -> per Sicherungskopie
+  zurueckgedreht, `git diff` zeigt danach wieder nur die beabsichtigte 4-Zeilen-Aenderung,
+  alle Fuhrpark-Tests wieder gruen.
+- verify vorgaenger: sauber (`ad060b80`, geprueft gegen alle acht Fehlerklassen — Handler geht
+  weiterhin ueber `authClient.GetUser` als gRPC-Client, kein Stub, kein `.proto` geaendert,
+  kein `RequirePermission`, keine neue Tabelle, keine Route, kein Guard ersetzt; `userInfoFunc`
+  in `cmd/gateway/setup.go` bestaetigt als echter gRPC-Client-Aufruf).
+- neue-units: keine
+- offen: keine

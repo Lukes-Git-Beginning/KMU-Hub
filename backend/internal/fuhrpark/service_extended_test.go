@@ -246,10 +246,35 @@ func TestService_IngestGpsPositions_InvalidInput(t *testing.T) {
 func TestService_IngestGpsPositions_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
+	tenantID := uuid.New()
 
-	n, err := svc.IngestGpsPositions(context.Background(), uuid.New(), uuid.New(), []GpsPosition{{Lat: 1, Lng: 2}, {Lat: 3, Lng: 4}})
+	v, err := svc.CreateVehicle(context.Background(), CreateVehicleInput{
+		TenantID: tenantID, LicensePlate: "GPS-1", Make: "VW", Model: "T", Year: 2021,
+	})
+	require.NoError(t, err)
+
+	n, err := svc.IngestGpsPositions(context.Background(), tenantID, v.ID, []GpsPosition{{Lat: 1, Lng: 2}, {Lat: 3, Lng: 4}})
 	require.NoError(t, err)
 	assert.Equal(t, 2, n)
+}
+
+// A caller must not be able to attribute GPS data to a vehicle owned by a
+// different tenant, even though the resulting gps_positions row would carry
+// the caller's own tenant_id and stay invisible to RLS reads of that tenant.
+func TestService_IngestGpsPositions_ForeignTenantVehicle_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ownerTenantID := uuid.New()
+	attackerTenantID := uuid.New()
+
+	v, err := svc.CreateVehicle(context.Background(), CreateVehicleInput{
+		TenantID: ownerTenantID, LicensePlate: "GPS-2", Make: "VW", Model: "T", Year: 2021,
+	})
+	require.NoError(t, err)
+
+	n, err := svc.IngestGpsPositions(context.Background(), attackerTenantID, v.ID, []GpsPosition{{Lat: 1, Lng: 2}})
+	assert.ErrorIs(t, err, ErrVehicleNotFound)
+	assert.Equal(t, 0, n)
 }
 
 // ============================================================================
