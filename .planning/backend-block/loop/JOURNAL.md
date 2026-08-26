@@ -1517,3 +1517,87 @@ Kopf von `BACKLOG.yml`.
   Postgres-Formulare-Units) haben das Gateway-Paket seit dem CI-Referenzlauf schon angehoben.
   Kein Handlungsbedarf, nur Hinweis fuer die naechste `coverage_start`-Pflege im Backlog-Kopf.
   Commit-SHA dieser Iteration wird wie ueblich im naechsten chore-Commit nachgetragen.
+
+## Iteration 27 — cov-caldav-backend-real-protocol-paths — done — 2026-08-26 05:10
+- commit: (wird im naechsten chore-Commit nachgetragen)
+- gebaut: zwei neue Testdateien in `internal/caldav/` fuer `caldav_backend.go` (259/316
+  Statements ungedeckt, 18,0 %):
+  `caldav_backend_grpc_test.go` (kein DB-Zugriff): `CurrentUserPrincipal`/`CalendarHomeSetPath`
+  fuer Nil-User (401) und authentifizierten User (korrekter Pfad); `CreateCalendar` (immer 403);
+  `calendarClient()`-Fehlerpropagation ueber `ListCalendars`/`GetCalendar`/`GetCalendarObject`/
+  `ListCalendarObjects`/`QueryCalendarObjects`/`PutCalendarObject`/`DeleteCalendarObject` bei
+  nicht registriertem bzw. nicht erreichbarem "work"-Service (503), nach demselben
+  `emptyRegistry()`/`registryWithService()`-Muster wie `internal/gateway` (kein bufconn-Stub fuer
+  `CalendarServiceClient` in diesem Repo — bestaetigt per Grep ueber alle
+  `internal/gateway/route_*_test.go`, keine Ausnahme gefunden). Dabei die Zeitfenster-Extraktion
+  aus `QueryCalendarObjects` (Top-Level-CompFilter vs. verschachtelter VEVENT-Filter,
+  Teil-Override) als reine Funktion `queryTimeRange` herausgezogen (verhaltensgleicher Refactor,
+  kein neuer Codepfad) und mit sechs Faellen einzeln getestet — vorher 0 % abgedeckte
+  Verzweigungslogik.
+  `caldav_backend_db_test.go` (echte Postgres, `kmuhub_app`): `checkCalendarWritePermission`
+  fuer Owner/Edit-Mitglied/Admin-Mitglied/View-Mitglied (403)/fremder User (403)/nicht
+  existierender Kalender (404) — alle unter `testutil.WithTenantCtx`, um die
+  Berechtigungs-Verzweigung selbst zu belegen; `listEventExceptions` fuer sortierte
+  Mehrfach-Treffer, leere Liste (nie `nil`).
+  Befund (VERIFIZIERTER PRODUKTIONSFEHLER, nicht entkraeftet): `checkCalendarWritePermission`
+  und `listEventExceptions` markieren ihren Context nirgends mit `sysctx.With` und erhalten nie
+  einen Tenant — anders als `resolveTenantID` in derselben Datei, das genau dafuer einen
+  eigenen erklaerenden Kommentar traegt. Der reale CalDAV-Request-Context (Basic Auth,
+  `basicAuthMiddleware` -> `CtxWithUser`, nie JWT) traegt nie einen Tenant. Empirisch gegen die
+  lokale Postgres bestaetigt (psql als `kmuhub_app`, GUCs leer: 0 Zeilen fuer eine
+  nachweislich existierende, dem Owner gehoerende `calendars`-Zeile) UND per Test
+  (`TestCheckCalendarWritePermission_RealCalDAVContext_OwnerBlocked`,
+  `TestListEventExceptions_RealCalDAVContext_SilentlyEmpty`, beide gruen — sie dokumentieren den
+  Bug, aendern ihn nicht). Folge in Produktion: JEDES CalDAV-PUT/DELETE (Apple Kalender,
+  Thunderbird/Lightning, DAVx5) scheitert mit 404 "calendar not found", auch fuer den
+  tatsaechlichen Kalenderbesitzer — passt zum in der Unit beschriebenen Symptom "mein Kalender
+  synchronisiert nicht". Und: Ausnahmen (abgesagte/verschobene Vorkommen wiederkehrender
+  Termine) verschwinden lautlos aus dem CalDAV-Export, ohne Fehler. Dasselbe Bug-Muster wurde im
+  selben Package fuer `FindActiveByUser`/`UpdateLastUsed` und die `SyncTokenService`-Writes
+  bereits gefunden und behoben (`tenant_write_test.go:10-22`) — hier war es nicht mit erledigt.
+  Nach den Grenzen dieses Laufs aendert eine cov-Unit kein Verhalten: Fix als eigene Unit ans
+  Backlog-Ende gehaengt (siehe `neue-units:`), nicht hier mitgefixt.
+  Befund (entkraeftet, kein eigener Test noetig): das in der Unit-Scope geforderte RRULE/DST-Ziel
+  ("wiederkehrender Termin ueber einen Sommerzeitwechsel") ist bereits vollstaendig abgedeckt —
+  `internal/work/event/rrule_test.go`,
+  `TestExpandRecurrence_DSTSpringForward_ShiftsPastMissingHour`, prueft die tatsaechliche
+  Recurrence-Expansion (CET vor, CEST nach dem Wechsel). `caldav_backend.go` selbst expandiert
+  keine RRULEs — es konsumiert bereits expandierte `ExpandedEventProto`-Listen vom
+  Calendar-Service per gRPC; die RRULE-Mathematik gehoert fachlich dorthin, nicht hierher. Eine
+  Dopplung des Tests in diesem Package wuerde nur denselben Produktionscode ueber einen anderen
+  Pfad erneut treffen.
+- gate: build ok (`./internal/caldav/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok |
+  lint ok (0 issues, `.golangci.yml`) | test ok (`internal/caldav`, `DATABASE_URL` gesetzt, 118
+  Tests, 0 Skips, 0 Fails) | migration n.a. (keine neue Tabelle/Spalte) | rls-smoke n.a. (keine
+  Policy geaendert — die Tests BELEGEN eine bestehende Policy-Luecke, aendern sie nicht) |
+  route-drift n.a. (keine Route angefasst)
+- coverage: internal/caldav 54,9 % -> 64,5 % (`git stash`/`go test -coverprofile` vor und nach
+  der Aenderung gemessen; Baseline deckt sich mit `coverage_start`). `caldav_backend.go` im
+  Speziellen (per `go tool cover -func` einzeln geprueft): `checkCalendarWritePermission` 0,0 %
+  -> 100 %, `listEventExceptions` 0,0 % -> 84,6 %, `queryTimeRange` (neu extrahiert) -> 100 %,
+  `CurrentUserPrincipal`/`CalendarHomeSetPath`/`CreateCalendar` 0,0 % -> 100 %,
+  `ListCalendars`/`GetCalendar`/`GetCalendarObject`/`ListCalendarObjects`/`QueryCalendarObjects`
+  je von 0,0 % auf 37,5–78,6 % (Fehlerpfad + Validierung abgedeckt, Erfolgspfad braucht einen
+  bufconn-Stub, den dieses Repo nirgends hat). `PutCalendarObject`/`DeleteCalendarObject`/
+  `expandedEventsToObjects` bleiben ueberwiegend ungedeckt (5,7 % / 20,0 % / 0,0 %) — ihr
+  Kernpfad haengt vollstaendig am fehlenden RPC-Stub, nur die Pfad-Validierung vorn ist
+  erreichbar.
+- mutations-probe: in `checkCalendarWritePermission` `permission == "edit" || permission ==
+  "admin"` zu `permission == "edit"` verengt.
+  `TestCheckCalendarWritePermission_MemberWithAdminAllowed_WithTenantCtx` sofort rot ("received
+  unexpected error: 403 Forbidden"). Datei per `cp` aus Backup zurueckgedreht, `git diff --stat`
+  auf `caldav_backend.go` zeigt danach nur noch den `queryTimeRange`-Refactor (33
+  Einfuegungen/21 Loeschungen ggue. dem committeten Stand), volles `go test
+  ./internal/caldav/...` wieder komplett gruen (0 Skips, 0 Fails).
+- verify vorgaenger: sauber. `bc322733` (Formulare-Webhook/Submission-Handler-Tests) fuegt
+  ausschliesslich eine neue Testdatei hinzu (682 Zeilen); `git show --stat` gegengeprueft — kein
+  `.proto`, keine neue Route, kein neuer `RequirePermission`-Guard, kein direkter
+  Service-Aufruf im Gateway statt Client (Grep auf `Unimplemented|TODO|FIXME|directly` in der
+  Testdatei: kein Treffer).
+- neue-units: fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx (verifizierter
+  Produktionsfehler, siehe Befund oben — status: todo, ans Backlog-Ende gehaengt)
+- offen: Commit-SHA dieser Iteration wird wie ueblich im naechsten chore-Commit nachgetragen.
+  Die neue Fix-Unit ist bewusst noch NICHT priorisiert eingeordnet (deps: []) — sie steht am
+  Backlog-Ende und wird erst gezogen, wenn alle vorherigen `todo`-Units mit erfuellten `deps`
+  durch sind. Gegeben die Schwere (CalDAV-Schreiben ist production-weit kaputt) waere eine
+  manuelle Vorziehung durch Luke sinnvoll, statt auf die natuerliche Reihenfolge zu warten.

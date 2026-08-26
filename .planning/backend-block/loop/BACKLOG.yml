@@ -1656,7 +1656,7 @@ units:
     service: calendar
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/caldav 54,9 % (494 ungedeckt von 1095); caldav_backend.go 18,0 %, 259 ungedeckt von 316"
     scope: >
       `caldav_backend.go` traegt 316 Statements bei 18,0 % — die drittduennste Datei mit
@@ -4272,3 +4272,79 @@ units:
         (noch nicht final) bleiben unangetastet
       - RLS/Tenant-Scoping des neuen Cleanup-Pfads belegt (kein cross-tenant Bulk-Delete)
       - go test -count=1 ./internal/formulare/... ./internal/security/gdpr/... gruen
+
+  - id: fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx
+    phase: 4
+    service: calendar
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
+      `cov-caldav-backend-real-protocol-paths`, empirisch gegen die lokale Postgres bestaetigt —
+      siehe `internal/caldav/caldav_backend_db_test.go`,
+      `TestCheckCalendarWritePermission_RealCalDAVContext_OwnerBlocked` und
+      `TestListEventExceptions_RealCalDAVContext_SilentlyEmpty`).
+      `checkCalendarWritePermission` (`caldav_backend.go:622`) und `listEventExceptions`
+      (`caldav_backend.go:651`) fragen `calendars`/`calendar_members`/`event_exceptions` direkt
+      ueber `b.pool` ab, OHNE den Context mit `sysctx.With` zu markieren oder einen Tenant zu
+      setzen — anders als `resolveTenantID` in derselben Datei (Zeile 50-60), das genau dafuer
+      einen eigenen Kommentar traegt. CalDAV/CardDAV-Requests laufen ueber HTTP Basic Auth
+      (App-Passwoerter), nie ueber JWT: `basicAuthMiddleware` (`internal/gateway/route_caldav.go:216`)
+      stempelt den Context nur ueber `CtxWithUser` (User-ID), niemals einen Tenant. Unter RLS
+      (`kmuhub_app`, FORCE ROW LEVEL SECURITY, Policy `tenant_id = current_tenant_id() OR
+      is_system_context()`) heisst ein fehlendes `app.tenant_id`-GUC: JEDE Zeile wird gefiltert,
+      unabhaengig vom echten Tenant (`internal/database/postgres.go:39-43`, dort ausdruecklich
+      als "safe default" dokumentiert).
+      Konkrete Folgen in Produktion:
+      1. JEDES CalDAV-Schreiben (PUT/DELETE, also jedes Anlegen/Aendern/Loeschen eines Termins
+         ueber Apple Kalender, Thunderbird/Lightning, DAVx5) schlaegt mit 404 "calendar not
+         found" fehl — auch fuer den tatsaechlichen Besitzer des Kalenders. Das deckt sich mit
+         dem in der urspruenglichen Unit beschriebenen Symptom "mein Kalender synchronisiert
+         nicht".
+      2. `listEventExceptions` liefert unter dem echten CalDAV-Context immer eine leere Liste,
+         auch wenn Ausnahmen (abgesagte oder verschobene Vorkommen einer Serie) existieren —
+         OHNE Fehler. Das ist der gefaehrlichere Teil: kein Client bekommt je einen Fehlschlag
+         zum Wiederholen, die Abweichung verschwindet einfach lautlos aus dem exportierten iCal.
+      Das exakt gleiche Bug-Muster (RLS blockt eine Basic-Auth-Abfrage ohne Tenant-Context) wurde
+      im selben Package fuer `FindActiveByUser`/`UpdateLastUsed` (Login-Pruefung) UND fuer die
+      `SyncTokenService`-Writes bereits gefunden und behoben — siehe
+      `internal/caldav/tenant_write_test.go:10-22`. Fix dort: `sysctx.With(ctx)` fuer die
+      Login-taugliche Bypass-Abfrage, bzw. `resolveTenantID` + expliziter Tenant fuer Writes.
+      Dieselbe Loesungsfamilie passt hier vermutlich nicht 1:1: `checkCalendarWritePermission`
+      und `listEventExceptions` sind LESE-Zugriffe im Kontext eines bereits bekannten,
+      authentifizierten Users (`CtxWithUser` hat die User-ID) — der richtige Fix ist wahrscheinlich,
+      den Tenant analog zu `resolveTenantID` aus der `users`-Tabelle aufzuloesen (per
+      `sysctx.With`-Bypass, wie dort) und ihn dann als echten `middleware.WithTenantID`-Context
+      an die eigentliche Abfrage zu haengen — NICHT die Abfrage selbst pauschal mit
+      `sysctx.With` zu bypassen, das wuerde die Tenant-Grenze fuer diese beiden Funktionen ganz
+      aufheben statt sie korrekt zu setzen.
+    sources:
+      - backend/internal/caldav/caldav_backend.go
+      - backend/internal/caldav/caldav_backend_db_test.go
+      - backend/internal/caldav/tenant_write_test.go
+      - backend/internal/database/postgres.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/sysctx/sysctx.go
+    notes: >
+      Die *_WithTenantCtx-Tests in `caldav_backend_db_test.go` beweisen bereits, dass die
+      Berechtigungs-Verzweigung selbst (owner/edit/admin/view/keine Mitgliedschaft/Kalender
+      nicht gefunden) korrekt ist, SOBALD ein Tenant im Context steht — sie dienen als
+      Regressionsschutz fuer diesen Fix, nicht als Ersatz fuer ihn. Nach dem Fix muessen die
+      beiden `_RealCalDAVContext_`-Tests (die den Bug dokumentieren) ihre Erwartung umdrehen:
+      der Owner darf schreiben, die Exception muss sichtbar sein.
+    done_when:
+      - >-
+        `checkCalendarWritePermission` erlaubt dem tatsaechlichen Besitzer/berechtigten Mitglied
+        das Schreiben unter dem echten CalDAV-Request-Context (kein JWT, nur `CtxWithUser`),
+        belegt gegen echte Postgres als `kmuhub_app`
+      - >-
+        `listEventExceptions` liefert seine Zeilen unter demselben echten Context, belegt gegen
+        echte Postgres als `kmuhub_app`
+      - >-
+        Ein Test belegt weiterhin die Tenant-Grenze: ein User aus Tenant A bekommt fuer einen
+        Kalender aus Tenant B weiterhin 404/403, nicht versehentlich Zugriff durch einen zu
+        weiten Bypass
+      - Die beiden `_RealCalDAVContext_`-Tests in `caldav_backend_db_test.go` sind aktualisiert und gruen
+      - go test -count=1 ./internal/caldav/... gruen, DATABASE_URL gesetzt, 0 Skips

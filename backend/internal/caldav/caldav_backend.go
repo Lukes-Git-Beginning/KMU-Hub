@@ -289,27 +289,7 @@ func (b *CalDAVBackend) QueryCalendarObjects(ctx context.Context, path string, q
 	}
 
 	// Extract time range from query filter
-	start := time.Now().AddDate(-2, 0, 0)
-	end := time.Now().AddDate(2, 0, 0)
-	if query != nil {
-		if !query.CompFilter.Start.IsZero() {
-			start = query.CompFilter.Start
-		}
-		if !query.CompFilter.End.IsZero() {
-			end = query.CompFilter.End
-		}
-		// Also check nested VEVENT filter
-		for _, cf := range query.CompFilter.Comps {
-			if cf.Name == ical.CompEvent {
-				if !cf.Start.IsZero() {
-					start = cf.Start
-				}
-				if !cf.End.IsZero() {
-					end = cf.End
-				}
-			}
-		}
-	}
+	start, end := queryTimeRange(query)
 
 	resp, err := client.ListEventsInRange(ctx, &calendarv1.ListEventsInRangeRequest{
 		CalendarIds: []string{calID.String()},
@@ -322,6 +302,38 @@ func (b *CalDAVBackend) QueryCalendarObjects(ctx context.Context, path string, q
 	}
 
 	return b.expandedEventsToObjects(ctx, userID, calID, resp.Events)
+}
+
+// queryTimeRange extracts the time range to search from a CalDAV REPORT
+// query. A nil query (or a query with no time-range filter set) falls back
+// to a wide 2-year-back/2-year-forward window. A top-level VCALENDAR filter
+// range applies first; a nested VEVENT filter range, if present, overrides
+// it -- most real-world clients (Apple Calendar, Thunderbird/Lightning) send
+// the range on the VEVENT filter, not the VCALENDAR one.
+func queryTimeRange(query *caldav.CalendarQuery) (start, end time.Time) {
+	start = time.Now().AddDate(-2, 0, 0)
+	end = time.Now().AddDate(2, 0, 0)
+	if query == nil {
+		return start, end
+	}
+
+	if !query.CompFilter.Start.IsZero() {
+		start = query.CompFilter.Start
+	}
+	if !query.CompFilter.End.IsZero() {
+		end = query.CompFilter.End
+	}
+	for _, cf := range query.CompFilter.Comps {
+		if cf.Name == ical.CompEvent {
+			if !cf.Start.IsZero() {
+				start = cf.Start
+			}
+			if !cf.End.IsZero() {
+				end = cf.End
+			}
+		}
+	}
+	return start, end
 }
 
 // PutCalendarObject creates or updates a calendar object.
