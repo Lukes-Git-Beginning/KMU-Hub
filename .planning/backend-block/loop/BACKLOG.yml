@@ -378,7 +378,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
     scope: >
       Fund aus cov-work-customfield-and-presence-zero-coverage (Iteration 38): Presence-Status
