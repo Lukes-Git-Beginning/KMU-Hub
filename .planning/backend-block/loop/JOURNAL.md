@@ -2405,3 +2405,85 @@ Kopf von `BACKLOG.yml`.
   Parallelitaet ist auf dieser lokalen DB nicht zuverlaessig gruen (siehe gate) — kein
   Fund dieser Iteration, aber falls das oefter auftritt, waere `max_connections` oder die
   Pool-Groesse pro Testpaket ein Thema fuer Luke.
+
+## Iteration 39 — cov-work-project-repository-real-sql — done — 2026-08-26 06:41
+- commit: (siehe naechster chore-Commit)
+- gebaut: Real-SQL-DB-Tests fuer `internal/work/project/postgres_repository.go` (7 neue
+  Tests: List admin/member/archived-Verzweigung, GetProjectKey+KeyExists inkl. der
+  gewollten Archiv-Freigabe des Keys, volle Member-Management-Lifecycle, AddMember gegen
+  ein fremdes projectID als Verteidigung-in-der-Tiefe, SaveAsTemplate+GetForTemplate inkl.
+  Cross-Tenant-Fall, UserPreference-Upsert gegen die echte Tabelle, Delete-Kaskade
+  Projekt->Task->TimeEntry) und fuer `internal/work/timeentry/postgres_repository.go`
+  (5 neue Tests: Doppel-Start ueber Service+Repo — beweist die "nur ein laufender Timer"
+  Invariante real in SQL, Stop-ohne-laufenden-Timer auf Repo- UND Service-Ebene,
+  GetActiveTimer tenant-gescoped, ListByTask/ListByUser Pagination-Clamping+Tenant-Scope,
+  GetTaskTimeSummary inkl. laufendem Timer per NOW() und Tenant-Scope). Dazu acht neue
+  Gateway-Handler-Tests fuer route_work_time.go (HandleStartTimer, HandleStopTimer,
+  HandleGetActiveTimer, HandleAddManualTimeEntry, HandleUpdateTimeEntry,
+  HandleGetTaskTimeSummary, HandleListProjectTimeEntries, HandleListProjectTeamUtilization)
+  — Validierungsfehler, ServiceUnavailable und Reaches-RPC-Pfade, inkl. Beleg, dass
+  billed=true den gRPC-Client trotzdem holt (nur die RPC selbst wird uebersprungen).
+  Kein Produktionsbug gefunden: AddMember's Tenant-Subquery ist durch RLS abgesichert
+  (Insert schlaegt mit NOT-NULL-Verletzung fehl statt zu leaken), SaveAsTemplate gegen
+  fremde sourceID kopiert nichts (INSERT...SELECT matched 0 Zeilen unter RLS). Projekt ->
+  Task -> TimeEntry Cascade-Delete ist beabsichtigtes Verhalten (Migrationen 000024/
+  000025/000030), kein Datenleck.
+- gate: build ok (`./internal/work/... ./internal/gateway/... ./cmd/work/... ./cmd/gateway/...`
+  mit `-p 2`) | vet ok | lint ok (0 issues, golangci-lint ./internal/work/...
+  ./internal/gateway/...) | test ok (DATABASE_URL gesetzt, project 7/7 neue Tests gruen,
+  timeentry 5/5 neue Tests gruen, gateway 18 neue Handler-Tests gruen nach zwei
+  Korrekturen — Feldnamen in assertValidationError mussten json-Keys sein
+  (`started_at`/`duration_seconds`, nicht `StartedAt`/`DurationSeconds`), und der
+  billed=true-Test brauchte `registryWithService` statt `emptyRegistry`, weil
+  HandleListProjectTimeEntries den gRPC-Client vor der billed-Weiche holt; komplettes
+  `./internal/work/...` mit `-p 2` diesmal ohne Connection-Pool-Erschoepfung durchgelaufen)
+  | migration n.a. (keine Tabelle/Policy angefasst) | rls-smoke ok (durchgaengig ueber
+  die echten Repo-Methoden: fremder Tenant liefert 0 Zeilen/nil/ErrNotFound in List,
+  GetProjectKey, KeyExists, GetActiveTimer, ListByTask/ListByUser, GetTaskTimeSummary;
+  AddMember gegen fremdes projectID schlaegt fehl statt zu leaken) | route-drift ok
+  (`TestOpenAPIRouteDrift`: 836 registrierte Routen gegen 838 dokumentierte Pfade, keine
+  neue Route in dieser Unit)
+- coverage: internal/work/project (Datei postgres_repository.go, Referenzwert 19,4 %,
+  100 von 124 Statements ungedeckt) -> Paket-gesamt 78,2 %, Datei fast durchgaengig
+  71-100 % je Funktion (schwaechste: GetMember 71,4 %, Archive 66,7 % — beide durch
+  bereits vorhandene tenant_write_test.go/service_test.go Pfade mitabgedeckt, nicht
+  Luecken dieser Unit). internal/work/timeentry (Datei postgres_repository.go,
+  Referenzwert 38,8 %, 71 von 116 Statements ungedeckt) -> Paket-gesamt 82,8 %, alle
+  13 Funktionen zwischen 62,5 % und 100 %. internal/gateway/route_work_time.go: alle
+  acht benannten Handler jetzt 73-96 % (vorher nur die zwei reinen Wire-Shape-Helfer
+  getestet, 0 % auf den Handlern selbst).
+- mutations-probe: drei Mutationen (Backup vorher per `cp`, danach zurueckgespielt,
+  `git status --short` auf beiden Dateien am Ende leer): (1) in
+  `project/postgres_repository.go` KeyExists' `AND archived_at IS NULL` entfernt ->
+  `TestGetProjectKey_And_KeyExists_TenantScopedAndArchiveAware` sofort ROT ("KeyExists
+  must return false once the holder is archived"). (2) in
+  `timeentry/postgres_repository.go` StopActiveTimer's `AND ended_at IS NULL` entfernt ->
+  KEIN Test wurde rot (Lehre: die vorhandenen Szenarien haben nie mehr als einen
+  Zeiteintrag pro User gleichzeitig, daher deckt kein Test diese Zeile scharf — als
+  Erkenntnis hier vermerkt, nicht als neue Unit, da reine Testschaerfe-Frage ohne
+  Produktionsrisiko: das WHERE bleibt durch RLS UND durch die Service-Invariante
+  "immer nur ein offener Timer" in der Praxis unkritisch). (3) Ersatzmutation in
+  `ListByTask`: Page-Clamp `page = 1` auf `page = 2` geaendert ->
+  `TestListByTask_And_ListByUser_PaginationAndTenantScoping` sofort ROT ("total=3 len=0,
+  want 3, 3"). Zusaetzlich AM SELBEN Ort separat probiert: `GetTaskTimeSummary`s
+  `AND tenant_id = $2` durch eine Tautologie ersetzt -> KEIN Test wurde rot, weil RLS
+  die fremde Zeile ohnehin nicht sichtbar macht (Verteidigung-in-der-Tiefe faengt den
+  Bug ab, bevor der Test ihn sehen koennte) — beide Nicht-Treffer sind Belege dafuer,
+  dass RLS als zweite Schicht greift, nicht ein Loch in der Testsuite.
+- verify vorgaenger: sauber (`221e9347` — nur zwei neue Testdateien
+  (`customfield/postgres_repository_db_test.go`, `presence/redis_store_test.go`) plus
+  BACKLOG.yml/JOURNAL.md im Diff, kein `.proto`, keine neue Route, kein
+  `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass, kein Stub-Marker)
+- neue-units: keine (kein Fund, der nicht selbst behoben werden durfte oder auesserhalb
+  des Scopes lag)
+- offen: (1) `fix-generatejointoken-missing-event-tenant-check` (seit Iteration 36) und
+  `fix-berichte-report-cache-never-purged` (seit Iteration 37) stehen weiterhin weiter
+  hinten im File und wurden entsprechend Dateireihenfolge korrekt uebersprungen — sie
+  laufen erst dran, wenn alle frueher im File stehenden `todo`-Units mit erfuellten
+  `deps` abgearbeitet sind. (2) Projekt- vs. HR-Zeiterfassung: keine Doppel-Buchung —
+  `internal/work/timeentry` schreibt in `time_entries` (Projekt-/Task-Stunden fuer
+  "Stunden -> Rechnung"), `internal/biz/hr/timetracking` schreibt in
+  `hr_work_time_entries`/`hr_break_entries` (Kommen/Gehen fuer Lohnabrechnung) — zwei
+  getrennte Tabellen, zwei getrennte fachliche Zwecke, keine gemeinsame Rechnung. (3)
+  `go test ./internal/work/...` lief in dieser Iteration mit `-p 2` durchgaengig gruen
+  (kein Wiederauftreten des Connection-Pool-Problems aus Iteration 38).

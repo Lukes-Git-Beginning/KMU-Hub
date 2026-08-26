@@ -2156,7 +2156,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/work/project/postgres_repository.go 19,4 % (100 ungedeckt von 124); work/timeentry/postgres_repository.go 38,8 % (71 von 116)"
     scope: >
       Projektverwaltung und Projekt-Zeiteintraege — zwei kleine Repositories mit zusammen
