@@ -2625,7 +2625,7 @@ Kopf von `BACKLOG.yml`.
   gewertet (konsistent mit dem bereits bestehenden Calendar-Verhalten).
 
 ## Iteration 42 — cov-einkauf-service-extended-real-paths — done — 2026-08-26 07:13
-- commit: (siehe naechster chore-Commit)
+- commit: 21879179
 - gebaut: Tests fuer die Nullcoverage-Funktionen in service.go/service_extended.go:
   GetSupplier, UpdatePO (inkl. Draft-Only-Guard, Duplicate-PONumber,
   Supplier-Wechsel-NotFound, ExpectedDeliveryDate-Clear), ListPOLines,
