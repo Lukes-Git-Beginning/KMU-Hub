@@ -2768,7 +2768,7 @@ Kopf von `BACKLOG.yml`.
 - minuten je iteration: 10,4 (425 gesamt)
 
 ## Iteration 1 — cov-email-sync-worker-and-imap-client — done — 2026-08-27 01:01
-- commit: (siehe naechste Zeile im selben Commit)
+- commit: fcd73c8b
 - gebaut: `internal/email/sync/worker.go` (`syncFolders`/`syncFolder` von konkretem `*IMAPClient`
   auf schmale Interfaces `folderLister`/`folderFetcher` verengt, `initialBackoff`/`maxBackoff`
   von `const` auf `var` — Muster von `imapDialTimeout`/`imapHandshakeDeadline` in imap_client.go
