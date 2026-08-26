@@ -1825,3 +1825,65 @@ Kopf von `BACKLOG.yml`.
   nur `item_id`; kein Treffer in `internal/security/gdpr` fuer `item_attachment`/`inventur_session`.
   Strukturell also kein DSAR/Retention-Anschlusspunkt vorhanden (Inhalt der Fotos selbst ist
   ausserhalb automatisierter SQL-Scrubbing-Reichweite) — kein Fund, kein Fix-Unit angelegt.
+
+## Iteration 31 — cov-gateway-rapporte-measurements — done — 2026-08-26 05:20
+- commit: 3f151a26
+- gebaut: Handler-Tests (MissingTenant/InvalidIDUUID/ServiceUnavailable/ReachesRPC plus
+  Validierungs-Faelle) fuer alle sieben in dieser Unit genannten Handler: HandleListMeasurements,
+  HandleCreateMeasurement, HandleGetMeasurement, HandleUpdateMeasurement, HandleDeleteMeasurement,
+  HandleAddMeasurementPosition, HandleDeleteMeasurementPosition. Zusaetzlich drei Repo-Tests, die
+  reale Befunde belegen statt nur Zeilen abzudecken (`internal/rapporte/postgres_repository_test.go`):
+  `TestDeleteMeasurement_CascadesToPositions` (Punkt 2 aus dem scope-Text: KEIN Fund — die
+  ON-DELETE-CASCADE-FK aus Migration 000163 greift nachweislich, keine verwaisten Zeilen),
+  `TestAddMeasurementPosition_PreservesFractionalQuantityAndRoundsUnitPrice` (krumme Menge
+  12,3456 exakt bei NUMERIC(12,4), unit_price 45,999 korrekt auf 46,00 bei NUMERIC(12,2)
+  gerundet — kein Fund, Rundung verhaelt sich wie erwartet) und
+  `TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant` (VERIFIZIERTER Befund).
+  Befund: `PostgresRepository.AddMeasurementPosition` (postgres_repository.go:672) prueft nicht,
+  ob `measurementID` zu `tenantID` gehoert — der FK auf `measurements(id)` prueft nur Existenz,
+  die RLS-Policy (`enable_tenant_rls`, migration 000118) prueft nur den `tenant_id`-Wert der NEUEN
+  Zeile selbst. Tenant A kann damit eine Position (mit `quantity`/`unit_price`, abrechnungsrelevant)
+  an jede bekannte `measurement_id` haengen, auch an eine Messung von Tenant B — das Insert gelingt
+  fehlerfrei, Tenant B sieht die fremde Zeile nie ueber den normalen Lesepfad, sie wird aber beim
+  Loeschen von Tenant B's Messung per CASCADE stillschweigend mitgeloescht. Als eigene opus-Unit
+  ans Backlog-Ende gehaengt (siehe neue-units), nicht selbst gefixt — eine Coverage-Unit aendert
+  kein Verhalten. Punkt (3) aus dem scope-Text (bereits abgerechnetes Aufmass aenderbar?) ist
+  gegenstandslos: `grep -rn measurement internal/biz/invoice/*.go internal/rapporte/service.go`
+  findet keine Verbindung zwischen Rapport-Aufmassen und Rechnungen — es existiert kein
+  `internal/rapporte/service.go`-Layer fuer Measurements ueberhaupt, `RapporteGRPCServer` ruft
+  `s.repo.*Measurement*` direkt (kein Business-Logik-Bruch, da fuer diese sieben RPCs schlicht
+  keine Business-Logik jenseits Tenant-Scoping noetig ist ausser dem jetzt gefundenen Fehlen davon).
+- gate: build ok (`./internal/rapporte/... ./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  | lint ok (0 issues, `./internal/rapporte/... ./internal/gateway/...`) | test ok
+  (`internal/rapporte` gruen 0 Skip/0 Fail, `internal/gateway` gruen inkl. TestOpenAPIRouteDrift,
+  keine Route in dieser Unit angefasst, Pflichtlauf trotzdem gruen)
+  | migration n.a. (keine neue Tabelle/Spalte) | rls-smoke n.a. (keine neue Policy — der Befund
+  betrifft eine bestehende Policy, wird in der Fix-Unit behandelt)
+- coverage: internal/gateway 64,3 % -> 64,7 % (`go tool cover -func` vor/nach, gemessen per
+  `git stash` auf den Ausgangsstand; alle sieben Ziel-Handler von 0,0-37,5 % auf 68,8-94,1 %,
+  z. B. HandleListMeasurements 0,0 % -> 94,1 %, HandleGetMeasurement 0,0 % -> 81,2 %,
+  HandleAddMeasurementPosition 0,0 % -> 84,2 %). internal/rapporte 76,1 % -> 76,1 % (keine
+  Verschiebung auf Paketebene — die drei neuen Repo-Tests treffen bereits erreichten Code in
+  AddMeasurementPosition/GetMeasurement/DeleteMeasurement, Zuwachs kommt aus den neuen
+  Assertions selbst, nicht aus neuen Statements).
+- mutations-probe: in `AddMeasurementPosition` (postgres_repository.go:694) die INSERT-Parameter
+  `p.Quantity, p.UnitPrice` zu `p.UnitPrice, p.Quantity` vertauscht (Backup vorher per `cp`).
+  `TestAddMeasurementPosition_PreservesFractionalQuantityAndRoundsUnitPrice` wurde sofort rot
+  ("expected quantity 12.3456 preserved at 4 decimals, got 45.9990"), per `cp` zurueckgedreht,
+  `git diff --stat` gegen `postgres_repository.go` danach leer, Testlauf beider Pakete wieder gruen.
+- verify vorgaenger: sauber (`e9c316b0` — `git show --stat` gegengeprueft: nur
+  `route_inventar_test.go`/`inventur_booking_test.go`/`service_test.go` plus BACKLOG.yml, kein
+  `.proto` im Diff, keine Route, kein `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass —
+  Muster `registryWithService`/`emptyRegistry` erreicht den echten gRPC-Client ueber einen
+  unerreichbaren Port, kein Stub, Grep auf Unimplemented/TODO/FIXME im Diff leer)
+- neue-units: fix-rapporte-measurement-position-cross-tenant-insert (opus — VERIFIZIERTER Befund,
+  Tenant-Isolationsluecke auf dem Schreibpfad, abrechnungsrelevante Felder betroffen)
+- offen: (1) `fix-409-double-meaning-on-grpc-conflict-routes` traegt weiterhin `status: blocked`
+  direkt in BACKLOG.yml (seit Iteration 28 unveraendert, siehe dortige offen-Zeilen) —
+  `--preflight` bricht deswegen weiter mit Exit 1 ab, nicht fatal fuer den Lauf. (2) Die neue
+  Fix-Unit setzt voraus, dass ein aehnliches Muster NICHT bei `DeleteMeasurementPosition` vorliegt
+  (dort wird nur per `id=$1 AND tenant_id=$2` geloescht, kein Fremd-Tenant-Zugriff moeglich, weil
+  das Loeschen selbst tenant-gescoped ist und keine fremde Zeile trifft) — beim Fixen trotzdem
+  gegenpruefen, ob dasselbe Copy-Paste-Muster (Insert mit fremder FK ohne Tenant-Check) noch
+  woanders im `rapporte`-Paket vorkommt (z. B. `AddLine`, `CreateAttachment` an eine fremde
+  `report_id`) — nicht Teil dieser Unit untersucht, nur bei den Measurement-Handlern.
