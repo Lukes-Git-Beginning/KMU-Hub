@@ -1979,7 +1979,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_calendar.go 45,5 %, 382 ungedeckt, 18 von 39 Handlern ungetestet"
     scope: >
       Erste von zwei Kalender-Units: Kalenderlisten, Kategorien, Teilnehmer, Feiertage.

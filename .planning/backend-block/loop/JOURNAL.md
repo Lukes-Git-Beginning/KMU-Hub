@@ -2091,3 +2091,85 @@ Kopf von `BACKLOG.yml`.
   erreichen die RPC-Schicht ohne lokale UUID-Validierung (`validateUUIDParam` fehlt),
   gleiche Klasse wie in Iteration 33 (`route_document_test.go`) dokumentiert — nicht neu,
   nicht hier gefixt.
+
+## Iteration 35 — cov-gateway-calendar-lists-and-categories — done — 2026-08-26 05:57
+- commit: (folgt im naechsten Commit)
+- gebaut: neue Testdatei `route_calendar_lists_categories_test.go` deckt die elf
+  bislang ungetesteten Handler aus `route_calendar.go` ab: HandleListCalendars,
+  HandleListBrowsableCalendars, HandleListCalendarMembers,
+  HandleCreateEventCategory, HandleUpdateCalendarPreferences,
+  HandleGetCalendarPreferences, HandleDeleteEventCategory,
+  HandleListEventCategories, HandleListEventAttendees, HandleListHolidays,
+  HandleListTaskDeadlinesInRange — jeweils ServiceUnavailable-, Validierungs-
+  und ReachesRPC-Pfad, dazu Query-Parameter-Varianten (include_hidden, search,
+  subdivision_code+Range, alle Preferences-Felder).
+  Schwerpunkt-Fragen der Unit, mit Beleg beantwortet (Code gelesen, nicht per
+  neuem Test erreichbar, da kein fake CalendarServiceClient in diesem Paket):
+  (1) `HandleListBrowsableCalendars` — welche Information ueber fremde
+  Kalender wird sichtbar? `internal/work/calendar/postgres_repository.go
+  ListBrowsable` selektiert ausschliesslich Kalender-Metadaten (id, tenant_id,
+  name, description, calendar_type, color, owner_id, is_default, timezone,
+  Zeitstempel) — keine Termine, keine Termintitel. Name/Beschreibung eines
+  geteilten Kalenders zu zeigen ist der Zweck des "shared"-Discovery-Views,
+  kein Datenschutzbefund.
+  (2) `HandleListEventAttendees` — sieht ein Teilnehmer die Liste aller
+  anderen? `calendar_grpc.go ListEventAttendees` -> `event/service.go
+  ListAttendees` prueft nur `repo.GetByID(eventID, tenantID)` (tenant-scoped
+  Existenz), NIE ob der Aufrufer selbst Teilnehmer, Ersteller oder
+  Kalender-Mitglied ist. Jeder Tenant-User mit der groben, tenant-weiten
+  Berechtigung "calendars:read" kann die Teilnehmerliste JEDES Events im
+  Tenant abrufen. Kein neuer Befund dieser Unit: `GetEvent`
+  (calendar_grpc.go:461, `eventService.Get`) hat exakt dieselbe Form — wer
+  schon Event-Details lesen kann, kam an dieselbe Information bereits vorher.
+  `SetReminders` (event/service.go:504) hat dagegen fuer Nicht-Ersteller ein
+  `requireCalendarEditPermission` — der Lesepfad hat kein Aequivalent.
+  Bestehende, durchgaengige grobe Berechtigungsarchitektur (calendars:read
+  tenant-weit, keine Pro-Kalender-ACL beim Lesen), keine neue Abweichung durch
+  diesen Handler — keine Fix-Unit, da Architekturentscheidung und nicht durch
+  eine Coverage-Unit aenderbar; im Journal festgehalten, weil die Backlog-Scope
+  die Frage ausdruecklich stellte.
+  (3) `HandleListTaskDeadlinesInRange` — reichen fremde Aufgaben durch?
+  `event/postgres_repository.go ListTaskDeadlinesInRange` filtert per SQL nur
+  auf `assignee_id = userID OR project_members.user_id = userID` (eigene
+  Aufgaben/Projekte), OHNE expliziten `tenant_id`-Filter im SQL — aber die
+  Tabelle `tasks` traegt RLS seit Migration 000120
+  (`CALL enable_tenant_rls('tasks')`), konsistent mit der bereits akzeptierten
+  ADR-006-Architektur (RLS statt App-Filter, gleiches Muster wie fuer die
+  Dokumentensuche in Iteration 34 verifiziert). Kein Fund, keine Fix-Unit.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (0 issues, `golangci-lint run --config .golangci.yml ./internal/gateway/...`)
+  | test ok (komplettes Paket gruen, `DATABASE_URL` gesetzt, 0 Skips) |
+  migration n.a. (keine Tabelle/Policy angefasst) | rls-smoke n.a. (reine
+  Handler-Unit-Tests, kein neuer DB-Zugriff) | route-drift ok
+  (`TestOpenAPIRouteDrift`: 836 registrierte gegen 838 dokumentierte Pfade,
+  PASS — keine neue Route)
+- coverage: internal/gateway 66,3 % -> 67,0 % (`-coverprofile` vor/nach der
+  neuen Testdatei gemessen). Die elf Ziel-Handler in `route_calendar.go`
+  (`go tool cover -func`): alle vorher 0,0 %, nachher 90,0-96,6 % (Uebersicht:
+  HandleListCalendars 90,9 %, HandleListBrowsableCalendars 92,3 %,
+  HandleListCalendarMembers 90,0 %, HandleCreateEventCategory 92,3 %,
+  HandleUpdateCalendarPreferences 96,2 %, HandleGetCalendarPreferences 90,0 %,
+  HandleDeleteEventCategory 91,7 %, HandleListEventCategories 90,0 %,
+  HandleListEventAttendees 91,7 %, HandleListHolidays 96,6 %,
+  HandleListTaskDeadlinesInRange 95,8 %).
+- mutations-probe: in `createEventCategoryRequest.Name` das
+  `validate:"required"` entfernt (Backup vorher per `cp`).
+  `TestHandleCreateEventCategory_MissingName` sofort rot (erwartete
+  400/validation_failed/Feld "name", bekam 503 vom Transportfehler, weil der
+  leere Name jetzt gueltig war und bis zur RPC durchlief). Datei per `cp`
+  zurueckgedreht, `git diff --stat` gegen `route_calendar.go` danach leer,
+  `go test ./internal/gateway/...` wieder komplett gruen.
+- verify vorgaenger: sauber (`151aefd3` — `git show --stat` gegengeprueft: nur
+  eine neue Testdatei `route_document_wopi_comments_shares_test.go` plus
+  BACKLOG.yml/JOURNAL.md im Diff, kein `.proto`, keine neue Route, kein
+  `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass)
+- neue-units: keine
+- offen: (1) `HandleListCalendarMembers` liest "id" wie mehrere
+  Membership-Handler in `route_calendar_membership_test.go` per rohem
+  `chi.URLParam` ohne `validateUUIDParam` — bereits katalogisierte Bestandslage
+  (Iteration 6, `fix-gateway-id-validation-consistency`), nicht neu, nicht hier
+  gefixt. (2) Die unter Schwerpunkt-Frage (2) dokumentierte grobe
+  `calendars:read`-Berechtigung (kein Pro-Kalender-ACL beim Lesen von Events/
+  Attendees) ist eine Architekturfrage fuer Luke, keine Coverage-Aenderung —
+  falls das je geschaerft werden soll, gehoert das als eigene Design-Unit ins
+  Backlog, nicht in diesen Lauf.
