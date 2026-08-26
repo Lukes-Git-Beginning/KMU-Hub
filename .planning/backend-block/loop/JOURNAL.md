@@ -2825,7 +2825,7 @@ Kopf von `BACKLOG.yml`.
 - offen: keine
 
 ## Iteration 2 — fix-websocket-presence-subscribe-missing-tenant-check — done — 2026-08-27 01:13
-- commit: (folgt im naechsten chore-Commit)
+- commit: ad060b80ce7441dc05779e4d7d22c7a39eafbc5d
 - gebaut: `WebSocketHub.handlePresenceSubscribe` (`backend/internal/server/websocket.go`)
   prueft jetzt fuer jede `target_user_id`, ob sie zum Tenant des abonnierenden Users gehoert,
   bevor sie in `presenceSubscribers` landet. Neues Feld `userTenants map[string]string`
