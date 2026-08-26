@@ -1899,7 +1899,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/document/file 55,8 % (262 ungedeckt von 593); postgres_repository.go 38,2 %, service.go 66,3 %"
     scope: >
       Dokumentenablage unter dem Gateway. `postgres_repository.go` steht bei 38,2 % mit 155
