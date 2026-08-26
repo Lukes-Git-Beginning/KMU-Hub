@@ -65,8 +65,12 @@ func (r *stubBerichteRepo) ListDefinitions(_ context.Context, _ uuid.UUID, _ ber
 func (r *stubBerichteRepo) GetCacheEntry(_ context.Context, _, _ uuid.UUID, _ string) (*berichte.CacheEntry, error) {
 	return nil, berichte.ErrCacheMiss
 }
-func (r *stubBerichteRepo) UpsertCacheEntry(_ context.Context, _ *berichte.CacheEntry) error { return nil }
-func (r *stubBerichteRepo) InvalidateCache(_ context.Context, _, _ uuid.UUID) (int, error)   { return 3, nil }
+func (r *stubBerichteRepo) UpsertCacheEntry(_ context.Context, _ *berichte.CacheEntry) error {
+	return nil
+}
+func (r *stubBerichteRepo) InvalidateCache(_ context.Context, _, _ uuid.UUID) (int, error) {
+	return 3, nil
+}
 func (r *stubBerichteRepo) DeleteExpiredCacheEntries(_ context.Context, _ time.Time) (int, error) {
 	return 0, nil
 }
@@ -484,15 +488,15 @@ func TestBerichteRunToProto_OptionalFields(t *testing.T) {
 	rows := 7
 	now := time.Now().UTC()
 	r := &berichte.Run{
-		ID:          uuid.New(),
-		TenantID:    uuid.New(),
+		ID:           uuid.New(),
+		TenantID:     uuid.New(),
 		DefinitionID: uuid.New(),
-		Trigger:     "manual",
-		Status:      "success",
-		StartedAt:   now,
-		DurationMs:  &dur,
-		RowCount:    &rows,
-		CompletedAt: &now,
+		Trigger:      "manual",
+		Status:       "success",
+		StartedAt:    now,
+		DurationMs:   &dur,
+		RowCount:     &rows,
+		CompletedAt:  &now,
 	}
 	proto := runToProto(r)
 	if proto.DurationMs == nil || *proto.DurationMs != 42 {
@@ -855,4 +859,399 @@ func TestBerichteGRPCServer_ExportDocumentPDF_InvalidTenantID(t *testing.T) {
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument, got %v", err)
 	}
+}
+
+// ============================================================================
+// Document RPCs (multi-page authoring) — were 0% covered
+// ============================================================================
+
+func TestBerichteGRPCServer_CreateDocument_HappyPath(t *testing.T) {
+	srv, repo := newStubServer()
+	tenantID := uuid.New()
+	resp, err := srv.CreateDocument(context.Background(), &berichtev1.CreateDocumentRequest{
+		TenantId: tenantID.String(),
+		Title:    "Quartalsbericht",
+		Module:   "finanzen",
+		Rows:     []byte(`[]`),
+		Settings: []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Document.TenantId != tenantID.String() {
+		t.Errorf("tenant_id mismatch: got %s", resp.Document.TenantId)
+	}
+	if repo.doc == nil {
+		t.Fatal("CreateDocument did not persist through the repository")
+	}
+}
+
+func TestBerichteGRPCServer_CreateDocument_InvalidTenantID(t *testing.T) {
+	srv := newTestBerichteServer()
+	_, err := srv.CreateDocument(context.Background(), &berichtev1.CreateDocumentRequest{
+		TenantId: "not-a-uuid",
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_CreateDocument_InvalidCreatedBy(t *testing.T) {
+	srv := newTestBerichteServer()
+	bad := "not-a-uuid"
+	_, err := srv.CreateDocument(context.Background(), &berichtev1.CreateDocumentRequest{
+		TenantId:  uuid.New().String(),
+		Title:     "x",
+		CreatedBy: &bad,
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_GetDocument_HappyPath(t *testing.T) {
+	srv, repo := newStubServer()
+	repo.doc = &berichte.Document{
+		ID:       uuid.New(),
+		TenantID: uuid.New(),
+		Title:    "Bestehender Bericht",
+		Module:   "crm",
+		Status:   "draft",
+		Rows:     []byte(`[]`),
+		Settings: []byte(`{}`),
+	}
+	resp, err := srv.GetDocument(context.Background(), &berichtev1.GetDocumentRequest{
+		TenantId:   repo.doc.TenantID.String(),
+		DocumentId: repo.doc.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Document.Title != "Bestehender Bericht" {
+		t.Errorf("title mismatch: got %q", resp.Document.Title)
+	}
+}
+
+func TestBerichteGRPCServer_GetDocument_NotFound(t *testing.T) {
+	srv, _ := newStubServer() // repo.doc is nil → ErrDocumentNotFound
+	_, err := srv.GetDocument(context.Background(), &berichtev1.GetDocumentRequest{
+		TenantId:   uuid.New().String(),
+		DocumentId: uuid.New().String(),
+	})
+	assertGRPCCode(t, err, codes.NotFound)
+}
+
+func TestBerichteGRPCServer_GetDocument_InvalidIDs(t *testing.T) {
+	srv := newTestBerichteServer()
+	_, err := srv.GetDocument(context.Background(), &berichtev1.GetDocumentRequest{
+		TenantId:   "bad",
+		DocumentId: uuid.New().String(),
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+
+	_, err = srv.GetDocument(context.Background(), &berichtev1.GetDocumentRequest{
+		TenantId:   uuid.New().String(),
+		DocumentId: "bad",
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_UpdateDocument_HappyPath(t *testing.T) {
+	srv, repo := newStubServer()
+	repo.doc = &berichte.Document{
+		ID:       uuid.New(),
+		TenantID: uuid.New(),
+		Title:    "Alt",
+		Module:   "crm",
+		Status:   "draft",
+		Rows:     []byte(`[]`),
+		Settings: []byte(`{}`),
+	}
+	newTitle := "Neu"
+	resp, err := srv.UpdateDocument(context.Background(), &berichtev1.UpdateDocumentRequest{
+		TenantId:   repo.doc.TenantID.String(),
+		DocumentId: repo.doc.ID.String(),
+		Title:      &newTitle,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Document.Title != "Neu" {
+		t.Errorf("title not updated: got %q", resp.Document.Title)
+	}
+}
+
+func TestBerichteGRPCServer_UpdateDocument_InvalidIDs(t *testing.T) {
+	srv := newTestBerichteServer()
+	_, err := srv.UpdateDocument(context.Background(), &berichtev1.UpdateDocumentRequest{
+		TenantId:   "bad",
+		DocumentId: uuid.New().String(),
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_DeleteDocument_HappyPath(t *testing.T) {
+	srv, _ := newStubServer()
+	_, err := srv.DeleteDocument(context.Background(), &berichtev1.DeleteDocumentRequest{
+		TenantId:   uuid.New().String(),
+		DocumentId: uuid.New().String(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBerichteGRPCServer_DeleteDocument_InvalidIDs(t *testing.T) {
+	srv := newTestBerichteServer()
+	_, err := srv.DeleteDocument(context.Background(), &berichtev1.DeleteDocumentRequest{
+		TenantId:   uuid.New().String(),
+		DocumentId: "bad",
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_ListDocuments_HappyPath(t *testing.T) {
+	srv, repo := newStubServer()
+	repo.doc = &berichte.Document{
+		ID:       uuid.New(),
+		TenantID: uuid.New(),
+		Title:    "test",
+		Module:   "crm",
+		Status:   "draft",
+		Rows:     []byte(`[]`),
+		Settings: []byte(`{}`),
+	}
+	resp, err := srv.ListDocuments(context.Background(), &berichtev1.ListDocumentsRequest{
+		TenantId: uuid.New().String(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Documents) != 1 {
+		t.Errorf("expected 1 document, got %d", len(resp.Documents))
+	}
+	if resp.Total != 1 {
+		t.Errorf("expected total 1, got %d", resp.Total)
+	}
+}
+
+func TestBerichteGRPCServer_ListDocuments_Empty(t *testing.T) {
+	srv, _ := newStubServer() // repo.doc is nil
+	resp, err := srv.ListDocuments(context.Background(), &berichtev1.ListDocumentsRequest{
+		TenantId: uuid.New().String(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Wire-shape contract: an empty listing must serialize as [], not omit the
+	// field / carry nil, which some JSON encodings would render as null.
+	if resp.Documents == nil {
+		t.Error("expected an empty (non-nil) slice, got nil")
+	}
+	if len(resp.Documents) != 0 {
+		t.Errorf("expected 0 documents, got %d", len(resp.Documents))
+	}
+}
+
+func TestBerichteGRPCServer_ListDocuments_InvalidTenantID(t *testing.T) {
+	srv := newTestBerichteServer()
+	_, err := srv.ListDocuments(context.Background(), &berichtev1.ListDocumentsRequest{
+		TenantId: "bad",
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteDocumentToProto_Nil(t *testing.T) {
+	if got := documentToProto(nil); got != nil {
+		t.Fatalf("expected nil for nil input")
+	}
+}
+
+func TestBerichteDocumentToProto_Fields(t *testing.T) {
+	id, tenantID, createdBy := uuid.New(), uuid.New(), uuid.New()
+	now := time.Now().UTC().Truncate(time.Second)
+	released := now.Add(time.Hour)
+	tmplID := "tmpl-1"
+	d := &berichte.Document{
+		ID: id, TenantID: tenantID, Title: "Titel", Module: "cross", Status: "released",
+		Rows: []byte(`[]`), Settings: []byte(`{}`), TemplateID: &tmplID,
+		CreatedBy: &createdBy, CreatedAt: now, UpdatedAt: now, ReleasedAt: &released,
+	}
+	proto := documentToProto(d)
+	if proto.Id != id.String() || proto.TenantId != tenantID.String() {
+		t.Errorf("id/tenant_id mismatch")
+	}
+	if proto.CreatedBy == nil || *proto.CreatedBy != createdBy.String() {
+		t.Errorf("created_by mismatch")
+	}
+	if proto.TemplateId == nil || *proto.TemplateId != tmplID {
+		t.Errorf("template_id mismatch")
+	}
+	if proto.ReleasedAt == nil {
+		t.Errorf("released_at should be set")
+	}
+}
+
+// ============================================================================
+// Share token RPCs — were 0% covered
+// ============================================================================
+
+func TestBerichteGRPCServer_CreateShareToken_HappyPath(t *testing.T) {
+	srv, repo := newStubServer()
+	repo.doc = &berichte.Document{ID: uuid.New(), TenantID: uuid.New(), Title: "x", Module: "cross", Status: "final"}
+	resp, err := srv.CreateShareToken(context.Background(), &berichtev1.CreateShareTokenRequest{
+		TenantId:   repo.doc.TenantID.String(),
+		DocumentId: repo.doc.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Share.Token == "" {
+		t.Error("expected a non-empty token")
+	}
+	if resp.Share.HasPassword {
+		t.Error("expected has_password=false, no password was requested")
+	}
+}
+
+func TestBerichteGRPCServer_CreateShareToken_InvalidIDs(t *testing.T) {
+	srv := newTestBerichteServer()
+	_, err := srv.CreateShareToken(context.Background(), &berichtev1.CreateShareTokenRequest{
+		TenantId:   "bad",
+		DocumentId: uuid.New().String(),
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_CreateShareToken_InvalidCreatedBy(t *testing.T) {
+	srv, repo := newStubServer()
+	repo.doc = &berichte.Document{ID: uuid.New(), TenantID: uuid.New(), Title: "x", Module: "cross", Status: "final"}
+	_, err := srv.CreateShareToken(context.Background(), &berichtev1.CreateShareTokenRequest{
+		TenantId:   repo.doc.TenantID.String(),
+		DocumentId: repo.doc.ID.String(),
+		CreatedBy:  ptrString("not-a-uuid"),
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_CreateShareToken_DocumentNotFound(t *testing.T) {
+	srv, _ := newStubServer() // repo.doc is nil
+	_, err := srv.CreateShareToken(context.Background(), &berichtev1.CreateShareTokenRequest{
+		TenantId:   uuid.New().String(),
+		DocumentId: uuid.New().String(),
+	})
+	assertGRPCCode(t, err, codes.NotFound)
+}
+
+func TestBerichteGRPCServer_ListShareTokens_HappyPath(t *testing.T) {
+	srv, repo := newStubServer()
+	tenantID, docID := uuid.New(), uuid.New()
+	repo.doc = &berichte.Document{ID: docID, TenantID: tenantID, Title: "x", Module: "cross", Status: "final"}
+	repo.share = &berichte.ShareToken{ID: uuid.New(), TenantID: tenantID, DocumentID: docID, Token: "secret-token"}
+
+	resp, err := srv.ListShareTokens(context.Background(), &berichtev1.ListShareTokensRequest{
+		TenantId:   tenantID.String(),
+		DocumentId: docID.String(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Tokens) != 1 {
+		t.Fatalf("expected 1 token, got %d", len(resp.Tokens))
+	}
+	if resp.Tokens[0].Token != "secret-token" {
+		t.Errorf("token mismatch")
+	}
+}
+
+func TestBerichteGRPCServer_ListShareTokens_InvalidIDs(t *testing.T) {
+	srv := newTestBerichteServer()
+	_, err := srv.ListShareTokens(context.Background(), &berichtev1.ListShareTokensRequest{
+		TenantId:   uuid.New().String(),
+		DocumentId: "bad",
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_RevokeShareToken_HappyPath(t *testing.T) {
+	srv, repo := newStubServer()
+	tenantID := uuid.New()
+	repo.share = &berichte.ShareToken{ID: uuid.New(), TenantID: tenantID, DocumentID: uuid.New(), Token: "secret-token"}
+
+	_, err := srv.RevokeShareToken(context.Background(), &berichtev1.RevokeShareTokenRequest{
+		TenantId: tenantID.String(),
+		ShareId:  repo.share.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.share.RevokedAt == nil {
+		t.Error("expected the share token to be revoked")
+	}
+}
+
+func TestBerichteGRPCServer_RevokeShareToken_NotFound(t *testing.T) {
+	srv, _ := newStubServer() // repo.share is nil
+	_, err := srv.RevokeShareToken(context.Background(), &berichtev1.RevokeShareTokenRequest{
+		TenantId: uuid.New().String(),
+		ShareId:  uuid.New().String(),
+	})
+	assertGRPCCode(t, err, codes.NotFound)
+}
+
+func TestBerichteGRPCServer_RevokeShareToken_InvalidIDs(t *testing.T) {
+	srv := newTestBerichteServer()
+	_, err := srv.RevokeShareToken(context.Background(), &berichtev1.RevokeShareTokenRequest{
+		TenantId: "bad",
+		ShareId:  uuid.New().String(),
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestBerichteGRPCServer_GetSharedDocument_HappyPath(t *testing.T) {
+	srv, repo := newStubServer()
+	tenantID, docID := uuid.New(), uuid.New()
+	repo.doc = &berichte.Document{ID: docID, TenantID: tenantID, Title: "Geteilt", Module: "cross", Status: "final"}
+	repo.share = &berichte.ShareToken{ID: uuid.New(), TenantID: tenantID, DocumentID: docID, Token: "public-secret"}
+
+	resp, err := srv.GetSharedDocument(context.Background(), &berichtev1.GetSharedDocumentRequest{
+		Token: "public-secret",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Document.Title != "Geteilt" {
+		t.Errorf("title mismatch: got %q", resp.Document.Title)
+	}
+}
+
+func TestBerichteGRPCServer_GetSharedDocument_NotFound(t *testing.T) {
+	srv, _ := newStubServer() // repo.share is nil
+	_, err := srv.GetSharedDocument(context.Background(), &berichtev1.GetSharedDocumentRequest{
+		Token: "unknown-token",
+	})
+	assertGRPCCode(t, err, codes.NotFound)
+}
+
+func TestBerichteReportShareTokenToProto_Nil(t *testing.T) {
+	if got := reportShareTokenToProto(nil); got != nil {
+		t.Fatalf("expected nil for nil input")
+	}
+}
+
+func TestBerichteReportShareTokenToProto_NeverLeaksPasswordHash(t *testing.T) {
+	hash := "$2a$12$somebcrypthashvalue"
+	expires := time.Now().UTC().Add(24 * time.Hour)
+	tok := &berichte.ShareToken{
+		ID: uuid.New(), DocumentID: uuid.New(), Token: "abc123",
+		PasswordHash: &hash, ExpiresAt: &expires, ViewCount: 5, CreatedAt: time.Now().UTC(),
+	}
+	proto := reportShareTokenToProto(tok)
+	if !proto.HasPassword {
+		t.Error("expected has_password=true")
+	}
+	if proto.ViewCount != 5 {
+		t.Errorf("view_count mismatch: got %d", proto.ViewCount)
+	}
+	if proto.ExpiresAt == nil {
+		t.Error("expected expires_at to be set")
+	}
+	// The generated proto has no field to carry a password hash at all — this
+	// test exists to catch the day someone adds one and forgets to leave it unset.
 }

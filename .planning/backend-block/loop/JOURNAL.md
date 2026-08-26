@@ -2237,3 +2237,95 @@ Kopf von `BACKLOG.yml`.
   in Iteration 35 vermerkt bleibt die grobe `calendars:read`/`calendars:write`-Berechtigung
   (keine Pro-Event-ACL) eine Architekturfrage fuer Luke — der neue Fix behebt nur das
   fehlende Tenant-Scoping, nicht die fehlende Teilnehmer/Ersteller-Pruefung.
+
+## Iteration 37 — cov-berichte-repository-and-grpc — done — 2026-08-26 06:18
+- commit: -
+- gebaut: `postgres_repository_db_test.go` (internal/berichte, 10 DB-Testfunktionen gegen
+  echtes SQL: ListDefinitions/ListSchedules/ListDocuments mit allen Filtern + Pagination +
+  Sortierung + Tenant-Scope, Get/Update/Delete-Tenant-Scoping fuer Definitions und
+  Schedules, Cache-CRUD inkl. ON-CONFLICT-Upsert und DeleteExpiredCacheEntries-Sweep,
+  ListDueSchedules, UpdateScheduleLastRun, InsertRun) + Erweiterung von
+  `berichte_grpc_test.go` (internal/server) um die zuvor 0 % gedeckten Document- und
+  Share-Token-RPCs (CreateDocument, GetDocument, UpdateDocument, DeleteDocument,
+  ListDocuments inkl. Leer-Ergebnis-als-`[]`-Test, CreateShareToken, ListShareTokens,
+  RevokeShareToken, GetSharedDocument) plus documentToProto/reportShareTokenToProto.
+  Bug-Hypothese laut Scope (weitere blinde Waehrungs-/Einheiten-Aggregationen): das
+  Repository (`postgres_repository.go`) enthaelt KEINE einzige Aggregation (kein SUM/AVG/
+  MAX) — reine CRUD-Methoden fuer report_definitions/report_cache/report_schedules/
+  report_runs/report_documents/report_share_tokens. Die tatsaechliche Aggregation liegt in
+  `internal/berichte/executor/executor.go` (unit-getestet, kein DB-Bezug) und
+  `internal/berichte/downstream/kpi_postgres.go` (die einzige PRODUKTIV VERDRAHTETE
+  Aggregation, `cmd/berichte/main.go:59` — Finance/CRMReports/Helpdesk/Inventar/DatevBridge
+  sind dort nirgends verdrahtet, bleiben also nil und `emptyResult`). `kpi_postgres.go` ist
+  bereits vollstaendig DB-getestet inkl. Waehrungs-Scoping (`fix-dashboard-metrics-blind-
+  currency-sum`-Muster) und Leer-Zeitraum-Verhalten — keine weitere blinde Aggregation
+  gefunden, siehe Grep-Beleg unten. `executor.go` dokumentiert selbst (Kommentar Zeile
+  547-554), dass `revenueByMonth`/`invoicesOpen`/`pipeline` denselben Bug wie die laengst
+  gefixte Dashboard-KPI-Aggregation tragen wuerden, aber aktuell unerreichbar sind (nil
+  Downstreams) — verifiziert gegen `cmd/berichte/main.go`, kein Neufund, bereits
+  dokumentiert.
+  Schwerpunkt (2), echter Fund: `PostgresRepository.DeleteExpiredCacheEntries` ist
+  vollstaendig implementiert und jetzt DB-getestet, wird aber im gesamten Code NIRGENDS
+  aufgerufen (`grep -rn DeleteExpiredCacheEntries` traf nur die Implementierung, das
+  Interface und Test-Stubs) — `report_cache` waechst unbegrenzt, da abgelaufene Zeilen nie
+  geloescht werden (sie werden nur nie zurueckgeliefert, `GetCacheEntry` + service.go
+  pruefen `expires_at` selbst). Kein Korrektheits-Bug, aber ein Verhaltens-Fix (periodischer
+  Sweep noetig) — gehoert nicht in eine Coverage-Unit, daher als eigene Fix-Unit angelegt
+  (siehe neue-units).
+  Ob `berichte_grpc.go` Aggregation nachbaut, die in den Service gehoert: nein — jeder RPC
+  ist Parse/Call-Service/Respond, keine einzige Summierung oder Gruppierung im gRPC-Server
+  selbst (verifiziert durch vollstaendiges Lesen der Datei).
+  Leerer Zeitraum: `ListDefinitions`/`ListSchedules`/`ListDocuments` liefern bei keinem
+  Treffer `nil`-Slice + `total=0` (kein Crash, kein Fehler) — durch die neuen DB-Tests fuer
+  die "other tenant"-Faelle mitbelegt; die gRPC-Schicht wrapped das korrekt in eine leere
+  Proto-Liste (`ListDocuments_Empty`-Test belegt `resp.Documents != nil` als `[]`, nicht
+  `null`).
+- gate: build ok (`./internal/berichte/... ./internal/server/... ./cmd/berichte/...`)
+  | vet ok (beide Pakete) | lint ok (0 issues, golangci-lint run --config .golangci.yml)
+  | gofmt: eine Formatierungsabweichung in berichte_grpc_test.go gefunden und mit
+  `gofmt -w` behoben, danach `gofmt -l` leer | test ok (`./internal/berichte/...` alle
+  Unterpakete gruen inkl. downstream/executor/scheduler/export/delivery,
+  `./internal/server/` komplett gruen, DATABASE_URL gesetzt, 0 Skips)
+  | migration n.a. (keine Tabelle/Policy angefasst) | rls-smoke ok (ueber die echten
+  Repo-Methoden unter `kmuhub_app`: ListDefinitions/ListSchedules/ListDocuments liefern
+  fuer den fremden Tenant total=0 trotz physisch vorhandener Fremd-Tenant-Zeile;
+  Get/Update/Delete unter Fremd-Tenant-Kontext liefern durchgaengig ErrDefinitionNotFound/
+  ErrScheduleNotFound statt eine Mutation zuzulassen) | route-drift ok
+  (`TestOpenAPIRouteDrift`: 836 registrierte gegen 838 dokumentierte Pfade, PASS — keine
+  neue Route)
+- coverage: internal/berichte 62,0 % -> 86,3 % (postgres_repository.go je Methode:
+  UpdateDefinition/DeleteDefinition 0,0->83,3 %, GetDefinition 0,0->100 %,
+  ListDefinitions 0,0->90,7 %, GetCacheEntry 0,0->85,7 %, UpsertCacheEntry/InvalidateCache/
+  DeleteExpiredCacheEntries 0,0->75,0 %, UpdateSchedule/DeleteSchedule 0,0->83,3 %,
+  ListSchedules 0,0->89,3 %, ListDueSchedules 0,0->83,3 %, UpdateScheduleLastRun/InsertRun
+  0,0->75,0 %, ListDocuments 0,0->88,2 %). internal/server 70,9 % -> 71,3 %
+  (berichte_grpc.go: CreateDocument 0,0->84,6 %, GetDocument 0,0->100 %, UpdateDocument
+  0,0->85,7 %, DeleteDocument 0,0->83,3 %, ListDocuments 0,0->90,0 %, CreateShareToken
+  0,0->86,7 %, ListShareTokens 0,0->90,0 %, RevokeShareToken 0,0->88,9 %,
+  GetSharedDocument/reportShareTokenToProto/documentToProto 0,0->100 %).
+- mutations-probe: zwei unabhaengige Mutationen in postgres_repository.go (Backup vorher
+  per `cp`, danach zurueckgespielt und `git diff --stat` gegen die Datei leer): (1) Tenant-
+  Filter aus `DeleteDefinition`s WHERE-Klausel entfernt — blieb GRUEN, weil RLS unter
+  `kmuhub_app` (NOSUPERUSER NOBYPASSRLS) den fehlenden WHERE-Filter selbst abfaengt; als
+  Beleg fuer die Wirksamkeit von RLS notiert, aber KEIN Beweis fuer den eigenen Test.
+  (2) `ListDefinitions`-Sortierrichtung invertiert (`if filter.SortDesc` statt
+  `if !filter.SortDesc`) — `TestPostgresListDefinitions_...` sofort ROT ("sort asc by name:
+  unexpected order [Gamma Tickets Beta Pipeline Alpha Umsatz]"), zurueckgedreht, danach
+  wieder gruen. Zeigt: die Sortier-/Filter-/Pagination-Assertions sind wirksam, RLS allein
+  haette sie nicht gefangen.
+- verify vorgaenger: sauber (`22aad711` — `git show --stat` gegengeprueft: nur zwei neue
+  Testdateien (route_calendar_resources_reminders_test.go,
+  internal/work/resource/postgres_repository_db_test.go) plus BACKLOG.yml/JOURNAL.md im
+  Diff, kein `.proto`, keine neue Route, kein `RequirePermission`, keine neue Tabelle, kein
+  gRPC-Bypass)
+- neue-units: `fix-berichte-report-cache-never-purged` (sonnet) — der unter Schwerpunkt (2)
+  beschriebene Fund (DeleteExpiredCacheEntries wird nie aufgerufen, report_cache waechst
+  unbegrenzt). Nicht in dieser Coverage-Unit gefixt, weil eine Coverage-Unit kein Verhalten
+  aendern darf (neuer periodischer Sweep waere ein Verhaltens-Fix); ans Backlog-Ende
+  angehaengt mit vollem scope/sources/notes/done_when.
+- offen: (1) `fix-generatejointoken-missing-event-tenant-check` (Iteration 36, echte
+  Sicherheitsluecke) steht weiterhin unbearbeitet am Backlog-Kopf-nahen Bereich — sollte
+  vor den uebrigen Coverage-Units drankommen, der Treiber zieht aber strikt nach
+  Dateireihenfolge. (2) `fix-berichte-report-cache-never-purged` ist ein reines
+  Betriebsproblem (unbegrenztes Tabellenwachstum), kein akuter Bug — kann regulaer in
+  Dateireihenfolge einsortiert bleiben.

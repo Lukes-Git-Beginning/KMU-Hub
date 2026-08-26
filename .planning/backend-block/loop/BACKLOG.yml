@@ -2063,7 +2063,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/berichte 62,0 %; postgres_repository.go 24,6 %, 202 ungedeckt von 268; berichte_grpc.go 54,4 %, 187 ungedeckt"
     scope: >
       Das Berichtsmodul ist die Stelle, an der Lauf 11 eine blinde Waehrungssummierung
@@ -4857,3 +4857,50 @@ units:
         `TestGenerateJoinToken` ist aktualisiert (echtes Event statt frei erfundener UUID)
         und dokumentiert nicht mehr den Ist-Zustand als Erfolgsfall
       - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-berichte-report-cache-never-purged
+    phase: 4
+    service: berichte
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus cov-berichte-repository-and-grpc (Iteration 37): `PostgresRepository.
+      DeleteExpiredCacheEntries` (backend/internal/berichte/postgres_repository.go:212) ist
+      vollstaendig implementiert, DB-getestet und Teil des `Repository`-Interfaces — wird
+      aber im gesamten Code (`internal/berichte/service.go`, `internal/berichte/scheduler/`,
+      `cmd/berichte/main.go`) an KEINER Stelle aufgerufen. `report_cache`-Zeilen werden bei
+      jedem `RunReport`-Cache-Miss per `UpsertCacheEntry` neu geschrieben (Default-TTL 15 Min,
+      `service.go:74-77`), aber eine abgelaufene Zeile wird nie geloescht — `GetCacheEntry`
+      liest sie zwar nie zurueck (der Service prueft `expires_at` selbst,
+      `s.repo.GetCacheEntry` + `entry.ExpiresAt.After(...)`), aber die Zeile bleibt fuer
+      immer in der Tabelle stehen. Bei einem aktiven Tenant mit mehreren Definitionen und
+      wechselnden Params-Hashes waechst `report_cache` unbegrenzt.
+      Kein Korrektheits-Bug (es wird nie eine abgelaufene Zeile ausgeliefert), sondern ein
+      unbegrenztes Datenwachstum ohne Gegenmassnahme — genau die Art Fund, die laut
+      Unverhandelbare-Grenzen nicht in einer Coverage-Unit gefixt werden darf, weil sie
+      Verhalten aendert (ein neuer periodischer Sweep).
+      Fix: eine periodische Bereinigung wiring — entweder ein eigener Ticker/Cron-Task
+      analog zum Schedule-Scheduler (`internal/berichte/scheduler/`, das bereits per Ticker
+      auf `ListDueSchedules` pollt) oder ein Hook im bestehenden Scheduler-Tick, der
+      `DeleteExpiredCacheEntries(ctx, now)` in sinnvollem Intervall aufruft (z. B. stuendlich,
+      nicht bei jedem Schedule-Tick). Muss in `cmd/berichte/main.go` verdrahtet werden.
+    sources:
+      - backend/internal/berichte/postgres_repository.go
+      - backend/internal/berichte/service.go
+      - backend/internal/berichte/scheduler/scheduler.go
+      - backend/cmd/berichte/main.go
+    notes: >
+      `DeleteExpiredCacheEntries` hat bereits vollstaendige Testabdeckung
+      (postgres_repository_db_test.go, TestPostgresCacheEntry_CRUDAndExpiry) — die Methode
+      selbst ist korrekt, es fehlt nur der Aufrufer. Kein neuer `RequirePermission`-Guard,
+      keine neue Route, keine Migration noetig.
+    done_when:
+      - >-
+        `DeleteExpiredCacheEntries` wird periodisch aufgerufen (Ticker- oder Cron-basiert,
+        analog zum bestehenden Schedule-Polling), verdrahtet in `cmd/berichte/main.go`
+      - >-
+        Ein Test belegt, dass eine abgelaufene `report_cache`-Zeile nach einem Sweep-Zyklus
+        entfernt wird und eine frische Zeile erhalten bleibt
+      - go test -count=1 ./internal/berichte/... gruen, DATABASE_URL gesetzt, 0 Skips
