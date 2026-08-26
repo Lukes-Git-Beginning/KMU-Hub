@@ -63,8 +63,12 @@ type CalDAVPasswordInfo struct {
 	RevokedAt      *time.Time `json:"revoked_at,omitempty"`
 }
 
-// CalDAVCtxInjector injects a user ID into a context for CalDAV authentication.
-type CalDAVCtxInjector func(ctx context.Context, userID uuid.UUID) context.Context
+// CalDAVCtxInjector injects the authenticated CalDAV user AND the tenant that
+// owns them into a context. The tenant is not optional: CalDAV/CardDAV
+// authenticate via HTTP Basic Auth (app-specific passwords) and never carry a
+// JWT, so nothing else in the request names the tenant -- resolving it needs a
+// database lookup, which is why this returns an error.
+type CalDAVCtxInjector func(ctx context.Context, userID uuid.UUID) (context.Context, error)
 
 // CalDAVRoutes handles CalDAV/CardDAV protocol routes (Basic Auth) and
 // REST API routes for app-specific password management (JWT auth).
@@ -213,7 +217,20 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := c.ctxInjector(r.Context(), userID)
+			ctx, err := c.ctxInjector(r.Context(), userID)
+			if err != nil {
+				// The credential was valid, so this is an infrastructure
+				// failure, not a rejected login. Answering 401 here would be
+				// actively harmful: DAV clients disable an account after
+				// repeated 401s, so a transient database outage would log
+				// every CalDAV user out for good.
+				slog.Error("caldav tenant context injection failed",
+					"user_id", userID,
+					"error", err,
+				)
+				response.Error(w, http.StatusInternalServerError, "failed to establish account context")
+				return
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

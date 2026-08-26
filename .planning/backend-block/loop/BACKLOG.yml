@@ -470,7 +470,7 @@ units:
     service: calendar
     model: opus
     deps: []
-    status: in_progress
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
@@ -4645,6 +4645,16 @@ units:
       Regressionsschutz fuer diesen Fix, nicht als Ersatz fuer ihn. Nach dem Fix muessen die
       beiden `_RealCalDAVContext_`-Tests (die den Bug dokumentieren) ihre Erwartung umdrehen:
       der Owner darf schreiben, die Exception muss sichtbar sein.
+      NACHTRAG (Lauf 13, Iteration 4): Der ROOT CAUSE ist bereits behoben —
+      `fix-carddav-missing-tenant-context-blocks-all-operations` hat `basicAuthMiddleware` ueber
+      den neuen `caldavpkg.NewCtxInjector(pool)` auf einen echten Tenant-Context umgestellt.
+      Damit stempelt `database.NewPostgresPool`s PrepareConn-Hook `app.tenant_id`/`app.user_id`
+      auch fuer die beiden Direkt-Pool-Abfragen, RLS filtert nicht mehr alles weg. WAS HIER NOCH
+      OFFEN IST, ist die Beweisfuehrung, nicht der Fix: die beiden `_RealCalDAVContext_`-Tests
+      bauen ihren Context noch von Hand mit `CtxWithUser` allein und dokumentieren deshalb
+      weiter den alten Zustand. Sie muessen — wie in `carddav_backend_grpc_db_test.go` bereits
+      geschehen — ueber `NewCtxInjector(pool)` gehen und ihre Erwartung umdrehen. Vor dem Bauen
+      pruefen, ob danach ueberhaupt noch eine Code-Aenderung noetig ist.
     done_when:
       - >-
         `checkCalendarWritePermission` erlaubt dem tatsaechlichen Besitzer/berechtigten Mitglied

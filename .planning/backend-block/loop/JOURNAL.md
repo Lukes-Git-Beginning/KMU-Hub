@@ -2922,3 +2922,82 @@ Kopf von `BACKLOG.yml`.
   in `cmd/gateway/setup.go` bestaetigt als echter gRPC-Client-Aufruf).
 - neue-units: keine
 - offen: keine
+
+## Iteration 4 - fix-carddav-missing-tenant-context-blocks-all-operations - done - 2026-08-27 01:36
+- commit: <SHA>
+- gebaut: Root-Cause-Fix an der gemeinsamen Wurzel statt in jeder Funktion. Neu:
+  `caldav.NewCtxInjector(pool)` (`caldav_backend.go`) - loest ueber das schon vorhandene
+  `resolveTenantID` den Tenant des per App-Passwort authentifizierten Users auf und stempelt
+  `middleware.TenantIDKey` UND `middleware.UserIDKey` in den Context, genau die Keys, die die
+  JWT-Auth-Middleware setzt. `CalDAVCtxInjector` (`internal/gateway/route_caldav.go`) gibt
+  jetzt `(context.Context, error)` zurueck, `basicAuthMiddleware` reicht den Context durch und
+  antwortet bei Aufloesungsfehler mit **500, nicht 401** (das Passwort war gueltig; DAV-Clients
+  deaktivieren ein Konto nach wiederholten 401 - ein DB-Ausfall haette sonst alle CalDAV-User
+  dauerhaft ausgesperrt). `cmd/gateway/setup.go` verdrahtet `caldavpkg.NewCtxInjector(pool)`
+  statt `caldavpkg.CtxWithUser`.
+  Wirkung ist breiter als die Unit annahm: der Fix repariert nicht nur die gRPC-Seite
+  (`TenantOutboundUnaryInterceptor` haengt `x-tenant-id` nur an, wenn `GetTenantID(ctx)` auf dem
+  CLIENT klappt - vorher nie), sondern automatisch auch jede DIREKTE Pool-Abfrage der beiden
+  DAV-Backends: `database.NewPostgresPool`s PrepareConn-Hook stempelt `app.tenant_id`/
+  `app.user_id` aus genau diesem Context (`postgres.go:60-84`), ohne die filtert RLS jede Zeile
+  weg. Damit ist der Root Cause der Schwester-Unit
+  `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx` mit erledigt - siehe
+  `neue-units:`/`offen:`.
+  Tests: `TestListAddressObjects_RealCardDAVContext_ResolvesTenant` und
+  `TestGetAddressObject_RealCardDAVContext_ResolvesTenant` (bisher `_NoTenant_Returns401`) bauen
+  ihren Context jetzt durch den **echten Produktions-Injector** statt von Hand und erwarten
+  Erfolg; der Helfer `asIfTenantMiddlewareFixed` ist ersatzlos weg, alle vier bestehenden
+  Listing-/Anonymisierungs-Tests laufen ueber denselben echten Pfad.
+  Neu fuer die Tenant-Grenze (done_when #2): `TestCardDAVCtxInjector_ResolvesOnlyTheOwnTenant` -
+  zweiter echter Tenant mit eigenem User, dessen App-Passwort-Context weder den geteilten
+  Firmenkontakt aus Tenant A im Company-Adressbuch listet (leer) noch ihn per bekannter
+  Contact-ID direkt abrufen kann (404, nicht 401 - die Zeile ist unsichtbar, nicht gesperrt).
+  Gateway-Seite: `TestBasicAuthMiddleware_PassesInjectedTenantContextDownstream` (Handler sieht
+  Tenant und User) und `TestBasicAuthMiddleware_ContextInjectionFailure_Returns500` (prueft
+  zusaetzlich, dass **kein** `WWW-Authenticate` mitgeht).
+- gate: build ok (`go build -p 2 ./internal/caldav/... ./internal/gateway/... ./cmd/gateway/...`)
+  | vet ok (`go vet ./internal/caldav/... ./internal/gateway/...`) | lint ok
+  (`golangci-lint run ./internal/caldav/... ./internal/gateway/...`, 0 issues) | test ok
+  (DATABASE_URL gesetzt, Rolle `kmuhub_app`; `go test -count=1 ./internal/caldav/` gruen,
+  **160 Tests, 0 SKIP** - verbose gezaehlt) | gateway-test ok (`go test -count=1
+  ./internal/gateway/` gruen, `TestOpenAPIRouteDrift` + `TestOpenAPIRouteDriftParserSanity`
+  explizit gruen; keine Route angefasst) | migration n.a. (keine Schema-Aenderung)
+  | rls-smoke n.a. (keine neue Tabelle/Policy - die Aenderung fuettert die bestehenden Policies
+  ueber die GUCs, das belegen die DB-Tests inkl. Fremd-Tenant-Fall)
+- coverage: `internal/caldav` 68,6 % -> 68,6 % (selbst gemessen, `go tool cover -func`; Bugfix
+  ohne Coverage-Ziel, neue Zeilen und neue Tests gleichen sich aus). Deckt sich exakt mit dem
+  `coverage_start` der Coverage-Tabelle im Backlog-Kopf (68,6 %).
+- mutations-probe: in `NewCtxInjector` die Zeile
+  `ctx = context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())` durch `_ = tenantID`
+  ersetzt (also genau der alte Bug, aber mit gesetztem UserIDKey) -> alle DREI neuen DB-Tests
+  rot: `TestListAddressObjects_RealCardDAVContext_ResolvesTenant`,
+  `TestGetAddressObject_RealCardDAVContext_ResolvesTenant` und
+  `TestCardDAVCtxInjector_ResolvesOnlyTheOwnTenant` (dort 401 statt 404). Per Sicherungskopie
+  zurueckgedreht, `git diff --stat` zeigt danach wieder nur die beabsichtigte Aenderung,
+  `go test ./internal/caldav/` wieder gruen.
+- verify vorgaenger: sauber (`7a8492c3`, geprueft gegen alle acht Fehlerklassen - 4 Zeilen in
+  `Service.IngestGpsPositions`, die `s.repo.GetVehicle(ctx, tenantID, vehicleID)` vorschalten;
+  kein gRPC-Bypass (Service-Ebene, nicht Handler), kein Stub, kein `.proto`, kein
+  `RequirePermission`, keine neue Tabelle, keine Route, kein Guard ersetzt. Der
+  Nachfolge-Commit `acf11811` aendert nur eine Journal-Zeile).
+- neue-units: keine. Der Fund gehoert zu einer bereits existierenden Unit: der Root Cause von
+  `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx` ist durch diesen Commit mit
+  behoben (PrepareConn bekommt den Tenant jetzt auch fuer die beiden Direkt-Pool-Abfragen
+  `checkCalendarWritePermission` und `listEventExceptions`). Das steht als NACHTRAG in deren
+  `notes:` in `BACKLOG.yml`; die Unit bleibt `todo`, weil ihre beiden
+  `_RealCalDAVContext_`-Tests ihren Context noch von Hand mit `CtxWithUser` bauen und deshalb
+  weiter den alten Zustand dokumentieren - dort steht Beweisfuehrung offen, vermutlich keine
+  Code-Aenderung mehr.
+- offen: (1) Fuer Luke zum Nachvollziehen: `basicAuthMiddleware` macht jetzt EINE zusaetzliche
+  DB-Abfrage pro CalDAV/CardDAV-Request (`SELECT tenant_id FROM users WHERE id=$1`, per
+  `sysctx.With` an RLS vorbei - der einzige legitime tenant-uebergreifende Lookup, weil Basic
+  Auth den Tenant nirgends mitbringt). `app_specific_passwords` traegt seit Migration 114 selbst
+  ein `tenant_id NOT NULL` - `pwService.Validate` koennte den Tenant also ohne zweite Abfrage
+  liefern. Das waere die schnellere und quellenreinere Loesung, kostet aber eine
+  Signaturaenderung an `CalDAVPasswordService.Validate` quer durch Gateway-Interface und
+  Adapter; bewusst nicht in diesem Commit. (2) Die vier `resolveTenantID`-Aufrufe fuer die
+  Sync-Token-Writes in `caldav_backend.go`/`carddav_backend.go` sind seit diesem Commit
+  redundant - der Tenant steht im Context. Ebenfalls bewusst nicht angefasst (fremde Funktionen,
+  reine Optimierung). (3) Kein Produktions-Zugriff: dass echte Clients (DAVx5/Apple Kontakte)
+  danach syncen, ist gegen echte Postgres und einen echten CRM-gRPC-Server belegt, aber nicht
+  gegen einen echten DAV-Client.

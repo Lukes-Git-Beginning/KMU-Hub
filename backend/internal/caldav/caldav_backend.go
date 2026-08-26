@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/gateway"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 	calendarv1 "github.com/kmuhub/kmuhub/proto/calendar/v1"
@@ -41,6 +42,31 @@ func UserFromCtx(ctx context.Context) uuid.UUID {
 // CtxWithUser returns a context with the authenticated user ID set.
 func CtxWithUser(ctx context.Context, userID uuid.UUID) context.Context {
 	return context.WithValue(ctx, caldavUserKey{}, userID)
+}
+
+// NewCtxInjector returns the context injector that CalDAV/CardDAV's Basic-Auth
+// middleware applies once an app-specific password has been validated. Besides
+// the user ID it resolves the owning tenant and stamps it under
+// middleware.TenantIDKey / middleware.UserIDKey -- the same keys the JWT auth
+// middleware sets, so everything downstream behaves as it does for a normal
+// authenticated request:
+//
+//   - middleware.TenantOutboundUnaryInterceptor attaches the x-tenant-id gRPC
+//     header, without which every CRM/calendar RPC the DAV backends make fails
+//     with codes.Unauthenticated ("tenant_id missing from context").
+//   - database.NewPostgresPool's PrepareConn hook stamps app.tenant_id /
+//     app.user_id, without which RLS filters every row of a direct pool query
+//     away and the caller silently sees an empty result.
+func NewCtxInjector(pool *pgxpool.Pool) func(context.Context, uuid.UUID) (context.Context, error) {
+	return func(ctx context.Context, userID uuid.UUID) (context.Context, error) {
+		tenantID, err := resolveTenantID(ctx, pool, userID)
+		if err != nil {
+			return nil, err
+		}
+		ctx = context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())
+		ctx = context.WithValue(ctx, middleware.UserIDKey, userID.String())
+		return CtxWithUser(ctx, userID), nil
+	}
 }
 
 // resolveTenantID looks up the tenant owning userID. CalDAV/CardDAV requests

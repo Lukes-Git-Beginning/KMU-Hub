@@ -115,8 +115,9 @@ func (f *fakeCalDAVPasswordService) activePasswordCount() int {
 	return n
 }
 
-// noopCtxInjector stands in for caldavpkg.CtxWithUser.
-func noopCtxInjector(ctx context.Context, _ uuid.UUID) context.Context { return ctx }
+// noopCtxInjector stands in for caldavpkg.NewCtxInjector(pool) on the tests
+// that are not about tenant resolution.
+func noopCtxInjector(ctx context.Context, _ uuid.UUID) (context.Context, error) { return ctx, nil }
 
 // withCalDAVAuth injects a user/tenant context the way the real JWT middleware
 // does, standing in for authMiddleware on /api/v1/caldav/*.
@@ -308,5 +309,107 @@ func TestHandleTestConnection_NetworkUnreachable(t *testing.T) {
 	// The ephemeral password must still be revoked even though both probes failed.
 	if n := pwSvc.activePasswordCount(); n != 0 {
 		t.Fatalf("active passwords after test = %d, want 0", n)
+	}
+}
+
+// TestBasicAuthMiddleware_PassesInjectedTenantContextDownstream pins the root
+// cause of the CardDAV/CalDAV tenant gap: the protocol routes authenticate via
+// Basic Auth and never see a JWT, so unless basicAuthMiddleware hands the
+// injector's context (user AND tenant) to the DAV handler, every gRPC call the
+// backends make is rejected with codes.Unauthenticated and every direct pool
+// query is filtered empty by RLS.
+func TestBasicAuthMiddleware_PassesInjectedTenantContextDownstream(t *testing.T) {
+	userID, tenantID := uuid.New(), uuid.New()
+	pwSvc := newFakeCalDAVPasswordService()
+	plaintext, _, err := pwSvc.Create(context.Background(), userID, tenantID, "davx5")
+	if err != nil {
+		t.Fatalf("create app password: %v", err)
+	}
+
+	var gotTenant, gotUser string
+	probe := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if tid, tErr := middleware.GetTenantID(r.Context()); tErr == nil {
+			gotTenant = tid.String()
+		}
+		gotUser = middleware.GetUserID(r.Context())
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	injector := func(ctx context.Context, uid uuid.UUID) (context.Context, error) {
+		ctx = context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())
+		return context.WithValue(ctx, middleware.UserIDKey, uid.String()), nil
+	}
+
+	routes := NewCalDAVRoutes(probe, probe, pwSvc, nil, injector, withCalDAVAuth(userID, tenantID), passthroughCalDAVMiddleware, "")
+
+	r := chi.NewRouter()
+	routes.RegisterRoutes(r)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/carddav/", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.SetBasicAuth(userID.String(), plaintext)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET /carddav/: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", resp.StatusCode)
+	}
+	if gotTenant != tenantID.String() {
+		t.Fatalf("tenant in handler context = %q, want %q", gotTenant, tenantID)
+	}
+	if gotUser != userID.String() {
+		t.Fatalf("user in handler context = %q, want %q", gotUser, userID)
+	}
+}
+
+// TestBasicAuthMiddleware_ContextInjectionFailure_Returns500 covers the other
+// half: the credential was valid, so a failed tenant lookup is an
+// infrastructure fault, not a rejected login. Answering 401 would be actively
+// harmful -- DAV clients disable an account after repeated 401s, so a
+// transient database outage would log every CalDAV user out for good.
+func TestBasicAuthMiddleware_ContextInjectionFailure_Returns500(t *testing.T) {
+	userID, tenantID := uuid.New(), uuid.New()
+	pwSvc := newFakeCalDAVPasswordService()
+	plaintext, _, err := pwSvc.Create(context.Background(), userID, tenantID, "davx5")
+	if err != nil {
+		t.Fatalf("create app password: %v", err)
+	}
+
+	failingInjector := func(context.Context, uuid.UUID) (context.Context, error) {
+		return nil, errors.New("resolve tenant for caldav user: connection refused")
+	}
+
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, failingInjector, withCalDAVAuth(userID, tenantID), passthroughCalDAVMiddleware, "")
+
+	r := chi.NewRouter()
+	routes.RegisterRoutes(r)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/carddav/", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.SetBasicAuth(userID.String(), plaintext)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET /carddav/: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", resp.StatusCode)
+	}
+	if resp.Header.Get("WWW-Authenticate") != "" {
+		t.Fatalf("WWW-Authenticate set on an infrastructure failure: clients would drop their credentials")
 	}
 }

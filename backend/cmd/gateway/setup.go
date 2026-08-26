@@ -144,7 +144,7 @@ func setupCalDAV(
 	return gateway.NewCalDAVRoutes(
 		caldavHandler, carddavHandler,
 		caldavPwAdapter, caldavUserPrefAdapter,
-		caldavpkg.CtxWithUser, authMiddleware, idempotencyMW,
+		caldavpkg.NewCtxInjector(pool), authMiddleware, idempotencyMW,
 		selfBaseURL,
 	)
 }

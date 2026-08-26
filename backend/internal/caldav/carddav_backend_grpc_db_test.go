@@ -6,30 +6,25 @@ package caldav
 // contact.Service + PostgresRepository. Template: the loopback-TCP fixture
 // pattern from internal/gateway/route_hr_manual_entry_idempotency_db_test.go.
 //
-// CONFIRMED PRODUCTION BUG (same root cause as
-// fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx, but a wider
-// blast radius): CardDAVRoutes.basicAuthMiddleware (route_caldav.go) injects
-// only the userID via CtxWithUser -- never middleware.TenantIDKey. Every
-// CardDAV RPC call (ListContacts, GetContact, CreateContact, UpdateContact,
-// DeleteContact, UpdateContactVisibility in crm_grpc.go) starts with
-// `middleware.GetTenantID(ctx)` and fails closed with
-// `codes.Unauthenticated, "tenant_id missing from context"` when it's
-// missing. registry.GetConnection's TenantOutboundUnaryInterceptor only
-// attaches the x-tenant-id gRPC header when GetTenantID(ctx) succeeds on the
-// CLIENT side too -- so under the real CardDAV request path it never even
-// reaches the wire. Net effect: EVERY CardDAV operation (address book
-// listing, single-contact fetch, create/update/delete) 401s for every real
+// REGRESSION GUARD for a fixed production bug: CardDAVRoutes.basicAuthMiddleware
+// (route_caldav.go) used to inject only the userID via CtxWithUser -- never
+// middleware.TenantIDKey. Every CardDAV RPC call (ListContacts, GetContact,
+// CreateContact, UpdateContact, DeleteContact, UpdateContactVisibility in
+// crm_grpc.go) starts with `middleware.GetTenantID(ctx)` and fails closed with
+// `codes.Unauthenticated, "tenant_id missing from context"`;
+// registry.GetConnection's TenantOutboundUnaryInterceptor only attaches the
+// x-tenant-id gRPC header when GetTenantID(ctx) succeeds on the CLIENT side
+// too, so under the real CardDAV request path it never even reached the wire.
+// Net effect was that EVERY CardDAV operation (address book listing,
+// single-contact fetch, create/update/delete) returned 401 for every real
 // client (Apple Contacts, DAVx5, Thunderbird), including the account owner.
-// This is broader than the CalDAV-side finding (which was scoped to two
-// direct-DB-query helpers) because it hits the entire gRPC-mediated
-// read/write surface, not just two functions.
 //
-// TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401 and
-// TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401 prove this
-// with the exact context CardDAV requests actually carry. The remaining
-// tests inject middleware.TenantIDKey manually (as if the root-cause fix in
-// basicAuthMiddleware already existed) to document the intended behaviour
-// once that's fixed -- and, along the way, found a second bug: ListContacts'
+// The fix is NewCtxInjector (caldav_backend.go): the Basic-Auth middleware now
+// resolves the owning tenant and stamps middleware.TenantIDKey/UserIDKey the
+// way the JWT middleware does. realCardDAVCtx below builds its context through
+// that exact production injector, so the tests here exercise the real request
+// path rather than a hand-rolled approximation -- and, along the way, found a
+// second bug: ListContacts'
 // PageSize:1000 (comment: "Reasonable limit for CalDAV sync") is silently
 // clamped to 20 server-side (contact.Service.ListWithVisibility,
 // service.go:722), and CardDAV's ListAddressObjects never paginates, so any
@@ -101,11 +96,27 @@ func newCardDAVCRMFixture(t *testing.T) *cardDAVCRMFixture {
 	}
 }
 
-// seedUser creates a tenant user.
+// seedTenant creates a SECOND tenant next to the fixture's own, so the tenant
+// boundary can be exercised with two real users instead of a synthetic UUID.
+func (f *cardDAVCRMFixture) seedTenant(t *testing.T) uuid.UUID {
+	t.Helper()
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, f.pool, tenantID, "CardDAV gRPC Foreign Tenant")
+	t.Cleanup(func() { testutil.CleanupRow(t, f.pool, "tenants", tenantID) })
+	return tenantID
+}
+
+// seedUser creates a user in the fixture's own tenant.
 func (f *cardDAVCRMFixture) seedUser(t *testing.T) uuid.UUID {
 	t.Helper()
+	return f.seedUserIn(t, f.tenantID)
+}
+
+// seedUserIn creates a user in an arbitrary tenant.
+func (f *cardDAVCRMFixture) seedUserIn(t *testing.T, tenantID uuid.UUID) uuid.UUID {
+	t.Helper()
 	userID := testutil.SeedRow(t, f.pool, "users", map[string]any{
-		"tenant_id":     f.tenantID,
+		"tenant_id":     tenantID,
 		"email":         fmt.Sprintf("carddav-grpc-%s@tenanta.local", uuid.New().String()[:8]),
 		"password_hash": "$argon2id$v=19$test",
 	})
@@ -129,19 +140,15 @@ func (f *cardDAVCRMFixture) seedContact(t *testing.T, ownerID uuid.UUID, visibil
 	return id
 }
 
-// realCardDAVCtx mirrors exactly what basicAuthMiddleware -> CtxWithUser
-// produces for a real request: the user is known, no tenant anywhere.
-func realCardDAVCtx(userID uuid.UUID) context.Context {
-	return CtxWithUser(context.Background(), userID)
-}
-
-// asIfTenantMiddlewareFixed injects middleware.TenantIDKey the way a fixed
-// basicAuthMiddleware would (via resolveTenantID), so the tests below the two
-// "MissingTenant" ones can exercise the actual listing/filter logic instead
-// of being blocked by the root-cause bug they document.
-func asIfTenantMiddlewareFixed(userID, tenantID uuid.UUID) context.Context {
-	ctx := context.WithValue(context.Background(), middleware.TenantIDKey, tenantID.String())
-	return CtxWithUser(ctx, userID)
+// realCardDAVCtx builds the context a real CardDAV request carries: exactly
+// what basicAuthMiddleware produces from the production injector once an
+// app-specific password has been validated. Nothing is hand-injected -- the
+// tenant comes out of the same users lookup production performs.
+func (f *cardDAVCRMFixture) realCardDAVCtx(t *testing.T, userID uuid.UUID) context.Context {
+	t.Helper()
+	ctx, err := NewCtxInjector(f.pool)(context.Background(), userID)
+	require.NoError(t, err)
+	return ctx
 }
 
 func personalPath(userID uuid.UUID) string {
@@ -153,28 +160,56 @@ func companyPath(userID uuid.UUID) string {
 }
 
 // ============================================================================
-// Confirmed bug: missing tenant context under the real request path
+// Root cause (fixed): tenant context under the real request path
 // ============================================================================
 
-func TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401(t *testing.T) {
+func TestListAddressObjects_RealCardDAVContext_ResolvesTenant(t *testing.T) {
 	f := newCardDAVCRMFixture(t)
 	userID := f.seedUser(t)
 	f.seedContact(t, userID, "personal", "Anna", "Mueller")
 
-	_, err := f.backend.ListAddressObjects(realCardDAVCtx(userID), personalPath(userID), nil)
+	objs, err := f.backend.ListAddressObjects(f.realCardDAVCtx(t, userID), personalPath(userID), nil)
 
-	assert.Equal(t, 401, webdavStatusCode(t, err))
+	require.NoError(t, err, "the real CardDAV request context must carry a tenant")
+	assert.Len(t, objs, 1)
 }
 
-func TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401(t *testing.T) {
+func TestGetAddressObject_RealCardDAVContext_ResolvesTenant(t *testing.T) {
 	f := newCardDAVCRMFixture(t)
 	userID := f.seedUser(t)
 	contactID := f.seedContact(t, userID, "personal", "Anna", "Mueller")
 
 	path := personalPath(userID) + contactID.String() + ".vcf"
-	_, err := f.backend.GetAddressObject(realCardDAVCtx(userID), path, nil)
+	obj, err := f.backend.GetAddressObject(f.realCardDAVCtx(t, userID), path, nil)
 
-	assert.Equal(t, 401, webdavStatusCode(t, err))
+	require.NoError(t, err, "the real CardDAV request context must carry a tenant")
+	require.NotNil(t, obj)
+	assert.Contains(t, obj.Path, contactID.String())
+}
+
+// TestCardDAVCtxInjector_ResolvesOnlyTheOwnTenant is the boundary half of the
+// fix: the injector must hand out the tenant the authenticated user actually
+// belongs to, never a wider one. An app password issued in tenant B must not
+// reach a single contact of tenant A -- neither by listing the shared company
+// address book nor by fetching a known contact ID directly.
+func TestCardDAVCtxInjector_ResolvesOnlyTheOwnTenant(t *testing.T) {
+	f := newCardDAVCRMFixture(t)
+	owner := f.seedUser(t)
+	foreignContact := f.seedContact(t, owner, "shared", "Anna", "Mueller")
+
+	otherTenant := f.seedTenant(t)
+	intruder := f.seedUserIn(t, otherTenant)
+
+	ctx := f.realCardDAVCtx(t, intruder)
+
+	objs, err := f.backend.ListAddressObjects(ctx, companyPath(intruder), nil)
+	require.NoError(t, err)
+	assert.Empty(t, objs, "company address book must not leak another tenant's shared contacts")
+
+	path := companyPath(intruder) + foreignContact.String() + ".vcf"
+	_, err = f.backend.GetAddressObject(ctx, path, nil)
+	assert.Equal(t, 404, webdavStatusCode(t, err),
+		"a known contact ID from another tenant must stay invisible")
 }
 
 // ============================================================================
@@ -188,7 +223,7 @@ func TestListAddressObjects_PersonalBook_OnlyOwnPersonalContacts(t *testing.T) {
 	f.seedContact(t, me, "personal", "Mine", "Contact")
 	f.seedContact(t, colleague, "personal", "Colleagues", "Contact")
 
-	objs, err := f.backend.ListAddressObjects(asIfTenantMiddlewareFixed(me, f.tenantID), personalPath(me), nil)
+	objs, err := f.backend.ListAddressObjects(f.realCardDAVCtx(t, me), personalPath(me), nil)
 
 	require.NoError(t, err)
 	require.Len(t, objs, 1, "personal book must show only the requesting user's own personal contacts, not every tenant user's")
@@ -203,7 +238,7 @@ func TestListAddressObjects_CompanyBook_ReturnsAllSharedRegardlessOfOwner(t *tes
 	f.seedContact(t, colleague, "shared", "Colleague", "SharedContact")
 	f.seedContact(t, me, "personal", "My", "PrivateContact")
 
-	objs, err := f.backend.ListAddressObjects(asIfTenantMiddlewareFixed(me, f.tenantID), companyPath(me), nil)
+	objs, err := f.backend.ListAddressObjects(f.realCardDAVCtx(t, me), companyPath(me), nil)
 
 	require.NoError(t, err)
 	assert.Len(t, objs, 2, "company book must show every shared contact of the tenant regardless of owner, and exclude personal ones")
@@ -225,7 +260,7 @@ func TestListAddressObjects_PersonalBook_SilentlyTruncatesPast20(t *testing.T) {
 		f.seedContact(t, me, "personal", "Bulk", fmt.Sprintf("Contact%02d", i))
 	}
 
-	objs, err := f.backend.ListAddressObjects(asIfTenantMiddlewareFixed(me, f.tenantID), personalPath(me), nil)
+	objs, err := f.backend.ListAddressObjects(f.realCardDAVCtx(t, me), personalPath(me), nil)
 
 	require.NoError(t, err)
 	assert.Len(t, objs, 20, "BUG: server-side PageSize clamp (service.go:722) silently truncates CardDAV's requested 1000 down to 20; %d contacts were seeded but ListAddressObjects has no pagination to recover the rest", seeded)
@@ -249,7 +284,7 @@ func TestGetAddressObject_AnonymizedContact_NoRealNameOrPIIInVCard(t *testing.T)
 	require.NoError(t, consentRepo.AnonymizeContact(tenantCtx, contactID, f.tenantID))
 
 	path := personalPath(me) + contactID.String() + ".vcf"
-	obj, err := f.backend.GetAddressObject(asIfTenantMiddlewareFixed(me, f.tenantID), path, nil)
+	obj, err := f.backend.GetAddressObject(f.realCardDAVCtx(t, me), path, nil)
 
 	require.NoError(t, err)
 	fn := obj.Card.Value(vcard.FieldFormattedName)
