@@ -2239,7 +2239,7 @@ Kopf von `BACKLOG.yml`.
   fehlende Tenant-Scoping, nicht die fehlende Teilnehmer/Ersteller-Pruefung.
 
 ## Iteration 37 — cov-berichte-repository-and-grpc — done — 2026-08-26 06:18
-- commit: -
+- commit: c92b0ec7
 - gebaut: `postgres_repository_db_test.go` (internal/berichte, 10 DB-Testfunktionen gegen
   echtes SQL: ListDefinitions/ListSchedules/ListDocuments mit allen Filtern + Pagination +
   Sortierung + Tenant-Scope, Get/Update/Delete-Tenant-Scoping fuer Definitions und
