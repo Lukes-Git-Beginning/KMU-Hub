@@ -542,3 +542,52 @@ units:
         Der Lexware-Emitter bleibt bewusst auf noopEmitter - kein Trigger hoert auf lexware.*,
         der lean:-Marker aus Lauf 11 bleibt stehen
       - go test -count=1 ./internal/biz/invoice/ ./internal/biz/quote/ ./internal/automation/... gruen
+
+  - id: decide-email-messages-contact-pii-on-anonymize
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      PRODUKTENTSCHEIDUNG LUKE: sollen `email_messages.from_name`/`.from_email`/`.body_text`/
+      `.body_html`/`.raw_headers` beim Anonymisieren eines Kontakts angefasst werden? Das ist
+      dieselbe Abwaegung wie bei deals/meetings (siehe `ScrubDependentPII`-Godoc in
+      `internal/crm/consent/scrub.go`) - nur potenziell mit einer echten Aufbewahrungspflicht
+      fuer Geschaeftskorrespondenz (Paragraph 257 HGB) auf der anderen Seite.
+    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
+    coverage_start: "n.a. (Entscheidungs-Unit, kein Coverage-Ziel)"
+    scope: >
+      BEFUND aus `feat-scrub-dependent-pii-inbox-rentals-contracts` (Iteration 12, Lauf 12):
+      die Unit verlangte, `inbox_messages.preview` zu pruefen, weil das Feld ein abgeleitetes
+      Feld ist, dessen Quelle in `email_messages` liegt. `ScrubDependentPII` scrubt jetzt
+      `inbox_messages.preview` direkt (die Vorschau-Kopie), aber `email_messages` selbst -
+      die eigentliche Quelle - bleibt unangetastet. `email_messages`
+      (`backend/migrations/000041_create_email_tables.up.sql:44-70`) traegt `from_name`,
+      `from_email` (NOT NULL), `body_text`, `body_html`, `raw_headers` im Klartext. Die
+      Verknuepfung zu einem CRM-Kontakt laeuft nicht ueber eine direkte Spalte, sondern ueber
+      `email_contact_links` (message_id, contact_id, `ON DELETE CASCADE` von `contacts`) -
+      die Verlinkung faellt beim Hard-Delete automatisch weg, bleibt aber beim Anonymisieren
+      (Kontaktzeile bleibt bestehen) unveraendert bestehen und zeigt weiter auf die
+      unveraenderte E-Mail.
+      WAS ZU ENTSCHEIDEN IST: (a) `email_messages`-Felder fuer verlinkte Kontakte beim
+      Anonymisieren scrubben (Namensfelder + evtl. Body-Text/-HTML) - Risiko: blindes
+      Scrubben von Freitext kann legitime Geschaeftskorrespondenz beschaedigen, und
+      Paragraph 257 HGB verlangt unter Umstaenden 6 Jahre Aufbewahrung fuer Handelsbriefe,
+      wozu Geschaefts-E-Mails zaehlen koennen. (b) Bewusst als Residualrisiko wie
+      deals/meetings einstufen und in der `ScrubDependentPII`-Godoc-Liste "Deliberately NOT
+      scrubbed" dokumentieren, mit Begruendung.
+    sources:
+      - backend/internal/crm/consent/scrub.go
+      - backend/migrations/000041_create_email_tables.up.sql
+      - backend/internal/email/
+    notes: >
+      Nur `from_name`/`from_email` sind eindeutig personenbezogen und leicht zu scrubben ohne
+      Seiteneffekte; `body_text`/`body_html`/`raw_headers` sind der eigentliche
+      Korrespondenzinhalt und tragen dieselbe HGB-Frage wie bei Rechnungen (`finance_invoices`,
+      siehe bestehende Godoc-Ausnahme). Eine Teilentscheidung (nur die Namensfelder scrubben,
+      Body/Headers als Residualrisiko stehen lassen) ist ebenfalls eine gueltige Option (c).
+    done_when:
+      - Die Entscheidung (a), (b) oder (c) steht mit Begruendung und Datum in dieser Unit
+      - Bei (a) oder (c) ist eine spitze Unit in BACKLOG.yml angelegt
+      - Bei (b) ist eine kleine Unit angelegt, die nur die Godoc-Ausnahme ergaenzt

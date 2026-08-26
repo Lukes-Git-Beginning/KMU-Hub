@@ -808,7 +808,30 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: blocked
+    blocked_reason: >-
+      SCOPE-FEHLEINSCHAETZUNG in der Unit-Vorbereitung, in Iteration 12 am Code verifiziert:
+      die 58 `codes.AlreadyExists`-Fundstellen sind NICHT 58 einzelne RPC-Handler, sondern
+      liegen fast durchgehend in 38 GETEILTEN Error-Mapper-Funktionen (`mapCalendarError`,
+      `mapCRMError`, `mapBizError`, ...), die jeweils von vielen verschiedenen RPC-Methoden
+      aufgerufen werden. Gemessen: `mapCalendarError(err)` wird 41x in `calendar_grpc.go`
+      aufgerufen, `mapCRMError(err)` 60x in `crm_grpc.go`, `mapBizError(err)` 57x in
+      `biz_grpc.go`. Die tatsaechlich betroffene Operationenliste laesst sich deshalb nicht
+      aus den Fundstellen ablesen (der in `scope` beschriebene Weg "von der Fundstelle ueber
+      die RPC zum Handler" geht von einem 1:1-Verhaeltnis aus, das nicht existiert) - sie
+      erfordert je AlreadyExists-Sentinel-Error (z.B. `calendar.ErrMemberAlreadyExists`,
+      `event.ErrAlreadyAttendee`, `resource.ErrBookingConflict`) eine Rueckverfolgung durch
+      die Service-Schicht bis zu den konkreten RPC-Einstiegspunkten, die diesen Error
+      tatsaechlich ausloesen koennen. Das ist eine Groessenordnung ueber eine Iteration
+      hinaus, und `done_when` verlangt ausdruecklich eine belegte, nicht geschaetzte Liste.
+      Eine vorherige Iteration hat die Unit vermutlich bereits als zu gross erkannt und ohne
+      Journal-Eintrag abgebrochen (Iterationsluecke zwischen den Journal-Eintraegen 8 und 10;
+      Status stand seit Iterationsbeginn auf `in_progress` ohne jede Code-Aenderung, `git
+      status` war beim Start dieser Iteration clean).
+      EMPFEHLUNG: die Unit in eine Scan-Unit (Block D) umwandeln, die je Sentinel-Error die
+      aufrufenden RPCs ermittelt und die tatsaechliche Operationenliste als Grundlage fuer
+      eine oder mehrere kleinere Fix-Units anlegt, statt Recherche und Spec-Fix in einer
+      Unit zu buendeln.
     decided: 2026-08-24
     decision: >-
       BEFUND aus dem 409-Skriptlauf vom 2026-08-24, nicht aus einem Scan. Beim Umstellen der
@@ -928,7 +951,7 @@ units:
     service: crm
     model: sonnet
     deps: [feat-scrub-dependent-pii-dialer-tables]
-    status: todo
+    status: done
     coverage_start: "internal/crm/consent 64,0 % (CI-Stand 32735558575)"
     scope: >
       Zweite Haelfte des G1-Rests. Nach denselben Regeln wie die Vorgaenger-Unit, drei weitere

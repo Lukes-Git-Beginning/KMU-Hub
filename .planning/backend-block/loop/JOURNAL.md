@@ -516,3 +516,83 @@ Kopf von `BACKLOG.yml`.
   einzigen tatsaechlich erreichbaren Pfad End-to-End inklusive
   Tenant-Negativtest ab. Kein Route-Impact, `go test ./internal/gateway/`
   daher nicht Pflicht und nicht gelaufen.
+
+## Iteration 12 — feat-scrub-dependent-pii-inbox-rentals-contracts — done — 2026-08-26 02:04
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag)
+- verify vorgaenger: sauber (`232ec86d` — kein gRPC-Bypass, kein Stub, kein
+  `.proto` im Diff, keine Route, kein `RequirePermission`, keine neue
+  Tabelle/Migration; die beiden neuen `tx.Exec`-Bloecke in `ScrubDependentPII`
+  filtern `tenant_id` in JEDEM Statement, auch im Subselect fuer
+  `dialer_call_sessions`; DB-Test mit echtem Tenant-Negativfall belegt)
+- vorab-befund (nicht der Verify-Vorspann, ein separater Fund beim Ziehen der
+  naechsten Unit): `fix-409-double-meaning-on-grpc-conflict-routes` stand seit
+  einer nicht journalisierten Iteration (Luecke zwischen den Journal-Eintraegen
+  8 und 10) auf `status: in_progress`, ohne jede Code-Aenderung (`git status`
+  war beim Start dieser Iteration clean). Recherche zeigt: die Unit-Praemisse
+  war falsch. Die 58 `codes.AlreadyExists`-Fundstellen sind keine 58 einzelnen
+  RPC-Handler, sondern liegen fast durchgehend in 38 geteilten
+  Error-Mapper-Funktionen (`mapCalendarError`, `mapCRMError`, `mapBizError`,
+  ...), die jeweils von vielen RPCs aufgerufen werden — gemessen:
+  `mapCalendarError(err)` 41x in `calendar_grpc.go`, `mapCRMError(err)` 60x in
+  `crm_grpc.go`, `mapBizError(err)` 57x in `biz_grpc.go`. Die vom `done_when`
+  verlangte, belegte (nicht geschaetzte) Operationenliste erfordert deshalb je
+  Sentinel-Error eine Rueckverfolgung durch die Service-Schicht bis zu den
+  RPC-Einstiegspunkten — eine Groessenordnung ueber eine Iteration hinaus. Die
+  Unit ist auf `status: blocked` mit ausfuehrlichem `blocked_reason` gesetzt
+  (Empfehlung darin: als Block-D-Scan neu zuschneiden statt Recherche+Fix in
+  einer Unit).
+- gebaut (die eigentliche Unit dieser Iteration): `ScrubDependentPII`
+  (`internal/crm/consent/scrub.go`) um zwei weitere tenant-gescopte
+  `tx.Exec`-Bloecke erweitert: `inbox_messages.sender_name/.sender_email/
+  .preview` (ueber `crm_contact_id` — abweichender Spaltenname, kein
+  `contact_id`) und `rentals.renter_name/.notes` (direkter `contact_id`).
+  `contract_parties.external_name` NICHT gescrubbt — am Code verifiziert,
+  nicht angenommen: `AddParty` (`vertraege/service.go:392-398`) fuellt
+  `external_name` ausschliesslich bei `party_type = 'external'`, und eine
+  Zeile mit `party_type = 'external'` traegt nie einen `contact_id` (das ist
+  der Zweck der Spalte — Platzhalter fuer eine Partei ohne CRM-Kontakt). Ein
+  `WHERE contact_id = $1`-Filter trifft also strukturell nie eine Zeile mit
+  gefuelltem `external_name`; die in der Unit erwartete Pruefung auf
+  Aufbewahrungsfristen (Paragraph 147 AO) erledigt sich dadurch, es gibt
+  nichts zu scrubben. Der Godoc-Block nennt jetzt beide neuen Tabellen und die
+  `contract_parties`-Ausnahme mit Begruendung.
+  Nebenfund beim Verifizieren von `inbox_messages.preview` (laut Unit-Notes
+  ein abgeleitetes Feld aus `email_messages`): `email_messages`
+  (`from_name`, `from_email`, `body_text`, `body_html`, `raw_headers`) bleibt
+  beim Anonymisieren unangetastet, verlinkt ueber `email_contact_links`
+  (`ON DELETE CASCADE`, bleibt beim Anonymisieren aber bestehen, weil die
+  Kontaktzeile nicht geloescht wird). Das ist keine Iterations-Entscheidung,
+  sondern beruehrt moeglicherweise Paragraph 257 HGB
+  (Aufbewahrungspflicht Handelsbriefe) — als `decide-`-Unit angelegt, siehe
+  `neue-units`.
+- gate: build ok (`./internal/crm/... ./cmd/gateway/...`) | vet ok
+  (`./internal/crm/...`) | lint ok (0 issues, `./internal/crm/...`) | test ok
+  (32 Tests im Paket `consent`, 0 Skips, `DATABASE_URL` gesetzt als
+  `kmuhub_app`; gesamtes `./internal/crm/...` mit `-p 1` seriell gruen — mit
+  Default-Parallelitaet schlugen mehrere fremde Pakete mit
+  "remaining connection slots are reserved for roles with the SUPERUSER
+  attribute" fehl, reine lokale `max_connections`-Erschoepfung durch
+  gleichzeitig geoeffnete Pools, keine Regression durch diese Aenderung —
+  seriell bestaetigt gruen) | migration n.a. (keine neue Tabelle/Spalte, reine
+  UPDATE-Statements auf bestehenden RLS-geschuetzten Tabellen) | rls-smoke
+  n.a. (keine neue Tabelle/Policy — `inbox_messages` RLS seit Migration
+  000122, `rentals` seit 000122 via `enable_tenant_rls('rentals')`; beide
+  neuen Statements filtern `tenant_id` explizit)
+- coverage: internal/crm/consent 64,5 % -> 64,9 % (`go tool cover -func`,
+  Vorher-Wert per `git stash push -u -- backend/internal/crm/consent/` +
+  `stash pop` selbst gemessen — deckt sich mit dem Stand nach Iteration 10,
+  `coverage_start` der Unit war der aeltere CI-Stand 64,0 % vor Iteration 10)
+- mutations-probe: in der `rentals`-UPDATE `renter_name = ''` entfernt (Datei
+  vorher per `cp` gesichert). `TestAnonymizeContact_
+  ScrubsInboxMessageAndRentalIdentity` wurde rot ("expected rentals renter
+  identity to be scrubbed, got renter_name=\"Inbox ScrubTest\""), Datei per
+  `cp` zurueckgedreht, `diff` gegen die Sicherung identisch, kompletter
+  Testlauf danach wieder gruen.
+- neue-units: `decide-email-messages-contact-pii-on-anonymize` (in
+  BACKLOG-NEXT.yml, nicht BACKLOG.yml — echte Produktentscheidung mit
+  moeglicher HGB-Beruehrung, kein reiner Bugfix)
+- offen: `fix-409-double-meaning-on-grpc-conflict-routes` blockiert, siehe
+  `vorab-befund` oben — braucht entweder Lukes Entscheidung, die Unit als
+  Block-D-Scan neu zuzuschneiden, oder eine deutlich groessere Iteration.
+  `decide-email-messages-contact-pii-on-anonymize` wartet auf Lukes
+  Entscheidung (a)/(b)/(c) in BACKLOG-NEXT.yml.

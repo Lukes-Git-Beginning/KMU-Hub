@@ -37,6 +37,12 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 // WHERE contact_id = $1. That join is why these two tables got their own
 // unit instead of a one-line addition to the blocks below.
 //
+// Also scrubbed: inbox_messages.sender_name/.sender_email/.preview (matched
+// via crm_contact_id, not contact_id -- the column is named differently on
+// this table) and rentals.renter_name/.notes (direct contact_id column, the
+// underlying rental itself is left in place, same pattern as
+// tickets.requester_name below).
+//
 // Deliberately NOT scrubbed here:
 //   - finance_invoices (customer_name/-address/-email/-ust_id_nr) -- §147
 //     Abs. 3 AO requires 10 years retention for invoices
@@ -46,6 +52,13 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 //     CAN name the contact but does not have to; a blind search/replace risks
 //     corrupting unrelated content more than it protects. Accepted residual
 //     risk, not a code gap.
+//   - contract_parties.external_name -- structurally unreachable via
+//     contact_id, not a retention carve-out: AddParty (vertraege/service.go)
+//     only ever populates external_name when party_type = 'external', and a
+//     row with party_type = 'external' never carries a contact_id (that's
+//     the whole point of the column -- a stand-in for a party with no CRM
+//     contact record). A WHERE contact_id = $1 filter therefore never
+//     matches a row with a populated external_name.
 func ScrubDependentPII(ctx context.Context, tx pgx.Tx, contactID, tenantID uuid.UUID) (int, error) {
 	affected := 0
 
@@ -103,6 +116,28 @@ func ScrubDependentPII(ctx context.Context, tx pgx.Tx, contactID, tenantID uuid.
 	)
 	if err != nil {
 		return 0, fmt.Errorf("scrub dependent pii: clear dialer call session notes: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE inbox_messages SET sender_name = '', sender_email = NULL, preview = '', updated_at = NOW()
+		 WHERE crm_contact_id = $1 AND tenant_id = $2
+		   AND (sender_name <> '' OR sender_email IS NOT NULL OR preview <> '')`,
+		contactID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("scrub dependent pii: clear inbox message sender identity: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE rentals SET renter_name = '', notes = NULL, updated_at = NOW()
+		 WHERE contact_id = $1 AND tenant_id = $2
+		   AND (renter_name <> '' OR notes IS NOT NULL)`,
+		contactID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("scrub dependent pii: clear rental renter identity: %w", err)
 	}
 	affected += int(res.RowsAffected())
 
