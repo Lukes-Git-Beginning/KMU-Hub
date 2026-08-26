@@ -1859,7 +1859,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 56,6 %; route_rapporte.go 31,8 %, 19 von 31 Handlern ungetestet"
     scope: >
       Zweite Rapporte-Unit: Zeilen, Anhaenge, Vorlagen, Freigaben und Export. Ungetestet
