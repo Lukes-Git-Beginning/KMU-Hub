@@ -2175,7 +2175,7 @@ Kopf von `BACKLOG.yml`.
   Backlog, nicht in diesen Lauf.
 
 ## Iteration 36 — cov-gateway-calendar-resources-and-reminders — done — 2026-08-26 06:06
-- commit: (wird im naechsten Commit "chore(loop): record commit sha" nachgetragen)
+- commit: 22aad711cb74bb95f7eda07ead06bbd778d6a03e
 - gebaut: `route_calendar_resources_reminders_test.go` (Gateway, 25 Tests fuer die sieben
   Handler HandleListResources, HandleGetResource, HandleDeleteResource,
   HandleListResourceAvailability, HandleSetEventReminders, HandleListEventReminders,
