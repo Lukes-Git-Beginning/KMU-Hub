@@ -2284,7 +2284,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/einkauf 63,9 % (332 ungedeckt von 920); service_extended.go 29,6 %, 150 ungedeckt von 213; service.go 63,3 %"
     scope: >
       Der Einkauf ist die letzte Geldflaeche, die Lauf 11 nicht angefasst hat — eine
