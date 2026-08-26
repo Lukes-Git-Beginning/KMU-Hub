@@ -16,6 +16,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 )
 
@@ -127,6 +128,10 @@ type WebSocketHub struct {
 	// presenceSubscribers maps target user ID to subscriber user IDs
 	// (who wants to receive presence updates for which users)
 	presenceSubscribers map[string]map[string]struct{}
+	// userTenants maps a connected user's ID to their tenant ID (from the JWT
+	// `tid` claim, set on connect and cleared once their last connection closes).
+	// Used to scope presence.subscribe target lookups to the caller's own tenant.
+	userTenants map[string]string
 	// userNames caches user display names for typing indicators
 	userNames    map[string]struct{ firstName, lastName string }
 	userInfoFunc UserInfoFunc
@@ -175,6 +180,7 @@ func NewWebSocketHub(chatClient chatv1.ChatServiceClient, tokenMaker *auth.Token
 		connections:         make(map[string]map[*websocket.Conn]struct{}),
 		channelMembers:      make(map[string]map[string]struct{}),
 		presenceSubscribers: make(map[string]map[string]struct{}),
+		userTenants:         make(map[string]string),
 		userNames:           make(map[string]struct{ firstName, lastName string }),
 		userInfoFunc:        userInfoFunc,
 		rateLimiters:        make(map[string]*msgRateLimiter),
@@ -353,6 +359,7 @@ func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Register connection and cache user name
 	h.registerConnection(userID, conn)
+	h.registerUserTenant(userID, claims.TenantID)
 	h.cacheUserName(r.Context(), userID)
 	defer h.unregisterConnection(userID, conn)
 
@@ -415,6 +422,15 @@ func (h *WebSocketHub) registerConnection(userID string, conn *websocket.Conn) {
 	}
 }
 
+// registerUserTenant records the tenant of a newly connected user, so that
+// handlePresenceSubscribe can scope presence-target lookups to the caller's
+// own tenant without a JWT re-parse on every subscribe message.
+func (h *WebSocketHub) registerUserTenant(userID, tenantID string) {
+	h.mu.Lock()
+	h.userTenants[userID] = tenantID
+	h.mu.Unlock()
+}
+
 func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn) {
 	h.mu.Lock()
 
@@ -441,9 +457,10 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 	// Clean up presence subscriptions for disconnected user
 	h.cleanupPresenceSubscriptions(userID)
 
-	// Remove rate limiter when user has no more connections
+	// Remove rate limiter and cached tenant when user has no more connections
 	if _, hasConns := h.connections[userID]; !hasConns {
 		delete(h.rateLimiters, userID)
+		delete(h.userTenants, userID)
 	}
 
 	if h.metrics != nil {
@@ -1129,8 +1146,29 @@ func (h *WebSocketHub) handlePresenceSubscribe(ctx context.Context, conn *websoc
 		return
 	}
 
-	h.mu.Lock()
+	h.mu.RLock()
+	callerTenantID, tenantKnown := h.userTenants[userID]
+	h.mu.RUnlock()
+
+	allowed := make([]string, 0, len(payload.UserIDs))
 	for _, targetUserID := range payload.UserIDs {
+		if targetUserID == userID {
+			// Always allowed to watch your own presence.
+			allowed = append(allowed, targetUserID)
+			continue
+		}
+		if !h.tenantAllowsPresenceTarget(ctx, callerTenantID, tenantKnown, targetUserID) {
+			slog.Warn("presence.subscribe: rejected target not visible to caller's tenant",
+				"subscriber", userID,
+				"target", targetUserID,
+			)
+			continue
+		}
+		allowed = append(allowed, targetUserID)
+	}
+
+	h.mu.Lock()
+	for _, targetUserID := range allowed {
 		if h.presenceSubscribers[targetUserID] == nil {
 			h.presenceSubscribers[targetUserID] = make(map[string]struct{})
 		}
@@ -1140,8 +1178,31 @@ func (h *WebSocketHub) handlePresenceSubscribe(ctx context.Context, conn *websoc
 
 	slog.Debug("presence subscription added",
 		"subscriber", userID,
-		"targets", payload.UserIDs,
+		"targets", allowed,
 	)
+}
+
+// tenantAllowsPresenceTarget reports whether targetUserID may be watched by a
+// subscriber known to belong to callerTenantID. Presence state lives in Redis
+// under presence:<userID> with no tenant component (Redis has no RLS), so the
+// isolation has to happen here, at the authorization boundary, before a
+// subscription is ever recorded.
+//
+// It resolves the target via the same tenant-scoped auth lookup already used
+// for display-name caching (userInfoFunc -> authClient.GetUser): scoping the
+// call's context to the caller's own tenant/user IDs makes the backing
+// `users` RLS policy (tenant_id = current_tenant_id() OR id = current_user_id())
+// reject any target from a foreign tenant with "not found", which this method
+// treats as "not allowed". Fails closed: an unknown caller tenant or a missing
+// lookup function rejects the target rather than admitting it.
+func (h *WebSocketHub) tenantAllowsPresenceTarget(ctx context.Context, callerTenantID string, tenantKnown bool, targetUserID string) bool {
+	if !tenantKnown || callerTenantID == "" || h.userInfoFunc == nil {
+		return false
+	}
+
+	scopedCtx := context.WithValue(ctx, middleware.TenantIDKey, callerTenantID)
+	_, _, err := h.userInfoFunc(scopedCtx, targetUserID)
+	return err == nil
 }
 
 // handlePresenceSetStatus handles a manual presence status change from the client.

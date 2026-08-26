@@ -378,7 +378,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
     scope: >
       Fund aus cov-work-customfield-and-presence-zero-coverage (Iteration 38): Presence-Status
@@ -5349,3 +5349,74 @@ units:
         oder BAD zurueckgibt (nicht nur Verbindungsfehler)
       - go test -count=1 ./internal/email/sync/... gruen, DATABASE_URL gesetzt, 0 Skips, Paketwert
         vorher/nachher im Journal
+
+  - id: fix-websocket-chat-send-message-missing-tenant-id
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `fix-websocket-presence-subscribe-missing-tenant-check` (Iteration 2, Lauf 13):
+      JEDE Chat-Nachricht, die ueber die WebSocket-Verbindung gesendet wird — sowohl fuer
+      authentifizierte User als auch fuer Gaeste, sowohl ueber WS als auch ueber die
+      REST-Gast-Route — schlaegt aktuell garantiert fehl.
+      `chatv1.SendMessageRequest.tenant_id` (Feld 8, `backend/proto/chat/v1/chat.proto:242`)
+      ist ein normaler (nicht `optional`) String. `ChatGRPCServer.SendMessage`
+      (`backend/internal/server/chat_grpc.go:369`) parst ihn UNBEDINGT als erstes:
+      `chatTenantID, err := uuid.Parse(req.TenantId)` — bei leerem String schlaegt
+      `uuid.Parse` fehl und die RPC gibt sofort `codes.InvalidArgument, "invalid tenant_id"`
+      zurueck, bevor ueberhaupt zwischen authentifiziertem und Gast-Pfad unterschieden wird.
+      Drei Aufrufstellen bauen den Request OHNE `TenantId`:
+      `WebSocketHub.handleSendMessage` (`backend/internal/server/websocket.go:601-609`,
+      authentifizierte User ueber WS), `WebSocketHub.handleGuestSendMessage`
+      (`backend/internal/server/websocket.go:823-829`, Gaeste ueber WS) und die
+      REST-Gast-Route `internal/gateway/route_guest.go:237-241`. Nur EINE Aufrufstelle setzt
+      es korrekt: die authentifizierte REST-Route `internal/gateway/route_chat.go:471-477`
+      liest `tenantID, err := middleware.GetTenantID(r.Context())` (funktioniert, weil diese
+      Route hinter `authMiddleware` haengt) und setzt `TenantId: tenantID.String()`.
+      Damit ist Echtzeit-Chat ueber WebSocket UND jeder Gast-Chat (WS wie REST) aktuell
+      funktionsunfaehig — nicht nur ein Tenant-Scoping-Detail, sondern ein kompletter Ausfall
+      dieser Pfade. Root Cause fuer die beiden WS-Faelle ist dieselbe Luecke, die auch die
+      Presence-Subscribe-Unit betraf: `HandleWebSocket` (`backend/internal/server/websocket.go`,
+      um Zeile 297-364) validiert den JWT selbst und haelt `claims.TenantID`, propagiert es aber
+      nie in den `ctx`, den `handleConnection`/`handleMessage` weiterreichen — die Route laeuft
+      nicht durch `middleware.Auth`, weil sie den Token selbst aus
+      Sec-WebSocket-Protocol/Query-Param liest statt aus dem Authorization-Header.
+      Fuer den Gast-Fall (WS UND REST) gibt es KEINEN Tenant im JWT-Sinn — `GuestSessionInfo`
+      (`backend/internal/server/websocket.go:55-60`) haelt aktuell nur `ID`, `ChannelID`,
+      `DisplayName`, `IsActive`, kein `TenantID`-Feld; das muesste aus der Guest-Session
+      selbst oder ueber den Channel aufgeloest werden (ein Channel gehoert zu genau einem
+      Tenant).
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/chat_grpc.go
+      - backend/internal/gateway/route_chat.go
+      - backend/internal/gateway/route_guest.go
+      - backend/proto/chat/v1/chat.proto
+      - backend/internal/server/websocket_presence_subscribe_test.go
+    notes: >
+      Fuer den authentifizierten WS-Fall bietet sich derselbe `userTenants`-Cache an, der in
+      `fix-websocket-presence-subscribe-missing-tenant-check` fuer die Presence-Autorisierung
+      eingefuehrt wurde (`WebSocketHub.registerUserTenant`/`h.userTenants[userID]`) —
+      `handleSendMessage` kann den bereits gecachten Tenant direkt in `grpcReq.TenantId`
+      schreiben, ohne einen weiteren gRPC-Roundtrip. Fuer den Gast-Fall muss zuerst geklaert
+      werden, WOHER der Tenant kommt (Channel-Lookup vs. Erweiterung von `GuestSessionInfo`
+      beim Erstellen der Session) — das ist eine kleine Architektur-Entscheidung, kein reiner
+      Verkabelungsfehler, und gehoert in den `scope:`-Teil der Bauarbeit, nicht vorher geraten.
+      Vor dem Fix pruefen, ob es einen Grund gibt, warum das bisher niemandem aufgefallen ist
+      (z. B. Feature-Flag, das den WS-Chat-Sendepfad aktuell abschaltet, oder ein Frontend, das
+      ausschliesslich die REST-Route benutzt und WS nur zum Lesen/Broadcasten verwendet) — falls
+      ja, gehoert das in die `blocked_reason`, falls die Killer-Antwort ist "wird produktiv gar
+      nicht genutzt".
+    done_when:
+      - >-
+        `handleSendMessage`, `handleGuestSendMessage` und `route_guest.go`s Send-Handler setzen
+        `TenantId` korrekt, bevor sie `chatClient.SendMessage` rufen
+      - >-
+        Ein Test belegt: eine ueber WS gesendete Chat-Nachricht (authentifiziert) kommt beim
+        Empfaenger an, statt mit `codes.InvalidArgument` abzubrechen — ebenso fuer den
+        Gast-Sendepfad (WS und REST)
+      - go test -count=1 ./internal/server/... ./internal/gateway/... gruen, DATABASE_URL
+        gesetzt, 0 Skips

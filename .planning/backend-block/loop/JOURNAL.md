@@ -2823,3 +2823,60 @@ Kopf von `BACKLOG.yml`.
   Login/SelectFolder/FetchHeaders/FetchBody/SetFlags/Idle/HasIDLE/Noop/ListFolders brauchen
   einen antwortenden Fake-IMAP-Server, kein reiner TCP-Listener)
 - offen: keine
+
+## Iteration 2 — fix-websocket-presence-subscribe-missing-tenant-check — done — 2026-08-27 01:13
+- commit: (folgt im naechsten chore-Commit)
+- gebaut: `WebSocketHub.handlePresenceSubscribe` (`backend/internal/server/websocket.go`)
+  prueft jetzt fuer jede `target_user_id`, ob sie zum Tenant des abonnierenden Users gehoert,
+  bevor sie in `presenceSubscribers` landet. Neues Feld `userTenants map[string]string`
+  (userID -> tenantID) wird in `registerUserTenant` beim Connect aus `claims.TenantID` gesetzt
+  (`HandleWebSocket`, direkt nach `registerConnection`) und in `unregisterConnection` geloescht,
+  sobald der User keine Verbindung mehr hat (gleiches Muster wie das bestehende
+  `rateLimiters`-Cleanup). Fuer jede nicht-eigene `targetUserID` baut die neue Methode
+  `tenantAllowsPresenceTarget` einen mit `middleware.TenantIDKey` auf den Anrufer-Tenant
+  gescopten Kontext und ruft darin `h.userInfoFunc` auf — denselben gRPC-Client-Callback
+  (`authClient.GetUser`), der schon fuer die Namensauflösung existiert. Die RLS-Policy
+  `user_isolation` auf `users` (`tenant_id = current_tenant_id() OR id = current_user_id()`,
+  Migration 000120) liefert fuer eine fremde `tenant_id` "not found", was hier als Ablehnung
+  gewertet wird — kein neuer DB-Zugriff, keine neue RPC, reine Wiederverwendung des
+  bestehenden gRPC-Pfads mit korrekt gesetztem Tenant-Kontext. Selbst-Abo (`targetUserID ==
+  userID`) ist immer erlaubt, unabhaengig vom Tenant-Cache. Fehlt der Anrufer-Tenant im Cache
+  oder ist `userInfoFunc` nil, wird fail-closed abgelehnt (kein automatisches Zulassen).
+  Neue Testdatei `websocket_presence_subscribe_test.go` (7 Tests): Same-Tenant-Ziel erlaubt,
+  Cross-Tenant-Ziel abgelehnt, gemischter Batch behaelt nur das Same-Tenant-Ziel,
+  Selbst-Abo immer erlaubt (auch ohne Tenant-Cache-Eintrag), unbekannter Anrufer-Tenant lehnt
+  Fremd-Ziele ab, `userInfoFunc == nil` lehnt Fremd-Ziele ab, und `unregisterConnection` loescht
+  den gecachten Tenant nach der letzten Verbindung (danach wird ein vorher erlaubtes Ziel
+  wieder abgelehnt).
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/... ./cmd/gateway/...`)
+  | vet ok (`go vet ./internal/server/...`) | lint ok (`golangci-lint run ./internal/server/...`,
+  0 issues) | test ok (DATABASE_URL gesetzt, `go test -count=1 ./internal/server/` — 1905 PASS,
+  0 SKIP, 71,4 % Statement-Coverage) | gateway-test ok (`go test -count=1 ./internal/gateway/`,
+  gruen — keine Route angefasst, `TestOpenAPIRouteDrift` lief trotzdem mit) | migration n.a.
+  (keine neue Tabelle/Spalte) | rls-smoke n.a. (keine neue Tabelle/Policy, bestehende
+  `user_isolation`-Policy nur gelesen, nicht geaendert)
+- coverage: n.a. (Verhaltens-Fix laut Unit-Definition, kein Coverage-Ziel; Gesamtpaket
+  `internal/server` zur Referenz 71,3 % (CI 32949396303) -> 71,4 % nach dieser Iteration,
+  selbst gemessen mit `go tool cover`)
+- mutations-probe: `tenantAllowsPresenceTarget` testweise auf `_ = err; return true`
+  gesetzt (Tenant-Check faktisch deaktiviert) -> `TestHandlePresenceSubscribe_CrossTenantTargetIsRejected`
+  und `TestHandlePresenceSubscribe_MixedBatchKeepsOnlySameTenantTargets` wurden beide rot
+  ("Should be false" auf dem Cross-Tenant-Abo) -> per `cp`-Sicherungskopie zurueckgedreht,
+  `git diff --stat` zeigt danach wieder nur die beabsichtigte Aenderung, alle 7 Tests wieder
+  gruen.
+- verify vorgaenger: sauber (`fcd73c8b`, geprueft gegen alle acht Fehlerklassen — reine
+  Testdatei + Interface-Verengung `*IMAPClient` -> `folderLister`/`folderFetcher` in
+  `worker.go`, kein gRPC-Bypass, kein Stub, kein `.proto` geaendert, kein `RequirePermission`,
+  keine neue Tabelle, keine Route, kein Guard ersetzt).
+- neue-units: fix-websocket-chat-send-message-missing-tenant-id (kein Vermutungsfund,
+  sondern verifiziert: `chatv1.SendMessageRequest.tenant_id` ist ein Pflichtfeld,
+  `ChatGRPCServer.SendMessage` parst es unbedingt und gibt bei leerem String
+  `codes.InvalidArgument` zurueck — `WebSocketHub.handleSendMessage`,
+  `WebSocketHub.handleGuestSendMessage` UND die REST-Gast-Route `route_guest.go` setzen es
+  nie. Nur die authentifizierte REST-Route `route_chat.go` setzt es korrekt ueber
+  `middleware.GetTenantID(r.Context())`. Damit schlaegt aktuell jede Chat-Nachricht ueber
+  WebSocket UND jeder Gast-Chat fehl, nicht nur ein Tenant-Scoping-Detail)
+- offen: Ob dieser Sendepfad-Ausfall produktiv unbemerkt bleibt, weil das Frontend WS nur zum
+  Lesen/Broadcasten nutzt und Nachrichten ausschliesslich ueber `route_chat.go` sendet, ist
+  nicht geprueft — steht als erste Pruef-Frage in der neuen Unit. Der Fund selbst (fehlendes
+  `TenantId`) ist am Code verifiziert, nicht spekulativ.
