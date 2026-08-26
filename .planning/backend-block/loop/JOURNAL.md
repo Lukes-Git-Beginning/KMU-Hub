@@ -998,3 +998,56 @@ Kopf von `BACKLOG.yml`.
   LargeBatchReachesRPC` nur belegt, nicht gefixt; falls das je zum Thema wird, gehoert dazu
   auch eine Antwort auf den fehlenden globalen `MaxBytesReader` fuer JSON-POST-Bodies (andere
   Endpunkte wie route_document.go/route_biz_banking.go setzen ihn nur lokal, nicht generisch).
+
+## Iteration 19 — cov-gateway-hr-employees-and-documents — done — 2026-08-26 03:09
+- commit: (siehe unten, wird im selben Schritt erstellt)
+- gebaut: Neue Datei `internal/gateway/route_hr_employees_documents_test.go` mit Tests fuer
+  alle zwoelf im Scope genannten Handler (HandleCreateEmployee, HandleUpdateEmployee,
+  HandleGetEmployee, HandleListEmployees, HandleGetSelfProfile, HandleCreatePersonnelDocument,
+  HandleListPersonnelDocuments, HandleUploadEmployeeDocument, HandleListEmployeeDocuments,
+  HandleRecordSickLeave, HandleGetEmployeeLeaveBalance, HandleGetAbsenceCalendar), je Handler
+  ServiceUnavailable/ReachesRPC plus Validierungsfaelle, im selben Dummy-Registry-Muster wie
+  die Vorgaenger-Iterationen.
+  Schwerpunkt "kann ein Mitarbeiter an die Akte eines Kollegen kommen" geprueft: `HandleGetEmployee`,
+  `HandleListEmployees` und `HandleListEmployeeDocuments` haben KEINEN eigenen
+  Tenant-/Ownership-Check im Gateway — `{id}` geht direkt in die RPC. Der Schutz gegen einen
+  Kollegen-Zugriff sitzt komplett im Guard: `/employees/{id}`, `/employees/` (Liste) und
+  `/employees/{id}/documents` sind alle mit `RequirePermission("hr","read")` bewacht, und
+  Migration 000129 vergibt diesen Key NUR an `admin` — ein normaler Mitarbeiter hat den Key
+  gar nicht und kommt nie bis zum Handler. Mit drei Router-Level-Tests belegt
+  (`TestHandleGetEmployee_RequiresPermission`, `TestHandleListEmployees_RequiresPermission`,
+  `TestHandleListEmployeeDocuments_RequiresPermission`, je 403 ohne den Key,
+  `TestHandleGetEmployee_WithPermissionReachesRPC` als Gegenprobe mit dem Key). Fuer
+  `HandleRecordSickLeave` gilt dasselbe Muster indirekt: die Route nimmt gar kein `{id}`
+  entgegen, sie schreibt immer auf `middleware.GetUserID(ctx)` — ein Kollege kann schon
+  strukturell keine fremde Krankmeldung anlegen; zusaetzlich mit `hr:write`-Permission-Guard-Test
+  belegt. `HandleGetEmployeeLeaveBalance` (`/balance/{userId}`) und `HandleUploadEmployeeDocument`/
+  `HandleCreatePersonnelDocument` (Personalakte-Schreibpfade) pruefen Tenant explizit
+  (`getTenantID`), tragen aber ebenfalls "hr:read"/"hr:write"/"hr:admin"-Guards — kein neuer
+  Befund, deckt sich mit dem bereits bekannten Muster.
+  Kein Berechtigungsfehler gefunden (kein Guard fehlt, keiner haengt eine Ebene zu tief) —
+  daher keine Fix-Unit noetig.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/gateway/...`) | lint ok (0 issues, `golangci-lint run --config .golangci.yml
+  ./internal/gateway/...`) | test ok (`./internal/gateway/`, komplettes Paket gruen, 0 FAIL,
+  0 SKIP, `DATABASE_URL` gesetzt) | migration n.a. (keine Tabelle/Policy angefasst) |
+  rls-smoke n.a. (reine Handler-Unit-Tests gegen Dummy-Registry, keine echte DB-Verbindung) |
+  route-drift ok (Teil des vollen Paketlaufs, `TestOpenAPIRouteDrift` PASS — keine neue Route)
+- coverage: internal/gateway 58,6 % -> 59,3 % (selbst gemessen mit `-coverprofile`: neue
+  Testdatei kurz nach `/tmp` verschoben, Paket ohne sie gemessen — 58,6 %, deckt sich mit dem
+  Bezugswert der Vor-Iteration 58,6 % — Datei zurueckgeholt, erneut gemessen — 59,3 %)
+- mutations-probe: `createEmployeeHTTPReq.UserID` von `validate:"required,uuid"` auf
+  `validate:"omitempty,uuid"` verkuerzt (Datei vorher per `cp` gesichert).
+  `TestHandleCreateEmployee_MissingUserID` sofort rot (503 statt 400/validation_failed, da
+  ohne Pflichtfeld die leere UserID unvalidiert an die RPC geht). Datei per `cp`
+  zurueckgedreht, `git diff` danach leer, kompletter Paketlauf (`./internal/gateway/`)
+  anschliessend wieder gruen.
+- verify vorgaenger: sauber. `d2026b9e` (Fuhrpark-Fahrtenbuch/GPS/Fuel-Log-Gateway-Tests)
+  aendert nur `internal/gateway/route_fuhrpark_triplogs_gps_test.go` + Backlog/Journal; kein
+  gRPC-Aufruf im Gateway umgangen, kein `.proto`, keine neue Tabelle/Route/Guard, keine
+  Wire-Shape-Aenderung. Zwei echte Fuhrpark-Bugs wurden korrekt als eigene Fix-Units angelegt
+  statt nebenbei gefixt (`fix-fuhrpark-trip-logs-private-flag-not-filtered`,
+  `fix-fuhrpark-gps-ingest-no-vehicle-tenant-check`) — `git show --stat` gegengeprueft, deckt
+  sich mit der Journal-Beschreibung der Vor-Iteration.
+- neue-units: keine
+- offen: keine
