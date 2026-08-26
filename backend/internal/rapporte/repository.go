@@ -61,6 +61,8 @@ type Repository interface {
 	ListMeasurements(ctx context.Context, tenantID uuid.UUID, reportID *uuid.UUID, page, pageSize int) ([]Measurement, int, error)
 	UpdateMeasurement(ctx context.Context, tenantID, measurementID uuid.UUID, title, location, measuredBy, measuredAt, notes string) (*Measurement, error)
 	DeleteMeasurement(ctx context.Context, tenantID, measurementID uuid.UUID) error
+	// AddMeasurementPosition returns ErrMeasurementNotFound when measurementID
+	// is unknown or owned by another tenant.
 	AddMeasurementPosition(ctx context.Context, tenantID, measurementID uuid.UUID, positionNumber int, description, unit string, quantity, unitPrice float64) (*MeasurementPosition, error)
 	DeleteMeasurementPosition(ctx context.Context, tenantID, positionID uuid.UUID) error
 

@@ -550,7 +550,7 @@ units:
     service: rapporte
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
@@ -5430,3 +5430,58 @@ units:
         Gast-Sendepfad (WS und REST)
       - go test -count=1 ./internal/server/... ./internal/gateway/... gruen, DATABASE_URL
         gesetzt, 0 Skips
+
+  - id: fix-rapporte-worker-and-measurement-parent-report-tenant-check
+    phase: 4
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
+      `fix-rapporte-measurement-position-cross-tenant-insert`). Dieselbe Fehlerklasse wie dort,
+      nur eine Ebene hoeher: `RapporteGRPCServer.AddWorker` (server/rapporte_grpc.go:539) und
+      `RapporteGRPCServer.CreateMeasurement` (server/rapporte_grpc.go:600) reichen die
+      `report_id` aus dem Request unveraendert an `s.repo.AddWorker` bzw.
+      `s.repo.CreateMeasurement` durch, ohne vorher `GetReport(ctx, tenantID, reportID)` zu
+      rufen. Beide Repository-Funktionen fuegen mit einem reinen `VALUES`-INSERT ein
+      (postgres_repository.go:446 bzw. 512); der FK auf `work_reports(id)` prueft nur Existenz,
+      nicht Eigentum, und die RLS-Policy prueft die `tenant_id` der NEUEN Zeile. Tenant A kann
+      also einen Mitarbeiter-Eintrag (mit `hours`, abrechnungsrelevant) bzw. ein Aufmass an
+      einen fremden Report haengen; die Zeile ist fuer Tenant A unsichtbar, haengt aber an
+      Tenant B's Report und wird von dessen CASCADE mitgeloescht.
+      Der Gegenbeweis, dass das kein Generalproblem ist: `Service.AddLine`
+      (rapporte/service.go:377) und `Service.UploadAttachment` (service.go:503) rufen beide
+      vorher `s.repo.GetReport(ctx, input.TenantID, input.ReportID)` — die beiden gRPC-Handler
+      sind die zwei Stellen, die am Service vorbei direkt auf das Repository gehen.
+      Fix analog zum bereits gebauten: Guard in die Repository-Funktion, nicht in den Handler
+      (`INSERT ... SELECT ... WHERE EXISTS (SELECT 1 FROM work_reports WHERE id=$n AND
+      tenant_id=$m)` + `RowsAffected()==0` -> `ErrReportNotFound`). Bei `CreateMeasurement` ist
+      `reportID` optional (`*uuid.UUID`) — der Guard darf nur greifen, wenn er gesetzt ist.
+      Nebenbefund fuer denselben Commit pruefen: `CreateAttachment` traegt neben `report_id`
+      auch eine optionale `line_id`, die nirgends gegen den Report/Tenant geprueft wird.
+    sources:
+      - backend/internal/server/rapporte_grpc.go
+      - backend/internal/rapporte/postgres_repository.go
+      - backend/internal/rapporte/postgres_repository_test.go
+      - backend/internal/rapporte/service.go
+      - backend/migrations/000163_measurements_and_templates.up.sql
+    notes: >
+      Beim Bauen der Schwester-Unit ist eine Eigenschaft der lokalen DB aufgefallen, die den
+      Test scheinbar gruen macht, obwohl der Guard schwaecher ist als gedacht: laeuft der
+      EXISTS-Subselect als `kmuhub_app`, filtert die RLS-Policy der ELTERN-Tabelle die fremde
+      Zeile bereits weg — ein `WHERE EXISTS (SELECT 1 FROM work_reports WHERE id=$n)` OHNE
+      `tenant_id`-Filter besteht denselben Test. Den expliziten `tenant_id`-Filter trotzdem
+      schreiben (Defense-in-Depth gegen einen Aufruf unter `sysctx`/BYPASSRLS), aber die
+      Mutations-Probe muss den GANZEN Guard entfernen (zurueck auf `VALUES`), sonst beweist
+      sie nichts.
+    done_when:
+      - >-
+        `AddWorker` und `CreateMeasurement` lehnen eine `report_id` ab, die nicht zum
+        aufrufenden Tenant gehoert (`ErrReportNotFound`), statt die Zeile einzufuegen
+      - >-
+        Je ein DB-Test pro Funktion belegt die Ablehnung ueber einen zweiten echten Tenant, und
+        fuer `CreateMeasurement` belegt ein weiterer, dass ein NIL-`reportID` weiterhin
+        akzeptiert wird
+      - go test -count=1 ./internal/rapporte/... ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips

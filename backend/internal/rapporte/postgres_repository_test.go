@@ -665,19 +665,18 @@ func TestAddMeasurementPosition_PreservesFractionalQuantityAndRoundsUnitPrice(t 
 	}
 }
 
-// TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant documents
-// a VERIFIED tenant-isolation gap (reported as a fix-unit, not fixed here —
-// a coverage unit changes no behaviour): AddMeasurementPosition never checks
-// that measurementID belongs to tenantID before inserting. The DB migration
-// only references measurements(id) (ON DELETE CASCADE, no tenant match), and
-// enable_tenant_rls('measurement_positions') checks the new row's own
-// tenant_id column, not the parent measurement's tenant — so the INSERT's
-// RLS WITH CHECK passes as long as the position's tenant_id equals the
-// caller's own tenant, regardless of who owns the referenced measurement.
-// Net effect: tenant A can attach a position (billing-relevant: quantity +
-// unit_price) to any measurement UUID it can obtain, even one owned by
-// tenant B, without ever passing tenant B's ownership check.
-func TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant(t *testing.T) {
+// TestAddMeasurementPosition_RejectsMeasurementIDFromAnotherTenant pins the
+// tenant boundary of the parent measurement. Neither layer below the
+// repository enforces it: the FK only references measurements(id) (ON DELETE
+// CASCADE, no tenant match), and enable_tenant_rls('measurement_positions')
+// checks the NEW row's own tenant_id column, not the parent measurement's
+// tenant — so the INSERT's RLS WITH CHECK passes as long as the position's
+// tenant_id equals the caller's own tenant, whoever owns the referenced
+// measurement. Without the EXISTS guard in AddMeasurementPosition, tenant A
+// could attach a billing-relevant position (quantity + unit_price) to any
+// measurement UUID it obtained, including tenant B's, and tenant B would
+// silently carry that row in its own Aufmass.
+func TestAddMeasurementPosition_RejectsMeasurementIDFromAnotherTenant(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctxA, tenantA := setupRapporteRepo(t)
 	tenantB := uuid.New()
@@ -690,14 +689,22 @@ func TestAddMeasurementPosition_AcceptsMeasurementIDFromAnotherTenant(t *testing
 	}
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurements", measurementB.ID) })
 
-	position, err := repo.AddMeasurementPosition(ctxA, tenantA, measurementB.ID, 1, "Fremde Flaeche", "m2", 5, 10)
-	if err != nil {
-		t.Fatalf("expected the cross-tenant insert to currently SUCCEED (documenting the gap), got error: %v", err)
+	if _, err := repo.AddMeasurementPosition(ctxA, tenantA, measurementB.ID, 1, "Fremde Flaeche", "m2", 5, 10); !errors.Is(err, ErrMeasurementNotFound) {
+		t.Fatalf("expected ErrMeasurementNotFound for a measurement owned by another tenant, got %v", err)
 	}
-	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurement_positions", position.ID) })
 
-	if _, err := repo.GetMeasurement(ctxA, tenantA, measurementB.ID); !errors.Is(err, ErrMeasurementNotFound) {
-		t.Fatalf("tenant A must not be able to read tenant B's measurement via GetMeasurement, got %v", err)
+	// Nothing was written: tenant B's measurement still has no positions.
+	reloadedB, err := repo.GetMeasurement(ctxB, tenantB, measurementB.ID)
+	if err != nil {
+		t.Fatalf("GetMeasurement (tenant B): %v", err)
+	}
+	if len(reloadedB.Positions) != 0 {
+		t.Fatalf("expected tenant B's measurement to stay empty, got %d positions", len(reloadedB.Positions))
+	}
+
+	// An outright unknown measurement is rejected the same way.
+	if _, err := repo.AddMeasurementPosition(ctxA, tenantA, uuid.New(), 1, "Unbekannt", "m2", 1, 1); !errors.Is(err, ErrMeasurementNotFound) {
+		t.Fatalf("expected ErrMeasurementNotFound for an unknown measurement, got %v", err)
 	}
 }
 

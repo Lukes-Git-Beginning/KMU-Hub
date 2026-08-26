@@ -3001,3 +3001,66 @@ Kopf von `BACKLOG.yml`.
   reine Optimierung). (3) Kein Produktions-Zugriff: dass echte Clients (DAVx5/Apple Kontakte)
   danach syncen, ist gegen echte Postgres und einen echten CRM-gRPC-Server belegt, aber nicht
   gegen einen echten DAV-Client.
+
+## Iteration 5 — fix-rapporte-measurement-position-cross-tenant-insert — done — 2026-08-27 01:46
+- commit: <pending>
+- gebaut: `PostgresRepository.AddMeasurementPosition` (postgres_repository.go:672) fuegt nicht
+  mehr blind per `VALUES` ein, sondern per `INSERT ... SELECT ... WHERE EXISTS (SELECT 1 FROM
+  measurements WHERE id=$3 AND tenant_id=$2)` und meldet bei `RowsAffected()==0`
+  `ErrMeasurementNotFound`. Guard und Insert sind eine einzige Anweisung — kein Fenster
+  zwischen Pruefung und Schreiben. Der Fix sitzt in der Repository-Funktion, weil die Kette
+  Gateway -> gRPC -> Repo nur diesen einen Aufrufer hat und sowohl FK (`REFERENCES
+  measurements(id)`, prueft nur Existenz) als auch RLS-Policy (prueft die `tenant_id` der NEUEN
+  Zeile) die Eigentuemerfrage strukturell offenlassen. `mapRapporteError` bildet
+  `ErrMeasurementNotFound` bereits auf `codes.NotFound` ab, der Handler damit auf 404 — kein
+  neuer Fehlerpfad noetig. Der Doku-Test heisst jetzt
+  `TestAddMeasurementPosition_RejectsMeasurementIDFromAnotherTenant`, erwartet die Ablehnung,
+  prueft zusaetzlich dass Tenant B's Aufmass danach 0 Positionen hat (also wirklich nichts
+  geschrieben wurde) und dass eine voellig unbekannte `measurement_id` denselben Fehler bekommt.
+  Interface-Kommentar in `repository.go` nennt die neue Fehlerzusage.
+- gate: build ok (`go build -p 2 ./internal/rapporte/... ./internal/server/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run ./internal/rapporte/...
+  ./internal/server/... ./internal/gateway/...`, 0 issues) | test ok (DATABASE_URL gesetzt, Rolle
+  `kmuhub_app`; `go test -count=1 ./internal/rapporte/` gruen, **86 Tests, 0 SKIP** — verbose
+  gezaehlt; `./internal/gateway/` und `./internal/server/` ebenfalls gruen) | migration n.a.
+  (keine Schema-Aenderung — der Fix sitzt in der Query, nicht im Schema) | rls-smoke n.a. (keine
+  neue Tabelle/Policy; der Zwei-Tenant-DB-Test deckt die Grenze ab)
+- coverage: `internal/rapporte` 76,8 % -> 76,9 % (selbst gemessen mit `go tool cover -func`,
+  Vorher-Wert ueber `git stash push -- backend/internal/rapporte/`). `coverage_start` der Unit
+  ist n.a. (Bugfix), der Wert steht auch in der Coverage-Tabelle im Backlog-Kopf nicht.
+- mutations-probe: zwei Durchgaenge, weil der erste ein FALSCH-GRUEN war und genau das der
+  interessante Befund ist. (1) Nur `AND tenant_id=$2` aus dem EXISTS entfernt -> Test bleibt
+  GRUEN: der Subselect laeuft als `kmuhub_app`, und die RLS-Policy der Eltern-Tabelle
+  `measurements` filtert die fremde Zeile schon vorher weg. (2) Der echte Ur-Bug: das ganze
+  `SELECT ... WHERE EXISTS` zurueck auf `VALUES ($1,...,$9)` -> `--- FAIL:
+  TestAddMeasurementPosition_RejectsMeasurementIDFromAnotherTenant ... expected
+  ErrMeasurementNotFound ..., got <nil>`. Aus Sicherungskopie zurueckgedreht, `git diff --stat`
+  zeigt wieder nur die beabsichtigten 12 Zeilen, Paket wieder gruen. Der explizite
+  `tenant_id`-Filter bleibt drin (Defense-in-Depth fuer einen etwaigen Aufruf unter
+  `sysctx`/BYPASSRLS), aber er ist NICHT die tragende Zeile — das steht so auch in den `notes`
+  der neuen Unit.
+- verify vorgaenger: sauber (`cff259b7`, gegen alle acht Fehlerklassen geprueft — kein
+  gRPC-Bypass (die Aenderung liegt in Middleware und Injector, die DAV-Backends rufen weiter
+  ueber ihre Clients), kein Stub, kein `.proto`, kein `RequirePermission`, keine neue Tabelle,
+  keine neue Route (`route_caldav.go` aendert nur die Injector-Signatur und den Fehlerpfad der
+  bestehenden Basic-Auth-Middleware), kein Guard ersetzt. Der Nachfolge-Commit `7b9beecf`
+  aendert nur eine Journal-Zeile).
+- neue-units: `fix-rapporte-worker-and-measurement-parent-report-tenant-check` — dieselbe
+  Fehlerklasse eine Ebene hoeher: `RapporteGRPCServer.AddWorker` (rapporte_grpc.go:539) und
+  `RapporteGRPCServer.CreateMeasurement` (rapporte_grpc.go:600) gehen am Service vorbei direkt
+  aufs Repository und pruefen die `report_id` nie gegen den Tenant; beide Repo-Funktionen
+  fuegen per reinem `VALUES` ein. Gegenbeweis, dass es kein Generalproblem ist:
+  `Service.AddLine` und `Service.UploadAttachment` rufen beide vorher `GetReport(ctx, tenantID,
+  reportID)`.
+- offen: (1) `DeleteMeasurementPosition` war der zweite Prueffall aus den `notes` der Unit — er
+  ist SAUBER (`DELETE ... WHERE id=$1 AND tenant_id=$2` plus `RowsAffected()==0` ->
+  `ErrPositionNotFound`), kein Handlungsbedarf. (2) Fuer Luke wichtiger als der Fix selbst: die
+  Mutations-Probe (1) oben zeigt, dass ein DB-Test unter `kmuhub_app` einen fehlenden
+  Tenant-Filter im Subselect NICHT sichtbar macht, solange die Eltern-Tabelle eine RLS-Policy
+  traegt. Wer diese Bug-Klasse anderswo "per Test" fuer erledigt erklaert, muss den ganzen
+  Guard entfernen, nicht nur den Filter. (3) Bestehende Datenlage nicht geprueft: ob in der
+  lokalen oder der Produktions-DB bereits `measurement_positions`-Zeilen liegen, deren
+  `tenant_id` von der `tenant_id` ihrer `measurements`-Zeile abweicht, ist offen — kein
+  Prod-Zugriff. Falls ja, faende sie `SELECT p.id FROM measurement_positions p JOIN measurements
+  m ON m.id=p.measurement_id WHERE p.tenant_id <> m.tenant_id;` als `kmuhub` (Superuser, sonst
+  filtert RLS die Antwort selbst weg).

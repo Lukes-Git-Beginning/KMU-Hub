@@ -688,13 +688,23 @@ func (r *PostgresRepository) AddMeasurementPosition(ctx context.Context, tenantI
 		p.UnitPrice = sql.NullFloat64{Float64: unitPrice, Valid: true}
 	}
 
-	_, err := r.pool.Exec(ctx,
+	// The parent measurement must belong to the caller's tenant. Neither the FK
+	// (REFERENCES measurements(id), no tenant match) nor the RLS policy on
+	// measurement_positions (checks the NEW row's own tenant_id) covers this:
+	// without the EXISTS guard any tenant could attach a billing-relevant
+	// position to a foreign measurement. Guard and insert in one statement so
+	// there is no window between check and write.
+	ct, err := r.pool.Exec(ctx,
 		`INSERT INTO measurement_positions (id, tenant_id, measurement_id, position_number, description, unit, quantity, unit_price, created_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		 SELECT $1::uuid, $2::uuid, $3::uuid, $4::integer, $5::text, $6::text, $7::numeric, $8::numeric, $9::timestamptz
+		 WHERE EXISTS (SELECT 1 FROM measurements WHERE id=$3::uuid AND tenant_id=$2::uuid)`,
 		p.ID, p.TenantID, p.MeasurementID, p.PositionNumber, p.Description, p.Unit, p.Quantity, p.UnitPrice, p.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("add measurement position: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return nil, ErrMeasurementNotFound
 	}
 	return &p, nil
 }
