@@ -1530,7 +1530,7 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/work/recording 33,2 % (247 ungedeckt von 370); service.go 39,7 %, postgres_repository.go 21,1 %"
     scope: >
       Dritte Video-Unit, diesmal unter dem Gateway: `internal/work/recording` ist mit 33,2 %
@@ -4125,4 +4125,103 @@ units:
       - >-
         Bei Variante (b): scrub.go-Kommentar um beide Tabellen ergaenzt, mit derselben
         Begruendung wie fuer meetings.title/description/agenda
+      - go test -count=1 ./internal/security/gdpr/... ./internal/crm/consent/... gruen
+
+  - id: fix-cleanup-single-recording-orphans-minio-object
+    phase: 4
+    service: video
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: n.a. (Produktionsfehler, kein Coverage-Ziel)
+    scope: >
+      Gefunden in Iteration 24 beim Bauen von `cov-video-recording-service-and-repository`.
+      `Service.CleanupExpiredRecording` (service.go:555-575, Single-Recording-Pfad hinter
+      `POST /api/v1/video/recordings/{id}/cleanup`, admin/cron) loescht NUR die DB-Zeile
+      (`s.repo.DeleteRecording`) — es ruft an keiner Stelle `s.objectStore()` oder
+      `RemoveObject` auf. Das steht im direkten Widerspruch zum Bulk-Pfad
+      `Service.CleanupExpiredRecordings` (service.go:396-445, der Cron-Job), der vor jedem
+      DB-Delete best-effort das zugehoerige MinIO-Objekt entfernt (Kommentar dort: "A5:
+      best-effort MinIO object deletion before removing the DB row").
+      Konsequenz: nach einem Aufruf des Single-Cleanup-Endpunkts ist die DB-Zeile weg (die
+      `retention_expires_at`-Buchhaltung existiert nicht mehr), aber die Video-Aufzeichnung
+      liegt unveraendert in MinIO — unbefristet, ohne jede Moeglichkeit, sie ueber den
+      normalen Cleanup-Pfad je wieder zu finden. Das ist eine DSGVO-Retention-Verletzung
+      (Bild/Ton/Name als hoechste Personenbezugs-Dichte, RetentionDays=30 wird faktisch
+      nicht eingehalten) UND ein Storage-Leck.
+    sources:
+      - backend/internal/work/recording/service.go
+      - backend/internal/server/video_grpc.go
+      - backend/internal/gateway/route_video.go
+    notes: >
+      Fix: `CleanupExpiredRecording` (singular) muss vor dem `DeleteRecording`-Aufruf
+      dieselbe Best-Effort-Objektloeschung durchfuehren wie `CleanupExpiredRecordings`
+      (plural) — `rec.FileURL` pruefen, `s.objectStore()` holen, `fileURLToObjectKey`
+      anwenden, `RemoveObject` aufrufen, Fehler loggen statt hart abzubrechen (gleiches
+      Best-Effort-Muster wie die Bulk-Variante, siehe service.go:404-427). Die naheliegende
+      Vereinfachung ist, den gemeinsamen Objekt-Loeschcode aus `CleanupExpiredRecordings` in
+      eine private Hilfsfunktion zu ziehen und aus beiden Pfaden aufzurufen, statt ihn zu
+      duplizieren. `model: opus`, weil es eine Verhaltensaenderung an einem produktiven
+      Admin/Cron-Endpunkt ist, keine reine Testarbeit.
+    done_when:
+      - >-
+        CleanupExpiredRecording (singular) loescht das MinIO-Objekt best-effort, bevor es
+        die DB-Zeile entfernt — analog zu CleanupExpiredRecordings (plural)
+      - >-
+        Ein Test belegt: FileURL gesetzt -> RemoveObject wird aufgerufen (Fake/Mock-
+        ObjectStore oder Interface-Seam, falls noch keins existiert) -- Fehler beim
+        Objekt-Delete darf den DB-Delete nicht verhindern (best-effort, wie im Bulk-Pfad)
+      - go build -p 2 ./internal/work/recording/... ./internal/server/... ./cmd/work/...
+      - go test -count=1 ./internal/work/recording/... gruen
+
+  - id: feat-recording-dsar-and-retention-coverage
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (DSAR/Retention-Luecke, kein Coverage-Ziel)
+    scope: >
+      Gefunden in Iteration 24 beim Bauen von `cov-video-recording-service-and-repository`,
+      analog zu `feat-meeting-notes-and-chat-dsar-and-retention-coverage` aus Iteration 23 —
+      aber fuer `recordings`/`recording_consents` statt Meeting-Notizen, und mit staerkerem
+      Personenbezug (Video/Audio-Aufzeichnung + Name, nicht nur Freitext):
+      - `internal/security/gdpr/dsar_search.go` hat KEINEN `recordingsModule` — gegengeprueft
+        per Grep ueber alle Modul-Funktionen der Datei, keine referenziert `recordings` oder
+        `recording_consents`. Ein DSAR-Export eines Kontakts/Users zeigt nie, dass eine
+        Aufzeichnung existiert, an der er teilgenommen hat, wer sie gestartet hat, oder wie
+        sein Consent-Status war.
+      - Keiner der `internal/security/gdpr/retention_*.go`-Handler referenziert `recordings`
+        oder `recording_consents` (gegengeprueft, alle Dateinamen durchsucht). Die
+        30-Tage-Retention (`RetentionDays` in service.go) laeuft komplett am generischen
+        Retention-Framework vorbei — eigener Cron-Job (`CleanupExpiredRecordings`,
+        `CleanupExpiredRecording`), keine Sichtbarkeit im Retention-Admin-UI
+        (`route_security.go`/`RetentionPolicy`-Modell), falls es eine solche Uebersicht gibt.
+      - `internal/crm/consent/scrub.go` erwaehnt weder `recordings` noch
+        `recording_consents` — die "accepted residual risk"-Entscheidung wurde fuer diese
+        Tabellen nie getroffen (anders als z. B. `meetings.title/description/agenda`).
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_calendar_events.go
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/work/recording/service.go
+      - backend/internal/work/recording/postgres_repository.go
+    notes: >
+      Auch hier: Entscheidung, keine automatische Ergaenzung. Anders als bei
+      Meeting-Notizen ist bei recordings schon EIN Retention-Mechanismus vorhanden
+      (RetentionDays=30 + Cron), nur nicht im generischen DSAR/Retention-Framework sichtbar
+      — die Frage an Luke ist also eher "soll das ins generische Framework integriert oder
+      nur im DSAR-Export ergaenzt werden", nicht "brauchen wir ueberhaupt Retention". DSAR-
+      Ergaenzung (recordingsModule: wer hat teilgenommen, wer hat gestartet, Consent-Status)
+      ist in jedem Fall noetig, unabhaengig von der Retention-Framework-Frage — bitte nicht
+      an letzterer aufhaengen und beides liegen lassen.
+    done_when:
+      - >-
+        Entscheidung getroffen und dokumentiert (Journal + Commit-Message): DSAR-Export um
+        einen recordingsModule (Teilnahme, Starter, Consent-Status) erweitert
+      - >-
+        Retention-Sichtbarkeit geklaert: entweder generisches Framework integriert ODER
+        bewusst als "eigener Mechanismus, siehe RetentionDays" dokumentiert (Journal +
+        Code-Kommentar an geeigneter Stelle) — nicht stillschweigend uebergangen
       - go test -count=1 ./internal/security/gdpr/... ./internal/crm/consent/... gruen

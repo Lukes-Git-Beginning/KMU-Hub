@@ -1296,3 +1296,95 @@ Kopf von `BACKLOG.yml`.
   Unit verlangt vorab eine Entscheidung (a) DSAR/Retention nachziehen oder (b) bewusst als
   "accepted residual risk" in scrub.go dokumentieren — beides ist im `done_when` als
   gleichwertige Option beschrieben, damit der naechste Lauf nicht auf Luke warten muss.
+
+## Iteration 24 — cov-video-recording-service-and-repository — done — 2026-08-26 03:55
+- commit: (wird im chore-Folgecommit nachgetragen)
+- gebaut: Dritte Video-Coverage-Unit (`internal/work/recording`, 33,2 % -> 78,1 %).
+  Drei neue Testdateien:
+  1. `backend/internal/gateway/route_video_recording_lifecycle_test.go` — 14 Tests fuer
+     die fuenf im Scope genannten Gateway-Handler: HandleGetRecordingStatus,
+     HandleGetRecordingDownloadURL, HandleUpdateRecordingMetadata,
+     HandleCleanupExpiredRecording, HandleListRecordingsByMeeting (je
+     ServiceUnavailable/InvalidUUID/ReachesRPC, UpdateRecordingMetadata zusaetzlich
+     InvalidJSON, da alle Metadata-Felder optional sind und es keinen `validate:"required"`
+     gibt).
+  2. `backend/internal/work/recording/postgres_repository_real_sql_test.go` — 7 Tests
+     gegen echtes Postgres fuer die zuvor 0-%-Repository-Methoden: ListRecordingsByCall/
+     ListRecordingsByMeeting, GetRecordingByEgressID, TagRecordingWithConsents
+     (inkl. "[]"-Sentinel statt NULL), GetConsents/GetConsentsWithUser/
+     CountPendingConsents, ListExpiredRecordings (Status-Filter beweisen: expired+completed
+     ja, expired+active nein), ListRecordingsWithAccess + GetRecordingParticipants
+     (Teilnehmer sieht, Fremder nicht), MarkInitiatorConsent/GetPreConsentStatus
+     (falscher Tenant UND falscher User schlagen beide mit ErrNotFound fehl, nicht mit
+     stillem No-Op).
+  3. `backend/internal/work/recording/service_lifecycle_test.go` — 24 Tests (Mock-Repo,
+     kein DB-Zugriff noetig) fuer die zuvor 0-%-Service-Methoden: GetRecordingStatus,
+     ListRecordingsByMeeting (Pagination inkl. letzte Seite und Seite-jenseits-Total),
+     UpdateRecordingMetadata (Patch-Semantik, ungueltiger Status abgelehnt),
+     TagRecordingWithConsents, GetRecordingConsents (AllConsented-Logik inkl. "kein
+     Live-Consent aber Snapshot vorhanden" -> false), CompleteRecordingByEgressID/
+     FailRecordingByEgressID, CleanupExpiredRecording (Retention-Gate, NotFound) sowie
+     GetRecordingDownloadURL-Vorpruefungen (not-completed, file-url fehlt,
+     PermissionDenied fuer Nicht-Teilnehmer) und `fileURLToObjectKey` als
+     Tabellentest (6 URL-Formen: https+internal, https+public, s3://, bucket-relativ,
+     nackter Key, fuehrender Slash).
+  Schwerpunkt-Fragen der Unit, mit Beleg beantwortet:
+  (1) HandleGetRecordingDownloadURL Laufzeit/Tenant/Nach-Loeschung: Laufzeit ist fest 1h
+  (`downloadExpiry` in service.go:652). Tenant-Bindung laeuft NICHT ueber eine
+  WHERE-Klausel im Go-Code (GetRecording filtert nicht nach tenant_id), sondern
+  ausschliesslich ueber RLS — verifiziert: `recordings` UND `recording_consents` haben
+  `CALL enable_tenant_rls(...)` in Migration 000120, die Policy erzwingt
+  `tenant_id = current_tenant_id()`. Das ist die von ADR-006 vorgesehene Architektur
+  (RLS statt expliziter Tenant-Parameter), kein Fund. "Nach Loeschung noch gueltig?" —
+  JA, mit Einschraenkung: ein bereits ausgestellter Presigned-URL bleibt bis Ablauf
+  gueltig, unabhaengig vom DB-Zustand (MinIO kennt keine DB-Transaktion), ABER wenn das
+  zugrundeliegende Objekt aus MinIO entfernt wurde (wie im Bulk-Cleanup), liefert der
+  Download einen 404 vom Objectstore. Das fuehrt zu Fund (2).
+  (2) `Service.CleanupExpiredRecording` (Singular, service.go:555-575) loescht NUR die
+  DB-Zeile, ruft nie `s.objectStore()`/`RemoveObject` — im Gegensatz zum Bulk-Pfad
+  `CleanupExpiredRecordings` (service.go:396-445), der das Objekt best-effort vor dem
+  DB-Delete entfernt. Konsequenz: Video-Dateien bleiben nach Single-Cleanup unbefristet
+  in MinIO liegen (DSGVO-Retention-Verletzung + Storage-Leck). Scope-Fehler mit
+  `model: opus` als Fix-Unit angelegt (siehe neue-units) — keine Nebenbei-Korrektur laut
+  Notiz der Unit.
+  (3) DSAR/Retention fuer `recordings`/`recording_consents`: NICHT abgedeckt.
+  `dsar_search.go` hat keinen `recordingsModule` (gegengeprueft: kein Modul referenziert
+  eine der beiden Tabellen). Kein `retention_*.go`-Handler referenziert sie. `scrub.go`
+  nennt sie nicht als "accepted residual risk". Als Unit angelegt (siehe neue-units),
+  analog zu `feat-meeting-notes-and-chat-dsar-and-retention-coverage` aus Iteration 23.
+  Mutations-Probe (siehe unten) bestaetigt zusaetzlich, dass die Participant-ACL in
+  `GetRecordingDownloadURL` wirklich greift und nicht nur durch Zufall gruen ist.
+- gate: build ok (`./internal/work/recording/... ./internal/gateway/... ./cmd/work/...
+  ./cmd/gateway/...`) | vet ok | lint ok (0 issues, beide Pakete einzeln gegen
+  `.golangci.yml`) | test ok (`internal/work/recording` UND `internal/gateway`,
+  `DATABASE_URL` gesetzt, 0 Skips in beiden) | migration n.a. (keine Tabelle/Policy
+  angefasst, RLS bereits seit Migration 000120 auf `recordings`+`recording_consents`
+  aktiv) | rls-smoke ok (ueber die neuen DB-Tests: MarkInitiatorConsent/
+  GetPreConsentStatus schlagen bei falschem Tenant mit ErrNotFound fehl, kein stiller
+  No-Op; bestehende `rls_test.go` deckt bereits TenantB-sieht-nichts/TenantA-sieht-eigene
+  Zeile fuer beide Tabellen ab) | route-drift ok (`TestOpenAPIRouteDrift`: 836 registrierte
+  gegen 838 dokumentierte Pfade, PASS — keine neue Route)
+- coverage: internal/work/recording 33,2 % -> 78,1 % (`-coverprofile` vor Aenderung
+  [nur die drei neuen Testdateien nach /tmp verschoben] und danach gemessen; verbleibende
+  Luecken sind `objectStore` 0 % und `GetRecordingDownloadURL` 43,8 % — der Presign-
+  Erfolgspfad braucht einen erreichbaren MinIO/S3-Endpunkt bzw. eine Interface-Seam auf
+  `*minio.Client`, die es heute nicht gibt; bewusst nicht simuliert, siehe Kommentar in
+  service_lifecycle_test.go)
+- mutations-probe: In `Service.GetRecordingDownloadURL` (service.go) die ACL-Bedingung
+  `if !allowed { return ... PermissionDenied }` zu `if !allowed && false { ... }`
+  veraendert (Datei vorher per `cp` gesichert, `allowed` blieb dadurch referenziert und
+  der Build kompilierte weiter). `TestGetRecordingDownloadURL_DeniesNonParticipant` sofort
+  rot (erwartete codes.PermissionDenied, bekam einen anderen Code, weil der
+  Nicht-Teilnehmer jetzt bis zum MinIO-Zugriff durchlief). Datei per `cp` zurueckgedreht,
+  `git diff --stat` danach leer, `go test ./internal/work/recording/...` wieder komplett
+  gruen.
+- verify vorgaenger: sauber. `5b2bcf94` (Video-Notes/ActionItems-Gateway-Tests) aendert
+  ausschliesslich eine neue Testdatei + Backlog/Journal — kein gRPC-Aufruf umgangen, kein
+  `.proto`, keine neue Tabelle/Route/Guard, keine Wire-Shape-Aenderung; `git show --stat`
+  gegen den Commit gegengeprueft.
+- neue-units: fix-cleanup-single-recording-orphans-minio-object (opus),
+  feat-recording-dsar-and-retention-coverage (sonnet)
+- offen: Beide neuen Units sind `deps: []`, direkt baubar. Die Fix-Unit ist ein echter
+  Produktionsfehler (DSGVO-Retention + Storage-Leck), keine reine Test-Nacharbeit — sollte
+  zeitnah drankommen. Commit-SHA dieser Iteration wird wie ueblich im naechsten
+  chore-Commit nachgetragen.
