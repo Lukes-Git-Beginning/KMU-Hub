@@ -2489,7 +2489,7 @@ Kopf von `BACKLOG.yml`.
   (kein Wiederauftreten des Connection-Pool-Problems aus Iteration 38).
 
 ## Iteration 40 — cov-vermietung-repository-lowest-coverage-in-backend — done — 2026-08-26 06:55
-- commit: -
+- commit: a6d6a187
 - gebaut: `internal/vermietung/postgres_repository_db_test.go` (neu, 17 Testfunktionen)
   deckt jede Repository-Methode gegen echtes SQL ab (Objects/Rentals/Inspections CRUD,
   Listen mit Filtern, HasOverlap, SaveSignature) inkl. Tenant-Grenze auf jedem Lesepfad.
