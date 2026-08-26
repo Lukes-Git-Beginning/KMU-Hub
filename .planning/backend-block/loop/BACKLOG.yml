@@ -2324,7 +2324,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 56,6 %; route_einkauf.go 36,6 %, 236 ungedeckt, 13 von 18 Handlern ungetestet"
     scope: >
       Gateway-Seite des Einkaufs — 13 von 18 Handlern ungetestet, die hoechste Quote unter
