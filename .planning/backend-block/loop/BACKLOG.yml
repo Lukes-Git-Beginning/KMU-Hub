@@ -1275,7 +1275,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_fuhrpark.go 45,4 %, 24 von 45 Handlern ungetestet"
     scope: >
       Zweite Gateway-Unit fuer den Fuhrpark: Fahrtenbuch, GPS und Exporte.
@@ -3824,4 +3824,92 @@ units:
       - >-
         Ein Request mit einem Severity- oder Status-Wert ausserhalb der erlaubten Menge liefert
         400 statt den RPC zu erreichen
+      - go test -count=1 ./internal/fuhrpark/ gruen
+
+  - id: fix-fuhrpark-trip-logs-private-flag-not-filtered
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).
+      `trip_logs` traegt `is_private BOOLEAN` (`backend/migrations/000193_create_trip_logs.up.sql`)
+      zur Unterscheidung privater von geschaeftlichen Fahrten. Sowohl
+      `PostgresRepository.ListTripLogs` als auch `PostgresRepository.ListTripLogsForExport`
+      (`internal/fuhrpark/postgres_repository.go:639` und `:1191`) selektieren `is_private` als
+      Spalte, filtern aber in keiner ihrer WHERE-Klauseln danach — jede Route ueber
+      `HandleListTripLogs`, `HandleListVehicleTripLogs` und `HandleExportTripLogs`
+      (`internal/gateway/route_fuhrpark.go`) liefert private Fahrten ununterscheidbar neben
+      geschaeftlichen zurueck. Das steuerlich relevante Fahrtenbuch-Export-PDF/CSV
+      (`Service.ExportTripLogs`, `internal/fuhrpark/service.go:754`) enthaelt damit private
+      Fahrten des Fahrers im arbeitgeberseitigen Bericht.
+      Fix: entweder einen expliziten `include_private`-Query-Parameter einfuehren, der
+      standardmaessig `false` ist (private Fahrten nur auf Wunsch/mit gesonderter Berechtigung
+      sichtbar), oder `is_private=true`-Zeilen grundsaetzlich aus Liste UND Export ausschliessen.
+      Die Entscheidung zwischen beiden Wegen (opt-in sichtbar vs. immer ausgeblendet) gehoert
+      Luke — `IsPrivate` wird beim Anlegen vom Fahrer selbst gesetzt
+      (`createTripLogRequest.IsPrivate`, `route_fuhrpark.go`), es ist also keine
+      Admin-only-Angabe.
+    sources:
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
+      - backend/migrations/000193_create_trip_logs.up.sql
+    notes: >
+      `is_private` NICHT stillschweigend rausfiltern, ohne die Wahl (opt-in vs. immer
+      ausgeblendet) vorher mit Luke zu klaeren — eine Verhaltensaenderung an einem bestehenden
+      Bericht ohne Ankuendigung waere selbst ein Befund.
+    done_when:
+      - >-
+        Mit Luke geklaert: private Fahrten per Default ausgeblendet ODER nur ueber einen
+        expliziten Parameter sichtbar — beide Wege sind zulaessig, die Wahl steht vorher fest
+      - Liste UND Export respektieren die gewaehlte Regel, belegt durch einen DB-Test
+      - go test -count=1 ./internal/fuhrpark/ gruen
+
+  - id: fix-fuhrpark-gps-ingest-no-vehicle-tenant-check
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).
+      `Service.IngestGpsPositions` (`internal/fuhrpark/service.go:858`) und
+      `PostgresRepository.IngestGpsPositions` (`internal/fuhrpark/postgres_repository.go:979`)
+      pruefen vor dem Insert nur `vehicleID == uuid.UUID{}` und `len(positions) == 0` — nicht,
+      ob `vehicleID` ueberhaupt einem Fahrzeug DES AUFRUFENDEN TENANTS gehoert.
+      `gps_positions.vehicle_id` hat lediglich eine FK auf `vehicles(id)`
+      (`backend/migrations/000195_create_gps_positions.up.sql:4`), und `vehicles` haelt Zeilen
+      ALLER Tenants in einer Tabelle. Ein Aufrufer kann also `vehicle_id` eines fremden Tenants
+      in `POST /api/v1/fuhrpark/gps/ingest?vehicle_id=...` angeben; der Insert schreibt eine
+      `gps_positions`-Zeile mit dem TenantId des Aufrufers, aber `vehicle_id` zeigt auf ein
+      fremdes Fahrzeug. Datenintegritaets-/Zurechnungsproblem: die Zeile ist in Reads des
+      eigenen Tenants unsichtbar (RLS auf `gps_positions` filtert per `tenant_id`), belastet
+      aber dauerhaft eine `vehicles`-Zeile eines anderen Tenants mit fremden Fahrtdaten, sobald
+      irgendein Join (`GetVehicleRoutes` joint `gps_positions` mit `vehicles`) die
+      Tenant-Grenze nicht doppelt prueft.
+      Fix: vor dem Insert `vehicles`-Zeile mit `id=vehicleID AND tenant_id=tenantID` pruefen
+      (wie es `GetVehicleHistory` fuer sein Fahrzeug bereits tut, `service.go:884`) und bei
+      Nichttreffer `ErrVehicleNotFound`/`codes.NotFound` liefern statt stillschweigend zu
+      inserten.
+    sources:
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
+      - backend/migrations/000195_create_gps_positions.up.sql
+    notes: >
+      Vorbild fuer den Ownership-Check: `Service.GetVehicleHistory` ruft vorab
+      `s.repo.GetVehicle(ctx, input.TenantID, input.VehicleID)` und propagiert dessen
+      Not-Found. `IngestGpsPositions` sollte denselben Weg gehen, statt neue Query-Logik zu
+      erfinden.
+    done_when:
+      - >-
+        IngestGpsPositions lehnt eine vehicle_id ab, die nicht zum aufrufenden Tenant gehoert
+        (404/NotFound statt stillem Insert)
+      - Ein DB-Test belegt sowohl den Erfolgsfall (eigenes Fahrzeug) als auch die Ablehnung
       - go test -count=1 ./internal/fuhrpark/ gruen

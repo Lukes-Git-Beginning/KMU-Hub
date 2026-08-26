@@ -938,3 +938,63 @@ Kopf von `BACKLOG.yml`.
   BACKLOG-PARKED.yml/BACKLOG-NEXT.yml) — mit `git stash` gegen den Stand vor dieser Iteration
   gegengeprueft, nicht durch diese Iteration verursacht, hier nur dokumentiert statt
   angefasst (ausserhalb des Scopes dieser Coverage-Unit).
+
+## Iteration 18 — cov-gateway-fuhrpark-triplogs-gps-exports — done — 2026-08-26 03:00
+- commit: (siehe unten, wird im selben Schritt erstellt)
+- gebaut: Neue Datei `internal/gateway/route_fuhrpark_triplogs_gps_test.go` mit Tests fuer
+  alle dreizehn im Scope genannten Handler (HandleListTripLogs, HandleListVehicleTripLogs,
+  HandleExportTripLogs, HandleListFuelLogs, HandleListVehicleFuelLogs, HandleListServices,
+  HandleDeleteService, HandleListUpcomingServices, HandleListVehicleBookings,
+  HandleIngestGpsPositions, HandleGetVehicleRoutes, HandleGetGpsPositions,
+  HandleExportVehicleReport), je Handler mindestens ServiceUnavailable/MissingTenant/
+  ReachesRPC plus die vorhandenen Validierungs-/UUID-Faelle, im selben `localhost:0`-Dummy-
+  Registry-Muster wie die Vorgaenger-Iterationen.
+  Die drei im Scope benannten Verdachtsstellen geprueft:
+  (1) `HandleIngestGpsPositions`/`Service.IngestGpsPositions`/`PostgresRepository.
+  IngestGpsPositions` — Batch-Obergrenze: es gibt keine, nur `required,min=1`. Mit
+  `TestHandleIngestGpsPositions_LargeBatchReachesRPC` (5000 Positionen) belegt, dass kein
+  lokaler Reject stattfindet; laut Scope-Notiz eine Ressourcenfrage, keine eigene Fix-Unit.
+  Tenant-Zugehoerigkeit des Fahrzeugs wird dagegen NICHT geprueft — weder Service noch
+  Repository verifizieren, dass `vehicle_id` dem aufrufenden Tenant gehoert, bevor inserted
+  wird (`gps_positions.vehicle_id` hat nur eine FK auf `vehicles(id)`, keine tenant-scoped
+  Pruefung). Als eigene Fix-Unit angelegt.
+  (2) `trip_logs.is_private` wird in `ListTripLogs` UND `ListTripLogsForExport`
+  (`postgres_repository.go:639`/`:1191`) selektiert, aber in keiner WHERE-Klausel gefiltert —
+  private Fahrten erscheinen ununterscheidbar im arbeitgeberseitigen Fahrtenbuch-Export. Als
+  eigene Fix-Unit angelegt (Entscheidung opt-in vs. immer ausgeblendet gehoert Luke).
+  (3) Tenant-Filter der Export-Handler: `HandleExportTripLogs` und
+  `HandleExportVehicleReport` setzen beide `TenantId` im Request, `ExportTripLogsParams`/
+  `GetVehicleRoutesParams`/`GetGpsPositionsParams` sind alle tenant-gescoped bis in die SQL
+  (`WHERE tenant_id=$1`) — vollstaendig, kein Befund.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok
+  (`./internal/gateway/...`) | lint ok (0 issues, `golangci-lint run --config .golangci.yml
+  ./internal/gateway/...`) | test ok (`./internal/gateway/`, komplettes Paket gruen, 0 FAIL,
+  0 SKIP, `DATABASE_URL` gesetzt) | migration n.a. (keine Tabelle/Policy angefasst) |
+  rls-smoke n.a. (reine Handler-Unit-Tests gegen Dummy-Registry, keine echte DB-Verbindung) |
+  route-drift ok (`TestOpenAPIRouteDrift`: 836 registrierte Routen gegen 838 dokumentierte
+  Pfade, PASS — keine neue Route in dieser Unit)
+- coverage: internal/gateway 57,6 % -> 58,6 % (selbst gemessen mit `-coverprofile`: neue
+  Testdatei kurz nach `/tmp` verschoben, Paket ohne sie gemessen — 57,6 %, deckt sich mit dem
+  Bezugswert der Vor-Iteration 57,6 % — Datei zurueckgeholt, erneut gemessen — 58,6 %)
+- mutations-probe: `ingestGpsPositionsRequest.Positions` von `validate:"required,min=1"` auf
+  kein Tag verkuerzt (Datei vorher per `cp` gesichert). `TestHandleIngestGpsPositions_
+  MissingPositions` sofort rot (503 + leerer error-string statt 400/validation_failed).
+  Datei per `cp` zurueckgedreht, `git diff` danach leer, kompletter Paketlauf
+  (`./internal/gateway/`) anschliessend wieder gruen.
+- verify vorgaenger: sauber. `ba94e8de` (Fuhrpark-Fuehrerschein/Dokument/Schaden-Gateway-
+  Tests) aendert nur `internal/gateway/route_fuhrpark_licenses_documents_test.go` +
+  Backlog/Journal; kein gRPC-Aufruf im Gateway umgangen, kein `.proto`, keine neue Tabelle/
+  Route/Guard, keine Wire-Shape-Aenderung. `git show --stat` gegengeprueft, deckt sich mit der
+  Journal-Beschreibung der Vor-Iteration.
+- neue-units: fix-fuhrpark-trip-logs-private-flag-not-filtered (Backlog-Ende, deps: []) —
+  is_private wird in Liste UND Export von trip_logs nirgends gefiltert, private Fahrten
+  landen ununterscheidbar im Arbeitgeber-Bericht; done_when[0] nennt bewusst beide moeglichen
+  Wege (opt-in sichtbar vs. immer ausgeblendet) statt eine Entscheidung zu verlangen.
+  fix-fuhrpark-gps-ingest-no-vehicle-tenant-check (Backlog-Ende, deps: []) — IngestGpsPositions
+  prueft nicht, ob vehicle_id dem aufrufenden Tenant gehoert, bevor es GPS-Positionen dagegen
+  inserted; Vorbild fuer den Fix ist der bestehende Ownership-Check in GetVehicleHistory.
+- offen: Batch-Obergrenze bei HandleIngestGpsPositions bewusst nicht als Fix-Unit angelegt
+  (Scope-Notiz: Ressourcenfrage, kein Testloch) — mit `TestHandleIngestGpsPositions_
+  LargeBatchReachesRPC` nur belegt, nicht gefixt; falls das je zum Thema wird, gehoert dazu
+  auch eine Antwort auf den fehlenden globalen `MaxBytesReader` fuer JSON-POST-Bodies (andere
+  Endpunkte wie route_document.go/route_biz_banking.go setzen ihn nur lokal, nicht generisch).
