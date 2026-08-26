@@ -1230,7 +1230,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 56,6 %; route_fuhrpark.go 45,4 %, 24 von 45 Handlern ungetestet"
     scope: >
       Erste von zwei Gateway-Units fuer den Fuhrpark. Fuehrerscheinkontrolle und
