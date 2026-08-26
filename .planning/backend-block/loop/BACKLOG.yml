@@ -2109,7 +2109,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/work/customfield/postgres_repository.go 0,0 % (71 Statements); internal/work/presence/redis_store.go 0,0 % (68)"
     scope: >
       Zwei Dateien mit exakt null Abdeckung, zusammen 139 Statements. Beide sind klein genug
