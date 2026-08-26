@@ -1298,7 +1298,7 @@ Kopf von `BACKLOG.yml`.
   gleichwertige Option beschrieben, damit der naechste Lauf nicht auf Luke warten muss.
 
 ## Iteration 24 — cov-video-recording-service-and-repository — done — 2026-08-26 03:55
-- commit: (wird im chore-Folgecommit nachgetragen)
+- commit: c13a1b14
 - gebaut: Dritte Video-Coverage-Unit (`internal/work/recording`, 33,2 % -> 78,1 %).
   Drei neue Testdateien:
   1. `backend/internal/gateway/route_video_recording_lifecycle_test.go` — 14 Tests fuer
