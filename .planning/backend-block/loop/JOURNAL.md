@@ -1232,7 +1232,7 @@ Kopf von `BACKLOG.yml`.
   nach dieser Iteration alle drei Video-Units im Backlog vorhanden, keine fehlt.
 
 ## Iteration 23 — cov-gateway-video-notes-and-action-items — done — 2026-08-26 03:53
-- commit: (folgt im selben Commit)
+- commit: 5b2bcf94
 - gebaut: `backend/internal/gateway/route_video_notes_and_action_items_test.go` — 33 Tests
   fuer die zehn Handler der zweiten Video-Unit (Meeting-Notizen, Aktionspunkte,
   Meeting-Chat, AI-Summary): HandleGetMeetingNotes, HandleSaveMeetingNotes,
