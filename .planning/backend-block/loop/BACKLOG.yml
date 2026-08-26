@@ -1697,7 +1697,7 @@ units:
     service: calendar
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/caldav 54,9 %; carddav_backend.go 22,9 %, 155 ungedeckt von 201"
     scope: >
       Schwester der vorigen Unit: `carddav_backend.go` (201 Statements, 22,9 %) liefert
@@ -4347,4 +4347,134 @@ units:
         Kalender aus Tenant B weiterhin 404/403, nicht versehentlich Zugriff durch einen zu
         weiten Bypass
       - Die beiden `_RealCalDAVContext_`-Tests in `caldav_backend_db_test.go` sind aktualisiert und gruen
+      - go test -count=1 ./internal/caldav/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-carddav-missing-tenant-context-blocks-all-operations
+    phase: 4
+    service: calendar
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
+      `cov-carddav-backend-real-protocol-paths`), DERSELBE ROOT CAUSE wie
+      `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`, aber mit einem viel
+      groesseren Blast-Radius: nicht zwei Funktionen, sondern die GESAMTE CardDAV-Flaeche.
+      `CardDAVRoutes.basicAuthMiddleware` (`route_caldav.go:195-220`) setzt ueber `c.ctxInjector`
+      (= `caldavpkg.CtxWithUser`, `cmd/gateway/setup.go:147`) NUR die User-ID in den Context —
+      niemals `middleware.TenantIDKey`. `ListAddressObjects`, `GetAddressObject`,
+      `PutAddressObject` und `DeleteAddressObject` (`carddav_backend.go`) rufen alle
+      `client.<RPC>(ctx, ...)` auf dem echten CRM-gRPC-Client auf. Die
+      `TenantOutboundUnaryInterceptor` (`middleware/grpc_tenant.go:37-63`), die
+      `registry.GetConnection` production-seitig JEDEM Client anhaengt, haengt das
+      `x-tenant-id`-Metadata-Feld nur an, wenn `middleware.GetTenantID(ctx)` auf dem CLIENT
+      erfolgreich ist — das ist es hier nie. Server-seitig starten `ListContacts`, `GetContact`,
+      `CreateContact`, `UpdateContact`, `DeleteContact` und `UpdateContactVisibility`
+      (`crm_grpc.go`) JEDE Methode mit `middleware.GetTenantID(ctx)` und liefern
+      `codes.Unauthenticated, "tenant_id missing from context"`, wenn das fehlt —
+      `grpcToWebDAVError` mappt das auf HTTP 401.
+      Empirisch bewiesen (nicht nur hergeleitet): `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401`
+      und `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401`
+      (`internal/caldav/carddav_backend_grpc_db_test.go`) bauen einen echten CRM-gRPC-Server
+      (Loopback-TCP, exakt die production `TenantInboundUnaryInterceptor`-Kette) und rufen
+      `CardDAVBackend` mit exakt dem Context auf, den ein echter CardDAV-Request traegt — beide
+      401en.
+      Konkrete Folge in Produktion: JEDE CardDAV-Operation (Adressbuch-Auflistung,
+      Einzelkontakt-Abruf, Anlegen/Aendern/Loeschen eines Kontakts ueber Apple Kontakte, DAVx5,
+      Thunderbird) schlaegt mit 401 fehl — auch fuer den tatsaechlichen Kontobesitzer. Die
+      Funktion ist in Produktion vollstaendig tot, nicht nur teilweise degradiert.
+      DER RICHTIGE FIX GEHOERT VERMUTLICH AN DIE GEMEINSAME WURZEL, NICHT IN JEDE FUNKTION
+      EINZELN: `basicAuthMiddleware` sollte nach dem `pwService.Validate`-Aufruf den Tenant per
+      `resolveTenantID` (bereits vorhanden, `caldav_backend.go:50-60`) aufloesen und ihn als
+      echten `middleware.TenantIDKey`-Context-Wert setzen — analog zu `authMiddleware`s JWT-Pfad.
+      Das wuerde gleichzeitig (a) diese Unit UND `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`
+      loesen (deren zwei Funktionen dann `sysctx.With` durch den echten Tenant ersetzen koennten
+      statt ihn ganz zu bypassen) UND (b) den `TenantOutboundUnaryInterceptor` fuer JEDEN
+      CalDAV/CardDAV-gRPC-Call automatisch korrekt bestuecken. Vor dem Bauen pruefen, ob beide
+      Units zusammengelegt oder nacheinander mit gemeinsamer Migration/Test-Basis abgearbeitet
+      werden sollten — `opus`, weil eine Aenderung an `basicAuthMiddleware` fuer ALLE
+      CalDAV/CardDAV-Clients gleichzeitig wirkt und die Tenant-Grenze (RLS) korrekt bleiben muss,
+      nicht versehentlich aufgehoben werden darf.
+    sources:
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/caldav/caldav_backend.go
+      - backend/internal/caldav/carddav_backend.go
+      - backend/internal/caldav/carddav_backend_grpc_db_test.go
+      - backend/internal/middleware/grpc_tenant.go
+      - backend/internal/middleware/auth.go
+      - backend/internal/server/crm_grpc.go
+      - backend/cmd/gateway/setup.go
+    notes: >
+      Nach dem Fix muessen `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401` und
+      `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401`
+      (`carddav_backend_grpc_db_test.go`) ihre Erwartung umdrehen (200/2xx statt 401) — sie
+      dokumentieren den Bug, sind kein Ersatz fuer den Fix. Die uebrigen Tests in derselben Datei
+      (`asIfTenantMiddlewareFixed`-Helfer) injizieren den Tenant bereits manuell und bleiben nach
+      dem Fix unveraendert gruen — sie beweisen bereits, was die Listing-/Get-/Anonymisierungs-Logik
+      tut, SOBALD ein Tenant im Context steht.
+    done_when:
+      - >-
+        `basicAuthMiddleware` (oder eine gleichwertige Loesung) setzt einen echten Tenant-Context,
+        sodass `ListAddressObjects`/`GetAddressObject`/`PutAddressObject`/`DeleteAddressObject`
+        unter dem echten CardDAV-Request-Context (Basic Auth, kein JWT) erfolgreich durchlaufen
+      - >-
+        Ein Test belegt weiterhin die Tenant-Grenze: ein App-Passwort aus Tenant A darf keinen
+        Kontakt aus Tenant B lesen/schreiben
+      - >-
+        `TestListAddressObjects_RealCardDAVContext_NoTenant_Returns401` und
+        `TestGetAddressObject_RealCardDAVContext_NoTenant_Returns401` sind aktualisiert und gruen
+      - >-
+        Koordiniert mit `fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx`
+        (gleicher Root Cause, siehe scope)
+      - go test -count=1 ./internal/caldav/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-carddav-list-address-objects-silently-truncates-past-page-size-limit
+    phase: 4
+    service: calendar
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
+      `cov-carddav-backend-real-protocol-paths`, siehe
+      `TestListAddressObjects_PersonalBook_SilentlyTruncatesPast20`,
+      `internal/caldav/carddav_backend_grpc_db_test.go`). `CardDAVBackend.ListAddressObjects`
+      (`carddav_backend.go:165`) fragt mit `PageSize: 1000` ab (Kommentar im Code: "Reasonable
+      limit for CalDAV sync"). `contact.Service.ListWithVisibility` (`service.go:722-724`)
+      klemmt aber JEDE `PageSize` ausserhalb `[1,100]` auf den Default 20 herunter — 1000 landet
+      also bei 20. `ListAddressObjects` liest `resp.Contacts` und wirft `resp.Total` weg, es
+      paginiert nie nach. Ein Adressbuch (personal ODER company) mit mehr als 20 Kontakten
+      synchronisiert deshalb STILL nur die ersten 20 zu jedem CardDAV-Client — kein Fehler, keine
+      Warnung, der Client haelt die Synchronisation fuer vollstaendig.
+      Unabhaengig von `fix-carddav-missing-tenant-context-blocks-all-operations` — dieser Bug
+      sitzt in der Listing-Logik selbst, nicht im fehlenden Tenant-Context. Er laesst sich aber
+      erst end-to-end gegen einen echten CardDAV-Client beobachten, NACHDEM der Tenant-Fix
+      gelandet ist (vorher 401en alle Listings ohnehin) — sinnvolle Bau-Reihenfolge: nach der
+      Root-Cause-Unit.
+      Fix vermutlich: entweder `ListAddressObjects` paginiert bis `Total` erreicht ist (mehrere
+      `ListContacts`-Aufrufe mit wachsendem `Page`), oder der Server erlaubt fuer diesen
+      spezifischen Aufrufpfad eine hoehere Grenze. Vor dem Bauen pruefen, ob die 100er-Grenze in
+      `service.go` bewusst als Schutz vor unbeschraenkten Abfragen gedacht ist (dann ist
+      Paginierung im CardDAV-Client der richtige Fix) oder ob sie nur fuer die interaktive
+      UI-Pagination gedacht war und fuer Sync-Zwecke ein Ausnahmepfad fehlt.
+    sources:
+      - backend/internal/caldav/carddav_backend.go
+      - backend/internal/caldav/carddav_backend_grpc_db_test.go
+      - backend/internal/crm/contact/service.go
+      - backend/internal/server/crm_grpc.go
+    notes: >
+      `TestListAddressObjects_PersonalBook_SilentlyTruncatesPast20` dokumentiert den Bug (25
+      Kontakte geseedet, 20 zurueckgegeben) — nach dem Fix muss der Test entweder alle 25 sehen
+      (Paginierung im Client) oder die Assertion muss explizit begruenden, warum 20 weiterhin
+      richtig ist (z. B. dokumentierte Server-Grenze mit eigenem Hinweis an den Client). Kein
+      stilles Beibehalten der 20er-Zahl ohne Begruendung.
+    done_when:
+      - >-
+        Ein Adressbuch mit mehr als 100 Kontakten (personal oder company) liefert ueber CardDAV
+        entweder ALLE Kontakte (Paginierung) oder eine bewusste, dokumentierte Grenze mit
+        Begruendung — nicht die stille 20er-Klemme
+      - >-
+        `TestListAddressObjects_PersonalBook_SilentlyTruncatesPast20` ist aktualisiert und gruen
       - go test -count=1 ./internal/caldav/... gruen, DATABASE_URL gesetzt, 0 Skips
