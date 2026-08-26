@@ -2017,3 +2017,77 @@ Kopf von `BACKLOG.yml`.
   (3) Coverage-Rest in `service.go`: `Upload` 88,0 %, `CreateVersion` 70,0 %, `Move`/`Copy`
   70-72 % — ueberwiegend `slog.Error`-Zweige bei simuliertem Repo-Fehler nach erfolgreichem
   MinIO-Schreiben, nicht weiter verfolgt (Best-Effort-Pfade, kein Bug-Verdacht).
+
+## Iteration 34 — cov-gateway-document-wopi-comments-shares — done — 2026-08-26 05:47
+- commit: (wird im naechsten chore-Commit nachgetragen)
+- gebaut: `backend/internal/gateway/route_document_wopi_comments_shares_test.go` — 62 Tests
+  fuer die 19 im Scope genannten, zuvor ungetesteten Handler in `route_document.go`:
+  HandleGetFolderPath, HandleInitializeUserSpace, HandleInitializeTeamSpace,
+  HandleUploadFile, HandleListFileActivity, HandleListFileComments,
+  HandleCreateFileComment, HandleUpdateFileComment, HandleDeleteFileComment,
+  HandleGetFileVersionDownloadURL, HandleDeleteEntityLink, HandleUnshareEntity,
+  HandleListShares, HandleTagFile, HandleUntagFile, HandleSearchFiles,
+  HandleListVirtualFiles, HandleGenerateWOPIToken, HandleGetWOPIDiscovery — je
+  ServiceUnavailable/InvalidJSON/Validierungsluecken/ReachesRPC, im selben
+  Dummy-Registry-Muster wie die uebrigen Gateway-Coverage-Units (kein Fake
+  DocumentServiceClient in diesem Paket). `HandleUploadFile` zusaetzlich mit echtem
+  Multipart-Body (`multipartUploadBody`, neuer lokaler Helper mit `CreatePart` statt
+  `CreateFormFile`, da Letzteres den Content-Type nicht steuerbar macht): fehlendes
+  `folder_id`, fehlende Datei, verbotener MIME-Typ (inkl. `image/svg+xml`, explizit im
+  Code-Kommentar ausgeschlossen), leere Datei, ueberschrittenes 50-MiB-Limit
+  (`maxDocumentUploadBytes`), gueltiger Request bis zur RPC.
+  Schwerpunkt-Fragen der Unit, mit Beleg beantwortet:
+  (1) WOPI-Token — Laufzeit/Datei-/Tenant-Bindung/Verhalten nach Freigabe-Entzug: TTL
+  fest 10 h (`wopi/token.go:11`), `file_id`+`tenant_id` werden als Claims eingebettet
+  (`document_grpc.go:1397`) und bei jedem WOPI-Content-Handler gegengeprueft
+  (`wopi/handler.go`: `claims.FileID` gegen URL-Parameter, `tenantID` aus Claims scopt
+  `fileService.GetByID` — ein fremder Tenant scheitert an RLS, nicht an einem
+  Go-Filter, gleiches Muster wie bereits fuer `internal/work/recording` in
+  Iteration 24 verifiziert). Es gibt aber KEINE per-Datei widerrufbare Freigabe fuer
+  WOPI-Bearbeitung — anders als External-Share-Links (die einen echten `RevokeShareLink`
+  haben), ist WOPI-Schreibzugriff nur ueber die grobe tenant-weite
+  "documents:write"-Berechtigung gegated (`route_document.go:187`), dieselbe Guard wie
+  jede andere Schreibaktion im Modul. "Gilt der Token nach Entzug der Freigabe noch?"
+  ist damit keine anwendbare Frage — es gibt nichts Feinkoerniges zu entziehen. Kein
+  Fund, kein Fix-Unit.
+  (2) `HandleSearchFiles`-Tenant-Filter: `document/search/postgres_repository.go` setzt
+  KEINEN `tenant_id`-Filter in SQL, sondern verlaesst sich vollstaendig auf RLS —
+  verifiziert: `document_files` traegt `CALL enable_tenant_rls(...)` seit Migration
+  000122. Konsistent mit der bereits akzeptierten Architektur (ADR-006), kein Fund.
+  (3) `HandleUploadFile`-Groessenbegrenzung/Typpruefung: bereits im Handler vorhanden
+  (`maxDocumentUploadBytes` = 50 MiB, `allowedDocumentUploadMimeTypes`-Allowlist) — durch
+  die neuen Tests jetzt belegt statt nur gelesen.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (0 issues, `golangci-lint run --config .golangci.yml ./internal/gateway/...`) | test ok
+  (komplettes Paket gruen, `DATABASE_URL` gesetzt, 0 Skips) | migration n.a. (keine
+  Tabelle/Policy angefasst) | rls-smoke n.a. (reine Handler-Unit-Tests, kein neuer
+  DB-Zugriff) | route-drift ok (`TestOpenAPIRouteDrift`: 836 registrierte gegen 838
+  dokumentierte Pfade, PASS — keine neue Route)
+- coverage: internal/gateway 65,4 % -> 66,3 % (`-coverprofile` mit/ohne die neue
+  Testdatei gemessen). `route_document.go` (Funktions-Durchschnitt ueber
+  `go tool cover -func`, da kein Datei-Summenwert existiert): 40,2 % -> 66,0 %.
+- mutations-probe: in `createFileCommentRequest.Content` das `validate:"required"`
+  entfernt (Backup vorher per `cp`). `TestHandleCreateFileComment_MissingContent`
+  sofort rot (erwartete 400/validation_failed/Feld "content", bekam 503 vom
+  Transportfehler, weil der leere Content jetzt gueltig war und bis zur RPC durchlief).
+  Datei per `cp` zurueckgedreht, `git diff --stat` gegen `route_document.go` danach
+  leer, `go test ./internal/gateway/...` wieder komplett gruen.
+- verify vorgaenger: sauber (`409850d3` — `git show --stat` gegengeprueft: nur
+  `postgres_repository_file_test.go`/`service_test.go` (neue Testdateien) plus
+  BACKLOG.yml/JOURNAL.md im Diff, kein `.proto`, keine neue Route, kein
+  `RequirePermission`, keine neue Tabelle, kein gRPC-Bypass)
+- neue-units: keine
+- offen: (1) `UnshareEntity` (`document_grpc.go:978`) holt anders als die
+  Nachbar-Handler `ShareEntity`/`TagFile`/`DeleteEntityLink` KEIN `tenantID` aus dem
+  Context und reicht keins an `shareService.Delete`/`ListByEntity` durch — verifiziert
+  als stilistische Inkonsistenz, nicht als Sicherheitsluecke: `document_shares` traegt
+  RLS seit Migration 000122 (`enable_tenant_rls`), die Isolation greift also trotzdem.
+  Nicht als Fix-Unit angelegt, da kein tatsaechlicher Cross-Tenant-Zugriff moeglich ist.
+  (2) `GenerateWOPIToken` (`document_grpc.go:1382`) prueft nie, ob die `file_id`
+  tatsaechlich existiert, bevor ein Token ausgestellt wird — scheitert erst beim ersten
+  WOPI-Zugriff (`CheckFileInfo`/`GetFile`). Niedrige Schwere (kein Datenzugriff, nur ein
+  nutzloser Token), nicht als Fix-Unit angelegt. (3) Der bereits mehrfach dokumentierte
+  Bestandsbefund gilt weiterhin: viele `id`-Pfadparameter in `route_document.go`
+  erreichen die RPC-Schicht ohne lokale UUID-Validierung (`validateUUIDParam` fehlt),
+  gleiche Klasse wie in Iteration 33 (`route_document_test.go`) dokumentiert — nicht neu,
+  nicht hier gefixt.

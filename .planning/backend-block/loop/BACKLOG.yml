@@ -1937,7 +1937,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_document.go 43,0 %, 397 ungedeckt, 19 von 46 Handlern ungetestet"
     scope: >
       Gateway-Seite der Dokumentenablage. Ungetestet (Stand 2026-08-24):
