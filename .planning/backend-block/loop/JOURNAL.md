@@ -2407,7 +2407,7 @@ Kopf von `BACKLOG.yml`.
   Pool-Groesse pro Testpaket ein Thema fuer Luke.
 
 ## Iteration 39 — cov-work-project-repository-real-sql — done — 2026-08-26 06:41
-- commit: (siehe naechster chore-Commit)
+- commit: 34d3eba3
 - gebaut: Real-SQL-DB-Tests fuer `internal/work/project/postgres_repository.go` (7 neue
   Tests: List admin/member/archived-Verzweigung, GetProjectKey+KeyExists inkl. der
   gewollten Archiv-Freigabe des Keys, volle Member-Management-Lifecycle, AddMember gegen
