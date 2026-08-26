@@ -1458,7 +1458,7 @@ Kopf von `BACKLOG.yml`.
   chore-Commit nachgetragen.
 
 ## Iteration 26 — cov-gateway-formulare-webhooks-and-submissions — done — 2026-08-26 04:22
-- commit: (wird im naechsten chore-Commit nachgetragen)
+- commit: bc322733
 - gebaut: 74 neue Handler-Tests in `internal/gateway/route_formulare_test.go` fuer die 14 im
   Scope genannten Handler (HandleListFormSchemas, HandleGetFormSchema, HandleGetSubmission,
   HandleListSubmissions, HandleExportSubmissions, HandleGetFormStats, HandleListWebhooks,
