@@ -1574,7 +1574,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/formulare 53,6 %; postgres_repository.go 18,3 %, 299 ungedeckt von 366"
     scope: >
       Zweitgroesste Repository-Luecke nach Fuhrpark und die mit der niedrigsten Quote:
@@ -4225,3 +4225,50 @@ units:
         bewusst als "eigener Mechanismus, siehe RetentionDays" dokumentiert (Journal +
         Code-Kommentar an geeigneter Stelle) — nicht stillschweigend uebergangen
       - go test -count=1 ./internal/security/gdpr/... ./internal/crm/consent/... gruen
+
+  - id: fix-form-webhook-deliveries-unbounded-retention
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Retention-Luecke, kein Coverage-Ziel)
+    scope: >
+      Gefunden in Iteration 25 beim Bauen von `cov-formulare-postgres-repository-real-sql`
+      (Unit-Notiz verlangte genau diese Pruefung, bevor behauptet wird): `form_webhook_deliveries`
+      hat KEINEN Retention-/Cleanup-Pfad.
+      Gegengeprueft per Grep ueber `backend/internal/` und `backend/cmd/`: die Tabelle taucht nur
+      in `internal/formulare/postgres_repository.go` (INSERT/SELECT/UPDATE) und den Migrationen
+      000081 (Create) und 000122 (RLS enable) auf — keine DELETE-Query, kein Eintrag in
+      `cmd/auth/main.go`s `retentionRegistry` (dort steht `NewFormSubmissionRetentionHandler` fuer
+      `form_submissions`, aber nichts fuer die Deliveries-Tabelle).
+      Konsequenz: jede Formular-Einreichung mit mindestens einem aktiven Webhook erzeugt eine Zeile,
+      die fuer immer bleibt — auch nach `status IN ('delivered','dead')`. Das `payload`-Feld
+      enthaelt eine Kopie der vollen Submission-Answers (siehe `insertSubmissionTx`,
+      `postgres_repository.go:232-241`), also dieselben personenbezogenen Daten wie
+      `form_submissions` selbst, nur ohne die dortige Retention-Abdeckung — ein zweiter,
+      unsichtbarer Kopie-Pfad derselben Daten.
+    sources:
+      - backend/internal/formulare/postgres_repository.go
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_helpdesk_formulare.go
+      - backend/cmd/auth/main.go
+      - backend/migrations/000081_create_formulare.up.sql
+    notes: >
+      Vorbild ist `gdpr.NewFormSubmissionRetentionHandler` (gleiche Datei/gleiches Muster) —
+      vermutlich reicht ein `FormWebhookDeliveryRetentionHandler` nach demselben Zuschnitt,
+      registriert in `cmd/auth/main.go`s `retentionRegistry`. Alternative: ein einfacher
+      Cleanup-Job analog zum WebhookWorker-Polling (delivered/dead aelter als N Tage loeschen),
+      falls das generische Retention-Framework fuer diese Tabelle nicht passt (kein
+      `tenant_id`-Policy-UI-Bedarf o.ae.) — Entscheidung liegt bei der Iteration, die das baut,
+      nicht hier vorweggenommen. Diese Unit AENDERT selbst nichts, sie ist der Befund als
+      baubare Einheit.
+    done_when:
+      - >-
+        Ein Retention-/Cleanup-Pfad fuer `form_webhook_deliveries` existiert (generisches
+        Framework ODER dedizierter Job) und ist dokumentiert, warum die gewaehlte Variante
+      - >-
+        Delivered/dead Zeilen aelter als eine begruendete Frist werden entfernt; pending/failed
+        (noch nicht final) bleiben unangetastet
+      - RLS/Tenant-Scoping des neuen Cleanup-Pfads belegt (kein cross-tenant Bulk-Delete)
+      - go test -count=1 ./internal/formulare/... ./internal/security/gdpr/... gruen

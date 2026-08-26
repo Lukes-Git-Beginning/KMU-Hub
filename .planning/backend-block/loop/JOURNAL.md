@@ -1388,3 +1388,71 @@ Kopf von `BACKLOG.yml`.
   Produktionsfehler (DSGVO-Retention + Storage-Leck), keine reine Test-Nacharbeit — sollte
   zeitnah drankommen. Commit-SHA dieser Iteration wird wie ueblich im naechsten
   chore-Commit nachgetragen.
+
+
+## Iteration 25 — cov-formulare-postgres-repository-real-sql — done — 2026-08-26 04:10
+- commit: (wird im naechsten chore-Commit nachgetragen)
+- gebaut: `backend/internal/formulare/postgres_repository_db_test.go` — 18 neue DB-Tests
+  gegen PostgresRepository mit echter Postgres-Instanz (kein Mock): UpdateSchema,
+  SoftDeleteSchema, ListSchemas (Status/IsTemplate/Search, einzeln und kombiniert),
+  DuplicateSchema, GetSubmission, ListSubmissions (Schema+Status), UpdateSubmissionStatus,
+  ListSubmissionsForExport (Status+SubmittedAfter+SubmittedBefore kombiniert), GetWebhook,
+  UpdateWebhook, DeleteWebhook, ListWebhooks, ClaimPendingDeliveries (System-Kontext
+  ueberschreitet Tenants wie im Worker vorgesehen, Tenant-Kontext nicht), MarkDeliveryResult,
+  ListWebhookDeliveries, GetWebhookDelivery, GetFormStats, RevokeShareLink. Jede
+  Update/Delete/Get-Methode hat einen expliziten Cross-Tenant-Fall (ErrXNotFound statt
+  stillschweigendem No-Op), nicht nur den Erfolgspfad.
+  Befund (1): `form_webhook_deliveries` hat KEINEN Retention-/Cleanup-Pfad — gegengeprueft
+  per Grep ueber `backend/internal/` und `backend/cmd/`, nur INSERT/SELECT/UPDATE in
+  `postgres_repository.go`, kein Eintrag in `cmd/auth/main.go`s `retentionRegistry` (die
+  dortige `NewFormSubmissionRetentionHandler` deckt nur `form_submissions`). Das `payload`-
+  Feld jeder Delivery-Zeile enthaelt eine volle Kopie der Submission-Answers
+  (`insertSubmissionTx`, postgres_repository.go:232-241) — derselbe personenbezogene Inhalt
+  wie `form_submissions`, aber ohne dessen Retention-Abdeckung, waechst unbegrenzt. Als Unit
+  angelegt (siehe neue-units), NICHT selbst gefixt — eine Coverage-Unit aendert kein
+  Verhalten, und die Wahl zwischen generischem Retention-Framework und dediziertem Cleanup-
+  Job ist eine Entscheidung fuer die bauende Iteration, nicht hier vorwegzunehmen.
+  Befund (2, negativ/entkraeftet): `ClaimPendingDeliveries` filtert nicht nach `tenant_id`
+  im SQL — sah zunaechst nach derselben Fehlerklasse wie der behobene
+  `ListActiveWebhooksForSchema`-Fall (tenant_write_test.go) aus. Gegengeprueft: `worker.go`
+  Run() wrapped den Kontext explizit mit `database.WithSystemContext` (worker.go:70) — das
+  ist die eine beabsichtigte RLS-Ausnahme auf dieser Tabelle, analog zu
+  `GetShareLinkByToken`. Per Test bestaetigt: unter einem gewoehnlichen
+  Tenant-Kontext sieht `ClaimPendingDeliveries` nur die eigenen pending Zeilen (RLS greift),
+  unter System-Kontext beide Tenants (Worker-Verhalten wie vorgesehen). Kein Fund, aber die
+  Grenze ist jetzt durch einen Test belegt statt nur durch Lesen des Codes behauptet.
+- gate: build ok (`./internal/formulare/... ./internal/gateway/... ./cmd/gateway/...
+  ./cmd/auth/...`) | vet ok | lint ok (0 issues) | test ok (`internal/formulare`,
+  `DATABASE_URL` gesetzt, 0 Skips, 95 Tests gesamt inkl. der 18 neuen) | migration n.a.
+  (keine Tabelle/Policy angefasst) | rls-smoke ok (bestehende `tenant_isolation_phase2_test.go`
+  deckt alle vier Tabellen inkl. `form_submissions` bereits ab; die neuen Cross-Tenant-
+  NotFound-Faelle in dieser Iteration pruefen dieselbe Grenze zusaetzlich ueber den
+  Repository-Aufruf statt nur per Roh-SQL) | route-drift n.a. (keine Route angefasst,
+  `go test ./internal/gateway/` daher nicht Pflicht — trotzdem mitgebaut, siehe gate build)
+- coverage: internal/formulare 53,6 % -> 83,2 % (`-coverprofile` vor und nach den drei
+  neuen Testdateien gemessen); `postgres_repository.go` im Speziellen: jede zuvor 0,0 %
+  Methode (UpdateSchema, SoftDeleteSchema, ListSchemas, DuplicateSchema, GetSubmission,
+  ListSubmissions, UpdateSubmissionStatus, ListSubmissionsForExport, GetWebhook,
+  UpdateWebhook, DeleteWebhook, ListWebhooks, ClaimPendingDeliveries, MarkDeliveryResult,
+  ListWebhookDeliveries, GetWebhookDelivery, GetFormStats, RevokeShareLink) liegt jetzt
+  zwischen 80,0 % und 100,0 % (`go tool cover -func` einzeln gegengeprueft)
+- mutations-probe: In `ListSchemas` (postgres_repository.go) die Search-Bedingung von
+  `"%"+strings.ToLower(filter.Search)+"%"` auf `strings.ToLower(filter.Search)` geaendert
+  (Wildcards entfernt, LIKE wird zum Exact-Match). `TestPostgresListSchemas_FiltersByStatus
+  TemplateAndSearch` sofort rot ("expected only the support schema, got total=0"). Datei per
+  `cp` aus Backup zurueckgedreht, `git diff --stat` auf `postgres_repository.go` danach leer,
+  `go test ./internal/formulare/...` wieder komplett gruen. (Ein erster Versuch, die
+  Tenant-Filterung aus `GetSubmission`s WHERE-Klausel zu entfernen, war KEINE brauchbare
+  Probe: RLS auf `kmuhub_app` blockt den Cross-Tenant-Read unabhaengig vom WHERE, der Test
+  blieb gruen — Erkenntnis, nicht nur Ruestzeug, siehe `tenant_write_test.go`-Kommentar
+  "muss nicht allein auf RLS vertrauen": hier ist RLS als zweite Verteidigungslinie genau
+  das, was die App-Ebene absichert, also war die Probe an der falschen Stelle angesetzt.)
+- verify vorgaenger: sauber. `c13a1b14` (Video-Recording-Service/Repository/Gateway-Tests)
+  aendert ausschliesslich drei neue Testdateien + Backlog/Journal; `git show --stat`
+  gegengeprueft — kein `.proto`, keine neue Route, kein neuer `RequirePermission`-Guard,
+  kein direkter Service-Aufruf im Gateway statt Client.
+- neue-units: fix-form-webhook-deliveries-unbounded-retention (sonnet)
+- offen: Die neue Unit ist `deps: []`, direkt baubar, aber kein akuter Produktionsfehler
+  (nur unbegrenztes Wachstum, kein Datenleck ueber die Tenant-Grenze) — kann regulaer in
+  Dateireihenfolge drankommen. Commit-SHA dieser Iteration wird wie ueblich im naechsten
+  chore-Commit nachgetragen.
