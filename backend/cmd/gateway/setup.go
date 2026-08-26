@@ -122,6 +122,7 @@ func setupCalDAV(
 	pool *pgxpool.Pool,
 	registry *gateway.ServiceRegistry,
 	authMiddleware func(http.Handler) http.Handler,
+	idempotencyMW func(http.Handler) http.Handler,
 	selfBaseURL string,
 ) *gateway.CalDAVRoutes {
 	pushSubService := caldavpkg.NewPushSubscriptionService(pool)
@@ -143,7 +144,7 @@ func setupCalDAV(
 	return gateway.NewCalDAVRoutes(
 		caldavHandler, carddavHandler,
 		caldavPwAdapter, caldavUserPrefAdapter,
-		caldavpkg.CtxWithUser, authMiddleware,
+		caldavpkg.CtxWithUser, authMiddleware, idempotencyMW,
 		selfBaseURL,
 	)
 }

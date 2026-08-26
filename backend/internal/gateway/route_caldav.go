@@ -77,6 +77,7 @@ type CalDAVRoutes struct {
 	userPrefRepo   CalDAVUserPreferenceService
 	ctxInjector    CalDAVCtxInjector
 	authMiddleware func(http.Handler) http.Handler
+	idempotencyMW  func(http.Handler) http.Handler
 	selfBaseURL    string
 }
 
@@ -87,6 +88,15 @@ type CalDAVRoutes struct {
 // endpoints below. It is deliberately never derived from request headers (Host,
 // X-Forwarded-Host, ...) -- doing so would let any authenticated caller turn the
 // test endpoint into an SSRF probe against an arbitrary target.
+//
+// authMiddleware and idempotencyMW are taken separately, not pre-composed the
+// way cmd/gateway/main.go hands authWithIdempotency to every other route
+// registrar: this file registers three different auth flavours on one router
+// (Basic-Auth protocol routes, JWT REST routes, JWT+admin routes) and only the
+// mutating JWT routes may carry idempotency. Passing the composed chain is what
+// made the REST block silently miss it -- setupCalDAV only ever got the bare
+// authMiddleware, so POST /api/v1/caldav/passwords could be double-submitted
+// into two valid app passwords of which the caller sees only one.
 func NewCalDAVRoutes(
 	caldavHandler http.Handler,
 	carddavHandler http.Handler,
@@ -94,6 +104,7 @@ func NewCalDAVRoutes(
 	userPrefRepo CalDAVUserPreferenceService,
 	ctxInjector CalDAVCtxInjector,
 	authMiddleware func(http.Handler) http.Handler,
+	idempotencyMW func(http.Handler) http.Handler,
 	selfBaseURL string,
 ) *CalDAVRoutes {
 	return &CalDAVRoutes{
@@ -103,8 +114,19 @@ func NewCalDAVRoutes(
 		userPrefRepo:   userPrefRepo,
 		ctxInjector:    ctxInjector,
 		authMiddleware: authMiddleware,
+		idempotencyMW:  idempotencyMW,
 		selfBaseURL:    selfBaseURL,
 	}
+}
+
+// useAPIChain applies the middleware chain every other /api/v1 route gets from
+// cmd/gateway/main.go's authWithIdempotency: authMiddleware runs first because
+// it stamps the tenant/user context that middleware.Idempotency reads, then
+// idempotencyMW. GET routes pass straight through -- the middleware skips
+// non-mutating methods itself (middleware/idempotency.go:65-69).
+func (c *CalDAVRoutes) useAPIChain(sub chi.Router) {
+	sub.Use(c.authMiddleware)
+	sub.Use(c.idempotencyMW)
 }
 
 // RegisterRoutes registers CalDAV/CardDAV protocol routes, .well-known discovery,
@@ -144,7 +166,7 @@ func (c *CalDAVRoutes) RegisterRoutes(r chi.Router) {
 	// App-specific password REST API (JWT auth, under /api/v1/caldav/)
 	// =========================================================================
 	r.Route("/api/v1/caldav", func(sub chi.Router) {
-		sub.Use(c.authMiddleware)
+		c.useAPIChain(sub)
 
 		sub.Get("/passwords", c.handleListPasswords)
 		sub.Post("/passwords", c.handleCreatePassword)
@@ -159,7 +181,7 @@ func (c *CalDAVRoutes) RegisterRoutes(r chi.Router) {
 	// Admin CalDAV API (JWT auth + admin role)
 	// =========================================================================
 	r.Route("/api/v1/admin/caldav", func(sub chi.Router) {
-		sub.Use(c.authMiddleware)
+		c.useAPIChain(sub)
 		sub.Use(middleware.RequireRole("admin"))
 
 		sub.Get("/settings", c.handleAdminGetSettings)

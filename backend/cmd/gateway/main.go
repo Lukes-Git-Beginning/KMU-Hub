@@ -350,7 +350,7 @@ func main() {
 	slog.Info("routes registered", "service", "wopi")
 
 	// CalDAV/CardDAV protocol routes (Basic Auth, not JWT)
-	caldavRoutes := setupCalDAV(pool, registry, authMiddleware, "http://127.0.0.1"+cfg.GatewayHTTPPort)
+	caldavRoutes := setupCalDAV(pool, registry, authMiddleware, idempotencyMW, "http://127.0.0.1"+cfg.GatewayHTTPPort)
 	caldavRoutes.RegisterRoutes(r)
 	slog.Info("routes registered", "service", "caldav")
 

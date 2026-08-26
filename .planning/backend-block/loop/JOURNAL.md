@@ -596,3 +596,79 @@ Kopf von `BACKLOG.yml`.
   Block-D-Scan neu zuzuschneiden, oder eine deutlich groessere Iteration.
   `decide-email-messages-contact-pii-on-anonymize` wartet auf Lukes
   Entscheidung (a)/(b)/(c) in BACKLOG-NEXT.yml.
+
+## Iteration 13 — harden-caldav-rest-routes-missing-idempotency — done — 2026-08-26 02:17
+- commit: (folgt im selben Commit wie dieser Journal-Eintrag; Subject `fix(gateway): run CalDAV REST routes through the idempotency middleware`)
+- gebaut: Root Cause war genau die in der Unit vermutete — `setupCalDAV`
+  (`cmd/gateway/setup.go:121`) bekam nur die halbe Kette. `main.go:353` reichte
+  `authMiddleware` durch, waehrend jeder andere Registrar `authWithIdempotency`
+  (`main.go:205-206`) bekommt; `c.authMiddleware` wird in `route_caldav.go`
+  ausschliesslich von den beiden `/api/v1`-Bloecken benutzt (`:147`, `:162`),
+  die Protokollrouten haengen an `basicAuthMiddleware`. `NewCalDAVRoutes` nimmt
+  jetzt `idempotencyMW` als eigenen Parameter (NICHT die vorkomponierte Kette:
+  diese Datei registriert drei Auth-Geschmacksrichtungen auf einem Router, und
+  nur die JWT-REST-Bloecke duerfen Idempotency tragen — die vorkomponierte
+  Kette ist genau der Grund, warum es untergehen konnte). Neuer Helper
+  `useAPIChain(sub)` setzt `authMiddleware` dann `idempotencyMW` — dieselbe
+  Reihenfolge wie `authWithIdempotency`, damit Tenant/User im Context stehen,
+  bevor die Middleware sie liest. Damit laufen alle sieben mutierenden Routen
+  (`POST /passwords`, `DELETE /passwords/{id}`, `PUT /enable`, `PUT /disable`,
+  `POST /test`, `PUT /admin/settings`, `DELETE /admin/users/{userId}/passwords`)
+  durch dieselbe Kette wie der Rest von `/api/v1`. GET-Routen sind unberuehrt,
+  die Middleware ueberspringt nicht-mutierende Methoden selbst
+  (`middleware/idempotency.go:65-69`). `IDEMPOTENCY_MODE` NICHT angefasst —
+  bleibt WarnMode, die Unit schafft die Moeglichkeit zur Deduplizierung, sie
+  erzwingt sie nicht.
+  Neuer DB-Test `route_caldav_idempotency_db_test.go` (3 Tests): registriert
+  die echte `RegisterRoutes`-Verdrahtung auf einem echten chi-Router mit einer
+  echten `idempotency.NewPostgresRepository`. Der Passwort-Service bleibt
+  bewusst der bestehende Fake — die Behauptung betrifft die Middleware-Kette,
+  nicht `caldav.AppPasswordService`. Vier bestehende `NewCalDAVRoutes`-Aufrufe
+  in `route_caldav_test.go` plus einer in `openapi_drift_test.go` auf den neuen
+  Parameter nachgezogen (Pass-Through statt `nil` — ein `nil` wuerde in chi
+  erst beim ersten Request panicken, ein explizites Pass-Through macht an jeder
+  Aufrufstelle sichtbar, dass hier eine Entscheidung getroffen wird).
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (0 issues) | test ok (`./internal/gateway/` komplett gruen inkl.
+  `TestOpenAPIRouteDrift`; `./internal/caldav/...` gruen; **0 Skips** bei den
+  neuen Tests verifiziert, `DATABASE_URL` als `kmuhub_app` gesetzt) |
+  migration n.a. (reine Middleware-Verdrahtung, keine Tabelle, keine Route neu —
+  `openapi.yaml` unveraendert, alle sieben Pfade stehen bereits drin) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst; `idempotency_keys` hat RLS
+  seit Bestehen, der Test schreibt tenant-gescoped ueber den PoolFromEnv-Hook)
+- coverage: internal/gateway 56,7 % -> 56,8 % (selbst gemessen, Vorher-Wert per
+  `git stash push -u -- backend/internal/gateway/ backend/cmd/gateway/`).
+  Achtung: `coverage_start` der Unit nennt `internal/caldav 54,9 %` — das ist
+  das falsche Paket, die Aenderung liegt vollstaendig in `internal/gateway`
+  bzw. `cmd/gateway`. `internal/caldav` ist von dieser Unit gar nicht beruehrt.
+- mutations-probe: `sub.Use(c.idempotencyMW)` in `useAPIChain` entfernt (Datei
+  vorher per `cp` gesichert). `TestCalDAVCreatePassword_SameIdempotencyKey_
+  CreatesExactlyOnePassword` wurde rot ("idempotency key ... did not complete
+  within deadline" — ohne die Middleware wird gar kein Key reserviert), Datei
+  per `cp` zurueckgedreht, `git diff --stat` wieder identisch (24+/2-),
+  kompletter Testlauf danach gruen.
+- verify vorgaenger: sauber. `73aa6f1d` aendert nur `internal/crm/consent/
+  scrub.go` + einen Test; beide neuen `tx.Exec` filtern `tenant_id = $2`
+  explizit, keine neue Route, kein `.proto`, keine Migration, kein
+  `RequirePermission`, keine gRPC-Umgehung (der Scrub laeuft innerhalb der
+  bestehenden Service-Transaktion).
+- neue-units: keine
+- offen: (1) NEBENFUND aus den Unit-Notes, wie gefordert hier genannt und NICHT
+  gefixt: `basicAuthMiddleware` (`route_caldav.go:178`, `:189`) sendet
+  `WWW-Authenticate: Basic realm="KMU Hub CalDAV"` — ein user-sichtbarer String
+  mit dem alten Produktnamen, den der Browser im Anmeldedialog zeigt. Gehoert
+  in die Inventur von Scan D10, nicht in diesen Fix.
+  (2) NEUER NEBENFUND beim Testschreiben: die replayte Antwort ist NICHT
+  byte-identisch mit der ersten. Der gecachte Body macht eine Runde durch eine
+  `jsonb`-Spalte und kommt mit anderer Schluesselreihenfolge und Whitespace
+  zurueck (`{"id":"…","label":…}` vs `{"id": "…", "label": …}`). Fuer JSON-Clients
+  irrelevant, aber jeder Client, der Antworten byte-weise vergleicht oder
+  signiert, sieht bei einem Replay etwas anderes. Der Test vergleicht deshalb
+  feldweise. Falls das jemals stoeren sollte, waere der Ort
+  `middleware/idempotency.go` (Body als `bytea` statt `jsonb` speichern) — als
+  Unit habe ich es nicht angelegt, weil kein Client im Repo so vergleicht.
+  (3) Der Admin-Block bekommt jetzt `auth -> idempotency -> RequireRole`. Das
+  heisst: ein 403 eines Nicht-Admins wird unter seinem Idempotency-Key gecacht.
+  Bewusst so gewaehlt, weil `RequirePermission`-Guards ueberall sonst im Gateway
+  ebenfalls INNERHALB von `authWithIdempotency` sitzen — die Unit verlangt
+  "dieselbe Kette wie die uebrigen Routen", nicht eine bessere.

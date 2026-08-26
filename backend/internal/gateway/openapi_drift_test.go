@@ -158,7 +158,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	// registers the same tree: RegisterRoutes wraps both protocol handlers in
 	// closures and binds the REST handlers as method values, touching neither
 	// during registration.
-	gateway.NewCalDAVRoutes(nil, nil, nil, nil, nil, passthroughAuth, "").RegisterRoutes(r)
+	gateway.NewCalDAVRoutes(nil, nil, nil, nil, nil, passthroughAuth, passthroughAuth, "").RegisterRoutes(r)
 
 	// Public (unauthenticated) routes registered outside the RouteRegistrar
 	// loop in main.go — cheap to construct (no adapters, no live backend

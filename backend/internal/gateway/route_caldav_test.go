@@ -130,6 +130,11 @@ func withCalDAVAuth(userID, tenantID uuid.UUID) func(http.Handler) http.Handler 
 	}
 }
 
+// passthroughCalDAVMiddleware stands in for middleware.Idempotency in the
+// tests that are not about idempotency. The real chain is exercised in
+// route_caldav_idempotency_db_test.go against a Postgres-backed repository.
+func passthroughCalDAVMiddleware(next http.Handler) http.Handler { return next }
+
 // noContentHandler stands in for the real caldav.Handler/carddav.Handler: it
 // answers any request that makes it past basicAuthMiddleware with 204, the
 // same status the real OPTIONS handler returns for the DAV root. This keeps
@@ -144,7 +149,7 @@ func TestHandleTestConnection_Success(t *testing.T) {
 	userID, tenantID := uuid.New(), uuid.New()
 	pwSvc := newFakeCalDAVPasswordService()
 
-	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), "")
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), passthroughCalDAVMiddleware, "")
 
 	r := chi.NewRouter()
 	routes.RegisterRoutes(r)
@@ -184,7 +189,7 @@ func TestHandleTestConnection_AuthFailure(t *testing.T) {
 	pwSvc := newFakeCalDAVPasswordService()
 	pwSvc.forceInvalid = true // Validate rejects every request, including the freshly created password
 
-	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), "")
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), passthroughCalDAVMiddleware, "")
 
 	r := chi.NewRouter()
 	routes.RegisterRoutes(r)
@@ -222,7 +227,7 @@ func TestBasicAuthMiddleware_FailedLogin_DoesNotLogRawUsername(t *testing.T) {
 	pwSvc := newFakeCalDAVPasswordService()
 	pwSvc.forceInvalid = true
 
-	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), "")
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), passthroughCalDAVMiddleware, "")
 
 	r := chi.NewRouter()
 	routes.RegisterRoutes(r)
@@ -274,7 +279,7 @@ func TestHandleTestConnection_NetworkUnreachable(t *testing.T) {
 	deadAddr := l.Addr().String()
 	l.Close()
 
-	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), "")
+	routes := NewCalDAVRoutes(noContentHandler, noContentHandler, pwSvc, nil, noopCtxInjector, withCalDAVAuth(userID, tenantID), passthroughCalDAVMiddleware, "")
 
 	r := chi.NewRouter()
 	routes.RegisterRoutes(r)

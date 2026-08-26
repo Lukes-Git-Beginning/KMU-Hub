@@ -994,7 +994,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/caldav 54,9 % (CI-Stand 32735558575)"
     scope: >
       VERIFIZIERT 2026-08-24. In Lauf 11 zweimal beobachtet (Iteration 15 und 60) und in zwölf
