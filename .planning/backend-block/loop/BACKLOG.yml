@@ -1184,7 +1184,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/fuhrpark 54,5 % (CI-Stand 32735558575); postgres_repository.go 40,4 %, 370 ungedeckt von 621"
     scope: >
       Groesste einzelne Repository-Luecke im Backend nach dem Geldblock von Lauf 11.
