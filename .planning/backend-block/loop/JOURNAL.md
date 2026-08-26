@@ -2331,7 +2331,7 @@ Kopf von `BACKLOG.yml`.
   Dateireihenfolge einsortiert bleiben.
 
 ## Iteration 38 — cov-work-customfield-and-presence-zero-coverage — done — 2026-08-26 06:30
-- commit: (folgt im Abschluss-Commit dieser Iteration)
+- commit: 221e9347
 - gebaut: DB-Tests fuer `internal/work/customfield/postgres_repository.go` (Create/GetByID/
   List/Update/Delete, Tenant-Scoping ueber RLS-Smoke fuer jede Methode, (tenant_id, name)
   Unique-Constraint inkl. "gleicher Name, anderer Tenant funktioniert", Sortierung
