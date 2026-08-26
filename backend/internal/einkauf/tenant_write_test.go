@@ -14,6 +14,7 @@ package einkauf
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -268,5 +269,82 @@ func TestPurchaseOrderWrites_LandInCallerTenant(t *testing.T) {
 		t.Fatalf("DeletePO (own ctx): %v", err)
 	}
 	testutil.AssertRowCount(t, pool, sysCtx, "purchase_orders", po.ID, 0)
+}
+
+// TestRecomputePOTotal_SumsRawWithoutPerLineRounding proves the Bug-Suche
+// hypothesis from BACKLOG.yml (cov-einkauf-service-extended-real-paths):
+// "pruefen, ob Positionspreise mal Menge je Zeile gerundet werden, bevor sie
+// in die Bestellsumme gehen" -- the same class of bug Lauf 11 found in the
+// GoBD export (fix-gobd-export-tax-grouping-rate-key-collision).
+//
+// Two lines each total 0.125 (qty=1 x price=0.125). A per-line-rounded
+// implementation would round each line to 0.13 (or 0.12) before summing,
+// landing on 0.26 (or 0.24). RecomputePOTotal instead runs
+// SUM(quantity * unit_price) inside Postgres against NUMERIC(15,4) columns
+// (total_amount is NUMERIC(15,4) too, see migrations/000085_create_einkauf),
+// so the raw, unrounded 0.25 is what lands in total_amount. Result: no bug
+// found -- documented here, not filed as a fix-unit.
+func TestRecomputePOTotal_SumsRawWithoutPerLineRounding(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Einkauf Rounding Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	now := time.Now().UTC()
+
+	supplier := &Supplier{
+		ID: uuid.New(), TenantID: tenantID, Name: "Rounding Supplier",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateSupplier(ctx, supplier); err != nil {
+		t.Fatalf("CreateSupplier: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "suppliers", supplier.ID)
+
+	po := &PurchaseOrder{
+		ID: uuid.New(), TenantID: tenantID, SupplierID: supplier.ID,
+		PONumber: "PO-ROUND-" + uuid.New().String()[:8], Status: POStatusDraft,
+		OrderDate: now, TotalAmount: "0", Currency: "EUR",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreatePO(ctx, po); err != nil {
+		t.Fatalf("CreatePO: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "purchase_orders", po.ID)
+
+	for i := range 2 {
+		line := &POLine{
+			ID: uuid.New(), TenantID: tenantID, POID: po.ID,
+			ProductName: "Fractional Line", Quantity: "1.0000", UnitPrice: "0.1250",
+			TaxRate: "0", ReceivedQuantity: "0",
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := repo.CreatePOLine(ctx, line); err != nil {
+			t.Fatalf("CreatePOLine %d: %v", i, err)
+		}
+		defer testutil.CleanupRow(t, pool, "po_lines", line.ID)
+	}
+
+	if err := repo.RecomputePOTotal(ctx, tenantID, po.ID); err != nil {
+		t.Fatalf("RecomputePOTotal: %v", err)
+	}
+	got, err := repo.GetPO(ctx, tenantID, po.ID)
+	if err != nil {
+		t.Fatalf("GetPO: %v", err)
+	}
+
+	total, err := strconv.ParseFloat(got.TotalAmount, 64)
+	if err != nil {
+		t.Fatalf("total_amount %q did not parse as a number: %v", got.TotalAmount, err)
+	}
+	if total != 0.25 {
+		t.Fatalf("expected raw-sum total 0.25 (would be 0.26 or 0.24 if lines were rounded to cents before summing), got %v (total_amount=%q)", total, got.TotalAmount)
+	}
 }
 

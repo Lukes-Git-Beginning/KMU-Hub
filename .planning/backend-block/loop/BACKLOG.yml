@@ -2284,7 +2284,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/einkauf 63,9 % (332 ungedeckt von 920); service_extended.go 29,6 %, 150 ungedeckt von 213; service.go 63,3 %"
     scope: >
       Der Einkauf ist die letzte Geldflaeche, die Lauf 11 nicht angefasst hat — eine
@@ -5144,3 +5144,60 @@ units:
         Ein Test belegt: eigene Mietvorgaenge/Protokolle erscheinen im Export, die eines
         fremden Tenants oder eines anderen Kontakts nicht
       - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: feat-einkauf-po-framework-contract-call-off-wiring
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Feature-Luecke, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-einkauf-service-extended-real-paths`). `PurchaseOrder.FrameworkContractID`
+      (backend/internal/einkauf/models.go:57-59) traegt den Kommentar "When set, ReceiveGoods
+      will automatically record a contract call-off." Die Spalte existiert seit Migration
+      000208_einkauf_po_framework_ref, wird in GetPO/GetPOWithLines gelesen
+      (postgres_repository.go:457,473) — aber NIRGENDS gesetzt: weder `CreatePOInput` noch
+      `UpdatePOInput` (service.go) haben ein `FrameworkContractID`-Feld, es gibt keinen Weg,
+      die Spalte ueber den Service zu befuellen. Selbst wenn sie per Hand-SQL gesetzt wuerde,
+      lesen `ReceiveGoods` (service.go:607) und `PartialReceive` (service.go:659) das Feld nie
+      und rufen nie `CreateContractCall` auf — die im Docstring versprochene automatische
+      Abruf-Buchung existiert im Code schlicht nicht. Ein an einen Rahmenvertrag gebundener PO
+      erhoeht dessen `used_value` also nie automatisch; `CreateContractCall` ist aktuell nur
+      manuell erreichbar (kein Gateway-Handler dafuer verifiziert — pruefen). Belegt durch
+      `TestExtended_ReceiveGoods_LinkedToFrameworkContract_DoesNotRecordCallOff` in
+      service_extended_test.go (dokumentiert die Luecke, aendert kein Verhalten).
+    sources:
+      - backend/internal/einkauf/models.go
+      - backend/internal/einkauf/service.go
+      - backend/internal/einkauf/service_extended.go
+      - backend/migrations/000208_einkauf_po_framework_ref.up.sql
+    notes: >
+      Entscheidungen, die beim Bauen anfallen: (1) Soll ReceiveGoods und PartialReceive BEIDE
+      einen Call-off buchen, oder nur der volle ReceiveGoods-Abschluss? Bei PartialReceive waere
+      der Call-off-Betrag der neu geleferte Anteil (analog zum inventarAdj-Delta-Muster in
+      PartialReceive, service.go:695-703), nicht der volle PO-Wert. (2) CreateContractCall
+      race-sicher aus der Empfangs-Transaktion heraus aufrufen — nicht als separater Call nach
+      dem Status-Update, sonst Inkonsistenz bei Teilausfall. (3) Was passiert bei
+      ErrContractBudgetExceeded waehrend eines Wareneingangs? Der Wareneingang selbst darf nicht
+      an einem Budget-Limit scheitern (der Wareneingang ist physisch bereits passiert) — vermutlich
+      Call-off trotzdem buchen und nur loggen/warnen, analog zum inventarAdj-Best-Effort-Muster
+      (service.go:634-648), nicht hart fehlschlagen. Das ist eine Produktentscheidung, kein
+      Bug-Fix — bei Unsicherheit `blocked` mit der Frage an Luke.
+    done_when:
+      - >-
+        CreatePOInput und/oder UpdatePOInput erlauben das Setzen von FrameworkContractID (oder es
+        ist begruendet dokumentiert, warum absichtlich nicht)
+      - >-
+        ReceiveGoods bucht bei gesetztem FrameworkContractID einen Call-off in Hoehe des
+        empfangenen Werts; ein Test belegt used_value auf dem Rahmenvertrag danach korrekt erhoeht
+      - >-
+        PartialReceive bucht denselben Call-off nur fuer das Delta der neu empfangenen Menge,
+        nicht fuer den vollen PO-Wert; ein Test belegt das ueber zwei aufeinanderfolgende
+        Teillieferungen
+      - >-
+        Verhalten bei ErrContractBudgetExceeded waehrend eines Wareneingangs ist entschieden und
+        durch einen Test belegt (oder die Entscheidung ist an Luke delegiert und die Unit steht
+        `blocked`)
+      - go test -count=1 ./internal/einkauf/... gruen, DATABASE_URL gesetzt, 0 Skips

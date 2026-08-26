@@ -982,3 +982,234 @@ func TestService_PartialReceive_InvalidString(t *testing.T) {
 
 	assert.ErrorIs(t, err, ErrInvalidQuantity)
 }
+
+// ============================================================================
+// GetSupplier Tests
+// ============================================================================
+
+func TestService_GetSupplier_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+
+	got, err := svc.GetSupplier(context.Background(), tenantID, s.ID)
+
+	require.NoError(t, err)
+	assert.Equal(t, s.ID, got.ID)
+}
+
+func TestService_GetSupplier_NotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.GetSupplier(context.Background(), uuid.New(), uuid.New())
+
+	assert.ErrorIs(t, err, ErrSupplierNotFound)
+}
+
+// ============================================================================
+// UpdatePO Tests
+// ============================================================================
+
+func TestService_UpdatePO_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-UPD-001", POStatusDraft)
+
+	newNotes := "revised notes"
+	newCurrency := "CHF"
+	result, err := svc.UpdatePO(context.Background(), UpdatePOInput{
+		TenantID: tenantID,
+		POID:     po.ID,
+		Notes:    &newNotes,
+		Currency: &newCurrency,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "revised notes", result.Notes)
+	assert.Equal(t, "CHF", result.Currency)
+}
+
+func TestService_UpdatePO_ClosedRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-UPD-002", POStatusClosed)
+
+	newNotes := "revised notes"
+	_, err := svc.UpdatePO(context.Background(), UpdatePOInput{
+		TenantID: tenantID,
+		POID:     po.ID,
+		Notes:    &newNotes,
+	})
+
+	assert.ErrorIs(t, err, ErrPONotDraft)
+}
+
+func TestService_UpdatePO_CancelledRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-UPD-003", POStatusCancelled)
+
+	newNotes := "revised notes"
+	_, err := svc.UpdatePO(context.Background(), UpdatePOInput{
+		TenantID: tenantID,
+		POID:     po.ID,
+		Notes:    &newNotes,
+	})
+
+	assert.ErrorIs(t, err, ErrPONotDraft)
+}
+
+func TestService_UpdatePO_DuplicatePONumber(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	_ = addPO(repo, tenantID, s.ID, "PO-TAKEN", POStatusDraft)
+	po := addPO(repo, tenantID, s.ID, "PO-UPD-004", POStatusDraft)
+
+	taken := "PO-TAKEN"
+	_, err := svc.UpdatePO(context.Background(), UpdatePOInput{
+		TenantID: tenantID,
+		POID:     po.ID,
+		PONumber: &taken,
+	})
+
+	assert.ErrorIs(t, err, ErrPONumberTaken)
+}
+
+func TestService_UpdatePO_NewSupplierNotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-UPD-005", POStatusDraft)
+
+	missingSupplier := uuid.New()
+	_, err := svc.UpdatePO(context.Background(), UpdatePOInput{
+		TenantID:   tenantID,
+		POID:       po.ID,
+		SupplierID: &missingSupplier,
+	})
+
+	assert.ErrorIs(t, err, ErrSupplierNotFound)
+}
+
+func TestService_UpdatePO_ClearExpectedDeliveryDate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-UPD-006", POStatusDraft)
+	future := time.Now().Add(48 * time.Hour)
+	po.ExpectedDeliveryDate = &future
+
+	result, err := svc.UpdatePO(context.Background(), UpdatePOInput{
+		TenantID:             tenantID,
+		POID:                 po.ID,
+		ExpectedDeliveryDate: &time.Time{}, // zero-value pointer clears the field
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, result.ExpectedDeliveryDate)
+}
+
+// ============================================================================
+// ListPOLines Tests
+// ============================================================================
+
+func TestService_ListPOLines_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-LINES-001", POStatusDraft)
+	addPOLine(repo, tenantID, po.ID, "Widget A", "10")
+	addPOLine(repo, tenantID, po.ID, "Widget B", "5")
+
+	lines, err := svc.ListPOLines(context.Background(), tenantID, po.ID)
+
+	require.NoError(t, err)
+	assert.Len(t, lines, 2)
+}
+
+// ============================================================================
+// ReceiveGoods / PartialReceive on a cancelled PO
+// ============================================================================
+//
+// CancelPO only allows draft/submitted/sent to become cancelled (never
+// partially_received or received, see TestService_CancelPO_NotCancellableRejected),
+// so a cancelled PO can never have received goods recorded against it before
+// cancellation. These tests document the other direction: once cancelled, the
+// receive workflow must reject it too, so a cancelled PO can never accumulate
+// goods receipts (and therefore never trigger a framework-contract call-off)
+// after the fact.
+
+func TestService_ReceiveGoods_CancelledPO_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-CANCELLED-RECV", POStatusCancelled)
+	addPOLine(repo, tenantID, po.ID, "Widget", "10")
+
+	_, err := svc.ReceiveGoods(context.Background(), tenantID, po.ID)
+
+	assert.ErrorIs(t, err, ErrPONotReceivable)
+}
+
+func TestService_PartialReceive_CancelledPO_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-CANCELLED-PARTIAL", POStatusCancelled)
+	l1 := addPOLine(repo, tenantID, po.ID, "Widget", "10")
+
+	_, err := svc.PartialReceive(context.Background(), tenantID, po.ID, []PartialReceiveItem{
+		{LineID: l1.ID, ReceivedQuantity: "5"},
+	})
+
+	assert.ErrorIs(t, err, ErrPONotReceivable)
+}
+
+// ============================================================================
+// WithInventarAdjuster Tests
+// ============================================================================
+
+func TestService_WithInventarAdjuster_ReturnsSameServiceWithAdjusterAttached(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	adj := &stubInventarAdjuster{}
+
+	result := svc.WithInventarAdjuster(adj)
+
+	assert.Same(t, svc, result, "WithInventarAdjuster must return the same *Service for chaining")
+	assert.Same(t, adj, svc.inventarAdj)
+}
+
+type stubInventarAdjuster struct {
+	calls int
+}
+
+func (s *stubInventarAdjuster) AdjustStockBySKU(_ context.Context, _ uuid.UUID, _ string, _ int64, _ string) error {
+	s.calls++
+	return nil
+}

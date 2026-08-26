@@ -2623,3 +2623,68 @@ Kopf von `BACKLOG.yml`.
   Fix-Unit angelegt. (3) `HandleListRentals`/`HandleGetRentalCalendar` teilen dasselbe
   Silently-Ignore-Muster fuer unparsbare Datumsangaben — dokumentiert, nicht als Fund
   gewertet (konsistent mit dem bereits bestehenden Calendar-Verhalten).
+
+## Iteration 42 — cov-einkauf-service-extended-real-paths — done — 2026-08-26 07:13
+- commit: (siehe naechster chore-Commit)
+- gebaut: Tests fuer die Nullcoverage-Funktionen in service.go/service_extended.go:
+  GetSupplier, UpdatePO (inkl. Draft-Only-Guard, Duplicate-PONumber,
+  Supplier-Wechsel-NotFound, ExpectedDeliveryDate-Clear), ListPOLines,
+  UpdateCatalogItem/DeleteCatalogItem/GetCatalogItem, DeleteSupplierRating/
+  ListSupplierRatings, UpdateFrameworkContract/DeleteFrameworkContract/
+  GetFrameworkContract/ListFrameworkContracts, CreateContractItem/
+  UpdateContractItem/DeleteContractItem, WithInventarAdjuster. Zusaetzlich zwei
+  gezielte Status-Tests (ReceiveGoods/PartialReceive auf stornierter PO ->
+  ErrPONotReceivable) und ein DB-Test mit krummen Werten
+  (TestRecomputePOTotal_SumsRawWithoutPerLineRounding in tenant_write_test.go),
+  der die Bug-Hypothese aus dem Scope widerlegt: RecomputePOTotal summiert
+  quantity*unit_price roh in Postgres (total_amount ist NUMERIC(15,4), exakt
+  wie quantity/unit_price) statt je Zeile zu runden — kein Bug gefunden.
+  Ausserdem ein Fund-Test (TestExtended_ReceiveGoods_LinkedToFrameworkContract_
+  DoesNotRecordCallOff), der belegt, dass der Docstring-Kommentar an
+  PurchaseOrder.FrameworkContractID ("ReceiveGoods will automatically record a
+  contract call-off") nicht der Realitaet entspricht — als eigene Unit angelegt.
+- gate: build ok (`go build -p 2 ./internal/einkauf/...`) | vet ok | lint ok
+  (`golangci-lint run ./internal/einkauf/...`, 0 issues) | test ok
+  (DATABASE_URL gesetzt, `go test -count=1 ./internal/einkauf/...`, 0
+  uebersprungen, DB-Test lief real gegen kmuhub_app-Rolle, kein `t.Skip`) |
+  migration n.a. (keine neue Migration, nur bestehende Spalte
+  framework_contract_id gelesen) | rls-smoke n.a. (keine neue Tabelle/Policy) |
+  gateway-test n.a. (keine Route angefasst)
+- coverage: internal/einkauf 63,9 % -> 79,1 % (selbst gemessen vor/nach,
+  deckt sich mit coverage_start der Unit). Funktions-Feinbild
+  (`go tool cover -func`): service_extended.go hatte 13 Funktionen bei 0,0 %
+  (UpdateCatalogItem, DeleteCatalogItem, GetCatalogItem, DeleteSupplierRating,
+  ListSupplierRatings, UpdateFrameworkContract, DeleteFrameworkContract,
+  GetFrameworkContract, ListFrameworkContracts, CreateContractItem,
+  UpdateContractItem, DeleteContractItem, getContractItemByID) — jetzt liegt
+  jede zwischen 66,7 % und 100 %. service.go: GetSupplier 0,0->100, UpdatePO
+  0,0->78,8, ListPOLines 0,0->100, WithInventarAdjuster 0,0->100.
+- mutations-probe: RecomputePOTotal-SQL testweise auf
+  `SUM(ROUND(quantity * unit_price, 2))` je Zeile geaendert (statt
+  `SUM(quantity * unit_price)` roh) -> TestRecomputePOTotal_
+  SumsRawWithoutPerLineRounding wurde rot (erwartet 0.25, bekam 0.26 bei zwei
+  Zeilen a 1x0.125) -> Diff zurueckgedreht (`git diff --stat` danach leer),
+  Test wieder gruen. Fuer den Fund-Test (FrameworkContractID) keine separate
+  Mutations-Probe noetig — er dokumentiert fehlendes Verhalten, kein
+  vorhandenes; sein "Rot-Zustand" waere das Fehlen des Tests selbst.
+- verify vorgaenger: sauber (`4802caf3` geprueft — reiner Test-Commit, fuenf
+  neue/geaenderte Dateien, alles `_test.go` oder Journal/Backlog; kein `.proto`,
+  keine neue Route, kein `RequirePermission`, keine neue Tabelle, kein
+  gRPC-Bypass, kein Stub-Marker im Diff)
+- neue-units: feat-einkauf-po-framework-contract-call-off-wiring
+  (PurchaseOrder.FrameworkContractID wird von CreatePOInput/UpdatePOInput nie
+  gesetzt und von ReceiveGoods/PartialReceive nie gelesen, obwohl Modell-
+  Kommentar und Migration 000208 genau dafuer angelegt wurden — die
+  versprochene automatische Rahmenvertrags-Abrufbuchung existiert nicht)
+- offen: (1) total_amount ist ein Netto-Betrag ohne Steuer — tax_rate wird pro
+  Zeile gespeichert, aber RecomputePOTotal ignoriert es vollstaendig
+  (SUM(quantity*unit_price) ohne tax_rate-Faktor). Keine eigene Steuer-
+  arithmetik nachgebaut (done_when-Punkt 3 beantwortet: kein Bug, aber auch
+  keine Brutto-Summe verfuegbar — falls das erwartet wird, ist das eine
+  Produktentscheidung, keine Fix-Unit). (2) CreateContractCall hat in der
+  Postgres-Implementierung denselben Budget-Race-Schutz wie die
+  bereits-getesteten Faelle (Transaktion in der Repo-Ebene) — nicht erneut
+  gepruecft, da ausserhalb des service_extended.go-Scopes dieser Unit.
+  (3) Die neue Unit feat-einkauf-po-framework-contract-call-off-wiring braucht
+  eine Produktentscheidung zum Verhalten bei ErrContractBudgetExceeded waehrend
+  eines physischen Wareneingangs — im Zweifel `blocked` mit Frage an Luke.
