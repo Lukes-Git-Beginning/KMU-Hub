@@ -1175,7 +1175,7 @@ Kopf von `BACKLOG.yml`.
   besteht unveraendert fort, siehe Iteration 20.
 
 ## Iteration 22 — cov-gateway-video-breakout-and-cohosts — done — 2026-08-26 03:37
-- commit: (folgt im chore-Commit dieser Iteration)
+- commit: dabf02be
 - gebaut: Neue Datei `internal/gateway/route_video_breakout_cohost_test.go` mit Tests fuer
   alle 15 im Scope genannten Handler (HandleCreateBreakoutRooms, HandleCloseBreakoutRooms,
   HandleListBreakoutRooms, HandleJoinBreakoutRoom, HandleReturnToMainRoom,
