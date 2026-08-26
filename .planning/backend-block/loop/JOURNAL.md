@@ -2566,7 +2566,7 @@ Kopf von `BACKLOG.yml`.
   Teil dieser Unit.
 
 ## Iteration 41 — cov-gateway-vermietung-objects-and-inspections — done — 2026-08-26 07:03
-- commit: (siehe naechster chore-Commit)
+- commit: 4802caf3ad15e70c0a12f6eec067ea727836824f
 - gebaut: Gateway-Tests fuer die neun ungetesteten vermietung-Handler
   (HandleGetObject, HandleUpdateObject, HandleDeleteObject, HandleListRentals,
   HandleGetInspection, HandleListInspections, HandleUpdateInspection,
