@@ -1391,7 +1391,7 @@ Kopf von `BACKLOG.yml`.
 
 
 ## Iteration 25 — cov-formulare-postgres-repository-real-sql — done — 2026-08-26 04:10
-- commit: (wird im naechsten chore-Commit nachgetragen)
+- commit: 2c225f9e
 - gebaut: `backend/internal/formulare/postgres_repository_db_test.go` — 18 neue DB-Tests
   gegen PostgresRepository mit echter Postgres-Instanz (kein Mock): UpdateSchema,
   SoftDeleteSchema, ListSchemas (Status/IsTemplate/Search, einzeln und kombiniert),
