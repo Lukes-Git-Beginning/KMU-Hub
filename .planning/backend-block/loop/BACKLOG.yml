@@ -1450,7 +1450,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 56,6 %; route_video.go 47,5 %, 545 ungedeckt, 33 von 59 Handlern ungetestet"
     scope: >
       `route_video.go` ist mit 2379 Zeilen die groesste Routendatei ueberhaupt. Drei Units

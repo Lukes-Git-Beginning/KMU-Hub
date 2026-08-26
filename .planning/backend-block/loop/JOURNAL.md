@@ -1173,3 +1173,60 @@ Kopf von `BACKLOG.yml`.
   treffen in mind. einer `route_hr*_test.go`-Datei). Die vorbestehende Preflight-Meldung zu
   `fix-409-double-meaning-on-grpc-conflict-routes` (aus `18b85a4e`, nicht dieser Iteration)
   besteht unveraendert fort, siehe Iteration 20.
+
+## Iteration 22 — cov-gateway-video-breakout-and-cohosts — done — 2026-08-26 03:37
+- commit: (folgt im chore-Commit dieser Iteration)
+- gebaut: Neue Datei `internal/gateway/route_video_breakout_cohost_test.go` mit Tests fuer
+  alle 15 im Scope genannten Handler (HandleCreateBreakoutRooms, HandleCloseBreakoutRooms,
+  HandleListBreakoutRooms, HandleJoinBreakoutRoom, HandleReturnToMainRoom,
+  HandleAssignBreakoutParticipant, HandleGetBreakoutAssignment, HandlePromoteCoHost,
+  HandleDemoteCoHost, HandleListCoHosts, HandleMuteMeetingParticipant, HandleJoinCall,
+  HandleEndCall, HandleGetCall, HandleListActiveCalls), je ServiceUnavailable/InvalidUUID/
+  ReachesRPC plus Validierungsfaelle (fehlende/ungueltige UUID-Felder, Count-Grenzen 1..20),
+  im selben Dummy-Registry-Muster wie die HR-Vorgaenger-Iterationen (kein Fake
+  VideoServiceClient in diesem Paket vorhanden).
+  Schwerpunkt-Fragen der Unit: (1) Koennen PromoteCoHost/DemoteCoHost/MuteMeetingParticipant
+  von einem normalen Teilnehmer ausgeloest werden? NEIN, belegt — aber nicht am Gateway
+  pruefbar (kein Fake-Client, das Gateway sieht nur den durchgereichten gRPC-Fehler). Die
+  Autorisierung sitzt vollstaendig in `internal/work/meeting/service.go` (`isHostOrCoHost`,
+  aufgerufen aus PromoteCoHost/DemoteCoHost/MuteMeetingParticipant/CreateBreakoutRooms/
+  AssignBreakoutParticipant/ReturnToMainRoom/CloseBreakoutRooms) und dort bereits durch
+  bestehende Tests bewiesen (gegengeprueft, alle sechs liefen gruen:
+  TestPromoteCoHost_NonOrganizerDenied, TestDemoteCoHost_NonOrganizerDenied,
+  TestMuteMeetingParticipant_NonHostDenied, TestCreateBreakoutRooms_HostOnly,
+  TestAssignBreakoutParticipant_NonHost, TestJoinBreakoutRoom_NoAssignment).
+  (2) Prueft HandleJoinBreakoutRoom, dass der Raum zum Meeting des Aufrufers gehoert? Das
+  Request-Design macht die Frage gegenstandslos, nicht falsch beantwortbar: die Route nimmt
+  KEINE Room-ID entgegen (weder Body noch URL-Param, siehe `route_video.go:2295-2311`), der
+  Service loest ueber `GetBreakoutAssignmentForUser(meetingID, callerID, tenantID)` exakt die
+  eigene Zuweisung des Aufrufers fuer GENAU dieses Meeting auf
+  (`internal/work/meeting/service.go:1241-1253`) — ein Cross-Meeting-Zugriff auf einen fremden
+  Raum ist mit diesem Vertrag strukturell nicht adressierbar, nicht bloss durch eine Pruefung
+  verhindert. Kein Fund, kein Fix noetig.
+  Alle 15 Handler nutzen keinen expliziten `getTenantID`/`middleware.GetTenantID`-Aufruf im
+  Gateway (gegengeprueft per Zeilen-Scan) — die Aufrufer-Identitaet reist ausschliesslich ueber
+  den Outbound-gRPC-Interceptor, deshalb entfaellt fuer diese Unit der sonst uebliche
+  "MissingTenant"-Testfall.
+- gate: build ok (`./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues,
+  `golangci-lint run --config .golangci.yml ./internal/gateway/...`) | test ok (komplettes
+  Paket gruen, `DATABASE_URL` gesetzt, keine Skips) | migration n.a. (keine Tabelle/Policy
+  angefasst) | rls-smoke n.a. (reine Unit-Tests, kein neuer DB-Zugriff) | route-drift ok
+  (`TestOpenAPIRouteDrift`: 836 registrierte gegen 838 dokumentierte Pfade, PASS — keine neue
+  Route)
+- coverage: internal/gateway 60,4 % -> 61,2 % (`-coverprofile` vor/nach der neuen Testdatei
+  gemessen, Vorher-Lauf mit temporaer entfernter Datei)
+- mutations-probe: `Count` im `createBreakoutRoomsHTTPRequest`-Validate-Tag von `max=20` auf
+  `max=25` geaendert (Datei vorher per `cp` gesichert). `TestHandleCreateBreakoutRooms_
+  CountOutOfBounds` sofort rot (erwartete 400/validation_failed/Feld "count", bekam 503 vom
+  Transportfehler, weil Count=21 jetzt gueltig war und bis zur RPC durchlief). Datei per `cp`
+  zurueckgedreht, `git diff` danach leer, `./internal/gateway/` anschliessend wieder komplett
+  gruen.
+- verify vorgaenger: sauber. `1e6691f1` (HR-Analytics/Settings-Gateway-Tests) und `3853a5d6`
+  (Journal-SHA-Nachtrag) aendern ausschliesslich Testdateien + Backlog/Journal — kein
+  gRPC-Aufruf umgangen, kein `.proto`, keine neue Tabelle/Route/Guard, keine
+  Wire-Shape-Aenderung; `git show --stat` gegen beide Commits gegengeprueft.
+- neue-units: keine
+- offen: Der Backlog-Kopf nennt fuer `route_video.go` "Drei Units teilen sie auf" — die dritte
+  ist `cov-video-recording-service-and-repository` (deckt die verbleibenden fuenf
+  Recording-Handler + das `internal/work/recording`-Paket ab), noch `status: todo`. Damit sind
+  nach dieser Iteration alle drei Video-Units im Backlog vorhanden, keine fehlt.
