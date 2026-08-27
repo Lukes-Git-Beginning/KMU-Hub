@@ -2953,7 +2953,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 69,3 %; route_schichten.go 48,3 %, 229 ungedeckt von 443, 7 von 20 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       Schichtplanung. Ungetestet (Stand 2026-08-24): HandleGetShift, HandleUpdateShift,
