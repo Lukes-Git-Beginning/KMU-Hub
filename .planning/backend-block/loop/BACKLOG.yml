@@ -3082,7 +3082,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/dialer 65,9 % (321 ungedeckt von 942); service.go 55,2 %, 182 ungedeckt von 406 (CI-Stand 32949396303)"
     scope: >
       Der Dialer fuehrt Anrufsitzungen mit Notizen und Ergebnissen — die Tabellen, die
