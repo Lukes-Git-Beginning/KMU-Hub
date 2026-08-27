@@ -4043,7 +4043,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `cov-fuhrpark-postgres-repository-real-sql` (Iteration 16, Lauf 12):
