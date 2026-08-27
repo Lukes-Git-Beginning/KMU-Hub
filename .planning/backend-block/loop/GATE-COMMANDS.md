@@ -209,3 +209,16 @@ in **denselben** Commit.
 - **e2e / Full-Stack-Bringup** — braucht alle 24 Services; zu schwer fuer eine Iteration.
 - **CI** — laeuft am Draft-PR nach dem Push, nicht lokal.
 - **Prod-Smoke** — gehoert Luke.
+- **Der Race-Detector** — `go test -race` verlangt cgo und damit einen C-Compiler. Auf dieser
+  Maschine gibt es keinen (`gcc`, `cc`, `clang` fehlen alle), der Aufruf bricht mit
+  `-race requires cgo` ab. **Ein Loop-Gate kann Data Races also grundsaetzlich nicht sehen.**
+  CI faehrt `go test ./... -race` (`ci.yml:111`) und sieht sie sehr wohl: Lauf 13 hat zwei
+  eingebaut, die lokal in jedem Gate gruen waren und den CI-Lauf 33071992258 rot machten —
+  ein ungeschuetzter `append` in einem Mock, der erst nebenlaeufig erreicht wurde, nachdem
+  ein No-op-Stub verdrahtet war, und ein `t.Cleanup`, das paketweite Variablen zurueckschrieb,
+  waehrend eine Worker-Goroutine sie noch las.
+
+  Solange kein C-Compiler installiert ist, gilt: **Tests, die Goroutinen starten oder
+  gemeinsamen Zustand nebenlaeufig anfassen, sind lokal nicht abgenommen.** Wer so einen Test
+  schreibt, vermerkt das in `offen:`, damit es beim Merge-Review geprueft wird. Ein
+  `mingw-w64`/TDM-GCC auf der Maschine wuerde diese Luecke schliessen.

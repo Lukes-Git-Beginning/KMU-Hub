@@ -65,6 +65,29 @@ test_cmd "go test"                  "go test ./internal/document/..." ALLOW
 test_cmd "lokales compose"          "docker compose -f deploy/docker/docker-compose.yml up -d postgres" ALLOW
 test_cmd "lokale Migration"         "migrate -path backend/migrations -database \$DB up" ALLOW
 
+echo "=== BACKLOG-YAML-GATE ==="
+# Der Guard blockt einen Commit, der BACKLOG.yml unparsebar hinterlaesst. Der
+# Fixture-Pfad kommt ueber LOOP_GUARD_BACKLOG, damit der Test die echte Datei
+# nicht anfassen muss.
+BROKEN_BACKLOG=$(mktemp)
+printf 'units:
+  - id: kaputt
+    status: todo
+    done_when:
+      - `beginnt mit backtick`
+' > "$BROKEN_BACKLOG"
+commit_json=$(python -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'git commit -m test'}}))")
+echo "$commit_json" | LOOP_GUARD_BACKLOG="$BROKEN_BACKLOG" bash "$GUARD" >/dev/null 2>&1
+rc=$?
+if [ $rc -eq 2 ]; then
+  echo "  ok   [BLOCK] commit bei unparsebarem BACKLOG.yml"
+else
+  echo "  FAIL [rc=$rc want=2] commit bei unparsebarem BACKLOG.yml"
+  FAILED=$((FAILED + 1))
+fi
+rm -f "$BROKEN_BACKLOG"
+test_cmd "commit bei heilem BACKLOG.yml" "git commit -m 'chore(loop): mark unit in progress'" ALLOW
+
 echo ""
 if [ $FAILED -eq 0 ]; then
   echo "Guard gruen — alle Faelle korrekt."

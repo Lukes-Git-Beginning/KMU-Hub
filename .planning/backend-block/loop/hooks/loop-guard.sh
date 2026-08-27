@@ -126,4 +126,44 @@ if echo "$CMD" | grep -Eq 'docker-compose\.prod\.yml|deploy/scripts/deploy\.sh|s
   block "Production-Compose oder Deploy-Skript."
 fi
 
+# --- Backlog: muss nach dem Commit noch parsebar sein ------------------------
+# Lauf 13 endete am 2026-08-27 um 04:37 nach 21 von 130 Iterationen, rund 7,4
+# Stunden vor Fensterende. Kein Codefehler: Iteration 21 schrieb ein
+# done_when-Element, das mit einem Backtick beginnt - YAML verbietet den Backtick
+# als erstes Zeichen eines Plain-Skalars. Der naechste `backlog-check.py --state`
+# des Treibers scheiterte, und die Nacht war vorbei.
+#
+# Deshalb prueft der Guard vor jedem Commit, ob BACKLOG.yml noch laedt. Wer ihn
+# zerschiesst, committet nicht, sondern repariert ihn - und der Lauf laeuft
+# weiter, statt an einer Zeile zu sterben. Bewusst ein eigener yaml.safe_load und
+# kein Aufruf von backlog-check.py: hier zaehlt nur die Ladbarkeit, nicht die
+# Vorflug-Regeln, und der Hook bleibt unabhaengig vom Exit-Code-Vertrag dort.
+if echo "$CMD" | grep -Eq '(^|[^a-zA-Z-])git[[:space:]]+commit'; then
+  # Absoluter Pfad ueber das Hook-Verzeichnis. Ein relativer Pfad scheitert im
+  # zusaetzlichen Arbeitsverzeichnis still mit Exit 127 - der Hook laeuft dann
+  # monatelang ins Leere, ohne dass es auffaellt.
+  GUARD_DIR=$(cd "$(dirname "$0")" && pwd)
+  BACKLOG_FILE="${LOOP_GUARD_BACKLOG:-$GUARD_DIR/../BACKLOG.yml}"
+  if [ -n "$PY" ] && [ -f "$BACKLOG_FILE" ]; then
+    YAML_ERR=$("$PY" -c 'import sys, yaml
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        yaml.safe_load(fh)
+except Exception as exc:
+    sys.stdout.write(" ".join(str(exc).split())[:300])' "$BACKLOG_FILE" 2>/dev/null)
+    if [ -n "$YAML_ERR" ]; then
+      echo "BLOCKIERT vom Backend-Nachtloop-Guard: BACKLOG.yml ist nicht mehr parsebar." >&2
+      echo "" >&2
+      echo "  $YAML_ERR" >&2
+      echo "" >&2
+      echo "Committe nicht ueber einen kaputten Backlog. Der naechste --state des Treibers" >&2
+      echo "scheitert daran und beendet den GANZEN Lauf - so ist Lauf 13 nach 21 von 130" >&2
+      echo "Iterationen gestorben." >&2
+      echo "Haeufigste Ursache: ein Listeneintrag, der mit einem Backtick beginnt. Schreib" >&2
+      echo "stattdessen '- >-' und den Text eingerueckt in der Zeile darunter." >&2
+      exit 2
+    fi
+  fi
+fi
+
 exit 0

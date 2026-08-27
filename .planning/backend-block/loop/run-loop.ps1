@@ -462,6 +462,22 @@ if ($StartNotBefore -ne "") {
 
 Write-Line "Start. MaxIterations=$MaxIterations BudgetUsd=$BudgetUsd Effort=$Effort" "Green"
 
+# Dateistand des Journals VOR der ersten Iteration. Die Drift-Pruefung unten wertet nur
+# Zeilen UNTERHALB davon aus.
+#
+# Seit Lauf 13 (2026-08-27): JOURNAL.md ist append-only ueber Laufgrenzen hinweg, und vor
+# diesem Lauf war es nicht gerollt worden - es stand noch auf Lauf 12 mit 43 Iterationen.
+# Der Detektor nahm die hoechste Nummer der GANZEN Datei (43) und verglich sie gegen
+# seinen eigenen Zaehler (1-21): 70 Fehlalarme, ab Iteration 1 durchgehend. UNIT- und
+# MODELL-DRIFT lasen dabei Lauf 12s letzte Ueberschrift und meldeten entsprechend Unsinn.
+# Die Selbstueberwachung war den ganzen Lauf blind - ein Check, der immer feuert, verdeckt
+# genau den Fall, den er fangen soll. Mit der Basiszeile stimmt der Vergleich unabhaengig
+# davon, ob jemand das Journal vor dem Lauf gerollt hat.
+$journalBaseLines = 0
+if (Test-Path $Journal) {
+    $journalBaseLines = @(Get-Content -LiteralPath $Journal -Encoding UTF8).Count
+}
+
 while ($i -lt $MaxIterations) {
 
     if (Test-Path $StopFile) { Write-Line "STOP-Datei gefunden - Lauf beendet." "Yellow"; break }
@@ -643,7 +659,8 @@ while ($i -lt $MaxIterations) {
     # Uhrzeit, die hier jedes Mal mitgeliefert wurde. Beides bricht den Lauf NICHT ab -
     # es soll nur morgens im run.log stehen, statt erst bei der Retrospektive aufzufallen.
     if (Test-Path $Journal) {
-        $heads = Select-String -Path $Journal -Pattern '^## Iteration\s+(\d+)' -Encoding UTF8
+        $heads = Select-String -Path $Journal -Pattern '^## Iteration\s+(\d+)' -Encoding UTF8 |
+                 Where-Object { $_.LineNumber -gt $journalBaseLines }
         if ($heads) {
             $newest = $heads | Sort-Object { [int]$_.Matches[0].Groups[1].Value } | Select-Object -Last 1
             Write-Line ("  " + $newest.Line) "DarkGray"

@@ -299,6 +299,20 @@ naechsten Lauf verloren gewesen — darunter einer, der den kompletten Audit-Log
 den CSV/JSON-Export und die `VerifyAuditChain`-RPC lahmlegt. `keine` ist eine zulaessige Antwort,
 Weglassen nicht.
 
+**Ein Tenant- oder Auth-Befund gehoert an den KOPF der Datei, nicht ans Ende.** Der Treiber
+zieht die erste baubare Unit in DATEIREIHENFOLGE — bei einem vollen Backlog heisst "ans
+Dateiende" faktisch "nie". In Lauf 13 hat `scan-tenant-filter-on-read-paths` zwei ueber REST
+erreichbare Cross-Tenant-Lecks gefunden (`GET /api/v1/presence/{userId}` und
+`GET /api/v1/dialer/agents`, beide ohne Netz darunter, weil der Zustand in Redis liegt) und sie
+brav ans Ende gehaengt: Position 44 und 45 von 58, hinter zehn `scan-`-Units ohne Codeanteil.
+Gefunden und trotzdem ungefixt ist fast so schlecht wie nicht gefunden.
+
+Beschreibt der `scope` deiner neuen Unit einen VERIFIZIERTEN Cross-Tenant-Zugriff, ein
+Auth-Loch oder einen Datenabfluss, dann setz sie VOR die erste `todo`-Unit der Datei und
+schreib in `neue-units:` dazu, dass du das getan hast. Alles andere haengst du weiterhin ans
+Ende. Im Zweifel ans Ende — diese Regel ist fuer den Fall gedacht, in dem du den Befund selbst
+reproduziert hast, nicht fuer einen Verdacht.
+
 **Die Nummer steht im Laufkontext-Block am Ende dieses Prompts und wird woertlich uebernommen —
 nicht aus dem Journal ableiten, nicht schaetzen.** In Lauf 6 hat das Modell ab Iteration 27
 "## Iteration 28" geschrieben; seitdem lief die Nummerierung um eins vor, eine Nummer existierte
