@@ -3533,7 +3533,7 @@ Kopf von `BACKLOG.yml`.
   manuell nach vorne ziehen.
 
 ## Iteration 12 — cov-gateway-vertraege-lifecycle-and-signature — done — 2026-08-27 02:56
-- commit: (folgt im naechsten Commit dieser Iteration)
+- commit: 76175de2
 - gebaut:
   1. `backend/internal/gateway/route_vertraege_lifecycle_signature_test.go` (neu) — 34 Tests
      fuer alle zehn im Scope genannten Handler (HandleGetContract, HandleListContracts,
