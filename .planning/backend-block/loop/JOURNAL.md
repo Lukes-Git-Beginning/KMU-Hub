@@ -3139,3 +3139,157 @@ Kopf von `BACKLOG.yml`.
   betroffen sind. LiveKit-Tokens sind 24 h gueltig und werden nicht serverseitig gefuehrt; ein
   vor dem Fix ausgestelltes Token fuer einen fremden Raum bleibt bis zum Ablauf gueltig. Falls
   Luke das ausschliessen will, hilft nur ein Wechsel des LiveKit-`apiSecret`.
+
+## Iteration 7 — scan-tenant-filter-on-read-paths — done — 2026-08-27 02:00
+- commit: <SHA>
+- gebaut: Kein Code. Systematischer Scan der drei Wege an RLS vorbei (Redis, Objektspeicher,
+  Postgres ohne Tenant-Kontext). Vollstaendige Schluessel-/Pfad-/Kontext-Inventur unten;
+  drei Befunde als Units am Backlog-Ende.
+
+  **(1) REDIS — sieben Schluesselfamilien, das ist die vollstaendige Flaeche.** Ermittelt
+  ueber alle Nicht-Test-Dateien, die `redis/go-redis` importieren (10 Stueck: `cmd/dialer`,
+  `cmd/gateway/setup.go`, `cmd/work`, `internal/cache`, `internal/database/redis.go`,
+  `internal/dialer/redis_agent_store.go`, `internal/health`, `internal/middleware/ratelimit.go`,
+  `internal/server/websocket.go`, `internal/work/presence/redis_store.go`), danach jede
+  Redis-Kommandostelle einzeln aufgelistet — es gibt 21, alle in fuenf Dateien.
+    - `cache:biz:dashboard:{tenant}:{von}:{bis}` (biz/dashboard/cached_repository.go:29) —
+      Tenant IM Schluessel. SICHER.
+    - `cache:pipelinestages:list:{tenant}` und `cache:pipelinestage:{tenant}:{id}`
+      (crm/pipelinestage/cached_repository.go:14-15) — Tenant im Schluessel, und die
+      Invalidierung in Create/Update/Delete/Reorder nutzt denselben Praefix. SICHER.
+    - `cache:dashboard:defaults:{tenant}:{rolle}` und `cache:dashboard:user:{tenant}:{user}`
+      (gateway/cached_dashboard_repository.go:13-14) — SICHER, und der Grund steht als
+      Kommentar im Code: vor Migration 000274 waren Rollen-Defaults installationsweit, ein
+      rollen-only-Schluessel wuerde den ersten waermenden Tenant 30 Minuten lang an alle
+      anderen ausliefern.
+    - `ratelimit:{userID|IP}` (middleware/ratelimit.go:76) — kein Tenant, ABSICHT. Die
+      User-Variante ist eine global eindeutige UUID, kollidiert also nicht. Die IP-Variante
+      teilen sich zwei Tenants hinter demselben NAT ein Kontingent — das ist ein geteiltes
+      Limit, kein Datenabfluss, und im Auslieferungsmodell "ein Server pro Kunde" ohnehin
+      gegenstandslos. KEIN Befund.
+    - `ws:subscriptions:{channelID}` (server/websocket.go:37, SADD 1434 / SREM 1455) — kein
+      Tenant, aber SICHER mit Grund: der Schluessel wird ausschliesslich GESCHRIEBEN. Es gibt
+      im ganzen Repo keine lesende Operation darauf (kein SMEMBERS, kein SISMEMBER) — der
+      Kommentar nennt ihn "Mirror fuer Phase D", die lokale Map ist massgeblich. Die
+      Mitgliedschaft wird vorher ueber `chatClient.GetChannel(id, userID)` geprueft
+      (websocket.go:685-692), also ueber RLS in Postgres. Er traegt heute keine
+      Autorisierungsentscheidung.
+    - `presence:{userID}` (work/presence/redis_store.go:14/51) — **BEFUND**, siehe unten.
+    - `dialer:agent:status:{userID}` und `dialer:campaign:agents:{campaignID}`
+      (dialer/redis_agent_store.go:14-15) — **BEFUND**, siehe unten.
+
+  **(2) OBJEKTSPEICHER — sechs Pfadfamilien, ermittelt ueber alle vier Nicht-Test-Dateien,
+  die `minio-go` importieren, plus alle Schluesselbildner im Repo.** Es gibt keinen
+  Datei-System-Fallback: die einzige Nicht-MinIO-Implementierung ist `UnavailableStore`
+  (chat/file/filestore.go:22), die auf jeden Aufruf einen Fehler zurueckgibt.
+    - `{tenant}/{scope}/{uuid}{ext}` (document/file/presign.go:98) — Tenant im Pfad, aus
+      `middleware.GetTenantID`, nie aus dem Request. Der Download prueft ihn zusaetzlich
+      (`strings.HasPrefix`, presign.go:124-127) und antwortet sonst PermissionDenied.
+      `scope` gegen Allowlist, `filepath.Ext` schneidet den Dateinamen auf die Endung, also
+      auch kein Traversal ueber den Namen. SICHER.
+    - `{tenant}/branding/…` — derselbe Pfad, zusaetzlich validiert beim Zurueckschreiben
+      (`brandingObjectKeyValid`, settings/branding.go:60-66). SICHER.
+    - `gobd/{tenant}/{docID}/{filename}` (biz/gobdarchive/service.go:88) — Tenant im Pfad.
+      SICHER.
+    - `documents/{spaceType}/{spaceID}/{folderID}/{fileID}/{filename}` sowie
+      `documents/copy/…` und `documents/versions/…` (document/file/service.go:438/685/833/914)
+      — KEIN Tenant im Pfad, trotzdem sicher mit Grund: der Schluessel wird nie vom Aufrufer
+      geliefert, sondern immer aus einer tenant-gescopten DB-Zeile gelesen, und alle
+      Bestandteile sind UUIDs, kollidieren also nicht. Anmerkung in `offen:`.
+    - `channels/{channelID}/files/{fileID}/{filename}` (chat/file/service.go:136) — KEIN
+      Tenant, sicher mit Grund: `GetPresignedURL` laedt die Zeile ueber
+      `repo.GetFileByID` (RLS) und prueft danach `IsChannelMember` (service.go:222-240).
+      Zwei Huerden, beide in Postgres.
+    - `{prefix}/{accountID}/{messageUID}/{filename}` (email/attachment/store.go:39) — KEIN
+      Tenant, sicher mit Grund: `GetDownloadURL` holt den Schluessel ueber
+      `repo.GetMinIOKeyByID(ctx, id, tenantID)` (attachment/service.go:90-96), der Tenant ist
+      also Teil der Abfrage. Der Aufrufer kann keinen Schluessel setzen.
+    - Aufzeichnungen: `fileURLToObjectKey(*rec.FileURL, …)` (work/recording/service.go:651)
+      leitet den Schluessel aus der DB-Zeile ab, davor steht eine Teilnehmer-ACL
+      (service.go:629-644). SICHER.
+
+  **(3) POSTGRES OHNE GESETZTEN TENANT-KONTEXT — drei Klassen, alle einzeln eingeordnet.**
+    - **39 `WithSystemContext`-Stellen** (Vollzaehlung ueber `internal/` + `cmd/`, ohne
+      Tests). Sieben davon sind Aufloeser fuer oeffentliche Links, die genau eine Zeile ueber
+      eine eindeutige Token-Spalte holen und danach sofort in den Tenant-Scope zurueckkehren
+      (`berichte.GetShareTokenBySecret`, `document/file.GetShareLinkByToken`,
+      `formulare.GetShareLinkByToken`, `helpdesk.GetCsatSurveyByToken`,
+      `wiki.GetShareTokenByToken`, `caldav.FindActiveByUser`,
+      `notification/integration.ResolveTenant`) — jede traegt ihre Begruendung als
+      Kommentar, keine ist eine Auflistung, keine nimmt einen Filter. Drei liegen im
+      LiveKit-Webhook-Pfad (`CompleteRecordingByEgress`, `FailRecordingByEgress`,
+      `CompleteMeetingByRoom`, video_grpc.go:1438/1462/1481) und sind tenantlos, weil LiveKit
+      keinen Tenant kennt; erreichbar nur ueber `POST /api/v1/webhooks/livekit`, das die
+      Signatur mit `lkwebhook.Receive` prueft und ohne gueltigen Authorization-Header 401
+      antwortet (route_video.go:1467-1476). Der Rest sind Scheduler, Worker und
+      Aufraeumlaeufe (Retention, Snooze, E-Mail-Sync, Bexio/Lexware-Scheduler,
+      WOPI-Lock-Cleanup, Guest-Session-Cleanup) — kein Anfragepfad. ALLE ABSICHT.
+    - **Zwei direkte `pgx.Connect` ausserhalb von `NewPostgresPool`** (also ohne den
+      GUC-Hook): `cmd/gateway/setup.go:88` und `notification/event/bus.go:89`. Beide machen
+      ausschliesslich `LISTEN` + `WaitForNotification` und fassen keine Tabelle an. Der
+      Event-Bus stempelt den Tenant vor dem Dispatch aus der Nutzlast
+      (`bus.dispatch`, bus.go:135-137). ABSICHT.
+    - **Fehlender Tenant im Anfragepfad** — die Pool-Voreinstellung ist fail-closed
+      (postgres.go:60-62 laesst die GUCs leer, die Policy filtert dann alles weg). Das ist
+      kein Leck, kann aber eine Schreiboperation lautlos wirkungslos machen. Genau ein
+      solcher Fall gefunden: **BEFUND** `route_caldav.go:453`.
+
+  **DREI BEFUNDE**
+    - `presence:{userID}`: der WS-Pfad ist seit Iteration 2 dicht
+      (`tenantAllowsPresenceTarget`), der HTTP/gRPC-Pfad NICHT. `GetPresence` und
+      `GetBulkPresence` (video_grpc.go:1361/1370) reichen die Fremd-UUID ungeprueft an den
+      Redis-Store durch; erreichbar ueber `GET /api/v1/presence/{userId}` und
+      `POST /api/v1/presence/bulk`. Redis hat kein Netz darunter.
+    - `dialer:agent:status:{userID}` / `dialer:campaign:agents:{campaignID}`: der Eintrag
+      TRAEGT `tenant_id` (redis_agent_store.go:37/104), gelesen wird das Feld nirgends.
+      `GET /api/v1/dialer/agents?user_id=…` und
+      `GET /api/v1/dialer/agents/campaign/{campaignId}` liefern damit fremde Agentenstatus;
+      die Kampagnen-Variante gleich als Liste.
+    - `route_caldav.go:453`: der Widerruf des Test-App-Passworts laeuft mit
+      `context.Background()` gegen eine RLS-Tabelle und trifft null Zeilen — das Passwort
+      bleibt gueltig, und die Tabelle hat keine Ablaufspalte.
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. — **kein Go-Code geaendert**, die Unit
+  fordert ausdruecklich "Kein Verhalten geaendert". `git status` zeigt genau zwei Dateien:
+  BACKLOG.yml und JOURNAL.md. | migration n.a. | rls-smoke **ok und tragend**: als
+  `kmuhub_app` mit leerem `app.tenant_id` gegen die lokale DB (Migrationskopf 325, clean)
+  liefert `app_specific_passwords` 0 sichtbare Zeilen und ein UPDATE 0 betroffene Zeilen,
+  waehrend die Tabelle als `kmuhub` 6 Zeilen enthaelt. Das ist der Beleg fuer den
+  CalDAV-Befund, nicht nur dessen Herleitung. `backlog-check.py --preflight` gruen.
+- coverage: n.a. (Scan, kein Coverage-Ziel — `coverage_start` der Unit sagt dasselbe)
+- mutations-probe: n.a. (kein Code geaendert, es gibt nichts zu brechen)
+- verify vorgaenger: sauber (`c448273f`, gegen alle acht Fehlerklassen geprueft. Kein
+  gRPC-Bypass — die Aenderung liegt im gRPC-Server selbst und ruft `s.eventService.Get`, den
+  Weg, den `GetEvent` im selben File schon geht. Kein Stub. Kein `.proto` im Diff. Kein
+  `RequirePermission` angefasst, also weder Seed-Pflicht noch verlorener Alt-Key. Keine neue
+  Tabelle. Wire-Shape unveraendert, der Erfolgsfall gibt dieselbe
+  `GenerateJoinTokenResponse` zurueck. Keine neue Route, `openapi.yaml` nicht im Diff und
+  auch nicht noetig. Der Nachfolge-Commit `6cad8da8` aendert nur eine Journal-Zeile.)
+- neue-units: `fix-getpresence-rpc-missing-tenant-check` (opus),
+  `fix-dialer-agent-status-missing-tenant-check` (opus),
+  `fix-caldav-test-revoke-runs-without-tenant-context` (sonnet). Die ersten beiden sind
+  Redis-Funde und deshalb opus, wie die Unit es vorschreibt; der dritte liegt in Postgres mit
+  RLS darunter, faellt also fail-closed aus und ist sonnet.
+- offen: (1) **Was tief geprueft ist:** die Redis-Flaeche vollstaendig (alle 21
+  Kommandostellen einzeln gelesen, alle sieben Schluesselfamilien bis zum Aufrufer verfolgt),
+  die Objektspeicher-Flaeche vollstaendig (alle sechs Pfadfamilien bis zu der Stelle
+  verfolgt, die den Schluessel liefert), und die drei Postgres-Klassen. **Was nur gegrept
+  ist:** die 39 `WithSystemContext`-Stellen — ich habe je 8 bis 18 Zeilen Kontext gelesen und
+  die Doku-Kommentare bewertet, aber nicht jede der sieben Token-Abfragen Zeile fuer Zeile
+  gegen ihr SQL geprueft. Sie tragen alle denselben Aufbau und dieselbe Begruendung; wer
+  einen davon anfasst, sollte das SQL trotzdem selbst lesen. **Was gar nicht angesehen
+  wurde:** der WASM-Plugin-Speicher (Feature-Flag OFF, 0,0 % Coverage) und alles unter
+  `internal/testsupport`/`internal/testutil`.
+  (2) `documents/…`-Schluessel tragen keinen Tenant, die Presign-Schluessel schon. Beide Wege
+  sind fuer sich sicher, sie sind aber nicht kombinierbar: `GetPresignedDownloadURL` verlangt
+  den Tenant-Praefix und wuerde einen `documents/…`-Schluessel mit PermissionDenied ablehnen.
+  Heute kollidiert das nicht (der einzige Aufrufer ist `route_files.go:113` mit einem
+  Presign-Schluessel), aber es ist eine Falle fuer den naechsten, der die beiden Wege
+  zusammenlegen will. Keine Unit, weil nichts kaputt ist.
+  (3) `ws:subscriptions:{channelID}` ist heute schreib-only. Sobald Phase D daraus liest — der
+  Kommentar kuendigt genau das an —, wird aus der fehlenden Tenant-Komponente ein echtes
+  Thema. Ebenfalls keine Unit, weil es ein zukuenftiger und kein bestehender Zustand ist.
+  (4) Der Widerruf-Befund erklaert moeglicherweise Alt-Zeilen in Produktion: dort koennten
+  aktive `app_specific_passwords` mit Label `connection-test` stehen, eines pro je
+  ausgefuehrtem Verbindungstest. Lokal sind es 6 Zeilen insgesamt (Label nicht geprueft, weil
+  die Spalte unter RLS als `kmuhub_app` nicht lesbar ist und ich als `kmuhub` nur gezaehlt
+  habe). Produktion muss Luke selbst nachsehen — der Loop hat dort keinen Zugriff.

@@ -671,7 +671,7 @@ units:
     service: server
     model: opus
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Der wichtigste Scan des Laufs. Block B prueft das Tenant-Scoping modulweise; dieser
@@ -5588,3 +5588,178 @@ units:
         Im Journal steht, welcher Weg (gespeicherte Spalte vs. Neuberechnung) fuehrend ist und
         was mit Bestandszeilen passiert
       - go test -count=1 ./internal/work/livekit/ ./internal/server/ gruen
+
+  - id: fix-getpresence-rpc-missing-tenant-check
+    phase: 4
+    service: work
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Sicherheits-Fix)"
+    scope: >
+      Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), am Code verifiziert.
+      Praesenz liegt in Redis unter `presence:<userID>` — OHNE Tenant-Anteil, und Redis hat
+      kein RLS darunter. Der WebSocket-Weg ist seit
+      `fix-websocket-presence-subscribe-missing-tenant-check` abgesichert
+      (`WebSocketHub.tenantAllowsPresenceTarget`, websocket.go:1185-1207); der HTTP/gRPC-Weg
+      ist es NICHT: `VideoGRPCServer.GetPresence` (video_grpc.go:1361-1368) und
+      `GetBulkPresence` (1370-1383) reichen `req.UserId` bzw. `req.UserIds` unveraendert an
+      `presenceService` durch, und der Service liest damit direkt den Redis-Schluessel. Weder
+      Handler noch Service rufen auf diesem Pfad `middleware.GetTenantID` auf.
+      Konkret erreichbar ueber `GET /api/v1/presence/{userId}` und
+      `POST /api/v1/presence/bulk` (route_video.go:145-146, HandleGetPresence 1302,
+      HandleGetBulkPresence 1322 — beide reichen den Parameter/Body roh weiter). Wer eine
+      User-UUID aus einem fremden Tenant kennt, bekommt deren Praesenzstatus, Manual-Status
+      und Last-Activity. Die Bulk-Variante nimmt eine Liste und ist damit auch das
+      Aufzaehlungs-Werkzeug.
+      Zu tun -- dieselbe Grenze wie im WS-Pfad ziehen: die Praesenz eines fremden Users nur
+      herausgeben, wenn der Ziel-User im Tenant des Aufrufers aufloesbar ist. Der eigene
+      User immer erlaubt.
+    sources:
+      - backend/internal/server/video_grpc.go
+      - backend/internal/server/websocket.go
+      - backend/internal/work/presence/service.go
+      - backend/internal/work/presence/redis_store.go
+      - backend/internal/gateway/route_video.go
+    notes: >
+      Der WS-Pfad loest den Ziel-User ueber `userInfoFunc -> authClient.GetUser` in einem auf
+      den Aufrufer-Tenant gescopten Kontext auf und wertet "not found" als "nicht erlaubt"
+      (fail-closed). Auf der gRPC-Seite gibt es diese Funktion nicht — hier ist die Frage,
+      ob der Video-Service ueberhaupt einen Auth-Client hat oder ob die Aufloesung besser
+      ueber die bereits tenant-gescopte `users`-Tabelle im selben Service laeuft. Das gehoert
+      geprueft, BEVOR eine Abhaengigkeit neu verdrahtet wird.
+      NICHT den Redis-Schluessel umbauen -- `presence:<userID>` um einen Tenant zu erweitern
+      wuerde alle laufenden Eintraege entwerten und den Schreibpfad
+      (`SetPresence`/Heartbeat/WS-Disconnect) mitziehen. Die Isolation gehoert an die
+      Autorisierungsgrenze, genau wie im WS-Pfad — das steht so im Kommentar ueber
+      `tenantAllowsPresenceTarget` und ist die bereits getroffene Entscheidung.
+      `SetPresenceStatus` ist NICHT betroffen -- der Gateway-Handler setzt dort
+      `middleware.GetUserID` und ignoriert einen Body-Wert (route_video.go:1352/1374).
+    done_when:
+      - >-
+        `GetPresence` und `GetBulkPresence` geben Praesenz eines fremden Users nur noch
+        heraus, wenn dieser im Tenant des Aufrufers sichtbar ist; der eigene User bleibt
+        immer erlaubt
+      - >-
+        Fehlender Tenant-Kontext fuehrt zur Ablehnung, nicht zur Freigabe (fail-closed) —
+        ein Test belegt das
+      - >-
+        Ein Test belegt, dass `GetBulkPresence` fremde IDs aus der Liste ENTFERNT, statt die
+        ganze Anfrage abzulehnen oder sie durchzureichen
+      - go test -count=1 ./internal/server/ ./internal/work/presence/ ./internal/gateway/ gruen
+
+  - id: fix-dialer-agent-status-missing-tenant-check
+    phase: 4
+    service: dialer
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Sicherheits-Fix)"
+    scope: >
+      Zweiter Redis-Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), am Code
+      verifiziert. `RedisAgentStore` legt den Live-Status eines Dialer-Agenten unter
+      `dialer:agent:status:<userID>` und die Kampagnen-Mitgliedschaft unter
+      `dialer:campaign:agents:<campaignID>` ab (redis_agent_store.go:14-15, 50-55) — beides
+      OHNE Tenant-Anteil, und Redis hat kein RLS darunter.
+      Der gespeicherte Eintrag TRAEGT den Tenant (`AgentStatusEntry.TenantID`,
+      redis_agent_store.go:37, gesetzt in Zeile 104) — gelesen wird er nirgends.
+      `Service.GetAgentStatus` (dialer/service.go:890-896) und `Service.GetCampaignAgents`
+      (899-906) reichen das Ergebnis ungefiltert durch, und
+      `DialerGRPCServer.GetAgentStatus`/`GetCampaignAgents` (dialer_grpc.go:494-519) parsen
+      nur die UUID.
+      Erreichbar ueber `GET /api/v1/dialer/agents?user_id=<fremde-uuid>` und
+      `GET /api/v1/dialer/agents/campaign/{campaignId}` (route_dialer.go:91/93, Handler 706
+      und 767). Beide haengen an `RequirePermission("dialer:agent","manage")` — das begrenzt
+      auf Dialer-Supervisoren, aber nicht ueber Tenant-Grenzen hinweg. Die Kampagnen-Variante
+      liefert eine LISTE fremder Agenten samt Status und Tenant-ID.
+      Zu tun -- den mitgespeicherten Tenant gegen den Tenant des Aufrufers pruefen und
+      Nicht-Treffer wie "nicht vorhanden" behandeln.
+    sources:
+      - backend/internal/dialer/redis_agent_store.go
+      - backend/internal/dialer/service.go
+      - backend/internal/server/dialer_grpc.go
+      - backend/internal/gateway/route_dialer.go
+    notes: >
+      Der Tenant steht bereits IM Eintrag — die Pruefung braucht keinen zusaetzlichen
+      DB-Weg und keinen neuen Redis-Schluessel. Das ist der billigere und der robustere Weg
+      als ein Schluessel-Umbau, der alle laufenden Eintraege entwerten wuerde.
+      `GetCampaignAgents` liest eine Redis-SET-Mitgliedschaft und danach die Eintraege
+      einzeln (Zeile 152 + 198) -- der Filter gehoert auf die EINZELEINTRAEGE, sonst haengt
+      das Ergebnis an der Kampagnen-ID, deren Tenant-Zugehoerigkeit in Redis gar nicht
+      steht. Alternativ die Kampagne vorher tenant-gescopt aus Postgres laden — dann aber
+      BEIDES, weil ein Eintrag im SET aus einer frueheren Zuordnung stammen kann.
+      Fail-closed -- ein Eintrag ohne parsebaren `tenant_id`-Wert (Altbestand aus der Zeit
+      vor dem Feld) ist NICHT sichtbar, sondern wird wie ein Nicht-Treffer behandelt. Das
+      gehoert in die `offen:`-Zeile, weil es laufende TTL-Eintraege beim Deploy unsichtbar
+      macht, bis der Agent das naechste Mal seinen Status setzt (TTL siehe
+      `agentStatusTTL`).
+    done_when:
+      - >-
+        `GetAgentStatus` liefert fuer eine User-UUID aus einem fremden Tenant denselben
+        Fehler wie fuer eine unbekannte UUID (kein Unterschied, an dem sich Existenz
+        ablesen laesst)
+      - >-
+        `GetCampaignAgents` filtert fremde Eintraege aus der Liste, statt sie
+        auszuliefern; ein Test mit zwei Tenants in einem SET belegt das
+      - Ein Eintrag ohne verwertbaren Tenant ist nicht sichtbar (fail-closed, per Test)
+      - go test -count=1 ./internal/dialer/ ./internal/server/ ./internal/gateway/ gruen
+
+  - id: fix-caldav-test-revoke-runs-without-tenant-context
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix)"
+    scope: >
+      Postgres-Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), gegen die lokale
+      DB verifiziert. Der CalDAV-Verbindungstest legt ein kurzlebiges App-Passwort an und
+      widerruft es im `defer` — mit `context.Background()`.
+      `route_caldav.go:453` ruft `c.pwService.Revoke(context.Background(), pw.ID, userID)`.
+      Dieser Kontext traegt weder Tenant noch System-Flag. `app_specific_passwords` steht
+      seit Migration 000122 unter RLS (`CALL enable_tenant_rls('app_specific_passwords')`),
+      der Pool-Hook stempelt bei fehlendem Tenant leere GUCs (database/postgres.go:60-62),
+      und die Policy laesst dann nichts zu.
+      Empirisch belegt als `kmuhub_app` mit leerem `app.tenant_id` gegen die lokale DB
+      (Migrationskopf 325, 6 Zeilen in der Tabelle) -- sichtbare Zeilen 0, vom UPDATE
+      betroffene Zeilen 0.
+      Folge -- `PostgresAppPasswordRepository.Revoke` (postgres_app_password.go:70-84) sieht
+      `RowsAffected() == 0`, gibt `ErrPasswordNotFound` zurueck, der Handler loggt eine
+      Warnung, und das Passwort bleibt aktiv. Die Tabelle hat KEINE Ablaufspalte
+      (Migration 000049 -- nur `revoked_at`), das Passwort gilt also unbegrenzt weiter und
+      taucht in `List` beim Nutzer auf. Jeder Klick auf "Verbindung testen" laesst ein
+      weiteres dauerhaft gueltiges CalDAV/CardDAV-Credential zurueck.
+      Zu tun -- den Widerruf mit einem Kontext ausfuehren, der den Tenant traegt. Der
+      Handler hat ihn ein paar Zeilen darueber bereits (`middleware.GetTenantID(r.Context())`
+      in Zeile 437).
+    sources:
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/caldav/app_password.go
+      - backend/internal/caldav/postgres_app_password.go
+      - backend/internal/database/postgres.go
+      - backend/migrations/000122_rls_phase2_long_tail.up.sql
+    notes: >
+      Die Begruendung im Kommentar ueber dem `defer` ist RICHTIG und muss erhalten bleiben --
+      der Request-Kontext kann abgebrochen sein (Client weggeklickt), waehrend der Widerruf
+      trotzdem laufen muss. Es geht also NICHT darum, `r.Context()` einzusetzen, sondern
+      einen von der Absage entkoppelten Kontext zu bauen, der die Tenant-/User-Werte
+      MITNIMMT. `context.WithoutCancel(r.Context())` ist der naheliegende Weg, das Muster
+      gibt es schon in `route_video.go:381`. Alternativ `database.WithSystemContext`, aber
+      das ist der schlechtere Weg -- er hebelt RLS ganz aus, wo ein Tenant vorliegt.
+      Ein Timeout gehoert dazu, sonst haengt der `defer` an einem toten Pool.
+      NICHT nebenbei mitmachen -- eine Ablaufspalte fuer `app_specific_passwords`. Das waere
+      die eigentliche Haertung, ist aber eine Migration plus Schreibpfad plus
+      Validierungspfad und gehoert in eine eigene Unit; wenn sie jemand will, ans
+      Backlog-Ende, nicht hier hinein.
+    done_when:
+      - >-
+        Der Widerruf im Verbindungstest laeuft mit einem Kontext, der den Tenant traegt und
+        von der Absage des Requests entkoppelt ist
+      - >-
+        Ein Test belegt, dass nach einem Verbindungstest KEIN aktives App-Passwort
+        zurueckbleibt (`revoked_at IS NOT NULL` bzw. `FindActiveByUser` liefert das
+        Testpasswort nicht mehr)
+      - >-
+        Im Journal steht, wie viele Alt-Zeilen aus fehlgeschlagenen Widerrufen in der
+        lokalen DB stehen — Produktion muss Luke selbst nachsehen
+      - go test -count=1 ./internal/gateway/ ./internal/caldav/ gruen
