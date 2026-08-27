@@ -4243,3 +4243,11 @@ Kopf von `BACKLOG.yml`.
   nicht aus dieser Zeile uebernehmen. `internal/security/gdpr` bleibt trotz 72,7 % ein
   grosses Paket mit vielen Handlern; die verbleibenden 640 ungedeckten Statements liegen
   ueberwiegend in Handler-Randfaellen, die diese Iteration nicht angefasst hat.
+
+## Bilanz Lauf (2026-08-27 04:37)
+- iterationen: 40 im Bereich 1-21, davon 40 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: cov 20 · fix 10 · feat 6 · harden 3 · scan 1
+- commits nach typ: chore 40 · test 13 · fix 7 · docs 1 (61 seit a0ed89e4)
+- coverage-delta: internal/email/sync 34,6 -> 64,6 · internal/fuhrpark 54,5 -> 81,3 · internal/settings 60,3 -> 82,8 · (14 weitere)
+- offen mit entscheidungsbedarf: 11 von 26 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 5,3 (214 gesamt)
