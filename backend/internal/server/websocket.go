@@ -152,6 +152,12 @@ type WebSocketHub struct {
 	// Optional metrics registry for Prometheus instrumentation
 	metrics *metrics.Registry
 
+	// revalidateInterval overrides how often handleConnection re-checks the
+	// connection's JWT. Zero means wsTokenRevalidateInterval (production).
+	// lean: plain field, no setter — only tests set it; make it a config knob
+	// the day operations needs to tune the revalidation cadence.
+	revalidateInterval time.Duration
+
 	// redisClient is an optional Redis client used to persist channel subscription state.
 	//
 	// When set, subscriptions are mirrored to Redis Sets under ws:subscriptions:{channelID}
@@ -517,7 +523,11 @@ func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Con
 // handleConnection and causes the normal disconnect path (defer unregisterConnection)
 // to execute. The goroutine exits when ctx is done or after it closes the connection.
 func (h *WebSocketHub) revalidateTokenLoop(ctx context.Context, conn *websocket.Conn, userID, rawToken string) {
-	h.revalidateTokenLoopWithInterval(ctx, conn, userID, rawToken, wsTokenRevalidateInterval)
+	interval := h.revalidateInterval
+	if interval <= 0 {
+		interval = wsTokenRevalidateInterval
+	}
+	h.revalidateTokenLoopWithInterval(ctx, conn, userID, rawToken, interval)
 }
 
 // revalidateTokenLoopWithInterval is the internal implementation of revalidateTokenLoop

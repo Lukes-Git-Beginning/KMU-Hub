@@ -19,6 +19,7 @@ func newTestHub(rc *redis.Client) *WebSocketHub {
 		connections:         make(map[string]map[*websocket.Conn]struct{}),
 		channelMembers:      make(map[string]map[string]struct{}),
 		presenceSubscribers: make(map[string]map[string]struct{}),
+		userTenants:         make(map[string]string),
 		userNames:           make(map[string]struct{ firstName, lastName string }),
 		rateLimiters:        make(map[string]*msgRateLimiter),
 		guestConnections:    make(map[string]map[*websocket.Conn]struct{}),

@@ -4010,3 +4010,91 @@ Kopf von `BACKLOG.yml`.
   einen eigenen Ausloeser — periodischer Worker (analog `security/gdpr/retention_scheduler.go`
   mit Advisory-Lock), RPC auf Zuruf, oder beim GoBD-Export. Das haengt daran, wie teuer ein
   Vollscan des Buckets sein darf, und ist deshalb bewusst aus der neuen Unit ausgeklammert.
+
+## Iteration 19 — cov-server-websocket-connection-and-message-loop — done — 2026-08-27 03:53
+- commit: <pending>
+- gebaut: `backend/internal/server/websocket_connection_test.go` (neu, 18 Tests) plus zwei
+  kleine Nebenaenderungen: ein Testfeld `revalidateInterval` an `WebSocketHub` (Null = die
+  Produktionskonstante von 5 Minuten, `lean:`-Marker gesetzt) und `userTenants` im
+  Test-Helper `newTestHub`, wo die Map bisher fehlte und `registerUserTenant` in eine
+  nil-Map geschrieben haette. Abgedeckt sind jetzt:
+  1. **Verbindungsaufbau** ueber `HandleWebSocket` end-to-end auf einem echten
+     `http.Server`: kein Token -> 401, kaputter Token -> 401, abgelaufener Token -> 401 vor
+     `Accept`, `maxConnsPerUser` erreicht -> 429, Gast-Token ohne Gast-Service -> 503,
+     ungueltiges Gast-Token -> 401, gueltiges Token -> registriert und `tid`-Claim landet in
+     `userTenants`.
+  2. **Nachrichtenschleife**: unbekannter Typ -> Error-Frame, leeres Kontingent ->
+     "rate limit exceeded", leere `channel_id` -> "channel_id is required".
+  3. **Verbindungsabbau**: harter Abbruch, Freigabe von Verbindung, Tenant-Cache,
+     Rate-Limiter, Channel-Mitgliedschaft, plus Goroutine-Zaehlung vor/nach.
+  4. **Token-Widerruf end-to-end**: laeuft der Token waehrend der Sitzung ab, schliesst der
+     Server mit `StatusPolicyViolation` — jetzt ueber den vollen `HandleWebSocket`-Pfad
+     belegt, nicht mehr nur an der isolierten Schleife.
+  5. **Rate-Limiter-Reichweite**: drei Tests belegen "pro Nutzer" — nicht global (ein
+     leerer Bucket bremst keinen zweiten Nutzer aus), nicht pro Verbindung (zwei
+     Verbindungen desselben Nutzers teilen einen Bucket, genau einer in der Map).
+  6. **Tenant-Trennung beim Broadcast**: der Hub selbst filtert NICHT nach Tenant —
+     `broadcastToChannel` faechert an jeden Eintrag in `channelMembers` auf, ohne
+     `userTenants` je zu befragen. Der einzige Durchsetzungspunkt ist der
+     `GetChannel`-Gate in `handleSubscribeChannel`. Beide Haelften sind jetzt festgenagelt:
+     ein Aufrufer aus fremdem Tenant kommt nicht in die Subscriber-Menge und bekommt den
+     Broadcast nicht; und wer ohne diesen Gate hineingeschrieben wird, bekommt ihn sehr wohl.
+  7. **Gast-Verbindung**: Aufbau, Registrierung unter der Session-ID, Kanal-Zuordnung und
+     Freigabe beim Schliessen.
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./cmd/gateway/...`) |
+  vet ok | lint ok (`golangci-lint run ./internal/server/...`, 0 issues; ein
+  `bodyclose`-Befund war echt und wurde behoben, indem der Helfer nur noch den Status-Code
+  zurueckgibt und den Body selbst schliesst) | test ok (`internal/server` 7,0 s gruen,
+  `internal/server/response` gruen, `internal/gateway` gruen; `DATABASE_URL` als
+  `kmuhub_app` gesetzt, `go test -v | grep -c -- "--- SKIP"` = **0** bei 4600 `--- PASS`) |
+  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle, keine Policy angefasst)
+- coverage: internal/server 72,1 % -> 72,6 % (selbst gemessen, Testdatei einmal
+  herausgenommen und einmal drin). Dateibezogen, weil der `coverage_start:`-Wert der Unit
+  dateibezogen war: `websocket.go` **43,0 % -> 64,8 %** (215 -> 324 von 500 Statements).
+  Der Unit-Bezugswert nannte 38,3 % aus dem CI-Artefakt; mein Vorher-Wert lag bei 43,0 %,
+  weil `websocket_presence_subscribe_test.go` nach jenem Artefakt dazugekommen ist.
+- mutations-probe: `HandleWebSocket` per `cp`-Backup auf
+  `h.registerUserTenant(userID, "")` gesetzt (statt `claims.TenantID`) ->
+  `TestHandleWebSocket_ValidToken_RegistersConnectionAndTenant` sofort rot. Backup
+  zurueckgespielt, `git diff` auf `websocket.go` zeigt nur noch die elf Zeilen des
+  `revalidateInterval`-Felds, Paket erneut gruen.
+- verify vorgaenger: sauber (`731eb529` geprueft — der Diff besteht aus genau einer neuen
+  Testdatei `internal/server/biz_grpc_gobd_archive_test.go` plus Backlog und Journal. Kein
+  Produktionscode, also kein gRPC-Bypass, kein Stub, kein `.proto`, kein
+  `RequirePermission`, keine Tabelle, keine Route, kein Wire-Shape. `4c70d358` ist der
+  reine Journal-SHA-Nachtrag.)
+- neue-units: fix-websocket-chat-rpcs-missing-tenant-context ·
+  fix-websocket-hard-disconnect-cleanup-delay · fix-websocket-rate-limit-reset-on-reconnect
+- offen: **Drei verifizierte Produktionsbefunde, alle als Unit im Backlog, keiner in dieser
+  Iteration gefixt (Coverage-Unit aendert kein Verhalten).**
+  1. **Chat ueber WebSocket ist funktionslos.** `/api/v1/ws` ist in
+     `cmd/gateway/main.go:453` ohne `authMiddleware` registriert; der Handler validiert das
+     JWT selbst, schreibt die Tenant-ID aber nie in den Context. Damit haengt
+     `TenantOutboundUnaryInterceptor` kein `x-tenant-id` an, und `ChatGRPCServer.GetChannel`
+     (`chat_grpc.go:103`) lehnt mit `Unauthenticated` ab — `channel.subscribe` kann also nie
+     gelingen, und ohne Subscribe gibt es keine Live-Zustellung. `channel.mark_read` genauso.
+     `message.send` scheitert aus einem zweiten Grund: `SendMessage` liest die Tenant-ID aus
+     `req.TenantId` (Client-Payload!) statt aus dem Context, und der WS-Handler setzt das
+     Feld nie -> `InvalidArgument`. Kein RLS-Bypass, es faellt fail-closed aus. Der Test
+     `TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService` reproduziert es mit
+     einem Fake, der exakt den Guard des echten Servers nachbildet. Das Fix-Muster liegt drei
+     Bildschirme tiefer im selben File: `tenantAllowsPresenceTarget` (`websocket.go:1203`)
+     baut sich seinen `scopedCtx` genau so, wie Chat es braeuchte — fuer Presence
+     nachgezogen, fuer Chat vergessen. **Bitte gegen die Produktion gegenpruefen:** wenn dort
+     Live-Chat sichtbar funktioniert, habe ich einen Pfad uebersehen.
+  2. **Ein harter Verbindungsabbruch raeumt bis zu 5 Minuten lang nichts auf.**
+     `handleConnection` wartet nach dem Read-Fehler auf `<-done`, und die
+     Revalidierungs-Goroutine kehrt nur bei `ctx.Done()` oder ungueltigem Token zurueck —
+     `r.Context()` einer gehijackten Verbindung wird beim Socket-Tod nicht gecancelt. Mit
+     `maxConnsPerUser = 5` sperren fuenf Abbrueche in Folge den Nutzer mit 429 aus. Ich
+     hatte zuerst das Gegenteil gemessen; der erste Testlauf war irrefuehrend, weil `exp` im
+     JWT nur Sekunden-Aufloesung hat und ein 400-ms-Token schon beim Handshake abgelaufen
+     war. Mit 2-s-Token ist der Befund reproduzierbar und im Test als Phase 1 festgehalten.
+  3. **Der Nachrichten-Rate-Limiter ist per Reconnect zuruecksetzbar** —
+     `unregisterConnection` loescht den Bucket mit der letzten Verbindung, der naechste
+     Verbindungsaufbau startet mit vollem Burst.
+  Nebenbefund ohne eigene Unit: der Docstring von `TenantInboundUnaryInterceptor`
+  (`middleware/grpc_tenant.go:73`) behauptet `codes.Unauthenticated` bei fehlendem Tenant,
+  der Code tut das nicht — die Korrektur haengt an Unit 1 mit dran.
+  `-race` ist auf dieser Maschine nicht gelaufen (Vorgabe der Unit); die Goroutine-Zaehlung
+  kommt ohne aus, aber der Race-Beweis bleibt CI vorbehalten.

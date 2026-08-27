@@ -3182,7 +3182,7 @@ units:
     service: server
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server/websocket.go 38,3 % — 293 ungedeckt von 475 (CI-Stand 32949396303)"
     scope: >
       `websocket.go` traegt Chat, Anwesenheit und Video-Signalisierung ueber eine einzige
@@ -6047,3 +6047,144 @@ units:
         (`ErrDocumentNotFound`, kein Download, kein Event)
       - Der Aufrufer bleibt aus dem Scope; die offene Entscheidung steht im Journal-Eintrag
       - go test -count=1 ./internal/biz/gobdarchive/ ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-websocket-chat-rpcs-missing-tenant-context
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    scope: >
+      Verifizierter Produktionsbug, in Iteration 19 durch einen Test reproduziert
+      (`TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService`). `/api/v1/ws` ist
+      in `cmd/gateway/main.go:453` OHNE `authMiddleware` registriert -- der Handler validiert
+      das JWT selbst, schreibt die Tenant-ID aber nie in den Context. Aus der WS-Message-Loop
+      geht deshalb ein nackter `r.Context()` an den Chat-Client, `TenantOutboundUnaryInterceptor`
+      haengt mangels `TenantIDKey` kein `x-tenant-id` an, und serverseitig lehnt
+      `ChatGRPCServer.GetChannel` (`internal/server/chat_grpc.go:103-106`) mit
+      `codes.Unauthenticated` ab. Betrifft `handleSubscribeChannel` (GetChannel) und
+      `handleMarkRead` (MarkChannelRead). `handleSendMessage` scheitert aus einem zweiten
+      Grund: `SendMessage` liest die Tenant-ID nicht aus dem Context, sondern aus
+      `req.TenantId` (`chat_grpc.go:369`), und der WS-Handler setzt das Feld nie ->
+      `codes.InvalidArgument`. Wirkung: Chat ueber WebSocket ist praktisch funktionslos --
+      kein Subscribe, also auch keine Live-Zustellung. Kein RLS-Bypass, es faellt
+      fail-closed aus. Das Muster fuer den Fix existiert bereits im selben File:
+      `tenantAllowsPresenceTarget` (`websocket.go:1203`) baut sich seinen `scopedCtx` per
+      `context.WithValue(ctx, middleware.TenantIDKey, callerTenantID)` -- jemand hat das fuer
+      Presence nachgezogen und Chat vergessen.
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/chat_grpc.go
+      - backend/internal/middleware/grpc_tenant.go
+      - backend/cmd/gateway/main.go
+      - backend/internal/server/websocket_connection_test.go
+    notes: >
+      `opus`, weil zwei Wege offenstehen und die Wahl Folgen hat: (a) den Context EINMAL beim
+      Verbindungsaufbau anreichern (`ctx = context.WithValue(ctx, middleware.TenantIDKey,
+      claims.TenantID)` vor `h.handleConnection`, dazu `UserIDKey`) -- das repariert alle
+      RPCs der Schleife auf einen Schlag; oder (b) je Handler scopen wie bei Presence.
+      (a) ist der schlanke Fix und passt zu `registerUserTenant`, das die Tenant-ID ohnehin
+      schon aus den Claims zieht. Bei `SendMessage` muss zusaetzlich `TenantId` im Request
+      gesetzt werden -- ODER `chat_grpc.go` liest die Tenant-ID dort kuenftig aus dem Context
+      wie alle anderen RPCs; das waere die konsistente Variante, aendert aber das Verhalten
+      fuer alle anderen Aufrufer von `SendMessage` und muss geprueft werden.
+      KEINE neue Route, KEIN neues Flag, KEINE Migration. `TenantInboundUnaryInterceptor`
+      traegt uebrigens einen falschen Docstring (behauptet `codes.Unauthenticated` bei
+      fehlendem Tenant, tut es nicht) -- den im selben Commit korrigieren.
+    done_when:
+      - >-
+        Die gRPC-Aufrufe aus der WebSocket-Message-Loop tragen die Tenant-ID des
+        authentifizierten Nutzers im Context
+      - >-
+        `TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService` ist auf das neue
+        Verhalten umgeschrieben (der Fake sieht jetzt einen Tenant) und belegt, dass er der
+        Tenant-ID aus dem JWT entspricht
+      - >-
+        Ein Test belegt, dass `handleSendMessage` einen Request stellt, den
+        `ChatGRPCServer.SendMessage` annimmt (Tenant vorhanden, egal ob per Feld oder Context)
+      - Der Docstring von `TenantInboundUnaryInterceptor` beschreibt, was der Code tut
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-websocket-hard-disconnect-cleanup-delay
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    scope: >
+      Verifizierter Produktionsbug, in Iteration 19 durch einen Test reproduziert
+      (`TestHandleWebSocket_HardDisconnect_CleanupWaitsForTokenRevalidation`, Phase 1).
+      Bricht ein Client die Verbindung hart ab, endet zwar `wsjson.Read` mit Fehler, aber
+      `handleConnection` blockiert danach auf `<-done` und wartet auf die
+      Revalidierungs-Goroutine. Die kehrt nur bei `ctx.Done()` oder ungueltigem Token zurueck
+      -- und `r.Context()` einer gehijackten Verbindung wird nicht gecancelt, wenn der Socket
+      stirbt. Ergebnis: Verbindung, gecachter Tenant, Rate-Limiter-Bucket, Channel-
+      Mitgliedschaften und BEIDE Goroutinen ueberleben den Abbruch bis zu
+      `wsTokenRevalidateInterval` = 5 Minuten. Mit `maxConnsPerUser = 5` heisst das: fuenf
+      Verbindungsabbrueche in Folge (instabiles WLAN, Tunnel, Schlafmodus) sperren den Nutzer
+      fuer bis zu 5 Minuten mit HTTP 429 aus. Zusaetzlich bleibt er in `presenceSubscribers`
+      und `channelMembers` und gilt fuer Broadcasts weiter als anwesend.
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/websocket_connection_test.go
+    notes: >
+      `opus`, weil es um Goroutine-Lebenszyklus geht und ein falscher Fix leicht eine Race
+      oder einen doppelten Close erzeugt. Naheliegender Weg: in `handleConnection` einen
+      eigenen abgeleiteten Context (`connCtx, cancel := context.WithCancel(ctx)`) fuer die
+      Revalidierungs-Goroutine, und `cancel()` aufrufen, sobald der Read-Loop endet -- dann
+      raeumt der Abbruch sofort auf, ohne das Warten auf `<-done` aufzugeben (das bleibt
+      richtig, damit `unregisterConnection` zuletzt laeuft). Das Testfeld
+      `h.revalidateInterval` existiert seit Iteration 19 und macht die Probe in
+      Millisekunden moeglich. Phase 1 des bestehenden Tests muss dann in ihr Gegenteil
+      umgeschrieben werden (sofortige Freigabe) -- das ist der Beleg des Fixes, nicht ein
+      Regressionsschaden. Ein Goroutine-Zaehler vor/nach gehoert dazu.
+    done_when:
+      - >-
+        Ein harter Verbindungsabbruch gibt Verbindung, Tenant-Cache, Rate-Limiter,
+        Channel-Mitgliedschaft und Presence-Abos ohne Wartezeit frei
+      - >-
+        Ein Test belegt die Freigabe binnen weniger hundert Millisekunden bei einem
+        Revalidierungs-Intervall von 5 Minuten (also nicht durch den Tick verursacht)
+      - >-
+        Ein Test zaehlt Goroutinen vor und nach dem Abbruch und belegt, dass beide Goroutinen
+        der Verbindung zurueckkehren
+      - >-
+        Der Pfad "Token wird waehrend der Sitzung ungueltig -> Close mit PolicyViolation"
+        bleibt durch seinen bestehenden Test belegt
+      - go test -count=1 ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-websocket-rate-limit-reset-on-reconnect
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      In Iteration 19 belegt (`TestCheckMsgRate_ReconnectResetsTheBucket`):
+      `unregisterConnection` loescht `h.rateLimiters[userID]`, sobald die letzte Verbindung
+      des Nutzers weg ist. Ein Client, der nach dem Aufbrauchen seines Bursts die Verbindung
+      schliesst und neu aufbaut, bekommt sofort wieder `msgBurstSize` = 20 Nachrichten frei.
+      Der Per-Nutzer-Limiter (10 Nachrichten/s dauerhaft, Burst 20) ist damit durch
+      Reconnect-Schleifen aushebelbar. Das Aufraeumen selbst ist richtig (sonst waechst die
+      Map unbegrenzt) -- falsch ist nur, dass es den Bucket-Stand mitnimmt.
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/websocket_connection_test.go
+    notes: >
+      Schlankster Weg: den Bucket nicht sofort loeschen, sondern mit einem
+      `lastSeen`-Zeitstempel versehen und erst verwerfen, wenn er laenger unberuehrt ist als
+      die Zeit, die ihn ohnehin komplett auffuellen wuerde
+      (`msgBurstSize / maxMsgsPerSecond` = 2 s, grosszuegig gerundet). Danach ist ein
+      geloeschter Bucket von einem vollen nicht mehr unterscheidbar, und die Map waechst
+      trotzdem nicht. Aufraeumen kann beim naechsten `checkMsgRate` desselben Nutzers
+      passieren oder in `unregisterConnection` ueber einen Durchlauf -- KEINE neue Goroutine,
+      kein Ticker. Der bestehende Test dreht sich dabei um; das ist der Beleg.
+    done_when:
+      - >-
+        Ein Reconnect unmittelbar nach dem Aufbrauchen des Bursts bekommt kein volles
+        Kontingent zurueck
+      - >-
+        Ein Test belegt, dass ein Bucket nach ausreichend langer Abwesenheit dennoch
+        verworfen wird, die Map also nicht unbegrenzt waechst
+      - "`TestCheckMsgRate_IsPerUser_NotGlobal` und `_NotPerConnection` bleiben gruen"
+      - go test -count=1 ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips
