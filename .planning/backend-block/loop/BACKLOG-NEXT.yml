@@ -456,7 +456,9 @@ units:
     phase: 4
     service: biz
     model: sonnet
-    deps: [fix-event-payload-missing-tenant-id]
+    # deps erfuellt: fix-event-payload-missing-tenant-id ist done, Unit liegt in
+    # archive/lauf-13/BACKLOG.yml
+    deps: []
     status: todo
     decided: 2026-08-24
     decision: >-
