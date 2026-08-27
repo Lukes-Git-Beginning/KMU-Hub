@@ -3295,7 +3295,7 @@ Kopf von `BACKLOG.yml`.
   habe). Produktion muss Luke selbst nachsehen — der Loop hat dort keinen Zugriff.
 
 ## Iteration 8 — cov-email-send-service-consent-path — done — 2026-08-27 02:11
-- commit: -
+- commit: 0d082014
 - gebaut: `internal/email/send/service_test.go`-Umfeld bereits mit vier Consent-Tests
   (blockiert, erlaubt, `contact_id` fehlt, Repo-Fehler) bestueckt — die deckten den
   Asserter-Aufruf in `Send` schon vollstaendig ab. Neu ist
