@@ -3464,7 +3464,7 @@ Kopf von `BACKLOG.yml`.
 - offen: keine.
 
 ## Iteration 11 — cov-gateway-chat-reactions-bookmarks-search — done — 2026-08-27 03:15
-- commit: (folgt in separatem chore-Commit)
+- commit: fc68f158
 - gebaut:
   1. `backend/internal/gateway/route_chat_reactions_bookmarks_search_test.go` (neu) — 41 Tests
      fuer alle 14 im Scope genannten Handler (HandleGetMessages, HandleGetThreadReplies,
