@@ -3694,3 +3694,38 @@ Kopf von `BACKLOG.yml`.
   sein. `decide-schichten-assign-employee-overlap-guard` braucht Lukes Entscheidung, ob und
   wie hart der Guard greifen soll, inkl. SwapRequest-Genehmigung als moeglicher zweiter
   Angriffspunkt fuer dieselbe Ueberschneidung.
+
+## Iteration 14 — fix-fuhrpark-vehicle-routes-daily-km-always-zero — done — 2026-08-27 03:08
+- commit: (folgt im gleichen Schritt)
+- gebaut:
+  1. `internal/fuhrpark/postgres_repository.go` — `GetVehicleRoutes` setzte `DailyKm` hart auf
+     `0` (Kommentar `// calculated from positions if needed`), obwohl die Positionsfolge des
+     Tages (`ORDER BY recorded_at ASC`) bereits vorlag. Neue Funktion `sumHaversineKm`
+     (Standard-Haversine-Formel, Erdradius 6371 km) summiert die Distanz zwischen
+     aufeinanderfolgenden Positionen; `DailyKm: sumHaversineKm(positions)` ersetzt die
+     Hartkodierung. Keine neue Query, keine `.proto`-Aenderung (Feld existiert im Proto
+     bereits), reine Repository-Berechnung.
+  2. `internal/fuhrpark/postgres_repository_gap_test.go` — bestehenden Test
+     `TestGpsPositions_IngestGetAndRouteAggregation` um einen Assert ergaenzt: die drei
+     geseedeten Positionen (52.5/13.4, 52.6/13.5, 52.7/13.6, je 0.1 Grad Lat/Lng
+     auseinander) ergeben zwei Haversine-Hops von je ~13 km, `DailyKm` muss also im Fenster
+     20-30 km liegen. Kein neuer Testfall noetig, das bestehende Fixture deckt es ab.
+- gate: build ok (`./internal/fuhrpark/... ./internal/gateway/... ./internal/server/...
+  ./cmd/fuhrpark/... ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run --config
+  .golangci.yml ./internal/fuhrpark/... ./internal/gateway/...`, 0 issues) | test ok
+  (`internal/fuhrpark` komplett gruen inkl. DB-Test, `internal/gateway` komplett gruen,
+  `DATABASE_URL` gesetzt, 0 uebersprungene Tests) | migration n.a. (keine neue
+  Tabelle/Policy) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung; bestehender Test
+  deckt den Tenant-Join in `GetVehicleRoutes` bereits als RLS-Smoke ab)
+- coverage: n.a. (Bugfix laut Unit-Definition, kein Coverage-Ziel; internal/fuhrpark
+  Gesamtpaket 81,5 % nach der Aenderung, `go tool cover -func` selbst gemessen)
+- mutations-probe: `DailyKm: sumHaversineKm(positions)` per `cp`-Backup temporaer zurueck auf
+  `DailyKm: 0` gesetzt -> `TestGpsPositions_IngestGetAndRouteAggregation` sofort rot
+  (`expected DailyKm around 26 km for two ~13km hops, got 0`). Backup zurueckgespielt,
+  `git diff --stat` danach leer, `internal/fuhrpark/...` erneut komplett gruen.
+- verify vorgaenger: sauber (`e00fc946` geprueft — reiner Testdateidiff in
+  `route_schichten_test.go`/`service_test.go`, kein gRPC-Bypass moeglich, kein Stub, kein
+  `.proto` im Diff, kein `RequirePermission` angefasst, keine neue Tabelle, kein Wire-Shape,
+  keine neue Route)
+- neue-units: keine
+- offen: keine

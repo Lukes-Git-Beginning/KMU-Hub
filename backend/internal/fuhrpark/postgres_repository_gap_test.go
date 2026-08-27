@@ -692,6 +692,11 @@ func TestGpsPositions_IngestGetAndRouteAggregation(t *testing.T) {
 		if len(routes[0].Positions) != 3 {
 			t.Fatalf("expected all 3 positions attached to the day's route, got %d", len(routes[0].Positions))
 		}
+		// Two consecutive 0.1/0.1 deg lat/lng steps near 52.5N are ~13 km each
+		// (haversine), so the summed route distance should land around 26 km.
+		if routes[0].DailyKm < 20 || routes[0].DailyKm > 30 {
+			t.Fatalf("expected DailyKm around 26 km for two ~13km hops, got %v", routes[0].DailyKm)
+		}
 
 		// tenantB has no vehicle and no gps_positions of its own -- the join must not
 		// let tenant A's vehicle row leak into tenant B's aggregation.

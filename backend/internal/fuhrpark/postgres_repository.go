@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -1070,12 +1071,30 @@ func (r *PostgresRepository) GetVehicleRoutes(ctx context.Context, params GetVeh
 			VehicleID:   row.VehicleID,
 			VehicleName: row.LicensePlate,
 			Date:        row.Date,
-			DailyKm:     0, // calculated from positions if needed
+			DailyKm:     sumHaversineKm(positions),
 			Status:      status,
 			Positions:   positions,
 		})
 	}
 	return routes, nil
+}
+
+// sumHaversineKm sums the great-circle distance in kilometers between
+// consecutive positions, which must already be sorted by RecordedAt.
+func sumHaversineKm(positions []GpsPosition) float64 {
+	const earthRadiusKm = 6371.0
+	var total float64
+	for i := 1; i < len(positions); i++ {
+		prev, cur := positions[i-1], positions[i]
+		lat1, lng1 := prev.Lat*math.Pi/180, prev.Lng*math.Pi/180
+		lat2, lng2 := cur.Lat*math.Pi/180, cur.Lng*math.Pi/180
+		dLat, dLng := lat2-lat1, lng2-lng1
+		a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+			math.Cos(lat1)*math.Cos(lat2)*math.Sin(dLng/2)*math.Sin(dLng/2)
+		c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+		total += earthRadiusKm * c
+	}
+	return total
 }
 
 func (r *PostgresRepository) GetGpsPositions(ctx context.Context, params GetGpsPositionsParams) ([]GpsPosition, error) {
