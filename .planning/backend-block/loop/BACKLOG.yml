@@ -3130,7 +3130,7 @@ units:
     service: server
     model: opus
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/server/biz_grpc_gobd_archive.go 0,0 % — 136 Statements, sechs Handler, null Tests (CI-Stand 32949396303)"
     scope: >
       Die einzige Datei mit Substanz im `server`-Paket, die bei exakt null Abdeckung steht —
