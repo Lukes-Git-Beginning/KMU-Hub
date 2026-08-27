@@ -2731,7 +2731,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/email/send 57,6 %; service.go 32,6 % (87 ungedeckt von 129) (CI-Stand 32949396303)"
     scope: >
       `internal/email/send/service.go` traegt den Consent-Asserter, der vor jedem Versand an
