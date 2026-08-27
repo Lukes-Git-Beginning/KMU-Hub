@@ -3332,7 +3332,7 @@ Kopf von `BACKLOG.yml`.
   nicht angefasst — `go test ./internal/gateway/` daher nicht Teil dieses Gates.
 
 ## Iteration 9 — cov-wiki-repository-and-share-tokens — done — 2026-08-27 02:35
-- commit: (siehe naechster Commit)
+- commit: fad481c5
 - gebaut: Drei neue Testdateien fuer die zehn im Scope genannten, zuvor ungetesteten
   Gateway-Handler und die groesste Luecke im Repository:
   1. `backend/internal/gateway/route_wiki_test.go` (erweitert) — 22 neue Tests fuer
