@@ -6372,5 +6372,6 @@ units:
       - >-
         `TestGetNextAnonymizedLabel_ConcurrentCallersCollide` ist auf die neue Zusage
         umgeschrieben (`labelA != labelB`) und gruen
-      - `TestGetNextAnonymizedLabel_IncrementsPerCall` bleibt unveraendert gruen
+      - >-
+        `TestGetNextAnonymizedLabel_IncrementsPerCall` bleibt unveraendert gruen
       - go test -count=1 ./internal/security/gdpr/ gruen, DATABASE_URL gesetzt, 0 Skips
