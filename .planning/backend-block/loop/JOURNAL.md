@@ -3462,3 +3462,72 @@ Kopf von `BACKLOG.yml`.
   angefasst, keine neue Tabelle, kein Wire-Shape, keine neue Route.)
 - neue-units: keine
 - offen: keine.
+
+## Iteration 11 — cov-gateway-chat-reactions-bookmarks-search — done — 2026-08-27 03:15
+- commit: (folgt in separatem chore-Commit)
+- gebaut:
+  1. `backend/internal/gateway/route_chat_reactions_bookmarks_search_test.go` (neu) — 41 Tests
+     fuer alle 14 im Scope genannten Handler (HandleGetMessages, HandleGetThreadReplies,
+     HandleGetUnreadCounts, HandleGetUserMentions, HandleListDMs, HandleListReactions,
+     HandleToggleReaction, HandleGetReactionSummary, HandleListBookmarks,
+     HandleToggleBookmark, HandleListChannelFiles, HandleGetFileThumbnailURL,
+     HandleSearchChat, HandleUpdateChannel), jeweils ServiceUnavailable/NoUserID/
+     InvalidUUID/InvalidJSON/Validation/ReachesRPC nach etabliertem Muster.
+  2. Schwerpunkt (1) aus dem Scope untersucht: `HandleSearchChat` -> `search.Service.Search`
+     (`internal/chat/search/service.go:60-70`). Befund: wenn der Aufrufer `channel_id` als
+     Query-Parameter mitschickt, wird dieser Channel DIREKT durchsucht, ohne vorher
+     `GetUserChannelIDs` aufzurufen und Mitgliedschaft zu pruefen — der Membership-Filter
+     greift nur auf dem Pfad OHNE `channel_id`. Kontrastprobe: `bookmark.Service.Toggle`
+     (`internal/chat/bookmark/service.go:39-42`) ruft bewusst `message.Service.GetByID` auf,
+     WEIL das Tenant+Membership prueft — genau dieses Muster fehlt in `search.Service.Search`.
+     Als Coverage-Unit KEIN Verhalten geaendert (harte Grenze). Stattdessen: Bug-Test in
+     `internal/chat/search/service_test.go` ergaenzt, der den aktuellen (fehlerhaften)
+     Zustand mit klarer Kennzeichnung dokumentiert (Testname
+     `BUG:_explicit_channel_id_bypasses_membership_check`), und Fix-Unit
+     `fix-chat-search-channel-filter-bypasses-membership` ans Backlog-Ende gehaengt.
+  3. Schwerpunkt (2): `HandleListDMs`/`HandleGetUserMentions` — beide tenant-scoped ueber den
+     Service (ListDMs nimmt tenantID explizit vom Handler-Kontext), kein Fund.
+  4. Schwerpunkt (3), `HandleGetFileThumbnailURL`: gleiches Muster wie
+     GetFileDownloadURL/WOPI/Wiki-Share — Handler reicht `userID` durch, Autorisierung liegt
+     im Service. Kein neuer Fund, konsistent mit den drei vorherigen Token-Units.
+  5. Schwerpunkt (4), Umschalter bei Nebenlaeufigkeit: `reaction.PostgresRepository.AddReaction`
+     nutzt `ON CONFLICT DO NOTHING` auf der zusammengesetzten PK
+     (message_id, user_id, emoji) (Migration 000038); `bookmark.PostgresRepository.Add`
+     dasselbe auf (user_id, message_id) (Migration 000262). Beide race-sicher per Design.
+     Neuer echter DB-Test `internal/work/reaction/postgres_repository_db_test.go`
+     (`TestPostgresAddReaction_ConcurrentToggle_OnlyOneRow`, 5 parallele Goroutinen, echter
+     Pool) belegt das gegen die reale INSERT-Bahn, nicht nur gegen den SQL-Text.
+  6. Geloeschte-Nachrichten-Frage aus den Notes: bereits durch bestehenden DB-Test
+     `internal/chat/search/postgres_repository_test.go::TestPostgresRepository_SearchMessages`
+     bewiesen (`is_deleted=true`-Zeile wird ausgeschlossen) — kein neuer Test noetig, nur
+     verifiziert.
+- gate: build ok (`./internal/gateway/... ./internal/chat/... ./internal/work/reaction/...`)
+  | vet ok | lint ok (0 issues) | test ok (`internal/gateway` komplett gruen,
+  `internal/chat/...` komplett gruen, `internal/work/reaction` komplett gruen,
+  `DATABASE_URL` gesetzt, 0 uebersprungene Tests) | migration n.a. (keine neue
+  Tabelle/Policy) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/gateway 69,3 % -> 71,2 % (route_chat.go: alle 14 Ziel-Handler vorher
+  0 %, jetzt 84,2–96,7 % Funktionsabdeckung) | internal/work/reaction n.a. (nicht der
+  Referenzwert dieser Unit; neuer DB-Test bei 38,9 % Paket-Deckung nach der Aenderung,
+  vorher nicht gemessen)
+- mutations-probe: zwei getrennte Proben, beide per `cp`-Backup zurueckgespielt.
+  (a) Gateway: in `HandleSearchChat` die `uuid.Parse`-Fehlerpruefung invertiert
+  (`err == nil` statt `err != nil`) -> `TestHandleSearchChat_InvalidChannelID` sofort rot
+  (503 statt 400) und `TestHandleSearchChat_ReachesRPC` ebenfalls rot (400 statt 503).
+  (b) Reaction: `ON CONFLICT DO NOTHING` aus `AddReaction`s INSERT entfernt ->
+  `TestPostgresAddReaction_ConcurrentToggle_OnlyOneRow` sofort rot
+  (`duplicate key value violates unique constraint "message_reactions_pkey"`). Beide
+  Dateien per `cp`-Sicherungskopie zurueckgespielt, `git diff --stat` danach leer,
+  betroffene Pakete erneut komplett gruen.
+- verify vorgaenger: sauber (`4267c87e` gegen alle acht Fehlerklassen geprueft — reiner
+  neuer Testdateidiff (`route_helpdesk_test.go`, `sla_test.go`), kein gRPC-Bypass moeglich,
+  kein Stub, kein `.proto` im Diff, kein `RequirePermission` angefasst, keine neue Tabelle,
+  kein Wire-Shape, keine neue Route.)
+- neue-units: fix-chat-search-channel-filter-bypasses-membership (Datenleck innerhalb des
+  Tenants: `HandleSearchChat` mit explizitem `channel_id` umgeht die
+  Channel-Mitgliedschaftspruefung komplett, verifiziert per Test in `service_test.go`)
+- offen: `fix-chat-search-channel-filter-bypasses-membership` ist ein echtes Datenleck
+  (kein Tenant-Uebergriff dank RLS, aber jeder User im Tenant kann private Channels lesen,
+  wenn er die UUID kennt/eraet) — sollte zeitnah gebaut werden, steht aber am Backlog-Ende
+  wie von den Laufregeln fuer Coverage-Unit-Funde vorgeschrieben. Luke kann sie bei Bedarf
+  manuell nach vorne ziehen.

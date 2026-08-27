@@ -2863,7 +2863,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 69,3 %; route_chat.go 39,0 %, 305 ungedeckt von 500, 14 von 30 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       Chat-Gateway. Ungetestet (Stand 2026-08-24): HandleGetMessages,
@@ -5763,3 +5763,61 @@ units:
         Im Journal steht, wie viele Alt-Zeilen aus fehlgeschlagenen Widerrufen in der
         lokalen DB stehen — Produktion muss Luke selbst nachsehen
       - go test -count=1 ./internal/gateway/ ./internal/caldav/ gruen
+
+  - id: fix-chat-search-channel-filter-bypasses-membership
+    phase: 4
+    service: chat
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix)"
+    scope: >
+      Befund aus `cov-gateway-chat-reactions-bookmarks-search` (Iteration 11), verifiziert
+      per Unit-Test gegen den echten Code (nicht nur gelesen).
+      `internal/chat/search/service.go:60-70` (`Service.Search`): wenn der Aufrufer
+      `input.ChannelID` setzt (HTTP `GET /api/v1/chat/search?channel_id=...`, siehe
+      `route_chat.go:1069-1075`), verwendet die Methode dieses Channel direkt als
+      `channelIDs` fuer `SearchMessages`/`SearchFiles` -- OHNE vorher `GetUserChannelIDs`
+      aufzurufen und zu pruefen, dass der Aufrufer ueberhaupt Mitglied ist. Der
+      Membership-Filter greift nur auf dem Pfad OHNE `channel_id`-Query-Parameter.
+      Ergebnis: jeder authentifizierte User kann Nachrichten- und Datei-Snippets aus JEDEM
+      Channel seines Tenants lesen -- auch privaten Channels, denen er nie beigetreten ist
+      -- indem er dessen UUID kennt oder eraet und sie als `channel_id` mitschickt. Kein
+      Tenant-uebergreifendes Leck (RLS scoped den Pool weiterhin auf den eigenen Tenant),
+      aber ein echtes Datenleck innerhalb des Tenants.
+      Kontrast zum korrekten Muster im selben Modul: `bookmark.Service.Toggle`
+      (`internal/chat/bookmark/service.go:39-42`) ruft bewusst `message.Service.GetByID`
+      auf, WEIL `GetByID` Tenant UND Channel-Mitgliedschaft prueft -- der Code-Kommentar
+      dort nennt das explizit "the same tenant + channel membership check". Genau dieses
+      Muster fehlt in `search.Service.Search` fuer den expliziten-Channel-Pfad.
+      Reproduziert und bewiesen in
+      `internal/chat/search/service_test.go::TestService_Search/BUG:_explicit_channel_id_bypasses_membership_check`
+      (Mock-Repository: Aufrufer ist NICHT Mitglied von `foreignChannel`, `ChannelID` wird
+      trotzdem direkt durchgereicht, Ergebnis kommt zurueck).
+    sources:
+      - backend/internal/chat/search/service.go
+      - backend/internal/chat/search/repository.go
+      - backend/internal/chat/search/service_test.go
+      - backend/internal/chat/bookmark/service.go
+      - backend/internal/gateway/route_chat.go
+    notes: >
+      Der einfachste Fix: wenn `input.ChannelID != nil` gesetzt ist, trotzdem
+      `GetUserChannelIDs` aufrufen und pruefen, dass der angeforderte Channel darin
+      enthalten ist -- fehlt er, `return nil, 0, nil` (leeres Ergebnis, kein Fehler, analog
+      zum "keine Channels"-Fall ein paar Zeilen darunter) statt eines Fehlers, der dem
+      Aufrufer verraet, dass der Channel ueberhaupt existiert.
+      Den bestehenden Test `service_test.go::TestService_Search/single_channel_filter`
+      NICHT anfassen -- der testet den POSITIVEN Fall (Channel ist in der eigenen Liste)
+      und muss weiter gruen bleiben. Den neuen BUG-Test in dieser Unit umbenennen/anpassen,
+      sobald er die erwartete (jetzt korrekte) Antwort prueft, statt die aktuelle
+      dokumentiert.
+    done_when:
+      - >-
+        `Service.Search` prueft bei gesetztem `ChannelID` die Mitgliedschaft ueber
+        `GetUserChannelIDs`, bevor es sucht
+      - >-
+        Der bestehende BUG-Test in `service_test.go` ist so umgebaut, dass er jetzt
+        `total == 0` fuer einen Nicht-Mitglieds-Channel erwartet (und nicht mehr als BUG
+        markiert ist)
+      - Ein zusaetzlicher Test belegt, dass der Mitglieds-Fall (eigener Channel) weiter funktioniert
+      - go test -count=1 ./internal/chat/... ./internal/gateway/ gruen

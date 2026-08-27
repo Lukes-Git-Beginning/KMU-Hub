@@ -220,6 +220,57 @@ func TestService_Search(t *testing.T) {
 		assert.Len(t, results, 3)
 	})
 
+	// VERIFIED FINDING (not fixed in this coverage unit, see
+	// fix-chat-search-channel-filter-bypasses-membership at the end of
+	// BACKLOG.yml): when the caller supplies ChannelID explicitly, Search
+	// never calls GetUserChannelIDs to check membership -- it searches that
+	// channel directly. Contrast with bookmark.Service.Toggle
+	// (internal/chat/bookmark/service.go), which reuses message.Service's
+	// GetByID specifically because GetByID enforces tenant AND channel
+	// membership before returning a message. Search has no equivalent check
+	// for the explicit-channel path, so any authenticated user can read
+	// message/file snippets from a channel they were never added to just by
+	// knowing or guessing its UUID. This test proves the CURRENT (buggy)
+	// behaviour: repo.GetUserChannelIDs is never even queried, and content
+	// from the "foreign" channel comes back regardless.
+	t.Run("BUG: explicit channel_id bypasses membership check", func(t *testing.T) {
+		foreignChannel := uuid.New() // caller is NOT a member of this channel
+		msgID := uuid.New()
+
+		repo := &MockRepository{
+			// The caller's own channel list does not include foreignChannel.
+			channelIDs: []uuid.UUID{uuid.New()},
+			messages: []models.ChatSearchResult{
+				{
+					Type:      models.ChatSearchResultMessage,
+					ID:        msgID,
+					ChannelID: foreignChannel,
+					Score:     0.8,
+					Snippet:   "secret <mark>content</mark> from a channel the caller never joined",
+					CreatedAt: time.Now(),
+					MessageID: &msgID,
+				},
+			},
+		}
+		detector := &MockDetector{lang: "german"}
+		svc := NewService(repo, detector)
+
+		results, total, err := svc.Search(context.Background(), SearchInput{
+			Query:     "content",
+			UserID:    uuid.New(),
+			ChannelID: &foreignChannel,
+			Page:      1,
+			PageSize:  20,
+		})
+
+		require.NoError(t, err)
+		// This SHOULD be 0 (membership check should reject the request), but
+		// it is not -- documenting the leak until the fix-unit lands.
+		assert.Equal(t, 1, total, "membership bypass: foreign channel content was returned")
+		require.Len(t, results, 1)
+		assert.Equal(t, foreignChannel, results[0].ChannelID)
+	})
+
 	t.Run("language detection used for query", func(t *testing.T) {
 		channelID := uuid.New()
 		repo := &MockRepository{
