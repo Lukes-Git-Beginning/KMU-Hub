@@ -3729,3 +3729,52 @@ Kopf von `BACKLOG.yml`.
   keine neue Route)
 - neue-units: keine
 - offen: keine
+
+## Iteration 15 — cov-gateway-produktion-planning-and-capacity — done — 2026-08-27 03:12
+- commit: (siehe naechster chore-Commit)
+- gebaut:
+  1. `internal/gateway/route_produktion_remaining_test.go` (neu) — die acht in der Unit
+     genannten, bis dato ungetesteten Handler aus `route_produktion.go`: HandleDeleteOrder,
+     HandleGetMaterialAvailability, HandleListMachineBookings, HandleUpdateMachineBooking,
+     HandleDeleteMachineBooking, HandleGetPlan, HandleUpdatePlan, HandleGetCapacityOverview.
+     Je Handler ServiceUnavailable/InvalidUUID/InvalidJSON nach dem etablierten Muster aus
+     `route_produktion_orders_test.go`; `HandleGetCapacityOverview` zusaetzlich mit einem
+     eigenen Test fuer die fehlende `machine_id`-Query-Param-Pruefung, weil das die einzige
+     Validierung in dieser Datei ist, die VOR der RPC-Grenze im Gateway selbst passiert.
+  2. `internal/gateway/route_produktion_ext_handlers_test.go` (neu) — alle 17 Handler aus
+     `route_produktion_ext.go` (BOMs, WorkSteps, Machines, QualityChecks), die bislang nur
+     ueber `TestProduktionExtRoutes_Registered`/`_MatchAgainstOrderSubtree` (Routing, kein
+     Handler-Aufruf) beruehrt waren. Gleiches Muster: ServiceUnavailable, ungueltige UUID am
+     jeweils richtigen Chi-Param-Namen (`bomId`/`stepId`/`machineId`/`checkId` — nicht `id`),
+     Pflichtfeld-Validierung wo vorhanden (`product_name`/`sku`/`name`/`inspector`,
+     `order_id`-UUID bei HandleCreateQualityCheck).
+  3. Bug-Suche laut Scope, kein Fund noetig als Fix: `Service.CreateMachineBooking` und
+     `UpdateMachineBooking` (`internal/produktion/service.go:412-500`) fuehren die
+     Konflikt-Pruefung bereits ATOMAR unter `pg_advisory_xact_lock`
+     (`CreateBookingWithLock`) bzw. per `FindConflictingBooking` mit Selbst-Ausschluss aus —
+     derselbe Ressourcen-Race wie bei Kalenderressourcen/Vermietung ist hier bereits sauber
+     gegen TOCTOU abgesichert (Kommentar im Code verweist explizit darauf). Kein
+     Nachbau-Bedarf, im Gegensatz zur Vermutung in der Unit-Notiz.
+  4. `HandleGetOrder`/`HandleDeleteOrder` bei laufender Produktion: keine gateway-lokale
+     Logik, die Referenz-Integritaets-Pruefung liegt service-seitig (nicht Teil dieser Unit,
+     Handler leitet nur durch) — als Feststellung im Journal, kein Fund.
+- gate: build ok (`./internal/produktion/... ./internal/gateway/... ./cmd/produktion/...
+  ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/produktion/... ./internal/gateway/...`, 0 issues) | test ok (`internal/gateway`
+  komplett gruen inkl. `TestOpenAPIRouteDrift` 836 Routen gegen 838 Spec-Pfade, `DATABASE_URL`
+  gesetzt, 0 uebersprungene Tests; `internal/produktion` komplett gruen) | migration n.a.
+  (keine neue Tabelle/Policy) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung, reiner
+  Testdateidiff)
+- coverage: internal/gateway 72,4 % -> 73,4 % (selbst gemessen vor/nach per temporaerem
+  Entfernen der beiden neuen Testdateien, nicht der CI-Bezugswert 69,3 % aus der Unit — der
+  ist seit Iteration 13/14 durch andere gateway-Units bereits ueberholt)
+- mutations-probe: `HandleGetBOM` per `cp`-Backup temporaer von `validateUUIDParam(w, r,
+  "bomId")` auf `validateUUIDParam(w, r, "id")` geaendert (falscher Chi-Param-Name) ->
+  `TestHandleGetBOM_InvalidUUID` sofort rot (`error = "invalid id", want to contain "invalid
+  bomId"`). Backup zurueckgespielt, `git diff --stat` danach leer, `internal/gateway/...`
+  erneut komplett gruen.
+- verify vorgaenger: sauber (`220fd564` geprueft — reine Repository-Berechnung
+  (`sumHaversineKm`), kein gRPC-Bypass, kein Stub, kein `.proto` im Diff, kein
+  `RequirePermission` angefasst, keine neue Tabelle, kein Wire-Shape, keine neue Route)
+- neue-units: keine
+- offen: keine
