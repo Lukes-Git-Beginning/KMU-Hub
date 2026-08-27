@@ -671,7 +671,7 @@ units:
     service: server
     model: opus
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Der wichtigste Scan des Laufs. Block B prueft das Tenant-Scoping modulweise; dieser
