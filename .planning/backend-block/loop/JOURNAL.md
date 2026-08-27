@@ -3066,7 +3066,7 @@ Kopf von `BACKLOG.yml`.
   filtert RLS die Antwort selbst weg).
 
 ## Iteration 6 — fix-generatejointoken-missing-event-tenant-check — done — 2026-08-27 01:52
-- commit: <sha>
+- commit: c448273f
 - gebaut: `CalendarGRPCServer.GenerateJoinToken` (calendar_grpc.go:1293) holt jetzt zuerst
   `middleware.GetTenantID(ctx)` und laedt das Event ueber `s.eventService.Get(ctx, eventID,
   tenantID)` — genau der Pfad, den `GetEvent` (calendar_grpc.go:461-482) schon benutzt —, bevor
