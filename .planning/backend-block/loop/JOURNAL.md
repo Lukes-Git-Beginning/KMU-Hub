@@ -3923,3 +3923,90 @@ Kopf von `BACKLOG.yml`.
 - neue-units: feat-dialer-stale-in-progress-contact-reaper (fehlender automatischer
   Aufraeumpfad fuer nie beendete Anrufsitzungen — Threshold-Entscheidung gehoert Luke)
 - offen: keine
+
+## Iteration 18 — cov-server-gobd-archive-grpc-handlers — done — 2026-08-27 03:44
+- commit: <pending>
+- gebaut:
+  1. Neue Testdatei `backend/internal/server/biz_grpc_gobd_archive_test.go` (~700 Zeilen) fuer
+     die sechs GoBD-Belegarchiv-Handler, die bei exakt 0,0 % standen. Alle sechs stehen
+     jetzt bei 100,0 % Statement-Coverage (`ArchiveDocument`, `ArchiveInvoiceDocument`,
+     `GetGobdDocument`, `ListGobdDocuments`, `DownloadGobdDocument`, `AddDocumentAnnotation`),
+     ebenso die drei Mapping-Helfer `toProtoGobdDocument`, `toProtoGobdEventList` und
+     `mapGobdArchiveError`.
+  2. Test-Seam: `gobdArchiveSvc` ist ein konkretes `*gobdarchive.Service`, kein Interface —
+     die Doubles sitzen deshalb eine Schicht tiefer (`stubGobdRepo` als
+     `gobdarchive.Repository`, `stubGobdStore` als `chatfile.FileStore`) hinter einem echten
+     `gobdarchive.NewService`. Damit laufen die Service-Invarianten (SHA-256 via TeeReader,
+     Retention = 31.12. des Jahres+10, Event-Append) real im Testpfad mit, statt wegmockt zu
+     werden. `stubGobdRepo.GetByID` bildet das RLS-Verhalten der Postgres-Implementierung ab:
+     fremder Tenant ist von "existiert nicht" ununterscheidbar.
+  3. Bug-Suche (1) Tenant-Bindung jedes Handlers: **kein Fund, alle vier Lesepfade sind
+     fail-closed.** Belegt durch je einen Test — `GetGobdDocument` (fremdes Dokument ->
+     NotFound, Response nil), `ListGobdDocuments` (nur eigener Tenant in der Liste, `total`
+     zaehlt nur eigene), `DownloadGobdDocument` und `AddDocumentAnnotation` (beide NotFound).
+  4. Bug-Suche (2) `DownloadGobdDocument`: der presignte MinIO-Link traegt selbst keine
+     Autorisierung, wer ihn hat, hat den Beleg. Entscheidend ist deshalb, dass er fuer einen
+     fremden Beleg gar nicht erst entsteht. Der Handler laedt vor dem Presignen ueber
+     `GetByID` (fuer Dateiname/MIME-Typ) und faellt dort schon aus — Test assertet hart
+     `store.presignCalls == 0` und zusaetzlich, dass **kein** `access`-Event auf dem fremden
+     Dokument landet. Kein Fund.
+  5. Bug-Suche (3) `AddDocumentAnnotation` laesst den archivierten Beleg unberuehrt: belegt.
+     Der Test nimmt vor dem Aufruf eine Wertkopie des `models.GobdDocument` und vergleicht sie
+     danach feldweise (`assert.Equal(before, *repo.docs[id])`); die Anmerkung landet
+     ausschliesslich als `annotation`-Event in `gobd_document_events`. Kein Fund.
+  6. Bug-Suche (4) Hash-Pruefung beim Lesen: **FUND, siehe `neue-units`.** Der SHA-256 wird
+     beim Schreiben per `io.TeeReader` berechnet (`gobdarchive/service.go:95-113`) und
+     danach **nie wieder geprueft**. `GetByID`, `List` und `GetDownloadURL` reichen die
+     gespeicherte Spalte nur durch, `toProtoGobdDocument` schreibt sie ins Proto
+     (`server/biz_grpc_gobd_archive.go:291`). Ein grep ueber das ganze Backend nach
+     `sha256`/`Sha256` findet ausser Schreibpfad, Repository-Spaltenliste und Proto-Mapping
+     **keine einzige Vergleichsstelle**. Zweiter Beleg: `models.GobdEventTypeIntegrityCheck`
+     = `"integrity_check"` (`internal/models/gobd.go:60`) existiert im Datenmodell und wird
+     von **keiner** Zeile Go-Code emittiert (`grep -rn "IntegrityCheck" --include=*.go .`
+     liefert genau diese eine Definitionszeile). Das Schema hat die Pruefung vorgesehen, der
+     Code hat sie nie bekommen. Wirkung: wird ein Objekt im MinIO-Bucket ausgetauscht, faellt
+     das nirgends auf. Migration 000315 (`REVOKE UPDATE, DELETE`) haertet die DB-Zeile, nicht
+     die Bytes im Objektspeicher.
+  7. Weitere abgedeckte Verhaltensweisen, die vorher unbelegt waren: leeres `content` wird
+     abgelehnt, **bevor** Bytes den Store erreichen; `source_invoice_id` kommt als leerer
+     String statt als Null-UUID zurueck, wenn kein Bezug besteht; leere Liste serialisiert
+     als `[]`, nie `null`; Default `page=1`/`per_page=50` in der Response; alle
+     Filter (doc_type, source_invoice_id, date_from/date_to als YYYY-MM-DD, page, per_page)
+     erreichen die Repository-Ebene unveraendert; fehlendes `metadata` wird als `{}`
+     serialisiert; `ArchiveInvoiceDocument` archiviert nur gesperrte Rechnungen
+     (FailedPrecondition sonst) und legt bei Render-Fehler nichts an.
+- gate: build ok (`./internal/server/... ./internal/biz/gobdarchive/... ./internal/gateway/...
+  ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run ./internal/server/...`, 0 issues) |
+  test ok (`internal/server` 2,9 s gruen, `internal/biz/gobdarchive` gruen, `internal/gateway`
+  gruen; `DATABASE_URL` als `kmuhub_app` gesetzt, `go test -v | grep -c -- "--- SKIP"` = **0**,
+  also kein einziger uebersprungener DB-Test) | migration n.a. (reine Testdatei, kein Schema) |
+  rls-smoke n.a. (keine Tabelle/Policy angefasst; die Tenant-Isolation ist hier auf
+  Handler-Ebene per Test belegt, nicht auf Policy-Ebene veraendert)
+- coverage: internal/server 71,4 % -> 72,1 % (selbst gemessen per `go tool cover -func` vor und
+  nach der Aenderung; der Bezugswert der Unit war dateibezogen —
+  `biz_grpc_gobd_archive.go` 0,0 %, 136 Statements — diese Datei steht jetzt bei 100,0 % ueber
+  alle neun Funktionen)
+- mutations-probe: `toProtoGobdDocument` per `cp`-Backup auf `Sha256: ""` gesetzt (statt
+  `doc.SHA256`) -> `TestArchiveDocument/success_stores_the_document_under_the_caller_tenant_with_a_matching_hash`
+  sofort rot (erwartet `52d51394…a7d3`, bekommen `""`) und
+  `TestGetGobdDocument/success_returns_document_plus_audit_trail` ebenfalls rot (erwartet
+  `deadbeef`). Backup zurueckgespielt, `git diff --stat -- internal/server/biz_grpc_gobd_archive.go`
+  leer, Paket erneut gruen. Damit ist belegt, dass die Tests die Hash-Weitergabe wirklich
+  pruefen und nicht nur Zeilen ausfuehren.
+- verify vorgaenger: sauber (`7379f99b` geprueft — der einzige Nicht-Test-Diff ist
+  `internal/dialer/service.go`: `refreshCampaignCounts` war ein dokumentierter No-Op mit
+  `slog.Debug` und `return nil` und ruft jetzt real
+  `GetCampaignContactByID` + `UpdateCampaignCounts`; beide Aufrufer wurden auf die neue
+  Signatur mit `tenantID` gezogen. Das ist die Aufloesung eines Stubs, nicht das Einbauen
+  eines neuen. Kein gRPC-Bypass (Service-interner Repository-Aufruf, kein Gateway-Handler),
+  kein `.proto` im Diff, kein `RequirePermission` angefasst, keine neue Tabelle, keine neue
+  Route, Wire-Shape unveraendert.)
+- neue-units: fix-gobd-archive-hash-never-verified (SHA-256 wird geschrieben und nie
+  verifiziert; Scope der Unit ist bewusst nur die Service-Methode plus Tests, **nicht** ihr
+  Aufrufer)
+- offen: **Entscheidung fuer Luke — wo die Integritaetspruefung ausgeloest wird.** Die Bytes
+  fliessen heute nirgends durch die App zurueck: `GetDownloadURL` presigned direkt gegen
+  MinIO, der Prozess sieht den Inhalt nach dem Upload nie wieder. Ein Pruefpfad braucht daher
+  einen eigenen Ausloeser — periodischer Worker (analog `security/gdpr/retention_scheduler.go`
+  mit Advisory-Lock), RPC auf Zuruf, oder beim GoBD-Export. Das haengt daran, wie teuer ein
+  Vollscan des Buckets sein darf, und ist deshalb bewusst aus der neuen Unit ausgeklammert.

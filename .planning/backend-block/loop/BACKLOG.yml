@@ -3130,7 +3130,7 @@ units:
     service: server
     model: opus
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/server/biz_grpc_gobd_archive.go 0,0 % — 136 Statements, sechs Handler, null Tests (CI-Stand 32949396303)"
     scope: >
       Die einzige Datei mit Substanz im `server`-Paket, die bei exakt null Abdeckung steht —
@@ -5989,3 +5989,61 @@ units:
         Ein Test belegt sowohl den Trefferfall (haengender Kontakt wird zurueckgesetzt) als
         auch den Negativfall (aktiver Kontakt mit laufender Sitzung bleibt unangetastet)
       - go test -count=1 ./internal/dialer/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-gobd-archive-hash-never-verified
+    phase: 4
+    service: biz/gobdarchive
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: n.a. (verifizierter Befund, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
+      `cov-server-gobd-archive-grpc-handlers`, Punkt (4) jener Unit). Der SHA-256 eines
+      archivierten Belegs wird beim Schreiben per `io.TeeReader` berechnet und in
+      `gobd_documents.sha256` abgelegt (`internal/biz/gobdarchive/service.go:95-113`) --
+      und danach nie wieder geprueft. `GetByID`, `List` und `GetDownloadURL` reichen den
+      gespeicherten Hash nur durch; `toProtoGobdDocument` schreibt ihn ins Proto
+      (`internal/server/biz_grpc_gobd_archive.go:291`). Ein grep ueber das gesamte Backend
+      nach `sha256`/`Sha256` findet ausserhalb von Schreibpfad, Repository-Spaltenliste und
+      Proto-Mapping keine einzige Vergleichsstelle. Zweiter Beleg: die Konstante
+      `models.GobdEventTypeIntegrityCheck = "integrity_check"` (`internal/models/gobd.go:60`)
+      existiert im Datenmodell, wird aber von keiner Zeile Go-Code je emittiert -- das Schema
+      hat die Pruefung vorgesehen, der Code hat sie nie bekommen. Wirkung: wird ein Objekt im
+      MinIO-Bucket ausgetauscht, faellt das nirgends auf; der Hash, der die Unveraenderbarkeit
+      nach Paragraph 147 AO belegen soll, erfuellt seinen Zweck nicht. Migration 000315
+      (`REVOKE UPDATE, DELETE`) haertet nur die DB-Zeile, nicht die Bytes im Objektspeicher.
+    sources:
+      - backend/internal/biz/gobdarchive/service.go
+      - backend/internal/models/gobd.go
+      - backend/internal/server/biz_grpc_gobd_archive.go
+      - backend/internal/chat/file/minio_store.go
+      - backend/migrations/000315_gobd_archive_worm_privileges.up.sql
+    notes: >
+      Scope dieser Unit ist ausdruecklich NUR die Service-Methode plus ihre Tests, kein
+      Aufrufer. Grund: die Bytes fliessen heute nirgends durch die App -- `GetDownloadURL`
+      presigned direkt gegen MinIO, der Prozess sieht den Inhalt nach dem Upload nie wieder.
+      Wo die Pruefung ausgeloest wird (periodischer Worker analog
+      `internal/security/gdpr/retention_scheduler.go` mit Advisory-Lock, RPC auf Zuruf, oder
+      beim GoBD-Export), ist eine Architekturentscheidung und gehoert Luke -- sie haengt
+      daran, wie teuer ein Vollscan des Buckets sein darf. Keine neue Route, kein neues
+      Feature-Flag, keine `config.RequireX`-Assertion, keine Migration: `integrity_check`
+      ist als Event-Typ bereits im ENUM.
+      `chatfile.FileStore.Download` existiert und liefert den `io.ReadCloser`, den die
+      Pruefung braucht.
+    done_when:
+      - >-
+        `gobdarchive.Service` hat eine Methode, die einen Beleg tenant-gescoped laedt, seine
+        Bytes ueber `store.Download` streamt, SHA-256 neu berechnet und gegen die gespeicherte
+        Spalte vergleicht
+      - >-
+        Bei Abweichung liefert sie einen eigenen Sentinel-Fehler (z. B. `ErrIntegrityMismatch`)
+        und schreibt ein `models.GobdEventTypeIntegrityCheck`-Event mit dem erwarteten und dem
+        gefundenen Hash in `metadata`; bei Uebereinstimmung ebenfalls ein Event, aber ohne
+        Fehler
+      - >-
+        Ein Test belegt den Trefferfall (Store liefert manipulierte Bytes -> Fehler + Event),
+        den Gutfall (unveraenderte Bytes -> kein Fehler) und den Fremd-Tenant-Fall
+        (`ErrDocumentNotFound`, kein Download, kein Event)
+      - Der Aufrufer bleibt aus dem Scope; die offene Entscheidung steht im Journal-Eintrag
+      - go test -count=1 ./internal/biz/gobdarchive/ ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips
