@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -201,6 +202,42 @@ func TestService_AddAndRemoveParty_RecordEvents(t *testing.T) {
 	assert.Equal(t, "Auftraggeber", events[0].Payload["role_in_contract"])
 	assert.Equal(t, ContractEventPartyRemoved, events[1].Action)
 	assert.Equal(t, p.ID.String(), events[1].Payload["party_id"])
+}
+
+// TestService_RemoveParty_SignedParty_BUG_EvidenceRemovedWithoutGuard
+// documents a VERIFIED finding, found while covering this handler group
+// (cov-gateway-vertraege-lifecycle-and-signature): neither Service.RemoveParty
+// nor PostgresRepository.RemoveParty check ContractParty.SignedOn before
+// deleting the row. A party that has already signed the contract can be
+// removed exactly like one that never signed — the removal deletes the
+// evidence that they signed, and the party_removed audit entry records only
+// the party_id, not that a signature was attached to it. Filed as its own
+// fix-unit — a coverage unit changes no behaviour.
+func TestService_RemoveParty_SignedParty_BUG_EvidenceRemovedWithoutGuard(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	c := addContract(repo, tenantID, "CT-401", "Unterschriebene Partei", ContractStatusActive)
+
+	ctx := ctxWithUser(uuid.New())
+	now := time.Now()
+	signedOn := &now
+	p, err := svc.AddParty(ctx, AddPartyInput{
+		TenantID:       tenantID,
+		ContractID:     c.ID,
+		PartyType:      PartyTypeCompany,
+		RoleInContract: "Unterzeichner",
+		SignedOn:       signedOn,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, repo.parties[p.ID].SignedOn, "precondition: party must be recorded as signed")
+
+	err = svc.RemoveParty(ctx, tenantID, p.ID)
+
+	require.NoError(t, err, "expected the removal of a signed party to currently SUCCEED (documenting the gap)")
+	_, stillThere := repo.parties[p.ID]
+	assert.False(t, stillThere, "expected the signed party's row to have been deleted despite SignedOn being set")
 }
 
 // Removing a party that is not there stays a no-op; inventing a trail entry

@@ -2908,7 +2908,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 69,3 %; route_vertraege.go 23,5 % — die niedrigste Quote im Gateway, 251 ungedeckt von 328, 11 von 15 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       `route_vertraege.go` hat mit 23,5 % die niedrigste Statement-Coverage aller
@@ -5820,4 +5820,88 @@ units:
         `total == 0` fuer einen Nicht-Mitglieds-Channel erwartet (und nicht mehr als BUG
         markiert ist)
       - Ein zusaetzlicher Test belegt, dass der Mitglieds-Fall (eigener Channel) weiter funktioniert
+
+  - id: fix-vertraege-signature-overwritable-after-signing
+    phase: 4
+    service: vertraege
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
+      `cov-gateway-vertraege-lifecycle-and-signature`, siehe
+      `TestSaveSignature_OverwritesExistingSignatureWithoutGuard`,
+      `internal/vertraege/postgres_repository_db_test.go`). Derselbe Fehler wie
+      `fix-rapporte-signature-overwritable-after-signing` und
+      `fix-vermietung-rental-signature-overwritable-after-signing`, hier im dritten
+      Signatur-Modul: `PostgresRepository.SaveSignature` (postgres_repository.go:27) hat
+      kein "AND signature_data IS NULL" in der WHERE-Klausel und `Service.SaveSignature`
+      (service.go:543) prueft nur Format/Groesse/Pflichtfelder der NEUEN Signatur, nicht ob
+      der Vertrag bereits eine traegt. Ein bereits signierter Vertrag akzeptiert klaglos
+      einen zweiten `SaveSignature`-Aufruf und ueberschreibt `signature_data`, `signed_at`
+      und `signed_by` unwiderruflich, ohne dass die erste Unterschrift irgendwo erhalten
+      bleibt.
+    sources:
+      - backend/internal/vertraege/postgres_repository.go
+      - backend/internal/vertraege/postgres_repository_db_test.go
+      - backend/internal/vertraege/service.go
+      - backend/internal/gateway/route_vertraege.go
+    notes: >
+      Fix vermutlich analog zur rapporte-Unit: entweder in `Service.SaveSignature` vor dem
+      Repo-Aufruf pruefen, ob der geladene Vertrag bereits `SignedAt != nil` hat und dann
+      einen Fehler zurueckgeben, oder die SQL-WHERE-Klausel um
+      `AND signature_data IS NULL` erweitern und den Nicht-Treffer separat von
+      `ErrContractNotFound` behandeln (sonst verwechselt der Aufrufer "nicht gefunden" mit
+      "bereits signiert"). Wenn diese drei Module (rapporte, vermietung, vertraege) beim
+      Fixen wirklich denselben Code-Pfad teilen sollen, waere das ein root-cause-Refactor
+      auf einen gemeinsamen Helper -- das ist eine Architekturentscheidung fuer Luke, nicht
+      Teil dieser Unit; einzeln fixen reicht.
+    done_when:
+      - >-
+        `SaveSignature` lehnt einen zweiten Aufruf auf einem bereits signierten Vertrag ab
+        (klarer Fehler statt stillem Overwrite), statt die vorhandene Signatur zu ersetzen
+      - >-
+        `TestSaveSignature_OverwritesExistingSignatureWithoutGuard` ist aktualisiert und
+        gruen (dokumentiert jetzt die Ablehnung, nicht mehr die Luecke)
+      - go test -count=1 ./internal/vertraege/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-vertraege-remove-signed-party-destroys-evidence
+    phase: 4
+    service: vertraege
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
+      `cov-gateway-vertraege-lifecycle-and-signature`, siehe
+      `TestService_RemoveParty_SignedParty_BUG_EvidenceRemovedWithoutGuard`,
+      `internal/vertraege/contract_events_test.go`). Weder `Service.RemoveParty`
+      (service.go:430) noch `PostgresRepository.RemoveParty` (postgres_repository.go:245)
+      pruefen `ContractParty.SignedOn`, bevor die Zeile geloescht wird. Eine Partei, die den
+      Vertrag bereits unterschrieben hat, laesst sich exakt so entfernen wie eine, die nie
+      unterschrieben hat -- die Entfernung loescht damit den Beleg, dass sie unterschrieben
+      hat. Der `party_removed`-Audit-Event haelt nur die `party_id` fest, nicht dass eine
+      Signatur daran hing.
+    sources:
+      - backend/internal/vertraege/service.go
+      - backend/internal/vertraege/postgres_repository.go
+      - backend/internal/vertraege/contract_events_test.go
+      - backend/internal/gateway/route_vertraege.go
+    notes: >
+      Fix vermutlich in `Service.RemoveParty`: vor dem Repo-Aufruf die Partei laden (oder
+      `RemoveParty` im Repo die geloeschte Zeile zurueckgeben lassen statt nur die
+      Contract-ID) und bei gesetztem `SignedOn` ablehnen (z. B. `ErrPartySigned`). Zu
+      klaeren beim Fixen: braucht es einen legitimen Korrektur-Workflow (Partei falsch
+      erfasst, Signatur widerrufen), der ueber einen einfachen Guard hinausgeht? Das ist
+      Lukes Entscheidung, nicht Teil dieser Unit.
+    done_when:
+      - >-
+        `RemoveParty` lehnt die Entfernung einer Partei mit gesetztem `SignedOn` ab (klarer
+        Fehler statt stillem Delete)
+      - >-
+        `TestService_RemoveParty_SignedParty_BUG_EvidenceRemovedWithoutGuard` ist
+        umbenannt/aktualisiert und erwartet jetzt die Ablehnung, nicht mehr das Loeschen
+      - go test -count=1 ./internal/vertraege/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
       - go test -count=1 ./internal/chat/... ./internal/gateway/ gruen

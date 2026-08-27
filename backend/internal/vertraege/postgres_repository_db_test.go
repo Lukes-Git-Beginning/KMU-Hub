@@ -71,6 +71,70 @@ func TestRepository_SaveSignature_UpdatesFieldsAndTenantScoped(t *testing.T) {
 	}
 }
 
+// TestSaveSignature_OverwritesExistingSignatureWithoutGuard documents a
+// VERIFIED finding against the real schema, found while covering this
+// handler group (cov-gateway-vertraege-lifecycle-and-signature): the UPDATE
+// in PostgresRepository.SaveSignature has no "AND signature_data IS NULL"
+// clause and Service.SaveSignature has no check against the contract's
+// existing SignedAt/SignatureData — a contract that already carries a
+// signature silently accepts and persists a second one, with no trace of
+// the first left anywhere in the contracts row. Same bug class as
+// fix-rapporte-signature-overwritable-after-signing (rapporte) and
+// fix-vermietung-rental-signature-overwritable-after-signing (vermietung).
+// Filed as its own fix-unit — a coverage unit changes no behaviour.
+func TestSaveSignature_OverwritesExistingSignatureWithoutGuard(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Vertraege Signature Overwrite Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	now := time.Now().UTC()
+
+	c := &Contract{
+		ID: uuid.New(), TenantID: tenantID, ContractNumber: "SIG-OVR-" + uuid.New().String()[:8],
+		Title: "Zweimal unterschrieben", ContractType: ContractTypeService, Status: ContractStatusActive,
+		StartsOn: now, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateContract(ctx, c); err != nil {
+		t.Fatalf("CreateContract: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contracts", c.ID)
+
+	first, err := repo.SaveSignature(ctx, tenantID.String(), c.ID.String(), "data:image/png;base64,firstSignature", "Max Mustermann")
+	if err != nil {
+		t.Fatalf("SaveSignature (first): %v", err)
+	}
+	if first.SignedBy == nil || *first.SignedBy != "Max Mustermann" {
+		t.Fatalf("expected first signature persisted, got %+v", first)
+	}
+	firstSignedAt := *first.SignedAt
+
+	second, err := repo.SaveSignature(ctx, tenantID.String(), c.ID.String(), "data:image/png;base64,secondSignatureReplacingTheFirst", "Erika Musterfrau")
+	if err != nil {
+		t.Fatalf("expected the re-sign to currently SUCCEED (documenting the gap), got error: %v", err)
+	}
+	if second.SignedBy == nil || *second.SignedBy != "Erika Musterfrau" {
+		t.Fatalf("expected the second signer to have overwritten the first, got %+v", second)
+	}
+	if !second.SignedAt.After(firstSignedAt) {
+		t.Fatalf("expected signed_at to have advanced past the first signature, first=%v second=%v", firstSignedAt, *second.SignedAt)
+	}
+
+	reloaded, err := repo.GetContract(ctx, tenantID, c.ID)
+	if err != nil {
+		t.Fatalf("GetContract: %v", err)
+	}
+	if reloaded.SignedBy == nil || *reloaded.SignedBy != "Erika Musterfrau" {
+		t.Fatalf("expected the persisted row to show the second signer with no trace of the first, got %+v", reloaded.SignedBy)
+	}
+}
+
 func TestRepository_UpdateContract_ChangesFieldsAndIsTenantScoped(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
@@ -968,6 +1032,22 @@ func TestRepository_ClaimDueRemindersAndMarkSent(t *testing.T) {
 	}
 	if !claimedDue {
 		t.Fatalf("ClaimDueReminders: expected due reminder to be claimed, got %v", claimed)
+	}
+
+	// The worker ticks every five minutes for as long as the process runs —
+	// a second real-SQL claim in the same window must not re-select the
+	// reminder it already claimed (the WHERE status='pending' clause on the
+	// UPDATE is what makes this safe, not process-level state). This is the
+	// DB-level counterpart to the mock-repo proof in
+	// TestReminderWorker_EmitsEventForDueReminder.
+	reclaimed, err := repo.ClaimDueReminders(testutil.WithSystemCtx(context.Background()))
+	if err != nil {
+		t.Fatalf("ClaimDueReminders (second run): %v", err)
+	}
+	for _, r := range reclaimed {
+		if r.ID == due.ID {
+			t.Fatalf("ClaimDueReminders (second run): already-sent reminder was claimed again: %+v", r)
+		}
 	}
 
 	stillPending, err := repo.GetReminder(ctx, tenantID, future.ID)

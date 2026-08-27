@@ -3531,3 +3531,78 @@ Kopf von `BACKLOG.yml`.
   wenn er die UUID kennt/eraet) — sollte zeitnah gebaut werden, steht aber am Backlog-Ende
   wie von den Laufregeln fuer Coverage-Unit-Funde vorgeschrieben. Luke kann sie bei Bedarf
   manuell nach vorne ziehen.
+
+## Iteration 12 — cov-gateway-vertraege-lifecycle-and-signature — done — 2026-08-27 02:56
+- commit: (folgt im naechsten Commit dieser Iteration)
+- gebaut:
+  1. `backend/internal/gateway/route_vertraege_lifecycle_signature_test.go` (neu) — 34 Tests
+     fuer alle zehn im Scope genannten Handler (HandleGetContract, HandleListContracts,
+     HandleExportContract, HandleListContractEvents, HandleListParties, HandleRemoveParty,
+     HandleListReminders, HandleUpdateReminder, HandleDeleteReminder,
+     HandleSaveContractSignature), jeweils ServiceUnavailable/NoTenantID/InvalidUUID/
+     ReachesRPC nach etabliertem Muster; HandleListContracts zusaetzlich mit
+     InvalidContactID (bislang ungetesteter Zweig), HandleSaveContractSignature mit
+     MissingSignatureData/MissingSignedBy (validate:"required").
+  2. Schwerpunkt (1) aus dem Scope untersucht: kein Immutability-Schutz nach der
+     Unterschrift. `PostgresRepository.SaveSignature` (postgres_repository.go:27) hat kein
+     "AND signature_data IS NULL", `Service.SaveSignature` (service.go:543) prueft nur
+     Format/Groesse/Pflichtfelder der neuen Signatur. Verifiziert per neuem echten DB-Test
+     `TestSaveSignature_OverwritesExistingSignatureWithoutGuard`
+     (`postgres_repository_db_test.go`): zweiter `SaveSignature`-Aufruf gelingt und
+     ueberschreibt `signature_data`/`signed_at`/`signed_by` spurlos. Exakt derselbe
+     Fehler wie in Lauf 12 fuer rapporte und vermietung gefunden (beide dort ebenfalls
+     noch offene `todo`-Fix-Units) — jetzt das dritte von drei Signatur-Modulen.
+     Als Coverage-Unit KEIN Verhalten geaendert; Fix-Unit
+     `fix-vertraege-signature-overwritable-after-signing` ans Backlog-Ende gehaengt.
+  3. Schwerpunkt (2) aus dem Scope untersucht: `HandleRemoveParty` bei einer
+     unterzeichnenden Partei. Weder `Service.RemoveParty` (service.go:430) noch
+     `PostgresRepository.RemoveParty` (postgres_repository.go:245) pruefen
+     `ContractParty.SignedOn` vor dem Loeschen — eine Partei, die bereits unterschrieben
+     hat, wird genauso entfernt wie eine, die nie unterschrieben hat, und der
+     `party_removed`-Event haelt nur die `party_id` fest. Verifiziert per neuem
+     BUG-Test `TestService_RemoveParty_SignedParty_BUG_EvidenceRemovedWithoutGuard`
+     (`contract_events_test.go`, mock-Repo). Fix-Unit
+     `fix-vertraege-remove-signed-party-destroys-evidence` ans Backlog-Ende gehaengt.
+  4. Schwerpunkt (3), Erinnerungs-Worker: `ReminderWorker.processReminders` haengt an
+     keinem Lock, sondern an einem atomaren `UPDATE ... WHERE status='pending'`
+     (`ClaimDueReminders`) — kein Advisory-Lock-Leak-Muster. Bereits per Mock-Test
+     belegt, dass ein zweiter Lauf ein bereits versandtes Reminder nicht erneut
+     verarbeitet (`TestReminderWorker_EmitsEventForDueReminder`). Zusaetzlich echten
+     SQL-Beweis nachgezogen: `TestRepository_ClaimDueRemindersAndMarkSent` ruft
+     `ClaimDueReminders` jetzt ein zweites Mal auf und prueft, dass das bereits
+     geclaimte Reminder nicht erneut zurueckkommt.
+- gate: build ok (`./internal/vertraege/... ./internal/gateway/... ./cmd/vertraege/...
+  ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/vertraege/... ./internal/gateway/...`, 0 issues) | test ok
+  (`internal/vertraege` komplett gruen, `internal/gateway` komplett gruen,
+  `DATABASE_URL` gesetzt, 0 uebersprungene Tests in beiden Paketen) | migration n.a.
+  (keine neue Tabelle/Policy) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/gateway 71,2 % -> 71,9 % (route_vertraege.go: alle zehn Ziel-Handler
+  vorher 0 % Funktionsabdeckung) | internal/vertraege 82,6 % -> 82,6 % (unveraendert —
+  die neuen BUG-Tests durchlaufen Code-Pfade, die durch bestehende Erfolgstests bereits
+  abgedeckt waren; Wert ist selbst gemessen vor/nach der Aenderung, nicht der
+  CI-Bezugswert 69,3 %/n.a. aus der Unit)
+- mutations-probe: zwei getrennte Proben, beide per `cp`-Backup zurueckgespielt.
+  (a) Gateway: in `saveContractSignatureRequest` das `validate:"required"`-Tag von
+  `SignatureData` auf `"omitempty"` geaendert -> `TestHandleSaveContractSignature_MissingSignatureData`
+  sofort rot (503 statt 400, echter RPC-Connect-Fehler statt Validierungsfehler).
+  (b) Repository: `AND signature_data IS NULL` in die UPDATE-WHERE-Klausel von
+  `PostgresRepository.SaveSignature` eingefuegt (das waere der eigentliche Fix) ->
+  `TestSaveSignature_OverwritesExistingSignatureWithoutGuard` sofort rot ("contract not
+  found" beim zweiten Aufruf, weil der Test genau das aktuelle, ungefixte Verhalten
+  dokumentiert). Beide Dateien per `cp`-Sicherungskopie zurueckgespielt, `git diff --stat`
+  danach leer, betroffene Pakete erneut komplett gruen.
+- verify vorgaenger: sauber (`fc68f158` gegen alle acht Fehlerklassen geprueft — reiner
+  neuer Testdateidiff (drei neue/erweiterte Testdateien), kein gRPC-Bypass moeglich, kein
+  Stub, kein `.proto` im Diff, kein `RequirePermission` angefasst, keine neue Tabelle, kein
+  Wire-Shape, keine neue Route; die neue `fix-chat-search-channel-filter-bypasses-membership`-Unit
+  wurde korrekt ans Dateiende gehaengt, nicht eingefuegt.)
+- neue-units: fix-vertraege-signature-overwritable-after-signing (Signatur nach dem
+  Signieren beliebig oft ueberschreibbar — drittes Modul mit demselben Fehler nach
+  rapporte/vermietung aus Lauf 12), fix-vertraege-remove-signed-party-destroys-evidence
+  (RemoveParty loescht Beweismittel einer bereits unterzeichnenden Partei ohne Guard)
+- offen: beide neuen Fix-Units sind unabhaengige echte Bugs, stehen aber wie von den
+  Laufregeln vorgeschrieben am Backlog-Ende. `fix-vertraege-signature-overwritable-after-signing`
+  betrifft dieselbe Fehlerklasse wie die beiden bereits offenen rapporte/vermietung-Units —
+  falls Luke das gemeinsam anfasst (root-cause-Refactor auf einen Helper statt drei
+  Einzelfixes), waere das ein eigener Architekturschnitt, keine Iterations-Erweiterung.
