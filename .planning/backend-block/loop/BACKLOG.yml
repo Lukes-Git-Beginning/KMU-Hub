@@ -2908,7 +2908,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 69,3 %; route_vertraege.go 23,5 % — die niedrigste Quote im Gateway, 251 ungedeckt von 328, 11 von 15 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       `route_vertraege.go` hat mit 23,5 % die niedrigste Statement-Coverage aller
