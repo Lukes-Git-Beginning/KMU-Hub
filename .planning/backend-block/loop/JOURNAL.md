@@ -3731,7 +3731,7 @@ Kopf von `BACKLOG.yml`.
 - offen: keine
 
 ## Iteration 15 — cov-gateway-produktion-planning-and-capacity — done — 2026-08-27 03:12
-- commit: (siehe naechster chore-Commit)
+- commit: f5b86621
 - gebaut:
   1. `internal/gateway/route_produktion_remaining_test.go` (neu) — die acht in der Unit
      genannten, bis dato ungetesteten Handler aus `route_produktion.go`: HandleDeleteOrder,
