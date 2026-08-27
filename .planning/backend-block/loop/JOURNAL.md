@@ -3840,7 +3840,7 @@ Kopf von `BACKLOG.yml`.
 - offen: keine
 
 ## Iteration 17 — cov-dialer-service-call-session-paths — done — 2026-08-27 03:29
-- commit: <wird nach dem Commit nachgetragen>
+- commit: 7379f99b
 - gebaut:
   1. ECHTER BUG GEFIXT: `Service.refreshCampaignCounts` (`service.go:1274`, aufgerufen von
      `LogCallOutcome` und `CompleteWrapUp`) war ein reiner No-Op — es loggte nur eine
