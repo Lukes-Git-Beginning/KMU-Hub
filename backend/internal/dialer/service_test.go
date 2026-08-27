@@ -15,6 +15,13 @@ import (
 // ---------------------------------------------------------------------------
 
 type mockCampaignRepo struct {
+	// mu guards the call-recording fields below. LogCallOutcome reaches this
+	// mock from concurrent goroutines (TestLogCallOutcome_Concurrent_SameSession),
+	// and since refreshCampaignCounts was wired up it really does call
+	// UpdateCampaignCounts on every one of them -- while the helper was a no-op
+	// the unsynchronised append was simply never exercised.
+	mu sync.Mutex
+
 	campaigns map[uuid.UUID]*Campaign
 	contacts  map[uuid.UUID]*CampaignContact
 	stats     *CampaignStats
@@ -129,6 +136,8 @@ func (r *mockCampaignRepo) GetAgentStats(_ context.Context, _, _ uuid.UUID) (*Ag
 	return &AgentStats{}, nil
 }
 func (r *mockCampaignRepo) UpdateCampaignCounts(_ context.Context, campaignID uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.updateCountsCalls = append(r.updateCountsCalls, campaignID)
 	return nil
 }

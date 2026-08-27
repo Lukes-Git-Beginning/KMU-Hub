@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -14,14 +15,20 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
-// shrinkBackoffForTest shrinks the worker reconnect backoff so background
-// goroutines spawned by Start/StartWorker don't block test cleanup, and
-// restores it afterwards.
-func shrinkBackoffForTest(t *testing.T) {
-	t.Helper()
-	origInitial, origMax := initialBackoff, maxBackoff
+// TestMain shrinks the worker reconnect backoff once, for the whole package,
+// so the background goroutines Start/StartWorker spawn don't hold up test
+// cleanup.
+//
+// It deliberately does NOT restore the values afterwards, and it is a TestMain
+// rather than a per-test helper: those goroutines outlive the test that started
+// them (StartWorker replaces a worker without waiting for the old one to
+// return), so a t.Cleanup that reassigns these package-level vars races against
+// a Worker.Run still reading initialBackoff -- exactly what the race detector
+// caught in CI run 33071992258. Writing them once before any test starts has no
+// concurrent reader.
+func TestMain(m *testing.M) {
 	initialBackoff, maxBackoff = 5*time.Millisecond, 20*time.Millisecond
-	t.Cleanup(func() { initialBackoff, maxBackoff = origInitial, origMax })
+	os.Exit(m.Run())
 }
 
 // failFastAccountRepo makes every worker's syncCycle fail before any network
@@ -47,7 +54,6 @@ func TestEngine_Start_ListAllActiveErrorPropagatesWithoutStartingWorkers(t *test
 }
 
 func TestEngine_Start_SpawnsOneWorkerPerActiveAccount(t *testing.T) {
-	shrinkBackoffForTest(t)
 	acct1 := &models.EmailAccount{ID: uuid.New(), TenantID: uuid.New()}
 	acct2 := &models.EmailAccount{ID: uuid.New(), TenantID: uuid.New()}
 	repo := failFastAccountRepo([]*models.EmailAccount{acct1, acct2})
@@ -75,7 +81,6 @@ func TestEngine_StartWorker_AccountNotFound_ReturnsErrSyncInProgress(t *testing.
 }
 
 func TestEngine_StartWorker_ReplacesExistingWorkerForSameAccount(t *testing.T) {
-	shrinkBackoffForTest(t)
 	acctID := uuid.New()
 	acct := &models.EmailAccount{ID: acctID, TenantID: uuid.New()}
 	repo := failFastAccountRepo([]*models.EmailAccount{acct})
@@ -96,7 +101,6 @@ func TestEngine_StartWorker_ReplacesExistingWorkerForSameAccount(t *testing.T) {
 }
 
 func TestEngine_StartWorker_UnknownAccountLeavesWorkersUntouched(t *testing.T) {
-	shrinkBackoffForTest(t)
 	knownID := uuid.New()
 	repo := failFastAccountRepo([]*models.EmailAccount{{ID: knownID, TenantID: uuid.New()}})
 	e := NewEngine(account.NewService(repo, fakeVaultEncryptor{}), &fakeMessageSyncer{}, newFakeFolderSyncer(), nil)
