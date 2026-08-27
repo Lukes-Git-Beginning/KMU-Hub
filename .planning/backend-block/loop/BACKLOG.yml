@@ -3288,7 +3288,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/security/gdpr 72,6 % — 644 ungedeckt von 2347 (CI-Stand 32949396303)"
     scope: >
       Das GDPR-Paket ist in Lauf 10 und 11 stark gewachsen (Retention-Engine, neun Handler,
