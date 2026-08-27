@@ -3236,7 +3236,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/auth 67,9 % — 515 ungedeckt von 1606 (CI-Stand 32949396303)"
     scope: >
       Das Auth-Paket ist der kritischste Pfad im System (CLAUDE.md nennt 60 %+ fuer Auth,
