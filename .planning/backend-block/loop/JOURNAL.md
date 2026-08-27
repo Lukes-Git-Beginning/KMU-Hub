@@ -3401,3 +3401,64 @@ Kopf von `BACKLOG.yml`.
 - neue-units: keine
 - offen: keine. `internal/server/wiki_grpc.go` war nur Lesequelle zum Verstehen der
   Response-Formen, nicht angefasst.
+
+## Iteration 10 — cov-gateway-helpdesk-sla-queues-and-kb — done — 2026-08-27 02:55
+- commit: <wird im naechsten chore-Commit nachgetragen>
+- gebaut:
+  1. `backend/internal/helpdesk/sla_test.go` (neu) — sechs Tests fuer `ComputeStatus`/
+     `ApplyPolicy`. Kern des Scopes: `TestComputeStatus_AcrossWeekend` (Freitag-18:00-CEST
+     Fensterbeginn, Sonntag-Faelligkeit, on_track/at_risk/breached ueber das Wochenende
+     geprueft) und `TestApplyPolicy_AcrossDSTSpringForward` (Europe/Berlin,
+     2026-03-29-Sommerzeitwechsel, `now.Add(duration)` addiert exakt Elapsed-Minuten, nicht
+     Wall-Clock-Minuten — Due-Zeit landet korrekt auf 04:00 CEST statt der wall-clock-naiven
+     Erwartung 03:30). Beide sind der geforderte Beleg aus dem Backlog-Punkt (1). Dabei
+     Doppel-Deklaration mit vier bereits existierenden Tests aus `service_test.go` entdeckt
+     und bereinigt (TestComputeStatus_NoDueAt, TestApplyPolicy_NilPolicy) — die Datei hatte
+     schon Basis-SLA-Tests, nur keine Wochenend-/DST-Faelle.
+  2. Frage aus den Notes beantwortet: Die Zeitrechnung IST injizierbar (`ComputeStatus`/
+     `ApplyPolicy` nehmen `now time.Time` als Parameter, der Service reicht nur
+     `time.Now().UTC()` durch) — kein Designfehler, keine Extra-Unit noetig.
+     `ApplyPolicy`s eigener Doc-Kommentar bestaetigt zusaetzlich: Business-Hours-Subtraktion
+     ist bewusst NICHT implementiert ("assume 24/7 availability") — der Weekend-Test belegt
+     genau dieses dokumentierte Verhalten (kein Business-Hours-Skip), kein neuer Fund.
+  3. `backend/internal/gateway/route_helpdesk_test.go` — 42 neue Tests fuer alle 13 im Scope
+     genannten Handler (HandleGetSLAStatus, HandleListSLAPolicies, HandleUpdateSLAPolicy,
+     HandleDeleteSLAPolicy, HandleListQueues, HandleUpdateQueue, HandleDeleteQueue,
+     HandleGetBusinessHours, HandleUpdateBusinessHours, HandleListKBArticles,
+     HandleDeleteKBArticle, HandleGetHelpdeskStats, HandleCreateTicketFromMessage), jeweils
+     inkl. Fehlerpfad (ServiceUnavailable/MissingTenant/InvalidJSON/Validation/InvalidIDUUID)
+     und ReachesRPC-Nachweis, nach dem etablierten Muster ohne bufconn-Stub fuer
+     HelpdeskServiceClient. `HandleCreateTicketFromMessage` zusaetzlich dokumentiert: Tenant-
+     und Requester-ID kommen aus dem Auth-Context, nicht aus dem Body (der nur `message_id`
+     traegt) — ein konvertiertes Ticket kann nicht auf einen fremden Tenant/Kontakt zeigen.
+  4. Backlog-Punkt (2) beantwortet, ohne Code zu aendern: `HandleDeleteQueue`/
+     `HandleDeleteSLAPolicy` bei vorhandenen Tickets pruefen KEINE Referenz-Integritaet im
+     Service — brauchen es auch nicht, weil `tickets.queue_id` und `tickets.sla_policy_id`
+     beide `ON DELETE SET NULL` sind (`000077_create_helpdesk.up.sql` Zeilen 20+36). Ein
+     Loeschen mit angehaengten Tickets schlaegt nie fehl, es entkoppelt sie nur. Als
+     Kommentar im Testfile dokumentiert, kein Fund.
+- gate: build ok (`./internal/helpdesk/... ./internal/gateway/...`) | vet ok | lint ok
+  (`golangci-lint run --config .golangci.yml ./internal/helpdesk/... ./internal/gateway/...`,
+  0 issues) | test ok (`internal/helpdesk` komplett gruen, `internal/gateway` komplett gruen,
+  `DATABASE_URL` gesetzt, 0 uebersprungene Tests in beiden Paketen) | migration n.a. (keine
+  neue Tabelle/Policy) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/gateway 69,3 % -> 70,3 % (`route_helpdesk.go`: alle dreizehn im Scope
+  genannten Handler vorher 0 %, jetzt 91,7–94,4 % Funktionsabdeckung ueber Fehlerpfade) |
+  internal/helpdesk 81,5 % -> 81,6 % (marginal, `sla.go` war durch bestehende Tests schon
+  gut abgedeckt — die neue Weekend-/DST-Deckung ist inhaltlich, nicht flaechenmaessig
+  wertvoll)
+- mutations-probe: zwei getrennte Proben, beide per `cp`-Backup zurueckgespielt.
+  (a) Gateway: in `updateBusinessHoursRequest` das `validate:"required"`-Tag von
+  `ScheduleJSON` auf `"omitempty"` geaendert -> `TestHandleUpdateBusinessHours_MissingScheduleJSON`
+  sofort rot (503 statt 400, echter RPC-Connect-Fehler statt Validierungsfehler). (b) SLA:
+  in `ComputeStatus` die Breached-Bedingung von `!now.Before(due)` auf `now.Before(due)`
+  invertiert -> sieben Tests sofort rot, darunter beide neuen
+  (`TestComputeStatus_AcrossWeekend`, `TestApplyPolicy_AcrossDSTSpringForward`) und fuenf
+  bereits bestehende. Beide Dateien per `cp`-Sicherungskopie zurueckgespielt, `git diff --stat`
+  danach leer, `go test ./internal/helpdesk/... ./internal/gateway/` erneut komplett gruen.
+- verify vorgaenger: sauber (`fad481c5` gegen alle acht Fehlerklassen geprueft — reiner
+  neuer Testdateidiff (`route_wiki_test.go`, `postgres_repository_db_test.go`), kein
+  gRPC-Bypass moeglich, kein Stub, kein `.proto` im Diff, kein `RequirePermission`
+  angefasst, keine neue Tabelle, kein Wire-Shape, keine neue Route.)
+- neue-units: keine
+- offen: keine.

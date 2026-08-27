@@ -635,3 +635,468 @@ func TestHandleSubmitCsatByToken_ReachesRPC(t *testing.T) {
 	routes.HandleSubmitCsatByToken(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- HandleCreateTicketFromMessage ---
+//
+// Reference-integrity note for HandleDeleteQueue/HandleDeleteSLAPolicy below:
+// ticket_queues and sla_policies are both referenced from tickets with
+// "ON DELETE SET NULL" (000077_create_helpdesk.up.sql lines 20 and 36), so a
+// delete with existing tickets attached never fails at the DB layer -- it
+// detaches them. No gateway or service-level check exists or is needed for
+// that case; verified against the migration, not re-tested here since it is
+// a DB-constraint fact, not gateway behaviour.
+
+func TestHandleCreateTicketFromMessage_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleCreateTicketFromMessage)
+}
+
+func TestHandleCreateTicketFromMessage_MissingTenant(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets/from-message", jsonBody(t, map[string]interface{}{
+		"message_id": "550e8400-e29b-41d4-a716-446655440000",
+	}))
+	routes.HandleCreateTicketFromMessage(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleCreateTicketFromMessage_MissingMessageID(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets/from-message", jsonBody(t, map[string]interface{}{}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateTicketFromMessage(rec, req)
+	assertValidationError(t, rec, "message_id")
+}
+
+func TestHandleCreateTicketFromMessage_InvalidMessageIDFormat(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets/from-message", jsonBody(t, map[string]interface{}{
+		"message_id": "not-a-uuid",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateTicketFromMessage(rec, req)
+	assertValidationError(t, rec, "message_id")
+}
+
+// TestHandleCreateTicketFromMessage_ReachesRPCWithTenantAndContact documents
+// that the handler forwards the caller's own tenant and requester id -- not
+// values from the request body, which carries only message_id -- so a
+// converted ticket cannot end up attributed to a different tenant/contact
+// than the authenticated caller. No bufconn stub for HelpdeskServiceClient
+// exists in this file (same documented limit as every other list/reach test
+// here), so this proves decode+validate+context-forwarding got past the
+// gateway and reached the RPC boundary, not the RPC's own response shape.
+func TestHandleCreateTicketFromMessage_ReachesRPCWithTenantAndContact(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets/from-message", jsonBody(t, map[string]interface{}{
+		"message_id": "550e8400-e29b-41d4-a716-446655440000",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateTicketFromMessage(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListQueues ---
+
+func TestHandleListQueues_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListQueues)
+}
+
+func TestHandleListQueues_MissingTenant(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/queues", nil)
+	routes.HandleListQueues(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleListQueues_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/queues", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListQueues(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateQueue ---
+
+func TestHandleUpdateQueue_InvalidIDUUID(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateQueue(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleUpdateQueue_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateQueue(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpdateQueue_InvalidJSON(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateQueue(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateQueue_InvalidDefaultAssigneeID(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{
+		"default_assignee_id": "not-a-uuid",
+	}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateQueue(rec, req)
+	assertValidationError(t, rec, "default_assignee_id")
+}
+
+func TestHandleUpdateQueue_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{
+		"name": "VIP queue",
+	}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateQueue(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteQueue ---
+
+func TestHandleDeleteQueue_InvalidIDUUID(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteQueue(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleDeleteQueue_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteQueue(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteQueue_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteQueue(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListSLAPolicies ---
+
+func TestHandleListSLAPolicies_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListSLAPolicies)
+}
+
+func TestHandleListSLAPolicies_MissingTenant(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/sla-policies", nil)
+	routes.HandleListSLAPolicies(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleListSLAPolicies_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/sla-policies", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListSLAPolicies(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateSLAPolicy ---
+
+func TestHandleUpdateSLAPolicy_InvalidIDUUID(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateSLAPolicy(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleUpdateSLAPolicy_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateSLAPolicy(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpdateSLAPolicy_InvalidJSON(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", invalidJSON())
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateSLAPolicy(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateSLAPolicy_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", jsonBody(t, map[string]interface{}{
+		"first_response_mins": 45,
+	}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateSLAPolicy(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteSLAPolicy ---
+
+func TestHandleDeleteSLAPolicy_InvalidIDUUID(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteSLAPolicy(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleDeleteSLAPolicy_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteSLAPolicy(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteSLAPolicy_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteSLAPolicy(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetSLAStatus ---
+
+func TestHandleGetSLAStatus_InvalidIDUUID(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/tickets/not-a-uuid/sla-status", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetSLAStatus(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleGetSLAStatus_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/tickets/550e8400-e29b-41d4-a716-446655440000/sla-status", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGetSLAStatus(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleGetSLAStatus_ReachesRPCWithPolicyOverride covers the optional
+// sla_policy_id query param (?sla_policy_id=...), which lets a caller ask
+// "what would the status be under this policy" instead of the ticket's
+// applied one -- GetSLAStatus itself (the time math) is unit-tested directly
+// against internal/helpdesk.ComputeStatus in sla_test.go, weekend and DST
+// cases included; this only proves the gateway forwards the param.
+func TestHandleGetSLAStatus_ReachesRPCWithPolicyOverride(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/tickets/550e8400-e29b-41d4-a716-446655440000/sla-status?sla_policy_id=650e8400-e29b-41d4-a716-446655440000", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleGetSLAStatus(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListKBArticles ---
+
+func TestHandleListKBArticles_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleListKBArticles)
+}
+
+func TestHandleListKBArticles_MissingTenant(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/kb-articles", nil)
+	routes.HandleListKBArticles(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleListKBArticles_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/kb-articles", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListKBArticles(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteKBArticle ---
+
+func TestHandleDeleteKBArticle_InvalidIDUUID(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteKBArticle(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleDeleteKBArticle_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteKBArticle(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteKBArticle_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteKBArticle(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetBusinessHours ---
+
+func TestHandleGetBusinessHours_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleGetBusinessHours)
+}
+
+func TestHandleGetBusinessHours_MissingTenant(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/business-hours", nil)
+	routes.HandleGetBusinessHours(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleGetBusinessHours_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/business-hours", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleGetBusinessHours(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateBusinessHours ---
+
+func TestHandleUpdateBusinessHours_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleUpdateBusinessHours)
+}
+
+func TestHandleUpdateBusinessHours_MissingTenant(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/helpdesk/business-hours", jsonBody(t, map[string]interface{}{
+		"schedule_json": "{}",
+		"holidays_json": "[]",
+		"timezone":      "Europe/Berlin",
+	}))
+	routes.HandleUpdateBusinessHours(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleUpdateBusinessHours_MissingScheduleJSON(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/helpdesk/business-hours", jsonBody(t, map[string]interface{}{
+		"holidays_json": "[]",
+		"timezone":      "Europe/Berlin",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleUpdateBusinessHours(rec, req)
+	assertValidationError(t, rec, "schedule_json")
+}
+
+func TestHandleUpdateBusinessHours_MissingTimezone(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/helpdesk/business-hours", jsonBody(t, map[string]interface{}{
+		"schedule_json": "{}",
+		"holidays_json": "[]",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleUpdateBusinessHours(rec, req)
+	assertValidationError(t, rec, "timezone")
+}
+
+func TestHandleUpdateBusinessHours_InvalidJSON(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/helpdesk/business-hours", invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleUpdateBusinessHours(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateBusinessHours_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/helpdesk/business-hours", jsonBody(t, map[string]interface{}{
+		"schedule_json": `{"mon":["09:00-17:00"]}`,
+		"holidays_json": "[]",
+		"timezone":      "Europe/Berlin",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleUpdateBusinessHours(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetHelpdeskStats ---
+
+func TestHandleGetHelpdeskStats_ServiceUnavailable(t *testing.T) {
+	routes := newHelpdeskRoutes(emptyRegistry())
+	testServiceUnavailable(t, routes.HandleGetHelpdeskStats)
+}
+
+func TestHandleGetHelpdeskStats_MissingTenant(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/stats", nil)
+	routes.HandleGetHelpdeskStats(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestHandleGetHelpdeskStats_ReachesRPC(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/helpdesk/stats", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleGetHelpdeskStats(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
