@@ -3780,7 +3780,7 @@ Kopf von `BACKLOG.yml`.
 - offen: keine
 
 ## Iteration 16 — cov-settings-repository-and-service — done — 2026-08-27 03:18
-- commit: (wird im nächsten Commit dieser Iteration gesetzt)
+- commit: 4c6163b4
 - gebaut:
   1. `internal/settings/postgres_repository_db_test.go` (neu) — DB-Tests fuer alle
      zuvor bei 0,0 % stehenden Repository-Methoden: `IsAdmin` (inkl. Cross-Tenant-Leck-Check
