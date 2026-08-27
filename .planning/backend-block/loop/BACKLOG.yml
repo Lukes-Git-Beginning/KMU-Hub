@@ -2774,7 +2774,7 @@ units:
     service: wiki
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/wiki 53,5 % (199 ungedeckt von 428); postgres_repository.go 29,9 %, 141 ungedeckt von 201 (CI-Stand 32949396303)"
     scope: >
       Wiki-Repository plus die zugehoerigen Gateway-Handler in einer Unit, weil beide klein

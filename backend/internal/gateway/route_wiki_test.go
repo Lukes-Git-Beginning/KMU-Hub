@@ -221,3 +221,231 @@ func TestHandleRedeemShareToken_OverlongTokenIsNotFound(t *testing.T) {
 
 	assertStatus(t, rec, http.StatusNotFound)
 }
+
+// --- HandleListArticles ---
+
+func TestHandleListArticles_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/wiki/articles/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListArticles(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleSearchArticles ---
+
+func TestHandleSearchArticles_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/wiki/search?q=test", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleSearchArticles(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// A search without a query string must not reach the RPC layer — an empty
+// `q` is the caller's own error, not a "search for nothing" request.
+func TestHandleSearchArticles_MissingQuery(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/wiki/search", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleSearchArticles(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "q query parameter is required")
+}
+
+// --- HandleListCategories ---
+
+func TestHandleListCategories_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/wiki/categories/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleListCategories(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateCategory ---
+
+func TestHandleUpdateCategory_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/", jsonBody(t, map[string]interface{}{"name": "New name"}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateCategory(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleUpdateCategory_InvalidJSON(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/", invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleUpdateCategory(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateCategory_InvalidCategoryID(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/", jsonBody(t, map[string]interface{}{"name": "New name"}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateCategory(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+// --- HandleDeleteCategory ---
+
+func TestHandleDeleteCategory_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteCategory(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleDeleteCategory_InvalidCategoryID(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteCategory(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+// --- HandleListAttachments ---
+
+func TestWikiHandleListAttachments_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleListAttachments(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestWikiHandleListAttachments_InvalidArticleID(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListAttachments(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+// --- HandleDeleteAttachment ---
+
+func TestWikiHandleDeleteAttachment_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "attachmentId", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleDeleteAttachment(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestWikiHandleDeleteAttachment_InvalidAttachmentID(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "attachmentId", "not-a-uuid")
+	routes.HandleDeleteAttachment(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid attachmentId")
+}
+
+// --- HandleCreateShareToken ---
+
+func TestHandleCreateShareToken_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/", jsonBody(t, map[string]interface{}{}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleCreateShareToken(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleCreateShareToken_InvalidJSON(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/", invalidJSON())
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleCreateShareToken(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleCreateShareToken_InvalidArticleID(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/", jsonBody(t, map[string]interface{}{}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleCreateShareToken(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+// --- HandleListShareTokens ---
+
+func TestHandleListShareTokens_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleListShareTokens(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleListShareTokens_InvalidArticleID(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListShareTokens(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+// --- HandleRevokeShareToken ---
+
+func TestHandleRevokeShareToken_ServiceUnavailable(t *testing.T) {
+	routes := newWikiRoutes(emptyRegistry())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "tokenId", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleRevokeShareToken(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleRevokeShareToken_InvalidTokenID(t *testing.T) {
+	routes := newWikiRoutes(registryWithService("wiki"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "tokenId", "not-a-uuid")
+	routes.HandleRevokeShareToken(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid tokenId")
+}

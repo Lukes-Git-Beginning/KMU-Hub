@@ -3330,3 +3330,74 @@ Kopf von `BACKLOG.yml`.
 - neue-units: keine
 - offen: keine. `internal/gateway/route_email.go` und `email_grpc.go` waren nur Lesequelle,
   nicht angefasst — `go test ./internal/gateway/` daher nicht Teil dieses Gates.
+
+## Iteration 9 — cov-wiki-repository-and-share-tokens — done — 2026-08-27 02:35
+- commit: (siehe naechster Commit)
+- gebaut: Drei neue Testdateien fuer die zehn im Scope genannten, zuvor ungetesteten
+  Gateway-Handler und die groesste Luecke im Repository:
+  1. `backend/internal/gateway/route_wiki_test.go` (erweitert) — 22 neue Tests fuer
+     HandleListArticles, HandleSearchArticles (inkl. MissingQuery-400), HandleListCategories,
+     HandleUpdateCategory, HandleDeleteCategory, HandleListAttachments, HandleDeleteAttachment,
+     HandleCreateShareToken, HandleListShareTokens, HandleRevokeShareToken — je
+     ServiceUnavailable- und, wo zutreffend, InvalidJSON-/Invalid-UUID-Fehlerpfad, im selben
+     Muster wie die bereits vorhandenen HandleCreateArticle/HandleCreateCategory-Tests.
+     Zwei Testnamen (`TestHandleListAttachments_ServiceUnavailable`,
+     `TestHandleDeleteAttachment_ServiceUnavailable`) kollidierten mit bereits vorhandenen
+     Namen in `route_rapporte_test.go` (eigene Attachment-Handler) — mit `TestWiki`-Praefix
+     eindeutig gemacht.
+  2. `backend/internal/wiki/postgres_repository_db_test.go` (neu) — zwei DB-Tests gegen echtes
+     Postgres/RLS: `TestWikiArticleReads_ScopeToCallerTenant` deckt GetArticleByID/BySlug,
+     SlugExists, ListArticles (Search-/Published-Filter, Fremd-Tenant-Leerlauf),
+     SearchArticles (Volltreffer + published-only-Filter nach Unpublish), UpdateArticle,
+     ListAttachments und DeleteArticle (inkl. stiller No-Op bei Fremd-Tenant) ab.
+     `TestWikiCategories_CRUDScopesToCallerTenant` deckt CreateCategory/GetCategory/
+     ListCategories/UpdateCategory/DeleteCategory komplett ab. `postgres_repository.go` hatte
+     bislang KEINE eigene DB-Testdatei — nur `tenant_write_test.go` (Schreibpfade) und
+     `tenant_isolation_phase2_test.go` (rohes RLS via SeedRow) existierten; die Lesepfade und
+     die komplette Kategorie-Flaeche liefen ungetestet.
+  Schwerpunkt-Fragen der Unit, mit Beleg beantwortet:
+  (1) Drei-Token-Vergleich (WOPI aus Iteration 34, Recording-Download aus Iteration 24,
+  Wiki-Share hier): alle drei sind strukturell verschieden. WOPI bettet `file_id`+`tenant_id`
+  als JWT-Claims ein (10 h fest, KEIN Einzel-Widerruf — nur die grobe tenant-weite
+  "documents:write"-Berechtigung sperrt). Recording-Download ist eine Presigned-URL mit 1 h
+  fester Laufzeit, Tenant-Bindung ausschliesslich ueber RLS am authentifizierten Aufrufer, ein
+  einmal ausgestellter Link bleibt bis Ablauf gueltig (kein Sofort-Widerruf). Wiki-Share ist
+  der einzige der drei mit ECHTEM Einzel-Widerruf: der Token ist eine eigene DB-Zeile
+  (32-Byte crypto/rand, `revoked_at` weich gesetzt), unauthentifiziert nutzbar, der Tenant wird
+  aus der Token-Zeile selbst aufgeloest (System-Context-Lookup, danach Re-Entry in
+  Tenant-Scope), und jede Einloesung prueft den Artikel-Status live nach (Unpublish killt
+  bereits verteilte Links sofort). Die Abweichung ist der eigentliche Befund: nur Wiki-Share
+  bietet granulare, sofortige Widerrufbarkeit — kein Fund, weil das die bewusst staerkere
+  Eigenschaft ist, nicht die schwaechere.
+  (2) `HandleSearchArticles`-Tenant-Filter: `postgres_repository.go:158-166` setzt
+  `tenant_id = $1` explizit in SQL (nicht nur RLS) UND `published = TRUE` — durch den neuen
+  DB-Test bewiesen (Fremd-Tenant-Suche liefert 0 Treffer trotz identischem tsquery-Treffer im
+  eigenen Tenant). Kein Fund.
+  (3) Repository gegen echtes SQL: siehe oben, ungetagt, `DATABASE_URL` gesetzt.
+- gate: build ok (`./internal/wiki/... ./internal/gateway/...`) | vet ok | lint ok
+  (`golangci-lint run --config .golangci.yml ./internal/wiki/... ./internal/gateway/...`,
+  0 issues) | test ok (`internal/wiki` 47/47 gruen, `internal/gateway` komplett gruen,
+  `DATABASE_URL` gesetzt, 0 uebersprungene Tests in beiden Paketen) | migration n.a. (keine
+  neue Tabelle/Policy) | rls-smoke ok (Teil der neuen DB-Tests: Fremd-Tenant-Reads/-Writes
+  liefern durchgehend 0 Zeilen bzw. `Err*NotFound`, nie stillen Erfolg)
+- coverage: internal/wiki 53,5 % -> 75,9 % (`postgres_repository.go` 29,9 % -> deutlich
+  hoeher, alle zuvor 0-%-Methoden inkl. GetArticleByID/BySlug, SlugExists, ListArticles,
+  SearchArticles, UpdateArticle, DeleteArticle, ListAttachments und die komplette
+  Kategorie-CRUD jetzt 76-100 %) | internal/gateway 69,3 % -> 69,6 % (`route_wiki.go`: alle
+  zehn im Scope genannten Handler vorher 0 %, jetzt 24-60 % Funktionsabdeckung ueber
+  Fehlerpfade)
+- mutations-probe: zwei getrennte Proben, beide per `cp`-Backup zurueckgespielt.
+  (a) Gateway: in `HandleSearchArticles` die `q == ""`-Pruefung entfernt ->
+  `TestHandleSearchArticles_MissingQuery` sofort rot (503 statt 400, Fehlermeldung nennt einen
+  Verbindungsfehler statt "q query parameter is required"). (b) Repository: in `ListArticles`
+  das `Published`-Filter-Argument auf `!*filter.Published` invertiert ->
+  `TestWikiArticleReads_ScopeToCallerTenant` sofort rot ("published filter): total=0 len=0,
+  want 1"). Beide Dateien per `cp`-Sicherungskopie zurueckgespielt, `git diff --stat` danach
+  leer, `go test ./internal/wiki/... ./internal/gateway/` erneut komplett gruen.
+- verify vorgaenger: sauber (`0d082014` gegen alle acht Fehlerklassen geprueft — reiner neuer
+  Testdateidiff (`smtp_rejection_test.go`), kein gRPC-Bypass moeglich, kein Stub, kein
+  `.proto` im Diff, kein `RequirePermission` angefasst, keine neue Tabelle, kein Wire-Shape,
+  keine neue Route.)
+- neue-units: keine
+- offen: keine. `internal/server/wiki_grpc.go` war nur Lesequelle zum Verstehen der
+  Response-Formen, nicht angefasst.
