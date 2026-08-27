@@ -611,7 +611,7 @@ units:
     service: calendar
     model: opus
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix, kein Coverage-Ziel)"
     scope: >
       Fund aus cov-gateway-calendar-resources-and-reminders (Iteration 36): weder
@@ -5485,3 +5485,106 @@ units:
         fuer `CreateMeasurement` belegt ein weiterer, dass ein NIL-`reportID` weiterhin
         akzeptiert wird
       - go test -count=1 ./internal/rapporte/... ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-createevent-never-sets-tenant-id
+    phase: 4
+    service: calendar
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Produktionsfehler, kein Coverage-Ziel)"
+    scope: >
+      Fund aus fix-generatejointoken-missing-event-tenant-check (Iteration 6), am Code
+      verifiziert: `CalendarGRPCServer.CreateEvent` (internal/server/calendar_grpc.go:391-457)
+      ruft `middleware.GetTenantID(ctx)` NICHT auf und setzt `event.CreateInput.TenantID` an
+      keiner Stelle — anders als GetEvent, ListEventsInRange, UpdateEvent, DeleteEvent, RSVP,
+      SetReminders und (seit Iteration 6) GenerateJoinToken, die alle mit `tenantID` arbeiten.
+      `CreateInput.TenantID` (work/event/service.go:40) bleibt damit immer die Null-UUID.
+      `event.Service.Create` (work/event/service.go:77) laedt daraufhin den Kalender ueber
+      `s.calendarRepo.GetByID(ctx, input.CalendarID, input.TenantID)`, und das
+      Postgres-Repository filtert dort explizit `WHERE id=$1 AND tenant_id=$2`
+      (work/calendar/postgres_repository.go:41). Fuer jeden echten (Nicht-Null-)Tenant kann
+      diese Abfrage NIE einen Treffer liefern — CreateEvent muesste in Produktion also
+      ausnahmslos mit `ErrCalendarNotFound` -> codes.NotFound -> HTTP 404 antworten, obwohl
+      der Kalender existiert und dem Aufrufer gehoert.
+      ZWEI DINGE VOR DEM FIX KLAEREN, weil der Befund sonst nicht zum gemeldeten
+      Produktionsverhalten passt: (1) Ob der Kalender-Anlegepfad die Kalender wirklich mit
+      einem Nicht-Null-`tenant_id` schreibt — schreibt CreateCalendar seinerseits Null-UUIDs,
+      passt das Paar zusammen und der Fehler faellt nur bei gemischten Daten auf.
+      (2) Ob die RLS-Policy auf `calendars` den Filter zusaetzlich traegt. Beides gehoert
+      belegt ins Journal, bevor eine Zeile geaendert wird.
+    sources:
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/work/event/service.go
+      - backend/internal/work/calendar/postgres_repository.go
+      - backend/internal/server/calendar_grpc_events_categories_reminders_test.go
+    notes: >
+      Der Befund ist im Testfile bereits ausgeschrieben (Kommentarblock ueber
+      `TestCreateEvent` in calendar_grpc_events_categories_reminders_test.go) und der Test
+      `TestCreateEvent/"calendar not found (missing tenant scoping)"` dokumentiert den
+      Ist-Zustand als Erfolgsfall. Nach dem Fix muss dieser Test die Erwartung umdrehen und
+      der Kommentarblock die Loesung beschreiben, nicht mehr die Luecke — dieselbe Bewegung
+      wie bei `TestGenerateJoinToken` in Iteration 6.
+      Root-Cause-Pflicht: dieselbe Frage fuer JEDE RPC in calendar_grpc.go stellen, die
+      `middleware.GetTenantID` nicht aufruft. Iteration 6 hat nur GenerateJoinToken und
+      CreateEvent angesehen, nicht die uebrigen.
+    done_when:
+      - >-
+        Die zwei Klaerungsfragen aus dem scope sind mit Codestelle bzw. DB-Abfrage im Journal
+        beantwortet
+      - >-
+        `CreateEvent` setzt `CreateInput.TenantID` aus `middleware.GetTenantID(ctx)` und
+        lehnt fehlenden Tenant-Kontext ab (codes.InvalidArgument, wie GetEvent)
+      - >-
+        Ein Test belegt: ein Kalender, der demselben Tenant wie der ctx gehoert, fuehrt zum
+        Anlegen des Events statt zu NotFound
+      - >-
+        Die Liste der uebrigen RPCs in calendar_grpc.go ohne `GetTenantID`-Aufruf steht im
+        Journal, je als beabsichtigt (mit Grund) oder als Befund eingeordnet
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: harden-livekit-room-name-truncation-collides-across-tenants
+    phase: 4
+    service: calendar
+    model: sonnet
+    deps:
+      - fix-generatejointoken-missing-event-tenant-check
+    status: todo
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Restrisiko aus fix-generatejointoken-missing-event-tenant-check (Iteration 6):
+      `livekit.Service.GenerateRoomName` (internal/work/livekit/service.go:73-76) bildet den
+      Raumnamen als `"cal-" + eventID.String()[:8]` — also aus den ersten 32 Bit der Event-UUID
+      und OHNE Tenant-Anteil. Der Tenant-Check in `GenerateJoinToken` sorgt seit Iteration 6
+      dafuer, dass ein Aufrufer nur noch fuer EIGENE Events ein Token bekommt; der Raumname,
+      auf den das Token lautet, kann aber weiterhin mit dem eines Events in einem ANDEREN
+      Tenant zusammenfallen. Zwei Teilnehmer verschiedener Tenants landen dann im selben
+      LiveKit-Raum. Bei 32 Bit ist das kein theoretischer Fall: nach dem Geburtstagsproblem
+      liegt die Kollisionswahrscheinlichkeit ueber alle Events aller Kunden hinweg schon bei
+      rund 100.000 Events im Prozentbereich.
+      Zu tun: Raumname so bilden, dass er tenant- und event-eindeutig ist (naheliegend ein
+      Hash ueber `tenant_id` UND `event_id`, gekuerzt auf die von LiveKit erlaubte Laenge),
+      und dabei den bereits persistierten Namen beachten.
+    sources:
+      - backend/internal/work/livekit/service.go
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/work/event/postgres_repository.go
+      - backend/internal/caldav/caldav_backend.go
+    notes: >
+      ACHTUNG BESTANDSDATEN: `calendar_events.livekit_room_name` wird persistiert
+      (work/event/postgres_repository.go:30/45/63) und ueber `eventToProto`
+      (calendar_grpc.go:1392) sowie den CalDAV-Backend-Pfad (caldav_backend.go:781) nach
+      aussen gereicht. `GenerateJoinToken` liest die gespeicherte Spalte HEUTE NICHT, sondern
+      rechnet den Namen jedes Mal neu aus — beide Wege koennen also auseinanderlaufen. Vor der
+      Aenderung klaeren, welcher der beiden der fuehrende sein soll; ein Formatwechsel ohne
+      diese Entscheidung trennt laufende Raeume von ihren gespeicherten Namen.
+      Kein `.proto`-Thema: das Feld existiert bereits.
+    done_when:
+      - >-
+        Der Raumname enthaelt nachweislich einen Tenant-Anteil; ein Test belegt, dass zwei
+        Events mit identischen ersten acht Hex-Zeichen in verschiedenen Tenants
+        VERSCHIEDENE Raumnamen bekommen
+      - >-
+        Im Journal steht, welcher Weg (gespeicherte Spalte vs. Neuberechnung) fuehrend ist und
+        was mit Bestandszeilen passiert
+      - go test -count=1 ./internal/work/livekit/ ./internal/server/ gruen

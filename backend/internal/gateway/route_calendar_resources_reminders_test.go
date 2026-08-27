@@ -26,20 +26,23 @@ import (
 // harden-quote-conversion-unique-index established as safe -- there is no
 // read-then-write gap here, so no fix-unit is raised for this point.
 //
-// HandleGenerateJoinToken finding (backlog scope point 2, real bug, NOT fixed
-// in this coverage unit): the handler and the gRPC server behind it
-// (CalendarGRPCServer.GenerateJoinToken, internal/server/calendar_grpc.go:1293)
-// never verify that event_id refers to an event that exists, belongs to the
-// caller's tenant, or that the caller has any relationship to it (attendee,
-// creator, calendar member). Any authenticated user holding the tenant-wide
-// "calendars:write" permission can POST an arbitrary UUID as {id} and receive a
-// valid, signed 24h LiveKit join token for the room derived from it
-// (livekit.Service.GenerateRoomName truncates to the first 8 hex chars of the
-// UUID, internal/work/livekit/service.go:74-77) -- including UUIDs belonging to
-// events in OTHER TENANTS, since nothing scopes the lookup by tenant_id (there
-// is no lookup at all). Filed as fix-generatejointoken-missing-event-tenant-check
-// at the end of BACKLOG.yml; not fixed here because a coverage unit must not
-// change behaviour.
+// HandleGenerateJoinToken finding (backlog scope point 2) -- FIXED by
+// fix-generatejointoken-missing-event-tenant-check: the handler and the gRPC
+// server behind it used to accept any UUID as {id}, so any authenticated user
+// holding the tenant-wide "calendars:write" permission could POST an arbitrary
+// UUID and receive a valid, signed 24h LiveKit join token for the room derived
+// from it -- including UUIDs belonging to events in OTHER TENANTS, since there
+// was no lookup at all. CalendarGRPCServer.GenerateJoinToken now loads the
+// event tenant-scoped via event.Service.Get first and answers NotFound (-> HTTP
+// 404 through respondGRPCError) for unknown and foreign events. The regression
+// tests for that live next to the RPC in
+// internal/server/calendar_grpc_events_categories_reminders_test.go; the
+// handler tests below stay on the transport concerns (unavailable client,
+// invalid UUID, body validation).
+//
+// STILL OPEN (separate unit): livekit.Service.GenerateRoomName truncates to the
+// first 8 hex chars of the event UUID (internal/work/livekit/service.go:74-77),
+// so two events in different tenants can share a room name.
 
 // ============================================================================
 // HandleListResources

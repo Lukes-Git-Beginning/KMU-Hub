@@ -938,13 +938,35 @@ func TestListTaskDeadlinesInRange(t *testing.T) {
 // ============================================================================
 
 func TestGenerateJoinToken(t *testing.T) {
-	eventID := uuid.New()
+	tenantID := uuid.New()
+	userID := uuid.New()
+
+	// seedEvent stores a real event so the tenant-scoped lookup that
+	// GenerateJoinToken now performs can actually find one. Before
+	// fix-generatejointoken-missing-event-tenant-check the happy path here used
+	// a freshly invented uuid.New() and still succeeded -- that was the bug, not
+	// a convenience: the room name is derived from the event ID alone, so any
+	// caller could mint a signed 24h LiveKit token for a foreign tenant's event.
+	seedEvent := func(repo *stubEventRepo, owner uuid.UUID) uuid.UUID {
+		id := uuid.New()
+		repo.events[id] = &models.CalendarEvent{
+			ID:         id,
+			TenantID:   owner,
+			CalendarID: uuid.New(),
+			Title:      "Sprint Review",
+			StartTime:  time.Now(),
+			EndTime:    time.Now().Add(time.Hour),
+		}
+		return id
+	}
 
 	t.Run("happy path", func(t *testing.T) {
-		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), enabledLiveKit())
-		resp, err := srv.GenerateJoinToken(context.Background(), &calv1.GenerateJoinTokenRequest{
+		repo := newStubEventRepo()
+		eventID := seedEvent(repo, tenantID)
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), repo, enabledLiveKit())
+		resp, err := srv.GenerateJoinToken(ctxWithActorAndTenant(userID, tenantID), &calv1.GenerateJoinTokenRequest{
 			EventId:  eventID.String(),
-			UserId:   uuid.New().String(),
+			UserId:   userID.String(),
 			UserName: "Jane Doe",
 		})
 		require.NoError(t, err)
@@ -953,11 +975,49 @@ func TestGenerateJoinToken(t *testing.T) {
 		assert.NotEmpty(t, resp.WsUrl)
 	})
 
-	t.Run("livekit not configured", func(t *testing.T) {
-		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
+	t.Run("event belongs to another tenant", func(t *testing.T) {
+		repo := newStubEventRepo()
+		foreignEventID := seedEvent(repo, uuid.New())
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), repo, enabledLiveKit())
+		resp, err := srv.GenerateJoinToken(ctxWithActorAndTenant(userID, tenantID), &calv1.GenerateJoinTokenRequest{
+			EventId:  foreignEventID.String(),
+			UserId:   userID.String(),
+			UserName: "Jane Doe",
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+		assert.Nil(t, resp, "no token may be handed out for a foreign tenant's event")
+	})
+
+	t.Run("event does not exist", func(t *testing.T) {
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), enabledLiveKit())
+		resp, err := srv.GenerateJoinToken(ctxWithActorAndTenant(userID, tenantID), &calv1.GenerateJoinTokenRequest{
+			EventId:  uuid.New().String(),
+			UserId:   userID.String(),
+			UserName: "Jane Doe",
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+		assert.Nil(t, resp)
+	})
+
+	t.Run("missing tenant context", func(t *testing.T) {
+		repo := newStubEventRepo()
+		eventID := seedEvent(repo, tenantID)
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), repo, enabledLiveKit())
 		_, err := srv.GenerateJoinToken(context.Background(), &calv1.GenerateJoinTokenRequest{
 			EventId:  eventID.String(),
-			UserId:   uuid.New().String(),
+			UserId:   userID.String(),
+			UserName: "Jane Doe",
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("livekit not configured", func(t *testing.T) {
+		repo := newStubEventRepo()
+		eventID := seedEvent(repo, tenantID)
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), repo, disabledLiveKit())
+		_, err := srv.GenerateJoinToken(ctxWithActorAndTenant(userID, tenantID), &calv1.GenerateJoinTokenRequest{
+			EventId:  eventID.String(),
+			UserId:   userID.String(),
 			UserName: "Jane Doe",
 		})
 		requireGRPCCode(t, err, codes.Unavailable)
@@ -965,9 +1025,9 @@ func TestGenerateJoinToken(t *testing.T) {
 
 	t.Run("invalid event_id", func(t *testing.T) {
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), enabledLiveKit())
-		_, err := srv.GenerateJoinToken(context.Background(), &calv1.GenerateJoinTokenRequest{
+		_, err := srv.GenerateJoinToken(ctxWithActorAndTenant(userID, tenantID), &calv1.GenerateJoinTokenRequest{
 			EventId:  "nope",
-			UserId:   uuid.New().String(),
+			UserId:   userID.String(),
 			UserName: "Jane Doe",
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)

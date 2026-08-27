@@ -1291,9 +1291,24 @@ func (s *CalendarGRPCServer) ListTaskDeadlinesInRange(ctx context.Context, req *
 // ============================================================================
 
 func (s *CalendarGRPCServer) GenerateJoinToken(ctx context.Context, req *calv1.GenerateJoinTokenRequest) (*calv1.GenerateJoinTokenResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	eventID, err := uuid.Parse(req.EventId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid event_id")
+	}
+
+	// The room name is derived from the event ID alone, so this lookup is the
+	// only thing standing between a caller and a signed 24h join token for an
+	// arbitrary UUID -- including events owned by other tenants. Load the event
+	// tenant-scoped first, exactly like GetEvent does. Cancelling an event
+	// deletes the row (event.Service.DeleteEvent), so ErrEventNotFound covers
+	// cancelled events too and the token stops being issuable at that moment.
+	if _, err = s.eventService.Get(ctx, eventID, tenantID); err != nil {
+		return nil, mapCalendarError(err)
 	}
 
 	roomName := s.livekitService.GenerateRoomName(eventID)

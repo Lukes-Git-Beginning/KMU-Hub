@@ -3064,3 +3064,78 @@ Kopf von `BACKLOG.yml`.
   Prod-Zugriff. Falls ja, faende sie `SELECT p.id FROM measurement_positions p JOIN measurements
   m ON m.id=p.measurement_id WHERE p.tenant_id <> m.tenant_id;` als `kmuhub` (Superuser, sonst
   filtert RLS die Antwort selbst weg).
+
+## Iteration 6 — fix-generatejointoken-missing-event-tenant-check — done — 2026-08-27 01:52
+- commit: <sha>
+- gebaut: `CalendarGRPCServer.GenerateJoinToken` (calendar_grpc.go:1293) holt jetzt zuerst
+  `middleware.GetTenantID(ctx)` und laedt das Event ueber `s.eventService.Get(ctx, eventID,
+  tenantID)` — genau der Pfad, den `GetEvent` (calendar_grpc.go:461-482) schon benutzt —, bevor
+  ueberhaupt ein Raumname gebildet wird. Vorher gab es an KEINER Stelle einen Event-Lookup: die
+  UUID wurde geparst und direkt an `GenerateRoomName`/`GenerateJoinToken` gereicht, also bekam
+  jeder Aufrufer mit tenant-weiter `calendars:write`-Berechtigung ein 24 h gueltiges,
+  signiertes LiveKit-Token fuer eine BELIEBIGE UUID, auch fuer Events fremder Tenants.
+  `mapCalendarError` bildet `event.ErrEventNotFound` bereits auf `codes.NotFound` ab
+  (calendar_grpc.go:1614), der Gateway-Handler damit ueber `respondGRPCError` auf 404 — kein
+  neuer Fehlerpfad, keine Routen- oder Proto-Aenderung, kein Spec-Eintrag noetig.
+  Zur "abgesagt"-Frage aus dem scope: das Datenmodell kennt keinen Cancel-Status
+  (`models.CalendarEvent` hat kein Status-Feld), Absage IST das Loeschen der Zeile
+  (`event.Service.DeleteEvent` emittiert `calendar.event.cancelled` und ruft `repo.Delete`).
+  Der Existenz-Check deckt den Fall damit vollstaendig mit ab — das steht so im Code-Kommentar.
+  `TestGenerateJoinToken` legt jetzt ein echtes Event im Stub-Repo an, statt mit einer
+  erfundenen `uuid.New()` Erfolg zu erwarten; dazu zwei neue Unterfaelle
+  ("event belongs to another tenant", "event does not exist", beide NotFound + `resp == nil`)
+  und "missing tenant context" (InvalidArgument). Der veraltete Kommentarblock in
+  `route_calendar_resources_reminders_test.go`, der den Bug als "NOT fixed" fuehrte, ist auf
+  den neuen Stand gezogen.
+- gate: build ok (`go build -p 2 ./internal/server/... ./internal/gateway/... ./internal/work/...
+  ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run ./internal/server/...
+  ./internal/gateway/...`, 0 issues) | test ok (DATABASE_URL gesetzt, Rolle `kmuhub_app`;
+  `go test -count=1 ./internal/server/` gruen mit **4523 PASS, 0 SKIP, 0 FAIL** — verbose
+  gezaehlt; `./internal/gateway/` gruen inkl. `TestOpenAPIRouteDrift` separat) | migration n.a.
+  (kein Schema-Thema — der Fix ist ein fehlender Lookup, keine fehlende Spalte) | rls-smoke n.a.
+  (keine neue Tabelle/Policy)
+- coverage: `internal/server` 71,4 % -> 71,4 % (beide Werte selbst gemessen mit
+  `go tool cover -func`, Vorher-Stand ueber `git show HEAD:<datei>` in eine Sicherungskopie).
+  Kein Zugewinn und das ist erwartbar: `GenerateJoinToken` stand VOR dem Fix schon bei 100,0 %
+  Statement-Coverage und steht danach wieder bei 100,0 %. Genau das ist der Beleg fuer die
+  Grenze der Kennzahl — ein Handler kann voll abgedeckt sein und trotzdem eine fehlende
+  Autorisierung enthalten, weil Coverage misst, ob eine Zeile lief, nicht ob die richtige Zeile
+  da war. `coverage_start` der Unit war "n.a. (Sicherheits-Fix)", passt.
+- mutations-probe: zwei Durchgaenge. (1) Den kompletten Lookup entfernt -> `go test` bricht mit
+  `build failed` ab (`tenantID` unbenutzt), also kein verwertbares Signal, verworfen. (2) Die
+  tragende Zeile auf `_, _ = s.eventService.Get(ctx, eventID, tenantID)` gebrochen (Lookup
+  laeuft, Fehler wird verworfen — exakt die Wirkung des Ur-Bugs, aber compilierbar) ->
+  `--- FAIL: TestGenerateJoinToken/event_belongs_to_another_tenant` UND
+  `--- FAIL: TestGenerateJoinToken/event_does_not_exist`, happy path bleibt gruen. Aus
+  `cp`-Sicherungskopie zurueckgedreht, `git diff --stat` zeigt wieder dieselben 101/23 Zeilen
+  wie vor der Probe, Pakete `./internal/server/` und `./internal/gateway/` wieder gruen.
+- verify vorgaenger: sauber (`9db416e3`, gegen alle acht Fehlerklassen geprueft — kein
+  gRPC-Bypass (die Aenderung liegt allein in `rapporte/postgres_repository.go`), kein Stub,
+  kein `.proto`, kein `RequirePermission`, keine neue Tabelle (nur die INSERT-Query der
+  bestehenden `measurement_positions` umgestellt), Wire-Shape unveraendert (der Rueckgabetyp
+  ist derselbe `*MeasurementPosition`), keine neue Route, kein ersetzter Guard. Der
+  Nachfolge-Commit `37518d34` aendert nur eine Journal-Zeile).
+- neue-units: `fix-createevent-never-sets-tenant-id` (opus) und
+  `harden-livekit-room-name-truncation-collides-across-tenants` (sonnet).
+  (1) Beim Pruefen der Nachbar-RPCs aufgefallen und am Code verifiziert: `CreateEvent`
+  (calendar_grpc.go:391-457) ruft `middleware.GetTenantID` NIE auf und setzt
+  `event.CreateInput.TenantID` nirgends. `event.Service.Create` (work/event/service.go:77) laedt
+  den Kalender daraufhin mit der Null-UUID als Tenant, und
+  `calendar/postgres_repository.go:41` filtert explizit `WHERE id=$1 AND tenant_id=$2` — fuer
+  jeden echten Tenant kann das nie treffen. Der Befund stand schon als Kommentar im Testfile,
+  hatte aber KEINE Unit; jetzt hat er eine, mit zwei Klaerungsfragen vorweg, weil "Events
+  anlegen geht ueberhaupt nicht" nicht zum gemeldeten Betrieb passt.
+  (2) `GenerateRoomName` (work/livekit/service.go:73-76) kuerzt auf `"cal-" + uuid[:8]`, also
+  32 Bit ohne Tenant-Anteil — mein Fix schliesst das Token-Loch, nicht die
+  Raumnamen-Kollision zwischen Tenants.
+- offen: (1) Der Fix erzwingt nur den TENANT-Scope, keine Pro-Event-ACL. Wer im selben Tenant
+  `calendars:write` hat, bekommt weiter fuer JEDES Event des Tenants ein Token, auch ohne
+  Teilnehmer- oder Ersteller-Beziehung. Das ist dieselbe offene Architekturfrage wie bei
+  `HandleListEventAttendees`/`GetEvent` (Journal Iteration 35 aus Lauf 12) und gehoert Luke,
+  nicht dem Loop — das Minimum steht jetzt. (2) BEWUSST NICHT gebaut: eine Pruefung auf
+  `evt.HasVideoCall`. Sie waere plausibel, aendert aber Verhalten fuer Events, bei denen das
+  Flag nachtraeglich gesetzt wird, und stand nicht in den `done_when` — falls gewuenscht, ist
+  es eine Zeile mehr im selben Block. (3) Nicht geprueft: ob bereits ausgegebene Tokens
+  betroffen sind. LiveKit-Tokens sind 24 h gueltig und werden nicht serverseitig gefuehrt; ein
+  vor dem Fix ausgestelltes Token fuer einen fremden Raum bleibt bis zum Ablauf gueltig. Falls
+  Luke das ausschliessen will, hilft nur ein Wechsel des LiveKit-`apiSecret`.
