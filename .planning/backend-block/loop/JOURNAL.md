@@ -4175,3 +4175,71 @@ Kopf von `BACKLOG.yml`.
   Zeitunterschied existiert also strukturell. Er ist mit einem `bcryptCost` von 12 gut
   messbar. Das gehoert in dieselbe Betrachtung wie Befund 1 und ist dort in den `notes`
   als Warnung vermerkt, damit ein Fix nicht ein Status-Orakel gegen ein Zeit-Orakel tauscht.
+
+## Iteration 21 - cov-security-gdpr-remaining-paths - done - 2026-08-27 04:23
+- commit: (siehe naechste Journal-Zeile, wird nach dem Commit nachgetragen)
+- gebaut:
+  1. **Tenant-Filter-Audit `dsar_search.go`** (39 Tabellenabfragen, alle einzeln gelesen):
+     38 von 39 filtern bereits explizit nach `tenant_id`. Die eine Ausnahme war
+     `consentModule` (Zeile 1722) -- `WHERE contact_id = $1` ganz ohne `tenant_id`-Praedikat.
+     Da `contact_id` die globale PK von `contacts` ist, war das in der Praxis nicht
+     ausnutzbar (kein zweiter Tenant kann dieselbe `contact_id` besitzen) und RLS greift
+     ohnehin, aber es widersprach der im Code selbst dokumentierten Konvention
+     ("matching every other module here", Kommentar auf `customFieldsModule"). Fix: Parameter
+     `tenantID` ergaenzt, `AND tenant_id = $2` ins WHERE, Aufrufstelle in `SearchByQuery`
+     angepasst. Dokumentierender Kommentar an der Funktion ergaenzt.
+  2. **Retention-Engine, Batch-Teilausfall** (Scope-Punkt 2): neuer Test
+     `TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent` mit
+     einem zustandsbehafteten Fake-Handler, der nach zwei von vier Datensaetzen scheitert.
+     Ergebnis: die Handler-eigene Idempotenz haelt (zweiter Lauf plant nur die zwei
+     wirklich offenen Datensaetze), aber `runPolicy` (retention.go:400-407) verwirft den von
+     `Apply` zurueckgegebenen `affected`-Wert komplett im Fehlerpfad -- Log sagt "0 betroffen",
+     obwohl der Handler real zwei Datensaetze verarbeitet hat. Nicht gefixt (Coverage-Unit
+     aendert kein Verhalten), als Unit angelegt (siehe unten).
+  3. **Scheduler-Test, zwei gehaltene Verbindungen** (Scope-Punkt 3): bereits vorhanden
+     und korrekt -- `TestRunScheduledRetention_SkipsWhenLockHeldElsewhere` haelt den
+     Advisory-Lock deterministisch auf einer eigenen Connection, waehrend der Testaufruf
+     eine zweite benutzt. Nichts zu tun.
+  4. **`GetNextAnonymizedLabel`-Zaehler-Race** (Scope-Punkt 4): neuer Test
+     `TestGetNextAnonymizedLabel_ConcurrentCallersCollide` in `erasure_log_test.go`.
+     `postgres_repository.go:197` ist ein blankes `SELECT COUNT(*) FROM gdpr_erasure_log`
+     ohne Sperre und ohne Sequence. Der Test haelt zwei REPEATABLE-READ-Transaktionen (wie
+     von den harten Regeln fuer Per-Verbindung-Ressourcen gefordert), zeigt dass beide vor
+     jedem Insert denselben Count sehen, und dass zwei parallele Anonymisierungen deshalb
+     GARANTIERT dasselbe Label erzeugen. Nicht gefixt, als Unit angelegt (siehe unten).
+- gate: build ok (`./internal/security/gdpr/... ./internal/gateway/... ./cmd/gateway/...`) |
+  vet ok | lint ok (`golangci-lint run ./internal/security/gdpr/...`, 0 issues) | test ok
+  (`internal/security/gdpr` 2,5 s gruen, 199 `--- PASS`, **0** `--- SKIP`, **0** `--- FAIL`,
+  `DATABASE_URL` als `kmuhub_app` gesetzt) | migration n.a. (keine noetig fuer den
+  `consentModule`-Fix) | rls-smoke n.a. (kein neues Schema, keine neue Policy; der
+  Tenant-Filter ist app-seitiges Defense-in-Depth ueber einer bereits per RLS geschuetzten
+  Tabelle) | `go test ./internal/gateway/ -run TestOpenAPIRouteDrift` gruen (836 Routen
+  gegen 838 Pfade, keine Route angefasst)
+- coverage: internal/security/gdpr **72,6 % -> 72,7 %** (selbst gemessen via `git stash`
+  auf den drei geaenderten Dateien vor und nach dem Messen; der Vorher-Wert deckt sich
+  exakt mit dem `coverage_start:`-Wert der Unit aus CI 32949396303). Kleiner Zugewinn,
+  weil das Paket bereits sehr dicht getestet war -- der Wert dieser Iteration liegt in den
+  beiden belegten Befunden, nicht in Prozentpunkten.
+- mutations-probe (zwei, je Fund eine):
+  1. `consentModule`: `tenant_id = $2` zu `tenant_id = $1` veraendert (vergleicht `contact_id`
+     mit sich selbst statt mit `tenantID`) -> `TestSearchByQuery_ContactWithAllModules_Integration`
+     sofort rot (`ERROR: could not determine data type of parameter $2`, weil `$2` dann
+     unbenutzt blieb). Backup zurueckgespielt, `git diff` zeigt wieder nur den urspruenglichen
+     Fix.
+  2. Retention-Engine: `item.Affected = affected` versuchsweise auch in den Fehlerpfad
+     (Zeile 402-406) ergaenzt, um zu pruefen, dass mein neuer Test wirklich die AKTUELLE
+     Buggy-Semantik pinnt und nicht zufaellig gruen waere -> beide Affected-Assertions
+     sofort rot (erwartet 0, bekommen 2). Backup zurueckgespielt, `git diff` zeigt keinen
+     Unterschied zu HEAD mehr.
+- verify vorgaenger: sauber (`6ff4bee2` geprueft -- ausschliesslich eine neue Testdatei
+  `login_paths_test.go`, kein Produktionscode geaendert, keine Stubs/Skips/TODOs im Diff.
+  `3411dded` ist der reine Journal-SHA-Nachtrag der Vorgaenger-Iteration.)
+- neue-units: fix-retention-engine-drops-partial-affected-count-on-apply-failure ·
+  fix-gdpr-anonymized-label-counter-race
+- offen: Beide neuen Units sind reine Verhaltens-Fixes ohne Deploy-Risiko (RETENTION_MODE
+  bleibt dry_run, das Label-Problem betrifft nur die manuelle Erasure). Fuer den
+  Label-Zaehler ist in den `notes` der Units bereits eine Sequence-basierte Loesung
+  skizziert, die eine neue forward-only Migration braucht -- Nummer zur Laufzeit ermitteln,
+  nicht aus dieser Zeile uebernehmen. `internal/security/gdpr` bleibt trotz 72,7 % ein
+  grosses Paket mit vielen Handlern; die verbleibenden 640 ungedeckten Statements liegen
+  ueberwiegend in Handler-Randfaellen, die diese Iteration nicht angefasst hat.

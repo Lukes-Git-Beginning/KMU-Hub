@@ -3288,7 +3288,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/security/gdpr 72,6 % — 644 ungedeckt von 2347 (CI-Stand 32949396303)"
     scope: >
       Das GDPR-Paket ist in Lauf 10 und 11 stark gewachsen (Retention-Engine, neun Handler,
@@ -6276,3 +6276,101 @@ units:
       - >-
         Die bestehenden Reset-Tests in `password_reset_test.go` bleiben unveraendert gruen
       - go test -count=1 ./internal/auth/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-retention-engine-drops-partial-affected-count-on-apply-failure
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      In Iteration 21 belegt
+      (`TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent`):
+      `RetentionEngine.runPolicy` (`internal/security/gdpr/retention.go:400-407`) ruft
+      `handler.Apply` auf, das `(affected int, err error)` zurueckgibt. Liefert `Apply` einen
+      Fehler UND einen affected-Wert > 0 (ein Handler, der mitten in einem Batch scheitert,
+      nachdem er einen Teil bereits verarbeitet hat), verwirft der Fehlerpfad den `affected`-Wert
+      komplett -- `item.Affected` bleibt auf 0, sowohl im In-Memory-Result als auch in der
+      `retention_run_items`-Zeile. Ein Audit dieses Laufs liest "0 betroffen", obwohl der Handler
+      real Datensaetze veraendert hat. Kein Datenverlust (die Handler-eigene Idempotenz sorgt
+      dafuer, dass der naechste Lauf nur die tatsaechlich offenen Datensaetze erneut plant), aber
+      ein falscher Audit-Trail fuer einen fehlgeschlagenen Enforce-Lauf -- genau die Flaeche, die
+      dieses Modul laut seinem eigenen Dateikommentar verhindern soll ("eine Regel, die nichts
+      loescht, aber wie eine erfuellte Loeschpflicht aussieht"). `RETENTION_MODE` steht produktiv
+      auf `dry_run`, daher kein akutes Produktionsrisiko, aber der Bug ist scharf, sobald das
+      erste `enforce`-Handling angeschaltet wird.
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_test.go
+    notes: >
+      Schlankster Fix: `item.Affected = affected` auch im Fehlerpfad setzen (vor dem `return item`
+      in Zeile 406), analog zur bestehenden Zuweisung im Erfolgspfad. Keine Schema-Aenderung
+      noetig -- `retention_run_items.affected` ist bereits eine normale INT-Spalte ohne
+      CHECK-Constraint auf 0 im `failed`-Status. Die Mutations-Probe aus Iteration 21 (genau diese
+      eine Zeile ergaenzt) hat bereits belegt, dass der vorhandene Test
+      `TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent` dann
+      rot wird -- die Assertions dort muessen auf den reparierten Wert umgeschrieben werden
+      (erwartet dann `item.Affected == 2`, nicht `0`).
+    done_when:
+      - >-
+        `item.Affected` spiegelt in JEDEM Pfad von `runPolicy` (Erfolg UND Fehler) den von
+        `Apply` real zurueckgegebenen Wert wider
+      - >-
+        `TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent` ist
+        auf die neue Zusage umgeschrieben (`item.Affected == 2` im Fehlerfall) und gruen
+      - go test -count=1 ./internal/security/gdpr/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-gdpr-anonymized-label-counter-race
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      In Iteration 21 belegt (`TestGetNextAnonymizedLabel_ConcurrentCallersCollide`):
+      `PostgresRepository.GetNextAnonymizedLabel` (`internal/security/gdpr/postgres_repository.go:
+      197`) ist ein blankes `SELECT COUNT(*) FROM gdpr_erasure_log` gefolgt von `count+1`, ganz
+      ohne Sperre und ohne Sequence dahinter. Zwei Aufrufer, die beide lesen, bevor irgendeiner
+      schreibt -- ein manueller Erasure-Call (`service.go:314`) und ein zeitgleich laufender
+      Retention-Enforce-Lauf mit `action=anonymize` (`retention.go:391`), oder zwei parallele
+      Erasure-Anfragen -- erhalten denselben "naechsten" Wert und damit denselben
+      `anonymized_label`-String fuer zwei verschiedene anonymisierte Personen. Kein
+      Tenant-Datenleck (das Label traegt keine Personendaten, nur eine laufende Nummer, und die
+      Zaehlung ist ohnehin global ueber alle Tenants -- ob DAS beabsichtigt ist, ist eine
+      separate Frage, hier nicht angefasst), aber ein Bruch der impliziten Eindeutigkeitszusage,
+      die der Name "Geloeschter Benutzer #N" macht, und potenziell verwirrend fuer einen Pruefer,
+      der zwei Eintraege mit identischem Label im Erasure-Log findet und nicht weiss, ob das ein
+      Duplikat oder zwei echte Faelle sind. `RETENTION_MODE` bleibt `dry_run`, daher betrifft das
+      Risiko aktuell nur die manuelle Erasure (Service.AnonymizeUser), nicht die automatisierte
+      Retention.
+    sources:
+      - backend/internal/security/gdpr/postgres_repository.go
+      - backend/internal/security/gdpr/erasure_log_test.go
+      - backend/internal/security/gdpr/service.go
+    notes: >
+      Sauberster Fix ist vermutlich eine echte Postgres-SEQUENCE
+      (`CREATE SEQUENCE gdpr_anonymized_label_seq`) statt `COUNT(*)` -- `nextval()` ist
+      unter concurrent Zugriff atomar, ohne expliziten Lock im Anwendungscode. Das braucht eine
+      neue, forward-only Migration (Nummer zur Laufzeit ermitteln). Alternative ohne Migration:
+      `SELECT COUNT(*) ... FOR UPDATE` auf einer Sentinel-Zeile oder ein
+      `pg_advisory_xact_lock` um Read+Insert -- beides schlechter nachvollziehbar als eine
+      Sequence und beide brauchen eine Transaktion, die Aufrufer heute nicht aufspannen (Repo
+      und Handler rufen `GetNextAnonymizedLabel` und das nachfolgende Insert als zwei getrennte
+      Pool-Queries auf). Der bestehende Test
+      `TestGetNextAnonymizedLabel_IncrementsPerCall` erwartet exakte Werte ("Geloeschter
+      Benutzer #1"/"#2") und muss mit einer Sequence weiterhin gruen bleiben, ohne von der
+      globalen `gdpr_erasure_log`-Zeilenzahl anderer paralleler Tests abzuhaengen -- das ist
+      mit einer Sequence sogar robuster als heute (die Sequence startet unabhaengig vom
+      Tabelleninhalt bei 1, muss aber ggf. per Migration auf den bestehenden Hoechstwert
+      vorgespult werden, damit keine Kollision mit historischen Labels entsteht).
+    done_when:
+      - >-
+        Zwei Aufrufe von `GetNextAnonymizedLabel` ohne dazwischenliegenden Insert -- ob
+        sequentiell oder unter zwei gehaltenen Verbindungen wie in
+        `TestGetNextAnonymizedLabel_ConcurrentCallersCollide` -- liefern garantiert
+        VERSCHIEDENE Werte
+      - >-
+        `TestGetNextAnonymizedLabel_ConcurrentCallersCollide` ist auf die neue Zusage
+        umgeschrieben (`labelA != labelB`) und gruen
+      - `TestGetNextAnonymizedLabel_IncrementsPerCall` bleibt unveraendert gruen
+      - go test -count=1 ./internal/security/gdpr/ gruen, DATABASE_URL gesetzt, 0 Skips

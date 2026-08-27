@@ -289,6 +289,118 @@ func TestRetentionEngine_Run_HandlerFailuresAreRecorded(t *testing.T) {
 	assert.Equal(t, 2, logged)
 }
 
+// TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent
+// answers the scope question "what happens when a handler fails mid-batch —
+// does half stay deleted, and is the next run idempotent?" using a stateful
+// fake handler that really does persist the records it processes before
+// erroring out (a bookkeeping map, standing in for a real handler's table
+// writes — the engine itself never touches the resource table, only the
+// handler does).
+//
+// It surfaces a real discrepancy: runPolicy (retention.go:400-407) discards
+// Apply's returned affected count entirely when Apply also returns an error,
+// so a handler that genuinely processed some records before failing is
+// logged with Affected = 0. The next run is still idempotent from a DATA
+// standpoint — Plan only re-offers what the handler itself never marked
+// done — but the run log for the failed attempt understates what happened,
+// which matters for an audit trail. Filed as a follow-up unit rather than
+// fixed here: a coverage unit proves behaviour, it does not change it.
+func TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Retention Partial Failure Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	policy := testutil.SeedRow(t, pool, "retention_policies", map[string]any{
+		"tenant_id":      tenantID,
+		"resource_type":  "partial",
+		"retention_days": 10,
+		"action":         models.RetentionActionDelete,
+		"enabled":        true,
+	})
+	defer testutil.CleanupRow(t, pool, "retention_policies", policy)
+
+	handler := &fakePartialFailureHandler{
+		resourceType: "partial",
+		due:          []uuid.UUID{uuid.New(), uuid.New(), uuid.New(), uuid.New()},
+		processed:    make(map[uuid.UUID]bool),
+		failAfter:    2,
+	}
+	engine := NewRetentionEngine(pool, NewPostgresRepository(pool), NewRetentionRegistry(handler))
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	first, err := engine.Run(ctx, RetentionModeEnforce, "test")
+	require.NoError(t, err, "one handler's mid-batch error must not abort Run itself")
+	defer testutil.CleanupRow(t, pool, "retention_runs", first.RunID)
+
+	item := itemFor(t, first, "partial")
+	assert.Equal(t, RetentionItemFailed, item.Status)
+	assert.Equal(t, 4, item.Matched, "Plan found all four records before anything ran")
+	assert.Equal(t, 0, item.Affected,
+		"known gap: runPolicy drops Apply's partial affected count on error, "+
+			"even though the handler really processed some records (see handler.processed below)")
+	assert.Len(t, handler.processed, 2, "the handler itself DID persist two of the four records before failing")
+
+	var loggedAffected int
+	var loggedStatus string
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT status, affected FROM retention_run_items WHERE run_id = $1 AND resource_type = 'partial'`,
+		first.RunID,
+	).Scan(&loggedStatus, &loggedAffected))
+	assert.Equal(t, RetentionItemFailed, loggedStatus)
+	assert.Equal(t, 0, loggedAffected, "the run log itself, not just the in-memory item, understates the real work done")
+
+	// --- second run: idempotent from the data's point of view -------------
+	second, err := engine.Run(ctx, RetentionModeEnforce, "test")
+	require.NoError(t, err)
+	defer testutil.CleanupRow(t, pool, "retention_runs", second.RunID)
+
+	secondItem := itemFor(t, second, "partial")
+	assert.Equal(t, 2, secondItem.Matched, "only the two records the handler did NOT mark done in run 1 are still due")
+}
+
+// fakePartialFailureHandler simulates a handler whose Apply persists some
+// records (via its own bookkeeping, standing in for real table writes) before
+// erroring out partway through a batch.
+type fakePartialFailureHandler struct {
+	resourceType string
+	due          []uuid.UUID
+	processed    map[uuid.UUID]bool
+	failAfter    int
+}
+
+func (h *fakePartialFailureHandler) ResourceType() string         { return h.resourceType }
+func (h *fakePartialFailureHandler) Table() string                { return h.resourceType }
+func (h *fakePartialFailureHandler) DateColumn() string           { return "created_at" }
+func (h *fakePartialFailureHandler) SupportsAction(_ string) bool { return true }
+
+func (h *fakePartialFailureHandler) Plan(_ context.Context, _ uuid.UUID, _ time.Time, _ string) (*RetentionPlan, error) {
+	plan := &RetentionPlan{}
+	for _, id := range h.due {
+		if !h.processed[id] {
+			plan.Due = append(plan.Due, id)
+		}
+	}
+	return plan, nil
+}
+
+func (h *fakePartialFailureHandler) Apply(_ context.Context, _ uuid.UUID, ids []uuid.UUID, _, _ string) (int, error) {
+	affected := 0
+	for i, id := range ids {
+		if i >= h.failAfter {
+			return affected, fmt.Errorf("simulated failure after %d of %d records", affected, len(ids))
+		}
+		h.processed[id] = true
+		affected++
+	}
+	return affected, nil
+}
+
 // ---------------------------------------------------------------------------
 // Test doubles
 // ---------------------------------------------------------------------------

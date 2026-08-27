@@ -123,7 +123,7 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 		}
 		person.Modules = append(person.Modules, advisoryProtocols...)
 
-		consent, cErr := consentModule(ctx, pool, c.id)
+		consent, cErr := consentModule(ctx, pool, tenantID, c.id)
 		if cErr != nil {
 			return nil, cErr
 		}
@@ -1719,14 +1719,20 @@ func derefDateTimeOrEmpty(t *time.Time) string {
 // Per-module aggregation for a matched contact
 // ---------------------------------------------------------------------------
 
-func consentModule(ctx context.Context, pool *pgxpool.Pool, contactID uuid.UUID) (*DSARModule, error) {
+// consentModule reads a contact's consent history. contact_id alone already
+// pins the tenant in practice (contacts.id is a global PK, so no other
+// tenant's contact can share it), but the explicit tenant_id predicate is
+// added anyway for the same defense-in-depth reason customFieldsModule below
+// gives: if RLS session context is ever wrong, the query still can't cross a
+// tenant boundary on its own.
+func consentModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT consent_type::text, granted, legal_basis::text,
 		        COALESCE(granted_at, created_at), revoked_at
 		 FROM consent_records
-		 WHERE contact_id = $1
+		 WHERE contact_id = $1 AND tenant_id = $2
 		 ORDER BY created_at DESC
-		 LIMIT $2`, contactID, dsarMaxRows)
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
 	if err != nil {
 		return nil, fmt.Errorf("dsar: query consent: %w", err)
 	}

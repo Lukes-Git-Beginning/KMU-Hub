@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -181,5 +182,100 @@ func TestGetNextAnonymizedLabel_IncrementsPerCall(t *testing.T) {
 	}
 	if label1 == label2 {
 		t.Fatalf("expected distinct labels across calls, got %q both times", label1)
+	}
+}
+
+// TestGetNextAnonymizedLabel_ConcurrentCallersCollide is the counter-race
+// scope question from cov-security-gdpr-remaining-paths: "what happens on two
+// simultaneous anonymizations?" GetNextAnonymizedLabel (postgres_repository.go:
+// 197) is a bare `SELECT COUNT(*) FROM gdpr_erasure_log` with no lock and no
+// sequence behind it -- two callers that both read before either writes get
+// the identical "next" number.
+//
+// The repo method itself always goes through the pool (one query, one
+// implicit connection), so it cannot be driven from inside a caller-held
+// transaction. This reproduces its exact query on two explicitly held
+// REPEATABLE READ transactions instead -- the "hold a second connection"
+// shape every per-resource race test in this package uses, here proving the
+// collision deterministically rather than via goroutine timing: each
+// transaction's snapshot is pinned at its first statement, so as long as
+// neither has committed an INSERT yet (true here -- both read before either
+// writes), they are guaranteed to observe the identical count regardless of
+// unrelated activity elsewhere in the shared table.
+func TestGetNextAnonymizedLabel_ConcurrentCallersCollide(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenant := uuid.New()
+	testutil.EnsureTenant(t, pool, tenant, "GDPR Label Race Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenant)
+
+	userA := seedErasureLogUser(t, pool, tenant)
+	defer testutil.CleanupRow(t, pool, "users", userA)
+	userB := seedErasureLogUser(t, pool, tenant)
+	defer testutil.CleanupRow(t, pool, "users", userB)
+
+	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+
+	txA, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatalf("begin txA: %v", err)
+	}
+	defer func() { _ = txA.Rollback(ctx) }()
+	var countA int
+	if err := txA.QueryRow(ctx, `SELECT COUNT(*) FROM gdpr_erasure_log`).Scan(&countA); err != nil {
+		t.Fatalf("txA count: %v", err)
+	}
+
+	txB, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatalf("begin txB: %v", err)
+	}
+	defer func() { _ = txB.Rollback(ctx) }()
+	var countB int
+	if err := txB.QueryRow(ctx, `SELECT COUNT(*) FROM gdpr_erasure_log`).Scan(&countB); err != nil {
+		t.Fatalf("txB count: %v", err)
+	}
+
+	if countA != countB {
+		t.Fatalf("txA and txB must observe the identical count (got %d vs %d) -- "+
+			"that identical read is exactly the race window GetNextAnonymizedLabel has no lock against",
+			countA, countB)
+	}
+
+	labelA := fmt.Sprintf("Geloeschter Benutzer #%d", countA+1)
+	labelB := fmt.Sprintf("Geloeschter Benutzer #%d", countB+1)
+
+	idA := uuid.New()
+	if _, err := txA.Exec(ctx,
+		`INSERT INTO gdpr_erasure_log (id, tenant_id, original_user_id, anonymized_label, executed_by, executed_at, modules_affected, confirmation_hash)
+		 VALUES ($1, $2, $3, $4, $3, now(), '{}', 'race-a')`,
+		idA, tenant, userA, labelA); err != nil {
+		t.Fatalf("txA insert: %v", err)
+	}
+	if err := txA.Commit(ctx); err != nil {
+		t.Fatalf("txA commit: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "gdpr_erasure_log", idA)
+
+	idB := uuid.New()
+	if _, err := txB.Exec(ctx,
+		`INSERT INTO gdpr_erasure_log (id, tenant_id, original_user_id, anonymized_label, executed_by, executed_at, modules_affected, confirmation_hash)
+		 VALUES ($1, $2, $3, $4, $3, now(), '{}', 'race-b')`,
+		idB, tenant, userB, labelB); err != nil {
+		t.Fatalf("txB insert: %v", err)
+	}
+	if err := txB.Commit(ctx); err != nil {
+		t.Fatalf("txB commit: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "gdpr_erasure_log", idB)
+
+	if labelA != labelB {
+		t.Fatalf("expected the race to produce IDENTICAL labels, got %q and %q -- "+
+			"if this fails, GetNextAnonymizedLabel gained a lock and this test (and its filed follow-up unit) is obsolete",
+			labelA, labelB)
 	}
 }
