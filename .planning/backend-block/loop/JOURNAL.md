@@ -3778,3 +3778,63 @@ Kopf von `BACKLOG.yml`.
   `RequirePermission` angefasst, keine neue Tabelle, kein Wire-Shape, keine neue Route)
 - neue-units: keine
 - offen: keine
+
+## Iteration 16 — cov-settings-repository-and-service — done — 2026-08-27 03:18
+- commit: (wird im nächsten Commit dieser Iteration gesetzt)
+- gebaut:
+  1. `internal/settings/postgres_repository_db_test.go` (neu) — DB-Tests fuer alle
+     zuvor bei 0,0 % stehenden Repository-Methoden: `IsAdmin` (inkl. Cross-Tenant-Leck-Check
+     ueber `u.tenant_id = $2`), `ListModuleLeads`/`GetModuleLead`/`IsModuleLead`/
+     `ListLeadModulesForUser` (beide dynamischen WHERE-Zweige `$2`/`$3`),
+     `ListModuleGrants` (Join gegen `users` fuer `user_name`, beide Filterzweige,
+     Cross-Tenant), `CountGrantsByModule` (Modul ohne Grant fehlt in der Map statt 0),
+     `GetTenantSubscription` (eigener Tenant liest Defaults `cosmi`/`standard`/`active`,
+     fremder Tenant via RLS auf `tenants` -> `ErrNotFound`).
+  2. Zwei Nebenlaeufigkeits-Tests zu Scope-Punkt (3), der erste mit ZWEI echt
+     gehaltenen Verbindungen (`pool.Begin` + Goroutine), nicht einer warmen:
+     `TestReplaceUserSettings_GenuinelyConcurrentAdditionSurvives` haelt tx1's DELETE
+     offen, laesst parallel eine zweite, unabhaengige Verbindung einen neuen Key
+     einfuegen und committen, dann tx1 seinen eigenen Insert + Commit — der
+     neue Key ueberlebt, weil DELETE nur zum Ausfuehrungszeitpunkt sichtbare
+     (committete) Zeilen erfasst. `TestReplaceUserSettings_FullReplaceDropsKeysAddedAfterItsSnapshot`
+     zeigt die Kehrseite rein sequenziell: ein VOR dem Replace-Aufruf committeter
+     Key wird von dessen ungefiltertem DELETE mitgeloescht — das ist das
+     dokumentierte PUT-Vollersatz-Verhalten aus `ReplaceUserSettings`' eigenem
+     Kommentar (gespiegelt von `auth.PostgresRepository.SetUserOverrides`), keine
+     Lost-Update-Race und daher kein Fix-Bedarf.
+  3. `internal/settings/service_test.go` (erweitert) — RBAC-Tests fuer die zuvor
+     bei 0,0 % stehenden Service-Methoden `GrantModuleAccess`/`RevokeModuleAccess`/
+     `BulkRevokeModuleAccess` (admin-only, `ErrNotAdmin` fuer Nicht-Admins,
+     `ErrInvalidModuleID` inkl. eines einzelnen leeren `ModuleID` im Bulk-Batch),
+     `ListModuleGrants` (Pass-through), sowie `GetUserSettings`/`PutUserSettings`/
+     `ReplaceUserSettings` (Validierung `ErrInvalidModuleID`/`ErrInvalidKey`,
+     Replace loescht nicht mitgesendete Keys).
+  4. Scope-Punkt (2) (Default-Werte/Steuersaetze) gegengeprueft, kein Fund: dieses
+     Paket ist ein generischer Key-Value-Store ohne eigene Default-Logik pro Key —
+     `GetResolvedSettings` liefert bei fehlender Einstellung eine leere Liste
+     (bereits durch `TestGetResolvedSettings_EmptyWhenNothingSet` belegt), nie
+     einen stillen Nullwert. Ein gefaehrlicher Steuersatz-Default waere in dem
+     Modul zu suchen, das einen `taxRate`-Key liest und selbst einen Fallback
+     anwendet — das ist ausserhalb von `internal/settings`, keine eigene Unit
+     angelegt mangels konkretem Fund.
+- gate: build ok (`./internal/settings/... ./internal/gateway/... ./cmd/gateway/...`) |
+  vet ok | lint ok (`golangci-lint run --config .golangci.yml ./internal/settings/...`,
+  0 issues) | test ok (`internal/settings` komplett gruen, 58 Tests, `DATABASE_URL`
+  gesetzt, 0 uebersprungene Tests) | migration n.a. (keine neue Tabelle/Policy) |
+  rls-smoke ok (in den neuen DB-Tests selbst: Cross-Tenant-Reads fuer IsAdmin,
+  ListModuleLeads, ListModuleGrants, CountGrantsByModule, GetTenantSubscription
+  liefern durchgehend leer/ErrNotFound)
+- coverage: internal/settings 60,3 % -> 82,8 % (selbst gemessen vor/nach per
+  `go tool cover -func`, deckt sich mit dem CI-Bezugswert aus der Unit)
+- mutations-probe: `IsAdmin`-Query per `cp`-Backup temporaer von
+  `WHERE ur.user_id = $1 AND u.tenant_id = $2 AND r.name = 'admin'` auf
+  `WHERE ur.user_id = $1 AND r.name = 'admin'` gekuerzt (Tenant-Filter entfernt,
+  Scan bekommt dadurch ein Argument zu viel) -> `TestIsAdmin_TrueForAdminRoleFalseOtherwise`
+  sofort rot (`expected 1 arguments, got 2`). Backup zurueckgespielt, `git diff --stat`
+  danach leer, `internal/settings/...` erneut komplett gruen.
+- verify vorgaenger: sauber (`f5b86621` geprueft — reiner Testdateidiff in
+  zwei neuen `route_produktion_*_test.go`-Dateien, kein gRPC-Bypass, kein Stub,
+  kein `.proto` im Diff, kein `RequirePermission` angefasst, keine neue Tabelle,
+  kein Wire-Shape, keine neue Route)
+- neue-units: keine
+- offen: keine

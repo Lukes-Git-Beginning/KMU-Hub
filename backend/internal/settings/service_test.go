@@ -419,6 +419,158 @@ func TestGetMyModuleLeads_AdminGetsAll(t *testing.T) {
 }
 
 // ============================================================================
+// Module-access grant RBAC (admin-only, unlike module-leads)
+// ============================================================================
+
+func TestGrantModuleAccess_AdminMayGrantNonAdminRejected(t *testing.T) {
+	adminID := uuid.New()
+	plainID := uuid.New()
+	targetID := uuid.New()
+	tenantID := uuid.New()
+	repo := newFakeRepo()
+	svc := newService(repo, adminID)
+
+	grant, err := svc.GrantModuleAccess(context.Background(), tenantID, adminID, targetID, "crm")
+	require.NoError(t, err)
+	assert.Equal(t, "crm", grant.ModuleID)
+
+	_, err = svc.GrantModuleAccess(context.Background(), tenantID, plainID, targetID, "crm")
+	assert.ErrorIs(t, err, settings.ErrNotAdmin)
+}
+
+func TestGrantModuleAccess_RejectsEmptyModuleID(t *testing.T) {
+	adminID := uuid.New()
+	repo := newFakeRepo()
+	svc := newService(repo, adminID)
+
+	_, err := svc.GrantModuleAccess(context.Background(), uuid.New(), adminID, uuid.New(), "")
+	assert.ErrorIs(t, err, settings.ErrInvalidModuleID)
+}
+
+func TestRevokeModuleAccess_AdminMayRevokeNonAdminRejected(t *testing.T) {
+	adminID := uuid.New()
+	plainID := uuid.New()
+	targetID := uuid.New()
+	tenantID := uuid.New()
+	repo := newFakeRepo()
+	svc := newService(repo, adminID)
+
+	err := svc.RevokeModuleAccess(context.Background(), tenantID, adminID, targetID, "crm")
+	require.NoError(t, err)
+
+	err = svc.RevokeModuleAccess(context.Background(), tenantID, plainID, targetID, "crm")
+	assert.ErrorIs(t, err, settings.ErrNotAdmin)
+}
+
+func TestRevokeModuleAccess_RejectsEmptyModuleID(t *testing.T) {
+	adminID := uuid.New()
+	repo := newFakeRepo()
+	svc := newService(repo, adminID)
+
+	err := svc.RevokeModuleAccess(context.Background(), uuid.New(), adminID, uuid.New(), "")
+	assert.ErrorIs(t, err, settings.ErrInvalidModuleID)
+}
+
+func TestBulkRevokeModuleAccess_AdminOnlyAndValidatesEveryRef(t *testing.T) {
+	adminID := uuid.New()
+	plainID := uuid.New()
+	tenantID := uuid.New()
+	repo := newFakeRepo()
+	svc := newService(repo, adminID)
+
+	refs := []settings.ModuleGrantRef{
+		{UserID: uuid.New(), ModuleID: "crm"},
+		{UserID: uuid.New(), ModuleID: "finance"},
+	}
+
+	n, err := svc.BulkRevokeModuleAccess(context.Background(), tenantID, adminID, refs)
+	require.NoError(t, err)
+	assert.Equal(t, 2, n)
+
+	_, err = svc.BulkRevokeModuleAccess(context.Background(), tenantID, plainID, refs)
+	assert.ErrorIs(t, err, settings.ErrNotAdmin)
+
+	// A single ref with an empty ModuleID must reject the whole batch, not
+	// silently skip that one entry.
+	_, err = svc.BulkRevokeModuleAccess(context.Background(), tenantID, adminID, []settings.ModuleGrantRef{
+		{UserID: uuid.New(), ModuleID: "crm"},
+		{UserID: uuid.New(), ModuleID: ""},
+	})
+	assert.ErrorIs(t, err, settings.ErrInvalidModuleID)
+}
+
+func TestListModuleGrants_PassesThroughToRepo(t *testing.T) {
+	repo := newFakeRepo()
+	svc := newService(repo)
+
+	grants, err := svc.ListModuleGrants(context.Background(), uuid.New(), nil, nil)
+	require.NoError(t, err)
+	assert.Empty(t, grants)
+}
+
+// ============================================================================
+// User-scope settings (GetUserSettings / PutUserSettings / ReplaceUserSettings)
+// ============================================================================
+
+func TestGetUserSettings_RejectsEmptyModuleID(t *testing.T) {
+	repo := newFakeRepo()
+	svc := newService(repo)
+
+	_, err := svc.GetUserSettings(context.Background(), uuid.New(), uuid.New(), "")
+	assert.ErrorIs(t, err, settings.ErrInvalidModuleID)
+}
+
+func TestPutUserSettings_RoundTripsAndValidates(t *testing.T) {
+	tenantID, userID := uuid.New(), uuid.New()
+	repo := newFakeRepo()
+	svc := newService(repo)
+
+	entries, err := svc.PutUserSettings(context.Background(), tenantID, userID, "profile", []*settings.SettingEntry{
+		{Key: "theme", Value: rawJSON(t, "dark")},
+	})
+	require.NoError(t, err)
+	assert.Len(t, entries, 1)
+
+	got, err := svc.GetUserSettings(context.Background(), tenantID, userID, "profile")
+	require.NoError(t, err)
+	assert.Len(t, got, 1)
+
+	_, err = svc.PutUserSettings(context.Background(), tenantID, userID, "", entries)
+	assert.ErrorIs(t, err, settings.ErrInvalidModuleID)
+
+	_, err = svc.PutUserSettings(context.Background(), tenantID, userID, "profile", []*settings.SettingEntry{
+		{Key: "", Value: rawJSON(t, "x")},
+	})
+	assert.ErrorIs(t, err, settings.ErrInvalidKey)
+}
+
+func TestReplaceUserSettings_OverwritesAndValidates(t *testing.T) {
+	tenantID, userID := uuid.New(), uuid.New()
+	repo := newFakeRepo()
+	svc := newService(repo)
+
+	_, err := svc.PutUserSettings(context.Background(), tenantID, userID, "profile", []*settings.SettingEntry{
+		{Key: "language", Value: rawJSON(t, "de")},
+		{Key: "region", Value: rawJSON(t, "DE")},
+	})
+	require.NoError(t, err)
+
+	replaced, err := svc.ReplaceUserSettings(context.Background(), tenantID, userID, "profile", []*settings.SettingEntry{
+		{Key: "language", Value: rawJSON(t, "en")},
+	})
+	require.NoError(t, err)
+	assert.Len(t, replaced, 1, "replace must drop keys not in the new payload")
+
+	_, err = svc.ReplaceUserSettings(context.Background(), tenantID, userID, "", replaced)
+	assert.ErrorIs(t, err, settings.ErrInvalidModuleID)
+
+	_, err = svc.ReplaceUserSettings(context.Background(), tenantID, userID, "profile", []*settings.SettingEntry{
+		{Key: "", Value: rawJSON(t, "x")},
+	})
+	assert.ErrorIs(t, err, settings.ErrInvalidKey)
+}
+
+// ============================================================================
 // Licensing fakes
 // ============================================================================
 
