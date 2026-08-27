@@ -3293,3 +3293,40 @@ Kopf von `BACKLOG.yml`.
   ausgefuehrtem Verbindungstest. Lokal sind es 6 Zeilen insgesamt (Label nicht geprueft, weil
   die Spalte unter RLS als `kmuhub_app` nicht lesbar ist und ich als `kmuhub` nur gezaehlt
   habe). Produktion muss Luke selbst nachsehen — der Loop hat dort keinen Zugriff.
+
+## Iteration 8 — cov-email-send-service-consent-path — done — 2026-08-27 02:11
+- commit: -
+- gebaut: `internal/email/send/service_test.go`-Umfeld bereits mit vier Consent-Tests
+  (blockiert, erlaubt, `contact_id` fehlt, Repo-Fehler) bestueckt — die deckten den
+  Asserter-Aufruf in `Send` schon vollstaendig ab. Neu ist
+  `internal/email/send/smtp_rejection_test.go`: ein minimaler In-Prozess-SMTP-Server
+  (`net.Listen` + `net/textproto`), der die Handshake normal durchlaeuft und dann an einer von
+  drei Stellen mit einem permanenten 5xx antwortet (MAIL FROM, RCPT TO, DATA). Ein Table-Test
+  (`TestSend_SMTPRejection_WrapsErrSendFailed`) prueft fuer alle drei Stufen, dass `Send`
+  `ErrSendFailed` zurueckgibt und `messageCreator.Create` NICHT aufgerufen wird — eine
+  abgelehnte Zustellung wird also nicht als lokal gespeicherte "gesendete" Nachricht gefuehrt.
+  Festgeschrieben (Feststellung, kein Bug): fehlt `contact_id`, laesst der Asserter den Versand
+  unveraendert durch (`TestSend_NoContactID_SkipsConsentCheck`, bereits vorhanden) — das ist die
+  bewusste Zwischenloesung, bis das Frontend `contact_id` setzt (G1-Punkt 2). Es gibt keine
+  Bounce-Verarbeitung im Code (`grep -ri bounce` in `internal/email` liefert nichts): eine
+  SMTP-Ablehnung wird nicht separat als Bounce erfasst, sondern lediglich als `ErrSendFailed`
+  an den Aufrufer durchgereicht, der ihn ueber `email_grpc.go:1450` auf `codes.Internal` mappt —
+  der Anrufer sieht also einen Fehler, es geht nichts still verloren, aber es existiert keine
+  Bounce-Historie. Das ist eine Feststellung, keine neue Unit: nichts ist kaputt, es fehlt nur
+  eine Funktion, die niemand verlangt hat.
+- gate: build ok | vet ok | lint ok (`golangci-lint` 0 issues) | test ok
+  (`go test ./internal/email/send/...` gruen, 0 uebersprungen — das Paket hat keine
+  `SkipIfNoDB`-Stellen, reine Unit-Tests) | migration n.a. | rls-smoke n.a. (keine Tabelle
+  angefasst)
+- coverage: internal/email/send 57,6 % -> 64,8 % | service.go:Send 30,4 % -> 65,2 %
+- mutations-probe: `Send`s Fehlerbehandlung nach `sendSMTP` auf ein verschlucktes `_ = err`
+  gesetzt (SMTP-Ablehnung wird ignoriert) — alle drei Subtests von
+  `TestSend_SMTPRejection_WrapsErrSendFailed` wurden rot ("error is expected but got nil"),
+  danach `service.go` per Backup zurueckgespielt (`git diff` zeigt keine Abweichung vom
+  Commit-Stand) und `go test ./internal/email/send/...` erneut gruen.
+- verify vorgaenger: sauber (`c738ee21` + `abc4e2c0` gegen alle acht Fehlerklassen geprueft.
+  Beide Commits aendern ausschliesslich `BACKLOG.yml`/`JOURNAL.md`, kein Go-Code — keine der
+  Fehlerklassen kann hier zuschlagen.)
+- neue-units: keine
+- offen: keine. `internal/gateway/route_email.go` und `email_grpc.go` waren nur Lesequelle,
+  nicht angefasst — `go test ./internal/gateway/` daher nicht Teil dieses Gates.
