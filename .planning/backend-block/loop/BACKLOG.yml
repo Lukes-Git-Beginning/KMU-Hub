@@ -3082,7 +3082,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/dialer 65,9 % (321 ungedeckt von 942); service.go 55,2 %, 182 ungedeckt von 406 (CI-Stand 32949396303)"
     scope: >
       Der Dialer fuehrt Anrufsitzungen mit Notizen und Ergebnissen — die Tabellen, die
@@ -5947,3 +5947,45 @@ units:
         belegt jetzt, dass ein gueltiger from/to-Query-Parameter tatsaechlich auf die
         gRPC-Anfrage durchschlaegt (z. B. per Test-Double/Interception statt nur ReachesRPC)
       - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: feat-dialer-stale-in-progress-contact-reaper
+    phase: 4
+    service: dialer
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Feature-Luecke, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
+      `cov-dialer-service-call-session-paths`). Ein Kontakt wird beim Ziehen aus der Queue
+      (`GetNextPendingContact`, `postgres_repository.go:202`) sofort auf `in_progress`
+      gesetzt. Beendet der Agent die Sitzung nie -- Browser-Crash, Verbindungsabbruch, ohne
+      dass `LogCallOutcome` oder `CompleteWrapUp` je aufgerufen wird -- bleibt der Kontakt fuer
+      immer `in_progress`. Es gibt keinen automatischen Timeout/Reaper-Job (grep ueber
+      `internal/dialer/*.go` nach stale/abandon/timeout liefert nichts, kein Cron-Eintrag in
+      `cmd/dialer/main.go`). Der einzige Ausweg ist der manuelle `RequeueContact`-Aufruf (siehe
+      aktualisierter Doc-Kommentar auf `Service.RequeueContact`, `service.go:485`) -- ein
+      Supervisor muss den haengenden Kontakt von Hand entdecken und zuruecksetzen, sonst
+      blockiert er dauerhaft einen Platz in der Kampagnen-Queue.
+    sources:
+      - backend/internal/dialer/service.go
+      - backend/internal/dialer/postgres_repository.go
+      - backend/internal/dialer/redis_agent_store.go
+      - backend/cmd/dialer/main.go
+    notes: >
+      Kein Deploy-Hazard-Config-Flag noetig, wenn der Reaper als periodischer Job im
+      bestehenden `cmd/dialer`-Prozess laeuft (analog zum GDPR-Retention-Scheduler mit
+      Advisory-Lock, `internal/security/gdpr/retention_scheduler.go`) statt ueber ein neues
+      `RequirePermission` oder ein neues Feature-Flag. Schwelle (z. B. "in_progress seit
+      X Minuten ohne zugehoerige `dialer_call_sessions`-Zeile ohne `outcome_id`") mit Luke
+      abstimmen, bevor sie scharf geschaltet wird -- ein zu kurzes Fenster requeued aktive
+      Gespraeche.
+    done_when:
+      - >-
+        Ein periodischer Job identifiziert Kontakte, die laenger als eine konfigurierbare
+        Schwelle `in_progress` sind, ohne dass eine offene Sitzung sie erklaert
+      - Der Job requeued sie ueber den bestehenden `RequeueContact`-Pfad, keinen neuen
+      - >-
+        Ein Test belegt sowohl den Trefferfall (haengender Kontakt wird zurueckgesetzt) als
+        auch den Negativfall (aktiver Kontakt mit laufender Sitzung bleibt unangetastet)
+      - go test -count=1 ./internal/dialer/... gruen, DATABASE_URL gesetzt, 0 Skips

@@ -482,8 +482,11 @@ func (s *Service) SkipContact(ctx context.Context, campaignContactID, tenantID u
 	return nil
 }
 
-// RequeueContact resets a skipped or callback contact back to pending so it
-// re-enters the dialing queue.
+// RequeueContact resets a contact back to pending so it re-enters the dialing
+// queue. Intended for skipped or callback contacts, but the repository does
+// not gate on the current status — it also doubles as the manual unstick path
+// for a contact left in_progress by an abandoned call session, since there is
+// no automatic timeout for that case (see cov-dialer-service-call-session-paths).
 func (s *Service) RequeueContact(ctx context.Context, campaignContactID, tenantID uuid.UUID) error {
 	if err := s.campaigns.RequeueContact(ctx, campaignContactID, tenantID); err != nil {
 		return fmt.Errorf("requeue contact: %w", err)
@@ -723,7 +726,7 @@ func (s *Service) LogCallOutcome(
 	}
 
 	// Refresh campaign denormalized counts.
-	if err := s.refreshCampaignCounts(ctx, session.CampaignContactID); err != nil {
+	if err := s.refreshCampaignCounts(ctx, tenantID, session.CampaignContactID); err != nil {
 		slog.WarnContext(ctx, "dialer: update campaign counts after outcome failed",
 			"session_id", sessionID,
 			"error", err,
@@ -802,7 +805,7 @@ func (s *Service) CompleteWrapUp(ctx context.Context, tenantID uuid.UUID, sessio
 	}
 
 	// Refresh counts and check for auto-completion.
-	if err := s.refreshCampaignCounts(ctx, session.CampaignContactID); err != nil {
+	if err := s.refreshCampaignCounts(ctx, tenantID, session.CampaignContactID); err != nil {
 		slog.WarnContext(ctx, "dialer: update campaign counts after wrap-up failed",
 			"session_id", sessionID,
 			"error", err,
@@ -1271,26 +1274,14 @@ func (s *Service) emitCampaignCompletedEvent(ctx context.Context, campaignID uui
 	}
 }
 
-// refreshCampaignCounts is a best-effort helper that calls
-// UpdateCampaignCounts. It requires the campaign ID which is not always
-// available from only a campaign contact ID, so we log a warning rather than
-// failing hard. When the campaign ID is known, callers should invoke
-// campaigns.UpdateCampaignCounts directly.
-func (s *Service) refreshCampaignCounts(ctx context.Context, campaignContactID uuid.UUID) error {
-	// UpdateCampaignCounts requires a campaignID. The repository is responsible
-	// for deriving it from the contact when given only a contact ID. If the
-	// repository signature changes in future, update this call site.
-	//
-	// For now we pass a zero UUID as a signal that the repository should
-	// look up the campaign via the contact. Implementations that do not support
-	// this no-op gracefully will need to be updated.
-	//
-	// Preferred path: call campaigns.UpdateCampaignCounts(ctx, contact.CampaignID)
-	// in each caller where the campaign ID is known (e.g. LogCallOutcome,
-	// CompleteWrapUp). This helper is retained for callers that only have a
-	// contact ID available.
-	slog.DebugContext(ctx, "dialer: refreshCampaignCounts called",
-		"campaign_contact_id", campaignContactID,
-	)
-	return nil
+// refreshCampaignCounts is a best-effort helper that resolves the campaign ID
+// from a campaign contact ID and recalculates the campaign's denormalized
+// contact_count/completed_count. Callers only have a campaign contact ID
+// (LogCallOutcome, CompleteWrapUp), not the campaign ID itself.
+func (s *Service) refreshCampaignCounts(ctx context.Context, tenantID, campaignContactID uuid.UUID) error {
+	cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID, tenantID)
+	if err != nil {
+		return fmt.Errorf("refresh campaign counts – resolve contact: %w", err)
+	}
+	return s.campaigns.UpdateCampaignCounts(ctx, cc.CampaignID)
 }

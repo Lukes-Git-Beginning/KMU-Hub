@@ -393,6 +393,46 @@ func TestCampaignRepository_GetNextPendingContact_ClaimsInPositionOrder(t *testi
 	}
 }
 
+// TestCampaignRepository_RequeueContact_UnsticksAbandonedInProgressContact
+// documents the manual cleanup path for a call session that is never
+// completed (agent crash, dropped call — there is no automatic timeout job
+// for this in the dialer): RequeueContact's UPDATE has no WHERE status
+// filter, so it resets a contact stuck in_progress back to pending just as
+// readily as a skipped or callback one. See cov-dialer-service-call-session-paths
+// in BACKLOG.yml and the updated doc comment on Service.RequeueContact.
+func TestCampaignRepository_RequeueContact_UnsticksAbandonedInProgressContact(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Dialer Requeue Stuck Tenant")
+
+	userID := seedDialerUser(t, pool, tenantOwn, "dialer-stuck", "Stuck", "Owner")
+	campID := seedDialerCampaign(t, pool, tenantOwn, userID, "Stuck Campaign", CampaignStatusActive)
+	contactID := seedDialerContact(t, pool, tenantOwn, userID, "Abandoned", "Caller")
+	// Simulate GetNextPendingContact's claim (pending -> in_progress) followed
+	// by an agent that never calls LogCallOutcome or CompleteWrapUp.
+	ccID := seedDialerCampaignContact(t, pool, tenantOwn, campID, contactID, 1, ContactStatusInProgress)
+
+	repo := NewPostgresCampaignRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+
+	if err := repo.RequeueContact(ctxOwn, ccID, tenantOwn); err != nil {
+		t.Fatalf("RequeueContact on an in_progress contact: %v", err)
+	}
+
+	got, err := repo.GetCampaignContactByID(ctxOwn, ccID, tenantOwn)
+	if err != nil {
+		t.Fatalf("GetCampaignContactByID: %v", err)
+	}
+	if got.Status != ContactStatusPending {
+		t.Fatalf("expected an abandoned in_progress contact to requeue to pending, got %q", got.Status)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // GetCampaignStats / UpdateCampaignCounts — aggregation
 // ---------------------------------------------------------------------------

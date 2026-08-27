@@ -3838,3 +3838,88 @@ Kopf von `BACKLOG.yml`.
   kein Wire-Shape, keine neue Route)
 - neue-units: keine
 - offen: keine
+
+## Iteration 17 — cov-dialer-service-call-session-paths — done — 2026-08-27 03:29
+- commit: <wird nach dem Commit nachgetragen>
+- gebaut:
+  1. ECHTER BUG GEFIXT: `Service.refreshCampaignCounts` (`service.go:1274`, aufgerufen von
+     `LogCallOutcome` und `CompleteWrapUp`) war ein reiner No-Op — es loggte nur eine
+     Debug-Zeile und rief `campaigns.UpdateCampaignCounts` nie auf, obwohl der eigene
+     Kommentar genau das als "preferred path" beschrieb. Damit blieben
+     `dialer_campaigns.contact_count`/`completed_count` nach dem ersten
+     `AddContactsToCampaign`-Aufruf fuer immer stehen, unabhaengig davon, wie viele
+     Outcomes danach geloggt wurden. Fix: `refreshCampaignCounts` nimmt jetzt zusaetzlich
+     `tenantID`, loest die `campaignID` ueber `GetCampaignContactByID` auf (bestehendes
+     Muster aus `checkCampaignCompleteByContact`) und ruft `campaigns.UpdateCampaignCounts`
+     mit der echten ID auf. Beide Aufrufer (`LogCallOutcome`, `CompleteWrapUp`) angepasst.
+  2. Bug-Suche (1) Idempotenz: Anruf-Ergebnisse selbst sind NICHT idempotent auf
+     Service-Ebene (kein Idempotency-Key-Check in `LogCallOutcome`), aber `DialerRoutes`
+     wird ueber `cmd/gateway/main.go:329` (`reg.RegisterRoutes(r, authWithIdempotency)`) mit
+     der generischen `middleware.Idempotency`-Kette registriert — dieselbe wie alle anderen
+     POST-Routen. Produktion faehrt im Default `WarnMode` (`cmd/gateway/main.go:199`, nur
+     `IDEMPOTENCY_MODE=hard` schaltet den 400-Block scharf): ein Client, der den
+     `Idempotency-Key`-Header sendet, ist dedupliziert, einer der ihn weglaesst, wird nur
+     geloggt, nicht geblockt. Das ist eine globale, bereits generisch getestete
+     (`internal/middleware/idempotency_test.go`) Produktionsentscheidung, keine
+     dialer-spezifische Luecke — keine neue Unit noetig.
+  3. Bug-Suche (2) Sitzungslebenszyklus: kein automatischer Timeout/Reaper fuer eine nie
+     beendete Sitzung (grep nach stale/abandon/timeout in `internal/dialer/*.go` und
+     `cmd/dialer/main.go` liefert nichts). Der einzige Ausweg ist der manuelle
+     `RequeueContact`-Aufruf, dessen SQL keinen Status-WHERE-Filter hat und daher jeden
+     Status zuruecksetzt — belegt durch neuen DB-Test
+     `TestCampaignRepository_RequeueContact_UnsticksAbandonedInProgressContact`
+     (`queue_and_list_test.go`). Doc-Kommentar auf `Service.RequeueContact` korrigiert (er
+     behauptete faelschlich "skipped or callback"). Fehlender automatischer Reaper als eigene
+     Unit ans Backlog-Ende gehaengt (`feat-dialer-stale-in-progress-contact-reaper`) —
+     Threshold-Entscheidung gehoert Luke, kein automatischer Fix in dieser Unit.
+  4. Bug-Suche (3) Cross-Tenant-Kampagnen-Zuordnung: `AddContactsToCampaign` loest jeden
+     importierten Kontakt ueber `crmBridge.GetContactDetails(ctx, cid)` auf; der
+     `GRPCCRMBridge` reicht den Caller-`ctx` unveraendert an den CRM-Microservice weiter,
+     dessen `GetContact`-Handler tenant-gescoped per RLS ist — ein fremder Kontakt kommt als
+     gRPC-NotFound zurueck und wird in der Service-Schleife uebersprungen (skipped++), nie
+     hinzugefuegt. Neuer Test `TestAddContactsToCampaign_FailsClosedOnForeignTenantContact`
+     dokumentiert dieses Fail-Closed-Verhalten explizit (mechanisch identisch mit der
+     bestehenden `BridgeFetchFailSkips`, aber mit klarem Sicherheits-Intent benannt).
+  5. Bug-Suche (4) Retention-Abdeckung: `DialerCallRetentionHandler`
+     (`internal/security/gdpr/retention_dialer_chat.go`) deckt `dialer_call_sessions`
+     zeitbasiert ab (Delete cascadet `dialer_call_events` per FK, Anonymize leert
+     notes/next_action). Die beiden in der Backlog-Vorbereitung genannten PII-Spalten
+     `dialer_call_sessions.notes/next_action` und `dialer_campaign_contacts.notes` sind
+     bereits durch `crm/consent/scrub.go:99-118` (Abhaengigkeit
+     `feat-scrub-dependent-pii-dialer-tables`, laut Backlog `done`) beim
+     Kontakt-Erasure-Pfad abgedeckt — keine Luecke, kein Fund.
+  6. Coverage-Luecken bei 0,0 % geschlossen: `CreateCampaign` (leerer Name, Mode-Default,
+     `AssignedAgentIDs`-nil-Normalisierung, `EnsureDefaults`-Fehler non-fatal),
+     `GetCampaignForTenant`, `ListCampaigns`, `UpdateCampaign` (Not-Found, Not-Draft,
+     leerer Name, Feld-Patches), `SetAgentStatus`/`GetAgentStatus`/`GetCampaignAgents`
+     (neuer `newTestHarnessWithAgentStore`-Helper mit echtem miniredis-`AgentStatusStore`,
+     da der Typ eine konkrete Struct um `*redis.Client` ist, kein Interface),
+     `GetAgentDashboard`, `GetSupervisorOverview` (Totals-Aggregation, Namensaufloesung,
+     Kampagnennamen-Resolve, stale-Agent-Default-Offline-Pfad), `GetContactCalls`.
+  7. Mocks in `service_test.go` erweitert um konfigurierbare Fehler/Ruecksprungwerte
+     (`mockCampaignRepo.listErr/updateErr/agentStatsErr/updateCountsCalls`,
+     `mockAgentStatusRepo` mit echten Feldern statt leerer Struct,
+     `mockCallRepo.listCallsByContact*/recentCalls*/tenantCallsToday*/agentCallsToday*` etc.)
+     — vorher waren diese Pfade *nicht mockbar*, das war der eigentliche Grund fuer die
+     0,0 %-Luecken, nicht fehlender Testwille.
+- gate: build ok (`./internal/dialer/... ./internal/gateway/... ./cmd/dialer/... ./cmd/gateway/...`) |
+  vet ok | lint ok (`golangci-lint run --config .golangci.yml ./internal/dialer/...`, 0 issues) |
+  test ok (`internal/dialer` komplett gruen, `DATABASE_URL` gesetzt, 0 uebersprungene Tests,
+  RLS-Tests liefen real) | migration n.a. (keine neue Tabelle/Policy) | rls-smoke n.a.
+  (keine Schema-Aenderung; Tenant-Isolation der bestehenden Tabellen bereits durch
+  `tenant_write_test.go`/`rls_test.go` abgedeckt und in dieser Iteration nicht angefasst)
+- coverage: internal/dialer 65,9 % -> 77,5 % (selbst gemessen per `go tool cover -func`
+  vor/nach; deckt sich mit dem CI-Bezugswert 65,9 % aus der Unit)
+- mutations-probe: `refreshCampaignCounts` per `cp`-Backup auf den alten No-Op-Body
+  zurueckgesetzt (kein Aufruf von `GetCampaignContactByID`/`UpdateCampaignCounts` mehr) ->
+  `TestLogCallOutcome_RefreshesCampaignCounts` und `TestCompleteWrapUp_RefreshesCampaignCounts`
+  sofort rot ("expected UpdateCampaignCounts to be called once, got 0 calls"). Backup
+  zurueckgespielt, `git diff --stat` gegen HEAD zeigt wieder nur den beabsichtigten Fix,
+  `internal/dialer/...` erneut komplett gruen.
+- verify vorgaenger: sauber (`4c6163b4` geprueft — reiner Testdateidiff
+  (`postgres_repository_db_test.go` neu, `service_test.go` erweitert) in `internal/settings`,
+  kein gRPC-Bypass, kein Stub, kein `.proto` im Diff, kein `RequirePermission` angefasst,
+  keine neue Tabelle, kein Wire-Shape, keine neue Route)
+- neue-units: feat-dialer-stale-in-progress-contact-reaper (fehlender automatischer
+  Aufraeumpfad fuer nie beendete Anrufsitzungen — Threshold-Entscheidung gehoert Luke)
+- offen: keine
