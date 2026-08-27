@@ -2995,7 +2995,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 69,3 %; route_produktion_ext.go 25,1 % (250 ungedeckt von 334, 17 von 17 Handlern ungetestet), route_produktion.go 39,7 % (246 von 408, 8 von 17) (CI-Stand 32949396303)"
     scope: >
       Zwei Routendateien in einer Unit, weil `route_produktion_ext.go` mit 16 von 17
