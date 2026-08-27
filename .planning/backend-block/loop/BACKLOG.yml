@@ -3038,7 +3038,7 @@ units:
     service: settings
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/settings 60,3 % (228 ungedeckt von 574); postgres_repository.go 49,6 %, service.go 62,6 % (CI-Stand 32949396303)"
     scope: >
       Einstellungen sind die Flaeche, auf der ein Fehler am weitesten streut: sie steuern
