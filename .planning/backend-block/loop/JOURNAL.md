@@ -3403,7 +3403,7 @@ Kopf von `BACKLOG.yml`.
   Response-Formen, nicht angefasst.
 
 ## Iteration 10 — cov-gateway-helpdesk-sla-queues-and-kb — done — 2026-08-27 02:55
-- commit: <wird im naechsten chore-Commit nachgetragen>
+- commit: 4267c87e
 - gebaut:
   1. `backend/internal/helpdesk/sla_test.go` (neu) — sechs Tests fuer `ComputeStatus`/
      `ApplyPolicy`. Kern des Scopes: `TestComputeStatus_AcrossWeekend` (Freitag-18:00-CEST
