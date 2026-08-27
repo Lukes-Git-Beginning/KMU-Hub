@@ -3608,7 +3608,7 @@ Kopf von `BACKLOG.yml`.
   Einzelfixes), waere das ein eigener Architekturschnitt, keine Iterations-Erweiterung.
 
 ## Iteration 13 — cov-gateway-schichten-shifts-and-templates — done — 2026-08-27 03:07
-- commit: (folgt im gleichen Schritt)
+- commit: e00fc946
 - gebaut:
   1. `backend/internal/gateway/route_schichten_test.go` (erweitert) — 33 neue Tests fuer
      alle neun im Scope genannten Handler (HandleGetShift, HandleUpdateShift,
