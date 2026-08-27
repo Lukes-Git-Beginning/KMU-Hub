@@ -3236,7 +3236,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/auth 67,9 % — 515 ungedeckt von 1606 (CI-Stand 32949396303)"
     scope: >
       Das Auth-Paket ist der kritischste Pfad im System (CLAUDE.md nennt 60 %+ fuer Auth,
@@ -6188,3 +6188,91 @@ units:
         verworfen wird, die Map also nicht unbegrenzt waechst
       - "`TestCheckMsgRate_IsPerUser_NotGlobal` und `_NotPerConnection` bleiben gruen"
       - go test -count=1 ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-login-inactive-account-is-an-enumeration-oracle
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      In Iteration 20 belegt (`TestLogin_FailurePaths_ShareOneAnswerExceptInactive`):
+      `Service.Login` (`internal/auth/service.go:142`) beantwortet ein deaktiviertes Konto
+      mit `ErrUserInactive`, waehrend unbekannte Adresse, falsches Passwort und kaputter
+      Lookup alle drei `ErrInvalidCredentials` liefern. `internal/server/grpc.go:1321` bildet
+      `ErrUserInactive` auf `codes.PermissionDenied` ab (HTTP 403), `ErrInvalidCredentials`
+      auf `codes.Unauthenticated` (HTTP 401). Ein Angreifer lernt an dem Unterschied, dass
+      eine Adresse ein Konto hat -- die Anti-Enumerations-Zusage, die der Kommentar in
+      `Login` selbst formuliert, gilt also fuer drei von vier Pfaden. Verschaerfend: die
+      Aktiv-Pruefung laeuft VOR dem bcrypt-Vergleich, das Orakel braucht nicht einmal ein
+      richtiges Passwort.
+    sources:
+      - backend/internal/auth/service.go
+      - backend/internal/auth/login_paths_test.go
+      - backend/internal/server/grpc.go
+      - backend/internal/gateway/route_auth.go
+    notes: >
+      Zwei Wege, und der zweite ist der richtige: (a) `ErrUserInactive` aus `Login`
+      herausnehmen und wie ein falsches Passwort behandeln -- schlank, aber der Nutzer
+      erfaehrt nie, warum er nicht hineinkommt, und der Support bekommt das Ticket.
+      (b) Sentinel behalten, aber die AUSSENANTWORT angleichen: der gRPC-Handler von Login
+      (nicht `mapError` global, der wird von anderen RPCs mitbenutzt) antwortet auf
+      `ErrUserInactive` mit demselben `Unauthenticated` und derselben Meldung wie auf
+      `ErrInvalidCredentials`; der Grund steht weiterhin im `slog.Warn`. Damit bleibt der
+      Log als Diagnose erhalten, und aussen ist nichts unterscheidbar. **Achtung:** der
+      Login-Pfad darf keinen Zeitunterschied bekommen -- wer den bcrypt-Vergleich fuer
+      inaktive Konten ueberspringt, tauscht ein Status-Orakel gegen ein Zeit-Orakel.
+      Pruefen, ob das Frontend `403` bei Login gesondert behandelt (`login-form.tsx` /
+      `useAuth`), bevor der Code sich aendert.
+    done_when:
+      - >-
+        Ein deaktiviertes Konto und eine unbekannte Adresse liefern denselben Statuscode und
+        dieselbe Meldung an den Aufrufer
+      - >-
+        Der Grund (`user_inactive`) steht weiterhin im Log, der Test dafuer belegt es
+      - >-
+        `TestLogin_FailurePaths_ShareOneAnswerExceptInactive` ist auf die neue Zusage
+        umgeschrieben, der Unterabschnitt "enumeration oracle" faellt weg
+      - >-
+        Die Frontend-Seite ist geprueft: kein Pfad haengt an einem 403 aus /auth/login
+      - go test -count=1 ./internal/auth/ ./internal/server/ ./internal/gateway/ gruen
+
+  - id: harden-password-reset-invalidate-previous-tokens
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      In Iteration 20 belegt
+      (`TestRequestPasswordReset_ASecondRequestDoesNotKillTheFirstToken`):
+      `Service.RequestPasswordReset` (`internal/auth/service.go:691`) legt bei jedem Aufruf
+      einen neuen Reset-Token an, ohne die vorherigen offenen Tokens desselben Kontos zu
+      entwerten. Fordert jemand zweimal einen Reset an, sind beide Links bis zu einer Stunde
+      lang gueltig; der aeltere funktioniert nachweislich noch, nachdem der neuere erzeugt
+      wurde. Wer an die aeltere Mail kommt (geteiltes Postfach, weitergeleitete Nachricht,
+      Mailarchiv), uebernimmt das Konto -- und der Kontoinhaber sieht davon nichts, weil er
+      seinen eigenen, neueren Link ja benutzt hat.
+    sources:
+      - backend/internal/auth/service.go
+      - backend/internal/auth/postgres_repository.go
+      - backend/internal/auth/repository.go
+      - backend/internal/auth/login_paths_test.go
+    notes: >
+      Schlankster Weg: eine Repository-Methode, die vor dem Anlegen alle noch offenen
+      Tokens des Nutzers als benutzt markiert (`used_at = now() WHERE user_id = $1 AND
+      used_at IS NULL`), im selben Statement-Block wie das Insert. KEINE neue Tabelle, KEINE
+      neue Route. `MarkPasswordResetTokenUsed` gibt es schon, sie zielt nur auf eine ID --
+      die Erweiterung ist eine zweite Methode daneben, nicht ein Umbau der bestehenden.
+      Der Mock in `service_test.go` muss mitziehen. Achtung Tenant: das UPDATE laeuft im
+      `sysctx`-Pfad wie das Insert, `tenant_id` gehoert trotzdem in die WHERE-Klausel, damit
+      es unter RLS und ohne identisch wirkt.
+    done_when:
+      - >-
+        Ein zweiter Reset-Antrag entwertet den Token des ersten
+      - >-
+        `TestRequestPasswordReset_ASecondRequestDoesNotKillTheFirstToken` ist auf die neue
+        Zusage umgeschrieben (aelterer Link -> ErrResetTokenUsed)
+      - >-
+        Die bestehenden Reset-Tests in `password_reset_test.go` bleiben unveraendert gruen
+      - go test -count=1 ./internal/auth/ gruen, DATABASE_URL gesetzt, 0 Skips

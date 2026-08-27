@@ -4098,3 +4098,80 @@ Kopf von `BACKLOG.yml`.
   der Code tut das nicht — die Korrektur haengt an Unit 1 mit dran.
   `-race` ist auf dieser Maschine nicht gelaufen (Vorgabe der Unit); die Goroutine-Zaehlung
   kommt ohne aus, aber der Race-Beweis bleibt CI vorbehalten.
+
+## Iteration 20 - cov-auth-package-remaining-paths - done - 2026-08-27 04:11
+- commit: <pending>
+- gebaut: `internal/auth/login_paths_test.go` (~700 Z., neue Datei, kein Produktionscode
+  geaendert). Deckt die vier in der Unit geforderten Flaechen ab:
+  1. **Anmelde-Fehlerpfade** als eine Tabelle: unbekannte Adresse, falsches Passwort und
+     kaputter Repository-Lookup liefern denselben Sentinel UND dieselbe Meldung; das
+     deaktivierte Konto weicht ab (Befund 1, siehe unten) und ist als solcher festgehalten,
+     nicht als Zusage. Dazu die Gross-/Kleinschreibungs-Normalisierung.
+  2. **Zweiter Faktor**: `Login` gibt bei aktivem 2FA nur einen Pending-Token heraus und
+     weder Access- noch Refresh-Token noch das User-Objekt. `CompleteTwoFactorLogin` mit
+     TOTP, mit Recovery-Code, und sechs Ablehnungen (Muell, abgelaufener Pending-Token,
+     falscher Token-Typ, **Access-Token als Pending-Token**, falscher TOTP-Code, unbekannter
+     Nutzer). Recovery-Codes: Einmalverwendung, Replay, nie ausgegebener Code, und der
+     erschoepfte Satz mit eigenem Sentinel. Konto-Deaktivierung zwischen den beiden Schritten.
+  3. **2FA-Erzwingung**: innerhalb der Karenz laeuft der Login durch, nach Ablauf blockt er
+     mit `Err2FAEnforcementRequired`, ein eingeschriebenes Konto erfuellt die Auflage.
+     Policy-Update/-Lesen inkl. Tenant-Trennung.
+  4. **Token-Lebenszyklus** als drei Pins: Access-Token ueberlebt Passwortaenderung,
+     Passwort-Reset und Rollenaenderung (Claims werden gepraegt, nicht nachgeschlagen);
+     der Refresh-Token ueberlebt keinen davon. Dazu Refresh-Reuse-Erkennung (ein
+     wiederverwendeter Token toetet auch das zweite Geraet) und der abgelaufene Refresh-Token,
+     der ausdruecklich KEIN Diebstahlsignal ist.
+  Nebenher gedeckt, weil bislang ohne jede Testdatei: `Setup2FA`, `Verify2FA`, `Disable2FA`,
+  `RegenerateRecoveryCodes`, `AdminReset2FA`, `CreatePendingToken`.
+- gate: build ok (`./internal/auth/... ./internal/middleware/... ./internal/gateway/...
+  ./cmd/auth/... ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run
+  ./internal/auth/...`, 0 issues; drei echte `QF1008`-Befunde auf redundante
+  Embedded-Selektoren wurden behoben) | test ok (`internal/auth` 21,7 s gruen,
+  `internal/middleware` gruen, `internal/gateway` gruen; `DATABASE_URL` als `kmuhub_app`
+  gesetzt, `go test -v | grep -c -- "--- SKIP"` = **0** bei **300** `--- PASS`) |
+  migration n.a. (keine) | rls-smoke n.a. (keine Tabelle, keine Policy angefasst)
+- coverage: internal/auth **67,9 % -> 77,3 %** (selbst gemessen, `go tool cover -func`
+  vor und nach dem Anlegen der Datei; der Vorher-Wert deckt sich exakt mit dem
+  `coverage_start:`-Wert der Unit aus CI 32949396303). `totp.go` hatte vorher **keine
+  einzige eigene Testdatei** -- dort liegt der groesste Teil des Zugewinns.
+- mutations-probe: In `validateRecoveryCode` (`totp.go:374`) den Aufruf
+  `s.repo.UseRecoveryCode(ctx, c.ID)` entfernt, den Code also nicht mehr verbraucht ->
+  `TestCompleteTwoFactorLogin_RecoveryCodeIsSingleUse` sofort rot an zwei Stellen (Replay
+  desselben Codes liefert `nil` statt `ErrInvalidRecoveryCode`; der erschoepfte Satz liefert
+  `nil` statt `ErrAllRecoveryCodesUsed`). Backup zurueckgespielt, `git status` zeigt nur noch
+  die neue Testdatei, Paket erneut gruen.
+- verify vorgaenger: sauber (`dc73da76` geprueft -- eine neue Testdatei
+  `websocket_connection_test.go`, ein Feld `revalidateInterval` als Test-Haken in
+  `websocket.go` mit `lean:`-Marker und Upgrade-Trigger, eine Zeile in `newTestHub`. Kein
+  gRPC-Bypass, kein Stub, kein `.proto`, kein `RequirePermission`, keine Tabelle, keine
+  Route, kein Wire-Shape. `530a45a0` ist der reine Journal-SHA-Nachtrag.)
+- neue-units: fix-login-inactive-account-is-an-enumeration-oracle ·
+  harden-password-reset-invalidate-previous-tokens
+- offen: **Zwei verifizierte Befunde, beide als Unit im Backlog, keiner in dieser Iteration
+  gefixt (Coverage-Unit aendert kein Verhalten).**
+  1. **Ein deaktiviertes Konto ist von aussen erkennbar.** `Login`
+     (`service.go:142`) liefert `ErrUserInactive`, alle anderen Fehlpfade
+     `ErrInvalidCredentials`; `internal/server/grpc.go:1321` macht daraus **403 gegen 401**.
+     Die Anti-Enumerations-Zusage, die der Kommentar in `Login` selbst formuliert, haelt
+     also nur fuer drei von vier Pfaden. Die Aktiv-Pruefung laeuft ausserdem VOR dem
+     bcrypt-Vergleich -- das Orakel braucht kein richtiges Passwort. Kein Datenleck im
+     engeren Sinn, aber der Gegner bekommt eine geprueft existierende Adressliste.
+  2. **Ein zweiter Reset-Antrag entwertet den ersten Token nicht.** Beide Links bleiben bis
+     zu einer Stunde gueltig; der Test benutzt nachweislich den AELTEREN, nachdem der neuere
+     ausgestellt wurde. Wer an die aeltere Mail kommt, uebernimmt das Konto, ohne dass der
+     Kontoinhaber etwas merkt.
+  **Feststellung ohne eigene Unit (Punkt 4 der Unit):** eine Brute-Force-Bremse existiert
+  nicht. Kein Fehlversuchszaehler, keine Kontosperre, keine Migration dafuer -- zehn falsche
+  Passwoerter hintereinander hinterlassen keinerlei Zustand
+  (`TestLogin_NoBruteForceBrakeInTheService` haelt das fest). Die einzige Bremse vor
+  `/api/v1/auth/login` ist der **globale** Per-IP-Limiter mit `RATE_LIMIT_RPS`,
+  **Default 100/s** (`cmd/gateway/main.go:162`); der strikte `publicRateLimiter` mit
+  Default 10/s haengt an Booking-, Wiki- und der Reset-HTML-Seite, **nicht** am Login. Ob
+  das ein Befund oder eine bewusste Entscheidung ist, gehoert Luke -- deshalb keine Unit,
+  sondern diese Zeile.
+  **Zur Antwortzeit-Frage aus den `notes`:** bewusst NICHT zeitbasiert getestet (ein
+  flakender Timing-Test waere wertlos). Statt dessen: unbekannte Adresse und kaputter
+  Lookup ueberspringen den bcrypt-Vergleich, ein falsches Passwort nicht -- der
+  Zeitunterschied existiert also strukturell. Er ist mit einem `bcryptCost` von 12 gut
+  messbar. Das gehoert in dieselbe Betrachtung wie Befund 1 und ist dort in den `notes`
+  als Warnung vermerkt, damit ein Fix nicht ein Status-Orakel gegen ein Zeit-Orakel tauscht.
