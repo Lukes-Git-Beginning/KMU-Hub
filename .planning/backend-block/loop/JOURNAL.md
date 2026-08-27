@@ -4100,7 +4100,7 @@ Kopf von `BACKLOG.yml`.
   kommt ohne aus, aber der Race-Beweis bleibt CI vorbehalten.
 
 ## Iteration 20 - cov-auth-package-remaining-paths - done - 2026-08-27 04:11
-- commit: <pending>
+- commit: 6ff4bee2
 - gebaut: `internal/auth/login_paths_test.go` (~700 Z., neue Datei, kein Produktionscode
   geaendert). Deckt die vier in der Unit geforderten Flaechen ab:
   1. **Anmelde-Fehlerpfade** als eine Tabelle: unbekannte Adresse, falsches Passwort und
