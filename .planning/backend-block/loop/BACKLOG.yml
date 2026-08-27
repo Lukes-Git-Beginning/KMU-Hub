@@ -2863,7 +2863,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 69,3 %; route_chat.go 39,0 %, 305 ungedeckt von 500, 14 von 30 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       Chat-Gateway. Ungetestet (Stand 2026-08-24): HandleGetMessages,
