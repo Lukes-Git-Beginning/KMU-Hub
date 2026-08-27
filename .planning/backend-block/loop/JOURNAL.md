@@ -4177,7 +4177,7 @@ Kopf von `BACKLOG.yml`.
   als Warnung vermerkt, damit ein Fix nicht ein Status-Orakel gegen ein Zeit-Orakel tauscht.
 
 ## Iteration 21 - cov-security-gdpr-remaining-paths - done - 2026-08-27 04:23
-- commit: (siehe naechste Journal-Zeile, wird nach dem Commit nachgetragen)
+- commit: f5fdd6d0
 - gebaut:
   1. **Tenant-Filter-Audit `dsar_search.go`** (39 Tabellenabfragen, alle einzeln gelesen):
      38 von 39 filtern bereits explizit nach `tenant_id`. Die eine Ausnahme war
