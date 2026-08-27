@@ -3141,7 +3141,7 @@ Kopf von `BACKLOG.yml`.
   Luke das ausschliessen will, hilft nur ein Wechsel des LiveKit-`apiSecret`.
 
 ## Iteration 7 — scan-tenant-filter-on-read-paths — done — 2026-08-27 02:00
-- commit: <SHA>
+- commit: c738ee21
 - gebaut: Kein Code. Systematischer Scan der drei Wege an RLS vorbei (Redis, Objektspeicher,
   Postgres ohne Tenant-Kontext). Vollstaendige Schluessel-/Pfad-/Kontext-Inventur unten;
   drei Befunde als Units am Backlog-Ende.
