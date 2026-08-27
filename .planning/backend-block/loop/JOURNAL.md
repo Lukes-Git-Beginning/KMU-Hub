@@ -4012,7 +4012,7 @@ Kopf von `BACKLOG.yml`.
   Vollscan des Buckets sein darf, und ist deshalb bewusst aus der neuen Unit ausgeklammert.
 
 ## Iteration 19 — cov-server-websocket-connection-and-message-loop — done — 2026-08-27 03:53
-- commit: <pending>
+- commit: dc73da76
 - gebaut: `backend/internal/server/websocket_connection_test.go` (neu, 18 Tests) plus zwei
   kleine Nebenaenderungen: ein Testfeld `revalidateInterval` an `WebSocketHub` (Null = die
   Produktionskonstante von 5 Minuten, `lean:`-Marker gesetzt) und `userTenants` im
