@@ -1590,3 +1590,56 @@ func TestService_ListSwapRequests_TenantIsolation(t *testing.T) {
 		assert.Equal(t, tenantA, r.TenantID)
 	}
 }
+
+// ============================================================================
+// AssignEmployee — double-booking gap
+// ============================================================================
+
+// TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected documents a
+// real gap noted in the schichten backlog unit: AssignEmployee only runs
+// validateRestPeriod, which finds the latest shift end BEFORE the new
+// shift's start and the earliest shift start AFTER the new shift's end
+// (ArbZG §5 rest-between-shifts). Neither direction catches a shift that is
+// fully nested inside — or otherwise overlaps — an existing assignment for
+// the same employee, because such a shift's end is not "before" the new
+// start and its start is not "after" the new end. An employee can therefore
+// be assigned to two shifts that run at the same time. This is a
+// Feststellung for the journal per the unit's done_when — whether a
+// dedicated overlap guard should be built is a product decision that
+// belongs in BACKLOG-NEXT.yml, not something a coverage unit fixes.
+func TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+
+	// Existing shift: 09:00-17:00, far enough in the future to dodge any
+	// "now" edge effects in the rest-period math.
+	outerStart := time.Now().Add(72 * time.Hour)
+	outerEnd := outerStart.Add(8 * time.Hour)
+	outer := addShift(repo, tenantID, "Outer Shift", outerStart, outerEnd, ShiftStatusDraft)
+
+	_, err := svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID: tenantID, ShiftID: outer.ID, EmployeeID: employeeID,
+	})
+	require.NoError(t, err)
+
+	// New shift: 10:00-14:00, fully nested inside the outer shift above.
+	innerStart := outerStart.Add(1 * time.Hour)
+	innerEnd := innerStart.Add(4 * time.Hour)
+	inner := addShift(repo, tenantID, "Inner Shift", innerStart, innerEnd, ShiftStatusDraft)
+
+	_, err = svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID: tenantID, ShiftID: inner.ID, EmployeeID: employeeID,
+	})
+
+	// This documents the current (buggy) behaviour: the assignment succeeds
+	// even though the employee is now double-booked for four overlapping
+	// hours. A fixed AssignEmployee would reject this with a collision error.
+	assert.NoError(t, err, "BUG: AssignEmployee has no overlap guard — a nested shift is silently accepted")
+
+	assignments, err := repo.ListAssignments(context.Background(), tenantID, inner.ID)
+	require.NoError(t, err)
+	assert.Len(t, assignments, 1, "the double-booked assignment was actually written")
+}

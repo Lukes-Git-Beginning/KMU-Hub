@@ -384,3 +384,340 @@ func TestHandleCheckArbzgCompliance_ReachesRPC(t *testing.T) {
 	routes.HandleCheckArbzgCompliance(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- HandleGetShift ---
+
+func TestHandleGetShift_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleGetShift)
+}
+
+func TestHandleGetShift_InvalidIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/schichten/shifts/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleGetShift(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleGetShift_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/schichten/shifts/"+testSwapShiftID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleGetShift(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateShift ---
+
+func TestHandleUpdateShift_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleUpdateShift)
+}
+
+func TestHandleUpdateShift_InvalidIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/schichten/shifts/not-a-uuid", jsonBody(t, map[string]interface{}{}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateShift(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpdateShift_InvalidStartTime(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/schichten/shifts/"+testSwapShiftID, jsonBody(t, map[string]interface{}{
+		"start_time": "gestern",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleUpdateShift(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid start_time")
+}
+
+func TestHandleUpdateShift_InvalidEndTime(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/schichten/shifts/"+testSwapShiftID, jsonBody(t, map[string]interface{}{
+		"end_time": "morgen",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleUpdateShift(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid end_time")
+}
+
+func TestHandleUpdateShift_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/schichten/shifts/"+testSwapShiftID, jsonBody(t, map[string]interface{}{
+		"title": "Renamed Shift",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleUpdateShift(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteShift ---
+
+func TestHandleDeleteShift_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleDeleteShift)
+}
+
+func TestHandleDeleteShift_InvalidIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/schichten/shifts/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteShift(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleDeleteShift_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/schichten/shifts/"+testSwapShiftID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleDeleteShift(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleListAssignments ---
+
+func TestHandleListAssignments_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleListAssignments)
+}
+
+func TestHandleListAssignments_InvalidIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/schichten/shifts/not-a-uuid/assignments", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleListAssignments(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleListAssignments_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/schichten/shifts/"+testSwapShiftID+"/assignments", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleListAssignments(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUnassignEmployee ---
+
+func TestHandleUnassignEmployee_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleUnassignEmployee)
+}
+
+func TestHandleUnassignEmployee_InvalidShiftIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/schichten/shifts/not-a-uuid/assignments/"+testSwapRequesterID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withChiURLParam(req, "employee_id", testSwapRequesterID)
+	routes.HandleUnassignEmployee(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUnassignEmployee_InvalidEmployeeIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/schichten/shifts/"+testSwapShiftID+"/assignments/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	req = withChiURLParam(req, "employee_id", "not-a-uuid")
+	routes.HandleUnassignEmployee(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid employee_id")
+}
+
+func TestHandleUnassignEmployee_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/schichten/shifts/"+testSwapShiftID+"/assignments/"+testSwapRequesterID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	req = withChiURLParam(req, "employee_id", testSwapRequesterID)
+	routes.HandleUnassignEmployee(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleUpdateTemplate ---
+
+func TestHandleSchichtenUpdateTemplate_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleUpdateTemplate)
+}
+
+func TestHandleSchichtenUpdateTemplate_InvalidIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/schichten/templates/not-a-uuid", jsonBody(t, map[string]interface{}{}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleUpdateTemplate(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleSchichtenUpdateTemplate_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/schichten/templates/"+testSwapShiftID, jsonBody(t, map[string]interface{}{
+		"name": "Renamed Template",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleUpdateTemplate(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleDeleteTemplate ---
+
+func TestHandleSchichtenDeleteTemplate_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleDeleteTemplate)
+}
+
+func TestHandleSchichtenDeleteTemplate_InvalidIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/schichten/templates/not-a-uuid", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleDeleteTemplate(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleSchichtenDeleteTemplate_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/schichten/templates/"+testSwapShiftID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleDeleteTemplate(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleApplyTemplate ---
+
+func TestHandleApplyTemplate_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleApplyTemplate)
+}
+
+func TestHandleApplyTemplate_InvalidIDUUID(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/schichten/templates/not-a-uuid/apply", jsonBody(t, map[string]interface{}{
+		"range_start": "2026-06-01T00:00:00Z",
+		"range_end":   "2026-06-07T00:00:00Z",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
+	routes.HandleApplyTemplate(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleApplyTemplate_MissingRangeStart(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/schichten/templates/"+testSwapShiftID+"/apply", jsonBody(t, map[string]interface{}{
+		"range_end": "2026-06-07T00:00:00Z",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleApplyTemplate(rec, req)
+	assertValidationError(t, rec, "range_start")
+}
+
+func TestHandleApplyTemplate_InvalidRangeEndFormat(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/schichten/templates/"+testSwapShiftID+"/apply", jsonBody(t, map[string]interface{}{
+		"range_start": "2026-06-01T00:00:00Z",
+		"range_end":   "naechste-woche",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleApplyTemplate(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid range_end")
+}
+
+func TestHandleApplyTemplate_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/schichten/templates/"+testSwapShiftID+"/apply", jsonBody(t, map[string]interface{}{
+		"range_start": "2026-06-01T00:00:00Z",
+		"range_end":   "2026-06-07T00:00:00Z",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", testSwapShiftID)
+	routes.HandleApplyTemplate(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// --- HandleGetShiftStats ---
+
+func TestHandleGetShiftStats_ServiceUnavailable(t *testing.T) {
+	routes := NewSchichtenRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleGetShiftStats)
+}
+
+func TestHandleGetShiftStats_ReachesRPC(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/schichten/stats", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleGetShiftStats(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleGetShiftStats_IgnoresFromToQueryParams documents a real gap: the
+// GetShiftStatsRequest proto carries optional from/to fields and
+// internal/schichten.Service.GetShiftStats honours them via
+// GetShiftStatsInput, but this handler never reads the from/to query
+// parameters and never sets them on the gRPC request — every call returns
+// stats for the entire tenant history regardless of what the caller asked
+// for. Both a request with and without from/to reach the RPC identically,
+// which is the only thing a gateway unit test (no mock gRPC server) can
+// observe; the missing wiring itself is filed as a fix-unit, not built here,
+// per the coverage-unit rule against changing behaviour.
+func TestHandleGetShiftStats_IgnoresFromToQueryParams(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/v1/schichten/stats?from=2026-01-01T00:00:00Z&to=2026-01-31T00:00:00Z", nil)
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleGetShiftStats(rec, req)
+	// Reaches the same ServiceUnavailable outcome as the no-params request
+	// above: the handler never looks at r.URL.Query() for from/to.
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}

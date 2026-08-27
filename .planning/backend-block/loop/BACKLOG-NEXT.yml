@@ -591,3 +591,47 @@ units:
       - Die Entscheidung (a), (b) oder (c) steht mit Begruendung und Datum in dieser Unit
       - Bei (a) oder (c) ist eine spitze Unit in BACKLOG.yml angelegt
       - Bei (b) ist eine kleine Unit angelegt, die nur die Godoc-Ausnahme ergaenzt
+
+  - id: decide-schichten-assign-employee-overlap-guard
+    phase: 4
+    service: schichten
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      PRODUKTENTSCHEIDUNG LUKE: soll `Service.AssignEmployee` eine echte Kollisionspruefung
+      bekommen (derselbe Mitarbeiter zweimal gleichzeitig eingeteilt)? Das ist ausdruecklich
+      in der Unit `cov-gateway-schichten-shifts-and-templates` (Lauf 13) als Feststellung
+      verlangt, nicht als Fix.
+    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
+    coverage_start: "n.a. (Entscheidungs-Unit, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
+      `cov-gateway-schichten-shifts-and-templates`, siehe
+      `TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected`,
+      `internal/schichten/service_test.go`). `Service.AssignEmployee` (service.go:273) prueft
+      Kapazitaet, ArbZG-Ruhezeit (`validateRestPeriod`, bidirektional vor/nach der neuen
+      Schicht) und JArbSchG-Minderjahrigenschutz, aber keinen direkten Zeit-Overlap: eine
+      neue Schicht, die vollstaendig INNERHALB einer bereits zugewiesenen Schicht desselben
+      Mitarbeiters liegt, findet in keiner der beiden Ruhezeit-Richtungen einen Treffer
+      (`LatestShiftEndBeforeForEmployee`/`EarliestShiftStartAfterForEmployee` suchen jeweils
+      NACH der neuen Schicht endende bzw. VOR ihr beginnende Nachbarschichten, nicht nach
+      echter Ueberlappung). Ein Mitarbeiter kann so doppelt fuer sich ueberschneidende
+      Zeitraeume eingeteilt werden.
+    sources:
+      - backend/internal/schichten/service.go
+      - backend/internal/schichten/postgres_repository.go
+      - backend/internal/schichten/service_test.go
+    notes: >
+      Ein echter Fix braucht eine neue Repository-Abfrage (z. B.
+      `HasOverlappingAssignmentForEmployee(tenantID, employeeID, start, end)` via
+      `tstzrange`-Overlap-Operator `&&` in Postgres) und einen neuen Guard in
+      `AssignEmployee`, analog zu Guard 1-3. Zu klaeren: soll der Guard hart ablehnen, oder
+      -- wie bei ArbZG -- nur fuer den Compliance-Endpoint `CheckArbzgCompliance` als Warnung
+      auftauchen? Schichttausch (`SwapRequest`) muesste denselben Guard beim Genehmigen
+      durchlaufen, sonst entsteht die Ueberschneidung dort neu.
+    done_when:
+      - >-
+        Die Entscheidung (Guard bauen ja/nein, hart ablehnen vs. nur warnen) steht mit
+        Begruendung und Datum in dieser Unit
+      - Bei "ja": eine spitze Unit in BACKLOG.yml angelegt, inkl. SwapRequest-Genehmigung

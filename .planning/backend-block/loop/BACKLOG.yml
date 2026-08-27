@@ -2953,7 +2953,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     coverage_start: "internal/gateway 69,3 %; route_schichten.go 48,3 %, 229 ungedeckt von 443, 7 von 20 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       Schichtplanung. Ungetestet (Stand 2026-08-24): HandleGetShift, HandleUpdateShift,
@@ -5905,3 +5905,45 @@ units:
         umbenannt/aktualisiert und erwartet jetzt die Ablehnung, nicht mehr das Loeschen
       - go test -count=1 ./internal/vertraege/... ./internal/gateway/... gruen, DATABASE_URL gesetzt, 0 Skips
       - go test -count=1 ./internal/chat/... ./internal/gateway/ gruen
+
+  - id: fix-schichten-stats-ignores-date-range-filter
+    phase: 4
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
+      `cov-gateway-schichten-shifts-and-templates`, siehe
+      `TestHandleGetShiftStats_IgnoresFromToQueryParams`,
+      `internal/gateway/route_schichten_test.go`). Die komplette Kette bis auf den Gateway
+      ist bereit fuer einen Datumsfilter: `GetShiftStatsRequest` traegt `optional from`/`to`
+      (proto/schichten/v1), `schichten_grpc.go:443-451` liest beide und baut daraus
+      `GetShiftStatsInput`, `Service.GetShiftStats` (service.go:579) reicht sie an
+      `repo.GetStats` durch. `HandleGetShiftStats`
+      (`backend/internal/gateway/route_schichten.go:735`) liest `r.URL.Query()` jedoch gar
+      nicht -- die Query-Parameter `from`/`to`, die das Frontend evtl. schickt, werden nie
+      gelesen und nie auf `GetShiftStatsRequest` gesetzt. Jeder Aufruf liefert also Stats
+      ueber die gesamte Mandanten-Historie, unabhaengig davon, welchen Zeitraum die
+      aufrufende Seite anzeigen will.
+    sources:
+      - backend/internal/gateway/route_schichten.go
+      - backend/proto/schichten/v1/*.proto
+      - backend/internal/server/schichten_grpc.go
+      - backend/internal/schichten/service.go
+    notes: >
+      Fix ist eine reine Handler-Ergaenzung, kein neuer Vertrag: `from`/`to` aus der Query
+      lesen (RFC3339, wie `HandlePublishShifts` es fuer den Body tut -- Muster
+      `parseRFC3339ToTimestamp` in derselben Datei), bei Parse-Fehler 400, sonst als optionale
+      Felder auf `GetShiftStatsRequest` setzen. Kein Proto-Regen noetig (die Felder existieren
+      bereits), keine neue Route, kein `RequirePermission`-Guard.
+    done_when:
+      - >-
+        `HandleGetShiftStats` liest `from`/`to` aus der Query, validiert sie als RFC3339 bei
+        Angabe, und setzt sie auf der gRPC-Anfrage; ein leerer Zeitraum bleibt weiterhin gueltig
+      - >-
+        `TestHandleGetShiftStats_IgnoresFromToQueryParams` ist umbenannt/aktualisiert und
+        belegt jetzt, dass ein gueltiger from/to-Query-Parameter tatsaechlich auf die
+        gRPC-Anfrage durchschlaegt (z. B. per Test-Double/Interception statt nur ReachesRPC)
+      - go test -count=1 ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips

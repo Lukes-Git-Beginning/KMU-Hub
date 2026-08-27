@@ -3606,3 +3606,91 @@ Kopf von `BACKLOG.yml`.
   betrifft dieselbe Fehlerklasse wie die beiden bereits offenen rapporte/vermietung-Units —
   falls Luke das gemeinsam anfasst (root-cause-Refactor auf einen Helper statt drei
   Einzelfixes), waere das ein eigener Architekturschnitt, keine Iterations-Erweiterung.
+
+## Iteration 13 — cov-gateway-schichten-shifts-and-templates — done — 2026-08-27 03:07
+- commit: (folgt im gleichen Schritt)
+- gebaut:
+  1. `backend/internal/gateway/route_schichten_test.go` (erweitert) — 33 neue Tests fuer
+     alle neun im Scope genannten Handler (HandleGetShift, HandleUpdateShift,
+     HandleDeleteShift, HandleListAssignments, HandleUnassignEmployee, HandleApplyTemplate,
+     HandleUpdateTemplate, HandleDeleteTemplate, HandleGetShiftStats), jeweils
+     ServiceUnavailable/InvalidUUID/ReachesRPC nach etabliertem Muster; vier
+     `TestHandleUpdateTemplate_*`/`TestHandleDeleteTemplate_*`-Namen kollidierten mit
+     bereits existierenden Tests in `route_rapporte_test.go` (Rapporte hat eigene
+     Templates) und wurden auf `TestHandleSchichtenUpdateTemplate_*`/
+     `TestHandleSchichtenDeleteTemplate_*` umbenannt.
+  2. Schwerpunkt (1) aus dem Scope untersucht: `HandleApplyTemplate`/`Service.ApplyTemplate`
+     (service.go:487) IST idempotent — `ShiftExistsForTemplate` prueft vor jedem
+     `CreateShift`, ob am selben Tag/Zeitraum/Titel schon eine Schicht existiert, und
+     ueberspringt sie dann. Kein Fund, kein Fix-Bedarf. Laeuft NICHT in einer Transaktion
+     (jeder Tag ein eigener `CreateShift`-Aufruf), aber weil die Idempotenz ueber die
+     Existenzpruefung laeuft und nicht ueber einen DB-Constraint, ist ein Teilausfall
+     zwischen zwei Tagen kein Datenintegritaetsproblem, nur ein moeglicher Teil-Erfolg —
+     kein neuer Fund.
+  3. Schwerpunkt (2) aus dem Scope untersucht: Kollisionspruefung fuer doppelt eingeteilte
+     Mitarbeiter FEHLT. `Service.AssignEmployee` (service.go:273) prueft Kapazitaet, ArbZG-
+     Ruhezeit (`validateRestPeriod`, bidirektional) und JArbSchG, aber keinen direkten
+     Zeit-Overlap: eine neue Schicht, die vollstaendig innerhalb einer bereits zugewiesenen
+     Schicht desselben Mitarbeiters liegt, findet in keiner Ruhezeit-Richtung einen Treffer
+     (beide Repo-Abfragen suchen benachbarte, nicht ueberlappende Schichten). Verifiziert per
+     neuem Test `TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected`
+     (`internal/schichten/service_test.go`): eine 09-17-Uhr-Schicht plus eine vollstaendig
+     darin verschachtelte 10-14-Uhr-Schicht lassen sich beide demselben Mitarbeiter
+     zuweisen, beide Aufrufe liefern `nil` Fehler. Wie von done_when verlangt: Feststellung
+     mit Beleg hier im Journal; ob ein Guard gebaut werden soll, ist Lukes Entscheidung —
+     als `decide-schichten-assign-employee-overlap-guard` nach `BACKLOG-NEXT.yml` gehaengt
+     (kein Fix-Unit-Bedarf in `BACKLOG.yml`, weil done_when das explizit so vorsieht).
+  4. Schwerpunkt (3) aus dem Scope untersucht: `HandleGetShiftStats` auf Tenant-Filter und
+     leeren Zeitraum. Tenant-Filter ist korrekt (`TenantId` wird immer gesetzt). Der leere
+     Zeitraum ist aber ein echter Bug, kein Feature: `GetShiftStatsRequest` traegt
+     `optional from`/`to`, `schichten_grpc.go:443-451` liest beide und der Service reicht sie
+     bis zum Repository durch — aber `HandleGetShiftStats`
+     (`route_schichten.go:735`) liest `r.URL.Query()` ueberhaupt nicht und setzt `from`/`to`
+     nie auf der gRPC-Anfrage. Jeder Aufruf liefert Stats ueber die gesamte
+     Mandanten-Historie, unabhaengig vom angefragten Zeitraum. Verifiziert per neuem Test
+     `TestHandleGetShiftStats_IgnoresFromToQueryParams` (Grenzen eines Gateway-Unit-Tests
+     ohne Mock-gRPC-Server: beide Aufrufe, mit und ohne from/to, erreichen denselben
+     ServiceUnavailable-Ausgang — das beobachtbare Symptom, nicht die fehlende Wire-Werte).
+     Als Coverage-Unit KEIN Verhalten geaendert; Fix-Unit
+     `fix-schichten-stats-ignores-date-range-filter` ans Backlog-Ende gehaengt.
+  5. HR-Zeiterfassungs-Abgleich aus den Notes: Schichtplanung (`schichten`) und
+     HR-Zeiterfassung (`internal/biz/hr/timetracking`) sind vollstaendig getrennte Module —
+     kein Code-Pfad verbindet eine geplante `ShiftAssignment` mit einem erfassten
+     `TimeEntry`. Feststellung, kein Fund (kein bestehendes Feature, das kaputt waere).
+- gate: build ok (`./internal/schichten/... ./internal/gateway/... ./cmd/schichten/...
+  ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run --config .golangci.yml
+  ./internal/schichten/... ./internal/gateway/...`, 0 issues) | test ok
+  (`internal/schichten` komplett gruen, `internal/gateway` komplett gruen, `DATABASE_URL`
+  gesetzt, 0 uebersprungene Tests in beiden Paketen) | migration n.a. (keine neue
+  Tabelle/Policy) | rls-smoke n.a. (keine Tabellen-/Policy-Aenderung)
+- coverage: internal/gateway 71,9 % -> 72,4 % (route_schichten.go: alle neun Ziel-Handler
+  vorher 0 % Funktionsabdeckung) | internal/schichten 79,4 % -> 79,4 % (unveraendert — der
+  neue BUG-Test durchlaeuft ausschliesslich bereits von bestehenden Erfolgstests abgedeckte
+  Codepfade in AssignEmployee; Wert ist selbst gemessen vor/nach der Aenderung per Stash der
+  neuen Testdateien, nicht der CI-Bezugswert 69,3 %/n.a. aus der Unit)
+- mutations-probe: zwei getrennte Proben, beide per `cp`-Backup zurueckgespielt.
+  (a) Gateway: in `HandleUnassignEmployee` den zweiten `validateUUIDParam`-Aufruf von
+  `"employee_id"` auf `"id"` geaendert (doppelter Parameter-Name) ->
+  `TestHandleUnassignEmployee_InvalidEmployeeIDUUID` sofort rot (503 statt 400, echter
+  RPC-Connect-Fehler statt Validierungsfehler, weil beide UUIDs jetzt als gueltig gelesen
+  wurden). (b) Service: in `AssignEmployee` den Kapazitaets-Vergleich von `count >=
+  *shift.Capacity` auf `count > *shift.Capacity` geaendert (Off-by-one) ->
+  `TestService_AssignEmployee_CapacityExceeded_Rejected` sofort rot (kein Fehler statt
+  `ErrShiftFull` bei exakt erreichter Kapazitaet); der neue BUG-Test blieb dabei gruen (er
+  pinnt ein anderes, unabhaengiges Verhalten). Beide Dateien per `cp`-Sicherungskopie
+  zurueckgespielt, `git diff --stat` danach leer, betroffene Pakete erneut komplett gruen.
+- verify vorgaenger: sauber (`76175de2` gegen alle acht Fehlerklassen geprueft — reiner
+  neuer Testdateidiff (drei neue/erweiterte Testdateien in vertraege/gateway), kein
+  gRPC-Bypass moeglich, kein Stub, kein `.proto` im Diff, kein `RequirePermission`
+  angefasst, keine neue Tabelle, kein Wire-Shape, keine neue Route; beide neuen Fix-Units
+  wurden korrekt ans Dateiende gehaengt, nicht eingefuegt.)
+- neue-units: fix-schichten-stats-ignores-date-range-filter (HandleGetShiftStats liest
+  from/to-Query-Parameter nie, obwohl die ganze Kette bis zum Repository sie bereits
+  unterstuetzt — BACKLOG.yml, todo); decide-schichten-assign-employee-overlap-guard
+  (Produktentscheidung, ob AssignEmployee eine echte Overlap-Pruefung braucht —
+  BACKLOG-NEXT.yml, blocked)
+- offen: `fix-schichten-stats-ignores-date-range-filter` ist ein reiner Handler-Nachtrag
+  (Muster liegt in derselben Datei bei `HandlePublishShifts` vor) und sollte zeitnah baubar
+  sein. `decide-schichten-assign-employee-overlap-guard` braucht Lukes Entscheidung, ob und
+  wie hart der Guard greifen soll, inkl. SwapRequest-Genehmigung als moeglicher zweiter
+  Angriffspunkt fuer dieselbe Ueberschneidung.
