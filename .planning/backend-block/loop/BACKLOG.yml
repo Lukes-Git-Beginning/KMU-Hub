@@ -2817,7 +2817,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/gateway 69,3 %; route_helpdesk.go 40,6 %, 365 ungedeckt von 614, 13 von 38 Handlern ungetestet (CI-Stand 32949396303)"
     scope: >
       Helpdesk-Verwaltung: SLA, Warteschlangen, Geschaeftszeiten, Wissensdatenbank.
