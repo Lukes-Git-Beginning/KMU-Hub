@@ -3696,7 +3696,7 @@ Kopf von `BACKLOG.yml`.
   Angriffspunkt fuer dieselbe Ueberschneidung.
 
 ## Iteration 14 — fix-fuhrpark-vehicle-routes-daily-km-always-zero — done — 2026-08-27 03:08
-- commit: (folgt im gleichen Schritt)
+- commit: 220fd564
 - gebaut:
   1. `internal/fuhrpark/postgres_repository.go` — `GetVehicleRoutes` setzte `DailyKm` hart auf
      `0` (Kommentar `// calculated from positions if needed`), obwohl die Positionsfolge des
