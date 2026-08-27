@@ -3925,7 +3925,7 @@ Kopf von `BACKLOG.yml`.
 - offen: keine
 
 ## Iteration 18 — cov-server-gobd-archive-grpc-handlers — done — 2026-08-27 03:44
-- commit: <pending>
+- commit: 731eb529
 - gebaut:
   1. Neue Testdatei `backend/internal/server/biz_grpc_gobd_archive_test.go` (~700 Zeilen) fuer
      die sechs GoBD-Belegarchiv-Handler, die bei exakt 0,0 % standen. Alle sechs stehen
