@@ -330,37 +330,242 @@
 units:
 
     # ==========================================================================================
-    # KOPF LAUF 14 — DIE VERIFIZIERTEN LECKS ZUERST. Diese dreizehn Units sind am 2026-08-27
-    # nach vorn gezogen worden; alles darunter behält die Reihenfolge nach Präfix.
+    # KOPF LAUF 14 — ERST DIE DREI AUSFÄLLE, DANN DIE LECKS. Umsortiert am 2026-09-22, nachdem
+    # alle dreizehn Kopf-Units gegen den Code bei `a3e079b7` nachgeprüft wurden: ZWÖLF sind
+    # offen, EINE war längst behoben. Alles unterhalb des Kopfs behält seine Reihenfolge.
     #
-    # Der Grund steht oben im roten Faden: der Treiber zieht die erste baubare Unit in
-    # DATEIREIHENFOLGE, und Lauf 13 hat vorgeführt, was das für Funde am Dateiende bedeutet.
-    # Zwei über REST erreichbare Cross-Tenant-Lecks standen auf Position 44 und 45 von 58.
+    # Der Grund für den Kopf überhaupt steht oben im roten Faden: der Treiber zieht die erste
+    # baubare Unit in DATEIREIHENFOLGE, und Lauf 13 hat vorgeführt, was das für Funde am
+    # Dateiende bedeutet — zwei REST-erreichbare Cross-Tenant-Lecks auf Position 44 und 45.
     #
-    # Die Reihenfolge INNERHALB des Kopfs ist ebenfalls Absicht:
-    #   1. `fix-caldav-test-revoke-runs-without-tenant-context` — eine billige sonnet-Unit zum
-    #      Warmlaufen. Sie belegt, dass DB-Gate und Mutations-Probe laufen, bevor eine
-    #      opus-Unit Zeit kostet (Muster aus Lauf 13, dort hat es funktioniert). Sie ist
-    #      trotzdem ein echter Befund: der Widerruf des Test-App-Passworts läuft mit
-    #      `context.Background()` gegen eine RLS-Tabelle, trifft null Zeilen, und das Passwort
-    #      bleibt gültig — die Tabelle hat keine Ablaufspalte.
-    #   2.+3. die zwei Redis-Lecks aus `scan-tenant-filter-on-read-paths`, beide opus, beide
-    #      ohne Netz darunter: Redis kennt keine RLS. `GetPresence`/`GetBulkPresence` und
-    #      `GET /api/v1/dialer/agents` reichen fremde UUIDs ungeprüft durch, die
-    #      Kampagnen-Variante gleich als Liste.
-    #   4.–8. die Websocket-, Kalender-, Rapporte- und Chat-Fälle derselben Klasse.
-    #   9.–10. LiveKit-Raumnamen-Kollision und der CalDAV-Schreibpfad — beide hängen an den
-    #      Fixes aus Lauf 13 und referenzieren sie als Vorlage.
+    # WARUM DIE AUSFÄLLE JETZT VORNE STEHEN. Drei der dreizehn sind gar keine Lecks, sondern
+    # kaputte Funktionen. Sie treffen JEDEN Kunden, unabhängig davon, wie B1 ausgeht:
+    #   1. `fix-websocket-chat-rpcs-missing-tenant-context` — zuerst, weil hier der Root Cause
+    #      sitzt: `HandleWebSocket` reicht `r.Context()` unverändert weiter, obwohl der Tenant
+    #      in `registerUserTenant` längst bekannt ist. Subscribe und Mark-Read fallen
+    #      fail-closed aus, also gibt es KEINE Live-Zustellung im Chat. Der Fix repariert den
+    #      authentifizierten Pfad von Unit 2 mit.
+    #   2. `fix-websocket-chat-send-message-missing-tenant-id` — die verbleibenden Gast-Pfade
+    #      (`websocket.go:836`, `route_guest.go:239`); `GuestSessionInfo` trägt kein Tenant-Feld.
+    #   3. `fix-createevent-never-sets-tenant-id` — `CreateEvent` setzt `input.TenantID` nie,
+    #      `calendarRepo.GetByID` sucht mit der Null-UUID, also schlägt TERMIN ANLEGEN für
+    #      jeden echten Tenant fehl. Kalender ist ein buchbares Modul.
+    #
+    # DANACH DIE LECKS, nach tatsächlichem Schweregrad:
+    #   4. `fix-caldav-test-revoke-...` — billige sonnet-Unit, belegt dass DB-Gate und
+    #      Mutations-Probe laufen, bevor opus Zeit kostet (Muster aus Lauf 13). Trotzdem ein
+    #      echter Befund: der Widerruf trifft unter RLS null Zeilen, das Test-Passwort bleibt
+    #      unbegrenzt gültig — die Tabelle hat keine Ablaufspalte.
+    #   5.+6. die zwei Redis-Lecks, beide opus, beide ohne Netz darunter: Redis kennt keine RLS.
+    #      `GetPresence`/`GetBulkPresence` ist für JEDEN authentifizierten Nutzer über
+    #      `GET /api/v1/presence/{userId}` erreichbar, die Bulk-Variante nimmt Listen.
+    #      `GET /api/v1/dialer/agents` dasselbe hinter einer Berechtigung.
+    #   7.–9. Rapporte (Cross-Tenant-SCHREIBEN), Chat-Suche (umgeht Mitgliedschaft) und die
+    #      LiveKit-Raumnamen-Kollision.
+    #   10. der CalDAV-Schreibpfad — ACHTUNG: der Produktionsfehler ist seit `cff259b7`
+    #      behoben (Injector stempelt Tenant/User, RLS greift). OFFEN ist nur die Testschuld:
+    #      `caldav_backend_db_test.go:211` und `:312` bauen ihren Context von Hand und
+    #      dokumentieren per `require.Error` noch den alten Zustand. Die Unit bleibt deshalb
+    #      drin, kostet aber weniger als ihr Scope vermuten lässt.
     #   11.+12. die zwei Auth-Oberflächen (Enumerations-Orakel beim Login, Passwort-Reset ohne
     #      Invalidierung der Vorgänger-Tokens).
-    #   13. `fix-gobd-archive-hash-never-verified` zuletzt im Kopf: kein Leck, aber eine
-    #      gebrochene Beweiskette mit GoBD-Gewicht, und mit opus die teuerste der dreizehn.
+    #   13. `fix-gobd-archive-hash-never-verified` zuletzt: kein Leck, aber eine gebrochene
+    #      Beweiskette mit GoBD-Gewicht, und mit opus die teuerste der dreizehn.
+    #
+    # EINORDNUNG ZU B1: fällt die Entscheidung auf „eigener Server pro Kunde", verlieren die
+    # Cross-Tenant-Lecks stark an Schärfe — auf einem Kundenserver gibt es keinen zweiten
+    # Tenant. Die drei Ausfälle oben verlieren NICHTS. Deshalb diese Reihenfolge.
     #
     # Zwei Dinge, die dieser Kopf NICHT enthält und die trotzdem hierher gehören würden:
     # `fix-video-get-meeting-notes-returns-empty-stub` ist ein Stub, kein Leck, und
     # `fix-inventur-delete-completed-session-unprotected` ist eine Integritätslücke ohne
     # Tenant-Bezug. Beide stehen direkt hinter dem Kopf im `fix-`-Block.
     # ==========================================================================================
+
+  - id: fix-websocket-chat-rpcs-missing-tenant-context
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    scope: >
+      Verifizierter Produktionsbug, in Iteration 19 durch einen Test reproduziert
+      (`TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService`). `/api/v1/ws` ist
+      in `cmd/gateway/main.go:453` OHNE `authMiddleware` registriert -- der Handler validiert
+      das JWT selbst, schreibt die Tenant-ID aber nie in den Context. Aus der WS-Message-Loop
+      geht deshalb ein nackter `r.Context()` an den Chat-Client, `TenantOutboundUnaryInterceptor`
+      haengt mangels `TenantIDKey` kein `x-tenant-id` an, und serverseitig lehnt
+      `ChatGRPCServer.GetChannel` (`internal/server/chat_grpc.go:103-106`) mit
+      `codes.Unauthenticated` ab. Betrifft `handleSubscribeChannel` (GetChannel) und
+      `handleMarkRead` (MarkChannelRead). `handleSendMessage` scheitert aus einem zweiten
+      Grund: `SendMessage` liest die Tenant-ID nicht aus dem Context, sondern aus
+      `req.TenantId` (`chat_grpc.go:369`), und der WS-Handler setzt das Feld nie ->
+      `codes.InvalidArgument`. Wirkung: Chat ueber WebSocket ist praktisch funktionslos --
+      kein Subscribe, also auch keine Live-Zustellung. Kein RLS-Bypass, es faellt
+      fail-closed aus. Das Muster fuer den Fix existiert bereits im selben File:
+      `tenantAllowsPresenceTarget` (`websocket.go:1203`) baut sich seinen `scopedCtx` per
+      `context.WithValue(ctx, middleware.TenantIDKey, callerTenantID)` -- jemand hat das fuer
+      Presence nachgezogen und Chat vergessen.
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/chat_grpc.go
+      - backend/internal/middleware/grpc_tenant.go
+      - backend/cmd/gateway/main.go
+      - backend/internal/server/websocket_connection_test.go
+    notes: >
+      `opus`, weil zwei Wege offenstehen und die Wahl Folgen hat: (a) den Context EINMAL beim
+      Verbindungsaufbau anreichern (`ctx = context.WithValue(ctx, middleware.TenantIDKey,
+      claims.TenantID)` vor `h.handleConnection`, dazu `UserIDKey`) -- das repariert alle
+      RPCs der Schleife auf einen Schlag; oder (b) je Handler scopen wie bei Presence.
+      (a) ist der schlanke Fix und passt zu `registerUserTenant`, das die Tenant-ID ohnehin
+      schon aus den Claims zieht. Bei `SendMessage` muss zusaetzlich `TenantId` im Request
+      gesetzt werden -- ODER `chat_grpc.go` liest die Tenant-ID dort kuenftig aus dem Context
+      wie alle anderen RPCs; das waere die konsistente Variante, aendert aber das Verhalten
+      fuer alle anderen Aufrufer von `SendMessage` und muss geprueft werden.
+      KEINE neue Route, KEIN neues Flag, KEINE Migration. `TenantInboundUnaryInterceptor`
+      traegt uebrigens einen falschen Docstring (behauptet `codes.Unauthenticated` bei
+      fehlendem Tenant, tut es nicht) -- den im selben Commit korrigieren.
+    done_when:
+      - >-
+        Die gRPC-Aufrufe aus der WebSocket-Message-Loop tragen die Tenant-ID des
+        authentifizierten Nutzers im Context
+      - >-
+        `TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService` ist auf das neue
+        Verhalten umgeschrieben (der Fake sieht jetzt einen Tenant) und belegt, dass er der
+        Tenant-ID aus dem JWT entspricht
+      - >-
+        Ein Test belegt, dass `handleSendMessage` einen Request stellt, den
+        `ChatGRPCServer.SendMessage` annimmt (Tenant vorhanden, egal ob per Feld oder Context)
+      - Der Docstring von `TenantInboundUnaryInterceptor` beschreibt, was der Code tut
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-websocket-chat-send-message-missing-tenant-id
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `fix-websocket-presence-subscribe-missing-tenant-check` (Iteration 2, Lauf 13):
+      JEDE Chat-Nachricht, die ueber die WebSocket-Verbindung gesendet wird — sowohl fuer
+      authentifizierte User als auch fuer Gaeste, sowohl ueber WS als auch ueber die
+      REST-Gast-Route — schlaegt aktuell garantiert fehl.
+      `chatv1.SendMessageRequest.tenant_id` (Feld 8, `backend/proto/chat/v1/chat.proto:242`)
+      ist ein normaler (nicht `optional`) String. `ChatGRPCServer.SendMessage`
+      (`backend/internal/server/chat_grpc.go:369`) parst ihn UNBEDINGT als erstes:
+      `chatTenantID, err := uuid.Parse(req.TenantId)` — bei leerem String schlaegt
+      `uuid.Parse` fehl und die RPC gibt sofort `codes.InvalidArgument, "invalid tenant_id"`
+      zurueck, bevor ueberhaupt zwischen authentifiziertem und Gast-Pfad unterschieden wird.
+      Drei Aufrufstellen bauen den Request OHNE `TenantId`:
+      `WebSocketHub.handleSendMessage` (`backend/internal/server/websocket.go:601-609`,
+      authentifizierte User ueber WS), `WebSocketHub.handleGuestSendMessage`
+      (`backend/internal/server/websocket.go:823-829`, Gaeste ueber WS) und die
+      REST-Gast-Route `internal/gateway/route_guest.go:237-241`. Nur EINE Aufrufstelle setzt
+      es korrekt: die authentifizierte REST-Route `internal/gateway/route_chat.go:471-477`
+      liest `tenantID, err := middleware.GetTenantID(r.Context())` (funktioniert, weil diese
+      Route hinter `authMiddleware` haengt) und setzt `TenantId: tenantID.String()`.
+      Damit ist Echtzeit-Chat ueber WebSocket UND jeder Gast-Chat (WS wie REST) aktuell
+      funktionsunfaehig — nicht nur ein Tenant-Scoping-Detail, sondern ein kompletter Ausfall
+      dieser Pfade. Root Cause fuer die beiden WS-Faelle ist dieselbe Luecke, die auch die
+      Presence-Subscribe-Unit betraf: `HandleWebSocket` (`backend/internal/server/websocket.go`,
+      um Zeile 297-364) validiert den JWT selbst und haelt `claims.TenantID`, propagiert es aber
+      nie in den `ctx`, den `handleConnection`/`handleMessage` weiterreichen — die Route laeuft
+      nicht durch `middleware.Auth`, weil sie den Token selbst aus
+      Sec-WebSocket-Protocol/Query-Param liest statt aus dem Authorization-Header.
+      Fuer den Gast-Fall (WS UND REST) gibt es KEINEN Tenant im JWT-Sinn — `GuestSessionInfo`
+      (`backend/internal/server/websocket.go:55-60`) haelt aktuell nur `ID`, `ChannelID`,
+      `DisplayName`, `IsActive`, kein `TenantID`-Feld; das muesste aus der Guest-Session
+      selbst oder ueber den Channel aufgeloest werden (ein Channel gehoert zu genau einem
+      Tenant).
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/chat_grpc.go
+      - backend/internal/gateway/route_chat.go
+      - backend/internal/gateway/route_guest.go
+      - backend/proto/chat/v1/chat.proto
+      - backend/internal/server/websocket_presence_subscribe_test.go
+    notes: >
+      Fuer den authentifizierten WS-Fall bietet sich derselbe `userTenants`-Cache an, der in
+      `fix-websocket-presence-subscribe-missing-tenant-check` fuer die Presence-Autorisierung
+      eingefuehrt wurde (`WebSocketHub.registerUserTenant`/`h.userTenants[userID]`) —
+      `handleSendMessage` kann den bereits gecachten Tenant direkt in `grpcReq.TenantId`
+      schreiben, ohne einen weiteren gRPC-Roundtrip. Fuer den Gast-Fall muss zuerst geklaert
+      werden, WOHER der Tenant kommt (Channel-Lookup vs. Erweiterung von `GuestSessionInfo`
+      beim Erstellen der Session) — das ist eine kleine Architektur-Entscheidung, kein reiner
+      Verkabelungsfehler, und gehoert in den `scope:`-Teil der Bauarbeit, nicht vorher geraten.
+      Vor dem Fix pruefen, ob es einen Grund gibt, warum das bisher niemandem aufgefallen ist
+      (z. B. Feature-Flag, das den WS-Chat-Sendepfad aktuell abschaltet, oder ein Frontend, das
+      ausschliesslich die REST-Route benutzt und WS nur zum Lesen/Broadcasten verwendet) — falls
+      ja, gehoert das in die `blocked_reason`, falls die Killer-Antwort ist "wird produktiv gar
+      nicht genutzt".
+    done_when:
+      - >-
+        `handleSendMessage`, `handleGuestSendMessage` und `route_guest.go`s Send-Handler setzen
+        `TenantId` korrekt, bevor sie `chatClient.SendMessage` rufen
+      - >-
+        Ein Test belegt: eine ueber WS gesendete Chat-Nachricht (authentifiziert) kommt beim
+        Empfaenger an, statt mit `codes.InvalidArgument` abzubrechen — ebenso fuer den
+        Gast-Sendepfad (WS und REST)
+      - go test -count=1 ./internal/server/... ./internal/gateway/... gruen, DATABASE_URL
+        gesetzt, 0 Skips
+
+  - id: fix-createevent-never-sets-tenant-id
+    phase: 4
+    service: calendar
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Produktionsfehler, kein Coverage-Ziel)"
+    scope: >
+      Fund aus fix-generatejointoken-missing-event-tenant-check (Iteration 6), am Code
+      verifiziert: `CalendarGRPCServer.CreateEvent` (internal/server/calendar_grpc.go:391-457)
+      ruft `middleware.GetTenantID(ctx)` NICHT auf und setzt `event.CreateInput.TenantID` an
+      keiner Stelle — anders als GetEvent, ListEventsInRange, UpdateEvent, DeleteEvent, RSVP,
+      SetReminders und (seit Iteration 6) GenerateJoinToken, die alle mit `tenantID` arbeiten.
+      `CreateInput.TenantID` (work/event/service.go:40) bleibt damit immer die Null-UUID.
+      `event.Service.Create` (work/event/service.go:77) laedt daraufhin den Kalender ueber
+      `s.calendarRepo.GetByID(ctx, input.CalendarID, input.TenantID)`, und das
+      Postgres-Repository filtert dort explizit `WHERE id=$1 AND tenant_id=$2`
+      (work/calendar/postgres_repository.go:41). Fuer jeden echten (Nicht-Null-)Tenant kann
+      diese Abfrage NIE einen Treffer liefern — CreateEvent muesste in Produktion also
+      ausnahmslos mit `ErrCalendarNotFound` -> codes.NotFound -> HTTP 404 antworten, obwohl
+      der Kalender existiert und dem Aufrufer gehoert.
+      ZWEI DINGE VOR DEM FIX KLAEREN, weil der Befund sonst nicht zum gemeldeten
+      Produktionsverhalten passt: (1) Ob der Kalender-Anlegepfad die Kalender wirklich mit
+      einem Nicht-Null-`tenant_id` schreibt — schreibt CreateCalendar seinerseits Null-UUIDs,
+      passt das Paar zusammen und der Fehler faellt nur bei gemischten Daten auf.
+      (2) Ob die RLS-Policy auf `calendars` den Filter zusaetzlich traegt. Beides gehoert
+      belegt ins Journal, bevor eine Zeile geaendert wird.
+    sources:
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/work/event/service.go
+      - backend/internal/work/calendar/postgres_repository.go
+      - backend/internal/server/calendar_grpc_events_categories_reminders_test.go
+    notes: >
+      Der Befund ist im Testfile bereits ausgeschrieben (Kommentarblock ueber
+      `TestCreateEvent` in calendar_grpc_events_categories_reminders_test.go) und der Test
+      `TestCreateEvent/"calendar not found (missing tenant scoping)"` dokumentiert den
+      Ist-Zustand als Erfolgsfall. Nach dem Fix muss dieser Test die Erwartung umdrehen und
+      der Kommentarblock die Loesung beschreiben, nicht mehr die Luecke — dieselbe Bewegung
+      wie bei `TestGenerateJoinToken` in Iteration 6.
+      Root-Cause-Pflicht: dieselbe Frage fuer JEDE RPC in calendar_grpc.go stellen, die
+      `middleware.GetTenantID` nicht aufruft. Iteration 6 hat nur GenerateJoinToken und
+      CreateEvent angesehen, nicht die uebrigen.
+    done_when:
+      - >-
+        Die zwei Klaerungsfragen aus dem scope sind mit Codestelle bzw. DB-Abfrage im Journal
+        beantwortet
+      - >-
+        `CreateEvent` setzt `CreateInput.TenantID` aus `middleware.GetTenantID(ctx)` und
+        lehnt fehlenden Tenant-Kontext ab (codes.InvalidArgument, wie GetEvent)
+      - >-
+        Ein Test belegt: ein Kalender, der demselben Tenant wie der ctx gehoert, fuehrt zum
+        Anlegen des Events statt zu NotFound
+      - >-
+        Die Liste der uebrigen RPCs in calendar_grpc.go ohne `GetTenantID`-Aufruf steht im
+        Journal, je als beabsichtigt (mit Grund) oder als Befund eingeordnet
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
 
   - id: fix-caldav-test-revoke-runs-without-tenant-context
     phase: 4
@@ -536,191 +741,6 @@ units:
         auszuliefern; ein Test mit zwei Tenants in einem SET belegt das
       - Ein Eintrag ohne verwertbaren Tenant ist nicht sichtbar (fail-closed, per Test)
       - go test -count=1 ./internal/dialer/ ./internal/server/ ./internal/gateway/ gruen
-
-  - id: fix-websocket-chat-send-message-missing-tenant-id
-    phase: 4
-    service: server
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus `fix-websocket-presence-subscribe-missing-tenant-check` (Iteration 2, Lauf 13):
-      JEDE Chat-Nachricht, die ueber die WebSocket-Verbindung gesendet wird — sowohl fuer
-      authentifizierte User als auch fuer Gaeste, sowohl ueber WS als auch ueber die
-      REST-Gast-Route — schlaegt aktuell garantiert fehl.
-      `chatv1.SendMessageRequest.tenant_id` (Feld 8, `backend/proto/chat/v1/chat.proto:242`)
-      ist ein normaler (nicht `optional`) String. `ChatGRPCServer.SendMessage`
-      (`backend/internal/server/chat_grpc.go:369`) parst ihn UNBEDINGT als erstes:
-      `chatTenantID, err := uuid.Parse(req.TenantId)` — bei leerem String schlaegt
-      `uuid.Parse` fehl und die RPC gibt sofort `codes.InvalidArgument, "invalid tenant_id"`
-      zurueck, bevor ueberhaupt zwischen authentifiziertem und Gast-Pfad unterschieden wird.
-      Drei Aufrufstellen bauen den Request OHNE `TenantId`:
-      `WebSocketHub.handleSendMessage` (`backend/internal/server/websocket.go:601-609`,
-      authentifizierte User ueber WS), `WebSocketHub.handleGuestSendMessage`
-      (`backend/internal/server/websocket.go:823-829`, Gaeste ueber WS) und die
-      REST-Gast-Route `internal/gateway/route_guest.go:237-241`. Nur EINE Aufrufstelle setzt
-      es korrekt: die authentifizierte REST-Route `internal/gateway/route_chat.go:471-477`
-      liest `tenantID, err := middleware.GetTenantID(r.Context())` (funktioniert, weil diese
-      Route hinter `authMiddleware` haengt) und setzt `TenantId: tenantID.String()`.
-      Damit ist Echtzeit-Chat ueber WebSocket UND jeder Gast-Chat (WS wie REST) aktuell
-      funktionsunfaehig — nicht nur ein Tenant-Scoping-Detail, sondern ein kompletter Ausfall
-      dieser Pfade. Root Cause fuer die beiden WS-Faelle ist dieselbe Luecke, die auch die
-      Presence-Subscribe-Unit betraf: `HandleWebSocket` (`backend/internal/server/websocket.go`,
-      um Zeile 297-364) validiert den JWT selbst und haelt `claims.TenantID`, propagiert es aber
-      nie in den `ctx`, den `handleConnection`/`handleMessage` weiterreichen — die Route laeuft
-      nicht durch `middleware.Auth`, weil sie den Token selbst aus
-      Sec-WebSocket-Protocol/Query-Param liest statt aus dem Authorization-Header.
-      Fuer den Gast-Fall (WS UND REST) gibt es KEINEN Tenant im JWT-Sinn — `GuestSessionInfo`
-      (`backend/internal/server/websocket.go:55-60`) haelt aktuell nur `ID`, `ChannelID`,
-      `DisplayName`, `IsActive`, kein `TenantID`-Feld; das muesste aus der Guest-Session
-      selbst oder ueber den Channel aufgeloest werden (ein Channel gehoert zu genau einem
-      Tenant).
-    sources:
-      - backend/internal/server/websocket.go
-      - backend/internal/server/chat_grpc.go
-      - backend/internal/gateway/route_chat.go
-      - backend/internal/gateway/route_guest.go
-      - backend/proto/chat/v1/chat.proto
-      - backend/internal/server/websocket_presence_subscribe_test.go
-    notes: >
-      Fuer den authentifizierten WS-Fall bietet sich derselbe `userTenants`-Cache an, der in
-      `fix-websocket-presence-subscribe-missing-tenant-check` fuer die Presence-Autorisierung
-      eingefuehrt wurde (`WebSocketHub.registerUserTenant`/`h.userTenants[userID]`) —
-      `handleSendMessage` kann den bereits gecachten Tenant direkt in `grpcReq.TenantId`
-      schreiben, ohne einen weiteren gRPC-Roundtrip. Fuer den Gast-Fall muss zuerst geklaert
-      werden, WOHER der Tenant kommt (Channel-Lookup vs. Erweiterung von `GuestSessionInfo`
-      beim Erstellen der Session) — das ist eine kleine Architektur-Entscheidung, kein reiner
-      Verkabelungsfehler, und gehoert in den `scope:`-Teil der Bauarbeit, nicht vorher geraten.
-      Vor dem Fix pruefen, ob es einen Grund gibt, warum das bisher niemandem aufgefallen ist
-      (z. B. Feature-Flag, das den WS-Chat-Sendepfad aktuell abschaltet, oder ein Frontend, das
-      ausschliesslich die REST-Route benutzt und WS nur zum Lesen/Broadcasten verwendet) — falls
-      ja, gehoert das in die `blocked_reason`, falls die Killer-Antwort ist "wird produktiv gar
-      nicht genutzt".
-    done_when:
-      - >-
-        `handleSendMessage`, `handleGuestSendMessage` und `route_guest.go`s Send-Handler setzen
-        `TenantId` korrekt, bevor sie `chatClient.SendMessage` rufen
-      - >-
-        Ein Test belegt: eine ueber WS gesendete Chat-Nachricht (authentifiziert) kommt beim
-        Empfaenger an, statt mit `codes.InvalidArgument` abzubrechen — ebenso fuer den
-        Gast-Sendepfad (WS und REST)
-      - go test -count=1 ./internal/server/... ./internal/gateway/... gruen, DATABASE_URL
-        gesetzt, 0 Skips
-
-  - id: fix-websocket-chat-rpcs-missing-tenant-context
-    phase: 4
-    service: gateway
-    model: opus
-    deps: []
-    status: todo
-    scope: >
-      Verifizierter Produktionsbug, in Iteration 19 durch einen Test reproduziert
-      (`TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService`). `/api/v1/ws` ist
-      in `cmd/gateway/main.go:453` OHNE `authMiddleware` registriert -- der Handler validiert
-      das JWT selbst, schreibt die Tenant-ID aber nie in den Context. Aus der WS-Message-Loop
-      geht deshalb ein nackter `r.Context()` an den Chat-Client, `TenantOutboundUnaryInterceptor`
-      haengt mangels `TenantIDKey` kein `x-tenant-id` an, und serverseitig lehnt
-      `ChatGRPCServer.GetChannel` (`internal/server/chat_grpc.go:103-106`) mit
-      `codes.Unauthenticated` ab. Betrifft `handleSubscribeChannel` (GetChannel) und
-      `handleMarkRead` (MarkChannelRead). `handleSendMessage` scheitert aus einem zweiten
-      Grund: `SendMessage` liest die Tenant-ID nicht aus dem Context, sondern aus
-      `req.TenantId` (`chat_grpc.go:369`), und der WS-Handler setzt das Feld nie ->
-      `codes.InvalidArgument`. Wirkung: Chat ueber WebSocket ist praktisch funktionslos --
-      kein Subscribe, also auch keine Live-Zustellung. Kein RLS-Bypass, es faellt
-      fail-closed aus. Das Muster fuer den Fix existiert bereits im selben File:
-      `tenantAllowsPresenceTarget` (`websocket.go:1203`) baut sich seinen `scopedCtx` per
-      `context.WithValue(ctx, middleware.TenantIDKey, callerTenantID)` -- jemand hat das fuer
-      Presence nachgezogen und Chat vergessen.
-    sources:
-      - backend/internal/server/websocket.go
-      - backend/internal/server/chat_grpc.go
-      - backend/internal/middleware/grpc_tenant.go
-      - backend/cmd/gateway/main.go
-      - backend/internal/server/websocket_connection_test.go
-    notes: >
-      `opus`, weil zwei Wege offenstehen und die Wahl Folgen hat: (a) den Context EINMAL beim
-      Verbindungsaufbau anreichern (`ctx = context.WithValue(ctx, middleware.TenantIDKey,
-      claims.TenantID)` vor `h.handleConnection`, dazu `UserIDKey`) -- das repariert alle
-      RPCs der Schleife auf einen Schlag; oder (b) je Handler scopen wie bei Presence.
-      (a) ist der schlanke Fix und passt zu `registerUserTenant`, das die Tenant-ID ohnehin
-      schon aus den Claims zieht. Bei `SendMessage` muss zusaetzlich `TenantId` im Request
-      gesetzt werden -- ODER `chat_grpc.go` liest die Tenant-ID dort kuenftig aus dem Context
-      wie alle anderen RPCs; das waere die konsistente Variante, aendert aber das Verhalten
-      fuer alle anderen Aufrufer von `SendMessage` und muss geprueft werden.
-      KEINE neue Route, KEIN neues Flag, KEINE Migration. `TenantInboundUnaryInterceptor`
-      traegt uebrigens einen falschen Docstring (behauptet `codes.Unauthenticated` bei
-      fehlendem Tenant, tut es nicht) -- den im selben Commit korrigieren.
-    done_when:
-      - >-
-        Die gRPC-Aufrufe aus der WebSocket-Message-Loop tragen die Tenant-ID des
-        authentifizierten Nutzers im Context
-      - >-
-        `TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService` ist auf das neue
-        Verhalten umgeschrieben (der Fake sieht jetzt einen Tenant) und belegt, dass er der
-        Tenant-ID aus dem JWT entspricht
-      - >-
-        Ein Test belegt, dass `handleSendMessage` einen Request stellt, den
-        `ChatGRPCServer.SendMessage` annimmt (Tenant vorhanden, egal ob per Feld oder Context)
-      - Der Docstring von `TenantInboundUnaryInterceptor` beschreibt, was der Code tut
-      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
-
-  - id: fix-createevent-never-sets-tenant-id
-    phase: 4
-    service: calendar
-    model: opus
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Produktionsfehler, kein Coverage-Ziel)"
-    scope: >
-      Fund aus fix-generatejointoken-missing-event-tenant-check (Iteration 6), am Code
-      verifiziert: `CalendarGRPCServer.CreateEvent` (internal/server/calendar_grpc.go:391-457)
-      ruft `middleware.GetTenantID(ctx)` NICHT auf und setzt `event.CreateInput.TenantID` an
-      keiner Stelle — anders als GetEvent, ListEventsInRange, UpdateEvent, DeleteEvent, RSVP,
-      SetReminders und (seit Iteration 6) GenerateJoinToken, die alle mit `tenantID` arbeiten.
-      `CreateInput.TenantID` (work/event/service.go:40) bleibt damit immer die Null-UUID.
-      `event.Service.Create` (work/event/service.go:77) laedt daraufhin den Kalender ueber
-      `s.calendarRepo.GetByID(ctx, input.CalendarID, input.TenantID)`, und das
-      Postgres-Repository filtert dort explizit `WHERE id=$1 AND tenant_id=$2`
-      (work/calendar/postgres_repository.go:41). Fuer jeden echten (Nicht-Null-)Tenant kann
-      diese Abfrage NIE einen Treffer liefern — CreateEvent muesste in Produktion also
-      ausnahmslos mit `ErrCalendarNotFound` -> codes.NotFound -> HTTP 404 antworten, obwohl
-      der Kalender existiert und dem Aufrufer gehoert.
-      ZWEI DINGE VOR DEM FIX KLAEREN, weil der Befund sonst nicht zum gemeldeten
-      Produktionsverhalten passt: (1) Ob der Kalender-Anlegepfad die Kalender wirklich mit
-      einem Nicht-Null-`tenant_id` schreibt — schreibt CreateCalendar seinerseits Null-UUIDs,
-      passt das Paar zusammen und der Fehler faellt nur bei gemischten Daten auf.
-      (2) Ob die RLS-Policy auf `calendars` den Filter zusaetzlich traegt. Beides gehoert
-      belegt ins Journal, bevor eine Zeile geaendert wird.
-    sources:
-      - backend/internal/server/calendar_grpc.go
-      - backend/internal/work/event/service.go
-      - backend/internal/work/calendar/postgres_repository.go
-      - backend/internal/server/calendar_grpc_events_categories_reminders_test.go
-    notes: >
-      Der Befund ist im Testfile bereits ausgeschrieben (Kommentarblock ueber
-      `TestCreateEvent` in calendar_grpc_events_categories_reminders_test.go) und der Test
-      `TestCreateEvent/"calendar not found (missing tenant scoping)"` dokumentiert den
-      Ist-Zustand als Erfolgsfall. Nach dem Fix muss dieser Test die Erwartung umdrehen und
-      der Kommentarblock die Loesung beschreiben, nicht mehr die Luecke — dieselbe Bewegung
-      wie bei `TestGenerateJoinToken` in Iteration 6.
-      Root-Cause-Pflicht: dieselbe Frage fuer JEDE RPC in calendar_grpc.go stellen, die
-      `middleware.GetTenantID` nicht aufruft. Iteration 6 hat nur GenerateJoinToken und
-      CreateEvent angesehen, nicht die uebrigen.
-    done_when:
-      - >-
-        Die zwei Klaerungsfragen aus dem scope sind mit Codestelle bzw. DB-Abfrage im Journal
-        beantwortet
-      - >-
-        `CreateEvent` setzt `CreateInput.TenantID` aus `middleware.GetTenantID(ctx)` und
-        lehnt fehlenden Tenant-Kontext ab (codes.InvalidArgument, wie GetEvent)
-      - >-
-        Ein Test belegt: ein Kalender, der demselben Tenant wie der ctx gehoert, fuehrt zum
-        Anlegen des Events statt zu NotFound
-      - >-
-        Die Liste der uebrigen RPCs in calendar_grpc.go ohne `GetTenantID`-Aufruf steht im
-        Journal, je als beabsichtigt (mit Grund) oder als Befund eingeordnet
-      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
 
   - id: fix-rapporte-worker-and-measurement-parent-report-tenant-check
     phase: 4
