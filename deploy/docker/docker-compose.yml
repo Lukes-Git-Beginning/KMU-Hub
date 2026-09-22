@@ -40,7 +40,12 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    # quay.io, not Docker Hub: minio/minio and minio/mc were both withdrawn
+    # from Hub (pull access denied, repository does not exist) around 2026-09-12,
+    # which turned nightly and every CI e2e run red without a code change. The
+    # quay.io images carry identical digests. ci.yml and nightly.yml pin the same
+    # image; keep all three in step.
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
@@ -65,7 +70,7 @@ services:
     # CORS is configured on the minio server itself via
     # MINIO_API_CORS_ALLOW_ORIGIN (mc cors set expects S3 XML and failed
     # against this server release).
-    image: minio/mc:RELEASE.2025-05-21T01-59-54Z
+    image: quay.io/minio/mc:RELEASE.2025-05-21T01-59-54Z
     depends_on:
       minio:
         condition: service_healthy
