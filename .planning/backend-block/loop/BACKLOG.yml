@@ -2446,7 +2446,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a."
     scope: >
       Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core), im Server-Test reproduziert.
@@ -3416,3 +3416,32 @@ units:
         NotFound auf GetMessage/Reply/Archive einer Nachricht von Nutzer A
       - Team-Mitglied und Zugewiesener behalten Zugriff (Test)
       - go test -count=1 ./internal/server/ ./internal/inbox/... ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: harden-inbox-team-list-members-private-scope
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 44 (fix-inbox-team-member-add-remove-authz). `ListTeamMembers`
+      (`internal/server/inbox_grpc.go`, `team.Service.ListMembers`) liest ohne Tenant- und ohne
+      Mitgliedspruefung; Tenant-Isolation haengt allein an RLS. Jeder Nutzer mit Posteingangs-Recht
+      sieht die Mitgliederliste auch einer `visibility=private` Team-Inbox, der er nicht angehoert.
+      Kein Cross-Tenant-Zugriff. Zweite offene Frage aus dem Add/Remove-Fix: Ein Tenant-Admin mit
+      `kommunikation:team_inbox:manage`, der nicht selbst Team-Admin ist, wird jetzt (wie schon bei
+      Update/Delete) mit PermissionDenied abgewiesen -- ob der Manage-Permission-Key das Team-Admin-Recht
+      ersetzen soll, entscheidet Luke.
+    sources:
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/inbox/team/service.go
+    notes: >
+      Muster wie `requireTeamAdmin` in `team/service.go`: `GetTeamInbox(tenantID, id)` (NotFound fuer
+      Fremde), bei `visibility=private` Mitgliedschaft des Aufrufers verlangen. Der Request traegt
+      `user_id` (Gateway setzt ihn). Guards am Gateway NICHT anfassen. Ist die Sichtbarkeitsregel
+      unklar: `blocked` mit der Frage.
+    done_when:
+      - Ein Test belegt: Nicht-Mitglied bekommt bei privater Team-Inbox PermissionDenied, bei offener die Liste
+      - Ein Test belegt: fremder Tenant bekommt NotFound
+      - go test -count=1 ./internal/inbox/... ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips

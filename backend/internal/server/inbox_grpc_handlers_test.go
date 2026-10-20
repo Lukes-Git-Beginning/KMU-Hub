@@ -448,7 +448,7 @@ func TestTeamInbox_LifecycleAndAdminGate(t *testing.T) {
 
 	// A member (non-admin) may not edit or delete.
 	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{
-		TeamInboxId: teamID, MemberUserId: member.String(),
+		TeamInboxId: teamID, UserId: admin.String(), MemberUserId: member.String(),
 	})
 	require.NoError(t, err)
 	newName := "Hijacked"
@@ -496,22 +496,65 @@ func TestTeamInbox_MemberManagement(t *testing.T) {
 	teamID := created.TeamInbox.Id
 
 	added, err := srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{
-		TeamInboxId: teamID, MemberUserId: member.String(), Role: inboxv1.TeamMemberRole_TEAM_ROLE_ADMIN,
+		TeamInboxId: teamID, UserId: admin.String(), MemberUserId: member.String(), Role: inboxv1.TeamMemberRole_TEAM_ROLE_ADMIN,
 	})
 	require.NoError(t, err)
 	require.Equal(t, inboxv1.TeamMemberRole_TEAM_ROLE_ADMIN, added.Member.Role)
 
-	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: teamID, MemberUserId: member.String()})
+	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: member.String()})
 	requireGRPCCode(t, err, codes.AlreadyExists)
 
-	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, MemberUserId: member.String()})
+	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: member.String()})
 	require.NoError(t, err)
 
 	// Removing a non-member and the last admin are both refused.
-	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, MemberUserId: member.String()})
+	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: member.String()})
 	requireGRPCCode(t, err, codes.PermissionDenied)
-	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, MemberUserId: admin.String()})
+	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: admin.String()})
 	requireGRPCCode(t, err, codes.FailedPrecondition)
+}
+
+// Regression: any caller holding inbox:write used to be able to enrol
+// themselves as admin of any team inbox of the tenant and evict members.
+func TestTeamInbox_MemberManagementRequiresInboxAdmin(t *testing.T) {
+	srv, _ := newTestInboxServer()
+	ctx := tenantCtx(uuid.New())
+	admin, member, attacker := uuid.New(), uuid.New(), uuid.New()
+
+	created, err := srv.CreateTeamInbox(ctx, &inboxv1.CreateTeamInboxRequest{
+		UserId: admin.String(), Name: "Intern", Visibility: inboxv1.TeamInboxVisibility_VISIBILITY_PRIVATE,
+	})
+	require.NoError(t, err)
+	teamID := created.TeamInbox.Id
+	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: member.String()})
+	require.NoError(t, err)
+
+	// Non-member: self-enrolment as admin is refused and leaves no trace.
+	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{
+		TeamInboxId: teamID, UserId: attacker.String(), MemberUserId: attacker.String(), Role: inboxv1.TeamMemberRole_TEAM_ROLE_ADMIN,
+	})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+
+	// Plain member: neither adding nor evicting a colleague is allowed.
+	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: teamID, UserId: member.String(), MemberUserId: attacker.String()})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, UserId: attacker.String(), MemberUserId: member.String()})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+
+	members, err := srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: teamID})
+	require.NoError(t, err)
+	require.Len(t, members.Members, 2)
+
+	// Another tenant sees the inbox as non-existent, even with a forged admin id.
+	other := tenantCtx(uuid.New())
+	_, err = srv.AddTeamMember(other, &inboxv1.AddTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: attacker.String()})
+	requireGRPCCode(t, err, codes.NotFound)
+	_, err = srv.RemoveTeamMember(other, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: member.String()})
+	requireGRPCCode(t, err, codes.NotFound)
+
+	// A member may still leave on their own.
+	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, UserId: member.String(), MemberUserId: member.String()})
+	require.NoError(t, err)
 }
 
 func TestTeamInbox_Guards(t *testing.T) {
@@ -546,13 +589,21 @@ func TestTeamInbox_Guards(t *testing.T) {
 	_, err = srv.ListTeamInboxes(ctx, &inboxv1.ListTeamInboxesRequest{UserId: bad})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 
-	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: bad, MemberUserId: id})
+	_, err = srv.AddTeamMember(no, &inboxv1.AddTeamMemberRequest{TeamInboxId: id, UserId: id, MemberUserId: id})
 	requireGRPCCode(t, err, codes.InvalidArgument)
-	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: id, MemberUserId: bad})
+	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: id, UserId: bad, MemberUserId: id})
 	requireGRPCCode(t, err, codes.InvalidArgument)
-	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: bad, MemberUserId: id})
+	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: bad, UserId: id, MemberUserId: id})
 	requireGRPCCode(t, err, codes.InvalidArgument)
-	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: id, MemberUserId: bad})
+	_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: id, UserId: id, MemberUserId: bad})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+	_, err = srv.RemoveTeamMember(no, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: id, UserId: id, MemberUserId: id})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: id, UserId: bad, MemberUserId: id})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: bad, UserId: id, MemberUserId: id})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: id, UserId: id, MemberUserId: bad})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 	_, err = srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: bad})
 	requireGRPCCode(t, err, codes.InvalidArgument)

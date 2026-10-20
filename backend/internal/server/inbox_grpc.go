@@ -836,6 +836,16 @@ func (s *InboxGRPCServer) ListTeamInboxes(ctx context.Context, req *inboxv1.List
 }
 
 func (s *InboxGRPCServer) AddTeamMember(ctx context.Context, req *inboxv1.AddTeamMemberRequest) (*inboxv1.AddTeamMemberResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	actorID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
 	teamInboxID, err := uuid.Parse(req.TeamInboxId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
@@ -852,7 +862,7 @@ func (s *InboxGRPCServer) AddTeamMember(ctx context.Context, req *inboxv1.AddTea
 		Role:        teamMemberRoleToString(req.Role),
 	}
 
-	if err := s.teamService.AddMember(ctx, member); err != nil {
+	if err := s.teamService.AddMember(ctx, tenantID, actorID, member); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -862,6 +872,16 @@ func (s *InboxGRPCServer) AddTeamMember(ctx context.Context, req *inboxv1.AddTea
 }
 
 func (s *InboxGRPCServer) RemoveTeamMember(ctx context.Context, req *inboxv1.RemoveTeamMemberRequest) (*inboxv1.RemoveTeamMemberResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	actorID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
 	teamInboxID, err := uuid.Parse(req.TeamInboxId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
@@ -872,7 +892,7 @@ func (s *InboxGRPCServer) RemoveTeamMember(ctx context.Context, req *inboxv1.Rem
 		return nil, status.Error(codes.InvalidArgument, "invalid member_user_id")
 	}
 
-	if err := s.teamService.RemoveMember(ctx, teamInboxID, memberUserID); err != nil {
+	if err := s.teamService.RemoveMember(ctx, tenantID, teamInboxID, actorID, memberUserID); err != nil {
 		return nil, mapInboxError(err)
 	}
 
