@@ -324,7 +324,8 @@ func (r *PostgresRepository) GetNotes(ctx context.Context, meetingID, authorID u
 	var n MeetingNotes
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, meeting_id, author_id, content, is_private, created_at, updated_at
-		 FROM meeting_notes WHERE meeting_id=$1 AND author_id=$2 LIMIT 1`,
+		 FROM meeting_notes WHERE meeting_id=$1 AND author_id=$2
+		 ORDER BY updated_at DESC LIMIT 1`,
 		meetingID, authorID,
 	).Scan(&n.ID, &n.MeetingID, &n.AuthorID, &n.Content, &n.IsPrivate, &n.CreatedAt, &n.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {

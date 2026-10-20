@@ -1328,7 +1328,7 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Verhaltens-Bugfix, kein Coverage-Ziel)
     scope: >
       Gefunden in Iteration 23 beim Bauen von `cov-gateway-video-notes-and-action-items`.

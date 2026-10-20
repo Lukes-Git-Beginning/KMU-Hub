@@ -789,6 +789,59 @@ func TestSaveNotes_Success(t *testing.T) {
 	assert.False(t, notes.IsPrivate)
 }
 
+func TestGetNotes_ReturnsSavedNotes(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	input := validCreateInput()
+
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
+	require.NoError(t, err)
+
+	authorID := uuid.New()
+	_, err = svc.SaveNotes(ctx, m.ID, authorID, testTenantID, "Round trip", false)
+	require.NoError(t, err)
+
+	got, err := svc.GetNotes(ctx, m.ID, authorID, testTenantID)
+	require.NoError(t, err)
+	assert.Equal(t, "Round trip", got.Content)
+	assert.Equal(t, authorID, got.AuthorID)
+
+	other, err := svc.GetNotes(ctx, m.ID, uuid.New(), testTenantID)
+	require.NoError(t, err)
+	assert.Empty(t, other.Content)
+}
+
+func TestGetNotes_NoNotesIsEmptyNotError(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	m, err := svc.CreateMeeting(ctx, validCreateInput())
+	require.NoError(t, err)
+
+	authorID := uuid.New()
+	got, err := svc.GetNotes(ctx, m.ID, authorID, testTenantID)
+	require.NoError(t, err)
+	assert.Equal(t, m.ID, got.MeetingID)
+	assert.Equal(t, authorID, got.AuthorID)
+	assert.Equal(t, uuid.Nil, got.ID)
+	assert.Empty(t, got.Content)
+}
+
+func TestGetNotes_UnknownOrForeignMeeting(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	_, err := svc.GetNotes(ctx, uuid.New(), uuid.New(), testTenantID)
+	assert.ErrorIs(t, err, ErrNotFound)
+
+	m, err := svc.CreateMeeting(ctx, validCreateInput())
+	require.NoError(t, err)
+	_, err = svc.GetNotes(ctx, m.ID, uuid.New(), uuid.New())
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
 func TestSaveNotes_NotInProgress(t *testing.T) {
 	svc, _ := newTestService()
 	ctx := context.Background()

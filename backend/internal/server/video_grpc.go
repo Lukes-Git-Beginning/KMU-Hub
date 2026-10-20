@@ -1060,19 +1060,16 @@ func (s *VideoGRPCServer) GetMeetingNotes(ctx context.Context, req *videov1.GetM
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	// GetNotes from the meeting repository via service -- we need both public and private notes
-	// The service only exposes SaveNotes and GetPreviousMeetingNotes publicly.
-	// For GetMeetingNotes we return the user's own notes.
-	_ = userID // Authorization handled at gateway level
-
-	// Since the meeting service doesn't expose GetNotes directly, we use the service's internal notes.
-	// This is a deviation: we need to access the notes via the service in a more direct way.
-	// For now, we'll use SaveNotes pattern to return the latest notes for the user.
-	notes, err := s.meetingService.SaveNotes(ctx, meetingID, userID, tenantID, "", false)
+	// userID comes from the gateway (authenticated caller); the service returns
+	// that user's own notes only.
+	notes, err := s.meetingService.GetNotes(ctx, meetingID, userID, tenantID)
 	if err != nil {
-		// If content is empty, it will fail validation.
-		// We need a different approach: return empty notes or add a GetNotes method.
-		// Use GetPreviousMeetingNotes as a fallback pattern.
+		return nil, mapMeetingError(err)
+	}
+
+	// No notes written yet: keep the wire shape minimal instead of emitting a
+	// nil UUID and zero timestamps.
+	if notes.ID == uuid.Nil {
 		return &videov1.MeetingNotes{
 			MeetingId: meetingID.String(),
 			AuthorId:  userID.String(),

@@ -704,6 +704,24 @@ func (s *Service) SaveNotes(ctx context.Context, meetingID, authorID, tenantID u
 	return notes, nil
 }
 
+// GetNotes returns the caller's own notes for a meeting. A caller who has not
+// written any yet gets an empty MeetingNotes (not an error): that is the normal
+// state of a fresh meeting. An unknown or foreign-tenant meeting is ErrNotFound.
+func (s *Service) GetNotes(ctx context.Context, meetingID, authorID, tenantID uuid.UUID) (*MeetingNotes, error) {
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
+		return nil, err
+	}
+
+	notes, err := s.repo.GetNotes(ctx, meetingID, authorID)
+	if errors.Is(err, ErrNotFound) {
+		return &MeetingNotes{MeetingID: meetingID, AuthorID: authorID}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get notes: %w", err)
+	}
+	return notes, nil
+}
+
 // GetPreviousMeetingNotes retrieves notes from the previous occurrence of a recurring meeting
 func (s *Service) GetPreviousMeetingNotes(ctx context.Context, meetingID, tenantID uuid.UUID) (*MeetingNotes, error) {
 	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
