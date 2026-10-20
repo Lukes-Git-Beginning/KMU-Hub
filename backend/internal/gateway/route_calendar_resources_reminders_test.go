@@ -40,9 +40,9 @@ import (
 // handler tests below stay on the transport concerns (unavailable client,
 // invalid UUID, body validation).
 //
-// STILL OPEN (separate unit): livekit.Service.GenerateRoomName truncates to the
-// first 8 hex chars of the event UUID (internal/work/livekit/service.go:74-77),
-// so two events in different tenants can share a room name.
+// The room name used to be the first 8 hex chars of the event UUID; since
+// harden-livekit-room-name-truncation-collides-across-tenants it is derived
+// from tenant AND event ID (livekit.RoomName).
 
 // ============================================================================
 // HandleListResources

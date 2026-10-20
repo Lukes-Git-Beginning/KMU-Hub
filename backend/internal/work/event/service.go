@@ -13,6 +13,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/work/calendar"
+	"github.com/kmuhub/kmuhub/internal/work/livekit"
 )
 
 // Service handles event business logic
@@ -100,7 +101,7 @@ func (s *Service) Create(ctx context.Context, actorID uuid.UUID, input CreateInp
 	// Generate LiveKit room name if video call
 	var livekitRoomName *string
 	if input.HasVideoCall {
-		roomName := fmt.Sprintf("cal-%s", eventID.String()[:8])
+		roomName := livekit.RoomName(input.TenantID, eventID)
 		livekitRoomName = &roomName
 	}
 
@@ -671,7 +672,7 @@ func applyEventChanges(evt *models.CalendarEvent, changes UpdateInput) {
 	if changes.HasVideoCall != nil {
 		evt.HasVideoCall = *changes.HasVideoCall
 		if evt.HasVideoCall && evt.LiveKitRoomName == nil {
-			roomName := fmt.Sprintf("cal-%s", evt.ID.String()[:8])
+			roomName := livekit.RoomName(evt.TenantID, evt.ID)
 			evt.LiveKitRoomName = &roomName
 		}
 	}

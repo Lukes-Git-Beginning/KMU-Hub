@@ -906,7 +906,7 @@ units:
     model: sonnet
     # deps erfuellt: fix-generatejointoken-missing-event-tenant-check ist in Lauf 13 done (`c448273f`), Unit liegt in archive/lauf-13/BACKLOG.yml
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
     scope: >
       Restrisiko aus fix-generatejointoken-missing-event-tenant-check (Iteration 6):

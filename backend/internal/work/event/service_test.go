@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/work/livekit"
 )
 
 // ============================================================================
@@ -475,7 +476,9 @@ func TestService_Create_WithVideoCall(t *testing.T) {
 	start := time.Now().Add(1 * time.Hour)
 	end := start.Add(1 * time.Hour)
 
+	tenantID := uuid.New()
 	evt, err := svc.Create(context.Background(), userID, CreateInput{
+		TenantID:     tenantID,
 		CalendarID:   cal.ID,
 		Title:        "Video Call",
 		StartTime:    start,
@@ -486,7 +489,31 @@ func TestService_Create_WithVideoCall(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, evt.HasVideoCall)
 	require.NotNil(t, evt.LiveKitRoomName)
-	assert.Contains(t, *evt.LiveKitRoomName, "cal-")
+	assert.Equal(t, livekit.RoomName(tenantID, evt.ID), *evt.LiveKitRoomName,
+		"stored room name must carry the tenant, same as the join-token path")
+}
+
+func TestService_UpdateEvent_EnablingVideoCallDerivesTenantRoomName(t *testing.T) {
+	svc, eventRepo, calRepo, _ := setupTestService()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	cal := makeCalendar(userID)
+	calRepo.addCalendar(cal)
+
+	eventID := uuid.New()
+	eventRepo.addEvent(&models.CalendarEvent{
+		ID: eventID, TenantID: tenantID, CalendarID: cal.ID, Title: "Weekly",
+		StartTime: time.Now(), EndTime: time.Now().Add(time.Hour),
+		CreatedBy: userID, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		Timezone: "Europe/Berlin",
+	})
+
+	on := true
+	evt, err := svc.UpdateEvent(context.Background(), eventID, userID, tenantID, UpdateInput{HasVideoCall: &on})
+
+	require.NoError(t, err)
+	require.NotNil(t, evt.LiveKitRoomName)
+	assert.Equal(t, livekit.RoomName(tenantID, eventID), *evt.LiveKitRoomName)
 }
 
 func TestService_Create_EmptyTitle(t *testing.T) {

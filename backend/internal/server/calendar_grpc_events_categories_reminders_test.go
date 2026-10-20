@@ -972,7 +972,8 @@ func TestGenerateJoinToken(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.NotEmpty(t, resp.Token)
-		assert.NotEmpty(t, resp.RoomName)
+		assert.Equal(t, livekit.RoomName(tenantID, eventID), resp.RoomName,
+			"room name must be derived from tenant AND event")
 		assert.NotEmpty(t, resp.WsUrl)
 	})
 
