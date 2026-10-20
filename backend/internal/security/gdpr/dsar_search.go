@@ -179,6 +179,22 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *contracts)
 		}
 
+		rentals, rtErr := rentalsModule(ctx, pool, tenantID, c.id)
+		if rtErr != nil {
+			return nil, rtErr
+		}
+		if rentals != nil {
+			person.Modules = append(person.Modules, *rentals)
+		}
+
+		rentalInspections, riErr := rentalInspectionsModule(ctx, pool, tenantID, c.id)
+		if riErr != nil {
+			return nil, riErr
+		}
+		if rentalInspections != nil {
+			person.Modules = append(person.Modules, *rentalInspections)
+		}
+
 		emails, eErr := emailModule(ctx, pool, tenantID, c.id)
 		if eErr != nil {
 			return nil, eErr
@@ -2555,6 +2571,123 @@ func contractsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactI
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: contract rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// rentalsModule discloses the rentals booked for a contact: the object, the
+// period, status and price, the renter name as typed at booking time, the
+// free-text notes and whether (and by whom/when) the rental was signed. The
+// signature image itself (signature_data) is not exported, like the media
+// behind documentsModule. Retention of old rentals is a product decision
+// (decide-retention-policy-hgb-ao-domains), not part of this module.
+func rentalsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT ro.name, r.start_date, r.end_date, r.status, r.renter_name,
+		        r.total_price::text, r.deposit_paid, COALESCE(r.notes, ''), r.signed_by, r.signed_at
+		 FROM rentals r
+		 JOIN rental_objects ro ON ro.id = r.object_id AND ro.tenant_id = $2
+		 WHERE r.contact_id = $1 AND r.tenant_id = $2
+		 ORDER BY r.start_date DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query rentals: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Vermietung",
+		Columns: []string{"Objekt", "Von", "Bis", "Status", "Mietername", "Preis", "Kaution bezahlt", "Notizen", "Unterschrieben von", "Unterschrieben am"},
+	}
+	for rows.Next() {
+		var object, status, renter, price, notes string
+		var start, end time.Time
+		var depositPaid bool
+		var signedBy *string
+		var signedAt *time.Time
+		if scanErr := rows.Scan(&object, &start, &end, &status, &renter, &price,
+			&depositPaid, &notes, &signedBy, &signedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan rental: %w", scanErr)
+		}
+		deposit := "nein"
+		if depositPaid {
+			deposit = "ja"
+		}
+		signer, signedOn := "", ""
+		if signedBy != nil {
+			signer = *signedBy
+		}
+		if signedAt != nil {
+			signedOn = signedAt.Format(dsarTimeLayout)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Objekt", Value: object},
+			{Key: "Von", Value: start.Format(dsarTimeLayout)},
+			{Key: "Bis", Value: end.Format(dsarTimeLayout)},
+			{Key: "Status", Value: status},
+			{Key: "Mietername", Value: renter},
+			{Key: "Preis", Value: price},
+			{Key: "Kaution bezahlt", Value: deposit},
+			{Key: "Notizen", Value: notes},
+			{Key: "Unterschrieben von", Value: signer},
+			{Key: "Unterschrieben am", Value: signedOn},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: rental rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// rentalInspectionsModule discloses the handover/return protocols of the
+// contact's rentals: kind, date, free-text condition notes and the photo
+// references (URLs only, not the files).
+func rentalInspectionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT ro.name, r.start_date, i.kind, i.created_at, i.notes, i.photo_urls
+		 FROM rental_inspections i
+		 JOIN rentals r ON r.id = i.rental_id AND r.tenant_id = $2
+		 JOIN rental_objects ro ON ro.id = r.object_id AND ro.tenant_id = $2
+		 WHERE r.contact_id = $1 AND i.tenant_id = $2
+		 ORDER BY i.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query rental inspections: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Übergabeprotokolle",
+		Columns: []string{"Objekt", "Mietbeginn", "Art", "Datum", "Notizen", "Fotos"},
+	}
+	for rows.Next() {
+		var object, kind, notes string
+		var rentalStart, at time.Time
+		var photos []string
+		if scanErr := rows.Scan(&object, &rentalStart, &kind, &at, &notes, &photos); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan rental inspection: %w", scanErr)
+		}
+		kindLabel := "Rückgabe"
+		if kind == "handover" {
+			kindLabel = "Übergabe"
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Objekt", Value: object},
+			{Key: "Mietbeginn", Value: rentalStart.Format(dsarTimeLayout)},
+			{Key: "Art", Value: kindLabel},
+			{Key: "Datum", Value: at.Format(dsarTimeLayout)},
+			{Key: "Notizen", Value: notes},
+			{Key: "Fotos", Value: strings.Join(photos, ", ")},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: rental inspection rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil

@@ -449,3 +449,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 38, 13412aa2: nur Kommentare in drei Deploy-Vorlagen plus Backlog/Journal; kein Code/Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: (1) `feat-meeting-notes-and-chat-dsar-and-retention-coverage` BLOCKED und nach BACKLOG-NEXT.yml verschoben: Unit verlangt die Variantenwahl (a: DSAR + Retention-Handler / b: accepted residual risk in scrub.go) vor dem Bauen mit Luke — Retention-Handler, der Freitext löscht, ist keine Nachtloop-Entscheidung. (2) Die Unit nannte `recordingsModule` für Kontakte/Teilnehmer; `recording_consents.user_id` und `recordings.started_by` referenzieren `users`, daher hängt das Modul am User-Zweig (nicht an Kontakten). Externe Gäste ohne users-Zeile haben keine Consent-Zeile und tauchen nicht auf. (3) `consent_snapshot` (JSON der Teilnehmer-Einwilligungen zum Startzeitpunkt) wird nicht ausgewertet; das Modul liest nur `recording_consents`.
+
+## Iteration 40 — feat-vermietung-dsar-and-retention-coverage — done — 2026-10-20 22:34
+- commit: `feat(gdpr): disclose rentals and handover protocols in the DSAR export` (SHA via `git log`)
+- gebaut: Zwei kontaktgebundene DSAR-Module in `dsar_search.go`, registriert nach `contractsModule`: `rentalsModule` ("Vermietung": Objekt, Von/Bis, Status, Mietername, Preis, Kaution, Notizen, Unterschrieben von/am — das Signatur-Blob selbst wird nicht exportiert) und `rentalInspectionsModule` ("Übergabeprotokolle": Objekt, Mietbeginn, Art, Datum, Notizen, Foto-URLs). Beide tenant-gescoped über `rentals`, `rental_objects` und `rental_inspections`. Nur der DSAR-Teil; die Aufbewahrungsfrist bleibt bei `decide-retention-policy-hgb-ao-domains`. Keine Route, kein Proto, keine Migration, kein Guard.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/security/..., DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/security/gdpr 73,1 % -> 73,4 %
+- mutations-probe: Kontaktfilter in beiden Queries (`r.contact_id = $1` -> `(... OR r.contact_id IS NOT NULL)`) -> `TestSearchByQuery_ContactRentalsAndInspections_Integration` rot (fremde Buchung bzw. fremdes Protokoll taucht auf); jeweils per cp-Sicherung zurückgedreht, `cmp` sauber
+- verify vorgaenger: sauber (Iteration 39, 0ea9a0dc: `recordingsModule` tenant-gescoped über `r.tenant_id` und `rc.tenant_id`, nur dsar_search.go + Test; kein Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: (1) `rentals.contact_id` ist eine weiche Referenz; Mietvorgänge ohne Kontaktbezug (nur `renter_name`) tauchen im DSAR nicht auf, weil es keinen Suchschlüssel gibt. (2) `rental_inspections.performed_by` (Mitarbeiter) wird nicht ausgewertet. (3) Keine Goroutinen in neuen Tests.
