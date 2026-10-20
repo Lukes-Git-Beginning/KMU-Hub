@@ -2928,7 +2928,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Architekturregel 1 lautet "Thick Services, Thin Handlers" — Handler machen Parse, Call,
@@ -4231,3 +4231,140 @@ units:
       - >-
         Custom-Value-Abfragen sind ueber die Elterntabelle tenant-gescoped, Fremd-Tenant-Test
         liefert 0 Zeilen
+
+  - id: fix-biz-line-items-unparsable-decimal-becomes-zero
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix, Bezugspaket internal/server wird in der Iteration gemessen)"
+    scope: >
+      Aus `scan-business-logic-in-handlers` (Iteration 53). `protoLineItemsToModel`
+      (`server/biz_grpc.go:1719`) parst `quantity`, `unit_price`, `tax_rate` und `line_total`
+      mit `decimal.NewFromString` und wirft den Fehler weg (`qty, _ := ...`). Ein unparsbarer
+      Wert wird still zu 0: `"1,5"` (deutsches Komma) als Menge oder Preis ergibt eine Position
+      mit 0 EUR, ein fehlendes oder kommagetrenntes `tax_rate` ergibt in `tax_mode=standard` eine
+      Position mit 0 % USt. Das Gateway reicht die Positionen ungeprueft durch (`LineItems
+      []*bizv1.LineItem` in `createInvoiceRequest`, kein `dive`), der Service rechnet nur mit den
+      geparsten Werten (`tax.LineTotal`, `tax.Calculate`) und kennt den Parsefehler nicht mehr.
+      Sieben Aufrufer: CreateQuote, UpdateQuote, CreateInvoice, UpdateInvoice, CreateCreditNote
+      (Zeilen 266, 378, 529, 675, 767) und die zwei Wiederkehrend-RPCs in
+      `biz_grpc_recurring.go` (61, 139). Das ist ein Beleg-Betrag, der beim Kunden oder
+      Steuerberater landet, ohne dass ein Fehler je auftaucht.
+      Zweiter Fund derselben Klasse in `UpdateDunningConfig` (`biz_grpc.go:1105-1123`): die
+      Mahngebuehren `level1_fee` bis `level3_fee` werden geparst, aber nicht auf negativ geprueft
+      (`CreateInvoiceFromTimeEntries` prueft `hourlyRate.IsNegative()` im selben File, die Zahlung
+      `payment.Record` prueft `<= 0`). Der Service `dunning.UpdateConfig` uebernimmt die Werte
+      ungeprueft. Eine negative Gebuehr wuerde auf jeder Mahnung abgezogen. `Basiszinssatz`
+      (Zeile 230) hat ebenfalls keine Grenze.
+    sources:
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/server/biz_grpc_recurring.go
+      - backend/internal/gateway/route_biz_invoices.go
+      - backend/internal/biz/tax/calculator.go
+      - backend/internal/biz/dunning/service.go
+    notes: >
+      Wurzelursache ist die gemeinsame Funktion: `protoLineItemsToModel` gibt `([]models.LineItem,
+      error)` zurueck, alle sieben Aufrufer mappen den Fehler auf `codes.InvalidArgument` mit der
+      Positionsnummer in der Meldung (`line_items[2].unit_price`). Kein Guard je Aufrufer. Leer ist
+      erlaubt NUR fuer `line_total` (der Service rechnet sie ohnehin neu, `tax.LineTotal`) und fuer
+      `tax_rate` in den Modi `kleinunternehmer`/`reverse_charge` (dort ignoriert `tax.Calculate`
+      den Satz) - in `standard` ist ein leerer Satz ein Fehler, nicht 0 %. Negative Mengen und Preise
+      NICHT verbieten: Rabattzeilen und Gutschriftspositionen koennen sie legitim tragen, das ist
+      eine Produktentscheidung. Die gleiche Rechnung existiert nur einmal (`tax.LineTotal`), nichts
+      zu konsolidieren. Es gibt keinen Test, der `protoLineItemsToModel` anfasst (kein Treffer in
+      `server/*_test.go`). Kein Bruch fuer das FE: die Gateway-Tests senden Dezimalpunkt-Strings
+      (`"10.00"`, `"19.00"`); vor dem Bauen gegen den FE-Positionsbau gegenpruefen.
+    done_when:
+      - >-
+        `protoLineItemsToModel` liefert einen Fehler fuer unparsbare Menge, Preis und (im Modus
+        standard) Steuersatz; alle sieben Aufrufer geben `InvalidArgument` mit Positionsnummer
+        zurueck, Tabellentest je RPC-Gruppe
+      - >-
+        Test: `"1,5"` als Menge ergibt InvalidArgument statt einer 0-EUR-Position, leerer
+        Steuersatz im Modus kleinunternehmer bleibt erlaubt
+      - >-
+        Negative Mahngebuehr wird in `UpdateDunningConfig` mit InvalidArgument abgelehnt, ebenso
+        ein negativer Basiszinssatz (Obergrenze im Journal begruendet), Test
+      - Mutations-Probe fuer die Fehlerrueckgabe und fuer die Negativpruefung
+
+  - id: fix-hr-work-time-status-duplicates-service-and-masks-errors
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix, Bezugspaket internal/gateway wird in der Iteration gemessen)"
+    scope: >
+      Aus `scan-business-logic-in-handlers` (Iteration 53). `HandleGetWorkTimeStatus`
+      (`gateway/route_hr.go:722-778`) baut den Stempel-Status der Kopfzeile im Handler aus zwei
+      RPCs (`GetActiveShift`, `GetDailySummary`) und rechnet die ArbZG-Stufe mit eigenen
+      Schwellen nach (`> 600` error, `>= 540` warning, `>= 480` info). Dieselbe Regel existiert
+      bereits in `compliance.CheckWorkTime` (`biz/hr/compliance/arbzg.go:60`), die
+      `timetracking.Service.GetWorkTimeStatus` (`service.go:1026`) benutzt - die Service-Methode
+      ist von keinem RPC erreichbar. Aendert jemand die Schwellen im Service, zeigt die Kopfzeile
+      weiter die alten.
+      Schwerer: beide RPC-Fehler werden verschluckt (`shiftErr == nil && ...`). Faellt `hr` aus
+      oder liefert einen Fehler, antwortet der Handler `200` mit `is_clocked_in:false`,
+      `arbzg_severity:"none"`. Ein eingestempelter Mitarbeiter sieht dann "nicht eingestempelt";
+      der Test `TestHandleGetWorkTimeStatus_RPCFailureStillReturnsDefaults` hat genau dieses
+      Verhalten festgeschrieben.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/gateway/route_hr_time_tracking_test.go
+      - backend/internal/biz/hr/compliance/arbzg.go
+      - backend/internal/biz/hr/timetracking/service.go
+    notes: >
+      Kleinster Fix ohne Proto-Aenderung: im Handler die Schwellen-Kette durch
+      `compliance.CheckWorkTime(int(netMinutes))` ersetzen. Das Gateway importiert
+      `biz/hr/compliance` heute nicht - pruefen, ob eine Importgrenze besteht; wenn ja, Unit auf
+      blocked mit Begruendung statt eine Kopie der Schwellen. Den Fehlerpfad: ein
+      `GetActiveShift`-Fehler muss als Fehler antworten (`respondGRPCError`), nicht als
+      "nicht eingestempelt". Beim `GetDailySummary`-Fehler ist der Default 0 Minuten vertretbar,
+      aber zu loggen (`slog.Warn`). Der bestehende Test wird entsprechend umgeschrieben, nicht
+      geloescht. Offene Frage fuer `offen:`: `time.Now().Format(...)` nimmt die Serverzone; ob
+      der Container auf UTC laeuft, ist nicht geprueft - zwischen 00:00 und 02:00 MESZ waere
+      "heute" dann der Vortag. Nur melden, nicht in dieser Unit loesen.
+    done_when:
+      - >-
+        Handler benutzt `compliance.CheckWorkTime` statt eigener Schwellen, Test deckt die
+        Grenzen 479/480/539/540/600/601 ab
+      - >-
+        `GetActiveShift`-Fehler fuehrt zu einer Fehlerantwort statt zu "nicht eingestempelt",
+        Test mit fehlschlagendem Client
+      - Mutations-Probe an einer Schwelle und am Fehlerpfad
+
+  - id: fix-work-billable-hours-float-rounding-per-row
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix, Bezugspaket internal/server wird in der Iteration gemessen)"
+    scope: >
+      Aus `scan-business-logic-in-handlers` (Iteration 53). `billableTimeEntryToProto` und
+      `projectTimeEntryToProto` (`server/work_grpc.go:2116`, `2155`) rechnen Sekunden in Stunden
+      mit `math.Round(float64(s)/3600*100)/100` je Zeile und senden `double`. Die Abrechnungsseite
+      (`CreateInvoiceFromTimeEntries`, `biz_grpc.go:2061`) summiert zuerst die Minuten und rundet
+      erst die Summe. Eine Summe der gerundeten Zeilen weicht davon ab (100 Eintraege zu je einer
+      Minute: Zeilen summieren auf 2,00 h, die Rechnung bucht 1,67 h). Wer die Vorschau-Summe im
+      FE aus den Zeilen bildet, sieht eine andere Zahl als auf der Rechnung. Beide Konverter haben
+      keinen Test (kein Treffer in `server/*_test.go`).
+    sources:
+      - backend/internal/server/work_grpc.go
+      - backend/internal/server/biz_grpc.go
+    notes: >
+      ZUERST klaeren, ob das FE die Zeilen summiert oder einen Server-Gesamtwert zeigt - Desktop
+      `BillableTimeEntry` / Projektzeiten-Tab lesen. Summiert es nicht, ist das nur ein
+      Anzeigeunterschied je Zeile und die Unit wird `done` mit Befund statt Code. Summiert es:
+      das Proto bekommt kein neues Feld (kein Proto-Regen in dieser Unit), sondern die Zeilen
+      senden die ungerundeten Stunden (`float64(s)/3600`), gerundet wird im FE bei der Anzeige und
+      nach der Summe. Zwei Konverter, ein Stunden-Umrechner: eine Hilfsfunktion
+      `secondsToHours`, kein dritter Rechenort.
+    done_when:
+      - >-
+        FE-Verhalten (Zeilen summieren oder nicht) im Journal belegt, mit Dateistelle
+      - >-
+        Falls summiert: beide Konverter nutzen eine gemeinsame Umrechnung ohne Zeilenrundung,
+        Test mit 100 x 60 Sekunden ergibt Summe 1,67
