@@ -395,8 +395,17 @@ func (r *PostgresRepository) UpdateLocation(ctx context.Context, loc *InventoryL
 	return nil
 }
 
+// SoftDeleteLocation marks the location deleted and clears location_id on every
+// item that pointed at it, in one transaction. The FK's ON DELETE SET NULL
+// (migration 000184) never fires for a soft delete, so the repo does it by hand.
 func (r *PostgresRepository) SoftDeleteLocation(ctx context.Context, tenantID, locID uuid.UUID) error {
-	ct, err := r.pool.Exec(ctx,
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return fmt.Errorf("begin soft delete location: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
+
+	ct, err := tx.Exec(ctx,
 		`UPDATE inventory_locations SET deleted_at=NOW() WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL`,
 		locID, tenantID,
 	)
@@ -405,6 +414,15 @@ func (r *PostgresRepository) SoftDeleteLocation(ctx context.Context, tenantID, l
 	}
 	if ct.RowsAffected() == 0 {
 		return ErrLocationNotFound
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE inventory_items SET location_id=NULL WHERE location_id=$1 AND tenant_id=$2`,
+		locID, tenantID,
+	); err != nil {
+		return fmt.Errorf("clear item references to deleted location: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit soft delete location: %w", err)
 	}
 	return nil
 }
