@@ -1146,7 +1146,7 @@ func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	actionsStruct, err := rawJSONToStruct(body.Actions)
+	actionsList, err := rawJSONToAutomationList(body.Actions)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid actions JSON")
 		return
@@ -1156,7 +1156,7 @@ func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Re
 		UserId:     userID,
 		Name:       body.Name,
 		Conditions: conditionsStruct,
-		Actions:    actionsStruct,
+		Actions:    actionsList,
 		Priority:   body.Priority,
 	}
 
@@ -1223,12 +1223,12 @@ func (ir *InboxRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Re
 		grpcReq.Conditions = condStruct
 	}
 	if body.Actions != nil {
-		actStruct, structErr := rawJSONToStruct(*body.Actions)
+		actList, structErr := rawJSONToAutomationList(*body.Actions)
 		if structErr != nil {
 			response.Error(w, http.StatusBadRequest, "invalid actions JSON")
 			return
 		}
-		grpcReq.Actions = actStruct
+		grpcReq.Actions = actList
 	}
 	if body.Priority != nil {
 		grpcReq.Priority = body.Priority

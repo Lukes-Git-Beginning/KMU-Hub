@@ -620,6 +620,17 @@ func mustStruct(t *testing.T, m map[string]any) *structpb.Struct {
 	return s
 }
 
+func mustList(t *testing.T, items ...map[string]any) *structpb.ListValue {
+	t.Helper()
+	vals := make([]any, len(items))
+	for i, it := range items {
+		vals[i] = it
+	}
+	l, err := structpb.NewList(vals)
+	require.NoError(t, err)
+	return l
+}
+
 func TestRoutingRule_Guards(t *testing.T) {
 	srv, _ := newTestInboxServer()
 	ctx := tenantCtx(uuid.New())
@@ -693,15 +704,22 @@ func TestRoutingRule_UpdateAndDelete(t *testing.T) {
 	require.False(t, got.IsActive)
 	require.Equal(t, "email", *got.Channel)
 
-	// Overwriting conditions/actions with a Struct (always a JSON object on the
-	// wire) collides with the service's array contract; see
-	// TestCreateRoutingRule_StructActionsAreAlwaysRejected.
 	_, err = srv.UpdateRoutingRule(ctx, &inboxv1.UpdateRoutingRuleRequest{
 		RuleId: id, Conditions: mustStruct(t, map[string]any{"field": "subject"}),
 	})
 	require.NoError(t, err)
+
+	resp, err := srv.UpdateRoutingRule(ctx, &inboxv1.UpdateRoutingRuleRequest{
+		RuleId: id, Actions: mustList(t, map[string]any{"type": "assign_to", "config": map[string]any{"user_id": "u"}}),
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Rule.Actions.Values, 1)
+	got, err = deps.routingRepo.GetByID(context.Background(), tenantID, rule.ID)
+	require.NoError(t, err)
+	require.JSONEq(t, `[{"type":"assign_to","config":{"user_id":"u"}}]`, string(got.Actions))
+
 	_, err = srv.UpdateRoutingRule(ctx, &inboxv1.UpdateRoutingRuleRequest{
-		RuleId: id, Actions: mustStruct(t, map[string]any{"type": "add_tags"}),
+		RuleId: id, Actions: mustList(t, map[string]any{"type": "nope"}),
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 
@@ -709,23 +727,44 @@ func TestRoutingRule_UpdateAndDelete(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Pins the CURRENT behaviour of a defect, see BACKLOG unit
-// fix-inbox-routing-rule-actions-struct-vs-array: proto `actions` is a
-// google.protobuf.Struct (a JSON object), while routing.validateActions only
-// accepts a JSON array of {type, config}. No request that reaches this RPC can
-// therefore pass validation, so no routing rule can be created through the API.
-// When the contract is fixed this test must flip to NoError.
-func TestCreateRoutingRule_StructActionsAreAlwaysRejected(t *testing.T) {
+// Regression for fix-inbox-routing-rule-actions-struct-vs-array: `actions` is a
+// google.protobuf.ListValue so the JSON array [{type, config}] that
+// routing.validateActions requires (and the FE sends) can cross the wire.
+func TestCreateRoutingRule_ActionsRoundTripAsArray(t *testing.T) {
+	srv, deps := newTestInboxServer()
+	tenantID := uuid.New()
+	ctx := tenantCtx(tenantID)
+	conditions := mustStruct(t, map[string]any{"field": "sender_email", "operator": "contains", "value": "x"})
+
+	created, err := srv.CreateRoutingRule(ctx, &inboxv1.CreateRoutingRuleRequest{
+		UserId: uuid.NewString(), Name: "r", Conditions: conditions,
+		Actions: mustList(t, map[string]any{"type": "add_tags", "config": map[string]any{"tags": []any{"vip"}}}),
+	})
+	require.NoError(t, err)
+	require.Len(t, created.Rule.Actions.Values, 1)
+	require.Equal(t, "add_tags", created.Rule.Actions.Values[0].GetStructValue().Fields["type"].GetStringValue())
+
+	id, err := uuid.Parse(created.Rule.Id)
+	require.NoError(t, err)
+	stored, err := deps.routingRepo.GetByID(context.Background(), tenantID, id)
+	require.NoError(t, err)
+	require.JSONEq(t, `[{"type":"add_tags","config":{"tags":["vip"]}}]`, string(stored.Actions))
+
+	listed, err := srv.ListRoutingRules(ctx, &inboxv1.ListRoutingRulesRequest{})
+	require.NoError(t, err)
+	require.Len(t, listed.Rules, 1)
+	require.Len(t, listed.Rules[0].Actions.Values, 1)
+}
+
+func TestCreateRoutingRule_InvalidActionsAreRejected(t *testing.T) {
 	srv, _ := newTestInboxServer()
 	ctx := tenantCtx(uuid.New())
 	conditions := mustStruct(t, map[string]any{"field": "sender_email", "operator": "contains", "value": "x"})
 
-	for name, actions := range map[string]*structpb.Struct{
-		"nil actions":           nil,
-		"empty object":          mustStruct(t, map[string]any{}),
-		"object with type":      mustStruct(t, map[string]any{"type": "add_tags", "config": map[string]any{}}),
-		"object with unknown":   mustStruct(t, map[string]any{"type": "nope"}),
-		"object wrapping array": mustStruct(t, map[string]any{"actions": []any{map[string]any{"type": "add_tags"}}}),
+	for name, actions := range map[string]*structpb.ListValue{
+		"nil actions":     nil,
+		"unknown type":    mustList(t, map[string]any{"type": "nope"}),
+		"known + unknown": mustList(t, map[string]any{"type": "add_tags"}, map[string]any{"type": "nope"}),
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := srv.CreateRoutingRule(ctx, &inboxv1.CreateRoutingRuleRequest{

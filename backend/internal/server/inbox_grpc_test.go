@@ -1063,7 +1063,7 @@ func TestToRoutingRuleInfo_WithAndWithoutChannel(t *testing.T) {
 		ID:         uuid.New(),
 		Name:       "Auto-Tag VIP",
 		Conditions: []byte(`{"field":"sender_email","operator":"contains","value":"@vip.de"}`),
-		Actions:    []byte(`{"actions":[{"type":"add_tag","config":{"tag":"vip"}}]}`),
+		Actions:    []byte(`[{"type":"add_tags","config":{"tags":["vip"]}}]`),
 		Priority:   1,
 		IsActive:   true,
 		CreatedBy:  uuid.New(),

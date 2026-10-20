@@ -981,16 +981,13 @@ func (s *InboxGRPCServer) CreateRoutingRule(ctx context.Context, req *inboxv1.Cr
 		return nil, status.Error(codes.InvalidArgument, "invalid conditions")
 	}
 
-	actionsJSON, err := structToJSON(req.Actions)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid actions")
-	}
-
+	// Actions are a JSON array of {type, config}; a missing list stays empty and is
+	// rejected by routing.validateActions.
 	rule := &models.RoutingRule{
 		TenantID:   tenantID,
 		Name:       req.Name,
 		Conditions: conditionsJSON,
-		Actions:    actionsJSON,
+		Actions:    automationListToJSON(req.Actions),
 		Priority:   int(req.Priority),
 		IsActive:   true,
 		CreatedBy:  userID,
@@ -1041,11 +1038,7 @@ func (s *InboxGRPCServer) UpdateRoutingRule(ctx context.Context, req *inboxv1.Up
 		existing.Conditions = conditionsJSON
 	}
 	if req.Actions != nil {
-		actionsJSON, jsonErr := structToJSON(req.Actions)
-		if jsonErr != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid actions")
-		}
-		existing.Actions = actionsJSON
+		existing.Actions = automationListToJSON(req.Actions)
 	}
 	if req.Priority != nil {
 		existing.Priority = int(*req.Priority)
@@ -1226,12 +1219,8 @@ func toRoutingRuleInfo(r *models.RoutingRule) *inboxv1.RoutingRuleInfo {
 		}
 	}
 
-	// Convert actions JSON to Struct (wrap in a Struct with "actions" key)
-	if r.Actions != nil {
-		if st, err := jsonToStruct(r.Actions); err == nil {
-			info.Actions = st
-		}
-	}
+	// Actions are stored as a JSON array and travel as a ListValue.
+	info.Actions = automationJSONToList(r.Actions)
 
 	return info
 }

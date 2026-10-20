@@ -44526,12 +44526,19 @@ components:
         name: { type: string }
         channel: { type: string, enum: [email, chat, notification] }
         conditions: { type: object, description: "AND/OR condition tree with field/operator/value leaves" }
-        actions: { type: object, description: "Array of actions: route_to_team, assign_to, add_tags, auto_reply" }
+        actions: { type: array, items: { $ref: "#/components/schemas/RoutingRuleAction" }, description: "Ordered list of actions" }
         priority: { type: integer }
         is_active: { type: boolean }
         created_by: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    RoutingRuleAction:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [route_to_team, assign_to, add_tags, auto_reply] }
+        config: { type: object }
 
     CreateRoutingRuleInput:
       type: object
@@ -44540,7 +44547,7 @@ components:
         name: { type: string }
         channel: { type: string, enum: [email, chat, notification] }
         conditions: { type: object }
-        actions: { type: object }
+        actions: { type: array, items: { $ref: "#/components/schemas/RoutingRuleAction" }, description: "Unknown action types are rejected with 400" }
         priority: { type: integer, default: 100 }
 
     UpdateRoutingRuleInput:
@@ -44549,7 +44556,7 @@ components:
         name: { type: string }
         channel: { type: string, enum: [email, chat, notification] }
         conditions: { type: object }
-        actions: { type: object }
+        actions: { type: array, items: { $ref: "#/components/schemas/RoutingRuleAction" }, description: "Unknown action types are rejected with 400" }
         priority: { type: integer }
         is_active: { type: boolean }
 

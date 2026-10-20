@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -510,6 +511,23 @@ func TestHandleUpdateRoutingRule_InvalidConditionsJSON(t *testing.T) {
 	routes.HandleUpdateRoutingRule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid conditions JSON")
+}
+
+func TestHandleCreateRoutingRule_ActionsArrayIsAccepted(t *testing.T) {
+	routes := newInboxRoutes(registryWithService("notification"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", jsonBody(t, map[string]interface{}{
+		"name":       "VIP escalation",
+		"conditions": map[string]interface{}{},
+		"actions":    []interface{}{map[string]interface{}{"type": "add_tags", "config": map[string]interface{}{}}},
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateRoutingRule(rec, req)
+	// The array passes the gateway's own parsing; whatever happens next is the
+	// (unreachable) gRPC call, not a 400 for the actions shape.
+	if strings.Contains(rec.Body.String(), "invalid actions JSON") {
+		t.Errorf("array actions rejected as invalid; body = %s", rec.Body.String())
+	}
 }
 
 func TestHandleUpdateRoutingRule_InvalidActionsJSON(t *testing.T) {

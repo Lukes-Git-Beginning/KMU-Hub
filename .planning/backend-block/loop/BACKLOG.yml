@@ -3393,7 +3393,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a."
     scope: >
       Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core). Routing-Regeln lassen sich ueber
