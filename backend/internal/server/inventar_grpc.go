@@ -459,9 +459,14 @@ func (s *InventarGRPCServer) GetStockReport(ctx context.Context, req *inventarv1
 	if err != nil {
 		return nil, mapInventarError(err)
 	}
+	byUnit := make([]*inventarv1.UnitQuantity, len(report.QuantityByUnit))
+	for i, uq := range report.QuantityByUnit {
+		byUnit[i] = &inventarv1.UnitQuantity{Unit: uq.Unit, Quantity: uq.Quantity}
+	}
 	return &inventarv1.StockReportResponse{
 		TotalItems:     int32(report.TotalItems),
 		TotalQuantity:  report.TotalQuantity,
+		QuantityByUnit: byUnit,
 		LowStockCount:  int32(report.LowStockCount),
 		ActiveWarnings: int32(report.ActiveWarnings),
 	}, nil

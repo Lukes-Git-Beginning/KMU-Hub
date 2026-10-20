@@ -27668,7 +27668,18 @@ paths:
                   total_quantity:
                     type: integer
                     format: int64
-                    description: "Sum of all item quantities"
+                    description: "Sum of all item quantities; only set (non-zero) when every item shares one unit. With mixed units use quantity_by_unit"
+                  quantity_by_unit:
+                    type: array
+                    description: "Quantity summed per unit, ordered by unit; omitted when there are no items"
+                    items:
+                      type: object
+                      properties:
+                        unit:
+                          type: string
+                        quantity:
+                          type: integer
+                          format: int64
                   low_stock_count:
                     type: integer
                     description: "Number of items below min_quantity"
