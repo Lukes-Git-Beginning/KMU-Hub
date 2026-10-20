@@ -3062,7 +3062,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       `grpcStatusToHTTP` (`internal/gateway/helpers.go:51`) bildet gRPC-Codes auf
@@ -4850,3 +4850,65 @@ units:
         Tages- und Wochengrenzen der Arbeitszeit folgen der Mandanten-Zeitzone
       - >-
         Mutations-Probe: Zeitzone wieder auf UTC, der Grenzfall-Test wird rot
+
+  - id: fix-grpc-aborted-maps-to-masked-500-and-upstream-credentials-to-401
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway siehe Journal Iteration 56"
+    scope: >
+      `grpcStatusToHTTP` (`internal/gateway/helpers.go:47`) kennt `codes.Aborted` nicht; der
+      `default`-Zweig liefert 500 UND `respondGRPCError` ersetzt die Meldung durch "internal
+      error". `internal/server` gibt `Aborted` an vier Stellen zurueck:
+      `lexware_grpc.go:295,297` (`ErrSyncConflict`, `ErrLexwareVersionConflict` - letzterer kommt
+      aus `lexware/client.go:124`, also aus einem echten HTTP-409 der Lexware-API und ist ueber
+      den Sync erreichbar), `bexio_grpc.go:305` (`ErrSyncConflict`, Bexio gesperrt) und
+      `automation_grpc.go:844` (`ErrLoopDetected`; wird heute nirgends erzeugt, die Abbildung ist
+      tot). Ein fachlicher Optimistic-Lock-Konflikt faellt damit auf 500 ohne Text.
+      Zweiter Teil: `codes.Unauthenticated` traegt zwei Bedeutungen. Gemeint ist "Sitzung
+      ungueltig" (373 Stellen "tenant_id missing from context" u. a.), tatsaechlich wird er auch
+      fuer FREMDE Zugangsdaten benutzt: `email_grpc.go:1431` (`account.ErrInvalidCredentials`,
+      IMAP), `email_grpc.go:1453` (`send.ErrSMTPAuthFailed`), `bexio_grpc.go:293` und
+      `lexware_grpc.go` (`ErrBexioUnauthorized` / `ErrLexwareUnauthorized`: der Drittanbieter
+      lehnt den Token ab). Das FE (`authenticatedFetch.ts:174`) behandelt JEDE 401 als
+      abgelaufene Sitzung: Token-Refresh, Wiederholung der Anfrage und bei fehlgeschlagenem
+      Refresh `doLogout()`. Ein falsches Postfach-Passwort loest also einen Refresh samt
+      doppeltem Request aus.
+    sources:
+      - backend/internal/gateway/helpers.go
+      - backend/internal/gateway/helpers_test.go
+      - backend/internal/server/lexware_grpc.go
+      - backend/internal/server/bexio_grpc.go
+      - backend/internal/server/email_grpc.go
+      - backend/internal/server/automation_grpc.go
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/api/utils/authenticatedFetch.ts
+    notes: >
+      Teil 1 (bauen): `case codes.Aborted: return http.StatusConflict` in `grpcStatusToHTTP`
+      samt Zeile in `TestGrpcStatusToHTTP` (`helpers_test.go:15ff`, `Aborted` fehlt dort). 409 ist
+      richtig und doppelt belegt wie `AlreadyExists`/`FailedPrecondition`; der Text ist fuer
+      den Nutzer lesbar (nur die Fremd-Fehlermeldungen pruefen, ob sie Interna enthalten). Danach
+      die betroffenen Operationen in der Spec um 409 ergaenzen (`hooks/openapi-status-fill.py`
+      verwenden, keine Handarbeit-Kette).
+      Teil 2 (zuerst Entscheidung, dann bauen): die Fremd-Zugangsdaten duerfen nicht mehr auf
+      `Unauthenticated` fallen. Vorschlag: `FailedPrecondition` (409, "Integration nicht
+      nutzbar, Zugangsdaten pruefen") - das FE-Refresh-Verhalten bleibt unberuehrt. Aendert den
+      Statuscode bestehender Routen (FE-Vertrag) - FE-Aufrufer vorher greppen (`401` in
+      `desktop/src/renderer/src/**/email*`, `integration*`). Erweist sich der FE-Pfad als
+      ungenutzt oder die Entscheidung als offen, Teil 2 NICHT bauen, sondern die Unit als
+      erledigt mit Teil 1 abschliessen und Teil 2 in BACKLOG-NEXT.yml ablegen.
+      Nicht anfassen: `Unauthenticated` fuer Webhook-Signatur, Share-Passwort, TOTP/Recovery-
+      Codes - dort ist 401 die gewollte Bedeutung (Anmelde-/Zugangspruefung, Gateway-Pfade ohne
+      FE-Refresh).
+    done_when:
+      - >-
+        `Aborted` liefert 409 mit dem Originaltext, Test in `helpers_test.go`
+      - >-
+        Mutations-Probe: den neuen `case` entfernen, `TestGrpcStatusToHTTP` wird rot
+      - >-
+        Die betroffenen Lexware-/Automation-Operationen nennen 409 in der Spec
+        (`TestOpenAPIRouteDrift` und der Status-Drift-Test gruen)
+      - >-
+        Teil 2 ist gebaut oder mit Begruendung nach BACKLOG-NEXT.yml verschoben

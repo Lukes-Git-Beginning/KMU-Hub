@@ -741,3 +741,34 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 54, c6846a07: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
 - neue-units: `fix-crm-pipeline-totals-blind-currency-sum`, `fix-invoice-payment-stats-blind-currency-sum`, `fix-einkauf-contract-call-currency-not-checked-against-contract`, `fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone` (alle ans Ende, `sonnet`; kein Cross-Tenant/Auth-Loch, daher nicht an den Kopf)
 - offen: (1) Scan statisch, kein DB-Lauf; die Zeitzonen-Folge folgt aus dem Code und dem fehlenden `TZ`, die Unit beginnt mit dem DB-Beleg und darf als Befund enden (z. B. wenn die Laufzeitumgebung `TZ` anders setzt, als der Grep sah). (2) Nicht geprüft, welche Währungswerte die FE-Deal-Maske tatsächlich anbietet; gibt sie nur die Tenant-Währung her, ist Befund 1 latent. (3) Gateway-Antworten, die Beträge ohne Währung ausgeben (`fuhrpark`/`vermietung`-Kosten), kamen im Scan nicht vor, weil dort keine Summen gebildet werden. (4) `payment_poll` (Bexio) nicht bewertet, Fläche gesperrt.
+
+## Iteration 56 — scan-error-mapping-completeness-grpc-to-http — done — 2026-10-20 23:59
+- commit: `docs(loop): scan grpc to http error mapping and file the gaps` (SHA via `git log`)
+- gebaut: Scan, kein Produktionscode. Grundlage: Grep `codes\.[A-Z]…` über `internal/server` (Nicht-Test) und die übrigen Pakete, danach jede Stelle mit nicht-trivialer Bedeutung gelesen (Mapper in `automation_grpc`, `bexio_grpc`, `lexware_grpc`, `email_grpc`, `grpc.go`, `inbox_grpc`, `notification_grpc`, `biz_grpc`). Abbildung gelesen: `helpers.go:47`; zusätzlich zwei Sonderstellen im Gateway (`reset_password_page.go:188` eigene Abbildung auf Seitentexte, `route_crm_contact_files.go:215` prüft `AlreadyExists`).
+  - **Matrix** (Code → HTTP · Zahl der Rückgabestellen in `internal/server` · Bedeutungen):
+    | gRPC-Code | HTTP | Stellen | Bedeutungen |
+    |---|---|---|---|
+    | InvalidArgument | 400 | 2206 | Eingabe ungültig (eine Bedeutung) |
+    | Unauthenticated | 401 | 373 | (a) Sitzung/Tenant fehlt (≈ 350) · (b) falsche Anmeldedaten/TOTP/Recovery-Code · (c) Webhook-Signatur, Share-Passwort · (d) **Zugangsdaten eines Drittanbieters abgelehnt** (IMAP, SMTP, Bexio, Lexware) |
+    | NotFound | 404 | 237 | Ressource fehlt (eine Bedeutung) |
+    | Internal | 500 (Text maskiert) | 192 | echte Serverfehler; Stichprobe der `errors.Is`-Zweige: `ErrStornoUnavailable` (Storno-Pfad nicht konfiguriert), `send.ErrSendFailed`, `emailcontact.ErrImportFailed` – vertretbar, nur der Versandfehler wäre 502/503 |
+    | FailedPrecondition | 409 | 153 | Zustandskonflikt (Transition, Einwilligung offen, Sperre) |
+    | AlreadyExists | 409 | 58 | Duplikat |
+    | PermissionDenied | 403 | 55 | eine Bedeutung |
+    | Unavailable | 503 | 36 | (a) Dienst/Backend nicht erreichbar · (b) Drittanbieter meldet 5xx (`ErrBexioServerError`) · (c) LiveKit nicht konfiguriert |
+    | Unimplemented | 501 | 21 | (a) „Dienst nicht konfiguriert" (Booking, Import/Export, Banking, Expense, Recurring) · (b) Eingabe-Fehler: `message.ErrAdapterNotFound`, `ErrForwardNotSupported` (Kanal nicht unterstützt) · (c) veralteter Endpunkt (`vertraege_grpc.go:229`) · (d) Plattform-Webhook nicht konfiguriert |
+    | ResourceExhausted | 429 | 6 | (a) Rate-Limit Drittanbieter (Bexio/Lexware) · (b) Circuit-Breaker (Automation) · (c) **dauerhaft**: `file.ErrQuotaExceeded`, `video.ErrMaxParticipants`, `auth.ErrAllRecoveryCodesUsed` |
+    | OutOfRange | 422 | 5 | unbekannter Schlüssel / Begründung nötig (eine Bedeutung, gewollt) |
+    | **Aborted** | **500 (maskiert)** | 4 | **Optimistic-Lock-/Sync-Konflikt – fachlich, fällt auf `default`** |
+    | DeadlineExceeded | 504 | 1 | `ErrLinkTokenExpired` (Verknüpfungstoken abgelaufen) – **Client-Zustand, kein Timeout**; in der Spec ausdrücklich so beschrieben (`openapi.yaml:33160`) |
+    | Canceled / Unknown / DataLoss | 500 | 0 | Canceled (Client bricht ab) landet im Gateway ebenfalls auf 500 + Fehlerlog |
+  - **Fachliche Fälle auf 500:** nur `Aborted` – `lexware/client.go:124` erzeugt `ErrLexwareVersionConflict` aus einem echten HTTP-409 der Lexware-API, `ErrSyncConflict` (Lexware, Bexio) aus dem Sync; die Nutzer sehen „internal error". `ErrLoopDetected` (Automation) wird nirgends erzeugt (`grep` nur Definition + Mapping), die Abbildung ist tot. → `fix-grpc-aborted-maps-to-masked-500-and-upstream-credentials-to-401`.
+  - **Doppelte Bedeutungen:** (1) **401** trägt „Sitzung abgelaufen" und „Fremd-Zugangsdaten falsch"; das FE (`authenticatedFetch.ts:174`) macht bei jeder 401 Refresh + Wiederholung, bei misslungenem Refresh Logout – ein falsches Postfach-Passwort kostet also einen Refresh und einen doppelten Request. (2) **409** = `AlreadyExists` + `FailedPrecondition` (+ künftig `Aborted`), im Code ausdrücklich so entschieden (Kommentar `helpers.go:57`); die Spec beschreibt je Operation nur, was `hooks/openapi-status-fill.py` einträgt. (3) **429** = „später erneut" (Rate-Limit, Breaker) und „dauerhaft voll" (Quota, Teilnehmerlimit, Recovery-Codes). Das FE wiederholt 429/504 nicht automatisch (`grep 429|504` in `api/` nur `offline-queue.ts`/`types.ts`), der Schaden bleibt eine irreführende Meldung. (4) **501** = „nicht konfiguriert" und „Kanal nicht unterstützt". (5) **503** = eigener Dienst und Drittanbieter. (6) **504** = Client-Token abgelaufen.
+  - **Abgleich mit `fix-409-double-meaning-on-grpc-conflict-routes`:** diese ID existiert im Backlog nicht mehr als Unit (nur als Verweis in Kommentaren); die 409-Spec-Lücken schließt `openapi-status-fill.py`. Nichts zu duplizieren; die neue Unit nimmt `Aborted` als dritten 409-Zubringer auf und nutzt dasselbe Skript.
+  - **Nicht aufgenommen:** 501/429/504-Mehrdeutigkeiten (Texte stimmen, FE reagiert nicht auf die Zahl) – Beobachtung, keine Unit.
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (nur BACKLOG.yml/JOURNAL.md geändert; `backlog-check --preflight` grün, OPEN=46) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (Iteration 55, 5b2d2edf: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
+- neue-units: `fix-grpc-aborted-maps-to-masked-500-and-upstream-credentials-to-401` (ans Ende, `sonnet`; kein Cross-Tenant/Auth-Loch, daher nicht an den Kopf)
+- offen: (1) Statischer Scan, kein Request abgesetzt; die Zählungen sind Rückgabestellen (Grep), nicht Laufzeithäufigkeit. (2) Teil 2 der neuen Unit ändert Statuscodes bestehender Routen (FE-Vertrag) – ob das FE auf 401 der E-Mail-Account-Prüfung etwas Eigenes baut, ist nicht geprüft; die Unit verlangt das Greppen vor dem Bauen. (3) Ob Lexware im Betrieb (Pilot) aktiv ist, ist ungeprüft; Bexio ist gesperrt, `Aborted` dort nur latent.
