@@ -1019,3 +1019,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 74, 1d24373b: reine Go-Änderung in schichten, kein Guard/Proto/Route/Migration)
 - neue-units: keine
 - offen: (1) Der Parallel-Test startet Goroutinen → `-race` nur in CI abgenommen. (2) Verhaltensänderung: scheitert der Refresh-Token-Widerruf, scheitert jetzt der ganze Reset (vorher nur Log) — fail-closed, bewusst.
+
+## Iteration 76 — harden-wiki-share-link-creation-validation — done — 2026-10-21 01:35
+- commit: `fix(wiki): validate expiry and permissions when minting share links` (SHA via `git log`)
+- gebaut: `wiki.ErrInvalidShareLink` (neu), `Service.CreateShareToken` lehnt `expires_at` ≤ jetzt und jede Permission außer `"read"` ab (vor dem Artikel-Lookup, nichts wird gespeichert); gespeichert wird immer `{"read"}`. `mapWikiError` bildet den Fehler auf `InvalidArgument` ab → Gateway 400 (in `openapi.yaml` für POST `/wiki/articles/{id}/share` bereits dokumentiert, keine Spec-Änderung). Zwei bestehende gRPC-Redeem-Tests (abgelaufen / ohne „read") legten ihre Fixture über `CreateShareToken` an und seeden jetzt direkt ins Repo.
+  - Tests: `share_test.go` (3 Ablehnungsfälle + Happy Path), `wiki_grpc_test.go` (gRPC → InvalidArgument, nichts gespeichert).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/wiki/` 63 RUN, 0 Skips, DATABASE_URL als kmuhub_app; `./internal/server/` ok) | migration n.a. | rls-smoke n.a. | gateway-test ok (keine Route angefasst)
+- coverage: internal/wiki 75,9 % -> 76,3 %
+- mutations-probe: (a) Ablaufprüfung durch `if false` ersetzt ⇒ Service- und gRPC-Test rot; (b) Permission-Prüfung durch `if false` ⇒ beide rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 75, 6e397572: reine Go-Änderung in auth, Tx mit explizitem Tenant-Filter, kein Guard/Proto/Route/Migration)
+- neue-units: keine
+- offen: (1) Bestehende Wiki-Links mit anderen Permissions bleiben unberührt (nur Redeem-seitig tot, wie bisher). (2) Frontend, das `permissions` mit anderen Werten oder ein vergangenes `expires_at` schickt, bekommt jetzt 400 — FE-Aufrufer nicht geprüft.

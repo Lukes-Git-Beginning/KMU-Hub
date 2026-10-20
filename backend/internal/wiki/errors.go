@@ -10,4 +10,5 @@ var (
 	ErrCategoryNotFound   = errors.New("wiki category not found")
 	ErrAttachmentNotFound = errors.New("wiki attachment not found")
 	ErrShareTokenNotFound = errors.New("wiki share token not found")
+	ErrInvalidShareLink   = errors.New("wiki share link parameters are invalid")
 )
