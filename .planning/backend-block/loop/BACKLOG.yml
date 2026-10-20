@@ -3613,7 +3613,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-10-20
     decision: >-
       Nebenbefund aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48). Kein Cross-Tenant-Zugriff
@@ -5074,3 +5074,49 @@ units:
     done_when:
       - Operationen der genannten Mapper mit fachlichem 409 zeigen auf `ConflictOrIdempotencyInFlight`, Liste in `openapi-409-business-ops.txt` nachgezogen
       - swagger-cli validate gruen, go test -count=1 ./internal/gateway/ gruen
+
+  - id: harden-idempotency-skip-response-body-for-one-time-secrets
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-10-21
+    decision: >-
+      Fix-Unit aus `scan-idempotency-response-body-persists-one-time-secrets` (Iteration 70). Kein
+      Cross-Tenant-Zugriff (die Tabelle ist RLS-geschuetzt, Zeilen laufen nach 24 h ab), daher ans Ende.
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Fuenf mutierende, per `authWithIdempotency` geschuetzte Routen liefern ein Einmal-Geheimnis, das
+      sonst NIRGENDS im Klartext liegt (Einladungs-Token sind gehasht, CalDAV-App-Passwoerter ebenso), und
+      `middleware.Idempotency` kopiert die Antwort 24 h lang in `idempotency_keys.response_body`, sobald der
+      Client einen `Idempotency-Key` sendet: (1) `POST /api/v1/caldav/passwords` (`route_caldav.go`
+      `handleCreatePassword`, Feld `password`), (2) `POST /api/v1/invitations` (`HandleCreateInvitation`,
+      Feld `token`), (3) `POST /api/v1/tenants` (`HandleProvisionTenant`, `invitation_token`),
+      (4) `POST /api/v1/admin/users/invite` und (5) `POST /api/v1/admin/users/{id}/resend-invite`
+      (`respondAdminUser`, `inviteToken`). Zu tun: die Speicherung des Bodys fuer genau diese Routen
+      unterdruecken, ohne die Deduplizierung zu verlieren.
+    sources:
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/idempotency/postgres_repository.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/gateway/route_auth.go
+    notes: >
+      Vorschlag: der Handler setzt einen internen Response-Header (z. B. `X-Idempotency-Redact`), den
+      `capturingResponseWriter`/`completeAsync` ausliest, nicht an den Client weitergibt und dann statt des
+      Bodys `Complete(..., status, nil)` ruft. Ein Replay liefert dann Status + leeren Body (oder einen
+      kurzen Hinweis-Body) mit `Idempotency-Replayed: true` und KEIN zweites Geheimnis. NICHT einfach
+      nicht-completen: der Key bliebe 24 h "in Bearbeitung" und jeder Retry bekaeme 409. Pfad-Whitelist ist
+      die schlechtere Option (`strings.Contains`, und die Routen sollen weiter dedupliziert werden).
+      Bewusst NICHT betroffen (im Scan geprueft): 2FA-Routen (Whitelist `/auth/2fa`), Login/Register/
+      Refresh/Reset/Accept-Invitation (oeffentlich, ohne Middleware), Formular-Webhook-Secret
+      (`maskWebhookSecret`), Share-Tokens document/wiki/berichte/formulare und GDPR-`download_token`
+      (jederzeit per Listing wieder lesbar). Zurueckgestellt, weil befristet: Join-/WOPI-Tokens (LiveKit-Token `SetValidFor(24h)` in `work/livekit/service.go:130` - genauso lang wie die Aufbewahrung, WOPI-TTL `wopiTokenTTL`, nicht nachgemessen). Die Kategorie der
+      befristeten Tokens (`/calendar/events/{id}/join-token`, `/documents/token`, Video-Join) ist
+      eine eigene Entscheidung, falls Luke sie auch redigiert haben will.
+    done_when:
+      - Eine Antwort mit gesetztem Redact-Header erreicht den Client unveraendert, wird aber nicht im Body von `idempotency_keys` gespeichert (Test gegen echtes Postgres als kmuhub_app)
+      - Replay mit gleichem Key liefert Status und Replayed-Header, aber kein Geheimnis; gleicher Key mit anderem Body bleibt 422
+      - Die fuenf genannten Handler setzen den Header, je ein Test pro Handler
+      - Mutations-Probe - Header-Auswertung entfernt, der Test wird rot
+      - go test -count=1 ./internal/middleware/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
