@@ -572,7 +572,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix)"
     scope: >
       Postgres-Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), gegen die lokale

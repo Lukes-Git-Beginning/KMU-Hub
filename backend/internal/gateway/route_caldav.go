@@ -447,10 +447,15 @@ func (c *CalDAVRoutes) handleTestConnection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	defer func() {
-		// Use a background context: the request context may already be
-		// cancelled (client navigated away) by the time the probes return,
-		// but the ephemeral password must still be revoked either way.
-		if revokeErr := c.pwService.Revoke(context.Background(), pw.ID, userID); revokeErr != nil {
+		// The request context may already be cancelled (client navigated
+		// away) by the time the probes return, but the ephemeral password must
+		// still be revoked either way. WithoutCancel drops the cancellation yet
+		// keeps the tenant/user values: app_specific_passwords is under RLS, so
+		// a bare Background context would match zero rows and leave the
+		// password active.
+		revokeCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+		defer cancel()
+		if revokeErr := c.pwService.Revoke(revokeCtx, pw.ID, userID); revokeErr != nil {
 			slog.Warn("caldav test: failed to revoke ephemeral password",
 				"password_id", pw.ID, "user_id", userID, "error", revokeErr)
 		}
