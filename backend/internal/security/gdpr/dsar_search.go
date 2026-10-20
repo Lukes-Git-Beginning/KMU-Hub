@@ -562,6 +562,12 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *invitationHistory)
 		}
 
+		inboxMail, imErr := inboxMailModules(ctx, pool, tenantID, u.id)
+		if imErr != nil {
+			return nil, imErr
+		}
+		person.Modules = append(person.Modules, inboxMail...)
+
 		out = append(out, person)
 	}
 	return out, nil

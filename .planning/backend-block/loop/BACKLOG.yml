@@ -3933,7 +3933,7 @@ units:
     service: security/gdpr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
     scope: >
       Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Posteingang und
@@ -5120,3 +5120,36 @@ units:
       - Die fuenf genannten Handler setzen den Header, je ein Test pro Handler
       - Mutations-Probe - Header-Auswertung entfernt, der Test wird rot
       - go test -count=1 ./internal/middleware/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-contact-erasure-leaves-inbox-thread-messages
+    phase: 4
+    service: crm/consent
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix, Mutations-Probe statt Zeilen)"
+    scope: >
+      Aus `feat-dsar-coverage-inbox-and-mail-accounts` (Iteration 79). `consent.ScrubDependentPII`
+      (`scrub.go:128`) leert bei Kontakt-Loeschung nur `inbox_messages.sender_name`/`.sender_email`/
+      `.preview`. `inbox_thread_messages` (`body`, `author_name`) wird nirgends im Repo angefasst
+      (nur `inbox/thread/postgres_repository.go` schreibt/liest): `SeedInboundIfEmpty` legt zu jeder
+      eingehenden Nachricht eine Zeile mit `author_name = sender_name` und dem Nachrichtentext an.
+      Nach Anonymisierung oder Loeschung des Kontakts steht Name und Text der Person also weiter in
+      der Gespraechsansicht. Ebenfalls unberuehrt: `inbox_messages.subject` und `.metadata`.
+    sources:
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/inbox/thread/postgres_repository.go
+    notes: >
+      Zeilen bleiben (Thread-Struktur, eigene Antworten des Mitarbeiters mit `author_id`): nur
+      Zeilen mit `direction = 'inbound'` UND `author_id IS NULL` ueber Subselect auf
+      `inbox_messages.crm_contact_id` leeren (`body = ''`, `author_name = NULL`). Ob die
+      Mitarbeiter-Antworten (outbound) den Klartext der Person zitieren, ist eine Bewertung -
+      im Journal festhalten, nicht stillschweigend leeren. `subject`: pruefen, ob es beim Scrub
+      mitgeleert werden darf (Listenansicht braucht einen nicht-leeren Wert?).
+    done_when:
+      - >-
+        Kontakt-Anonymisierung und Hard-Delete leeren inbound-Thread-Texte und Absendernamen des Kontakts, Test mit echter DB (beide Pfade)
+      - >-
+        Fremder Tenant und Zeilen anderer Kontakte bleiben unberuehrt, Test
+      - >-
+        Mutations-Probe: Subselect entschaerft, Test rot
