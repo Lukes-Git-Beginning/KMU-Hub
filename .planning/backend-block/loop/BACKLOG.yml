@@ -2575,7 +2575,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a."
     scope: >
       `internal/caldav/push_notifier.go:122` POSTet an `sub.PushURL` mit einem nackten

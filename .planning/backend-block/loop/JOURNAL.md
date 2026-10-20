@@ -511,3 +511,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 44, 1502b9ee: `requireTeamAdmin` tenant-gescoped über `GetTeamInbox`, Gateway setzt `UserId` in beiden Handlern; kein Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: (1) Der neue Test startet Goroutinen (Server-Accept-Loop, Append während IDLE) — `-race` läuft lokal nicht, abgenommen erst nach CI. (2) `Connect` (80 %) bleibt ohne TLS/STARTTLS-Erfolgspfad; ein Test bräuchte ein Zertifikat, dem `tls.Config{ServerName}` vertraut. (3) Beobachtung: go-imap liefert `MessageID`/`InReplyTo` ohne spitze Klammern — im Test festgeschrieben; Code, der gegen `<...>`-Header vergleicht, würde nicht treffen (nicht geprüft, ob es welchen gibt).
+
+## Iteration 46 — harden-caldav-push-notifier-ssrf — done — 2026-10-20 23:25
+- commit: `fix(caldav): route push notifications through the SSRF-safe client` (SHA via `git log`)
+- gebaut: `PushNotifier` nutzt `safehttp.New(WithTimeout(5s))` statt eines nackten `http.Client`; Push-URLs auf Loopback, private und Link-Local-Adressen (Cloud-Metadata) werden beim Dial verweigert. Privater Konstruktor `newPushNotifier(subs, opts...)` als Naht für `safehttp.AllowLoopback()` in Tests; `NewPushNotifier` (Produktion) bleibt unverändert in der Signatur. Bestehende httptest-Tests laufen mit AllowLoopback weiter.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/caldav/..., internal/gateway inkl. OpenAPI-Drift; DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (kein Coverage-Ziel; internal/caldav gesamt nach Änderung 68,8 %)
+- mutations-probe: Client in `newPushNotifier` auf nackten `http.Client` zurückgesetzt -> `TestPushNotifier_SendNotification_RefusesNonPublicAddress` rot („SSRF guard is not active"); per cp-Sicherung zurückgedreht, Diff sauber
+- verify vorgaenger: sauber (Iteration 45, 01eefacd: nur Testdatei + Backlog/Journal, kein Produktionscode/Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: (1) Die Mutations-Probe lief 5 s, weil der nackte Client 10.0.0.5 bzw. 169.254.169.254 bis zum Timeout anwählte — im Gate mit Guard ist der Test sofort grün. (2) Der Test startet keine Goroutinen; die bestehenden Notifier-Tests tun es (unverändert), `-race` nur in CI.

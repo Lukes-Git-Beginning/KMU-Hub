@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/security/safehttp"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
@@ -34,11 +35,18 @@ type PushNotifier struct {
 
 // NewPushNotifier creates a new push notifier.
 func NewPushNotifier(subscriptions *PushSubscriptionService) *PushNotifier {
+	return newPushNotifier(subscriptions)
+}
+
+// newPushNotifier is the seam tests use to pass safehttp.AllowLoopback.
+// The push URL is client-supplied, so the client may only reach public
+// addresses: without that, a subscription pointing at an internal service or
+// the cloud metadata endpoint would make the gateway request it.
+func newPushNotifier(subscriptions *PushSubscriptionService, opts ...safehttp.Option) *PushNotifier {
+	opts = append([]safehttp.Option{safehttp.WithTimeout(pushNotifyTimeout)}, opts...)
 	return &PushNotifier{
 		subscriptions: subscriptions,
-		httpClient: &http.Client{
-			Timeout: pushNotifyTimeout,
-		},
+		httpClient:    safehttp.New(opts...),
 	}
 }
 
