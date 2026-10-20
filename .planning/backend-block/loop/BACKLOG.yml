@@ -1273,7 +1273,7 @@ units:
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `cov-gateway-hr-analytics-and-settings` (Iteration 21, Lauf 12). Der

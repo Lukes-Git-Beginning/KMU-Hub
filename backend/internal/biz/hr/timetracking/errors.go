@@ -19,8 +19,9 @@ var (
 	ErrNotAuthorizedToApproveCorrection = errors.New("not authorized to approve this time correction")
 	// ErrCannotApproveOwnCorrection is returned when the author of a time correction tries to approve it.
 	ErrCannotApproveOwnCorrection = errors.New("cannot approve own time correction")
-	// ErrMaxDailyHoursExceeded is returned when today's work time has reached the ArbZG 10h maximum.
-	ErrMaxDailyHoursExceeded = errors.New("ArbZG: maximum daily work time of 10 hours reached")
+	// ErrMaxDailyHoursExceeded is returned when today's work time has reached the daily maximum
+	// (ArbZG 10h, or the tenant's stricter max_daily_hours setting).
+	ErrMaxDailyHoursExceeded = errors.New("ArbZG: maximum daily work time reached")
 	// ErrWorkTimeEntryNotFound is returned when a work time entry does not exist.
 	ErrWorkTimeEntryNotFound = errors.New("work time entry not found")
 
