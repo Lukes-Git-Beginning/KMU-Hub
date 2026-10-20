@@ -18478,6 +18478,9 @@ paths:
       tags: [schichten]
       operationId: getShiftStats
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: from, in: query, description: "Only shifts starting at or after this instant (RFC3339)", schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: "Only shifts ending at or before this instant (RFC3339)", schema: { type: string, format: date-time } }
       responses:
         "200":
           description: Shift statistics
@@ -18485,6 +18488,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SchichtenStats'
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"

@@ -378,3 +378,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 31, c4d3805b: `AND signature_data IS NULL` + tenant-gescopte EXISTS-Unterscheidung, Mapping FailedPrecondition, OpenAPI-409; kein Proto/Guard/Migration)
 - neue-units: keine
 - offen: (1) Verhaltensänderung: Entfernen einer signierten Partei liefert 409 statt 204; ein Korrektur-/Widerruf-Workflow (Partei falsch erfasst) existiert nicht — ob einer nötig ist, entscheidet Luke. (2) Das FE muss den 409 beim Parteien-Entfernen anzeigen (nicht geprüft). (3) Keine Goroutinen in neuen Tests.
+
+## Iteration 33 — fix-schichten-stats-ignores-date-range-filter — done — 2026-10-20 22:30
+- commit: `fix(schichten): honour from/to on the shift stats endpoint` (SHA via `git log`)
+- gebaut: `HandleGetShiftStats` liest `from`/`to` aus der Query (RFC3339, leer/fehlend = unbegrenzt), setzt sie auf `GetShiftStatsRequest` und antwortet bei ungültigem Wert mit 400. OpenAPI-Pfad `GET /schichten/stats` trägt die beiden Query-Parameter und die 400. Der Dokumentationstest ist durch drei Tests gegen einen echten In-Process-gRPC-Server ersetzt (Weiterreichen von from/to, unbegrenzt ohne/mit leerem Wert, 400 ohne RPC-Aufruf). Keine neue Route, kein Proto, keine Migration, kein Guard.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/gateway inkl. TestOpenAPIRouteDrift; 0 SKIP; DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway 73,4 % -> 73,4 % (Bugfix-Unit, kein Coverage-Ziel; Vorher-Wert per stash)
+- mutations-probe: Zuweisung `statsReq.From` durch `_` ersetzt -> `TestHandleGetShiftStats_ForwardsFromToToRPC` rot; per cp-Sicherung zurückgedreht, `cmp` sauber
+- verify vorgaenger: sauber (Iteration 32, 119e32a8: `AND signed_on IS NULL` + tenant-gescopte EXISTS-Unterscheidung, Mapping FailedPrecondition, OpenAPI-409; kein Proto/Guard/Migration)
+- neue-units: keine
+- offen: (1) Das Repo wertet den Filter als `start_time >= from AND end_time <= to` aus (Schichten müssen vollständig im Zeitraum liegen) — Semantik nicht geändert, FE-Erwartung nicht geprüft. (2) Ob das FE `from`/`to` überhaupt schickt, ist nicht geprüft; ohne Parameter bleibt das Verhalten identisch. (3) Neue Tests starten einen gRPC-Server in einer Goroutine (Zugriff auf den Capture per Mutex) — `-race` lokal nicht möglich, abgenommen erst nach CI.
