@@ -205,7 +205,7 @@ func TestSetAgentStatus_Happy(t *testing.T) {
 
 func TestGetAgentStatus_InvalidUserID(t *testing.T) {
 	srv, _, _, _ := newDialerTestServerWithAgentStore(t)
-	_, err := srv.GetAgentStatus(context.Background(), &dialerv1.GetAgentStatusRequest{UserId: "not-a-uuid"})
+	_, err := srv.GetAgentStatus(ctxWithTenant(uuid.New()), &dialerv1.GetAgentStatusRequest{UserId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -227,13 +227,52 @@ func TestGetAgentStatus_Happy(t *testing.T) {
 	}
 }
 
+func TestGetAgentStatus_MissingTenant(t *testing.T) {
+	srv, _, _, _ := newDialerTestServerWithAgentStore(t)
+	_, err := srv.GetAgentStatus(context.Background(), &dialerv1.GetAgentStatusRequest{UserId: uuid.New().String()})
+	requireGRPCCode(t, err, codes.Unauthenticated)
+}
+
+// TestGetAgentStatus_ForeignTenantMatchesUnknown verifies that a supervisor
+// asking for an agent of another tenant gets the very answer an unknown user
+// ID gets — offline, no since — so the response confirms nothing.
+func TestGetAgentStatus_ForeignTenantMatchesUnknown(t *testing.T) {
+	srv, _, _, _ := newDialerTestServerWithAgentStore(t)
+	foreignAgent := uuid.New()
+
+	_, err := srv.SetAgentStatus(ctxWithTenant(uuid.New()), &dialerv1.SetAgentStatusRequest{
+		UserId: foreignAgent.String(),
+		Status: dialerv1.AgentDialerStatus_AGENT_DIALER_STATUS_AVAILABLE,
+	})
+	requireGRPCOK(t, err)
+
+	ctx := ctxWithTenant(uuid.New())
+	unknownAgent := uuid.New()
+	foreign, err := srv.GetAgentStatus(ctx, &dialerv1.GetAgentStatusRequest{UserId: foreignAgent.String()})
+	requireGRPCOK(t, err)
+	unknown, err := srv.GetAgentStatus(ctx, &dialerv1.GetAgentStatusRequest{UserId: unknownAgent.String()})
+	requireGRPCOK(t, err)
+
+	for name, resp := range map[string]*dialerv1.AgentStatus{"foreign": foreign, "unknown": unknown} {
+		if resp.GetStatus() != dialerv1.AgentDialerStatus_AGENT_DIALER_STATUS_OFFLINE {
+			t.Errorf("%s: expected OFFLINE, got %v", name, resp.GetStatus())
+		}
+		if resp.GetSince() != nil || resp.GetCampaignId() != "" {
+			t.Errorf("%s: expected no since/campaign, got %+v", name, resp)
+		}
+	}
+	if foreign.GetUserId() != foreignAgent.String() || unknown.GetUserId() != unknownAgent.String() {
+		t.Errorf("expected the requested user IDs echoed, got %q and %q", foreign.GetUserId(), unknown.GetUserId())
+	}
+}
+
 // ============================================================================
 // GetCampaignAgents
 // ============================================================================
 
 func TestGetCampaignAgents_InvalidCampaignID(t *testing.T) {
 	srv, _, _, _ := newDialerTestServerWithAgentStore(t)
-	_, err := srv.GetCampaignAgents(context.Background(), &dialerv1.GetCampaignAgentsRequest{CampaignId: "not-a-uuid"})
+	_, err := srv.GetCampaignAgents(ctxWithTenant(uuid.New()), &dialerv1.GetCampaignAgentsRequest{CampaignId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -258,6 +297,36 @@ func TestGetCampaignAgents_Happy(t *testing.T) {
 	}
 	if resp.GetAgents()[0].GetUserId() != userID.String() {
 		t.Errorf("expected agent %s, got %s", userID, resp.GetAgents()[0].GetUserId())
+	}
+}
+
+func TestGetCampaignAgents_MissingTenant(t *testing.T) {
+	srv, _, _, _ := newDialerTestServerWithAgentStore(t)
+	_, err := srv.GetCampaignAgents(context.Background(), &dialerv1.GetCampaignAgentsRequest{CampaignId: uuid.New().String()})
+	requireGRPCCode(t, err, codes.Unauthenticated)
+}
+
+// TestGetCampaignAgents_DropsForeignTenantAgents shares one campaign set
+// between two tenants and verifies the caller only sees its own agent.
+func TestGetCampaignAgents_DropsForeignTenantAgents(t *testing.T) {
+	srv, _, _, _ := newDialerTestServerWithAgentStore(t)
+	campaignIDStr := uuid.New().String()
+	ownCtx, foreignCtx := ctxWithTenant(uuid.New()), ctxWithTenant(uuid.New())
+	ownAgent, foreignAgent := uuid.New(), uuid.New()
+
+	for agent, ctx := range map[uuid.UUID]context.Context{ownAgent: ownCtx, foreignAgent: foreignCtx} {
+		_, err := srv.SetAgentStatus(ctx, &dialerv1.SetAgentStatusRequest{
+			UserId:     agent.String(),
+			Status:     dialerv1.AgentDialerStatus_AGENT_DIALER_STATUS_AVAILABLE,
+			CampaignId: &campaignIDStr,
+		})
+		requireGRPCOK(t, err)
+	}
+
+	resp, err := srv.GetCampaignAgents(ownCtx, &dialerv1.GetCampaignAgentsRequest{CampaignId: campaignIDStr})
+	requireGRPCOK(t, err)
+	if len(resp.GetAgents()) != 1 || resp.GetAgents()[0].GetUserId() != ownAgent.String() {
+		t.Errorf("expected only own agent %s, got %v", ownAgent, resp.GetAgents())
 	}
 }
 

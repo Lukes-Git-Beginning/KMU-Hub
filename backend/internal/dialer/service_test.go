@@ -1700,9 +1700,10 @@ func TestSetAgentStatus_AuditLogFailure_NonFatal(t *testing.T) {
 func TestGetAgentStatus_WrapsStore(t *testing.T) {
 	h := newTestHarnessWithAgentStore(t)
 	userID := uuid.New()
+	tenantID := uuid.New()
 
 	// No status set yet — GetStatus returns (nil, nil) for an unknown agent.
-	entry, err := h.svc.GetAgentStatus(context.Background(), userID)
+	entry, err := h.svc.GetAgentStatus(context.Background(), tenantID, userID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1710,16 +1711,59 @@ func TestGetAgentStatus_WrapsStore(t *testing.T) {
 		t.Errorf("expected nil entry for unknown agent, got %+v", entry)
 	}
 
-	if _, err := h.svc.SetAgentStatus(context.Background(), userID, AgentStatusAvailable, nil, uuid.New()); err != nil {
+	if _, err := h.svc.SetAgentStatus(context.Background(), userID, AgentStatusAvailable, nil, tenantID); err != nil {
 		t.Fatalf("setup: unexpected error: %v", err)
 	}
 
-	entry, err = h.svc.GetAgentStatus(context.Background(), userID)
+	entry, err = h.svc.GetAgentStatus(context.Background(), tenantID, userID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if entry == nil || entry.Status != AgentStatusAvailable {
-		t.Errorf("expected status=available, got %+v", entry)
+	if entry == nil || entry.Status != AgentStatusAvailable || entry.TenantID != tenantID {
+		t.Errorf("expected status=available in tenant %s, got %+v", tenantID, entry)
+	}
+}
+
+// TestGetAgentStatus_ForeignTenantReadsAsUnknown verifies that the status of
+// an agent written under another tenant comes back exactly like that of an
+// agent without any status: nil, no error — nothing to tell the two apart.
+func TestGetAgentStatus_ForeignTenantReadsAsUnknown(t *testing.T) {
+	h := newTestHarnessWithAgentStore(t)
+	ownTenant := uuid.New()
+	foreignAgent := uuid.New()
+
+	if _, err := h.svc.SetAgentStatus(context.Background(), foreignAgent, AgentStatusAvailable, nil, uuid.New()); err != nil {
+		t.Fatalf("setup: unexpected error: %v", err)
+	}
+
+	foreign, foreignErr := h.svc.GetAgentStatus(context.Background(), ownTenant, foreignAgent)
+	unknown, unknownErr := h.svc.GetAgentStatus(context.Background(), ownTenant, uuid.New())
+	if foreignErr != nil || unknownErr != nil {
+		t.Fatalf("unexpected errors: foreign=%v unknown=%v", foreignErr, unknownErr)
+	}
+	if foreign != nil || unknown != nil {
+		t.Errorf("expected nil for foreign and unknown agent alike, got foreign=%+v unknown=%+v", foreign, unknown)
+	}
+}
+
+// TestGetAgentStatus_EntryWithoutTenantIsHidden verifies the fail-closed rule:
+// a payload written before the tenant field existed is not visible to anyone.
+func TestGetAgentStatus_EntryWithoutTenantIsHidden(t *testing.T) {
+	store, _, rc := setupAgentStatusStore(t)
+	svc := NewService(newMockCampaignRepo(), newMockCallRepo(), newMockOutcomeRepo(), &mockAgentStatusRepo{}, store, newMockCRMBridge(), nil)
+	userID := uuid.New()
+
+	legacy := `{"status":"available","since":"2026-10-20T08:00:00Z"}`
+	if err := rc.Set(context.Background(), agentStatusKey(userID), legacy, agentStatusTTL).Err(); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	entry, err := svc.GetAgentStatus(context.Background(), uuid.New(), userID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if entry != nil {
+		t.Errorf("expected an entry without tenant to stay hidden, got %+v", entry)
 	}
 }
 
@@ -1727,17 +1771,53 @@ func TestGetCampaignAgents_WrapsStore(t *testing.T) {
 	h := newTestHarnessWithAgentStore(t)
 	campaignID := uuid.New()
 	userID := uuid.New()
+	tenantID := uuid.New()
 
-	if _, err := h.svc.SetAgentStatus(context.Background(), userID, AgentStatusAvailable, &campaignID, uuid.New()); err != nil {
+	if _, err := h.svc.SetAgentStatus(context.Background(), userID, AgentStatusAvailable, &campaignID, tenantID); err != nil {
 		t.Fatalf("setup: unexpected error: %v", err)
 	}
 
-	agents, err := h.svc.GetCampaignAgents(context.Background(), campaignID)
+	agents, err := h.svc.GetCampaignAgents(context.Background(), tenantID, campaignID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(agents) != 1 || agents[0].UserID != userID {
 		t.Errorf("expected 1 agent (%s), got %+v", userID, agents)
+	}
+}
+
+// TestGetCampaignAgents_DropsForeignTenantMembers puts agents of two tenants
+// into one campaign set — the set itself carries no tenant — and verifies
+// each tenant sees only its own member.
+func TestGetCampaignAgents_DropsForeignTenantMembers(t *testing.T) {
+	h := newTestHarnessWithAgentStore(t)
+	campaignID := uuid.New()
+	tenantA, tenantB := uuid.New(), uuid.New()
+	agentA, agentB := uuid.New(), uuid.New()
+
+	if _, err := h.svc.SetAgentStatus(context.Background(), agentA, AgentStatusAvailable, &campaignID, tenantA); err != nil {
+		t.Fatalf("setup A: %v", err)
+	}
+	if _, err := h.svc.SetAgentStatus(context.Background(), agentB, AgentStatusAvailable, &campaignID, tenantB); err != nil {
+		t.Fatalf("setup B: %v", err)
+	}
+
+	for tenant, want := range map[uuid.UUID]uuid.UUID{tenantA: agentA, tenantB: agentB} {
+		agents, err := h.svc.GetCampaignAgents(context.Background(), tenant, campaignID)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(agents) != 1 || agents[0].UserID != want {
+			t.Errorf("tenant %s: expected only agent %s, got %+v", tenant, want, agents)
+		}
+	}
+
+	agents, err := h.svc.GetCampaignAgents(context.Background(), uuid.New(), campaignID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if agents == nil || len(agents) != 0 {
+		t.Errorf("expected an empty, non-nil list for an unrelated tenant, got %+v", agents)
 	}
 }
 
@@ -1823,6 +1903,28 @@ func TestGetSupervisorOverview_AggregatesTotals(t *testing.T) {
 	}
 	if onCallRow.ActiveCampaignName == nil || *onCallRow.ActiveCampaignName != "Q1 Leads" {
 		t.Errorf("expected active campaign name resolved, got %v", onCallRow.ActiveCampaignName)
+	}
+}
+
+// TestGetSupervisorOverview_ForeignTenantEntryReadsOffline verifies that a
+// live status written under another tenant does not surface in the overview:
+// the agent row stays, its status falls back to offline like an expired key.
+func TestGetSupervisorOverview_ForeignTenantEntryReadsOffline(t *testing.T) {
+	h := newTestHarnessWithAgentStore(t)
+	tenantID := uuid.New()
+	agent := uuid.New()
+	h.agentRepo.activeAgentIDs = []uuid.UUID{agent}
+
+	if _, err := h.svc.SetAgentStatus(context.Background(), agent, AgentStatusAvailable, nil, uuid.New()); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	overview, err := h.svc.GetSupervisorOverview(context.Background(), tenantID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(overview.Agents) != 1 || overview.Agents[0].Status != AgentStatusOffline {
+		t.Errorf("expected one offline row, got %+v", overview.Agents)
 	}
 }
 

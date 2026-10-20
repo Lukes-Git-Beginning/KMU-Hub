@@ -146,6 +146,7 @@ type CallOutcome struct {
 // AgentStatusEntry is the current live status of an agent (not stored; derived from log).
 type AgentStatusEntry struct {
 	UserID     uuid.UUID
+	TenantID   uuid.UUID // uuid.Nil when the stored payload carries no parsable tenant
 	CampaignID *uuid.UUID
 	Status     string
 	Since      time.Time

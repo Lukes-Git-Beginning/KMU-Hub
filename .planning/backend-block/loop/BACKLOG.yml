@@ -691,7 +691,7 @@ units:
     service: dialer
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix)"
     scope: >
       Zweiter Redis-Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), am Code
@@ -741,6 +741,52 @@ units:
         auszuliefern; ein Test mit zwei Tenants in einem SET belegt das
       - Ein Eintrag ohne verwertbaren Tenant ist nicht sichtbar (fail-closed, per Test)
       - go test -count=1 ./internal/dialer/ ./internal/server/ ./internal/gateway/ gruen
+
+  - id: fix-dialer-set-agent-status-foreign-user-overwrite
+    phase: 4
+    service: dialer
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Sicherheits-Fix)"
+    scope: >
+      VERIFIZIERTER Cross-Tenant-WRITE (Lauf 14, Iteration 6, beim Bauen von
+      `fix-dialer-agent-status-missing-tenant-check` per Wegwerf-Test reproduziert):
+      `PUT /api/v1/dialer/agent-status` nimmt `user_id` aus dem Body
+      (route_dialer.go, `setAgentStatusRequest.UserID`), `DialerGRPCServer.SetAgentStatus`
+      prueft nur, dass die UUID parsebar ist, und `AgentStatusStore.SetStatus`
+      (redis_agent_store.go) schreibt `dialer:agent:status:<userID>` mit dem Tenant des
+      AUFRUFERS ueber den bestehenden Eintrag. Probe: Tenant B setzt Agent X auf
+      available, Tenant A setzt danach X auf break -> kein Fehler, und Tenant B sieht X seit
+      dem Lese-Fix als offline (der Eintrag traegt jetzt Tenant A). Zusaetzlich landet X im
+      Kampagnen-SET einer beliebigen `campaign_id`, die ebenfalls nicht tenant-geprueft
+      wird. Wer eine fremde User-UUID kennt (Rolle mit `dialer:agent:manage`), kann so den
+      Live-Status fremder Agenten manipulieren und deren Eintrag fuer den eigenen Tenant
+      unsichtbar machen.
+      Zu tun -- vor dem Schreiben pruefen, dass der Ziel-User im Tenant des Aufrufers liegt
+      (fail-closed), und eine uebergebene `campaign_id` tenant-gescopt laden.
+    sources:
+      - backend/internal/gateway/route_dialer.go
+      - backend/internal/server/dialer_grpc.go
+      - backend/internal/dialer/service.go
+      - backend/internal/dialer/redis_agent_store.go
+      - backend/internal/dialer/postgres_repository.go
+    notes: >
+      Der Lesepfad ist seit Iteration 6 gefiltert (`visibleAgentEntry` in dialer/service.go);
+      dieser Fix gehoert an den Schreibpfad. Billigster Weg fuer den User-Check: der Dialer
+      hat einen Pool und `agentRepo.GetUserDisplayNames` liest bereits `users` -- eine
+      tenant-gescopte Existenzpruefung daneben, analog `presence.PostgresUserDirectory`
+      (Iteration 5). Kampagne ueber das vorhandene `campaigns.GetByIDForTenant`. Nicht den
+      Redis-Schluessel umbauen. Ob ein Supervisor ueberhaupt fuer ANDERE User im eigenen
+      Tenant schreiben darf, ist bestehendes Verhalten (FE schickt `user_id` optional) --
+      nicht aendern, nur die Tenant-Grenze ziehen.
+    done_when:
+      - >-
+        `SetAgentStatus` fuer eine User-UUID ausserhalb des Aufrufer-Tenants schreibt nichts
+        und liefert denselben Fehler wie fuer eine unbekannte UUID; ein Test belegt, dass der
+        Eintrag des fremden Tenants unveraendert bleibt
+      - Eine `campaign_id` aus einem fremden Tenant wird abgelehnt, ohne das SET zu beruehren (per Test)
+      - go test -count=1 ./internal/dialer/ ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt
 
   - id: fix-rapporte-worker-and-measurement-parent-report-tenant-check
     phase: 4
@@ -3476,3 +3522,30 @@ units:
         `auto.TenantID` als TenantIDKey auf den ctx
       - Ein Test belegt, dass eine Action den Tenant als x-tenant-id-Metadatum an den Ziel-RPC liefert
       - go test -count=1 ./internal/automation/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-flaky-gdpr-export-rpc-test
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Test-Stabilitaet, kein Coverage-Ziel)"
+    scope: >
+      Beobachtet in Lauf 14, Iteration 6: `TestGDPRExportRPCs_HappyPathAndDomainErrors`
+      (internal/server/security_grpc_test.go:1110) fiel EINMAL in einem vollen
+      `go test ./internal/server/`-Lauf rot, der nichts mit GDPR zu tun hatte (Mutation im
+      Dialer). Isoliert 45 von 45 Laeufen gruen, nicht reproduziert. Verdacht, nicht
+      belegt: `ApproveDataExport` startet die asynchrone ZIP-Erzeugung, die in den
+      Test-Stub `repos.gdpr` schreibt, waehrend der Test danach `req.Status`/`DownloadToken`
+      direkt setzt und `GetExportDownload` aufruft -- die Goroutine kann den Zustand
+      zwischendurch ueberschreiben.
+    sources:
+      - backend/internal/server/security_grpc_test.go
+      - backend/internal/security/gdpr/
+    notes: >
+      Erst die async-Stelle in ApproveDataExport finden und pruefen, ob sie im Test-Setup
+      laeuft. Falls ja: im Test abschalten oder synchron abwarten, statt Sleep. Lokal kein
+      `-race` (kein C-Compiler) -- Abnahme erst nach CI.
+    done_when:
+      - Ursache benannt (Codestelle) oder als nicht reproduzierbar mit Begruendung dokumentiert
+      - Falls Ursache gefunden, ist der Test deterministisch (z. B. go test -count=50 -run TestGDPRExportRPCs ./internal/server/ gruen)
