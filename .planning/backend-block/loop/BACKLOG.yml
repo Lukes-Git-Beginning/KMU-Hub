@@ -2441,12 +2441,54 @@ units:
         auch den Negativfall (aktiver Kontakt mit laufender Sitzung bleibt unangetastet)
       - go test -count=1 ./internal/dialer/... gruen, DATABASE_URL gesetzt, 0 Skips
 
+  - id: fix-inbox-team-member-add-remove-authz
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core), im Server-Test reproduziert.
+      `InboxGRPCServer.AddTeamMember` / `RemoveTeamMember` (`internal/server/inbox_grpc.go`) und
+      `team.Service.AddMember` / `RemoveMember` pruefen NICHT, dass der Aufrufer Admin der
+      Team-Inbox ist -- der Request traegt zwar `user_id` (der Gateway setzt ihn,
+      `route_inbox.go:1019`), der Server ignoriert ihn. `UpdateTeamInbox`/`DeleteTeamInbox`
+      pruefen dagegen `GetMemberRole == "admin"`. Gateway-Guard fuer beide Routen ist
+      `inboxTeamInboxManage = RequirePermissionAny(inbox:write, kommunikation:team_inbox:manage)`;
+      `inbox:write` hat jeder normale Posteingangs-Nutzer. Folge: jeder Nutzer mit `inbox:write`
+      kann sich (oder wen er will) mit `role=admin` in JEDE Team-Inbox seines Tenants eintragen,
+      auch in `visibility=private`, und Mitglieder (auch den letzten Nicht-Admin) entfernen.
+      Als Mitglied darf er danach `ClaimMessage` und via Admin-Rolle Update/Delete der Inbox.
+      Kein Cross-Tenant-Zugriff belegt (RLS auf team_inbox_members); `AddMember` bekommt aber
+      keine tenant_id aus dem Service -- Pruefung auf Repo-Ebene (INSERT-Wiring) mitnehmen.
+    sources:
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/inbox/team/service.go
+      - backend/internal/inbox/team/postgres_repository.go
+      - backend/internal/gateway/route_inbox.go
+    notes: >
+      Schlankster Fix: `AddMember`/`RemoveMember`/(`ListMembers` fuer private Inboxen) bekommen
+      `tenantID` + `actorID`; der Service laedt `GetTeamInbox(tenantID, id)` (tenant-gescopt,
+      liefert NotFound fuer fremde Inboxen) und verlangt `GetMemberRole(actor) == "admin"`
+      -- gleiches Muster wie `UpdateTeamInbox`. Ausnahme: Selbst-Austritt (actor == member).
+      Der Guard am Gateway bleibt UNVERAENDERT (Permission-Keys nur additiv erweitern). Ein
+      Tenant-Admin (`kommunikation:team_inbox:manage`) ohne Team-Mitgliedschaft muss weiter
+      verwalten koennen -- das ist beim Bauen mit Luke zu klaeren; im Zweifel `blocked` mit
+      dieser Frage statt raten.
+    done_when:
+      - >-
+        Ein Test belegt: Nicht-Admin-Mitglied und Nicht-Mitglied koennen weder hinzufuegen noch
+        entfernen (PermissionDenied), der Admin kann es
+      - Ein Test belegt: fremder Tenant bekommt NotFound, keine Zeile entsteht
+      - go test -count=1 ./internal/inbox/... ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
   - id: cov-server-inbox-and-grpc-core
     phase: 4
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server/inbox_grpc.go 59,1 % (262 ungedeckt von 641), grpc.go 62,6 % (212 von 567) (CI-Stand 32949396303)"
     scope: >
       Zwei Dateien im `server`-Paket mit zusammen 474 ungedeckten Statements.
@@ -3292,3 +3334,85 @@ units:
         Answers; ein Test belegt das gegen die echte DB inkl. Tenant-Isolation
       - Eine noch ausstehende (pending/failed) Delivery wird nicht mit leerem Payload ausgeliefert
       - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-inbox-routing-rule-actions-struct-vs-array
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core). Routing-Regeln lassen sich ueber
+      die API gar nicht anlegen (Totalausfall des Features). Vertrag widerspricht sich:
+      `inbox.proto` typisiert `conditions` UND `actions` als `google.protobuf.Struct` (JSON-Objekt),
+      `routing.validateActions` (`internal/inbox/routing/service.go:387`) verlangt aber ein
+      JSON-ARRAY `[{type, config}]` (`[]models.Action`), und das Frontend (`inbox-types.ts:113`,
+      `RuleAction[]`) schickt ein Array. Pfad: Gateway `rawJSONToStruct` (`route_inbox.go:1387`)
+      scheitert an einem Array mit 400 "invalid actions JSON"; ein Objekt oder fehlendes `actions`
+      (`structToJSON(nil)` = `{}`) scheitert in `validateActions` mit `ErrInvalidAction` -> 400.
+      Reproduziert gRPC-seitig in
+      `TestCreateRoutingRule_StructActionsAreAlwaysRejected` (`internal/server/inbox_grpc_handlers_test.go`),
+      das den IST-Zustand festschreibt und mit dem Fix auf NoError kippen muss.
+      Dasselbe gilt fuer `UpdateRoutingRule` mit `actions`. `jsonToStruct` (Lesepfad,
+      `inbox_grpc.go:1371`) hat zwar einen Wrap-Fallback, der bei einem Array aber selbst
+      scheitert (`json.Unmarshal` Array in `map`) -- gespeicherte Array-Regeln koennten beim
+      Lesen also ebenfalls fehlschlagen; beim Bauen pruefen.
+    sources:
+      - backend/proto/inbox/v1/inbox.proto
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/gateway/route_inbox.go
+      - backend/internal/inbox/routing/service.go
+      - desktop/src/renderer/src/api/inbox-types.ts
+    notes: >
+      Der `.proto`-Typ ist der Kern: `actions` muss ein `google.protobuf.ListValue` (oder
+      `bytes`/`string` mit rohem JSON) werden, damit ein Array durch die Leitung passt --
+      Proto-Aenderung = Regen im selben Commit (`make proto-inbox`), Wire-Form
+      `{items}`/Array gegen den FE-Typ pruefen, nicht raten. Alternative ohne Proto-Aenderung:
+      Gateway wickelt das Array in `{"actions":[...]}` und der Server entpackt -- haesslich,
+      aber rueckwaertskompatibel; Entscheidung begruenden. Feld-Nummern nie wiederverwenden.
+    done_when:
+      - >-
+        POST /api/v1/inbox/rules mit `actions: [{type:"add_tags",config:{...}}]` legt eine Regel an
+        und GET /rules liefert sie im selben Array-Format zurueck (Test gegen Gateway+Server)
+      - >-
+        `TestCreateRoutingRule_StructActionsAreAlwaysRejected` ist durch einen Erfolgstest
+        ersetzt; ein unbekannter Action-Typ bleibt 400
+      - openapi.yaml beschreibt `actions` als Array; swagger-cli validate gruen
+      - go test -count=1 ./internal/server/ ./internal/gateway/ ./internal/inbox/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: harden-inbox-message-user-scoping
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core). `ListMessages` und
+      `GetUnreadCount` filtern auf `user_id`; alle Einzelnachrichten-RPCs (`GetMessage`,
+      `MarkRead`/`MarkUnread`, `ToggleStar`, `SetMessageStatus`, `Add/RemoveMessageTag`,
+      `Archive`/`Unarchive`, `Snooze`/`Unsnooze`, `ReplyToMessage`, `ForwardMessage`,
+      `ListThreadMessages`, Bulk*) scopen dagegen NUR auf `tenant_id` (`message.Service.GetByID`
+      nimmt keine user_id). Der Gateway reicht `user_id` mit, der Server ignoriert ihn
+      (`GetMessageRequest.user_id` existiert im Proto). Wer die UUID einer Nachricht eines
+      Kollegen kennt, kann sie lesen (Vorschau, Absender, Thread-Text), archivieren, taggen
+      oder als sich selbst beantworten. UUIDs sind nicht ratbar -- das ist Defense-in-Depth,
+      kein offener Cross-Tenant-Zugriff; Cross-Tenant ist durch Tests belegt dicht
+      (`TestInboxMessageRPCs_ForeignTenantSeesNotFound`). Team-Inbox-Nachrichten gehoeren
+      fachlich mehreren Nutzern (Mitglieder, Zugewiesene) -- die Sichtbarkeitsregel ist eine
+      Produktentscheidung.
+    sources:
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/inbox/message/service.go
+      - backend/internal/inbox/message/postgres_repository.go
+    notes: >
+      Vor dem Bauen die Regel festlegen: sichtbar = Eigentuemer ODER zugewiesen ODER Mitglied der
+      Team-Inbox der Nachricht. Wenn Luke das nicht vorgibt: `blocked` mit dieser Frage.
+      Wegen `RequirePermissionAny`-Kompatibilitaet keine Guards anfassen.
+    done_when:
+      - >-
+        Ein Test belegt: Nutzer B (gleicher Tenant, nicht Eigentuemer, nicht Mitglied) bekommt
+        NotFound auf GetMessage/Reply/Archive einer Nachricht von Nutzer A
+      - Team-Mitglied und Zugewiesener behalten Zugriff (Test)
+      - go test -count=1 ./internal/server/ ./internal/inbox/... ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
