@@ -2838,6 +2838,34 @@ units:
       - go test -count=1 ./internal/email/sync/... gruen, DATABASE_URL gesetzt, 0 Skips, Paketwert
         vorher/nachher im Journal
 
+  - id: harden-caldav-push-notifier-ssrf
+    phase: 3
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a."
+    scope: >
+      `internal/caldav/push_notifier.go:122` POSTet an `sub.PushURL` mit einem nackten
+      `http.Client` (Zeile 39), ohne SSRF-Schutz. Heute nicht ausnutzbar: `Subscribe` wird
+      ausserhalb der Tests nirgends aufgerufen, es gibt also keinen Weg, eine Push-URL zu
+      registrieren, und CalDAV ist in Produktion aus (0 Zeilen in caldav_push_subscriptions,
+      gemessen 2026-10-20). Sobald jemand WebDAV-Push verdrahtet, waere jede Client-URL ein
+      Request aus dem Gateway ins interne Netz. Gefunden ueber gosec G704 beim Go-1.26-Upgrade.
+    sources:
+      - backend/internal/caldav/push_notifier.go
+      - backend/internal/security/safehttp/client.go
+      - backend/internal/formulare/worker.go
+    notes: >
+      Vorlage ist `formulare/worker.go:61` (`safehttp.New(safehttp.WithTimeout(...))`). Kein
+      eigener Dialer, keine Allowlist von Hand — safehttp wiederverwenden.
+    done_when:
+      - PushNotifier nutzt safehttp statt eines nackten http.Client
+      - >-
+        Ein Test belegt, dass eine Push-URL auf 127.0.0.1 bzw. eine private Adresse nicht
+        angefragt wird
+      - go test -count=1 ./internal/caldav/... gruen, DATABASE_URL gesetzt
+
   - id: scan-409-conflict-error-mapping
     phase: 4
     service: gateway
@@ -3374,3 +3402,36 @@ units:
         Die Liste der Stellen, die das Produkt als "CRM" bezeichnen, steht gesondert im
         Journal, ohne internal/crm/ als Service-Namen mitzuzaehlen
       - Kein Verhalten geaendert, keine Zeile Code veraendert (git diff belegt das)
+
+  - id: scan-gosec-taint-rules-triage
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
+    scope: >
+      Das Go-1.26-Upgrade (2026-10-20) brachte golangci-lint v2.10.1 und damit drei neue
+      gosec-Taint-Regeln. Erster Lauf: 14x G704 (SSRF), 21x G705 (XSS), 59x G706
+      (Log-Injection). Sie sind in backend/.golangci.yml und scans.yml global
+      ausgeschlossen, damit das Upgrade nicht an Altbestand haengt. Stichprobe (9 Stellen)
+      waren Fehlalarme: safehttp-Clients, feste Endpunkte, Attachment-Downloads,
+      slog-Key-Values. Ein echter latenter Fund ist bereits eigene Unit
+      (`harden-caldav-push-notifier-ssrf`).
+      Zu tun: die drei Excludes lokal entfernen, `golangci-lint run --max-issues-per-linter=0
+      --max-same-issues=0 ./...` laufen lassen, jede Fundstelle einordnen.
+    sources:
+      - backend/.golangci.yml
+      - .github/workflows/scans.yml
+    notes: >
+      Prioritaet G704: jede Stelle, deren Ziel-URL aus Nutzer- oder Tenant-Daten stammt, muss
+      safehttp nutzen. G705/G706 sind fast sicher Rauschen (Downloads mit festem Content-Type,
+      strukturiertes slog) — dort reicht die Bestaetigung pro Datei.
+      Ziel ist, die Regeln wieder einzuschalten: Fehlalarme mit `//nolint:gosec // <Grund>`
+      markieren, echte Funde als eigene Units anlegen.
+    done_when:
+      - Tabelle aller 94 Fundstellen im Journal (Regel, Fundstelle, Quelle der Eingabe, echt ja/nein)
+      - Fuer jeden echten Fund ist eine Unit angelegt
+      - >-
+        Mindestens G704 ist wieder eingeschaltet (Exclude entfernt), Fehlalarme sind mit
+        Begruendung annotiert, golangci-lint meldet 0 Funde

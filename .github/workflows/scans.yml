@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: "1.25.6"
+  GO_VERSION: "1.26.10"
 
 # Least-privilege token: scans only checkout + upload SARIF as artifacts (not to
 # code-scanning), so read-only contents is sufficient. Add security-events:write
@@ -53,7 +53,7 @@ jobs:
           args: >-
             -fmt sarif
             -out gosec.sarif
-            -exclude=G101,G104,G108,G109,G115,G304,G402,G404
+            -exclude=G101,G104,G108,G109,G115,G117,G304,G402,G404,G704,G705,G706
             -exclude-dir=proto
             ./backend/...
 

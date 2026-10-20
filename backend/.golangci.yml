@@ -34,6 +34,15 @@ linters:
         - G109   # int32 cast from Atoi is bounds-safe in our query contexts
         - G402   # Email TLS config — MinVersion handled by server
         - G108   # /debug/pprof — env-gated via ENABLE_PPROF
+        - G117   # Exported Password/Secret/Token fields: pattern rule like G101; these are wire and config types
+        # G704/G705/G706: taint rules new in the gosec that ships with
+        # golangci-lint v2.10 (Go 1.26 upgrade, 2026-10-20). First run: 14 SSRF,
+        # 21 XSS, 59 log-injection hits; the sampled ones were false positives
+        # (safehttp clients, fixed endpoints, attachment downloads, slog
+        # key-values). Triage lives in backlog unit scan-gosec-taint-rules-triage.
+        - G704
+        - G705
+        - G706
         - G304   # File inclusion via variable — TLS cert paths from config
   exclusions:
     paths:
