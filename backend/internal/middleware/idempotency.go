@@ -209,6 +209,24 @@ func BeginIdempotent(repo idempotency.Repository, w http.ResponseWriter, r *http
 		response.Error(w, http.StatusUnauthorized, "missing user context")
 		return w, nil, false
 	}
+	return beginIdempotent(repo, w, r, key, tenantID, userID, fingerprint)
+}
+
+// BeginIdempotentFor is BeginIdempotent for routes without a JWT (guest chat):
+// the caller supplies the tenant and the principal (e.g. the guest session ID)
+// instead of the auth context. The stored key is namespaced with principal, so
+// two principals of one tenant can reuse the same header value without
+// colliding on the (tenant_id, key) primary key. r's context must carry the
+// tenant (TenantIDKey) so the RLS-scoped store can be reached.
+func BeginIdempotentFor(repo idempotency.Repository, w http.ResponseWriter, r *http.Request, tenantID, principal uuid.UUID, fingerprint string) (rw http.ResponseWriter, done func(), ok bool) {
+	header := r.Header.Get("Idempotency-Key")
+	if header == "" || repo == nil {
+		return w, func() {}, true
+	}
+	return beginIdempotent(repo, w, r, principal.String()+":"+header, tenantID, principal, fingerprint)
+}
+
+func beginIdempotent(repo idempotency.Repository, w http.ResponseWriter, r *http.Request, key string, tenantID, userID uuid.UUID, fingerprint string) (http.ResponseWriter, func(), bool) {
 	hash := computeRequestHash(tenantID.String(), userID.String(), r.Method, r.URL.Path, []byte(fingerprint))
 	if !reserveOrReplay(w, r, repo, key, tenantID, userID, hash) {
 		return w, nil, false

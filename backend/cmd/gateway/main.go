@@ -362,6 +362,7 @@ func main() {
 
 	// Guest routes (public, no auth middleware)
 	guestRoutes := gateway.NewGuestRoutes(guestService, registry)
+	guestRoutes.SetIdempotency(idempotencyRepo)
 	guestRoutes.RegisterPublicRoutes(r)
 	slog.Info("routes registered", "service", "guest")
 

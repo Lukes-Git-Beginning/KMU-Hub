@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/chat/guest"
+	"github.com/kmuhub/kmuhub/internal/idempotency"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 )
@@ -20,6 +22,7 @@ type guestSessionContextKey struct{}
 type GuestRoutes struct {
 	guestService *guest.Service
 	registry     *ServiceRegistry
+	idempotency  idempotency.Repository
 }
 
 // NewGuestRoutes creates a new GuestRoutes.
@@ -28,6 +31,13 @@ func NewGuestRoutes(guestService *guest.Service, registry *ServiceRegistry) *Gue
 		guestService: guestService,
 		registry:     registry,
 	}
+}
+
+// SetIdempotency enables retry deduplication for guest sends via the optional
+// Idempotency-Key header. The Idempotency middleware cannot guard these routes:
+// it reads tenant and user from a JWT, and a guest has none.
+func (g *GuestRoutes) SetIdempotency(repo idempotency.Repository) {
+	g.idempotency = repo
 }
 
 func (g *GuestRoutes) getChatClient() (chatv1.ChatServiceClient, error) {
@@ -234,6 +244,17 @@ func (g *GuestRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusTooManyRequests, "rate limit exceeded")
 		return
 	}
+
+	// Optional Idempotency-Key: a retry after a lost response must not post the
+	// message twice. Tenant and principal come from the guest session, never from
+	// a header; the key is namespaced per session (BeginIdempotentFor). The
+	// store is RLS-scoped, so the idempotency request carries the session tenant.
+	idemReq := r.WithContext(context.WithValue(r.Context(), middleware.TenantIDKey, session.TenantID.String()))
+	w, done, ok := middleware.BeginIdempotentFor(g.idempotency, w, idemReq, session.TenantID, session.ID, req.Content)
+	if !ok {
+		return
+	}
+	defer done()
 
 	sessionID := session.ID.String()
 	grpcReq := &chatv1.SendMessageRequest{
