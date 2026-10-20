@@ -875,7 +875,18 @@ func (s *Service) UpdateInventurSessionStatus(ctx context.Context, input UpdateI
 }
 
 // DeleteInventurSession deletes an inventur session (cascades to counts).
+// A completed session is a booked stocktake record (§ 240 HGB) and is refused
+// with ErrInventurAlreadyCompleted, like every other write on it. The
+// repository DELETE repeats the status filter, so a session completed between
+// this check and the delete is not erased either.
 func (s *Service) DeleteInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) error {
+	session, err := s.repo.GetInventurSession(ctx, tenantID, sessionID)
+	if err != nil {
+		return err
+	}
+	if session.Status == InventurStatusCompleted {
+		return ErrInventurAlreadyCompleted
+	}
 	return s.repo.DeleteInventurSession(ctx, tenantID, sessionID)
 }
 

@@ -527,6 +527,49 @@ func TestInventurSessionLifecycle_UpdateGetListAndDelete(t *testing.T) {
 	}
 }
 
+// TestDeleteInventurSession_CompletedSessionIsRefusedAtomically drives the
+// repository directly, past the service's status check: the DELETE itself must
+// leave a completed session (and its counts) in place and say why.
+func TestDeleteInventurSession_CompletedSessionIsRefusedAtomically(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupRepo(t)
+
+	item := newTestItem(t, repo, ctx, pool, tenantID, "Stichsäge", "SKU-INV-DEL-1", 10, 1)
+
+	now := time.Now().UTC()
+	session := &InventurSession{
+		ID: uuid.New(), TenantID: tenantID, Name: "Abgeschlossene Inventur", Date: now,
+		Status: InventurStatusCompleted, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateInventurSession(ctx, session); err != nil {
+		t.Fatalf("CreateInventurSession: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "inventur_sessions", session.ID) })
+	counted := int64(9)
+	if err := repo.UpsertInventurCount(ctx, &InventurCount{
+		ID: uuid.New(), TenantID: tenantID, SessionID: session.ID, ItemID: item.ID,
+		Expected: 10, Counted: &counted, CountedAt: &now,
+	}); err != nil {
+		t.Fatalf("UpsertInventurCount: %v", err)
+	}
+
+	if err := repo.DeleteInventurSession(ctx, tenantID, session.ID); !errors.Is(err, ErrInventurAlreadyCompleted) {
+		t.Fatalf("expected ErrInventurAlreadyCompleted, got %v", err)
+	}
+	reloaded, err := repo.GetInventurSession(ctx, tenantID, session.ID)
+	if err != nil {
+		t.Fatalf("completed session must survive the refused delete: %v", err)
+	}
+	if len(reloaded.Counts) != 1 {
+		t.Fatalf("expected the count to survive, got %d", len(reloaded.Counts))
+	}
+
+	// A foreign tenant neither deletes it nor learns that it exists.
+	if err := repo.DeleteInventurSession(ctx, uuid.New(), session.ID); !errors.Is(err, ErrInventurSessionNotFound) {
+		t.Fatalf("expected ErrInventurSessionNotFound for a foreign tenant, got %v", err)
+	}
+}
+
 func TestCompleteInventurSessionTx_AppliesMovementsAndRejectsUnknownSession(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupRepo(t)

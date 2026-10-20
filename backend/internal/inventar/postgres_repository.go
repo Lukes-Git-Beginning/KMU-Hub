@@ -503,15 +503,28 @@ func (r *PostgresRepository) UpdateInventurSession(ctx context.Context, session 
 	return nil
 }
 
+// DeleteInventurSession never deletes a completed session. If the row exists
+// but is completed, it reports ErrInventurAlreadyCompleted instead of
+// ErrInventurSessionNotFound.
 func (r *PostgresRepository) DeleteInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) error {
 	ct, err := r.pool.Exec(ctx,
-		`DELETE FROM inventur_sessions WHERE id=$1 AND tenant_id=$2`,
-		sessionID, tenantID,
+		`DELETE FROM inventur_sessions WHERE id=$1 AND tenant_id=$2 AND status <> $3`,
+		sessionID, tenantID, InventurStatusCompleted,
 	)
 	if err != nil {
 		return err
 	}
 	if ct.RowsAffected() == 0 {
+		var exists bool
+		if err := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM inventur_sessions WHERE id=$1 AND tenant_id=$2)`,
+			sessionID, tenantID,
+		).Scan(&exists); err != nil {
+			return fmt.Errorf("check inventur session after refused delete: %w", err)
+		}
+		if exists {
+			return ErrInventurAlreadyCompleted
+		}
 		return ErrInventurSessionNotFound
 	}
 	return nil
