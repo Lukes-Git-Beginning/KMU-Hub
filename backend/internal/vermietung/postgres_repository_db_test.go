@@ -622,6 +622,26 @@ func TestPostgresSaveSignature_UpdatesAndReturnsRental(t *testing.T) {
 	if _, err := repo.SaveSignature(ctx, tenantID.String(), uuid.New().String(), sig, "Nobody"); !errors.Is(err, ErrRentalNotFound) {
 		t.Fatalf("expected ErrRentalNotFound for unknown rental, got %v", err)
 	}
+
+	// A signature is immutable: a second call is refused and leaves the first intact.
+	if _, err := repo.SaveSignature(ctx, tenantID.String(), rental.ID.String(), "data:image/png;base64,Zm9v", "Erika Musterfrau"); !errors.Is(err, ErrAlreadySigned) {
+		t.Fatalf("expected ErrAlreadySigned on re-sign, got %v", err)
+	}
+	again, err := repo.GetRental(ctx, tenantID, rental.ID)
+	if err != nil {
+		t.Fatalf("GetRental: %v", err)
+	}
+	if again.SignatureData == nil || *again.SignatureData != sig || again.SignedBy == nil || *again.SignedBy != "Max Mustermann" {
+		t.Fatalf("first signature must survive the refused overwrite, got %+v / %+v", again.SignatureData, again.SignedBy)
+	}
+
+	// A foreign tenant sees "not found", not "already signed".
+	other := uuid.New()
+	testutil.EnsureTenant(t, pool, other, "Vermietung SaveSignature other")
+	otherCtx := testutil.WithTenantCtx(context.Background(), other)
+	if _, err := repo.SaveSignature(otherCtx, other.String(), rental.ID.String(), sig, "Mallory"); !errors.Is(err, ErrRentalNotFound) {
+		t.Fatalf("expected ErrRentalNotFound across tenants, got %v", err)
+	}
 }
 
 // ============================================================================

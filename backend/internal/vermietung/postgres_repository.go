@@ -500,13 +500,15 @@ func (r *PostgresRepository) scanInspectionFromRows(rows pgx.Rows) (*RentalInspe
 }
 
 // SaveSignature updates a rental's signature fields and returns the updated record.
-// Returns ErrRentalNotFound when no rental with the given id+tenant_id exists.
+// A signature is evidence of a fixed handover state, so the UPDATE only matches a
+// rental that has none yet. Returns ErrAlreadySigned when the rental already carries
+// a signature and ErrRentalNotFound when no rental with the given id+tenant_id exists.
 func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, rentalID, signatureData, signedBy string) (*Rental, error) {
 	var rental Rental
 	err := r.pool.QueryRow(ctx,
 		`UPDATE rentals
 		 SET signature_data = $3, signed_at = NOW(), signed_by = $4, updated_at = NOW()
-		 WHERE id = $1 AND tenant_id = $2
+		 WHERE id = $1 AND tenant_id = $2 AND signature_data IS NULL
 		 RETURNING id, tenant_id, object_id, contact_id, renter_name, start_date, end_date,
 		           status, total_price, deposit_paid, notes,
 		           signature_data, signed_at, signed_by,
@@ -519,6 +521,17 @@ func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, rental
 		&rental.CreatedAt, &rental.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// Zero rows is either "no such rental" or "already signed" - tell them apart.
+		var exists bool
+		if qerr := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM rentals WHERE id = $1 AND tenant_id = $2)`,
+			rentalID, tenantID,
+		).Scan(&exists); qerr != nil {
+			return nil, fmt.Errorf("save rental signature: check rental: %w", qerr)
+		}
+		if exists {
+			return nil, ErrAlreadySigned
+		}
 		return nil, ErrRentalNotFound
 	}
 	if err != nil {

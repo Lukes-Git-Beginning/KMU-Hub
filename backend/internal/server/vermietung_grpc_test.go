@@ -1039,6 +1039,7 @@ func TestMapVermietungError_Table(t *testing.T) {
 		{"invalid_input", vermietung.ErrInvalidInput, codes.InvalidArgument},
 		{"generic_fallback", errStubVermietungFailure, codes.Internal},
 		{"inspection_kind_exists", vermietung.ErrInspectionKindExists, codes.AlreadyExists},
+		{"already_signed", vermietung.ErrAlreadySigned, codes.FailedPrecondition},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

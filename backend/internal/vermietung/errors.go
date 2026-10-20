@@ -10,4 +10,5 @@ var (
 	ErrRentalConflict         = errors.New("rental period overlaps with an existing booking")
 	ErrInvalidStateTransition = errors.New("rental state transition is not allowed")
 	ErrInspectionKindExists   = errors.New("an inspection of this kind already exists for this rental")
+	ErrAlreadySigned          = errors.New("rental is already signed")
 )
