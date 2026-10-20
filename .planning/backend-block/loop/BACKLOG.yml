@@ -2732,7 +2732,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Zweiter Scan mit belegter Hypothese. Vier Stellen im Lauf pruefen unabhaengig dieselbe
@@ -3627,3 +3627,143 @@ units:
       - Die Aufbewahrungsdauer der Zeilen steht im Journal
       - Fuer die Funde ist eine Fix-Unit angelegt
       - Kein Verhalten geaendert (git diff zeigt nur BACKLOG.yml und JOURNAL.md)
+
+  - id: harden-machine-booking-exclusion-constraint
+    phase: 4
+    service: produktion
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). `machine_bookings` hat KEINE DB-seitige
+      Sperre. `CreateBookingWithLock` serialisiert Anlagen per `pg_advisory_xact_lock`, aber `UpdateMachineBooking`
+      (`service.go`, ruft `FindConflictingBooking` ohne Transaktion/Lock, danach `UpdateBooking`) ist ein offenes
+      Read-vor-Write: zwei gleichzeitige Verschiebungen (oder Verschiebung gegen Neuanlage, die den Lock haelt, den die
+      Verschiebung nicht nimmt) koennen dieselbe Maschine doppelt belegen. Loesung wie bei `rentals` (000101):
+      `ALTER TABLE machine_bookings ADD CONSTRAINT ... EXCLUDE USING GIST (tenant_id WITH =, machine_id WITH =,
+      tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('booked','in_use'))`; die Extension `btree_gist`
+      existiert seit 000034/000101. `23P01` im Repo auf `ErrBookingConflict` abbilden (Vorlage: `asRentalConflict`,
+      `vermietung/postgres_repository.go`) fuer `CreateBookingWithLock` UND `UpdateBooking`. Die bestehende
+      Vorab-Pruefung bleibt (liefert die ID der kollidierenden Buchung fuer die Fehlermeldung).
+    sources:
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/produktion/service.go
+      - backend/migrations/000087_create_produktion.up.sql
+      - backend/migrations/000101_vermietung_gist_overlap_unique_inspection.up.sql
+    notes: >
+      PRODUKTIONSABFRAGE vor dem Ausrollen (Luke): die Migration scheitert, wenn schon Ueberschneidungen existieren.
+      SELECT a.tenant_id, a.machine_id, a.id, b.id FROM machine_bookings a JOIN machine_bookings b
+      ON a.tenant_id = b.tenant_id AND a.machine_id = b.machine_id AND a.id < b.id
+      AND a.status IN ('booked','in_use') AND b.status IN ('booked','in_use')
+      AND a.starts_at < b.ends_at AND a.ends_at > b.starts_at;
+      Nicht leer -> erst bereinigen (eine der Buchungen stornieren), dann migrieren. machine_id ist TEXT (kein Maschinen-
+      Stamm); GiST mit Text ueber btree_gist ist moeglich. Forward-only, .up und .down. Test: zwei Goroutinen verschieben
+      parallel auf dasselbe Fenster, genau eine gewinnt (Goroutinen -> `-race` nur in CI, in `offen:` vermerken).
+    done_when:
+      - Migration mit EXCLUDE-Constraint auf machine_bookings, up und down, lokal gegen kmuhub_app angewandt
+      - 23P01 wird in Create und Update auf ErrBookingConflict abgebildet, Test mit echter DB belegt es
+      - Mutations-Probe - Mapping entfernt, Test rot, zurueckgedreht
+      - Produktionsabfrage steht im Journal
+
+  - id: harden-vehicle-booking-exclusion-constraint
+    phase: 4
+    service: fuhrpark
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). `vehicle_bookings` (000300) sperrt Anlagen per
+      Advisory-Lock (`CreateBookingWithLock`), aber `UpdateVehicleBooking` (`service.go`) prueft Konflikte per
+      `FindConflictingBooking` ausserhalb jeder Transaktion und ohne den Lock - betroffen sind Verschiebung UND
+      Reaktivierung (cancelled/completed -> booked). Die Begruendung im Kopf von 000300 ("btree_gist is not guaranteed
+      available in every deployment target") ist widerlegt: `CREATE EXTENSION IF NOT EXISTS btree_gist` steht bereits in
+      000034 und 000101, laeuft also in jedem Zielsystem. Loesung: `EXCLUDE USING GIST (tenant_id WITH =, vehicle_id WITH =,
+      tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('booked','in_use'))` in neuer Migration, `23P01` auf
+      `ErrBookingConflict` abbilden (Vorlage `asRentalConflict`) in `CreateBookingWithLock` und `UpdateBooking`.
+    sources:
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/service.go
+      - backend/migrations/000300_vehicle_bookings.up.sql
+      - backend/internal/vermietung/postgres_repository.go
+    notes: >
+      PRODUKTIONSABFRAGE (Luke): SELECT a.tenant_id, a.vehicle_id, a.id, b.id FROM vehicle_bookings a
+      JOIN vehicle_bookings b ON a.tenant_id = b.tenant_id AND a.vehicle_id = b.vehicle_id AND a.id < b.id
+      AND a.status IN ('booked','in_use') AND b.status IN ('booked','in_use')
+      AND a.starts_at < b.ends_at AND a.ends_at > b.starts_at;
+      Nicht leer -> vor der Migration bereinigen. Die Migration 000300 ist neu - vermutlich leer, trotzdem fragen.
+      Der Kommentar in 000300 bleibt unveraendert (ausgerollte Migration); die Korrektur gehoert in den Kopf der neuen.
+      Gleiche Test-Anforderung wie bei der Maschinen-Unit (parallele Verschiebung, genau ein Gewinner, `-race` nur CI).
+    done_when:
+      - Migration mit EXCLUDE-Constraint auf vehicle_bookings, up und down, lokal angewandt
+      - 23P01 wird in Create und Update auf ErrBookingConflict abgebildet, Test mit echter DB belegt es
+      - Mutations-Probe - Mapping entfernt, Test rot, zurueckgedreht
+      - Produktionsabfrage steht im Journal
+
+  - id: harden-public-booking-slot-unique-index
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). Zwei verschiedene Kunden koennen denselben
+      Slot einer Buchungsseite belegen: der einzige Unique-Constraint `public_bookings_unique_slot` (000135) enthaelt
+      `customer_email` und ist nur ein Doppel-Submit-Backstop desselben Kunden. `CreatePublicBooking`
+      (`work/calendar/booking_service.go`) prueft nur gegen Kalender-Events (`GetCalendarEventsInRange`), NICHT gegen
+      `public_bookings`, und das Kalender-Event entsteht erst NACH dem Insert und best-effort (`calClient != nil`,
+      Fehler nur geloggt). Zwei gleichzeitige Anfragen - oder eine Anfrage, deren Event-Anlage scheitert, gefolgt von
+      einer zweiten - buchen denselben Slot doppelt. Loesung: partieller Unique-Index
+      `UNIQUE (booking_page_id, date, time_slot) WHERE status IN ('pending','confirmed')` und Unique-Violation (23505)
+      auf `ErrBookingSlotUnavailable` abbilden. Nicht Teil dieser Unit: Ueberlappung unterschiedlich langer Services
+      auf verschiedenen Slot-Starts (laeuft ueber die Kalender-Event-Pruefung).
+    sources:
+      - backend/internal/work/calendar/booking_service.go
+      - backend/internal/work/calendar/booking_postgres_repository.go
+      - backend/migrations/000135_create_booking_pages.up.sql
+    notes: >
+      PRODUKTIONSABFRAGE (Luke): SELECT booking_page_id, date, time_slot, count(*) FROM public_bookings
+      WHERE status IN ('pending','confirmed') GROUP BY 1,2,3 HAVING count(*) > 1;
+      Nicht leer -> vor dem Index bereinigen. Pruefen, ob `GetAvailability` Slots ueber mehrere Staff-Mitglieder
+      parallel vergeben darf (`staff_user_id`); falls ja, gehoert `staff_user_id` in den Index. Die Route ist
+      oeffentlich (Ratelimit, keine Auth): 23505 darf keine Details nach aussen geben.
+    done_when:
+      - Migration mit partiellem Unique-Index, up und down, lokal angewandt
+      - Zweiter Kunde auf denselben Slot bekommt ErrBookingSlotUnavailable, Test mit echter DB
+      - Mutations-Probe - Index weg, Test rot, zurueckgedreht
+      - Produktionsabfrage steht im Journal
+
+  - id: harden-shift-assignment-capacity-race
+    phase: 4
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). `Service.AssignEmployee` (`schichten/service.go`)
+      prueft Kapazitaet (`CountAssignments` >= `shift.Capacity`) und die Ruhezeit (`validateRestPeriod`,
+      `validateMinorProtection`) und ruft erst danach `CreateAssignment` auf - alles ohne Transaktion und Lock. Zwei
+      gleichzeitige Zuweisungen auf eine Schicht mit Kapazitaet 1 lesen beide count=0 und fuegen beide ein
+      (Ueberbelegung, `ErrShiftFull` umgangen); dieselbe Luecke trifft die ArbZG-/JArbSchG-Pruefung bei zwei parallelen
+      Zuweisungen desselben Mitarbeiters auf aneinandergrenzende Schichten. Der Unique-Constraint
+      `uq_shift_assignments_tenant` (tenant, shift, employee) faengt nur die doppelte Zuweisung derselben Person.
+      Loesung ohne Migration: Zuweisung in eine Transaktion, die zuerst die Schichtzeile `FOR UPDATE` sperrt (Kapazitaet)
+      bzw. einen Advisory-Lock je (tenant, employee) nimmt (Ruhezeit), Pruefungen und Insert darin.
+    sources:
+      - backend/internal/schichten/service.go
+      - backend/internal/schichten/postgres_repository.go
+      - backend/internal/schichten/repository.go
+    notes: >
+      Kapazitaet ist eine Zaehl-Invariante, kein Zeitraum - EXCLUDE passt nicht, ein Zeilen-Lock auf `shifts` ist die
+      schlanke Loesung. Nicht anfassen: `SwapAssignmentsForRequest` (hat eigene Transaktion, 000311). Test: N parallele
+      Zuweisungen auf Kapazitaet K, genau K gelingen (Goroutinen -> `-race` nur in CI, in `offen:` vermerken).
+      Keine Produktionsabfrage noetig (kein neuer Constraint); optional zum Messen:
+      SELECT s.id, s.capacity, count(*) FROM shifts s JOIN shift_assignments a ON a.shift_id = s.id
+      WHERE s.capacity IS NOT NULL GROUP BY s.id HAVING count(*) > s.capacity;
+    done_when:
+      - Kapazitaetspruefung und Insert laufen unter einem gemeinsamen Lock in einer Transaktion
+      - Test mit echter DB - parallele Zuweisungen ueberschreiten die Kapazitaet nicht
+      - Mutations-Probe - Lock entfernt, Test rot, zurueckgedreht

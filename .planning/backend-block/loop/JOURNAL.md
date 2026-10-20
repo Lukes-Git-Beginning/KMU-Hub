@@ -559,3 +559,28 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 47, a2f4352e: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
 - neue-units: `harden-files-upload-retry-duplicates`, `harden-guest-chat-message-retry-duplicates`, `harden-formulare-public-submit-double-submission`, `scan-idempotency-response-body-persists-one-time-secrets` (alle ans Ende; kein Cross-Tenant, kein Auth-Loch)
 - offen: (1) Tief geprüft (Code bis Service/Repo gelesen): Invitation-Accept, CSAT, Formulare-Submit, Public-Booking, Automations-Webhook, Lexware-Webhook-Handler, Slack-Interaktion, LiveKit-Webhook, Guest-Message, Files-Upload, Idempotency-Middleware. Nur gegrept/Kette ausgewertet, Service nicht gelesen: Teams-Webhook, `public/documents/share`, `public/berichte/reports`, `public/wiki/articles` (als „lesend per POST“ eingestuft, nicht am Handler belegt), Slack-Slash-Command `link`/`unlink`, Lexware `SyncContactByLexwareID` (Upsert angenommen). Die 711 Kettenträger wurden nicht einzeln auf fachliche Wiederholbarkeit geprüft, weil die Kette sie abdeckt. (2) Der Scan-Test lief nur mit Funktionszeiger-Vergleich: ein Registrar, der `auth` in einen eigenen Wrapper packt, würde als `other` statt `AUTH+IDEM` erscheinen; dieser Fall trat nicht auf (alle 38 Ausreißer sind oben einzeln erklärt). (3) Keine Goroutinen in neuen Tests (keine Tests committet).
+
+## Iteration 49 — scan-resource-double-booking-race — done — 2026-10-20 23:26
+- commit: `docs(loop): scan resource double-booking guards and file the gaps` (SHA via `git log`)
+- gebaut: Scan, kein Produktionscode. Belegungsmodelle per `pg_constraint` (lokale DB, `contype='x'`) und Spaltensuche (`start/end`-Paare) gegen den Code gelesen. **Genau zwei Tabellen nutzen `EXCLUDE USING gist`**, beide als Vorlage benannt:
+  - `resource_bookings` (000034): `EXCLUDE (resource_id =, tstzrange(start_time,end_time) &&) WHERE cancelled_at IS NULL`; `23P01` → `ErrBookingConflict` in `work/resource/postgres_repository.go:215`. Nur `Book` schreibt (kein Update-Pfad).
+  - `rentals` (000101): `uq_rentals_no_overlap (tenant_id, object_id, tstzrange(..,'[)')) WHERE status NOT IN ('cancelled','completed')`; `23P01` → `ErrRentalConflict` via `asRentalConflict`. Service prüft vorab `HasOverlap`, der Constraint fängt das Rennen. Create UND Update abgedeckt.
+  - Tabelle (Modell → heutige Absicherung):
+    | Tabelle | Absicherung | Befund |
+    |---|---|---|
+    | resource_bookings | DB (EXCLUDE) | ok |
+    | rentals | DB (EXCLUDE) + Vorab-Check | ok |
+    | machine_bookings | Anwendung: Advisory-Lock nur in `CreateBookingWithLock`; `UpdateMachineBooking` = `FindConflictingBooking` ohne Tx/Lock, dann `UpdateBooking` | **Lücke Update** → `harden-machine-booking-exclusion-constraint` |
+    | vehicle_bookings | Anwendung: wie oben (`CreateBookingWithLock` ja, `UpdateVehicleBooking` inkl. Reaktivierung cancelled→booked nein) | **Lücke Update** → `harden-vehicle-booking-exclusion-constraint` |
+    | public_bookings | DB nur `UNIQUE(page, customer_email, date, time_slot)` (Doppel-Submit desselben Kunden); Service prüft nur Kalender-Events, Event entsteht erst nach dem Insert und best-effort | **Lücke: zwei Kunden, ein Slot** → `harden-public-booking-slot-unique-index` |
+    | shift_assignments | DB `UNIQUE(tenant,shift,employee)` (DEFERRABLE, 000311) fängt nur dieselbe Person; Kapazität (`CountAssignments` ≥ `Capacity`) und Ruhezeit-/Jugendschutz-Check ohne Tx/Lock | **Lücke Kapazität** (Zähl-Invariante, kein Zeitraum) → `harden-shift-assignment-capacity-race` |
+    | hr leave requests | `FindOverlaps` liefert bewusst eine **Warnung** (`ErrOverlappingApproved`), kein Block | by design, kein Befund |
+    | calendar_events / meetings / production_orders | keine Ressourcen-Belegung (Termine einer Person/Planzeitraum ohne Exklusivität) | nicht im Scope |
+  - **Widerlegte Begründung:** `000300` und der Kommentar an `produktion.FindConflictingBooking` begründen das Fehlen von EXCLUDE mit „btree_gist is not guaranteed available“. `CREATE EXTENSION IF NOT EXISTS btree_gist` steht aber schon in 000034 und 000101 — wer diese Migrationen ausgeführt hat, hat die Extension. Der Grund trägt nicht; beide Tabellen können EXCLUDE bekommen.
+  - Lokal gemessen: nur `resource_bookings` und `rentals` tragen `contype='x'`.
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (nur BACKLOG.yml/JOURNAL.md geändert; `backlog-check --preflight` grün) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (Iteration 48, 4f1b9968/33a407f0: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
+- neue-units: `harden-machine-booking-exclusion-constraint`, `harden-vehicle-booking-exclusion-constraint`, `harden-public-booking-slot-unique-index` (alle drei `opus`, mit Produktionsabfrage in den notes), `harden-shift-assignment-capacity-race` (`sonnet`, ohne Migration) — alle ans Ende; kein Cross-Tenant, kein Auth-Loch
+- offen: (1) Die Überlappungs-Abfragen in den notes sind gegen die Schemata gelesen, nicht gegen Produktion gelaufen — Luke fährt sie vor dem Ausrollen. (2) Race ist an Code-Struktur belegt (kein Lock im Update-Pfad), nicht mit zwei parallelen Requests reproduziert. (3) Nicht geprüft: ob eine Kalender-Event-Verschiebung gebuchte `resource_bookings` mitzieht (kein Update-Pfad in `work/resource` gefunden), und ob `GetAvailability` Slots über mehrere `staff_user_id` parallel vergibt — steht als Prüfpunkt in der Public-Booking-Unit.
