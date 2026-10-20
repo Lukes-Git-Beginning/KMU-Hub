@@ -597,15 +597,25 @@ func (m *mockRepository) GetPasswordResetToken(_ context.Context, tokenHash stri
 	return t, nil
 }
 
-func (m *mockRepository) MarkPasswordResetTokenUsed(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) ResetPasswordWithToken(ctx context.Context, tokenID, _, userID uuid.UUID, passwordHash string) error {
 	for _, t := range m.passwordResetTokens {
-		if t.ID == id {
-			now := time.Now()
-			t.UsedAt = &now
-			return nil
+		if t.ID != tokenID {
+			continue
 		}
+		if t.UsedAt != nil {
+			return ErrResetTokenUsed
+		}
+		if time.Now().After(t.ExpiresAt) {
+			return ErrResetTokenExpired
+		}
+		if err := m.UpdatePassword(ctx, userID, passwordHash); err != nil {
+			return err
+		}
+		now := time.Now()
+		t.UsedAt = &now
+		return m.RevokeAllUserTokens(ctx, userID)
 	}
-	return nil
+	return ErrResetTokenInvalid
 }
 
 func newTestService() (*Service, *mockRepository) {

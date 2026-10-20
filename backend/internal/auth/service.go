@@ -753,7 +753,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 }
 
 // ResetPassword validates the reset token, checks password strength, updates
-// the password, marks the token as used, and revokes all refresh tokens.
+// the password, spends the token and revokes all refresh tokens atomically.
 func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) error {
 	// Pre-JWT path: no tenant in ctx.
 	sysCtx := sysctx.With(ctx)
@@ -789,18 +789,13 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	if err := s.repo.UpdatePassword(sysCtx, prt.UserID, string(pwHash)); err != nil {
-		return fmt.Errorf("update password: %w", err)
-	}
-
-	// Mark token as consumed (idempotent on double-call).
-	if err := s.repo.MarkPasswordResetTokenUsed(sysCtx, prt.ID); err != nil {
-		slog.Error("failed to mark reset token used", "token_id", prt.ID, "error", err)
-	}
-
-	// Revoke all active refresh tokens so old sessions are invalidated.
-	if err := s.repo.RevokeAllUserTokens(sysCtx, prt.UserID); err != nil {
-		slog.Error("failed to revoke tokens after password reset", "user_id", prt.UserID, "error", err)
+	// Spend the token, set the password and revoke the old sessions in one
+	// transaction: the token is single-use even under concurrent requests.
+	if err := s.repo.ResetPasswordWithToken(sysCtx, prt.ID, prt.TenantID, prt.UserID, string(pwHash)); err != nil {
+		if errors.Is(err, ErrResetTokenUsed) || errors.Is(err, ErrResetTokenExpired) || errors.Is(err, ErrResetTokenInvalid) {
+			return err
+		}
+		return fmt.Errorf("reset password: %w", err)
 	}
 
 	slog.Info("password reset completed", "user_id", prt.UserID)

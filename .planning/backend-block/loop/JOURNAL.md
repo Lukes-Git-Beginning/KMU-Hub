@@ -1008,3 +1008,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 73, 0e8d8e07: Migration ohne neue Tabelle, kein Guard/Proto/Route; Mapping `23505` im Repo)
 - neue-units: keine
 - offen: (1) Die Tests starten Goroutinen → `-race` nur in CI abgenommen. (2) Pro Zuweisung hält der Aufruf jetzt eine Transaktion (eine Pool-Verbindung, Statements laufen alle darauf) — kein zweiter Pool-Zugriff innerhalb von `fn`, daher keine Pool-Starvation. (3) `UnassignEmployee` und Schicht-Updates (Zeit/Kapazität) nehmen den Lock nicht; eine gleichzeitige Verschiebung der Schichtzeit oder Kapazitätsänderung kann die Prüfung weiter unterlaufen — außerhalb des Unit-Scopes.
+
+## Iteration 75 — harden-password-reset-token-single-use — done — 2026-10-21 01:30
+- commit: `fix(auth): spend the password reset token atomically with the password change` (SHA via `git log`)
+- gebaut: Neue Repository-Methode `ResetPasswordWithToken(tokenID, tenantID, userID, hash)`: eine Transaktion, zuerst `UPDATE password_reset_tokens SET used_at=NOW() WHERE id AND tenant_id AND used_at IS NULL AND expires_at > NOW()`, dann Passwort setzen und alle Refresh-Tokens widerrufen; 0 Zeilen → `ErrResetTokenUsed`/`Expired`/`Invalid` (einmal nachlesen). Fehlschlag beim Passwort-Update rollt das Verbrennen des Tokens zurück. `Service.ResetPassword` ruft nur noch diese Methode; `MarkPasswordResetTokenUsed` entfällt (Interface, Repo, beide Mocks). Fehlercodes nach außen unverändert; Refresh-Token-Widerruf ist jetzt Teil der Tx (Fehler bricht den Reset ab statt nur geloggt zu werden).
+  - Tests: `password_reset_single_use_db_test.go` (echtes Postgres als kmuhub_app): 8 parallele `ResetPassword` mit demselben Token → genau 1 Erfolg, Rest `ErrResetTokenUsed`; NUL-Byte im Hash lässt das Passwort-Update scheitern → Token bleibt unverbraucht und danach einlösbar, zweiter Versuch `ErrResetTokenUsed`; abgelaufener Token → `ErrResetTokenExpired`, Passwort unverändert; fremde Tenant-ID → `ErrResetTokenInvalid`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/auth/...`, `./internal/server/`, DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a. (keine neue Tabelle/Policy) | gateway-test ok (keine Route angefasst)
+- coverage: internal/auth 77,5 % -> 77,8 %
+- mutations-probe: (a) `used_at IS NULL` aus dem Token-UPDATE entfernt ⇒ Nebenläufigkeits- und Rollback-Test rot; (b) Token-UPDATE auf `r.pool.Exec` statt `tx.Exec` (nicht atomar) ⇒ Rollback-Test rot; beide zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 74, 1d24373b: reine Go-Änderung in schichten, kein Guard/Proto/Route/Migration)
+- neue-units: keine
+- offen: (1) Der Parallel-Test startet Goroutinen → `-race` nur in CI abgenommen. (2) Verhaltensänderung: scheitert der Refresh-Token-Widerruf, scheitert jetzt der ganze Reset (vorher nur Log) — fail-closed, bewusst.

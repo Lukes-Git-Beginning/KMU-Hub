@@ -3790,7 +3790,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
     scope: >
       Nebenbefund aus `scan-signed-url-and-token-lifetimes` (Iteration 50). `Service.ResetPassword`

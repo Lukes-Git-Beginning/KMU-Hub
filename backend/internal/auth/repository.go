@@ -223,7 +223,10 @@ type Repository interface {
 	// Password reset token methods
 	CreatePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error
 	GetPasswordResetToken(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error)
-	MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) error
+	// ResetPasswordWithToken atomically spends the token (single use), sets the
+	// password and revokes all refresh tokens; returns ErrResetTokenUsed /
+	// ErrResetTokenExpired / ErrResetTokenInvalid when the token cannot be spent.
+	ResetPasswordWithToken(ctx context.Context, tokenID, tenantID, userID uuid.UUID, passwordHash string) error
 	// InvalidateOpenPasswordResetTokens spends every still-open reset token of
 	// the user so that only the link of the newest request works.
 	InvalidateOpenPasswordResetTokens(ctx context.Context, tenantID, userID uuid.UUID) error
