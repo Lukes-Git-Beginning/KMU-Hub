@@ -59,3 +59,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: n.a. — erste Iteration von Lauf 14, kein Loop-Commit davor (main-Commits seit 08-27 stammen von Luke)
 - neue-units: keine
 - offen: (1) Der authentifizierte WS-Sendepfad aus `fix-websocket-chat-send-message-missing-tenant-id` ist hiermit mit erledigt; dort bleiben nur die Gast-Pfade (`handleGuestSendMessage`, `route_guest.go`). (2) Die neuen Tests starten Server-Goroutinen (Hub über echten WS-Dial); Fakes melden nur über gepufferte Channels zurück, `channelMembers` wird unter Lock gelesen — abgenommen erst nach CI mit `-race`. (3) `cacheUserName` lief bisher ebenfalls ohne Tenant und dürfte unter RLS nie getroffen haben; läuft jetzt mit Tenant-Context (Nebeneffekt, gewollt).
+
+## Iteration 2 — fix-websocket-chat-send-message-missing-tenant-id — done — 2026-10-20 19:50
+- commit: `fix(server): carry the guest session tenant into chat sends` (SHA via `git log`)
+- gebaut: `GuestSessionInfo` hat jetzt `TenantID` (Adapter in `cmd/gateway/adapters.go` füllt es aus `guest.GuestSession`); `handleGuestSendMessage` (WS) und `GuestRoutes.HandleSendMessage` (REST) setzen `SendMessageRequest.TenantId` aus der Session. Der authentifizierte WS-Pfad war schon in Iteration 1 erledigt. Kein Channel-Lookup nötig: die Guest-Session trägt die Tenant-ID bereits (Spalte `tenant_id`, aus dem Channel beim Anlegen befüllt).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/server/... + internal/gateway + cmd/gateway ok, DATABASE_URL als kmuhub_app gesetzt) | migration n.a. | rls-smoke n.a.
+- coverage: internal/server 72,7 % -> 72,8 % (kein Coverage-Ziel, Bugfix)
+- mutations-probe: `TenantId:`-Zeile in beiden Gast-Pfaden entfernt -> `TestHandleGuestSendMessage_RequestCarriesSessionTenant` (WS) und `TestGuestHandleSendMessage_CarriesSessionTenant` (REST, gegen echten loopback-gRPC-Server) beide rot; zurückgedreht, Diff sauber
+- verify vorgaenger: sauber (Iteration 1, 675408f2: WS-Context gestempelt, TenantId gesetzt, keine Route/Proto/Migration/Guard berührt, Tests mit Mutations-Probe)
+- neue-units: keine
+- offen: (1) Der neue WS-Gast-Test und der REST-Test starten Server-Goroutinen (http.Server bzw. grpc.Server); Fake meldet nur über gepufferten Channel zurück — abgenommen erst nach CI mit `-race`. (2) Der Gast-WS-Kontext trägt weiterhin keinen Tenant in der Message-Loop (nur das Request-Feld); reicht für `SendMessage`, würde aber bei einem künftigen Gast-RPC, der `GetTenantID(ctx)` liest, wieder fail-closed ausfallen.

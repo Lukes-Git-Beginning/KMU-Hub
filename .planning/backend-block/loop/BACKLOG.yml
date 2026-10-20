@@ -444,7 +444,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `fix-websocket-presence-subscribe-missing-tenant-check` (Iteration 2, Lauf 13):

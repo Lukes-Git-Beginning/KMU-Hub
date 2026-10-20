@@ -757,6 +757,54 @@ func TestBroadcastToChannel_HubDoesNotFilterByTenant(t *testing.T) {
 // Guest connection loop
 // ---------------------------------------------------------------------------
 
+// TestHandleGuestSendMessage_RequestCarriesSessionTenant guards the guest half
+// of the "every WebSocket send fails" defect: ChatGRPCServer.SendMessage parses
+// req.TenantId unconditionally, and a guest has no JWT to take it from, so the
+// tenant comes from the validated guest session.
+func TestHandleGuestSendMessage_RequestCarriesSessionTenant(t *testing.T) {
+	sessionID, tenantID, channelID := uuid.New(), uuid.New(), uuid.New()
+
+	sent := make(chan *chatv1.SendMessageRequest, 1)
+	h := newTestHub(nil)
+	h.chatClient = &fakeChatClient{
+		sendMessage: func(_ context.Context, in *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) {
+			sent <- in
+			if _, err := uuid.Parse(in.TenantId); err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+			}
+			return &chatv1.SendMessageResponse{Message: &chatv1.MessageInfo{Id: uuid.New().String(), Content: in.Content}}, nil
+		},
+	}
+	h.SetGuestService(&fakeGuestValidator{session: &GuestSessionInfo{
+		ID: sessionID, TenantID: tenantID, ChannelID: channelID, DisplayName: "Gast", IsActive: true,
+	}})
+
+	client, resp, err := websocket.Dial(context.Background(), serveHub(t, h)+"/api/v1/ws?guest_token=ok", nil)
+	require.NoError(t, err)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	t.Cleanup(func() { _ = client.CloseNow() })
+	require.True(t, waitFor(2*time.Second, func() bool {
+		h.mu.RLock()
+		defer h.mu.RUnlock()
+		return len(h.guestConnections[sessionID.String()]) == 1
+	}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, wsjson.Write(ctx, client, WSMessage{Type: WSMessageSend, Content: "hallo"}))
+
+	var got WSMessage
+	require.NoError(t, wsjson.Read(ctx, client, &got))
+	require.Equal(t, WSMessageNew, got.Type, "expected the broadcast, got error frame %q", got.Error)
+
+	req := <-sent
+	assert.Equal(t, tenantID.String(), req.TenantId)
+	require.NotNil(t, req.GuestSessionId)
+	assert.Equal(t, sessionID.String(), *req.GuestSessionId)
+}
+
 func TestHandleGuestWebSocket_ValidSession_RegistersAndUnregisters(t *testing.T) {
 	sessionID, channelID := uuid.New(), uuid.New()
 	h := newTestHub(nil)

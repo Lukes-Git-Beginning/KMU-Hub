@@ -240,6 +240,7 @@ func (g *GuestRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 		ChannelId:      channelID,
 		Content:        req.Content,
 		GuestSessionId: &sessionID,
+		TenantId:       session.TenantID.String(),
 	}
 
 	resp, err := client.SendMessage(r.Context(), grpcReq)

@@ -55,6 +55,7 @@ type GuestSessionValidator interface {
 // GuestSessionInfo contains guest session data needed by the WebSocket hub.
 type GuestSessionInfo struct {
 	ID          uuid.UUID
+	TenantID    uuid.UUID
 	ChannelID   uuid.UUID
 	DisplayName string
 	IsActive    bool
@@ -852,6 +853,7 @@ func (h *WebSocketHub) handleGuestSendMessage(ctx context.Context, conn *websock
 		ChannelId:      channelID,
 		Content:        msg.Content,
 		GuestSessionId: &sessionID,
+		TenantId:       session.TenantID.String(),
 	}
 
 	resp, err := h.chatClient.SendMessage(ctx, grpcReq)
