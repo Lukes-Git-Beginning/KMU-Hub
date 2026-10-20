@@ -45,7 +45,7 @@ func (bu *BelegbilderUploader) UploadBeleg(ctx context.Context, tenantID uuid.UU
 	req.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := bu.httpClient.Do(req)
+	resp, err := bu.httpClient.Do(req) //nolint:gosec // G704: baseURL is server config (env); tenant data only reaches the path
 	if err != nil {
 		return fmt.Errorf("datev beleg upload: request failed: %w", err)
 	}

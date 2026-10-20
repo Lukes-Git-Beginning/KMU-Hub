@@ -144,7 +144,7 @@ func (c *Client) do(ctx context.Context, path string, body, result any) error {
 			req.Header.Set("Authorization", "Bearer "+c.apiKey)
 		}
 
-		resp, doErr := c.httpClient.Do(req)
+		resp, doErr := c.httpClient.Do(req) //nolint:gosec // G704: baseURL is server config (LLM_BASE_URL), no tenant input
 		if doErr != nil {
 			lastErr = fmt.Errorf("llm: request failed: %w", doErr)
 			continue

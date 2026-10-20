@@ -496,7 +496,7 @@ func (c *CalDAVRoutes) probeSelf(ctx context.Context, path, username, password s
 	}
 	req.SetBasicAuth(username, password)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: target is selfBaseURL (loopback config), never derived from the request
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return false, "timeout"

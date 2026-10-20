@@ -804,3 +804,32 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 56, 161fddfe: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
 - neue-units: `rebrand-auth-and-caldav-visible-names-to-cosmi`, `rebrand-chat-integration-bot-texts-to-cosmi`, `rebrand-outbound-identifiers-to-cosmi`, `rebrand-openapi-metadata-to-cosmi` (alle ans Ende von BACKLOG.yml, `sonnet`); `decide-rename-go-module-path-kmuhub`, `decide-rename-infrastructure-and-contract-identifiers-kmuhub` (BACKLOG-NEXT.yml, `blocked`)
 - offen: (1) Desktop-FE nicht inventarisiert (nicht in `sources`); FE-Typen nur für Klasse C3 gegrept. (2) README/CLAUDE.md-Positionierung („CRM") ist Wording-Entscheidung Luke/Darien, keine Unit. (3) Slack-App-Manifest liegt nicht im Repo — der Befehlsname `/kmuhub` ist nur dort umbenennbar. (4) DATEV-Feldlänge unbelegt (siehe Nebenbefund).
+
+## Iteration 58 — scan-gosec-taint-rules-triage — done — 2026-10-21 00:07
+- commit: `chore(lint): enable gosec G704 and triage the taint rules` (SHA via `git log`)
+- gebaut: Die drei Excludes lokal entfernt, `golangci-lint run --enable-only gosec --max-issues-per-linter=0 --max-same-issues=0 ./...` → **103 Funde** (nicht 94: 17× G704, 24× G705, 62× G706). Jede Fundstelle gelesen, Ergebnis: **0 echte Funde**. G704 wieder eingeschaltet (Exclude entfernt, 17 Stellen mit `//nolint:gosec // G704: <Grund>` annotiert); G705/G706 bleiben ausgeschlossen, jetzt mit belegter Begründung in `backend/.golangci.yml`.
+  - **G704 (17), alle Fehlalarm:**
+    | Stelle | Quelle der URL | Bewertung |
+    |---|---|---|
+    | `automation/action/http_actions.go:97` | Tenant-URL (Template) | Client ist `safehttp.New()` — nur öffentliche Unicast-Ziele, pro Hop geprüft |
+    | `caldav/push_notifier.go:130` | `sub.PushURL` (Client) | `safehttp` (seit `harden-caldav-push-notifier-ssrf`) |
+    | `formulare/worker.go:150` | `webhook.URL` (Tenant) | `safehttp` |
+    | `biz/bexio/auth.go:87`, `:154` | `tokenURL` | Server-Config |
+    | `biz/bexio/client.go:141` | `baseURL`+Pfad | Server-Config, Tenant-Daten nur im Pfad |
+    | `biz/datev/oauth.go:137`, `:200` | `tokenURL` (`DATEV_TOKEN_URL`) | Server-Config |
+    | `biz/datev/belegbilder.go:48`, `uploader.go:113`, `:189` | `DATEV_API_BASE_URL` + `clientNumber` im Pfad | Server-Config |
+    | `biz/lexware/client.go:92` | `LEXWARE_API_BASE_URL` + Pfad | Server-Config |
+    | `llm/client.go:147` | `LLM_BASE_URL` | Server-Config |
+    | `notification/integration/teams/client.go:75` | festes Bot-Framework-Login-Endpoint (SDK-Konstante) | konstant |
+    | `security/captcha.go:82` | `CAPTCHA_VERIFY_URL` | Server-Config |
+    | `work/holiday/nager_client.go:63` | `defaultBaseURL` | Konstante (Testnaht) |
+    | `gateway/route_caldav.go:499` | `selfBaseURL` (Loopback, Config) | bewusst nicht aus dem Request abgeleitet (Kommentar im Code) |
+  - **G705 (24), alle Fehlalarm:** 17× Gateway-Downloads/-Proxys (`route_berichte/biz/biz_billing×2/crm_contacts×2/formulare/fuhrpark×2/inventar/rapporte/security×2/vermietung/vertraege/biz_ext/plugin×2`) schreiben ein gRPC-Payload mit festem Content-Type, großteils `Content-Disposition: attachment`; `route_integration.go:595` relayed die Webhook-Antwort des Notification-Service (Content-Type aus dem eigenen Service); `middleware/idempotency.go` 5× (Replay einer gespeicherten Antwort + 4× `io.WriteString` in einen Hash, kein ResponseWriter). Defense in depth: `SecurityHeaders` (`cmd/gateway/main.go:148`) setzt auf jeder Antwort `nosniff` + `CSP default-src 'none'`.
+  - **G706 (62), alle Fehlalarm:** ausnahmslos `slog`-Aufrufe (gateway 40: route_caldav 11, ip_filter 5, dashboard_service 4, route_formulare 3, … ; server/websocket 9; biz 9; middleware 4; Rest verteilt). Alle 24 `cmd/*/main.go` bauen ihren Logger mit `slog.NewJSONHandler` (geprüft, 0× `NewTextHandler`) — der JSON-Handler escaped Steuerzeichen, Zeilen-Injection ist strukturell ausgeschlossen.
+  - Beobachtung (keine Unit): `Content-Disposition: attachment; filename=`+resp.Filename ohne Quoting an `route_crm_contacts.go:572/607`, `route_security.go:222/486` — die Dateinamen stammen aus festen Strings bzw. Servergeneriertem (`crm_grpc.go:2370` „kontakte.csv"); nur relevant, falls je ein Nutzername in den Namen fließt. `security_grpc.go:182/552` (`filename`-Variable) nicht bis zur Quelle verfolgt.
+- gate: build ok (automation, biz, caldav, formulare, llm, notification, security, work/holiday, gateway) | vet ok (biz, caldav, work/holiday) | lint ok (`golangci-lint run --config .golangci.yml --max-issues-per-linter=0 --max-same-issues=0 ./...` → 0 issues, ganzes Modul) | test n.a. (nur Kommentare/Lint-Config geändert, kein Laufzeitcode) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: Nolint am `nager_client.go:63` entfernt → `golangci-lint` meldet `G704: SSRF via taint analysis` (1 issue); Zeile zurückgesetzt → 0 issues. Belegt, dass G704 jetzt tatsächlich erzwungen wird.
+- verify vorgaenger: sauber (Iteration 57, 57f9e824: nur BACKLOG.yml/BACKLOG-NEXT.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: (1) `.github/workflows/scans.yml` (standalone gosec, `-exclude=…G704,G705,G706`) bewusst unverändert: Standalone-gosec liest `#nosec`, nicht `//nolint:gosec`; ohne lokalen gosec-Lauf nicht verifizierbar, ob die Annotationen dort greifen. Der PR-Gate ist golangci-lint, das jetzt G704 erzwingt. Wer G704 auch im SARIF-Scan will: `#nosec G704`-Marker ergänzen und den Exclude streichen. (2) Die Unit nannte 94 Funde, gemessen wurden 103 (Stand heute, `--max-same-issues=0`) — vermutlich hat der Erstlauf gekappt (vgl. Memory zu golangci-Kappung).

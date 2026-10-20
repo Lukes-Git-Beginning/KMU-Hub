@@ -3193,7 +3193,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Das Go-1.26-Upgrade (2026-10-20) brachte golangci-lint v2.10.1 und damit drei neue

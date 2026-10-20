@@ -84,7 +84,7 @@ func (tm *TokenManager) RefreshAccessToken(ctx context.Context, tenantID uuid.UU
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := tm.httpClient.Do(req)
+	resp, err := tm.httpClient.Do(req) //nolint:gosec // G704: tokenURL is server config (env), no tenant input
 	if err != nil {
 		return "", fmt.Errorf("bexio: token refresh request failed: %w", err)
 	}
@@ -151,7 +151,7 @@ func (tm *TokenManager) ExchangeCode(ctx context.Context, tenantID uuid.UUID, co
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := tm.httpClient.Do(req)
+	resp, err := tm.httpClient.Do(req) //nolint:gosec // G704: tokenURL is server config (env), no tenant input
 	if err != nil {
 		return fmt.Errorf("bexio: code exchange request failed: %w", err)
 	}

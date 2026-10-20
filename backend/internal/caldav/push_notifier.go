@@ -127,7 +127,7 @@ func (n *PushNotifier) sendNotification(ctx context.Context, sub *PushSubscripti
 	}
 	req.Header.Set("Content-Type", "application/xml; charset=utf-8")
 
-	resp, err := n.httpClient.Do(req)
+	resp, err := n.httpClient.Do(req) //nolint:gosec // G704: client is safehttp (public unicast only, re-checked per hop)
 	if err != nil {
 		slog.Warn("push notification delivery failed",
 			"subscription_id", sub.ID,

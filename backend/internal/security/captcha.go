@@ -79,7 +79,7 @@ func (c *CaptchaVerifier) Verify(ctx context.Context, token, remoteIP string) (b
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(req) //nolint:gosec // G704: verifyURL is server config (CAPTCHA_VERIFY_URL)
 	if err != nil {
 		slog.Warn("captcha: siteverify request failed", "error", err, "url", c.verifyURL)
 		return false, err

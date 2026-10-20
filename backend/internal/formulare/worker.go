@@ -147,7 +147,7 @@ func (w *WebhookWorker) deliver(ctx context.Context, delivery *WebhookDelivery) 
 		req.Header.Set("X-Cosmi-Signature", "sha256="+sig)
 	}
 
-	resp, err := w.httpClient.Do(req)
+	resp, err := w.httpClient.Do(req) //nolint:gosec // G704: tenant webhook URL, but the client is safehttp (public unicast only)
 	newAttemptCount := delivery.AttemptCount + 1
 
 	if err != nil {

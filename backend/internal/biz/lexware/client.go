@@ -89,7 +89,7 @@ func (c *Client) do(ctx context.Context, tenantID uuid.UUID, method, path string
 			req.Header.Set("Content-Type", "application/json")
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.httpClient.Do(req) //nolint:gosec // G704: baseURL is server config (env); tenant data only reaches the path
 		if err != nil {
 			lastErr = fmt.Errorf("lexware: request failed: %w", err)
 			continue
