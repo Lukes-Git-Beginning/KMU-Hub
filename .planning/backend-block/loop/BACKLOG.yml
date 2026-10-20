@@ -3294,7 +3294,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Lauf 14, Iteration 7 (beim Bauen von `fix-dialer-set-agent-status-foreign-user-overwrite`

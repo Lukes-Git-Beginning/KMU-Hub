@@ -854,3 +854,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 59, fa3ef505: Engine-Stempel + Interceptor + Tests, kein Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: Lokal kein `-race` (kein C-Compiler) — abgenommen erst nach CI. Die Hypothese ist nicht durch Reproduktion bestätigt; tritt der Flake in CI erneut auf, liegt die Ursache woanders.
+
+## Iteration 61 — fix-dialer-agent-invalid-transition-maps-to-internal — done — 2026-10-21 00:30
+- commit: `fix(dialer): map invalid agent status transition to failed precondition` (SHA via `git log`)
+- gebaut: `mapDialerError` kennt jetzt `dialer.ErrInvalidTransition` (Agent-Zustandsautomat) → `codes.FailedPrecondition` → HTTP 409 statt 500 + ERROR-Log. `TestSetAgentStatus_InvalidTransition` von Internal auf FailedPrecondition umgedreht, Sentinel in `TestMapDialerError_AllSentinels` ergänzt. `PUT /dialer/agent-status` 409 in `openapi.yaml` um den Transitions-Fall erweitert (Retry-After-Header des Idempotency-Falls bleibt dokumentiert).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/server/`, `./internal/gateway/` inkl. OpenAPIRouteDrift, DATABASE_URL als kmuhub_app, 0 Skips in den gelaufenen Dialer-Tests) | swagger-cli validate ok | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Bugfix-Unit; `internal/server` gesamt 74,5 %)
+- mutations-probe: neuen `case` aus `mapDialerError` entfernt → `TestSetAgentStatus_InvalidTransition` und `TestMapDialerError_AllSentinels` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 60, 7918aaa0: nur Testdatei + Backlog/Journal)
+- neue-units: keine
+- offen: FE zeigt für den unzulässigen Wechsel bisher vermutlich eine generische 500-Meldung; ein 409 ist jetzt der Vertrag — FE-Handling nicht geprüft.

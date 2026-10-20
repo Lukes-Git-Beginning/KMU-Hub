@@ -33,6 +33,7 @@ func TestMapDialerError_AllSentinels(t *testing.T) {
 		{"ErrCampaignNotDraft", dialer.ErrCampaignNotDraft, codes.FailedPrecondition, false},
 		{"ErrCampaignNotActive", dialer.ErrCampaignNotActive, codes.FailedPrecondition, false},
 		{"ErrInvalidStatusTransition", dialer.ErrInvalidStatusTransition, codes.FailedPrecondition, false},
+		{"ErrInvalidTransition (agent)", dialer.ErrInvalidTransition, codes.FailedPrecondition, false},
 		{"ErrNoContactsAvailable", dialer.ErrNoContactsAvailable, codes.NotFound, false},
 		{"ErrContactAlreadyInCampaign", dialer.ErrContactAlreadyInCampaign, codes.AlreadyExists, false},
 		{"ErrAgentNotAvailable", dialer.ErrAgentNotAvailable, codes.FailedPrecondition, false},

@@ -170,14 +170,8 @@ func TestSetAgentStatus_InvalidCampaignID(t *testing.T) {
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
-// TestSetAgentStatus_InvalidTransition documents a real gap found while
-// building this coverage: the dialer state machine (ValidateTransition in
-// redis_agent_store.go) correctly rejects an offline agent jumping straight
-// to wrap_up, but dialer.ErrInvalidTransition has no case in mapDialerError.
-// It falls through to the default branch, so the caller sees codes.Internal
-// with an opaque "internal error" message instead of a validation-style
-// FailedPrecondition naming the offending transition. Not fixed here —
-// coverage units document behaviour, they don't change it.
+// TestSetAgentStatus_InvalidTransition: the dialer state machine rejects an offline
+// agent jumping straight to wrap_up; that must surface as FailedPrecondition, not Internal.
 func TestSetAgentStatus_InvalidTransition(t *testing.T) {
 	srv, _, _, _ := newDialerTestServerWithAgentStore(t)
 	ctx := ctxWithTenant(uuid.New())
@@ -186,7 +180,7 @@ func TestSetAgentStatus_InvalidTransition(t *testing.T) {
 		UserId: uuid.New().String(),
 		Status: dialerv1.AgentDialerStatus_AGENT_DIALER_STATUS_WRAP_UP,
 	})
-	requireGRPCCode(t, err, codes.Internal)
+	requireGRPCCode(t, err, codes.FailedPrecondition)
 }
 
 func TestSetAgentStatus_Happy(t *testing.T) {
