@@ -840,7 +840,9 @@ func (s *Service) CompleteWrapUp(ctx context.Context, tenantID uuid.UUID, sessio
 // ---------------------------------------------------------------------------
 
 // SetAgentStatus updates a dialer agent's status, enforcing the state machine
-// and persisting an audit log entry.
+// and persisting an audit log entry. The agent and a given campaign must both
+// belong to tenantID: the Redis status key and campaign set carry no tenant,
+// so this check is the only boundary on the write path.
 func (s *Service) SetAgentStatus(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -848,6 +850,19 @@ func (s *Service) SetAgentStatus(
 	campaignID *uuid.UUID,
 	tenantID uuid.UUID,
 ) (*AgentStatusEntry, error) {
+	inTenant, err := s.agentRepo.UserInTenant(ctx, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("check agent tenant: %w", err)
+	}
+	if !inTenant {
+		return nil, ErrAgentNotFound
+	}
+	if campaignID != nil {
+		if _, err := s.campaigns.GetByIDForTenant(ctx, *campaignID, tenantID); err != nil {
+			return nil, fmt.Errorf("check agent campaign: %w", err)
+		}
+	}
+
 	if err := s.agentStore.SetStatus(ctx, userID, status, campaignID, tenantID); err != nil {
 		return nil, fmt.Errorf("set agent status: %w", err)
 	}

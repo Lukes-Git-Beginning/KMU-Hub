@@ -16,6 +16,9 @@ var (
 	ErrCallSessionNotFound      = errors.New("call session not found")
 	ErrOutcomeNotFound          = errors.New("outcome not found")
 	ErrAgentNotAvailable        = errors.New("agent is not available")
+	// ErrAgentNotFound covers an unknown user ID and one outside the caller's
+	// tenant alike, so the answer never confirms that a foreign user exists.
+	ErrAgentNotFound = errors.New("agent not found")
 	// ErrInvalidPhoneNumber aliases the dachfmt sentinel so existing
 	// errors.Is(err, dialer.ErrInvalidPhoneNumber) checks keep working after
 	// the phone normalisation moved to internal/dachfmt.

@@ -1107,6 +1107,8 @@ func mapDialerError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, dialer.ErrContactAlreadyInCampaign):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, dialer.ErrAgentNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, dialer.ErrAgentNotAvailable):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, dialer.ErrCampaignHasNoContacts):

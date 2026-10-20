@@ -110,4 +110,8 @@ type AgentStatusRepository interface {
 	// GetUserDisplayNames returns a map of user ID → (first_name, last_name) for
 	// the given set of user IDs. Used to enrich supervisor agent rows with names.
 	GetUserDisplayNames(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][2]string, error)
+
+	// UserInTenant reports whether userID is a user of tenantID. Guards the
+	// live-status write, whose Redis key carries no tenant.
+	UserInTenant(ctx context.Context, tenantID, userID uuid.UUID) (bool, error)
 }

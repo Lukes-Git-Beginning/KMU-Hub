@@ -1081,6 +1081,18 @@ func (r *PostgresAgentStatusRepository) GetUserDisplayNames(ctx context.Context,
 	return result, rows.Err()
 }
 
+// UserInTenant reports whether userID exists in tenantID. The tenant is
+// filtered explicitly, so the answer holds under a system context too, where
+// RLS would let every tenant's users through.
+func (r *PostgresAgentStatusRepository) UserInTenant(ctx context.Context, tenantID, userID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND tenant_id = $2)`,
+		userID, tenantID,
+	).Scan(&exists)
+	return exists, err
+}
+
 // ---------------------------------------------------------------------------
 // Package-level scan helpers (shared across repository types)
 // ---------------------------------------------------------------------------

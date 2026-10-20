@@ -82,8 +82,9 @@ func newStubCampaignRepo() *stubCampaignRepo {
 }
 
 func (r *stubCampaignRepo) Create(_ context.Context, c *dialer.Campaign) error { r.campaigns[c.ID] = c; return nil }
-func (r *stubCampaignRepo) GetByIDForTenant(_ context.Context, id, _ uuid.UUID) (*dialer.Campaign, error) {
-	if c, ok := r.campaigns[id]; ok { return c, nil }
+func (r *stubCampaignRepo) GetByIDForTenant(_ context.Context, id, tenantID uuid.UUID) (*dialer.Campaign, error) {
+	// Seeded without a tenant: matches any caller; with one: only its own.
+	if c, ok := r.campaigns[id]; ok && (c.TenantID == uuid.Nil || c.TenantID == tenantID) { return c, nil }
 	return nil, dialer.ErrCampaignNotFound
 }
 func (r *stubCampaignRepo) List(_ context.Context, _ uuid.UUID, _ *string, _, _ int) ([]*dialer.Campaign, int, error) {
@@ -206,7 +207,19 @@ func (r *stubOutcomeRepo) Delete(_ context.Context, id, _ uuid.UUID) error {
 }
 func (r *stubOutcomeRepo) EnsureDefaults(_ context.Context, _ uuid.UUID) error { return nil }
 
-type stubAgentStatusRepo struct{}
+// stubAgentStatusRepo answers UserInTenant from userTenants; left nil, every
+// user counts as a member of any tenant.
+type stubAgentStatusRepo struct {
+	userTenants map[uuid.UUID]uuid.UUID
+}
+
+func (r *stubAgentStatusRepo) UserInTenant(_ context.Context, tenantID, userID uuid.UUID) (bool, error) {
+	if r.userTenants == nil {
+		return true, nil
+	}
+	owner, ok := r.userTenants[userID]
+	return ok && owner == tenantID, nil
+}
 
 func (r *stubAgentStatusRepo) LogStatusChange(_ context.Context, _ *dialer.AgentStatusLogEntry) error { return nil }
 func (r *stubAgentStatusRepo) GetActiveAgentIDsForTenant(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {

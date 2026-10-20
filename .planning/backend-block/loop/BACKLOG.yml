@@ -747,7 +747,7 @@ units:
     service: dialer
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix)"
     scope: >
       VERIFIZIERTER Cross-Tenant-WRITE (Lauf 14, Iteration 6, beim Bauen von
@@ -3549,3 +3549,37 @@ units:
     done_when:
       - Ursache benannt (Codestelle) oder als nicht reproduzierbar mit Begruendung dokumentiert
       - Falls Ursache gefunden, ist der Test deterministisch (z. B. go test -count=50 -run TestGDPRExportRPCs ./internal/server/ gruen)
+
+  - id: fix-dialer-agent-invalid-transition-maps-to-internal
+    phase: 4
+    service: dialer
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Lauf 14, Iteration 7 (beim Bauen von `fix-dialer-set-agent-status-foreign-user-overwrite`
+      gesehen, Test belegt es bereits): `AgentStatusStore.SetStatus` lehnt einen ungueltigen
+      Statuswechsel mit `dialer.ErrInvalidTransition` (redis_agent_store.go) ab, aber
+      `mapDialerError` (server/dialer_grpc.go) kennt nur `ErrInvalidStatusTransition` (Kampagne).
+      Der Agent-Fehler faellt in den Default-Zweig -> codes.Internal, slog.Error, HTTP 500 mit
+      "internal error" statt eines 409/422-artigen Fehlers. `TestSetAgentStatus_InvalidTransition`
+      in dialer_grpc_agents_outcomes_dashboards_test.go dokumentiert das als bekannte Luecke.
+      Kein Leck, aber jeder Klick auf einen unzulaessigen Wechsel erzeugt einen 500er und einen
+      ERROR-Logeintrag.
+    sources:
+      - backend/internal/server/dialer_grpc.go
+      - backend/internal/dialer/redis_agent_store.go
+      - backend/internal/server/dialer_grpc_agents_outcomes_dashboards_test.go
+      - backend/api/openapi.yaml
+    notes: >
+      Einen Case `errors.Is(err, dialer.ErrInvalidTransition)` -> codes.FailedPrecondition in
+      `mapDialerError` ergaenzen (Gateway mappt FailedPrecondition schon). Den bestehenden Test
+      von Internal auf FailedPrecondition umdrehen. Spec fuer `PUT /dialer/agent-status` um den
+      tatsaechlich gelieferten Status-Code ergaenzen.
+    done_when:
+      - >-
+        `SetAgentStatus` mit offline -> wrap_up liefert codes.FailedPrecondition statt Internal
+        (per Test)
+      - Der gelieferte HTTP-Status ist in openapi.yaml dokumentiert, swagger-cli validate gruen
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt

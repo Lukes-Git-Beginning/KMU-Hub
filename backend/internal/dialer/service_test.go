@@ -65,8 +65,10 @@ func (r *mockCampaignRepo) Create(_ context.Context, c *Campaign) error {
 	r.campaigns[c.ID] = c
 	return nil
 }
-func (r *mockCampaignRepo) GetByIDForTenant(_ context.Context, id, _ uuid.UUID) (*Campaign, error) {
-	if c, ok := r.campaigns[id]; ok {
+func (r *mockCampaignRepo) GetByIDForTenant(_ context.Context, id, tenantID uuid.UUID) (*Campaign, error) {
+	// A campaign seeded without a tenant matches any caller; one with a
+	// tenant only its own, like the tenant_id filter in the real query.
+	if c, ok := r.campaigns[id]; ok && (c.TenantID == uuid.Nil || c.TenantID == tenantID) {
 		return c, nil
 	}
 	return nil, ErrCampaignNotFound
@@ -336,6 +338,12 @@ type mockAgentStatusRepo struct {
 
 	displayNames    map[uuid.UUID][2]string
 	displayNamesErr error
+
+	// userTenants maps a user to its tenant for UserInTenant. Left nil, every
+	// user counts as a member of any tenant, so tests that are not about the
+	// tenant boundary can write arbitrary user IDs.
+	userTenants     map[uuid.UUID]uuid.UUID
+	userInTenantErr error
 }
 
 func (r *mockAgentStatusRepo) LogStatusChange(_ context.Context, e *AgentStatusLogEntry) error {
@@ -351,6 +359,17 @@ func (r *mockAgentStatusRepo) GetActiveAgentIDsForTenant(_ context.Context, _ uu
 		return nil, r.activeAgentIDsErr
 	}
 	return r.activeAgentIDs, nil
+}
+
+func (r *mockAgentStatusRepo) UserInTenant(_ context.Context, tenantID, userID uuid.UUID) (bool, error) {
+	if r.userInTenantErr != nil {
+		return false, r.userInTenantErr
+	}
+	if r.userTenants == nil {
+		return true, nil
+	}
+	owner, ok := r.userTenants[userID]
+	return ok && owner == tenantID, nil
 }
 
 func (r *mockAgentStatusRepo) GetUserDisplayNames(_ context.Context, _ []uuid.UUID) (map[uuid.UUID][2]string, error) {
@@ -418,6 +437,7 @@ type testHarness struct {
 	outcomes  *mockOutcomeRepo
 	bridge    *mockCRMBridge
 	agentRepo *mockAgentStatusRepo
+	store     *AgentStatusStore // set by newTestHarnessWithAgentStore only
 }
 
 func newTestHarness() *testHarness {
@@ -444,7 +464,7 @@ func newTestHarnessWithAgentStore(t *testing.T) *testHarness {
 	ar := &mockAgentStatusRepo{}
 	store, _, _ := setupAgentStatusStore(t)
 	svc := NewService(cr, cl, or, ar, store, br, nil)
-	return &testHarness{svc: svc, campaigns: cr, calls: cl, outcomes: or, bridge: br, agentRepo: ar}
+	return &testHarness{svc: svc, campaigns: cr, calls: cl, outcomes: or, bridge: br, agentRepo: ar, store: store}
 }
 
 // ---------------------------------------------------------------------------
@@ -1697,6 +1717,84 @@ func TestSetAgentStatus_AuditLogFailure_NonFatal(t *testing.T) {
 	}
 }
 
+// TestSetAgentStatus_ForeignUserRejectedLikeUnknown verifies the write-side
+// tenant boundary: a caller from tenant A cannot overwrite the live status of
+// an agent in tenant B, and gets the same error as for an unknown user ID.
+// B's entry and the audit log stay untouched.
+func TestSetAgentStatus_ForeignUserRejectedLikeUnknown(t *testing.T) {
+	h := newTestHarnessWithAgentStore(t)
+	ctx := context.Background()
+	tenantA, tenantB := uuid.New(), uuid.New()
+	agentB := uuid.New()
+	h.agentRepo.userTenants = map[uuid.UUID]uuid.UUID{agentB: tenantB}
+
+	if _, err := h.svc.SetAgentStatus(ctx, agentB, AgentStatusAvailable, nil, tenantB); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	loggedBefore := len(h.agentRepo.loggedEntries)
+
+	_, foreignErr := h.svc.SetAgentStatus(ctx, agentB, AgentStatusBreak, nil, tenantA)
+	_, unknownErr := h.svc.SetAgentStatus(ctx, uuid.New(), AgentStatusBreak, nil, tenantA)
+	if !errors.Is(foreignErr, ErrAgentNotFound) || !errors.Is(unknownErr, ErrAgentNotFound) {
+		t.Fatalf("expected ErrAgentNotFound for foreign and unknown user alike, got foreign=%v unknown=%v", foreignErr, unknownErr)
+	}
+
+	entry, err := h.svc.GetAgentStatus(ctx, tenantB, agentB)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if entry == nil || entry.Status != AgentStatusAvailable || entry.TenantID != tenantB {
+		t.Errorf("expected tenant B's entry unchanged (available, tenant B), got %+v", entry)
+	}
+	if got := len(h.agentRepo.loggedEntries); got != loggedBefore {
+		t.Errorf("expected no audit log entry for a rejected write, got %d new", got-loggedBefore)
+	}
+}
+
+// TestSetAgentStatus_ForeignCampaignRejected verifies that a campaign of
+// another tenant is refused before anything is written: neither the agent's
+// status key nor the foreign campaign's member set is touched.
+func TestSetAgentStatus_ForeignCampaignRejected(t *testing.T) {
+	h := newTestHarnessWithAgentStore(t)
+	ctx := context.Background()
+	tenantA, tenantB := uuid.New(), uuid.New()
+	agentA := uuid.New()
+	foreignCampaign := uuid.New()
+	h.agentRepo.userTenants = map[uuid.UUID]uuid.UUID{agentA: tenantA}
+	h.campaigns.campaigns[foreignCampaign] = &Campaign{ID: foreignCampaign, TenantID: tenantB}
+
+	_, err := h.svc.SetAgentStatus(ctx, agentA, AgentStatusAvailable, &foreignCampaign, tenantA)
+	if !errors.Is(err, ErrCampaignNotFound) {
+		t.Fatalf("expected ErrCampaignNotFound, got %v", err)
+	}
+
+	members, err := h.store.GetCampaignAgents(ctx, foreignCampaign)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(members) != 0 {
+		t.Errorf("expected the foreign campaign set untouched, got %+v", members)
+	}
+	if entry, err := h.store.GetStatus(ctx, agentA); err != nil || entry != nil {
+		t.Errorf("expected no status written for the agent, got %+v (err=%v)", entry, err)
+	}
+}
+
+// TestSetAgentStatus_TenantLookupErrorWritesNothing verifies the check fails
+// closed: when membership cannot be established, nothing reaches the store.
+func TestSetAgentStatus_TenantLookupErrorWritesNothing(t *testing.T) {
+	h := newTestHarnessWithAgentStore(t)
+	h.agentRepo.userInTenantErr = errors.New("db down")
+	userID := uuid.New()
+
+	if _, err := h.svc.SetAgentStatus(context.Background(), userID, AgentStatusAvailable, nil, uuid.New()); err == nil {
+		t.Fatal("expected the lookup error to propagate")
+	}
+	if entry, err := h.store.GetStatus(context.Background(), userID); err != nil || entry != nil {
+		t.Errorf("expected no status written, got %+v (err=%v)", entry, err)
+	}
+}
+
 func TestGetAgentStatus_WrapsStore(t *testing.T) {
 	h := newTestHarnessWithAgentStore(t)
 	userID := uuid.New()
@@ -1772,6 +1870,7 @@ func TestGetCampaignAgents_WrapsStore(t *testing.T) {
 	campaignID := uuid.New()
 	userID := uuid.New()
 	tenantID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, TenantID: tenantID}
 
 	if _, err := h.svc.SetAgentStatus(context.Background(), userID, AgentStatusAvailable, &campaignID, tenantID); err != nil {
 		t.Fatalf("setup: unexpected error: %v", err)
@@ -1788,17 +1887,19 @@ func TestGetCampaignAgents_WrapsStore(t *testing.T) {
 
 // TestGetCampaignAgents_DropsForeignTenantMembers puts agents of two tenants
 // into one campaign set — the set itself carries no tenant — and verifies
-// each tenant sees only its own member.
+// each tenant sees only its own member. Seeded through the store directly:
+// SetAgentStatus refuses a campaign outside the caller's tenant, but sets
+// written before that check may still hold mixed members.
 func TestGetCampaignAgents_DropsForeignTenantMembers(t *testing.T) {
 	h := newTestHarnessWithAgentStore(t)
 	campaignID := uuid.New()
 	tenantA, tenantB := uuid.New(), uuid.New()
 	agentA, agentB := uuid.New(), uuid.New()
 
-	if _, err := h.svc.SetAgentStatus(context.Background(), agentA, AgentStatusAvailable, &campaignID, tenantA); err != nil {
+	if err := h.store.SetStatus(context.Background(), agentA, AgentStatusAvailable, &campaignID, tenantA); err != nil {
 		t.Fatalf("setup A: %v", err)
 	}
-	if _, err := h.svc.SetAgentStatus(context.Background(), agentB, AgentStatusAvailable, &campaignID, tenantB); err != nil {
+	if err := h.store.SetStatus(context.Background(), agentB, AgentStatusAvailable, &campaignID, tenantB); err != nil {
 		t.Fatalf("setup B: %v", err)
 	}
 
