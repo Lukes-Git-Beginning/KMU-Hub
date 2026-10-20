@@ -3723,7 +3723,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
     scope: >
       Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). Zwei verschiedene Kunden koennen denselben

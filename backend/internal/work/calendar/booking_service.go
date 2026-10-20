@@ -396,8 +396,9 @@ func (s *BookingService) CreatePublicBooking(
 		CreatedAt:     time.Now(),
 	}
 
-	// Persist — the UNIQUE constraint (booking_page_id, customer_email, date, time_slot)
-	// serves as the DB-level idempotency backstop for double-submit.
+	// Persist — the partial unique index (booking_page_id, date, time_slot) on active
+	// bookings is the DB-level backstop against two customers racing for one slot; the
+	// repository reports a violation as ErrBookingSlotUnavailable.
 	if err := s.repo.CreatePublicBooking(ctx, booking); err != nil {
 		return nil, err
 	}
