@@ -9,8 +9,22 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// pgErrCodeExclusionViolation is raised by the machine_bookings_no_overlap constraint (000328).
+const pgErrCodeExclusionViolation = "23P01"
+
+// asBookingConflict maps an exclusion violation to ErrBookingConflict so that a write losing
+// a race against a concurrent booking surfaces like the application-side conflict check.
+func asBookingConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgErrCodeExclusionViolation {
+		return ErrBookingConflict
+	}
+	return err
+}
 
 // PostgresRepository implements Repository using PostgreSQL.
 type PostgresRepository struct {
@@ -175,7 +189,7 @@ func (r *PostgresRepository) CreateBooking(ctx context.Context, booking *Machine
 		booking.StartsAt, booking.EndsAt, booking.Status, booking.Notes,
 		booking.CreatedBy, booking.CreatedAt, booking.UpdatedAt,
 	)
-	return err
+	return asBookingConflict(err)
 }
 
 func (r *PostgresRepository) UpdateBooking(ctx context.Context, booking *MachineBooking) error {
@@ -188,7 +202,7 @@ func (r *PostgresRepository) UpdateBooking(ctx context.Context, booking *Machine
 		booking.Status, booking.Notes, booking.UpdatedAt,
 		booking.ID, booking.TenantID,
 	)
-	return err
+	return asBookingConflict(err)
 }
 
 func (r *PostgresRepository) GetBooking(ctx context.Context, tenantID, bookingID uuid.UUID) (*MachineBooking, error) {
@@ -340,8 +354,9 @@ func (r *PostgresRepository) FindConflictingBooking(ctx context.Context, tenantI
 //
 // The lock key is hashtext(tenant_id::text || ':' || machine_id), scoped to the transaction.
 // This serialises all concurrent booking attempts for the same (tenant, machine) pair without
-// touching any unrelated rows or tables. The approach avoids btree_gist (extension dependency)
-// and the impossibility of SELECT FOR UPDATE on a not-yet-existing row.
+// touching any unrelated rows or tables, and yields the ID of the conflicting booking for the
+// error message. The machine_bookings_no_overlap constraint (000328) is the backstop for writes
+// that do not take this lock (UpdateBooking); its violation maps to ErrBookingConflict.
 //
 // Flow:
 //  1. BeginTx (ReadCommitted)
@@ -396,7 +411,7 @@ func (r *PostgresRepository) CreateBookingWithLock(ctx context.Context, booking 
 		booking.CreatedBy, booking.CreatedAt, booking.UpdatedAt,
 	)
 	if insertErr != nil {
-		return nil, fmt.Errorf("insert booking in tx: %w", insertErr)
+		return nil, fmt.Errorf("insert booking in tx: %w", asBookingConflict(insertErr))
 	}
 
 	if commitErr := tx.Commit(ctx); commitErr != nil {
