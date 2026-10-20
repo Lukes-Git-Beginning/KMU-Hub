@@ -16,14 +16,15 @@ import (
 type Service struct {
 	store      Store
 	configRepo ConfigRepository
+	users      UserDirectory
 
 	// Cached away timeout per tenant, to avoid DB hits on every heartbeat.
 	// Keyed by tenant since 000274: one shared entry would have handed the
 	// first tenant to warm the cache its timeout to everyone else for the
 	// next minute, re-creating across the cache the leak the migration
 	// closed in the table.
-	mu                sync.RWMutex
-	awayTimeoutCache  map[uuid.UUID]awayTimeoutEntry
+	mu               sync.RWMutex
+	awayTimeoutCache map[uuid.UUID]awayTimeoutEntry
 }
 
 // awayTimeoutEntry is one tenant's cached away timeout with its fetch time.
@@ -38,10 +39,11 @@ const (
 )
 
 // NewService creates a new presence service
-func NewService(store Store, configRepo ConfigRepository) *Service {
+func NewService(store Store, configRepo ConfigRepository, users UserDirectory) *Service {
 	return &Service{
 		store:            store,
 		configRepo:       configRepo,
+		users:            users,
 		awayTimeoutCache: make(map[uuid.UUID]awayTimeoutEntry),
 	}
 }
@@ -84,8 +86,74 @@ func (s *Service) Heartbeat(ctx context.Context, userID string) error {
 	return s.store.SetPresence(ctx, userID, PresenceOnline, false)
 }
 
-// GetPresence retrieves a user's presence with lazy away detection
+// visibleTargets returns the subset of userIDs whose presence the caller may
+// read: the caller's own ID always, anyone else only when the directory finds
+// them in the caller's tenant. The Redis key carries no tenant, so this is the
+// isolation boundary for the read paths — the same one the WebSocket
+// subscribe path draws in tenantAllowsPresenceTarget. Fails closed: a missing
+// tenant rejects the call, a missing directory admits nobody but the caller.
+func (s *Service) visibleTargets(ctx context.Context, userIDs []string) ([]string, error) {
+	tenantID, err := tenantFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	callerID := middleware.GetUserID(ctx)
+	isCaller := func(id string) bool { return callerID != "" && id == callerID }
+
+	lookup := make([]uuid.UUID, 0, len(userIDs))
+	for _, id := range userIDs {
+		if isCaller(id) {
+			continue
+		}
+		if uid, parseErr := uuid.Parse(id); parseErr == nil {
+			lookup = append(lookup, uid)
+		}
+	}
+
+	visible := map[uuid.UUID]struct{}{}
+	if len(lookup) > 0 && s.users != nil {
+		visible, err = s.users.VisibleUserIDs(ctx, tenantID, lookup)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	allowed := make([]string, 0, len(userIDs))
+	for _, id := range userIDs {
+		if isCaller(id) {
+			allowed = append(allowed, id)
+			continue
+		}
+		uid, parseErr := uuid.Parse(id)
+		if parseErr != nil {
+			continue
+		}
+		if _, ok := visible[uid]; ok {
+			allowed = append(allowed, id)
+		}
+	}
+
+	if dropped := len(userIDs) - len(allowed); dropped > 0 {
+		slog.Warn("presence: dropped targets not visible to caller's tenant",
+			"caller", callerID,
+			"tenant_id", tenantID,
+			"dropped", dropped,
+		)
+	}
+	return allowed, nil
+}
+
+// GetPresence retrieves a user's presence with lazy away detection. A target
+// outside the caller's tenant yields ErrUserNotVisible.
 func (s *Service) GetPresence(ctx context.Context, userID string) (*UserPresence, error) {
+	allowed, err := s.visibleTargets(ctx, []string{userID})
+	if err != nil {
+		return nil, err
+	}
+	if len(allowed) == 0 {
+		return nil, ErrUserNotVisible
+	}
+
 	p, err := s.store.GetPresence(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -121,8 +189,15 @@ func (s *Service) GetPresence(ctx context.Context, userID string) (*UserPresence
 	return p, nil
 }
 
-// GetBulkPresence retrieves presence for multiple users with away detection
+// GetBulkPresence retrieves presence for multiple users with away detection.
+// Targets outside the caller's tenant are removed from the answer, not
+// reported as offline — an offline entry would still confirm the ID.
 func (s *Service) GetBulkPresence(ctx context.Context, userIDs []string) (map[string]*UserPresence, error) {
+	userIDs, err := s.visibleTargets(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	result, err := s.store.GetBulkPresence(ctx, userIDs)
 	if err != nil {
 		return nil, err

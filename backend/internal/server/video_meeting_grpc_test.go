@@ -493,14 +493,36 @@ func (c *presenceMockConfigRepo) UpdateConfig(_ context.Context, tenantID uuid.U
 // Test server construction
 // ---------------------------------------------------------------------------
 
+// presenceMockDirectory maps user -> tenant; a user is visible only to its own
+// tenant, an unregistered user to nobody.
+type presenceMockDirectory struct {
+	tenantOf map[uuid.UUID]uuid.UUID
+}
+
+func (d *presenceMockDirectory) VisibleUserIDs(_ context.Context, tenantID uuid.UUID, userIDs []uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	out := make(map[uuid.UUID]struct{})
+	for _, id := range userIDs {
+		if t, ok := d.tenantOf[id]; ok && t == tenantID {
+			out[id] = struct{}{}
+		}
+	}
+	return out, nil
+}
+
 func newTestVideoMeetingServer() (*VideoGRPCServer, *meetingMockRepo, *presenceMockStore, *presenceMockConfigRepo) {
+	srv, repo, store, configRepo, _ := newTestVideoMeetingServerWithDirectory()
+	return srv, repo, store, configRepo
+}
+
+func newTestVideoMeetingServerWithDirectory() (*VideoGRPCServer, *meetingMockRepo, *presenceMockStore, *presenceMockConfigRepo, *presenceMockDirectory) {
 	repo := newMeetingMockRepo()
 	store := newPresenceMockStore()
 	configRepo := newPresenceMockConfigRepo()
+	directory := &presenceMockDirectory{tenantOf: make(map[uuid.UUID]uuid.UUID)}
 	meetingSvc := meeting.NewService(repo)
-	presenceSvc := presence.NewService(store, configRepo)
+	presenceSvc := presence.NewService(store, configRepo, directory)
 	srv := NewVideoGRPCServer(nil, meetingSvc, nil, presenceSvc, nil, nil, nil, "wss://video.example.com")
-	return srv, repo, store, configRepo
+	return srv, repo, store, configRepo, directory
 }
 
 func meetingCtxTenant(tenantID uuid.UUID) context.Context {
@@ -1055,7 +1077,7 @@ func TestListCoHosts_EmptyResult_NotNull(t *testing.T) {
 
 func TestGetBulkPresence_EmptyResult_NotNull(t *testing.T) {
 	srv, _, _, _ := newTestVideoMeetingServer()
-	resp, err := srv.GetBulkPresence(context.Background(), &videov1.GetBulkPresenceRequest{UserIds: nil})
+	resp, err := srv.GetBulkPresence(meetingCtxTenant(uuid.New()), &videov1.GetBulkPresenceRequest{UserIds: nil})
 	requireGRPCOK(t, err)
 	require.NotNil(t, resp.Statuses)
 	require.Empty(t, resp.Statuses)
@@ -1302,17 +1324,59 @@ func TestPresence_SetAndGet_ManualOverride(t *testing.T) {
 	_, err := srv.SetPresenceStatus(context.Background(), &videov1.SetPresenceStatusRequest{UserId: userID.String(), Status: videov1.PresenceLevel_PRESENCE_DND})
 	requireGRPCOK(t, err)
 
-	got, err := srv.GetPresence(context.Background(), &videov1.GetPresenceRequest{UserId: userID.String()})
+	got, err := srv.GetPresence(meetingCtxAuth(uuid.New(), userID), &videov1.GetPresenceRequest{UserId: userID.String()})
 	requireGRPCOK(t, err)
 	require.Equal(t, videov1.PresenceLevel_PRESENCE_DND, got.Status)
 	require.True(t, got.ManualOverride)
 }
 
-func TestPresence_GetPresence_UnknownUser_Offline(t *testing.T) {
-	srv, _, _, _ := newTestVideoMeetingServer()
-	got, err := srv.GetPresence(context.Background(), &videov1.GetPresenceRequest{UserId: uuid.New().String()})
+func TestPresence_GetPresence_ColleagueWithoutKey_Offline(t *testing.T) {
+	srv, _, _, _, directory := newTestVideoMeetingServerWithDirectory()
+	tenantID, colleague := uuid.New(), uuid.New()
+	directory.tenantOf[colleague] = tenantID
+	got, err := srv.GetPresence(meetingCtxAuth(tenantID, uuid.New()), &videov1.GetPresenceRequest{UserId: colleague.String()})
 	requireGRPCOK(t, err)
 	require.Equal(t, videov1.PresenceLevel_PRESENCE_OFFLINE, got.Status)
+}
+
+func TestPresence_GetPresence_ForeignTenantUser_NotFound(t *testing.T) {
+	srv, _, store, _, directory := newTestVideoMeetingServerWithDirectory()
+	callerTenant, foreign := uuid.New(), uuid.New()
+	directory.tenantOf[foreign] = uuid.New()
+	require.NoError(t, store.SetPresence(context.Background(), foreign.String(), presence.PresenceDND, true))
+
+	_, err := srv.GetPresence(meetingCtxAuth(callerTenant, uuid.New()), &videov1.GetPresenceRequest{UserId: foreign.String()})
+	requireGRPCCode(t, err, codes.NotFound)
+}
+
+func TestPresence_GetPresence_MissingTenant_Unauthenticated(t *testing.T) {
+	srv, _, _, _ := newTestVideoMeetingServer()
+	_, err := srv.GetPresence(context.Background(), &videov1.GetPresenceRequest{UserId: uuid.New().String()})
+	requireGRPCCode(t, err, codes.Unauthenticated)
+}
+
+func TestPresence_GetBulkPresence_RemovesForeignTenantUsers(t *testing.T) {
+	srv, _, store, _, directory := newTestVideoMeetingServerWithDirectory()
+	tenantID, self, colleague, foreign := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	directory.tenantOf[colleague] = tenantID
+	directory.tenantOf[foreign] = uuid.New()
+	require.NoError(t, store.SetPresence(context.Background(), colleague.String(), presence.PresenceOnline, false))
+	require.NoError(t, store.SetPresence(context.Background(), foreign.String(), presence.PresenceDND, true))
+
+	resp, err := srv.GetBulkPresence(meetingCtxAuth(tenantID, self), &videov1.GetBulkPresenceRequest{
+		UserIds: []string{self.String(), colleague.String(), foreign.String()},
+	})
+	requireGRPCOK(t, err)
+
+	got := make(map[string]videov1.PresenceLevel, len(resp.Statuses))
+	for _, st := range resp.Statuses {
+		got[st.UserId] = st.Status
+	}
+	require.Len(t, got, 2)
+	require.Equal(t, videov1.PresenceLevel_PRESENCE_OFFLINE, got[self.String()])
+	require.Equal(t, videov1.PresenceLevel_PRESENCE_ONLINE, got[colleague.String()])
+	_, leaked := got[foreign.String()]
+	require.False(t, leaked, "foreign user must be removed from the bulk answer")
 }
 
 func TestPresenceConfig_DefaultsBeforeFirstWrite(t *testing.T) {

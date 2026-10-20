@@ -2021,6 +2021,8 @@ func mapPresenceError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, presence.ErrMissingTenant):
 		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, presence.ErrUserNotVisible):
+		return status.Error(codes.NotFound, err.Error())
 	default:
 		slog.Error("unhandled presence service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

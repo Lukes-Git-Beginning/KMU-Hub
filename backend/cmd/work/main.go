@@ -171,7 +171,7 @@ func main() {
 		slog.Info("meeting AI summary enabled", "provider", cfg.LLMProvider, "model", cfg.LLMModel)
 	}
 	presenceStore := presence.NewRedisStore(redisClient)
-	presenceService := presence.NewService(presenceStore, presenceConfigRepo)
+	presenceService := presence.NewService(presenceStore, presenceConfigRepo, presence.NewPostgresUserDirectory(pool))
 	reactionService := reaction.NewService(reactionRepo)
 
 	// Metrics

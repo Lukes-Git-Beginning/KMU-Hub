@@ -632,7 +632,7 @@ units:
     service: work
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix)"
     scope: >
       Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), am Code verifiziert.

@@ -110,6 +110,30 @@ func (m *mockConfigRepo) UpdateConfig(_ context.Context, tenantID uuid.UUID, awa
 	return nil
 }
 
+// --- Mock User Directory ---
+
+// mockUserDirectory admits every user in testTenantID except those marked
+// foreign, and nobody in any other tenant — so a lookup under the wrong
+// tenant shows up as an empty result.
+type mockUserDirectory struct {
+	foreign map[uuid.UUID]bool
+	calls   int
+}
+
+func (d *mockUserDirectory) VisibleUserIDs(_ context.Context, tenantID uuid.UUID, userIDs []uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	d.calls++
+	out := make(map[uuid.UUID]struct{})
+	if tenantID != testTenantID {
+		return out, nil
+	}
+	for _, id := range userIDs {
+		if !d.foreign[id] {
+			out[id] = struct{}{}
+		}
+	}
+	return out, nil
+}
+
 // --- Helper Functions ---
 
 // testTenantID is the tenant every presence test runs under; testCtx puts it on
@@ -121,11 +145,17 @@ func testCtx() context.Context {
 }
 
 func newTestPresenceService() (*Service, *mockStore, *mockConfigRepo) {
+	svc, store, configRepo, _ := newTestPresenceServiceWithDirectory()
+	return svc, store, configRepo
+}
+
+func newTestPresenceServiceWithDirectory() (*Service, *mockStore, *mockConfigRepo, *mockUserDirectory) {
 	store := newMockStore()
 	configRepo := newMockConfigRepo()
 	configRepo.seed(testTenantID, DefaultAwayTimeoutSeconds)
-	svc := NewService(store, configRepo)
-	return svc, store, configRepo
+	users := &mockUserDirectory{foreign: make(map[uuid.UUID]bool)}
+	svc := NewService(store, configRepo, users)
+	return svc, store, configRepo, users
 }
 
 func testUserID() string {
@@ -525,4 +555,80 @@ func TestFiveStatusLevels(t *testing.T) {
 	p, err := svc.GetPresence(ctx, userID)
 	require.NoError(t, err)
 	assert.Equal(t, PresenceOffline, p.Status)
+}
+
+// --- Tenant boundary on the read paths ---
+
+func TestGetPresence_ForeignTenantUserNotVisible(t *testing.T) {
+	svc, store, _, users := newTestPresenceServiceWithDirectory()
+	foreign := uuid.New()
+	users.foreign[foreign] = true
+	now := time.Now().UTC()
+	store.data[foreign.String()] = &UserPresence{UserID: foreign, Status: PresenceDND, ManualOverride: true, LastActivity: &now}
+
+	p, err := svc.GetPresence(testCtx(), foreign.String())
+	require.ErrorIs(t, err, ErrUserNotVisible)
+	assert.Nil(t, p, "no presence may leak for a user outside the caller's tenant")
+}
+
+func TestGetPresence_MissingTenantFailsClosed(t *testing.T) {
+	svc, store, _, users := newTestPresenceServiceWithDirectory()
+	userID := testUserID()
+	now := time.Now().UTC()
+	uid, _ := uuid.Parse(userID)
+	store.data[userID] = &UserPresence{UserID: uid, Status: PresenceOnline, LastActivity: &now}
+
+	_, err := svc.GetPresence(context.Background(), userID)
+	require.ErrorIs(t, err, ErrMissingTenant)
+	assert.Zero(t, users.calls, "no directory lookup without a tenant")
+}
+
+func TestGetPresence_OwnUserAllowedWithoutDirectory(t *testing.T) {
+	store := newMockStore()
+	configRepo := newMockConfigRepo()
+	configRepo.seed(testTenantID, DefaultAwayTimeoutSeconds)
+	svc := NewService(store, configRepo, nil)
+
+	self := testUserID()
+	ctx := context.WithValue(testCtx(), middleware.UserIDKey, self)
+	p, err := svc.GetPresence(ctx, self)
+	require.NoError(t, err)
+	assert.Equal(t, PresenceOffline, p.Status)
+
+	_, err = svc.GetPresence(ctx, testUserID())
+	require.ErrorIs(t, err, ErrUserNotVisible, "a missing directory admits nobody but the caller")
+}
+
+func TestGetPresence_InvalidUserIDNotVisible(t *testing.T) {
+	svc, _, _ := newTestPresenceService()
+	_, err := svc.GetPresence(testCtx(), "not-a-uuid")
+	require.ErrorIs(t, err, ErrUserNotVisible)
+}
+
+func TestGetBulkPresence_RemovesForeignTenantUsers(t *testing.T) {
+	svc, store, _, users := newTestPresenceServiceWithDirectory()
+	self := uuid.New()
+	colleague := uuid.New()
+	foreign := uuid.New()
+	users.foreign[foreign] = true
+
+	now := time.Now().UTC()
+	store.data[colleague.String()] = &UserPresence{UserID: colleague, Status: PresenceOnline, LastActivity: &now}
+	store.data[foreign.String()] = &UserPresence{UserID: foreign, Status: PresenceDND, ManualOverride: true, LastActivity: &now}
+
+	ctx := context.WithValue(testCtx(), middleware.UserIDKey, self.String())
+	result, err := svc.GetBulkPresence(ctx, []string{self.String(), colleague.String(), foreign.String()})
+	require.NoError(t, err)
+
+	assert.Len(t, result, 2)
+	assert.Equal(t, PresenceOffline, result[self.String()].Status)
+	assert.Equal(t, PresenceOnline, result[colleague.String()].Status)
+	_, leaked := result[foreign.String()]
+	assert.False(t, leaked, "foreign user must be removed, not reported (even as offline)")
+}
+
+func TestGetBulkPresence_MissingTenantFailsClosed(t *testing.T) {
+	svc, _, _ := newTestPresenceService()
+	_, err := svc.GetBulkPresence(context.Background(), []string{testUserID()})
+	require.ErrorIs(t, err, ErrMissingTenant)
 }
