@@ -96,6 +96,14 @@ GF_USERS_ALLOW_SIGN_UP=false
 # If empty, Alertmanager runs without sending alerts (no crash, but no notifications).
 ALERT_WEBHOOK_URL=
 
+# ===== OFFSITE BACKUP (opt-in, docs/operations/BACKUP.md) =====
+# All set or none. backup.sh encrypts every artifact (and this file) with age
+# before rsync; the private key never sits on this host.
+# BACKUP_OFFSITE_TARGET=u123456@u123456.your-storagebox.de:kmuhub-backups
+# BACKUP_AGE_RECIPIENT=age1...
+# BACKUP_OFFSITE_SSH="ssh -p 23 -i /home/deploy/.ssh/storagebox -o UserKnownHostsFile=/home/deploy/.ssh/known_hosts -o BatchMode=yes"
+# BACKUP_ALERT_WEBHOOK=        # empty -> falls back to ALERT_WEBHOOK_URL
+
 # ===== OPTIONAL INTEGRATIONS =====
 # Uncomment and fill in as needed:
 # BEXIO_CLIENT_ID=

@@ -36,9 +36,14 @@ Aktiv nur, wenn **beide** Variablen gesetzt sind — sonst ist der Block ein No-
 
 - `BACKUP_OFFSITE_TARGET` — Ziel für `rsync` (lokaler Pfad oder `user@host:/pfad`)
 - `BACKUP_AGE_RECIPIENT` — öffentlicher `age`-Schlüssel (mehrere durch Leerzeichen getrennt)
+- `BACKUP_OFFSITE_SSH` — optional, Remote-Shell für `rsync -e`. Für eine Hetzner Storage Box
+  **Pflicht**, denn sie spricht SSH nur auf Port 23.
 
-Ausgelagert werden **alle drei Artefakte** — PostgreSQL-Dump, Rollen-Dump und MinIO-Archiv, jedes
-einzeln mit `age` verschlüsselt. Der Rollen-Dump ist dabei kein Beiwerk: ohne ihn verweigert
+Ausgelagert werden **alle drei Artefakte** — PostgreSQL-Dump, Rollen-Dump und MinIO-Archiv — und
+dazu **`.env.production`** als `env_<TS>.production.age`. Jedes wird einzeln mit `age`
+verschlüsselt. Die Env-Datei gehört dazu, weil `VAULT_MASTER_SECRET`, `JWT_SECRET` und die
+DB-Passwörter nur dort stehen: Ohne sie kommt nach einem Hostverlust zwar die Datenbank zurück,
+die im Vault verschlüsselten Zugangsdaten aber nicht. Sie verlässt den Host nur verschlüsselt. Der Rollen-Dump ist dabei kein Beiwerk: ohne ihn verweigert
 `restore.sh` den Satz (siehe §Wiederherstellung), und erzwungen mit `--skip-roles` kommt eine
 Datenbank zurück, die kein Dienst öffnen kann. Das MinIO-Archiv fehlt im Satz, wenn der lokale
 MinIO-Lauf fehlgeschlagen ist — dann steht der Fehler im Protokoll und löst den Alarm aus.
@@ -46,6 +51,26 @@ MinIO-Lauf fehlgeschlagen ist — dann steht der Fehler im Protokoll und löst d
 Fehlt `age`, bricht der Transfer ab, statt unverschlüsselt zu senden. Der private Schlüssel gehört
 zum zweiten Zugriffsweg (Lagebild §10) und darf nicht nur bei einer Person liegen — sonst ist das
 Offsite-Backup im Ernstfall nicht lesbar.
+
+### Einrichtung mit einer Hetzner Storage Box
+
+1. Storage Box buchen (BX11 reicht, EU-Standort), in der Konsole **SSH-Support** aktivieren.
+2. Auf dem Rechner des Admins, **nicht** auf dem Server: `age-keygen -o cosmi-backup.agekey`.
+   Die Zeile `# public key: age1…` ist der Wert für `BACKUP_AGE_RECIPIENT`. Die Schlüsseldatei
+   kommt in den Passwort-Tresor und an den zweiten Zugriffsweg.
+3. Auf dem Server als `deploy`: `ssh-keygen -t ed25519 -f ~/.ssh/storagebox -N ""`, dann den
+   Public Key auf die Box: `ssh-copy-id -p 23 -s -i ~/.ssh/storagebox.pub uXXXXXX@uXXXXXX.your-storagebox.de`
+   (fragt einmal das Box-Passwort ab).
+4. `ssh-keyscan -p 23 uXXXXXX.your-storagebox.de >> ~/.ssh/known_hosts` und den Fingerprint
+   gegen die Hetzner-Dokumentation prüfen. Danach Zielordner anlegen:
+   `ssh -p 23 -i ~/.ssh/storagebox uXXXXXX@uXXXXXX.your-storagebox.de mkdir kmuhub-backups`.
+5. Die drei Variablen in `/opt/kmuhub/.env.production` setzen (Vorlage: `PRODUCTION_TEMPLATE`)
+   und `age` installieren (`apt-get install age`, im Ansible-Playbook enthalten).
+6. Testlauf: `sudo -u deploy bash /opt/kmuhub/deploy/scripts/backup.sh` — im Log müssen vier
+   Zeilen `Offsite: … shipped` stehen.
+
+Eine Aufbewahrungsfrist auf der Box gibt es nicht; `rsync` löscht nie. Bei etwa 570 KB pro Nacht
+ist das unkritisch (`lean:`-Marker in `backup.sh` nennt die Schwelle).
 
 ## Alarm (opt-in)
 
@@ -89,9 +114,10 @@ Zusage — deshalb steht hier keiner.
 
 ## Konfiguration
 
-`.env.production`, Caddyfile und die Compose-Dateien sind **nicht** Teil des Backups. Die
-Compose-Dateien liegen im Git-Repo; `.env.production` existiert nur auf dem Host. Geht der Host
-verloren, sind die Secrets weg — das ist die zweite offene Flanke neben dem fehlenden Offsite.
+Caddyfile und Compose-Dateien liegen im Git-Repo und brauchen kein Backup. `.env.production`
+existiert nur auf dem Host. Lokal wird sie nicht gesichert, mit konfiguriertem Offsite geht sie
+aber verschlüsselt mit (siehe §Offsite). Ohne Offsite gilt weiter: Geht der Host verloren, sind
+die Secrets weg.
 
 ## Prüf-Rhythmus
 

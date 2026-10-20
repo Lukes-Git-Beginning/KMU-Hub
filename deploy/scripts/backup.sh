@@ -38,6 +38,11 @@ fi
 # Optional offsite shipment. Both must be set or neither is used — see below.
 OFFSITE_TARGET="${BACKUP_OFFSITE_TARGET:-$(read_env_var BACKUP_OFFSITE_TARGET)}"
 AGE_RECIPIENT="${BACKUP_AGE_RECIPIENT:-$(read_env_var BACKUP_AGE_RECIPIENT)}"
+# Optional remote shell for rsync, e.g. a Hetzner Storage Box, which only speaks
+# SSH on port 23: "ssh -p 23 -i /home/deploy/.ssh/storagebox -o BatchMode=yes".
+# An explicit key and known_hosts path keep it working for every user that runs
+# this script (cron as deploy, deploy.sh and manual runs as root).
+OFFSITE_SSH="${BACKUP_OFFSITE_SSH:-$(read_env_var BACKUP_OFFSITE_SSH)}"
 
 send_alert() {
     local message="$1" escaped
@@ -158,6 +163,21 @@ if [[ -n "$OFFSITE_TARGET" || -n "$AGE_RECIPIENT" ]]; then
             AGE_RECIPIENT_ARGS+=(-r "$r")
         done
 
+        RSYNC_ARGS=(-a)
+        [[ -n "$OFFSITE_SSH" ]] && RSYNC_ARGS+=(-e "$OFFSITE_SSH")
+
+        # Encrypts $1 to $BACKUP_DIR/$2, ships it, removes the local .age copy.
+        ship_encrypted() {
+            local src="$1" out="$BACKUP_DIR/$2"
+            if age "${AGE_RECIPIENT_ARGS[@]}" -o "$out" "$src" && rsync "${RSYNC_ARGS[@]}" "$out" "$OFFSITE_TARGET/"; then
+                log "Offsite: $2 shipped to $OFFSITE_TARGET"
+            else
+                log "ERROR: offsite transfer failed for $2"
+                OFFSITE_OK=false
+            fi
+            rm -f "$out"
+        }
+
         # The roles dump goes unconditionally, unlike MinIO: `set -o pipefail` is active,
         # so a failed pg_dumpall aborts this script long before this line -- there is no
         # state in which $ROLES_FILE is missing here. Leaving it out shipped an offsite set
@@ -167,14 +187,23 @@ if [[ -n "$OFFSITE_TARGET" || -n "$AGE_RECIPIENT" ]]; then
         [[ "$MINIO_OK" == "true" ]] && OFFSITE_FILES+=("$MINIO_FILE")
 
         for f in "${OFFSITE_FILES[@]}"; do
-            if age "${AGE_RECIPIENT_ARGS[@]}" -o "${f}.age" "$f" && rsync -a "${f}.age" "$OFFSITE_TARGET/"; then
-                log "Offsite: $(basename "${f}.age") shipped to $OFFSITE_TARGET"
-            else
-                log "ERROR: offsite transfer failed for $(basename "$f")"
-                OFFSITE_OK=false
-            fi
-            rm -f "${f}.age"
+            ship_encrypted "$f" "$(basename "$f").age"
         done
+
+        # .env.production holds VAULT_MASTER_SECRET, JWT_SECRET and the database
+        # passwords. Without it a restore after losing this host brings the data
+        # back but cannot decrypt the vault-stored credentials. It only ever
+        # leaves the host encrypted; there is no plain local copy.
+        if [[ -f "$ENV_FILE" ]]; then
+            ship_encrypted "$ENV_FILE" "env_${TIMESTAMP}.production.age"
+        else
+            log "ERROR: $ENV_FILE not found — offsite set has no environment file"
+            OFFSITE_OK=false
+        fi
+
+        # lean: no remote retention, rsync never deletes. At ~570 KB per night that is
+        # ~200 MB a year on a 1 TB box; add a prune step once the box passes 50 % or
+        # more than one customer server ships here.
     fi
 fi
 

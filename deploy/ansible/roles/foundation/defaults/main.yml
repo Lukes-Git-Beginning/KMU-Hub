@@ -22,3 +22,5 @@ apt_packages:
   - certbot
   - python3-pip
   - git
+  - age     # backup.sh encrypts before any offsite transfer
+  - rsync
