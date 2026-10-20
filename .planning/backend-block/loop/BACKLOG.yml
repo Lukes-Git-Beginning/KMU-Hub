@@ -2533,7 +2533,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/email/sync/imap_client.go, gemessen 2026-08-27 nach cov-email-sync-worker-and-imap-client: Login 33,3 %, SelectFolder 33,3 %, FetchHeaders 10,0 %, FetchBody 12,5 %, SetFlags 20,0 %, Idle 22,2 %, HasIDLE 50,0 %, Noop 40,0 %, ListFolders 20,0 %, Close 40,0 % (jeweils nur der nil-Client-Guard-Zweig getestet, Paketwert internal/email/sync 64,6 %)"
     scope: >
       Abgetrennt aus `cov-email-sync-worker-and-imap-client`, deren eigener `notes:`-Text genau
