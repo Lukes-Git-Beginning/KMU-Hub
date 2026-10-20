@@ -2603,7 +2603,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       BEFUND aus dem 409-Skriptlauf vom 2026-08-24, nicht aus einem Scan. Beim Umstellen der
@@ -3445,3 +3445,47 @@ units:
       - Ein Test belegt: Nicht-Mitglied bekommt bei privater Team-Inbox PermissionDenied, bei offener die Liste
       - Ein Test belegt: fremder Tenant bekommt NotFound
       - go test -count=1 ./internal/inbox/... ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-openapi-409-business-conflict-description
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-10-20
+    decision: >-
+      Folge-Unit aus `scan-409-conflict-error-mapping` (Iteration 47). Der Scan hat die
+      Mapper-Ebene vermessen und festgestellt, dass der Befund NICHT mapper-, sondern
+      OPERATIONS-bezogen ist: Ein Mapper wie `mapCalendarError` traegt zwar Dublette UND
+      Zustandskonflikt, aber jede Operation erreicht nur eine der beiden. Die echte Luecke ist
+      eine andere und gilt fuer alle Operationen mit fachlichem 409 gleichermassen.
+    coverage_start: "n.a. (OpenAPI-/Skript-Unit, kein Coverage-Ziel)"
+    scope: >
+      `openapi.yaml` dokumentiert 643 mal `409 -> IdempotencyInFlight` (Skriptlauf
+      2026-08-24) und nur 29 mal `409 -> Conflict`. Operationen, deren RPC einen
+      `codes.AlreadyExists`-Fall hat (30 Funktionen, siehe Journal Iteration 47: 28
+      `map*Error`/`bankAccountError` plus die Inline-Faelle `BookResource` und
+      `CreateRetentionPolicy`), liefern daneben einen FACHLICHEN 409, der in der Spec fehlt.
+      Vorschlag: neue Komponente `components/responses/ConflictOrIdempotencyInFlight`
+      (Schema `ErrorResponse`, `description` nennt beide Ursachen: Idempotency-Key in Bearbeitung,
+      mit `Retry-After`, oder fachlicher Konflikt - Dublette bzw. Zustandskonflikt), und alle
+      Operationen mit fachlichem 409 zeigen darauf statt auf `IdempotencyInFlight`. Die Operationen
+      ermittelt man ueber RPC -> Mapper -> Sentinel (Sentinel-Liste im Journal Iteration 47).
+      `hooks/openapi-status-fill.py` muss die Sonderfaelle kennen (Sonderliste neben der
+      `lean:`-Liste), sonst ueberschreibt ein spaeterer Skriptlauf sie.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/server/
+      - .planning/backend-block/loop/hooks/openapi-status-fill.py
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+    notes: >
+      Nur Ops umstellen, deren Handler den RPC-Fehler tatsaechlich durchreicht
+      (`respondGRPCError`); nicht alle Operationen eines Mappers sind betroffen. Nach der
+      Aenderung `swagger-cli validate backend/api/openapi.yaml` (der Drift-Test ist keine
+      Spec-Validierung) und `go test -count=1 ./internal/gateway/`.
+    done_when:
+      - Komponente existiert, beschreibt beide Ursachen und zeigt auf `ErrorResponse`
+      - Mindestens die Operationen der Mapper mit Dublette+Zustandskonflikt (calendar, crm, document, fuhrpark, vermietung, email, notification, inbox, hr) sind umgestellt
+      - >-
+        Das Skript `openapi-status-fill.py` hat die Sonderliste, ein Skriptlauf macht die Aenderung nicht rueckgaengig
+      - swagger-cli validate gruen, go test -count=1 ./internal/gateway/ gruen
