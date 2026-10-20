@@ -983,3 +983,40 @@ units:
     done_when:
       - Je Frage (1) bis (5) steht die Entscheidung mit Datum in dieser Unit
       - Je Ja ist eine spitze Unit in BACKLOG.yml angelegt
+
+  - id: decide-retention-periods-unbounded-personal-tables
+    phase: 4
+    service: security
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      Entscheidung Luke offen: fuer welche der unten genannten Tabellen mit Personenbezug, ohne gesetzliche
+      Frist und ohne jeden Ablauf eine Aufbewahrungsdauer gelten soll. Ein Handler, der Daten loescht oder
+      anonymisiert, ist keine Nachtloop-Entscheidung (Vorbild: guest_sessions 90 Tage, vehicle_bookings 3 Jahre).
+    coverage_start: "n.a. (Entscheidung)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Tabellen mit Personenbezug, die
+      WEDER einen Handler in der Retention-Registry NOCH einen eigenen Ablauf haben (anders als `events` 90 Tage per
+      pg_cron, `recordings` 30 Tage per `retention_expires_at`) und KEINER gesetzlichen Frist unterliegen:
+      `public_bookings` (Kundenname/-mail/-telefon), `inbox_messages` und `inbox_thread_messages`,
+      `call_sessions`/`call_participants`, `meeting_attendees`/`meeting_action_items`,
+      `dialer_agent_status_log` (Beschaeftigtendaten, waechst ungebremst), `work_reports` (GPS und
+      Unterschrift), `shift_assignments`/`shift_swap_requests`, `document_file_comments`, `chat_files`
+      (Dateinamen), `message_reactions`, `ticket_csat_responses.comment`, `integration_account_links`,
+      `companies`, `deals`, `activities` (Letztere nur ueber den Kontakt-Scrub erreichbar).
+      Nicht hier: HR, E-Mail, Vertraege, `trip_logs` (`decide-retention-policy-hgb-ao-domains`) und die
+      Meeting-Notizen (`feat-meeting-notes-and-chat-dsar-and-retention-coverage`).
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_guest_sessions.go
+      - backend/internal/crm/consent/scrub.go
+    notes: >
+      Je Tabelle genuegt ein Wert (Dauer, Bezugsspalte) oder "bewusst unbegrenzt, residual risk". Je Ja entsteht eine
+      spitze Handler-Unit nach dem Muster von `retention_guest_sessions.go` (Dry-Run als Default, Test mit echter DB).
+      Die DSAR-Auskunft zu denselben Tabellen laeuft getrennt in den `feat-dsar-coverage-*`-Units in BACKLOG.yml.
+    done_when:
+      - >-
+        Je Tabelle steht die Entscheidung mit Datum in dieser Unit
+      - >-
+        Je Ja ist eine spitze Handler-Unit in BACKLOG.yml angelegt

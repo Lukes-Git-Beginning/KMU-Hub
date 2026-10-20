@@ -2878,7 +2878,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Block B stellt in acht Units dieselbe Nebenfrage: taucht diese Datenart in
@@ -3888,3 +3888,346 @@ units:
       - Vergangenes expires_at und unbekannte Permission werden abgelehnt, Test je Fall
       - Bestehende Wiki-Share-Tests und `TestOpenAPIRouteDrift` gruen
       - Mutations-Probe - Pruefung entfernt, Test rot, zurueckgedreht
+
+  - id: fix-contact-erasure-leaves-rental-signatures
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Erasure-Luecke, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52).
+      `consent.ScrubDependentPII` (`crm/consent/scrub.go:134`) setzt auf `rentals` nur `renter_name`
+      und `notes` zurueck. `rentals.signature_data` und `rentals.signed_by` (Unterschrift und Name
+      des Mieters, `vermietung/models.go:57`) sowie `rental_inspections.signature_data`, `notes`,
+      `photo_urls` und `checklist` (Uebergabeprotokoll) bleiben stehen, wenn der Kontakt geloescht
+      oder per Retention anonymisiert wird. Es gibt keinen FK `rentals.contact_id` -> `contacts`
+      (gemessen in `pg_constraint`), die Zeile verwaist also still. Der Kommentar in `scrub.go`
+      nennt `rentals` als abgedeckt, `rental_inspections` und die Signaturspalten kommen nirgends vor.
+      Gelesen und gegen die lokale DB (Migration 327) gemessen, nicht gegen Produktion.
+    sources:
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/vermietung/models.go
+      - backend/internal/vermietung/postgres_repository.go
+      - backend/internal/crm/contact/postgres_repository.go
+    notes: >
+      `ScrubDependentPII` um `signature_data = NULL, signed_by = NULL` auf `rentals` erweitern und
+      ein Update auf `rental_inspections` ueber `rental_id IN (SELECT id FROM rentals WHERE
+      contact_id = $1 AND tenant_id = $2)` ergaenzen. Die Zeilen selbst bleiben (Mietbeleg).
+      Vorab klaeren, ob `signed_by` eine Person oder ein Login ist (`vermietung/service.go`).
+      Kommentarblock oben in `scrub.go` mitziehen. Mietvertraege koennen unter Paragraph 257 HGB
+      fallen (`decide-retention-policy-hgb-ao-domains`) - hier wird nur der Personenbezug im
+      Zeilenrest geleert, nichts geloescht.
+    done_when:
+      - >-
+        Nach Kontakt-Loeschung und nach dem ContactRetentionHandler sind die Signaturspalten der
+        Miete und die Spalten der zugehoerigen Uebergabeprotokolle leer, Test je Pfad mit echter DB
+      - >-
+        Mutations-Probe - eines der neuen UPDATEs entfernt, Test rot, zurueckgedreht
+      - >-
+        Kommentarblock in scrub.go nennt die neuen Spalten
+
+  - id: feat-dsar-coverage-booking-and-guest-visitors
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Externe Besucher
+      ohne Kontakt- oder Nutzerzeile fehlen in der DSAR-Suche: `public_bookings` (`customer_name`,
+      `customer_email`, `customer_phone`, `notes` - Termine ueber die oeffentliche Buchungsseite)
+      und `guest_sessions` (`display_name`, `email`, `ip_address`, `user_agent` - Gaeste im Chat).
+      Fuer `guest_sessions` gibt es einen Retention-Handler (90 Tage), aber kein DSAR-Modul; fuer
+      `public_bookings` weder noch (`BookingPageErasureHandler` fasst sie bewusst nicht an,
+      `erasure.go:631`). Eine Auskunft ueber eine Person, die nur ueber die Buchungsseite
+      eingetragen ist, liefert heute nichts.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/retention_guest_sessions.go
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      Muster: eine Modul-Funktion in `dsar_search.go` (Signatur wie `driverLicensesModule`), Aufruf
+      in `SearchByQuery`, Test in `dsar_search_test.go` mit echter DB. Nur LESEN - kein
+      Retention-Handler, keine Loeschung (Fristen stehen in
+      `decide-retention-periods-unbounded-personal-tables`, BACKLOG-NEXT.yml). Tenant-Scoping in
+      JEDER Abfrage. Suche ueber E-Mail/Name wie `matchUnlinkedSuppliers` (Treffer ohne
+      Kontaktverknuepfung als eigene Person). `token_hash` nie ausgeben.
+    done_when:
+      - >-
+        Suche nach der E-Mail einer reinen Buchungsseiten-Person liefert ein Modul mit ihren
+        Buchungen, Test mit echter DB
+      - >-
+        Suche nach der E-Mail eines Chat-Gasts liefert die Sitzungen ohne token_hash
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-inbox-and-mail-accounts
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Posteingang und
+      Mail-Konten fehlen im Nutzerzweig: `inbox_messages` (`sender_name`, `sender_email`,
+      `preview`, `assigned_to`), `inbox_thread_messages` (`body`), `team_inbox_members`,
+      `email_accounts` (`display_name`, `email_address`), `email_signatures` (Klartext mit
+      Name/Telefon). `email_messages` kommt heute nur ueber `email_contact_links` vor (Kontaktzweig),
+      nicht fuer das Postfach eines Nutzers. Die Kontakt-Retention scrubbt `inbox_messages` ueber
+      `crm_contact_id` (`scrub.go:123`); ob `inbox_thread_messages.body` dabei mitgeleert wird,
+      ist ungeklaert - zuerst pruefen.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/inbox
+      - backend/internal/email
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. E-Mail ist eine der vier
+      Domaenen mit gesetzlicher Frist (`decide-retention-policy-hgb-ao-domains`) - hier nur
+      Auskunft. Traegt `inbox_thread_messages.body` nach dem Scrub weiter den Klartext der Person,
+      eigene Fix-Unit anlegen (`neue-units`).
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Posteingangs-Eintraege, Postfach-Konten und Signaturen des Nutzers,
+        Test mit echter DB
+      - >-
+        Ob inbox_thread_messages.body von ScrubDependentPII abgedeckt wird, ist im Journal
+        beantwortet
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-video-and-dialer-participation
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Teilnahme- und
+      Aktivitaetsdaten ohne Auskunft: `call_sessions` und `call_participants` (Video, Nutzer als
+      Initiator/Teilnehmer), `meeting_attendees`, `meeting_cohosts`, `meeting_action_items`
+      (`assignee_id`, `description`), `meeting_breakout_assignments`, `dialer_agent_status_log`
+      (Status und Zeitpunkte je Agent - Beschaeftigtendaten, Leistungskontrolle). `meetingsModule`
+      liest nur die Kontaktseite. Notizen und Meeting-Chat sind bereits als
+      `feat-meeting-notes-and-chat-dsar-and-retention-coverage` (BACKLOG-NEXT, wartet auf
+      Entscheidung) erfasst und gehoeren NICHT hierher.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/work
+      - backend/internal/dialer
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. `dialer_agent_status_log` waechst
+      unbegrenzt (Frist in der Entscheidungs-Unit); hier nur Auskunft, bei grosser Zeilenzahl pro
+      Agent mit Zeitraum-Begrenzung oder Aggregat - Zahl messen und im Journal nennen.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Anruf- und Meeting-Teilnahmen, Aktionspunkte und Agent-Statushistorie,
+        Test mit echter DB
+      - >-
+        Bei grosser Statushistorie ist die Ausgabe begrenzt oder verdichtet, Grenze dokumentiert
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-work-reports-and-shifts
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Beschaeftigtendaten
+      der Branchenmodule ohne Auskunft: `work_reports` (Rapporte - `author_id`, `reviewer_id`,
+      `signature_data`, `signed_by`, `lat`/`lon`, Arbeitsbeginn/-ende), `shift_assignments`
+      (`employee_id`), `shift_swap_requests` (`reason`), `hr_week_approvals` (`employee_id`).
+      `hr_work_time_entries` und `hr_leave_*` sind im DSAR, Wochenfreigaben und Schichten nicht.
+      Der Rapport traegt GPS-Koordinaten und eine Unterschrift - der sensibelste Posten dieser
+      Gruppe. Schichten laufen hinter einem Flag (aus), die Tabellen sind trotzdem angelegt.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/rapporte
+      - backend/internal/schichten
+      - backend/internal/hr
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. Unterschrift (`signature_data`)
+      nicht als Base64 ausgeben, sondern als Vermerk mit Zeitpunkt - dieselbe Linie wie
+      `rentalsModule`, dort nachsehen.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Rapporte (als Autor und als Pruefer), Schichtzuteilungen,
+        Tauschanfragen und Wochenfreigaben, Test mit echter DB
+      - >-
+        Unterschrift erscheint als Vermerk, nicht als Rohdaten
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-document-and-chat-authorship
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Vom Nutzer
+      erzeugte Dateien und Beitraege ausserhalb von Nachrichten und Aufgaben: `document_files`
+      (heute nur ueber `document_entity_links` am Kontakt, nicht ueber `owner_id`),
+      `document_file_comments` (`content`, `author_id`), `document_shares`
+      (`shared_with_user_id`), `chat_files` (`filename`, `uploaded_by`), `message_reactions`,
+      `task_files`, `task_activities` (`actor_id`), `wiki_articles` und `wiki_attachments`
+      (`author_id`, `uploaded_by`). Auskunft ueber die eigenen Kommentare und Uploads fehlt.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/document
+      - backend/internal/chat/file
+      - backend/internal/wiki
+      - backend/internal/work
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. Reine Strukturverweise
+      (`created_by` auf Ordner, Tags, Berichtsvorlagen) gehoeren NICHT hierher - die Nutzerzeile
+      wird bei Erasure anonymisiert, der Verweis zeigt dann auf das Label. Nur Inhalt und
+      Dateinamen der Person ausgeben, keine Dateiinhalte.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt eigene Dokumente (owner_id), Kommentare, Chat-Uploads (Dateiname,
+        Zeitpunkt) und Wiki-Autorenschaft, Test mit echter DB
+      - >-
+        Geloeschte Dateien sind gekennzeichnet, nicht verschwiegen
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-finance-beyond-invoices
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). `financeModule`
+      liest nur `finance_invoices`. Mit Personenbezug und gesetzlicher Frist (Auskunft ja,
+      Loeschung nein, Paragraph 147 AO und 257 HGB) fehlen `finance_quotes`,
+      `finance_credit_notes`, `finance_recurring_invoices` (je `customer_name`, `customer_email`,
+      `customer_address`), `finance_incoming_invoices` (`supplier_address`), `finance_expenses`
+      (`submitted_by`, `decided_by`, `supplier`, `receipt_name` - Mitarbeiter-Spesen),
+      `finance_bank_transactions` (`counterparty_name`, `counterparty_iban`, `remittance_info`),
+      `finance_dunning_records`. Diese Tabellen duerfen NICHT geloescht werden und sind darum
+      keine Retention-Luecke.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/finance
+      - backend/internal/crm/consent/scrub.go
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. Mehrere Quellen sind nur ueber
+      E-Mail oder Name verknuepft (kein `contact_id`) - Treffer-Regel wie `formSubmissionsModule`
+      (E-Mail-Gleichheit) uebernehmen und im Journal begruenden. IBANs maskiert ausgeben (letzte
+      4 Stellen).
+    done_when:
+      - >-
+        Kontakt-DSAR zeigt Angebote, Gutschriften, Abos, Eingangsrechnungen und Bankumsaetze, die
+        ihn nennen; Mitarbeiter-DSAR zeigt eigene Spesen, Test mit echter DB
+      - >-
+        IBAN erscheint maskiert
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-fuhrpark-trip-logs-and-damages
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). `trip_logs`
+      traegt `driver_name`, Start- und Zielort, Zweck, `is_private`, `business_partner` - das
+      Fahrtenbuch einer Person - und fehlt im DSAR (Fuhrpark deckt dort `vehicle_bookings`,
+      `driver_licenses`, `vehicles`). `vehicle_damages` (`reported_by`, `resolved_by`,
+      `description`) ist nur mit diesen Spalten Nutzerdatum; `vehicle_services` und `fuel_logs`
+      haben keinen Personenbezug. `trip_logs` ist Paragraph-147-AO-Kandidat
+      (`decide-retention-policy-hgb-ao-domains`): Auskunft ja, Loeschung nein.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/fuhrpark
+      - backend/internal/security/gdpr/retention_vehicle_bookings.go
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. `trip_logs.driver_name` ist Text,
+      kein FK: Treffer ueber Namensgleichheit mit dem Nutzer, im Journal als unscharf
+      kennzeichnen.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Fahrtenbuch-Eintraege (Namensabgleich, als unscharf markiert) und
+        gemeldete oder geloeste Schaeden, Test mit echter DB
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-account-access-and-audit-extract
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Kontodaten und
+      Zugriffsprotokoll des Nutzers: `user_roles`, `user_permission_overrides`,
+      `user_module_grants`, `integration_account_links` (`external_display_name`),
+      `user_settings`, `user_dashboard_layouts`, `user_project_preferences`, `saved_filters`,
+      `app_specific_passwords` (nur Label und Zeitpunkte) und `audit_log` (`ip_address`,
+      `user_agent`, `user_id`). `AuditErasureHandler` behaelt das Protokoll bewusst (Art. 17
+      Abs. 3, Hash-Kette, Paragraph 147 AO). Auskunft dazu wird geschuldet und fehlt.
+      `accountSecurityModule` deckt nur 2FA, Passwort-Historie und Recovery-Codes ab.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/audit/postgres_repository.go
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. `audit_log` ist die groesste
+      Tabelle: Auszug nach Zeitraum und Obergrenze (die letzten N Eintraege plus Gesamtzahl), NICHT
+      die ganze Kette laden und die Hash-Kette nicht beruehren. Geheimnisse (Hashes, Token) nie
+      ausgeben.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Rollen, Overrides, Modul-Freigaben, Integrationsverknuepfungen,
+        Einstellungen und einen begrenzten Audit-Auszug mit Gesamtzahl, Test mit echter DB
+      - >-
+        Audit-Abfrage ist indexgestuetzt (EXPLAIN im Journal) und begrenzt
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-crm-custom-values-csat-and-webhooks
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Drei kleine Reste
+      im Kontaktzweig. (1) `company_custom_field_values`, `deal_custom_field_values`,
+      `activity_custom_field_values` (alle ohne `tenant_id`-Spalte) - nur
+      `contact_custom_field_values` ist im DSAR; Freitextwerte an Deals und Aktivitaeten des
+      Kontakts bleiben unsichtbar. (2) `ticket_csat_responses.comment` - Freitext des Kunden,
+      weder DSAR noch Retention. (3) `form_webhook_deliveries` (Retention-Handler vorhanden)
+      kopiert die Formular-Einsendung als Payload und fehlt im DSAR, obwohl `form_submissions`
+      drin ist.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/retention_form_webhook_deliveries.go
+      - backend/internal/helpdesk
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. Die drei Custom-Value-Tabellen
+      haben kein `tenant_id`: Tenant-Scoping ueber den JOIN auf die Elterntabelle (wie
+      `taskCustomFieldValuesModule`, beide Seiten mit `tenant_id = $1`), nie mit tenantlosem SELECT.
+    done_when:
+      - >-
+        Kontakt-DSAR zeigt Werte an Firmen, Deals und Aktivitaeten des Kontakts, CSAT-Kommentare
+        seiner Tickets und Webhook-Zustellungen seiner Einsendungen, Test mit echter DB
+      - >-
+        Custom-Value-Abfragen sind ueber die Elterntabelle tenant-gescoped, Fremd-Tenant-Test
+        liefert 0 Zeilen
