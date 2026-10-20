@@ -2102,7 +2102,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Verifizierter Produktionsbug, in Iteration 19 durch einen Test reproduziert
       (`TestHandleWebSocket_HardDisconnect_CleanupWaitsForTokenRevalidation`, Phase 1).

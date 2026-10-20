@@ -325,78 +325,81 @@ func TestHandleWebSocket_MessageLoop_RateLimitExceeded_ReturnsErrorFrame(t *test
 // Teardown: expired token, goroutine release, state cleanup
 // ---------------------------------------------------------------------------
 
-// TestHandleWebSocket_HardDisconnect_CleanupWaitsForTokenRevalidation pins down
-// the actual teardown order after a hard abort (no close handshake, the socket
-// just dies). It asserts two things in sequence, and the second only means
-// something once the first has held:
-//
-//	(1) the read-loop error alone releases NOTHING. handleConnection blocks on
-//	    <-done until the revalidation goroutine returns, and that goroutine only
-//	    returns on ctx.Done() or on an invalid token. r.Context() belongs to a
-//	    hijacked connection and is not cancelled when the socket dies, so in
-//	    production the connection, its cached tenant, its rate-limiter bucket,
-//	    its channel memberships and both goroutines survive the disconnect for
-//	    up to wsTokenRevalidateInterval (5 minutes). With maxConnsPerUser = 5
-//	    that also means five flaky reconnects can lock a user out with 429.
-//	    Tracked as backlog unit fix-websocket-hard-disconnect-cleanup-delay.
-//	(2) once the token is no longer valid, the revalidation tick closes the
-//	    connection, which unblocks handleConnection, runs the deferred
-//	    unregisterConnection and returns every goroutine of this connection.
-//
-// The test runs with a short revalidation interval and a short-lived token so
-// both phases fit into a couple of seconds; production uses 5 minutes.
-func TestHandleWebSocket_HardDisconnect_CleanupWaitsForTokenRevalidation(t *testing.T) {
-	// 2s TTL, not milliseconds: JWT exp has second granularity, so anything
-	// below a second can already be expired at handshake time.
-	h, tm := newAuthTestHub(t, nil, 2*time.Second)
-	h.revalidateInterval = 100 * time.Millisecond
+// connGoroutines counts the goroutines currently parked in a hub connection's
+// read loop or its token-revalidation loop. Matching on the function names
+// keeps the count independent of the http.Server's own per-connection
+// bookkeeping, which winds down asynchronously.
+func connGoroutines() int {
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+	count := 0
+	for _, g := range strings.Split(string(buf), "\n\n") {
+		if strings.Contains(g, "(*WebSocketHub).handleConnection") ||
+			strings.Contains(g, "(*WebSocketHub).revalidateTokenLoopWithInterval") {
+			count++
+		}
+	}
+	return count
+}
+
+// TestHandleWebSocket_HardDisconnect_ReleasesImmediately covers a hard abort
+// (no close handshake, the socket just dies). r.Context() belongs to a
+// hijacked connection and is not cancelled when the socket dies, so the
+// read-loop error is the only signal. It must release the connection, its
+// cached tenant, its rate-limiter bucket, its channel memberships, its
+// presence subscriptions and both goroutines at once — not on the next
+// revalidation tick. The revalidation interval is left at the 5-minute
+// production value and the token is valid for an hour, so neither a tick nor
+// an expiry can be what triggers the cleanup.
+func TestHandleWebSocket_HardDisconnect_ReleasesImmediately(t *testing.T) {
+	h, tm := newAuthTestHub(t, nil, time.Hour)
+	h.revalidateInterval = wsTokenRevalidateInterval
 	userID := uuid.New()
+	uid := userID.String()
 	wsURL := serveHub(t, h)
 
-	before := runtime.NumGoroutine()
+	before := connGoroutines()
 
 	client, resp := dialHub(t, wsURL, issueToken(t, tm, userID, uuid.New().String()))
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}
 
-	require.True(t, waitFor(time.Second, func() bool { return h.connCount(userID.String()) == 1 }))
+	require.True(t, waitFor(time.Second, func() bool { return h.connCount(uid) == 1 }))
+	require.True(t, waitFor(time.Second, func() bool { return connGoroutines() >= before+2 }),
+		"an open connection runs a read loop and a revalidation loop (before=%d, now=%d)", before, connGoroutines())
+
 	h.mu.Lock()
-	h.channelMembers["chan-1"] = map[string]struct{}{userID.String(): {}}
-	h.rateLimiters[userID.String()] = newMsgRateLimiter()
+	h.channelMembers["chan-1"] = map[string]struct{}{uid: {}}
+	h.rateLimiters[uid] = newMsgRateLimiter()
+	h.presenceSubscribers["target-1"] = map[string]struct{}{uid: {}}
 	h.mu.Unlock()
 
 	require.NoError(t, client.CloseNow())
 
-	// (1) Several revalidation ticks pass while the token is still valid — and
-	// nothing is released, because the read-loop error alone cannot get past
-	// <-done.
-	time.Sleep(400 * time.Millisecond)
-	assert.Equal(t, 1, h.connCount(userID.String()),
-		"a hard disconnect releases nothing on its own: handleConnection stays parked on <-done")
-	h.mu.RLock()
-	_, stillMember := h.channelMembers["chan-1"][userID.String()]
-	h.mu.RUnlock()
-	assert.True(t, stillMember, "channel membership also survives the dead socket until revalidation fires")
-
-	// (2) Token expires -> revalidation closes the connection -> cleanup runs.
-	require.True(t, waitFor(5*time.Second, func() bool { return h.connCount(userID.String()) == 0 }),
-		"the expired token must terminate the dead connection and unregister it")
+	require.True(t, waitFor(500*time.Millisecond, func() bool { return h.connCount(uid) == 0 }),
+		"a hard disconnect must unregister the connection without waiting for the revalidation tick")
 
 	h.mu.RLock()
-	_, tenantLeft := h.userTenants[userID.String()]
-	_, limiterLeft := h.rateLimiters[userID.String()]
-	_, memberLeft := h.channelMembers["chan-1"][userID.String()]
+	_, tenantLeft := h.userTenants[uid]
+	_, limiterLeft := h.rateLimiters[uid]
+	_, memberLeft := h.channelMembers["chan-1"][uid]
+	_, presenceLeft := h.presenceSubscribers["target-1"][uid]
 	h.mu.RUnlock()
 	assert.False(t, tenantLeft, "cached tenant must be dropped with the last connection")
 	assert.False(t, limiterLeft, "rate limiter must be dropped with the last connection")
 	assert.False(t, memberLeft, "channel membership must be dropped with the last connection")
+	assert.False(t, presenceLeft, "presence subscription must be dropped with the last connection")
 
-	// Goroutine budget: read loop and revalidation loop must both be gone. The
-	// small tolerance covers the http.Server's own per-connection bookkeeping,
-	// which winds down asynchronously.
-	require.True(t, waitFor(5*time.Second, func() bool { return runtime.NumGoroutine() <= before+2 }),
-		"goroutines must return to the pre-connect baseline (before=%d, now=%d)", before, runtime.NumGoroutine())
+	require.True(t, waitFor(500*time.Millisecond, func() bool { return connGoroutines() <= before }),
+		"read loop and revalidation loop must both return (before=%d, now=%d)", before, connGoroutines())
 }
 
 // TestHandleWebSocket_TokenExpiresMidSession_ClosesWithPolicyViolation proves

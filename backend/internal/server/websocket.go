@@ -498,12 +498,17 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Conn, userID, rawToken string) {
 	// Start the periodic token-revalidation goroutine.
 	// It runs independently of the read-loop (which blocks on wsjson.Read) and
-	// terminates either when ctx is cancelled (normal disconnect) or when it
-	// closes the connection itself (token no longer valid).
+	// terminates either when revalCtx is cancelled (read-loop ended) or when it
+	// closes the connection itself (token no longer valid). The request ctx of a
+	// hijacked connection is not cancelled when the socket dies, so the read-loop
+	// must cancel revalCtx itself — otherwise a hard disconnect keeps the
+	// connection registered until the next revalidation tick (5 minutes).
+	revalCtx, cancelReval := context.WithCancel(ctx)
+	defer cancelReval()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		h.revalidateTokenLoop(ctx, conn, userID, rawToken)
+		h.revalidateTokenLoop(revalCtx, conn, userID, rawToken)
 	}()
 
 	for {
@@ -515,8 +520,9 @@ func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Con
 			} else {
 				slog.Error("websocket read error", "user_id", userID, "error", err)
 			}
-			// Wait for the revalidation goroutine to finish before returning so
+			// Stop the revalidation goroutine and wait for it before returning so
 			// that the deferred unregisterConnection in HandleWebSocket runs last.
+			cancelReval()
 			<-done
 			return
 		}
