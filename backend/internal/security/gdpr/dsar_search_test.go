@@ -3393,3 +3393,136 @@ func TestSearchByQuery_EinkaufSuppliers_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
 }
+
+func TestSearchByQuery_ExternalVisitors_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Visitors Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Visitors Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	ownerID := seedDSARUser(t, pool, tenantOwn, "Dsar", "VisitorOwner", true)
+	defer testutil.CleanupRow(t, pool, "users", ownerID)
+
+	calendarID := testutil.SeedRow(t, pool, "calendars", map[string]any{
+		"tenant_id": tenantOwn,
+		"name":      "Besucher Kalender",
+		"owner_id":  ownerID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendars", calendarID)
+	pageID := testutil.SeedRow(t, pool, "booking_pages", map[string]any{
+		"tenant_id":    tenantOwn,
+		"calendar_id":  calendarID,
+		"slug":         "dsar-visitors-" + strings.ReplaceAll(uuid.New().String(), "-", "")[:10],
+		"company_name": "Zentria Beratung",
+	})
+	defer testutil.CleanupRow(t, pool, "booking_pages", pageID)
+
+	seedBooking := func(name, email, slot, notes string) {
+		id := testutil.SeedRow(t, pool, "public_bookings", map[string]any{
+			"tenant_id":       tenantOwn,
+			"booking_page_id": pageID,
+			"service_id":      "erstberatung",
+			"customer_name":   name,
+			"customer_email":  email,
+			"customer_phone":  "+49 151 000111",
+			"notes":           notes,
+			"date":            time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC),
+			"time_slot":       slot,
+		})
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "public_bookings", id) })
+	}
+	seedBooking("Fridolin Walzer", "Fridolin@Walzer.example", "09:00", "Rueckruf bitte")
+	seedBooking("Fridolin Walzer", "fridolin@walzer.example", "11:00", "")
+	seedBooking("Anderer Besucher", "anderer@besucher.example", "10:00", "geheim")
+
+	channelID := testutil.SeedRow(t, pool, "channels", map[string]any{
+		"tenant_id":        tenantOwn,
+		"name":             "dsar-gast-kanal",
+		"created_by":       ownerID,
+		"is_guest_enabled": true,
+	})
+	defer testutil.CleanupRow(t, pool, "channels", channelID)
+	seedGuest := func(name, email, tokenHash string) {
+		id := testutil.SeedRow(t, pool, "guest_sessions", map[string]any{
+			"tenant_id":        tenantOwn,
+			"token_hash":       tokenHash,
+			"channel_id":       channelID,
+			"display_name":     name,
+			"email":            email,
+			"ip_address":       "203.0.113.7",
+			"user_agent":       "Mozilla/5.0 DSAR-Test",
+			"last_activity_at": time.Now().UTC(),
+			"expires_at":       time.Now().UTC().Add(24 * time.Hour),
+		})
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "guest_sessions", id) })
+	}
+	hashA := strings.ReplaceAll(uuid.New().String(), "-", "") + strings.ReplaceAll(uuid.New().String(), "-", "")
+	hashB := strings.ReplaceAll(uuid.New().String(), "-", "") + strings.ReplaceAll(uuid.New().String(), "-", "")
+	seedGuest("Gunhild Gast", "gunhild@gast.example", hashA)
+	seedGuest("Namenlos Gast", "", hashB)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	// Booking-page visitor: found by e-mail, both bookings (mixed-case e-mail) under one subject.
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "walzer.example")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	assert.Equal(t, "Fridolin Walzer", persons[0].Name)
+	bookings := recordMaps(dsarModule(t, persons[0], "Online-Terminbuchungen"))
+	require.Len(t, bookings, 2)
+	assert.Equal(t, "11:00", bookings[0]["Uhrzeit"])
+	assert.Equal(t, "Rueckruf bitte", bookings[1]["Notizen"])
+	assert.Equal(t, "+49 151 000111", bookings[0]["Telefon"])
+	assert.Equal(t, "Zentria Beratung", bookings[0]["Buchungsseite"])
+	assert.Equal(t, "2026-11-03", bookings[0]["Datum"])
+	for _, b := range bookings {
+		assert.NotContains(t, b["Name"], "Anderer", "another visitor's booking must not leak")
+	}
+
+	// Found by name as well.
+	byName, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Fridolin")
+	require.NoError(t, err)
+	require.Len(t, byName, 1)
+
+	// Chat guest: sessions are disclosed without the credential.
+	guests, err := SearchByQuery(ctxOwn, pool, tenantOwn, "gunhild@gast")
+	require.NoError(t, err)
+	require.Len(t, guests, 1)
+	sessions := dsarModule(t, guests[0], "Chat-Gastsitzungen")
+	rec := recordMaps(sessions)
+	require.Len(t, rec, 1)
+	assert.Equal(t, "Gunhild Gast", rec[0]["Anzeigename"])
+	assert.Equal(t, "203.0.113.7", rec[0]["IP-Adresse"])
+	assert.Equal(t, "Mozilla/5.0 DSAR-Test", rec[0]["Browser"])
+	assert.Equal(t, "dsar-gast-kanal", rec[0]["Kanal"])
+	for _, r := range sessions.Records {
+		for _, f := range r.Fields {
+			assert.NotContains(t, f.Value, hashA, "token_hash must never be disclosed")
+		}
+	}
+
+	// A guest without e-mail is found by display name.
+	anon, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Namenlos")
+	require.NoError(t, err)
+	require.Len(t, anon, 1)
+	assert.Len(t, dsarModule(t, anon[0], "Chat-Gastsitzungen").Records, 1)
+
+	// --- tenant isolation ---------------------------------------------------
+	for _, q := range []string{"walzer.example", "gunhild@gast", "Namenlos"} {
+		foreign, searchErr := SearchByQuery(ctxOther, pool, tenantOther, q)
+		require.NoError(t, searchErr)
+		assert.Empty(t, foreign, q)
+
+		forged, searchErr := SearchByQuery(ctxOther, pool, tenantOwn, q)
+		require.NoError(t, searchErr)
+		assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary: "+q)
+	}
+}

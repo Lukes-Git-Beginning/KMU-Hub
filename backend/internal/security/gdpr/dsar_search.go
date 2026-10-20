@@ -250,6 +250,18 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 	}
 	persons = append(persons, suppliers...)
 
+	bookingVisitors, err := matchPublicBookingVisitors(ctx, pool, tenantID, pattern)
+	if err != nil {
+		return nil, err
+	}
+	persons = append(persons, bookingVisitors...)
+
+	guestVisitors, err := matchGuestSessionVisitors(ctx, pool, tenantID, pattern)
+	if err != nil {
+		return nil, err
+	}
+	persons = append(persons, guestVisitors...)
+
 	return persons, nil
 }
 
