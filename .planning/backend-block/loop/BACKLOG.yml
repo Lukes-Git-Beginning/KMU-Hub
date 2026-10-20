@@ -2780,7 +2780,7 @@ units:
     service: caldav
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fix, Coverage nur als Beleg)"
     scope: >
       VERIFIZIERTER AUTH-BEFUND aus `scan-signed-url-and-token-lifetimes` (Iteration 50), mit einem

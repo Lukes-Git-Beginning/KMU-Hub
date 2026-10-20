@@ -310,3 +310,59 @@ func TestUserPreferenceRepository_RevokeAllUserPasswords_InvalidatesValidate(t *
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), affected)
 }
+
+// TestAppPasswordService_Validate_DeactivatedUser pins the offboarding hole:
+// Offboarding sets users.is_active = false but revokes no app passwords, and
+// the DAV routes carry no RequirePermission, so a deactivated user kept full
+// read/write access to calendars and contacts. Both doors into the DAV
+// backends -- Validate and the NewCtxInjector tenant lookup -- must now refuse
+// them, and a reactivated user must work again with the same password.
+func TestAppPasswordService_Validate_DeactivatedUser(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() }) // registered first: closes last, after row/setting cleanups
+
+	svc := NewAppPasswordService(NewPostgresAppPasswordRepository(pool), pool)
+	withOrgEnabledRestored(t, svc)
+	require.NoError(t, svc.SetOrgEnabled(context.Background(), true))
+
+	ctx, tenantID, userID := seedCalDAVUser(t, pool)
+
+	plaintext, pw, err := svc.Create(ctx, userID, tenantID, "Offboarding Test")
+	require.NoError(t, err)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "app_specific_passwords", pw.ID) })
+
+	setActive := func(active bool) {
+		t.Helper()
+		_, err := pool.Exec(ctx, `UPDATE users SET is_active = $1 WHERE id = $2`, active, userID)
+		require.NoError(t, err)
+	}
+
+	_, err = svc.Validate(context.Background(), userID.String(), plaintext)
+	require.NoError(t, err, "sanity: active user validates")
+	_, err = NewCtxInjector(pool)(context.Background(), userID)
+	require.NoError(t, err, "sanity: active user resolves a tenant")
+
+	setActive(false)
+
+	t.Run("deactivated user fails Validate with the generic credentials error", func(t *testing.T) {
+		_, err := svc.Validate(context.Background(), userID.String(), plaintext)
+		assert.ErrorIs(t, err, ErrInvalidCredentials)
+	})
+
+	t.Run("deactivated user gets no tenant context", func(t *testing.T) {
+		_, err := NewCtxInjector(pool)(context.Background(), userID)
+		assert.Error(t, err)
+	})
+
+	setActive(true)
+
+	t.Run("reactivated user validates again with the same password", func(t *testing.T) {
+		got, err := svc.Validate(context.Background(), userID.String(), plaintext)
+		require.NoError(t, err)
+		assert.Equal(t, userID, got)
+		_, err = NewCtxInjector(pool)(context.Background(), userID)
+		assert.NoError(t, err)
+	})
+}

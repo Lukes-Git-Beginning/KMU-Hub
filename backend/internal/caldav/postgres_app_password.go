@@ -83,6 +83,9 @@ func (r *PostgresAppPasswordRepository) Revoke(ctx context.Context, id, userID u
 	return nil
 }
 
+// FindActiveByUser returns the non-revoked passwords of an ACTIVE user.
+// Offboarding sets users.is_active = false, which yields an empty list here, so
+// Basic Auth rejects a deactivated user exactly like a wrong password.
 func (r *PostgresAppPasswordRepository) FindActiveByUser(ctx context.Context, userID uuid.UUID) ([]*models.AppSpecificPassword, error) {
 	// CalDAV/CardDAV Basic Auth validates credentials before any tenant is
 	// known (that's the point of this lookup) — system-context read, same
@@ -90,11 +93,12 @@ func (r *PostgresAppPasswordRepository) FindActiveByUser(ctx context.Context, us
 	ctx = sysctx.With(ctx)
 
 	query := `
-		SELECT id, user_id, label, password_hash, password_prefix, scope,
-			last_used_at, created_at, revoked_at
-		FROM app_specific_passwords
-		WHERE user_id = $1 AND revoked_at IS NULL
-		ORDER BY created_at DESC`
+		SELECT asp.id, asp.user_id, asp.label, asp.password_hash, asp.password_prefix, asp.scope,
+			asp.last_used_at, asp.created_at, asp.revoked_at
+		FROM app_specific_passwords asp
+		JOIN users u ON u.id = asp.user_id AND u.is_active
+		WHERE asp.user_id = $1 AND asp.revoked_at IS NULL
+		ORDER BY asp.created_at DESC`
 
 	rows, err := r.pool.Query(ctx, query, userID)
 	if err != nil {
