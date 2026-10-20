@@ -448,6 +448,13 @@ func (s *Service) ApproveTimeCorrection(ctx context.Context, tenantID, correctio
 		return nil, ErrCorrectionNotFound
 	}
 
+	// Four-eyes rule: the permission guard only says who may approve
+	// corrections at all, not whose. Without this a manager could file a
+	// correction for themselves and approve it into their own balance.
+	if approverID == correction.EmployeeID {
+		return nil, ErrCannotApproveOwnCorrection
+	}
+
 	// Approving is what makes the correction count towards the week
 	// (aggregateDailyBuckets sums 'correction_approved'), so the lock applies
 	// here too — not only when the correction was requested.

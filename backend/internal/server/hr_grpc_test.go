@@ -55,6 +55,7 @@ func TestMapHRError_AllSentinels(t *testing.T) {
 		{"NotOnBreak", timetracking.ErrNotOnBreak, codes.FailedPrecondition},
 		{"MaxDailyHoursExceeded", timetracking.ErrMaxDailyHoursExceeded, codes.FailedPrecondition},
 		{"CorrectionNotFound", timetracking.ErrCorrectionNotFound, codes.NotFound},
+		{"CannotApproveOwnCorrection", timetracking.ErrCannotApproveOwnCorrection, codes.PermissionDenied},
 		{"WorkTimeEntryNotFound", timetracking.ErrWorkTimeEntryNotFound, codes.NotFound},
 		{"TimeCategoryNotFound", timetracking.ErrTimeCategoryNotFound, codes.NotFound},
 		{"TimeTemplateNotFound", timetracking.ErrTimeTemplateNotFound, codes.NotFound},

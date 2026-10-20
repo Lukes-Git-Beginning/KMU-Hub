@@ -2118,6 +2118,8 @@ func mapHRError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, timetracking.ErrCorrectionNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, timetracking.ErrCannotApproveOwnCorrection):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, timetracking.ErrWorkTimeEntryNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, timetracking.ErrTimeCategoryNotFound):

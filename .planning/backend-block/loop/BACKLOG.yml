@@ -1222,55 +1222,12 @@ units:
         400 statt den RPC zu erreichen
       - go test -count=1 ./internal/fuhrpark/ gruen
 
-  - id: fix-fuhrpark-trip-logs-private-flag-not-filtered
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).
-      `trip_logs` traegt `is_private BOOLEAN` (`backend/migrations/000193_create_trip_logs.up.sql`)
-      zur Unterscheidung privater von geschaeftlichen Fahrten. Sowohl
-      `PostgresRepository.ListTripLogs` als auch `PostgresRepository.ListTripLogsForExport`
-      (`internal/fuhrpark/postgres_repository.go:639` und `:1191`) selektieren `is_private` als
-      Spalte, filtern aber in keiner ihrer WHERE-Klauseln danach — jede Route ueber
-      `HandleListTripLogs`, `HandleListVehicleTripLogs` und `HandleExportTripLogs`
-      (`internal/gateway/route_fuhrpark.go`) liefert private Fahrten ununterscheidbar neben
-      geschaeftlichen zurueck. Das steuerlich relevante Fahrtenbuch-Export-PDF/CSV
-      (`Service.ExportTripLogs`, `internal/fuhrpark/service.go:754`) enthaelt damit private
-      Fahrten des Fahrers im arbeitgeberseitigen Bericht.
-      Fix: entweder einen expliziten `include_private`-Query-Parameter einfuehren, der
-      standardmaessig `false` ist (private Fahrten nur auf Wunsch/mit gesonderter Berechtigung
-      sichtbar), oder `is_private=true`-Zeilen grundsaetzlich aus Liste UND Export ausschliessen.
-      Die Entscheidung zwischen beiden Wegen (opt-in sichtbar vs. immer ausgeblendet) gehoert
-      Luke — `IsPrivate` wird beim Anlegen vom Fahrer selbst gesetzt
-      (`createTripLogRequest.IsPrivate`, `route_fuhrpark.go`), es ist also keine
-      Admin-only-Angabe.
-    sources:
-      - backend/internal/fuhrpark/postgres_repository.go
-      - backend/internal/fuhrpark/service.go
-      - backend/internal/gateway/route_fuhrpark.go
-      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
-      - backend/migrations/000193_create_trip_logs.up.sql
-    notes: >
-      `is_private` NICHT stillschweigend rausfiltern, ohne die Wahl (opt-in vs. immer
-      ausgeblendet) vorher mit Luke zu klaeren — eine Verhaltensaenderung an einem bestehenden
-      Bericht ohne Ankuendigung waere selbst ein Befund.
-    done_when:
-      - >-
-        Mit Luke geklaert: private Fahrten per Default ausgeblendet ODER nur ueber einen
-        expliziten Parameter sichtbar — beide Wege sind zulaessig, die Wahl steht vorher fest
-      - Liste UND Export respektieren die gewaehlte Regel, belegt durch einen DB-Test
-      - go test -count=1 ./internal/fuhrpark/ gruen
-
   - id: fix-hr-approve-correction-self-approval
     phase: 4
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `cov-gateway-hr-time-tracking-paths` (Iteration 20, Lauf 12), belegt durch
