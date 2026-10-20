@@ -504,6 +504,14 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *vehicleBookings)
 		}
 
+		recordings, recErr := recordingsModule(ctx, pool, tenantID, u.id)
+		if recErr != nil {
+			return nil, recErr
+		}
+		if recordings != nil {
+			person.Modules = append(person.Modules, *recordings)
+		}
+
 		invitationHistory, ihErr := invitationHistoryModule(ctx, pool, tenantID, u.email)
 		if ihErr != nil {
 			return nil, ihErr
@@ -1701,6 +1709,93 @@ func vehicleBookingRoleLabel(reservedForSubject, bookedBySubject bool) string {
 	default:
 		return ""
 	}
+}
+
+// recordingsModule discloses the video/audio recordings a matched user
+// started or was asked to consent to being part of: when, for a meeting or a
+// call, the status, the user's role and their consent answer. The media file
+// itself is not exported (only metadata, like documentsModule).
+//
+// Retention is deliberately NOT part of the generic retention framework
+// (retention_*.go): recordings expire through their own mechanism --
+// recording.Service.RetentionDays (30), retention_expires_at and the
+// CleanupExpiredRecordings cron in cmd/work -- which also removes the MinIO
+// object. Showing "Aufbewahrung bis" here makes that expiry visible to the
+// data subject without duplicating the deletion path.
+func recordingsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT r.created_at, r.meeting_id IS NOT NULL, r.status, r.duration_seconds,
+		        r.retention_expires_at, r.started_by = $2, rc.consented, rc.responded_at
+		 FROM recordings r
+		 LEFT JOIN recording_consents rc
+		        ON rc.recording_id = r.id AND rc.user_id = $2 AND rc.tenant_id = $1
+		 WHERE r.tenant_id = $1 AND (r.started_by = $2 OR rc.user_id IS NOT NULL)
+		 ORDER BY r.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query recordings: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Aufzeichnungen",
+		Columns: []string{"Erstellt", "Art", "Status", "Dauer (Sek.)", "Rolle", "Einwilligung", "Einwilligung am", "Aufbewahrung bis"},
+	}
+	for rows.Next() {
+		var createdAt time.Time
+		var forMeeting bool
+		var status string
+		var duration *int
+		var retentionUntil, respondedAt *time.Time
+		var startedBySubject *bool
+		var consented *bool
+		if scanErr := rows.Scan(&createdAt, &forMeeting, &status, &duration,
+			&retentionUntil, &startedBySubject, &consented, &respondedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan recording: %w", scanErr)
+		}
+		kind := "Anruf"
+		if forMeeting {
+			kind = "Meeting"
+		}
+		role := "Teilnehmer"
+		if startedBySubject != nil && *startedBySubject {
+			role = "Starter"
+		}
+		consentLabel, consentAt := "", ""
+		if consented != nil {
+			consentLabel = "verweigert"
+			if *consented {
+				consentLabel = "erteilt"
+			}
+		}
+		if respondedAt != nil {
+			consentAt = respondedAt.Format(dsarTimeLayout)
+		}
+		durationLabel, retentionLabel := "", ""
+		if duration != nil {
+			durationLabel = fmt.Sprintf("%d", *duration)
+		}
+		if retentionUntil != nil {
+			retentionLabel = retentionUntil.Format(dsarTimeLayout)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Erstellt", Value: createdAt.Format(dsarTimeLayout)},
+			{Key: "Art", Value: kind},
+			{Key: "Status", Value: status},
+			{Key: "Dauer (Sek.)", Value: durationLabel},
+			{Key: "Rolle", Value: role},
+			{Key: "Einwilligung", Value: consentLabel},
+			{Key: "Einwilligung am", Value: consentAt},
+			{Key: "Aufbewahrung bis", Value: retentionLabel},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: recording rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
 }
 
 // invitationHistoryModule discloses how a matched user came to have an

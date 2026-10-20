@@ -3025,3 +3025,115 @@ func recordMaps(m DSARModule) []map[string]string {
 	}
 	return out
 }
+
+func TestSearchByQuery_UserRecordings_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Recording Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Recording Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Rosalind", "Echolot", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	colleagueID := seedDSARUser(t, pool, tenantOwn, "Bertram", "Stimmgabel", true)
+	defer testutil.CleanupRow(t, pool, "users", colleagueID)
+
+	now := time.Now().UTC().Truncate(time.Second)
+	meetingID := testutil.SeedRow(t, pool, "meetings", map[string]any{
+		"tenant_id":       tenantOwn,
+		"title":           "DSAR recording meeting",
+		"organizer_id":    colleagueID,
+		"scheduled_start": now,
+		"scheduled_end":   now.Add(time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "meetings", meetingID)
+
+	// Started by the subject, no consent row for them.
+	startedID := testutil.SeedRow(t, pool, "recordings", map[string]any{
+		"tenant_id":            tenantOwn,
+		"meeting_id":           meetingID,
+		"started_by":           subjectID,
+		"status":               "completed",
+		"duration_seconds":     90,
+		"created_at":           now.Add(-2 * time.Hour),
+		"retention_expires_at": now.Add(28 * 24 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "recordings", startedID)
+
+	// Started by a colleague, the subject answered "no".
+	declinedID := testutil.SeedRow(t, pool, "recordings", map[string]any{
+		"tenant_id":  tenantOwn,
+		"meeting_id": meetingID,
+		"started_by": colleagueID,
+		"status":     "deleted",
+		"created_at": now.Add(-1 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "recordings", declinedID)
+
+	// Started and consented to by the colleague only -- must not appear.
+	unrelatedID := testutil.SeedRow(t, pool, "recordings", map[string]any{
+		"tenant_id":  tenantOwn,
+		"meeting_id": meetingID,
+		"started_by": colleagueID,
+		"status":     "completed",
+	})
+	defer testutil.CleanupRow(t, pool, "recordings", unrelatedID)
+
+	ctxSys := testutil.WithSystemCtx(context.Background())
+	for _, c := range []struct {
+		rec  uuid.UUID
+		user uuid.UUID
+		ok   bool
+	}{
+		{declinedID, subjectID, false},
+		{unrelatedID, colleagueID, true},
+	} {
+		_, err := pool.Exec(ctxSys,
+			`INSERT INTO recording_consents (recording_id, user_id, consented, tenant_id)
+			 VALUES ($1, $2, $3, $4)`, c.rec, c.user, c.ok, tenantOwn)
+		require.NoError(t, err)
+	}
+
+	// Timestamps round-trip through the DB session's time zone, so the
+	// expected strings are read back from Postgres (see querySessionLastActive).
+	var startedAt, startedRetention, respondedAt, declinedAt time.Time
+	require.NoError(t, pool.QueryRow(ctxSys,
+		`SELECT created_at, retention_expires_at FROM recordings WHERE id = $1`, startedID).
+		Scan(&startedAt, &startedRetention))
+	require.NoError(t, pool.QueryRow(ctxSys,
+		`SELECT r.created_at, rc.responded_at FROM recordings r
+		 JOIN recording_consents rc ON rc.recording_id = r.id AND rc.user_id = $2
+		 WHERE r.id = $1`, declinedID, subjectID).Scan(&declinedAt, &respondedAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Rosalind")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	recs := dsarModule(t, persons[0], "Aufzeichnungen")
+	assert.Equal(t, []map[string]string{
+		{
+			"Erstellt": declinedAt.Format(dsarTimeLayout), "Art": "Meeting", "Status": "deleted",
+			"Dauer (Sek.)": "", "Rolle": "Teilnehmer", "Einwilligung": "verweigert",
+			"Einwilligung am": respondedAt.Format(dsarTimeLayout), "Aufbewahrung bis": "",
+		},
+		{
+			"Erstellt": startedAt.Format(dsarTimeLayout), "Art": "Meeting", "Status": "completed",
+			"Dauer (Sek.)": "90", "Rolle": "Starter", "Einwilligung": "",
+			"Einwilligung am": "", "Aufbewahrung bis": startedRetention.Format(dsarTimeLayout),
+		},
+	}, recordMaps(recs), "newest first; started-by and consent-only recordings appear, the colleague's own recording must not")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Rosalind")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their recordings")
+}
