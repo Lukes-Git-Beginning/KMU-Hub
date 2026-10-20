@@ -444,6 +444,10 @@ message SubmitFormByShareTokenRequest {
   string token = 1;
   bytes answers = 2;
   optional string ip_address = 3;
+  // Optional Idempotency-Key header of the public request. Scoped to the share
+  // link inside the service; a repeat with the same body replays the stored
+  // submission instead of writing a second one.
+  optional string idempotency_key = 4;
 }
 
 // The response deliberately carries no schema content and no submission body:
@@ -454,4 +458,7 @@ message SubmitFormByShareTokenResponse {
   string submission_id = 1;
   string tenant_id = 2;
   string form_schema_id = 3;
+  // True when the submission was already stored by an earlier request with the
+  // same Idempotency-Key. The gateway must not run the intake dispatch again.
+  bool replayed = 4;
 }

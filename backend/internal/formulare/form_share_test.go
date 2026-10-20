@@ -76,7 +76,7 @@ func TestSubmitByShareToken_StoresTheSubmissionAndResolvesTheTenant(t *testing.T
 	schema := seedPublicSchema(t, repo, `[]`)
 	link := mintLink(t, svc, schema.ID)
 
-	got, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"f1":"kaputt"}`), "")
+	got, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"f1":"kaputt"}`), "", "")
 	if err != nil {
 		t.Fatalf("SubmitByShareToken: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestSubmitByShareToken_EveryTokenVerdictIsTheSameNotFound(t *testing.T) {
 			svc, repo := newSvc()
 			token := tc.setup(t, svc, repo)
 
-			_, err := svc.SubmitByShareToken(context.Background(), token, answers, "")
+			_, err := svc.SubmitByShareToken(context.Background(), token, answers, "", "")
 			if !errors.Is(err, ErrShareLinkNotFound) {
 				t.Fatalf("err = %v, want ErrShareLinkNotFound", err)
 			}
@@ -209,10 +209,10 @@ func TestSubmitByShareToken_QuotaIsEnforcedByTheWrite(t *testing.T) {
 		t.Fatalf("CreateShareLink: %v", err)
 	}
 
-	if _, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"a":1}`), ""); err != nil {
+	if _, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"a":1}`), "", ""); err != nil {
 		t.Fatalf("first submission: %v", err)
 	}
-	if _, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"a":2}`), ""); !errors.Is(err, ErrShareLinkNotFound) {
+	if _, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"a":2}`), "", ""); !errors.Is(err, ErrShareLinkNotFound) {
 		t.Fatalf("second submission err = %v, want ErrShareLinkNotFound", err)
 	}
 	if got := repo.shareLinks[link.ID].SubmissionCount; got != 1 {
@@ -225,7 +225,7 @@ func TestSubmitByShareToken_RejectsFileFields(t *testing.T) {
 	schema := seedPublicSchema(t, repo, `[{"id":"f1","label":"Foto","type":"file"}]`)
 	link := mintLink(t, svc, schema.ID)
 
-	_, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"f1":"x"}`), "")
+	_, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"f1":"x"}`), "", "")
 	if !errors.Is(err, ErrShareLinkFileFieldUnsupported) {
 		t.Fatalf("err = %v, want ErrShareLinkFileFieldUnsupported", err)
 	}
@@ -239,7 +239,7 @@ func TestSubmitByShareToken_RejectsAnOversizedBody(t *testing.T) {
 	schema := seedPublicSchema(t, repo, `[]`)
 	link := mintLink(t, svc, schema.ID)
 
-	_, err := svc.SubmitByShareToken(context.Background(), link.Token, make([]byte, maxPublicAnswersBytes+1), "")
+	_, err := svc.SubmitByShareToken(context.Background(), link.Token, make([]byte, maxPublicAnswersBytes+1), "", "")
 	if !errors.Is(err, ErrAnswersTooLarge) {
 		t.Fatalf("err = %v, want ErrAnswersTooLarge", err)
 	}
@@ -250,7 +250,7 @@ func TestSubmitByShareToken_RejectsAnOversizedBody(t *testing.T) {
 func TestSubmitByShareToken_SizeIsCheckedBeforeTheToken(t *testing.T) {
 	svc, _ := newSvc()
 
-	_, err := svc.SubmitByShareToken(context.Background(), "not-a-real-token", make([]byte, maxPublicAnswersBytes+1), "")
+	_, err := svc.SubmitByShareToken(context.Background(), "not-a-real-token", make([]byte, maxPublicAnswersBytes+1), "", "")
 	if !errors.Is(err, ErrAnswersTooLarge) {
 		t.Fatalf("err = %v, want ErrAnswersTooLarge (not the token verdict)", err)
 	}

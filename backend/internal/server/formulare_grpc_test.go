@@ -1111,6 +1111,16 @@ func TestFormulareMapError_Nil(t *testing.T) {
 	}
 }
 
+// The public submit route's Idempotency-Key verdicts: reuse with other answers
+// is the 422 the Idempotency middleware answers with, in flight the same 409.
+func TestFormulareMapError_IdempotencyKeyReused(t *testing.T) {
+	assertGRPCCode(t, mapFormulareError(formulare.ErrIdempotencyKeyReused), codes.OutOfRange)
+}
+
+func TestFormulareMapError_IdempotencyInFlight(t *testing.T) {
+	assertGRPCCode(t, mapFormulareError(formulare.ErrIdempotencyInFlight), codes.AlreadyExists)
+}
+
 func TestFormulareMapError_SchemaNotFound(t *testing.T) {
 	assertGRPCCode(t, mapFormulareError(formulare.ErrSchemaNotFound), codes.NotFound)
 }

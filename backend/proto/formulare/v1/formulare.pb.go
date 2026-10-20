@@ -3393,12 +3393,16 @@ func (*RevokeFormShareLinkResponse) Descriptor() ([]byte, []int) {
 }
 
 type SubmitFormByShareTokenRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	Answers       []byte                 `protobuf:"bytes,2,opt,name=answers,proto3" json:"answers,omitempty"`
-	IpAddress     *string                `protobuf:"bytes,3,opt,name=ip_address,json=ipAddress,proto3,oneof" json:"ip_address,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Token     string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Answers   []byte                 `protobuf:"bytes,2,opt,name=answers,proto3" json:"answers,omitempty"`
+	IpAddress *string                `protobuf:"bytes,3,opt,name=ip_address,json=ipAddress,proto3,oneof" json:"ip_address,omitempty"`
+	// Optional Idempotency-Key header of the public request. Scoped to the share
+	// link inside the service; a repeat with the same body replays the stored
+	// submission instead of writing a second one.
+	IdempotencyKey *string `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SubmitFormByShareTokenRequest) Reset() {
@@ -3452,15 +3456,25 @@ func (x *SubmitFormByShareTokenRequest) GetIpAddress() string {
 	return ""
 }
 
+func (x *SubmitFormByShareTokenRequest) GetIdempotencyKey() string {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	return ""
+}
+
 // The response deliberately carries no schema content and no submission body:
 // the visitor already has both. tenant_id and form_schema_id are here because
 // the gateway needs them to run the intake dispatch, which is where a bound
 // form turns into a module record.
 type SubmitFormByShareTokenResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SubmissionId  string                 `protobuf:"bytes,1,opt,name=submission_id,json=submissionId,proto3" json:"submission_id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	FormSchemaId  string                 `protobuf:"bytes,3,opt,name=form_schema_id,json=formSchemaId,proto3" json:"form_schema_id,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	SubmissionId string                 `protobuf:"bytes,1,opt,name=submission_id,json=submissionId,proto3" json:"submission_id,omitempty"`
+	TenantId     string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	FormSchemaId string                 `protobuf:"bytes,3,opt,name=form_schema_id,json=formSchemaId,proto3" json:"form_schema_id,omitempty"`
+	// True when the submission was already stored by an earlier request with the
+	// same Idempotency-Key. The gateway must not run the intake dispatch again.
+	Replayed      bool `protobuf:"varint,4,opt,name=replayed,proto3" json:"replayed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3514,6 +3528,13 @@ func (x *SubmitFormByShareTokenResponse) GetFormSchemaId() string {
 		return x.FormSchemaId
 	}
 	return ""
+}
+
+func (x *SubmitFormByShareTokenResponse) GetReplayed() bool {
+	if x != nil {
+		return x.Replayed
+	}
+	return false
 }
 
 var File_proto_formulare_v1_formulare_proto protoreflect.FileDescriptor
@@ -3832,17 +3853,20 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\x1aRevokeFormShareLinkRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\"\n" +
 	"\rshare_link_id\x18\x02 \x01(\tR\vshareLinkId\"\x1d\n" +
-	"\x1bRevokeFormShareLinkResponse\"\x82\x01\n" +
+	"\x1bRevokeFormShareLinkResponse\"\xc4\x01\n" +
 	"\x1dSubmitFormByShareTokenRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
 	"\aanswers\x18\x02 \x01(\fR\aanswers\x12\"\n" +
 	"\n" +
-	"ip_address\x18\x03 \x01(\tH\x00R\tipAddress\x88\x01\x01B\r\n" +
-	"\v_ip_address\"\x88\x01\n" +
+	"ip_address\x18\x03 \x01(\tH\x00R\tipAddress\x88\x01\x01\x12,\n" +
+	"\x0fidempotency_key\x18\x04 \x01(\tH\x01R\x0eidempotencyKey\x88\x01\x01B\r\n" +
+	"\v_ip_addressB\x12\n" +
+	"\x10_idempotency_key\"\xa4\x01\n" +
 	"\x1eSubmitFormByShareTokenResponse\x12#\n" +
 	"\rsubmission_id\x18\x01 \x01(\tR\fsubmissionId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12$\n" +
-	"\x0eform_schema_id\x18\x03 \x01(\tR\fformSchemaId*\x94\x01\n" +
+	"\x0eform_schema_id\x18\x03 \x01(\tR\fformSchemaId\x12\x1a\n" +
+	"\breplayed\x18\x04 \x01(\bR\breplayed*\x94\x01\n" +
 	"\x10FormSchemaStatus\x12\"\n" +
 	"\x1eFORM_SCHEMA_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18FORM_SCHEMA_STATUS_DRAFT\x10\x01\x12\x1d\n" +

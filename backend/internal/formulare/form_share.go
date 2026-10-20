@@ -3,15 +3,20 @@ package formulare
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
@@ -116,7 +121,21 @@ type ShareTokenSubmission struct {
 	SubmissionID uuid.UUID
 	TenantID     uuid.UUID
 	FormSchemaID uuid.UUID
+	// Replayed marks a repeat of an earlier request with the same
+	// Idempotency-Key: nothing was written, the stored submission is returned.
+	Replayed bool
 }
+
+// replayBody is what the idempotency record keeps of a stored submission --
+// just enough to answer a repeat without touching the submissions table.
+type replayBody struct {
+	SubmissionID uuid.UUID `json:"submission_id"`
+	FormSchemaID uuid.UUID `json:"form_schema_id"`
+}
+
+// maxIdempotencyKeyLength bounds the caller-supplied key; the stored key adds
+// the link id in front.
+const maxIdempotencyKeyLength = 255
 
 // newShareToken draws a link secret from crypto/rand. base64url keeps it
 // usable as a URL path segment without escaping.
@@ -227,11 +246,18 @@ func (s *Service) RevokeShareLink(ctx context.Context, id, tenantID uuid.UUID) e
 // switched back to private, archived or deleted must stop accepting answers
 // through links already handed out. Every one of those verdicts is the same
 // 404, for the same reason -- the route must not report which tokens exist.
+//
+// idempotencyKey is optional. With one, a repeat of the same answers on the
+// same link returns the first submission (Replayed) instead of writing a
+// second one and firing the webhooks again; the same key with other answers is
+// ErrIdempotencyKeyReused. The key lives in the link's namespace, so two links
+// -- or two tenants -- can use the same value without meeting.
 func (s *Service) SubmitByShareToken(
 	ctx context.Context,
 	token string,
 	answers []byte,
 	ipAddress string,
+	idempotencyKey string,
 ) (*ShareTokenSubmission, error) {
 	// Shape checks before the lookup: they are the caller's own error and say
 	// nothing about the token, and an oversized body must not buy a query.
@@ -244,10 +270,24 @@ func (s *Service) SubmitByShareToken(
 	if token == "" || len(token) > shareTokenMaxLength {
 		return nil, ErrShareLinkNotFound
 	}
+	if len(idempotencyKey) > maxIdempotencyKeyLength {
+		return nil, fmt.Errorf("idempotency key too long: %w", ErrInvalidFields)
+	}
 
 	link, err := s.repo.GetShareLinkByToken(ctx, token)
 	if err != nil {
 		return nil, err
+	}
+
+	var idem *submitIdempotency
+	if idempotencyKey != "" && s.idempotency != nil {
+		idem = newSubmitIdempotency(link, idempotencyKey, answers)
+		// Before the link is judged: a repeat that arrives after the quota
+		// was used up (max_submissions=1) must still see its own success
+		// rather than the 404 a fresh visitor would get.
+		if replay, err := s.replayStored(withTenant(ctx, link.TenantID), idem); err != nil || replay != nil {
+			return replay, err
+		}
 	}
 
 	now := time.Now().UTC()
@@ -311,12 +351,28 @@ func (s *Service) SubmitByShareToken(
 	// The repository repeats "still live, still under quota" inside the write.
 	// Two visitors redeeming the last slot at once is exactly the race the
 	// check above cannot cover, and the quota must hold.
+	//
+	// The idempotency reservation sits right before it, not at the top: a
+	// request the link refuses anyway must not leave a reservation behind that
+	// blocks the visitor's next attempt as "in flight".
+	if idem != nil {
+		replay, err := s.reserveSubmit(ctx, idem)
+		if err != nil || replay != nil {
+			return replay, err
+		}
+	}
+
 	redeemed, err := s.repo.RedeemShareLinkTx(ctx, link.ID, link.TenantID, submission, webhookIDs, now)
 	if err != nil {
+		s.completeSubmit(ctx, idem, http.StatusInternalServerError, nil)
 		return nil, fmt.Errorf("redeem form share link: %w", err)
 	}
 	if !redeemed {
+		s.completeSubmit(ctx, idem, http.StatusNotFound, nil)
 		return nil, ErrShareLinkNotFound
+	}
+	if body, mErr := json.Marshal(replayBody{SubmissionID: submission.ID, FormSchemaID: link.FormSchemaID}); mErr == nil {
+		s.completeSubmit(ctx, idem, http.StatusCreated, body)
 	}
 
 	s.logger.Info("formulare public submission stored",
@@ -354,4 +410,92 @@ func hasFileField(raw []byte) bool {
 		}
 	}
 	return false
+}
+
+// submitIdempotency is one public submit's claim on an Idempotency-Key.
+type submitIdempotency struct {
+	tenantID uuid.UUID
+	linkID   uuid.UUID
+	key      string
+	hash     string
+}
+
+func newSubmitIdempotency(link *FormShareLink, key string, answers []byte) *submitIdempotency {
+	sum := sha256.Sum256(answers)
+	return &submitIdempotency{
+		tenantID: link.TenantID,
+		linkID:   link.ID,
+		key:      "formulare-public:" + link.ID.String() + ":" + key,
+		hash:     hex.EncodeToString(sum[:]),
+	}
+}
+
+// replayStored answers a repeat from the stored record, read-only. nil, nil
+// means there is nothing to replay and the request proceeds as a fresh one.
+func (s *Service) replayStored(ctx context.Context, i *submitIdempotency) (*ShareTokenSubmission, error) {
+	rec, err := s.idempotency.Get(ctx, i.tenantID, i.key)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read idempotency record: %w", err)
+	}
+	return i.replayFrom(rec)
+}
+
+// reserveSubmit claims the key before the write. A non-nil submission is a
+// completed earlier request to replay; nil, nil means this request owns the
+// key and goes on to write.
+func (s *Service) reserveSubmit(ctx context.Context, i *submitIdempotency) (*ShareTokenSubmission, error) {
+	rec, err := s.idempotency.Reserve(ctx, i.key, i.tenantID, i.linkID, http.MethodPost, "formulare-public-submit", i.hash)
+	switch {
+	case errors.Is(err, idempotency.ErrConflict):
+		return nil, ErrIdempotencyKeyReused
+	case errors.Is(err, idempotency.ErrInFlight):
+		return nil, ErrIdempotencyInFlight
+	case err != nil:
+		return nil, fmt.Errorf("reserve idempotency key: %w", err)
+	}
+	if rec == nil {
+		return nil, nil
+	}
+	return i.replayFrom(rec)
+}
+
+// replayFrom turns a completed record into the stored submission. Only a
+// stored success is replayed: a failed first attempt (server error, quota lost
+// in the race) leaves the key free to be tried again.
+func (i *submitIdempotency) replayFrom(rec *idempotency.Record) (*ShareTokenSubmission, error) {
+	if rec.RequestHash != i.hash {
+		return nil, ErrIdempotencyKeyReused
+	}
+	if rec.CompletedAt == nil || rec.ResponseStatus == nil || *rec.ResponseStatus != http.StatusCreated {
+		return nil, nil
+	}
+	var body replayBody
+	if err := json.Unmarshal(rec.ResponseBody, &body); err != nil {
+		return nil, nil
+	}
+	return &ShareTokenSubmission{
+		SubmissionID: body.SubmissionID,
+		TenantID:     i.tenantID,
+		FormSchemaID: body.FormSchemaID,
+		Replayed:     true,
+	}, nil
+}
+
+// completeSubmit stores the outcome under the key. Best effort: the submission
+// is already written (or refused), so a failure here is logged, not returned --
+// at worst a repeat is not deduplicated.
+func (s *Service) completeSubmit(ctx context.Context, i *submitIdempotency, status int, body []byte) {
+	if i == nil {
+		return
+	}
+	if body == nil {
+		body = []byte(`{}`)
+	}
+	if err := s.idempotency.Complete(ctx, i.tenantID, i.key, status, body); err != nil {
+		s.logger.Warn("failed to complete formulare submit idempotency record",
+			"share_link_id", i.linkID, "error", err)
+	}
 }

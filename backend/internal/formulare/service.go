@@ -16,6 +16,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"github.com/kmuhub/kmuhub/internal/csvutil"
+	"github.com/kmuhub/kmuhub/internal/idempotency"
 )
 
 // ============================================================================
@@ -27,7 +28,13 @@ import (
 type Service struct {
 	repo   Repository
 	logger *slog.Logger
+	// idempotency backs the optional Idempotency-Key of the public submit
+	// route. nil = no deduplication (unit tests, services started without it).
+	idempotency idempotency.Repository
 }
+
+// SetIdempotency enables Idempotency-Key handling on SubmitByShareToken.
+func (s *Service) SetIdempotency(repo idempotency.Repository) { s.idempotency = repo }
 
 // NewService creates a formulare service.
 func NewService(repo Repository, logger *slog.Logger) *Service {

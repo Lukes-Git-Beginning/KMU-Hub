@@ -24107,6 +24107,20 @@ paths:
           required: true
           schema: { type: string, maxLength: 128 }
           description: The share link secret (43-char base64url).
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+          description: >-
+            Optional. A repeat with the same key and the same answers on the
+            same link stores nothing new and returns the first submission's id
+            (201 with an `Idempotency-Replayed: true` header; no webhook and no
+            intake record is triggered again, and the replay still works after
+            a max_submissions quota was used up by the first call). The same
+            key with different answers answers 422; a key whose first request
+            is still being processed answers 409. A failed first attempt leaves
+            the key free to be used again. Without the header every call
+            stores a submission.
       requestBody:
         required: true
         content:
@@ -24121,9 +24135,10 @@ paths:
       responses:
         "201":
           description: >
-            Submission stored. The body carries the submission id and nothing
-            else — an unauthenticated visitor learns neither the tenant nor the
-            schema they wrote into.
+            Submission stored (or, with a repeated Idempotency-Key, replayed).
+            The body carries the submission id and nothing else — an
+            unauthenticated visitor learns neither the tenant nor the schema
+            they wrote into.
           content:
             application/json:
               schema:
@@ -24137,7 +24152,15 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "409":
-          description: The form declares a file-upload field, which public submission does not support
+          description: >-
+            The form declares a file-upload field, which public submission does
+            not support, or a request with this Idempotency-Key is still being
+            processed (retry with the same key and answers).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: The Idempotency-Key was already used on this link with different answers
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }

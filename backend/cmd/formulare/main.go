@@ -18,6 +18,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/formulare"
 	"github.com/kmuhub/kmuhub/internal/health"
+	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
@@ -46,6 +47,7 @@ func main() {
 
 	repo := formulare.NewPostgresRepository(pool)
 	svc := formulare.NewService(repo, logger)
+	svc.SetIdempotency(idempotency.NewPostgresRepository(pool))
 
 	// Webhook delivery worker — runs as a background goroutine.
 	worker := formulare.NewWebhookWorker(repo, logger)

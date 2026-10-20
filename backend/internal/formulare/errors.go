@@ -22,4 +22,9 @@ var (
 	ErrSchemaNotPublic               = errors.New("formulare schema is not public")
 	ErrAnswersTooLarge               = errors.New("formulare submission answers are too large")
 	ErrShareLinkFileFieldUnsupported = errors.New("formulare public submission does not support file fields")
+
+	// Idempotency-Key on the public submit route. Reused: same key, different
+	// answers. InFlight: the first request with this key has not finished.
+	ErrIdempotencyKeyReused = errors.New("formulare idempotency key reused with different answers")
+	ErrIdempotencyInFlight  = errors.New("formulare submission with this idempotency key is in flight")
 )
