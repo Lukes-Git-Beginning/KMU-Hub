@@ -2,6 +2,8 @@ module github.com/kmuhub/kmuhub
 
 go 1.26.0
 
+toolchain go1.26.10
+
 require (
 	code.sajari.com/docconv/v2 v2.0.0-pre.4
 	github.com/alicebob/miniredis/v2 v2.37.0
