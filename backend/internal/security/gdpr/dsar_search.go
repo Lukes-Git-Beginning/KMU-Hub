@@ -580,6 +580,12 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 		}
 		person.Modules = append(person.Modules, reportsShifts...)
 
+		documentChat, dcErr := documentChatModules(ctx, pool, tenantID, u.id)
+		if dcErr != nil {
+			return nil, dcErr
+		}
+		person.Modules = append(person.Modules, documentChat...)
+
 		out = append(out, person)
 	}
 	return out, nil
