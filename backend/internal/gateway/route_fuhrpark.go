@@ -245,8 +245,8 @@ type reportDamageRequest struct {
 
 type updateDamageRequest struct {
 	Description *string  `json:"description,omitempty"`
-	Severity    *string  `json:"severity,omitempty"`
-	Status      *string  `json:"status,omitempty"`
+	Severity    *string  `json:"severity,omitempty"    validate:"omitempty,oneof=minor moderate major totalled"`
+	Status      *string  `json:"status,omitempty"      validate:"omitempty,oneof=reported in_repair resolved"`
 	PhotoKeys   []string `json:"photo_keys,omitempty"`
 	CostCents   *int64   `json:"cost_cents,omitempty"`
 	Notes       *string  `json:"notes,omitempty"`

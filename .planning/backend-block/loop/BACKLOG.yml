@@ -1178,61 +1178,12 @@ units:
       - Der Aufrufer bleibt aus dem Scope; die offene Entscheidung steht im Journal-Eintrag
       - go test -count=1 ./internal/biz/gobdarchive/ ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips
 
-  - id: fix-fuhrpark-delete-driver-license-no-last-check-guard
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12).
-      `driver_licenses` fuehrt eine Zeile je durchgefuehrter Fuehrerscheinkontrolle; die
-      JEWEILS LETZTE Zeile je `driver_id` ist der aktuelle Kontrollstand und der Nachweis
-      der Halterpflicht (siehe `internal/gateway/route_fuhrpark.go` HandleDeleteDriverLicense
-      Doc-Kommentar). `Service.DeleteDriverLicense` (`internal/fuhrpark/service.go:849`)
-      delegiert ungeprueft an `PostgresRepository.DeleteDriverLicense`
-      (`internal/fuhrpark/postgres_repository.go:948`), die jede Zeile per `id` loescht — ohne
-      zu pruefen, ob es die einzige oder juengste Kontrollzeile fuer ihren `driver_id` ist. Der
-      Gateway-Handler `HandleDeleteDriverLicense` (Route `DELETE
-      /api/v1/fuhrpark/driver-licenses/{id}`, Permission `fuhrpark:license:write`) reicht das
-      unveraendert durch. Ein Loeschen der letzten Kontrollzeile eines Fahrers macht die
-      Halterhaftungs-Pruefung fuer diesen Fahrer spurlos verschwinden.
-      Fix: vor dem Loeschen pruefen, ob die Zeile die neueste (`checked_at` bzw. `created_at`
-      MAX) fuer ihren `driver_id` innerhalb des Tenants ist, und in diesem Fall mit einem
-      fachlichen Fehler (z. B. `codes.FailedPrecondition`, HTTP 409) ablehnen. Alternativ, falls
-      Luke das Feature stattdessen fuer nachtraegliche Korrekturen (Tippfehler-Zeile loeschen)
-      offen halten will, wenigstens ein Audit-Event schreiben, das den Verlust nachvollziehbar
-      macht — die Entscheidung zwischen beiden Wegen gehoert Luke, nicht der Unit.
-    sources:
-      - backend/internal/fuhrpark/service.go
-      - backend/internal/fuhrpark/postgres_repository.go
-      - backend/internal/fuhrpark/repository.go
-      - backend/internal/server/fuhrpark_grpc.go
-      - backend/internal/gateway/route_fuhrpark.go
-      - backend/internal/fuhrpark/driver_license_test.go
-    notes: >
-      `driver_license_test.go` deckt DeleteDriverLicense bereits fuer Not-Found und
-      Cross-Tenant ab, aber nicht fuer den Fall "letzte/einzige Kontrollzeile eines Fahrers".
-      Vor dem Bauen mit Luke klaeren, ob ein harter Block (409) oder ein Audit-Trail die
-      richtige Antwort ist — das ist eine Produktentscheidung, kein reiner Bugfix.
-    done_when:
-      - >-
-        DeleteDriverLicense blockiert das Loeschen der neuesten Kontrollzeile eines
-        driver_id (409/FailedPrecondition) ODER schreibt beim Loeschen ein Audit-Event, das
-        den Verlust nachvollziehbar macht — Wahl zwischen beiden Wegen mit Luke vorab klaeren,
-        bevor gebaut wird
-      - Die gewaehlte Absicherung ist implementiert und durch einen Test belegt
-      - >-
-        Ein bestehender Kontrollstand kann nicht mehr spurlos verschwinden, ohne dass es
-        nachvollziehbar ist
-
   - id: fix-fuhrpark-update-damage-missing-enum-validation
     phase: 4
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12).
