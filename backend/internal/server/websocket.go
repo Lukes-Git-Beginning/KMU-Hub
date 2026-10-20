@@ -380,8 +380,7 @@ func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, middleware.UserIDKey, userID)
 
 	// Register connection and cache user name
-	h.registerConnection(userID, conn)
-	h.registerUserTenant(userID, claims.TenantID)
+	h.registerUserConnection(userID, claims.TenantID, conn)
 	h.cacheUserName(ctx, userID)
 	defer h.unregisterConnection(userID, conn)
 
@@ -429,10 +428,26 @@ func (h *WebSocketHub) handleGuestWebSocket(w http.ResponseWriter, r *http.Reque
 	h.handleGuestConnectionLoop(ctx, conn, session)
 }
 
+// registerUserConnection registers the connection and the user's tenant in one
+// critical section, so a connection visible in h.connections always has its
+// tenant recorded as well.
+func (h *WebSocketHub) registerUserConnection(userID, tenantID string, conn *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.addConnectionLocked(userID, conn)
+	h.userTenants[userID] = tenantID
+}
+
 func (h *WebSocketHub) registerConnection(userID string, conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	h.addConnectionLocked(userID, conn)
+}
+
+// addConnectionLocked requires h.mu to be held for writing.
+func (h *WebSocketHub) addConnectionLocked(userID string, conn *websocket.Conn) {
 	if h.connections[userID] == nil {
 		h.connections[userID] = make(map[*websocket.Conn]struct{})
 	}

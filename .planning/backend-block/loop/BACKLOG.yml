@@ -3328,7 +3328,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Flake-Fix, kein Coverage-Ziel)"
     scope: >
       Lauf 14, Iteration 14 (beim Gate von `fix-gobd-archive-hash-never-verified` gesehen,

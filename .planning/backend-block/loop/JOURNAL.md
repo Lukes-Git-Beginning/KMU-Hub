@@ -864,3 +864,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 60, 7918aaa0: nur Testdatei + Backlog/Journal)
 - neue-units: keine
 - offen: FE zeigt für den unzulässigen Wechsel bisher vermutlich eine generische 500-Meldung; ein 409 ist jetzt der Vertrag — FE-Handling nicht geprüft.
+
+## Iteration 62 — fix-ws-connect-test-reads-tenant-before-it-is-registered — done — 2026-10-21 00:40
+- commit: `fix(server): register websocket connection and tenant in one critical section` (SHA via `git log`)
+- gebaut: `HandleWebSocket` ruft jetzt `registerUserConnection` (neu): Verbindung und `userTenants`-Eintrag entstehen unter EINEM `h.mu`-Lock über den gemeinsamen Helfer `addConnectionLocked`. Ein sichtbarer Connection-Eintrag impliziert damit den Tenant — im Produktivpfad schließt das auch das Fenster, in dem ein fremder Presence-Lookup den Nutzer ohne Tenant sah. `registerConnection`/`registerUserTenant` bleiben für die Tests unverändert. Test nicht angefasst, kein Sleep.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`go test -count=5 ./internal/server/`, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Flake-Fix, kein Coverage-Ziel)
+- mutations-probe: n.a. — die Race ist im Test nicht deterministisch auslösbar (vgl. Iteration 60), Beleg per Codeanalyse: beide Schreibzugriffe liegen nun im selben Lock-Abschnitt.
+- verify vorgaenger: sauber (Iteration 61, 9d080798: Mapping-Case + Test + Spec, kein Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: Lokal kein `-race` — Abnahme des Flakes erst nach CI. Der Fehler war lokal nur in 2 von 5 vollen Paketläufen sichtbar; 5 Läufe grün sind ein Indiz, kein Beweis.
