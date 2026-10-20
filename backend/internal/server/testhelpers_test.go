@@ -644,7 +644,7 @@ func newTestAuthGRPCServer() (*AuthGRPCServer, *authMockRepo) {
 	tm := auth.NewTokenMaker(testJWTSecret, 15*time.Minute, 7*24*time.Hour)
 	svc := auth.NewService(repo, tm)
 	auditSvc := audit.NewService(&auditMockRepo{})
-	return NewAuthGRPCServer(svc, auditSvc), repo
+	return NewAuthGRPCServer(svc, auditSvc, true), repo
 }
 
 func createAuthTestUser(repo *authMockRepo, email, password string, active bool) *models.User {

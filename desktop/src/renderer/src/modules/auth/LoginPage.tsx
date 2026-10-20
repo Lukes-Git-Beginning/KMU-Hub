@@ -297,15 +297,18 @@ export default function LoginPage() {
             )}
           </Button>
 
-          <p className="text-center text-sm text-muted-foreground">
-            {t('auth.noAccount')}{' '}
-            <Link
-              to="/register"
-              className="font-medium text-primary underline-offset-4 transition-colors hover:underline"
-            >
-              {t('auth.register')}
-            </Link>
-          </p>
+          {/* Dev-only: servers accept accounts by invitation, not sign-up. */}
+          {import.meta.env.DEV && (
+            <p className="text-center text-sm text-muted-foreground">
+              {t('auth.noAccount')}{' '}
+              <Link
+                to="/register"
+                className="font-medium text-primary underline-offset-4 transition-colors hover:underline"
+              >
+                {t('auth.register')}
+              </Link>
+            </p>
+          )}
         </form>
       </div>
     </AuthLayout>

@@ -22,11 +22,19 @@ type AuthGRPCServer struct {
 	authv1.UnimplementedAuthServiceServer
 	authService  *auth.Service
 	auditService *audit.Service
+	// selfRegistration gates Register, the one entry point that creates an
+	// account without an invitation. Off in production: open sign-up put
+	// strangers into the default tenant as members.
+	selfRegistration bool
 }
 
-func NewAuthGRPCServer(authService *auth.Service, auditService *audit.Service) *AuthGRPCServer {
-	return &AuthGRPCServer{authService: authService, auditService: auditService}
+func NewAuthGRPCServer(authService *auth.Service, auditService *audit.Service, selfRegistration bool) *AuthGRPCServer {
+	return &AuthGRPCServer{authService: authService, auditService: auditService, selfRegistration: selfRegistration}
 }
+
+// errSelfRegistrationDisabled is returned by Register while
+// AUTH_SELF_REGISTRATION_ENABLED is off; the gateway maps it to 403.
+var errSelfRegistrationDisabled = status.Error(codes.PermissionDenied, "self-registration is disabled; accounts are created by invitation")
 
 // tenantAndCaller resolves the two identities every permission-change audit
 // event needs: the tenant the change happened in, and the account that made
@@ -54,13 +62,14 @@ func (s *AuthGRPCServer) logPermissionEvent(ctx context.Context, tenantID, actor
 }
 
 func (s *AuthGRPCServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
+	if !s.selfRegistration {
+		return nil, errSelfRegistrationDisabled
+	}
+
 	user, tokens, err := s.authService.Register(ctx, req.Email, req.Password, req.FirstName, req.LastName)
 	if err != nil {
 		return nil, mapError(err)
 	}
-
-	roles, _ := s.authService.CheckPermission(ctx, user.ID, "", "")
-	_ = roles
 
 	userRoles := []string{"member"}
 

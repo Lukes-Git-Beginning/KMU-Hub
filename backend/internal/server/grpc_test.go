@@ -115,6 +115,19 @@ func TestAuthGRPC_Register(t *testing.T) {
 		})
 		requireGRPCCode(t, err, codes.AlreadyExists)
 	})
+
+	t.Run("disabled creates no account", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		srv.selfRegistration = false
+
+		_, err := srv.Register(ctx, &authv1.RegisterRequest{
+			Email:    "stranger@example.com",
+			Password: "StrongPass123!",
+		})
+		requireGRPCCode(t, err, codes.PermissionDenied)
+		_, lookupErr := repo.GetUserByEmail(ctx, "stranger@example.com")
+		require.Error(t, lookupErr, "disabled registration must not create the user")
+	})
 }
 
 func TestAuthGRPC_Login(t *testing.T) {

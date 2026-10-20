@@ -47,7 +47,7 @@ func auditEventsSetup(t *testing.T) (*pgxpool.Pool, *AuthGRPCServer, uuid.UUID, 
 		auth.NewTokenMaker("test-secret-minimum-32-characters!", 15*time.Minute, 7*24*time.Hour),
 	)
 	auditSvc := audit.NewService(audit.NewPostgresRepository(pool))
-	srv := NewAuthGRPCServer(authSvc, auditSvc)
+	srv := NewAuthGRPCServer(authSvc, auditSvc, true)
 
 	sysCtx := testutil.WithSystemCtx(context.Background())
 

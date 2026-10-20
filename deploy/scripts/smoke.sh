@@ -13,8 +13,7 @@ PASSED=0
 FAILED=0
 TOTAL=0
 SMOKE_TOKEN=""
-SMOKE_USER_ID=""
-SMOKE_EMAIL=""
+NO_SMOKE_CREDS=false
 SMOKE_CONTACT_ID=""
 
 while [[ $# -gt 0 ]]; do
@@ -51,6 +50,16 @@ fail() {
     echo "  [FAIL] $1"
     if [[ "$VERBOSE" == "true" && -n "${2:-}" ]]; then
         echo "         Details: $2"
+    fi
+}
+
+# no_token reports a check that could not run for lack of a token: a skip when
+# no smoke credential is configured, a failure when login itself broke.
+no_token() {
+    if [[ "$NO_SMOKE_CREDS" == "true" ]]; then
+        echo "  [SKIP] $1"
+    else
+        fail "$1" ""
     fi
 }
 
@@ -131,60 +140,53 @@ fi
 # ==========================================
 section "Auth Flow"
 
-# Refresh SMOKE_ADMIN_TOKEN from a long-lived admin credential pair. Default
-# access tokens are short-lived (15 min) which makes a static SMOKE_ADMIN_TOKEN
-# expire between deploy.sh runs and the role-upgrade call below silently fail.
-# When SMOKE_ADMIN_EMAIL + SMOKE_ADMIN_PASSWORD are present, log in and replace
-# any stale SMOKE_ADMIN_TOKEN with a fresh one. This keeps the static-token
-# fallback for environments where the credentials are not configured.
-if [[ -n "${SMOKE_ADMIN_EMAIL:-}" && -n "${SMOKE_ADMIN_PASSWORD:-}" ]]; then
-    ADMIN_LOGIN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"email\":\"$SMOKE_ADMIN_EMAIL\",\"password\":\"$SMOKE_ADMIN_PASSWORD\"}" 2>/dev/null) || ADMIN_LOGIN_RESP=$'\n000'
-    ADMIN_LOGIN_CODE=$(echo "$ADMIN_LOGIN_RESP" | tail -1)
-    ADMIN_LOGIN_BODY=$(echo "$ADMIN_LOGIN_RESP" | sed '$d')
-    if [[ "$ADMIN_LOGIN_CODE" == "200" ]]; then
-        FRESH_ADMIN_TOKEN=$(echo "$ADMIN_LOGIN_BODY" | jq -r '.access_token // empty' 2>/dev/null || echo "")
-        if [[ -n "$FRESH_ADMIN_TOKEN" && "$FRESH_ADMIN_TOKEN" != "null" ]]; then
-            SMOKE_ADMIN_TOKEN="$FRESH_ADMIN_TOKEN"
-            export SMOKE_ADMIN_TOKEN
-            echo "  [INFO] Refreshed SMOKE_ADMIN_TOKEN via login as $SMOKE_ADMIN_EMAIL"
-        fi
-    fi
-fi
+# Self-registration is off on every server (AUTH_SELF_REGISTRATION_ENABLED),
+# so the smoke run no longer signs up a throwaway user. It used to, on every
+# deploy, and its cleanup called a route that does not exist -- that is where
+# the ~200 smoke accounts in production came from. Authenticated checks now
+# run as the configured smoke admin (SMOKE_ADMIN_EMAIL + SMOKE_ADMIN_PASSWORD,
+# or a static SMOKE_ADMIN_TOKEN). Without either they are skipped, not failed:
+# a missing smoke credential must not roll back a healthy deploy.
 
-SMOKE_EMAIL="smoke-$(date +%s)@test.kmuhub.local"
-SMOKE_PASS="SmokeTest123!"
-
-# 6. Register
+# 6. Self-registration closed = 403
 REG_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/register" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\",\"first_name\":\"Smoke\",\"last_name\":\"Test\"}" 2>/dev/null) || REG_RESP=$'\n000'
+    -d "{\"email\":\"smoke-signup-$(date +%s)@test.kmuhub.local\",\"password\":\"SmokeTest123!\"}" 2>/dev/null) || REG_RESP=$'\n000'
 REG_CODE=$(echo "$REG_RESP" | tail -1)
 
-if [[ "$REG_CODE" == "201" || "$REG_CODE" == "200" ]]; then
-    pass "Register smoke user ($SMOKE_EMAIL)"
+if [[ "$REG_CODE" == "403" ]]; then
+    pass "Self-registration closed (POST /auth/register = 403)"
 else
-    fail "Register returned $REG_CODE" "$(echo "$REG_RESP" | sed '$d')"
+    fail "POST /auth/register returned $REG_CODE, expected 403 -- open sign-up puts strangers into the tenant" "$(echo "$REG_RESP" | sed '$d')"
 fi
 
-# 7. Login = 200 + JWT
-LOGIN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
-    -H "Content-Type: application/json" \
-    -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}" 2>/dev/null) || LOGIN_RESP=$'\n000'
-LOGIN_CODE=$(echo "$LOGIN_RESP" | tail -1)
-LOGIN_BODY=$(echo "$LOGIN_RESP" | sed '$d')
+# 7. Login as smoke admin = 200 + JWT
+if [[ -n "${SMOKE_ADMIN_EMAIL:-}" && -n "${SMOKE_ADMIN_PASSWORD:-}" ]]; then
+    LOGIN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"email\":\"$SMOKE_ADMIN_EMAIL\",\"password\":\"$SMOKE_ADMIN_PASSWORD\"}" 2>/dev/null) || LOGIN_RESP=$'\n000'
+    LOGIN_CODE=$(echo "$LOGIN_RESP" | tail -1)
+    LOGIN_BODY=$(echo "$LOGIN_RESP" | sed '$d')
 
-if [[ "$LOGIN_CODE" == "200" ]]; then
-    SMOKE_TOKEN=$(echo "$LOGIN_BODY" | jq -r '.access_token' 2>/dev/null || echo "")
-    SMOKE_USER_ID=$(echo "$LOGIN_BODY" | jq -r '.user.id' 2>/dev/null || echo "")
-    if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-        pass "Login returns JWT"
+    if [[ "$LOGIN_CODE" == "200" ]]; then
+        SMOKE_TOKEN=$(echo "$LOGIN_BODY" | jq -r '.access_token' 2>/dev/null || echo "")
+        if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+            # Static tokens expire after 15 min; the fresh one serves the
+            # admin-only checks below as well.
+            SMOKE_ADMIN_TOKEN="$SMOKE_TOKEN"
+            pass "Login as smoke admin returns JWT ($SMOKE_ADMIN_EMAIL)"
+        else
+            fail "Login returned 200 but no access_token" "$LOGIN_BODY"
+        fi
     else
-        fail "Login returned 200 but no access_token" "$LOGIN_BODY"
+        fail "Login returned $LOGIN_CODE" "$LOGIN_BODY"
     fi
+elif [[ -n "${SMOKE_ADMIN_TOKEN:-}" ]]; then
+    SMOKE_TOKEN="$SMOKE_ADMIN_TOKEN"
+    echo "  [SKIP] Login -- no SMOKE_ADMIN_EMAIL/PASSWORD, using static SMOKE_ADMIN_TOKEN"
 else
-    fail "Login returned $LOGIN_CODE" "$LOGIN_BODY"
+    NO_SMOKE_CREDS=true
+    echo "  [SKIP] Login and all authenticated checks -- set SMOKE_ADMIN_EMAIL + SMOKE_ADMIN_PASSWORD"
 fi
 
 # 8. /auth/me with token
@@ -197,71 +199,9 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
         fail "GET /auth/me returned $ME_CODE" ""
     fi
 else
-    fail "GET /auth/me skipped (no token)" ""
+    no_token "GET /auth/me skipped (no token)"
 fi
 
-# 8b. Bootstrap smoke user to manager role (optional — requires SMOKE_ADMIN_TOKEN).
-# Default registration assigns the read-only 'member' role, which makes the
-# subsequent CRUD tests fail with 403. Setting SMOKE_ADMIN_TOKEN to a
-# long-lived admin JWT (e.g. as a CI secret + .env.production entry) lets the
-# smoke run upgrade the just-registered user to 'manager' so the CRUD
-# assertions actually exercise the write path.
-if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" && -n "$SMOKE_USER_ID" && "$SMOKE_USER_ID" != "null" ]]; then
-    if [[ -n "${SMOKE_ADMIN_TOKEN:-}" ]]; then
-        # Roles are assigned BY ID, not by name (gateway: assignRoleRequest
-        # carries roleId with validate:"required,uuid", since 60fc6dae on
-        # 2026-08-02). Sending {"role_name":...} fails validation with 400,
-        # leaves the user on member, and every CRUD assertion below then
-        # answers 403 -- which used to fail the smoke and trigger the
-        # auto-rollback of an otherwise healthy deploy. So resolve the id
-        # first and only report a real upgrade as passed.
-        MANAGER_ROLE_ID=$(curl -s "$BASE_URL/api/v1/admin/roles" \
-            -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" 2>/dev/null \
-            | jq -r '.roles[]? | select(.name == "manager") | .id' | head -1)
-
-        if [[ -z "$MANAGER_ROLE_ID" || "$MANAGER_ROLE_ID" == "null" ]]; then
-            fail "Role upgrade: could not resolve the manager role id from /admin/roles" ""
-            ROLE_CODE="000"
-        else
-            ROLE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-                "$BASE_URL/api/v1/users/$SMOKE_USER_ID/roles" \
-                -H "Content-Type: application/json" \
-                -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
-                -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
-                -d "{\"roleId\":\"$MANAGER_ROLE_ID\"}" 2>/dev/null || echo "000")
-            if [[ "$ROLE_CODE" =~ ^(200|201|204)$ ]]; then
-                pass "Bootstrap smoke user to manager (role upgrade $ROLE_CODE)"
-            else
-                fail "Role upgrade returned $ROLE_CODE — CRUD tests will fail with 403" ""
-            fi
-        fi
-
-        # 8c. Re-login to refresh JWT after role upgrade. AssignRole only writes
-        # to user_roles in the DB — it does NOT invalidate or rotate the existing
-        # access token. Permissions are baked into the JWT at login time
-        # (auth/service.go:createTokenPair → tokenMaker.CreateAccessToken), so
-        # the original SMOKE_TOKEN still carries member-only claims and would
-        # produce 403s on the manager-only CRUD endpoints below.
-        RELOG_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
-            -H "Content-Type: application/json" \
-            -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}" 2>/dev/null) || RELOG_RESP=$'\n000'
-        RELOG_CODE=$(echo "$RELOG_RESP" | tail -1)
-        RELOG_BODY=$(echo "$RELOG_RESP" | sed '$d')
-        if [[ "$RELOG_CODE" == "200" ]]; then
-            NEW_TOKEN=$(echo "$RELOG_BODY" | jq -r '.access_token // empty' 2>/dev/null || echo "")
-            if [[ -n "$NEW_TOKEN" && "$NEW_TOKEN" != "null" ]]; then
-                SMOKE_TOKEN="$NEW_TOKEN"
-                pass "Re-login after role upgrade refreshes JWT (manager claims now active)"
-            else
-                fail "Re-login returned 200 but no access_token in body" "$RELOG_BODY"
-            fi
-        else
-            fail "Re-login after role upgrade failed (HTTP $RELOG_CODE)" "$RELOG_BODY"
-        fi
-    else
-        echo "  [SKIP] Role bootstrap — SMOKE_ADMIN_TOKEN not set; Tests 9/10/11 will return 403"
-    fi
-fi
 
 # ==========================================
 # CRM CRUD Tests (3)
@@ -323,9 +263,9 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
         fi
     fi
 else
-    fail "POST /contacts skipped (no token)" ""
-    fail "GET /contacts skipped (no token)" ""
-    fail "DELETE /contacts skipped (no token)" ""
+    no_token "POST /contacts skipped (no token)"
+    no_token "GET /contacts skipped (no token)"
+    no_token "DELETE /contacts skipped (no token)"
 fi
 
 # ==========================================
@@ -433,17 +373,19 @@ fi
 
 # 16. /auth/login < 3s — bcrypt verification alone takes ~1.5-2s by design,
 # so a 2s threshold flaked on every cold path. 3s still catches regressions.
-if [[ -n "$SMOKE_TOKEN" ]]; then
+if [[ -n "$SMOKE_TOKEN" && -n "${SMOKE_ADMIN_EMAIL:-}" && -n "${SMOKE_ADMIN_PASSWORD:-}" ]]; then
     PERF_LOGIN=$(curl -s -o /dev/null -w "%{time_total}" -X POST "$BASE_URL/api/v1/auth/login" \
         -H "Content-Type: application/json" \
-        -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}" 2>/dev/null || echo "99")
+        -d "{\"email\":\"$SMOKE_ADMIN_EMAIL\",\"password\":\"$SMOKE_ADMIN_PASSWORD\"}" 2>/dev/null || echo "99")
     if (( $(echo "$PERF_LOGIN < 3.0" | bc -l 2>/dev/null || echo 0) )); then
         pass "Login response ${PERF_LOGIN}s < 3s"
     else
         fail "Login response ${PERF_LOGIN}s >= 3s" ""
     fi
+elif [[ -z "${SMOKE_ADMIN_EMAIL:-}" || -z "${SMOKE_ADMIN_PASSWORD:-}" ]]; then
+    echo "  [SKIP] Login perf -- no SMOKE_ADMIN_EMAIL/PASSWORD to log in with"
 else
-    fail "Login perf skipped (no auth)" ""
+    no_token "Login perf skipped (no auth)"
 fi
 
 # 17. /contacts list < 1s
@@ -456,7 +398,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
         fail "Contacts list ${PERF_CONTACTS}s >= 1s" ""
     fi
 else
-    fail "Contacts list perf skipped (no auth)" ""
+    no_token "Contacts list perf skipped (no auth)"
 fi
 
 # ==========================================
@@ -478,7 +420,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
         fail "Create chat channel returned $CHAN_CODE" "$(echo "$CHAN_RESP" | sed '$d')"
     fi
 else
-    fail "Chat channel skipped (no auth)" ""
+    no_token "Chat channel skipped (no auth)"
 fi
 
 # 19. Dashboard endpoint reachable
@@ -496,7 +438,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
         fi
     fi
 else
-    fail "Dashboard endpoint skipped (no auth)" ""
+    no_token "Dashboard endpoint skipped (no auth)"
 fi
 
 # ==========================================
@@ -694,24 +636,6 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
     fi
 else
     pass "Finance probe skipped (no auth token)"
-fi
-
-# ==========================================
-# Cleanup
-# ==========================================
-section "Cleanup"
-
-if [[ -n "$SMOKE_USER_ID" && -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-    CLEANUP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/auth/users/$SMOKE_USER_ID" \
-        -H "Authorization: Bearer $SMOKE_TOKEN" \
-        -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" 2>/dev/null || echo "000")
-    if [[ "$CLEANUP_CODE" == "200" || "$CLEANUP_CODE" == "204" || "$CLEANUP_CODE" == "404" ]]; then
-        echo "  Smoke user cleaned up ($SMOKE_EMAIL)"
-    else
-        echo "  WARNING: Could not delete smoke user (code: $CLEANUP_CODE)"
-    fi
-else
-    echo "  No smoke user to clean up"
 fi
 
 # ==========================================

@@ -303,6 +303,10 @@ paths:
   /api/v1/auth/register:
     post:
       summary: Register a new user
+      description: |
+        Self-registration. Disabled unless the auth service runs with
+        AUTH_SELF_REGISTRATION_ENABLED=true (off in production); accounts are
+        then created by invitation only and this endpoint answers 403.
       tags: [auth]
       operationId: register
       security: []
@@ -321,6 +325,8 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
         "503":

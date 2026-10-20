@@ -365,14 +365,6 @@ const router = createHashRouter([
     ),
   },
   {
-    path: '/register',
-    element: (
-      <GuestRoute>
-        <RegisterPage />
-      </GuestRoute>
-    ),
-  },
-  {
     // No GuestRoute: the reset link is an email landing reachable regardless of
     // session, and the dev auto-login must not redirect these away during QA.
     path: '/forgot-password',
@@ -386,6 +378,16 @@ const router = createHashRouter([
   // /login sonst auf / um). In Produktions-Builds nicht registriert.
   ...(import.meta.env.DEV
     ? [
+        // Self-registration is off on every server (accounts come by
+        // invitation); the page stays for local demo setups only.
+        {
+          path: '/register',
+          element: (
+            <GuestRoute>
+              <RegisterPage />
+            </GuestRoute>
+          ),
+        },
         { path: '/launch-preview', element: <LoginPage /> },
         // Fly-in-/Öffnungs-Animation (Fall B) isoliert ansehen/screenshotten.
         { path: '/flyin-preview', element: <FlyinPreview /> },

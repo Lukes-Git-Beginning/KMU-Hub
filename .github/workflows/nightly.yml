@@ -58,6 +58,8 @@ jobs:
       SMOKE_URL: http://localhost:8080
       # Same CI-only headroom as the e2e job — production stays at 100 rps.
       RATE_LIMIT_RPS: 1000
+      # The smoke helpers sign up throwaway users; production keeps it off.
+      AUTH_SELF_REGISTRATION_ENABLED: "true"
 
     steps:
       - name: Checkout

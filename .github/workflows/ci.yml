@@ -216,6 +216,8 @@ jobs:
       # E2E flows fire requests in tight succession against one user — the
       # production default (100 rps) trips. CI-only, production stays at 100.
       RATE_LIMIT_RPS: 1000
+      # The e2e helpers sign up throwaway users; production keeps it off.
+      AUTH_SELF_REGISTRATION_ENABLED: "true"
 
     steps:
       - name: Checkout

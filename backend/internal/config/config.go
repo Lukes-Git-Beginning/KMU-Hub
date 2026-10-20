@@ -165,6 +165,11 @@ type Config struct {
 	// CalDAV/CardDAV (external client sync)
 	CalDAVEnabled bool `env:"CALDAV_ENABLED,default=false"`
 
+	// Self-registration via POST /auth/register. Off by default: accounts are
+	// created by invitation. CI e2e and nightly smoke switch it on because
+	// their helpers sign up throwaway users.
+	SelfRegistrationEnabled bool `env:"AUTH_SELF_REGISTRATION_ENABLED,default=false"`
+
 	// Bexio Integration (optional)
 	BexioClientID     string `env:"BEXIO_CLIENT_ID,default="`
 	BexioClientSecret string `env:"BEXIO_CLIENT_SECRET,default="`

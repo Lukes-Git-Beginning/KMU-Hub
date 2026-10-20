@@ -132,6 +132,9 @@ services:
       # strict CSP, same origin as the API). Do NOT default this to the marketing site:
       # that page runs on external infrastructure and carries the reset token through it.
       PASSWORD_RESET_BASE_URL: ${PASSWORD_RESET_BASE_URL:-https://app.zentria.tech/reset-password}
+      # Off everywhere unless set: accounts come from invitations. For local
+      # demo setups that sign up via /auth/register, set it in deploy/docker/.env.
+      AUTH_SELF_REGISTRATION_ENABLED: ${AUTH_SELF_REGISTRATION_ENABLED:-false}
     ports:
       - "50051:50051"
       - "9091:9091"
