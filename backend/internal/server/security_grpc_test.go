@@ -233,6 +233,7 @@ func (r *stubGDPRRepo) StoreExportResult(_ context.Context, _, id uuid.UUID, dat
 	if !ok {
 		return gdpr.ErrExportNotFound
 	}
+	req.Status = models.ExportStatusReady
 	req.ExportData = data
 	req.DownloadToken = token
 	if t, ok := expiresAt.(time.Time); ok {
@@ -1146,8 +1147,17 @@ func TestGDPRExportRPCs_HappyPathAndDomainErrors(t *testing.T) {
 	})
 	requireGRPCCode(t, err, codes.FailedPrecondition)
 
-	// GetExportDownload before the async ZIP generation has stored a token:
-	// the export is not ready yet.
+	// ApproveDataExport detaches ExecuteExportAsync into a goroutine that
+	// replaces the stub's map entry (UpdateExportStatus stores a copy). Wait for
+	// it to finish before touching the stored request, otherwise the pointer
+	// taken below can be an orphaned entry and the lookups by token miss.
+	require.Eventually(t, func() bool {
+		repos.gdpr.mu.Lock()
+		defer repos.gdpr.mu.Unlock()
+		return repos.gdpr.exports[uuid.MustParse(exportID)].Status == models.ExportStatusReady
+	}, 5*time.Second, 5*time.Millisecond)
+
+	// Overwrite the generated token with a known one for the download checks.
 	repos.gdpr.mu.Lock()
 	req := repos.gdpr.exports[uuid.MustParse(exportID)]
 	req.Status = models.ExportStatusReady

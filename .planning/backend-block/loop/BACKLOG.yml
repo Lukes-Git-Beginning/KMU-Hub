@@ -3267,7 +3267,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Test-Stabilitaet, kein Coverage-Ziel)"
     scope: >
       Beobachtet in Lauf 14, Iteration 6: `TestGDPRExportRPCs_HappyPathAndDomainErrors`

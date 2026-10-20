@@ -844,3 +844,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 58, 2f50c7e5: nur Lint-Config + `//nolint`-Kommentare, kein Laufzeitcode/Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: (1) Nicht end-to-end gegen laufende Services gefahren (Action → echter CRM-/Work-RPC). (2) Effekt über den ctx-Stempel hinaus: der Pool-Hook (`PrepareConn`) sieht jetzt in Automation-Ausführungen ebenfalls den Tenant, also auch direkte Pool-Queries aus Actions — erwünscht, aber vor dem Deploy einmal einen Automation-Lauf in Staging beobachten. (3) `user_id` wird nicht gestempelt (Automationen haben keinen Auslöser-Nutzer); RPCs, die `GetUserID` verlangen, scheitern weiterhin — nicht untersucht.
+
+## Iteration 60 — fix-flaky-gdpr-export-rpc-test — done — 2026-10-21 00:14
+- commit: `test(server): wait for async gdpr export generation before touching the stub` (SHA via `git log`)
+- gebaut: Ursache benannt: `Service.ApproveExport` (`gdpr/service.go:139`) startet `ExecuteExportAsync` als Goroutine; deren `UpdateExportStatus` ersetzt im Stub (`security_grpc_test.go`) den Map-Eintrag durch eine Kopie. Der Test griff direkt nach dem Approve den Zeiger `repos.gdpr.exports[id]` ab und setzte Status/Token darauf — landete die Ersetzung danach, war der Zeiger verwaist, `GetExportDownload("tok-ready")` fand nichts (NotFound statt OK/FailedPrecondition). Fix: Stub-`StoreExportResult` setzt wie das echte Postgres-Repo `status = ready`; der Test wartet per `require.Eventually` auf `ready`, bevor er den Zeiger nimmt. Kein Produktionscode geändert.
+- gate: build n.a. (nur Testdatei) | vet ok | lint ok (0 issues) | test ok (`./internal/server/` und `./internal/security/...`, 0 Skips, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Test-Stabilität, kein Coverage-Ziel)
+- mutations-probe: n.a. Die Race ließ sich mit dem alten Test auch mit injiziertem `time.Sleep` (50 µs, 300 µs, 1 ms, 3 ms, 30 ms vor dem Processing-Update, je 100–200 Läufe) nicht reproduzieren; temporäre Probe-Zeile zurückgedreht, Diff sauber. Ursache daher per Codeanalyse belegt, nicht per Reproduktion. Neuer Test 300× grün.
+- verify vorgaenger: sauber (Iteration 59, fa3ef505: Engine-Stempel + Interceptor + Tests, kein Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: Lokal kein `-race` (kein C-Compiler) — abgenommen erst nach CI. Die Hypothese ist nicht durch Reproduktion bestätigt; tritt der Flake in CI erneut auf, liegt die Ursache woanders.
