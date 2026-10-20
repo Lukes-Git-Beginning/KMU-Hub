@@ -2972,7 +2972,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Lauf 10 hat einen Worker gefunden, der nach dem ersten Tick dauerhaft einschlief, ohne
@@ -4368,3 +4368,325 @@ units:
       - >-
         Falls summiert: beide Konverter nutzen eine gemeinsame Umrechnung ohne Zeilenrundung,
         Test mit 100 x 60 Sekunden ergibt Summe 1,67
+
+  # --- Funde aus scan-worker-restart-and-lock-release (Iteration 54) ---
+
+  - id: fix-background-workers-panic-kills-process-or-silently-stops-loop
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix, Coverage nicht Ziel)"
+    scope: >
+      Nur zwei Stellen im Backend fangen eine Panik in einem Hintergrund-Goroutine ab
+      (`biz/bexio/scheduler.go:147`, `biz/lexware/scheduler.go:148`). Jeder andere Worker und
+      jede aus einem Tick gestartete `go func` reisst bei einer Panik den GANZEN Prozess mit
+      (Go beendet das Programm bei unbehandelter Panik in irgendeiner Goroutine; der
+      gRPC-Recovery-Interceptor in `middleware/grpc_recovery.go` sieht sie nicht).
+      Betroffen und gelesen: `automation/engine/consumer.go:67` und
+      `automation/trigger/poller.go:211` und `automation/workflow/webhook.go:233` (alle drei
+      rufen `engine.Execute`, also beliebige Aktionen, ohne `recover`),
+      `notification/event/bus.go` (`dispatch` ruft jeden Handler synchron auf dem
+      Listener-Goroutine), `berichte/scheduler` (`dispatch` -> RunReport/Export/Mailer),
+      `vertraege/worker.go`, `formulare/worker.go`, `email/sync/worker.go` (IMAP-Parser auf
+      fremden Servern), `helpdesk/csat_dispatch.go`, `dialer/reaper.go`, `fuhrpark/worker.go`,
+      `inbox/message/service.go` (Snooze-Worker), `middleware/audit.go` (`worker`),
+      `gdpr/service.go:139` (Export), `caldav/push_notifier.go:79,88`.
+      Bei bexio/lexware ist das Gegenstueck falsch herum: das `defer recover` sitzt auf
+      Funktionsebene von `runTenantScheduler`, nach der Panik endet die Schleife dauerhaft und
+      nur eine Logzeile sagt es. In `bexio/scheduler.go` kommt dazu: `contactInterval` und
+      `paymentInterval` werden ohne Untergrenze an `time.NewTicker` gegeben (nur
+      `invoicePullInterval` ist abgesichert). Ein Intervall von 0 Minuten panikt, die
+      Recovery faengt es, und der Mandanten-Sync laeuft nie - ohne Fehler ausser einer Zeile.
+    sources:
+      - backend/internal/middleware/grpc_recovery.go
+      - backend/internal/automation/engine/consumer.go
+      - backend/internal/automation/trigger/poller.go
+      - backend/internal/automation/workflow/webhook.go
+      - backend/internal/notification/event/bus.go
+      - backend/internal/biz/bexio/scheduler.go
+      - backend/internal/biz/lexware/scheduler.go
+    notes: >
+      EIN Helfer, kein Eigenbau je Worker: ein kleines Paket (etwa `internal/safego` mit
+      `Go(name string, fn func())` und `Tick(ctx, name, fn func(context.Context))`), das die
+      Panik mit Stack per `slog.Error` loggt und bei `Tick` mit dem naechsten Tick WEITERMACHT.
+      Erst pruefen, ob `grpc_recovery.go` einen wiederverwendbaren Kern hat. Danach die Stellen
+      oben umstellen; bei bexio/lexware das `defer recover` von Funktionsebene in den Tick
+      ziehen, damit die Schleife die Panik ueberlebt. Die Untergrenze fuer `contactInterval` und
+      `paymentInterval` wie bei `invoicePullInterval` (15 min). Reihenfolge nach Schaden:
+      automation (fremde Aktionen), bus.dispatch, email/sync, Rest. Kein Verhalten aendern
+      ausser: Panik toetet nicht mehr den Prozess.
+      Test je umgestellter Gruppe: eine Funktion, die panikt, ZWEIMAL ticken lassen - der
+      zweite Durchlauf muss noch laufen (ein Test mit nur einem Durchlauf beweist das Gegenteil
+      nicht). `-race` laeuft hier nicht; Tests mit Goroutinen in `offen:` vermerken.
+    done_when:
+      - >-
+        Gemeinsamer Helfer existiert und ist getestet (Panik wird geloggt, naechster Tick laeuft)
+      - >-
+        Die drei `engine.Execute`-Goroutinen der Automation, `EventBus.dispatch` und der
+        E-Mail-Sync-Worker laufen ueber den Helfer; Rest der Liste aus dem scope umgestellt oder
+        mit Grund im Journal ausgelassen
+      - >-
+        bexio und lexware: die Schleife ueberlebt eine Panik im Tick; Intervalle haben eine
+        Untergrenze; Test mit zwei Ticks
+      - >-
+        Mutations-Probe: Helfer-Aufruf in einem Worker entfernen, der Panik-Test wird rot
+
+  - id: fix-formulare-webhook-claim-holds-no-lock
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix)"
+    scope: >
+      `formulare.PostgresRepository.ClaimPendingDeliveries`
+      (`internal/formulare/postgres_repository.go:501`) fuehrt `SELECT ... FOR UPDATE SKIP
+      LOCKED` ueber `r.pool.Query` aus, ohne Transaktion. Im Autocommit endet die
+      Zeilensperre mit dem Statement, noch bevor der Aufrufer die Zeilen ueberhaupt gelesen
+      hat. Der Kommentar am Worker (`worker.go`, "horizontally scalable thanks to FOR UPDATE
+      SKIP LOCKED") und am Repo ("so parallel workers don't race") beschreiben also eine
+      Garantie, die der Code nicht gibt: zwei formulare-Instanzen holen dieselben
+      `pending`-Zeilen und liefern dasselbe Webhook-Ereignis doppelt aus (HMAC-signiert, an
+      die URL des Mandanten). Heute laeuft ein Replica, daher kein akuter Schaden - aber
+      der Code behauptet das Gegenteil und der Test dazu fehlt.
+    sources:
+      - backend/internal/formulare/postgres_repository.go
+      - backend/internal/formulare/worker.go
+      - backend/internal/formulare/worker_test.go
+    notes: >
+      Das Muster dafuer steht bereits im Repo: `helpdesk` hat `ClaimCsatSurveyDispatch` (atomarer
+      Claim, bei Fehlversuch `Release`), `berichte` hat `ClaimSchedule`, die Automation
+      `ClaimTimeTrigger`. Dasselbe hier: Claim als ein `UPDATE ... SET next_attempt_at = NOW() +
+      <Lease> WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING ...`, die Lease
+      deckt das HTTP-Timeout (10 s) mal Batch (10) ab. Dann bleibt `status = 'pending'`, und ein
+      Absturz nach dem Claim liefert nach Ablauf der Lease erneut aus (at-least-once, wie
+      heute) statt nie. Kein Proto, keine Route, keine Migration noetig.
+      Test mit DB: zwei parallele Aufrufe von `ClaimPendingDeliveries` auf denselben
+      Zeilen duerfen zusammen jede Zeile nur EINMAL liefern. `testutil.SkipIfNoDB` setzt
+      `DATABASE_URL` voraus; Rolle `kmuhub_app`.
+    done_when:
+      - >-
+        Zwei konkurrierende Claims liefern zusammen jede Zeile hoechstens einmal (DB-Test, null
+        uebersprungen)
+      - >-
+        Der Kommentar an Worker und Repo beschreibt die tatsaechliche Garantie (Lease,
+        at-least-once)
+      - >-
+        Mutations-Probe: Claim wieder auf reines SELECT stellen, der Zwei-Claim-Test wird rot
+
+  - id: fix-email-sync-worker-hot-loop-when-no-inbox-folder
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/email/sync (zur Laufzeit messen)"
+    scope: >
+      `Worker.syncCycle` (`internal/email/sync/worker.go:143`) endet in
+      `idleOrPoll`, und `idleOrPoll` gibt bei fehlendem INBOX-Ordner `nil` zurueck
+      (`worker.go:346-349`, nur ein `Warn`). `Worker.Run` wertet `nil` als Erfolg, setzt das
+      Backoff auf 1 s zurueck und ruft `syncCycle` SOFORT wieder auf - ohne jede Pause. Ein
+      Konto, dessen Ordnerliste keinen als `inbox` erkannten Ordner enthaelt
+      (`DetectFolderType`), verbindet sich damit in einer Dauerschleife neu: TCP+TLS, Login,
+      Ordnerliste, Delta-Sync aller Ordner, `UpdateLastSync`, wieder von vorn. Das belastet den
+      fremden Mailserver (Login-Flut, Sperrung des Kontos durch den Anbieter moeglich) und
+      schreibt alle paar hundert Millisekunden Logzeilen und DB-Updates. Idle- und Poll-Schleife
+      geben dagegen nie `nil` zurueck, nur Fehler oder `ctx.Err()` - der `nil`-Pfad ist
+      ausschliesslich dieser Fall.
+    sources:
+      - backend/internal/email/sync/worker.go
+      - backend/internal/email/sync/worker_run_test.go
+      - backend/internal/email/sync/worker_state_test.go
+    notes: >
+      Der schlankste Fix sitzt in `Run`/`idleOrPoll`, nicht in jedem Aufrufer: `idleOrPoll`
+      liefert statt `nil` einen benannten Fehler (`errNoInboxFolder`), damit der bestehende
+      Backoff greift (1 s bis 60 s). Alternativ wartet `Run` nach einem Zyklus ohne Idle/Poll
+      `maxBackoff`. Der vorhandene Test `TestIdleOrPoll_NoInboxFolder_ReturnsWithoutTouchingClient`
+      fixiert heute das `nil` - er muss mitgezogen werden, nicht geloescht.
+      Zusaetzlich einen Test fuer `Run` bauen: Konto ohne Inbox, Zaehler an `syncCycle`, nach
+      ca. 300 ms duerfen es nur wenige Zyklen sein (kein Dutzend pro Sekunde).
+    done_when:
+      - >-
+        Konto ohne INBOX-Ordner verbindet sich hoechstens im Backoff-Takt neu; Test belegt die
+        Zahl der Zyklen
+      - >-
+        `TestIdleOrPoll_NoInboxFolder_...` erwartet den neuen Fehler
+      - >-
+        Mutations-Probe: Rueckgabe wieder `nil`, der Run-Test wird rot
+
+  - id: fix-notification-backlog-replay-repeats-delivered-events
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/notification/event (zur Laufzeit messen)"
+    scope: >
+      Verdacht aus dem Code-Lesen, ZUERST per DB-Test zu belegen oder zu widerlegen.
+      `notification.Service.ProcessEvent` (`service.go:52`) schreibt jedes live eingehende
+      Ereignis mit `Processed: false` in `events`. Auf dem Live-Pfad ruft nichts
+      `MarkProcessed`; das passiert ausschliesslich in `EventBus.ProcessBacklog`
+      (`bus.go:219`). `cmd/notification/main.go:224-229` ruft `ProcessBacklog` beim Start
+      (nach 2 s) auf, liest bis zu 1000 Zeilen mit `processed = false`, schickt jede erneut
+      durch `dispatch` - also durch `ProcessEvent` (neue Zeile mit neuer UUID, wieder
+      `processed = false`) und durch den Inbox-Consumer - und markiert dann nur die ALTE Zeile.
+      Folge, falls es so ist: nach jedem Neustart des notification-Dienstes werden die
+      letzten bis zu 1000 Ereignisse erneut zugestellt, und jede Wiedergabe legt den Bestand
+      fuer den naechsten Neustart neu an (selbsterhaltend). Zweites Loch am selben Ort:
+      `Listen` verbindet nach einem Abbruch zwar neu (`bus.go:73`), `ProcessBacklog` laeuft
+      aber nur EINMAL beim Start; was waehrend der Luecke per `pg_notify` kam, geht verloren,
+      bis der Dienst neu startet - und dann kommt es zusammen mit dem Rest doppelt.
+    sources:
+      - backend/internal/notification/event/bus.go
+      - backend/internal/notification/notification/service.go
+      - backend/internal/notification/notification/postgres_repository.go
+      - backend/cmd/notification/main.go
+    notes: >
+      Schritt 1 (Pflicht, darf als Befund enden): DB-Test. Ereignis ueber `ProcessEvent`
+      schicken, `ProcessBacklog` laufen lassen, zaehlen: Notifications fuer dieselbe
+      `(user, event)`, Zeilen in `events` danach. Gibt es bereits eine Deduplizierung in der
+      Zustellung (Gruppierung ueber `GroupKey`, Unique-Index), steht das im Journal und die
+      Unit wird `done` mit Befund.
+      Bestaetigt: `ProcessEvent` schreibt die Zeile mit der ID/dem Marker des eingehenden
+      Ereignisses statt blind neu, und der Live-Pfad markiert sie nach erfolgreicher
+      Verarbeitung (`MarkProcessed`); `ProcessBacklog` darf sie dann nicht mehr sehen. Die
+      Luecke nach `Listen`-Reconnect: Backlog nach jedem erfolgreichen `LISTEN` einmal
+      anstossen, nicht nur beim Start - erst NACHDEM die Doppel-Wiedergabe behoben ist, sonst
+      verstaerkt es sie. Die Automation hat eine eigene `EventBus`-Instanz ohne Backlog
+      (`cmd/automation/main.go:169`); das ist bewusst anders und bleibt hier unangetastet.
+      Vorsicht: Migration nur, wenn ein Unique-Index noetig ist; Nummer zur Laufzeit.
+    done_when:
+      - >-
+        Doppel-Wiedergabe per DB-Test belegt ODER widerlegt, Ergebnis im Journal
+      - >-
+        Falls belegt: ein Ereignis wird nach Neustart nicht erneut zugestellt, und
+        `events` waechst durch die Wiedergabe nicht
+      - >-
+        Falls belegt: Backlog laeuft auch nach einem Listener-Reconnect
+      - >-
+        Mutations-Probe: `MarkProcessed` im Live-Pfad entfernen, der Wiedergabe-Test wird rot
+
+  - id: fix-gdpr-export-stuck-in-processing-after-restart
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      `gdpr.Service.ApproveExport` startet die Erzeugung in einer losgeloesten Goroutine
+      (`service.go:139`). `ExecuteExportAsync` setzt den Status auf `processing` (`:202`);
+      bei einem Fehler zurueck auf `approved` (`:211`), damit "ein Retry moeglich ist" - ein
+      Retry stoesst aber nichts an, es gibt weder Worker noch Sweeper, der `approved` oder
+      `processing` wieder aufgreift (gesucht: `ExportStatusApproved`/`ExportStatusProcessing`
+      ausserhalb von `service.go`). Wird der auth-Dienst zwischen Freigabe und Ende
+      neu gestartet (Deploy, OOM), bleibt die Auskunftsanfrage dauerhaft auf `processing`;
+      `ExecuteExportAsync` selbst verlangt `approved` (`:197`), ein zweiter manueller Aufruf
+      scheitert also an `ErrInvalidExportStatus`. Die Frist fuer die Auskunft nach DSGVO
+      Art. 12 ist ein Monat.
+    sources:
+      - backend/internal/security/gdpr/service.go
+      - backend/internal/security/gdpr/retention_scheduler.go
+      - backend/cmd/auth/main.go
+    notes: >
+      Muster aus `retention_scheduler.go` uebernehmen (`withScheduleLock` auf EINER
+      gehaltenen Verbindung, `RetentionScheduler`-Form): ein kleiner Sweeper, der alle
+      paar Minuten Anfragen findet, die laenger als eine Lease in `processing` stehen (oder
+      `approved` ohne laufende Erzeugung), und sie auf `approved` zuruecksetzt und neu startet.
+      Dafuer braucht die Tabelle ein Zeitstempel-Feld; gibt es `updated_at`, reicht das, sonst
+      Migration (Nummer zur Laufzeit, forward-only, `.up` und `.down`). Keine neue Route.
+      Erst lesen, ob `UpdateExportStatus` den Zeitstempel schon fortschreibt.
+      Kein Scharfschalten neuer Flags, keine `config.RequireX`.
+    done_when:
+      - >-
+        Eine Anfrage, die laenger als die Lease in `processing` steht, wird erneut ausgefuehrt
+        (DB-Test, zwei gehaltene Verbindungen fuer den Lock)
+      - >-
+        Der Sweeper laeuft mehr als einen Durchgang (Test mit zweitem Tick)
+      - >-
+        Mutations-Probe: Lease-Vergleich umdrehen, der Test wird rot
+
+  - id: test-worker-loops-fuhrpark-meeting-sweeper-recording-cleanup
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/fuhrpark (zur Laufzeit messen); cmd/work hat keine Tests"
+    scope: >
+      Drei Hintergrundlaeufer ohne jeden Test ihrer Schleife (Scan Iteration 54):
+      (1) `fuhrpark.TuevWorker.Run` (`internal/fuhrpark/worker.go`) und
+      `tuevLockAndRun` (`cmd/fuhrpark/main.go:149`) - `internal/fuhrpark` hat KEIN
+      `worker_test.go`; `ProcessTuevReminders` ist nur ueber Servicetests nah dran.
+      (2) `startMeetingSweeper` (`cmd/work/main.go:332`), (3) die 24-h-Aufnahme-Bereinigung
+      (`cmd/work/main.go:255-290`); `cmd/work` hat keine `_test.go`, nur `recording.Service`
+      ist getestet. Die Schleifen selbst (Ticker, Startverzoegerung, Fehler weiterreichen)
+      sind ungeprueft, ebenso `tuevLockAndRun`: Lock ueber eine Transaktion, `acquired=false`
+      ueberspringt, Fehler in `ProcessTuevReminders` rollt zurueck.
+    sources:
+      - backend/internal/fuhrpark/worker.go
+      - backend/cmd/fuhrpark/main.go
+      - backend/cmd/work/main.go
+      - backend/internal/work/recording/service.go
+    notes: >
+      `tuevLockAndRun` liegt in `package main`; fuer den Test entweder in `internal/fuhrpark`
+      verschieben (die Funktion hat keine main-Abhaengigkeit - Parameter sind `pool`, `repo`,
+      `worker`) oder den Test in `cmd/fuhrpark` anlegen. Verschieben ist die schlankere Wahl.
+      Der entscheidende Test (Punkt 4 des Scans): ZWEI Durchlaeufe, der zweite NACH einem
+      gehaltenen Lock auf einer zweiten Verbindung (`pg_try_advisory_xact_lock` in einer
+      offenen Transaktion) - er muss ueberspringen und beim dritten Durchlauf, nach Ende der
+      fremden Transaktion, wieder laufen. Wegen `-race` (laeuft hier nicht) die Tests ohne
+      geteilten Zustand zwischen Goroutinen bauen und das in `offen:` vermerken.
+      Mutations-Probe PFLICHT: `if !acquired { return nil }` entfernen -> Test rot.
+    done_when:
+      - >-
+        `tuevLockAndRun`: Lock gehalten -> kein Lauf; Lock frei -> Lauf; Fehler -> Rollback;
+        dritter Durchlauf nach Freigabe laeuft wieder
+      - >-
+        `TuevWorker.Run`: stoppt bei Context-Ende, ruft die uebergebene Funktion pro Tick auf,
+        ein Fehler beendet die Schleife nicht
+      - >-
+        Meeting-Sweeper und Aufnahme-Bereinigung: Schleife ruft nach der Startverzoegerung auf
+        und laeuft nach einem Fehler weiter (oder Befund, dass das ohne Umbau nicht pruefbar
+        ist, mit Vorschlag)
+      - >-
+        Coverage `internal/fuhrpark` vorher/nachher, Mutations-Probe belegt
+
+  - id: fix-http-audit-logger-failures-invisible-and-close-race
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/middleware (zur Laufzeit messen)"
+    scope: >
+      `middleware.AuditLogger` (`internal/middleware/audit.go`) schreibt den HTTP-Audit-Eintrag
+      ueber einen Puffer-Kanal (1000) und einen Worker-Pool. Zwei Luecken:
+      (a) schlaegt `CreateAuditEntry` fehl oder ist der security-Dienst nicht erreichbar
+      (`processEvent`), steht das auf `slog.Debug` - in Produktion unsichtbar. Ein Ausfall
+      des security-Dienstes verwirft den Audit-Strom still, ohne dass ein Alarm oder auch nur
+      eine Zeile auf `Warn`/`Error` entsteht. Ein voller Puffer meldet immerhin `Warn`.
+      (b) `Close()` schliesst den Kanal, waehrend die Middleware weiter `a.events <- ...`
+      sendet; ein Request, der nach `Close` noch `shouldAudit` besteht, panikt mit "send on
+      closed channel" (das `select ... default` faengt das nicht ab). Die HTTP-Panik wird vom
+      Recovery-Handler gefangen, kostet aber den Request.
+    sources:
+      - backend/internal/middleware/audit.go
+      - backend/cmd/gateway/main.go
+    notes: >
+      (a) `Debug` -> `Warn`, dazu ein Zaehler (Prometheus ist im Repo, `internal/metrics`
+      pruefen) fuer verworfene Eintraege, damit der Ausfall messbar ist. Nicht pro Event loggen,
+      wenn der Dienst weg ist: gedrosselt (z. B. hoechstens eine Zeile je 30 s).
+      (b) Nicht den Kanal schliessen, sondern ein `done`-Kanal/`sync.Once` und die Worker
+      beenden lassen, nachdem sie den Rest geleert haben.
+      Ob der Kern des Audit-Pfads (service-seitig `audit_log`) davon betroffen ist, ist NICHT
+      Teil dieser Unit - sie betrifft nur den HTTP-Middleware-Strom.
+    done_when:
+      - >-
+        Fehlgeschlagener Audit-Eintrag erscheint auf `Warn` (gedrosselt) und in einer Metrik
+      - >-
+        Senden nach `Close` panikt nicht (Test)
+      - >-
+        Mutations-Probe: Log-Level wieder auf Debug, der Test mit Log-Handler wird rot
