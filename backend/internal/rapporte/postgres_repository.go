@@ -934,13 +934,15 @@ func (r *PostgresRepository) scanReportFromRows(rows pgx.Rows) (*WorkReport, err
 }
 
 // SaveSignature writes signature_data, signed_at and signed_by atomically.
-// Returns ErrReportNotFound when no live report with (id, tenant_id) exists.
+// A signature is evidence of a fixed state, so the UPDATE only matches a report
+// that has none yet. Returns ErrAlreadySigned when the report already carries a
+// signature and ErrReportNotFound when no live report with (id, tenant_id) exists.
 func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, reportID uuid.UUID, signatureData, signedBy string) (*WorkReport, error) {
 	var rep WorkReport
 	err := r.pool.QueryRow(ctx, `
 		UPDATE work_reports
 		SET signature_data=$3, signed_at=NOW(), signed_by=$4, updated_at=NOW()
-		WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL
+		WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL AND signature_data IS NULL
 		RETURNING id, tenant_id, title, description, status, author_id, reviewer_id,
 		          reviewed_at, review_note, lat, lon, report_date,
 		          signature_data, signed_at, signed_by,
@@ -957,6 +959,17 @@ func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, report
 		&rep.CreatedAt, &rep.UpdatedAt, &rep.DeletedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// Zero rows is either "no such report" or "already signed" - tell them apart.
+		var exists bool
+		if qerr := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM work_reports WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL)`,
+			reportID, tenantID,
+		).Scan(&exists); qerr != nil {
+			return nil, fmt.Errorf("save signature: check report: %w", qerr)
+		}
+		if exists {
+			return nil, ErrAlreadySigned
+		}
 		return nil, ErrReportNotFound
 	}
 	if err != nil {

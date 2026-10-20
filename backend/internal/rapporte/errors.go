@@ -13,4 +13,5 @@ var (
 	ErrInvalidInput           = errors.New("rapporte input is invalid")
 	ErrAlreadyApproved        = errors.New("report is already approved and cannot be modified")
 	ErrInvalidStateTransition = errors.New("report state transition is not allowed")
+	ErrAlreadySigned          = errors.New("report is already signed and the signature cannot be replaced")
 )

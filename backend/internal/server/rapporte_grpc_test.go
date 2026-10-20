@@ -183,6 +183,9 @@ func (r *stubRapporteRepo) SaveSignature(_ context.Context, tenantID, reportID u
 	if !ok || rep.TenantID != tenantID {
 		return nil, rapporte.ErrReportNotFound
 	}
+	if rep.SignatureData != nil {
+		return nil, rapporte.ErrAlreadySigned
+	}
 	now := time.Now()
 	sd := signatureData
 	sb := signedBy
@@ -1175,6 +1178,21 @@ func TestRapporteSignatureHandler(t *testing.T) {
 		requireGRPCOK(t, err)
 		require.Equal(t, "data:image/png;base64,abc", resp.Report.SignatureData)
 		require.Equal(t, "Max Muster", resp.Report.SignedBy)
+	})
+
+	t.Run("SaveSignature on an already signed report is a failed precondition", func(t *testing.T) {
+		repo := newStubRapporteRepo()
+		rep := newDraftReport(tenantID)
+		repo.seedReport(rep)
+		s := newRapporteTestServer(repo)
+		_, err := s.SaveSignature(rapporteCtxWithTenant(tenantID), &rapportev1.SaveReportSignatureRequest{
+			ReportId: rep.ID.String(), SignatureData: "data:image/png;base64,first", SignedBy: "Max Muster",
+		})
+		requireGRPCOK(t, err)
+		_, err = s.SaveSignature(rapporteCtxWithTenant(tenantID), &rapportev1.SaveReportSignatureRequest{
+			ReportId: rep.ID.String(), SignatureData: "data:image/png;base64,second", SignedBy: "Erika Muster",
+		})
+		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 }
 

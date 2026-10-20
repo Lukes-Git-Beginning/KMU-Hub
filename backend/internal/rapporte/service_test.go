@@ -224,6 +224,9 @@ func (m *mockRepository) SaveSignature(_ context.Context, tenantID, reportID uui
 	if !ok || rep.TenantID != tenantID || rep.DeletedAt != nil {
 		return nil, ErrReportNotFound
 	}
+	if rep.SignatureData != nil {
+		return nil, ErrAlreadySigned
+	}
 	now := time.Now()
 	rep.SignatureData = &signatureData
 	rep.SignedAt = &now

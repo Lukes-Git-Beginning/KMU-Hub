@@ -163,3 +163,22 @@ func TestSaveSignature_AtSizeLimit_Accepted(t *testing.T) {
 	_, err := svc.SaveSignature(context.Background(), tenantID, rep.ID, payload, "Max Mustermann")
 	require.NoError(t, err)
 }
+
+func TestSaveSignature_AlreadySigned_IsRefusedAndKeepsFirstSignature(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	rep := addReport(repo, tenantID, "Bericht", StatusApproved)
+
+	_, err := svc.SaveSignature(context.Background(), tenantID, rep.ID, "data:image/png;base64,first", "Max Mustermann")
+	require.NoError(t, err)
+
+	_, err = svc.SaveSignature(context.Background(), tenantID, rep.ID, "data:image/png;base64,second", "Erika Musterfrau")
+	require.ErrorIs(t, err, ErrAlreadySigned)
+
+	got, err := repo.GetReport(context.Background(), tenantID, rep.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.SignedBy)
+	assert.Equal(t, "Max Mustermann", *got.SignedBy)
+}
