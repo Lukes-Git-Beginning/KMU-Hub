@@ -346,6 +346,14 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *tasks)
 		}
 
+		taskFields, tfErr := taskCustomFieldValuesModule(ctx, pool, tenantID, u.id)
+		if tfErr != nil {
+			return nil, tfErr
+		}
+		if taskFields != nil {
+			person.Modules = append(person.Modules, *taskFields)
+		}
+
 		taskComments, tcErr := taskCommentsModule(ctx, pool, tenantID, u.id)
 		if tcErr != nil {
 			return nil, tcErr
@@ -653,6 +661,47 @@ func tasksModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: task rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// taskCustomFieldValuesModule discloses the custom field values entered on tasks a
+// matched user created or was assigned — same task scope as tasksModule. Values
+// are free-form, so they can hold personal data tasksModule alone never shows.
+// task_custom_field_values carries its own tenant_id, but the join back to tasks
+// is tenant-scoped as well, matching the other modules (defense-in-depth).
+func taskCustomFieldValuesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.title, wcfd.name, tcfv.value
+		 FROM task_custom_field_values tcfv
+		 JOIN tasks t ON t.id = tcfv.task_id AND t.tenant_id = $1
+		 JOIN work_custom_field_definitions wcfd ON wcfd.id = tcfv.field_id AND wcfd.tenant_id = $1
+		 WHERE tcfv.tenant_id = $1 AND (t.assignee_id = $2 OR t.created_by = $2)
+		 ORDER BY t.created_at DESC, wcfd.position, wcfd.name
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query task custom field values: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Aufgaben: Benutzerdefinierte Felder", Columns: []string{"Aufgabe", "Feld", "Wert"}}
+	for rows.Next() {
+		var title, label string
+		var valueJSON []byte
+		if scanErr := rows.Scan(&title, &label, &valueJSON); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan task custom field value: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Aufgabe", Value: title},
+			{Key: "Feld", Value: label},
+			{Key: "Wert", Value: formatCustomFieldValue(valueJSON)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: task custom field value rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil

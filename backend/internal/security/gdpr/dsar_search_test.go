@@ -1231,6 +1231,100 @@ func TestSearchByQuery_UserTasks_Integration(t *testing.T) {
 	assert.Empty(t, foreign, "another tenant must not see this user, let alone their tasks")
 }
 
+func TestSearchByQuery_UserTaskCustomFieldValues_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Task Fields Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Task Fields Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Heiderun", "Kornfeld", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherUserID := seedDSARUser(t, pool, tenantOwn, "Gunnar", "Kornfeld", true)
+	defer testutil.CleanupRow(t, pool, "users", otherUserID)
+
+	fieldID := testutil.SeedRow(t, pool, "work_custom_field_definitions", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Ansprechpartner",
+		"field_type": "text",
+	})
+	defer testutil.CleanupRow(t, pool, "work_custom_field_definitions", fieldID)
+
+	ownTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"task_number": 1,
+		"title":       "Kundentermin",
+		"assignee_id": subjectID,
+		"created_by":  otherUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", ownTaskID)
+	unrelatedTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"task_number": 2,
+		"title":       "Fremde Aufgabe",
+		"assignee_id": otherUserID,
+		"created_by":  otherUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", unrelatedTaskID)
+
+	// Same user id as assignee on a task of another tenant: its value must stay out.
+	foreignTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOther,
+		"task_number": 1,
+		"title":       "Aufgabe anderer Mandant",
+		"assignee_id": subjectID,
+		"created_by":  subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", foreignTaskID)
+	foreignFieldID := testutil.SeedRow(t, pool, "work_custom_field_definitions", map[string]any{
+		"tenant_id":  tenantOther,
+		"name":       "Fremdfeld",
+		"field_type": "text",
+	})
+	defer testutil.CleanupRow(t, pool, "work_custom_field_definitions", foreignFieldID)
+
+	ctxSystem := testutil.WithSystemCtx(context.Background())
+	for _, v := range []struct {
+		tenant      uuid.UUID
+		task, field uuid.UUID
+		jsonValue   string
+	}{
+		{tenantOwn, ownTaskID, fieldID, `"Frau Kornfeld, Tel. 0151 1234567"`},
+		{tenantOwn, unrelatedTaskID, fieldID, `"Fremder Wert"`},
+		{tenantOther, foreignTaskID, foreignFieldID, `"Wert anderer Mandant"`},
+	} {
+		_, err := pool.Exec(ctxSystem,
+			`INSERT INTO task_custom_field_values (tenant_id, task_id, field_id, value) VALUES ($1, $2, $3, $4::jsonb)`,
+			v.tenant, v.task, v.field, v.jsonValue)
+		require.NoError(t, err)
+	}
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Heiderun")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	mod := dsarModule(t, persons[0], "Aufgaben: Benutzerdefinierte Felder")
+	assert.Equal(t, []string{"Aufgabe", "Feld", "Wert"}, mod.Columns)
+	rows := recordMaps(mod)
+	require.Len(t, rows, 1, "only the value on the subject's own task, not the other user's or the foreign tenant's")
+	assert.Equal(t, "Kundentermin", rows[0]["Aufgabe"])
+	assert.Equal(t, "Ansprechpartner", rows[0]["Feld"])
+	assert.Equal(t, "Frau Kornfeld, Tel. 0151 1234567", rows[0]["Wert"])
+
+	// The other user created ownTask and is assigned unrelatedTask: both roles count.
+	others, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Gunnar")
+	require.NoError(t, err)
+	require.Len(t, others, 1)
+	assert.Len(t, dsarModule(t, others[0], "Aufgaben: Benutzerdefinierte Felder").Records, 2)
+}
+
 func TestSearchByQuery_UserTaskComments_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()

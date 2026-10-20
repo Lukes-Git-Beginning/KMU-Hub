@@ -328,3 +328,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 26, 782dbaa5: IsDeleted-Prüfung in CreateShareLink/RedeemShareLink, kein Proto/Route-Neuanlage/Guard/Migration, OpenAPI-409 ergänzt)
 - neue-units: keine
 - offen: (1) Die Verdrahtung in `main.go` ist nur durch den Compiler abgesichert, kein Test startet `cmd/berichte`. (2) `report_cache` wird in Produktion erst nach dem nächsten Deploy bereinigt; der erste Sweep löscht den angesammelten Bestand in einem DELETE (Index `idx_report_cache_expires` vorhanden). (3) Keine Goroutinen in neuen Tests.
+
+## Iteration 28 — fix-dsar-tasks-module-missing-custom-field-values — done — 2026-10-20 22:05
+- commit: `fix(gdpr): disclose task custom field values in the user DSAR export` (SHA via `git log`)
+- gebaut: neues `taskCustomFieldValuesModule` in `dsar_search.go` (Modul „Aufgaben: Benutzerdefinierte Felder", Spalten Aufgabe/Feld/Wert): `task_custom_field_values` -> `tasks` (Assignee ODER Ersteller) -> `work_custom_field_definitions`, überall tenant-gefiltert, Formatierung über das vorhandene `formatCustomFieldValue`; im User-Zweig von `SearchByQuery` nach `tasksModule` registriert. Keine Route, kein Proto, keine Migration, kein Guard.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/security/..., 0 SKIP; DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (Integrationstest läuft real unter kmuhub_app, inkl. fremdem Tenant)
+- coverage: internal/security/gdpr 72,8 % -> 72,9 % (Bugfix-Unit, kein Coverage-Ziel; Vorher-Wert per stash)
+- mutations-probe: (1) `OR t.created_by = $2` entfernt -> `TestSearchByQuery_UserTaskCustomFieldValues_Integration` rot (Ersteller-Pfad), zurückgedreht, `cmp` sauber; (2) `tcfv.tenant_id = $1` entfernt -> Test bleibt GRÜN, weil RLS unter kmuhub_app dieselbe Zeile ohnehin ausblendet (Filter ist reine Defense-in-Depth wie in den Nachbarmodulen, kein Test-Beleg möglich)
+- verify vorgaenger: sauber (Iteration 27, 92760d6d: Scheduler-Sweep mit Throttle, Repo als Sweeper in `cmd/berichte/main.go`, kein Proto/Route/Guard/Migration)
+- neue-units: keine
+- offen: (1) Der Retention-/Erasure-Pfad für `task_custom_field_values` ist nicht Teil dieser Unit (Auskunft ergänzt, Löschung ungeprüft). (2) Die Repo-Dateien `dsar_search*.go` liegen im Worktree teils mit CRLF; `dsar_search.go` ist LF — git normalisiert beim Commit. (3) Keine Goroutinen in neuen Tests.
