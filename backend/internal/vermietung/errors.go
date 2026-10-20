@@ -11,4 +11,5 @@ var (
 	ErrInvalidStateTransition = errors.New("rental state transition is not allowed")
 	ErrInspectionKindExists   = errors.New("an inspection of this kind already exists for this rental")
 	ErrAlreadySigned          = errors.New("rental is already signed")
+	ErrObjectHasOpenRentals   = errors.New("rental object still has reserved or active rentals")
 )
