@@ -459,3 +459,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 39, 0ea9a0dc: `recordingsModule` tenant-gescoped über `r.tenant_id` und `rc.tenant_id`, nur dsar_search.go + Test; kein Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: (1) `rentals.contact_id` ist eine weiche Referenz; Mietvorgänge ohne Kontaktbezug (nur `renter_name`) tauchen im DSAR nicht auf, weil es keinen Suchschlüssel gibt. (2) `rental_inspections.performed_by` (Mitarbeiter) wird nicht ausgewertet. (3) Keine Goroutinen in neuen Tests.
+
+## Iteration 41 — feat-gdpr-dsar-search-missing-einkauf-suppliers — done — 2026-10-20 22:37
+- commit: `feat(gdpr): disclose Einkauf suppliers in the DSAR export` (SHA via `git log`)
+- gebaut: `suppliersModule` ("Einkauf Lieferanten") hängt Lieferanten mit `contact_id` an den gematchten Kontakt; `matchUnlinkedSuppliers` macht Lieferanten OHNE Kontakt (Einzelunternehmer) per Name/E-Mail als eigenes Subjekt auffindbar. Felder: Name, E-Mail, Telefon, Adresse, Zahlungsbedingungen, Notizen, Erstellt, Gelöscht am; soft-gelöschte Lieferanten werden mitgeliefert (Daten sind noch gehalten). Beide Fälle der Unit sind gebaut, Fall (2) nicht nur dokumentiert. Keine Route, kein Proto, keine Migration, kein Guard.
+- vorab: `feat-einkauf-po-framework-contract-call-off-wiring` (Kopf des Backlogs) auf `blocked` gesetzt und nach BACKLOG-NEXT.yml verschoben — `framework_contract_id` ist über die API nicht setzbar (nur in der PurchaseOrder-Response von `einkauf.proto`), Betragssemantik und Verhalten bei `ErrContractBudgetExceeded` sind Produktentscheidungen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/security/..., DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; Test prüft fremden Tenant und gefälschtes tenantID unter fremdem RLS-Kontext: leer)
+- coverage: internal/security/gdpr 73,4 % -> 73,6 %
+- mutations-probe: (1) Kontaktfilter `contact_id = $1` -> `contact_id IS NOT NULL ...` -> `TestSearchByQuery_EinkaufSuppliers_Integration` rot; (2) `AND contact_id IS NULL` entfernt -> derselbe Test rot (verknüpfter Lieferant würde als Extra-Subjekt auftauchen); jeweils per cp-Sicherung zurückgedreht, `cmp` sauber
+- verify vorgaenger: sauber (Iteration 40, e043c514: `rentalsModule`/`rentalInspectionsModule` tenant-gescoped über `r.tenant_id`, `ro.tenant_id`, `i.tenant_id`; nur dsar_search.go + Test; kein Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: (1) Die Suche über Namen/E-Mail trifft bei Lieferanten mit Kontakt nur über den Kontakt — heißt der Kontakt anders als der Lieferant (z. B. Firmenname), findet die Suche den Lieferanten nicht. Bewusst, um keine Doppel-Subjekte zu erzeugen. (2) Einkauf-Bestellungen/-Rahmenverträge eines Lieferanten werden nicht offengelegt (nicht Teil der Unit). (3) Keine Goroutinen in neuen Tests.

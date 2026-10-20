@@ -3275,3 +3275,121 @@ func TestSearchByQuery_ContactRentalsAndInspections_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
 }
+
+func TestSearchByQuery_EinkaufSuppliers_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Suppliers Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Suppliers Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	creatorID := seedDSARUser(t, pool, tenantOwn, "Dsar", "SupplierCreator", true)
+	defer testutil.CleanupRow(t, pool, "users", creatorID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Quirin",
+		"last_name":  "Lieferfrau",
+		"created_by": creatorID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+	otherContactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Ottilie",
+		"last_name":  "Grosshandel",
+		"created_by": creatorID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", otherContactID)
+
+	linkedID := testutil.SeedRow(t, pool, "suppliers", map[string]any{
+		"tenant_id":     tenantOwn,
+		"name":          "Lieferfrau Holzbau",
+		"contact_id":    contactID,
+		"email":         "quirin@holzbau.example",
+		"phone":         "+49 30 1234",
+		"address":       "Waldweg 3, 10115 Berlin",
+		"payment_terms": "14 Tage 2% Skonto",
+		"notes":         "Einzelunternehmer",
+	})
+	defer testutil.CleanupRow(t, pool, "suppliers", linkedID)
+	otherLinkedID := testutil.SeedRow(t, pool, "suppliers", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Grosshandel Ottilie",
+		"contact_id": otherContactID,
+	})
+	defer testutil.CleanupRow(t, pool, "suppliers", otherLinkedID)
+	unlinkedID := testutil.SeedRow(t, pool, "suppliers", map[string]any{
+		"tenant_id": tenantOwn,
+		"name":      "Hufschmied Brandtner e.U.",
+		"email":     "brandtner@hufschmied.example",
+		"phone":     "+43 1 555",
+		"address":   "Schmiedgasse 1, 1010 Wien",
+		"notes":     "Ohne CRM-Kontakt",
+	})
+	defer testutil.CleanupRow(t, pool, "suppliers", unlinkedID)
+	deletedID := testutil.SeedRow(t, pool, "suppliers", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Brandtner Altlieferant",
+		"deleted_at": time.Date(2026, 3, 1, 9, 30, 0, 0, time.UTC),
+	})
+	defer testutil.CleanupRow(t, pool, "suppliers", deletedID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	// Linked: the supplier shows under the matched contact, not as its own subject.
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Lieferfrau")
+	require.NoError(t, err)
+	require.Len(t, persons, 1, "the linked supplier is disclosed under the contact, not as a second subject")
+	linked := recordMaps(dsarModule(t, persons[0], "Einkauf Lieferanten"))
+	require.Len(t, linked, 1, "the other contact's supplier must not leak")
+	assert.Equal(t, "Lieferfrau Holzbau", linked[0]["Name"])
+	assert.Equal(t, "quirin@holzbau.example", linked[0]["E-Mail"])
+	assert.Equal(t, "+49 30 1234", linked[0]["Telefon"])
+	assert.Equal(t, "Waldweg 3, 10115 Berlin", linked[0]["Adresse"])
+	assert.Equal(t, "14 Tage 2% Skonto", linked[0]["Zahlungsbedingungen"])
+	assert.Equal(t, "", linked[0]["Gelöscht am"])
+
+	// Unlinked: found by name and by email, soft-deleted rows included.
+	byName, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Brandtner")
+	require.NoError(t, err)
+	require.Len(t, byName, 2)
+	byNameRecords := map[string]map[string]string{}
+	for _, p := range byName {
+		recs := recordMaps(dsarModule(t, p, "Einkauf Lieferanten"))
+		require.Len(t, recs, 1)
+		byNameRecords[p.Name] = recs[0]
+	}
+	assert.Equal(t, "Schmiedgasse 1, 1010 Wien", byNameRecords["Hufschmied Brandtner e.U."]["Adresse"])
+	assert.Equal(t, "", byNameRecords["Hufschmied Brandtner e.U."]["Gelöscht am"])
+	var deletedAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT deleted_at FROM suppliers WHERE id = $1`, deletedID).Scan(&deletedAt))
+	assert.Equal(t, deletedAt.Format(dsarTimeLayout), byNameRecords["Brandtner Altlieferant"]["Gelöscht am"])
+
+	byEmail, err := SearchByQuery(ctxOwn, pool, tenantOwn, "hufschmied.example")
+	require.NoError(t, err)
+	require.Len(t, byEmail, 1)
+	assert.Equal(t, "Hufschmied Brandtner e.U.", byEmail[0].Name)
+	assert.Equal(t, "brandtner@hufschmied.example", byEmail[0].Email)
+
+	// A supplier that has a contact is never listed as an extra subject by its own name.
+	byLinkedName, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Holzbau")
+	require.NoError(t, err)
+	assert.Empty(t, byLinkedName)
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Brandtner")
+	require.NoError(t, err)
+	assert.Empty(t, foreign)
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Brandtner")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
+}

@@ -195,6 +195,14 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *rentalInspections)
 		}
 
+		suppliers, spErr := suppliersModule(ctx, pool, tenantID, c.id)
+		if spErr != nil {
+			return nil, spErr
+		}
+		if suppliers != nil {
+			person.Modules = append(person.Modules, *suppliers)
+		}
+
 		emails, eErr := emailModule(ctx, pool, tenantID, c.id)
 		if eErr != nil {
 			return nil, eErr
@@ -235,6 +243,12 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 		return nil, err
 	}
 	persons = append(persons, users...)
+
+	suppliers, err := matchUnlinkedSuppliers(ctx, pool, tenantID, pattern)
+	if err != nil {
+		return nil, err
+	}
+	persons = append(persons, suppliers...)
 
 	return persons, nil
 }
@@ -2693,6 +2707,118 @@ func rentalInspectionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, 
 		return nil, nil
 	}
 	return &mod, nil
+}
+
+// supplierDSARColumns is shared by the linked (suppliersModule) and unlinked
+// (matchUnlinkedSuppliers) disclosure, so both show the same fields.
+var supplierDSARColumns = []string{"Name", "E-Mail", "Telefon", "Adresse", "Zahlungsbedingungen", "Notizen", "Erstellt", "Gelöscht am"}
+
+type supplierRow struct {
+	id                                        uuid.UUID
+	name, email, phone, address, terms, notes string
+	createdAt                                 time.Time
+	deletedAt                                 *time.Time
+}
+
+// supplierSelect lists the columns scanSupplier reads. Soft-deleted suppliers
+// are disclosed too: deleted_at only hides them in the UI, the data is still held.
+const supplierSelect = `id, name, email, phone, address, payment_terms, notes, created_at, deleted_at`
+
+func scanSupplier(rows pgx.Rows) (supplierRow, error) {
+	var s supplierRow
+	if err := rows.Scan(&s.id, &s.name, &s.email, &s.phone, &s.address, &s.terms, &s.notes, &s.createdAt, &s.deletedAt); err != nil {
+		return s, fmt.Errorf("dsar: scan supplier: %w", err)
+	}
+	return s, nil
+}
+
+func (s supplierRow) record() DSARRecord {
+	deleted := ""
+	if s.deletedAt != nil {
+		deleted = s.deletedAt.Format(dsarTimeLayout)
+	}
+	return DSARRecord{Fields: []DSARField{
+		{Key: "Name", Value: s.name},
+		{Key: "E-Mail", Value: s.email},
+		{Key: "Telefon", Value: s.phone},
+		{Key: "Adresse", Value: s.address},
+		{Key: "Zahlungsbedingungen", Value: s.terms},
+		{Key: "Notizen", Value: s.notes},
+		{Key: "Erstellt", Value: s.createdAt.Format(dsarTimeLayout)},
+		{Key: "Gelöscht am", Value: deleted},
+	}}
+}
+
+// suppliersModule discloses the Einkauf supplier records linked to a contact
+// via suppliers.contact_id (a sole trader can be both).
+func suppliersModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT `+supplierSelect+`
+		 FROM suppliers
+		 WHERE contact_id = $1 AND tenant_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query suppliers: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Einkauf Lieferanten", Columns: supplierDSARColumns}
+	for rows.Next() {
+		s, scanErr := scanSupplier(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		mod.Records = append(mod.Records, s.record())
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: supplier rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// matchUnlinkedSuppliers finds suppliers without a CRM contact (typically sole
+// traders) by name or email, so they are not invisible to an Art. 15 request.
+// Suppliers WITH a contact_id are disclosed under that contact instead
+// (suppliersModule); listing them here as well would duplicate the subject.
+func matchUnlinkedSuppliers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pattern string) ([]DSARPerson, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT `+supplierSelect+`
+		 FROM suppliers
+		 WHERE tenant_id = $1 AND contact_id IS NULL
+		   AND (name ILIKE $2 OR email ILIKE $2)
+		 ORDER BY created_at DESC
+		 LIMIT $3`, tenantID, pattern, dsarMaxSubjects)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query unlinked suppliers: %w", err)
+	}
+	defer rows.Close()
+
+	var out []DSARPerson
+	for rows.Next() {
+		s, scanErr := scanSupplier(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		out = append(out, DSARPerson{
+			ID:     s.id.String(),
+			Name:   s.name,
+			Email:  s.email,
+			Avatar: initials(s.name, ""),
+			Modules: []DSARModule{{
+				Module:  "Einkauf Lieferanten",
+				Columns: supplierDSARColumns,
+				Records: []DSARRecord{s.record()},
+			}},
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: unlinked supplier rows: %w", err)
+	}
+	return out, nil
 }
 
 // emailModule resolves via email_contact_links: the junction table carries no
