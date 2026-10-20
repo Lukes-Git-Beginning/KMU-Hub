@@ -3512,7 +3512,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-10-20
     decision: >-
       Aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48): einzige

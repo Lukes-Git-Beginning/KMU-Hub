@@ -454,6 +454,7 @@ func main() {
 
 		// File upload handler (multipart/form-data, not gRPC)
 		fileUploadHandler := server.NewFileUploadHandler(fileService, wsHub)
+		fileUploadHandler.SetIdempotency(idempotencyRepo)
 		r.With(authMiddleware).
 			With(middleware.RequirePermission("files", "write")).
 			Post("/api/v1/files/upload", fileUploadHandler.HandleUploadFile)

@@ -365,3 +365,66 @@ func TestIdempotency_WhitelistedPath_Skip(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, rec.Code)
 }
+
+// --- BeginIdempotent (handler-level variant for unbuffered bodies) ---
+
+func TestBeginIdempotent_NoHeaderOrNilRepo_IsNoOp(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+
+	r := requestWithAuth(http.MethodPost, "/api/v1/files/upload", "")
+	rec := httptest.NewRecorder()
+	w, done, ok := BeginIdempotent(repo, rec, r, "fp")
+	require.True(t, ok)
+	assert.Same(t, rec, w)
+	done()
+
+	r = requestWithAuth(http.MethodPost, "/api/v1/files/upload", "")
+	r.Header.Set("Idempotency-Key", "k")
+	rec = httptest.NewRecorder()
+	_, _, ok = BeginIdempotent(nil, rec, r, "fp")
+	require.True(t, ok)
+	assert.Empty(t, repo.records)
+}
+
+func TestBeginIdempotent_ReplaysAndRejectsOtherFingerprint(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	do := func(key, fp string) (*httptest.ResponseRecorder, bool) {
+		r := requestWithAuth(http.MethodPost, "/api/v1/files/upload", "")
+		r.Header.Set("Idempotency-Key", key)
+		rec := httptest.NewRecorder()
+		w, done, ok := BeginIdempotent(repo, rec, r, fp)
+		if ok {
+			okHandler(w, r)
+			done()
+		}
+		return rec, ok
+	}
+
+	rec, ok := do("k-1", "a")
+	require.True(t, ok)
+	require.Equal(t, http.StatusCreated, rec.Code)
+	require.True(t, assert.Eventually(t, func() bool {
+		repo.mu.Lock()
+		defer repo.mu.Unlock()
+		return repo.records["k-1"].CompletedAt != nil
+	}, 2*time.Second, 5*time.Millisecond))
+
+	rec, ok = do("k-1", "a")
+	assert.False(t, ok)
+	assert.Equal(t, "true", rec.Header().Get("Idempotency-Replayed"))
+	assert.Equal(t, `{"id":"new-resource"}`, rec.Body.String())
+
+	rec, ok = do("k-1", "b")
+	assert.False(t, ok)
+	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+}
+
+func TestBeginIdempotent_MissingAuthContext_Returns401(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/files/upload", nil)
+	r.Header.Set("Idempotency-Key", "k")
+	rec := httptest.NewRecorder()
+	_, _, ok := BeginIdempotent(repo, rec, r, "fp")
+	assert.False(t, ok)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
