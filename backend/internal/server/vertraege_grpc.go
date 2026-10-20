@@ -657,7 +657,7 @@ func mapVertraegeError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, vertraege.ErrContractNumberTaken):
 		return status.Error(codes.AlreadyExists, err.Error())
-	case errors.Is(err, vertraege.ErrDeleteNonDraft):
+	case errors.Is(err, vertraege.ErrDeleteNonDraft), errors.Is(err, vertraege.ErrAlreadySigned):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, vertraege.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())

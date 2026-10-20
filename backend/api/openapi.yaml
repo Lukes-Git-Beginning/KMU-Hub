@@ -24612,7 +24612,15 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >-
+            The contract already carries a signature, which is immutable once
+            saved, or a request with this Idempotency-Key is still being
+            processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/parties:

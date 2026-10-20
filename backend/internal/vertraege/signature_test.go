@@ -100,6 +100,28 @@ func TestSaveContractSignature_HappyPath(t *testing.T) {
 	assert.WithinDuration(t, time.Now(), *result.SignedAt, 5*time.Second)
 }
 
+func TestSaveContractSignature_AlreadySigned_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	c := addContract(repo, tenantID, "CT-SIG-ALR", "Bereits signiert", ContractStatusActive)
+
+	_, err := svc.SaveSignature(context.Background(),
+		tenantID.String(), c.ID.String(), validContractPNGSignature, "Anna Müller")
+	require.NoError(t, err)
+
+	_, err = svc.SaveSignature(context.Background(),
+		tenantID.String(), c.ID.String(), validContractSVGSignature, "Bernd Schmidt")
+	require.ErrorIs(t, err, ErrAlreadySigned)
+
+	kept, err := repo.GetContract(context.Background(), tenantID, c.ID)
+	require.NoError(t, err)
+	require.NotNil(t, kept.SignedBy)
+	assert.Equal(t, "Anna Müller", *kept.SignedBy)
+	assert.Equal(t, validContractPNGSignature, *kept.SignatureData)
+}
+
 func TestSaveContractSignature_HappyPath_SVG(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)

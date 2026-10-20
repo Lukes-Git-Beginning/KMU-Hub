@@ -1082,6 +1082,7 @@ func TestMapVertraegeError_Table(t *testing.T) {
 		{"reminder_not_found", vertraege.ErrReminderNotFound, codes.NotFound},
 		{"contract_number_taken", vertraege.ErrContractNumberTaken, codes.AlreadyExists},
 		{"delete_non_draft", vertraege.ErrDeleteNonDraft, codes.FailedPrecondition},
+		{"already_signed", vertraege.ErrAlreadySigned, codes.FailedPrecondition},
 		{"invalid_input", vertraege.ErrInvalidInput, codes.InvalidArgument},
 		{"generic_fallback", errStubVertraegeFailure, codes.Internal},
 	}

@@ -282,6 +282,9 @@ func (m *mockRepository) SaveSignature(_ context.Context, tenantID, contractID, 
 	if !ok || c.TenantID != tenantUUID {
 		return nil, ErrContractNotFound
 	}
+	if c.SignatureData != nil {
+		return nil, ErrAlreadySigned
+	}
 	now := time.Now()
 	c.SignatureData = &signatureData
 	c.SignedAt = &now

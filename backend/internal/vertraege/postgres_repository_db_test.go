@@ -12,6 +12,7 @@ package vertraege
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -71,18 +72,12 @@ func TestRepository_SaveSignature_UpdatesFieldsAndTenantScoped(t *testing.T) {
 	}
 }
 
-// TestSaveSignature_OverwritesExistingSignatureWithoutGuard documents a
-// VERIFIED finding against the real schema, found while covering this
-// handler group (cov-gateway-vertraege-lifecycle-and-signature): the UPDATE
-// in PostgresRepository.SaveSignature has no "AND signature_data IS NULL"
-// clause and Service.SaveSignature has no check against the contract's
-// existing SignedAt/SignatureData — a contract that already carries a
-// signature silently accepts and persists a second one, with no trace of
-// the first left anywhere in the contracts row. Same bug class as
-// fix-rapporte-signature-overwritable-after-signing (rapporte) and
-// fix-vermietung-rental-signature-overwritable-after-signing (vermietung).
-// Filed as its own fix-unit — a coverage unit changes no behaviour.
-func TestSaveSignature_OverwritesExistingSignatureWithoutGuard(t *testing.T) {
+// TestSaveSignature_ExistingSignatureIsNotOverwritten pins the immutability of a
+// signature: a contract that already carries one refuses a second SaveSignature
+// with ErrAlreadySigned and keeps the first signer, data and timestamp. A
+// foreign tenant still sees ErrContractNotFound, not ErrAlreadySigned, so the
+// existence of the signed row does not leak across tenants.
+func TestSaveSignature_ExistingSignatureIsNotOverwritten(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -91,6 +86,8 @@ func TestSaveSignature_OverwritesExistingSignatureWithoutGuard(t *testing.T) {
 
 	tenantID := uuid.New()
 	testutil.EnsureTenant(t, pool, tenantID, "Vertraege Signature Overwrite Tenant")
+	otherTenant := uuid.New()
+	testutil.EnsureTenant(t, pool, otherTenant, "Vertraege Signature Overwrite Other Tenant")
 
 	repo := NewPostgresRepository(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
@@ -113,25 +110,28 @@ func TestSaveSignature_OverwritesExistingSignatureWithoutGuard(t *testing.T) {
 	if first.SignedBy == nil || *first.SignedBy != "Max Mustermann" {
 		t.Fatalf("expected first signature persisted, got %+v", first)
 	}
-	firstSignedAt := *first.SignedAt
 
-	second, err := repo.SaveSignature(ctx, tenantID.String(), c.ID.String(), "data:image/png;base64,secondSignatureReplacingTheFirst", "Erika Musterfrau")
-	if err != nil {
-		t.Fatalf("expected the re-sign to currently SUCCEED (documenting the gap), got error: %v", err)
+	if _, err := repo.SaveSignature(ctx, tenantID.String(), c.ID.String(), "data:image/png;base64,secondSignatureReplacingTheFirst", "Erika Musterfrau"); !errors.Is(err, ErrAlreadySigned) {
+		t.Fatalf("expected ErrAlreadySigned for the re-sign, got %v", err)
 	}
-	if second.SignedBy == nil || *second.SignedBy != "Erika Musterfrau" {
-		t.Fatalf("expected the second signer to have overwritten the first, got %+v", second)
-	}
-	if !second.SignedAt.After(firstSignedAt) {
-		t.Fatalf("expected signed_at to have advanced past the first signature, first=%v second=%v", firstSignedAt, *second.SignedAt)
+
+	otherCtx := testutil.WithTenantCtx(context.Background(), otherTenant)
+	if _, err := repo.SaveSignature(otherCtx, otherTenant.String(), c.ID.String(), "data:image/png;base64,foreign", "Fremd"); !errors.Is(err, ErrContractNotFound) {
+		t.Fatalf("expected ErrContractNotFound for a foreign tenant, got %v", err)
 	}
 
 	reloaded, err := repo.GetContract(ctx, tenantID, c.ID)
 	if err != nil {
 		t.Fatalf("GetContract: %v", err)
 	}
-	if reloaded.SignedBy == nil || *reloaded.SignedBy != "Erika Musterfrau" {
-		t.Fatalf("expected the persisted row to show the second signer with no trace of the first, got %+v", reloaded.SignedBy)
+	if reloaded.SignedBy == nil || *reloaded.SignedBy != "Max Mustermann" {
+		t.Fatalf("expected the first signer to survive, got %+v", reloaded.SignedBy)
+	}
+	if reloaded.SignatureData == nil || *reloaded.SignatureData != "data:image/png;base64,firstSignature" {
+		t.Fatalf("expected the first signature data to survive, got %+v", reloaded.SignatureData)
+	}
+	if reloaded.SignedAt == nil || !reloaded.SignedAt.Equal(*first.SignedAt) {
+		t.Fatalf("expected signed_at to stay at the first signature, first=%v got=%v", first.SignedAt, reloaded.SignedAt)
 	}
 }
 
