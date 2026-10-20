@@ -40,12 +40,15 @@ services:
       retries: 5
 
   minio:
-    # quay.io, not Docker Hub: minio/minio and minio/mc were both withdrawn
-    # from Hub (pull access denied, repository does not exist) around 2026-09-12,
-    # which turned nightly and every CI e2e run red without a code change. The
-    # quay.io images carry identical digests. ci.yml and nightly.yml pin the same
-    # image; keep all three in step.
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    # Our own GHCR mirror, not upstream: MinIO withdrew minio/minio and
+    # minio/mc from Docker Hub (~2026-09-12) and then made the quay.io copies
+    # private (~2026-10-04, 401 unauthorized). Each withdrawal turned CI e2e red
+    # and would have left a fresh customer server without object storage. The
+    # mirror was exported from the prod cache: same layers as the quay.io image
+    # prod runs (ID a1ea29fa2835 there; the push rewrote the manifest, so the
+    # GHCR digest differs). ci.yml and nightly.yml pin the same image; keep all
+    # three in step.
+    image: ghcr.io/lukes-git-beginning/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
@@ -64,13 +67,13 @@ services:
       retries: 5
 
   createbucket:
-    # Original April pin was withdrawn from Docker Hub. Bumped to nearest
-    # available Quay/Hub release. mc is a one-shot bucket-init client; tag
-    # drift is low risk because the surface (mc alias / mc mb) is stable.
+    # Same GHCR mirror as minio above (quay.io ID 09f93f534cde). mc is a
+    # one-shot bucket-init client; tag drift is low risk because the surface
+    # (mc alias / mc mb) is stable.
     # CORS is configured on the minio server itself via
     # MINIO_API_CORS_ALLOW_ORIGIN (mc cors set expects S3 XML and failed
     # against this server release).
-    image: quay.io/minio/mc:RELEASE.2025-05-21T01-59-54Z
+    image: ghcr.io/lukes-git-beginning/mc:RELEASE.2025-05-21T01-59-54Z
     depends_on:
       minio:
         condition: service_healthy
