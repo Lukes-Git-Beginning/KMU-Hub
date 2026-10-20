@@ -216,22 +216,11 @@ func enabledLiveKit() *livekit.Service {
 // ============================================================================
 // CreateEvent
 //
-// FUND (nicht Teil dieser Unit, nur dokumentiert): CreateEvent
-// (calendar_grpc.go:391-459) setzt an keiner Stelle input.TenantID -- anders
-// als GetEvent/ListEventsInRange/UpdateEvent/DeleteEvent/... ruft es
-// middleware.GetTenantID(ctx) nicht einmal auf. event.CreateInput.TenantID
-// bleibt damit immer die Nullwert-UUID, und event.Service.Create (service.go:77)
-// laedt den Kalender ueber s.calendarRepo.GetByID(ctx, input.CalendarID,
-// input.TenantID) -- also mit tenant_id = 00000000-...-0000 statt dem echten
-// Tenant. Der Postgres-Repository-Query filtert explizit "WHERE id=$1 AND
-// tenant_id=$2" (calendar/postgres_repository.go:41), daher kann diese Abfrage
-// fuer einen echten (Nicht-Null-)Tenant NIE einen Treffer liefern. Das
-// TestCreateEvent/"calendar not found (missing tenant scoping)" unten belegt
-// das direkt: derselbe Tenant im ctx und auf dem Kalender-Datensatz fuehrt
-// trotzdem zu NotFound. In Produktion heisst das: jeder CreateEvent-Aufruf
-// ueber den Gateway (route_calendar.go:649, HandleCreateEvent reicht r.Context()
-// durch) scheitert an "calendar not found", solange kein Kalender zufaellig
-// die Tenant-ID 00000000-0000-0000-0000-000000000000 traegt.
+// CreateEvent liest den Tenant aus dem ctx (middleware.GetTenantID) und reicht
+// ihn als event.CreateInput.TenantID durch. Bis Lauf 14 fehlte das: der
+// Kalender-Lookup in event.Service.Create lief mit der Null-UUID und konnte
+// fuer keinen echten Tenant treffen (calendar/postgres_repository.go filtert
+// "WHERE id=$1 AND tenant_id=$2") -- jeder Termin endete in NotFound.
 // ============================================================================
 
 func TestCreateEvent(t *testing.T) {
@@ -267,17 +256,30 @@ func TestCreateEvent(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
-	t.Run("calendar not found (missing tenant scoping)", func(t *testing.T) {
+	t.Run("missing tenant context", func(t *testing.T) {
 		calRepo := newStubCalendarRepo()
-		tenantID := uuid.New()
 		actorID := uuid.New()
 		calID := uuid.New()
-		calRepo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: actorID, CalendarType: models.CalendarTypeShared}
+		calRepo.calendars[calID] = &models.Calendar{ID: calID, TenantID: uuid.Nil, OwnerID: actorID, CalendarType: models.CalendarTypeShared}
 		srv := newTestCalendarServerWithEvents(calRepo, newStubEventRepo(), disabledLiveKit())
 
-		// Same tenant on the calendar and (irrelevantly) in ctx -- CreateEvent
-		// never reads it, so the lookup still runs with the zero UUID and fails.
-		_, err := srv.CreateEvent(ctxWithTenant(tenantID), &calv1.CreateEventRequest{
+		_, err := srv.CreateEvent(context.Background(), &calv1.CreateEventRequest{
+			CalendarId: calID.String(),
+			CreatedBy:  actorID.String(),
+			Title:      "Standup",
+			IsAllDay:   true,
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("calendar of another tenant is not found", func(t *testing.T) {
+		calRepo := newStubCalendarRepo()
+		actorID := uuid.New()
+		calID := uuid.New()
+		calRepo.calendars[calID] = &models.Calendar{ID: calID, TenantID: uuid.New(), OwnerID: actorID, CalendarType: models.CalendarTypeShared}
+		srv := newTestCalendarServerWithEvents(calRepo, newStubEventRepo(), disabledLiveKit())
+
+		_, err := srv.CreateEvent(ctxWithTenant(uuid.New()), &calv1.CreateEventRequest{
 			CalendarId: calID.String(),
 			CreatedBy:  actorID.String(),
 			Title:      "Standup",
@@ -286,20 +288,18 @@ func TestCreateEvent(t *testing.T) {
 		requireGRPCCode(t, err, codes.NotFound)
 	})
 
-	t.Run("happy path (documents current zero-tenant handler behavior)", func(t *testing.T) {
+	t.Run("happy path in the caller's tenant", func(t *testing.T) {
 		calRepo := newStubCalendarRepo()
+		tenantID := uuid.New()
 		actorID := uuid.New()
 		calID := uuid.New()
 		attendeeID := uuid.New()
-		// TenantID intentionally uuid.Nil: matches the zero value CreateEvent
-		// actually passes today (see finding above). A calendar in a real
-		// tenant would make this same call fail with NotFound instead.
-		calRepo.calendars[calID] = &models.Calendar{ID: calID, TenantID: uuid.Nil, OwnerID: actorID, CalendarType: models.CalendarTypeShared, Timezone: "Europe/Berlin"}
+		calRepo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: actorID, CalendarType: models.CalendarTypeShared, Timezone: "Europe/Berlin"}
 		eventRepo := newStubEventRepo()
 		srv := newTestCalendarServerWithEvents(calRepo, eventRepo, disabledLiveKit())
 
 		desc := "Weekly sync"
-		resp, err := srv.CreateEvent(context.Background(), &calv1.CreateEventRequest{
+		resp, err := srv.CreateEvent(ctxWithTenant(tenantID), &calv1.CreateEventRequest{
 			CalendarId:      calID.String(),
 			CreatedBy:       actorID.String(),
 			Title:           "Standup",
@@ -313,6 +313,7 @@ func TestCreateEvent(t *testing.T) {
 		assert.True(t, resp.Event.HasVideoCall)
 		assert.NotNil(t, eventRepo.attendees[uuid.MustParse(resp.Event.Id)][actorID])
 		assert.NotNil(t, eventRepo.attendees[uuid.MustParse(resp.Event.Id)][attendeeID])
+		assert.Equal(t, tenantID, eventRepo.events[uuid.MustParse(resp.Event.Id)].TenantID)
 	})
 }
 

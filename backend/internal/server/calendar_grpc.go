@@ -389,6 +389,11 @@ func (s *CalendarGRPCServer) UnsubscribeFromCalendar(ctx context.Context, req *c
 // ============================================================================
 
 func (s *CalendarGRPCServer) CreateEvent(ctx context.Context, req *calv1.CreateEventRequest) (*calv1.CreateEventResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	calendarID, err := uuid.Parse(req.CalendarId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
@@ -400,6 +405,7 @@ func (s *CalendarGRPCServer) CreateEvent(ctx context.Context, req *calv1.CreateE
 	}
 
 	input := event.CreateInput{
+		TenantID:     tenantID,
 		CalendarID:   calendarID,
 		Title:        req.Title,
 		IsAllDay:     req.IsAllDay,

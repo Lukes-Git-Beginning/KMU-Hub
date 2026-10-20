@@ -515,7 +515,7 @@ units:
     service: calendar
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Produktionsfehler, kein Coverage-Ziel)"
     scope: >
       Fund aus fix-generatejointoken-missing-event-tenant-check (Iteration 6), am Code
@@ -3435,3 +3435,44 @@ units:
       - >-
         Mindestens G704 ist wieder eingeschaltet (Exclude entfernt), Fehlalarme sind mit
         Begruendung annotiert, golangci-lint meldet 0 Funde
+
+  - id: fix-automation-grpc-actions-missing-tenant-context
+    phase: 4
+    service: automation
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `fix-createevent-never-sets-tenant-id` (Lauf 14, Iteration 3), am Code
+      verfolgt, nicht end-to-end reproduziert: der Automation-Service ruft andere Services
+      ueber gRPC auf, ohne dass der Tenant je ankommt. `cmd/automation/main.go:326`
+      (`dialService`) baut alle Clients (crm, work/calendar, email, biz) OHNE
+      `middleware.TenantOutboundUnaryInterceptor` — anders als cmd/biz, cmd/dialer,
+      cmd/helpdesk, cmd/notification. Zusaetzlich startet `engine/consumer.go:68` jede
+      Ausfuehrung mit `context.WithTimeout(context.Background(), ...)`, und weder
+      `WorkflowEngine.Execute` (`engine/engine.go:91`) noch der Poller stempeln
+      `middleware.TenantIDKey` aus `auto.TenantID` in den ctx. Folge: jede Action, deren
+      Ziel-RPC `middleware.GetTenantID(ctx)` liest (z. B. `CreateEvent` seit Lauf 14,
+      CRM-RPCs mit "tenant_id missing from context"), schlaegt fehl; RPCs ohne eigenen Check
+      sehen unter RLS 0 Zeilen. Vermutlich ein Totalausfall aller gRPC-basierten
+      Automation-Actions, kein Leck.
+    sources:
+      - backend/cmd/automation/main.go
+      - backend/internal/automation/engine/engine.go
+      - backend/internal/automation/engine/consumer.go
+      - backend/internal/automation/trigger/poller.go
+      - backend/internal/automation/action/calendar_actions.go
+      - backend/internal/caldav/caldav_backend.go
+    notes: >
+      Muster existiert schon: `caldav_backend.go:49-70` stempelt TenantIDKey/UserIDKey auf den
+      ctx und verlaesst sich auf den Outbound-Interceptor. Root Cause an EINER Stelle fixen
+      (Execute stempelt `auto.TenantID`, dialService bekommt den Interceptor), nicht pro
+      Action. Vorher pruefen, ob ein Test oder Prod-Log (automation_executions) eine
+      erfolgreiche gRPC-Action belegt — dann stimmt die Annahme nicht.
+    done_when:
+      - >-
+        Die Clients in cmd/automation tragen den Outbound-Interceptor, und Execute legt
+        `auto.TenantID` als TenantIDKey auf den ctx
+      - Ein Test belegt, dass eine Action den Tenant als x-tenant-id-Metadatum an den Ziel-RPC liefert
+      - go test -count=1 ./internal/automation/... gruen, DATABASE_URL gesetzt, 0 Skips
