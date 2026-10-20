@@ -4002,7 +4002,7 @@ units:
     service: security/gdpr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
     scope: >
       Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Beschaeftigtendaten

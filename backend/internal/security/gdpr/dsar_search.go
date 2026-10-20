@@ -574,6 +574,12 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 		}
 		person.Modules = append(person.Modules, videoDialer...)
 
+		reportsShifts, rsErr := reportsShiftsModules(ctx, pool, tenantID, u.id)
+		if rsErr != nil {
+			return nil, rsErr
+		}
+		person.Modules = append(person.Modules, reportsShifts...)
+
 		out = append(out, person)
 	}
 	return out, nil
