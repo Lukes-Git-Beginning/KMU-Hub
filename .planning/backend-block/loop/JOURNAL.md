@@ -418,3 +418,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 35, 65180695: `sweepRateLimiters` in `unregisterConnection`, nur websocket.go + Test; kein Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: (1) `RecordsAffected` des Gesamtlaufs summiert jetzt auch Teilerfolge fehlgeschlagener Items (retention.go:294) — gewollt, da es die reale Änderung widerspiegelt. (2) Keine Goroutinen in neuen Tests.
+
+## Iteration 37 — fix-gdpr-anonymized-label-counter-race — done — 2026-10-20 22:15
+- commit: `fix(gdpr): draw anonymized labels from a sequence` (SHA via `git log`)
+- gebaut: Migration `000327_gdpr_anonymized_label_sequence` legt `gdpr_anonymized_label_seq` an und spult sie auf die höchste bereits vergebene Label-Nummer vor (Regex auf `#N` am Ende). `GetNextAnonymizedLabel` zieht per `nextval` statt `COUNT(*)+1`. Test `..._ConcurrentCallersCollide` ist zu `..._ConcurrentCallersGetDistinctLabels` umgedreht (zwei gehaltene REPEATABLE-READ-Transaktionen ziehen verschiedene Werte; zwei Repo-Aufrufe ohne Insert dazwischen liefern verschiedene Labels). Keine Route, kein Proto, kein Guard.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/security/..., DATABASE_URL als kmuhub_app, 0 SKIP, 186 PASS im gdpr-Paket) | migration ok (327 lokal angewandt, `kmuhub_app` hat USAGE auf die Sequence) | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/security/gdpr 72,9 % -> 72,9 % (Bugfix-Unit, kein Coverage-Ziel)
+- mutations-probe: `nextval(...)` im Repo durch `SELECT 1` ersetzt -> `..._ConcurrentCallersGetDistinctLabels` und `..._IncrementsPerCall` rot; per cp-Sicherung zurückgedreht, `cmp` sauber
+- verify vorgaenger: sauber (Iteration 36, d304be32: `item.Affected = affected` vor der Fehlerprüfung, nur retention.go + Test; kein Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: (1) Abweichung vom `done_when`: `TestGetNextAnonymizedLabel_IncrementsPerCall` konnte nicht unverändert bleiben — eine Sequence rewindet nie und wird von parallelen Tests mitgezogen, das absolute "#1"/"#2" war nicht mehr haltbar. Der Test prüft jetzt "Nummer steigt". (2) Der Zähler bleibt wie bisher global über alle Tenants (nicht angefasst). (3) Lücken in der Nummerierung sind möglich, wenn eine Erasure nach dem Ziehen scheitert — Eindeutigkeit ist die Zusage, nicht Lückenlosigkeit. (4) Migration 327 muss auf Prod mit `kmuhub`-Rolle laufen (Standardverfahren); Default Privileges geben `kmuhub_app` die Sequence-Rechte.

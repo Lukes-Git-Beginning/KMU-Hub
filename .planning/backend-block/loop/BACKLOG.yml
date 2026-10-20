@@ -2229,7 +2229,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 21 belegt (`TestGetNextAnonymizedLabel_ConcurrentCallersCollide`):
       `PostgresRepository.GetNextAnonymizedLabel` (`internal/security/gdpr/postgres_repository.go:

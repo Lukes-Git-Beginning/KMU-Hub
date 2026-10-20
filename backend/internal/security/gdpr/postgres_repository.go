@@ -194,15 +194,15 @@ func (r *PostgresRepository) CreateErasureLog(ctx context.Context, entry *models
 	return err
 }
 
+// GetNextAnonymizedLabel draws from a sequence so concurrent erasures can never
+// receive the same number (the former COUNT(*)+1 read raced). Gaps are possible
+// when an erasure fails after drawing; uniqueness is the guarantee, not density.
 func (r *PostgresRepository) GetNextAnonymizedLabel(ctx context.Context) (string, error) {
-	var count int
-	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM gdpr_erasure_log`,
-	).Scan(&count)
-	if err != nil {
+	var n int64
+	if err := r.pool.QueryRow(ctx, `SELECT nextval('gdpr_anonymized_label_seq')`).Scan(&n); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("Geloeschter Benutzer #%d", count+1), nil
+	return fmt.Sprintf("Geloeschter Benutzer #%d", n), nil
 }
 
 // Ensure PostgresRepository implements Repository at compile time.
