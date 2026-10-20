@@ -151,6 +151,9 @@ func (m *mockRepository) RemoveParty(_ context.Context, tenantID, partyID uuid.U
 		// matched, no error, and no contract to file an audit entry against.
 		return uuid.Nil, nil
 	}
+	if p.SignedOn != nil {
+		return uuid.Nil, ErrPartySigned
+	}
 	delete(m.parties, partyID)
 	return p.ContractID, nil
 }

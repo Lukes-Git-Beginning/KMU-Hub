@@ -261,10 +261,21 @@ func (r *PostgresRepository) AddParty(ctx context.Context, p *ContractParty) err
 func (r *PostgresRepository) RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error) {
 	var contractID uuid.UUID
 	err := r.pool.QueryRow(ctx,
-		`DELETE FROM contract_parties WHERE id=$1 AND tenant_id=$2 RETURNING contract_id`,
+		`DELETE FROM contract_parties WHERE id=$1 AND tenant_id=$2 AND signed_on IS NULL RETURNING contract_id`,
 		partyID, tenantID,
 	).Scan(&contractID)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// Zero rows is "no such party" or "party already signed" - tell them apart.
+		var signed bool
+		if qerr := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM contract_parties WHERE id=$1 AND tenant_id=$2)`,
+			partyID, tenantID,
+		).Scan(&signed); qerr != nil {
+			return uuid.Nil, fmt.Errorf("remove party: check party: %w", qerr)
+		}
+		if signed {
+			return uuid.Nil, ErrPartySigned
+		}
 		// Nothing matched — either the party is already gone or it belongs to
 		// another tenant. Both were a silent no-op before RETURNING was added
 		// and stay one; the caller just has no contract to file an entry against.

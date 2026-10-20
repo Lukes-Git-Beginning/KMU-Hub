@@ -24697,7 +24697,15 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >-
+            The party has already signed the contract, which is evidence and
+            cannot be removed, or a request with this Idempotency-Key is still
+            being processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/reminders:

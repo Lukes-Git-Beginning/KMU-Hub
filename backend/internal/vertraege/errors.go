@@ -10,4 +10,5 @@ var (
 	ErrInvalidInput          = errors.New("invalid input")
 	ErrDeleteNonDraft        = errors.New("only draft contracts can be deleted")
 	ErrAlreadySigned         = errors.New("contract is already signed")
+	ErrPartySigned           = errors.New("party has already signed and cannot be removed")
 )

@@ -368,3 +368,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 30, 6b6eda66: Open-Rental-Prüfung im Service über `ListRentals`, Mapping FailedPrecondition, OpenAPI-409; kein Proto/Guard/Migration)
 - neue-units: keine
 - offen: (1) Verhaltensänderung: ein zweites `PUT .../signature` auf einen Vertrag liefert jetzt 409 statt 200; einen Unsign-Pfad gibt es nicht — ob einer nötig ist, entscheidet Luke. (2) Die FE-Signaturansicht muss den 409 behandeln (nicht geprüft). (3) Keine Goroutinen in neuen Tests.
+
+## Iteration 32 — fix-vertraege-remove-signed-party-destroys-evidence — done — 2026-10-20 22:25
+- commit: `fix(vertraege): refuse removing a party that has already signed` (SHA via `git log`)
+- gebaut: `PostgresRepository.RemoveParty` löscht nur noch Parteien ohne `signed_on` (`AND signed_on IS NULL`); bei 0 Zeilen unterscheidet eine tenant-gescopte EXISTS-Abfrage zwischen neuem `ErrPartySigned` und dem bisherigen stillen No-op (fehlend/fremder Tenant). `mapVertraegeError` mappt `ErrPartySigned` auf FailedPrecondition -> HTTP 409; OpenAPI-409 der `DELETE /vertraege/contracts/{id}/parties/{partyId}` beschreibt den Fall. Der Bug-Dokumentationstest ist zu `TestService_RemoveParty_SignedParty_Refused` umgebaut (Ablehnung, Zeile bleibt, kein `party_removed`-Eintrag); neu DB-Test `TestRepository_RemoveParty_SignedPartyIsRefused` (inkl. fremdem Tenant -> No-op), Mapping-Tabellenfall, beide Mock-Repos tragen den Guard. Keine neue Route, kein Proto, keine Migration, kein Guard.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/vertraege/..., internal/server -run Vertraege, internal/gateway inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app, DB-Tests real gelaufen) | migration n.a. | rls-smoke n.a. (DB-Test läuft real unter kmuhub_app inkl. fremdem Tenant)
+- coverage: internal/vertraege 82,6 % -> 82,6 % (Bugfix-Unit, kein Coverage-Ziel)
+- mutations-probe: (1) `AND signed_on IS NULL` entfernt -> `TestRepository_RemoveParty_SignedPartyIsRefused` rot; (2) `ErrPartySigned` im Repo durch `nil` ersetzt -> derselbe Test rot; (3) Mapping-Case entfernt -> `TestMapVertraegeError_Table/party_signed` rot; jeweils per cp-Sicherung zurückgedreht, `cmp` sauber
+- verify vorgaenger: sauber (Iteration 31, c4d3805b: `AND signature_data IS NULL` + tenant-gescopte EXISTS-Unterscheidung, Mapping FailedPrecondition, OpenAPI-409; kein Proto/Guard/Migration)
+- neue-units: keine
+- offen: (1) Verhaltensänderung: Entfernen einer signierten Partei liefert 409 statt 204; ein Korrektur-/Widerruf-Workflow (Partei falsch erfasst) existiert nicht — ob einer nötig ist, entscheidet Luke. (2) Das FE muss den 409 beim Parteien-Entfernen anzeigen (nicht geprüft). (3) Keine Goroutinen in neuen Tests.

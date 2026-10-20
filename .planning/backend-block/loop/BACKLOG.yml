@@ -2020,7 +2020,7 @@ units:
     service: vertraege
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von

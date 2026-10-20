@@ -871,6 +871,60 @@ func TestRepository_RemoveParty_ReturnsContractIDOrNilOnMissing(t *testing.T) {
 	}
 }
 
+func TestRepository_RemoveParty_SignedPartyIsRefused(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Vertraege SignedParty Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "Vertraege SignedParty Other Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	now := time.Now().UTC()
+
+	c := &Contract{
+		ID: uuid.New(), TenantID: tenantOwn, ContractNumber: "SGP-" + uuid.New().String()[:8],
+		Title: "Signierte Partei", ContractType: ContractTypeService, Status: ContractStatusActive,
+		StartsOn: now, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateContract(ctxOwn, c); err != nil {
+		t.Fatalf("CreateContract: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contracts", c.ID)
+
+	extName := "Unterzeichnende Partei"
+	party := &ContractParty{
+		ID: uuid.New(), TenantID: tenantOwn, ContractID: c.ID, PartyType: PartyTypeExternal,
+		ExternalName: &extName, RoleInContract: "Unterzeichner", SignedOn: &now, CreatedAt: now,
+	}
+	if err := repo.AddParty(ctxOwn, party); err != nil {
+		t.Fatalf("AddParty: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "contract_parties", party.ID)
+
+	// Own tenant: refused, row survives.
+	if _, err := repo.RemoveParty(ctxOwn, tenantOwn, party.ID); !errors.Is(err, ErrPartySigned) {
+		t.Fatalf("RemoveParty (signed): expected ErrPartySigned, got %v", err)
+	}
+	left, err := repo.ListParties(ctxOwn, tenantOwn, c.ID)
+	if err != nil {
+		t.Fatalf("ListParties: %v", err)
+	}
+	if len(left) != 1 || left[0].ID != party.ID || left[0].SignedOn == nil {
+		t.Fatalf("signed party must survive the refused removal, got %v", left)
+	}
+
+	// Foreign tenant: must not even learn that the party exists.
+	gotID, err := repo.RemoveParty(testutil.WithTenantCtx(context.Background(), tenantOther), tenantOther, party.ID)
+	if err != nil || gotID != uuid.Nil {
+		t.Fatalf("RemoveParty (signed, foreign tenant): expected silent no-op, got id=%v err=%v", gotID, err)
+	}
+}
+
 func TestRepository_ReminderCRUDAndFiltering(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
