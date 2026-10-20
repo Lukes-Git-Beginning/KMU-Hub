@@ -1020,3 +1020,75 @@ units:
         Je Tabelle steht die Entscheidung mit Datum in dieser Unit
       - >-
         Je Ja ist eine spitze Handler-Unit in BACKLOG.yml angelegt
+
+  - id: decide-rename-go-module-path-kmuhub
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE: ob und wann der Modulpfad github.com/kmuhub/kmuhub umbenannt wird, und
+      auf welchen Zielpfad. Unteilbarer Schnitt ueber das ganze Backend - keine Nachtarbeit
+      (Entscheidung 2026-08-24 in scan-product-naming-inventory-cosmi-zentria).
+    target: "Eigene Aktion tagsueber, ein Commit, danach CI abwarten"
+    scope: >
+      Inventur Iteration 57 (2026-10-21): 2.722 Zeilen in 1.273 Go-Dateien (inkl. `.pb.go`),
+      dazu `backend/go.mod`, 50 Zeilen im `backend/Makefile` (protoc `--go_opt=module=`), ein
+      `option go_package` in jedem `.proto`, drei `-ldflags -X`-Pfade im
+      `Dockerfile.gateway` (`internal/gateway.BuildVersion/BuildTime/BuildCommit`) und ein
+      Proto-Pfad in `.github/`.
+      Kosten: mechanisch (`go mod edit -module`, Ersetzungslauf, alle Proto-Targets neu,
+      `go build` mit `-p 2` je Paketgruppe). Bricht: jeden offenen Branch und jeden
+      Nachtlauf-Stand, der nicht vorher gemergt ist; die `-ldflags` STILL (falscher Pfad = leere
+      Version in `/health`, kein Build-Fehler) - `/health` nach dem Deploy pruefen.
+      Kein Nutzen fuer Kunden: der Modulpfad ist nirgends sichtbar.
+    notes: >
+      Ziel waere z. B. github.com/zentria/cosmi. Der Pfad muss nicht aufloesbar sein (privates
+      Modul, kein go get von aussen), aber eindeutig. Nicht mit der Infrastruktur-Unit koppeln.
+    done_when:
+      - Entscheidung (ja/nein, Zielpfad, Zeitpunkt) mit Datum in dieser Unit
+
+  - id: decide-rename-infrastructure-and-contract-identifiers-kmuhub
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      GESPERRT bis es einen eigenen Plan mit Backup und Rollback gibt (Entscheidung Luke
+      2026-08-24). Jede Gruppe hier ist produktions- oder vertragsgebunden; ein Umbenennen ohne
+      Datenmigration bricht Login, Speicher oder Integrationen.
+    target: "Eigener Plan mit Backup/Rollback, Entscheidung Luke je Gruppe"
+    scope: >
+      Inventur Iteration 57 (2026-10-21), gruppiert nach dem, was ein Umbenennen bricht:
+      (1) DB-ROLLEN UND -NAME: `kmuhub`/`kmuhub_app`, DB `kmuhub` - `internal/config/config.go:13`
+      (Default-DSN), `internal/testsupport/pgtc/pgtc.go:45-93`, Migrationen 000118/000121/000315
+      (Kommentare und GRANTs - ausgerollt, nie anfassen), `.github/` (26x `kmuhub_test`),
+      `deploy/` (119x `kmuhub`, 14x `kmuhub_app`, 6x `KMUHUB_APP_DB_PASSWORD`). Bricht: jede
+      Verbindung und RLS (Grants haengen an der Rolle).
+      (2) SPEICHER: MinIO-Bucket `kmuhub-files` (`config.go:205`, 11x in `deploy/`), Access-Key
+      `kmuhub` (`config.go:203`, `:297`), Volume `docker_pgdata`, Pfad `/opt/kmuhub/`,
+      Backup-Ziele `kmuhub-backup(s)`, Firewall `kmuhub-fw` (9x). Bricht: alle gespeicherten
+      Dateien und Backups.
+      (3) DATENMODELL + WIRE: Spalten `kmuhub_id`, `kmuhub_updated_at` (Bexio/Lexware-Mappings,
+      Migrationen 000055/000056), `kmuhub_field` (Feld-Mappings), `kmuhub_user_id`
+      (`integration_account_links`, 000053) - und dieselben Namen als JSON in
+      `internal/models/bexio.go:35-58`, `internal/models/lexware.go:31-55`,
+      `internal/notification/integration/types.go:78`, im FE (`bexio-types.ts`,
+      `lexware-types.ts`, `types.ts`, beide FieldMappingEditor) und in `openapi.yaml`. Bricht:
+      FE-Vertrag, braucht Migration plus Dual-Read.
+      (4) EXTERNE VERTRAEGE: Slack-/Teams-Befehl `/kmuhub` (Slack-App-Konfiguration ausserhalb
+      des Repos), Block-Kit-Action-Praefix `kmuhub_` (gepostete Nachrichten tragen ihn),
+      WASM-Host-Modul `"kmuhub"` (`internal/plugin/wasm/hostapi.go:35`, Plugin-ABI; Flag OFF,
+      kein Plugin im Feld - das billigste Fenster ist JETZT, vor dem ersten Plugin).
+      (5) INTERNE KENNUNGEN OHNE PRUEFUNG: JWT-Issuer `"kmuhub"` (`internal/auth/token.go:63`,
+      `:126`) und `"kmuhub-wopi"` (`internal/document/wopi/token.go:52`) - der Parser prueft
+      den Issuer heute nicht (kein `WithIssuer`), ein Wechsel waere gefahrlos, aber ohne Nutzen;
+      nur wer ein Token dekodiert, sieht ihn.
+    notes: >
+      Gruppe (4) WASM und Gruppe (5) gingen ohne Datenmigration; WASM hat ein Zeitfenster (vor
+      dem ersten Plugin). Die Bexio-Spalten sind zusaetzlich G3-gesperrt.
+    done_when:
+      - Je Gruppe (1) bis (5) steht die Entscheidung mit Datum in dieser Unit
+      - Je Ja ist ein Plan mit Backup/Rollback oder eine spitze Unit angelegt

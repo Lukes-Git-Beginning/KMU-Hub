@@ -772,3 +772,35 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 55, 5b2d2edf: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
 - neue-units: `fix-grpc-aborted-maps-to-masked-500-and-upstream-credentials-to-401` (ans Ende, `sonnet`; kein Cross-Tenant/Auth-Loch, daher nicht an den Kopf)
 - offen: (1) Statischer Scan, kein Request abgesetzt; die Zählungen sind Rückgabestellen (Grep), nicht Laufzeithäufigkeit. (2) Teil 2 der neuen Unit ändert Statuscodes bestehender Routen (FE-Vertrag) – ob das FE auf 401 der E-Mail-Account-Prüfung etwas Eigenes baut, ist nicht geprüft; die Unit verlangt das Greppen vor dem Bauen. (3) Ob Lexware im Betrieb (Pilot) aktiv ist, ist ungeprüft; Bexio ist gesperrt, `Aborted` dort nur latent.
+
+## Iteration 57 — scan-product-naming-inventory-cosmi-zentria — done — 2026-10-21 00:01
+- commit: `docs(loop): inventory product naming and file the rebrand units` (SHA via `git log`)
+- gebaut: Inventur, kein Code geändert. Grep über `backend/` (Go, Proto, Makefile, Spec, HTML), `deploy/`, `.github/`, `docs/`, README; jede Fundstelle außerhalb des Modulpfads gelesen und klassifiziert.
+  - **Klasse A — user-sichtbar (33 Stellen, 4 Units):**
+    | Fläche | Fundstelle | Wer sieht es |
+    |---|---|---|
+    | Auth/CalDAV | `auth/totp.go:22` `totpIssuer = "KMU Hub"` | Authenticator-App (nur Neueinrichtung) |
+    | | `auth/session.go:155` `"KMU Hub Desktop"` | Geräteliste |
+    | | `gateway/route_caldav.go:204`, `:215` Realm `"KMU Hub CalDAV"` | Anmeldedialog Kalender-Client |
+    | | `caldav/ical_converter.go:39` PRODID `-//KMU Hub//CalDAV//DE` | jede .ics |
+    | Chat-Bots | `slack/webhook_handler.go:249`, `teams/webhook_handler.go:141` „in KMU Hub unter Einstellungen" | Slack/Teams-Kanal |
+    | | `notification/integration/errors.go:25` `ErrAccountNotLinked` | Fehlermeldung |
+    | Fremdsysteme | `biz/datev/exporter.go:209` EXTF-Feld 8 `"KMU Hub"` | Steuerberater beim Import |
+    | | `work/holiday/nager_client.go:61` `User-Agent: KMUHub/1.0` | Nager-API |
+    | | `email/send/mime_builder.go:71`, `service.go:181`, `:323` Message-ID `@kmuhub` | Mail-Header jedes Empfängers |
+    | | `document/wopi/handler.go:20` `kmuhub-wopi/1.0` | OnlyOffice |
+    | | `biz/lexware/contact_sync.go:244`, `:261` „KMU Hub contact" | Sync-Ergebnis in den Einstellungen |
+    | | `biz/bexio/contact_sync.go:206`, `:221` (dasselbe) | **gesperrt (G3), keine Unit** |
+    | OpenAPI | `openapi.yaml:3` `title: KMU Hub API`, `:5` „All-in-One CRM", `:33065`, `:33154`, `:50480`, `:50496`, `:50506` | jeder API-Konsument |
+    Bereits auf Cosmi: Passwort-Reset-Mail (`cmd/auth/mailer.go`), Reset-Seite (`reset_password_page.html`), Teams-Mandantentexte, Automation-User-Agent, Branding/Modulkatalog, `X-Cosmi-Signature`. PDF (`biz/pdf`, `berichte/export`) trägt keinen Produktnamen (Autor = Nutzer).
+  - **Klasse B — Modulpfad:** `github.com/kmuhub/kmuhub` in **2.722 Zeilen / 1.273 Go-Dateien** (mehr als die 2.615/1.223 vom 2026-08-24), dazu `go.mod`, 50 Zeilen `Makefile`, `go_package` in jedem `.proto`, 3 `-ldflags -X`-Pfade in `Dockerfile.gateway` (Bruch dort wäre still: leere Version in `/health`). → `decide-rename-go-module-path-kmuhub` (BACKLOG-NEXT.yml).
+  - **Klasse C — Infrastruktur/Vertrag (5 Gruppen):** (1) DB-Rollen/-Name (`config.go:13`, `pgtc.go`, `.github/` 26× `kmuhub_test`, `deploy/` 119× `kmuhub`/14× `kmuhub_app`/6× `KMUHUB_APP_DB_PASSWORD`, Migrationen 118/121/315); (2) Speicher (Bucket `kmuhub-files`, MinIO-Key, `/opt/kmuhub/`, Backups, `kmuhub-fw`); (3) Datenmodell+Wire `kmuhub_id`/`kmuhub_updated_at`/`kmuhub_field`/`kmuhub_user_id` (Migrationen 53/55/56, Models, FE-Typen, Spec); (4) externe Verträge `/kmuhub`-Befehl, Action-Präfix `kmuhub_`, WASM-Host-Modul `"kmuhub"` (Flag OFF — billigstes Fenster vor dem ersten Plugin); (5) JWT-Issuer `kmuhub`/`kmuhub-wopi` (wird nicht geprüft, kein `WithIssuer`). → `decide-rename-infrastructure-and-contract-identifiers-kmuhub` (BACKLOG-NEXT.yml).
+  - **Klasse D — Kosmetik (keine Units):** 465 Go-Zeilen mit `KMU Hub`/`kmuhub` außerhalb des Modulpfads (Kommentare, Tests, interne Bezeichner wie `KmuhubID`, slog-Keys `kmuhub_id`); `deploy/` Skript-Banner (`deploy.sh:140`, `healthcheck.sh:28`, `restore.sh:56`, `rollback.sh:87`), Grafana-Dashboard „KMU Hub Overview", Ansible-Beschreibungen; `docs/`+`.knowledge/` 139 Zeilen in 24 Dateien.
+  - **Stellen, die das Produkt „CRM" nennen** (ohne `internal/crm/` und ohne Modul-Labels wie „CRM-Kontakt", die das CRM-Modul meinen): `backend/api/openapi.yaml:5` („All-in-One CRM for DACH SMEs" → in `rebrand-openapi-metadata-to-cosmi`), `README.md:3` („All-in-One CRM für DACH-KMUs"), `CLAUDE.md:1` („KMU Hub CRM") und `:7` (Mission „All-in-One CRM"), `docs/DIALER-ROADMAP.md:277` („Cosmi CRM — jetzt mit integrierter Telefonie"). Im Produktcode (Go-Strings) nennt keine Stelle das Produkt CRM; `cmd/notification/main.go:554` und `slack/block_builder.go:28` sind Modul-Labels.
+  - **Nebenbefund:** EXTF-Feld 8 ist laut DATEV-Formatbeschreibung „Herkunft", ein Kurzzeichen (nach Erinnerung 2 Zeichen) — „KMU Hub" wäre dann schon heute nicht spezifikationskonform. Nicht gegen die DATEV-Doku geprüft; in `rebrand-outbound-identifiers-to-cosmi` als Prüfschritt vor jeder Umbenennung verankert.
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (nur BACKLOG.yml/BACKLOG-NEXT.yml/JOURNAL.md geändert; `backlog-check --preflight` grün, OPEN=49) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (Iteration 56, 161fddfe: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
+- neue-units: `rebrand-auth-and-caldav-visible-names-to-cosmi`, `rebrand-chat-integration-bot-texts-to-cosmi`, `rebrand-outbound-identifiers-to-cosmi`, `rebrand-openapi-metadata-to-cosmi` (alle ans Ende von BACKLOG.yml, `sonnet`); `decide-rename-go-module-path-kmuhub`, `decide-rename-infrastructure-and-contract-identifiers-kmuhub` (BACKLOG-NEXT.yml, `blocked`)
+- offen: (1) Desktop-FE nicht inventarisiert (nicht in `sources`); FE-Typen nur für Klasse C3 gegrept. (2) README/CLAUDE.md-Positionierung („CRM") ist Wording-Entscheidung Luke/Darien, keine Unit. (3) Slack-App-Manifest liegt nicht im Repo — der Befehlsname `/kmuhub` ist nur dort umbenennbar. (4) DATEV-Feldlänge unbelegt (siehe Nebenbefund).

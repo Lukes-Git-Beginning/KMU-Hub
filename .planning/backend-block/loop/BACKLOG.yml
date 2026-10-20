@@ -3110,7 +3110,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-08-24 (aus Dariens Anstoss): die Konsolidierung der
@@ -4912,3 +4912,157 @@ units:
         (`TestOpenAPIRouteDrift` und der Status-Drift-Test gruen)
       - >-
         Teil 2 ist gebaut oder mit Begruendung nach BACKLOG-NEXT.yml verschoben
+
+  # --- aus scan-product-naming-inventory-cosmi-zentria (Iteration 57): Klasse A, je Flaeche eine Unit ---
+
+  - id: rebrand-auth-and-caldav-visible-names-to-cosmi
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (String-Aenderung, kein Coverage-Ziel)"
+    scope: >
+      Vier user-sichtbare Altnamen in Anmeldung und Kalender auf Cosmi umstellen:
+      `totpIssuer = "KMU Hub"` (`internal/auth/totp.go:22`) - Name in der Authenticator-App;
+      `deviceName = "KMU Hub Desktop"` (`internal/auth/session.go:155`) - Geraeteliste der
+      Sitzungen; Basic-Auth-Realm `"KMU Hub CalDAV"` (`internal/gateway/route_caldav.go:204`
+      und `:215`) - Anmeldedialog des Browsers/Kalender-Clients; iCal-PRODID
+      `"-//KMU Hub//CalDAV//DE"` (`internal/caldav/ical_converter.go:39`) - in jeder
+      ausgelieferten .ics-Datei.
+      WAS DER NUTZER SIEHT: neue TOTP-Einrichtungen zeigen "Cosmi"; neue Desktop-Sitzungen
+      heissen "Cosmi Desktop"; CalDAV-Clients zeigen beim naechsten Anmeldedialog "Cosmi CalDAV".
+    sources:
+      - backend/internal/auth/totp.go
+      - backend/internal/auth/session.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/caldav/ical_converter.go
+    notes: >
+      TOTP: ein Wechsel aendert NUR den angezeigten Namen bei NEUeinrichtung. Bestehende
+      TOTP-Geheimnisse bleiben gueltig (der Issuer geht nicht in die Code-Berechnung ein), die
+      App zeigt fuer bestehende Eintraege aber weiter "KMU Hub". Das ist kein Fehler - KEINE
+      Migration und kein Zwangs-Neueinrichten bauen.
+      deviceName: Altsitzungen behalten ihren gespeicherten Namen, nur neue bekommen den neuen
+      (keine Migration). CalDAV-Realm: manche Clients speichern Zugangsdaten je Realm und fragen
+      nach dem Wechsel einmal neu - im Commit-Text vermerken, nicht verhindern.
+      Vorher die Tests nach "KMU Hub" greppen und betroffene Asserts mitziehen. Ein `const` je
+      Name, kein neues Branding-Paket.
+    done_when:
+      - >-
+        Ein Grep nach "KMU Hub" ueber internal/auth, internal/caldav und route_caldav.go findet
+        keine Nicht-Kommentar-Stelle mehr
+      - Tests fuer TOTP-URI (Issuer) und Realm-Header pruefen den neuen Namen
+      - Keine Schema- oder Migrationsaenderung
+
+  - id: rebrand-chat-integration-bot-texts-to-cosmi
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (String-Aenderung, kein Coverage-Ziel)"
+    scope: >
+      Die Bot-Antworten von Slack und Teams nennen das Produkt "KMU Hub", waehrend dieselben
+      Handler an anderer Stelle schon "Cosmi" sagen (Teams `webhook_handler.go:87`, `:106`).
+      Umstellen: Slack `internal/notification/integration/slack/webhook_handler.go:249`
+      ("in KMU Hub unter Einstellungen > Integrationen"), Teams
+      `internal/notification/integration/teams/webhook_handler.go:141` (dasselbe),
+      `ErrAccountNotLinked` (`internal/notification/integration/errors.go:25`, "KMU Hub user").
+      Bei der Gelegenheit die ASCII-Umlaute derselben Texte ("verknuepfen", "fuegen",
+      "Verfuegbare") korrigieren - es sind Nutzertexte.
+      WAS DER NUTZER SIEHT: die Antwort des Bots im Slack-/Teams-Kanal.
+    sources:
+      - backend/internal/notification/integration/slack/webhook_handler.go
+      - backend/internal/notification/integration/teams/webhook_handler.go
+      - backend/internal/notification/integration/errors.go
+    notes: >
+      NICHT aendern: der Befehlsname `/kmuhub` (Slack `:137`, `:232`; Teams `:95`, `:125`,
+      `:126`) - der Slash-Command ist in der Slack-App-Konfiguration registriert, die NICHT im
+      Repo liegt; ein Umbenennen im Code allein laesst jeden Befehl ins Leere laufen. Ebenso
+      NICHT der Action-ID-Praefix `kmuhub_` (`slack/block_builder.go:129`,
+      `slack/webhook_handler.go:293`): bereits gepostete Nachrichten tragen die alte ID und
+      kaemen sonst nicht mehr an. Beides steht als Infrastruktur-Eintrag in BACKLOG-NEXT.yml
+      (`decide-rename-infrastructure-and-contract-identifiers-kmuhub`).
+      Die OpenAPI-Texte derselben Routen gehoeren in `rebrand-openapi-metadata-to-cosmi`.
+    done_when:
+      - >-
+        Kein Bot-Text in slack/ und teams/ nennt "KMU Hub"; der Befehl /kmuhub und der
+        Action-Praefix kmuhub_ sind unveraendert
+      - Bestehende Handler-Tests gruen, die geaenderten Texte in mindestens einem Test geprueft
+
+  - id: rebrand-outbound-identifiers-to-cosmi
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (String-Aenderung, kein Coverage-Ziel)"
+    scope: >
+      Kennungen, die Cosmi an FREMDE Systeme schickt: (1) DATEV-EXTF-Kopf
+      (`internal/biz/datev/exporter.go:209`) traegt "KMU Hub" - sieht der Steuerberater beim
+      Import. (2) `User-Agent: KMUHub/1.0` an die Nager-Feiertags-API
+      (`internal/work/holiday/nager_client.go:61`); die Automation sendet schon
+      `Cosmi-Automation/1.0`. (3) Message-ID `<uuid@kmuhub>` in ausgehenden Mails
+      (`internal/email/send/mime_builder.go:71`, `internal/email/send/service.go:181`, `:323`) -
+      im Mail-Header jedes Empfaengers sichtbar; der rechte Teil ist kein Domainname mit Punkt.
+      (4) `WOPIServerVersion = "kmuhub-wopi/1.0"` (`internal/document/wopi/handler.go:20`) - an
+      OnlyOffice. (5) Lexware-Sync-Fehlertexte "KMU Hub contact"
+      (`internal/biz/lexware/contact_sync.go:244`, `:261`) - landen im Sync-Ergebnis, das die
+      Einstellungen anzeigen.
+      WAS DER NUTZER SIEHT: (1) und (5) direkt, (3) im Mail-Header, (2)/(4) nur das Fremdsystem.
+    sources:
+      - backend/internal/biz/datev/exporter.go
+      - backend/internal/work/holiday/nager_client.go
+      - backend/internal/email/send/mime_builder.go
+      - backend/internal/email/send/service.go
+      - backend/internal/document/wopi/handler.go
+      - backend/internal/biz/lexware/contact_sync.go
+    notes: >
+      DATEV ZUERST PRUEFEN, NICHT UMBENENNEN: Feld 8 des EXTF-Kopfes ist nach DATEV-Doku das
+      Feld "Herkunft" und dort ein Kurzzeichen (nach Erinnerung max. 2 Zeichen), kein
+      Programmname - "KMU Hub" waere dann schon heute ungueltig, und "Cosmi" ebenso. Gegen die
+      DATEV-Formatbeschreibung (developer.datev.de, "Header Buchungsstapel") pruefen; steht die
+      Laenge fest, ein Kurzzeichen setzen und den Programmnamen weglassen; laesst sie sich nicht
+      belegen, Teil (1) als Befund ins Journal und unveraendert lassen. `exporter_test.go`
+      prueft den Kopf - Assert mitziehen.
+      Message-ID: als rechte Seite die Absenderdomain des Kontos nehmen, falls im Pfad schon
+      vorhanden, sonst eine feste Domain als `const`; keine neue Config-Variable (kein
+      RequireX). Bexio (`internal/biz/bexio/contact_sync.go:206`, `:221`) ist GESPERRT (G3) und
+      bleibt unangetastet.
+    done_when:
+      - (2) bis (5) umgestellt, Tests mit dem neuen Wert; Bexio unveraendert
+      - >-
+        (1) entweder auf ein spezifikationskonformes Kurzzeichen gesetzt (Quelle im
+        Commit-Text) oder mit Begruendung unveraendert und als Befund im Journal
+
+  - id: rebrand-openapi-metadata-to-cosmi
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Spec-Text, kein Coverage-Ziel)"
+    scope: >
+      `backend/api/openapi.yaml` traegt `info.title: KMU Hub API` (`:3`) und beschreibt das
+      Produkt als "All-in-One CRM for DACH SMEs" (`:5`) - Cosmi ist mehr als ein CRM, `crm`
+      ist einer von 23 Diensten. Dazu fuenf Beschreibungstexte der Integrations-Routen und
+      -Schemas mit "KMU Hub" (`:33065`, `:33154`, `:50480`, `:50496`, `:50506`; Zeilennummern
+      Stand 2026-10-21, vor dem Bauen neu greppen). Umstellen auf "Cosmi API" und eine
+      Produktbeschreibung ohne "CRM" als Kategorie (z. B. "Business software for DACH SMEs with
+      EU data sovereignty").
+      WAS DER NUTZER SIEHT: jeder API-Konsument (Swagger-UI, generierte Clients, Integratoren).
+    sources:
+      - backend/api/openapi.yaml
+    notes: >
+      NICHT aendern: Schemafelder `kmuhub_field` (`:50609`, `:50660`) und alle `kmuhub_*`-
+      Properties - das ist Wire-Vertrag mit FE und DB-Spalten (BACKLOG-NEXT.yml,
+      `decide-rename-infrastructure-and-contract-identifiers-kmuhub`). Ebenso die Erwaehnung
+      des Befehls `/kmuhub link` (`:33157`, `:33407ff`) - der Befehl heisst heute so.
+      Vorher pruefen, ob ein Generator oder Test `info.title` liest (Grep nach "KMU Hub API"
+      ueber Repo und `.github/`). Nach der Aenderung `swagger-cli validate` (der Drift-Test ist
+      keine Spec-Validierung).
+    done_when:
+      - info.title und info.description nennen Cosmi, ohne "CRM" als Produktkategorie
+      - >-
+        Keine Beschreibung ausser Befehls- und Feldnamen nennt "KMU Hub"; TestOpenAPIRouteDrift
+        gruen und swagger-cli validate gruen
