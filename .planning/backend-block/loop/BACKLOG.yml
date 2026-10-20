@@ -2689,7 +2689,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Erster Scan, mit der klarsten Hypothese des Laufs. Drei Units in Block B stossen
@@ -3489,3 +3489,141 @@ units:
       - >-
         Das Skript `openapi-status-fill.py` hat die Sonderliste, ein Skriptlauf macht die Aenderung nicht rueckgaengig
       - swagger-cli validate gruen, go test -count=1 ./internal/gateway/ gruen
+
+  - id: harden-files-upload-retry-duplicates
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-10-20
+    decision: >-
+      Aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48): einzige
+      JWT-Route ausserhalb der Registrar-Schleife, die nur `authMiddleware` bekommt.
+    coverage_start: "n.a. (kein Coverage-Ziel)"
+    scope: >
+      `POST /api/v1/files/upload` (`cmd/gateway/main.go`, `r.With(authMiddleware).With(RequirePermission("files","write"))`)
+      laeuft NICHT durch `authWithIdempotency`. Der Handler (`server/file_upload.go`) legt bei jedem Aufruf
+      eine neue Datei samt DB-Zeile an. Ein Client-Retry nach verlorener Antwort erzeugt ein Duplikat im Kanal.
+      Die Idempotency-Middleware einfach davorzusetzen ist KEIN Fix: sie liest den Body per `io.ReadAll`
+      komplett in den Speicher (Upload-Limit 55 MB) und hasht ihn. Zu entscheiden und zu bauen: Dedup ueber
+      einen optionalen `Idempotency-Key`-Header im Handler selbst (Reserve vor dem Schreiben, ohne den Body
+      zu puffern; Request-Hash aus channel_id + Dateiname + Groesse), oder bewusst nicht und dann als
+      `lean:`-Kommentar mit Upgrade-Trigger am Handler dokumentieren.
+    sources:
+      - backend/cmd/gateway/main.go
+      - backend/internal/server/file_upload.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/idempotency/
+    notes: >
+      Die Route steht nicht in `openapi.yaml` (der Drift-Test nimmt sie ausdruecklich aus). Keine neue Route,
+      kein Spec-Eintrag noetig. Die Entscheidung "Dedup ja/nein" ist klein genug fuer die Iteration; wird sie
+      ohne Dedup getroffen, ist das ein gueltiges Ergebnis, aber nur mit dem `lean:`-Marker.
+    done_when:
+      - Entweder Retry mit gleichem Idempotency-Key legt keine zweite Datei an (Test belegt es, Mutations-Probe), oder der Handler traegt einen begruendeten lean-Kommentar
+      - Der Upload puffert den Body nicht zusaetzlich zur bestehenden Multipart-Verarbeitung
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: harden-guest-chat-message-retry-duplicates
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-10-20
+    decision: >-
+      Aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48). Gast-Routen laufen
+      ohne JWT, die Idempotency-Middleware kann dort nicht greifen (sie liest Tenant und Nutzer aus dem JWT-Kontext).
+    coverage_start: "n.a. (kein Coverage-Ziel)"
+    scope: >
+      `POST /api/v1/guest/channels/{channelID}/messages` (`route_guest.go` `HandleSendMessage`) legt pro Aufruf
+      eine Chat-Nachricht an. `chatv1.SendMessageRequest` hat kein Client-Message-ID-Feld; ein Retry nach
+      verlorener Antwort (mobiles Netz, Gast-Widget) erzeugt dieselbe Nachricht doppelt im Support-Kanal. Begrenzt
+      durch `guestService.CheckRateLimit`, aber nicht verhindert. Fix-Richtung: optionaler `Idempotency-Key`-Header,
+      Reserve gegen `internal/idempotency` mit der Gast-Session-ID als Nutzer-Anteil (ohne Proto-Aenderung:
+      im Handler, vor dem gRPC-Aufruf, mit `session.TenantID` und `session.ID`).
+    sources:
+      - backend/internal/gateway/route_guest.go
+      - backend/internal/chat/guest/
+      - backend/internal/idempotency/
+      - backend/internal/middleware/idempotency.go
+    notes: >
+      Kein Proto-Feld ergaenzen, wenn der Handler-Weg reicht. Die Reserve-Zeile braucht `tenant_id` aus
+      der Session, nicht aus einem Header. Keine neue Route; `Idempotency-Key` ist ein Header, kein Pfad.
+      Pruefen, wie `automation/workflow/webhook.go` (`TriggerWebhook`) denselben Reserve-Aufruf ohne JWT macht,
+      und das Muster wiederverwenden.
+    done_when:
+      - Zwei Aufrufe mit gleichem Idempotency-Key und gleicher Session legen genau eine Nachricht an, der zweite liefert die gespeicherte Antwort
+      - Ohne Header bleibt das Verhalten unveraendert (kein 400)
+      - Eine fremde Session mit demselben Key kollidiert nicht (Test)
+      - go test -count=1 ./internal/gateway/ gruen, Mutations-Probe belegt
+
+  - id: harden-formulare-public-submit-double-submission
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-10-20
+    decision: >-
+      Aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48). Oeffentliche Route, kein JWT,
+      daher keine Idempotency-Middleware.
+    coverage_start: "n.a. (kein Coverage-Ziel)"
+    scope: >
+      `POST /api/v1/public/formulare/submit/{token}` -> `formulare.Service.SubmitByShareToken`. Quota und Ablauf
+      sind pro Link geprueft (`RedeemShareLinkTx`), aber ein Link ohne `max_submissions` nimmt jeden Aufruf an:
+      Doppelklick oder Retry erzeugt zwei `FormSubmission` und loest die aktiven Webhooks zweimal aus. Fix-Richtung:
+      optionaler `Idempotency-Key`-Header; `internal/idempotency.Reserve` mit `link.TenantID`, dem Link als Pfad-Anteil
+      und dem Body-Hash (Muster: `automation/workflow/webhook.go` `TriggerWebhook`). Ohne Header Verhalten
+      unveraendert.
+    sources:
+      - backend/internal/formulare/form_share.go
+      - backend/internal/server/formulare_grpc.go
+      - backend/internal/gateway/route_formulare.go
+      - backend/internal/automation/workflow/webhook.go
+    notes: >
+      Der Header muss durch den gRPC-Aufruf bis in den Service. Ist dafuer ein Proto-Feld noetig, im selben Commit
+      regenerieren (passendes `make proto-*`-Target) und mit `git show --stat` auf die `.pb.go` pruefen. Der Replay-Fall
+      liefert die gespeicherte Antwort, nicht erneut die Webhooks.
+    done_when:
+      - Zwei Aufrufe mit gleichem Idempotency-Key legen genau eine Submission an, Webhooks feuern einmal
+      - Gleicher Key mit anderem Body liefert den dokumentierten Konflikt, nicht eine zweite Submission
+      - Ohne Header unveraendertes Verhalten
+      - go test -count=1 ./internal/formulare/... ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: scan-idempotency-response-body-persists-one-time-secrets
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-10-20
+    decision: >-
+      Nebenbefund aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48). Kein Cross-Tenant-Zugriff
+      (die Tabelle ist RLS-geschuetzt), daher ans Ende.
+    coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
+    scope: >
+      `middleware.Idempotency` speichert den Response-Body JEDER Mutation im Klartext (`idempotency_keys.response_body`,
+      `idempotency/postgres_repository.go`, `Complete`). Der Whitelist-Eintrag `/auth/2fa` (Substring-Match) nimmt die
+      2FA-Routen aus, offenbar genau deshalb. Andere Routen, die ein Einmal-Geheimnis zurueckgeben, sind NICHT
+      ausgenommen: belegt ist `POST /api/v1/caldav/passwords` (`route_caldav.go` `handleCreatePassword`, Antwort enthaelt
+      das Klartext-Passwort, Kette CALAUTH + CALIDEM). Zu tun: ueber die Registrierung alle mutierenden Routen mit
+      Einmal-Geheimnis in der Antwort ermitteln (App-Passwoerter, API- und Plugin-Tokens, Webhook-Secrets, Einladungs- und
+      Reset-Token, OAuth-Client-Secrets, Backup-Codes), mit Methode, Pfad und Kette.
+    sources:
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/idempotency/postgres_repository.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/gateway/route_auth.go
+      - backend/internal/gateway/route_plugin.go
+      - backend/internal/gateway/route_automation.go
+    notes: >
+      Der Scan aendert nichts. Fix-Optionen fuer die Folge-Unit(s): Pfad-Whitelist erweitern (ein Eintrag je Route, Vorsicht:
+      der Match ist `strings.Contains`), oder ein Response-Header, den ein Handler setzt, um die Speicherung zu unterdruecken
+      (dann wird der Replay zum Fehler statt zur gespeicherten Antwort). Die Zeilen laufen nach TTL ab
+      (`IdempotencyCleanupWorker`); die TTL im Journal nennen.
+    done_when:
+      - Liste aller Routen mit Einmal-Geheimnis in der Antwort steht im Journal, ueber die Registrierung und die Handler-Antworten belegt
+      - Die Aufbewahrungsdauer der Zeilen steht im Journal
+      - Fuer die Funde ist eine Fix-Unit angelegt
+      - Kein Verhalten geaendert (git diff zeigt nur BACKLOG.yml und JOURNAL.md)
