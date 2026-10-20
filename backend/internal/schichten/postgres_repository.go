@@ -9,12 +9,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// dbPool is the slice of pgxpool.Pool the repository uses. pgx.Tx satisfies it
+// too (Begin opens a savepoint), which lets WithAssignmentLock hand the service
+// a repository whose every read and write runs inside one locked transaction.
+type dbPool interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 // PostgresRepository implements Repository using PostgreSQL.
 type PostgresRepository struct {
-	pool *pgxpool.Pool
+	pool dbPool
 }
 
 // NewPostgresRepository creates a new PostgreSQL-backed repository.
@@ -177,6 +188,47 @@ func (r *PostgresRepository) CreateAssignment(ctx context.Context, a *ShiftAssig
 		a.ID, a.TenantID, a.ShiftID, a.EmployeeID, a.AssignedAt, a.AssignedBy,
 	)
 	return err
+}
+
+// WithAssignmentLock runs fn inside one transaction that first locks the shift
+// row (serialises the capacity count per shift) and then takes a transaction
+// advisory lock per (tenant, employee) (serialises the rest-period and
+// minor-protection reads against the insert for one person). The lock order is
+// always shift, then employee, so concurrent callers cannot deadlock on each
+// other. The repository passed to fn reads and writes through that transaction.
+func (r *PostgresRepository) WithAssignmentLock(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID, fn func(Repository) error) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin assignment transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var lockedID uuid.UUID
+	err = tx.QueryRow(ctx,
+		`SELECT id FROM shifts WHERE id = $1 AND tenant_id = $2 FOR UPDATE`,
+		shiftID, tenantID,
+	).Scan(&lockedID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrShiftNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock shift: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`,
+		"shift_assignment:"+tenantID.String()+":"+employeeID.String(),
+	); err != nil {
+		return fmt.Errorf("lock employee: %w", err)
+	}
+
+	if err := fn(&PostgresRepository{pool: tx}); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit assignment transaction: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresRepository) DeleteAssignment(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID) error {

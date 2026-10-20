@@ -3757,7 +3757,7 @@ units:
     service: schichten
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
     scope: >
       Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). `Service.AssignEmployee` (`schichten/service.go`)

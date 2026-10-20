@@ -270,53 +270,64 @@ func (s *Service) PublishShifts(ctx context.Context, tenantID uuid.UUID, from, t
 // ============================================================================
 
 // AssignEmployee assigns an employee to a shift after ArbZG validation and capacity check.
+//
+// The checks and the insert run under WithAssignmentLock: two concurrent
+// assignments to the same shift (capacity) or for the same employee (rest
+// period, JArbSchG) are serialised, so the second one sees the first.
 func (s *Service) AssignEmployee(ctx context.Context, input AssignEmployeeInput) (*ShiftAssignment, error) {
-	// Pre-check: verify shift exists under tenant
-	shift, err := s.repo.GetShift(ctx, input.TenantID, input.ShiftID)
+	var assignment *ShiftAssignment
+	err := s.repo.WithAssignmentLock(ctx, input.TenantID, input.ShiftID, input.EmployeeID, func(repo Repository) error {
+		// Verify the shift exists under the tenant and read its current window and capacity.
+		shift, err := repo.GetShift(ctx, input.TenantID, input.ShiftID)
+		if err != nil {
+			return err
+		}
+
+		// Guard 1: capacity check — reject if shift is already full
+		if shift.Capacity != nil {
+			count, countErr := repo.CountAssignments(ctx, input.TenantID, input.ShiftID)
+			if countErr != nil {
+				return fmt.Errorf("capacity check: %w", countErr)
+			}
+			if count >= *shift.Capacity {
+				slog.Warn("shift capacity reached",
+					"shift_id", input.ShiftID,
+					"tenant_id", input.TenantID,
+					"capacity", *shift.Capacity,
+					"current_count", count,
+				)
+				return ErrShiftFull
+			}
+		}
+
+		// Guard 2: ArbZG §5 rest-period check before DB write
+		if err := validateRestPeriod(ctx, repo, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+
+		// Guard 3: JArbSchG limits, for employees flagged as minors only. A shift
+		// a minor may not legally work must not become an assignment that the
+		// compliance endpoint later reports as a violation after the fact.
+		if err := validateMinorProtection(ctx, repo, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+
+		a := &ShiftAssignment{
+			ID:         uuid.New(),
+			TenantID:   input.TenantID,
+			ShiftID:    input.ShiftID,
+			EmployeeID: input.EmployeeID,
+			AssignedAt: time.Now(),
+			AssignedBy: input.AssignedBy,
+		}
+		if err := repo.CreateAssignment(ctx, a); err != nil {
+			return fmt.Errorf("assign employee: %w", err)
+		}
+		assignment = a
+		return nil
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	// Guard 1: capacity check — reject if shift is already full
-	if shift.Capacity != nil {
-		count, countErr := s.repo.CountAssignments(ctx, input.TenantID, input.ShiftID)
-		if countErr != nil {
-			return nil, fmt.Errorf("capacity check: %w", countErr)
-		}
-		if count >= *shift.Capacity {
-			slog.Warn("shift capacity reached",
-				"shift_id", input.ShiftID,
-				"tenant_id", input.TenantID,
-				"capacity", *shift.Capacity,
-				"current_count", count,
-			)
-			return nil, ErrShiftFull
-		}
-	}
-
-	// Guard 2: ArbZG §5 rest-period check before DB write
-	if err := s.validateRestPeriod(ctx, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
-		return nil, err
-	}
-
-	// Guard 3: JArbSchG limits, for employees flagged as minors only. A shift
-	// a minor may not legally work must not become an assignment that the
-	// compliance endpoint later reports as a violation after the fact.
-	if err := s.validateMinorProtection(ctx, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
-		return nil, err
-	}
-
-	assignment := &ShiftAssignment{
-		ID:         uuid.New(),
-		TenantID:   input.TenantID,
-		ShiftID:    input.ShiftID,
-		EmployeeID: input.EmployeeID,
-		AssignedAt: time.Now(),
-		AssignedBy: input.AssignedBy,
-	}
-
-	if err := s.repo.CreateAssignment(ctx, assignment); err != nil {
-		return nil, fmt.Errorf("assign employee: %w", err)
 	}
 
 	slog.Info("employee assigned to shift",
@@ -560,10 +571,10 @@ func (s *Service) ApplyTemplate(ctx context.Context, input ApplyTemplateInput) (
 // employees flagged as minors, the JArbSchG limits on top of it. It writes
 // nothing to the DB.
 func (s *Service) CheckArbzgCompliance(ctx context.Context, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) (bool, string, error) {
-	if err := s.validateRestPeriod(ctx, tenantID, employeeID, newStart, newEnd); err != nil {
+	if err := validateRestPeriod(ctx, s.repo, tenantID, employeeID, newStart, newEnd); err != nil {
 		return false, err.Error(), nil
 	}
-	if err := s.validateMinorProtection(ctx, tenantID, employeeID, newStart, newEnd); err != nil {
+	if err := validateMinorProtection(ctx, s.repo, tenantID, employeeID, newStart, newEnd); err != nil {
 		// A rule violation is an answer, a failed lookup is not: reporting
 		// "compliant: false, no reason" for a dead database would read as a
 		// clean verdict.
@@ -744,9 +755,9 @@ func (s *Service) RejectSwapRequest(ctx context.Context, tenantID, requestID uui
 //   - No adjacent shift found → OK.
 //   - restDuration >= 11h → OK.
 //   - restDuration < 11h → ErrArbzgViolation.
-func (s *Service) validateRestPeriod(ctx context.Context, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) error {
+func validateRestPeriod(ctx context.Context, repo Repository, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) error {
 	// Direction 1: find the most recent shift end BEFORE newStart.
-	latestEnd, err := s.repo.LatestShiftEndBeforeForEmployee(ctx, tenantID, employeeID, newStart)
+	latestEnd, err := repo.LatestShiftEndBeforeForEmployee(ctx, tenantID, employeeID, newStart)
 	if err != nil {
 		return fmt.Errorf("arbzg check (before): %w", err)
 	}
@@ -764,7 +775,7 @@ func (s *Service) validateRestPeriod(ctx context.Context, tenantID, employeeID u
 	}
 
 	// Direction 2: find the earliest shift start AFTER newEnd.
-	earliestStart, err := s.repo.EarliestShiftStartAfterForEmployee(ctx, tenantID, employeeID, newEnd)
+	earliestStart, err := repo.EarliestShiftStartAfterForEmployee(ctx, tenantID, employeeID, newEnd)
 	if err != nil {
 		return fmt.Errorf("arbzg check (after): %w", err)
 	}
@@ -792,8 +803,8 @@ func (s *Service) validateRestPeriod(ctx context.Context, tenantID, employeeID u
 // Only the first violation is reported. The response carries one reason
 // string, the same shape the rest-period check has always returned, so the
 // frontend learns nothing new.
-func (s *Service) validateMinorProtection(ctx context.Context, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) error {
-	isMinor, err := s.repo.IsMinorEmployee(ctx, tenantID, employeeID)
+func validateMinorProtection(ctx context.Context, repo Repository, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) error {
+	isMinor, err := repo.IsMinorEmployee(ctx, tenantID, employeeID)
 	if err != nil {
 		return fmt.Errorf("jarbschg check: %w", err)
 	}
