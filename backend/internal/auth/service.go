@@ -137,14 +137,19 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.Lo
 		return nil, ErrInvalidCredentials
 	}
 
-	if !user.IsActive {
-		slog.Warn("login failed", "reason", "user_inactive", "user_id", user.ID, "email", user.Email)
-		return nil, ErrUserInactive
-	}
-
+	// The password is compared BEFORE the active check, so a deactivated account
+	// costs the same bcrypt round as a wrong password and a wrong password on it
+	// reads as ErrInvalidCredentials like everywhere else. ErrUserInactive only
+	// surfaces for the right password; the gRPC Login handler folds it into the
+	// same answer as ErrInvalidCredentials, the log keeps the reason.
 	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); compareErr != nil {
 		slog.Warn("login failed", "reason", "password_mismatch", "user_id", user.ID, "email", user.Email)
 		return nil, ErrInvalidCredentials
+	}
+
+	if !user.IsActive {
+		slog.Warn("login failed", "reason", "user_inactive", "user_id", user.ID, "email", user.Email)
+		return nil, ErrUserInactive
 	}
 
 	// If 2FA is enabled, issue a pending token instead of full tokens

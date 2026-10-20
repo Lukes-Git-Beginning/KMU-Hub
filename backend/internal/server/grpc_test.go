@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -170,15 +171,35 @@ func TestAuthGRPC_Login(t *testing.T) {
 		requireGRPCCode(t, err, codes.Unauthenticated)
 	})
 
-	t.Run("inactive user", func(t *testing.T) {
+	t.Run("inactive user answers exactly like an unknown address", func(t *testing.T) {
+		srv, repo := newTestAuthGRPCServer()
+		createAuthTestUser(repo, "inactive@example.com", "pass", false)
+
+		_, inactiveErr := srv.Login(ctx, &authv1.LoginRequest{
+			Email:    "inactive@example.com",
+			Password: "pass",
+		})
+		requireGRPCCode(t, inactiveErr, codes.Unauthenticated)
+
+		_, unknownErr := srv.Login(ctx, &authv1.LoginRequest{
+			Email:    "nobody@example.com",
+			Password: "pass",
+		})
+		requireGRPCCode(t, unknownErr, codes.Unauthenticated)
+
+		assert.Equal(t, status.Convert(unknownErr).Message(), status.Convert(inactiveErr).Message(),
+			"status code AND message must match, or the account leaks")
+	})
+
+	t.Run("inactive user with a wrong password is the same answer too", func(t *testing.T) {
 		srv, repo := newTestAuthGRPCServer()
 		createAuthTestUser(repo, "inactive@example.com", "pass", false)
 
 		_, err := srv.Login(ctx, &authv1.LoginRequest{
 			Email:    "inactive@example.com",
-			Password: "pass",
+			Password: "wrong",
 		})
-		requireGRPCCode(t, err, codes.PermissionDenied)
+		requireGRPCCode(t, err, codes.Unauthenticated)
 	})
 }
 

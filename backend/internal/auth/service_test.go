@@ -713,6 +713,15 @@ func TestService_Login(t *testing.T) {
 			},
 			wantErr: ErrUserInactive,
 		},
+		{
+			name:     "inactive user, wrong password",
+			email:    "inactive@example.com",
+			password: "wrong",
+			setup: func(r *mockRepository) {
+				createTestUser(r, "inactive@example.com", "password", false)
+			},
+			wantErr: ErrInvalidCredentials,
+		},
 	}
 
 	for _, tt := range tests {

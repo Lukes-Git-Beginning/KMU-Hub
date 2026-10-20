@@ -145,25 +145,23 @@ func signPendingToken(t *testing.T, tm *TokenMaker, userID uuid.UUID, tokenType 
 // Login failure paths
 // ============================================================================
 
-// TestLogin_FailurePaths_ShareOneAnswerExceptInactive pins which login failures
-// are indistinguishable to the caller and which one is not.
+// TestLogin_FailurePaths_ShareOneAnswer pins which login failures are
+// indistinguishable to the caller.
 //
-// Unknown address, wrong password and a broken user lookup all answer with the
-// SAME sentinel and the SAME message — that is the anti-enumeration promise the
-// comment in Login makes, and this test is what keeps it.
+// Unknown address, wrong password (on an active AND a deactivated account) and a
+// broken user lookup all answer with the SAME sentinel and the SAME message —
+// that is the anti-enumeration promise the comment in Login makes, and this test
+// is what keeps it.
 //
-// A deactivated account is the exception, and it is a real hole: it answers
-// ErrUserInactive, which internal/server/grpc.go:1321 maps to
-// codes.PermissionDenied (HTTP 403) while ErrInvalidCredentials maps to
-// codes.Unauthenticated (HTTP 401). An attacker who tries an address therefore
-// learns "this account exists but is switched off". The test asserts the
-// divergence as it stands rather than the promise it breaks — see the backlog
-// unit fix-login-inactive-account-is-an-enumeration-oracle.
-func TestLogin_FailurePaths_ShareOneAnswerExceptInactive(t *testing.T) {
+// The one remaining distinct sentinel is ErrUserInactive for a deactivated
+// account whose password was RIGHT. The service keeps it so the log and any
+// future caller can tell; the gRPC Login handler folds it into
+// ErrInvalidCredentials (see TestAuthGRPC_Login in internal/server).
+func TestLogin_FailurePaths_ShareOneAnswer(t *testing.T) {
 	const password = "correct-horse-battery"
 
-	t.Run("unknown email, wrong password and broken lookup are one answer", func(t *testing.T) {
-		answers := make([]error, 0, 3)
+	t.Run("unknown email, wrong password (active or not) and broken lookup are one answer", func(t *testing.T) {
+		answers := make([]error, 0, 4)
 
 		for _, tc := range []struct {
 			name  string
@@ -183,6 +181,14 @@ func TestLogin_FailurePaths_ShareOneAnswerExceptInactive(t *testing.T) {
 					createTestUser(r.mockRepository, "known@example.com", password, true)
 				},
 				email: "known@example.com",
+				pass:  "not-the-password",
+			},
+			{
+				name: "wrong password on a deactivated account",
+				setup: func(r *authPathsRepo) {
+					createTestUser(r.mockRepository, "off@example.com", password, false)
+				},
+				email: "off@example.com",
 				pass:  "not-the-password",
 			},
 			{
@@ -206,29 +212,19 @@ func TestLogin_FailurePaths_ShareOneAnswerExceptInactive(t *testing.T) {
 
 		for _, err := range answers {
 			assert.Equal(t, ErrInvalidCredentials.Error(), err.Error(),
-				"every non-inactive failure must read identically to the caller")
+				"every failure must read identically to the caller")
 		}
 	})
 
-	t.Run("deactivated account answers differently (enumeration oracle)", func(t *testing.T) {
+	t.Run("deactivated account with the right password keeps its own sentinel", func(t *testing.T) {
+		// Only reachable with the correct password; the gRPC handler folds it
+		// into ErrInvalidCredentials, so the caller never sees the difference.
 		svc, repo := newAuthPathsService()
 		createTestUser(repo.mockRepository, "off@example.com", password, false)
 
-		_, err := svc.Login(context.Background(), "off@example.com", password)
-		require.Error(t, err)
+		result, err := svc.Login(context.Background(), "off@example.com", password)
 		assert.ErrorIs(t, err, ErrUserInactive)
-		assert.NotEqual(t, ErrInvalidCredentials.Error(), err.Error(),
-			"documented divergence: a deactivated account is distinguishable from an unknown one")
-	})
-
-	t.Run("wrong password on a deactivated account still reveals the account", func(t *testing.T) {
-		// The inactive check runs BEFORE the password comparison, so the
-		// oracle does not even need a correct password.
-		svc, repo := newAuthPathsService()
-		createTestUser(repo.mockRepository, "off@example.com", password, false)
-
-		_, err := svc.Login(context.Background(), "off@example.com", "wrong")
-		assert.ErrorIs(t, err, ErrUserInactive)
+		assert.Nil(t, result)
 	})
 
 	t.Run("email is matched case-insensitively on every failure path", func(t *testing.T) {

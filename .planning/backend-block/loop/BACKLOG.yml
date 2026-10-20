@@ -1037,7 +1037,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 20 belegt (`TestLogin_FailurePaths_ShareOneAnswerExceptInactive`):
       `Service.Login` (`internal/auth/service.go:142`) beantwortet ein deaktiviertes Konto

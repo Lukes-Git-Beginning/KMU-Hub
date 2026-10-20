@@ -165,3 +165,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 10, be134921: `RoomName` einzige Quelle, alle drei Aufrufer nachgezogen, kein weiteres `"cal-"`-Literal im Produktivcode, kein Proto/Route/Guard/Migration)
 - neue-units: keine
 - offen: (1) `checkCalendarWritePermission`/`listEventExceptions` filtern nicht selbst nach Tenant, sondern verlassen sich auf RLS plus den vom Injector gestempelten Pool-Tenant — das ist das gleiche Muster wie im übrigen Paket, hier bewusst nicht geändert. (2) `gofmt -l` listet im Paket jede Datei (CRLF im Arbeitsbaum), kein Befund dieser Unit.
+
+## Iteration 12 — fix-login-inactive-account-is-an-enumeration-oracle — done — 2026-10-20 21:20
+- commit: `fix(auth): answer a deactivated login exactly like a wrong password` (SHA via `git log`)
+- gebaut: `Service.Login` vergleicht jetzt das Passwort VOR dem Aktiv-Check: ein deaktiviertes Konto kostet dieselbe bcrypt-Runde wie ein falsches Passwort, und ein falsches Passwort darauf liefert `ErrInvalidCredentials`. `ErrUserInactive` kommt nur noch bei RICHTIGEM Passwort (Log-Grund `user_inactive` bleibt). Der gRPC-Handler `AuthGRPCServer.Login` (nicht `mapError` global) faltet `ErrUserInactive` in `ErrInvalidCredentials` -> `Unauthenticated`/401 mit identischer Meldung.
+- frontend-pruefung: `loginErrorKey` (`stores/auth.ts:147`) mappt 403 nur auf die Meldung `auth.accountDisabled`; kein Kontrollfluss haengt daran. Die Meldung erscheint künftig nie mehr aus dem Login (Nutzer sieht „ungültige Zugangsdaten“) — FE nicht angefasst.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/auth, internal/server, internal/gateway inkl. TestOpenAPIRouteDrift; Login-/MapError-Tests 0 SKIP; DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a.
+- coverage: internal/auth 77,3 % -> 77,3 % (Bugfix-Unit, kein Coverage-Ziel)
+- mutations-probe: (1) Faltung im gRPC-Handler entfernt -> `TestAuthGRPC_Login` rot; (2) Aktiv-Check zurück vor den bcrypt-Vergleich -> `TestLogin_FailurePaths_ShareOneAnswer` + `TestService_Login/inactive_user,_wrong_password` rot; beides per cp-Sicherung zurückgedreht
+- verify vorgaenger: sauber (Iteration 11, 0c674a45: nur Tests/Kommentar in internal/caldav, kein Proto/Route/Guard/Migration)
+- neue-units: keine
+- offen: (1) Verhaltensänderung: `POST /auth/login` für ein deaktiviertes Konto liefert 401 statt 403. (2) Rest-Orakel, bewusst nicht angefasst: ein UNBEKANNTER Nutzer überspringt bcrypt komplett (Zeitunterschied zu bekanntem Nutzer, unabhängig vom Aktiv-Status); `Refresh` und `CompleteTwoFactorLogin` geben weiter 403 für Inaktive, hängen aber an gültigen Tokens/Pending-Token. (3) Der tote i18n-Key `auth.accountDisabled` und der 403-Test in `auth-login-errors.test.ts` bleiben stehen. (4) Keine Goroutinen in neuen Tests.
