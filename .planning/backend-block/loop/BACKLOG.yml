@@ -2775,12 +2775,65 @@ units:
         als Vorlage benannt
       - Kein Verhalten geaendert
 
+  - id: fix-caldav-basic-auth-ignores-user-state
+    phase: 4
+    service: caldav
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix, Coverage nur als Beleg)"
+    scope: >
+      VERIFIZIERTER AUTH-BEFUND aus `scan-signed-url-and-token-lifetimes` (Iteration 50), mit einem
+      temporaeren DB-Test als kmuhub_app reproduziert und wieder geloescht: ein DEAKTIVIERTER Nutzer
+      (`users.is_active = false`) besteht die CalDAV/CardDAV-Basic-Auth weiter. `Validate`
+      (`caldav/app_password.go:92`) prueft nur den Org-Schalter und die bcrypt-Passwoerter;
+      `FindActiveByUser` (`postgres_app_password.go:86`) filtert nur `revoked_at IS NULL` und
+      joint `users` nicht; `resolveTenantID` (`caldav_backend.go:70`) liest den Tenant ohne
+      `is_active`. Test-Ausgabe: `users.is_active = false`, `Validate after deactivation:
+      user=<id> err=<nil>`, `ctxInjector after deactivation: err=<nil>`.
+      Das Offboarding (`hr/employee/postgres_repository.go:270`) setzt `is_active = false` und
+      loescht `user_roles`, widerruft aber keine App-Passwoerter. Die DAV-Routen haben keinen
+      `RequirePermission` (nur Basic Auth, `route_caldav.go:138-153`), das Loeschen der Rollen
+      greift dort also nicht. App-Passwoerter haben keinen Ablauf (keine `expires_at`-Spalte,
+      Migration 000049). Folge: ein ausgeschiedener Mitarbeiter behaelt unbegrenzt Lese- UND
+      Schreibzugriff auf Kalender und Kontakte, bis jemand `DELETE /admin/caldav/users/{id}/passwords`
+      von Hand aufruft - der einzige Aufrufer von `RevokeAllUserPasswords`.
+      Login und Refresh pruefen `is_active` (`auth/service.go:150,213`), CalDAV ist der Pfad,
+      der es vergessen hat.
+    sources:
+      - backend/internal/caldav/app_password.go
+      - backend/internal/caldav/postgres_app_password.go
+      - backend/internal/caldav/caldav_backend.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/caldav/app_password_db_test.go
+    notes: >
+      Root Cause an der gemeinsamen Stelle: `Validate` hat genau einen Aufrufer
+      (`basicAuthMiddleware`), `FindActiveByUser` genau einen (`Validate`). Fix in der Abfrage:
+      `JOIN users u ON u.id = asp.user_id AND u.is_active` (System-Kontext ist dort schon gesetzt,
+      der Join braucht keinen Tenant). `resolveTenantID` zusaetzlich mit `AND is_active`
+      absichern - es ist der zweite Weg ins DAV-Backend. Keine Migration, keine Route.
+      Antwort fuer den Client bleibt 401 (`ErrInvalidCredentials`), nicht 403 und nicht anders
+      als bei falschem Passwort. Nicht Teil dieser Unit: das Offboarding soll die Passwoerter
+      zusaetzlich widerrufen (dann leben sie bei Reaktivierung nicht wieder auf) - Entscheidung
+      Luke, steht als Frage in `decide-token-lifetime-and-storage-policy` (BACKLOG-NEXT.yml).
+      ACHTUNG User-Flag: `users.caldav_enabled` (Pro-Nutzer-Schalter, `handleDisableCalDAV`)
+      wird in `Validate` ebenfalls nie gelesen - "CalDAV ausschalten" sperrt die Basic Auth also
+      nicht. Das NICHT in dieser Unit durchsetzen, ohne vorher zu pruefen, ob
+      `handleCreatePassword` den Schalter setzt; sonst fallen bestehende Einrichtungen aus.
+      Im Zweifel nur `is_active` und die Frage ins Journal.
+    done_when:
+      - Deaktivierter Nutzer mit gueltigem App-Passwort bekommt von `Validate` ErrInvalidCredentials
+      - Reaktivierter Nutzer besteht die Pruefung mit demselben Passwort wieder
+      - Test mit echter DB als kmuhub_app, 0 Skips, beide Faelle (Validate und NewCtxInjector)
+      - Mutations-Probe - Join/Filter entfernt, Test rot, zurueckgedreht
+      - Kein neuer Produktionspfad, keine Migration
+
   - id: scan-signed-url-and-token-lifetimes
     phase: 4
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Dritter Scan, ebenfalls aus dem Lauf heraus entstanden. Sechs Token- und URL-Typen
@@ -3767,3 +3820,71 @@ units:
       - Kapazitaetspruefung und Insert laufen unter einem gemeinsamen Lock in einer Transaktion
       - Test mit echter DB - parallele Zuweisungen ueberschreiten die Kapazitaet nicht
       - Mutations-Probe - Lock entfernt, Test rot, zurueckgedreht
+
+  - id: harden-password-reset-token-single-use
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-signed-url-and-token-lifetimes` (Iteration 50). `Service.ResetPassword`
+      (`auth/service.go:757`) liest den Token, prueft `UsedAt`/`ExpiresAt` in Go, setzt das Passwort
+      und markiert den Token erst danach als benutzt - und `MarkPasswordResetTokenUsed`
+      (`postgres_repository.go:1487`) ist ein blankes `UPDATE ... SET used_at = NOW() WHERE id = $1`
+      ohne `used_at IS NULL`, sein Fehler wird nur geloggt. Zwei gleichzeitige Requests mit demselben
+      Token bestehen beide die Pruefung und setzen beide ein Passwort; schlaegt das Markieren fehl,
+      bleibt der Token bis zum Ablauf (1 h) wiederverwendbar. Einmalverwendung ist damit
+      Pruef-dann-Handeln, nicht atomar. Schaden gering (wer den Token hat, hat den Account ohnehin),
+      aber der Token ist das einzige Einmal-Geheimnis in dieser Familie, das es nicht atomar
+      durchsetzt - CSAT (`RedeemCsatSurveyTx`) und Invitation-Accept tun es.
+    sources:
+      - backend/internal/auth/service.go
+      - backend/internal/auth/postgres_repository.go
+      - backend/internal/auth/repository.go
+    notes: >
+      Den Token ZUERST atomar verbrauchen: `UPDATE password_reset_tokens SET used_at = NOW()
+      WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW() RETURNING id, user_id`,
+      0 Zeilen = ErrResetTokenInvalid/Used/Expired (zur Unterscheidung der Fehler danach einmal lesen).
+      Passwort setzen und Refresh-Tokens widerrufen danach, idealerweise in derselben Transaktion;
+      scheitert das Passwort-Update, darf der Token nicht verbrannt bleiben (Tx-Rollback).
+      Fehlercodes nach aussen unveraendert lassen. Bestehende Tests in `auth` pruefen, die
+      `MarkPasswordResetTokenUsed` mocken.
+    done_when:
+      - Zwei parallele ResetPassword mit demselben Token - genau eines gelingt (Test mit echter DB)
+      - Scheitert das Passwort-Update, ist der Token danach weiter einloesbar
+      - Mutations-Probe - `used_at IS NULL` entfernt, Test rot, zurueckgedreht
+      - Fehlercodes und Statuscodes der Route unveraendert
+
+  - id: harden-wiki-share-link-creation-validation
+    phase: 4
+    service: wiki
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-signed-url-and-token-lifetimes` (Iteration 50). Die Wiki-Share-Links
+      sind die einzigen der drei Share-Typen, deren Anlage nichts validiert:
+      `wiki.Service.CreateShareToken` (`wiki/service.go:507`) nimmt `ExpiresAt` ungeprueft (auch
+      Vergangenheit; `wiki_grpc.go:483` parst nur das Format) und speichert `Permissions` als
+      beliebige Client-Strings. Eingeloest wird nur "read" (`share.go:Usable`), ein anderer Wert
+      macht den Link tot statt gefaehrlich - die Daten sind trotzdem falsch. Formulare lehnt
+      `expires_at` in der Vergangenheit ab (`form_share.go:150`), Berichte begrenzt auf
+      365 Tage (`berichte/service.go:965`) und lehnt negative Werte ab.
+    sources:
+      - backend/internal/wiki/service.go
+      - backend/internal/wiki/share.go
+      - backend/internal/server/wiki_grpc.go
+      - backend/internal/formulare/form_share.go
+    notes: >
+      Nur das Angleichen an Formulare: `expires_at` muss in der Zukunft liegen
+      (neuer Fehler analog `ErrInvalidShareLink`, im gRPC-Mapper auf InvalidArgument, im
+      Gateway 400 - Status-Code in `openapi.yaml` pruefen und ergaenzen, falls 400 dort fehlt);
+      `permissions` nur aus {"read"}. Eine MAXIMALE Laufzeit (Berichte: 365 Tage) ist eine
+      Produktentscheidung und steht in `decide-token-lifetime-and-storage-policy`, nicht hier.
+    done_when:
+      - Vergangenes expires_at und unbekannte Permission werden abgelehnt, Test je Fall
+      - Bestehende Wiki-Share-Tests und `TestOpenAPIRouteDrift` gruen
+      - Mutations-Probe - Pruefung entfernt, Test rot, zurueckgedreht
