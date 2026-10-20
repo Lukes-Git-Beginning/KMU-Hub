@@ -2186,7 +2186,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 21 belegt
       (`TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent`):

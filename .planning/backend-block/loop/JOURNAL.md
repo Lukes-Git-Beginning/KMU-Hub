@@ -408,3 +408,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 34, d119a16b: eigener `revalCtx`, `cancelReval()` im Read-Fehlerpfad, `<-done` bleibt; kein Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: (1) Ein Bucket bleibt maximal bis zum nächsten `unregisterConnection` irgendeines Nutzers liegen (Sweep nur dort) — bei null Verbindungsabbrüchen wächst die Map nicht, weil dann auch keine Buckets verwaisen. (2) Keine Goroutinen in neuen Tests, Mutex-Zugriffe im Test unter `h.mu`. (3) `gofmt -l` listet wegen autocrlf jede Datei im Paket — Rauschen, golangci-lint sauber.
+
+## Iteration 36 — fix-retention-engine-drops-partial-affected-count-on-apply-failure — done — 2026-10-20 22:13
+- commit: `fix(gdpr): keep the partial affected count when a retention handler fails` (SHA via `git log`)
+- gebaut: `runPolicy` setzt `item.Affected = affected` direkt nach `handler.Apply`, vor der Fehlerprüfung — Erfolgs- und Fehlerpfad tragen jetzt den real zurückgegebenen Wert (In-Memory-Item und `retention_run_items.affected`). Der Dokumentationstest ist zu `TestRetentionEngine_Run_PartialBatchFailure_RecordsAffectedAndStaysIdempotent` umgeschrieben (erwartet 2 statt 0, Idempotenz des Folgelaufs unverändert). Keine Route, kein Proto, keine Migration, kein Guard.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/security/..., DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a.
+- coverage: internal/security/gdpr 72,9 % -> 72,9 % (Bugfix-Unit, kein Coverage-Ziel)
+- mutations-probe: `item.Affected = affected` -> `_ = affected` -> `TestRetentionEngine_Run_PartialBatchFailure_RecordsAffectedAndStaysIdempotent` rot; per cp-Sicherung zurückgedreht, `cmp` sauber
+- verify vorgaenger: sauber (Iteration 35, 65180695: `sweepRateLimiters` in `unregisterConnection`, nur websocket.go + Test; kein Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: (1) `RecordsAffected` des Gesamtlaufs summiert jetzt auch Teilerfolge fehlgeschlagener Items (retention.go:294) — gewollt, da es die reale Änderung widerspiegelt. (2) Keine Goroutinen in neuen Tests.

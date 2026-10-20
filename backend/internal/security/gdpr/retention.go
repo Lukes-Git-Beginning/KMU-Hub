@@ -398,6 +398,8 @@ func (e *RetentionEngine) runPolicy(
 	}
 
 	affected, err := handler.Apply(ctx, tenantID, plan.Due, p.Action, *label)
+	// A handler that fails mid-batch has still changed records; the audit trail must say so.
+	item.Affected = affected
 	if err != nil {
 		item.Status = RetentionItemFailed
 		item.Message = err.Error()
@@ -406,7 +408,6 @@ func (e *RetentionEngine) runPolicy(
 		return item
 	}
 	item.Status = RetentionItemApplied
-	item.Affected = affected
 	return item
 }
 

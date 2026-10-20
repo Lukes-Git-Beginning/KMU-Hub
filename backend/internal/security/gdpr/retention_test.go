@@ -289,7 +289,7 @@ func TestRetentionEngine_Run_HandlerFailuresAreRecorded(t *testing.T) {
 	assert.Equal(t, 2, logged)
 }
 
-// TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent
+// TestRetentionEngine_Run_PartialBatchFailure_RecordsAffectedAndStaysIdempotent
 // answers the scope question "what happens when a handler fails mid-batch —
 // does half stay deleted, and is the next run idempotent?" using a stateful
 // fake handler that really does persist the records it processes before
@@ -297,15 +297,11 @@ func TestRetentionEngine_Run_HandlerFailuresAreRecorded(t *testing.T) {
 // writes — the engine itself never touches the resource table, only the
 // handler does).
 //
-// It surfaces a real discrepancy: runPolicy (retention.go:400-407) discards
-// Apply's returned affected count entirely when Apply also returns an error,
-// so a handler that genuinely processed some records before failing is
-// logged with Affected = 0. The next run is still idempotent from a DATA
-// standpoint — Plan only re-offers what the handler itself never marked
-// done — but the run log for the failed attempt understates what happened,
-// which matters for an audit trail. Filed as a follow-up unit rather than
-// fixed here: a coverage unit proves behaviour, it does not change it.
-func TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent(t *testing.T) {
+// runPolicy must keep Apply's returned affected count even when Apply also
+// returns an error, so the run log (in memory and in retention_run_items)
+// states what the handler really changed. The next run stays idempotent:
+// Plan only re-offers what the handler itself never marked done.
+func TestRetentionEngine_Run_PartialBatchFailure_RecordsAffectedAndStaysIdempotent(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -341,9 +337,8 @@ func TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdemp
 	item := itemFor(t, first, "partial")
 	assert.Equal(t, RetentionItemFailed, item.Status)
 	assert.Equal(t, 4, item.Matched, "Plan found all four records before anything ran")
-	assert.Equal(t, 0, item.Affected,
-		"known gap: runPolicy drops Apply's partial affected count on error, "+
-			"even though the handler really processed some records (see handler.processed below)")
+	assert.Equal(t, 2, item.Affected,
+		"runPolicy must keep Apply's partial affected count on error: the handler really processed two records")
 	assert.Len(t, handler.processed, 2, "the handler itself DID persist two of the four records before failing")
 
 	var loggedAffected int
@@ -353,7 +348,7 @@ func TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdemp
 		first.RunID,
 	).Scan(&loggedStatus, &loggedAffected))
 	assert.Equal(t, RetentionItemFailed, loggedStatus)
-	assert.Equal(t, 0, loggedAffected, "the run log itself, not just the in-memory item, understates the real work done")
+	assert.Equal(t, 2, loggedAffected, "the persisted run log must state the real work done, not only the in-memory item")
 
 	// --- second run: idempotent from the data's point of view -------------
 	second, err := engine.Run(ctx, RetentionModeEnforce, "test")
