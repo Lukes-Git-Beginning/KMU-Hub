@@ -49,3 +49,13 @@ Frühere Läufe liegen vollständig im Archiv:
    in `offen:`** — abgenommen ist er erst nach CI.
 
 ---
+
+## Iteration 1 — fix-websocket-chat-rpcs-missing-tenant-context — done — 2026-10-20 19:38
+- commit: dieser Commit, `fix(server): carry the JWT tenant into websocket chat RPCs` (SHA via `git log`)
+- gebaut: `HandleWebSocket` stempelt `TenantIDKey`/`UserIDKey` aus den JWT-Claims einmal auf den Context (Variante a), bevor `cacheUserName` und `handleConnection` laufen — GetChannel/MarkChannelRead/SendMessage aus der WS-Loop tragen jetzt `x-tenant-id`/`x-user-id`. `handleSendMessage` setzt zusätzlich `TenantId` aus dem Context (chat_grpc.go `SendMessage` bleibt unverändert, liest das Feld). Docstring von `TenantInboundUnaryInterceptor` korrigiert (lehnt nie selbst ab).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/server 1934 PASS, 0 SKIP, 21 DB-Testfunktionen real gelaufen; internal/server/... + middleware ok; internal/gateway ok inkl. TestOpenAPIRouteDrift, 0 SKIP) | migration n.a. | rls-smoke n.a.
+- coverage: internal/server 72,6 % -> 72,7 % (kein Coverage-Ziel, Bugfix)
+- mutations-probe: (1) Context-Anreicherung in `HandleWebSocket` entfernt -> alle drei neuen Tests rot (Subscribe/SendMessage/MarkRead); (2) `TenantId` in `handleSendMessage` geleert -> `TestHandleSendMessage_RequestPassesChatServerGuards` rot ("failed to send message"); beides zurückgedreht, Diff sauber
+- verify vorgaenger: n.a. — erste Iteration von Lauf 14, kein Loop-Commit davor (main-Commits seit 08-27 stammen von Luke)
+- neue-units: keine
+- offen: (1) Der authentifizierte WS-Sendepfad aus `fix-websocket-chat-send-message-missing-tenant-id` ist hiermit mit erledigt; dort bleiben nur die Gast-Pfade (`handleGuestSendMessage`, `route_guest.go`). (2) Die neuen Tests starten Server-Goroutinen (Hub über echten WS-Dial); Fakes melden nur über gepufferte Channels zurück, `channelMembers` wird unter Lock gelesen — abgenommen erst nach CI mit `-race`. (3) `cacheUserName` lief bisher ebenfalls ohne Tenant und dürfte unter RLS nie getroffen haben; läuft jetzt mit Tenant-Context (Nebeneffekt, gewollt).

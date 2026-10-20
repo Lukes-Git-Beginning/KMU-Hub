@@ -37,11 +37,21 @@ const wsTestSecret = "test-secret-minimum-32-characters!"
 type fakeChatClient struct {
 	chatv1.ChatServiceClient
 
-	getChannel func(ctx context.Context, in *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error)
+	getChannel      func(ctx context.Context, in *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error)
+	sendMessage     func(ctx context.Context, in *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error)
+	markChannelRead func(ctx context.Context, in *chatv1.MarkChannelReadRequest) (*chatv1.MarkChannelReadResponse, error)
 }
 
 func (f *fakeChatClient) GetChannel(ctx context.Context, in *chatv1.GetChannelRequest, _ ...grpc.CallOption) (*chatv1.GetChannelResponse, error) {
 	return f.getChannel(ctx, in)
+}
+
+func (f *fakeChatClient) SendMessage(ctx context.Context, in *chatv1.SendMessageRequest, _ ...grpc.CallOption) (*chatv1.SendMessageResponse, error) {
+	return f.sendMessage(ctx, in)
+}
+
+func (f *fakeChatClient) MarkChannelRead(ctx context.Context, in *chatv1.MarkChannelReadRequest, _ ...grpc.CallOption) (*chatv1.MarkChannelReadResponse, error) {
+	return f.markChannelRead(ctx, in)
 }
 
 // fakeGuestValidator implements GuestSessionValidator with a scripted outcome.
@@ -482,51 +492,158 @@ func TestCheckMsgRate_ReconnectResetsTheBucket(t *testing.T) {
 // Broadcast and tenant isolation
 // ---------------------------------------------------------------------------
 
-// TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService reproduces a
+// tenantFromCtx mirrors the guard every tenant-scoped ChatGRPCServer RPC opens
+// with (chat_grpc.go: middleware.GetTenantID -> codes.Unauthenticated). The
+// context it sees is the one the hub hands to the chat client, i.e. the one
+// TenantOutboundUnaryInterceptor turns into x-tenant-id metadata.
+func tenantFromCtx(ctx context.Context) (string, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return "", status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	return tenantID.String(), nil
+}
+
+// dialAuthed serves h and connects a client for userID in tenantID.
+func dialAuthed(t *testing.T, h *WebSocketHub, tm *auth.TokenMaker, userID uuid.UUID, tenantID string) *websocket.Conn {
+	t.Helper()
+
+	client, resp := dialHub(t, serveHub(t, h), issueToken(t, tm, userID, tenantID))
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	t.Cleanup(func() { _ = client.CloseNow() })
+	return client
+}
+
+// TestHandleSubscribeChannel_CarriesJWTTenantToChatService guards the fix for a
 // production defect: /api/v1/ws is registered without authMiddleware
-// (cmd/gateway/main.go), so r.Context() carries no middleware.TenantIDKey. The
-// hub hands that bare context to the chat client, and ChatGRPCServer.GetChannel
-// (internal/server/chat_grpc.go) rejects a missing tenant with Unauthenticated.
-// The fake below asserts exactly what the real server checks.
-func TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService(t *testing.T) {
-	var sawTenant bool
+// (cmd/gateway/main.go), so r.Context() carries no middleware.TenantIDKey, and
+// ChatGRPCServer.GetChannel rejected every subscribe with Unauthenticated.
+// HandleWebSocket now stamps the JWT's tenant and user onto the context.
+func TestHandleSubscribeChannel_CarriesJWTTenantToChatService(t *testing.T) {
+	tenantID := uuid.New().String()
+	userID := uuid.New()
+	channelID := uuid.New().String()
+
+	type seen struct{ tenant, user string }
+	calls := make(chan seen, 1)
 	chatClient := &fakeChatClient{
 		getChannel: func(ctx context.Context, _ *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error) {
-			if _, err := middleware.GetTenantID(ctx); err == nil {
-				sawTenant = true
-				return &chatv1.GetChannelResponse{}, nil
+			tenant, err := tenantFromCtx(ctx)
+			calls <- seen{tenant: tenant, user: middleware.GetUserID(ctx)}
+			if err != nil {
+				return nil, err
 			}
-			// Mirrors chat_grpc.go GetChannel's own guard.
-			return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+			return &chatv1.GetChannelResponse{}, nil
 		},
 	}
 
 	h, tm := newAuthTestHub(t, chatClient, time.Hour)
-	userID := uuid.New()
-	channelID := uuid.New().String()
-	wsURL := serveHub(t, h)
-
-	client, resp := dialHub(t, wsURL, issueToken(t, tm, userID, uuid.New().String()))
-	if resp != nil && resp.Body != nil {
-		_ = resp.Body.Close()
-	}
-	defer func() { _ = client.CloseNow() }()
+	client := dialAuthed(t, h, tm, userID, tenantID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	require.NoError(t, wsjson.Write(ctx, client, WSMessage{Type: WSSubscribeChannel, ChannelID: channelID}))
 
+	select {
+	case got := <-calls:
+		assert.Equal(t, tenantID, got.tenant, "the chat RPC must run under the tenant from the JWT")
+		assert.Equal(t, userID.String(), got.user, "the chat RPC must carry the authenticated user")
+	case <-ctx.Done():
+		t.Fatal("GetChannel was never called")
+	}
+
+	assert.True(t, waitFor(3*time.Second, func() bool {
+		h.mu.RLock()
+		defer h.mu.RUnlock()
+		_, subscribed := h.channelMembers[channelID][userID.String()]
+		return subscribed
+	}), "an accepted GetChannel must subscribe the caller")
+}
+
+// TestHandleSendMessage_RequestPassesChatServerGuards drives message.send end to
+// end and checks the request against what ChatGRPCServer.SendMessage demands:
+// it parses req.TenantId unconditionally and answers InvalidArgument when it is
+// empty, which made every WebSocket send fail. The sender subscribes first, so
+// receiving the message.new broadcast proves the send went through.
+func TestHandleSendMessage_RequestPassesChatServerGuards(t *testing.T) {
+	tenantID := uuid.New().String()
+	userID := uuid.New()
+	channelID := uuid.New().String()
+
+	sent := make(chan *chatv1.SendMessageRequest, 1)
+	chatClient := &fakeChatClient{
+		getChannel: func(ctx context.Context, _ *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error) {
+			if _, err := tenantFromCtx(ctx); err != nil {
+				return nil, err
+			}
+			return &chatv1.GetChannelResponse{}, nil
+		},
+		sendMessage: func(ctx context.Context, in *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) {
+			sent <- in
+			// Mirrors chat_grpc.go SendMessage's own guard.
+			if _, err := uuid.Parse(in.TenantId); err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+			}
+			if tenant, err := tenantFromCtx(ctx); err != nil || tenant != in.TenantId {
+				return nil, status.Error(codes.PermissionDenied, "request tenant does not match caller tenant")
+			}
+			return &chatv1.SendMessageResponse{Message: &chatv1.MessageInfo{Id: uuid.New().String(), Content: in.Content}}, nil
+		},
+	}
+
+	h, tm := newAuthTestHub(t, chatClient, time.Hour)
+	client := dialAuthed(t, h, tm, userID, tenantID)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, wsjson.Write(ctx, client, WSMessage{Type: WSSubscribeChannel, ChannelID: channelID}))
+	require.NoError(t, wsjson.Write(ctx, client, WSMessage{Type: WSMessageSend, ChannelID: channelID, Content: "hallo"}))
+
 	var got WSMessage
 	require.NoError(t, wsjson.Read(ctx, client, &got))
-	assert.Equal(t, WSError, got.Type)
-	assert.Equal(t, "cannot subscribe to channel", got.Error)
-	assert.False(t, sawTenant,
-		"the WebSocket path carries no tenant into the gRPC context — every chat RPC from the message loop fails closed")
+	require.Equal(t, WSMessageNew, got.Type, "expected the broadcast, got error frame %q", got.Error)
+	assert.Equal(t, channelID, got.ChannelID)
 
-	h.mu.RLock()
-	_, subscribed := h.channelMembers[channelID]
-	h.mu.RUnlock()
-	assert.False(t, subscribed, "a rejected GetChannel must not create a subscription")
+	req := <-sent
+	assert.Equal(t, tenantID, req.TenantId, "the request tenant must be the tenant from the JWT")
+	assert.Equal(t, userID.String(), req.CreatedBy)
+	assert.Nil(t, req.GuestSessionId, "an authenticated send must not take the guest path")
+}
+
+// TestHandleMarkRead_CarriesJWTTenantToChatService covers the other RPC of the
+// message loop that failed closed for want of a tenant in the context.
+func TestHandleMarkRead_CarriesJWTTenantToChatService(t *testing.T) {
+	tenantID := uuid.New().String()
+
+	tenants := make(chan string, 1)
+	chatClient := &fakeChatClient{
+		markChannelRead: func(ctx context.Context, _ *chatv1.MarkChannelReadRequest) (*chatv1.MarkChannelReadResponse, error) {
+			tenant, err := tenantFromCtx(ctx)
+			tenants <- tenant
+			if err != nil {
+				return nil, err
+			}
+			return &chatv1.MarkChannelReadResponse{}, nil
+		},
+	}
+
+	h, tm := newAuthTestHub(t, chatClient, time.Hour)
+	client := dialAuthed(t, h, tm, uuid.New(), tenantID)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, wsjson.Write(ctx, client, WSMessage{
+		Type: WSMarkRead, ChannelID: uuid.New().String(), MessageID: uuid.New().String(),
+	}))
+
+	select {
+	case tenant := <-tenants:
+		assert.Equal(t, tenantID, tenant)
+	case <-ctx.Done():
+		t.Fatal("MarkChannelRead was never called")
+	}
 }
 
 func TestHandleSubscribeChannel_EmptyChannelID_ReturnsErrorFrame(t *testing.T) {

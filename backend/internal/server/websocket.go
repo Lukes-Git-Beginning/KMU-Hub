@@ -363,16 +363,23 @@ func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// /api/v1/ws runs without the Auth middleware (the token arrives via
+	// Sec-WebSocket-Protocol, not the Authorization header), so the tenant and
+	// user it would have stamped onto the context are stamped here instead.
+	// TenantOutboundUnaryInterceptor forwards both to every chat RPC the
+	// message loop makes; without them the chat service fails closed.
+	ctx := context.WithValue(r.Context(), middleware.TenantIDKey, claims.TenantID)
+	ctx = context.WithValue(ctx, middleware.UserIDKey, userID)
+
 	// Register connection and cache user name
 	h.registerConnection(userID, conn)
 	h.registerUserTenant(userID, claims.TenantID)
-	h.cacheUserName(r.Context(), userID)
+	h.cacheUserName(ctx, userID)
 	defer h.unregisterConnection(userID, conn)
 
 	slog.Info("websocket connected", "user_id", userID)
 
 	// Handle messages
-	ctx := r.Context()
 	h.handleConnection(ctx, conn, userID, token)
 }
 
@@ -614,10 +621,18 @@ func (h *WebSocketHub) handleSendMessage(ctx context.Context, conn *websocket.Co
 		return
 	}
 
+	// SendMessage reads the tenant from the request, not from the context.
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		h.sendError(ctx, conn, "failed to send message")
+		return
+	}
+
 	grpcReq := &chatv1.SendMessageRequest{
 		ChannelId: msg.ChannelID,
 		Content:   msg.Content,
 		CreatedBy: userID,
+		TenantId:  tenantID.String(),
 	}
 
 	if msg.ParentMessageID != "" {
