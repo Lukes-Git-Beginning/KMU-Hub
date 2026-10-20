@@ -769,13 +769,10 @@ func TestResetPassword_TokenIsBoundToItsUser(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestRequestPasswordReset_ASecondRequestDoesNotKillTheFirstToken records a
-// property worth knowing before it is discovered in an incident: asking for a
-// reset twice leaves BOTH links usable until one is spent or an hour passes.
-// Whoever reads the older mail (a shared mailbox, a forwarded message) can
-// still take the account over. Pinned as-is; the fix is a backlog unit
-// (harden-password-reset-invalidate-previous-tokens).
-func TestRequestPasswordReset_ASecondRequestDoesNotKillTheFirstToken(t *testing.T) {
+// TestRequestPasswordReset_ASecondRequestKillsTheFirstToken pins that only the
+// newest reset link works: whoever reads an older mail (a shared mailbox, a
+// forwarded message) must not be able to take the account over.
+func TestRequestPasswordReset_ASecondRequestKillsTheFirstToken(t *testing.T) {
 	svc, repo := newAuthPathsService()
 	mailer := &mockMailer{}
 	svc.SetMailer(mailer)
@@ -789,10 +786,12 @@ func TestRequestPasswordReset_ASecondRequestDoesNotKillTheFirstToken(t *testing.
 	secondLink := mailer.lastLink
 
 	require.NotEqual(t, firstLink, secondLink)
-	assert.Len(t, repo.passwordResetTokens, 2,
-		"the first token is not invalidated by the second request")
+	assert.Len(t, repo.passwordResetTokens, 2)
 
 	first := firstLink[len(firstLink)-64:]
-	assert.NoError(t, svc.ResetPassword(context.Background(), first, "taken-over-password"),
-		"the OLDER link still works")
+	assert.ErrorIs(t, svc.ResetPassword(context.Background(), first, "taken-over-password"),
+		ErrResetTokenUsed, "the OLDER link is spent")
+	second := secondLink[len(secondLink)-64:]
+	assert.NoError(t, svc.ResetPassword(context.Background(), second, "a-fresh-password"),
+		"the newest link works")
 }

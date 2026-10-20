@@ -224,6 +224,9 @@ type Repository interface {
 	CreatePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error
 	GetPasswordResetToken(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error)
 	MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) error
+	// InvalidateOpenPasswordResetTokens spends every still-open reset token of
+	// the user so that only the link of the newest request works.
+	InvalidateOpenPasswordResetTokens(ctx context.Context, tenantID, userID uuid.UUID) error
 
 	// Session management methods
 	CreateSession(ctx context.Context, session *models.UserSession) error

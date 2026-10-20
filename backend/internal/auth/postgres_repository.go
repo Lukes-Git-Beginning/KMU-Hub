@@ -1491,6 +1491,16 @@ func (r *PostgresRepository) MarkPasswordResetTokenUsed(ctx context.Context, id 
 	return err
 }
 
+// InvalidateOpenPasswordResetTokens filters on tenant_id explicitly: the reset
+// path runs under sysctx.With, where RLS admits every tenant's rows.
+func (r *PostgresRepository) InvalidateOpenPasswordResetTokens(ctx context.Context, tenantID, userID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE password_reset_tokens SET used_at = NOW()
+		 WHERE tenant_id = $1 AND user_id = $2 AND used_at IS NULL`, tenantID, userID,
+	)
+	return err
+}
+
 // Two-factor policy methods
 
 // GetTwoFactorPolicy and ListTwoFactorPolicies filter on tenant_id explicitly

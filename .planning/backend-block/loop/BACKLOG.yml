@@ -1085,7 +1085,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 20 belegt
       (`TestRequestPasswordReset_ASecondRequestDoesNotKillTheFirstToken`):
