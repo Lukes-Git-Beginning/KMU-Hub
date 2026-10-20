@@ -1784,7 +1784,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
     scope: >
       Fund aus cov-berichte-repository-and-grpc (Iteration 37): `PostgresRepository.

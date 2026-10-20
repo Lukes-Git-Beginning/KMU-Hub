@@ -85,7 +85,7 @@ func main() {
 			"env_var", "SYSTEM_SMTP_HOST")
 	}
 
-	sched := scheduler.New(repo, svc, delivery.NewExporter(), schedMailer, scheduler.Config{})
+	sched := scheduler.New(repo, svc, delivery.NewExporter(), schedMailer, scheduler.Config{CacheSweeper: repo})
 
 	schedCtx, schedCancel := context.WithCancel(ctx)
 	go func() {

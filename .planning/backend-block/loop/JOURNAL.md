@@ -318,3 +318,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 25, 6b74c077: `AND signature_data IS NULL` + tenant-gescopte EXISTS-Unterscheidung, Mapping auf FailedPrecondition, OpenAPI-409 ergänzt, kein Proto/Guard/Migration)
 - neue-units: keine
 - offen: (1) Verhaltensänderung: bereits ausgegebene Share-Links auf gelöschte Dateien liefern nun den generischen ungültigen Link; wird die Datei per Recovery wiederhergestellt (`is_deleted=false`), funktioniert der Link wieder. (2) Der 409 beim Erzeugen unterscheidet sich im Text nicht von „Datei existiert nicht" (404); das FE behandelt ihn nicht gesondert (nicht geprüft). (3) Keine Goroutinen in neuen Tests.
+
+## Iteration 27 — fix-berichte-report-cache-never-purged — done — 2026-10-20 21:58
+- commit: `fix(berichte): sweep expired report cache rows periodically` (SHA via `git log`)
+- gebaut: `scheduler.Config` bekommt `CacheSweeper` (Interface mit `DeleteExpiredCacheEntries`) und `CacheSweepEvery` (Default 1 h). `Scheduler.Run` ruft nach jedem Tick `maybeSweepCache`, das höchstens einmal je Intervall löscht (erster Tick sofort, Fehler wird geloggt und erst im nächsten Intervall wiederholt). `cmd/berichte/main.go` übergibt das Postgres-Repo als Sweeper. Läuft im System-Kontext des Schedulers, damit der Sweep tenantübergreifend greift. Keine neue Route, kein Proto, keine Migration, kein Guard.
+- gate: build ok (berichte, cmd/berichte, -p 2) | vet ok | lint ok (0 issues) | test ok (internal/berichte/..., DATABASE_URL als kmuhub_app, 0 SKIP; gateway-Test n.a., keine Route) | migration n.a. | rls-smoke n.a. (Test `..._RemovesOnlyExpiredRows` läuft real als kmuhub_app und belegt den tenantübergreifenden Delete)
+- coverage: internal/berichte/scheduler 91,6 % -> 93,6 % (Bugfix-Unit, kein Coverage-Ziel; Vorher-Wert per stash -u)
+- mutations-probe: (1) Throttle-Bedingung durch `false` ersetzt -> Throttle-/Error-/Default-Intervall-Tests rot; (2) Cutoff `now.Add(-24h)` statt `now` -> `..._ThrottledToInterval` und DB-Test `..._RemovesOnlyExpiredRows` rot; per cp-Sicherung zurückgedreht, `cmp` sauber
+- verify vorgaenger: sauber (Iteration 26, 782dbaa5: IsDeleted-Prüfung in CreateShareLink/RedeemShareLink, kein Proto/Route-Neuanlage/Guard/Migration, OpenAPI-409 ergänzt)
+- neue-units: keine
+- offen: (1) Die Verdrahtung in `main.go` ist nur durch den Compiler abgesichert, kein Test startet `cmd/berichte`. (2) `report_cache` wird in Produktion erst nach dem nächsten Deploy bereinigt; der erste Sweep löscht den angesammelten Bestand in einem DELETE (Index `idx_report_cache_expires` vorhanden). (3) Keine Goroutinen in neuen Tests.
