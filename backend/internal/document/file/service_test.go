@@ -1361,18 +1361,15 @@ func TestSetEventEmitter_EmitsOnUpload(t *testing.T) {
 	assert.Equal(t, event.EventDocumentUploaded, emitter.events[0].Type)
 }
 
-// --- Deleted-file gaps in the share link paths ---
+// --- Deleted files and share links ---
 //
-// Every other read path that starts from a tenant-scoped repo.GetByID
-// (GetDownloadURL, LinkToEntity, Move, Copy, CreateVersion, RevertVersion)
-// checks file.IsDeleted immediately after and refuses with ErrFileDeleted.
-// CreateShareLink and RedeemShareLink do not. Delete() deliberately keeps the
-// object in MinIO to allow recovery — which means a "deleted" file stays
-// reachable through any share link that already existed, and a brand new
-// public link can still be minted for it after deletion. These two tests
-// pin the CURRENT behavior; see the filed fix-unit for the actual guard.
+// Delete() deliberately keeps the object in MinIO to allow recovery, and
+// repo.GetByID does not filter soft-deleted rows. Both share link paths
+// therefore have to check file.IsDeleted themselves, like every other read
+// path: no new public link for a deleted file, and no download through a link
+// that was minted before the delete.
 
-func TestCreateShareLink_DeletedFile_NotRejected(t *testing.T) {
+func TestCreateShareLink_DeletedFile_Rejected(t *testing.T) {
 	svc, repo, _ := newTestService()
 	tenant := uuid.New()
 	file := seedFileForTenant(repo, tenant)
@@ -1380,22 +1377,27 @@ func TestCreateShareLink_DeletedFile_NotRejected(t *testing.T) {
 
 	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
 
-	require.NoError(t, err, "gap: CreateShareLink does not check file.IsDeleted")
-	require.NotNil(t, link)
+	require.ErrorIs(t, err, ErrFileDeleted)
+	assert.Nil(t, link)
 }
 
-func TestRedeemShareLink_DeletedFile_StillDownloadable(t *testing.T) {
+func TestRedeemShareLink_DeletedFile_LinkIsDead(t *testing.T) {
 	svc, repo, _ := newTestService()
 	tenant := uuid.New()
 	file := seedFileForTenant(repo, tenant)
 	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
 	require.NoError(t, err)
 
+	dl, err := svc.RedeemShareLink(context.Background(), link.Token, "")
+	require.NoError(t, err, "link works while the file is live")
+	require.NotNil(t, dl)
+
 	require.NoError(t, svc.Delete(context.Background(), file.ID, tenant))
 
-	dl, err := svc.RedeemShareLink(context.Background(), link.Token, "")
+	dl, err = svc.RedeemShareLink(context.Background(), link.Token, "")
 
-	require.NoError(t, err, "gap: RedeemShareLink does not check file.IsDeleted, so the link outlives the delete")
-	require.NotNil(t, dl)
-	assert.Equal(t, file.Filename, dl.Filename)
+	// Same error as every other invalid case: the public route must not reveal
+	// that the file was deleted.
+	require.ErrorIs(t, err, ErrShareLinkInvalid)
+	assert.Nil(t, dl)
 }

@@ -30652,7 +30652,13 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          description: >-
+            The file is deleted (no new link can be created for it), or a
+            request with this Idempotency-Key is still being processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
