@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -1288,11 +1289,25 @@ const activeBookingStatusSQL = `('booked', 'in_use')`
 // only touch at the boundary (ends_at == starts_at) do NOT overlap -- handing
 // the keys over at 12:00 has to stay possible. Same reasoning as
 // produktion.FindConflictingBooking, which also explains why this is arithmetic
-// rather than tstzrange && : btree_gist is not guaranteed to be installed in
-// every deployment target.
+// rather than tstzrange && -- the probe stays here so the error can name the
+// conflicting booking. The vehicle_bookings_no_overlap constraint (000329)
+// enforces the same rule for writes that do not take the advisory lock.
 //
 // Placeholders are fixed at $3 = startsAt, $4 = endsAt in both callers.
 const bookingOverlapPredicate = `starts_at < $4 AND ends_at > $3`
+
+// pgErrCodeExclusionViolation is raised by the vehicle_bookings_no_overlap constraint (000329).
+const pgErrCodeExclusionViolation = "23P01"
+
+// asBookingConflict maps an exclusion violation to ErrBookingConflict so that a write losing
+// a race against a concurrent booking surfaces like the application-side conflict check.
+func asBookingConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgErrCodeExclusionViolation {
+		return ErrBookingConflict
+	}
+	return err
+}
 
 func (r *PostgresRepository) CreateBookingWithLock(ctx context.Context, b *VehicleBooking) (*uuid.UUID, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
@@ -1340,7 +1355,7 @@ func (r *PostgresRepository) CreateBookingWithLock(ctx context.Context, b *Vehic
 		b.Purpose, string(b.Status), b.CreatedBy, b.CreatedAt, b.UpdatedAt,
 	)
 	if insertErr != nil {
-		return nil, fmt.Errorf("insert booking: %w", insertErr)
+		return nil, fmt.Errorf("insert booking: %w", asBookingConflict(insertErr))
 	}
 	if ct.RowsAffected() == 0 {
 		return nil, ErrDriverNotFound
@@ -1386,7 +1401,7 @@ func (r *PostgresRepository) UpdateBooking(ctx context.Context, b *VehicleBookin
 		b.ID, b.TenantID, b.StartsAt, b.EndsAt, b.Purpose, string(b.Status), b.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("update booking: %w", err)
+		return fmt.Errorf("update booking: %w", asBookingConflict(err))
 	}
 	if ct.RowsAffected() == 0 {
 		return ErrBookingNotFound
