@@ -13,6 +13,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/automation/action"
 	"github.com/kmuhub/kmuhub/internal/automation/condition"
 	"github.com/kmuhub/kmuhub/internal/automation/workflow"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
@@ -89,6 +90,15 @@ func NewWorkflowEngine(
 // Execute runs a single automation workflow for a given event.
 // This method satisfies the trigger.EngineExecutor interface.
 func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, evt models.EventPayload) error {
+	// The consumer/poller hand us a background context with no request behind it.
+	// Stamp the automation's tenant under the same key the Auth middleware uses, so
+	// the outbound gRPC interceptor forwards x-tenant-id and the pool's tenant hook
+	// sees the right tenant. A nil tenant is left unset: the target RPC then
+	// rejects the call instead of acting for the zero tenant.
+	if auto.TenantID != uuid.Nil {
+		ctx = context.WithValue(ctx, middleware.TenantIDKey, auto.TenantID.String())
+	}
+
 	// Loop prevention: skip events from the automation module itself
 	if evt.ModuleID == event.ModuleAutomation {
 		slog.Debug("skipping automation-triggered event (loop prevention)",

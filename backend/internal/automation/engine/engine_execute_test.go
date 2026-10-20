@@ -15,6 +15,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/automation/action"
 	"github.com/kmuhub/kmuhub/internal/automation/condition"
 	"github.com/kmuhub/kmuhub/internal/automation/workflow"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -378,4 +379,45 @@ func TestExecute_MaxStepsReached_StopsAtLimitAndLogsAborted(t *testing.T) {
 	exec := singleExec(t, execRepo)
 	assert.Equal(t, models.ExecutionStatusAborted, exec.Status)
 	require.NotNil(t, exec.ErrorMessage)
+}
+
+// ============================================================================
+// Tenant context
+// ============================================================================
+
+// tenantCapturingExecutor records the tenant the action's context carries, the
+// way a gRPC-backed action would see it through its outbound interceptor.
+type tenantCapturingExecutor struct {
+	typ    string
+	tenant chan uuid.UUID
+	err    chan error
+}
+
+func (c *tenantCapturingExecutor) Type() string { return c.typ }
+func (c *tenantCapturingExecutor) Execute(ctx context.Context, _ json.RawMessage, _ map[string]any) (action.ActionResult, error) {
+	id, err := middleware.GetTenantID(ctx)
+	c.tenant <- id
+	c.err <- err
+	return action.ActionResult{Success: true}, nil
+}
+
+func TestExecute_StampsAutomationTenantOnActionContext(t *testing.T) {
+	exec := &tenantCapturingExecutor{typ: "test_block", tenant: make(chan uuid.UUID, 1), err: make(chan error, 1)}
+	eng := newEngineWith(&mockWorkflowRepo{}, newFakeExecRepo(), exec)
+
+	tenantID := uuid.New()
+	// A background context mirrors consumer.go: no request, no tenant.
+	require.NoError(t, eng.Execute(context.Background(), makeAutomation(tenantID), makeEvent()))
+
+	require.NoError(t, <-exec.err)
+	assert.Equal(t, tenantID, <-exec.tenant)
+}
+
+func TestExecute_NilTenantLeavesContextUnstamped(t *testing.T) {
+	exec := &tenantCapturingExecutor{typ: "test_block", tenant: make(chan uuid.UUID, 1), err: make(chan error, 1)}
+	eng := newEngineWith(&mockWorkflowRepo{}, newFakeExecRepo(), exec)
+
+	require.NoError(t, eng.Execute(context.Background(), makeAutomation(uuid.Nil), makeEvent()))
+
+	assert.ErrorIs(t, <-exec.err, middleware.ErrMissingTenantID)
 }

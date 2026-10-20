@@ -3226,7 +3226,7 @@ units:
     service: automation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `fix-createevent-never-sets-tenant-id` (Lauf 14, Iteration 3), am Code
