@@ -591,10 +591,28 @@ func TestListMembers_Success(t *testing.T) {
 	addMemberToRepo(repo, inbox.ID, uuid.New(), "member")
 	addMemberToRepo(repo, inbox.ID, uuid.New(), "member")
 
-	members, err := svc.ListMembers(context.Background(), inbox.ID)
+	members, err := svc.ListMembers(context.Background(), inbox.TenantID, inbox.ID, uuid.New())
 
 	require.NoError(t, err)
 	assert.Len(t, members, 3)
+}
+
+func TestListMembers_PrivateInboxRequiresMembership(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID := uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	inbox.Visibility = "private"
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+
+	_, err := svc.ListMembers(context.Background(), inbox.TenantID, inbox.ID, uuid.New())
+	require.ErrorIs(t, err, ErrNotTeamMember)
+
+	members, err := svc.ListMembers(context.Background(), inbox.TenantID, inbox.ID, adminID)
+	require.NoError(t, err)
+	assert.Len(t, members, 1)
 }
 
 // ============================================================================

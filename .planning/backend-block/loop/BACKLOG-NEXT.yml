@@ -1092,3 +1092,44 @@ units:
     done_when:
       - Je Gruppe (1) bis (5) steht die Entscheidung mit Datum in dieser Unit
       - Je Ja ist ein Plan mit Backup/Rollback oder eine spitze Unit angelegt
+
+  - id: harden-inbox-message-user-scoping
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      Sichtbarkeitsregel fuer Einzelnachrichten ist eine Produktentscheidung (Luke): sichtbar =
+      Eigentuemer ODER zugewiesen ODER Mitglied der Team-Inbox der Nachricht? Ohne Vorgabe wuerde
+      der Fix Team-Inbox-Nachrichten fuer Mitglieder unsichtbar machen.
+    target: "BACKLOG.yml nach Entscheidung Luke"
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core). `ListMessages` und
+      `GetUnreadCount` filtern auf `user_id`; alle Einzelnachrichten-RPCs (`GetMessage`,
+      `MarkRead`/`MarkUnread`, `ToggleStar`, `SetMessageStatus`, `Add/RemoveMessageTag`,
+      `Archive`/`Unarchive`, `Snooze`/`Unsnooze`, `ReplyToMessage`, `ForwardMessage`,
+      `ListThreadMessages`, Bulk*) scopen dagegen NUR auf `tenant_id` (`message.Service.GetByID`
+      nimmt keine user_id). Der Gateway reicht `user_id` mit, der Server ignoriert ihn
+      (`GetMessageRequest.user_id` existiert im Proto). Wer die UUID einer Nachricht eines
+      Kollegen kennt, kann sie lesen (Vorschau, Absender, Thread-Text), archivieren, taggen
+      oder als sich selbst beantworten. UUIDs sind nicht ratbar -- das ist Defense-in-Depth,
+      kein offener Cross-Tenant-Zugriff; Cross-Tenant ist durch Tests belegt dicht
+      (`TestInboxMessageRPCs_ForeignTenantSeesNotFound`). Team-Inbox-Nachrichten gehoeren
+      fachlich mehreren Nutzern (Mitglieder, Zugewiesene) -- die Sichtbarkeitsregel ist eine
+      Produktentscheidung.
+    sources:
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/inbox/message/service.go
+      - backend/internal/inbox/message/postgres_repository.go
+    notes: >
+      Vor dem Bauen die Regel festlegen: sichtbar = Eigentuemer ODER zugewiesen ODER Mitglied der
+      Team-Inbox der Nachricht. Wenn Luke das nicht vorgibt: `blocked` mit dieser Frage.
+      Wegen `RequirePermissionAny`-Kompatibilitaet keine Guards anfassen.
+    done_when:
+      - >-
+        Ein Test belegt: Nutzer B (gleicher Tenant, nicht Eigentuemer, nicht Mitglied) bekommt
+        NotFound auf GetMessage/Reply/Archive einer Nachricht von Nutzer A
+      - Team-Mitglied und Zugewiesener behalten Zugriff (Test)
+      - go test -count=1 ./internal/server/ ./internal/inbox/... ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips

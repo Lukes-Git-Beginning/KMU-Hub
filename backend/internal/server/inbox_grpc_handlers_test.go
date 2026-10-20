@@ -441,7 +441,7 @@ func TestTeamInbox_LifecycleAndAdminGate(t *testing.T) {
 	teamID := created.TeamInbox.Id
 
 	// The creator is auto-added as admin.
-	members, err := srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: teamID})
+	members, err := srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: teamID, UserId: admin.String()})
 	require.NoError(t, err)
 	require.Len(t, members.Members, 1)
 	require.Equal(t, admin.String(), members.Members[0].UserId)
@@ -541,7 +541,7 @@ func TestTeamInbox_MemberManagementRequiresInboxAdmin(t *testing.T) {
 	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, UserId: attacker.String(), MemberUserId: member.String()})
 	requireGRPCCode(t, err, codes.PermissionDenied)
 
-	members, err := srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: teamID})
+	members, err := srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: teamID, UserId: member.String()})
 	require.NoError(t, err)
 	require.Len(t, members.Members, 2)
 
@@ -605,8 +605,49 @@ func TestTeamInbox_Guards(t *testing.T) {
 	requireGRPCCode(t, err, codes.InvalidArgument)
 	_, err = srv.RemoveTeamMember(ctx, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: id, UserId: id, MemberUserId: bad})
 	requireGRPCCode(t, err, codes.InvalidArgument)
-	_, err = srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: bad})
+	_, err = srv.ListTeamMembers(no, &inboxv1.ListTeamMembersRequest{TeamInboxId: id, UserId: id})
 	requireGRPCCode(t, err, codes.InvalidArgument)
+	_, err = srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: bad, UserId: id})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+	_, err = srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: id, UserId: bad})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+}
+
+// The member list of a private team inbox is only visible to its members; an
+// open inbox lists for any caller, and a foreign tenant sees nothing at all.
+func TestListTeamMembers_PrivateInboxHidesMembersFromOutsiders(t *testing.T) {
+	srv, _ := newTestInboxServer()
+	ctx := tenantCtx(uuid.New())
+	admin, member, outsider := uuid.New(), uuid.New(), uuid.New()
+
+	create := func(name string, vis inboxv1.TeamInboxVisibility) string {
+		created, err := srv.CreateTeamInbox(ctx, &inboxv1.CreateTeamInboxRequest{UserId: admin.String(), Name: name, Visibility: vis})
+		require.NoError(t, err)
+		_, err = srv.AddTeamMember(ctx, &inboxv1.AddTeamMemberRequest{TeamInboxId: created.TeamInbox.Id, UserId: admin.String(), MemberUserId: member.String()})
+		require.NoError(t, err)
+		return created.TeamInbox.Id
+	}
+	privateID := create("Intern", inboxv1.TeamInboxVisibility_VISIBILITY_PRIVATE)
+	openID := create("Offen", inboxv1.TeamInboxVisibility_VISIBILITY_OPEN)
+
+	_, err := srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: privateID, UserId: outsider.String()})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+
+	for _, uid := range []uuid.UUID{admin, member} {
+		resp, err := srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: privateID, UserId: uid.String()})
+		require.NoError(t, err)
+		require.Len(t, resp.Members, 2)
+	}
+
+	resp, err := srv.ListTeamMembers(ctx, &inboxv1.ListTeamMembersRequest{TeamInboxId: openID, UserId: outsider.String()})
+	require.NoError(t, err)
+	require.Len(t, resp.Members, 2)
+
+	other := tenantCtx(uuid.New())
+	for _, id := range []string{privateID, openID} {
+		_, err = srv.ListTeamMembers(other, &inboxv1.ListTeamMembersRequest{TeamInboxId: id, UserId: admin.String()})
+		requireGRPCCode(t, err, codes.NotFound)
+	}
 }
 
 // ============================================================================

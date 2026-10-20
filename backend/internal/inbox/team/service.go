@@ -263,8 +263,23 @@ func (s *Service) RemoveMember(ctx context.Context, tenantID, teamInboxID, actor
 	return s.repo.RemoveMember(ctx, teamInboxID, userID)
 }
 
-// ListMembers returns all members of a team inbox.
-func (s *Service) ListMembers(ctx context.Context, teamInboxID uuid.UUID) ([]*models.TeamInboxMember, error) {
+// ListMembers returns all members of a team inbox. The inbox must exist in the
+// tenant (NotFound for foreign inboxes); the member list of a private inbox is
+// only visible to its own members.
+func (s *Service) ListMembers(ctx context.Context, tenantID, teamInboxID, actorID uuid.UUID) ([]*models.TeamInboxMember, error) {
+	inbox, err := s.repo.GetTeamInbox(ctx, tenantID, teamInboxID)
+	if err != nil {
+		return nil, err
+	}
+	if inbox.Visibility == "private" {
+		isMember, err := s.repo.IsMember(ctx, teamInboxID, actorID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			return nil, ErrNotTeamMember
+		}
+	}
 	return s.repo.ListMembers(ctx, teamInboxID)
 }
 

@@ -900,12 +900,22 @@ func (s *InboxGRPCServer) RemoveTeamMember(ctx context.Context, req *inboxv1.Rem
 }
 
 func (s *InboxGRPCServer) ListTeamMembers(ctx context.Context, req *inboxv1.ListTeamMembersRequest) (*inboxv1.ListTeamMembersResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	actorID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
 	teamInboxID, err := uuid.Parse(req.TeamInboxId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
 	}
 
-	members, err := s.teamService.ListMembers(ctx, teamInboxID)
+	members, err := s.teamService.ListMembers(ctx, tenantID, teamInboxID, actorID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}

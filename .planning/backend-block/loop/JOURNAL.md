@@ -896,3 +896,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 63, 3ed73f86: Retention-Transaktion + Test, kein Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: (1) Wire-Änderung am Proto (`Struct` → `ListValue` auf Feld 5/6): Gateway und notification-Binary müssen gemeinsam deployt werden (CD tut das; bei Rolling-Deploy wäre ein Zeitfenster mit inkompatiblem Feld möglich — Routing-Regeln ließen sich bis dahin ohnehin nicht anlegen). (2) Antwortform: Gateway liefert `response.Proto` (`{rule:{…}}`), die Spec beschreibt `RoutingRule` direkt — nicht angefasst, FE-Abgleich nicht geprüft. (3) `inbox_grpc.pb.go` zeigt unter Windows nur ein Zeilenende-Artefakt, nicht committet.
+
+## Iteration 65 — harden-inbox-team-list-members-private-scope — done — 2026-10-21 00:29
+- commit: `fix(inbox): hide private team inbox member lists from non-members` (SHA via `git log`)
+- gebaut: `team.Service.ListMembers(ctx, tenantID, teamInboxID, actorID)` prüft jetzt per `GetTeamInbox` (NotFound für fremde Tenants) und verlangt bei `visibility=private` Mitgliedschaft des Aufrufers (`ErrNotTeamMember` → PermissionDenied/403); offene Inboxen listen wie bisher. `ListTeamMembers` im Server liest Tenant aus dem Kontext und `user_id` aus dem Request (Gateway setzt ihn bereits). `openapi.yaml`: 403/404 am GET ergänzt.
+  - Vorab: `harden-inbox-message-user-scoping` auf `blocked` gesetzt und nach `BACKLOG-NEXT.yml` verschoben (Sichtbarkeitsregel für Einzelnachrichten = Produktentscheidung).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/inbox/...`, `./internal/server/`, `./internal/gateway/` inkl. OpenAPIRouteDrift, DATABASE_URL als kmuhub_app) | swagger-cli validate ok | backlog-check preflight ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/inbox/team Vorher nicht gemessen -> 66,5 % (Härtungs-Unit, kein Coverage-Ziel)
+- mutations-probe: `if inbox.Visibility == "private"` auf `if false && …` ⇒ `TestListMembers_PrivateInboxRequiresMembership` und `TestListTeamMembers_PrivateInboxHidesMembersFromOutsiders` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 64, 525d944a: Proto + regeneriertes `.pb.go`, kein neuer Guard/Route/Migration, Spec angepasst)
+- neue-units: keine
+- offen: (1) Zweite Frage aus der Unit bleibt bei Luke: soll `kommunikation:team_inbox:manage` das Team-Admin-Recht ersetzen (Tenant-Admin ohne Team-Admin-Rolle wird bei Add/Remove/Update/Delete abgewiesen)? (2) Der `team.Service`-Mock prüft den Tenant nicht — Tenant-Isolation für `ListMembers` ist nur im Server-Test mit dem Stub-Repo belegt, nicht gegen Postgres. (3) FE: ein Nicht-Mitglied bekommt bei privaten Inboxen jetzt 403 statt Liste — Handling nicht geprüft.
