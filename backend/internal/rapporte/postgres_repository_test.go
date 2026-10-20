@@ -444,6 +444,30 @@ func TestRemoveWorker_RemovesRowAndRejectsUnknownID(t *testing.T) {
 	}
 }
 
+func TestAddWorker_RejectsReportIDFromAnotherTenant(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctxA, tenantA := setupRapporteRepo(t)
+	tenantB := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantB, "Rapporte Repo Test Tenant B")
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+	reportB := newTestReport(t, repo, ctxB, pool, tenantB, "Bericht Tenant B", StatusDraft)
+
+	if _, err := repo.AddWorker(ctxA, tenantA, reportB.ID, "Eindringling", "Elektriker", 8); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for a report owned by another tenant, got %v", err)
+	}
+	workers, err := repo.ListWorkers(ctxB, tenantB, reportB.ID)
+	if err != nil {
+		t.Fatalf("ListWorkers (tenant B): %v", err)
+	}
+	if len(workers) != 0 {
+		t.Fatalf("expected tenant B's report to stay without workers, got %+v", workers)
+	}
+
+	if _, err := repo.AddWorker(ctxA, tenantA, uuid.New(), "Unbekannt", "", 0); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for an unknown report, got %v", err)
+	}
+}
+
 // ============================================================================
 // Measurements
 // ============================================================================
@@ -705,6 +729,46 @@ func TestAddMeasurementPosition_RejectsMeasurementIDFromAnotherTenant(t *testing
 	// An outright unknown measurement is rejected the same way.
 	if _, err := repo.AddMeasurementPosition(ctxA, tenantA, uuid.New(), 1, "Unbekannt", "m2", 1, 1); !errors.Is(err, ErrMeasurementNotFound) {
 		t.Fatalf("expected ErrMeasurementNotFound for an unknown measurement, got %v", err)
+	}
+}
+
+func TestCreateMeasurement_ReportIDMustBelongToCallerTenant(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctxA, tenantA := setupRapporteRepo(t)
+	tenantB := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantB, "Rapporte Repo Test Tenant B")
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+	reportB := newTestReport(t, repo, ctxB, pool, tenantB, "Bericht Tenant B", StatusDraft)
+	reportA := newTestReport(t, repo, ctxA, pool, tenantA, "Bericht Tenant A", StatusDraft)
+
+	if _, err := repo.CreateMeasurement(ctxA, tenantA, &reportB.ID, "Fremdes Aufmass", "", "", "", ""); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for a report owned by another tenant, got %v", err)
+	}
+	unknown := uuid.New()
+	if _, err := repo.CreateMeasurement(ctxA, tenantA, &unknown, "Unbekannt", "", "", "", ""); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for an unknown report, got %v", err)
+	}
+	foreign, _, err := repo.ListMeasurements(ctxB, tenantB, &reportB.ID, 1, 50)
+	if err != nil {
+		t.Fatalf("ListMeasurements (tenant B): %v", err)
+	}
+	if len(foreign) != 0 {
+		t.Fatalf("expected tenant B's report to stay without measurements, got %d", len(foreign))
+	}
+
+	// Own report and a missing report_id (nil) are still accepted.
+	own, err := repo.CreateMeasurement(ctxA, tenantA, &reportA.ID, "Eigenes Aufmass", "Halle 1", "", "2026-10-20", "")
+	if err != nil {
+		t.Fatalf("CreateMeasurement with own report: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurements", own.ID) })
+	free, err := repo.CreateMeasurement(ctxA, tenantA, nil, "Freies Aufmass", "", "", "", "")
+	if err != nil {
+		t.Fatalf("CreateMeasurement without report_id: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurements", free.ID) })
+	if free.ReportID != nil {
+		t.Fatalf("expected nil report_id to stay nil, got %v", free.ReportID)
 	}
 }
 

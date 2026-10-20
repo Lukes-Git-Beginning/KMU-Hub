@@ -728,6 +728,46 @@ func TestService_UploadAttachment_Success(t *testing.T) {
 	assert.Equal(t, "foto.jpg", att.Filename)
 }
 
+func TestService_UploadAttachment_LineOfAnotherReport_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	rep := addReport(repo, tenantID, "Bericht", StatusDraft)
+	other := addReport(repo, tenantID, "Anderer Bericht", StatusDraft)
+	otherLine, err := svc.AddLine(context.Background(), AddLineInput{
+		TenantID: tenantID, ReportID: other.ID, Description: "Position", Quantity: 1, Unit: "h",
+	})
+	require.NoError(t, err)
+
+	input := UploadAttachmentInput{
+		TenantID:    tenantID,
+		ReportID:    rep.ID,
+		LineID:      &otherLine.ID,
+		Filename:    "foto.jpg",
+		ContentType: "image/jpeg",
+		SizeBytes:   1024,
+		ObjectKey:   "tenants/" + tenantID.String() + "/rapporte/" + rep.ID.String() + "/foto.jpg",
+		UploadedBy:  uuid.New(),
+	}
+	_, err = svc.UploadAttachment(context.Background(), input)
+	assert.ErrorIs(t, err, ErrLineNotFound, "a line of another report must be rejected")
+
+	unknown := uuid.New()
+	input.LineID = &unknown
+	_, err = svc.UploadAttachment(context.Background(), input)
+	assert.ErrorIs(t, err, ErrLineNotFound, "an unknown line must be rejected")
+
+	ownLine, err := svc.AddLine(context.Background(), AddLineInput{
+		TenantID: tenantID, ReportID: rep.ID, Description: "Eigene Position", Quantity: 1, Unit: "h",
+	})
+	require.NoError(t, err)
+	input.LineID = &ownLine.ID
+	att, err := svc.UploadAttachment(context.Background(), input)
+	require.NoError(t, err)
+	assert.Equal(t, &ownLine.ID, att.LineID)
+}
+
 // Bug #2: Cross-tenant MinIO path validation
 func TestService_UploadAttachment_CrossTenantPath_Rejected(t *testing.T) {
 	repo := newMockRepository()
