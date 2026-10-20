@@ -22,9 +22,13 @@ type MockRepository struct {
 	files      []models.ChatSearchResult
 	channelIDs []uuid.UUID
 	searchErr  error
+
+	// searchedChannels records the channel scope handed to SearchMessages.
+	searchedChannels []uuid.UUID
 }
 
-func (m *MockRepository) SearchMessages(_ context.Context, _ string, _ string, _ []uuid.UUID, limit, offset int) ([]models.ChatSearchResult, int, error) {
+func (m *MockRepository) SearchMessages(_ context.Context, _ string, _ string, channelIDs []uuid.UUID, limit, offset int) ([]models.ChatSearchResult, int, error) {
+	m.searchedChannels = channelIDs
 	if m.searchErr != nil {
 		return nil, 0, m.searchErr
 	}
@@ -220,20 +224,9 @@ func TestService_Search(t *testing.T) {
 		assert.Len(t, results, 3)
 	})
 
-	// VERIFIED FINDING (not fixed in this coverage unit, see
-	// fix-chat-search-channel-filter-bypasses-membership at the end of
-	// BACKLOG.yml): when the caller supplies ChannelID explicitly, Search
-	// never calls GetUserChannelIDs to check membership -- it searches that
-	// channel directly. Contrast with bookmark.Service.Toggle
-	// (internal/chat/bookmark/service.go), which reuses message.Service's
-	// GetByID specifically because GetByID enforces tenant AND channel
-	// membership before returning a message. Search has no equivalent check
-	// for the explicit-channel path, so any authenticated user can read
-	// message/file snippets from a channel they were never added to just by
-	// knowing or guessing its UUID. This test proves the CURRENT (buggy)
-	// behaviour: repo.GetUserChannelIDs is never even queried, and content
-	// from the "foreign" channel comes back regardless.
-	t.Run("BUG: explicit channel_id bypasses membership check", func(t *testing.T) {
+	// An explicit channel_id only narrows the caller's own channels. A channel
+	// the caller never joined must read as empty, whatever the repo holds for it.
+	t.Run("explicit channel_id outside the caller's memberships returns nothing", func(t *testing.T) {
 		foreignChannel := uuid.New() // caller is NOT a member of this channel
 		msgID := uuid.New()
 
@@ -252,8 +245,7 @@ func TestService_Search(t *testing.T) {
 				},
 			},
 		}
-		detector := &MockDetector{lang: "german"}
-		svc := NewService(repo, detector)
+		svc := NewService(repo, &MockDetector{lang: "german"})
 
 		results, total, err := svc.Search(context.Background(), SearchInput{
 			Query:     "content",
@@ -264,11 +256,43 @@ func TestService_Search(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		// This SHOULD be 0 (membership check should reject the request), but
-		// it is not -- documenting the leak until the fix-unit lands.
-		assert.Equal(t, 1, total, "membership bypass: foreign channel content was returned")
+		assert.Equal(t, 0, total)
+		assert.Empty(t, results)
+		assert.Nil(t, repo.searchedChannels, "no search may run for a channel the caller is not in")
+	})
+
+	t.Run("explicit channel_id of a member channel searches only that channel", func(t *testing.T) {
+		own := uuid.New()
+		msgID := uuid.New()
+
+		repo := &MockRepository{
+			channelIDs: []uuid.UUID{own, uuid.New()},
+			messages: []models.ChatSearchResult{
+				{
+					Type:      models.ChatSearchResultMessage,
+					ID:        msgID,
+					ChannelID: own,
+					Score:     0.8,
+					Snippet:   "<mark>content</mark>",
+					CreatedAt: time.Now(),
+					MessageID: &msgID,
+				},
+			},
+		}
+		svc := NewService(repo, &MockDetector{lang: "german"})
+
+		results, total, err := svc.Search(context.Background(), SearchInput{
+			Query:     "content",
+			UserID:    uuid.New(),
+			ChannelID: &own,
+			Page:      1,
+			PageSize:  20,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, total)
 		require.Len(t, results, 1)
-		assert.Equal(t, foreignChannel, results[0].ChannelID)
+		assert.Equal(t, []uuid.UUID{own}, repo.searchedChannels, "scope must be narrowed to the requested channel, not all memberships")
 	})
 
 	t.Run("language detection used for query", func(t *testing.T) {

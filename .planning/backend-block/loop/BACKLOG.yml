@@ -848,7 +848,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix)"
     scope: >
       Befund aus `cov-gateway-chat-reactions-bookmarks-search` (Iteration 11), verifiziert
