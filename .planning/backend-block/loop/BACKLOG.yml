@@ -3361,7 +3361,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Retention-Luecke, kein Coverage-Ziel)
     scope: >
       Gefunden in Iteration 20 beim Bauen von `fix-form-webhook-deliveries-unbounded-retention`.

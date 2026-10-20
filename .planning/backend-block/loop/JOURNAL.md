@@ -874,3 +874,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 61, 9d080798: Mapping-Case + Test + Spec, kein Proto/Guard/Migration/Route)
 - neue-units: keine
 - offen: Lokal kein `-race` — Abnahme des Flakes erst nach CI. Der Fehler war lokal nur in 2 von 5 vollen Paketläufen sichtbar; 5 Läufe grün sind ein Indiz, kein Beweis.
+
+## Iteration 63 — fix-form-submission-anonymize-leaves-webhook-delivery-payload — done — 2026-10-21 00:50
+- commit: `fix(gdpr): scrub webhook delivery payloads when anonymizing form submissions` (SHA via `git log`)
+- gebaut: `FormSubmissionRetentionHandler.Apply` (anonymize) läuft jetzt in einer Transaktion (`anonymize`): neben `form_submissions` wird `form_webhook_deliveries.payload` der betroffenen Submissions (tenant-gescoped) auf `{}` gesetzt. Entscheidung zu offenen Rows: pending/failed werden dabei auf `dead` mit `last_error = 'submission anonymized by retention policy'` gesetzt — der Worker claimt nur `pending`, es geht also nie eine leere Payload raus; `dead` ist final und fällt später unter den Delivery-Delete-Handler. delivered/dead verlieren nur das Payload.
+  - Test: `TestFormSubmissionRetentionHandler_ApplyAnonymizeScrubsWebhookDeliveryPayloads` (echte DB, vier Status, fremder Tenant inkl. fremder Submission-ID im Aufruf bleibt unangetastet).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/security/...`, `./internal/formulare/...` mit `-p 1`, 0 Skips, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst; Tenant-Isolation im Test belegt)
+- coverage: internal/security/gdpr n.a. (Retention-Lücke, kein Coverage-Ziel; nachher 73,5 %, Vorher nicht gemessen)
+- mutations-probe: (a) `SET payload = '{}'` → `SET payload = payload` ⇒ Test rot; (b) Status-Übergang `pending/failed → dead` entfernt ⇒ Test rot; beide zurückgedreht, Diff sauber (nur Fix).
+- verify vorgaenger: sauber (Iteration 62, 3ba429e0: nur websocket.go, ein Lock-Abschnitt, kein Proto/Guard/Migration/Route)
+- neue-units: keine
+- offen: (1) Paralleles `go test ./internal/security/... ./internal/formulare/...` ohne `-p 1` lief lokal in `remaining connection slots are reserved` (Postgres-Slot-Limit) — kein Codefehler, mit `-p 1` grün. (2) Bereits anonymisierte Submissions (`anonymized_at` gesetzt) werden von Plan nicht mehr erfasst; deren Delivery-Payloads aus früheren Läufen bleiben bis zur Delete-Policy bestehen — kein Backfill gebaut. (3) FE: Deliveries-Ansicht zeigt für anonymisierte pending-Rows jetzt Status `dead`; nicht geprüft.

@@ -127,3 +127,67 @@ func seedFormWebhookDelivery(t *testing.T, pool *pgxpool.Pool, tenantID, webhook
 	})
 	return id
 }
+
+// fix-form-submission-anonymize-leaves-webhook-delivery-payload: anonymizing
+// a submission must not leave its answers behind in the delivery payload.
+// Final rows lose the payload only; owed rows (pending/failed) are closed as
+// dead instead of being delivered empty; a foreign tenant's delivery of the
+// same-shaped submission is untouched.
+func TestFormSubmissionRetentionHandler_ApplyAnonymizeScrubsWebhookDeliveryPayloads(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Form Anonymize Delivery Scrub Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+	webhookID, submissionID, cleanupParents := seedFormWebhookParents(t, pool, tenantID)
+	defer cleanupParents()
+
+	otherTenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, otherTenantID, "Form Anonymize Delivery Scrub Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", otherTenantID)
+	otherWebhookID, otherSubmissionID, cleanupOtherParents := seedFormWebhookParents(t, pool, otherTenantID)
+	defer cleanupOtherParents()
+
+	now := time.Now().UTC()
+	delivered := seedFormWebhookDelivery(t, pool, tenantID, webhookID, submissionID, "delivered", now)
+	dead := seedFormWebhookDelivery(t, pool, tenantID, webhookID, submissionID, "dead", now)
+	pending := seedFormWebhookDelivery(t, pool, tenantID, webhookID, submissionID, "pending", now)
+	failed := seedFormWebhookDelivery(t, pool, tenantID, webhookID, submissionID, "failed", now)
+	foreign := seedFormWebhookDelivery(t, pool, otherTenantID, otherWebhookID, otherSubmissionID, "pending", now)
+	for _, id := range []uuid.UUID{delivered, dead, pending, failed, foreign} {
+		defer testutil.CleanupRow(t, pool, "form_webhook_deliveries", id)
+	}
+
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	handler := NewFormSubmissionRetentionHandler(pool)
+	// The foreign submission id is passed in on purpose: the tenant filter must hold.
+	affected, err := handler.Apply(ctx, tenantID, []uuid.UUID{submissionID, otherSubmissionID}, models.RetentionActionAnonymize, "Geloeschte Einreichung 1")
+	require.NoError(t, err)
+	assert.Equal(t, 1, affected)
+
+	sys := testutil.WithSystemCtx(context.Background())
+	read := func(id uuid.UUID) (payload, status string, lastError *string) {
+		require.NoError(t, pool.QueryRow(sys,
+			`SELECT payload::text, status::text, last_error FROM form_webhook_deliveries WHERE id = $1`, id,
+		).Scan(&payload, &status, &lastError))
+		return payload, status, lastError
+	}
+
+	for id, wantStatus := range map[uuid.UUID]string{delivered: "delivered", dead: "dead", pending: "dead", failed: "dead"} {
+		payload, status, lastError := read(id)
+		assert.JSONEq(t, `{}`, payload, "no delivery of the anonymized submission may keep the answers")
+		assert.Equal(t, wantStatus, status)
+		if wantStatus == "dead" && id != dead {
+			require.NotNil(t, lastError)
+			assert.Contains(t, *lastError, "anonymized")
+		}
+	}
+
+	payload, status, _ := read(foreign)
+	assert.Contains(t, payload, "person@example.com", "another tenant's delivery must stay untouched")
+	assert.Equal(t, "pending", status)
+}
