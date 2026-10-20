@@ -110,6 +110,9 @@ func (r *stubCampaignRepo) SetContactCallback(_ context.Context, _, _ uuid.UUID,
 func (r *stubCampaignRepo) SkipContact(_ context.Context, _, _ uuid.UUID) error                                { return nil }
 func (r *stubCampaignRepo) RequeueContact(_ context.Context, _, _ uuid.UUID) error                             { return nil }
 func (r *stubCampaignRepo) IncrementContactCallCount(_ context.Context, _, _ uuid.UUID) error                  { return nil }
+func (r *stubCampaignRepo) ListStaleInProgressContacts(_ context.Context, _ time.Time, _ int) ([]dialer.StaleContact, error) {
+	return nil, nil
+}
 func (r *stubCampaignRepo) GetCampaignContactByID(_ context.Context, id, _ uuid.UUID) (*dialer.CampaignContact, error) {
 	if cc, ok := r.contacts[id]; ok { return cc, nil }
 	return nil, dialer.ErrCampaignContactNotFound

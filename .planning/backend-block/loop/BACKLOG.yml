@@ -2404,7 +2404,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Feature-Luecke, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von

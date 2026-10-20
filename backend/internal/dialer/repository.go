@@ -33,6 +33,10 @@ type CampaignRepository interface {
 	RequeueContact(ctx context.Context, id, tenantID uuid.UUID) error
 	IncrementContactCallCount(ctx context.Context, id, tenantID uuid.UUID) error
 	GetCampaignContactByID(ctx context.Context, id, tenantID uuid.UUID) (*CampaignContact, error)
+	// ListStaleInProgressContacts returns, across all tenants, contacts that have
+	// been in_progress since before cutoff with no open call session newer than
+	// cutoff. Cross-tenant by design: call it under sysctx.
+	ListStaleInProgressContacts(ctx context.Context, cutoff time.Time, limit int) ([]StaleContact, error)
 
 	// Aggregate stats and denormalized counts
 	GetCampaignStats(ctx context.Context, tenantID, campaignID uuid.UUID) (*CampaignStats, error)

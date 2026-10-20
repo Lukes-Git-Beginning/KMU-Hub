@@ -122,6 +122,11 @@ type Config struct {
 	// Meetings with active participants are never closed by the sweeper regardless.
 	MeetingAutocloseGraceMinutes int `env:"MEETING_AUTOCLOSE_GRACE_MINUTES,default=15"`
 
+	// DialerStaleContactMinutes is how long a campaign contact may sit in_progress
+	// (with no open call session) before the dialer's reaper requeues it. 0 = reaper
+	// off. Off by default: a window shorter than a real call would requeue live calls.
+	DialerStaleContactMinutes int `env:"DIALER_STALE_CONTACT_MINUTES,default=0"`
+
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
 	LiveKitAPISecret string `env:"LIVEKIT_API_SECRET,default="`

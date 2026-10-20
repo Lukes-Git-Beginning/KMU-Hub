@@ -365,6 +365,35 @@ func (r *PostgresCampaignRepository) GetCampaignContactByID(ctx context.Context,
 	return cc, err
 }
 
+func (r *PostgresCampaignRepository) ListStaleInProgressContacts(ctx context.Context, cutoff time.Time, limit int) ([]StaleContact, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT dcc.id, dcc.tenant_id
+		 FROM dialer_campaign_contacts dcc
+		 WHERE dcc.status = 'in_progress' AND dcc.updated_at < $1
+		   AND NOT EXISTS (
+		       SELECT 1 FROM dialer_call_sessions s
+		       WHERE s.campaign_contact_id = dcc.id
+		         AND s.outcome_id IS NULL AND s.updated_at >= $1)
+		 ORDER BY dcc.updated_at
+		 LIMIT $2`,
+		cutoff, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]StaleContact, 0)
+	for rows.Next() {
+		var sc StaleContact
+		if err := rows.Scan(&sc.ID, &sc.TenantID); err != nil {
+			return nil, err
+		}
+		out = append(out, sc)
+	}
+	return out, rows.Err()
+}
+
 func (r *PostgresCampaignRepository) IncrementContactCallCount(ctx context.Context, id, tenantID uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts

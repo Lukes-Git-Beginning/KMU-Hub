@@ -125,6 +125,9 @@ func (r *mockCampaignRepo) GetCampaignContactByID(_ context.Context, id, _ uuid.
 	}
 	return nil, ErrCampaignContactNotFound
 }
+func (r *mockCampaignRepo) ListStaleInProgressContacts(_ context.Context, _ time.Time, _ int) ([]StaleContact, error) {
+	return nil, nil
+}
 func (r *mockCampaignRepo) GetCampaignStats(_ context.Context, _, _ uuid.UUID) (*CampaignStats, error) {
 	if r.stats != nil {
 		return r.stats, nil

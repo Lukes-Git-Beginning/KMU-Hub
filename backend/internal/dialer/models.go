@@ -120,6 +120,13 @@ type CallSession struct {
 	WrapUpCompletedAt *time.Time
 }
 
+// StaleContact identifies a campaign contact stuck in_progress, together with
+// the tenant it belongs to (the reaper runs across all tenants).
+type StaleContact struct {
+	ID       uuid.UUID
+	TenantID uuid.UUID
+}
+
 // CallEvent represents a timestamped event within a call session.
 type CallEvent struct {
 	ID                  uuid.UUID
