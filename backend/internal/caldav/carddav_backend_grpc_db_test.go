@@ -24,16 +24,16 @@ package caldav
 // way the JWT middleware does. realCardDAVCtx below builds its context through
 // that exact production injector, so the tests here exercise the real request
 // path rather than a hand-rolled approximation -- and, along the way, found a
-// second bug: ListContacts'
-// PageSize:1000 (comment: "Reasonable limit for CalDAV sync") is silently
-// clamped to 20 server-side (contact.Service.ListWithVisibility,
-// service.go:722), and CardDAV's ListAddressObjects never paginates, so any
-// address book past 20 contacts syncs incomplete with no error.
+// second bug: ListContacts' PageSize:1000 was silently clamped to 20
+// server-side (contact.Service.ListWithVisibility), so any address book past
+// 20 contacts synced incomplete with no error. ListAddressObjects now pages.
 
 import (
 	"context"
 	"fmt"
 	"net"
+	"path"
+	"strings"
 	"testing"
 
 	"github.com/emersion/go-vcard"
@@ -244,26 +244,34 @@ func TestListAddressObjects_CompanyBook_ReturnsAllSharedRegardlessOfOwner(t *tes
 	assert.Len(t, objs, 2, "company book must show every shared contact of the tenant regardless of owner, and exclude personal ones")
 }
 
-// TestListAddressObjects_PersonalBook_SilentlyTruncatesPast20 documents a
-// second, independent bug found while answering the scope question above:
-// ListAddressObjects requests PageSize:1000 ("Reasonable limit for CalDAV
-// sync", carddav_backend.go) but contact.Service.ListWithVisibility clamps
-// any PageSize > 100 down to the default of 20 (service.go:722). CardDAV
-// never reads the response's Total or paginates, so a user with more than 20
-// personal contacts gets a silently incomplete address book sync -- no
-// error, no indication anything is missing.
-func TestListAddressObjects_PersonalBook_SilentlyTruncatesPast20(t *testing.T) {
+// TestListAddressObjects_PersonalBook_PagesThroughEveryContact guards the
+// sync completeness of a large book: contact.Service.ListWithVisibility caps a
+// page at 100 (anything above falls back to 20), so ListAddressObjects has to
+// page until Total is reached. All rows share one created_at -- the default
+// sort key -- so the listing is only stable across pages because of the id
+// tiebreaker; without it OFFSET paging duplicates and drops rows.
+func TestListAddressObjects_PersonalBook_PagesThroughEveryContact(t *testing.T) {
 	f := newCardDAVCRMFixture(t)
 	me := f.seedUser(t)
-	const seeded = 25
+	const seeded = 205 // two full pages of 100 plus a partial third
+	want := make(map[string]bool, seeded)
 	for i := range seeded {
-		f.seedContact(t, me, "personal", "Bulk", fmt.Sprintf("Contact%02d", i))
+		id := f.seedContact(t, me, "personal", "Bulk", fmt.Sprintf("Contact%03d", i))
+		want[id.String()] = true
 	}
+	tenantCtx := testutil.WithTenantCtx(context.Background(), f.tenantID)
+	_, err := f.pool.Exec(tenantCtx, `UPDATE contacts SET created_at = '2026-01-01T00:00:00Z' WHERE owner_id = $1`, me)
+	require.NoError(t, err)
 
 	objs, err := f.backend.ListAddressObjects(f.realCardDAVCtx(t, me), personalPath(me), nil)
 
 	require.NoError(t, err)
-	assert.Len(t, objs, 20, "BUG: server-side PageSize clamp (service.go:722) silently truncates CardDAV's requested 1000 down to 20; %d contacts were seeded but ListAddressObjects has no pagination to recover the rest", seeded)
+	require.Len(t, objs, seeded, "every personal contact must reach the CardDAV client, not just the first page")
+	got := make(map[string]bool, seeded)
+	for _, o := range objs {
+		got[strings.TrimSuffix(path.Base(o.Path), ".vcf")] = true
+	}
+	assert.Equal(t, want, got, "no contact may be duplicated or dropped between pages")
 }
 
 // ============================================================================

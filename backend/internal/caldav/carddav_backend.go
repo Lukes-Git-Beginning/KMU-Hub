@@ -152,6 +152,10 @@ func (b *CardDAVBackend) GetAddressObject(ctx context.Context, path string, req 
 	}, nil
 }
 
+// addressBookPageSize is the largest page contact.Service honours; anything
+// above it is clamped to the default of 20.
+const addressBookPageSize = 100
+
 // ListAddressObjects returns all contacts in an address book.
 func (b *CardDAVBackend) ListAddressObjects(ctx context.Context, path string, req *carddav.AddressDataRequest) ([]carddav.AddressObject, error) {
 	userID := UserFromCtx(ctx)
@@ -163,7 +167,7 @@ func (b *CardDAVBackend) ListAddressObjects(ctx context.Context, path string, re
 	}
 
 	listReq := &crmv1.ListContactsRequest{
-		PageSize: 1000, // Reasonable limit for CalDAV sync
+		PageSize: addressBookPageSize,
 		UserId:   userID.String(),
 	}
 
@@ -174,22 +178,32 @@ func (b *CardDAVBackend) ListAddressObjects(ctx context.Context, path string, re
 		listReq.VisibilityFilter = "shared"
 	}
 
-	resp, err := client.ListContacts(ctx, listReq)
-	if err != nil {
-		return nil, grpcToWebDAVError(err)
-	}
+	// The CRM service caps a page at 100 and falls back to 20 beyond that, so
+	// a sync must page through the book until Total is reached. Stopping at the
+	// first page would hand the client a silently incomplete address book.
+	objects := make([]carddav.AddressObject, 0)
+	for page := int32(1); ; page++ {
+		listReq.Page = page
+		resp, err := client.ListContacts(ctx, listReq)
+		if err != nil {
+			return nil, grpcToWebDAVError(err)
+		}
 
-	objects := make([]carddav.AddressObject, 0, len(resp.Contacts))
-	for _, contact := range resp.Contacts {
-		card := contactInfoToVCard(contact)
-		modTime := parseContactUpdatedAt(contact.UpdatedAt)
+		for _, contact := range resp.Contacts {
+			card := contactInfoToVCard(contact)
+			modTime := parseContactUpdatedAt(contact.UpdatedAt)
 
-		objects = append(objects, carddav.AddressObject{
-			Path:    fmt.Sprintf("/carddav/principals/%s/addressbooks/%s/%s.vcf", userID.String(), bookType, contact.Id),
-			ModTime: modTime,
-			ETag:    GenerateETag(uuid.MustParse(contact.Id), modTime),
-			Card:    card,
-		})
+			objects = append(objects, carddav.AddressObject{
+				Path:    fmt.Sprintf("/carddav/principals/%s/addressbooks/%s/%s.vcf", userID.String(), bookType, contact.Id),
+				ModTime: modTime,
+				ETag:    GenerateETag(uuid.MustParse(contact.Id), modTime),
+				Card:    card,
+			})
+		}
+
+		if len(resp.Contacts) == 0 || len(objects) >= int(resp.Total) {
+			break
+		}
 	}
 
 	return objects, nil

@@ -145,9 +145,9 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 	query := fmt.Sprintf(`
 		SELECT `+contactColumns+`
 		FROM contacts %s
-		ORDER BY %s %s
+		ORDER BY %s %s, id %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, orderBy, direction, argNum, argNum+1)
+	`, whereClause, orderBy, direction, direction, argNum, argNum+1)
 
 	args = append(args, limit, offset)
 
@@ -269,9 +269,9 @@ func (r *PostgresRepository) ListWithVisibility(ctx context.Context, userID uuid
 	query := fmt.Sprintf(`
 		SELECT `+contactColumns+`
 		FROM contacts %s
-		ORDER BY %s %s
+		ORDER BY %s %s, id %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, orderBy, direction, argNum, argNum+1)
+	`, whereClause, orderBy, direction, direction, argNum, argNum+1)
 
 	args = append(args, limit, offset)
 

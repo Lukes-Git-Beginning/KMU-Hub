@@ -1181,3 +1181,67 @@ func TestRepository_Delete_MergedPrimaryContact_DB(t *testing.T) {
 		t.Fatalf("duplicate.merged_into_id = %v after its primary was deleted, want NULL (ON DELETE SET NULL)", *mergedInto)
 	}
 }
+
+// A bulk import writes many contacts in one statement, so they share one
+// created_at -- the default sort key. Offset paging over a non-unique sort key
+// duplicates and drops rows between pages; the id tiebreaker makes every page
+// boundary stable. CardDAV's full-book sync depends on this.
+func TestRepository_ListWithVisibility_TiedSortKeyPagesWithoutDuplicatesOrGaps(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "CRM Contact Tied Sort Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantID,
+		"email":         fmt.Sprintf("crm-contact-tied-%s@tenant.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	const seeded, pageSize = 60, 7
+	want := make(map[uuid.UUID]bool, seeded)
+	for i := range seeded {
+		id := testutil.SeedRow(t, pool, "contacts", map[string]any{
+			"tenant_id":  tenantID,
+			"first_name": "Tied",
+			"last_name":  fmt.Sprintf("Contact%03d", i),
+			"visibility": "shared",
+			"created_by": userID,
+		})
+		want[id] = true
+		defer testutil.CleanupRow(t, pool, "contacts", id)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE contacts SET created_at = '2026-01-01T00:00:00Z' WHERE tenant_id = $1`, tenantID); err != nil {
+		t.Fatalf("pin created_at: %v", err)
+	}
+
+	got := make(map[uuid.UUID]int, seeded)
+	for offset := 0; offset < seeded; offset += pageSize {
+		page, total, err := repo.ListWithVisibility(ctx, userID, true, ListFilter{TenantID: tenantID}, offset, pageSize)
+		if err != nil {
+			t.Fatalf("ListWithVisibility offset %d: %v", offset, err)
+		}
+		if total != seeded {
+			t.Fatalf("total = %d, want %d", total, seeded)
+		}
+		for _, c := range page {
+			got[c.ID]++
+		}
+	}
+	for id, n := range got {
+		if n != 1 || !want[id] {
+			t.Errorf("contact %s returned %d times (expected exactly once)", id, n)
+		}
+	}
+	if len(got) != seeded {
+		t.Errorf("paged %d distinct contacts, want %d", len(got), seeded)
+	}
+}
