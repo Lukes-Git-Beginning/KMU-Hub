@@ -3468,7 +3468,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-10-20
     decision: >-
       Folge-Unit aus `scan-409-conflict-error-mapping` (Iteration 47). Der Scan hat die
@@ -5030,3 +5030,47 @@ units:
       - >-
         Keine Beschreibung ausser Befehls- und Feldnamen nennt "KMU Hub"; TestOpenAPIRouteDrift
         gruen und swagger-cli validate gruen
+
+  - id: fix-openapi-409-business-conflict-description-remaining-mappers
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-10-21
+    decision: >-
+      Rest aus `fix-openapi-409-business-conflict-description` (Iteration 66): dort sind die neun
+      Mapper mit Dublette UND Zustandskonflikt umgestellt (33 Operationen, Komponente
+      `ConflictOrIdempotencyInFlight`, Liste `hooks/openapi-409-business-ops.txt`). Offen sind die
+      uebrigen Mapper und die zwei Inline-Faelle.
+    coverage_start: "n.a. (OpenAPI-/Skript-Unit, kein Coverage-Ziel)"
+    scope: >
+      Dieselbe Umstellung fuer die Mapper, die in Iteration 66 nicht dran waren: mapBizError
+      (QuoteAlreadyConverted), bankAccountError, mapEInvoiceError, mapChatError, mapDialerError,
+      mapEinkaufError, mapError/auth, mapHelpdeskError, mapInventarError, mapPluginError,
+      mapProduktionError, mapProduktionExtError, mapVertraegeError, mapWikiError, mapWorkError,
+      mapSchichtenError, mapBexioError/mapLexwareError (SyncAlreadyRunning), security
+      (ExportAlreadyPending, CreateRetentionPolicy inline). Verfahren wie in Iteration 66: pro
+      Sentinel die Funktionen im Sentinel-Paket finden, die ihn zurueckgeben (plus Aufrufer im
+      selben Paket), dann die Server-Methoden, die ueber ein Feld des richtigen Pakets
+      (`s.<feld>.<Methode>(`) dorthin kommen, dann die Gateway-Handler, die diesen RPC rufen
+      (temporaerer Test mit `chi.Walk` + `endpointFuncKey` wie in
+      `openapi_status_code_drift_test.go`, danach loeschen). Namensgleiche Methoden
+      (`Create`, `Update`) liefern Fehlalarme - jeden Treffer am Quellcode gegenpruefen.
+      Neue Operationen in `hooks/openapi-409-business-ops.txt` eintragen.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/server/
+      - .planning/backend-block/loop/hooks/openapi-409-business-ops.txt
+      - .planning/backend-block/loop/hooks/openapi-status-fill.py
+    notes: >
+      Nur Ops umstellen, deren Handler den RPC-Fehler tatsaechlich durchreicht
+      (`respondGRPCError`) und bei denen der Sentinel nicht verschluckt wird (in Iteration 66
+      war `event.ErrAlreadyAttendee` in `Create` nur ein `slog.Warn` - kein 409 am Draht, und
+      `POST /customization/fields` laeuft ueber einen anderen RPC als `POST /custom-fields`).
+      Operationen mit eigener 409-description (email/labels, hr/employees, hr/change-requests)
+      bleiben unveraendert. Danach `swagger-cli validate backend/api/openapi.yaml`
+      (`npx --yes @apidevtools/swagger-cli validate ...`) und `go test -count=1 ./internal/gateway/`.
+    done_when:
+      - Operationen der genannten Mapper mit fachlichem 409 zeigen auf `ConflictOrIdempotencyInFlight`, Liste in `openapi-409-business-ops.txt` nachgezogen
+      - swagger-cli validate gruen, go test -count=1 ./internal/gateway/ gruen

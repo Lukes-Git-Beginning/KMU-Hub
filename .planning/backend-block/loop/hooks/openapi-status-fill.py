@@ -63,6 +63,22 @@ IDEMPOTENCY_WHITELIST_SUBSTRINGS = ("/auth/login", "/auth/refresh", "/auth/2fa")
 WOPI_PATH_PREFIX = "/wopi/"
 
 
+# Operationen mit fachlichem 409 (Dublette / Zustandskonflikt): bei fehlendem 409 bekommen sie
+# die Komponente ConflictOrIdempotencyInFlight, nicht IdempotencyInFlight. Das Skript
+# schreibt vorhandene Eintraege nie um, die Liste greift also nur bei einer Neueinfuegung.
+BUSINESS_CONFLICT_REF = "ConflictOrIdempotencyInFlight"
+BUSINESS_CONFLICT_FILE = Path(__file__).resolve().with_name("openapi-409-business-ops.txt")
+
+
+def load_business_conflict_ops():
+    ops = set()
+    for line in BUSINESS_CONFLICT_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            ops.add(line)
+    return ops
+
+
 def parse_spec(lines):
     """Baut einen Index ueber alle Operationen des paths:-Blocks: "METHOD /pfad"
     -> {responses_line, entries: [(code, zeilenindex), ...], block_end}.
@@ -204,7 +220,7 @@ def last_content_line_before(block_end, lines):
     return idx
 
 
-def plan_insertions(spec_ops, wanted, lines):
+def plan_insertions(spec_ops, wanted, lines, business_ops=frozenset()):
     """wanted: Liste aus (method, path, code). Gibt (insertions, skipped)
     zurueck. insertions: Liste aus (zeilenindex, [neue_zeilen]), noch nicht
     nach Position gruppiert. skipped: Liste aus ((method, path, code), grund)."""
@@ -241,7 +257,9 @@ def plan_insertions(spec_ops, wanted, lines):
         for anchor, group_codes in groups.items():
             new_lines = []
             for code in sorted(group_codes):
-                new_lines.extend(entry_lines(code, newline_of(lines)))
+                new_lines.extend(
+                    entry_lines(code, newline_of(lines), op_key in business_ops)
+                )
             insertions.append((anchor, new_lines))
 
     return insertions, skipped
@@ -258,8 +276,10 @@ def newline_of(lines):
     return "\n"
 
 
-def entry_lines(code, newline):
+def entry_lines(code, newline, business_conflict=False):
     ref = REF_FOR_CODE[code]
+    if code == 409 and business_conflict:
+        ref = BUSINESS_CONFLICT_REF
     return [
         f'        "{code}":{newline}',
         f'          $ref: "#/components/responses/{ref}"{newline}',
@@ -337,7 +357,9 @@ def main():
         if code == 409 and any(excluded.values()):
             exclusion_report.append((code, excluded))
 
-    insertions, skipped = plan_insertions(spec_ops, wanted, lines)
+    insertions, skipped = plan_insertions(
+        spec_ops, wanted, lines, load_business_conflict_ops()
+    )
 
     inserted_count_by_code = {}
     inserted_count_by_group = {}
