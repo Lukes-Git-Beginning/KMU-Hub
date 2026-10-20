@@ -3858,7 +3858,7 @@ units:
     service: security/gdpr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Erasure-Luecke, kein Coverage-Ziel)"
     scope: >
       Nebenbefund aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52).
