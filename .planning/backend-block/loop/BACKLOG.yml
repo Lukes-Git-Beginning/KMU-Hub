@@ -2280,69 +2280,12 @@ units:
         `TestGetNextAnonymizedLabel_IncrementsPerCall` bleibt unveraendert gruen
       - go test -count=1 ./internal/security/gdpr/ gruen, DATABASE_URL gesetzt, 0 Skips
 
-  - id: feat-alerts-backup-dead-mans-switch
-    phase: 4
-    service: deploy
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-08-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-08-24: eine der ZWEI namentlich freigegebenen Ausnahmen von der
-      `deploy/`-Sperre. Begruendung: `backup.sh` alarmiert seit Lauf 11 per Webhook
-      (`trap on_exit EXIT` plus `send_alert()`), aber NUR wenn das Skript selbst laeuft.
-      Genau das Szenario, das den zweimonatigen MinIO-Ausfall unbemerkt liess — der Cron-Job
-      laeuft gar nicht mehr an, also feuert kein `on_exit` und kein Alarm — bleibt strukturell
-      moeglich. `docs/operations/BACKUP.md:52-54` sagt das selbst.
-      Freigegeben ist AUSSCHLIESSLICH eine neue Regel in
-      `deploy/docker/prometheus/rules/alerts.yml`. KEINE Compose-Aenderung, KEIN neues Env,
-      KEINE config.RequireX-Assertion, KEIN Anfassen von backup.sh.
-    coverage_start: "n.a. (Ops-Regel, kein Coverage-Ziel)"
-    scope: >
-      `deploy/docker/prometheus/rules/alerts.yml` fuehrt heute neun Regeln (`ServiceDown`,
-      `HighErrorRate`, `HighLatencyP99`, `DBConnectionsHigh`, `HighMemoryUsage`,
-      `HighGoroutineCount`, `GRPCHighErrorRate`, `HighWSConnectionCount`, `WSAuthFailures`) —
-      keine davon betrifft das Backup.
-      Zu bauen ist ein Dead-Man's-Switch: eine Regel, die feuert, wenn seit mehr als
-      26 Stunden kein erfolgreicher Backup-Lauf gemeldet wurde. 26 statt 24, damit eine
-      normale Laufzeitschwankung des taeglichen Jobs keinen Fehlalarm ausloest.
-      ZUERST ERMITTELN, NICHT ANNEHMEN: gibt es ueberhaupt eine Metrik, an der die Regel
-      haengen kann? Prometheus sieht nur, was ihm jemand liefert. Wenn `backup.sh` keine
-      Metrik schreibt (Pushgateway, Textfile-Collector, node_exporter), dann ist die Regel
-      ohne Datenquelle wertlos — und die ehrliche Antwort ist, die Unit auf `blocked` zu
-      setzen mit `blocked_reason`, der genau das sagt, statt eine Regel zu schreiben, die
-      niemals feuern kann. Das waere schlimmer als keine Regel: eine stille Zusage.
-    sources:
-      - deploy/docker/prometheus/rules/alerts.yml
-      - deploy/scripts/backup.sh
-      - docs/operations/BACKUP.md
-      - deploy/docker/
-    notes: >
-      Das ist eine der wenigen Stellen dieses Laufs, an denen die richtige Antwort
-      "geht nicht, hier ist der Grund" sein kann. Sie ist dann ein vollwertiges Ergebnis.
-      Die uebrigen `deploy/`-Dateien bleiben gesperrt. Auch wenn beim Lesen von `backup.sh`
-      etwas auffaellt: als Feststellung ins Journal, nicht als Aenderung.
-      Kein Test moeglich (Prometheus laeuft nicht im Gate). Der Beleg ist stattdessen:
-      `promtool check rules` auf die Datei, falls verfuegbar — sonst eine sorgfaeltige
-      Syntaxpruefung gegen die neun bestehenden Regeln als Vorlage.
-    done_when:
-      - >-
-        Ob eine Metrik existiert, an der eine Backup-Regel haengen kann, ist ermittelt und im
-        Journal belegt (mit Fundstelle oder mit der Feststellung, dass keine existiert)
-      - >-
-        Existiert eine Datenquelle: die Regel steht in alerts.yml, ist syntaktisch geprueft und
-        ihr Schwellwert ist begruendet
-      - >-
-        Existiert keine: die Unit ist blocked mit einem blocked_reason, der sagt, was gebaut
-        werden muesste, damit sie moeglich wird
-      - Ausser alerts.yml ist keine Datei unter deploy/ veraendert (git diff belegt das)
-
   - id: doc-align-smtp-provider-templates-eu
     phase: 4
     service: deploy
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-08-24: zweite der beiden namentlich freigegebenen Ausnahmen von
