@@ -3017,7 +3017,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Lauf 11 hat drei blinde Waehrungssummierungen gefunden und behoben
@@ -4690,3 +4690,163 @@ units:
         Senden nach `Close` panikt nicht (Test)
       - >-
         Mutations-Probe: Log-Level wieder auf Debug, der Test mit Log-Handler wird rot
+
+  - id: fix-crm-pipeline-totals-blind-currency-sum
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/crm/report, internal/crm/pipelinestage: vor der Unit messen"
+    scope: >
+      BEFUND aus `scan-blind-aggregation-over-units-and-currencies`. `deals.currency` ist pro
+      Deal frei setzbar (`deal.Service.Create`/`Update` validieren nur den Code). Zwei
+      Aggregationen summieren `deals.value` trotzdem ueber alle Waehrungen:
+      `pipelinestage.ListWithStats` (`SUM(d.value)` je Stufe, Kanban-Kopf) und
+      `report.GetPipelineReport` (`SUM(d.value)` und `SUM(d.value * probability / 100)` je Stufe,
+      danach Go-seitig `report.TotalValue.Add(stage.TotalValue)`). Ein Deal ueber 10.000 USD und
+      einer ueber 10.000 EUR ergeben 20.000, ohne Einheit. Die KPI-Variante derselben Daten
+      (`berichte/downstream/kpi_postgres.go`) ist seit Lauf 11 auf die Tenant-Standardwaehrung
+      gefiltert; diese beiden nicht.
+    sources:
+      - backend/internal/crm/pipelinestage/postgres_repository.go
+      - backend/internal/crm/report/postgres_repository.go
+      - backend/internal/berichte/downstream/kpi_postgres.go
+      - backend/internal/biz/dashboard/postgres_repository.go
+    notes: >
+      Loesung wie in Lauf 11: `currency = COALESCE((SELECT default_currency FROM company_settings
+      WHERE tenant_id = $1), 'EUR')` in die Summen und ein `lean:`-Marker mit Upgrade-Trigger.
+      Bei `ListWithStats` bleibt `deal_count` die Zahl ALLER Deals der Stufe (der Filter gehoert
+      nur in die Summe, z. B. `SUM(d.value) FILTER (WHERE d.currency = ...)`), sonst widerspricht
+      die Zahl der Kanban-Spalte. Beim Report gilt dasselbe fuer `deal_count`. Vorher im FE-Typ
+      pruefen, ob ein Waehrungsfeld am Stufen-/Report-Objekt erwartet wird; ein Feld nur dann
+      ergaenzen, wenn der FE-Typ es schon kennt (kein Vertragsbruch).
+    done_when:
+      - >-
+        Beide Aggregationen summieren nur Deals in der Tenant-Standardwaehrung, `deal_count`
+        bleibt unveraendert
+      - >-
+        DB-Test mit je einem EUR- und einem USD-Deal in derselben Stufe: Summe zeigt nur EUR
+      - >-
+        Mutations-Probe: Waehrungsfilter entfernt, der Test wird rot
+
+  - id: fix-invoice-payment-stats-blind-currency-sum
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/invoice: vor der Unit messen"
+    scope: >
+      BEFUND aus `scan-blind-aggregation-over-units-and-currencies`. `AggregatePaymentStats`
+      (`biz/invoice/postgres_repository.go:562`, erreichbar ueber den Pfad in `route_biz.go:279`,
+      `HandleGetPaymentStats`) summiert `total_paid_amount` und `total_outstanding_amount` ueber
+      ALLE Rechnungen im Zeitraum, ohne `i.currency` zu beachten. Die Open-Items-Auswertung
+      derselben Tabelle gruppiert dagegen nach Waehrung, das Dashboard filtert auf die
+      Standardwaehrung. Die Statistik ist die dritte Quelle fuer dieselben Geldbetraege und
+      liefert bei einem Tenant mit einer Fremdwaehrungsrechnung eine Zahl, die zu keiner der
+      beiden anderen passt.
+    sources:
+      - backend/internal/biz/invoice/postgres_repository.go
+      - backend/internal/biz/invoice/service_gobd.go
+      - backend/internal/biz/dashboard/postgres_repository.go
+    notes: >
+      Loesung wie `fix-dashboard-metrics-blind-currency-sum`: die beiden Summen (und nur sie) auf
+      die Tenant-Standardwaehrung einschraenken, `lean:`-Marker mit Upgrade-Trigger. Die Zaehler
+      `total_invoices/total_paid/total_outstanding` bleiben Stueckzahlen aller Rechnungen. Die
+      Zahlung erbt die Waehrung der Rechnung (`finance_payments` hat keine eigene Spalte,
+      Entscheidung steht in BACKLOG-NEXT.yml `decide-payment-currency-column`) - die Unit
+      aendert daran nichts. Vor dem Bauen die Route in `openapi.yaml` lesen: ist das Antwortfeld
+      als "in Standardwaehrung" beschreibbar, die Beschreibung im selben Commit nachziehen.
+    done_when:
+      - >-
+        Betragssummen enthalten nur Rechnungen in der Tenant-Standardwaehrung
+      - >-
+        DB-Test mit einer EUR- und einer USD-Rechnung: nur die EUR-Rechnung zaehlt in die Summen
+      - >-
+        Mutations-Probe: Waehrungsfilter entfernt, der Test wird rot
+
+  - id: fix-einkauf-contract-call-currency-not-checked-against-contract
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/einkauf: vor der Unit messen"
+    scope: >
+      BEFUND aus `scan-blind-aggregation-over-units-and-currencies`. `CreateContractCall`
+      (`einkauf/postgres_repository_extended.go:515`) prueft die Abrufsumme gegen
+      `framework_contracts.total_value`, ohne `call.Currency` mit `framework_contracts.currency`
+      zu vergleichen (beide Spalten existieren, `TEXT NOT NULL DEFAULT 'EUR'`). Ein Abruf ueber
+      5.000 USD verbraucht 5.000 EUR des Rahmenvertragsvolumens; die Cache-Spalte `used_value`
+      (`SUM(amount)` ueber alle Abrufe) mischt die Waehrungen ebenso. Der Service
+      (`service_extended.go:623`) setzt bei leerer Waehrung "EUR", ohne den Vertrag zu kennen.
+    sources:
+      - backend/internal/einkauf/postgres_repository_extended.go
+      - backend/internal/einkauf/service_extended.go
+      - backend/internal/server/einkauf_grpc.go
+      - backend/internal/gateway/route_einkauf_extended.go
+    notes: >
+      Richtung: der Vertrag ist die Quelle. Bleibt `Currency` im Request leer, nimmt der Abruf
+      die Vertragswaehrung (heute: stilles "EUR", bei einem USD-Vertrag also ein Fehlbefund); ist
+      sie gesetzt und weicht ab, lehnt das Repository IN DERSELBEN TRANSAKTION ab (der Vertrag
+      wird dort ohnehin mit `FOR UPDATE` gelesen: `currency` in dasselbe SELECT). Neuer
+      Sentinel-Fehler, im gRPC-Mapper auf `FailedPrecondition`/`InvalidArgument` und im Gateway
+      auf 409 bzw. 422 abbilden, den vorhandenen Mapper fuer `ErrContractBudgetExceeded`
+      (`einkauf_grpc.go:659`) als Vorlage nehmen. Den Statuscode in `openapi.yaml` ergaenzen,
+      falls dort noch nicht dokumentiert. KEINE Umrechnung: das ist Produktentscheidung (siehe
+      `decide-ad-hoc-invoice-currency`), hier wird nur abgelehnt.
+    done_when:
+      - >-
+        Abruf in abweichender Waehrung wird abgelehnt (Repository-Test und Mapper-Test)
+      - >-
+        Abruf ohne Waehrung uebernimmt die Vertragswaehrung
+      - >-
+        Mutations-Probe: Waehrungsvergleich entfernt, der Test wird rot
+
+  - id: fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/biz/hr/timetracking: vor der Unit messen"
+    scope: >
+      BEFUND aus `scan-blind-aggregation-over-units-and-currencies` (Dimension Zeitzone).
+      Tages- und Wochengrenzen der Arbeitszeit werden mit `time.Time.Location()` des Aufrufers
+      gebildet (`timetracking.GetDailySummary`: `dayStart := time.Date(..., date.Location())`,
+      `weekStartOf(now)`, `service.go:167,605,634`), und der Aufrufer reicht `time.Now()` des
+      Prozesses durch. Weder `deploy/` noch `backend/Dockerfile*` setzen `TZ` (gegrept, null
+      Treffer), die Container laufen also in UTC. Der Mandant hat eine Zeitzone
+      (`hr_settings.timezone`, `leave/postgres_repository.go:383`), sie wird nirgends fuer
+      diese Grenzen gelesen. Folge: ein Eintrag von 00:30 bis 06:30 Ortszeit (Nachtschicht) faellt
+      in den Vortag, ein Eintrag am Montag 00:30 Ortszeit in die Vorwoche; das betrifft
+      Tagessumme, Pausenpflicht, Wochensaldo und die Wochenfreigabe (`SubmitWeek`).
+      Gleiche Klasse bei Produktion: `isoWeekBounds` (`produktion/postgres_repository.go:493`)
+      rechnet in `time.UTC`, die Maschinenbuchungen (`timestamptz`) werden gegen UTC-Wochen
+      summiert.
+    sources:
+      - backend/internal/biz/hr/timetracking/postgres_repository.go
+      - backend/internal/biz/hr/timetracking/service.go
+      - backend/internal/biz/hr/timetracking/service_week_lock.go
+      - backend/internal/biz/hr/leave/postgres_repository.go
+      - backend/internal/produktion/postgres_repository.go
+    notes: >
+      ERST VERIFIZIEREN: ob die Zeitzone nicht doch an einer Stelle gesetzt wird, die der Grep
+      nicht sah (Compose-`environment`, `time.LoadLocation` im Gateway, `cmd/hr/main.go`). Dann
+      mit einem DB-Test nachstellen: Eintrag 2026-03-30 00:30 Europe/Berlin (= 29.03. 22:30 UTC),
+      Tagessumme fuer den 30.03. - heute 0. Loesung: die Zeitzone EINMAL im Service aus
+      `hr_settings.timezone` laden (Fallback `Europe/Berlin`, kein stilles UTC) und `dayStart`/
+      `weekStartOf` darin bilden; `GetDailySummaryRange` rechnet schon ueber `start` + 24 h und
+      ist damit mitbehoben, sobald `start` richtig liegt. Achtung Sommerzeit: 23/25-Stunden-Tage,
+      `AddDate(0,0,1)` statt `+24h` (der Kommentar in `postgres_repository.go:397` behauptet das
+      Gegenteil). Produktion: nur wenn die Zeitzone dort ohne neue Einstellung verfuegbar ist, sonst
+      als Befund in der Unit belassen und eine Entscheidung an Luke stellen. Keine Migration,
+      keine neue Route.
+    done_when:
+      - >-
+        Der Befund ist per DB-Test nachgestellt oder widerlegt, Ergebnis im Journal
+      - >-
+        Tages- und Wochengrenzen der Arbeitszeit folgen der Mandanten-Zeitzone
+      - >-
+        Mutations-Probe: Zeitzone wieder auf UTC, der Grenzfall-Test wird rot

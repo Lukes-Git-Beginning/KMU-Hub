@@ -707,3 +707,37 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 53, 1c2c9683: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
 - neue-units: `fix-background-workers-panic-kills-process-or-silently-stops-loop`, `fix-formulare-webhook-claim-holds-no-lock`, `fix-email-sync-worker-hot-loop-when-no-inbox-folder`, `fix-notification-backlog-replay-repeats-delivered-events`, `fix-gdpr-export-stuck-in-processing-after-restart`, `test-worker-loops-fuhrpark-meeting-sweeper-recording-cleanup`, `fix-http-audit-logger-failures-invisible-and-close-race` (alle ans Ende, `sonnet`; kein Cross-Tenant/Auth-Loch, daher nicht an den Kopf)
 - offen: (1) Der Scan ist statisch (Lesen + Testnamen), kein Worker wurde gestartet; das Panikverhalten folgt aus der Go-Semantik, nicht aus einem Lauf. (2) Die Duplikat-Wiedergabe der Ereignisse (Befund 5) ist ein Verdacht, solange kein DB-Test sie belegt; gibt es Deduplizierung in der Zustellung, endet die Unit als Befund. (3) Wie viele Replicas pro Dienst in Produktion laufen, ist nicht geprüft; Befunde 3/4 sind bei einer Replica latent bzw. rein lokal. (4) Nicht einzeln gelesen: `notification/integration/forwarder.go` (`go f.dispatchToMapping`), `server/websocket.go`-Hub außerhalb des gezeigten Lese-/Revalidierungs-Goroutines, `chat/file/service.go` nur die Löschstelle.
+
+## Iteration 55 — scan-blind-aggregation-over-units-and-currencies — done — 2026-10-20 23:55
+- commit: `docs(loop): scan blind aggregation over currencies and time zones and file the gaps` (SHA via `git log`)
+- gebaut: Scan, kein Produktionscode. Grundlage: Grep nach `SUM(`/`AVG(`/`MAX(`/`MIN(` (60 Treffer in `internal/`, alle eingeordnet; Kleinschreibung und Go-seitige `.Add(`/`+=` auf Geld, Mengen und Dauern mitgegrept), danach jede Fundstelle mit fachlicher Bedeutung gelesen. Vorlage gelesen: die drei Lauf-11-Fälle lösen es mit `currency = COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')` in der Summe plus `lean:`-Marker mit Upgrade-Trigger (`dashboard/postgres_repository.go:31`, `berichte/downstream/kpi_postgres.go:51`); die neuen Units folgen derselben Richtung.
+  - **Tabelle** (Fundstelle · Größe · Dimension · abgesichert):
+    | Fundstelle | Größe | Dimension | abgesichert |
+    |---|---|---|---|
+    | `dashboard` `GetDashboardMetrics` (Rechnungen, Angebots-Ø) | Geld | Währung | **ja** (Standardwährung, `lean:`) |
+    | `berichte/downstream/kpi_postgres.go` (Umsatz, Pipeline, Serie) | Geld | Währung | **ja** (Standardwährung, `lean:`) |
+    | `invoice` `SummarizeOpenItems` / `foldOpenItemSummary` | Geld | Währung | **ja** (`GROUP BY currency`, Fold je Währung) |
+    | `invoice` `AggregatePaymentStats` | Geld | Währung | **nein** → `fix-invoice-payment-stats-blind-currency-sum` |
+    | `payment` `SUM(amount)` je Rechnung (`postgres_repository.go:131`), `openItemsBase` | Geld | Währung | ja (je Rechnung, Zahlung erbt die Währung; Spalte offen: `decide-payment-currency-column`) |
+    | `invoice` Belegketten (`postgres_document_chains.go:121,133`) | Geld | Währung | ja (je Kette, eine Rechnung) |
+    | `crm/pipelinestage` `ListWithStats` | Geld (`deals.value`) | Währung (pro Deal frei) | **nein** → `fix-crm-pipeline-totals-blind-currency-sum` |
+    | `crm/report` `GetPipelineReport` (Summe, gewichtet, Go-`.Add`) | Geld | Währung | **nein** (gleiche Unit) |
+    | `berichte/executor` `revenueByMonth`, `invoicesOpen`, `pipeline` | Geld | Währung | nein, aber unerreichbar (`e.finance`/`e.crm` nil), Kommentar im Code hält den Upgrade-Trigger fest → Feststellung |
+    | `einkauf` `CreateContractCall`, `used_value` | Geld | Währung (Abruf gegen Vertrag) | **nein** → `fix-einkauf-contract-call-currency-not-checked-against-contract` |
+    | `einkauf` `RecomputePOTotal` (`SUM(quantity*unit_price)`) | Geld | Währung | ja (eine Bestellung, Positionen ohne eigene Währung) |
+    | `inventar` `StockReport` | Menge | Einheit | **ja** (`QuantityByUnit`, `TotalQuantity` nur bei genau einer Einheit) |
+    | `biz/hr/timetracking` Tages-/Wochen-/Projektsummen | Minuten | Zeitzone | **nein** → `fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone` |
+    | `produktion` `GetCapacityOverview` (`isoWeekBounds` in UTC) | Stunden | Zeitzone | **nein** (gleiche Unit) |
+    | `work/timeentry` `AggregateProjectHours`, `GetTaskTimeSummary` | Sekunden | Zeitzone | ja (`AT TIME ZONE 'UTC'` ausdrücklich, Bucket-Schlüssel auf der Go-Seite ebenfalls UTC) |
+    | `dialer` Ø-Dauer, `helpdesk` Ø-Antwortzeit und Ø-Bewertung, `crm/report` Ø-Tage | Dauer/Note | — | n.a. (einheitliche Größe) |
+    | `gdpr/dsar_search` Summe Sekunden/Minuten | Dauer | — | n.a. (Auskunft über eigene Daten) |
+    | `biz/bexio/payment_poll.go:89` | Geld | Währung | nicht bewertet (Bexio gesperrt, G3) |
+    | `einvoice`, `tax.Calculate`, `datev/exporter` Zeilensummen | Geld | Steuersatz | ja (Summe je Satz, `tax.Calculate` rechnet je Zeile; keine Mischung ungleicher Sätze) |
+  - **Neue Befunde:** (1) CRM-Pipeline-Summen mischen Deal-Währungen (Kanban-Kopf und Pipeline-Report), (2) `AggregatePaymentStats` ist die dritte, ungesicherte Quelle derselben Rechnungsbeträge, (3) Rahmenvertrags-Abrufe werden nicht gegen die Vertragswährung geprüft, (4) Tages- und Wochengrenzen der Arbeitszeit laufen in der Prozess-Zeitzone: weder `deploy/` noch `backend/Dockerfile*` setzen `TZ`, `hr_settings.timezone` wird für die Grenzen nirgends gelesen. Das schließt Punkt 3 von Iteration 53 (offen) für `GetDailySummary` und `weekStartOf`; `HandleGetWorkTimeStatus` im Gateway bleibt in `fix-hr-work-time-status-duplicates-service-and-masks-errors`.
+  - **Produktentscheidungen:** keine neue. Die zwei vorhandenen (`decide-payment-currency-column`, `decide-ad-hoc-invoice-currency`) berühren keinen der Befunde; die Einkauf-Unit lehnt nur ab, sie rechnet nicht um.
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (nur BACKLOG.yml/JOURNAL.md geändert; `backlog-check --preflight` grün, OPEN=46) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Scan-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (Iteration 54, c6846a07: nur BACKLOG.yml/JOURNAL.md, kein Produktionscode/Proto/Guard/Migration/Route)
+- neue-units: `fix-crm-pipeline-totals-blind-currency-sum`, `fix-invoice-payment-stats-blind-currency-sum`, `fix-einkauf-contract-call-currency-not-checked-against-contract`, `fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone` (alle ans Ende, `sonnet`; kein Cross-Tenant/Auth-Loch, daher nicht an den Kopf)
+- offen: (1) Scan statisch, kein DB-Lauf; die Zeitzonen-Folge folgt aus dem Code und dem fehlenden `TZ`, die Unit beginnt mit dem DB-Beleg und darf als Befund enden (z. B. wenn die Laufzeitumgebung `TZ` anders setzt, als der Grep sah). (2) Nicht geprüft, welche Währungswerte die FE-Deal-Maske tatsächlich anbietet; gibt sie nur die Tenant-Währung her, ist Befund 1 latent. (3) Gateway-Antworten, die Beträge ohne Währung ausgeben (`fuhrpark`/`vermietung`-Kosten), kamen im Scan nicht vor, weil dort keine Summen gebildet werden. (4) `payment_poll` (Bexio) nicht bewertet, Fläche gesperrt.
