@@ -22,4 +22,8 @@ var (
 	// ErrInvoiceNotLocked is returned when ArchiveInvoice is called but the invoice
 	// has not yet been locked via LockInvoice. GoBD: archive only completed documents.
 	ErrInvoiceNotLocked = errors.New("invoice must be locked before archival (GoBD: only finalized documents)")
+
+	// ErrIntegrityMismatch is returned when the stored bytes of an archived
+	// document no longer hash to the SHA-256 recorded at archival.
+	ErrIntegrityMismatch = errors.New("gobd document content does not match its archived sha256")
 )

@@ -1125,7 +1125,7 @@ units:
     service: biz/gobdarchive
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (verifizierter Befund, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
@@ -3583,3 +3583,36 @@ units:
         (per Test)
       - Der gelieferte HTTP-Status ist in openapi.yaml dokumentiert, swagger-cli validate gruen
       - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: fix-ws-connect-test-reads-tenant-before-it-is-registered
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Flake-Fix, kein Coverage-Ziel)"
+    scope: >
+      Lauf 14, Iteration 14 (beim Gate von `fix-gobd-archive-hash-never-verified` gesehen,
+      auf HEAD 5a82d317 OHNE dessen Aenderung reproduziert): 
+      `TestHandleWebSocket_ValidToken_RegistersConnectionAndTenant`
+      (internal/server/websocket_connection_test.go:251) faellt sporadisch mit leerem Tenant.
+      Ursache: `HandleWebSocket` ruft `registerConnection` (websocket.go:376) und erst danach
+      `registerUserTenant` (websocket.go:377), jeweils unter eigenem Lock. Der Test wartet nur
+      auf `connCount == 1` und liest `userTenants` im Fenster dazwischen. Im vollen
+      `go test ./internal/server/` 2 von 5 Laeufen rot, isoliert mit -count=20 gruen. In CI
+      ein zufaelliges Rot ohne Codebezug. Produktiv kein Leck: die Message-Loop startet erst
+      nach beiden Aufrufen, nur ein fremder Presence-Lookup in diesem Fenster saehe den
+      Nutzer kurz ohne Tenant (fail-closed).
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/websocket_connection_test.go
+    notes: >
+      Schlankster Fix im Code, nicht im Test: Tenant und Verbindung in EINEM Lock-Abschnitt
+      registrieren (oder `registerUserTenant` vor `registerConnection` aufrufen), damit
+      `connCount == 1` den Tenant impliziert. Kein Sleep im Test. Goroutinen im Test ->
+      Abnahme erst nach CI (-race laeuft lokal nicht).
+    done_when:
+      - >-
+        Verbindung und Tenant werden so registriert, dass ein sichtbarer Connection-Eintrag
+        den Tenant bereits impliziert
+      - go test -count=5 ./internal/server/ gruen, DATABASE_URL gesetzt

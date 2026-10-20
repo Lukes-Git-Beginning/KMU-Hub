@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"strings"
@@ -87,8 +88,10 @@ func (m *mockRepository) ListEvents(_ context.Context, _, documentID uuid.UUID) 
 // ============================================================================
 
 type mockFileStore struct {
-	uploadErr error
-	uploaded  map[string][]byte
+	uploadErr   error
+	downloadErr error
+	uploaded    map[string][]byte
+	downloads   int
 }
 
 func newMockFileStore() *mockFileStore {
@@ -105,8 +108,16 @@ func (m *mockFileStore) Upload(_ context.Context, key string, reader io.Reader, 
 	return nil
 }
 
-func (m *mockFileStore) Download(_ context.Context, _ string) (io.ReadCloser, error) {
-	return nil, errors.New("not implemented in mock")
+func (m *mockFileStore) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	m.downloads++
+	if m.downloadErr != nil {
+		return nil, m.downloadErr
+	}
+	content, ok := m.uploaded[key]
+	if !ok {
+		return nil, errors.New("object not found")
+	}
+	return io.NopCloser(bytes.NewReader(content)), nil
 }
 
 func (m *mockFileStore) Delete(_ context.Context, _ string) error { return nil }
@@ -612,4 +623,122 @@ func TestService_ListEvents_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	assert.Equal(t, docID, events[0].DocumentID)
+}
+
+// ============================================================================
+// VerifyIntegrity — recomputes SHA-256 from storage and records the check
+// ============================================================================
+
+func archiveForIntegrity(t *testing.T, svc *Service) *models.GobdDocument {
+	t.Helper()
+	content := []byte("original, unmodified invoice content")
+	doc, err := svc.ArchiveDocument(context.Background(), ArchiveInput{
+		TenantID:         uuid.New(),
+		DocType:          models.GobdDocTypeInvoice,
+		OriginalFilename: "invoice.pdf",
+		MimeType:         "application/pdf",
+		Content:          bytes.NewReader(content),
+		Size:             int64(len(content)),
+		ArchivedBy:       uuid.New(),
+	})
+	require.NoError(t, err)
+	return doc
+}
+
+func integrityEvents(repo *mockRepository, docID uuid.UUID) []*models.GobdDocumentEvent {
+	var out []*models.GobdDocumentEvent
+	for _, ev := range repo.events {
+		if ev.DocumentID == docID && ev.EventType == models.GobdEventTypeIntegrityCheck {
+			out = append(out, ev)
+		}
+	}
+	return out
+}
+
+func TestVerifyIntegrity_TamperedBytes_ReturnsMismatchAndRecordsBothHashes(t *testing.T) {
+	t.Parallel()
+	svc, repo, store := newTestService()
+	doc := archiveForIntegrity(t, svc)
+
+	tampered := []byte("tampered content, different from the original")
+	store.uploaded[doc.StorageKey] = tampered
+	checker := uuid.New()
+
+	err := svc.VerifyIntegrity(context.Background(), doc.TenantID, doc.ID, checker)
+	require.ErrorIs(t, err, ErrIntegrityMismatch)
+
+	events := integrityEvents(repo, doc.ID)
+	require.Len(t, events, 1)
+	assert.Equal(t, checker, events[0].CreatedBy)
+	assert.Equal(t, doc.TenantID, events[0].TenantID)
+
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(events[0].Metadata, &meta))
+	sum := sha256.Sum256(tampered)
+	assert.Equal(t, doc.SHA256, meta["expected_sha256"])
+	assert.Equal(t, hex.EncodeToString(sum[:]), meta["actual_sha256"])
+	assert.Equal(t, false, meta["match"])
+}
+
+func TestVerifyIntegrity_UnchangedBytes_NoErrorButRecordsCheck(t *testing.T) {
+	t.Parallel()
+	svc, repo, _ := newTestService()
+	doc := archiveForIntegrity(t, svc)
+
+	require.NoError(t, svc.VerifyIntegrity(context.Background(), doc.TenantID, doc.ID, uuid.New()))
+
+	events := integrityEvents(repo, doc.ID)
+	require.Len(t, events, 1)
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(events[0].Metadata, &meta))
+	assert.Equal(t, doc.SHA256, meta["expected_sha256"])
+	assert.Equal(t, doc.SHA256, meta["actual_sha256"])
+	assert.Equal(t, true, meta["match"])
+}
+
+func TestVerifyIntegrity_ForeignTenant_NotFoundWithoutDownloadOrEvent(t *testing.T) {
+	t.Parallel()
+	svc, repo, store := newTestService()
+	doc := archiveForIntegrity(t, svc)
+	eventsBefore := len(repo.events)
+
+	err := svc.VerifyIntegrity(context.Background(), uuid.New(), doc.ID, uuid.New())
+	require.ErrorIs(t, err, ErrDocumentNotFound)
+	assert.Zero(t, store.downloads, "a foreign tenant must not trigger a download")
+	assert.Len(t, repo.events, eventsBefore, "a foreign tenant must not leave an event")
+}
+
+func TestVerifyIntegrity_DownloadFailure_PropagatesWithoutEvent(t *testing.T) {
+	t.Parallel()
+	svc, repo, store := newTestService()
+	doc := archiveForIntegrity(t, svc)
+	store.downloadErr = errors.New("minio unavailable")
+
+	err := svc.VerifyIntegrity(context.Background(), doc.TenantID, doc.ID, uuid.New())
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, ErrIntegrityMismatch, "an unreadable object is not proof of tampering")
+	assert.Empty(t, integrityEvents(repo, doc.ID))
+}
+
+func TestVerifyIntegrity_EventFailureOnMismatch_KeepsMismatchVisible(t *testing.T) {
+	t.Parallel()
+	svc, repo, store := newTestService()
+	doc := archiveForIntegrity(t, svc)
+	store.uploaded[doc.StorageKey] = []byte("tampered")
+	repo.appendEventErr = errors.New("db down")
+
+	err := svc.VerifyIntegrity(context.Background(), doc.TenantID, doc.ID, uuid.New())
+	require.ErrorIs(t, err, ErrIntegrityMismatch)
+	assert.ErrorContains(t, err, "append integrity event")
+}
+
+func TestVerifyIntegrity_EventFailureOnMatch_IsAnError(t *testing.T) {
+	t.Parallel()
+	svc, repo, _ := newTestService()
+	doc := archiveForIntegrity(t, svc)
+	repo.appendEventErr = errors.New("db down")
+
+	err := svc.VerifyIntegrity(context.Background(), doc.TenantID, doc.ID, uuid.New())
+	require.Error(t, err, "an unrecorded check proves nothing")
+	assert.NotErrorIs(t, err, ErrIntegrityMismatch)
 }
