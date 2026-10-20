@@ -402,29 +402,7 @@ func (s *Service) CleanupExpiredRecordings(ctx context.Context) (int, error) {
 	deleted := 0
 	for _, rec := range expired {
 		// A5: best-effort MinIO object deletion before removing the DB row.
-		if rec.FileURL != nil && *rec.FileURL != "" {
-			if mc, mcErr := s.objectStore(); mcErr != nil {
-				slog.Error("failed to obtain minio client for retention cleanup",
-					"recording_id", rec.ID,
-					"error", mcErr,
-				)
-			} else {
-				objKey := fileURLToObjectKey(*rec.FileURL, s.s3Config.Endpoint, s.s3Config.PublicEndpoint, s.s3Config.Bucket)
-				if removeErr := mc.RemoveObject(ctx, s.s3Config.Bucket, objKey, minio.RemoveObjectOptions{}); removeErr != nil {
-					slog.Error("failed to delete recording object from storage",
-						"recording_id", rec.ID,
-						"object_key", objKey,
-						"error", removeErr,
-					)
-					// Non-fatal: continue to DB delete.
-				} else {
-					slog.Info("recording object deleted from storage",
-						"recording_id", rec.ID,
-						"object_key", objKey,
-					)
-				}
-			}
-		}
+		s.removeRecordingObject(ctx, &rec)
 
 		if err := s.repo.DeleteRecording(ctx, rec.ID); err != nil {
 			slog.Error("failed to delete expired recording",
@@ -562,6 +540,11 @@ func (s *Service) CleanupExpiredRecording(ctx context.Context, recordingID uuid.
 		return ErrNotExpired
 	}
 
+	// Same best-effort object deletion as the bulk path: without it the DB row
+	// (and with it the retention bookkeeping) is gone while the media stays in
+	// storage indefinitely.
+	s.removeRecordingObject(ctx, rec)
+
 	if err := s.repo.DeleteRecording(ctx, recordingID); err != nil {
 		return fmt.Errorf("delete expired recording: %w", err)
 	}
@@ -676,6 +659,35 @@ func (s *Service) GetRecordingDownloadURL(ctx context.Context, recordingID, call
 	)
 
 	return presignURL.String(), expiresAt, nil
+}
+
+// removeRecordingObject deletes the stored media object of rec, if any.
+// Best-effort: failures are logged and never block the caller's DB delete.
+func (s *Service) removeRecordingObject(ctx context.Context, rec *Recording) {
+	if rec.FileURL == nil || *rec.FileURL == "" {
+		return
+	}
+	mc, err := s.objectStore()
+	if err != nil {
+		slog.Error("failed to obtain minio client for retention cleanup",
+			"recording_id", rec.ID,
+			"error", err,
+		)
+		return
+	}
+	objKey := fileURLToObjectKey(*rec.FileURL, s.s3Config.Endpoint, s.s3Config.PublicEndpoint, s.s3Config.Bucket)
+	if err := mc.RemoveObject(ctx, s.s3Config.Bucket, objKey, minio.RemoveObjectOptions{}); err != nil {
+		slog.Error("failed to delete recording object from storage",
+			"recording_id", rec.ID,
+			"object_key", objKey,
+			"error", err,
+		)
+		return
+	}
+	slog.Info("recording object deleted from storage",
+		"recording_id", rec.ID,
+		"object_key", objKey,
+	)
 }
 
 // objectStore lazily constructs the MinIO client from s3Config.

@@ -1382,7 +1382,7 @@ units:
     service: video
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Produktionsfehler, kein Coverage-Ziel)
     scope: >
       Gefunden in Iteration 24 beim Bauen von `cov-video-recording-service-and-repository`.
