@@ -135,6 +135,7 @@ func main() {
 		gdpr.NewDriverLicenseRetentionHandler(pool),
 		gdpr.NewAdvisoryProtocolRetentionHandler(pool),
 		gdpr.NewGuestSessionRetentionHandler(pool),
+		gdpr.NewFormWebhookDeliveryRetentionHandler(pool),
 	)
 	retentionEngine := gdpr.NewRetentionEngine(pool, gdprRepo, retentionRegistry)
 

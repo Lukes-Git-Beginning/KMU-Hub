@@ -1429,7 +1429,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Retention-Luecke, kein Coverage-Ziel)
     scope: >
       Gefunden in Iteration 25 beim Bauen von `cov-formulare-postgres-repository-real-sql`
@@ -3524,3 +3524,35 @@ units:
         Verbindung und Tenant werden so registriert, dass ein sichtbarer Connection-Eintrag
         den Tenant bereits impliziert
       - go test -count=5 ./internal/server/ gruen, DATABASE_URL gesetzt
+
+  - id: fix-form-submission-anonymize-leaves-webhook-delivery-payload
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: n.a. (Retention-Luecke, kein Coverage-Ziel)
+    scope: >
+      Gefunden in Iteration 20 beim Bauen von `fix-form-webhook-deliveries-unbounded-retention`.
+      `FormSubmissionRetentionHandler.Apply` mit action=anonymize leert nur
+      `form_submissions.answers/submitted_by/ip_address`. Die zugehoerigen Zeilen in
+      `form_webhook_deliveries` tragen aber in `payload` eine volle Kopie der Answers (siehe
+      `insertSubmissionTx`) und bleiben unveraendert, bis der neue
+      `FormWebhookDeliveryRetentionHandler` sie per Delete-Policy entfernt. Wer nur eine
+      Anonymize-Policy auf `form_submissions` setzt, hat die personenbezogenen Daten also
+      weiterhin in der Deliveries-Tabelle (final delivered/dead UND pending/failed).
+    sources:
+      - backend/internal/security/gdpr/retention_helpdesk_formulare.go
+      - backend/internal/security/gdpr/retention_form_webhook_deliveries.go
+    notes: >
+      Schlankster Fix im Anonymize-Zweig von `FormSubmissionRetentionHandler.Apply`: im selben
+      Aufruf `UPDATE form_webhook_deliveries SET payload = '{}'::jsonb WHERE tenant_id = $1 AND
+      submission_id = ANY($2)` (Muster: ticket_messages im Helpdesk-Handler). Pending-Zeilen
+      mit leerem Payload wuerden leer ausgeliefert -> entweder nur final-Status scrubben oder
+      pending vorher aus dem Plan nehmen; Entscheidung bei der bauenden Iteration, begruendet.
+    done_when:
+      - >-
+        Nach Anonymize einer Submission enthaelt kein zugehoeriges Delivery-Payload mehr die
+        Answers; ein Test belegt das gegen die echte DB inkl. Tenant-Isolation
+      - Eine noch ausstehende (pending/failed) Delivery wird nicht mit leerem Payload ausgeliefert
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
