@@ -470,10 +470,9 @@ func TestCheckMsgRate_IsPerUser_NotPerConnection(t *testing.T) {
 		"a second connection of the same user draws from the same exhausted bucket")
 }
 
-func TestCheckMsgRate_ReconnectResetsTheBucket(t *testing.T) {
-	// Documents the current behaviour: unregisterConnection deletes the bucket
-	// once the user's last connection closes, so reconnecting hands out a fresh
-	// burst allowance. See backlog unit fix-websocket-rate-limit-reset-on-reconnect.
+func TestCheckMsgRate_ReconnectDoesNotResetTheBucket(t *testing.T) {
+	// unregisterConnection keeps a not-yet-refilled bucket, so a client cannot
+	// get a fresh burst by dropping the connection and reconnecting.
 	h := newTestHub(nil)
 	serverConn, _, cleanup := newConnectedWSConnPair(t)
 	defer cleanup()
@@ -487,8 +486,59 @@ func TestCheckMsgRate_ReconnectResetsTheBucket(t *testing.T) {
 
 	h.unregisterConnection(userID, serverConn)
 
-	assert.True(t, h.checkMsgRate(userID),
-		"after the last connection closed the bucket is gone, so the next connect starts from a full burst")
+	assert.False(t, h.checkMsgRate(userID),
+		"a reconnect right after exhausting the burst must not get a full budget back")
+}
+
+func TestCheckMsgRate_RefilledBucketIsDroppedAfterDisconnect(t *testing.T) {
+	// Once the bucket would be full again it is indistinguishable from a fresh
+	// one, so it is swept — the map must not grow with every user ever seen.
+	h := newTestHub(nil)
+	serverConn, _, cleanup := newConnectedWSConnPair(t)
+	defer cleanup()
+
+	userID := uuid.New().String()
+	h.registerConnection(userID, serverConn)
+	for range msgBurstSize {
+		require.True(t, h.checkMsgRate(userID))
+	}
+	h.unregisterConnection(userID, serverConn)
+
+	h.mu.RLock()
+	_, kept := h.rateLimiters[userID]
+	h.mu.RUnlock()
+	require.True(t, kept, "an exhausted bucket survives the disconnect")
+
+	// Age the bucket by the time a full refill takes, then let any later
+	// unregister (here: another user's) sweep it.
+	h.mu.Lock()
+	h.rateLimiters[userID].lastRefill = time.Now().Add(-time.Duration(msgBurstSize/maxMsgsPerSecond+1) * time.Second)
+	h.mu.Unlock()
+
+	otherConn, _, otherCleanup := newConnectedWSConnPair(t)
+	defer otherCleanup()
+	h.registerConnection("user-other", otherConn)
+	h.unregisterConnection("user-other", otherConn)
+
+	h.mu.RLock()
+	_, stillThere := h.rateLimiters[userID]
+	h.mu.RUnlock()
+	assert.False(t, stillThere, "a refilled bucket of a disconnected user must be dropped")
+}
+
+func TestSweepRateLimiters_KeepsBucketOfConnectedUser(t *testing.T) {
+	h := newTestHub(nil)
+	serverConn, _, cleanup := newConnectedWSConnPair(t)
+	defer cleanup()
+
+	h.registerConnection("user-1", serverConn)
+	h.rateLimiters["user-1"] = newMsgRateLimiter()
+
+	h.mu.Lock()
+	h.sweepRateLimiters(time.Now().Add(time.Hour))
+	h.mu.Unlock()
+
+	assert.Contains(t, h.rateLimiters, "user-1", "a connected user's bucket is never swept, even when full")
 }
 
 // ---------------------------------------------------------------------------

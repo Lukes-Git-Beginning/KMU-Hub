@@ -99,6 +99,13 @@ func newMsgRateLimiter() *msgRateLimiter {
 	}
 }
 
+// refilled reports whether the bucket would be full again by now. A refilled
+// bucket is indistinguishable from a fresh one, so it can be dropped without
+// handing out any allowance the user would not have had anyway.
+func (rl *msgRateLimiter) refilled(now time.Time) bool {
+	return rl.tokens+now.Sub(rl.lastRefill).Seconds()*rl.refillRate >= rl.maxTokens
+}
+
 func (rl *msgRateLimiter) allow() bool {
 	now := time.Now()
 	elapsed := now.Sub(rl.lastRefill).Seconds()
@@ -471,11 +478,14 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 	// Clean up presence subscriptions for disconnected user
 	h.cleanupPresenceSubscriptions(userID)
 
-	// Remove rate limiter and cached tenant when user has no more connections
+	// Drop the cached tenant when the user has no more connections. The rate-limit
+	// bucket is kept until it has refilled — deleting it at once would hand out a
+	// fresh burst on every reconnect. Refilled buckets of disconnected users
+	// (including this one) are swept here, so the map still does not grow.
 	if _, hasConns := h.connections[userID]; !hasConns {
-		delete(h.rateLimiters, userID)
 		delete(h.userTenants, userID)
 	}
+	h.sweepRateLimiters(time.Now())
 
 	if h.metrics != nil {
 		h.metrics.WSConnectionsActive.WithLabelValues("user").Dec()
@@ -566,6 +576,18 @@ func (h *WebSocketHub) revalidateTokenLoopWithInterval(ctx context.Context, conn
 				_ = conn.Close(websocket.StatusPolicyViolation, "token expired or revoked")
 				return
 			}
+		}
+	}
+}
+
+// sweepRateLimiters drops the buckets of users without a connection once they
+// have refilled. Callers must hold h.mu.
+// lean: full-map sweep on every unregister; switch to a ticker or an index by
+// refill time once the number of tracked users makes the scan show up in profiles.
+func (h *WebSocketHub) sweepRateLimiters(now time.Time) {
+	for userID, rl := range h.rateLimiters {
+		if _, connected := h.connections[userID]; !connected && rl.refilled(now) {
+			delete(h.rateLimiters, userID)
 		}
 	}
 }

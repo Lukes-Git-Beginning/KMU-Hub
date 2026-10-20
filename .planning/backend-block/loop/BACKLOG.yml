@@ -2150,7 +2150,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 19 belegt (`TestCheckMsgRate_ReconnectResetsTheBucket`):
       `unregisterConnection` loescht `h.rateLimiters[userID]`, sobald die letzte Verbindung
