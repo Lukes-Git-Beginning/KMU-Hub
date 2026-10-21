@@ -1245,3 +1245,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 94, 1f1ab238: Migration 331 `ADD COLUMN` ohne neue Tabelle, Sweeper in `security/gdpr`, kein Guard/Proto/Route/Stub)
 - neue-units: keine
 - offen: (1) Tests mit Goroutinen/Zeitfenstern (`runPeriodically`, `Run`) nutzen `atomic` und `Eventually`; `-race` läuft lokal nicht, erst CI. (2) Beobachtung: `internal/fuhrpark` schlug beim allerersten Lauf dieser Iteration einmal rot fehl (Ausgabe verworfen), in fünf Wiederholungen nicht mehr reproduzierbar — möglicher Flake im Bestand, wenn er in CI auftaucht, der Ursache nachgehen. (3) `TuevWorker.Run` führt den ersten Scan erst nach `runInterval` (60 min) aus, nicht beim Start — unverändert, bewusst nicht angefasst.
+
+## Iteration 96 — fix-http-audit-logger-failures-invisible-and-close-race — done — 2026-10-21 02:51
+- commit: `fix(gateway): surface dropped http audit events and stop closing the event channel` (SHA via `git log`)
+- gebaut: `middleware.AuditLogger` meldet verlorene Einträge jetzt auf `Warn` (`audit event lost`, Feld `reason`, gedrosselt auf 1 Zeile je 30 s und Grund, mit `suppressed_since_last_warn`) und zählt sie in der neuen Metrik `audit_events_dropped_total{reason=buffer_full|service_unavailable|write_failed|closed}` (`metrics.Registry.AuditEventsDropped`, im Gateway über `SetMetrics` verdrahtet). `Close()` schließt den Event-Kanal nicht mehr: `done`-Kanal + `sync.Once`, Worker leeren den Rest und enden, `Close` wartet bis 5 s darauf; Requests nach `Close` werden als `closed` gezählt statt zu paniken.
+  - Tests (`audit_drop_test.go`): Fehlschlag gedrosselt+gezählt (inkl. Zeitsprung per injizierter Uhr und Suppressed-Zähler), Dienst nicht erreichbar, voller Puffer, Senden nach `Close` (inkl. doppeltem `Close` und Flush des bereits eingereihten Eintrags).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/middleware/...` + `./internal/metrics/...`, DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a. (keine Tabelle/Route/Proto)
+- coverage: internal/middleware 58,8 % -> 69,9 %
+- mutations-probe: `Warn` -> `Debug` ⇒ `…FailedWriteIsWarnedThrottledAndCounted` + `…UnavailableServiceIsWarnedAndCounted` rot; `close(a.events)` wieder in `Close` ⇒ `…SendAfterCloseDoesNotPanic` rot; beides zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 95, 17209df4: Refactor `cmd/work`/`cmd/fuhrpark` + Tests, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: (1) Metrik `audit_events_dropped_total` ist neu; Alarmregel (Prometheus/Grafana) gehört Luke. (2) `processEvent` ruft `CreateAuditEntry` weiterhin mit `context.Background()` ohne Timeout; ein hängender security-Dienst blockiert Worker (Puffer läuft dann voll ⇒ `buffer_full` sichtbar), `Close` ist jetzt auf 5 s begrenzt. (3) `-race` lokal nicht möglich; die Tests teilen Zustand nur über `atomic`/Mutex.

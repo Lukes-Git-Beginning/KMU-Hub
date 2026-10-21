@@ -4623,7 +4623,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/middleware (zur Laufzeit messen)"
     scope: >
       `middleware.AuditLogger` (`internal/middleware/audit.go`) schreibt den HTTP-Audit-Eintrag

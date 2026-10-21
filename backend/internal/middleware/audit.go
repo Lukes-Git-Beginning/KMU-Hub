@@ -5,7 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
@@ -20,11 +23,43 @@ type auditEvent struct {
 	statusCode int
 }
 
+// Drop reasons, used as log field and as label of audit_events_dropped_total.
+const (
+	dropBufferFull         = "buffer_full"
+	dropServiceUnavailable = "service_unavailable"
+	dropWriteFailed        = "write_failed"
+	dropClosed             = "closed"
+)
+
+const (
+	// dropWarnInterval throttles the Warn line per reason: while the security
+	// service is down every event fails, one line per event would flood the log.
+	dropWarnInterval = 30 * time.Second
+	// closeDrainTimeout bounds how long Close waits for the workers to flush.
+	closeDrainTimeout = 5 * time.Second
+)
+
 // AuditLogger writes audit entries via the security gRPC service.
 // Uses a buffered channel and worker pool to prevent goroutine explosion.
 type AuditLogger struct {
 	getClient func() (securityv1.SecurityServiceClient, error)
 	events    chan auditEvent
+	// events is never closed: Middleware may still send while Close runs, and a
+	// send on a closed channel panics. done signals the workers instead.
+	done      chan struct{}
+	closeOnce sync.Once
+	wg        sync.WaitGroup
+
+	metrics *metrics.Registry // optional
+	now     func() time.Time
+
+	dropMu sync.Mutex
+	drops  map[string]*dropState
+}
+
+type dropState struct {
+	lastWarn   time.Time
+	suppressed int
 }
 
 // NewAuditLogger creates a new AuditLogger with a buffered event channel.
@@ -33,20 +68,67 @@ func NewAuditLogger(getClient func() (securityv1.SecurityServiceClient, error)) 
 	return &AuditLogger{
 		getClient: getClient,
 		events:    make(chan auditEvent, 1000),
+		done:      make(chan struct{}),
+		now:       time.Now,
+		drops:     make(map[string]*dropState),
 	}
 }
 
+// SetMetrics makes dropped events visible as audit_events_dropped_total.
+func (a *AuditLogger) SetMetrics(reg *metrics.Registry) { a.metrics = reg }
+
 // Start launches the worker pool that processes audit events.
 func (a *AuditLogger) Start(workers int) {
+	a.wg.Add(workers)
 	for i := 0; i < workers; i++ {
 		go a.worker()
 	}
 }
 
 func (a *AuditLogger) worker() {
-	for event := range a.events {
-		a.processEvent(event)
+	defer a.wg.Done()
+	for {
+		select {
+		case event := <-a.events:
+			a.processEvent(event)
+		case <-a.done:
+			// Flush what is already queued, then stop.
+			for {
+				select {
+				case event := <-a.events:
+					a.processEvent(event)
+				default:
+					return
+				}
+			}
+		}
 	}
+}
+
+// recordDrop counts a lost audit event and warns at most once per
+// dropWarnInterval and reason. Lost audit entries must never be silent.
+func (a *AuditLogger) recordDrop(reason string, err error) {
+	if a.metrics != nil {
+		a.metrics.AuditEventsDropped.WithLabelValues(reason).Inc()
+	}
+
+	a.dropMu.Lock()
+	st := a.drops[reason]
+	if st == nil {
+		st = &dropState{}
+		a.drops[reason] = st
+	}
+	now := a.now()
+	if !st.lastWarn.IsZero() && now.Sub(st.lastWarn) < dropWarnInterval {
+		st.suppressed++
+		a.dropMu.Unlock()
+		return
+	}
+	suppressed := st.suppressed
+	st.lastWarn, st.suppressed = now, 0
+	a.dropMu.Unlock()
+
+	slog.Warn("audit event lost", "reason", reason, "suppressed_since_last_warn", suppressed, "error", err)
 }
 
 // Middleware returns HTTP middleware that logs audit events for mutating requests.
@@ -60,6 +142,13 @@ func (a *AuditLogger) Middleware(next http.Handler) http.Handler {
 		sw := &statusWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(sw, r)
 
+		select {
+		case <-a.done:
+			a.recordDrop(dropClosed, nil)
+			return
+		default:
+		}
+
 		// Non-blocking send to worker pool
 		select {
 		case a.events <- auditEvent{
@@ -71,7 +160,7 @@ func (a *AuditLogger) Middleware(next http.Handler) http.Handler {
 			statusCode: sw.statusCode,
 		}:
 		default:
-			slog.Warn("audit event dropped, channel full")
+			a.recordDrop(dropBufferFull, nil)
 		}
 	})
 }
@@ -79,7 +168,7 @@ func (a *AuditLogger) Middleware(next http.Handler) http.Handler {
 func (a *AuditLogger) processEvent(event auditEvent) {
 	client, err := a.getClient()
 	if err != nil {
-		slog.Debug("audit logger: security service unavailable", "error", err)
+		a.recordDrop(dropServiceUnavailable, err)
 		return
 	}
 
@@ -100,13 +189,26 @@ func (a *AuditLogger) processEvent(event auditEvent) {
 		Result:     result,
 	})
 	if err != nil {
-		slog.Debug("audit logger: failed to log event", "action", action, "error", err)
+		a.recordDrop(dropWriteFailed, err)
 	}
 }
 
-// Close drains the event channel. Call during graceful shutdown.
+// Close stops the workers after they have flushed the queued events, waiting
+// at most closeDrainTimeout. Safe to call more than once and while requests
+// are still arriving: those are counted as dropped instead of panicking.
 func (a *AuditLogger) Close() {
-	close(a.events)
+	a.closeOnce.Do(func() { close(a.done) })
+
+	flushed := make(chan struct{})
+	go func() {
+		a.wg.Wait()
+		close(flushed)
+	}()
+	select {
+	case <-flushed:
+	case <-time.After(closeDrainTimeout):
+		slog.Warn("audit logger: workers did not flush in time", "queued", len(a.events))
+	}
 }
 
 // eventCtx returns the context used by the worker for audit-log writes.

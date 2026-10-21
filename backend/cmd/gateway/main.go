@@ -174,6 +174,7 @@ func main() {
 		}
 		return securityv1.NewSecurityServiceClient(conn), nil
 	})
+	auditLogger.SetMetrics(metricsRegistry)
 	auditLogger.Start(10)
 	defer auditLogger.Close()
 	r.Use(auditLogger.Middleware)
