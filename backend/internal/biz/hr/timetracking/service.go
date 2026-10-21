@@ -164,7 +164,7 @@ func (s *Service) ClockIn(ctx context.Context, tenantID, employeeID uuid.UUID) (
 	}
 
 	// ArbZG daily maximum (10h, or the tenant's stricter setting)
-	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, now)
+	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, s.localInstant(ctx, tenantID, now))
 	if summaryErr != nil {
 		return nil, nil, summaryErr
 	}
@@ -420,12 +420,12 @@ func (s *Service) ListWorkTimeEntries(ctx context.Context, filter WorkTimeFilter
 
 // GetDailySummary returns the daily work time summary for an employee.
 func (s *Service) GetDailySummary(ctx context.Context, tenantID, employeeID uuid.UUID, date time.Time) (*DailySummary, error) {
-	return s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, date)
+	return s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, s.localDate(ctx, tenantID, date))
 }
 
 // GetWeeklySummary returns the weekly work time summary for an employee.
 func (s *Service) GetWeeklySummary(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error) {
-	return s.workTimeRepo.GetWeeklySummary(ctx, tenantID, employeeID, weekStart)
+	return s.workTimeRepo.GetWeeklySummary(ctx, tenantID, employeeID, s.weekStartForDate(ctx, tenantID, weekStart))
 }
 
 // SubmitTimeCorrection creates a correction entry pending manager approval.
@@ -602,7 +602,7 @@ func (s *Service) GetTimeBalance(ctx context.Context, tenantID, employeeID uuid.
 
 	// Current week start (Monday)
 	now := time.Now()
-	weekStart := weekStartOf(now)
+	weekStart := s.weekStartForInstant(ctx, tenantID, now)
 
 	weekly, summaryErr := s.workTimeRepo.GetWeeklySummary(ctx, tenantID, employeeID, weekStart)
 	if summaryErr != nil {
@@ -627,7 +627,7 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 	workHoursPerDay, _ := s.workHoursPolicy(ctx, tenantID)
 	targetWeeklyMinutes := workDays * workHoursPerDay * 60
 
-	now := time.Now()
+	now := s.localInstant(ctx, tenantID, time.Now())
 	var start time.Time
 	var numDays int
 	if rangeStr == "month" {
@@ -693,7 +693,7 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 // GetTeamTime returns aggregated weekly time for all employees of the tenant.
 func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart time.Time) ([]TeamTimeEntry, error) {
 	// Ensure Monday
-	weekStart = weekStartOf(weekStart)
+	weekStart = s.weekStartForDate(ctx, tenantID, weekStart)
 
 	employees, _, listErr := s.employeeRepo.List(ctx, employee.EmployeeFilter{TenantID: tenantID, Page: 1, PerPage: 500})
 	if listErr != nil {
@@ -774,7 +774,7 @@ func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart
 // GetMyWeekStatus returns the approval status for an employee's week.
 func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, int, int, error) {
 	// Ensure Monday
-	weekStart = weekStartOf(weekStart)
+	weekStart = s.weekStartForDate(ctx, tenantID, weekStart)
 
 	ep, _ := s.employeeRepo.GetByUserID(ctx, employeeID)
 	workDays := 5
@@ -815,7 +815,7 @@ func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid
 
 // SubmitWeek transitions an employee's week to submitted state.
 func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
-	weekStart = weekStartOf(weekStart)
+	weekStart = s.weekStartForDate(ctx, tenantID, weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	now := time.Now()
@@ -858,7 +858,7 @@ func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID
 
 // ApproveWeek approves a submitted week.
 func (s *Service) ApproveWeek(ctx context.Context, tenantID, approverID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
-	weekStart = weekStartOf(weekStart)
+	weekStart = s.weekStartForDate(ctx, tenantID, weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	if waErr != nil {
@@ -889,7 +889,7 @@ func (s *Service) ApproveWeek(ctx context.Context, tenantID, approverID, employe
 
 // RejectWeek rejects a submitted week with a reason.
 func (s *Service) RejectWeek(ctx context.Context, tenantID, approverID, employeeID uuid.UUID, weekStart time.Time, reason string) (*models.HRWeekApproval, error) {
-	weekStart = weekStartOf(weekStart)
+	weekStart = s.weekStartForDate(ctx, tenantID, weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	if waErr != nil {
@@ -1045,7 +1045,7 @@ func (s *Service) GetWorkTimeStatus(ctx context.Context, tenantID, employeeID uu
 
 	// Today's total minutes
 	now := time.Now()
-	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, now)
+	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, s.localInstant(ctx, tenantID, now))
 	if summaryErr == nil {
 		status.TodayTotalMinutes = todaySummary.NetWorkMinutes
 	}

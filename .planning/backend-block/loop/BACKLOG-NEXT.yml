@@ -1133,3 +1133,33 @@ units:
         NotFound auf GetMessage/Reply/Archive einer Nachricht von Nutzer A
       - Team-Mitglied und Zugewiesener behalten Zugriff (Test)
       - go test -count=1 ./internal/server/ ./internal/inbox/... ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: decide-produktion-capacity-week-bounds-tenant-timezone
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml nach Entscheidung Luke"
+    coverage_start: "n.a."
+    scope: >
+      Rest aus `fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone`. `isoWeekBounds`
+      (`produktion/postgres_repository.go:508`) rechnet Wochengrenzen in `time.UTC`; die
+      Maschinenbuchungen (`timestamptz`) in `GetCapacityOverview` werden gegen UTC-Wochen
+      summiert, eine Buchung Montag 00:30 Ortszeit fällt in die Vorwoche. Im HR-Teil ist das
+      behoben (Zeitzone aus `hr_company_settings.timezone`). Produktion hat KEINEN eigenen
+      Zugriff auf eine Mandanten-Zeitzone: eine Einstellung dort gibt es nicht, `hr_company_settings`
+      gehört dem HR-Modul (Modul-Entkopplung, Graceful Degradation).
+    sources:
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/biz/hr/timetracking/service_timezone.go
+    notes: >
+      Entscheidung Luke: (a) Produktion liest `hr_company_settings.timezone` per Subquery
+      (koppelt an HR, fällt ohne Zeile auf Europe/Berlin), (b) feste Zone Europe/Berlin mit
+      `lean:`-Marker (wie `schichten.jarbschgLocation`), oder (c) eigene Einstellung in der
+      Produktion (Migration). Empfehlung (b) bis ein Mandant außerhalb von Europe/Berlin existiert.
+    done_when:
+      - >-
+        Buchung Montag 00:30 Ortszeit zählt zur Woche, die am Montag beginnt (DB-Test)
+      - >-
+        Mutations-Probe: Zone wieder UTC, der Grenzfall-Test wird rot

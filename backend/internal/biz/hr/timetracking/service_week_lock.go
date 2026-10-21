@@ -51,7 +51,7 @@ func (s *Service) assertWeekEditable(ctx context.Context, tenantID, employeeID u
 		// There is no approval workflow in that deployment, so nothing to enforce.
 		return nil
 	}
-	wa, err := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStartOf(at))
+	wa, err := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, s.weekStartForInstant(ctx, tenantID, at))
 	if errors.Is(err, ErrWeekApprovalNotFound) {
 		return nil
 	}
@@ -76,7 +76,7 @@ func (s *Service) ReopenWeek(
 	weekStart time.Time,
 	reason string,
 ) (*models.HRWeekApproval, error) {
-	weekStart = weekStartOf(weekStart)
+	weekStart = s.weekStartForDate(ctx, tenantID, weekStart)
 
 	wa, err := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	if err != nil {
