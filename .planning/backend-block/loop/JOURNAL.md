@@ -1322,3 +1322,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 101, 0b9cec19: gateway-Mapper + gRPC-Mapper + Tests, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: keine
 - offen: Der CalDAV-Realm wechselt — Clients, die Zugangsdaten je Realm speichern, fragen einmal neu nach. Bestehende Authenticator-Einträge zeigen weiter "KMU Hub".
+
+## Iteration 103 — rebrand-chat-integration-bot-texts-to-cosmi — done — 2026-10-21 03:25
+- commit: `refactor(notification): rename Slack and Teams bot texts to Cosmi` (SHA via `git log`)
+- gebaut: Slack-/Teams-Bot-Antworten nennen "Cosmi" statt "KMU Hub" (Verknüpfungstoken-Text), `ErrAccountNotLinked`-Text auf "Cosmi user"; ASCII-Umlaute der Nutzertexte korrigiert (verknüpfen, fügen, Verfügbare, gültig für, ausgeführt). `/kmuhub` und Action-Präfix `kmuhub_` unverändert.
+  - Tests: Teams-Asserts auf Umlaute gezogen, Link-Test prüft "in Cosmi unter" und Abwesenheit von "KMU Hub"; neu `TestSlackWebhook_CommandRepliesUseUmlautsAndCosmiName` (Hilfe, Unlink ohne Konto).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/notification/...`, `./internal/server/`, `./internal/gateway/` inkl. OpenAPIRouteDrift, DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (String-Änderung, kein Coverage-Ziel)
+- mutations-probe: Unlink-Antwort zurück auf ASCII + "KMU Hub" ⇒ neuer Slack-Test rot; zurückgedreht, Gate erneut grün.
+- verify vorgaenger: sauber (Iteration 102, 66e2ae27: String-Konstanten in auth/caldav + Tests, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: Der Slack-Link-Pfad ("Bitte fügen Sie diesen Token in Cosmi …") ist nur über Teams getestet, weil `linkService` in Slack ein konkreter Typ ohne Stub ist. Code-Kommentare in `slack/block_builder.go`, `slack/oauth.go`, `teams/card_builder.go` nennen noch "KMU Hub" (nicht nutzersichtbar).

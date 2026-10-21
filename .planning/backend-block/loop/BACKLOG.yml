@@ -4923,7 +4923,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (String-Aenderung, kein Coverage-Ziel)"
     scope: >
       Die Bot-Antworten von Slack und Teams nennen das Produkt "KMU Hub", waehrend dieselben

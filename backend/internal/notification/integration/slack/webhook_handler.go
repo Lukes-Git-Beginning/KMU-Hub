@@ -134,7 +134,7 @@ func (h *WebhookHandler) handleInteraction(ctx context.Context, form url.Values)
 	link, err := h.repo.GetAccountLink(ctx, integration.PlatformSlack, externalUserID)
 	if err != nil {
 		h.postEphemeral(ctx, callback.Channel.ID, externalUserID,
-			"Bitte verknuepfen Sie Ihr Konto mit dem Befehl: `/kmuhub link`")
+			"Bitte verknüpfen Sie Ihr Konto mit dem Befehl: `/kmuhub link`")
 		return integration.EmptyResponse(http.StatusOK)
 	}
 
@@ -152,7 +152,7 @@ func (h *WebhookHandler) handleInteraction(ctx context.Context, form url.Values)
 			"user_id", link.KMUHubUserID,
 		)
 		h.postEphemeral(ctx, callback.Channel.ID, externalUserID,
-			"Diese Aktion wird von Cosmi noch nicht ausgefuehrt. Bitte erledigen Sie sie in Cosmi.")
+			"Diese Aktion wird von Cosmi noch nicht ausgeführt. Bitte erledigen Sie sie in Cosmi.")
 		return integration.EmptyResponse(http.StatusOK)
 	}
 
@@ -229,7 +229,7 @@ func (h *WebhookHandler) handleSlashCommand(ctx context.Context, form url.Values
 	case "unlink":
 		return h.handleSlashUnlink(ctx, teamID, externalUserID)
 	default:
-		return ephemeral("Verfuegbare Befehle:\n- `/kmuhub link` - Konto verknuepfen\n- `/kmuhub unlink` - Verknuepfung aufheben")
+		return ephemeral("Verfügbare Befehle:\n- `/kmuhub link` - Konto verknüpfen\n- `/kmuhub unlink` - Verknüpfung aufheben")
 	}
 }
 
@@ -242,11 +242,11 @@ func (h *WebhookHandler) handleSlashLink(ctx context.Context, teamID, externalUs
 	token, err := h.linkService.GenerateLinkToken(ctx, integration.PlatformSlack, externalUserID)
 	if err != nil {
 		slog.Error("slack slash: failed to generate link token", "error", err)
-		return ephemeral("Fehler beim Erstellen des Verknuepfungstokens. Bitte versuchen Sie es erneut.")
+		return ephemeral("Fehler beim Erstellen des Verknüpfungstokens. Bitte versuchen Sie es erneut.")
 	}
 
-	return ephemeral("Ihr Verknuepfungstoken (gueltig fuer 5 Minuten):\n\n`" + token +
-		"`\n\nBitte fuegen Sie diesen Token in KMU Hub unter Einstellungen > Integrationen > Konto verknuepfen ein.")
+	return ephemeral("Ihr Verknüpfungstoken (gültig für 5 Minuten):\n\n`" + token +
+		"`\n\nBitte fügen Sie diesen Token in Cosmi unter Einstellungen > Integrationen > Konto verknüpfen ein.")
 }
 
 func (h *WebhookHandler) handleSlashUnlink(ctx context.Context, teamID, externalUserID string) integration.WebhookResponse {
@@ -257,15 +257,15 @@ func (h *WebhookHandler) handleSlashUnlink(ctx context.Context, teamID, external
 
 	link, err := h.repo.GetAccountLink(ctx, integration.PlatformSlack, externalUserID)
 	if err != nil {
-		return ephemeral("Kein verknuepftes Konto gefunden.")
+		return ephemeral("Kein verknüpftes Konto gefunden.")
 	}
 
 	if err := h.repo.DeleteAccountLink(ctx, link.ID); err != nil {
 		slog.Error("slack slash: failed to unlink", "error", err)
-		return ephemeral("Fehler beim Aufheben der Verknuepfung.")
+		return ephemeral("Fehler beim Aufheben der Verknüpfung.")
 	}
 
-	return ephemeral("Konto-Verknuepfung erfolgreich aufgehoben.")
+	return ephemeral("Konto-Verknüpfung erfolgreich aufgehoben.")
 }
 
 // tenantContext resolves the workspace to a tenant and attaches it. The bool is

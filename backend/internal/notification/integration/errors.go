@@ -21,8 +21,8 @@ var (
 	// ErrAccountLinkNotFound is returned when an account link does not exist.
 	ErrAccountLinkNotFound = errors.New("account link not found")
 
-	// ErrAccountNotLinked is returned when the external user has no linked KMU Hub account.
-	ErrAccountNotLinked = errors.New("external account not linked to a KMU Hub user")
+	// ErrAccountNotLinked is returned when the external user has no linked Cosmi account.
+	ErrAccountNotLinked = errors.New("external account not linked to a Cosmi user")
 
 	// ErrLinkTokenExpired is returned when a link token has passed its expiration time.
 	ErrLinkTokenExpired = errors.New("link token has expired")
