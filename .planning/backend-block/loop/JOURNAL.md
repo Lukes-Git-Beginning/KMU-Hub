@@ -1377,3 +1377,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 106, 4e8dbc09: nur `openapi.yaml`-Texte + Skriptliste + Backlog/Journal, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: keine
 - offen: (1) Verhaltensänderung für das FE: ein Retry mit gleichem `Idempotency-Key` nach abgeschlossener Anlage liefert bei diesen fünf Routen kein Token/Passwort mehr, sondern den Hinweis-Body (Status unverändert); der Nutzer muss das Geheimnis neu erzeugen (Resend bzw. neues Passwort). Vorher bekam er es per Replay erneut, auf Kosten der 24-h-Klartextablage. (2) Bereits gespeicherte Zeilen in `idempotency_keys` laufen erst nach 24 h über den Cleanup ab. (3) Befristete Tokens (Join-/WOPI-/Dokument-Token) bewusst nicht redigiert, siehe Unit-Notes.
+
+## Iteration 108 — fix-contact-erasure-leaves-inbox-thread-messages — done — 2026-10-21 03:40
+- commit: `fix(consent): scrub inbound inbox thread texts on contact erasure` (SHA via `git log`)
+- gebaut: `ScrubDependentPII` leert zusätzlich `inbox_thread_messages.body = ''` und `.author_name = NULL` für Zeilen mit `direction = 'inbound' AND author_id IS NULL`, erreicht über Subselect auf `inbox_messages.crm_contact_id` (tenant-gescoped an beiden Stellen). Gilt damit für Anonymisierung und Hard-Delete (gemeinsame Funktion). Godoc um die Entscheidung ergänzt.
+  - Tests: `consent/scrub_inbox_thread_test.go` (echtes Postgres als kmuhub_app: inbound geleert; outbound + internal bleiben mit Text; Zeile eines anderen Kontakts und eines fremden Tenants unberührt), `contact/delete_scrub_inbox_thread_db_test.go` (Hard-Delete-Pfad).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/crm/...` mit `-p 2`, DATABASE_URL als kmuhub_app, 0 Skips; erster Lauf ohne `-p 2` riss `crm/tag` mit "too many clients" — Verbindungslimit lokal, kein Befund) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: n.a. (Fix, Mutations-Probe statt Zeilen); internal/crm/consent nachher 65,3 %
+- mutations-probe: Subselect mit `AND false` entschärft ⇒ `TestAnonymizeContact_ScrubsInboundInboxThreadTexts` und `TestDelete_ScrubsInboundInboxThreadTexts` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 107, 3e697203: Middleware-Marker + Header in fünf Handlern + Tests, keine neue Route/Guard/Proto/Migration/Stub)
+- neue-units: keine
+- offen: Entscheidungen (bewertet, nicht stillschweigend): (1) Outbound-Antworten und interne Notizen bleiben unangetastet — sie sind der Eigenbeleg der Mitarbeiter mit `author_id`; sie KÖNNEN den Kontakt zitieren (gleiches akzeptiertes Restrisiko wie `deals.notes`). (2) `inbox_messages.subject` bleibt: Geschäftsbezug ("Angebot 4711"), nennt die Person nicht zwingend. `metadata` bleibt ebenfalls (Inhalt nicht belegt). Beides im Godoc unter "Deliberately NOT scrubbed". Wenn Luke subject mit leeren will: Spalte ist `NOT NULL DEFAULT ''`, Leerwert wäre zulässig, `preview` ist schon leer.

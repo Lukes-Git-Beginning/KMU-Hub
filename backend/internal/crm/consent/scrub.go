@@ -39,7 +39,10 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 //
 // Also scrubbed: inbox_messages.sender_name/.sender_email/.preview (matched
 // via crm_contact_id, not contact_id -- the column is named differently on
-// this table) and rentals.renter_name/.notes plus the renter's signature
+// this table), the inbound rows of their conversation thread
+// (inbox_thread_messages.body/.author_name, direction 'inbound' with no
+// author_id -- the contact's own words; staff replies and internal notes
+// keep their rows and text) and rentals.renter_name/.notes plus the renter's signature
 // (rentals.signature_data/.signed_by -- signed_by is the name typed next to the
 // signature, see vermietung.Service.SaveSignature). The rental's handover and
 // return protocols hang off rentals via rental_id (no contact_id of their own,
@@ -53,6 +56,11 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 //     Abs. 3 AO requires 10 years retention for invoices
 //     (gobdarchive/service.go:270), and sent invoices are GoBD-immutable
 //     (locked_at). Scrubbing them would be a compliance violation, not a fix.
+//   - inbox_messages.subject/.metadata and the outbound/internal rows of
+//     inbox_thread_messages -- subject is a business reference ("Angebot 4711")
+//     that does not have to name the person, and staff replies are the
+//     employee's own record with an author_id; same accepted residual risk
+//     as deals.notes below.
 //   - deals.notes/name, meetings.title/description/agenda -- free text that
 //     CAN name the contact but does not have to; a blind search/replace risks
 //     corrupting unrelated content more than it protects. Accepted residual
@@ -132,6 +140,21 @@ func ScrubDependentPII(ctx context.Context, tx pgx.Tx, contactID, tenantID uuid.
 	)
 	if err != nil {
 		return 0, fmt.Errorf("scrub dependent pii: clear inbox message sender identity: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE inbox_thread_messages SET body = '', author_name = NULL
+		 WHERE tenant_id = $2
+		   AND direction = 'inbound' AND author_id IS NULL
+		   AND (body <> '' OR author_name IS NOT NULL)
+		   AND message_id IN (
+		     SELECT id FROM inbox_messages WHERE crm_contact_id = $1 AND tenant_id = $2
+		   )`,
+		contactID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("scrub dependent pii: clear inbox thread inbound texts: %w", err)
 	}
 	affected += int(res.RowsAffected())
 
