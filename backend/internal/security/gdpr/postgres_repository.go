@@ -109,9 +109,11 @@ func (r *PostgresRepository) ListExportRequests(ctx context.Context, tenantID, u
 func (r *PostgresRepository) UpdateExportStatus(ctx context.Context, tenantID uuid.UUID, req *models.GDPRExportRequest) error {
 	result, err := r.pool.Exec(ctx,
 		`UPDATE gdpr_export_requests
-		 SET status = $1, reviewed_by = $2, reviewed_at = $3, review_note = $4
+		 SET status = $1, reviewed_by = $2, reviewed_at = $3, review_note = $4,
+		     processing_started_at = CASE WHEN $7::boolean THEN NOW() ELSE processing_started_at END
 		 WHERE id = $5 AND tenant_id = $6`,
 		req.Status, req.ReviewedBy, req.ReviewedAt, req.ReviewNote, req.ID, tenantID,
+		req.Status == models.ExportStatusProcessing,
 	)
 	if err != nil {
 		return err

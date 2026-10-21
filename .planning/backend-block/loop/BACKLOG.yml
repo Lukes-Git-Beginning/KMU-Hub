@@ -4537,7 +4537,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
     scope: >
       `gdpr.Service.ApproveExport` startet die Erzeugung in einer losgeloesten Goroutine

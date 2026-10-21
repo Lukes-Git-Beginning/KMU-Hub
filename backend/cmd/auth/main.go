@@ -149,6 +149,10 @@ func main() {
 	go gdpr.RetentionScheduler(ctx, pool, retentionEngine, retentionMode,
 		1*time.Minute /* startup delay */, 24*time.Hour /* interval */)
 
+	// Re-run Art. 15 exports whose generation died with a restart.
+	go gdpr.ExportSweeper(ctx, pool, gdprService, gdpr.ExportLease,
+		2*time.Minute /* startup delay */, 5*time.Minute /* interval */)
+
 	vendorAccessRepo := vendoraccess.NewPostgresRepository(pool)
 	vendorAccessService := vendoraccess.NewService(vendorAccessRepo)
 
