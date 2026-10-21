@@ -12,6 +12,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // ---------------------------------------------------------------------------
@@ -173,7 +174,7 @@ func (d *CsatSurveyDispatcher) Run(ctx context.Context) {
 	d.log.Info("helpdesk csat survey dispatcher started", "tick", d.tick.String())
 	defer d.log.Info("helpdesk csat survey dispatcher stopped")
 
-	d.ProcessTick(ctx, d.now())
+	d.safeTick(ctx)
 
 	ticker := time.NewTicker(d.tick)
 	defer ticker.Stop()
@@ -183,9 +184,15 @@ func (d *CsatSurveyDispatcher) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			d.ProcessTick(ctx, d.now())
+			d.safeTick(ctx)
 		}
 	}
+}
+
+// safeTick runs one pass under panic recovery: a panic in the mailer or the
+// config loader must not kill the process or end Run.
+func (d *CsatSurveyDispatcher) safeTick(ctx context.Context) {
+	safego.Do("helpdesk csat dispatch tick", func() { d.ProcessTick(ctx, d.now()) })
 }
 
 // ProcessTick runs a single dispatch pass. Exported for tests and for a future

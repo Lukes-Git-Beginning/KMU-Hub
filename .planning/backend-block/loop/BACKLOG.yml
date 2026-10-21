@@ -5161,7 +5161,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fix, Coverage nicht Ziel)"
     scope: >
       Der Helfer `internal/safego` (`Do(name, fn) bool`, `Go(name, fn)`) existiert seit Iteration 90

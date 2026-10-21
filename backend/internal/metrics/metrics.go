@@ -70,7 +70,7 @@ func NewRegistry() *Registry {
 	auditEventsDropped := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "audit_events_dropped_total",
 		Help: "HTTP audit events that never reached the audit log.",
-	}, []string{"reason"}) // reason: "buffer_full", "service_unavailable", "write_failed", "closed"
+	}, []string{"reason"}) // reason: "buffer_full", "service_unavailable", "write_failed", "closed", "worker_panic"
 
 	grpcMetrics := grpcprometheus.NewServerMetrics()
 

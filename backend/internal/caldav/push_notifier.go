@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/safego"
 	"github.com/kmuhub/kmuhub/internal/security/safehttp"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
@@ -76,23 +77,24 @@ func (n *PushNotifier) NotifyCollectionChanged(ctx context.Context, collectionTy
 	}
 
 	// Clean up expired subscriptions opportunistically
-	go func() {
+	safego.Go("caldav push subscription cleanup", func() {
 		cleanupCtx, cancel := context.WithTimeout(sysctx.With(context.Background()), 10*time.Second)
 		defer cancel()
 		if _, cleanupErr := n.subscriptions.CleanupExpired(cleanupCtx); cleanupErr != nil {
 			slog.Warn("failed to cleanup expired push subscriptions", "error", cleanupErr)
 		}
-	}()
+	})
 
 	// Send notifications in a goroutine to avoid blocking the write path
-	go func() {
+	safego.Go("caldav push notify", func() {
 		notifyCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
+		// One recover per subscriber: a panic for one endpoint must not skip the rest.
 		for _, sub := range subs {
-			n.sendNotification(notifyCtx, sub)
+			safego.Do("caldav push send", func() { n.sendNotification(notifyCtx, sub) })
 		}
-	}()
+	})
 
 	return nil
 }

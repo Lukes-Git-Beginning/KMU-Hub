@@ -26,6 +26,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // ============================================================================
@@ -166,8 +167,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	s.log.Info("berichte scheduler started", "tick", s.tick.String())
 	defer s.log.Info("berichte scheduler stopped")
 
-	s.processTick(ctx, s.clock.Now())
-	s.maybeSweepCache(ctx, s.clock.Now())
+	s.safeTick(ctx)
 
 	ticker := time.NewTicker(s.tick)
 	defer ticker.Stop()
@@ -177,10 +177,18 @@ func (s *Scheduler) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			s.processTick(ctx, s.clock.Now())
-			s.maybeSweepCache(ctx, s.clock.Now())
+			s.safeTick(ctx)
 		}
 	}
+}
+
+// safeTick runs one tick (dispatch + cache sweep) under panic recovery: a panic
+// in the runner, exporter or mailer must not kill the process or end Run.
+func (s *Scheduler) safeTick(ctx context.Context) {
+	safego.Do("berichte scheduler tick", func() {
+		s.processTick(ctx, s.clock.Now())
+		s.maybeSweepCache(ctx, s.clock.Now())
+	})
 }
 
 // ProcessTick runs a single scheduler iteration. Exposed for tests.

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/safego"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
@@ -29,6 +30,7 @@ const (
 	dropServiceUnavailable = "service_unavailable"
 	dropWriteFailed        = "write_failed"
 	dropClosed             = "closed"
+	dropWorkerPanic        = "worker_panic"
 )
 
 const (
@@ -90,18 +92,27 @@ func (a *AuditLogger) worker() {
 	for {
 		select {
 		case event := <-a.events:
-			a.processEvent(event)
+			a.safeProcessEvent(event)
 		case <-a.done:
 			// Flush what is already queued, then stop.
 			for {
 				select {
 				case event := <-a.events:
-					a.processEvent(event)
+					a.safeProcessEvent(event)
 				default:
 					return
 				}
 			}
 		}
+	}
+}
+
+// safeProcessEvent keeps a panic while writing one event (nil client, nil
+// response from a misbehaving stub) from killing the whole process: that event
+// is counted as lost and the worker moves on to the next one.
+func (a *AuditLogger) safeProcessEvent(event auditEvent) {
+	if !safego.Do("audit event worker", func() { a.processEvent(event) }) {
+		a.recordDrop(dropWorkerPanic, nil)
 	}
 }
 

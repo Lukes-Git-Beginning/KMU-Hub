@@ -9,6 +9,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
 	notificationevent "github.com/kmuhub/kmuhub/internal/notification/event"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // ReminderWorker polls for due reminders and marks them as sent.
@@ -58,15 +59,20 @@ func (w *ReminderWorker) Run(ctx context.Context) error {
 			return nil
 
 		case <-reminderTicker.C:
-			if err := w.processReminders(ctx); err != nil {
-				w.logger.Error("vertraege reminder worker: processReminders error", "error", err)
-				// Continue — do not abort on transient errors.
-			}
+			// A panic in one tick is recovered by safego; the loop keeps running.
+			safego.Do("vertraege process reminders", func() {
+				if err := w.processReminders(ctx); err != nil {
+					w.logger.Error("vertraege reminder worker: processReminders error", "error", err)
+					// Continue — do not abort on transient errors.
+				}
+			})
 
 		case <-expiryTicker.C:
-			if err := w.processExpiry(ctx); err != nil {
-				w.logger.Error("vertraege reminder worker: processExpiry error", "error", err)
-			}
+			safego.Do("vertraege process expiry", func() {
+				if err := w.processExpiry(ctx); err != nil {
+					w.logger.Error("vertraege reminder worker: processExpiry error", "error", err)
+				}
+			})
 		}
 	}
 }

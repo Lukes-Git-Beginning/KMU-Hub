@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/kmuhub/kmuhub/internal/safego"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
@@ -64,9 +65,11 @@ func RunStaleContactReaper(ctx context.Context, svc *Service, staleAfter, interv
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if _, err := svc.RequeueStaleContacts(ctx, staleAfter); err != nil {
-				slog.ErrorContext(ctx, "dialer: stale-contact sweep failed", "error", err)
-			}
+			safego.Do("dialer stale-contact sweep", func() {
+				if _, err := svc.RequeueStaleContacts(ctx, staleAfter); err != nil {
+					slog.ErrorContext(ctx, "dialer: stale-contact sweep failed", "error", err)
+				}
+			})
 		}
 	}
 }

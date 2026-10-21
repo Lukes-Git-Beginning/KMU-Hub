@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/safego"
 	"github.com/kmuhub/kmuhub/internal/security/safehttp"
 )
 
@@ -83,10 +84,13 @@ func (w *WebhookWorker) Run(ctx context.Context) error {
 			w.logger.Info("formulare webhook worker stopped")
 			return nil
 		case <-ticker.C:
-			if err := w.processBatch(ctx); err != nil {
-				w.logger.Error("formulare webhook worker batch error", "error", err)
-				// Continue — don't abort on transient errors.
-			}
+			// A panic in one batch is recovered by safego; the loop keeps running.
+			safego.Do("formulare webhook batch", func() {
+				if err := w.processBatch(ctx); err != nil {
+					w.logger.Error("formulare webhook worker batch error", "error", err)
+					// Continue — don't abort on transient errors.
+				}
+			})
 		}
 	}
 }

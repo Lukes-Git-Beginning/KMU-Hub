@@ -12,6 +12,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
 	notificationevent "github.com/kmuhub/kmuhub/internal/notification/event"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // tuevCronLockKey is a stable int64 derived from the string "fuhrpark_tuev_cron".
@@ -101,9 +102,12 @@ func (w *TuevWorker) Run(ctx context.Context, acquireLockAndRun func(ctx context
 			w.logger.Debug("fuhrpark TUEV worker heartbeat")
 
 		case <-runTicker.C:
-			if err := acquireLockAndRun(ctx); err != nil {
-				w.logger.Error("fuhrpark TUEV worker run error", "error", err)
-			}
+			// A panic in one scan is recovered by safego; the loop keeps running.
+			safego.Do("fuhrpark TUEV scan", func() {
+				if err := acquireLockAndRun(ctx); err != nil {
+					w.logger.Error("fuhrpark TUEV worker run error", "error", err)
+				}
+			})
 		}
 	}
 }
