@@ -495,20 +495,33 @@ func (r *PostgresRepository) ListActiveWebhooksForSchema(ctx context.Context, te
 // Delivery
 // ============================================================================
 
-// ClaimPendingDeliveries returns up to batchSize pending deliveries whose
-// next_attempt_at is in the past, using SKIP LOCKED so parallel workers
-// don't race. Callers are responsible for updating status after the HTTP call.
+// deliveryClaimLease is how long a claimed delivery stays invisible to other
+// claimers. It has to cover batchSize x HTTP timeout of the worker (10 x 10 s);
+// if the worker dies after the claim, the row becomes claimable again once the
+// lease runs out (at-least-once).
+const deliveryClaimLease = 2 * time.Minute
+
+// ClaimPendingDeliveries atomically leases up to batchSize pending deliveries
+// whose next_attempt_at is in the past: the claim pushes next_attempt_at out by
+// deliveryClaimLease inside the same statement, so a parallel claimer no longer
+// matches the row. The row lock alone would not do that, in autocommit it ends
+// with the statement. status stays 'pending'; the caller records the outcome
+// via MarkDeliveryResult, which also overwrites the lease.
 func (r *PostgresRepository) ClaimPendingDeliveries(ctx context.Context, batchSize int) ([]*WebhookDelivery, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, webhook_id, submission_id, tenant_id, payload, status,
-		        attempt_count, max_attempts, next_attempt_at, last_error,
-		        last_response_code, created_at, delivered_at
-		 FROM form_webhook_deliveries
-		 WHERE status = 'pending' AND next_attempt_at <= NOW()
-		 ORDER BY next_attempt_at ASC
-		 LIMIT $1
-		 FOR UPDATE SKIP LOCKED`,
-		batchSize,
+		`UPDATE form_webhook_deliveries
+		 SET next_attempt_at = NOW() + make_interval(secs => $2)
+		 WHERE id IN (
+		     SELECT id FROM form_webhook_deliveries
+		     WHERE status = 'pending' AND next_attempt_at <= NOW()
+		     ORDER BY next_attempt_at ASC
+		     LIMIT $1
+		     FOR UPDATE SKIP LOCKED
+		 )
+		 RETURNING id, webhook_id, submission_id, tenant_id, payload, status,
+		           attempt_count, max_attempts, next_attempt_at, last_error,
+		           last_response_code, created_at, delivered_at`,
+		batchSize, deliveryClaimLease.Seconds(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("claim pending deliveries: %w", err)

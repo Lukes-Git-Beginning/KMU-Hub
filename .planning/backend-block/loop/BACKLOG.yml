@@ -4402,7 +4402,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fix)"
     scope: >
       `formulare.PostgresRepository.ClaimPendingDeliveries`
@@ -5198,3 +5198,39 @@ units:
         Je Gruppe ein Test mit panikendem Tick und zwei Durchlaeufen
       - >-
         Mutations-Probe: `safego`-Aufruf in einem Worker entfernen, der Panik-Test wird rot
+
+  # --- Fund aus fix-formulare-webhook-claim-holds-no-lock (Iteration 91) ---
+
+  - id: fix-formulare-webhook-failed-deliveries-never-retried
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/formulare (zur Laufzeit messen)"
+    scope: >
+      `WebhookWorker.markFailed` (`internal/formulare/worker.go:~195`) setzt eine fehlgeschlagene
+      Auslieferung auf `status = 'failed'` mit `next_attempt_at = jetzt + Backoff`.
+      `PostgresRepository.ClaimPendingDeliveries` waehlt aber nur `status = 'pending'`; sonst
+      greift nichts auf `failed` zu (kein Reset, kein Cron). Das Backoff-Schema
+      (30 s ... 2 h, `max_attempts`) ist damit toter Code: ein einziger Fehlversuch (Timeout,
+      5xx) beendet die Zustellung fuer immer, `dead` wird nie erreicht.
+    sources:
+      - backend/internal/formulare/worker.go
+      - backend/internal/formulare/postgres_repository.go
+      - backend/internal/formulare/worker_test.go
+    notes: >
+      Zuerst verifizieren (kein anderer Pfad setzt `failed` zurueck: grep nach
+      `form_webhook_deliveries` in migrations/ und internal/). Fix: Claim auf
+      `status IN ('pending','failed')`. ACHTUNG Altbestand: bereits `failed`-Zeilen mit
+      `next_attempt_at` in der Vergangenheit wuerden schlagartig erneut ausgeliefert (HMAC-signiert,
+      an Kunden-URLs). Vor dem Umstellen messen, wie viele es lokal gibt, und entscheiden, ob eine
+      Migration sie auf `dead` setzt (Entscheidung Luke, falls Prod-Zeilen betroffen).
+      Der Lease-Claim aus Iteration 91 funktioniert unveraendert (status bleibt, nur next_attempt_at).
+    done_when:
+      - >-
+        Eine fehlgeschlagene Auslieferung wird nach Ablauf des Backoffs erneut geclaimt (DB-Test)
+      - >-
+        Nach `max_attempts` Fehlversuchen steht die Zeile auf `dead` und wird nicht mehr geclaimt
+      - >-
+        Mutations-Probe: Claim wieder auf nur `pending`, der Retry-Test wird rot

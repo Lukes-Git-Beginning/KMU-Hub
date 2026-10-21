@@ -38,7 +38,9 @@ func backoffFor(attemptCount int) time.Duration {
 
 // WebhookWorker polls for pending webhook deliveries and dispatches them with
 // HMAC signing and exponential back-off. It is stateless modulo repo calls
-// and is horizontally scalable thanks to FOR UPDATE SKIP LOCKED in the repo.
+// and is horizontally scalable because the repo leases each claimed delivery
+// (next_attempt_at is pushed out), so parallel workers never pick the same row;
+// a crash after the claim re-delivers once the lease expires (at-least-once).
 type WebhookWorker struct {
 	repo         Repository
 	httpClient   *http.Client
