@@ -4258,7 +4258,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fix, Bezugspaket internal/gateway wird in der Iteration gemessen)"
     scope: >
       Aus `scan-business-logic-in-handlers` (Iteration 53). `HandleGetWorkTimeStatus`
