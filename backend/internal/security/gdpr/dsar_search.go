@@ -594,6 +594,12 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *expenses)
 		}
 
+		fuhrpark, fpErr := fuhrparkModules(ctx, pool, tenantID, u.id, u.first, u.last)
+		if fpErr != nil {
+			return nil, fpErr
+		}
+		person.Modules = append(person.Modules, fuhrpark...)
+
 		documentChat, dcErr := documentChatModules(ctx, pool, tenantID, u.id)
 		if dcErr != nil {
 			return nil, dcErr
