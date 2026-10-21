@@ -2112,11 +2112,19 @@ func (s *WorkGRPCServer) ListProjectTeamUtilization(ctx context.Context, req *wo
 // Time Entry Proto Converters
 // ============================================================================
 
-func billableTimeEntryToProto(e *models.BillableTimeEntry) *workv1.BillableTimeEntryProto {
-	var hours float64
-	if e.DurationSeconds != nil {
-		hours = math.Round(float64(*e.DurationSeconds)/3600*100) / 100
+// secondsToHours converts a stored duration to hours. nil (running entry) is 0.
+// Not rounded: callers that sum rows (finance "Stunden -> Rechnung" groups
+// entries and rounds the group total) would otherwise add up per-row rounding
+// errors -- 100 one-minute entries sum to 2.00 h rounded, 1.67 h exact.
+func secondsToHours(seconds *int) float64 {
+	if seconds == nil {
+		return 0
 	}
+	return float64(*seconds) / 3600
+}
+
+func billableTimeEntryToProto(e *models.BillableTimeEntry) *workv1.BillableTimeEntryProto {
+	hours := secondsToHours(e.DurationSeconds)
 	description := ""
 	if e.Description != nil {
 		description = *e.Description
@@ -2152,10 +2160,11 @@ func utilizationPointsToProto(points []models.UtilizationPoint) []*workv1.Utiliz
 }
 
 func projectTimeEntryToProto(e *models.ProjectTimeEntry) *workv1.ProjectTimeEntryProto {
-	var hours float64
-	if e.DurationSeconds != nil {
-		hours = math.Round(float64(*e.DurationSeconds)/3600*100) / 100
-	}
+	// lean: stays rounded to 2 decimals. The project dialog (work/HoursToInvoiceDialog)
+	// bills one invoice line per row with quantity = hours.toFixed(2), so rounded rows
+	// keep its preview total equal to the invoice; exact hours would drift by cents.
+	// Switch to secondsToHours once that dialog groups rows and rounds after the sum.
+	hours := math.Round(secondsToHours(e.DurationSeconds)*100) / 100
 	description := ""
 	if e.Description != nil {
 		description = *e.Description
