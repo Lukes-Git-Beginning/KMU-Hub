@@ -27,7 +27,7 @@ func newUnconnectedTestWorker() (*Worker, *IMAPClient) {
 	return w, client
 }
 
-func TestIdleOrPoll_NoInboxFolder_ReturnsWithoutTouchingClient(t *testing.T) {
+func TestIdleOrPoll_NoInboxFolder_ReturnsErrNoInboxFolder(t *testing.T) {
 	w, client := newUnconnectedTestWorker()
 	folders := []*models.EmailFolder{
 		{ID: uuid.New(), FolderType: models.FolderTypeSent, IMAPName: "Sent"},
@@ -37,8 +37,8 @@ func TestIdleOrPoll_NoInboxFolder_ReturnsWithoutTouchingClient(t *testing.T) {
 	err := w.idleOrPoll(context.Background(), client, folders)
 
 	// If idleOrPoll had reached client.SelectFolder, the unconnected client
-	// would return ErrIMAPConnectionLost -- nil proves it returned before that.
-	assert.NoError(t, err)
+	// would return ErrIMAPConnectionLost -- the named error proves it returned before that.
+	assert.ErrorIs(t, err, errNoInboxFolder)
 }
 
 func TestIdleOrPoll_InboxFolder_UnconnectedClient_PropagatesSelectError(t *testing.T) {

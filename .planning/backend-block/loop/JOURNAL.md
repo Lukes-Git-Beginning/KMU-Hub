@@ -1201,3 +1201,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 90, cf6d66e4: neues Paket `safego`, Go-Änderungen in automation/bexio/lexware/email-sync/notification, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: `fix-formulare-webhook-failed-deliveries-never-retried` (ans Ende; kein Datenleck, Funktionsausfall: `markFailed` setzt `failed`, der Claim greift nur `pending` ⇒ kein Retry, `dead` nie erreicht)
 - offen: (1) Umstellung des Retry-Fundes wäre ein Altbestandsrisiko (alte `failed`-Zeilen würden schlagartig neu ausgeliefert) ⇒ in der Unit vermerkt, Entscheidung ggf. bei Luke. (2) `-race` läuft lokal nicht; der neue Test nutzt Goroutinen mit Mutex, CI prüft das.
+
+## Iteration 92 — fix-email-sync-worker-hot-loop-when-no-inbox-folder — done — 2026-10-21 02:58
+- commit: `fix(email): back off the sync worker when an account has no inbox folder` (SHA via `git log`)
+- gebaut: `idleOrPoll` (`email/sync/worker.go`) liefert bei fehlendem INBOX-Ordner den benannten Fehler `errNoInboxFolder` statt `nil`; `Run` wertet das damit als fehlgeschlagenen Zyklus und der bestehende Backoff (1 s bis 60 s) greift. Für den Run-Test neue Naht `Worker.cycleFn` (nil = `syncCycle`), weil `Connect()` TLS verlangt und der Mem-IMAP-Server nur Klartext spricht.
+  - Tests: `TestIdleOrPoll_NoInboxFolder_ReturnsErrNoInboxFolder` (umbenannt/mitgezogen), neu `TestWorker_Run_NoInboxFolderBacksOff` (Backoff 100 ms; in 350 ms 2–4 Zyklen).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/email/...`, DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a. (keine Route/Proto/Tabelle)
+- coverage: internal/email/sync 84,4 % -> 84,8 %
+- mutations-probe: Rückgabe wieder `nil` ⇒ `TestWorker_Run_NoInboxFolderBacksOff` rot (178.028 Zyklen in 350 ms statt ≤ 4) und der idleOrPoll-Test rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 91, 3adf8730: reine Go-Änderung in `formulare/` Repo+Worker, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: (1) Ein Konto ohne INBOX loggt jetzt pro Backoff-Durchlauf (bis alle 60 s) einen `Error` „sync cycle failed“ statt Dauerfeuer. (2) Der Test nutzt `time.Sleep` (350 ms) und Zeitfenster; auf einem sehr langsamen CI-Runner könnte die Obergrenze 4 knapp werden — Untergrenze 2 ist unkritisch. (3) `-race` lokal nicht möglich, Zähler läuft über `atomic`.

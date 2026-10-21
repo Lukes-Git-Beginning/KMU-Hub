@@ -4445,7 +4445,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/email/sync (zur Laufzeit messen)"
     scope: >
       `Worker.syncCycle` (`internal/email/sync/worker.go:143`) endet in
