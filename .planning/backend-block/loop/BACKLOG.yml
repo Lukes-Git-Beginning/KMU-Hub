@@ -4485,7 +4485,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/notification/event (zur Laufzeit messen)"
     scope: >
       Verdacht aus dem Code-Lesen, ZUERST per DB-Test zu belegen oder zu widerlegen.
