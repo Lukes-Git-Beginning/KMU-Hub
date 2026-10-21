@@ -2,22 +2,36 @@
 # Zustandskonflikt). openapi-status-fill.py traegt hier bei fehlendem 409 die Komponente
 # ConflictOrIdempotencyInFlight ein statt IdempotencyInFlight. Format: "METHOD /pfad".
 # Quelle: Journal Iteration 66 (RPC -> Mapper -> Sentinel je Operation aufgeloest).
+# Iteration 106: Rest-Mapper (einkauf, inventar, produktion, vertraege, wiki, work, plugin, security,
+# auth-Provisioning, CreateInvoice) nachgezogen; Ops mit eigener 409-description (bank-accounts,
+# quotes/convert, invoices/import, work/labels POST, work/custom-fields POST, channels join, admin/roles,
+# admin/users/invite) stehen bewusst NICHT hier.
 # Nicht hier: email/labels (POST, PATCH), hr/employees (POST), hr/change-requests (POST) -
 # sie tragen eine eigene, operationsspezifische 409-description.
+PATCH /api/v1/einkauf/contracts/{id}
+PATCH /api/v1/einkauf/pos/{id}
 PATCH /api/v1/fuhrpark/bookings/{id}
 PATCH /api/v1/fuhrpark/vehicles/{id}
+PATCH /api/v1/inventar/items/{id}
+PATCH /api/v1/produktion/boms/{bomId}
 PATCH /api/v1/vermietung/rentals/{id}
+PATCH /api/v1/wiki/articles/{id}
 POST /api/v1/calendar/bookings
 POST /api/v1/calendar/calendars/{id}/members
 POST /api/v1/calendar/calendars/{id}/subscribe
 POST /api/v1/calendar/categories
 POST /api/v1/contacts
 POST /api/v1/custom-fields
+POST /api/v1/customization/fields
 POST /api/v1/documents/folders
 POST /api/v1/documents/folders/initialize-team
 POST /api/v1/documents/folders/initialize-user
 POST /api/v1/documents/shares
 POST /api/v1/documents/tags
+POST /api/v1/einkauf/contracts
+POST /api/v1/einkauf/pos
+POST /api/v1/einkauf/suppliers/{supplierId}/ratings
+POST /api/v1/finance/invoices
 POST /api/v1/fuhrpark/bookings
 POST /api/v1/fuhrpark/vehicles
 POST /api/v1/gdpr/deletion-requests/{id}/process
@@ -26,14 +40,34 @@ POST /api/v1/inbox/messages/{id}/claim
 POST /api/v1/inbox/messages/{id}/forward
 POST /api/v1/inbox/teams/{id}/members
 POST /api/v1/integrations/link
+POST /api/v1/inventar/items
+POST /api/v1/invitations
 POST /api/v1/notifications/mutes
 POST /api/v1/pipeline-stages
+POST /api/v1/plugins/installations
+POST /api/v1/plugins/manifests
+POST /api/v1/produktion/boms
+POST /api/v1/produktion/orders
+POST /api/v1/projects
+POST /api/v1/projects/from-template
+POST /api/v1/projects/{id}/statuses
+POST /api/v1/projects/{id}/template
+POST /api/v1/security/gdpr/export/request
+POST /api/v1/security/retention-policies
 POST /api/v1/tags
+POST /api/v1/tasks/{id}/dependencies
+POST /api/v1/tenants
 POST /api/v1/vermietung/rentals
 POST /api/v1/vermietung/rentals/{id}/end
 POST /api/v1/vermietung/rentals/{id}/inspections
 POST /api/v1/vermietung/rentals/{id}/start
+POST /api/v1/vertraege/contracts
+POST /api/v1/wiki/articles
 PUT /api/v1/contacts/{id}
+PUT /api/v1/customization/fields/{id}
 PUT /api/v1/documents/folders/{id}
 PUT /api/v1/pipeline-stages/{id}
+PUT /api/v1/project-statuses/{id}
 PUT /api/v1/tags/{id}
+PUT /api/v1/work/custom-fields/{id}
+PUT /api/v1/work/labels/{id}

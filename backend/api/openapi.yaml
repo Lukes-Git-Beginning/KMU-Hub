@@ -617,7 +617,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -653,7 +653,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5382,7 +5382,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5697,7 +5697,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5736,7 +5736,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5800,7 +5800,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5867,7 +5867,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -6396,7 +6396,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -10206,7 +10206,7 @@ paths:
                 $ref: "#/components/schemas/Invoice"
         "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -15700,7 +15700,7 @@ paths:
         "403":
           description: Forbidden — caller lacks admin:customization:manage
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -15751,7 +15751,7 @@ paths:
           description: Forbidden — caller lacks admin:customization:manage
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -16322,7 +16322,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -16523,7 +16523,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -17593,7 +17593,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -17645,7 +17645,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -18670,7 +18670,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -20555,7 +20555,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -20609,7 +20609,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -21065,7 +21065,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -21152,7 +21152,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -21216,7 +21216,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -22910,7 +22910,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -23386,7 +23386,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -24480,7 +24480,7 @@ paths:
                   contract: { $ref: "#/components/schemas/VertraegeContract" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}:
@@ -27324,7 +27324,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -27386,7 +27386,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -31666,7 +31666,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -31764,7 +31764,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -32385,7 +32385,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -32445,7 +32445,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:

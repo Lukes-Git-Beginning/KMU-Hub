@@ -5036,7 +5036,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-10-21
     decision: >-
       Rest aus `fix-openapi-409-business-conflict-description` (Iteration 66): dort sind die neun
