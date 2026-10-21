@@ -1411,3 +1411,11 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 109, 6f9c7356: nur Worker-Wrapper + Tests, keine Route/Guard/Proto/Migration/Stub)
 - neue-units: keine
 - offen: (1) Migration 000332 setzt vorhandene `failed`-Zeilen auf `dead` (lokal 1 Zeile). Prod nicht geprüft (kein Zugriff in diesem Lauf): Luke kann vor dem Deploy `select count(*) from form_webhook_deliveries where status='failed'` prüfen; wer diese Zeilen doch erneut ausliefern will, setzt sie vor dem Deploy auf `pending`. (2) Verhaltensänderung: Kunden-Webhooks bekommen künftig bis zu `max_attempts` (5) Versuche mit Backoff statt einem. (3) Eine im Lauf des Workers panikende Auslieferung hat weiter nur die Lease als Schutz (unverändert).
+
+## Bilanz Lauf (2026-10-21 03:44)
+- iterationen: 110 im Bereich 1-110, davon 110 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: fix 63 · harden 14 · feat 13 · scan 12 · rebrand 4 · cov 2 · doc 1 · test 1
+- commits nach typ: fix 72 · docs 16 · feat 13 · test 6 · refactor 3 · chore 1 (111 seit 444a28c3)
+- coverage-delta: internal/email/sync 64,6 -> 84,8 · internal/middleware 57,7 -> 69,9 · internal/crm/pipelinestage 60,6 -> 65,8 · (25 weitere)
+- offen mit entscheidungsbedarf: 31 von 110 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 4,2 (459 gesamt)
