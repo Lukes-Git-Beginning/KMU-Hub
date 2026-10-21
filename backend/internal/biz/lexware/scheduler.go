@@ -10,6 +10,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // tenantScheduler holds the cancel function and metadata for a single tenant's scheduler.
@@ -27,6 +28,10 @@ type Scheduler struct {
 	repo       Repository
 	configRepo IntegrationConfigRepo
 
+	// intervalUnit scales the contact_sync_interval_min column; time.Minute in
+	// production, shortened by tests so a tick can actually fire.
+	intervalUnit time.Duration
+
 	mu        sync.Mutex
 	tenants   map[uuid.UUID]*tenantScheduler
 	parentCtx context.Context
@@ -39,6 +44,8 @@ func NewScheduler(service *Service, repo Repository, configRepo IntegrationConfi
 		repo:       repo,
 		configRepo: configRepo,
 		tenants:    make(map[uuid.UUID]*tenantScheduler),
+
+		intervalUnit: time.Minute,
 	}
 }
 
@@ -144,18 +151,9 @@ func (s *Scheduler) StopAll() {
 // Only contacts are polled; Lexware webhooks are the primary mechanism for
 // real-time updates on invoices and other entities.
 func (s *Scheduler) runTenantScheduler(ctx context.Context, ts *tenantScheduler, syncConfig *models.LexwareSyncConfig) {
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("lexware scheduler panic recovered",
-				"tenant_id", ts.tenantID,
-				"panic", r,
-			)
-		}
-	}()
-
-	contactInterval := time.Duration(syncConfig.ContactSyncIntervalMin) * time.Minute
-	if contactInterval < time.Minute {
-		contactInterval = 15 * time.Minute // Default 15 min
+	contactInterval := time.Duration(syncConfig.ContactSyncIntervalMin) * s.intervalUnit
+	if syncConfig.ContactSyncIntervalMin < 1 {
+		contactInterval = 15 * s.intervalUnit // Default 15 min
 	}
 
 	contactTicker := time.NewTicker(contactInterval)
@@ -168,14 +166,17 @@ func (s *Scheduler) runTenantScheduler(ctx context.Context, ts *tenantScheduler,
 
 		case <-contactTicker.C:
 			if syncConfig.ContactSyncEnabled {
-				// G8-correct: pass the tenant's own configID explicitly instead of
-				// re-resolving it under system context (see SyncContactsWithConfig).
-				if _, err := s.service.SyncContactsWithConfig(ctx, ts.configID, ts.tenantID); err != nil {
-					slog.Error("lexware scheduled contact sync failed",
-						"tenant_id", ts.tenantID,
-						"error", err,
-					)
-				}
+				// A panic in the tick is logged and the loop keeps ticking.
+				safego.Do("lexware scheduled contact sync", func() {
+					// G8-correct: pass the tenant's own configID explicitly instead of
+					// re-resolving it under system context (see SyncContactsWithConfig).
+					if _, err := s.service.SyncContactsWithConfig(ctx, ts.configID, ts.tenantID); err != nil {
+						slog.Error("lexware scheduled contact sync failed",
+							"tenant_id", ts.tenantID,
+							"error", err,
+						)
+					}
+				})
 			}
 		}
 	}

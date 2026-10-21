@@ -8,6 +8,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/automation/trigger"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 const (
@@ -64,19 +65,22 @@ func (ac *AutomationConsumer) HandleEvent(ctx context.Context, evt models.EventP
 
 	for _, match := range matches {
 		// Execute each automation in a goroutine with timeout
-		go func(auto models.Automation, e models.EventPayload) {
-			execCtx, cancel := context.WithTimeout(context.Background(), executionTimeout)
-			defer cancel()
-
-			if execErr := ac.engine.Execute(execCtx, auto, e); execErr != nil {
-				slog.Error("automation execution failed",
-					"automation_id", auto.ID,
-					"event_type", e.Type,
-					"error", execErr,
-				)
-			}
-		}(*match.Automation, evt)
+		auto := *match.Automation
+		safego.Go("automation execute (event)", func() { ac.execute(auto, evt) })
 	}
 
 	return nil
+}
+
+func (ac *AutomationConsumer) execute(auto models.Automation, e models.EventPayload) {
+	execCtx, cancel := context.WithTimeout(context.Background(), executionTimeout)
+	defer cancel()
+
+	if execErr := ac.engine.Execute(execCtx, auto, e); execErr != nil {
+		slog.Error("automation execution failed",
+			"automation_id", auto.ID,
+			"event_type", e.Type,
+			"error", execErr,
+		)
+	}
 }

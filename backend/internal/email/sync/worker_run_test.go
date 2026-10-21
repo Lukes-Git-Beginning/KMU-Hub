@@ -125,6 +125,45 @@ func TestWorker_Run_RetriesAfterSyncCycleFailure(t *testing.T) {
 	}
 }
 
+// TestWorker_Run_SurvivesPanicInSyncCycle: a panic inside a cycle (e.g. the IMAP
+// parser on a hostile server response) is treated like a failed cycle -- backoff,
+// then another attempt. Two attempts are required: one would also pass if the
+// worker died after the first panic.
+func TestWorker_Run_SurvivesPanicInSyncCycle(t *testing.T) {
+	origInitial, origMax := initialBackoff, maxBackoff
+	initialBackoff, maxBackoff = 20*time.Millisecond, 100*time.Millisecond
+	t.Cleanup(func() { initialBackoff, maxBackoff = origInitial, origMax })
+
+	var attempts int32
+	repo := &fakeAccountRepo{
+		getByIDFn: func(ctx context.Context, id, tenantID uuid.UUID) (*models.EmailAccount, error) {
+			atomic.AddInt32(&attempts, 1)
+			panic("parser boom")
+		},
+	}
+	svc := account.NewService(repo, fakeVaultEncryptor{})
+	acct := &models.EmailAccount{ID: uuid.New(), TenantID: uuid.New()}
+	w := newWorker(acct, svc, &fakeMessageSyncer{}, newFakeFolderSyncer(), nil, slog.Default())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		w.Run(ctx)
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt32(&attempts) >= 2
+	}, 2*time.Second, 5*time.Millisecond, "worker must run another cycle after a panic")
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return after context cancellation")
+	}
+}
+
 // TestWorker_Run_StopsOnContextCancelDuringBackoff proves a canceled context
 // interrupts the backoff wait itself rather than being checked only at loop
 // top -- otherwise Stop() could block for up to maxBackoff.

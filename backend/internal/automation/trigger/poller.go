@@ -9,6 +9,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/automation/workflow"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // EngineExecutor is the interface the poller uses to execute automations.
@@ -70,7 +71,7 @@ func (p *TimeTriggerPoller) Start(ctx context.Context) {
 	slog.Info("time trigger poller started", "interval", p.interval)
 
 	// Run immediately on start
-	p.checkTimeTriggers(ctx)
+	p.safeCheck(ctx)
 
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
@@ -81,9 +82,14 @@ func (p *TimeTriggerPoller) Start(ctx context.Context) {
 			slog.Info("time trigger poller stopped")
 			return
 		case <-ticker.C:
-			p.checkTimeTriggers(ctx)
+			p.safeCheck(ctx)
 		}
 	}
+}
+
+// safeCheck runs one tick; a panic in it is logged and the next tick still runs.
+func (p *TimeTriggerPoller) safeCheck(ctx context.Context) {
+	safego.Do("time trigger poller tick", func() { p.checkTimeTriggers(ctx) })
 }
 
 // checkTimeTriggers queries active time-based automations and creates
@@ -208,17 +214,18 @@ func (p *TimeTriggerPoller) fireDueEntities(ctx context.Context, auto *models.Au
 		}
 
 		// Execute in a goroutine with timeout
-		go func(a *models.Automation, e models.EventPayload) {
+		a := auto
+		safego.Go("automation execute (time trigger)", func() {
 			execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-			if execErr := p.engine.Execute(execCtx, *a, e); execErr != nil {
+			if execErr := p.engine.Execute(execCtx, *a, evt); execErr != nil {
 				slog.Error("time-based trigger execution failed",
 					"automation_id", a.ID,
 					"trigger_type", a.TriggerType,
-					"resource_id", e.ResourceID,
+					"resource_id", evt.ResourceID,
 					"error", execErr,
 				)
 			}
-		}(auto, evt)
+		})
 	}
 }

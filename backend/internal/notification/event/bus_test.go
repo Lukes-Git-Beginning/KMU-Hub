@@ -49,6 +49,27 @@ func TestEventBusDispatchSpecificHandler(t *testing.T) {
 	assert.True(t, called.Load())
 }
 
+// A panicking handler must not take the listener down, and the handlers after it
+// (plus the next event) must still run.
+func TestEventBusDispatchSurvivesPanickingHandler(t *testing.T) {
+	bus := NewEventBus("postgres://test")
+
+	var after atomic.Int32
+	bus.RegisterHandler("chat.mention", func(context.Context, models.EventPayload) error {
+		panic("handler boom")
+	})
+	bus.RegisterHandler("chat.mention", func(context.Context, models.EventPayload) error {
+		after.Add(1)
+		return nil
+	})
+
+	evt := models.EventPayload{Type: "chat.mention", Timestamp: time.Now()}
+	bus.dispatch(context.Background(), evt)
+	bus.dispatch(context.Background(), evt)
+
+	assert.Equal(t, int32(2), after.Load(), "handler after the panicking one ran for both events")
+}
+
 func TestEventBusDispatchWildcardHandler(t *testing.T) {
 	bus := NewEventBus("postgres://test")
 

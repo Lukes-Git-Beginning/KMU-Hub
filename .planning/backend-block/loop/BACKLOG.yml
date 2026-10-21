@@ -4340,7 +4340,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fix, Coverage nicht Ziel)"
     scope: >
       Nur zwei Stellen im Backend fangen eine Panik in einem Hintergrund-Goroutine ab
@@ -5153,3 +5153,48 @@ units:
         Fremder Tenant und Zeilen anderer Kontakte bleiben unberuehrt, Test
       - >-
         Mutations-Probe: Subselect entschaerft, Test rot
+
+  # --- Fund aus fix-background-workers-panic-kills-process-or-silently-stops-loop (Iteration 90) ---
+
+  - id: fix-background-workers-panic-remaining-goroutines
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix, Coverage nicht Ziel)"
+    scope: >
+      Der Helfer `internal/safego` (`Do(name, fn) bool`, `Go(name, fn)`) existiert seit Iteration 90
+      und schuetzt Automation (Event-Consumer, Zeit-Poller, Webhook), `EventBus.dispatch`,
+      den E-Mail-Sync-Worker sowie die bexio/lexware-Scheduler. Noch OHNE Schutz (Panik toetet den
+      ganzen Prozess): `berichte/scheduler` (`dispatch` -> RunReport/Export/Mailer),
+      `vertraege/worker.go`, `formulare/worker.go`, `helpdesk/csat_dispatch.go`,
+      `dialer/reaper.go`, `fuhrpark/worker.go`, `inbox/message/service.go` (Snooze-Worker),
+      `middleware/audit.go` (`worker`), `gdpr/service.go:139` (Export), `caldav/push_notifier.go:79,88`.
+    sources:
+      - backend/internal/safego/safego.go
+      - backend/internal/berichte/scheduler
+      - backend/internal/vertraege/worker.go
+      - backend/internal/formulare/worker.go
+      - backend/internal/helpdesk/csat_dispatch.go
+      - backend/internal/dialer/reaper.go
+      - backend/internal/fuhrpark/worker.go
+      - backend/internal/inbox/message/service.go
+      - backend/internal/middleware/audit.go
+      - backend/internal/security/gdpr/service.go
+      - backend/internal/caldav/push_notifier.go
+    notes: >
+      Muster wie in Iteration 90: den Rumpf EINES Ticks in `safego.Do(name, func(){...})`
+      wickeln (nie die ganze Schleifenfunktion - ein `recover` auf Funktionsebene beendet die
+      Schleife nach der ersten Panik), fire-and-forget-Goroutinen mit `safego.Go`. Nicht-Tick-
+      Goroutinen mit Rueckgabewert (z. B. Export) so wickeln, dass die Panik als Fehler beim
+      Aufrufer ankommt (siehe `safeSyncCycle` in `email/sync/worker.go`). Test je Gruppe: ein
+      panikender Tick, ZWEI Durchlaeufe, der zweite muss noch laufen. Intervall-Knoepfe fuer
+      Tests wie `Scheduler.intervalUnit` in bexio. Kein Verhalten aendern ausser der Panik.
+    done_when:
+      - >-
+        Jede Stelle aus dem scope laeuft ueber `safego` oder ist mit Grund im Journal ausgelassen
+      - >-
+        Je Gruppe ein Test mit panikendem Tick und zwei Durchlaeufen
+      - >-
+        Mutations-Probe: `safego`-Aufruf in einem Worker entfernen, der Panik-Test wird rot

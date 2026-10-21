@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 const (
@@ -112,7 +114,7 @@ func (w *Worker) Run(ctx context.Context) {
 		default:
 		}
 
-		err := w.syncCycle(ctx)
+		err := w.safeSyncCycle(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -137,6 +139,18 @@ func (w *Worker) Run(ctx context.Context) {
 		// Reset backoff on success
 		backoff = initialBackoff
 	}
+}
+
+// errSyncCyclePanic marks a cycle that panicked (e.g. the IMAP parser on a hostile
+// server response); Run treats it like any failed cycle: backoff, reconnect.
+var errSyncCyclePanic = errors.New("sync cycle panicked")
+
+// safeSyncCycle keeps a panic inside one cycle from killing the process.
+func (w *Worker) safeSyncCycle(ctx context.Context) (err error) {
+	if !safego.Do("email sync cycle", func() { err = w.syncCycle(ctx) }) {
+		return errSyncCyclePanic
+	}
+	return err
 }
 
 // syncCycle performs one complete sync: connect, sync folders, sync messages, enter IDLE/poll.

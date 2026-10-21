@@ -10,6 +10,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // tenantScheduler holds the cancel function and metadata for a single tenant's scheduler.
@@ -19,14 +20,21 @@ type tenantScheduler struct {
 	tenantID uuid.UUID
 }
 
+// defaultTickInterval is used when a stored interval is zero or negative.
+const defaultTickInterval = 15 * time.Minute
+
 // Scheduler manages background polling goroutines per active Bexio tenant.
 type Scheduler struct {
 	service    *Service
 	repo       Repository
 	configRepo IntegrationConfigRepo
 
-	mu       sync.Mutex
-	tenants  map[uuid.UUID]*tenantScheduler
+	// intervalUnit scales the *_interval_min columns; time.Minute in production,
+	// shortened by tests so a tick can actually fire.
+	intervalUnit time.Duration
+
+	mu        sync.Mutex
+	tenants   map[uuid.UUID]*tenantScheduler
 	parentCtx context.Context
 }
 
@@ -37,6 +45,8 @@ func NewScheduler(service *Service, repo Repository, configRepo IntegrationConfi
 		repo:       repo,
 		configRepo: configRepo,
 		tenants:    make(map[uuid.UUID]*tenantScheduler),
+
+		intervalUnit: time.Minute,
 	}
 }
 
@@ -143,27 +153,24 @@ func (s *Scheduler) StopAll() {
 }
 
 func (s *Scheduler) runTenantScheduler(ctx context.Context, ts *tenantScheduler, syncConfig *models.BexioSyncConfig) {
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("bexio scheduler panic recovered",
-				"tenant_id", ts.tenantID,
-				"panic", r,
-			)
-		}
-	}()
-
 	// lean: syncConfig is a snapshot taken once in AddTenant. Enabling/disabling a sync
 	// or changing an interval at runtime takes effect for these tickers only after the
 	// tenant scheduler is restarted (Disconnect/reconnect or biz restart). The manual
 	// gRPC trigger path is unaffected and applies immediately. Reload the config per tick
 	// (or restart the tenant on UpdateSyncConfig) if live toggles become a requirement.
-	contactInterval := time.Duration(syncConfig.ContactSyncIntervalMin) * time.Minute
-	paymentInterval := time.Duration(syncConfig.PaymentPollIntervalMin) * time.Minute
-	invoicePullInterval := time.Duration(syncConfig.InvoicePullIntervalMin) * time.Minute
+	contactInterval := time.Duration(syncConfig.ContactSyncIntervalMin) * s.intervalUnit
+	paymentInterval := time.Duration(syncConfig.PaymentPollIntervalMin) * s.intervalUnit
+	invoicePullInterval := time.Duration(syncConfig.InvoicePullIntervalMin) * s.intervalUnit
+	// time.NewTicker panics on a non-positive interval; the columns default to 15
+	// but guard defensively against a zero from an older row.
+	if contactInterval <= 0 {
+		contactInterval = defaultTickInterval
+	}
+	if paymentInterval <= 0 {
+		paymentInterval = defaultTickInterval
+	}
 	if invoicePullInterval <= 0 {
-		// time.NewTicker panics on a non-positive interval; the column defaults to 15
-		// but guard defensively against a zero from an older row.
-		invoicePullInterval = 15 * time.Minute
+		invoicePullInterval = defaultTickInterval
 	}
 
 	contactTicker := time.NewTicker(contactInterval)
@@ -179,43 +186,49 @@ func (s *Scheduler) runTenantScheduler(ctx context.Context, ts *tenantScheduler,
 			return
 
 		case <-contactTicker.C:
-			if syncConfig.ContactSyncEnabled {
-				// lean: SyncContacts re-resolves the config via getConfigID under system
-				// context (RLS off), which can pick the wrong tenant's config when >1
-				// Bexio integration is active (same latent G8 bug the invoice pull avoids).
-				// Harmless while data is single-tenant; pass ts.configID here too before
-				// multi-tenant activation.
-				if _, err := s.service.SyncContacts(ctx, ts.tenantID); err != nil {
-					slog.Error("bexio scheduled contact sync failed",
-						"tenant_id", ts.tenantID,
-						"error", err,
-					)
+			safego.Do("bexio scheduled contact sync", func() {
+				if syncConfig.ContactSyncEnabled {
+					// lean: SyncContacts re-resolves the config via getConfigID under system
+					// context (RLS off), which can pick the wrong tenant's config when >1
+					// Bexio integration is active (same latent G8 bug the invoice pull avoids).
+					// Harmless while data is single-tenant; pass ts.configID here too before
+					// multi-tenant activation.
+					if _, err := s.service.SyncContacts(ctx, ts.tenantID); err != nil {
+						slog.Error("bexio scheduled contact sync failed",
+							"tenant_id", ts.tenantID,
+							"error", err,
+						)
+					}
 				}
-			}
+			})
 
 		case <-paymentTicker.C:
-			if syncConfig.PaymentPollEnabled {
-				// lean: same latent G8 config-resolution bug as the contact tick above;
-				// pass ts.configID before multi-tenant activation.
-				if _, err := s.service.PollPayments(ctx, ts.tenantID); err != nil {
-					slog.Error("bexio scheduled payment poll failed",
-						"tenant_id", ts.tenantID,
-						"error", err,
-					)
+			safego.Do("bexio scheduled payment poll", func() {
+				if syncConfig.PaymentPollEnabled {
+					// lean: same latent G8 config-resolution bug as the contact tick above;
+					// pass ts.configID before multi-tenant activation.
+					if _, err := s.service.PollPayments(ctx, ts.tenantID); err != nil {
+						slog.Error("bexio scheduled payment poll failed",
+							"tenant_id", ts.tenantID,
+							"error", err,
+						)
+					}
 				}
-			}
+			})
 
 		case <-invoicePullTicker.C:
-			if syncConfig.InvoicePullEnabled {
-				// G8-correct: pass the tenant's own configID explicitly instead of
-				// re-resolving it under system context.
-				if _, err := s.service.PullInvoicesWithConfig(ctx, ts.configID, ts.tenantID); err != nil {
-					slog.Error("bexio scheduled invoice pull failed",
-						"tenant_id", ts.tenantID,
-						"error", err,
-					)
+			safego.Do("bexio scheduled invoice pull", func() {
+				if syncConfig.InvoicePullEnabled {
+					// G8-correct: pass the tenant's own configID explicitly instead of
+					// re-resolving it under system context.
+					if _, err := s.service.PullInvoicesWithConfig(ctx, ts.configID, ts.tenantID); err != nil {
+						slog.Error("bexio scheduled invoice pull failed",
+							"tenant_id", ts.tenantID,
+							"error", err,
+						)
+					}
 				}
-			}
+			})
 		}
 	}
 }
