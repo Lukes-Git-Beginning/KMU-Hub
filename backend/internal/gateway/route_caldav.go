@@ -304,6 +304,7 @@ func (c *CalDAVRoutes) handleCreatePassword(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	middleware.RedactIdempotentResponse(w) // plaintext is shown exactly once
 	response.JSON(w, http.StatusCreated, map[string]interface{}{
 		"password": plaintext,
 		"id":       pw.ID,

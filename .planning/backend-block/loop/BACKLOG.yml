@@ -5080,7 +5080,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-10-21
     decision: >-
       Fix-Unit aus `scan-idempotency-response-body-persists-one-time-secrets` (Iteration 70). Kein

@@ -39,6 +39,23 @@ var idempotencyWhitelist = []string{
 	"/auth/2fa",
 }
 
+// RedactIdempotencyHeader is an internal response header: a handler whose body
+// carries a one-time secret (invite token, app password) sets it via
+// RedactIdempotentResponse. The capturing writer strips it before the client
+// sees it and stores redactedReplayBody instead of the real body, so the secret
+// does not sit in idempotency_keys for 24 h. The key stays deduplicated.
+const RedactIdempotencyHeader = "X-Idempotency-Redact"
+
+// redactedReplayBody is what a replay of a redacted response returns.
+const redactedReplayBody = `{"idempotency_replayed":true,"detail":"response contained a one-time secret and is not replayed"}`
+
+// RedactIdempotentResponse marks the response being written as secret-bearing.
+// Call it before WriteHeader/Write; without Idempotency middleware it is a
+// harmless no-op header that never leaves the process unless the writer is bare.
+func RedactIdempotentResponse(w http.ResponseWriter) {
+	w.Header().Set(RedactIdempotencyHeader, "1")
+}
+
 // mutationMethods are the HTTP methods that mutate state.
 var mutationMethods = map[string]bool{
 	http.MethodPost:   true,
@@ -177,7 +194,11 @@ func reserveOrReplay(w http.ResponseWriter, r *http.Request, repo idempotency.Re
 func completeAsync(ctx context.Context, repo idempotency.Repository, tenantID uuid.UUID, key string, crw *capturingResponseWriter) {
 	completeCtx := context.WithoutCancel(ctx)
 	go func() {
-		if err := repo.Complete(completeCtx, tenantID, key, crw.statusCode, crw.body.Bytes()); err != nil {
+		body := crw.body.Bytes()
+		if crw.redact {
+			body = []byte(redactedReplayBody)
+		}
+		if err := repo.Complete(completeCtx, tenantID, key, crw.statusCode, body); err != nil {
 			if !errors.Is(err, idempotency.ErrKeyMissing) {
 				slog.Error("idempotency complete failed", "key", key, "error", err)
 			}
@@ -264,18 +285,32 @@ type capturingResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
 	body       bytes.Buffer
+	redact     bool
 }
 
 func newCapturingResponseWriter(w http.ResponseWriter) *capturingResponseWriter {
 	return &capturingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 }
 
+// takeRedactMarker consumes the internal redact header so it never reaches the
+// client. Headers are frozen once WriteHeader ran, so it is checked there and on
+// the implicit header of the first Write.
+func (c *capturingResponseWriter) takeRedactMarker() {
+	h := c.Header()
+	if h.Get(RedactIdempotencyHeader) != "" {
+		c.redact = true
+		h.Del(RedactIdempotencyHeader)
+	}
+}
+
 func (c *capturingResponseWriter) WriteHeader(code int) {
 	c.statusCode = code
+	c.takeRedactMarker()
 	c.ResponseWriter.WriteHeader(code)
 }
 
 func (c *capturingResponseWriter) Write(b []byte) (int, error) {
+	c.takeRedactMarker()
 	c.body.Write(b)
 	return c.ResponseWriter.Write(b)
 }

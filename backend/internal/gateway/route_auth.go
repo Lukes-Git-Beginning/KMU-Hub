@@ -441,6 +441,9 @@ type adminUserResultBody struct {
 }
 
 func respondAdminUser(w http.ResponseWriter, code int, resp *authv1.AdminUserResponse) {
+	if resp.InviteToken != "" {
+		middleware.RedactIdempotentResponse(w)
+	}
 	response.JSON(w, code, adminUserResultBody{
 		User:        toAdminUserBody(resp.User),
 		InviteToken: resp.InviteToken,
@@ -1470,6 +1473,7 @@ func (a *AuthRoutes) HandleProvisionTenant(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	middleware.RedactIdempotentResponse(w) // body carries invitation_token
 	response.Proto(w, http.StatusCreated, resp)
 }
 
@@ -1506,6 +1510,7 @@ func (a *AuthRoutes) HandleCreateInvitation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	middleware.RedactIdempotentResponse(w) // body carries the invitation token
 	response.Proto(w, http.StatusCreated, resp)
 }
 
