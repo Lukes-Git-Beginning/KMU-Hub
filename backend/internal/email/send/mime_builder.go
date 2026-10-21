@@ -57,6 +57,23 @@ type MIMEInput struct {
 // MIMEBuilder constructs RFC-compliant MIME messages.
 type MIMEBuilder struct{}
 
+// fallbackMessageIDDomain is the right-hand side of a Message-ID when the sender address
+// carries no usable domain. lean: fixed constant; derive from config if white-label hosts need their own.
+const fallbackMessageIDDomain = "app.zentria.tech"
+
+// newMessageID builds an RFC 5322 Message-ID whose right-hand side is the sender's domain,
+// the form mail servers and spam filters expect. Falls back to fallbackMessageIDDomain.
+func newMessageID(fromEmail string) string {
+	domain := fallbackMessageIDDomain
+	if at := strings.LastIndex(fromEmail, "@"); at >= 0 {
+		d := strings.ToLower(strings.TrimSpace(fromEmail[at+1:]))
+		if strings.Contains(d, ".") && !strings.ContainsAny(d, " <>@\"") {
+			domain = d
+		}
+	}
+	return fmt.Sprintf("<%s@%s>", uuid.New().String(), domain)
+}
+
 // NewMIMEBuilder creates a new MIME builder.
 func NewMIMEBuilder() *MIMEBuilder {
 	return &MIMEBuilder{}
@@ -68,7 +85,7 @@ func (b *MIMEBuilder) Build(input MIMEInput) ([]byte, error) {
 
 	// Generate Message-ID if not provided
 	if input.MessageID == "" {
-		input.MessageID = fmt.Sprintf("<%s@kmuhub>", uuid.New().String())
+		input.MessageID = newMessageID(input.From.Email)
 	}
 
 	hasAttachments := len(input.Attachments) > 0

@@ -17,7 +17,7 @@ import (
 )
 
 // WOPIServerVersion is included in all WOPI responses.
-const WOPIServerVersion = "kmuhub-wopi/1.0"
+const WOPIServerVersion = "cosmi-wopi/1.0"
 
 // FileServiceInterface defines the minimal methods the WOPI handler needs from the file service.
 // Keeps this package decoupled from the file package to avoid circular imports.

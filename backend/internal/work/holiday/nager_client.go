@@ -58,7 +58,7 @@ func (c *NagerClient) FetchHolidays(ctx context.Context, year int, countryCode s
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "KMUHub/1.0")
+	req.Header.Set("User-Agent", "Cosmi/1.0")
 
 	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: baseURL is a constant (test seam only), no tenant input
 	if err != nil {

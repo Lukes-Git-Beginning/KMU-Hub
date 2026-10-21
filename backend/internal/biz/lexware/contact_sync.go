@@ -241,7 +241,7 @@ func (cs *ContactSyncer) upsertInboundContact(
 
 		if err := cs.contacts.UpdateForSync(ctx, mapping.KmuhubID, syncData); err != nil {
 			result.ItemsFailed++
-			result.Errors = append(result.Errors, fmt.Sprintf("update KMU Hub contact %s: %v", mapping.KmuhubID, err))
+			result.Errors = append(result.Errors, fmt.Sprintf("update Cosmi contact %s: %v", mapping.KmuhubID, err))
 			return
 		}
 
@@ -258,7 +258,7 @@ func (cs *ContactSyncer) upsertInboundContact(
 	kmuhubID, err := cs.contacts.CreateForSync(ctx, syncData, uuid.Nil)
 	if err != nil {
 		result.ItemsFailed++
-		result.Errors = append(result.Errors, fmt.Sprintf("create KMU Hub contact from lexware %s: %v", lc.ID, err))
+		result.Errors = append(result.Errors, fmt.Sprintf("create Cosmi contact from lexware %s: %v", lc.ID, err))
 		return
 	}
 

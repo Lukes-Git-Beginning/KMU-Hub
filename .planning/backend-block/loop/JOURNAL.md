@@ -1333,3 +1333,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 102, 66e2ae27: String-Konstanten in auth/caldav + Tests, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: keine
 - offen: Der Slack-Link-Pfad ("Bitte fügen Sie diesen Token in Cosmi …") ist nur über Teams getestet, weil `linkService` in Slack ein konkreter Typ ohne Stub ist. Code-Kommentare in `slack/block_builder.go`, `slack/oauth.go`, `teams/card_builder.go` nennen noch "KMU Hub" (nicht nutzersichtbar).
+
+## Iteration 104 — rebrand-outbound-identifiers-to-cosmi — done — 2026-10-21 03:17
+- commit: `refactor(biz): rename outbound identifiers to Cosmi` (SHA via `git log`)
+- gebaut: (2) Nager-User-Agent `Cosmi/1.0`, (3) Message-ID `<uuid@absenderdomain>` über `newMessageID` (Domain aus der From-Adresse, sonst `const fallbackMessageIDDomain = "app.zentria.tech"`; drei Stellen in `mime_builder.go`/`service.go`), (4) `WOPIServerVersion = "cosmi-wopi/1.0"`, (5) Lexware-Sync-Fehlertexte "Cosmi contact". Bexio unberührt, WOPI-JWT-Issuer `kmuhub-wopi` unverändert (Token-Vertrag).
+  - Tests: `TestNewMessageID_*` (Absenderdomain, Fallback bei leer/ohne @/ohne Punkt/Leerzeichen), Build-Test auf Header, `TestFetchHolidays_SendsCosmiUserAgent` (httptest), `TestUpsertInboundContact_FailureTextsNameCosmi` (create + update), WOPI-Assert auf Literal statt Konstante (vorher tautologisch).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/email/...`, `work/holiday`, `document/wopi`, `biz/lexware/...`, `biz/datev/...`, `./internal/gateway/`, `./internal/server/`, DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (String-Änderung); internal/email/send 64,8 % -> 65,6 %
+- mutations-probe: Übernahme der Absenderdomain in `newMessageID` abgeschaltet ⇒ `TestNewMessageID_UsesSenderDomain` und `TestMIMEBuilder_MessageIDCarriesSenderDomainNotKMUHub` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 103, 7b078d6a: Bot-Texte + Tests, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: (1) DATEV-EXTF-Kopf Feld 8 bewusst UNVERÄNDERT ("KMU Hub"): Die DATEV-Formatbeschreibung (Dok.-Nr. 1003221) war nicht abrufbar (404 / leere Seite), Beispiele und Pickware-Doku nennen das Feld "Herkunft-Kz" mit Werten wie "RE"/"SV" — das spricht für ein 2-Zeichen-Kennzeichen, die Länge ist aber nicht belegt. Befund für Luke: Steuerberater-Import mit echtem Export prüfen; falls Kz, auf ein zugeteiltes Kürzel setzen (Test `exporter_test.go:478` mitziehen). (2) Message-ID: bestehende Mails und Drafts behalten `@kmuhub`; Thread-Matching über `In-Reply-To`/`References` arbeitet auf gespeicherten Werten, nicht auf dem Suffix.

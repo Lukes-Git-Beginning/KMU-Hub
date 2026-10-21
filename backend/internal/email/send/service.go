@@ -178,7 +178,7 @@ func (s *Service) Send(ctx context.Context, input SendInput) (*models.EmailMessa
 	}
 
 	// Build MIME message
-	messageID := fmt.Sprintf("<%s@kmuhub>", uuid.New().String())
+	messageID := newMessageID(input.From.Email)
 	mimeInput := MIMEInput{
 		From:        input.From,
 		To:          input.To,
@@ -320,7 +320,7 @@ func (s *Service) SaveDraft(ctx context.Context, input DraftInput) (*models.Emai
 		ID:           uuid.New(),
 		TenantID:     input.TenantID,
 		AccountID:    input.AccountID,
-		MessageID:    fmt.Sprintf("<%s@kmuhub>", uuid.New().String()),
+		MessageID:    newMessageID(input.From.Email),
 		FromName:     input.From.Name,
 		FromEmail:    input.From.Email,
 		ToAddresses:  toModelAddresses(input.To),

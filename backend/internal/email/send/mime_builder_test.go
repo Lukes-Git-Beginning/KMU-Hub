@@ -323,3 +323,31 @@ func TestMIMEBuilder_AttachmentReadError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "boom")
 }
+
+func TestNewMessageID_UsesSenderDomain(t *testing.T) {
+	id := newMessageID("Alice@Example.COM")
+	assert.True(t, strings.HasPrefix(id, "<") && strings.HasSuffix(id, "@example.com>"), id)
+	assert.NotEqual(t, id, newMessageID("Alice@Example.COM"), "every call needs a fresh ID")
+}
+
+func TestNewMessageID_FallsBackWithoutUsableDomain(t *testing.T) {
+	for _, from := range []string{"", "no-at-sign", "user@localhost", "user@", "user@bad domain.de", "a@b@c"} {
+		id := newMessageID(from)
+		assert.True(t, strings.HasSuffix(id, "@"+fallbackMessageIDDomain+">"), "%q -> %s", from, id)
+	}
+}
+
+func TestMIMEBuilder_MessageIDCarriesSenderDomainNotKMUHub(t *testing.T) {
+	raw, err := NewMIMEBuilder().Build(MIMEInput{
+		From:     EmailAddress{Email: "alice@firma.de"},
+		To:       []EmailAddress{{Email: "bob@example.com"}},
+		Subject:  "x",
+		BodyText: "y",
+	})
+	require.NoError(t, err)
+
+	msg, _ := parseBuiltMessage(t, raw)
+	id := msg.Header.Get("Message-ID")
+	assert.True(t, strings.HasSuffix(id, "@firma.de>"), id)
+	assert.NotContains(t, id, "kmuhub")
+}
