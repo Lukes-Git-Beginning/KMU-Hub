@@ -256,37 +256,10 @@ func main() {
 	// (recordings table has no app-visible tenant_id enforced at this path).
 	// Errors are logged but never propagate — a transient failure must not crash
 	// or degrade any other service in this binary.
-	go func() {
-		cleanupCtx := database.WithSystemContext(ctx)
-		select {
-		case <-time.After(1 * time.Minute):
-		case <-ctx.Done():
-			return
-		}
-
-		cleanupTicker := time.NewTicker(24 * time.Hour)
-		defer cleanupTicker.Stop()
-
-		runCleanup := func() {
-			n, err := recordingService.CleanupExpiredRecordings(cleanupCtx)
-			if err != nil {
-				slog.Error("recording cleanup failed", "error", err)
-				return
-			}
-			slog.Info("recording cleanup completed", "deleted", n)
-		}
-
-		runCleanup() // initial run immediately after startup delay
-
-		for {
-			select {
-			case <-cleanupTicker.C:
-				runCleanup()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	cleanupCtx := database.WithSystemContext(ctx)
+	go runPeriodically(ctx, 1*time.Minute, 24*time.Hour, func() {
+		cleanupExpiredRecordings(cleanupCtx, recordingService)
+	})
 
 	// Start meeting auto-close sweeper goroutine.
 	// Closes stale in_progress meetings (scheduled_end + grace < now) that have
@@ -335,75 +308,97 @@ func startMeetingSweeper(ctx context.Context, svc meetingSweepService, mgr meeti
 		return
 	}
 
-	go func() {
-		sweeperCtx := database.WithSystemContext(ctx)
+	sweeperCtx := database.WithSystemContext(ctx)
+	go runPeriodically(ctx, 1*time.Minute, 5*time.Minute, func() {
+		sweepStaleMeetings(sweeperCtx, svc, mgr, grace)
+	})
+}
 
+// runPeriodically waits for delay, runs fn once, then again every interval until
+// ctx is done. fn handles its own errors; a failing run never stops the loop.
+func runPeriodically(ctx context.Context, delay, interval time.Duration, fn func()) {
+	select {
+	case <-time.After(delay):
+	case <-ctx.Done():
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	fn() // initial run immediately after the startup delay
+
+	for {
 		select {
-		case <-time.After(1 * time.Minute):
+		case <-ticker.C:
+			fn()
 		case <-ctx.Done():
 			return
 		}
+	}
+}
 
-		sweeperTicker := time.NewTicker(5 * time.Minute)
-		defer sweeperTicker.Stop()
+// recordingCleaner is the subset of recording.Service needed by the cleanup loop.
+type recordingCleaner interface {
+	CleanupExpiredRecordings(ctx context.Context) (int, error)
+}
 
-		runSweeper := func() {
-			cutoff := time.Now().UTC().Add(-grace)
-			stale, err := svc.ListStaleMeetings(sweeperCtx, cutoff)
-			if err != nil {
-				slog.Error("meeting sweeper: list stale meetings failed", "error", err)
-				return
-			}
-			for _, m := range stale {
-				if m.RoomName == nil || *m.RoomName == "" {
-					slog.Warn("meeting sweeper: stale meeting has no room_name — skipping",
-						"meeting_id", m.ID,
-					)
-					continue
-				}
-				participants, listErr := mgr.ListParticipants(sweeperCtx, *m.RoomName)
-				if listErr != nil {
-					slog.Warn("meeting sweeper: list participants failed — skipping",
-						"meeting_id", m.ID,
-						"room_name", *m.RoomName,
-						"error", listErr,
-					)
-					continue
-				}
-				if len(participants) > 0 {
-					slog.Debug("meeting sweeper: active participants present — not closing",
-						"meeting_id", m.ID,
-						"room_name", *m.RoomName,
-						"participant_count", len(participants),
-					)
-					continue
-				}
-				// Room empty → close meeting. CompleteMeetingByRoom is idempotent.
-				if endErr := svc.CompleteMeetingByRoom(sweeperCtx, *m.RoomName); endErr != nil {
-					slog.Error("meeting sweeper: complete meeting failed",
-						"meeting_id", m.ID,
-						"room_name", *m.RoomName,
-						"error", endErr,
-					)
-					continue
-				}
-				slog.Info("meeting sweeper: auto-closed stale meeting",
-					"meeting_id", m.ID,
-					"room_name", *m.RoomName,
-					"scheduled_end", m.ScheduledEnd,
-				)
-			}
+// cleanupExpiredRecordings runs one cleanup pass; errors are logged, never returned.
+func cleanupExpiredRecordings(ctx context.Context, svc recordingCleaner) {
+	n, err := svc.CleanupExpiredRecordings(ctx)
+	if err != nil {
+		slog.Error("recording cleanup failed", "error", err)
+		return
+	}
+	slog.Info("recording cleanup completed", "deleted", n)
+}
+
+// sweepStaleMeetings runs one sweep pass: every in_progress meeting past its
+// scheduled end + grace whose LiveKit room is empty is completed.
+func sweepStaleMeetings(ctx context.Context, svc meetingSweepService, mgr meetingSweepRoomManager, grace time.Duration) {
+	cutoff := time.Now().UTC().Add(-grace)
+	stale, err := svc.ListStaleMeetings(ctx, cutoff)
+	if err != nil {
+		slog.Error("meeting sweeper: list stale meetings failed", "error", err)
+		return
+	}
+	for _, m := range stale {
+		if m.RoomName == nil || *m.RoomName == "" {
+			slog.Warn("meeting sweeper: stale meeting has no room_name — skipping",
+				"meeting_id", m.ID,
+			)
+			continue
 		}
-
-		runSweeper() // initial run immediately after startup delay
-
-		for {
-			select {
-			case <-sweeperTicker.C:
-				runSweeper()
-			case <-ctx.Done():
-				return
-			}
+		participants, listErr := mgr.ListParticipants(ctx, *m.RoomName)
+		if listErr != nil {
+			slog.Warn("meeting sweeper: list participants failed — skipping",
+				"meeting_id", m.ID,
+				"room_name", *m.RoomName,
+				"error", listErr,
+			)
+			continue
 		}
-	}()
+		if len(participants) > 0 {
+			slog.Debug("meeting sweeper: active participants present — not closing",
+				"meeting_id", m.ID,
+				"room_name", *m.RoomName,
+				"participant_count", len(participants),
+			)
+			continue
+		}
+		// Room empty → close meeting. CompleteMeetingByRoom is idempotent.
+		if endErr := svc.CompleteMeetingByRoom(ctx, *m.RoomName); endErr != nil {
+			slog.Error("meeting sweeper: complete meeting failed",
+				"meeting_id", m.ID,
+				"room_name", *m.RoomName,
+				"error", endErr,
+			)
+			continue
+		}
+		slog.Info("meeting sweeper: auto-closed stale meeting",
+			"meeting_id", m.ID,
+			"room_name", *m.RoomName,
+			"scheduled_end", m.ScheduledEnd,
+		)
+	}
 }

@@ -4577,7 +4577,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/fuhrpark (zur Laufzeit messen); cmd/work hat keine Tests"
     scope: >
       Drei Hintergrundlaeufer ohne jeden Test ihrer Schleife (Scan Iteration 54):

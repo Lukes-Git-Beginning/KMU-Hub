@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
 	notificationevent "github.com/kmuhub/kmuhub/internal/notification/event"
@@ -222,3 +224,40 @@ func (w *TuevWorker) buildTuevEventPayload(v *Vehicle, window string) models.Eve
 
 // LockKey returns the advisory lock key used for leader election.
 func LockKey() int64 { return tuevCronLockKey }
+
+// LockedRunner returns a function that, on each invocation:
+//  1. Begins a transaction.
+//  2. Tries to acquire pg_try_advisory_xact_lock (fuhrpark_tuev_cron).
+//  3. If lock acquired: runs run and commits (an error rolls back).
+//  4. If lock not acquired: another replica is running — skip.
+//
+// The advisory lock is automatically released when the transaction ends.
+func LockedRunner(pool *pgxpool.Pool, run func(ctx context.Context) error) func(ctx context.Context) error {
+	lockKey := LockKey()
+	return func(ctx context.Context) error {
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin tx for advisory lock: %w", err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+
+		var acquired bool
+		if scanErr := tx.QueryRow(ctx,
+			`SELECT pg_try_advisory_xact_lock($1)`, lockKey,
+		).Scan(&acquired); scanErr != nil {
+			return fmt.Errorf("advisory lock query: %w", scanErr)
+		}
+
+		if !acquired {
+			slog.Debug("fuhrpark TUEV cron: lock not acquired (another replica is running)")
+			return nil
+		}
+
+		slog.Debug("fuhrpark TUEV cron: lock acquired, running scan")
+		if runErr := run(ctx); runErr != nil {
+			return fmt.Errorf("process TUEV reminders: %w", runErr)
+		}
+
+		return tx.Commit(ctx)
+	}
+}
