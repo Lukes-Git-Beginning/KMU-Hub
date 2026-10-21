@@ -153,6 +153,12 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 		}
 		person.Modules = append(person.Modules, financeMore...)
 
+		crmValues, cvErr := contactCrmValueModules(ctx, pool, tenantID, c)
+		if cvErr != nil {
+			return nil, cvErr
+		}
+		person.Modules = append(person.Modules, crmValues...)
+
 		meetings, mErr := meetingsModule(ctx, pool, tenantID, c.id)
 		if mErr != nil {
 			return nil, mErr
