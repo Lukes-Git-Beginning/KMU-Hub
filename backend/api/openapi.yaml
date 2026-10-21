@@ -35649,6 +35649,9 @@ paths:
   /api/v1/finance/stats/payments:
     get:
       summary: Get aggregated payment statistics for a date range
+      description: >-
+        The invoice counters cover every invoice in the range. `total_paid_amount` and
+        `total_outstanding_amount` add only invoices in the tenant default currency.
       tags: [finance-dashboard]
       operationId: getPaymentStats
       security: [{ bearerAuth: [] }]

@@ -4699,7 +4699,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/invoice: vor der Unit messen"
     scope: >
       BEFUND aus `scan-blind-aggregation-over-units-and-currencies`. `AggregatePaymentStats`

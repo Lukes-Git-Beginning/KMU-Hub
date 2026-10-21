@@ -1267,3 +1267,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 96, 31df2a39: Middleware `audit.go` + Metrik + Tests, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: keine
 - offen: (1) `go test ./internal/crm/...` ohne `-p 2` scheitert lokal an erschoepften DB-Verbindungen (SQLSTATE 53300, `contact`/`report`) — Gate-Artefakt, nicht Code; mit `-p 2` gruen. (2) Der Report-Query filtert `pipeline_stages ps` nicht explizit nach `tenant_id` (nur RLS) — Bestand, nicht angefasst; unter `kmuhub_app` wirksam.
+
+## Iteration 98 — fix-invoice-payment-stats-blind-currency-sum — done — 2026-10-21 03:03
+- commit: `fix(invoice): sum payment stats amounts only in the tenant default currency` (SHA via `git log`)
+- gebaut: `AggregatePaymentStats` beschränkt `total_paid_amount` und `total_outstanding_amount` per `FILTER (… AND i.currency = dc.code)` auf die Tenant-Standardwährung (`CROSS JOIN` auf `COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id=$1),'EUR')`, wie Dashboard). Zähler und `avg_days_to_pay` bleiben über alle Rechnungen. `lean:`-Marker mit Upgrade-Trigger; Beschreibung der Route `/api/v1/finance/stats/payments` in `openapi.yaml` ergänzt (keine neue Route).
+  - Test `…AggregatePaymentStats_SumsOnlyTenantDefaultCurrency`: je eine bezahlte und offene EUR- und USD-Rechnung; ohne Settings zählt nur EUR, nach `default_currency=USD` nur USD (Auflösung statt Hardcode), Zähler jeweils 4.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/biz/invoice/...`, `./internal/gateway/` inkl. OpenAPIRouteDrift, DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/biz/invoice 61,3 % -> 61,3 % (Fix, kein Coverage-Ziel)
+- mutations-probe: beide `AND i.currency = dc.code` entfernt ⇒ neuer Test rot (`got 9300`); zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 97, 5c9f4b69: `pipelinestage`/`report`-Repository + DB-Tests, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: Die Dashboard-Statistik und diese Statistik liefern jetzt dieselbe Währungslogik; Fremdwährungsrechnungen fehlen in den Summen ohne Hinweis im FE (Produktentscheidung `decide-ad-hoc-invoice-currency`).
