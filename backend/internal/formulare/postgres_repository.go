@@ -501,11 +501,12 @@ func (r *PostgresRepository) ListActiveWebhooksForSchema(ctx context.Context, te
 // lease runs out (at-least-once).
 const deliveryClaimLease = 2 * time.Minute
 
-// ClaimPendingDeliveries atomically leases up to batchSize pending deliveries
-// whose next_attempt_at is in the past: the claim pushes next_attempt_at out by
+// ClaimPendingDeliveries atomically leases up to batchSize pending or failed
+// deliveries whose next_attempt_at is in the past ('failed' = a parked retry
+// whose back-off has elapsed; 'dead' and 'delivered' are final): the claim pushes next_attempt_at out by
 // deliveryClaimLease inside the same statement, so a parallel claimer no longer
 // matches the row. The row lock alone would not do that, in autocommit it ends
-// with the statement. status stays 'pending'; the caller records the outcome
+// with the statement. status stays as it was; the caller records the outcome
 // via MarkDeliveryResult, which also overwrites the lease.
 func (r *PostgresRepository) ClaimPendingDeliveries(ctx context.Context, batchSize int) ([]*WebhookDelivery, error) {
 	rows, err := r.pool.Query(ctx,
@@ -513,7 +514,7 @@ func (r *PostgresRepository) ClaimPendingDeliveries(ctx context.Context, batchSi
 		 SET next_attempt_at = NOW() + make_interval(secs => $2)
 		 WHERE id IN (
 		     SELECT id FROM form_webhook_deliveries
-		     WHERE status = 'pending' AND next_attempt_at <= NOW()
+		     WHERE status IN ('pending', 'failed') AND next_attempt_at <= NOW()
 		     ORDER BY next_attempt_at ASC
 		     LIMIT $1
 		     FOR UPDATE SKIP LOCKED
@@ -557,7 +558,8 @@ func (r *PostgresRepository) MarkDeliveryResult(ctx context.Context, id uuid.UUI
 
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE form_webhook_deliveries
-		 SET status = $1, attempt_count = $2, next_attempt_at = $3,
+		 SET status = $1, attempt_count = $2,
+		     next_attempt_at = COALESCE($3, next_attempt_at),
 		     last_error = $4, last_response_code = $5, delivered_at = $6
 		 WHERE id = $7`,
 		string(status), attemptCount, nextAttemptAt,

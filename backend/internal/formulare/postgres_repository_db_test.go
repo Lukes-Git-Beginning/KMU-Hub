@@ -822,6 +822,70 @@ func TestPostgresClaimPendingDeliveries_ConcurrentClaimsNeverShareARow(t *testin
 	}
 }
 
+func TestPostgresClaimPendingDeliveries_RetriesFailedAfterBackoffAndSkipsDead(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	// Deliberately not t.Parallel(): see ConcurrentClaimsNeverShareARow.
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Formulare Claim Retry")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	d := mkFullChain(t, repo, ctx, tenantID)
+
+	claimsID := func() bool {
+		t.Helper()
+		got, err := repo.ClaimPendingDeliveries(ctx, 10)
+		if err != nil {
+			t.Fatalf("ClaimPendingDeliveries: %v", err)
+		}
+		for _, c := range got {
+			if c.ID == d.ID {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Failed attempt, back-off still running: not claimable.
+	future := time.Now().UTC().Add(time.Hour)
+	if err := repo.MarkDeliveryResult(ctx, d.ID, WebhookDeliveryStatusFailed, 1, &future, "boom", 500); err != nil {
+		t.Fatalf("MarkDeliveryResult(failed): %v", err)
+	}
+	if claimsID() {
+		t.Fatal("failed delivery was claimed before its back-off elapsed")
+	}
+
+	// Back-off elapsed: the failed row is picked up again.
+	past := time.Now().UTC().Add(-time.Second)
+	if err := repo.MarkDeliveryResult(ctx, d.ID, WebhookDeliveryStatusFailed, 1, &past, "boom", 500); err != nil {
+		t.Fatalf("MarkDeliveryResult(failed, due): %v", err)
+	}
+	if !claimsID() {
+		t.Fatal("failed delivery was never claimed again after its back-off elapsed")
+	}
+
+	// Final failure carries no next attempt; the row must still be updatable
+	// (next_attempt_at is NOT NULL) and is never claimed again.
+	if err := repo.MarkDeliveryResult(ctx, d.ID, WebhookDeliveryStatusDead, 5, nil, "gave up", 500); err != nil {
+		t.Fatalf("MarkDeliveryResult(dead, no next attempt): %v", err)
+	}
+	got, err := repo.GetWebhookDelivery(ctx, d.ID, tenantID)
+	if err != nil {
+		t.Fatalf("GetWebhookDelivery: %v", err)
+	}
+	if got.Status != WebhookDeliveryStatusDead || got.AttemptCount != 5 {
+		t.Fatalf("dead transition did not persist: %+v", got)
+	}
+	resetDeliveryLease(t, pool, database.WithSystemContext(context.Background()), d.ID)
+	if claimsID() {
+		t.Fatal("dead delivery was claimed")
+	}
+}
+
 func TestPostgresMarkDeliveryResult_UpdatesRowAndReportsMissing(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()

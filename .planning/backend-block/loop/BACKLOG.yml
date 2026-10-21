@@ -5206,7 +5206,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/formulare (zur Laufzeit messen)"
     scope: >
       `WebhookWorker.markFailed` (`internal/formulare/worker.go:~195`) setzt eine fehlgeschlagene
