@@ -152,7 +152,7 @@ func parseUserAgent(userAgent string) (deviceName, deviceType string) {
 	// Detect device/browser name
 	switch {
 	case strings.Contains(ua, "electron"):
-		deviceName = "KMU Hub Desktop"
+		deviceName = "Cosmi Desktop"
 	case strings.Contains(ua, "edg/") || strings.Contains(ua, "edge/"):
 		deviceName = "Microsoft Edge"
 	case strings.Contains(ua, "chrome") && !strings.Contains(ua, "edg/"):

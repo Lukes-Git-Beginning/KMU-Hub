@@ -1311,3 +1311,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 100, 25942720: hr/timetracking Service+Repository+DB-Tests, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: keine
 - offen: Spec: die betroffenen Lexware-/Bexio-Push-/Trigger- sowie Email-Account-/Send-Operationen nennen 409 bereits (teils als generische Idempotency-/Conflict-Komponente), daher keine Spec-Änderung nötig; die Beschreibung nennt den neuen Grund (Zugangsdaten abgelehnt) nicht. Der Automation-`Aborted`-Zweig (`ErrLoopDetected`) bleibt toter Code. Bestehende FE-Anzeige für 409 bei Email-Test/Integration nicht visuell geprüft (Backend-Lauf).
+
+## Iteration 102 — rebrand-auth-and-caldav-visible-names-to-cosmi — done — 2026-10-21 03:11
+- commit: `refactor(auth): rename visible TOTP, device and CalDAV names to Cosmi` (SHA via `git log`)
+- gebaut: TOTP-Issuer `Cosmi`, Desktop-Gerätename `Cosmi Desktop`, CalDAV-Realm als `const caldavAuthChallenge` (`Cosmi CalDAV`, zwei Stellen), iCal-PRODID als `const icalProductID` (`-//Cosmi//CalDAV//DE`). Grep nach "KMU Hub" in `internal/auth`, `internal/caldav`, `route_caldav.go` findet keine Nicht-Kommentar-Stelle mehr. Keine Migration, bestehende TOTP-Geheimnisse und Altsitzungen unberührt.
+  - Tests: `TestSetup2FA_OTPURLNamesCosmiAsIssuer` (Issuer-Query + Label-Präfix), `TestParseUserAgent_ElectronIsCosmiDesktop`, `TestEventToICal_ProductID_NamesCosmi`, Realm-Assert im bestehenden `TestBasicAuthMiddleware_FailedLogin_DoesNotLogRawUsername`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/auth/...`, `./internal/caldav/...`, `./internal/gateway/` inkl. OpenAPIRouteDrift, DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (String-Änderung, kein Coverage-Ziel; internal/auth 77,8 %)
+- mutations-probe: `totpIssuer` zurück auf "KMU Hub" ⇒ `TestSetup2FA_OTPURLNamesCosmiAsIssuer` rot; zurückgedreht (versehentliches `git checkout` hatte die Änderung mit entfernt, per sed neu gesetzt, Tests erneut grün).
+- verify vorgaenger: sauber (Iteration 101, 0b9cec19: gateway-Mapper + gRPC-Mapper + Tests, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: Der CalDAV-Realm wechselt — Clients, die Zugangsdaten je Realm speichern, fragen einmal neu nach. Bestehende Authenticator-Einträge zeigen weiter "KMU Hub".

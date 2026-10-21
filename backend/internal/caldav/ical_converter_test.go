@@ -42,6 +42,15 @@ func baseEvent() *models.CalendarEvent {
 	}
 }
 
+func TestEventToICal_ProductID_NamesCosmi(t *testing.T) {
+	cal, err := EventToICal(baseEvent(), nil, nil)
+	require.NoError(t, err)
+
+	prodID, err := cal.Props.Text(ical.PropProductID)
+	require.NoError(t, err)
+	assert.Equal(t, "-//Cosmi//CalDAV//DE", prodID)
+}
+
 func TestEventToICal_RoundTrip_Normal(t *testing.T) {
 	event := baseEvent()
 	desc := "Quarterly planning"

@@ -4884,7 +4884,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (String-Aenderung, kein Coverage-Ziel)"
     scope: >
       Vier user-sichtbare Altnamen in Anmeldung und Kalender auf Cosmi umstellen:

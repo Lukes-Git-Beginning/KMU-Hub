@@ -70,6 +70,10 @@ type CalDAVPasswordInfo struct {
 // database lookup, which is why this returns an error.
 type CalDAVCtxInjector func(ctx context.Context, userID uuid.UUID) (context.Context, error)
 
+// caldavAuthChallenge is the WWW-Authenticate value; the realm is the name shown in
+// the client's login dialog.
+const caldavAuthChallenge = `Basic realm="Cosmi CalDAV"`
+
 // CalDAVRoutes handles CalDAV/CardDAV protocol routes (Basic Auth) and
 // REST API routes for app-specific password management (JWT auth).
 // Similar to WOPIRoutes, these are NOT part of the RouteRegistrar loop
@@ -201,7 +205,7 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			username, password, ok := r.BasicAuth()
 			if !ok {
-				w.Header().Set("WWW-Authenticate", `Basic realm="KMU Hub CalDAV"`)
+				w.Header().Set("WWW-Authenticate", caldavAuthChallenge)
 				response.Error(w, http.StatusUnauthorized, "Unauthorized")
 				return
 			}
@@ -212,7 +216,7 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 					"username_fingerprint", fingerprintCaldavUsername(username),
 					"error", err,
 				)
-				w.Header().Set("WWW-Authenticate", `Basic realm="KMU Hub CalDAV"`)
+				w.Header().Set("WWW-Authenticate", caldavAuthChallenge)
 				response.Error(w, http.StatusUnauthorized, "Unauthorized")
 				return
 			}

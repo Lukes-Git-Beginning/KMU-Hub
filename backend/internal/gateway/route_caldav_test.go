@@ -256,6 +256,9 @@ func TestBasicAuthMiddleware_FailedLogin_DoesNotLogRawUsername(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", resp.StatusCode)
 	}
+	if got := resp.Header.Get("WWW-Authenticate"); got != `Basic realm="Cosmi CalDAV"` {
+		t.Fatalf("WWW-Authenticate = %q, want the Cosmi realm", got)
+	}
 
 	logged := logBuf.String()
 	if strings.Contains(logged, email) {
