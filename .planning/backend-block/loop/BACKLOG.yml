@@ -4201,7 +4201,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fix, Bezugspaket internal/server wird in der Iteration gemessen)"
     scope: >
       Aus `scan-business-logic-in-handlers` (Iteration 53). `protoLineItemsToModel`

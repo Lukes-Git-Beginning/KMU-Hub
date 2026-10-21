@@ -54,12 +54,18 @@ func (s *BizGRPCServer) CreateRecurringInvoice(ctx context.Context, req *bizv1.C
 		}
 	}
 
+	taxMode := taxModeFromProto(req.GetTaxMode())
+	lineItems, err := protoLineItemsToModel(req.GetLineItems(), taxMode)
+	if err != nil {
+		return nil, err
+	}
+
 	rec, err := s.recurringSvc.Create(ctx, recurring.CreateInput{
 		TenantID:         tenantID,
 		Title:            req.GetTitle(),
 		Customer:         customerFromProto(req.GetCustomer()),
-		LineItems:        protoLineItemsToModel(req.GetLineItems()),
-		TaxMode:          taxModeFromProto(req.GetTaxMode()),
+		LineItems:        lineItems,
+		TaxMode:          taxMode,
 		Currency:         req.GetCurrency(),
 		Interval:         req.GetInterval(),
 		StartDate:        startDate,
@@ -135,12 +141,21 @@ func (s *BizGRPCServer) UpdateRecurringInvoice(ctx context.Context, req *bizv1.U
 		customer := customerFromProto(req.GetCustomer())
 		in.Customer = &customer
 	}
-	if len(req.GetLineItems()) > 0 {
-		in.LineItems = protoLineItemsToModel(req.GetLineItems())
-	}
 	if req.TaxMode != nil {
 		mode := taxModeFromProto(req.GetTaxMode())
 		in.TaxMode = &mode
+	}
+	if len(req.GetLineItems()) > 0 {
+		// An update without tax_mode keeps the stored mode, unknown here.
+		updMode := ""
+		if in.TaxMode != nil {
+			updMode = *in.TaxMode
+		}
+		items, itemsErr := protoLineItemsToModel(req.GetLineItems(), updMode)
+		if itemsErr != nil {
+			return nil, itemsErr
+		}
+		in.LineItems = items
 	}
 	if req.PaymentTermsDays != nil {
 		days := int(req.GetPaymentTermsDays())
