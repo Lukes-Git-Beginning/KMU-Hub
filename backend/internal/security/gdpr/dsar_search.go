@@ -147,6 +147,12 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *invoices)
 		}
 
+		financeMore, fmErr := contactFinanceModules(ctx, pool, tenantID, c)
+		if fmErr != nil {
+			return nil, fmErr
+		}
+		person.Modules = append(person.Modules, financeMore...)
+
 		meetings, mErr := meetingsModule(ctx, pool, tenantID, c.id)
 		if mErr != nil {
 			return nil, mErr
@@ -579,6 +585,14 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			return nil, rsErr
 		}
 		person.Modules = append(person.Modules, reportsShifts...)
+
+		expenses, exErr := expensesModule(ctx, pool, tenantID, u.id)
+		if exErr != nil {
+			return nil, exErr
+		}
+		if expenses != nil {
+			person.Modules = append(person.Modules, *expenses)
+		}
 
 		documentChat, dcErr := documentChatModules(ctx, pool, tenantID, u.id)
 		if dcErr != nil {
