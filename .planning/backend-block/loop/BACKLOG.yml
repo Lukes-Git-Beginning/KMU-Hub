@@ -5004,7 +5004,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Spec-Text, kein Coverage-Ziel)"
     scope: >
       `backend/api/openapi.yaml` traegt `info.title: KMU Hub API` (`:3`) und beschreibt das

@@ -1344,3 +1344,13 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 103, 7b078d6a: Bot-Texte + Tests, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: keine
 - offen: (1) DATEV-EXTF-Kopf Feld 8 bewusst UNVERÄNDERT ("KMU Hub"): Die DATEV-Formatbeschreibung (Dok.-Nr. 1003221) war nicht abrufbar (404 / leere Seite), Beispiele und Pickware-Doku nennen das Feld "Herkunft-Kz" mit Werten wie "RE"/"SV" — das spricht für ein 2-Zeichen-Kennzeichen, die Länge ist aber nicht belegt. Befund für Luke: Steuerberater-Import mit echtem Export prüfen; falls Kz, auf ein zugeteiltes Kürzel setzen (Test `exporter_test.go:478` mitziehen). (2) Message-ID: bestehende Mails und Drafts behalten `@kmuhub`; Thread-Matching über `In-Reply-To`/`References` arbeitet auf gespeicherten Werten, nicht auf dem Suffix.
+
+## Iteration 105 — rebrand-openapi-metadata-to-cosmi — done — 2026-10-21 03:30
+- commit: `docs(gateway): rename OpenAPI title and descriptions to Cosmi` (SHA via `git log`)
+- gebaut: `info.title` = `Cosmi API`, `info.description` = "Business software for DACH SMEs with EU data sovereignty." (ohne "CRM" als Kategorie), vier Beschreibungstexte der Teams/Slack-Integration (Kanal-Routing-Schema, Link-Account-Summary, linked-account-Schema) nennen Cosmi. `/kmuhub link`, `/kmuhub` und alle `kmuhub_*`-Felder unverändert. Zeilenenden (CRLF) der Datei erhalten.
+- gate: build n.a. | vet n.a. | lint n.a. | test ok (`./internal/gateway/` inkl. TestOpenAPIRouteDrift, DATABASE_URL als kmuhub_app) | `swagger-cli validate` ok | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Spec-Text, kein Coverage-Ziel)
+- mutations-probe: n.a. (reiner Spec-Text)
+- verify vorgaenger: sauber (Iteration 104, f9a098f2: String-/Header-Änderungen in email/send, wopi, holiday, lexware + Tests, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: Kein Generator, Test oder CI-Datei liest `info.title` (Grep über Repo ohne node_modules/archive). Die Backlog-Zeilennummern waren veraltet (tatsächlich 33103/33192/50528/50544/50554). Weitere "CRM"-Erwähnungen in Tag-/Summary-Texten bezeichnen echte CRM-Entitäten und blieben unverändert.

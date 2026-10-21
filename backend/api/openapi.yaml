@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: KMU Hub API
+  title: Cosmi API
   description: >-
-    All-in-One CRM for DACH SMEs with EU data sovereignty.
+    Business software for DACH SMEs with EU data sovereignty.
 
 
     ### Idempotency-Key contract
@@ -33100,7 +33100,7 @@ paths:
                   type: array
                   minItems: 1
                   items: { type: string }
-                  description: "KMU Hub module keys routed to this channel (e.g. deals, tasks)"
+                  description: "Cosmi module keys routed to this channel (e.g. deals, tasks)"
       responses:
         "201":
           description: Mapping created
@@ -33189,7 +33189,7 @@ paths:
 
   /api/v1/integrations/link:
     post:
-      summary: Link the caller's KMU Hub account to an external platform account
+      summary: Link the caller's Cosmi account to an external platform account
       description: >-
         Any authenticated user (no admin role required). token is the raw,
         single-use link token surfaced by the platform bot (Teams `/kmuhub
@@ -50525,7 +50525,7 @@ components:
 
     IntegrationChannelMapping:
       type: object
-      description: Routes a KMU Hub module's notifications to a specific platform channel.
+      description: Routes a Cosmi module's notifications to a specific platform channel.
       properties:
         id:
           type: string
@@ -50541,7 +50541,7 @@ components:
           type: array
           items:
             type: string
-          description: "KMU Hub module keys routed to this channel (e.g. deals, tasks)"
+          description: "Cosmi module keys routed to this channel (e.g. deals, tasks)"
         is_active:
           type: boolean
         created_at:
@@ -50551,7 +50551,7 @@ components:
 
     IntegrationAccountLink:
       type: object
-      description: A KMU Hub user's linked account on an external platform (Teams/Slack).
+      description: A Cosmi user's linked account on an external platform (Teams/Slack).
       properties:
         platform:
           type: string
