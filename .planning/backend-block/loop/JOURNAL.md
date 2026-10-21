@@ -1256,3 +1256,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 95, 17209df4: Refactor `cmd/work`/`cmd/fuhrpark` + Tests, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: keine
 - offen: (1) Metrik `audit_events_dropped_total` ist neu; Alarmregel (Prometheus/Grafana) gehört Luke. (2) `processEvent` ruft `CreateAuditEntry` weiterhin mit `context.Background()` ohne Timeout; ein hängender security-Dienst blockiert Worker (Puffer läuft dann voll ⇒ `buffer_full` sichtbar), `Close` ist jetzt auf 5 s begrenzt. (3) `-race` lokal nicht möglich; die Tests teilen Zustand nur über `atomic`/Mutex.
+
+## Iteration 97 — fix-crm-pipeline-totals-blind-currency-sum — done — 2026-10-21 02:54
+- commit: `fix(crm): sum pipeline stage and report totals only in the tenant default currency` (SHA via `git log`)
+- gebaut: `pipelinestage.ListWithStats` summiert `total_value` per `SUM(...) FILTER (WHERE d.currency = <Tenant-Standardwaehrung>)`; `report.GetPipelineReport` filtert `total_value` und `weighted_value` ueber einen `CROSS JOIN` auf die aufgeloeste Standardwaehrung (`COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id=$1),'EUR')`). `deal_count`/`TotalDeals` zaehlen weiter alle Deals. `lean:`-Marker mit Upgrade-Trigger an beiden Stellen. Kein neues Feld am Wire-Typ (kein Vertragsbruch).
+  - Tests: `pipelinestage/list_with_stats_currency_db_test.go` (neu) und `TestGetPipelineReport_SumsOnlyTenantDefaultCurrencyButCountsAllDeals` — je ein EUR- und ein USD-Deal in einer Stufe; danach Standardwaehrung USD gesetzt, damit die Aufloesung (nicht ein hartkodiertes EUR) belegt ist.
+- gate: build n.a. (vet ok) | vet ok | lint ok (0 issues) | test ok (`./internal/crm/...` mit `-p 2`, DATABASE_URL als kmuhub_app, 0 Skips; `./internal/gateway/` ok) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/crm/pipelinestage 60,6 % -> 65,8 % (ListWithStats war vorher ohne DB-Test); internal/crm/report 90,8 % -> 90,8 % (Fix, kein Coverage-Ziel)
+- mutations-probe: beide Waehrungsfilter entfernt ⇒ beide neuen Tests rot; zurueckgedreht, Diff sauber.
+- verify vorgaenger: sauber (Iteration 96, 31df2a39: Middleware `audit.go` + Metrik + Tests, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: (1) `go test ./internal/crm/...` ohne `-p 2` scheitert lokal an erschoepften DB-Verbindungen (SQLSTATE 53300, `contact`/`report`) — Gate-Artefakt, nicht Code; mit `-p 2` gruen. (2) Der Report-Query filtert `pipeline_stages ps` nicht explizit nach `tenant_id` (nur RLS) — Bestand, nicht angefasst; unter `kmuhub_app` wirksam.

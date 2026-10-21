@@ -21,6 +21,8 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
+// lean: value sums cover only deals in the tenant default currency (deal_count counts all); per-currency
+// breakdown once the report UI shows more than one unit.
 func (r *PostgresRepository) GetPipelineReport(ctx context.Context, filter PipelineFilter) (*models.PipelineReport, error) {
 	// Build query based on filter — always tenant-scoped via deals.tenant_id
 	query := `
@@ -28,9 +30,12 @@ func (r *PostgresRepository) GetPipelineReport(ctx context.Context, filter Pipel
 			ps.id AS stage_id,
 			ps.name AS stage_name,
 			COUNT(d.id)::int AS deal_count,
-			COALESCE(SUM(d.value), 0) AS total_value,
-			COALESCE(SUM(d.value * (ps.probability / 100.0)), 0) AS weighted_value
+			COALESCE(SUM(d.value) FILTER (WHERE d.currency = tc.code), 0) AS total_value,
+			COALESCE(SUM(d.value * (ps.probability / 100.0)) FILTER (WHERE d.currency = tc.code), 0) AS weighted_value
 		FROM pipeline_stages ps
+		CROSS JOIN (
+			SELECT COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR') AS code
+		) tc
 		LEFT JOIN deals d ON d.stage_id = ps.id
 			AND d.tenant_id = $1
 			AND d.created_at >= $2
@@ -45,7 +50,7 @@ func (r *PostgresRepository) GetPipelineReport(ctx context.Context, filter Pipel
 	}
 
 	query += `
-		GROUP BY ps.id, ps.name, ps.sort_order
+		GROUP BY ps.id, ps.name, ps.sort_order, tc.code
 		ORDER BY ps.sort_order ASC
 	`
 

@@ -168,6 +168,48 @@ func TestGetPipelineReport_ScopedByTenantOrderedBySortOrderAndWeightsByProbabili
 	}
 }
 
+// fix-crm-pipeline-totals-blind-currency-sum: value totals cover only deals in the
+// tenant default currency; deal_count keeps counting every deal in the window.
+func TestGetPipelineReport_SumsOnlyTenantDefaultCurrencyButCountsAllDeals(t *testing.T) {
+	pool, tenantID, userID, ctx := newReportFixture(t)
+	repo := NewPostgresRepository(pool)
+
+	dateFrom := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	dateTo := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	inRange := dateFrom.AddDate(0, 0, 10)
+
+	stage := seedStage(t, pool, tenantID, map[string]any{"probability": "50.00"})
+	seedDeal(t, pool, tenantID, userID, stage, map[string]any{"value": "10000.00", "currency": "EUR", "created_at": inRange})
+	seedDeal(t, pool, tenantID, userID, stage, map[string]any{"value": "10000.00", "currency": "USD", "created_at": inRange})
+
+	report, err := repo.GetPipelineReport(ctx, PipelineFilter{TenantID: tenantID, StartDate: dateFrom, EndDate: dateTo})
+	if err != nil {
+		t.Fatalf("GetPipelineReport: %v", err)
+	}
+	if report.TotalDeals != 2 || report.Stages[0].DealCount != 2 {
+		t.Errorf("deals = total %d / stage %d, want 2 / 2 (count covers every currency)", report.TotalDeals, report.Stages[0].DealCount)
+	}
+	if !report.Stages[0].TotalValue.Equal(mustDecimalReport(t, "10000")) || !report.TotalValue.Equal(mustDecimalReport(t, "10000")) {
+		t.Errorf("TotalValue = stage %s / report %s, want 10000 (EUR deal only)", report.Stages[0].TotalValue, report.TotalValue)
+	}
+	if !report.Stages[0].WeightedValue.Equal(mustDecimalReport(t, "5000")) || !report.TotalWeightedValue.Equal(mustDecimalReport(t, "5000")) {
+		t.Errorf("WeightedValue = stage %s / report %s, want 5000 (EUR deal only)", report.Stages[0].WeightedValue, report.TotalWeightedValue)
+	}
+
+	// A tenant default of USD flips which deal counts: the default is resolved, not hardcoded.
+	settingsID := testutil.SeedRow(t, pool, "company_settings", map[string]any{"tenant_id": tenantID, "default_currency": "USD"})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "company_settings", settingsID) })
+	seedDeal(t, pool, tenantID, userID, stage, map[string]any{"value": "250.00", "currency": "USD", "created_at": inRange})
+
+	report, err = repo.GetPipelineReport(ctx, PipelineFilter{TenantID: tenantID, StartDate: dateFrom, EndDate: dateTo})
+	if err != nil {
+		t.Fatalf("GetPipelineReport (USD default): %v", err)
+	}
+	if report.TotalDeals != 3 || !report.TotalValue.Equal(mustDecimalReport(t, "10250")) {
+		t.Errorf("USD default: deals %d value %s, want 3 / 10250", report.TotalDeals, report.TotalValue)
+	}
+}
+
 func TestGetPipelineReport_OwnerFilterAppliesWithinTenant(t *testing.T) {
 	pool, tenantA, ownerA, ctxA := newReportFixture(t)
 	ownerOther := testutil.SeedRow(t, pool, "users", map[string]any{

@@ -4660,7 +4660,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/crm/report, internal/crm/pipelinestage: vor der Unit messen"
     scope: >
       BEFUND aus `scan-blind-aggregation-over-units-and-currencies`. `deals.currency` ist pro
