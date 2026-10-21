@@ -21,6 +21,7 @@ func TestGrpcStatusToHTTP(t *testing.T) {
 		{codes.PermissionDenied, http.StatusForbidden},
 		{codes.InvalidArgument, http.StatusBadRequest},
 		{codes.FailedPrecondition, http.StatusConflict},
+		{codes.Aborted, http.StatusConflict},
 		{codes.Unavailable, http.StatusServiceUnavailable},
 		{codes.DeadlineExceeded, http.StatusGatewayTimeout},
 		{codes.ResourceExhausted, http.StatusTooManyRequests},
@@ -59,6 +60,12 @@ func TestRespondGRPCError(t *testing.T) {
 			err:      status.Error(codes.InvalidArgument, "email is required"),
 			wantCode: http.StatusBadRequest,
 			wantMsg:  "email is required",
+		},
+		{
+			name:     "aborted_keeps_message_as_conflict",
+			err:      status.Error(codes.Aborted, "lexware: version conflict"),
+			wantCode: http.StatusConflict,
+			wantMsg:  "lexware: version conflict",
 		},
 		{
 			name:     "internal_hides_message",

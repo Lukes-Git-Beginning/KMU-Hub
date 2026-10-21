@@ -4820,7 +4820,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway siehe Journal Iteration 56"
     scope: >
       `grpcStatusToHTTP` (`internal/gateway/helpers.go:47`) kennt `codes.Aborted` nicht; der

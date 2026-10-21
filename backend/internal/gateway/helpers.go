@@ -56,6 +56,10 @@ func grpcStatusToHTTP(code codes.Code) int {
 		return http.StatusForbidden
 	case codes.InvalidArgument:
 		return http.StatusBadRequest
+	case codes.Aborted:
+		// 409 Conflict: optimistic-lock / concurrent-modification conflicts
+		// (lexware version conflict, sync conflict). The message is user-readable.
+		return http.StatusConflict
 	case codes.FailedPrecondition:
 		// 409 Conflict: the request conflicts with the resource's current state
 		// (consent pending, invitation expired/used, invalid state transition).

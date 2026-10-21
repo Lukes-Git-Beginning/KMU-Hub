@@ -1428,7 +1428,9 @@ func mapEmailError(err error) error {
 	case errors.Is(err, account.ErrAccountNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, account.ErrInvalidCredentials):
-		return status.Error(codes.Unauthenticated, err.Error())
+	// Third-party credentials rejected: FailedPrecondition (409), not Unauthenticated -
+	// the FE treats every 401 as an expired session (refresh + retry + logout).
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, account.ErrConnectionFailed):
 		return status.Error(codes.Unavailable, err.Error())
 
@@ -1450,7 +1452,9 @@ func mapEmailError(err error) error {
 	case errors.Is(err, send.ErrSendFailed):
 		return status.Error(codes.Internal, err.Error())
 	case errors.Is(err, send.ErrSMTPAuthFailed):
-		return status.Error(codes.Unauthenticated, err.Error())
+	// Third-party credentials rejected: FailedPrecondition (409), not Unauthenticated -
+	// the FE treats every 401 as an expired session (refresh + retry + logout).
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, send.ErrInvalidRecipient):
 		return status.Error(codes.InvalidArgument, err.Error())
 
