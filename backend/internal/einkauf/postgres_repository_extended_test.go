@@ -721,3 +721,74 @@ func TestFrameworkContractItems_CRUD_TenantScoped(t *testing.T) {
 	}
 	testutil.AssertRowCount(t, pool, sysCtx, "framework_contract_items", item.ID, 0)
 }
+
+// The currency comparison happens in the repository, inside the same
+// transaction that locks the contract, so it has to be proven against SQL.
+func TestFrameworkContract_CreateContractCall_CurrencyFollowsContract(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Einkauf Contract Currency Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	now := time.Now().UTC()
+
+	supplier := newEinkaufExtendedTestSupplier(t, repo, ctxOwn, tenantOwn, "Currency Supplier")
+	defer testutil.CleanupRow(t, pool, "suppliers", supplier.ID)
+
+	fc := &FrameworkContract{
+		ID: uuid.New(), TenantID: tenantOwn, SupplierID: supplier.ID,
+		Title: "USD Contract", ContractNr: "FC-CUR-" + uuid.New().String()[:8],
+		TotalValue: "1000.0000", UsedValue: "0.0000", Currency: "USD",
+		Status: ContractStatusActive, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateFrameworkContract(ctxOwn, fc); err != nil {
+		t.Fatalf("CreateFrameworkContract: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "framework_contracts", fc.ID)
+
+	newCall := func(currency string) *FrameworkContractCall {
+		return &FrameworkContractCall{
+			ID: uuid.New(), TenantID: tenantOwn, ContractID: fc.ID,
+			Amount: "100.0000", Currency: currency, CalledAt: now,
+			CreatedAt: now, UpdatedAt: now,
+		}
+	}
+
+	if err := repo.CreateContractCall(ctxOwn, newCall("EUR")); !errors.Is(err, ErrContractCurrencyMismatch) {
+		t.Fatalf("CreateContractCall (EUR on a USD contract): expected ErrContractCurrencyMismatch, got %v", err)
+	}
+
+	empty := newCall("")
+	if err := repo.CreateContractCall(ctxOwn, empty); err != nil {
+		t.Fatalf("CreateContractCall (empty currency): %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "framework_contract_calls", empty.ID)
+	if empty.Currency != "USD" {
+		t.Fatalf("empty currency must take the contract's, got %q", empty.Currency)
+	}
+
+	same := newCall("USD")
+	if err := repo.CreateContractCall(ctxOwn, same); err != nil {
+		t.Fatalf("CreateContractCall (matching currency): %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "framework_contract_calls", same.ID)
+
+	calls, err := repo.ListContractCalls(ctxOwn, tenantOwn, fc.ID)
+	if err != nil {
+		t.Fatalf("ListContractCalls: %v", err)
+	}
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 persisted calls (the EUR one rejected), got %d", len(calls))
+	}
+	for _, c := range calls {
+		if c.Currency != "USD" {
+			t.Fatalf("persisted call currency: expected USD, got %q", c.Currency)
+		}
+	}
+}

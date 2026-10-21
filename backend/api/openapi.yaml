@@ -21393,8 +21393,9 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        # Contract not active (draft/expired), or amount above the contract's
-        # remaining value — the message names that remaining value.
+        # Contract not active (draft/expired), amount above the contract's
+        # remaining value (the message names it), or a currency that differs
+        # from the contract's. An empty currency takes the contract's.
         "409": { $ref: "#/components/responses/Conflict" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"

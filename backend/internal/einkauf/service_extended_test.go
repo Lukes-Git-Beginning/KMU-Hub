@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -267,6 +268,12 @@ func (m *mockRepositoryExtended) CreateContractCall(_ context.Context, call *Fra
 	}
 	if fc.Status != ContractStatusActive {
 		return fmt.Errorf("contract is in status %q: %w", fc.Status, ErrContractNotActive)
+	}
+
+	if call.Currency == "" {
+		call.Currency = fc.Currency
+	} else if !strings.EqualFold(call.Currency, fc.Currency) {
+		return fmt.Errorf("call-off in %s, contract in %s: %w", call.Currency, fc.Currency, ErrContractCurrencyMismatch)
 	}
 
 	used := m.sumContractCalls(call.TenantID, call.ContractID)
@@ -604,6 +611,38 @@ func TestExtended_CreateContractCall_ExceedingRemainingIsRejected(t *testing.T) 
 	calls, listErr := svc.ListContractCalls(context.Background(), tenantID, fc.ID)
 	require.NoError(t, listErr)
 	assert.Len(t, calls, 1)
+}
+
+// A USD call-off used to consume EUR of the contract volume one-to-one, and an
+// empty currency was silently stamped "EUR" regardless of the contract.
+func TestExtended_CreateContractCall_CurrencyFollowsContract(t *testing.T) {
+	repo := newMockRepositoryExtended()
+	svc := NewServiceExtended(repo)
+
+	tenantID, supplierID := uuid.New(), uuid.New()
+	fc := addFrameworkContract(repo, tenantID, supplierID, "USD Frame", "FC-USD", ContractStatusActive)
+	fc.Currency = "USD"
+
+	_, err := svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: tenantID, ContractID: fc.ID, Amount: "100", Currency: "EUR",
+	})
+	require.ErrorIs(t, err, ErrContractCurrencyMismatch)
+
+	call, err := svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: tenantID, ContractID: fc.ID, Amount: "100",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "USD", call.Currency, "an empty currency takes the contract's, not a hardcoded EUR")
+
+	call, err = svc.CreateContractCall(context.Background(), CreateContractCallInput{
+		TenantID: tenantID, ContractID: fc.ID, Amount: "100", Currency: " usd ",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "USD", call.Currency)
+
+	calls, listErr := svc.ListContractCalls(context.Background(), tenantID, fc.ID)
+	require.NoError(t, listErr)
+	assert.Len(t, calls, 2, "the rejected EUR call-off must not have been persisted")
 }
 
 func TestExtended_CreateContractCall_ExactRemainingIsAccepted(t *testing.T) {

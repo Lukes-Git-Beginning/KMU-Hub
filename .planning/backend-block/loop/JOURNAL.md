@@ -1278,3 +1278,14 @@ Frühere Läufe liegen vollständig im Archiv:
 - verify vorgaenger: sauber (Iteration 97, 5c9f4b69: `pipelinestage`/`report`-Repository + DB-Tests, kein Guard/Proto/Route/Migration/Stub)
 - neue-units: keine
 - offen: Die Dashboard-Statistik und diese Statistik liefern jetzt dieselbe Währungslogik; Fremdwährungsrechnungen fehlen in den Summen ohne Hinweis im FE (Produktentscheidung `decide-ad-hoc-invoice-currency`).
+
+## Iteration 99 — fix-einkauf-contract-call-currency-not-checked-against-contract — done — 2026-10-21 03:00
+- commit: `fix(einkauf): reject contract call-offs in a currency other than the contract's` (SHA via `git log`)
+- gebaut: `CreateContractCall` liest `currency` im selben `FOR UPDATE`-SELECT wie Status und Volumen; leere Abruf-Währung übernimmt die Vertragswährung, abweichende wird mit neuem Sentinel `ErrContractCurrencyMismatch` abgelehnt (vor der Restwert-Prüfung, keine Umrechnung). Der Service setzt nicht mehr stumm "EUR" (nur noch Trim + Upper). gRPC-Mapper: `FailedPrecondition` (Gateway ⇒ 409); `openapi.yaml` kommentiert den 409-Grund.
+  - Tests: DB-Test `…CreateContractCall_CurrencyFollowsContract` (USD-Vertrag: EUR abgelehnt, leer ⇒ USD, USD ok, 2 Zeilen persistiert), Service-Test mit Mock-Spiegel (inkl. " usd "), Mapper-Tabelle um NotActive/BudgetExceeded/CurrencyMismatch ergänzt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/einkauf/...`, `./internal/server/`, `./internal/gateway/` inkl. OpenAPIRouteDrift, DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/einkauf 79,1 % -> 79,2 %
+- mutations-probe: Währungsvergleich neutralisiert (`else if false && …`) ⇒ `TestFrameworkContract_CreateContractCall_CurrencyFollowsContract` rot; zurückgedreht (Datei danach wegen versehentlichem `git checkout` neu aufgespielt und Gate erneut grün).
+- verify vorgaenger: sauber (Iteration 98, 7a4438ba: Invoice-Repository + DB-Test, openapi nur Beschreibung, kein Guard/Proto/Route/Migration/Stub)
+- neue-units: keine
+- offen: (1) Bestehende Abrufe in Fremdwährung gegen einen EUR-Vertrag bleiben unverändert in `used_value` (kein Backfill). (2) Verträge mit nicht-normalisierter Währung (z. B. "eur") werden per `EqualFold` verglichen, gespeichert wird die Abruf-Währung wie geliefert (Upper aus dem Service).

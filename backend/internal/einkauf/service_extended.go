@@ -620,10 +620,8 @@ func (s *Service) CreateContractCall(ctx context.Context, input CreateContractCa
 		return nil, fmt.Errorf("contract call amount: %w", ErrInvalidInput)
 	}
 
-	currency := strings.TrimSpace(input.Currency)
-	if currency == "" {
-		currency = "EUR"
-	}
+	// Left empty on purpose: the repository takes the contract's currency.
+	currency := strings.ToUpper(strings.TrimSpace(input.Currency))
 
 	now := time.Now()
 	call := &FrameworkContractCall{

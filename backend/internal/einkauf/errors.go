@@ -33,4 +33,8 @@ var (
 	// ErrContractBudgetExceeded rejects a call-off above the contract's
 	// remaining value. The wrapping message names that remaining value.
 	ErrContractBudgetExceeded = errors.New("einkauf contract call-off exceeds the contract's remaining value")
+	// ErrContractCurrencyMismatch rejects a call-off whose currency differs
+	// from the contract's. No conversion is attempted: a USD call-off would
+	// otherwise consume EUR of the contract volume one-to-one.
+	ErrContractCurrencyMismatch = errors.New("einkauf contract call-off currency differs from the contract's currency")
 )
