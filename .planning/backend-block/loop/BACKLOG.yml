@@ -1479,7 +1479,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 75,1 %"
     scope: >
       TOTALAUSFALL Automatisierung (Scan Iteration 34, Wire gemessen). Der Request-Weg parst
@@ -2257,3 +2257,32 @@ units:
     done_when:
       - "Je Punkt (a, c-g) Router-Test gegen Loopback-gRPC oder begründet verworfen im Journal"
       - "Spec nachgezogen, `swagger-cli validate`, Mutations-Probe, desktop-aufrufer-Zeile je Route"
+
+  - id: scan-automation-catalog-trigger-action-fields
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 75,5 %"
+    scope: >
+      Verdacht aus Iteration 37, NICHT gemessen. `GET /automations/triggers` und `/actions` schreiben
+      rohes `Proto` (Wrapper `{triggers}`/`{actions}` passen). Der FE-Typ führt `TriggerField
+      {key,label,type,operators}` und `ConfigParam {key,label,type,required,default_value}` /
+      `OutputField {key,label,type}` (`automation-types.ts`), das Proto `FieldDefinition
+      {name,type,description}` und `ConfigParam {name,type,description,required,default_value}`. Wizard
+      und ConditionBuilder lesen `key`/`label`/`operators`. Erst die Bytes eines echten Aufrufs gegen die
+      Komponenten lesen (Loopback-Test, Antwort ausgeben). Bestätigt sich ein Bruch für jeden Nutzer
+      (Trigger-/Feldauswahl leer oder TypeError), ist es ein Totalausfall: Fix mit Wire-Typ in
+      `route_automation_wire.go`, Operatoren je Feldtyp NICHT erfinden, sondern aus dem Service oder
+      einer vorhandenen Konstante nehmen; fehlt sie, Entscheidung in BACKLOG-NEXT. Passt es, Befund
+      "passt" mit Beleg im Journal.
+    sources:
+      - backend/internal/gateway/route_automation.go
+      - backend/internal/gateway/route_automation_wire.go
+      - backend/proto/automation/v1/automation.proto
+      - desktop/src/renderer/src/api/automation-types.ts
+      - desktop/src/renderer/src/modules/automatisierung/
+    done_when:
+      - "Journal: gemessene Antwort von `/triggers` und `/actions` gegen die Leser im Wizard und ConditionBuilder, je Feld passt/bricht"
+      - "Bei Bruch: Router-Test, Spec, Mutations-Probe, desktop-aufrufer-Zeile"

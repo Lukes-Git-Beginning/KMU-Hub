@@ -14650,16 +14650,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14703,6 +14702,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14723,14 +14724,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -14755,16 +14755,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -14812,16 +14811,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14842,16 +14840,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14892,6 +14889,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14912,14 +14911,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  execution:
-                    $ref: "#/components/schemas/AutomationExecution"
+                $ref: "#/components/schemas/AutomationExecution"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14987,6 +14985,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AutomationTemplate"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -15016,16 +15016,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -15052,7 +15051,8 @@ paths:
               schema:
                 type: object
                 properties:
-                  result: { type: boolean }
+                  matches: { type: boolean }
+                  error: { type: string, description: "Why the condition could not be evaluated; empty when it could." }
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -15085,14 +15085,18 @@ paths:
                 type: object
                 properties:
                   condition_result: { type: boolean }
+                  would_execute: { type: boolean, description: "Condition matched and the simulation reported no error." }
+                  error_message: { type: string }
                   steps:
                     type: array
                     items:
-                      $ref: "#/components/schemas/DryRunStep"
+                      $ref: "#/components/schemas/ExecutionStep"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -44980,7 +44984,7 @@ components:
         owner_id: { type: string, format: uuid }
         trigger_type: { type: string }
         trigger_config: { type: object }
-        conditions: { type: object }
+        conditions: { type: object, nullable: true }
         actions: { type: array, items: { type: object } }
         is_active: { type: boolean }
         max_steps: { type: integer }
@@ -45064,20 +45068,12 @@ components:
         name: { type: string }
         description: { type: string }
         category: { type: string }
-        complexity: { type: string, enum: [simple, medium, advanced] }
+        complexity: { type: string, enum: [einfach, mittel, fortgeschritten] }
         trigger_type: { type: string }
         trigger_config: { type: object }
         conditions: { type: object }
         actions: { type: array, items: { type: object } }
         created_at: { type: string, format: date-time }
-
-    DryRunStep:
-      type: object
-      properties:
-        action_type: { type: string }
-        action_name: { type: string }
-        would_run: { type: boolean }
-        error: { type: string, nullable: true }
 
     AutomationStats:
       type: object
