@@ -1824,7 +1824,7 @@ units:
     service: e2e
     model: sonnet
     deps: [fix-document-virtual-files-nil-user]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow in `backend/test/e2e/document_test.go`: Nutzer legt einen Chat-Kanal an, lädt
