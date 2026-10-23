@@ -1331,7 +1331,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,8 %"
     scope: >
       FUHRPARK-SEITE ABSTURZ. (1) `GET /fuhrpark/gps/routes`: `vehicleRouteToProto`

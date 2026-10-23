@@ -49531,6 +49531,7 @@ components:
     FuhrparkFuelLog:
       type: object
       description: A fuel refuelling log entry (proto FuelLog).
+      required: [id, vehicle_id, date, liters, cost_cents, mileage_km]
       properties:
         id:
           type: string
@@ -49590,6 +49591,7 @@ components:
     FuhrparkRoute:
       type: object
       description: A reconstructed vehicle route from GPS data (proto VehicleRoute).
+      required: [vehicle_id, vehicle_name, date, positions, daily_km, status, driver]
       properties:
         vehicle_id:
           type: string
@@ -49703,6 +49705,7 @@ components:
     FuhrparkTripLog:
       type: object
       description: A vehicle trip (Fahrtenbuch) entry (proto TripLog).
+      required: [id, vehicle_id, date, start_km, end_km, km, is_private, driver_name]
       properties:
         id:
           type: string
@@ -49750,6 +49753,7 @@ components:
     FuhrparkVehicle:
       type: object
       description: A fleet vehicle (proto Vehicle).
+      required: [id, license_plate, make, model, year, fuel_type, status, mileage_km]
       properties:
         id:
           type: string
