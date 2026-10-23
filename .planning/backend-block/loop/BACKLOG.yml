@@ -1869,7 +1869,7 @@ units:
     service: e2e
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow in `backend/test/e2e/calendar_test.go`: Ressource anlegen, lesen, ändern,
@@ -2416,3 +2416,32 @@ units:
     done_when:
       - "Journal: gemessene Antwort von `/triggers` und `/actions` gegen die Leser im Wizard und ConditionBuilder, je Feld passt/bricht"
       - "Bei Bruch: Router-Test, Spec, Mutations-Probe, desktop-aufrufer-Zeile"
+
+  - id: fix-calendar-resource-query-param-names
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 75,9 %"
+    scope: >
+      Der Desktop und das Gateway benennen die Query-Parameter der Ressourcen-Routen verschieden.
+      Liste: FE sendet `resource_type`, `tag`, `is_active` (`useResources.ts:34-41`), das Gateway
+      liest `type`, `tags`, `include_inactive` (`route_calendar.go:1052`). Verfügbarkeit: FE sendet
+      `date` (`useResources.ts:70`), das Gateway verlangt `start` UND `end` und antwortet sonst 400
+      (`route_calendar.go:1212`). Heute folgenlos, weil `RoomBookingView.tsx:243` `useResources()`
+      ohne Parameter ruft und `useResourceAvailability` keinen Aufrufer hat; beim Bau der
+      Raumbuchungs-Filter bricht beides.
+    sources:
+      - backend/internal/gateway/route_calendar.go
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/api/hooks/useResources.ts
+      - backend/test/e2e/calendar_resources_test.go
+    notes: >
+      Gateway additiv erweitern, nicht umbenennen: die FE-Namen als zusätzliche Aliase annehmen
+      (`resource_type`, `tag`, `is_active`; bei der Verfügbarkeit `date` als Tag, `start`/`end`
+      daraus ableiten), die bisherigen Namen bleiben. Desktop-Code wird nicht geändert.
+    done_when:
+      - "Beide Namensvarianten erreichen denselben RPC-Filter, Router-Test mit echtem gRPC-Stub"
+      - "openapi.yaml nennt die Parameter, swagger-cli validate grün, TestOpenAPIRouteDrift grün"
+      - "Mutations-Probe, desktop-aufrufer-Zeile"
