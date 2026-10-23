@@ -608,3 +608,35 @@ Scan-Tabelle. V = am Code und, wo möglich, an den gemessenen Antwortbytes beleg
 - neue-units: keine
 - desktop-aufrufer: `GET/POST/PATCH /berichte/definitions*` -> `berichte-client.ts`, `MyReportsLibrary.tsx:33/40/82`, `ReportBuilderShell.tsx:139/148/163/169`, `ChartBlockPicker.tsx:39/52`, `PinnedReports.tsx:11/34` (alle lesen `query_config.viz/sourceId` als Objekt, vorher base64-String), `DashboardGrid.tsx:96/100` (`query_config.kind === 'revenue'|'tickets'`: vorher nie wahr, die Hero-Charts luden nie), `DatevView.tsx:30`; `POST /definitions/{id}/run` -> `useRunReport`, `DashboardGrid.tsx:92`, `ChartRenderer.tsx`, `DatevView.tsx:75-77` (`result.columns/rows/series`) -> passt. Schedules -> `ReportSchedule`-Felder aus `berichte-types.ts` gemessen -> passt.
 - offen: (1) `POST /berichte/preview` und `POST /schedules/{id}/run` haben weiter keine Route — `decide-berichte-preview-and-run-schedule-routes` in BACKLOG-NEXT. (2) `series[].id` ist der Label-Text; gleich benannte Serien teilen sich die ID. (3) Die Listen-Standardseite bleibt 20 (`parsePagination(r, 1, 20)`); das FE blättert Definitionen nicht. (4) Arbeitsbaum zeigt weiter ~180 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit.
+
+## Iteration 39 — scan-fe-gateway-shape-admin-security — done — 2026-10-23 23:54
+- commit: (siehe git log, Subject `chore(loop): record admin and security shape scan findings`)
+- gebaut: nur Scan, kein Code. Quelltext der FE-Clients (`client.ts`, `security-client.ts`, `rbac-client.ts`, `vendor-access.ts`, `auth-reset-client.ts`, `settings-persist.ts`, `admin-types.ts`) gegen die Gateway-Handler (`route_security.go`, `route_auth.go`, `route_settings.go`) und die Protos gelesen, jeweils mit dem konsumierenden Modul. Funde als Fix-Unit `fix-security-audit-vault-password-gdpr-wire` VOR die erste todo-Unit gelegt, FE-Fund als `fe-erasure-execute-send-admin-password` nach BACKLOG-NEXT.
+- fehler-envelope: `client.ts` liest selbst keinen Fehlerkörper; die handgeschriebenen Clients (`auth-reset-client.ts:40`, `security-client.ts` `request`, `document-client.ts:108`, `useContacts.ts:153`) lesen `body.error` als String. `response.Error` schreibt `{"error": "<text>"}` (`response.go:errorResponse`) -> passt. 401-Refresh-Wiederholung ist reine FE-Logik (nicht vermessen).
+- tabelle (Route -> FE-Typ -> tatsächliche Antwort -> passt):
+  - `POST /auth/login`, `/refresh`, `GET /auth/me` -> `auth.ts` liest `access_token/refresh_token/user.first_name/roles/requires_two_factor/pending_token` -> `LoginResponse`/`UserInfo` per `response.Proto` -> ja
+  - `POST /auth/forgot-password`, `/reset-password` -> `auth-reset-client.ts` (`{error}`) -> ja
+  - `GET/PUT /auth/2fa/policy` -> `{policies}` ja; PUT liefert `{policy}` statt flach -> nein (Rückgabewert, Unit)
+  - `POST /auth/2fa/setup|verify|regenerate-codes|disable`, `/2fa/validate` -> `qr_code_png` (bytes -> base64-String), `recovery_codes` -> ja
+  - `GET /auth/sessions`, `/sessions/all`, `DELETE` -> `{sessions}` mit `device_name/is_current/last_active_at` -> ja
+  - `GET /auth/me/permissions`, `/admin/roles*`, `/users/{id}/roles`, `/admin/users*/overrides` -> `rbac-types.ts` camelCase (`memberCount`, `roleId`, `grants`) -> handgebaute Wire-Typen in `route_auth.go:384/705/861` -> ja
+  - `GET /admin/users` (`AdminUser`) -> camelCase `firstName/lastLoginAt/invitedAt` (`route_auth.go:379`) -> ja
+  - `GET /security/audit` -> `entries[].details` als Objekt erwartet, Proto-String -> NEIN (Absturz `'old_value' in entry.details`); `offset/limit` und `date_from/date_to` ignoriert -> NEIN
+  - `GET /security/audit/export` -> Filter ignoriert, nur `format` -> nein (Unit)
+  - `POST /security/audit/verify` -> `{valid, first_invalid_sequence}` ja; Sequenzbereich wird nicht an den Service gereicht (Proto: Timestamps) -> teilweise
+  - `GET /security/vault` -> `{secrets}` ja; `GET /vault/{key}` -> `{secret, decrypted_value}` statt `{key_name, value}` -> NEIN (Absturz-frei, zeigt `undefined`); `PUT /vault/{key}` -> keine Route (Gateway: `PUT /vault`) -> NEIN
+  - `GET/POST /security/gdpr/export*` -> `{export_requests}`, Status als Wort -> ja; Freigeben/Ablehnen `{note}` vs `review_note` -> NEIN (Begründung geht verloren)
+  - `POST /security/gdpr/erasure/preview` -> `{modules,total_records}` -> ja
+  - `POST /security/gdpr/erasure/execute` -> FE schickt kein `admin_password` -> NEIN, 400 für jeden Aufruf (FE-Unit, Backend darf die Prüfung nicht aufweichen)
+  - `GET/PUT /security/password/policy` -> GET `{policy}` ja; PUT `{policy}` statt flach, `max_age_days` 0 statt `null`, Teil-Body setzt Felder auf 0 -> NEIN
+  - `POST /security/password/validate` -> FE liest `failures`, Proto liefert `violations` -> NEIN (TypeError `failures.length` bei jedem ungültigen Passwort)
+  - `GET/POST/DELETE /security/ip-rules` -> `{rules}` ja; POST `{rule}` statt flach -> nein (Rückgabewert)
+  - `GET /vendor-access`, Approve/Decline/Counter/Revoke -> `{requests}`/`{request}` ja; leere `agents`/`scope` fehlen im Proto-JSON -> `request.agents.map` würde bei einer Anfrage ohne Agent abstürzen (Randfall, nicht gebaut)
+  - `GET/PUT /settings/{module}/{scope}` -> `{entries:[{key,value}]}`, PUT-Body `{settings}` -> ja
+- gate: n.a. (kein Code). `hooks/backlog-check.py --preflight` ok.
+- coverage: n.a. (Scan)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`18cc5ba9`: Handler über `client.<RPC>`, keine neue Route, keine Proto-/Migrations-/Guard-Änderung, Spec im selben Commit).
+- neue-units: `fix-security-audit-vault-password-gdpr-wire` (VOR die erste todo-Unit gelegt: Totalausfall für jeden Admin); `fe-erasure-execute-send-admin-password` (BACKLOG-NEXT, FE).
+- desktop-aufrufer: n.a. (Scan, keine Änderung am Gateway). Gelesen: `AuditEventDetailModal.tsx:233`, `AuditLogPage.tsx:61`, `VaultPage.tsx:111`, `PasswordPolicyPage.tsx:310`, `GDPRErasurePage.tsx:135`, `GDPRExportPage.tsx:90`, `VendorAccessPage.tsx:426`.
+- offen: (1) Befunde stammen aus dem Quelltext, nicht aus einem Loopback-Lauf; die Fix-Unit misst jeden Bruch zuerst am echten Router. (2) Nicht geprüft: `idempotency.ts`/`offline-queue.ts` (reine FE-Logik, 202 `{queued:true}` wird im Client erzeugt), Retention-Policies (`/security/retention-*`, kein FE-Client in diesem Scope), `customization-types.ts` (gesperrt). (3) Arbeitsbaum zeigt weiter ~180 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit.

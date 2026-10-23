@@ -1556,12 +1556,72 @@ units:
       - "Router-Test: ungültiger `payload` -> 500, kein `null`"
       - "Spec; Mutations-Probe; desktop-aufrufer-Zeile (MyReportsLibrary, Chart-Aufrufer, Schedule-Modal)"
 
-  - id: scan-fe-gateway-shape-admin-security
+  - id: fix-security-audit-vault-password-gdpr-wire
     phase: 4
     service: gateway
     model: sonnet
     deps: []
     status: todo
+    coverage_start: "internal/gateway 75,7 %"
+    scope: >
+      TOTALAUSFALL Sicherheits-Seiten für JEDEN Admin (Scan Iteration 39, Quelltext FE gegen
+      `route_security.go` und `security.proto` gelesen; alle Handler schreiben `response.Proto`
+      ohne Anpassung). Fünf Brüche:
+      (1) AUDIT-LOG: `AuditEntry.details` ist im Proto ein String (JSON), der FE-Typ ist
+      `Record<string, unknown>`; `AuditEventDetailModal.tsx:233` rechnet `'old_value' in entry.details`
+      und wirft bei einem String einen TypeError, d. h. jede Detailansicht eines Audit-Eintrags
+      stürzt ab. Fix: `details` als JSON-Objekt schreiben (ungültig/leer -> `{}`), `sequence_num`
+      bleibt String (Typ erlaubt `number | string`). `HandleListAuditEntries` liest nur `page`/`page_size`
+      und ignoriert `offset`/`limit`, die `AuditLogPage.tsx:61` sendet: Seite 2 zeigt dieselben 50 Zeilen
+      wie Seite 1. Die Datumsfilter `date_from`/`date_to` (Proto `AuditFilter.date_from/date_to` sind
+      Timestamps) werden nicht an den Service gereicht. Fix: `offset`/`limit` zuerst lesen (Fallback
+      `page`/`page_size`, Obergrenze wie die Nachbar-Handler), Datumsfilter parsen (ungültig -> 400)
+      und im selben Zug an `HandleExportAuditLog` weiterreichen (liest heute nur `format`).
+      (2) VAULT: `PUT /api/v1/security/vault/{keyName}` mit Body `{value, description}` (FE
+      `security-client.ts` `setVaultSecret`) hat keine Route (Gateway kennt nur `PUT /vault` mit
+      `{key_name, plaintext_value, description}`): Geheimnis speichern endet in 404/405. Diese Unit
+      darf genau diese Route ergänzen (Spec-Eintrag im selben Commit); die alte Route bleibt.
+      `GET /vault/{keyName}` schreibt `{secret:{…}, decrypted_value}`, `VaultPage.tsx:111` liest
+      `result.value` -> Anzeigen eines Geheimnisses zeigt `undefined`. Fix: `{key_name, value}` (nach
+      `VaultSecretValue`). `PUT` antwortet mit `{secret:{…}}`, der FE-Typ ist das flache `VaultSecret`.
+      (3) PASSWORT-TEST: `POST /password/validate` schreibt `{valid, violations, entropy}`, der FE
+      liest `failures` (`PasswordPolicyPage.tsx:310`: `validatePw.data.failures.length` -> TypeError bei
+      jedem ungültigen Passwort). Fix: `failures` (leer `[]`), `violations` bleibt als Alias.
+      `PUT /password/policy` schreibt `{policy:{…}}` statt des flachen `PasswordPolicy`, und
+      `max_age_days` 0 muss `null` sein (Typ `number | null`); `GET` ebenso (der Client entpackt `.policy`
+      bereits, das bleibt). Der Update-Handler setzt jedes nicht gesendete Feld auf 0 (zerstört
+      Policy bei Teil-Body): prüfen, ob `min_length 0` im Service abgelehnt wird; fehlende Felder
+      aus der aktuellen Policy übernehmen.
+      (4) GDPR-EXPORT: Freigeben/Ablehnen schicken `{note}` (`security-client.ts:194/197`), der Handler
+      liest `review_note` -> die Begründung der Ablehnung geht verloren. Fix: beide Namen lesen.
+      (5) IP-REGELN und 2FA-RICHTLINIE: `POST /ip-rules` schreibt `{rule:{…}}`, `PUT /auth/2fa/policy`
+      schreibt `{policy:{…}}`, der FE-Typ ist jeweils flach (`createIPRule`/`updateTwoFactorPolicy`);
+      Erfolg wird zwar angezeigt, der Rückgabewert ist aber falsch. Mitziehen.
+      NICHT in dieser Unit: `POST /gdpr/erasure/execute` (der FE schickt kein Passwort, siehe
+      `fe-erasure-execute-send-admin-password` in BACKLOG-NEXT) und `POST /audit/verify` (Proto kennt
+      Zeitstempel statt Sequenzen; nur dokumentieren, ob der Aufruf mit Sequenzbereich überhaupt
+      eingegrenzt wird).
+    sources:
+      - backend/internal/gateway/route_security.go
+      - backend/internal/gateway/route_auth.go
+      - backend/proto/security/v1/security.proto
+      - desktop/src/renderer/src/api/security-client.ts
+      - desktop/src/renderer/src/api/security-types.ts
+      - desktop/src/renderer/src/modules/security/AuditEventDetailModal.tsx
+      - desktop/src/renderer/src/modules/security/AuditLogPage.tsx
+      - desktop/src/renderer/src/modules/security/VaultPage.tsx
+      - desktop/src/renderer/src/modules/security/PasswordPolicyPage.tsx
+    done_when:
+      - "Router-Test gegen Loopback-gRPC je Bruch: Audit-Liste mit `details` als Objekt und `offset=50&limit=50` -> zweite Seite; Vault `PUT /vault/{key}` -> 200 und `GET` -> `{key_name,value}`; Passwort-Test mit Verstoß -> `failures` nicht leer; Ablehnung mit `note` -> Service bekommt `review_note`"
+      - "Spec für die neue Vault-Route und alle geänderten Antworten, `swagger-cli validate`"
+      - "Mutations-Probe je Gruppe; desktop-aufrufer-Zeile (AuditLogPage, AuditEventDetailModal, VaultPage, PasswordPolicyPage, GDPRExportPage, IPAccessPage)"
+
+  - id: scan-fe-gateway-shape-admin-security
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für Administration und Sicherheit:

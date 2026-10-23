@@ -1409,3 +1409,26 @@ units:
       - backend/internal/gateway/route_formulare_wire.go
     done_when:
       - "Entscheidung steht; bei Bau eine eigene Unit mit Proto-Regen, Migration, Route, Spec und Public-Seite"
+
+  - id: fe-erasure-execute-send-admin-password
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      TOTALAUSFALL DSGVO-Löschung (Scan Iteration 39). `POST /api/v1/security/gdpr/erasure/execute`
+      verlangt `user_id` UND `admin_password` (`executeErasureRequest`, `validate:"required"`;
+      Proto `ExecuteErasureRequest.admin_password` = Bestätigung). `GDPRErasurePage.tsx` sammelt das
+      Passwort (`adminPassword`, Z. 66/401) und ruft dann `executeErasure.mutate(selectedUserId, …)`
+      (Z. 135), der Hook und `security-client.ts:206` schicken nur `{user_id}` -> jede Löschung endet
+      in 400. Das Backend darf die Passwortprüfung NICHT aufweichen. FE-Unit: Passwort durch
+      Hook (`useExecuteErasure`) und Client (`executeErasure(userId, adminPassword)`) in den Body
+      `admin_password` reichen, MSW-Mock und `__tests__` mitziehen. Desktop-Code ändert der Loop nicht.
+    sources:
+      - desktop/src/renderer/src/modules/security/GDPRErasurePage.tsx
+      - desktop/src/renderer/src/api/hooks/useSecurity.ts
+      - desktop/src/renderer/src/api/security-client.ts
+      - backend/internal/gateway/route_security.go
+    done_when:
+      - "Body enthält `admin_password`; Löschung gegen ein echtes Backend (lokal) liefert 200 statt 400"
