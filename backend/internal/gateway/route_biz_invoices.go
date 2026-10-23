@@ -18,7 +18,7 @@ import (
 type createInvoiceRequest struct {
 	Customer      *bizv1.CustomerSnapshot `json:"customer"       validate:"required"`
 	LineItems     []*bizv1.LineItem       `json:"line_items"     validate:"required,min=1"`
-	TaxMode       string                  `json:"tax_mode"       validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode       taxModeField            `json:"tax_mode"       validate:"required,oneof=standard reverse_charge kleinunternehmer"`
 	InvoiceDate   string                  `json:"invoice_date"   validate:"required,datetime=2006-01-02"`
 	DeliveryDate  string                  `json:"delivery_date"  validate:"omitempty,datetime=2006-01-02"`
 	DueDate       string                  `json:"due_date"       validate:"omitempty,datetime=2006-01-02"`
@@ -170,7 +170,7 @@ func (b *BizRoutes) HandleGetInvoice(w http.ResponseWriter, r *http.Request) {
 type updateInvoiceRequest struct {
 	Customer     *bizv1.CustomerSnapshot `json:"customer"`
 	LineItems    []*bizv1.LineItem       `json:"line_items"`
-	TaxMode      string                  `json:"tax_mode"      validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode      taxModeField            `json:"tax_mode"      validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
 	InvoiceDate  string                  `json:"invoice_date"  validate:"omitempty,datetime=2006-01-02"`
 	DeliveryDate string                  `json:"delivery_date" validate:"omitempty,datetime=2006-01-02"`
 	DueDate      string                  `json:"due_date"      validate:"omitempty,datetime=2006-01-02"`

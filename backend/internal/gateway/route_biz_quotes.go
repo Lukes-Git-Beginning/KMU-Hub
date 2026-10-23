@@ -17,7 +17,7 @@ import (
 type createQuoteRequest struct {
 	Customer   *bizv1.CustomerSnapshot `json:"customer"    validate:"required"`
 	LineItems  []*bizv1.LineItem       `json:"line_items"  validate:"required,min=1"`
-	TaxMode    string                  `json:"tax_mode"    validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode    taxModeField            `json:"tax_mode"    validate:"required,oneof=standard reverse_charge kleinunternehmer"`
 	ValidUntil string                  `json:"valid_until" validate:"omitempty,datetime=2006-01-02"`
 	Notes      string                  `json:"notes"`
 	DealID     string                  `json:"deal_id"     validate:"omitempty,uuid"`
@@ -132,7 +132,7 @@ func (b *BizRoutes) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 type updateQuoteRequest struct {
 	Customer   *bizv1.CustomerSnapshot `json:"customer"`
 	LineItems  []*bizv1.LineItem       `json:"line_items"`
-	TaxMode    string                  `json:"tax_mode"    validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode    taxModeField            `json:"tax_mode"    validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
 	ValidUntil string                  `json:"valid_until" validate:"omitempty,datetime=2006-01-02"`
 	Notes      string                  `json:"notes"`
 }

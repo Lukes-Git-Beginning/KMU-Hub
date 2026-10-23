@@ -18,7 +18,7 @@ type createCreditNoteRequest struct {
 	OriginalInvoiceID string                  `json:"original_invoice_id" validate:"omitempty,uuid"`
 	Customer          *bizv1.CustomerSnapshot `json:"customer"            validate:"required"`
 	LineItems         []*bizv1.LineItem       `json:"line_items"          validate:"required,min=1"`
-	TaxMode           string                  `json:"tax_mode"            validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode           taxModeField            `json:"tax_mode"            validate:"required,oneof=standard reverse_charge kleinunternehmer"`
 	Reason            string                  `json:"reason"              validate:"required"`
 }
 

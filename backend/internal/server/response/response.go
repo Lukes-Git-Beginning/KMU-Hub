@@ -1,10 +1,12 @@
 package response
 
 import (
+	"bytes"
 	"encoding/json"
 	"log/slog"
 	"maps"
 	"net/http"
+	"regexp"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -39,11 +41,38 @@ var protoMarshaler = protojson.MarshalOptions{
 	UseEnumNumbers: true,
 }
 
+// taxModeNumber matches a numeric `"tax_mode":N` member. Only biz.v1.TaxMode fields are
+// named tax_mode in emitted messages (the two string fields in biz.proto are request-only),
+// and a key inside a JSON string value is escaped (`\"tax_mode\"`) so it cannot match.
+var taxModeNumber = regexp.MustCompile(`("tax_mode":\s*)([123])`)
+
+var taxModeNames = map[string]string{"1": "standard", "2": "reverse_charge", "3": "kleinunternehmer"}
+
+// MarshalProto is the one place gateway handlers turn a proto message into JSON. It
+// applies protoMarshaler and then writes biz.v1.TaxMode as the string the frontend's
+// TaxMode type uses (`standard|reverse_charge|kleinunternehmer`) instead of the enum
+// number, so an entity can be sent back unchanged in an update body.
+// lean: key-based rewrite instead of per-enum marshaling (protojson has no such option);
+// a second enum with the same wire need gets its own pattern or a protoreflect walk.
+func MarshalProto(msg proto.Message) ([]byte, error) {
+	b, err := protoMarshaler.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Contains(b, []byte(`"tax_mode":`)) {
+		return b, nil
+	}
+	return taxModeNumber.ReplaceAllFunc(b, func(m []byte) []byte {
+		sub := taxModeNumber.FindSubmatch(m)
+		return append(append([]byte{}, sub[1]...), []byte(`"`+taxModeNames[string(sub[2])]+`"`)...)
+	}), nil
+}
+
 // Proto writes a protobuf message as JSON via protojson so well-known types
 // (notably Timestamp) serialize correctly. Use this instead of JSON for handlers
 // that return a proto.Message.
 func Proto(w http.ResponseWriter, status int, msg proto.Message) {
-	b, err := protoMarshaler.Marshal(msg)
+	b, err := MarshalProto(msg)
 	if err != nil {
 		slog.Error("proto json marshal failed", "error", err)
 		Error(w, http.StatusInternalServerError, "internal server error")
@@ -60,7 +89,7 @@ func Proto(w http.ResponseWriter, status int, msg proto.Message) {
 // calendar_name}, which is what flat frontend types read. Fields of the nested
 // message win on a name clash.
 func ProtoFlatten(msg proto.Message, key string) (json.RawMessage, error) {
-	b, err := protoMarshaler.Marshal(msg)
+	b, err := MarshalProto(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +119,7 @@ func ProtoFlatten(msg proto.Message, key string) (json.RawMessage, error) {
 func ProtoList[T proto.Message](w http.ResponseWriter, status int, msgs []T) {
 	parts := make([]json.RawMessage, 0, len(msgs))
 	for _, m := range msgs {
-		b, err := protoMarshaler.Marshal(m)
+		b, err := MarshalProto(m)
 		if err != nil {
 			slog.Error("proto json marshal failed", "error", err)
 			Error(w, http.StatusInternalServerError, "internal server error")
@@ -111,7 +140,7 @@ func ProtoList[T proto.Message](w http.ResponseWriter, status int, msgs []T) {
 func ProtoListWrapped[T proto.Message](w http.ResponseWriter, status int, key string, msgs []T, extra map[string]any) {
 	parts := make([]json.RawMessage, 0, len(msgs))
 	for _, m := range msgs {
-		b, err := protoMarshaler.Marshal(m)
+		b, err := MarshalProto(m)
 		if err != nil {
 			slog.Error("proto json marshal failed", "error", err)
 			Error(w, http.StatusInternalServerError, "internal server error")

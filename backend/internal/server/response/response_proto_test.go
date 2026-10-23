@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 	dialerv1 "github.com/kmuhub/kmuhub/proto/dialer/v1"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
@@ -94,5 +95,43 @@ func TestProtoListWrapped_ExtraFieldsAndItems(t *testing.T) {
 	}
 	if total, _ := body["total"].(float64); total != 2 {
 		t.Errorf("expected total 2, got %v", body["total"])
+	}
+}
+
+// TestProto_TaxModeIsString: biz.v1.TaxMode goes out as the frontend's string union, in
+// single entities, bare lists and wrapped lists, while a tax_mode that only appears inside
+// a string value is left alone.
+func TestProto_TaxModeIsString(t *testing.T) {
+	inv := &bizv1.Invoice{Id: "i", TaxMode: bizv1.TaxMode_TAX_MODE_KLEINUNTERNEHMER, Notes: `"tax_mode":2`}
+
+	rec := httptest.NewRecorder()
+	response.Proto(rec, 200, inv)
+	var got map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("not json: %v: %s", err, rec.Body.String())
+	}
+	if got["tax_mode"] != "kleinunternehmer" {
+		t.Errorf("tax_mode = %v, want kleinunternehmer", got["tax_mode"])
+	}
+	if got["notes"] != `"tax_mode":2` {
+		t.Errorf("notes mangled: %v", got["notes"])
+	}
+
+	rec = httptest.NewRecorder()
+	response.ProtoList(rec, 200, []*bizv1.Invoice{{Id: "a", TaxMode: bizv1.TaxMode_TAX_MODE_STANDARD}})
+	if !strings.Contains(rec.Body.String(), `"tax_mode":"standard"`) {
+		t.Errorf("list: %s", rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	response.ProtoListWrapped(rec, 200, "items", []*bizv1.Invoice{{Id: "a", TaxMode: bizv1.TaxMode_TAX_MODE_REVERSE_CHARGE}}, nil)
+	if !strings.Contains(rec.Body.String(), `"tax_mode":"reverse_charge"`) {
+		t.Errorf("wrapped list: %s", rec.Body.String())
+	}
+
+	// Unspecified is omitted by protojson, so there is nothing to rewrite.
+	b, err := response.MarshalProto(&bizv1.Invoice{Id: "i"})
+	if err != nil || strings.Contains(string(b), "tax_mode") {
+		t.Errorf("unspecified: %s %v", b, err)
 	}
 }

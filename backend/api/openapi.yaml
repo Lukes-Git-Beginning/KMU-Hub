@@ -43238,6 +43238,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         tax_breakdown:
           $ref: "#/components/schemas/TaxBreakdown"
         valid_until:
@@ -43284,6 +43285,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         valid_until:
           type: string
           format: date
@@ -43305,6 +43307,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         valid_until:
           type: string
           format: date
@@ -43401,6 +43404,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         tax_breakdown:
           $ref: "#/components/schemas/TaxBreakdown"
         currency:
@@ -43455,6 +43459,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         currency:
           type: string
           example: EUR
@@ -43489,6 +43494,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         currency:
           type: string
         interval:
@@ -43520,6 +43526,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         invoice_date:
           type: string
           format: date
@@ -43625,6 +43632,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         reason:
           type: string
 

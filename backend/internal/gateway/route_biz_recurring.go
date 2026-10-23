@@ -18,7 +18,7 @@ type createRecurringRequest struct {
 	Title            string                  `json:"title"`
 	Customer         *bizv1.CustomerSnapshot `json:"customer"           validate:"required"`
 	LineItems        []*bizv1.LineItem       `json:"line_items"         validate:"required,min=1"`
-	TaxMode          string                  `json:"tax_mode"           validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode          taxModeField            `json:"tax_mode"           validate:"required,oneof=standard reverse_charge kleinunternehmer"`
 	Currency         string                  `json:"currency"           validate:"omitempty,len=3"`
 	Interval         string                  `json:"interval"           validate:"required,oneof=weekly monthly quarterly yearly"`
 	StartDate        string                  `json:"start_date"         validate:"required,datetime=2006-01-02"`
@@ -33,7 +33,7 @@ type updateRecurringRequest struct {
 	Title            *string                 `json:"title"`
 	Customer         *bizv1.CustomerSnapshot `json:"customer"`
 	LineItems        []*bizv1.LineItem       `json:"line_items"`
-	TaxMode          *string                 `json:"tax_mode"           validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode          *taxModeField           `json:"tax_mode"           validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
 	Currency         *string                 `json:"currency"           validate:"omitempty,len=3"`
 	Interval         *string                 `json:"interval"           validate:"omitempty,oneof=weekly monthly quarterly yearly"`
 	StartDate        *string                 `json:"start_date"         validate:"omitempty,datetime=2006-01-02"`

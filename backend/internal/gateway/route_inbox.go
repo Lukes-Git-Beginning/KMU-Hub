@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -25,13 +25,15 @@ import (
 // json.RawMessage. Originally scoped to the two canned-response handlers below;
 // route_hr.go's map-envelope handlers (leave requests, work-time entries, employees,
 // etc.) reuse it too since it's a package-level var with identical protojson options.
-// lean: duplicates response.go's unexported protoMarshaler config; the "third envelope
-// case" trigger has now fired (hr added ~12 more call sites) — fold into an exported
-// response.ProtoEnvelope helper next time this pattern spreads to another module.
-var cannedResponseMarshaler = protojson.MarshalOptions{
-	UseProtoNames:  true,
-	UseEnumNumbers: true,
-}
+// lean: thin wrapper so the ~25 call sites keep their `.Marshal` shape; fold into an
+// exported response.ProtoEnvelope helper when the next module needs this pattern.
+var cannedResponseMarshaler cannedMarshaler
+
+// cannedMarshaler delegates to response.MarshalProto so ad-hoc envelopes share its
+// encoding (including the string tax_mode) with response.Proto.
+type cannedMarshaler struct{}
+
+func (cannedMarshaler) Marshal(m proto.Message) ([]byte, error) { return response.MarshalProto(m) }
 
 // InboxRoutes handles HTTP routes for the inbox service.
 // InboxService is co-hosted in the notification binary, so ServiceName

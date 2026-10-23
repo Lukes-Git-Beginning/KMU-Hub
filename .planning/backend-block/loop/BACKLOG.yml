@@ -927,7 +927,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,3 %"
     scope: >
       TOTALAUSFALL "Rechnung/Angebot/Wiederkehrende/Gutschrift BEARBEITEN". Die Antworten gehen

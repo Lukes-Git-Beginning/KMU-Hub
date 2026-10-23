@@ -465,8 +465,8 @@ func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.R
 // Proto Enum Helpers
 // ============================================================================
 
-func taxModeToProto(mode string) bizv1.TaxMode {
-	switch mode {
+func taxModeToProto[S ~string](mode S) bizv1.TaxMode {
+	switch string(mode) {
 	case "standard":
 		return bizv1.TaxMode_TAX_MODE_STANDARD
 	case "reverse_charge":
@@ -475,6 +475,50 @@ func taxModeToProto(mode string) bizv1.TaxMode {
 		return bizv1.TaxMode_TAX_MODE_KLEINUNTERNEHMER
 	default:
 		return bizv1.TaxMode_TAX_MODE_UNSPECIFIED
+	}
+}
+
+// taxModeField is the request-side tax mode. Responses carry tax_mode as a string
+// (response.MarshalProto), but a client that cached the old numeric enum still
+// sends 1..3 back; both spellings decode to the same string so validate:"oneof"
+// and taxModeToProto stay unchanged.
+type taxModeField string
+
+func (t *taxModeField) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		return nil
+	}
+	var n int32
+	if err := json.Unmarshal(b, &n); err == nil {
+		if n == int32(bizv1.TaxMode_TAX_MODE_UNSPECIFIED) {
+			*t = ""
+			return nil
+		}
+		if _, ok := bizv1.TaxMode_name[n]; !ok {
+			return fmt.Errorf("unknown tax_mode %d", n)
+		}
+		*t = taxModeField(taxModeWireName(bizv1.TaxMode(n)))
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	*t = taxModeField(s)
+	return nil
+}
+
+// taxModeWireName is the string the frontend's TaxMode type uses.
+func taxModeWireName(m bizv1.TaxMode) string {
+	switch m {
+	case bizv1.TaxMode_TAX_MODE_STANDARD:
+		return "standard"
+	case bizv1.TaxMode_TAX_MODE_REVERSE_CHARGE:
+		return "reverse_charge"
+	case bizv1.TaxMode_TAX_MODE_KLEINUNTERNEHMER:
+		return "kleinunternehmer"
+	default:
+		return ""
 	}
 }
 
