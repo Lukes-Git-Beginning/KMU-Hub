@@ -2289,15 +2289,17 @@ func (x *UpdateCompanySettingsResponse) GetSettings() *CompanySettings {
 }
 
 type CreateQuoteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Customer      *CustomerSnapshot      `protobuf:"bytes,2,opt,name=customer,proto3" json:"customer,omitempty"`
-	LineItems     []*LineItem            `protobuf:"bytes,3,rep,name=line_items,json=lineItems,proto3" json:"line_items,omitempty"`
-	TaxMode       TaxMode                `protobuf:"varint,4,opt,name=tax_mode,json=taxMode,proto3,enum=biz.v1.TaxMode" json:"tax_mode,omitempty"`
-	ValidUntil    string                 `protobuf:"bytes,5,opt,name=valid_until,json=validUntil,proto3" json:"valid_until,omitempty"` // Date string YYYY-MM-DD
-	Notes         string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
-	DealId        string                 `protobuf:"bytes,7,opt,name=deal_id,json=dealId,proto3" json:"deal_id,omitempty"` // Optional
-	CreatedBy     string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	TenantId   string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Customer   *CustomerSnapshot      `protobuf:"bytes,2,opt,name=customer,proto3" json:"customer,omitempty"`
+	LineItems  []*LineItem            `protobuf:"bytes,3,rep,name=line_items,json=lineItems,proto3" json:"line_items,omitempty"`
+	TaxMode    TaxMode                `protobuf:"varint,4,opt,name=tax_mode,json=taxMode,proto3,enum=biz.v1.TaxMode" json:"tax_mode,omitempty"`
+	ValidUntil string                 `protobuf:"bytes,5,opt,name=valid_until,json=validUntil,proto3" json:"valid_until,omitempty"` // Date string YYYY-MM-DD
+	Notes      string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
+	DealId     string                 `protobuf:"bytes,7,opt,name=deal_id,json=dealId,proto3" json:"deal_id,omitempty"` // Optional
+	CreatedBy  string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	// ISO 4217 code; empty takes the tenant default (company settings, else EUR).
+	Currency      string `protobuf:"bytes,9,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2384,6 +2386,13 @@ func (x *CreateQuoteRequest) GetDealId() string {
 func (x *CreateQuoteRequest) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *CreateQuoteRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
 	}
 	return ""
 }
@@ -3406,7 +3415,9 @@ type CreateInvoiceRequest struct {
 	SourceQuoteId string                 `protobuf:"bytes,10,opt,name=source_quote_id,json=sourceQuoteId,proto3" json:"source_quote_id,omitempty"` // Optional
 	CreatedBy     string                 `protobuf:"bytes,11,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 	// Contact-360: CRM contact to link to this invoice (Migration 000141).
-	ContactId     *string `protobuf:"bytes,12,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	ContactId *string `protobuf:"bytes,12,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	// ISO 4217 code; empty takes the tenant default (company settings, else EUR).
+	Currency      string `protobuf:"bytes,13,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3521,6 +3532,13 @@ func (x *CreateInvoiceRequest) GetCreatedBy() string {
 func (x *CreateInvoiceRequest) GetContactId() string {
 	if x != nil && x.ContactId != nil {
 		return *x.ContactId
+	}
+	return ""
+}
+
+func (x *CreateInvoiceRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
 	}
 	return ""
 }
@@ -14626,7 +14644,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x123\n" +
 	"\bsettings\x18\x02 \x01(\v2\x17.biz.v1.CompanySettingsR\bsettings\"T\n" +
 	"\x1dUpdateCompanySettingsResponse\x123\n" +
-	"\bsettings\x18\x01 \x01(\v2\x17.biz.v1.CompanySettingsR\bsettings\"\xb3\x02\n" +
+	"\bsettings\x18\x01 \x01(\v2\x17.biz.v1.CompanySettingsR\bsettings\"\xcf\x02\n" +
 	"\x12CreateQuoteRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x124\n" +
 	"\bcustomer\x18\x02 \x01(\v2\x18.biz.v1.CustomerSnapshotR\bcustomer\x12/\n" +
@@ -14638,7 +14656,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\x05notes\x18\x06 \x01(\tR\x05notes\x12\x17\n" +
 	"\adeal_id\x18\a \x01(\tR\x06dealId\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\b \x01(\tR\tcreatedBy\":\n" +
+	"created_by\x18\b \x01(\tR\tcreatedBy\x12\x1a\n" +
+	"\bcurrency\x18\t \x01(\tR\bcurrency\":\n" +
 	"\x13CreateQuoteResponse\x12#\n" +
 	"\x05quote\x18\x01 \x01(\v2\r.biz.v1.QuoteR\x05quote\">\n" +
 	"\x0fGetQuoteRequest\x12\x0e\n" +
@@ -14699,7 +14718,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\rdelivery_date\x18\x05 \x01(\tR\fdeliveryDate\x12#\n" +
 	"\rpayment_terms\x18\x06 \x01(\tR\fpaymentTerms\"J\n" +
 	"\x1dConvertQuoteToInvoiceResponse\x12)\n" +
-	"\ainvoice\x18\x01 \x01(\v2\x0f.biz.v1.InvoiceR\ainvoice\"\xde\x03\n" +
+	"\ainvoice\x18\x01 \x01(\v2\x0f.biz.v1.InvoiceR\ainvoice\"\xfa\x03\n" +
 	"\x14CreateInvoiceRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x124\n" +
 	"\bcustomer\x18\x02 \x01(\v2\x18.biz.v1.CustomerSnapshotR\bcustomer\x12/\n" +
@@ -14716,7 +14735,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\n" +
 	"created_by\x18\v \x01(\tR\tcreatedBy\x12\"\n" +
 	"\n" +
-	"contact_id\x18\f \x01(\tH\x00R\tcontactId\x88\x01\x01B\r\n" +
+	"contact_id\x18\f \x01(\tH\x00R\tcontactId\x88\x01\x01\x12\x1a\n" +
+	"\bcurrency\x18\r \x01(\tR\bcurrencyB\r\n" +
 	"\v_contact_id\"B\n" +
 	"\x15CreateInvoiceResponse\x12)\n" +
 	"\ainvoice\x18\x01 \x01(\v2\x0f.biz.v1.InvoiceR\ainvoice\"@\n" +

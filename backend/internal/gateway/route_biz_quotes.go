@@ -19,6 +19,7 @@ type createQuoteRequest struct {
 	LineItems  []*bizv1.LineItem       `json:"line_items"  validate:"required,min=1"`
 	TaxMode    taxModeField            `json:"tax_mode"    validate:"required,oneof=standard reverse_charge kleinunternehmer"`
 	ValidUntil string                  `json:"valid_until" validate:"omitempty,datetime=2006-01-02"`
+	Currency   string                  `json:"currency"    validate:"omitempty,iso4217"`
 	Notes      string                  `json:"notes"`
 	DealID     string                  `json:"deal_id"     validate:"omitempty,uuid"`
 }
@@ -54,6 +55,7 @@ func (b *BizRoutes) HandleCreateQuote(w http.ResponseWriter, r *http.Request) {
 		Notes:      req.Notes,
 		DealId:     req.DealID,
 		CreatedBy:  userID,
+		Currency:   req.Currency,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

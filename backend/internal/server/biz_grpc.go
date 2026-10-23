@@ -278,6 +278,7 @@ func (s *BizGRPCServer) CreateQuote(ctx context.Context, req *bizv1.CreateQuoteR
 		LineItems:       lineItems,
 		Notes:           req.GetNotes(),
 		UserID:          userID,
+		Currency:        req.GetCurrency(),
 	}
 
 	if req.GetValidUntil() != "" {
@@ -562,6 +563,7 @@ func (s *BizGRPCServer) CreateInvoice(ctx context.Context, req *bizv1.CreateInvo
 		LineItems:       lineItems,
 		Notes:           req.GetNotes(),
 		UserID:          userID,
+		Currency:        req.GetCurrency(),
 	}
 
 	if req.GetInvoiceDate() != "" {

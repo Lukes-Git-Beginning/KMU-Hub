@@ -103,6 +103,9 @@ type CreateInput struct {
 	Notes           string
 	DealID          *uuid.UUID
 	UserID          uuid.UUID
+	// Currency overrides the tenant default (ISO 4217). Empty means "use the
+	// tenant default".
+	Currency string
 }
 
 // Create creates a new quote with tax calculation and optional deal sync.
@@ -155,10 +158,14 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Quote,
 		validUntil = &expiry
 	}
 
-	// Currency: tenant default from company settings, else the system default (EUR).
+	// Currency: explicit input wins, then the tenant default from company
+	// settings, then the system default (EUR).
 	currency := models.DefaultCurrency
 	if settings != nil && settings.DefaultCurrency != "" {
 		currency = settings.DefaultCurrency
+	}
+	if input.Currency != "" {
+		currency = input.Currency
 	}
 
 	now := time.Now()

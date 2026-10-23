@@ -43578,6 +43578,13 @@ components:
         deal_id:
           type: string
           format: uuid
+        currency:
+          type: string
+          example: CHF
+          description: >
+            ISO 4217 code (uppercase) of the document currency. Absent takes the tenant default
+            (company settings, else EUR). Anything that is not an ISO 4217 code is a 400.
+            An `exchange_rate` in the body is ignored: no rate is stored.
 
     UpdateQuoteRequest:
       type: object
@@ -43799,7 +43806,7 @@ components:
 
     CreateInvoiceRequest:
       type: object
-      required: [customer, line_items, tax_mode, invoice_date, due_date]
+      required: [customer, line_items, tax_mode, invoice_date]
       properties:
         customer:
           $ref: "#/components/schemas/CustomerSnapshot"
@@ -43820,8 +43827,26 @@ components:
         due_date:
           type: string
           format: date
+          description: Ignored. The due date is invoice_date plus the payment term days.
         payment_terms:
           type: string
+          description: >
+            Free text whose leading number is the due-date offset in days ("14 Tage netto").
+            Wins over `payment_terms_days` when both are sent.
+        payment_terms_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: >
+            Days from invoice_date to the due date. Sent as "N Tage netto" payment terms.
+            Absent or 0 takes the tenant default (company settings, else 30).
+        currency:
+          type: string
+          example: CHF
+          description: >
+            ISO 4217 code (uppercase) of the document currency. Absent takes the tenant default
+            (company settings, else EUR). Anything that is not an ISO 4217 code is a 400.
+            An `exchange_rate` in the body is ignored: no rate is stored.
         notes:
           type: string
         source_quote_id:

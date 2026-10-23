@@ -374,6 +374,19 @@ func TestCreateQuote(t *testing.T) {
 		assert.Equal(t, "Acme GmbH", resp.GetQuote().GetCustomer().GetName())
 		assert.Equal(t, bizv1.QuoteStatus_QUOTE_DRAFT, resp.GetQuote().GetStatus())
 	})
+
+	t.Run("currency from the request is stored", func(t *testing.T) {
+		srv := newQuoteTestServer(newStubQuoteRepo(), &stubCompanySettingsRepo{}, nil)
+		resp, err := srv.CreateQuote(context.Background(), &bizv1.CreateQuoteRequest{
+			TenantId:  tenantID.String(),
+			CreatedBy: uuid.New().String(),
+			Customer:  &bizv1.CustomerSnapshot{Name: "Acme GmbH"},
+			LineItems: []*bizv1.LineItem{lineItem()},
+			Currency:  "USD",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "USD", resp.GetQuote().GetCurrency())
+	})
 }
 
 func TestGetQuote(t *testing.T) {

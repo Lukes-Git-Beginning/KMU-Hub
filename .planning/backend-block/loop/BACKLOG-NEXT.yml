@@ -1526,3 +1526,27 @@ units:
       - backend/internal/gateway/route_document.go
     done_when:
       - "Entscheidung zu (1)-(4) steht; die Folge-Units (Guard in Datei- und Ordner-RPCs, Existenzprüfung in ShareEntity) sind angelegt"
+
+  - id: decide-finance-exchange-rate-storage
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Entscheidung Luke: Fremdwährungs-Belege mit Wechselkurs (speichern ja/nein) oder nur Währung ohne Kurs?"
+    scope: >
+      Gefunden in fix-finance-invoice-quote-create-dropped-fields (Iteration 59). Das FE sendet bei
+      CHF/USD-Rechnungen `exchange_rate` (`InvoiceFormDialog.tsx:230`) und zeigt den Wert beim Bearbeiten
+      wieder an (`:153`, `editInvoice.exchange_rate`). Im Backend gibt es dafür keine Spalte, kein Proto-Feld,
+      kein Modell — `exchange_rate` kommt in keiner Go-, SQL- oder Spec-Datei vor. Die Spec sagt an anderer
+      Stelle ausdrücklich: ohne gespeicherten Kurs berichtet der Server pro Währung (`openapi.yaml` ~12222). Seit
+      der Fix-Unit nimmt das Gateway `currency` an und ignoriert `exchange_rate` (Spec vermerkt das).
+      Offene Fragen: (1) Soll der Kurs am Beleg gespeichert werden (Migration auf `invoices`/`quotes`, Proto,
+      Anzeige)? (2) Wird er nur dokumentarisch geführt oder rechnet etwas damit (DATEV-Export, Berichte,
+      offene Posten in Tenant-Währung)? (3) Sonst: das FE-Feld entfernen.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/InvoiceFormDialog.tsx
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/datev/exporter.go
+    done_when:
+      - "Entscheidung zu (1)-(3) steht; bei 'speichern' ist die Fix-Unit mit Migration (tenant_id/RLS unverändert), Proto und Spec angelegt"

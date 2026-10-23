@@ -444,6 +444,8 @@ message CreateQuoteRequest {
   string notes = 6;
   string deal_id = 7;             // Optional
   string created_by = 8;
+  // ISO 4217 code; empty takes the tenant default (company settings, else EUR).
+  string currency = 9;
 }
 
 message CreateQuoteResponse {
@@ -560,6 +562,8 @@ message CreateInvoiceRequest {
   string created_by = 11;
   // Contact-360: CRM contact to link to this invoice (Migration 000141).
   optional string contact_id = 12;
+  // ISO 4217 code; empty takes the tenant default (company settings, else EUR).
+  string currency = 13;
 }
 
 message CreateInvoiceResponse {

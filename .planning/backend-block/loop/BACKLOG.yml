@@ -2176,7 +2176,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-finance-tax-mode-enum-roundtrip]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,3 %"
     scope: >
       `POST /finance/invoices` liest von den FE-Feldern `payment_terms_days`, `currency`,
@@ -2541,3 +2541,30 @@ units:
       - "Test: Betreff mit Umlaut über Byte 200 liefert gültiges UTF-8 (`utf8.ValidString`) und höchstens 200 Byte"
       - "Mail-Sync-Pfad: Test oder Beleg, dass ein langer Umlaut-Betreff nicht mehr am Insert scheitert"
       - "Mutations-Probe, desktop-aufrufer-Zeile (n.a. erwartet, Vorschau bleibt ein String)"
+
+  - id: fix-finance-invoice-quote-update-dropped-fields
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-finance-invoice-quote-create-dropped-fields]
+    status: todo
+    coverage_start: "internal/gateway 76,0 %"
+    scope: >
+      Gefunden in fix-finance-invoice-quote-create-dropped-fields (Iteration 59). Das Bearbeiten
+      eines Entwurfs verliert dieselben Felder wie früher das Anlegen: `PUT/PATCH /finance/invoices/{id}`
+      liest `payment_terms_days`/`currency` nicht (`updateInvoiceRequest`, `route_biz_invoices.go:182`),
+      `PUT/PATCH /finance/quotes/{id}` liest `currency` nicht; das FE sendet beides aus dem Bearbeiten-Dialog
+      (`InvoiceFormDialog.tsx:224-232`, `QuoteFormDialog.tsx:173-181`). Die Update-Requests im Proto
+      (`UpdateInvoiceRequest`, `UpdateQuoteRequest`) kennen keine Währung, `UpdateInvoiceRequest` hat nur
+      `payment_terms`. Zuerst prüfen, ob `invoice.Service.Update`/`quote.Service.Update` Währung und Fälligkeit
+      überhaupt neu setzen (Fälligkeit hängt an `invoice_date`: ändert der Nutzer das Datum, bleibt die alte
+      Fälligkeit?). Dann `currency` (Proto-Feld, Regen) und `payment_terms_days` analog zum Anlegen durchreichen.
+    sources:
+      - backend/internal/gateway/route_biz_invoices.go
+      - backend/internal/gateway/route_biz_quotes.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/quote/service.go
+      - backend/proto/biz/v1/biz.proto
+    done_when:
+      - "Entwurf bearbeiten mit anderer Währung bzw. payment_terms_days ändert Währung und Fälligkeit (Router-, Server- und Service-Test)"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
