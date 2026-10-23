@@ -1996,7 +1996,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/document/share 33,3 %"
     scope: >
       Freigabe-Links für Dokumente — Zugriffsprüfung, Ablauf, Widerruf, Tenant-Grenze. Ein
@@ -2008,6 +2008,41 @@ units:
       - "Coverage internal/document/share selbst gemessen vorher/nachher im Journal"
       - "Mutations-Probe: die Ablauf- oder Widerrufsprüfung gebrochen, ein neuer Test wird rot"
       - "go test -count=1 ./internal/document/share/ grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: fix-document-shared-with-me-and-share-effect
+    phase: 4
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server (Bezug 74,8 %)"
+    scope: >
+      Verifizierter Totalausfall der Freigabe-Funktion (gefunden in cov-document-share,
+      Iteration 53). (a) `DocumentGRPCServer.ListSharedWithMe` (`internal/server/document_grpc.go:1026`)
+      gibt IMMER leere `files`/`folders` zurück (Kommentar "For now return empty lists"), nur
+      `total` ist gesetzt — "Mit mir geteilt" ist für jeden Nutzer leer, obwohl `total > 0`
+      sein kann. (b) Das Gateway antwortet `{files, folders, total}`
+      (`route_document.go:1323`), der Desktop-Client liest aber `shares`
+      (`document-client.ts:429-434`, `unwrapList(raw, 'shares')`) — selbst mit gefüllten Listen
+      käme beim FE nichts an; `DokumentePage.tsx:231` verwirft das Ergebnis (`_sharedData`).
+      (c) `share.Service.CheckAccess`/`HasAccess` hat außerhalb des Pakets KEINEN Aufrufer
+      (grep): weder Datei- noch Ordner-Zugriff prüft `document_shares`. Eine Freigabe
+      schreibt also eine Zeile und bewirkt sonst nichts. Erst (a)+(b) bauen: Dateien/Ordner
+      zu den Share-Zeilen laden (tenant-gescopt, RLS), Wire-Shape gegen den FE-Typ prüfen
+      (Desktop-Code selbst nicht ändern — passt die Form nicht, Unit-Notiz/Gateway-Form
+      anpassen, die der FE-Leser versteht). (c) ist eine Entscheidung (welche Rechte folgen
+      aus read/write bei Datei und Ordner?) — in BACKLOG-NEXT.yml vorlegen, nicht raten.
+    sources:
+      - backend/internal/server/document_grpc.go
+      - backend/internal/gateway/route_document.go
+      - backend/internal/document/share/service.go
+      - desktop/src/renderer/src/api/clients/document-client.ts
+      - desktop/src/renderer/src/modules/dokumente/DokumentePage.tsx
+    done_when:
+      - "DB-Test: Nutzer A teilt Datei/Ordner mit B -> ListSharedWithMe(B) liefert die Datei/den Ordner, A und fremder Tenant sehen sie nicht"
+      - "Wire-Shape gegen document-client.ts geprüft, Journal-Zeile desktop-aufrufer"
+      - "Mutations-Probe: Laden der Dateien entfernt, der Test wird rot"
+      - "Entscheidungsfrage zu (c) in BACKLOG-NEXT.yml"
 
   - id: fix-helpdesk-kb-article-author-id-uuid-nil
     phase: 4
