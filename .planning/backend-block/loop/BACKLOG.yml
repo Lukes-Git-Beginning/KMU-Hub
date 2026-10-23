@@ -2138,7 +2138,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server (email_grpc) ; internal/email/message"
     scope: >
       FUNKTIONSAUSFALL Mail-Ansichten (aus `fix-email-compose-addresses-and-empty-arrays`, Punkt 3).

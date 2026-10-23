@@ -60,6 +60,10 @@ func (r *stubEmailMessageRepo) ListByFolder(_ context.Context, folderID uuid.UUI
 	return out, len(out), nil
 }
 
+func (r *stubEmailMessageRepo) List(_ context.Context, _ message.ListFilter, _ message.ListOpts) ([]*models.EmailMessage, int, error) {
+	return nil, 0, nil
+}
+
 func (r *stubEmailMessageRepo) ListByThread(_ context.Context, threadID uuid.UUID) ([]*models.EmailMessage, error) {
 	out := make([]*models.EmailMessage, 0)
 	for _, m := range r.messages {

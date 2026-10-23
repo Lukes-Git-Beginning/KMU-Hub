@@ -26,6 +26,7 @@ type emailStub struct {
 	gotDraft   *emailv1.SaveDraftRequest
 	gotForward *emailv1.ForwardEmailRequest
 	messages   []*emailv1.EmailMessageInfo
+	gotList    *emailv1.ListMessagesRequest
 }
 
 func (s *emailStub) SendEmail(_ context.Context, r *emailv1.SendEmailRequest) (*emailv1.SendEmailResponse, error) {
@@ -43,7 +44,8 @@ func (s *emailStub) ForwardEmail(_ context.Context, r *emailv1.ForwardEmailReque
 	return &emailv1.ForwardEmailResponse{Message: &emailv1.EmailMessageInfo{Id: "fwd"}}, nil
 }
 
-func (s *emailStub) ListMessages(context.Context, *emailv1.ListMessagesRequest) (*emailv1.ListMessagesResponse, error) {
+func (s *emailStub) ListMessages(_ context.Context, r *emailv1.ListMessagesRequest) (*emailv1.ListMessagesResponse, error) {
+	s.gotList = r
 	return &emailv1.ListMessagesResponse{Messages: s.messages, Total: int32(len(s.messages))}, nil
 }
 
@@ -207,6 +209,27 @@ func TestHandleListMessages_WritesEmptyListsAndEmptyPage(t *testing.T) {
 	got = decodeMap(t, rec)
 	assert.Equal(t, []any{}, got["messages"], "empty page is [] not missing")
 	assert.EqualValues(t, 0, got["total"])
+}
+
+// The mails page asks for the unified inbox, a label view and the unread/starred
+// filter with these query parameters; they used to be dropped at the gateway.
+func TestHandleListMessages_ForwardsViewLabelFilterAndAccount(t *testing.T) {
+	routes, stub := newEmailStubRoutes(t)
+	account, label := uuid.New().String(), uuid.New().String()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/v1/email/messages/?folder_id=&view=unified&filter=unread&account_id="+account+"&label_id="+label, nil)
+	req = withAuth(req, uuid.New().String(), testTenantID)
+	routes.HandleListMessages(rec, req)
+	assertStatus(t, rec, http.StatusOK)
+
+	require.NotNil(t, stub.gotList)
+	assert.Equal(t, "", stub.gotList.FolderId)
+	assert.Equal(t, "unified", stub.gotList.View)
+	assert.Equal(t, "unread", stub.gotList.Filter)
+	assert.Equal(t, account, stub.gotList.AccountId)
+	assert.Equal(t, label, stub.gotList.LabelId)
 }
 
 func TestHandleGetThreadMessages_EmptyThreadIsEmptyArray(t *testing.T) {

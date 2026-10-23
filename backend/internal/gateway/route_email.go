@@ -470,12 +470,16 @@ func (e *EmailRoutes) HandleListMessages(w http.ResponseWriter, r *http.Request)
 	sortDesc, _ := strconv.ParseBool(r.URL.Query().Get("sort_desc"))
 
 	resp, err := client.ListMessages(r.Context(), &emailv1.ListMessagesRequest{
-		FolderId: r.URL.Query().Get("folder_id"),
-		Page:     int32(page),
-		PerPage:  int32(perPage),
-		Search:   r.URL.Query().Get("search"),
-		SortBy:   r.URL.Query().Get("sort_by"),
-		SortDesc: sortDesc,
+		FolderId:  r.URL.Query().Get("folder_id"),
+		Page:      int32(page),
+		PerPage:   int32(perPage),
+		Search:    r.URL.Query().Get("search"),
+		SortBy:    r.URL.Query().Get("sort_by"),
+		SortDesc:  sortDesc,
+		AccountId: r.URL.Query().Get("account_id"),
+		View:      r.URL.Query().Get("view"),
+		Filter:    r.URL.Query().Get("filter"),
+		LabelId:   r.URL.Query().Get("label_id"),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

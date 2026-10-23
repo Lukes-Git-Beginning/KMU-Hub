@@ -93,6 +93,12 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID)
 	return s.repo.GetByID(ctx, id, tenantID)
 }
 
+// List returns paginated messages matching a ListFilter (unified inbox, label
+// view, unread/starred filters).
+func (s *Service) List(ctx context.Context, f ListFilter, opts ListOpts) ([]*models.EmailMessage, int, error) {
+	return s.repo.List(ctx, f, opts)
+}
+
 // ListByFolder returns paginated messages for a folder.
 func (s *Service) ListByFolder(ctx context.Context, folderID uuid.UUID, opts ListOpts) ([]*models.EmailMessage, int, error) {
 	return s.repo.ListByFolder(ctx, folderID, opts)

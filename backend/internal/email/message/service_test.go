@@ -58,6 +58,10 @@ func (r *mockRepo) ListByFolder(_ context.Context, _ uuid.UUID, _ ListOpts) ([]*
 	return nil, 0, nil
 }
 
+func (r *mockRepo) List(_ context.Context, _ ListFilter, _ ListOpts) ([]*models.EmailMessage, int, error) {
+	return nil, 0, nil
+}
+
 func (r *mockRepo) ListByThread(_ context.Context, threadID uuid.UUID) ([]*models.EmailMessage, error) {
 	var result []*models.EmailMessage
 	for _, m := range r.messages {

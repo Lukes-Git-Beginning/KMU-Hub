@@ -25474,7 +25474,12 @@ paths:
 
   /api/v1/email/messages:
     get:
-      summary: List messages in a folder (paginated)
+      summary: List messages of a folder, the unified inbox or a label (paginated)
+      description: >
+        Give a folder_id for the folder view. With folder_id empty, view=unified lists the inboxes
+        of the caller's own mail accounts and label_id lists the messages carrying the label across
+        folders and accounts. filter narrows every form to unread or starred messages. One of
+        folder_id, view=unified or label_id is required (400 otherwise).
       tags: [mails]
       operationId: listEmailMessages
       security:
@@ -25482,7 +25487,30 @@ paths:
       parameters:
         - name: folder_id
           in: query
-          required: true
+          description: Folder to list; may be empty for view=unified and label_id.
+          schema:
+            type: string
+            format: uuid
+        - name: view
+          in: query
+          description: unified lists the inboxes of all of the caller's accounts.
+          schema:
+            type: string
+            enum: [unified]
+        - name: label_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, unread, starred]
+            default: all
+        - name: account_id
+          in: query
+          description: Narrow unified and label views to one of the caller's accounts (404 for any other account).
           schema:
             type: string
             format: uuid
@@ -25517,8 +25545,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmailListMessagesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "500":
           description: Response could not be encoded
         "503":
