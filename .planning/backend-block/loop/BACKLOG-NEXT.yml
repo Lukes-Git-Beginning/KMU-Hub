@@ -1216,3 +1216,32 @@ units:
       gemountet (toter Code: `ImportWizard`, `ExportDialog`, `ContactsListPage`).
     done_when:
       - "Punkte (a)-(i),(k) im FE behoben und per Screenshot-QA abgenommen; (j) entschieden"
+
+  - id: fe-handle-geld-waren-shape-findings
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderungen laufen über den
+      Build-+-Verify-Standard mit Screenshot-QA (`.planning/nico-block/WORKFLOW.md`).
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      FE-Funde aus `scan-fe-gateway-shape-geld-waren` (Iteration 19, Belege im Journal), die das
+      Backend nicht lösen kann. (a) DATEV-Beleg-Upload: `DatevSettingsPanel.tsx:122` ruft
+      `uploadBeleg.mutateAsync(file.name)` mit dem Dateinamen, die Route verlangt die Rechnungs-UUID
+      (`route_datev_upload.go:307`) -> 400 für jeden Admin, dazu drei Retries (`useDatevUpload.ts:155`).
+      (b) `EinkaufPage.tsx:276` `s.email.toLowerCase()` stürzt bei einem Lieferanten ohne E-Mail ab,
+      sobald gesucht wird (`email` fehlt im Proto-JSON, wenn leer). (c) `EinkaufDialogs.tsx:80`
+      `linesData.lines.slice()` ohne `?.`. (d) `EinkaufPage.tsx:1084/1086` hängt `T00:00:00` an ein
+      RFC3339-Datum -> "Invalid Date". (e) Inventur-Dialog bietet `transfer` als Bewegungstyp, falls
+      das Backend ihn nicht annimmt (Entscheidung in `fix-inventar-inventur-counted-and-movement-type`).
+      (f) `vertraege-client.ts:35` `normalizeWireTimestamps` ist wirkungslos (Gateway liefert
+      RFC3339-Strings), Kommentar im Normalizer ist veraltet. (g) Nicht verwendete Hooks
+      (`useJournalSummary`, `useValidateInvoiceNumber`, `useLockInvoice`, `usePaymentStats`,
+      `useUpdateDunningStatus`, `useSendDunningNotice`, `useGoBDExport`) vor dem Anschließen gegen
+      die Gateway-Form prüfen. (h) `StammdatenTab`-Teil-Saves: FE-seitig unkritisch, sobald
+      `fix-finance-company-settings-partial-save-wipes-data` durch ist.
+    done_when:
+      - "Punkte (a)-(g) im FE behoben und per Screenshot-QA abgenommen"

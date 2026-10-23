@@ -860,7 +860,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für Geld und Warenwirtschaft:
@@ -882,6 +882,274 @@ units:
       - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
       - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
       - "Abweichungen ohne UI-Bruch stehen gesammelt in einer Unit am Ende oder sind begründet verworfen"
+
+  # ----------------------------------------------------------------------------------------
+  # FIX-UNITS AUS `scan-fe-gateway-shape-geld-waren` (Iteration 19, 2026-10-23).
+  # Belege (Datei:Zeile) stehen im Journal. Vorgehen je Unit wie bei den CRM/Kommunikation-
+  # Fixes: Handler-Test über den echten Router gegen einen gRPC-Server auf Loopback (kein
+  # Workaround-Datensatz), Spec nachziehen, `swagger-cli validate`, `desktop-aufrufer:`.
+  # ----------------------------------------------------------------------------------------
+
+  - id: fix-finance-company-settings-partial-save-wipes-data
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      DATENVERLUST FÜR JEDEN, der Stammdaten speichert. `PUT /api/v1/finance/settings`
+      (`route_biz.go:358`) baut aus dem Body ein VOLLES `bizv1.CompanySettings`; fehlende Felder
+      werden zu "" bzw. 0, und `BizGRPCServer.UpdateCompanySettings` (`biz_grpc.go:192`) schreibt
+      per `Upsert` alle Spalten. Der Desktop speichert aber in Teilblöcken
+      (`StammdatenTab.tsx:79-101`: nur Name/Adresse, nur Steuerfelder, nur Bankdaten, nur
+      `default_payment_terms_days`). Wer nur die Bankdaten speichert, löscht Firmenname, Adresse,
+      Steuernummer und Zahlungsziel; danach scheitern alle PDF-Pfade an
+      `ValidateCompanySettingsForPDF`. Fix: Teil-Update. Gateway-Request-Felder als Zeiger, die
+      gespeicherte Zeile laden und nur gesetzte Felder überschreiben; oder im gRPC-Server mergen.
+      Der schlankste Ort ist der, an dem auch ein zweiter Aufrufer (Onboarding, Import)
+      denselben Merge bekommt — vorher Caller von `companySettings.Upsert` greppen.
+      `Basiszinssatz` darf nicht still auf 0 fallen.
+    sources:
+      - backend/internal/gateway/route_biz.go
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/biz/quote/postgres_repository.go
+      - desktop/src/renderer/src/modules/finanzen/tabs/StammdatenTab.tsx
+      - backend/api/openapi.yaml
+    done_when:
+      - "Handler-Test über den Router: erst volle Stammdaten, dann PUT nur mit Bankdaten -> Name/Adresse/Steuernummer/Zahlungsziel/Basiszinssatz unverändert"
+      - "DB-Test als kmuhub_app für den Merge (falls im gRPC-Server umgesetzt)"
+      - "Explizites Leeren eines Felds (leerer String) bleibt möglich und ist getestet"
+      - "Spec angepasst; Mutations-Probe; desktop-aufrufer: StammdatenTab (vier Teil-Saves) geprüft"
+
+  - id: fix-finance-tax-mode-enum-roundtrip
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      TOTALAUSFALL "Rechnung/Angebot/Wiederkehrende/Gutschrift BEARBEITEN". Die Antworten gehen
+      per `response.Proto` mit `UseEnumNumbers` (`tax_mode: 1`), die Update-Requests lesen
+      `tax_mode` als `string` mit `oneof=standard reverse_charge kleinunternehmer`
+      (`route_biz_invoices.go:173`, `route_biz_quotes.go:135`, `route_biz_recurring.go:36`).
+      Die Edit-Dialoge übernehmen den Wert der Entität ungeprüft (`InvoiceFormDialog.tsx:151`,
+      `QuoteFormDialog.tsx:109`, `RecurringInvoiceDialog.tsx:100`, `CreditNoteDialog.tsx:68`) und
+      senden die Zahl zurück -> Decode-Fehler, 400 "invalid request body". Ein FE-Normalizer wie
+      `finance-status.ts` existiert nur für `status`. Fix am Gateway: `tax_mode` in Antworten als
+      String (`standard|reverse_charge|kleinunternehmer`) schreiben (Quote, Invoice, Recurring,
+      CreditNote, Listen UND Einzelentitäten) UND in Requests zusätzlich die Zahl akzeptieren,
+      damit ein altes FE-Token nicht bricht. Gemeinsamen Helfer neben `taxModeToProto`
+      (`route_biz.go:413`) anlegen. `status` NICHT mitziehen (das FE normalisiert es per
+      `finance-status.ts`; eine Änderung dort wäre ein eigener FE-Abgleich).
+    sources:
+      - backend/internal/gateway/route_biz.go
+      - backend/internal/gateway/route_biz_invoices.go
+      - backend/internal/gateway/route_biz_quotes.go
+      - backend/internal/gateway/route_biz_recurring.go
+      - backend/internal/gateway/route_biz_billing.go
+      - desktop/src/renderer/src/types/finance-types.ts
+      - backend/api/openapi.yaml
+    done_when:
+      - "GET und PUT einer Rechnung/eines Angebots/einer Vorlage im Roundtrip: Antwort-`tax_mode` ist ein String und kann unverändert in PUT zurückgesendet werden (Test über den Router)"
+      - "PUT mit numerischem `tax_mode` wird weiter akzeptiert"
+      - "Spec angepasst; Mutations-Probe; desktop-aufrufer: die vier Dialoge geprüft"
+
+  - id: fix-finance-action-requests-convert-dunning-datev
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      TOTALAUSFALL von vier Aktionen, das FE ruft sie so auf, dass der Handler sie ablehnt.
+      (1) "Angebot in Rechnung wandeln": `POST /finance/quotes/{id}/convert` verlangt
+      `invoice_date` (`route_biz_quotes.go:283-305`, `validate:"required"`); der Client sendet
+      keinen Body (`finance-client.ts:179`, `FinanzenPage.tsx:481`) -> 400. Fix: leerer Body
+      erlaubt, `invoice_date` defaultet auf heute (Europe/Berlin), Fälligkeit aus den
+      Zahlungszielen wie bisher. (2) "Mahnungen erkennen": `POST /finance/dunning/detect` hängt an
+      `HandleCreateDunning` (`route_biz.go:162`), das `invoice_id` und `level` verlangt; das FE
+      sendet nichts und erwartet `{dunnings:[…]}` (`DunningPanel.tsx:97`). Prüfen, ob die
+      Erkennung überfälliger Rechnungen im Service existiert (Worker, `biz/dunning`); wenn ja
+      Route darauf, wenn nein: Unit auf `blocked` (Entscheidung Luke) statt eine Route zu
+      erfinden. (3) "Mahnung eskalieren": `POST /dunning/{id}/escalate` verlangt `invoice_id` im
+      Body (`route_biz_billing.go:446`); das FE sendet keinen (`DunningPanel.tsx:118`). `invoice_id`
+      aus dem Mahnsatz laden (gRPC), Body optional. (4) DATEV-Export: Client macht
+      `GET /finance/export/datev?date_from&date_to`, die Route ist `POST /datev` mit
+      `start_date/end_date` (`route_biz.go:266`, `route_biz_billing.go:599`) -> 405. GET-Alias mit
+      den Query-Parametern des FE ergänzen (Spec-Eintrag im selben Commit; Guard wie die
+      POST-Route).
+    sources:
+      - backend/internal/gateway/route_biz.go
+      - backend/internal/gateway/route_biz_quotes.go
+      - backend/internal/gateway/route_biz_billing.go
+      - desktop/src/renderer/src/api/finance-client.ts
+      - desktop/src/renderer/src/modules/finanzen/DunningPanel.tsx
+      - backend/api/openapi.yaml
+    done_when:
+      - "Test über den Router: convert ohne Body -> 200 mit Rechnung; escalate ohne Body -> 200; datev GET -> Datei"
+      - "detect: entweder echte Erkennung mit Test oder Unit begründet blocked"
+      - "Spec: neuer GET-Pfad, Drift-Test grün; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-empty-body-actions-bank-match-inventur-book
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      TOTALAUSFALL zweier Aktionen mit derselben Ursache. `decodeAndValidate` (`helpers.go:229`)
+      lehnt einen LEEREN Body mit 400 "invalid request body" ab (`io.EOF`). Betroffen:
+      (1) Bank-Vorschlag bestätigen: `POST /finance/bank-transactions/{id}/match` ohne
+      `invoice_number` sendet keinen Body (`finance-client.ts:607`, `BankingWidget.tsx:70`,
+      `BankTransactionDetailPanel.tsx:49`); (2) Inventur "Differenzen buchen":
+      `POST /inventar/inventur/{id}/book` ohne Body (`useInventar.ts:361`, `InventarPage.tsx:775`;
+      `route_inventar.go:1226`); dazu `acknowledgeWarning`. Root Cause ist die gemeinsame Funktion:
+      EOF als leeres Objekt behandeln und danach NORMAL validieren (Pflichtfelder scheitern dann
+      weiter mit 400, nur Handler ohne Pflichtfelder werden erreichbar). Vorbild
+      `route_notification.go:299`. Vorher ALLE Caller von `decodeAndValidate` greppen und die mit
+      Pflichtfeldern gegen den Test absichern; Tests, die auf "leerer Body -> 400" pinnen,
+      anpassen und im Journal nennen. Bestehende Tests senden `{}` und haben die Lücke versteckt
+      (`route_inventar_test.go:683`) — neue Tests senden WIRKLICH keinen Body.
+    sources:
+      - backend/internal/gateway/helpers.go
+      - backend/internal/gateway/route_biz_bank_transactions.go
+      - backend/internal/gateway/route_inventar.go
+      - desktop/src/renderer/src/api/hooks/useInventar.ts
+    done_when:
+      - "match ohne Body mit Vorschlag -> 200; inventur book ohne Body -> 200 (Router-Test, Request ohne Body)"
+      - "Handler mit Pflichtfeldern liefern bei leerem Body weiter 400 (Stichprobe von drei)"
+      - "Mutations-Probe: EOF-Zweig entfernt -> beide Tests rot"
+      - "desktop-aufrufer-Zeile"
+
+  - id: fix-finance-creditnote-dunning-config-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-finance-tax-mode-enum-roundtrip]
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      Vier Befunde, alle am Code belegt. (1) `GET /finance/credit-notes/{id}` schreibt die nackte
+      Entität (`route_biz_billing.go:127`); `useCreditNote` liest `select: data.credit_note`
+      (`useFinance.ts:311`) -> immer `undefined`, die Gutschrift-Detailansicht hängt auf "Lädt"
+      (`CreditNoteDetailPanel.tsx:49`). Auf `{credit_note:{…}}` wechseln (Quote/Invoice-Hooks
+      fangen beides ab, dieser nicht). (2) `GET/PUT /finance/dunning/config`: `useDunningConfig`
+      liest `data.config` (`useFinance.ts:399`), der Gateway liefert die nackte Config
+      (`:517`) -> Dialog zeigt nie die gespeicherten Werte, Speichern überschreibt sie mit
+      FE-Defaults. Auf `{config:{…}}`. (3) Status von Mahnungen und Gutschriften kommt als Zahl, es
+      gibt keinen Normalizer (`finance-status.ts` kennt nur Invoice/Quote): `STATUS_CONFIG[d.status]`
+      ist `undefined` und `sc.colors` wirft (`DunningPanel.tsx:238/307`,
+      `DunningDetailPanel.tsx:50`) -> das Mahn-Panel stürzt ab, sobald eine Mahnung existiert;
+      Gutschrift-Entwürfe zeigen "Gesendet" (`FinanzenPage.tsx:877`). Am Gateway Status als String
+      schreiben (`draft|sent|paid|…`, Tabelle aus dem Proto-Enum); die Wandelhelfer aus
+      `finance-status.ts` passen Zahl wie String durch. (4) `POST /finance/credit-notes` verlangt
+      `customer` (`route_biz_billing.go:19`), das FE sendet keinen (`CreditNoteDialog.tsx:139-152`)
+      -> 400; Kunde aus der Originalrechnung laden. `is_storno` wird nirgends weitergereicht
+      (weder Handler noch Proto) — der Dialog meldet "Storno erledigt", die Rechnung bleibt
+      unverändert: prüfen, ob der Service einen Storno-Pfad hat; wenn nicht, Verhalten im Journal
+      festhalten und die Entscheidung als Unit nach BACKLOG-NEXT.yml.
+    sources:
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/gateway/route_biz.go
+      - desktop/src/renderer/src/api/hooks/useFinance.ts
+      - desktop/src/renderer/src/modules/finanzen/CreditNoteDialog.tsx
+      - desktop/src/renderer/src/modules/finanzen/DunningPanel.tsx
+      - backend/api/openapi.yaml
+    done_when:
+      - "Router-Tests: credit-note get hat `credit_note`, dunning config hat `config`, Mahnungs- und Gutschrift-Status sind Strings, credit-note create ohne `customer` -> 201"
+      - "Spec angepasst; Mutations-Probe; desktop-aufrufer-Zeile je Hook/Dialog"
+
+  - id: fix-einkauf-catalog-items-key
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      FUNKTIONSAUSFALL Katalog-Tab für jeden Nutzer. `GET /einkauf/catalog` schreibt
+      `ListCatalogItemsResponse` per `response.Proto` (`route_einkauf_extended.go:189`) -> Schlüssel
+      `items` (`einkauf.proto:399`); das FE liest `catalog_items` (`einkauf-types.ts:235`,
+      `EinkaufPage.tsx:213` mit `?? []`) und zeigt immer eine leere Liste. Dasselbe bei
+      Get/Create/Update (`CatalogItemResponse.item`, FE `r.catalog_item`; `einkauf-client.ts`). Am
+      Gateway beide Schlüssel schreiben (`items` bleibt für Alt-Aufrufer, `catalog_items` neu) bzw.
+      bei den Einzelantworten `catalog_item` ergänzen. Kein Proto-Umbau.
+    sources:
+      - backend/internal/gateway/route_einkauf_extended.go
+      - desktop/src/renderer/src/api/einkauf-client.ts
+      - desktop/src/renderer/src/api/einkauf-types.ts
+      - backend/api/openapi.yaml
+    done_when:
+      - "Router-Test: Katalog mit einem Artikel -> `catalog_items` hat ein Element; leere Liste -> `[]`"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-inventar-inventur-counted-and-movement-type
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      Inventur und Bewegungen sind für jeden Nutzer fehlerhaft. (1) `InventurCount.counted` ist
+      `optional int64` (`inventar.proto:383`); "noch nicht gezählt" ist im protojson ein FEHLENDES
+      Feld. Das FE prüft `counted === null` / `!== null` (`InventarPage.tsx:569/575/610-615/692/714`);
+      `undefined !== null` -> jede ungezählte Position gilt als gezählt, Differenzsumme NaN, Zelle
+      leer. Fix am Gateway: Sessions und Counts handgebaut schreiben, `counted` als `null` wenn
+      nicht gesetzt, `expected` und `counts` immer ausgeben (`counts: []`). (2) Bestand 0 fehlt im
+      JSON (`quantity`, `min_quantity` bei Artikeln): `Number(undefined)` = NaN, Artikel mit
+      Bestand 0 sind nie "kritisch" (`InventarPage.tsx:917`). Zahlenfelder immer ausgeben (gegen
+      `inventar-types.ts` prüfen, ob Zahl oder Zahl-String). (3) Der Bewegungs-Dialog bietet
+      `transfer` (`InventarPage.tsx:433/445-450`), der Validator erlaubt `in out adjustment`
+      (`route_inventar.go:203`) -> 400. Prüfen, ob der Service `transfer` kann (es gibt
+      `POST /transfer`); wenn ja `transfer` annehmen und auf den Transfer-Pfad leiten, sonst als
+      FE-Thema nach BACKLOG-NEXT.yml.
+    sources:
+      - backend/internal/gateway/route_inventar.go
+      - backend/internal/server/inventar_grpc.go
+      - backend/proto/inventar/v1/inventar.proto
+      - desktop/src/renderer/src/modules/inventar/InventarPage.tsx
+      - desktop/src/renderer/src/api/inventar-types.ts
+      - backend/api/openapi.yaml
+    done_when:
+      - "Router-Test: frische Inventur mit ungezählter Position -> `counted:null`, `expected` und `counts` vorhanden"
+      - "Artikel mit Bestand 0 -> `quantity:0` im JSON"
+      - "`transfer` entschieden und getestet oder begründet nach BACKLOG-NEXT"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-vertraege-dates-dropped
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      DATENVERLUST FÜR JEDEN VERTRAG. `POST /vertraege/contracts` und `PATCH …/{id}` lesen
+      `starts_on`/`ends_on` ins Request-Struct (`route_vertraege.go:105/115`), geben sie aber nicht
+      an das gRPC-Request weiter (`:222-229`, `:292-305`). Folge: jeder Vertrag wird mit
+      `starts_on = 0001-01-01` und ohne Ende gespeichert; nach dem Refetch überschreibt das Backend
+      die lokalen Dialogwerte (`VertraegePage.tsx:1249-1266`), Laufzeit und Ablauf-Alerts rechnen
+      falsch. Fix: `YYYY-MM-DD` (und RFC3339) parsen, an `CreateContractRequest`/
+      `UpdateContractRequest` durchreichen (Proto-Felder existieren, `vertraege_grpc.go:49-55`);
+      falsches Format -> 400. `signed_on` beim Hinzufügen einer Partei und `remind_at` bei
+      Erinnerungen (`:518-532`, `:628-634`, `:666-673`; Service verweigert `RemindAt.IsZero()`,
+      `service.go:458`) im selben Zug, falls dieselbe Parse-Funktion passt. Reine Daten als
+      UTC-Mitternacht, wie bei den CRM-Aktivitäten (`parseDate`).
+    sources:
+      - backend/internal/gateway/route_vertraege.go
+      - backend/internal/server/vertraege_grpc.go
+      - desktop/src/renderer/src/api/vertraege-client.ts
+      - desktop/src/renderer/src/modules/vertraege/VertraegePage.tsx
+      - backend/api/openapi.yaml
+    done_when:
+      - "Router-Test: POST mit starts_on/ends_on -> am gRPC-Request angekommen und in der Antwort gespiegelt; PATCH ebenso; falsches Datum -> 400"
+      - "DB-Test (falls Service betroffen) als kmuhub_app"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
 
   - id: scan-fe-gateway-shape-branchen
     phase: 4
@@ -1380,3 +1648,111 @@ units:
       - "folder_id leer + view=unified liefert die Posteingänge aller Konten des Nutzers, fremde Tenants/Nutzer 0 Zeilen (RLS-Smoke als kmuhub_app)"
       - "label_id und filter=unread|starred wirken in der Ordner- und der Unified-Ansicht"
       - "Spec um die vier Query-Parameter ergänzt, Drift-Test grün, Mutations-Probe belegt"
+
+  # ----------------------------------------------------------------------------------------
+  # TEILFEHLER AUS `scan-fe-gateway-shape-geld-waren` (Iteration 19, 2026-10-23) — kein
+  # Totalausfall, stiller Datenverlust bzw. Anzeigefehler.
+  # ----------------------------------------------------------------------------------------
+
+  - id: fix-finance-invoice-quote-create-dropped-fields
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-finance-tax-mode-enum-roundtrip]
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      `POST /finance/invoices` liest von den FE-Feldern `payment_terms_days`, `currency`,
+      `exchange_rate` nichts (`route_biz_invoices.go:18-29`): Fälligkeit ist immer der
+      Firmen-Default (`biz/invoice/service.go:184-190`), CHF-/USD-Rechnungen werden als EUR
+      angelegt. Dasselbe `currency`/`exchange_rate` bei Angeboten (`route_biz_quotes.go:17-24`).
+      Zuerst prüfen, ob Proto und Service Währung überhaupt kennen (Scan: Proto hat keine
+      Währung) — wenn nicht, ist das eine Produktentscheidung (Fremdwährung ja/nein); die Unit
+      geht dann mit `payment_terms_days` allein weiter und der Rest nach BACKLOG-NEXT.yml.
+    sources:
+      - backend/internal/gateway/route_biz_invoices.go
+      - backend/internal/gateway/route_biz_quotes.go
+      - backend/internal/biz/invoice/service.go
+      - desktop/src/renderer/src/modules/finanzen/InvoiceFormDialog.tsx
+    done_when:
+      - "Rechnung mit payment_terms_days=14 -> Fälligkeit +14 Tage (Router- und Service-Test)"
+      - "Währung entschieden und dokumentiert; Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-einkauf-dates-dropped-and-page-size
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      (1) Datenverlust: `POST/PATCH /einkauf/pos` übergibt `order_date` und
+      `expected_delivery_date` nicht an gRPC (`route_einkauf.go:413-420`, `:480-487`), Rahmenverträge
+      verlieren `start_date`/`end_date` (`route_einkauf_extended.go:508-516`, `:546-555`).
+      Parsen und durchreichen, falsches Format 400; die FE-Anzeige hängt `T00:00:00` an
+      (`EinkaufPage.tsx:1084`) — das Datum in der Antwort deshalb als `YYYY-MM-DD` schreiben oder
+      als FE-Thema vermerken. (2) `GET …/pos/{id}/lines` lässt bei 0 Positionen `lines` weg
+      (`EinkaufDialogs.tsx:80` ruft `.slice` ohne `?.`) -> immer `lines: []`. (3) Listen laden nur
+      Seite 1 mit 20 (`parsePagination(r,1,20)`, `EinkaufPage.tsx:203-216`), ab dem 21. Lieferanten
+      fehlen Namen: Obergrenze/Default am Gateway prüfen (siehe `page_size`-Entscheidung in
+      BACKLOG-NEXT `fe-handle-crm-kommunikation-shape-findings`, Punkt j) und mit ihr abstimmen.
+    sources:
+      - backend/internal/gateway/route_einkauf.go
+      - backend/internal/gateway/route_einkauf_extended.go
+      - backend/internal/gateway/helpers.go
+      - desktop/src/renderer/src/modules/einkauf/EinkaufPage.tsx
+    done_when:
+      - "Router-Tests: PO-Termine und Rahmenvertrags-Laufzeit kommen am gRPC-Request an; leere Positionsliste hat `lines:[]`"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-inventar-create-update-dropped-fields
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      `POST/PATCH /inventar/items` kennen nur name, sku, barcode, quantity, min_quantity, unit,
+      location (`route_inventar.go:169-177`, `:288-297`, `:357-368`); das FE sendet zusätzlich
+      `category`, `currency`, `batch_number`, `serial_numbers` (`InventarPage.tsx:210-219`), die
+      Proto-Felder existieren. Kategorie-Filter und Chargen-/Seriennummern-Anzeige bleiben leer.
+      Durchreichen und in der Antwort ausgeben. Dazu: `page_size:200` (`InventarPage.tsx:796`) wird
+      von `parsePagination` auf den Default 50 gekappt, ab dem 51. Artikel fehlt alles (gleiche
+      Entscheidung wie bei Einkauf, Punkt j in BACKLOG-NEXT).
+    sources:
+      - backend/internal/gateway/route_inventar.go
+      - backend/internal/server/inventar_grpc.go
+      - desktop/src/renderer/src/modules/inventar/InventarPage.tsx
+    done_when:
+      - "Router-Test: Anlegen mit Kategorie/Charge/Seriennummern -> am gRPC angekommen und in der Antwort"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-finance-lexware-sync-status-dashboard-minor-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,3 %"
+    scope: >
+      Teilfehler ohne Absturz. (1) `GET …/lexware/sync/status` liefert flach
+      (`contact_sync_enabled`, `total_contacts_mapped`, `last_contact_sync_at`,
+      `route_lexware.go:279-298`), das FE erwartet `{contact_sync, invoice_sync, quote_sync}` je
+      `{status, items_synced, items_failed, last_sync_at}` (`LexwareSyncDashboard.tsx:78-80`): die
+      Karten zeigen immer "0 synchronisiert". (2) Dashboard-Widgets lesen `revenue_this_month`,
+      `revenue_last_month`, `monthly_revenue` (`KpiRevenue.tsx:26-32`, `MiniChart.tsx:28`), die es
+      im Proto `FinanceDashboard` nicht gibt; `date_from/date_to` werden ignoriert
+      (`route_biz_billing.go:592`). (3) `lockInvoice` liefert `invoice_json` als Base64 (bytes), FE
+      erwartet ein Objekt; `updateDunningStatus`/`sendDunningNotice` Status als Zahl — die
+      zugehörigen Hooks haben heute keine Komponente (`useFinance.ts:604-690`), erst relevant beim
+      Anschließen. (4) `createQuoteFromDeal` schreibt das nackte Quote, der Client typisiert
+      `{quote}` (`DealDetailPage.tsx:157` liest nichts) — beim Anfassen vereinheitlichen.
+    sources:
+      - backend/internal/gateway/route_lexware.go
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/gateway/route_biz_quotes.go
+      - desktop/src/renderer/src/modules/settings/integrations/LexwareSyncDashboard.tsx
+    done_when:
+      - "Lexware-Sync-Status in der FE-Form (Router-Test); Dashboard-Felder entschieden (ergänzen oder FE-Thema)"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
