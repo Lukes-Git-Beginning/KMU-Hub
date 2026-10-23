@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
@@ -133,5 +134,49 @@ func TestProto_TaxModeIsString(t *testing.T) {
 	b, err := response.MarshalProto(&bizv1.Invoice{Id: "i"})
 	if err != nil || strings.Contains(string(b), "tax_mode") {
 		t.Errorf("unspecified: %s %v", b, err)
+	}
+}
+
+// TestProto_DunningAndCreditNoteStatusIsString: the frontend types both statuses as strings
+// and indexes a config table with them, so a number there crashes the panel. Other messages
+// keep their numeric status.
+func TestProto_DunningAndCreditNoteStatusIsString(t *testing.T) {
+	status := func(msg proto.Message) any {
+		t.Helper()
+		b, err := response.MarshalProto(msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got map[string]any
+		if err := json.Unmarshal(b, &got); err != nil {
+			t.Fatalf("not json: %v: %s", err, b)
+		}
+		return got["status"]
+	}
+
+	for number, want := range map[bizv1.DunningStatus]string{
+		bizv1.DunningStatus_DUNNING_DRAFT: "draft",
+		bizv1.DunningStatus_DUNNING_SENT:  "sent",
+		bizv1.DunningStatus_DUNNING_PAID:  "paid",
+	} {
+		if got := status(&bizv1.DunningRecord{Id: "d", Status: number}); got != want {
+			t.Errorf("dunning %v: status = %v, want %s", number, got, want)
+		}
+	}
+	for number, want := range map[bizv1.CreditNoteStatus]string{
+		bizv1.CreditNoteStatus_CREDIT_DRAFT: "draft",
+		bizv1.CreditNoteStatus_CREDIT_SENT:  "sent",
+	} {
+		if got := status(&bizv1.CreditNote{Id: "c", Status: number}); got != want {
+			t.Errorf("credit note %v: status = %v, want %s", number, got, want)
+		}
+	}
+	// An unknown number is left alone rather than named wrongly.
+	if got := status(&bizv1.DunningRecord{Id: "d", Status: 9}); got != float64(9) {
+		t.Errorf("unknown dunning status = %v, want 9", got)
+	}
+	// A message that is not listed keeps the enum number.
+	if got := status(&bizv1.Invoice{Id: "i", Status: bizv1.InvoiceStatus_INVOICE_SENT}); got != float64(2) {
+		t.Errorf("invoice status = %v, want 2", got)
 	}
 }

@@ -1245,3 +1245,30 @@ units:
       `fix-finance-company-settings-partial-save-wipes-data` durch ist.
     done_when:
       - "Punkte (a)-(g) im FE behoben und per Screenshot-QA abgenommen"
+
+  - id: decide-creditnote-dialog-storno-flag
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Der Gutschrift-Dialog (`CreditNoteDialog.tsx:139-152`) sendet `is_storno: true` und meldet
+      danach "Storno erledigt". Das Gateway kennt das Feld nicht (`createCreditNoteRequest`), das
+      Proto auch nicht: es entsteht eine normale Gutschrift, die Rechnung bleibt unverändert. Einen
+      Storno-Pfad gibt es im Service (`invoice.Service.CancelInvoice` legt für eine versendete
+      Rechnung die Storno-Gutschrift an und setzt die Rechnung auf `cancelled`, über
+      `creditnote.StornoInvoice` in einer Transaktion), er hängt aber nur an der Rechnungs-Route.
+      ENTSCHEIDUNG LUKE: (a) Dialog bei `is_storno` an `POST /finance/invoices/{id}/cancel`
+      umleiten (FE-Änderung, Gutschrift entsteht automatisch, volle Summe), (b) `is_storno` am
+      Gateway annehmen und intern auf den Cancel-RPC abbilden, die gesendeten Positionen
+      verwerfen, oder (c) die Checkbox im Dialog streichen. Bis dahin sagt der Toast etwas, das
+      nicht stimmt.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/CreditNoteDialog.tsx
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/biz/creditnote/service.go
+      - backend/internal/biz/invoice/service.go
+    done_when:
+      - "Entscheidung a/b/c steht; bei b ein Router-Test, dass is_storno die Rechnung auf cancelled setzt"
+

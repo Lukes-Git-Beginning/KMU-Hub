@@ -20,7 +20,9 @@ import (
 
 type createCreditNoteRequest struct {
 	OriginalInvoiceID string                  `json:"original_invoice_id" validate:"omitempty,uuid"`
-	Customer          *bizv1.CustomerSnapshot `json:"customer"            validate:"required"`
+	// Customer is optional: the service takes the customer from the original invoice, and the
+	// desktop dialog sends none.
+	Customer          *bizv1.CustomerSnapshot `json:"customer"`
 	LineItems         []*bizv1.LineItem       `json:"line_items"          validate:"required,min=1"`
 	TaxMode           taxModeField            `json:"tax_mode"            validate:"required,oneof=standard reverse_charge kleinunternehmer"`
 	Reason            string                  `json:"reason"              validate:"required"`
@@ -128,7 +130,7 @@ func (b *BizRoutes) HandleGetCreditNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.CreditNote)
+	response.ProtoWrapped(w, http.StatusOK, "credit_note", resp.CreditNote)
 }
 
 func (b *BizRoutes) HandleSendCreditNote(w http.ResponseWriter, r *http.Request) {
@@ -508,7 +510,7 @@ func (b *BizRoutes) HandleGetDunningConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Config)
+	response.ProtoWrapped(w, http.StatusOK, "config", resp.Config)
 }
 
 type updateDunningConfigRequest struct {
@@ -555,7 +557,7 @@ func (b *BizRoutes) HandleUpdateDunningConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Config)
+	response.ProtoWrapped(w, http.StatusOK, "config", resp.Config)
 }
 
 // ============================================================================

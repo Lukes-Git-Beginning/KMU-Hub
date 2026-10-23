@@ -1030,7 +1030,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-finance-tax-mode-enum-roundtrip]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,3 %"
     scope: >
       Vier Befunde, alle am Code belegt. (1) `GET /finance/credit-notes/{id}` schreibt die nackte

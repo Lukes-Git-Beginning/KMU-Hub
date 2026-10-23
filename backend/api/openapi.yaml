@@ -10881,11 +10881,14 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Credit note details
+          description: Credit note details, wrapped as {credit_note}
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CreditNote"
+                type: object
+                properties:
+                  credit_note:
+                    $ref: "#/components/schemas/CreditNote"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -12328,11 +12331,14 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: Dunning configuration
+          description: Dunning configuration, wrapped as {config}
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DunningConfig"
+                type: object
+                properties:
+                  config:
+                    $ref: "#/components/schemas/DunningConfig"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -12349,11 +12355,14 @@ paths:
               $ref: "#/components/schemas/DunningConfigInput"
       responses:
         "200":
-          description: Updated dunning config
+          description: Updated dunning config, wrapped as {config}
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DunningConfig"
+                type: object
+                properties:
+                  config:
+                    $ref: "#/components/schemas/DunningConfig"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -43652,13 +43661,14 @@ components:
 
     CreateCreditNoteRequest:
       type: object
-      required: [original_invoice_id, customer, line_items, tax_mode]
+      required: [original_invoice_id, line_items, tax_mode, reason]
       properties:
         original_invoice_id:
           type: string
           format: uuid
         customer:
           $ref: "#/components/schemas/CustomerSnapshot"
+          description: Optional. The credit note takes the customer from the original invoice.
         line_items:
           type: array
           items:

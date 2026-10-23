@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type errorResponse struct {
@@ -59,13 +60,37 @@ func MarshalProto(msg proto.Message) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Contains(b, []byte(`"tax_mode":`)) {
-		return b, nil
+	if bytes.Contains(b, []byte(`"tax_mode":`)) {
+		b = taxModeNumber.ReplaceAllFunc(b, func(m []byte) []byte {
+			sub := taxModeNumber.FindSubmatch(m)
+			return append(append([]byte{}, sub[1]...), []byte(`"`+taxModeNames[string(sub[2])]+`"`)...)
+		})
 	}
-	return taxModeNumber.ReplaceAllFunc(b, func(m []byte) []byte {
-		sub := taxModeNumber.FindSubmatch(m)
-		return append(append([]byte{}, sub[1]...), []byte(`"`+taxModeNames[string(sub[2])]+`"`)...)
-	}), nil
+	if names, ok := statusNames[msg.ProtoReflect().Descriptor().FullName()]; ok {
+		return rewriteStatus(b, names)
+	}
+	return b, nil
+}
+
+// statusNames lists the messages whose top-level `status` leaves as the string the frontend
+// types it with (`draft|sent|paid`), not as the enum number. Keyed by message, not by field
+// name: `status` is a member of dozens of other messages whose numbers stay numbers.
+var statusNames = map[protoreflect.FullName]map[string]string{
+	"biz.v1.DunningRecord": {"1": "draft", "2": "sent", "3": "paid"},
+	"biz.v1.CreditNote":    {"1": "draft", "2": "sent"},
+}
+
+// rewriteStatus replaces a numeric top-level `status` member. An unknown number (a future
+// enum value) stays a number rather than turning into a wrong word.
+func rewriteStatus(b []byte, names map[string]string) ([]byte, error) {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return nil, err
+	}
+	if name, ok := names[string(obj["status"])]; ok {
+		obj["status"] = json.RawMessage(`"` + name + `"`)
+	}
+	return json.Marshal(obj)
 }
 
 // Proto writes a protobuf message as JSON via protojson so well-known types
@@ -81,6 +106,18 @@ func Proto(w http.ResponseWriter, status int, msg proto.Message) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = w.Write(b)
+}
+
+// ProtoWrapped writes msg under `key` (`{credit_note:{…}}`), the shape frontend hooks that
+// `select` a single entity out of the response read.
+func ProtoWrapped(w http.ResponseWriter, status int, key string, msg proto.Message) {
+	b, err := MarshalProto(msg)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	JSON(w, status, map[string]json.RawMessage{key: b})
 }
 
 // ProtoFlatten renders msg like Proto does, then lifts the fields of the nested

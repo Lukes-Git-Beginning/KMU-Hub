@@ -240,19 +240,6 @@ func TestHandleCreateCreditNote_InvalidJSON(t *testing.T) {
 	assertErrorContains(t, rec, "invalid request body")
 }
 
-func TestHandleCreateCreditNote_MissingCustomer(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/credit-notes", jsonBody(t, map[string]interface{}{
-		"line_items": []interface{}{map[string]interface{}{"description": "x"}},
-		"tax_mode":   "standard",
-		"reason":     "duplicate",
-	}))
-	req = withTenantID(req, testTenantID)
-	routes.HandleCreateCreditNote(rec, req)
-	assertValidationError(t, rec, "customer")
-}
-
 func TestHandleCreateCreditNote_MissingReason(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()
