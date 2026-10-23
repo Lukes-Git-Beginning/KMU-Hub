@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -333,37 +334,81 @@ func TestRunTenantScheduler_ReturnsImmediatelyOnCanceledContext(t *testing.T) {
 	}
 }
 
-// TestRunTenantScheduler_RecoversFromPanic proves the deferred recover()
-// keeps a panicking tenant scheduler from taking down the process — a
-// non-positive ticker interval (e.g. a corrupt row with IntervalMin<=0 for
-// contact/payment, which has no defaulting guard unlike invoice pull) would
-// otherwise panic inside the goroutine.
-func TestRunTenantScheduler_RecoversFromPanic(t *testing.T) {
-	svc := newTestService(nil, nil, nil)
-	s := NewScheduler(svc, &schedulerTestRepo{}, &schedulerTestConfigRepo{})
+// panicConfigRepo panics in GetByPlatform and counts the calls; the scheduled
+// contact sync resolves its config there first, so each tick panics once.
+type panicConfigRepo struct {
+	mockConfigRepo
+	calls atomic.Int32
+}
+
+func (r *panicConfigRepo) GetByPlatform(context.Context, string) (*IntegrationConfig, error) {
+	r.calls.Add(1)
+	panic("config repo boom")
+}
+
+// TestRunTenantScheduler_SurvivesPanicInTick proves a panic inside one tick is
+// recovered per tick: the loop keeps ticking. A second call is required -- a
+// single call would also pass if the loop died after the first panic.
+func TestRunTenantScheduler_SurvivesPanicInTick(t *testing.T) {
+	cfg := &panicConfigRepo{}
+	s := NewScheduler(newTestService(nil, cfg, nil), &schedulerTestRepo{}, &schedulerTestConfigRepo{})
+	s.intervalUnit = time.Millisecond
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	ts := &tenantScheduler{cancel: cancel, configID: uuid.New(), tenantID: uuid.New()}
-	syncConfig := &models.BexioSyncConfig{
-		ContactSyncIntervalMin: 0, // time.NewTicker(0) panics
-		PaymentPollIntervalMin: 60,
-		InvoicePullIntervalMin: 60,
-	}
-
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		// If runTenantScheduler's own recover() did not catch the panic,
-		// this goroutine would crash the test binary instead of failing
-		// this test cleanly.
-		s.runTenantScheduler(ctx, ts, syncConfig)
+		s.runTenantScheduler(ctx, ts, &models.BexioSyncConfig{
+			ContactSyncEnabled:     true,
+			ContactSyncIntervalMin: 1,
+			PaymentPollIntervalMin: 1440,
+			InvoicePullIntervalMin: 1440,
+		})
+	}()
+
+	deadline := time.After(5 * time.Second)
+	for cfg.calls.Load() < 2 {
+		select {
+		case <-deadline:
+			t.Fatalf("tick ran %d time(s), want >= 2: loop died after the panic", cfg.calls.Load())
+		case <-time.After(time.Millisecond):
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("runTenantScheduler did not return after ctx cancellation")
+	}
+}
+
+// TestRunTenantScheduler_NonPositiveIntervalsFallBackToDefault: time.NewTicker
+// panics on a non-positive duration, which used to end the tenant scheduler
+// silently. Zero contact/payment intervals now default like invoice pull, so the
+// loop runs until ctx is canceled instead of returning early.
+func TestRunTenantScheduler_NonPositiveIntervalsFallBackToDefault(t *testing.T) {
+	s := NewScheduler(newTestService(nil, nil, nil), &schedulerTestRepo{}, &schedulerTestConfigRepo{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ts := &tenantScheduler{cancel: cancel, configID: uuid.New(), tenantID: uuid.New()}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runTenantScheduler(ctx, ts, &models.BexioSyncConfig{}) // all intervals 0
 	}()
 
 	select {
 	case <-done:
+		t.Fatal("scheduler returned before ctx cancellation: a zero interval ended the loop")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	cancel()
+	select {
+	case <-done:
 	case <-time.After(5 * time.Second):
-		t.Fatal("runTenantScheduler goroutine did not return after panic")
+		t.Fatal("runTenantScheduler did not return after ctx cancellation")
 	}
 }

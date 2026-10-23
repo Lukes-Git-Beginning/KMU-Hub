@@ -94,7 +94,7 @@ func (a *HTTPRequestAction) Execute(ctx context.Context, config json.RawMessage,
 		return ActionResult{Success: false, Error: err.Error()}, err
 	}
 
-	resp, err := a.client.Do(req)
+	resp, err := a.client.Do(req) //nolint:gosec // G704: tenant URL, but the client is safehttp (public unicast only, re-checked per hop)
 	if err != nil {
 		// The URL is in the error, so it is kept out of the message the tenant
 		// sees only insofar as it is theirs anyway; headers never appear.

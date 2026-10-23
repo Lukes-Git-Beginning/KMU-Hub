@@ -759,6 +759,32 @@ func TestService_UpdateDamage_Success(t *testing.T) {
 	assert.Equal(t, "deep scratch", updated.Description)
 }
 
+func TestService_UpdateDamage_RejectsValuesOutsideTheEnumSets(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	v, _ := svc.CreateVehicle(context.Background(), CreateVehicleInput{
+		TenantID: tenantID, LicensePlate: "DMG-3", Make: "VW", Model: "T", Year: 2021,
+	})
+	d, _ := svc.ReportDamage(context.Background(), ReportDamageInput{
+		TenantID: tenantID, VehicleID: v.ID, Description: "scratch", Severity: "minor",
+	})
+
+	badSeverity := "kaputt"
+	_, err := svc.UpdateDamage(context.Background(), UpdateDamageInput{TenantID: tenantID, DamageID: d.ID, Severity: &badSeverity})
+	assert.ErrorIs(t, err, ErrInvalidInput)
+
+	badStatus := DamageStatus("gone")
+	_, err = svc.UpdateDamage(context.Background(), UpdateDamageInput{TenantID: tenantID, DamageID: d.ID, Status: &badStatus})
+	assert.ErrorIs(t, err, ErrInvalidInput)
+
+	goodSeverity, goodStatus := "major", DamageStatusInRepair
+	updated, err := svc.UpdateDamage(context.Background(), UpdateDamageInput{TenantID: tenantID, DamageID: d.ID, Severity: &goodSeverity, Status: &goodStatus})
+	require.NoError(t, err)
+	assert.Equal(t, "major", updated.Severity)
+	assert.Equal(t, DamageStatusInRepair, updated.Status)
+}
+
 func TestService_ListDamages_FilterByVehicle(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)

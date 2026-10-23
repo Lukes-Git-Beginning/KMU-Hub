@@ -233,6 +233,18 @@ func (s *Service) DeleteObject(ctx context.Context, tenantID, objectID uuid.UUID
 	if _, err := s.repo.GetObject(ctx, tenantID, objectID); err != nil {
 		return err
 	}
+	// The rentals FK cascade never fires on a soft delete, so guard it here: a
+	// reserved/active rental must not be left pointing at an object the API can
+	// no longer describe. Completed and cancelled rentals are no obstacle.
+	for _, st := range []RentalStatus{RentalStatusReserved, RentalStatusActive} {
+		_, open, err := s.repo.ListRentals(ctx, tenantID, ListRentalsFilter{ObjectID: &objectID, Status: &st}, 0, 1)
+		if err != nil {
+			return fmt.Errorf("check open rentals: %w", err)
+		}
+		if open > 0 {
+			return ErrObjectHasOpenRentals
+		}
+	}
 	if err := s.repo.SoftDeleteObject(ctx, tenantID, objectID); err != nil {
 		return fmt.Errorf("soft delete rental object: %w", err)
 	}

@@ -556,15 +556,9 @@ func TestHandleListVehicleDamages_ReachesRPC(t *testing.T) {
 // ============================================================================
 // HandleUpdateDamage
 //
-// NOTE: unlike reportDamageRequest (Severity validate:"omitempty,oneof=minor
-// moderate major totalled"), updateDamageRequest carries NO validate tag on
-// Severity or Status, and internal/fuhrpark/service.go UpdateDamage writes
-// both straight through with no enum check. An update can set severity or
-// status to an arbitrary string. Filed as
-// fix-fuhrpark-update-damage-missing-enum-validation rather than fixed here,
-// since a coverage unit must not change behavior; the "reaches RPC" test
-// below demonstrates the gap by using a value outside the create-time oneof
-// set and confirming the gateway does not reject it at validation time.
+// updateDamageRequest validates Severity and Status against the same value
+// sets as reportDamageRequest / models.DamageStatus; the service repeats the
+// check for non-gateway callers.
 // ============================================================================
 
 func TestHandleUpdateDamage_ServiceUnavailable(t *testing.T) {
@@ -614,20 +608,23 @@ func TestHandleUpdateDamage_InvalidJSON(t *testing.T) {
 	assertStatus(t, rec, http.StatusBadRequest)
 }
 
-func TestHandleUpdateDamage_ArbitrarySeverityReachesRPCUnvalidated(t *testing.T) {
-	routes := NewFuhrparkRoutes(registryWithService("fuhrpark"), nil)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/fuhrpark/damages/550e8400-e29b-41d4-a716-446655440000", jsonBody(t, map[string]interface{}{
-		"severity": "not-a-real-severity",
-		"status":   "not-a-real-status",
-	}))
-	req = withAuth(req, "user-123", testTenantID)
-	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
-	routes.HandleUpdateDamage(rec, req)
-	// No validation tag on updateDamageRequest.Severity/Status (see NOTE
-	// above) -- the request reaches the RPC layer instead of being rejected
-	// with 400, unlike HandleReportDamage's create-time oneof check.
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+func TestHandleUpdateDamage_RejectsValuesOutsideTheEnumSets(t *testing.T) {
+	for _, tc := range []struct{ field, value string }{
+		{"severity", "not-a-real-severity"},
+		{"status", "not-a-real-status"},
+	} {
+		t.Run(tc.field, func(t *testing.T) {
+			routes := NewFuhrparkRoutes(registryWithService("fuhrpark"), nil)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPatch, "/api/v1/fuhrpark/damages/550e8400-e29b-41d4-a716-446655440000", jsonBody(t, map[string]interface{}{
+				tc.field: tc.value,
+			}))
+			req = withAuth(req, "user-123", testTenantID)
+			req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+			routes.HandleUpdateDamage(rec, req)
+			assertValidationError(t, rec, tc.field)
+		})
+	}
 }
 
 func TestHandleUpdateDamage_ReachesRPC(t *testing.T) {

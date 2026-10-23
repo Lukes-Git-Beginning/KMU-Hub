@@ -1007,13 +1007,16 @@ func TestRedeemShareToken_ExpiredTokenMatchesUnknownAnswer(t *testing.T) {
 	ctx := context.Background()
 	tenantID, articleID, _ := setupPublishedArticleWithToken(t, srv, nil)
 
-	past := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
-	resp, err := srv.CreateShareToken(ctx, &wikiv1.CreateShareTokenRequest{
-		TenantId: tenantID, ArticleId: articleID, ExpiresAt: &past,
-	})
-	requireGRPCOK(t, err)
+	// CreateShareToken refuses a past expiry, so a link that has since run out
+	// is seeded straight into the repository.
+	past := time.Now().Add(-time.Hour).UTC()
+	expired := &wiki.ShareToken{
+		ID: uuid.New(), TenantID: uuid.MustParse(tenantID), ArticleID: uuid.MustParse(articleID),
+		Token: "expired-link-token", ExpiresAt: &past, Permissions: []string{"read"}, CreatedAt: past,
+	}
+	requireGRPCOK(t, repo.CreateShareToken(ctx, expired))
 
-	_, expiredErr := srv.RedeemShareToken(ctx, &wikiv1.RedeemShareTokenRequest{Token: resp.Token.Token})
+	_, expiredErr := srv.RedeemShareToken(ctx, &wikiv1.RedeemShareTokenRequest{Token: expired.Token})
 	_, unknownErr := srv.RedeemShareToken(ctx, &wikiv1.RedeemShareTokenRequest{Token: "never-minted"})
 
 	assertGRPCCode(t, expiredErr, codes.NotFound)
@@ -1025,10 +1028,41 @@ func TestRedeemShareToken_ExpiredTokenMatchesUnknownAnswer(t *testing.T) {
 func TestRedeemShareToken_NoReadPermissionMatchesUnknownAnswer(t *testing.T) {
 	repo := newStubWikiRepo()
 	srv, _ := newWikiServerWithRepo(repo)
-	_, _, token := setupPublishedArticleWithToken(t, srv, []string{"write"}) // no "read"
+	tenantID, articleID, _ := setupPublishedArticleWithToken(t, srv, nil)
 
-	_, err := srv.RedeemShareToken(context.Background(), &wikiv1.RedeemShareTokenRequest{Token: token.Token})
+	// CreateShareToken refuses non-"read" permissions; a legacy row without
+	// "read" is seeded straight into the repository.
+	legacy := &wiki.ShareToken{
+		ID: uuid.New(), TenantID: uuid.MustParse(tenantID), ArticleID: uuid.MustParse(articleID),
+		Token: "write-only-token", Permissions: []string{"write"}, CreatedAt: time.Now().UTC(),
+	}
+	requireGRPCOK(t, repo.CreateShareToken(context.Background(), legacy))
+
+	_, err := srv.RedeemShareToken(context.Background(), &wikiv1.RedeemShareTokenRequest{Token: legacy.Token})
 	assertGRPCCode(t, err, codes.NotFound)
+}
+
+func TestCreateShareToken_RejectsPastExpiryAndUnknownPermission(t *testing.T) {
+	repo := newStubWikiRepo()
+	srv, _ := newWikiServerWithRepo(repo)
+	ctx := context.Background()
+	tenantID, articleID, _ := setupPublishedArticleWithToken(t, srv, nil)
+	before := len(repo.shareTokens)
+
+	past := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+	_, err := srv.CreateShareToken(ctx, &wikiv1.CreateShareTokenRequest{
+		TenantId: tenantID, ArticleId: articleID, ExpiresAt: &past,
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+
+	_, err = srv.CreateShareToken(ctx, &wikiv1.CreateShareTokenRequest{
+		TenantId: tenantID, ArticleId: articleID, Permissions: []string{"read", "write"},
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+
+	if len(repo.shareTokens) != before {
+		t.Fatalf("a refused link must not be stored: %d tokens, want %d", len(repo.shareTokens), before)
+	}
 }
 
 func TestRedeemShareToken_UnpublishedArticleMatchesUnknownAnswer(t *testing.T) {

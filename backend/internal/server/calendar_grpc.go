@@ -389,6 +389,11 @@ func (s *CalendarGRPCServer) UnsubscribeFromCalendar(ctx context.Context, req *c
 // ============================================================================
 
 func (s *CalendarGRPCServer) CreateEvent(ctx context.Context, req *calv1.CreateEventRequest) (*calv1.CreateEventResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	calendarID, err := uuid.Parse(req.CalendarId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
@@ -400,6 +405,7 @@ func (s *CalendarGRPCServer) CreateEvent(ctx context.Context, req *calv1.CreateE
 	}
 
 	input := event.CreateInput{
+		TenantID:     tenantID,
 		CalendarID:   calendarID,
 		Title:        req.Title,
 		IsAllDay:     req.IsAllDay,
@@ -1301,7 +1307,7 @@ func (s *CalendarGRPCServer) GenerateJoinToken(ctx context.Context, req *calv1.G
 		return nil, status.Error(codes.InvalidArgument, "invalid event_id")
 	}
 
-	// The room name is derived from the event ID alone, so this lookup is the
+	// The room name is derived from tenant and event ID, but this lookup is the
 	// only thing standing between a caller and a signed 24h join token for an
 	// arbitrary UUID -- including events owned by other tenants. Load the event
 	// tenant-scoped first, exactly like GetEvent does. Cancelling an event
@@ -1311,7 +1317,7 @@ func (s *CalendarGRPCServer) GenerateJoinToken(ctx context.Context, req *calv1.G
 		return nil, mapCalendarError(err)
 	}
 
-	roomName := s.livekitService.GenerateRoomName(eventID)
+	roomName := s.livekitService.GenerateRoomName(tenantID, eventID)
 
 	token, err := s.livekitService.GenerateJoinToken(roomName, req.UserId, req.UserName)
 	if err != nil {

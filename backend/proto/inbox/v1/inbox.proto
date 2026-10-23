@@ -149,7 +149,7 @@ message RoutingRuleInfo {
   string name = 2;
   optional Channel channel = 3;
   google.protobuf.Struct conditions = 4;
-  google.protobuf.Struct actions = 5;
+  google.protobuf.ListValue actions = 5;
   int32 priority = 6;
   bool is_active = 7;
   string created_by = 8;
@@ -499,7 +499,7 @@ message CreateRoutingRuleRequest {
   string name = 2;
   optional Channel channel = 3;
   google.protobuf.Struct conditions = 4;
-  google.protobuf.Struct actions = 5;
+  google.protobuf.ListValue actions = 5;
   int32 priority = 6;
 }
 
@@ -513,7 +513,7 @@ message UpdateRoutingRuleRequest {
   optional string name = 3;
   optional Channel channel = 4;
   optional google.protobuf.Struct conditions = 5;
-  optional google.protobuf.Struct actions = 6;
+  optional google.protobuf.ListValue actions = 6;
   optional int32 priority = 7;
   optional bool is_active = 8;
 }

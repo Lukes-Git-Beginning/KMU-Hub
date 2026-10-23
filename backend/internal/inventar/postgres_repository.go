@@ -395,8 +395,17 @@ func (r *PostgresRepository) UpdateLocation(ctx context.Context, loc *InventoryL
 	return nil
 }
 
+// SoftDeleteLocation marks the location deleted and clears location_id on every
+// item that pointed at it, in one transaction. The FK's ON DELETE SET NULL
+// (migration 000184) never fires for a soft delete, so the repo does it by hand.
 func (r *PostgresRepository) SoftDeleteLocation(ctx context.Context, tenantID, locID uuid.UUID) error {
-	ct, err := r.pool.Exec(ctx,
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return fmt.Errorf("begin soft delete location: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
+
+	ct, err := tx.Exec(ctx,
 		`UPDATE inventory_locations SET deleted_at=NOW() WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL`,
 		locID, tenantID,
 	)
@@ -405,6 +414,15 @@ func (r *PostgresRepository) SoftDeleteLocation(ctx context.Context, tenantID, l
 	}
 	if ct.RowsAffected() == 0 {
 		return ErrLocationNotFound
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE inventory_items SET location_id=NULL WHERE location_id=$1 AND tenant_id=$2`,
+		locID, tenantID,
+	); err != nil {
+		return fmt.Errorf("clear item references to deleted location: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit soft delete location: %w", err)
 	}
 	return nil
 }
@@ -485,15 +503,28 @@ func (r *PostgresRepository) UpdateInventurSession(ctx context.Context, session 
 	return nil
 }
 
+// DeleteInventurSession never deletes a completed session. If the row exists
+// but is completed, it reports ErrInventurAlreadyCompleted instead of
+// ErrInventurSessionNotFound.
 func (r *PostgresRepository) DeleteInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) error {
 	ct, err := r.pool.Exec(ctx,
-		`DELETE FROM inventur_sessions WHERE id=$1 AND tenant_id=$2`,
-		sessionID, tenantID,
+		`DELETE FROM inventur_sessions WHERE id=$1 AND tenant_id=$2 AND status <> $3`,
+		sessionID, tenantID, InventurStatusCompleted,
 	)
 	if err != nil {
 		return err
 	}
 	if ct.RowsAffected() == 0 {
+		var exists bool
+		if err := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM inventur_sessions WHERE id=$1 AND tenant_id=$2)`,
+			sessionID, tenantID,
+		).Scan(&exists); err != nil {
+			return fmt.Errorf("check inventur session after refused delete: %w", err)
+		}
+		if exists {
+			return ErrInventurAlreadyCompleted
+		}
 		return ErrInventurSessionNotFound
 	}
 	return nil

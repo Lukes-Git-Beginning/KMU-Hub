@@ -20,10 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/testutil"
@@ -716,15 +718,14 @@ func TestPostgresClaimPendingDeliveries_SystemContextCrossesTenantsTenantContext
 	if !foundA {
 		t.Fatalf("expected tenant A's own pending delivery to be claimable under its own context")
 	}
-	// ClaimPendingDeliveries only SELECTs FOR UPDATE SKIP LOCKED, it never
-	// writes a status — and pool.Query with no explicit BEGIN commits (and
-	// releases the row lock) as soon as the statement finishes. So delA is
-	// still 'pending' here; no reset needed before claiming again below.
+	// The claim leased delA (next_attempt_at pushed out), so hand it back
+	// before claiming again below.
+	sysCtx := database.WithSystemContext(context.Background())
+	resetDeliveryLease(t, pool, sysCtx, delA.ID)
 
 	// The worker runs under database.WithSystemContext (worker.go Run) —
 	// that is the one intentional cross-tenant bypass on this table, so it
 	// must see both tenants' pending rows in one claim.
-	sysCtx := database.WithSystemContext(context.Background())
 	claimedSys, err := repo.ClaimPendingDeliveries(sysCtx, 10)
 	if err != nil {
 		t.Fatalf("ClaimPendingDeliveries (system ctx): %v", err)
@@ -735,6 +736,153 @@ func TestPostgresClaimPendingDeliveries_SystemContextCrossesTenantsTenantContext
 	}
 	if !seen[delA.ID] || !seen[delB.ID] {
 		t.Fatalf("expected system context to see both tenants' pending deliveries, got %+v", claimedSys)
+	}
+}
+
+// resetDeliveryLease makes a leased delivery claimable again.
+func resetDeliveryLease(t *testing.T, pool *pgxpool.Pool, sysCtx context.Context, ids ...uuid.UUID) {
+	t.Helper()
+	if _, err := pool.Exec(sysCtx,
+		`UPDATE form_webhook_deliveries SET next_attempt_at = NOW() - interval '1 second' WHERE id = ANY($1)`, ids,
+	); err != nil {
+		t.Fatalf("reset delivery lease: %v", err)
+	}
+}
+
+func TestPostgresClaimPendingDeliveries_ConcurrentClaimsNeverShareARow(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	// Deliberately not t.Parallel(): the system-context claim test would lease
+	// this test's rows from under it. Serial tests finish before parallel ones resume.
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Formulare Claim Concurrent")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	mine := map[uuid.UUID]bool{}
+	for range 6 {
+		mine[mkFullChain(t, repo, ctx, tenantID).ID] = true
+	}
+
+	// Tenant-scoped claims keep this test independent of other tests' rows.
+	const claimers = 8
+	var mu sync.Mutex
+	counts := map[uuid.UUID]int{}
+	var wg sync.WaitGroup
+	for range claimers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got, err := repo.ClaimPendingDeliveries(ctx, 10)
+			if err != nil {
+				t.Errorf("ClaimPendingDeliveries: %v", err)
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			for _, d := range got {
+				counts[d.ID]++
+			}
+		}()
+	}
+	wg.Wait()
+
+	for id := range mine {
+		if counts[id] != 1 {
+			t.Fatalf("delivery %s was handed out %d times, want exactly once", id, counts[id])
+		}
+	}
+
+	// A later claim must not see the leased rows either.
+	again, err := repo.ClaimPendingDeliveries(ctx, 10)
+	if err != nil {
+		t.Fatalf("ClaimPendingDeliveries (second round): %v", err)
+	}
+	if len(again) != 0 {
+		t.Fatalf("leased deliveries were claimable again within the lease: %+v", again)
+	}
+
+	// Lease expiry: once next_attempt_at has passed, the row is claimable again
+	// (at-least-once after a crash between claim and MarkDeliveryResult).
+	var one uuid.UUID
+	for id := range mine {
+		one = id
+		break
+	}
+	resetDeliveryLease(t, pool, database.WithSystemContext(context.Background()), one)
+	retry, err := repo.ClaimPendingDeliveries(ctx, 10)
+	if err != nil {
+		t.Fatalf("ClaimPendingDeliveries (after lease expiry): %v", err)
+	}
+	if len(retry) != 1 || retry[0].ID != one {
+		t.Fatalf("expected exactly the expired delivery %s, got %+v", one, retry)
+	}
+}
+
+func TestPostgresClaimPendingDeliveries_RetriesFailedAfterBackoffAndSkipsDead(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	// Deliberately not t.Parallel(): see ConcurrentClaimsNeverShareARow.
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Formulare Claim Retry")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	d := mkFullChain(t, repo, ctx, tenantID)
+
+	claimsID := func() bool {
+		t.Helper()
+		got, err := repo.ClaimPendingDeliveries(ctx, 10)
+		if err != nil {
+			t.Fatalf("ClaimPendingDeliveries: %v", err)
+		}
+		for _, c := range got {
+			if c.ID == d.ID {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Failed attempt, back-off still running: not claimable.
+	future := time.Now().UTC().Add(time.Hour)
+	if err := repo.MarkDeliveryResult(ctx, d.ID, WebhookDeliveryStatusFailed, 1, &future, "boom", 500); err != nil {
+		t.Fatalf("MarkDeliveryResult(failed): %v", err)
+	}
+	if claimsID() {
+		t.Fatal("failed delivery was claimed before its back-off elapsed")
+	}
+
+	// Back-off elapsed: the failed row is picked up again.
+	past := time.Now().UTC().Add(-time.Second)
+	if err := repo.MarkDeliveryResult(ctx, d.ID, WebhookDeliveryStatusFailed, 1, &past, "boom", 500); err != nil {
+		t.Fatalf("MarkDeliveryResult(failed, due): %v", err)
+	}
+	if !claimsID() {
+		t.Fatal("failed delivery was never claimed again after its back-off elapsed")
+	}
+
+	// Final failure carries no next attempt; the row must still be updatable
+	// (next_attempt_at is NOT NULL) and is never claimed again.
+	if err := repo.MarkDeliveryResult(ctx, d.ID, WebhookDeliveryStatusDead, 5, nil, "gave up", 500); err != nil {
+		t.Fatalf("MarkDeliveryResult(dead, no next attempt): %v", err)
+	}
+	got, err := repo.GetWebhookDelivery(ctx, d.ID, tenantID)
+	if err != nil {
+		t.Fatalf("GetWebhookDelivery: %v", err)
+	}
+	if got.Status != WebhookDeliveryStatusDead || got.AttemptCount != 5 {
+		t.Fatalf("dead transition did not persist: %+v", got)
+	}
+	resetDeliveryLease(t, pool, database.WithSystemContext(context.Background()), d.ID)
+	if claimsID() {
+		t.Fatal("dead delivery was claimed")
 	}
 }
 

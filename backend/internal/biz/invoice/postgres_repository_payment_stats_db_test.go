@@ -273,3 +273,61 @@ func TestPostgresRepository_AggregatePaymentStats_IsTenantScoped(t *testing.T) {
 	assert.True(t, decimal.RequireFromString("119.00").Equal(statsA.TotalPaidAmount), "got %s", statsA.TotalPaidAmount)
 	assert.True(t, decimal.Zero.Equal(statsA.TotalOutstandingAmount), "got %s", statsA.TotalOutstandingAmount)
 }
+
+// TestPostgresRepository_AggregatePaymentStats_SumsOnlyTenantDefaultCurrency
+// (fix-invoice-payment-stats-blind-currency-sum): finance_invoices.currency is
+// free per invoice, so the two amount sums must add only the tenant default
+// currency, while the counters keep counting every invoice.
+func TestPostgresRepository_AggregatePaymentStats_SumsOnlyTenantDefaultCurrency(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Payment Stats Currency Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	when := time.Date(2044, 2, 10, 0, 0, 0, 0, time.UTC)
+
+	seed := func(status, gross, currency string) {
+		grossDec := decimal.RequireFromString(gross)
+		subtotal := grossDec.Div(decimal.NewFromInt(119)).Mul(decimal.NewFromInt(100)).Round(2)
+		inv := newListTestInvoice(tenantID, when, when.AddDate(0, 0, 30))
+		inv.Status = status
+		inv.Subtotal = subtotal
+		inv.TotalTax = grossDec.Sub(subtotal)
+		inv.GrossTotal = grossDec
+		inv.Currency = currency
+		createListTestInvoice(t, repo, pool, ctx, inv)
+	}
+	seed(models.InvoiceStatusPaid, "500.00", "EUR")
+	seed(models.InvoiceStatusPaid, "7000.00", "USD")
+	seed(models.InvoiceStatusSent, "300.00", "EUR")
+	seed(models.InvoiceStatusSent, "9000.00", "USD")
+
+	stats := func() PaymentStats {
+		t.Helper()
+		s, err := repo.AggregatePaymentStats(ctx, tenantID, when.AddDate(0, 0, -1), when.AddDate(0, 0, 1))
+		require.NoError(t, err)
+		return s
+	}
+
+	// No company_settings row: default is EUR.
+	s := stats()
+	assert.Equal(t, 4, s.TotalInvoices, "counters count every invoice regardless of currency")
+	assert.Equal(t, 2, s.TotalPaid)
+	assert.Equal(t, 2, s.TotalOutstanding)
+	assert.True(t, decimal.RequireFromString("500").Equal(s.TotalPaidAmount), "USD invoice must not be added; got %s", s.TotalPaidAmount)
+	assert.True(t, decimal.RequireFromString("300").Equal(s.TotalOutstandingAmount), "USD invoice must not be added; got %s", s.TotalOutstandingAmount)
+
+	// default_currency USD flips which invoices count: the default is resolved, not hardcoded.
+	settingsID := testutil.SeedRow(t, pool, "company_settings", map[string]any{"tenant_id": tenantID, "default_currency": "USD"})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "company_settings", settingsID) })
+
+	s = stats()
+	assert.Equal(t, 4, s.TotalInvoices)
+	assert.True(t, decimal.RequireFromString("7000").Equal(s.TotalPaidAmount), "got %s", s.TotalPaidAmount)
+	assert.True(t, decimal.RequireFromString("9000").Equal(s.TotalOutstandingAmount), "got %s", s.TotalOutstandingAmount)
+}

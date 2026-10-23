@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 const (
@@ -77,6 +79,8 @@ type Worker struct {
 	triggerCh      chan struct{}
 	cancelFn       context.CancelFunc
 	logger         *slog.Logger
+	// cycleFn replaces syncCycle in tests, which cannot reach a TLS IMAP server.
+	cycleFn func(ctx context.Context) error
 }
 
 // newWorker creates a new sync worker for an account.
@@ -112,7 +116,7 @@ func (w *Worker) Run(ctx context.Context) {
 		default:
 		}
 
-		err := w.syncCycle(ctx)
+		err := w.safeSyncCycle(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -137,6 +141,26 @@ func (w *Worker) Run(ctx context.Context) {
 		// Reset backoff on success
 		backoff = initialBackoff
 	}
+}
+
+// errSyncCyclePanic marks a cycle that panicked (e.g. the IMAP parser on a hostile
+// server response); Run treats it like any failed cycle: backoff, reconnect.
+var errSyncCyclePanic = errors.New("sync cycle panicked")
+
+// errNoInboxFolder ends a cycle on an account without a detected INBOX. Returning it
+// (not nil) makes Run back off instead of reconnecting in a tight loop.
+var errNoInboxFolder = errors.New("no INBOX folder found")
+
+// safeSyncCycle keeps a panic inside one cycle from killing the process.
+func (w *Worker) safeSyncCycle(ctx context.Context) (err error) {
+	cycle := w.syncCycle
+	if w.cycleFn != nil {
+		cycle = w.cycleFn
+	}
+	if !safego.Do("email sync cycle", func() { err = cycle(ctx) }) {
+		return errSyncCyclePanic
+	}
+	return err
 }
 
 // syncCycle performs one complete sync: connect, sync folders, sync messages, enter IDLE/poll.
@@ -345,7 +369,7 @@ func (w *Worker) idleOrPoll(ctx context.Context, client *IMAPClient, folders []*
 
 	if inbox == nil {
 		w.logger.Warn("no INBOX folder found, skipping IDLE/poll")
-		return nil
+		return errNoInboxFolder
 	}
 
 	// Select INBOX

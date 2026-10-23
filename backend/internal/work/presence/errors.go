@@ -12,4 +12,7 @@ var (
 	// ErrMissingTenant signals a presence config call without a tenant on the
 	// context. Reading or writing another tenant's row is worse than failing.
 	ErrMissingTenant = errors.New("missing tenant context")
+	// ErrUserNotVisible signals a presence read for a user outside the
+	// caller's tenant. Indistinguishable from an unknown user on purpose.
+	ErrUserNotVisible = errors.New("user not found")
 )

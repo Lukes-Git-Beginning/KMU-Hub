@@ -12,6 +12,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // EventHandler is a function that processes an event payload.
@@ -149,12 +150,16 @@ func (bus *EventBus) dispatch(ctx context.Context, event models.EventPayload) {
 	bus.mu.RUnlock()
 
 	for _, handler := range handlers {
-		if err := handler(ctx, event); err != nil {
-			slog.Error("event handler failed",
-				"event_type", event.Type,
-				"error", err,
-			)
-		}
+		// A panicking handler must neither kill the listener goroutine (and with
+		// it the process) nor starve the handlers registered after it.
+		safego.Do("event-bus handler "+event.Type, func() {
+			if err := handler(ctx, event); err != nil {
+				slog.Error("event handler failed",
+					"event_type", event.Type,
+					"error", err,
+				)
+			}
+		})
 	}
 }
 

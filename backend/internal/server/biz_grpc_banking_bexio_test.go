@@ -55,7 +55,7 @@ func TestMapBexioError(t *testing.T) {
 		err  error
 		code codes.Code
 	}{
-		{"unauthorized", bexio.ErrBexioUnauthorized, codes.Unauthenticated},
+		{"unauthorized", bexio.ErrBexioUnauthorized, codes.FailedPrecondition},
 		{"rate_limited", bexio.ErrBexioRateLimited, codes.ResourceExhausted},
 		{"not_found", bexio.ErrBexioNotFound, codes.NotFound},
 		{"config_not_found", bexio.ErrConfigNotFound, codes.NotFound},

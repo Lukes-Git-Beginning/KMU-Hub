@@ -230,18 +230,50 @@ func (h *FormSubmissionRetentionHandler) Apply(ctx context.Context, tenantID uui
 		}
 		return int(tag.RowsAffected()), nil
 	case models.RetentionActionAnonymize:
-		tag, err := h.pool.Exec(ctx,
-			`UPDATE form_submissions
-			    SET answers = '{}'::jsonb, submitted_by = '[' || $3 || ']', ip_address = NULL,
-			        anonymized_at = NOW()
-			  WHERE tenant_id = $1 AND id = ANY($2)`,
-			tenantID, ids, anonymizedLabel,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("form submission retention: anonymize: %w", err)
-		}
-		return int(tag.RowsAffected()), nil
+		return h.anonymize(ctx, tenantID, ids, anonymizedLabel)
 	default:
 		return 0, fmt.Errorf("form submission retention: unsupported action %q", action)
 	}
+}
+
+// anonymize clears the submissions and, in the same transaction, the answer
+// copy that insertSubmissionTx put into form_webhook_deliveries.payload —
+// otherwise the personal data survives in the deliveries table. A delivery
+// that is still owed (pending/failed) would otherwise go out with an empty
+// payload, so it is closed as 'dead' with an explicit last_error instead;
+// the delivery retention handler removes dead rows later. Final rows
+// (delivered/dead) only lose their payload.
+func (h *FormSubmissionRetentionHandler) anonymize(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID, anonymizedLabel string) (int, error) {
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("form submission retention: begin anonymize: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE form_submissions
+		    SET answers = '{}'::jsonb, submitted_by = '[' || $3 || ']', ip_address = NULL,
+		        anonymized_at = NOW()
+		  WHERE tenant_id = $1 AND id = ANY($2)`,
+		tenantID, ids, anonymizedLabel,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("form submission retention: anonymize: %w", err)
+	}
+	if _, err = tx.Exec(ctx,
+		`UPDATE form_webhook_deliveries
+		    SET payload = '{}'::jsonb,
+		        last_error = CASE WHEN status IN ('pending', 'failed')
+		                          THEN 'submission anonymized by retention policy' ELSE last_error END,
+		        status = CASE WHEN status IN ('pending', 'failed')
+		                      THEN 'dead'::form_webhook_delivery_status ELSE status END
+		  WHERE tenant_id = $1 AND submission_id = ANY($2)`,
+		tenantID, ids,
+	); err != nil {
+		return 0, fmt.Errorf("form submission retention: scrub webhook deliveries: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("form submission retention: commit anonymize: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
 }

@@ -492,23 +492,39 @@ func (s *DialerGRPCServer) SetAgentStatus(ctx context.Context, req *dialerv1.Set
 }
 
 func (s *DialerGRPCServer) GetAgentStatus(ctx context.Context, req *dialerv1.GetAgentStatusRequest) (*dialerv1.AgentStatus, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid user_id: %v", err)
 	}
-	entry, err := s.svc.GetAgentStatus(ctx, userID)
+	entry, err := s.svc.GetAgentStatus(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapDialerError(err)
+	}
+	if entry == nil {
+		// No live status, or one outside the caller's tenant: both read as
+		// offline, the state an absent key already means for the store.
+		return &dialerv1.AgentStatus{
+			UserId: userID.String(),
+			Status: dialerv1.AgentDialerStatus_AGENT_DIALER_STATUS_OFFLINE,
+		}, nil
 	}
 	return agentStatusToProto(entry), nil
 }
 
 func (s *DialerGRPCServer) GetCampaignAgents(ctx context.Context, req *dialerv1.GetCampaignAgentsRequest) (*dialerv1.GetCampaignAgentsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
 	campaignID, err := uuid.Parse(req.GetCampaignId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
-	entries, err := s.svc.GetCampaignAgents(ctx, campaignID)
+	entries, err := s.svc.GetCampaignAgents(ctx, tenantID, campaignID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -1091,6 +1107,10 @@ func mapDialerError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, dialer.ErrContactAlreadyInCampaign):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, dialer.ErrAgentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, dialer.ErrInvalidTransition):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, dialer.ErrAgentNotAvailable):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, dialer.ErrCampaignHasNoContacts):

@@ -39,6 +39,23 @@ var idempotencyWhitelist = []string{
 	"/auth/2fa",
 }
 
+// RedactIdempotencyHeader is an internal response header: a handler whose body
+// carries a one-time secret (invite token, app password) sets it via
+// RedactIdempotentResponse. The capturing writer strips it before the client
+// sees it and stores redactedReplayBody instead of the real body, so the secret
+// does not sit in idempotency_keys for 24 h. The key stays deduplicated.
+const RedactIdempotencyHeader = "X-Idempotency-Redact"
+
+// redactedReplayBody is what a replay of a redacted response returns.
+const redactedReplayBody = `{"idempotency_replayed":true,"detail":"response contained a one-time secret and is not replayed"}`
+
+// RedactIdempotentResponse marks the response being written as secret-bearing.
+// Call it before WriteHeader/Write; without Idempotency middleware it is a
+// harmless no-op header that never leaves the process unless the writer is bare.
+func RedactIdempotentResponse(w http.ResponseWriter) {
+	w.Header().Set(RedactIdempotencyHeader, "1")
+}
+
 // mutationMethods are the HTTP methods that mutate state.
 var mutationMethods = map[string]bool{
 	http.MethodPost:   true,
@@ -118,59 +135,125 @@ func Idempotency(repo idempotency.Repository, mode IdempotencyMode) func(http.Ha
 
 			requestHash := computeRequestHash(tenantID.String(), userIDStr, r.Method, r.URL.Path, bodyBytes)
 
-			rec, err := repo.Reserve(r.Context(), idempotencyKey, tenantID, userID, r.Method, r.URL.Path, requestHash)
-			if err != nil {
-				switch {
-				case isInFlight(err):
-					w.Header().Set("Retry-After", "2")
-					response.Error(w, http.StatusConflict, "request with this Idempotency-Key is already in flight")
-					return
-				case isConflict(err):
-					response.Error(w, http.StatusUnprocessableEntity, "Idempotency-Key reused with different request payload")
-					return
-				default:
-					slog.Error("idempotency reserve failed", "key", idempotencyKey, "error", err)
-					// Fail open: proceed without deduplication rather than blocking all requests.
-					next.ServeHTTP(w, r)
-					return
-				}
-			}
-
-			if rec != nil {
-				// Replay: serve cached response.
-				slog.Debug("idempotency replay",
-					"key", idempotencyKey,
-					"status", *rec.ResponseStatus,
-				)
-				w.Header().Set("Idempotency-Replayed", "true")
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(*rec.ResponseStatus)
-				if len(rec.ResponseBody) > 0 {
-					_, _ = w.Write(rec.ResponseBody)
-				}
+			if !reserveOrReplay(w, r, repo, idempotencyKey, tenantID, userID, requestHash) {
 				return
 			}
 
-			// Fresh key: capture the response so we can store it.
+			// Fresh key (or fail-open): capture the response so we can store it.
 			crw := newCapturingResponseWriter(w)
 			next.ServeHTTP(crw, r)
-
-			// Store the response asynchronously to avoid blocking the client.
-			// context.WithoutCancel ensures the goroutine isn't cancelled when the
-			// request context is done (which happens as soon as ServeHTTP returns).
-			// tenantID is captured from the request context so the UPDATE is scoped
-			// to the correct tenant (composite PK: tenant_id, key).
-			capturedTenantID := tenantID
-			completeCtx := context.WithoutCancel(r.Context())
-			go func() {
-				if err := repo.Complete(completeCtx, capturedTenantID, idempotencyKey, crw.statusCode, crw.body.Bytes()); err != nil {
-					if !errors.Is(err, idempotency.ErrKeyMissing) {
-						slog.Error("idempotency complete failed", "key", idempotencyKey, "error", err)
-					}
-				}
-			}()
+			completeAsync(r.Context(), repo, tenantID, idempotencyKey, crw)
 		})
 	}
+}
+
+// reserveOrReplay reserves the key for this request. It returns true when the
+// caller should run the handler (fresh key, or Reserve failed and the request
+// fails open) and false when a response was already written: replay of a
+// completed request, 409 for an in-flight key, 422 for a reused key.
+func reserveOrReplay(w http.ResponseWriter, r *http.Request, repo idempotency.Repository, key string, tenantID, userID uuid.UUID, requestHash string) bool {
+	rec, err := repo.Reserve(r.Context(), key, tenantID, userID, r.Method, r.URL.Path, requestHash)
+	if err != nil {
+		switch {
+		case isInFlight(err):
+			w.Header().Set("Retry-After", "2")
+			response.Error(w, http.StatusConflict, "request with this Idempotency-Key is already in flight")
+			return false
+		case isConflict(err):
+			response.Error(w, http.StatusUnprocessableEntity, "Idempotency-Key reused with different request payload")
+			return false
+		default:
+			slog.Error("idempotency reserve failed", "key", key, "error", err)
+			// Fail open: proceed without deduplication rather than blocking all requests.
+			return true
+		}
+	}
+
+	if rec != nil {
+		// Replay: serve cached response.
+		slog.Debug("idempotency replay",
+			"key", key,
+			"status", *rec.ResponseStatus,
+		)
+		w.Header().Set("Idempotency-Replayed", "true")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(*rec.ResponseStatus)
+		if len(rec.ResponseBody) > 0 {
+			_, _ = w.Write(rec.ResponseBody)
+		}
+		return false
+	}
+	return true
+}
+
+// completeAsync stores the captured response asynchronously to avoid blocking
+// the client. context.WithoutCancel ensures the goroutine isn't cancelled when
+// the request context is done (which happens as soon as ServeHTTP returns).
+// tenantID is passed explicitly so the UPDATE is scoped to the correct tenant
+// (composite PK: tenant_id, key).
+func completeAsync(ctx context.Context, repo idempotency.Repository, tenantID uuid.UUID, key string, crw *capturingResponseWriter) {
+	completeCtx := context.WithoutCancel(ctx)
+	go func() {
+		body := crw.body.Bytes()
+		if crw.redact {
+			body = []byte(redactedReplayBody)
+		}
+		if err := repo.Complete(completeCtx, tenantID, key, crw.statusCode, body); err != nil {
+			if !errors.Is(err, idempotency.ErrKeyMissing) {
+				slog.Error("idempotency complete failed", "key", key, "error", err)
+			}
+		}
+	}()
+}
+
+// BeginIdempotent applies the optional Idempotency-Key header inside a handler
+// that cannot sit behind Idempotency because that middleware buffers the whole
+// request body to hash it (multipart uploads). fingerprint stands in for the
+// body hash and must identify the logical request without reading the body.
+//
+// ok=false means a response was already written (replay, in-flight, conflict,
+// missing auth context) and the handler must return. Otherwise the handler
+// writes to the returned writer and calls done() once it has responded.
+// Without the header, or with a nil repo, it is a no-op: no deduplication.
+func BeginIdempotent(repo idempotency.Repository, w http.ResponseWriter, r *http.Request, fingerprint string) (rw http.ResponseWriter, done func(), ok bool) {
+	key := r.Header.Get("Idempotency-Key")
+	if key == "" || repo == nil {
+		return w, func() {}, true
+	}
+	tenantID, err := GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return w, nil, false
+	}
+	userID, err := uuid.Parse(GetUserID(r.Context()))
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing user context")
+		return w, nil, false
+	}
+	return beginIdempotent(repo, w, r, key, tenantID, userID, fingerprint)
+}
+
+// BeginIdempotentFor is BeginIdempotent for routes without a JWT (guest chat):
+// the caller supplies the tenant and the principal (e.g. the guest session ID)
+// instead of the auth context. The stored key is namespaced with principal, so
+// two principals of one tenant can reuse the same header value without
+// colliding on the (tenant_id, key) primary key. r's context must carry the
+// tenant (TenantIDKey) so the RLS-scoped store can be reached.
+func BeginIdempotentFor(repo idempotency.Repository, w http.ResponseWriter, r *http.Request, tenantID, principal uuid.UUID, fingerprint string) (rw http.ResponseWriter, done func(), ok bool) {
+	header := r.Header.Get("Idempotency-Key")
+	if header == "" || repo == nil {
+		return w, func() {}, true
+	}
+	return beginIdempotent(repo, w, r, principal.String()+":"+header, tenantID, principal, fingerprint)
+}
+
+func beginIdempotent(repo idempotency.Repository, w http.ResponseWriter, r *http.Request, key string, tenantID, userID uuid.UUID, fingerprint string) (http.ResponseWriter, func(), bool) {
+	hash := computeRequestHash(tenantID.String(), userID.String(), r.Method, r.URL.Path, []byte(fingerprint))
+	if !reserveOrReplay(w, r, repo, key, tenantID, userID, hash) {
+		return w, nil, false
+	}
+	crw := newCapturingResponseWriter(w)
+	return crw, func() { completeAsync(r.Context(), repo, tenantID, key, crw) }, true
 }
 
 // computeRequestHash returns a SHA-256 hex digest of the concatenated
@@ -202,18 +285,32 @@ type capturingResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
 	body       bytes.Buffer
+	redact     bool
 }
 
 func newCapturingResponseWriter(w http.ResponseWriter) *capturingResponseWriter {
 	return &capturingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 }
 
+// takeRedactMarker consumes the internal redact header so it never reaches the
+// client. Headers are frozen once WriteHeader ran, so it is checked there and on
+// the implicit header of the first Write.
+func (c *capturingResponseWriter) takeRedactMarker() {
+	h := c.Header()
+	if h.Get(RedactIdempotencyHeader) != "" {
+		c.redact = true
+		h.Del(RedactIdempotencyHeader)
+	}
+}
+
 func (c *capturingResponseWriter) WriteHeader(code int) {
 	c.statusCode = code
+	c.takeRedactMarker()
 	c.ResponseWriter.WriteHeader(code)
 }
 
 func (c *capturingResponseWriter) Write(b []byte) (int, error) {
+	c.takeRedactMarker()
 	c.body.Write(b)
 	return c.ResponseWriter.Write(b)
 }

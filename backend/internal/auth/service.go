@@ -137,14 +137,19 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.Lo
 		return nil, ErrInvalidCredentials
 	}
 
-	if !user.IsActive {
-		slog.Warn("login failed", "reason", "user_inactive", "user_id", user.ID, "email", user.Email)
-		return nil, ErrUserInactive
-	}
-
+	// The password is compared BEFORE the active check, so a deactivated account
+	// costs the same bcrypt round as a wrong password and a wrong password on it
+	// reads as ErrInvalidCredentials like everywhere else. ErrUserInactive only
+	// surfaces for the right password; the gRPC Login handler folds it into the
+	// same answer as ErrInvalidCredentials, the log keeps the reason.
 	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); compareErr != nil {
 		slog.Warn("login failed", "reason", "password_mismatch", "user_id", user.ID, "email", user.Email)
 		return nil, ErrInvalidCredentials
+	}
+
+	if !user.IsActive {
+		slog.Warn("login failed", "reason", "user_inactive", "user_id", user.ID, "email", user.Email)
+		return nil, ErrUserInactive
 	}
 
 	// If 2FA is enabled, issue a pending token instead of full tokens
@@ -700,6 +705,14 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 		return nil
 	}
 
+	// Only the newest link may work: an older mail (shared mailbox, forwarded
+	// message) must not stay a way into the account. On failure nothing is
+	// created, a new link next to a live old one would keep the hole open.
+	if err := s.repo.InvalidateOpenPasswordResetTokens(sysCtx, user.TenantID, user.ID); err != nil {
+		slog.Error("failed to invalidate previous password reset tokens", "user_id", user.ID, "error", err)
+		return nil
+	}
+
 	plain := generateSecureToken()
 	hash := HashToken(plain)
 
@@ -740,7 +753,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 }
 
 // ResetPassword validates the reset token, checks password strength, updates
-// the password, marks the token as used, and revokes all refresh tokens.
+// the password, spends the token and revokes all refresh tokens atomically.
 func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) error {
 	// Pre-JWT path: no tenant in ctx.
 	sysCtx := sysctx.With(ctx)
@@ -776,18 +789,13 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	if err := s.repo.UpdatePassword(sysCtx, prt.UserID, string(pwHash)); err != nil {
-		return fmt.Errorf("update password: %w", err)
-	}
-
-	// Mark token as consumed (idempotent on double-call).
-	if err := s.repo.MarkPasswordResetTokenUsed(sysCtx, prt.ID); err != nil {
-		slog.Error("failed to mark reset token used", "token_id", prt.ID, "error", err)
-	}
-
-	// Revoke all active refresh tokens so old sessions are invalidated.
-	if err := s.repo.RevokeAllUserTokens(sysCtx, prt.UserID); err != nil {
-		slog.Error("failed to revoke tokens after password reset", "user_id", prt.UserID, "error", err)
+	// Spend the token, set the password and revoke the old sessions in one
+	// transaction: the token is single-use even under concurrent requests.
+	if err := s.repo.ResetPasswordWithToken(sysCtx, prt.ID, prt.TenantID, prt.UserID, string(pwHash)); err != nil {
+		if errors.Is(err, ErrResetTokenUsed) || errors.Is(err, ErrResetTokenExpired) || errors.Is(err, ErrResetTokenInvalid) {
+			return err
+		}
+		return fmt.Errorf("reset password: %w", err)
 	}
 
 	slog.Info("password reset completed", "user_id", prt.UserID)

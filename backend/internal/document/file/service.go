@@ -222,8 +222,12 @@ type CreateShareLinkInput struct {
 // it a caller could name any UUID and get back a working public link to
 // another tenant's file.
 func (s *Service) CreateShareLink(ctx context.Context, in CreateShareLinkInput) (*models.DocumentShareLink, error) {
-	if _, err := s.repo.GetByID(ctx, in.FileID, in.TenantID); err != nil {
+	f, err := s.repo.GetByID(ctx, in.FileID, in.TenantID)
+	if err != nil {
 		return nil, err
+	}
+	if f.IsDeleted {
+		return nil, ErrFileDeleted
 	}
 
 	now := time.Now()
@@ -357,9 +361,11 @@ func (s *Service) RedeemShareLink(ctx context.Context, token, password string) (
 
 	tenantCtx := withShareLinkTenant(ctx, link.TenantID)
 	f, err := s.repo.GetByID(tenantCtx, link.FileID, link.TenantID)
-	if err != nil {
-		// A link whose file is gone or soft-deleted is a dead link, not a
-		// server fault.
+	// GetByID does not filter soft-deleted rows, and Delete keeps the object in
+	// MinIO for recovery: without the IsDeleted check a deleted file would stay
+	// publicly downloadable. A link whose file is gone or soft-deleted is a dead
+	// link, not a server fault.
+	if err != nil || f.IsDeleted {
 		return nil, ErrShareLinkInvalid
 	}
 

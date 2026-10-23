@@ -117,8 +117,8 @@ func TestHandler_CheckFileInfo(t *testing.T) {
 		if info["UserCanWrite"] != true {
 			t.Errorf("UserCanWrite = %v, want true", info["UserCanWrite"])
 		}
-		if rec.Header().Get("X-WOPI-ServerVersion") != WOPIServerVersion {
-			t.Errorf("X-WOPI-ServerVersion = %q, want %q", rec.Header().Get("X-WOPI-ServerVersion"), WOPIServerVersion)
+		if rec.Header().Get("X-WOPI-ServerVersion") != "cosmi-wopi/1.0" {
+			t.Errorf("X-WOPI-ServerVersion = %q, want %q", rec.Header().Get("X-WOPI-ServerVersion"), "cosmi-wopi/1.0")
 		}
 	})
 

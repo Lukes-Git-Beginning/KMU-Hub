@@ -92,7 +92,7 @@ func (h *WebhookHandler) handleInvoke(ctx context.Context, incoming *IncomingAct
 		slog.Info("teams webhook: unlinked user attempted action",
 			"external_user_id", incoming.ExternalUserID,
 		)
-		return invokeMessage("Bitte verknuepfen Sie Ihr Konto mit dem Befehl: /kmuhub link")
+		return invokeMessage("Bitte verknüpfen Sie Ihr Konto mit dem Befehl: /kmuhub link")
 	}
 
 	// Only acknowledge has an effect in Cosmi today; approve, reject and reply
@@ -103,7 +103,7 @@ func (h *WebhookHandler) handleInvoke(ctx context.Context, incoming *IncomingAct
 			"notification_id", incoming.NotificationID,
 			"user_id", link.KMUHubUserID,
 		)
-		return invokeMessage("Diese Aktion wird von Cosmi noch nicht ausgefuehrt. Bitte erledigen Sie sie in Cosmi.")
+		return invokeMessage("Diese Aktion wird von Cosmi noch nicht ausgeführt. Bitte erledigen Sie sie in Cosmi.")
 	}
 
 	if err := h.acknowledge(ctx, tenantID, link, incoming.NotificationID); err != nil {
@@ -123,7 +123,7 @@ func (h *WebhookHandler) handleMessage(ctx context.Context, incoming *IncomingAc
 	text := incoming.Activity.Text
 
 	if text != "/kmuhub link" && text != "link" {
-		return textMessage("Verfuegbare Befehle:\n- `/kmuhub link` - Konto verknuepfen\n")
+		return textMessage("Verfügbare Befehle:\n- `/kmuhub link` - Konto verknüpfen\n")
 	}
 
 	ctx, _, err := h.tenantContext(ctx, incoming)
@@ -134,11 +134,11 @@ func (h *WebhookHandler) handleMessage(ctx context.Context, incoming *IncomingAc
 	token, err := h.linkService.GenerateLinkToken(ctx, integration.PlatformTeams, incoming.ExternalUserID)
 	if err != nil {
 		slog.Error("teams webhook: failed to generate link token", "error", err)
-		return textMessage("Fehler beim Erstellen des Verknuepfungstokens. Bitte versuchen Sie es erneut.")
+		return textMessage("Fehler beim Erstellen des Verknüpfungstokens. Bitte versuchen Sie es erneut.")
 	}
 
-	return textMessage("Ihr Verknuepfungstoken (gueltig fuer 5 Minuten):\n\n`" + token +
-		"`\n\nBitte fuegen Sie diesen Token in KMU Hub unter Einstellungen > Integrationen > Konto verknuepfen ein.")
+	return textMessage("Ihr Verknüpfungstoken (gültig für 5 Minuten):\n\n`" + token +
+		"`\n\nBitte fügen Sie diesen Token in Cosmi unter Einstellungen > Integrationen > Konto verknüpfen ein.")
 }
 
 // tenantContext resolves the Teams organisation to a Cosmi tenant and attaches

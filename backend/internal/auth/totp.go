@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	totpIssuer         = "KMU Hub"
+	totpIssuer         = "Cosmi"
 	totpDigits         = otp.DigitsSix
 	totpAlgorithm      = otp.AlgorithmSHA1
 	totpPeriod         = 30

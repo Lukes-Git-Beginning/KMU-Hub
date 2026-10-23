@@ -155,9 +155,7 @@ func TestGetNextAnonymizedLabel_IncrementsPerCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetNextAnonymizedLabel (1st): %v", err)
 	}
-	if label1 != "Geloeschter Benutzer #1" {
-		t.Fatalf("GetNextAnonymizedLabel (1st): got %q, want %q", label1, "Geloeschter Benutzer #1")
-	}
+	n1 := labelNumber(t, label1)
 
 	entry1 := &models.GDPRErasureLog{
 		ID:               uuid.New(),
@@ -177,105 +175,72 @@ func TestGetNextAnonymizedLabel_IncrementsPerCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetNextAnonymizedLabel (2nd): %v", err)
 	}
-	if label2 != "Geloeschter Benutzer #2" {
-		t.Fatalf("GetNextAnonymizedLabel (2nd): got %q, want %q", label2, "Geloeschter Benutzer #2")
-	}
-	if label1 == label2 {
-		t.Fatalf("expected distinct labels across calls, got %q both times", label1)
+	// The sequence is shared with parallel tests and never rewinds, so only the
+	// ordering is stable, not the absolute value.
+	if n2 := labelNumber(t, label2); n2 <= n1 {
+		t.Fatalf("expected the label number to increase across calls, got %q then %q", label1, label2)
 	}
 }
 
-// TestGetNextAnonymizedLabel_ConcurrentCallersCollide is the counter-race
-// scope question from cov-security-gdpr-remaining-paths: "what happens on two
-// simultaneous anonymizations?" GetNextAnonymizedLabel (postgres_repository.go:
-// 197) is a bare `SELECT COUNT(*) FROM gdpr_erasure_log` with no lock and no
-// sequence behind it -- two callers that both read before either writes get
-// the identical "next" number.
-//
-// The repo method itself always goes through the pool (one query, one
-// implicit connection), so it cannot be driven from inside a caller-held
-// transaction. This reproduces its exact query on two explicitly held
-// REPEATABLE READ transactions instead -- the "hold a second connection"
-// shape every per-resource race test in this package uses, here proving the
-// collision deterministically rather than via goroutine timing: each
-// transaction's snapshot is pinned at its first statement, so as long as
-// neither has committed an INSERT yet (true here -- both read before either
-// writes), they are guaranteed to observe the identical count regardless of
-// unrelated activity elsewhere in the shared table.
-func TestGetNextAnonymizedLabel_ConcurrentCallersCollide(t *testing.T) {
+// labelNumber extracts N from "Geloeschter Benutzer #N".
+func labelNumber(t *testing.T, label string) int64 {
+	t.Helper()
+	var n int64
+	if _, err := fmt.Sscanf(label, "Geloeschter Benutzer #%d", &n); err != nil {
+		t.Fatalf("label %q does not match the expected format: %v", label, err)
+	}
+	return n
+}
+
+// TestGetNextAnonymizedLabel_ConcurrentCallersGetDistinctLabels covers the
+// counter race from cov-security-gdpr-remaining-paths: the former
+// `SELECT COUNT(*)+1` gave two callers that both read before either wrote the
+// identical label. Two held REPEATABLE READ transactions pin the same snapshot
+// at their first statement, so a count-based label would collide
+// deterministically here; a sequence draw does not, because nextval is never
+// rolled back or snapshot-isolated. The repo method itself is then called twice
+// with no insert in between -- the other shape of the same race.
+func TestGetNextAnonymizedLabel_ConcurrentCallersGetDistinctLabels(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
 	pool := testutil.PoolFromEnv(t)
 	defer pool.Close()
 
-	tenant := uuid.New()
-	testutil.EnsureTenant(t, pool, tenant, "GDPR Label Race Tenant")
-	defer testutil.CleanupRow(t, pool, "tenants", tenant)
-
-	userA := seedErasureLogUser(t, pool, tenant)
-	defer testutil.CleanupRow(t, pool, "users", userA)
-	userB := seedErasureLogUser(t, pool, tenant)
-	defer testutil.CleanupRow(t, pool, "users", userB)
-
-	ctx := testutil.WithTenantCtx(context.Background(), tenant)
+	ctx := context.Background()
+	repo := NewPostgresRepository(pool)
 
 	txA, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		t.Fatalf("begin txA: %v", err)
 	}
 	defer func() { _ = txA.Rollback(ctx) }()
-	var countA int
-	if err := txA.QueryRow(ctx, `SELECT COUNT(*) FROM gdpr_erasure_log`).Scan(&countA); err != nil {
-		t.Fatalf("txA count: %v", err)
-	}
-
 	txB, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		t.Fatalf("begin txB: %v", err)
 	}
 	defer func() { _ = txB.Rollback(ctx) }()
-	var countB int
-	if err := txB.QueryRow(ctx, `SELECT COUNT(*) FROM gdpr_erasure_log`).Scan(&countB); err != nil {
-		t.Fatalf("txB count: %v", err)
+
+	var nA, nB int64
+	if err := txA.QueryRow(ctx, `SELECT nextval('gdpr_anonymized_label_seq')`).Scan(&nA); err != nil {
+		t.Fatalf("txA nextval: %v", err)
+	}
+	if err := txB.QueryRow(ctx, `SELECT nextval('gdpr_anonymized_label_seq')`).Scan(&nB); err != nil {
+		t.Fatalf("txB nextval: %v", err)
+	}
+	if nA == nB {
+		t.Fatalf("two open transactions drew the same sequence value %d", nA)
 	}
 
-	if countA != countB {
-		t.Fatalf("txA and txB must observe the identical count (got %d vs %d) -- "+
-			"that identical read is exactly the race window GetNextAnonymizedLabel has no lock against",
-			countA, countB)
+	label1, err := repo.GetNextAnonymizedLabel(ctx)
+	if err != nil {
+		t.Fatalf("GetNextAnonymizedLabel (1st): %v", err)
 	}
-
-	labelA := fmt.Sprintf("Geloeschter Benutzer #%d", countA+1)
-	labelB := fmt.Sprintf("Geloeschter Benutzer #%d", countB+1)
-
-	idA := uuid.New()
-	if _, err := txA.Exec(ctx,
-		`INSERT INTO gdpr_erasure_log (id, tenant_id, original_user_id, anonymized_label, executed_by, executed_at, modules_affected, confirmation_hash)
-		 VALUES ($1, $2, $3, $4, $3, now(), '{}', 'race-a')`,
-		idA, tenant, userA, labelA); err != nil {
-		t.Fatalf("txA insert: %v", err)
+	label2, err := repo.GetNextAnonymizedLabel(ctx)
+	if err != nil {
+		t.Fatalf("GetNextAnonymizedLabel (2nd): %v", err)
 	}
-	if err := txA.Commit(ctx); err != nil {
-		t.Fatalf("txA commit: %v", err)
-	}
-	defer testutil.CleanupRow(t, pool, "gdpr_erasure_log", idA)
-
-	idB := uuid.New()
-	if _, err := txB.Exec(ctx,
-		`INSERT INTO gdpr_erasure_log (id, tenant_id, original_user_id, anonymized_label, executed_by, executed_at, modules_affected, confirmation_hash)
-		 VALUES ($1, $2, $3, $4, $3, now(), '{}', 'race-b')`,
-		idB, tenant, userB, labelB); err != nil {
-		t.Fatalf("txB insert: %v", err)
-	}
-	if err := txB.Commit(ctx); err != nil {
-		t.Fatalf("txB commit: %v", err)
-	}
-	defer testutil.CleanupRow(t, pool, "gdpr_erasure_log", idB)
-
-	if labelA != labelB {
-		t.Fatalf("expected the race to produce IDENTICAL labels, got %q and %q -- "+
-			"if this fails, GetNextAnonymizedLabel gained a lock and this test (and its filed follow-up unit) is obsolete",
-			labelA, labelB)
+	if label1 == label2 {
+		t.Fatalf("two calls with no insert in between returned the identical label %q", label1)
 	}
 }

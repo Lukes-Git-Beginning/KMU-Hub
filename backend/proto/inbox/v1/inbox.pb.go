@@ -620,7 +620,7 @@ type RoutingRuleInfo struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Channel       *Channel               `protobuf:"varint,3,opt,name=channel,proto3,enum=inbox.v1.Channel,oneof" json:"channel,omitempty"`
 	Conditions    *structpb.Struct       `protobuf:"bytes,4,opt,name=conditions,proto3" json:"conditions,omitempty"`
-	Actions       *structpb.Struct       `protobuf:"bytes,5,opt,name=actions,proto3" json:"actions,omitempty"`
+	Actions       *structpb.ListValue    `protobuf:"bytes,5,opt,name=actions,proto3" json:"actions,omitempty"`
 	Priority      int32                  `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
 	IsActive      bool                   `protobuf:"varint,7,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
 	CreatedBy     string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
@@ -688,7 +688,7 @@ func (x *RoutingRuleInfo) GetConditions() *structpb.Struct {
 	return nil
 }
 
-func (x *RoutingRuleInfo) GetActions() *structpb.Struct {
+func (x *RoutingRuleInfo) GetActions() *structpb.ListValue {
 	if x != nil {
 		return x.Actions
 	}
@@ -4025,7 +4025,7 @@ type CreateRoutingRuleRequest struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Channel       *Channel               `protobuf:"varint,3,opt,name=channel,proto3,enum=inbox.v1.Channel,oneof" json:"channel,omitempty"`
 	Conditions    *structpb.Struct       `protobuf:"bytes,4,opt,name=conditions,proto3" json:"conditions,omitempty"`
-	Actions       *structpb.Struct       `protobuf:"bytes,5,opt,name=actions,proto3" json:"actions,omitempty"`
+	Actions       *structpb.ListValue    `protobuf:"bytes,5,opt,name=actions,proto3" json:"actions,omitempty"`
 	Priority      int32                  `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4089,7 +4089,7 @@ func (x *CreateRoutingRuleRequest) GetConditions() *structpb.Struct {
 	return nil
 }
 
-func (x *CreateRoutingRuleRequest) GetActions() *structpb.Struct {
+func (x *CreateRoutingRuleRequest) GetActions() *structpb.ListValue {
 	if x != nil {
 		return x.Actions
 	}
@@ -4154,7 +4154,7 @@ type UpdateRoutingRuleRequest struct {
 	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Channel       *Channel               `protobuf:"varint,4,opt,name=channel,proto3,enum=inbox.v1.Channel,oneof" json:"channel,omitempty"`
 	Conditions    *structpb.Struct       `protobuf:"bytes,5,opt,name=conditions,proto3,oneof" json:"conditions,omitempty"`
-	Actions       *structpb.Struct       `protobuf:"bytes,6,opt,name=actions,proto3,oneof" json:"actions,omitempty"`
+	Actions       *structpb.ListValue    `protobuf:"bytes,6,opt,name=actions,proto3,oneof" json:"actions,omitempty"`
 	Priority      *int32                 `protobuf:"varint,7,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
 	IsActive      *bool                  `protobuf:"varint,8,opt,name=is_active,json=isActive,proto3,oneof" json:"is_active,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -4226,7 +4226,7 @@ func (x *UpdateRoutingRuleRequest) GetConditions() *structpb.Struct {
 	return nil
 }
 
-func (x *UpdateRoutingRuleRequest) GetActions() *structpb.Struct {
+func (x *UpdateRoutingRuleRequest) GetActions() *structpb.ListValue {
 	if x != nil {
 		return x.Actions
 	}
@@ -4650,15 +4650,15 @@ const file_proto_inbox_v1_inbox_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12,\n" +
 	"\x04role\x18\x03 \x01(\x0e2\x18.inbox.v1.TeamMemberRoleR\x04role\x129\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xad\x03\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xb0\x03\n" +
 	"\x0fRoutingRuleInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x120\n" +
 	"\achannel\x18\x03 \x01(\x0e2\x11.inbox.v1.ChannelH\x00R\achannel\x88\x01\x01\x127\n" +
 	"\n" +
 	"conditions\x18\x04 \x01(\v2\x17.google.protobuf.StructR\n" +
-	"conditions\x121\n" +
-	"\aactions\x18\x05 \x01(\v2\x17.google.protobuf.StructR\aactions\x12\x1a\n" +
+	"conditions\x124\n" +
+	"\aactions\x18\x05 \x01(\v2\x1a.google.protobuf.ListValueR\aactions\x12\x1a\n" +
 	"\bpriority\x18\x06 \x01(\x05R\bpriority\x12\x1b\n" +
 	"\tis_active\x18\a \x01(\bR\bisActive\x12\x1d\n" +
 	"\n" +
@@ -4913,20 +4913,20 @@ const file_proto_inbox_v1_inbox_proto_rawDesc = "" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"L\n" +
 	"\x14ClaimMessageResponse\x124\n" +
-	"\amessage\x18\x01 \x01(\v2\x1a.inbox.v1.InboxMessageInfoR\amessage\"\x8d\x02\n" +
+	"\amessage\x18\x01 \x01(\v2\x1a.inbox.v1.InboxMessageInfoR\amessage\"\x90\x02\n" +
 	"\x18CreateRoutingRuleRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x120\n" +
 	"\achannel\x18\x03 \x01(\x0e2\x11.inbox.v1.ChannelH\x00R\achannel\x88\x01\x01\x127\n" +
 	"\n" +
 	"conditions\x18\x04 \x01(\v2\x17.google.protobuf.StructR\n" +
-	"conditions\x121\n" +
-	"\aactions\x18\x05 \x01(\v2\x17.google.protobuf.StructR\aactions\x12\x1a\n" +
+	"conditions\x124\n" +
+	"\aactions\x18\x05 \x01(\v2\x1a.google.protobuf.ListValueR\aactions\x12\x1a\n" +
 	"\bpriority\x18\x06 \x01(\x05R\bpriorityB\n" +
 	"\n" +
 	"\b_channel\"J\n" +
 	"\x19CreateRoutingRuleResponse\x12-\n" +
-	"\x04rule\x18\x01 \x01(\v2\x19.inbox.v1.RoutingRuleInfoR\x04rule\"\x9b\x03\n" +
+	"\x04rule\x18\x01 \x01(\v2\x19.inbox.v1.RoutingRuleInfoR\x04rule\"\x9e\x03\n" +
 	"\x18UpdateRoutingRuleRequest\x12\x17\n" +
 	"\arule_id\x18\x01 \x01(\tR\x06ruleId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x17\n" +
@@ -4934,8 +4934,8 @@ const file_proto_inbox_v1_inbox_proto_rawDesc = "" +
 	"\achannel\x18\x04 \x01(\x0e2\x11.inbox.v1.ChannelH\x01R\achannel\x88\x01\x01\x12<\n" +
 	"\n" +
 	"conditions\x18\x05 \x01(\v2\x17.google.protobuf.StructH\x02R\n" +
-	"conditions\x88\x01\x01\x126\n" +
-	"\aactions\x18\x06 \x01(\v2\x17.google.protobuf.StructH\x03R\aactions\x88\x01\x01\x12\x1f\n" +
+	"conditions\x88\x01\x01\x129\n" +
+	"\aactions\x18\x06 \x01(\v2\x1a.google.protobuf.ListValueH\x03R\aactions\x88\x01\x01\x12\x1f\n" +
 	"\bpriority\x18\a \x01(\x05H\x04R\bpriority\x88\x01\x01\x12 \n" +
 	"\tis_active\x18\b \x01(\bH\x05R\bisActive\x88\x01\x01B\a\n" +
 	"\x05_nameB\n" +
@@ -5128,6 +5128,7 @@ var file_proto_inbox_v1_inbox_proto_goTypes = []any{
 	(*TestRoutingRuleResponse)(nil),      // 80: inbox.v1.TestRoutingRuleResponse
 	(*timestamppb.Timestamp)(nil),        // 81: google.protobuf.Timestamp
 	(*structpb.Struct)(nil),              // 82: google.protobuf.Struct
+	(*structpb.ListValue)(nil),           // 83: google.protobuf.ListValue
 }
 var file_proto_inbox_v1_inbox_proto_depIdxs = []int32{
 	0,  // 0: inbox.v1.InboxMessageInfo.channel:type_name -> inbox.v1.Channel
@@ -5144,7 +5145,7 @@ var file_proto_inbox_v1_inbox_proto_depIdxs = []int32{
 	81, // 11: inbox.v1.TeamMemberInfo.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 12: inbox.v1.RoutingRuleInfo.channel:type_name -> inbox.v1.Channel
 	82, // 13: inbox.v1.RoutingRuleInfo.conditions:type_name -> google.protobuf.Struct
-	82, // 14: inbox.v1.RoutingRuleInfo.actions:type_name -> google.protobuf.Struct
+	83, // 14: inbox.v1.RoutingRuleInfo.actions:type_name -> google.protobuf.ListValue
 	81, // 15: inbox.v1.RoutingRuleInfo.created_at:type_name -> google.protobuf.Timestamp
 	81, // 16: inbox.v1.RoutingRuleInfo.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 17: inbox.v1.UnreadCountByChannel.channel:type_name -> inbox.v1.Channel
@@ -5182,11 +5183,11 @@ var file_proto_inbox_v1_inbox_proto_depIdxs = []int32{
 	4,  // 49: inbox.v1.ClaimMessageResponse.message:type_name -> inbox.v1.InboxMessageInfo
 	0,  // 50: inbox.v1.CreateRoutingRuleRequest.channel:type_name -> inbox.v1.Channel
 	82, // 51: inbox.v1.CreateRoutingRuleRequest.conditions:type_name -> google.protobuf.Struct
-	82, // 52: inbox.v1.CreateRoutingRuleRequest.actions:type_name -> google.protobuf.Struct
+	83, // 52: inbox.v1.CreateRoutingRuleRequest.actions:type_name -> google.protobuf.ListValue
 	7,  // 53: inbox.v1.CreateRoutingRuleResponse.rule:type_name -> inbox.v1.RoutingRuleInfo
 	0,  // 54: inbox.v1.UpdateRoutingRuleRequest.channel:type_name -> inbox.v1.Channel
 	82, // 55: inbox.v1.UpdateRoutingRuleRequest.conditions:type_name -> google.protobuf.Struct
-	82, // 56: inbox.v1.UpdateRoutingRuleRequest.actions:type_name -> google.protobuf.Struct
+	83, // 56: inbox.v1.UpdateRoutingRuleRequest.actions:type_name -> google.protobuf.ListValue
 	7,  // 57: inbox.v1.UpdateRoutingRuleResponse.rule:type_name -> inbox.v1.RoutingRuleInfo
 	0,  // 58: inbox.v1.ListRoutingRulesRequest.channel:type_name -> inbox.v1.Channel
 	7,  // 59: inbox.v1.ListRoutingRulesResponse.rules:type_name -> inbox.v1.RoutingRuleInfo

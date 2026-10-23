@@ -399,15 +399,10 @@ func TestLocationLifecycle_UpdateSoftDeleteAndList(t *testing.T) {
 	}
 }
 
-// TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID
-// documents the actual referential-integrity behaviour of SoftDeleteLocation
-// (Service.DeleteLocation calls it directly, with no reference check first):
-// the inventory_items.location_id FK carries ON DELETE SET NULL
-// (migrations/000184_inventory_locations.up.sql), but that clause only fires
-// on a hard DELETE. SoftDeleteLocation only sets deleted_at, so a hard DELETE
-// never happens and the FK action never runs — an item's location_id keeps
-// pointing at a location that GetLocation/ListLocations now treat as gone.
-func TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID(t *testing.T) {
+// TestSoftDeleteLocation_ClearsLocationIDOnReferencingItems pins the soft-delete
+// replacement for the FK's ON DELETE SET NULL (migrations/000184): deleting a
+// location nulls location_id on its items and leaves items on other locations alone.
+func TestSoftDeleteLocation_ClearsLocationIDOnReferencingItems(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupRepo(t)
 
@@ -432,8 +427,25 @@ func TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID(t *t
 	}
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "inventory_items", item.ID) })
 
-	// SoftDeleteLocation succeeds unconditionally -- no check against items
-	// still referencing this location.
+	keep := &InventoryLocation{
+		ID: uuid.New(), TenantID: tenantID, Name: "Lager bleibt", Address: "Weg 3",
+		Type: LocationTypeWarehouse, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateLocation(ctx, keep); err != nil {
+		t.Fatalf("CreateLocation keep: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "inventory_locations", keep.ID) })
+	otherItem := &Item{
+		ID: uuid.New(), TenantID: tenantID,
+		Name: "Anderes Lager", SKU: "SKU-" + uuid.New().String()[:8],
+		Quantity: 1, Unit: "Stk", LocationID: &keep.ID,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateItem(ctx, otherItem); err != nil {
+		t.Fatalf("seed other item: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "inventory_items", otherItem.ID) })
+
 	if err := repo.SoftDeleteLocation(ctx, tenantID, loc.ID); err != nil {
 		t.Fatalf("SoftDeleteLocation: %v", err)
 	}
@@ -441,14 +453,19 @@ func TestSoftDeleteLocation_ItemStillReferencingIt_LeavesDanglingLocationID(t *t
 		t.Fatalf("expected ErrLocationNotFound for the now-deleted location, got %v", err)
 	}
 
-	// The item is untouched: location_id still points at the deleted location
-	// instead of being nulled out, because ON DELETE SET NULL never fired.
 	reloaded, err := repo.GetItem(ctx, tenantID, item.ID)
 	if err != nil {
 		t.Fatalf("GetItem: %v", err)
 	}
-	if reloaded.LocationID == nil || *reloaded.LocationID != loc.ID {
-		t.Fatalf("expected item.location_id to still be the deleted location %s (dangling reference), got %v", loc.ID, reloaded.LocationID)
+	if reloaded.LocationID != nil {
+		t.Fatalf("expected item.location_id to be cleared, still %s", *reloaded.LocationID)
+	}
+	other, err := repo.GetItem(ctx, tenantID, otherItem.ID)
+	if err != nil {
+		t.Fatalf("GetItem other: %v", err)
+	}
+	if other.LocationID == nil || *other.LocationID != keep.ID {
+		t.Fatalf("item on a different location must keep its location_id, got %v", other.LocationID)
 	}
 }
 
@@ -507,6 +524,49 @@ func TestInventurSessionLifecycle_UpdateGetListAndDelete(t *testing.T) {
 	}
 	if err := repo.DeleteInventurSession(ctx, tenantID, session.ID); !errors.Is(err, ErrInventurSessionNotFound) {
 		t.Fatalf("expected ErrInventurSessionNotFound on double delete, got %v", err)
+	}
+}
+
+// TestDeleteInventurSession_CompletedSessionIsRefusedAtomically drives the
+// repository directly, past the service's status check: the DELETE itself must
+// leave a completed session (and its counts) in place and say why.
+func TestDeleteInventurSession_CompletedSessionIsRefusedAtomically(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupRepo(t)
+
+	item := newTestItem(t, repo, ctx, pool, tenantID, "Stichsäge", "SKU-INV-DEL-1", 10, 1)
+
+	now := time.Now().UTC()
+	session := &InventurSession{
+		ID: uuid.New(), TenantID: tenantID, Name: "Abgeschlossene Inventur", Date: now,
+		Status: InventurStatusCompleted, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateInventurSession(ctx, session); err != nil {
+		t.Fatalf("CreateInventurSession: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "inventur_sessions", session.ID) })
+	counted := int64(9)
+	if err := repo.UpsertInventurCount(ctx, &InventurCount{
+		ID: uuid.New(), TenantID: tenantID, SessionID: session.ID, ItemID: item.ID,
+		Expected: 10, Counted: &counted, CountedAt: &now,
+	}); err != nil {
+		t.Fatalf("UpsertInventurCount: %v", err)
+	}
+
+	if err := repo.DeleteInventurSession(ctx, tenantID, session.ID); !errors.Is(err, ErrInventurAlreadyCompleted) {
+		t.Fatalf("expected ErrInventurAlreadyCompleted, got %v", err)
+	}
+	reloaded, err := repo.GetInventurSession(ctx, tenantID, session.ID)
+	if err != nil {
+		t.Fatalf("completed session must survive the refused delete: %v", err)
+	}
+	if len(reloaded.Counts) != 1 {
+		t.Fatalf("expected the count to survive, got %d", len(reloaded.Counts))
+	}
+
+	// A foreign tenant neither deletes it nor learns that it exists.
+	if err := repo.DeleteInventurSession(ctx, uuid.New(), session.ID); !errors.Is(err, ErrInventurSessionNotFound) {
+		t.Fatalf("expected ErrInventurSessionNotFound for a foreign tenant, got %v", err)
 	}
 }
 

@@ -10,6 +10,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// icalProductID is the PRODID written into every served .ics file.
+const icalProductID = "-//Cosmi//CalDAV//DE"
+
 // CalEventInput represents parsed iCalendar event data for creating/updating events.
 // This is an intermediate type -- the caller maps it to gRPC create/update requests.
 type CalEventInput struct {
@@ -36,7 +39,7 @@ type CalExceptionInput struct {
 func EventToICal(event *models.CalendarEvent, exceptions []models.EventException, attendees []models.EventAttendee) (*ical.Calendar, error) {
 	cal := ical.NewCalendar()
 	cal.Props.SetText(ical.PropVersion, "2.0")
-	cal.Props.SetText(ical.PropProductID, "-//KMU Hub//CalDAV//DE")
+	cal.Props.SetText(ical.PropProductID, icalProductID)
 
 	// Collect unique timezones and add VTIMEZONE components
 	timezones := make(map[string]bool)

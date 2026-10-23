@@ -19,6 +19,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
+	"github.com/kmuhub/kmuhub/internal/safego"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
@@ -230,7 +231,7 @@ func (s *Service) TriggerWebhook(ctx context.Context, automationID uuid.UUID, ra
 	// gets a fast ack, the action chain runs in the background under its own
 	// timeout so a slow/hanging action can't hold the HTTP connection open.
 	execCtx, cancel := context.WithTimeout(context.WithoutCancel(sysCtx), webhookExecutionTimeout)
-	go func() {
+	safego.Go("automation execute (webhook)", func() {
 		defer cancel()
 		if execErr := s.executor.Execute(execCtx, *auto, evt); execErr != nil {
 			slog.Error("webhook-triggered automation execution failed",
@@ -238,7 +239,7 @@ func (s *Service) TriggerWebhook(ctx context.Context, automationID uuid.UUID, ra
 				"error", execErr,
 			)
 		}
-	}()
+	})
 
 	if compErr := s.idempotencyRepo.Complete(sysCtx, auto.TenantID, dedupeKey, http.StatusAccepted, []byte(`{"accepted":true}`)); compErr != nil {
 		slog.Warn("failed to complete webhook idempotency record", "automation_id", auto.ID, "error", compErr)

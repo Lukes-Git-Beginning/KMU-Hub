@@ -387,7 +387,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Verifizierter Produktionsbug, in Iteration 19 durch einen Test reproduziert
       (`TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService`). `/api/v1/ws` ist
@@ -444,7 +444,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `fix-websocket-presence-subscribe-missing-tenant-check` (Iteration 2, Lauf 13):
@@ -515,7 +515,7 @@ units:
     service: calendar
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Produktionsfehler, kein Coverage-Ziel)"
     scope: >
       Fund aus fix-generatejointoken-missing-event-tenant-check (Iteration 6), am Code
@@ -572,7 +572,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix)"
     scope: >
       Postgres-Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), gegen die lokale
@@ -632,7 +632,7 @@ units:
     service: work
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix)"
     scope: >
       Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), am Code verifiziert.
@@ -691,7 +691,7 @@ units:
     service: dialer
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Sicherheits-Fix)"
     scope: >
       Zweiter Redis-Befund aus `scan-tenant-filter-on-read-paths` (Iteration 7), am Code
@@ -742,12 +742,58 @@ units:
       - Ein Eintrag ohne verwertbaren Tenant ist nicht sichtbar (fail-closed, per Test)
       - go test -count=1 ./internal/dialer/ ./internal/server/ ./internal/gateway/ gruen
 
+  - id: fix-dialer-set-agent-status-foreign-user-overwrite
+    phase: 4
+    service: dialer
+    model: opus
+    deps: []
+    status: done
+    coverage_start: "n.a. (Sicherheits-Fix)"
+    scope: >
+      VERIFIZIERTER Cross-Tenant-WRITE (Lauf 14, Iteration 6, beim Bauen von
+      `fix-dialer-agent-status-missing-tenant-check` per Wegwerf-Test reproduziert):
+      `PUT /api/v1/dialer/agent-status` nimmt `user_id` aus dem Body
+      (route_dialer.go, `setAgentStatusRequest.UserID`), `DialerGRPCServer.SetAgentStatus`
+      prueft nur, dass die UUID parsebar ist, und `AgentStatusStore.SetStatus`
+      (redis_agent_store.go) schreibt `dialer:agent:status:<userID>` mit dem Tenant des
+      AUFRUFERS ueber den bestehenden Eintrag. Probe: Tenant B setzt Agent X auf
+      available, Tenant A setzt danach X auf break -> kein Fehler, und Tenant B sieht X seit
+      dem Lese-Fix als offline (der Eintrag traegt jetzt Tenant A). Zusaetzlich landet X im
+      Kampagnen-SET einer beliebigen `campaign_id`, die ebenfalls nicht tenant-geprueft
+      wird. Wer eine fremde User-UUID kennt (Rolle mit `dialer:agent:manage`), kann so den
+      Live-Status fremder Agenten manipulieren und deren Eintrag fuer den eigenen Tenant
+      unsichtbar machen.
+      Zu tun -- vor dem Schreiben pruefen, dass der Ziel-User im Tenant des Aufrufers liegt
+      (fail-closed), und eine uebergebene `campaign_id` tenant-gescopt laden.
+    sources:
+      - backend/internal/gateway/route_dialer.go
+      - backend/internal/server/dialer_grpc.go
+      - backend/internal/dialer/service.go
+      - backend/internal/dialer/redis_agent_store.go
+      - backend/internal/dialer/postgres_repository.go
+    notes: >
+      Der Lesepfad ist seit Iteration 6 gefiltert (`visibleAgentEntry` in dialer/service.go);
+      dieser Fix gehoert an den Schreibpfad. Billigster Weg fuer den User-Check: der Dialer
+      hat einen Pool und `agentRepo.GetUserDisplayNames` liest bereits `users` -- eine
+      tenant-gescopte Existenzpruefung daneben, analog `presence.PostgresUserDirectory`
+      (Iteration 5). Kampagne ueber das vorhandene `campaigns.GetByIDForTenant`. Nicht den
+      Redis-Schluessel umbauen. Ob ein Supervisor ueberhaupt fuer ANDERE User im eigenen
+      Tenant schreiben darf, ist bestehendes Verhalten (FE schickt `user_id` optional) --
+      nicht aendern, nur die Tenant-Grenze ziehen.
+    done_when:
+      - >-
+        `SetAgentStatus` fuer eine User-UUID ausserhalb des Aufrufer-Tenants schreibt nichts
+        und liefert denselben Fehler wie fuer eine unbekannte UUID; ein Test belegt, dass der
+        Eintrag des fremden Tenants unveraendert bleibt
+      - Eine `campaign_id` aus einem fremden Tenant wird abgelehnt, ohne das SET zu beruehren (per Test)
+      - go test -count=1 ./internal/dialer/ ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
   - id: fix-rapporte-worker-and-measurement-parent-report-tenant-check
     phase: 4
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
@@ -802,7 +848,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix)"
     scope: >
       Befund aus `cov-gateway-chat-reactions-bookmarks-search` (Iteration 11), verifiziert
@@ -860,7 +906,7 @@ units:
     model: sonnet
     # deps erfuellt: fix-generatejointoken-missing-event-tenant-check ist in Lauf 13 done (`c448273f`), Unit liegt in archive/lauf-13/BACKLOG.yml
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
     scope: >
       Restrisiko aus fix-generatejointoken-missing-event-tenant-check (Iteration 6):
@@ -905,7 +951,7 @@ units:
     service: calendar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
@@ -991,7 +1037,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 20 belegt (`TestLogin_FailurePaths_ShareOneAnswerExceptInactive`):
       `Service.Login` (`internal/auth/service.go:142`) beantwortet ein deaktiviertes Konto
@@ -1039,7 +1085,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 20 belegt
       (`TestRequestPasswordReset_ASecondRequestDoesNotKillTheFirstToken`):
@@ -1079,7 +1125,7 @@ units:
     service: biz/gobdarchive
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (verifizierter Befund, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
@@ -1132,61 +1178,12 @@ units:
       - Der Aufrufer bleibt aus dem Scope; die offene Entscheidung steht im Journal-Eintrag
       - go test -count=1 ./internal/biz/gobdarchive/ ./internal/server/ gruen, DATABASE_URL gesetzt, 0 Skips
 
-  - id: fix-fuhrpark-delete-driver-license-no-last-check-guard
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12).
-      `driver_licenses` fuehrt eine Zeile je durchgefuehrter Fuehrerscheinkontrolle; die
-      JEWEILS LETZTE Zeile je `driver_id` ist der aktuelle Kontrollstand und der Nachweis
-      der Halterpflicht (siehe `internal/gateway/route_fuhrpark.go` HandleDeleteDriverLicense
-      Doc-Kommentar). `Service.DeleteDriverLicense` (`internal/fuhrpark/service.go:849`)
-      delegiert ungeprueft an `PostgresRepository.DeleteDriverLicense`
-      (`internal/fuhrpark/postgres_repository.go:948`), die jede Zeile per `id` loescht — ohne
-      zu pruefen, ob es die einzige oder juengste Kontrollzeile fuer ihren `driver_id` ist. Der
-      Gateway-Handler `HandleDeleteDriverLicense` (Route `DELETE
-      /api/v1/fuhrpark/driver-licenses/{id}`, Permission `fuhrpark:license:write`) reicht das
-      unveraendert durch. Ein Loeschen der letzten Kontrollzeile eines Fahrers macht die
-      Halterhaftungs-Pruefung fuer diesen Fahrer spurlos verschwinden.
-      Fix: vor dem Loeschen pruefen, ob die Zeile die neueste (`checked_at` bzw. `created_at`
-      MAX) fuer ihren `driver_id` innerhalb des Tenants ist, und in diesem Fall mit einem
-      fachlichen Fehler (z. B. `codes.FailedPrecondition`, HTTP 409) ablehnen. Alternativ, falls
-      Luke das Feature stattdessen fuer nachtraegliche Korrekturen (Tippfehler-Zeile loeschen)
-      offen halten will, wenigstens ein Audit-Event schreiben, das den Verlust nachvollziehbar
-      macht — die Entscheidung zwischen beiden Wegen gehoert Luke, nicht der Unit.
-    sources:
-      - backend/internal/fuhrpark/service.go
-      - backend/internal/fuhrpark/postgres_repository.go
-      - backend/internal/fuhrpark/repository.go
-      - backend/internal/server/fuhrpark_grpc.go
-      - backend/internal/gateway/route_fuhrpark.go
-      - backend/internal/fuhrpark/driver_license_test.go
-    notes: >
-      `driver_license_test.go` deckt DeleteDriverLicense bereits fuer Not-Found und
-      Cross-Tenant ab, aber nicht fuer den Fall "letzte/einzige Kontrollzeile eines Fahrers".
-      Vor dem Bauen mit Luke klaeren, ob ein harter Block (409) oder ein Audit-Trail die
-      richtige Antwort ist — das ist eine Produktentscheidung, kein reiner Bugfix.
-    done_when:
-      - >-
-        DeleteDriverLicense blockiert das Loeschen der neuesten Kontrollzeile eines
-        driver_id (409/FailedPrecondition) ODER schreibt beim Loeschen ein Audit-Event, das
-        den Verlust nachvollziehbar macht — Wahl zwischen beiden Wegen mit Luke vorab klaeren,
-        bevor gebaut wird
-      - Die gewaehlte Absicherung ist implementiert und durch einen Test belegt
-      - >-
-        Ein bestehender Kontrollstand kann nicht mehr spurlos verschwinden, ohne dass es
-        nachvollziehbar ist
-
   - id: fix-fuhrpark-update-damage-missing-enum-validation
     phase: 4
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12).
@@ -1225,55 +1222,12 @@ units:
         400 statt den RPC zu erreichen
       - go test -count=1 ./internal/fuhrpark/ gruen
 
-  - id: fix-fuhrpark-trip-logs-private-flag-not-filtered
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).
-      `trip_logs` traegt `is_private BOOLEAN` (`backend/migrations/000193_create_trip_logs.up.sql`)
-      zur Unterscheidung privater von geschaeftlichen Fahrten. Sowohl
-      `PostgresRepository.ListTripLogs` als auch `PostgresRepository.ListTripLogsForExport`
-      (`internal/fuhrpark/postgres_repository.go:639` und `:1191`) selektieren `is_private` als
-      Spalte, filtern aber in keiner ihrer WHERE-Klauseln danach — jede Route ueber
-      `HandleListTripLogs`, `HandleListVehicleTripLogs` und `HandleExportTripLogs`
-      (`internal/gateway/route_fuhrpark.go`) liefert private Fahrten ununterscheidbar neben
-      geschaeftlichen zurueck. Das steuerlich relevante Fahrtenbuch-Export-PDF/CSV
-      (`Service.ExportTripLogs`, `internal/fuhrpark/service.go:754`) enthaelt damit private
-      Fahrten des Fahrers im arbeitgeberseitigen Bericht.
-      Fix: entweder einen expliziten `include_private`-Query-Parameter einfuehren, der
-      standardmaessig `false` ist (private Fahrten nur auf Wunsch/mit gesonderter Berechtigung
-      sichtbar), oder `is_private=true`-Zeilen grundsaetzlich aus Liste UND Export ausschliessen.
-      Die Entscheidung zwischen beiden Wegen (opt-in sichtbar vs. immer ausgeblendet) gehoert
-      Luke — `IsPrivate` wird beim Anlegen vom Fahrer selbst gesetzt
-      (`createTripLogRequest.IsPrivate`, `route_fuhrpark.go`), es ist also keine
-      Admin-only-Angabe.
-    sources:
-      - backend/internal/fuhrpark/postgres_repository.go
-      - backend/internal/fuhrpark/service.go
-      - backend/internal/gateway/route_fuhrpark.go
-      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
-      - backend/migrations/000193_create_trip_logs.up.sql
-    notes: >
-      `is_private` NICHT stillschweigend rausfiltern, ohne die Wahl (opt-in vs. immer
-      ausgeblendet) vorher mit Luke zu klaeren — eine Verhaltensaenderung an einem bestehenden
-      Bericht ohne Ankuendigung waere selbst ein Befund.
-    done_when:
-      - >-
-        Mit Luke geklaert: private Fahrten per Default ausgeblendet ODER nur ueber einen
-        expliziten Parameter sichtbar — beide Wege sind zulaessig, die Wahl steht vorher fest
-      - Liste UND Export respektieren die gewaehlte Regel, belegt durch einen DB-Test
-      - go test -count=1 ./internal/fuhrpark/ gruen
-
   - id: fix-hr-approve-correction-self-approval
     phase: 4
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `cov-gateway-hr-time-tracking-paths` (Iteration 20, Lauf 12), belegt durch
@@ -1319,7 +1273,7 @@ units:
     service: biz
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
     scope: >
       Fund aus `cov-gateway-hr-analytics-and-settings` (Iteration 21, Lauf 12). Der
@@ -1374,7 +1328,7 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Verhaltens-Bugfix, kein Coverage-Ziel)
     scope: >
       Gefunden in Iteration 23 beim Bauen von `cov-gateway-video-notes-and-action-items`.
@@ -1428,7 +1382,7 @@ units:
     service: video
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Produktionsfehler, kein Coverage-Ziel)
     scope: >
       Gefunden in Iteration 24 beim Bauen von `cov-video-recording-service-and-repository`.
@@ -1475,7 +1429,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Retention-Luecke, kein Coverage-Ziel)
     scope: >
       Gefunden in Iteration 25 beim Bauen von `cov-formulare-postgres-repository-real-sql`
@@ -1522,7 +1476,7 @@ units:
     service: calendar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER PRODUKTIONSFEHLER (2026-08-26, gefunden beim Bauen von
@@ -1572,7 +1526,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
@@ -1625,7 +1579,7 @@ units:
     service: inventar
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
@@ -1673,7 +1627,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
@@ -1719,7 +1673,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
@@ -1775,7 +1729,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
@@ -1830,7 +1784,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
     scope: >
       Fund aus cov-berichte-repository-and-grpc (Iteration 37): `PostgresRepository.
@@ -1877,7 +1831,7 @@ units:
     service: security-gdpr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
     scope: >
       Fund aus cov-work-customfield-and-presence-zero-coverage (Iteration 38): der
@@ -1920,7 +1874,7 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
     scope: >
       VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
@@ -1968,7 +1922,7 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Verhaltens-Fix, kein Coverage-Ziel)"
     scope: >
       VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
@@ -2021,7 +1975,7 @@ units:
     service: vertraege
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
@@ -2066,7 +2020,7 @@ units:
     service: vertraege
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
@@ -2106,7 +2060,7 @@ units:
     service: schichten
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
@@ -2148,7 +2102,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Verifizierter Produktionsbug, in Iteration 19 durch einen Test reproduziert
       (`TestHandleWebSocket_HardDisconnect_CleanupWaitsForTokenRevalidation`, Phase 1).
@@ -2196,7 +2150,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 19 belegt (`TestCheckMsgRate_ReconnectResetsTheBucket`):
       `unregisterConnection` loescht `h.rateLimiters[userID]`, sobald die letzte Verbindung
@@ -2232,7 +2186,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 21 belegt
       (`TestRetentionEngine_Run_PartialBatchFailure_UndercountsButHandlerStaysIdempotent`):
@@ -2275,7 +2229,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       In Iteration 21 belegt (`TestGetNextAnonymizedLabel_ConcurrentCallersCollide`):
       `PostgresRepository.GetNextAnonymizedLabel` (`internal/security/gdpr/postgres_repository.go:
@@ -2326,69 +2280,12 @@ units:
         `TestGetNextAnonymizedLabel_IncrementsPerCall` bleibt unveraendert gruen
       - go test -count=1 ./internal/security/gdpr/ gruen, DATABASE_URL gesetzt, 0 Skips
 
-  - id: feat-alerts-backup-dead-mans-switch
-    phase: 4
-    service: deploy
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-08-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-08-24: eine der ZWEI namentlich freigegebenen Ausnahmen von der
-      `deploy/`-Sperre. Begruendung: `backup.sh` alarmiert seit Lauf 11 per Webhook
-      (`trap on_exit EXIT` plus `send_alert()`), aber NUR wenn das Skript selbst laeuft.
-      Genau das Szenario, das den zweimonatigen MinIO-Ausfall unbemerkt liess — der Cron-Job
-      laeuft gar nicht mehr an, also feuert kein `on_exit` und kein Alarm — bleibt strukturell
-      moeglich. `docs/operations/BACKUP.md:52-54` sagt das selbst.
-      Freigegeben ist AUSSCHLIESSLICH eine neue Regel in
-      `deploy/docker/prometheus/rules/alerts.yml`. KEINE Compose-Aenderung, KEIN neues Env,
-      KEINE config.RequireX-Assertion, KEIN Anfassen von backup.sh.
-    coverage_start: "n.a. (Ops-Regel, kein Coverage-Ziel)"
-    scope: >
-      `deploy/docker/prometheus/rules/alerts.yml` fuehrt heute neun Regeln (`ServiceDown`,
-      `HighErrorRate`, `HighLatencyP99`, `DBConnectionsHigh`, `HighMemoryUsage`,
-      `HighGoroutineCount`, `GRPCHighErrorRate`, `HighWSConnectionCount`, `WSAuthFailures`) —
-      keine davon betrifft das Backup.
-      Zu bauen ist ein Dead-Man's-Switch: eine Regel, die feuert, wenn seit mehr als
-      26 Stunden kein erfolgreicher Backup-Lauf gemeldet wurde. 26 statt 24, damit eine
-      normale Laufzeitschwankung des taeglichen Jobs keinen Fehlalarm ausloest.
-      ZUERST ERMITTELN, NICHT ANNEHMEN: gibt es ueberhaupt eine Metrik, an der die Regel
-      haengen kann? Prometheus sieht nur, was ihm jemand liefert. Wenn `backup.sh` keine
-      Metrik schreibt (Pushgateway, Textfile-Collector, node_exporter), dann ist die Regel
-      ohne Datenquelle wertlos — und die ehrliche Antwort ist, die Unit auf `blocked` zu
-      setzen mit `blocked_reason`, der genau das sagt, statt eine Regel zu schreiben, die
-      niemals feuern kann. Das waere schlimmer als keine Regel: eine stille Zusage.
-    sources:
-      - deploy/docker/prometheus/rules/alerts.yml
-      - deploy/scripts/backup.sh
-      - docs/operations/BACKUP.md
-      - deploy/docker/
-    notes: >
-      Das ist eine der wenigen Stellen dieses Laufs, an denen die richtige Antwort
-      "geht nicht, hier ist der Grund" sein kann. Sie ist dann ein vollwertiges Ergebnis.
-      Die uebrigen `deploy/`-Dateien bleiben gesperrt. Auch wenn beim Lesen von `backup.sh`
-      etwas auffaellt: als Feststellung ins Journal, nicht als Aenderung.
-      Kein Test moeglich (Prometheus laeuft nicht im Gate). Der Beleg ist stattdessen:
-      `promtool check rules` auf die Datei, falls verfuegbar — sonst eine sorgfaeltige
-      Syntaxpruefung gegen die neun bestehenden Regeln als Vorlage.
-    done_when:
-      - >-
-        Ob eine Metrik existiert, an der eine Backup-Regel haengen kann, ist ermittelt und im
-        Journal belegt (mit Fundstelle oder mit der Feststellung, dass keine existiert)
-      - >-
-        Existiert eine Datenquelle: die Regel steht in alerts.yml, ist syntaktisch geprueft und
-        ihr Schwellwert ist begruendet
-      - >-
-        Existiert keine: die Unit ist blocked mit einem blocked_reason, der sagt, was gebaut
-        werden muesste, damit sie moeglich wird
-      - Ausser alerts.yml ist keine Datei unter deploy/ veraendert (git diff belegt das)
-
   - id: doc-align-smtp-provider-templates-eu
     phase: 4
     service: deploy
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-08-24: zweite der beiden namentlich freigegebenen Ausnahmen von
@@ -2450,70 +2347,12 @@ units:
 # In Lauf 10 haben 9 Scans 45 Zusatz-Units erzeugt.
 # ==========================================================================================
 
-  - id: feat-meeting-notes-and-chat-dsar-and-retention-coverage
-    phase: 4
-    service: security/gdpr
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: n.a. (DSAR/Retention-Luecke, kein Coverage-Ziel)
-    scope: >
-      Gefunden in Iteration 23 beim Bauen von `cov-gateway-video-notes-and-action-items`,
-      Scope-Punkt 3 der Unit (DSAR/Retention-Pruefung fuer Meeting-Notizen/-Chat).
-      `meeting_notes` (Content + author_id, teils `is_private`) und
-      `meeting_chat_messages` (Freitext + sender_name) sind Personenbezug mit freiem Text —
-      dieselbe Kategorie wie `deals.notes` oder `meetings.title/description/agenda`, die in
-      `internal/crm/consent/scrub.go:51` explizit als "accepted residual risk" dokumentiert
-      sind. Fuer die beiden Meeting-Tabellen fehlt diese Entscheidung komplett:
-      - `internal/security/gdpr/dsar_search.go` `meetingsModule` (Zeile 2239-2268) liest
-        NUR `title, status, scheduled_start, scheduled_end` aus `meetings` — kein Zugriff
-        auf `meeting_notes` oder `meeting_chat_messages`. Ein DSAR-Export eines Kontakts
-        zeigt also nie dessen (falls vorhanden) Chat-Beitraege oder Notizen, an denen er als
-        Autor/Sender beteiligt war.
-      - `internal/security/gdpr/retention_*.go` hat keinen Handler fuer `meetings`,
-        `meeting_notes` oder `meeting_chat_messages` (gegengeprueft: keiner der 15
-        bestehenden `retention_*.go`-Handler referenziert eine dieser drei Tabellen).
-        Notizen und Chat-Nachrichten bleiben also unbegrenzt gespeichert, auch nach
-        Kontakt-Loeschung oder Aufbewahrungsfrist-Ablauf.
-      - `internal/crm/consent/scrub.go` nennt nur `meetings.title/description/agenda` als
-        bewusst ausgenommen — `meeting_notes.content` und `meeting_chat_messages.message`
-        sind dort NICHT erwaehnt, die "accepted residual risk"-Entscheidung wurde fuer sie
-        nie getroffen.
-    sources:
-      - backend/internal/security/gdpr/dsar_search.go
-      - backend/internal/security/gdpr/retention.go
-      - backend/internal/security/gdpr/retention_calendar_events.go
-      - backend/internal/crm/consent/scrub.go
-      - backend/internal/work/meeting/postgres_repository.go
-    notes: >
-      Das ist eine Entscheidung, keine automatische Ergaenzung: entweder (a) DSAR-Export um
-      einen `meetingNotesModule`/`meetingChatModule` erweitern und einen
-      Retention-Handler nach dem Muster von `retention_calendar_events.go` bauen, oder (b)
-      die Tabellen bewusst in `scrub.go` als "accepted residual risk" ergaenzen wie
-      `meetings.title/description/agenda` — aber NICHT stillschweigend weiter uebergehen.
-      Variante (a) ist der wahrscheinlich richtige Weg, weil Notizen/Chat direkten
-      Personenbezug ueber `author_id`/`sender_name` UND Freitext-Inhalt kombinieren, staerker
-      als die reinen Meeting-Metadaten. Vor dem Bauen mit Luke abstimmen, welche Variante.
-    done_when:
-      - >-
-        Entscheidung getroffen und dokumentiert (Journal + Commit-Message): DSAR/Retention
-        fuer meeting_notes/meeting_chat_messages nachziehen ODER bewusst als "accepted
-        residual risk" in scrub.go ergaenzen
-      - >-
-        Bei Variante (a): DSAR-Export eines Kontakts zeigt seine eigenen
-        Notizen/Chat-Beitraege; ein Retention-Handler loescht/anonymisiert beide Tabellen
-        nach Ablauf der Frist, nach dem Muster von retention_calendar_events.go
-      - >-
-        Bei Variante (b): scrub.go-Kommentar um beide Tabellen ergaenzt, mit derselben
-        Begruendung wie fuer meetings.title/description/agenda
-      - go test -count=1 ./internal/security/gdpr/... ./internal/crm/consent/... gruen
-
   - id: feat-recording-dsar-and-retention-coverage
     phase: 4
     service: security/gdpr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (DSAR/Retention-Luecke, kein Coverage-Ziel)
     scope: >
       Gefunden in Iteration 24 beim Bauen von `cov-video-recording-service-and-repository`,
@@ -2560,161 +2399,12 @@ units:
         Code-Kommentar an geeigneter Stelle) — nicht stillschweigend uebergangen
       - go test -count=1 ./internal/security/gdpr/... ./internal/crm/consent/... gruen
 
-  - id: feat-vermietung-dsar-and-retention-coverage
-    phase: 4
-    service: security-gdpr
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Feature-Luecke, kein Coverage-Ziel)"
-    scope: >
-      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
-      `cov-gateway-vermietung-objects-and-inspections`). `backend/internal/security/gdpr/
-      dsar_search.go` hat fuer jedes andere kontaktgebundene Modul ein eigenes `*Module(ctx,
-      pool, tenantID, contactID)` (z. B. `contractsModule`, `financeModule`, `dialerModule`,
-      alle in `SearchByQuery` registriert, Zeilen 66-224) — fuer `vermietung` existiert KEINES.
-      `rentals.contact_id` referenziert `contacts.id` (soft ref laut Migration 000098) und traegt
-      `renter_name`, Zeitraum, Preis, Notizen; `rental_inspections` haengt an `rentals` und traegt
-      `photo_urls` sowie Freitext-`notes` — beides potenziell personenbezogen (Zustandsfotos
-      und -beschreibungen einer Person, die ein Objekt gemietet hat). Ein DSAR-Export fuer einen
-      Kontakt, der auch Mieter war, zeigt aktuell keine seiner Mietvorgaenge und keine seiner
-      Uebergabeprotokolle. Ebenso fehlt ein Retention-Handler (Vergleich:
-      `backend/internal/security/gdpr/retention_*.go`, keine Datei fuer vermietung/rentals) —
-      es gibt keinen automatisierten Loeschpfad fuer alte, abgeschlossene Mietvorgaenge.
-      Getrennt zu behandeln: DSAR-Export ist ein reiner Code-Gap (diese Unit), eine
-      AufbewahrungsFRIST fuer rentals ist eine Produktentscheidung (siehe
-      `decide-retention-policy-hgb-ao-domains` in BACKLOG-NEXT.yml) — diese Unit baut NUR den
-      DSAR-Export-Teil; trifft sie beim Bauen auf eine Frist-Frage, gehoert die dorthin, nicht
-      hierher geraten.
-    sources:
-      - backend/internal/security/gdpr/dsar_search.go
-      - backend/internal/vermietung/models.go
-      - backend/internal/vermietung/postgres_repository.go
-      - backend/migrations/000098_create_vermietung.up.sql
-    notes: >
-      Vorbild ist `contractsModule` (dsar_search.go:2379) oder `dialerModule` (Zeile 2164) —
-      beide sind kontaktgebundene Module aehnlicher Groesse. `rental_inspections.photo_urls`
-      sind nur URLs/Referenzen (keine Binaerdaten im DSAR-Export noetig, analog zu
-      `documentsModule`, das auch nur Metadaten listet, nicht die Datei selbst). In
-      `SearchByQuery` registrieren wie die anderen contactID-Module.
-    done_when:
-      - >-
-        Ein neues DSAR-Modul liefert Mietvorgaenge (inkl. Zeitraum, Objekt, Status) fuer den
-        angefragten Kontakt, tenant-gescoped
-      - >-
-        Dasselbe oder ein zweites Modul liefert die zugehoerigen Uebergabeprotokolle (Art,
-        Datum, Notizen, Foto-Referenzen)
-      - >-
-        Ein Test belegt: eigene Mietvorgaenge/Protokolle erscheinen im Export, die eines
-        fremden Tenants oder eines anderen Kontakts nicht
-      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt, 0 Skips
-
-  - id: feat-einkauf-po-framework-contract-call-off-wiring
-    phase: 4
-    service: einkauf
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Feature-Luecke, kein Coverage-Ziel)"
-    scope: >
-      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
-      `cov-einkauf-service-extended-real-paths`). `PurchaseOrder.FrameworkContractID`
-      (backend/internal/einkauf/models.go:57-59) traegt den Kommentar "When set, ReceiveGoods
-      will automatically record a contract call-off." Die Spalte existiert seit Migration
-      000208_einkauf_po_framework_ref, wird in GetPO/GetPOWithLines gelesen
-      (postgres_repository.go:457,473) — aber NIRGENDS gesetzt: weder `CreatePOInput` noch
-      `UpdatePOInput` (service.go) haben ein `FrameworkContractID`-Feld, es gibt keinen Weg,
-      die Spalte ueber den Service zu befuellen. Selbst wenn sie per Hand-SQL gesetzt wuerde,
-      lesen `ReceiveGoods` (service.go:607) und `PartialReceive` (service.go:659) das Feld nie
-      und rufen nie `CreateContractCall` auf — die im Docstring versprochene automatische
-      Abruf-Buchung existiert im Code schlicht nicht. Ein an einen Rahmenvertrag gebundener PO
-      erhoeht dessen `used_value` also nie automatisch; `CreateContractCall` ist aktuell nur
-      manuell erreichbar (kein Gateway-Handler dafuer verifiziert — pruefen). Belegt durch
-      `TestExtended_ReceiveGoods_LinkedToFrameworkContract_DoesNotRecordCallOff` in
-      service_extended_test.go (dokumentiert die Luecke, aendert kein Verhalten).
-    sources:
-      - backend/internal/einkauf/models.go
-      - backend/internal/einkauf/service.go
-      - backend/internal/einkauf/service_extended.go
-      - backend/migrations/000208_einkauf_po_framework_ref.up.sql
-    notes: >
-      Entscheidungen, die beim Bauen anfallen: (1) Soll ReceiveGoods und PartialReceive BEIDE
-      einen Call-off buchen, oder nur der volle ReceiveGoods-Abschluss? Bei PartialReceive waere
-      der Call-off-Betrag der neu geleferte Anteil (analog zum inventarAdj-Delta-Muster in
-      PartialReceive, service.go:695-703), nicht der volle PO-Wert. (2) CreateContractCall
-      race-sicher aus der Empfangs-Transaktion heraus aufrufen — nicht als separater Call nach
-      dem Status-Update, sonst Inkonsistenz bei Teilausfall. (3) Was passiert bei
-      ErrContractBudgetExceeded waehrend eines Wareneingangs? Der Wareneingang selbst darf nicht
-      an einem Budget-Limit scheitern (der Wareneingang ist physisch bereits passiert) — vermutlich
-      Call-off trotzdem buchen und nur loggen/warnen, analog zum inventarAdj-Best-Effort-Muster
-      (service.go:634-648), nicht hart fehlschlagen. Das ist eine Produktentscheidung, kein
-      Bug-Fix — bei Unsicherheit `blocked` mit der Frage an Luke.
-    done_when:
-      - >-
-        CreatePOInput und/oder UpdatePOInput erlauben das Setzen von FrameworkContractID (oder es
-        ist begruendet dokumentiert, warum absichtlich nicht)
-      - >-
-        ReceiveGoods bucht bei gesetztem FrameworkContractID einen Call-off in Hoehe des
-        empfangenen Werts; ein Test belegt used_value auf dem Rahmenvertrag danach korrekt erhoeht
-      - >-
-        PartialReceive bucht denselben Call-off nur fuer das Delta der neu empfangenen Menge,
-        nicht fuer den vollen PO-Wert; ein Test belegt das ueber zwei aufeinanderfolgende
-        Teillieferungen
-      - >-
-        Verhalten bei ErrContractBudgetExceeded waehrend eines Wareneingangs ist entschieden und
-        durch einen Test belegt (oder die Entscheidung ist an Luke delegiert und die Unit steht
-        `blocked`)
-      - go test -count=1 ./internal/einkauf/... gruen, DATABASE_URL gesetzt, 0 Skips
-
-  - id: feat-gdpr-dsar-search-missing-einkauf-suppliers
-    phase: 4
-    service: security/gdpr
-    model: sonnet
-    deps: []
-    status: todo
-    coverage_start: "n.a. (Feature-Luecke, kein Coverage-Ziel)"
-    scope: >
-      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
-      `cov-gateway-einkauf-purchase-order-lifecycle`). `internal/security/gdpr/dsar_search.go`
-      (Art.-15-DSAR-Suche) matcht ausschliesslich CRM-Kontakte und User und aggregiert deren
-      Daten ueber "CRM, consent, dialer, finance, meetings, helpdesk, contracts, email, deals und
-      activities" (Docstring `SearchByQuery`, Zeile 63-65) — `grep -n "einkauf\|supplier\|Supplier"
-      dsar_search.go` liefert null Treffer. `einkauf.suppliers` traegt Name, E-Mail, Telefon,
-      Adresse und einen optionalen `contact_id`-FK (route_einkauf.go:117-125). Ein Lieferant kann
-      ein Einzelunternehmer sein, also eine natuerliche Person mit DSAR-Anspruch — taucht aber in
-      keinem DSAR-Ergebnis auf, auch nicht wenn er per `contact_id` an einen bereits gematchten
-      Kontakt haengt (die Aggregation ist rein modul-basiert, `einkauf` ist keins der gefalteten
-      Module).
-    sources:
-      - backend/internal/security/gdpr/dsar_search.go
-      - backend/internal/einkauf/models.go
-      - backend/internal/einkauf/postgres_repository.go
-    notes: >
-      Vorbild fuer den Aufbau eines neuen DSAR-Moduls: eines der bestehenden `match*`/Aggregations-
-      Paare in dsar_search.go (z. B. Contracts oder Helpdesk) abschauen, nicht neu erfinden.
-      Zwei Faelle zu klaeren, kein Rateraum: (1) Lieferant MIT `contact_id` — dessen Datensatz
-      gehoert unter den bereits gematchten `DSARPerson` als zusaetzliches `DSARModule "einkauf"`.
-      (2) Lieferant OHNE `contact_id` (Einzelunternehmer ohne CRM-Verknuepfung) — braucht einen
-      eigenen Namens-/E-Mail-Match auf `suppliers.name`/`suppliers.email`, sonst bleibt er fuer
-      DSAR unauffindbar. Ob (2) in dieser Unit mitgebaut wird oder als Fix-Unit an dieser Stelle
-      genuegt ein dokumentierter Befund, ist eine Bau-Entscheidung, keine Luke-Entscheidung — beide
-      Faelle sind rein additive Read-Erweiterungen ohne Vertragsbruch.
-    done_when:
-      - >-
-        Ein Lieferant mit `contact_id`, der auf einen DSAR-Treffer passt, erscheint im Ergebnis
-        unter einem eigenen `DSARModule "einkauf"` mit Name/E-Mail/Telefon/Adresse; ein Test belegt
-        das
-      - >-
-        Ob ein Lieferant OHNE `contact_id` per eigenem Namens-/E-Mail-Match auffindbar gemacht wird
-        oder das als offene Luecke dokumentiert bleibt, steht mit Begruendung im Journal
-      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt, 0 Skips
-
   - id: feat-dialer-stale-in-progress-contact-reaper
     phase: 4
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: n.a. (Feature-Luecke, kein Coverage-Ziel)
     scope: >
       VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
@@ -2751,12 +2441,54 @@ units:
         auch den Negativfall (aktiver Kontakt mit laufender Sitzung bleibt unangetastet)
       - go test -count=1 ./internal/dialer/... gruen, DATABASE_URL gesetzt, 0 Skips
 
+  - id: fix-inbox-team-member-add-remove-authz
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core), im Server-Test reproduziert.
+      `InboxGRPCServer.AddTeamMember` / `RemoveTeamMember` (`internal/server/inbox_grpc.go`) und
+      `team.Service.AddMember` / `RemoveMember` pruefen NICHT, dass der Aufrufer Admin der
+      Team-Inbox ist -- der Request traegt zwar `user_id` (der Gateway setzt ihn,
+      `route_inbox.go:1019`), der Server ignoriert ihn. `UpdateTeamInbox`/`DeleteTeamInbox`
+      pruefen dagegen `GetMemberRole == "admin"`. Gateway-Guard fuer beide Routen ist
+      `inboxTeamInboxManage = RequirePermissionAny(inbox:write, kommunikation:team_inbox:manage)`;
+      `inbox:write` hat jeder normale Posteingangs-Nutzer. Folge: jeder Nutzer mit `inbox:write`
+      kann sich (oder wen er will) mit `role=admin` in JEDE Team-Inbox seines Tenants eintragen,
+      auch in `visibility=private`, und Mitglieder (auch den letzten Nicht-Admin) entfernen.
+      Als Mitglied darf er danach `ClaimMessage` und via Admin-Rolle Update/Delete der Inbox.
+      Kein Cross-Tenant-Zugriff belegt (RLS auf team_inbox_members); `AddMember` bekommt aber
+      keine tenant_id aus dem Service -- Pruefung auf Repo-Ebene (INSERT-Wiring) mitnehmen.
+    sources:
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/inbox/team/service.go
+      - backend/internal/inbox/team/postgres_repository.go
+      - backend/internal/gateway/route_inbox.go
+    notes: >
+      Schlankster Fix: `AddMember`/`RemoveMember`/(`ListMembers` fuer private Inboxen) bekommen
+      `tenantID` + `actorID`; der Service laedt `GetTeamInbox(tenantID, id)` (tenant-gescopt,
+      liefert NotFound fuer fremde Inboxen) und verlangt `GetMemberRole(actor) == "admin"`
+      -- gleiches Muster wie `UpdateTeamInbox`. Ausnahme: Selbst-Austritt (actor == member).
+      Der Guard am Gateway bleibt UNVERAENDERT (Permission-Keys nur additiv erweitern). Ein
+      Tenant-Admin (`kommunikation:team_inbox:manage`) ohne Team-Mitgliedschaft muss weiter
+      verwalten koennen -- das ist beim Bauen mit Luke zu klaeren; im Zweifel `blocked` mit
+      dieser Frage statt raten.
+    done_when:
+      - >-
+        Ein Test belegt: Nicht-Admin-Mitglied und Nicht-Mitglied koennen weder hinzufuegen noch
+        entfernen (PermissionDenied), der Admin kann es
+      - Ein Test belegt: fremder Tenant bekommt NotFound, keine Zeile entsteht
+      - go test -count=1 ./internal/inbox/... ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
   - id: cov-server-inbox-and-grpc-core
     phase: 4
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server/inbox_grpc.go 59,1 % (262 ungedeckt von 641), grpc.go 62,6 % (212 von 567) (CI-Stand 32949396303)"
     scope: >
       Zwei Dateien im `server`-Paket mit zusammen 474 ungedeckten Statements.
@@ -2801,7 +2533,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/email/sync/imap_client.go, gemessen 2026-08-27 nach cov-email-sync-worker-and-imap-client: Login 33,3 %, SelectFolder 33,3 %, FetchHeaders 10,0 %, FetchBody 12,5 %, SetFlags 20,0 %, Idle 22,2 %, HasIDLE 50,0 %, Noop 40,0 %, ListFolders 20,0 %, Close 40,0 % (jeweils nur der nil-Client-Guard-Zweig getestet, Paketwert internal/email/sync 64,6 %)"
     scope: >
       Abgetrennt aus `cov-email-sync-worker-and-imap-client`, deren eigener `notes:`-Text genau
@@ -2843,7 +2575,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a."
     scope: >
       `internal/caldav/push_notifier.go:122` POSTet an `sub.PushURL` mit einem nackten
@@ -2871,7 +2603,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       BEFUND aus dem 409-Skriptlauf vom 2026-08-24, nicht aus einem Scan. Beim Umstellen der
@@ -2957,7 +2689,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Erster Scan, mit der klarsten Hypothese des Laufs. Drei Units in Block B stossen
@@ -3000,7 +2732,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Zweiter Scan mit belegter Hypothese. Vier Stellen im Lauf pruefen unabhaengig dieselbe
@@ -3043,12 +2775,65 @@ units:
         als Vorlage benannt
       - Kein Verhalten geaendert
 
+  - id: fix-caldav-basic-auth-ignores-user-state
+    phase: 4
+    service: caldav
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Fix, Coverage nur als Beleg)"
+    scope: >
+      VERIFIZIERTER AUTH-BEFUND aus `scan-signed-url-and-token-lifetimes` (Iteration 50), mit einem
+      temporaeren DB-Test als kmuhub_app reproduziert und wieder geloescht: ein DEAKTIVIERTER Nutzer
+      (`users.is_active = false`) besteht die CalDAV/CardDAV-Basic-Auth weiter. `Validate`
+      (`caldav/app_password.go:92`) prueft nur den Org-Schalter und die bcrypt-Passwoerter;
+      `FindActiveByUser` (`postgres_app_password.go:86`) filtert nur `revoked_at IS NULL` und
+      joint `users` nicht; `resolveTenantID` (`caldav_backend.go:70`) liest den Tenant ohne
+      `is_active`. Test-Ausgabe: `users.is_active = false`, `Validate after deactivation:
+      user=<id> err=<nil>`, `ctxInjector after deactivation: err=<nil>`.
+      Das Offboarding (`hr/employee/postgres_repository.go:270`) setzt `is_active = false` und
+      loescht `user_roles`, widerruft aber keine App-Passwoerter. Die DAV-Routen haben keinen
+      `RequirePermission` (nur Basic Auth, `route_caldav.go:138-153`), das Loeschen der Rollen
+      greift dort also nicht. App-Passwoerter haben keinen Ablauf (keine `expires_at`-Spalte,
+      Migration 000049). Folge: ein ausgeschiedener Mitarbeiter behaelt unbegrenzt Lese- UND
+      Schreibzugriff auf Kalender und Kontakte, bis jemand `DELETE /admin/caldav/users/{id}/passwords`
+      von Hand aufruft - der einzige Aufrufer von `RevokeAllUserPasswords`.
+      Login und Refresh pruefen `is_active` (`auth/service.go:150,213`), CalDAV ist der Pfad,
+      der es vergessen hat.
+    sources:
+      - backend/internal/caldav/app_password.go
+      - backend/internal/caldav/postgres_app_password.go
+      - backend/internal/caldav/caldav_backend.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/caldav/app_password_db_test.go
+    notes: >
+      Root Cause an der gemeinsamen Stelle: `Validate` hat genau einen Aufrufer
+      (`basicAuthMiddleware`), `FindActiveByUser` genau einen (`Validate`). Fix in der Abfrage:
+      `JOIN users u ON u.id = asp.user_id AND u.is_active` (System-Kontext ist dort schon gesetzt,
+      der Join braucht keinen Tenant). `resolveTenantID` zusaetzlich mit `AND is_active`
+      absichern - es ist der zweite Weg ins DAV-Backend. Keine Migration, keine Route.
+      Antwort fuer den Client bleibt 401 (`ErrInvalidCredentials`), nicht 403 und nicht anders
+      als bei falschem Passwort. Nicht Teil dieser Unit: das Offboarding soll die Passwoerter
+      zusaetzlich widerrufen (dann leben sie bei Reaktivierung nicht wieder auf) - Entscheidung
+      Luke, steht als Frage in `decide-token-lifetime-and-storage-policy` (BACKLOG-NEXT.yml).
+      ACHTUNG User-Flag: `users.caldav_enabled` (Pro-Nutzer-Schalter, `handleDisableCalDAV`)
+      wird in `Validate` ebenfalls nie gelesen - "CalDAV ausschalten" sperrt die Basic Auth also
+      nicht. Das NICHT in dieser Unit durchsetzen, ohne vorher zu pruefen, ob
+      `handleCreatePassword` den Schalter setzt; sonst fallen bestehende Einrichtungen aus.
+      Im Zweifel nur `is_active` und die Frage ins Journal.
+    done_when:
+      - Deaktivierter Nutzer mit gueltigem App-Passwort bekommt von `Validate` ErrInvalidCredentials
+      - Reaktivierter Nutzer besteht die Pruefung mit demselben Passwort wieder
+      - Test mit echter DB als kmuhub_app, 0 Skips, beide Faelle (Validate und NewCtxInjector)
+      - Mutations-Probe - Join/Filter entfernt, Test rot, zurueckgedreht
+      - Kein neuer Produktionspfad, keine Migration
+
   - id: scan-signed-url-and-token-lifetimes
     phase: 4
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Dritter Scan, ebenfalls aus dem Lauf heraus entstanden. Sechs Token- und URL-Typen
@@ -3093,7 +2878,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Block B stellt in acht Units dieselbe Nebenfrage: taucht diese Datenart in
@@ -3143,7 +2928,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Architekturregel 1 lautet "Thick Services, Thin Handlers" — Handler machen Parse, Call,
@@ -3187,7 +2972,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Lauf 10 hat einen Worker gefunden, der nach dem ersten Tick dauerhaft einschlief, ohne
@@ -3232,7 +3017,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Lauf 11 hat drei blinde Waehrungssummierungen gefunden und behoben
@@ -3277,7 +3062,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       `grpcStatusToHTTP` (`internal/gateway/helpers.go:51`) bildet gRPC-Codes auf
@@ -3325,7 +3110,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: 2026-08-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-08-24 (aus Dariens Anstoss): die Konsolidierung der
@@ -3408,7 +3193,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
     scope: >
       Das Go-1.26-Upgrade (2026-10-20) brachte golangci-lint v2.10.1 und damit drei neue
@@ -3435,3 +3220,2017 @@ units:
       - >-
         Mindestens G704 ist wieder eingeschaltet (Exclude entfernt), Fehlalarme sind mit
         Begruendung annotiert, golangci-lint meldet 0 Funde
+
+  - id: fix-automation-grpc-actions-missing-tenant-context
+    phase: 4
+    service: automation
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `fix-createevent-never-sets-tenant-id` (Lauf 14, Iteration 3), am Code
+      verfolgt, nicht end-to-end reproduziert: der Automation-Service ruft andere Services
+      ueber gRPC auf, ohne dass der Tenant je ankommt. `cmd/automation/main.go:326`
+      (`dialService`) baut alle Clients (crm, work/calendar, email, biz) OHNE
+      `middleware.TenantOutboundUnaryInterceptor` — anders als cmd/biz, cmd/dialer,
+      cmd/helpdesk, cmd/notification. Zusaetzlich startet `engine/consumer.go:68` jede
+      Ausfuehrung mit `context.WithTimeout(context.Background(), ...)`, und weder
+      `WorkflowEngine.Execute` (`engine/engine.go:91`) noch der Poller stempeln
+      `middleware.TenantIDKey` aus `auto.TenantID` in den ctx. Folge: jede Action, deren
+      Ziel-RPC `middleware.GetTenantID(ctx)` liest (z. B. `CreateEvent` seit Lauf 14,
+      CRM-RPCs mit "tenant_id missing from context"), schlaegt fehl; RPCs ohne eigenen Check
+      sehen unter RLS 0 Zeilen. Vermutlich ein Totalausfall aller gRPC-basierten
+      Automation-Actions, kein Leck.
+    sources:
+      - backend/cmd/automation/main.go
+      - backend/internal/automation/engine/engine.go
+      - backend/internal/automation/engine/consumer.go
+      - backend/internal/automation/trigger/poller.go
+      - backend/internal/automation/action/calendar_actions.go
+      - backend/internal/caldav/caldav_backend.go
+    notes: >
+      Muster existiert schon: `caldav_backend.go:49-70` stempelt TenantIDKey/UserIDKey auf den
+      ctx und verlaesst sich auf den Outbound-Interceptor. Root Cause an EINER Stelle fixen
+      (Execute stempelt `auto.TenantID`, dialService bekommt den Interceptor), nicht pro
+      Action. Vorher pruefen, ob ein Test oder Prod-Log (automation_executions) eine
+      erfolgreiche gRPC-Action belegt — dann stimmt die Annahme nicht.
+    done_when:
+      - >-
+        Die Clients in cmd/automation tragen den Outbound-Interceptor, und Execute legt
+        `auto.TenantID` als TenantIDKey auf den ctx
+      - Ein Test belegt, dass eine Action den Tenant als x-tenant-id-Metadatum an den Ziel-RPC liefert
+      - go test -count=1 ./internal/automation/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-flaky-gdpr-export-rpc-test
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Test-Stabilitaet, kein Coverage-Ziel)"
+    scope: >
+      Beobachtet in Lauf 14, Iteration 6: `TestGDPRExportRPCs_HappyPathAndDomainErrors`
+      (internal/server/security_grpc_test.go:1110) fiel EINMAL in einem vollen
+      `go test ./internal/server/`-Lauf rot, der nichts mit GDPR zu tun hatte (Mutation im
+      Dialer). Isoliert 45 von 45 Laeufen gruen, nicht reproduziert. Verdacht, nicht
+      belegt: `ApproveDataExport` startet die asynchrone ZIP-Erzeugung, die in den
+      Test-Stub `repos.gdpr` schreibt, waehrend der Test danach `req.Status`/`DownloadToken`
+      direkt setzt und `GetExportDownload` aufruft -- die Goroutine kann den Zustand
+      zwischendurch ueberschreiben.
+    sources:
+      - backend/internal/server/security_grpc_test.go
+      - backend/internal/security/gdpr/
+    notes: >
+      Erst die async-Stelle in ApproveDataExport finden und pruefen, ob sie im Test-Setup
+      laeuft. Falls ja: im Test abschalten oder synchron abwarten, statt Sleep. Lokal kein
+      `-race` (kein C-Compiler) -- Abnahme erst nach CI.
+    done_when:
+      - Ursache benannt (Codestelle) oder als nicht reproduzierbar mit Begruendung dokumentiert
+      - Falls Ursache gefunden, ist der Test deterministisch (z. B. go test -count=50 -run TestGDPRExportRPCs ./internal/server/ gruen)
+
+  - id: fix-dialer-agent-invalid-transition-maps-to-internal
+    phase: 4
+    service: dialer
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Lauf 14, Iteration 7 (beim Bauen von `fix-dialer-set-agent-status-foreign-user-overwrite`
+      gesehen, Test belegt es bereits): `AgentStatusStore.SetStatus` lehnt einen ungueltigen
+      Statuswechsel mit `dialer.ErrInvalidTransition` (redis_agent_store.go) ab, aber
+      `mapDialerError` (server/dialer_grpc.go) kennt nur `ErrInvalidStatusTransition` (Kampagne).
+      Der Agent-Fehler faellt in den Default-Zweig -> codes.Internal, slog.Error, HTTP 500 mit
+      "internal error" statt eines 409/422-artigen Fehlers. `TestSetAgentStatus_InvalidTransition`
+      in dialer_grpc_agents_outcomes_dashboards_test.go dokumentiert das als bekannte Luecke.
+      Kein Leck, aber jeder Klick auf einen unzulaessigen Wechsel erzeugt einen 500er und einen
+      ERROR-Logeintrag.
+    sources:
+      - backend/internal/server/dialer_grpc.go
+      - backend/internal/dialer/redis_agent_store.go
+      - backend/internal/server/dialer_grpc_agents_outcomes_dashboards_test.go
+      - backend/api/openapi.yaml
+    notes: >
+      Einen Case `errors.Is(err, dialer.ErrInvalidTransition)` -> codes.FailedPrecondition in
+      `mapDialerError` ergaenzen (Gateway mappt FailedPrecondition schon). Den bestehenden Test
+      von Internal auf FailedPrecondition umdrehen. Spec fuer `PUT /dialer/agent-status` um den
+      tatsaechlich gelieferten Status-Code ergaenzen.
+    done_when:
+      - >-
+        `SetAgentStatus` mit offline -> wrap_up liefert codes.FailedPrecondition statt Internal
+        (per Test)
+      - Der gelieferte HTTP-Status ist in openapi.yaml dokumentiert, swagger-cli validate gruen
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt
+
+  - id: fix-ws-connect-test-reads-tenant-before-it-is-registered
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Flake-Fix, kein Coverage-Ziel)"
+    scope: >
+      Lauf 14, Iteration 14 (beim Gate von `fix-gobd-archive-hash-never-verified` gesehen,
+      auf HEAD 5a82d317 OHNE dessen Aenderung reproduziert): 
+      `TestHandleWebSocket_ValidToken_RegistersConnectionAndTenant`
+      (internal/server/websocket_connection_test.go:251) faellt sporadisch mit leerem Tenant.
+      Ursache: `HandleWebSocket` ruft `registerConnection` (websocket.go:376) und erst danach
+      `registerUserTenant` (websocket.go:377), jeweils unter eigenem Lock. Der Test wartet nur
+      auf `connCount == 1` und liest `userTenants` im Fenster dazwischen. Im vollen
+      `go test ./internal/server/` 2 von 5 Laeufen rot, isoliert mit -count=20 gruen. In CI
+      ein zufaelliges Rot ohne Codebezug. Produktiv kein Leck: die Message-Loop startet erst
+      nach beiden Aufrufen, nur ein fremder Presence-Lookup in diesem Fenster saehe den
+      Nutzer kurz ohne Tenant (fail-closed).
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/websocket_connection_test.go
+    notes: >
+      Schlankster Fix im Code, nicht im Test: Tenant und Verbindung in EINEM Lock-Abschnitt
+      registrieren (oder `registerUserTenant` vor `registerConnection` aufrufen), damit
+      `connCount == 1` den Tenant impliziert. Kein Sleep im Test. Goroutinen im Test ->
+      Abnahme erst nach CI (-race laeuft lokal nicht).
+    done_when:
+      - >-
+        Verbindung und Tenant werden so registriert, dass ein sichtbarer Connection-Eintrag
+        den Tenant bereits impliziert
+      - go test -count=5 ./internal/server/ gruen, DATABASE_URL gesetzt
+
+  - id: fix-form-submission-anonymize-leaves-webhook-delivery-payload
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: n.a. (Retention-Luecke, kein Coverage-Ziel)
+    scope: >
+      Gefunden in Iteration 20 beim Bauen von `fix-form-webhook-deliveries-unbounded-retention`.
+      `FormSubmissionRetentionHandler.Apply` mit action=anonymize leert nur
+      `form_submissions.answers/submitted_by/ip_address`. Die zugehoerigen Zeilen in
+      `form_webhook_deliveries` tragen aber in `payload` eine volle Kopie der Answers (siehe
+      `insertSubmissionTx`) und bleiben unveraendert, bis der neue
+      `FormWebhookDeliveryRetentionHandler` sie per Delete-Policy entfernt. Wer nur eine
+      Anonymize-Policy auf `form_submissions` setzt, hat die personenbezogenen Daten also
+      weiterhin in der Deliveries-Tabelle (final delivered/dead UND pending/failed).
+    sources:
+      - backend/internal/security/gdpr/retention_helpdesk_formulare.go
+      - backend/internal/security/gdpr/retention_form_webhook_deliveries.go
+    notes: >
+      Schlankster Fix im Anonymize-Zweig von `FormSubmissionRetentionHandler.Apply`: im selben
+      Aufruf `UPDATE form_webhook_deliveries SET payload = '{}'::jsonb WHERE tenant_id = $1 AND
+      submission_id = ANY($2)` (Muster: ticket_messages im Helpdesk-Handler). Pending-Zeilen
+      mit leerem Payload wuerden leer ausgeliefert -> entweder nur final-Status scrubben oder
+      pending vorher aus dem Plan nehmen; Entscheidung bei der bauenden Iteration, begruendet.
+    done_when:
+      - >-
+        Nach Anonymize einer Submission enthaelt kein zugehoeriges Delivery-Payload mehr die
+        Answers; ein Test belegt das gegen die echte DB inkl. Tenant-Isolation
+      - Eine noch ausstehende (pending/failed) Delivery wird nicht mit leerem Payload ausgeliefert
+      - go test -count=1 ./internal/security/gdpr/... gruen, DATABASE_URL gesetzt
+
+  - id: fix-inbox-routing-rule-actions-struct-vs-array
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core). Routing-Regeln lassen sich ueber
+      die API gar nicht anlegen (Totalausfall des Features). Vertrag widerspricht sich:
+      `inbox.proto` typisiert `conditions` UND `actions` als `google.protobuf.Struct` (JSON-Objekt),
+      `routing.validateActions` (`internal/inbox/routing/service.go:387`) verlangt aber ein
+      JSON-ARRAY `[{type, config}]` (`[]models.Action`), und das Frontend (`inbox-types.ts:113`,
+      `RuleAction[]`) schickt ein Array. Pfad: Gateway `rawJSONToStruct` (`route_inbox.go:1387`)
+      scheitert an einem Array mit 400 "invalid actions JSON"; ein Objekt oder fehlendes `actions`
+      (`structToJSON(nil)` = `{}`) scheitert in `validateActions` mit `ErrInvalidAction` -> 400.
+      Reproduziert gRPC-seitig in
+      `TestCreateRoutingRule_StructActionsAreAlwaysRejected` (`internal/server/inbox_grpc_handlers_test.go`),
+      das den IST-Zustand festschreibt und mit dem Fix auf NoError kippen muss.
+      Dasselbe gilt fuer `UpdateRoutingRule` mit `actions`. `jsonToStruct` (Lesepfad,
+      `inbox_grpc.go:1371`) hat zwar einen Wrap-Fallback, der bei einem Array aber selbst
+      scheitert (`json.Unmarshal` Array in `map`) -- gespeicherte Array-Regeln koennten beim
+      Lesen also ebenfalls fehlschlagen; beim Bauen pruefen.
+    sources:
+      - backend/proto/inbox/v1/inbox.proto
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/gateway/route_inbox.go
+      - backend/internal/inbox/routing/service.go
+      - desktop/src/renderer/src/api/inbox-types.ts
+    notes: >
+      Der `.proto`-Typ ist der Kern: `actions` muss ein `google.protobuf.ListValue` (oder
+      `bytes`/`string` mit rohem JSON) werden, damit ein Array durch die Leitung passt --
+      Proto-Aenderung = Regen im selben Commit (`make proto-inbox`), Wire-Form
+      `{items}`/Array gegen den FE-Typ pruefen, nicht raten. Alternative ohne Proto-Aenderung:
+      Gateway wickelt das Array in `{"actions":[...]}` und der Server entpackt -- haesslich,
+      aber rueckwaertskompatibel; Entscheidung begruenden. Feld-Nummern nie wiederverwenden.
+    done_when:
+      - >-
+        POST /api/v1/inbox/rules mit `actions: [{type:"add_tags",config:{...}}]` legt eine Regel an
+        und GET /rules liefert sie im selben Array-Format zurueck (Test gegen Gateway+Server)
+      - >-
+        `TestCreateRoutingRule_StructActionsAreAlwaysRejected` ist durch einen Erfolgstest
+        ersetzt; ein unbekannter Action-Typ bleibt 400
+      - openapi.yaml beschreibt `actions` als Array; swagger-cli validate gruen
+      - go test -count=1 ./internal/server/ ./internal/gateway/ ./internal/inbox/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: harden-inbox-team-list-members-private-scope
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 44 (fix-inbox-team-member-add-remove-authz). `ListTeamMembers`
+      (`internal/server/inbox_grpc.go`, `team.Service.ListMembers`) liest ohne Tenant- und ohne
+      Mitgliedspruefung; Tenant-Isolation haengt allein an RLS. Jeder Nutzer mit Posteingangs-Recht
+      sieht die Mitgliederliste auch einer `visibility=private` Team-Inbox, der er nicht angehoert.
+      Kein Cross-Tenant-Zugriff. Zweite offene Frage aus dem Add/Remove-Fix: Ein Tenant-Admin mit
+      `kommunikation:team_inbox:manage`, der nicht selbst Team-Admin ist, wird jetzt (wie schon bei
+      Update/Delete) mit PermissionDenied abgewiesen -- ob der Manage-Permission-Key das Team-Admin-Recht
+      ersetzen soll, entscheidet Luke.
+    sources:
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/inbox/team/service.go
+    notes: >
+      Muster wie `requireTeamAdmin` in `team/service.go`: `GetTeamInbox(tenantID, id)` (NotFound fuer
+      Fremde), bei `visibility=private` Mitgliedschaft des Aufrufers verlangen. Der Request traegt
+      `user_id` (Gateway setzt ihn). Guards am Gateway NICHT anfassen. Ist die Sichtbarkeitsregel
+      unklar: `blocked` mit der Frage.
+    done_when:
+      - Ein Test belegt: Nicht-Mitglied bekommt bei privater Team-Inbox PermissionDenied, bei offener die Liste
+      - Ein Test belegt: fremder Tenant bekommt NotFound
+      - go test -count=1 ./internal/inbox/... ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-openapi-409-business-conflict-description
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    decided: 2026-10-20
+    decision: >-
+      Folge-Unit aus `scan-409-conflict-error-mapping` (Iteration 47). Der Scan hat die
+      Mapper-Ebene vermessen und festgestellt, dass der Befund NICHT mapper-, sondern
+      OPERATIONS-bezogen ist: Ein Mapper wie `mapCalendarError` traegt zwar Dublette UND
+      Zustandskonflikt, aber jede Operation erreicht nur eine der beiden. Die echte Luecke ist
+      eine andere und gilt fuer alle Operationen mit fachlichem 409 gleichermassen.
+    coverage_start: "n.a. (OpenAPI-/Skript-Unit, kein Coverage-Ziel)"
+    scope: >
+      `openapi.yaml` dokumentiert 643 mal `409 -> IdempotencyInFlight` (Skriptlauf
+      2026-08-24) und nur 29 mal `409 -> Conflict`. Operationen, deren RPC einen
+      `codes.AlreadyExists`-Fall hat (30 Funktionen, siehe Journal Iteration 47: 28
+      `map*Error`/`bankAccountError` plus die Inline-Faelle `BookResource` und
+      `CreateRetentionPolicy`), liefern daneben einen FACHLICHEN 409, der in der Spec fehlt.
+      Vorschlag: neue Komponente `components/responses/ConflictOrIdempotencyInFlight`
+      (Schema `ErrorResponse`, `description` nennt beide Ursachen: Idempotency-Key in Bearbeitung,
+      mit `Retry-After`, oder fachlicher Konflikt - Dublette bzw. Zustandskonflikt), und alle
+      Operationen mit fachlichem 409 zeigen darauf statt auf `IdempotencyInFlight`. Die Operationen
+      ermittelt man ueber RPC -> Mapper -> Sentinel (Sentinel-Liste im Journal Iteration 47).
+      `hooks/openapi-status-fill.py` muss die Sonderfaelle kennen (Sonderliste neben der
+      `lean:`-Liste), sonst ueberschreibt ein spaeterer Skriptlauf sie.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/server/
+      - .planning/backend-block/loop/hooks/openapi-status-fill.py
+      - backend/internal/gateway/openapi_status_code_drift_test.go
+    notes: >
+      Nur Ops umstellen, deren Handler den RPC-Fehler tatsaechlich durchreicht
+      (`respondGRPCError`); nicht alle Operationen eines Mappers sind betroffen. Nach der
+      Aenderung `swagger-cli validate backend/api/openapi.yaml` (der Drift-Test ist keine
+      Spec-Validierung) und `go test -count=1 ./internal/gateway/`.
+    done_when:
+      - Komponente existiert, beschreibt beide Ursachen und zeigt auf `ErrorResponse`
+      - Mindestens die Operationen der Mapper mit Dublette+Zustandskonflikt (calendar, crm, document, fuhrpark, vermietung, email, notification, inbox, hr) sind umgestellt
+      - >-
+        Das Skript `openapi-status-fill.py` hat die Sonderliste, ein Skriptlauf macht die Aenderung nicht rueckgaengig
+      - swagger-cli validate gruen, go test -count=1 ./internal/gateway/ gruen
+
+  - id: harden-files-upload-retry-duplicates
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    decided: 2026-10-20
+    decision: >-
+      Aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48): einzige
+      JWT-Route ausserhalb der Registrar-Schleife, die nur `authMiddleware` bekommt.
+    coverage_start: "n.a. (kein Coverage-Ziel)"
+    scope: >
+      `POST /api/v1/files/upload` (`cmd/gateway/main.go`, `r.With(authMiddleware).With(RequirePermission("files","write"))`)
+      laeuft NICHT durch `authWithIdempotency`. Der Handler (`server/file_upload.go`) legt bei jedem Aufruf
+      eine neue Datei samt DB-Zeile an. Ein Client-Retry nach verlorener Antwort erzeugt ein Duplikat im Kanal.
+      Die Idempotency-Middleware einfach davorzusetzen ist KEIN Fix: sie liest den Body per `io.ReadAll`
+      komplett in den Speicher (Upload-Limit 55 MB) und hasht ihn. Zu entscheiden und zu bauen: Dedup ueber
+      einen optionalen `Idempotency-Key`-Header im Handler selbst (Reserve vor dem Schreiben, ohne den Body
+      zu puffern; Request-Hash aus channel_id + Dateiname + Groesse), oder bewusst nicht und dann als
+      `lean:`-Kommentar mit Upgrade-Trigger am Handler dokumentieren.
+    sources:
+      - backend/cmd/gateway/main.go
+      - backend/internal/server/file_upload.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/idempotency/
+    notes: >
+      Die Route steht nicht in `openapi.yaml` (der Drift-Test nimmt sie ausdruecklich aus). Keine neue Route,
+      kein Spec-Eintrag noetig. Die Entscheidung "Dedup ja/nein" ist klein genug fuer die Iteration; wird sie
+      ohne Dedup getroffen, ist das ein gueltiges Ergebnis, aber nur mit dem `lean:`-Marker.
+    done_when:
+      - Entweder Retry mit gleichem Idempotency-Key legt keine zweite Datei an (Test belegt es, Mutations-Probe), oder der Handler traegt einen begruendeten lean-Kommentar
+      - Der Upload puffert den Body nicht zusaetzlich zur bestehenden Multipart-Verarbeitung
+      - go test -count=1 ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: harden-guest-chat-message-retry-duplicates
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    decided: 2026-10-20
+    decision: >-
+      Aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48). Gast-Routen laufen
+      ohne JWT, die Idempotency-Middleware kann dort nicht greifen (sie liest Tenant und Nutzer aus dem JWT-Kontext).
+    coverage_start: "n.a. (kein Coverage-Ziel)"
+    scope: >
+      `POST /api/v1/guest/channels/{channelID}/messages` (`route_guest.go` `HandleSendMessage`) legt pro Aufruf
+      eine Chat-Nachricht an. `chatv1.SendMessageRequest` hat kein Client-Message-ID-Feld; ein Retry nach
+      verlorener Antwort (mobiles Netz, Gast-Widget) erzeugt dieselbe Nachricht doppelt im Support-Kanal. Begrenzt
+      durch `guestService.CheckRateLimit`, aber nicht verhindert. Fix-Richtung: optionaler `Idempotency-Key`-Header,
+      Reserve gegen `internal/idempotency` mit der Gast-Session-ID als Nutzer-Anteil (ohne Proto-Aenderung:
+      im Handler, vor dem gRPC-Aufruf, mit `session.TenantID` und `session.ID`).
+    sources:
+      - backend/internal/gateway/route_guest.go
+      - backend/internal/chat/guest/
+      - backend/internal/idempotency/
+      - backend/internal/middleware/idempotency.go
+    notes: >
+      Kein Proto-Feld ergaenzen, wenn der Handler-Weg reicht. Die Reserve-Zeile braucht `tenant_id` aus
+      der Session, nicht aus einem Header. Keine neue Route; `Idempotency-Key` ist ein Header, kein Pfad.
+      Pruefen, wie `automation/workflow/webhook.go` (`TriggerWebhook`) denselben Reserve-Aufruf ohne JWT macht,
+      und das Muster wiederverwenden.
+    done_when:
+      - Zwei Aufrufe mit gleichem Idempotency-Key und gleicher Session legen genau eine Nachricht an, der zweite liefert die gespeicherte Antwort
+      - Ohne Header bleibt das Verhalten unveraendert (kein 400)
+      - Eine fremde Session mit demselben Key kollidiert nicht (Test)
+      - go test -count=1 ./internal/gateway/ gruen, Mutations-Probe belegt
+
+  - id: harden-formulare-public-submit-double-submission
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: done
+    decided: 2026-10-20
+    decision: >-
+      Aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48). Oeffentliche Route, kein JWT,
+      daher keine Idempotency-Middleware.
+    coverage_start: "n.a. (kein Coverage-Ziel)"
+    scope: >
+      `POST /api/v1/public/formulare/submit/{token}` -> `formulare.Service.SubmitByShareToken`. Quota und Ablauf
+      sind pro Link geprueft (`RedeemShareLinkTx`), aber ein Link ohne `max_submissions` nimmt jeden Aufruf an:
+      Doppelklick oder Retry erzeugt zwei `FormSubmission` und loest die aktiven Webhooks zweimal aus. Fix-Richtung:
+      optionaler `Idempotency-Key`-Header; `internal/idempotency.Reserve` mit `link.TenantID`, dem Link als Pfad-Anteil
+      und dem Body-Hash (Muster: `automation/workflow/webhook.go` `TriggerWebhook`). Ohne Header Verhalten
+      unveraendert.
+    sources:
+      - backend/internal/formulare/form_share.go
+      - backend/internal/server/formulare_grpc.go
+      - backend/internal/gateway/route_formulare.go
+      - backend/internal/automation/workflow/webhook.go
+    notes: >
+      Der Header muss durch den gRPC-Aufruf bis in den Service. Ist dafuer ein Proto-Feld noetig, im selben Commit
+      regenerieren (passendes `make proto-*`-Target) und mit `git show --stat` auf die `.pb.go` pruefen. Der Replay-Fall
+      liefert die gespeicherte Antwort, nicht erneut die Webhooks.
+    done_when:
+      - Zwei Aufrufe mit gleichem Idempotency-Key legen genau eine Submission an, Webhooks feuern einmal
+      - Gleicher Key mit anderem Body liefert den dokumentierten Konflikt, nicht eine zweite Submission
+      - Ohne Header unveraendertes Verhalten
+      - go test -count=1 ./internal/formulare/... ./internal/server/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: scan-idempotency-response-body-persists-one-time-secrets
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    decided: 2026-10-20
+    decision: >-
+      Nebenbefund aus `scan-idempotency-on-stock-and-money-mutating-routes` (Iteration 48). Kein Cross-Tenant-Zugriff
+      (die Tabelle ist RLS-geschuetzt), daher ans Ende.
+    coverage_start: "n.a. (Scan, kein Coverage-Ziel)"
+    scope: >
+      `middleware.Idempotency` speichert den Response-Body JEDER Mutation im Klartext (`idempotency_keys.response_body`,
+      `idempotency/postgres_repository.go`, `Complete`). Der Whitelist-Eintrag `/auth/2fa` (Substring-Match) nimmt die
+      2FA-Routen aus, offenbar genau deshalb. Andere Routen, die ein Einmal-Geheimnis zurueckgeben, sind NICHT
+      ausgenommen: belegt ist `POST /api/v1/caldav/passwords` (`route_caldav.go` `handleCreatePassword`, Antwort enthaelt
+      das Klartext-Passwort, Kette CALAUTH + CALIDEM). Zu tun: ueber die Registrierung alle mutierenden Routen mit
+      Einmal-Geheimnis in der Antwort ermitteln (App-Passwoerter, API- und Plugin-Tokens, Webhook-Secrets, Einladungs- und
+      Reset-Token, OAuth-Client-Secrets, Backup-Codes), mit Methode, Pfad und Kette.
+    sources:
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/idempotency/postgres_repository.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/gateway/route_auth.go
+      - backend/internal/gateway/route_plugin.go
+      - backend/internal/gateway/route_automation.go
+    notes: >
+      Der Scan aendert nichts. Fix-Optionen fuer die Folge-Unit(s): Pfad-Whitelist erweitern (ein Eintrag je Route, Vorsicht:
+      der Match ist `strings.Contains`), oder ein Response-Header, den ein Handler setzt, um die Speicherung zu unterdruecken
+      (dann wird der Replay zum Fehler statt zur gespeicherten Antwort). Die Zeilen laufen nach TTL ab
+      (`IdempotencyCleanupWorker`); die TTL im Journal nennen.
+    done_when:
+      - Liste aller Routen mit Einmal-Geheimnis in der Antwort steht im Journal, ueber die Registrierung und die Handler-Antworten belegt
+      - Die Aufbewahrungsdauer der Zeilen steht im Journal
+      - Fuer die Funde ist eine Fix-Unit angelegt
+      - Kein Verhalten geaendert (git diff zeigt nur BACKLOG.yml und JOURNAL.md)
+
+  - id: harden-machine-booking-exclusion-constraint
+    phase: 4
+    service: produktion
+    model: opus
+    deps: []
+    status: done
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). `machine_bookings` hat KEINE DB-seitige
+      Sperre. `CreateBookingWithLock` serialisiert Anlagen per `pg_advisory_xact_lock`, aber `UpdateMachineBooking`
+      (`service.go`, ruft `FindConflictingBooking` ohne Transaktion/Lock, danach `UpdateBooking`) ist ein offenes
+      Read-vor-Write: zwei gleichzeitige Verschiebungen (oder Verschiebung gegen Neuanlage, die den Lock haelt, den die
+      Verschiebung nicht nimmt) koennen dieselbe Maschine doppelt belegen. Loesung wie bei `rentals` (000101):
+      `ALTER TABLE machine_bookings ADD CONSTRAINT ... EXCLUDE USING GIST (tenant_id WITH =, machine_id WITH =,
+      tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('booked','in_use'))`; die Extension `btree_gist`
+      existiert seit 000034/000101. `23P01` im Repo auf `ErrBookingConflict` abbilden (Vorlage: `asRentalConflict`,
+      `vermietung/postgres_repository.go`) fuer `CreateBookingWithLock` UND `UpdateBooking`. Die bestehende
+      Vorab-Pruefung bleibt (liefert die ID der kollidierenden Buchung fuer die Fehlermeldung).
+    sources:
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/produktion/service.go
+      - backend/migrations/000087_create_produktion.up.sql
+      - backend/migrations/000101_vermietung_gist_overlap_unique_inspection.up.sql
+    notes: >
+      PRODUKTIONSABFRAGE vor dem Ausrollen (Luke): die Migration scheitert, wenn schon Ueberschneidungen existieren.
+      SELECT a.tenant_id, a.machine_id, a.id, b.id FROM machine_bookings a JOIN machine_bookings b
+      ON a.tenant_id = b.tenant_id AND a.machine_id = b.machine_id AND a.id < b.id
+      AND a.status IN ('booked','in_use') AND b.status IN ('booked','in_use')
+      AND a.starts_at < b.ends_at AND a.ends_at > b.starts_at;
+      Nicht leer -> erst bereinigen (eine der Buchungen stornieren), dann migrieren. machine_id ist TEXT (kein Maschinen-
+      Stamm); GiST mit Text ueber btree_gist ist moeglich. Forward-only, .up und .down. Test: zwei Goroutinen verschieben
+      parallel auf dasselbe Fenster, genau eine gewinnt (Goroutinen -> `-race` nur in CI, in `offen:` vermerken).
+    done_when:
+      - Migration mit EXCLUDE-Constraint auf machine_bookings, up und down, lokal gegen kmuhub_app angewandt
+      - 23P01 wird in Create und Update auf ErrBookingConflict abgebildet, Test mit echter DB belegt es
+      - Mutations-Probe - Mapping entfernt, Test rot, zurueckgedreht
+      - Produktionsabfrage steht im Journal
+
+  - id: harden-vehicle-booking-exclusion-constraint
+    phase: 4
+    service: fuhrpark
+    model: opus
+    deps: []
+    status: done
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). `vehicle_bookings` (000300) sperrt Anlagen per
+      Advisory-Lock (`CreateBookingWithLock`), aber `UpdateVehicleBooking` (`service.go`) prueft Konflikte per
+      `FindConflictingBooking` ausserhalb jeder Transaktion und ohne den Lock - betroffen sind Verschiebung UND
+      Reaktivierung (cancelled/completed -> booked). Die Begruendung im Kopf von 000300 ("btree_gist is not guaranteed
+      available in every deployment target") ist widerlegt: `CREATE EXTENSION IF NOT EXISTS btree_gist` steht bereits in
+      000034 und 000101, laeuft also in jedem Zielsystem. Loesung: `EXCLUDE USING GIST (tenant_id WITH =, vehicle_id WITH =,
+      tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('booked','in_use'))` in neuer Migration, `23P01` auf
+      `ErrBookingConflict` abbilden (Vorlage `asRentalConflict`) in `CreateBookingWithLock` und `UpdateBooking`.
+    sources:
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/service.go
+      - backend/migrations/000300_vehicle_bookings.up.sql
+      - backend/internal/vermietung/postgres_repository.go
+    notes: >
+      PRODUKTIONSABFRAGE (Luke): SELECT a.tenant_id, a.vehicle_id, a.id, b.id FROM vehicle_bookings a
+      JOIN vehicle_bookings b ON a.tenant_id = b.tenant_id AND a.vehicle_id = b.vehicle_id AND a.id < b.id
+      AND a.status IN ('booked','in_use') AND b.status IN ('booked','in_use')
+      AND a.starts_at < b.ends_at AND a.ends_at > b.starts_at;
+      Nicht leer -> vor der Migration bereinigen. Die Migration 000300 ist neu - vermutlich leer, trotzdem fragen.
+      Der Kommentar in 000300 bleibt unveraendert (ausgerollte Migration); die Korrektur gehoert in den Kopf der neuen.
+      Gleiche Test-Anforderung wie bei der Maschinen-Unit (parallele Verschiebung, genau ein Gewinner, `-race` nur CI).
+    done_when:
+      - Migration mit EXCLUDE-Constraint auf vehicle_bookings, up und down, lokal angewandt
+      - 23P01 wird in Create und Update auf ErrBookingConflict abgebildet, Test mit echter DB belegt es
+      - Mutations-Probe - Mapping entfernt, Test rot, zurueckgedreht
+      - Produktionsabfrage steht im Journal
+
+  - id: harden-public-booking-slot-unique-index
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: done
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). Zwei verschiedene Kunden koennen denselben
+      Slot einer Buchungsseite belegen: der einzige Unique-Constraint `public_bookings_unique_slot` (000135) enthaelt
+      `customer_email` und ist nur ein Doppel-Submit-Backstop desselben Kunden. `CreatePublicBooking`
+      (`work/calendar/booking_service.go`) prueft nur gegen Kalender-Events (`GetCalendarEventsInRange`), NICHT gegen
+      `public_bookings`, und das Kalender-Event entsteht erst NACH dem Insert und best-effort (`calClient != nil`,
+      Fehler nur geloggt). Zwei gleichzeitige Anfragen - oder eine Anfrage, deren Event-Anlage scheitert, gefolgt von
+      einer zweiten - buchen denselben Slot doppelt. Loesung: partieller Unique-Index
+      `UNIQUE (booking_page_id, date, time_slot) WHERE status IN ('pending','confirmed')` und Unique-Violation (23505)
+      auf `ErrBookingSlotUnavailable` abbilden. Nicht Teil dieser Unit: Ueberlappung unterschiedlich langer Services
+      auf verschiedenen Slot-Starts (laeuft ueber die Kalender-Event-Pruefung).
+    sources:
+      - backend/internal/work/calendar/booking_service.go
+      - backend/internal/work/calendar/booking_postgres_repository.go
+      - backend/migrations/000135_create_booking_pages.up.sql
+    notes: >
+      PRODUKTIONSABFRAGE (Luke): SELECT booking_page_id, date, time_slot, count(*) FROM public_bookings
+      WHERE status IN ('pending','confirmed') GROUP BY 1,2,3 HAVING count(*) > 1;
+      Nicht leer -> vor dem Index bereinigen. Pruefen, ob `GetAvailability` Slots ueber mehrere Staff-Mitglieder
+      parallel vergeben darf (`staff_user_id`); falls ja, gehoert `staff_user_id` in den Index. Die Route ist
+      oeffentlich (Ratelimit, keine Auth): 23505 darf keine Details nach aussen geben.
+    done_when:
+      - Migration mit partiellem Unique-Index, up und down, lokal angewandt
+      - Zweiter Kunde auf denselben Slot bekommt ErrBookingSlotUnavailable, Test mit echter DB
+      - Mutations-Probe - Index weg, Test rot, zurueckgedreht
+      - Produktionsabfrage steht im Journal
+
+  - id: harden-shift-assignment-capacity-race
+    phase: 4
+    service: schichten
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-resource-double-booking-race` (Iteration 49). `Service.AssignEmployee` (`schichten/service.go`)
+      prueft Kapazitaet (`CountAssignments` >= `shift.Capacity`) und die Ruhezeit (`validateRestPeriod`,
+      `validateMinorProtection`) und ruft erst danach `CreateAssignment` auf - alles ohne Transaktion und Lock. Zwei
+      gleichzeitige Zuweisungen auf eine Schicht mit Kapazitaet 1 lesen beide count=0 und fuegen beide ein
+      (Ueberbelegung, `ErrShiftFull` umgangen); dieselbe Luecke trifft die ArbZG-/JArbSchG-Pruefung bei zwei parallelen
+      Zuweisungen desselben Mitarbeiters auf aneinandergrenzende Schichten. Der Unique-Constraint
+      `uq_shift_assignments_tenant` (tenant, shift, employee) faengt nur die doppelte Zuweisung derselben Person.
+      Loesung ohne Migration: Zuweisung in eine Transaktion, die zuerst die Schichtzeile `FOR UPDATE` sperrt (Kapazitaet)
+      bzw. einen Advisory-Lock je (tenant, employee) nimmt (Ruhezeit), Pruefungen und Insert darin.
+    sources:
+      - backend/internal/schichten/service.go
+      - backend/internal/schichten/postgres_repository.go
+      - backend/internal/schichten/repository.go
+    notes: >
+      Kapazitaet ist eine Zaehl-Invariante, kein Zeitraum - EXCLUDE passt nicht, ein Zeilen-Lock auf `shifts` ist die
+      schlanke Loesung. Nicht anfassen: `SwapAssignmentsForRequest` (hat eigene Transaktion, 000311). Test: N parallele
+      Zuweisungen auf Kapazitaet K, genau K gelingen (Goroutinen -> `-race` nur in CI, in `offen:` vermerken).
+      Keine Produktionsabfrage noetig (kein neuer Constraint); optional zum Messen:
+      SELECT s.id, s.capacity, count(*) FROM shifts s JOIN shift_assignments a ON a.shift_id = s.id
+      WHERE s.capacity IS NOT NULL GROUP BY s.id HAVING count(*) > s.capacity;
+    done_when:
+      - Kapazitaetspruefung und Insert laufen unter einem gemeinsamen Lock in einer Transaktion
+      - Test mit echter DB - parallele Zuweisungen ueberschreiten die Kapazitaet nicht
+      - Mutations-Probe - Lock entfernt, Test rot, zurueckgedreht
+
+  - id: harden-password-reset-token-single-use
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-signed-url-and-token-lifetimes` (Iteration 50). `Service.ResetPassword`
+      (`auth/service.go:757`) liest den Token, prueft `UsedAt`/`ExpiresAt` in Go, setzt das Passwort
+      und markiert den Token erst danach als benutzt - und `MarkPasswordResetTokenUsed`
+      (`postgres_repository.go:1487`) ist ein blankes `UPDATE ... SET used_at = NOW() WHERE id = $1`
+      ohne `used_at IS NULL`, sein Fehler wird nur geloggt. Zwei gleichzeitige Requests mit demselben
+      Token bestehen beide die Pruefung und setzen beide ein Passwort; schlaegt das Markieren fehl,
+      bleibt der Token bis zum Ablauf (1 h) wiederverwendbar. Einmalverwendung ist damit
+      Pruef-dann-Handeln, nicht atomar. Schaden gering (wer den Token hat, hat den Account ohnehin),
+      aber der Token ist das einzige Einmal-Geheimnis in dieser Familie, das es nicht atomar
+      durchsetzt - CSAT (`RedeemCsatSurveyTx`) und Invitation-Accept tun es.
+    sources:
+      - backend/internal/auth/service.go
+      - backend/internal/auth/postgres_repository.go
+      - backend/internal/auth/repository.go
+    notes: >
+      Den Token ZUERST atomar verbrauchen: `UPDATE password_reset_tokens SET used_at = NOW()
+      WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW() RETURNING id, user_id`,
+      0 Zeilen = ErrResetTokenInvalid/Used/Expired (zur Unterscheidung der Fehler danach einmal lesen).
+      Passwort setzen und Refresh-Tokens widerrufen danach, idealerweise in derselben Transaktion;
+      scheitert das Passwort-Update, darf der Token nicht verbrannt bleiben (Tx-Rollback).
+      Fehlercodes nach aussen unveraendert lassen. Bestehende Tests in `auth` pruefen, die
+      `MarkPasswordResetTokenUsed` mocken.
+    done_when:
+      - Zwei parallele ResetPassword mit demselben Token - genau eines gelingt (Test mit echter DB)
+      - Scheitert das Passwort-Update, ist der Token danach weiter einloesbar
+      - Mutations-Probe - `used_at IS NULL` entfernt, Test rot, zurueckgedreht
+      - Fehlercodes und Statuscodes der Route unveraendert
+
+  - id: harden-wiki-share-link-creation-validation
+    phase: 4
+    service: wiki
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-signed-url-and-token-lifetimes` (Iteration 50). Die Wiki-Share-Links
+      sind die einzigen der drei Share-Typen, deren Anlage nichts validiert:
+      `wiki.Service.CreateShareToken` (`wiki/service.go:507`) nimmt `ExpiresAt` ungeprueft (auch
+      Vergangenheit; `wiki_grpc.go:483` parst nur das Format) und speichert `Permissions` als
+      beliebige Client-Strings. Eingeloest wird nur "read" (`share.go:Usable`), ein anderer Wert
+      macht den Link tot statt gefaehrlich - die Daten sind trotzdem falsch. Formulare lehnt
+      `expires_at` in der Vergangenheit ab (`form_share.go:150`), Berichte begrenzt auf
+      365 Tage (`berichte/service.go:965`) und lehnt negative Werte ab.
+    sources:
+      - backend/internal/wiki/service.go
+      - backend/internal/wiki/share.go
+      - backend/internal/server/wiki_grpc.go
+      - backend/internal/formulare/form_share.go
+    notes: >
+      Nur das Angleichen an Formulare: `expires_at` muss in der Zukunft liegen
+      (neuer Fehler analog `ErrInvalidShareLink`, im gRPC-Mapper auf InvalidArgument, im
+      Gateway 400 - Status-Code in `openapi.yaml` pruefen und ergaenzen, falls 400 dort fehlt);
+      `permissions` nur aus {"read"}. Eine MAXIMALE Laufzeit (Berichte: 365 Tage) ist eine
+      Produktentscheidung und steht in `decide-token-lifetime-and-storage-policy`, nicht hier.
+    done_when:
+      - Vergangenes expires_at und unbekannte Permission werden abgelehnt, Test je Fall
+      - Bestehende Wiki-Share-Tests und `TestOpenAPIRouteDrift` gruen
+      - Mutations-Probe - Pruefung entfernt, Test rot, zurueckgedreht
+
+  - id: fix-contact-erasure-leaves-rental-signatures
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Erasure-Luecke, kein Coverage-Ziel)"
+    scope: >
+      Nebenbefund aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52).
+      `consent.ScrubDependentPII` (`crm/consent/scrub.go:134`) setzt auf `rentals` nur `renter_name`
+      und `notes` zurueck. `rentals.signature_data` und `rentals.signed_by` (Unterschrift und Name
+      des Mieters, `vermietung/models.go:57`) sowie `rental_inspections.signature_data`, `notes`,
+      `photo_urls` und `checklist` (Uebergabeprotokoll) bleiben stehen, wenn der Kontakt geloescht
+      oder per Retention anonymisiert wird. Es gibt keinen FK `rentals.contact_id` -> `contacts`
+      (gemessen in `pg_constraint`), die Zeile verwaist also still. Der Kommentar in `scrub.go`
+      nennt `rentals` als abgedeckt, `rental_inspections` und die Signaturspalten kommen nirgends vor.
+      Gelesen und gegen die lokale DB (Migration 327) gemessen, nicht gegen Produktion.
+    sources:
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/vermietung/models.go
+      - backend/internal/vermietung/postgres_repository.go
+      - backend/internal/crm/contact/postgres_repository.go
+    notes: >
+      `ScrubDependentPII` um `signature_data = NULL, signed_by = NULL` auf `rentals` erweitern und
+      ein Update auf `rental_inspections` ueber `rental_id IN (SELECT id FROM rentals WHERE
+      contact_id = $1 AND tenant_id = $2)` ergaenzen. Die Zeilen selbst bleiben (Mietbeleg).
+      Vorab klaeren, ob `signed_by` eine Person oder ein Login ist (`vermietung/service.go`).
+      Kommentarblock oben in `scrub.go` mitziehen. Mietvertraege koennen unter Paragraph 257 HGB
+      fallen (`decide-retention-policy-hgb-ao-domains`) - hier wird nur der Personenbezug im
+      Zeilenrest geleert, nichts geloescht.
+    done_when:
+      - >-
+        Nach Kontakt-Loeschung und nach dem ContactRetentionHandler sind die Signaturspalten der
+        Miete und die Spalten der zugehoerigen Uebergabeprotokolle leer, Test je Pfad mit echter DB
+      - >-
+        Mutations-Probe - eines der neuen UPDATEs entfernt, Test rot, zurueckgedreht
+      - >-
+        Kommentarblock in scrub.go nennt die neuen Spalten
+
+  - id: feat-dsar-coverage-booking-and-guest-visitors
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Externe Besucher
+      ohne Kontakt- oder Nutzerzeile fehlen in der DSAR-Suche: `public_bookings` (`customer_name`,
+      `customer_email`, `customer_phone`, `notes` - Termine ueber die oeffentliche Buchungsseite)
+      und `guest_sessions` (`display_name`, `email`, `ip_address`, `user_agent` - Gaeste im Chat).
+      Fuer `guest_sessions` gibt es einen Retention-Handler (90 Tage), aber kein DSAR-Modul; fuer
+      `public_bookings` weder noch (`BookingPageErasureHandler` fasst sie bewusst nicht an,
+      `erasure.go:631`). Eine Auskunft ueber eine Person, die nur ueber die Buchungsseite
+      eingetragen ist, liefert heute nichts.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/retention_guest_sessions.go
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      Muster: eine Modul-Funktion in `dsar_search.go` (Signatur wie `driverLicensesModule`), Aufruf
+      in `SearchByQuery`, Test in `dsar_search_test.go` mit echter DB. Nur LESEN - kein
+      Retention-Handler, keine Loeschung (Fristen stehen in
+      `decide-retention-periods-unbounded-personal-tables`, BACKLOG-NEXT.yml). Tenant-Scoping in
+      JEDER Abfrage. Suche ueber E-Mail/Name wie `matchUnlinkedSuppliers` (Treffer ohne
+      Kontaktverknuepfung als eigene Person). `token_hash` nie ausgeben.
+    done_when:
+      - >-
+        Suche nach der E-Mail einer reinen Buchungsseiten-Person liefert ein Modul mit ihren
+        Buchungen, Test mit echter DB
+      - >-
+        Suche nach der E-Mail eines Chat-Gasts liefert die Sitzungen ohne token_hash
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-inbox-and-mail-accounts
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Posteingang und
+      Mail-Konten fehlen im Nutzerzweig: `inbox_messages` (`sender_name`, `sender_email`,
+      `preview`, `assigned_to`), `inbox_thread_messages` (`body`), `team_inbox_members`,
+      `email_accounts` (`display_name`, `email_address`), `email_signatures` (Klartext mit
+      Name/Telefon). `email_messages` kommt heute nur ueber `email_contact_links` vor (Kontaktzweig),
+      nicht fuer das Postfach eines Nutzers. Die Kontakt-Retention scrubbt `inbox_messages` ueber
+      `crm_contact_id` (`scrub.go:123`); ob `inbox_thread_messages.body` dabei mitgeleert wird,
+      ist ungeklaert - zuerst pruefen.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/inbox
+      - backend/internal/email
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. E-Mail ist eine der vier
+      Domaenen mit gesetzlicher Frist (`decide-retention-policy-hgb-ao-domains`) - hier nur
+      Auskunft. Traegt `inbox_thread_messages.body` nach dem Scrub weiter den Klartext der Person,
+      eigene Fix-Unit anlegen (`neue-units`).
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Posteingangs-Eintraege, Postfach-Konten und Signaturen des Nutzers,
+        Test mit echter DB
+      - >-
+        Ob inbox_thread_messages.body von ScrubDependentPII abgedeckt wird, ist im Journal
+        beantwortet
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-video-and-dialer-participation
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Teilnahme- und
+      Aktivitaetsdaten ohne Auskunft: `call_sessions` und `call_participants` (Video, Nutzer als
+      Initiator/Teilnehmer), `meeting_attendees`, `meeting_cohosts`, `meeting_action_items`
+      (`assignee_id`, `description`), `meeting_breakout_assignments`, `dialer_agent_status_log`
+      (Status und Zeitpunkte je Agent - Beschaeftigtendaten, Leistungskontrolle). `meetingsModule`
+      liest nur die Kontaktseite. Notizen und Meeting-Chat sind bereits als
+      `feat-meeting-notes-and-chat-dsar-and-retention-coverage` (BACKLOG-NEXT, wartet auf
+      Entscheidung) erfasst und gehoeren NICHT hierher.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/work
+      - backend/internal/dialer
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. `dialer_agent_status_log` waechst
+      unbegrenzt (Frist in der Entscheidungs-Unit); hier nur Auskunft, bei grosser Zeilenzahl pro
+      Agent mit Zeitraum-Begrenzung oder Aggregat - Zahl messen und im Journal nennen.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Anruf- und Meeting-Teilnahmen, Aktionspunkte und Agent-Statushistorie,
+        Test mit echter DB
+      - >-
+        Bei grosser Statushistorie ist die Ausgabe begrenzt oder verdichtet, Grenze dokumentiert
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-work-reports-and-shifts
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Beschaeftigtendaten
+      der Branchenmodule ohne Auskunft: `work_reports` (Rapporte - `author_id`, `reviewer_id`,
+      `signature_data`, `signed_by`, `lat`/`lon`, Arbeitsbeginn/-ende), `shift_assignments`
+      (`employee_id`), `shift_swap_requests` (`reason`), `hr_week_approvals` (`employee_id`).
+      `hr_work_time_entries` und `hr_leave_*` sind im DSAR, Wochenfreigaben und Schichten nicht.
+      Der Rapport traegt GPS-Koordinaten und eine Unterschrift - der sensibelste Posten dieser
+      Gruppe. Schichten laufen hinter einem Flag (aus), die Tabellen sind trotzdem angelegt.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/rapporte
+      - backend/internal/schichten
+      - backend/internal/hr
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. Unterschrift (`signature_data`)
+      nicht als Base64 ausgeben, sondern als Vermerk mit Zeitpunkt - dieselbe Linie wie
+      `rentalsModule`, dort nachsehen.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Rapporte (als Autor und als Pruefer), Schichtzuteilungen,
+        Tauschanfragen und Wochenfreigaben, Test mit echter DB
+      - >-
+        Unterschrift erscheint als Vermerk, nicht als Rohdaten
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-document-and-chat-authorship
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Vom Nutzer
+      erzeugte Dateien und Beitraege ausserhalb von Nachrichten und Aufgaben: `document_files`
+      (heute nur ueber `document_entity_links` am Kontakt, nicht ueber `owner_id`),
+      `document_file_comments` (`content`, `author_id`), `document_shares`
+      (`shared_with_user_id`), `chat_files` (`filename`, `uploaded_by`), `message_reactions`,
+      `task_files`, `task_activities` (`actor_id`), `wiki_articles` und `wiki_attachments`
+      (`author_id`, `uploaded_by`). Auskunft ueber die eigenen Kommentare und Uploads fehlt.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/document
+      - backend/internal/chat/file
+      - backend/internal/wiki
+      - backend/internal/work
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. Reine Strukturverweise
+      (`created_by` auf Ordner, Tags, Berichtsvorlagen) gehoeren NICHT hierher - die Nutzerzeile
+      wird bei Erasure anonymisiert, der Verweis zeigt dann auf das Label. Nur Inhalt und
+      Dateinamen der Person ausgeben, keine Dateiinhalte.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt eigene Dokumente (owner_id), Kommentare, Chat-Uploads (Dateiname,
+        Zeitpunkt) und Wiki-Autorenschaft, Test mit echter DB
+      - >-
+        Geloeschte Dateien sind gekennzeichnet, nicht verschwiegen
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-finance-beyond-invoices
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). `financeModule`
+      liest nur `finance_invoices`. Mit Personenbezug und gesetzlicher Frist (Auskunft ja,
+      Loeschung nein, Paragraph 147 AO und 257 HGB) fehlen `finance_quotes`,
+      `finance_credit_notes`, `finance_recurring_invoices` (je `customer_name`, `customer_email`,
+      `customer_address`), `finance_incoming_invoices` (`supplier_address`), `finance_expenses`
+      (`submitted_by`, `decided_by`, `supplier`, `receipt_name` - Mitarbeiter-Spesen),
+      `finance_bank_transactions` (`counterparty_name`, `counterparty_iban`, `remittance_info`),
+      `finance_dunning_records`. Diese Tabellen duerfen NICHT geloescht werden und sind darum
+      keine Retention-Luecke.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/finance
+      - backend/internal/crm/consent/scrub.go
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. Mehrere Quellen sind nur ueber
+      E-Mail oder Name verknuepft (kein `contact_id`) - Treffer-Regel wie `formSubmissionsModule`
+      (E-Mail-Gleichheit) uebernehmen und im Journal begruenden. IBANs maskiert ausgeben (letzte
+      4 Stellen).
+    done_when:
+      - >-
+        Kontakt-DSAR zeigt Angebote, Gutschriften, Abos, Eingangsrechnungen und Bankumsaetze, die
+        ihn nennen; Mitarbeiter-DSAR zeigt eigene Spesen, Test mit echter DB
+      - >-
+        IBAN erscheint maskiert
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-fuhrpark-trip-logs-and-damages
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). `trip_logs`
+      traegt `driver_name`, Start- und Zielort, Zweck, `is_private`, `business_partner` - das
+      Fahrtenbuch einer Person - und fehlt im DSAR (Fuhrpark deckt dort `vehicle_bookings`,
+      `driver_licenses`, `vehicles`). `vehicle_damages` (`reported_by`, `resolved_by`,
+      `description`) ist nur mit diesen Spalten Nutzerdatum; `vehicle_services` und `fuel_logs`
+      haben keinen Personenbezug. `trip_logs` ist Paragraph-147-AO-Kandidat
+      (`decide-retention-policy-hgb-ao-domains`): Auskunft ja, Loeschung nein.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/fuhrpark
+      - backend/internal/security/gdpr/retention_vehicle_bookings.go
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. `trip_logs.driver_name` ist Text,
+      kein FK: Treffer ueber Namensgleichheit mit dem Nutzer, im Journal als unscharf
+      kennzeichnen.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Fahrtenbuch-Eintraege (Namensabgleich, als unscharf markiert) und
+        gemeldete oder geloeste Schaeden, Test mit echter DB
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-account-access-and-audit-extract
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Kontodaten und
+      Zugriffsprotokoll des Nutzers: `user_roles`, `user_permission_overrides`,
+      `user_module_grants`, `integration_account_links` (`external_display_name`),
+      `user_settings`, `user_dashboard_layouts`, `user_project_preferences`, `saved_filters`,
+      `app_specific_passwords` (nur Label und Zeitpunkte) und `audit_log` (`ip_address`,
+      `user_agent`, `user_id`). `AuditErasureHandler` behaelt das Protokoll bewusst (Art. 17
+      Abs. 3, Hash-Kette, Paragraph 147 AO). Auskunft dazu wird geschuldet und fehlt.
+      `accountSecurityModule` deckt nur 2FA, Passwort-Historie und Recovery-Codes ab.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/audit/postgres_repository.go
+      - backend/internal/security/gdpr/erasure.go
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. `audit_log` ist die groesste
+      Tabelle: Auszug nach Zeitraum und Obergrenze (die letzten N Eintraege plus Gesamtzahl), NICHT
+      die ganze Kette laden und die Hash-Kette nicht beruehren. Geheimnisse (Hashes, Token) nie
+      ausgeben.
+    done_when:
+      - >-
+        Nutzer-DSAR zeigt Rollen, Overrides, Modul-Freigaben, Integrationsverknuepfungen,
+        Einstellungen und einen begrenzten Audit-Auszug mit Gesamtzahl, Test mit echter DB
+      - >-
+        Audit-Abfrage ist indexgestuetzt (EXPLAIN im Journal) und begrenzt
+      - >-
+        Fremder Tenant liefert 0 Zeilen, Test
+
+  - id: feat-dsar-coverage-crm-custom-values-csat-and-webhooks
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (DSAR-Luecke, Ziel ist Befund-Abdeckung statt Zeilen)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Drei kleine Reste
+      im Kontaktzweig. (1) `company_custom_field_values`, `deal_custom_field_values`,
+      `activity_custom_field_values` (alle ohne `tenant_id`-Spalte) - nur
+      `contact_custom_field_values` ist im DSAR; Freitextwerte an Deals und Aktivitaeten des
+      Kontakts bleiben unsichtbar. (2) `ticket_csat_responses.comment` - Freitext des Kunden,
+      weder DSAR noch Retention. (3) `form_webhook_deliveries` (Retention-Handler vorhanden)
+      kopiert die Formular-Einsendung als Payload und fehlt im DSAR, obwohl `form_submissions`
+      drin ist.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/retention_form_webhook_deliveries.go
+      - backend/internal/helpdesk
+    notes: >
+      Muster wie `feat-dsar-coverage-booking-and-guest-visitors`. Die drei Custom-Value-Tabellen
+      haben kein `tenant_id`: Tenant-Scoping ueber den JOIN auf die Elterntabelle (wie
+      `taskCustomFieldValuesModule`, beide Seiten mit `tenant_id = $1`), nie mit tenantlosem SELECT.
+    done_when:
+      - >-
+        Kontakt-DSAR zeigt Werte an Firmen, Deals und Aktivitaeten des Kontakts, CSAT-Kommentare
+        seiner Tickets und Webhook-Zustellungen seiner Einsendungen, Test mit echter DB
+      - >-
+        Custom-Value-Abfragen sind ueber die Elterntabelle tenant-gescoped, Fremd-Tenant-Test
+        liefert 0 Zeilen
+
+  - id: fix-biz-line-items-unparsable-decimal-becomes-zero
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Fix, Bezugspaket internal/server wird in der Iteration gemessen)"
+    scope: >
+      Aus `scan-business-logic-in-handlers` (Iteration 53). `protoLineItemsToModel`
+      (`server/biz_grpc.go:1719`) parst `quantity`, `unit_price`, `tax_rate` und `line_total`
+      mit `decimal.NewFromString` und wirft den Fehler weg (`qty, _ := ...`). Ein unparsbarer
+      Wert wird still zu 0: `"1,5"` (deutsches Komma) als Menge oder Preis ergibt eine Position
+      mit 0 EUR, ein fehlendes oder kommagetrenntes `tax_rate` ergibt in `tax_mode=standard` eine
+      Position mit 0 % USt. Das Gateway reicht die Positionen ungeprueft durch (`LineItems
+      []*bizv1.LineItem` in `createInvoiceRequest`, kein `dive`), der Service rechnet nur mit den
+      geparsten Werten (`tax.LineTotal`, `tax.Calculate`) und kennt den Parsefehler nicht mehr.
+      Sieben Aufrufer: CreateQuote, UpdateQuote, CreateInvoice, UpdateInvoice, CreateCreditNote
+      (Zeilen 266, 378, 529, 675, 767) und die zwei Wiederkehrend-RPCs in
+      `biz_grpc_recurring.go` (61, 139). Das ist ein Beleg-Betrag, der beim Kunden oder
+      Steuerberater landet, ohne dass ein Fehler je auftaucht.
+      Zweiter Fund derselben Klasse in `UpdateDunningConfig` (`biz_grpc.go:1105-1123`): die
+      Mahngebuehren `level1_fee` bis `level3_fee` werden geparst, aber nicht auf negativ geprueft
+      (`CreateInvoiceFromTimeEntries` prueft `hourlyRate.IsNegative()` im selben File, die Zahlung
+      `payment.Record` prueft `<= 0`). Der Service `dunning.UpdateConfig` uebernimmt die Werte
+      ungeprueft. Eine negative Gebuehr wuerde auf jeder Mahnung abgezogen. `Basiszinssatz`
+      (Zeile 230) hat ebenfalls keine Grenze.
+    sources:
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/server/biz_grpc_recurring.go
+      - backend/internal/gateway/route_biz_invoices.go
+      - backend/internal/biz/tax/calculator.go
+      - backend/internal/biz/dunning/service.go
+    notes: >
+      Wurzelursache ist die gemeinsame Funktion: `protoLineItemsToModel` gibt `([]models.LineItem,
+      error)` zurueck, alle sieben Aufrufer mappen den Fehler auf `codes.InvalidArgument` mit der
+      Positionsnummer in der Meldung (`line_items[2].unit_price`). Kein Guard je Aufrufer. Leer ist
+      erlaubt NUR fuer `line_total` (der Service rechnet sie ohnehin neu, `tax.LineTotal`) und fuer
+      `tax_rate` in den Modi `kleinunternehmer`/`reverse_charge` (dort ignoriert `tax.Calculate`
+      den Satz) - in `standard` ist ein leerer Satz ein Fehler, nicht 0 %. Negative Mengen und Preise
+      NICHT verbieten: Rabattzeilen und Gutschriftspositionen koennen sie legitim tragen, das ist
+      eine Produktentscheidung. Die gleiche Rechnung existiert nur einmal (`tax.LineTotal`), nichts
+      zu konsolidieren. Es gibt keinen Test, der `protoLineItemsToModel` anfasst (kein Treffer in
+      `server/*_test.go`). Kein Bruch fuer das FE: die Gateway-Tests senden Dezimalpunkt-Strings
+      (`"10.00"`, `"19.00"`); vor dem Bauen gegen den FE-Positionsbau gegenpruefen.
+    done_when:
+      - >-
+        `protoLineItemsToModel` liefert einen Fehler fuer unparsbare Menge, Preis und (im Modus
+        standard) Steuersatz; alle sieben Aufrufer geben `InvalidArgument` mit Positionsnummer
+        zurueck, Tabellentest je RPC-Gruppe
+      - >-
+        Test: `"1,5"` als Menge ergibt InvalidArgument statt einer 0-EUR-Position, leerer
+        Steuersatz im Modus kleinunternehmer bleibt erlaubt
+      - >-
+        Negative Mahngebuehr wird in `UpdateDunningConfig` mit InvalidArgument abgelehnt, ebenso
+        ein negativer Basiszinssatz (Obergrenze im Journal begruendet), Test
+      - Mutations-Probe fuer die Fehlerrueckgabe und fuer die Negativpruefung
+
+  - id: fix-hr-work-time-status-duplicates-service-and-masks-errors
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Fix, Bezugspaket internal/gateway wird in der Iteration gemessen)"
+    scope: >
+      Aus `scan-business-logic-in-handlers` (Iteration 53). `HandleGetWorkTimeStatus`
+      (`gateway/route_hr.go:722-778`) baut den Stempel-Status der Kopfzeile im Handler aus zwei
+      RPCs (`GetActiveShift`, `GetDailySummary`) und rechnet die ArbZG-Stufe mit eigenen
+      Schwellen nach (`> 600` error, `>= 540` warning, `>= 480` info). Dieselbe Regel existiert
+      bereits in `compliance.CheckWorkTime` (`biz/hr/compliance/arbzg.go:60`), die
+      `timetracking.Service.GetWorkTimeStatus` (`service.go:1026`) benutzt - die Service-Methode
+      ist von keinem RPC erreichbar. Aendert jemand die Schwellen im Service, zeigt die Kopfzeile
+      weiter die alten.
+      Schwerer: beide RPC-Fehler werden verschluckt (`shiftErr == nil && ...`). Faellt `hr` aus
+      oder liefert einen Fehler, antwortet der Handler `200` mit `is_clocked_in:false`,
+      `arbzg_severity:"none"`. Ein eingestempelter Mitarbeiter sieht dann "nicht eingestempelt";
+      der Test `TestHandleGetWorkTimeStatus_RPCFailureStillReturnsDefaults` hat genau dieses
+      Verhalten festgeschrieben.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/gateway/route_hr_time_tracking_test.go
+      - backend/internal/biz/hr/compliance/arbzg.go
+      - backend/internal/biz/hr/timetracking/service.go
+    notes: >
+      Kleinster Fix ohne Proto-Aenderung: im Handler die Schwellen-Kette durch
+      `compliance.CheckWorkTime(int(netMinutes))` ersetzen. Das Gateway importiert
+      `biz/hr/compliance` heute nicht - pruefen, ob eine Importgrenze besteht; wenn ja, Unit auf
+      blocked mit Begruendung statt eine Kopie der Schwellen. Den Fehlerpfad: ein
+      `GetActiveShift`-Fehler muss als Fehler antworten (`respondGRPCError`), nicht als
+      "nicht eingestempelt". Beim `GetDailySummary`-Fehler ist der Default 0 Minuten vertretbar,
+      aber zu loggen (`slog.Warn`). Der bestehende Test wird entsprechend umgeschrieben, nicht
+      geloescht. Offene Frage fuer `offen:`: `time.Now().Format(...)` nimmt die Serverzone; ob
+      der Container auf UTC laeuft, ist nicht geprueft - zwischen 00:00 und 02:00 MESZ waere
+      "heute" dann der Vortag. Nur melden, nicht in dieser Unit loesen.
+    done_when:
+      - >-
+        Handler benutzt `compliance.CheckWorkTime` statt eigener Schwellen, Test deckt die
+        Grenzen 479/480/539/540/600/601 ab
+      - >-
+        `GetActiveShift`-Fehler fuehrt zu einer Fehlerantwort statt zu "nicht eingestempelt",
+        Test mit fehlschlagendem Client
+      - Mutations-Probe an einer Schwelle und am Fehlerpfad
+
+  - id: fix-work-billable-hours-float-rounding-per-row
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Fix, Bezugspaket internal/server wird in der Iteration gemessen)"
+    scope: >
+      Aus `scan-business-logic-in-handlers` (Iteration 53). `billableTimeEntryToProto` und
+      `projectTimeEntryToProto` (`server/work_grpc.go:2116`, `2155`) rechnen Sekunden in Stunden
+      mit `math.Round(float64(s)/3600*100)/100` je Zeile und senden `double`. Die Abrechnungsseite
+      (`CreateInvoiceFromTimeEntries`, `biz_grpc.go:2061`) summiert zuerst die Minuten und rundet
+      erst die Summe. Eine Summe der gerundeten Zeilen weicht davon ab (100 Eintraege zu je einer
+      Minute: Zeilen summieren auf 2,00 h, die Rechnung bucht 1,67 h). Wer die Vorschau-Summe im
+      FE aus den Zeilen bildet, sieht eine andere Zahl als auf der Rechnung. Beide Konverter haben
+      keinen Test (kein Treffer in `server/*_test.go`).
+    sources:
+      - backend/internal/server/work_grpc.go
+      - backend/internal/server/biz_grpc.go
+    notes: >
+      ZUERST klaeren, ob das FE die Zeilen summiert oder einen Server-Gesamtwert zeigt - Desktop
+      `BillableTimeEntry` / Projektzeiten-Tab lesen. Summiert es nicht, ist das nur ein
+      Anzeigeunterschied je Zeile und die Unit wird `done` mit Befund statt Code. Summiert es:
+      das Proto bekommt kein neues Feld (kein Proto-Regen in dieser Unit), sondern die Zeilen
+      senden die ungerundeten Stunden (`float64(s)/3600`), gerundet wird im FE bei der Anzeige und
+      nach der Summe. Zwei Konverter, ein Stunden-Umrechner: eine Hilfsfunktion
+      `secondsToHours`, kein dritter Rechenort.
+    done_when:
+      - >-
+        FE-Verhalten (Zeilen summieren oder nicht) im Journal belegt, mit Dateistelle
+      - >-
+        Falls summiert: beide Konverter nutzen eine gemeinsame Umrechnung ohne Zeilenrundung,
+        Test mit 100 x 60 Sekunden ergibt Summe 1,67
+
+  # --- Funde aus scan-worker-restart-and-lock-release (Iteration 54) ---
+
+  - id: fix-background-workers-panic-kills-process-or-silently-stops-loop
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Fix, Coverage nicht Ziel)"
+    scope: >
+      Nur zwei Stellen im Backend fangen eine Panik in einem Hintergrund-Goroutine ab
+      (`biz/bexio/scheduler.go:147`, `biz/lexware/scheduler.go:148`). Jeder andere Worker und
+      jede aus einem Tick gestartete `go func` reisst bei einer Panik den GANZEN Prozess mit
+      (Go beendet das Programm bei unbehandelter Panik in irgendeiner Goroutine; der
+      gRPC-Recovery-Interceptor in `middleware/grpc_recovery.go` sieht sie nicht).
+      Betroffen und gelesen: `automation/engine/consumer.go:67` und
+      `automation/trigger/poller.go:211` und `automation/workflow/webhook.go:233` (alle drei
+      rufen `engine.Execute`, also beliebige Aktionen, ohne `recover`),
+      `notification/event/bus.go` (`dispatch` ruft jeden Handler synchron auf dem
+      Listener-Goroutine), `berichte/scheduler` (`dispatch` -> RunReport/Export/Mailer),
+      `vertraege/worker.go`, `formulare/worker.go`, `email/sync/worker.go` (IMAP-Parser auf
+      fremden Servern), `helpdesk/csat_dispatch.go`, `dialer/reaper.go`, `fuhrpark/worker.go`,
+      `inbox/message/service.go` (Snooze-Worker), `middleware/audit.go` (`worker`),
+      `gdpr/service.go:139` (Export), `caldav/push_notifier.go:79,88`.
+      Bei bexio/lexware ist das Gegenstueck falsch herum: das `defer recover` sitzt auf
+      Funktionsebene von `runTenantScheduler`, nach der Panik endet die Schleife dauerhaft und
+      nur eine Logzeile sagt es. In `bexio/scheduler.go` kommt dazu: `contactInterval` und
+      `paymentInterval` werden ohne Untergrenze an `time.NewTicker` gegeben (nur
+      `invoicePullInterval` ist abgesichert). Ein Intervall von 0 Minuten panikt, die
+      Recovery faengt es, und der Mandanten-Sync laeuft nie - ohne Fehler ausser einer Zeile.
+    sources:
+      - backend/internal/middleware/grpc_recovery.go
+      - backend/internal/automation/engine/consumer.go
+      - backend/internal/automation/trigger/poller.go
+      - backend/internal/automation/workflow/webhook.go
+      - backend/internal/notification/event/bus.go
+      - backend/internal/biz/bexio/scheduler.go
+      - backend/internal/biz/lexware/scheduler.go
+    notes: >
+      EIN Helfer, kein Eigenbau je Worker: ein kleines Paket (etwa `internal/safego` mit
+      `Go(name string, fn func())` und `Tick(ctx, name, fn func(context.Context))`), das die
+      Panik mit Stack per `slog.Error` loggt und bei `Tick` mit dem naechsten Tick WEITERMACHT.
+      Erst pruefen, ob `grpc_recovery.go` einen wiederverwendbaren Kern hat. Danach die Stellen
+      oben umstellen; bei bexio/lexware das `defer recover` von Funktionsebene in den Tick
+      ziehen, damit die Schleife die Panik ueberlebt. Die Untergrenze fuer `contactInterval` und
+      `paymentInterval` wie bei `invoicePullInterval` (15 min). Reihenfolge nach Schaden:
+      automation (fremde Aktionen), bus.dispatch, email/sync, Rest. Kein Verhalten aendern
+      ausser: Panik toetet nicht mehr den Prozess.
+      Test je umgestellter Gruppe: eine Funktion, die panikt, ZWEIMAL ticken lassen - der
+      zweite Durchlauf muss noch laufen (ein Test mit nur einem Durchlauf beweist das Gegenteil
+      nicht). `-race` laeuft hier nicht; Tests mit Goroutinen in `offen:` vermerken.
+    done_when:
+      - >-
+        Gemeinsamer Helfer existiert und ist getestet (Panik wird geloggt, naechster Tick laeuft)
+      - >-
+        Die drei `engine.Execute`-Goroutinen der Automation, `EventBus.dispatch` und der
+        E-Mail-Sync-Worker laufen ueber den Helfer; Rest der Liste aus dem scope umgestellt oder
+        mit Grund im Journal ausgelassen
+      - >-
+        bexio und lexware: die Schleife ueberlebt eine Panik im Tick; Intervalle haben eine
+        Untergrenze; Test mit zwei Ticks
+      - >-
+        Mutations-Probe: Helfer-Aufruf in einem Worker entfernen, der Panik-Test wird rot
+
+  - id: fix-formulare-webhook-claim-holds-no-lock
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Fix)"
+    scope: >
+      `formulare.PostgresRepository.ClaimPendingDeliveries`
+      (`internal/formulare/postgres_repository.go:501`) fuehrt `SELECT ... FOR UPDATE SKIP
+      LOCKED` ueber `r.pool.Query` aus, ohne Transaktion. Im Autocommit endet die
+      Zeilensperre mit dem Statement, noch bevor der Aufrufer die Zeilen ueberhaupt gelesen
+      hat. Der Kommentar am Worker (`worker.go`, "horizontally scalable thanks to FOR UPDATE
+      SKIP LOCKED") und am Repo ("so parallel workers don't race") beschreiben also eine
+      Garantie, die der Code nicht gibt: zwei formulare-Instanzen holen dieselben
+      `pending`-Zeilen und liefern dasselbe Webhook-Ereignis doppelt aus (HMAC-signiert, an
+      die URL des Mandanten). Heute laeuft ein Replica, daher kein akuter Schaden - aber
+      der Code behauptet das Gegenteil und der Test dazu fehlt.
+    sources:
+      - backend/internal/formulare/postgres_repository.go
+      - backend/internal/formulare/worker.go
+      - backend/internal/formulare/worker_test.go
+    notes: >
+      Das Muster dafuer steht bereits im Repo: `helpdesk` hat `ClaimCsatSurveyDispatch` (atomarer
+      Claim, bei Fehlversuch `Release`), `berichte` hat `ClaimSchedule`, die Automation
+      `ClaimTimeTrigger`. Dasselbe hier: Claim als ein `UPDATE ... SET next_attempt_at = NOW() +
+      <Lease> WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING ...`, die Lease
+      deckt das HTTP-Timeout (10 s) mal Batch (10) ab. Dann bleibt `status = 'pending'`, und ein
+      Absturz nach dem Claim liefert nach Ablauf der Lease erneut aus (at-least-once, wie
+      heute) statt nie. Kein Proto, keine Route, keine Migration noetig.
+      Test mit DB: zwei parallele Aufrufe von `ClaimPendingDeliveries` auf denselben
+      Zeilen duerfen zusammen jede Zeile nur EINMAL liefern. `testutil.SkipIfNoDB` setzt
+      `DATABASE_URL` voraus; Rolle `kmuhub_app`.
+    done_when:
+      - >-
+        Zwei konkurrierende Claims liefern zusammen jede Zeile hoechstens einmal (DB-Test, null
+        uebersprungen)
+      - >-
+        Der Kommentar an Worker und Repo beschreibt die tatsaechliche Garantie (Lease,
+        at-least-once)
+      - >-
+        Mutations-Probe: Claim wieder auf reines SELECT stellen, der Zwei-Claim-Test wird rot
+
+  - id: fix-email-sync-worker-hot-loop-when-no-inbox-folder
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/email/sync (zur Laufzeit messen)"
+    scope: >
+      `Worker.syncCycle` (`internal/email/sync/worker.go:143`) endet in
+      `idleOrPoll`, und `idleOrPoll` gibt bei fehlendem INBOX-Ordner `nil` zurueck
+      (`worker.go:346-349`, nur ein `Warn`). `Worker.Run` wertet `nil` als Erfolg, setzt das
+      Backoff auf 1 s zurueck und ruft `syncCycle` SOFORT wieder auf - ohne jede Pause. Ein
+      Konto, dessen Ordnerliste keinen als `inbox` erkannten Ordner enthaelt
+      (`DetectFolderType`), verbindet sich damit in einer Dauerschleife neu: TCP+TLS, Login,
+      Ordnerliste, Delta-Sync aller Ordner, `UpdateLastSync`, wieder von vorn. Das belastet den
+      fremden Mailserver (Login-Flut, Sperrung des Kontos durch den Anbieter moeglich) und
+      schreibt alle paar hundert Millisekunden Logzeilen und DB-Updates. Idle- und Poll-Schleife
+      geben dagegen nie `nil` zurueck, nur Fehler oder `ctx.Err()` - der `nil`-Pfad ist
+      ausschliesslich dieser Fall.
+    sources:
+      - backend/internal/email/sync/worker.go
+      - backend/internal/email/sync/worker_run_test.go
+      - backend/internal/email/sync/worker_state_test.go
+    notes: >
+      Der schlankste Fix sitzt in `Run`/`idleOrPoll`, nicht in jedem Aufrufer: `idleOrPoll`
+      liefert statt `nil` einen benannten Fehler (`errNoInboxFolder`), damit der bestehende
+      Backoff greift (1 s bis 60 s). Alternativ wartet `Run` nach einem Zyklus ohne Idle/Poll
+      `maxBackoff`. Der vorhandene Test `TestIdleOrPoll_NoInboxFolder_ReturnsWithoutTouchingClient`
+      fixiert heute das `nil` - er muss mitgezogen werden, nicht geloescht.
+      Zusaetzlich einen Test fuer `Run` bauen: Konto ohne Inbox, Zaehler an `syncCycle`, nach
+      ca. 300 ms duerfen es nur wenige Zyklen sein (kein Dutzend pro Sekunde).
+    done_when:
+      - >-
+        Konto ohne INBOX-Ordner verbindet sich hoechstens im Backoff-Takt neu; Test belegt die
+        Zahl der Zyklen
+      - >-
+        `TestIdleOrPoll_NoInboxFolder_...` erwartet den neuen Fehler
+      - >-
+        Mutations-Probe: Rueckgabe wieder `nil`, der Run-Test wird rot
+
+  - id: fix-notification-backlog-replay-repeats-delivered-events
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/notification/event (zur Laufzeit messen)"
+    scope: >
+      Verdacht aus dem Code-Lesen, ZUERST per DB-Test zu belegen oder zu widerlegen.
+      `notification.Service.ProcessEvent` (`service.go:52`) schreibt jedes live eingehende
+      Ereignis mit `Processed: false` in `events`. Auf dem Live-Pfad ruft nichts
+      `MarkProcessed`; das passiert ausschliesslich in `EventBus.ProcessBacklog`
+      (`bus.go:219`). `cmd/notification/main.go:224-229` ruft `ProcessBacklog` beim Start
+      (nach 2 s) auf, liest bis zu 1000 Zeilen mit `processed = false`, schickt jede erneut
+      durch `dispatch` - also durch `ProcessEvent` (neue Zeile mit neuer UUID, wieder
+      `processed = false`) und durch den Inbox-Consumer - und markiert dann nur die ALTE Zeile.
+      Folge, falls es so ist: nach jedem Neustart des notification-Dienstes werden die
+      letzten bis zu 1000 Ereignisse erneut zugestellt, und jede Wiedergabe legt den Bestand
+      fuer den naechsten Neustart neu an (selbsterhaltend). Zweites Loch am selben Ort:
+      `Listen` verbindet nach einem Abbruch zwar neu (`bus.go:73`), `ProcessBacklog` laeuft
+      aber nur EINMAL beim Start; was waehrend der Luecke per `pg_notify` kam, geht verloren,
+      bis der Dienst neu startet - und dann kommt es zusammen mit dem Rest doppelt.
+    sources:
+      - backend/internal/notification/event/bus.go
+      - backend/internal/notification/notification/service.go
+      - backend/internal/notification/notification/postgres_repository.go
+      - backend/cmd/notification/main.go
+    notes: >
+      Schritt 1 (Pflicht, darf als Befund enden): DB-Test. Ereignis ueber `ProcessEvent`
+      schicken, `ProcessBacklog` laufen lassen, zaehlen: Notifications fuer dieselbe
+      `(user, event)`, Zeilen in `events` danach. Gibt es bereits eine Deduplizierung in der
+      Zustellung (Gruppierung ueber `GroupKey`, Unique-Index), steht das im Journal und die
+      Unit wird `done` mit Befund.
+      Bestaetigt: `ProcessEvent` schreibt die Zeile mit der ID/dem Marker des eingehenden
+      Ereignisses statt blind neu, und der Live-Pfad markiert sie nach erfolgreicher
+      Verarbeitung (`MarkProcessed`); `ProcessBacklog` darf sie dann nicht mehr sehen. Die
+      Luecke nach `Listen`-Reconnect: Backlog nach jedem erfolgreichen `LISTEN` einmal
+      anstossen, nicht nur beim Start - erst NACHDEM die Doppel-Wiedergabe behoben ist, sonst
+      verstaerkt es sie. Die Automation hat eine eigene `EventBus`-Instanz ohne Backlog
+      (`cmd/automation/main.go:169`); das ist bewusst anders und bleibt hier unangetastet.
+      Vorsicht: Migration nur, wenn ein Unique-Index noetig ist; Nummer zur Laufzeit.
+    done_when:
+      - >-
+        Doppel-Wiedergabe per DB-Test belegt ODER widerlegt, Ergebnis im Journal
+      - >-
+        Falls belegt: ein Ereignis wird nach Neustart nicht erneut zugestellt, und
+        `events` waechst durch die Wiedergabe nicht
+      - >-
+        Falls belegt: Backlog laeuft auch nach einem Listener-Reconnect
+      - >-
+        Mutations-Probe: `MarkProcessed` im Live-Pfad entfernen, der Wiedergabe-Test wird rot
+
+  - id: fix-gdpr-export-stuck-in-processing-after-restart
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/security/gdpr (zur Laufzeit messen)"
+    scope: >
+      `gdpr.Service.ApproveExport` startet die Erzeugung in einer losgeloesten Goroutine
+      (`service.go:139`). `ExecuteExportAsync` setzt den Status auf `processing` (`:202`);
+      bei einem Fehler zurueck auf `approved` (`:211`), damit "ein Retry moeglich ist" - ein
+      Retry stoesst aber nichts an, es gibt weder Worker noch Sweeper, der `approved` oder
+      `processing` wieder aufgreift (gesucht: `ExportStatusApproved`/`ExportStatusProcessing`
+      ausserhalb von `service.go`). Wird der auth-Dienst zwischen Freigabe und Ende
+      neu gestartet (Deploy, OOM), bleibt die Auskunftsanfrage dauerhaft auf `processing`;
+      `ExecuteExportAsync` selbst verlangt `approved` (`:197`), ein zweiter manueller Aufruf
+      scheitert also an `ErrInvalidExportStatus`. Die Frist fuer die Auskunft nach DSGVO
+      Art. 12 ist ein Monat.
+    sources:
+      - backend/internal/security/gdpr/service.go
+      - backend/internal/security/gdpr/retention_scheduler.go
+      - backend/cmd/auth/main.go
+    notes: >
+      Muster aus `retention_scheduler.go` uebernehmen (`withScheduleLock` auf EINER
+      gehaltenen Verbindung, `RetentionScheduler`-Form): ein kleiner Sweeper, der alle
+      paar Minuten Anfragen findet, die laenger als eine Lease in `processing` stehen (oder
+      `approved` ohne laufende Erzeugung), und sie auf `approved` zuruecksetzt und neu startet.
+      Dafuer braucht die Tabelle ein Zeitstempel-Feld; gibt es `updated_at`, reicht das, sonst
+      Migration (Nummer zur Laufzeit, forward-only, `.up` und `.down`). Keine neue Route.
+      Erst lesen, ob `UpdateExportStatus` den Zeitstempel schon fortschreibt.
+      Kein Scharfschalten neuer Flags, keine `config.RequireX`.
+    done_when:
+      - >-
+        Eine Anfrage, die laenger als die Lease in `processing` steht, wird erneut ausgefuehrt
+        (DB-Test, zwei gehaltene Verbindungen fuer den Lock)
+      - >-
+        Der Sweeper laeuft mehr als einen Durchgang (Test mit zweitem Tick)
+      - >-
+        Mutations-Probe: Lease-Vergleich umdrehen, der Test wird rot
+
+  - id: test-worker-loops-fuhrpark-meeting-sweeper-recording-cleanup
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/fuhrpark (zur Laufzeit messen); cmd/work hat keine Tests"
+    scope: >
+      Drei Hintergrundlaeufer ohne jeden Test ihrer Schleife (Scan Iteration 54):
+      (1) `fuhrpark.TuevWorker.Run` (`internal/fuhrpark/worker.go`) und
+      `tuevLockAndRun` (`cmd/fuhrpark/main.go:149`) - `internal/fuhrpark` hat KEIN
+      `worker_test.go`; `ProcessTuevReminders` ist nur ueber Servicetests nah dran.
+      (2) `startMeetingSweeper` (`cmd/work/main.go:332`), (3) die 24-h-Aufnahme-Bereinigung
+      (`cmd/work/main.go:255-290`); `cmd/work` hat keine `_test.go`, nur `recording.Service`
+      ist getestet. Die Schleifen selbst (Ticker, Startverzoegerung, Fehler weiterreichen)
+      sind ungeprueft, ebenso `tuevLockAndRun`: Lock ueber eine Transaktion, `acquired=false`
+      ueberspringt, Fehler in `ProcessTuevReminders` rollt zurueck.
+    sources:
+      - backend/internal/fuhrpark/worker.go
+      - backend/cmd/fuhrpark/main.go
+      - backend/cmd/work/main.go
+      - backend/internal/work/recording/service.go
+    notes: >
+      `tuevLockAndRun` liegt in `package main`; fuer den Test entweder in `internal/fuhrpark`
+      verschieben (die Funktion hat keine main-Abhaengigkeit - Parameter sind `pool`, `repo`,
+      `worker`) oder den Test in `cmd/fuhrpark` anlegen. Verschieben ist die schlankere Wahl.
+      Der entscheidende Test (Punkt 4 des Scans): ZWEI Durchlaeufe, der zweite NACH einem
+      gehaltenen Lock auf einer zweiten Verbindung (`pg_try_advisory_xact_lock` in einer
+      offenen Transaktion) - er muss ueberspringen und beim dritten Durchlauf, nach Ende der
+      fremden Transaktion, wieder laufen. Wegen `-race` (laeuft hier nicht) die Tests ohne
+      geteilten Zustand zwischen Goroutinen bauen und das in `offen:` vermerken.
+      Mutations-Probe PFLICHT: `if !acquired { return nil }` entfernen -> Test rot.
+    done_when:
+      - >-
+        `tuevLockAndRun`: Lock gehalten -> kein Lauf; Lock frei -> Lauf; Fehler -> Rollback;
+        dritter Durchlauf nach Freigabe laeuft wieder
+      - >-
+        `TuevWorker.Run`: stoppt bei Context-Ende, ruft die uebergebene Funktion pro Tick auf,
+        ein Fehler beendet die Schleife nicht
+      - >-
+        Meeting-Sweeper und Aufnahme-Bereinigung: Schleife ruft nach der Startverzoegerung auf
+        und laeuft nach einem Fehler weiter (oder Befund, dass das ohne Umbau nicht pruefbar
+        ist, mit Vorschlag)
+      - >-
+        Coverage `internal/fuhrpark` vorher/nachher, Mutations-Probe belegt
+
+  - id: fix-http-audit-logger-failures-invisible-and-close-race
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/middleware (zur Laufzeit messen)"
+    scope: >
+      `middleware.AuditLogger` (`internal/middleware/audit.go`) schreibt den HTTP-Audit-Eintrag
+      ueber einen Puffer-Kanal (1000) und einen Worker-Pool. Zwei Luecken:
+      (a) schlaegt `CreateAuditEntry` fehl oder ist der security-Dienst nicht erreichbar
+      (`processEvent`), steht das auf `slog.Debug` - in Produktion unsichtbar. Ein Ausfall
+      des security-Dienstes verwirft den Audit-Strom still, ohne dass ein Alarm oder auch nur
+      eine Zeile auf `Warn`/`Error` entsteht. Ein voller Puffer meldet immerhin `Warn`.
+      (b) `Close()` schliesst den Kanal, waehrend die Middleware weiter `a.events <- ...`
+      sendet; ein Request, der nach `Close` noch `shouldAudit` besteht, panikt mit "send on
+      closed channel" (das `select ... default` faengt das nicht ab). Die HTTP-Panik wird vom
+      Recovery-Handler gefangen, kostet aber den Request.
+    sources:
+      - backend/internal/middleware/audit.go
+      - backend/cmd/gateway/main.go
+    notes: >
+      (a) `Debug` -> `Warn`, dazu ein Zaehler (Prometheus ist im Repo, `internal/metrics`
+      pruefen) fuer verworfene Eintraege, damit der Ausfall messbar ist. Nicht pro Event loggen,
+      wenn der Dienst weg ist: gedrosselt (z. B. hoechstens eine Zeile je 30 s).
+      (b) Nicht den Kanal schliessen, sondern ein `done`-Kanal/`sync.Once` und die Worker
+      beenden lassen, nachdem sie den Rest geleert haben.
+      Ob der Kern des Audit-Pfads (service-seitig `audit_log`) davon betroffen ist, ist NICHT
+      Teil dieser Unit - sie betrifft nur den HTTP-Middleware-Strom.
+    done_when:
+      - >-
+        Fehlgeschlagener Audit-Eintrag erscheint auf `Warn` (gedrosselt) und in einer Metrik
+      - >-
+        Senden nach `Close` panikt nicht (Test)
+      - >-
+        Mutations-Probe: Log-Level wieder auf Debug, der Test mit Log-Handler wird rot
+
+  - id: fix-crm-pipeline-totals-blind-currency-sum
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/crm/report, internal/crm/pipelinestage: vor der Unit messen"
+    scope: >
+      BEFUND aus `scan-blind-aggregation-over-units-and-currencies`. `deals.currency` ist pro
+      Deal frei setzbar (`deal.Service.Create`/`Update` validieren nur den Code). Zwei
+      Aggregationen summieren `deals.value` trotzdem ueber alle Waehrungen:
+      `pipelinestage.ListWithStats` (`SUM(d.value)` je Stufe, Kanban-Kopf) und
+      `report.GetPipelineReport` (`SUM(d.value)` und `SUM(d.value * probability / 100)` je Stufe,
+      danach Go-seitig `report.TotalValue.Add(stage.TotalValue)`). Ein Deal ueber 10.000 USD und
+      einer ueber 10.000 EUR ergeben 20.000, ohne Einheit. Die KPI-Variante derselben Daten
+      (`berichte/downstream/kpi_postgres.go`) ist seit Lauf 11 auf die Tenant-Standardwaehrung
+      gefiltert; diese beiden nicht.
+    sources:
+      - backend/internal/crm/pipelinestage/postgres_repository.go
+      - backend/internal/crm/report/postgres_repository.go
+      - backend/internal/berichte/downstream/kpi_postgres.go
+      - backend/internal/biz/dashboard/postgres_repository.go
+    notes: >
+      Loesung wie in Lauf 11: `currency = COALESCE((SELECT default_currency FROM company_settings
+      WHERE tenant_id = $1), 'EUR')` in die Summen und ein `lean:`-Marker mit Upgrade-Trigger.
+      Bei `ListWithStats` bleibt `deal_count` die Zahl ALLER Deals der Stufe (der Filter gehoert
+      nur in die Summe, z. B. `SUM(d.value) FILTER (WHERE d.currency = ...)`), sonst widerspricht
+      die Zahl der Kanban-Spalte. Beim Report gilt dasselbe fuer `deal_count`. Vorher im FE-Typ
+      pruefen, ob ein Waehrungsfeld am Stufen-/Report-Objekt erwartet wird; ein Feld nur dann
+      ergaenzen, wenn der FE-Typ es schon kennt (kein Vertragsbruch).
+    done_when:
+      - >-
+        Beide Aggregationen summieren nur Deals in der Tenant-Standardwaehrung, `deal_count`
+        bleibt unveraendert
+      - >-
+        DB-Test mit je einem EUR- und einem USD-Deal in derselben Stufe: Summe zeigt nur EUR
+      - >-
+        Mutations-Probe: Waehrungsfilter entfernt, der Test wird rot
+
+  - id: fix-invoice-payment-stats-blind-currency-sum
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/biz/invoice: vor der Unit messen"
+    scope: >
+      BEFUND aus `scan-blind-aggregation-over-units-and-currencies`. `AggregatePaymentStats`
+      (`biz/invoice/postgres_repository.go:562`, erreichbar ueber den Pfad in `route_biz.go:279`,
+      `HandleGetPaymentStats`) summiert `total_paid_amount` und `total_outstanding_amount` ueber
+      ALLE Rechnungen im Zeitraum, ohne `i.currency` zu beachten. Die Open-Items-Auswertung
+      derselben Tabelle gruppiert dagegen nach Waehrung, das Dashboard filtert auf die
+      Standardwaehrung. Die Statistik ist die dritte Quelle fuer dieselben Geldbetraege und
+      liefert bei einem Tenant mit einer Fremdwaehrungsrechnung eine Zahl, die zu keiner der
+      beiden anderen passt.
+    sources:
+      - backend/internal/biz/invoice/postgres_repository.go
+      - backend/internal/biz/invoice/service_gobd.go
+      - backend/internal/biz/dashboard/postgres_repository.go
+    notes: >
+      Loesung wie `fix-dashboard-metrics-blind-currency-sum`: die beiden Summen (und nur sie) auf
+      die Tenant-Standardwaehrung einschraenken, `lean:`-Marker mit Upgrade-Trigger. Die Zaehler
+      `total_invoices/total_paid/total_outstanding` bleiben Stueckzahlen aller Rechnungen. Die
+      Zahlung erbt die Waehrung der Rechnung (`finance_payments` hat keine eigene Spalte,
+      Entscheidung steht in BACKLOG-NEXT.yml `decide-payment-currency-column`) - die Unit
+      aendert daran nichts. Vor dem Bauen die Route in `openapi.yaml` lesen: ist das Antwortfeld
+      als "in Standardwaehrung" beschreibbar, die Beschreibung im selben Commit nachziehen.
+    done_when:
+      - >-
+        Betragssummen enthalten nur Rechnungen in der Tenant-Standardwaehrung
+      - >-
+        DB-Test mit einer EUR- und einer USD-Rechnung: nur die EUR-Rechnung zaehlt in die Summen
+      - >-
+        Mutations-Probe: Waehrungsfilter entfernt, der Test wird rot
+
+  - id: fix-einkauf-contract-call-currency-not-checked-against-contract
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/einkauf: vor der Unit messen"
+    scope: >
+      BEFUND aus `scan-blind-aggregation-over-units-and-currencies`. `CreateContractCall`
+      (`einkauf/postgres_repository_extended.go:515`) prueft die Abrufsumme gegen
+      `framework_contracts.total_value`, ohne `call.Currency` mit `framework_contracts.currency`
+      zu vergleichen (beide Spalten existieren, `TEXT NOT NULL DEFAULT 'EUR'`). Ein Abruf ueber
+      5.000 USD verbraucht 5.000 EUR des Rahmenvertragsvolumens; die Cache-Spalte `used_value`
+      (`SUM(amount)` ueber alle Abrufe) mischt die Waehrungen ebenso. Der Service
+      (`service_extended.go:623`) setzt bei leerer Waehrung "EUR", ohne den Vertrag zu kennen.
+    sources:
+      - backend/internal/einkauf/postgres_repository_extended.go
+      - backend/internal/einkauf/service_extended.go
+      - backend/internal/server/einkauf_grpc.go
+      - backend/internal/gateway/route_einkauf_extended.go
+    notes: >
+      Richtung: der Vertrag ist die Quelle. Bleibt `Currency` im Request leer, nimmt der Abruf
+      die Vertragswaehrung (heute: stilles "EUR", bei einem USD-Vertrag also ein Fehlbefund); ist
+      sie gesetzt und weicht ab, lehnt das Repository IN DERSELBEN TRANSAKTION ab (der Vertrag
+      wird dort ohnehin mit `FOR UPDATE` gelesen: `currency` in dasselbe SELECT). Neuer
+      Sentinel-Fehler, im gRPC-Mapper auf `FailedPrecondition`/`InvalidArgument` und im Gateway
+      auf 409 bzw. 422 abbilden, den vorhandenen Mapper fuer `ErrContractBudgetExceeded`
+      (`einkauf_grpc.go:659`) als Vorlage nehmen. Den Statuscode in `openapi.yaml` ergaenzen,
+      falls dort noch nicht dokumentiert. KEINE Umrechnung: das ist Produktentscheidung (siehe
+      `decide-ad-hoc-invoice-currency`), hier wird nur abgelehnt.
+    done_when:
+      - >-
+        Abruf in abweichender Waehrung wird abgelehnt (Repository-Test und Mapper-Test)
+      - >-
+        Abruf ohne Waehrung uebernimmt die Vertragswaehrung
+      - >-
+        Mutations-Probe: Waehrungsvergleich entfernt, der Test wird rot
+
+  - id: fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/biz/hr/timetracking: vor der Unit messen"
+    scope: >
+      BEFUND aus `scan-blind-aggregation-over-units-and-currencies` (Dimension Zeitzone).
+      Tages- und Wochengrenzen der Arbeitszeit werden mit `time.Time.Location()` des Aufrufers
+      gebildet (`timetracking.GetDailySummary`: `dayStart := time.Date(..., date.Location())`,
+      `weekStartOf(now)`, `service.go:167,605,634`), und der Aufrufer reicht `time.Now()` des
+      Prozesses durch. Weder `deploy/` noch `backend/Dockerfile*` setzen `TZ` (gegrept, null
+      Treffer), die Container laufen also in UTC. Der Mandant hat eine Zeitzone
+      (`hr_settings.timezone`, `leave/postgres_repository.go:383`), sie wird nirgends fuer
+      diese Grenzen gelesen. Folge: ein Eintrag von 00:30 bis 06:30 Ortszeit (Nachtschicht) faellt
+      in den Vortag, ein Eintrag am Montag 00:30 Ortszeit in die Vorwoche; das betrifft
+      Tagessumme, Pausenpflicht, Wochensaldo und die Wochenfreigabe (`SubmitWeek`).
+      Gleiche Klasse bei Produktion: `isoWeekBounds` (`produktion/postgres_repository.go:493`)
+      rechnet in `time.UTC`, die Maschinenbuchungen (`timestamptz`) werden gegen UTC-Wochen
+      summiert.
+    sources:
+      - backend/internal/biz/hr/timetracking/postgres_repository.go
+      - backend/internal/biz/hr/timetracking/service.go
+      - backend/internal/biz/hr/timetracking/service_week_lock.go
+      - backend/internal/biz/hr/leave/postgres_repository.go
+      - backend/internal/produktion/postgres_repository.go
+    notes: >
+      ERST VERIFIZIEREN: ob die Zeitzone nicht doch an einer Stelle gesetzt wird, die der Grep
+      nicht sah (Compose-`environment`, `time.LoadLocation` im Gateway, `cmd/hr/main.go`). Dann
+      mit einem DB-Test nachstellen: Eintrag 2026-03-30 00:30 Europe/Berlin (= 29.03. 22:30 UTC),
+      Tagessumme fuer den 30.03. - heute 0. Loesung: die Zeitzone EINMAL im Service aus
+      `hr_settings.timezone` laden (Fallback `Europe/Berlin`, kein stilles UTC) und `dayStart`/
+      `weekStartOf` darin bilden; `GetDailySummaryRange` rechnet schon ueber `start` + 24 h und
+      ist damit mitbehoben, sobald `start` richtig liegt. Achtung Sommerzeit: 23/25-Stunden-Tage,
+      `AddDate(0,0,1)` statt `+24h` (der Kommentar in `postgres_repository.go:397` behauptet das
+      Gegenteil). Produktion: nur wenn die Zeitzone dort ohne neue Einstellung verfuegbar ist, sonst
+      als Befund in der Unit belassen und eine Entscheidung an Luke stellen. Keine Migration,
+      keine neue Route.
+    done_when:
+      - >-
+        Der Befund ist per DB-Test nachgestellt oder widerlegt, Ergebnis im Journal
+      - >-
+        Tages- und Wochengrenzen der Arbeitszeit folgen der Mandanten-Zeitzone
+      - >-
+        Mutations-Probe: Zeitzone wieder auf UTC, der Grenzfall-Test wird rot
+
+  - id: fix-grpc-aborted-maps-to-masked-500-and-upstream-credentials-to-401
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/gateway siehe Journal Iteration 56"
+    scope: >
+      `grpcStatusToHTTP` (`internal/gateway/helpers.go:47`) kennt `codes.Aborted` nicht; der
+      `default`-Zweig liefert 500 UND `respondGRPCError` ersetzt die Meldung durch "internal
+      error". `internal/server` gibt `Aborted` an vier Stellen zurueck:
+      `lexware_grpc.go:295,297` (`ErrSyncConflict`, `ErrLexwareVersionConflict` - letzterer kommt
+      aus `lexware/client.go:124`, also aus einem echten HTTP-409 der Lexware-API und ist ueber
+      den Sync erreichbar), `bexio_grpc.go:305` (`ErrSyncConflict`, Bexio gesperrt) und
+      `automation_grpc.go:844` (`ErrLoopDetected`; wird heute nirgends erzeugt, die Abbildung ist
+      tot). Ein fachlicher Optimistic-Lock-Konflikt faellt damit auf 500 ohne Text.
+      Zweiter Teil: `codes.Unauthenticated` traegt zwei Bedeutungen. Gemeint ist "Sitzung
+      ungueltig" (373 Stellen "tenant_id missing from context" u. a.), tatsaechlich wird er auch
+      fuer FREMDE Zugangsdaten benutzt: `email_grpc.go:1431` (`account.ErrInvalidCredentials`,
+      IMAP), `email_grpc.go:1453` (`send.ErrSMTPAuthFailed`), `bexio_grpc.go:293` und
+      `lexware_grpc.go` (`ErrBexioUnauthorized` / `ErrLexwareUnauthorized`: der Drittanbieter
+      lehnt den Token ab). Das FE (`authenticatedFetch.ts:174`) behandelt JEDE 401 als
+      abgelaufene Sitzung: Token-Refresh, Wiederholung der Anfrage und bei fehlgeschlagenem
+      Refresh `doLogout()`. Ein falsches Postfach-Passwort loest also einen Refresh samt
+      doppeltem Request aus.
+    sources:
+      - backend/internal/gateway/helpers.go
+      - backend/internal/gateway/helpers_test.go
+      - backend/internal/server/lexware_grpc.go
+      - backend/internal/server/bexio_grpc.go
+      - backend/internal/server/email_grpc.go
+      - backend/internal/server/automation_grpc.go
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/api/utils/authenticatedFetch.ts
+    notes: >
+      Teil 1 (bauen): `case codes.Aborted: return http.StatusConflict` in `grpcStatusToHTTP`
+      samt Zeile in `TestGrpcStatusToHTTP` (`helpers_test.go:15ff`, `Aborted` fehlt dort). 409 ist
+      richtig und doppelt belegt wie `AlreadyExists`/`FailedPrecondition`; der Text ist fuer
+      den Nutzer lesbar (nur die Fremd-Fehlermeldungen pruefen, ob sie Interna enthalten). Danach
+      die betroffenen Operationen in der Spec um 409 ergaenzen (`hooks/openapi-status-fill.py`
+      verwenden, keine Handarbeit-Kette).
+      Teil 2 (zuerst Entscheidung, dann bauen): die Fremd-Zugangsdaten duerfen nicht mehr auf
+      `Unauthenticated` fallen. Vorschlag: `FailedPrecondition` (409, "Integration nicht
+      nutzbar, Zugangsdaten pruefen") - das FE-Refresh-Verhalten bleibt unberuehrt. Aendert den
+      Statuscode bestehender Routen (FE-Vertrag) - FE-Aufrufer vorher greppen (`401` in
+      `desktop/src/renderer/src/**/email*`, `integration*`). Erweist sich der FE-Pfad als
+      ungenutzt oder die Entscheidung als offen, Teil 2 NICHT bauen, sondern die Unit als
+      erledigt mit Teil 1 abschliessen und Teil 2 in BACKLOG-NEXT.yml ablegen.
+      Nicht anfassen: `Unauthenticated` fuer Webhook-Signatur, Share-Passwort, TOTP/Recovery-
+      Codes - dort ist 401 die gewollte Bedeutung (Anmelde-/Zugangspruefung, Gateway-Pfade ohne
+      FE-Refresh).
+    done_when:
+      - >-
+        `Aborted` liefert 409 mit dem Originaltext, Test in `helpers_test.go`
+      - >-
+        Mutations-Probe: den neuen `case` entfernen, `TestGrpcStatusToHTTP` wird rot
+      - >-
+        Die betroffenen Lexware-/Automation-Operationen nennen 409 in der Spec
+        (`TestOpenAPIRouteDrift` und der Status-Drift-Test gruen)
+      - >-
+        Teil 2 ist gebaut oder mit Begruendung nach BACKLOG-NEXT.yml verschoben
+
+  # --- aus scan-product-naming-inventory-cosmi-zentria (Iteration 57): Klasse A, je Flaeche eine Unit ---
+
+  - id: rebrand-auth-and-caldav-visible-names-to-cosmi
+    phase: 4
+    service: auth
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (String-Aenderung, kein Coverage-Ziel)"
+    scope: >
+      Vier user-sichtbare Altnamen in Anmeldung und Kalender auf Cosmi umstellen:
+      `totpIssuer = "KMU Hub"` (`internal/auth/totp.go:22`) - Name in der Authenticator-App;
+      `deviceName = "KMU Hub Desktop"` (`internal/auth/session.go:155`) - Geraeteliste der
+      Sitzungen; Basic-Auth-Realm `"KMU Hub CalDAV"` (`internal/gateway/route_caldav.go:204`
+      und `:215`) - Anmeldedialog des Browsers/Kalender-Clients; iCal-PRODID
+      `"-//KMU Hub//CalDAV//DE"` (`internal/caldav/ical_converter.go:39`) - in jeder
+      ausgelieferten .ics-Datei.
+      WAS DER NUTZER SIEHT: neue TOTP-Einrichtungen zeigen "Cosmi"; neue Desktop-Sitzungen
+      heissen "Cosmi Desktop"; CalDAV-Clients zeigen beim naechsten Anmeldedialog "Cosmi CalDAV".
+    sources:
+      - backend/internal/auth/totp.go
+      - backend/internal/auth/session.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/caldav/ical_converter.go
+    notes: >
+      TOTP: ein Wechsel aendert NUR den angezeigten Namen bei NEUeinrichtung. Bestehende
+      TOTP-Geheimnisse bleiben gueltig (der Issuer geht nicht in die Code-Berechnung ein), die
+      App zeigt fuer bestehende Eintraege aber weiter "KMU Hub". Das ist kein Fehler - KEINE
+      Migration und kein Zwangs-Neueinrichten bauen.
+      deviceName: Altsitzungen behalten ihren gespeicherten Namen, nur neue bekommen den neuen
+      (keine Migration). CalDAV-Realm: manche Clients speichern Zugangsdaten je Realm und fragen
+      nach dem Wechsel einmal neu - im Commit-Text vermerken, nicht verhindern.
+      Vorher die Tests nach "KMU Hub" greppen und betroffene Asserts mitziehen. Ein `const` je
+      Name, kein neues Branding-Paket.
+    done_when:
+      - >-
+        Ein Grep nach "KMU Hub" ueber internal/auth, internal/caldav und route_caldav.go findet
+        keine Nicht-Kommentar-Stelle mehr
+      - Tests fuer TOTP-URI (Issuer) und Realm-Header pruefen den neuen Namen
+      - Keine Schema- oder Migrationsaenderung
+
+  - id: rebrand-chat-integration-bot-texts-to-cosmi
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (String-Aenderung, kein Coverage-Ziel)"
+    scope: >
+      Die Bot-Antworten von Slack und Teams nennen das Produkt "KMU Hub", waehrend dieselben
+      Handler an anderer Stelle schon "Cosmi" sagen (Teams `webhook_handler.go:87`, `:106`).
+      Umstellen: Slack `internal/notification/integration/slack/webhook_handler.go:249`
+      ("in KMU Hub unter Einstellungen > Integrationen"), Teams
+      `internal/notification/integration/teams/webhook_handler.go:141` (dasselbe),
+      `ErrAccountNotLinked` (`internal/notification/integration/errors.go:25`, "KMU Hub user").
+      Bei der Gelegenheit die ASCII-Umlaute derselben Texte ("verknuepfen", "fuegen",
+      "Verfuegbare") korrigieren - es sind Nutzertexte.
+      WAS DER NUTZER SIEHT: die Antwort des Bots im Slack-/Teams-Kanal.
+    sources:
+      - backend/internal/notification/integration/slack/webhook_handler.go
+      - backend/internal/notification/integration/teams/webhook_handler.go
+      - backend/internal/notification/integration/errors.go
+    notes: >
+      NICHT aendern: der Befehlsname `/kmuhub` (Slack `:137`, `:232`; Teams `:95`, `:125`,
+      `:126`) - der Slash-Command ist in der Slack-App-Konfiguration registriert, die NICHT im
+      Repo liegt; ein Umbenennen im Code allein laesst jeden Befehl ins Leere laufen. Ebenso
+      NICHT der Action-ID-Praefix `kmuhub_` (`slack/block_builder.go:129`,
+      `slack/webhook_handler.go:293`): bereits gepostete Nachrichten tragen die alte ID und
+      kaemen sonst nicht mehr an. Beides steht als Infrastruktur-Eintrag in BACKLOG-NEXT.yml
+      (`decide-rename-infrastructure-and-contract-identifiers-kmuhub`).
+      Die OpenAPI-Texte derselben Routen gehoeren in `rebrand-openapi-metadata-to-cosmi`.
+    done_when:
+      - >-
+        Kein Bot-Text in slack/ und teams/ nennt "KMU Hub"; der Befehl /kmuhub und der
+        Action-Praefix kmuhub_ sind unveraendert
+      - Bestehende Handler-Tests gruen, die geaenderten Texte in mindestens einem Test geprueft
+
+  - id: rebrand-outbound-identifiers-to-cosmi
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (String-Aenderung, kein Coverage-Ziel)"
+    scope: >
+      Kennungen, die Cosmi an FREMDE Systeme schickt: (1) DATEV-EXTF-Kopf
+      (`internal/biz/datev/exporter.go:209`) traegt "KMU Hub" - sieht der Steuerberater beim
+      Import. (2) `User-Agent: KMUHub/1.0` an die Nager-Feiertags-API
+      (`internal/work/holiday/nager_client.go:61`); die Automation sendet schon
+      `Cosmi-Automation/1.0`. (3) Message-ID `<uuid@kmuhub>` in ausgehenden Mails
+      (`internal/email/send/mime_builder.go:71`, `internal/email/send/service.go:181`, `:323`) -
+      im Mail-Header jedes Empfaengers sichtbar; der rechte Teil ist kein Domainname mit Punkt.
+      (4) `WOPIServerVersion = "kmuhub-wopi/1.0"` (`internal/document/wopi/handler.go:20`) - an
+      OnlyOffice. (5) Lexware-Sync-Fehlertexte "KMU Hub contact"
+      (`internal/biz/lexware/contact_sync.go:244`, `:261`) - landen im Sync-Ergebnis, das die
+      Einstellungen anzeigen.
+      WAS DER NUTZER SIEHT: (1) und (5) direkt, (3) im Mail-Header, (2)/(4) nur das Fremdsystem.
+    sources:
+      - backend/internal/biz/datev/exporter.go
+      - backend/internal/work/holiday/nager_client.go
+      - backend/internal/email/send/mime_builder.go
+      - backend/internal/email/send/service.go
+      - backend/internal/document/wopi/handler.go
+      - backend/internal/biz/lexware/contact_sync.go
+    notes: >
+      DATEV ZUERST PRUEFEN, NICHT UMBENENNEN: Feld 8 des EXTF-Kopfes ist nach DATEV-Doku das
+      Feld "Herkunft" und dort ein Kurzzeichen (nach Erinnerung max. 2 Zeichen), kein
+      Programmname - "KMU Hub" waere dann schon heute ungueltig, und "Cosmi" ebenso. Gegen die
+      DATEV-Formatbeschreibung (developer.datev.de, "Header Buchungsstapel") pruefen; steht die
+      Laenge fest, ein Kurzzeichen setzen und den Programmnamen weglassen; laesst sie sich nicht
+      belegen, Teil (1) als Befund ins Journal und unveraendert lassen. `exporter_test.go`
+      prueft den Kopf - Assert mitziehen.
+      Message-ID: als rechte Seite die Absenderdomain des Kontos nehmen, falls im Pfad schon
+      vorhanden, sonst eine feste Domain als `const`; keine neue Config-Variable (kein
+      RequireX). Bexio (`internal/biz/bexio/contact_sync.go:206`, `:221`) ist GESPERRT (G3) und
+      bleibt unangetastet.
+    done_when:
+      - (2) bis (5) umgestellt, Tests mit dem neuen Wert; Bexio unveraendert
+      - >-
+        (1) entweder auf ein spezifikationskonformes Kurzzeichen gesetzt (Quelle im
+        Commit-Text) oder mit Begruendung unveraendert und als Befund im Journal
+
+  - id: rebrand-openapi-metadata-to-cosmi
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Spec-Text, kein Coverage-Ziel)"
+    scope: >
+      `backend/api/openapi.yaml` traegt `info.title: KMU Hub API` (`:3`) und beschreibt das
+      Produkt als "All-in-One CRM for DACH SMEs" (`:5`) - Cosmi ist mehr als ein CRM, `crm`
+      ist einer von 23 Diensten. Dazu fuenf Beschreibungstexte der Integrations-Routen und
+      -Schemas mit "KMU Hub" (`:33065`, `:33154`, `:50480`, `:50496`, `:50506`; Zeilennummern
+      Stand 2026-10-21, vor dem Bauen neu greppen). Umstellen auf "Cosmi API" und eine
+      Produktbeschreibung ohne "CRM" als Kategorie (z. B. "Business software for DACH SMEs with
+      EU data sovereignty").
+      WAS DER NUTZER SIEHT: jeder API-Konsument (Swagger-UI, generierte Clients, Integratoren).
+    sources:
+      - backend/api/openapi.yaml
+    notes: >
+      NICHT aendern: Schemafelder `kmuhub_field` (`:50609`, `:50660`) und alle `kmuhub_*`-
+      Properties - das ist Wire-Vertrag mit FE und DB-Spalten (BACKLOG-NEXT.yml,
+      `decide-rename-infrastructure-and-contract-identifiers-kmuhub`). Ebenso die Erwaehnung
+      des Befehls `/kmuhub link` (`:33157`, `:33407ff`) - der Befehl heisst heute so.
+      Vorher pruefen, ob ein Generator oder Test `info.title` liest (Grep nach "KMU Hub API"
+      ueber Repo und `.github/`). Nach der Aenderung `swagger-cli validate` (der Drift-Test ist
+      keine Spec-Validierung).
+    done_when:
+      - info.title und info.description nennen Cosmi, ohne "CRM" als Produktkategorie
+      - >-
+        Keine Beschreibung ausser Befehls- und Feldnamen nennt "KMU Hub"; TestOpenAPIRouteDrift
+        gruen und swagger-cli validate gruen
+
+  - id: fix-openapi-409-business-conflict-description-remaining-mappers
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    decided: 2026-10-21
+    decision: >-
+      Rest aus `fix-openapi-409-business-conflict-description` (Iteration 66): dort sind die neun
+      Mapper mit Dublette UND Zustandskonflikt umgestellt (33 Operationen, Komponente
+      `ConflictOrIdempotencyInFlight`, Liste `hooks/openapi-409-business-ops.txt`). Offen sind die
+      uebrigen Mapper und die zwei Inline-Faelle.
+    coverage_start: "n.a. (OpenAPI-/Skript-Unit, kein Coverage-Ziel)"
+    scope: >
+      Dieselbe Umstellung fuer die Mapper, die in Iteration 66 nicht dran waren: mapBizError
+      (QuoteAlreadyConverted), bankAccountError, mapEInvoiceError, mapChatError, mapDialerError,
+      mapEinkaufError, mapError/auth, mapHelpdeskError, mapInventarError, mapPluginError,
+      mapProduktionError, mapProduktionExtError, mapVertraegeError, mapWikiError, mapWorkError,
+      mapSchichtenError, mapBexioError/mapLexwareError (SyncAlreadyRunning), security
+      (ExportAlreadyPending, CreateRetentionPolicy inline). Verfahren wie in Iteration 66: pro
+      Sentinel die Funktionen im Sentinel-Paket finden, die ihn zurueckgeben (plus Aufrufer im
+      selben Paket), dann die Server-Methoden, die ueber ein Feld des richtigen Pakets
+      (`s.<feld>.<Methode>(`) dorthin kommen, dann die Gateway-Handler, die diesen RPC rufen
+      (temporaerer Test mit `chi.Walk` + `endpointFuncKey` wie in
+      `openapi_status_code_drift_test.go`, danach loeschen). Namensgleiche Methoden
+      (`Create`, `Update`) liefern Fehlalarme - jeden Treffer am Quellcode gegenpruefen.
+      Neue Operationen in `hooks/openapi-409-business-ops.txt` eintragen.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/server/
+      - .planning/backend-block/loop/hooks/openapi-409-business-ops.txt
+      - .planning/backend-block/loop/hooks/openapi-status-fill.py
+    notes: >
+      Nur Ops umstellen, deren Handler den RPC-Fehler tatsaechlich durchreicht
+      (`respondGRPCError`) und bei denen der Sentinel nicht verschluckt wird (in Iteration 66
+      war `event.ErrAlreadyAttendee` in `Create` nur ein `slog.Warn` - kein 409 am Draht, und
+      `POST /customization/fields` laeuft ueber einen anderen RPC als `POST /custom-fields`).
+      Operationen mit eigener 409-description (email/labels, hr/employees, hr/change-requests)
+      bleiben unveraendert. Danach `swagger-cli validate backend/api/openapi.yaml`
+      (`npx --yes @apidevtools/swagger-cli validate ...`) und `go test -count=1 ./internal/gateway/`.
+    done_when:
+      - Operationen der genannten Mapper mit fachlichem 409 zeigen auf `ConflictOrIdempotencyInFlight`, Liste in `openapi-409-business-ops.txt` nachgezogen
+      - swagger-cli validate gruen, go test -count=1 ./internal/gateway/ gruen
+
+  - id: harden-idempotency-skip-response-body-for-one-time-secrets
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
+    decided: 2026-10-21
+    decision: >-
+      Fix-Unit aus `scan-idempotency-response-body-persists-one-time-secrets` (Iteration 70). Kein
+      Cross-Tenant-Zugriff (die Tabelle ist RLS-geschuetzt, Zeilen laufen nach 24 h ab), daher ans Ende.
+    coverage_start: "n.a. (Haertung, kein Coverage-Ziel)"
+    scope: >
+      Fuenf mutierende, per `authWithIdempotency` geschuetzte Routen liefern ein Einmal-Geheimnis, das
+      sonst NIRGENDS im Klartext liegt (Einladungs-Token sind gehasht, CalDAV-App-Passwoerter ebenso), und
+      `middleware.Idempotency` kopiert die Antwort 24 h lang in `idempotency_keys.response_body`, sobald der
+      Client einen `Idempotency-Key` sendet: (1) `POST /api/v1/caldav/passwords` (`route_caldav.go`
+      `handleCreatePassword`, Feld `password`), (2) `POST /api/v1/invitations` (`HandleCreateInvitation`,
+      Feld `token`), (3) `POST /api/v1/tenants` (`HandleProvisionTenant`, `invitation_token`),
+      (4) `POST /api/v1/admin/users/invite` und (5) `POST /api/v1/admin/users/{id}/resend-invite`
+      (`respondAdminUser`, `inviteToken`). Zu tun: die Speicherung des Bodys fuer genau diese Routen
+      unterdruecken, ohne die Deduplizierung zu verlieren.
+    sources:
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/idempotency/postgres_repository.go
+      - backend/internal/gateway/route_caldav.go
+      - backend/internal/gateway/route_auth.go
+    notes: >
+      Vorschlag: der Handler setzt einen internen Response-Header (z. B. `X-Idempotency-Redact`), den
+      `capturingResponseWriter`/`completeAsync` ausliest, nicht an den Client weitergibt und dann statt des
+      Bodys `Complete(..., status, nil)` ruft. Ein Replay liefert dann Status + leeren Body (oder einen
+      kurzen Hinweis-Body) mit `Idempotency-Replayed: true` und KEIN zweites Geheimnis. NICHT einfach
+      nicht-completen: der Key bliebe 24 h "in Bearbeitung" und jeder Retry bekaeme 409. Pfad-Whitelist ist
+      die schlechtere Option (`strings.Contains`, und die Routen sollen weiter dedupliziert werden).
+      Bewusst NICHT betroffen (im Scan geprueft): 2FA-Routen (Whitelist `/auth/2fa`), Login/Register/
+      Refresh/Reset/Accept-Invitation (oeffentlich, ohne Middleware), Formular-Webhook-Secret
+      (`maskWebhookSecret`), Share-Tokens document/wiki/berichte/formulare und GDPR-`download_token`
+      (jederzeit per Listing wieder lesbar). Zurueckgestellt, weil befristet: Join-/WOPI-Tokens (LiveKit-Token `SetValidFor(24h)` in `work/livekit/service.go:130` - genauso lang wie die Aufbewahrung, WOPI-TTL `wopiTokenTTL`, nicht nachgemessen). Die Kategorie der
+      befristeten Tokens (`/calendar/events/{id}/join-token`, `/documents/token`, Video-Join) ist
+      eine eigene Entscheidung, falls Luke sie auch redigiert haben will.
+    done_when:
+      - Eine Antwort mit gesetztem Redact-Header erreicht den Client unveraendert, wird aber nicht im Body von `idempotency_keys` gespeichert (Test gegen echtes Postgres als kmuhub_app)
+      - Replay mit gleichem Key liefert Status und Replayed-Header, aber kein Geheimnis; gleicher Key mit anderem Body bleibt 422
+      - Die fuenf genannten Handler setzen den Header, je ein Test pro Handler
+      - Mutations-Probe - Header-Auswertung entfernt, der Test wird rot
+      - go test -count=1 ./internal/middleware/ ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-contact-erasure-leaves-inbox-thread-messages
+    phase: 4
+    service: crm/consent
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Fix, Mutations-Probe statt Zeilen)"
+    scope: >
+      Aus `feat-dsar-coverage-inbox-and-mail-accounts` (Iteration 79). `consent.ScrubDependentPII`
+      (`scrub.go:128`) leert bei Kontakt-Loeschung nur `inbox_messages.sender_name`/`.sender_email`/
+      `.preview`. `inbox_thread_messages` (`body`, `author_name`) wird nirgends im Repo angefasst
+      (nur `inbox/thread/postgres_repository.go` schreibt/liest): `SeedInboundIfEmpty` legt zu jeder
+      eingehenden Nachricht eine Zeile mit `author_name = sender_name` und dem Nachrichtentext an.
+      Nach Anonymisierung oder Loeschung des Kontakts steht Name und Text der Person also weiter in
+      der Gespraechsansicht. Ebenfalls unberuehrt: `inbox_messages.subject` und `.metadata`.
+    sources:
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/inbox/thread/postgres_repository.go
+    notes: >
+      Zeilen bleiben (Thread-Struktur, eigene Antworten des Mitarbeiters mit `author_id`): nur
+      Zeilen mit `direction = 'inbound'` UND `author_id IS NULL` ueber Subselect auf
+      `inbox_messages.crm_contact_id` leeren (`body = ''`, `author_name = NULL`). Ob die
+      Mitarbeiter-Antworten (outbound) den Klartext der Person zitieren, ist eine Bewertung -
+      im Journal festhalten, nicht stillschweigend leeren. `subject`: pruefen, ob es beim Scrub
+      mitgeleert werden darf (Listenansicht braucht einen nicht-leeren Wert?).
+    done_when:
+      - >-
+        Kontakt-Anonymisierung und Hard-Delete leeren inbound-Thread-Texte und Absendernamen des Kontakts, Test mit echter DB (beide Pfade)
+      - >-
+        Fremder Tenant und Zeilen anderer Kontakte bleiben unberuehrt, Test
+      - >-
+        Mutations-Probe: Subselect entschaerft, Test rot
+
+  # --- Fund aus fix-background-workers-panic-kills-process-or-silently-stops-loop (Iteration 90) ---
+
+  - id: fix-background-workers-panic-remaining-goroutines
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "n.a. (Fix, Coverage nicht Ziel)"
+    scope: >
+      Der Helfer `internal/safego` (`Do(name, fn) bool`, `Go(name, fn)`) existiert seit Iteration 90
+      und schuetzt Automation (Event-Consumer, Zeit-Poller, Webhook), `EventBus.dispatch`,
+      den E-Mail-Sync-Worker sowie die bexio/lexware-Scheduler. Noch OHNE Schutz (Panik toetet den
+      ganzen Prozess): `berichte/scheduler` (`dispatch` -> RunReport/Export/Mailer),
+      `vertraege/worker.go`, `formulare/worker.go`, `helpdesk/csat_dispatch.go`,
+      `dialer/reaper.go`, `fuhrpark/worker.go`, `inbox/message/service.go` (Snooze-Worker),
+      `middleware/audit.go` (`worker`), `gdpr/service.go:139` (Export), `caldav/push_notifier.go:79,88`.
+    sources:
+      - backend/internal/safego/safego.go
+      - backend/internal/berichte/scheduler
+      - backend/internal/vertraege/worker.go
+      - backend/internal/formulare/worker.go
+      - backend/internal/helpdesk/csat_dispatch.go
+      - backend/internal/dialer/reaper.go
+      - backend/internal/fuhrpark/worker.go
+      - backend/internal/inbox/message/service.go
+      - backend/internal/middleware/audit.go
+      - backend/internal/security/gdpr/service.go
+      - backend/internal/caldav/push_notifier.go
+    notes: >
+      Muster wie in Iteration 90: den Rumpf EINES Ticks in `safego.Do(name, func(){...})`
+      wickeln (nie die ganze Schleifenfunktion - ein `recover` auf Funktionsebene beendet die
+      Schleife nach der ersten Panik), fire-and-forget-Goroutinen mit `safego.Go`. Nicht-Tick-
+      Goroutinen mit Rueckgabewert (z. B. Export) so wickeln, dass die Panik als Fehler beim
+      Aufrufer ankommt (siehe `safeSyncCycle` in `email/sync/worker.go`). Test je Gruppe: ein
+      panikender Tick, ZWEI Durchlaeufe, der zweite muss noch laufen. Intervall-Knoepfe fuer
+      Tests wie `Scheduler.intervalUnit` in bexio. Kein Verhalten aendern ausser der Panik.
+    done_when:
+      - >-
+        Jede Stelle aus dem scope laeuft ueber `safego` oder ist mit Grund im Journal ausgelassen
+      - >-
+        Je Gruppe ein Test mit panikendem Tick und zwei Durchlaeufen
+      - >-
+        Mutations-Probe: `safego`-Aufruf in einem Worker entfernen, der Panik-Test wird rot
+
+  # --- Fund aus fix-formulare-webhook-claim-holds-no-lock (Iteration 91) ---
+
+  - id: fix-formulare-webhook-failed-deliveries-never-retried
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: done
+    coverage_start: "internal/formulare (zur Laufzeit messen)"
+    scope: >
+      `WebhookWorker.markFailed` (`internal/formulare/worker.go:~195`) setzt eine fehlgeschlagene
+      Auslieferung auf `status = 'failed'` mit `next_attempt_at = jetzt + Backoff`.
+      `PostgresRepository.ClaimPendingDeliveries` waehlt aber nur `status = 'pending'`; sonst
+      greift nichts auf `failed` zu (kein Reset, kein Cron). Das Backoff-Schema
+      (30 s ... 2 h, `max_attempts`) ist damit toter Code: ein einziger Fehlversuch (Timeout,
+      5xx) beendet die Zustellung fuer immer, `dead` wird nie erreicht.
+    sources:
+      - backend/internal/formulare/worker.go
+      - backend/internal/formulare/postgres_repository.go
+      - backend/internal/formulare/worker_test.go
+    notes: >
+      Zuerst verifizieren (kein anderer Pfad setzt `failed` zurueck: grep nach
+      `form_webhook_deliveries` in migrations/ und internal/). Fix: Claim auf
+      `status IN ('pending','failed')`. ACHTUNG Altbestand: bereits `failed`-Zeilen mit
+      `next_attempt_at` in der Vergangenheit wuerden schlagartig erneut ausgeliefert (HMAC-signiert,
+      an Kunden-URLs). Vor dem Umstellen messen, wie viele es lokal gibt, und entscheiden, ob eine
+      Migration sie auf `dead` setzt (Entscheidung Luke, falls Prod-Zeilen betroffen).
+      Der Lease-Claim aus Iteration 91 funktioniert unveraendert (status bleibt, nur next_attempt_at).
+    done_when:
+      - >-
+        Eine fehlgeschlagene Auslieferung wird nach Ablauf des Backoffs erneut geclaimt (DB-Test)
+      - >-
+        Nach `max_attempts` Fehlversuchen steht die Zeile auf `dead` und wird nicht mehr geclaimt
+      - >-
+        Mutations-Probe: Claim wieder auf nur `pending`, der Retry-Test wird rot

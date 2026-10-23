@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: KMU Hub API
+  title: Cosmi API
   description: >-
-    All-in-One CRM for DACH SMEs with EU data sovereignty.
+    Business software for DACH SMEs with EU data sovereignty.
 
 
     ### Idempotency-Key contract
@@ -617,7 +617,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -653,7 +653,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -1674,7 +1674,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -1817,7 +1817,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -1900,7 +1900,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -1964,7 +1964,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -2226,7 +2226,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -2612,7 +2612,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -2690,7 +2690,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -4971,7 +4971,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -5382,7 +5382,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5697,7 +5697,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5736,7 +5736,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5800,7 +5800,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5867,7 +5867,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -6396,7 +6396,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -7410,7 +7410,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -7538,7 +7538,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -7664,7 +7664,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -8274,7 +8274,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -8940,6 +8940,8 @@ paths:
                 $ref: "#/components/schemas/PresenceResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -10204,7 +10206,7 @@ paths:
                 $ref: "#/components/schemas/Invoice"
         "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -13860,7 +13862,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "501":
           description: Forwarding is not supported for this message's channel
         "503":
@@ -14023,7 +14025,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14226,7 +14228,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14250,6 +14252,10 @@ paths:
                       $ref: "#/components/schemas/TeamInboxMember"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14290,7 +14296,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -15694,7 +15700,7 @@ paths:
         "403":
           description: Forbidden — caller lacks admin:customization:manage
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -15745,7 +15751,7 @@ paths:
           description: Forbidden — caller lacks admin:customization:manage
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -16316,7 +16322,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -16517,7 +16523,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -17587,7 +17593,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -17639,7 +17645,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -18476,6 +18482,9 @@ paths:
       tags: [schichten]
       operationId: getShiftStats
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: from, in: query, description: "Only shifts starting at or after this instant (RFC3339)", schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: "Only shifts ending at or before this instant (RFC3339)", schema: { type: string, format: date-time } }
       responses:
         "200":
           description: Shift statistics
@@ -18483,6 +18492,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SchichtenStats'
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -18659,7 +18670,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -19114,7 +19125,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}:
@@ -19179,7 +19190,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a vehicle
@@ -20044,7 +20055,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/bookings/{id}:
@@ -20082,7 +20093,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       summary: Delete a vehicle booking
@@ -20544,7 +20555,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -20598,7 +20609,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -21054,7 +21065,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -21141,7 +21152,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -21205,7 +21216,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -21382,8 +21393,9 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        # Contract not active (draft/expired), or amount above the contract's
-        # remaining value — the message names that remaining value.
+        # Contract not active (draft/expired), amount above the contract's
+        # remaining value (the message names it), or a currency that differs
+        # from the contract's. An empty currency takes the contract's.
         "409": { $ref: "#/components/responses/Conflict" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -21572,7 +21584,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          description: >-
+            The report already carries a signature, which is immutable once
+            saved, or a request with this Idempotency-Key is still being
+            processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -22018,6 +22037,11 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: "report_id is not a report of the caller's tenant"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -22886,7 +22910,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -23362,7 +23386,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -24084,6 +24108,20 @@ paths:
           required: true
           schema: { type: string, maxLength: 128 }
           description: The share link secret (43-char base64url).
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+          description: >-
+            Optional. A repeat with the same key and the same answers on the
+            same link stores nothing new and returns the first submission's id
+            (201 with an `Idempotency-Replayed: true` header; no webhook and no
+            intake record is triggered again, and the replay still works after
+            a max_submissions quota was used up by the first call). The same
+            key with different answers answers 422; a key whose first request
+            is still being processed answers 409. A failed first attempt leaves
+            the key free to be used again. Without the header every call
+            stores a submission.
       requestBody:
         required: true
         content:
@@ -24098,9 +24136,10 @@ paths:
       responses:
         "201":
           description: >
-            Submission stored. The body carries the submission id and nothing
-            else — an unauthenticated visitor learns neither the tenant nor the
-            schema they wrote into.
+            Submission stored (or, with a repeated Idempotency-Key, replayed).
+            The body carries the submission id and nothing else — an
+            unauthenticated visitor learns neither the tenant nor the schema
+            they wrote into.
           content:
             application/json:
               schema:
@@ -24114,7 +24153,15 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "409":
-          description: The form declares a file-upload field, which public submission does not support
+          description: >-
+            The form declares a file-upload field, which public submission does
+            not support, or a request with this Idempotency-Key is still being
+            processed (retry with the same key and answers).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: The Idempotency-Key was already used on this link with different answers
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -24433,7 +24480,7 @@ paths:
                   contract: { $ref: "#/components/schemas/VertraegeContract" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}:
@@ -24598,7 +24645,15 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >-
+            The contract already carries a signature, which is immutable once
+            saved, or a request with this Idempotency-Key is still being
+            processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/parties:
@@ -24675,7 +24730,15 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >-
+            The party has already signed the contract, which is evidence and
+            cannot be removed, or a request with this Idempotency-Key is still
+            being processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/vertraege/contracts/{id}/reminders:
@@ -27008,8 +27071,23 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: "user_id is not a user of the caller's tenant (unknown and foreign read alike), or campaign_id is not a campaign of the caller's tenant"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          description: >-
+            Status transition not permitted by the agent state machine (e.g.
+            offline -> wrap_up), or a request with this Idempotency-Key is
+            still being processed (then with a Retry-After header).
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying; only on the idempotency case.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -27246,7 +27324,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -27308,7 +27386,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -27656,7 +27734,18 @@ paths:
                   total_quantity:
                     type: integer
                     format: int64
-                    description: "Sum of all item quantities"
+                    description: "Sum of all item quantities; only set (non-zero) when every item shares one unit. With mixed units use quantity_by_unit"
+                  quantity_by_unit:
+                    type: array
+                    description: "Quantity summed per unit, ordered by unit; omitted when there are no items"
+                    items:
+                      type: object
+                      properties:
+                        unit:
+                          type: string
+                        quantity:
+                          type: integer
+                          format: int64
                   low_stock_count:
                     type: integer
                     description: "Number of items below min_quantity"
@@ -28202,7 +28291,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          description: >-
+            The session is already completed (a booked stocktake record that
+            cannot be deleted), or a request with this Idempotency-Key is still
+            being processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -28459,7 +28555,15 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >-
+            The object still has reserved or active rentals and cannot be
+            deleted, or a request with this Idempotency-Key is still being
+            processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -28555,7 +28659,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -28616,7 +28720,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -28660,7 +28764,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -28686,7 +28790,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -28721,7 +28825,15 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >-
+            The rental already carries a signature, which is immutable once
+            saved, or a request with this Idempotency-Key is still being
+            processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -28791,7 +28903,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -29921,7 +30033,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -29985,7 +30097,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -30073,7 +30185,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -30110,7 +30222,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -30615,7 +30727,13 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          description: >-
+            The file is deleted (no new link can be created for it), or a
+            request with this Idempotency-Key is still being processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -31052,7 +31170,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -31221,7 +31339,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -31548,7 +31666,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -31646,7 +31764,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -32267,7 +32385,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -32327,7 +32445,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -32982,7 +33100,7 @@ paths:
                   type: array
                   minItems: 1
                   items: { type: string }
-                  description: "KMU Hub module keys routed to this channel (e.g. deals, tasks)"
+                  description: "Cosmi module keys routed to this channel (e.g. deals, tasks)"
       responses:
         "201":
           description: Mapping created
@@ -33071,7 +33189,7 @@ paths:
 
   /api/v1/integrations/link:
     post:
-      summary: Link the caller's KMU Hub account to an external platform account
+      summary: Link the caller's Cosmi account to an external platform account
       description: >-
         Any authenticated user (no admin role required). token is the raw,
         single-use link token surfaced by the platform bot (Teams `/kmuhub
@@ -33103,7 +33221,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/ConflictOrIdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
         "504":
@@ -35431,7 +35549,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -35532,6 +35650,9 @@ paths:
   /api/v1/finance/stats/payments:
     get:
       summary: Get aggregated payment statistics for a date range
+      description: >-
+        The invoice counters cover every invoice in the range. `total_paid_amount` and
+        `total_outstanding_amount` add only invoices in the tenant default currency.
       tags: [finance-dashboard]
       operationId: getPaymentStats
       security: [{ bearerAuth: [] }]
@@ -44436,12 +44557,19 @@ components:
         name: { type: string }
         channel: { type: string, enum: [email, chat, notification] }
         conditions: { type: object, description: "AND/OR condition tree with field/operator/value leaves" }
-        actions: { type: object, description: "Array of actions: route_to_team, assign_to, add_tags, auto_reply" }
+        actions: { type: array, items: { $ref: "#/components/schemas/RoutingRuleAction" }, description: "Ordered list of actions" }
         priority: { type: integer }
         is_active: { type: boolean }
         created_by: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    RoutingRuleAction:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [route_to_team, assign_to, add_tags, auto_reply] }
+        config: { type: object }
 
     CreateRoutingRuleInput:
       type: object
@@ -44450,7 +44578,7 @@ components:
         name: { type: string }
         channel: { type: string, enum: [email, chat, notification] }
         conditions: { type: object }
-        actions: { type: object }
+        actions: { type: array, items: { $ref: "#/components/schemas/RoutingRuleAction" }, description: "Unknown action types are rejected with 400" }
         priority: { type: integer, default: 100 }
 
     UpdateRoutingRuleInput:
@@ -44459,7 +44587,7 @@ components:
         name: { type: string }
         channel: { type: string, enum: [email, chat, notification] }
         conditions: { type: object }
-        actions: { type: object }
+        actions: { type: array, items: { $ref: "#/components/schemas/RoutingRuleAction" }, description: "Unknown action types are rejected with 400" }
         priority: { type: integer }
         is_active: { type: boolean }
 
@@ -50397,7 +50525,7 @@ components:
 
     IntegrationChannelMapping:
       type: object
-      description: Routes a KMU Hub module's notifications to a specific platform channel.
+      description: Routes a Cosmi module's notifications to a specific platform channel.
       properties:
         id:
           type: string
@@ -50413,7 +50541,7 @@ components:
           type: array
           items:
             type: string
-          description: "KMU Hub module keys routed to this channel (e.g. deals, tasks)"
+          description: "Cosmi module keys routed to this channel (e.g. deals, tasks)"
         is_active:
           type: boolean
         created_at:
@@ -50423,7 +50551,7 @@ components:
 
     IntegrationAccountLink:
       type: object
-      description: A KMU Hub user's linked account on an external platform (Teams/Slack).
+      description: A Cosmi user's linked account on an external platform (Teams/Slack).
       properties:
         platform:
           type: string
@@ -52363,6 +52491,25 @@ components:
       headers:
         Retry-After:
           description: Seconds to wait before retrying, currently always "2".
+          schema: { type: integer }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ConflictOrIdempotencyInFlight:
+      description: >-
+        Either the business operation conflicts with existing state (a
+        duplicate such as a taken name, plate or e-mail address, or a state
+        conflict such as an overlapping booking or an already-assigned
+        message; gRPC AlreadyExists), or a request with this Idempotency-Key
+        is already being processed. The latter carries a Retry-After header
+        and can be retried with the same key and body; the former cannot be
+        resolved by retrying and needs a changed request.
+      headers:
+        Retry-After:
+          description: >-
+            Seconds to wait before retrying, currently always "2". Only
+            present when the conflict is an in-flight Idempotency-Key.
           schema: { type: integer }
       content:
         application/json:

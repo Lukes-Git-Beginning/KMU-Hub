@@ -458,13 +458,22 @@ func (r *PostgresRepository) AddWorker(ctx context.Context, tenantID, reportID u
 		w.Hours = sql.NullFloat64{Float64: hours, Valid: true}
 	}
 
-	_, err := r.pool.Exec(ctx,
+	// The parent report must belong to the caller's tenant. The FK on
+	// work_reports(id) only checks existence and the RLS policy only checks the
+	// NEW row's own tenant_id, so without the EXISTS guard a worker (with
+	// billable hours) could be attached to a foreign report. Guard and insert
+	// in one statement so there is no window between check and write.
+	ct, err := r.pool.Exec(ctx,
 		`INSERT INTO report_workers (id, tenant_id, report_id, name, role, hours, created_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		 SELECT $1::uuid, $2::uuid, $3::uuid, $4::text, $5::text, $6::numeric, $7::timestamptz
+		 WHERE EXISTS (SELECT 1 FROM work_reports WHERE id=$3::uuid AND tenant_id=$2::uuid AND deleted_at IS NULL)`,
 		w.ID, w.TenantID, w.ReportID, w.Name, w.Role, w.Hours, w.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("add worker: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return nil, ErrReportNotFound
 	}
 	return &w, nil
 }
@@ -531,13 +540,21 @@ func (r *PostgresRepository) CreateMeasurement(ctx context.Context, tenantID uui
 		m.Notes = sql.NullString{String: notes, Valid: true}
 	}
 
-	_, err := r.pool.Exec(ctx,
+	// report_id is optional, but a given one must belong to the caller's tenant
+	// (see AddWorker: FK and RLS do not cover the parent's ownership). A NULL
+	// report_id skips the guard.
+	ct, err := r.pool.Exec(ctx,
 		`INSERT INTO measurements (id, tenant_id, report_id, title, location, measured_by, measured_at, notes, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		 SELECT $1::uuid, $2::uuid, $3::uuid, $4::text, $5::text, $6::text, $7::date, $8::text, $9::timestamptz, $10::timestamptz
+		 WHERE $3::uuid IS NULL
+		    OR EXISTS (SELECT 1 FROM work_reports WHERE id=$3::uuid AND tenant_id=$2::uuid AND deleted_at IS NULL)`,
 		m.ID, m.TenantID, m.ReportID, m.Title, m.Location, m.MeasuredBy, m.MeasuredAt, m.Notes, m.CreatedAt, m.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create measurement: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return nil, ErrReportNotFound
 	}
 	return &m, nil
 }
@@ -917,13 +934,15 @@ func (r *PostgresRepository) scanReportFromRows(rows pgx.Rows) (*WorkReport, err
 }
 
 // SaveSignature writes signature_data, signed_at and signed_by atomically.
-// Returns ErrReportNotFound when no live report with (id, tenant_id) exists.
+// A signature is evidence of a fixed state, so the UPDATE only matches a report
+// that has none yet. Returns ErrAlreadySigned when the report already carries a
+// signature and ErrReportNotFound when no live report with (id, tenant_id) exists.
 func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, reportID uuid.UUID, signatureData, signedBy string) (*WorkReport, error) {
 	var rep WorkReport
 	err := r.pool.QueryRow(ctx, `
 		UPDATE work_reports
 		SET signature_data=$3, signed_at=NOW(), signed_by=$4, updated_at=NOW()
-		WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL
+		WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL AND signature_data IS NULL
 		RETURNING id, tenant_id, title, description, status, author_id, reviewer_id,
 		          reviewed_at, review_note, lat, lon, report_date,
 		          signature_data, signed_at, signed_by,
@@ -940,6 +959,17 @@ func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, report
 		&rep.CreatedAt, &rep.UpdatedAt, &rep.DeletedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// Zero rows is either "no such report" or "already signed" - tell them apart.
+		var exists bool
+		if qerr := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM work_reports WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL)`,
+			reportID, tenantID,
+		).Scan(&exists); qerr != nil {
+			return nil, fmt.Errorf("save signature: check report: %w", qerr)
+		}
+		if exists {
+			return nil, ErrAlreadySigned
+		}
 		return nil, ErrReportNotFound
 	}
 	if err != nil {

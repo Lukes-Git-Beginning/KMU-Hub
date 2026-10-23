@@ -31,6 +31,10 @@ const (
 	// The column exists since 000076 and defaults to {"read"}; a link minted
 	// without it reads as "not a reading link" and is refused.
 	sharePermissionRead = "read"
+
+	// sharePermissionPublic grants nothing. The desktop share dialog stores it
+	// next to "read" so the token list can show the link as public.
+	sharePermissionPublic = "public"
 )
 
 // newShareToken draws a link secret from crypto/rand. base64url keeps it usable

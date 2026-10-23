@@ -62,12 +62,15 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*m
 	return stages, rows.Err()
 }
 
+// lean: total_value sums only deals in the tenant default currency (deal_count still counts all
+// deals of the stage); per-currency columns once the Kanban header shows more than one unit.
 func (r *PostgresRepository) ListWithStats(ctx context.Context, tenantID uuid.UUID) ([]*models.PipelineStageWithStats, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT ps.id, ps.tenant_id, ps.name, ps.color, ps.sort_order, ps.is_won, ps.is_lost, ps.probability,
 		        ps.created_at, ps.updated_at,
 		        COALESCE(COUNT(d.id), 0) AS deal_count,
-		        COALESCE(SUM(d.value), 0) AS total_value
+		        COALESCE(SUM(d.value) FILTER (WHERE d.currency = COALESCE(
+		            (SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')), 0) AS total_value
 		 FROM pipeline_stages ps
 		 LEFT JOIN deals d ON ps.id = d.stage_id AND d.tenant_id = ps.tenant_id
 		 WHERE ps.tenant_id = $1

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -171,6 +172,39 @@ func TestSlackWebhook_ResolvedTenantReachesRepository(t *testing.T) {
 	}
 	if repo.seenTenant != tenantID {
 		t.Fatalf("repository tenant: got %s, want %s", repo.seenTenant, tenantID)
+	}
+}
+
+// The bot answers in the channel in German with real umlauts and never names
+// the product anything but Cosmi.
+func TestSlackWebhook_CommandRepliesUseUmlautsAndCosmiName(t *testing.T) {
+	for _, tc := range []struct {
+		name, text string
+		want       string
+	}{
+		{"help", "hilfe", "Verfügbare Befehle"},
+		{"unlink without account", "unlink", "Kein verknüpftes Konto gefunden."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resolver := &stubResolver{tenantID: uuid.New()}
+			h := NewWebhookHandler(nil, testSigningSecret, &stubRepo{}, nil, resolver, nil)
+
+			resp := h.Process(context.Background(),
+				signedRequest(t, integration.WebhookKindSlackCommand, "team_id=T1&user_id=U1&text="+tc.text))
+
+			var payload struct {
+				Text string `json:"text"`
+			}
+			if err := json.Unmarshal(resp.Body, &payload); err != nil {
+				t.Fatalf("unmarshal ephemeral response: %v", err)
+			}
+			if !strings.Contains(payload.Text, tc.want) {
+				t.Fatalf("reply %q does not contain %q", payload.Text, tc.want)
+			}
+			if strings.Contains(payload.Text, "KMU Hub") {
+				t.Fatalf("reply %q still names the old product", payload.Text)
+			}
+		})
 	}
 }
 

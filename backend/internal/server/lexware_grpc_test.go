@@ -23,7 +23,7 @@ func TestMapLexwareError(t *testing.T) {
 		err  error
 		want codes.Code
 	}{
-		{"unauthorized", lexware.ErrLexwareUnauthorized, codes.Unauthenticated},
+		{"unauthorized", lexware.ErrLexwareUnauthorized, codes.FailedPrecondition},
 		{"rate limited", lexware.ErrLexwareRateLimited, codes.ResourceExhausted},
 		{"not found", lexware.ErrLexwareNotFound, codes.NotFound},
 		{"config not found", lexware.ErrConfigNotFound, codes.NotFound},

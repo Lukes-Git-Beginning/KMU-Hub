@@ -1484,9 +1484,70 @@ func (r *PostgresRepository) GetPasswordResetToken(ctx context.Context, tokenHas
 	return &t, err
 }
 
-func (r *PostgresRepository) MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) error {
+// ResetPasswordWithToken spends the reset token, sets the new password and
+// revokes every refresh token in one transaction.
+//
+// The token UPDATE carries the single-use guard (`used_at IS NULL AND
+// expires_at > NOW()`) and runs first: of two requests racing on the same token
+// exactly one affects a row, the other waits on the row lock and then sees
+// zero rows. A failing password write rolls the spend back, so the token is not
+// burned without a password change. The tenant filter is explicit because the
+// reset path runs under sysctx.With, where RLS admits every tenant's rows.
+func (r *PostgresRepository) ResetPasswordWithToken(ctx context.Context, tokenID, tenantID, userID uuid.UUID, passwordHash string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback after commit is a no-op
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE password_reset_tokens SET used_at = NOW()
+		 WHERE id = $1 AND tenant_id = $2 AND used_at IS NULL AND expires_at > NOW()`,
+		tokenID, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		var usedAt *time.Time
+		err := tx.QueryRow(ctx,
+			`SELECT used_at FROM password_reset_tokens WHERE id = $1 AND tenant_id = $2`,
+			tokenID, tenantID,
+		).Scan(&usedAt)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrResetTokenInvalid
+		}
+		if err != nil {
+			return err
+		}
+		if usedAt != nil {
+			return ErrResetTokenUsed
+		}
+		return ErrResetTokenExpired
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+		passwordHash, userID,
+	); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE refresh_tokens SET revoked = true WHERE user_id = $1 AND revoked = false`, userID,
+	); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// InvalidateOpenPasswordResetTokens filters on tenant_id explicitly: the reset
+// path runs under sysctx.With, where RLS admits every tenant's rows.
+func (r *PostgresRepository) InvalidateOpenPasswordResetTokens(ctx context.Context, tenantID, userID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`, id,
+		`UPDATE password_reset_tokens SET used_at = NOW()
+		 WHERE tenant_id = $1 AND user_id = $2 AND used_at IS NULL`, tenantID, userID,
 	)
 	return err
 }

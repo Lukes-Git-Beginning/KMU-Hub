@@ -73,10 +73,12 @@ func NewCtxInjector(pool *pgxpool.Pool) func(context.Context, uuid.UUID) (contex
 // authenticate via Basic Auth (app-specific password) and never carry a JWT,
 // so the request context has no tenant set — this is the one legitimate
 // lookup that must cross tenants to find out which one the user belongs to.
+// A deactivated user resolves to no tenant, so a session cannot slip past
+// Validate through this second entry into the DAV backends.
 func resolveTenantID(ctx context.Context, pool *pgxpool.Pool, userID uuid.UUID) (uuid.UUID, error) {
 	var tenantID uuid.UUID
 	err := pool.QueryRow(sysctx.With(ctx),
-		`SELECT tenant_id FROM users WHERE id = $1`,
+		`SELECT tenant_id FROM users WHERE id = $1 AND is_active`,
 		userID,
 	).Scan(&tenantID)
 	if err != nil {

@@ -1055,6 +1055,8 @@ func mapRapporteError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, rapporte.ErrAlreadyApproved):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, rapporte.ErrAlreadySigned):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, rapporte.ErrInvalidStateTransition):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, rapporte.ErrInvalidInput):

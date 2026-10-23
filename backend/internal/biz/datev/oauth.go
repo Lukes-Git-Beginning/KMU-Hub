@@ -134,7 +134,7 @@ func (om *OAuthManager) RefreshAccessToken(ctx context.Context, tenantID uuid.UU
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := om.httpClient.Do(req)
+	resp, err := om.httpClient.Do(req) //nolint:gosec // G704: tokenURL is server config (env), no tenant input
 	if err != nil {
 		return "", fmt.Errorf("datev: token refresh request failed: %w", err)
 	}
@@ -197,7 +197,7 @@ func (om *OAuthManager) ExchangeCode(ctx context.Context, tenantID uuid.UUID, co
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := om.httpClient.Do(req)
+	resp, err := om.httpClient.Do(req) //nolint:gosec // G704: tokenURL is server config (env), no tenant input
 	if err != nil {
 		return fmt.Errorf("datev: code exchange request failed: %w", err)
 	}

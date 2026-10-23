@@ -286,11 +286,21 @@ message GetStockReportRequest {
   string tenant_id = 1;
 }
 
+message UnitQuantity {
+  string unit = 1;
+  int64 quantity = 2;
+}
+
 message StockReportResponse {
   int32 total_items = 1;
+  // Sum of all item quantities, set only when every item shares one unit
+  // (or there are no items). With mixed units it stays 0: adding Stk to kg
+  // is meaningless, use quantity_by_unit instead.
   int64 total_quantity = 2;
   int32 low_stock_count = 3;
   int32 active_warnings = 4;
+  // Quantity summed per unit, ordered by unit.
+  repeated UnitQuantity quantity_by_unit = 5;
 }
 
 message ExportInventoryRequest {

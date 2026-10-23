@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -135,11 +136,26 @@ func TestCalDAVCreatePassword_SameIdempotencyKey_CreatesExactlyOnePassword(t *te
 	if got := second.Header().Get("Idempotency-Replayed"); got != "true" {
 		t.Fatalf("second request Idempotency-Replayed header = %q, want %q", got, "true")
 	}
-	// Compared field-wise, not byte-wise: the cached body makes a round trip
-	// through a jsonb column, which re-serialises it (key order and spacing
-	// differ from the handler's original output).
-	if firstJSON, secondJSON := decodeCalDAVBody(t, first), decodeCalDAVBody(t, second); firstJSON["password"] != secondJSON["password"] || firstJSON["id"] != secondJSON["id"] {
-		t.Fatalf("replay must return the cached password; first=%v second=%v", firstJSON, secondJSON)
+	// The plaintext is shown exactly once: the replay confirms the status but
+	// must not hand out a second copy (nor may idempotency_keys keep one).
+	plaintext, _ := decodeCalDAVBody(t, first)["password"].(string)
+	if plaintext == "" {
+		t.Fatalf("first response must carry the app password, body = %s", first.Body.String())
+	}
+	if strings.Contains(second.Body.String(), plaintext) {
+		t.Fatalf("replay leaked the app password: %s", second.Body.String())
+	}
+	if got := first.Header().Get(middleware.RedactIdempotencyHeader); got != "" {
+		t.Fatalf("internal redact header leaked to the client: %q", got)
+	}
+	var stored string
+	if err := f.pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		"SELECT response_body::text FROM idempotency_keys WHERE tenant_id=$1 AND key=$2",
+		f.tenantID, key).Scan(&stored); err != nil {
+		t.Fatalf("read stored idempotency body: %v", err)
+	}
+	if strings.Contains(stored, plaintext) {
+		t.Fatalf("idempotency_keys.response_body holds the app password: %s", stored)
 	}
 	if got := f.pwSvc.activePasswordCount(); got != 1 {
 		t.Fatalf("app password count = %d, want 1 (a replayed POST must not mint a second password)", got)

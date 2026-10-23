@@ -25,6 +25,9 @@ type Registry struct {
 	WSMessagesTotal     *prometheus.CounterVec
 	WSErrors            *prometheus.CounterVec
 
+	// Audit metrics
+	AuditEventsDropped *prometheus.CounterVec
+
 	// gRPC metrics
 	grpcMetrics *grpcprometheus.ServerMetrics
 }
@@ -64,6 +67,11 @@ func NewRegistry() *Registry {
 		Help: "Total number of WebSocket errors.",
 	}, []string{"error_type"}) // error_type: "auth_failed", "rate_limited", "conn_limit"
 
+	auditEventsDropped := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "audit_events_dropped_total",
+		Help: "HTTP audit events that never reached the audit log.",
+	}, []string{"reason"}) // reason: "buffer_full", "service_unavailable", "write_failed", "closed", "worker_panic"
+
 	grpcMetrics := grpcprometheus.NewServerMetrics()
 
 	reg.MustRegister(
@@ -75,6 +83,7 @@ func NewRegistry() *Registry {
 		wsConnectionsActive,
 		wsMessagesTotal,
 		wsErrors,
+		auditEventsDropped,
 		grpcMetrics,
 	)
 
@@ -86,6 +95,7 @@ func NewRegistry() *Registry {
 		WSConnectionsActive: wsConnectionsActive,
 		WSMessagesTotal:     wsMessagesTotal,
 		WSErrors:            wsErrors,
+		AuditEventsDropped:  auditEventsDropped,
 		grpcMetrics:         grpcMetrics,
 	}
 }

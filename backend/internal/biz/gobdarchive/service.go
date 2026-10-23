@@ -13,6 +13,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -223,6 +225,68 @@ func (s *Service) GetDownloadURL(ctx context.Context, tenantID, id, requestedBy 
 	}
 
 	return url, nil
+}
+
+// ============================================================================
+// VerifyIntegrity
+// ============================================================================
+
+// integrityCheckMetadata is the metadata of an integrity_check event.
+type integrityCheckMetadata struct {
+	ExpectedSHA256 string `json:"expected_sha256"`
+	ActualSHA256   string `json:"actual_sha256"`
+	Match          bool   `json:"match"`
+}
+
+// VerifyIntegrity re-hashes the stored bytes of a document and compares them
+// with the SHA-256 recorded at archival (§147 AO: unalterability must be
+// provable). Every completed check leaves an integrity_check event with both
+// hashes; a divergence returns ErrIntegrityMismatch.
+func (s *Service) VerifyIntegrity(ctx context.Context, tenantID, id, checkedBy uuid.UUID) error {
+	doc, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+
+	rc, err := s.store.Download(ctx, doc.StorageKey)
+	if err != nil {
+		return fmt.Errorf("download gobd document: %w", err)
+	}
+	defer func() { _ = rc.Close() }()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, rc); err != nil {
+		return fmt.Errorf("read gobd document: %w", err)
+	}
+
+	meta := integrityCheckMetadata{
+		ExpectedSHA256: doc.SHA256,
+		ActualSHA256:   hex.EncodeToString(h.Sum(nil)),
+	}
+	meta.Match = meta.ActualSHA256 == meta.ExpectedSHA256
+
+	var result error
+	if !meta.Match {
+		slog.Error("gobd document integrity mismatch",
+			"document_id", doc.ID,
+			"tenant_id", doc.TenantID,
+			"expected_sha256", meta.ExpectedSHA256,
+			"actual_sha256", meta.ActualSHA256,
+		)
+		result = ErrIntegrityMismatch
+	}
+
+	metadata, err := json.Marshal(meta)
+	if err != nil {
+		return errors.Join(result, fmt.Errorf("marshal integrity metadata: %w", err))
+	}
+	// Fatal: an unrecorded check proves nothing. A mismatch stays detectable
+	// via errors.Is even when the event could not be written.
+	if err := s.appendEvent(ctx, tenantID, id, models.GobdEventTypeIntegrityCheck, checkedBy, "", metadata); err != nil {
+		return errors.Join(result, fmt.Errorf("append integrity event: %w", err))
+	}
+
+	return result
 }
 
 // ============================================================================

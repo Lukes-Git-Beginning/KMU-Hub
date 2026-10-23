@@ -472,8 +472,10 @@ func TestAddMember_Success(t *testing.T) {
 	msgRepo := newMockMessageRepo()
 	svc := NewService(repo, msgRepo)
 
-	inbox := newTestTeamInbox(uuid.New())
+	adminID := uuid.New()
+	inbox := newTestTeamInbox(adminID)
 	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
 
 	newMemberID := uuid.New()
 	member := &models.TeamInboxMember{
@@ -481,11 +483,41 @@ func TestAddMember_Success(t *testing.T) {
 		UserID:      newMemberID,
 	}
 
-	err := svc.AddMember(context.Background(), member)
+	err := svc.AddMember(context.Background(), inbox.TenantID, adminID, member)
 
 	require.NoError(t, err)
 	assert.Equal(t, "member", member.Role) // default role
-	assert.Len(t, repo.members[inbox.ID], 1)
+	assert.Len(t, repo.members[inbox.ID], 2)
+}
+
+func TestAddMember_RequiresTeamAdmin(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID, plainMember, outsider := uuid.New(), uuid.New(), uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+	addMemberToRepo(repo, inbox.ID, plainMember, "member")
+
+	for name, actor := range map[string]uuid.UUID{"plain member": plainMember, "non-member": outsider} {
+		t.Run(name, func(t *testing.T) {
+			// Escalation attempt: the actor tries to enrol themselves as admin.
+			err := svc.AddMember(context.Background(), inbox.TenantID, actor,
+				&models.TeamInboxMember{TeamInboxID: inbox.ID, UserID: actor, Role: "admin"})
+			require.ErrorIs(t, err, ErrNotTeamAdmin)
+			assert.Len(t, repo.members[inbox.ID], 2)
+		})
+	}
+}
+
+func TestAddMember_UnknownInbox(t *testing.T) {
+	svc := NewService(newMockTeamRepository(), newMockMessageRepo())
+
+	err := svc.AddMember(context.Background(), uuid.New(), uuid.New(),
+		&models.TeamInboxMember{TeamInboxID: uuid.New(), UserID: uuid.New()})
+
+	require.ErrorIs(t, err, ErrTeamInboxNotFound)
 }
 
 func TestRemoveMember_Success(t *testing.T) {
@@ -500,10 +532,35 @@ func TestRemoveMember_Success(t *testing.T) {
 	addMemberToRepo(repo, inbox.ID, adminID, "admin")
 	addMemberToRepo(repo, inbox.ID, memberID, "member")
 
-	err := svc.RemoveMember(context.Background(), inbox.ID, memberID)
+	err := svc.RemoveMember(context.Background(), inbox.TenantID, inbox.ID, adminID, memberID)
 
 	require.NoError(t, err)
 	assert.Len(t, repo.members[inbox.ID], 1)
+}
+
+func TestRemoveMember_RequiresTeamAdminUnlessSelf(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID, memberA, memberB, outsider := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+	addMemberToRepo(repo, inbox.ID, memberA, "member")
+	addMemberToRepo(repo, inbox.ID, memberB, "member")
+	ctx := context.Background()
+
+	// A plain member cannot remove a colleague, nor can an outsider.
+	require.ErrorIs(t, svc.RemoveMember(ctx, inbox.TenantID, inbox.ID, memberA, memberB), ErrNotTeamAdmin)
+	require.ErrorIs(t, svc.RemoveMember(ctx, inbox.TenantID, inbox.ID, outsider, memberB), ErrNotTeamAdmin)
+	assert.Len(t, repo.members[inbox.ID], 3)
+
+	// Leaving on their own is always allowed.
+	require.NoError(t, svc.RemoveMember(ctx, inbox.TenantID, inbox.ID, memberA, memberA))
+	assert.Len(t, repo.members[inbox.ID], 2)
+
+	// Unknown inbox: NotFound even for the self-leave path.
+	require.ErrorIs(t, svc.RemoveMember(ctx, inbox.TenantID, uuid.New(), memberB, memberB), ErrTeamInboxNotFound)
 }
 
 func TestRemoveMember_LastAdmin(t *testing.T) {
@@ -516,7 +573,7 @@ func TestRemoveMember_LastAdmin(t *testing.T) {
 	repo.inboxes[inbox.ID] = inbox
 	addMemberToRepo(repo, inbox.ID, adminID, "admin")
 
-	err := svc.RemoveMember(context.Background(), inbox.ID, adminID)
+	err := svc.RemoveMember(context.Background(), inbox.TenantID, inbox.ID, adminID, adminID)
 
 	require.ErrorIs(t, err, ErrCannotRemoveLastAdmin)
 	// Admin should still be a member
@@ -534,10 +591,28 @@ func TestListMembers_Success(t *testing.T) {
 	addMemberToRepo(repo, inbox.ID, uuid.New(), "member")
 	addMemberToRepo(repo, inbox.ID, uuid.New(), "member")
 
-	members, err := svc.ListMembers(context.Background(), inbox.ID)
+	members, err := svc.ListMembers(context.Background(), inbox.TenantID, inbox.ID, uuid.New())
 
 	require.NoError(t, err)
 	assert.Len(t, members, 3)
+}
+
+func TestListMembers_PrivateInboxRequiresMembership(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID := uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	inbox.Visibility = "private"
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+
+	_, err := svc.ListMembers(context.Background(), inbox.TenantID, inbox.ID, uuid.New())
+	require.ErrorIs(t, err, ErrNotTeamMember)
+
+	members, err := svc.ListMembers(context.Background(), inbox.TenantID, inbox.ID, adminID)
+	require.NoError(t, err)
+	assert.Len(t, members, 1)
 }
 
 // ============================================================================

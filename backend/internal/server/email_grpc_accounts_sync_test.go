@@ -246,7 +246,7 @@ func TestMapEmailError(t *testing.T) {
 		want codes.Code
 	}{
 		{"account not found", account.ErrAccountNotFound, codes.NotFound},
-		{"invalid credentials", account.ErrInvalidCredentials, codes.Unauthenticated},
+		{"invalid credentials", account.ErrInvalidCredentials, codes.FailedPrecondition},
 		{"connection failed", account.ErrConnectionFailed, codes.Unavailable},
 		{"message not found", message.ErrMessageNotFound, codes.NotFound},
 		{"folder not found", message.ErrFolderNotFound, codes.NotFound},
@@ -254,7 +254,7 @@ func TestMapEmailError(t *testing.T) {
 		{"unknown bulk action", message.ErrUnknownBulkAction, codes.OutOfRange},
 		{"bulk target required", message.ErrBulkTargetRequired, codes.InvalidArgument},
 		{"send failed", send.ErrSendFailed, codes.Internal},
-		{"smtp auth failed", send.ErrSMTPAuthFailed, codes.Unauthenticated},
+		{"smtp auth failed", send.ErrSMTPAuthFailed, codes.FailedPrecondition},
 		{"invalid recipient", send.ErrInvalidRecipient, codes.InvalidArgument},
 		{"signature not found", signature.ErrSignatureNotFound, codes.NotFound},
 		{"attachment not found", attachment.ErrAttachmentNotFound, codes.NotFound},

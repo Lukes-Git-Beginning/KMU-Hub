@@ -38,8 +38,11 @@ VAULT_MASTER_SECRET=CHANGE_ME_MINIMUM_64_CHARS_RANDOM_STRING
 # REQUIRED in production (config.RequireSystemSMTP): the auth service refuses to
 # boot if HOST/USER/PASSWORD are empty, so a misconfigured relay can never silently
 # drop password-reset or booking-confirmation mail. Use a transactional provider
-# (Postmark/SES/Mailgun/…) — USER/PASSWORD are typically the API token. FROM must be
-# a verified sender on a domain you control.
+# headquartered in the EU (the Ansible templates use Brevo as the example) —
+# USER/PASSWORD are typically the API token. Why EU: the provider processes personal
+# data on our behalf, and a non-EU provider needs an extra legal basis for the
+# third-country transfer (GDPR Chapter V). FROM must be a verified sender on a domain
+# you control.
 SYSTEM_SMTP_HOST=CHANGE_ME_smtp.provider.tld
 SYSTEM_SMTP_PORT=587
 SYSTEM_SMTP_USER=CHANGE_ME

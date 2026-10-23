@@ -26,6 +26,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // ============================================================================
@@ -73,6 +74,13 @@ type Mailer interface {
 	SendReport(ctx context.Context, in MailInput) error
 }
 
+// CacheSweeper drops report_cache rows whose TTL has passed. Nothing else
+// deletes them: the service only checks expires_at on read, so without the
+// sweep every cache miss leaves a row behind for good.
+type CacheSweeper interface {
+	DeleteExpiredCacheEntries(ctx context.Context, before time.Time) (int, error)
+}
+
 // Clock abstracts time.Now for deterministic tests.
 type Clock interface {
 	Now() time.Time
@@ -95,18 +103,27 @@ type Config struct {
 	Clock Clock
 	// Logger is optional; defaults to slog.Default().
 	Logger *slog.Logger
+	// CacheSweeper is optional; when set, expired report_cache rows are
+	// deleted every CacheSweepEvery.
+	CacheSweeper CacheSweeper
+	// CacheSweepEvery spaces the cache sweeps. Default 1h.
+	CacheSweepEvery time.Duration
 }
 
 // Scheduler polls schedules and dispatches due reports.
 type Scheduler struct {
-	repo    ScheduleRepository
-	runner  Runner
-	export  Exporter
-	mailer  Mailer
-	clock   Clock
-	log     *slog.Logger
-	tick    time.Duration
-	parser  cron.Parser
+	repo   ScheduleRepository
+	runner Runner
+	export Exporter
+	mailer Mailer
+	clock  Clock
+	log    *slog.Logger
+	tick   time.Duration
+	parser cron.Parser
+
+	sweeper    CacheSweeper
+	sweepEvery time.Duration
+	lastSweep  time.Time // only touched from Run's goroutine
 }
 
 // New creates a scheduler. export and mailer may be nil; in that case
@@ -125,15 +142,21 @@ func New(repo ScheduleRepository, runner Runner, export Exporter, mailer Mailer,
 	if tick <= 0 {
 		tick = 60 * time.Second
 	}
+	sweepEvery := cfg.CacheSweepEvery
+	if sweepEvery <= 0 {
+		sweepEvery = time.Hour
+	}
 	return &Scheduler{
-		repo:   repo,
-		runner: runner,
-		export: export,
-		mailer: mailer,
-		clock:  clk,
-		log:    log,
-		tick:   tick,
-		parser: cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow),
+		sweeper:    cfg.CacheSweeper,
+		sweepEvery: sweepEvery,
+		repo:       repo,
+		runner:     runner,
+		export:     export,
+		mailer:     mailer,
+		clock:      clk,
+		log:        log,
+		tick:       tick,
+		parser:     cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow),
 	}
 }
 
@@ -144,7 +167,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	s.log.Info("berichte scheduler started", "tick", s.tick.String())
 	defer s.log.Info("berichte scheduler stopped")
 
-	s.processTick(ctx, s.clock.Now())
+	s.safeTick(ctx)
 
 	ticker := time.NewTicker(s.tick)
 	defer ticker.Stop()
@@ -154,9 +177,18 @@ func (s *Scheduler) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			s.processTick(ctx, s.clock.Now())
+			s.safeTick(ctx)
 		}
 	}
+}
+
+// safeTick runs one tick (dispatch + cache sweep) under panic recovery: a panic
+// in the runner, exporter or mailer must not kill the process or end Run.
+func (s *Scheduler) safeTick(ctx context.Context) {
+	safego.Do("berichte scheduler tick", func() {
+		s.processTick(ctx, s.clock.Now())
+		s.maybeSweepCache(ctx, s.clock.Now())
+	})
 }
 
 // ProcessTick runs a single scheduler iteration. Exposed for tests.
@@ -185,6 +217,24 @@ func (s *Scheduler) processTick(ctx context.Context, now time.Time) {
 			continue
 		}
 		s.dispatch(ctx, sch, now)
+	}
+}
+
+// maybeSweepCache deletes expired report_cache rows, at most once per
+// sweepEvery. A failed sweep is not retried before the next interval: the rows
+// are harmless until then, and a broken DB should not log every tick.
+func (s *Scheduler) maybeSweepCache(ctx context.Context, now time.Time) {
+	if s.sweeper == nil || now.Sub(s.lastSweep) < s.sweepEvery {
+		return
+	}
+	s.lastSweep = now
+	n, err := s.sweeper.DeleteExpiredCacheEntries(ctx, now)
+	if err != nil {
+		s.log.Error("berichte scheduler: cache sweep failed", "error", err)
+		return
+	}
+	if n > 0 {
+		s.log.Info("berichte scheduler: expired cache entries removed", "count", n)
 	}
 }
 

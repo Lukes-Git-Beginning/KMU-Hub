@@ -123,6 +123,10 @@ func (m *mockRepository) PublishShifts(ctx context.Context, tenantID uuid.UUID, 
 
 // -- Assignments --
 
+func (m *mockRepository) WithAssignmentLock(_ context.Context, _, _, _ uuid.UUID, fn func(Repository) error) error {
+	return fn(m)
+}
+
 func (m *mockRepository) CreateAssignment(ctx context.Context, a *ShiftAssignment) error {
 	if m.createAssignmentErr != nil {
 		return m.createAssignmentErr

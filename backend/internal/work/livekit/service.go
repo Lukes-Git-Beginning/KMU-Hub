@@ -3,7 +3,9 @@ package livekit
 import (
 	"crypto/hmac"
 	"crypto/sha1" //nolint:gosec // HMAC-SHA1 required by coturn REST API spec
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -68,12 +70,19 @@ func (s *Service) IsEnabled() bool {
 	return s.enabled
 }
 
-// GenerateRoomName creates a deterministic room name from an event ID.
-// Format: "cal-{first 8 chars of eventID}"
+// RoomName derives the LiveKit room name of a calendar event from its tenant
+// and event ID: "cal-" + the first 128 bits of SHA-256(tenantID ":" eventID).
+// Including the tenant keeps rooms of different tenants apart even if their
+// event IDs ever collide, and the digest does not expose the raw IDs.
+func RoomName(tenantID, eventID uuid.UUID) string {
+	sum := sha256.Sum256([]byte(tenantID.String() + ":" + eventID.String()))
+	return "cal-" + hex.EncodeToString(sum[:16])
+}
+
+// GenerateRoomName returns RoomName(tenantID, eventID).
 // Works regardless of enabled state.
-func (s *Service) GenerateRoomName(eventID uuid.UUID) string {
-	idStr := eventID.String()
-	return "cal-" + idStr[:8]
+func (s *Service) GenerateRoomName(tenantID, eventID uuid.UUID) string {
+	return RoomName(tenantID, eventID)
 }
 
 // GenerateMeetingLink creates a meeting URL for a given room name.

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/biz/hr/compliance"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	hrv1 "github.com/kmuhub/kmuhub/proto/hr/v1"
@@ -730,52 +731,60 @@ func (h *HRRoutes) HandleGetWorkTimeStatus(w http.ResponseWriter, r *http.Reques
 
 	userID := middleware.GetUserID(r.Context())
 
+	// A failing shift lookup must not read as "not clocked in": the employee would
+	// see the wrong button state while their shift keeps running.
+	shiftResp, err := client.GetActiveShift(r.Context(), &hrv1.GetActiveShiftReq{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// The day total only feeds the ArbZG hint; losing it degrades to 0 minutes
+	// instead of failing the whole header status.
+	today := time.Now().Format("2006-01-02")
+	summaryResp, summaryErr := client.GetDailySummary(r.Context(), &hrv1.GetDailySummaryReq{
+		UserId: userID,
+		Date:   today,
+	})
+	if summaryErr != nil {
+		slog.Warn("work time status: daily summary unavailable, reporting 0 minutes",
+			"user_id", userID, "error", summaryErr)
+	}
+
+	response.JSON(w, http.StatusOK, buildWorkTimeStatus(shiftResp, summaryResp))
+}
+
+// buildWorkTimeStatus composes the header quick-toggle payload. The ArbZG
+// severity comes from compliance.CheckWorkTime, the single owner of the
+// thresholds. A nil summary (RPC failed or empty day) counts as 0 minutes.
+func buildWorkTimeStatus(shift *hrv1.GetActiveShiftResp, summary *hrv1.GetDailySummaryResp) map[string]interface{} {
 	status := map[string]interface{}{
 		"is_clocked_in":       false,
 		"is_on_break":         false,
 		"current_shift_start": nil,
 		"current_break_start": nil,
 		"today_total_minutes": 0,
-		"arbzg_severity":      "none",
+		"arbzg_severity":      string(compliance.SeverityNone),
 	}
 
-	// Check active shift
-	shiftResp, shiftErr := client.GetActiveShift(r.Context(), &hrv1.GetActiveShiftReq{
-		UserId: userID,
-	})
-	if shiftErr == nil && shiftResp.Entry != nil {
+	if shift.GetEntry() != nil {
 		status["is_clocked_in"] = true
-		status["current_shift_start"] = shiftResp.Entry.ClockIn.AsTime().Format(time.RFC3339)
-		if shiftResp.IsOnBreak && shiftResp.ActiveBreak != nil {
+		status["current_shift_start"] = shift.Entry.ClockIn.AsTime().Format(time.RFC3339)
+		if shift.IsOnBreak && shift.ActiveBreak != nil {
 			status["is_on_break"] = true
-			status["current_break_start"] = shiftResp.ActiveBreak.StartTime.AsTime().Format(time.RFC3339)
+			status["current_break_start"] = shift.ActiveBreak.StartTime.AsTime().Format(time.RFC3339)
 		}
 	}
 
-	// Get today's summary for total minutes
-	today := time.Now().Format("2006-01-02")
-	summaryResp, summaryErr := client.GetDailySummary(r.Context(), &hrv1.GetDailySummaryReq{
-		UserId: userID,
-		Date:   today,
-	})
-	if summaryErr == nil && summaryResp.Summary != nil {
-		status["today_total_minutes"] = summaryResp.Summary.NetWorkMinutes
-
-		// Determine ArbZG severity based on net work minutes
-		netMinutes := int(summaryResp.Summary.NetWorkMinutes)
-		switch {
-		case netMinutes > 600:
-			status["arbzg_severity"] = "error"
-		case netMinutes >= 540:
-			status["arbzg_severity"] = "warning"
-		case netMinutes >= 480:
-			status["arbzg_severity"] = "info"
-		default:
-			status["arbzg_severity"] = "none"
-		}
+	if summary.GetSummary() != nil {
+		netMinutes := summary.Summary.NetWorkMinutes
+		status["today_total_minutes"] = netMinutes
+		status["arbzg_severity"] = string(compliance.CheckWorkTime(int(netMinutes)).Severity)
 	}
 
-	response.JSON(w, http.StatusOK, status)
+	return status
 }
 
 func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Request) {

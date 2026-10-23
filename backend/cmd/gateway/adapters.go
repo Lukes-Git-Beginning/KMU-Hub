@@ -38,6 +38,7 @@ func (a *guestServiceAdapter) ValidateToken(ctx context.Context, token string) (
 	}
 	return &server.GuestSessionInfo{
 		ID:          session.ID,
+		TenantID:    session.TenantID,
 		ChannelID:   session.ChannelID,
 		DisplayName: session.DisplayName,
 		IsActive:    session.IsActive,

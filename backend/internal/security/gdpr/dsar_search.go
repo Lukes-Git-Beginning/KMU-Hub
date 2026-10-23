@@ -147,6 +147,18 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 			person.Modules = append(person.Modules, *invoices)
 		}
 
+		financeMore, fmErr := contactFinanceModules(ctx, pool, tenantID, c)
+		if fmErr != nil {
+			return nil, fmErr
+		}
+		person.Modules = append(person.Modules, financeMore...)
+
+		crmValues, cvErr := contactCrmValueModules(ctx, pool, tenantID, c)
+		if cvErr != nil {
+			return nil, cvErr
+		}
+		person.Modules = append(person.Modules, crmValues...)
+
 		meetings, mErr := meetingsModule(ctx, pool, tenantID, c.id)
 		if mErr != nil {
 			return nil, mErr
@@ -177,6 +189,30 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 		}
 		if contracts != nil {
 			person.Modules = append(person.Modules, *contracts)
+		}
+
+		rentals, rtErr := rentalsModule(ctx, pool, tenantID, c.id)
+		if rtErr != nil {
+			return nil, rtErr
+		}
+		if rentals != nil {
+			person.Modules = append(person.Modules, *rentals)
+		}
+
+		rentalInspections, riErr := rentalInspectionsModule(ctx, pool, tenantID, c.id)
+		if riErr != nil {
+			return nil, riErr
+		}
+		if rentalInspections != nil {
+			person.Modules = append(person.Modules, *rentalInspections)
+		}
+
+		suppliers, spErr := suppliersModule(ctx, pool, tenantID, c.id)
+		if spErr != nil {
+			return nil, spErr
+		}
+		if suppliers != nil {
+			person.Modules = append(person.Modules, *suppliers)
 		}
 
 		emails, eErr := emailModule(ctx, pool, tenantID, c.id)
@@ -219,6 +255,24 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 		return nil, err
 	}
 	persons = append(persons, users...)
+
+	suppliers, err := matchUnlinkedSuppliers(ctx, pool, tenantID, pattern)
+	if err != nil {
+		return nil, err
+	}
+	persons = append(persons, suppliers...)
+
+	bookingVisitors, err := matchPublicBookingVisitors(ctx, pool, tenantID, pattern)
+	if err != nil {
+		return nil, err
+	}
+	persons = append(persons, bookingVisitors...)
+
+	guestVisitors, err := matchGuestSessionVisitors(ctx, pool, tenantID, pattern)
+	if err != nil {
+		return nil, err
+	}
+	persons = append(persons, guestVisitors...)
 
 	return persons, nil
 }
@@ -344,6 +398,14 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 		}
 		if tasks != nil {
 			person.Modules = append(person.Modules, *tasks)
+		}
+
+		taskFields, tfErr := taskCustomFieldValuesModule(ctx, pool, tenantID, u.id)
+		if tfErr != nil {
+			return nil, tfErr
+		}
+		if taskFields != nil {
+			person.Modules = append(person.Modules, *taskFields)
 		}
 
 		taskComments, tcErr := taskCommentsModule(ctx, pool, tenantID, u.id)
@@ -496,6 +558,14 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *vehicleBookings)
 		}
 
+		recordings, recErr := recordingsModule(ctx, pool, tenantID, u.id)
+		if recErr != nil {
+			return nil, recErr
+		}
+		if recordings != nil {
+			person.Modules = append(person.Modules, *recordings)
+		}
+
 		invitationHistory, ihErr := invitationHistoryModule(ctx, pool, tenantID, u.email)
 		if ihErr != nil {
 			return nil, ihErr
@@ -503,6 +573,50 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 		if invitationHistory != nil {
 			person.Modules = append(person.Modules, *invitationHistory)
 		}
+
+		inboxMail, imErr := inboxMailModules(ctx, pool, tenantID, u.id)
+		if imErr != nil {
+			return nil, imErr
+		}
+		person.Modules = append(person.Modules, inboxMail...)
+
+		videoDialer, vdErr := videoDialerModules(ctx, pool, tenantID, u.id)
+		if vdErr != nil {
+			return nil, vdErr
+		}
+		person.Modules = append(person.Modules, videoDialer...)
+
+		reportsShifts, rsErr := reportsShiftsModules(ctx, pool, tenantID, u.id)
+		if rsErr != nil {
+			return nil, rsErr
+		}
+		person.Modules = append(person.Modules, reportsShifts...)
+
+		expenses, exErr := expensesModule(ctx, pool, tenantID, u.id)
+		if exErr != nil {
+			return nil, exErr
+		}
+		if expenses != nil {
+			person.Modules = append(person.Modules, *expenses)
+		}
+
+		fuhrpark, fpErr := fuhrparkModules(ctx, pool, tenantID, u.id, u.first, u.last)
+		if fpErr != nil {
+			return nil, fpErr
+		}
+		person.Modules = append(person.Modules, fuhrpark...)
+
+		documentChat, dcErr := documentChatModules(ctx, pool, tenantID, u.id)
+		if dcErr != nil {
+			return nil, dcErr
+		}
+		person.Modules = append(person.Modules, documentChat...)
+
+		accountAccess, aaErr := accountAccessModules(ctx, pool, tenantID, u.id)
+		if aaErr != nil {
+			return nil, aaErr
+		}
+		person.Modules = append(person.Modules, accountAccess...)
 
 		out = append(out, person)
 	}
@@ -653,6 +767,47 @@ func tasksModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("dsar: task rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// taskCustomFieldValuesModule discloses the custom field values entered on tasks a
+// matched user created or was assigned — same task scope as tasksModule. Values
+// are free-form, so they can hold personal data tasksModule alone never shows.
+// task_custom_field_values carries its own tenant_id, but the join back to tasks
+// is tenant-scoped as well, matching the other modules (defense-in-depth).
+func taskCustomFieldValuesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT t.title, wcfd.name, tcfv.value
+		 FROM task_custom_field_values tcfv
+		 JOIN tasks t ON t.id = tcfv.task_id AND t.tenant_id = $1
+		 JOIN work_custom_field_definitions wcfd ON wcfd.id = tcfv.field_id AND wcfd.tenant_id = $1
+		 WHERE tcfv.tenant_id = $1 AND (t.assignee_id = $2 OR t.created_by = $2)
+		 ORDER BY t.created_at DESC, wcfd.position, wcfd.name
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query task custom field values: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Aufgaben: Benutzerdefinierte Felder", Columns: []string{"Aufgabe", "Feld", "Wert"}}
+	for rows.Next() {
+		var title, label string
+		var valueJSON []byte
+		if scanErr := rows.Scan(&title, &label, &valueJSON); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan task custom field value: %w", scanErr)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Aufgabe", Value: title},
+			{Key: "Feld", Value: label},
+			{Key: "Wert", Value: formatCustomFieldValue(valueJSON)},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: task custom field value rows: %w", err)
 	}
 	if len(mod.Records) == 0 {
 		return nil, nil
@@ -1654,6 +1809,93 @@ func vehicleBookingRoleLabel(reservedForSubject, bookedBySubject bool) string {
 	}
 }
 
+// recordingsModule discloses the video/audio recordings a matched user
+// started or was asked to consent to being part of: when, for a meeting or a
+// call, the status, the user's role and their consent answer. The media file
+// itself is not exported (only metadata, like documentsModule).
+//
+// Retention is deliberately NOT part of the generic retention framework
+// (retention_*.go): recordings expire through their own mechanism --
+// recording.Service.RetentionDays (30), retention_expires_at and the
+// CleanupExpiredRecordings cron in cmd/work -- which also removes the MinIO
+// object. Showing "Aufbewahrung bis" here makes that expiry visible to the
+// data subject without duplicating the deletion path.
+func recordingsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT r.created_at, r.meeting_id IS NOT NULL, r.status, r.duration_seconds,
+		        r.retention_expires_at, r.started_by = $2, rc.consented, rc.responded_at
+		 FROM recordings r
+		 LEFT JOIN recording_consents rc
+		        ON rc.recording_id = r.id AND rc.user_id = $2 AND rc.tenant_id = $1
+		 WHERE r.tenant_id = $1 AND (r.started_by = $2 OR rc.user_id IS NOT NULL)
+		 ORDER BY r.created_at DESC
+		 LIMIT $3`, tenantID, userID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query recordings: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Aufzeichnungen",
+		Columns: []string{"Erstellt", "Art", "Status", "Dauer (Sek.)", "Rolle", "Einwilligung", "Einwilligung am", "Aufbewahrung bis"},
+	}
+	for rows.Next() {
+		var createdAt time.Time
+		var forMeeting bool
+		var status string
+		var duration *int
+		var retentionUntil, respondedAt *time.Time
+		var startedBySubject *bool
+		var consented *bool
+		if scanErr := rows.Scan(&createdAt, &forMeeting, &status, &duration,
+			&retentionUntil, &startedBySubject, &consented, &respondedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan recording: %w", scanErr)
+		}
+		kind := "Anruf"
+		if forMeeting {
+			kind = "Meeting"
+		}
+		role := "Teilnehmer"
+		if startedBySubject != nil && *startedBySubject {
+			role = "Starter"
+		}
+		consentLabel, consentAt := "", ""
+		if consented != nil {
+			consentLabel = "verweigert"
+			if *consented {
+				consentLabel = "erteilt"
+			}
+		}
+		if respondedAt != nil {
+			consentAt = respondedAt.Format(dsarTimeLayout)
+		}
+		durationLabel, retentionLabel := "", ""
+		if duration != nil {
+			durationLabel = fmt.Sprintf("%d", *duration)
+		}
+		if retentionUntil != nil {
+			retentionLabel = retentionUntil.Format(dsarTimeLayout)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Erstellt", Value: createdAt.Format(dsarTimeLayout)},
+			{Key: "Art", Value: kind},
+			{Key: "Status", Value: status},
+			{Key: "Dauer (Sek.)", Value: durationLabel},
+			{Key: "Rolle", Value: role},
+			{Key: "Einwilligung", Value: consentLabel},
+			{Key: "Einwilligung am", Value: consentAt},
+			{Key: "Aufbewahrung bis", Value: retentionLabel},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: recording rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
 // invitationHistoryModule discloses how a matched user came to have an
 // account: who invited them, with which legacy role preset, and when the
 // invitation was accepted. invitations rows carry email/first_name/last_name
@@ -2416,6 +2658,235 @@ func contractsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactI
 		return nil, nil
 	}
 	return &mod, nil
+}
+
+// rentalsModule discloses the rentals booked for a contact: the object, the
+// period, status and price, the renter name as typed at booking time, the
+// free-text notes and whether (and by whom/when) the rental was signed. The
+// signature image itself (signature_data) is not exported, like the media
+// behind documentsModule. Retention of old rentals is a product decision
+// (decide-retention-policy-hgb-ao-domains), not part of this module.
+func rentalsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT ro.name, r.start_date, r.end_date, r.status, r.renter_name,
+		        r.total_price::text, r.deposit_paid, COALESCE(r.notes, ''), r.signed_by, r.signed_at
+		 FROM rentals r
+		 JOIN rental_objects ro ON ro.id = r.object_id AND ro.tenant_id = $2
+		 WHERE r.contact_id = $1 AND r.tenant_id = $2
+		 ORDER BY r.start_date DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query rentals: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Vermietung",
+		Columns: []string{"Objekt", "Von", "Bis", "Status", "Mietername", "Preis", "Kaution bezahlt", "Notizen", "Unterschrieben von", "Unterschrieben am"},
+	}
+	for rows.Next() {
+		var object, status, renter, price, notes string
+		var start, end time.Time
+		var depositPaid bool
+		var signedBy *string
+		var signedAt *time.Time
+		if scanErr := rows.Scan(&object, &start, &end, &status, &renter, &price,
+			&depositPaid, &notes, &signedBy, &signedAt); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan rental: %w", scanErr)
+		}
+		deposit := "nein"
+		if depositPaid {
+			deposit = "ja"
+		}
+		signer, signedOn := "", ""
+		if signedBy != nil {
+			signer = *signedBy
+		}
+		if signedAt != nil {
+			signedOn = signedAt.Format(dsarTimeLayout)
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Objekt", Value: object},
+			{Key: "Von", Value: start.Format(dsarTimeLayout)},
+			{Key: "Bis", Value: end.Format(dsarTimeLayout)},
+			{Key: "Status", Value: status},
+			{Key: "Mietername", Value: renter},
+			{Key: "Preis", Value: price},
+			{Key: "Kaution bezahlt", Value: deposit},
+			{Key: "Notizen", Value: notes},
+			{Key: "Unterschrieben von", Value: signer},
+			{Key: "Unterschrieben am", Value: signedOn},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: rental rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// rentalInspectionsModule discloses the handover/return protocols of the
+// contact's rentals: kind, date, free-text condition notes and the photo
+// references (URLs only, not the files).
+func rentalInspectionsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT ro.name, r.start_date, i.kind, i.created_at, i.notes, i.photo_urls
+		 FROM rental_inspections i
+		 JOIN rentals r ON r.id = i.rental_id AND r.tenant_id = $2
+		 JOIN rental_objects ro ON ro.id = r.object_id AND ro.tenant_id = $2
+		 WHERE r.contact_id = $1 AND i.tenant_id = $2
+		 ORDER BY i.created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query rental inspections: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{
+		Module:  "Übergabeprotokolle",
+		Columns: []string{"Objekt", "Mietbeginn", "Art", "Datum", "Notizen", "Fotos"},
+	}
+	for rows.Next() {
+		var object, kind, notes string
+		var rentalStart, at time.Time
+		var photos []string
+		if scanErr := rows.Scan(&object, &rentalStart, &kind, &at, &notes, &photos); scanErr != nil {
+			return nil, fmt.Errorf("dsar: scan rental inspection: %w", scanErr)
+		}
+		kindLabel := "Rückgabe"
+		if kind == "handover" {
+			kindLabel = "Übergabe"
+		}
+		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
+			{Key: "Objekt", Value: object},
+			{Key: "Mietbeginn", Value: rentalStart.Format(dsarTimeLayout)},
+			{Key: "Art", Value: kindLabel},
+			{Key: "Datum", Value: at.Format(dsarTimeLayout)},
+			{Key: "Notizen", Value: notes},
+			{Key: "Fotos", Value: strings.Join(photos, ", ")},
+		}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: rental inspection rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// supplierDSARColumns is shared by the linked (suppliersModule) and unlinked
+// (matchUnlinkedSuppliers) disclosure, so both show the same fields.
+var supplierDSARColumns = []string{"Name", "E-Mail", "Telefon", "Adresse", "Zahlungsbedingungen", "Notizen", "Erstellt", "Gelöscht am"}
+
+type supplierRow struct {
+	id                                        uuid.UUID
+	name, email, phone, address, terms, notes string
+	createdAt                                 time.Time
+	deletedAt                                 *time.Time
+}
+
+// supplierSelect lists the columns scanSupplier reads. Soft-deleted suppliers
+// are disclosed too: deleted_at only hides them in the UI, the data is still held.
+const supplierSelect = `id, name, email, phone, address, payment_terms, notes, created_at, deleted_at`
+
+func scanSupplier(rows pgx.Rows) (supplierRow, error) {
+	var s supplierRow
+	if err := rows.Scan(&s.id, &s.name, &s.email, &s.phone, &s.address, &s.terms, &s.notes, &s.createdAt, &s.deletedAt); err != nil {
+		return s, fmt.Errorf("dsar: scan supplier: %w", err)
+	}
+	return s, nil
+}
+
+func (s supplierRow) record() DSARRecord {
+	deleted := ""
+	if s.deletedAt != nil {
+		deleted = s.deletedAt.Format(dsarTimeLayout)
+	}
+	return DSARRecord{Fields: []DSARField{
+		{Key: "Name", Value: s.name},
+		{Key: "E-Mail", Value: s.email},
+		{Key: "Telefon", Value: s.phone},
+		{Key: "Adresse", Value: s.address},
+		{Key: "Zahlungsbedingungen", Value: s.terms},
+		{Key: "Notizen", Value: s.notes},
+		{Key: "Erstellt", Value: s.createdAt.Format(dsarTimeLayout)},
+		{Key: "Gelöscht am", Value: deleted},
+	}}
+}
+
+// suppliersModule discloses the Einkauf supplier records linked to a contact
+// via suppliers.contact_id (a sole trader can be both).
+func suppliersModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uuid.UUID) (*DSARModule, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT `+supplierSelect+`
+		 FROM suppliers
+		 WHERE contact_id = $1 AND tenant_id = $2
+		 ORDER BY created_at DESC
+		 LIMIT $3`, contactID, tenantID, dsarMaxRows)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query suppliers: %w", err)
+	}
+	defer rows.Close()
+
+	mod := DSARModule{Module: "Einkauf Lieferanten", Columns: supplierDSARColumns}
+	for rows.Next() {
+		s, scanErr := scanSupplier(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		mod.Records = append(mod.Records, s.record())
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: supplier rows: %w", err)
+	}
+	if len(mod.Records) == 0 {
+		return nil, nil
+	}
+	return &mod, nil
+}
+
+// matchUnlinkedSuppliers finds suppliers without a CRM contact (typically sole
+// traders) by name or email, so they are not invisible to an Art. 15 request.
+// Suppliers WITH a contact_id are disclosed under that contact instead
+// (suppliersModule); listing them here as well would duplicate the subject.
+func matchUnlinkedSuppliers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pattern string) ([]DSARPerson, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT `+supplierSelect+`
+		 FROM suppliers
+		 WHERE tenant_id = $1 AND contact_id IS NULL
+		   AND (name ILIKE $2 OR email ILIKE $2)
+		 ORDER BY created_at DESC
+		 LIMIT $3`, tenantID, pattern, dsarMaxSubjects)
+	if err != nil {
+		return nil, fmt.Errorf("dsar: query unlinked suppliers: %w", err)
+	}
+	defer rows.Close()
+
+	var out []DSARPerson
+	for rows.Next() {
+		s, scanErr := scanSupplier(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		out = append(out, DSARPerson{
+			ID:     s.id.String(),
+			Name:   s.name,
+			Email:  s.email,
+			Avatar: initials(s.name, ""),
+			Modules: []DSARModule{{
+				Module:  "Einkauf Lieferanten",
+				Columns: supplierDSARColumns,
+				Records: []DSARRecord{s.record()},
+			}},
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dsar: unlinked supplier rows: %w", err)
+	}
+	return out, nil
 }
 
 // emailModule resolves via email_contact_links: the junction table carries no

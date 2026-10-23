@@ -787,6 +787,12 @@ func mapFormulareError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, formulare.ErrShareLinkFileFieldUnsupported):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// Idempotency-Key on the public submit route: reuse with other answers is
+	// the 422 the Idempotency middleware answers with, in-flight the same 409.
+	case errors.Is(err, formulare.ErrIdempotencyKeyReused):
+		return status.Error(codes.OutOfRange, err.Error())
+	case errors.Is(err, formulare.ErrIdempotencyInFlight):
+		return status.Error(codes.AlreadyExists, err.Error())
 	default:
 		slog.Error("unhandled formulare service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
@@ -874,7 +880,7 @@ func (s *FormulareGRPCServer) RevokeFormShareLink(ctx context.Context, req *form
 // token resolves it. Nothing is parsed out of the token itself -- it is looked
 // up, and every failure to look it up is the same NotFound.
 func (s *FormulareGRPCServer) SubmitFormByShareToken(ctx context.Context, req *formularev1.SubmitFormByShareTokenRequest) (*formularev1.SubmitFormByShareTokenResponse, error) {
-	result, err := s.svc.SubmitByShareToken(ctx, req.GetToken(), req.GetAnswers(), req.GetIpAddress())
+	result, err := s.svc.SubmitByShareToken(ctx, req.GetToken(), req.GetAnswers(), req.GetIpAddress(), req.GetIdempotencyKey())
 	if err != nil {
 		return nil, mapFormulareError(err)
 	}
@@ -882,6 +888,7 @@ func (s *FormulareGRPCServer) SubmitFormByShareToken(ctx context.Context, req *f
 		SubmissionId: result.SubmissionID.String(),
 		TenantId:     result.TenantID.String(),
 		FormSchemaId: result.FormSchemaID.String(),
+		Replayed:     result.Replayed,
 	}, nil
 }
 

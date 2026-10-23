@@ -57,16 +57,16 @@ func (s *Service) Search(ctx context.Context, input SearchInput) ([]models.ChatS
 		input.PageSize = 20
 	}
 
-	// Get channel IDs to search
-	var channelIDs []uuid.UUID
+	// Membership is the boundary on every path: an explicit channel_id only
+	// narrows the caller's own channels, it never widens them. A channel the
+	// caller is not in reads as empty, same as "no channels", so the response
+	// does not reveal that the channel exists.
+	channelIDs, err := s.repo.GetUserChannelIDs(ctx, input.UserID)
+	if err != nil {
+		return nil, 0, err
+	}
 	if input.ChannelID != nil {
-		channelIDs = []uuid.UUID{*input.ChannelID}
-	} else {
-		var err error
-		channelIDs, err = s.repo.GetUserChannelIDs(ctx, input.UserID)
-		if err != nil {
-			return nil, 0, err
-		}
+		channelIDs = narrowToChannel(channelIDs, *input.ChannelID)
 	}
 
 	if len(channelIDs) == 0 {
@@ -112,4 +112,14 @@ func (s *Service) Search(ctx context.Context, input SearchInput) ([]models.ChatS
 	}
 
 	return all[offset:end], totalCount, nil
+}
+
+// narrowToChannel returns just channelID if it is one of member, else nil.
+func narrowToChannel(member []uuid.UUID, channelID uuid.UUID) []uuid.UUID {
+	for _, id := range member {
+		if id == channelID {
+			return []uuid.UUID{channelID}
+		}
+	}
+	return nil
 }

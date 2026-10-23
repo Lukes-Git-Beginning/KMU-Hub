@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/config"
@@ -58,7 +56,9 @@ func main() {
 	tuevEmitter := fuhrpark.NewPGEventEmitter(pool)
 	worker := fuhrpark.NewTuevWorker(repo, pool, logger).WithEventEmitter(tuevEmitter)
 	go func() {
-		if runErr := worker.Run(ctx, tuevLockAndRun(ctx, pool, repo, worker)); runErr != nil {
+		if runErr := worker.Run(ctx, fuhrpark.LockedRunner(pool, func(runCtx context.Context) error {
+			return worker.ProcessTuevReminders(runCtx, time.Now())
+		})); runErr != nil {
 			slog.Error("fuhrpark TUEV worker exited with error", "error", runErr)
 		}
 	}()
@@ -135,41 +135,4 @@ func main() {
 		slog.Error("health server shutdown failed", "error", shutdownErr)
 	}
 	slog.Info("fuhrpark service stopped")
-}
-
-// tuevLockAndRun returns a function that, on each invocation:
-//  1. Begins a transaction.
-//  2. Tries to acquire pg_try_advisory_xact_lock (fuhrpark_tuev_cron).
-//  3. If lock acquired: runs ProcessTuevReminders and commits.
-//  4. If lock not acquired: another replica is running — skip.
-//
-// The advisory lock is automatically released when the transaction ends.
-func tuevLockAndRun(ctx context.Context, pool *pgxpool.Pool, repo fuhrpark.Repository, worker *fuhrpark.TuevWorker) func(ctx context.Context) error {
-	lockKey := fuhrpark.LockKey()
-	return func(ctx context.Context) error {
-		tx, err := pool.Begin(ctx)
-		if err != nil {
-			return fmt.Errorf("begin tx for advisory lock: %w", err)
-		}
-		defer func() { _ = tx.Rollback(ctx) }()
-
-		var acquired bool
-		if scanErr := tx.QueryRow(ctx,
-			`SELECT pg_try_advisory_xact_lock($1)`, lockKey,
-		).Scan(&acquired); scanErr != nil {
-			return fmt.Errorf("advisory lock query: %w", scanErr)
-		}
-
-		if !acquired {
-			slog.Debug("fuhrpark TUEV cron: lock not acquired (another replica is running)")
-			return nil
-		}
-
-		slog.Debug("fuhrpark TUEV cron: lock acquired, running scan")
-		if runErr := worker.ProcessTuevReminders(ctx, time.Now()); runErr != nil {
-			return fmt.Errorf("process TUEV reminders: %w", runErr)
-		}
-
-		return tx.Commit(ctx)
-	}
 }

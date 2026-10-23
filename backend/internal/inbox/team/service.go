@@ -201,17 +201,45 @@ func (s *Service) AutoAssignMessage(ctx context.Context, tenantID, teamInboxID u
 	return nil
 }
 
-// AddMember adds a user as a member of a team inbox.
-func (s *Service) AddMember(ctx context.Context, member *models.TeamInboxMember) error {
+// requireTeamAdmin verifies the team inbox exists in the tenant (NotFound for
+// foreign inboxes) and that the actor is one of its admins.
+func (s *Service) requireTeamAdmin(ctx context.Context, tenantID, teamInboxID, actorID uuid.UUID) error {
+	if _, err := s.repo.GetTeamInbox(ctx, tenantID, teamInboxID); err != nil {
+		return err
+	}
+	role, err := s.repo.GetMemberRole(ctx, teamInboxID, actorID)
+	if err != nil {
+		return err
+	}
+	if role != "admin" {
+		return ErrNotTeamAdmin
+	}
+	return nil
+}
+
+// AddMember adds a user as a member of a team inbox. Only admins of the
+// inbox may add members.
+func (s *Service) AddMember(ctx context.Context, tenantID, actorID uuid.UUID, member *models.TeamInboxMember) error {
+	if err := s.requireTeamAdmin(ctx, tenantID, member.TeamInboxID, actorID); err != nil {
+		return err
+	}
 	if member.Role == "" {
 		member.Role = "member"
 	}
 	return s.repo.AddMember(ctx, member)
 }
 
-// RemoveMember removes a user from a team inbox.
-// Cannot remove the last admin.
-func (s *Service) RemoveMember(ctx context.Context, teamInboxID, userID uuid.UUID) error {
+// RemoveMember removes a user from a team inbox. Only admins may remove
+// others; any member may remove themselves. Cannot remove the last admin.
+func (s *Service) RemoveMember(ctx context.Context, tenantID, teamInboxID, actorID, userID uuid.UUID) error {
+	if actorID == userID {
+		if _, err := s.repo.GetTeamInbox(ctx, tenantID, teamInboxID); err != nil {
+			return err
+		}
+	} else if err := s.requireTeamAdmin(ctx, tenantID, teamInboxID, actorID); err != nil {
+		return err
+	}
+
 	// Check if the user being removed is an admin
 	role, err := s.repo.GetMemberRole(ctx, teamInboxID, userID)
 	if err != nil {
@@ -235,8 +263,23 @@ func (s *Service) RemoveMember(ctx context.Context, teamInboxID, userID uuid.UUI
 	return s.repo.RemoveMember(ctx, teamInboxID, userID)
 }
 
-// ListMembers returns all members of a team inbox.
-func (s *Service) ListMembers(ctx context.Context, teamInboxID uuid.UUID) ([]*models.TeamInboxMember, error) {
+// ListMembers returns all members of a team inbox. The inbox must exist in the
+// tenant (NotFound for foreign inboxes); the member list of a private inbox is
+// only visible to its own members.
+func (s *Service) ListMembers(ctx context.Context, tenantID, teamInboxID, actorID uuid.UUID) ([]*models.TeamInboxMember, error) {
+	inbox, err := s.repo.GetTeamInbox(ctx, tenantID, teamInboxID)
+	if err != nil {
+		return nil, err
+	}
+	if inbox.Visibility == "private" {
+		isMember, err := s.repo.IsMember(ctx, teamInboxID, actorID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			return nil, ErrNotTeamMember
+		}
+	}
 	return s.repo.ListMembers(ctx, teamInboxID)
 }
 

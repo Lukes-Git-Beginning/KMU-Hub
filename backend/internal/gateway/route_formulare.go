@@ -1149,10 +1149,25 @@ func (fr *FormulareRoutes) HandleSubmitByShareToken(w http.ResponseWriter, r *ht
 	if submitIP != "" {
 		grpcReq.IpAddress = &submitIP
 	}
+	// Optional: the service namespaces the key under the link it resolves, so
+	// the gateway passes it through untouched.
+	if key := r.Header.Get("Idempotency-Key"); key != "" {
+		grpcReq.IdempotencyKey = &key
+	}
 
 	resp, err := client.SubmitFormByShareToken(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
+		return
+	}
+
+	// A repeat of a stored submission: the first request already ran the
+	// intake dispatch, so only the stored id goes back.
+	if resp.GetReplayed() {
+		w.Header().Set("Idempotency-Replayed", "true")
+		response.JSON(w, http.StatusCreated, map[string]string{
+			"submission_id": resp.GetSubmissionId(),
+		})
 		return
 	}
 

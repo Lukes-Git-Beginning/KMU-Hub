@@ -370,6 +370,10 @@ func (r *stubSchichtenRepo) UpdateSwapRequestStatus(_ context.Context, tenantID,
 	return nil
 }
 
+func (r *stubSchichtenRepo) WithAssignmentLock(_ context.Context, _, _, _ uuid.UUID, fn func(schichten.Repository) error) error {
+	return fn(r)
+}
+
 func (r *stubSchichtenRepo) SwapAssignmentsForRequest(_ context.Context, _ *schichten.SwapRequest) error {
 	if r.forceErr != nil {
 		return r.forceErr

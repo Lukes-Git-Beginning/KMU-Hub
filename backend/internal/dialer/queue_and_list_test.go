@@ -939,3 +939,44 @@ func TestAgentStatusRepository_GetActiveAgentIDsForTenant_And_GetUserDisplayName
 		t.Fatalf("GetUserDisplayNames (empty input): expected nil,nil, got %v,%v", empty, err)
 	}
 }
+
+// TestAgentStatusRepository_UserInTenant pins the write guard of
+// SetAgentStatus: a user counts only for its own tenant — under the caller's
+// tenant context and under a system context alike, where RLS lets every
+// tenant's users through and only the explicit tenant filter holds.
+func TestAgentStatusRepository_UserInTenant(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Dialer UserInTenant Own")
+	testutil.EnsureTenant(t, pool, tenantOther, "Dialer UserInTenant Other")
+	ownAgent := seedDialerUser(t, pool, tenantOwn, "dialer-intenant-own", "Own", "Agent")
+	otherAgent := seedDialerUser(t, pool, tenantOther, "dialer-intenant-other", "Other", "Agent")
+
+	repo := NewPostgresAgentStatusRepository(pool)
+	for name, ctx := range map[string]context.Context{
+		"tenant context": testutil.WithTenantCtx(context.Background(), tenantOwn),
+		"system context": testutil.WithSystemCtx(context.Background()),
+	} {
+		for _, tc := range []struct {
+			user uuid.UUID
+			want bool
+		}{
+			{ownAgent, true},
+			{otherAgent, false},
+			{uuid.New(), false},
+		} {
+			got, err := repo.UserInTenant(ctx, tenantOwn, tc.user)
+			if err != nil {
+				t.Fatalf("%s: UserInTenant(%s): %v", name, tc.user, err)
+			}
+			if got != tc.want {
+				t.Errorf("%s: UserInTenant(%s) = %v, want %v", name, tc.user, got, tc.want)
+			}
+		}
+	}
+}

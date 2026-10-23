@@ -15,12 +15,14 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // Service errors.
 var (
 	ErrExportAlreadyPending  = errors.New("gdpr: user already has a pending export request")
 	ErrInvalidExportStatus   = errors.New("gdpr: export request is not in a valid state for this operation")
+	ErrExportPanicked        = errors.New("gdpr: export generation panicked")
 	ErrExportExpired         = errors.New("gdpr: export download has expired")
 	ErrExportNotReady        = errors.New("gdpr: export is not ready for download")
 	ErrErasureTargetNotFound = errors.New("gdpr: target user not found")
@@ -183,7 +185,19 @@ func (s *Service) DenyExport(ctx context.Context, exportID uuid.UUID, reviewerID
 
 // ExecuteExportAsync generates the ZIP export file and stores the result.
 // This is called asynchronously after admin approval.
-func (s *Service) ExecuteExportAsync(ctx context.Context, exportID uuid.UUID) error {
+//
+// A panic inside a module's export handler comes back as ErrExportPanicked
+// instead of killing the process (both callers run it in a detached goroutine
+// or the sweeper loop). The request then stays on "processing" and the export
+// sweeper re-runs it once the lease has expired.
+func (s *Service) ExecuteExportAsync(ctx context.Context, exportID uuid.UUID) (err error) {
+	if !safego.Do("gdpr export generation", func() { err = s.executeExport(ctx, exportID) }) {
+		return ErrExportPanicked
+	}
+	return err
+}
+
+func (s *Service) executeExport(ctx context.Context, exportID uuid.UUID) error {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return fmt.Errorf("gdpr: tenant id missing from context: %w", err)

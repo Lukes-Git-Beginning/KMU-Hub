@@ -35,12 +35,13 @@ linters:
         - G402   # Email TLS config — MinVersion handled by server
         - G108   # /debug/pprof — env-gated via ENABLE_PPROF
         - G117   # Exported Password/Secret/Token fields: pattern rule like G101; these are wire and config types
-        # G704/G705/G706: taint rules new in the gosec that ships with
-        # golangci-lint v2.10 (Go 1.26 upgrade, 2026-10-20). First run: 14 SSRF,
-        # 21 XSS, 59 log-injection hits; the sampled ones were false positives
-        # (safehttp clients, fixed endpoints, attachment downloads, slog
-        # key-values). Triage lives in backlog unit scan-gosec-taint-rules-triage.
-        - G704
+        # Taint rules new in the gosec that ships with golangci-lint v2.10 (Go 1.26
+        # upgrade, 2026-10-20). Triaged in backlog unit scan-gosec-taint-rules-triage:
+        # G704 (SSRF) is ON, its 17 hits are annotated with //nolint:gosec and a reason.
+        # G705 (XSS) stays off: all 24 hits write a gRPC payload or a download, and the
+        # gateway sets nosniff + CSP default-src 'none' on every response.
+        # G706 (log injection) stays off: all 62 hits are slog calls and every service
+        # logs through slog.NewJSONHandler, which escapes control characters.
         - G705
         - G706
         - G304   # File inclusion via variable — TLS cert paths from config

@@ -286,6 +286,38 @@ func TestCheckTimeTriggers_ExecutesOnlyClaimedAutomations(t *testing.T) {
 	}
 }
 
+// panicEngineExecutor panics in Execute and signals each call, standing in for an
+// action that dereferences nil on an unexpected payload.
+type panicEngineExecutor struct{ called chan struct{} }
+
+func (p *panicEngineExecutor) Execute(context.Context, models.Automation, models.EventPayload) error {
+	p.called <- struct{}{}
+	panic("action boom")
+}
+
+// A panic inside the async Execute goroutine must not crash the process (it would
+// kill the test binary) and must not stop later ticks from firing again.
+func TestCheckTimeTriggers_PanicInExecuteDoesNotKillProcessOrLaterTicks(t *testing.T) {
+	auto := newTestAutomation("biz.invoice.overdue")
+	repo := &fakeTimeBasedRepo{
+		listResult:  []*models.Automation{auto},
+		claimResult: map[uuid.UUID]bool{auto.ID: true},
+	}
+	executor := &panicEngineExecutor{called: make(chan struct{}, 4)}
+
+	poller := NewTimeTriggerPoller(repo, executor, dueEverything(), NewTriggerRegistry())
+	poller.safeCheck(context.Background())
+	poller.safeCheck(context.Background())
+
+	for i := range 2 {
+		select {
+		case <-executor.called:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timeout waiting for Execute call %d/2", i+1)
+		}
+	}
+}
+
 func TestCheckTimeTriggers_PassesRegistryTimeBasedTypesToRepo(t *testing.T) {
 	repo := &fakeTimeBasedRepo{}
 	executor := newFakeEngineExecutor()

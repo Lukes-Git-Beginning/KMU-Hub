@@ -574,6 +574,16 @@ func (m *mockRepository) DeleteStaleUserSessions(_ context.Context, userID uuid.
 
 // Password reset token methods
 
+func (m *mockRepository) InvalidateOpenPasswordResetTokens(_ context.Context, tenantID, userID uuid.UUID) error {
+	now := time.Now()
+	for _, t := range m.passwordResetTokens {
+		if t.TenantID == tenantID && t.UserID == userID && t.UsedAt == nil {
+			t.UsedAt = &now
+		}
+	}
+	return nil
+}
+
 func (m *mockRepository) CreatePasswordResetToken(_ context.Context, token *models.PasswordResetToken) error {
 	m.passwordResetTokens[token.TokenHash] = token
 	return nil
@@ -587,15 +597,25 @@ func (m *mockRepository) GetPasswordResetToken(_ context.Context, tokenHash stri
 	return t, nil
 }
 
-func (m *mockRepository) MarkPasswordResetTokenUsed(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) ResetPasswordWithToken(ctx context.Context, tokenID, _, userID uuid.UUID, passwordHash string) error {
 	for _, t := range m.passwordResetTokens {
-		if t.ID == id {
-			now := time.Now()
-			t.UsedAt = &now
-			return nil
+		if t.ID != tokenID {
+			continue
 		}
+		if t.UsedAt != nil {
+			return ErrResetTokenUsed
+		}
+		if time.Now().After(t.ExpiresAt) {
+			return ErrResetTokenExpired
+		}
+		if err := m.UpdatePassword(ctx, userID, passwordHash); err != nil {
+			return err
+		}
+		now := time.Now()
+		t.UsedAt = &now
+		return m.RevokeAllUserTokens(ctx, userID)
 	}
-	return nil
+	return ErrResetTokenInvalid
 }
 
 func newTestService() (*Service, *mockRepository) {
@@ -712,6 +732,15 @@ func TestService_Login(t *testing.T) {
 				createTestUser(r, "inactive@example.com", "password", false)
 			},
 			wantErr: ErrUserInactive,
+		},
+		{
+			name:     "inactive user, wrong password",
+			email:    "inactive@example.com",
+			password: "wrong",
+			setup: func(r *mockRepository) {
+				createTestUser(r, "inactive@example.com", "password", false)
+			},
+			wantErr: ErrInvalidCredentials,
 		},
 	}
 

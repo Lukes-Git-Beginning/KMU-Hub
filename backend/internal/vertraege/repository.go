@@ -39,7 +39,8 @@ type Repository interface {
 	AddParty(ctx context.Context, p *ContractParty) error
 	// RemoveParty deletes a party and returns the contract it belonged to, so
 	// the caller can file the audit entry against that contract. Removing a
-	// party that does not exist stays a no-op and returns uuid.Nil.
+	// party that does not exist stays a no-op and returns uuid.Nil. A party that
+	// has already signed (SignedOn set) is evidence and is refused with ErrPartySigned.
 	RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error)
 	ListParties(ctx context.Context, tenantID, contractID uuid.UUID) ([]*ContractParty, error)
 

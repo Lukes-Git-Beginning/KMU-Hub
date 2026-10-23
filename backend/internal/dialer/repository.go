@@ -33,6 +33,10 @@ type CampaignRepository interface {
 	RequeueContact(ctx context.Context, id, tenantID uuid.UUID) error
 	IncrementContactCallCount(ctx context.Context, id, tenantID uuid.UUID) error
 	GetCampaignContactByID(ctx context.Context, id, tenantID uuid.UUID) (*CampaignContact, error)
+	// ListStaleInProgressContacts returns, across all tenants, contacts that have
+	// been in_progress since before cutoff with no open call session newer than
+	// cutoff. Cross-tenant by design: call it under sysctx.
+	ListStaleInProgressContacts(ctx context.Context, cutoff time.Time, limit int) ([]StaleContact, error)
 
 	// Aggregate stats and denormalized counts
 	GetCampaignStats(ctx context.Context, tenantID, campaignID uuid.UUID) (*CampaignStats, error)
@@ -110,4 +114,8 @@ type AgentStatusRepository interface {
 	// GetUserDisplayNames returns a map of user ID → (first_name, last_name) for
 	// the given set of user IDs. Used to enrich supervisor agent rows with names.
 	GetUserDisplayNames(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][2]string, error)
+
+	// UserInTenant reports whether userID is a user of tenantID. Guards the
+	// live-status write, whose Redis key carries no tenant.
+	UserInTenant(ctx context.Context, tenantID, userID uuid.UUID) (bool, error)
 }

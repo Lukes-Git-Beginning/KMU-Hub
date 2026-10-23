@@ -37,11 +37,21 @@ const wsTestSecret = "test-secret-minimum-32-characters!"
 type fakeChatClient struct {
 	chatv1.ChatServiceClient
 
-	getChannel func(ctx context.Context, in *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error)
+	getChannel      func(ctx context.Context, in *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error)
+	sendMessage     func(ctx context.Context, in *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error)
+	markChannelRead func(ctx context.Context, in *chatv1.MarkChannelReadRequest) (*chatv1.MarkChannelReadResponse, error)
 }
 
 func (f *fakeChatClient) GetChannel(ctx context.Context, in *chatv1.GetChannelRequest, _ ...grpc.CallOption) (*chatv1.GetChannelResponse, error) {
 	return f.getChannel(ctx, in)
+}
+
+func (f *fakeChatClient) SendMessage(ctx context.Context, in *chatv1.SendMessageRequest, _ ...grpc.CallOption) (*chatv1.SendMessageResponse, error) {
+	return f.sendMessage(ctx, in)
+}
+
+func (f *fakeChatClient) MarkChannelRead(ctx context.Context, in *chatv1.MarkChannelReadRequest, _ ...grpc.CallOption) (*chatv1.MarkChannelReadResponse, error) {
+	return f.markChannelRead(ctx, in)
 }
 
 // fakeGuestValidator implements GuestSessionValidator with a scripted outcome.
@@ -315,78 +325,81 @@ func TestHandleWebSocket_MessageLoop_RateLimitExceeded_ReturnsErrorFrame(t *test
 // Teardown: expired token, goroutine release, state cleanup
 // ---------------------------------------------------------------------------
 
-// TestHandleWebSocket_HardDisconnect_CleanupWaitsForTokenRevalidation pins down
-// the actual teardown order after a hard abort (no close handshake, the socket
-// just dies). It asserts two things in sequence, and the second only means
-// something once the first has held:
-//
-//	(1) the read-loop error alone releases NOTHING. handleConnection blocks on
-//	    <-done until the revalidation goroutine returns, and that goroutine only
-//	    returns on ctx.Done() or on an invalid token. r.Context() belongs to a
-//	    hijacked connection and is not cancelled when the socket dies, so in
-//	    production the connection, its cached tenant, its rate-limiter bucket,
-//	    its channel memberships and both goroutines survive the disconnect for
-//	    up to wsTokenRevalidateInterval (5 minutes). With maxConnsPerUser = 5
-//	    that also means five flaky reconnects can lock a user out with 429.
-//	    Tracked as backlog unit fix-websocket-hard-disconnect-cleanup-delay.
-//	(2) once the token is no longer valid, the revalidation tick closes the
-//	    connection, which unblocks handleConnection, runs the deferred
-//	    unregisterConnection and returns every goroutine of this connection.
-//
-// The test runs with a short revalidation interval and a short-lived token so
-// both phases fit into a couple of seconds; production uses 5 minutes.
-func TestHandleWebSocket_HardDisconnect_CleanupWaitsForTokenRevalidation(t *testing.T) {
-	// 2s TTL, not milliseconds: JWT exp has second granularity, so anything
-	// below a second can already be expired at handshake time.
-	h, tm := newAuthTestHub(t, nil, 2*time.Second)
-	h.revalidateInterval = 100 * time.Millisecond
+// connGoroutines counts the goroutines currently parked in a hub connection's
+// read loop or its token-revalidation loop. Matching on the function names
+// keeps the count independent of the http.Server's own per-connection
+// bookkeeping, which winds down asynchronously.
+func connGoroutines() int {
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+	count := 0
+	for _, g := range strings.Split(string(buf), "\n\n") {
+		if strings.Contains(g, "(*WebSocketHub).handleConnection") ||
+			strings.Contains(g, "(*WebSocketHub).revalidateTokenLoopWithInterval") {
+			count++
+		}
+	}
+	return count
+}
+
+// TestHandleWebSocket_HardDisconnect_ReleasesImmediately covers a hard abort
+// (no close handshake, the socket just dies). r.Context() belongs to a
+// hijacked connection and is not cancelled when the socket dies, so the
+// read-loop error is the only signal. It must release the connection, its
+// cached tenant, its rate-limiter bucket, its channel memberships, its
+// presence subscriptions and both goroutines at once — not on the next
+// revalidation tick. The revalidation interval is left at the 5-minute
+// production value and the token is valid for an hour, so neither a tick nor
+// an expiry can be what triggers the cleanup.
+func TestHandleWebSocket_HardDisconnect_ReleasesImmediately(t *testing.T) {
+	h, tm := newAuthTestHub(t, nil, time.Hour)
+	h.revalidateInterval = wsTokenRevalidateInterval
 	userID := uuid.New()
+	uid := userID.String()
 	wsURL := serveHub(t, h)
 
-	before := runtime.NumGoroutine()
+	before := connGoroutines()
 
 	client, resp := dialHub(t, wsURL, issueToken(t, tm, userID, uuid.New().String()))
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}
 
-	require.True(t, waitFor(time.Second, func() bool { return h.connCount(userID.String()) == 1 }))
+	require.True(t, waitFor(time.Second, func() bool { return h.connCount(uid) == 1 }))
+	require.True(t, waitFor(time.Second, func() bool { return connGoroutines() >= before+2 }),
+		"an open connection runs a read loop and a revalidation loop (before=%d, now=%d)", before, connGoroutines())
+
 	h.mu.Lock()
-	h.channelMembers["chan-1"] = map[string]struct{}{userID.String(): {}}
-	h.rateLimiters[userID.String()] = newMsgRateLimiter()
+	h.channelMembers["chan-1"] = map[string]struct{}{uid: {}}
+	h.rateLimiters[uid] = newMsgRateLimiter()
+	h.presenceSubscribers["target-1"] = map[string]struct{}{uid: {}}
 	h.mu.Unlock()
 
 	require.NoError(t, client.CloseNow())
 
-	// (1) Several revalidation ticks pass while the token is still valid — and
-	// nothing is released, because the read-loop error alone cannot get past
-	// <-done.
-	time.Sleep(400 * time.Millisecond)
-	assert.Equal(t, 1, h.connCount(userID.String()),
-		"a hard disconnect releases nothing on its own: handleConnection stays parked on <-done")
-	h.mu.RLock()
-	_, stillMember := h.channelMembers["chan-1"][userID.String()]
-	h.mu.RUnlock()
-	assert.True(t, stillMember, "channel membership also survives the dead socket until revalidation fires")
-
-	// (2) Token expires -> revalidation closes the connection -> cleanup runs.
-	require.True(t, waitFor(5*time.Second, func() bool { return h.connCount(userID.String()) == 0 }),
-		"the expired token must terminate the dead connection and unregister it")
+	require.True(t, waitFor(500*time.Millisecond, func() bool { return h.connCount(uid) == 0 }),
+		"a hard disconnect must unregister the connection without waiting for the revalidation tick")
 
 	h.mu.RLock()
-	_, tenantLeft := h.userTenants[userID.String()]
-	_, limiterLeft := h.rateLimiters[userID.String()]
-	_, memberLeft := h.channelMembers["chan-1"][userID.String()]
+	_, tenantLeft := h.userTenants[uid]
+	_, limiterLeft := h.rateLimiters[uid]
+	_, memberLeft := h.channelMembers["chan-1"][uid]
+	_, presenceLeft := h.presenceSubscribers["target-1"][uid]
 	h.mu.RUnlock()
 	assert.False(t, tenantLeft, "cached tenant must be dropped with the last connection")
 	assert.False(t, limiterLeft, "rate limiter must be dropped with the last connection")
 	assert.False(t, memberLeft, "channel membership must be dropped with the last connection")
+	assert.False(t, presenceLeft, "presence subscription must be dropped with the last connection")
 
-	// Goroutine budget: read loop and revalidation loop must both be gone. The
-	// small tolerance covers the http.Server's own per-connection bookkeeping,
-	// which winds down asynchronously.
-	require.True(t, waitFor(5*time.Second, func() bool { return runtime.NumGoroutine() <= before+2 }),
-		"goroutines must return to the pre-connect baseline (before=%d, now=%d)", before, runtime.NumGoroutine())
+	require.True(t, waitFor(500*time.Millisecond, func() bool { return connGoroutines() <= before }),
+		"read loop and revalidation loop must both return (before=%d, now=%d)", before, connGoroutines())
 }
 
 // TestHandleWebSocket_TokenExpiresMidSession_ClosesWithPolicyViolation proves
@@ -457,10 +470,9 @@ func TestCheckMsgRate_IsPerUser_NotPerConnection(t *testing.T) {
 		"a second connection of the same user draws from the same exhausted bucket")
 }
 
-func TestCheckMsgRate_ReconnectResetsTheBucket(t *testing.T) {
-	// Documents the current behaviour: unregisterConnection deletes the bucket
-	// once the user's last connection closes, so reconnecting hands out a fresh
-	// burst allowance. See backlog unit fix-websocket-rate-limit-reset-on-reconnect.
+func TestCheckMsgRate_ReconnectDoesNotResetTheBucket(t *testing.T) {
+	// unregisterConnection keeps a not-yet-refilled bucket, so a client cannot
+	// get a fresh burst by dropping the connection and reconnecting.
 	h := newTestHub(nil)
 	serverConn, _, cleanup := newConnectedWSConnPair(t)
 	defer cleanup()
@@ -474,59 +486,217 @@ func TestCheckMsgRate_ReconnectResetsTheBucket(t *testing.T) {
 
 	h.unregisterConnection(userID, serverConn)
 
-	assert.True(t, h.checkMsgRate(userID),
-		"after the last connection closed the bucket is gone, so the next connect starts from a full burst")
+	assert.False(t, h.checkMsgRate(userID),
+		"a reconnect right after exhausting the burst must not get a full budget back")
+}
+
+func TestCheckMsgRate_RefilledBucketIsDroppedAfterDisconnect(t *testing.T) {
+	// Once the bucket would be full again it is indistinguishable from a fresh
+	// one, so it is swept — the map must not grow with every user ever seen.
+	h := newTestHub(nil)
+	serverConn, _, cleanup := newConnectedWSConnPair(t)
+	defer cleanup()
+
+	userID := uuid.New().String()
+	h.registerConnection(userID, serverConn)
+	for range msgBurstSize {
+		require.True(t, h.checkMsgRate(userID))
+	}
+	h.unregisterConnection(userID, serverConn)
+
+	h.mu.RLock()
+	_, kept := h.rateLimiters[userID]
+	h.mu.RUnlock()
+	require.True(t, kept, "an exhausted bucket survives the disconnect")
+
+	// Age the bucket by the time a full refill takes, then let any later
+	// unregister (here: another user's) sweep it.
+	h.mu.Lock()
+	h.rateLimiters[userID].lastRefill = time.Now().Add(-time.Duration(msgBurstSize/maxMsgsPerSecond+1) * time.Second)
+	h.mu.Unlock()
+
+	otherConn, _, otherCleanup := newConnectedWSConnPair(t)
+	defer otherCleanup()
+	h.registerConnection("user-other", otherConn)
+	h.unregisterConnection("user-other", otherConn)
+
+	h.mu.RLock()
+	_, stillThere := h.rateLimiters[userID]
+	h.mu.RUnlock()
+	assert.False(t, stillThere, "a refilled bucket of a disconnected user must be dropped")
+}
+
+func TestSweepRateLimiters_KeepsBucketOfConnectedUser(t *testing.T) {
+	h := newTestHub(nil)
+	serverConn, _, cleanup := newConnectedWSConnPair(t)
+	defer cleanup()
+
+	h.registerConnection("user-1", serverConn)
+	h.rateLimiters["user-1"] = newMsgRateLimiter()
+
+	h.mu.Lock()
+	h.sweepRateLimiters(time.Now().Add(time.Hour))
+	h.mu.Unlock()
+
+	assert.Contains(t, h.rateLimiters, "user-1", "a connected user's bucket is never swept, even when full")
 }
 
 // ---------------------------------------------------------------------------
 // Broadcast and tenant isolation
 // ---------------------------------------------------------------------------
 
-// TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService reproduces a
+// tenantFromCtx mirrors the guard every tenant-scoped ChatGRPCServer RPC opens
+// with (chat_grpc.go: middleware.GetTenantID -> codes.Unauthenticated). The
+// context it sees is the one the hub hands to the chat client, i.e. the one
+// TenantOutboundUnaryInterceptor turns into x-tenant-id metadata.
+func tenantFromCtx(ctx context.Context) (string, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return "", status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	return tenantID.String(), nil
+}
+
+// dialAuthed serves h and connects a client for userID in tenantID.
+func dialAuthed(t *testing.T, h *WebSocketHub, tm *auth.TokenMaker, userID uuid.UUID, tenantID string) *websocket.Conn {
+	t.Helper()
+
+	client, resp := dialHub(t, serveHub(t, h), issueToken(t, tm, userID, tenantID))
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	t.Cleanup(func() { _ = client.CloseNow() })
+	return client
+}
+
+// TestHandleSubscribeChannel_CarriesJWTTenantToChatService guards the fix for a
 // production defect: /api/v1/ws is registered without authMiddleware
-// (cmd/gateway/main.go), so r.Context() carries no middleware.TenantIDKey. The
-// hub hands that bare context to the chat client, and ChatGRPCServer.GetChannel
-// (internal/server/chat_grpc.go) rejects a missing tenant with Unauthenticated.
-// The fake below asserts exactly what the real server checks.
-func TestHandleSubscribeChannel_SendsContextWithoutTenantToChatService(t *testing.T) {
-	var sawTenant bool
+// (cmd/gateway/main.go), so r.Context() carries no middleware.TenantIDKey, and
+// ChatGRPCServer.GetChannel rejected every subscribe with Unauthenticated.
+// HandleWebSocket now stamps the JWT's tenant and user onto the context.
+func TestHandleSubscribeChannel_CarriesJWTTenantToChatService(t *testing.T) {
+	tenantID := uuid.New().String()
+	userID := uuid.New()
+	channelID := uuid.New().String()
+
+	type seen struct{ tenant, user string }
+	calls := make(chan seen, 1)
 	chatClient := &fakeChatClient{
 		getChannel: func(ctx context.Context, _ *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error) {
-			if _, err := middleware.GetTenantID(ctx); err == nil {
-				sawTenant = true
-				return &chatv1.GetChannelResponse{}, nil
+			tenant, err := tenantFromCtx(ctx)
+			calls <- seen{tenant: tenant, user: middleware.GetUserID(ctx)}
+			if err != nil {
+				return nil, err
 			}
-			// Mirrors chat_grpc.go GetChannel's own guard.
-			return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+			return &chatv1.GetChannelResponse{}, nil
 		},
 	}
 
 	h, tm := newAuthTestHub(t, chatClient, time.Hour)
-	userID := uuid.New()
-	channelID := uuid.New().String()
-	wsURL := serveHub(t, h)
-
-	client, resp := dialHub(t, wsURL, issueToken(t, tm, userID, uuid.New().String()))
-	if resp != nil && resp.Body != nil {
-		_ = resp.Body.Close()
-	}
-	defer func() { _ = client.CloseNow() }()
+	client := dialAuthed(t, h, tm, userID, tenantID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	require.NoError(t, wsjson.Write(ctx, client, WSMessage{Type: WSSubscribeChannel, ChannelID: channelID}))
 
+	select {
+	case got := <-calls:
+		assert.Equal(t, tenantID, got.tenant, "the chat RPC must run under the tenant from the JWT")
+		assert.Equal(t, userID.String(), got.user, "the chat RPC must carry the authenticated user")
+	case <-ctx.Done():
+		t.Fatal("GetChannel was never called")
+	}
+
+	assert.True(t, waitFor(3*time.Second, func() bool {
+		h.mu.RLock()
+		defer h.mu.RUnlock()
+		_, subscribed := h.channelMembers[channelID][userID.String()]
+		return subscribed
+	}), "an accepted GetChannel must subscribe the caller")
+}
+
+// TestHandleSendMessage_RequestPassesChatServerGuards drives message.send end to
+// end and checks the request against what ChatGRPCServer.SendMessage demands:
+// it parses req.TenantId unconditionally and answers InvalidArgument when it is
+// empty, which made every WebSocket send fail. The sender subscribes first, so
+// receiving the message.new broadcast proves the send went through.
+func TestHandleSendMessage_RequestPassesChatServerGuards(t *testing.T) {
+	tenantID := uuid.New().String()
+	userID := uuid.New()
+	channelID := uuid.New().String()
+
+	sent := make(chan *chatv1.SendMessageRequest, 1)
+	chatClient := &fakeChatClient{
+		getChannel: func(ctx context.Context, _ *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error) {
+			if _, err := tenantFromCtx(ctx); err != nil {
+				return nil, err
+			}
+			return &chatv1.GetChannelResponse{}, nil
+		},
+		sendMessage: func(ctx context.Context, in *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) {
+			sent <- in
+			// Mirrors chat_grpc.go SendMessage's own guard.
+			if _, err := uuid.Parse(in.TenantId); err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+			}
+			if tenant, err := tenantFromCtx(ctx); err != nil || tenant != in.TenantId {
+				return nil, status.Error(codes.PermissionDenied, "request tenant does not match caller tenant")
+			}
+			return &chatv1.SendMessageResponse{Message: &chatv1.MessageInfo{Id: uuid.New().String(), Content: in.Content}}, nil
+		},
+	}
+
+	h, tm := newAuthTestHub(t, chatClient, time.Hour)
+	client := dialAuthed(t, h, tm, userID, tenantID)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, wsjson.Write(ctx, client, WSMessage{Type: WSSubscribeChannel, ChannelID: channelID}))
+	require.NoError(t, wsjson.Write(ctx, client, WSMessage{Type: WSMessageSend, ChannelID: channelID, Content: "hallo"}))
+
 	var got WSMessage
 	require.NoError(t, wsjson.Read(ctx, client, &got))
-	assert.Equal(t, WSError, got.Type)
-	assert.Equal(t, "cannot subscribe to channel", got.Error)
-	assert.False(t, sawTenant,
-		"the WebSocket path carries no tenant into the gRPC context — every chat RPC from the message loop fails closed")
+	require.Equal(t, WSMessageNew, got.Type, "expected the broadcast, got error frame %q", got.Error)
+	assert.Equal(t, channelID, got.ChannelID)
 
-	h.mu.RLock()
-	_, subscribed := h.channelMembers[channelID]
-	h.mu.RUnlock()
-	assert.False(t, subscribed, "a rejected GetChannel must not create a subscription")
+	req := <-sent
+	assert.Equal(t, tenantID, req.TenantId, "the request tenant must be the tenant from the JWT")
+	assert.Equal(t, userID.String(), req.CreatedBy)
+	assert.Nil(t, req.GuestSessionId, "an authenticated send must not take the guest path")
+}
+
+// TestHandleMarkRead_CarriesJWTTenantToChatService covers the other RPC of the
+// message loop that failed closed for want of a tenant in the context.
+func TestHandleMarkRead_CarriesJWTTenantToChatService(t *testing.T) {
+	tenantID := uuid.New().String()
+
+	tenants := make(chan string, 1)
+	chatClient := &fakeChatClient{
+		markChannelRead: func(ctx context.Context, _ *chatv1.MarkChannelReadRequest) (*chatv1.MarkChannelReadResponse, error) {
+			tenant, err := tenantFromCtx(ctx)
+			tenants <- tenant
+			if err != nil {
+				return nil, err
+			}
+			return &chatv1.MarkChannelReadResponse{}, nil
+		},
+	}
+
+	h, tm := newAuthTestHub(t, chatClient, time.Hour)
+	client := dialAuthed(t, h, tm, uuid.New(), tenantID)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, wsjson.Write(ctx, client, WSMessage{
+		Type: WSMarkRead, ChannelID: uuid.New().String(), MessageID: uuid.New().String(),
+	}))
+
+	select {
+	case tenant := <-tenants:
+		assert.Equal(t, tenantID, tenant)
+	case <-ctx.Done():
+		t.Fatal("MarkChannelRead was never called")
+	}
 }
 
 func TestHandleSubscribeChannel_EmptyChannelID_ReturnsErrorFrame(t *testing.T) {
@@ -639,6 +809,54 @@ func TestBroadcastToChannel_HubDoesNotFilterByTenant(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Guest connection loop
 // ---------------------------------------------------------------------------
+
+// TestHandleGuestSendMessage_RequestCarriesSessionTenant guards the guest half
+// of the "every WebSocket send fails" defect: ChatGRPCServer.SendMessage parses
+// req.TenantId unconditionally, and a guest has no JWT to take it from, so the
+// tenant comes from the validated guest session.
+func TestHandleGuestSendMessage_RequestCarriesSessionTenant(t *testing.T) {
+	sessionID, tenantID, channelID := uuid.New(), uuid.New(), uuid.New()
+
+	sent := make(chan *chatv1.SendMessageRequest, 1)
+	h := newTestHub(nil)
+	h.chatClient = &fakeChatClient{
+		sendMessage: func(_ context.Context, in *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) {
+			sent <- in
+			if _, err := uuid.Parse(in.TenantId); err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+			}
+			return &chatv1.SendMessageResponse{Message: &chatv1.MessageInfo{Id: uuid.New().String(), Content: in.Content}}, nil
+		},
+	}
+	h.SetGuestService(&fakeGuestValidator{session: &GuestSessionInfo{
+		ID: sessionID, TenantID: tenantID, ChannelID: channelID, DisplayName: "Gast", IsActive: true,
+	}})
+
+	client, resp, err := websocket.Dial(context.Background(), serveHub(t, h)+"/api/v1/ws?guest_token=ok", nil)
+	require.NoError(t, err)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	t.Cleanup(func() { _ = client.CloseNow() })
+	require.True(t, waitFor(2*time.Second, func() bool {
+		h.mu.RLock()
+		defer h.mu.RUnlock()
+		return len(h.guestConnections[sessionID.String()]) == 1
+	}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, wsjson.Write(ctx, client, WSMessage{Type: WSMessageSend, Content: "hallo"}))
+
+	var got WSMessage
+	require.NoError(t, wsjson.Read(ctx, client, &got))
+	require.Equal(t, WSMessageNew, got.Type, "expected the broadcast, got error frame %q", got.Error)
+
+	req := <-sent
+	assert.Equal(t, tenantID.String(), req.TenantId)
+	require.NotNil(t, req.GuestSessionId)
+	assert.Equal(t, sessionID.String(), *req.GuestSessionId)
+}
 
 func TestHandleGuestWebSocket_ValidSession_RegistersAndUnregisters(t *testing.T) {
 	sessionID, channelID := uuid.New(), uuid.New()

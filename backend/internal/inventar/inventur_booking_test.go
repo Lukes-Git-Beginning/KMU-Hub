@@ -130,17 +130,11 @@ func TestBookInventurDifferences_AlreadyCompletedFails(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInventurAlreadyCompleted)
 }
 
-// TestDeleteInventurSession_CompletedSessionIsNotProtected documents a real
-// gap found while building cov-gateway-inventar-inventur-and-reports: unlike
-// UpdateInventurSessionStatus and UpsertInventurCount, which both reject a
-// completed session (see ErrInventurAlreadyCompleted above),
-// Service.DeleteInventurSession (service.go) never checks session.Status
-// before calling the repository DELETE. A completed Inventur is a
-// handelsrechtlicher Vorgang (Paragraph 240 HGB) and must not be erasable —
-// this test proves it currently is. Fix tracked as its own backlog unit
-// (fix-inventur-delete-completed-session-unprotected), not fixed here: a
-// coverage unit documents behaviour, it does not change it.
-func TestDeleteInventurSession_CompletedSessionIsNotProtected(t *testing.T) {
+// TestDeleteInventurSession_CompletedSessionIsRefused: a completed Inventur is
+// a handelsrechtlicher Vorgang (§ 240 HGB) and must not be erasable — delete is
+// refused like every other write on a completed session, and the session with
+// its counts stays.
+func TestDeleteInventurSession_CompletedSessionIsRefused(t *testing.T) {
 	svc, _, tenantID, item := newInventurFixture(t)
 	ctx := context.Background()
 
@@ -154,8 +148,21 @@ func TestDeleteInventurSession_CompletedSessionIsNotProtected(t *testing.T) {
 	require.Equal(t, InventurStatusCompleted, booked.Status)
 
 	err = svc.DeleteInventurSession(ctx, tenantID, session.ID)
-	require.NoError(t, err, "BUG: a completed inventur session can be deleted without restriction")
+	assert.ErrorIs(t, err, ErrInventurAlreadyCompleted)
 
-	_, err = svc.GetInventurSession(ctx, tenantID, session.ID)
-	assert.ErrorIs(t, err, ErrInventurSessionNotFound, "the completed session's record is gone after delete")
+	still, err := svc.GetInventurSession(ctx, tenantID, session.ID)
+	require.NoError(t, err, "the completed session must survive the refused delete")
+	assert.Len(t, still.Counts, 1)
+}
+
+func TestDeleteInventurSession_OpenSessionIsDeleted(t *testing.T) {
+	svc, _, tenantID, _ := newInventurFixture(t)
+	ctx := context.Background()
+
+	session := createOpenSession(t, svc, ctx, tenantID)
+	require.NoError(t, svc.DeleteInventurSession(ctx, tenantID, session.ID))
+
+	_, err := svc.GetInventurSession(ctx, tenantID, session.ID)
+	assert.ErrorIs(t, err, ErrInventurSessionNotFound)
+	assert.ErrorIs(t, svc.DeleteInventurSession(ctx, tenantID, session.ID), ErrInventurSessionNotFound)
 }

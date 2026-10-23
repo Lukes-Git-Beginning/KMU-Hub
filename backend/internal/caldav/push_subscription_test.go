@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/security/safehttp"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
@@ -234,7 +235,7 @@ func TestPushNotifier_NotifyCollectionChanged_DeliversPayloadAndSkipsFailingSubs
 	}
 	defer testutil.CleanupRow(t, pool, "caldav_push_subscriptions", goodSub.ID)
 
-	notifier := NewPushNotifier(svc)
+	notifier := newPushNotifier(svc, safehttp.AllowLoopback())
 	if err := notifier.NotifyCollectionChanged(ctx, "calendar", collID); err != nil {
 		t.Fatalf("NotifyCollectionChanged: %v", err)
 	}
@@ -296,7 +297,7 @@ func TestPushNotifier_NotifyCollectionChanged_410Gone_RemovesSubscription(t *tes
 	}
 	defer testutil.CleanupRow(t, pool, "caldav_push_subscriptions", sub.ID)
 
-	notifier := NewPushNotifier(svc)
+	notifier := newPushNotifier(svc, safehttp.AllowLoopback())
 	if err := notifier.NotifyCollectionChanged(ctx, "calendar", collID); err != nil {
 		t.Fatalf("NotifyCollectionChanged: %v", err)
 	}
@@ -312,4 +313,32 @@ func TestPushNotifier_NotifyCollectionChanged_410Gone_RemovesSubscription(t *tes
 
 	sysCtx := testutil.WithSystemCtx(context.Background())
 	testutil.AssertRowCount(t, pool, sysCtx, "caldav_push_subscriptions", sub.ID, 0)
+}
+
+// TestPushNotifier_SendNotification_RefusesNonPublicAddress pins the SSRF
+// guard: the push URL is supplied by the subscribing client, so a URL that
+// resolves to loopback or a private/link-local address (cloud metadata) must
+// never be requested. No loopback allowance is passed here, which is what
+// NewPushNotifier gives production.
+func TestPushNotifier_SendNotification_RefusesNonPublicAddress(t *testing.T) {
+	hit := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hit <- struct{}{}
+	}))
+	defer srv.Close()
+
+	notifier := NewPushNotifier(nil)
+	for _, url := range []string{srv.URL, "http://10.0.0.5/push", "http://169.254.169.254/latest/meta-data"} {
+		notifier.sendNotification(context.Background(), &PushSubscription{
+			ID:           uuid.New(),
+			CollectionID: uuid.New(),
+			PushURL:      url,
+		})
+	}
+
+	select {
+	case <-hit:
+		t.Fatal("push notifier requested a loopback address; the SSRF guard is not active")
+	default:
+	}
 }

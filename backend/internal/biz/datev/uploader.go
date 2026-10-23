@@ -110,7 +110,7 @@ func (u *Uploader) ListClients(ctx context.Context, tenantID uuid.UUID) ([]byte,
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Accept", "application/json")
 
-		resp, err := u.httpClient.Do(req)
+		resp, err := u.httpClient.Do(req) //nolint:gosec // G704: baseURL is server config (env), no tenant input
 		if err != nil {
 			// Network error — counts as a retryable failure for the breaker.
 			return fmt.Errorf("datev list clients: request failed: %w", err)
@@ -186,7 +186,7 @@ func (u *Uploader) doWithRetry(
 		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
 
-		resp, err := u.httpClient.Do(req)
+		resp, err := u.httpClient.Do(req) //nolint:gosec // G704: url is built from the server-config baseURL
 		if err != nil {
 			lastErr = fmt.Errorf("datev upload: request failed: %w", err)
 			continue // network error → retry

@@ -559,14 +559,19 @@ func (r *PostgresRepository) CountByFiscalYear(ctx context.Context, tenantID uui
 // paid amount. Where no payment row exists for a 'paid' invoice (marked paid
 // without a tracked payment), gross_total is used as the fallback so a
 // manually-closed invoice still counts as fully paid.
+//
+// lean: the two amount sums add only invoices in the tenant default currency
+// (company_settings.default_currency, EUR if unset), like the dashboard; the
+// counters still count every invoice. Per-currency sums once the stats card
+// shows more than one unit.
 func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) (PaymentStats, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT
 			COUNT(*) AS total_invoices,
 			COUNT(*) FILTER (WHERE i.status = 'paid') AS total_paid,
 			COUNT(*) FILTER (WHERE i.status NOT IN ('paid', 'cancelled')) AS total_outstanding,
-			COALESCE(SUM(COALESCE(p.paid, i.gross_total)) FILTER (WHERE i.status = 'paid'), 0) AS total_paid_amount,
-			COALESCE(SUM(i.gross_total - COALESCE(p.paid, 0)) FILTER (WHERE i.status NOT IN ('paid', 'cancelled')), 0) AS total_outstanding_amount,
+			COALESCE(SUM(COALESCE(p.paid, i.gross_total)) FILTER (WHERE i.status = 'paid' AND i.currency = dc.code), 0) AS total_paid_amount,
+			COALESCE(SUM(i.gross_total - COALESCE(p.paid, 0)) FILTER (WHERE i.status NOT IN ('paid', 'cancelled') AND i.currency = dc.code), 0) AS total_outstanding_amount,
 			COALESCE(
 				AVG(
 					EXTRACT(EPOCH FROM (i.updated_at - i.invoice_date)) / 86400.0
@@ -574,6 +579,7 @@ func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID
 				0
 			) AS avg_days_to_pay
 		FROM finance_invoices i
+		CROSS JOIN (SELECT COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR') AS code) dc
 		LEFT JOIN (
 		    SELECT invoice_id, SUM(amount) AS paid
 		    FROM finance_payments

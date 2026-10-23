@@ -23,20 +23,36 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 // SaveSignature updates a contract's inline EES signature fields and returns the updated record.
-// Returns ErrContractNotFound when no contract with the given id+tenant_id exists.
+// A signature is evidence, so the UPDATE only matches a contract that has none yet.
+// Returns ErrAlreadySigned when the contract already carries a signature and
+// ErrContractNotFound when no contract with the given id+tenant_id exists.
 func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, contractID, signatureData, signedBy string) (*Contract, error) {
 	c, err := r.scanContract(r.pool.QueryRow(ctx, `
 		UPDATE contracts
 		SET signature_data = $3, signed_at = NOW(), signed_by = $4, updated_at = NOW()
-		WHERE id = $1 AND tenant_id = $2
+		WHERE id = $1 AND tenant_id = $2 AND signature_data IS NULL
 		RETURNING id, tenant_id, contract_number, title, contract_type, status,
 		          starts_on, ends_on, document_url, notes, created_by, signature_provider,
 		          signature_data, signed_at, signed_by,
 		          created_at, updated_at`,
 		contractID, tenantID, signatureData, signedBy,
 	))
+	if errors.Is(err, ErrContractNotFound) {
+		// Zero rows is either "no such contract" or "already signed" - tell them apart.
+		var exists bool
+		if qerr := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM contracts WHERE id = $1 AND tenant_id = $2)`,
+			contractID, tenantID,
+		).Scan(&exists); qerr != nil {
+			return nil, fmt.Errorf("save contract signature: check contract: %w", qerr)
+		}
+		if exists {
+			return nil, ErrAlreadySigned
+		}
+		return nil, ErrContractNotFound
+	}
 	if err != nil {
-		return nil, err // scanContract already wraps ErrContractNotFound / fmt.Errorf
+		return nil, err // scanContract already wraps fmt.Errorf
 	}
 	return c, nil
 }
@@ -245,10 +261,21 @@ func (r *PostgresRepository) AddParty(ctx context.Context, p *ContractParty) err
 func (r *PostgresRepository) RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error) {
 	var contractID uuid.UUID
 	err := r.pool.QueryRow(ctx,
-		`DELETE FROM contract_parties WHERE id=$1 AND tenant_id=$2 RETURNING contract_id`,
+		`DELETE FROM contract_parties WHERE id=$1 AND tenant_id=$2 AND signed_on IS NULL RETURNING contract_id`,
 		partyID, tenantID,
 	).Scan(&contractID)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// Zero rows is "no such party" or "party already signed" - tell them apart.
+		var signed bool
+		if qerr := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM contract_parties WHERE id=$1 AND tenant_id=$2)`,
+			partyID, tenantID,
+		).Scan(&signed); qerr != nil {
+			return uuid.Nil, fmt.Errorf("remove party: check party: %w", qerr)
+		}
+		if signed {
+			return uuid.Nil, ErrPartySigned
+		}
 		// Nothing matched — either the party is already gone or it belongs to
 		// another tenant. Both were a silent no-op before RETURNING was added
 		// and stay one; the caller just has no contract to file an entry against.

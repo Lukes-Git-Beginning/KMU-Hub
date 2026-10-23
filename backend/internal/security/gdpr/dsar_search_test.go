@@ -1231,6 +1231,100 @@ func TestSearchByQuery_UserTasks_Integration(t *testing.T) {
 	assert.Empty(t, foreign, "another tenant must not see this user, let alone their tasks")
 }
 
+func TestSearchByQuery_UserTaskCustomFieldValues_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Task Fields Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Task Fields Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Heiderun", "Kornfeld", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	otherUserID := seedDSARUser(t, pool, tenantOwn, "Gunnar", "Kornfeld", true)
+	defer testutil.CleanupRow(t, pool, "users", otherUserID)
+
+	fieldID := testutil.SeedRow(t, pool, "work_custom_field_definitions", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Ansprechpartner",
+		"field_type": "text",
+	})
+	defer testutil.CleanupRow(t, pool, "work_custom_field_definitions", fieldID)
+
+	ownTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"task_number": 1,
+		"title":       "Kundentermin",
+		"assignee_id": subjectID,
+		"created_by":  otherUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", ownTaskID)
+	unrelatedTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOwn,
+		"task_number": 2,
+		"title":       "Fremde Aufgabe",
+		"assignee_id": otherUserID,
+		"created_by":  otherUserID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", unrelatedTaskID)
+
+	// Same user id as assignee on a task of another tenant: its value must stay out.
+	foreignTaskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
+		"tenant_id":   tenantOther,
+		"task_number": 1,
+		"title":       "Aufgabe anderer Mandant",
+		"assignee_id": subjectID,
+		"created_by":  subjectID,
+	})
+	defer testutil.CleanupRow(t, pool, "tasks", foreignTaskID)
+	foreignFieldID := testutil.SeedRow(t, pool, "work_custom_field_definitions", map[string]any{
+		"tenant_id":  tenantOther,
+		"name":       "Fremdfeld",
+		"field_type": "text",
+	})
+	defer testutil.CleanupRow(t, pool, "work_custom_field_definitions", foreignFieldID)
+
+	ctxSystem := testutil.WithSystemCtx(context.Background())
+	for _, v := range []struct {
+		tenant      uuid.UUID
+		task, field uuid.UUID
+		jsonValue   string
+	}{
+		{tenantOwn, ownTaskID, fieldID, `"Frau Kornfeld, Tel. 0151 1234567"`},
+		{tenantOwn, unrelatedTaskID, fieldID, `"Fremder Wert"`},
+		{tenantOther, foreignTaskID, foreignFieldID, `"Wert anderer Mandant"`},
+	} {
+		_, err := pool.Exec(ctxSystem,
+			`INSERT INTO task_custom_field_values (tenant_id, task_id, field_id, value) VALUES ($1, $2, $3, $4::jsonb)`,
+			v.tenant, v.task, v.field, v.jsonValue)
+		require.NoError(t, err)
+	}
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Heiderun")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	mod := dsarModule(t, persons[0], "Aufgaben: Benutzerdefinierte Felder")
+	assert.Equal(t, []string{"Aufgabe", "Feld", "Wert"}, mod.Columns)
+	rows := recordMaps(mod)
+	require.Len(t, rows, 1, "only the value on the subject's own task, not the other user's or the foreign tenant's")
+	assert.Equal(t, "Kundentermin", rows[0]["Aufgabe"])
+	assert.Equal(t, "Ansprechpartner", rows[0]["Feld"])
+	assert.Equal(t, "Frau Kornfeld, Tel. 0151 1234567", rows[0]["Wert"])
+
+	// The other user created ownTask and is assigned unrelatedTask: both roles count.
+	others, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Gunnar")
+	require.NoError(t, err)
+	require.Len(t, others, 1)
+	assert.Len(t, dsarModule(t, others[0], "Aufgaben: Benutzerdefinierte Felder").Records, 2)
+}
+
 func TestSearchByQuery_UserTaskComments_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
@@ -2930,4 +3024,505 @@ func recordMaps(m DSARModule) []map[string]string {
 		out = append(out, row)
 	}
 	return out
+}
+
+func TestSearchByQuery_UserRecordings_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Recording Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Recording Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	subjectID := seedDSARUser(t, pool, tenantOwn, "Rosalind", "Echolot", true)
+	defer testutil.CleanupRow(t, pool, "users", subjectID)
+	colleagueID := seedDSARUser(t, pool, tenantOwn, "Bertram", "Stimmgabel", true)
+	defer testutil.CleanupRow(t, pool, "users", colleagueID)
+
+	now := time.Now().UTC().Truncate(time.Second)
+	meetingID := testutil.SeedRow(t, pool, "meetings", map[string]any{
+		"tenant_id":       tenantOwn,
+		"title":           "DSAR recording meeting",
+		"organizer_id":    colleagueID,
+		"scheduled_start": now,
+		"scheduled_end":   now.Add(time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "meetings", meetingID)
+
+	// Started by the subject, no consent row for them.
+	startedID := testutil.SeedRow(t, pool, "recordings", map[string]any{
+		"tenant_id":            tenantOwn,
+		"meeting_id":           meetingID,
+		"started_by":           subjectID,
+		"status":               "completed",
+		"duration_seconds":     90,
+		"created_at":           now.Add(-2 * time.Hour),
+		"retention_expires_at": now.Add(28 * 24 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "recordings", startedID)
+
+	// Started by a colleague, the subject answered "no".
+	declinedID := testutil.SeedRow(t, pool, "recordings", map[string]any{
+		"tenant_id":  tenantOwn,
+		"meeting_id": meetingID,
+		"started_by": colleagueID,
+		"status":     "deleted",
+		"created_at": now.Add(-1 * time.Hour),
+	})
+	defer testutil.CleanupRow(t, pool, "recordings", declinedID)
+
+	// Started and consented to by the colleague only -- must not appear.
+	unrelatedID := testutil.SeedRow(t, pool, "recordings", map[string]any{
+		"tenant_id":  tenantOwn,
+		"meeting_id": meetingID,
+		"started_by": colleagueID,
+		"status":     "completed",
+	})
+	defer testutil.CleanupRow(t, pool, "recordings", unrelatedID)
+
+	ctxSys := testutil.WithSystemCtx(context.Background())
+	for _, c := range []struct {
+		rec  uuid.UUID
+		user uuid.UUID
+		ok   bool
+	}{
+		{declinedID, subjectID, false},
+		{unrelatedID, colleagueID, true},
+	} {
+		_, err := pool.Exec(ctxSys,
+			`INSERT INTO recording_consents (recording_id, user_id, consented, tenant_id)
+			 VALUES ($1, $2, $3, $4)`, c.rec, c.user, c.ok, tenantOwn)
+		require.NoError(t, err)
+	}
+
+	// Timestamps round-trip through the DB session's time zone, so the
+	// expected strings are read back from Postgres (see querySessionLastActive).
+	var startedAt, startedRetention, respondedAt, declinedAt time.Time
+	require.NoError(t, pool.QueryRow(ctxSys,
+		`SELECT created_at, retention_expires_at FROM recordings WHERE id = $1`, startedID).
+		Scan(&startedAt, &startedRetention))
+	require.NoError(t, pool.QueryRow(ctxSys,
+		`SELECT r.created_at, rc.responded_at FROM recordings r
+		 JOIN recording_consents rc ON rc.recording_id = r.id AND rc.user_id = $2
+		 WHERE r.id = $1`, declinedID, subjectID).Scan(&declinedAt, &respondedAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Rosalind")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+
+	recs := dsarModule(t, persons[0], "Aufzeichnungen")
+	assert.Equal(t, []map[string]string{
+		{
+			"Erstellt": declinedAt.Format(dsarTimeLayout), "Art": "Meeting", "Status": "deleted",
+			"Dauer (Sek.)": "", "Rolle": "Teilnehmer", "Einwilligung": "verweigert",
+			"Einwilligung am": respondedAt.Format(dsarTimeLayout), "Aufbewahrung bis": "",
+		},
+		{
+			"Erstellt": startedAt.Format(dsarTimeLayout), "Art": "Meeting", "Status": "completed",
+			"Dauer (Sek.)": "90", "Rolle": "Starter", "Einwilligung": "",
+			"Einwilligung am": "", "Aufbewahrung bis": startedRetention.Format(dsarTimeLayout),
+		},
+	}, recordMaps(recs), "newest first; started-by and consent-only recordings appear, the colleague's own recording must not")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Rosalind")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this user, let alone their recordings")
+}
+
+func TestSearchByQuery_ContactRentalsAndInspections_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Rentals Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Rentals Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	creatorID := seedDSARUser(t, pool, tenantOwn, "Dsar", "RentalsCreator", true)
+	defer testutil.CleanupRow(t, pool, "users", creatorID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Leopoldine",
+		"last_name":  "Zeltlager",
+		"created_by": creatorID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+	otherContactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Gustav",
+		"last_name":  "Bootsverleih",
+		"created_by": creatorID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", otherContactID)
+
+	objectID := testutil.SeedRow(t, pool, "rental_objects", map[string]any{
+		"tenant_id": tenantOwn,
+		"name":      "Festzelt 6x12",
+	})
+	// rentals and rental_inspections cascade from rental_objects.
+	defer testutil.CleanupRow(t, pool, "rental_objects", objectID)
+
+	day := time.Date(2026, 6, 12, 10, 0, 0, 0, time.UTC)
+	rentalID := testutil.SeedRow(t, pool, "rentals", map[string]any{
+		"tenant_id":    tenantOwn,
+		"object_id":    objectID,
+		"contact_id":   contactID,
+		"renter_name":  "L. Zeltlager (privat)",
+		"start_date":   day,
+		"end_date":     day.Add(48 * time.Hour),
+		"status":       "completed",
+		"total_price":  "240.50",
+		"deposit_paid": true,
+		"notes":        "Abholung durch Ehemann",
+		"signed_by":    "Leopoldine Zeltlager",
+		"signed_at":    day.Add(-time.Hour),
+	})
+	// A later rental by a different contact on the same object: must not appear.
+	otherRentalID := testutil.SeedRow(t, pool, "rentals", map[string]any{
+		"tenant_id":   tenantOwn,
+		"object_id":   objectID,
+		"contact_id":  otherContactID,
+		"renter_name": "Gustav Bootsverleih",
+		"start_date":  day.Add(7 * 24 * time.Hour),
+		"end_date":    day.Add(8 * 24 * time.Hour),
+	})
+
+	handoverID := testutil.SeedRow(t, pool, "rental_inspections", map[string]any{
+		"tenant_id":  tenantOwn,
+		"rental_id":  rentalID,
+		"kind":       "handover",
+		"notes":      "Plane mit kleinem Riss links",
+		"photo_urls": []string{"https://files.example/r1-a.jpg", "https://files.example/r1-b.jpg"},
+	})
+	returnID := testutil.SeedRow(t, pool, "rental_inspections", map[string]any{
+		"tenant_id": tenantOwn,
+		"rental_id": rentalID,
+		"kind":      "return",
+		"notes":     "Riss unverändert",
+	})
+	testutil.SeedRow(t, pool, "rental_inspections", map[string]any{
+		"tenant_id": tenantOwn,
+		"rental_id": otherRentalID,
+		"kind":      "handover",
+		"notes":     "Gehört dem anderen Mieter",
+	})
+
+	ctxSys := testutil.WithSystemCtx(context.Background())
+	var rentalStart, rentalEnd, signedAt, handoverAt, returnAt time.Time
+	require.NoError(t, pool.QueryRow(ctxSys,
+		`SELECT start_date, end_date, signed_at FROM rentals WHERE id = $1`, rentalID).
+		Scan(&rentalStart, &rentalEnd, &signedAt))
+	require.NoError(t, pool.QueryRow(ctxSys,
+		`SELECT created_at FROM rental_inspections WHERE id = $1`, handoverID).Scan(&handoverAt))
+	require.NoError(t, pool.QueryRow(ctxSys,
+		`SELECT created_at FROM rental_inspections WHERE id = $1`, returnID).Scan(&returnAt))
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Zeltlager")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	p := persons[0]
+
+	rentals := dsarModule(t, p, "Vermietung")
+	assert.Equal(t, []map[string]string{{
+		"Objekt": "Festzelt 6x12", "Von": rentalStart.Format(dsarTimeLayout), "Bis": rentalEnd.Format(dsarTimeLayout),
+		"Status": "completed", "Mietername": "L. Zeltlager (privat)", "Preis": "240.50", "Kaution bezahlt": "ja",
+		"Notizen": "Abholung durch Ehemann", "Unterschrieben von": "Leopoldine Zeltlager",
+		"Unterschrieben am": signedAt.Format(dsarTimeLayout),
+	}}, recordMaps(rentals), "only this contact's rental; the other renter's booking must not leak")
+
+	inspections := dsarModule(t, p, "Übergabeprotokolle")
+	assert.Equal(t, []map[string]string{
+		{
+			"Objekt": "Festzelt 6x12", "Mietbeginn": rentalStart.Format(dsarTimeLayout), "Art": "Rückgabe",
+			"Datum": returnAt.Format(dsarTimeLayout), "Notizen": "Riss unverändert", "Fotos": "",
+		},
+		{
+			"Objekt": "Festzelt 6x12", "Mietbeginn": rentalStart.Format(dsarTimeLayout), "Art": "Übergabe",
+			"Datum": handoverAt.Format(dsarTimeLayout), "Notizen": "Plane mit kleinem Riss links",
+			"Fotos": "https://files.example/r1-a.jpg, https://files.example/r1-b.jpg",
+		},
+	}, recordMaps(inspections), "newest first; the other renter's protocol must not leak")
+
+	// The other renter sees exactly their own booking, nothing of the first.
+	bare, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Bootsverleih")
+	require.NoError(t, err)
+	require.Len(t, bare, 1)
+	assert.Len(t, recordMaps(dsarModule(t, bare[0], "Vermietung")), 1, "the other contact sees only their own rental")
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Zeltlager")
+	require.NoError(t, err)
+	assert.Empty(t, foreign, "another tenant must not see this contact, let alone its rentals")
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Zeltlager")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
+}
+
+func TestSearchByQuery_EinkaufSuppliers_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Suppliers Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Suppliers Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	creatorID := seedDSARUser(t, pool, tenantOwn, "Dsar", "SupplierCreator", true)
+	defer testutil.CleanupRow(t, pool, "users", creatorID)
+
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Quirin",
+		"last_name":  "Lieferfrau",
+		"created_by": creatorID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+	otherContactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  tenantOwn,
+		"first_name": "Ottilie",
+		"last_name":  "Grosshandel",
+		"created_by": creatorID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", otherContactID)
+
+	linkedID := testutil.SeedRow(t, pool, "suppliers", map[string]any{
+		"tenant_id":     tenantOwn,
+		"name":          "Lieferfrau Holzbau",
+		"contact_id":    contactID,
+		"email":         "quirin@holzbau.example",
+		"phone":         "+49 30 1234",
+		"address":       "Waldweg 3, 10115 Berlin",
+		"payment_terms": "14 Tage 2% Skonto",
+		"notes":         "Einzelunternehmer",
+	})
+	defer testutil.CleanupRow(t, pool, "suppliers", linkedID)
+	otherLinkedID := testutil.SeedRow(t, pool, "suppliers", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Grosshandel Ottilie",
+		"contact_id": otherContactID,
+	})
+	defer testutil.CleanupRow(t, pool, "suppliers", otherLinkedID)
+	unlinkedID := testutil.SeedRow(t, pool, "suppliers", map[string]any{
+		"tenant_id": tenantOwn,
+		"name":      "Hufschmied Brandtner e.U.",
+		"email":     "brandtner@hufschmied.example",
+		"phone":     "+43 1 555",
+		"address":   "Schmiedgasse 1, 1010 Wien",
+		"notes":     "Ohne CRM-Kontakt",
+	})
+	defer testutil.CleanupRow(t, pool, "suppliers", unlinkedID)
+	deletedID := testutil.SeedRow(t, pool, "suppliers", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Brandtner Altlieferant",
+		"deleted_at": time.Date(2026, 3, 1, 9, 30, 0, 0, time.UTC),
+	})
+	defer testutil.CleanupRow(t, pool, "suppliers", deletedID)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	// Linked: the supplier shows under the matched contact, not as its own subject.
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Lieferfrau")
+	require.NoError(t, err)
+	require.Len(t, persons, 1, "the linked supplier is disclosed under the contact, not as a second subject")
+	linked := recordMaps(dsarModule(t, persons[0], "Einkauf Lieferanten"))
+	require.Len(t, linked, 1, "the other contact's supplier must not leak")
+	assert.Equal(t, "Lieferfrau Holzbau", linked[0]["Name"])
+	assert.Equal(t, "quirin@holzbau.example", linked[0]["E-Mail"])
+	assert.Equal(t, "+49 30 1234", linked[0]["Telefon"])
+	assert.Equal(t, "Waldweg 3, 10115 Berlin", linked[0]["Adresse"])
+	assert.Equal(t, "14 Tage 2% Skonto", linked[0]["Zahlungsbedingungen"])
+	assert.Equal(t, "", linked[0]["Gelöscht am"])
+
+	// Unlinked: found by name and by email, soft-deleted rows included.
+	byName, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Brandtner")
+	require.NoError(t, err)
+	require.Len(t, byName, 2)
+	byNameRecords := map[string]map[string]string{}
+	for _, p := range byName {
+		recs := recordMaps(dsarModule(t, p, "Einkauf Lieferanten"))
+		require.Len(t, recs, 1)
+		byNameRecords[p.Name] = recs[0]
+	}
+	assert.Equal(t, "Schmiedgasse 1, 1010 Wien", byNameRecords["Hufschmied Brandtner e.U."]["Adresse"])
+	assert.Equal(t, "", byNameRecords["Hufschmied Brandtner e.U."]["Gelöscht am"])
+	var deletedAt time.Time
+	require.NoError(t, pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT deleted_at FROM suppliers WHERE id = $1`, deletedID).Scan(&deletedAt))
+	assert.Equal(t, deletedAt.Format(dsarTimeLayout), byNameRecords["Brandtner Altlieferant"]["Gelöscht am"])
+
+	byEmail, err := SearchByQuery(ctxOwn, pool, tenantOwn, "hufschmied.example")
+	require.NoError(t, err)
+	require.Len(t, byEmail, 1)
+	assert.Equal(t, "Hufschmied Brandtner e.U.", byEmail[0].Name)
+	assert.Equal(t, "brandtner@hufschmied.example", byEmail[0].Email)
+
+	// A supplier that has a contact is never listed as an extra subject by its own name.
+	byLinkedName, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Holzbau")
+	require.NoError(t, err)
+	assert.Empty(t, byLinkedName)
+
+	// --- tenant isolation ---------------------------------------------------
+	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Brandtner")
+	require.NoError(t, err)
+	assert.Empty(t, foreign)
+
+	forged, err := SearchByQuery(ctxOther, pool, tenantOwn, "Brandtner")
+	require.NoError(t, err)
+	assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary")
+}
+
+func TestSearchByQuery_ExternalVisitors_Integration(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "DSAR Visitors Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "DSAR Visitors Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	ownerID := seedDSARUser(t, pool, tenantOwn, "Dsar", "VisitorOwner", true)
+	defer testutil.CleanupRow(t, pool, "users", ownerID)
+
+	calendarID := testutil.SeedRow(t, pool, "calendars", map[string]any{
+		"tenant_id": tenantOwn,
+		"name":      "Besucher Kalender",
+		"owner_id":  ownerID,
+	})
+	defer testutil.CleanupRow(t, pool, "calendars", calendarID)
+	pageID := testutil.SeedRow(t, pool, "booking_pages", map[string]any{
+		"tenant_id":    tenantOwn,
+		"calendar_id":  calendarID,
+		"slug":         "dsar-visitors-" + strings.ReplaceAll(uuid.New().String(), "-", "")[:10],
+		"company_name": "Zentria Beratung",
+	})
+	defer testutil.CleanupRow(t, pool, "booking_pages", pageID)
+
+	seedBooking := func(name, email, slot, notes string) {
+		id := testutil.SeedRow(t, pool, "public_bookings", map[string]any{
+			"tenant_id":       tenantOwn,
+			"booking_page_id": pageID,
+			"service_id":      "erstberatung",
+			"customer_name":   name,
+			"customer_email":  email,
+			"customer_phone":  "+49 151 000111",
+			"notes":           notes,
+			"date":            time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC),
+			"time_slot":       slot,
+		})
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "public_bookings", id) })
+	}
+	seedBooking("Fridolin Walzer", "Fridolin@Walzer.example", "09:00", "Rueckruf bitte")
+	seedBooking("Fridolin Walzer", "fridolin@walzer.example", "11:00", "")
+	seedBooking("Anderer Besucher", "anderer@besucher.example", "10:00", "geheim")
+
+	channelID := testutil.SeedRow(t, pool, "channels", map[string]any{
+		"tenant_id":        tenantOwn,
+		"name":             "dsar-gast-kanal",
+		"created_by":       ownerID,
+		"is_guest_enabled": true,
+	})
+	defer testutil.CleanupRow(t, pool, "channels", channelID)
+	seedGuest := func(name, email, tokenHash string) {
+		id := testutil.SeedRow(t, pool, "guest_sessions", map[string]any{
+			"tenant_id":        tenantOwn,
+			"token_hash":       tokenHash,
+			"channel_id":       channelID,
+			"display_name":     name,
+			"email":            email,
+			"ip_address":       "203.0.113.7",
+			"user_agent":       "Mozilla/5.0 DSAR-Test",
+			"last_activity_at": time.Now().UTC(),
+			"expires_at":       time.Now().UTC().Add(24 * time.Hour),
+		})
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "guest_sessions", id) })
+	}
+	hashA := strings.ReplaceAll(uuid.New().String(), "-", "") + strings.ReplaceAll(uuid.New().String(), "-", "")
+	hashB := strings.ReplaceAll(uuid.New().String(), "-", "") + strings.ReplaceAll(uuid.New().String(), "-", "")
+	seedGuest("Gunhild Gast", "gunhild@gast.example", hashA)
+	seedGuest("Namenlos Gast", "", hashB)
+
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	// Booking-page visitor: found by e-mail, both bookings (mixed-case e-mail) under one subject.
+	persons, err := SearchByQuery(ctxOwn, pool, tenantOwn, "walzer.example")
+	require.NoError(t, err)
+	require.Len(t, persons, 1)
+	assert.Equal(t, "Fridolin Walzer", persons[0].Name)
+	bookings := recordMaps(dsarModule(t, persons[0], "Online-Terminbuchungen"))
+	require.Len(t, bookings, 2)
+	assert.Equal(t, "11:00", bookings[0]["Uhrzeit"])
+	assert.Equal(t, "Rueckruf bitte", bookings[1]["Notizen"])
+	assert.Equal(t, "+49 151 000111", bookings[0]["Telefon"])
+	assert.Equal(t, "Zentria Beratung", bookings[0]["Buchungsseite"])
+	assert.Equal(t, "2026-11-03", bookings[0]["Datum"])
+	for _, b := range bookings {
+		assert.NotContains(t, b["Name"], "Anderer", "another visitor's booking must not leak")
+	}
+
+	// Found by name as well.
+	byName, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Fridolin")
+	require.NoError(t, err)
+	require.Len(t, byName, 1)
+
+	// Chat guest: sessions are disclosed without the credential.
+	guests, err := SearchByQuery(ctxOwn, pool, tenantOwn, "gunhild@gast")
+	require.NoError(t, err)
+	require.Len(t, guests, 1)
+	sessions := dsarModule(t, guests[0], "Chat-Gastsitzungen")
+	rec := recordMaps(sessions)
+	require.Len(t, rec, 1)
+	assert.Equal(t, "Gunhild Gast", rec[0]["Anzeigename"])
+	assert.Equal(t, "203.0.113.7", rec[0]["IP-Adresse"])
+	assert.Equal(t, "Mozilla/5.0 DSAR-Test", rec[0]["Browser"])
+	assert.Equal(t, "dsar-gast-kanal", rec[0]["Kanal"])
+	for _, r := range sessions.Records {
+		for _, f := range r.Fields {
+			assert.NotContains(t, f.Value, hashA, "token_hash must never be disclosed")
+		}
+	}
+
+	// A guest without e-mail is found by display name.
+	anon, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Namenlos")
+	require.NoError(t, err)
+	require.Len(t, anon, 1)
+	assert.Len(t, dsarModule(t, anon[0], "Chat-Gastsitzungen").Records, 1)
+
+	// --- tenant isolation ---------------------------------------------------
+	for _, q := range []string{"walzer.example", "gunhild@gast", "Namenlos"} {
+		foreign, searchErr := SearchByQuery(ctxOther, pool, tenantOther, q)
+		require.NoError(t, searchErr)
+		assert.Empty(t, foreign, q)
+
+		forged, searchErr := SearchByQuery(ctxOther, pool, tenantOwn, q)
+		require.NoError(t, searchErr)
+		assert.Empty(t, forged, "RLS, not the tenantID argument, is the boundary: "+q)
+	}
 }

@@ -72,7 +72,7 @@ func (c *Client) ProbeConnection(ctx context.Context) (*integration.ProbeResult,
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: tokenURL is the fixed Bot Framework login endpoint
 	if err != nil {
 		return nil, fmt.Errorf("reach bot framework login endpoint: %w", err)
 	}

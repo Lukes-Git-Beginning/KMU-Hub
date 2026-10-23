@@ -70,8 +70,9 @@ func TenantOutboundUnaryInterceptor() grpc.UnaryClientInterceptor {
 // middleware.GetUserID(ctx) without caring whether the caller arrived via HTTP
 // (gateway routes that already populated context) or via gRPC (this interceptor).
 //
-// Returns codes.Unauthenticated when tenant_id is absent or empty — every
-// authenticated route must carry a tenant.
+// It never rejects a call itself: an absent or empty tenant_id simply leaves
+// TenantIDKey unset, and each handler that needs a tenant fails on its own
+// GetTenantID check (typically with codes.Unauthenticated).
 func TenantInboundUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		md, _ := metadata.FromIncomingContext(ctx)

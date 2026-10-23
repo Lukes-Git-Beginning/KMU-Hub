@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -139,10 +140,19 @@ type ListWarningsInput struct {
 	PageSize int
 }
 
+// UnitQuantity is the summed quantity of all items sharing one unit.
+type UnitQuantity struct {
+	Unit     string
+	Quantity int64
+}
+
 // StockReport is an aggregated view of inventory health.
 type StockReport struct {
-	TotalItems     int
+	TotalItems int
+	// TotalQuantity is only set when all items share one unit; quantities in
+	// different units (Stk, kg) are not addable. Use QuantityByUnit otherwise.
 	TotalQuantity  int64
+	QuantityByUnit []UnitQuantity // ordered by unit
 	LowStockCount  int
 	ActiveWarnings int
 }
@@ -582,10 +592,10 @@ func (s *Service) GetStockReport(ctx context.Context, tenantID uuid.UUID) (*Stoc
 		return nil, fmt.Errorf("get stock report items: %w", err)
 	}
 
-	var totalQty int64
+	qtyByUnit := make(map[string]int64)
 	var lowStockCount int
 	for _, item := range allItems {
-		totalQty += item.Quantity
+		qtyByUnit[item.Unit] += item.Quantity
 		if item.Quantity <= item.MinQuantity {
 			lowStockCount++
 		}
@@ -597,9 +607,21 @@ func (s *Service) GetStockReport(ctx context.Context, tenantID uuid.UUID) (*Stoc
 		return nil, fmt.Errorf("get stock report warnings: %w", err)
 	}
 
+	byUnit := make([]UnitQuantity, 0, len(qtyByUnit))
+	for unit, qty := range qtyByUnit {
+		byUnit = append(byUnit, UnitQuantity{Unit: unit, Quantity: qty})
+	}
+	slices.SortFunc(byUnit, func(a, b UnitQuantity) int { return strings.Compare(a.Unit, b.Unit) })
+
+	var totalQty int64
+	if len(byUnit) == 1 {
+		totalQty = byUnit[0].Quantity
+	}
+
 	return &StockReport{
 		TotalItems:     totalItems,
 		TotalQuantity:  totalQty,
+		QuantityByUnit: byUnit,
 		LowStockCount:  lowStockCount,
 		ActiveWarnings: activeWarnings,
 	}, nil
@@ -875,7 +897,18 @@ func (s *Service) UpdateInventurSessionStatus(ctx context.Context, input UpdateI
 }
 
 // DeleteInventurSession deletes an inventur session (cascades to counts).
+// A completed session is a booked stocktake record (§ 240 HGB) and is refused
+// with ErrInventurAlreadyCompleted, like every other write on it. The
+// repository DELETE repeats the status filter, so a session completed between
+// this check and the delete is not erased either.
 func (s *Service) DeleteInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) error {
+	session, err := s.repo.GetInventurSession(ctx, tenantID, sessionID)
+	if err != nil {
+		return err
+	}
+	if session.Status == InventurStatusCompleted {
+		return ErrInventurAlreadyCompleted
+	}
 	return s.repo.DeleteInventurSession(ctx, tenantID, sessionID)
 }
 

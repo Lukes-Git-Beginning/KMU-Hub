@@ -743,6 +743,23 @@ func TestInventarReportHandlers(t *testing.T) {
 		require.Equal(t, int32(0), resp.TotalItems)
 	})
 
+	t.Run("GetStockReport maps the per-unit breakdown", func(t *testing.T) {
+		repo := newStubInventarRepo()
+		repo.listItems = []*inventar.Item{
+			{ID: uuid.New(), Quantity: 50, MinQuantity: 1, Unit: "Stk"},
+			{ID: uuid.New(), Quantity: 30, MinQuantity: 1, Unit: "kg"},
+		}
+		s := newInventarTestServer(repo)
+		resp, err := s.GetStockReport(ctx, &inventarv1.GetStockReportRequest{TenantId: tenantID.String()})
+		requireGRPCOK(t, err)
+		require.Equal(t, int64(0), resp.TotalQuantity)
+		require.Len(t, resp.QuantityByUnit, 2)
+		require.Equal(t, "Stk", resp.QuantityByUnit[0].Unit)
+		require.Equal(t, int64(50), resp.QuantityByUnit[0].Quantity)
+		require.Equal(t, "kg", resp.QuantityByUnit[1].Unit)
+		require.Equal(t, int64(30), resp.QuantityByUnit[1].Quantity)
+	})
+
 	t.Run("ExportInventory invalid tenant", func(t *testing.T) {
 		s := newInventarTestServer(newStubInventarRepo())
 		_, err := s.ExportInventory(ctx, &inventarv1.ExportInventoryRequest{TenantId: "bad"})

@@ -685,15 +685,11 @@ func TestApproveTimeCorrection_LeavesForeignOriginalAlone(t *testing.T) {
 		"a correction must never retire an entry of another tenant")
 }
 
-// TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection documents a real
-// finding from cov-gateway-hr-time-tracking-paths (BACKLOG.yml): the service
-// never compares approverID against the correction's own EmployeeID. Anyone
-// holding "hr:write" or the narrower "zeiterfassung:corrections:approve" key
-// can submit a correction for themselves and then approve it — the guard
-// controls WHO may approve corrections, not WHOSE. Filed as
-// fix-hr-approve-correction-self-approval at the backlog end; this test pins
-// today's (buggy) behaviour so the fix has something to flip red.
-func TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection(t *testing.T) {
+// TestApproveTimeCorrection_RejectsSelfApproval pins the four-eyes rule: the
+// permission guard ("hr:write" / "zeiterfassung:corrections:approve") only
+// controls WHO may approve corrections, so the service itself has to refuse an
+// approver who is the correction's own author.
+func TestApproveTimeCorrection_RejectsSelfApproval(t *testing.T) {
 	svc, workRepo, _ := newTestService()
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -719,9 +715,13 @@ func TestApproveTimeCorrection_EmployeeCanApproveOwnCorrection(t *testing.T) {
 
 	// approverID == employeeID: the correction's own author approves it.
 	approved, err := svc.ApproveTimeCorrection(ctx, tenantID, correction.ID, employeeID)
-	require.NoError(t, err)
-	assert.Equal(t, models.WorkTimeStatusCorrectionApproved, approved.Status)
-	assert.Equal(t, &employeeID, approved.CorrectionApprovedBy)
+	require.ErrorIs(t, err, ErrCannotApproveOwnCorrection)
+	assert.Nil(t, approved)
+
+	stored := workRepo.entries[correction.ID]
+	assert.Equal(t, models.WorkTimeStatusCorrectionPending, stored.Status, "a refused approval must not change the status")
+	assert.Nil(t, stored.CorrectionApprovedBy)
+	assert.Nil(t, stored.CorrectionApprovedAt)
 }
 
 // TestGetTimeBalance_FractionalWorkWeek proves the balance subtraction is

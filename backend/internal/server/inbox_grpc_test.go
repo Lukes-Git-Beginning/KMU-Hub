@@ -882,9 +882,12 @@ func TestListTeamInboxes_EmptyResultIsNotNil(t *testing.T) {
 }
 
 func TestListTeamMembers_EmptyResultIsNotNil(t *testing.T) {
-	srv, _ := newTestInboxServer()
-	resp, err := srv.ListTeamMembers(context.Background(), &inboxv1.ListTeamMembersRequest{
-		TeamInboxId: uuid.New().String(),
+	srv, deps := newTestInboxServer()
+	tenantID := uuid.New()
+	inbox := &models.TeamInbox{ID: uuid.New(), TenantID: tenantID, Name: "Leer", Visibility: "open"}
+	require.NoError(t, deps.teamRepo.CreateTeamInbox(context.Background(), inbox))
+	resp, err := srv.ListTeamMembers(tenantCtx(tenantID), &inboxv1.ListTeamMembersRequest{
+		TeamInboxId: inbox.ID.String(), UserId: uuid.New().String(),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp.Members)
@@ -1063,7 +1066,7 @@ func TestToRoutingRuleInfo_WithAndWithoutChannel(t *testing.T) {
 		ID:         uuid.New(),
 		Name:       "Auto-Tag VIP",
 		Conditions: []byte(`{"field":"sender_email","operator":"contains","value":"@vip.de"}`),
-		Actions:    []byte(`{"actions":[{"type":"add_tag","config":{"tag":"vip"}}]}`),
+		Actions:    []byte(`[{"type":"add_tags","config":{"tags":["vip"]}}]`),
 		Priority:   1,
 		IsActive:   true,
 		CreatedBy:  uuid.New(),

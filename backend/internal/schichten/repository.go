@@ -41,6 +41,13 @@ type Repository interface {
 	// CountAssignments returns the number of assignments for a shift (capacity guard).
 	CountAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) (int, error)
 
+	// WithAssignmentLock runs fn under a lock on the shift and on the employee,
+	// in one transaction: concurrent assignments to the same shift or for the
+	// same employee queue up, so capacity and rest-period checks made inside fn
+	// see every earlier assignment. fn gets a repository bound to that
+	// transaction; the transaction commits when fn returns nil.
+	WithAssignmentLock(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID, fn func(Repository) error) error
+
 	// ArbZG: latest shift that ends strictly before newStart for the given employee (bidirectional check)
 	LatestShiftEndBeforeForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, before time.Time) (*time.Time, error)
 	// ArbZG: earliest shift that starts strictly after newEnd for the given employee (bidirectional check)

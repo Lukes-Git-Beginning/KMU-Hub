@@ -4,24 +4,17 @@ package caldav
 // against the real calendars/calendar_members/event_exceptions schema and
 // its RLS tenant_isolation policies (migration 000124).
 //
-// CONFIRMED PRODUCTION BUG (verified against the local Postgres, see
-// fix-caldav-write-and-exceptions-blocked-by-missing-tenant-ctx at the end
-// of BACKLOG.yml): neither function wraps its query in sysctx.With(ctx) or
-// receives a tenant via context the way resolveTenantID does. The CalDAV
-// Basic-Auth request path (basicAuthMiddleware -> CtxWithUser, see
-// route_caldav.go) never carries a tenant -- there is no JWT to derive one
-// from. Under RLS (kmuhub_app, FORCE ROW LEVEL SECURITY), a query with no
-// app.tenant_id GUC and app.role != 'system' sees zero rows for every tenant
-// (internal/database/postgres.go:39-43, "the safe default"). The tests
-// below prove this with the exact context CalDAV requests actually carry:
-//   - TestCheckCalendarWritePermission_RealCalDAVContext_OwnerBlocked proves
-//     PutCalendarObject/DeleteCalendarObject 404 for the calendar's own
-//     owner -- every CalDAV write is broken, matching the "my calendar
-//     won't sync" symptom the unit's scope description called out.
-//   - TestListEventExceptions_RealCalDAVContext_SilentlyEmpty proves
-//     recurring-event overrides/cancellations silently vanish from CalDAV
-//     reads instead of erroring, which is worse: no client ever sees a
-//     failure to retry.
+// The CalDAV Basic-Auth request path never carries a JWT, so the tenant has
+// to come from NewCtxInjector (basicAuthMiddleware, route_caldav.go): it
+// resolves the user's tenant and stamps it under middleware.TenantIDKey, which
+// database.NewPostgresPool's PrepareConn hook turns into app.tenant_id. Without
+// it RLS (kmuhub_app, FORCE ROW LEVEL SECURITY) hides every row. The
+// *_RealCalDAVContext_* tests build their context through the production
+// injector -- nothing hand-stamped -- and prove:
+//   - the calendar's owner may write (PutCalendarObject/DeleteCalendarObject),
+//   - recurring-event exceptions are visible to CalDAV reads,
+//   - a user from another tenant still gets 404 / no rows, i.e. the fix is
+//     the tenant context, not a blanket RLS bypass.
 //
 // The *_WithTenantCtx tests use testutil.WithTenantCtx to prove the
 // permission-branching logic itself (owner/edit/admin/view/no-membership/
@@ -205,10 +198,10 @@ func TestCheckCalendarWritePermission_CalendarNotFound_WithTenantCtx(t *testing.
 }
 
 // ============================================================================
-// checkCalendarWritePermission -- the real CalDAV Basic-Auth context (bug)
+// checkCalendarWritePermission -- the real CalDAV Basic-Auth context
 // ============================================================================
 
-func TestCheckCalendarWritePermission_RealCalDAVContext_OwnerBlocked(t *testing.T) {
+func TestCheckCalendarWritePermission_RealCalDAVContext_OwnerAllowed(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
@@ -216,16 +209,29 @@ func TestCheckCalendarWritePermission_RealCalDAVContext_OwnerBlocked(t *testing.
 	fx := seedCalendarFixture(t, pool)
 	backend := &CalDAVBackend{pool: pool}
 
-	// This is exactly what PutCalendarObject/DeleteCalendarObject pass in
-	// production: a context stamped only via CtxWithUser (basicAuthMiddleware),
-	// never a tenant -- CalDAV authenticates over Basic Auth, not JWT.
-	realCalDAVCtx := CtxWithUser(context.Background(), fx.ownerID)
+	// What PutCalendarObject/DeleteCalendarObject receive in production: the
+	// context basicAuthMiddleware builds after validating the app password.
+	realCalDAVCtx := realCalDAVCtx(t, pool, fx.ownerID)
 
 	err := backend.checkCalendarWritePermission(realCalDAVCtx, fx.ownerID, fx.calendarID)
 
-	require.Error(t, err, "documents the confirmed bug: RLS silently hides the "+
-		"calendar from its own owner because no tenant GUC is set for this ctx")
-	assert.Equal(t, 404, webdavStatusCode(t, err))
+	assert.NoError(t, err)
+}
+
+func TestCheckCalendarWritePermission_RealCalDAVContext_OtherTenantSeesNoCalendar(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	fx := seedCalendarFixture(t, pool)
+	foreignUserID := seedForeignTenantUser(t, pool)
+	backend := &CalDAVBackend{pool: pool}
+
+	err := backend.checkCalendarWritePermission(
+		realCalDAVCtx(t, pool, foreignUserID), foreignUserID, fx.calendarID)
+
+	assert.Equal(t, 404, webdavStatusCode(t, err),
+		"another tenant's calendar must stay invisible under the real CalDAV context")
 }
 
 // ============================================================================
@@ -306,14 +312,69 @@ func TestListEventExceptions_NoExceptions_ReturnsEmptySliceNotNil(t *testing.T) 
 }
 
 // ============================================================================
-// listEventExceptions -- the real CalDAV Basic-Auth context (bug)
+// listEventExceptions -- the real CalDAV Basic-Auth context
 // ============================================================================
 
-func TestListEventExceptions_RealCalDAVContext_SilentlyEmpty(t *testing.T) {
+func TestListEventExceptions_RealCalDAVContext_ReturnsExceptions(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
 
+	fx, eventID, excID := seedEventWithException(t, pool)
+	backend := &CalDAVBackend{pool: pool}
+
+	// GetCalendarObject/expandedEventsToObjects call listEventExceptions with
+	// exactly this ctx in production.
+	exceptions, err := backend.listEventExceptions(realCalDAVCtx(t, pool, fx.ownerID), eventID)
+
+	require.NoError(t, err)
+	require.Len(t, exceptions, 1)
+	assert.Equal(t, excID, exceptions[0].ID)
+	assert.True(t, exceptions[0].IsCancelled)
+}
+
+func TestListEventExceptions_RealCalDAVContext_OtherTenantSeesNothing(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	_, eventID, _ := seedEventWithException(t, pool)
+	foreignUserID := seedForeignTenantUser(t, pool)
+	backend := &CalDAVBackend{pool: pool}
+
+	exceptions, err := backend.listEventExceptions(realCalDAVCtx(t, pool, foreignUserID), eventID)
+
+	require.NoError(t, err)
+	assert.Empty(t, exceptions, "another tenant's exceptions must not leak")
+}
+
+// realCalDAVCtx builds the context a real CalDAV request carries: exactly
+// what basicAuthMiddleware produces from the production injector.
+func realCalDAVCtx(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID) context.Context {
+	t.Helper()
+	ctx, err := NewCtxInjector(pool)(context.Background(), userID)
+	require.NoError(t, err)
+	return ctx
+}
+
+// seedForeignTenantUser creates a user in a second tenant.
+func seedForeignTenantUser(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "CalDAV Permission Test Tenant Foreign")
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     tenantID,
+		"email":         fmt.Sprintf("caldav-foreign-%s@tenantb.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userID) })
+	return userID
+}
+
+// seedEventWithException creates a fixture calendar with one event carrying a
+// cancelled occurrence.
+func seedEventWithException(t *testing.T, pool *pgxpool.Pool) (calendarFixture, uuid.UUID, uuid.UUID) {
+	t.Helper()
 	fx := seedCalendarFixture(t, pool)
 	eventID := testutil.SeedRow(t, pool, "calendar_events", map[string]any{
 		"tenant_id":   fx.tenantID,
@@ -331,18 +392,5 @@ func TestListEventExceptions_RealCalDAVContext_SilentlyEmpty(t *testing.T) {
 		"is_cancelled":  true,
 	})
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "event_exceptions", excID) })
-
-	backend := &CalDAVBackend{pool: pool}
-	// GetCalendarObject/expandedEventsToObjects call listEventExceptions with
-	// exactly this ctx in production -- no tenant, Basic-Auth only.
-	realCalDAVCtx := CtxWithUser(context.Background(), fx.ownerID)
-
-	exceptions, err := backend.listEventExceptions(realCalDAVCtx, eventID)
-
-	require.NoError(t, err, "the query itself never errors -- RLS filters "+
-		"rows away silently, which is the dangerous half of this bug: no "+
-		"CalDAV client ever sees a failure to retry, the cancelled/overridden "+
-		"occurrence just never shows up")
-	assert.Empty(t, exceptions, "documents the confirmed bug: a seeded "+
-		"exception is invisible under the real CalDAV request context")
+	return fx, eventID, excID
 }

@@ -138,7 +138,7 @@ func (c *Client) doWithRetry(ctx context.Context, tenantID uuid.UUID, method, pa
 		}
 
 		// Execute.
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.httpClient.Do(req) //nolint:gosec // G704: baseURL is server config (env); tenant data only reaches the path
 		if err != nil {
 			lastErr = fmt.Errorf("bexio: request failed: %w", err)
 			continue

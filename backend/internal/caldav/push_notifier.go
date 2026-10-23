@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/safego"
+	"github.com/kmuhub/kmuhub/internal/security/safehttp"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
@@ -34,11 +36,18 @@ type PushNotifier struct {
 
 // NewPushNotifier creates a new push notifier.
 func NewPushNotifier(subscriptions *PushSubscriptionService) *PushNotifier {
+	return newPushNotifier(subscriptions)
+}
+
+// newPushNotifier is the seam tests use to pass safehttp.AllowLoopback.
+// The push URL is client-supplied, so the client may only reach public
+// addresses: without that, a subscription pointing at an internal service or
+// the cloud metadata endpoint would make the gateway request it.
+func newPushNotifier(subscriptions *PushSubscriptionService, opts ...safehttp.Option) *PushNotifier {
+	opts = append([]safehttp.Option{safehttp.WithTimeout(pushNotifyTimeout)}, opts...)
 	return &PushNotifier{
 		subscriptions: subscriptions,
-		httpClient: &http.Client{
-			Timeout: pushNotifyTimeout,
-		},
+		httpClient:    safehttp.New(opts...),
 	}
 }
 
@@ -68,23 +77,24 @@ func (n *PushNotifier) NotifyCollectionChanged(ctx context.Context, collectionTy
 	}
 
 	// Clean up expired subscriptions opportunistically
-	go func() {
+	safego.Go("caldav push subscription cleanup", func() {
 		cleanupCtx, cancel := context.WithTimeout(sysctx.With(context.Background()), 10*time.Second)
 		defer cancel()
 		if _, cleanupErr := n.subscriptions.CleanupExpired(cleanupCtx); cleanupErr != nil {
 			slog.Warn("failed to cleanup expired push subscriptions", "error", cleanupErr)
 		}
-	}()
+	})
 
 	// Send notifications in a goroutine to avoid blocking the write path
-	go func() {
+	safego.Go("caldav push notify", func() {
 		notifyCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
+		// One recover per subscriber: a panic for one endpoint must not skip the rest.
 		for _, sub := range subs {
-			n.sendNotification(notifyCtx, sub)
+			safego.Do("caldav push send", func() { n.sendNotification(notifyCtx, sub) })
 		}
-	}()
+	})
 
 	return nil
 }
@@ -119,7 +129,7 @@ func (n *PushNotifier) sendNotification(ctx context.Context, sub *PushSubscripti
 	}
 	req.Header.Set("Content-Type", "application/xml; charset=utf-8")
 
-	resp, err := n.httpClient.Do(req)
+	resp, err := n.httpClient.Do(req) //nolint:gosec // G704: client is safehttp (public unicast only, re-checked per hop)
 	if err != nil {
 		slog.Warn("push notification delivery failed",
 			"subscription_id", sub.ID,

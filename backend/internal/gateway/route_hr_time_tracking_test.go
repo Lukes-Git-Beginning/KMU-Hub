@@ -4,8 +4,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	hrv1 "github.com/kmuhub/kmuhub/proto/hr/v1"
 )
 
 // route_hr_time_tracking_test.go covers the second HR gateway unit: the
@@ -144,11 +148,9 @@ func TestHandleListWorkTimeEntries_ReachesRPC(t *testing.T) {
 // ============================================================================
 // HandleGetWorkTimeStatus
 //
-// Unlike most handlers, this one never propagates a downstream RPC error to
-// the caller: it composes a best-effort status from two RPCs and silently
-// falls back to zero-value defaults if either fails, always answering 200.
-// Only a client construction failure (service not registered) reaches the
-// caller as an error.
+// Composes the header status from GetActiveShift and GetDailySummary. A failing
+// shift lookup is an error (never "not clocked in"); a failing day summary
+// degrades to 0 minutes. The ArbZG severity is owned by compliance.CheckWorkTime.
 // ============================================================================
 
 func TestHandleGetWorkTimeStatus_ServiceUnavailable(t *testing.T) {
@@ -160,13 +162,65 @@ func TestHandleGetWorkTimeStatus_ServiceUnavailable(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
-func TestHandleGetWorkTimeStatus_RPCFailureStillReturnsDefaults(t *testing.T) {
+// The registry points at an unreachable address, so GetActiveShift fails with
+// Unavailable. That must surface as 503, not as a 200 "not clocked in".
+func TestHandleGetWorkTimeStatus_ShiftRPCFailureIsAnError(t *testing.T) {
 	routes := NewHRRoutes(registryWithService("biz"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/hr/time/status", nil)
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleGetWorkTimeStatus(rec, req)
-	assertStatus(t, rec, http.StatusOK)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestBuildWorkTimeStatus_ArbZGBoundaries(t *testing.T) {
+	cases := []struct {
+		minutes int32
+		want    string
+	}{
+		{0, "none"},
+		{479, "none"},
+		{480, "info"},
+		{539, "info"},
+		{540, "warning"},
+		{600, "warning"},
+		{601, "error"},
+	}
+	for _, tc := range cases {
+		got := buildWorkTimeStatus(nil, &hrv1.GetDailySummaryResp{
+			Summary: &hrv1.DailySummary{NetWorkMinutes: tc.minutes},
+		})
+		if got["arbzg_severity"] != tc.want {
+			t.Errorf("%d min: severity = %v, want %s", tc.minutes, got["arbzg_severity"], tc.want)
+		}
+		if got["today_total_minutes"] != tc.minutes {
+			t.Errorf("%d min: today_total_minutes = %v", tc.minutes, got["today_total_minutes"])
+		}
+	}
+}
+
+func TestBuildWorkTimeStatus_Defaults(t *testing.T) {
+	got := buildWorkTimeStatus(nil, nil)
+	if got["is_clocked_in"] != false || got["is_on_break"] != false ||
+		got["today_total_minutes"] != 0 || got["arbzg_severity"] != "none" {
+		t.Errorf("unexpected defaults: %v", got)
+	}
+}
+
+func TestBuildWorkTimeStatus_ClockedInOnBreak(t *testing.T) {
+	in := time.Date(2026, 10, 21, 7, 30, 0, 0, time.UTC)
+	br := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	got := buildWorkTimeStatus(&hrv1.GetActiveShiftResp{
+		Entry:       &hrv1.WorkTimeEntry{ClockIn: timestamppb.New(in)},
+		IsOnBreak:   true,
+		ActiveBreak: &hrv1.BreakEntry{StartTime: timestamppb.New(br)},
+	}, nil)
+	if got["is_clocked_in"] != true || got["is_on_break"] != true {
+		t.Errorf("want clocked in and on break: %v", got)
+	}
+	if got["current_shift_start"] != in.Format(time.RFC3339) || got["current_break_start"] != br.Format(time.RFC3339) {
+		t.Errorf("unexpected timestamps: %v", got)
+	}
 }
 
 // ============================================================================

@@ -600,7 +600,11 @@ func (m *authMockRepo) GetPasswordResetToken(_ context.Context, _ string) (*mode
 	return nil, auth.ErrResetTokenInvalid
 }
 
-func (m *authMockRepo) MarkPasswordResetTokenUsed(_ context.Context, _ uuid.UUID) error {
+func (m *authMockRepo) InvalidateOpenPasswordResetTokens(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *authMockRepo) ResetPasswordWithToken(_ context.Context, _, _, _ uuid.UUID, _ string) error {
 	return nil
 }
 

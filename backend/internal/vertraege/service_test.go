@@ -151,6 +151,9 @@ func (m *mockRepository) RemoveParty(_ context.Context, tenantID, partyID uuid.U
 		// matched, no error, and no contract to file an audit entry against.
 		return uuid.Nil, nil
 	}
+	if p.SignedOn != nil {
+		return uuid.Nil, ErrPartySigned
+	}
 	delete(m.parties, partyID)
 	return p.ContractID, nil
 }
@@ -281,6 +284,9 @@ func (m *mockRepository) SaveSignature(_ context.Context, tenantID, contractID, 
 	c, ok := m.contracts[contractUUID]
 	if !ok || c.TenantID != tenantUUID {
 		return nil, ErrContractNotFound
+	}
+	if c.SignatureData != nil {
+		return nil, ErrAlreadySigned
 	}
 	now := time.Now()
 	c.SignatureData = &signatureData

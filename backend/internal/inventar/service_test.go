@@ -1030,21 +1030,16 @@ func TestService_GetStockReport_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, report.TotalItems)
 	assert.Equal(t, int64(53), report.TotalQuantity)
+	assert.Equal(t, []UnitQuantity{{Unit: "Stk", Quantity: 53}}, report.QuantityByUnit)
 	assert.Equal(t, 1, report.LowStockCount)
 	assert.Equal(t, 1, report.ActiveWarnings)
 }
 
-// TestService_GetStockReport_SumsAcrossIncompatibleUnits documents a real gap
-// found while building cov-gateway-inventar-inventur-and-reports:
-// Service.GetStockReport (service.go) sums item.Quantity over every item of
-// the tenant regardless of item.Unit. Summing 50 "Stk" and 30 "kg" into one
-// TotalQuantity of 80 is the inventar-side equivalent of the blind
-// currency sums fixed in Lauf 11 (fix-dashboard-metrics-blind-currency-sum
-// and siblings) — a number presented as one quantity that mixes two
-// incompatible units. Fix tracked as its own backlog unit
-// (fix-inventar-stock-report-blind-unit-sum), not fixed here: a coverage
-// unit documents behaviour, it does not change it.
-func TestService_GetStockReport_SumsAcrossIncompatibleUnits(t *testing.T) {
+// TestService_GetStockReport_KeepsIncompatibleUnitsApart: 50 "Stk" plus 30 "kg"
+// must not become one unitless total of 80 (the inventar-side equivalent of the
+// blind currency sums fixed in Lauf 11). The per-unit breakdown carries the
+// numbers; TotalQuantity stays 0 when units are mixed.
+func TestService_GetStockReport_KeepsIncompatibleUnitsApart(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
@@ -1057,8 +1052,22 @@ func TestService_GetStockReport_SumsAcrossIncompatibleUnits(t *testing.T) {
 	report, err := svc.GetStockReport(context.Background(), tenantID)
 
 	require.NoError(t, err)
-	assert.Equal(t, int64(80), report.TotalQuantity,
-		"BUG: 50 Stk + 30 kg reported as one unitless total of 80")
+	assert.Equal(t, int64(0), report.TotalQuantity,
+		"50 Stk + 30 kg must not be reported as one unitless total")
+	assert.Equal(t, []UnitQuantity{
+		{Unit: "Stk", Quantity: 50},
+		{Unit: "kg", Quantity: 30},
+	}, report.QuantityByUnit)
+}
+
+func TestService_GetStockReport_NoItems(t *testing.T) {
+	svc := NewService(newMockRepository())
+
+	report, err := svc.GetStockReport(context.Background(), uuid.New())
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), report.TotalQuantity)
+	assert.Empty(t, report.QuantityByUnit)
 }
 
 // ============================================================================

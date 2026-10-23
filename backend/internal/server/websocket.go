@@ -55,6 +55,7 @@ type GuestSessionValidator interface {
 // GuestSessionInfo contains guest session data needed by the WebSocket hub.
 type GuestSessionInfo struct {
 	ID          uuid.UUID
+	TenantID    uuid.UUID
 	ChannelID   uuid.UUID
 	DisplayName string
 	IsActive    bool
@@ -96,6 +97,13 @@ func newMsgRateLimiter() *msgRateLimiter {
 		refillRate: maxMsgsPerSecond,
 		lastRefill: time.Now(),
 	}
+}
+
+// refilled reports whether the bucket would be full again by now. A refilled
+// bucket is indistinguishable from a fresh one, so it can be dropped without
+// handing out any allowance the user would not have had anyway.
+func (rl *msgRateLimiter) refilled(now time.Time) bool {
+	return rl.tokens+now.Sub(rl.lastRefill).Seconds()*rl.refillRate >= rl.maxTokens
 }
 
 func (rl *msgRateLimiter) allow() bool {
@@ -363,16 +371,22 @@ func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// /api/v1/ws runs without the Auth middleware (the token arrives via
+	// Sec-WebSocket-Protocol, not the Authorization header), so the tenant and
+	// user it would have stamped onto the context are stamped here instead.
+	// TenantOutboundUnaryInterceptor forwards both to every chat RPC the
+	// message loop makes; without them the chat service fails closed.
+	ctx := context.WithValue(r.Context(), middleware.TenantIDKey, claims.TenantID)
+	ctx = context.WithValue(ctx, middleware.UserIDKey, userID)
+
 	// Register connection and cache user name
-	h.registerConnection(userID, conn)
-	h.registerUserTenant(userID, claims.TenantID)
-	h.cacheUserName(r.Context(), userID)
+	h.registerUserConnection(userID, claims.TenantID, conn)
+	h.cacheUserName(ctx, userID)
 	defer h.unregisterConnection(userID, conn)
 
 	slog.Info("websocket connected", "user_id", userID)
 
 	// Handle messages
-	ctx := r.Context()
 	h.handleConnection(ctx, conn, userID, token)
 }
 
@@ -414,10 +428,26 @@ func (h *WebSocketHub) handleGuestWebSocket(w http.ResponseWriter, r *http.Reque
 	h.handleGuestConnectionLoop(ctx, conn, session)
 }
 
+// registerUserConnection registers the connection and the user's tenant in one
+// critical section, so a connection visible in h.connections always has its
+// tenant recorded as well.
+func (h *WebSocketHub) registerUserConnection(userID, tenantID string, conn *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.addConnectionLocked(userID, conn)
+	h.userTenants[userID] = tenantID
+}
+
 func (h *WebSocketHub) registerConnection(userID string, conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	h.addConnectionLocked(userID, conn)
+}
+
+// addConnectionLocked requires h.mu to be held for writing.
+func (h *WebSocketHub) addConnectionLocked(userID string, conn *websocket.Conn) {
 	if h.connections[userID] == nil {
 		h.connections[userID] = make(map[*websocket.Conn]struct{})
 	}
@@ -463,11 +493,14 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 	// Clean up presence subscriptions for disconnected user
 	h.cleanupPresenceSubscriptions(userID)
 
-	// Remove rate limiter and cached tenant when user has no more connections
+	// Drop the cached tenant when the user has no more connections. The rate-limit
+	// bucket is kept until it has refilled — deleting it at once would hand out a
+	// fresh burst on every reconnect. Refilled buckets of disconnected users
+	// (including this one) are swept here, so the map still does not grow.
 	if _, hasConns := h.connections[userID]; !hasConns {
-		delete(h.rateLimiters, userID)
 		delete(h.userTenants, userID)
 	}
+	h.sweepRateLimiters(time.Now())
 
 	if h.metrics != nil {
 		h.metrics.WSConnectionsActive.WithLabelValues("user").Dec()
@@ -490,12 +523,17 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Conn, userID, rawToken string) {
 	// Start the periodic token-revalidation goroutine.
 	// It runs independently of the read-loop (which blocks on wsjson.Read) and
-	// terminates either when ctx is cancelled (normal disconnect) or when it
-	// closes the connection itself (token no longer valid).
+	// terminates either when revalCtx is cancelled (read-loop ended) or when it
+	// closes the connection itself (token no longer valid). The request ctx of a
+	// hijacked connection is not cancelled when the socket dies, so the read-loop
+	// must cancel revalCtx itself — otherwise a hard disconnect keeps the
+	// connection registered until the next revalidation tick (5 minutes).
+	revalCtx, cancelReval := context.WithCancel(ctx)
+	defer cancelReval()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		h.revalidateTokenLoop(ctx, conn, userID, rawToken)
+		h.revalidateTokenLoop(revalCtx, conn, userID, rawToken)
 	}()
 
 	for {
@@ -507,8 +545,9 @@ func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Con
 			} else {
 				slog.Error("websocket read error", "user_id", userID, "error", err)
 			}
-			// Wait for the revalidation goroutine to finish before returning so
+			// Stop the revalidation goroutine and wait for it before returning so
 			// that the deferred unregisterConnection in HandleWebSocket runs last.
+			cancelReval()
 			<-done
 			return
 		}
@@ -552,6 +591,18 @@ func (h *WebSocketHub) revalidateTokenLoopWithInterval(ctx context.Context, conn
 				_ = conn.Close(websocket.StatusPolicyViolation, "token expired or revoked")
 				return
 			}
+		}
+	}
+}
+
+// sweepRateLimiters drops the buckets of users without a connection once they
+// have refilled. Callers must hold h.mu.
+// lean: full-map sweep on every unregister; switch to a ticker or an index by
+// refill time once the number of tracked users makes the scan show up in profiles.
+func (h *WebSocketHub) sweepRateLimiters(now time.Time) {
+	for userID, rl := range h.rateLimiters {
+		if _, connected := h.connections[userID]; !connected && rl.refilled(now) {
+			delete(h.rateLimiters, userID)
 		}
 	}
 }
@@ -614,10 +665,18 @@ func (h *WebSocketHub) handleSendMessage(ctx context.Context, conn *websocket.Co
 		return
 	}
 
+	// SendMessage reads the tenant from the request, not from the context.
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		h.sendError(ctx, conn, "failed to send message")
+		return
+	}
+
 	grpcReq := &chatv1.SendMessageRequest{
 		ChannelId: msg.ChannelID,
 		Content:   msg.Content,
 		CreatedBy: userID,
+		TenantId:  tenantID.String(),
 	}
 
 	if msg.ParentMessageID != "" {
@@ -837,6 +896,7 @@ func (h *WebSocketHub) handleGuestSendMessage(ctx context.Context, conn *websock
 		ChannelId:      channelID,
 		Content:        msg.Content,
 		GuestSessionId: &sessionID,
+		TenantId:       session.TenantID.String(),
 	}
 
 	resp, err := h.chatClient.SendMessage(ctx, grpcReq)

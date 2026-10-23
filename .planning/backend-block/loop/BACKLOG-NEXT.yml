@@ -637,3 +637,529 @@ units:
         Die Entscheidung (Guard bauen ja/nein, hart ablehnen vs. nur warnen) steht mit
         Begruendung und Datum in dieser Unit
       - Bei "ja": eine spitze Unit in BACKLOG.yml angelegt, inkl. SwapRequest-Genehmigung
+
+  - id: fix-fuhrpark-delete-driver-license-no-last-check-guard
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      PRODUKTENTSCHEIDUNG LUKE: harter Block (409/FailedPrecondition) beim Loeschen der
+      neuesten Fuehrerscheinkontrollzeile eines Fahrers, ODER Loeschen erlaubt (Tippfehler-
+      Korrektur) plus Audit-Event? Die Unit selbst verlangt die Klaerung vor dem Bauen.
+    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12).
+      `driver_licenses` fuehrt eine Zeile je durchgefuehrter Fuehrerscheinkontrolle; die
+      JEWEILS LETZTE Zeile je `driver_id` ist der aktuelle Kontrollstand und der Nachweis
+      der Halterpflicht (siehe `internal/gateway/route_fuhrpark.go` HandleDeleteDriverLicense
+      Doc-Kommentar). `Service.DeleteDriverLicense` (`internal/fuhrpark/service.go:849`)
+      delegiert ungeprueft an `PostgresRepository.DeleteDriverLicense`
+      (`internal/fuhrpark/postgres_repository.go:948`), die jede Zeile per `id` loescht — ohne
+      zu pruefen, ob es die einzige oder juengste Kontrollzeile fuer ihren `driver_id` ist. Der
+      Gateway-Handler `HandleDeleteDriverLicense` (Route `DELETE
+      /api/v1/fuhrpark/driver-licenses/{id}`, Permission `fuhrpark:license:write`) reicht das
+      unveraendert durch. Ein Loeschen der letzten Kontrollzeile eines Fahrers macht die
+      Halterhaftungs-Pruefung fuer diesen Fahrer spurlos verschwinden.
+      Fix: vor dem Loeschen pruefen, ob die Zeile die neueste (`checked_at` bzw. `created_at`
+      MAX) fuer ihren `driver_id` innerhalb des Tenants ist, und in diesem Fall mit einem
+      fachlichen Fehler (z. B. `codes.FailedPrecondition`, HTTP 409) ablehnen. Alternativ, falls
+      Luke das Feature stattdessen fuer nachtraegliche Korrekturen (Tippfehler-Zeile loeschen)
+      offen halten will, wenigstens ein Audit-Event schreiben, das den Verlust nachvollziehbar
+      macht — die Entscheidung zwischen beiden Wegen gehoert Luke, nicht der Unit.
+    sources:
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/repository.go
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/fuhrpark/driver_license_test.go
+    notes: >
+      `driver_license_test.go` deckt DeleteDriverLicense bereits fuer Not-Found und
+      Cross-Tenant ab, aber nicht fuer den Fall "letzte/einzige Kontrollzeile eines Fahrers".
+      Vor dem Bauen mit Luke klaeren, ob ein harter Block (409) oder ein Audit-Trail die
+      richtige Antwort ist — das ist eine Produktentscheidung, kein reiner Bugfix.
+    done_when:
+      - >-
+        DeleteDriverLicense blockiert das Loeschen der neuesten Kontrollzeile eines
+        driver_id (409/FailedPrecondition) ODER schreibt beim Loeschen ein Audit-Event, das
+        den Verlust nachvollziehbar macht — Wahl zwischen beiden Wegen mit Luke vorab klaeren,
+        bevor gebaut wird
+      - Die gewaehlte Absicherung ist implementiert und durch einen Test belegt
+      - >-
+        Ein bestehender Kontrollstand kann nicht mehr spurlos verschwinden, ohne dass es
+        nachvollziehbar ist
+
+  - id: fix-fuhrpark-trip-logs-private-flag-not-filtered
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      PRODUKTENTSCHEIDUNG LUKE: private Fahrten (`trip_logs.is_private`) per Default ausblenden
+      ODER nur ueber expliziten `include_private`-Parameter sichtbar machen? Die Unit selbst
+      verlangt die Klaerung vor dem Bauen (Aenderung an einem steuerlich relevanten Bericht).
+    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
+    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).
+      `trip_logs` traegt `is_private BOOLEAN` (`backend/migrations/000193_create_trip_logs.up.sql`)
+      zur Unterscheidung privater von geschaeftlichen Fahrten. Sowohl
+      `PostgresRepository.ListTripLogs` als auch `PostgresRepository.ListTripLogsForExport`
+      (`internal/fuhrpark/postgres_repository.go:639` und `:1191`) selektieren `is_private` als
+      Spalte, filtern aber in keiner ihrer WHERE-Klauseln danach — jede Route ueber
+      `HandleListTripLogs`, `HandleListVehicleTripLogs` und `HandleExportTripLogs`
+      (`internal/gateway/route_fuhrpark.go`) liefert private Fahrten ununterscheidbar neben
+      geschaeftlichen zurueck. Das steuerlich relevante Fahrtenbuch-Export-PDF/CSV
+      (`Service.ExportTripLogs`, `internal/fuhrpark/service.go:754`) enthaelt damit private
+      Fahrten des Fahrers im arbeitgeberseitigen Bericht.
+      Fix: entweder einen expliziten `include_private`-Query-Parameter einfuehren, der
+      standardmaessig `false` ist (private Fahrten nur auf Wunsch/mit gesonderter Berechtigung
+      sichtbar), oder `is_private=true`-Zeilen grundsaetzlich aus Liste UND Export ausschliessen.
+      Die Entscheidung zwischen beiden Wegen (opt-in sichtbar vs. immer ausgeblendet) gehoert
+      Luke — `IsPrivate` wird beim Anlegen vom Fahrer selbst gesetzt
+      (`createTripLogRequest.IsPrivate`, `route_fuhrpark.go`), es ist also keine
+      Admin-only-Angabe.
+    sources:
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
+      - backend/migrations/000193_create_trip_logs.up.sql
+    notes: >
+      `is_private` NICHT stillschweigend rausfiltern, ohne die Wahl (opt-in vs. immer
+      ausgeblendet) vorher mit Luke zu klaeren — eine Verhaltensaenderung an einem bestehenden
+      Bericht ohne Ankuendigung waere selbst ein Befund.
+    done_when:
+      - >-
+        Mit Luke geklaert: private Fahrten per Default ausgeblendet ODER nur ueber einen
+        expliziten Parameter sichtbar — beide Wege sind zulaessig, die Wahl steht vorher fest
+      - Liste UND Export respektieren die gewaehlte Regel, belegt durch einen DB-Test
+      - go test -count=1 ./internal/fuhrpark/ gruen
+
+  - id: feat-alerts-backup-dead-mans-switch
+    phase: 4
+    service: deploy
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      Keine Datenquelle: Prometheus scrapt nur die elf Go-Services (deploy/docker/prometheus.yml:14-67);
+      es gibt weder Pushgateway noch node_exporter/Textfile-Collector, und backup.sh schreibt keine Metrik.
+      Eine Regel auf "seit 26 h kein Backup" koennte nie feuern. Voraussetzung (Luke entscheidet, Compose/Env
+      sind gesperrt): backup.sh schreibt bei Erfolg einen Zeitstempel (Textfile-Collector oder Pushgateway)
+      UND ein Exporter liefert ihn an Prometheus; erst dann Regel auf time() - backup_last_success_timestamp > 93600.
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24: eine der ZWEI namentlich freigegebenen Ausnahmen von der
+      `deploy/`-Sperre. Begruendung: `backup.sh` alarmiert seit Lauf 11 per Webhook
+      (`trap on_exit EXIT` plus `send_alert()`), aber NUR wenn das Skript selbst laeuft.
+      Genau das Szenario, das den zweimonatigen MinIO-Ausfall unbemerkt liess — der Cron-Job
+      laeuft gar nicht mehr an, also feuert kein `on_exit` und kein Alarm — bleibt strukturell
+      moeglich. `docs/operations/BACKUP.md:52-54` sagt das selbst.
+      Freigegeben ist AUSSCHLIESSLICH eine neue Regel in
+      `deploy/docker/prometheus/rules/alerts.yml`. KEINE Compose-Aenderung, KEIN neues Env,
+      KEINE config.RequireX-Assertion, KEIN Anfassen von backup.sh.
+    coverage_start: "n.a. (Ops-Regel, kein Coverage-Ziel)"
+    scope: >
+      `deploy/docker/prometheus/rules/alerts.yml` fuehrt heute neun Regeln (`ServiceDown`,
+      `HighErrorRate`, `HighLatencyP99`, `DBConnectionsHigh`, `HighMemoryUsage`,
+      `HighGoroutineCount`, `GRPCHighErrorRate`, `HighWSConnectionCount`, `WSAuthFailures`) —
+      keine davon betrifft das Backup.
+      Zu bauen ist ein Dead-Man's-Switch: eine Regel, die feuert, wenn seit mehr als
+      26 Stunden kein erfolgreicher Backup-Lauf gemeldet wurde. 26 statt 24, damit eine
+      normale Laufzeitschwankung des taeglichen Jobs keinen Fehlalarm ausloest.
+      ZUERST ERMITTELN, NICHT ANNEHMEN: gibt es ueberhaupt eine Metrik, an der die Regel
+      haengen kann? Prometheus sieht nur, was ihm jemand liefert. Wenn `backup.sh` keine
+      Metrik schreibt (Pushgateway, Textfile-Collector, node_exporter), dann ist die Regel
+      ohne Datenquelle wertlos — und die ehrliche Antwort ist, die Unit auf `blocked` zu
+      setzen mit `blocked_reason`, der genau das sagt, statt eine Regel zu schreiben, die
+      niemals feuern kann. Das waere schlimmer als keine Regel: eine stille Zusage.
+    sources:
+      - deploy/docker/prometheus/rules/alerts.yml
+      - deploy/scripts/backup.sh
+      - docs/operations/BACKUP.md
+      - deploy/docker/
+    notes: >
+      Das ist eine der wenigen Stellen dieses Laufs, an denen die richtige Antwort
+      "geht nicht, hier ist der Grund" sein kann. Sie ist dann ein vollwertiges Ergebnis.
+      Die uebrigen `deploy/`-Dateien bleiben gesperrt. Auch wenn beim Lesen von `backup.sh`
+      etwas auffaellt: als Feststellung ins Journal, nicht als Aenderung.
+      Kein Test moeglich (Prometheus laeuft nicht im Gate). Der Beleg ist stattdessen:
+      `promtool check rules` auf die Datei, falls verfuegbar — sonst eine sorgfaeltige
+      Syntaxpruefung gegen die neun bestehenden Regeln als Vorlage.
+    done_when:
+      - >-
+        Ob eine Metrik existiert, an der eine Backup-Regel haengen kann, ist ermittelt und im
+        Journal belegt (mit Fundstelle oder mit der Feststellung, dass keine existiert)
+      - >-
+        Existiert eine Datenquelle: die Regel steht in alerts.yml, ist syntaktisch geprueft und
+        ihr Schwellwert ist begruendet
+      - >-
+        Existiert keine: die Unit ist blocked mit einem blocked_reason, der sagt, was gebaut
+        werden muesste, damit sie moeglich wird
+      - Ausser alerts.yml ist keine Datei unter deploy/ veraendert (git diff belegt das)
+
+  - id: feat-meeting-notes-and-chat-dsar-and-retention-coverage
+    phase: 4
+    service: security/gdpr
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      Entscheidung von Luke offen: Variante (a) DSAR-Modul plus Retention-Handler fuer meeting_notes und
+      meeting_chat_messages ODER Variante (b) bewusst als accepted residual risk in scrub.go. Die Unit verlangt die
+      Abstimmung vor dem Bauen (notes), done_when[0] ist die Entscheidung; ein Handler, der Freitext loescht oder
+      anonymisiert, ist keine Nachtloop-Entscheidung.
+    coverage_start: n.a. (DSAR/Retention-Luecke, kein Coverage-Ziel)
+    scope: >
+      Gefunden in Iteration 23 beim Bauen von `cov-gateway-video-notes-and-action-items`,
+      Scope-Punkt 3 der Unit (DSAR/Retention-Pruefung fuer Meeting-Notizen/-Chat).
+      `meeting_notes` (Content + author_id, teils `is_private`) und
+      `meeting_chat_messages` (Freitext + sender_name) sind Personenbezug mit freiem Text —
+      dieselbe Kategorie wie `deals.notes` oder `meetings.title/description/agenda`, die in
+      `internal/crm/consent/scrub.go:51` explizit als "accepted residual risk" dokumentiert
+      sind. Fuer die beiden Meeting-Tabellen fehlt diese Entscheidung komplett:
+      - `internal/security/gdpr/dsar_search.go` `meetingsModule` (Zeile 2239-2268) liest
+        NUR `title, status, scheduled_start, scheduled_end` aus `meetings` — kein Zugriff
+        auf `meeting_notes` oder `meeting_chat_messages`. Ein DSAR-Export eines Kontakts
+        zeigt also nie dessen (falls vorhanden) Chat-Beitraege oder Notizen, an denen er als
+        Autor/Sender beteiligt war.
+      - `internal/security/gdpr/retention_*.go` hat keinen Handler fuer `meetings`,
+        `meeting_notes` oder `meeting_chat_messages` (gegengeprueft: keiner der 15
+        bestehenden `retention_*.go`-Handler referenziert eine dieser drei Tabellen).
+        Notizen und Chat-Nachrichten bleiben also unbegrenzt gespeichert, auch nach
+        Kontakt-Loeschung oder Aufbewahrungsfrist-Ablauf.
+      - `internal/crm/consent/scrub.go` nennt nur `meetings.title/description/agenda` als
+        bewusst ausgenommen — `meeting_notes.content` und `meeting_chat_messages.message`
+        sind dort NICHT erwaehnt, die "accepted residual risk"-Entscheidung wurde fuer sie
+        nie getroffen.
+    sources:
+      - backend/internal/security/gdpr/dsar_search.go
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_calendar_events.go
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/work/meeting/postgres_repository.go
+    notes: >
+      Das ist eine Entscheidung, keine automatische Ergaenzung: entweder (a) DSAR-Export um
+      einen `meetingNotesModule`/`meetingChatModule` erweitern und einen
+      Retention-Handler nach dem Muster von `retention_calendar_events.go` bauen, oder (b)
+      die Tabellen bewusst in `scrub.go` als "accepted residual risk" ergaenzen wie
+      `meetings.title/description/agenda` — aber NICHT stillschweigend weiter uebergehen.
+      Variante (a) ist der wahrscheinlich richtige Weg, weil Notizen/Chat direkten
+      Personenbezug ueber `author_id`/`sender_name` UND Freitext-Inhalt kombinieren, staerker
+      als die reinen Meeting-Metadaten. Vor dem Bauen mit Luke abstimmen, welche Variante.
+    done_when:
+      - >-
+        Entscheidung getroffen und dokumentiert (Journal + Commit-Message): DSAR/Retention
+        fuer meeting_notes/meeting_chat_messages nachziehen ODER bewusst als "accepted
+        residual risk" in scrub.go ergaenzen
+      - >-
+        Bei Variante (a): DSAR-Export eines Kontakts zeigt seine eigenen
+        Notizen/Chat-Beitraege; ein Retention-Handler loescht/anonymisiert beide Tabellen
+        nach Ablauf der Frist, nach dem Muster von retention_calendar_events.go
+      - >-
+        Bei Variante (b): scrub.go-Kommentar um beide Tabellen ergaenzt, mit derselben
+        Begruendung wie fuer meetings.title/description/agenda
+      - go test -count=1 ./internal/security/gdpr/... ./internal/crm/consent/... gruen
+
+
+  - id: feat-einkauf-po-framework-contract-call-off-wiring
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      Wartet auf Luke (Produkt-/Vertragsentscheidung): (1) Das Feld ist ueber die API gar nicht
+      setzbar - einkauf.proto kennt framework_contract_id nur in der PurchaseOrder-Response (Zeile 94),
+      nicht in Create-/UpdatePurchaseOrderRequest; ein Setzen braucht Proto-Aenderung + Regen + Gateway
+      + openapi.yaml + FE-Vertrag, sonst bleibt die Verdrahtung tot. (2) Betragssemantik offen: netto
+      oder brutto, PO-Waehrung gegen Vertragswaehrung (CreateContractCall bucht ungeprueft), Delta
+      pro Teillieferung aus line.unit_price * Delta. (3) ErrContractBudgetExceeded beim Wareneingang:
+      trotzdem buchen und warnen (Vertragsdeckel verletzt) oder Wareneingang abweisen - die Notes der
+      Unit nennen das selbst eine Produktentscheidung.
+    coverage_start: "n.a. (Feature-Luecke, kein Coverage-Ziel)"
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
+      `cov-einkauf-service-extended-real-paths`). `PurchaseOrder.FrameworkContractID`
+      (backend/internal/einkauf/models.go:57-59) traegt den Kommentar "When set, ReceiveGoods
+      will automatically record a contract call-off." Die Spalte existiert seit Migration
+      000208_einkauf_po_framework_ref, wird in GetPO/GetPOWithLines gelesen
+      (postgres_repository.go:457,473) — aber NIRGENDS gesetzt: weder `CreatePOInput` noch
+      `UpdatePOInput` (service.go) haben ein `FrameworkContractID`-Feld, es gibt keinen Weg,
+      die Spalte ueber den Service zu befuellen. Selbst wenn sie per Hand-SQL gesetzt wuerde,
+      lesen `ReceiveGoods` (service.go:607) und `PartialReceive` (service.go:659) das Feld nie
+      und rufen nie `CreateContractCall` auf — die im Docstring versprochene automatische
+      Abruf-Buchung existiert im Code schlicht nicht. Ein an einen Rahmenvertrag gebundener PO
+      erhoeht dessen `used_value` also nie automatisch; `CreateContractCall` ist aktuell nur
+      manuell erreichbar (kein Gateway-Handler dafuer verifiziert — pruefen). Belegt durch
+      `TestExtended_ReceiveGoods_LinkedToFrameworkContract_DoesNotRecordCallOff` in
+      service_extended_test.go (dokumentiert die Luecke, aendert kein Verhalten).
+    sources:
+      - backend/internal/einkauf/models.go
+      - backend/internal/einkauf/service.go
+      - backend/internal/einkauf/service_extended.go
+      - backend/migrations/000208_einkauf_po_framework_ref.up.sql
+    notes: >
+      Entscheidungen, die beim Bauen anfallen: (1) Soll ReceiveGoods und PartialReceive BEIDE
+      einen Call-off buchen, oder nur der volle ReceiveGoods-Abschluss? Bei PartialReceive waere
+      der Call-off-Betrag der neu geleferte Anteil (analog zum inventarAdj-Delta-Muster in
+      PartialReceive, service.go:695-703), nicht der volle PO-Wert. (2) CreateContractCall
+      race-sicher aus der Empfangs-Transaktion heraus aufrufen — nicht als separater Call nach
+      dem Status-Update, sonst Inkonsistenz bei Teilausfall. (3) Was passiert bei
+      ErrContractBudgetExceeded waehrend eines Wareneingangs? Der Wareneingang selbst darf nicht
+      an einem Budget-Limit scheitern (der Wareneingang ist physisch bereits passiert) — vermutlich
+      Call-off trotzdem buchen und nur loggen/warnen, analog zum inventarAdj-Best-Effort-Muster
+      (service.go:634-648), nicht hart fehlschlagen. Das ist eine Produktentscheidung, kein
+      Bug-Fix — bei Unsicherheit `blocked` mit der Frage an Luke.
+    done_when:
+      - >-
+        CreatePOInput und/oder UpdatePOInput erlauben das Setzen von FrameworkContractID (oder es
+        ist begruendet dokumentiert, warum absichtlich nicht)
+      - >-
+        ReceiveGoods bucht bei gesetztem FrameworkContractID einen Call-off in Hoehe des
+        empfangenen Werts; ein Test belegt used_value auf dem Rahmenvertrag danach korrekt erhoeht
+      - >-
+        PartialReceive bucht denselben Call-off nur fuer das Delta der neu empfangenen Menge,
+        nicht fuer den vollen PO-Wert; ein Test belegt das ueber zwei aufeinanderfolgende
+        Teillieferungen
+      - >-
+        Verhalten bei ErrContractBudgetExceeded waehrend eines Wareneingangs ist entschieden und
+        durch einen Test belegt (oder die Entscheidung ist an Luke delegiert und die Unit steht
+        `blocked`)
+      - go test -count=1 ./internal/einkauf/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: decide-token-lifetime-and-storage-policy
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      ARCHITEKTUR-/PRODUKTENTSCHEIDUNG LUKE: gibt es eine einheitliche Token-Policy (Laufzeit,
+      Ablage, gemeinsamer Generator) fuer alle Link- und Zugangstoken? Heute beantwortet jeder
+      Typ die Fragen einzeln und teils abweichend; was richtig ist, ist keine Nachtarbeit.
+    target: "Entscheidung Luke, danach spitze Units nach BACKLOG.yml"
+    scope: >
+      BEFUND aus `scan-signed-url-and-token-lifetimes` (Iteration 50, Tabelle im Journal).
+      FRAGEN: (1) GEMEINSAMER HELPER: es gibt keinen. Der 32-Byte-crypto/rand-base64url-Generator
+      steht viermal wortgleich (`wiki/share.go:newShareToken`, `formulare/form_share.go:newShareToken`,
+      `berichte/service.go:newShareSecret`, `helpdesk/csat_survey.go:newCsatSurveyToken`), jeder
+      Kommentar sagt "matches ..." auf den anderen; daneben `auth.generateSecureToken`
+      (Reset-Token) und `gdpr.generateDownloadToken` (Hex). Ein `internal/`-Paket fuer
+      "Link-Secrets" waere die Konsolidierung - lohnt sie sich bei vier Zeilen je Kopie, oder bleibt
+      es bei den Kommentaren? (2) LAUFZEITEN: WOPI 10 h (Protokollempfehlung), Recording-URL 1 h,
+      Chat-Datei/-Thumbnail 15 min, Kalender-Join-Token (`livekit/service.go:130`) 24 h,
+      Video-Raum-Token (`livekit/room_manager.go:104`, kein `SetValidFor`) LiveKit-Default 6 h,
+      Passwort-Reset 1 h, CSAT 30 Tage, GDPR-Export 7 Tage, Share-Links Wiki/Formulare/Berichte
+      OHNE Pflichtablauf (Berichte max. 365 Tage wenn gesetzt, Wiki/Formulare unbegrenzt),
+      CalDAV-App-Passwoerter unbegrenzt. Soll es eine Obergrenze fuer Share-Links geben, und
+      sollen Kalender- und Video-Token dieselbe Laufzeit haben? (3) ABLAGE: Reset-Token liegt als
+      SHA-256 in der DB (`auth.HashToken`), CalDAV-Passwoerter als bcrypt; Wiki-, Formulare-,
+      Berichte-Share-Token und CSAT-Token liegen im KLARTEXT. Ein DB-Lesezugriff (Backup, falscher
+      Join) gibt damit gueltige externe Zugaenge frei. Hash-Ablage braeuchte je Tabelle eine
+      Migration plus Umgang mit den bestehenden Links (Dual-Lookup oder Invalidierung).
+      (4) OFFBOARDING: soll es die CalDAV-App-Passwoerter widerrufen (Fix von `is_active` steht
+      als `fix-caldav-basic-auth-ignores-user-state` in BACKLOG.yml), und sollen WOPI-Token und
+      LiveKit-Token einen deaktivierten Nutzer ueberleben duerfen (bis 10 h / 24 h)?
+      (5) KALENDER-JOIN-TOKEN: jeder Nutzer mit `calendars:write` bekommt fuer JEDES Event seines
+      Tenants einen Token (`calendar_grpc.go:1299`), nicht nur als Teilnehmer; nach Loeschen des
+      Events bleibt der Token bis zu 24 h gueltig (LiveKit kann nicht widerrufen).
+    sources:
+      - backend/internal/work/livekit/service.go
+      - backend/internal/work/livekit/room_manager.go
+      - backend/internal/document/wopi/token.go
+      - backend/internal/wiki/share.go
+      - backend/internal/auth/token.go
+      - .planning/backend-block/loop/JOURNAL.md
+    notes: >
+      Die Scan-Unit bewertet nicht, welche Laufzeit richtig ist; sie hat nur gezeigt, wo die
+      Antworten auseinanderliegen. Pro Frage reicht ein Ja/Nein und ein Wert. Frage (3) ist die
+      teuerste (Migration je Tabelle, opus) und die einzige mit Datenabfluss-Charakter.
+    done_when:
+      - Je Frage (1) bis (5) steht die Entscheidung mit Datum in dieser Unit
+      - Je Ja ist eine spitze Unit in BACKLOG.yml angelegt
+
+  - id: decide-retention-periods-unbounded-personal-tables
+    phase: 4
+    service: security
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      Entscheidung Luke offen: fuer welche der unten genannten Tabellen mit Personenbezug, ohne gesetzliche
+      Frist und ohne jeden Ablauf eine Aufbewahrungsdauer gelten soll. Ein Handler, der Daten loescht oder
+      anonymisiert, ist keine Nachtloop-Entscheidung (Vorbild: guest_sessions 90 Tage, vehicle_bookings 3 Jahre).
+    coverage_start: "n.a. (Entscheidung)"
+    scope: >
+      Aus `scan-dsar-and-retention-coverage-of-touched-modules` (Iteration 52). Tabellen mit Personenbezug, die
+      WEDER einen Handler in der Retention-Registry NOCH einen eigenen Ablauf haben (anders als `events` 90 Tage per
+      pg_cron, `recordings` 30 Tage per `retention_expires_at`) und KEINER gesetzlichen Frist unterliegen:
+      `public_bookings` (Kundenname/-mail/-telefon), `inbox_messages` und `inbox_thread_messages`,
+      `call_sessions`/`call_participants`, `meeting_attendees`/`meeting_action_items`,
+      `dialer_agent_status_log` (Beschaeftigtendaten, waechst ungebremst), `work_reports` (GPS und
+      Unterschrift), `shift_assignments`/`shift_swap_requests`, `document_file_comments`, `chat_files`
+      (Dateinamen), `message_reactions`, `ticket_csat_responses.comment`, `integration_account_links`,
+      `companies`, `deals`, `activities` (Letztere nur ueber den Kontakt-Scrub erreichbar).
+      Nicht hier: HR, E-Mail, Vertraege, `trip_logs` (`decide-retention-policy-hgb-ao-domains`) und die
+      Meeting-Notizen (`feat-meeting-notes-and-chat-dsar-and-retention-coverage`).
+    sources:
+      - backend/internal/security/gdpr/retention.go
+      - backend/internal/security/gdpr/retention_guest_sessions.go
+      - backend/internal/crm/consent/scrub.go
+    notes: >
+      Je Tabelle genuegt ein Wert (Dauer, Bezugsspalte) oder "bewusst unbegrenzt, residual risk". Je Ja entsteht eine
+      spitze Handler-Unit nach dem Muster von `retention_guest_sessions.go` (Dry-Run als Default, Test mit echter DB).
+      Die DSAR-Auskunft zu denselben Tabellen laeuft getrennt in den `feat-dsar-coverage-*`-Units in BACKLOG.yml.
+    done_when:
+      - >-
+        Je Tabelle steht die Entscheidung mit Datum in dieser Unit
+      - >-
+        Je Ja ist eine spitze Handler-Unit in BACKLOG.yml angelegt
+
+  - id: decide-rename-go-module-path-kmuhub
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE: ob und wann der Modulpfad github.com/kmuhub/kmuhub umbenannt wird, und
+      auf welchen Zielpfad. Unteilbarer Schnitt ueber das ganze Backend - keine Nachtarbeit
+      (Entscheidung 2026-08-24 in scan-product-naming-inventory-cosmi-zentria).
+    target: "Eigene Aktion tagsueber, ein Commit, danach CI abwarten"
+    scope: >
+      Inventur Iteration 57 (2026-10-21): 2.722 Zeilen in 1.273 Go-Dateien (inkl. `.pb.go`),
+      dazu `backend/go.mod`, 50 Zeilen im `backend/Makefile` (protoc `--go_opt=module=`), ein
+      `option go_package` in jedem `.proto`, drei `-ldflags -X`-Pfade im
+      `Dockerfile.gateway` (`internal/gateway.BuildVersion/BuildTime/BuildCommit`) und ein
+      Proto-Pfad in `.github/`.
+      Kosten: mechanisch (`go mod edit -module`, Ersetzungslauf, alle Proto-Targets neu,
+      `go build` mit `-p 2` je Paketgruppe). Bricht: jeden offenen Branch und jeden
+      Nachtlauf-Stand, der nicht vorher gemergt ist; die `-ldflags` STILL (falscher Pfad = leere
+      Version in `/health`, kein Build-Fehler) - `/health` nach dem Deploy pruefen.
+      Kein Nutzen fuer Kunden: der Modulpfad ist nirgends sichtbar.
+    notes: >
+      Ziel waere z. B. github.com/zentria/cosmi. Der Pfad muss nicht aufloesbar sein (privates
+      Modul, kein go get von aussen), aber eindeutig. Nicht mit der Infrastruktur-Unit koppeln.
+    done_when:
+      - Entscheidung (ja/nein, Zielpfad, Zeitpunkt) mit Datum in dieser Unit
+
+  - id: decide-rename-infrastructure-and-contract-identifiers-kmuhub
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      GESPERRT bis es einen eigenen Plan mit Backup und Rollback gibt (Entscheidung Luke
+      2026-08-24). Jede Gruppe hier ist produktions- oder vertragsgebunden; ein Umbenennen ohne
+      Datenmigration bricht Login, Speicher oder Integrationen.
+    target: "Eigener Plan mit Backup/Rollback, Entscheidung Luke je Gruppe"
+    scope: >
+      Inventur Iteration 57 (2026-10-21), gruppiert nach dem, was ein Umbenennen bricht:
+      (1) DB-ROLLEN UND -NAME: `kmuhub`/`kmuhub_app`, DB `kmuhub` - `internal/config/config.go:13`
+      (Default-DSN), `internal/testsupport/pgtc/pgtc.go:45-93`, Migrationen 000118/000121/000315
+      (Kommentare und GRANTs - ausgerollt, nie anfassen), `.github/` (26x `kmuhub_test`),
+      `deploy/` (119x `kmuhub`, 14x `kmuhub_app`, 6x `KMUHUB_APP_DB_PASSWORD`). Bricht: jede
+      Verbindung und RLS (Grants haengen an der Rolle).
+      (2) SPEICHER: MinIO-Bucket `kmuhub-files` (`config.go:205`, 11x in `deploy/`), Access-Key
+      `kmuhub` (`config.go:203`, `:297`), Volume `docker_pgdata`, Pfad `/opt/kmuhub/`,
+      Backup-Ziele `kmuhub-backup(s)`, Firewall `kmuhub-fw` (9x). Bricht: alle gespeicherten
+      Dateien und Backups.
+      (3) DATENMODELL + WIRE: Spalten `kmuhub_id`, `kmuhub_updated_at` (Bexio/Lexware-Mappings,
+      Migrationen 000055/000056), `kmuhub_field` (Feld-Mappings), `kmuhub_user_id`
+      (`integration_account_links`, 000053) - und dieselben Namen als JSON in
+      `internal/models/bexio.go:35-58`, `internal/models/lexware.go:31-55`,
+      `internal/notification/integration/types.go:78`, im FE (`bexio-types.ts`,
+      `lexware-types.ts`, `types.ts`, beide FieldMappingEditor) und in `openapi.yaml`. Bricht:
+      FE-Vertrag, braucht Migration plus Dual-Read.
+      (4) EXTERNE VERTRAEGE: Slack-/Teams-Befehl `/kmuhub` (Slack-App-Konfiguration ausserhalb
+      des Repos), Block-Kit-Action-Praefix `kmuhub_` (gepostete Nachrichten tragen ihn),
+      WASM-Host-Modul `"kmuhub"` (`internal/plugin/wasm/hostapi.go:35`, Plugin-ABI; Flag OFF,
+      kein Plugin im Feld - das billigste Fenster ist JETZT, vor dem ersten Plugin).
+      (5) INTERNE KENNUNGEN OHNE PRUEFUNG: JWT-Issuer `"kmuhub"` (`internal/auth/token.go:63`,
+      `:126`) und `"kmuhub-wopi"` (`internal/document/wopi/token.go:52`) - der Parser prueft
+      den Issuer heute nicht (kein `WithIssuer`), ein Wechsel waere gefahrlos, aber ohne Nutzen;
+      nur wer ein Token dekodiert, sieht ihn.
+    notes: >
+      Gruppe (4) WASM und Gruppe (5) gingen ohne Datenmigration; WASM hat ein Zeitfenster (vor
+      dem ersten Plugin). Die Bexio-Spalten sind zusaetzlich G3-gesperrt.
+    done_when:
+      - Je Gruppe (1) bis (5) steht die Entscheidung mit Datum in dieser Unit
+      - Je Ja ist ein Plan mit Backup/Rollback oder eine spitze Unit angelegt
+
+  - id: harden-inbox-message-user-scoping
+    phase: 3
+    service: server
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      Sichtbarkeitsregel fuer Einzelnachrichten ist eine Produktentscheidung (Luke): sichtbar =
+      Eigentuemer ODER zugewiesen ODER Mitglied der Team-Inbox der Nachricht? Ohne Vorgabe wuerde
+      der Fix Team-Inbox-Nachrichten fuer Mitglieder unsichtbar machen.
+    target: "BACKLOG.yml nach Entscheidung Luke"
+    coverage_start: "n.a."
+    scope: >
+      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core). `ListMessages` und
+      `GetUnreadCount` filtern auf `user_id`; alle Einzelnachrichten-RPCs (`GetMessage`,
+      `MarkRead`/`MarkUnread`, `ToggleStar`, `SetMessageStatus`, `Add/RemoveMessageTag`,
+      `Archive`/`Unarchive`, `Snooze`/`Unsnooze`, `ReplyToMessage`, `ForwardMessage`,
+      `ListThreadMessages`, Bulk*) scopen dagegen NUR auf `tenant_id` (`message.Service.GetByID`
+      nimmt keine user_id). Der Gateway reicht `user_id` mit, der Server ignoriert ihn
+      (`GetMessageRequest.user_id` existiert im Proto). Wer die UUID einer Nachricht eines
+      Kollegen kennt, kann sie lesen (Vorschau, Absender, Thread-Text), archivieren, taggen
+      oder als sich selbst beantworten. UUIDs sind nicht ratbar -- das ist Defense-in-Depth,
+      kein offener Cross-Tenant-Zugriff; Cross-Tenant ist durch Tests belegt dicht
+      (`TestInboxMessageRPCs_ForeignTenantSeesNotFound`). Team-Inbox-Nachrichten gehoeren
+      fachlich mehreren Nutzern (Mitglieder, Zugewiesene) -- die Sichtbarkeitsregel ist eine
+      Produktentscheidung.
+    sources:
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/inbox/message/service.go
+      - backend/internal/inbox/message/postgres_repository.go
+    notes: >
+      Vor dem Bauen die Regel festlegen: sichtbar = Eigentuemer ODER zugewiesen ODER Mitglied der
+      Team-Inbox der Nachricht. Wenn Luke das nicht vorgibt: `blocked` mit dieser Frage.
+      Wegen `RequirePermissionAny`-Kompatibilitaet keine Guards anfassen.
+    done_when:
+      - >-
+        Ein Test belegt: Nutzer B (gleicher Tenant, nicht Eigentuemer, nicht Mitglied) bekommt
+        NotFound auf GetMessage/Reply/Archive einer Nachricht von Nutzer A
+      - Team-Mitglied und Zugewiesener behalten Zugriff (Test)
+      - go test -count=1 ./internal/server/ ./internal/inbox/... ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: decide-produktion-capacity-week-bounds-tenant-timezone
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml nach Entscheidung Luke"
+    coverage_start: "n.a."
+    scope: >
+      Rest aus `fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone`. `isoWeekBounds`
+      (`produktion/postgres_repository.go:508`) rechnet Wochengrenzen in `time.UTC`; die
+      Maschinenbuchungen (`timestamptz`) in `GetCapacityOverview` werden gegen UTC-Wochen
+      summiert, eine Buchung Montag 00:30 Ortszeit fällt in die Vorwoche. Im HR-Teil ist das
+      behoben (Zeitzone aus `hr_company_settings.timezone`). Produktion hat KEINEN eigenen
+      Zugriff auf eine Mandanten-Zeitzone: eine Einstellung dort gibt es nicht, `hr_company_settings`
+      gehört dem HR-Modul (Modul-Entkopplung, Graceful Degradation).
+    sources:
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/biz/hr/timetracking/service_timezone.go
+    notes: >
+      Entscheidung Luke: (a) Produktion liest `hr_company_settings.timezone` per Subquery
+      (koppelt an HR, fällt ohne Zeile auf Europe/Berlin), (b) feste Zone Europe/Berlin mit
+      `lean:`-Marker (wie `schichten.jarbschgLocation`), oder (c) eigene Einstellung in der
+      Produktion (Migration). Empfehlung (b) bis ein Mandant außerhalb von Europe/Berlin existiert.
+    done_when:
+      - >-
+        Buchung Montag 00:30 Ortszeit zählt zur Woche, die am Montag beginnt (DB-Test)
+      - >-
+        Mutations-Probe: Zone wieder UTC, der Grenzfall-Test wird rot

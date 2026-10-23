@@ -840,7 +840,9 @@ func (s *Service) CompleteWrapUp(ctx context.Context, tenantID uuid.UUID, sessio
 // ---------------------------------------------------------------------------
 
 // SetAgentStatus updates a dialer agent's status, enforcing the state machine
-// and persisting an audit log entry.
+// and persisting an audit log entry. The agent and a given campaign must both
+// belong to tenantID: the Redis status key and campaign set carry no tenant,
+// so this check is the only boundary on the write path.
 func (s *Service) SetAgentStatus(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -848,6 +850,19 @@ func (s *Service) SetAgentStatus(
 	campaignID *uuid.UUID,
 	tenantID uuid.UUID,
 ) (*AgentStatusEntry, error) {
+	inTenant, err := s.agentRepo.UserInTenant(ctx, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("check agent tenant: %w", err)
+	}
+	if !inTenant {
+		return nil, ErrAgentNotFound
+	}
+	if campaignID != nil {
+		if _, err := s.campaigns.GetByIDForTenant(ctx, *campaignID, tenantID); err != nil {
+			return nil, fmt.Errorf("check agent campaign: %w", err)
+		}
+	}
+
 	if err := s.agentStore.SetStatus(ctx, userID, status, campaignID, tenantID); err != nil {
 		return nil, fmt.Errorf("set agent status: %w", err)
 	}
@@ -889,23 +904,44 @@ func (s *Service) SetAgentStatus(
 	return current, nil
 }
 
-// GetAgentStatus returns the current live status of an agent.
-func (s *Service) GetAgentStatus(ctx context.Context, userID uuid.UUID) (*AgentStatusEntry, error) {
+// visibleAgentEntry hides a live status entry written under another tenant.
+// The Redis keys carry no tenant and Redis has no RLS beneath them, so the
+// tenant stamped into the payload is the only isolation boundary on the read
+// paths. Fails closed: an entry without a tenant (written before the field
+// existed) is treated as absent.
+func visibleAgentEntry(entry *AgentStatusEntry, tenantID uuid.UUID) *AgentStatusEntry {
+	if entry == nil || tenantID == uuid.Nil || entry.TenantID != tenantID {
+		return nil
+	}
+	return entry
+}
+
+// GetAgentStatus returns the current live status of an agent in tenantID.
+// Returns nil for an agent without a status and for one outside the tenant
+// alike, so the answer never confirms that a foreign user ID exists.
+func (s *Service) GetAgentStatus(ctx context.Context, tenantID, userID uuid.UUID) (*AgentStatusEntry, error) {
 	entry, err := s.agentStore.GetStatus(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get agent status: %w", err)
 	}
-	return entry, nil
+	return visibleAgentEntry(entry, tenantID), nil
 }
 
-// GetCampaignAgents returns the live status entries for all agents associated
-// with a campaign.
-func (s *Service) GetCampaignAgents(ctx context.Context, campaignID uuid.UUID) ([]AgentStatusEntry, error) {
+// GetCampaignAgents returns the live status entries in tenantID for all agents
+// associated with a campaign. The filter runs per entry: the campaign set
+// itself carries no tenant, and a member may stem from an earlier assignment.
+func (s *Service) GetCampaignAgents(ctx context.Context, tenantID, campaignID uuid.UUID) ([]AgentStatusEntry, error) {
 	entries, err := s.agentStore.GetCampaignAgents(ctx, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("get campaign agents: %w", err)
 	}
-	return entries, nil
+	visible := make([]AgentStatusEntry, 0, len(entries))
+	for i := range entries {
+		if visibleAgentEntry(&entries[i], tenantID) != nil {
+			visible = append(visible, entries[i])
+		}
+	}
+	return visible, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -1074,6 +1110,7 @@ func (s *Service) GetSupervisorOverview(ctx context.Context, tenantID uuid.UUID)
 			)
 			continue
 		}
+		entry = visibleAgentEntry(entry, tenantID)
 
 		// Fetch today's call count for this agent.
 		callsToday, err := s.calls.GetAgentCallsTodayCount(ctx, id)

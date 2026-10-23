@@ -244,6 +244,12 @@ func parseAgentStatusData(userID uuid.UUID, raw string) (*AgentStatusEntry, erro
 		Status: data.Status,
 		Since:  data.Since,
 	}
+	// A missing or malformed tenant stays uuid.Nil instead of failing the
+	// parse: SetStatus still needs the current status to validate the next
+	// transition, while the read paths treat a Nil tenant as foreign.
+	if tid, err := uuid.Parse(data.TenantID); err == nil {
+		entry.TenantID = tid
+	}
 	if data.CampaignID != "" {
 		cid, err := uuid.Parse(data.CampaignID)
 		if err != nil {

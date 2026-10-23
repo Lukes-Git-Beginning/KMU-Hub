@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -191,6 +192,12 @@ func (r *PostgresBookingRepository) CreatePublicBooking(ctx context.Context, b *
 		b.CustomerPhone, b.Notes, b.Date, b.TimeSlot, b.StaffUserID, b.Status,
 		b.CalendarEventID, b.CreatedAt,
 	)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		// Both unique constraints on public_bookings are slot keys (same customer,
+		// or any customer on an active slot); the public caller learns nothing more.
+		return ErrBookingSlotUnavailable
+	}
 	return err
 }
 

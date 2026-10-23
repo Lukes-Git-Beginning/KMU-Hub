@@ -517,14 +517,14 @@ func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *Frame
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var contractStatus, totalValue string
+	var contractStatus, totalValue, contractCurrency string
 	err = tx.QueryRow(ctx,
-		`SELECT status, total_value::text
+		`SELECT status, total_value::text, currency
 		 FROM framework_contracts
 		 WHERE id = $1 AND tenant_id = $2
 		 FOR UPDATE`,
 		call.ContractID, call.TenantID,
-	).Scan(&contractStatus, &totalValue)
+	).Scan(&contractStatus, &totalValue, &contractCurrency)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrContractNotFound
 	}
@@ -533,6 +533,15 @@ func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *Frame
 	}
 	if contractStatus != string(ContractStatusActive) {
 		return fmt.Errorf("contract is in status %q: %w", contractStatus, ErrContractNotActive)
+	}
+
+	// The contract is the source of the currency: an empty call-off currency
+	// takes it, a different one is refused. The remaining-value check below
+	// sums raw amounts, which is only meaningful within one currency.
+	if call.Currency == "" {
+		call.Currency = contractCurrency
+	} else if !strings.EqualFold(call.Currency, contractCurrency) {
+		return fmt.Errorf("call-off in %s, contract in %s: %w", call.Currency, contractCurrency, ErrContractCurrencyMismatch)
 	}
 
 	// Comparison and remaining value are computed by Postgres in numeric, not

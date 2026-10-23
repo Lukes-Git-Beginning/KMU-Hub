@@ -759,6 +759,8 @@ func mapVermietungError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, vermietung.ErrInvalidStateTransition):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, vermietung.ErrAlreadySigned), errors.Is(err, vermietung.ErrObjectHasOpenRentals):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, vermietung.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:

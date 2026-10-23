@@ -1754,6 +1754,9 @@ func TestMapEinkaufError_Table(t *testing.T) {
 		{"contract item not found", einkauf.ErrContractItemNotFound, codes.NotFound},
 		{"contract nr taken", einkauf.ErrContractNrTaken, codes.AlreadyExists},
 		{"contract call not found", einkauf.ErrContractCallNotFound, codes.NotFound},
+		{"contract not active", einkauf.ErrContractNotActive, codes.FailedPrecondition},
+		{"contract budget exceeded", einkauf.ErrContractBudgetExceeded, codes.FailedPrecondition},
+		{"contract currency mismatch", einkauf.ErrContractCurrencyMismatch, codes.FailedPrecondition},
 		{"unmapped error falls through to Internal", assertUnmappedErr, codes.Internal},
 	}
 

@@ -444,6 +444,30 @@ func TestRemoveWorker_RemovesRowAndRejectsUnknownID(t *testing.T) {
 	}
 }
 
+func TestAddWorker_RejectsReportIDFromAnotherTenant(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctxA, tenantA := setupRapporteRepo(t)
+	tenantB := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantB, "Rapporte Repo Test Tenant B")
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+	reportB := newTestReport(t, repo, ctxB, pool, tenantB, "Bericht Tenant B", StatusDraft)
+
+	if _, err := repo.AddWorker(ctxA, tenantA, reportB.ID, "Eindringling", "Elektriker", 8); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for a report owned by another tenant, got %v", err)
+	}
+	workers, err := repo.ListWorkers(ctxB, tenantB, reportB.ID)
+	if err != nil {
+		t.Fatalf("ListWorkers (tenant B): %v", err)
+	}
+	if len(workers) != 0 {
+		t.Fatalf("expected tenant B's report to stay without workers, got %+v", workers)
+	}
+
+	if _, err := repo.AddWorker(ctxA, tenantA, uuid.New(), "Unbekannt", "", 0); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for an unknown report, got %v", err)
+	}
+}
+
 // ============================================================================
 // Measurements
 // ============================================================================
@@ -708,6 +732,46 @@ func TestAddMeasurementPosition_RejectsMeasurementIDFromAnotherTenant(t *testing
 	}
 }
 
+func TestCreateMeasurement_ReportIDMustBelongToCallerTenant(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctxA, tenantA := setupRapporteRepo(t)
+	tenantB := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantB, "Rapporte Repo Test Tenant B")
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
+	reportB := newTestReport(t, repo, ctxB, pool, tenantB, "Bericht Tenant B", StatusDraft)
+	reportA := newTestReport(t, repo, ctxA, pool, tenantA, "Bericht Tenant A", StatusDraft)
+
+	if _, err := repo.CreateMeasurement(ctxA, tenantA, &reportB.ID, "Fremdes Aufmass", "", "", "", ""); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for a report owned by another tenant, got %v", err)
+	}
+	unknown := uuid.New()
+	if _, err := repo.CreateMeasurement(ctxA, tenantA, &unknown, "Unbekannt", "", "", "", ""); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for an unknown report, got %v", err)
+	}
+	foreign, _, err := repo.ListMeasurements(ctxB, tenantB, &reportB.ID, 1, 50)
+	if err != nil {
+		t.Fatalf("ListMeasurements (tenant B): %v", err)
+	}
+	if len(foreign) != 0 {
+		t.Fatalf("expected tenant B's report to stay without measurements, got %d", len(foreign))
+	}
+
+	// Own report and a missing report_id (nil) are still accepted.
+	own, err := repo.CreateMeasurement(ctxA, tenantA, &reportA.ID, "Eigenes Aufmass", "Halle 1", "", "2026-10-20", "")
+	if err != nil {
+		t.Fatalf("CreateMeasurement with own report: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurements", own.ID) })
+	free, err := repo.CreateMeasurement(ctxA, tenantA, nil, "Freies Aufmass", "", "", "", "")
+	if err != nil {
+		t.Fatalf("CreateMeasurement without report_id: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurements", free.ID) })
+	if free.ReportID != nil {
+		t.Fatalf("expected nil report_id to stay nil, got %v", free.ReportID)
+	}
+}
+
 // ============================================================================
 // Templates
 // ============================================================================
@@ -850,17 +914,12 @@ func TestDeleteTemplate_RemovesRowAndRejectsDoubleDelete(t *testing.T) {
 // Signatures
 // ============================================================================
 
-// TestSaveSignature_OverwritesExistingSignatureWithoutGuard documents a
-// VERIFIED finding against the real schema: SaveSignature's UPDATE
-// (postgres_repository.go:911) has no "AND signature_data IS NULL" clause
-// and no report-status check, so a report that already carries a signature
-// silently accepts and persists a second one — signed_at/signed_by/
-// signature_data are all overwritten, with no trace of the original left
-// anywhere in work_reports. A signature is meant to be evidence of a fixed
-// state (see the scope note in cov-gateway-rapporte-lines-attachments-export);
-// as built, it is mutable indefinitely. Filed as its own fix-unit (not
-// fixed here — a coverage unit changes no behaviour).
-func TestSaveSignature_OverwritesExistingSignatureWithoutGuard(t *testing.T) {
+// TestSaveSignature_ExistingSignatureIsNotOverwritten pins the immutability of a
+// saved signature: it is evidence of a fixed state, so a second SaveSignature on
+// the same report is refused with ErrAlreadySigned and the first signer, data
+// and timestamp survive untouched. A report that does not exist (or belongs to
+// another tenant) must still report ErrReportNotFound, not ErrAlreadySigned.
+func TestSaveSignature_ExistingSignatureIsNotOverwritten(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupRapporteRepo(t)
 	report := newTestReport(t, repo, ctx, pool, tenantID, "Baustelle Signatur", StatusApproved)
@@ -872,27 +931,30 @@ func TestSaveSignature_OverwritesExistingSignatureWithoutGuard(t *testing.T) {
 	if first.SignedBy == nil || *first.SignedBy != "Max Mustermann" {
 		t.Fatalf("expected first signature persisted, got %+v", first)
 	}
-	firstSignedAt := *first.SignedAt
 
-	second, err := repo.SaveSignature(ctx, tenantID, report.ID, "data:image/png;base64,secondSignatureReplacingTheFirst", "Erika Musterfrau")
-	if err != nil {
-		t.Fatalf("expected the re-sign to currently SUCCEED (documenting the gap), got error: %v", err)
-	}
-	if second.SignedBy == nil || *second.SignedBy != "Erika Musterfrau" {
-		t.Fatalf("expected the second signer to have overwritten the first, got %+v", second)
-	}
-	if second.SignatureData == nil || *second.SignatureData != "data:image/png;base64,secondSignatureReplacingTheFirst" {
-		t.Fatalf("expected the second signature_data to have overwritten the first, got %+v", second.SignatureData)
-	}
-	if !second.SignedAt.After(firstSignedAt) {
-		t.Fatalf("expected signed_at to have advanced past the first signature, first=%v second=%v", firstSignedAt, *second.SignedAt)
+	_, err = repo.SaveSignature(ctx, tenantID, report.ID, "data:image/png;base64,secondSignatureReplacingTheFirst", "Erika Musterfrau")
+	if !errors.Is(err, ErrAlreadySigned) {
+		t.Fatalf("expected ErrAlreadySigned on re-sign, got %v", err)
 	}
 
 	reloaded, err := repo.GetReport(ctx, tenantID, report.ID)
 	if err != nil {
 		t.Fatalf("GetReport: %v", err)
 	}
-	if reloaded.SignedBy == nil || *reloaded.SignedBy != "Erika Musterfrau" {
-		t.Fatalf("expected the persisted row to show the second signer with no trace of the first, got %+v", reloaded.SignedBy)
+	if reloaded.SignedBy == nil || *reloaded.SignedBy != "Max Mustermann" {
+		t.Fatalf("expected the first signer to survive, got %+v", reloaded.SignedBy)
+	}
+	if reloaded.SignatureData == nil || *reloaded.SignatureData != "data:image/png;base64,firstSignature" {
+		t.Fatalf("expected the first signature_data to survive, got %+v", reloaded.SignatureData)
+	}
+	if reloaded.SignedAt == nil || !reloaded.SignedAt.Equal(*first.SignedAt) {
+		t.Fatalf("expected signed_at unchanged, first=%v reloaded=%v", first.SignedAt, reloaded.SignedAt)
+	}
+
+	if _, err := repo.SaveSignature(ctx, tenantID, uuid.New(), "data:image/png;base64,x", "Nobody"); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound for an unknown report, got %v", err)
+	}
+	if _, err := repo.SaveSignature(ctx, uuid.New(), report.ID, "data:image/png;base64,x", "Other Tenant"); !errors.Is(err, ErrReportNotFound) {
+		t.Fatalf("expected ErrReportNotFound across tenants, got %v", err)
 	}
 }

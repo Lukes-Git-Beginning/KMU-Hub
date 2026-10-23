@@ -174,6 +174,7 @@ func main() {
 		}
 		return securityv1.NewSecurityServiceClient(conn), nil
 	})
+	auditLogger.SetMetrics(metricsRegistry)
 	auditLogger.Start(10)
 	defer auditLogger.Close()
 	r.Use(auditLogger.Middleware)
@@ -362,6 +363,7 @@ func main() {
 
 	// Guest routes (public, no auth middleware)
 	guestRoutes := gateway.NewGuestRoutes(guestService, registry)
+	guestRoutes.SetIdempotency(idempotencyRepo)
 	guestRoutes.RegisterPublicRoutes(r)
 	slog.Info("routes registered", "service", "guest")
 
@@ -454,6 +456,7 @@ func main() {
 
 		// File upload handler (multipart/form-data, not gRPC)
 		fileUploadHandler := server.NewFileUploadHandler(fileService, wsHub)
+		fileUploadHandler.SetIdempotency(idempotencyRepo)
 		r.With(authMiddleware).
 			With(middleware.RequirePermission("files", "write")).
 			Post("/api/v1/files/upload", fileUploadHandler.HandleUploadFile)

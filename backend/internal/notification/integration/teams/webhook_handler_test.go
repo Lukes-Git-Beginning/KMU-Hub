@@ -212,7 +212,7 @@ func TestHandleInvoke_UnsupportedActionRunsNothing(t *testing.T) {
 			resp := h.handleInvoke(context.Background(), incoming)
 
 			require.Equal(t, http.StatusOK, resp.StatusCode)
-			require.Contains(t, decodeInvokeText(t, resp), "noch nicht ausgefuehrt")
+			require.Contains(t, decodeInvokeText(t, resp), "noch nicht ausgeführt")
 			require.Equal(t, 0, acks.calls)
 		})
 	}
@@ -298,7 +298,7 @@ func TestHandleMessage_UnknownCommandListsAvailableCommands(t *testing.T) {
 	resp := h.handleMessage(context.Background(), incoming)
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Contains(t, decodeMessageText(t, resp), "Verfuegbare Befehle")
+	require.Contains(t, decodeMessageText(t, resp), "Verfügbare Befehle")
 }
 
 func TestHandleMessage_LinkCommand_UnresolvedTenant(t *testing.T) {
@@ -325,7 +325,7 @@ func TestHandleMessage_LinkCommand_TokenGenerationFailureIsHonest(t *testing.T) 
 	resp := h.handleMessage(context.Background(), incoming)
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Contains(t, decodeMessageText(t, resp), "Fehler beim Erstellen des Verknuepfungstokens")
+	require.Contains(t, decodeMessageText(t, resp), "Fehler beim Erstellen des Verknüpfungstokens")
 }
 
 func TestHandleMessage_LinkCommand_SuccessReturnsToken(t *testing.T) {
@@ -340,6 +340,8 @@ func TestHandleMessage_LinkCommand_SuccessReturnsToken(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	text := decodeMessageText(t, resp)
-	require.Contains(t, text, "Verknuepfungstoken")
-	require.Contains(t, text, "Einstellungen > Integrationen > Konto verknuepfen")
+	require.Contains(t, text, "Verknüpfungstoken")
+	require.Contains(t, text, "Einstellungen > Integrationen > Konto verknüpfen")
+	require.Contains(t, text, "in Cosmi unter")
+	require.NotContains(t, text, "KMU Hub")
 }

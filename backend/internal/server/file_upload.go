@@ -2,11 +2,13 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/chat/file"
+	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -16,6 +18,7 @@ import (
 type FileUploadHandler struct {
 	fileService *file.Service
 	wsHub       *WebSocketHub
+	idempotency idempotency.Repository
 }
 
 // NewFileUploadHandler creates a new file upload handler
@@ -26,12 +29,22 @@ func NewFileUploadHandler(fileService *file.Service, wsHub *WebSocketHub) *FileU
 	}
 }
 
+// SetIdempotency enables retry deduplication via the optional Idempotency-Key
+// header. The generic Idempotency middleware cannot guard this route: it reads
+// the whole body into memory to hash it, and uploads go up to maxUploadSize.
+func (h *FileUploadHandler) SetIdempotency(repo idempotency.Repository) {
+	h.idempotency = repo
+}
+
 // maxUploadSize is the maximum request body size for file uploads (55 MB to allow overhead)
 const maxUploadSize = 55 << 20
 
 // HandleUploadFile handles multipart file upload
 // POST /api/v1/files/upload
 // Form fields: file (required), channel_id (required), message_id (optional)
+// Header: Idempotency-Key (optional). A retry with the same key and the same
+// channel/message/filename/size replays the first response instead of storing
+// the file twice; the same key with a different upload is rejected with 422.
 func (h *FileUploadHandler) HandleUploadFile(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -83,6 +96,15 @@ func (h *FileUploadHandler) HandleUploadFile(w http.ResponseWriter, r *http.Requ
 		response.Error(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
+
+	// The body has been parsed once already, so the fingerprint comes from the
+	// parsed parts and the content is never read a second time.
+	w, done, ok := middleware.BeginIdempotent(h.idempotency, w, r,
+		fmt.Sprintf("%s|%s|%s|%d", channelID, uuidPtrToString(messageID), header.Filename, header.Size))
+	if !ok {
+		return
+	}
+	defer done()
 
 	input := file.UploadInput{
 		ChannelID: channelID,

@@ -227,3 +227,67 @@ func TestService_CreateShareToken_TokenEntropy(t *testing.T) {
 	assert.NotEqual(t, first.Token, second.Token)
 	assert.Equal(t, []string{sharePermissionRead}, first.Permissions)
 }
+
+func TestService_CreateShareToken_RejectsInvalidParameters(t *testing.T) {
+	past := time.Now().Add(-time.Minute)
+	future := time.Now().Add(time.Hour)
+
+	cases := []struct {
+		name        string
+		expiresAt   *time.Time
+		permissions []string
+	}{
+		{"expiry in the past", &past, nil},
+		{"unknown permission", &future, []string{"write"}},
+		{"read mixed with unknown permission", nil, []string{"read", "admin"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newMockRepository()
+			svc := NewService(repo)
+			article := addArticle(repo, uuid.New(), "Handbuch", "handbuch", true)
+
+			_, err := svc.CreateShareToken(context.Background(), CreateShareTokenInput{
+				TenantID: article.TenantID, ArticleID: article.ID,
+				ExpiresAt: tc.expiresAt, Permissions: tc.permissions,
+			})
+
+			require.ErrorIs(t, err, ErrInvalidShareLink)
+			assert.Empty(t, repo.tokens, "a refused link must not be stored")
+		})
+	}
+}
+
+func TestService_CreateShareToken_AcceptsFutureExpiryAndReadPermission(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	article := addArticle(repo, uuid.New(), "Handbuch", "handbuch", true)
+	future := time.Now().Add(time.Hour)
+
+	token, err := svc.CreateShareToken(context.Background(), CreateShareTokenInput{
+		TenantID: article.TenantID, ArticleID: article.ID,
+		ExpiresAt: &future, Permissions: []string{"read"},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{sharePermissionRead}, token.Permissions)
+	require.NotNil(t, token.ExpiresAt)
+}
+
+
+// The desktop share dialog sends ["read","public"] for a public link; the
+// marker must survive so the token list can show the link as public.
+func TestService_CreateShareToken_KeepsPublicMarker(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	article := addArticle(repo, uuid.New(), "Handbuch", "handbuch", true)
+
+	token, err := svc.CreateShareToken(context.Background(), CreateShareTokenInput{
+		TenantID: article.TenantID, ArticleID: article.ID,
+		Permissions: []string{"read", "public"},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{sharePermissionRead, sharePermissionPublic}, token.Permissions)
+	assert.True(t, token.grants(sharePermissionRead))
+}

@@ -78,7 +78,7 @@ func TestSubmitByShareToken_TwoTenantsRedemptionStaysScoped(t *testing.T) {
 	// slipped tenant scope, this is where tenant B's link or a phantom
 	// submission in tenant B would get touched instead of (or alongside) A's.
 	const submitIP = "203.0.113.7"
-	subA, err := svc.SubmitByShareToken(context.Background(), linkA.Token, []byte(`{"f1":"a"}`), submitIP)
+	subA, err := svc.SubmitByShareToken(context.Background(), linkA.Token, []byte(`{"f1":"a"}`), submitIP, "")
 	if err != nil {
 		t.Fatalf("SubmitByShareToken (A): %v", err)
 	}
@@ -114,7 +114,7 @@ func TestSubmitByShareToken_TwoTenantsRedemptionStaysScoped(t *testing.T) {
 		t.Fatalf("tenant B's link was touched by tenant A's redemption: %#v", linksB)
 	}
 
-	subB, err := svc.SubmitByShareToken(context.Background(), linkB.Token, []byte(`{"f1":"b"}`), "")
+	subB, err := svc.SubmitByShareToken(context.Background(), linkB.Token, []byte(`{"f1":"b"}`), "", "")
 	if err != nil {
 		t.Fatalf("SubmitByShareToken (B): %v", err)
 	}

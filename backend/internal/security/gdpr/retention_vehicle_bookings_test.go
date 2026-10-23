@@ -60,8 +60,12 @@ func TestVehicleBookingRetentionHandler_PlanOnlyMatchesPastEndsAtAndIsTenantScop
 	defer testutil.CleanupRow(t, pool, "vehicle_bookings", finishedFresh)
 
 	// Still running booking, old start but no end past the cutoff — must
-	// never be Due, ends_at is the gate, not starts_at.
-	ongoing := seedVehicleBooking(t, pool, tenantID, vehicleID, userID, now.AddDate(0, 0, -400), now.AddDate(1, 0, 0))
+	// never be Due, ends_at is the gate, not starts_at. Own vehicle: its
+	// range overlaps the two bookings above, which vehicle_bookings_no_overlap
+	// rejects on a shared vehicle.
+	ongoingVehicleID := seedRetentionVehicle(t, pool, tenantID)
+	defer testutil.CleanupRow(t, pool, "vehicles", ongoingVehicleID)
+	ongoing := seedVehicleBooking(t, pool, tenantID, ongoingVehicleID, userID, now.AddDate(0, 0, -400), now.AddDate(1, 0, 0))
 	defer testutil.CleanupRow(t, pool, "vehicle_bookings", ongoing)
 
 	// Another tenant's finished-and-old booking must never leak into this

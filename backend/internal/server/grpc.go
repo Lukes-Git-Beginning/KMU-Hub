@@ -83,6 +83,12 @@ func (s *AuthGRPCServer) Register(ctx context.Context, req *authv1.RegisterReque
 func (s *AuthGRPCServer) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
 	result, err := s.authService.Login(ctx, req.Email, req.Password)
 	if err != nil {
+		// A deactivated account must read exactly like an unknown address or a
+		// wrong password (no account enumeration). Service.Login already logged
+		// the real reason. Only here, not in mapError: other RPCs share that.
+		if errors.Is(err, auth.ErrUserInactive) {
+			err = auth.ErrInvalidCredentials
+		}
 		return nil, mapError(err)
 	}
 

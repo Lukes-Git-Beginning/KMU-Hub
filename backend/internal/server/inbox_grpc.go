@@ -836,6 +836,16 @@ func (s *InboxGRPCServer) ListTeamInboxes(ctx context.Context, req *inboxv1.List
 }
 
 func (s *InboxGRPCServer) AddTeamMember(ctx context.Context, req *inboxv1.AddTeamMemberRequest) (*inboxv1.AddTeamMemberResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	actorID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
 	teamInboxID, err := uuid.Parse(req.TeamInboxId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
@@ -852,7 +862,7 @@ func (s *InboxGRPCServer) AddTeamMember(ctx context.Context, req *inboxv1.AddTea
 		Role:        teamMemberRoleToString(req.Role),
 	}
 
-	if err := s.teamService.AddMember(ctx, member); err != nil {
+	if err := s.teamService.AddMember(ctx, tenantID, actorID, member); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -862,6 +872,16 @@ func (s *InboxGRPCServer) AddTeamMember(ctx context.Context, req *inboxv1.AddTea
 }
 
 func (s *InboxGRPCServer) RemoveTeamMember(ctx context.Context, req *inboxv1.RemoveTeamMemberRequest) (*inboxv1.RemoveTeamMemberResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	actorID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
 	teamInboxID, err := uuid.Parse(req.TeamInboxId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
@@ -872,7 +892,7 @@ func (s *InboxGRPCServer) RemoveTeamMember(ctx context.Context, req *inboxv1.Rem
 		return nil, status.Error(codes.InvalidArgument, "invalid member_user_id")
 	}
 
-	if err := s.teamService.RemoveMember(ctx, teamInboxID, memberUserID); err != nil {
+	if err := s.teamService.RemoveMember(ctx, tenantID, teamInboxID, actorID, memberUserID); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -880,12 +900,22 @@ func (s *InboxGRPCServer) RemoveTeamMember(ctx context.Context, req *inboxv1.Rem
 }
 
 func (s *InboxGRPCServer) ListTeamMembers(ctx context.Context, req *inboxv1.ListTeamMembersRequest) (*inboxv1.ListTeamMembersResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	actorID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
 	teamInboxID, err := uuid.Parse(req.TeamInboxId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
 	}
 
-	members, err := s.teamService.ListMembers(ctx, teamInboxID)
+	members, err := s.teamService.ListMembers(ctx, tenantID, teamInboxID, actorID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -961,16 +991,13 @@ func (s *InboxGRPCServer) CreateRoutingRule(ctx context.Context, req *inboxv1.Cr
 		return nil, status.Error(codes.InvalidArgument, "invalid conditions")
 	}
 
-	actionsJSON, err := structToJSON(req.Actions)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid actions")
-	}
-
+	// Actions are a JSON array of {type, config}; a missing list stays empty and is
+	// rejected by routing.validateActions.
 	rule := &models.RoutingRule{
 		TenantID:   tenantID,
 		Name:       req.Name,
 		Conditions: conditionsJSON,
-		Actions:    actionsJSON,
+		Actions:    automationListToJSON(req.Actions),
 		Priority:   int(req.Priority),
 		IsActive:   true,
 		CreatedBy:  userID,
@@ -1021,11 +1048,7 @@ func (s *InboxGRPCServer) UpdateRoutingRule(ctx context.Context, req *inboxv1.Up
 		existing.Conditions = conditionsJSON
 	}
 	if req.Actions != nil {
-		actionsJSON, jsonErr := structToJSON(req.Actions)
-		if jsonErr != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid actions")
-		}
-		existing.Actions = actionsJSON
+		existing.Actions = automationListToJSON(req.Actions)
 	}
 	if req.Priority != nil {
 		existing.Priority = int(*req.Priority)
@@ -1206,12 +1229,8 @@ func toRoutingRuleInfo(r *models.RoutingRule) *inboxv1.RoutingRuleInfo {
 		}
 	}
 
-	// Convert actions JSON to Struct (wrap in a Struct with "actions" key)
-	if r.Actions != nil {
-		if st, err := jsonToStruct(r.Actions); err == nil {
-			info.Actions = st
-		}
-	}
+	// Actions are stored as a JSON array and travel as a ListValue.
+	info.Actions = automationJSONToList(r.Actions)
 
 	return info
 }

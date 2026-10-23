@@ -662,6 +662,8 @@ func mapEinkaufError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, einkauf.ErrContractBudgetExceeded):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, einkauf.ErrContractCurrencyMismatch):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled einkauf service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

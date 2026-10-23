@@ -50,31 +50,52 @@ func TestNewService_Disabled_AllEmpty(t *testing.T) {
 
 func TestGenerateRoomName(t *testing.T) {
 	svc := NewService("", "", "")
+	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	eventID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 
-	name := svc.GenerateRoomName(eventID)
-	if name != "cal-550e8400" {
-		t.Errorf("room name = %q, want %q", name, "cal-550e8400")
+	name := svc.GenerateRoomName(tenantID, eventID)
+	if name != RoomName(tenantID, eventID) {
+		t.Errorf("GenerateRoomName = %q, want RoomName = %q", name, RoomName(tenantID, eventID))
+	}
+	// "cal-" + 32 hex chars (128 bits), no raw ID fragment.
+	if len(name) != 4+32 || name[:4] != "cal-" {
+		t.Errorf("room name = %q, want cal- + 32 hex chars", name)
+	}
+	if name == "cal-550e8400" {
+		t.Error("room name must not be the legacy 8-char event prefix")
+	}
+	if name != svc.GenerateRoomName(tenantID, eventID) {
+		t.Error("room name must be deterministic")
 	}
 }
 
-func TestGenerateRoomName_DifferentIDs(t *testing.T) {
-	svc := NewService("", "", "")
-
+func TestGenerateRoomName_DifferentEvents(t *testing.T) {
+	tenantID := uuid.New()
 	id1 := uuid.MustParse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
 	id2 := uuid.MustParse("11111111-2222-3333-4444-555555555555")
 
-	name1 := svc.GenerateRoomName(id1)
-	name2 := svc.GenerateRoomName(id2)
-
-	if name1 == name2 {
+	if RoomName(tenantID, id1) == RoomName(tenantID, id2) {
 		t.Error("different event IDs should produce different room names")
 	}
-	if name1 != "cal-aaaaaaaa" {
-		t.Errorf("name1 = %q, want %q", name1, "cal-aaaaaaaa")
+}
+
+// Two events whose first eight hex chars agree (the old truncation) must not
+// share a room across tenants -- nor within one tenant.
+func TestRoomName_SameEventPrefixDifferentTenants(t *testing.T) {
+	tenantA := uuid.MustParse("aaaaaaaa-0000-0000-0000-000000000001")
+	tenantB := uuid.MustParse("bbbbbbbb-0000-0000-0000-000000000002")
+	eventA := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	eventB := uuid.MustParse("550e8400-0000-0000-0000-000000000000")
+
+	if RoomName(tenantA, eventA) == RoomName(tenantB, eventB) {
+		t.Error("events with an equal 8-char prefix in different tenants share a room name")
 	}
-	if name2 != "cal-11111111" {
-		t.Errorf("name2 = %q, want %q", name2, "cal-11111111")
+	if RoomName(tenantA, eventA) == RoomName(tenantA, eventB) {
+		t.Error("events with an equal 8-char prefix in one tenant share a room name")
+	}
+	// Even the very same event ID in two tenants must land in separate rooms.
+	if RoomName(tenantA, eventA) == RoomName(tenantB, eventA) {
+		t.Error("same event ID in different tenants shares a room name")
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/inbox/adapter"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/safego"
 )
 
 // Service handles inbox message business logic including CRUD, snooze,
@@ -251,36 +252,45 @@ func (s *Service) StartSnoozeWorker(ctx context.Context, interval time.Duration)
 				slog.Info("inbox snooze worker stopped")
 				return
 			case <-ticker.C:
-				count, err := s.repo.UnsnoozeExpired(ctx)
-				if err != nil {
-					slog.Error("snooze worker: failed to unsnooze expired items",
-						"error", err,
-					)
-					continue
-				}
-				if count > 0 {
-					slog.Info("snooze worker: unsnoozed expired items",
-						"count", count,
-					)
-
-					// Emit notification so gateway can push WebSocket updates
-					payload := struct {
-						Type  string `json:"type"`
-						Count int    `json:"count"`
-					}{
-						Type:  "inbox.snooze.expired",
-						Count: count,
-					}
-					data, err := json.Marshal(payload)
-					if err == nil {
-						if err := s.repo.NotifyDelivery(ctx, string(data)); err != nil {
-							slog.Warn("snooze worker: failed to send delivery notification",
-								"error", err,
-							)
-						}
-					}
-				}
+				// A panic in one tick is recovered by safego; the loop keeps running.
+				safego.Do("inbox snooze tick", func() { s.unsnoozeTick(ctx) })
 			}
 		}
 	}()
+}
+
+// unsnoozeTick is one pass of the snooze worker: un-snooze expired items and,
+// if any, emit the delivery notification the gateway turns into a WS push.
+func (s *Service) unsnoozeTick(ctx context.Context) {
+	count, err := s.repo.UnsnoozeExpired(ctx)
+	if err != nil {
+		slog.Error("snooze worker: failed to unsnooze expired items",
+			"error", err,
+		)
+		return
+	}
+	if count == 0 {
+		return
+	}
+	slog.Info("snooze worker: unsnoozed expired items",
+		"count", count,
+	)
+
+	// Emit notification so gateway can push WebSocket updates
+	payload := struct {
+		Type  string `json:"type"`
+		Count int    `json:"count"`
+	}{
+		Type:  "inbox.snooze.expired",
+		Count: count,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	if err := s.repo.NotifyDelivery(ctx, string(data)); err != nil {
+		slog.Warn("snooze worker: failed to send delivery notification",
+			"error", err,
+		)
+	}
 }

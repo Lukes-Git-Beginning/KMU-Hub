@@ -10,6 +10,10 @@ package recording
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -263,15 +267,122 @@ func TestFailRecordingByEgressID_UnknownEgressID(t *testing.T) {
 // ============================================================================
 // CleanupExpiredRecording (single) — admin/cron endpoint.
 //
-// This does NOT assert any MinIO object deletion: unlike the bulk
-// CleanupExpiredRecordings (service.go:396), the single-recording path never
-// calls s.objectStore()/RemoveObject at all before deleting the DB row -- a
-// real gap flagged as fix-cleanup-single-recording-orphans-minio-object in
-// BACKLOG.yml. Asserting the current (missing) deletion here would either
-// pin the bug as "correct" or silently start failing the moment it is fixed;
-// the mockRepo also has no object-store double to assert against. This test
-// only locks the retention-gate and not-found behavior that IS the contract.
+// Storage deletion is asserted against fakeS3, a real *minio.Client talking to
+// an httptest server, so the request the service sends is the one MinIO sees.
 // ============================================================================
+
+// fakeS3 records DELETE requests; failDeletes answers them with AccessDenied
+// (a non-retried S3 error) to exercise the best-effort path.
+type fakeS3 struct {
+	mu          sync.Mutex
+	deletes     []string
+	failDeletes bool
+}
+
+func newFakeS3(t *testing.T) (*fakeS3, S3Config) {
+	t.Helper()
+	f := &fakeS3{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := r.URL.Query()["location"]; ok {
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?><LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">us-east-1</LocationConstraint>`))
+			return
+		}
+		if r.Method != http.MethodDelete {
+			w.WriteHeader(http.StatusNotImplemented)
+			return
+		}
+		f.mu.Lock()
+		f.deletes = append(f.deletes, r.URL.Path)
+		fail := f.failDeletes
+		f.mu.Unlock()
+		if fail {
+			w.Header().Set("Content-Type", "application/xml")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?><Error><Code>AccessDenied</Code><Message>denied</Message></Error>`))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	return f, S3Config{
+		Endpoint:  strings.TrimPrefix(srv.URL, "http://"),
+		AccessKey: "test",
+		Secret:    "testsecret",
+		Bucket:    "recordings",
+	}
+}
+
+func (f *fakeS3) deletedPaths() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.deletes...)
+}
+
+func TestCleanupExpiredRecording_RemovesStoredObjectBeforeRow(t *testing.T) {
+	store, cfg := newFakeS3(t)
+	repo := newMockRepo()
+	svc := NewService(repo, nil, "", cfg)
+
+	id := uuid.New()
+	past := time.Now().Add(-time.Hour)
+	fileURL := "http://" + cfg.Endpoint + "/recordings/2026/rec.mp4"
+	repo.recordings[id] = &Recording{ID: id, Status: RecordingStatusCompleted, RetentionExpiresAt: &past, FileURL: &fileURL}
+
+	require.NoError(t, svc.CleanupExpiredRecording(context.Background(), id))
+
+	assert.Equal(t, []string{"/recordings/2026/rec.mp4"}, store.deletedPaths())
+	_, stillThere := repo.recordings[id]
+	assert.False(t, stillThere)
+}
+
+func TestCleanupExpiredRecording_ObjectDeleteFailureStillDeletesRow(t *testing.T) {
+	store, cfg := newFakeS3(t)
+	store.failDeletes = true
+	repo := newMockRepo()
+	svc := NewService(repo, nil, "", cfg)
+
+	id := uuid.New()
+	past := time.Now().Add(-time.Hour)
+	fileURL := "recordings/rec.mp4"
+	repo.recordings[id] = &Recording{ID: id, Status: RecordingStatusCompleted, RetentionExpiresAt: &past, FileURL: &fileURL}
+
+	require.NoError(t, svc.CleanupExpiredRecording(context.Background(), id))
+
+	assert.Equal(t, []string{"/recordings/rec.mp4"}, store.deletedPaths(), "the delete must have been attempted")
+	_, stillThere := repo.recordings[id]
+	assert.False(t, stillThere, "a failed object delete must not block the DB delete")
+}
+
+func TestCleanupExpiredRecording_NotExpiredTouchesNoStorage(t *testing.T) {
+	store, cfg := newFakeS3(t)
+	repo := newMockRepo()
+	svc := NewService(repo, nil, "", cfg)
+
+	id := uuid.New()
+	future := time.Now().Add(time.Hour)
+	fileURL := "recordings/rec.mp4"
+	repo.recordings[id] = &Recording{ID: id, Status: RecordingStatusCompleted, RetentionExpiresAt: &future, FileURL: &fileURL}
+
+	assert.ErrorIs(t, svc.CleanupExpiredRecording(context.Background(), id), ErrNotExpired)
+	assert.Empty(t, store.deletedPaths())
+}
+
+func TestCleanupExpiredRecordings_RemovesStoredObject(t *testing.T) {
+	store, cfg := newFakeS3(t)
+	repo := newMockRepo()
+	svc := NewService(repo, nil, "", cfg)
+
+	id := uuid.New()
+	past := time.Now().Add(-time.Hour)
+	fileURL := "recordings/bulk.mp4"
+	repo.recordings[id] = &Recording{ID: id, Status: RecordingStatusCompleted, RetentionExpiresAt: &past, FileURL: &fileURL}
+
+	deleted, err := svc.CleanupExpiredRecordings(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, deleted)
+	assert.Equal(t, []string{"/recordings/bulk.mp4"}, store.deletedPaths())
+}
 
 func TestCleanupExpiredRecording_DeletesWhenExpired(t *testing.T) {
 	repo := newMockRepo()

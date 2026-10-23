@@ -579,8 +579,30 @@ func (s *Service) ReportDamage(ctx context.Context, input ReportDamageInput) (*V
 	return d, nil
 }
 
+func validDamageSeverity(s string) bool {
+	switch s {
+	case "minor", "moderate", "major", "totalled":
+		return true
+	}
+	return false
+}
+
+func validDamageStatus(s DamageStatus) bool {
+	switch s {
+	case DamageStatusReported, DamageStatusInRepair, DamageStatusResolved:
+		return true
+	}
+	return false
+}
+
 // UpdateDamage updates mutable fields on a damage record.
 func (s *Service) UpdateDamage(ctx context.Context, input UpdateDamageInput) (*VehicleDamage, error) {
+	if input.Severity != nil && !validDamageSeverity(*input.Severity) {
+		return nil, ErrInvalidInput
+	}
+	if input.Status != nil && !validDamageStatus(*input.Status) {
+		return nil, ErrInvalidInput
+	}
 	d, err := s.repo.GetDamage(ctx, input.TenantID, input.DamageID)
 	if err != nil {
 		return nil, err

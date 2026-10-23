@@ -1,11 +1,18 @@
 package gateway
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
+
+	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
+	schichtenv1 "github.com/kmuhub/kmuhub/proto/schichten/v1"
 )
 
 func newSchichtenRoutes(registry *ServiceRegistry) *SchichtenRoutes {
@@ -701,23 +708,93 @@ func TestHandleGetShiftStats_ReachesRPC(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
-// TestHandleGetShiftStats_IgnoresFromToQueryParams documents a real gap: the
-// GetShiftStatsRequest proto carries optional from/to fields and
-// internal/schichten.Service.GetShiftStats honours them via
-// GetShiftStatsInput, but this handler never reads the from/to query
-// parameters and never sets them on the gRPC request — every call returns
-// stats for the entire tenant history regardless of what the caller asked
-// for. Both a request with and without from/to reach the RPC identically,
-// which is the only thing a gateway unit test (no mock gRPC server) can
-// observe; the missing wiring itself is filed as a fix-unit, not built here,
-// per the coverage-unit rule against changing behaviour.
-func TestHandleGetShiftStats_IgnoresFromToQueryParams(t *testing.T) {
-	routes := NewSchichtenRoutes(registryWithService("schichten"), nil)
+// statsCaptureServer records the last GetShiftStatsRequest it received so a
+// test can observe what the gateway handler put on the wire.
+type statsCaptureServer struct {
+	schichtenv1.UnimplementedSchichtenServiceServer
+	mu  sync.Mutex
+	got *schichtenv1.GetShiftStatsRequest
+}
+
+func (s *statsCaptureServer) GetShiftStats(_ context.Context, req *schichtenv1.GetShiftStatsRequest) (*schichtenv1.ShiftStatsResponse, error) {
+	s.mu.Lock()
+	s.got = req
+	s.mu.Unlock()
+	return &schichtenv1.ShiftStatsResponse{}, nil
+}
+
+// take returns the last recorded request (nil if none) and clears it.
+func (s *statsCaptureServer) take() *schichtenv1.GetShiftStatsRequest {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.got
+	s.got = nil
+	return r
+}
+
+// statsRoutesAgainstFake wires SchichtenRoutes to a real in-process gRPC server.
+func statsRoutesAgainstFake(t *testing.T) (*SchichtenRoutes, *statsCaptureServer) {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	fake := &statsCaptureServer{}
+	srv := grpc.NewServer()
+	schichtenv1.RegisterSchichtenServiceServer(srv, fake)
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+
+	reg := NewServiceRegistry(nil)
+	reg.Register("schichten", lis.Addr().String())
+	return NewSchichtenRoutes(reg, nil), fake
+}
+
+func TestHandleGetShiftStats_ForwardsFromToToRPC(t *testing.T) {
+	routes, fake := statsRoutesAgainstFake(t)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/v1/schichten/stats?from=2026-01-01T00:00:00Z&to=2026-01-31T00:00:00Z", nil)
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleGetShiftStats(rec, req)
-	// Reaches the same ServiceUnavailable outcome as the no-params request
-	// above: the handler never looks at r.URL.Query() for from/to.
-	assertStatus(t, rec, http.StatusServiceUnavailable)
+	assertStatus(t, rec, http.StatusOK)
+
+	got := fake.take()
+	if got == nil {
+		t.Fatal("RPC was not called")
+	}
+	if got, want := got.GetFrom().AsTime(), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC); !got.Equal(want) {
+		t.Errorf("from = %v, want %v", got, want)
+	}
+	if got, want := got.GetTo().AsTime(), time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC); !got.Equal(want) {
+		t.Errorf("to = %v, want %v", got, want)
+	}
+}
+
+func TestHandleGetShiftStats_NoRangeStaysUnbounded(t *testing.T) {
+	routes, fake := statsRoutesAgainstFake(t)
+	for _, target := range []string{"/api/v1/schichten/stats", "/api/v1/schichten/stats?from=&to="} {
+		rec := httptest.NewRecorder()
+		req := withAuth(httptest.NewRequest("GET", target, nil), "user-123", testTenantID)
+		routes.HandleGetShiftStats(rec, req)
+		assertStatus(t, rec, http.StatusOK)
+		if got := fake.take(); got == nil || got.From != nil || got.To != nil {
+			t.Errorf("%s: want RPC with nil from/to, got %v", target, got)
+		}
+	}
+}
+
+func TestHandleGetShiftStats_InvalidRange_BadRequest(t *testing.T) {
+	routes, fake := statsRoutesAgainstFake(t)
+	for _, target := range []string{
+		"/api/v1/schichten/stats?from=yesterday",
+		"/api/v1/schichten/stats?to=2026-01-31",
+	} {
+		rec := httptest.NewRecorder()
+		req := withAuth(httptest.NewRequest("GET", target, nil), "user-123", testTenantID)
+		routes.HandleGetShiftStats(rec, req)
+		assertStatus(t, rec, http.StatusBadRequest)
+	}
+	if got := fake.take(); got != nil {
+		t.Errorf("RPC must not be called on invalid input, got %v", got)
+	}
 }

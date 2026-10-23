@@ -504,6 +504,18 @@ func (s *Service) UploadAttachment(ctx context.Context, input UploadAttachmentIn
 		return nil, err
 	}
 
+	// A given line must be a line of this very report (and tenant); the FK on
+	// report_lines(id) alone would accept any existing line.
+	if input.LineID != nil {
+		line, err := s.repo.GetLine(ctx, input.TenantID, *input.LineID)
+		if err != nil {
+			return nil, err
+		}
+		if line.ReportID != input.ReportID {
+			return nil, ErrLineNotFound
+		}
+	}
+
 	att := &ReportAttachment{
 		ID:          uuid.New(),
 		TenantID:    input.TenantID,

@@ -296,7 +296,8 @@ func (r *PostgresWorkTimeRepo) GetPreviousShiftEnd(ctx context.Context, tenantID
 
 func (r *PostgresWorkTimeRepo) GetDailySummary(ctx context.Context, tenantID, employeeID uuid.UUID, date time.Time) (*DailySummary, error) {
 	dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
-	dayEnd := dayStart.Add(24 * time.Hour)
+	// Calendar day in date's own location: 23/25 hours long across a DST change.
+	dayEnd := dayStart.AddDate(0, 0, 1)
 
 	summary := &DailySummary{Date: dayStart}
 
@@ -393,9 +394,14 @@ func (r *PostgresWorkTimeRepo) GetDailySummaryRange(ctx context.Context, tenantI
 // as GetDailySummary. Employees without entries get a zeroed slice.
 func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID, start time.Time, numDays int) (map[uuid.UUID][]DailySummary, error) {
 	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
-	// Use exact 24h windows so day_idx is always in [0, numDays): no gaps/overlaps,
-	// even across DST (matches GetDailySummary's dayEnd = dayStart + 24h semantics).
-	end := start.Add(time.Duration(numDays) * 24 * time.Hour)
+	// Day boundaries are local midnights of start's location, so a day that spans a
+	// DST change is 23 or 25 hours long. width_bucket() over these boundaries gives
+	// day_idx in [0, numDays) without gaps or overlaps (and matches GetDailySummary).
+	end := start.AddDate(0, 0, max(numDays, 0))
+	boundaries := make([]time.Time, 0, max(numDays, 0)+1)
+	for i := 0; i <= numDays; i++ {
+		boundaries = append(boundaries, start.AddDate(0, 0, i))
+	}
 
 	result := make(map[uuid.UUID][]DailySummary, len(employeeIDs))
 	for _, id := range employeeIDs {
@@ -412,7 +418,7 @@ func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, tenant
 	rows, err := r.pool.Query(ctx,
 		`SELECT
 			employee_id,
-			FLOOR(EXTRACT(EPOCH FROM (clock_in - $2::timestamptz)) / 86400)::int AS day_idx,
+			(width_bucket(clock_in, $6::timestamptz[]) - 1) AS day_idx,
 			COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(clock_out, NOW()) - clock_in)) / 60)::int, 0),
 			COALESCE(SUM(break_minutes + auto_break_deducted), 0),
 			COALESCE(SUM(COALESCE(net_work_minutes, 0)), 0),
@@ -422,7 +428,7 @@ func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, tenant
 			AND clock_in >= $2 AND clock_in < $3
 			AND status = ANY($4)
 		GROUP BY employee_id, day_idx`,
-		employeeIDs, start, end, balanceStatuses, tenantID,
+		employeeIDs, start, end, balanceStatuses, tenantID, boundaries,
 	)
 	if err != nil {
 		return nil, err
@@ -501,7 +507,7 @@ func (r *PostgresWorkTimeRepo) GetProjectBreakdown(ctx context.Context, tenantID
 			AND w.status = ANY($5)
 		GROUP BY w.project_id, p.name
 		ORDER BY minutes DESC`,
-		tenantID, employeeID, dateFrom, dateTo.Add(24*time.Hour), billableStatuses,
+		tenantID, employeeID, dateFrom, dateTo.AddDate(0, 0, 1), billableStatuses,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get project breakdown: %w", err)

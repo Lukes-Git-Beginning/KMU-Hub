@@ -326,6 +326,7 @@ func main() {
 func dialService(name, address string) *grpc.ClientConn {
 	conn, err := grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
 	)
 	if err != nil {
 		slog.Warn("failed to dial service, actions will be unavailable",

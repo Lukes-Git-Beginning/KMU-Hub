@@ -169,7 +169,7 @@ func TestPresenceService_GetConfig_FallsBackToCodeDefault(t *testing.T) {
 	fresh, dropTenant := ensureThrowawayTenant(t, pool, "Presence Config Default Tenant")
 	defer dropTenant()
 
-	svc := presence.NewService(nil, presence.NewPostgresConfigRepository(pool))
+	svc := presence.NewService(nil, presence.NewPostgresConfigRepository(pool), nil)
 	ctx := testutil.WithTenantCtx(context.Background(), fresh)
 
 	cfg, err := svc.GetConfig(ctx)
@@ -188,7 +188,7 @@ func TestPresenceService_GetConfig_FallsBackToCodeDefault(t *testing.T) {
 // 000273 uncovered: a caller with no tenant on the context must fail rather
 // than read whichever row the policy happens to admit.
 func TestPresenceService_GetConfig_WithoutTenantFails(t *testing.T) {
-	svc := presence.NewService(nil, presence.NewPostgresConfigRepository(nil))
+	svc := presence.NewService(nil, presence.NewPostgresConfigRepository(nil), nil)
 
 	if _, err := svc.GetConfig(context.Background()); !errors.Is(err, presence.ErrMissingTenant) {
 		t.Fatalf("want ErrMissingTenant, got %v", err)
@@ -205,5 +205,53 @@ func cleanupPresenceConfig(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID)
 	ctx := testutil.WithSystemCtx(context.Background())
 	if _, err := pool.Exec(ctx, `DELETE FROM presence_config WHERE tenant_id = $1`, tenantID); err != nil {
 		t.Logf("cleanup presence_config tenant=%s: %v", tenantID, err)
+	}
+}
+
+// TestPostgresUserDirectory_OnlyCallerTenantVisible is the boundary the
+// presence read paths stand on: Redis holds presence:<userID> with no tenant,
+// so a target is admitted only when the users table places it in the
+// caller's tenant. The tenant is an explicit parameter and must hold even
+// under a system context, where the users policy admits every row.
+func TestPostgresUserDirectory_OnlyCallerTenantVisible(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	seedPresenceTenants(t, pool)
+	userOne, dropUserOne := seedPresenceUser(t, pool, pcTenantOne)
+	defer dropUserOne()
+	userTwo, dropUserTwo := seedPresenceUser(t, pool, pcTenantTwo)
+	defer dropUserTwo()
+
+	dir := presence.NewPostgresUserDirectory(pool)
+	targets := []uuid.UUID{userOne, userTwo, uuid.New()}
+
+	cases := []struct {
+		name string
+		ctx  context.Context
+	}{
+		{"tenant context", testutil.WithTenantCtx(context.Background(), pcTenantOne)},
+		{"system context", testutil.WithSystemCtx(context.Background())},
+	}
+	for _, tc := range cases {
+		visible, err := dir.VisibleUserIDs(tc.ctx, pcTenantOne, targets)
+		if err != nil {
+			t.Fatalf("%s: resolve targets: %v", tc.name, err)
+		}
+		if len(visible) != 1 {
+			t.Fatalf("%s: want exactly tenant one's user, got %d entries", tc.name, len(visible))
+		}
+		if _, ok := visible[userOne]; !ok {
+			t.Fatalf("%s: tenant one's own user must be visible", tc.name)
+		}
+		if _, ok := visible[userTwo]; ok {
+			t.Fatalf("%s: tenant two's user leaked into tenant one", tc.name)
+		}
+	}
+
+	empty, err := dir.VisibleUserIDs(testutil.WithTenantCtx(context.Background(), pcTenantOne), pcTenantOne, nil)
+	if err != nil || len(empty) != 0 {
+		t.Fatalf("empty input: want empty set, got %v (err %v)", empty, err)
 	}
 }

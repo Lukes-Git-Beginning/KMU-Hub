@@ -70,6 +70,10 @@ type CalDAVPasswordInfo struct {
 // database lookup, which is why this returns an error.
 type CalDAVCtxInjector func(ctx context.Context, userID uuid.UUID) (context.Context, error)
 
+// caldavAuthChallenge is the WWW-Authenticate value; the realm is the name shown in
+// the client's login dialog.
+const caldavAuthChallenge = `Basic realm="Cosmi CalDAV"`
+
 // CalDAVRoutes handles CalDAV/CardDAV protocol routes (Basic Auth) and
 // REST API routes for app-specific password management (JWT auth).
 // Similar to WOPIRoutes, these are NOT part of the RouteRegistrar loop
@@ -201,7 +205,7 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			username, password, ok := r.BasicAuth()
 			if !ok {
-				w.Header().Set("WWW-Authenticate", `Basic realm="KMU Hub CalDAV"`)
+				w.Header().Set("WWW-Authenticate", caldavAuthChallenge)
 				response.Error(w, http.StatusUnauthorized, "Unauthorized")
 				return
 			}
@@ -212,7 +216,7 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 					"username_fingerprint", fingerprintCaldavUsername(username),
 					"error", err,
 				)
-				w.Header().Set("WWW-Authenticate", `Basic realm="KMU Hub CalDAV"`)
+				w.Header().Set("WWW-Authenticate", caldavAuthChallenge)
 				response.Error(w, http.StatusUnauthorized, "Unauthorized")
 				return
 			}
@@ -300,6 +304,7 @@ func (c *CalDAVRoutes) handleCreatePassword(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	middleware.RedactIdempotentResponse(w) // plaintext is shown exactly once
 	response.JSON(w, http.StatusCreated, map[string]interface{}{
 		"password": plaintext,
 		"id":       pw.ID,
@@ -447,10 +452,15 @@ func (c *CalDAVRoutes) handleTestConnection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	defer func() {
-		// Use a background context: the request context may already be
-		// cancelled (client navigated away) by the time the probes return,
-		// but the ephemeral password must still be revoked either way.
-		if revokeErr := c.pwService.Revoke(context.Background(), pw.ID, userID); revokeErr != nil {
+		// The request context may already be cancelled (client navigated
+		// away) by the time the probes return, but the ephemeral password must
+		// still be revoked either way. WithoutCancel drops the cancellation yet
+		// keeps the tenant/user values: app_specific_passwords is under RLS, so
+		// a bare Background context would match zero rows and leave the
+		// password active.
+		revokeCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+		defer cancel()
+		if revokeErr := c.pwService.Revoke(revokeCtx, pw.ID, userID); revokeErr != nil {
 			slog.Warn("caldav test: failed to revoke ephemeral password",
 				"password_id", pw.ID, "user_id", userID, "error", revokeErr)
 		}
@@ -491,7 +501,7 @@ func (c *CalDAVRoutes) probeSelf(ctx context.Context, path, username, password s
 	}
 	req.SetBasicAuth(username, password)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: target is selfBaseURL (loopback config), never derived from the request
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return false, "timeout"

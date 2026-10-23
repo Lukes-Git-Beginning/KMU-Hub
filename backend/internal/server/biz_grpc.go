@@ -231,6 +231,9 @@ func (s *BizGRPCServer) UpdateCompanySettings(ctx context.Context, req *bizv1.Up
 		if bzErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid basiszinssatz")
 		}
+		if bz.LessThan(minBasiszinssatz) || bz.GreaterThan(maxBasiszinssatz) {
+			return nil, status.Error(codes.InvalidArgument, "basiszinssatz must be between -5 and 25 percent")
+		}
 		settings.Basiszinssatz = bz
 	}
 
@@ -263,7 +266,10 @@ func (s *BizGRPCServer) CreateQuote(ctx context.Context, req *bizv1.CreateQuoteR
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
 
-	lineItems := protoLineItemsToModel(req.GetLineItems())
+	lineItems, err := protoLineItemsToModel(req.GetLineItems(), taxModeFromProto(req.GetTaxMode()))
+	if err != nil {
+		return nil, err
+	}
 
 	input := quote.CreateInput{
 		TenantID:        tenantID,
@@ -375,7 +381,16 @@ func (s *BizGRPCServer) UpdateQuote(ctx context.Context, req *bizv1.UpdateQuoteR
 	}
 
 	if len(req.GetLineItems()) > 0 {
-		input.LineItems = protoLineItemsToModel(req.GetLineItems())
+		// An update without tax_mode keeps the stored mode, unknown here.
+		updMode := ""
+		if input.TaxMode != nil {
+			updMode = *input.TaxMode
+		}
+		items, itemsErr := protoLineItemsToModel(req.GetLineItems(), updMode)
+		if itemsErr != nil {
+			return nil, itemsErr
+		}
+		input.LineItems = items
 	}
 
 	if req.GetValidUntil() != "" {
@@ -526,7 +541,10 @@ func (s *BizGRPCServer) CreateInvoice(ctx context.Context, req *bizv1.CreateInvo
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
 
-	lineItems := protoLineItemsToModel(req.GetLineItems())
+	lineItems, err := protoLineItemsToModel(req.GetLineItems(), taxModeFromProto(req.GetTaxMode()))
+	if err != nil {
+		return nil, err
+	}
 
 	input := invoice.CreateInput{
 		TenantID:        tenantID,
@@ -672,7 +690,16 @@ func (s *BizGRPCServer) UpdateInvoice(ctx context.Context, req *bizv1.UpdateInvo
 	}
 
 	if len(req.GetLineItems()) > 0 {
-		input.LineItems = protoLineItemsToModel(req.GetLineItems())
+		// An update without tax_mode keeps the stored mode, unknown here.
+		updMode := ""
+		if input.TaxMode != nil {
+			updMode = *input.TaxMode
+		}
+		items, itemsErr := protoLineItemsToModel(req.GetLineItems(), updMode)
+		if itemsErr != nil {
+			return nil, itemsErr
+		}
+		input.LineItems = items
 	}
 
 	if req.GetNotes() != "" {
@@ -764,7 +791,10 @@ func (s *BizGRPCServer) CreateCreditNote(ctx context.Context, req *bizv1.CreateC
 		return nil, status.Error(codes.InvalidArgument, "invalid original_invoice_id")
 	}
 
-	lineItems := protoLineItemsToModel(req.GetLineItems())
+	lineItems, err := protoLineItemsToModel(req.GetLineItems(), taxModeFromProto(req.GetTaxMode()))
+	if err != nil {
+		return nil, err
+	}
 
 	input := creditnote.CreateInput{
 		TenantID:          tenantID,
@@ -1106,6 +1136,9 @@ func (s *BizGRPCServer) UpdateDunningConfig(ctx context.Context, req *bizv1.Upda
 		if fErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid level1_fee")
 		}
+		if fee.IsNegative() {
+			return nil, status.Error(codes.InvalidArgument, "level1_fee must not be negative")
+		}
 		input.Level1Fee = &fee
 	}
 	if pc.GetLevel2Fee() != "" {
@@ -1113,12 +1146,18 @@ func (s *BizGRPCServer) UpdateDunningConfig(ctx context.Context, req *bizv1.Upda
 		if fErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid level2_fee")
 		}
+		if fee.IsNegative() {
+			return nil, status.Error(codes.InvalidArgument, "level2_fee must not be negative")
+		}
 		input.Level2Fee = &fee
 	}
 	if pc.GetLevel3Fee() != "" {
 		fee, fErr := decimal.NewFromString(pc.GetLevel3Fee())
 		if fErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid level3_fee")
+		}
+		if fee.IsNegative() {
+			return nil, status.Error(codes.InvalidArgument, "level3_fee must not be negative")
 		}
 		input.Level3Fee = &fee
 	}
@@ -1716,13 +1755,42 @@ func toProtoDashboard(d *models.FinanceDashboard) *bizv1.FinanceDashboard {
 // Proto Line Item / Tax Breakdown Helpers
 // ============================================================================
 
-func protoLineItemsToModel(items []*bizv1.LineItem) []models.LineItem {
+// The Basiszinssatz (section 247 BGB) was negative until mid-2022 (-0.88 %), so
+// zero is not the floor; the bounds only catch typos such as 350 instead of 3.5.
+var (
+	minBasiszinssatz = decimal.NewFromInt(-5)
+	maxBasiszinssatz = decimal.NewFromInt(25)
+)
+
+// protoLineItemsToModel parses the decimal strings of every position and fails
+// with InvalidArgument (naming the position, e.g. "line_items[2].unit_price")
+// instead of silently turning an unparsable value into 0 - a German "1,5" must
+// not become a 0 EUR line on a document the customer receives.
+//
+// taxMode is the mode of the request ("" when an update does not carry one and
+// the stored mode applies): only in standard mode is an empty tax_rate an
+// error, kleinunternehmer/reverse_charge ignore the rate. line_total may be
+// empty, the tax calculator recomputes it. Negative amounts stay legal
+// (discount and credit-note lines).
+func protoLineItemsToModel(items []*bizv1.LineItem, taxMode string) ([]models.LineItem, error) {
 	result := make([]models.LineItem, 0, len(items))
-	for _, item := range items {
-		qty, _ := decimal.NewFromString(item.GetQuantity())
-		price, _ := decimal.NewFromString(item.GetUnitPrice())
-		rate, _ := decimal.NewFromString(item.GetTaxRate())
-		lineTotal, _ := decimal.NewFromString(item.GetLineTotal())
+	for i, item := range items {
+		qty, err := parseLineItemDecimal(i, "quantity", item.GetQuantity(), true)
+		if err != nil {
+			return nil, err
+		}
+		price, err := parseLineItemDecimal(i, "unit_price", item.GetUnitPrice(), true)
+		if err != nil {
+			return nil, err
+		}
+		rate, err := parseLineItemDecimal(i, "tax_rate", item.GetTaxRate(), taxMode == models.TaxModeStandard)
+		if err != nil {
+			return nil, err
+		}
+		lineTotal, err := parseLineItemDecimal(i, "line_total", item.GetLineTotal(), false)
+		if err != nil {
+			return nil, err
+		}
 
 		result = append(result, models.LineItem{
 			ID:          item.GetId(),
@@ -1734,7 +1802,21 @@ func protoLineItemsToModel(items []*bizv1.LineItem) []models.LineItem {
 			LineTotal:   lineTotal,
 		})
 	}
-	return result
+	return result, nil
+}
+
+func parseLineItemDecimal(idx int, field, raw string, required bool) (decimal.Decimal, error) {
+	if raw == "" {
+		if required {
+			return decimal.Zero, status.Errorf(codes.InvalidArgument, "line_items[%d].%s is required", idx, field)
+		}
+		return decimal.Zero, nil
+	}
+	d, err := decimal.NewFromString(raw)
+	if err != nil {
+		return decimal.Zero, status.Errorf(codes.InvalidArgument, "line_items[%d].%s is not a decimal number (use '.' as separator)", idx, field)
+	}
+	return d, nil
 }
 
 func parseProtoLineItems(raw json.RawMessage) []*bizv1.LineItem {

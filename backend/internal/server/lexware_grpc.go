@@ -280,7 +280,9 @@ func mapLexwareError(err error) error {
 
 	switch {
 	case errors.Is(err, lexware.ErrLexwareUnauthorized):
-		return status.Error(codes.Unauthenticated, err.Error())
+	// Third-party credentials rejected: FailedPrecondition (409), not Unauthenticated -
+	// the FE treats every 401 as an expired session (refresh + retry + logout).
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, lexware.ErrLexwareRateLimited):
 		return status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, lexware.ErrLexwareNotFound):

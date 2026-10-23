@@ -744,9 +744,23 @@ func (sr *SchichtenRoutes) HandleGetShiftStats(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	resp, err := client.GetShiftStats(r.Context(), &schichtenv1.GetShiftStatsRequest{
-		TenantId: tenantID.String(),
-	})
+	// from/to are optional; an absent or empty value means "unbounded".
+	statsReq := &schichtenv1.GetShiftStatsRequest{TenantId: tenantID.String()}
+	q := r.URL.Query()
+	if v := q.Get("from"); v != "" {
+		if statsReq.From, err = parseRFC3339ToTimestamp(v); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid from: use RFC3339")
+			return
+		}
+	}
+	if v := q.Get("to"); v != "" {
+		if statsReq.To, err = parseRFC3339ToTimestamp(v); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid to: use RFC3339")
+			return
+		}
+	}
+
+	resp, err := client.GetShiftStats(r.Context(), statsReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

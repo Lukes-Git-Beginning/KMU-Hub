@@ -91,6 +91,12 @@ func main() {
 	// Dialer service
 	dialerService := dialer.NewServiceWithConsent(campaignRepo, callRepo, outcomeRepo, agentStatusRepo, agentStore, crmBridge, eventEmitter, consentAsserter)
 
+	if cfg.DialerStaleContactMinutes > 0 {
+		go dialer.RunStaleContactReaper(ctx, dialerService,
+			time.Duration(cfg.DialerStaleContactMinutes)*time.Minute, 5*time.Minute)
+		slog.Info("dialer stale-contact reaper enabled", "stale_after_minutes", cfg.DialerStaleContactMinutes)
+	}
+
 	metricsRegistry := metrics.NewRegistry()
 
 	grpcServer := grpc.NewServer(
