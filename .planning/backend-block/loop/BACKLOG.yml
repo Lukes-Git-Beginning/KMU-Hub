@@ -279,7 +279,7 @@ units:
     service: finance
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: BACKLOG.yml
     coverage_start: "internal/biz/gobdarchive 90,1 %"
     decided: 2026-10-23

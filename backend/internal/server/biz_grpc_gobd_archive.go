@@ -339,6 +339,8 @@ func mapGobdArchiveError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, gobdarchive.ErrInvoiceNotLocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, gobdarchive.ErrIntegrityMismatch):
+		return status.Error(codes.FailedPrecondition, gobdarchive.ErrIntegrityMismatch.Error())
 	default:
 		slog.Error("unhandled gobd archive error", "error", err)
 		return status.Error(codes.Internal, "internal server error")

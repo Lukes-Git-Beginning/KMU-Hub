@@ -15965,6 +15965,8 @@ paths:
           description: Unauthorized
         "404":
           description: Document not found
+        "409":
+          description: The stored content no longer matches the SHA-256 recorded at archival; no URL is issued
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 

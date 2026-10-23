@@ -30,6 +30,7 @@ type mockRepository struct {
 	createErr      error
 	getErr         error
 	appendEventErr error
+	accessEventErr error // fails only access events, integrity checks still land
 }
 
 func newMockRepository() *mockRepository {
@@ -68,6 +69,9 @@ func (m *mockRepository) List(_ context.Context, _ ListFilter) ([]*models.GobdDo
 func (m *mockRepository) AppendEvent(_ context.Context, event *models.GobdDocumentEvent) error {
 	if m.appendEventErr != nil {
 		return m.appendEventErr
+	}
+	if m.accessEventErr != nil && event.EventType == models.GobdEventTypeAccess {
+		return m.accessEventErr
 	}
 	m.events = append(m.events, event)
 	return nil
@@ -524,16 +528,46 @@ func TestService_List_Passthrough(t *testing.T) {
 func TestService_GetDownloadURL_Success_AppendsAccessEvent(t *testing.T) {
 	t.Parallel()
 	svc, repo, _ := newTestService()
-	tenantID, docID := uuid.New(), uuid.New()
-	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID, StorageKey: "gobd/x/y/z.pdf"}
+	doc := archiveForIntegrity(t, svc)
 
-	url, err := svc.GetDownloadURL(context.Background(), tenantID, docID, uuid.New())
+	url, err := svc.GetDownloadURL(context.Background(), doc.TenantID, doc.ID, uuid.New())
 	require.NoError(t, err)
 	assert.Equal(t, "https://presigned.example.com/test", url)
 
-	require.Len(t, repo.events, 1)
-	assert.Equal(t, models.GobdEventTypeAccess, repo.events[0].EventType)
-	assert.Equal(t, docID, repo.events[0].DocumentID)
+	var types []string
+	for _, ev := range repo.events {
+		if ev.DocumentID == doc.ID {
+			types = append(types, ev.EventType)
+		}
+	}
+	assert.Equal(t, []string{models.GobdEventTypeArchived, models.GobdEventTypeIntegrityCheck, models.GobdEventTypeAccess}, types)
+}
+
+func TestService_GetDownloadURL_TamperedBytes_NoURLNoAccessEvent(t *testing.T) {
+	t.Parallel()
+	svc, repo, store := newTestService()
+	doc := archiveForIntegrity(t, svc)
+	store.uploaded[doc.StorageKey] = []byte("tampered content, different from the original")
+
+	url, err := svc.GetDownloadURL(context.Background(), doc.TenantID, doc.ID, uuid.New())
+	require.ErrorIs(t, err, ErrIntegrityMismatch)
+	assert.Empty(t, url, "a document with a broken hash must not be handed out")
+	require.Len(t, integrityEvents(repo, doc.ID), 1, "the failed check is part of the audit trail")
+	for _, ev := range repo.events {
+		assert.NotEqual(t, models.GobdEventTypeAccess, ev.EventType)
+	}
+}
+
+func TestService_GetDownloadURL_UnreadableObject_NoURL(t *testing.T) {
+	t.Parallel()
+	svc, _, store := newTestService()
+	doc := archiveForIntegrity(t, svc)
+	store.downloadErr = errors.New("minio unavailable")
+
+	url, err := svc.GetDownloadURL(context.Background(), doc.TenantID, doc.ID, uuid.New())
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, ErrIntegrityMismatch)
+	assert.Empty(t, url)
 }
 
 func TestService_GetDownloadURL_DocumentNotFound(t *testing.T) {
@@ -556,26 +590,24 @@ func (m *erroringFileStore) GetPresignedURL(_ context.Context, _ string, _ time.
 func TestService_GetDownloadURL_PresignErrorPropagates(t *testing.T) {
 	t.Parallel()
 	repo := newMockRepository()
-	tenantID, docID := uuid.New(), uuid.New()
-	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID}
 	store := &erroringFileStore{mockFileStore: newMockFileStore(), presignErr: errors.New("s3 down")}
 	svc := NewService(repo, store, nil)
+	doc := archiveForIntegrity(t, svc)
 
-	_, err := svc.GetDownloadURL(context.Background(), tenantID, docID, uuid.New())
+	_, err := svc.GetDownloadURL(context.Background(), doc.TenantID, doc.ID, uuid.New())
 	require.Error(t, err)
-	assert.Empty(t, repo.events, "no access event must be recorded when the presign call itself fails")
+	for _, ev := range repo.events {
+		assert.NotEqual(t, models.GobdEventTypeAccess, ev.EventType, "no access event must be recorded when the presign call itself fails")
+	}
 }
 
 func TestService_GetDownloadURL_AccessEventAppendFailureIsNonFatal(t *testing.T) {
 	t.Parallel()
-	repo := newMockRepository()
-	tenantID, docID := uuid.New(), uuid.New()
-	repo.docs[docID] = &models.GobdDocument{ID: docID, TenantID: tenantID}
-	repo.appendEventErr = errors.New("events table unavailable")
-	store := newMockFileStore()
-	svc := NewService(repo, store, nil)
+	svc, repo, _ := newTestService()
+	doc := archiveForIntegrity(t, svc)
+	repo.accessEventErr = errors.New("events table unavailable")
 
-	url, err := svc.GetDownloadURL(context.Background(), tenantID, docID, uuid.New())
+	url, err := svc.GetDownloadURL(context.Background(), doc.TenantID, doc.ID, uuid.New())
 	require.NoError(t, err, "a failed access-log append must not fail the download itself")
 	assert.NotEmpty(t, url)
 }

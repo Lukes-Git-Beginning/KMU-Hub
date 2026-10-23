@@ -239,6 +239,14 @@ func archivedDoc(tenantID uuid.UUID) *models.GobdDocument {
 	}
 }
 
+// storeWithContent puts bytes under the document's key and records their real
+// SHA-256 on the document, so an integrity check at download time passes.
+func storeWithContent(store *stubGobdStore, doc *models.GobdDocument, content []byte) {
+	sum := sha256.Sum256(content)
+	doc.SHA256 = hex.EncodeToString(sum[:])
+	store.uploads[doc.StorageKey] = content
+}
+
 // ============================================================================
 // ArchiveDocument
 // ============================================================================
@@ -745,6 +753,7 @@ func TestDownloadGobdDocument(t *testing.T) {
 		doc := archivedDoc(tenantID)
 		repo.docs[doc.ID] = doc
 		store := newStubGobdStore()
+		storeWithContent(store, doc, []byte("beleg bytes"))
 
 		srv := newGobdTestServer(repo, store)
 		resp, err := srv.DownloadGobdDocument(context.Background(), &bizv1.DownloadGobdDocumentRequest{
@@ -756,10 +765,31 @@ func TestDownloadGobdDocument(t *testing.T) {
 		assert.Equal(t, doc.MimeType, resp.GetMimeType())
 
 		require.Equal(t, 1, repo.eventsOfType(models.GobdEventTypeAccess))
-		ev := repo.appendedEvents[0]
+		assert.Equal(t, 1, repo.eventsOfType(models.GobdEventTypeIntegrityCheck))
+		ev := repo.appendedEvents[len(repo.appendedEvents)-1]
+		assert.Equal(t, models.GobdEventTypeAccess, ev.EventType)
 		assert.Equal(t, tenantID, ev.TenantID)
 		assert.Equal(t, doc.ID, ev.DocumentID)
 		assert.Equal(t, userID, ev.CreatedBy)
+	})
+
+	t.Run("changed content is refused with FailedPrecondition and no url", func(t *testing.T) {
+		repo := newStubGobdRepo()
+		doc := archivedDoc(tenantID)
+		repo.docs[doc.ID] = doc
+		store := newStubGobdStore()
+		storeWithContent(store, doc, []byte("beleg bytes"))
+		store.uploads[doc.StorageKey] = []byte("manipulated bytes")
+
+		srv := newGobdTestServer(repo, store)
+		_, err := srv.DownloadGobdDocument(context.Background(), &bizv1.DownloadGobdDocumentRequest{
+			TenantId: tenantID.String(), Id: doc.ID.String(), RequestedBy: userID.String(),
+		})
+		requireGRPCCode(t, err, codes.FailedPrecondition)
+		assert.Contains(t, err.Error(), gobdarchive.ErrIntegrityMismatch.Error())
+		assert.Zero(t, store.presignCalls, "a document with a broken hash must not be presigned")
+		assert.Zero(t, repo.eventsOfType(models.GobdEventTypeAccess))
+		assert.Equal(t, 1, repo.eventsOfType(models.GobdEventTypeIntegrityCheck))
 	})
 
 	t.Run("presign failure maps to Internal", func(t *testing.T) {
@@ -767,6 +797,7 @@ func TestDownloadGobdDocument(t *testing.T) {
 		doc := archivedDoc(tenantID)
 		repo.docs[doc.ID] = doc
 		store := newStubGobdStore()
+		storeWithContent(store, doc, []byte("beleg bytes"))
 		store.presignErr = errors.New("minio unreachable")
 
 		srv := newGobdTestServer(repo, store)
