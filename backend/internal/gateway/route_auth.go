@@ -1827,7 +1827,12 @@ func (a *AuthRoutes) HandleUpdateTwoFactorPolicy(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// updateTwoFactorPolicy types the answer as the flat TwoFactorPolicy.
+	if resp.GetPolicy() == nil {
+		response.JSON(w, http.StatusOK, map[string]any{})
+		return
+	}
+	response.ProtoFull(w, http.StatusOK, resp.GetPolicy())
 }
 
 // ============================================================================

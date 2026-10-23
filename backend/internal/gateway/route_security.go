@@ -48,6 +48,7 @@ func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequireRole("admin")).Get("/vault", sr.HandleListVaultSecrets)
 		r.With(middleware.RequireRole("admin")).Get("/vault/{keyName}", sr.HandleGetVaultSecret)
 		r.With(middleware.RequireRole("admin")).Put("/vault", sr.HandleSetVaultSecret)
+		r.With(middleware.RequireRole("admin")).Put("/vault/{keyName}", sr.HandleSetVaultSecretByKey)
 		r.With(middleware.RequireRole("admin")).Delete("/vault/{keyName}", sr.HandleDeleteVaultSecret)
 
 		// GDPR
@@ -103,12 +104,29 @@ type setVaultSecretRequest struct {
 	Description    string `json:"description"`
 }
 
+// The export review dialogs send the reason as `note`; `review_note` is the older name.
 type approveExportRequest struct {
 	ReviewNote string `json:"review_note"`
+	Note       string `json:"note"`
 }
 
 type denyExportRequest struct {
 	ReviewNote string `json:"review_note"`
+	Note       string `json:"note"`
+}
+
+// reviewNote returns the reason a reviewer gave, whichever name carried it.
+func reviewNote(reviewNote, note string) string {
+	if reviewNote != "" {
+		return reviewNote
+	}
+	return note
+}
+
+// setVaultSecretByKeyRequest is the body of PUT /vault/{keyName}; the key is in the path.
+type setVaultSecretByKeyRequest struct {
+	Value       string `json:"value" validate:"required"`
+	Description string `json:"description"`
 }
 
 type previewErasureRequest struct {
@@ -118,17 +136,6 @@ type previewErasureRequest struct {
 type executeErasureRequest struct {
 	UserID        string `json:"user_id" validate:"required,uuid"`
 	AdminPassword string `json:"admin_password" validate:"required"`
-}
-
-type updatePasswordPolicyRequest struct {
-	MinLength         int32   `json:"min_length"`
-	RequireUppercase  bool    `json:"require_uppercase"`
-	RequireLowercase  bool    `json:"require_lowercase"`
-	RequireDigit      bool    `json:"require_digit"`
-	RequireSpecial    bool    `json:"require_special"`
-	MinEntropy        float64 `json:"min_entropy"`
-	MaxAgeDays        int32   `json:"max_age_days"`
-	PreventReuseCount int32   `json:"prevent_reuse_count"`
 }
 
 type validatePasswordHTTPRequest struct {
@@ -175,16 +182,11 @@ func (sr *SecurityRoutes) HandleListAuditEntries(w http.ResponseWriter, r *http.
 		return
 	}
 
-	q := r.URL.Query()
-	filter := &securityv1.AuditFilter{
-		Action: q.Get("action"),
-		Result: q.Get("result"),
-		UserId: q.Get("user_id"),
+	filter, ok := auditFilterFromQuery(w, r)
+	if !ok {
+		return
 	}
-
-	page, pageSize := parsePagination(r, 1, 50)
-	filter.Offset = int32((page - 1) * pageSize)
-	filter.Limit = int32(pageSize)
+	filter.Offset, filter.Limit = auditPageFromQuery(r)
 
 	resp, err := client.ListAuditEntries(r.Context(), &securityv1.ListAuditEntriesRequest{
 		Filter: filter,
@@ -194,7 +196,7 @@ func (sr *SecurityRoutes) HandleListAuditEntries(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toAuditListWire(resp))
 }
 
 func (sr *SecurityRoutes) HandleExportAuditLog(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +211,13 @@ func (sr *SecurityRoutes) HandleExportAuditLog(w http.ResponseWriter, r *http.Re
 		format = "csv"
 	}
 
+	filter, ok := auditFilterFromQuery(w, r)
+	if !ok {
+		return
+	}
+
 	resp, err := client.ExportAuditLog(r.Context(), &securityv1.ExportAuditLogRequest{
+		Filter: filter,
 		Format: format,
 	})
 	if err != nil {
@@ -280,7 +288,10 @@ func (sr *SecurityRoutes) HandleGetVaultSecret(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, vaultSecretValueWire{
+		KeyName: resp.GetSecret().GetKeyName(),
+		Value:   resp.GetDecryptedValue(),
+	})
 }
 
 func (sr *SecurityRoutes) HandleSetVaultSecret(w http.ResponseWriter, r *http.Request) {
@@ -289,26 +300,51 @@ func (sr *SecurityRoutes) HandleSetVaultSecret(w http.ResponseWriter, r *http.Re
 		respondServiceUnavailable(w, sr.ServiceName())
 		return
 	}
-
-	userID := middleware.GetUserID(r.Context())
-
 	req, ok := decodeAndValidate[setVaultSecretRequest](w, r)
 	if !ok {
 		return
 	}
+	sr.setVaultSecret(w, r, client, req.KeyName, req.PlaintextValue, req.Description)
+}
 
+// HandleSetVaultSecretByKey is PUT /vault/{keyName} with `{value, description}`, the form the
+// vault page sends.
+func (sr *SecurityRoutes) HandleSetVaultSecretByKey(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+	keyName := chi.URLParam(r, "keyName")
+	if keyName == "" {
+		response.Error(w, http.StatusBadRequest, "key name is required")
+		return
+	}
+	req, ok := decodeAndValidate[setVaultSecretByKeyRequest](w, r)
+	if !ok {
+		return
+	}
+	sr.setVaultSecret(w, r, client, keyName, req.Value, req.Description)
+}
+
+func (sr *SecurityRoutes) setVaultSecret(w http.ResponseWriter, r *http.Request, client securityv1.SecurityServiceClient, keyName, value, description string) {
 	resp, err := client.SetVaultSecret(r.Context(), &securityv1.SetVaultSecretRequest{
-		KeyName:        req.KeyName,
-		PlaintextValue: req.PlaintextValue,
-		Description:    req.Description,
-		CreatedBy:      userID,
+		KeyName:        keyName,
+		PlaintextValue: value,
+		Description:    description,
+		CreatedBy:      middleware.GetUserID(r.Context()),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// The vault page types the answer as the flat VaultSecret.
+	if resp.GetSecret() == nil {
+		response.JSON(w, http.StatusOK, map[string]any{})
+		return
+	}
+	response.ProtoFull(w, http.StatusOK, resp.GetSecret())
 }
 
 func (sr *SecurityRoutes) HandleDeleteVaultSecret(w http.ResponseWriter, r *http.Request) {
@@ -414,7 +450,7 @@ func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http
 	resp, err := client.ApproveDataExport(r.Context(), &securityv1.ApproveDataExportRequest{
 		ExportId:   exportID,
 		ReviewedBy: adminID,
-		ReviewNote: req.ReviewNote,
+		ReviewNote: reviewNote(req.ReviewNote, req.Note),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -446,7 +482,7 @@ func (sr *SecurityRoutes) HandleDenyDataExport(w http.ResponseWriter, r *http.Re
 	resp, err := client.DenyDataExport(r.Context(), &securityv1.DenyDataExportRequest{
 		ExportId:   exportID,
 		ReviewedBy: adminID,
-		ReviewNote: req.ReviewNote,
+		ReviewNote: reviewNote(req.ReviewNote, req.Note),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -624,7 +660,8 @@ func (sr *SecurityRoutes) HandleGetPasswordPolicy(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// The policy page reads `.policy` of the GET answer.
+	response.JSON(w, http.StatusOK, map[string]passwordPolicyWire{"policy": toPasswordPolicyWire(resp.GetPolicy())})
 }
 
 func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *http.Request) {
@@ -636,22 +673,30 @@ func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *h
 
 	adminID := middleware.GetUserID(r.Context())
 
-	req, ok := decodeAndValidate[updatePasswordPolicyRequest](w, r)
+	req, ok := decodeAndValidate[passwordPolicyPatch](w, r)
 	if !ok {
 		return
 	}
 
+	// The service stores exactly what it is sent, so a field the caller left out would be
+	// written as 0/false. Fill the gaps from the stored policy.
+	var current *securityv1.PasswordPolicy
+	if !req.complete() {
+		got, err := client.GetPasswordPolicy(r.Context(), &securityv1.GetPasswordPolicyRequest{})
+		if err != nil {
+			respondGRPCError(w, err)
+			return
+		}
+		current = got.GetPolicy()
+	}
+	policy, ok := req.applyTo(current)
+	if !ok {
+		response.Error(w, http.StatusBadRequest, "max_age_days must be a number or null")
+		return
+	}
+
 	resp, err := client.UpdatePasswordPolicy(r.Context(), &securityv1.UpdatePasswordPolicyRequest{
-		Policy: &securityv1.PasswordPolicy{
-			MinLength:         req.MinLength,
-			RequireUppercase:  req.RequireUppercase,
-			RequireLowercase:  req.RequireLowercase,
-			RequireDigit:      req.RequireDigit,
-			RequireSpecial:    req.RequireSpecial,
-			MinEntropy:        req.MinEntropy,
-			MaxAgeDays:        req.MaxAgeDays,
-			PreventReuseCount: req.PreventReuseCount,
-		},
+		Policy:    policy,
 		UpdatedBy: adminID,
 	})
 	if err != nil {
@@ -659,7 +704,7 @@ func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toPasswordPolicyWire(resp.GetPolicy()))
 }
 
 func (sr *SecurityRoutes) HandleValidatePassword(w http.ResponseWriter, r *http.Request) {
@@ -685,7 +730,17 @@ func (sr *SecurityRoutes) HandleValidatePassword(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// `failures` is what the policy page reads; `violations` stays for older callers.
+	failures := resp.GetViolations()
+	if failures == nil {
+		failures = []string{}
+	}
+	response.JSON(w, http.StatusOK, map[string]any{
+		"valid":      resp.GetValid(),
+		"failures":   failures,
+		"violations": failures,
+		"entropy":    resp.GetEntropy(),
+	})
 }
 
 // ============================================================================
@@ -737,7 +792,12 @@ func (sr *SecurityRoutes) HandleCreateIPRule(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	// The IP rule page types the answer as the flat IPAccessRule.
+	if resp.GetRule() == nil {
+		response.JSON(w, http.StatusCreated, map[string]any{})
+		return
+	}
+	response.Proto(w, http.StatusCreated, resp.GetRule())
 }
 
 func (sr *SecurityRoutes) HandleDeleteIPRule(w http.ResponseWriter, r *http.Request) {

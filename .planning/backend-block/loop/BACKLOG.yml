@@ -1561,7 +1561,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 75,7 %"
     scope: >
       TOTALAUSFALL Sicherheits-Seiten für JEDEN Admin (Scan Iteration 39, Quelltext FE gegen

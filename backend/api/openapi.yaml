@@ -22833,11 +22833,11 @@ paths:
               $ref: "#/components/schemas/UpdateTwoFactorPolicyRequest"
       responses:
         "200":
-          description: Updated policy
+          description: Updated policy, the flat entity (not wrapped in policy)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TwoFactorPolicyResponse"
+                $ref: "#/components/schemas/TwoFactorPolicy"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -22901,6 +22901,30 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: date_from
+          in: query
+          description: Earliest entry, YYYY-MM-DD or RFC3339
+          schema:
+            type: string
+        - name: date_to
+          in: query
+          description: >-
+            Latest entry, YYYY-MM-DD or RFC3339. A bare day includes the whole day.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Rows to skip. Wins over page when both are sent.
+          schema:
+            type: integer
+            minimum: 0
+        - name: limit
+          in: query
+          description: Rows per page (1-100, default 50). Wins over page_size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
         - name: page
           in: query
           schema:
@@ -22912,7 +22936,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 200
+            maximum: 100
             default: 50
       responses:
         "200":
@@ -22921,6 +22945,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListAuditEntriesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -22956,6 +22982,17 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: date_from
+          in: query
+          description: Earliest entry, YYYY-MM-DD or RFC3339
+          schema:
+            type: string
+        - name: date_to
+          in: query
+          description: >-
+            Latest entry, YYYY-MM-DD or RFC3339. A bare day includes the whole day.
+          schema:
+            type: string
       responses:
         "200":
           description: Audit log file download
@@ -22968,6 +23005,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -23050,11 +23089,11 @@ paths:
               $ref: "#/components/schemas/SetVaultSecretRequest"
       responses:
         "200":
-          description: Secret stored; metadata returned
+          description: Secret stored; flat metadata returned
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VaultSecretResponse"
+                $ref: "#/components/schemas/VaultSecretMeta"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -23081,7 +23120,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Secret metadata and decrypted value
+          description: Key name and decrypted value
           content:
             application/json:
               schema:
@@ -23094,6 +23133,41 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      summary: Create or update the vault secret stored under the path key (admin only)
+      tags: [security]
+      operationId: setVaultSecretByKey
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetVaultSecretByKeyRequest"
+      responses:
+        "200":
+          description: Secret stored; flat metadata returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultSecretMeta"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -23434,11 +23508,11 @@ paths:
               $ref: "#/components/schemas/UpdatePasswordPolicyRequest"
       responses:
         "200":
-          description: Updated password policy
+          description: Updated password policy, the flat entity (not wrapped in policy)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PasswordPolicyResponse"
+                $ref: "#/components/schemas/PasswordPolicy"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -23465,7 +23539,7 @@ paths:
               $ref: "#/components/schemas/ValidatePasswordRequest"
       responses:
         "200":
-          description: Validation result with violations list
+          description: Validation result; failures and violations carry the same list
           content:
             application/json:
               schema:
@@ -23524,11 +23598,11 @@ paths:
               $ref: "#/components/schemas/CreateIPRuleRequest"
       responses:
         "201":
-          description: IP rule created
+          description: IP rule created, the flat entity (not wrapped in rule)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/IPRuleResponse"
+                $ref: "#/components/schemas/IPAccessRule"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -45870,10 +45944,11 @@ components:
           type: string
           format: uuid
         sequence_num:
-          type: integer
-          format: int64
+          type: string
+          description: int64 sequence number as a string
         timestamp:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
         user_id:
           type: string
           format: uuid
@@ -45884,8 +45959,9 @@ components:
         target_type:
           type: string
         details:
-          type: string
-          description: JSON string with action-specific details
+          type: object
+          additionalProperties: true
+          description: Action-specific details ({} when none were recorded)
         ip_address:
           type: string
         user_agent:
@@ -45967,20 +46043,24 @@ components:
         description:
           type: string
 
-    VaultSecretResponse:
-      type: object
-      description: Returned by PUT /vault — metadata only, no plaintext
-      properties:
-        secret:
-          $ref: "#/components/schemas/VaultSecretMeta"
-
     VaultSecretValueResponse:
       type: object
       description: Returned by GET /vault/{keyName} — includes decrypted value
       properties:
-        secret:
-          $ref: "#/components/schemas/VaultSecretMeta"
-        decrypted_value:
+        key_name:
+          type: string
+        value:
+          type: string
+
+    SetVaultSecretByKeyRequest:
+      type: object
+      description: Body of PUT /vault/{keyName}; the key name is the path parameter
+      required: [value]
+      properties:
+        value:
+          type: string
+          format: password
+        description:
           type: string
 
     # -----------------------------------------------------------------------
@@ -46033,6 +46113,9 @@ components:
       properties:
         review_note:
           type: string
+        note:
+          type: string
+          description: Alias of review_note; review_note wins when both are sent
 
     # -----------------------------------------------------------------------
     # GDPR — erasure
@@ -46171,7 +46254,8 @@ components:
           description: Minimum Shannon entropy (bits)
         max_age_days:
           type: integer
-          description: 0 = no expiration
+          nullable: true
+          description: null = no expiration
         prevent_reuse_count:
           type: integer
           description: Number of previous passwords that cannot be reused
@@ -46206,6 +46290,8 @@ components:
           format: double
         max_age_days:
           type: integer
+          nullable: true
+          description: null = no expiration; omit to keep the stored value
         prevent_reuse_count:
           type: integer
 
@@ -46222,11 +46308,16 @@ components:
       properties:
         valid:
           type: boolean
-        violations:
+        failures:
           type: array
           items:
             type: string
           description: Human-readable rule violations (empty when valid)
+        violations:
+          type: array
+          items:
+            type: string
+          description: Same list as failures, kept for older callers
         entropy:
           type: number
           format: double
