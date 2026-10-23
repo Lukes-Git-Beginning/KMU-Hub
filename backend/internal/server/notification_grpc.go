@@ -343,9 +343,7 @@ func (s *NotificationGRPCServer) UpdateNotificationPreference(ctx context.Contex
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	pref := &models.NotificationPreference{
-		TenantID:     tenantID,
-		UserID:       userID,
+	pref, err := s.prefService.ChangePreference(ctx, tenantID, userID, preference.PreferenceChange{
 		EventTypeKey: req.EventTypeKey,
 		ModuleID:     req.ModuleId,
 		InApp:        req.InApp,
@@ -353,9 +351,8 @@ func (s *NotificationGRPCServer) UpdateNotificationPreference(ctx context.Contex
 		Email:        req.Email,
 		SMS:          req.Sms,
 		Sound:        req.Sound,
-	}
-
-	if err := s.prefService.UpdatePreference(ctx, pref); err != nil {
+	})
+	if err != nil {
 		return nil, mapNotificationError(err)
 	}
 

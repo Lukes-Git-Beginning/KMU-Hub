@@ -345,17 +345,19 @@ func (n *NotificationRoutes) HandleGetPreferences(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeNotificationList(w, "preferences", resp.GetPreferences(), preferenceObject)
 }
 
 type updatePreferenceRequest struct {
 	EventTypeKey *string `json:"event_type_key,omitempty"`
 	ModuleID     *string `json:"module_id,omitempty"`
-	InApp        bool    `json:"in_app"`
-	DesktopPush  bool    `json:"desktop_push"`
-	Email        bool    `json:"email"`
-	SMS          bool    `json:"sms"`
-	Sound        string  `json:"sound"`
+	// Delivery fields are pointers: a field the client does not send keeps its
+	// stored value (the desktop only sends in_app/desktop_push).
+	InApp       *bool   `json:"in_app,omitempty"`
+	DesktopPush *bool   `json:"desktop_push,omitempty"`
+	Email       *bool   `json:"email,omitempty"`
+	SMS         *bool   `json:"sms,omitempty"`
+	Sound       *string `json:"sound,omitempty"`
 }
 
 func (n *NotificationRoutes) HandleUpdatePreference(w http.ResponseWriter, r *http.Request) {
@@ -393,7 +395,8 @@ func (n *NotificationRoutes) HandleUpdatePreference(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	obj, err := preferenceObject(resp.GetPreference())
+	writeNotificationEnvelope(w, http.StatusOK, "preference", obj, err)
 }
 
 // ============================================================================
@@ -420,7 +423,7 @@ func (n *NotificationRoutes) HandleListEventTypes(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeNotificationList(w, "event_types", resp.GetEventTypes(), eventTypeObject)
 }
 
 // ============================================================================
@@ -536,15 +539,47 @@ func (n *NotificationRoutes) HandleGetQuietHours(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	obj, err := quietHoursObject(resp.GetQuietHours())
+	writeNotificationEnvelope(w, http.StatusOK, "quiet_hours", obj, err)
 }
 
+// updateQuietHoursRequest accepts both vocabularies: the desktop's `days`
+// (0=Sunday..6=Saturday) and `is_active`, and the service's `days_of_week`
+// (ISO 1=Monday..7=Sunday) and `enabled`. `days` wins when both are sent.
 type updateQuietHoursRequest struct {
 	StartTime  string `json:"start_time"`
 	EndTime    string `json:"end_time"`
 	Timezone   string `json:"timezone"`
+	Days       []int  `json:"days"`
 	DaysOfWeek []int  `json:"days_of_week"`
-	Enabled    bool   `json:"enabled"`
+	IsActive   *bool  `json:"is_active"`
+	Enabled    *bool  `json:"enabled"`
+}
+
+// quietHoursRPCFields resolves the weekdays (ISO) and the switch of an update body.
+// Without any weekday the schedule applies every day; without a switch it is off.
+func (req updateQuietHoursRequest) quietHoursRPCFields() (days []int32, enabled bool, ok bool) {
+	switch {
+	case req.Days != nil:
+		days, ok = desktopDaysToISO(req.Days)
+		if !ok {
+			return nil, false, false
+		}
+	case req.DaysOfWeek != nil:
+		days = make([]int32, len(req.DaysOfWeek))
+		for i, d := range req.DaysOfWeek {
+			days[i] = int32(d)
+		}
+	default:
+		days = []int32{1, 2, 3, 4, 5, 6, 7}
+	}
+	switch {
+	case req.IsActive != nil:
+		enabled = *req.IsActive
+	case req.Enabled != nil:
+		enabled = *req.Enabled
+	}
+	return days, enabled, true
 }
 
 func (n *NotificationRoutes) HandleUpdateQuietHours(w http.ResponseWriter, r *http.Request) {
@@ -561,25 +596,33 @@ func (n *NotificationRoutes) HandleUpdateQuietHours(w http.ResponseWriter, r *ht
 		return
 	}
 
-	daysOfWeek := make([]int32, len(req.DaysOfWeek))
-	for i, d := range req.DaysOfWeek {
-		daysOfWeek[i] = int32(d)
+	daysOfWeek, enabled, ok := req.quietHoursRPCFields()
+	if !ok {
+		response.Error(w, http.StatusBadRequest, "days must be between 0 (Sunday) and 6 (Saturday)")
+		return
+	}
+	// lean: the desktop form has no timezone field; default to the product locale
+	// rather than UTC. Per-user timezone once the form offers one.
+	timezone := req.Timezone
+	if timezone == "" {
+		timezone = defaultQuietTimezone
 	}
 
 	resp, err := client.UpdateQuietHours(r.Context(), &notificationv1.UpdateQuietHoursRequest{
 		UserId:     userID,
 		StartTime:  req.StartTime,
 		EndTime:    req.EndTime,
-		Timezone:   req.Timezone,
+		Timezone:   timezone,
 		DaysOfWeek: daysOfWeek,
-		Enabled:    req.Enabled,
+		Enabled:    enabled,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	obj, err := quietHoursObject(resp.GetQuietHours())
+	writeNotificationEnvelope(w, http.StatusOK, "quiet_hours", obj, err)
 }
 
 type toggleDNDRequest struct {

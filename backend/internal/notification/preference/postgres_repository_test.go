@@ -75,3 +75,62 @@ func TestPostgresRepository_EmailSMSRoundTrip(t *testing.T) {
 	require.True(t, list[0].Email)
 	require.False(t, list[0].SMS)
 }
+
+// TestPostgresService_ChangePreferenceKeepsUnsentFields proves the desktop client's
+// PUT {in_app, desktop_push} no longer resets email/sms/sound: unsent fields keep the
+// stored value, and a first write starts from the system default Evaluate uses.
+func TestPostgresService_ChangePreferenceKeepsUnsentFields(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	testutil.EnsureTenant(t, pool, testutil.TenantA, "Tenant A")
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     testutil.TenantA,
+		"email":         fmt.Sprintf("pref-change-%s@tenanta.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	svc := NewService(NewPostgresRepository(pool))
+	ctx := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+	eventKey := "chat.mention"
+	module := "chat"
+	yes, no, chime := true, false, "chime"
+
+	// First write: only in_app is sent; the rest starts from the system default.
+	first, err := svc.ChangePreference(ctx, testutil.TenantA, userID, PreferenceChange{
+		EventTypeKey: &eventKey, ModuleID: &module, InApp: &no,
+	})
+	require.NoError(t, err)
+	defer testutil.CleanupRow(t, pool, "notification_preferences", first.ID)
+	require.False(t, first.InApp)
+	require.True(t, first.DesktopPush)
+	require.True(t, first.Email, "unsent email starts at the system default, not false")
+	require.Equal(t, "default", first.Sound)
+
+	// Seed a non-default email/sms/sound, then send only in_app/desktop_push.
+	_, err = svc.ChangePreference(ctx, testutil.TenantA, userID, PreferenceChange{
+		EventTypeKey: &eventKey, ModuleID: &module, Email: &no, SMS: &yes, Sound: &chime,
+	})
+	require.NoError(t, err)
+	_, err = svc.ChangePreference(ctx, testutil.TenantA, userID, PreferenceChange{
+		EventTypeKey: &eventKey, ModuleID: &module, InApp: &yes, DesktopPush: &no,
+	})
+	require.NoError(t, err)
+
+	got, err := NewPostgresRepository(pool).GetEventTypePreference(ctx, testutil.TenantA, userID, eventKey)
+	require.NoError(t, err)
+	require.True(t, got.InApp)
+	require.False(t, got.DesktopPush)
+	require.False(t, got.Email, "email must survive a PUT that does not send it")
+	require.True(t, got.SMS, "sms must survive a PUT that does not send it")
+	require.Equal(t, "chime", got.Sound, "sound must survive a PUT that does not send it")
+
+	list, err := NewPostgresRepository(pool).ListPreferences(ctx, testutil.TenantA, userID, nil)
+	require.NoError(t, err)
+	require.Len(t, list, 1, "all three writes hit the same row")
+}

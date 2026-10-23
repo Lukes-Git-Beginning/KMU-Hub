@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -210,9 +211,39 @@ func (r *stubPrefRepo) ListPreferences(_ context.Context, tenantID, userID uuid.
 	return out, nil
 }
 
+func (r *stubPrefRepo) GetEventTypePreference(_ context.Context, tenantID, userID uuid.UUID, eventTypeKey string) (*models.NotificationPreference, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range r.prefs {
+		if p.TenantID == tenantID && p.UserID == userID && p.EventTypeKey != nil && *p.EventTypeKey == eventTypeKey {
+			cp := *p
+			return &cp, nil
+		}
+	}
+	return nil, preference.ErrPreferenceNotFound
+}
+
+func (r *stubPrefRepo) GetModuleDefault(_ context.Context, tenantID, userID uuid.UUID, moduleID string) (*models.NotificationPreference, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range r.prefs {
+		if p.TenantID == tenantID && p.UserID == userID && p.EventTypeKey == nil && p.ModuleID != nil && *p.ModuleID == moduleID {
+			cp := *p
+			return &cp, nil
+		}
+	}
+	return nil, preference.ErrPreferenceNotFound
+}
+
 func (r *stubPrefRepo) UpsertPreference(_ context.Context, pref *models.NotificationPreference) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	for i, p := range r.prefs {
+		if p.ID == pref.ID {
+			r.prefs[i] = pref
+			return nil
+		}
+	}
 	r.prefs = append(r.prefs, pref)
 	return nil
 }
@@ -1155,7 +1186,7 @@ func TestGetAndUpdateNotificationPreference_HappyPath(t *testing.T) {
 
 	eventKey := "contact.created"
 	updateResp, err := srv.UpdateNotificationPreference(ctx, &notificationv1.UpdateNotificationPreferenceRequest{
-		UserId: userID.String(), EventTypeKey: &eventKey, InApp: true, Email: true, Sound: "chime",
+		UserId: userID.String(), EventTypeKey: &eventKey, InApp: proto.Bool(true), Email: proto.Bool(true), Sound: proto.String("chime"),
 	})
 	requireGRPCOK(t, err)
 	assert.True(t, updateResp.Preference.InApp)
@@ -1164,6 +1195,18 @@ func TestGetAndUpdateNotificationPreference_HappyPath(t *testing.T) {
 	requireGRPCOK(t, err)
 	require.Len(t, listResp.Preferences, 1)
 	assert.Equal(t, "chime", listResp.Preferences[0].Sound)
+
+	// A second write that sends only in_app must not reset email/sound.
+	_, err = srv.UpdateNotificationPreference(ctx, &notificationv1.UpdateNotificationPreferenceRequest{
+		UserId: userID.String(), EventTypeKey: &eventKey, InApp: proto.Bool(false),
+	})
+	requireGRPCOK(t, err)
+	listResp, err = srv.GetNotificationPreferences(ctx, &notificationv1.GetNotificationPreferencesRequest{UserId: userID.String()})
+	requireGRPCOK(t, err)
+	require.Len(t, listResp.Preferences, 1)
+	assert.False(t, listResp.Preferences[0].InApp)
+	assert.True(t, listResp.Preferences[0].Email, "unsent email keeps its stored value")
+	assert.Equal(t, "chime", listResp.Preferences[0].Sound, "unsent sound keeps its stored value")
 }
 
 func TestGetNotificationPreferences_EmptyIsNotNil(t *testing.T) {

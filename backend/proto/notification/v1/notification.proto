@@ -206,11 +206,13 @@ message UpdateNotificationPreferenceRequest {
   string user_id = 1;
   optional string event_type_key = 2;
   optional string module_id = 3;
-  bool in_app = 4;
-  bool desktop_push = 5;
-  string sound = 6;
-  bool email = 7;
-  bool sms = 8;
+  // Delivery fields are optional: an unset field keeps the stored value (or the
+  // system default on first write) instead of being reset to false/"".
+  optional bool in_app = 4;
+  optional bool desktop_push = 5;
+  optional string sound = 6;
+  optional bool email = 7;
+  optional bool sms = 8;
 }
 
 message UpdateNotificationPreferenceResponse {

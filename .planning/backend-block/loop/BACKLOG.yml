@@ -745,7 +745,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Gateway)"
     scope: >
       Notification-Einstellungen, am Code belegt. (1) Quiet Hours: FE liest/sendet `days` und `is_active`

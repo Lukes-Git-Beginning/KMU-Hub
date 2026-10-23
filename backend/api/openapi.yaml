@@ -4880,6 +4880,8 @@ paths:
                       $ref: "#/components/schemas/NotificationPreference"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -4907,6 +4909,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -4937,6 +4941,8 @@ paths:
                       $ref: "#/components/schemas/EventType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -5051,13 +5057,17 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: Quiet hours configuration
+          description: >-
+            Quiet hours configuration under `quiet_hours`. A user without a record gets
+            the form defaults (22:00-07:00, Europe/Berlin, every day) with `is_active: false`.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuietHours"
+                $ref: "#/components/schemas/QuietHoursResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -5078,13 +5088,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuietHours"
+                $ref: "#/components/schemas/QuietHoursResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -40643,6 +40655,10 @@ components:
 
     UpdateNotificationPreferenceRequest:
       type: object
+      description: >-
+        Partial update: a delivery field that is not sent keeps its stored value (a first
+        write starts from the system default: in_app, desktop_push and email on, sms off,
+        sound "default"). An explicit false is a value.
       properties:
         event_type_key:
           type: string
@@ -40721,14 +40737,28 @@ components:
           type: array
           items:
             type: integer
-          description: Days of week (0=Sunday, 6=Saturday)
+          description: Service weekdays, ISO (1=Monday .. 7=Sunday)
+        days:
+          type: array
+          items:
+            type: integer
+          description: Desktop weekdays (0=Sunday .. 6=Saturday); the same days as `days_of_week`
         enabled:
           type: boolean
+        is_active:
+          type: boolean
+          description: Same value as `enabled`
         manual_dnd:
           type: boolean
         manual_dnd_until:
           type: string
           format: date-time
+
+    QuietHoursResponse:
+      type: object
+      properties:
+        quiet_hours:
+          $ref: "#/components/schemas/QuietHours"
 
     DNDStatus:
       type: object
@@ -40746,7 +40776,7 @@ components:
 
     UpdateQuietHoursRequest:
       type: object
-      required: [start_time, end_time, timezone, enabled]
+      required: [start_time, end_time]
       properties:
         start_time:
           type: string
@@ -40754,10 +40784,24 @@ components:
           type: string
         timezone:
           type: string
+          description: IANA timezone; defaults to Europe/Berlin when omitted
+        days:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+          description: Desktop weekdays (0=Sunday .. 6=Saturday). Wins over `days_of_week`.
         days_of_week:
           type: array
           items:
             type: integer
+            minimum: 1
+            maximum: 7
+          description: Service weekdays, ISO (1=Monday .. 7=Sunday). Without `days` and `days_of_week` every day applies.
+        is_active:
+          type: boolean
+          description: Schedule switch (desktop name). Wins over `enabled`; without either the schedule is off.
         enabled:
           type: boolean
 
