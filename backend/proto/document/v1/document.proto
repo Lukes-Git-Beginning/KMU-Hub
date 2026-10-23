@@ -602,6 +602,9 @@ message ListSharedWithMeResponse {
   repeated DocumentFile files = 1;
   repeated DocumentFolder folders = 2;
   int32 total = 3;
+  // The share rows behind files/folders (permission, who shared) — the desktop
+  // client reads these as `shares`.
+  repeated DocumentShare shares = 4;
 }
 
 // ============================================================================

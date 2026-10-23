@@ -2014,7 +2014,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server (Bezug 74,8 %)"
     scope: >
       Verifizierter Totalausfall der Freigabe-Funktion (gefunden in cov-document-share,

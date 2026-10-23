@@ -1340,7 +1340,9 @@ func (d *DocumentRoutes) HandleListSharedWithMe(w http.ResponseWriter, r *http.R
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"files":   emptyIfNil(resp.Files),
 		"folders": emptyIfNil(resp.Folders),
-		"total":   resp.Total,
+		// document-client.ts reads this envelope as `shares`.
+		"shares": emptyIfNil(resp.Shares),
+		"total":  resp.Total,
 	})
 }
 

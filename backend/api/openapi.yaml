@@ -31627,6 +31627,10 @@ paths:
                   folders:
                     type: array
                     items: { $ref: "#/components/schemas/DocumentFolder" }
+                  shares:
+                    type: array
+                    description: The share rows behind files and folders (permission, who shared)
+                    items: { $ref: "#/components/schemas/DocumentShare" }
                   total: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
