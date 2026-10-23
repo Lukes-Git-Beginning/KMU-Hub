@@ -35354,7 +35354,8 @@ paths:
   # route_crm_ext.go -- CRM extension routes: duplicate detection, contact
   # timeline, GDPR consent CRUD. Registered inside the EXISTING /contacts and
   # /companies subrouters (route_crm.go), so base paths are /api/v1/contacts
-  # and /api/v1/companies -- NOT /api/v1/crm/*. All handlers use
+  # and /api/v1/companies; the timeline is additionally served under
+  # /api/v1/crm/contacts/{id}/timeline (desktop path). All handlers use
   # response.JSON(w, status, resp) on RAW proto structs/fields (not
   # response.Proto) -- the generated pb.go json tags are snake_case and enum
   # int32 values serialize as plain numbers via encoding/json, matching
@@ -35423,8 +35424,8 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
         - name: offset
           in: query
-          description: Page number (1-based -- despite the query param name this is not a row offset, it maps directly to the proto page field)
-          schema: { type: integer, minimum: 1, default: 1 }
+          description: Row offset (the desktop sends (page-1)*limit); the gateway converts it to the RPC page number
+          schema: { type: integer, minimum: 0, default: 0 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
@@ -35437,6 +35438,39 @@ paths:
                 $ref: "#/components/schemas/CrmContactTimelineResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: Upstream CRM error
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/crm/contacts/{id}/timeline:
+    get:
+      summary: Get the contact timeline (alias of /api/v1/contacts/{id}/timeline, the path the desktop calls)
+      tags: [contacts]
+      operationId: getCrmContactTimeline
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: offset
+          in: query
+          description: Row offset (the desktop sends (page-1)*limit); the gateway converts it to the RPC page number
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Timeline events for the contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmContactTimelineResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: Upstream CRM error
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -51467,12 +51501,8 @@ components:
           type: string
         metadata:
           type: object
-          nullable: true
-          properties:
-            data:
-              type: object
-              additionalProperties:
-                type: string
+          description: Flat map of event details (values keep their JSON type); omitted when empty
+          additionalProperties: true
 
     CrmContactTimelineResponse:
       type: object

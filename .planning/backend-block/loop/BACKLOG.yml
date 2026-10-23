@@ -828,7 +828,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 74,8 %"
     scope: >
       CRM, am Code belegt. (1) TOTALAUSFALL Aktivitäten mit Fälligkeitsdatum: das FE sendet

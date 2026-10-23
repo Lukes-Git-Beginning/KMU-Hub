@@ -305,3 +305,43 @@ func TestCRMGRPCServer_TagRPCs_RequireTenantContext(t *testing.T) {
 	_, err = srv.RemoveActivityTags(ctx, &crmv1.RemoveActivityTagsRequest{ActivityId: id})
 	require.Equal(t, codes.Unauthenticated, status.Code(err))
 }
+
+// A bare YYYY-MM-DD due_date (what <input type="date"> sends) is stored by the
+// real repository and survives the desktop edit round trip (value sliced to
+// ten characters and sent back).
+func TestCRMGRPCServer_Activity_DueDateBareDateRoundTrip(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "CRM Activity DueDate Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	userID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id": tenantID, "email": fmt.Sprintf("crm-act-due-%s@tenant.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", userID)
+
+	srv := tagServerForTest(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	created, err := srv.CreateActivity(ctx, &crmv1.CreateActivityRequest{
+		ActivityType: "task", Subject: "Fällig", CreatedBy: userID.String(), DueDate: "2026-11-01",
+	})
+	require.NoError(t, err)
+	defer testutil.CleanupRow(t, pool, "activities", uuid.MustParse(created.Activity.Id))
+	require.Equal(t, "2026-11-01", created.Activity.DueDate[:10])
+
+	edited := created.Activity.DueDate[:10]
+	_, err = srv.UpdateActivity(ctx, &crmv1.UpdateActivityRequest{Id: created.Activity.Id, DueDate: &edited})
+	require.NoError(t, err, "editing a dated activity re-sends the sliced date")
+
+	next := "2026-11-05"
+	updated, err := srv.UpdateActivity(ctx, &crmv1.UpdateActivityRequest{Id: created.Activity.Id, DueDate: &next})
+	require.NoError(t, err)
+	require.Equal(t, "2026-11-05", updated.Activity.DueDate[:10])
+}
