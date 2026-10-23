@@ -42,6 +42,16 @@ var protoMarshaler = protojson.MarshalOptions{
 	UseEnumNumbers: true,
 }
 
+// protoMarshalerFull is protoMarshaler with EmitUnpopulated: zero values, empty lists and
+// unset messages (`null`) stay in the JSON. Frontends that test `=== null` or call
+// `Number(x)` on a counter need the member to exist; protojson otherwise drops a 0 entirely.
+// It still skips unset `optional` scalars, which fillOptionalNulls adds as `null`.
+var protoMarshalerFull = protojson.MarshalOptions{
+	UseProtoNames:   true,
+	UseEnumNumbers:  true,
+	EmitUnpopulated: true,
+}
+
 // taxModeNumber matches a numeric `"tax_mode":N` member. Only biz.v1.TaxMode fields are
 // named tax_mode in emitted messages (the two string fields in biz.proto are request-only),
 // and a key inside a JSON string value is escaped (`\"tax_mode\"`) so it cannot match.
@@ -56,9 +66,23 @@ var taxModeNames = map[string]string{"1": "standard", "2": "reverse_charge", "3"
 // lean: key-based rewrite instead of per-enum marshaling (protojson has no such option);
 // a second enum with the same wire need gets its own pattern or a protoreflect walk.
 func MarshalProto(msg proto.Message) ([]byte, error) {
-	b, err := protoMarshaler.Marshal(msg)
+	return marshalProto(protoMarshaler, msg)
+}
+
+// MarshalProtoFull is MarshalProto with every field present (see protoMarshalerFull).
+func MarshalProtoFull(msg proto.Message) ([]byte, error) {
+	return marshalProto(protoMarshalerFull, msg)
+}
+
+func marshalProto(m protojson.MarshalOptions, msg proto.Message) ([]byte, error) {
+	b, err := m.Marshal(msg)
 	if err != nil {
 		return nil, err
+	}
+	if m.EmitUnpopulated {
+		if b, err = fillOptionalNulls(b, msg.ProtoReflect().Descriptor()); err != nil {
+			return nil, err
+		}
 	}
 	if bytes.Contains(b, []byte(`"tax_mode":`)) {
 		b = taxModeNumber.ReplaceAllFunc(b, func(m []byte) []byte {
@@ -70,6 +94,57 @@ func MarshalProto(msg proto.Message) ([]byte, error) {
 		return rewriteStatus(b, names)
 	}
 	return b, nil
+}
+
+// fillOptionalNulls adds `null` for every unset `optional` scalar of md and, recursively, of the
+// messages nested in it, so "not set" (a position that was never counted) differs from a
+// missing key. Map fields and well-known types (their JSON is not an object) stay untouched.
+func fillOptionalNulls(b []byte, md protoreflect.MessageDescriptor) ([]byte, error) {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return nil, err
+	}
+	fields := md.Fields()
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+		name := string(fd.Name())
+		v, present := obj[name]
+		switch {
+		case !present:
+			if fd.HasOptionalKeyword() && fd.Message() == nil {
+				obj[name] = json.RawMessage("null")
+			}
+		case fd.Message() != nil && !fd.IsMap() && len(v) > 0 && (v[0] == '{' || v[0] == '['):
+			if fd.IsList() {
+				var elems []json.RawMessage
+				if err := json.Unmarshal(v, &elems); err != nil {
+					return nil, err
+				}
+				for j, e := range elems {
+					if len(e) == 0 || e[0] != '{' {
+						continue
+					}
+					filled, err := fillOptionalNulls(e, fd.Message())
+					if err != nil {
+						return nil, err
+					}
+					elems[j] = filled
+				}
+				filled, err := json.Marshal(elems)
+				if err != nil {
+					return nil, err
+				}
+				obj[name] = filled
+			} else if v[0] == '{' {
+				filled, err := fillOptionalNulls(v, fd.Message())
+				if err != nil {
+					return nil, err
+				}
+				obj[name] = filled
+			}
+		}
+	}
+	return json.Marshal(obj)
 }
 
 // statusNames lists the messages whose top-level `status` leaves as the string the frontend
@@ -97,7 +172,17 @@ func rewriteStatus(b []byte, names map[string]string) ([]byte, error) {
 // (notably Timestamp) serialize correctly. Use this instead of JSON for handlers
 // that return a proto.Message.
 func Proto(w http.ResponseWriter, status int, msg proto.Message) {
-	b, err := MarshalProto(msg)
+	writeProto(w, status, MarshalProto, msg)
+}
+
+// ProtoFull is Proto with zero values, empty lists and unset optionals (`null`) kept in the
+// JSON, for responses whose frontend type has no optional members.
+func ProtoFull(w http.ResponseWriter, status int, msg proto.Message) {
+	writeProto(w, status, MarshalProtoFull, msg)
+}
+
+func writeProto(w http.ResponseWriter, status int, marshal func(proto.Message) ([]byte, error), msg proto.Message) {
+	b, err := marshal(msg)
 	if err != nil {
 		slog.Error("proto json marshal failed", "error", err)
 		Error(w, http.StatusInternalServerError, "internal server error")

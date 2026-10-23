@@ -48257,7 +48257,10 @@ components:
 
     InventarItem:
       type: object
-      description: An inventory item tracked in the Inventar module.
+      description: >-
+        An inventory item tracked in the Inventar module. Stock counters are always present
+        (0 included) and unset optional members are `null`.
+      required: [id, name, quantity, min_quantity, unit]
       properties:
         id:
           type: string
@@ -48519,7 +48522,10 @@ components:
 
     InventarInventurCount:
       type: object
-      description: A single item count entry within an Inventur session.
+      description: >-
+        A single item count entry within an Inventur session. `expected` is always present
+        (0 included); `counted` is always present and `null` until the position is counted.
+      required: [id, item_id, expected, counted]
       properties:
         id:
           type: string

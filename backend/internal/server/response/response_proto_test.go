@@ -12,6 +12,7 @@ import (
 
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 	dialerv1 "github.com/kmuhub/kmuhub/proto/dialer/v1"
+	inventarv1 "github.com/kmuhub/kmuhub/proto/inventar/v1"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
 
@@ -178,5 +179,41 @@ func TestProto_DunningAndCreditNoteStatusIsString(t *testing.T) {
 	// A message that is not listed keeps the enum number.
 	if got := status(&bizv1.Invoice{Id: "i", Status: bizv1.InvoiceStatus_INVOICE_SENT}); got != float64(2) {
 		t.Errorf("invoice status = %v, want 2", got)
+	}
+}
+
+// ProtoFull keeps zero values, empty lists and unset optionals in the JSON, also inside
+// nested messages; Proto drops them.
+func TestProtoFull_KeepsZeroValuesAndUnsetOptionals(t *testing.T) {
+	session := &inventarv1.InventurSession{Id: "s", Counts: []*inventarv1.InventurCount{
+		{Id: "uncounted"},
+		{Id: "zero", Counted: proto.Int64(0)},
+	}}
+
+	rec := httptest.NewRecorder()
+	response.ProtoFull(rec, 200, session)
+	var got struct {
+		Counts []map[string]any `json:"counts"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode %s: %v", rec.Body.String(), err)
+	}
+	if len(got.Counts) != 2 {
+		t.Fatalf("counts = %v", got.Counts)
+	}
+	if v, ok := got.Counts[0]["counted"]; !ok || v != nil {
+		t.Errorf("uncounted position: counted = %v (present %v), want null", v, ok)
+	}
+	if got.Counts[0]["expected"] != "0" {
+		t.Errorf("expected = %v, want \"0\"", got.Counts[0]["expected"])
+	}
+	if got.Counts[1]["counted"] != "0" {
+		t.Errorf("counted as zero = %v, want \"0\"", got.Counts[1]["counted"])
+	}
+
+	plain := httptest.NewRecorder()
+	response.Proto(plain, 200, session)
+	if strings.Contains(plain.Body.String(), `"expected"`) {
+		t.Errorf("Proto must stay lean, got %s", plain.Body.String())
 	}
 }

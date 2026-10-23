@@ -1092,7 +1092,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,3 %"
     scope: >
       Inventur und Bewegungen sind für jeden Nutzer fehlerhaft. (1) `InventurCount.counted` ist
@@ -1120,6 +1120,39 @@ units:
       - "Artikel mit Bestand 0 -> `quantity:0` im JSON"
       - "`transfer` entschieden und getestet oder begründet nach BACKLOG-NEXT"
       - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-inventar-record-movement-changes-stock
+    phase: 4
+    service: inventar
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/inventar (vor Messung nicht bekannt)"
+    scope: >
+      GEFUNDEN in fix-inventar-inventur-counted-and-movement-type: der Bewegungs-Dialog
+      (`InventarPage.tsx:433`) bucht `in` und `out` über `POST /inventar/items/{id}/movements`
+      (`RecordMovement`). `inventar.Service.RecordMovement` (`service.go:463`) schreibt aber nur eine
+      Zeile in `inventory_movements` (`repo.CreateMovement`, kein Trigger in den Migrationen
+      83/122/183) und ändert `inventory_items.quantity` NICHT. Wareneingang und -ausgang aus dem
+      Dialog ändern den Bestand also nie; die Bewegungshistorie zeigt Buchungen, der Bestand bleibt
+      stehen. Nur `AdjustStock` (`service.go:339`) ändert den Bestand und schreibt die Bewegung.
+      Fix am Service (nicht im Gateway): `in` -> Bestand +quantity, `out` -> Bestand -quantity mit
+      Prüfung `ErrInsufficientStock` (der Tenant-Schalter `allowNegativeStock` ist heute nur im FE),
+      Bestandsänderung und Bewegung in EINER Transaktion; am einfachsten über die vorhandene
+      `AdjustStock`-Logik mit Delta +/-quantity und `reason`/`performed_by` durchreichen, damit
+      `maybeCreateWarning` mitläuft. `adjustment` im Dialog läuft über `/adjust` (FE schickt dort nur
+      ein positives `delta`, siehe Nebenbefund). Bestehende Tests, die "RecordMovement ändert den
+      Bestand nicht" pinnen, ersetzen.
+    sources:
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/postgres_repository.go
+      - backend/internal/server/inventar_grpc.go
+      - desktop/src/renderer/src/modules/inventar/InventarPage.tsx
+    done_when:
+      - "Service-Test gegen echte DB: `in` 5 auf Bestand 10 -> Bestand 15, `out` 20 auf 15 -> `ErrInsufficientStock`, Bestand unverändert"
+      - "Nach `in`/`out` liegt genau EINE Bewegungszeile vor (keine Doppelbuchung)"
+      - "Mutations-Probe; desktop-aufrufer-Zeile"
+      - "Nebenbefund `adjustment` mit rein positivem `delta` im FE als Hinweis ins Journal (Desktop, nicht Teil der Unit)"
 
   - id: fix-vertraege-dates-dropped
     phase: 4

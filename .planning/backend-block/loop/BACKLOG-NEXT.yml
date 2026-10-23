@@ -1272,3 +1272,26 @@ units:
     done_when:
       - "Entscheidung a/b/c steht; bei b ein Router-Test, dass is_storno die Rechnung auf cancelled setzt"
 
+  - id: decide-inventar-movement-transfer-in-dialog
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Der Bewegungs-Dialog (`InventarPage.tsx:433/445-450`) bietet `transfer` als Typ, schickt ihn an
+      `POST /inventar/items/{id}/movements`, der Validator (`route_inventar.go`, `oneof=in out
+      adjustment`) lehnt ihn mit 400 ab. Das ist KEIN Gateway-Fehler, sondern ein fehlender Vertrag:
+      der Service kann Umbuchung nur zwischen ZWEI Artikeln (`POST /inventar/transfer`,
+      `from_item_id`/`to_item_id`/`quantity`), der Dialog erfasst aber nur den einen Artikel plus ein
+      Lagerort-Textfeld (`lagerort`), kein Zielartikel. `RecordMovement(transfer)` anzunehmen würde
+      eine Bewegungszeile ohne Bestandswirkung schreiben (siehe `fix-inventar-record-movement-changes-stock`).
+      ENTSCHEIDUNG LUKE: (a) FE: `transfer` aus dem Dialog nehmen oder einen Zielartikel abfragen und
+      `/inventar/transfer` rufen (nur FE), (b) Lagerort-Umbuchung desselben Artikels als eigenes
+      Datenmodell (Bestand je Lagerort, heute hat ein Artikel genau ein `location`) — Architektur.
+    sources:
+      - desktop/src/renderer/src/modules/inventar/InventarPage.tsx
+      - backend/internal/gateway/route_inventar.go
+      - backend/internal/inventar/service.go
+    done_when:
+      - "Entscheidung a/b steht; bei a ist der Dialog angepasst, bei b eine eigene Unit mit Datenmodell angelegt"
