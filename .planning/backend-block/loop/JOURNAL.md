@@ -513,3 +513,11 @@ Geprüft und passend (Agenten-Listen, nicht von mir erneut gelesen): HR Urlaub (
 - neue-units: keine
 - desktop-aufrufer: `GET /fuhrpark/gps/routes` -> `fuhrpark-client.ts:502 getVehicleRoutes` / `FuhrparkPage.tsx:1481` (`r.driver`, `r.positions.map`, `r.daily_km`) / `:1838` (`r.driver.toLowerCase()`) -> `driver` kommt jetzt immer als String, kein TypeError mehr. `adaptVehicle` (`:75`, `Number(v.mileage_km)`), `adaptFuelLog` (`:110-111`), `adaptTripLog` (`:125-127`) bekommen die Zähler jetzt auch bei 0. Optionale Vehicle-Felder (`vin`, `color`, `tuev_due_date`, `assigned_driver_id`, `notes`) kommen jetzt als `null`; die Leser nutzen `?? ` (`:73`, `:76`), kein `.method()` auf ihnen. Weitere Aufrufer: keine.
 - offen: (1) Wirkt nach Gateway-Deploy allein (kein Service-Code geändert, nur Kommentar in `fuhrpark_grpc.go`). (2) `driver` bleibt leer, bis die Fahrer-Zuordnung (Stub Sprint 3) eine Namensquelle hat; die Routenansicht zeigt dann einen leeren Fahrer. (3) Nicht angefasst: Service-, Schaden-, Dokument-, Führerschein-, Buchungs-Handler (`Proto` mit optionalen Feldern, FE nutzt dort `??`). (4) Arbeitsbaum zeigt weiter ~190 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit.
+
+## Bilanz Lauf (2026-10-23 23:13)
+- iterationen: 1 im Bereich 33-33, davon 1 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: fix 1
+- commits nach typ: fix 1 (1 seit ffe8613e)
+- coverage-delta: keine Aenderungen erkannt
+- offen mit entscheidungsbedarf: 0 von 1 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 5,0 (5 gesamt)
