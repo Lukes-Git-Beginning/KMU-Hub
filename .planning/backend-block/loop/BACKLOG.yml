@@ -1929,7 +1929,7 @@ units:
     service: e2e
     model: sonnet
     deps: [fix-team-inbox-manage-permission-bypass]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow `backend/test/e2e/inbox_test.go` (Inbox läuft im `notification`-Service,
