@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	lkauth "github.com/livekit/protocol/auth"
@@ -879,7 +880,21 @@ func (vr *VideoRoutes) HandleListMeetings(w http.ResponseWriter, r *http.Request
 	userID := middleware.GetUserID(r.Context())
 	q := r.URL.Query()
 
-	page, pageSize := parsePagination(r, 1, 20)
+	// The desktop sends limit/offset (MeetingFilter) and asks for the whole list without a filter,
+	// so the default is the page-size ceiling, not 20. offset maps onto the proto's page number,
+	// which only works on a page boundary. organizer_id has no field on the RPC (no caller).
+	page, pageSize := parsePagination(r, 1, 100)
+	if limit := parseLimit(r, 0, 100); limit > 0 {
+		pageSize = limit
+	}
+	if off := q.Get("offset"); off != "" {
+		n, convErr := strconv.Atoi(off)
+		if convErr != nil || n < 0 || n%pageSize != 0 {
+			response.Error(w, http.StatusBadRequest, "offset must be a non-negative multiple of limit")
+			return
+		}
+		page = n/pageSize + 1
+	}
 
 	grpcReq := &videov1.ListMeetingsRequest{
 		UserId:   userID,
@@ -1084,7 +1099,8 @@ func (vr *VideoRoutes) HandleGetMeetingNotes(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// Full: a meeting without notes still answers with `content` (MeetingNotesPanel reads it unguarded).
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleGetPreviousMeetingNotes(w http.ResponseWriter, r *http.Request) {
@@ -1109,7 +1125,7 @@ func (vr *VideoRoutes) HandleGetPreviousMeetingNotes(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // HandleListMeetingOccurrences returns the dated instances of a recurring

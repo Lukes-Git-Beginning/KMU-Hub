@@ -1838,7 +1838,8 @@ func (s *CalendarGRPCServer) UpdateBookingPage(ctx context.Context, req *calv1.U
 	if v := req.GetCompanyName(); v != "" {
 		input.CompanyName = &v
 	}
-	if v := req.GetLogoUrl(); v != "" {
+	if req.LogoUrl != nil {
+		v := req.GetLogoUrl() // "" clears the logo
 		input.LogoURL = &v
 	}
 	if len(req.GetServices()) > 0 {

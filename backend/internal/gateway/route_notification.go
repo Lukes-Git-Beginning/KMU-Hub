@@ -430,9 +430,34 @@ func (n *NotificationRoutes) HandleListEventTypes(w http.ResponseWriter, r *http
 // Mute Handlers
 // ============================================================================
 
+// muteResourceRequest carries the muted kind as `resource_type` (what the desktop sends) or the
+// older `module_id`; the RPC stores it as module_id either way.
 type muteResourceRequest struct {
-	ModuleID   string `json:"module_id"   validate:"required"`
-	ResourceID string `json:"resource_id" validate:"required"`
+	ModuleID     string `json:"module_id"`
+	ResourceType string `json:"resource_type"`
+	ResourceID   string `json:"resource_id" validate:"required"`
+}
+
+// muteWire is a mute as the settings tab reads it (MutedResource in notification-client.ts).
+// module_id/created_at stay for callers of the earlier shape.
+type muteWire struct {
+	ID           string `json:"id"`
+	ModuleID     string `json:"module_id"`
+	ResourceType string `json:"resource_type"`
+	ResourceID   string `json:"resource_id"`
+	MutedAt      string `json:"muted_at"`
+	CreatedAt    string `json:"created_at"`
+}
+
+func toMuteWire(m *notificationv1.MuteInfo) muteWire {
+	at := ""
+	if ts := m.GetCreatedAt(); ts != nil {
+		at = ts.AsTime().UTC().Format(time.RFC3339)
+	}
+	return muteWire{
+		ID: m.GetId(), ModuleID: m.GetModuleId(), ResourceType: m.GetModuleId(),
+		ResourceID: m.GetResourceId(), MutedAt: at, CreatedAt: at,
+	}
 }
 
 func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.Request) {
@@ -448,10 +473,18 @@ func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.R
 	if !ok {
 		return
 	}
+	kind := req.ResourceType
+	if kind == "" {
+		kind = req.ModuleID
+	}
+	if kind == "" {
+		response.Error(w, http.StatusBadRequest, "resource_type is required")
+		return
+	}
 
 	resp, err := client.MuteResource(r.Context(), &notificationv1.MuteResourceRequest{
 		UserId:     userID,
-		ModuleId:   req.ModuleID,
+		ModuleId:   kind,
 		ResourceId: req.ResourceID,
 	})
 	if err != nil {
@@ -459,7 +492,7 @@ func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, map[string]any{"mute": toMuteWire(resp.GetMute())})
 }
 
 func (n *NotificationRoutes) HandleUnmuteResource(w http.ResponseWriter, r *http.Request) {
@@ -515,7 +548,11 @@ func (n *NotificationRoutes) HandleListMutedResources(w http.ResponseWriter, r *
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	mutes := make([]muteWire, 0, len(resp.GetMutes()))
+	for _, m := range resp.GetMutes() {
+		mutes = append(mutes, toMuteWire(m))
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"mutes": mutes, "total": resp.GetTotal()})
 }
 
 // ============================================================================

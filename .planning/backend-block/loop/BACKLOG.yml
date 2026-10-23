@@ -2098,7 +2098,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 73,6 %"
     scope: >
       Teilfehler und Randfälle aus `scan-fe-gateway-shape-crm-kommunikation` (kein Totalausfall, je

@@ -246,9 +246,11 @@ type updateCalPreferencesRequest struct {
 	DefaultView                  *string `json:"default_view,omitempty"`
 	WeekDays                     *int32  `json:"week_days,omitempty"`
 	DefaultReminderMinutes       *int32  `json:"default_reminder_minutes,omitempty"`
-	DefaultAllDayReminderMinutes *int32  `json:"default_all_day_reminder_minutes,omitempty"`
-	SubdivisionCode              *string `json:"subdivision_code,omitempty"`
-	ShowTaskDeadlines            *bool   `json:"show_task_deadlines,omitempty"`
+	DefaultAllDayReminderMinutes *int32  `json:"default_allday_reminder_minutes,omitempty"`
+	// Earlier spelling of the key above; the desktop and the spec use the one without the second underscore.
+	LegacyAllDayReminderMinutes *int32  `json:"default_all_day_reminder_minutes,omitempty"`
+	SubdivisionCode             *string `json:"subdivision_code,omitempty"`
+	ShowTaskDeadlines           *bool   `json:"show_task_deadlines,omitempty"`
 }
 
 type generateJoinTokenRequest struct {
@@ -1435,6 +1437,9 @@ func (cr *CalendarRoutes) HandleUpdateCalendarPreferences(wr http.ResponseWriter
 	}
 	if req.DefaultReminderMinutes != nil {
 		grpcReq.DefaultReminderMinutes = req.DefaultReminderMinutes
+	}
+	if req.DefaultAllDayReminderMinutes == nil {
+		req.DefaultAllDayReminderMinutes = req.LegacyAllDayReminderMinutes
 	}
 	if req.DefaultAllDayReminderMinutes != nil {
 		grpcReq.DefaultAlldayReminderMinutes = req.DefaultAllDayReminderMinutes

@@ -4959,19 +4959,25 @@ paths:
           application/json:
             schema:
               type: object
-              required: [module_id, resource_id]
+              required: [resource_id]
+              description: The muted kind is `resource_type`; the earlier `module_id` spelling is still accepted. One of the two is required.
               properties:
+                resource_type:
+                  type: string
                 module_id:
                   type: string
                 resource_id:
                   type: string
       responses:
         "201":
-          description: Resource muted
+          description: Resource muted, answered as `{mute}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NotificationMute"
+                type: object
+                properties:
+                  mute:
+                    $ref: "#/components/schemas/NotificationMute"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -8551,7 +8557,7 @@ paths:
           in: query
           schema: {type: boolean, default: false}
       responses:
-        "200": {description: List of booking pages}
+        "200": {description: 'List of booking pages as `{pages}`; `pages` is `[]` when there are none'}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "503": {$ref: "#/components/responses/ServiceUnavailable"}
@@ -9355,8 +9361,23 @@ paths:
           in: query
           schema:
             type: integer
-            default: 20
+            default: 100
+            maximum: 100
+        - name: limit
+          in: query
+          description: Alias of page_size (wins when both are sent).
+          schema:
+            type: integer
+            maximum: 100
+        - name: offset
+          in: query
+          description: Start position; must be a multiple of the page size, otherwise 400.
+          schema:
+            type: integer
+            minimum: 0
       responses:
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "200":
           description: Meetings listed
           content:
@@ -40973,16 +40994,20 @@ components:
         id:
           type: string
           format: uuid
-        user_id:
+        resource_type:
           type: string
-          format: uuid
         module_id:
           type: string
+          description: Same value as resource_type (earlier shape).
         resource_id:
           type: string
+        muted_at:
+          type: string
+          format: date-time
         created_at:
           type: string
           format: date-time
+          description: Same value as muted_at (earlier shape).
 
     QuietHours:
       type: object
