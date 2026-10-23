@@ -907,8 +907,10 @@ func (s *HelpdeskGRPCServer) CreateKBArticle(ctx context.Context, req *helpdeskv
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
 	}
-	// Use a zero UUID as author placeholder when not provided via context
-	authorID := uuid.Nil
+	authorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	a, err := s.svc.CreateKBArticle(ctx, tenantID, authorID, req.GetTitle(), req.GetContent(), req.GetCategory(), req.GetStatus())
 	if err != nil {

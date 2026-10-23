@@ -2049,7 +2049,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Fix)"
     scope: >
       Klasse (b) aus dem Akteur-Scan: `HelpdeskGRPCServer.CreateKBArticle`
