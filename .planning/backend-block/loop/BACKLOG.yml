@@ -1680,7 +1680,7 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 74,8 %"
     scope: >
       VERIFIZIERTES AUTH-LOCH (Scan Iteration 42, `scan-tests-pinning-known-failures`). Der Test

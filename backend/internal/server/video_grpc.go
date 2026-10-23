@@ -297,38 +297,46 @@ func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.Start
 	return recordingToProto(rec), nil
 }
 
-func (s *VideoGRPCServer) StopRecording(ctx context.Context, req *videov1.StopRecordingRequest) (*videov1.Recording, error) {
-	recordingID, err := uuid.Parse(req.RecordingId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
-	}
-
+// authorizeRecordingOwner allows an action on a recording only for its initiator
+// or a host/co-host of the meeting it belongs to. verb names the action in the
+// PermissionDenied message.
+func (s *VideoGRPCServer) authorizeRecordingOwner(ctx context.Context, recordingID uuid.UUID, verb string) error {
 	tenantID, tenantErr := middleware.GetTenantID(ctx)
 	if tenantErr != nil {
-		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+		return status.Error(codes.Unauthenticated, "missing tenant_id in token")
 	}
-	callerIDStr := middleware.GetUserID(ctx)
-	callerID, err := uuid.Parse(callerIDStr)
+	callerID, err := uuid.Parse(middleware.GetUserID(ctx))
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+		return status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
 	}
 
-	// Authz: caller must be the recording initiator OR a meeting host/co-host.
 	rec, err := s.recordingService.GetRecordingStatus(ctx, recordingID)
 	if err != nil {
-		return nil, mapRecordingError(err)
+		return mapRecordingError(err)
 	}
 
 	authorized := rec.StartedBy != nil && *rec.StartedBy == callerID
 	if !authorized && rec.MeetingID != nil {
 		isHost, hostErr := s.meetingService.IsHostOrCoHost(ctx, *rec.MeetingID, tenantID, callerID)
 		if hostErr != nil {
-			return nil, status.Errorf(codes.Internal, "authz check failed: %v", hostErr)
+			return status.Errorf(codes.Internal, "authz check failed: %v", hostErr)
 		}
 		authorized = isHost
 	}
 	if !authorized {
-		return nil, status.Error(codes.PermissionDenied, "only the recording initiator or meeting host/co-host may stop a recording")
+		return status.Errorf(codes.PermissionDenied, "only the recording initiator or meeting host/co-host may %s a recording", verb)
+	}
+	return nil
+}
+
+func (s *VideoGRPCServer) StopRecording(ctx context.Context, req *videov1.StopRecordingRequest) (*videov1.Recording, error) {
+	recordingID, err := uuid.Parse(req.RecordingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
+	}
+
+	if err := s.authorizeRecordingOwner(ctx, recordingID, "stop"); err != nil {
+		return nil, err
 	}
 
 	stopped, err := s.recordingService.StopRecording(ctx, recordingID)
@@ -436,12 +444,11 @@ func (s *VideoGRPCServer) DeleteRecording(ctx context.Context, req *videov1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
-	_ = req.UserId // Authorization handled at gateway level
-
-	// Verify the recording exists. Earlier revisions called ListRecordings(nil, nil)
-	// which returns ErrNoCallOrMeeting and made every Delete return 500.
-	if _, getErr := s.recordingService.GetRecordingStatus(ctx, recordingID); getErr != nil {
-		return nil, mapRecordingError(getErr)
+	// Same rule as StopRecording: initiator or meeting host/co-host. The check also
+	// verifies the recording exists (earlier revisions called ListRecordings(nil, nil),
+	// which returns ErrNoCallOrMeeting and made every Delete return 500).
+	if err := s.authorizeRecordingOwner(ctx, recordingID, "delete"); err != nil {
+		return nil, err
 	}
 
 	// Mark as deleted by failing it (soft delete pattern). A dedicated DeleteRecording

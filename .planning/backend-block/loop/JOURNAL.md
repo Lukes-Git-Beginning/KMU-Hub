@@ -710,3 +710,14 @@ Scan-Tabelle. V = am Code und, wo möglich, an den gemessenen Antwortbytes beleg
 - neue-units: `fix-video-delete-recording-authz` (VOR die erste todo-Unit gelegt: verifiziertes Auth-Loch, jeder Mandantennutzer kann fremde Aufzeichnungen zerstören); `decide-credit-note-over-credit-limit`, `decide-hr-team-time-scope-for-managers` (beide BACKLOG-NEXT, warten auf Lukes Entscheidung).
 - desktop-aufrufer: n.a. (Scan, keine Änderung am Gateway)
 - offen: (1) Die `work/event`-Zeilen mit `uuid.Nil` habe ich nur nach Muster eingeordnet, nicht die Signatur gelesen; die gRPC-Schicht ist dort seit `ea5a39a9` getestet. (2) Nicht erfasst: Tests, die einen Fehler festschreiben, ohne eines der Muster im Namen oder Kommentar zu tragen. (3) Arbeitsbaum zeigt weiter ~180 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit.
+
+## Iteration 43 — fix-video-delete-recording-authz — done — 2026-10-24 00:40
+- commit: (siehe git log, Subject `fix(video): restrict recording deletion to the initiator and meeting hosts`)
+- gebaut: `VideoGRPCServer.DeleteRecording` prüft jetzt wie `StopRecording` Initiator oder Host/Co-Host (neuer gemeinsamer Helfer `authorizeRecordingOwner`, `video_grpc.go`); Fremde bekommen PermissionDenied, fehlender Aufrufer Unauthenticated, die Aufzeichnung bleibt unverändert. Der Fund-Test ist durch vier echte Tests ersetzt (Fremder, Initiator, Host, kein Aufrufer).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/server`, `internal/gateway`, `DATABASE_URL` als `kmuhub_app`, 0 Skips) | migration n.a. | rls-smoke n.a.
+- coverage: internal/server 74,8 % -> 75,0 %
+- mutations-probe: `if !authorized` zu `if false && !authorized` -> `TestDeleteRecording_StrangerDenied` und `TestStopRecording_UnauthorizedCallerDenied` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`ab81d00d`: reiner Doku-/Backlog-Commit).
+- neue-units: keine
+- desktop-aufrufer: `DELETE /api/v1/video/recordings/{id}` -> `desktop/src/renderer/src/api/video-client.ts` und `hooks/useVideo.ts` haben keinen Delete-Aufruf (nur das generierte `types.ts`), kein UI-Pfad -> passt, nichts bricht.
+- offen: (1) Der Gateway-Handler setzt weiter keinen `RequirePermission`-Guard; die Prüfung sitzt bewusst im Service (Initiator/Host), wie bei `/stop`. (2) Arbeitsbaum zeigt weiter ~180 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit.
