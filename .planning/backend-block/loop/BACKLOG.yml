@@ -505,12 +505,52 @@ units:
   # UI für jeden, ist das ein Totalausfall.
   # ========================================================================================
 
+  - id: fix-biz-gobd-archive-invoice-startup-pdf-settings
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 75,0 %"
+    scope: >
+      TOTALAUSFALL, im Scan `scan-grpc-hardcoded-actor-and-admin-remaining` verifiziert
+      (2026-10-23): `POST /api/v1/finance/gobd-archive/from-invoice/{invoiceId}` liefert für
+      JEDEN Mandanten 500 "failed to generate invoice PDF". Ursache:
+      `ArchiveInvoiceDocument` (`internal/server/biz_grpc_gobd_archive.go:94`) rendert über
+      `s.pdfGenerator`, den `cmd/biz/main.go:185-193` einmal beim Start baut — mit
+      `companySettingsRepo.GetByTenantID(ctx, uuid.Nil)`. Es gibt keinen Mandanten mit der
+      Nil-UUID, die Abfrage liefert nil, der Fallback ist ein Settings-Objekt nur mit
+      AccentColor und Zahlungsfristen. `GenerateInvoicePDF` ruft
+      `ValidateCompanySettingsForPDF(g.settings)` (`pdf/generator.go:162`) -> Fehler "missing
+      name, street, plz, city, steuernummer or ust_id_nr" (per Wegwerf-Test reproduziert). Selbst
+      wenn die Prüfung durchginge, trüge das PDF nie die Stammdaten des richtigen Mandanten.
+      Alle anderen PDF-Pfade in `biz_grpc.go` bauen den Generator pro Anfrage aus
+      `s.requireCompanySettings(ctx, tenantID)` (Z. 1290/1320/1350/1389/1429/1501) — nur dieser
+      eine nicht. `s.pdfGenerator` hat außer dieser Stelle keinen Nutzer.
+      Fix: im Archiv-Handler wie die Geschwister `requireCompanySettings` + `pdf.NewGenerator`
+      verwenden; dann das tote Feld `pdfGenerator` samt Konstruktor-Parameter und die
+      Startup-Abfrage mit `uuid.Nil` in `cmd/biz/main.go` entfernen.
+    sources:
+      - backend/internal/server/biz_grpc_gobd_archive.go
+      - backend/internal/server/biz_grpc.go
+      - backend/cmd/biz/main.go
+      - backend/internal/biz/pdf/generator.go
+    notes: >
+      Es gibt ein `internal/server`-Testfeld für BizGRPCServer; der Test muss mit Firmen-
+      stammdaten des Mandanten laufen (Zeile in `company_settings`) und die archivierten
+      Bytes als PDF erkennen — kein Mock des Generators. Kein `.proto`, keine Route.
+    done_when:
+      - "DB-Test als kmuhub_app: Rechnung + company_settings des Mandanten -> ArchiveInvoiceDocument liefert ein Dokument mit PDF-Inhalt (%PDF)"
+      - "DB-Test: Mandant ohne vollständige Stammdaten -> klarer Fehler statt Internal"
+      - "Mutations-Probe: wieder auf einen Generator ohne Mandanten-Settings, der Test wird rot"
+      - "desktop-aufrufer: POST .../gobd-archive/from-invoice/{id} im Desktop-Client geprüft, Journal-Zeile"
+
   - id: scan-grpc-hardcoded-actor-and-admin-remaining
     phase: 4
     service: server
     model: sonnet
     deps: [fix-document-virtual-files-nil-user, fix-biz-actor-attribution-uuid-nil, chore-work-project-actor-and-admin-bypass-lean]
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       Rest des `uuid.Nil`-Akteur-Musters, NACH den drei Fix-Units aus Block A. Der Grep der
@@ -964,3 +1004,52 @@ units:
       - "Coverage internal/document/share selbst gemessen vorher/nachher im Journal"
       - "Mutations-Probe: die Ablauf- oder Widerrufsprüfung gebrochen, ein neuer Test wird rot"
       - "go test -count=1 ./internal/document/share/ grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: fix-helpdesk-kb-article-author-id-uuid-nil
+    phase: 4
+    service: helpdesk
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Fix)"
+    scope: >
+      Klasse (b) aus dem Akteur-Scan: `HelpdeskGRPCServer.CreateKBArticle`
+      (`internal/server/helpdesk_grpc.go:911`) setzt `authorID := uuid.Nil` ("zero UUID as
+      author placeholder"). `helpdesk_kb_articles.author_id` ist NOT NULL ohne FK (Migration
+      000210), also scheitert nichts — aber JEDER Artikel wird mit `00000000-…` als Autor
+      gespeichert, und der FE-Typ (`helpdesk-types.ts:65/205`, `author_id`) bekommt diesen Wert.
+      Fix wie `ea5a39a9`: `callerID(ctx)` (Unauthenticated ohne Aufrufer). Gateway
+      (`route_helpdesk.go:1139`) prüfen, dass die User-ID in den Metadaten ankommt.
+    sources:
+      - backend/internal/server/helpdesk_grpc.go
+      - backend/internal/gateway/route_helpdesk.go
+      - backend/internal/helpdesk/service.go
+    done_when:
+      - "DB-Test: Artikel als Nutzer X anlegen -> author_id = X"
+      - "Mutations-Probe: zurück auf uuid.Nil, der Test wird rot"
+      - "desktop-aufrufer: author_id im Helpdesk-Modul geprüft, Journal-Zeile"
+
+  - id: chore-mark-system-actor-uuid-nil-lean
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Kommentar-Unit)"
+    scope: >
+      Klasse (c) aus dem Akteur-Scan, bewusst, aber ohne `lean:`-Marker mit Upgrade-Trigger:
+      `biz/invoice/service.go:327` und `biz/dunning/service.go:262` (`CreatedBy: uuid.Nil`,
+      System-Import bzw. automatische Mahnung), `biz/bexio/contact_sync.go:218` und
+      `biz/lexware/contact_sync.go:258` (`CreateForSync(…, uuid.Nil)`), `server/biz_grpc.go:2108`
+      und `:2274` (`created_by` unparsbar -> Nil, "best-effort"), `server/work_grpc.go:915`
+      (DeleteTask: fehlender Aufrufer -> Nil statt Unauthenticated, scheitert dann in der
+      Mitgliedschaftsprüfung mit 403/404 statt 401). Nur Kommentare/Marker bzw. bei work_grpc
+      der Wechsel auf `callerID(ctx)`; kein Verhalten sonst ändern.
+    sources:
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/dunning/service.go
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/server/work_grpc.go
+    done_when:
+      - "Jede genannte Stelle trägt einen lean:-Marker mit Upgrade-Trigger"
+      - "work_grpc DeleteTask ohne Aufrufer -> Unauthenticated, Test mit Mutations-Probe"

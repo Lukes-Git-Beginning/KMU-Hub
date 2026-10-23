@@ -144,3 +144,29 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) Ein Commit, der nur Deploy-Dateien berührt, löst weder CI noch CD aus: beim Merge zusammen mit Code-Commits ausrollen oder den CD-Workflow manuell starten (Luke). (2) Wirkt erst nach dem Deploy; ein per Env-Datei gesetzter Wert hat weiter Vorrang. (3) Ab dann räumt der Reaper Dialer-Kontakte, die länger als 240 Minuten hängen.
+
+## Iteration 10 — scan-grpc-hardcoded-actor-and-admin-remaining — done — 2026-10-23 17:50
+- commit: (siehe git log, Subject `chore(loop): record actor scan findings and queue the GoBD archive PDF fix`)
+- gebaut: Scan, kein Code. Ein Totalausfall gefunden und als Fix-Unit VOR die erste todo-Unit gesetzt: `fix-biz-gobd-archive-invoice-startup-pdf-settings` (`POST /finance/gobd-archive/from-invoice/{id}` -> 500 für jeden Mandanten, weil `s.pdfGenerator` beim Start mit `GetByTenantID(ctx, uuid.Nil)` gebaut wird; per Wegwerf-Test reproduziert: `GenerateInvoicePDF` -> "missing name, street, plz, city, steuernummer or ust_id_nr"; Test wieder gelöscht). Zwei weitere Units ans Ende.
+- grep-muster: (1) `uuid\.Nil` in `internal/server/*_grpc.go` (ohne Tests); (2) `(OwnerID|ActorID|CreatedBy|UserID|AuthorID|AgentID|UploadedBy|SenderID|AssigneeID|ApproverID|ReviewerID|ResolvedBy|CreatedByID)\s*[:=]+\s*uuid\.Nil` in `internal cmd`; (3) `uuid\.Nil, true|, true, uuid\.Nil|isAdmin\w* *:?= *true|IsAdmin: *true|OpenToTenant`; (4) `\((ctx|r\.Context\(\)|context\.Background\(\)), [^)]*uuid\.Nil` außerhalb `internal/server`; (5) Kommentare `gateway (handles|does|already)|handled by (the )?gateway`.
+- befunde:
+  | Stelle | Befund | Klasse | Unit |
+  |---|---|---|---|
+  | `cmd/biz/main.go:185` -> `server/biz_grpc_gobd_archive.go:94` | Startup-Generator mit Nil-Mandant, Archiv-PDF scheitert für jeden | a (Totalausfall) | `fix-biz-gobd-archive-invoice-startup-pdf-settings` (Kopf) |
+  | `server/helpdesk_grpc.go:911` | KB-Artikel mit `author_id = 0000…` (NOT NULL, kein FK) | b | `fix-helpdesk-kb-article-author-id-uuid-nil` (Ende) |
+  | `biz/invoice/service.go:327`, `biz/dunning/service.go:262` | System-Akteur Nil, kommentiert, kein `lean:` | c | `chore-mark-system-actor-uuid-nil-lean` |
+  | `biz/bexio/contact_sync.go:218`, `biz/lexware/contact_sync.go:258` | Sync-Import mit Nil-Ersteller | c | dito |
+  | `server/biz_grpc.go:2108`, `:2274` | unparsbares `created_by` -> Nil (gateway setzt es immer: `route_biz_*.go` `CreatedBy: userID`) | c | dito |
+  | `server/work_grpc.go:915` | DeleteTask ohne Aufrufer -> Nil statt Unauthenticated | c | dito |
+  | `crm_grpc.go:594/1372/1384/1396/1738…`, `einkauf_grpc.go:90`, `wiki_grpc.go:117/449`, `work_grpc.go:849` | `uuid.Nil` als Lösch-Sentinel für „Feld leeren" | unkritisch | – |
+  | `chat_grpc.go:446` | Nil = Gast, mit Gast-Freigabe-Prüfung | unkritisch | – |
+  | `email_grpc.go:1092` | Upload vor dem Versand, keine Nachricht | unkritisch | – |
+  | `cmd/biz/crm_contact_adapter.go:47/134` | `IsAdmin: true` im Sync-Adapter (Hintergrundjob) | c, ohne Marker | in der chore-Unit nicht gesondert; Sync-Kontext, kein Nutzer-Pfad |
+  | `calendar_grpc.go:46`, `work_grpc.go:47` | `*OpenToTenant`-Konstanten | bereits markiert (Iteration 8) | – |
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (nur Lesearbeit; ein Wegwerf-Test lief und wurde gelöscht, Diff sauber) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Scan)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`71b6c296`: nur eine Compose-Zeile `:-0` -> `:-240`, keine Go-Änderung).
+- neue-units: `fix-biz-gobd-archive-invoice-startup-pdf-settings` (VOR die erste todo-Unit gesetzt: verifizierter Totalausfall), `fix-helpdesk-kb-article-author-id-uuid-nil`, `chore-mark-system-actor-uuid-nil-lean` (beide ans Ende)
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Der Scan hat `uuid.Nil` nur im Go-Code der Handler/Services gesucht, nicht in SQL-Funktionen oder Consumern mit anderem Bezeichner. (2) Der Totalausfall ist per Generator-Test und Codelesen belegt, nicht per HTTP-Aufruf gegen den Stack; ob das FE den Endpunkt überhaupt aufruft, prüft die Fix-Unit.
