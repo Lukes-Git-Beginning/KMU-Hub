@@ -110,3 +110,14 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
 - neue-units: `decide-trip-logs-driver-user-fk` (BACKLOG-NEXT.yml, Datenmodell-Entscheidung Luke)
 - desktop-aufrufer: `GET /security/dsar/search` -> `modules/security/DSARSearchPage.tsx` (kein Client in `api/`/`hooks/`, Aufruf direkt in der Seite) -> passt: Person-ID und Modulnamen werden nur opak/als Anzeige genutzt, Modul-Icons fallen auf `FileText` zurück; Gast-IDs heißen jetzt `guest:session:<uuid>` statt `guest:name:<name>`.
 - offen: (1) Folge der Entscheidung: die eigenen Fahrten eines Fahrers fehlen jetzt in seiner Art.-15-Auskunft, bis `trip_logs` eine Fahrer-FK hat (Unit oben). (2) Ein Kontakt, der nur eine Firma ist (ohne Vor-/Nachname), bekommt keine Eingangsrechnungen/Bankumsätze mehr — juristische Person, kein DSGVO-Subjekt. (3) Namensabgleich über den vollen Namen bei Eingangsrechnungen/Bankumsätzen bleibt (als „Namensabgleich" markiert) — dokumentiertes Restrisiko laut Entscheidung. (4) Keine Goroutinen, kein Race-Risiko.
+
+## Iteration 7 — fix-produktion-capacity-week-bounds-europe-berlin — done — 2026-10-23 17:50
+- commit: (siehe git log, Subject `fix(produktion): read capacity weeks in Europe/Berlin instead of UTC`)
+- gebaut: `isoWeekBounds` rechnet Wochengrenzen in `planningLocation` (Europe/Berlin, einmal beim Paketstart geladen, `lean:`-Marker mit Upgrade-Trigger „erster Mandant außerhalb Europe/Berlin“) statt in UTC. Eine Buchung Montag 00:30 Ortszeit zählt damit zur Woche, die an diesem Montag beginnt. `_ "time/tzdata"` im Paket, weil das Alpine-Runtime-Image kein zoneinfo hat und `LoadLocation` sonst still auf UTC zurückfiele (der Fix wäre in Produktion wirkungslos).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (produktion/...) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; DB-Tests laufen als `kmuhub_app`)
+- coverage: internal/produktion 79,0 % -> 79,0 % (gemessen vor/nach; nur Testcode und eine Zeile Initialisierung hinzugekommen). 0 Skips.
+- mutations-probe: `isoWeekBounds` zurück auf `time.UTC` -> `TestGetCapacityOverview_WeekBoundaryUsesBerlinTime_RealDB` (booked = 0 statt 2) und `TestIsoWeekBounds_BerlinWallClock` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`ebe97670`: kein Proto, keine Route, kein Guard, keine Tabelle; nur DSAR-Matching verengt, DB-Tests mit Mutations-Proben laut Journal).
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; `GET .../capacity` liefert dieselbe Form, nur die Wochengrenze verschiebt sich um 1-2 h)
+- offen: (1) `schichten` (`jarbschgLocation`, gleicher `LoadLocation("Europe/Berlin")` mit stillem UTC-Fallback) importiert `time/tzdata` im eigenen Paket nicht; ob `cmd/schichten` es transitiv linkt, habe ich nicht geprüft — falls nicht, rechnet der Jarbschg-Check im Container in UTC. (2) Bestehende Buchungen werden nicht umgebucht, nur die Summierung ändert sich. (3) Keine Goroutinen, kein Race-Risiko.

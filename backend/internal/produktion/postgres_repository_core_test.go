@@ -308,3 +308,78 @@ func TestGetCapacityOverview_RealDB(t *testing.T) {
 		}
 	})
 }
+
+// A booking from Monday 00:30 Berlin time (Sunday 22:30 UTC in summer) belongs to the
+// week that starts on that Monday, not to the previous one.
+func TestGetCapacityOverview_WeekBoundaryUsesBerlinTime_RealDB(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Produktion Capacity Boundary Tenant")
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	order := seedCoreOrder(t, repo, ctx, pool, tenantID, "BND-"+uuid.New().String()[:8])
+
+	now := time.Now().UTC()
+	newPlan := func(week int) *ProductionPlan {
+		plan := &ProductionPlan{
+			ID: uuid.New(), TenantID: tenantID, Name: "KW Boundary",
+			WeekNumber: week, Year: 2026, TotalCapacityHours: 40,
+			Status: PlanStatusDraft, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := repo.CreatePlan(ctx, plan); err != nil {
+			t.Fatalf("seed plan: %v", err)
+		}
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "production_plans", plan.ID) })
+		return plan
+	}
+	week21, week22 := newPlan(21), newPlan(22)
+
+	// Monday 2026-05-25 00:30 CEST == Sunday 2026-05-24 22:30 UTC.
+	start := time.Date(2026, 5, 24, 22, 30, 0, 0, time.UTC)
+	booking := &MachineBooking{
+		ID: uuid.New(), TenantID: tenantID, MachineID: "M-BND-01",
+		ProductionOrderID: order.ID, StartsAt: start, EndsAt: start.Add(2 * time.Hour),
+		Status: BookingStatusBooked, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.CreateBooking(ctx, booking); err != nil {
+		t.Fatalf("seed booking: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "machine_bookings", booking.ID) })
+
+	inWeek22, err := repo.GetCapacityOverview(ctx, tenantID, "M-BND-01", week22.ID)
+	if err != nil {
+		t.Fatalf("GetCapacityOverview week 22: %v", err)
+	}
+	if inWeek22.BookedHours != 2 {
+		t.Fatalf("booking at Monday 00:30 Berlin time must count to week 22, booked = %v", inWeek22.BookedHours)
+	}
+	inWeek21, err := repo.GetCapacityOverview(ctx, tenantID, "M-BND-01", week21.ID)
+	if err != nil {
+		t.Fatalf("GetCapacityOverview week 21: %v", err)
+	}
+	if inWeek21.BookedHours != 0 {
+		t.Fatalf("booking at Monday 00:30 Berlin time must not count to week 21, booked = %v", inWeek21.BookedHours)
+	}
+}
+
+func TestIsoWeekBounds_BerlinWallClock(t *testing.T) {
+	t.Parallel()
+
+	// KW 13 2026 contains the spring DST switch (Sunday 29 March): 167 hours long.
+	start, end := isoWeekBounds(2026, 13)
+	if start.Weekday() != time.Monday || start.Hour() != 0 || start.Location() != planningLocation {
+		t.Fatalf("start must be Monday 00:00 in planning zone, got %v", start)
+	}
+	if end.Sub(start) != 167*time.Hour {
+		t.Fatalf("DST week must be 167h long, got %v", end.Sub(start))
+	}
+	if want := time.Date(2026, 3, 23, 0, 0, 0, 0, planningLocation); !start.Equal(want) {
+		t.Fatalf("KW13 start = %v, want %v", start, want)
+	}
+}

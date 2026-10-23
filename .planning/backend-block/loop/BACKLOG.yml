@@ -383,7 +383,7 @@ units:
     service: produktion
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/produktion 79,0 %"
     decided: 2026-10-23
     decision: >-
