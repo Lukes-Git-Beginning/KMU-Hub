@@ -463,7 +463,7 @@ units:
     service: deploy
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: BACKLOG.yml
     coverage_start: "n.a."
     decided: 2026-10-23

@@ -133,3 +133,14 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: `/projects/*` und `/projects/{id}/members/*` -> Antwortformen unverändert; neu ist nur `Unauthenticated`, wenn kein Aufrufer im Kontext steht, und der Gateway reicht die User-ID immer durch. Einziger andere WorkServiceClient-Nutzer (`automation/action/work_actions.go`) ruft nur `CreateTask` -> unberührt -> passt.
 - offen: (1) Test-Helper `ctxWithWorkTenant` trägt jetzt einen Nutzer (bestehende Erfolgspfad-Tests brauchten das); `work_grpc_nil_slice_test.go` auf diesen Helper umgestellt. (2) Keine Goroutinen, kein Race-Risiko.
+
+## Iteration 9 — chore-dialer-stale-contact-default-240 — done — 2026-10-23 18:30
+- commit: (siehe git log, Subject `chore(deploy): default the dialer stale-contact reaper to 240 minutes`)
+- gebaut: Compose-Default `DIALER_STALE_CONTACT_MINUTES` in `deploy/docker/docker-compose.yml:544` von `:-0` auf `:-240`; `docker compose config` zeigt `"240"`. Unter `deploy/` genau diese eine Zeile geändert. Der Go-Default in `config.go:128` bleibt 0 (ohne Compose keine Reaper-Aktivierung).
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (keine Go-Änderung) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`c3734957`: kein Proto, keine Route, kein Guard, keine Tabelle; `callerID(ctx)` statt `uuid.Nil`, Konstanten mit lean:-Marker, Tests mit Mutations-Proben laut Journal).
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Ein Commit, der nur Deploy-Dateien berührt, löst weder CI noch CD aus: beim Merge zusammen mit Code-Commits ausrollen oder den CD-Workflow manuell starten (Luke). (2) Wirkt erst nach dem Deploy; ein per Env-Datei gesetzter Wert hat weiter Vorrang. (3) Ab dann räumt der Reaper Dialer-Kontakte, die länger als 240 Minuten hängen.
