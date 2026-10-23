@@ -1401,7 +1401,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 75,1 %"
     scope: >
       TOTALAUSFALL Formulare (Scan Iteration 34, Wire gemessen). `FormularePage.tsx:449-451` liest

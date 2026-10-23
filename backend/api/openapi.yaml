@@ -23913,7 +23913,7 @@ paths:
       parameters:
         - { name: search, in: query, schema: { type: string } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
       responses:
         "200":
           description: Paginated form schema list
@@ -23921,8 +23921,9 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [items, total]
                 properties:
-                  schemas:
+                  items:
                     type: array
                     items: { $ref: "#/components/schemas/FormSchema" }
                   total: { type: integer }
@@ -23944,20 +23945,18 @@ paths:
               properties:
                 title: { type: string }
                 description: { type: string }
-                fields: { type: string, format: byte, description: "JSON-array of FormField (base64-encoded bytes)" }
-                is_template: { type: boolean }
-                is_public: { type: boolean }
-                page_count: { type: integer, format: int32 }
-                intake_target_id: { type: string, description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\")" }
+                fields: { type: array, items: { type: object }, description: "FormField list as JSON. A base64 string is still read." }
+                status: { type: string, enum: [draft, active, archived], description: "`closed` has no backend value and is rejected with 400" }
+                isTemplate: { type: boolean, description: "snake_case `is_template` is read as well" }
+                isPublic: { type: boolean, description: "snake_case `is_public` is read as well" }
+                pageCount: { type: integer, format: int32, description: "snake_case `page_count` is read as well" }
+                intakeTargetId: { type: string, description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\"); snake_case `intake_target_id` is read as well" }
       responses:
         "201":
           description: Form schema created
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  schema: { $ref: "#/components/schemas/FormSchema" }
+              schema: { $ref: "#/components/schemas/FormSchema" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -23977,10 +23976,7 @@ paths:
           description: Form schema
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  schema: { $ref: "#/components/schemas/FormSchema" }
+              schema: { $ref: "#/components/schemas/FormSchema" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24003,20 +23999,18 @@ paths:
               properties:
                 title: { type: string }
                 description: { type: string }
-                fields: { type: string, format: byte, description: "JSON-array of FormField (base64-encoded bytes)" }
-                is_template: { type: boolean }
-                is_public: { type: boolean }
-                page_count: { type: integer, format: int32 }
-                intake_target_id: { type: string, description: "Key into the shared intake registry; empty string clears the binding" }
+                fields: { type: array, items: { type: object }, description: "FormField list as JSON. A base64 string is still read." }
+                status: { type: string, enum: [draft, active, archived], description: "Lifecycle toggle (publish/archive); `closed` has no backend value and is rejected with 400" }
+                isTemplate: { type: boolean, description: "snake_case `is_template` is read as well" }
+                isPublic: { type: boolean, description: "snake_case `is_public` is read as well" }
+                pageCount: { type: integer, format: int32, description: "snake_case `page_count` is read as well" }
+                intakeTargetId: { type: string, description: "Key into the shared intake registry; empty string clears the binding. snake_case `intake_target_id` is read as well" }
       responses:
         "200":
           description: Form schema updated
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  schema: { $ref: "#/components/schemas/FormSchema" }
+              schema: { $ref: "#/components/schemas/FormSchema" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -24056,16 +24050,13 @@ paths:
             schema:
               type: object
               properties:
-                new_title: { type: string }
+                title: { type: string, description: "Title of the copy; `new_title` is read as well" }
       responses:
         "201":
           description: Duplicated form schema
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  schema: { $ref: "#/components/schemas/FormSchema" }
+              schema: { $ref: "#/components/schemas/FormSchema" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24107,7 +24098,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
       responses:
         "200":
           description: Paginated submission list
@@ -24115,8 +24106,9 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [items, total]
                 properties:
-                  submissions:
+                  items:
                     type: array
                     items: { $ref: "#/components/schemas/FormSubmission" }
                   total: { type: integer }
@@ -24140,18 +24132,15 @@ paths:
             schema:
               type: object
               properties:
-                answers: { type: string, format: byte, description: "JSON-object of field answers (base64-encoded bytes)" }
-                submitted_by: { type: string }
+                answers: { type: object, additionalProperties: true, description: "Field answers as JSON. A base64 string is still read." }
+                submittedBy: { type: string, description: "snake_case `submitted_by` is read as well; defaults to the signed-in user" }
                 ip_address: { type: string }
       responses:
         "201":
           description: Submission created
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  submission: { $ref: "#/components/schemas/FormSubmission" }
+              schema: { $ref: "#/components/schemas/FormSubmission" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -24477,10 +24466,7 @@ paths:
           description: Form submission
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  submission: { $ref: "#/components/schemas/FormSubmission" }
+              schema: { $ref: "#/components/schemas/FormSubmission" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24508,10 +24494,7 @@ paths:
           description: Submission status updated
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  submission: { $ref: "#/components/schemas/FormSubmission" }
+              schema: { $ref: "#/components/schemas/FormSubmission" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -46572,46 +46555,31 @@ components:
 
     FormSchema:
       type: object
-      description: A form schema definition (fields layout + metadata).
+      description: >
+        A form schema definition (fields layout + metadata), written the way the
+        frontend types it: camelCase, `fields` as a JSON array, status as a word.
       properties:
-        id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        description:
-          type: string
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
         fields:
-          type: string
-          format: byte
-          description: JSON-array of FormField (base64-encoded bytes on the wire)
+          type: array
+          items: { type: object }
+          description: FormField list; `[]` for a schema without fields.
         status:
           type: string
           enum: [draft, active, archived]
-          description: "Proto enum: 1=draft, 2=active, 3=archived"
-        is_template:
-          type: boolean
-        is_public:
-          type: boolean
-        page_count:
-          type: integer
-          format: int32
-        submission_count:
-          type: integer
-          format: int32
-        created_by:
-          type: string
-          format: uuid
-        created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        updated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        deleted_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        intake_target_id:
+          description: The backend has no `closed` state, so it is never reported.
+        isTemplate: { type: boolean }
+        isPublic: { type: boolean }
+        pageCount: { type: integer, format: int32 }
+        submissionCount: { type: integer, format: int32 }
+        createdBy: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        intakeTargetId:
           type: string
           description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\") this form feeds. Absent = a plain form."
 
@@ -46645,31 +46613,19 @@ components:
 
     FormSubmission:
       type: object
-      description: A single form submission (answers from one respondent).
+      description: A single form submission (answers from one respondent), camelCase as the frontend types it.
       properties:
-        id:
-          type: string
-          format: uuid
-        form_schema_id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        formSchemaId: { type: string, format: uuid, nullable: true }
+        tenantId: { type: string, format: uuid }
         answers:
-          type: string
-          format: byte
-          description: JSON-object of field answers (base64-encoded bytes on the wire)
-        status:
-          type: string
-          enum: [new, read, archived]
-          description: "Proto enum: 1=new, 2=read, 3=archived"
-        submitted_by:
-          type: string
-        ip_address:
-          type: string
-        submitted_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: object
+          additionalProperties: true
+          description: Field answers keyed by field id; `{}` when empty.
+        status: { type: string, enum: [new, read, archived] }
+        submittedBy: { type: string, nullable: true }
+        ipAddress: { type: string, nullable: true }
+        submittedAt: { type: string, format: date-time }
 
     FormWebhook:
       type: object

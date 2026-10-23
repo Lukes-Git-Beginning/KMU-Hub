@@ -1362,3 +1362,25 @@ units:
       - backend/proto/wiki/v1/wiki.proto
     done_when:
       - "Entscheidung steht; bei Bau eine eigene Unit mit Migration (RLS, Seed) und Spec"
+
+  - id: decide-formulare-closed-status
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Das Formular-FE kennt vier Stati (`draft|active|closed|archived`, `FormularePage.tsx` `applyStatus(…, 'closed')`,
+      Zähler, Ausfüllseite mit `closedMessage`). `FormSchemaStatus` im Proto und die Spalte kennen
+      nur draft/active/archived. Seit `fix-formulare-schemas-submissions-wire` schickt das Gateway
+      `status` an den Service durch und lehnt `closed` mit 400 ab (vorher wurde `status` stillschweigend
+      verworfen, das Schließen blieb ohne Wirkung). Ebenso ohne Ablage: `closedMessage`, `thankYouMessage`,
+      `redirectUrl`, `notifications` des FE-Typs. ENTSCHEIDUNG LUKE: `closed` (und die vier FE-Felder)
+      serverseitig bauen (Proto-Enum + Migration, Public-Route lehnt Einreichungen ab) oder im FE streichen.
+    sources:
+      - desktop/src/renderer/src/api/formulare-types.ts
+      - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
+      - backend/proto/formulare/v1/formulare.proto
+      - backend/internal/gateway/route_formulare_wire.go
+    done_when:
+      - "Entscheidung steht; bei Bau eine eigene Unit mit Proto-Regen, Migration, Public-Route und Spec"
