@@ -308,7 +308,7 @@ func newWorkServerWithTimeEntryRepo(repo timeentry.Repository) *WorkGRPCServer {
 
 func TestListProjects_EmptyIsNilNotEmptySlice(t *testing.T) {
 	srv := newWorkServerWithProjectRepo(stubWorkProjectRepo{})
-	resp, err := srv.ListProjects(ctxWithTenant(uuid.New()), &workv1.ListProjectsRequest{})
+	resp, err := srv.ListProjects(ctxWithWorkTenant(uuid.New()), &workv1.ListProjectsRequest{})
 	requireGRPCOK(t, err)
 	if resp.Projects == nil {
 		t.Error("Projects should be an empty slice, not nil, so it serializes to [] rather than null")
@@ -320,7 +320,7 @@ func TestListProjects_EmptyIsNilNotEmptySlice(t *testing.T) {
 
 func TestListProjectMembers_EmptyIsNilNotEmptySlice(t *testing.T) {
 	srv := newWorkServerWithProjectRepo(stubWorkProjectRepo{})
-	resp, err := srv.ListProjectMembers(ctxWithTenant(uuid.New()), &workv1.ListProjectMembersRequest{
+	resp, err := srv.ListProjectMembers(ctxWithWorkTenant(uuid.New()), &workv1.ListProjectMembersRequest{
 		ProjectId: uuid.New().String(),
 	})
 	requireGRPCOK(t, err)

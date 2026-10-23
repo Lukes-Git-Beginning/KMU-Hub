@@ -38,6 +38,13 @@ type CalendarGRPCServer struct {
 	emailClient     emailv1.EmailServiceClient // nil if email service unavailable
 }
 
+// resourcesOpenToTenant is the isAdmin argument for resource create/update/delete:
+// the service's own admin-only check is deliberately bypassed because the gateway's
+// RequirePermission guard on the resource routes is the access control.
+// lean: Rechteprüfung allein am Gateway-Guard; Service-Admin-Check scharf schalten, sobald
+// Ressourcen pro Besitzer statt pro Tenant verwaltet werden sollen.
+const resourcesOpenToTenant = true
+
 // NewCalendarGRPCServer creates a new Calendar gRPC server
 func NewCalendarGRPCServer(
 	calendarSvc *calendar.Service,
@@ -898,7 +905,7 @@ func (s *CalendarGRPCServer) CreateResource(ctx context.Context, req *calv1.Crea
 		ResourceType: req.ResourceType,
 		Tags:         req.Tags,
 		CreatedBy:    createdBy,
-		IsAdmin:      true, // Gateway handles auth
+		IsAdmin:      resourcesOpenToTenant,
 	}
 	if req.Capacity != nil {
 		c := int(*req.Capacity)
@@ -1019,7 +1026,7 @@ func (s *CalendarGRPCServer) UpdateResource(ctx context.Context, req *calv1.Upda
 		input.Description = req.Description
 	}
 
-	res, err := s.resourceService.Update(ctx, id, tenantID, true, input) // isAdmin=true, gateway handles auth
+	res, err := s.resourceService.Update(ctx, id, tenantID, resourcesOpenToTenant, input)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -1040,7 +1047,7 @@ func (s *CalendarGRPCServer) DeleteResource(ctx context.Context, req *calv1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid resource id")
 	}
 
-	if err := s.resourceService.Delete(ctx, id, tenantID, true); err != nil { // isAdmin=true, gateway handles auth
+	if err := s.resourceService.Delete(ctx, id, tenantID, resourcesOpenToTenant); err != nil {
 		return nil, mapCalendarError(err)
 	}
 

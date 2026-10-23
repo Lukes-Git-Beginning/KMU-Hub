@@ -38,6 +38,14 @@ type WorkGRPCServer struct {
 	customFieldService *customfield.Service
 }
 
+// projectsOpenToTenant is the isAdmin argument every project call passes: whoever
+// holds project permissions sees and manages ALL projects of the tenant; the
+// per-project membership checks in project.Service are deliberately unused.
+// lean: Projekte offen für jeden mit Projektrechten (Entscheidung Luke 2026-10-23);
+// Mitgliedschaftsprüfung (isAdmin=false) scharf schalten, sobald der erste Kunde
+// Projekte nach Mitgliedschaft trennen will.
+const projectsOpenToTenant = true
+
 // NewWorkGRPCServer creates a new Work gRPC server
 func NewWorkGRPCServer(
 	projectService *project.Service,
@@ -107,7 +115,12 @@ func (s *WorkGRPCServer) GetProject(ctx context.Context, req *workv1.GetProjectR
 		return nil, status.Error(codes.InvalidArgument, "invalid project id")
 	}
 
-	p, err := s.projectService.Get(ctx, id, tenantID, uuid.Nil, true)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := s.projectService.Get(ctx, id, tenantID, actorID, projectsOpenToTenant)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -123,7 +136,12 @@ func (s *WorkGRPCServer) ListProjects(ctx context.Context, req *workv1.ListProje
 		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
-	projects, err := s.projectService.List(ctx, tenantID, uuid.Nil, true, req.IncludeArchived)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	projects, err := s.projectService.List(ctx, tenantID, actorID, projectsOpenToTenant, req.IncludeArchived)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list projects")
 	}
@@ -158,7 +176,12 @@ func (s *WorkGRPCServer) UpdateProject(ctx context.Context, req *workv1.UpdatePr
 		input.Description = req.Description
 	}
 
-	p, err := s.projectService.Update(ctx, id, tenantID, uuid.Nil, true, input)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := s.projectService.Update(ctx, id, tenantID, actorID, projectsOpenToTenant, input)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -179,11 +202,16 @@ func (s *WorkGRPCServer) ArchiveProject(ctx context.Context, req *workv1.Archive
 		return nil, status.Error(codes.InvalidArgument, "invalid project id")
 	}
 
-	if err := s.projectService.Archive(ctx, id, tenantID, uuid.Nil, true); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.projectService.Archive(ctx, id, tenantID, actorID, projectsOpenToTenant); err != nil {
 		return nil, mapWorkError(err)
 	}
 
-	p, err := s.projectService.Get(ctx, id, tenantID, uuid.Nil, true)
+	p, err := s.projectService.Get(ctx, id, tenantID, actorID, projectsOpenToTenant)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -204,7 +232,12 @@ func (s *WorkGRPCServer) DeleteProject(ctx context.Context, req *workv1.DeletePr
 		return nil, status.Error(codes.InvalidArgument, "invalid project id")
 	}
 
-	if err := s.projectService.Delete(ctx, id, tenantID, uuid.Nil, true); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.projectService.Delete(ctx, id, tenantID, actorID, projectsOpenToTenant); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -231,12 +264,17 @@ func (s *WorkGRPCServer) AddProjectMember(ctx context.Context, req *workv1.AddPr
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.projectService.AddMember(ctx, projectID, tenantID, userID, uuid.Nil, true, req.Role); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.projectService.AddMember(ctx, projectID, tenantID, userID, actorID, projectsOpenToTenant, req.Role); err != nil {
 		return nil, mapWorkError(err)
 	}
 
 	// Return the member info
-	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, actorID, projectsOpenToTenant)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -268,7 +306,12 @@ func (s *WorkGRPCServer) RemoveProjectMember(ctx context.Context, req *workv1.Re
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.projectService.RemoveMember(ctx, projectID, tenantID, userID, uuid.Nil, true); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.projectService.RemoveMember(ctx, projectID, tenantID, userID, actorID, projectsOpenToTenant); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -286,7 +329,12 @@ func (s *WorkGRPCServer) ListProjectMembers(ctx context.Context, req *workv1.Lis
 		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
 	}
 
-	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, actorID, projectsOpenToTenant)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -317,11 +365,16 @@ func (s *WorkGRPCServer) UpdateProjectMemberRole(ctx context.Context, req *workv
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.projectService.UpdateMemberRole(ctx, projectID, tenantID, userID, uuid.Nil, true, req.Role); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.projectService.UpdateMemberRole(ctx, projectID, tenantID, userID, actorID, projectsOpenToTenant, req.Role); err != nil {
 		return nil, mapWorkError(err)
 	}
 
-	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, actorID, projectsOpenToTenant)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -2054,7 +2107,12 @@ func (s *WorkGRPCServer) ListProjectTimeEntries(ctx context.Context, req *workv1
 		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
 	}
 
-	if _, err := s.projectService.Get(ctx, projectID, tenantID, uuid.Nil, true); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := s.projectService.Get(ctx, projectID, tenantID, actorID, projectsOpenToTenant); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -2086,11 +2144,16 @@ func (s *WorkGRPCServer) ListProjectTeamUtilization(ctx context.Context, req *wo
 		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
 	}
 
-	if _, err := s.projectService.Get(ctx, projectID, tenantID, uuid.Nil, true); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := s.projectService.Get(ctx, projectID, tenantID, actorID, projectsOpenToTenant); err != nil {
 		return nil, mapWorkError(err)
 	}
 
-	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, actorID, projectsOpenToTenant)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}

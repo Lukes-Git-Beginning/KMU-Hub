@@ -286,6 +286,7 @@ func (s *Service) AddMember(ctx context.Context, projectID uuid.UUID, tenantID u
 	slog.Info("project member added",
 		"project_id", projectID,
 		"user_id", userID,
+		"actor_id", actorID,
 		"role", role,
 	)
 
@@ -334,6 +335,7 @@ func (s *Service) RemoveMember(ctx context.Context, projectID uuid.UUID, tenantI
 	slog.Info("project member removed",
 		"project_id", projectID,
 		"user_id", userID,
+		"actor_id", actorID,
 	)
 
 	return nil
@@ -387,6 +389,7 @@ func (s *Service) UpdateMemberRole(ctx context.Context, projectID uuid.UUID, ten
 	slog.Info("project member role updated",
 		"project_id", projectID,
 		"user_id", userID,
+		"actor_id", actorID,
 		"role", role,
 	)
 

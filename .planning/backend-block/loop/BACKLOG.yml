@@ -417,7 +417,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 74,8 % · internal/work/project 78,2 %"
     decided: 2026-10-23
     decision: >-

@@ -345,8 +345,11 @@ func newWorkValidationTestServer() *WorkGRPCServer {
 	return NewWorkGRPCServer(nil, nil, nil, nil, nil, nil, nil, nil)
 }
 
+// ctxWithWorkTenant is a tenant context with an authenticated caller; project RPCs
+// resolve the actor from it and refuse a context without one.
 func ctxWithWorkTenant(tenantID uuid.UUID) context.Context {
-	return context.WithValue(context.Background(), middleware.TenantIDKey, tenantID.String())
+	ctx := context.WithValue(context.Background(), middleware.TenantIDKey, tenantID.String())
+	return context.WithValue(ctx, middleware.UserIDKey, uuid.NewString())
 }
 
 func seedProject(repo *projectMockRepo, tenantID uuid.UUID, key string) *models.Project {
