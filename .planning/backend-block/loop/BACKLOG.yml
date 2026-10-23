@@ -1675,12 +1675,46 @@ units:
       - "Jeder Fall, in dem das FE im Normalablauf einen abgelehnten Wert sendet, steht als Unit (Backend am Kopf oder FE in NEXT)"
       - "Das Such-Kommando steht im Journal"
 
+  - id: fix-video-delete-recording-authz
+    phase: 4
+    service: video
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 74,8 %"
+    scope: >
+      VERIFIZIERTES AUTH-LOCH (Scan Iteration 42, `scan-tests-pinning-known-failures`). Der Test
+      `TestDeleteRecording_NoParticipantOrInitiatorCheck` (`internal/server/video_call_grpc_test.go:1460`)
+      schreibt die Lücke fest: `VideoGRPCServer.DeleteRecording` (`internal/server/video_grpc.go:433`)
+      verwirft `req.UserId` ("Authorization handled at gateway level") und setzt die Aufzeichnung per
+      `FailRecording(..., "deleted by user")` auf `failed`. Das Gateway (`route_video.go:138`,
+      `r.Delete("/recordings/{id}", HandleDeleteRecording)`) hat weder `RequirePermission` noch eine
+      Teilnehmerprüfung. JEDER angemeldete Nutzer des Mandanten kann damit jede Aufzeichnung des
+      Mandanten unbrauchbar machen (nur Raten/Aufzählen der ID nötig; `GET /recordings` listet sie).
+      Kein Cross-Tenant (RLS trägt), aber eine zerstörende Aktion ohne jede Berechtigungsprüfung.
+      Fix wie `StopRecording` (`video_grpc.go:300-340`): Aufrufer aus dem Kontext
+      (`middleware.GetUserID`), Aufzeichnung laden, erlaubt nur für `rec.StartedBy == caller` oder
+      `meetingService.IsHostOrCoHost(rec.MeetingID, tenant, caller)`, sonst `PermissionDenied`;
+      fehlender Aufrufer -> `Unauthenticated`. Den Kommentar "handled at gateway level" entfernen.
+      Der bestehende Test wird umgedreht (Fremder bekommt PermissionDenied, Initiator/Host darf).
+    sources:
+      - backend/internal/server/video_grpc.go
+      - backend/internal/server/video_call_grpc_test.go
+      - backend/internal/gateway/route_video.go
+      - desktop/src/renderer/src/api/clients/video-client.ts
+    done_when:
+      - "Fremder Teilnehmer/Nicht-Teilnehmer erhält PermissionDenied (403) und die Aufzeichnung bleibt unverändert"
+      - "Initiator und Host/Co-Host können weiter löschen (200)"
+      - "Mutations-Probe: Prüfung entfernt, der Fremden-Test wird rot"
+      - "desktop-aufrufer: welche Desktop-Stelle ruft DELETE /video/recordings/{id} und mit welchem Nutzer, Ergebnis im Journal"
+      - "go test -count=1 ./internal/server/ ./internal/gateway/ grün, DATABASE_URL gesetzt, 0 Skips"
+
   - id: scan-tests-pinning-known-failures
     phase: 4
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       Tests, die einen bekannten Fehler festschreiben statt ihn zu melden — die Klasse, die den

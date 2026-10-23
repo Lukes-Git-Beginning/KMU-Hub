@@ -1457,3 +1457,48 @@ units:
       - backend/internal/dialer/redis_agent_store.go
     done_when:
       - "Menü zeigt nur Übergänge, die der Automat annimmt; ein 409 erzeugt einen sichtbaren Fehlerhinweis"
+
+  - id: decide-credit-note-over-credit-limit
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Scan Iteration 42. `internal/biz/creditnote/repository_coverage_integration_test.go:236-270`
+      (Build-Tag `integration`) schreibt fest, dass `creditnote.Service.Create` keine Obergrenze prüft:
+      eine Gutschrift über 1190 € auf eine Rechnung über 119 € wird angelegt. Der Service lädt die
+      Originalrechnung nur auf Existenz/Status. Kein Totalausfall, aber eine Buchhaltungslücke
+      (Gutschriften summieren sich über die Rechnung hinaus). ENTSCHEIDUNG LUKE: Obergrenze =
+      Rechnungsbrutto minus bereits erteilte Gutschriften (409/InvalidArgument bei Überschreitung)
+      oder bewusst erlaubt (z. B. Kulanz/Rückerstattung über Rechnung hinaus)? Bei "Obergrenze":
+      Fix-Unit mit Summenprüfung in einer Transaktion (Rennen zwischen zwei Gutschriften) und Test
+      ohne Build-Tag, damit er im PR-Gate läuft.
+    sources:
+      - backend/internal/biz/creditnote/service.go
+      - backend/internal/biz/creditnote/repository_coverage_integration_test.go
+    done_when:
+      - "Entscheidung Obergrenze ja/nein steht; bei ja ist die Fix-Unit angelegt"
+
+  - id: decide-hr-team-time-scope-for-managers
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Scan Iteration 42. `GET /api/v1/hr/time/team` (`route_hr.go:121`, Guard `hr:read` ODER
+      `zeiterfassung:team view`) ruft `GetTeamTime` (`hr_grpc.go:1237`); `GetTeamTimeReq` trägt nur
+      Mandant und Wochenstart, keinen Aufrufer. Jeder Inhaber der Berechtigung sieht damit ALLE
+      Mitarbeiter des Mandanten mit Wochenminuten, Überstunden und Stempelstatus, nicht nur sein Team.
+      Der Gateway-Test `route_hr_time_tracking_test.go:310` verweist auf eine Unit
+      `fix-hr-team-time-not-scoped-to-manager`, die in keiner Backlog-Datei und keinem Archiv steht
+      (nie angelegt). ENTSCHEIDUNG LUKE: Teamleiter sehen nur ihre direkten Berichte
+      (Proto-Feld `caller_id` + Filter über die Berichtslinie) oder bewusst alle (KMU mit 5-200
+      Personen, `zeiterfassung:team view` ist eine eigene Berechtigung)?
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/server/hr_grpc.go
+      - backend/internal/biz/hr/timetracking/service.go
+    done_when:
+      - "Entscheidung gescoped/alle steht; bei gescoped ist die Fix-Unit mit Proto-Feld angelegt"
