@@ -1176,3 +1176,43 @@ units:
       Name bleibt für Externe? Dann DSAR über die FK und scope-own im Katalog möglich.
     done_when:
       - Entscheidung Luke dokumentiert
+
+  - id: fe-handle-crm-kommunikation-shape-findings
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderungen laufen über den
+      Build-+-Verify-Standard mit Screenshot-QA (`.planning/nico-block/WORKFLOW.md`). Punkt (j)
+      braucht außerdem eine Entscheidung von Luke.
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      FE-Funde aus `scan-fe-gateway-shape-crm-kommunikation` (Iteration 12, Belege im Journal).
+      VORRANG: (a) Benachrichtigungs-Priorität: `PRIORITY_BY_INT` in `useNotifications.ts:21` ist
+      vertauscht (Proto 1=URGENT, 2=NORMAL, 3=LOW, 4=HIGH; FE 1->low, 3->urgent) — dringende Meldungen
+      erscheinen als "low". (b) `useCreateTag/useUpdateTag/useDeleteTag`, alle `useCustomFields`-Hooks
+      und `useBirthdays` nutzen rohes `fetch` OHNE `Authorization`-Header -> 401 im Produktivbetrieb;
+      `useUpdateTag` sendet PATCH, die Route ist nur PUT; `/dashboard/birthdays` hat keinen Handler.
+      (c) `useLeads.ts` ist ein In-Memory-Mock mit 8 erfundenen Leads (Gateway `/leads` existiert
+      ungenutzt); Auswertungen zählen sie mit. (d) `activity.completed` heißt auf der Leitung
+      `is_completed` (`ActivitiesListPage.tsx:396/409/448`, `WiedervorlageView.tsx:30/71`,
+      `AuswertungenPage.tsx:99`). (e) Kontakt-Namen: Konsumenten lesen camelCase aus Roh-snake_case
+      (`RecentContacts.tsx`, `DealFormDialog.tsx:195` — Picker leer, `MeetingFormDialog.tsx:533`,
+      `AttachToContactDialog.tsx:22`, `ReferredByField.tsx`, `AdvisoryProtocolEditor.tsx:207`,
+      `VertraegePage.tsx:245/837`). (f) `DealDetailPage` liest `contactId/companyId/closedAt/customFields`,
+      `backendDealToUI` normalisiert sie nicht (`useDeals.ts:15`); `CompanyDetailPage.tsx:324` liest
+      `firstName/lastName` aus `useCompanyContacts`. (g) `KontaktePage.tsx:92` lädt ohne Paging nur
+      20 Kontakte. (h) Meetings: Status/RSVP-Vergleiche gegen Strings (`MeetingLobby.tsx:104`,
+      `MeetingSummaryView.tsx:129`), Teilnehmername `a.user_name` statt first/last_name,
+      `VideoCallView` bekommt keine `meetingId` (`MeetingsPage.tsx:419`, `VideoPage.tsx:484`) — Co-Hosts,
+      Breakout, Meeting-Chat feuern nicht. (i) Posteingang: `useUnreadInbox.ts` ruft zwei Routen, die es
+      im Gateway nicht gibt (`/messages/unread-inbox`, `/channels/read-all`), ohne Auth-Header. (j)
+      ENTSCHEIDUNG LUKE: `page_size` über 100 wird am Gateway still auf 20 gesetzt, das FE fragt 200
+      an (Pipeline-Kanban zeigt max. 20 Deals, `DealForecastView`, `AuswertungenPage`, Kontakt-Picker).
+      Obergrenze am Gateway anheben (Backend, kleine Unit) oder FE paginiert?
+      (k) `ActivityFeed.tsx:82` verlinkt auf nicht existierende `/crm/...`-Routen; `CRMLayout` ist nirgends
+      gemountet (toter Code: `ImportWizard`, `ExportDialog`, `ContactsListPage`).
+    done_when:
+      - "Punkte (a)-(i),(k) im FE behoben und per Screenshot-QA abgenommen; (j) entschieden"

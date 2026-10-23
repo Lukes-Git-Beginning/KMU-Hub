@@ -579,7 +579,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für die Domänen CRM und Kommunikation:
@@ -600,6 +600,260 @@ units:
       - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
       - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
       - "Abweichungen ohne UI-Bruch (z. B. ungenutztes Feld) stehen gesammelt in einer Unit am Ende oder sind begründet verworfen"
+
+  # ----------------------------------------------------------------------------------------
+  # FIX-UNITS AUS `scan-fe-gateway-shape-crm-kommunikation` (Iteration 12, 2026-10-23).
+  # Je Unit: erst die Gateway-Zeile gegen den FE-Aufrufer prüfen (Scan-Belege stehen im
+  # Journal), dann am Gateway/Server fixen, Test über den echten Handler (kein Workaround-
+  # Datensatz), Spec nachziehen, `desktop-aufrufer:` im Journal. Desktop-Code bleibt tabu.
+  # ----------------------------------------------------------------------------------------
+
+  - id: fix-calendar-events-holidays-recurring-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 73,6 %"
+    scope: >
+      TOTALAUSFALL Kalender, vier Befunde, alle am Code belegt.
+      (1) `GET /calendar/events` (`route_calendar.go:561-603`) schreibt `ListEventsInRangeResponse`
+      per `response.Proto`: jedes Element ist `{event:{id,start_time,…},calendar_name,display_color,…}`
+      (`ExpandedEventProto.event`, calendar.proto:154). Das FE (`adapters.ts:142 expandedEventToUI`,
+      `KalenderPage.tsx:445`) liest `event.id`/`event.start_time` FLACH -> `start_time` undefined,
+      kein Termin erscheint in Woche/Tag/Monat, Widgets zeigen `NaN:NaN`. Antwort so schreiben, dass
+      die Event-Felder auf Elementebene liegen (flach gemerged), ohne die Zusatzfelder zu verlieren.
+      (2) Dieselbe Route: das FE sendet `start`/`end` als `YYYY-MM-DD` mit dem LETZTEN SICHTBAREN TAG
+      als Ende (`KalenderPage.tsx:421`); Filter ist `start_time < $3` (postgres_repository.go:110) ->
+      Tagesansicht leer, Sonntag der Woche fehlt. Reines Datum als `end` inklusiv behandeln (+24 h).
+      (3) `GET /calendar/holidays` (`:1311-1326`): das FE sendet `year`, `country_code`,
+      `subdivision_code` (`useHolidays.ts:31`), der Handler liest nur `start`/`end`; ohne beide wird
+      `nil.AsTime()` = 1970 gefiltert -> immer leer. `year` auswerten (1.1.–31.12.), wenn start/end fehlen.
+      (4) `PUT /calendar/events/{id}/recurring` (`:176-180`) erwartet `{scope,original_date,changes:{…}}`,
+      das FE sendet die Änderungen FLACH (`KalenderPage.tsx:553`) -> 200 ohne Wirkung. Flache Felder
+      akzeptieren (zusätzlich zu `changes`). Mitnehmen: `createEventRequest` verwirft `reminder_minutes`
+      (obwohl `calv1.CreateEventRequest.ReminderMinutes` existiert), `updateEventRequest` kennt `rrule`
+      nicht -> beide durchreichen.
+    sources:
+      - backend/internal/gateway/route_calendar.go
+      - backend/internal/server/calendar_grpc.go
+      - backend/proto/calendar/v1/calendar.proto
+      - desktop/src/renderer/src/modules/kalender/adapters.ts
+      - desktop/src/renderer/src/modules/kalender/KalenderPage.tsx
+      - desktop/src/renderer/src/api/hooks/useEvents.ts
+      - desktop/src/renderer/src/api/hooks/useHolidays.ts
+      - backend/api/openapi.yaml
+    notes: >
+      Beim Flachziehen auch `GET /calendar/events/{id}` (`{event:{event:…}}`, ungenutzt) angleichen,
+      wenn es dieselbe Hilfsfunktion nutzt. Test: Handler-Test mit echtem Wire-JSON, der
+      `events[0].start_time` auf oberster Ebene prüft (nicht den Proto-Typ). Mutations-Probe: Flatten
+      auskommentieren -> Test rot.
+    done_when:
+      - "events[i].id/start_time/title liegen auf Elementebene, calendar_name/display_color bleiben"
+      - "Datum-only end schließt den Tag ein; Tagesansicht liefert Termine dieses Tages"
+      - "holidays mit year=2026&country_code=DE liefert Feiertage 2026 (DB-Test)"
+      - "recurring-Update mit flachem Body ändert den Titel; reminder_minutes und rrule kommen an"
+      - "Spec angepasst, TestOpenAPIRouteDrift grün, Mutations-Probe belegt"
+
+  - id: fix-email-compose-addresses-and-empty-arrays
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 73,6 %"
+    scope: >
+      TOTALAUSFALL E-Mail-Versand. (1) `POST /email/send/`, `/send/forward`, `/send/draft`
+      (`route_email.go:30-67`): `To/Cc/Bcc []string`, das FE sendet `[{name,email}]`
+      (`ComposeModal.tsx:176-238`, `ComposeInline.tsx:142`, `ComposeWindowPage.tsx:103`;
+      `SendEmailRequest`/`EmailAddress` in email-types.ts) -> `json.Decoder` schlägt fehl, 400 "invalid
+      request body" für JEDE Mail mit Empfänger. Beide Formen akzeptieren (String ODER Objekt), Name
+      mitführen, wenn die Service-Schicht ihn kennt. Die Validierung (`dive,email`) auf die E-Mail-Adresse
+      anwenden. Die vorhandenen Gateway-Tests (`route_email_compose_test.go`) kennen nur Strings: um die
+      FE-Form ergänzen, nicht ersetzen. (2) Antworten mit `response.JSON(resp)` auf dem pb-Struct lassen
+      leere Listen weg (`omitempty`): `cc`, `to`, `bcc`, `attachments` fehlen -> FE wirft
+      (`ComposeInline.tsx:89`/`ComposeModal.tsx:123` `replyTo.cc.map` = "Allen antworten" kaputt,
+      `mail-export.ts:106-107` `.eml`-Export, `ThreadView.tsx:85`, `MailsPage.tsx:102`). Die
+      Nachrichten-Antworten (list/get/thread/send/reply/draft) müssen die Listen immer als `[]`
+      schreiben. (3) `GET /email/messages/` mit `folder_id=''` (Ansicht "Alle Eingänge", Label,
+      Filter): der Server antwortet 400 "invalid folder_id" (`email_grpc.go:368`), `filter`,
+      `account_id`, `view`, `label_id` werden ignoriert (`route_email.go:477-487`). Nur Befund
+      klassifizieren: braucht Proto-Felder -> eigene Unit ans Dateiende, wenn Umfang > 1 Iteration.
+    sources:
+      - backend/internal/gateway/route_email.go
+      - backend/internal/server/email_grpc.go
+      - desktop/src/renderer/src/api/email-client.ts
+      - desktop/src/renderer/src/api/email-types.ts
+      - desktop/src/renderer/src/modules/mails/ComposeModal.tsx
+      - backend/api/openapi.yaml
+    done_when:
+      - "POST /email/send/ mit to:[{name,email}] UND to:[\"a@b.de\"] nimmt beide Formen an (Test über den Handler)"
+      - "Nachricht ohne Cc/To/Attachments liefert \"cc\":[], \"to\":[], \"attachments\":[] im JSON"
+      - "Spec angepasst; Mutations-Probe (Adress-Decoder zurück auf []string -> Test rot)"
+      - "Punkt (3) entweder gefixt oder als Unit am Ende angelegt (neue-units)"
+
+  - id: fix-inbox-tags-teams-bulk-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 73,6 %"
+    scope: >
+      Inbox/Team-Inbox, am Code belegt (Scan Iteration 12). (1) `tags` fehlt in
+      `GET /inbox/messages` und `/messages/{id}` bei leerer Liste (Proto `repeated`, EmitUnpopulated
+      aus): `ConversationListItem.tsx:152` `msg.tags.slice` wirft für jede Nachricht ohne Tags,
+      `ConversationThreadHeader.tsx:95/147/339` ebenso. `tags` immer als `[]` schreiben. (2) Bulk-Routen:
+      FE ruft `POST /inbox/messages/bulk/read` und `/bulk/archive` (`inbox-client.ts:152/156`), Gateway
+      registriert `/messages/bulk-read` und `/bulk-archive` (`route_inbox.go:102-103`); chi matcht
+      `/messages/{id}/read` mit id="bulk" -> 400. Die FE-Pfade zusätzlich registrieren (Spec-Einträge im
+      selben Commit). (3) Team-Inboxen: `GET /inbox/teams` liefert `{team_inboxes:[…]}`, das FE erwartet
+      ein nacktes Array (`KommunikationSettingsPanel.tsx:239` `teams?.map` -> TypeError); `POST /teams`
+      und `PUT /teams/{id}` liefern `{team_inbox:{…}}`, das FE erwartet das nackte Objekt
+      (`onSuccess:(team)=>openTeam(team)`); `GET /teams/{id}/members` liefert `{members:[…]}`, FE erwartet
+      Array (`TeamInboxSettings.tsx:219`). Enums (`assignment_mode`, `visibility`, member `role`) kommen
+      als Int, das FE vergleicht Strings (`'round_robin'`, `'admin'`) und schickt sie beim Speichern
+      zurück (Gateway-DTO `*string` -> 400): als Strings schreiben. Vorbild ist `3c13fd66`
+      (Routing-Regeln). (4) `POST /teams/{id}/members`: FE sendet `{user_id, role}`
+      (`inbox-client.ts:192`), Gateway verlangt `member_user_id` -> 400 für jeden; `user_id` als Alias
+      akzeptieren. (5) `GET /inbox/messages/unread-count`: FE liest `counts` (`ConversationList.tsx:50`),
+      Gateway liefert `by_channel` -> Kanal-Badges immer leer. (6) `POST /inbox/rules/test`: FE sendet
+      `message`, Gateway liest `test_message` (`route_inbox.go:1310`) -> Test gegen leere Nachricht,
+      Ergebnis falsch; `message` akzeptieren, Kanal-String statt Int-Enum verarbeiten, `matches:false`
+      nicht weglassen.
+    sources:
+      - backend/internal/gateway/route_inbox.go
+      - backend/internal/server/inbox_grpc.go
+      - backend/proto/inbox/v1/inbox.proto
+      - desktop/src/renderer/src/api/inbox-client.ts
+      - desktop/src/renderer/src/api/inbox-types.ts
+      - desktop/src/renderer/src/modules/kommunikation/
+      - backend/api/openapi.yaml
+    notes: >
+      Der Auftrag ist groß: bei Bedarf in zwei Iterationen schneiden und die zweite als Unit direkt
+      dahinter anlegen (neue-units). Reihenfolge nach Schwere: (1), (3)+(4), (2), (5), (6).
+      Routing-Regel-Kanal (`channel` als Int in `GET /rules`) gehört dazu: als String schreiben.
+    done_when:
+      - "Nachricht ohne Tags: JSON enthält \"tags\":[]"
+      - "GET /teams liefert Array, POST/PUT /teams das nackte Objekt, Enums als String (Handler-Tests)"
+      - "POST /teams/{id}/members mit {user_id, role} akzeptiert"
+      - "Bulk-Pfade des FE erreichen die Bulk-Handler; Spec-Einträge; Drift-Test grün"
+      - "unread-count enthält counts; rules/test wertet die FE-message aus"
+
+  - id: fix-notification-quiet-hours-prefs-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Gateway)"
+    scope: >
+      Notification-Einstellungen, am Code belegt. (1) Quiet Hours: FE liest/sendet `days` und `is_active`
+      (`NotificationSettingsTab.tsx:99-111`, `notification-gating.ts:21`), die Wire-Felder heißen
+      `days_of_week` und `enabled` (`route_notification.go:539-548`). GET: Schalter steht immer auf
+      "aktiv", `isWithinQuietHours` ist immer false. PUT: gespeichert wird immer `enabled=false`,
+      `days_of_week=[]`, stillschweigend. Beide Namen akzeptieren/ausgeben (additiv). Wochentage:
+      FE 0=So…6=Sa, Backend 1=Mo…7=So (`preference/service.go:174-190`, Validator lehnt 0 ab) -> im
+      Gateway-Mapping klären und im Test festnageln. (2) `GET /notifications/preferences` und
+      `/event-types`: `in_app=false`, `desktop_push=false`, `default_in_app=false` fehlen im JSON ->
+      `pref?.in_app ?? eventType.default_in_app ?? true` (`NotificationCenter.tsx:750`) springt die
+      Checkbox nach dem Abschalten wieder an. Booleans immer ausgeben. (3) `PUT /preferences` setzt
+      `email=false`, `sms=false`, `sound=""`, weil das FE nur `in_app`/`desktop_push` sendet
+      (`:361-382`): nicht gesendete Felder unverändert lassen (Pointer-DTO oder Merge mit dem Bestand).
+    sources:
+      - backend/internal/gateway/route_notification.go
+      - backend/internal/notification/preference/service.go
+      - backend/proto/notification/v1/notification.proto
+      - desktop/src/renderer/src/api/notification-client.ts
+      - desktop/src/renderer/src/api/hooks/useNotifications.ts
+    notes: >
+      NICHT hier: die vertauschte Prioritäts-Tabelle (`PRIORITY_BY_INT` im FE: 1->low, 3->urgent, Proto
+      1=URGENT, 3=LOW) — das ist ein reiner FE-Fehler, steht in BACKLOG-NEXT.yml
+      (`fe-handle-crm-kommunikation-shape-findings`). Priorität im Test NICHT als Workaround umbiegen.
+    done_when:
+      - "GET quiet-hours liefert days und is_active (plus die alten Namen); PUT speichert enabled/days"
+      - "Weekday-Mapping mit Test festgenagelt"
+      - "preferences/event-types mit false-Werten liefern die Felder explizit"
+      - "PUT /preferences lässt email/sms/sound unverändert, wenn nicht gesendet (DB-Test)"
+
+  - id: fix-video-meetings-recordings-actionitems-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 73,6 %"
+    scope: >
+      Video/Meetings, am Code belegt (Scan Iteration 12). (1) TOTALAUSFALL Meeting anlegen/ändern:
+      FE sendet `scheduled_start` als `YYYY-MM-DDTHH:MM:00` OHNE Zeitzone (`MeetingFormDialog.tsx:279,300,326`);
+      `parseTimestamp` (`route_work.go:256`) kennt nur RFC3339, `…Z` und `YYYY-MM-DD` -> 400 "invalid
+      scheduled_start format" für JEDEN. Zonenloses Layout akzeptieren (Zeitzone: Entscheidung im
+      Journal begründen, Europe/Berlin wie `fix-produktion-capacity-week-bounds-europe-berlin`). Dazu:
+      `contact_id`/`deal_id` werden vom Handler still verworfen (Structs `route_video.go:238-256`), das
+      Proto hat beide -> durchreichen. (2) Aufnahmen: `GET /video/recordings` liefert `{recordings,total}`,
+      FE erwartet Array (`useVideo.ts:283` `recordings.find` -> TypeError, Aufnahme-Einwilligungsbanner
+      sehen nie eine aktive Aufnahme, DSGVO-relevant); `GET /video/meetings/{id}/recordings` liefert ein
+      nacktes Array, FE liest `.recordings` (`MeetingDetailPanel.tsx:145`) -> Tab leer. Formen angleichen.
+      (3) `GET /meetings/{id}/action-items` liefert `{action_items:[…]}`, bei leer `{}`; FE erwartet Array
+      (`MeetingActionItems.tsx:73`: `actionItems.filter` wirft, Default `= []` greift bei `{}` nicht).
+      (4) `POST …/action-items/convert` liefert `{action_items,converted_count}`, FE liest
+      `data.task_ids.length` (`:138`) -> TypeError im onSuccess, kein Toast. `task_ids` ergänzen.
+      (5) `POST /presence/bulk` liefert `{statuses:[…]}`, FE iteriert `Object.entries(bulkData)`
+      (`PresenceProvider.tsx:133`) und schreibt unter dem Schlüssel "statuses" -> ganzes Team "offline".
+      Als Map `{userId:{status,…}}` ausgeben, Status als String. (6) `GET …/cohosts` liefert
+      `{co_hosts:[{user_id}]}`, FE liest `user_ids` (`useVideo.ts:353`) -> immer `[]`: `user_ids` ergänzen.
+      (7) `GET …/breakout-rooms/assignment` im Hauptraum `{}` statt `{room:null}`: `room:null` ausgeben.
+    sources:
+      - backend/internal/gateway/route_video.go
+      - backend/internal/gateway/route_work.go
+      - backend/internal/server/video_grpc.go
+      - desktop/src/renderer/src/api/video-client.ts
+      - desktop/src/renderer/src/api/hooks/useVideo.ts
+      - desktop/src/renderer/src/modules/meetings/
+      - backend/api/openapi.yaml
+    notes: >
+      Der Auftrag ist groß. Reihenfolge: (1), (2), (3)+(4), (5), (6)+(7). Presence-Tenant-Leck
+      (`GetPresence`/`GetBulkPresence`) ist separat vorgemerkt, hier nicht anfassen — aber beim Umbau
+      von (5) den Tenant-Filter NICHT entfernen. Meeting-Status und RSVP kommen als Zahl, das FE
+      vergleicht Strings (`MeetingLobby.tsx:104`, `MeetingSummaryView.tsx:129`): als String
+      ausgeben, soweit der Mapper `modules/meetings/mappers.ts` Strings schon akzeptiert.
+    done_when:
+      - "POST /meetings mit scheduled_start ohne Zone -> 201, contact_id/deal_id gespeichert"
+      - "recordings-Listen und action-items-Liste in der vom FE gelesenen Form, leer = []"
+      - "convert liefert task_ids; presence/bulk liefert Map; cohosts liefert user_ids"
+      - "Spec angepasst; Drift-Test grün; Mutations-Probe je Teilfix"
+
+  - id: fix-crm-activity-due-date-and-timeline-route
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 74,8 %"
+    scope: >
+      CRM, am Code belegt. (1) TOTALAUSFALL Aktivitäten mit Fälligkeitsdatum: das FE sendet
+      `due_date` als `YYYY-MM-DD` aus `<input type="date">` (`ActivityFormDialog.tsx:67`,
+      `ActivitiesListPage.tsx:155/170`, `WiedervorlageView.tsx:156`), `crm_grpc.go:1613` (Create) und
+      `:1788` (Update) parsen nur RFC3339 -> 400 "invalid due_date format". Beim Bearbeiten ist das Feld
+      mit `due_date.slice(0,10)` vorbelegt: jede Bearbeitung eines datierten Eintrags scheitert.
+      Reines Datum zusätzlich akzeptieren (Muster: `parseDate` für `expected_close_date`,
+      `crm_grpc.go:2637`). (2) Kontakt-Timeline: FE ruft `/api/v1/crm/contacts/{id}/timeline`
+      (`useTimeline.ts:40`), der Gateway registriert `/api/v1/contacts/{id}/timeline`
+      (`route_crm_ext.go:392`) -> 404 für jeden Kontakt. Zuerst prüfen, ob `/api/v1/crm` irgendwo
+      gemountet ist; sonst den FE-Pfad als zusätzlichen Alias registrieren (Spec-Eintrag im selben
+      Commit). Dahinter: das FE sendet `offset`, der Handler setzt `page = offset`; `metadata` kommt
+      verschachtelt als `{data:{…}}` (crm.proto:1119), das FE erwartet eine flache Map.
+    sources:
+      - backend/internal/server/crm_grpc.go
+      - backend/internal/gateway/route_crm_activities.go
+      - backend/internal/gateway/route_crm_ext.go
+      - desktop/src/renderer/src/api/hooks/useTimeline.ts
+      - desktop/src/renderer/src/modules/crm/activities/ActivityFormDialog.tsx
+      - backend/api/openapi.yaml
+    done_when:
+      - "Aktivität mit due_date=2026-11-01 anlegen und bearbeiten funktioniert (DB-Test als kmuhub_app)"
+      - "GET .../timeline unter dem FE-Pfad liefert Events, offset wird als Offset gelesen, metadata flach"
+      - "Spec angepasst; Drift-Test grün; Mutations-Probe"
 
   - id: scan-fe-gateway-shape-geld-waren
     phase: 4
@@ -1053,3 +1307,43 @@ units:
     done_when:
       - "Jede genannte Stelle trägt einen lean:-Marker mit Upgrade-Trigger"
       - "work_grpc DeleteTask ohne Aufrufer -> Unauthenticated, Test mit Mutations-Probe"
+
+  - id: fix-kommunikation-shape-partial-failures
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 73,6 %"
+    scope: >
+      Teilfehler und Randfälle aus `scan-fe-gateway-shape-crm-kommunikation` (kein Totalausfall, je
+      mit Beleg im Journal Iteration 12). (a) `GET /calendar/booking-pages` ohne Seiten: `pages` fehlt
+      im JSON, `booking-client.ts:138` `res.pages.map` wirft (Erstnutzung, nach Löschen der letzten
+      Seite). (b) Kalender-Mitglieder/Teilnehmer: Wire `first_name`/`last_name`, FE liest
+      `user_first_name`/`user_last_name` (ungenutzte Hooks, `useCalendarMembers`,
+      `useEventAttendees`). (c) `PUT /calendar/resources/{id}` kennt `tags`/`is_active` nicht;
+      `GET …/availability` verlangt `start`+`end`, FE sendet `date`; FE-Pfade
+      `/calendar/resources/bookings` statt `/calendar/bookings` (alle ungenutzt, latent).
+      (d) `PUT /bookings/pages/{id}`: `logo_url:null` und leere `services` lassen sich nicht setzen
+      (`route_booking.go:106-112,239`). (e) `PUT /calendar/preferences`: Feld
+      `default_allday_reminder_minutes` (FE) gegen `default_all_day_reminder_minutes`. (f) Video:
+      `GET /meetings` ignoriert `limit/offset/organizer_id` (Deckel 20); `GET …/notes` ohne Notizen
+      liefert kein `content` (`MeetingNotesPanel.tsx:88`). (g) Mutes: `GET /notifications/mutes`
+      liefert `module_id`/`created_at` statt `resource_type`/`muted_at`, `POST /mutes` verlangt
+      `module_id`. (h) CRM: `page_size` über 100 wird still auf 20 gesetzt (`helpers.go:102-105`) — FE
+      fragt 200 an (Pipeline-Kanban, Auswertungen, Kontakt-Picker); Entscheidung Obergrenze anheben
+      vs. FE paginieren steht in BACKLOG-NEXT.yml, hier nur umsetzen, wenn dort entschieden.
+    sources:
+      - backend/internal/gateway/route_booking.go
+      - backend/internal/gateway/route_calendar.go
+      - backend/internal/gateway/route_video.go
+      - backend/internal/gateway/route_notification.go
+      - backend/internal/gateway/helpers.go
+    notes: >
+      Je Punkt: erst prüfen, ob ein FE-Aufrufer existiert (Journal nennt die ungenutzten). Für
+      ungenutzte Hooks keinen Gateway-Umbau; stattdessen Eintrag im FE-Sammel-Unit. (a), (d), (f), (g)
+      sind Gateway-seitig sinnvoll.
+    done_when:
+      - "(a) leere Booking-Liste liefert \"pages\":[]"
+      - "(d), (f), (g) gefixt mit Test, oder je Punkt begründet verworfen"
+      - "Spec angepasst; Drift-Test grün"

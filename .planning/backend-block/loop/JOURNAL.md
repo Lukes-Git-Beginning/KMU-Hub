@@ -182,3 +182,36 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: `POST /finance/gobd-archive/from-invoice/{invoiceId}` -> nur generierte `api/types.ts`, kein Client/Hook ruft die Route auf -> kein FE-Pfad betroffen; neue Antwort bei fehlenden Stammdaten ist 409 statt 500 -> passt.
 - offen: (1) Kein HTTP-Aufruf gegen den Stack; Beleg ist der DB-Test auf Handler-Ebene. (2) Der Fix wirkt erst nach Deploy von `cmd/biz`. (3) Keine Goroutinen, kein Race-Risiko.
+
+## Iteration 12 — scan-fe-gateway-shape-crm-kommunikation — done — 2026-10-23 18:30
+- commit: (siehe git log, Subject `chore(loop): record CRM and communication shape scan findings`)
+- gebaut: Scan, kein Produktivcode. Geprüft: 79 Inbox/Email-Endpunkte, 55 Kalender/CalDAV/Booking-Hooks, 70 Notification/Video-Clients + 76 Hooks, 60 CRM-Methoden/Hooks. Vier Teilscans liefen als Recherche-Agenten; die Totalausfälle wurden danach von mir am Code nachgeprüft (Kalender-Events, Feiertage, Mail-Empfänger, Inbox-`tags`/Teams, Meeting-`scheduled_start`, Aktivitäts-`due_date`, Timeline-Pfad, Prioritäts-Tabelle). Kontrollfall `GET /inbox/rules`: passt (ProtoList, `3c13fd66`). Sechs Fix-Units VOR die erste todo-Unit, eine Teilfehler-Unit ans Ende, ein FE-Sammelpaket nach BACKLOG-NEXT.yml.
+- befunde (Stelle -> Befund -> Klasse -> Unit):
+  | Domäne | Befund | Klasse | Unit |
+  |---|---|---|---|
+  | Kalender | `GET /calendar/events` nested `{event:{…}}`, FE liest flach -> kein Termin sichtbar, Widgets `NaN:NaN` | Totalausfall | `fix-calendar-events-holidays-recurring-wire` |
+  | Kalender | Datum-only `end` exklusiv -> Tagesansicht leer, Sonntag fehlt | Totalausfall | dito |
+  | Kalender | `GET /holidays` ignoriert `year` -> immer leer | Totalausfall | dito |
+  | Kalender | Serien-Edit: flacher Body, Gateway will `changes` -> 200 ohne Wirkung; `reminder_minutes`/`rrule` verworfen | Funktionsausfall | dito |
+  | E-Mail | send/forward/draft: `to` als `[{name,email}]` gegen `[]string` -> 400 für jede Mail | Totalausfall | `fix-email-compose-addresses-and-empty-arrays` |
+  | E-Mail | leere `cc`/`to`/`attachments` fehlen -> "Allen antworten", .eml-Export, Thread werfen | Teilausfall | dito |
+  | E-Mail | "Alle Eingänge"/Label/Filter -> `folder_id=''` -> 400 | Funktionsausfall (Proto nötig) | dito, Punkt (3) |
+  | Inbox | `tags` fehlt bei leer -> `msg.tags.slice` wirft in der Konversationsliste | Totalausfall | `fix-inbox-tags-teams-bulk-wire` |
+  | Inbox | Team-Inboxen: `{team_inboxes}`/`{team_inbox}`/`{members}` statt bare, Enums als Int, `user_id` vs `member_user_id` | Totalausfall der Team-Einstellungen | dito |
+  | Inbox | Bulk-Pfade `/bulk/read` vs `/bulk-read`, `counts` vs `by_channel`, Regel-Test `message` vs `test_message` | Funktionsausfall | dito |
+  | Notification | Quiet-Hours `days`/`is_active` vs `days_of_week`/`enabled`, Wochentag 0=So vs 1=Mo; `false`-Werte fehlen -> Checkbox springt zurück; PUT überschreibt email/sms/sound | Funktionsausfall | `fix-notification-quiet-hours-prefs-wire` |
+  | Notification | `PRIORITY_BY_INT` im FE vertauscht (urgent <-> low) | FE-Fehler | `fe-handle-crm-kommunikation-shape-findings` (NEXT) |
+  | Video | Meeting anlegen/ändern: `scheduled_start` ohne Zone -> 400 für jeden; `contact_id`/`deal_id` verworfen | Totalausfall | `fix-video-meetings-recordings-actionitems-wire` |
+  | Video | Aufnahmen-Listen falsche Form (Einwilligungsbanner sieht nie eine Aufnahme, DSGVO), Action-Items `{}` wirft, convert `task_ids`, Presence-Bulk, Co-Hosts, Breakout-Assignment | Teil-/Totalausfall | dito |
+  | CRM | Aktivität mit `due_date=YYYY-MM-DD` -> 400, auch jedes Bearbeiten | Totalausfall | `fix-crm-activity-due-date-and-timeline-route` |
+  | CRM | Timeline-Pfad `/api/v1/crm/contacts/…` existiert nicht -> 404 für jeden Kontakt | Totalausfall | dito |
+  | CRM/FE | rohes `fetch` ohne Auth-Header (Tags, Custom Fields, Birthdays), Leads-Mock, `completed` vs `is_completed`, camelCase-Reads, `page_size` 200 -> 20, 20-Kontakte-Deckel | FE | `fe-handle-crm-kommunikation-shape-findings` (NEXT) |
+  | Rest | leere Booking-Liste, Mutes, Meeting-Liste, Notes, Logo-Clear u. a. | Randfall | `fix-kommunikation-shape-partial-failures` (Ende) |
+  | CalDAV | 11/11 Methoden passen | – | – |
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (nur Lesearbeit, keine Go-Änderung) | migration n.a. | rls-smoke n.a. Preflight `backlog-check.py --preflight`: valide.
+- coverage: n.a. (Scan)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`5db02375`: kein Proto, keine Route, kein Guard, keine Tabelle; `ArchiveInvoiceDocument` über Settings-Repo, 409 in der Spec, DB-Test als `kmuhub_app` mit Mutations-Probe laut Journal).
+- neue-units: `fix-calendar-events-holidays-recurring-wire`, `fix-email-compose-addresses-and-empty-arrays`, `fix-inbox-tags-teams-bulk-wire`, `fix-notification-quiet-hours-prefs-wire`, `fix-video-meetings-recordings-actionitems-wire`, `fix-crm-activity-due-date-and-timeline-route` (alle sechs VOR die erste todo-Unit: verifizierte Totalausfälle), `fix-kommunikation-shape-partial-failures` (Ende), `fe-handle-crm-kommunikation-shape-findings` (BACKLOG-NEXT.yml, blocked)
+- desktop-aufrufer: n.a. (Scan, keine Validierungs- oder Antwortform-Änderung am Gateway); die Fix-Units tragen die Aufrufer-Prüfung selbst.
+- offen: (1) Nicht nachgeprüft, nur vom Teilscan übernommen: Inbox B6/B8, E-Mail E2-E5, Video V6-V10/V16, CRM A3-A10, B11-B18, Kalender-Randfälle — die Belege stehen als Datei:Zeile in den Unit-Beschreibungen, vor dem Fix gegen den Code prüfen. (2) Die Fixes liegen am Gateway; ein Teil (Enum-Strings, Wochentag-Mapping, Zeitzone zonenloser Meeting-Zeiten) braucht Entscheidungen, die in den Units benannt sind. (3) Nicht gescannt: Request-Seite von Aktivitäts-/Deal-Tags, `/search`, Duplikaterkennung/Merge, `/reports/*`. (4) `useFeed`-Links und tote CRM-Seiten (`CRMLayout`) sind im FE-Paket vermerkt. (5) Die Recherche-Agenten haben ca. 8 USD verbraucht; für die folgenden Shape-Scans (Geld, Branchen, Inhalte, Admin) kleinere Teilscans einplanen.
