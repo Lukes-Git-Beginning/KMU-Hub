@@ -1521,7 +1521,7 @@ func (d *DocumentRoutes) HandleListVirtualFiles(w http.ResponseWriter, r *http.R
 
 	page, pageSize := parsePagination(r, 1, 50)
 
-	sourceType := virtualFileSourceToProto(r.URL.Query().Get("source"))
+	sourceType := virtualFileSourceToProto(virtualFileSourceParam(r))
 
 	resp, err := client.ListVirtualFiles(r.Context(), &documentv1.ListVirtualFilesRequest{
 		SourceType: sourceType,
@@ -1656,6 +1656,16 @@ func sortDirToProto(d string) documentv1.SortDirection {
 	default:
 		return documentv1.SortDirection_SORT_DIRECTION_UNSPECIFIED
 	}
+}
+
+// virtualFileSourceParam reads the source filter. The desktop client sends it as
+// source_type, the OpenAPI spec has always documented source; accept both.
+func virtualFileSourceParam(r *http.Request) string {
+	q := r.URL.Query()
+	if s := q.Get("source"); s != "" {
+		return s
+	}
+	return q.Get("source_type")
 }
 
 func virtualFileSourceToProto(s string) documentv1.VirtualFileSource {

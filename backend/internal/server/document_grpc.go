@@ -1361,8 +1361,14 @@ func (s *DocumentGRPCServer) ListVirtualFiles(ctx context.Context, req *document
 
 	sourceType := virtualSourceFromProto(req.SourceType)
 
-	// Use Nil for userID since gateway handles auth context
-	files, total, err := s.virtualService.ListVirtualFiles(ctx, uuid.Nil, sourceType, limit, offset)
+	// The repository filters on the caller (channel membership, mailbox owner,
+	// task access), so a Nil user would match nothing and the view is empty.
+	userID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	files, total, err := s.virtualService.ListVirtualFiles(ctx, userID, sourceType, limit, offset)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}

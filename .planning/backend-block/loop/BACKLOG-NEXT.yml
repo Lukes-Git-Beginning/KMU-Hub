@@ -1132,3 +1132,26 @@ units:
       2026-10-23, Deckel bleibt). VORRANG im Alltag: Login 401 und 409 beim Signieren.
     done_when:
       - Je Punkt geprüft und behandelt oder bewusst verworfen
+
+  - id: fe-virtual-files-view-wire-shape
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderung (Build-+-Verify-Standard,
+      `.planning/nico-block/WORKFLOW.md`). Die Dateiansicht „Chat/E-Mail/Aufgaben“ in
+      `DokumentePage.tsx` ist noch gar nicht verdrahtet.
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Aus Lauf 15 Iteration 1 (`fix-document-virtual-files-nil-user`): das Backend liefert die
+      virtuelle Dateiliste jetzt für echte Nutzer, aber die FE-Seite ist halb fertig.
+      (1) `DokumentePage.tsx:234-242` ruft `useVirtualFiles` dreimal und verwirft das Ergebnis
+      (`_virtualChatFiles` usw.), nichts wird gerendert. (2) `VirtualFile.source_type` ist im FE
+      ein String (`'chat'|'email'|'task'`), der Gateway liefert den Proto-Enum als Zahl
+      (`UseEnumNumbers`, 1=CHAT 2=EMAIL 3=TASK, siehe `api/types.ts` `DocumentVirtualFile`).
+      (3) `listVirtualFiles(sourceType, limit, offset)` sendet `limit`/`offset`, der Gateway liest
+      `page`/`page_size`. Der Filter-Parameter `source_type` wird seit Iteration 1 akzeptiert.
+    done_when:
+      - "Dateiansicht rendert die drei Quellen, Typ und Paginierung passen zum Gateway"

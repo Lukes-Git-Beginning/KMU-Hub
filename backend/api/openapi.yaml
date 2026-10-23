@@ -31502,6 +31502,10 @@ paths:
         - name: source
           in: query
           schema: { type: string, enum: [chat, email, task] }
+        - name: source_type
+          in: query
+          description: Alias for source (the desktop client sends this name). source wins when both are set.
+          schema: { type: string, enum: [chat, email, task] }
         - name: page
           in: query
           schema: { type: integer, minimum: 1, default: 1 }

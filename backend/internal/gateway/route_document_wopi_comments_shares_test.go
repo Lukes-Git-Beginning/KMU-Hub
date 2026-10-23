@@ -631,6 +631,20 @@ func TestHandleListVirtualFiles_ReachesRPC(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
+func TestVirtualFileSourceParam_AcceptsSourceAndSourceType(t *testing.T) {
+	cases := map[string]string{
+		"/x?source=chat":                   "chat",
+		"/x?source_type=email":             "email",
+		"/x?source=task&source_type=email": "task",
+		"/x":                               "",
+	}
+	for target, want := range cases {
+		if got := virtualFileSourceParam(httptest.NewRequest("GET", target, nil)); got != want {
+			t.Errorf("%s: got %q, want %q", target, got, want)
+		}
+	}
+}
+
 // --- HandleGenerateWOPIToken ---
 
 func TestHandleGenerateWOPIToken_ServiceUnavailable(t *testing.T) {

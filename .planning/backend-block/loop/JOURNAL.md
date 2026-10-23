@@ -44,3 +44,14 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
    (`GATE-COMMANDS.md`, Abschnitt „E2E“).
 
 ---
+
+## Iteration 1 — fix-document-virtual-files-nil-user — done — 2026-10-23 17:30
+- commit: (siehe git log, Subject `fix(document): list virtual files as the calling user`)
+- gebaut: `DocumentGRPCServer.ListVirtualFiles` löst den Aufrufer mit `callerID(ctx)` auf statt `uuid.Nil` (fehlt er: `Unauthenticated`). Gateway akzeptiert zusätzlich `source_type` als Alias für `source` (so sendet es der Desktop; vorher war der Filter wirkungslos), Spec-Parameter ergänzt.
+- gate: build ok | vet ok | lint ok | test ok | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst; der neue DB-Test läuft als `kmuhub_app` unter RLS)
+- coverage: internal/server 74,8 % -> 74,8 % (neuer Test deckt nur noch die geänderte Handlerzeile) · internal/document/virtual 81,7 % -> 81,7 % (unverändert, nicht angefasst). 0 Skips, 4783 PASS in server + virtual.
+- mutations-probe: `uuid.Nil` statt `userID` zurückgedreht -> `channel_member_sees_the_chat_file` rot (expected 1, actual 0); zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`ea5a39a9`: nur calendar_grpc.go + Tests, kein Proto/Route/Guard/Tabelle; CI laut Backlog-Kopf grün).
+- neue-units: `fe-virtual-files-view-wire-shape` (in BACKLOG-NEXT.yml, FE-Fund, kein Backend-Totalausfall)
+- desktop-aufrufer: `GET /documents/virtual` -> `document-client.ts:526` / `useDocuments.ts:469` -> bricht teilweise: (a) FE sendet `source_type` statt `source` (am Gateway behoben, Alias), (b) FE sendet `limit`/`offset`, Gateway liest `page`/`page_size` (FE-Unit), (c) `source_type` im FE als String, im Wire als Zahl (FE-Unit), (d) `DokumentePage.tsx:234-242` verwirft die Daten, die Ansicht ist nicht verdrahtet (FE-Unit). Antwort `{files,total}` passt.
+- offen: Gateway-Test prüft nur den Param-Helfer, nicht den RPC-Aufruf (kein gRPC-Client-Stub im Gateway-Testaufbau). Stale Kommentar in `document_grpc_test.go:25,527` nennt `ListVirtualFiles` noch „untestable“ — nicht angefasst. Goroutinen: keine, kein Race-Risiko.
