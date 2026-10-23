@@ -521,3 +521,43 @@ Geprüft und passend (Agenten-Listen, nicht von mir erneut gelesen): HR Urlaub (
 - coverage-delta: keine Aenderungen erkannt
 - offen mit entscheidungsbedarf: 0 von 1 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
 - minuten je iteration: 5,0 (5 gesamt)
+
+## Iteration 34 — scan-fe-gateway-shape-inhalte-automation — done — 2026-10-23 23:25
+- commit: (siehe git log, Subject `chore(loop): record inhalte and automation shape scan findings`)
+- gebaut: Scan, kein Produktionscode. Alle acht Domänen gegen die Gateway-Writer gelesen; die Antwortbytes der verdächtigen Routen mit einem Wegwerf-Test über `response.MarshalProto` gemessen (Test gelöscht, `git status` ohne `zz_scan_tmp_test.go`). Vier Fix-Units VOR die erste todo-Unit, eine Sammelunit ans Ende, zwei Entscheidungen nach BACKLOG-NEXT.
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (nur der Wegwerf-Test lief, `-count=1 -v`) | migration n.a. | rls-smoke n.a. | `backlog-check.py --preflight` ok (28 offen, NEXT = `fix-formulare-schemas-submissions-wire`)
+- coverage: n.a. (kein Coverage-Ziel, Scan)
+- mutations-probe: n.a. (kein Code geändert)
+- verify vorgaenger: sauber (`28597264`: nur `Proto` -> `ProtoFull`, Spec im selben Commit, Loopback-Test, kein Handler am gRPC-Client vorbei, kein neuer Guard, kein `.proto`).
+- neue-units: VOR die erste todo-Unit gesetzt (Totalausfälle): `fix-formulare-schemas-submissions-wire`, `fix-formulare-webhooks-share-links-deliveries-stats-wire`, `fix-automation-wire-enums-wrapper-dryrun`, `fix-berichte-definitions-schedules-run-wire`. Ans Ende: `fix-inhalte-shape-minor`. BACKLOG-NEXT: `decide-berichte-preview-and-run-schedule-routes`, `decide-wiki-templates-routes`.
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; Scan liest nur). Die Aufrufer je Route stehen in der Tabelle.
+- offen: (1) Annahme der Fix-Units: das Gateway schreibt die Form des FE-Typs, bei Formulare also camelCase und `items` (Präzedenz `fix-hr-employee-…`). Die Alternative (FE-Adapter, wie `unwrapList` in Wiki/Helpdesk) ist Desktop-Code und gehört Luke; sagt er FE-Adapter, entfallen die beiden Formulare-Units. (2) `FormSchemaStatus.closed` (FE) hat kein Proto-Gegenstück. (3) Formulare, Automatisierung und Berichte laufen gegen die echte Backend-Form seit Monaten nur gegen MSW-Mocks; ein Playwright-Lauf gegen das echte Gateway (nicht MSW) würde die Klasse an der Wurzel fangen. (4) Arbeitsbaum zeigt weiter ~180 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit.
+
+Scan-Tabelle. V = am Code und, wo möglich, an den gemessenen Antwortbytes belegt.
+
+| Stelle | Befund | Klasse | Unit |
+|---|---|---|---|
+| `FormularePage.tsx:449-451` ↔ `route_formulare.go:245` | Liste `{schemas,total}` (leer `{}`), FE liest `.items`, `isTemplate`, camelCase: die Formularliste ist für jeden leer. V (Bytes: `{"schemas":[{"id":"1","title":"T","fields":"W3si…","status":2}],"total":1}`) | TOTALAUSFALL | fix-formulare-schemas-submissions-wire |
+| `formulare-client.ts:95-130` ↔ `route_formulare.go:284/312/357/419` | Einzelschema `{schema}` statt flach; `fields` base64, `status` Zahl. V | TOTALAUSFALL | fix-formulare-schemas-submissions-wire |
+| `formulare-client.ts:102` ↔ `route_formulare.go:~165` | Request: `fields` als Array in `[]byte`, camelCase-Flags; FE-Body und Gateway-Body passen nicht. V (Struct gelesen, 400 nicht am Router belegt) | TOTALAUSFALL | fix-formulare-schemas-submissions-wire |
+| `formulare-client.ts:137-165` ↔ `route_formulare.go:479/560/588/632` | Submissions `{submissions,total}`/`{submission}`, FE `items`, flach, camelCase, `answers` base64. V | TOTALAUSFALL | fix-formulare-schemas-submissions-wire |
+| `formulare-client.ts:183-250,299-310` ↔ `route_formulare.go:725/764/792/832/901/977/1027/1072` | Webhooks/Share-Links/Deliveries: Client erwartet blanke Arrays und camelCase, Gateway Wrapper und snake_case. V | TOTALAUSFALL | fix-formulare-webhooks-… |
+| `formulare-client.ts:281-296` ↔ `route_formulare.go:931` | Stats: Client toleriert `{stats}` und liest snake_case. V | passt | — |
+| `useAutomation.ts`, `automation-client.ts:62-126` ↔ `route_automation.go:193/262/340/390/413/480/574` | Einzelantworten `{automation}`/`{execution}`, Client liest flach. V (Bytes: `{"automation":{"id":"1","scope":1,…}}`) | TOTALAUSFALL | fix-automation-wire-… |
+| `AutomatisierungPage.tsx:181`, `AutomationDetailModal.tsx:90` ↔ Proto-Enums | `scope`/`status`/`complexity` als Zahl, FE vergleicht Wörter. V (Bytes: `"status":2`) | TOTALAUSFALL | fix-automation-wire-… |
+| `automation-client.ts:176-186` ↔ `route_automation.go:616/651` | Dry-Run `{condition_matched,simulated_steps}` statt `{condition_result,steps,would_execute}`; Test-Condition `error_message` statt `error`. V | TEILFEHLER (Test-Panel) | fix-automation-wire-… |
+| `automation-client.ts` Listen ↔ `route_automation.go:239/457/500/516/541` | `{automations,total_count}`, `{executions,total_count}`, `{templates}`, `{triggers}`, `{actions}` | passt | — |
+| `MyReportsLibrary.tsx:33`, Builder ↔ `route_berichte.go:257/296/324/368` | `query_config` base64 statt Objekt. V (Bytes: `"query_config":"eyJh…"`) | TOTALAUSFALL | fix-berichte-definitions-… |
+| `berichte-types.ts:219` ↔ `route_berichte.go:773` | Lauf `{result:{payload:base64,…}}`, FE liest `result.rows/columns`. V (Bytes: `{"result":{"payload":"eyJy…"}}`) | TOTALAUSFALL | fix-berichte-definitions-… |
+| `berichte-client.ts:180-222` ↔ `route_berichte.go:915/954/996/1058` | Zeitpläne `{schedules}`/`{schedule}` passen, `params` base64. V | TEILFEHLER | fix-berichte-definitions-… |
+| `berichte-client.ts:168`, `:220` | `POST /berichte/preview` und `POST /schedules/{id}/run`: weder Route noch RPC, 404. V | Entscheidung | decide-berichte-preview-and-run-schedule-routes (NEXT) |
+| `berichte-client.ts:322-380` ↔ `route_berichte.go:509-731,1162-1418` | Dokumente, Vorlagen, Shares, KPIs: handgebaute Wire-Typen, passen | passt | — |
+| `wiki-client.ts:83-97` ↔ `route_wiki.go:282/325/453` | `{article}` statt flach; Auswirkung nur `view_count`, FE fällt zurück. V | TEILFEHLER (latent) | fix-inhalte-shape-minor (a) |
+| `wiki-client.ts:236-252` | `/wiki/templates*` ohne Gateway-Route (404, Dialog fällt still um). V | Entscheidung | decide-wiki-templates-routes (NEXT) |
+| `wiki-client.ts` Listen, Kategorien, Share-Tokens | `unwrapList`/`?? []` am FE, Wrapper-Schlüssel stimmen (`articles`, `versions`, `attachments`, `categories`, `tokens`) | passt | — |
+| Kontrollfall Wiki-Marker `public` (`40374f53`) | Validierung nimmt den Marker an; Scan fand keinen zweiten Fall dieser Klasse in Wiki | passt | — |
+| `helpdesk-client.ts` ↔ `route_helpdesk.go` | Einzelantworten sind flach (Proto gibt `Ticket` direkt zurück), Listen mit `unwrapList` und passenden Schlüsseln (`tickets`, `messages`, `queues`, `canned_responses`, `policies`, `articles`, `rules`) | passt | — |
+| `helpdesk-client.ts:~236` ↔ `route_helpdesk.go:1089` | SLA-Status liefert nur `{status}`, Typ führt `ticket_id`/`due_at`/`first_response_at`. V | TEILFEHLER | fix-inhalte-shape-minor (c) |
+| `integration-client.ts` ↔ `route_integration.go` | Wrapper (`config`, `configs`, `mapping`, `mappings`) und Felder passen; `modules:[]`/`is_active:false` fehlen bei `Proto`, `LinkAccountResponse` ohne `status`/`external_id`. V | TEILFEHLER | fix-inhalte-shape-minor (e, f) |
+| `plugin-client.ts`, `usePlugins.ts:56/111/269/337/405/435` ↔ `route_plugin.go` `ProtoList` | Listen blank, FE selektiert `data.manifests` usw. -> `undefined`. `plugins.api` default AUS, kein Nutzerausfall. V | TEILFEHLER (Flag aus) | fix-inhalte-shape-minor (g) |
+| `clients/document-client.ts` ↔ `route_document.go` | Client normalisiert Listen, Einzelantworten, Timestamps, Enums und `file_size` beidseitig; Kommentare und Share-Links der Gateway-Routen ruft das FE nicht | passt | — |

@@ -1316,3 +1316,49 @@ units:
       - desktop/src/renderer/src/api/hr-client.ts
     done_when:
       - "Entscheidung a (Konto mit anlegen) / b (FE schickt user_id) steht"
+
+  - id: decide-berichte-preview-and-run-schedule-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Der Berichte-Builder ruft `POST /api/v1/berichte/preview` (`berichte-client.ts:168`,
+      `useBerichte.ts:208`, Live-Vorschau des No-Code-Builders) und der Zeitplan-Dialog
+      `POST /api/v1/berichte/schedules/{id}/run` (`berichte-client.ts:220`, `useRunScheduleNow`).
+      Beide Routen gibt es am Gateway nicht, und `berichte.proto` hat dafür keinen RPC (nur
+      `RunReport`, `GetCachedResult`, Schedule-CRUD und `ToggleSchedule`). Beide Aufrufe enden mit
+      404 (Scan Iteration 34). Neue Route plus RPC ist Architektur: ENTSCHEIDUNG LUKE, ob (a)
+      Preview als `RunReport` auf einer nicht gespeicherten Definition gebaut wird (Aggregations-
+      Executor kennt `BuilderQueryConfig`? prüfen), (b) "Jetzt ausführen" auf einen vorhandenen
+      Lauf-RPC mit `trigger=manual` und dem Zeitplan-`params` abgebildet wird, oder (c) beide im
+      FE ausgeblendet werden, bis der Executor den Builder-Vertrag kennt.
+    sources:
+      - desktop/src/renderer/src/api/berichte-client.ts
+      - desktop/src/renderer/src/api/hooks/useBerichte.ts
+      - backend/proto/berichte/v1/berichte.proto
+      - backend/internal/gateway/route_berichte.go
+    done_when:
+      - "Entscheidung a/b/c steht; bei a/b eine eigene Bau-Unit mit Spec-Pfad und Router-Test"
+
+  - id: decide-wiki-templates-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `wiki-client.ts` ruft `GET/POST /wiki/templates` und `PUT/DELETE /wiki/templates/{id}`
+      (WP-5, `WikiTemplateDialog.tsx`). Weder Gateway (`route_wiki.go`, `RegisterRoutes`) noch
+      `wiki.proto` kennen Vorlagen, die Aufrufe enden mit 404; der Dialog fällt still auf die leere
+      Standardvorlage zurück (kein Absturz). Vorlagen sind ein Datenmodell (Tabelle mit
+      `tenant_id` + RLS, Seed der Standardvorlagen, Permission-Seed): ENTSCHEIDUNG LUKE, ob sie
+      serverseitig gebaut werden oder der Vorlagen-Teil im FE bis dahin entfällt.
+    sources:
+      - desktop/src/renderer/src/api/wiki-client.ts
+      - desktop/src/renderer/src/modules/wiki/WikiTemplateDialog.tsx
+      - backend/internal/gateway/route_wiki.go
+      - backend/proto/wiki/v1/wiki.proto
+    done_when:
+      - "Entscheidung steht; bei Bau eine eigene Unit mit Migration (RLS, Seed) und Spec"

@@ -1360,7 +1360,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für Inhalte und Automatisierung:
@@ -1381,6 +1381,180 @@ units:
       - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
       - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
       - "Abweichungen ohne UI-Bruch stehen gesammelt in einer Unit am Ende oder sind begründet verworfen"
+
+  # ----------------------------------------------------------------------------------------
+  # FIX-UNITS AUS `scan-fe-gateway-shape-inhalte-automation` (Iteration 34, 2026-10-23).
+  # Belege (Datei:Zeile) und die Scan-Tabelle stehen im Journal. Die Antwortbytes sind
+  # nicht erschlossen, sondern mit einem Wegwerf-Test über `response.MarshalProto` gemessen:
+  #   formulare list   {"schemas":[{"id":"1","title":"T","fields":"W3si…","status":2}],"total":1}
+  #   automation get   {"automation":{"id":"1","scope":1,"trigger_config":{"k":"v"}}}
+  #   automation exec  {"executions":[{"id":"1","status":2}],"total_count":1}
+  #   berichte run     {"result":{"payload":"eyJy…"}}   berichte def  {"definition":{"query_config":"eyJh…"}}
+  # Vorgehen je Unit wie bei den Fixes davor: Handler-Test über den echten Router gegen einen
+  # gRPC-Server auf Loopback, Spec nachziehen, `swagger-cli validate`, `desktop-aufrufer:`.
+  # Das Gateway schreibt die Form, die der FE-Typ liest (Präzedenz: `fix-hr-employee-…`,
+  # dort liest das Gateway sogar camelCase-Bodies); der Desktop-Code wird nicht angefasst.
+  # ----------------------------------------------------------------------------------------
+
+  - id: fix-formulare-schemas-submissions-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 75,1 %"
+    scope: >
+      TOTALAUSFALL Formulare (Scan Iteration 34, Wire gemessen). `FormularePage.tsx:449-451` liest
+      `schemasData?.items`, `formulare-client.ts` typisiert `FormSchema`/`FormSubmission`
+      (`formulare-types.ts:98/140`) camelCase und flach. Das Gateway schreibt rohes protojson:
+      `GET /formulare/schemas` -> `{schemas:[…],total}` (leer: `{}`), `GET/POST/PUT .../schemas[/id]`
+      und `.../duplicate` -> `{schema:{…}}`, `GET .../submissions` -> `{submissions,total}`,
+      `GET/POST/PATCH submission` -> `{submission:{…}}`. Folge: die Formularliste ist für JEDEN leer,
+      jedes Detail liest eine Wrapper-Hülle, ein neues Formular trägt kein `id`. Außerdem: `fields`
+      und `answers` kommen als base64 statt als Objekt/Array, `status` als Zahl (`2`) statt
+      `'draft'|'active'|'closed'|'archived'` bzw. `'new'|'read'|'archived'`, Mehrwort-Felder
+      snake_case (`is_template`, `page_count`, `submission_count`, `created_at`, `form_schema_id`),
+      der FE liest `isTemplate`/`pageCount`/`submissionCount`/`createdAt`/`formSchemaId`.
+      Request-Seite derselbe Bruch: `createFormSchema` schickt `fields` als JSON-Array und
+      `isTemplate`/`isPublic`/`pageCount`/`intakeTargetId` camelCase; `createFormSchemaRequest`
+      (`route_formulare.go:~165`) liest `Fields []byte` (ein JSON-Array lässt sich nicht in `[]byte`
+      decodieren -> vermutlich 400, am echten Router belegen) und nur snake_case. Fix: ein
+      schmaler Wire-Typ je Entität am Gateway (FormSchema, FormSubmission), der den FE-Typ schreibt
+      (Wrapper `{items,total}` für Listen, flache Entität für Einzelantworten, `fields`/`answers`
+      als JSON, Status als Wort, camelCase, `[]` statt fehlend); Request-Bodies nehmen camelCase
+      UND snake_case an, `fields`/`answers` als `json.RawMessage`. Status `closed` kennt das Proto
+      nicht (`FormSchemaStatus` hat nur draft/active/archived) -> nicht erfinden, im Journal
+      vermerken. NICHT anfassen: `RegisterPublicRoutes` (öffentliche Ausfüllseite, anderer
+      Vertrag), Export, Webhooks, Share-Links, Deliveries, Stats (nächste Unit).
+    sources:
+      - backend/internal/gateway/route_formulare.go
+      - backend/proto/formulare/v1/formulare.proto
+      - desktop/src/renderer/src/api/formulare-client.ts
+      - desktop/src/renderer/src/api/formulare-types.ts
+      - desktop/src/renderer/src/api/hooks/useFormulare.ts
+      - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
+    notes: >
+      Muster für den Wire-Typ: `publicSharedArticleWire` (`route_wiki.go`, Redeem-Handler) und
+      `toReportDocumentWire` (`route_berichte.go`). Der Intake-Weg (`dispatchIntake`, `intake.go`)
+      liest `fields` als Bytes aus dem Proto — der Wire-Typ sitzt NUR am Rand, der Service bleibt
+      unverändert. `response.JSON` auf rohen pb-Structs vermeiden (Timestamps als `{seconds,nanos}`).
+    done_when:
+      - "Router-Test gegen Loopback-gRPC: Liste mit einem Schema -> `{items:[{id,title,fields:[…],status:'active',isTemplate,…}],total:1}`; leere Liste `{items:[],total:0}`"
+      - "Router-Test: Einzel-Schema und Submission flach, `fields`/`answers` als JSON, Status als Wort"
+      - "Router-Test: POST mit `fields` als Array und camelCase-Body erreicht den RPC mit den Bytes und den Flags"
+      - "Spec; Mutations-Probe je Handlergruppe; desktop-aufrufer-Zeile (FormularePage, KanaelePanel, EmbeddedFormEditor)"
+
+  - id: fix-formulare-webhooks-share-links-deliveries-stats-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-formulare-schemas-submissions-wire]
+    status: todo
+    coverage_start: "internal/gateway 75,1 %"
+    scope: >
+      TOTALAUSFALL Formulare, zweite Hälfte (Scan Iteration 34). `formulare-client.ts` typisiert
+      `listWebhooks`/`listWebhookDeliveries`/`listAllDeliveries`/`listShareLinks` als BLANKE
+      ARRAYS (`FormWebhook[]`, `WebhookDelivery[]`, `FormShareLink[]`), Einzelfälle flach und
+      camelCase (`formulare-types.ts:159-204`: `formSchemaId`, `lastTriggeredAt`, `attemptCount`,
+      `nextAttemptAt`, `expiresAt`, `maxSubmissions`, `url`, `views`, `submissions`, `status`,
+      `channel`). Das Gateway schreibt `{webhooks}`, `{deliveries,total}`, die Share-Link-Liste
+      und `{webhook}` usw. als rohes protojson. `getFormStats` toleriert `{stats}` bereits und
+      liest snake_case -> passt, nicht anfassen. Vor dem Bauen das Proto lesen: welche FE-Felder
+      hat es gar nicht (`FormShareLink.url`/`views`/`submissions`/`status`/`channel` sind laut Typ
+      "MSW-stateful"; `WebhookDelivery.payload`)? Felder ohne Proto-Gegenstück mit Zero-Wert
+      schreiben, nicht erfinden, und im Journal listen. `DELETE /share-links/{id}` antwortet
+      `{status:"share link revoked"}`, der Client erwartet `void`: harmlos.
+    sources:
+      - backend/internal/gateway/route_formulare.go
+      - backend/proto/formulare/v1/formulare.proto
+      - desktop/src/renderer/src/api/formulare-client.ts
+      - desktop/src/renderer/src/api/formulare-types.ts
+      - desktop/src/renderer/src/api/hooks/useFormulare.ts
+    done_when:
+      - "Router-Test: Webhook-Liste, Delivery-Listen (je Webhook und gesamt) und Share-Link-Liste kommen als blanke Arrays (leer `[]`), Einzelantworten flach camelCase"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile (Webhook-Tab und Share-Dialog des Formulare-Moduls)"
+
+  - id: fix-automation-wire-enums-wrapper-dryrun
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 75,1 %"
+    scope: >
+      TOTALAUSFALL Automatisierung (Scan Iteration 34, Wire gemessen). Der Request-Weg parst
+      Wörter (`parseAutomationScope`, `route_automation.go:721`), der Antwort-Weg schreibt rohes
+      protojson mit Enum-ZAHLEN und Wrapper-Hüllen. (1) Einzelantworten `{automation:{…}}` bei
+      Create/Get/Update/Enable/Disable/CreateFromTemplate und `{execution:{…}}`; der Client
+      (`automation-client.ts:62-126`) und `Automation` (`automation-types.ts:20`) lesen flach.
+      (2) `scope` kommt als `1|2|3` statt `'personal'|'team'|'organization'` (der FE vergleicht
+      `automation.scope === 'personal'`, `AutomatisierungPage.tsx:181`, `AutomationDetailModal.tsx:90`),
+      der Ausführungs-`status` als `1…5` statt `'running'|'completed'|'failed'|'skipped'|'aborted'`,
+      die Template-`complexity` als `1…3` statt `'einfach'|'mittel'|'fortgeschritten'` (die
+      Template-Galerie fällt per `?? COMPLEXITY_CONFIG.einfach` still um). (3) `POST /dry-run`
+      schreibt `{condition_matched, simulated_steps, error_message}`, der FE-Typ `DryRunResponse`
+      liest `{condition_result, steps, would_execute}`; `POST /test-condition` schreibt
+      `error_message`, der FE liest `error`. Die Listen (`{automations,total_count}`,
+      `{executions,total_count}`, `{templates}`, `{triggers}`, `{actions}`) passen schon — nicht
+      anfassen. Fix: Wire-Typen am Gateway (Automation, Execution, Template, DryRun,
+      TestCondition) mit Wort-Enums und flachen Einzelantworten; Zero-Werte (`is_active:false`,
+      `max_steps:0`, leere `steps`) mit `ProtoFull`-Semantik. `would_execute` = `condition_matched`
+      und kein Fehler (im Journal begründen). Eine unbekannte Enum-Zahl bleibt Zahl, wie in
+      `rewriteStatus` (`response.go:161`).
+    sources:
+      - backend/internal/gateway/route_automation.go
+      - backend/proto/automation/v1/automation.proto
+      - backend/internal/server/response/response.go
+      - desktop/src/renderer/src/api/automation-client.ts
+      - desktop/src/renderer/src/api/automation-types.ts
+      - desktop/src/renderer/src/api/hooks/useAutomation.ts
+      - desktop/src/renderer/src/modules/automatisierung/
+    done_when:
+      - "Router-Test gegen Loopback-gRPC: Create/Get/Enable -> flache Entität mit `scope:'personal'`; Ausführungsliste mit `status:'completed'`; Template mit `complexity:'einfach'`"
+      - "Router-Test: Dry-Run und Test-Condition tragen die FE-Feldnamen"
+      - "Spec; Mutations-Probe je Gruppe; desktop-aufrufer-Zeile (AutomatisierungPage, DetailModal, Wizard, TemplateGallery, Dry-Run-Panel)"
+
+  - id: fix-berichte-definitions-schedules-run-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 75,1 %"
+    scope: >
+      TOTALAUSFALL Berichte-Bibliothek und Berichtslauf (Scan Iteration 34, Wire gemessen). Die
+      Dokument-/Vorlagen-/Share-Routen schreiben schon handgebaute Wire-Typen
+      (`toReportDocumentWire`), Definitionen, Zeitpläne und Lauf nicht: `query_config` und `params`
+      (Proto `bytes`) kommen als base64-String statt als Objekt (`{"query_config":"eyJh…"}`;
+      `isBuilderQuery(def.query_config)` in `MyReportsLibrary.tsx:33` und der Builder lesen ein
+      Objekt). `POST /definitions/{id}/run` schreibt `{result:{payload:"<base64>",row_count,
+      generated_at,from_cache}}`, der FE-Typ `ReportResult` liest `{columns,rows,series,totals,meta}`
+      direkt unter `result` (`berichte-types.ts:84/219`): jede Diagramm- und Tabellenkarte bekommt
+      `result.rows === undefined`. Gleiches gilt für `Run.params` und `Schedule.params`. Fix:
+      Wire-Typen für Definition, Schedule, Run und den Laufbefehl: `bytes`-Felder als
+      `json.RawMessage` (leer -> `{}` bzw. `null` je FE-Typ), `result` = der JSON-Inhalt von
+      `payload` plus `row_count`/`from_cache` (prüfen, was `ReportMeta` führt, sonst als
+      Geschwister); `{definition}`/`{schedule}`/`{definitions,total}`/`{schedules,total}` bleiben.
+      Ein `payload`, das kein gültiges JSON ist, ist 500 mit Log, nicht stilles `null`.
+      Request-Seite: `createDefinition`/`updateDefinition` schicken `query_config` als Objekt,
+      `createDefinitionRequest` liest `QueryConfig []byte` (`route_berichte.go:164/173`) -> gleiche
+      Bruchstelle wie bei Formulare; als `json.RawMessage` lesen (am echten Router belegen, nicht
+      annehmen). `GET /kpis` (`{kpis,generated_at}`) passt, nicht anfassen.
+    sources:
+      - backend/internal/gateway/route_berichte.go
+      - backend/proto/berichte/v1/berichte.proto
+      - desktop/src/renderer/src/api/berichte-client.ts
+      - desktop/src/renderer/src/api/berichte-types.ts
+      - desktop/src/renderer/src/api/hooks/useBerichte.ts
+      - desktop/src/renderer/src/modules/berichte/components/builder/MyReportsLibrary.tsx
+    notes: >
+      `HandleExportReport` liest `payload` bereits serverseitig — nicht anfassen.
+      `POST /berichte/preview` und `POST /schedules/{id}/run` haben weder Route noch RPC: eigene
+      Entscheidung in BACKLOG-NEXT (`decide-berichte-preview-and-run-schedule-routes`).
+    done_when:
+      - "Router-Test gegen Loopback-gRPC: Definition mit `query_config` als Objekt hin und zurück; Lauf -> `result.rows`/`result.columns` direkt lesbar"
+      - "Router-Test: ungültiger `payload` -> 500, kein `null`"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile (MyReportsLibrary, Chart-Aufrufer, Schedule-Modal)"
 
   - id: scan-fe-gateway-shape-admin-security
     phase: 4
@@ -2040,3 +2214,46 @@ units:
     done_when:
       - "Beleg im Journal: welche Seite (Gateway oder FE-Adapter) die camelCase-Abweichung schließt"
       - "Falls Gateway: Router-Test auf die Felder, Spec, Mutations-Probe, desktop-aufrufer-Zeile"
+
+  - id: fix-inhalte-shape-minor
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 75,1 %"
+    scope: >
+      Sammelunit aus `scan-fe-gateway-shape-inhalte-automation` (Iteration 34), Teilfehler ohne
+      UI-Bruch für jeden, jeweils eigener Test. WIKI: (a) `GET/POST/PATCH /wiki/articles[/id]` und
+      `.../restore` schreiben `{article:{…}}`, `getArticle` typisiert flach: `WikiArticle.tsx:58`
+      liest nur `detail?.view_count` (fällt auf den Listenwert zurück), `createArticle`/`updateArticle`
+      werten das Ergebnis nicht aus -> latent. Entscheiden, ob das Gateway flach schreibt; dann
+      `decodeArticle` prüfen (es spreizt, bleibt harmlos). (b) `GET /wiki/templates` und die
+      Template-CRUD-Routen gibt es am Gateway nicht (`WikiTemplateDialog` bekommt `undefined`) ->
+      Entscheidung, siehe BACKLOG-NEXT `decide-wiki-templates-routes`. HELPDESK: (c)
+      `GET /tickets/{id}/sla-status` schreibt nur `{status}`, `TicketSLAStatus` führt zusätzlich
+      `ticket_id`/`due_at`/`first_response_at` (`helpdesk-types.ts:102`): aus dem Ticket nachreichen
+      oder den FE-Typ als Soll festhalten. (d) Unset `ticket_number`/`description`/`category` fehlen
+      im Ticket (`Proto` lässt Zero-Werte weg); der FE nutzt `?.`/`??`, prüfen und ggf. `ProtoFull`.
+      INTEGRATION: (e) `modules:[]` und `is_active:false` fehlen in Mapping/Config (`Proto`),
+      `ChannelMapping.modules.map` im Mapping-Editor prüfen; (f) `LinkAccountResponse` liefert
+      `{platform,external_display_name}`, der FE-Typ führt `status`/`external_id`. PLUGIN
+      (`plugins.api` ist per Default AUS, daher kein Nutzerausfall): (g) Listen laufen über
+      `ProtoList` -> blanke Arrays, `plugin-client.ts` typisiert `{manifests}`/`{installations}`/
+      `{rules}`/`{templates}`/`{logs}` und `usePlugins.ts` selektiert `data.manifests` usw. ->
+      `undefined`; vor dem Scharfschalten von Phase D auf `ProtoListWrapped` umstellen. Die
+      Einzelantworten sind flach und passen; `GET /installations/{id}/permissions` schreibt die
+      rohe Liste, der Client liest `{required,granted}`. DOKUMENTE: keine Befunde (der Client
+      normalisiert beide Seiten). Reihenfolge a, c, d, e, f, g; b nur als Verweis.
+    sources:
+      - backend/internal/gateway/route_wiki.go
+      - backend/internal/gateway/route_helpdesk.go
+      - backend/internal/gateway/route_integration.go
+      - backend/internal/gateway/route_plugin.go
+      - desktop/src/renderer/src/api/wiki-client.ts
+      - desktop/src/renderer/src/api/helpdesk-types.ts
+      - desktop/src/renderer/src/api/integration-types.ts
+      - desktop/src/renderer/src/api/plugin-client.ts
+    done_when:
+      - "Je Punkt (a, c-g) Router-Test gegen Loopback-gRPC oder begründet verworfen im Journal"
+      - "Spec nachgezogen, `swagger-cli validate`, Mutations-Probe, desktop-aufrufer-Zeile je Route"
