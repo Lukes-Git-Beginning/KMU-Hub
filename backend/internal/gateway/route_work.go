@@ -251,8 +251,20 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 // Helpers
 // ============================================================================
 
+// zonelessLayouts are the date-time layouts the desktop's <input type="datetime-local">
+// based forms send: wall-clock time without an offset.
+var zonelessLayouts = []string{"2006-01-02T15:04:05", "2006-01-02T15:04"}
+
+// berlinZone is the zone zoneless timestamps are read in. A failed load (cannot
+// happen with the embedded tzdata) leaves it nil and zoneless input is rejected
+// instead of silently read as UTC.
+var berlinZone, _ = time.LoadLocation("Europe/Berlin")
+
 // parseTimestamp parses a date string into a protobuf Timestamp.
-// Supports RFC3339 and date-only formats.
+// Supports RFC3339, date-only (UTC midnight) and zoneless date-times. A zoneless
+// value is the user's wall-clock time and is read in Europe/Berlin, the zone of
+// every tenant today (same convention as the produktion capacity weeks).
+// lean: fixed zone; read the tenant timezone setting once tenants outside DACH exist.
 func parseTimestamp(s string) (*timestamppb.Timestamp, error) {
 	formats := []string{
 		time.RFC3339,
@@ -261,6 +273,14 @@ func parseTimestamp(s string) (*timestamppb.Timestamp, error) {
 	}
 	for _, f := range formats {
 		if t, err := time.Parse(f, s); err == nil {
+			return timestamppb.New(t), nil
+		}
+	}
+	for _, f := range zonelessLayouts {
+		if berlinZone == nil {
+			break
+		}
+		if t, err := time.ParseInLocation(f, s, berlinZone); err == nil {
 			return timestamppb.New(t), nil
 		}
 	}

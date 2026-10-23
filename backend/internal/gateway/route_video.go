@@ -244,6 +244,8 @@ type createMeetingHTTPRequest struct {
 	CalendarEventID    *string  `json:"calendar_event_id,omitempty" validate:"omitempty,uuid"`
 	RecurringMeetingID *string  `json:"recurring_meeting_id,omitempty" validate:"omitempty,uuid"`
 	AttendeeUserIDs    []string `json:"attendee_user_ids,omitempty"`
+	ContactID          *string  `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	DealID             *string  `json:"deal_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type updateMeetingHTTPRequest struct {
@@ -253,6 +255,8 @@ type updateMeetingHTTPRequest struct {
 	ScheduledStart  *string  `json:"scheduled_start,omitempty"`
 	ScheduledEnd    *string  `json:"scheduled_end,omitempty"`
 	AttendeeUserIDs []string `json:"attendee_user_ids,omitempty"`
+	ContactID       *string  `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	DealID          *string  `json:"deal_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type saveMeetingNotesRequest struct {
@@ -686,7 +690,8 @@ func (vr *VideoRoutes) HandleListRecordings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// Bare Recording[]: useActiveMeetingRecording calls recordings.find().
+	response.ProtoList(w, http.StatusOK, resp.GetRecordings())
 }
 
 func (vr *VideoRoutes) HandleDeleteRecording(w http.ResponseWriter, r *http.Request) {
@@ -753,6 +758,8 @@ func (vr *VideoRoutes) HandleCreateMeeting(w http.ResponseWriter, r *http.Reques
 		CalendarEventId:    req.CalendarEventID,
 		RecurringMeetingId: req.RecurringMeetingID,
 		AttendeeUserIds:    req.AttendeeUserIDs,
+		ContactId:          req.ContactID,
+		DealId:             req.DealID,
 	}
 
 	resp, err := client.CreateMeeting(r.Context(), grpcReq)
@@ -808,6 +815,8 @@ func (vr *VideoRoutes) HandleUpdateMeeting(w http.ResponseWriter, r *http.Reques
 		Description:     req.Description,
 		Agenda:          req.Agenda,
 		AttendeeUserIds: req.AttendeeUserIDs,
+		ContactId:       req.ContactID,
+		DealId:          req.DealID,
 	}
 	if req.ScheduledStart != nil {
 		t, parseErr := parseTimestamp(*req.ScheduledStart)
@@ -1265,7 +1274,9 @@ func (vr *VideoRoutes) HandleListActionItems(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// Bare ActionItem[]: MeetingActionItems calls actionItems.filter(); an empty
+	// proto message used to serialize as `{}`.
+	response.ProtoList(w, http.StatusOK, resp.GetActionItems())
 }
 
 func (vr *VideoRoutes) HandleConvertActionItemsToTasks(w http.ResponseWriter, r *http.Request) {
@@ -1292,7 +1303,7 @@ func (vr *VideoRoutes) HandleConvertActionItemsToTasks(w http.ResponseWriter, r 
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeConvertedActionItems(w, resp)
 }
 
 // ============================================================================
@@ -1316,7 +1327,7 @@ func (vr *VideoRoutes) HandleGetPresence(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, presenceObject(resp))
 }
 
 func (vr *VideoRoutes) HandleGetBulkPresence(w http.ResponseWriter, r *http.Request) {
@@ -1339,7 +1350,8 @@ func (vr *VideoRoutes) HandleGetBulkPresence(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// Map keyed by user id: PresenceProvider iterates Object.entries().
+	response.JSON(w, http.StatusOK, presenceByUser(resp.GetStatuses()))
 }
 
 func (vr *VideoRoutes) HandleSetPresenceStatus(w http.ResponseWriter, r *http.Request) {
@@ -1836,9 +1848,8 @@ func (vr *VideoRoutes) HandleListRecordingsByMeeting(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Return a bare Recording[] array so timestamps serialize via protojson (RFC3339)
-	// and the frontend can directly map over the result without unwrapping an envelope.
-	response.ProtoList(w, http.StatusOK, resp.Recordings)
+	// The desktop type (RecordingsByMeetingResponse) reads `.recordings` and `.total`.
+	writeMeetingRecordings(w, resp)
 }
 
 // HandleGetRecordingDownloadURL generates a presigned MinIO GET URL for a completed recording.
@@ -2101,7 +2112,7 @@ func (vr *VideoRoutes) HandleListCoHosts(w http.ResponseWriter, r *http.Request)
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeCoHosts(w, resp)
 }
 
 // HandleMuteMeetingParticipant server-mutes a single participant.
@@ -2326,7 +2337,7 @@ func (vr *VideoRoutes) HandleGetBreakoutAssignment(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeBreakoutAssignment(w, resp)
 }
 
 // POST /api/v1/meetings/{id}/breakout-rooms/return

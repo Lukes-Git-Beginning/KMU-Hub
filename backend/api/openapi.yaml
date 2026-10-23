@@ -8894,11 +8894,13 @@ paths:
             default: 20
       responses:
         "200":
-          description: Recordings listed
+          description: Recordings listed (bare array; `[]` when none)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListRecordingsResponse"
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecordingSchema"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "503":
@@ -9685,7 +9687,7 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Action items listed
+          description: Action items listed (bare array; `[]` when none)
           content:
             application/json:
               schema:
@@ -36995,13 +36997,11 @@ paths:
         - $ref: "#/components/parameters/page_size"
       responses:
         "200":
-          description: Recordings for the meeting (bare array, not wrapped)
+          description: Recordings for the meeting, wrapped with the total (`recordings` is `[]` when none)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RecordingSchema"
+                $ref: "#/components/schemas/ListRecordingsResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -42533,18 +42533,33 @@ components:
           format: date-time
 
     PresenceResponse:
+      $ref: "#/components/schemas/UserPresence"
+
+    UserPresence:
       type: object
       properties:
-        presence:
-          $ref: "#/components/schemas/PresenceSchema"
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [online, away, dnd, in_call, offline]
+        manual_override:
+          type: boolean
+        last_activity:
+          type: string
+          format: date-time
+          nullable: true
+        first_name:
+          type: string
+        last_name:
+          type: string
 
     BulkPresenceResponse:
+      description: Presence keyed by user id.
       type: object
-      properties:
-        presences:
-          type: array
-          items:
-            $ref: "#/components/schemas/PresenceSchema"
+      additionalProperties:
+        $ref: "#/components/schemas/UserPresence"
 
     PresenceConfigSchema:
       type: object
@@ -42672,9 +42687,11 @@ components:
         agenda:
           type: string
         scheduled_start:
+          description: RFC 3339, or a wall-clock time without zone (`2026-11-02T10:00:00`, `2026-11-02T10:00`) read in Europe/Berlin.
           type: string
           format: date-time
         scheduled_end:
+          description: RFC 3339, or a wall-clock time without zone (`2026-11-02T10:00:00`, `2026-11-02T10:00`) read in Europe/Berlin.
           type: string
           format: date-time
         calendar_event_id:
@@ -42688,6 +42705,12 @@ components:
           items:
             type: string
             format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        deal_id:
+          type: string
+          format: uuid
 
     UpdateMeetingRequest:
       type: object
@@ -42699,9 +42722,11 @@ components:
         agenda:
           type: string
         scheduled_start:
+          description: RFC 3339, or a wall-clock time without zone (`2026-11-02T10:00:00`, `2026-11-02T10:00`) read in Europe/Berlin.
           type: string
           format: date-time
         scheduled_end:
+          description: RFC 3339, or a wall-clock time without zone (`2026-11-02T10:00:00`, `2026-11-02T10:00`) read in Europe/Berlin.
           type: string
           format: date-time
         attendee_user_ids:
@@ -42709,6 +42734,12 @@ components:
           items:
             type: string
             format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        deal_id:
+          type: string
+          format: uuid
 
     MeetingSchema:
       type: object
@@ -42955,12 +42986,9 @@ components:
           $ref: "#/components/schemas/ActionItemSchema"
 
     ListActionItemsResponse:
-      type: object
-      properties:
-        action_items:
-          type: array
-          items:
-            $ref: "#/components/schemas/ActionItemSchema"
+      type: array
+      items:
+        $ref: "#/components/schemas/ActionItemSchema"
 
     ConvertActionItemsRequest:
       type: object
@@ -42978,9 +43006,14 @@ components:
     ConvertActionItemsResponse:
       type: object
       properties:
+        action_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItemSchema"
         converted_count:
           type: integer
         task_ids:
+          description: Task id of every converted item that has one; `[]` when none.
           type: array
           items:
             type: string
@@ -51959,9 +51992,11 @@ components:
 
     GetBreakoutAssignmentResponse:
       type: object
+      required: [room]
       properties:
         room:
-          description: Absent when the caller is currently in the main room.
+          description: "`null` when the caller is currently in the main room."
+          nullable: true
           allOf:
             - $ref: "#/components/schemas/MeetingBreakoutRoom"
 
@@ -52053,6 +52088,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MeetingCoHost"
+        user_ids:
+          description: The co-hosts' user ids, flat.
+          type: array
+          items:
+            type: string
+            format: uuid
 
     SetMeetingLockRequest:
       type: object
