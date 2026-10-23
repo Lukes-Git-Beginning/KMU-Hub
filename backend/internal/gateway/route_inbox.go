@@ -1171,7 +1171,8 @@ func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	// The desktop client types the body as the bare RoutingRule.
+	response.Proto(w, http.StatusCreated, resp.GetRule())
 }
 
 type updateRoutingRuleRequest struct {
@@ -1243,7 +1244,7 @@ func (ir *InboxRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp.GetRule())
 }
 
 func (ir *InboxRoutes) HandleDeleteRoutingRule(w http.ResponseWriter, r *http.Request) {
@@ -1291,7 +1292,8 @@ func (ir *InboxRoutes) HandleListRoutingRules(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// RoutingRulesEditor maps over the body directly; a wrapping object threw.
+	response.ProtoList(w, http.StatusOK, resp.GetRules())
 }
 
 func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Request) {

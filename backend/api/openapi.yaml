@@ -14336,12 +14336,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  rules:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/RoutingRule"
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoutingRule"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
