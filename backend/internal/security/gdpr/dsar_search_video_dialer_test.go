@@ -180,7 +180,8 @@ func TestSearchByQuery_UserVideoAndDialerParticipation_Integration(t *testing.T)
 	require.NoError(t, err)
 	require.Len(t, capPersons, 1)
 	capped := dsarModule(t, capPersons[0], "Dialer-Agent-Statushistorie")
-	assert.Len(t, capped.Records, dsarMaxRows, fmt.Sprintf("status history capped at %d newest rows", dsarMaxRows))
+	require.Len(t, capped.Records, dsarMaxRows+1, fmt.Sprintf("status history capped at %d newest rows plus the cap note", dsarMaxRows))
+	assert.Contains(t, capped.Records[dsarMaxRows].Fields[0].Value, "es können weitere existieren")
 
 	// --- tenant isolation -----------------------------------------------------
 	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)

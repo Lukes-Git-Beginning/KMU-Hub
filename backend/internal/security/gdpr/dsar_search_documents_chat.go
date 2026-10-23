@@ -146,18 +146,18 @@ func taskFilesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID u
 }
 
 // taskActivitiesModule is the audit trail of what the user changed on tasks.
-// Old and new values are shown as stored (JSON text), cut to 200 characters.
+// Old and new values are shown as stored (JSON text), cut to jsonPreviewChars.
 func taskActivitiesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
 	columns := []string{"Aufgabe", "Aktion", "Feld", "Alter Wert", "Neuer Wert", "Datum"}
 	return userRowsModule(ctx, pool, "task activities", "Aufgaben-Aktivitäten", columns,
-		`SELECT t.title, a.action, COALESCE(a.field_name, ''),
-		        COALESCE(left(a.old_value::text, 200), ''), COALESCE(left(a.new_value::text, 200), ''),
+		fmt.Sprintf(`SELECT t.title, a.action, COALESCE(a.field_name, ''),
+		        COALESCE(%s, ''), COALESCE(%s, ''),
 		        a.created_at
 		 FROM task_activities a
 		 JOIN tasks t ON t.id = a.task_id AND t.tenant_id = a.tenant_id
 		 WHERE a.tenant_id = $1 AND a.actor_id = $2
 		 ORDER BY a.created_at DESC
-		 LIMIT $3`, []any{tenantID, userID, dsarMaxRows}, valuesRecord(columns))
+		 LIMIT $3`, previewSQL("a.old_value::text"), previewSQL("a.new_value::text")), []any{tenantID, userID, dsarMaxRows}, valuesRecord(columns))
 }
 
 // wikiArticlesModule discloses authorship (title, status, dates), not the

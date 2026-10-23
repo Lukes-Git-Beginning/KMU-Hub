@@ -25,6 +25,12 @@ const dsarAuditExtractRows = 50
 // jsonPreviewChars truncates jsonb values so a large layout cannot bloat the export.
 const jsonPreviewChars = 200
 
+// previewSQL cuts a text expression to jsonPreviewChars and marks the cut with
+// an ellipsis, so a shortened value is not handed out as the stored one.
+func previewSQL(expr string) string {
+	return fmt.Sprintf("CASE WHEN length(%[1]s) > %[2]d THEN left(%[1]s, %[2]d) || ' …' ELSE %[1]s END", expr, jsonPreviewChars)
+}
+
 // accountAccessModules collects the account-access modules for one user;
 // empty ones are skipped.
 func accountAccessModules(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) ([]DSARModule, error) {
@@ -54,15 +60,15 @@ func accountAccessModules(ctx context.Context, pool *pgxpool.Pool, tenantID, use
 			 WHERE tenant_id = $1 AND kmuhub_user_id = $2
 			 ORDER BY linked_at DESC LIMIT $3`},
 		{"user settings", "Einstellungen", []string{"Modul", "Schlüssel", "Wert", "Geändert am"},
-			fmt.Sprintf(`SELECT module_id, key, LEFT(value::text, %d), updated_at
+			fmt.Sprintf(`SELECT module_id, key, %s, updated_at
 			 FROM user_settings
 			 WHERE tenant_id = $1 AND user_id = $2
-			 ORDER BY module_id, key LIMIT $3`, jsonPreviewChars)},
+			 ORDER BY module_id, key LIMIT $3`, previewSQL("value::text"))},
 		{"dashboard layouts", "Dashboard-Layout", []string{"Aktive Widgets", "Geändert am"},
-			fmt.Sprintf(`SELECT LEFT(active_widgets::text, %d), updated_at
+			fmt.Sprintf(`SELECT %s, updated_at
 			 FROM user_dashboard_layouts
 			 WHERE tenant_id = $1 AND user_id = $2
-			 ORDER BY updated_at DESC LIMIT $3`, jsonPreviewChars)},
+			 ORDER BY updated_at DESC LIMIT $3`, previewSQL("active_widgets::text"))},
 		{"project preferences", "Projekt-Ansichten", []string{"Projekt-ID", "Ansicht", "Gruppierung", "Sortierung", "Absteigend", "Geändert am"},
 			`SELECT project_id, view_type, COALESCE(list_group_by, ''), COALESCE(list_sort_by, ''),
 			        COALESCE(list_sort_desc, false), updated_at
@@ -70,10 +76,10 @@ func accountAccessModules(ctx context.Context, pool *pgxpool.Pool, tenantID, use
 			 WHERE tenant_id = $1 AND user_id = $2
 			 ORDER BY updated_at DESC LIMIT $3`},
 		{"saved filters", "Gespeicherte Filter", []string{"Name", "Objektart", "Standard", "Filter", "Angelegt am"},
-			fmt.Sprintf(`SELECT name, entity_type, is_default, LEFT(filter_json::text, %d), created_at
+			fmt.Sprintf(`SELECT name, entity_type, is_default, %s, created_at
 			 FROM saved_filters
 			 WHERE tenant_id = $1 AND created_by = $2
-			 ORDER BY created_at DESC LIMIT $3`, jsonPreviewChars)},
+			 ORDER BY created_at DESC LIMIT $3`, previewSQL("filter_json::text"))},
 		// password_hash / password_prefix are deliberately not selected.
 		{"app passwords", "App-Passwörter", []string{"Bezeichnung", "Verwendung", "Angelegt am", "Zuletzt genutzt", "Widerrufen am"},
 			`SELECT label, scope, created_at, last_used_at, revoked_at
@@ -122,11 +128,15 @@ func auditExtractModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userI
 		title = fmt.Sprintf("Zugriffsprotokoll (neueste %d von %d Einträgen)", dsarAuditExtractRows, total)
 	}
 	cols := []string{"Zeitpunkt", "Aktion", "Objekt", "Objektart", "Ergebnis", "IP-Adresse", "Browser"}
-	return userRowsModule(ctx, pool, "audit log", title, cols,
+	mod, err := userRowsModule(ctx, pool, "audit log", title, cols,
 		`SELECT "timestamp", action, COALESCE(target, ''), COALESCE(target_type, ''), result,
 		        COALESCE(host(ip_address), ''), COALESCE(user_agent, '')
 		 FROM audit_log
 		 WHERE tenant_id = $1 AND user_id = $2
 		 ORDER BY "timestamp" DESC, sequence_num DESC
 		 LIMIT $3`, []any{tenantID, userID, dsarAuditExtractRows}, valuesRecord(cols))
+	if mod != nil {
+		mod.capExact = true // the title states the cut against the counted total
+	}
+	return mod, err
 }

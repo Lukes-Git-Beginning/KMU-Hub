@@ -38,6 +38,9 @@ type DSARModule struct {
 	Module  string
 	Columns []string
 	Records []DSARRecord
+	// capExact marks a builder that fetched dsarMaxRows+1 (or counted the
+	// total) and states its own cut; markCappedModules leaves it alone.
+	capExact bool
 }
 
 // DSARPerson is a matched data subject and the data held about them.
@@ -274,7 +277,30 @@ func SearchByQuery(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, 
 	}
 	persons = append(persons, guestVisitors...)
 
+	markCappedModules(persons)
 	return persons, nil
+}
+
+// markCappedModules appends a note to every module that reached dsarMaxRows,
+// because most builders stop at LIMIT dsarMaxRows without knowing whether more
+// rows exist. The admin must not hand out a silently cut list as complete.
+// lean: one generic note instead of a +1 fetch per builder; switch a builder to
+// capExact when a subject complains about a list that was in fact complete.
+func markCappedModules(persons []DSARPerson) {
+	for i := range persons {
+		for j := range persons[i].Modules {
+			m := &persons[i].Modules[j]
+			if m.capExact || len(m.Records) < dsarMaxRows || len(m.Columns) == 0 {
+				continue
+			}
+			fields := make([]DSARField, len(m.Columns))
+			for k, col := range m.Columns {
+				fields[k] = DSARField{Key: col}
+			}
+			fields[0].Value = fmt.Sprintf("(Liste bei %d Einträgen begrenzt, es können weitere existieren)", dsarMaxRows)
+			m.Records = append(m.Records, DSARRecord{Fields: fields})
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -670,7 +696,7 @@ func chatMessagesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userI
 		messages[i], messages[j] = messages[j], messages[i]
 	}
 
-	mod := DSARModule{Module: "Chat-Nachrichten", Columns: []string{"Kanal", "Nachricht", "Datum"}}
+	mod := DSARModule{Module: "Chat-Nachrichten", Columns: []string{"Kanal", "Nachricht", "Datum"}, capExact: true}
 	if truncated {
 		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
 			{Key: "Kanal", Value: ""},
@@ -860,7 +886,7 @@ func taskCommentsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userI
 		comments[i], comments[j] = comments[j], comments[i]
 	}
 
-	mod := DSARModule{Module: "Aufgaben-Kommentare", Columns: []string{"Aufgabe", "Kommentar", "Datum"}}
+	mod := DSARModule{Module: "Aufgaben-Kommentare", Columns: []string{"Aufgabe", "Kommentar", "Datum"}, capExact: true}
 	if truncated {
 		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
 			{Key: "Aufgabe", Value: ""},
@@ -1053,7 +1079,7 @@ func notificationsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, user
 		notifs = notifs[:dsarMaxRows]
 	}
 
-	mod := DSARModule{Module: "Benachrichtigungen", Columns: []string{"Titel", "Text", "Datum", "Gelesen"}}
+	mod := DSARModule{Module: "Benachrichtigungen", Columns: []string{"Titel", "Text", "Datum", "Gelesen"}, capExact: true}
 	for _, n := range notifs {
 		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
 			{Key: "Titel", Value: n.title},
@@ -2603,7 +2629,7 @@ func helpdeskMessagesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, c
 		messages[i], messages[j] = messages[j], messages[i]
 	}
 
-	mod := DSARModule{Module: "Helpdesk-Nachrichten", Columns: []string{"Ticket", "Nachricht", "Datum"}}
+	mod := DSARModule{Module: "Helpdesk-Nachrichten", Columns: []string{"Ticket", "Nachricht", "Datum"}, capExact: true}
 	if truncated {
 		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
 			{Key: "Ticket", Value: ""},
