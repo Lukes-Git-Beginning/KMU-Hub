@@ -34972,6 +34972,9 @@ paths:
                   last_contact_sync_at: { type: string, format: date-time, description: "Present only once a contact sync has run" }
                   last_sync_error: { type: string, description: "Present only when the last sync attempt failed" }
                   last_sync_error_at: { type: string, format: date-time, description: "Present only when the last sync attempt failed" }
+                  contact_sync: { $ref: "#/components/schemas/LexwareEntitySyncStatus" }
+                  invoice_sync: { $ref: "#/components/schemas/LexwareEntitySyncStatus" }
+                  quote_sync: { $ref: "#/components/schemas/LexwareEntitySyncStatus" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -38584,6 +38587,18 @@ components:
         default: 20
 
   schemas:
+    LexwareEntitySyncStatus:
+      type: object
+      description: >-
+        Per-entity card of the Lexware sync dashboard. items_synced is the number of mapped
+        records, items_failed is always 0 (the biz service keeps no per-entity failure count),
+        status is derived (failed = last error newer than the last contact sync, completed =
+        something synced or mapped, else idle; never running).
+      properties:
+        status: { type: string, enum: [idle, running, completed, failed] }
+        items_synced: { type: integer, format: int32 }
+        items_failed: { type: integer }
+        last_sync_at: { type: string, format: date-time, description: "Contacts only; invoices and quotes are pushed on demand" }
     UserInfo:
       type: object
       description: Go encoding/json serialization uses snake_case field names.

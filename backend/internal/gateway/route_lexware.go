@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/biz/lexware"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -276,6 +277,18 @@ func (lr *LexwareRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	result := lexwareSyncStatusBody(resp)
+
+	response.JSON(w, http.StatusOK, result)
+}
+
+// lexwareSyncStatusBody keeps the flat fields and adds the per-entity cards
+// {contact_sync, invoice_sync, quote_sync} the sync dashboard reads
+// (LexwareSyncDashboard.tsx). The biz service tracks neither per-entity
+// failures nor a running state, so items_failed is 0 and status is derived:
+// "failed" while the last error is newer than the last contact sync,
+// "completed" once something was synced or mapped, otherwise "idle".
+func lexwareSyncStatusBody(resp *bizv1.GetLexwareSyncStatusResponse) map[string]interface{} {
 	result := map[string]interface{}{
 		"contact_sync_enabled":  resp.GetContactSyncEnabled(),
 		"invoice_push_enabled":  resp.GetInvoicePushEnabled(),
@@ -295,7 +308,26 @@ func (lr *LexwareRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Requ
 		result["last_sync_error_at"] = resp.GetLastSyncErrorAt().AsTime()
 	}
 
-	response.JSON(w, http.StatusOK, result)
+	entity := func(synced int32, last *timestamppb.Timestamp, failed bool) map[string]interface{} {
+		status := "idle"
+		switch {
+		case failed:
+			status = "failed"
+		case synced > 0 || last != nil:
+			status = "completed"
+		}
+		e := map[string]interface{}{"status": status, "items_synced": synced, "items_failed": 0}
+		if last != nil {
+			e["last_sync_at"] = last.AsTime()
+		}
+		return e
+	}
+	lastSync, lastErr := resp.GetLastContactSyncAt(), resp.GetLastSyncErrorAt()
+	contactFailed := resp.GetLastSyncError() != "" && (lastSync == nil || lastErr == nil || lastErr.AsTime().After(lastSync.AsTime()))
+	result["contact_sync"] = entity(resp.GetTotalContactsMapped(), lastSync, contactFailed)
+	result["invoice_sync"] = entity(resp.GetTotalInvoicesMapped(), nil, false)
+	result["quote_sync"] = entity(resp.GetTotalQuotesMapped(), nil, false)
+	return result
 }
 
 // HandleListSyncLogs returns recent Lexware sync log entries.

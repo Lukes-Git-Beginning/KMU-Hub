@@ -2250,7 +2250,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,3 %"
     scope: >
       Teilfehler ohne Absturz. (1) `GET …/lexware/sync/status` liefert flach
@@ -2592,3 +2592,31 @@ units:
     done_when:
       - "Bearbeiten mit geänderten/leeren Seriennummern schreibt sie; fehlender Schlüssel lässt sie stehen (Service-Test + Router-Test)"
       - "Proto regeneriert im selben Commit; Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-finance-dashboard-revenue-fields-and-lock-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 76,2 %"
+    scope: >
+      Rest aus `fix-finance-lexware-sync-status-dashboard-minor-wire` (Iteration 62, dort nur der
+      Lexware-Sync-Status gebaut). Kein Absturz, Widgets zeigen 0. (2) Dashboard-Widgets lesen
+      `revenue_this_month`, `revenue_last_month`, `monthly_revenue` (`KpiRevenue.tsx:26-32`,
+      `MiniChart.tsx:28`, Typ `finance-types.ts:205-211`), die es im Proto `FinanceDashboard`
+      (`biz.proto:385`) nicht gibt; `date_from/date_to` werden ignoriert (`route_biz_billing.go:592`).
+      Braucht Proto-Felder + Berechnung im Dashboard-Service (Umsatz = bezahlte oder gestellte Rechnungen?
+      an `total_invoiced`/`total_paid` orientieren) — Definition zuerst im Code des Services nachlesen.
+      (3) `lockInvoice` liefert `invoice_json` als Base64 (bytes), FE erwartet ein Objekt;
+      `updateDunningStatus`/`sendDunningNotice` Status als Zahl — Hooks ohne Komponente
+      (`useFinance.ts:604-690`), nur anfassen, wenn billig. (4) `createQuoteFromDeal` schreibt das nackte
+      Quote, der Client typisiert `{quote}` (`DealDetailPage.tsx:157` liest nichts).
+    sources:
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/gateway/route_biz_quotes.go
+      - backend/proto/biz/v1/biz.proto
+      - desktop/src/renderer/src/modules/dashboard/widgets/KpiRevenue.tsx
+    done_when:
+      - "Dashboard liefert die drei Umsatzfelder (Router-/Service-Test), Proto regeneriert"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
