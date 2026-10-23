@@ -282,7 +282,7 @@ func (b *BizRoutes) HandleRejectQuote(w http.ResponseWriter, r *http.Request) {
 }
 
 type convertQuoteRequest struct {
-	InvoiceDate  string `json:"invoice_date"  validate:"required,datetime=2006-01-02"`
+	InvoiceDate  string `json:"invoice_date"  validate:"omitempty,datetime=2006-01-02"`
 	DueDate      string `json:"due_date"      validate:"omitempty,datetime=2006-01-02"`
 	DeliveryDate string `json:"delivery_date" validate:"omitempty,datetime=2006-01-02"`
 	PaymentTerms string `json:"payment_terms"`
@@ -302,7 +302,7 @@ func (b *BizRoutes) HandleConvertQuoteToInvoice(w http.ResponseWriter, r *http.R
 	}
 	id := chi.URLParam(r, "id")
 
-	req, ok := decodeAndValidate[convertQuoteRequest](w, r)
+	req, ok := decodeAndValidateOptional[convertQuoteRequest](w, r)
 	if !ok {
 		return
 	}

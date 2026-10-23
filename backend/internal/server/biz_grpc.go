@@ -1040,6 +1040,11 @@ func (s *BizGRPCServer) CreateDunning(ctx context.Context, req *bizv1.CreateDunn
 		return nil, mapBizError(err)
 	}
 
+	protoAll := make([]*bizv1.DunningRecord, 0, len(records))
+	for _, r := range records {
+		protoAll = append(protoAll, toProtoDunningRecord(r))
+	}
+
 	// If a specific invoice was requested, find the dunning for that invoice
 	if req.GetInvoiceId() != "" {
 		invoiceID, invErr := uuid.Parse(req.GetInvoiceId())
@@ -1048,14 +1053,14 @@ func (s *BizGRPCServer) CreateDunning(ctx context.Context, req *bizv1.CreateDunn
 		}
 		for _, r := range records {
 			if r.InvoiceID == invoiceID {
-				return &bizv1.CreateDunningResponse{Dunning: toProtoDunningRecord(r)}, nil
+				return &bizv1.CreateDunningResponse{Dunning: toProtoDunningRecord(r), Dunnings: protoAll}, nil
 			}
 		}
 		return nil, status.Error(codes.NotFound, "no dunning created for specified invoice")
 	}
 
 	if len(records) > 0 {
-		return &bizv1.CreateDunningResponse{Dunning: toProtoDunningRecord(records[0])}, nil
+		return &bizv1.CreateDunningResponse{Dunning: protoAll[0], Dunnings: protoAll}, nil
 	}
 
 	return nil, status.Error(codes.NotFound, "no overdue invoices found for dunning creation")
@@ -1093,7 +1098,19 @@ func (s *BizGRPCServer) EscalateDunning(ctx context.Context, req *bizv1.Escalate
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
-	invoiceID, err := uuid.Parse(req.GetInvoiceId())
+	invoiceIDStr := req.GetInvoiceId()
+	if invoiceIDStr == "" && req.GetDunningId() != "" {
+		dunningID, idErr := uuid.Parse(req.GetDunningId())
+		if idErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid dunning_id")
+		}
+		record, getErr := s.dunningService.GetByID(ctx, tenantID, dunningID)
+		if getErr != nil {
+			return nil, mapBizError(getErr)
+		}
+		invoiceIDStr = record.InvoiceID.String()
+	}
+	invoiceID, err := uuid.Parse(invoiceIDStr)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid invoice_id")
 	}

@@ -265,6 +265,7 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	r.Route("/api/v1/finance/export", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(exportRun).Post("/datev", b.HandleExportDATEV)
+		r.With(exportRun).Get("/datev", b.HandleExportDATEVGet)
 		r.With(middleware.RequirePermission("finance", "admin")).Post("/gobd", b.HandleGenerateGoBDExport)
 	})
 

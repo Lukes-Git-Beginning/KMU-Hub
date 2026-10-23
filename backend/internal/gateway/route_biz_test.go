@@ -399,29 +399,6 @@ func TestHandleListDunnings_ServiceUnavailable(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
-func TestHandleCreateDunning_MissingInvoiceID(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/detect", jsonBody(t, map[string]interface{}{
-		"level": 1,
-	}))
-	req = withTenantID(req, testTenantID)
-	routes.HandleCreateDunning(rec, req)
-	assertValidationError(t, rec, "invoice_id")
-}
-
-func TestHandleCreateDunning_InvalidInvoiceIDFormat(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/detect", jsonBody(t, map[string]interface{}{
-		"invoice_id": "not-a-uuid",
-		"level":      1,
-	}))
-	req = withTenantID(req, testTenantID)
-	routes.HandleCreateDunning(rec, req)
-	assertValidationError(t, rec, "invoice_id")
-}
-
 // --- DATEV Export ---
 
 func TestHandleExportDATEV_MissingDates(t *testing.T) {

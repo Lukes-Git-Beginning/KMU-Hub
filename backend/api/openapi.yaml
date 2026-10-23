@@ -10138,12 +10138,13 @@ paths:
   /api/v1/finance/quotes/{id}/convert:
     post:
       summary: Convert a quote to an invoice
+      description: The body is optional; a request without one converts with the quote's own terms.
       tags: [quotes]
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: "#/components/parameters/ResourceId"
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -12223,25 +12224,28 @@ paths:
 
   /api/v1/finance/dunning/detect:
     post:
-      summary: Detect overdue invoices and create dunning records
+      summary: Detect overdue invoices and create dunning drafts
+      description: >-
+        Takes no input (a body is ignored). Creates the next dunning level as a draft for every
+        overdue invoice that is due for one and answers with the drafts of this run; an empty
+        list means nothing was due.
       tags: [dunning]
       security: [{ bearerAuth: [] }]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                invoice_id:
-                  type: string
-                  description: Optional - target a specific invoice
       responses:
-        "201":
-          description: Dunning record created
+        "200":
+          description: Drafts created by this run
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DunningRecord"
+                type: object
+                required: [dunnings, total]
+                properties:
+                  dunnings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DunningRecord"
+                  total:
+                    type: integer
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -12277,18 +12281,9 @@ paths:
       summary: Escalate a dunning to the next level
       tags: [dunning]
       security: [{ bearerAuth: [] }]
+      description: Takes no body; the invoice is resolved from the dunning record in the path.
       parameters:
         - $ref: "#/components/parameters/ResourceId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [invoice_id]
-              properties:
-                invoice_id:
-                  type: string
       responses:
         "200":
           description: Dunning escalated
@@ -12391,6 +12386,45 @@ paths:
   # Finance: DATEV Export
   # ===========================================================================
   /api/v1/finance/export/datev:
+    get:
+      summary: Export DATEV Buchungsstapel CSV (query form)
+      description: Same export and permission as the POST form; the desktop export dialog calls this one.
+      tags: [datev]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: date_from
+          in: query
+          required: true
+          description: First day of the export range (alias start_date).
+          schema: { type: string, format: date }
+        - name: date_to
+          in: query
+          required: true
+          description: Last day of the export range (alias end_date).
+          schema: { type: string, format: date }
+        - name: fiscal_year_start
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: DATEV CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="EXTF_Buchungsstapel_20260101_20261231.csv"'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
     post:
       summary: Export DATEV Buchungsstapel CSV
       tags: [datev]

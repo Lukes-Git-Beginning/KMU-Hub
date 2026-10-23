@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -227,8 +229,19 @@ func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]
 //	    return
 //	}
 func decodeAndValidate[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	return decodeJSONBody[T](w, r, false)
+}
+
+// decodeAndValidateOptional is decodeAndValidate for actions whose body is optional: a request
+// WITHOUT a body (io.EOF) is read as an empty object and validated like any other, so required
+// fields still fail with 400. The desktop client sends no body at all for plain action buttons.
+func decodeAndValidateOptional[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	return decodeJSONBody[T](w, r, true)
+}
+
+func decodeJSONBody[T any](w http.ResponseWriter, r *http.Request, emptyOK bool) (T, bool) {
 	var req T
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && (!emptyOK || !errors.Is(err, io.EOF)) {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return req, false
 	}

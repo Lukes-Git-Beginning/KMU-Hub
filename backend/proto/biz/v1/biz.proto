@@ -750,6 +750,8 @@ message CreateDunningRequest {
 
 message CreateDunningResponse {
   DunningRecord dunning = 1;
+  // Every draft the detection run created (dunning is the first of them).  Empty when nothing was due.
+  repeated DunningRecord dunnings = 2;
 }
 
 message SendDunningRequest {
@@ -765,6 +767,8 @@ message EscalateDunningRequest {
   string invoice_id = 1;
   string tenant_id = 2;
   string created_by = 3;
+  // Dunning record to escalate; the invoice is resolved from it when invoice_id is empty.
+  string dunning_id = 4;
 }
 
 message EscalateDunningResponse {

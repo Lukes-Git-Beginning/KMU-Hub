@@ -961,7 +961,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,3 %"
     scope: >
       TOTALAUSFALL von vier Aktionen, das FE ruft sie so auf, dass der Handler sie ablehnt.
