@@ -18264,6 +18264,8 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: status, in: query, schema: { type: string } }
+        - { name: from, in: query, description: "Only shifts from this instant (RFC3339)", schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: "Only shifts up to this instant (RFC3339)", schema: { type: string, format: date-time } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
       responses:
@@ -18280,6 +18282,7 @@ paths:
                       $ref: '#/components/schemas/SchichtenShift'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -18341,6 +18344,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [published_count]
                 properties:
                   published_count:
                     type: integer
@@ -18442,6 +18446,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [assignments]
                 properties:
                   assignments:
                     type: array
@@ -18649,6 +18654,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [shifts, created_count]
                 properties:
                   shifts:
                     type: array
@@ -49316,6 +49322,7 @@ components:
     SchichtenStats:
       type: object
       description: Aggregate shift planning statistics for the current tenant (proto ShiftStatsResponse).
+      required: [total_shifts, published_shifts, draft_shifts, total_assignments, unique_employees]
       properties:
         total_shifts:
           type: integer
@@ -49364,7 +49371,8 @@ components:
 
     SchichtenTemplate:
       type: object
-      description: A reusable shift template (proto ShiftTemplate).
+      description: A reusable shift template (proto ShiftTemplate). Zero values are sent (full hour, Sunday).
+      required: [id, name, day_of_week, start_hour, start_minute, duration_minutes]
       properties:
         id:
           type: string

@@ -1300,7 +1300,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,8 %"
     scope: >
       TOTALAUSFALL SCHICHTEN. (1) `GET /schichten/shifts/{id}/assignments` schreibt für eine Schicht
