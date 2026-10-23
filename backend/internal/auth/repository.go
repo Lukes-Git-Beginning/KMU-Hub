@@ -221,15 +221,15 @@ type Repository interface {
 	UpsertTwoFactorPolicy(ctx context.Context, policy *models.TwoFactorPolicy) error
 
 	// Password reset token methods
-	CreatePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error
+	// IssuePasswordResetToken spends every still-open reset token of the user
+	// and stores the new one in one transaction, so that only the link of the
+	// newest request works and a failed insert leaves the old link intact.
+	IssuePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error
 	GetPasswordResetToken(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error)
 	// ResetPasswordWithToken atomically spends the token (single use), sets the
 	// password and revokes all refresh tokens; returns ErrResetTokenUsed /
 	// ErrResetTokenExpired / ErrResetTokenInvalid when the token cannot be spent.
 	ResetPasswordWithToken(ctx context.Context, tokenID, tenantID, userID uuid.UUID, passwordHash string) error
-	// InvalidateOpenPasswordResetTokens spends every still-open reset token of
-	// the user so that only the link of the newest request works.
-	InvalidateOpenPasswordResetTokens(ctx context.Context, tenantID, userID uuid.UUID) error
 
 	// Session management methods
 	CreateSession(ctx context.Context, session *models.UserSession) error

@@ -574,17 +574,13 @@ func (m *mockRepository) DeleteStaleUserSessions(_ context.Context, userID uuid.
 
 // Password reset token methods
 
-func (m *mockRepository) InvalidateOpenPasswordResetTokens(_ context.Context, tenantID, userID uuid.UUID) error {
+func (m *mockRepository) IssuePasswordResetToken(_ context.Context, token *models.PasswordResetToken) error {
 	now := time.Now()
 	for _, t := range m.passwordResetTokens {
-		if t.TenantID == tenantID && t.UserID == userID && t.UsedAt == nil {
+		if t.TenantID == token.TenantID && t.UserID == token.UserID && t.UsedAt == nil {
 			t.UsedAt = &now
 		}
 	}
-	return nil
-}
-
-func (m *mockRepository) CreatePasswordResetToken(_ context.Context, token *models.PasswordResetToken) error {
 	m.passwordResetTokens[token.TokenHash] = token
 	return nil
 }

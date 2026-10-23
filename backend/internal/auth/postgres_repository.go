@@ -1463,13 +1463,29 @@ func (r *PostgresRepository) ReplaceRecoveryCodes(ctx context.Context, userID uu
 
 // Password reset token methods
 
-func (r *PostgresRepository) CreatePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error {
-	_, err := r.pool.Exec(ctx,
+// IssuePasswordResetToken filters the invalidation on tenant_id explicitly: the
+// reset path runs under sysctx.With, where RLS admits every tenant's rows.
+func (r *PostgresRepository) IssuePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback after commit is a no-op
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE password_reset_tokens SET used_at = NOW()
+		 WHERE tenant_id = $1 AND user_id = $2 AND used_at IS NULL`, token.TenantID, token.UserID,
+	); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO password_reset_tokens (id, tenant_id, user_id, token_hash, expires_at, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		token.ID, token.TenantID, token.UserID, token.TokenHash, token.ExpiresAt, token.CreatedAt,
-	)
-	return err
+	); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *PostgresRepository) GetPasswordResetToken(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error) {
@@ -1540,16 +1556,6 @@ func (r *PostgresRepository) ResetPasswordWithToken(ctx context.Context, tokenID
 	}
 
 	return tx.Commit(ctx)
-}
-
-// InvalidateOpenPasswordResetTokens filters on tenant_id explicitly: the reset
-// path runs under sysctx.With, where RLS admits every tenant's rows.
-func (r *PostgresRepository) InvalidateOpenPasswordResetTokens(ctx context.Context, tenantID, userID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE password_reset_tokens SET used_at = NOW()
-		 WHERE tenant_id = $1 AND user_id = $2 AND used_at IS NULL`, tenantID, userID,
-	)
-	return err
 }
 
 // Two-factor policy methods

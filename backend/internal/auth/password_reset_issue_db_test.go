@@ -9,22 +9,22 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
-// TestInvalidateOpenPasswordResetTokens_SpendsOnlyTheUsersOwnOpenTokens runs the
-// real UPDATE under RLS: both open tokens of the user are spent, another user's
-// token in the same tenant stays open, and a call carrying the wrong tenant
-// touches nothing (the reset path runs under sysctx, so the tenant_id in the
-// WHERE clause is the only guard).
-func TestInvalidateOpenPasswordResetTokens_SpendsOnlyTheUsersOwnOpenTokens(t *testing.T) {
+// TestIssuePasswordResetToken_SpendsOnlyTheUsersOwnOpenTokens runs the real
+// transaction under RLS: both open tokens of the user are spent and the new one
+// stays open, another user's token in the same tenant stays valid, and an insert
+// that fails (duplicate hash) rolls the invalidation back, so the user keeps a
+// working link.
+func TestIssuePasswordResetToken_SpendsOnlyTheUsersOwnOpenTokens(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 
 	testutil.EnsureTenant(t, pool, testutil.TenantA, "TenantA")
-	testutil.EnsureTenant(t, pool, testutil.TenantB, "TenantB")
 
 	newUser := func(label string) uuid.UUID {
 		id := testutil.SeedRow(t, pool, "users", map[string]any{
@@ -61,12 +61,27 @@ func TestInvalidateOpenPasswordResetTokens_SpendsOnlyTheUsersOwnOpenTokens(t *te
 		require.NoError(t, err)
 		return tok.UsedAt != nil
 	}
+	issue := func(hash string) error {
+		return repo.IssuePasswordResetToken(sysCtx, &models.PasswordResetToken{
+			ID:        uuid.New(),
+			TenantID:  testutil.TenantA,
+			UserID:    owner,
+			TokenHash: hash,
+			ExpiresAt: time.Now().Add(time.Hour),
+			CreatedAt: time.Now(),
+		})
+	}
 
-	require.NoError(t, repo.InvalidateOpenPasswordResetTokens(sysCtx, testutil.TenantB, owner))
-	require.False(t, used(ownerOld), "a foreign tenant id must not spend the token")
+	require.Error(t, issue(otherTok), "a duplicate hash must fail the insert")
+	require.False(t, used(ownerOld), "a failed insert must not spend the old link")
 
-	require.NoError(t, repo.InvalidateOpenPasswordResetTokens(sysCtx, testutil.TenantA, owner))
+	fresh := "prt-hash-" + uuid.NewString()
+	require.NoError(t, issue(fresh))
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM password_reset_tokens WHERE token_hash = $1`, fresh)
+	})
 	require.True(t, used(ownerOld))
 	require.True(t, used(ownerNewer))
+	require.False(t, used(fresh), "the newly issued link stays open")
 	require.False(t, used(otherTok), "another user's open token stays valid")
 }

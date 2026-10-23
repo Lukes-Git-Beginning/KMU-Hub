@@ -705,14 +705,6 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 		return nil
 	}
 
-	// Only the newest link may work: an older mail (shared mailbox, forwarded
-	// message) must not stay a way into the account. On failure nothing is
-	// created, a new link next to a live old one would keep the hole open.
-	if err := s.repo.InvalidateOpenPasswordResetTokens(sysCtx, user.TenantID, user.ID); err != nil {
-		slog.Error("failed to invalidate previous password reset tokens", "user_id", user.ID, "error", err)
-		return nil
-	}
-
 	plain := generateSecureToken()
 	hash := HashToken(plain)
 
@@ -725,7 +717,10 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 		CreatedAt: time.Now(),
 	}
 
-	if err := s.repo.CreatePasswordResetToken(sysCtx, prt); err != nil {
+	// Only the newest link may work: an older mail (shared mailbox, forwarded
+	// message) must not stay a way into the account. Issue spends the old links
+	// and stores the new one atomically, so a failure leaves the old link alive.
+	if err := s.repo.IssuePasswordResetToken(sysCtx, prt); err != nil {
 		slog.Error("failed to create password reset token", "user_id", user.ID, "error", err)
 		// Still return nil to avoid timing-based enumeration.
 		return nil

@@ -592,16 +592,12 @@ func (m *authMockRepo) DeleteStaleUserSessions(_ context.Context, _ uuid.UUID) e
 	return nil
 }
 
-func (m *authMockRepo) CreatePasswordResetToken(_ context.Context, _ *models.PasswordResetToken) error {
+func (m *authMockRepo) IssuePasswordResetToken(_ context.Context, _ *models.PasswordResetToken) error {
 	return nil
 }
 
 func (m *authMockRepo) GetPasswordResetToken(_ context.Context, _ string) (*models.PasswordResetToken, error) {
 	return nil, auth.ErrResetTokenInvalid
-}
-
-func (m *authMockRepo) InvalidateOpenPasswordResetTokens(_ context.Context, _, _ uuid.UUID) error {
-	return nil
 }
 
 func (m *authMockRepo) ResetPasswordWithToken(_ context.Context, _, _, _ uuid.UUID, _ string) error {

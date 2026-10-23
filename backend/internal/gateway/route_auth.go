@@ -17,7 +17,9 @@ import (
 const forgotRateLimitWindow = 10 * time.Minute
 
 // forgotRateLimitMax is the maximum number of requests allowed per email per window.
-const forgotRateLimitMax = 5
+// Every request spends the previous link, so the cap also bounds how often a
+// stranger can kill a victim's link; an attacker can still burn the window.
+const forgotRateLimitMax = 3
 
 // forgotBucket tracks rate-limit state for a single email address. mu guards
 // count/windowEnd: sync.Map protects the map itself but not concurrent access to
