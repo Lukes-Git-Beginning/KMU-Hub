@@ -273,3 +273,21 @@ func TestService_CreateShareToken_AcceptsFutureExpiryAndReadPermission(t *testin
 	assert.Equal(t, []string{sharePermissionRead}, token.Permissions)
 	require.NotNil(t, token.ExpiresAt)
 }
+
+
+// The desktop share dialog sends ["read","public"] for a public link; the
+// marker must survive so the token list can show the link as public.
+func TestService_CreateShareToken_KeepsPublicMarker(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	article := addArticle(repo, uuid.New(), "Handbuch", "handbuch", true)
+
+	token, err := svc.CreateShareToken(context.Background(), CreateShareTokenInput{
+		TenantID: article.TenantID, ArticleID: article.ID,
+		Permissions: []string{"read", "public"},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{sharePermissionRead, sharePermissionPublic}, token.Permissions)
+	assert.True(t, token.grants(sharePermissionRead))
+}
