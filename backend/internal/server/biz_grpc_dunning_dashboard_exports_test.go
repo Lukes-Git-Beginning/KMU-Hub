@@ -515,7 +515,7 @@ func TestSendDunningNotice(t *testing.T) {
 
 	t.Run("invalid id", func(t *testing.T) {
 		srv := newDunningTestServer(newStubDunningRecordRepo(), &stubDunningConfigRepo{}, &stubDunningInvoiceReader{})
-		_, err := srv.SendDunningNotice(context.Background(), &bizv1.SendDunningNoticeRequest{
+		_, err := srv.SendDunningNotice(bizActorCtx(tenantID), &bizv1.SendDunningNoticeRequest{
 			TenantId: tenantID.String(), Id: "not-a-uuid",
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
@@ -526,7 +526,7 @@ func TestSendDunningNotice(t *testing.T) {
 		dunningID := uuid.New()
 		repo.records[dunningID] = &models.DunningRecord{ID: dunningID, TenantID: tenantID, Status: models.DunningStatusSent}
 		srv := newDunningTestServer(repo, &stubDunningConfigRepo{}, &stubDunningInvoiceReader{})
-		_, err := srv.SendDunningNotice(context.Background(), &bizv1.SendDunningNoticeRequest{
+		_, err := srv.SendDunningNotice(bizActorCtx(tenantID), &bizv1.SendDunningNoticeRequest{
 			TenantId: tenantID.String(), Id: dunningID.String(),
 		})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
@@ -537,7 +537,7 @@ func TestSendDunningNotice(t *testing.T) {
 		dunningID := uuid.New()
 		repo.records[dunningID] = &models.DunningRecord{ID: dunningID, TenantID: tenantID, Status: models.DunningStatusDraft}
 		srv := newDunningTestServer(repo, &stubDunningConfigRepo{}, &stubDunningInvoiceReader{})
-		resp, err := srv.SendDunningNotice(context.Background(), &bizv1.SendDunningNoticeRequest{
+		resp, err := srv.SendDunningNotice(bizActorCtx(tenantID), &bizv1.SendDunningNoticeRequest{
 			TenantId: tenantID.String(), Id: dunningID.String(),
 		})
 		require.NoError(t, err)

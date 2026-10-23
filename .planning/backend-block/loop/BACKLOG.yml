@@ -310,7 +310,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 74,8 %"
     scope: >
       VERIFIZIERT bei der Vorbereitung (2026-10-23), Klasse (b) "nur Attribution fehlt, wird

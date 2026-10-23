@@ -433,8 +433,12 @@ func (s *BizGRPCServer) SendQuote(ctx context.Context, req *bizv1.SendQuoteReque
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.quoteService.Send(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.quoteService.Send(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -518,7 +522,12 @@ func (s *BizGRPCServer) ConvertQuoteToInvoice(ctx context.Context, req *bizv1.Co
 		return nil, err
 	}
 
-	inv, err := s.invoiceService.CreateFromQuote(ctx, tenantID, quoteID, uuid.Nil)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.invoiceService.CreateFromQuote(ctx, tenantID, quoteID, actorID)
 	if err != nil {
 		return nil, mapBizError(err)
 	}
@@ -721,8 +730,12 @@ func (s *BizGRPCServer) SendInvoice(ctx context.Context, req *bizv1.SendInvoiceR
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.invoiceService.Send(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.invoiceService.Send(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -758,8 +771,12 @@ func (s *BizGRPCServer) CancelInvoice(ctx context.Context, req *bizv1.CancelInvo
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.invoiceService.Cancel(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.invoiceService.Cancel(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -867,8 +884,12 @@ func (s *BizGRPCServer) SendCreditNote(ctx context.Context, req *bizv1.SendCredi
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.creditNoteService.Send(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.creditNoteService.Send(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -1049,8 +1070,12 @@ func (s *BizGRPCServer) SendDunning(ctx context.Context, req *bizv1.SendDunningR
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.dunningService.Send(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.dunningService.Send(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -2524,7 +2549,12 @@ func (s *BizGRPCServer) SendDunningNotice(ctx context.Context, req *bizv1.SendDu
 		return nil, err
 	}
 
-	record, sendErr := s.dunningService.SendDunningNotice(ctx, tenantID, id, uuid.Nil)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	record, sendErr := s.dunningService.SendDunningNotice(ctx, tenantID, id, actorID)
 	if sendErr != nil {
 		slog.Error("SendDunningNotice failed", "dunning_id", id, "tenant_id", tenantID, "error", sendErr)
 		return nil, mapBizError(sendErr)

@@ -510,7 +510,7 @@ func TestSendQuote(t *testing.T) {
 
 	t.Run("invalid id", func(t *testing.T) {
 		srv := newQuoteTestServer(newStubQuoteRepo(), &stubCompanySettingsRepo{}, numberSeq)
-		_, err := srv.SendQuote(context.Background(), &bizv1.SendQuoteRequest{TenantId: tenantID.String(), Id: "not-a-uuid"})
+		_, err := srv.SendQuote(bizActorCtx(tenantID), &bizv1.SendQuoteRequest{TenantId: tenantID.String(), Id: "not-a-uuid"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
@@ -521,7 +521,7 @@ func TestSendQuote(t *testing.T) {
 		repo.quotes[q.ID] = q
 		srv := newQuoteTestServer(repo, &stubCompanySettingsRepo{}, numberSeq)
 
-		_, err := srv.SendQuote(context.Background(), &bizv1.SendQuoteRequest{TenantId: tenantID.String(), Id: q.ID.String()})
+		_, err := srv.SendQuote(bizActorCtx(tenantID), &bizv1.SendQuoteRequest{TenantId: tenantID.String(), Id: q.ID.String()})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 
@@ -531,7 +531,7 @@ func TestSendQuote(t *testing.T) {
 		repo.quotes[q.ID] = q
 		srv := newQuoteTestServer(repo, &stubCompanySettingsRepo{}, numberSeq)
 
-		resp, err := srv.SendQuote(context.Background(), &bizv1.SendQuoteRequest{TenantId: tenantID.String(), Id: q.ID.String()})
+		resp, err := srv.SendQuote(bizActorCtx(tenantID), &bizv1.SendQuoteRequest{TenantId: tenantID.String(), Id: q.ID.String()})
 		require.NoError(t, err)
 		assert.Equal(t, "AN-2026-0001", resp.GetQuote().GetQuoteNumber())
 		assert.Equal(t, bizv1.QuoteStatus_QUOTE_SENT, resp.GetQuote().GetStatus())
@@ -623,7 +623,7 @@ func TestConvertQuoteToInvoice(t *testing.T) {
 	tenantID := uuid.New()
 	srv := newQuoteTestServer(newStubQuoteRepo(), &stubCompanySettingsRepo{}, nil)
 
-	_, err := srv.ConvertQuoteToInvoice(context.Background(), &bizv1.ConvertQuoteToInvoiceRequest{
+	_, err := srv.ConvertQuoteToInvoice(bizActorCtx(tenantID), &bizv1.ConvertQuoteToInvoiceRequest{
 		TenantId: tenantID.String(), Id: "not-a-uuid",
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
