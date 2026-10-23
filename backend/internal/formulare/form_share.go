@@ -494,7 +494,9 @@ func (s *Service) completeSubmit(ctx context.Context, i *submitIdempotency, stat
 	if body == nil {
 		body = []byte(`{}`)
 	}
-	if err := s.idempotency.Complete(ctx, i.tenantID, i.key, status, body); err != nil {
+	// WithoutCancel: the submission is committed by now. A client that hung up
+	// must still find the stored outcome when it retries, not a 409 in-flight.
+	if err := s.idempotency.Complete(context.WithoutCancel(ctx), i.tenantID, i.key, status, body); err != nil {
 		s.logger.Warn("failed to complete formulare submit idempotency record",
 			"share_link_id", i.linkID, "error", err)
 	}
