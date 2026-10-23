@@ -9875,6 +9875,11 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update company settings
+      description: >-
+        Partial update. Only the keys present in the body overwrite the stored settings;
+        absent keys (and explicit null) keep their stored value, and a present empty string
+        clears the field. The Stammdaten tabs save name/address, tax, bank and payment
+        terms as separate blocks.
       tags: [finance-settings]
       security: [{ bearerAuth: [] }]
       requestBody:

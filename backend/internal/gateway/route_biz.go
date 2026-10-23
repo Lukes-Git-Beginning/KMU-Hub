@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -333,7 +334,17 @@ func (b *BizRoutes) HandleGetCompanySettings(w http.ResponseWriter, r *http.Requ
 	response.Proto(w, http.StatusOK, resp.Settings)
 }
 
+// updateCompanySettingsRequest is a partial update: the desktop saves the settings in
+// blocks (name/address, tax, bank, payment terms), so only the keys present in the body
+// overwrite the stored row. A present empty string still clears a field. The fields are
+// plain values (omitempty skips "" for the format validators); presence comes from the
+// JSON keys, recorded in UnmarshalJSON.
 type updateCompanySettingsRequest struct {
+	updateCompanySettingsFields
+	present map[string]json.RawMessage
+}
+
+type updateCompanySettingsFields struct {
 	Name                     string `json:"name"`
 	Street                   string `json:"street"`
 	PLZ                      string `json:"plz"                validate:"omitempty,plz_dach"`
@@ -355,6 +366,53 @@ type updateCompanySettingsRequest struct {
 	DatevMandantNr           string `json:"datev_mandant_nr"`
 }
 
+func (u *updateCompanySettingsRequest) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, &u.updateCompanySettingsFields); err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &u.present)
+}
+
+// has reports whether the body carried the key with a value (an explicit null counts as absent).
+func (u updateCompanySettingsRequest) has(key string) bool {
+	raw, ok := u.present[key]
+	return ok && string(raw) != "null"
+}
+
+// applyTo overwrites the fields of dst that the request carries and leaves the rest alone.
+func (u updateCompanySettingsRequest) applyTo(dst *bizv1.CompanySettings) {
+	str := func(key string, d *string, v string) {
+		if u.has(key) {
+			*d = v
+		}
+	}
+	str("name", &dst.Name, u.Name)
+	str("street", &dst.Street, u.Street)
+	str("plz", &dst.Plz, u.PLZ)
+	str("city", &dst.City, u.City)
+	str("country", &dst.Country, u.Country)
+	str("steuernummer", &dst.Steuernummer, u.Steuernummer)
+	str("ust_id_nr", &dst.UstIdNr, u.UstIdNr)
+	str("handelsregister", &dst.Handelsregister, u.Handelsregister)
+	str("bank_name", &dst.BankName, u.BankName)
+	str("iban", &dst.Iban, u.IBAN)
+	str("bic", &dst.Bic, u.BIC)
+	str("logo_url", &dst.LogoUrl, u.LogoURL)
+	str("accent_color", &dst.AccentColor, u.AccentColor)
+	str("basiszinssatz", &dst.Basiszinssatz, u.Basiszinssatz)
+	str("datev_berater_nr", &dst.DatevBeraterNr, u.DatevBeraterNr)
+	str("datev_mandant_nr", &dst.DatevMandantNr, u.DatevMandantNr)
+	if u.has("is_kleinunternehmer") {
+		dst.IsKleinunternehmer = u.IsKleinunternehmer
+	}
+	if u.has("default_payment_terms_days") {
+		dst.DefaultPaymentTermsDays = u.DefaultPaymentTermsDays
+	}
+	if u.has("default_quote_validity_days") {
+		dst.DefaultQuoteValidityDays = u.DefaultQuoteValidityDays
+	}
+}
+
 func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.Request) {
 	client, err := b.getBizClient()
 	if err != nil {
@@ -373,30 +431,27 @@ func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// The RPC upserts every column, so merge into the stored row first; otherwise a
+	// bank-only save would blank name, address and tax fields.
+	// lean: read-modify-write without a lock; a SELECT ... FOR UPDATE inside the biz
+	// service once two admins edit the settings at the same moment.
+	current, err := client.GetCompanySettings(r.Context(), &bizv1.GetCompanySettingsRequest{
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	merged := &bizv1.CompanySettings{}
+	if cur := current.GetSettings(); cur != nil {
+		merged = cur
+	}
+	merged.TenantId = tenantID
+	req.applyTo(merged)
+
 	resp, err := client.UpdateCompanySettings(r.Context(), &bizv1.UpdateCompanySettingsRequest{
 		TenantId: tenantID,
-		Settings: &bizv1.CompanySettings{
-			TenantId:                 tenantID,
-			Name:                     req.Name,
-			Street:                   req.Street,
-			Plz:                      req.PLZ,
-			City:                     req.City,
-			Country:                  req.Country,
-			Steuernummer:             req.Steuernummer,
-			UstIdNr:                  req.UstIdNr,
-			Handelsregister:          req.Handelsregister,
-			BankName:                 req.BankName,
-			Iban:                     req.IBAN,
-			Bic:                      req.BIC,
-			LogoUrl:                  req.LogoURL,
-			AccentColor:              req.AccentColor,
-			IsKleinunternehmer:       req.IsKleinunternehmer,
-			DefaultPaymentTermsDays:  req.DefaultPaymentTermsDays,
-			DefaultQuoteValidityDays: req.DefaultQuoteValidityDays,
-			Basiszinssatz:            req.Basiszinssatz,
-			DatevBeraterNr:           req.DatevBeraterNr,
-			DatevMandantNr:           req.DatevMandantNr,
-		},
+		Settings: merged,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
