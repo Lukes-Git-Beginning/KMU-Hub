@@ -493,3 +493,11 @@ Geprüft und passend (Agenten-Listen, nicht von mir erneut gelesen): HR Urlaub (
 - neue-units: keine
 - desktop-aufrufer: `GET /schichten/shifts` -> `schichten-client.ts:56 listShifts` / `useSchichten.ts:65` / `SchichtenPage.tsx:422` sendet `from`/`to` als `YYYY-MM-DDT00:00:00Z`/`T23:59:59Z` -> RFC3339, wird akzeptiert und filtert jetzt die Woche. `assignments` -> `useSchichten.ts:160` iteriert jetzt eine Liste. `adaptApiTemplate` (`SchichtenPage.tsx:132`) bekommt `start_hour`/`start_minute` immer. `ListShiftsResponse.shifts`/`total`, `PublishShiftsResponse`, `ApplyTemplateResponse` passen zu den FE-Typen. Weitere Aufrufer der Routen: keine.
 - offen: (1) `ProtoFull` schreibt unset `optional`-Felder als `null` und unset Timestamps als `null` – FE-Typen führen `location`/`created_by`/`assigned_by` bereits als `string | null`. (2) `desktop/.../api/types.ts` (generiert aus der Spec) kennt die neuen `from`/`to`-Parameter erst nach Regen; Desktop-Code nicht angefasst. (3) Der Repo-Filter (`postgres_repository.go:118`) verlangt `start_time >= from` und `end_time <= to`: eine Schicht, die über die Wochengrenze hinausläuft, fehlt in der Wochenansicht. Nicht geändert (Service-Semantik). (4) Arbeitsbaum zeigt weiter ~190 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit.
+
+## Bilanz Lauf (2026-10-23 20:42)
+- iterationen: 32 im Bereich 1-32, davon 32 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: fix 24 · scan 4 · chore 2 · wire 1 · feat 1
+- commits nach typ: fix 24 · chore 6 · feat 2 (32 seit e81827fe)
+- coverage-delta: internal/notification/preference 78,6 -> 87,9 · internal/inbox/team 66,5 -> 68,4 · internal/gateway 73,6 -> 75,1 · (6 weitere)
+- offen mit entscheidungsbedarf: 7 von 32 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 6,4 (206 gesamt)
