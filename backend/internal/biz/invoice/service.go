@@ -324,9 +324,12 @@ func (s *Service) UpsertImported(ctx context.Context, tenantID uuid.UUID, in mod
 		InvoiceDate:     invoiceDate,
 		DueDate:         dueDate,
 		ContactID:       contactID,
-		CreatedBy:       uuid.Nil, // system/sync import (created_by is NOT NULL, no FK)
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		// lean: system/sync import has no human actor, so created_by is the nil UUID
+		// (column is NOT NULL, no FK). Upgrade trigger: a dedicated system-actor user
+		// per tenant, once the UI must show who imported an invoice.
+		CreatedBy: uuid.Nil,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	if upsertErr := s.repo.UpsertImported(ctx, inv); upsertErr != nil {

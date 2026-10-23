@@ -215,6 +215,8 @@ func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uui
 			result.ItemsUpdated++
 		} else {
 			// New contact from Bexio — create in KMU Hub
+			// lean: sync-created contacts carry the nil UUID as creator (no human actor).
+			// Upgrade trigger: a per-tenant system-actor user, once contacts show their creator.
 			kmuhubID, err := cs.contacts.CreateForSync(ctx, syncData, uuid.Nil)
 			if err != nil {
 				result.ItemsFailed++

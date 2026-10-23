@@ -912,11 +912,9 @@ func (s *WorkGRPCServer) DeleteTask(ctx context.Context, req *workv1.DeleteTaskR
 	// DeleteTaskRequest carries no actor field — read the caller from the
 	// x-user-id metadata the gateway propagates. uuid.Nil would always fail
 	// the project-membership check in the service.
-	actorID := uuid.Nil
-	if uid := middleware.GetUserID(ctx); uid != "" {
-		if parsed, parseErr := uuid.Parse(uid); parseErr == nil {
-			actorID = parsed
-		}
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := s.taskService.Delete(ctx, tenantID, id, actorID); err != nil {

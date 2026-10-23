@@ -2073,7 +2073,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Kommentar-Unit)"
     scope: >
       Klasse (c) aus dem Akteur-Scan, bewusst, aber ohne `lean:`-Marker mit Upgrade-Trigger:

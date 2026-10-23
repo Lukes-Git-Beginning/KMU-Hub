@@ -807,6 +807,15 @@ func TestDeleteTask_MissingTenant(t *testing.T) {
 	requireGRPCCode(t, err, codes.Unauthenticated)
 }
 
+// A tenant context without a caller must be refused as 401; it used to fall through
+// with a nil actor and fail the project-membership check with a misleading 403/404.
+func TestDeleteTask_MissingCaller(t *testing.T) {
+	srv := newWorkValidationTestServer()
+	ctx := context.WithValue(context.Background(), middleware.TenantIDKey, uuid.NewString())
+	_, err := srv.DeleteTask(ctx, &workv1.DeleteTaskRequest{Id: uuid.NewString()})
+	requireGRPCCode(t, err, codes.Unauthenticated)
+}
+
 func TestMoveTask_InvalidID(t *testing.T) {
 	srv := newWorkValidationTestServer()
 	_, err := srv.MoveTask(context.Background(), &workv1.MoveTaskRequest{
@@ -1174,7 +1183,7 @@ func TestUpdateTask_TitleTooLongRejected(t *testing.T) {
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
-func TestDeleteTask_StandaloneHappyPathWithoutActor(t *testing.T) {
+func TestDeleteTask_StandaloneHappyPath(t *testing.T) {
 	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
 	tenantID := uuid.New()
 	tid := uuid.New()
@@ -1182,8 +1191,8 @@ func TestDeleteTask_StandaloneHappyPathWithoutActor(t *testing.T) {
 		ID: tid, TenantID: tenantID, Title: "Solo", Priority: models.TaskPriorityNormal, CreatedBy: uuid.New(),
 	}}
 
-	// No x-user-id in context: DeleteTask must fall back to uuid.Nil, and a
-	// standalone (no project) task has no membership check to fail on that.
+	// A standalone (no project) task has no membership check; the caller is still
+	// required (see TestDeleteTask_MissingCaller).
 	_, err := srv.DeleteTask(ctxWithWorkTenant(tenantID), &workv1.DeleteTaskRequest{Id: tid.String()})
 	require.NoError(t, err)
 }

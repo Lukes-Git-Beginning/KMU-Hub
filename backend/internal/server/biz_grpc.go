@@ -2118,7 +2118,9 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 
 	userID, err := uuid.Parse(req.GetCreatedBy())
 	if err != nil {
-		// created_by is best-effort; fall back to Nil so invoice.Create still works.
+		// lean: created_by is best-effort; an unparsable value falls back to the nil UUID so
+		// the invoice is still created. Upgrade trigger: derive it from callerID(ctx) once the
+		// gateway always sends x-user-id for this RPC, then reject instead of falling back.
 		userID = uuid.Nil
 	}
 
@@ -2285,6 +2287,9 @@ func (s *BizGRPCServer) CreateQuoteFromDeal(ctx context.Context, req *bizv1.Crea
 
 	userID, err := uuid.Parse(req.GetCreatedBy())
 	if err != nil {
+		// lean: created_by is best-effort; an unparsable value falls back to the nil UUID so
+		// the quote is still created. Upgrade trigger: derive it from callerID(ctx) once the
+		// gateway always sends x-user-id for this RPC, then reject instead of falling back.
 		userID = uuid.Nil
 	}
 
