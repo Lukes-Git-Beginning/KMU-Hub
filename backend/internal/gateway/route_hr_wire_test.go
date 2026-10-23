@@ -31,6 +31,8 @@ type hrWireStub struct {
 	settings *hrv1.HRSettings // nil -> NotFound, like a tenant that never saved
 	updated  *hrv1.UpdateHRSettingsReq
 	uploaded *hrv1.UploadEmployeeDocumentReq
+	listed   *hrv1.ListWorkTimeEntriesReq
+	manual   *hrv1.CreateManualEntryReq
 }
 
 func (s *hrWireStub) GetEmployee(_ context.Context, r *hrv1.GetEmployeeReq) (*hrv1.GetEmployeeResp, error) {

@@ -809,6 +809,7 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 		EmployeeId: r.URL.Query().Get("employee_id"),
 		StartDate:  r.URL.Query().Get("start_date"),
 		EndDate:    r.URL.Query().Get("end_date"),
+		Status:     r.URL.Query().Get("status"),
 		Page:       int32(page),
 		PerPage:    int32(pageSize),
 	}
@@ -1664,6 +1665,7 @@ type createManualEntryHTTPReq struct {
 	ClockIn         string  `json:"clock_in"          validate:"required"`
 	ClockOut        string  `json:"clock_out"         validate:"required"`
 	BreakMinutes    int32   `json:"break_minutes"     validate:"gte=0"`
+	ProjectID       string  `json:"project_id"        validate:"omitempty,uuid"`
 	CategoryID      string  `json:"category_id"       validate:"omitempty,uuid"`
 	Activity        string  `json:"activity"`
 	Note            string  `json:"note"`
@@ -1715,6 +1717,7 @@ func (h *HRRoutes) HandleCreateManualEntry(w http.ResponseWriter, r *http.Reques
 		ClockIn:         timestamppb.New(clockIn),
 		ClockOut:        timestamppb.New(clockOut),
 		BreakMinutes:    req.BreakMinutes,
+		ProjectId:       req.ProjectID,
 		CategoryId:      req.CategoryID,
 		Activity:        req.Activity,
 		Note:            req.Note,

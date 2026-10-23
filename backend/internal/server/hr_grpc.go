@@ -512,6 +512,13 @@ func (s *HRGRPCServer) ListWorkTimeEntries(ctx context.Context, req *hrv1.ListWo
 		}
 	}
 
+	if st := req.GetStatus(); st != "" {
+		if workTimeStatusToProto(models.WorkTimeEntryStatus(st)) == hrv1.WorkTimeEntryStatus_WORK_TIME_ENTRY_STATUS_UNSPECIFIED {
+			return nil, status.Error(codes.InvalidArgument, "invalid status")
+		}
+		filter.Status = &st
+	}
+
 	entries, total, err := s.timetrackingService.ListWorkTimeEntries(ctx, filter)
 	if err != nil {
 		return nil, mapHRError(err)

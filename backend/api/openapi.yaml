@@ -12858,6 +12858,7 @@ paths:
         - { name: employee_id, in: query, schema: { type: string, format: uuid } }
         - { name: start_date, in: query, schema: { type: string, format: date } }
         - { name: end_date, in: query, schema: { type: string, format: date } }
+        - { name: status, in: query, schema: { type: string, enum: [active, completed, correction_pending, correction_approved, superseded] } }
         - { name: page, in: query, schema: { type: integer } }
         - { name: page_size, in: query, schema: { type: integer } }
       responses:
@@ -12873,6 +12874,8 @@ paths:
                     items:
                       $ref: "#/components/schemas/WorkTimeEntry"
                   total: { type: integer }
+        "400":
+          description: Unknown status value
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -12897,6 +12900,7 @@ paths:
                 clock_in: { type: string, format: date-time }
                 clock_out: { type: string, format: date-time }
                 break_minutes: { type: integer, minimum: 0 }
+                project_id: { type: string, format: uuid }
                 category_id: { type: string, format: uuid }
                 activity: { type: string }
                 note: { type: string }

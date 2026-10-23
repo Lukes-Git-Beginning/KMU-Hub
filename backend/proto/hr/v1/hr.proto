@@ -515,6 +515,7 @@ message ListWorkTimeEntriesReq {
   string end_date = 4;                 // YYYY-MM-DD
   int32 page = 5;
   int32 per_page = 6;
+  string status = 7;                   // Optional: active|completed|correction_pending|correction_approved|superseded
 }
 
 message ListWorkTimeEntriesResp {

@@ -151,6 +151,7 @@ func fillOptionalNulls(b []byte, md protoreflect.MessageDescriptor) ([]byte, err
 // types it with (`draft|sent|paid`), not as the enum number. Keyed by message, not by field
 // name: `status` is a member of dozens of other messages whose numbers stay numbers.
 var statusNames = map[protoreflect.FullName]map[string]string{
+	"hr.v1.WorkTimeEntry":  {"1": "active", "2": "completed", "3": "correction_pending", "4": "correction_approved", "5": "superseded"},
 	"biz.v1.DunningRecord": {"1": "draft", "2": "sent", "3": "paid"},
 	"biz.v1.CreditNote":    {"1": "draft", "2": "sent"},
 }
