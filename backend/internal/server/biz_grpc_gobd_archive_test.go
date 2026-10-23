@@ -33,7 +33,6 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
-	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
@@ -199,14 +198,14 @@ func newGobdTestServer(repo *stubGobdRepo, store *stubGobdStore) *BizGRPCServer 
 	return &BizGRPCServer{gobdArchiveSvc: gobdarchive.NewService(repo, store, nil)}
 }
 
-// newGobdInvoiceTestServer additionally wires the invoice service and a real
-// PDF generator, as ArchiveInvoiceDocument renders the invoice before archiving.
+// newGobdInvoiceTestServer additionally wires the invoice service and the tenant's
+// company settings, as ArchiveInvoiceDocument renders the invoice before archiving.
 func newGobdInvoiceTestServer(repo *stubGobdRepo, store *stubGobdStore, invRepo *stubInvoiceRepo) *BizGRPCServer {
 	invSvc := invoice.NewService(invRepo, nil, &stubCompanySettingsRepo{}, nil, fakeTxBeginner{})
 	return &BizGRPCServer{
-		invoiceService: invSvc,
-		pdfGenerator:   pdf.NewGenerator(pdfReadyCompanySettings()),
-		gobdArchiveSvc: gobdarchive.NewService(repo, store, invSvc),
+		invoiceService:  invSvc,
+		companySettings: pdfReadyCompanySettingsRepo(),
+		gobdArchiveSvc:  gobdarchive.NewService(repo, store, invSvc),
 	}
 }
 
@@ -220,6 +219,11 @@ func pdfReadyCompanySettings() models.CompanySettings {
 		City:         "Mainz",
 		Steuernummer: "26/123/45678",
 	}
+}
+
+func pdfReadyCompanySettingsRepo() *stubCompanySettingsRepo {
+	settings := pdfReadyCompanySettings()
+	return &stubCompanySettingsRepo{settings: &settings}
 }
 
 func archivedDoc(tenantID uuid.UUID) *models.GobdDocument {
@@ -446,7 +450,34 @@ func TestArchiveInvoiceDocument(t *testing.T) {
 		assert.Empty(t, repo.docs, "GoBD: only finalized documents are archived")
 	})
 
-	t.Run("unrenderable invoice maps to Internal and archives nothing", func(t *testing.T) {
+	t.Run("tenant without complete company master data gets FailedPrecondition and archives nothing", func(t *testing.T) {
+		// A nil row (never configured) and a row missing the §14 UStG Pflichtangaben
+		// must both fail before anything reaches the archive.
+		for name, settings := range map[string]*models.CompanySettings{
+			"no settings row":     nil,
+			"incomplete settings": {Name: "Zentria UG"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				invRepo := newStubInvoiceRepo()
+				inv := lockedInvoice(tenantID)
+				invRepo.invoices[inv.ID] = inv
+
+				repo := newStubGobdRepo()
+				store := newStubGobdStore()
+				srv := newGobdInvoiceTestServer(repo, store, invRepo)
+				srv.companySettings = &stubCompanySettingsRepo{settings: settings}
+
+				_, err := srv.ArchiveInvoiceDocument(context.Background(), &bizv1.ArchiveInvoiceDocumentRequest{
+					TenantId: tenantID.String(), InvoiceId: inv.ID.String(), ArchivedBy: userID.String(),
+				})
+				requireGRPCCode(t, err, codes.FailedPrecondition)
+				assert.Empty(t, repo.docs, "a document that could not be rendered must not be recorded as archived")
+				assert.Empty(t, store.uploads)
+			})
+		}
+	})
+
+	t.Run("settings lookup failure maps to Internal and archives nothing", func(t *testing.T) {
 		invRepo := newStubInvoiceRepo()
 		inv := lockedInvoice(tenantID)
 		invRepo.invoices[inv.ID] = inv
@@ -454,15 +485,13 @@ func TestArchiveInvoiceDocument(t *testing.T) {
 		repo := newStubGobdRepo()
 		store := newStubGobdStore()
 		srv := newGobdInvoiceTestServer(repo, store, invRepo)
-		// Incomplete company settings fail ValidateCompanySettingsForPDF (§14 UStG),
-		// so the renderer errors before anything reaches the archive.
-		srv.pdfGenerator = pdf.NewGenerator(models.CompanySettings{})
+		srv.companySettings = &stubCompanySettingsRepo{getErr: errors.New("db down")}
 
 		_, err := srv.ArchiveInvoiceDocument(context.Background(), &bizv1.ArchiveInvoiceDocumentRequest{
 			TenantId: tenantID.String(), InvoiceId: inv.ID.String(), ArchivedBy: userID.String(),
 		})
 		requireGRPCCode(t, err, codes.Internal)
-		assert.Empty(t, repo.docs, "a document that could not be rendered must not be recorded as archived")
+		assert.Empty(t, repo.docs)
 		assert.Empty(t, store.uploads)
 	})
 

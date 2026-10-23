@@ -170,3 +170,15 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
 - neue-units: `fix-biz-gobd-archive-invoice-startup-pdf-settings` (VOR die erste todo-Unit gesetzt: verifizierter Totalausfall), `fix-helpdesk-kb-article-author-id-uuid-nil`, `chore-mark-system-actor-uuid-nil-lean` (beide ans Ende)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) Der Scan hat `uuid.Nil` nur im Go-Code der Handler/Services gesucht, nicht in SQL-Funktionen oder Consumern mit anderem Bezeichner. (2) Der Totalausfall ist per Generator-Test und Codelesen belegt, nicht per HTTP-Aufruf gegen den Stack; ob das FE den Endpunkt überhaupt aufruft, prüft die Fix-Unit.
+
+## Iteration 11 — fix-biz-gobd-archive-invoice-startup-pdf-settings — done — 2026-10-23 18:55
+- commit: (siehe git log, Subject `fix(biz): render the GoBD archive invoice PDF from the tenant's company settings`)
+- gebaut: `ArchiveInvoiceDocument` lädt die Stammdaten pro Anfrage (`requireCompanySettings`, Muster der Geschwister-RPCs), prüft `ValidateCompanySettingsForPDF` vorab und liefert bei fehlenden/unvollständigen Stammdaten `FailedPrecondition` (Gateway: 409, in der Spec dokumentiert) statt `Internal`/500. Totes Feld `pdfGenerator`, Konstruktor-Parameter und die Startup-Abfrage mit `uuid.Nil` in `cmd/biz/main.go` sind entfernt (samt toter Imports); Aufruf in `einvoice/roundtrip_outbound_test.go` angepasst.
+- tests: Die alten Stub-Tests setzten `srv.pdfGenerator` direkt und hielten den Bug damit grün; sie laufen jetzt über ein Settings-Repo (Fälle: kein Settings-Row, unvollständig, Lookup-Fehler). Neu `biz_grpc_gobd_archive_db_test.go` (echte Rechnung + echte `company_settings` als `kmuhub_app`): Mandant mit Stammdaten archiviert Bytes mit `%PDF`, Mandant ohne wird mit FailedPrecondition abgewiesen und archiviert nichts.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (server, biz/einvoice, gateway inkl. TestOpenAPIRouteDrift) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; DB-Tests laufen als `kmuhub_app`)
+- coverage: internal/server 75,0 % -> 75,0 % (Vorher-Wert aus dem Backlog-Kopf, nicht selbst gemessen; Zuwachs unter Rundung). 0 Skips.
+- mutations-probe: `requireCompanySettings(ctx, tenantID)` im Archiv-Handler auf `uuid.Nil` -> `..._UsesTenantCompanySettings_DB/tenant_with_company_settings_archives_a_real_PDF` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`363f9cfb`: nur BACKLOG/JOURNAL, kein Code).
+- neue-units: keine
+- desktop-aufrufer: `POST /finance/gobd-archive/from-invoice/{invoiceId}` -> nur generierte `api/types.ts`, kein Client/Hook ruft die Route auf -> kein FE-Pfad betroffen; neue Antwort bei fehlenden Stammdaten ist 409 statt 500 -> passt.
+- offen: (1) Kein HTTP-Aufruf gegen den Stack; Beleg ist der DB-Test auf Handler-Ebene. (2) Der Fix wirkt erst nach Deploy von `cmd/biz`. (3) Keine Goroutinen, kein Race-Risiko.

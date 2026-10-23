@@ -49,7 +49,6 @@ type BizGRPCServer struct {
 	paymentService    *payment.Service
 	dunningService    *dunning.Service
 	dashboardService  *dashboard.Service
-	pdfGenerator      *pdf.Generator
 	// datevBuchungsstapel renders the DATEV booking batch. Shared with the DATEV
 	// API upload path (datev.UploadService) so download and upload cannot diverge.
 	datevBuchungsstapel *datev.BuchungsstapelBuilder
@@ -92,7 +91,6 @@ func NewBizGRPCServer(
 	paymentService *payment.Service,
 	dunningService *dunning.Service,
 	dashboardService *dashboard.Service,
-	pdfGenerator *pdf.Generator,
 	datevBuchungsstapel *datev.BuchungsstapelBuilder,
 	companySettings CompanySettingsRepository,
 	timetrackingRepo timetracking.WorkTimeRepository,
@@ -107,7 +105,6 @@ func NewBizGRPCServer(
 		paymentService:      paymentService,
 		dunningService:      dunningService,
 		dashboardService:    dashboardService,
-		pdfGenerator:        pdfGenerator,
 		datevBuchungsstapel: datevBuchungsstapel,
 		companySettings:     companySettings,
 		timetrackingRepo:    timetrackingRepo,
