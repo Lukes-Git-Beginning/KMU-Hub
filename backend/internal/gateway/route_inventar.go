@@ -174,6 +174,13 @@ type createItemRequest struct {
 	MinQuantity int64   `json:"min_quantity"           validate:"gte=0"`
 	Unit        string  `json:"unit"`
 	Location    *string `json:"location,omitempty"`
+
+	Category            *string  `json:"category,omitempty"`
+	Price               *float64 `json:"price,omitempty"                 validate:"omitempty,gte=0"`
+	Currency            *string  `json:"currency,omitempty"              validate:"omitempty,iso4217"`
+	BatchNumber         *string  `json:"batch_number,omitempty"`
+	SerialNumbers       []string `json:"serial_numbers,omitempty"`
+	LinkedPurchaseOrder *string  `json:"linked_purchase_order,omitempty"`
 }
 
 type updateItemRequest struct {
@@ -183,6 +190,12 @@ type updateItemRequest struct {
 	MinQuantity *int64  `json:"min_quantity,omitempty"`
 	Unit        *string `json:"unit,omitempty"`
 	Location    *string `json:"location,omitempty"`
+
+	Category            *string  `json:"category,omitempty"`
+	Price               *float64 `json:"price,omitempty"                 validate:"omitempty,gte=0"`
+	Currency            *string  `json:"currency,omitempty"              validate:"omitempty,iso4217"`
+	BatchNumber         *string  `json:"batch_number,omitempty"`
+	LinkedPurchaseOrder *string  `json:"linked_purchase_order,omitempty"`
 }
 
 type adjustStockRequest struct {
@@ -294,6 +307,13 @@ func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Reques
 		MinQuantity: req.MinQuantity,
 		Unit:        req.Unit,
 		Location:    req.Location,
+
+		Category:            req.Category,
+		Price:               req.Price,
+		Currency:            req.Currency,
+		BatchNumber:         req.BatchNumber,
+		SerialNumbers:       req.SerialNumbers,
+		LinkedPurchaseOrder: req.LinkedPurchaseOrder,
 	}
 
 	resp, err := client.CreateItem(r.Context(), grpcReq)
@@ -362,6 +382,12 @@ func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Reques
 		Barcode:  req.Barcode,
 		Unit:     req.Unit,
 		Location: req.Location,
+
+		Category:            req.Category,
+		Price:               req.Price,
+		Currency:            req.Currency,
+		BatchNumber:         req.BatchNumber,
+		LinkedPurchaseOrder: req.LinkedPurchaseOrder,
 	}
 	if req.MinQuantity != nil {
 		grpcReq.MinQuantity = req.MinQuantity

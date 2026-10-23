@@ -27725,6 +27725,14 @@ paths:
                 min_quantity: { type: integer, format: int64, minimum: 0 }
                 unit: { type: string }
                 location: { type: string }
+                category: { type: string }
+                price: { type: number, format: double, minimum: 0 }
+                currency: { type: string, description: "ISO 4217 code, e.g. EUR", example: EUR }
+                batch_number: { type: string }
+                linked_purchase_order: { type: string }
+                serial_numbers:
+                  type: array
+                  items: { type: string }
       responses:
         "201":
           description: Item created
@@ -27786,6 +27794,11 @@ paths:
                 min_quantity: { type: integer, format: int64, minimum: 0 }
                 unit: { type: string }
                 location: { type: string }
+                category: { type: string }
+                price: { type: number, format: double, minimum: 0 }
+                currency: { type: string, description: "ISO 4217 code, e.g. EUR", example: EUR }
+                batch_number: { type: string }
+                linked_purchase_order: { type: string }
       responses:
         "200":
           description: Updated item

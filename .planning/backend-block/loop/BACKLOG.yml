@@ -2227,7 +2227,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,3 %"
     scope: >
       `POST/PATCH /inventar/items` kennen nur name, sku, barcode, quantity, min_quantity, unit,
@@ -2568,3 +2568,27 @@ units:
     done_when:
       - "Entwurf bearbeiten mit anderer Währung bzw. payment_terms_days ändert Währung und Fälligkeit (Router-, Server- und Service-Test)"
       - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-inventar-update-serial-numbers-dropped
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 76,1 %"
+    scope: >
+      Abfall aus `fix-inventar-create-update-dropped-fields`: `PATCH /inventar/items/{id}` nimmt
+      `serial_numbers` nicht an. `UpdateItemRequest` (inventar.proto) und `UpdateItemInput`
+      (`inventar/service.go`) kennen das Feld nicht; der Artikel-Dialog schickt es beim Bearbeiten
+      immer (`InventarPage.tsx:218`, bei leerem Feld `[]`), Änderungen an den Seriennummern gehen
+      still verloren. Anlegen funktioniert. Braucht ein Proto-Feld, das "unverändert" von "leeren"
+      trennt (z. B. `optional SerialNumberList` als Wrapper-Message), plus Regen und Service-Zweig.
+    sources:
+      - backend/proto/inventar/v1/inventar.proto
+      - backend/internal/inventar/service.go
+      - backend/internal/server/inventar_grpc.go
+      - backend/internal/gateway/route_inventar.go
+      - desktop/src/renderer/src/modules/inventar/InventarPage.tsx
+    done_when:
+      - "Bearbeiten mit geänderten/leeren Seriennummern schreibt sie; fehlender Schlüssel lässt sie stehen (Service-Test + Router-Test)"
+      - "Proto regeneriert im selben Commit; Spec; Mutations-Probe; desktop-aufrufer-Zeile"
