@@ -2,8 +2,10 @@ package gateway
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -143,13 +145,25 @@ type createPORequest struct {
 	Notes                string `json:"notes,omitempty"`
 }
 
+// parseClearableDate reads a PATCH date the editor can empty: `null` or "" is sent as the epoch
+// the services read as "clear", an omitted key stays nil ("leave unchanged").
+func parseClearableDate(w http.ResponseWriter, field string, c clearableString) (*timestamppb.Timestamp, bool) {
+	if !c.Set {
+		return nil, true
+	}
+	if c.Value == "" {
+		return timestamppb.New(time.Unix(0, 0)), true
+	}
+	return parseDateField(w, field, c.Value)
+}
+
 type updatePORequest struct {
-	SupplierID           *string `json:"supplier_id,omitempty"`
-	PONumber             *string `json:"po_number,omitempty"`
-	OrderDate            *string `json:"order_date,omitempty"`
-	ExpectedDeliveryDate *string `json:"expected_delivery_date,omitempty"`
-	Currency             *string `json:"currency,omitempty"`
-	Notes                *string `json:"notes,omitempty"`
+	SupplierID           *string         `json:"supplier_id,omitempty"`
+	PONumber             *string         `json:"po_number,omitempty"`
+	OrderDate            *string         `json:"order_date,omitempty"`
+	ExpectedDeliveryDate clearableString `json:"expected_delivery_date"`
+	Currency             *string         `json:"currency,omitempty"`
+	Notes                *string         `json:"notes,omitempty"`
 }
 
 type addPOLineRequest struct {
@@ -410,13 +424,24 @@ func (er *EinkaufRoutes) HandleCreatePO(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	orderDate, ok := parseDateField(w, "order_date", req.OrderDate)
+	if !ok {
+		return
+	}
+	deliveryDate, ok := parseDateField(w, "expected_delivery_date", req.ExpectedDeliveryDate)
+	if !ok {
+		return
+	}
+
 	grpcReq := &einkaufv1.CreatePORequest{
-		TenantId:   tenantID.String(),
-		SupplierId: req.SupplierID,
-		PoNumber:   req.PONumber,
-		Currency:   req.Currency,
-		Notes:      req.Notes,
-		CreatedBy:  &userID,
+		TenantId:             tenantID.String(),
+		SupplierId:           req.SupplierID,
+		PoNumber:             req.PONumber,
+		OrderDate:            orderDate,
+		ExpectedDeliveryDate: deliveryDate,
+		Currency:             req.Currency,
+		Notes:                req.Notes,
+		CreatedBy:            &userID,
 	}
 
 	resp, err := client.CreatePO(r.Context(), grpcReq)
@@ -477,13 +502,24 @@ func (er *EinkaufRoutes) HandleUpdatePO(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	orderDate, ok := parseOptionalDateField(w, "order_date", req.OrderDate)
+	if !ok {
+		return
+	}
+	deliveryDate, ok := parseClearableDate(w, "expected_delivery_date", req.ExpectedDeliveryDate)
+	if !ok {
+		return
+	}
+
 	grpcReq := &einkaufv1.UpdatePORequest{
-		TenantId:   tenantID.String(),
-		PoId:       id,
-		SupplierId: req.SupplierID,
-		PoNumber:   req.PONumber,
-		Currency:   req.Currency,
-		Notes:      req.Notes,
+		TenantId:             tenantID.String(),
+		PoId:                 id,
+		SupplierId:           req.SupplierID,
+		PoNumber:             req.PONumber,
+		OrderDate:            orderDate,
+		ExpectedDeliveryDate: deliveryDate,
+		Currency:             req.Currency,
+		Notes:                req.Notes,
 	}
 
 	resp, err := client.UpdatePO(r.Context(), grpcReq)
@@ -681,7 +717,8 @@ func (er *EinkaufRoutes) HandleListPOLines(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	// The dialog calls `.slice` on `lines`, which `Proto` leaves out for an order without lines.
+	response.ProtoListWrapped(w, http.StatusOK, "lines", resp.GetLines(), nil)
 }
 
 func (er *EinkaufRoutes) HandleAddPOLine(w http.ResponseWriter, r *http.Request) {

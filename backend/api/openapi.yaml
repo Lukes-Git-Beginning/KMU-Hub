@@ -20837,8 +20837,8 @@ paths:
               properties:
                 supplier_id: { type: string, format: uuid }
                 po_number: { type: string }
-                order_date: { type: string, format: date }
-                expected_delivery_date: { type: string, format: date }
+                order_date: { type: string, description: "YYYY-MM-DD or RFC3339; defaults to now. Malformed value -> 400." }
+                expected_delivery_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400." }
                 currency: { type: string, example: EUR }
                 notes: { type: string }
       responses:
@@ -20890,8 +20890,8 @@ paths:
               properties:
                 supplier_id: { type: string, format: uuid }
                 po_number: { type: string }
-                order_date: { type: string, format: date }
-                expected_delivery_date: { type: string, format: date }
+                order_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400." }
+                expected_delivery_date: { type: string, nullable: true, description: "YYYY-MM-DD or RFC3339. `null` or an empty string clears the date; an omitted key leaves it unchanged." }
                 currency: { type: string }
                 notes: { type: string }
       responses:
@@ -21049,7 +21049,7 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Line list
+          description: Line list, `{lines:[...]}` (`[]` for an order without lines)
           content:
             application/json:
               schema: { type: object }
@@ -21432,6 +21432,8 @@ paths:
                   total: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:
@@ -21450,8 +21452,8 @@ paths:
                 supplier_id: { type: string, format: uuid }
                 title: { type: string }
                 contract_nr: { type: string }
-                start_date: { type: string, format: date, description: "ISO 8601 date (YYYY-MM-DD)" }
-                end_date: { type: string, format: date, description: "ISO 8601 date (YYYY-MM-DD)" }
+                start_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400. Reads back as YYYY-MM-DD." }
+                end_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400. Reads back as YYYY-MM-DD." }
                 total_value: { type: string, description: "Budgeted value as numeric string (e.g. \"10000.00\")" }
                 currency: { type: string, example: EUR }
                 status: { type: string, enum: [draft, active, expired], default: draft }
@@ -21469,6 +21471,8 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -21494,6 +21498,8 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     patch:
@@ -21513,8 +21519,8 @@ paths:
                 supplier_id: { type: string, format: uuid }
                 title: { type: string }
                 contract_nr: { type: string }
-                start_date: { type: string, format: date }
-                end_date: { type: string, format: date }
+                start_date: { type: string, nullable: true, description: "YYYY-MM-DD or RFC3339. `null` or an empty string clears it; an omitted key leaves it unchanged." }
+                end_date: { type: string, nullable: true, description: "Same as start_date." }
                 total_value: { type: string, description: "Numeric string" }
                 currency: { type: string }
                 status: { type: string, enum: [draft, active, expired] }
@@ -21533,6 +21539,8 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:

@@ -1,9 +1,11 @@
 package gateway
 
 import (
+	"bytes"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/protobuf/proto"
@@ -116,14 +118,14 @@ type createFrameworkContractRequest struct {
 }
 
 type updateFrameworkContractRequest struct {
-	SupplierID *string `json:"supplier_id,omitempty"`
-	Title      *string `json:"title,omitempty"`
-	ContractNr *string `json:"contract_nr,omitempty"`
-	StartDate  *string `json:"start_date,omitempty"`
-	EndDate    *string `json:"end_date,omitempty"`
-	TotalValue *string `json:"total_value,omitempty" validate:"omitempty,decimal_gte0"`
-	Currency   *string `json:"currency,omitempty"`
-	Status     *string `json:"status,omitempty"`
+	SupplierID *string         `json:"supplier_id,omitempty"`
+	Title      *string         `json:"title,omitempty"`
+	ContractNr *string         `json:"contract_nr,omitempty"`
+	StartDate  clearableString `json:"start_date"`
+	EndDate    clearableString `json:"end_date"`
+	TotalValue *string         `json:"total_value,omitempty" validate:"omitempty,decimal_gte0"`
+	Currency   *string         `json:"currency,omitempty"`
+	Status     *string         `json:"status,omitempty"`
 }
 
 type createContractItemRequest struct {
@@ -181,6 +183,53 @@ func writeCatalogProto(w http.ResponseWriter, status int, msg proto.Message, fro
 		body[to] = v
 	}
 	response.JSON(w, status, body)
+}
+
+// writeContractProto renders a framework-contract response with `start_date`/`end_date` as
+// `YYYY-MM-DD`: the contract list appends `T00:00:00` to them (`EinkaufPage.tsx:1084`), which
+// turns an RFC3339 value into an Invalid Date. `list` also keeps `contracts` as `[]`.
+// lean: dates are stored at UTC midnight, so cutting to the date loses nothing; drop this once
+// the desktop reads full timestamps.
+func writeContractProto(w http.ResponseWriter, status int, msg proto.Message, list bool) {
+	b, err := response.MarshalProto(msg)
+	if err != nil {
+		slog.Error("contract json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+	var body map[string]any
+	if err := dec.Decode(&body); err != nil {
+		slog.Error("contract json unmarshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	if list {
+		if _, ok := body["contracts"]; !ok {
+			body["contracts"] = []any{}
+		}
+	}
+	truncateDateFields(body, "start_date", "end_date")
+	response.JSON(w, status, body)
+}
+
+// truncateDateFields cuts the named string members of v, at any depth, to their date part.
+func truncateDateFields(v any, keys ...string) {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, val := range t {
+			if s, ok := val.(string); ok && slices.Contains(keys, k) && len(s) > 10 && s[10] == 'T' {
+				t[k] = s[:10]
+				continue
+			}
+			truncateDateFields(val, keys...)
+		}
+	case []any:
+		for _, val := range t {
+			truncateDateFields(val, keys...)
+		}
+	}
 }
 
 func (er *EinkaufRoutes) HandleListCatalogItems(w http.ResponseWriter, r *http.Request) {
@@ -492,7 +541,7 @@ func (er *EinkaufRoutes) HandleListFrameworkContracts(w http.ResponseWriter, r *
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeContractProto(w, http.StatusOK, resp, true)
 }
 
 func (er *EinkaufRoutes) HandleGetFrameworkContract(w http.ResponseWriter, r *http.Request) {
@@ -520,7 +569,7 @@ func (er *EinkaufRoutes) HandleGetFrameworkContract(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeContractProto(w, http.StatusOK, resp, false)
 }
 
 func (er *EinkaufRoutes) HandleCreateFrameworkContract(w http.ResponseWriter, r *http.Request) {
@@ -540,11 +589,22 @@ func (er *EinkaufRoutes) HandleCreateFrameworkContract(w http.ResponseWriter, r 
 		return
 	}
 
+	startDate, ok := parseDateField(w, "start_date", req.StartDate)
+	if !ok {
+		return
+	}
+	endDate, ok := parseDateField(w, "end_date", req.EndDate)
+	if !ok {
+		return
+	}
+
 	resp, err := client.CreateFrameworkContract(r.Context(), &einkaufv1.CreateFrameworkContractRequest{
 		TenantId:   tenantID.String(),
 		SupplierId: req.SupplierID,
 		Title:      req.Title,
 		ContractNr: req.ContractNr,
+		StartDate:  startDate,
+		EndDate:    endDate,
 		TotalValue: req.TotalValue,
 		Currency:   req.Currency,
 		Status:     req.Status,
@@ -553,7 +613,7 @@ func (er *EinkaufRoutes) HandleCreateFrameworkContract(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	writeContractProto(w, http.StatusCreated, resp, false)
 }
 
 func (er *EinkaufRoutes) HandleUpdateFrameworkContract(w http.ResponseWriter, r *http.Request) {
@@ -578,12 +638,23 @@ func (er *EinkaufRoutes) HandleUpdateFrameworkContract(w http.ResponseWriter, r 
 		return
 	}
 
+	startDate, ok := parseClearableDate(w, "start_date", req.StartDate)
+	if !ok {
+		return
+	}
+	endDate, ok := parseClearableDate(w, "end_date", req.EndDate)
+	if !ok {
+		return
+	}
+
 	resp, err := client.UpdateFrameworkContract(r.Context(), &einkaufv1.UpdateFrameworkContractRequest{
 		TenantId:   tenantID.String(),
 		ContractId: id,
 		SupplierId: req.SupplierID,
 		Title:      req.Title,
 		ContractNr: req.ContractNr,
+		StartDate:  startDate,
+		EndDate:    endDate,
 		TotalValue: req.TotalValue,
 		Currency:   req.Currency,
 		Status:     req.Status,
@@ -592,7 +663,7 @@ func (er *EinkaufRoutes) HandleUpdateFrameworkContract(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeContractProto(w, http.StatusOK, resp, false)
 }
 
 func (er *EinkaufRoutes) HandleDeleteFrameworkContract(w http.ResponseWriter, r *http.Request) {
