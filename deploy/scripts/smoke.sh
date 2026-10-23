@@ -532,7 +532,8 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
     CAL_LIST_CODE=$(echo "$CAL_LIST_RESP" | tail -1)
     CAL_LIST_BODY=$(echo "$CAL_LIST_RESP" | sed '$d')
 
-    LIVEKIT_CAL_ID=$(echo "$CAL_LIST_BODY" | jq -r '.calendars[0].id // empty' 2>/dev/null || echo "")
+    # Entries are CalendarWithMemberInfo: the id sits under .calendar, not on the entry.
+    LIVEKIT_CAL_ID=$(echo "$CAL_LIST_BODY" | jq -r '.calendars[0].calendar.id // .calendars[0].id // empty' 2>/dev/null || echo "")
 
     if [[ "$CAL_LIST_CODE" == "200" && -n "$LIVEKIT_CAL_ID" && "$LIVEKIT_CAL_ID" != "null" ]]; then
         # Step 2: create throwaway event with has_video_call=true
