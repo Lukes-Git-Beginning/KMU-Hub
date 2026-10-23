@@ -1898,7 +1898,7 @@ units:
     service: e2e
     model: sonnet
     deps: [fix-biz-actor-attribution-uuid-nil]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow `backend/test/e2e/finance_test.go`: Angebot anlegen -> senden
