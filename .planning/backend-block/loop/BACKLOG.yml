@@ -1650,7 +1650,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       Jede seit Lauf 12 verschärfte Eingabevalidierung gegen die Desktop-Aufrufer prüfen.

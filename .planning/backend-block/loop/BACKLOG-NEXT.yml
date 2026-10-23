@@ -1432,3 +1432,28 @@ units:
       - backend/internal/gateway/route_security.go
     done_when:
       - "Body enthält `admin_password`; Löschung gegen ein echtes Backend (lokal) liefert 200 statt 400"
+
+  - id: fe-dialer-agent-status-menu-offers-rejected-transitions
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Scan Iteration 41 (scan-validation-tightening-vs-desktop-callers). `AgentStatusPill.tsx` bietet im
+      Menü immer `available`, `break`, `offline` an (`switchable = [1, 4, 5]`), auch den aktuellen
+      Status. Der Statusautomat (`dialer/redis_agent_store.go` `validTransitions`) lehnt
+      `available->available`, `break->break`, `offline->offline`, `offline->break`, `on_call->break|offline`
+      und `wrap_up->offline` ab; seit `9d080798` kommt das als FailedPrecondition = HTTP 409 an (vorher 500).
+      `useSetAgentStatus` (`useDialer.ts:316`) hat kein `onError`: die Auswahl bleibt ohne Rückmeldung
+      wirkungslos, die Pille zeigt weiter den alten Status. Kein Totalausfall (available/offline gehen
+      aus den Grundzuständen), aber ein stiller Fehlschlag im Tagesgeschäft eines Agenten.
+      FE-Unit: nur erlaubte Ziele anbieten (aus dem aktuellen Status ableiten, Tabelle oben) und
+      `onError` mit Toast ergänzen. Alternative Backend-Entscheidung (Luke): `X->X` als No-op
+      zulassen; `offline->break` bleibt sinnvoll abgelehnt. Desktop-Code ändert der Loop nicht.
+    sources:
+      - desktop/src/renderer/src/modules/dialer/components/workspace/AgentStatusPill.tsx
+      - desktop/src/renderer/src/api/hooks/useDialer.ts
+      - backend/internal/dialer/redis_agent_store.go
+    done_when:
+      - "Menü zeigt nur Übergänge, die der Automat annimmt; ein 409 erzeugt einen sichtbaren Fehlerhinweis"
