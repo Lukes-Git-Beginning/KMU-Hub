@@ -613,7 +613,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 73,6 %"
     scope: >
       TOTALAUSFALL Kalender, vier Befunde, alle am Code belegt.

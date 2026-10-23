@@ -1590,3 +1590,65 @@ func TestCrossTenant_CalendarEvent_DeleteWithWrongTenant(t *testing.T) {
 	}
 	_ = err // Real DB would error here; mock is lenient by design
 }
+
+func TestService_Create_StoresReminders(t *testing.T) {
+	svc, eventRepo, calRepo, _ := setupTestService()
+	userID := uuid.New()
+	cal := makeCalendar(userID)
+	calRepo.addCalendar(cal)
+
+	start := time.Now().Add(1 * time.Hour)
+	evt, err := svc.Create(context.Background(), userID, CreateInput{
+		CalendarID: cal.ID, Title: "Mit Erinnerung", StartTime: start, EndTime: start.Add(time.Hour),
+		ReminderMinutes: []int{15, 1440},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []int{15, 1440}, eventRepo.reminders[evt.ID])
+}
+
+func TestService_Create_RejectsInvalidRemindersBeforeWriting(t *testing.T) {
+	svc, eventRepo, calRepo, _ := setupTestService()
+	userID := uuid.New()
+	cal := makeCalendar(userID)
+	calRepo.addCalendar(cal)
+
+	start := time.Now().Add(1 * time.Hour)
+	for name, mins := range map[string][]int{"zero": {0}, "too many": {5, 10, 15, 30}} {
+		_, err := svc.Create(context.Background(), userID, CreateInput{
+			CalendarID: cal.ID, Title: name, StartTime: start, EndTime: start.Add(time.Hour),
+			ReminderMinutes: mins,
+		})
+		require.Error(t, err, name)
+	}
+	assert.Empty(t, eventRepo.events, "no event may be written when the reminders are invalid")
+}
+
+func TestService_UpdateEvent_SetsAndClearsRRule(t *testing.T) {
+	svc, eventRepo, calRepo, _ := setupTestService()
+	userID := uuid.New()
+	cal := makeCalendar(userID)
+	calRepo.addCalendar(cal)
+
+	eventID := uuid.New()
+	eventRepo.addEvent(&models.CalendarEvent{
+		ID: eventID, CalendarID: cal.ID, Title: "Serie",
+		StartTime: time.Now(), EndTime: time.Now().Add(time.Hour),
+		CreatedBy: userID, Timezone: "Europe/Berlin",
+	})
+
+	weekly := "FREQ=WEEKLY"
+	evt, err := svc.UpdateEvent(context.Background(), eventID, userID, uuid.Nil, UpdateInput{RRule: &weekly})
+	require.NoError(t, err)
+	require.NotNil(t, evt.RRule)
+	assert.Equal(t, "FREQ=WEEKLY", *evt.RRule)
+
+	bad := "FREQ=NOPE"
+	_, err = svc.UpdateEvent(context.Background(), eventID, userID, uuid.Nil, UpdateInput{RRule: &bad})
+	require.Error(t, err)
+
+	empty := ""
+	evt, err = svc.UpdateEvent(context.Background(), eventID, userID, uuid.Nil, UpdateInput{RRule: &empty})
+	require.NoError(t, err)
+	assert.Nil(t, evt.RRule)
+}

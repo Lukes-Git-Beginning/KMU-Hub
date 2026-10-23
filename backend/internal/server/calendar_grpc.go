@@ -476,6 +476,9 @@ func (s *CalendarGRPCServer) CreateEvent(ctx context.Context, req *calv1.CreateE
 		}
 		input.AttendeeIDs = append(input.AttendeeIDs, aid)
 	}
+	for _, m := range req.ReminderMinutes {
+		input.ReminderMinutes = append(input.ReminderMinutes, int(m))
+	}
 
 	evt, err := s.eventService.Create(ctx, createdBy, input)
 	if err != nil {
@@ -597,6 +600,7 @@ func (s *CalendarGRPCServer) UpdateEvent(ctx context.Context, req *calv1.UpdateE
 	if req.HasVideoCall != nil {
 		input.HasVideoCall = req.HasVideoCall
 	}
+	input.RRule = req.Rrule
 
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {

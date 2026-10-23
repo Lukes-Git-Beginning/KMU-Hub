@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -159,6 +160,8 @@ type createEventRequest struct {
 	HasVideoCall bool     `json:"has_video_call"`
 	CategoryID   *string  `json:"category_id,omitempty"  validate:"omitempty,uuid"`
 	AttendeeIDs  []string `json:"attendee_ids,omitempty" validate:"omitempty,dive,uuid"`
+	// ReminderMinutes: at most three entries, each > 0 (enforced by the event service).
+	ReminderMinutes []int32 `json:"reminder_minutes,omitempty" validate:"omitempty,dive,gt=0"`
 }
 
 type updateEventRequest struct {
@@ -171,12 +174,25 @@ type updateEventRequest struct {
 	IsAllDay     *bool   `json:"is_all_day,omitempty"`
 	CategoryID   *string `json:"category_id,omitempty"`
 	HasVideoCall *bool   `json:"has_video_call,omitempty"`
+	RRule        *string `json:"rrule,omitempty"`
 }
 
+// updateRecurringEventRequest accepts the changes either nested under `changes`
+// or flat next to scope/original_date (what the desktop sends). `changes` wins
+// when both are present.
 type updateRecurringEventRequest struct {
-	Scope        string             `json:"scope"          validate:"required,oneof=this this_and_future all"`
-	OriginalDate string             `json:"original_date"  validate:"required"`
-	Changes      updateEventRequest `json:"changes"`
+	Scope        string              `json:"scope"          validate:"required,oneof=this this_and_future all"`
+	OriginalDate string              `json:"original_date"  validate:"required"`
+	Changes      *updateEventRequest `json:"changes,omitempty"`
+	updateEventRequest
+}
+
+// changeSet returns the requested changes, nested form first.
+func (r *updateRecurringEventRequest) changeSet() updateEventRequest {
+	if r.Changes != nil {
+		return *r.Changes
+	}
+	return r.updateEventRequest
 }
 
 type rsvpRequest struct {
@@ -582,7 +598,7 @@ func (cr *CalendarRoutes) HandleListEventsInRange(wr http.ResponseWriter, r *htt
 		response.Error(wr, http.StatusBadRequest, "invalid start time format")
 		return
 	}
-	end, err := parseTimestamp(endStr)
+	end, err := parseRangeEnd(endStr)
 	if err != nil {
 		response.Error(wr, http.StatusBadRequest, "invalid end time format")
 		return
@@ -599,7 +615,13 @@ func (cr *CalendarRoutes) HandleListEventsInRange(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	response.Proto(wr, http.StatusOK, resp)
+	events, err := flattenExpandedEvents(resp.GetEvents())
+	if err != nil {
+		slog.Error("calendar: render events failed", "error", err)
+		response.Error(wr, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	response.JSON(wr, http.StatusOK, map[string]any{"events": events})
 }
 
 func (cr *CalendarRoutes) HandleCreateEvent(wr http.ResponseWriter, r *http.Request) {
@@ -641,6 +663,7 @@ func (cr *CalendarRoutes) HandleCreateEvent(wr http.ResponseWriter, r *http.Requ
 		CategoryId:      req.CategoryID,
 		CreatedBy:       userID,
 		AttendeeUserIds: req.AttendeeIDs,
+		ReminderMinutes: req.ReminderMinutes,
 	}
 	if req.Timezone != "" {
 		grpcReq.Timezone = &req.Timezone
@@ -678,7 +701,13 @@ func (cr *CalendarRoutes) HandleGetEvent(wr http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.Proto(wr, http.StatusOK, resp)
+	flat, err := response.ProtoFlatten(resp.GetEvent(), "event")
+	if err != nil {
+		slog.Error("calendar: render event failed", "error", err)
+		response.Error(wr, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	response.JSON(wr, http.StatusOK, map[string]any{"event": flat})
 }
 
 func (cr *CalendarRoutes) HandleUpdateEvent(wr http.ResponseWriter, r *http.Request) {
@@ -708,6 +737,7 @@ func (cr *CalendarRoutes) HandleUpdateEvent(wr http.ResponseWriter, r *http.Requ
 		IsAllDay:     req.IsAllDay,
 		CategoryId:   req.CategoryID,
 		HasVideoCall: req.HasVideoCall,
+		Rrule:        req.RRule,
 		UpdatedBy:    userID,
 	}
 	if req.StartTime != nil {
@@ -787,29 +817,33 @@ func (cr *CalendarRoutes) HandleUpdateRecurringEvent(wr http.ResponseWriter, r *
 		return
 	}
 
+	// lean: rrule wird hier nicht weitergereicht; das FE rechnet die Regel aus dem
+	// Anzeigetext verlustbehaftet zurück (BYDAY & Co. gingen verloren). Freischalten,
+	// sobald das FE die Original-RRULE sendet.
+	changes := req.changeSet()
 	grpcReq := &calv1.UpdateRecurringEventRequest{
 		EventId:      eventID,
 		Scope:        scope,
 		OriginalDate: req.OriginalDate,
-		Title:        req.Changes.Title,
-		Description:  req.Changes.Description,
-		Location:     req.Changes.Location,
-		ResourceId:   req.Changes.ResourceID,
-		IsAllDay:     req.Changes.IsAllDay,
-		CategoryId:   req.Changes.CategoryID,
-		HasVideoCall: req.Changes.HasVideoCall,
+		Title:        changes.Title,
+		Description:  changes.Description,
+		Location:     changes.Location,
+		ResourceId:   changes.ResourceID,
+		IsAllDay:     changes.IsAllDay,
+		CategoryId:   changes.CategoryID,
+		HasVideoCall: changes.HasVideoCall,
 		UpdatedBy:    userID,
 	}
-	if req.Changes.StartTime != nil {
-		t, parseErr := parseTimestamp(*req.Changes.StartTime)
+	if changes.StartTime != nil {
+		t, parseErr := parseTimestamp(*changes.StartTime)
 		if parseErr != nil {
 			response.Error(wr, http.StatusBadRequest, "invalid start_time format in changes")
 			return
 		}
 		grpcReq.StartTime = t
 	}
-	if req.Changes.EndTime != nil {
-		t, parseErr := parseTimestamp(*req.Changes.EndTime)
+	if changes.EndTime != nil {
+		t, parseErr := parseTimestamp(*changes.EndTime)
 		if parseErr != nil {
 			response.Error(wr, http.StatusBadRequest, "invalid end_time format in changes")
 			return
@@ -1308,22 +1342,13 @@ func (cr *CalendarRoutes) HandleListHolidays(wr http.ResponseWriter, r *http.Req
 		grpcReq.SubdivisionCode = &subCode
 	}
 
-	if startStr := q.Get("start"); startStr != "" {
-		start, parseErr := parseTimestamp(startStr)
-		if parseErr != nil {
-			response.Error(wr, http.StatusBadRequest, "invalid start time format")
-			return
-		}
-		grpcReq.Start = start
+	start, end, rangeErr := holidayRange(q)
+	if rangeErr != nil {
+		response.Error(wr, http.StatusBadRequest, rangeErr.Error())
+		return
 	}
-	if endStr := q.Get("end"); endStr != "" {
-		end, parseErr := parseTimestamp(endStr)
-		if parseErr != nil {
-			response.Error(wr, http.StatusBadRequest, "invalid end time format")
-			return
-		}
-		grpcReq.End = end
-	}
+	grpcReq.Start = start
+	grpcReq.End = end
 
 	resp, err := client.ListHolidays(r.Context(), grpcReq)
 	if err != nil {

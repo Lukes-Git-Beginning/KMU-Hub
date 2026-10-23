@@ -7748,10 +7748,11 @@ paths:
         - name: end
           in: query
           required: true
-          description: Range end (ISO 8601 / RFC 3339)
+          description: |
+            Range end (ISO 8601 / RFC 3339). A bare date (`YYYY-MM-DD`) is the last
+            visible day and is inclusive: it is read as the start of the following day.
           schema:
             type: string
-            format: date-time
         - name: calendar_ids
           in: query
           description: Filter by specific calendar IDs
@@ -7771,6 +7772,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to render the events
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -7796,6 +7799,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Failed to render the event
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -8328,6 +8333,11 @@ paths:
           description: Subdivision code (e.g. DE-BY for Bavaria)
           schema:
             type: string
+        - name: year
+          in: query
+          description: Calendar year (2000-2100); used as 1 Jan - 31 Dec when `start` or `end` is missing. One of `year` or `start`+`end` is required.
+          schema:
+            type: integer
         - name: start
           in: query
           description: Filter start date (ISO 8601 / RFC 3339)
@@ -8336,7 +8346,7 @@ paths:
             format: date-time
         - name: end
           in: query
-          description: Filter end date (ISO 8601 / RFC 3339)
+          description: Filter end date, inclusive (ISO 8601 / RFC 3339)
           schema:
             type: string
             format: date-time
@@ -41783,6 +41793,13 @@ components:
           items:
             type: string
             format: uuid
+        reminder_minutes:
+          type: array
+          maxItems: 3
+          items:
+            type: integer
+            minimum: 1
+          description: Reminder offsets in minutes before the start (at most three)
 
     UpdateEventRequest:
       type: object
@@ -41811,10 +41828,16 @@ components:
           nullable: true
         has_video_call:
           type: boolean
+        rrule:
+          type: string
+          description: Replaces the RFC 5545 RRULE of a single event; an empty string removes it. Ignored by the recurring-update route.
 
     UpdateRecurringEventRequest:
+      description: |
+        The changes may be sent flat next to `scope` and `original_date` (what the
+        desktop does) or nested under `changes`; `changes` wins when both are present.
       type: object
-      required: [scope, original_date, changes]
+      required: [scope, original_date]
       properties:
         scope:
           type: string
@@ -41825,6 +41848,30 @@ components:
           description: The original occurrence date being edited (YYYY-MM-DD)
         changes:
           $ref: "#/components/schemas/UpdateEventRequest"
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+          nullable: true
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        is_all_day:
+          type: boolean
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        has_video_call:
+          type: boolean
 
     RSVPRequest:
       type: object

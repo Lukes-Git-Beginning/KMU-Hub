@@ -54,6 +54,35 @@ func Proto(w http.ResponseWriter, status int, msg proto.Message) {
 	_, _ = w.Write(b)
 }
 
+// ProtoFlatten renders msg like Proto does, then lifts the fields of the nested
+// message under `key` to the top level. The wire shape of wrapper messages such
+// as ExpandedEventProto{event:{...}, calendar_name} becomes {...event fields...,
+// calendar_name}, which is what flat frontend types read. Fields of the nested
+// message win on a name clash.
+func ProtoFlatten(msg proto.Message, key string) (json.RawMessage, error) {
+	b, err := protoMarshaler.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	var outer map[string]json.RawMessage
+	if err := json.Unmarshal(b, &outer); err != nil {
+		return nil, err
+	}
+	inner := map[string]json.RawMessage{}
+	if raw, ok := outer[key]; ok {
+		if err := json.Unmarshal(raw, &inner); err != nil {
+			return nil, err
+		}
+		delete(outer, key)
+	}
+	for k, v := range outer {
+		if _, taken := inner[k]; !taken {
+			inner[k] = v
+		}
+	}
+	return json.Marshal(inner)
+}
+
 // ProtoList writes a slice of proto messages as a bare JSON array via protojson,
 // so a list endpoint returns `[item, ...]` (not a wrapped `{items:[...]}`) with the
 // same snake_case + RFC3339 encoding as Proto. The frontend types these endpoints
