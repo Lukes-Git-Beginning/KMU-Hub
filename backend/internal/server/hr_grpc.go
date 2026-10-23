@@ -2092,6 +2092,10 @@ func mapHRError(err error) error {
 	// Leave errors
 	case errors.Is(err, leave.ErrLeaveRequestNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	// No row yet for a tenant that never saved its HR settings; the gateway turns this into
+	// an empty settings object (GET) or a first save (PUT).
+	case errors.Is(err, leave.ErrSettingsNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, leave.ErrInvalidTransition):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, leave.ErrInsufficientBalance):

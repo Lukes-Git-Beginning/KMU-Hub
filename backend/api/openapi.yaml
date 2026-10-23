@@ -13026,13 +13026,17 @@ paths:
         - { name: department, in: query, schema: { type: string } }
       responses:
         "200":
-          description: Absence calendar entries
+          description: Absence calendar entries, wrapped as `{entries}` (empty `[]` when nobody is absent)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/AbsenceEntry"
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AbsenceEntry"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "503":
@@ -13141,11 +13145,15 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: Own profile
+          description: Own profile, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -13160,11 +13168,15 @@ paths:
               $ref: "#/components/schemas/UpdateSelfProfileInput"
       responses:
         "200":
-          description: Profile updated
+          description: Profile updated, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -13181,11 +13193,15 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Employee profile
+          description: Employee profile, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -13202,11 +13218,15 @@ paths:
               $ref: "#/components/schemas/UpdateEmployeeInput"
       responses:
         "200":
-          description: Employee updated
+          description: Employee updated, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -13498,13 +13518,17 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Documents list
+          description: Documents list, wrapped as `{documents}`
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/EmployeeDocument"
+                type: object
+                required: [documents]
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmployeeDocument"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:
@@ -13519,18 +13543,28 @@ paths:
           application/json:
             schema:
               type: object
-              required: [category_id, file_id]
+              description: >
+                The keys are accepted in snake_case and in camelCase (`categoryId`, `fileId`),
+                because the desktop client posts camelCase.
               properties:
                 category_id: { type: string, format: uuid }
                 file_id: { type: string, format: uuid }
+                categoryId: { type: string, format: uuid }
+                fileId: { type: string, format: uuid }
+                fileName: { type: string, maxLength: 255 }
+                fileSize: { type: string, maxLength: 50 }
                 notes: { type: string }
       responses:
         "201":
-          description: Document uploaded
+          description: Document uploaded, wrapped as `{document}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeDocument"
+                type: object
+                required: [document]
+                properties:
+                  document:
+                    $ref: "#/components/schemas/EmployeeDocument"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -13657,17 +13691,26 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: HR settings
+          description: >
+            HR settings, wrapped as `{settings}`. A tenant that never saved its settings
+            gets an empty object.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HRSettings"
+                type: object
+                required: [settings]
+                properties:
+                  settings:
+                    $ref: "#/components/schemas/HRSettings"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update HR company settings
+      description: >
+        Partial update: only the keys present in the body change; the other stored values stay.
+        An explicit `false` or `0` is a value, an omitted key is not.
       tags: [hr-settings]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -13678,11 +13721,15 @@ paths:
               $ref: "#/components/schemas/UpdateHRSettingsInput"
       responses:
         "200":
-          description: HR settings updated
+          description: HR settings updated, wrapped as `{settings}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HRSettings"
+                type: object
+                required: [settings]
+                properties:
+                  settings:
+                    $ref: "#/components/schemas/HRSettings"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":

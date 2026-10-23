@@ -1224,7 +1224,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,8 %"
     scope: >
       TOTALAUSFALL HR. Fünf Antworten haben nicht die Form, die `hr-client.ts` liest.
@@ -2012,3 +2012,31 @@ units:
     done_when:
       - "Beleg im Journal, ob die Route als einfacher Nutzer fremde Anträge liefert"
       - "Falls ja: Test + Fix; Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-hr-employee-documents-fe-contract
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-hr-employee-settings-calendar-documents-wire]
+    status: todo
+    coverage_start: "internal/gateway 74,9 %"
+    scope: >
+      TEILFEHLER Personalakte-Tab. Nach dem Wrappen (Iteration 30) kommen Dokumente als `{documents}` an,
+      aber (1) `EmployeeDocument` (`hr-types.ts:262`) ist camelCase (`categoryId`, `fileName`, `createdAt`),
+      `hrEmployeeApi.listDocuments` (`hr-client.ts:922`) adaptiert nicht, das Backend liefert snake_case
+      (`category_id`, `file_name`) -> `DokumenteTab.tsx:51` filtert nach `d.categoryId` und findet nie etwas.
+      (2) `DokumenteTab.tsx:130-131` schickt `categoryId: 'hrcat-other'` als Rückfall und
+      `fileId: 'file-<Date.now()>'` — beides keine UUIDs, der Handler (`uploadDocumentHTTPReq`, `uuid`-Validierung)
+      antwortet 400; es gibt keinen echten Datei-Upload davor. Zu klären: ist die Kategorie-/Datei-ID-Kette
+      (`/hr/employees/{id}/documents/categories` + Presign-Upload) so gedacht, dass der Client erst hochlädt?
+      Vor dem Bauen belegen. Das FE ändert der Loop nicht: Ziel ist, die Antwortform am Gateway an den FE-Typ
+      zu bringen (Adapter-Nachbau wie bei anderen HR-Listen prüfen) oder die Abweichung als FE-Aufgabe für Luke
+      festzuhalten.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - desktop/src/renderer/src/api/hr-client.ts
+      - desktop/src/renderer/src/api/hr-types.ts
+      - desktop/src/renderer/src/modules/profil/tabs/DokumenteTab.tsx
+    done_when:
+      - "Beleg im Journal: welche Seite (Gateway oder FE-Adapter) die camelCase-Abweichung schließt"
+      - "Falls Gateway: Router-Test auf die Felder, Spec, Mutations-Probe, desktop-aufrufer-Zeile"
