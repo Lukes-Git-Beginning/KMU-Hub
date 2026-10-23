@@ -66,3 +66,14 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; `POST/DELETE /inbox/teams/{id}/members` liefert nur bei vorher 403 jetzt Erfolg)
 - offen: (1) `DeleteTeamInbox` bleibt `RequireRole("admin","manager")` + Inbox-Admin im Service: die Manage-Permission wirkt dort bewusst nicht (Entscheidung betraf Mitglieder; Update ist mitgezogen, weil derselbe Guard). (2) Die drei Zeilen Glue in `inbox_grpc.go` (`withTeamManage`) sind nur indirekt belegt (Interceptor-Test + Service-Test), kein Test auf Server-Ebene. (3) Permissions im Service-Kontext sind jetzt eine Teilmenge (nur Allowlist) — wer dort `GetUserPermissions` nutzt, bekommt keine volle Liste. (4) Keine Goroutinen, kein Race-Risiko.
+
+## Iteration 3 — wire-biz-event-emitters-for-finance-triggers — done — 2026-10-23 17:35
+- commit: (siehe git log, Subject `feat(biz): wire invoice and quote event emitters for automation triggers`)
+- gebaut: `cmd/biz/event_wiring.go` (`wireFinanceEventEmitters`) setzt `SetEventEmitter(<pkg>.NewPGEventEmitter(pool))` für invoiceSvc und quoteSvc, aufgerufen direkt nach der Konstruktion in `main.go`. Damit feuern `biz.invoice.sent` und `biz.quote.created` wirklich. Lexware bleibt auf `noopEmitter` (lean:-Marker unverändert). Zwei DB-Tests (invoice `Send`, quote `Create`) hören mit `LISTEN events` auf dem echten Kanal und prüfen Typ UND `tenant_id`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (invoice, quote, automation/..., cmd/biz) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/biz/invoice 61,3 % -> 61,5 % · internal/biz/quote 49,6 % -> 50,1 % (Vorher-Werte aus dem Backlog-Kopf, nicht selbst gemessen; nur Testcode hinzugekommen). 0 Skips in beiden Paketen.
+- mutations-probe: (1) `invoiceSvc.SetEventEmitter`-Zeile im Helper entfernt -> `TestWireFinanceEventEmitters_SetsBothEmitters` rot (`was <nil>`). (2) `emitEvent` in invoice zum No-op gemacht -> `TestService_Send_PGEmitterPublishesTenantScopedEvent` rot (kein Event). Beide zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`ec495841`: kein Proto, keine Route, kein neuer Guard, keine Tabelle; `UpdateTeamInbox` im Server holt die Inbox vorher tenant-gescoped, WithManageAll greift erst danach).
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; nur Event-Emission)
+- offen: (1) Der Test belegt den Helper, nicht den einen Aufruf in `main.go` — fällt dieser Aufruf weg, wird kein Test rot (bewusst, `main()` ist nicht testbar). (2) Mit dem Deploy beginnen die Events zu fließen; Prod-Prüfung vom 2026-10-23: `automations` 0 Zeilen, es feuert also nichts Bestehendes. (3) Keine Goroutinen im neuen Code, kein Race-Risiko.

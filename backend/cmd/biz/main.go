@@ -155,6 +155,7 @@ func main() {
 	// =========================================================================
 	quoteSvc := quote.NewService(quoteRepo, numberSeqRepo, companySettingsRepo, dealUpdater, pool)
 	invoiceSvc := invoice.NewService(invoiceRepo, numberSeqRepo, companySettingsRepo, quoteRepo, pool)
+	wireFinanceEventEmitters(pool, invoiceSvc, quoteSvc)
 	creditNoteSvc := creditnote.NewService(creditNoteRepo, invoiceRepo, numberSeqRepo, pool)
 	// Wire the GoBD storno path: cancelling a sent invoice issues a reversing
 	// credit note and cancels the invoice atomically (cyclic-free: each side
