@@ -8322,6 +8322,62 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/calendar/resources/bookings:
+    post:
+      summary: Book a resource for an event
+      tags: [resources]
+      operationId: bookResourceUnderResources
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookResourceRequest"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceBookingSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/calendar/resources/bookings/{id}:
+    delete:
+      summary: Cancel a resource booking
+      tags: [resources]
+      operationId: cancelResourceBooking
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   # ===========================================================================
   # Calendar – Holidays
   # ===========================================================================

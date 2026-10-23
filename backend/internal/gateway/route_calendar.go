@@ -98,9 +98,12 @@ func (cr *CalendarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequirePermission("resources", "delete")).Delete("/resources/{id}", cr.HandleDeleteResource)
 		r.With(middleware.RequirePermission("resources", "read")).Get("/resources/{id}/availability", cr.HandleListResourceAvailability)
 
-		// Resource Bookings
-		r.With(middleware.RequirePermission("resources", "read")).Post("/bookings", cr.HandleBookResource)
-		r.With(middleware.RequirePermission("resources", "read")).Delete("/bookings/{id}", cr.HandleCancelBooking)
+		// Resource Bookings. The desktop books and cancels under
+		// /resources/bookings; the bare /bookings paths stay for existing callers.
+		for _, prefix := range []string{"/bookings", "/resources/bookings"} {
+			r.With(middleware.RequirePermission("resources", "read")).Post(prefix, cr.HandleBookResource)
+			r.With(middleware.RequirePermission("resources", "read")).Delete(prefix+"/{id}", cr.HandleCancelBooking)
+		}
 
 		// Holidays
 		r.With(middleware.RequirePermission("calendars", "read")).Get("/holidays", cr.HandleListHolidays)

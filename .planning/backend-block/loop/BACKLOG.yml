@@ -1788,7 +1788,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Totalausfall-Fix)"
     scope: >
       TOTALAUSFALL, beim Bau von `e2e-calendar-lifecycle` gefunden: Der Desktop bucht und storniert
