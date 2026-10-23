@@ -496,10 +496,10 @@ func (r *PostgresRepository) ListActiveWebhooksForSchema(ctx context.Context, te
 // ============================================================================
 
 // deliveryClaimLease is how long a claimed delivery stays invisible to other
-// claimers. It has to cover batchSize x HTTP timeout of the worker (10 x 10 s);
-// if the worker dies after the claim, the row becomes claimable again once the
-// lease runs out (at-least-once).
-const deliveryClaimLease = 2 * time.Minute
+// claimers. It has to cover batchSize x HTTP timeout of the worker (10 x 10 s)
+// plus the per-row DB round trips, with headroom; if the worker dies after the
+// claim, the row becomes claimable again once the lease runs out (at-least-once).
+const deliveryClaimLease = 5 * time.Minute
 
 // ClaimPendingDeliveries atomically leases up to batchSize pending or failed
 // deliveries whose next_attempt_at is in the past ('failed' = a parked retry

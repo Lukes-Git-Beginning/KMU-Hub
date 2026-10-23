@@ -103,7 +103,12 @@ func (w *WebhookWorker) processBatch(ctx context.Context) error {
 	}
 
 	for _, d := range deliveries {
-		w.deliver(ctx, d)
+		// Recover per delivery: a panicking row counts as a failed attempt (and
+		// ends up dead after max_attempts) instead of stranding the rest of the
+		// leased batch and coming back first after every lease.
+		if !safego.Do("formulare webhook delivery", func() { w.deliver(ctx, d) }) {
+			w.markFailed(ctx, d, 0, "panic during delivery")
+		}
 	}
 	return nil
 }

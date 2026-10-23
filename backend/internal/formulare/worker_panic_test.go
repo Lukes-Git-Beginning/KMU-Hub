@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // panicClaimRepo panics on the first ClaimPendingDeliveries call and counts all calls.
@@ -42,5 +44,47 @@ func TestWorker_Run_SurvivesPanicInBatch(t *testing.T) {
 	cancel()
 	if err := <-done; err != nil {
 		t.Errorf("Run returned %v", err)
+	}
+}
+
+
+// panicDeliverRepo panics while loading the webhook of one poisoned delivery.
+type panicDeliverRepo struct {
+	*stubRepo
+	poison uuid.UUID
+}
+
+func (p *panicDeliverRepo) GetWebhook(ctx context.Context, id, tenantID uuid.UUID) (*FormWebhook, error) {
+	if id == p.poison {
+		panic("boom in delivery")
+	}
+	return p.stubRepo.GetWebhook(ctx, id, tenantID)
+}
+
+// A panic in one delivery must not strand the rest of the batch, and the
+// poisoned row must be recorded as a failed attempt so it eventually dies.
+func TestWorker_ProcessBatch_PanicInOneDeliveryKeepsTheRest(t *testing.T) {
+	tenantID := uuid.New()
+	poison := uuid.New()
+	repo := &panicDeliverRepo{stubRepo: newStubRepo(), poison: poison}
+	healthy := &FormWebhook{ID: uuid.New(), TenantID: tenantID, Active: false}
+	repo.webhooks[healthy.ID] = healthy
+	bad := &WebhookDelivery{ID: uuid.New(), TenantID: tenantID, WebhookID: poison,
+		Status: WebhookDeliveryStatusPending, MaxAttempts: 5}
+	good := &WebhookDelivery{ID: uuid.New(), TenantID: tenantID, WebhookID: healthy.ID,
+		Status: WebhookDeliveryStatusPending, MaxAttempts: 5}
+	repo.deliveries[bad.ID] = bad
+	repo.deliveries[good.ID] = good
+
+	w := NewWebhookWorker(repo, nil)
+	if err := w.processBatch(context.Background()); err != nil {
+		t.Fatalf("processBatch: %v", err)
+	}
+
+	if bad.Status != WebhookDeliveryStatusFailed || bad.AttemptCount != 1 {
+		t.Errorf("poisoned delivery: status %q, attempts %d; want failed, 1", bad.Status, bad.AttemptCount)
+	}
+	if good.Status != WebhookDeliveryStatusDead {
+		t.Errorf("healthy delivery not processed: status %q", good.Status)
 	}
 }
