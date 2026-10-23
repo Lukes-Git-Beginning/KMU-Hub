@@ -1961,7 +1961,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/email/attachment 22,1 %"
     scope: >
       Schwächstes Paket mit echtem Datenpfad (Mail-Anhänge: Ablage, Abruf, Größen- und
@@ -2445,3 +2445,35 @@ units:
       - "Beide Namensvarianten erreichen denselben RPC-Filter, Router-Test mit echtem gRPC-Stub"
       - "openapi.yaml nennt die Parameter, swagger-cli validate grün, TestOpenAPIRouteDrift grün"
       - "Mutations-Probe, desktop-aufrufer-Zeile"
+
+  - id: fix-email-attachment-key-collision-same-filename
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Gefunden in cov-email-attachment (Iteration 51), aus dem Code gelesen, nicht gegen eine
+      echte Mail reproduziert. `Store.Upload` baut den MinIO-Key aus
+      `email-attachments/<account>/<uid>/<filename>` (`store.go:41`). Zwei Anhänge mit demselben
+      Dateinamen in EINER Mail (typisch: mehrere Inline-Bilder `image.png`) schreiben auf
+      denselben Key, der zweite überschreibt den ersten. `CreateFromStream` legt trotzdem zwei
+      DB-Zeilen mit identischem `minio_key` an, der Download liefert für beide die Bytes des
+      zweiten Anhangs, und ein Cleanup (`Delete` nach DB-Fehler) löscht das Objekt der
+      anderen Zeile mit. Der rohe Dateiname geht zudem ungeprüft in den Key (`../`, `/`).
+    sources:
+      - backend/internal/email/attachment/store.go
+      - backend/internal/email/attachment/service.go
+      - backend/internal/server/email_grpc.go
+      - backend/internal/email/attachment/store_test.go
+    notes: >
+      Schlankster Fix an der gemeinsamen Stelle (`Store.Upload`): eine eindeutige Komponente in
+      den Key (die Attachment-UUID, dafür `ID` vor dem Upload vergeben, oder ein Zähler) und den
+      Dateinamen auf `path.Base` begrenzen. Bestehende Keys bleiben gültig, weil Download und
+      Presign den gespeicherten `minio_key` lesen, nie neu berechnen. Kein Datenmigrations-Bedarf.
+      `TestStore_UploadSameFilenameOfDifferentMessagesDoesNotCollide` zeigt das Muster für den
+      neuen Fall (gleiche UID, gleicher Name).
+    done_when:
+      - "Test: zwei Uploads mit gleichem Konto, UID und Dateiname liefern verschiedene Keys, beide Objekte lesbar"
+      - "Test: Dateiname mit `../` oder `/` verlässt das Präfix nicht"
+      - "Mutations-Probe, desktop-aufrufer-Zeile (n.a. erwartet, Key ist intern)"
