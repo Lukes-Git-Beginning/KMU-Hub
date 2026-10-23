@@ -560,6 +560,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
             "$BASE_URL/api/v1/calendar/events/$LIVEKIT_EVENT_ID/join-token" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $SMOKE_TOKEN" \
+            -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
             -d '{"display_name":"Smoke Test"}' 2>/dev/null) || TKN_RESP=$'\n000'
         TKN_CODE=$(echo "$TKN_RESP" | tail -1)
         TKN_BODY=$(echo "$TKN_RESP" | sed '$d')
@@ -581,9 +582,11 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
             fail "LiveKit join-token returned unexpected $TKN_CODE" "$TKN_BODY"
         fi
 
-        # Cleanup throwaway event regardless of token result
+        # Cleanup throwaway event regardless of token result. Prod runs
+        # IDEMPOTENCY_MODE=hard: a mutation without Idempotency-Key is a 400.
         curl -s -o /dev/null -X DELETE "$BASE_URL/api/v1/calendar/events/$LIVEKIT_EVENT_ID" \
-            -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || true
+            -H "Authorization: Bearer $SMOKE_TOKEN" \
+            -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" 2>/dev/null || true
     else
         pass "LiveKit probe skipped (no usable calendar or event creation failed — check work service)"
     fi
