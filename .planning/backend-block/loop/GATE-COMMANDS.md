@@ -204,9 +204,34 @@ cd backend && make proto-<target>
 protoc 33.4 und die Makefile-Targets sind verifiziert. `.proto`-Aenderung und regenerierte `.pb.go` gehoeren
 in **denselben** Commit.
 
+## E2E (seit Lauf 15)
+
+Die Flows in `backend/test/e2e/` tragen `//go:build e2e` und laufen nur gegen einen
+gestarteten Stack (Gateway + Services + Postgres/Redis/MinIO). Den gibt es lokal nicht —
+**ausfuehren** kann sie nur der CI-Job "E2E Tests". Das lokale Gate einer E2E-Unit ist:
+
+```bash
+cd backend
+go vet -tags=e2e ./test/e2e/
+```
+
+`go vet` kompiliert die Tests mit dem Tag und prueft sie; ein Tippfehler in einem Helper oder
+ein falscher Typ faellt damit lokal auf. Ob der Flow gegen den echten Stack gruen ist, zeigt
+erst die CI. Deshalb steht in `offen:` jeder E2E-Iteration **"E2E erst in CI abgenommen"**.
+
+Was der CI-E2E-Job startet (`.github/workflows/ci.yml`, Job `e2e`): Postgres, Redis, MinIO,
+auth, crm, chat, work (inkl. Kalender), document, dialer, biz, notification (inkl. Inbox),
+gateway. Braucht ein Flow einen weiteren Service, ist das eine Unit fuer BACKLOG-NEXT.yml —
+`.github/` ist fuer den Loop gesperrt.
+
+Helfer in `test/e2e/helpers_test.go`: `registerAndLogin`, `registerAndLoginAdmin`,
+`promoteToAdmin` (danach neu einloggen — Rechte stehen im JWT), `postJSON`/`getJSON`/
+`putJSON`/`deleteJSON`, `requireStatus`, `decodeBody`. Wiederverwenden, nicht nachbauen.
+
 ## Nicht im Loop-Gate
 
-- **e2e / Full-Stack-Bringup** — braucht alle 24 Services; zu schwer fuer eine Iteration.
+- **e2e ausfuehren / Full-Stack-Bringup** — braucht den ganzen Stack; zu schwer fuer eine
+  Iteration. Kompilieren und pruefen ja (`go vet -tags=e2e`, siehe oben), laufen lassen nein.
 - **CI** — laeuft am Draft-PR nach dem Push, nicht lokal.
 - **Prod-Smoke** — gehoert Luke.
 - **Der Race-Detector** — `go test -race` verlangt cgo und damit einen C-Compiler. Auf dieser

@@ -1,4 +1,4 @@
-# Backend-Nachtloop — Arbeitsqueue (Lauf 15, noch nicht gestaged)
+# Backend-Nachtloop — Arbeitsqueue (Lauf 15, gestaged 2026-10-23)
 #
 # Eine Unit = eine Iteration = ein Commit.
 #
@@ -34,10 +34,933 @@
 # lässt den Vorflug des nächsten Laufs abbrechen, bevor die erste Iteration startet (Regel 11).
 #
 # ==========================================================================================
-# STAND 2026-10-23: LEER. Lauf 14 hat die Queue vollständig abgearbeitet. Was als Nächstes
-# ansteht, liegt in BACKLOG-NEXT.yml (Block "NACHBEARBEITUNG LAUF 14" am Dateiende: zwei
-# baubare `todo`-Units, sonst Entscheidungen von Luke). Vor Lauf 15 Units von dort hierher
-# verschieben und den Laufkontext in JOURNAL.md neu schreiben.
+# STAND DER VORBEREITUNG (2026-10-23, gegen Code, CI und Produktion gemessen)
+#
+#   - `main` = `backend-loop` = `ea5a39a9` (Kalender-Akteur-Fix), Produktion auf demselben
+#     Code. Lauf 14 ist gemergt (`cadf4bf4`) und deployt.
+#   - MIGRATIONSKOPF = 332 (Repo, lokale DB, Produktion, `dirty = f`). IMMER zur Laufzeit
+#     ermitteln: ls backend/migrations | grep -E "^[0-9]{6}" | sort | tail -1
+#   - CI grün auf `ea5a39a9` (Run 39957283803, alle fünf Jobs inkl. E2E).
+#   - Das DB-Gate ist im Treiber erzwungen (Port, `kmuhub_app`, Migrationskopf).
+#   - `go test -race` läuft hier nicht (kein C-Compiler). Tests mit Goroutinen oder
+#     nebenläufigem Zustand in `offen:` vermerken, abgenommen erst in CI.
+#
+# COVERAGE-AUSGANGSLAGE (CI-Run 39957283803 auf `ea5a39a9`, gesamt 72,6 % bei Gate 15 %;
+# Lauf 14 hat 71,6 -> 72,6 gehoben). Bezugswerte der Pakete, die dieser Lauf anfasst:
+#     internal/gateway            73,6 %      internal/server             74,8 %
+#     internal/security/gdpr      76,1 %      internal/document/virtual   81,7 %
+#     internal/inbox/team         66,5 %      internal/biz/gobdarchive    90,1 %
+#     internal/biz/invoice        61,3 %      internal/biz/quote          49,6 %
+#     internal/biz/creditnote     49,5 %      internal/biz/dunning        92,2 %
+#     internal/produktion         79,0 %      internal/work/project       78,2 %
+#     internal/email/attachment   22,1 %      internal/inbox/adapter      23,9 %
+#     internal/document/share     33,3 %
+# biz/quote und biz/creditnote liegen nur scheinbar unter der 60-%-Linie kritischer Pfade:
+# ihre Integrationstests tragen `//go:build integration` und zählen nicht (Entscheidung zur
+# Teststrategie offen in BACKLOG-NEXT.yml). Nicht nachbauen, was dort schon existiert.
+#
+# ------------------------------------------------------------------------------------------
+# DER ROTE FADEN DIESES LAUFS
+#
+# "FUNKTIONIERT ES FÜR EINEN ECHTEN NUTZER?" — TOTALAUSFÄLLE STATT HÄRTUNG.
+#
+# 14 Läufe haben das Backend weit über den Bedarf ohne Nutzer hinaus gehärtet. Was die
+# Nachbearbeitung von Lauf 14 fand, war keine Härtungslücke, sondern FUNKTIONEN, DIE FÜR
+# JEDEN SCHEITERN: `calendar_grpc.go` reichte an acht Stellen `uuid.Nil` als Akteur durch
+# ("Gateway handles auth") — Kalender ändern/löschen, Mitglieder, Termin löschen,
+# Erinnerungen, Kategorie löschen gaben JEDEM Nutzer 403 (behoben `ea5a39a9`). Und
+# `GET /inbox/rules` lieferte eine Form, an der der Regel-Editor mit TypeError abstürzte
+# (`3c13fd66`). Genau diese Klasse trifft der erste Pilotkunde in der ersten Stunde.
+#
+#   BLOCK A (9) — BEKANNTE TOTALAUSFÄLLE UND ENTSCHIEDENE FIXES. A1 ist ein heute
+#     verifizierter Totalausfall (virtuelle Dateiansicht ist für jeden leer), A2-A4, A6, A9
+#     sind in der Entscheidungsrunde 2026-10-23 entschieden, A5/A7/A8 bei der Vorbereitung.
+#     Einzige opus-Unit ist A6, bewusst nicht an Position 1.
+#
+#   BLOCK D (8) — SCANS. Stehen VOR den E2E-Units, weil sie neue Totalausfälle finden und
+#     ihre Funde nach der Regel unten ohnehin an den Kopf wandern. Kommt der Lauf nicht weit,
+#     sind die Scans wertvoller als die Regressionstests.
+#
+#   BLOCK B (4) — E2E AUF DEM VORHANDENEN CI-STACK (auth, crm, chat, work, document, dialer,
+#     gateway). Die Flows laufen als echter Nutzer über den Gateway, dieselbe Klasse wie der
+#     Kalender-Bug, nur dauerhaft. Heute gibt es 13 E2E-Flows, keinen für den Kalender.
+#
+#   BLOCK C (2) — E2E AUF DEM ERWEITERTEN STACK. Der E2E-Job in `.github/workflows/ci.yml`
+#     startet seit dem Staging-Commit auf `backend-loop` zusätzlich `biz` (Health :9098) und
+#     `notification` (Health :9094). Abgenommen wird das im Morgen-PR.
+#
+#   BLOCK E (3) — COVERAGE-FÜLLUNG. Die drei schwächsten Pakete mit echtem Datenpfad. Nur,
+#     wenn alles davor durch ist.
+#
+#   ZUSAMMENSETZUNG: 26 Units — fix 5, chore 2, wire 1, feat 1, scan 8, e2e 6, cov 3;
+#     25 sonnet, 1 opus. Die Scans legen zur Laufzeit nach; mit OPEN=0 ist nicht zu rechnen.
+#
+# ------------------------------------------------------------------------------------------
+# REGELN, DIE IN DIESEM LAUF NEU SIND (auch in ITERATION.md verankert)
+#
+#   1. KEIN "NUR DOKUMENTIERT" FÜR TOTALAUSFÄLLE. Findest du einen Pfad, der für jeden echten
+#      Nutzer scheitert (403/500/leere Liste/Absturz im FE für alle, nicht nur im Randfall),
+#      legst du im selben Commit eine Fix-Unit VOR die erste `todo`-Unit an. Ein Test darf
+#      so einen Fehler NIE mit Workaround-Daten grün machen (`OwnerID: uuid.Nil`, Admin-Bypass
+#      im Test, Mock, der die richtige Form liefert). Anlass: ein früherer Lauf hat den
+#      Kalender-403 gefunden, als `FUND (nicht Teil dieser Unit, nur dokumentiert)` in einen
+#      Testkommentar geschrieben und die Happy Paths mit `uuid.Nil`-Ownern grün gemacht.
+#   2. DESKTOP-AUFRUFER GREPPEN. Jede Validierungs- oder Antwortform-Änderung am Gateway
+#      greppt `desktop/src/renderer/src/api/` (Clients UND Hooks) und schreibt das Ergebnis in
+#      die Pflichtzeile `desktop-aufrufer:` im Journal. Der Loop hat bisher nur gegen
+#      Backend-Aufrufer geprüft, nie gegen das FE (Wiki-Marker `public`, `GET /inbox/rules`).
+#      MSW-Mocks sind KEIN Beleg — sie zeigen, was das FE erwartet, nicht was das Backend
+#      liefert.
+#   3. E2E-GATE. `go test -tags=e2e` braucht den vollen Stack und läuft lokal NICHT. Lokales
+#      Gate einer E2E-Unit: `go vet -tags=e2e ./test/e2e/` (kompiliert und prüft die Tests)
+#      plus die Unit-/DB-Tests der Fixes, an denen der Flow hängt. In `offen:` steht immer
+#      "E2E erst in CI abgenommen". Details: GATE-COMMANDS.md, Abschnitt "E2E".
+#
+# SPERREN (unverändert)
+#
+#   - Kein Push, kein PR, kein Produktionszugriff (Guard). Keine neue `config.RequireX`.
+#   - `deploy/` ist gesperrt — EINZIGE Ausnahme in diesem Lauf: die eine Compose-Zeile von
+#     `chore-dialer-stale-contact-default-240`.
+#   - `.github/` ist gesperrt. Die E2E-Erweiterung um biz/notification ist beim Staging
+#     gebaut, nicht vom Loop. Braucht ein E2E-Flow einen weiteren Service, wird das eine
+#     Unit in BACKLOG-NEXT.yml, kein CI-Edit.
+#   - Desktop-Code (`desktop/`) ist tabu — lesen ja, ändern nein. FE-Funde gehen als Unit
+#     nach BACKLOG-NEXT.yml (Muster `fe-handle-run14-behaviour-changes`).
+#   - CSAT, Customization Draft/Deploy-Overlay, `internal/biz/bexio` (G3), WASM: gesperrt.
+#   - Neue Tabelle: `tenant_id NOT NULL` + RLS + tenant-gescopte INSERTs UND SELECTs; jeder
+#     neue `RequirePermission`-Guard braucht seine Seed-Migration. Guards nur additiv
+#     erweitern (`RequirePermissionAny`), nie ersetzen.
 # ==========================================================================================
 
-units: []
+units:
+  # ========================================================================================
+  # BLOCK A — BEKANNTE TOTALAUSFÄLLE UND ENTSCHIEDENE FIXES
+  # ========================================================================================
+
+  - id: fix-document-virtual-files-nil-user
+    phase: 4
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 74,8 % · internal/document/virtual 81,7 %"
+    scope: >
+      VERIFIZIERTER TOTALAUSFALL (Vorbereitung 2026-10-23). `DocumentGRPCServer.ListVirtualFiles`
+      (`internal/server/document_grpc.go:1352-1375`) ruft
+      `s.virtualService.ListVirtualFiles(ctx, uuid.Nil, sourceType, limit, offset)` mit dem
+      Kommentar "Use Nil for userID since gateway handles auth context". Die Repository-
+      Abfragen filtern aber auf den Nutzer (`internal/document/virtual/postgres_repository.go:162ff`,
+      `ListChatFiles` mit `INNER JOIN channel_memberships cm ... AND cm.user_id = $1`, analog
+      `ListEmailAttachments` und `ListTaskFiles`). Mit `uuid.Nil` trifft der Join nie: die
+      virtuelle Dateiansicht (Chat-Dateien, Mail-Anhänge, Task-Dateien) ist für JEDEN Nutzer
+      leer. Erreichbar über `GET /api/v1/documents/virtual` (`internal/gateway/route_document.go:181`,
+      Handler Z. 1515), Permission `documents:read`.
+      Fix wie `ea5a39a9`: den Aufrufer mit `callerID(ctx)` auflösen (Helper existiert im
+      Paket `internal/server`, siehe calendar_grpc.go), den Kommentar entfernen. Fehlt der
+      Aufrufer im Kontext, `codes.Unauthenticated` statt einer leeren Liste.
+      Danach die Antwortform gegen den Desktop prüfen: `desktop/src/renderer/src/api/clients/document-client.ts`
+      und `api/hooks/useDocuments.ts` (Typ in `api/types.ts`) — erwartet das FE `files`/`total`
+      so, wie `ListVirtualFilesResponse` serialisiert wird? Weicht es ab, Fix am Gateway im
+      selben Commit.
+    sources:
+      - backend/internal/server/document_grpc.go
+      - backend/internal/document/virtual/service.go
+      - backend/internal/document/virtual/postgres_repository.go
+      - backend/internal/document/virtual/postgres_repository_test.go
+      - backend/internal/gateway/route_document.go
+      - backend/internal/server/calendar_grpc.go
+      - desktop/src/renderer/src/api/clients/document-client.ts
+      - desktop/src/renderer/src/api/hooks/useDocuments.ts
+    notes: >
+      Die Repository-Tests (`postgres_repository_test.go`) rufen `ListAll` mit einem echten
+      Nutzer und sind deshalb grün — der Fehler sitzt eine Schicht höher. Der neue Test gehört
+      an den gRPC-Server (internal/server), mit echtem Aufrufer im Kontext.
+    done_when:
+      - "DB-Test als kmuhub_app: Kanal-Mitglied ruft ListVirtualFiles und sieht die Chat-Datei seines Kanals"
+      - "DB-Test: ein Nutzer, der nicht Mitglied des Kanals ist, sieht sie nicht"
+      - "Kein Aufrufer im Kontext ergibt Unauthenticated, keine leere Liste"
+      - "Mutations-Probe: uuid.Nil zurück, der erste Test wird rot"
+      - "desktop-aufrufer: document-client.ts und useDocuments.ts gegen die Antwortform geprüft, Ergebnis im Journal"
+      - "go test -count=1 ./internal/server/ ./internal/document/... grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: fix-team-inbox-manage-permission-bypass
+    phase: 4
+    service: inbox
+    model: sonnet
+    deps: []
+    status: todo
+    target: BACKLOG.yml
+    coverage_start: "internal/inbox/team 66,5 %"
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: wer `kommunikation:team_inbox:manage` hat, darf Mitglieder
+      jeder Team-Inbox des Tenants verwalten, auch ohne Team-Admin zu sein.
+    scope: >
+      Aus Lauf 14 Iterationen 44 und 65: der Team-Admin-Check lässt einen Tenant-Admin mit der
+      Manage-Permission nicht durch. Permission-Bypass im Service ergänzen (Permission kommt
+      über den gRPC-Kontext, Muster der übrigen Permission-Checks im Service übernehmen).
+      Tenant-Grenze bleibt: kein Zugriff auf Team-Inboxen fremder Tenants.
+      Stand 2026-10-23: `ErrNotTeamAdmin` wird in `internal/inbox/team/service.go:74`, `:87`
+      und `:215` zurückgegeben, ohne Permission-Ausnahme. Der Gateway lässt die Permission
+      schon durch (`route_inbox.go:77`, `RequirePermissionAny(inbox:write,
+      kommunikation:team_inbox:manage)`), der Service lehnt dann ab.
+    sources:
+      - backend/internal/inbox/team/service.go
+      - backend/internal/inbox/team/errors.go
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/gateway/route_inbox.go
+    done_when:
+      - "Test: Nutzer mit Manage-Permission ohne Team-Admin-Rolle fügt ein Mitglied hinzu"
+      - "Test: Nutzer ohne beides bekommt weiter PermissionDenied"
+      - "Test: Manage-Permission eines fremden Tenants erreicht die Team-Inbox nicht"
+      - "Mutations-Probe: Bypass entfernt, der erste Test wird rot"
+
+  - id: wire-biz-event-emitters-for-finance-triggers
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    decided: 2026-08-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-08-24 (A5): verdrahten. Die dep
+      `fix-event-payload-missing-tenant-id` ist seit Lauf 12 Iteration 2 (`4e1ad006`) erledigt.
+      Die Prod-Prüfung, an der die Unit seit Lauf 12 hing, ist bei der Vorbereitung von
+      Lauf 15 gemacht (2026-10-23, lesender SELECT): `automations` 0 Zeilen,
+      `automation_executions` 0 Zeilen. Mit dem Deploy fängt also kein bestehender Workflow
+      überraschend an zu feuern. NICHT wiederholen — kein Produktionszugriff im Loop.
+      Zur Sorge "Benachrichtigungen ohne Vorwarnung": `notification/service.go:94` iteriert über
+      `payload.TargetUserIDs`, invoice/quote geben dort nichts mit. `biz.invoice.created`
+      (`invoice/service.go:252`) feuert künftig ebenfalls, hat aber keinen Trigger in der
+      Registry und damit keine Außenwirkung.
+    coverage_start: "internal/biz/invoice 61,3 % · internal/biz/quote 49,6 %"
+    scope: >
+      VERIFIZIERT in Lauf 11 (`verify-biz-event-emitters-never-wired`) und erneut 2026-10-23
+      (0 Treffer für `SetEventEmitter` in `cmd/biz/main.go`): das Automations-Modul bietet in
+      der UI zwei Finanz-Trigger an, die niemals feuern. `GET /triggers`
+      (`internal/gateway/route_automation.go:96` -> `TriggerRegistry.All()`,
+      `internal/automation/trigger/registry.go:182-218`) liefert "Rechnung versendet"
+      (`biz.invoice.sent`) und "Angebot erstellt" (`biz.quote.created`). Beide hängen an
+      `EmitBizEvent`, das der Service nur aufruft, wenn `SetEventEmitter` gesetzt wurde
+      (`internal/biz/invoice/service.go:80-107`, analog `internal/biz/quote/service.go`).
+      `cmd/biz/main.go` ruft `SetEventEmitter` für `invoiceSvc` und `quoteSvc` nie auf — der
+      Konstruktor-Default ist `nil`, `emitEvent` damit ein No-op.
+      `biz.invoice.overdue` ist NICHT betroffen (TimeBased, 5-Minuten-Poller,
+      `internal/automation/trigger/due_postgres.go:41`).
+    sources:
+      - backend/cmd/biz/main.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/invoice/event_emitter.go
+      - backend/internal/biz/quote/service.go
+      - backend/internal/biz/quote/event_emitter.go
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/automation/trigger/registry.go
+      - backend/cmd/crm/main.go
+    notes: >
+      Vorlage: `cmd/crm/main.go:88`, `cmd/work/main.go:82`, `cmd/chat/main.go:99` setzen
+      `svc.SetEventEmitter(<pkg>.NewPGEventEmitter(pool))` direkt nach der Konstruktion.
+      Der Lexware-Emitter bleibt auf `noopEmitter{}` — kein Trigger hört auf `lexware.*`, der
+      `lean:`-Marker aus Lauf 11 (`webhook_handler.go:176`) bleibt stehen.
+    done_when:
+      - >-
+        invoiceSvc und quoteSvc erhalten SetEventEmitter(<pkg>.NewPGEventEmitter(pool)) in
+        cmd/biz/main.go, nach dem Muster von cmd/crm/main.go:88
+      - >-
+        Ein Test belegt, dass ein versendetes Invoice ein biz.invoice.sent und ein erzeugtes
+        Quote ein biz.quote.created Event MIT gesetztem tenant_id auf dem Bus erzeugt
+      - >-
+        Der Lexware-Emitter bleibt bewusst auf noopEmitter, der lean:-Marker aus Lauf 11 bleibt
+        stehen
+      - "Mutations-Probe: SetEventEmitter-Zeile für invoiceSvc entfernt, der Event-Test wird rot"
+      - go test -count=1 ./internal/biz/invoice/ ./internal/biz/quote/ ./internal/automation/... grün
+
+  - id: feat-gobd-verify-integrity-on-export
+    phase: 4
+    service: finance
+    model: sonnet
+    deps: []
+    status: todo
+    target: BACKLOG.yml
+    coverage_start: "internal/biz/gobdarchive 90,1 %"
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: `VerifyIntegrity` läuft beim GoBD-Export, kein
+      periodischer Worker, keine eigene Route. Billigster Weg ohne Vollscan im Hintergrund.
+    scope: >
+      Aus Lauf 14 Iteration 14 (8cea8ead): `VerifyIntegrity` hat keinen Aufrufer (Stand
+      2026-10-23: einzige Fundstelle die Definition `internal/biz/gobdarchive/service.go:245`,
+      Signatur `(ctx, tenantID, id, checkedBy uuid.UUID) error`). Beim GoBD-Export vor dem
+      Schreiben des Archivs aufrufen. Bricht die Kette, wird der Export nicht still
+      ausgeliefert: entweder Abbruch mit klarer Fehlermeldung oder ein Prüfvermerk im Export
+      (beim Bau entscheiden, was der bestehende Export-Pfad sauberer trägt; im Journal begründen).
+      Erst Aufrufer des Exports greppen, Fix an der gemeinsamen Funktion. `checkedBy` ist der
+      echte Aufrufer, nicht `uuid.Nil` (Regel 1 im Kopf).
+    sources:
+      - backend/internal/biz/gobdarchive/service.go
+      - backend/internal/server/biz_grpc_gobd_archive.go
+      - backend/internal/gateway/route_biz_gobd_archive.go
+    done_when:
+      - "DB-Test als kmuhub_app: manipulierte Zeile -> Export meldet den Bruch"
+      - "DB-Test: intakte Kette -> Export unverändert"
+      - "Mutations-Probe: Aufruf entfernt, der Bruch-Test wird rot"
+      - "desktop-aufrufer: ändert sich die Antwort des Export-Endpunkts, ist der Desktop-Aufrufer geprüft"
+
+  - id: fix-biz-actor-attribution-uuid-nil
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 74,8 %"
+    scope: >
+      VERIFIZIERT bei der Vorbereitung (2026-10-23), Klasse (b) "nur Attribution fehlt, wird
+      aber persistiert". `internal/server/biz_grpc.go` übergibt an sieben Stellen `uuid.Nil` als
+      Akteur, fünfmal mit dem Kommentar "Proto doesn't include user_id; use uuid.Nil (gateway
+      handles auth)": Z. 437 `quoteService.Send`, 521 `invoiceService.CreateFromQuote`, 725
+      `invoiceService.Send`, 762 `invoiceService.Cancel`, 871 `creditNoteService.Send`, 1053
+      `dunningService.Send`, 2527 `dunningService.SendDunningNotice`.
+      Nichts davon blockiert (die Spalten sind NOT NULL ohne FK, `invoice/service.go:327`),
+      aber der Nullwert LANDET IN DER DB: `CreateFromQuote` setzt `UserID: userID`
+      (`invoice/service.go:848`) -> `created_by` der Rechnung; `Cancel` reicht ihn an
+      `creditNoteService.StornoInvoice` (`creditnote/service.go:243`, `UserID: userID`) ->
+      `created_by` der Storno-Gutschrift; die Mahnung protokolliert `sent_by`
+      (`dunning/service.go`, `sendAndNotify`). Bei GoBD-relevanten Belegen ist "wer hat
+      storniert/versendet" Teil der Nachvollziehbarkeit.
+      Fix wie `ea5a39a9`: `callerID(ctx)` statt `uuid.Nil`, Kommentare entfernen. Das Proto
+      braucht dafür KEIN `user_id`-Feld — der Aufrufer kommt aus den gRPC-Metadaten.
+    sources:
+      - backend/internal/server/biz_grpc.go
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/creditnote/service.go
+      - backend/internal/biz/dunning/service.go
+      - backend/internal/biz/dunning/service_gobd.go
+      - backend/internal/biz/quote/service.go
+    notes: >
+      Je Stelle prüfen, wohin der Akteur geht (Spalte, Audit-Event, Log) und das im Journal
+      tabellieren. Bestehende Tests, die mit `uuid.Nil` als Akteur grün sind, auf einen echten
+      Aufrufer umstellen (Regel 1 im Kopf), nicht den Fix an sie anpassen.
+    done_when:
+      - "DB-Test: Rechnung stornieren als Nutzer X -> Storno-Gutschrift trägt created_by = X"
+      - "DB-Test: Rechnung aus Angebot als Nutzer X -> Rechnung trägt created_by = X"
+      - "Test: Mahnung senden als Nutzer X -> sent_by = X"
+      - "Mutations-Probe: uuid.Nil an der Cancel-Stelle zurück, der Storno-Test wird rot"
+      - "go test -count=1 ./internal/server/ ./internal/biz/... grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: fix-dsar-third-party-matching
+    phase: 4
+    service: security
+    model: opus
+    deps: []
+    status: todo
+    target: BACKLOG.yml
+    coverage_start: "internal/security/gdpr 76,1 %"
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: die eindeutigen Drittdaten-Fälle bauen, der Rest ist
+      dokumentiertes Restrisiko (siehe Blockkopf "NACHBEARBEITUNG LAUF 14" in BACKLOG-NEXT.yml).
+    scope: >
+      Befunde Post-Run-Review C. (1) Gast-Chat ohne E-Mail nicht über den kleingeschriebenen
+      Anzeigenamen gruppieren (`dsar_search_visitors.go`, 0dabab9e; Stand 2026-10-23
+      `guestVisitorKey` Z. 133 mit `'name:' || lower(gs.display_name)`): jede Gast-Session ohne
+      E-Mail ist ein eigenes Subjekt, sonst landen alle "max" eines Tenants beim selben.
+      (2) Kein Abgleich über `c.company` bei Eingangsrechnungen und Bankumsätzen
+      (`dsar_search_finance.go`, Z. 38) und kein Abgleich über freien `driver_name` im
+      Fahrtenbuch (`dsar_search_fuhrpark.go`, Z. 45), nur noch über die eindeutige Verknüpfung
+      (contact_id / user_id).
+    sources:
+      - backend/internal/security/gdpr/dsar_search_visitors.go
+      - backend/internal/security/gdpr/dsar_search_finance.go
+      - backend/internal/security/gdpr/dsar_search_fuhrpark.go
+    done_when:
+      - "DB-Test: zwei Gäste 'Max' ohne E-Mail ergeben zwei Subjekte"
+      - "DB-Test: Rechnung einer gleichnamigen Firma taucht beim Kontakt nicht auf"
+      - "DB-Test: Fahrt mit gleichem freien driver_name taucht ohne user_id-Verknüpfung nicht auf"
+      - "Mutations-Probe je Punkt"
+
+  - id: fix-produktion-capacity-week-bounds-europe-berlin
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/produktion 79,0 %"
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: Variante (b) — feste Zone Europe/Berlin mit
+      `lean:`-Marker (wie `schichten.jarbschgLocation`). Keine Kopplung an
+      `hr_company_settings` (Modul-Entkopplung), keine eigene Einstellung (keine Migration).
+      Upgrade-Trigger: der erste Mandant außerhalb von Europe/Berlin.
+    scope: >
+      Rest aus `fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone`
+      (vorher `decide-produktion-capacity-week-bounds-tenant-timezone` in BACKLOG-NEXT.yml).
+      `isoWeekBounds` (`produktion/postgres_repository.go:508`) rechnet Wochengrenzen in
+      `time.UTC`; die Maschinenbuchungen (`timestamptz`) in `GetCapacityOverview` werden gegen
+      UTC-Wochen summiert, eine Buchung Montag 00:30 Ortszeit fällt in die Vorwoche. Im
+      HR-Teil ist das behoben (Zeitzone aus `hr_company_settings.timezone`,
+      `biz/hr/timetracking/service_timezone.go`).
+    sources:
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/schichten/service.go
+      - backend/internal/biz/hr/timetracking/service_timezone.go
+    notes: >
+      Die Location einmal laden (`time.LoadLocation("Europe/Berlin")` oder das Muster von
+      `schichten.jarbschgLocation` wiederverwenden), nicht je Aufruf. Der `lean:`-Marker nennt
+      den Upgrade-Trigger wörtlich.
+    done_when:
+      - "Buchung Montag 00:30 Ortszeit zählt zur Woche, die am Montag beginnt (DB-Test)"
+      - "lean:-Marker mit Upgrade-Trigger 'erster Mandant außerhalb Europe/Berlin' steht an isoWeekBounds"
+      - "Mutations-Probe: Zone wieder UTC, der Grenzfall-Test wird rot"
+
+  - id: chore-work-project-actor-and-admin-bypass-lean
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 74,8 % · internal/work/project 78,2 %"
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: Projekte bleiben offen — jeder mit Projektrechten sieht,
+      ändert und verwaltet alle Projekte des Tenants. `isAdmin=true` bleibt. Durchgereicht wird
+      nur der echte Akteur, damit er dort ankommt, wo er persistiert oder protokolliert wird.
+      Die Mitgliedschaftsprüfung im Service bleibt ungenutzt und wird mit `lean:`-Marker
+      markiert. Upgrade-Trigger: der erste Kunde, der Projekte nach Mitgliedschaft trennen will.
+    scope: >
+      VERIFIZIERT bei der Vorbereitung (2026-10-23). `internal/server/work_grpc.go` übergibt
+      an 16 Stellen `uuid.Nil` als Nutzer/Akteur UND `isAdmin=true` an `project.Service`
+      (Z. 110, 126, 161, 182, 186, 207, 234, 239, 271, 289, 320, 324, 2057, 2089, 2093; Grep
+      `\(ctx, [^)]*uuid\.Nil`). Wegen `isAdmin=true` überspringt der Service die
+      Mitgliedschaftsprüfung (`project/service.go:114-131` `if !isAdmin { IsMember… }`), es
+      blockiert also nichts. Fehlen tut der Akteur: `AddMember`, `RemoveMember`,
+      `UpdateMemberRole` nehmen `actorID` (`service.go:255`, `:297`, `:344`).
+      Dasselbe Muster ohne `uuid.Nil` bei den Kalender-Ressourcen:
+      `internal/server/calendar_grpc.go:901` (`IsAdmin: true, // Gateway handles auth`),
+      `:1022`, `:1043` (`isAdmin=true, gateway handles auth`).
+      Zu bauen: `callerID(ctx)` an allen 16 work-Stellen als userID/actorID; `isAdmin=true`
+      bleibt, je Aufrufgruppe ein `lean:`-Marker mit dem Upgrade-Trigger aus `decision`; bei den
+      drei Kalender-Ressourcen-Stellen dieselbe Markierung, Kommentar "Gateway handles auth"
+      ersetzen.
+    sources:
+      - backend/internal/server/work_grpc.go
+      - backend/internal/work/project/service.go
+      - backend/internal/work/project/postgres_repository.go
+      - backend/internal/server/calendar_grpc.go
+    notes: >
+      Erst ermitteln, wohin `actorID` geht (Spalte `added_by`, Aktivitätslog, Audit-Event,
+      nur Log) und das im Journal tabellieren. Wird er nirgends persistiert, ist der Beitrag
+      dieser Unit der lean:-Marker plus der Test, der das offene Verhalten festschreibt —
+      dann im Journal so benennen, nicht aufblasen.
+    done_when:
+      - "Test: AddMember als Nutzer X -> der Akteur X kommt dort an, wo er persistiert/protokolliert wird (oder Journal belegt, dass er nirgends ankommt)"
+      - "Test: ein Nicht-Mitglied mit Projektrechten sieht das Projekt weiterhin (offenes Verhalten festgeschrieben)"
+      - "Kein uuid.Nil-Akteur mehr in work_grpc.go (Grep im Journal)"
+      - "lean:-Marker mit Upgrade-Trigger an den isAdmin=true-Stellen in work_grpc.go und calendar_grpc.go"
+      - "go test -count=1 ./internal/server/ ./internal/work/... grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: chore-dialer-stale-contact-default-240
+    phase: 4
+    service: deploy
+    model: sonnet
+    deps: []
+    status: todo
+    target: BACKLOG.yml
+    coverage_start: "n.a."
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: Reaper an, 240 Minuten.
+    scope: >
+      Compose-Default `DIALER_STALE_CONTACT_MINUTES: ${DIALER_STALE_CONTACT_MINUTES:-0}`
+      (`deploy/docker/docker-compose.yml:544`) auf `:-240` setzen, damit es ohne Schreibzugriff
+      auf `.env.production` greift. Freigegebene Ausnahme von der `deploy/`-Sperre, nur diese
+      eine Zeile. Deploy-only-Commit triggert kein CI/CD — beim Merge zusammen mit
+      Code-Commits ausrollen oder `gh workflow run CD`.
+    sources:
+      - deploy/docker/docker-compose.yml
+    done_when:
+      - "Compose-Zeile auf :-240, `docker compose config` zeigt 240"
+      - "git diff zeigt unter deploy/ genau diese eine Zeile"
+
+  # ========================================================================================
+  # BLOCK D — SCANS
+  #
+  # Gemeinsam für alle acht: Lese- und Klassifikationsarbeit, KEIN Fix in der Scan-Iteration
+  # (Ausnahme: ein Ein-Zeilen-Fix, den die Unit ausdrücklich erlaubt). Jeder Fund wird eine
+  # vollständige Unit (scope, sources, notes, done_when, status: todo):
+  #   - Totalausfall (scheitert für jeden echten Nutzer, auch im FE) -> VOR die erste
+  #     `todo`-Unit der Datei (Regel 1 im Kopf).
+  #   - Teilfehler/Randfall -> ans Dateiende.
+  #   - Reines FE-Thema oder Entscheidung -> BACKLOG-NEXT.yml mit `blocked_reason`.
+  # Das Ergebnis jedes Scans ist eine Tabelle im Journal (Stelle, Befund, Klasse, Unit-ID).
+  # "Keine Funde" ist ein vollwertiges Ergebnis — mit der Liste, was geprüft wurde.
+  #
+  # Die fünf Shape-Scans prüfen je Domäne JEDE Methode der Desktop-Clients
+  # (`desktop/src/renderer/src/api/<domäne>-client.ts`, Typen in `<domäne>-types.ts`) UND
+  # jeden Hook der Domäne in `api/hooks/`, der den Gateway direkt aufruft. Für jede Methode:
+  # Route -> Gateway-Handler -> was wird WIRKLICH geschrieben (`response.Proto(w, …, resp)`
+  # mit Wrapper-Message, `response.ProtoList`, `resp.GetX()`, handgebauter Struct; leere
+  # Liste `[]` oder `null`; snake_case; verschachteltes Proto-JSON gegen flachen FE-Typ). Das
+  # Muster des Fehlers ist `3c13fd66` (GET /inbox/rules). MSW-Mocks (`desktop/src/renderer/src/mocks/`)
+  # sind KEIN Beleg. Der Fix sitzt am Gateway (Backend-Territorium); bricht die Abweichung die
+  # UI für jeden, ist das ein Totalausfall.
+  # ========================================================================================
+
+  - id: scan-grpc-hardcoded-actor-and-admin-remaining
+    phase: 4
+    service: server
+    model: sonnet
+    deps: [fix-document-virtual-files-nil-user, fix-biz-actor-attribution-uuid-nil, chore-work-project-actor-and-admin-bypass-lean]
+    status: todo
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      Rest des `uuid.Nil`-Akteur-Musters, NACH den drei Fix-Units aus Block A. Der Grep der
+      Vorbereitung (`grep -rnE "\(ctx, [^)]*uuid\.Nil" backend/internal/server/*_grpc.go`)
+      fängt nur Positionsargumente. Hier zusätzlich: `uuid.Nil` in Struct-Literalen und
+      Zuweisungen (`OwnerID: uuid.Nil`, `ActorID:`, `CreatedBy:`, `UserID:`), hart verdrahtete
+      `isAdmin`/`IsAdmin: true`, Kommentare "gateway handles auth" / "handled by gateway", und
+      dasselbe außerhalb von `internal/server` (Consumer, Worker, Webhook-Handler, die im
+      Namen eines Nutzers handeln). Je Stelle klassifizieren:
+      (a) blockiert jeden (Owner-/Creator-Vergleich, Mitgliedschafts-Join) -> Fix-Unit am Kopf,
+      (b) nur Attribution, wird persistiert -> Fix-Unit am Ende,
+      (c) bewusst (System-Akteur, Import, Hintergrundjob) -> `lean:`-Marker fehlt? Dann Unit am Ende.
+    sources:
+      - backend/internal/server/
+      - backend/internal/server/calendar_grpc.go
+    notes: >
+      `ea5a39a9` ist das Vorbild für (a). System-Akteure mit `uuid.Nil` (z. B.
+      `invoice/service.go:327`, "system/sync import") sind (c), nicht (a).
+    done_when:
+      - "Tabelle im Journal: jede gefundene Stelle mit Datei:Zeile, Klasse a/b/c und Unit-ID oder Begründung"
+      - "Jeder Fund der Klasse (a) steht als Fix-Unit vor der ersten todo-Unit"
+      - "Die verwendeten Grep-Muster stehen im Journal, damit der Scan reproduzierbar ist"
+
+  - id: scan-fe-gateway-shape-crm-kommunikation
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für die Domänen CRM und Kommunikation:
+      `crm-import-client.ts`/`crm-types.ts`, `inbox-client.ts`/`inbox-types.ts`,
+      `email-client.ts`/`email-types.ts`, `calendar-client.ts`/`calendar-types.ts`,
+      `caldav-client.ts`, `booking-client.ts`, `notification-client.ts`, `video-client.ts`/
+      `video-types.ts`, dazu die Hooks dieser Domänen in `api/hooks/`.
+      `GET /inbox/rules` ist seit `3c13fd66` korrigiert — als Kontrollfall mitprüfen, er muss
+      jetzt passen.
+    sources:
+      - desktop/src/renderer/src/api/
+      - desktop/src/renderer/src/api/hooks/
+      - backend/internal/gateway/route_inbox.go
+      - backend/internal/gateway/route_calendar.go
+      - backend/internal/gateway/route_crm.go
+      - backend/internal/server/response/
+    done_when:
+      - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
+      - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
+      - "Abweichungen ohne UI-Bruch (z. B. ungenutztes Feld) stehen gesammelt in einer Unit am Ende oder sind begründet verworfen"
+
+  - id: scan-fe-gateway-shape-geld-waren
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für Geld und Warenwirtschaft:
+      `finance-client.ts` (+ `finance-status.ts`), `datev-upload-client.ts`/`-types.ts`,
+      `lexware-client.ts`/`-types.ts`, `einkauf-client.ts`/`-types.ts`,
+      `inventar-client.ts`/`-types.ts`, `vertraege-client.ts`/`-types.ts`/`vertraege-normalizer.ts`,
+      dazu die Hooks dieser Domänen. `bexio-client.ts` nur lesen und notieren — `internal/biz/bexio`
+      ist G3-gesperrt, Funde gehen nach BACKLOG-NEXT.yml.
+      Normalizer/Adapter im FE (`vertraege-normalizer.ts`) zeigen, wo das FE eine Abweichung
+      schon abfängt — das ist ein Hinweis auf eine frühere Abweichung, kein Beleg, dass sie weg ist.
+    sources:
+      - desktop/src/renderer/src/api/
+      - desktop/src/renderer/src/api/hooks/
+      - backend/internal/gateway/route_biz.go
+      - backend/internal/gateway/route_einkauf.go
+      - backend/internal/gateway/route_inventar.go
+      - backend/internal/gateway/route_vertraege.go
+    done_when:
+      - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
+      - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
+      - "Abweichungen ohne UI-Bruch stehen gesammelt in einer Unit am Ende oder sind begründet verworfen"
+
+  - id: scan-fe-gateway-shape-branchen
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für die Branchenmodule und HR:
+      `hr-client.ts`/`hr-types.ts`/`hr-change-requests.ts`, `schichten-client.ts`/`-types.ts`,
+      `produktion-client.ts`/`-types.ts`, `rapporte-client.ts`/`-types.ts`/`rapporte-adapter.ts`,
+      `fuhrpark-client.ts`/`-types.ts`, `vermietung-client.ts`/`-types.ts`, dazu die Hooks
+      dieser Domänen.
+    sources:
+      - desktop/src/renderer/src/api/
+      - desktop/src/renderer/src/api/hooks/
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/gateway/route_schichten.go
+      - backend/internal/gateway/route_produktion.go
+      - backend/internal/gateway/route_rapporte.go
+      - backend/internal/gateway/route_fuhrpark.go
+    done_when:
+      - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
+      - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
+      - "Abweichungen ohne UI-Bruch stehen gesammelt in einer Unit am Ende oder sind begründet verworfen"
+
+  - id: scan-fe-gateway-shape-inhalte-automation
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für Inhalte und Automatisierung:
+      `wiki-client.ts`/`wiki-adapter.ts`, `formulare-client.ts`/`-types.ts`,
+      `berichte-client.ts`/`-types.ts`, `helpdesk-client.ts`/`-types.ts`/`helpdesk-adapters.ts`,
+      `automation-client.ts`/`-types.ts`, `integration-client.ts`/`-types.ts`,
+      `plugin-client.ts`/`-types.ts`, `clients/document-client.ts`, dazu die Hooks dieser
+      Domänen. Der Wiki-Marker `public` (Lauf 14) war hier — als Kontrollfall mitprüfen.
+    sources:
+      - desktop/src/renderer/src/api/
+      - desktop/src/renderer/src/api/clients/document-client.ts
+      - desktop/src/renderer/src/api/hooks/
+      - backend/internal/gateway/route_wiki.go
+      - backend/internal/gateway/route_helpdesk.go
+      - backend/internal/gateway/route_automation.go
+      - backend/internal/gateway/route_document.go
+    done_when:
+      - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
+      - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
+      - "Abweichungen ohne UI-Bruch stehen gesammelt in einer Unit am Ende oder sind begründet verworfen"
+
+  - id: scan-fe-gateway-shape-admin-security
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für Administration und Sicherheit:
+      `auth-reset-client.ts`, `rbac-client.ts`/`-types.ts`, `security-client.ts`/`-types.ts`,
+      `vendor-access.ts`/`vendor-access-types.ts`, `admin-types.ts`, `settings-persist.ts`,
+      der generische `client.ts` (Fehler-/Envelope-Behandlung, `idempotency.ts`,
+      `offline-queue.ts`), dazu die Hooks dieser Domänen. `customization-types.ts` nur lesen —
+      Customization Draft/Deploy ist gesperrt, Funde gehen nach BACKLOG-NEXT.yml.
+      Besonders prüfen: wie `client.ts` Fehlerantworten liest (`{error: …}`-Form,
+      Statuscodes 401/403/409/422) gegen das, was `internal/server/response` schreibt — ein
+      Bruch dort trifft jede Domäne.
+    sources:
+      - desktop/src/renderer/src/api/client.ts
+      - desktop/src/renderer/src/api/
+      - desktop/src/renderer/src/api/hooks/
+      - backend/internal/server/response/
+      - backend/internal/gateway/route_auth.go
+      - backend/internal/gateway/route_security.go
+    done_when:
+      - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
+      - "Fehler-Envelope von client.ts gegen internal/server/response geprüft, Ergebnis im Journal"
+      - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
+
+  - id: scan-validation-tightening-vs-desktop-callers
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      Jede seit Lauf 12 verschärfte Eingabevalidierung gegen die Desktop-Aufrufer prüfen.
+      Muster des Fehlers: `40374f53` (Wiki-Validierung lehnte den FE-Marker `public` mit 400
+      ab). Kandidaten finden mit
+      `git log --oneline 18b85a4e..HEAD -G 'InvalidArgument|ErrInvalid|validate|oneof|allowed' -- backend/internal`
+      (`18b85a4e` = Staging von Lauf 12), dazu Commits mit `fix(…): reject`/`validate` im
+      Betreff. Je Verschärfung: welche Werte lehnt sie jetzt ab, welche Werte sendet der
+      Desktop (`desktop/src/renderer/src/api/`, Formulare/Dialoge unter
+      `desktop/src/renderer/src/` per Grep auf das Feld), passt das?
+      Lehnt das Backend einen Wert ab, den das FE im normalen Ablauf sendet, ist das ein
+      Totalausfall des Formulars. Fix am Backend nur, wenn der Wert fachlich gültig ist —
+      ist er es nicht, FE-Unit nach BACKLOG-NEXT.yml.
+    sources:
+      - backend/internal/gateway/
+      - desktop/src/renderer/src/api/
+      - .planning/backend-block/loop/archive/lauf-14/JOURNAL.md
+      - .planning/backend-block/loop/archive/lauf-13/JOURNAL.md
+      - .planning/backend-block/loop/archive/lauf-12/JOURNAL.md
+    done_when:
+      - "Tabelle im Journal: je Verschärfung Commit, Feld, abgelehnte Werte, Desktop-Aufrufer, passt ja/nein"
+      - "Jeder Fall, in dem das FE im Normalablauf einen abgelehnten Wert sendet, steht als Unit (Backend am Kopf oder FE in NEXT)"
+      - "Das Such-Kommando steht im Journal"
+
+  - id: scan-tests-pinning-known-failures
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      Tests, die einen bekannten Fehler festschreiben statt ihn zu melden — die Klasse, die den
+      Kalender-403 monatelang versteckt hat. Suchen in `backend/**/_test.go` nach
+      Testnamen mit `BUG`/`_Bug`/`DoesNot`/`NotRejected`, Kommentaren mit `FUND`,
+      "nicht Teil dieser Unit", "dokumentiert die Lücke", "known bug", "documents the gap",
+      `t.Skip` mit Begründung, die auf einen Fehler verweist, und Happy Paths, die mit
+      `uuid.Nil`-Owner/-Akteur oder Admin-Bypass grün werden. Bekannt (beide schon als
+      decide-Units in BACKLOG-NEXT.yml, nur referenzieren): `schichten/service_test.go`
+      `TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected`,
+      `einkauf/service_extended_test.go` `…_DoesNotRecordCallOff`.
+      Je Fund: welcher Nutzerpfad ist betroffen, scheitert er für jeden? Steht er schon in
+      einer der drei Backlog-Dateien?
+    sources:
+      - backend/internal/
+      - .planning/backend-block/loop/BACKLOG-NEXT.yml
+      - .planning/backend-block/loop/BACKLOG-PARKED.yml
+    done_when:
+      - "Tabelle im Journal: je Test Datei:Testname, festgeschriebener Fehler, betroffener Pfad, Backlog-Fundstelle oder neue Unit-ID"
+      - "Jeder Totalausfall ohne bestehende Unit steht als Fix-Unit vor der ersten todo-Unit"
+      - "Die Such-Muster stehen im Journal"
+
+  # ========================================================================================
+  # BLOCK B — E2E AUF DEM VORHANDENEN CI-STACK
+  #
+  # Gemeinsam: Flows in `backend/test/e2e/` (`//go:build e2e`), als echter Nutzer über den
+  # Gateway, mit den Helfern aus `helpers_test.go` (`registerAndLogin`,
+  # `registerAndLoginAdmin`, `promoteToAdmin` — nach dem Promote neu einloggen, Rechte stehen
+  # im JWT). Jeder Schritt prüft den Statuscode UND die Antwortform, die das Desktop-FE liest
+  # (Typ aus `desktop/src/renderer/src/api/`), nicht nur "kein Fehler". Aufräumen am Ende über
+  # die API, nicht per SQL.
+  # Gate: `go vet -tags=e2e ./test/e2e/` (GATE-COMMANDS.md, Abschnitt "E2E"); `offen:` trägt
+  # "E2E erst in CI abgenommen". Der CI-E2E-Stack: Postgres, Redis, MinIO, auth, crm, chat,
+  # work (inkl. Kalender), document, dialer, gateway — plus biz und notification seit dem
+  # Staging von Lauf 15.
+  # ========================================================================================
+
+  - id: e2e-calendar-lifecycle
+    phase: 4
+    service: e2e
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
+    scope: >
+      Neuer Flow `TestCalendarLifecycleFlow` in `backend/test/e2e/calendar_test.go`. Deckt genau
+      die acht Pfade ab, die bis `ea5a39a9` für jeden 403 lieferten: Kalender anlegen, ändern,
+      Mitglied hinzufügen und entfernen, Termin anlegen, ändern und löschen, Erinnerung setzen,
+      Kategorie anlegen und löschen, Kalender löschen. Routen aus
+      `internal/gateway/route_calendar.go`. Hätte dieser Flow existiert, wäre der Fehler in
+      jeder CI rot gewesen.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/work_test.go
+      - backend/internal/gateway/route_calendar.go
+      - backend/internal/server/calendar_grpc.go
+      - desktop/src/renderer/src/api/calendar-client.ts
+      - desktop/src/renderer/src/api/calendar-types.ts
+    notes: >
+      Der Kalender läuft im `work`-Service (`cmd/work/main.go`, `NewCalendarGRPCServer`), der im
+      CI-E2E-Job schon startet. Prüft der Flow einen Pfad, der heute (nach `ea5a39a9`) trotzdem
+      scheitert, ist das ein Totalausfall-Fund (Regel 1) — Fix-Unit an den Kopf, den Flow-
+      Schritt NICHT weglassen.
+    done_when:
+      - "TestCalendarLifecycleFlow deckt alle acht Pfade aus ea5a39a9 ab, je Schritt Status und Antwortform geprüft"
+      - "go vet -tags=e2e ./test/e2e/ grün"
+      - "Mutations-Probe (gedanklich, im Journal): welcher Schritt würde mit uuid.Nil-Akteur rot — je Pfad benannt"
+
+  - id: e2e-document-virtual-files
+    phase: 4
+    service: e2e
+    model: sonnet
+    deps: [fix-document-virtual-files-nil-user]
+    status: todo
+    coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
+    scope: >
+      Neuer Flow in `backend/test/e2e/document_test.go`: Nutzer legt einen Chat-Kanal an, lädt
+      dort eine Datei hoch (Presign-Muster wie im bestehenden Chat-Flow, falls vorhanden; sonst
+      Metadaten-Pfad), ruft `GET /api/v1/documents/virtual` und findet die Datei. Ein zweiter
+      Nutzer (nicht Kanal-Mitglied) findet sie nicht. Antwortform gegen
+      `desktop/src/renderer/src/api/clients/document-client.ts`.
+    sources:
+      - backend/test/e2e/document_test.go
+      - backend/test/e2e/chat_test.go
+      - backend/test/e2e/helpers_test.go
+      - backend/internal/gateway/route_document.go
+      - desktop/src/renderer/src/api/clients/document-client.ts
+    done_when:
+      - "Flow: Mitglied sieht die Kanal-Datei in der virtuellen Ansicht, Nicht-Mitglied nicht"
+      - "go vet -tags=e2e ./test/e2e/ grün"
+
+  - id: e2e-work-project-members
+    phase: 4
+    service: e2e
+    model: sonnet
+    deps: [chore-work-project-actor-and-admin-bypass-lean]
+    status: todo
+    coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
+    scope: >
+      `TestWorkProjectFlow` (`backend/test/e2e/work_test.go`) erweitern oder einen zweiten Flow
+      daneben: Projekt anlegen, Mitglied hinzufügen, Rolle ändern, Mitglied entfernen, Projekt
+      archivieren, Projekt löschen — je Schritt Status und die Form der Mitgliederliste, die
+      der Desktop liest. Dazu ein zweiter Nutzer mit Projektrechten, der NICHT Mitglied ist und
+      das Projekt trotzdem sieht (Entscheidung Luke 2026-10-23, Projekte bleiben offen).
+    sources:
+      - backend/test/e2e/work_test.go
+      - backend/test/e2e/helpers_test.go
+      - backend/internal/gateway/route_work.go
+    done_when:
+      - "Flow deckt Mitglied +/Rolle/−, archivieren und löschen ab, je Schritt Status und Antwortform"
+      - "Nicht-Mitglied mit Projektrechten sieht das Projekt (offenes Verhalten als E2E festgeschrieben)"
+      - "go vet -tags=e2e ./test/e2e/ grün"
+
+  - id: e2e-calendar-resources
+    phase: 4
+    service: e2e
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
+    scope: >
+      Neuer Flow in `backend/test/e2e/calendar_test.go`: Ressource anlegen, lesen, ändern,
+      Verfügbarkeit abfragen, buchen, Buchung stornieren, Ressource löschen
+      (`route_calendar.go:93-102`, Permissions `resources:read/write/delete`). Das sind die
+      Pfade mit hart verdrahtetem `isAdmin=true` (`calendar_grpc.go:901`, `:1022`, `:1043`).
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/internal/gateway/route_calendar.go
+      - backend/internal/server/calendar_grpc.go
+      - desktop/src/renderer/src/api/calendar-client.ts
+    done_when:
+      - "Flow deckt Ressource CRUD, Verfügbarkeit und Buchung ab, je Schritt Status und Antwortform"
+      - "go vet -tags=e2e ./test/e2e/ grün"
+
+  # ========================================================================================
+  # BLOCK C — E2E AUF DEM ERWEITERTEN STACK (biz + notification)
+  #
+  # Voraussetzung: der E2E-Job in `.github/workflows/ci.yml` startet `bin/biz` (Health :9098)
+  # und `bin/notification` (Health :9094) — beim Staging auf `backend-loop` committet, NICHT
+  # vom Loop. Ist das im Morgen-CI rot, ist das ein Staging-Fehler, kein Fehler dieser Units.
+  # ========================================================================================
+
+  - id: e2e-invoice-and-quote-lifecycle
+    phase: 4
+    service: e2e
+    model: sonnet
+    deps: [fix-biz-actor-attribution-uuid-nil]
+    status: todo
+    coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
+    scope: >
+      Neuer Flow `backend/test/e2e/finance_test.go`: Angebot anlegen -> senden
+      (`POST /api/v1/finance/quotes/{id}/send`) -> in Rechnung umwandeln (`/{id}/convert`) ->
+      Rechnung senden (`/invoices/{id}/send`) -> stornieren (`/invoices/{id}/cancel`) -> die
+      Storno-Gutschrift existiert und trägt den echten Nutzer als Ersteller, soweit die API
+      das ausliefert (Routen `internal/gateway/route_biz.go:99-163`). Antwortformen gegen
+      `desktop/src/renderer/src/api/finance-client.ts`.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/internal/gateway/route_biz.go
+      - backend/internal/gateway/route_biz_quotes.go
+      - backend/internal/gateway/route_biz_invoices.go
+      - desktop/src/renderer/src/api/finance-client.ts
+    notes: >
+      Vorher prüfen, ob "senden" eine Mail verschickt und was ohne SMTP im CI passiert (Fehler,
+      No-op, Outbox). Scheitert "senden" ohne SMTP für jeden, ist das selbst ein Befund —
+      Totalausfall auf jedem Self-Hosted-Server ohne Mailserver? Dann Unit, nicht den Schritt
+      weglassen. Finanz-Mutationen brauchen ggf. einen `Idempotency-Key` (Prod läuft
+      `IDEMPOTENCY_MODE=hard`; Lehre aus `24a3cb7e`) — im Flow mitsenden.
+    done_when:
+      - "Flow Angebot -> senden -> Rechnung -> senden -> stornieren -> Gutschrift, je Schritt Status und Antwortform"
+      - "Idempotency-Key bei den Finanz-Mutationen mitgesendet"
+      - "go vet -tags=e2e ./test/e2e/ grün"
+
+  - id: e2e-team-inbox-and-rules
+    phase: 4
+    service: e2e
+    model: sonnet
+    deps: [fix-team-inbox-manage-permission-bypass]
+    status: todo
+    coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
+    scope: >
+      Neuer Flow `backend/test/e2e/inbox_test.go` (Inbox läuft im `notification`-Service,
+      `cmd/notification/main.go`, `NewInboxGRPCServer`): Team-Inbox anlegen, Mitglied hinzufügen
+      durch einen Nutzer mit `kommunikation:team_inbox:manage` ohne Team-Admin-Rolle
+      (Entscheidung 2026-10-23), Routing-Regel anlegen (`POST /rules`, `RequireRole(admin,
+      manager)`), `GET /rules` liest die Form, die der Regel-Editor erwartet (Kontrollfall
+      `3c13fd66`). Die Manage-Permission per DB wie `promoteToAdmin` vergeben, danach neu
+      einloggen.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/internal/gateway/route_inbox.go
+      - desktop/src/renderer/src/api/inbox-client.ts
+      - desktop/src/renderer/src/api/inbox-types.ts
+    done_when:
+      - "Flow: Team-Inbox, Mitglied per Manage-Permission, Regel anlegen und lesen, je Schritt Status und Antwortform"
+      - "go vet -tags=e2e ./test/e2e/ grün"
+
+  # ========================================================================================
+  # BLOCK E — COVERAGE-FÜLLUNG (nur wenn alles davor durch ist)
+  #
+  # Coverage-Units ändern KEIN Verhalten. Jede braucht ihre Mutations-Probe (eine Zeile
+  # brechen, ein neuer Test wird rot, zurückdrehen, Diff sauber). Findest du einen Fehler:
+  # Unit anlegen (Totalausfall an den Kopf), nicht nebenbei fixen.
+  # ========================================================================================
+
+  - id: cov-email-attachment
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/email/attachment 22,1 %"
+    scope: >
+      Schwächstes Paket mit echtem Datenpfad (Mail-Anhänge: Ablage, Abruf, Größen- und
+      Typprüfung). Die realen Pfade mit DB- bzw. Objektspeicher-Tests abdecken, nicht die
+      trivialen Getter. Ziel ist Beweiskraft, keine Prozentzahl.
+    sources:
+      - backend/internal/email/attachment/
+    done_when:
+      - "Coverage internal/email/attachment selbst gemessen vorher/nachher im Journal"
+      - "Mutations-Probe: eine Prüfzeile gebrochen, ein neuer Test wird rot"
+      - "go test -count=1 ./internal/email/attachment/ grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: cov-inbox-adapter
+    phase: 4
+    service: inbox
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/inbox/adapter 23,9 %"
+    scope: >
+      Adapter, die Nachrichten aus Kanälen in die Inbox normalisieren. Abdecken, was ein
+      falscher Adapter kaputt macht: Feldzuordnung, leere/fehlende Felder, Tenant-Zuordnung.
+    sources:
+      - backend/internal/inbox/adapter/
+    done_when:
+      - "Coverage internal/inbox/adapter selbst gemessen vorher/nachher im Journal"
+      - "Mutations-Probe: eine Zuordnungszeile gebrochen, ein neuer Test wird rot"
+      - "go test -count=1 ./internal/inbox/adapter/ grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: cov-document-share
+    phase: 4
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/document/share 33,3 %"
+    scope: >
+      Freigabe-Links für Dokumente — Zugriffsprüfung, Ablauf, Widerruf, Tenant-Grenze. Ein
+      Fehler hier ist ein Datenabfluss nach außen; ein Fund dieser Art gehört als Fix-Unit an
+      den Kopf.
+    sources:
+      - backend/internal/document/share/
+    done_when:
+      - "Coverage internal/document/share selbst gemessen vorher/nachher im Journal"
+      - "Mutations-Probe: die Ablauf- oder Widerrufsprüfung gebrochen, ein neuer Test wird rot"
+      - "go test -count=1 ./internal/document/share/ grün, DATABASE_URL gesetzt, 0 Skips"

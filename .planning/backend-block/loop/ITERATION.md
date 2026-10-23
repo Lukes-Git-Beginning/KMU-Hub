@@ -62,6 +62,15 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
   bekommen ALLE 403, auch Admin.
 - **Wire-Shape:** Listen gewrappt `{items,total}`, leere Liste `[]` nicht `null`, snake_case,
   Single-Entity gewrappt. Gegen den FE-Typ pruefen, nicht raten.
+- **Desktop-Aufrufer greppen.** Jede Aenderung an einer Eingabevalidierung oder an einer
+  Antwortform am Gateway greppt `desktop/src/renderer/src/api/` (Clients **und** `hooks/`) nach
+  der Route bzw. dem Feld und prueft, ob das FE noch passende Werte sendet und die Antwort so
+  liest, wie sie jetzt kommt. Das Ergebnis steht in der Pflichtzeile `desktop-aufrufer:` im
+  Journal. MSW-Mocks (`desktop/src/renderer/src/mocks/`) sind **kein** Beleg — sie zeigen, was
+  das FE erwartet, nicht was das Backend liefert. Anlass Lauf 14: eine Wiki-Validierung lehnte
+  den FE-Marker `public` mit 400 ab (`40374f53`), und `GET /inbox/rules` lieferte eine Form, an
+  der der Regel-Editor seit Monaten mit TypeError abstuerzte (`3c13fd66`) — beide Male hatte der
+  Loop nur gegen Backend-Aufrufer geprueft. Desktop-Code selbst aenderst du nicht.
 - **Jede neue `/api/v1/*`-Route braucht einen Pfad-Eintrag in `backend/api/openapi.yaml`** — im selben
   Commit. `TestOpenAPIRouteDrift` in `internal/gateway` erzwingt das und ist in CI ein harter Fehler.
   Style von den Nachbar-Routen abschauen, alle Status-Codes dokumentieren, die der Handler wirklich
@@ -266,8 +275,12 @@ Die naechste Iteration nimmt die naechste Unit.
 - mutations-probe: <welche Zeile gebrochen, welcher Test wurde rot, zurueckgedreht, Diff sauber> | n.a.
 - verify vorgaenger: <sauber | Befund + angelegte Fix-Unit>
 - neue-units: <IDs der Units, die du fuer deine Funde ans Backlog-Ende gehaengt hast> | keine
-- offen: <was Luke morgens pruefen muss — DB-Gate, Proto-Regen, Route-Registrierung, Annahmen>
+- desktop-aufrufer: <Route/Feld -> Desktop-Datei -> passt | bricht (Unit-ID)> | n.a. (keine Validierungs- oder Antwortform-Aenderung)
+- offen: <was Luke morgens pruefen muss — DB-Gate, Proto-Regen, Route-Registrierung, Annahmen, "E2E erst in CI abgenommen">
 ```
+
+**`desktop-aufrufer:` ist Pflicht** wie `coverage:` und `neue-units:` — `n.a.` ist zulaessig,
+Weglassen nicht (Begruendung in den Architektur-Regeln unter "Desktop-Aufrufer greppen").
 
 **`coverage:` und `mutations-probe:` sind Pflichtzeilen, keine Kuer.** In Lauf 7 kam die
 Mutations-Probe 71/71, weil sie ausdruecklich gefordert war — und die Coverage-Zahl 8/71, weil sie
@@ -312,6 +325,19 @@ Auth-Loch oder einen Datenabfluss, dann setz sie VOR die erste `todo`-Unit der D
 schreib in `neue-units:` dazu, dass du das getan hast. Alles andere haengst du weiterhin ans
 Ende. Im Zweifel ans Ende — diese Regel ist fuer den Fall gedacht, in dem du den Befund selbst
 reproduziert hast, nicht fuer einen Verdacht.
+
+**Dasselbe gilt fuer einen Totalausfall — und der ist nie "nur dokumentiert".** Findest du einen
+Pfad, der fuer **jeden** echten Nutzer scheitert (403/500, leere Liste, FE-Absturz — nicht nur im
+Randfall), legst du im selben Commit eine Fix-Unit VOR die erste `todo`-Unit an, auch wenn deine
+eigene Unit eine Coverage- oder Scan-Unit ist. Und kein Test darf so einen Fehler mit
+Workaround-Daten gruen machen — kein `OwnerID: uuid.Nil`, kein Admin-Bypass nur im Test, kein
+Mock, der die richtige Form liefert, wo das Backend die falsche liefert. Anlass: `calendar_grpc.go`
+reichte an acht Stellen `uuid.Nil` als Akteur durch ("Gateway handles auth"); Kalender
+aendern/loeschen, Mitglieder, Termin loeschen, Erinnerungen und Kategorie loeschen gaben jedem
+Nutzer 403. Ein frueherer Lauf hatte das gefunden, als `FUND (nicht Teil dieser Unit, nur
+dokumentiert)` in einen Testkommentar geschrieben, die Happy Paths mit `uuid.Nil`-Ownern gruen
+gemacht und keine Unit angelegt. Behoben erst in `ea5a39a9`, entdeckt nur, weil der
+Smoke-Aufraeum-DELETE in Produktion 403 bekam.
 
 **Die Nummer steht im Laufkontext-Block am Ende dieses Prompts und wird woertlich uebernommen —
 nicht aus dem Journal ableiten, nicht schaetzen.** In Lauf 6 hat das Modell ab Iteration 27

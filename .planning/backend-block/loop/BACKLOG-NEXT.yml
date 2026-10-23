@@ -1,4 +1,9 @@
-# Backend-Nachtloop — Arbeitsqueue für den NÄCHSTEN Lauf (Lauf 12)
+# Backend-Nachtloop — Arbeitsqueue für den NÄCHSTEN Lauf
+#
+# STAND 2026-10-23 (Staging Lauf 15): 20 Units, alle `blocked` — Entscheidungen Luke, Legal
+# oder Frontend. Was baubar war, steht in BACKLOG.yml (Liste im Block "NACHBEARBEITUNG
+# LAUF 14" am Dateiende). Die Blöcke darunter sind historisch gewachsen, ihre Kopfzeilen
+# beschreiben den Stand zum jeweiligen Datum.
 #
 # Diese Datei liest der Treiber NICHT. Sie ist die Schleuse vor `BACKLOG.yml`.
 #
@@ -439,111 +444,6 @@ units:
       - Bei (a) ist die Kursfrage mitentschieden (woher kommt der Kurs, wer pflegt ihn)
       - Eine Unit in BACKLOG.yml ist angelegt, die die Entscheidung umsetzt
 
-# ==========================================================================================
-# AUS BACKLOG.yml ZURUECKGESTELLT (Lauf 12, Iteration 3, 2026-08-26)
-#
-# `wire-biz-event-emitters-for-finance-triggers` war bereits entschieden (verdrahten,
-# 2026-08-24) und in BACKLOG.yml, aber ihr eigener `done_when`-Punkt verlangt eine Pruefung,
-# die der Loop nicht leisten kann: einen SELECT gegen die PRODUKTIONS-Automations-Tabellen,
-# um vorab zu sehen, ob Kunden schon Workflows mit biz.invoice.sent/biz.quote.created
-# angelegt haben, die ab dem Deploy live zu feuern anfingen. Kein Produktionszugriff im Loop
-# (Unverhandelbare Grenzen). Verdrahtung + Test sind mechanisch fertig vorbereitet (scope/
-# sources/notes unten unveraendert) — es fehlt nur diese eine Pruefung durch Luke. Danach
-# kann die Unit unveraendert zurueck nach BACKLOG.yml.
-# ==========================================================================================
-
-  - id: wire-biz-event-emitters-for-finance-triggers
-    phase: 4
-    service: biz
-    model: sonnet
-    # deps erfuellt: fix-event-payload-missing-tenant-id ist done, Unit liegt in
-    # archive/lauf-13/BACKLOG.yml
-    deps: []
-    status: todo
-    decided: 2026-08-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-08-24 (A5): verdrahten - aber ERST nachdem
-      `fix-event-payload-missing-tenant-id` erledigt ist, daher die neue dep. Die
-      Gegenpruefung am 2026-08-24 hat gezeigt, dass die in den notes beschriebene
-      Ein-Zeilen-Verdrahtung NICHT reicht: `models.EventPayload.TenantID` wird von 20 der 25
-      nicht-Test-Literale gar nicht gesetzt, und `EventBus.dispatch`
-      (`internal/notification/event/bus.go:133`) stempelt den Tenant nur, wenn er belegt ist.
-      Ein jetzt verdrahteter Emitter wuerde also tenant-lose Events auf den Bus legen, die der
-      RLS-geschuetzte Handler nicht verarbeiten kann. `fix-event-payload-missing-tenant-id`
-      ist seit Lauf 12 Iteration 2 (`4e1ad006`) erledigt, diese dep ist also erfuellt.
-      Zur Sorge aus den notes ("Automationen feuern ab dem Deploy ohne Vorwarnung"): geprueft
-      und entkraeftet fuer den Benachrichtigungsweg - `notification/service.go:94` iteriert
-      ueber `payload.TargetUserIDs`, und invoice/quote geben dort nichts mit, es entstehen also
-      keine ueberraschenden Benachrichtigungen. Die Verhaltensaenderung beschraenkt sich auf
-      Automations-Workflows, die einen der beiden Trigger nutzen - und genau die sind heute
-      still kaputt. `biz.invoice.created` (`invoice/service.go:252`) faengt ebenfalls an zu
-      feuern, hat aber keinen Trigger in der Registry und damit keine Aussenwirkung.
-    coverage_start: "n.a. — kein Coverage-Ziel, Verkabelungsentscheidung"
-    scope: >
-      VERIFIZIERT in Lauf 11 (`verify-biz-event-emitters-never-wired`): das Automations-Modul
-      bietet in der UI zwei Finanz-Trigger an, die niemals feuern.
-      `GET /triggers` (`internal/gateway/route_automation.go:96` ->
-      `AutomationGRPCServer.ListTriggerDefinitions` -> `TriggerRegistry.All()`,
-      `internal/automation/trigger/registry.go:182-218`) liefert "Rechnung versendet"
-      (`biz.invoice.sent`) und "Angebot erstellt" (`biz.quote.created`) als wählbare
-      Automations-Ausloeser. Beide hängen an `EmitBizEvent`, das der jeweilige Service nur
-      aufruft, wenn `SetEventEmitter` gesetzt wurde (`internal/biz/invoice/service.go:80-107`,
-      analog `internal/biz/quote/service.go`). `cmd/biz/main.go` ruft `SetEventEmitter` für
-      `invoiceSvc`, `quoteSvc` UND `lexwareSvc` an KEINER Stelle auf (Grep über die gesamte
-      Datei: 0 Treffer für `SetEventEmitter`) — alle drei laufen mit ihrem
-      Konstruktor-Default, der bei invoice/quote `nil` ist (`emitEvent` ist dadurch ein No-op,
-      siehe `if s.emitter == nil { return }`) und bei lexware `noopEmitter{}`
-      (`internal/biz/lexware/service.go:59-60`).
-      Ein Kunde kann also eine Automation "wenn Rechnung versendet wird, sende Slack-Nachricht"
-      anlegen, die niemals auslöst. Der dritte registrierte Finanz-Trigger,
-      `biz.invoice.overdue`, ist davon NICHT betroffen — er ist `TimeBased: true` und wird per
-      5-Minuten-Poller direkt gegen `finance_invoices` aufgelöst
-      (`internal/automation/trigger/due_postgres.go:41` `overdueInvoices`), nicht über den
-      Emitter.
-    sources:
-      - backend/cmd/biz/main.go
-      - backend/internal/biz/invoice/service.go
-      - backend/internal/biz/invoice/event_emitter.go
-      - backend/internal/biz/quote/service.go
-      - backend/internal/biz/quote/event_emitter.go
-      - backend/internal/biz/lexware/service.go
-      - backend/internal/biz/lexware/webhook_handler.go
-      - backend/internal/automation/trigger/registry.go
-      - backend/cmd/crm/main.go
-      - backend/cmd/work/main.go
-      - backend/cmd/chat/main.go
-    notes: >
-      Vorlage für die Verdrahtung existiert bereits und ist trivial (eine Zeile je Service):
-      `cmd/crm/main.go:88`, `cmd/work/main.go:82`, `cmd/chat/main.go:99` setzen
-      `svc.SetEventEmitter(event.NewPGEventEmitter(pool))` direkt nach der Konstruktion.
-      Trotzdem gehört das NICHT in eine Nachtlauf-Iteration: das Setzen ändert sofortiges
-      Produktionsverhalten (Events fließen live, Automationen mit diesen Triggern feuern ab
-      dem Deploy für jeden Kunden, der eine angelegt hat, ohne Vorwarnung), und
-      `COSMI_ENV=production` ist scharf mit automatischem CD.
-      Luke entscheidet: (a) einfach verdrahten (Nutzen: die beiden UI-Trigger funktionieren
-      endlich wie beworben), oder (b) die beiden Trigger-Definitionen aus der Registry
-      entfernen, bis eine bewusste Entscheidung für Finanz-Automationen ansteht. Bestehende
-      Kunden-Workflows mit diesen Triggern (falls es welche gibt) sollten vor dem Verdrahten
-      geprüft werden, damit sie nicht überraschend anfangen zu feuern.
-      Nebenfund mitgenommen (Lauf 11, `verify-biz-event-emitters-never-wired`): der Lexware-
-      `EventWebhookReceived`-Emit in `webhook_handler.go:176` ist ebenfalls tot, aber OHNE
-      Außenwirkung — kein Trigger in der Registry hört auf "lexware.*", der Emit ist reiner
-      Log-Ersatz. Ein `lean:`-Marker dort ist bereits gesetzt (Lauf 11, Iteration 10).
-    done_when:
-      - >-
-        invoiceSvc und quoteSvc erhalten SetEventEmitter(<pkg>.NewPGEventEmitter(pool)) in
-        cmd/biz/main.go, nach dem Muster von cmd/crm/main.go:88
-      - >-
-        Ein Test belegt, dass ein versendetes Invoice ein biz.invoice.sent und ein erzeugtes
-        Quote ein biz.quote.created Event MIT gesetztem tenant_id auf dem Bus erzeugt
-      - >-
-        Vor dem Bauen ist geprueft und im Journal vermerkt, ob auf Produktion Workflows mit
-        diesen beiden Triggern existieren (SELECT auf die Automations-Tabellen) - sie fangen
-        mit dem Deploy an zu feuern
-      - >-
-        Der Lexware-Emitter bleibt bewusst auf noopEmitter - kein Trigger hoert auf lexware.*,
-        der lean:-Marker aus Lauf 11 bleibt stehen
-      - go test -count=1 ./internal/biz/invoice/ ./internal/biz/quote/ ./internal/automation/... gruen
 
   - id: decide-email-messages-contact-pii-on-anonymize
     phase: 4
@@ -1137,36 +1037,6 @@ units:
       - Team-Mitglied und Zugewiesener behalten Zugriff (Test)
       - go test -count=1 ./internal/server/ ./internal/inbox/... ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
 
-  - id: decide-produktion-capacity-week-bounds-tenant-timezone
-    phase: 4
-    service: produktion
-    model: sonnet
-    deps: []
-    status: todo
-    target: "BACKLOG.yml nach Entscheidung Luke"
-    coverage_start: "n.a."
-    scope: >
-      Rest aus `fix-hr-and-produktion-day-week-buckets-ignore-tenant-timezone`. `isoWeekBounds`
-      (`produktion/postgres_repository.go:508`) rechnet Wochengrenzen in `time.UTC`; die
-      Maschinenbuchungen (`timestamptz`) in `GetCapacityOverview` werden gegen UTC-Wochen
-      summiert, eine Buchung Montag 00:30 Ortszeit fällt in die Vorwoche. Im HR-Teil ist das
-      behoben (Zeitzone aus `hr_company_settings.timezone`). Produktion hat KEINEN eigenen
-      Zugriff auf eine Mandanten-Zeitzone: eine Einstellung dort gibt es nicht, `hr_company_settings`
-      gehört dem HR-Modul (Modul-Entkopplung, Graceful Degradation).
-    sources:
-      - backend/internal/produktion/postgres_repository.go
-      - backend/internal/biz/hr/timetracking/service_timezone.go
-    notes: >
-      Entscheidung Luke: (a) Produktion liest `hr_company_settings.timezone` per Subquery
-      (koppelt an HR, fällt ohne Zeile auf Europe/Berlin), (b) feste Zone Europe/Berlin mit
-      `lean:`-Marker (wie `schichten.jarbschgLocation`), oder (c) eigene Einstellung in der
-      Produktion (Migration). Empfehlung (b) bis ein Mandant außerhalb von Europe/Berlin existiert.
-    done_when:
-      - >-
-        Buchung Montag 00:30 Ortszeit zählt zur Woche, die am Montag beginnt (DB-Test)
-      - >-
-        Mutations-Probe: Zone wieder UTC, der Grenzfall-Test wird rot
-
   # ========================================================================================
   # NACHBEARBEITUNG LAUF 14 (2026-10-23): offen:-Zeilen mit Luke-Bezug aus JOURNAL Lauf 14
   # (archive/lauf-14/) plus Befunde des gezielten Post-Run-Reviews, gebündelt je Frage.
@@ -1193,99 +1063,14 @@ units:
   #   - Audit-Drop-Alarm wandert in `feat-alerts-backup-dead-mans-switch` (gleiche Infra).
   #   - ArbZG: Deckel 10 h bleibt; die UI soll Werte über 10 ablehnen -> Punkt in
   #     `fe-handle-run14-behaviour-changes`.
+  #
+  # NACH LAUF 15 GEZOGEN (Staging 2026-10-23) und deshalb hier ENTFERNT:
+  #   `feat-gobd-verify-integrity-on-export`, `fix-team-inbox-manage-permission-bypass`,
+  #   `chore-dialer-stale-contact-default-240`, `fix-dsar-third-party-matching`,
+  #   `wire-biz-event-emitters-for-finance-triggers` (Prod-Prüfung 2026-10-23: 0 automations,
+  #   0 executions) und `decide-produktion-capacity-week-bounds-tenant-timezone` (entschieden:
+  #   Variante (b) Europe/Berlin, in BACKLOG.yml als `fix-produktion-capacity-week-bounds-europe-berlin`).
   # ========================================================================================
-
-  - id: feat-gobd-verify-integrity-on-export
-    phase: 4
-    service: finance
-    model: sonnet
-    deps: []
-    status: todo
-    target: BACKLOG.yml
-    coverage_start: "n.a."
-    decided: 2026-10-23
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-23: `VerifyIntegrity` läuft beim GoBD-Export, kein
-      periodischer Worker, keine eigene Route. Billigster Weg ohne Vollscan im Hintergrund.
-    scope: >
-      Aus Lauf 14 Iteration 14 (8cea8ead): `VerifyIntegrity` hat keinen Aufrufer. Beim GoBD-Export
-      vor dem Schreiben des Archivs aufrufen. Bricht die Kette, wird der Export nicht still
-      ausgeliefert: entweder Abbruch mit klarer Fehlermeldung oder ein Prüfvermerk im Export
-      (beim Bau entscheiden, was der bestehende Export-Pfad sauberer trägt; im Journal begründen).
-      Erst Aufrufer des Exports greppen, Fix an der gemeinsamen Funktion.
-    done_when:
-      - "DB-Test als kmuhub_app: manipulierte Zeile -> Export meldet den Bruch"
-      - "DB-Test: intakte Kette -> Export unverändert"
-      - "Mutations-Probe: Aufruf entfernt, der Bruch-Test wird rot"
-
-  - id: fix-team-inbox-manage-permission-bypass
-    phase: 4
-    service: inbox
-    model: sonnet
-    deps: []
-    status: todo
-    target: BACKLOG.yml
-    coverage_start: "n.a."
-    decided: 2026-10-23
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-23: wer `kommunikation:team_inbox:manage` hat, darf Mitglieder
-      jeder Team-Inbox des Tenants verwalten, auch ohne Team-Admin zu sein.
-    scope: >
-      Aus Lauf 14 Iterationen 44 und 65: der Team-Admin-Check lässt einen Tenant-Admin mit der
-      Manage-Permission nicht durch. Permission-Bypass im Service ergänzen (Permission kommt
-      über den gRPC-Kontext, Muster der übrigen Permission-Checks im Service übernehmen).
-      Tenant-Grenze bleibt: kein Zugriff auf Team-Inboxen fremder Tenants.
-    done_when:
-      - "Test: Nutzer mit Manage-Permission ohne Team-Admin-Rolle fügt ein Mitglied hinzu"
-      - "Test: Nutzer ohne beides bekommt weiter PermissionDenied"
-      - "Mutations-Probe: Bypass entfernt, der erste Test wird rot"
-
-  - id: chore-dialer-stale-contact-default-240
-    phase: 4
-    service: deploy
-    model: sonnet
-    deps: []
-    status: todo
-    target: BACKLOG.yml
-    coverage_start: "n.a."
-    decided: 2026-10-23
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-23: Reaper an, 240 Minuten.
-    scope: >
-      Compose-Default `DIALER_STALE_CONTACT_MINUTES: ${DIALER_STALE_CONTACT_MINUTES:-0}` auf
-      `:-240` setzen, damit es ohne Schreibzugriff auf `.env.production` greift. Freigegebene
-      Ausnahme von der `deploy/`-Sperre, nur diese eine Zeile. Deploy-only-Commit triggert kein
-      CI/CD — beim Merge zusammen mit Code-Commits ausrollen oder `gh workflow run CD`.
-    done_when:
-      - "Compose-Zeile auf :-240, `docker compose config` zeigt 240"
-
-  - id: fix-dsar-third-party-matching
-    phase: 4
-    service: security
-    model: opus
-    deps: []
-    status: todo
-    target: BACKLOG.yml
-    coverage_start: "n.a."
-    decided: 2026-10-23
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-23: die eindeutigen Drittdaten-Fälle bauen, der Rest ist
-      dokumentiertes Restrisiko (siehe Blockkopf).
-    scope: >
-      Befunde Post-Run-Review C. (1) Gast-Chat ohne E-Mail nicht über den kleingeschriebenen
-      Anzeigenamen gruppieren (`dsar_search_visitors.go`, 0dabab9e): jede Gast-Session ohne
-      E-Mail ist ein eigenes Subjekt, sonst landen alle "max" eines Tenants beim selben.
-      (2) Kein Abgleich über `c.company` bei Eingangsrechnungen und Bankumsätzen
-      (`dsar_search_finance.go`) und kein Abgleich über freien `driver_name` im Fahrtenbuch
-      (`dsar_search_fuhrpark.go`), nur noch über die eindeutige Verknüpfung (contact_id / user_id).
-    sources:
-      - backend/internal/security/gdpr/dsar_search_visitors.go
-      - backend/internal/security/gdpr/dsar_search_finance.go
-      - backend/internal/security/gdpr/dsar_search_fuhrpark.go
-    done_when:
-      - "DB-Test: zwei Gäste 'Max' ohne E-Mail ergeben zwei Subjekte"
-      - "DB-Test: Rechnung einer gleichnamigen Firma taucht beim Kontakt nicht auf"
-      - "Mutations-Probe je Punkt"
 
   - id: decide-erasure-suppliers-and-inspection-photos
     phase: 4
