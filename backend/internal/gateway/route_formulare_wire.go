@@ -7,7 +7,10 @@ package gateway
 
 import (
 	"encoding/json"
+	"strconv"
 	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	formularev1 "github.com/kmuhub/kmuhub/proto/formulare/v1"
 )
@@ -177,4 +180,179 @@ func firstSet[T any](camel, snake *T) *T {
 		return camel
 	}
 	return snake
+}
+
+// ============================================================================
+// Webhooks, deliveries and share links (formulare-types.ts: FormWebhook, WebhookDelivery,
+// FormShareLink). The FE reads their lists as bare arrays and single entities flat, camelCase.
+// ============================================================================
+
+func timePtr(ts *timestamppb.Timestamp) *time.Time {
+	if ts == nil {
+		return nil
+	}
+	t := ts.AsTime()
+	return &t
+}
+
+type formWebhookWire struct {
+	ID              string     `json:"id"`
+	FormSchemaID    string     `json:"formSchemaId"`
+	TenantID        string     `json:"tenantId"`
+	URL             string     `json:"url"`
+	Secret          string     `json:"secret"`
+	Events          []string   `json:"events"`
+	Active          bool       `json:"active"`
+	LastTriggeredAt *time.Time `json:"lastTriggeredAt"`
+	LastStatus      *string    `json:"lastStatus"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
+}
+
+func toFormWebhookWire(w *formularev1.FormWebhook) formWebhookWire {
+	events := w.GetEvents()
+	if events == nil {
+		events = []string{}
+	}
+	return formWebhookWire{
+		ID:              w.GetId(),
+		FormSchemaID:    w.GetFormSchemaId(),
+		TenantID:        w.GetTenantId(),
+		URL:             w.GetUrl(),
+		Secret:          w.GetSecret(),
+		Events:          events,
+		Active:          w.GetActive(),
+		LastTriggeredAt: timePtr(w.LastTriggeredAt),
+		LastStatus:      nonEmptyPtr(w.GetLastStatus()),
+		CreatedAt:       w.GetCreatedAt().AsTime(),
+		UpdatedAt:       w.GetUpdatedAt().AsTime(),
+	}
+}
+
+func toFormWebhookListWire(webhooks []*formularev1.FormWebhook) []formWebhookWire {
+	out := make([]formWebhookWire, 0, len(webhooks))
+	for _, w := range webhooks {
+		out = append(out, toFormWebhookWire(w))
+	}
+	return out
+}
+
+type webhookDeliveryWire struct {
+	ID               string          `json:"id"`
+	WebhookID        string          `json:"webhookId"`
+	SubmissionID     string          `json:"submissionId"`
+	TenantID         string          `json:"tenantId"`
+	Payload          json.RawMessage `json:"payload"`
+	Status           string          `json:"status"`
+	AttemptCount     int32           `json:"attemptCount"`
+	MaxAttempts      int32           `json:"maxAttempts"`
+	NextAttemptAt    *time.Time      `json:"nextAttemptAt"`
+	LastError        *string         `json:"lastError"`
+	LastResponseCode *int32          `json:"lastResponseCode"`
+	CreatedAt        time.Time       `json:"createdAt"`
+	DeliveredAt      *time.Time      `json:"deliveredAt"`
+}
+
+var deliveryStatusWords = map[formularev1.WebhookDeliveryStatus]string{
+	formularev1.WebhookDeliveryStatus_WEBHOOK_DELIVERY_STATUS_PENDING:   "pending",
+	formularev1.WebhookDeliveryStatus_WEBHOOK_DELIVERY_STATUS_DELIVERED: "delivered",
+	formularev1.WebhookDeliveryStatus_WEBHOOK_DELIVERY_STATUS_FAILED:    "failed",
+	formularev1.WebhookDeliveryStatus_WEBHOOK_DELIVERY_STATUS_DEAD:      "dead",
+}
+
+func webhookDeliveryStatusWord(s formularev1.WebhookDeliveryStatus) string {
+	if word, ok := deliveryStatusWords[s]; ok {
+		return word
+	}
+	return "pending"
+}
+
+// webhookDeliveryStatusFromQuery reads the `status` filter as the FE word or, as before, the
+// proto number. Anything else is no filter.
+func webhookDeliveryStatusFromQuery(raw string) (formularev1.WebhookDeliveryStatus, bool) {
+	for status, word := range deliveryStatusWords {
+		if raw == word {
+			return status, true
+		}
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, false
+	}
+	return formularev1.WebhookDeliveryStatus(n), true
+}
+
+func toWebhookDeliveryWire(d *formularev1.WebhookDelivery) webhookDeliveryWire {
+	wire := webhookDeliveryWire{
+		ID:            d.GetId(),
+		WebhookID:     d.GetWebhookId(),
+		SubmissionID:  d.GetSubmissionId(),
+		TenantID:      d.GetTenantId(),
+		Payload:       jsonOrDefault(d.GetPayload(), "{}"),
+		Status:        webhookDeliveryStatusWord(d.GetStatus()),
+		AttemptCount:  d.GetAttemptCount(),
+		MaxAttempts:   d.GetMaxAttempts(),
+		NextAttemptAt: timePtr(d.NextAttemptAt),
+		LastError:     nonEmptyPtr(d.GetLastError()),
+		CreatedAt:     d.GetCreatedAt().AsTime(),
+		DeliveredAt:   timePtr(d.DeliveredAt),
+	}
+	if code := d.GetLastResponseCode(); code != 0 {
+		wire.LastResponseCode = &code
+	}
+	return wire
+}
+
+func toWebhookDeliveryListWire(deliveries []*formularev1.WebhookDelivery) []webhookDeliveryWire {
+	out := make([]webhookDeliveryWire, 0, len(deliveries))
+	for _, d := range deliveries {
+		out = append(out, toWebhookDeliveryWire(d))
+	}
+	return out
+}
+
+// formShareLinkWire: the proto has no channel, url or view counter. They go out as zero values
+// rather than invented ones: `channel` is the plain link, `url` is empty until the public
+// fill-out page exists, `views` is 0.
+type formShareLinkWire struct {
+	ID             string     `json:"id"`
+	FormSchemaID   string     `json:"formSchemaId"`
+	TenantID       string     `json:"tenantId"`
+	Token          string     `json:"token"`
+	URL            string     `json:"url"`
+	Channel        string     `json:"channel"`
+	ExpiresAt      *time.Time `json:"expiresAt"`
+	MaxSubmissions *int32     `json:"maxSubmissions"`
+	Views          int32      `json:"views"`
+	Submissions    int32      `json:"submissions"`
+	Status         string     `json:"status"`
+	CreatedBy      *string    `json:"createdBy"`
+	CreatedAt      time.Time  `json:"createdAt"`
+}
+
+func toFormShareLinkWire(l *formularev1.FormShareLink) formShareLinkWire {
+	wire := formShareLinkWire{
+		ID:           l.GetId(),
+		FormSchemaID: l.GetFormSchemaId(),
+		TenantID:     l.GetTenantId(),
+		Token:        l.GetToken(),
+		Channel:      "link",
+		ExpiresAt:    timePtr(l.ExpiresAt),
+		Submissions:  l.GetSubmissionCount(),
+		Status:       l.GetStatus(),
+		CreatedBy:    nonEmptyPtr(l.GetCreatedBy()),
+		CreatedAt:    l.GetCreatedAt().AsTime(),
+	}
+	if limit := l.GetMaxSubmissions(); limit > 0 {
+		wire.MaxSubmissions = &limit
+	}
+	return wire
+}
+
+func toFormShareLinkListWire(links []*formularev1.FormShareLink) []formShareLinkWire {
+	out := make([]formShareLinkWire, 0, len(links))
+	for _, l := range links {
+		out = append(out, toFormShareLinkWire(l))
+	}
+	return out
 }

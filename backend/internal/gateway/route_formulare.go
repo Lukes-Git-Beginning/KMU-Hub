@@ -747,7 +747,7 @@ func (fr *FormulareRoutes) HandleListWebhooks(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormWebhookListWire(resp.GetWebhooks()))
 }
 
 func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -786,7 +786,7 @@ func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, toFormWebhookWire(resp.GetWebhook()))
 }
 
 func (fr *FormulareRoutes) HandleGetWebhook(w http.ResponseWriter, r *http.Request) {
@@ -814,7 +814,7 @@ func (fr *FormulareRoutes) HandleGetWebhook(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormWebhookWire(resp.GetWebhook()))
 }
 
 func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -845,7 +845,8 @@ func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Re
 		Url:       req.URL,
 		Secret:    req.Secret,
 		Events:    req.Events,
-		EventsSet: req.EventsSet,
+		// The FE never sends `events_set`; a sent `events` list (even `[]`) replaces the stored one.
+		EventsSet: req.EventsSet || req.Events != nil,
 		Active:    req.Active,
 	}
 
@@ -854,7 +855,7 @@ func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormWebhookWire(resp.GetWebhook()))
 }
 
 func (fr *FormulareRoutes) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
@@ -889,6 +890,17 @@ func (fr *FormulareRoutes) HandleDeleteWebhook(w http.ResponseWriter, r *http.Re
 // Delivery Handlers
 // ============================================================================
 
+// deliveryPaging reads the FE's `limit`/`offset` and, as before, `page`/`page_size`.
+func deliveryPaging(r *http.Request) (limit, offset int32) {
+	page, pageSize := parsePagination(r, 1, 20)
+	limit = int32(parseLimit(r, pageSize, 100))
+	offset = int32((page - 1) * pageSize)
+	if o, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && o >= 0 {
+		offset = int32(o)
+	}
+	return limit, offset
+}
+
 // HandleListWebhookDeliveriesForWebhook lists deliveries filtered to a specific webhook ID.
 // Route: GET /webhooks/{id}/deliveries
 func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.ResponseWriter, r *http.Request) {
@@ -908,13 +920,12 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.Response
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
-	offset := int32((page - 1) * pageSize)
+	limit, offset := deliveryPaging(r)
 
 	grpcReq := &formularev1.ListWebhookDeliveriesRequest{
 		TenantId:  tenantID.String(),
 		WebhookId: &webhookID,
-		Limit:     int32(pageSize),
+		Limit:     limit,
 		Offset:    offset,
 	}
 
@@ -923,7 +934,7 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.Response
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toWebhookDeliveryListWire(resp.GetDeliveries()))
 }
 
 // HandleGetFormStats returns aggregated submission statistics for a form schema.
@@ -971,12 +982,11 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 	}
 
 	q := r.URL.Query()
-	page, pageSize := parsePagination(r, 1, 20)
-	offset := int32((page - 1) * pageSize)
+	limit, offset := deliveryPaging(r)
 
 	grpcReq := &formularev1.ListWebhookDeliveriesRequest{
 		TenantId: tenantID.String(),
-		Limit:    int32(pageSize),
+		Limit:    limit,
 		Offset:   offset,
 	}
 
@@ -987,9 +997,7 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 		grpcReq.SubmissionId = &sid
 	}
 	if statusStr := q.Get("status"); statusStr != "" {
-		statusInt, err := strconv.Atoi(statusStr)
-		if err == nil {
-			s := formularev1.WebhookDeliveryStatus(statusInt)
+		if s, ok := webhookDeliveryStatusFromQuery(statusStr); ok {
 			grpcReq.Status = &s
 		}
 	}
@@ -999,7 +1007,7 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toWebhookDeliveryListWire(resp.GetDeliveries()))
 }
 
 // ============================================================================
@@ -1013,10 +1021,13 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 const maxPublicSubmitBody = 256 << 10
 
 type createFormShareLinkRequest struct {
-	// ExpiresAt is RFC 3339; nil = never expires.
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// ExpiresAt is RFC 3339; nil = never expires. The FE sends the camelCase keys (and `null`
+	// for "no limit"); `channel` is not stored.
+	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
+	ExpiresAtCamel *time.Time `json:"expiresAt,omitempty"`
 	// MaxSubmissions nil or 0 = unlimited.
-	MaxSubmissions *int32 `json:"max_submissions,omitempty" validate:"omitempty,min=1"`
+	MaxSubmissions      *int32 `json:"max_submissions,omitempty" validate:"omitempty,min=1"`
+	MaxSubmissionsCamel *int32 `json:"maxSubmissions,omitempty"  validate:"omitempty,min=1"`
 }
 
 type publicSubmitRequest struct {
@@ -1049,7 +1060,7 @@ func (fr *FormulareRoutes) HandleListShareLinks(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormShareLinkListWire(resp.GetShareLinks()))
 }
 
 func (fr *FormulareRoutes) HandleCreateShareLink(w http.ResponseWriter, r *http.Request) {
@@ -1078,11 +1089,11 @@ func (fr *FormulareRoutes) HandleCreateShareLink(w http.ResponseWriter, r *http.
 		TenantId:     tenantID.String(),
 		FormSchemaId: schemaID,
 	}
-	if req.ExpiresAt != nil {
-		grpcReq.ExpiresAt = timestamppb.New(*req.ExpiresAt)
+	if expiresAt := firstSet(req.ExpiresAtCamel, req.ExpiresAt); expiresAt != nil {
+		grpcReq.ExpiresAt = timestamppb.New(*expiresAt)
 	}
-	if req.MaxSubmissions != nil {
-		grpcReq.MaxSubmissions = *req.MaxSubmissions
+	if maxSubmissions := firstSet(req.MaxSubmissionsCamel, req.MaxSubmissions); maxSubmissions != nil {
+		grpcReq.MaxSubmissions = *maxSubmissions
 	}
 	if userID := middleware.GetUserID(r.Context()); userID != "" {
 		grpcReq.CreatedBy = &userID
@@ -1094,7 +1105,7 @@ func (fr *FormulareRoutes) HandleCreateShareLink(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, toFormShareLinkWire(resp.GetShareLink()))
 }
 
 func (fr *FormulareRoutes) HandleRevokeShareLink(w http.ResponseWriter, r *http.Request) {

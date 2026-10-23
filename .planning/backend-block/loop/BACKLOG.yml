@@ -1449,7 +1449,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-formulare-schemas-submissions-wire]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 75,1 %"
     scope: >
       TOTALAUSFALL Formulare, zweite Hälfte (Scan Iteration 34). `formulare-client.ts` typisiert

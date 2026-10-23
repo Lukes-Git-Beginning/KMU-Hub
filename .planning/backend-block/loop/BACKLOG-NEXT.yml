@@ -1384,3 +1384,28 @@ units:
       - backend/internal/gateway/route_formulare_wire.go
     done_when:
       - "Entscheidung steht; bei Bau eine eigene Unit mit Proto-Regen, Migration, Public-Route und Spec"
+
+  - id: decide-formulare-share-link-url-channel-toggle
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Die Verteilen-Ansicht des Formular-FE (`ShareLinksPanel`, Share-Dialog) liest pro Share-Link
+      `url`, `channel`, `views` und schaltet per `PATCH /formulare/share-links/{id}` zwischen
+      `active` und `disabled`. Das Backend hat dafür nichts: das Proto kennt weder URL noch Kanal
+      noch Aufrufzähler, es gibt keine öffentliche Ausfüllseite (nur `POST /public/formulare/submit/{token}`)
+      und keine PATCH-Route (nur `DELETE`, das widerruft endgültig). Seit
+      `fix-formulare-webhooks-share-links-deliveries-stats-wire` schreibt das Gateway `url: ""`,
+      `channel: "link"`, `views: 0`; Kopieren liefert also einen leeren Link, Deaktivieren/Reaktivieren
+      endet in 404. ENTSCHEIDUNG LUKE: (a) öffentliche Ausfüllseite (FD-4) bauen und die Basis-URL
+      festlegen, (b) Kanal und Aufrufzähler speichern oder im FE streichen, (c) Deaktivieren als
+      umkehrbare Aktion (PATCH, `revoked_at` zurücksetzbar) oder das FE-Toggle durch "Widerrufen" ersetzen.
+    sources:
+      - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
+      - desktop/src/renderer/src/api/formulare-types.ts
+      - backend/proto/formulare/v1/formulare.proto
+      - backend/internal/gateway/route_formulare_wire.go
+    done_when:
+      - "Entscheidung steht; bei Bau eine eigene Unit mit Proto-Regen, Migration, Route, Spec und Public-Seite"

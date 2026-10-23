@@ -31,6 +31,9 @@ type formulareWireStub struct {
 	dupReq     *formularev1.DuplicateFormSchemaRequest
 	submitReq  *formularev1.CreateSubmissionRequest
 	listSchema *formularev1.ListFormSchemasRequest
+	updateHook *formularev1.UpdateWebhookRequest
+	listDeliv  *formularev1.ListWebhookDeliveriesRequest
+	linkReq    *formularev1.CreateFormShareLinkRequest
 }
 
 func wireSchema() *formularev1.FormSchema {

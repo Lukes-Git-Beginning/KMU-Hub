@@ -24192,16 +24192,12 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Share links of the schema
+          description: Share links of the schema, a bare array (empty = `[]`)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  share_links:
-                    type: array
-                    items: { $ref: "#/components/schemas/FormShareLink" }
-                  total: { type: integer }
+                type: array
+                items: { $ref: "#/components/schemas/FormShareLink" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24231,18 +24227,21 @@ paths:
           application/json:
             schema:
               type: object
+              description: >
+                The camelCase keys are what the frontend sends; the snake_case ones
+                are still read. `channel` is accepted and not stored.
               properties:
+                expiresAt: { type: string, format: date-time, nullable: true }
+                maxSubmissions: { type: integer, minimum: 1, nullable: true }
                 expires_at: { type: string, format: date-time, nullable: true }
                 max_submissions: { type: integer, minimum: 1, nullable: true }
+                channel: { type: string, enum: [link, email, embed, qr] }
       responses:
         "201":
           description: Share link created
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  share_link: { $ref: "#/components/schemas/FormShareLink" }
+              schema: { $ref: "#/components/schemas/FormShareLink" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -24402,15 +24401,12 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Webhook list
+          description: Webhook list, a bare array (empty = `[]`)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  webhooks:
-                    type: array
-                    items: { $ref: "#/components/schemas/FormWebhook" }
+                type: array
+                items: { $ref: "#/components/schemas/FormWebhook" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24443,10 +24439,7 @@ paths:
           description: Webhook created
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+              schema: { $ref: "#/components/schemas/FormWebhook" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -24515,10 +24508,7 @@ paths:
           description: Webhook
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+              schema: { $ref: "#/components/schemas/FormWebhook" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24544,17 +24534,14 @@ paths:
                 events:
                   type: array
                   items: { type: string }
-                events_set: { type: boolean, description: "true = replace the full events list" }
+                events_set: { type: boolean, description: "true = replace the full events list; sending `events` at all (even `[]`) also replaces it" }
                 active: { type: boolean }
       responses:
         "200":
           description: Webhook updated
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+              schema: { $ref: "#/components/schemas/FormWebhook" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -24587,20 +24574,18 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
         "200":
-          description: Delivery list for webhook
+          description: Delivery list for webhook, a bare array (empty = `[]`)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  deliveries:
-                    type: array
-                    items: { $ref: "#/components/schemas/FormWebhookDelivery" }
-                  total: { type: integer }
+                type: array
+                items: { $ref: "#/components/schemas/FormWebhookDelivery" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24617,21 +24602,19 @@ paths:
       parameters:
         - { name: webhook_id, in: query, schema: { type: string, format: uuid } }
         - { name: submission_id, in: query, schema: { type: string, format: uuid } }
-        - { name: status, in: query, schema: { type: integer, description: "WebhookDeliveryStatus enum int (1=pending, 2=delivered, 3=failed, 4=dead)" } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, delivered, failed, dead], description: "Also accepts the WebhookDeliveryStatus number (1=pending, 2=delivered, 3=failed, 4=dead)" } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
         "200":
-          description: Paginated delivery list
+          description: Paginated delivery list, a bare array (empty = `[]`)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  deliveries:
-                    type: array
-                    items: { $ref: "#/components/schemas/FormWebhookDelivery" }
-                  total: { type: integer }
+                type: array
+                items: { $ref: "#/components/schemas/FormWebhookDelivery" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -46586,24 +46569,28 @@ components:
     FormShareLink:
       type: object
       description: >
-        A public fill-out link for one form schema. `token` is the credential
-        itself and is returned in clear text on purpose — it is the link the
-        author copies out.
+        A public fill-out link for one form schema, written the way the frontend types
+        it (camelCase). `token` is the credential itself and is returned in clear text
+        on purpose - it is the link the author copies out. The proto has no channel, url
+        or view counter: they go out as zero values (`channel` "link", `url` "", `views` 0).
       properties:
         id: { type: string, format: uuid }
-        tenant_id: { type: string, format: uuid }
-        form_schema_id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        formSchemaId: { type: string, format: uuid }
         token:
           type: string
           description: 43-char base64url secret (32 bytes of crypto/rand).
-        expires_at: { type: string, format: date-time, nullable: true }
-        revoked_at: { type: string, format: date-time, nullable: true }
-        max_submissions:
+        url: { type: string, description: "Empty until the public fill-out page exists." }
+        channel: { type: string, enum: [link, email, embed, qr] }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        maxSubmissions:
           type: integer
-          description: 0 = unlimited.
-        submission_count: { type: integer }
-        created_by: { type: string, format: uuid, nullable: true }
-        created_at: { type: string, format: date-time }
+          nullable: true
+          description: null = unlimited.
+        views: { type: integer }
+        submissions: { type: integer }
+        createdBy: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
         status:
           type: string
           enum: [active, expired, disabled]
@@ -46629,78 +46616,44 @@ components:
 
     FormWebhook:
       type: object
-      description: A webhook subscription attached to a form schema.
+      description: A webhook subscription attached to a form schema (camelCase, as the frontend types it).
       properties:
-        id:
-          type: string
-          format: uuid
-        form_schema_id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-          format: uuid
-        url:
-          type: string
-          format: uri
+        id: { type: string, format: uuid }
+        formSchemaId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        url: { type: string, format: uri }
         secret:
           type: string
-          description: HMAC secret (write-only; returned masked or omitted)
+          description: HMAC secret, masked on read.
         events:
           type: array
           items: { type: string }
-        active:
-          type: boolean
-        last_triggered_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        last_status:
-          type: string
-        created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        updated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+        active: { type: boolean }
+        lastTriggeredAt: { type: string, format: date-time, nullable: true }
+        lastStatus: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     FormWebhookDelivery:
       type: object
-      description: A single delivery attempt for a webhook event.
+      description: A single delivery attempt for a webhook event (camelCase, as the frontend types it).
       properties:
-        id:
-          type: string
-          format: uuid
-        webhook_id:
-          type: string
-          format: uuid
-        submission_id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        webhookId: { type: string, format: uuid }
+        submissionId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
         payload:
-          type: string
-          format: byte
-          description: Raw delivery payload (base64-encoded bytes on the wire)
-        status:
-          type: string
-          enum: [pending, delivered, failed, dead]
-          description: "Proto enum: 1=pending, 2=delivered, 3=failed, 4=dead"
-        attempt_count:
-          type: integer
-          format: int32
-        max_attempts:
-          type: integer
-          format: int32
-        next_attempt_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        last_error:
-          type: string
-        last_response_code:
-          type: integer
-          format: int32
-        created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        delivered_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: object
+          additionalProperties: true
+          description: The delivery payload as JSON (`{}` when empty).
+        status: { type: string, enum: [pending, delivered, failed, dead] }
+        attemptCount: { type: integer, format: int32 }
+        maxAttempts: { type: integer, format: int32 }
+        nextAttemptAt: { type: string, format: date-time, nullable: true }
+        lastError: { type: string, nullable: true }
+        lastResponseCode: { type: integer, format: int32, nullable: true }
+        createdAt: { type: string, format: date-time }
+        deliveredAt: { type: string, format: date-time, nullable: true }
 
     FormStats:
       type: object
