@@ -1847,7 +1847,7 @@ units:
     service: e2e
     model: sonnet
     deps: [chore-work-project-actor-and-admin-bypass-lean]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       `TestWorkProjectFlow` (`backend/test/e2e/work_test.go`) erweitern oder einen zweiten Flow
