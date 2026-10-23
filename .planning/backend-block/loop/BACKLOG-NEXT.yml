@@ -791,6 +791,9 @@ units:
       Kein Test moeglich (Prometheus laeuft nicht im Gate). Der Beleg ist stattdessen:
       `promtool check rules` auf die Datei, falls verfuegbar — sonst eine sorgfaeltige
       Syntaxpruefung gegen die neun bestehenden Regeln als Vorlage.
+      NACHTRAG 2026-10-23 (Entscheidungsrunde Lauf 14): zusammen mit dieser Regel auch eine
+      Alarmregel auf `audit_events_dropped_total` (Lauf 14 Iteration 96) anlegen — die Metrik
+      kommt aus den Go-Services und wird schon gescrapt, sie braucht keine neue Datenquelle.
     done_when:
       - >-
         Ob eine Metrik existiert, an der eine Backup-Regel haengen kann, ist ermittelt und im
@@ -1167,115 +1170,55 @@ units:
   # ========================================================================================
   # NACHBEARBEITUNG LAUF 14 (2026-10-23): offen:-Zeilen mit Luke-Bezug aus JOURNAL Lauf 14
   # (archive/lauf-14/) plus Befunde des gezielten Post-Run-Reviews, gebündelt je Frage.
+  #
+  # ENTSCHEIDUNGSRUNDE 2026-10-23 (Luke hat die Empfehlungstabelle übernommen):
+  #   ERLEDIGT und deshalb hier ENTFERNT:
+  #   - `fix-inbox-routing-rules-response-shape` -> 3c13fd66
+  #   - `harden-idempotency-do-not-replay-5xx` -> 336eb7b8 (Fix in idempotency.Complete,
+  #     greift für Middleware, BeginIdempotent* und formulare). Upload-Fingerprint ohne
+  #     Inhalt bewusst nicht gebaut.
+  #   - `decide-password-reset-invalidation-dos` -> entschieden: Invalidate-all bleibt, Limit
+  #     je Mail 5 -> 3 pro 10 min; Invalidate+Create in einer Tx. Gebaut in 076585f0.
+  #     Restrisiko akzeptiert: ein Angreifer kann das Fenster weiter verbrennen.
+  #   - `decide-signature-unsign-and-signed-party-correction` -> entschieden: NICHTS bauen,
+  #     Beweiswert vor Korrektur. Storno-Workflow erst auf Kundenanfrage. `reserved` blockiert
+  #     das Löschen eines Mietobjekts weiterhin (bestätigt).
+  #   - DSAR-Punkt (4) Kürzungshinweise -> a50ddfd1 (zentraler Hinweis ab 50 Zeilen,
+  #     Ellipse an gekürzten JSON-Werten). Damit ist auch Punkt (6) Dialer-Cap sichtbar.
+  #   ENTSCHIEDEN OHNE BAU (nur dokumentiert):
+  #   - Vier-Augen bei Zeitkorrekturen bleibt streng, keine Ausnahme für Ein-Personen-Tenants.
+  #   - `inbox_messages.subject` bleibt bei Kontakt-Löschung stehen.
+  #   - DSAR: fremde Absender/Betreffe im Postfach-Inhaber-Export und die volle Rapportzeile
+  #     beim Prüfer sind dokumentiertes Restrisiko, der Admin schwärzt vor der Herausgabe.
+  #   - Audit-Drop-Alarm wandert in `feat-alerts-backup-dead-mans-switch` (gleiche Infra).
+  #   - ArbZG: Deckel 10 h bleibt; die UI soll Werte über 10 ablehnen -> Punkt in
+  #     `fe-handle-run14-behaviour-changes`.
   # ========================================================================================
 
-  - id: decide-password-reset-invalidation-dos
+  - id: feat-gobd-verify-integrity-on-export
     phase: 4
-    service: auth
+    service: finance
     model: sonnet
     deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: Invalidate-all beim neuen Reset-Antrag (5a82d317) lässt einen
-      Unauthentifizierten den Reset-Link des Opfers entwerten. Abwägung Sicherheit gegen
-      Aussperr-Risiko ist keine Nachtarbeit.
-    target: "Entscheidung Luke, danach spitze Unit nach BACKLOG.yml"
+    status: todo
+    target: BACKLOG.yml
+    coverage_start: "n.a."
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: `VerifyIntegrity` läuft beim GoBD-Export, kein
+      periodischer Worker, keine eigene Route. Billigster Weg ohne Vollscan im Hintergrund.
     scope: >
-      BEFUND Post-Run-Review A. `auth/service.go` ~708: jeder `POST /auth/forgot-password`
-      entwertet alle offenen Reset-Token des Kontos; Rate-Limit 5/10 min je Mail hält einen
-      Angreifer nicht ab, der das Opfer dauerhaft am Reset hindert. Zusätzlich laufen Invalidate
-      und Create nicht in einer Tx: scheitert Create, existiert kein gültiger Link mehr.
-      OPTIONEN: (a) Invalidate-all behalten, aber Invalidate+Create in eine Tx; (b) mehrere
-      gültige Token mit kurzer Laufzeit (z. B. 15 min) statt Invalidate-all; (c) schärferes
-      Limit je Mail plus (a). In jedem Fall die Tx (a) bauen.
-    sources:
-      - backend/internal/auth/service.go
-      - backend/internal/gateway/route_auth.go
+      Aus Lauf 14 Iteration 14 (8cea8ead): `VerifyIntegrity` hat keinen Aufrufer. Beim GoBD-Export
+      vor dem Schreiben des Archivs aufrufen. Bricht die Kette, wird der Export nicht still
+      ausgeliefert: entweder Abbruch mit klarer Fehlermeldung oder ein Prüfvermerk im Export
+      (beim Bau entscheiden, was der bestehende Export-Pfad sauberer trägt; im Journal begründen).
+      Erst Aufrufer des Exports greppen, Fix an der gemeinsamen Funktion.
     done_when:
-      - Entscheidung Luke dokumentiert
+      - "DB-Test als kmuhub_app: manipulierte Zeile -> Export meldet den Bruch"
+      - "DB-Test: intakte Kette -> Export unverändert"
+      - "Mutations-Probe: Aufruf entfernt, der Bruch-Test wird rot"
 
-  - id: decide-signature-unsign-and-signed-party-correction
-    phase: 4
-    service: vertraege
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: Rapporte, Mietverträge und Verträge lehnen ein zweites
-      Signieren jetzt mit 409 ab, signierte Parteien sind nicht mehr entfernbar. Ob es einen
-      Widerrufs- oder Korrekturpfad braucht, ist eine fachliche Frage.
-    target: "Entscheidung Luke, danach spitze Units nach BACKLOG.yml"
-    scope: >
-      Aus Lauf 14 Iterationen 25, 29, 31, 32 (6b74c077, 92c9d52a, c4d3805b, 119e32a8). Kein
-      Unsign-Pfad, kein Workflow für eine falsch erfasste signierte Partei. Frage je Modul: braucht
-      es (a) gar nichts (Beweiswert vor Korrektur), (b) Widerruf mit Audit-Eintrag durch eine
-      Rolle mit eigener Permission, (c) Storno plus neues Dokument. Die Desktop-Ansichten
-      behandeln den neuen 409 nicht (siehe `fe-handle-run14-behaviour-changes`). Ebenfalls
-      offen aus Iteration 30: `reserved` blockiert das Löschen eines Mietobjekts genauso wie
-      `active` — bestätigen oder lockern.
-    done_when:
-      - Entscheidung Luke dokumentiert
-
-  - id: decide-run14-compliance-defaults
-    phase: 4
-    service: hr
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKT- UND COMPLIANCE-ENTSCHEIDUNGEN LUKE zu Defaults, die Lauf 14 gesetzt oder offen
-      gelassen hat. Jede einzeln bestätigen oder ändern.
-    target: "Entscheidung Luke, danach spitze Units nach BACKLOG.yml"
-    scope: >
-      (1) ArbZG: `max_daily_hours` über 10 wird auf 10 gedeckelt, das Gateway nimmt bis 24 an
-      (Iteration 17, 73211f33) — Tarif-Tenants mit Verlängerung nach §7? Und die UI sollte
-      Werte über 10 ablehnen statt still zu deckeln. (2) Vier-Augen bei Zeitkorrekturen
-      (Iteration 16, 471a6a12): Ein-Personen-Tenants können eigene Korrekturen nicht mehr
-      freigeben — Ausnahme für Tenants ohne zweiten Genehmiger? (3) GoBD: `VerifyIntegrity` hat
-      keinen Aufrufer (Iteration 14, 8cea8ead) — periodischer Worker, Route auf Zuruf oder
-      Prüfung beim Export? (4) Team-Inbox: Tenant-Admin mit `kommunikation:team_inbox:manage`,
-      der kein Team-Admin ist, kann Mitglieder nicht verwalten (Iterationen 44, 65) — Bypass
-      gewollt? (5) `DIALER_STALE_CONTACT_MINUTES` (Iteration 42): Default 0 heißt Reaper aus;
-      Empfehlung mindestens 240, Wert in `.env.production` setzen. (6) DATEV-EXTF-Kopf Feld 8
-      steht weiter auf "KMU Hub" (Iteration 104): mit echtem Steuerberater-Import prüfen, ob es
-      ein Herkunfts-Kürzel ist. (7) Alarmregel auf `audit_events_dropped_total` (Iteration 96).
-      (8) Kontakt-Löschung: `inbox_messages.subject` bleibt stehen (Iteration 108).
-    done_when:
-      - Entscheidung Luke je Punkt dokumentiert
-
-  - id: decide-dsar-third-party-precision
-    phase: 4
-    service: security
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      DSGVO-ENTSCHEIDUNG LUKE (Art. 15 Abs. 4): wie präzise muss die Admin-DSAR-Suche
-      Drittdaten ausschließen, und was ist akzeptiertes Restrisiko, das der Admin vor der
-      Herausgabe schwärzt?
-    target: "Entscheidung Luke, danach spitze Units nach BACKLOG.yml"
-    scope: >
-      BEFUNDE Post-Run-Review C zu den DSAR-Modulen aus Lauf 14 (Tenant-Scoping überall sauber).
-      (1) Gast-Chat ohne E-Mail wird über den kleingeschriebenen Anzeigenamen gruppiert
-      (`dsar_search_visitors.go`, 0dabab9e) — alle Gäste "max" eines Tenants landen beim
-      selben Subjekt. (2) Eingangsrechnungen und Bankumsätze matchen auch auf `c.company`,
-      Fahrtenbuch auf `driver_name` (`dsar_search_finance.go`, `dsar_search_fuhrpark.go`) —
-      liefert Firmen- und Drittdaten inkl. `remittance_info`. (3) Postfach-Inhaber sieht fremde
-      Absender, Betreff, Preview; Rapport-Prüfer die ganze Zeile des Autors inkl. Koordinaten
-      (`dsar_search_inbox_mail.go`, `dsar_search_reports_shifts.go`). (4) Listen kappen bei 50
-      (`dsarMaxRows`), JSON- und Aktivitätswerte bei 200 Zeichen — ohne Kürzungshinweis
-      (Muster mit Hinweis: `dsar_search.go` ~664). (5) Erasure: `suppliers` mit `contact_id`
-      werden offengelegt, aber nicht gescrubbt; Fotoobjekte hinter `photo_urls` der
-      Mietinspektion bleiben im Objektspeicher (72b9c6d1). (6) Aus Iteration 80: Cap von 50
-      Statuswechseln im Dialer-DSAR. Punkt (4) ist ohne Entscheidung baubar und kann vorgezogen
-      werden.
-    sources:
-      - backend/internal/security/gdpr/
-      - backend/internal/crm/consent/scrub.go
-    done_when:
-      - Entscheidung Luke dokumentiert
-
-  - id: fix-inbox-routing-rules-response-shape
+  - id: fix-team-inbox-manage-permission-bypass
     phase: 4
     service: inbox
     model: sonnet
@@ -1283,48 +1226,100 @@ units:
     status: todo
     target: BACKLOG.yml
     coverage_start: "n.a."
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: wer `kommunikation:team_inbox:manage` hat, darf Mitglieder
+      jeder Team-Inbox des Tenants verwalten, auch ohne Team-Admin zu sein.
     scope: >
-      BEFUND Post-Run-Review C (vorbestehend, nicht aus Lauf 14). `GET /api/v1/inbox/rules`
-      antwortet mit einem Objekt `rules`, Create und Update mit einem Objekt `rule`
-      (`route_inbox.go` ~1175, ~1294, `response.Proto(w, …, resp)`). Das Desktop-FE
-      (`api/inbox-client.ts` 203-209) typisiert `RoutingRule[]` bzw. `RoutingRule`;
-      `RoutingRulesEditor.tsx` ~701 `rules?.map` wirft auf dem Objekt einen TypeError. Nur die
-      MSW-Mocks liefern die nackte Form. Fix am Gateway nach dem bestehenden Muster:
-      `response.ProtoList(w, 200, resp.Rules)` bzw. `resp.Rule`; `openapi.yaml` mitziehen.
-    sources:
-      - backend/internal/gateway/route_inbox.go
-      - backend/api/openapi.yaml
-      - desktop/src/renderer/src/api/inbox-client.ts
+      Aus Lauf 14 Iterationen 44 und 65: der Team-Admin-Check lässt einen Tenant-Admin mit der
+      Manage-Permission nicht durch. Permission-Bypass im Service ergänzen (Permission kommt
+      über den gRPC-Kontext, Muster der übrigen Permission-Checks im Service übernehmen).
+      Tenant-Grenze bleibt: kein Zugriff auf Team-Inboxen fremder Tenants.
     done_when:
-      - "Gateway-Test: GET /inbox/rules liefert ein JSON-Array, POST und PATCH das Regel-Objekt"
-      - "Mutations-Probe: zurück auf response.Proto, der Test wird rot"
-      - "go test ./internal/gateway/ inkl. TestOpenAPIRouteDrift grün, swagger-cli validate ok"
+      - "Test: Nutzer mit Manage-Permission ohne Team-Admin-Rolle fügt ein Mitglied hinzu"
+      - "Test: Nutzer ohne beides bekommt weiter PermissionDenied"
+      - "Mutations-Probe: Bypass entfernt, der erste Test wird rot"
 
-  - id: harden-idempotency-do-not-replay-5xx
+  - id: chore-dialer-stale-contact-default-240
     phase: 4
-    service: middleware
+    service: deploy
     model: sonnet
     deps: []
     status: todo
     target: BACKLOG.yml
     coverage_start: "n.a."
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: Reaper an, 240 Minuten.
     scope: >
-      BEFUND Post-Run-Review A (Bestandsverhalten der Middleware, bei Uploads am stärksten).
-      `completeAsync` speichert jede Antwort 24 h, auch 5xx: scheitert ein Upload an einem
-      Storage-Ausfall (500/502), bekommt jeder Retry mit demselben Key die gespeicherte
-      Fehlerantwort — der Retry-Schutz verhindert den Retry. Fix: bei Status ab 500 den Key
-      freigeben (Zeile löschen) statt die Antwort abzuschließen; 4xx bleiben replaybar.
-      Gilt für die Middleware UND die eigenen Pfade (`BeginIdempotent*`, formulare
-      `completeSubmit`). Optional: Fingerprint des Datei-Uploads um Inhaltslänge oder Hash
-      ergänzen (`server/file_upload.go`).
-    sources:
-      - backend/internal/middleware/idempotency.go
-      - backend/internal/server/file_upload.go
-      - backend/internal/formulare/form_share.go
+      Compose-Default `DIALER_STALE_CONTACT_MINUTES: ${DIALER_STALE_CONTACT_MINUTES:-0}` auf
+      `:-240` setzen, damit es ohne Schreibzugriff auf `.env.production` greift. Freigegebene
+      Ausnahme von der `deploy/`-Sperre, nur diese eine Zeile. Deploy-only-Commit triggert kein
+      CI/CD — beim Merge zusammen mit Code-Commits ausrollen oder `gh workflow run CD`.
     done_when:
-      - "DB-Test als kmuhub_app: erster Versuch 500, Retry mit gleichem Key läuft erneut durch"
-      - "DB-Test: 4xx wird weiter replayed"
-      - "Mutations-Probe: Freigabe entfernt, der 5xx-Test wird rot"
+      - "Compose-Zeile auf :-240, `docker compose config` zeigt 240"
+
+  - id: fix-dsar-third-party-matching
+    phase: 4
+    service: security
+    model: opus
+    deps: []
+    status: todo
+    target: BACKLOG.yml
+    coverage_start: "n.a."
+    decided: 2026-10-23
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-23: die eindeutigen Drittdaten-Fälle bauen, der Rest ist
+      dokumentiertes Restrisiko (siehe Blockkopf).
+    scope: >
+      Befunde Post-Run-Review C. (1) Gast-Chat ohne E-Mail nicht über den kleingeschriebenen
+      Anzeigenamen gruppieren (`dsar_search_visitors.go`, 0dabab9e): jede Gast-Session ohne
+      E-Mail ist ein eigenes Subjekt, sonst landen alle "max" eines Tenants beim selben.
+      (2) Kein Abgleich über `c.company` bei Eingangsrechnungen und Bankumsätzen
+      (`dsar_search_finance.go`) und kein Abgleich über freien `driver_name` im Fahrtenbuch
+      (`dsar_search_fuhrpark.go`), nur noch über die eindeutige Verknüpfung (contact_id / user_id).
+    sources:
+      - backend/internal/security/gdpr/dsar_search_visitors.go
+      - backend/internal/security/gdpr/dsar_search_finance.go
+      - backend/internal/security/gdpr/dsar_search_fuhrpark.go
+    done_when:
+      - "DB-Test: zwei Gäste 'Max' ohne E-Mail ergeben zwei Subjekte"
+      - "DB-Test: Rechnung einer gleichnamigen Firma taucht beim Kontakt nicht auf"
+      - "Mutations-Probe je Punkt"
+
+  - id: decide-erasure-suppliers-and-inspection-photos
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      DSGVO-ENTSCHEIDUNG LUKE (Art. 17), in der Runde 2026-10-23 nicht behandelt.
+    target: "Entscheidung Luke, danach spitze Unit nach BACKLOG.yml"
+    scope: >
+      Rest aus dem früheren `decide-dsar-third-party-precision`, Punkt (5): `suppliers` mit
+      `contact_id` werden im DSAR offengelegt, bei der Löschung aber nicht gescrubbt; Fotoobjekte
+      hinter `photo_urls` der Mietinspektion bleiben im Objektspeicher (72b9c6d1). Frage:
+      scrubben bzw. Objekte löschen, oder Lieferantendaten als Geschäftsdaten mit
+      HGB-Aufbewahrung behandeln (dann an `decide-retention-policy-hgb-ao-domains` hängen)?
+    done_when:
+      - Entscheidung Luke dokumentiert
+
+  - id: decide-datev-extf-field8-origin
+    phase: 4
+    service: finance
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      GEPARKT 2026-10-23 bis zum ersten echten Steuerberater-Import.
+    target: "Prüfung mit echtem DATEV-Import"
+    scope: >
+      Aus Lauf 14 Iteration 104: der DATEV-EXTF-Kopf trägt in Feld 8 weiter "KMU Hub". Beim ersten
+      echten Import prüfen, ob DATEV dort ein Herkunfts-Kürzel erwartet, und ggf. auf "Cosmi" bzw.
+      das vergebene Kürzel umstellen.
+    done_when:
+      - Ergebnis des Imports dokumentiert
 
   - id: fe-handle-run14-behaviour-changes
     phase: 4
@@ -1347,6 +1342,8 @@ units:
       `GET /finance/time-entries`; 400 statt stiller 0-Position bei leeren oder
       Komma-Dezimalwerten in Rechnungspositionen; Idempotency-Replay liefert bei Einladung,
       App-Passwort und Admin-User keinen Token mehr, sondern einen Hinweis-Body;
-      `quantity_by_unit` im Inventar-Stock-Report (Mock summiert weiter blind).
+      `quantity_by_unit` im Inventar-Stock-Report (Mock summiert weiter blind); ArbZG: Eingabe von
+      `max_daily_hours` über 10 ablehnen statt still auf 10 zu deckeln (Entscheidung
+      2026-10-23, Deckel bleibt). VORRANG im Alltag: Login 401 und 409 beim Signieren.
     done_when:
       - Je Punkt geprüft und behandelt oder bewusst verworfen
