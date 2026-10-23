@@ -2,6 +2,7 @@ package gdpr
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"time"
 
@@ -22,8 +23,8 @@ import (
 // resolve to the anonymised label.
 // ---------------------------------------------------------------------------
 
-// valuesRecord turns a row of plain columns (text, numbers, timestamps, bools,
-// NULLs — no uuid) into one record, keyed by keys in column order.
+// valuesRecord turns a row of plain columns (text, numbers, uuids, timestamps,
+// bools, NULLs) into one record, keyed by keys in column order.
 func valuesRecord(keys []string) func(rows pgx.Rows) (DSARRecord, error) {
 	return func(rows pgx.Rows) (DSARRecord, error) {
 		vals, err := rows.Values()
@@ -35,22 +36,36 @@ func valuesRecord(keys []string) func(rows pgx.Rows) (DSARRecord, error) {
 		}
 		fields := make([]DSARField, len(keys))
 		for i, v := range vals {
-			var s string
-			switch x := v.(type) {
-			case nil:
-			case time.Time:
-				s = x.Format(dsarTimeLayout)
-			case bool:
-				s = "nein"
-				if x {
-					s = "ja"
-				}
-			default:
-				s = fmt.Sprint(x)
-			}
-			fields[i] = DSARField{Key: keys[i], Value: s}
+			fields[i] = DSARField{Key: keys[i], Value: dsarCell(v)}
 		}
 		return DSARRecord{Fields: fields}, nil
+	}
+}
+
+// dsarCell renders one value from rows.Values() for a person to read. pgx
+// hands NUMERIC back as pgtype.Numeric and UUID as [16]byte; fmt.Sprint would
+// print those as a struct dump and a byte list.
+func dsarCell(v any) string {
+	switch x := v.(type) {
+	case nil:
+		return ""
+	case time.Time:
+		return x.Format(dsarTimeLayout)
+	case bool:
+		if x {
+			return "ja"
+		}
+		return "nein"
+	case [16]byte:
+		return uuid.UUID(x).String()
+	case driver.Valuer:
+		dv, err := x.Value()
+		if err != nil || dv == nil {
+			return ""
+		}
+		return fmt.Sprint(dv)
+	default:
+		return fmt.Sprint(x)
 	}
 }
 
