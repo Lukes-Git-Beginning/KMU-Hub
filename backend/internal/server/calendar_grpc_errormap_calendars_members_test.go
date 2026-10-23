@@ -289,8 +289,7 @@ func (r *stubCalendarRepo) ListCategories(_ context.Context, userID, tenantID uu
 
 // DeleteCategory mirrors PostgresRepository.DeleteCategory (postgres_repository.go:337-349):
 // a DELETE ... WHERE id=$1 AND user_id=$2 AND tenant_id=$3 that maps zero rows affected to
-// ErrCategoryNotFound. That 0-row semantics is exactly what exposes the DeleteEventCategory
-// gateway-auth bug below (calendar_grpc.go:791-792 passes uuid.Nil as userID).
+// ErrCategoryNotFound, so a foreign user's category reads as not found.
 func (r *stubCalendarRepo) DeleteCategory(_ context.Context, categoryID, userID, tenantID uuid.UUID) error {
 	c, ok := r.categories[categoryID]
 	if !ok || c.UserID != userID || c.TenantID != tenantID {
@@ -428,18 +427,19 @@ func TestListCalendars(t *testing.T) {
 
 func TestUpdateCalendar(t *testing.T) {
 	tenantID := uuid.New()
+	actorID := uuid.New()
 	calID := uuid.New()
 
 	t.Run("happy path", func(t *testing.T) {
 		repo := newStubCalendarRepo()
 		repo.calendars[calID] = &models.Calendar{
-			ID: calID, TenantID: tenantID, OwnerID: uuid.Nil, Name: "Old",
+			ID: calID, TenantID: tenantID, OwnerID: actorID, Name: "Old",
 			CalendarType: models.CalendarTypeShared, Color: "#4285F4", Timezone: "Europe/Berlin",
 		}
 		srv := newTestCalendarServerWithRepo(repo)
 		newName := "New Name"
 
-		resp, err := srv.UpdateCalendar(ctxWithTenant(tenantID), &calv1.UpdateCalendarRequest{Id: calID.String(), Name: &newName})
+		resp, err := srv.UpdateCalendar(ctxWithActorAndTenant(actorID, tenantID), &calv1.UpdateCalendarRequest{Id: calID.String(), Name: &newName})
 		require.NoError(t, err)
 		assert.Equal(t, "New Name", resp.Calendar.Name)
 	})
@@ -449,21 +449,22 @@ func TestUpdateCalendar(t *testing.T) {
 		srv := newTestCalendarServerWithRepo(repo)
 		newName := "New"
 
-		_, err := srv.UpdateCalendar(ctxWithTenant(tenantID), &calv1.UpdateCalendarRequest{Id: uuid.New().String(), Name: &newName})
+		_, err := srv.UpdateCalendar(ctxWithActorAndTenant(actorID, tenantID), &calv1.UpdateCalendarRequest{Id: uuid.New().String(), Name: &newName})
 		requireGRPCCode(t, err, codes.NotFound)
 	})
 }
 
 func TestDeleteCalendar(t *testing.T) {
 	tenantID := uuid.New()
+	actorID := uuid.New()
 
 	t.Run("happy path", func(t *testing.T) {
 		repo := newStubCalendarRepo()
 		calID := uuid.New()
-		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: uuid.Nil, IsDefault: false}
+		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: actorID, IsDefault: false}
 		srv := newTestCalendarServerWithRepo(repo)
 
-		_, err := srv.DeleteCalendar(ctxWithTenant(tenantID), &calv1.DeleteCalendarRequest{Id: calID.String()})
+		_, err := srv.DeleteCalendar(ctxWithActorAndTenant(actorID, tenantID), &calv1.DeleteCalendarRequest{Id: calID.String()})
 		require.NoError(t, err)
 		_, exists := repo.calendars[calID]
 		assert.False(t, exists)
@@ -472,10 +473,10 @@ func TestDeleteCalendar(t *testing.T) {
 	t.Run("cannot delete default calendar", func(t *testing.T) {
 		repo := newStubCalendarRepo()
 		calID := uuid.New()
-		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: uuid.Nil, IsDefault: true}
+		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: actorID, IsDefault: true}
 		srv := newTestCalendarServerWithRepo(repo)
 
-		_, err := srv.DeleteCalendar(ctxWithTenant(tenantID), &calv1.DeleteCalendarRequest{Id: calID.String()})
+		_, err := srv.DeleteCalendar(ctxWithActorAndTenant(actorID, tenantID), &calv1.DeleteCalendarRequest{Id: calID.String()})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 }
@@ -486,15 +487,16 @@ func TestDeleteCalendar(t *testing.T) {
 
 func TestAddCalendarMember(t *testing.T) {
 	tenantID := uuid.New()
+	actorID := uuid.New()
 	calID := uuid.New()
 
 	t.Run("happy path", func(t *testing.T) {
 		repo := newStubCalendarRepo()
-		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: uuid.Nil}
+		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: actorID}
 		srv := newTestCalendarServerWithRepo(repo)
 		targetID := uuid.New()
 
-		_, err := srv.AddCalendarMember(ctxWithTenant(tenantID), &calv1.AddCalendarMemberRequest{
+		_, err := srv.AddCalendarMember(ctxWithActorAndTenant(actorID, tenantID), &calv1.AddCalendarMemberRequest{
 			CalendarId: calID.String(),
 			UserId:     targetID.String(),
 			Permission: models.CalendarPermissionView,
@@ -509,7 +511,7 @@ func TestAddCalendarMember(t *testing.T) {
 		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: ownerID}
 		srv := newTestCalendarServerWithRepo(repo)
 
-		_, err := srv.AddCalendarMember(ctxWithTenant(tenantID), &calv1.AddCalendarMemberRequest{
+		_, err := srv.AddCalendarMember(ctxWithActorAndTenant(actorID, tenantID), &calv1.AddCalendarMemberRequest{
 			CalendarId: calID.String(),
 			UserId:     ownerID.String(),
 			Permission: models.CalendarPermissionView,
@@ -520,18 +522,19 @@ func TestAddCalendarMember(t *testing.T) {
 
 func TestRemoveCalendarMember(t *testing.T) {
 	tenantID := uuid.New()
+	actorID := uuid.New()
 	calID := uuid.New()
 
 	t.Run("happy path", func(t *testing.T) {
 		repo := newStubCalendarRepo()
 		targetID := uuid.New()
-		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: uuid.Nil}
+		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: actorID}
 		repo.members[calID] = map[uuid.UUID]*models.CalendarMember{
 			targetID: {CalendarID: calID, UserID: targetID, Permission: models.CalendarPermissionView},
 		}
 		srv := newTestCalendarServerWithRepo(repo)
 
-		_, err := srv.RemoveCalendarMember(ctxWithTenant(tenantID), &calv1.RemoveCalendarMemberRequest{
+		_, err := srv.RemoveCalendarMember(ctxWithActorAndTenant(actorID, tenantID), &calv1.RemoveCalendarMemberRequest{
 			CalendarId: calID.String(),
 			UserId:     targetID.String(),
 		})
@@ -546,7 +549,7 @@ func TestRemoveCalendarMember(t *testing.T) {
 		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: ownerID}
 		srv := newTestCalendarServerWithRepo(repo)
 
-		_, err := srv.RemoveCalendarMember(ctxWithTenant(tenantID), &calv1.RemoveCalendarMemberRequest{
+		_, err := srv.RemoveCalendarMember(ctxWithActorAndTenant(actorID, tenantID), &calv1.RemoveCalendarMemberRequest{
 			CalendarId: calID.String(),
 			UserId:     ownerID.String(),
 		})
@@ -595,18 +598,19 @@ func TestListCalendarMembers(t *testing.T) {
 
 func TestUpdateCalendarMemberPermission(t *testing.T) {
 	tenantID := uuid.New()
+	actorID := uuid.New()
 	calID := uuid.New()
 
 	t.Run("happy path", func(t *testing.T) {
 		repo := newStubCalendarRepo()
 		targetID := uuid.New()
-		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: uuid.Nil}
+		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: actorID}
 		repo.members[calID] = map[uuid.UUID]*models.CalendarMember{
 			targetID: {CalendarID: calID, UserID: targetID, Permission: models.CalendarPermissionView},
 		}
 		srv := newTestCalendarServerWithRepo(repo)
 
-		_, err := srv.UpdateCalendarMemberPermission(ctxWithTenant(tenantID), &calv1.UpdateCalendarMemberPermissionRequest{
+		_, err := srv.UpdateCalendarMemberPermission(ctxWithActorAndTenant(actorID, tenantID), &calv1.UpdateCalendarMemberPermissionRequest{
 			CalendarId: calID.String(),
 			UserId:     targetID.String(),
 			Permission: models.CalendarPermissionEdit,
@@ -617,10 +621,10 @@ func TestUpdateCalendarMemberPermission(t *testing.T) {
 
 	t.Run("target not a member", func(t *testing.T) {
 		repo := newStubCalendarRepo()
-		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: uuid.Nil}
+		repo.calendars[calID] = &models.Calendar{ID: calID, TenantID: tenantID, OwnerID: actorID}
 		srv := newTestCalendarServerWithRepo(repo)
 
-		_, err := srv.UpdateCalendarMemberPermission(ctxWithTenant(tenantID), &calv1.UpdateCalendarMemberPermissionRequest{
+		_, err := srv.UpdateCalendarMemberPermission(ctxWithActorAndTenant(actorID, tenantID), &calv1.UpdateCalendarMemberPermissionRequest{
 			CalendarId: calID.String(),
 			UserId:     uuid.New().String(),
 			Permission: models.CalendarPermissionEdit,

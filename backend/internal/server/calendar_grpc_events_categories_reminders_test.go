@@ -454,54 +454,50 @@ func TestUpdateEvent(t *testing.T) {
 // ============================================================================
 // DeleteEvent
 //
-// FUND (nicht Teil dieser Unit, nur dokumentiert): DeleteEvent
-// (calendar_grpc.go:598-599) ruft s.eventService.DeleteEvent mit einer fest
-// verdrahteten uuid.Nil als actorID auf ("Gateway handles auth"-Kommentar).
-// event.Service.DeleteEvent (service.go:398-400) lehnt aber JEDEN Aufruf ab,
-// dessen evt.CreatedBy != actorID ist -- und CreatedBy ist bei einem echten
-// Event nie die Nullwert-UUID. middleware.GetUserID(ctx) liefert den echten
-// Actor bereits serverseitig (middleware/auth.go:66, vom gRPC-Tenant-
-// Interceptor gesetzt, middleware/grpc_tenant.go:83) und wird hier schlicht
-// nicht gelesen. TestDeleteEvent/"real creator denied (uuid.Nil actor bug)"
-// belegt das direkt. Derselbe Fehlklassen-Fund gilt fuer SetEventReminders
-// (:820-821) und DeleteEventCategory (:791-792) unten, sowie fuer
-// UpdateCalendar (:180), DeleteCalendar (:202), AddCalendarMember (:230),
-// RemoveCalendarMember (:254) und UpdateCalendarMemberPermission (:304) --
-// deren Tests in calendar_grpc_errormap_calendars_members_test.go (Iteration 17)
-// setzen durchweg OwnerID: uuid.Nil auf den Test-Kalendern, um den Happy Path
-// ueberhaupt gruen zu bekommen; das ist ein Workaround um genau diesen Bug,
-// kein Beleg, dass die RPCs fuer echte Owner funktionieren.
+// The calendar mutations used to pass uuid.Nil as the actor ("Gateway handles
+// auth"), which the owner/creator checks rejected for every real caller. They
+// now read the caller from the context; these tests run with a real actor.
 // ============================================================================
 
 func TestDeleteEvent(t *testing.T) {
 	tenantID := uuid.New()
+	actorID := uuid.New()
 	eventID := uuid.New()
 
-	t.Run("real creator denied (uuid.Nil actor bug)", func(t *testing.T) {
+	t.Run("another user's event is denied", func(t *testing.T) {
 		eventRepo := newStubEventRepo()
 		eventRepo.events[eventID] = &models.CalendarEvent{ID: eventID, TenantID: tenantID, CreatedBy: uuid.New()}
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), eventRepo, disabledLiveKit())
 
-		_, err := srv.DeleteEvent(ctxWithTenant(tenantID), &calv1.DeleteEventRequest{Id: eventID.String()})
+		_, err := srv.DeleteEvent(ctxWithActorAndTenant(actorID, tenantID), &calv1.DeleteEventRequest{Id: eventID.String()})
 		requireGRPCCode(t, err, codes.PermissionDenied)
+		_, stillExists := eventRepo.events[eventID]
+		assert.True(t, stillExists)
+	})
+
+	t.Run("missing caller is unauthenticated", func(t *testing.T) {
+		eventRepo := newStubEventRepo()
+		eventRepo.events[eventID] = &models.CalendarEvent{ID: eventID, TenantID: tenantID, CreatedBy: actorID}
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), eventRepo, disabledLiveKit())
+
+		_, err := srv.DeleteEvent(ctxWithTenant(tenantID), &calv1.DeleteEventRequest{Id: eventID.String()})
+		requireGRPCCode(t, err, codes.Unauthenticated)
 		_, stillExists := eventRepo.events[eventID]
 		assert.True(t, stillExists)
 	})
 
 	t.Run("invalid id", func(t *testing.T) {
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
-		_, err := srv.DeleteEvent(ctxWithTenant(tenantID), &calv1.DeleteEventRequest{Id: "nope"})
+		_, err := srv.DeleteEvent(ctxWithActorAndTenant(actorID, tenantID), &calv1.DeleteEventRequest{Id: "nope"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
-	t.Run("happy path (documents current uuid.Nil-creator-only behavior)", func(t *testing.T) {
+	t.Run("creator succeeds", func(t *testing.T) {
 		eventRepo := newStubEventRepo()
-		// CreatedBy intentionally uuid.Nil to match the actorID DeleteEvent
-		// actually passes today (see finding above).
-		eventRepo.events[eventID] = &models.CalendarEvent{ID: eventID, TenantID: tenantID, CreatedBy: uuid.Nil}
+		eventRepo.events[eventID] = &models.CalendarEvent{ID: eventID, TenantID: tenantID, CreatedBy: actorID}
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), eventRepo, disabledLiveKit())
 
-		_, err := srv.DeleteEvent(ctxWithTenant(tenantID), &calv1.DeleteEventRequest{Id: eventID.String()})
+		_, err := srv.DeleteEvent(ctxWithActorAndTenant(actorID, tenantID), &calv1.DeleteEventRequest{Id: eventID.String()})
 		require.NoError(t, err)
 		_, stillExists := eventRepo.events[eventID]
 		assert.False(t, stillExists)
@@ -752,22 +748,19 @@ func TestListEventCategories(t *testing.T) {
 
 // ============================================================================
 // DeleteEventCategory
-//
-// Siehe Fund oberhalb TestDeleteEvent -- derselbe uuid.Nil-Actor-Bug, hier
-// gegen die DELETE ... WHERE user_id=$2-Semantik der echten Postgres-
-// Implementierung nachgebildet (postgres_repository.go:337-349).
 // ============================================================================
 
 func TestDeleteEventCategory(t *testing.T) {
 	tenantID := uuid.New()
+	actorID := uuid.New()
 	catID := uuid.New()
 
-	t.Run("real owner denied (uuid.Nil actor bug)", func(t *testing.T) {
+	t.Run("another user's category reads as not found", func(t *testing.T) {
 		calRepo := newStubCalendarRepo()
 		calRepo.categories[catID] = &models.EventCategory{ID: catID, TenantID: tenantID, UserID: uuid.New(), Name: "Client Work"}
 		srv := newTestCalendarServerWithEvents(calRepo, newStubEventRepo(), disabledLiveKit())
 
-		_, err := srv.DeleteEventCategory(ctxWithTenant(tenantID), &calv1.DeleteEventCategoryRequest{Id: catID.String()})
+		_, err := srv.DeleteEventCategory(ctxWithActorAndTenant(actorID, tenantID), &calv1.DeleteEventCategoryRequest{Id: catID.String()})
 		requireGRPCCode(t, err, codes.NotFound)
 		_, stillExists := calRepo.categories[catID]
 		assert.True(t, stillExists)
@@ -775,16 +768,16 @@ func TestDeleteEventCategory(t *testing.T) {
 
 	t.Run("invalid id", func(t *testing.T) {
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
-		_, err := srv.DeleteEventCategory(ctxWithTenant(tenantID), &calv1.DeleteEventCategoryRequest{Id: "nope"})
+		_, err := srv.DeleteEventCategory(ctxWithActorAndTenant(actorID, tenantID), &calv1.DeleteEventCategoryRequest{Id: "nope"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
-	t.Run("happy path (documents current uuid.Nil-owner-only behavior)", func(t *testing.T) {
+	t.Run("owner succeeds", func(t *testing.T) {
 		calRepo := newStubCalendarRepo()
-		calRepo.categories[catID] = &models.EventCategory{ID: catID, TenantID: tenantID, UserID: uuid.Nil, Name: "Client Work"}
+		calRepo.categories[catID] = &models.EventCategory{ID: catID, TenantID: tenantID, UserID: actorID, Name: "Client Work"}
 		srv := newTestCalendarServerWithEvents(calRepo, newStubEventRepo(), disabledLiveKit())
 
-		_, err := srv.DeleteEventCategory(ctxWithTenant(tenantID), &calv1.DeleteEventCategoryRequest{Id: catID.String()})
+		_, err := srv.DeleteEventCategory(ctxWithActorAndTenant(actorID, tenantID), &calv1.DeleteEventCategoryRequest{Id: catID.String()})
 		require.NoError(t, err)
 		_, stillExists := calRepo.categories[catID]
 		assert.False(t, stillExists)
@@ -793,23 +786,19 @@ func TestDeleteEventCategory(t *testing.T) {
 
 // ============================================================================
 // SetEventReminders
-//
-// Siehe Fund oberhalb TestDeleteEvent -- derselbe uuid.Nil-Actor-Bug
-// (calendar_grpc.go:820-821), hier gegen die Limit-/Minuten-Validierung
-// abgegrenzt, die in event.Service.SetReminders VOR dem Ownership-Check
-// laeuft (service.go:487-495) und deshalb unabhaengig vom Bug testbar ist.
 // ============================================================================
 
 func TestSetEventReminders(t *testing.T) {
 	tenantID := uuid.New()
+	actorID := uuid.New()
 	eventID := uuid.New()
 
-	t.Run("real creator denied (uuid.Nil actor bug)", func(t *testing.T) {
+	t.Run("another user's event is denied", func(t *testing.T) {
 		eventRepo := newStubEventRepo()
 		eventRepo.events[eventID] = &models.CalendarEvent{ID: eventID, TenantID: tenantID, CreatedBy: uuid.New(), CalendarID: uuid.New()}
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), eventRepo, disabledLiveKit())
 
-		_, err := srv.SetEventReminders(ctxWithTenant(tenantID), &calv1.SetEventRemindersRequest{
+		_, err := srv.SetEventReminders(ctxWithActorAndTenant(actorID, tenantID), &calv1.SetEventRemindersRequest{
 			EventId:       eventID.String(),
 			MinutesBefore: []int32{15},
 		})
@@ -818,7 +807,7 @@ func TestSetEventReminders(t *testing.T) {
 
 	t.Run("reminder limit exceeded", func(t *testing.T) {
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
-		_, err := srv.SetEventReminders(ctxWithTenant(tenantID), &calv1.SetEventRemindersRequest{
+		_, err := srv.SetEventReminders(ctxWithActorAndTenant(actorID, tenantID), &calv1.SetEventRemindersRequest{
 			EventId:       eventID.String(),
 			MinutesBefore: []int32{5, 10, 15, 30},
 		})
@@ -827,19 +816,19 @@ func TestSetEventReminders(t *testing.T) {
 
 	t.Run("invalid reminder minutes", func(t *testing.T) {
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), newStubEventRepo(), disabledLiveKit())
-		_, err := srv.SetEventReminders(ctxWithTenant(tenantID), &calv1.SetEventRemindersRequest{
+		_, err := srv.SetEventReminders(ctxWithActorAndTenant(actorID, tenantID), &calv1.SetEventRemindersRequest{
 			EventId:       eventID.String(),
 			MinutesBefore: []int32{0},
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
-	t.Run("happy path (documents current uuid.Nil-creator-only behavior)", func(t *testing.T) {
+	t.Run("creator succeeds", func(t *testing.T) {
 		eventRepo := newStubEventRepo()
-		eventRepo.events[eventID] = &models.CalendarEvent{ID: eventID, TenantID: tenantID, CreatedBy: uuid.Nil, CalendarID: uuid.New()}
+		eventRepo.events[eventID] = &models.CalendarEvent{ID: eventID, TenantID: tenantID, CreatedBy: actorID, CalendarID: uuid.New()}
 		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), eventRepo, disabledLiveKit())
 
-		_, err := srv.SetEventReminders(ctxWithTenant(tenantID), &calv1.SetEventRemindersRequest{
+		_, err := srv.SetEventReminders(ctxWithActorAndTenant(actorID, tenantID), &calv1.SetEventRemindersRequest{
 			EventId:       eventID.String(),
 			MinutesBefore: []int32{15, 30},
 		})

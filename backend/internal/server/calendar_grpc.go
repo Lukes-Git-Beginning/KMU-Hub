@@ -162,7 +162,11 @@ func (s *CalendarGRPCServer) UpdateCalendar(ctx context.Context, req *calv1.Upda
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar id")
 	}
 
-	// Gateway handles auth; use uuid.Nil as actorID
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	input := calendar.UpdateInput{}
 	if req.Name != nil {
 		input.Name = req.Name
@@ -177,7 +181,7 @@ func (s *CalendarGRPCServer) UpdateCalendar(ctx context.Context, req *calv1.Upda
 		input.Timezone = req.Timezone
 	}
 
-	cal, err := s.calendarService.Update(ctx, id, uuid.Nil, tenantID, input)
+	cal, err := s.calendarService.Update(ctx, id, actorID, tenantID, input)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -198,8 +202,11 @@ func (s *CalendarGRPCServer) DeleteCalendar(ctx context.Context, req *calv1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar id")
 	}
 
-	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.calendarService.Delete(ctx, id, uuid.Nil, tenantID); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.calendarService.Delete(ctx, id, actorID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -226,8 +233,11 @@ func (s *CalendarGRPCServer) AddCalendarMember(ctx context.Context, req *calv1.A
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.calendarService.AddMember(ctx, calendarID, uuid.Nil, targetUserID, tenantID, req.Permission); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.calendarService.AddMember(ctx, calendarID, actorID, targetUserID, tenantID, req.Permission); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -250,8 +260,11 @@ func (s *CalendarGRPCServer) RemoveCalendarMember(ctx context.Context, req *calv
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.calendarService.RemoveMember(ctx, calendarID, uuid.Nil, targetUserID, tenantID); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.calendarService.RemoveMember(ctx, calendarID, actorID, targetUserID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -300,8 +313,11 @@ func (s *CalendarGRPCServer) UpdateCalendarMemberPermission(ctx context.Context,
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.calendarService.UpdateMemberPermission(ctx, calendarID, uuid.Nil, targetUserID, tenantID, req.Permission); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.calendarService.UpdateMemberPermission(ctx, calendarID, actorID, targetUserID, tenantID, req.Permission); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -601,8 +617,11 @@ func (s *CalendarGRPCServer) DeleteEvent(ctx context.Context, req *calv1.DeleteE
 		return nil, status.Error(codes.InvalidArgument, "invalid event id")
 	}
 
-	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.eventService.DeleteEvent(ctx, eventID, uuid.Nil, tenantID); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.eventService.DeleteEvent(ctx, eventID, actorID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -794,8 +813,11 @@ func (s *CalendarGRPCServer) DeleteEventCategory(ctx context.Context, req *calv1
 		return nil, status.Error(codes.InvalidArgument, "invalid category id")
 	}
 
-	// Gateway handles auth; use uuid.Nil as userID
-	if err := s.calendarService.DeleteCategory(ctx, categoryID, uuid.Nil, tenantID); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.calendarService.DeleteCategory(ctx, categoryID, actorID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -823,8 +845,11 @@ func (s *CalendarGRPCServer) SetEventReminders(ctx context.Context, req *calv1.S
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
 
-	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.eventService.SetReminders(ctx, eventID, uuid.Nil, tenantID, minutesBefore); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.eventService.SetReminders(ctx, eventID, actorID, tenantID, minutesBefore); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
