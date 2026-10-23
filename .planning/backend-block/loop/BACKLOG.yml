@@ -697,7 +697,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 73,6 %"
     scope: >
       Inbox/Team-Inbox, am Code belegt (Scan Iteration 12). (1) `tags` fehlt in

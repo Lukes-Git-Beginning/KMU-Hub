@@ -13656,6 +13656,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageList"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -13676,6 +13678,8 @@ paths:
                 $ref: "#/components/schemas/InboxMessage"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14121,6 +14125,72 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/inbox/messages/bulk/read:
+    post:
+      summary: Mark multiple messages as read (path used by the desktop client; same as bulk-read)
+      tags: [inbox-messages]
+      operationId: bulkMarkInboxReadDesktop
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/inbox/messages/bulk/archive:
+    post:
+      summary: Archive multiple messages (path used by the desktop client; same as bulk-archive)
+      tags: [inbox-messages]
+      operationId: bulkArchiveInboxDesktop
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/inbox/teams:
     post:
       summary: Create a team inbox (admin/manager only)
@@ -14144,6 +14214,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14153,16 +14225,15 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: Team inboxes list
+          description: Team inboxes list (bare array)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  team_inboxes:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/TeamInbox"
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamInbox"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14191,6 +14262,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -14224,10 +14297,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [member_user_id]
+              required: [role]
+              description: The member is given as user_id (desktop client) or member_user_id; one of them is required.
               properties:
+                user_id: { type: string, format: uuid }
                 member_user_id: { type: string, format: uuid }
-                role: { type: string, enum: [admin, member], default: member }
+                role: { type: string, enum: [admin, member] }
       responses:
         "201":
           description: Member added
@@ -14239,6 +14314,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14250,22 +14327,21 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Team inbox members
+          description: Team inbox members (bare array)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  members:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/TeamInboxMember"
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamInboxMember"
         "400":
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14333,6 +14409,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14349,6 +14427,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/RoutingRule"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14377,6 +14457,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -14408,9 +14490,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [conditions, test_message]
+              required: [conditions]
+              description: The sample message is given as message (desktop client) or test_message; the channel may be a name or a number.
               properties:
                 conditions: { type: object }
+                message:
+                  $ref: "#/components/schemas/InboxMessage"
                 test_message:
                   $ref: "#/components/schemas/InboxMessage"
       responses:
@@ -14420,6 +14505,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [matches]
                 properties:
                   matches: { type: boolean }
         "400":
@@ -44545,7 +44631,7 @@ components:
         snoozed_until: { type: string, format: date-time }
         assigned_to: { type: string, format: uuid }
         team_inbox_id: { type: string, format: uuid }
-        tags: { type: array, items: { type: string } }
+        tags: { type: array, items: { type: string }, description: "Always present, empty array when the message has no tags" }
         deep_link: { type: string }
         crm_contact_id: { type: string, format: uuid }
         metadata: { type: object }
@@ -44571,14 +44657,23 @@ components:
 
     InboxUnreadCount:
       type: object
+      required: [total, counts, by_channel]
       properties:
         total: { type: integer }
-        by_channel:
+        counts:
           type: array
           items:
             type: object
             properties:
-              channel: { type: string, enum: [email, chat, notification] }
+              channel: { type: string, enum: [email, chat, notification, guest] }
+              count: { type: integer }
+        by_channel:
+          type: array
+          description: Legacy form of counts; the channel is the proto enum number (1=email, 2=chat, 3=notification, 4=guest).
+          items:
+            type: object
+            properties:
+              channel: { type: integer }
               count: { type: integer }
 
     TeamInbox:
