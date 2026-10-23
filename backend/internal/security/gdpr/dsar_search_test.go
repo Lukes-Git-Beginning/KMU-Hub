@@ -3467,6 +3467,8 @@ func TestSearchByQuery_ExternalVisitors_Integration(t *testing.T) {
 	hashB := strings.ReplaceAll(uuid.New().String(), "-", "") + strings.ReplaceAll(uuid.New().String(), "-", "")
 	seedGuest("Gunhild Gast", "gunhild@gast.example", hashA)
 	seedGuest("Namenlos Gast", "", hashB)
+	hashC := strings.ReplaceAll(uuid.New().String(), "-", "") + strings.ReplaceAll(uuid.New().String(), "-", "")
+	seedGuest("namenlos gast", "", hashC) // a different guest with the same name
 
 	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
 	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
@@ -3509,11 +3511,15 @@ func TestSearchByQuery_ExternalVisitors_Integration(t *testing.T) {
 		}
 	}
 
-	// A guest without e-mail is found by display name.
+	// A guest without e-mail is found by display name, and each such session is
+	// its own subject: two "Namenlos Gast" are two people, not one.
 	anon, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Namenlos")
 	require.NoError(t, err)
-	require.Len(t, anon, 1)
-	assert.Len(t, dsarModule(t, anon[0], "Chat-Gastsitzungen").Records, 1)
+	require.Len(t, anon, 2)
+	assert.NotEqual(t, anon[0].ID, anon[1].ID)
+	for _, p := range anon {
+		assert.Len(t, dsarModule(t, p, "Chat-Gastsitzungen").Records, 1)
+	}
 
 	// --- tenant isolation ---------------------------------------------------
 	for _, q := range []string{"walzer.example", "gunhild@gast", "Namenlos"} {

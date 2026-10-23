@@ -11,14 +11,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
-func TestDriverNameVariants(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, []string{"max muster", "muster max", "muster, max"}, driverNameVariants(" Max ", "MUSTER"))
-	assert.Empty(t, driverNameVariants("Max", ""))
-	assert.Empty(t, driverNameVariants("", "Muster"))
-}
-
-func TestSearchByQuery_UserFuhrparkLogbookAndDamages_Integration(t *testing.T) {
+func TestSearchByQuery_UserFuhrparkDamagesNotLogbook_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -93,17 +86,20 @@ func TestSearchByQuery_UserFuhrparkLogbookAndDamages_Integration(t *testing.T) {
 	require.Len(t, persons, 1)
 	person := persons[0]
 
-	trips := recordMaps(dsarModule(t, person, "Fahrtenbuch (Namensabgleich)"))
-	require.Len(t, trips, 2, "both spellings of the subject, never the colleague's trip")
-	byPurpose := map[string]map[string]string{}
-	for _, tr := range trips {
-		byPurpose[tr["Zweck"]] = tr
+	// trip_logs.driver_name is free text without a user link: a trip carrying the
+	// subject's name may be a namesake's, so the logbook is never disclosed.
+	assertNoLogbook := func(p DSARPerson) {
+		t.Helper()
+		for _, m := range p.Modules {
+			assert.NotContains(t, m.Module, "Fahrtenbuch", "trips are matched by free-text name only")
+			for _, rec := range m.Records {
+				for _, f := range rec.Fields {
+					assert.NotContains(t, []string{"Kundenbesuch", "Wochenendfahrt", "Lieferung", "Fremde Fahrt"}, f.Value)
+				}
+			}
+		}
 	}
-	assert.Equal(t, "M-FF 100", byPurpose["Kundenbesuch"]["Kennzeichen"])
-	assert.Equal(t, "85", byPurpose["Kundenbesuch"]["Kilometer"])
-	assert.Equal(t, "Müller GmbH", byPurpose["Kundenbesuch"]["Geschäftspartner"])
-	assert.Equal(t, "nein", byPurpose["Kundenbesuch"]["Privatfahrt"])
-	assert.Equal(t, "ja", byPurpose["Wochenendfahrt"]["Privatfahrt"])
+	assertNoLogbook(person)
 
 	damages := recordMaps(dsarModule(t, person, "Fahrzeugschäden"))
 	require.Len(t, damages, 2, "reported + resolved by the subject, never the colleague-only damage")
@@ -121,20 +117,16 @@ func TestSearchByQuery_UserFuhrparkLogbookAndDamages_Integration(t *testing.T) {
 	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Fahrerin")
 	require.NoError(t, err)
 	require.Len(t, foreign, 1)
-	for _, tr := range recordMaps(dsarModule(t, foreign[0], "Fahrtenbuch (Namensabgleich)")) {
-		assert.Equal(t, "Fremde Fahrt", tr["Zweck"])
-	}
+	assertNoLogbook(foreign[0])
 	for _, d := range recordMaps(dsarModule(t, foreign[0], "Fahrzeugschäden")) {
 		assert.Equal(t, "Fremder Schaden", d["Beschreibung"])
 	}
 
-	// The colleague sees only their own trip and both role labels on damages.
+	// The colleague sees both role labels on damages and no logbook either.
 	colleagueOnly, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Kollege")
 	require.NoError(t, err)
 	require.Len(t, colleagueOnly, 1)
-	colleagueTrips := recordMaps(dsarModule(t, colleagueOnly[0], "Fahrtenbuch (Namensabgleich)"))
-	require.Len(t, colleagueTrips, 1)
-	assert.Equal(t, "Lieferung", colleagueTrips[0]["Zweck"])
+	assertNoLogbook(colleagueOnly[0])
 	colleagueRoles := map[string]string{}
 	for _, d := range recordMaps(dsarModule(t, colleagueOnly[0], "Fahrzeugschäden")) {
 		colleagueRoles[d["Beschreibung"]] = d["Rolle"]

@@ -1155,3 +1155,24 @@ units:
       `page`/`page_size`. Der Filter-Parameter `source_type` wird seit Iteration 1 akzeptiert.
     done_when:
       - "Dateiansicht rendert die drei Quellen, Typ und Paginierung passen zum Gateway"
+
+  - id: decide-trip-logs-driver-user-fk
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE (Datenmodell + FE): Fahrer als echte User-Referenz im Fahrtenbuch ja/nein.
+    target: "Entscheidung Luke, danach spitze Unit nach BACKLOG.yml (Migration + Desktop-Fahrerauswahl)"
+    scope: >
+      Aus Lauf 15 Iteration 6 (`fix-dsar-third-party-matching`): der DSAR-Nutzerzweig legt das
+      Fahrtenbuch nicht mehr offen, weil `trip_logs.driver_name` Freitext ohne User-FK ist und der
+      Namensabgleich Fahrten von Namensvettern herausgab. Folge: die eigenen Fahrten eines Fahrers
+      fehlen jetzt in seiner Auskunft (Art. 15), der Bearbeiter muss sie von Hand ziehen
+      (`lean:`-Marker in `security/gdpr/dsar_search_fuhrpark.go`). Derselbe Owner-FK-Gap steht in
+      `.planning/backend-gaps.md` (scope-own für Fahrer). Frage: `driver_user_id UUID NULL`
+      (FK users, tenant-gescoped) einführen und im Desktop eine Fahrerauswahl anbieten, freier
+      Name bleibt für Externe? Dann DSAR über die FK und scope-own im Katalog möglich.
+    done_when:
+      - Entscheidung Luke dokumentiert

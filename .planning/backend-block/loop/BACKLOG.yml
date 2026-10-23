@@ -352,7 +352,7 @@ units:
     service: security
     model: opus
     deps: []
-    status: todo
+    status: done
     target: BACKLOG.yml
     coverage_start: "internal/security/gdpr 76,1 %"
     decided: 2026-10-23
