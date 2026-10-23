@@ -32,6 +32,9 @@ const (
 type AppPasswordService struct {
 	repo AppPasswordRepository
 	pool *pgxpool.Pool
+	// cost is bcryptCost; tests lower it, because under -race one cost-12
+	// hash takes about as long as the 5 s connection-test probe timeout.
+	cost int
 }
 
 // NewAppPasswordService creates a new app-specific password service.
@@ -39,6 +42,7 @@ func NewAppPasswordService(repo AppPasswordRepository, pool *pgxpool.Pool) *AppP
 	return &AppPasswordService{
 		repo: repo,
 		pool: pool,
+		cost: bcryptCost,
 	}
 }
 
@@ -58,7 +62,7 @@ func (s *AppPasswordService) Create(ctx context.Context, userID uuid.UUID, tenan
 	plaintext := hex.EncodeToString(raw)
 
 	// Hash with bcrypt
-	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcryptCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), s.cost)
 	if err != nil {
 		return "", nil, err
 	}

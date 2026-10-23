@@ -365,6 +365,10 @@ func TestHandleWebSocket_HardDisconnect_ReleasesImmediately(t *testing.T) {
 	uid := userID.String()
 	wsURL := serveHub(t, h)
 
+	// Connections of earlier tests in this package wind down asynchronously
+	// after their CloseNow; a baseline taken mid-teardown drops under the
+	// later checks. Let them finish first (best effort, no assertion).
+	waitFor(2*time.Second, func() bool { return connGoroutines() == 0 })
 	before := connGoroutines()
 
 	client, resp := dialHub(t, wsURL, issueToken(t, tm, userID, uuid.New().String()))

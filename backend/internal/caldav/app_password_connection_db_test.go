@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -59,6 +60,9 @@ func TestHandleTestConnection_RevokesEphemeralPasswordUnderRLS(t *testing.T) {
 	t.Cleanup(func() { pool.Close() })
 
 	svc := NewAppPasswordService(NewPostgresAppPasswordRepository(pool), pool)
+	// Each probe validates the password; at cost 12 under -race that alone
+	// can exceed the 5 s probe timeout and fail the probe, not the revoke.
+	svc.cost = bcrypt.MinCost
 	withOrgEnabledRestored(t, svc)
 	require.NoError(t, svc.SetOrgEnabled(context.Background(), true))
 
