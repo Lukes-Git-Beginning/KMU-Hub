@@ -1979,7 +1979,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/inbox/adapter 23,9 %"
     scope: >
       Adapter, die Nachrichten aus Kanälen in die Inbox normalisieren. Abdecken, was ein
@@ -2477,3 +2477,32 @@ units:
       - "Test: zwei Uploads mit gleichem Konto, UID und Dateiname liefern verschiedene Keys, beide Objekte lesbar"
       - "Test: Dateiname mit `../` oder `/` verlässt das Präfix nicht"
       - "Mutations-Probe, desktop-aufrufer-Zeile (n.a. erwartet, Key ist intern)"
+
+  - id: fix-preview-truncation-splits-utf8
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Gefunden in cov-inbox-adapter (Iteration 52), aus dem Code gelesen. Die Vorschau wird an
+      sechs Stellen mit `s[:200]` auf BYTES gekürzt: `inbox/adapter/{email,chat,guest,notification}_adapter.go`,
+      `email/sync/worker.go:509` (Betreff -> `email_messages.preview`) und `work/comment/service.go:99`.
+      Fällt Byte 200 mitten in ein Umlaut-/ß-Zeichen (2 Byte), entsteht ungültiges UTF-8.
+      Postgres lehnt das in TEXT ab (22021 invalid byte sequence), die Mail-Sync-Stelle ist live:
+      eine Mail mit Betreff über 200 Byte und Umlaut an der Schnittstelle lässt `repo.Create` scheitern.
+      Die vier Inbox-Adapter haben heute keinen Aufrufer (`FetchNewMessages` wird nirgends gerufen),
+      der Fehler wäre dort latent; `work/comment` landet nur in einem JSON-Wert (Marshal ersetzt
+      mit U+FFFD, harmlos). Reproduziert nur gelesen, nicht gegen eine echte Mail.
+    sources:
+      - backend/internal/email/sync/worker.go
+      - backend/internal/inbox/adapter/
+      - backend/internal/work/comment/service.go
+    notes: >
+      Schlankster Fix an einer gemeinsamen Stelle: ein kleiner Helfer (z. B. `truncateRunes` /
+      Kürzen auf die letzte Rune-Grenze <= 200 Byte per `utf8.RuneStart`), den alle sechs Stellen
+      nutzen. Die Adapter-Tests pinnen nur ASCII (`Len == 200`), bleiben also gültig.
+    done_when:
+      - "Test: Betreff mit Umlaut über Byte 200 liefert gültiges UTF-8 (`utf8.ValidString`) und höchstens 200 Byte"
+      - "Mail-Sync-Pfad: Test oder Beleg, dass ein langer Umlaut-Betreff nicht mehr am Insert scheitert"
+      - "Mutations-Probe, desktop-aufrufer-Zeile (n.a. erwartet, Vorschau bleibt ein String)"
