@@ -1519,7 +1519,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 75,1 %"
     scope: >
       TOTALAUSFALL Berichte-Bibliothek und Berichtslauf (Scan Iteration 34, Wire gemessen). Die

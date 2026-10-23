@@ -29323,9 +29323,9 @@ paths:
                   type: string
                   description: "system|custom (defaults to custom)"
                 query_config:
-                  type: string
-                  format: byte
-                  description: "Raw JSONB aggregation spec (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Aggregation spec as a JSON object (a base64 string of the JSON is still read)"
                 default_format:
                   type: string
                   description: "pdf|csv|xlsx"
@@ -29391,9 +29391,9 @@ paths:
                   type: string
                   description: "finanzen|crm|helpdesk|inventar|produktion|cross"
                 query_config:
-                  type: string
-                  format: byte
-                  description: "Raw JSONB aggregation spec (base64-encoded bytes on the wire); empty means no change"
+                  type: object
+                  additionalProperties: true
+                  description: "Aggregation spec as a JSON object (a base64 string of the JSON is still read); omitted means no change"
                 default_format:
                   type: string
                   description: "pdf|csv|xlsx"
@@ -29453,9 +29453,9 @@ paths:
               type: object
               properties:
                 params:
-                  type: string
-                  format: byte
-                  description: "JSON-encoded report filter params (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Report filter params as a JSON object (a base64 string of the JSON is still read)"
                 force_refresh:
                   type: boolean
                   description: Bypass any cached result and recompute
@@ -29474,6 +29474,8 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "500":
+          description: The result payload is not a JSON report document
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -29502,9 +29504,9 @@ paths:
               type: object
               properties:
                 params:
-                  type: string
-                  format: byte
-                  description: "JSON-encoded report filter params (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Report filter params as a JSON object (a base64 string of the JSON is still read)"
       responses:
         "200":
           description: Exported report file
@@ -29599,9 +29601,9 @@ paths:
                   items: { type: string, format: email }
                 format: { type: string, enum: [pdf, csv, xlsx] }
                 params:
-                  type: string
-                  format: byte
-                  description: "JSON-encoded report params (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Report params as a JSON object (a base64 string of the JSON is still read)"
                 active: { type: boolean }
       responses:
         "201":
@@ -29648,9 +29650,9 @@ paths:
                   description: "Set true to replace recipients with the (possibly empty) recipients array above"
                 format: { type: string, enum: [pdf, csv, xlsx] }
                 params:
-                  type: string
-                  format: byte
-                  description: "JSON-encoded report params (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Report params as a JSON object (a base64 string of the JSON is still read)"
                 active: { type: boolean }
       responses:
         "200":
@@ -49736,21 +49738,24 @@ components:
           type: string
           description: "system|custom"
         query_config:
-          type: string
-          format: byte
-          description: Raw JSONB aggregation spec (base64-encoded bytes on the wire)
+          type: object
+          additionalProperties: true
+          description: Aggregation spec as a JSON object (`{}` when unset)
         default_format:
           type: string
           description: "pdf|csv|xlsx"
         created_by:
           type: string
           format: uuid
+          nullable: true
         is_published:
           type: boolean
         created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
         updated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
 
     BerichtShareToken:
       type: object
@@ -49936,25 +49941,32 @@ components:
           type: string
           description: "pdf|csv|xlsx"
         params:
-          type: string
-          format: byte
-          description: Raw JSONB report params (base64-encoded bytes on the wire)
+          type: object
+          additionalProperties: true
+          description: Report params as a JSON object (`{}` when unset)
         active:
           type: boolean
         last_run_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
+          nullable: true
         last_run_status:
           type: string
           description: "success|failed|skipped"
+          nullable: true
         last_run_error:
           type: string
+          nullable: true
         created_by:
           type: string
           format: uuid
+          nullable: true
         created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
         updated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
 
     BerichtRun:
       type: object
@@ -49974,48 +49986,84 @@ components:
         schedule_id:
           type: string
           format: uuid
+          nullable: true
         trigger:
           type: string
           description: "manual|scheduled|api"
         params:
-          type: string
-          format: byte
-          description: Raw JSONB params supplied for this run (base64-encoded bytes on the wire)
+          type: object
+          additionalProperties: true
+          description: Params supplied for this run as a JSON object (`{}` when none)
         duration_ms:
           type: integer
           format: int32
+          nullable: true
         row_count:
           type: integer
           format: int32
+          nullable: true
         status:
           type: string
           description: "success|failed"
         error:
           type: string
+          nullable: true
         started_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
         completed_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
+          nullable: true
 
     BerichtReportResult:
       type: object
       description: >-
-        The materialized output of a report run. payload is an opaque JSON
-        document produced by the report engine ({columns, rows, series,
-        totals, meta}); shape varies per report definition, so it travels as
-        base64-encoded bytes rather than a typed schema.
+        The materialized output of a report run, readable directly: the
+        report engine JSON document lifted to the top level, with columns
+        renamed to key/label/type and series to id/label/data. Empty
+        columns, rows and series are []. meta carries generated_at,
+        row_count, from_cache and definition_id (plus warning when a
+        downstream source was unavailable).
       properties:
-        payload:
-          type: string
-          format: byte
-          description: "JSON-encoded {columns, rows, series, totals, meta} (base64-encoded bytes on the wire)"
-        row_count:
-          type: integer
-          format: int32
-        generated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        from_cache:
-          type: boolean
+        columns:
+          type: array
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              label: { type: string }
+              type:
+                type: string
+                description: "number|currency|string|date|percent"
+        rows:
+          type: array
+          items: { type: object, additionalProperties: true }
+        series:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              label: { type: string }
+              data:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    label: { type: string }
+                    value: { type: number }
+        totals:
+          type: object
+          additionalProperties: true
+        meta:
+          type: object
+          properties:
+            generated_at: { type: string, format: date-time }
+            row_count: { type: integer, format: int32 }
+            from_cache: { type: boolean }
+            definition_id: { type: string, format: uuid }
+            warning: { type: string }
 
     BerichtKPI:
       type: object
