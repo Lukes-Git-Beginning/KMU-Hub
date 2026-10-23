@@ -1757,7 +1757,7 @@ units:
     service: e2e
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow `TestCalendarLifecycleFlow` in `backend/test/e2e/calendar_test.go`. Deckt genau
@@ -1782,6 +1782,42 @@ units:
       - "TestCalendarLifecycleFlow deckt alle acht Pfade aus ea5a39a9 ab, je Schritt Status und Antwortform geprüft"
       - "go vet -tags=e2e ./test/e2e/ grün"
       - "Mutations-Probe (gedanklich, im Journal): welcher Schritt würde mit uuid.Nil-Akteur rot — je Pfad benannt"
+
+  - id: fix-calendar-resource-booking-routes-desktop-mismatch
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "n.a. (Totalausfall-Fix)"
+    scope: >
+      TOTALAUSFALL, beim Bau von `e2e-calendar-lifecycle` gefunden: Der Desktop bucht und storniert
+      Ressourcen über `POST /api/v1/calendar/resources/bookings` und
+      `DELETE /api/v1/calendar/resources/bookings/{id}`
+      (`desktop/src/renderer/src/api/hooks/useResources.ts:123` und `:138`). Das Gateway kennt nur
+      `POST /api/v1/calendar/bookings` und `DELETE /api/v1/calendar/bookings/{id}`
+      (`route_calendar.go:102-103`). Im Backend steht `resources/bookings` nirgends
+      (`grep -rn "resources/bookings" backend/internal backend/api/openapi.yaml` leer). Ressourcen
+      buchen und Buchung stornieren scheitern damit für jeden Nutzer (404/405), obwohl der Service
+      dahinter funktioniert.
+    sources:
+      - backend/internal/gateway/route_calendar.go
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/api/hooks/useResources.ts
+      - desktop/src/renderer/src/api/calendar-types.ts
+    notes: >
+      Desktop-Code wird nicht geändert, also zieht das Gateway nach: die beiden Pfade
+      `/resources/bookings` und `/resources/bookings/{id}` zusätzlich registrieren (die alten
+      `/bookings`-Pfade bleiben, additiv). Das ist hier ausdrücklich freigegeben, die Spec-Einträge
+      kommen im selben Commit (`TestOpenAPIRouteDrift`). Vorsicht bei chi: `/resources/{id}` ist
+      schon als GET/PUT/DELETE belegt, `DELETE /resources/bookings/{id}` und
+      `DELETE /resources/{id}` müssen sich nicht ins Gehege kommen (statischer Segment-Vorrang
+      prüfen, Test dafür). Den Body des FE (`BookResourceRequest`) gegen `bookResourceRequest`
+      (`resource_id`, `event_id`, `start_time`, `end_time`) halten und die Antwortform gegen den FE-Typ prüfen.
+    done_when:
+      - "POST /api/v1/calendar/resources/bookings und DELETE /api/v1/calendar/resources/bookings/{id} liefern 201 bzw. 200 für den Admin"
+      - "Beide Pfade in openapi.yaml, TestOpenAPIRouteDrift grün"
+      - "Gateway-Test belegt, dass DELETE /resources/{id} weiter die Ressource löscht und nicht die Buchungsroute trifft"
 
   - id: e2e-document-virtual-files
     phase: 4
