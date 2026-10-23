@@ -7,10 +7,12 @@ package idempotency
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -56,6 +58,8 @@ type Repository interface {
 	// tenantID is required to scope the UPDATE to the correct tenant and prevent
 	// cross-tenant cache-replay via the composite PK (tenant_id, key).
 	// Returns ErrKeyMissing when the key no longer exists (e.g. cleaned up).
+	// A status of 500 or above releases the key instead: a server-side failure
+	// (storage outage, panic) must not be replayed to the client's retry.
 	Complete(ctx context.Context, tenantID uuid.UUID, key string, status int, body []byte) error
 
 	// Cleanup deletes expired records and returns the number of rows deleted.
@@ -177,7 +181,15 @@ func (r *postgresRepository) Complete(ctx context.Context, tenantID uuid.UUID, k
 		    completed_at    = NOW()
 		WHERE tenant_id = $1 AND key = $2`
 
-	tag, err := r.pool.Exec(ctx, q, tenantID, key, status, body)
+	var (
+		tag pgconn.CommandTag
+		err error
+	)
+	if status >= http.StatusInternalServerError {
+		tag, err = r.pool.Exec(ctx, `DELETE FROM idempotency_keys WHERE tenant_id = $1 AND key = $2`, tenantID, key)
+	} else {
+		tag, err = r.pool.Exec(ctx, q, tenantID, key, status, body)
+	}
 	if err != nil {
 		return err
 	}

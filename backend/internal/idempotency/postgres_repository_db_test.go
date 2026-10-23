@@ -356,6 +356,52 @@ func TestPostgresComplete_StoresResponse(t *testing.T) {
 	}
 }
 
+// TestPostgresComplete_ServerErrorReleasesKey pins that a 5xx outcome is not
+// stored: a retry with the same key must run the handler again instead of
+// being served the stored failure, while a 4xx outcome stays replayable.
+func TestPostgresComplete_ServerErrorReleasesKey(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Idempotency Complete 5xx")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := idempotency.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	userID := uuid.New()
+
+	for _, tc := range []struct {
+		status     int
+		wantReplay bool
+	}{
+		{502, false},
+		{500, false},
+		{409, true},
+	} {
+		key := "db-complete-status-" + uuid.New().String()
+		defer cleanupIdempotencyKey(t, pool, tenantID, key)
+
+		if _, err := repo.Reserve(ctx, key, tenantID, userID, "POST", "/api/v1/test", "hash-status"); err != nil {
+			t.Fatalf("status %d: Reserve: %v", tc.status, err)
+		}
+		if err := repo.Complete(ctx, tenantID, key, tc.status, []byte(`{"error":"x"}`)); err != nil {
+			t.Fatalf("status %d: Complete: %v", tc.status, err)
+		}
+
+		rec, err := repo.Reserve(ctx, key, tenantID, userID, "POST", "/api/v1/test", "hash-status")
+		if err != nil {
+			t.Fatalf("status %d: retry Reserve: %v", tc.status, err)
+		}
+		if replayed := rec != nil; replayed != tc.wantReplay {
+			t.Fatalf("status %d: replayed=%v, want %v", tc.status, replayed, tc.wantReplay)
+		}
+	}
+}
+
 func TestPostgresComplete_UnknownKey_ReturnsErrKeyMissing(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
