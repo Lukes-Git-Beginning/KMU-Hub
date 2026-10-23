@@ -25172,6 +25172,8 @@ paths:
                 $ref: "#/components/schemas/EmailListMessagesResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25195,6 +25197,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -25245,6 +25249,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25392,6 +25398,8 @@ paths:
           description: Message not found, or one of the label ids does not belong to the tenant
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25462,6 +25470,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25491,6 +25501,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25522,6 +25534,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25553,6 +25567,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -26255,6 +26271,8 @@ paths:
                 $ref: "#/components/schemas/GetContactEmailsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -46809,6 +46827,7 @@ components:
 
     EmailMessageInfo:
       type: object
+      description: references, to, cc, bcc, attachments and label_ids are always present (empty array when there is none).
       properties:
         id:
           type: string
@@ -46951,6 +46970,22 @@ components:
           type: integer
           description: Number of messages actually changed. Ids outside the caller's tenant are silently excluded, not errored.
 
+    EmailRecipient:
+      description: >
+        Recipient of a compose request. Either a bare address string or an object
+        with an optional display name. The address is validated as an e-mail.
+      oneOf:
+        - type: string
+          format: email
+        - type: object
+          required: [email]
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+
     SendEmailRequest:
       type: object
       required: [account_id, to, subject]
@@ -46962,18 +46997,15 @@ components:
           type: array
           minItems: 1
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         cc:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         bcc:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         subject:
           type: string
         body_html:
@@ -47020,18 +47052,15 @@ components:
         to:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         cc:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         bcc:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         subject:
           type: string
         body_html:
@@ -47096,8 +47125,7 @@ components:
           type: array
           minItems: 1
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         body_html:
           type: string
         body_text:

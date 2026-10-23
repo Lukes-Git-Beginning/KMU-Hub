@@ -660,7 +660,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 73,6 %"
     scope: >
       TOTALAUSFALL E-Mail-Versand. (1) `POST /email/send/`, `/send/forward`, `/send/draft`
@@ -1347,3 +1347,36 @@ units:
       - "(a) leere Booking-Liste liefert \"pages\":[]"
       - "(d), (f), (g) gefixt mit Test, oder je Punkt begründet verworfen"
       - "Spec angepasst; Drift-Test grün"
+
+  - id: fix-email-list-views-unified-label-filter
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server (email_grpc) ; internal/email/message"
+    scope: >
+      FUNKTIONSAUSFALL Mail-Ansichten (aus `fix-email-compose-addresses-and-empty-arrays`, Punkt 3).
+      `GET /email/messages/` mit `folder_id=''` (Ansicht "Alle Eingänge" = `view=unified`, Label-Ansicht
+      = `label_id`) antwortet 400 "invalid folder_id" (`email_grpc.go:368`, `uuid.Parse("")`).
+      `MailsPage.tsx:282-287` sendet genau diese Formen; `filter` (all|unread|starred), `account_id`,
+      `view` und `label_id` liest der Gateway (`route_email.go` HandleListMessages) gar nicht und
+      `ListMessagesRequest` kennt sie nicht. Braucht Proto-Felder (`account_id`, `view`, `filter`,
+      `label_id`), Regen (`make proto-email`), eine Listen-Abfrage im `message`-Repo ohne
+      Ordnerzwang (tenant-gescopt, über alle Konten des Nutzers bzw. eines Kontos) und die Gateway-
+      Durchreichung. Ordner-Ansicht darf nicht regredieren.
+    sources:
+      - backend/internal/server/email_grpc.go
+      - backend/internal/gateway/route_email.go
+      - backend/proto/email/v1/email.proto
+      - backend/internal/email/message
+      - desktop/src/renderer/src/modules/mails/MailsPage.tsx
+      - desktop/src/renderer/src/api/email-types.ts
+    notes: >
+      Konten-Scope: nur Konten des aufrufenden Nutzers (user_id aus dem Token), nie ein
+      client-gelieferter Wert allein. Unified = Posteingang jedes Kontos. Permission-Guard der Route
+      bleibt `email:read`.
+    done_when:
+      - "folder_id leer + view=unified liefert die Posteingänge aller Konten des Nutzers, fremde Tenants/Nutzer 0 Zeilen (RLS-Smoke als kmuhub_app)"
+      - "label_id und filter=unread|starred wirken in der Ordner- und der Unified-Ansicht"
+      - "Spec um die vier Query-Parameter ergänzt, Drift-Test grün, Mutations-Probe belegt"
