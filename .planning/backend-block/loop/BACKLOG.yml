@@ -188,7 +188,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: BACKLOG.yml
     coverage_start: "internal/inbox/team 66,5 %"
     decided: 2026-10-23

@@ -645,3 +645,58 @@ func TestGetTeamInbox_TenantIsolation(t *testing.T) {
 	// This test validates the signature chain is correct.
 	require.NoError(t, err)
 }
+
+func TestMemberManagement_ManageAllWaivesInboxAdminCheck(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID, tenantAdmin := uuid.New(), uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+
+	ctx := WithManageAll(context.Background())
+	newMember := uuid.New()
+
+	// tenantAdmin is neither member nor inbox admin, but holds the permission.
+	require.NoError(t, svc.AddMember(ctx, inbox.TenantID, tenantAdmin,
+		&models.TeamInboxMember{TeamInboxID: inbox.ID, UserID: newMember}))
+	assert.Len(t, repo.members[inbox.ID], 2)
+
+	require.NoError(t, svc.RemoveMember(ctx, inbox.TenantID, inbox.ID, tenantAdmin, newMember))
+	assert.Len(t, repo.members[inbox.ID], 1)
+
+	renamed := *inbox
+	renamed.Name = "Renamed by tenant admin"
+	require.NoError(t, svc.UpdateTeamInbox(ctx, &renamed, tenantAdmin))
+}
+
+func TestMemberManagement_WithoutManageAllStaysDenied(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID, outsider := uuid.New(), uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+
+	ctx := context.Background()
+	require.ErrorIs(t, svc.AddMember(ctx, inbox.TenantID, outsider,
+		&models.TeamInboxMember{TeamInboxID: inbox.ID, UserID: outsider}), ErrNotTeamAdmin)
+	require.ErrorIs(t, svc.RemoveMember(ctx, inbox.TenantID, inbox.ID, outsider, adminID), ErrNotTeamAdmin)
+	require.ErrorIs(t, svc.UpdateTeamInbox(ctx, inbox, outsider), ErrNotTeamAdmin)
+	assert.Len(t, repo.members[inbox.ID], 1)
+}
+
+func TestRemoveMember_ManageAllStillKeepsLastAdmin(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID := uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+
+	err := svc.RemoveMember(WithManageAll(context.Background()), inbox.TenantID, inbox.ID, uuid.New(), adminID)
+	require.ErrorIs(t, err, ErrCannotRemoveLastAdmin)
+}

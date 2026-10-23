@@ -55,3 +55,14 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
 - neue-units: `fe-virtual-files-view-wire-shape` (in BACKLOG-NEXT.yml, FE-Fund, kein Backend-Totalausfall)
 - desktop-aufrufer: `GET /documents/virtual` -> `document-client.ts:526` / `useDocuments.ts:469` -> bricht teilweise: (a) FE sendet `source_type` statt `source` (am Gateway behoben, Alias), (b) FE sendet `limit`/`offset`, Gateway liest `page`/`page_size` (FE-Unit), (c) `source_type` im FE als String, im Wire als Zahl (FE-Unit), (d) `DokumentePage.tsx:234-242` verwirft die Daten, die Ansicht ist nicht verdrahtet (FE-Unit). Antwort `{files,total}` passt.
 - offen: Gateway-Test prüft nur den Param-Helfer, nicht den RPC-Aufruf (kein gRPC-Client-Stub im Gateway-Testaufbau). Stale Kommentar in `document_grpc_test.go:25,527` nennt `ListVirtualFiles` noch „untestable“ — nicht angefasst. Goroutinen: keine, kein Race-Risiko.
+
+## Iteration 2 — fix-team-inbox-manage-permission-bypass — done — 2026-10-23 17:50
+- commit: (siehe git log, Subject `fix(inbox): let team inbox managers edit members of any team inbox`)
+- gebaut: `kommunikation:team_inbox:manage` erreichte den Service nie (Permissions liegen nur im HTTP-Kontext). Der gRPC-Client-Interceptor schickt jetzt genau die Allowlist-Keys als `x-user-perms` (nur dieser eine Key), der Server-Interceptor filtert erneut. `InboxGRPCServer` setzt daraus `team.WithManageAll(ctx)` für Update/AddMember/RemoveMember; `team.Service` überspringt dann den Inbox-Admin-Check, nachdem die Inbox im Aufrufer-Tenant gefunden wurde. Letzter-Admin-Schutz bleibt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; DB-Test läuft als `kmuhub_app`)
+- coverage: internal/inbox/team 66,5 % -> 68,4 % (Service-Tests + DB-Test). 0 Skips in inbox/middleware.
+- mutations-probe: `canManageAll`-Zweig in `requireTeamAdmin` entfernt -> `ManageAllWaivesInboxAdminCheck`, `ManageAllStillKeepsLastAdmin` und der DB-Test rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`290e6ac9`: kein Proto, Route nur Query-Alias mit Spec-Eintrag, kein Guard, keine Tabelle; Fix über `callerID`).
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; `POST/DELETE /inbox/teams/{id}/members` liefert nur bei vorher 403 jetzt Erfolg)
+- offen: (1) `DeleteTeamInbox` bleibt `RequireRole("admin","manager")` + Inbox-Admin im Service: die Manage-Permission wirkt dort bewusst nicht (Entscheidung betraf Mitglieder; Update ist mitgezogen, weil derselbe Guard). (2) Die drei Zeilen Glue in `inbox_grpc.go` (`withTeamManage`) sind nur indirekt belegt (Interceptor-Test + Service-Test), kein Test auf Server-Ebene. (3) Permissions im Service-Kontext sind jetzt eine Teilmenge (nur Allowlist) — wer dort `GetUserPermissions` nutzt, bekommt keine volle Liste. (4) Keine Goroutinen, kein Race-Risiko.

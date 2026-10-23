@@ -11,6 +11,21 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+type manageAllKey struct{}
+
+// WithManageAll marks ctx as belonging to a caller who may manage every team
+// inbox of the tenant (permission kommunikation:team_inbox:manage), so the
+// per-inbox admin check is waived. The tenant boundary still applies: the
+// inbox is looked up in the caller's tenant first.
+func WithManageAll(ctx context.Context) context.Context {
+	return context.WithValue(ctx, manageAllKey{}, true)
+}
+
+func canManageAll(ctx context.Context) bool {
+	ok, _ := ctx.Value(manageAllKey{}).(bool)
+	return ok
+}
+
 // Service handles team inbox business logic including creation, membership,
 // manual claim, and round-robin auto-assignment.
 type Service struct {
@@ -64,14 +79,17 @@ func (s *Service) CreateTeamInbox(ctx context.Context, inbox *models.TeamInbox) 
 	return nil
 }
 
-// UpdateTeamInbox updates a team inbox. Only admin members can update.
+// UpdateTeamInbox updates a team inbox. Only admin members (or callers marked
+// with WithManageAll) can update.
 func (s *Service) UpdateTeamInbox(ctx context.Context, inbox *models.TeamInbox, userID uuid.UUID) error {
-	role, err := s.repo.GetMemberRole(ctx, inbox.ID, userID)
-	if err != nil {
-		return err
-	}
-	if role != "admin" {
-		return ErrNotTeamAdmin
+	if !canManageAll(ctx) {
+		role, err := s.repo.GetMemberRole(ctx, inbox.ID, userID)
+		if err != nil {
+			return err
+		}
+		if role != "admin" {
+			return ErrNotTeamAdmin
+		}
 	}
 
 	return s.repo.UpdateTeamInbox(ctx, inbox)
@@ -202,10 +220,14 @@ func (s *Service) AutoAssignMessage(ctx context.Context, tenantID, teamInboxID u
 }
 
 // requireTeamAdmin verifies the team inbox exists in the tenant (NotFound for
-// foreign inboxes) and that the actor is one of its admins.
+// foreign inboxes) and that the actor is one of its admins or may manage all
+// team inboxes (WithManageAll).
 func (s *Service) requireTeamAdmin(ctx context.Context, tenantID, teamInboxID, actorID uuid.UUID) error {
 	if _, err := s.repo.GetTeamInbox(ctx, tenantID, teamInboxID); err != nil {
 		return err
+	}
+	if canManageAll(ctx) {
+		return nil
 	}
 	role, err := s.repo.GetMemberRole(ctx, teamInboxID, actorID)
 	if err != nil {
