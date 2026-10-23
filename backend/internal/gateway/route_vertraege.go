@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -102,7 +103,7 @@ type createContractRequest struct {
 	ContractNumber string `json:"contract_number"    validate:"required"`
 	Title          string `json:"title"              validate:"required"`
 	ContractType   string `json:"contract_type"      validate:"required"`
-	StartsOn       string `json:"starts_on"` // RFC3339 date — optional, no parse in original
+	StartsOn       string `json:"starts_on,omitempty"` // YYYY-MM-DD or RFC3339
 	EndsOn         string `json:"ends_on,omitempty"`
 	DocumentURL    string `json:"document_url,omitempty"`
 	Notes          string `json:"notes,omitempty"`
@@ -146,6 +147,38 @@ type updateReminderRequest struct {
 	Subject      *string `json:"subject,omitempty"`
 	Message      *string `json:"message,omitempty"`
 	Status       *string `json:"status,omitempty"`
+}
+
+// ============================================================================
+// Date helpers
+// ============================================================================
+
+// parseDateField reads an optional date field (YYYY-MM-DD, RFC3339 or zoneless date-time) into
+// a protobuf Timestamp. An empty value is "not sent" and yields nil. A malformed value writes a
+// 400 naming the field and returns ok=false.
+func parseDateField(w http.ResponseWriter, field, raw string) (*timestamppb.Timestamp, bool) {
+	if raw == "" {
+		return nil, true
+	}
+	ts, err := parseTimestamp(raw)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, field+" must be a date (YYYY-MM-DD) or RFC3339 timestamp")
+		return nil, false
+	}
+	return ts, true
+}
+
+// parseOptionalDateField is parseDateField for PATCH bodies, where nil means "leave unchanged".
+func parseOptionalDateField(w http.ResponseWriter, field string, raw *string) (*timestamppb.Timestamp, bool) {
+	if raw == nil {
+		return nil, true
+	}
+	ts, err := parseTimestamp(*raw)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, field+" must be a date (YYYY-MM-DD) or RFC3339 timestamp")
+		return nil, false
+	}
+	return ts, true
 }
 
 // ============================================================================
@@ -219,11 +252,22 @@ func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	startsOn, ok := parseDateField(w, "starts_on", req.StartsOn)
+	if !ok {
+		return
+	}
+	endsOn, ok := parseDateField(w, "ends_on", req.EndsOn)
+	if !ok {
+		return
+	}
+
 	grpcReq := &vertraegev1.CreateContractRequest{
 		TenantId:       tenantID.String(),
 		ContractNumber: req.ContractNumber,
 		Title:          req.Title,
 		ContractType:   req.ContractType,
+		StartsOn:       startsOn,
+		EndsOn:         endsOn,
 		Notes:          req.Notes,
 		CreatedBy:      &userID,
 	}
@@ -289,11 +333,22 @@ func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	startsOn, ok := parseOptionalDateField(w, "starts_on", req.StartsOn)
+	if !ok {
+		return
+	}
+	endsOn, ok := parseOptionalDateField(w, "ends_on", req.EndsOn)
+	if !ok {
+		return
+	}
+
 	grpcReq := &vertraegev1.UpdateContractRequest{
 		TenantId:    tenantID.String(),
 		ContractId:  id,
 		Title:       req.Title,
 		Status:      req.Status,
+		StartsOn:    startsOn,
+		EndsOn:      endsOn,
 		ClearEndsOn: req.ClearEndsOn,
 		Notes:       req.Notes,
 	}
@@ -515,11 +570,17 @@ func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	signedOn, ok := parseDateField(w, "signed_on", req.SignedOn)
+	if !ok {
+		return
+	}
+
 	grpcReq := &vertraegev1.AddPartyRequest{
 		TenantId:       tenantID.String(),
 		ContractId:     id,
 		PartyType:      req.PartyType,
 		RoleInContract: req.RoleInContract,
+		SignedOn:       signedOn,
 	}
 	if req.ContactID != "" {
 		grpcReq.ContactId = &req.ContactID
@@ -625,9 +686,15 @@ func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	remindAt, ok := parseDateField(w, "remind_at", req.RemindAt)
+	if !ok {
+		return
+	}
+
 	grpcReq := &vertraegev1.CreateReminderRequest{
 		TenantId:     tenantID.String(),
 		ContractId:   id,
+		RemindAt:     remindAt,
 		ReminderType: req.ReminderType,
 		Subject:      req.Subject,
 		Message:      req.Message,
@@ -663,9 +730,15 @@ func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	remindAt, ok := parseOptionalDateField(w, "remind_at", req.RemindAt)
+	if !ok {
+		return
+	}
+
 	grpcReq := &vertraegev1.UpdateReminderRequest{
 		TenantId:     tenantID.String(),
 		ReminderId:   reminderID,
+		RemindAt:     remindAt,
 		ReminderType: req.ReminderType,
 		Subject:      req.Subject,
 		Message:      req.Message,

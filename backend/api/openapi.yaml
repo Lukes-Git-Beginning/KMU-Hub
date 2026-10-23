@@ -24643,8 +24643,8 @@ paths:
                 contract_number: { type: string }
                 title: { type: string }
                 contract_type: { type: string, enum: [rental, service, employment, nda, other] }
-                starts_on: { type: string, description: "RFC3339 date string" }
-                ends_on: { type: string, description: "RFC3339 date string (optional)" }
+                starts_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
+                ends_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
                 document_url: { type: string, format: uri }
                 notes: { type: string }
       responses:
@@ -24700,8 +24700,8 @@ paths:
                 title: { type: string }
                 contract_type: { type: string, enum: [rental, service, employment, nda, other] }
                 status: { type: string, enum: [draft, active, expired, terminated] }
-                starts_on: { type: string, description: "RFC3339 date string" }
-                ends_on: { type: string, description: "RFC3339 date string" }
+                starts_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
+                ends_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
                 clear_ends_on: { type: boolean, description: "Set true to remove the ends_on date" }
                 document_url: { type: string, format: uri }
                 notes: { type: string }
@@ -24877,7 +24877,7 @@ paths:
                 company_id: { type: string, format: uuid }
                 external_name: { type: string }
                 role_in_contract: { type: string }
-                signed_on: { type: string, description: "RFC3339 datetime string" }
+                signed_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
       responses:
         "201":
           description: Party added
@@ -24958,7 +24958,7 @@ paths:
               type: object
               required: [subject]
               properties:
-                remind_at: { type: string, description: "RFC3339 datetime string" }
+                remind_at: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
                 reminder_type: { type: string, enum: [renewal, expiry, payment, custom] }
                 subject: { type: string }
                 message: { type: string }
@@ -24992,7 +24992,7 @@ paths:
             schema:
               type: object
               properties:
-                remind_at: { type: string, description: "RFC3339 datetime string" }
+                remind_at: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
                 reminder_type: { type: string, enum: [renewal, expiry, payment, custom] }
                 subject: { type: string }
                 message: { type: string }
