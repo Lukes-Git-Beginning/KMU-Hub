@@ -17,6 +17,7 @@ type ListItemsFilter struct {
 // the movement record that documents it. Delta is signed: negative for
 // outbound picks, positive for inbound counts.
 type StockMovementInput struct {
+	ID           uuid.UUID // optional; a fresh id is generated when nil
 	ItemID       uuid.UUID
 	Delta        int64
 	MovementType MovementType
@@ -33,6 +34,11 @@ type Repository interface {
 	GetItem(ctx context.Context, tenantID, itemID uuid.UUID) (*Item, error)
 	ListItems(ctx context.Context, tenantID uuid.UUID, filter ListItemsFilter, offset, limit int) ([]*Item, int, error)
 	SKUExists(ctx context.Context, tenantID uuid.UUID, sku string, excludeID *uuid.UUID) (bool, error)
+
+	// ApplyStockMovementTx changes one item's quantity and records the
+	// movement in a single transaction (row locked, insufficient stock
+	// rejected), so the history and the stock can never disagree.
+	ApplyStockMovementTx(ctx context.Context, tenantID uuid.UUID, movement StockMovementInput) (*Item, error)
 
 	// Movements
 	CreateMovement(ctx context.Context, movement *Movement) error

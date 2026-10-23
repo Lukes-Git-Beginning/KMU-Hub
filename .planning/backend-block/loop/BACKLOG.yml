@@ -1126,7 +1126,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/inventar (vor Messung nicht bekannt)"
     scope: >
       GEFUNDEN in fix-inventar-inventur-counted-and-movement-type: der Bewegungs-Dialog

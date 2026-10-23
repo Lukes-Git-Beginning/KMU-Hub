@@ -619,6 +619,25 @@ func (r *PostgresRepository) CompleteInventurSessionTx(ctx context.Context, tena
 	return items, nil
 }
 
+// ApplyStockMovementTx applies a single stock movement atomically; see
+// applyMovementsInTx for the locking and insufficient-stock semantics.
+func (r *PostgresRepository) ApplyStockMovementTx(ctx context.Context, tenantID uuid.UUID, movement StockMovementInput) (*Item, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("begin stock movement tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
+
+	items, err := r.applyMovementsInTx(ctx, tx, tenantID, []StockMovementInput{movement})
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit stock movement tx: %w", err)
+	}
+	return items[0], nil
+}
+
 // applyMovementsInTx applies each movement under the given transaction: the
 // item row is locked with SELECT ... FOR UPDATE, the delta is checked against
 // the locked quantity, the new quantity is written, and the movement is
@@ -654,11 +673,15 @@ func (r *PostgresRepository) applyMovementsInTx(ctx context.Context, tx pgx.Tx, 
 			return nil, fmt.Errorf("update item quantity in tx: %w", err)
 		}
 
+		movementID := mv.ID
+		if movementID == uuid.Nil {
+			movementID = uuid.New()
+		}
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO inventory_movements
 			    (id, tenant_id, item_id, movement_type, quantity, performed_by, reason, created_at)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-			uuid.New(), tenantID, mv.ItemID, mv.MovementType, mv.Delta, mv.PerformedBy, mv.Reason,
+			movementID, tenantID, mv.ItemID, mv.MovementType, mv.Delta, mv.PerformedBy, mv.Reason,
 		); err != nil {
 			return nil, fmt.Errorf("insert movement in tx: %w", err)
 		}

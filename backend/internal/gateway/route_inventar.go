@@ -200,7 +200,7 @@ type transferStockRequest struct {
 }
 
 type recordMovementRequest struct {
-	MovementType string  `json:"movement_type"          validate:"required,oneof=in out adjustment"`
+	MovementType string  `json:"movement_type"          validate:"required,oneof=in out"`
 	Quantity     int64   `json:"quantity"               validate:"gt=0"`
 	PerformedBy  *string `json:"performed_by,omitempty" validate:"omitempty,uuid"`
 	Reason       string  `json:"reason"`

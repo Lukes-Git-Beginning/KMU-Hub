@@ -27690,8 +27690,8 @@ paths:
               properties:
                 movement_type:
                   type: string
-                  enum: [in, out, adjustment]
-                  description: "Allowed values: in, out, adjustment (transfer via POST /transfer)"
+                  enum: [in, out]
+                  description: "Allowed values: in (stock +quantity), out (stock -quantity, 409 if it would go below zero). Adjustments via POST /adjust, transfers via POST /transfer"
                 quantity: { type: integer, format: int64, minimum: 1 }
                 performed_by: { type: string, format: uuid }
                 reason: { type: string }

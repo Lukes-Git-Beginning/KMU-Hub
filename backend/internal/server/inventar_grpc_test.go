@@ -35,6 +35,10 @@ type stubInventarRepo struct {
 	// listItems, when set, is returned verbatim by ListItems (default nil keeps
 	// the existing always-empty behaviour other tests rely on).
 	listItems []*inventar.Item
+
+	// applied is the last movement ApplyStockMovementTx accepted; GetMovement
+	// echoes it back so RecordMovement's response reflects what was booked.
+	applied *inventar.Movement
 }
 
 func newStubInventarRepo() *stubInventarRepo {
@@ -94,9 +98,26 @@ func (r *stubInventarRepo) CreateMovement(_ context.Context, movement *inventar.
 	return nil
 }
 
+func (r *stubInventarRepo) ApplyStockMovementTx(_ context.Context, tenantID uuid.UUID, mv inventar.StockMovementInput) (*inventar.Item, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.itemQuantity+mv.Delta < 0 {
+		return nil, inventar.ErrInsufficientStock
+	}
+	r.applied = &inventar.Movement{
+		ID: mv.ID, TenantID: tenantID, ItemID: mv.ItemID,
+		MovementType: mv.MovementType, Quantity: mv.Delta, Reason: mv.Reason,
+	}
+	return &inventar.Item{ID: mv.ItemID, TenantID: tenantID, Quantity: r.itemQuantity + mv.Delta, MinQuantity: 0}, nil
+}
+
 func (r *stubInventarRepo) GetMovement(_ context.Context, tenantID, movementID uuid.UUID) (*inventar.Movement, error) {
 	if r.err != nil {
 		return nil, r.err
+	}
+	if r.applied != nil && r.applied.ID == movementID {
+		return r.applied, nil
 	}
 	return &inventar.Movement{ID: movementID, TenantID: tenantID, ItemID: uuid.New(), MovementType: inventar.MovementTypeIn, Quantity: 1}, nil
 }
@@ -592,11 +613,27 @@ func TestInventarStockHandlers(t *testing.T) {
 	t.Run("RecordMovement happy path maps type through", func(t *testing.T) {
 		s := newInventarTestServer(newStubInventarRepo())
 		resp, err := s.RecordMovement(ctx, &inventarv1.RecordMovementRequest{
-			TenantId: tenantID.String(), ItemId: itemID.String(), Quantity: -3, MovementType: "out", Reason: "pick",
+			TenantId: tenantID.String(), ItemId: itemID.String(), Quantity: 3, MovementType: "out", Reason: "pick",
 		})
 		requireGRPCOK(t, err)
 		require.Equal(t, "out", resp.Movement.MovementType)
-		require.Equal(t, int64(-3), resp.Movement.Quantity)
+		require.Equal(t, int64(-3), resp.Movement.Quantity, "outbound is stored signed, like AdjustStock")
+	})
+
+	t.Run("RecordMovement outbound beyond stock is a failed precondition", func(t *testing.T) {
+		s := newInventarTestServer(newStubInventarRepo())
+		_, err := s.RecordMovement(ctx, &inventarv1.RecordMovementRequest{
+			TenantId: tenantID.String(), ItemId: itemID.String(), Quantity: 101, MovementType: "out",
+		})
+		requireGRPCCode(t, err, codes.FailedPrecondition)
+	})
+
+	t.Run("RecordMovement adjustment type is rejected", func(t *testing.T) {
+		s := newInventarTestServer(newStubInventarRepo())
+		_, err := s.RecordMovement(ctx, &inventarv1.RecordMovementRequest{
+			TenantId: tenantID.String(), ItemId: itemID.String(), Quantity: 1, MovementType: "adjustment",
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
 	t.Run("ListMovements invalid tenant", func(t *testing.T) {

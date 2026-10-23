@@ -92,7 +92,8 @@ type TransferStockInput struct {
 	Reason      string
 }
 
-// RecordMovementInput is the low-level movement recorder (used for batch imports).
+// RecordMovementInput books an inbound or outbound movement. Quantity is unsigned;
+// the direction comes from MovementType.
 type RecordMovementInput struct {
 	TenantID     uuid.UUID
 	ItemID       uuid.UUID
@@ -458,39 +459,50 @@ func (s *Service) TransferStock(ctx context.Context, input TransferStockInput) e
 	return nil
 }
 
-// RecordMovement records a movement without changing item quantity directly.
-// Intended for batch imports where the caller manages quantity changes.
+// RecordMovement books an inbound ("in") or outbound ("out") movement: the
+// item's quantity changes and the movement row is written in one transaction,
+// so the history cannot disagree with the stock. An outbound movement that
+// would take the stock below zero fails with ErrInsufficientStock. Quantity is
+// the unsigned amount; other movement types have their own entry points
+// (AdjustStock, TransferStock) and are rejected here rather than recorded as a
+// row that moves no stock.
 func (s *Service) RecordMovement(ctx context.Context, input RecordMovementInput) (*Movement, error) {
-	if input.Quantity == 0 {
+	if input.Quantity <= 0 {
 		return nil, ErrInvalidInput
 	}
 
-	if _, err := s.repo.GetItem(ctx, input.TenantID, input.ItemID); err != nil {
-		return nil, err
+	var delta int64
+	switch input.MovementType {
+	case MovementTypeIn:
+		delta = input.Quantity
+	case MovementTypeOut:
+		delta = -input.Quantity
+	default:
+		return nil, fmt.Errorf("%w: movement_type must be in or out", ErrInvalidInput)
 	}
 
-	movement := &Movement{
-		ID:           uuid.New(),
-		TenantID:     input.TenantID,
+	movementID := uuid.New()
+	item, err := s.repo.ApplyStockMovementTx(ctx, input.TenantID, StockMovementInput{
+		ID:           movementID,
 		ItemID:       input.ItemID,
+		Delta:        delta,
 		MovementType: input.MovementType,
-		Quantity:     input.Quantity,
 		PerformedBy:  input.PerformedBy,
 		Reason:       input.Reason,
-		CreatedAt:    time.Now(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("record movement: %w", err)
 	}
-
-	if createErr := s.repo.CreateMovement(ctx, movement); createErr != nil {
-		return nil, fmt.Errorf("record movement: %w", createErr)
-	}
+	s.maybeCreateWarning(ctx, item)
 
 	slog.Info("inventory movement recorded",
-		"movement_id", movement.ID,
-		"item_id", movement.ItemID,
-		"type", movement.MovementType,
+		"movement_id", movementID,
+		"item_id", input.ItemID,
+		"type", input.MovementType,
+		"new_quantity", item.Quantity,
 	)
 
-	return movement, nil
+	return s.repo.GetMovement(ctx, input.TenantID, movementID)
 }
 
 // ListMovements returns paginated movements for an item.
