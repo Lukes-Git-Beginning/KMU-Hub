@@ -21035,12 +21035,18 @@ paths:
               schema:
                 type: object
                 properties:
+                  catalog_items:
+                    type: array
+                    items: { $ref: "#/components/schemas/EinkaufCatalogItem" }
                   items:
                     type: array
+                    description: Same rows as `catalog_items`, kept for older callers
                     items: { $ref: "#/components/schemas/EinkaufCatalogItem" }
                   total: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:
@@ -21073,12 +21079,17 @@ paths:
               schema:
                 type: object
                 properties:
-                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  catalog_item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  item:
+                    description: Same entity as `catalog_item`, kept for older callers
+                    $ref: "#/components/schemas/EinkaufCatalogItem"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -21098,12 +21109,17 @@ paths:
               schema:
                 type: object
                 properties:
-                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  catalog_item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  item:
+                    description: Same entity as `catalog_item`, kept for older callers
+                    $ref: "#/components/schemas/EinkaufCatalogItem"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     patch:
@@ -21136,13 +21152,18 @@ paths:
               schema:
                 type: object
                 properties:
-                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  catalog_item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  item:
+                    description: Same entity as `catalog_item`, kept for older callers
+                    $ref: "#/components/schemas/EinkaufCatalogItem"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:

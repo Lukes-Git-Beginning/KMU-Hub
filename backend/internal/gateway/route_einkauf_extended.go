@@ -1,9 +1,12 @@
 package gateway
 
 import (
+	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -148,6 +151,38 @@ type createContractCallRequest struct {
 // Catalog Handlers
 // ============================================================================
 
+// writeCatalogProto renders a catalog response with its entity member under both the proto
+// name (`items`/`item`, for older callers) and the key the desktop reads (`catalog_items`/
+// `catalog_item`). A list without rows is `[]` under both keys and carries `total`.
+// lean: copy instead of renaming so the proto name keeps working; drop `from` once no caller
+// reads it.
+func writeCatalogProto(w http.ResponseWriter, status int, msg proto.Message, from, to string, list bool) {
+	b, err := response.MarshalProto(msg)
+	if err != nil {
+		slog.Error("catalog json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	body := map[string]json.RawMessage{}
+	if err := json.Unmarshal(b, &body); err != nil {
+		slog.Error("catalog json unmarshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	if list {
+		if _, ok := body[from]; !ok {
+			body[from] = json.RawMessage(`[]`)
+		}
+		if _, ok := body["total"]; !ok {
+			body["total"] = json.RawMessage(`0`)
+		}
+	}
+	if v, ok := body[from]; ok {
+		body[to] = v
+	}
+	response.JSON(w, status, body)
+}
+
 func (er *EinkaufRoutes) HandleListCatalogItems(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
@@ -186,7 +221,7 @@ func (er *EinkaufRoutes) HandleListCatalogItems(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeCatalogProto(w, http.StatusOK, resp, "items", "catalog_items", true)
 }
 
 func (er *EinkaufRoutes) HandleGetCatalogItem(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +249,7 @@ func (er *EinkaufRoutes) HandleGetCatalogItem(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeCatalogProto(w, http.StatusOK, resp, "item", "catalog_item", false)
 }
 
 func (er *EinkaufRoutes) HandleCreateCatalogItem(w http.ResponseWriter, r *http.Request) {
@@ -250,7 +285,7 @@ func (er *EinkaufRoutes) HandleCreateCatalogItem(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	writeCatalogProto(w, http.StatusCreated, resp, "item", "catalog_item", false)
 }
 
 func (er *EinkaufRoutes) HandleUpdateCatalogItem(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +326,7 @@ func (er *EinkaufRoutes) HandleUpdateCatalogItem(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeCatalogProto(w, http.StatusOK, resp, "item", "catalog_item", false)
 }
 
 func (er *EinkaufRoutes) HandleDeleteCatalogItem(w http.ResponseWriter, r *http.Request) {
