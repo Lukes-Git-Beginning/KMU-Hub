@@ -1295,3 +1295,24 @@ units:
       - backend/internal/inventar/service.go
     done_when:
       - "Entscheidung a/b steht; bei a ist der Dialog angepasst, bei b eine eigene Unit mit Datenmodell angelegt"
+
+  - id: decide-hr-employee-create-without-user-id
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `POST /hr/employees` (`route_hr.go:1535/1566`) verlangt `user_id` (required, uuid) und liest
+      `first_name`, `last_name`, `email`, `roles`, `temporary_password`, `workload_percent`, `location`,
+      `send_invite_email` nie. Der Client (`hr-client.ts:883`, `toSnakeCaseEmployeeBody`) schickt
+      `user_id` nie: der Aufruf endet für JEDEN mit 400 (Scan Iteration 29). Vertragsfrage: legt "Mitarbeiter
+      anlegen" im FE zugleich ein Benutzerkonto an (dann braucht das Gateway einen Auth-Aufruf plus
+      Einladung — Architektur), oder zeigt der Dialog nur vorhandene Benutzer ohne Profil (dann FE-Thema:
+      `user_id` mitsenden)? ENTSCHEIDUNG LUKE; Wrap-Form der Antwort (`{employee}`) steckt bereits in
+      `fix-hr-employee-settings-calendar-documents-wire`.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - desktop/src/renderer/src/api/hr-client.ts
+    done_when:
+      - "Entscheidung a (Konto mit anlegen) / b (FE schickt user_id) steht"

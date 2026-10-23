@@ -420,3 +420,41 @@ Backlog leergelaufen, gemergt als `cadf4bf4`). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: `VertraegePage.tsx:356/406` sendet `starts_on: form.startDate` (Datums-Input, `YYYY-MM-DD`), `ends_on` nur wenn gesetzt, sonst `clear_ends_on: true` -> passt (vorher gespeichert als 0001-01-01, danach vom Refetch überschrieben). `addParty`/`createReminder`/`updateReminder` (`vertraege-client.ts:146/173/181`) haben nur Hooks, keinen UI-Aufrufer -> kein Bruch möglich. Antwortform unverändert.
 - offen: (1) Wirkt erst nach Gateway-Deploy. (2) Bestehende Verträge mit `starts_on = 0001-01-01` bleiben so in der DB, bis sie erneut gespeichert werden; keine Datenmigration (Daten gingen nie ein). (3) Der Create-Vertrag bleibt ohne `starts_on` zulässig (Service speichert dann 0001-01-01); das FE schickt es immer, eine Pflicht wäre eine Vertragsänderung. (4) Arbeitsbaum zeigt weiter ~190 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit.
+
+## Iteration 29 — scan-fe-gateway-shape-branchen — done — 2026-10-23 20:40
+- commit: (siehe git log, Subject `chore(loop): record branchen shape scan findings`)
+- gebaut: Scan HR, Schichten, Produktion, Rapporte, Fuhrpark, Vermietung (alle Methoden der sieben Clients plus Hooks) gegen die Gateway-Handler. Drei Explore-Agenten (je zwei Domänen) lieferten die Tabellen; ich habe die Totalausfälle selbst am Code nachgelesen (Belege unten, "verifiziert"), den Rest als "Agent-Befund" markiert und in den Fix-Units mit "vor dem Bauen belegen" versehen. Schreibt Backlog, keinen Code.
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. | migration n.a. | rls-smoke n.a. | `backlog-check.py --preflight` ok (OPEN=27)
+- coverage: n.a. (Scan, kein Coverage-Ziel)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`56f8bd8f`: kein Proto, keine neue Route, kein Guard, keine Tabelle, Spec im selben Commit, Router-Tests gegen echten Loopback-gRPC-Server).
+- neue-units: VOR die erste todo-Unit gesetzt (Totalausfälle): `fix-hr-employee-settings-calendar-documents-wire`, `fix-hr-time-entry-status-filter-and-project`, `fix-schichten-assignments-templates-listshifts-wire`, `fix-fuhrpark-routes-driver-and-zero-values`. Ans Ende (Teilfehler/Verdacht): `fix-branchen-shape-minor`, `fix-hr-leave-list-ignores-user-filter`. BACKLOG-NEXT: `decide-hr-employee-create-without-user-id`.
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; Scan liest nur)
+
+Ergebnis-Tabelle (Stelle, Befund, Klasse, Unit). V = von mir am Code belegt, A = Agent-Befund.
+
+| Stelle | Befund | Klasse | Unit |
+|---|---|---|---|
+| `hr-client.ts:883-913` (create/getSelf/updateSelf/get/update) ↔ `route_hr.go:1058/1078/1126/1212` | Gateway schreibt `EmployeeProfile` flach, Client liest `raw.employee`, `adaptEmployee(undefined)` -> TypeError (`:123`, `raw.id`). Selbstprofil + Mitarbeiter-Detail leer/kaputt. V | TOTALAUSFALL | fix-hr-employee-… |
+| `hr-client.ts:1045/1050` ↔ `route_hr.go:1481/1528` | `/hr/settings` flach statt `{settings}`, Client zeigt nur Defaults. V | TOTALAUSFALL | fix-hr-employee-… |
+| `hr-client.ts:856` ↔ `route_hr.go:996` | Kalender nackt (`ProtoList`), Client liest `raw.entries` -> immer leer. V | TOTALAUSFALL | fix-hr-employee-… |
+| `hr-client.ts:922` ↔ `route_hr.go:1296` | Dokumente nackt statt `{documents}`; Upload liest camelCase-Body nicht. A | TOTALAUSFALL / TEILFEHLER | fix-hr-employee-… |
+| `route_hr.go:1484-1522` | Settings-PUT überschreibt `work_hours_per_day` & Co. mit 0 (FE sendet 4 Felder). A | Datenverlust | fix-hr-employee-… |
+| `hr-client.ts:455` ↔ `Proto` (UseEnumNumbers) | `WorkTimeEntry.status` als Zahl, FE vergleicht mit Strings; Mapping fehlt am FE (V), Zahlenform am Writer (V), Enum-Werte (A). | TOTALAUSFALL (Korrektur/aktiv-Badge) | fix-hr-time-entry-… |
+| `hr-client.ts:672` ↔ `route_hr.go:790-811` | `?status=correction_pending` ignoriert, jeder Eintrag erscheint als offene Korrektur. A | TOTALAUSFALL | fix-hr-time-entry-… |
+| `useSchichten.ts:160` ↔ `route_schichten.go:434` | leere Zuweisungsliste = `{}`, FE iteriert ohne Guard (V FE-Zeile + Writer) -> TypeError in `SchichtenPage` für jede Schicht ohne Zuweisung. | TOTALAUSFALL | fix-schichten-… |
+| `SchichtenPage.tsx:132-143` ↔ `route_schichten.go:534` | `start_hour/start_minute/day_of_week` = 0 fehlen -> "08:undefined"/NaN. A | TOTALAUSFALL | fix-schichten-… |
+| `schichten-client.ts:56` ↔ `route_schichten.go:177-206` | `from`/`to` nie ans gRPC; Woche = erste 50 Schichten. A | TEILFEHLER (ab 51) | fix-schichten-… |
+| `FuhrparkPage.tsx:1838` ↔ `fuhrpark_grpc.go:1566-1573` | `driver` nie gesetzt, `r.driver.toLowerCase()` im Top-Level-`useMemo` -> TypeError sobald GPS-Route + Suchtext. V | TOTALAUSFALL (mit GPS-Daten) | fix-fuhrpark-routes-… |
+| `FuhrparkPage.tsx:75/110/125/260` | `mileage_km`, `cost_cents`, `start_km`, `daily_km` = 0 fehlen -> NaN / `undefined.toLocaleString`. A | TEILFEHLER (häufig) | fix-fuhrpark-routes-… |
+| `RapportePage.tsx:259` ↔ `route_rapporte.go:756` | Stats-Zähler 0 fehlen -> "NaN" bei neuem Tenant. A | TEILFEHLER | fix-branchen-shape-minor |
+| `ProduktionPage.tsx:472/504` | BOM ohne Positionen: `items` fehlt -> `.map` wirft. A | TEILFEHLER | fix-branchen-shape-minor |
+| `route_produktion.go:186` u. a. | Listen ohne `page_size` = 20/50, UI ignoriert `total`. A | TEILFEHLER | fix-branchen-shape-minor |
+| `RapportePage.tsx:981` ↔ `route_rapporte.go:133` | `POST /reports` verwirft Wetter, Zeiten, Notizen, Signatur. A | Datenverlust | fix-branchen-shape-minor |
+| `VermietungPage.tsx:643` ↔ `helpers.go:105` | `page_size` 200/500 -> still 50. A | TEILFEHLER | fix-branchen-shape-minor |
+| `FuhrparkPage.tsx:2806`, `:1745` | `reported_by` (Freitext) als UUID validiert, Fahrt verlangt `driver_name`/`purpose` -> 400. A | TEILFEHLER | fix-branchen-shape-minor |
+| `hr-client.ts:883` ↔ `route_hr.go:1535` | `POST /hr/employees` verlangt `user_id`, Client sendet keins: 400 für jeden. A | Entscheidung | decide-hr-employee-create-without-user-id |
+| `SelfServiceView.tsx:188` ↔ `route_hr.go:288` | `user_id`-Filter ignoriert; Leck nur, falls Service nicht auf Own-Scope einschränkt. A, nicht reproduziert | VERDACHT | fix-hr-leave-list-ignores-user-filter |
+
+Geprüft und passend (Agenten-Listen, nicht von mir erneut gelesen): HR Urlaub (create/get/approve/reject/cancel/balance/types/sick), Zeiterfassung (clock-in/out, status, summaries, week approval, corrections), Change-Requests (alle sechs), Kategorien list/delete, Produktion Aufträge/BOM/Schritte/Maschinen/Qualität (Wrapper `orders`/`order`/`boms`/`bom`/`steps`/`machines`/`checks`), Rapporte Reports/Lines/Attachments-Delete, Fuhrpark Fahrzeug/Service/Schaden/Tank/Fahrt/Dokument-CRUD, Vermietung Objekte/Mietvorgänge/Inspektionen/Verfügbarkeit/Kalender, Schichten get/create/delete/assign/unassign/Vorlagen/Tausch. Alle FE-Routen der sechs Domänen existieren im Gateway (kein 404).
+- offen: (1) Agent-Befunde (A) sind nicht alle am Code nachgelesen; jede Fix-Unit trägt "vor dem Bauen belegen". (2) Offen blieb die Employee-ID-Semantik (`GetEmployee(UserId)` vs. Profil-ID bei Documents/Offboard) — steht als erste Aufgabe in `fix-hr-employee-…`. (3) `Proto` lässt Zero-Werte weg: dieselbe Klasse wie in Iteration 26, `ProtoFull` existiert; Schichten/Fuhrpark/Produktion/Rapporte/HR nutzen sie nirgends. (4) Der Untersuchungsbaum zeigt weiter ~190 fremde Dateien als `M` (nur Zeilenenden); nicht im Commit. (5) Marker: Produktion-Bom-Kommentar `produktion-types.ts:84-89` ("backend ignores bom_id") ist veraltet — FE, nicht angefasst.

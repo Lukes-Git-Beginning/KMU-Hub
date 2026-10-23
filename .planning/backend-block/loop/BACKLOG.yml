@@ -1189,7 +1189,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       FE↔Gateway-Antwortform (Vorgehen im Blockkopf) für die Branchenmodule und HR:
@@ -1209,6 +1209,151 @@ units:
       - "Tabelle im Journal: je Client-Methode/Hook Route, FE-Typ, tatsächliche Antwortform, passt ja/nein"
       - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
       - "Abweichungen ohne UI-Bruch stehen gesammelt in einer Unit am Ende oder sind begründet verworfen"
+
+  # ----------------------------------------------------------------------------------------
+  # FIX-UNITS AUS `scan-fe-gateway-shape-branchen` (Iteration 29, 2026-10-23).
+  # Belege (Datei:Zeile) stehen im Journal. Vorgehen je Unit wie bei den Fixes davor:
+  # Handler-Test über den echten Router gegen einen gRPC-Server auf Loopback (kein
+  # Workaround-Datensatz), Spec nachziehen, `swagger-cli validate`, `desktop-aufrufer:`.
+  # Zero-Werte: `response.ProtoFull` (Iteration 26) statt `Proto`, wo der FE-Typ keine
+  # optionalen Felder hat.
+  # ----------------------------------------------------------------------------------------
+
+  - id: fix-hr-employee-settings-calendar-documents-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,8 %"
+    scope: >
+      TOTALAUSFALL HR. Fünf Antworten haben nicht die Form, die `hr-client.ts` liest.
+      (1) `GET/PUT /hr/employees/me` und `GET/PUT /hr/employees/{id}` schreiben das rohe
+      `EmployeeProfile` flach (`route_hr.go:1058`, `:1078`, `:1126`, `:1212` — jeweils
+      `response.Proto(w, 200, resp.Employee)`), der Client liest `raw.employee` und ruft
+      `adaptEmployee(undefined)` auf (`hr-client.ts:123`, `raw.id` -> TypeError). Folge:
+      `useSelfProfile` liefert nie Daten, `SelfServiceView` und `DokumenteTab` bleiben leer,
+      Mitarbeiter-Detail und Bearbeiten brechen. Fix: `{employee: …}` wrappen
+      (`response.ProtoWrapped`), wie `offboard` (`:1172`) es schon tut. (2) `GET/PUT /hr/settings`
+      schreibt `Settings` flach (`:1481`, `:1528`), der Client liest `res.settings ?? {}` und zeigt
+      immer die Defaults — gespeicherte Werte erscheinen nie. Wrappen. (3)
+      `GET /hr/absences/calendar` schreibt ein nacktes Array (`:996`, `ProtoList`), der Client liest
+      `raw.entries` -> Kalender und Dashboard-Widget immer leer. `{entries:[…]}` schreiben (leer
+      `[]`). (4) `GET /hr/employees/{id}/documents` ebenso nackt (`:1296`), FE liest `{documents}`;
+      `POST …/documents` antwortet flach statt `{document}` und der Client sendet `categoryId`/`fileId`
+      (camelCase) statt `category_id`/`file_id` — Body-Felder des Clients (`hr-client.ts:922-935`)
+      gegen den Handler (`:1414-1447`) abgleichen, Kategorie/Datei kommen sonst leer an. (5)
+      `PUT /hr/settings` überschreibt `work_hours_per_day`/`max_daily_hours`/`break_after_hours` mit 0,
+      wenn der Client sie nicht schickt (FE sendet nur 4 Felder, Upsert `postgres_repository.go:395-417`):
+      nur gesendete Felder ändern (Muster `fix-finance-company-settings-partial-save-wipes-data`).
+      NICHT Teil dieser Unit: `POST /hr/employees` verlangt `user_id`, der Client schickt keins (400 für
+      jeden Aufruf) — das ist eine Entscheidung (Mitarbeiter-Anlage ohne Benutzerkonto?), steht als
+      `decide-hr-employee-create-without-user-id` in BACKLOG-NEXT.yml. Die Employee-ID-Semantik
+      (`GetEmployee(UserId: {id})` vs. Profil-ID in Documents/Offboard) im Service prüfen und im
+      Journal festhalten, bevor gewrappt wird.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - desktop/src/renderer/src/api/hr-client.ts
+      - desktop/src/renderer/src/api/hooks/hr-hooks.ts
+      - desktop/src/renderer/src/modules/team/SelfServiceView.tsx
+      - backend/api/openapi.yaml
+    done_when:
+      - "Router-Tests gegen echten Loopback-gRPC-Server: GET me/{id}/PUT liefern {employee}, settings {settings}, calendar {entries} (leer []), documents {documents}"
+      - "PUT /hr/settings mit nur 4 Feldern lässt die drei übrigen Werte unverändert (DB-Test als kmuhub_app falls Repository betroffen)"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-hr-time-entry-status-filter-and-project
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,8 %"
+    scope: >
+      HR-ZEITERFASSUNG. (1) `WorkTimeEntry.status` kommt als Enum-Zahl (1 = ACTIVE, 2 = COMPLETED,
+      3 = CORRECTION_PENDING …, `Proto` setzt `UseEnumNumbers`), der Client castet sie ohne Mapping
+      (`hr-client.ts:455`). `ZeiterfassungTab.tsx:583` filtert `e.status === 'completed'` -> nie ein
+      korrigierbarer Eintrag; das Badge "aktiv" (`ZeiterfassungTab:443`, `WorkClockWidget:263`)
+      erscheint nie. Fix am Gateway: Status als String (`active|completed|correction_pending|…`,
+      Namen aus dem FE-Typ `WorkTimeEntry['status']`) schreiben, Muster `statusNames` in
+      `response.go` (Schlüssel = Nachricht, nicht Feldname); die Namen am FE-Typ ablesen, nicht raten.
+      (2) `GET /hr/time/entries?status=correction_pending` ignoriert `status` (`route_hr.go:790-811`,
+      `ListWorkTimeEntriesReq` hat kein Feld): `TimeCorrectionPanel` und der Badge-Zähler zeigen ALLE
+      Einträge als offene Korrekturen mit Approve-Button. Filter entweder im Service ergänzen (Proto-Feld
+      + Regen, dann opus) oder — schlanker — im Gateway nach dem Abruf filtern, solange die Seitengröße
+      das trägt; Entscheidung und Grund ins Journal. (3) `POST /hr/time/entries` liest `project_id`
+      nicht (`:1603-1666`), die Projektzuordnung geht still verloren. Durchreichen, falls das
+      gRPC-Request-Feld existiert. Befund stammt aus einem Agenten-Scan (FE-Seite selbst nachgelesen,
+      Proto-Seite nicht): vor dem Bauen belegen.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/server/response/response.go
+      - desktop/src/renderer/src/api/hr-client.ts
+      - desktop/src/renderer/src/modules/team/ZeiterfassungTab.tsx
+      - desktop/src/renderer/src/modules/team/TimeCorrectionPanel.tsx
+    done_when:
+      - "Router-Test: Einträge tragen status als String; ?status=correction_pending liefert nur diese; project_id kommt am gRPC-Request an"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile (jeder Leser von entry.status greppen)"
+
+  - id: fix-schichten-assignments-templates-listshifts-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,8 %"
+    scope: >
+      TOTALAUSFALL SCHICHTEN. (1) `GET /schichten/shifts/{id}/assignments` schreibt für eine Schicht
+      ohne Zuweisung `{}` (`route_schichten.go:434`, `Proto` lässt leere Listen weg);
+      `useShiftsWithAssignments` iteriert `aq.data.assignments` ohne Guard (`useSchichten.ts:160`) ->
+      TypeError im Render von `SchichtenPage` für jede frisch angelegte oder per Vorlage erzeugte
+      Schicht. Fix: leere Liste als `[]` (`ProtoFull`), dasselbe für `shifts`, `templates`,
+      `swap_requests`, `violations`. (2) `GET /schichten/templates`: `start_hour`, `start_minute`,
+      `day_of_week` = 0 fehlen (der Normalfall: volle Stunde, Wochentag 0); `adaptApiTemplate`
+      (`SchichtenPage.tsx:132-143`) rechnet `pad(undefined)` -> "08:undefined", Endzeit "NaN:NaN",
+      `computeShiftHours` NaN. Zero-Werte schreiben (`ProtoFull`). (3) `GET /schichten/shifts?from&to`
+      übernimmt `from`/`to` nie ins `ListShiftsRequest` (`:177-206`): die Wochenansicht bekommt die
+      ersten 50 Schichten des Tenants statt die der Woche. Parameter parsen und durchreichen
+      (Proto-Felder `From`/`To` prüfen; fehlen sie, Unit auf opus + Regen). (4) `created_count` bzw.
+      `published_count` = 0 fehlt (`:402`, `:685`; Toast zeigt `count: undefined`) — `ProtoFull`.
+    sources:
+      - backend/internal/gateway/route_schichten.go
+      - desktop/src/renderer/src/api/schichten-client.ts
+      - desktop/src/renderer/src/api/hooks/useSchichten.ts
+      - desktop/src/renderer/src/modules/schichten/SchichtenPage.tsx
+      - backend/api/openapi.yaml
+    done_when:
+      - "Router-Test: Assignments einer leeren Schicht = {assignments:[]}; Vorlage mit start_hour 0/start_minute 0 trägt beide Felder; from/to kommen am gRPC-Request an"
+      - "Spec (required an den Typen); Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-fuhrpark-routes-driver-and-zero-values
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,8 %"
+    scope: >
+      FUHRPARK-SEITE ABSTURZ. (1) `GET /fuhrpark/gps/routes`: `vehicleRouteToProto`
+      (`internal/server/fuhrpark_grpc.go:1566-1573`) setzt `Driver` nie, das Feld fehlt im JSON; das FE
+      macht `r.driver.toLowerCase()` (`FuhrparkPage.tsx:1838`) in einem Top-Level-`useMemo`, der bei
+      gesetztem Suchtext auf JEDEM Tab läuft -> TypeError, sobald der Mandant eine GPS-Route hat und
+      der Suchtext nicht im Fahrzeugnamen steckt. Fix: `driver` immer schreiben (aus dem zugewiesenen
+      Fahrer auflösen, falls verfügbar, sonst `""`). (2) Zero-Werte der Zähler fehlen im JSON und
+      werden im FE zu NaN (`Number(undefined)`): `mileage_km` (`FuhrparkPage.tsx:75`), `cost_cents` und
+      `mileage_km` der Tankungen (`:110-111`, `monthlyFuelCost` wird komplett NaN), `start_km`/`end_km`/
+      `km` der Fahrten (`:125-127`, Fahrtenbuch-Summen NaN), `daily_km` der Routen (`formatKm(undefined)`
+      wirft, `:260`, `:2586`). Fix: `ProtoFull` an Fahrzeug-, Tank-, Fahrten- und Routen-Handlern.
+      Gleiche Klasse wie `fix-inventar-inventur-counted-and-movement-type`.
+    sources:
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/server/fuhrpark_grpc.go
+      - desktop/src/renderer/src/modules/fuhrpark/FuhrparkPage.tsx
+      - desktop/src/renderer/src/api/fuhrpark-types.ts
+      - backend/api/openapi.yaml
+    done_when:
+      - "Router-Test: Route trägt driver (auch leer); Fahrzeug mit mileage 0, Tankung mit cost 0, Fahrt mit start_km 0, Route mit daily_km 0 tragen die Felder"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
 
   - id: scan-fe-gateway-shape-inhalte-automation
     phase: 4
@@ -1789,3 +1934,81 @@ units:
     done_when:
       - "Lexware-Sync-Status in der FE-Form (Router-Test); Dashboard-Felder entschieden (ergänzen oder FE-Thema)"
       - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  # ----------------------------------------------------------------------------------------
+  # TEILFEHLER AUS `scan-fe-gateway-shape-branchen` (Iteration 29). Kein Absturz für alle,
+  # sondern Randfall, stiller Datenverlust oder latent (Hook ohne UI-Aufrufer).
+  # ----------------------------------------------------------------------------------------
+
+  - id: fix-branchen-shape-minor
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 74,8 %"
+    scope: >
+      Sammelunit, in dieser Reihenfolge, jeweils eigener Test. PRODUKTION: (a) `defects_found`/
+      `duration_minutes`/`sort_order` = 0 fehlen -> NaN in Dauer-Summe, BOM-Sortierung, leere QC-Zelle
+      (`ProduktionDetailModals.tsx:171/533/763`); `ProtoFull`. (b) BOM ohne Positionen: `items` fehlt ->
+      `bom.items.map` wirft (`ProduktionPage.tsx:472/504`); `items:[]` schreiben. (c) Listen ohne
+      `page_size` liefern 20 (`route_produktion.go:186`) und die UI ignoriert `total` -> ab dem 21.
+      Auftrag/BOM/Maschine/QC/Buchung fehlen sie; Default anheben oder Obergrenze wie bei Vermietung
+      klären. (d) `createMachineBooking`/`updateMachineBooking`/`createPlan`/`getPlan`/`updatePlan`/
+      `getCapacityOverview` schreiben `{booking}`/`{plan}`/`{overview}`, der Client typisiert flach —
+      latent (Hooks ohne UI-Aufrufer); beim Anschließen entscheiden, FE-Thema nach BACKLOG-NEXT, falls
+      das Gateway richtig ist. (e) `GET /boms?active=` ignoriert den Parameter. RAPPORTE: (f) `/stats`:
+      Zähler 0 fehlen -> `approved_count + submitted_count` = NaN, Kachel "activeProjects" zeigt "NaN"
+      bei jedem neuen Tenant (`RapportePage.tsx:259`); `ProtoFull`. (g) `POST /reports` liest nur
+      title/description/author_id/report_date (`route_rapporte.go:133-140`), die UI erfasst Wetter,
+      Temperatur, Arbeitszeiten, Pause, Notizen, Signatur — Datenverlust bei jedem Anlegen; das Proto hat
+      die Felder (`rapporte.proto:197-202`) — durchreichen. `PUT …/signature` hat keinen Client (FE-Thema,
+      nach BACKLOG-NEXT). (h) `addLine`/`uploadAttachment` verlangen `quantity > 0`/`size_bytes > 0`, der
+      FE-Typ macht sie optional; `size_bytes` kommt als String. Latent. VERMIETUNG: (i) `page_size` 200/500
+      wird still auf 50 gekappt (`helpers.go:105`) -> ab 51 Objekten/Mietvorgängen fehlen sie in Liste und
+      Kalender. (j) `total_price` = 0 fehlt. (k) `start_date` kommt als UTC-Timestamp, das FE schneidet
+      `.slice(0,10)` -> Starttag um 1 Tag zu früh bei UTC+; wie bei den Verträgen als reines Datum
+      behandeln, falls die Spalte ein DATE ist. FUHRPARK: (l) `reportDamage` validiert `reported_by` als
+      UUID, das FE-Feld ist Freitext (400 beim Eintragen eines Namens); `createTripLog` verlangt
+      `driver_name` und `purpose` (FE: optional, Privatfahrt ohne Zweck) -> 400. (m)
+      `GET /services/upcoming?days_ahead`, `/tuev-due?days_ahead`, `/gps/positions?limit` werden nicht
+      durchgereicht (latent). (n) `service_type` Round-Trip: FE speichert `tires`, liest `tire_change`.
+      Pro Punkt: erst prüfen, ob er noch stimmt (Befunde stammen aus einem Agenten-Scan, Stichproben
+      verifiziert, nicht jeder Punkt), dann bauen oder begründet verwerfen.
+    sources:
+      - backend/internal/gateway/route_produktion.go
+      - backend/internal/gateway/route_produktion_ext.go
+      - backend/internal/gateway/route_rapporte.go
+      - backend/internal/gateway/route_vermietung.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/helpers.go
+    done_when:
+      - "Je Punkt: Router-Test oder begründet verworfen (Journal)"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-hr-leave-list-ignores-user-filter
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-hr-employee-settings-calendar-documents-wire]
+    status: todo
+    coverage_start: "internal/gateway 74,8 %"
+    scope: >
+      VERDACHT (nicht reproduziert): `GET /hr/leave/requests` liest nur `employee_id`, `status`,
+      `start_date`, `end_date` (`route_hr.go:288-310`); `SelfServiceView.tsx:188` sendet `user_id`, das
+      Gateway ignoriert es, `limit`/`offset` ebenso. Hat ein Nutzer mit nur `hr:read` die Route, sieht die
+      Self-Service-Ansicht alle Urlaubsanträge des Tenants als eigene. Zuerst klären, ob Service oder
+      Gateway ohne `hr:manage` auf den eigenen Mitarbeiter einschränkt (Own-Scope-Muster aus
+      `own_scope_filter_test.go`). Ist das so, `user_id` nur noch als Filter für Berechtigte annehmen und
+      die Unit mit Beleg schließen; ist es nicht so, ist es ein Datenabfluss innerhalb des Tenants ->
+      Test, der als einfacher Nutzer fremde Anträge anfordert und leer bleibt (dann an den Dateikopf
+      verschieben). Außerdem `hrTimeApi.getAnalytics`: `range`, `billable_minutes`, `worked_days` fehlen,
+      `by_project` liefert `project_name` statt `name`; `createSwapRequest` ignoriert den
+      Idempotency-Key aus dem Body (Client setzt den Header zufällig).
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/gateway/own_scope_filter_test.go
+      - desktop/src/renderer/src/modules/team/SelfServiceView.tsx
+    done_when:
+      - "Beleg im Journal, ob die Route als einfacher Nutzer fremde Anträge liefert"
+      - "Falls ja: Test + Fix; Spec; Mutations-Probe; desktop-aufrufer-Zeile"
