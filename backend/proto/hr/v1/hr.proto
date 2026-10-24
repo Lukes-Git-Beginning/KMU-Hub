@@ -369,6 +369,9 @@ message ListLeaveRequestsReq {
   string end_date = 5;
   int32 page = 6;
   int32 per_page = 7;
+  // Restricts the list to the caller's direct reports (hr_employee_profiles.manager_user_id).
+  // The caller comes from the call context, never from this message.
+  bool reporting_line_only = 8;
 }
 
 message ListLeaveRequestsResp {
@@ -383,6 +386,9 @@ message ApproveLeaveRequestReq {
   string tenant_id = 2;
   string approver_id = 3;
   string comment = 4;
+  // How far the approver's grant reaches. "all" decides for any employee; ANY other value,
+  // including empty, restricts the decision to the approver's direct reports (fail-closed).
+  string scope = 5;
 }
 
 message ApproveLeaveRequestResp {
@@ -394,6 +400,9 @@ message RejectLeaveRequestReq {
   string tenant_id = 2;
   string approver_id = 3;
   string comment = 4;
+  // How far the approver's grant reaches. "all" decides for any employee; ANY other value,
+  // including empty, restricts the decision to the approver's direct reports (fail-closed).
+  string scope = 5;
 }
 
 message RejectLeaveRequestResp {

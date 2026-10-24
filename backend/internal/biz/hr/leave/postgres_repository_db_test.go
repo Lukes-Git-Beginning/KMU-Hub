@@ -637,3 +637,66 @@ func TestPostgresHRSettingsRepo_Upsert_RoundTrip(t *testing.T) {
 		t.Errorf("ID after update: got %s, want %s (should be same row, not a duplicate)", got2.ID, settings.ID)
 	}
 }
+
+// ============================================================================
+// LeaveRequestRepository — ManagerUserID limits the list to a reporting line
+// ============================================================================
+
+func TestPostgresLeaveRequestRepo_List_ManagerUserIDLimitsToDirectReports(t *testing.T) {
+	pool, tenantID, ctx := newLeaveFixture(t)
+	repo := NewPostgresLeaveRequestRepo(pool)
+	typeID := seedLeaveTypeRow(t, pool, tenantID, leaveTypeOpts{deductsFromBalance: true, requiresApproval: true})
+
+	manager := seedLeaveUser(t, pool, tenantID, "Mia", "Manager", "mia-mgr-"+uuid.NewString()+"@example.test")
+	otherManager := seedLeaveUser(t, pool, tenantID, "Otto", "Other", "otto-mgr-"+uuid.NewString()+"@example.test")
+	report := seedLeaveUser(t, pool, tenantID, "Rita", "Report", "rita-rep-"+uuid.NewString()+"@example.test")
+	stranger := seedLeaveUser(t, pool, tenantID, "Sven", "Stranger", "sven-str-"+uuid.NewString()+"@example.test")
+
+	seedProfile := func(userID uuid.UUID, managerID *uuid.UUID) {
+		cols := map[string]any{
+			"id": uuid.New(), "tenant_id": tenantID, "user_id": userID,
+			"department": "Ops", "position_title": "Engineer", "contract_type": "full_time",
+			"work_days_per_week": 5, "annual_leave_days": 25, "start_date": "2020-01-01",
+			"address_country": "DE",
+		}
+		if managerID != nil {
+			cols["manager_user_id"] = *managerID
+		}
+		id := testutil.SeedRow(t, pool, "hr_employee_profiles", cols)
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_employee_profiles", id) })
+	}
+	seedProfile(report, &manager)
+	seedProfile(stranger, &otherManager)
+	seedProfile(manager, nil)
+
+	mkReq := func(empID uuid.UUID) *models.LeaveRequest {
+		req := newLeaveRequestFixture(tenantID, empID, typeID, time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC))
+		if err := repo.Create(ctx, req); err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_leave_requests", req.ID) })
+		return req
+	}
+	reportReq := mkReq(report)
+	mkReq(stranger)
+	mkReq(manager)
+
+	results, total, err := repo.List(ctx, LeaveRequestFilter{TenantID: tenantID, ManagerUserID: &manager, Page: 1, PerPage: 20})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if total != 1 || len(results) != 1 || results[0].ID != reportReq.ID {
+		t.Fatalf("manager list: got total=%d len=%d, want exactly the direct report's request %s", total, len(results), reportReq.ID)
+	}
+
+	// A manager of nobody sees nothing, and the filter composes with the others.
+	nobody := uuid.New()
+	results, total, err = repo.List(ctx, LeaveRequestFilter{TenantID: tenantID, ManagerUserID: &nobody, Page: 1, PerPage: 20})
+	if err != nil || total != 0 || len(results) != 0 {
+		t.Fatalf("manager of nobody: got total=%d len=%d err=%v, want empty", total, len(results), err)
+	}
+	results, total, err = repo.List(ctx, LeaveRequestFilter{TenantID: tenantID, ManagerUserID: &manager, EmployeeID: &stranger, Page: 1, PerPage: 20})
+	if err != nil || total != 0 || len(results) != 0 {
+		t.Fatalf("foreign employee under another manager: got total=%d len=%d err=%v, want empty", total, len(results), err)
+	}
+}

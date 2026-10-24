@@ -219,8 +219,20 @@ func (s *Service) CreateLeaveRequest(ctx context.Context, tenantID, employeeID u
 	return &CreateLeaveResult{Request: req}, nil
 }
 
+// ApprovalOption narrows who may decide a leave request beyond the default check.
+type ApprovalOption func(*approvalOptions)
+
+type approvalOptions struct{ reportingLineOnly bool }
+
+// InReportingLineOnly limits the decision to the employee's direct manager. The default check
+// also lets anyone decide for an employee without a manager (the HR fallback of the tenant-wide
+// grant); a team-scoped approver must not get that fallback.
+func InReportingLineOnly() ApprovalOption {
+	return func(o *approvalOptions) { o.reportingLineOnly = true }
+}
+
 // ApproveLeaveRequest approves a pending leave request.
-func (s *Service) ApproveLeaveRequest(ctx context.Context, requestID, approverID uuid.UUID, comment string) (*ApproveResult, error) {
+func (s *Service) ApproveLeaveRequest(ctx context.Context, requestID, approverID uuid.UUID, comment string, opts ...ApprovalOption) (*ApproveResult, error) {
 	req, err := s.leaveRepo.GetByID(ctx, requestID)
 	if err != nil {
 		return nil, err
@@ -237,7 +249,7 @@ func (s *Service) ApproveLeaveRequest(ctx context.Context, requestID, approverID
 	}
 
 	// Verify approver is manager or HR
-	if authErr := s.verifyApprover(ctx, approverID, req.EmployeeID); authErr != nil {
+	if authErr := s.verifyApprover(ctx, approverID, req.EmployeeID, opts...); authErr != nil {
 		return nil, authErr
 	}
 
@@ -289,7 +301,7 @@ func (s *Service) ApproveLeaveRequest(ctx context.Context, requestID, approverID
 }
 
 // RejectLeaveRequest rejects a pending leave request.
-func (s *Service) RejectLeaveRequest(ctx context.Context, requestID, approverID uuid.UUID, comment string) error {
+func (s *Service) RejectLeaveRequest(ctx context.Context, requestID, approverID uuid.UUID, comment string, opts ...ApprovalOption) error {
 	req, err := s.leaveRepo.GetByID(ctx, requestID)
 	if err != nil {
 		return err
@@ -304,7 +316,7 @@ func (s *Service) RejectLeaveRequest(ctx context.Context, requestID, approverID 
 		return ErrCannotApproveOwnRequest
 	}
 
-	if authErr := s.verifyApprover(ctx, approverID, req.EmployeeID); authErr != nil {
+	if authErr := s.verifyApprover(ctx, approverID, req.EmployeeID, opts...); authErr != nil {
 		return authErr
 	}
 
@@ -571,7 +583,12 @@ func (s *Service) restoreBalance(ctx context.Context, tenantID, employeeID uuid.
 // verifyApprover checks that the approverID is either the employee's manager or has HR role.
 // For now, we check the manager relationship. HR role check will be done at the gRPC layer
 // where the caller's role is available.
-func (s *Service) verifyApprover(ctx context.Context, approverID, employeeID uuid.UUID) error {
+func (s *Service) verifyApprover(ctx context.Context, approverID, employeeID uuid.UUID, opts ...ApprovalOption) error {
+	var o approvalOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	employee, err := s.employeeRepo.GetByUserID(ctx, employeeID)
 	if err != nil {
 		return err
@@ -580,6 +597,9 @@ func (s *Service) verifyApprover(ctx context.Context, approverID, employeeID uui
 	// Check if approver is the employee's manager
 	if employee.ManagerUserID != nil && *employee.ManagerUserID == approverID {
 		return nil
+	}
+	if o.reportingLineOnly {
+		return ErrNotAuthorizedToApprove
 	}
 
 	// If no manager or not the manager, check if approver has an employee profile with HR indicators.

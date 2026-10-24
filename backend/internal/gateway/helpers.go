@@ -237,6 +237,28 @@ func narrowestScopeAny(ctx context.Context, pairs ...[2]string) string {
 	return narrowest
 }
 
+// leaveApprovePerm is the fine key that lets a manager decide leave requests of the reporting line.
+var leaveApprovePerm = [2]string{"team:absence", "approve"}
+
+// leaveDecisionScope is the reach the service enforces on approve/reject: the narrower of
+// hr:write (tenant-wide, admin) and team:absence:approve (manager: team). An unassigned pair
+// resolves to "all" and never widens the other, see narrowestScopeAny.
+func leaveDecisionScope(ctx context.Context) string {
+	return narrowestScopeAny(ctx, [2]string{"hr", "write"}, leaveApprovePerm)
+}
+
+// callerMayDecideLeave reports whether the caller holds team:absence:approve beyond "own", i.e.
+// has a reporting line whose leave requests they review.
+func callerMayDecideLeave(ctx context.Context) bool {
+	key := leaveApprovePerm[0] + ":" + leaveApprovePerm[1]
+	for _, p := range middleware.GetUserPermissions(ctx) {
+		if p == key {
+			return middleware.PermissionScope(ctx, leaveApprovePerm[0], leaveApprovePerm[1]) != auth.ScopeOwn
+		}
+	}
+	return false
+}
+
 // restrictToOwnEmployee pins an HR read to the caller when the hr:read/hr:self grant is narrowed
 // to "own". An empty requested id becomes the caller's id (a list without a filter would
 // otherwise return every employee); a foreign id is a 403, not a silent rewrite, so the caller

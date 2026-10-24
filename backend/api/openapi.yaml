@@ -12673,7 +12673,7 @@ paths:
 
   /api/v1/hr/leave/requests/{id}/approve:
     post:
-      summary: Approve a leave request
+      summary: Approve a leave request (hr:write for any employee, or team:absence:approve for the caller's direct reports)
       tags: [hr-leave]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -12694,6 +12694,8 @@ paths:
                 $ref: "#/components/schemas/LeaveRequest"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -12701,7 +12703,7 @@ paths:
 
   /api/v1/hr/leave/requests/{id}/reject:
     post:
-      summary: Reject a leave request
+      summary: Reject a leave request (hr:write for any employee, or team:absence:approve for the caller's direct reports)
       tags: [hr-leave]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -12722,6 +12724,8 @@ paths:
                 $ref: "#/components/schemas/LeaveRequest"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":

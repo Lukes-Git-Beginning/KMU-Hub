@@ -378,7 +378,7 @@ units:
     service: hr
     model: sonnet
     deps: [feat-hr-self-service-key-for-members, feat-hr-reporting-line-and-team-time-scope]
-    status: todo
+    status: done
     coverage_start: "internal/biz/hr/leave 85,7 %"
     decided: 2026-10-24
     decision: >-

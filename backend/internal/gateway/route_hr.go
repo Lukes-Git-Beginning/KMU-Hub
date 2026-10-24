@@ -79,6 +79,9 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	var (
 		selfRead  = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"hr", "self"})
 		selfWrite = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"hr", "self"})
+		// A manager decides for the reporting line through team:absence:approve (scope team);
+		// hr:write keeps deciding for the whole tenant. Additive for the same token reason.
+		leaveDecide = middleware.RequirePermissionAny([2]string{"hr", "write"}, leaveApprovePerm)
 	)
 
 	// Leave management
@@ -87,8 +90,8 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(selfWrite).Post("/requests", h.HandleCreateLeaveRequest)
 		r.With(selfRead).Get("/requests", h.HandleListLeaveRequests)
 		r.With(selfRead).Get("/requests/{id}", h.HandleGetLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/approve", h.HandleApproveLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/reject", h.HandleRejectLeaveRequest)
+		r.With(leaveDecide).Post("/requests/{id}/approve", h.HandleApproveLeaveRequest)
+		r.With(leaveDecide).Post("/requests/{id}/reject", h.HandleRejectLeaveRequest)
 		r.With(selfWrite).Post("/requests/{id}/cancel", h.HandleCancelLeaveRequest)
 		r.With(selfRead).Get("/balance", h.HandleGetLeaveBalance)
 		r.With(selfRead).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
@@ -325,8 +328,16 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	// A manager narrowed to "own" by hr:self still sees the reporting line's requests, which is
+	// what the approval tab asks for (no employee filter). Their own requests stay reachable
+	// by asking for their own id.
+	reportingLine := false
 	if ownerID != nil {
-		employeeID = *ownerID
+		if callerMayDecideLeave(r.Context()) && !strings.EqualFold(employeeID, *ownerID) {
+			reportingLine = true
+		} else {
+			employeeID = *ownerID
+		}
 	}
 
 	grpcReq := &hrv1.ListLeaveRequestsReq{
@@ -337,6 +348,8 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 		EndDate:    r.URL.Query().Get("end_date"),
 		Page:       int32(page),
 		PerPage:    int32(pageSize),
+
+		ReportingLineOnly: reportingLine,
 	}
 
 	resp, err := client.ListLeaveRequests(r.Context(), grpcReq)
@@ -408,6 +421,7 @@ func (h *HRRoutes) HandleApproveLeaveRequest(w http.ResponseWriter, r *http.Requ
 		Id:         id,
 		ApproverId: approverID,
 		Comment:    req.Comment,
+		Scope:      leaveDecisionScope(r.Context()),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -440,6 +454,7 @@ func (h *HRRoutes) HandleRejectLeaveRequest(w http.ResponseWriter, r *http.Reque
 		Id:         id,
 		ApproverId: approverID,
 		Comment:    req.Comment,
+		Scope:      leaveDecisionScope(r.Context()),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

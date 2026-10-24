@@ -147,6 +147,14 @@ func (s *HRGRPCServer) ListLeaveRequests(ctx context.Context, req *hrv1.ListLeav
 		filter.EmployeeID = &empID
 	}
 
+	if req.GetReportingLineOnly() {
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		filter.ManagerUserID = &caller
+	}
+
 	if req.GetStatus() != "" {
 		s := req.GetStatus()
 		filter.Status = &s
@@ -183,6 +191,15 @@ func (s *HRGRPCServer) ListLeaveRequests(ctx context.Context, req *hrv1.ListLeav
 	}, nil
 }
 
+// leaveApprovalOptions maps the approver's grant scope to the service check. Fail-closed: only an
+// explicit "all" decides for any employee, everything else is limited to direct reports.
+func leaveApprovalOptions(scope string) []leave.ApprovalOption {
+	if scope == auth.ScopeAll {
+		return nil
+	}
+	return []leave.ApprovalOption{leave.InReportingLineOnly()}
+}
+
 func (s *HRGRPCServer) ApproveLeaveRequest(ctx context.Context, req *hrv1.ApproveLeaveRequestReq) (*hrv1.ApproveLeaveRequestResp, error) {
 	id, err := uuid.Parse(req.GetId())
 	if err != nil {
@@ -194,7 +211,7 @@ func (s *HRGRPCServer) ApproveLeaveRequest(ctx context.Context, req *hrv1.Approv
 		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
 	}
 
-	result, err := s.leaveService.ApproveLeaveRequest(ctx, id, approverID, req.GetComment())
+	result, err := s.leaveService.ApproveLeaveRequest(ctx, id, approverID, req.GetComment(), leaveApprovalOptions(req.GetScope())...)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -215,7 +232,7 @@ func (s *HRGRPCServer) RejectLeaveRequest(ctx context.Context, req *hrv1.RejectL
 		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
 	}
 
-	if err := s.leaveService.RejectLeaveRequest(ctx, id, approverID, req.GetComment()); err != nil {
+	if err := s.leaveService.RejectLeaveRequest(ctx, id, approverID, req.GetComment(), leaveApprovalOptions(req.GetScope())...); err != nil {
 		return nil, mapHRError(err)
 	}
 

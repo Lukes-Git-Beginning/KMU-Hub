@@ -868,3 +868,56 @@ func TestRecordSickLeave_LeaveTypeNotFound(t *testing.T) {
 	})
 	assert.ErrorIs(t, err, ErrLeaveTypeNotFound)
 }
+
+// ============================================================================
+// Team-scoped approver — InReportingLineOnly drops the HR fallback
+// ============================================================================
+
+func TestApproveLeaveRequest_ReportingLineOnly(t *testing.T) {
+	newPending := func(t *testing.T) (*Service, uuid.UUID, *mockEmployeeRepo) {
+		t.Helper()
+		svc, _, _, _, _, employeeRepo := setupTestService()
+		result, err := svc.CreateLeaveRequest(context.Background(), testTenantID, testEmployeeID, CreateLeaveInput{
+			LeaveTypeID: uuid.MustParse("50000000-0000-0000-0000-000000000001"),
+			StartDate:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+			EndDate:     time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC),
+			Reason:      "Reporting line",
+		})
+		require.NoError(t, err)
+		return svc, result.Request.ID, employeeRepo
+	}
+	outsider := uuid.MustParse("90000000-0000-0000-0000-000000000077")
+	ctx := context.Background()
+
+	t.Run("direct manager decides", func(t *testing.T) {
+		svc, id, _ := newPending(t)
+		res, err := svc.ApproveLeaveRequest(ctx, id, testManagerID, "ok", InReportingLineOnly())
+		require.NoError(t, err)
+		assert.Equal(t, models.LeaveStatusApproved, res.Request.Status)
+	})
+
+	t.Run("manager of someone else is refused for approve and reject", func(t *testing.T) {
+		svc, id, _ := newPending(t)
+		_, err := svc.ApproveLeaveRequest(ctx, id, outsider, "no", InReportingLineOnly())
+		assert.ErrorIs(t, err, ErrNotAuthorizedToApprove)
+		err = svc.RejectLeaveRequest(ctx, id, outsider, "no", InReportingLineOnly())
+		assert.ErrorIs(t, err, ErrNotAuthorizedToApprove)
+	})
+
+	t.Run("an employee without a manager has no HR fallback", func(t *testing.T) {
+		svc, id, employeeRepo := newPending(t)
+		employeeRepo.employees[testEmployeeID].ManagerUserID = nil
+		_, err := svc.ApproveLeaveRequest(ctx, id, outsider, "no", InReportingLineOnly())
+		assert.ErrorIs(t, err, ErrNotAuthorizedToApprove)
+		// The tenant-wide check keeps its fallback.
+		_, err = svc.ApproveLeaveRequest(ctx, id, outsider, "hr")
+		assert.NoError(t, err)
+	})
+
+	t.Run("self approval stays forbidden", func(t *testing.T) {
+		svc, id, employeeRepo := newPending(t)
+		employeeRepo.employees[testEmployeeID].ManagerUserID = &testEmployeeID
+		_, err := svc.ApproveLeaveRequest(ctx, id, testEmployeeID, "me", InReportingLineOnly())
+		assert.ErrorIs(t, err, ErrCannotApproveOwnRequest)
+	})
+}

@@ -91,6 +91,14 @@ func (r *PostgresLeaveRequestRepo) List(ctx context.Context, filter LeaveRequest
 		argNum++
 	}
 
+	if filter.ManagerUserID != nil {
+		conditions = append(conditions, fmt.Sprintf(
+			`EXISTS (SELECT 1 FROM hr_employee_profiles ep
+				WHERE ep.user_id = lr.employee_id AND ep.tenant_id = lr.tenant_id AND ep.manager_user_id = $%d)`, argNum))
+		args = append(args, *filter.ManagerUserID)
+		argNum++
+	}
+
 	if filter.Status != nil {
 		conditions = append(conditions, fmt.Sprintf("lr.status = $%d", argNum))
 		args = append(args, *filter.Status)
