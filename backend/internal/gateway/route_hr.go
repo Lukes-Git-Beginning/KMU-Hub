@@ -72,18 +72,27 @@ func (h *HRRoutes) getHRClient() (hrv1.HRServiceClient, error) {
 
 // RegisterRoutes registers all HR HTTP routes.
 func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Self-service routes accept hr:self beside the coarse hr:read/hr:write. Employees (member,
+	// manager) hold only hr:self at scope "own"; every handler below takes the identity from the
+	// token, never from the request. Additive, not replacing: permissions are baked into the
+	// access token at login, so a still-valid token with the coarse key must keep working.
+	var (
+		selfRead  = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"hr", "self"})
+		selfWrite = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"hr", "self"})
+	)
+
 	// Leave management
 	r.Route("/api/v1/hr/leave", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/requests", h.HandleCreateLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/requests", h.HandleListLeaveRequests)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/requests/{id}", h.HandleGetLeaveRequest)
+		r.With(selfWrite).Post("/requests", h.HandleCreateLeaveRequest)
+		r.With(selfRead).Get("/requests", h.HandleListLeaveRequests)
+		r.With(selfRead).Get("/requests/{id}", h.HandleGetLeaveRequest)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/approve", h.HandleApproveLeaveRequest)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/reject", h.HandleRejectLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/cancel", h.HandleCancelLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/balance", h.HandleGetLeaveBalance)
+		r.With(selfWrite).Post("/requests/{id}/cancel", h.HandleCancelLeaveRequest)
+		r.With(selfRead).Get("/balance", h.HandleGetLeaveBalance)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/types", h.HandleListLeaveTypes)
+		r.With(selfRead).Get("/types", h.HandleListLeaveTypes)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/sick", h.HandleRecordSickLeave)
 	})
 
@@ -93,9 +102,11 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	// access token at login and never re-read per request, so swapping a key
 	// outright would 403 every user holding a still-valid token.
 	//
-	// Personal daily use (clock in/out, own entries, own week) stays on the
-	// coarse key by design — the catalogue deliberately carries no capability
-	// for it. `zeiterfassung:export:run` has no endpoint yet.
+	// Personal daily use (clock in/out, own entries, own week) takes hr:self
+	// beside the coarse key — the catalogue deliberately carries no capability
+	// for it. `zeiterfassung:export:run` has no endpoint yet. GET /entries stays
+	// on hr:read: it honours an employee_id query, so hr:self would read foreign
+	// entries (fix-hr-own-scope-foreign-balance-and-time-entries).
 	var (
 		zeitTeamView    = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"})
 		zeitWeekApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:week", "approve"})
@@ -104,24 +115,24 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 
 	r.Route("/api/v1/hr/time", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/clock-in", h.HandleClockIn)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/clock-out", h.HandleClockOut)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/break/start", h.HandleBreakStart)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/break/end", h.HandleBreakEnd)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/active", h.HandleGetActiveShift)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/status", h.HandleGetWorkTimeStatus)
+		r.With(selfWrite).Post("/clock-in", h.HandleClockIn)
+		r.With(selfWrite).Post("/clock-out", h.HandleClockOut)
+		r.With(selfWrite).Post("/break/start", h.HandleBreakStart)
+		r.With(selfWrite).Post("/break/end", h.HandleBreakEnd)
+		r.With(selfRead).Get("/active", h.HandleGetActiveShift)
+		r.With(selfRead).Get("/status", h.HandleGetWorkTimeStatus)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/entries", h.HandleListWorkTimeEntries)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/entries", h.HandleCreateManualEntry)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/daily", h.HandleDailySummary)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/weekly", h.HandleWeeklySummary)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections", h.HandleSubmitCorrection)
+		r.With(selfWrite).Post("/entries", h.HandleCreateManualEntry)
+		r.With(selfRead).Get("/summary/daily", h.HandleDailySummary)
+		r.With(selfRead).Get("/summary/weekly", h.HandleWeeklySummary)
+		r.With(selfWrite).Post("/corrections", h.HandleSubmitCorrection)
 		r.With(zeitCorrApprove).Post("/corrections/{id}/approve", h.HandleApproveCorrection)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/balance", h.HandleGetTimeBalance)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/analytics", h.HandleGetTimeAnalytics)
+		r.With(selfRead).Get("/balance", h.HandleGetTimeBalance)
+		r.With(selfRead).Get("/analytics", h.HandleGetTimeAnalytics)
 		r.With(zeitTeamView).Get("/team", h.HandleGetTeamTime)
 		// Week approvals
-		r.With(middleware.RequirePermission("hr", "read")).Get("/weeks/status", h.HandleGetMyWeekStatus)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/submit", h.HandleSubmitWeek)
+		r.With(selfRead).Get("/weeks/status", h.HandleGetMyWeekStatus)
+		r.With(selfWrite).Post("/weeks/submit", h.HandleSubmitWeek)
 		r.With(zeitWeekApprove).Post("/weeks/approve", h.HandleApproveWeek)
 		r.With(zeitWeekApprove).Post("/weeks/reject", h.HandleRejectWeek)
 		r.With(zeitWeekApprove).Post("/weeks/reopen", h.HandleReopenWeek)
@@ -310,7 +321,7 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 	}
 	// A grant narrowed to "own" overrides whatever the client asked for, otherwise the narrowing
 	// is a suggestion and the self-service list shows every request of the tenant.
-	ownerID, ok := ownerFilterForScope(w, r, "hr", "read")
+	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"hr", "read"}, [2]string{"hr", "self"})
 	if !ok {
 		return
 	}
@@ -354,7 +365,7 @@ func (h *HRRoutes) HandleGetLeaveRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ownerID, ok := ownerFilterForScope(w, r, "hr", "read")
+	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"hr", "read"}, [2]string{"hr", "self"})
 	if !ok {
 		return
 	}
