@@ -627,13 +627,32 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"report approve requires the fine approve key", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/approve", []string{"rapporte:report:edit"}, denied},
 		{"report approve with fine approve key", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/approve", []string{"rapporte:report:approve"}, allowed},
 
-		// --- rapporte: submit/lines/attachments/signature have no catalogue key, untouched ---
-		{"report submit still requires report:write only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:edit"}, denied},
-		{"report submit with report:write", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:write"}, allowed},
+		// --- rapporte: submit/signature/lines/attachments accept the legacy key AND the
+		// fine report:edit key the member preset holds (the member could create a report
+		// but never fill or submit it); reads accept report:read ---
+		{"report submit, legacy key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:write"}, allowed},
+		{"report submit, edit key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:edit"}, allowed},
+		{"report submit, read key does not grant it", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:read"}, denied},
+		{"signature, edit key only", rapporteRouter, "PUT", "/api/v1/rapporte/reports/" + articleID + "/signature", []string{"rapporte:report:edit"}, allowed},
+		{"signature, create key does not grant it", rapporteRouter, "PUT", "/api/v1/rapporte/reports/" + articleID + "/signature", []string{"rapporte:report:create"}, denied},
+		{"line add, legacy key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:line:write"}, allowed},
+		{"line add, edit key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:report:edit"}, allowed},
+		{"line add, read key does not grant it", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:report:read", "rapporte:line:read"}, denied},
+		{"line list, report read key only", rapporteRouter, "GET", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:report:read"}, allowed},
+		{"line list, legacy key only", rapporteRouter, "GET", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:line:read"}, allowed},
+		{"line patch, edit key only", rapporteRouter, "PATCH", "/api/v1/rapporte/lines/" + articleID + "/", []string{"rapporte:report:edit"}, allowed},
+		{"line delete, edit key only", rapporteRouter, "DELETE", "/api/v1/rapporte/lines/" + articleID + "/", []string{"rapporte:report:edit"}, allowed},
+		{"attachment upload, edit key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/attachments", []string{"rapporte:report:edit"}, allowed},
+		{"attachment upload, legacy key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/attachments", []string{"rapporte:attachment:write"}, allowed},
+		{"attachment list, report read key only", rapporteRouter, "GET", "/api/v1/rapporte/reports/" + articleID + "/attachments", []string{"rapporte:report:read"}, allowed},
+		{"attachment delete, edit key only", rapporteRouter, "DELETE", "/api/v1/rapporte/attachments/" + articleID + "/", []string{"rapporte:report:edit"}, allowed},
+		{"attachment delete, no rapporte key", rapporteRouter, "DELETE", "/api/v1/rapporte/attachments/" + articleID + "/", []string{"rapporte:template:read"}, denied},
 
-		// --- rapporte: measurements have no FE caller (local mock store), untouched ---
-		{"measurement create still requires measurement:write only", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:manage"}, denied},
-		{"measurement create with measurement:write", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:write"}, allowed},
+		// --- rapporte: measurements accept the legacy write key and the manage key the
+		// member/manager presets hold; the report-edit scope narrows them in the handler ---
+		{"measurement create, manage key only", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:manage"}, allowed},
+		{"measurement create, legacy write key", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:write"}, allowed},
+		{"measurement create, read key does not grant it", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:read"}, denied},
 
 		// --- dialer: campaigns (legacy resource already lives in module:subject
 		// shape, so read/calls/agent/outcomes concatenate to their catalogue key

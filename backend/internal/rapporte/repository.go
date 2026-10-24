@@ -65,6 +65,9 @@ type Repository interface {
 	// is unknown or owned by another tenant.
 	AddMeasurementPosition(ctx context.Context, tenantID, measurementID uuid.UUID, positionNumber int, description, unit string, quantity, unitPrice float64) (*MeasurementPosition, error)
 	DeleteMeasurementPosition(ctx context.Context, tenantID, positionID uuid.UUID) error
+	// MeasurementIDOfPosition returns the measurement a position belongs to, or
+	// ErrPositionNotFound (unknown id or other tenant).
+	MeasurementIDOfPosition(ctx context.Context, tenantID, positionID uuid.UUID) (uuid.UUID, error)
 
 	// Templates
 	CreateTemplate(ctx context.Context, tenantID uuid.UUID, name, description, category, defaultLinesJSON string) (*ReportTemplate, error)

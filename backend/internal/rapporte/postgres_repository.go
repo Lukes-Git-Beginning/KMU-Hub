@@ -740,6 +740,21 @@ func (r *PostgresRepository) DeleteMeasurementPosition(ctx context.Context, tena
 	return nil
 }
 
+func (r *PostgresRepository) MeasurementIDOfPosition(ctx context.Context, tenantID, positionID uuid.UUID) (uuid.UUID, error) {
+	var measurementID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT measurement_id FROM measurement_positions WHERE id=$1 AND tenant_id=$2`,
+		positionID, tenantID,
+	).Scan(&measurementID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrPositionNotFound
+	}
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("get measurement position owner: %w", err)
+	}
+	return measurementID, nil
+}
+
 func (r *PostgresRepository) listMeasurementPositions(ctx context.Context, tenantID, measurementID uuid.UUID) ([]MeasurementPosition, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, measurement_id, position_number, description, unit, quantity, unit_price, created_at

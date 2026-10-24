@@ -724,7 +724,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/rapporte 79,6 % · internal/gateway 76,6 %"
     scope: >
       TOTALAUSFALL im Rapporte-Modul (Flag `modules.rapporte`): member kann einen Rapport
@@ -2038,3 +2038,60 @@ units:
       - "Wire-Test über echten gRPC-Server (RegisterVideoServiceServer): alle sechs RPCs liefern kein Internal/Unimplemented"
       - "Antwortform jeder der sechs Routen gegen den Typ in video-client.ts belegt (Journal-Zeile desktop-aufrufer)"
       - "Mutations-Probe: eine Methode aus dem Service-Desc genommen, der Wire-Test wird rot"
+
+  - id: fix-rapporte-rejected-report-cannot-be-resubmitted
+    phase: 4
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/rapporte 82,5 %"
+    scope: >
+      Gefunden in fix-rapporte-member-can-fill-and-submit (Lauf 16, Iteration 15), per Code-Lesung
+      verifiziert: ein abgelehnter Rapport ist eine Sackgasse. `Service.SubmitReport`
+      (`service.go:358`) lässt nur `draft` -> `submitted` zu; `StatusDraft` wird nirgends sonst
+      gesetzt (nur `CreateReport`), `UpdateReport` ändert den Status nicht, und es gibt keine
+      Route "wieder öffnen". Nach `RejectReport` kann der Autor den Rapport zwar korrigieren
+      (Felder, Positionen — `requireEditable` erlaubt `rejected`), ihn aber nie erneut einreichen:
+      `POST /submit` antwortet 412. Das Desktop zeigt den Ablehnungsgrund
+      (`ReportDetailModal.tsx:455`), bietet aber nur dann "Einreichen" an, wenn der Backend-Status
+      es zulässt — Entscheidung nötig, ob `rejected` -> `submitted` direkt geht (Empfehlung:
+      ja, `SubmitReport` akzeptiert `draft` und `rejected`, Review-Notiz bleibt als Verlauf) oder
+      über ein Zurücksetzen auf `draft`. Keine neue Route nötig. Atomares UPDATE ... WHERE
+      status IN (...) wie bei Approve/Reject, damit zwei Submits nicht doppelt zählen.
+    sources:
+      - backend/internal/rapporte/service.go
+      - backend/internal/rapporte/postgres_repository.go
+      - desktop/src/renderer/src/modules/rapporte/ReportDetailModal.tsx
+    done_when:
+      - "DB-Test: draft -> submitted -> rejected -> submitted läuft durch, approved -> submit bleibt 412"
+      - "Test: zweites paralleles Submit eines abgelehnten Rapports zählt nur einmal"
+      - "Mutations-Probe: StatusRejected aus der Zulassung genommen, der Test wird rot"
+
+  - id: fix-rapporte-reviewer-id-taken-from-body
+    phase: 4
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 76,9 % · internal/server 75,4 %"
+    scope: >
+      Gefunden in fix-rapporte-member-can-fill-and-submit (Lauf 16, Iteration 15): `approveRejectRequest`
+      (`route_rapporte.go`) übernimmt `reviewer_id` aus dem Request-Body (`validate:"required,uuid"`)
+      und reicht ihn als `ReviewerId` an `ApproveReport`/`RejectReport` durch. Wer `rapporte:report:approve`
+      hält, kann also die Freigabe unter beliebiger fremder User-ID verbuchen (Fälschung des
+      Freigebers, kein Cross-Tenant-Zugriff — daher Backlog-Ende). Gleiches Muster hatte
+      `uploaded_by` beim Anhang; das ist in dieser Iteration auf die JWT-User-ID umgestellt.
+      Fix: Gateway setzt `ReviewerId` aus `middleware.GetUserID`, das Body-Feld bleibt für das FE
+      akzeptiert (Desktop sendet es, `rapporte-client.ts`), wird aber ignoriert; Validierung
+      `required` entfällt, damit ein Client ohne das Feld nicht mit 400 scheitert. Desktop-Aufrufer
+      prüfen. Optional: Selbstfreigabe verbieten (Autor == Reviewer) — Produktfrage, dann nach
+      BACKLOG-NEXT statt bauen.
+    sources:
+      - backend/internal/gateway/route_rapporte.go
+      - backend/internal/server/rapporte_grpc.go
+      - desktop/src/renderer/src/api/rapporte-client.ts
+    done_when:
+      - "Test: Approve/Reject mit fremder reviewer_id im Body verbucht die JWT-User-ID"
+      - "Journal-Zeile desktop-aufrufer: das FE sendet reviewer_id weiter, bekommt weiter dieselbe Antwortform"
+      - "Mutations-Probe: Gateway nimmt wieder den Body-Wert, der Test wird rot"

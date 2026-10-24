@@ -506,6 +506,16 @@ func (r *stubRapporteRepo) AddMeasurementPosition(_ context.Context, tenantID, m
 	return &cp, nil
 }
 
+func (r *stubRapporteRepo) MeasurementIDOfPosition(_ context.Context, tenantID, positionID uuid.UUID) (uuid.UUID, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.positions[positionID]
+	if !ok || p.TenantID != tenantID {
+		return uuid.Nil, rapporte.ErrPositionNotFound
+	}
+	return p.MeasurementID, nil
+}
+
 func (r *stubRapporteRepo) DeleteMeasurementPosition(_ context.Context, tenantID, positionID uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

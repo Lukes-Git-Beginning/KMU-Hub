@@ -303,6 +303,10 @@ func (m *mockRepository) DeleteMeasurementPosition(_ context.Context, tenantID, 
 	return nil
 }
 
+func (m *mockRepository) MeasurementIDOfPosition(_ context.Context, tenantID, positionID uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, ErrPositionNotFound
+}
+
 // ============================================================================
 // Template stubs
 // ============================================================================

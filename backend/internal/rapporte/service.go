@@ -251,14 +251,14 @@ func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (*W
 // UpdateReport updates mutable fields on a draft or rejected report.
 // Guard 1 (ErrAlreadyApproved): approved reports cannot be edited.
 func (s *Service) UpdateReport(ctx context.Context, input UpdateReportInput) (*WorkReport, error) {
-	report, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+	report, err := s.loadReport(ctx, input.TenantID, input.ReportID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Guard 1: block edits on approved reports
-	if report.Status == StatusApproved {
-		return nil, ErrAlreadyApproved
+	// Guard 1: block edits on approved reports (and, for author-only callers, submitted ones)
+	if err := requireEditable(ctx, report); err != nil {
+		return nil, err
 	}
 
 	if input.Title != nil {
@@ -300,14 +300,14 @@ func (s *Service) UpdateReport(ctx context.Context, input UpdateReportInput) (*W
 
 // DeleteReport soft-deletes a report. Approved reports cannot be deleted.
 func (s *Service) DeleteReport(ctx context.Context, tenantID, reportID uuid.UUID) error {
-	report, err := s.repo.GetReport(ctx, tenantID, reportID)
+	report, err := s.loadReport(ctx, tenantID, reportID)
 	if err != nil {
 		return err
 	}
 
-	// Guard 1: block deletion of approved reports
-	if report.Status == StatusApproved {
-		return ErrAlreadyApproved
+	// Guard 1: block deletion of approved reports (and, for author-only callers, submitted ones)
+	if err := requireEditable(ctx, report); err != nil {
+		return err
 	}
 
 	if err := s.repo.SoftDeleteReport(ctx, tenantID, reportID); err != nil {
@@ -320,7 +320,7 @@ func (s *Service) DeleteReport(ctx context.Context, tenantID, reportID uuid.UUID
 
 // GetReport retrieves a report by ID.
 func (s *Service) GetReport(ctx context.Context, tenantID, reportID uuid.UUID) (*WorkReport, error) {
-	return s.repo.GetReport(ctx, tenantID, reportID)
+	return s.loadReport(ctx, tenantID, reportID)
 }
 
 // ListReports retrieves reports with optional filtering and pagination.
@@ -349,7 +349,7 @@ func (s *Service) ListReports(ctx context.Context, input ListReportsInput) ([]*W
 // SubmitReport transitions a report from Draft → Submitted.
 // Guard 2 (ErrInvalidStateTransition): only Draft can move to Submitted.
 func (s *Service) SubmitReport(ctx context.Context, input SubmitReportInput) (*WorkReport, error) {
-	report, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+	report, err := s.loadReport(ctx, input.TenantID, input.ReportID)
 	if err != nil {
 		return nil, err
 	}
@@ -448,12 +448,12 @@ func (s *Service) AddLine(ctx context.Context, input AddLineInput) (*ReportLine,
 	}
 
 	// Guard 1: block adds on approved reports
-	report, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+	report, err := s.loadReport(ctx, input.TenantID, input.ReportID)
 	if err != nil {
 		return nil, err
 	}
-	if report.Status == StatusApproved {
-		return nil, ErrAlreadyApproved
+	if err := requireEditable(ctx, report); err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
@@ -486,12 +486,16 @@ func (s *Service) UpdateLine(ctx context.Context, input UpdateLineInput) (*Repor
 	}
 
 	// Guard 1: block updates on approved reports
-	report, err := s.repo.GetReport(ctx, input.TenantID, line.ReportID)
+	report, err := s.loadReport(ctx, input.TenantID, line.ReportID)
 	if err != nil {
+		// A line of somebody else's report is as good as absent for an author-only caller.
+		if errors.Is(err, ErrReportNotFound) {
+			return nil, ErrLineNotFound
+		}
 		return nil, err
 	}
-	if report.Status == StatusApproved {
-		return nil, ErrAlreadyApproved
+	if err := requireEditable(ctx, report); err != nil {
+		return nil, err
 	}
 
 	if input.Description != nil {
@@ -531,12 +535,15 @@ func (s *Service) DeleteLine(ctx context.Context, tenantID, lineID uuid.UUID) er
 	}
 
 	// Guard 1: block deletes on approved reports
-	report, err := s.repo.GetReport(ctx, tenantID, line.ReportID)
+	report, err := s.loadReport(ctx, tenantID, line.ReportID)
 	if err != nil {
+		if errors.Is(err, ErrReportNotFound) {
+			return ErrLineNotFound
+		}
 		return err
 	}
-	if report.Status == StatusApproved {
-		return ErrAlreadyApproved
+	if err := requireEditable(ctx, report); err != nil {
+		return err
 	}
 
 	if err := s.repo.DeleteLine(ctx, tenantID, lineID); err != nil {
@@ -549,7 +556,7 @@ func (s *Service) DeleteLine(ctx context.Context, tenantID, lineID uuid.UUID) er
 
 // ListLines returns all lines for a report, ordered by position.
 func (s *Service) ListLines(ctx context.Context, tenantID, reportID uuid.UUID) ([]*ReportLine, error) {
-	if _, err := s.repo.GetReport(ctx, tenantID, reportID); err != nil {
+	if _, err := s.loadReport(ctx, tenantID, reportID); err != nil {
 		return nil, err
 	}
 	return s.repo.ListLines(ctx, tenantID, reportID)
@@ -573,7 +580,11 @@ func (s *Service) UploadAttachment(ctx context.Context, input UploadAttachmentIn
 		return nil, ErrInvalidInput
 	}
 
-	if _, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID); err != nil {
+	report, err := s.loadReport(ctx, input.TenantID, input.ReportID)
+	if err != nil {
+		return nil, err
+	}
+	if err := requireEditable(ctx, report); err != nil {
 		return nil, err
 	}
 
@@ -616,7 +627,7 @@ func (s *Service) UploadAttachment(ctx context.Context, input UploadAttachmentIn
 
 // ListAttachments returns attachments for a report, optionally filtered by line.
 func (s *Service) ListAttachments(ctx context.Context, tenantID, reportID uuid.UUID, lineID *uuid.UUID) ([]*ReportAttachment, error) {
-	if _, err := s.repo.GetReport(ctx, tenantID, reportID); err != nil {
+	if _, err := s.loadReport(ctx, tenantID, reportID); err != nil {
 		return nil, err
 	}
 	return s.repo.ListAttachments(ctx, tenantID, reportID, lineID)
@@ -624,6 +635,22 @@ func (s *Service) ListAttachments(ctx context.Context, tenantID, reportID uuid.U
 
 // DeleteAttachment removes an attachment record. Does NOT delete from MinIO (caller's responsibility).
 func (s *Service) DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
+	if _, restricted := authorOnly(ctx); restricted {
+		att, err := s.repo.GetAttachment(ctx, tenantID, attachmentID)
+		if err != nil {
+			return err
+		}
+		report, err := s.loadReport(ctx, tenantID, att.ReportID)
+		if err != nil {
+			if errors.Is(err, ErrReportNotFound) {
+				return ErrAttachmentNotFound
+			}
+			return err
+		}
+		if err := requireEditable(ctx, report); err != nil {
+			return err
+		}
+	}
 	if err := s.repo.DeleteAttachment(ctx, tenantID, attachmentID); err != nil {
 		return fmt.Errorf("delete attachment: %w", err)
 	}
@@ -698,6 +725,18 @@ func (s *Service) SaveSignature(ctx context.Context, tenantID, reportID uuid.UUI
 		return nil, errors.New("signed_by is required")
 	}
 
+	current, err := s.loadReport(ctx, tenantID, reportID)
+	if err != nil {
+		return nil, err
+	}
+	// Customers may sign an already approved report, so only an author-only caller is
+	// held to the editable states.
+	if _, restricted := authorOnly(ctx); restricted {
+		if err := requireEditable(ctx, current); err != nil {
+			return nil, err
+		}
+	}
+
 	report, err := s.repo.SaveSignature(ctx, tenantID, reportID, signatureData, signedBy)
 	if err != nil {
 		return nil, fmt.Errorf("save signature: %w", err)
@@ -713,7 +752,7 @@ func (s *Service) SaveSignature(ctx context.Context, tenantID, reportID uuid.UUI
 
 // ExportPDF renders a report and its line items as a PDF via maroto.
 func (s *Service) ExportPDF(ctx context.Context, tenantID, reportID uuid.UUID) ([]byte, error) {
-	report, err := s.repo.GetReport(ctx, tenantID, reportID)
+	report, err := s.loadReport(ctx, tenantID, reportID)
 	if err != nil {
 		return nil, err
 	}

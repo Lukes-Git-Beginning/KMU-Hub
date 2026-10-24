@@ -53,6 +53,12 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		// left untouched. rapporte:measurement:* has no FE caller at all —
 		// the "Aufmass" tab runs entirely on a local Zustand mock store, no
 		// backend call — so the measurement routes stay legacy-only too.
+		reportSubmit := requireAnyOf(rapporteEditKeys)
+		lineRead := requireAnyOf(rapporteLineReadKeys)
+		lineWrite := requireAnyOf(rapporteLineWriteKeys)
+		attachmentRead := requireAnyOf(rapporteAttachmentReadKeys)
+		attachmentWrite := requireAnyOf(rapporteAttachmentWriteKeys)
+		measurementWrite := requireAnyOf(rapporteMeasurementWriteKeys)
 		reportCreate := middleware.RequirePermissionAny([2]string{"rapporte:report", "write"}, [2]string{"rapporte:report", "create"})
 		reportEdit := middleware.RequirePermissionAny([2]string{"rapporte:report", "write"}, [2]string{"rapporte:report", "edit"})
 		reportDelete := middleware.RequirePermissionAny([2]string{"rapporte:report", "write"}, [2]string{"rapporte:report", "delete"})
@@ -67,21 +73,21 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 			r.With(reportDelete).Delete("/", rr.HandleDeleteReport)
 
 			// Signature
-			r.With(middleware.RequirePermission("rapporte:report", "write")).Put("/signature", rr.HandleSaveReportSignature)
+			r.With(reportSubmit).Put("/signature", rr.HandleSaveReportSignature)
 
 			// State transitions
-			r.With(middleware.RequirePermission("rapporte:report", "write")).Post("/submit", rr.HandleSubmitReport)
+			r.With(reportSubmit).Post("/submit", rr.HandleSubmitReport)
 			// Bug #3: approve/reject require dedicated "approve" action, not generic "write"
 			r.With(middleware.RequirePermission("rapporte:report", "approve")).Post("/approve", rr.HandleApproveReport)
 			r.With(middleware.RequirePermission("rapporte:report", "approve")).Post("/reject", rr.HandleRejectReport)
 
 			// Lines
-			r.With(middleware.RequirePermission("rapporte:line", "read")).Get("/lines", rr.HandleListLines)
-			r.With(middleware.RequirePermission("rapporte:line", "write")).Post("/lines", rr.HandleAddLine)
+			r.With(lineRead).Get("/lines", rr.HandleListLines)
+			r.With(lineWrite).Post("/lines", rr.HandleAddLine)
 
 			// Attachments
-			r.With(middleware.RequirePermission("rapporte:attachment", "read")).Get("/attachments", rr.HandleListAttachments)
-			r.With(middleware.RequirePermission("rapporte:attachment", "write")).Post("/attachments", rr.HandleUploadAttachment)
+			r.With(attachmentRead).Get("/attachments", rr.HandleListAttachments)
+			r.With(attachmentWrite).Post("/attachments", rr.HandleUploadAttachment)
 
 			// Export
 			r.With(middleware.RequirePermission("rapporte:report", "read")).Get("/export/pdf", rr.HandleExportPDF)
@@ -89,13 +95,13 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 
 		// Lines (by line ID)
 		r.Route("/lines/{id}", func(r chi.Router) {
-			r.With(middleware.RequirePermission("rapporte:line", "write")).Patch("/", rr.HandleUpdateLine)
-			r.With(middleware.RequirePermission("rapporte:line", "write")).Delete("/", rr.HandleDeleteLine)
+			r.With(lineWrite).Patch("/", rr.HandleUpdateLine)
+			r.With(lineWrite).Delete("/", rr.HandleDeleteLine)
 		})
 
 		// Attachments (by attachment ID)
 		r.Route("/attachments/{id}", func(r chi.Router) {
-			r.With(middleware.RequirePermission("rapporte:attachment", "write")).Delete("/", rr.HandleDeleteAttachment)
+			r.With(attachmentWrite).Delete("/", rr.HandleDeleteAttachment)
 		})
 
 		// Stats & approvals
@@ -104,15 +110,15 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 
 		// Measurements
 		r.With(middleware.RequirePermission("rapporte:measurement", "read")).Get("/measurements", rr.HandleListMeasurements)
-		r.With(middleware.RequirePermission("rapporte:measurement", "write")).Post("/measurements", rr.HandleCreateMeasurement)
+		r.With(measurementWrite).Post("/measurements", rr.HandleCreateMeasurement)
 		r.Route("/measurements/{id}", func(r chi.Router) {
 			r.With(middleware.RequirePermission("rapporte:measurement", "read")).Get("/", rr.HandleGetMeasurement)
-			r.With(middleware.RequirePermission("rapporte:measurement", "write")).Put("/", rr.HandleUpdateMeasurement)
-			r.With(middleware.RequirePermission("rapporte:measurement", "write")).Delete("/", rr.HandleDeleteMeasurement)
-			r.With(middleware.RequirePermission("rapporte:measurement", "write")).Post("/positions", rr.HandleAddMeasurementPosition)
+			r.With(measurementWrite).Put("/", rr.HandleUpdateMeasurement)
+			r.With(measurementWrite).Delete("/", rr.HandleDeleteMeasurement)
+			r.With(measurementWrite).Post("/positions", rr.HandleAddMeasurementPosition)
 		})
 		r.Route("/measurements/positions/{pos_id}", func(r chi.Router) {
-			r.With(middleware.RequirePermission("rapporte:measurement", "write")).Delete("/", rr.HandleDeleteMeasurementPosition)
+			r.With(measurementWrite).Delete("/", rr.HandleDeleteMeasurementPosition)
 		})
 
 		// Templates
@@ -124,6 +130,35 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 			r.With(middleware.RequirePermission("rapporte:template", "write")).Delete("/", rr.HandleDeleteTemplate)
 		})
 	})
+}
+
+// Key sets per capability. The fine report keys the member/manager presets hold
+// stand in for the legacy line/attachment keys, so a guard and the "own" narrowing
+// of its handler read the same pairs.
+var (
+	rapporteEditKeys             = [][2]string{{"rapporte:report", "write"}, {"rapporte:report", "edit"}}
+	rapporteDeleteKeys           = [][2]string{{"rapporte:report", "write"}, {"rapporte:report", "delete"}}
+	rapporteReadKeys             = [][2]string{{"rapporte:report", "read"}}
+	rapporteLineReadKeys         = [][2]string{{"rapporte:line", "read"}, {"rapporte:report", "read"}}
+	rapporteLineWriteKeys        = [][2]string{{"rapporte:line", "write"}, {"rapporte:report", "edit"}}
+	rapporteAttachmentReadKeys   = [][2]string{{"rapporte:attachment", "read"}, {"rapporte:report", "read"}}
+	rapporteAttachmentWriteKeys  = [][2]string{{"rapporte:attachment", "write"}, {"rapporte:report", "edit"}}
+	rapporteMeasurementWriteKeys = [][2]string{{"rapporte:measurement", "write"}, {"rapporte:measurement", "manage"}}
+	// Measurements are gated by their own keys, but they hang off a report, so the
+	// report-edit scope narrows them as well.
+	rapporteMeasurementScopeKeys = [][2]string{{"rapporte:measurement", "write"}, {"rapporte:measurement", "manage"}, {"rapporte:report", "edit"}}
+)
+
+// requireAnyOf is RequirePermissionAny over a key set.
+func requireAnyOf(keys [][2]string) func(http.Handler) http.Handler {
+	return middleware.RequirePermissionAny(keys[0], keys[1:]...)
+}
+
+// restrictToAuthor reports whether the caller's grant under any of the given keys is
+// scoped to "own", i.e. the service must only let them reach reports they wrote.
+func restrictToAuthor(w http.ResponseWriter, r *http.Request, pairs ...[2]string) (restrict, ok bool) {
+	owner, ok := ownerFilterForScopeAny(w, r, pairs...)
+	return owner != nil, ok
 }
 
 // ============================================================================
@@ -259,6 +294,15 @@ func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	// A caller who may only handle their own reports cannot file one under somebody
+	// else's name — they could not touch it afterwards.
+	restrict, ok := restrictToAuthor(w, r, rapporteEditKeys...)
+	if !ok {
+		return
+	}
+	if restrict {
+		req.AuthorID = middleware.GetUserID(r.Context())
+	}
 
 	grpcReq := &rapportev1.CreateReportRequest{
 		TenantId:    tenantID.String(),
@@ -302,9 +346,15 @@ func (rr *RapporteRoutes) HandleGetReport(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteReadKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.GetReport(r.Context(), &rapportev1.GetReportRequest{
-		TenantId: tenantID.String(),
-		ReportId: id,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		ReportId:         id,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -352,6 +402,12 @@ func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Requ
 		ProjectName:  req.ProjectName,
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteEditKeys...)
+	if !ok {
+		return
+	}
+	grpcReq.RestrictToAuthor = restrict
+
 	resp, err := client.UpdateReport(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
@@ -377,9 +433,15 @@ func (rr *RapporteRoutes) HandleDeleteReport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteDeleteKeys...)
+	if !ok {
+		return
+	}
+
 	_, err = client.DeleteReport(r.Context(), &rapportev1.DeleteReportRequest{
-		TenantId: tenantID.String(),
-		ReportId: id,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		ReportId:         id,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -409,9 +471,15 @@ func (rr *RapporteRoutes) HandleSubmitReport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteEditKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.SubmitReport(r.Context(), &rapportev1.SubmitReportRequest{
-		TenantId: tenantID.String(),
-		ReportId: id,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		ReportId:         id,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -511,9 +579,15 @@ func (rr *RapporteRoutes) HandleListLines(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteLineReadKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.ListLines(r.Context(), &rapportev1.ListLinesRequest{
-		TenantId: tenantID.String(),
-		ReportId: reportID,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		ReportId:         reportID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -544,14 +618,20 @@ func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteLineWriteKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.AddLine(r.Context(), &rapportev1.AddLineRequest{
-		TenantId:    tenantID.String(),
-		ReportId:    reportID,
-		Description: req.Description,
-		Quantity:    req.Quantity,
-		Unit:        req.Unit,
-		Notes:       req.Notes,
-		Position:    req.Position,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		ReportId:         reportID,
+		Description:      req.Description,
+		Quantity:         req.Quantity,
+		Unit:             req.Unit,
+		Notes:            req.Notes,
+		Position:         req.Position,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -596,6 +676,12 @@ func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Reques
 		grpcReq.Position = req.Position
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteLineWriteKeys...)
+	if !ok {
+		return
+	}
+	grpcReq.RestrictToAuthor = restrict
+
 	resp, err := client.UpdateLine(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
@@ -621,9 +707,15 @@ func (rr *RapporteRoutes) HandleDeleteLine(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteLineWriteKeys...)
+	if !ok {
+		return
+	}
+
 	_, err = client.DeleteLine(r.Context(), &rapportev1.DeleteLineRequest{
-		TenantId: tenantID.String(),
-		LineId:   lineID,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		LineId:           lineID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -661,6 +753,12 @@ func (rr *RapporteRoutes) HandleListAttachments(w http.ResponseWriter, r *http.R
 		grpcReq.LineId = &lid
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteAttachmentReadKeys...)
+	if !ok {
+		return
+	}
+	grpcReq.RestrictToAuthor = restrict
+
 	resp, err := client.ListAttachments(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
@@ -691,6 +789,13 @@ func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// The uploader is the authenticated caller, not whoever the body names.
+	uploadedBy := middleware.GetUserID(r.Context())
+	if uploadedBy == "" {
+		response.Error(w, http.StatusUnauthorized, "missing user in token")
+		return
+	}
+
 	grpcReq := &rapportev1.UploadAttachmentRequest{
 		TenantId:    tenantID.String(),
 		ReportId:    reportID,
@@ -699,8 +804,14 @@ func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.
 		ContentType: req.ContentType,
 		SizeBytes:   req.SizeBytes,
 		ObjectKey:   req.ObjectKey,
-		UploadedBy:  req.UploadedBy,
+		UploadedBy:  uploadedBy,
 	}
+
+	restrict, ok := restrictToAuthor(w, r, rapporteAttachmentWriteKeys...)
+	if !ok {
+		return
+	}
+	grpcReq.RestrictToAuthor = restrict
 
 	resp, err := client.UploadAttachment(r.Context(), grpcReq)
 	if err != nil {
@@ -727,9 +838,15 @@ func (rr *RapporteRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteAttachmentWriteKeys...)
+	if !ok {
+		return
+	}
+
 	_, err = client.DeleteAttachment(r.Context(), &rapportev1.DeleteAttachmentRequest{
-		TenantId:     tenantID.String(),
-		AttachmentId: attID,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		AttachmentId:     attID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -764,11 +881,17 @@ func (rr *RapporteRoutes) HandleSaveReportSignature(w http.ResponseWriter, r *ht
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteEditKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.SaveSignature(r.Context(), &rapportev1.SaveReportSignatureRequest{
-		TenantId:      tenantID.String(),
-		ReportId:      reportID,
-		SignatureData: req.SignatureData,
-		SignedBy:      req.SignedBy,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		ReportId:         reportID,
+		SignatureData:    req.SignatureData,
+		SignedBy:         req.SignedBy,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -854,9 +977,15 @@ func (rr *RapporteRoutes) HandleExportPDF(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteReadKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.ExportPDF(r.Context(), &rapportev1.ExportPDFRequest{
-		TenantId: tenantID.String(),
-		ReportId: reportID,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		ReportId:         reportID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -949,14 +1078,20 @@ func (rr *RapporteRoutes) HandleCreateMeasurement(w http.ResponseWriter, r *http
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteMeasurementScopeKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.CreateMeasurement(r.Context(), &rapportev1.CreateMeasurementRequest{
-		TenantId:   tenantID.String(),
-		ReportId:   req.ReportID,
-		Title:      req.Title,
-		Location:   req.Location,
-		MeasuredBy: req.MeasuredBy,
-		MeasuredAt: req.MeasuredAt,
-		Notes:      req.Notes,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		ReportId:         req.ReportID,
+		Title:            req.Title,
+		Location:         req.Location,
+		MeasuredBy:       req.MeasuredBy,
+		MeasuredAt:       req.MeasuredAt,
+		Notes:            req.Notes,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1015,14 +1150,20 @@ func (rr *RapporteRoutes) HandleUpdateMeasurement(w http.ResponseWriter, r *http
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteMeasurementScopeKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.UpdateMeasurement(r.Context(), &rapportev1.UpdateMeasurementRequest{
-		TenantId:      tenantID.String(),
-		MeasurementId: id,
-		Title:         req.Title,
-		Location:      req.Location,
-		MeasuredBy:    req.MeasuredBy,
-		MeasuredAt:    req.MeasuredAt,
-		Notes:         req.Notes,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		MeasurementId:    id,
+		Title:            req.Title,
+		Location:         req.Location,
+		MeasuredBy:       req.MeasuredBy,
+		MeasuredAt:       req.MeasuredAt,
+		Notes:            req.Notes,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1048,9 +1189,15 @@ func (rr *RapporteRoutes) HandleDeleteMeasurement(w http.ResponseWriter, r *http
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteMeasurementScopeKeys...)
+	if !ok {
+		return
+	}
+
 	_, err = client.DeleteMeasurement(r.Context(), &rapportev1.DeleteMeasurementRequest{
-		TenantId:      tenantID.String(),
-		MeasurementId: id,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		MeasurementId:    id,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1081,14 +1228,20 @@ func (rr *RapporteRoutes) HandleAddMeasurementPosition(w http.ResponseWriter, r 
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteMeasurementScopeKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.AddMeasurementPosition(r.Context(), &rapportev1.AddMeasurementPositionRequest{
-		TenantId:       tenantID.String(),
-		MeasurementId:  measurementID,
-		PositionNumber: int32(req.PositionNumber),
-		Description:    req.Description,
-		Unit:           req.Unit,
-		Quantity:       req.Quantity,
-		UnitPrice:      req.UnitPrice,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		MeasurementId:    measurementID,
+		PositionNumber:   int32(req.PositionNumber),
+		Description:      req.Description,
+		Unit:             req.Unit,
+		Quantity:         req.Quantity,
+		UnitPrice:        req.UnitPrice,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
