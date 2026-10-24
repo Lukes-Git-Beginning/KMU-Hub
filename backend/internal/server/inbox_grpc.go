@@ -812,7 +812,7 @@ func (s *InboxGRPCServer) DeleteTeamInbox(ctx context.Context, req *inboxv1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.teamService.DeleteTeamInbox(ctx, tenantID, teamInboxID, userID); err != nil {
+	if err := s.teamService.DeleteTeamInbox(withTeamManage(ctx), tenantID, teamInboxID, userID); err != nil {
 		return nil, mapInboxError(err)
 	}
 

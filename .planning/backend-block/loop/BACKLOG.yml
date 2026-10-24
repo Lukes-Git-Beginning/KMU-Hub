@@ -1009,7 +1009,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/inbox/team 68,4 %"
     decided: 2026-10-24
     decision: >-

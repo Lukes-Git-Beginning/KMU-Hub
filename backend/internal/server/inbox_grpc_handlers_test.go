@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 )
@@ -846,4 +847,31 @@ func TestTestRoutingRule(t *testing.T) {
 		TestMessage: msg,
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
+}
+
+// kommunikation:team_inbox:manage reaches the delete RPC: a holder who is no
+// member deletes the inbox, without the key the same call stays denied, and a
+// holder cannot enrol themselves into an inbox they do not belong to.
+func TestTeamInbox_ManagePermissionDeletesButCannotSelfEnrol(t *testing.T) {
+	srv, _ := newTestInboxServer()
+	ctx := tenantCtx(uuid.New())
+	admin, manager := uuid.New(), uuid.New()
+	managerCtx := context.WithValue(ctx, middleware.UserPermsKey, []string{middleware.PermTeamInboxManage})
+
+	created, err := srv.CreateTeamInbox(ctx, &inboxv1.CreateTeamInboxRequest{UserId: admin.String(), Name: "Vertrieb"})
+	require.NoError(t, err)
+	teamID := created.TeamInbox.Id
+
+	_, err = srv.AddTeamMember(managerCtx, &inboxv1.AddTeamMemberRequest{
+		TeamInboxId: teamID, UserId: manager.String(), MemberUserId: manager.String(),
+	})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+
+	_, err = srv.DeleteTeamInbox(ctx, &inboxv1.DeleteTeamInboxRequest{TeamInboxId: teamID, UserId: manager.String()})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+
+	_, err = srv.DeleteTeamInbox(managerCtx, &inboxv1.DeleteTeamInboxRequest{TeamInboxId: teamID, UserId: manager.String()})
+	require.NoError(t, err)
+	_, err = srv.DeleteTeamInbox(managerCtx, &inboxv1.DeleteTeamInboxRequest{TeamInboxId: teamID, UserId: manager.String()})
+	requireGRPCCode(t, err, codes.NotFound)
 }

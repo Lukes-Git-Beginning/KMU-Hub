@@ -705,3 +705,66 @@ func TestRemoveMember_ManageAllStillKeepsLastAdmin(t *testing.T) {
 	err := svc.RemoveMember(WithManageAll(context.Background()), inbox.TenantID, inbox.ID, uuid.New(), adminID)
 	require.ErrorIs(t, err, ErrCannotRemoveLastAdmin)
 }
+
+func TestAddMember_ManageAllCannotEnrolSelfButMayAddOthers(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID, manager, other := uuid.New(), uuid.New(), uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+
+	ctx := WithManageAll(context.Background())
+
+	err := svc.AddMember(ctx, inbox.TenantID, manager,
+		&models.TeamInboxMember{TeamInboxID: inbox.ID, UserID: manager, Role: "admin"})
+	require.ErrorIs(t, err, ErrNotTeamAdmin)
+	assert.Len(t, repo.members[inbox.ID], 1)
+
+	require.NoError(t, svc.AddMember(ctx, inbox.TenantID, manager,
+		&models.TeamInboxMember{TeamInboxID: inbox.ID, UserID: other}))
+	assert.Len(t, repo.members[inbox.ID], 2)
+}
+
+func TestAddMember_InboxAdminWithoutManageAllUnchanged(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID, other := uuid.New(), uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+
+	// Without manage-all the inbox-admin rule is unchanged.
+	require.NoError(t, svc.AddMember(context.Background(), inbox.TenantID, adminID,
+		&models.TeamInboxMember{TeamInboxID: inbox.ID, UserID: other}))
+}
+
+func TestDeleteTeamInbox_ManageAllWithoutMembership(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	adminID, manager := uuid.New(), uuid.New()
+	inbox := newTestTeamInbox(adminID)
+	repo.inboxes[inbox.ID] = inbox
+	addMemberToRepo(repo, inbox.ID, adminID, "admin")
+
+	// Without the permission a non-member stays refused, the inbox survives.
+	require.ErrorIs(t, svc.DeleteTeamInbox(context.Background(), inbox.TenantID, inbox.ID, manager), ErrNotTeamAdmin)
+	_, err := repo.GetTeamInbox(context.Background(), inbox.TenantID, inbox.ID)
+	require.NoError(t, err)
+
+	// With manage-all the delete lands without a membership.
+	require.NoError(t, svc.DeleteTeamInbox(WithManageAll(context.Background()), inbox.TenantID, inbox.ID, manager))
+	_, err = repo.GetTeamInbox(context.Background(), inbox.TenantID, inbox.ID)
+	require.ErrorIs(t, err, ErrTeamInboxNotFound)
+}
+
+func TestDeleteTeamInbox_UnknownInboxIsNotFoundBeforeAnyRole(t *testing.T) {
+	repo := newMockTeamRepository()
+	svc := NewService(repo, newMockMessageRepo())
+
+	err := svc.DeleteTeamInbox(WithManageAll(context.Background()), uuid.New(), uuid.New(), uuid.New())
+	require.ErrorIs(t, err, ErrTeamInboxNotFound)
+}
