@@ -332,7 +332,7 @@ func TestHandleRecordSickLeave_ReachesRPC(t *testing.T) {
 
 // TestHandleRecordSickLeave_RequiresPermission is the third handler proving a
 // coworker cannot reach someone else's health data through this route family:
-// "/leave/sick" is guarded by "hr:write" and RecordSickLeave always records
+// "/leave/sick" is guarded by "hr:write" or "hr:self" and RecordSickLeave always records
 // against the CALLER's own user ID (middleware.GetUserID), never a path
 // parameter — there is no {id} to substitute a colleague's in the first place.
 func TestHandleRecordSickLeave_RequiresPermission(t *testing.T) {

@@ -2266,7 +2266,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,6 %"
     scope: >
       SELF-SERVICE (Klasse A), VERIFIZIERT in Iteration 56 (Router-Probe, Grants aus

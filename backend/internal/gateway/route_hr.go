@@ -96,7 +96,8 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(selfRead).Get("/balance", h.HandleGetLeaveBalance)
 		r.With(selfRead).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
 		r.With(selfRead).Get("/types", h.HandleListLeaveTypes)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/sick", h.HandleRecordSickLeave)
+		// Books the caller's own sick leave (user id from the token, no path id): self-service.
+		r.With(selfWrite).Post("/sick", h.HandleRecordSickLeave)
 	})
 
 	// Time tracking (Zeiterfassung). Additive guards on the supervisory routes:
@@ -184,7 +185,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "admin")).Post("/", h.HandleCreateEmployee)
 		// The caller's own full profile; the handler reads the id from the token only.
 		r.With(directoryRead).Get("/me", h.HandleGetSelfProfile)
-		r.With(middleware.RequirePermission("hr", "write")).Put("/me", h.HandleUpdateSelfProfile)
+		r.With(selfWrite).Put("/me", h.HandleUpdateSelfProfile)
 		r.With(directoryRead).Get("/{id}", h.HandleGetEmployee)
 		r.With(middleware.RequirePermission("hr", "admin")).Put("/{id}", h.HandleUpdateEmployee)
 		// team:employee:offboard is in the catalogue since 000256 and assigned

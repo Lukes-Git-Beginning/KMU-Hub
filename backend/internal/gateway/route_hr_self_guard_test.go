@@ -47,13 +47,16 @@ func TestHRSelfKey_OpensOnlyTheSelfServiceRoutes(t *testing.T) {
 		{"GET", "/api/v1/hr/time/analytics"},
 		{"GET", "/api/v1/hr/time/weeks/status"},
 		{"POST", "/api/v1/hr/time/weeks/submit"},
+		// The caller's own sick note and own profile: both take the user id from the token only.
+		{"POST", "/api/v1/hr/leave/sick"},
+		{"PUT", "/api/v1/hr/employees/me"},
 	}
 	// Supervisory routes. The two foreign-id reads open for hr:self but are pinned to the caller.
 	notSelfRoutes := []struct{ method, path string }{
 		{"POST", "/api/v1/hr/leave/requests/" + id + "/approve"},
 		{"POST", "/api/v1/hr/leave/requests/" + id + "/reject"},
-		{"POST", "/api/v1/hr/leave/sick"},
 		{"GET", "/api/v1/hr/employees"},
+		{"PUT", "/api/v1/hr/employees/" + id},
 		{"GET", "/api/v1/hr/settings"},
 	}
 
@@ -77,6 +80,9 @@ func TestHRSelfKey_OpensOnlyTheSelfServiceRoutes(t *testing.T) {
 	assert.Equal(t, allowed, call("GET", "/api/v1/hr/leave/balance", []string{"hr:read"}))
 	assert.Equal(t, allowed, call("POST", "/api/v1/hr/time/clock-in", []string{"hr:write"}))
 	assert.Equal(t, allowed, call("GET", "/api/v1/hr/time/status", []string{"hr:read"}))
+	assert.Equal(t, allowed, call("POST", "/api/v1/hr/leave/sick", []string{"hr:write"}))
+	assert.Equal(t, allowed, call("PUT", "/api/v1/hr/employees/me", []string{"hr:write"}))
+	assert.Equal(t, denied, call("POST", "/api/v1/hr/leave/sick", []string{"hr:read"}), "read does not grant a sick note")
 	assert.Equal(t, denied, call("POST", "/api/v1/hr/leave/requests", []string{"hr:read"}), "read does not grant write")
 }
 
