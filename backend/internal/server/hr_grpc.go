@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/changerequest"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
@@ -1249,7 +1250,18 @@ func (s *HRGRPCServer) GetTeamTime(ctx context.Context, req *hrv1.GetTeamTimeReq
 		weekStart = ws
 	}
 
-	entries, err := s.timetrackingService.GetTeamTime(ctx, tenantID, weekStart)
+	// Fail-closed: only an explicit "all" lists the whole tenant. Everything else, including an
+	// empty or unknown scope, is the caller's reporting line.
+	var managerUserID *uuid.UUID
+	if req.GetScope() != auth.ScopeAll {
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		managerUserID = &caller
+	}
+
+	entries, err := s.timetrackingService.GetTeamTime(ctx, tenantID, weekStart, managerUserID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}

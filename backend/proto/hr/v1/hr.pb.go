@@ -7881,9 +7881,13 @@ func (x *TeamTimeEntry) GetWeekStatus() string {
 }
 
 type GetTeamTimeReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	WeekStart     string                 `protobuf:"bytes,2,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"` // YYYY-MM-DD
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantId  string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	WeekStart string                 `protobuf:"bytes,2,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"` // YYYY-MM-DD
+	// How far the caller's grant reaches. "all" lists every employee of the tenant; ANY other
+	// value, including empty, lists only the caller's reporting line (fail-closed). The caller
+	// comes from the call context, never from this message.
+	Scope         string `protobuf:"bytes,3,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7928,6 +7932,13 @@ func (x *GetTeamTimeReq) GetTenantId() string {
 func (x *GetTeamTimeReq) GetWeekStart() string {
 	if x != nil {
 		return x.WeekStart
+	}
+	return ""
+}
+
+func (x *GetTeamTimeReq) GetScope() string {
+	if x != nil {
+		return x.Scope
 	}
 	return ""
 }
@@ -10129,11 +10140,12 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"clocked_in\x18\a \x01(\bR\tclockedIn\x12\x1f\n" +
 	"\vweek_status\x18\b \x01(\tR\n" +
-	"weekStatus\"L\n" +
+	"weekStatus\"b\n" +
 	"\x0eGetTeamTimeReq\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
-	"week_start\x18\x02 \x01(\tR\tweekStart\";\n" +
+	"week_start\x18\x02 \x01(\tR\tweekStart\x12\x14\n" +
+	"\x05scope\x18\x03 \x01(\tR\x05scope\";\n" +
 	"\x0fGetTeamTimeResp\x12(\n" +
 	"\x04team\x18\x01 \x03(\v2\x14.hr.v1.TeamTimeEntryR\x04team\"\xd1\x03\n" +
 	"\fWeekApproval\x12\x0e\n" +

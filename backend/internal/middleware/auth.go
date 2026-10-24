@@ -138,8 +138,9 @@ func GetDeniedPermissions(ctx context.Context) []string {
 //
 // The filter belongs in the repository query, not in a post-filter on the
 // response: paging and the total count have to agree with what the caller may
-// see. auth.ScopeTeam needs a reporting-line resolver and does not exist yet —
-// it currently behaves like auth.ScopeAll.
+// see. auth.ScopeTeam is resolved per route, not here: GET /hr/time/team passes it on and the
+// HR service narrows to the caller's reporting line (hr_employee_profiles.manager_user_id).
+// Every other route that reads PermissionScope still treats ScopeTeam like auth.ScopeAll.
 func PermissionScope(ctx context.Context, resource, action string) string {
 	scopes, ok := ctx.Value(UserScopesKey).(map[string]string)
 	if !ok {

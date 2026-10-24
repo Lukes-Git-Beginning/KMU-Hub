@@ -824,7 +824,7 @@ func TestGetTeamTime_BatchesRepoQueries(t *testing.T) {
 	empRepo := &mockEmployeeRepo{profiles: profiles}
 	svc := NewService(workRepo, breakRepo, empRepo, &mockSettingsRepo{}, nil)
 
-	entries, err := svc.GetTeamTime(context.Background(), uuid.New(), time.Now())
+	entries, err := svc.GetTeamTime(context.Background(), uuid.New(), time.Now(), nil)
 	require.NoError(t, err)
 	assert.Len(t, entries, 5)
 
@@ -960,3 +960,48 @@ func assertAllTenants(t *testing.T, repo *mockWorkTimeRepo, want uuid.UUID) {
 }
 
 func ptrTo[T any](v T) *T { return &v }
+
+// pagedEmployeeRepo mimics PostgresEmployeeRepo.List's paging: a page is capped at 100 rows
+// and any larger PerPage falls back to 20, which is what made GetTeamTime show 20 employees.
+type pagedEmployeeRepo struct {
+	mockEmployeeRepo
+	filters []employee.EmployeeFilter
+}
+
+func (p *pagedEmployeeRepo) List(_ context.Context, f employee.EmployeeFilter) ([]*models.EmployeeProfile, int, error) {
+	p.filters = append(p.filters, f)
+	perPage := f.PerPage
+	if perPage <= 0 || perPage > 100 {
+		perPage = 20
+	}
+	start := (f.Page - 1) * perPage
+	if start >= len(p.profiles) {
+		return nil, len(p.profiles), nil
+	}
+	end := min(start+perPage, len(p.profiles))
+	return p.profiles[start:end], len(p.profiles), nil
+}
+
+// TestGetTeamTime_ListsEveryEmployeeAcrossPages pins the paging: 250 employees need three
+// employee queries, and the manager filter reaches every one of them.
+func TestGetTeamTime_ListsEveryEmployeeAcrossPages(t *testing.T) {
+	var profiles []*models.EmployeeProfile
+	for i := 0; i < 250; i++ {
+		profiles = append(profiles, &models.EmployeeProfile{UserID: uuid.New(), UserName: "Employee", WorkDaysPerWeek: 5})
+	}
+	empRepo := &pagedEmployeeRepo{mockEmployeeRepo: mockEmployeeRepo{profiles: profiles}}
+	workRepo := newMockWorkTimeRepo()
+	svc := NewService(workRepo, newMockBreakRepo(), empRepo, &mockSettingsRepo{}, nil)
+
+	manager := uuid.New()
+	entries, err := svc.GetTeamTime(context.Background(), uuid.New(), time.Now(), &manager)
+	require.NoError(t, err)
+
+	assert.Len(t, entries, 250)
+	require.Len(t, empRepo.filters, 3)
+	for _, f := range empRepo.filters {
+		require.NotNil(t, f.ManagerUserID)
+		assert.Equal(t, manager, *f.ManagerUserID)
+	}
+	assert.Equal(t, 1, workRepo.weeklyBatchCalls, "the weekly summaries stay one batched query")
+}

@@ -326,7 +326,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/hr/timetracking 65,6 % · internal/biz/hr/employee 75,3 %"
     decided: 2026-10-24
     decision: >-

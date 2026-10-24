@@ -1000,6 +1000,10 @@ message TeamTimeEntry {
 message GetTeamTimeReq {
   string tenant_id = 1;
   string week_start = 2;     // YYYY-MM-DD
+  // How far the caller's grant reaches. "all" lists every employee of the tenant; ANY other
+  // value, including empty, lists only the caller's reporting line (fail-closed). The caller
+  // comes from the call context, never from this message.
+  string scope = 3;
 }
 
 message GetTeamTimeResp {

@@ -37711,7 +37711,7 @@ paths:
 
   /api/v1/hr/time/team:
     get:
-      summary: Get the current week's time overview for the whole team
+      summary: Get the current week's time overview for the caller's team (whole tenant at scope all, reporting line at scope team)
       tags: [hr-time]
       operationId: getHrTimeTeam
       security: [{ bearerAuth: [] }]

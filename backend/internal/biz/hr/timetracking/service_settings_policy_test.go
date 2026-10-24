@@ -89,7 +89,7 @@ func TestGetTeamTime_UsesTenantWorkHoursPerDay(t *testing.T) {
 	svc := NewService(workRepo, newMockBreakRepo(), empRepo,
 		withSettings(models.HRCompanySettings{WorkHoursPerDay: 6}), nil)
 
-	entries, err := svc.GetTeamTime(context.Background(), uuid.New(), time.Now())
+	entries, err := svc.GetTeamTime(context.Background(), uuid.New(), time.Now(), nil)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 	assert.Equal(t, 1800, entries[0].TargetMinutes)

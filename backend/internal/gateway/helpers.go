@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -213,6 +214,27 @@ func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]
 		return nil, false
 	}
 	return &userID, true
+}
+
+// narrowestScopeAny returns the narrowest scope the caller holds across the given
+// resource:action pairs, for a route guarded by middleware.RequirePermissionAny. The narrower
+// pair wins for the same reason as in ownerFilterForScopeAny: an unassigned pair resolves to
+// auth.ScopeAll and must not widen a scope the caller's other grant deliberately set. A value
+// that is none of own/team/all ranks as the narrowest, so a typo in a role never opens a list.
+func narrowestScopeAny(ctx context.Context, pairs ...[2]string) string {
+	rank := map[string]int{auth.ScopeOwn: 0, auth.ScopeTeam: 1, auth.ScopeAll: 2}
+	narrowest := auth.ScopeAll
+	for _, p := range pairs {
+		scope := middleware.PermissionScope(ctx, p[0], p[1])
+		r, known := rank[scope]
+		if !known {
+			return auth.ScopeOwn
+		}
+		if r < rank[narrowest] {
+			narrowest = scope
+		}
+	}
+	return narrowest
 }
 
 // restrictToOwnEmployee pins an HR read to the caller when the hr:read/hr:self grant is narrowed

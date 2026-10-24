@@ -1905,9 +1905,12 @@ func (h *HRRoutes) HandleGetTeamTime(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The service lists the whole tenant only for scope "all"; a manager holding
+	// zeiterfassung:team:view at scope team sees their reporting line (Beschäftigtendaten).
 	resp, err := client.GetTeamTime(r.Context(), &hrv1.GetTeamTimeReq{
 		TenantId:  tenantID,
 		WeekStart: r.URL.Query().Get("week_start"),
+		Scope:     narrowestScopeAny(r.Context(), [2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"}),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

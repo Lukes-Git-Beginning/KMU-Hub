@@ -307,11 +307,8 @@ func TestHandleGetTeamTime_MissingTenant(t *testing.T) {
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
-// TestHandleGetTeamTime_ReachesRPC also documents the finding behind
-// fix-hr-team-time-not-scoped-to-manager (BACKLOG.yml): the request carries
-// only tenant_id and week_start, never the caller's own id — GetTeamTimeReq
-// has no field to scope by. A "manager" role holder sees every employee of
-// the tenant, not a subset tied to them.
+// TestHandleGetTeamTime_ReachesRPC covers the unreachable-service branch; the scope the request
+// carries is pinned in route_hr_team_time_scope_test.go.
 func TestHandleGetTeamTime_ReachesRPC(t *testing.T) {
 	routes := NewHRRoutes(registryWithService("biz"), nil)
 	rec := httptest.NewRecorder()
