@@ -2438,7 +2438,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper, fix-branchen-member-self-service-grants]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Erster Flow für `schichten` (:9115). Admin/manager: Schichtvorlage und Schicht anlegen,
@@ -2838,3 +2838,37 @@ units:
       - "Test: Bewegung ohne performed_by im Body -> der gRPC-Stub sieht die ID des Aufrufers"
       - "Test: Bewegung mit fremder performed_by -> wird auf den Aufrufer gesetzt oder mit 403 abgelehnt"
       - "Mutations-Probe: Pin entfernt, der Test wird rot"
+
+  - id: fix-schichten-swap-create-pins-requester-and-assignment
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,6 % (vor Bau messen)"
+    scope: >
+      Gefunden in e2e-schichten-member-flow (Lauf 16, Iteration 64), per Code gelesen, nicht gegen
+      den Stack gefahren. `POST /schichten/swap-requests` (`HandleCreateSwapRequest`,
+      `route_schichten.go:~800`) übernimmt `requested_by_employee_id`, `assignment_id` und
+      `shift_id` ungeprüft aus dem Body. Der Guard `schichten:swap:create` ist für member auf Scope
+      `own` gesetzt (Migration 256), der Scope wird beim Anlegen aber nirgends ausgewertet (nur
+      `HandleListSwapRequests` ruft `ownerFilterForScope`), und `Service.CreateSwapRequest` prüft
+      weder, dass die Zuweisung dem Antragsteller gehört, noch dass sie zur Schicht gehört. Ein
+      member kann also im Namen eines Kollegen eine Tauschanfrage für dessen Zuweisung stellen;
+      der Manager sieht nur den (gefälschten) Antragsteller. Mandantenintern, kein
+      Cross-Tenant-Zugriff (alle Zugriffe tenant-gescoped). Fix: im Gateway für Aufrufer mit
+      Scope `own` `requested_by_employee_id` auf die JWT-ID zwingen (abweichender Wert -> 403 oder
+      überschreiben, wie bei den fuhrpark-Self-Service-Handlern), im Service prüfen, dass
+      `assignment_id` zu `shift_id` und zum Antragsteller gehört (sonst 404/409). Wire-Form
+      bleibt; das Desktop sendet immer die eigene `detailAssignment.userId`.
+    sources:
+      - backend/internal/gateway/route_schichten.go
+      - backend/internal/schichten/service.go
+      - backend/internal/schichten/postgres_repository.go
+      - desktop/src/renderer/src/modules/schichten/SchichtenPage.tsx
+    done_when:
+      - "Test: member (own) mit fremdem requested_by_employee_id -> Wert wird auf den Aufrufer gesetzt oder 403"
+      - "Test: assignment_id einer anderen Schicht oder eines anderen Mitarbeiters -> abgelehnt, keine Zeile angelegt"
+      - "Test: Manager (Scope all) darf weiterhin im Namen eines Mitarbeiters stellen"
+      - "Mutations-Probe: Pin/Eigentumsprüfung entfernt, der zugehörige Test wird rot"
+

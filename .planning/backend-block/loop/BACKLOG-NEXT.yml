@@ -2177,3 +2177,34 @@ units:
       - backend/proto/chat/v1/chat.proto
     done_when:
       - "Luke: Gruppen-DM ja/nein entschieden; bei ja eine Bau-Unit mit Datenmodell angelegt"
+
+  - id: decide-schichten-swap-semantics
+    phase: 4
+    service: schichten
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: "PRODUKTENTSCHEIDUNG LUKE: was ein genehmigter Schichttausch bewirken soll (heute ohne Wirkung oder 409)"
+    target: "Luke"
+    scope: >
+      Gefunden in `e2e-schichten-member-flow` (Iteration 64). `SwapAssignmentsForRequest`
+      (`postgres_repository.go:~687`) tauscht nur die `employee_id` zweier Zuweisungen DERSELBEN
+      Schicht und verlangt, dass der Partner schon auf ihr steht (sonst `ErrSwapPartnerNotAssigned`
+      -> 409). Zwei Mitarbeiter derselben Schicht zu tauschen ändert die Besetzung nicht; ist der
+      Partner nicht auf der Schicht, scheitert die Genehmigung. Das FE bietet in
+      `ShiftDetailModal` jeden Mitarbeiter als Partner an (`swapCandidates` = alle außer dem
+      Zugewiesenen) und kennt nur eine `shift_id`. Der Tausch kann seinen Zweck, eine Schicht an
+      einen Kollegen abzugeben oder gegen eine andere zu tauschen, damit nie erfüllen. Zu
+      entscheiden: (a) Übergabe — die Zuweisung geht auf den Partner über, auch wenn er nicht auf
+      der Schicht steht (mit ArbZG-/JArbSchG-Prüfung wie bei `AssignEmployee`), oder (b) echter
+      Tausch zweier Schichten (Datenmodell: zweite `shift_id`/`partner_assignment_id`,
+      Migration mit RLS, FE-Dialog wählt die Gegenschicht). Der E2E-Flow hält den heutigen Stand
+      fest (Besetzung nach Genehmigung unverändert, Partner ohne Zuweisung 409) und muss mit.
+    sources:
+      - backend/internal/schichten/postgres_repository.go
+      - backend/internal/schichten/service.go
+      - backend/test/e2e/schichten_test.go
+      - desktop/src/renderer/src/modules/schichten/ShiftDetailModal.tsx
+    done_when:
+      - "Luke: (a) Übergabe oder (b) Tausch zweier Schichten entschieden; Bau-Unit mit Datenmodell angelegt"
+
