@@ -683,6 +683,34 @@ func TestService_List_DefaultPagination(t *testing.T) {
 	assert.Equal(t, 25, total)
 }
 
+func TestService_List_PageSizeUpToTwoHundred(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	for i := 0; i < 150; i++ {
+		id := uuid.New()
+		repo.contacts[id] = &models.Contact{
+			ID:        id,
+			FirstName: "User",
+			LastName:  "Test",
+			CreatedBy: uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+	}
+
+	contacts, total, err := svc.List(context.Background(), ListInput{Page: 1, PageSize: 200, TenantID: tenantID})
+	require.NoError(t, err)
+	assert.Len(t, contacts, 150)
+	assert.Equal(t, 150, total)
+
+	// Above the ceiling the page falls back to the default of 20.
+	contacts, _, err = svc.List(context.Background(), ListInput{Page: 1, PageSize: 201, TenantID: tenantID})
+	require.NoError(t, err)
+	assert.Len(t, contacts, 20)
+}
+
 func TestService_List_InvalidTenant(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)

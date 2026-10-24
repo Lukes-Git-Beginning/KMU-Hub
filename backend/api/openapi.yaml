@@ -2001,6 +2001,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
       responses:
         "200":
           description: List of contacts
@@ -2460,6 +2461,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
       responses:
         "200":
           description: List of companies
@@ -2839,6 +2841,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
         - name: sort_by
           in: query
           schema:
@@ -3092,7 +3095,7 @@ paths:
           schema:
             type: integer
             default: 20
-            maximum: 100
+            maximum: 200
         - name: sort_by
           in: query
           schema:
@@ -6135,6 +6138,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
       responses:
         "200":
           description: Task list
@@ -6990,6 +6994,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
       responses:
         "200":
           description: Search results

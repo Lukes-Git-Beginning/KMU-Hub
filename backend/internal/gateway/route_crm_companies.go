@@ -101,7 +101,7 @@ func (c *CRMRoutes) HandleListCompanies(w http.ResponseWriter, r *http.Request) 
 	sortBy := r.URL.Query().Get("sort_by")
 	sortDesc := r.URL.Query().Get("sort_desc") == "true"
 	tagIDs := r.URL.Query()["tag_ids"]
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
 
 	resp, err := client.ListCompanies(r.Context(), &crmv1.ListCompaniesRequest{
 		Industry: industry,

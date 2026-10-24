@@ -146,7 +146,8 @@ func TestParsePagination(t *testing.T) {
 		{"invalid_page", "?page=abc", 1, 20, 1, 20},
 		{"negative_page", "?page=-1", 1, 20, 1, 20},
 		{"zero_page", "?page=0", 1, 20, 1, 20},
-		{"page_size_over_max", "?page_size=200", 1, 20, 1, 20},
+		{"page_size_over_max", "?page_size=201", 1, 20, 1, 20},
+		{"page_size_200_over_global_max", "?page_size=200", 1, 20, 1, 20},
 		{"page_size_zero", "?page_size=0", 1, 20, 1, 20},
 		{"page_size_negative", "?page_size=-5", 1, 20, 1, 20},
 		{"page_size_at_max", "?page_size=100", 1, 20, 1, 100},
@@ -158,6 +159,35 @@ func TestParsePagination(t *testing.T) {
 			page, pageSize := parsePagination(r, tt.defPage, tt.defPageSize)
 			if page != tt.wantPage || pageSize != tt.wantPageSize {
 				t.Errorf("parsePagination() = (%d, %d), want (%d, %d)",
+					page, pageSize, tt.wantPage, tt.wantPageSize)
+			}
+		})
+	}
+}
+
+func TestParsePaginationMax(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		wantPage     int
+		wantPageSize int
+	}{
+		{"defaults", "", 1, 20},
+		{"at_max", "?page_size=200", 1, 200},
+		{"over_max_clamps_to_max", "?page_size=201", 1, 200},
+		{"far_over_max_clamps_to_max", "?page_size=500&page=4", 4, 200},
+		{"below_max_kept", "?page_size=150", 1, 150},
+		{"zero_falls_back_to_default", "?page_size=0", 1, 20},
+		{"negative_falls_back_to_default", "?page_size=-5", 1, 20},
+		{"garbage_falls_back_to_default", "?page_size=abc&page=abc", 1, 20},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := httptest.NewRequest("GET", "/"+tt.query, nil)
+			page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
+			if page != tt.wantPage || pageSize != tt.wantPageSize {
+				t.Errorf("parsePaginationMax() = (%d, %d), want (%d, %d)",
 					page, pageSize, tt.wantPage, tt.wantPageSize)
 			}
 		})

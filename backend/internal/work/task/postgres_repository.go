@@ -15,6 +15,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// maxPageSize is the largest page a task list may ask for; the desktop requests up to 200 rows at once.
+const maxPageSize = 200
+
 // PostgresRepository implements Repository using PostgreSQL
 type PostgresRepository struct {
 	pool *pgxpool.Pool
@@ -187,7 +190,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		page = 1
 	}
 	pageSize := filters.PageSize
-	if pageSize < 1 || pageSize > 100 {
+	if pageSize < 1 || pageSize > maxPageSize {
 		pageSize = 20
 	}
 	offset := (page - 1) * pageSize
@@ -699,7 +702,7 @@ func (r *PostgresRepository) Search(ctx context.Context, tenantID uuid.UUID, que
 		page = 1
 	}
 	pageSize := filters.PageSize
-	if pageSize < 1 || pageSize > 100 {
+	if pageSize < 1 || pageSize > maxPageSize {
 		pageSize = 20
 	}
 	offset := (page - 1) * pageSize

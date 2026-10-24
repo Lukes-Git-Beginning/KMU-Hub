@@ -144,7 +144,7 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query()
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
 
 	grpcReq := &workv1.ListTasksRequest{
 		TenantId:         listTenantID.String(),
@@ -864,7 +864,7 @@ func (w *WorkRoutes) HandleSearchTasks(wr http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
 	projectIDs := q["project_ids"]
 	assigneeIDs := q["assignee_ids"]
 	includeCompleted := q.Get("include_completed") == "true"

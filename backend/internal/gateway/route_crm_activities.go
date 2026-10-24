@@ -126,7 +126,7 @@ func (c *CRMRoutes) HandleListActivities(w http.ResponseWriter, r *http.Request)
 	isCompletedStr := r.URL.Query().Get("is_completed")
 	sortBy := r.URL.Query().Get("sort_by")
 	sortDesc := r.URL.Query().Get("sort_desc") == "true"
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
 
 	grpcReq := &crmv1.ListActivitiesRequest{
 		TenantId: actListTID.String(),

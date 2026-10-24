@@ -111,6 +111,29 @@ func parsePagination(r *http.Request, defaultPage, defaultPageSize int) (page, p
 	return page, pageSize
 }
 
+// listPageSizeMax is the page-size ceiling of the CRM and task lists (contacts, companies, deals,
+// activities, tasks) that the desktop fills with up to 200 rows at once.
+const listPageSizeMax = 200
+
+// parsePaginationMax is parsePagination with a caller-chosen ceiling: a page_size above maxPageSize
+// is clamped to it (not silently replaced by the default), so a client that asks for 500 rows gets
+// the largest page the route serves.
+func parsePaginationMax(r *http.Request, defaultPage, defaultPageSize, maxPageSize int) (page, pageSize int) {
+	page, pageSize = defaultPage, defaultPageSize
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 {
+			pageSize = min(parsed, maxPageSize)
+		}
+	}
+	return page, pageSize
+}
+
 // parseLimit extracts a limit query parameter with default and max bounds.
 func parseLimit(r *http.Request, defaultLimit, maxLimit int) int {
 	if l := r.URL.Query().Get("limit"); l != "" {

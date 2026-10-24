@@ -145,7 +145,7 @@ func (c *CRMRoutes) HandleListContacts(w http.ResponseWriter, r *http.Request) {
 	sortDesc := r.URL.Query().Get("sort_desc") == "true"
 	visibilityFilter := r.URL.Query().Get("visibility")
 	tagIDs := r.URL.Query()["tag_ids"]
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
 
 	grpcReq := &crmv1.ListContactsRequest{
 		Search:           search,

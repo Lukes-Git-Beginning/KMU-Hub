@@ -1251,7 +1251,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/crm/contact 81,3 % · internal/crm/deal 88,2 % · internal/work/task 67,4 %"
     decided: 2026-10-24
     decision: >-
