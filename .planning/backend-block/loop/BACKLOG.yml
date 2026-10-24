@@ -184,7 +184,7 @@ units:
     service: settings
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/settings 82,8 %"
     scope: >
       VERIFIZIERT bei der Vorbereitung (2026-10-24, lokale DB, `role_permissions`): die

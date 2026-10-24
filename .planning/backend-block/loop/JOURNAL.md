@@ -51,3 +51,14 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
    Goroutinen und jede E2E-Iteration in `offen:` vermerken.
 
 ---
+
+## Iteration 1 — fix-member-can-write-tenant-settings-and-branding — done — 2026-10-24 17:00
+- commit: (siehe git log, Subject `fix(settings): keep members off tenant-wide presence config and holiday seeding`)
+- gebaut: `PUT /video/presence/config` (tenantweiter Away-Timeout, Service ohne Admin-Prüfung) und `POST /calendar/holidays/seed` (Nager-Fetch, Service ohne Admin-Prüfung) zusätzlich hinter `settings:tenant:manage` (Katalog-Key aus 000256, nur admin + it_admin; it_admin fehlt `settings:write` bzw. `calendars:admin`, also effektiv admin wie vorher). Key statt `RequireRole("admin")`, weil er existiert, semantisch passt (tenantweite Einstellung) und auch tenant-eigene Admin-Rollen trägt; Admin-Tokens haben ihn seit 000256, kein Re-Login. `PUT /admin/branding` und `PUT /settings/{m}/tenant` belegt sicher: `callerMayWriteTenantSettings` lässt nur admin oder Modul-Leiter des Moduls durch — Gateway bewusst NICHT verengt, sonst bricht der Modul-Leiter (meist Rolle member). `calendars/{id}/members*` sicher (Service prüft Besitzer bzw. Kalender-Admin-Mitgliedschaft), `resources:admin` schützt keine Route. Kein Grant entzogen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (settings 59 Tests, davon 10 DB-Tests real als kmuhub_app, 0 Skips; gateway ok inkl. TestOpenAPIRouteDrift) | migration n.a. | rls-smoke n.a.
+- coverage: internal/settings 82,8 % -> 82,8 % · internal/gateway 76,6 % -> 76,6 % (neue Tests belegen Verhalten bereits abgedeckter Zeilen: Guard-Kette und echter Role-Checker mit Seed-Rollen statt Fake)
+- mutations-probe: (1) `callerMayWriteTenantSettings` auf `return true` -> `TestTenantWrites_MemberAndManagerRolesRejectedAdminAllowed` rot (5 Assertions: member/manager auf branding+tenant, fremder Modul-Leiter auf branding); (2) `settings:tenant:manage` an presence/config entfernt -> `TestTenantWideSettingsGuards_MemberVsAdmin` rot (member 503 statt 403). Beide zurückgedreht, Diff sauber.
+- verify vorgaenger: n.a. (erste Iteration von Lauf 16, kein Vorgänger-Commit im Journal)
+- neue-units: keine
+- desktop-aufrufer: `PUT /video/presence/config` -> `api/video-client.ts:243` + `hooks/usePresence.ts:69` (`useUpdatePresenceConfig`) -> kein .tsx-Konsument, passt · `POST /calendar/holidays/seed` -> `hooks/useHolidays.ts:44` (`useSeedHolidays`, als „Admin action“ kommentiert) -> kein Konsument, passt · branding/tenant/user/preferences unverändert
+- offen: Real-Token-Prüfung der Rollen nur über Router-Test mit den aus `role_permissions` rekonstruierten Key-Mengen; E2E als member für diese Routen gibt es noch nicht. Die Spec-Änderung ist nur der `summary`-Text (YAML parst, Drift-Test grün); `desktop/src/renderer/src/api/types.ts` nicht regeneriert (Desktop tabu, nur Summary betroffen).

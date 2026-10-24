@@ -8462,7 +8462,7 @@ paths:
 
   /api/v1/calendar/holidays/seed:
     post:
-      summary: Seed holidays for a country and year from Nager.Date API
+      summary: Seed holidays for a country and year from Nager.Date API (requires calendars:admin and settings:tenant:manage)
       tags: [holidays]
       operationId: seedHolidays
       security:
@@ -9134,7 +9134,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
-      summary: Update presence configuration (requires settings:write permission)
+      summary: Update presence configuration (requires settings:write and settings:tenant:manage)
       tags: [presence]
       operationId: updatePresenceConfig
       security:

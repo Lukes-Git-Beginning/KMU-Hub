@@ -110,7 +110,13 @@ func (cr *CalendarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 
 		// Holidays
 		r.With(middleware.RequirePermission("calendars", "read")).Get("/holidays", cr.HandleListHolidays)
-		r.With(middleware.RequirePermission("calendars", "admin")).Post("/holidays/seed", cr.HandleSeedHolidays)
+		// Seeding is a tenant-admin action (outbound Nager.Date fetch), but
+		// calendars:admin is held by every member for their own calendars'
+		// member lists — settings:tenant:manage narrows it to admins.
+		r.With(
+			middleware.RequirePermission("calendars", "admin"),
+			middleware.RequirePermission("settings:tenant", "manage"),
+		).Post("/holidays/seed", cr.HandleSeedHolidays)
 
 		// Preferences
 		r.With(middleware.RequirePermission("calendars", "read")).Get("/preferences", cr.HandleGetCalendarPreferences)

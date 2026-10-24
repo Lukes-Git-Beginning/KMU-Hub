@@ -146,7 +146,13 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Get("/presence/{userId}", vr.HandleGetPresence)
 		r.Post("/presence/bulk", vr.HandleGetBulkPresence)
 		r.Post("/presence/status", vr.HandleSetPresenceStatus)
-		r.With(middleware.RequirePermission("settings", "write")).Put("/presence/config", vr.HandleUpdatePresenceConfig)
+		// The away timeout is tenant-wide. member and manager hold settings:write
+		// for their own preferences, so that key alone let any employee change it
+		// for everyone; settings:tenant:manage (admin, it_admin) narrows it.
+		r.With(
+			middleware.RequirePermission("settings", "write"),
+			middleware.RequirePermission("settings:tenant", "manage"),
+		).Put("/presence/config", vr.HandleUpdatePresenceConfig)
 		r.Get("/presence/config", vr.HandleGetPresenceConfig)
 	})
 
