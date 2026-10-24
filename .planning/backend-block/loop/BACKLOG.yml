@@ -1490,7 +1490,7 @@ units:
     service: wiki
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       TOTALAUSFALL „Anhang löschen“ im Wiki: das Desktop ruft `DELETE /api/v1/wiki/attachments/{id}`

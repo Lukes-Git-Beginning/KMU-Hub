@@ -477,3 +477,15 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Änderung; `DELETE /documents/shares/{id}` -> `document-client.ts:~415` / `ShareDialog.tsx` war bei 8fc74fd9 geprüft)
 - offen: nichts.
+
+## Iteration 36 — fix-wiki-attachment-delete-short-route — done — 2026-10-24 21:30
+- commit: (siehe git log, Subject `fix(wiki): add DELETE /wiki/attachments/{id} for the desktop's attachment delete`)
+- gebaut: Kurzroute `DELETE /api/v1/wiki/attachments/{attachmentId}` mit Guard `wikiDelete` (additiv `wiki:articles:write` ODER `wiki:article:delete`, kein Seed nötig) auf denselben Handler `HandleDeleteAttachment` wie die Artikel-Route. Verify-first: der lange Handler liest die Artikel-ID gar nicht (nur `attachmentId` + Tenant aus dem Token), und die RPC/Repo-Query löscht `WHERE id AND tenant_id` und liefert `ErrAttachmentNotFound` -> 404; es gibt also keine Artikel-Prüfung, die die Kurzroute umgehen könnte. Spec: Pfad mit 204/400/401/403/404/409/503.
+- tests: `route_wiki_attachment_delete_test.go` über echten gRPC-Hop: Kurzroute 204 mit `attachment_id` + Tenant aus dem Token, lange Route unverändert 204, kaputte UUID 400 ohne RPC, NotFound -> 404, additiver Guard (read -> 403, `wiki:article:delete` -> 204). Fremd-Mandant: bereits im Repo-DB-Test `wiki/tenant_write_test.go` (DeleteAttachment mit fremdem Ctx -> ErrAttachmentNotFound).
+- gate: build ok (gateway) | vet ok | lint ok (0 issues) | test ok (gateway inkl. TestOpenAPIRouteDrift, als kmuhub_app mit DATABASE_URL) | swagger validate ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway 77,1 % (Wert aus Iteration 33, nicht vorab neu gemessen) -> 77,3 %
+- mutations-probe: Kurzroute-Zeile durch `_ = wikiDelete` ersetzt -> drei `TestWikiWire_DeleteAttachment*` rot. Zurückgedreht (cmp byte-gleich).
+- verify vorgaenger: sauber (Commit d76eb5a4: nur Backlog/Journal, Duplikat-Schluss in Iteration 35 gegen Code belegt)
+- neue-units: keine
+- desktop-aufrufer: `DELETE /wiki/attachments/{id}` -> `wiki-client.ts:184` `deleteAttachment`, Aufrufer `WikiAttachments.tsx` -> passt (204 ohne Body, `request<void>`).
+- offen: Der Server-Test für „Fremd-Mandant -> 404" sitzt auf Repo-Ebene, nicht über die neue Route; die Route teilt Handler und RPC mit der langen. Keine Goroutinen im Produktivcode (`-race` erst in CI).

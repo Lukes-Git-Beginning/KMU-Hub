@@ -18150,6 +18150,27 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/wiki/attachments/{attachmentId}:
+    delete:
+      summary: Delete a wiki attachment by its own ID
+      description: Same effect as the article-scoped route; the article ID is not needed.
+      tags: [wiki-articles]
+      operationId: deleteWikiAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Attachment deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/wiki/search:
     get:
       summary: Full-text search across wiki articles
