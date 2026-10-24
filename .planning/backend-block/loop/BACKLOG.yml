@@ -296,7 +296,7 @@ units:
     service: hr
     model: sonnet
     deps: [feat-hr-self-service-key-for-members]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       Mit `hr:self` (Scope own) dürfen zwei Routen nicht fremde Daten liefern:

@@ -12765,7 +12765,7 @@ paths:
 
   /api/v1/hr/leave/balance/{userId}:
     get:
-      summary: Get leave balance for a specific employee (manager view)
+      summary: Get leave balance for a specific employee (manager view; hr:self at scope own only sees itself)
       tags: [hr-leave]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -12779,6 +12779,8 @@ paths:
                 $ref: "#/components/schemas/LeaveBalance"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Missing permission, or the grant is narrowed to own and userId is someone else
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -12988,6 +12990,8 @@ paths:
           description: Unknown status value
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Missing permission, or the grant is narrowed to own and employee_id is someone else
         "500":
           description: Failed to serialize the response
         "503":

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -212,6 +213,25 @@ func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]
 		return nil, false
 	}
 	return &userID, true
+}
+
+// restrictToOwnEmployee pins an HR read to the caller when the hr:read/hr:self grant is narrowed
+// to "own". An empty requested id becomes the caller's id (a list without a filter would
+// otherwise return every employee); a foreign id is a 403, not a silent rewrite, so the caller
+// learns the view is not theirs. Wider scopes pass the requested id through unchanged.
+func restrictToOwnEmployee(w http.ResponseWriter, r *http.Request, requested string) (string, bool) {
+	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"hr", "read"}, [2]string{"hr", "self"})
+	if !ok {
+		return "", false
+	}
+	if ownerID == nil {
+		return requested, true
+	}
+	if requested != "" && !strings.EqualFold(requested, *ownerID) {
+		response.Error(w, http.StatusForbidden, "forbidden")
+		return "", false
+	}
+	return *ownerID, true
 }
 
 // decodeAndValidate decodes the JSON request body into a value of type T and

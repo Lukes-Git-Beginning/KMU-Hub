@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -99,4 +100,68 @@ func TestLeaveGet_OwnScopeHidesSomeoneElsesRequest(t *testing.T) {
 	req = withChiURLParam(leaveRequest("/api/v1/hr/leave/requests/x", nil), "id", "44444444-4444-4444-4444-444444444444")
 	routes.HandleGetLeaveRequest(rec, req)
 	assertStatus(t, rec, http.StatusOK)
+}
+
+// hr:self at scope own must not read someone else's balance or time entries: both routes take an
+// id from the request, so the guard alone would hand the whole tenant to every employee.
+
+type ownScopeHRStub struct {
+	hrv1.UnimplementedHRServiceServer
+	balanceFor string
+	entriesReq *hrv1.ListWorkTimeEntriesReq
+}
+
+func (s *ownScopeHRStub) GetEmployeeLeaveBalance(_ context.Context, r *hrv1.GetEmployeeLeaveBalanceReq) (*hrv1.GetEmployeeLeaveBalanceResp, error) {
+	s.balanceFor = r.GetEmployeeId()
+	return &hrv1.GetEmployeeLeaveBalanceResp{Balance: &hrv1.LeaveBalance{}}, nil
+}
+
+func (s *ownScopeHRStub) ListWorkTimeEntries(_ context.Context, r *hrv1.ListWorkTimeEntriesReq) (*hrv1.ListWorkTimeEntriesResp, error) {
+	s.entriesReq = r
+	return &hrv1.ListWorkTimeEntriesResp{}, nil
+}
+
+func TestHROwnScope_ForeignBalanceAndTimeEntries(t *testing.T) {
+	stub := &ownScopeHRStub{}
+	router := chi.NewRouter()
+	NewHRRoutes(registryFor(t, "biz", func(s *grpc.Server) { hrv1.RegisterHRServiceServer(s, stub) }), nil).
+		RegisterRoutes(router, guardTestAuth)
+
+	call := func(path string, scopes map[string]string, perm string) *httptest.ResponseRecorder {
+		req := withPermissions(leaveRequest(path, scopes), perm)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+	self := map[string]string{"hr:self": "own"}
+
+	// Balance by id: foreign -> 403 and the service is never asked, own -> 200.
+	rec := call("/api/v1/hr/leave/balance/"+leaveOtherID, self, "hr:self")
+	assertStatus(t, rec, http.StatusForbidden)
+	assert.Empty(t, stub.balanceFor)
+	rec = call("/api/v1/hr/leave/balance/"+leaveCallerID, self, "hr:self")
+	assertStatus(t, rec, http.StatusOK)
+	assert.Equal(t, leaveCallerID, stub.balanceFor)
+
+	// Time entries: foreign employee_id -> 403, none -> pinned to the caller, own -> 200.
+	rec = call("/api/v1/hr/time/entries?employee_id="+leaveOtherID, self, "hr:self")
+	assertStatus(t, rec, http.StatusForbidden)
+	assert.Nil(t, stub.entriesReq)
+	rec = call("/api/v1/hr/time/entries", self, "hr:self")
+	assertStatus(t, rec, http.StatusOK)
+	assert.Equal(t, leaveCallerID, stub.entriesReq.GetEmployeeId(), "no filter must not mean every employee")
+	rec = call("/api/v1/hr/time/entries?employee_id="+leaveCallerID, self, "hr:self")
+	assertStatus(t, rec, http.StatusOK)
+
+	// hr:read at scope all keeps the manager/admin view of any employee.
+	stub.balanceFor, stub.entriesReq = "", nil
+	rec = call("/api/v1/hr/leave/balance/"+leaveOtherID, nil, "hr:read")
+	assertStatus(t, rec, http.StatusOK)
+	assert.Equal(t, leaveOtherID, stub.balanceFor)
+	rec = call("/api/v1/hr/time/entries?employee_id="+leaveOtherID, nil, "hr:read")
+	assertStatus(t, rec, http.StatusOK)
+	assert.Equal(t, leaveOtherID, stub.entriesReq.GetEmployeeId())
+	rec = call("/api/v1/hr/time/entries", nil, "hr:read")
+	assertStatus(t, rec, http.StatusOK)
+	assert.Empty(t, stub.entriesReq.GetEmployeeId())
 }

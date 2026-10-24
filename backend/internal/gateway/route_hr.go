@@ -91,7 +91,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/reject", h.HandleRejectLeaveRequest)
 		r.With(selfWrite).Post("/requests/{id}/cancel", h.HandleCancelLeaveRequest)
 		r.With(selfRead).Get("/balance", h.HandleGetLeaveBalance)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
+		r.With(selfRead).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
 		r.With(selfRead).Get("/types", h.HandleListLeaveTypes)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/sick", h.HandleRecordSickLeave)
 	})
@@ -104,9 +104,9 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	//
 	// Personal daily use (clock in/out, own entries, own week) takes hr:self
 	// beside the coarse key — the catalogue deliberately carries no capability
-	// for it. `zeiterfassung:export:run` has no endpoint yet. GET /entries stays
-	// on hr:read: it honours an employee_id query, so hr:self would read foreign
-	// entries (fix-hr-own-scope-foreign-balance-and-time-entries).
+	// for it. `zeiterfassung:export:run` has no endpoint yet. GET /entries honours
+	// an employee_id query; hr:self at scope own is pinned to the caller there
+	// (restrictToOwnEmployee).
 	var (
 		zeitTeamView    = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"})
 		zeitWeekApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:week", "approve"})
@@ -121,7 +121,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(selfWrite).Post("/break/end", h.HandleBreakEnd)
 		r.With(selfRead).Get("/active", h.HandleGetActiveShift)
 		r.With(selfRead).Get("/status", h.HandleGetWorkTimeStatus)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/entries", h.HandleListWorkTimeEntries)
+		r.With(selfRead).Get("/entries", h.HandleListWorkTimeEntries)
 		r.With(selfWrite).Post("/entries", h.HandleCreateManualEntry)
 		r.With(selfRead).Get("/summary/daily", h.HandleDailySummary)
 		r.With(selfRead).Get("/summary/weekly", h.HandleWeeklySummary)
@@ -509,7 +509,10 @@ func (h *HRRoutes) HandleGetEmployeeLeaveBalance(w http.ResponseWriter, r *http.
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	employeeID := chi.URLParam(r, "userId")
+	employeeID, ok := restrictToOwnEmployee(w, r, chi.URLParam(r, "userId"))
+	if !ok {
+		return
+	}
 
 	resp, err := client.GetEmployeeLeaveBalance(r.Context(), &hrv1.GetEmployeeLeaveBalanceReq{
 		TenantId:   tenantID,
@@ -840,9 +843,14 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 	}
 	page, pageSize := parsePagination(r, 1, 50)
 
+	employeeID, ok := restrictToOwnEmployee(w, r, r.URL.Query().Get("employee_id"))
+	if !ok {
+		return
+	}
+
 	grpcReq := &hrv1.ListWorkTimeEntriesReq{
 		TenantId:   tenantID,
-		EmployeeId: r.URL.Query().Get("employee_id"),
+		EmployeeId: employeeID,
 		StartDate:  r.URL.Query().Get("start_date"),
 		EndDate:    r.URL.Query().Get("end_date"),
 		Status:     r.URL.Query().Get("status"),

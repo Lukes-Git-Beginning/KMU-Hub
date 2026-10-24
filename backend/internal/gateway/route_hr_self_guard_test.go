@@ -31,6 +31,8 @@ func TestHRSelfKey_OpensOnlyTheSelfServiceRoutes(t *testing.T) {
 		{"POST", "/api/v1/hr/leave/requests/" + id + "/cancel"},
 		{"GET", "/api/v1/hr/leave/balance"},
 		{"GET", "/api/v1/hr/leave/types"},
+		{"GET", "/api/v1/hr/leave/balance/" + id},
+		{"GET", "/api/v1/hr/time/entries"},
 		{"POST", "/api/v1/hr/time/clock-in"},
 		{"POST", "/api/v1/hr/time/clock-out"},
 		{"POST", "/api/v1/hr/time/break/start"},
@@ -46,13 +48,11 @@ func TestHRSelfKey_OpensOnlyTheSelfServiceRoutes(t *testing.T) {
 		{"GET", "/api/v1/hr/time/weeks/status"},
 		{"POST", "/api/v1/hr/time/weeks/submit"},
 	}
-	// Supervisory routes, and GET /time/entries, which honours a foreign employee_id query.
+	// Supervisory routes. The two foreign-id reads open for hr:self but are pinned to the caller.
 	notSelfRoutes := []struct{ method, path string }{
 		{"POST", "/api/v1/hr/leave/requests/" + id + "/approve"},
 		{"POST", "/api/v1/hr/leave/requests/" + id + "/reject"},
 		{"POST", "/api/v1/hr/leave/sick"},
-		{"GET", "/api/v1/hr/leave/balance/" + id},
-		{"GET", "/api/v1/hr/time/entries"},
 		{"GET", "/api/v1/hr/employees"},
 		{"GET", "/api/v1/hr/settings"},
 	}

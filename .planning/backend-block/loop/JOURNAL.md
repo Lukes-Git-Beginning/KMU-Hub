@@ -74,3 +74,14 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: `hr-client.ts` Leave (`/hr/leave/requests|balance|types|cancel`) und Zeit (`clock-in|out`, `break/*`, `active`, `status`, `summary/*`, `balance`, `analytics`, `weeks/*`, `corrections`, `POST entries`) -> Antwortformen unverändert, nur Zugriff wird erweitert -> passt. Offen im FE-Pfad: `GET /hr/time/entries` und `/hr/time/projects` bleiben für member 403 (Folge-Units).
 - offen: Neuer Key wirkt in Produktion erst nach Re-Login der betroffenen Nutzer (JWT-gebackene Permissions). Migration 333 noch nicht in Produktion. Echte Token-Prüfung als member nur über Router-Test mit rekonstruierten Key-Mengen; E2E als member folgt in Block D.
+
+## Iteration 3 — fix-hr-own-scope-foreign-balance-and-time-entries — done — 2026-10-24 17:25
+- commit: (siehe git log, Subject `fix(hr): pin hr:self at scope own to the caller on balance and time entries`)
+- gebaut: Helper `restrictToOwnEmployee` (`helpers.go`, baut auf `ownerFilterForScopeAny`): Scope own + fremde ID -> 403, Scope own ohne ID -> eigene ID, breitere Scopes unverändert. `GET /hr/leave/balance/{userId}` und `GET /hr/time/entries` nutzen ihn und stehen jetzt auf `RequirePermissionAny(hr:read, hr:self)`. Spec: 403 an beiden Operationen ergänzt (StatusCodeDrift-Test hat es erzwungen), `swagger-cli validate` ok.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (gateway komplett, inkl. TestOpenAPIRouteDrift und StatusCodeDrift; 0 Skips) | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway 76,6 % -> 76,6 % (neue Tests belegen Verhalten, keine neue Fläche)
+- mutations-probe: Pin in `restrictToOwnEmployee` (`if ownerID == nil` -> `if true`) -> `TestHROwnScope_ForeignBalanceAndTimeEntries` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit 175160fb: Guards additiv, Alt-Keys erhalten, Migration 333 mit Down, kein Stub)
+- neue-units: keine
+- desktop-aufrufer: `hr-client.ts:407` `/hr/leave/balance/${userId}` -> `MemberProfileContent.tsx:87` fragt Saldo des angesehenen Teammitglieds: für member künftig 403 bei fremden Profilen (gewollt), eigenes passt · `hr-client.ts:674` `/hr/time/entries` -> `ZeiterfassungTab.tsx:131` sendet `employee_id=<eigene id>` -> passt; `:134` `status=correction_pending` ohne employee_id liefert für member nur die eigenen (vorher 403, bei hr:read/all weiter alle) · `ExportDialog.tsx:69` ohne Filter -> für member eigene Einträge. Antwortformen unverändert.
+- offen: Wirkt für member/manager erst nach Re-Login (hr:self aus Migration 333). Die Team-Korrekturliste (`correction_pending` ohne employee_id) zeigt einem manager mit nur hr:self nur eigene Einträge; Team-Sicht folgt mit `feat-hr-reporting-line-and-team-time-scope`.
