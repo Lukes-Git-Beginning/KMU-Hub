@@ -2337,7 +2337,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper, feat-hr-self-service-key-for-members, fix-hr-own-scope-foreign-balance-and-time-entries, feat-hr-leave-approve-by-manager-for-reporting-line]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow `TestMemberHRSelfServiceFlow` (`test/e2e/hr_test.go`, HR läuft im `biz`-Service).
