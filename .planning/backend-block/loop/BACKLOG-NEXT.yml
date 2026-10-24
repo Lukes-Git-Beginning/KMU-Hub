@@ -1161,9 +1161,12 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: blocked
-    blocked_reason: >-
-      ENTSCHEIDUNG LUKE (Datenmodell + FE): Fahrer als echte User-Referenz im Fahrtenbuch ja/nein.
+    status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Ja: `driver_user_id UUID NULL` (FK users, tenant-gescoped),
+      freier Name bleibt für Externe, DSAR über die FK. Nicht dringend, hinter den Totalausfällen
+      einplanen. Migration plus Desktop-Fahrerauswahl.
     target: "Entscheidung Luke, danach spitze Unit nach BACKLOG.yml (Migration + Desktop-Fahrerauswahl)"
     scope: >
       Aus Lauf 15 Iteration 6 (`fix-dsar-third-party-matching`): der DSAR-Nutzerzweig legt das
@@ -1183,10 +1186,15 @@ units:
     model: sonnet
     deps: []
     status: blocked
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: (j) entschieden: Obergrenze am Gateway auf 200 anheben (kleine
+      Backend-Unit, nicht vor dem Pilot priorisiert), das FE paginiert nicht. Die übrigen Punkte
+      bleiben Frontend-Arbeit.
     blocked_reason: >-
       FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderungen laufen über den
       Build-+-Verify-Standard mit Screenshot-QA (`.planning/nico-block/WORKFLOW.md`). Punkt (j)
-      braucht außerdem eine Entscheidung von Luke.
+      ist entschieden (siehe `decision`).
     target: "Frontend-Session (Luke oder delegiert)"
     scope: >
       FE-Funde aus `scan-fe-gateway-shape-crm-kommunikation` (Iteration 12, Belege im Journal).
@@ -1252,6 +1260,11 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Variante a: der Dialog ruft bei `is_storno` `POST
+      /finance/invoices/{id}/cancel` statt die Gutschrift-Route. Der GoBD-korrekte Pfad existiert,
+      das Backend bleibt unverändert. FE-Arbeit.
     scope: >
       Der Gutschrift-Dialog (`CreditNoteDialog.tsx:139-152`) sendet `is_storno: true` und meldet
       danach "Storno erledigt". Das Gateway kennt das Feld nicht (`createCreditNoteRequest`), das
@@ -1278,6 +1291,11 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Variante a: `transfer` aus dem Bewegungs-Dialog nehmen.
+      Umbuchung braucht einen Zielartikel und damit einen eigenen Dialog gegen `/inventar/transfer`,
+      später. FE-Arbeit.
     scope: >
       Der Bewegungs-Dialog (`InventarPage.tsx:433/445-450`) bietet `transfer` als Typ, schickt ihn an
       `POST /inventar/items/{id}/movements`, der Validator (`route_inventar.go`, `oneof=in out
@@ -1302,6 +1320,12 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Variante b: kein Konto aus dem HR-Dialog. Der Dialog wählt
+      einen vorhandenen Benutzer ohne Mitarbeiterprofil und schickt dessen `user_id`; Konten
+      entstehen weiter über den Einladungs-Flow. FE-Arbeit. Backend nur, falls es keine Liste
+      "Benutzer ohne Profil" gibt (vorher prüfen).
     scope: >
       `POST /hr/employees` (`route_hr.go:1535/1566`) verlangt `user_id` (required, uuid) und liest
       `first_name`, `last_name`, `email`, `roles`, `temporary_password`, `workload_percent`, `location`,
@@ -1323,6 +1347,12 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: "Jetzt ausführen" (Variante b): neue Gateway-Route `POST
+      /berichte/schedules/{id}/run` lädt den Zeitplan und ruft `RunReport` mit dessen Definition und
+      `params`, kein neuer RPC. Live-Vorschau (Variante c): im FE ausblenden, bis der Executor den
+      Builder-Vertrag kennt. Bau-Unit mit Spec und Router-Test.
     scope: >
       Der Berichte-Builder ruft `POST /api/v1/berichte/preview` (`berichte-client.ts:168`,
       `useBerichte.ts:208`, Live-Vorschau des No-Code-Builders) und der Zeitplan-Dialog
@@ -1348,6 +1378,10 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Kein Serverbau: der Vorlagen-Teil entfällt im FE, bis es
+      Kundenbedarf gibt. FE-Arbeit.
     scope: >
       `wiki-client.ts` ruft `GET/POST /wiki/templates` und `PUT/DELETE /wiki/templates/{id}`
       (WP-5, `WikiTemplateDialog.tsx`). Weder Gateway (`route_wiki.go`, `RegisterRoutes`) noch
@@ -1369,6 +1403,10 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Im FE streichen bzw. ausblenden (`closed` und die vier Felder
+      ohne Ablage), bis es eine öffentliche Ausfüllseite gibt. Kein Backend-Bau. FE-Arbeit.
     scope: >
       Das Formular-FE kennt vier Stati (`draft|active|closed|archived`, `FormularePage.tsx` `applyStatus(…, 'closed')`,
       Zähler, Ausfüllseite mit `closedMessage`). `FormSchemaStatus` im Proto und die Spalte kennen
@@ -1391,6 +1429,11 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Im FE ausblenden (Link kopieren, Kanal, Aufrufe, Deaktivieren-
+      Toggle), Widerrufen bleibt. Erst mit der öffentlichen Ausfüllseite (FD-4) wieder aufnehmen.
+      FE-Arbeit.
     scope: >
       Die Verteilen-Ansicht des Formular-FE (`ShareLinksPanel`, Share-Dialog) liest pro Share-Link
       `url`, `channel`, `views` und schaltet per `PATCH /formulare/share-links/{id}` zwischen
@@ -1416,6 +1459,9 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Bauen wie beschrieben, keine Rückfrage nötig.
     scope: >
       TOTALAUSFALL DSGVO-Löschung (Scan Iteration 39). `POST /api/v1/security/gdpr/erasure/execute`
       verlangt `user_id` UND `admin_password` (`executeErasureRequest`, `validate:"required"`;
@@ -1464,6 +1510,12 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Obergrenze ja: Rechnungsbrutto minus bereits erteilte
+      Gutschriften, Prüfung in einer Transaktion mit gesperrter Rechnungszeile (zwei gleichzeitige
+      Gutschriften), Überschreitung als InvalidArgument/400. Test ohne Build-Tag, damit er im PR-
+      Gate läuft; die Integrationstest-Zeile 236-270 auf das neue Verhalten umstellen.
     scope: >
       Scan Iteration 42. `internal/biz/creditnote/repository_coverage_integration_test.go:236-270`
       (Build-Tag `integration`) schreibt fest, dass `creditnote.Service.Create` keine Obergrenze prüft:
@@ -1486,6 +1538,11 @@ units:
     model: sonnet
     deps: []
     status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Gescoped: Teamleiter sehen nur ihre Berichtslinie, admin sieht
+      alle (Beschäftigtendaten). Proto-Feld für den Aufrufer, Filter über die Berichtslinie, Test
+      für beide Fälle.
     scope: >
       Scan Iteration 42. `GET /api/v1/hr/time/team` (`route_hr.go:121`, Guard `hr:read` ODER
       `zeiterfassung:team view`) ruft `GetTeamTime` (`hr_grpc.go:1237`); `GetTeamTimeReq` trägt nur
@@ -1508,8 +1565,14 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: blocked
-    blocked_reason: "Entscheidung Luke: welche Rechte folgen aus einer Freigabe (read/write) bei Datei und Ordner?"
+    status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: (1) `read` = ansehen, Vorschau, herunterladen, Versionsliste;
+      `write` = zusätzlich umbenennen und neue Version hochladen. Löschen bleibt beim Besitzer. (2)
+      Ein Ordner-Share vererbt auf Dateien und Unterordner. (3) Kein Weiterteilen durch den
+      Empfänger. (4) `ShareEntity` prüft Existenz und Besitz bzw. `write` des Teilenden. Folge-
+      Units: Guard in Datei- und Ordner-RPCs, Prüfung in ShareEntity.
     scope: >
       Gefunden in cov-document-share (Iteration 53), von fix-document-shared-with-me-and-share-effect
       (Iteration 54) bewusst nicht gebaut. `share.Service.CheckAccess`/`HasAccess` hat außerhalb des
@@ -1533,6 +1596,11 @@ units:
     model: sonnet
     deps: []
     status: blocked
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Bis zum Pilot nicht speichern. Das FE-Feld `exchange_rate` wird
+      ausgeblendet, das Gateway ignoriert es weiter. Wieder aufnehmen, wenn ein Kunde Fremdwährung
+      braucht.
     blocked_reason: "Entscheidung Luke: Fremdwährungs-Belege mit Wechselkurs (speichern ja/nein) oder nur Währung ohne Kurs?"
     scope: >
       Gefunden in fix-finance-invoice-quote-create-dropped-fields (Iteration 59). Das FE sendet bei
@@ -1586,8 +1654,17 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: blocked
-    blocked_reason: "Produktentscheidung Luke: welche HR-Rechte bekommen member und manager, und wird der Guard für Genehmigen/Ablehnen von hr:write abgespalten"
+    status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Self-Service ja. member und manager bekommen einen feinen Key
+      `hr:self` (eigene Urlaubsanträge stellen und zurückziehen, eigener Saldo, eigene Zeiteinträge
+      und Stempeluhr, Scope `own`), Genehmigen/Ablehnen wird als `hr:approve` von `hr:write`
+      abgespalten und an manager gegeben (Reichweite wie bei `decide-hr-team-time-scope-for-
+      managers`: Berichtslinie, admin alle). Guards additiv per `RequirePermissionAny` neben
+      `hr:read`/`hr:write`, Seed-Migration für beide Keys, Own-Scope an `/balance/{userId}` und den
+      Zeiteinträgen nachziehen. Vorher prüfen, ob die schon gesäten `hr:time_*`-Keys (Migration 224)
+      die Zeit-Routen abdecken, statt einen zweiten Key für dasselbe zu säen.
     scope: >
       Gefunden in fix-hr-leave-list-ignores-user-filter (Iteration 64), gegen die lokale DB gemessen:
       `hr:read` und `hr:write` hängen NUR an der Rolle `admin` (Migration 129; Migration 224 hat member und
@@ -1652,6 +1729,23 @@ units:
   #   - 0763765e inbox: Manager sehen die Mitgliederliste privater Team-Postfächer
   #   - aabec10a hr: angelegter Mitarbeiter als {employee}
   #   - 25a94aee desktop: Bestand nach Lagerbewegung neu laden
+  #   - c2ce5344 calendar: `include_inactive` liefert inaktive Ressourcen (aus der PR-CI)
+  #
+  # ENTSCHEIDUNGSRUNDE 2026-10-24 (Luke hat die Empfehlungstabelle übernommen): jede
+  # entschiedene Unit trägt `decided: 2026-10-24` und `decision`; aus `blocked` wurde `todo`.
+  # Reihenfolge beim Staging: zuerst die drei Totalausfälle
+  #   `decide-hr-self-service-permissions-for-member-manager` (Backend, Seed-Migration),
+  #   `decide-hr-employee-create-without-user-id` (FE), `fe-erasure-execute-send-admin-password` (FE).
+  # FE-ARBEIT, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA): creditnote-storno,
+  #   inventar-transfer, formulare closed + share-link, wiki-templates, Berichte-Vorschau,
+  #   Wechselkurs-Feld ausblenden.
+  # BACKEND, LOOP-TAUGLICH: HR-Self-Service, Gutschrift-Obergrenze, Berichte "Jetzt ausführen",
+  #   Teamzeit gescoped, Dokument-Freigaben, Team-Inbox-Manage, Aufnahmen-Löschen, Fahrer-FK,
+  #   page_size-Obergrenze 200.
+  # LIEGT BIS ZUM PILOT: Wechselkurs speichern, `billable_minutes` (HR-Zeitanalyse liefert
+  #   ehrlich 0, echte Werte brauchen ein Abrechenbar-Kennzeichen am Eintrag oder
+  #   `billable_default` am Projekt, ohne Unit), GoBD-Prüfung bei jedem Download (geparkt).
+  #
   # BEWUSST OHNE UNIT (lean:-markiert, Trigger steht im Code):
   #   - Company-/HR-Settings-Merge im Gateway: Read-Modify-Write ohne Versionsprüfung, der
   #     spätere von zwei gleichzeitigen Admin-Saves gewinnt.
@@ -1753,8 +1847,11 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: darf ein Tenant-Admin (oder recordings:admin) fremde Aufnahmen löschen?"
+    status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Ein Tenant-Admin darf fremde Aufnahmen löschen, auch Call-
+      Aufnahmen ohne Meeting. Unabhängig davon 403 statt 500, wenn das Meeting gelöscht ist.
     target: "Entscheidung Luke, danach Fix-Unit"
     scope: >
       Seit `c16e739e` darf nur der Starter oder ein Host/Co-Host eine Aufnahme löschen
@@ -1772,8 +1869,12 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: Reichweite von kommunikation:team_inbox:manage"
+    status: todo
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Varianten b und c: Selbst-Hinzufügen in ein Postfach, dessen
+      Mitglied man nicht ist, bleibt auch mit `manage` verboten; Löschen eines Team-Postfachs ist
+      unter `manage` erlaubt. Je ein Test.
     target: "Entscheidung Luke"
     scope: >
       `kommunikation:team_inbox:manage` erlaubt seit `ec495841`, Mitglieder in jedem
