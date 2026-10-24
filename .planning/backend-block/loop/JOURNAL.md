@@ -627,3 +627,61 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: `harden-work-task-file-write-checks` (Ende; Viewer kann Dateien anhängen/entfernen, kein Leck über Mandanten)
 - desktop-aufrufer: POST /files/upload -> `useTaskFiles.useAttachFile` (nur `file`) liest `storage_key` -> passt jetzt; `useChatFileUpload.ts:~40` sendet immer `channel_id` -> unverändert. POST /tasks/{id}/files -> `useAttachFile` sendet den Key aus dem Upload -> passt; Antwort wird nicht gelesen. GET /files/{id}/download -> `getFileDownloadUrl` (`TaskFileAttachments.tsx:100`, Task-Datei-ID) liest `url` -> passt; Chat-Karten (`FileAttachmentCard.tsx`) rufen die Route nicht auf.
 - offen: (1) `deploy/docker/docker-compose.yml`: Work-Service bekommt `MINIO_PUBLIC_ENDPOINT`/`MINIO_PUBLIC_USE_SSL` durchgereicht (Default leer = wie bisher interner Endpoint) — ohne den Wert in `.env.production` wären Task-Download-URLs intern (`minio:9000`); Chat hat ihn bereits, also beim Deploy `/health` + einen Task-Download prüfen. (2) lean: kanallose Uploads haben keine Zeile — nie angehängte Objekte bleiben im Bucket und in der Quota; `RemoveTaskFile` löscht weder Objekt noch Quota (war vorher auch so). (3) `file_size` beim Anhängen nicht gegen das Objekt geprüft (lean-Marker; Quota wurde mit echter Größe belastet). (4) Keine Thumbnails für Task-Uploads. (5) Vier alte gRPC-Tests (`TestAttachFileToTask_*`) liefen ohne Mandant/gültigen Key und sind angepasst. (6) Keine neuen Goroutinen.
+
+## Iteration 46 — scan-fe-gateway-shape-and-body-chat — done — 2026-10-25 00:29
+- commit: (siehe git log, Subject `chore(loop): record the chat scan and queue its fix units`)
+- gebaut: nichts am Code (Scan). Chat-REST (≈33 Routen) und WebSocket gegen die Desktop-Aufrufer abgeglichen. Zwei Fix-Units VOR die erste `todo` gelegt (`fix-chat-rest-writes-never-reach-other-clients`, `fix-ws-event-shapes-match-desktop`), zwei Units nach BACKLOG-NEXT (`fe-handle-chat-shape-findings`, `decide-chat-group-dm`).
+- gate: n.a. (kein Code geändert; `backlog-check.py --preflight` grün, OPEN=23)
+- coverage: n.a. (Scan)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (Commit b91d0a1d, Iteration 45: Präfix-Prüfung + Tenant aus Kontext, Proto mit Regen, Spec im selben Commit, DB-Test unter kmuhub_app)
+- neue-units: `fix-chat-rest-writes-never-reach-other-clients` und `fix-ws-event-shapes-match-desktop` (beide VOR die erste `todo`, weil Totalausfall von Echtzeit-Chat, Tipp-Anzeige, Präsenz und Anruf-Overlay) · `fe-handle-chat-shape-findings`, `decide-chat-group-dm` (BACKLOG-NEXT)
+- desktop-aufrufer: n.a. (keine Code-Änderung; gelesene Aufrufer in den Tabellen)
+- offen: (1) `fix-chat-rest-writes-…` ist `opus` (Hub in `ChatRoutes` verdrahten, Mandantengrenze des `channel.subscribe` belegen) und steht jetzt an der Spitze. (2) Rollen-Matrix der Chat-Routen (`messages:delete`, `files:*`, `mentions:read` für member) nicht geprüft; gehört in `scan-role-matrix-remaining`. (3) Die Präsenz-REST-Routen (`/presence/*`) und `/files/upload` sind hier nicht erneut gelesen — Upload steckt in Iteration 45, Präsenz im Dialer-/Video-Scan-Umfeld.
+
+### REST (Chat)
+
+| Route | FE-Aufrufer | Body/Query | Antwort | passt |
+|---|---|---|---|---|
+| GET /channels | `useChannels` | `include_archived` | `{channels,total}` → `channelsData.channels` | ja |
+| GET /channels/{id} | `useChannel` | – | `{channel}` | ja |
+| POST /channels | `CreateChannelDialog` | `{name,description,is_private}` | 201 `{channel}` | ja |
+| PUT /channels/{id} | – (FE nutzt `PATCH`, rohes fetch) | – | – | nein, FE-Fund (bekannt, NEXT) |
+| GET /channels/{id}/members | `useChannelMembers` | – | `{members,total}` | ja |
+| POST /channels/{id}/join, /leave | `useJoinChannel`, `useLeaveChannel` | – | `{member}` / `{status}` | ja (Antwort ungelesen) |
+| GET /channels/dm | `useDMs` | – | `{channels,total}` | ja |
+| POST /channels/dm | `useGetOrCreateDM` | `{other_user_id}` | 200/201 `{channel,created}` | ja |
+| POST /channels/dm | `useStartConversation` (≥2 Personen) | `{participant_ids}` | 400 (`other_user_id` required) | **nein** → `decide-chat-group-dm` |
+| GET /channels/unread | `useUnreadCounts` | – | `{unread_counts:{id:n}}` | ja (ChannelList, CrossModuleOverview lesen genau das) |
+| POST /channels/{id}/read | `useMarkChannelRead` | `{message_id}` | 204 | ja |
+| GET /channels/{id}/messages | `useMessages` | `limit`, `before=<id>` | `{messages (neueste zuerst),has_more}`; Repo `ORDER BY created_at DESC` | ja |
+| POST /channels/{id}/messages | `useSendMessage` | `{content,parent_message_id}` | 201 `{message}` | ja (Antwort ungelesen) |
+| PUT/DELETE /messages/{id} | `useEditMessage`, `useDeleteMessage` | `{content}` | 200 | ja |
+| GET /messages/{id}/thread | `useThreadReplies` | `limit` | `{parent,replies,has_more}` | ja |
+| GET /messages/mentions | `useUserMentions` | `page`, `page_size` | `{mentions,total}`; `mention_type` als Zahl | Form ja, `mention_type` kosmetisch nein (NEXT) |
+| POST /messages/reactions/summary | `getReactionSummary` | `{message_ids}` | `{summaries}` | ja |
+| GET/POST /messages/{id}/reactions | `listReactions`, `toggleReaction` | `{emoji}` | `{reactions}` / `{reactions,added}` | ja |
+| GET /messages/bookmarks, POST …/bookmark | `useBookmarks` (rohes fetch ohne Auth) | – | `{messages}` / `{bookmarked}` | bekannt, NEXT |
+| GET /chat/search | `useChatSearch` | `q`, `channel_id` | `{results,total}` mit `snippet`, `first_name`, `channel_name` | ja |
+| GET /files/{id}/download, POST /files/upload | siehe Iteration 45 | | | ja |
+
+Zeitstempel sind in `chat.proto` Strings (kein `{seconds,nanos}`-Problem trotz `response.JSON`); 0-Werte (`reply_count`, `unread_count`, `is_deleted`) entfallen per `omitempty`, das FE prüft überall auf Wahrheit und nicht auf `=== 0`.
+
+### WebSocket
+
+| Richtung | Event | Hub | Desktop | passt |
+|---|---|---|---|---|
+| S→C | `message.new` / `.updated` / `.deleted` | `{message}` / `{message_id}` | `useMessageWebSocket` liest `data.message`, `data.message_id` | Form ja, **wird für REST-Writes nie gesendet** → Fix-Unit 1 |
+| S→C | `thread.reply.new` | `{message}` | `useThreadWebSocket` | Form ja, nie gesendet (s. o.) |
+| C→S | `channel.subscribe` / `.unsubscribe` | `channel_id` | `useMessageWebSocket` | ja |
+| S→C | `typing` + `content:"typing.start"` | – | FE hört auf `typing.start` / `typing.stop` | **nein** → Fix-Unit 2 (1) |
+| C→S | `typing.start` | `channel_id` | `useSendTypingIndicator` | ja |
+| S→C | `presence.update` | `{user_id, message:{user_id,status}}` | FE liest `data.status` oben | **nein** → (2) |
+| C→S | `presence.set_status` | liest `content` | FE sendet `status` | **nein** → (3) |
+| C→S | `presence.subscribe` | liest `message.user_ids` | FE sendet `user_ids` oben | **nein** → (4) |
+| C→S | `presence.heartbeat` | ja | ja | ja |
+| S→C | `call.incoming`, `call.ended` | `{message:{call_id,…}}` | FE liest `raw.call` oder `raw.call_id` | **nein** → (5) |
+| C→S | `call.declined` | `message_id` | `IncomingCallOverlay.tsx:150` | ja |
+| S→C | `notification.new`, `notification.unread_count` | – | `useNotifications` | nicht Chat, hier nicht geprüft |
+| S→C | `mention.new`, `file.uploaded`, `read_receipt`, `reaction.toggled`, `notification.read*`, `recording.started` | gesendet (außer die REST-getriebenen) | kein Abonnent im FE | folgenlos |
+| C→S | `message.send`, `channel.mark_read` | verstanden | FE nutzt REST | folgenlos |

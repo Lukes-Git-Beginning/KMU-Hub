@@ -1807,12 +1807,109 @@ units:
       - "Mutations-Probe: Mandanten-Präfix-Prüfung entfernt, der Fremd-Key-Test wird rot"
       - "Journal desktop-aufrufer: Chat-Upload (channel_id) bleibt unverändert, Chat-Download-Aufrufer geprüft"
 
-  - id: scan-fe-gateway-shape-and-body-chat
+  - id: fix-chat-rest-writes-never-reach-other-clients
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,4 % · internal/server 75,8 %"
+    scope: >
+      TOTALAUSFALL "Chat in Echtzeit", gefunden in `scan-fe-gateway-shape-and-body-chat` (Lauf 16,
+      Iteration 46). Das Desktop sendet, bearbeitet und löscht Nachrichten per REST
+      (`useSendMessage` -> `POST /channels/{id}/messages`, `useEditMessage` -> `PUT /messages/{id}`,
+      `useDeleteMessage` -> `DELETE /messages/{id}`, Reaktion -> `POST /messages/{id}/reactions`)
+      und verlässt sich für die ANDEREN Teilnehmer auf den WebSocket (`useMessageWebSocket`
+      lauscht auf `message.new|updated|deleted`, `useThreadWebSocket` auf `thread.reply.new`). Die
+      Hub-Methoden dafür existieren (`BroadcastMessageCreated|Updated|Deleted`,
+      `BroadcastReactionToggled`, `websocket.go:1015-1470`), haben aber KEINEN Aufrufer außerhalb
+      von Tests (grep nach `.BroadcastMessageCreated(` usw. über `backend` ohne `_test.go` = leer).
+      `ChatRoutes` (`route_chat.go`) hat gar keinen Hub. Nur der WS-Pfad `message.send`
+      (`websocket.go:~695`) und der Gast-Chat senden. Ergebnis: Nachricht von A erscheint bei B
+      erst nach manuellem Refetch (Fensterfokus/Kanalwechsel); Bearbeiten/Löschen ebenso;
+      Thread-Antworten ebenso.
+      Bau: `ChatRoutes` bekommt ein schmales Interface (Muster `VideoRoutes.wsHub`,
+      `route_video.go:35`) mit den Broadcast-Methoden, in `cmd/gateway` verdrahtet wie beim
+      Video-Hub; nil-tolerant (Graceful Degradation: ohne Hub weiter wie bisher). Nach ERFOLGREICHEM
+      gRPC-Aufruf broadcastet der Handler: Send -> `message.new`, bei `parent_message_id` stattdessen
+      `thread.reply.new` (wie `websocket.go:~695`), Update -> `message.updated`, Delete ->
+      `message.deleted` (`DeleteMessageResponse` ist leer: die Kanal-ID muss vorher bekannt sein
+      oder das Delete-RPC liefert sie), Reaktion -> `reaction.toggled` (FE abonniert das noch nicht,
+      siehe BACKLOG-NEXT `fe-handle-chat-shape-findings`; trotzdem senden, der Hub-Pfad existiert).
+      Mandantengrenze: `broadcastToChannel` adressiert nur Abonnenten des Kanals; belegen, dass
+      `channel.subscribe` die Kanalmitgliedschaft unter dem Mandanten des Aufrufers erzwingt
+      (`websocket.go:~748`, ruft `GetChannel` mit user_id) — im Journal belegen.
+    sources:
+      - backend/internal/gateway/route_chat.go
+      - backend/internal/gateway/route_video.go
+      - backend/internal/server/websocket.go
+      - backend/cmd/gateway/main.go
+      - backend/cmd/gateway/setup.go
+      - desktop/src/renderer/src/api/hooks/useMessages.ts
+    done_when:
+      - "Test über den echten Hub (httptest + WebSocket-Client): B abonniert den Kanal, A sendet per REST -> B erhält `message.new` mit `message.id`; Thread-Antwort -> `thread.reply.new`; Edit -> `message.updated`; Delete -> `message.deleted` mit `message_id`"
+      - "Test: ein Nutzer eines anderen Mandanten, der dieselbe Kanal-ID abonniert, erhält nichts"
+      - "Test: ohne Hub (nil) antworten die Handler unverändert 201/200"
+      - "Mutations-Probe: Broadcast-Aufruf im Send-Handler entfernt, der B-erhält-Test wird rot"
+      - "Journal desktop-aufrufer: useMessageWebSocket/useThreadWebSocket lesen `data.message` (verschachtelt) und `data.message_id` -> passt"
+
+  - id: fix-ws-event-shapes-match-desktop
     phase: 4
     service: gateway
     model: sonnet
     deps: []
     status: todo
+    coverage_start: "internal/server 75,8 %"
+    scope: >
+      Fünf WebSocket-Brüche zwischen Hub und Desktop, gefunden in
+      `scan-fe-gateway-shape-and-body-chat` (Lauf 16, Iteration 46); alle am Code belegt. Das
+      Desktop ist tabu, der Hub passt sich an (additiv, alte Felder bleiben, damit Hub-Tests und
+      Gast-Chat weiter gelten):
+      (1) TIPP-ANZEIGE: der Hub sendet `type:"typing"` mit `content:"typing.start|typing.stop"`
+      (`handleTypingIndicator`, `websocket.go:~737`); `useTypingIndicator` abonniert
+      `typing.start` und `typing.stop` (`useMessages.ts:325/344`) -> feuert nie. Fix: den
+      ursprünglichen `msg.Type` als `type` senden; `first_name`/`last_name`/`user_id`/`channel_id`
+      liegen schon oben.
+      (2) PRÄSENZ-UPDATE: der Hub sendet `{type:"presence.update", user_id, message:{user_id,
+      status}}` (`BroadcastPresenceUpdate`, `:~1357`); `PresenceProvider.tsx:57-65` liest
+      `data.status` auf oberster Ebene -> nie gesetzt. Fix: `WSMessage` um `Status string
+      json:"status,omitempty"` erweitern und im Broadcast setzen (`message` bleibt).
+      (3) STATUS SETZEN: das FE sendet `{type:"presence.set_status", status:"away"}`
+      (`PresenceProvider.tsx:87/104/109`); der Hub liest `msg.Content` (`handlePresenceSetStatus`,
+      `:~1279`) -> "status is required". Fix: `msg.Status`, Fallback `msg.Content`.
+      (4) PRÄSENZ ABONNIEREN: das FE sendet `{type:"presence.subscribe", user_ids:[…]}` auf
+      oberster Ebene (`PresenceProvider.tsx:150`); der Hub liest `msg.Message.user_ids`
+      (`handlePresenceSubscribe`, `:~1203`) -> "user_ids required". Fix: `UserIDs []string
+      json:"user_ids,omitempty"` in `WSMessage`, Fallback auf das alte Format. Die
+      Mandantenprüfung (`tenantAllowsPresenceTarget`) gilt unverändert für beide Formate.
+      (5) ANRUF-OVERLAY: der Hub sendet `call.incoming` und `call.ended` als `{type, message:
+      {call_id, caller_id, caller_name, caller_avatar, call_type}}` (`BroadcastCallIncoming`,
+      `BroadcastCallEnded`); `useIncomingCallListener.ts:29-45` packt nur `raw.call` aus, sonst
+      `raw` selbst, und liest dann `data.call_id` -> auf oberster Ebene nicht vorhanden, das
+      Eingangs-Overlay erscheint nie. Fix: die Nutzlast ZUSÄTZLICH unter dem Schlüssel `call`
+      senden (`WSMessage.Call json.RawMessage json:"call,omitempty"`), `message` bleibt für alte
+      Leser. `call.declined` (FE -> Hub, `message_id`) passt bereits.
+      Nicht Teil der Unit: `mention.new`, `file.uploaded`, `read_receipt`, `reaction.toggled`,
+      `notification.read*`, `recording.started` — das FE abonniert sie nirgends.
+    sources:
+      - backend/internal/server/websocket.go
+      - backend/internal/server/websocket_presence_subscribe_test.go
+      - backend/internal/server/websocket_broadcast_test.go
+      - desktop/src/renderer/src/api/hooks/useMessages.ts
+      - desktop/src/renderer/src/features/presence/PresenceProvider.tsx
+      - desktop/src/renderer/src/features/video/useIncomingCallListener.ts
+    done_when:
+      - "Hub-Test je Bruch mit der Form, die das FE sendet bzw. liest: typing.start kommt als `type:\"typing.start\"` beim Zweiten an; presence.update trägt `status` oben; set_status mit `status` wirkt; subscribe mit oberstem `user_ids` registriert (und fremder Mandant bleibt abgelehnt); call.incoming trägt `call.call_id`"
+      - "Alte Formate (content, message.user_ids, message) funktionieren weiter (je ein Test)"
+      - "Mutations-Probe: Typing-Typ zurück auf WSTypingIndicator, der Tipp-Test wird rot"
+      - "Journal desktop-aufrufer: je Event Datei und Zeile, die jetzt passt"
+
+  - id: scan-fe-gateway-shape-and-body-chat
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       Chat-Domäne, ~45 Endpunkte, dazu die WebSocket-Ereignisse: `useChannels`, `useMessages`,

@@ -2062,3 +2062,66 @@ units:
       - desktop/src/renderer/src/modules/work/tasks/MyTasksPage.tsx
     done_when:
       - "Luke/Frontend: (a)-(d) entschieden bzw. gebaut, je per Screenshot-QA abgenommen"
+
+  - id: fe-handle-chat-shape-findings
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Desktop ist tabu; Build-+-Verify mit Screenshot-QA)"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Chat-Befunde aus `scan-fe-gateway-shape-and-body-chat` (Iteration 46, 2026-10-25), die NUR das
+      Desktop beheben kann oder die ohne UI-Bruch sind:
+      (a) Reaktionen aktualisieren sich nach dem Setzen nicht: `useToggleReaction`
+      (`api/hooks/useReactions.ts`) invalidiert nur `['reactions', message_id]`, die Bubbles lesen
+      aber `useReactionSummary` mit Schlüssel `['reactions','summary',messageIds]` — der Präfix
+      passt nicht, die Zusammenfassung bleibt alt bis zum Neuladen. Fix: `['reactions']` invalidieren
+      oder `reaction.toggled` per WS abonnieren (das Backend sendet es seit
+      `fix-chat-rest-writes-never-reach-other-clients`).
+      (b) Lesezeichen: `useBookmarks` nutzt rohes `fetch` ohne Authorization-Header (401, bekannt,
+      Sammel-Unit `fe-raw-fetch-without-auth-header`); zusätzlich liest `MessageBubble.tsx:67`
+      `message.bookmarked`, das `MessageInfo` nicht trägt — der Stern zeigt nie "gesetzt".
+      (c) `mention_type`: `MentionsPanel.tsx:73` vergleicht gegen `'everyone'|'channel'`, die Wire
+      liefert die Enum-Zahl (`response.JSON` auf dem Proto) — das "Alle"-Badge erscheint nie.
+      Kosmetisch; entweder FE mappt die Zahl, oder das Gateway schreibt auf `response.Proto` um
+      (dann Zahl statt Name, gleiche Lage) — Name in der Wire wäre eine Backend-Entscheidung.
+      (d) `useUpdateChannel` ruft `PATCH /channels/{id}` (Route ist `PUT`, rohes fetch ohne
+      Auth-Header) — bekannt, gehört in `fe-raw-fetch-without-auth-header`.
+      (e) `components/chat/ReactionBar.tsx` (liest ein Array aus `useReactions`, das ein Objekt
+      `{reactions}` liefert) ist toter Code; würde er eingebunden, stürzte er mit TypeError ab.
+    sources:
+      - desktop/src/renderer/src/api/hooks/useReactions.ts
+      - desktop/src/renderer/src/api/hooks/useBookmarks.ts
+      - desktop/src/renderer/src/modules/chat/MentionsPanel.tsx
+      - desktop/src/renderer/src/modules/chat/messages/MessageBubble.tsx
+    done_when:
+      - "Luke/Frontend: (a)-(c) gebaut, per Screenshot-QA abgenommen; (e) gelöscht oder korrigiert"
+
+  - id: decide-chat-group-dm
+    phase: 4
+    service: chat
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: "PRODUKT-/DATENMODELL-ENTSCHEIDUNG LUKE: Gruppen-DMs sind im Chat-Backend nicht vorgesehen"
+    target: "Luke"
+    scope: >
+      Gefunden in `scan-fe-gateway-shape-and-body-chat` (Iteration 46, 2026-10-25).
+      `NewDMDialog.tsx` erlaubt Mehrfachauswahl ("Gruppe starten", KO-2); `useStartConversation`
+      sendet dann `POST /channels/dm` mit `{participant_ids:[…]}` und OHNE `other_user_id`. Das
+      Gateway (`getOrCreateDMRequest`, `route_chat.go:~600`) verlangt `other_user_id` (required,
+      uuid) -> 400. Das Chat-Proto kennt nur `GetOrCreateDMRequest{user_id, other_user_id}`; es gibt
+      kein Gruppen-DM-Modell (Mitgliederliste, Idempotenz über sortierte Teilnehmermenge, Name).
+      Frage an Luke: Gruppen-DMs bauen (Datenmodell: `is_dm` + mehr als zwei Mitglieder,
+      Schlüssel = Hash der Teilnehmermenge, Migration mit RLS) ODER das FE nimmt die
+      Mehrfachauswahl zurück (dann FE-Unit)? Bis dahin schlägt "Gruppe starten" mit einer
+      Fehlermeldung fehl; 1:1-DMs funktionieren.
+    sources:
+      - desktop/src/renderer/src/modules/chat/channels/NewDMDialog.tsx
+      - desktop/src/renderer/src/api/hooks/useChannels.ts
+      - backend/internal/gateway/route_chat.go
+      - backend/proto/chat/v1/chat.proto
+    done_when:
+      - "Luke: Gruppen-DM ja/nein entschieden; bei ja eine Bau-Unit mit Datenmodell angelegt"
