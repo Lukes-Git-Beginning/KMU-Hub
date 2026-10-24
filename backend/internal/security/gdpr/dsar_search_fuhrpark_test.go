@@ -11,7 +11,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
-func TestSearchByQuery_UserFuhrparkDamagesNotLogbook_Integration(t *testing.T) {
+func TestSearchByQuery_UserFuhrparkDamagesAndLinkedTrips_Integration(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
 
@@ -41,20 +41,29 @@ func TestSearchByQuery_UserFuhrparkDamagesNotLogbook_Integration(t *testing.T) {
 	defer testutil.CleanupRow(t, pool, "vehicles", ownVehicle)
 	defer testutil.CleanupRow(t, pool, "vehicles", foreignVehicle)
 
-	newTrip := func(tenantID, vehicleID uuid.UUID, driver, purpose string, private bool) uuid.UUID {
-		return testutil.SeedRow(t, pool, "trip_logs", map[string]any{
+	// driver is the free-text name, link the driver_user_id (nil = not linked).
+	newTrip := func(tenantID, vehicleID uuid.UUID, driver, purpose string, private bool, link *uuid.UUID) uuid.UUID {
+		row := map[string]any{
 			"tenant_id": tenantID, "vehicle_id": vehicleID, "date": "2026-10-01",
 			"start_location": "München", "end_location": "Augsburg", "purpose": purpose,
 			"start_km": 1000, "end_km": 1085, "is_private": private, "driver_name": driver,
 			"business_partner": "Müller GmbH",
-		})
+		}
+		if link != nil {
+			row["driver_user_id"] = *link
+		}
+		return testutil.SeedRow(t, pool, "trip_logs", row)
 	}
-	tripPlain := newTrip(tenantOwn, ownVehicle, "Fiona Fahrerin", "Kundenbesuch", false)
-	tripReversed := newTrip(tenantOwn, ownVehicle, "  fahrerin, FIONA ", "Wochenendfahrt", true)
-	tripColleague := newTrip(tenantOwn, ownVehicle, "Kurt Kollege", "Lieferung", false)
-	tripForeign := newTrip(tenantOther, foreignVehicle, "Fiona Fahrerin", "Fremde Fahrt", false)
-	defer testutil.CleanupRow(t, pool, "trip_logs", tripPlain)
-	defer testutil.CleanupRow(t, pool, "trip_logs", tripReversed)
+	// Linked: found whatever the free-text name says. Unlinked with the same name: a
+	// namesake's trips can't be told apart, so never disclosed.
+	tripLinked := newTrip(tenantOwn, ownVehicle, "Fiona Fahrerin", "Kundenbesuch", false, &subjectID)
+	tripLinkedAlias := newTrip(tenantOwn, ownVehicle, "F. Fahrerin", "Wochenendfahrt", true, &subjectID)
+	tripUnlinkedSameName := newTrip(tenantOwn, ownVehicle, "  fahrerin, FIONA ", "Namensvetter-Fahrt", false, nil)
+	tripColleague := newTrip(tenantOwn, ownVehicle, "Kurt Kollege", "Lieferung", false, &colleagueID)
+	tripForeign := newTrip(tenantOther, foreignVehicle, "Fiona Fahrerin", "Fremde Fahrt", false, &foreignUserID)
+	defer testutil.CleanupRow(t, pool, "trip_logs", tripLinked)
+	defer testutil.CleanupRow(t, pool, "trip_logs", tripLinkedAlias)
+	defer testutil.CleanupRow(t, pool, "trip_logs", tripUnlinkedSameName)
 	defer testutil.CleanupRow(t, pool, "trip_logs", tripColleague)
 	defer testutil.CleanupRow(t, pool, "trip_logs", tripForeign)
 
@@ -86,20 +95,23 @@ func TestSearchByQuery_UserFuhrparkDamagesNotLogbook_Integration(t *testing.T) {
 	require.Len(t, persons, 1)
 	person := persons[0]
 
-	// trip_logs.driver_name is free text without a user link: a trip carrying the
-	// subject's name may be a namesake's, so the logbook is never disclosed.
-	assertNoLogbook := func(p DSARPerson) {
-		t.Helper()
-		for _, m := range p.Modules {
-			assert.NotContains(t, m.Module, "Fahrtenbuch", "trips are matched by free-text name only")
-			for _, rec := range m.Records {
-				for _, f := range rec.Fields {
-					assert.NotContains(t, []string{"Kundenbesuch", "Wochenendfahrt", "Lieferung", "Fremde Fahrt"}, f.Value)
-				}
-			}
-		}
+	// Trips come by driver_user_id only: the aliased row is found, the same-name row
+	// without a link is not, and neither is the colleague's.
+	trips := recordMaps(dsarModule(t, person, "Fahrtenbuch"))
+	require.Len(t, trips, 2, "the two linked trips, never the unlinked namesake row")
+	tripPurposes := map[string]map[string]string{}
+	for _, tr := range trips {
+		tripPurposes[tr["Zweck"]] = tr
 	}
-	assertNoLogbook(person)
+	require.Contains(t, tripPurposes, "Kundenbesuch")
+	require.Contains(t, tripPurposes, "Wochenendfahrt")
+	assert.Equal(t, map[string]string{
+		"Kennzeichen": "M-FF 100", "Datum": "2026-10-01", "Start": "München", "Ziel": "Augsburg",
+		"Zweck": "Kundenbesuch", "Geschäftspartner": "Müller GmbH", "Kilometer": "85",
+		"Privatfahrt": "nein", "Fahrer": "Fiona Fahrerin", "Notizen": "",
+	}, tripPurposes["Kundenbesuch"])
+	assert.Equal(t, "ja", tripPurposes["Wochenendfahrt"]["Privatfahrt"], "private trips are the subject's own data")
+	assert.Equal(t, "F. Fahrerin", tripPurposes["Wochenendfahrt"]["Fahrer"])
 
 	damages := recordMaps(dsarModule(t, person, "Fahrzeugschäden"))
 	require.Len(t, damages, 2, "reported + resolved by the subject, never the colleague-only damage")
@@ -117,16 +129,20 @@ func TestSearchByQuery_UserFuhrparkDamagesNotLogbook_Integration(t *testing.T) {
 	foreign, err := SearchByQuery(ctxOther, pool, tenantOther, "Fahrerin")
 	require.NoError(t, err)
 	require.Len(t, foreign, 1)
-	assertNoLogbook(foreign[0])
+	foreignTrips := recordMaps(dsarModule(t, foreign[0], "Fahrtenbuch"))
+	require.Len(t, foreignTrips, 1)
+	assert.Equal(t, "Fremde Fahrt", foreignTrips[0]["Zweck"])
 	for _, d := range recordMaps(dsarModule(t, foreign[0], "Fahrzeugschäden")) {
 		assert.Equal(t, "Fremder Schaden", d["Beschreibung"])
 	}
 
-	// The colleague sees both role labels on damages and no logbook either.
+	// The colleague sees both role labels on damages and only their own trip.
 	colleagueOnly, err := SearchByQuery(ctxOwn, pool, tenantOwn, "Kollege")
 	require.NoError(t, err)
 	require.Len(t, colleagueOnly, 1)
-	assertNoLogbook(colleagueOnly[0])
+	colleagueTrips := recordMaps(dsarModule(t, colleagueOnly[0], "Fahrtenbuch"))
+	require.Len(t, colleagueTrips, 1)
+	assert.Equal(t, "Lieferung", colleagueTrips[0]["Zweck"])
 	colleagueRoles := map[string]string{}
 	for _, d := range recordMaps(dsarModule(t, colleagueOnly[0], "Fahrzeugschäden")) {
 		colleagueRoles[d["Beschreibung"]] = d["Rolle"]

@@ -634,6 +634,14 @@ func matchUsers(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, pat
 			person.Modules = append(person.Modules, *damages)
 		}
 
+		trips, tlErr := tripLogsModule(ctx, pool, tenantID, u.id)
+		if tlErr != nil {
+			return nil, tlErr
+		}
+		if trips != nil {
+			person.Modules = append(person.Modules, *trips)
+		}
+
 		documentChat, dcErr := documentChatModules(ctx, pool, tenantID, u.id)
 		if dcErr != nil {
 			return nil, dcErr
