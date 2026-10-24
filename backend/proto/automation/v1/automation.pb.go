@@ -750,10 +750,14 @@ func (x *TriggerDefinition) GetConfigParams() []*ConfigParam {
 }
 
 type FieldDefinition struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Name        string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type        string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// key/label/operators are what the editor reads (condition fields, action outputs).
+	Key           string   `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`
+	Label         string   `protobuf:"bytes,5,opt,name=label,proto3" json:"label,omitempty"`
+	Operators     []string `protobuf:"bytes,6,rep,name=operators,proto3" json:"operators,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -809,6 +813,27 @@ func (x *FieldDefinition) GetDescription() string {
 	return ""
 }
 
+func (x *FieldDefinition) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *FieldDefinition) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *FieldDefinition) GetOperators() []string {
+	if x != nil {
+		return x.Operators
+	}
+	return nil
+}
+
 type ConfigParam struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -816,6 +841,8 @@ type ConfigParam struct {
 	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	Required      bool                   `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
 	DefaultValue  string                 `protobuf:"bytes,5,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
+	Key           string                 `protobuf:"bytes,6,opt,name=key,proto3" json:"key,omitempty"`
+	Label         string                 `protobuf:"bytes,7,opt,name=label,proto3" json:"label,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -881,6 +908,20 @@ func (x *ConfigParam) GetRequired() bool {
 func (x *ConfigParam) GetDefaultValue() string {
 	if x != nil {
 		return x.DefaultValue
+	}
+	return ""
+}
+
+func (x *ConfigParam) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *ConfigParam) GetLabel() string {
+	if x != nil {
+		return x.Label
 	}
 	return ""
 }
@@ -2986,17 +3027,22 @@ const file_proto_automation_v1_automation_proto_rawDesc = "" +
 	"\n" +
 	"event_type\x18\x05 \x01(\tR\teventType\x126\n" +
 	"\x06fields\x18\x06 \x03(\v2\x1e.automation.v1.FieldDefinitionR\x06fields\x12?\n" +
-	"\rconfig_params\x18\a \x03(\v2\x1a.automation.v1.ConfigParamR\fconfigParams\"[\n" +
+	"\rconfig_params\x18\a \x03(\v2\x1a.automation.v1.ConfigParamR\fconfigParams\"\xa1\x01\n" +
 	"\x0fFieldDefinition\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\"\x98\x01\n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x10\n" +
+	"\x03key\x18\x04 \x01(\tR\x03key\x12\x14\n" +
+	"\x05label\x18\x05 \x01(\tR\x05label\x12\x1c\n" +
+	"\toperators\x18\x06 \x03(\tR\toperators\"\xc0\x01\n" +
 	"\vConfigParam\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
 	"\brequired\x18\x04 \x01(\bR\brequired\x12#\n" +
-	"\rdefault_value\x18\x05 \x01(\tR\fdefaultValue\"\xed\x01\n" +
+	"\rdefault_value\x18\x05 \x01(\tR\fdefaultValue\x12\x10\n" +
+	"\x03key\x18\x06 \x01(\tR\x03key\x12\x14\n" +
+	"\x05label\x18\a \x01(\tR\x05label\"\xed\x01\n" +
 	"\x10ActionDefinition\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x16\n" +
 	"\x06module\x18\x02 \x01(\tR\x06module\x12\x12\n" +

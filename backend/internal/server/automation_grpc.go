@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -622,64 +623,96 @@ func templateToProto(t *models.AutomationTemplate) *automationv1.AutomationTempl
 	return info
 }
 
-// triggerDefToProto converts an opaque trigger definition to proto.
-// The service returns []any to avoid import cycles; we type-assert here.
-func triggerDefToProto(v any) *automationv1.TriggerDefinition {
-	// The value is a map or struct - marshal to JSON and use proto Struct
-	data, err := json.Marshal(v)
-	if err != nil {
-		return &automationv1.TriggerDefinition{}
-	}
-
-	var m map[string]any
-	if json.Unmarshal(data, &m) != nil {
-		return &automationv1.TriggerDefinition{}
-	}
-
-	def := &automationv1.TriggerDefinition{}
-	if t, ok := m["Type"].(string); ok {
-		def.Type = t
-	}
-	if mod, ok := m["Module"].(string); ok {
-		def.Module = mod
-	}
-	if n, ok := m["Name"].(string); ok {
-		def.Name = n
-	}
-	if d, ok := m["Description"].(string); ok {
-		def.Description = d
-	}
-
-	return def
+// catalogField and catalogParam mirror the exported fields of the trigger and action
+// catalogs (internal/automation/{trigger,action}), which reach the server as opaque values.
+type catalogField struct {
+	Key       string
+	Label     string
+	Type      string
+	Operators []string
 }
 
-// actionDefToProto converts an opaque action definition to proto.
-func actionDefToProto(v any) *automationv1.ActionDefinition {
+type catalogParam struct {
+	Key      string
+	Label    string
+	Type     string
+	Required bool
+	Default  any
+}
+
+type catalogDef struct {
+	Type         string
+	Module       string
+	Name         string
+	Description  string
+	EventType    string
+	Fields       []catalogField
+	ConfigParams []catalogParam
+	Params       []catalogParam
+	OutputFields []catalogField
+}
+
+func decodeCatalogDef(v any) (catalogDef, bool) {
+	var d catalogDef
 	data, err := json.Marshal(v)
-	if err != nil {
+	if err != nil || json.Unmarshal(data, &d) != nil {
+		return catalogDef{}, false
+	}
+	return d, true
+}
+
+func catalogFieldsToProto(fields []catalogField) []*automationv1.FieldDefinition {
+	out := make([]*automationv1.FieldDefinition, 0, len(fields))
+	for _, f := range fields {
+		out = append(out, &automationv1.FieldDefinition{
+			Name: f.Key, Type: f.Type, Description: f.Label,
+			Key: f.Key, Label: f.Label, Operators: f.Operators,
+		})
+	}
+	return out
+}
+
+func catalogParamsToProto(params []catalogParam) []*automationv1.ConfigParam {
+	out := make([]*automationv1.ConfigParam, 0, len(params))
+	for _, p := range params {
+		def := ""
+		if p.Default != nil {
+			def = fmt.Sprint(p.Default)
+		}
+		out = append(out, &automationv1.ConfigParam{
+			Name: p.Key, Type: p.Type, Description: p.Label, Required: p.Required, DefaultValue: def,
+			Key: p.Key, Label: p.Label,
+		})
+	}
+	return out
+}
+
+// triggerDefToProto converts an opaque trigger definition to proto, including the condition
+// fields and operators the editor offers.
+func triggerDefToProto(v any) *automationv1.TriggerDefinition {
+	d, ok := decodeCatalogDef(v)
+	if !ok {
+		return &automationv1.TriggerDefinition{}
+	}
+	return &automationv1.TriggerDefinition{
+		Type: d.Type, Module: d.Module, Name: d.Name, Description: d.Description, EventType: d.EventType,
+		Fields:       catalogFieldsToProto(d.Fields),
+		ConfigParams: catalogParamsToProto(d.ConfigParams),
+	}
+}
+
+// actionDefToProto converts an opaque action definition to proto, including its parameters
+// and output fields.
+func actionDefToProto(v any) *automationv1.ActionDefinition {
+	d, ok := decodeCatalogDef(v)
+	if !ok {
 		return &automationv1.ActionDefinition{}
 	}
-
-	var m map[string]any
-	if json.Unmarshal(data, &m) != nil {
-		return &automationv1.ActionDefinition{}
+	return &automationv1.ActionDefinition{
+		Type: d.Type, Module: d.Module, Name: d.Name, Description: d.Description,
+		Params:       catalogParamsToProto(d.Params),
+		OutputFields: catalogFieldsToProto(d.OutputFields),
 	}
-
-	def := &automationv1.ActionDefinition{}
-	if t, ok := m["Type"].(string); ok {
-		def.Type = t
-	}
-	if mod, ok := m["Module"].(string); ok {
-		def.Module = mod
-	}
-	if n, ok := m["Name"].(string); ok {
-		def.Name = n
-	}
-	if d, ok := m["Description"].(string); ok {
-		def.Description = d
-	}
-
-	return def
 }
 
 // ============================================================================

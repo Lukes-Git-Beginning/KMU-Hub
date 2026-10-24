@@ -499,7 +499,7 @@ func (ar *AutomationRoutes) HandleListTriggers(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (ar *AutomationRoutes) HandleListActions(w http.ResponseWriter, r *http.Request) {
@@ -515,7 +515,7 @@ func (ar *AutomationRoutes) HandleListActions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================

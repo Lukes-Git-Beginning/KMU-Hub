@@ -45358,6 +45358,14 @@ components:
         module: { type: string }
         name: { type: string }
         description: { type: string }
+        event_type: { type: string }
+        fields:
+          type: array
+          description: Condition fields the builder offers for this trigger, with the operators valid per field.
+          items: { $ref: "#/components/schemas/CatalogField" }
+        config_params:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogParam" }
 
     ActionDefinition:
       type: object
@@ -45366,6 +45374,36 @@ components:
         module: { type: string }
         name: { type: string }
         description: { type: string }
+        params:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogParam" }
+        output_fields:
+          type: array
+          description: Values the action produces, usable as variables by later actions.
+          items: { $ref: "#/components/schemas/CatalogField" }
+
+    CatalogField:
+      type: object
+      properties:
+        key: { type: string, example: deal.value }
+        label: { type: string }
+        type: { type: string, description: "string, number, boolean or date" }
+        operators:
+          type: array
+          items: { type: string }
+        name: { type: string, description: Same as key (legacy). }
+        description: { type: string, description: Same as label (legacy). }
+
+    CatalogParam:
+      type: object
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type: { type: string, description: "string, number, boolean, select or template" }
+        required: { type: boolean }
+        default_value: { type: string, description: Empty when the parameter has no default. }
+        name: { type: string, description: Same as key (legacy). }
+        description: { type: string, description: Same as label (legacy). }
 
     AutomationTemplate:
       type: object

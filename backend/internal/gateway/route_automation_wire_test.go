@@ -114,6 +114,27 @@ func (s *automationWireStub) DryRunAutomation(context.Context, *automationv1.Dry
 	}, nil
 }
 
+func (s *automationWireStub) ListTriggerDefinitions(context.Context, *automationv1.ListTriggerDefinitionsRequest) (*automationv1.ListTriggerDefinitionsResponse, error) {
+	if s.empty {
+		return &automationv1.ListTriggerDefinitionsResponse{Triggers: []*automationv1.TriggerDefinition{{Type: "crm.deal.won"}}}, nil
+	}
+	return &automationv1.ListTriggerDefinitionsResponse{Triggers: []*automationv1.TriggerDefinition{{
+		Type: "crm.deal.stage_changed", EventType: "crm.deal.stage_changed",
+		Fields: []*automationv1.FieldDefinition{{Key: "deal.value", Label: "Deal-Wert", Type: "number", Operators: []string{"equals"}}},
+	}}}, nil
+}
+
+func (s *automationWireStub) ListActionDefinitions(context.Context, *automationv1.ListActionDefinitionsRequest) (*automationv1.ListActionDefinitionsResponse, error) {
+	if s.empty {
+		return &automationv1.ListActionDefinitionsResponse{Actions: []*automationv1.ActionDefinition{{Type: "add_tag"}}}, nil
+	}
+	return &automationv1.ListActionDefinitionsResponse{Actions: []*automationv1.ActionDefinition{{
+		Type:         "send_email",
+		Params:       []*automationv1.ConfigParam{{Key: "subject", Label: "Betreff", Type: "template", Required: true}},
+		OutputFields: []*automationv1.FieldDefinition{{Key: "message_id", Label: "Nachrichten-ID", Type: "string"}},
+	}}}, nil
+}
+
 func newAutomationWireRoutes(t *testing.T, stub *automationWireStub) *AutomationRoutes {
 	t.Helper()
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
@@ -274,4 +295,38 @@ func TestWireEnumWord_UnknownNumberStaysNumber(t *testing.T) {
 	obj, err := automationWire(&automationv1.AutomationInfo{Scope: automationv1.AutomationScope(9)})
 	require.NoError(t, err)
 	assert.Equal(t, "9", string(obj["scope"]))
+}
+
+// The condition builder reads `fields[].key/label/operators`, the action editor `params[].key/label`
+// and `output_fields[].key`; an action without parameters must still carry `params: []` because
+// the editor calls `.length` / `.map` on it.
+func TestAutomationWire_CatalogCarriesFieldKeysLabelsAndOperators(t *testing.T) {
+	routes := newAutomationWireRoutes(t, &automationWireStub{})
+
+	triggers := automationWireCall(t, routes.HandleListTriggers, "GET", nil, http.StatusOK)["triggers"].([]any)
+	fields := triggers[0].(map[string]any)["fields"].([]any)
+	field := fields[0].(map[string]any)
+	assert.Equal(t, "deal.value", field["key"])
+	assert.Equal(t, "Deal-Wert", field["label"])
+	assert.Equal(t, []any{"equals"}, field["operators"])
+	assert.Equal(t, []any{}, triggers[0].(map[string]any)["config_params"])
+
+	actions := automationWireCall(t, routes.HandleListActions, "GET", nil, http.StatusOK)["actions"].([]any)
+	action := actions[0].(map[string]any)
+	param := action["params"].([]any)[0].(map[string]any)
+	assert.Equal(t, "subject", param["key"])
+	assert.Equal(t, "Betreff", param["label"])
+	assert.Equal(t, true, param["required"])
+	assert.Equal(t, "message_id", action["output_fields"].([]any)[0].(map[string]any)["key"])
+}
+
+func TestAutomationWire_CatalogEntryWithoutFieldsStillHasArrays(t *testing.T) {
+	routes := newAutomationWireRoutes(t, &automationWireStub{empty: true})
+
+	trigger := automationWireCall(t, routes.HandleListTriggers, "GET", nil, http.StatusOK)["triggers"].([]any)[0].(map[string]any)
+	assert.Equal(t, []any{}, trigger["fields"])
+
+	action := automationWireCall(t, routes.HandleListActions, "GET", nil, http.StatusOK)["actions"].([]any)[0].(map[string]any)
+	assert.Equal(t, []any{}, action["params"])
+	assert.Equal(t, []any{}, action["output_fields"])
 }

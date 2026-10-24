@@ -200,7 +200,14 @@ func automationTriggerGet(t string) (any, bool) {
 }
 
 func automationTriggerAll() []any {
-	return []any{trigger.TriggerDefinition{Type: "event", Module: "crm", Name: "Ereignis-Trigger", Description: "Feuert bei einem Ereignis"}}
+	return []any{trigger.TriggerDefinition{
+		Type: "event", Module: "crm", Name: "Ereignis-Trigger", Description: "Feuert bei einem Ereignis",
+		EventType: "crm.deal.stage_changed",
+		Fields: []trigger.TriggerField{
+			{Key: "deal.value", Label: "Deal-Wert", Type: "number", Operators: []string{"equals", "greater_than"}},
+		},
+		ConfigParams: []trigger.ConfigParam{{Key: "pipeline", Label: "Pipeline", Type: "select", Required: true, Default: 3}},
+	}}
 }
 
 func automationActionGet(t string) (any, bool) {
@@ -211,7 +218,11 @@ func automationActionGet(t string) (any, bool) {
 }
 
 func automationActionAllDefs() []any {
-	return []any{action.ActionDefinition{Type: "send_email", Module: "notification", Name: "E-Mail senden", Description: "Sendet eine E-Mail"}}
+	return []any{action.ActionDefinition{
+		Type: "send_email", Module: "notification", Name: "E-Mail senden", Description: "Sendet eine E-Mail",
+		Params:       []action.ConfigParam{{Key: "subject", Label: "Betreff", Type: "template", Required: true}},
+		OutputFields: []action.OutputField{{Key: "message_id", Label: "Nachrichten-ID", Type: "string"}},
+	}}
 }
 
 // ============================================================================
@@ -745,6 +756,26 @@ func TestListTriggerDefinitions_ConvertsCatalog(t *testing.T) {
 	assert.Equal(t, "Feuert bei einem Ereignis", resp.Triggers[0].Description)
 }
 
+// The editor offers condition fields, operators and parameters straight from the catalog; a
+// conversion that keeps only the header leaves the condition builder empty for every user.
+func TestListTriggerDefinitions_CarriesFieldsOperatorsAndParams(t *testing.T) {
+	s := newAutomationTestServer(nil, nil, nil)
+	resp, err := s.ListTriggerDefinitions(context.Background(), &automationv1.ListTriggerDefinitionsRequest{})
+	require.NoError(t, err)
+	def := resp.Triggers[0]
+	assert.Equal(t, "crm.deal.stage_changed", def.EventType)
+	require.Len(t, def.Fields, 1)
+	assert.Equal(t, "deal.value", def.Fields[0].Key)
+	assert.Equal(t, "Deal-Wert", def.Fields[0].Label)
+	assert.Equal(t, "number", def.Fields[0].Type)
+	assert.Equal(t, []string{"equals", "greater_than"}, def.Fields[0].Operators)
+	require.Len(t, def.ConfigParams, 1)
+	assert.Equal(t, "pipeline", def.ConfigParams[0].Key)
+	assert.Equal(t, "Pipeline", def.ConfigParams[0].Label)
+	assert.True(t, def.ConfigParams[0].Required)
+	assert.Equal(t, "3", def.ConfigParams[0].DefaultValue)
+}
+
 func TestListActionDefinitions_ConvertsCatalog(t *testing.T) {
 	s := newAutomationTestServer(nil, nil, nil)
 	resp, err := s.ListActionDefinitions(context.Background(), &automationv1.ListActionDefinitionsRequest{})
@@ -753,6 +784,22 @@ func TestListActionDefinitions_ConvertsCatalog(t *testing.T) {
 	assert.Equal(t, "send_email", resp.Actions[0].Type)
 	assert.Equal(t, "notification", resp.Actions[0].Module)
 	assert.Equal(t, "E-Mail senden", resp.Actions[0].Name)
+}
+
+func TestListActionDefinitions_CarriesParamsAndOutputFields(t *testing.T) {
+	s := newAutomationTestServer(nil, nil, nil)
+	resp, err := s.ListActionDefinitions(context.Background(), &automationv1.ListActionDefinitionsRequest{})
+	require.NoError(t, err)
+	def := resp.Actions[0]
+	require.Len(t, def.Params, 1)
+	assert.Equal(t, "subject", def.Params[0].Key)
+	assert.Equal(t, "Betreff", def.Params[0].Label)
+	assert.Equal(t, "template", def.Params[0].Type)
+	assert.True(t, def.Params[0].Required)
+	assert.Empty(t, def.Params[0].DefaultValue, "no default stays empty, not the string <nil>")
+	require.Len(t, def.OutputFields, 1)
+	assert.Equal(t, "message_id", def.OutputFields[0].Key)
+	assert.Equal(t, "Nachrichten-ID", def.OutputFields[0].Label)
 }
 
 // ============================================================================

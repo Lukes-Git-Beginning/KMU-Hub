@@ -2428,7 +2428,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 75,5 %"
     scope: >
       Verdacht aus Iteration 37, NICHT gemessen. `GET /automations/triggers` und `/actions` schreiben
