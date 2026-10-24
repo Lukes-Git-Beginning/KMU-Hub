@@ -25,7 +25,10 @@ type Repository interface {
 	// fileID) rather than just versionID — a version of a foreign file must
 	// not become reachable through a caller's own file id.
 	GetVersionByID(ctx context.Context, fileID, versionID, tenantID uuid.UUID) (*models.DocumentFileVersion, error)
-	UpdateCurrentVersion(ctx context.Context, fileID uuid.UUID, versionNumber int) error
+	// PromoteVersion makes v the file's current content: current_version,
+	// storage_key and file_size of the file all follow the version, so download
+	// and the editor serve what was saved last.
+	PromoteVersion(ctx context.Context, v *models.DocumentFileVersion) error
 
 	// Search content
 	UpdateSearchContent(ctx context.Context, id uuid.UUID, contentText string) error

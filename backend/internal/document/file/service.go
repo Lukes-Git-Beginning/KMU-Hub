@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -861,13 +862,11 @@ func (s *Service) CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID 
 		return nil, err
 	}
 
-	// Update current version on the file
-	if err := s.repo.UpdateCurrentVersion(ctx, fileID, newVersionNumber); err != nil {
-		slog.Error("failed to update current version",
-			"file_id", fileID,
-			"version", newVersionNumber,
-			"error", err,
-		)
+	// The new version is the file's content from now on. A failure here is
+	// returned: the bytes would sit in the history while download and editor
+	// keep serving the old content.
+	if err := s.repo.PromoteVersion(ctx, version); err != nil {
+		return nil, fmt.Errorf("promote version %d: %w", newVersionNumber, err)
 	}
 
 	slog.Info("file version created",
@@ -910,6 +909,53 @@ func (s *Service) SnapshotVersion(ctx context.Context, fileID, tenantID, userID 
 		Label:    label,
 		UserID:   userID,
 	})
+}
+
+// SaveContent stores content the editor saved as the file's new current
+// version. Content identical to the current one creates no version and returns
+// the current version instead, so an unchanged autosave leaves no duplicate in
+// the history.
+func (s *Service) SaveContent(ctx context.Context, fileID, tenantID, userID uuid.UUID, content []byte, label *string) (*models.DocumentFileVersion, error) {
+	file, err := s.repo.GetByID(ctx, fileID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if file.IsDeleted {
+		return nil, ErrFileDeleted
+	}
+
+	if int64(len(content)) == file.FileSize {
+		same, err := s.sameContent(ctx, file.StorageKey, content)
+		if err != nil {
+			return nil, err
+		}
+		if same {
+			return s.repo.GetVersion(ctx, fileID, file.CurrentVersion)
+		}
+	}
+
+	return s.CreateVersion(ctx, fileID, tenantID, VersionInput{
+		Reader:   bytes.NewReader(content),
+		FileSize: int64(len(content)),
+		MimeType: file.MimeType,
+		Label:    label,
+		UserID:   userID,
+	})
+}
+
+// sameContent reports whether the object under key holds exactly content.
+func (s *Service) sameContent(ctx context.Context, key string, content []byte) (bool, error) {
+	reader, err := s.store.Download(ctx, key)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = reader.Close() }()
+
+	current, err := io.ReadAll(io.LimitReader(reader, int64(len(content))+1))
+	if err != nil {
+		return false, err
+	}
+	return bytes.Equal(current, content), nil
 }
 
 // ListVersions returns all versions for a file, newest first.
@@ -970,12 +1016,8 @@ func (s *Service) RevertVersion(ctx context.Context, fileID uuid.UUID, versionNu
 		return nil, err
 	}
 
-	if err := s.repo.UpdateCurrentVersion(ctx, fileID, newVersionNumber); err != nil {
-		slog.Error("failed to update current version after revert",
-			"file_id", fileID,
-			"version", newVersionNumber,
-			"error", err,
-		)
+	if err := s.repo.PromoteVersion(ctx, version); err != nil {
+		return nil, fmt.Errorf("promote reverted version %d: %w", newVersionNumber, err)
 	}
 
 	slog.Info("file version reverted",

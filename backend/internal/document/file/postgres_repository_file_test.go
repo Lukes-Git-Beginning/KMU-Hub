@@ -434,33 +434,40 @@ func TestPostgresRepository_GetVersionByID_ScopedToFileAndTenant(t *testing.T) {
 	assert.ErrorIs(t, err, ErrVersionNotFound)
 }
 
-func TestPostgresRepository_UpdateCurrentVersion(t *testing.T) {
+func TestPostgresRepository_PromoteVersion(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
 
 	repo := NewPostgresRepository(pool)
-	fx := seedFileFixture(t, pool, "update-current-version")
+	fx := seedFileFixture(t, pool, "promote-version")
 	ctx := testutil.WithTenantCtx(context.Background(), fx.tenant)
 
 	file := newTestFile(fx, "versioned.pdf")
 	require.NoError(t, repo.Create(ctx, file))
 
-	require.NoError(t, repo.UpdateCurrentVersion(ctx, file.ID, 3))
+	require.NoError(t, repo.PromoteVersion(ctx, &models.DocumentFileVersion{
+		TenantID: fx.tenant, FileID: file.ID, VersionNumber: 3,
+		StorageKey: "documents/versions/v3.pdf", FileSize: 4242,
+	}))
 
 	got, err := repo.GetByID(ctx, file.ID, fx.tenant)
 	require.NoError(t, err)
 	assert.Equal(t, 3, got.CurrentVersion)
+	assert.Equal(t, "documents/versions/v3.pdf", got.StorageKey, "download must serve the promoted version")
+	assert.Equal(t, int64(4242), got.FileSize)
 }
 
-func TestPostgresRepository_UpdateCurrentVersion_UnknownFile_NotFound(t *testing.T) {
+func TestPostgresRepository_PromoteVersion_UnknownFile_NotFound(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
 	t.Cleanup(func() { pool.Close() })
 
 	repo := NewPostgresRepository(pool)
 
-	err := repo.UpdateCurrentVersion(context.Background(), uuid.New(), 2)
+	err := repo.PromoteVersion(context.Background(), &models.DocumentFileVersion{
+		TenantID: uuid.New(), FileID: uuid.New(), VersionNumber: 2,
+	})
 	assert.ErrorIs(t, err, ErrFileNotFound)
 }
 

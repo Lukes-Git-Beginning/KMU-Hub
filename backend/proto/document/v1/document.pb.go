@@ -2876,12 +2876,15 @@ func (x *GetFileDownloadURLResponse) GetFileSize() int64 {
 }
 
 type CreateFileVersionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FileId        string                 `protobuf:"bytes,1,opt,name=file_id,json=fileId,proto3" json:"file_id,omitempty"`
-	VersionLabel  string                 `protobuf:"bytes,2,opt,name=version_label,json=versionLabel,proto3" json:"version_label,omitempty"`
-	StorageKey    string                 `protobuf:"bytes,3,opt,name=storage_key,json=storageKey,proto3" json:"storage_key,omitempty"`
-	FileSize      int64                  `protobuf:"varint,4,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	FileId       string                 `protobuf:"bytes,1,opt,name=file_id,json=fileId,proto3" json:"file_id,omitempty"`
+	VersionLabel string                 `protobuf:"bytes,2,opt,name=version_label,json=versionLabel,proto3" json:"version_label,omitempty"`
+	StorageKey   string                 `protobuf:"bytes,3,opt,name=storage_key,json=storageKey,proto3" json:"storage_key,omitempty"`
+	FileSize     int64                  `protobuf:"varint,4,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
+	CreatedBy    string                 `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	// content, when present, is the new content of the file (an editor's save);
+	// absent freezes the file's current content as a version.
+	Content       []byte `protobuf:"bytes,6,opt,name=content,proto3,oneof" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2949,6 +2952,13 @@ func (x *CreateFileVersionRequest) GetCreatedBy() string {
 		return x.CreatedBy
 	}
 	return ""
+}
+
+func (x *CreateFileVersionRequest) GetContent() []byte {
+	if x != nil {
+		return x.Content
+	}
+	return nil
 }
 
 type CreateFileVersionResponse struct {
@@ -6857,7 +6867,7 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"\fdownload_url\x18\x01 \x01(\tR\vdownloadUrl\x12\x1a\n" +
 	"\bfilename\x18\x02 \x01(\tR\bfilename\x12!\n" +
 	"\fcontent_type\x18\x03 \x01(\tR\vcontentType\x12\x1b\n" +
-	"\tfile_size\x18\x04 \x01(\x03R\bfileSize\"\xb5\x01\n" +
+	"\tfile_size\x18\x04 \x01(\x03R\bfileSize\"\xe0\x01\n" +
 	"\x18CreateFileVersionRequest\x12\x17\n" +
 	"\afile_id\x18\x01 \x01(\tR\x06fileId\x12#\n" +
 	"\rversion_label\x18\x02 \x01(\tR\fversionLabel\x12\x1f\n" +
@@ -6865,7 +6875,10 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"storageKey\x12\x1b\n" +
 	"\tfile_size\x18\x04 \x01(\x03R\bfileSize\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\x05 \x01(\tR\tcreatedBy\"W\n" +
+	"created_by\x18\x05 \x01(\tR\tcreatedBy\x12\x1d\n" +
+	"\acontent\x18\x06 \x01(\fH\x00R\acontent\x88\x01\x01B\n" +
+	"\n" +
+	"\b_content\"W\n" +
 	"\x19CreateFileVersionResponse\x12:\n" +
 	"\aversion\x18\x01 \x01(\v2 .document.v1.DocumentFileVersionR\aversion\"\xcc\x01\n" +
 	"\x1bRegisterUploadedFileRequest\x12\x1b\n" +
@@ -7503,6 +7516,7 @@ func file_proto_document_v1_document_proto_init() {
 	}
 	file_proto_document_v1_document_proto_msgTypes[17].OneofWrappers = []any{}
 	file_proto_document_v1_document_proto_msgTypes[31].OneofWrappers = []any{}
+	file_proto_document_v1_document_proto_msgTypes[41].OneofWrappers = []any{}
 	file_proto_document_v1_document_proto_msgTypes[63].OneofWrappers = []any{}
 	file_proto_document_v1_document_proto_msgTypes[64].OneofWrappers = []any{}
 	file_proto_document_v1_document_proto_msgTypes[70].OneofWrappers = []any{}

@@ -1419,7 +1419,7 @@ units:
     service: document
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,1 % · internal/document/wopi 0 % (nicht gemessen)"
     scope: >
       TOTALAUSFALL Office-Bearbeitung (WOPI): was OnlyOffice/Collabora beim Speichern per

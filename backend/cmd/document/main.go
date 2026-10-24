@@ -141,6 +141,9 @@ func main() {
 	// x-tenant-id/x-user-id metadata into context — document_grpc.go handlers
 	// read the tenant via middleware.GetTenantID(ctx).
 	grpcServer := grpc.NewServer(
+		// UploadFile and an editor's CreateFileVersion carry the file bytes
+		// (gateway caps them at 50 MiB); the 4 MiB default would refuse them.
+		grpc.MaxRecvMsgSize(60<<20),
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryUnaryInterceptor(),
 			metricsRegistry.GRPCUnaryInterceptor(),

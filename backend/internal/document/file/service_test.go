@@ -190,12 +190,14 @@ func (m *MockRepository) GetVersionByID(_ context.Context, fileID, versionID, te
 	return nil, ErrVersionNotFound
 }
 
-func (m *MockRepository) UpdateCurrentVersion(_ context.Context, fileID uuid.UUID, versionNumber int) error {
-	file, ok := m.files[fileID]
+func (m *MockRepository) PromoteVersion(_ context.Context, v *models.DocumentFileVersion) error {
+	file, ok := m.files[v.FileID]
 	if !ok {
 		return ErrFileNotFound
 	}
-	file.CurrentVersion = versionNumber
+	file.CurrentVersion = v.VersionNumber
+	file.StorageKey = v.StorageKey
+	file.FileSize = v.FileSize
 	return nil
 }
 
@@ -770,6 +772,7 @@ func TestSnapshotVersion_FreezesTheFilesOwnContent(t *testing.T) {
 	svc, repo, store := newTestService()
 	tenant := uuid.New()
 	seeded := seedFileForTenant(repo, tenant)
+	originalKey := seeded.StorageKey
 	userID := uuid.New()
 	label := "Vor Abnahme"
 
@@ -782,8 +785,61 @@ func TestSnapshotVersion_FreezesTheFilesOwnContent(t *testing.T) {
 	require.NotNil(t, version.VersionLabel)
 	assert.Equal(t, label, *version.VersionLabel)
 	assert.True(t, store.uploaded[version.StorageKey], "the copy was uploaded under the version's own key")
-	assert.NotEqual(t, seeded.StorageKey, version.StorageKey)
+	assert.NotEqual(t, originalKey, version.StorageKey)
 	assert.Equal(t, 2, repo.files[seeded.ID].CurrentVersion)
+	assert.Equal(t, version.StorageKey, repo.files[seeded.ID].StorageKey, "the file follows its newest version")
+}
+
+func TestSaveContent_StoresChangedContentAsTheCurrentVersion(t *testing.T) {
+	svc, repo, store := newTestService()
+	tenant := uuid.New()
+	seeded := seedFileForTenant(repo, tenant)
+	userID := uuid.New()
+
+	version, err := svc.SaveContent(context.Background(), seeded.ID, tenant, userID, []byte("neu"), nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, version.VersionNumber)
+	assert.Equal(t, int64(3), version.FileSize)
+	assert.Equal(t, userID, version.CreatedBy)
+	assert.True(t, store.uploaded[version.StorageKey])
+	assert.Equal(t, version.StorageKey, repo.files[seeded.ID].StorageKey)
+	assert.Equal(t, int64(3), repo.files[seeded.ID].FileSize)
+}
+
+func TestSaveContent_UnchangedContentAddsNoVersion(t *testing.T) {
+	svc, repo, store := newTestService()
+	tenant := uuid.New()
+	seeded := seedFileForTenant(repo, tenant)
+	seeded.FileSize = int64(len("test content")) // what MockFileStore.Download serves
+	v1 := &models.DocumentFileVersion{ID: uuid.New(), TenantID: tenant, FileID: seeded.ID, VersionNumber: 1, StorageKey: seeded.StorageKey}
+	repo.versions[seeded.ID] = []*models.DocumentFileVersion{v1}
+
+	version, err := svc.SaveContent(context.Background(), seeded.ID, tenant, uuid.New(), []byte("test content"), nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, v1.ID, version.ID, "the current version is answered")
+	assert.Len(t, repo.versions[seeded.ID], 1)
+	assert.Empty(t, store.uploaded)
+}
+
+func TestSaveContent_RefusesForeignTrashedAndUnreadableFiles(t *testing.T) {
+	svc, repo, store := newTestService()
+	tenant := uuid.New()
+	seeded := seedFileForTenant(repo, tenant)
+
+	_, err := svc.SaveContent(context.Background(), seeded.ID, uuid.New(), uuid.New(), []byte("x"), nil)
+	assert.ErrorIs(t, err, ErrFileNotFound, "another tenant's file")
+
+	seeded.IsDeleted = true
+	_, err = svc.SaveContent(context.Background(), seeded.ID, tenant, uuid.New(), []byte("x"), nil)
+	assert.ErrorIs(t, err, ErrFileDeleted)
+
+	seeded.IsDeleted = false
+	store.failDownload = true
+	_, err = svc.SaveContent(context.Background(), seeded.ID, tenant, uuid.New(), make([]byte, seeded.FileSize), nil)
+	require.Error(t, err, "a same-size save that cannot be compared is not stored blindly")
+	assert.Empty(t, store.uploaded)
 }
 
 func TestSnapshotVersion_RefusesForeignTrashedAndUnreadableFiles(t *testing.T) {

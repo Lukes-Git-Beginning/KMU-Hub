@@ -639,10 +639,11 @@ func (s *DocumentGRPCServer) GetFileVersionDownloadURL(ctx context.Context, req 
 // maxVersionLabelLen mirrors document_file_versions.version_label VARCHAR(255).
 const maxVersionLabelLen = 255
 
-// CreateFileVersion freezes the file's current content as a new version. Only
-// file_id and version_label of the request count: the content comes from the
-// file itself and the author from the caller's JWT, so storage_key, file_size and
-// created_by in the request are ignored.
+// CreateFileVersion records a new version of a file. With content set (an
+// editor's save, see gateway.WOPIFileAdapter) that content becomes the file's
+// current content; without it the file's current content is frozen. The author
+// always comes from the caller's JWT, so storage_key, file_size and created_by
+// in the request are ignored.
 func (s *DocumentGRPCServer) CreateFileVersion(ctx context.Context, req *documentv1.CreateFileVersionRequest) (*documentv1.CreateFileVersionResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -667,7 +668,12 @@ func (s *DocumentGRPCServer) CreateFileVersion(ctx context.Context, req *documen
 		label = &l
 	}
 
-	v, err := s.fileService.SnapshotVersion(ctx, fileID, tenantID, actorID, label)
+	var v *models.DocumentFileVersion
+	if req.Content != nil {
+		v, err = s.fileService.SaveContent(ctx, fileID, tenantID, actorID, req.Content, label)
+	} else {
+		v, err = s.fileService.SnapshotVersion(ctx, fileID, tenantID, actorID, label)
+	}
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
