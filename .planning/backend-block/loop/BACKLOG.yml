@@ -1112,7 +1112,7 @@ units:
     service: document
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 75,6 % · internal/gateway 77,1 %"
     scope: >
       TOTALAUSFALL, gefunden in Iteration 25 (fix-document-share-entity-checks): "Freigabe

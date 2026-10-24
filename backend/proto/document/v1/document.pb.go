@@ -4641,8 +4641,10 @@ type UnshareEntityRequest struct {
 	EntityType       string                 `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
 	EntityId         string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	SharedWithUserId string                 `protobuf:"bytes,3,opt,name=shared_with_user_id,json=sharedWithUserId,proto3" json:"shared_with_user_id,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// When set, the share is resolved by its ID and the other fields are ignored.
+	ShareId       string `protobuf:"bytes,4,opt,name=share_id,json=shareId,proto3" json:"share_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UnshareEntityRequest) Reset() {
@@ -4692,6 +4694,13 @@ func (x *UnshareEntityRequest) GetEntityId() string {
 func (x *UnshareEntityRequest) GetSharedWithUserId() string {
 	if x != nil {
 		return x.SharedWithUserId
+	}
+	return ""
+}
+
+func (x *UnshareEntityRequest) GetShareId() string {
+	if x != nil {
+		return x.ShareId
 	}
 	return ""
 }
@@ -6972,12 +6981,13 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"permission\x12\x1b\n" +
 	"\tshared_by\x18\x05 \x01(\tR\bsharedBy\"G\n" +
 	"\x13ShareEntityResponse\x120\n" +
-	"\x05share\x18\x01 \x01(\v2\x1a.document.v1.DocumentShareR\x05share\"\x83\x01\n" +
+	"\x05share\x18\x01 \x01(\v2\x1a.document.v1.DocumentShareR\x05share\"\x9e\x01\n" +
 	"\x14UnshareEntityRequest\x12\x1f\n" +
 	"\ventity_type\x18\x01 \x01(\tR\n" +
 	"entityType\x12\x1b\n" +
 	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12-\n" +
-	"\x13shared_with_user_id\x18\x03 \x01(\tR\x10sharedWithUserId\"\x17\n" +
+	"\x13shared_with_user_id\x18\x03 \x01(\tR\x10sharedWithUserId\x12\x19\n" +
+	"\bshare_id\x18\x04 \x01(\tR\ashareId\"\x17\n" +
 	"\x15UnshareEntityResponse\"Q\n" +
 	"\x11ListSharesRequest\x12\x1f\n" +
 	"\ventity_type\x18\x01 \x01(\tR\n" +

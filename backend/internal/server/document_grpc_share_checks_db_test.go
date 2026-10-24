@@ -163,4 +163,46 @@ func TestDocumentGRPCServer_ShareEntity_ChecksEntityAndOwner(t *testing.T) {
 		_, err = srv.UnshareEntity(ownerCtx, unshare) // owner, not the sharer
 		require.NoError(t, err)
 	})
+
+	t.Run("unshare by share_id: same rules, tenant-scoped lookup", func(t *testing.T) {
+		seedShare := func(with, by uuid.UUID) uuid.UUID {
+			id := testutil.SeedRow(t, pool, "document_shares", map[string]any{
+				"id": uuid.New(), "tenant_id": tenantID, "entity_type": models.ShareEntityFile,
+				"entity_id": fileID, "shared_with_user_id": with, "permission": models.SharePermissionRead,
+				"shared_by": by,
+			})
+			t.Cleanup(func() { testutil.CleanupRow(t, pool, "document_shares", id) })
+			return id
+		}
+		byID := func(id uuid.UUID) *documentv1.UnshareEntityRequest {
+			return &documentv1.UnshareEntityRequest{ShareId: id.String()}
+		}
+		shareCount := func() int {
+			list, err := srv.ListShares(ownerCtx, &documentv1.ListSharesRequest{EntityType: models.ShareEntityFile, EntityId: fileID.String()})
+			require.NoError(t, err)
+			return len(list.Shares)
+		}
+
+		// created by the recipient (not the owner), shared with the third user
+		sharerShare := seedShare(third, recipient)
+		_, err := srv.UnshareEntity(ctxWithTenantAndUser(tenantID, third), byID(sharerShare))
+		requireGRPCCode(t, err, codes.PermissionDenied)
+		_, err = srv.UnshareEntity(ctxWithTenantAndUser(otherTenant, foreignUser), byID(sharerShare))
+		requireGRPCCode(t, err, codes.NotFound)
+		require.Equal(t, 1, shareCount(), "refused attempts must not delete the share")
+		_, err = srv.UnshareEntity(ctxWithTenantAndUser(tenantID, recipient), byID(sharerShare)) // the sharer
+		require.NoError(t, err)
+		require.Equal(t, 0, shareCount())
+
+		ownerShare := seedShare(third, recipient)
+		_, err = srv.UnshareEntity(ownerCtx, byID(ownerShare)) // the owner, not the sharer
+		require.NoError(t, err)
+		_, err = srv.UnshareEntity(ownerCtx, byID(ownerShare))
+		requireGRPCCode(t, err, codes.NotFound)
+
+		_, err = srv.UnshareEntity(ownerCtx, byID(uuid.New()))
+		requireGRPCCode(t, err, codes.NotFound)
+		_, err = srv.UnshareEntity(ownerCtx, &documentv1.UnshareEntityRequest{ShareId: "nope"})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
 }

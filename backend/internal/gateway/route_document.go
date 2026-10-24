@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -160,6 +161,7 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.Use(authMiddleware)
 		r.With(docShareManage).Post("/", d.HandleShareEntity)
 		r.With(docShareManage).Delete("/", d.HandleUnshareEntity)
+		r.With(docShareManage).Delete("/{id}", d.HandleUnshareByID)
 		r.With(docRead).Get("/entity", d.HandleListShares)
 		r.With(docRead).Get("/shared-with-me", d.HandleListSharedWithMe)
 	})
@@ -1291,6 +1293,30 @@ func (d *DocumentRoutes) HandleUnshareEntity(w http.ResponseWriter, r *http.Requ
 		EntityId:         req.EntityID,
 		SharedWithUserId: req.SharedWithUserID,
 	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]bool{"unshared": true})
+}
+
+// HandleUnshareByID revokes a share by its ID — the path the desktop's
+// ShareDialog calls (document-client.ts `unshare`).
+func (d *DocumentRoutes) HandleUnshareByID(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(id); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid share id")
+		return
+	}
+
+	_, err = client.UnshareEntity(r.Context(), &documentv1.UnshareEntityRequest{ShareId: id})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

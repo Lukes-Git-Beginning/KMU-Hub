@@ -31768,6 +31768,39 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/documents/shares/{id}:
+    delete:
+      summary: Revoke a file or folder share by its ID
+      description: >-
+        Requires documents:write or documents:share:manage. Only the user who created the
+        share or the owner of the shared file/folder may revoke it (403 otherwise); a missing
+        or foreign share is 404.
+      tags: [documents]
+      operationId: unshareDocumentEntityByID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Share revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unshared: { type: boolean, example: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/documents/shares/entity:
     get:
       summary: List shares for a file or folder
