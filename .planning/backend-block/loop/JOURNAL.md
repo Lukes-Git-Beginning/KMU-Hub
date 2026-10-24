@@ -707,3 +707,44 @@ Zeitstempel sind in `chat.proto` Strings (kein `{seconds,nanos}`-Problem trotz `
 - neue-units: keine
 - desktop-aufrufer: `typing.start`/`typing.stop` -> `useMessages.ts:325/344` liest `data.channel_id/user_id/first_name/last_name` -> passt · `presence.update` -> `PresenceProvider.tsx:57-65` liest `data.user_id`/`data.status` -> passt · `presence.set_status` (FE sendet `status`, `:87/104/109`) -> passt · `presence.subscribe` (`user_ids` oben, `:150`) -> passt · `call.incoming`/`call.ended` -> `useIncomingCallListener.ts:29-45` `unwrap(raw.call)` liest `call_id`, `caller_*`, `call_type`, `reason` -> passt. `BroadcastCallEnded` hat im Gateway keinen Aufrufer (nur Hub-Definition), `reason:"declined"` kommt also noch von nirgends — kein Teil dieser Unit.
 - offen: Race-Detector erst in CI (Tests nutzen nur bestehende Hub-Locks). Browser-Smoke der Tippanzeige/Präsenz/Anruf-Overlay nicht gelaufen (E2E deckt WS nicht ab).
+
+## Iteration 49 — scan-fe-gateway-shape-and-body-dialer — done — 2026-10-25 01:05
+- commit: (siehe git log, Subject `chore(loop): record the dialer scan and queue its fix units`)
+- gebaut: Scan, kein Code. Alle 27 Dialer-Routen (Desktop `dialer-client.ts` -> `route_dialer.go` -> `dialer.proto`) abgeglichen. Antwort: `response.Proto` = protojson mit snake_case und Enum-Zahlen, Nullwerte entfallen; das FE fängt das ab (`dialer-normalize.ts`, `?? []`, `?.campaigns`). Zwei Totalausfälle gefunden (Fix-Units vorn), ein mandanteninterner Befund ans Ende.
+- gate: n.a. (kein Code geändert)
+- coverage: n.a. (Scan)
+- mutations-probe: n.a. (Scan)
+- verify vorgaenger: sauber (`2549ba2b`: nur `websocket.go` + Test, keine Route/Guard/Proto/Tabelle)
+- neue-units: `fix-dialer-callback-at-datetime-local-rejected` und `fix-dialer-zero-values-crash-dashboards` (beide VOR die erste todo-Unit: Totalausfälle, am Code belegt — Rückruf-Ausgang 400, Dashboards stürzen bei Nullwerten ab) · `harden-dialer-agent-id-pinned-to-caller` (Ende, mandantenintern, am Code gelesen)
+- desktop-aufrufer: siehe Tabelle; Abweichungen, die die UI brechen: `callback_at` (Rückruf-Ausgang 400) und weggelassene Nullwerte der beiden Dashboards (TypeError) -> je eine Fix-Unit
+- offen: nichts im Gate; die Tabelle ist aus Code gelesen, nicht gegen einen laufenden Stack gefahren (Antwortform gegen `response.Proto`/Proto-Definition, Rolle gegen lokale `role_permissions`).
+
+### Dialer REST (Rolle: Grants der lokalen DB; member hat `calls:read|write`, `campaigns:read`, `agent:manage`; manager zusätzlich `campaigns:manage|write`, `outcomes:manage`)
+
+| Methode Route | Body/Query vom FE | FE-Typ | Antwort | member | passt |
+|---|---|---|---|---|---|
+| GET /campaigns | `page,page_size,status_filter` | `{campaigns,total}` | `{campaigns,total}`, leer -> Felder entfallen, FE `?.campaigns ?? []` | ja | ja |
+| POST /campaigns | `{name,description?,mode}` (mode 1) | `Campaign` | Campaign flach, 201 | nein (manage) | ja |
+| GET /campaigns/{id} | – | `Campaign` | flach | ja | ja |
+| PUT /campaigns/{id} | `{name,description?,mode}` — `mode` ist im Update-Typ unbekannt, wird still ignoriert (kein `DisallowUnknownFields`) | `Campaign` | flach | nein (manage) | ja |
+| POST /campaigns/{id}/start, /pause | ohne Body | `Campaign` | flach | nein (manage) | ja |
+| DELETE /campaigns/{id} | – | `{status}` | `{status:"campaign archived"}` | nein (manage) | ja |
+| POST /campaigns/{id}/contacts | `{contact_ids?,filter_id?}` | `{added_count,skipped_count}` | Nullwerte entfallen, FE zeigt Zahlen | nein (manage) | ja (0 -> undefined, nur Anzeige) |
+| GET /campaigns/{id}/contacts | `page,page_size,status_filter` | `{contacts,total}` | gewrappt | ja | ja |
+| GET /campaigns/{id}/next | – (kein `agent_id`) | `CampaignContact` | flach; leer -> 404 `ErrNoContactsAvailable`, FE `onError` -> Toast "keine weiteren Kontakte" | ja (calls:write) | ja |
+| POST .../contacts/{cid}/skip, /requeue | ohne Body | `{status}` | `{status:"contact skipped"}` | ja (queueAction) | ja |
+| POST /calls | `{campaign_contact_id}` | `DialerCallSession` | flach, 201; `ErrNoConsent` -> 403 (Absicht, Consent-Asserter) | ja | ja |
+| POST /calls/{id}/outcome | `{outcome_id,notes?,callback_at?}` | `DialerCallSession` | flach | ja | **nein: `callback_at` = `datetime-local` (`2026-10-26T10:00`), Gateway parst nur RFC3339 -> 400** -> Fix-Unit |
+| PUT /calls/{id}/notes | `{notes}` (Autosave sendet nie leer: `value.trim()`-Guard) | `{status}` | `{status:"notes saved"}` | ja | ja |
+| POST /calls/{id}/complete | `{agent_id: undefined}` = `{}` | `{status}` | ja | ja | ja |
+| GET /agent-status | – | `AgentStatusEntry` | flach; nie gesetzt -> Defaults, FE `?.status ?? 5` | ja (ownStatus) | ja |
+| PUT /agent-status | `{status}` | `AgentStatusEntry` | flach | ja (ownStatus) | ja |
+| GET /agent-status/campaign/{id} | – | `{agents}` | gewrappt | nein (agent:manage fehlt im Preset 256, in der DB ja) | ja; **kein FE-Aufrufer** (Hook ungenutzt) |
+| GET /supervisor | – | `SupervisorOverview` | verschachtelt, Normalizer füllt | ja (campaigns:read) | ja |
+| GET /contacts/{id}/calls | – | `{calls}` | gewrappt, Normalizer | ja | ja |
+| GET /dashboard/agent | – | `AgentDashboard` | flach; `calls_per_hour`/`outcome_breakdown` entfallen bei 0/leer, FE ruft `.toFixed`/`.filter`/`.length` ungeschützt: **TypeError bei einem Agenten ohne Anrufe heute** (Seite UND Arbeitsplatz-Statistik) | ja (DB-Grant) | **nein** -> Fix-Unit |
+| GET /campaigns/{id}/dashboard | – | `CampaignDashboard` | flach, gleiche Auslassung, `CampaignDetailPage.tsx:285/302` stürzt bei einer Kampagne ohne Anrufe | ja | **nein** -> Fix-Unit |
+| GET /outcomes | `include_inactive?` | `{outcomes}` | gewrappt | ja (calls:write) | ja |
+| POST /outcomes, PUT/DELETE /outcomes/{id} | `{label,color,is_*,sort_order}` | `CallOutcome` / `{status}` | flach | nein (manage) | ja |
+
+Idempotency: `authenticatedRequest` setzt `Idempotency-Key` an jedem POST/PUT/PATCH/DELETE (`authenticatedFetch.ts`, Schlüssel `<ts>-<uuid>`), die Gateway-Middleware (`main.go:205`) liest genau `Idempotency-Key` und gilt global — passt. Der Schlüssel ist pro Aufruf frisch, ein Retry nach Token-Refresh bekommt einen neuen: Doppelanlage bei Netzwerkwiederholung deckt das nicht, das ist FE-Sache und kein Dialer-Spezifikum.

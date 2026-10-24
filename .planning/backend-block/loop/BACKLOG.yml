@@ -2,7 +2,7 @@
 #
 # Eine Unit = eine Iteration = ein Commit.
 #
-# status: todo | in_progress | done | blocked
+# status: in_progress | in_progress | done | blocked
 # model:  sonnet (Default) | opus (architektonisch schwer, Proto, Security, Migration+RLS)
 #
 # Treiber-Parsing: `hooks/backlog-check.py` lädt diese Datei mit yaml.safe_load. Der Vorflug
@@ -12,7 +12,7 @@
 # verlangt, einer `deps`-ID die nirgends existiert, und bei Zyklen in `deps`.
 #
 # `--state` liefert dem Treiber OPEN=, NEXT= und MODEL=. MODEL kommt von der ERSTEN BAUBAREN
-# Unit — `status: todo` UND alle `deps` auf `done`, in DATEIREIHENFOLGE. Wo eine `opus`-Unit
+# Unit — `status: in_progress` UND alle `deps` auf `done`, in DATEIREIHENFOLGE. Wo eine `opus`-Unit
 # steht, entscheidet also mit, wie viele Iterationen auf opus laufen.
 #
 # Läufe 1+2 (58 Units): archive/lauf-1-2/ — Lauf 3 (61): archive/lauf-3/
@@ -1931,12 +1931,95 @@ units:
       - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
       - "Abweichungen ohne UI-Bruch gesammelt in einer Unit am Ende oder begründet verworfen"
 
-  - id: scan-fe-gateway-shape-and-body-dialer
+  - id: fix-dialer-callback-at-datetime-local-rejected
     phase: 4
     service: gateway
     model: sonnet
     deps: []
     status: todo
+    coverage_start: "internal/gateway 77,6 % (vor Bau messen)"
+    scope: >
+      TOTALAUSFALL (Fund aus scan-fe-gateway-shape-and-body-dialer, Lauf 16, Iteration 49, am Code
+      belegt): jeder Rückruf-Ausgang scheitert. Das Desktop sendet `callback_at` aus einem
+      `<input type="datetime-local">` (`WrapUpPanel.tsx:60`, durchgereicht in
+      `DialerWorkspacePage.tsx:154`) — das Format ist `2026-10-26T10:00`, ohne Sekunden und ohne
+      Zone. `HandleLogCallOutcome` (`route_dialer.go:626`) parst mit `time.Parse(time.RFC3339, …)`
+      und antwortet 400 "invalid callback_at format". Das FE zeigt dazu keinen Toast
+      (`onError: () => setWrapUpSubmitting(false)`): der Agent sieht nur, dass "Abschließen" nichts
+      tut, und kann das Gespräch nicht beenden. Betrifft jeden Outcome mit `is_callback = true`.
+      Fix im Gateway (Desktop-Code ändern wir nicht): statt `time.Parse(time.RFC3339, …)` die
+      vorhandene `parseTimestamp` aus `route_work.go:267` nutzen — RFC3339 wie bisher, zusätzlich
+      zonenlose Wanduhrzeit, gelesen in Europe/Berlin (gleiche Konvention wie Aufgaben-Fälligkeit).
+      Fehlerantwort bei Müll bleibt 400.
+    sources:
+      - backend/internal/gateway/route_dialer.go
+      - backend/internal/gateway/route_work.go
+      - backend/internal/gateway/route_dialer_test.go
+      - desktop/src/renderer/src/modules/dialer/components/workspace/WrapUpPanel.tsx
+      - desktop/src/renderer/src/modules/dialer/DialerWorkspacePage.tsx
+    notes: >
+      `parseTimestamp` akzeptiert zusätzlich ein reines Datum (UTC-Mitternacht) — für einen Rückruf
+      unschädlich. `callback_at` ist optional, ein leerer String kommt vom FE nie (`|| undefined`).
+    done_when:
+      - "Gateway-Test: `callback_at: \"2026-10-26T10:00\"` -> 200, der gRPC-Stub bekommt 2026-10-26 10:00 Europe/Berlin (MEZ ab 25.10.2026, also 09:00 UTC)"
+      - "Gateway-Test: RFC3339 mit Offset bleibt unverändert, Müll -> 400"
+      - "Mutations-Probe: zurück auf time.Parse(time.RFC3339), der datetime-local-Test wird rot"
+      - "desktop-aufrufer: WrapUpPanel/DialerWorkspacePage im Journal belegt"
+
+  - id: fix-dialer-zero-values-crash-dashboards
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,6 % (vor Bau messen)"
+    scope: >
+      TOTALAUSFALL (Fund aus scan-fe-gateway-shape-and-body-dialer, Lauf 16, Iteration 49, am Code
+      belegt): `response.Proto` emittiert mit `EmitUnpopulated: false` (response.go:31) keine
+      Nullwerte und keine leeren Listen. Die beiden Dashboard-Seiten des Desktops lesen die Felder
+      ungeschützt: `AgentDashboardPage.tsx:34` (`dashboard.outcome_breakdown.filter`), `:107`
+      (`.length`), `CampaignProgressStrip.tsx:~46/64` (`dashboard.calls_per_hour.toFixed(1)`,
+      `outcome_breakdown.length`, im Arbeitsplatz selbst), `CampaignDetailPage.tsx:285/302`
+      (`calls_per_hour.toFixed`, `outcome_breakdown.length`). Ein Agent OHNE Anrufe heute (jeder
+      Morgen, jeder neue Nutzer) und jede Kampagne OHNE Anrufe (jede frisch angelegte) liefert
+      `calls_per_hour = 0` und `outcome_breakdown = []` — beide fehlen im JSON, die Seite stürzt mit
+      TypeError ab. Nur `getSupervisorOverview`/`getContactCalls` haben einen Normalizer
+      (`dialer-normalize.ts`), Dashboards, Kampagnenliste (`contact_count`, `completed_count`
+      0 -> undefined) und Warteschlange (`call_count`) nicht. Fix im Gateway (Desktop-Code ändern
+      wir nicht): in `route_dialer.go` für die Antworten, deren FE-Typ keine optionalen
+      Zahlen/Listen hat, `response.ProtoFull` statt `response.Proto` (Muster: Doku an
+      `response.go:179`). `ProtoFull` schreibt unset `optional`-Skalare als `null`, das passt zu den
+      FE-Typen `string | null` / `number | null` in `dialer-client.ts`. Betroffen: GetCampaign,
+      ListCampaigns, Create/Update/Start/PauseCampaign, ListCampaignContacts, GetNextContact,
+      GetCampaignDashboard, GetAgentDashboard, GetCampaignAgents, Get/SetAgentStatus,
+      ListCallOutcomes, Create/UpdateCallOutcome, InitiateCall, LogCallOutcome, AddContacts,
+      Supervisor, ContactCalls (die letzten beiden sind harmlos: der Normalizer überschreibt keinen
+      vorhandenen Wert). Vor dem Umstellen je Typ in `dialer-client.ts` gegenlesen, dass kein Feld
+      auf `undefined` statt `null` geprüft wird (`=== undefined`, `??`-Ketten).
+    sources:
+      - backend/internal/gateway/route_dialer.go
+      - backend/internal/server/response/response.go
+      - desktop/src/renderer/src/api/dialer-client.ts
+      - desktop/src/renderer/src/modules/dialer/AgentDashboardPage.tsx
+      - desktop/src/renderer/src/modules/dialer/CampaignDetailPage.tsx
+      - desktop/src/renderer/src/modules/dialer/components/workspace/CampaignProgressStrip.tsx
+    notes: >
+      Kein Test darf das mit Workaround-Daten grün machen: der Gateway-Test fährt einen
+      gRPC-Stub, der ein LEERES `AgentDashboard{AgentId: ...}` bzw. `CampaignDashboard{}` liefert,
+      und prüft, dass `calls_per_hour`, `total_calls_today`, `outcome_breakdown` (als `[]`) im JSON
+      stehen.
+    done_when:
+      - "Gateway-Test: leeres AgentDashboard/CampaignDashboard -> JSON enthält `calls_per_hour: 0`, `outcome_breakdown: []`, `active_campaign_id: null`"
+      - "Gateway-Test: leere ListCampaigns -> `campaigns: []`, `total: 0`; Campaign mit contact_count 0 -> Feld vorhanden"
+      - "Mutations-Probe: ein Handler zurück auf response.Proto, der zugehörige Test wird rot"
+      - "desktop-aufrufer: je geänderter Typ in dialer-client.ts gegen null-Prüfungen gegengelesen, im Journal belegt"
+
+  - id: scan-fe-gateway-shape-and-body-dialer
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       Dialer, 27 Pfade: `api/dialer-client.ts` und `api/dialer-normalize.ts` (der Normalizer
@@ -2127,7 +2210,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper]
-    status: todo
+    status: in_progress
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow `TestContactAndDealDesktopBodyFlow` als member: Kontakt anlegen und ändern mit
@@ -2197,7 +2280,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper, fix-hr-employee-update-drops-address-emergency-and-status]
-    status: todo
+    status: in_progress
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow als admin: Mitarbeiter anlegen und bearbeiten mit dem Body des
@@ -2242,7 +2325,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/biz/hr/timetracking 65,6 %"
     scope: >
       Schwächstes Paket, das dieser Lauf fachlich anfasst (Stempeluhr, Pausen, Wochen,
@@ -2372,7 +2455,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     coverage_start: "internal/rapporte 82,5 %"
     scope: >
       Gefunden in fix-rapporte-member-can-fill-and-submit (Lauf 16, Iteration 15), per Code-Lesung
@@ -2519,3 +2602,32 @@ units:
       - "DB-Test (kmuhub_app): Nicht-Mitglied eines privaten Kanals -> NotFound beim Reagieren, kein Eintrag; Mitglied -> ok"
       - "Test über den echten Hub (Muster route_chat_realtime_test.go): Reaktion per REST -> Abonnent erhält `reaction.toggled`"
       - "Mutations-Probe: Mitgliedschaftsprüfung entfernt, der Nicht-Mitglied-Test wird rot"
+
+  - id: harden-dialer-agent-id-pinned-to-caller
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,6 % (vor Bau messen)"
+    scope: >
+      Gefunden in scan-fe-gateway-shape-and-body-dialer (Lauf 16, Iteration 49), am Code gelesen,
+      ohne UI-Bruch, mandantenintern. `agentStatusTarget` (`route_dialer.go:716`) pinnt den Status
+      auf den Aufrufer, solange er nicht `dialer:agent:manage` hat. Drei Geschwister tun das nicht:
+      `HandleInitiateDialerCall` (`agent_id` aus dem Body, nur Default = Aufrufer),
+      `HandleGetNextContact` und `HandleGetAgentDashboard` (`agent_id` aus der Query).
+      Wer `dialer:calls:write` hat, kann so ein Gespräch im Namen eines Kollegen starten; ein
+      Nutzer ohne `agent:manage` (Preset `member` aus Migration 256) liest mit
+      `?agent_id=` fremde Kennzahlen, sobald der Guard für Self-Service geöffnet ist.
+      Fix: dieselbe Auflösung wie `agentStatusTarget` für alle drei, FE sendet `agent_id` nie
+      (`dialer-client.ts` `initiateCall`/`getAgentDashboard` ohne Parameter im Aufruf).
+      HINWEIS: die lokale DB gibt dem Preset `member` `dialer:agent:manage` (Migration 068, in 256
+      nicht enthalten) — dann wirkt der Pin für member nicht. Das ist eine Produktfrage
+      (Zeile für `decide-member-manager-module-defaults`), nicht Teil dieser Unit.
+    sources:
+      - backend/internal/gateway/route_dialer.go
+      - backend/internal/gateway/route_dialer_agent_status_test.go
+    done_when:
+      - "Test: Aufrufer ohne agent:manage mit fremder agent_id -> der gRPC-Stub sieht die ID des Aufrufers (alle drei Handler)"
+      - "Test: Aufrufer mit agent:manage darf eine fremde ID benennen"
+      - "Mutations-Probe: Pin in einem Handler entfernt, der zugehörige Test wird rot"
