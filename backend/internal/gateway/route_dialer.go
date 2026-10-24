@@ -3,10 +3,8 @@ package gateway
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -624,12 +622,13 @@ func (dr *DialerRoutes) HandleLogCallOutcome(w http.ResponseWriter, r *http.Requ
 		grpcReq.AppointmentId = req.AppointmentID
 	}
 	if req.CallbackAt != nil {
-		t, err := time.Parse(time.RFC3339, *req.CallbackAt)
+		// The desktop sends a datetime-local value ("2026-10-26T10:00"), not RFC3339.
+		ts, err := parseTimestamp(*req.CallbackAt)
 		if err != nil {
-			response.Error(w, http.StatusBadRequest, "invalid callback_at format, expected RFC3339")
+			response.Error(w, http.StatusBadRequest, "invalid callback_at format, expected RFC3339 or YYYY-MM-DDTHH:MM")
 			return
 		}
-		grpcReq.CallbackAt = timestamppb.New(t)
+		grpcReq.CallbackAt = ts
 	}
 
 	resp, err := client.LogCallOutcome(r.Context(), grpcReq)

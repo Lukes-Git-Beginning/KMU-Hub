@@ -27557,7 +27557,7 @@ paths:
                 outcome_id: { type: string, format: uuid }
                 notes: { type: string }
                 next_action: { type: string }
-                callback_at: { type: string, format: date-time, description: "RFC3339 timestamp for scheduled callback" }
+                callback_at: { type: string, format: date-time, description: "RFC3339 timestamp for scheduled callback; a zoneless YYYY-MM-DDTHH:MM (datetime-local) is read as Europe/Berlin" }
                 appointment_id: { type: string, format: uuid }
       responses:
         "200":

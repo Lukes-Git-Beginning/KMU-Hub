@@ -748,3 +748,14 @@ Zeitstempel sind in `chat.proto` Strings (kein `{seconds,nanos}`-Problem trotz `
 | POST /outcomes, PUT/DELETE /outcomes/{id} | `{label,color,is_*,sort_order}` | `CallOutcome` / `{status}` | flach | nein (manage) | ja |
 
 Idempotency: `authenticatedRequest` setzt `Idempotency-Key` an jedem POST/PUT/PATCH/DELETE (`authenticatedFetch.ts`, Schlüssel `<ts>-<uuid>`), die Gateway-Middleware (`main.go:205`) liest genau `Idempotency-Key` und gilt global — passt. Der Schlüssel ist pro Aufruf frisch, ein Retry nach Token-Refresh bekommt einen neuen: Doppelanlage bei Netzwerkwiederholung deckt das nicht, das ist FE-Sache und kein Dialer-Spezifikum.
+
+## Iteration 50 — fix-dialer-callback-at-datetime-local-rejected — done — 2026-10-25 01:12
+- commit: (siehe git log, Subject `fix(gateway): accept the datetime-local callback_at the wrap-up panel sends`)
+- gebaut: `HandleLogCallOutcome` liest `callback_at` jetzt über `parseTimestamp` (RFC3339 wie bisher, zusätzlich zonenlose Wanduhrzeit `YYYY-MM-DDTHH:MM[:SS]` in Europe/Berlin) statt `time.Parse(RFC3339)`; Müll bleibt 400. Neue Testdatei `route_dialer_wire_test.go` mit Loopback-gRPC-Stub für den Dialer (Grundlage für `fix-dialer-zero-values-crash-dashboards`). OpenAPI-Beschreibung von `callback_at` ergänzt (Pfad unverändert).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/gateway` exit 0, 0 Skips) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/gateway 77,6 % -> 77,6 % (neue Tests decken nur den geänderten Zweig)
+- mutations-probe: `parseTimestamp` im Handler zurück auf `time.Parse(time.RFC3339, …)` -> `TestDialerWire_CallbackAt/datetime-local` und `…/datetime-local_with_seconds` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`20c8efec` nur BACKLOG/JOURNAL; `2549ba2b` war in Iteration 49 geprüft)
+- neue-units: keine
+- desktop-aufrufer: `callback_at` -> `WrapUpPanel.tsx:60` (datetime-local-Wert) -> `DialerWorkspacePage.tsx:154` `callback_at: callbackAt || undefined` -> `useDialer.ts:281` (`callback_at?: string`) -> passt jetzt; Antwortform unverändert (`DialerCallSession` flach). Kein anderer Desktop-Aufrufer sendet das Feld (`ContactQueueTable.tsx` liest es nur).
+- offen: Konvention Europe/Berlin ist fest (`lean:`-Marker an `parseTimestamp`); ein Browser-Smoke des Rückruf-Ausgangs ist nicht gelaufen.
