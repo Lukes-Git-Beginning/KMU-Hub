@@ -209,8 +209,13 @@ export function useRecordMovement() {
     mutationFn: ({ itemId, ...body }: RecordMovementInput & { itemId: string }) =>
       recordMovement(itemId, body),
     onSuccess: (_data, variables) => {
+      // An in/out movement changes the stock, so everything showing it is stale.
+      qc.invalidateQueries({ queryKey: inventarKeys.item(variables.itemId) })
+      qc.invalidateQueries({ queryKey: ['inventar', 'items'] })
       qc.invalidateQueries({ queryKey: inventarKeys.movements(variables.itemId) })
       qc.invalidateQueries({ queryKey: inventarKeys.history(variables.itemId) })
+      qc.invalidateQueries({ queryKey: inventarKeys.warnings() })
+      qc.invalidateQueries({ queryKey: inventarKeys.report() })
     },
   })
 }
