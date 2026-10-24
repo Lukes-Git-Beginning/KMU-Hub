@@ -131,3 +131,75 @@ func TestUpdate_ClearDueDate_RealSQL(t *testing.T) {
 		t.Fatalf("clearing twice: %v", err)
 	}
 }
+
+// TestUpdate_IsClosed_RealSQL: is_closed resolves to the project's first closed/open status through
+// the real repository, completed_at follows, the read side reports is_closed, and the status lookup
+// stays inside the tenant.
+func TestUpdate_IsClosed_RealSQL(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Is Closed Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "Is Closed Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+	owner := seedWorkUser(t, pool, tenantID)
+	defer testutil.CleanupRow(t, pool, "users", owner)
+	projectID := seedWorkProject(t, pool, tenantID, owner)
+	defer testutil.CleanupRow(t, pool, "projects", projectID)
+
+	seedStatus := func(name string, sortOrder int, closed bool) uuid.UUID {
+		return testutil.SeedRow(t, pool, "project_statuses", map[string]any{
+			"tenant_id": tenantID, "project_id": projectID, "name": name,
+			"sort_order": sortOrder, "is_default": false, "is_closed": closed,
+		})
+	}
+	todo := seedStatus("Todo", 1, false)
+	closedLate := seedStatus("Archiviert", 3, true)
+	closedFirst := seedStatus("Erledigt", 2, true)
+	_ = closedLate
+
+	taskID := seedWorkTask(t, pool, tenantID, projectID, owner, "tick me")
+	defer testutil.CleanupRow(t, pool, "tasks", taskID)
+
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	repo := NewPostgresRepository(pool)
+	svc := NewService(repo, project.NewPostgresRepository(pool))
+	svc.SetOpenProjects(true) // membership is not under test here
+
+	// The first status of the task is "Todo" (open).
+	if _, err := svc.Update(ctx, tenantID, taskID, UpdateInput{StatusID: &todo}, owner); err != nil {
+		t.Fatalf("seed status: %v", err)
+	}
+
+	yes, no := true, false
+	got, err := svc.Update(ctx, tenantID, taskID, UpdateInput{IsClosed: &yes}, owner)
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if got.StatusID == nil || *got.StatusID != closedFirst || got.CompletedAt == nil || !got.StatusIsClosed {
+		t.Fatalf("want the smallest-sort_order closed status + completed_at + is_closed, got status=%v completed=%v closed=%v", got.StatusID, got.CompletedAt, got.StatusIsClosed)
+	}
+
+	listed, _, err := repo.List(ctx, tenantID, TaskFilters{ProjectID: &projectID})
+	if err != nil || len(listed) != 1 || !listed[0].StatusIsClosed {
+		t.Fatalf("list must report is_closed: %v / %+v", err, listed)
+	}
+
+	got, err = svc.Update(ctx, tenantID, taskID, UpdateInput{IsClosed: &no}, owner)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	if got.StatusID == nil || *got.StatusID != todo || got.CompletedAt != nil || got.StatusIsClosed {
+		t.Fatalf("want the open status without completed_at, got status=%v completed=%v closed=%v", got.StatusID, got.CompletedAt, got.StatusIsClosed)
+	}
+
+	// Tenant scope: the same project id under another tenant resolves to nothing.
+	if _, err := repo.FirstStatusByClosed(ctx, tenantOther, projectID, true); !errors.Is(err, ErrNoStatusForState) {
+		t.Fatalf("foreign tenant must not see the project's statuses, got %v", err)
+	}
+}

@@ -100,3 +100,41 @@ func TestWorkWire_UpdateTaskMalformedDueDateIs400(t *testing.T) {
 		assert.Nil(t, stub.updated, "must not reach the service: %v", bad)
 	}
 }
+
+func TestWorkWire_UpdateTaskIsClosedReachesTheService(t *testing.T) {
+	yes, no := true, false
+	for name, tc := range map[string]struct {
+		body map[string]any
+		want *bool
+	}{
+		"complete": {map[string]any{"is_closed": true, "completed_at": "2026-10-24T10:00:00Z"}, &yes},
+		"reopen":   {map[string]any{"is_closed": false, "completed_at": nil}, &no},
+		"absent":   {map[string]any{"title": "x"}, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			routes, stub := newWorkTaskWireRoutes(t)
+
+			rec := httptest.NewRecorder()
+			routes.HandleUpdateTask(rec, updateTaskRequestFor(t, tc.body))
+
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			require.NotNil(t, stub.updated)
+			if tc.want == nil {
+				assert.Nil(t, stub.updated.IsClosed)
+				return
+			}
+			require.NotNil(t, stub.updated.IsClosed)
+			assert.Equal(t, *tc.want, *stub.updated.IsClosed)
+		})
+	}
+}
+
+func TestWorkWire_UpdateTaskIsClosedMustBeABool(t *testing.T) {
+	routes, stub := newWorkTaskWireRoutes(t)
+
+	rec := httptest.NewRecorder()
+	routes.HandleUpdateTask(rec, updateTaskRequestFor(t, map[string]any{"is_closed": "yes"}))
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Nil(t, stub.updated)
+}

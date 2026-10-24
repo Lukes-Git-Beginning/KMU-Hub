@@ -222,6 +222,10 @@ func (stubWorkTaskRepo) GetStatusByID(context.Context, uuid.UUID) (string, bool,
 	return "", false, nil
 }
 
+func (stubWorkTaskRepo) FirstStatusByClosed(context.Context, uuid.UUID, uuid.UUID, bool) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+
 func (stubWorkTaskRepo) GetUserDisplayName(context.Context, uuid.UUID) (string, error) {
 	return "", nil
 }

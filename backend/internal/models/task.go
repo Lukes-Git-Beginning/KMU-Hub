@@ -102,6 +102,8 @@ type TaskWithRelations struct {
 	Task
 	StatusName     *string        `json:"status_name,omitempty"`
 	StatusColor    *string        `json:"status_color,omitempty"`
+	// StatusIsClosed is the closed flag of the task's project status (false without one).
+	StatusIsClosed bool           `json:"is_closed"`
 	AssigneeName   *string        `json:"assignee_name,omitempty"`
 	ProjectKey     *string        `json:"project_key,omitempty"`
 	SubtaskCount   int            `json:"subtask_count"`

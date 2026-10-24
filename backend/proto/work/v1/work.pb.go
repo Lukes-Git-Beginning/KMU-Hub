@@ -382,6 +382,7 @@ type TaskProto struct {
 	CustomFields   map[string]string      `protobuf:"bytes,23,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	LabelIds       []string               `protobuf:"bytes,24,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
 	StartDate      *timestamppb.Timestamp `protobuf:"bytes,25,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
+	IsClosed       bool                   `protobuf:"varint,26,opt,name=is_closed,json=isClosed,proto3" json:"is_closed,omitempty"` // closed flag of the task's project status
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -589,6 +590,13 @@ func (x *TaskProto) GetStartDate() *timestamppb.Timestamp {
 		return x.StartDate
 	}
 	return nil
+}
+
+func (x *TaskProto) GetIsClosed() bool {
+	if x != nil {
+		return x.IsClosed
+	}
+	return false
 }
 
 type TaskDependencyProto struct {
@@ -3465,7 +3473,10 @@ type UpdateTaskRequest struct {
 	LabelIds     []string                 `protobuf:"bytes,10,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
 	StartDate    *timestamppb.Timestamp   `protobuf:"bytes,11,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
 	// true removes the due date (due_date is then ignored); absent due_date keeps it.
-	ClearDueDate  bool `protobuf:"varint,12,opt,name=clear_due_date,json=clearDueDate,proto3" json:"clear_due_date,omitempty"`
+	ClearDueDate bool `protobuf:"varint,12,opt,name=clear_due_date,json=clearDueDate,proto3" json:"clear_due_date,omitempty"`
+	// true moves the task to the project's first closed status, false to its first open one;
+	// ignored when status_id is set.
+	IsClosed      *bool `protobuf:"varint,13,opt,name=is_closed,json=isClosed,proto3,oneof" json:"is_closed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3580,6 +3591,13 @@ func (x *UpdateTaskRequest) GetStartDate() *timestamppb.Timestamp {
 func (x *UpdateTaskRequest) GetClearDueDate() bool {
 	if x != nil {
 		return x.ClearDueDate
+	}
+	return false
+}
+
+func (x *UpdateTaskRequest) GetIsClosed() bool {
+	if x != nil && x.IsClosed != nil {
+		return *x.IsClosed
 	}
 	return false
 }
@@ -8849,7 +8867,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\tis_closed\x18\a \x01(\bR\bisClosed\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\b\n" +
-	"\x06_color\"\x8c\n" +
+	"\x06_color\"\xa9\n" +
 	"\n" +
 	"\tTaskProto\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
@@ -8888,7 +8906,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\rcustom_fields\x18\x17 \x03(\v2$.work.v1.TaskProto.CustomFieldsEntryR\fcustomFields\x12\x1b\n" +
 	"\tlabel_ids\x18\x18 \x03(\tR\blabelIds\x12>\n" +
 	"\n" +
-	"start_date\x18\x19 \x01(\v2\x1a.google.protobuf.TimestampH\vR\tstartDate\x88\x01\x01\x1a?\n" +
+	"start_date\x18\x19 \x01(\v2\x1a.google.protobuf.TimestampH\vR\tstartDate\x88\x01\x01\x12\x1b\n" +
+	"\tis_closed\x18\x1a \x01(\bR\bisClosed\x1a?\n" +
 	"\x11CustomFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\r\n" +
@@ -9175,7 +9194,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x0f_parent_task_id\"S\n" +
 	"\x11ListTasksResponse\x12(\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x12.work.v1.TaskProtoR\x05tasks\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xd2\x04\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x82\x05\n" +
 	"\x11UpdateTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12%\n" +
@@ -9192,7 +9211,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	" \x03(\tR\blabelIds\x12>\n" +
 	"\n" +
 	"start_date\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x06R\tstartDate\x88\x01\x01\x12$\n" +
-	"\x0eclear_due_date\x18\f \x01(\bR\fclearDueDateB\b\n" +
+	"\x0eclear_due_date\x18\f \x01(\bR\fclearDueDate\x12 \n" +
+	"\tis_closed\x18\r \x01(\bH\aR\bisClosed\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\f\n" +
 	"\n" +
@@ -9200,7 +9220,9 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\t_priorityB\x0e\n" +
 	"\f_assignee_idB\v\n" +
 	"\t_due_dateB\r\n" +
-	"\v_start_date\"<\n" +
+	"\v_start_dateB\f\n" +
+	"\n" +
+	"_is_closed\"<\n" +
 	"\x12UpdateTaskResponse\x12&\n" +
 	"\x04task\x18\x01 \x01(\v2\x12.work.v1.TaskProtoR\x04task\"#\n" +
 	"\x11DeleteTaskRequest\x12\x0e\n" +

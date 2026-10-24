@@ -93,3 +93,42 @@ func TestWorkGRPC_UpdateTaskClearDueDate(t *testing.T) {
 		t.Fatalf("clear_due_date must remove the date, got %v", taskRepo.tasks[taskID].DueDate)
 	}
 }
+
+// is_closed travels over the gRPC handler into the service (task lands in the resolved status),
+// a project without a matching status maps to FailedPrecondition, and the task wire type carries
+// the closed flag of its status.
+func TestWorkGRPC_UpdateTaskIsClosed(t *testing.T) {
+	taskRepo := newWorkTaskMockRepo()
+	projRepo := &nonMemberProjectRepo{}
+	taskSvc := task.NewService(taskRepo, projRepo)
+	taskSvc.SetOpenProjects(true)
+	srv := NewWorkGRPCServer(
+		project.NewService(projRepo), wstatus.NewService(&statusStubRepo{}), taskSvc, taskRepo,
+		comment.NewService(newCommentAuthzMockRepo(), taskRepo), timeentry.NewService(&timeentryStubRepo{}),
+		label.NewService(newLabelMockRepo()), customfield.NewService(&customfieldStubRepo{}),
+	)
+
+	userID, tenantID, projectID, taskID, closedStatus := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	ctx := context.WithValue(ctxWithActor(userID), middleware.TenantIDKey, tenantID.String())
+	taskRepo.tasks[taskID] = &models.TaskWithRelations{Task: models.Task{ID: taskID, ProjectID: &projectID, Title: "tick"}}
+
+	taskRepo.firstStatusErr = task.ErrNoStatusForState
+	yes := true
+	_, err := srv.UpdateTask(ctx, &workv1.UpdateTaskRequest{Id: taskID.String(), UpdatedBy: userID.String(), IsClosed: &yes})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("project without a closed status want FailedPrecondition, got %v", err)
+	}
+
+	taskRepo.firstStatusErr = nil
+	taskRepo.firstStatus = closedStatus
+	if _, err := srv.UpdateTask(ctx, &workv1.UpdateTaskRequest{Id: taskID.String(), UpdatedBy: userID.String(), IsClosed: &yes}); err != nil {
+		t.Fatalf("UpdateTask is_closed: %v", err)
+	}
+	if got := taskRepo.tasks[taskID].StatusID; got == nil || *got != closedStatus {
+		t.Fatalf("is_closed=true must move the task to the resolved status, got %v", got)
+	}
+
+	if !taskToProto(&models.TaskWithRelations{StatusIsClosed: true}).IsClosed {
+		t.Error("TaskProto.is_closed must carry the status flag")
+	}
+}

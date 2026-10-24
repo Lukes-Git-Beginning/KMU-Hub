@@ -64,6 +64,9 @@ type Repository interface {
 
 	// Status check
 	GetStatusByID(ctx context.Context, statusID uuid.UUID) (statusName string, isClosed bool, err error)
+	// FirstStatusByClosed returns the project's status with the smallest sort_order
+	// whose is_closed equals closed, scoped to the tenant. ErrNoStatusForState if none.
+	FirstStatusByClosed(ctx context.Context, tenantID, projectID uuid.UUID, closed bool) (uuid.UUID, error)
 
 	// User display name lookup (for denormalizing actor metadata onto events)
 	GetUserDisplayName(ctx context.Context, userID uuid.UUID) (string, error)

@@ -2017,3 +2017,27 @@ units:
     done_when:
       - "Luke: Abbildung von Deaktivieren/Reaktivieren entschieden"
       - "FE-Toast erst nach Erfolg (Desktop-Arbeit, nicht Loop)"
+
+  - id: decide-work-task-complete-without-project
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: Was bedeutet Abhaken bei einer Aufgabe OHNE Projekt (kein Status möglich) - completed_at direkt setzen oder weiter 409?"
+    coverage_start: "internal/work/task 71,7 %"
+    scope: >
+      Gefunden in fix-work-task-quick-complete-ignored (Lauf 16, Iteration 20). `PUT /tasks/{id}`
+      mit `is_closed` löst den Abschluss über den ersten geschlossenen Status des PROJEKTS auf.
+      Eine projektlose Aufgabe hat keinen Status; sie antwortet heute 409 ("task without a project
+      cannot be completed", `task.ErrTaskWithoutProject`). Das FE (`MyTasksPage.tsx:546`,
+      `KanbanCard.tsx:109`) zeigt dann nur den Fehler, kein Abhaken. Option (a): `completed_at`
+      direkt setzen/löschen - die Spalte existiert, und `MyTasksPage` liest ohnehin `completed_at`;
+      die Kanban-Karte liest `is_closed` (kommt aus dem Status, bliebe false). Option (b): 409
+      lassen, projektlose Aufgaben sind in der Praxis selten (Anlegen-Dialog verlangt ein Projekt).
+    sources:
+      - backend/internal/work/task/service.go
+      - desktop/src/renderer/src/modules/work/tasks/MyTasksPage.tsx
+    done_when:
+      - "Luke: (a) oder (b) entschieden"
+      - "Bei (a): Service-Test + DB-Test, projektlose Aufgabe bekommt completed_at, is_closed=false löscht es"

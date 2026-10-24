@@ -226,6 +226,22 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	return s.repo.GetByID(ctx, task.ID, input.TenantID)
 }
 
+// statusForClosedFlag resolves "complete"/"reopen" to a concrete status of the task's
+// project. nil means the task already is in the requested state.
+func (s *Service) statusForClosedFlag(ctx context.Context, tenantID uuid.UUID, existing *models.TaskWithRelations, closed bool) (*uuid.UUID, error) {
+	if existing.ProjectID == nil {
+		return nil, ErrTaskWithoutProject
+	}
+	if existing.StatusID != nil && existing.StatusIsClosed == closed {
+		return nil, nil
+	}
+	id, err := s.repo.FirstStatusByClosed(ctx, tenantID, *existing.ProjectID, closed)
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
 // UpdateInput contains the data that can be updated on a task
 type UpdateInput struct {
 	Title        *string
@@ -236,6 +252,9 @@ type UpdateInput struct {
 	StartDate    *time.Time
 	DueDate      *time.Time
 	ClearDueDate bool // removes the due date; wins over DueDate
+	// IsClosed completes (true) or reopens (false) the task by moving it to the
+	// project's first closed/open status; ignored when StatusID is set.
+	IsClosed *bool
 	SortOrder    *float64
 }
 
@@ -251,6 +270,14 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 		if err := s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID); err != nil {
 			return nil, err
 		}
+	}
+
+	if input.IsClosed != nil && input.StatusID == nil {
+		statusID, resolveErr := s.statusForClosedFlag(ctx, tenantID, existing, *input.IsClosed)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		input.StatusID = statusID
 	}
 
 	task := &existing.Task

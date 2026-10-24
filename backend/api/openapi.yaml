@@ -6248,7 +6248,14 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          description: >-
+            Either the Idempotency-Key request is still in flight, or is_closed
+            asks for a state the task cannot reach (a project-less task, or a
+            project without a closed/open status).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -41604,6 +41611,12 @@ components:
           description: Send null to remove the due date; omit the key to keep it.
           type: string
           format: date-time
+        is_closed:
+          type: boolean
+          description: >-
+            true completes the task by moving it to the project's first closed status (lowest
+            sort_order), false reopens it into the first open one. Ignored when status_id is set.
+            completed_at is set by the server.
         custom_fields:
           type: array
           items:
@@ -41672,6 +41685,9 @@ components:
         completed_at:
           type: string
           format: date-time
+        is_closed:
+          type: boolean
+          description: Closed flag of the task's project status.
         subtask_count:
           type: integer
         has_blocked_deps:

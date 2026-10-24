@@ -157,6 +157,9 @@ func (m *mockTaskRepo) ListDependenciesByProject(_ context.Context, _ uuid.UUID)
 func (m *mockTaskRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, error) {
 	return "", false, nil
 }
+func (m *mockTaskRepo) FirstStatusByClosed(_ context.Context, _, _ uuid.UUID, _ bool) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
 func (m *mockTaskRepo) GetUserDisplayName(_ context.Context, _ uuid.UUID) (string, error) {
 	return "", nil
 }

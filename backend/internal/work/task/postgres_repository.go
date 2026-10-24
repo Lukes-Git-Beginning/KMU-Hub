@@ -55,7 +55,7 @@ const getByIDQuery = `
 SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
        t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
        t.created_by, t.created_at, t.updated_at, t.completed_at,
-       ps.name AS status_name, ps.color AS status_color,
+       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
        u.first_name || ' ' || u.last_name AS assignee_name,
        p.project_key,
        (SELECT COUNT(*) FROM tasks WHERE parent_task_id = t.id) AS subtask_count,
@@ -74,7 +74,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID
 		&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
 		&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 		&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
-		&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
+		&tw.StatusName, &tw.StatusColor, &tw.StatusIsClosed, &tw.AssigneeName, &tw.ProjectKey,
 		&tw.SubtaskCount, &tw.HasBlockedDeps,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -196,7 +196,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
 		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
-		       ps.name AS status_name, ps.color AS status_color,
+		       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
 		       p.project_key,
 		       (SELECT COUNT(*) FROM tasks WHERE parent_task_id = t.id) AS subtask_count,
@@ -226,7 +226,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 			&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
 			&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 			&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
-			&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
+			&tw.StatusName, &tw.StatusColor, &tw.StatusIsClosed, &tw.AssigneeName, &tw.ProjectKey,
 			&tw.SubtaskCount, &tw.HasBlockedDeps,
 		); scanErr != nil {
 			return nil, 0, scanErr
@@ -295,7 +295,7 @@ func (r *PostgresRepository) GetSubtasks(ctx context.Context, parentID uuid.UUID
 		SELECT st.id, st.project_id, st.task_number, st.title, st.description, st.status_id, st.priority,
 		       st.assignee_id, st.parent_task_id, st.depth, st.sort_order, st.start_date, st.due_date,
 		       st.created_by, st.created_at, st.updated_at, st.completed_at,
-		       ps.name AS status_name, ps.color AS status_color,
+		       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
 		       p.project_key,
 		       (SELECT COUNT(*) FROM tasks WHERE parent_task_id = st.id) AS subtask_count,
@@ -520,7 +520,7 @@ func (r *PostgresRepository) ListTasksForEntity(ctx context.Context, entityType 
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
 		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
-		       ps.name AS status_name, ps.color AS status_color,
+		       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
 		       p.project_key,
 		       (SELECT COUNT(*) FROM tasks WHERE parent_task_id = t.id) AS subtask_count,
@@ -708,7 +708,7 @@ func (r *PostgresRepository) Search(ctx context.Context, tenantID uuid.UUID, que
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
 		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
-		       ps.name AS status_name, ps.color AS status_color,
+		       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
 		       p.project_key,
 		       (SELECT COUNT(*) FROM tasks WHERE parent_task_id = t.id) AS subtask_count,
@@ -802,6 +802,19 @@ func (r *PostgresRepository) GetStatusByID(ctx context.Context, statusID uuid.UU
 	return name, isClosed, err
 }
 
+func (r *PostgresRepository) FirstStatusByClosed(ctx context.Context, tenantID, projectID uuid.UUID, closed bool) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM project_statuses
+		 WHERE project_id = $1 AND tenant_id = $2 AND is_closed = $3
+		 ORDER BY sort_order ASC LIMIT 1`, projectID, tenantID, closed,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNoStatusForState
+	}
+	return id, err
+}
+
 // GetUserDisplayName returns the "first last" display name for a user, or an
 // empty string if the user is not found. Used to denormalize actor metadata
 // onto emitted notification events; resolution failures must not block emits.
@@ -826,7 +839,7 @@ func scanTasksWithRelations(rows pgx.Rows) ([]models.TaskWithRelations, error) {
 			&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
 			&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 			&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
-			&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
+			&tw.StatusName, &tw.StatusColor, &tw.StatusIsClosed, &tw.AssigneeName, &tw.ProjectKey,
 			&tw.SubtaskCount, &tw.HasBlockedDeps,
 		); scanErr != nil {
 			return nil, scanErr

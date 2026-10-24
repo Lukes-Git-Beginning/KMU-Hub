@@ -869,6 +869,7 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 		input.DueDate = &t
 	}
 	input.ClearDueDate = req.ClearDueDate
+	input.IsClosed = req.IsClosed
 
 	result, err := s.taskService.Update(ctx, tenantID, id, input, updatedBy)
 	if err != nil {
@@ -1682,6 +1683,7 @@ func taskToProto(t *models.TaskWithRelations) *workv1.TaskProto {
 		UpdatedAt:      timestamppb.New(t.UpdatedAt),
 		SubtaskCount:   int32(t.SubtaskCount),
 		HasBlockedDeps: t.HasBlockedDeps,
+		IsClosed:       t.StatusIsClosed,
 	}
 	if t.ProjectID != nil {
 		s := t.ProjectID.String()
@@ -2584,6 +2586,8 @@ func mapWorkError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, task.ErrViewerCannotEdit):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, task.ErrNoStatusForState), errors.Is(err, task.ErrTaskWithoutProject):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, task.ErrCustomFieldNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, task.ErrParentInDiffProject):

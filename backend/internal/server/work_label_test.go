@@ -251,6 +251,8 @@ func (m *labelMockRepo) GetTaskLabelIDs(_ context.Context, _, taskID string) ([]
 
 type workTaskMockRepo struct {
 	tasks            map[uuid.UUID]*models.TaskWithRelations
+	firstStatus      uuid.UUID // answer of FirstStatusByClosed
+	firstStatusErr   error
 	lastListFilter   task.TaskFilters
 	dependencies     []models.TaskDependency
 	entityLinks      map[uuid.UUID]models.TaskEntityLink
@@ -480,6 +482,10 @@ func (r *workTaskMockRepo) ListDependenciesByProject(_ context.Context, _ uuid.U
 }
 func (r *workTaskMockRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, error) {
 	return "Open", false, nil
+}
+
+func (r *workTaskMockRepo) FirstStatusByClosed(_ context.Context, _, _ uuid.UUID, _ bool) (uuid.UUID, error) {
+	return r.firstStatus, r.firstStatusErr
 }
 
 func (r *workTaskMockRepo) GetUserDisplayName(_ context.Context, _ uuid.UUID) (string, error) {

@@ -28,6 +28,10 @@ type mockRepo struct {
 	projectDeps     []models.TaskDependency
 	userDisplayName string
 	moveTaskErr     error
+	// FirstStatusByClosed: what the lookup returns and which flag it was asked for.
+	firstStatus    uuid.UUID
+	firstStatusErr error
+	lastWantClosed *bool
 }
 
 func newMockRepo() *mockRepo {
@@ -222,6 +226,11 @@ func (m *mockRepo) GetUserDisplayName(_ context.Context, _ uuid.UUID) (string, e
 
 func (m *mockRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, error) {
 	return m.statusName, m.statusClosed, nil
+}
+
+func (m *mockRepo) FirstStatusByClosed(_ context.Context, _, _ uuid.UUID, closed bool) (uuid.UUID, error) {
+	m.lastWantClosed = &closed
+	return m.firstStatus, m.firstStatusErr
 }
 
 // --- Mock Project Repository ---
@@ -1256,5 +1265,95 @@ func TestService_UpdateClearDueDate(t *testing.T) {
 	}
 	if len(repo.activities) != activitiesBefore+1 {
 		t.Error("clearing an absent date must not log an activity")
+	}
+}
+
+// --- Complete / reopen via is_closed ---
+
+func TestService_Update_IsClosedMovesToTheProjectsClosedStatus(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	tenantID, projectID, user := uuid.New(), uuid.New(), uuid.New()
+	projRepo.tenants = map[uuid.UUID]uuid.UUID{projectID: tenantID}
+	openStatus, closedStatus := uuid.New(), uuid.New()
+	created, err := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, StatusID: &openStatus, Title: "t", CreatedBy: user})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	yes, no := true, false
+	repo.firstStatus, repo.statusClosed = closedStatus, true
+	got, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{IsClosed: &yes}, user)
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if repo.lastWantClosed == nil || !*repo.lastWantClosed {
+		t.Fatal("expected a lookup for the first closed status")
+	}
+	if got.StatusID == nil || *got.StatusID != closedStatus || got.CompletedAt == nil {
+		t.Fatalf("task must sit in the closed status with completed_at, got status=%v completed=%v", got.StatusID, got.CompletedAt)
+	}
+
+	// Already closed: no second lookup, nothing moves.
+	got.StatusIsClosed = true
+	repo.lastWantClosed = nil
+	if _, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{IsClosed: &yes}, user); err != nil {
+		t.Fatalf("complete twice: %v", err)
+	}
+	if repo.lastWantClosed != nil {
+		t.Error("a task that already is closed must not trigger a status lookup")
+	}
+
+	// Reopen.
+	reopenStatus := uuid.New()
+	repo.firstStatus, repo.statusClosed = reopenStatus, false
+	got, err = svc.Update(ctx, tenantID, created.ID, UpdateInput{IsClosed: &no}, user)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	if got.StatusID == nil || *got.StatusID != reopenStatus || got.CompletedAt != nil {
+		t.Fatalf("task must sit in the open status without completed_at, got status=%v completed=%v", got.StatusID, got.CompletedAt)
+	}
+
+	// An explicit status wins over is_closed.
+	repo.lastWantClosed = nil
+	explicit := uuid.New()
+	if _, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{StatusID: &explicit, IsClosed: &yes}, user); err != nil {
+		t.Fatalf("explicit status: %v", err)
+	}
+	if repo.lastWantClosed != nil {
+		t.Error("status_id must take precedence, no is_closed lookup expected")
+	}
+}
+
+func TestService_Update_IsClosedRefusals(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	tenantID, projectID, user := uuid.New(), uuid.New(), uuid.New()
+	projRepo.tenants = map[uuid.UUID]uuid.UUID{projectID: tenantID}
+	yes := true
+
+	// Project without a closed status -> clear error, nothing changes.
+	inProject, _ := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, Title: "p", CreatedBy: user})
+	repo.firstStatusErr = ErrNoStatusForState
+	if _, err := svc.Update(ctx, tenantID, inProject.ID, UpdateInput{IsClosed: &yes}, user); !errors.Is(err, ErrNoStatusForState) {
+		t.Fatalf("want ErrNoStatusForState, got %v", err)
+	}
+	if repo.tasks[inProject.ID].CompletedAt != nil {
+		t.Error("a refused completion must not set completed_at")
+	}
+
+	// Project-less task has no status to move to.
+	loose, _ := svc.Create(ctx, CreateInput{Title: "loose", CreatedBy: user})
+	if _, err := svc.Update(ctx, tenantID, loose.ID, UpdateInput{IsClosed: &yes}, user); !errors.Is(err, ErrTaskWithoutProject) {
+		t.Fatalf("want ErrTaskWithoutProject, got %v", err)
 	}
 }

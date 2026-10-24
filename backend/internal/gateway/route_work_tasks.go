@@ -211,6 +211,8 @@ type updateTaskRequest struct {
 	Priority    *string `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
 	AssigneeID  *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
 	StartDate   *string `json:"start_date,omitempty"`
+	// IsClosed completes (true) or reopens (false) via the project's first closed/open status.
+	IsClosed *bool `json:"is_closed,omitempty"`
 	// DueDate is raw so an explicit null (clear) differs from an absent key (keep).
 	DueDate      json.RawMessage           `json:"due_date,omitempty"`
 	CustomFields []workCustomFieldValueReq `json:"custom_fields,omitempty"`
@@ -250,6 +252,7 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 	if req.Priority != nil {
 		grpcReq.Priority = req.Priority
 	}
+	grpcReq.IsClosed = req.IsClosed
 	if req.AssigneeID != nil {
 		grpcReq.AssigneeId = req.AssigneeID
 	}
