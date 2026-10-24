@@ -1667,7 +1667,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       Work-Domäne, ~65 Endpunkte: `useTasks`, `useProjects`, `useTimeEntries`, Kommentare,
@@ -1685,6 +1685,127 @@ units:
       - "Tabelle im Journal: je Hook/Methode Route, Body/Query, FE-Typ, Antwortform, passt ja/nein"
       - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
       - "Abweichungen ohne UI-Bruch gesammelt in einer Unit am Ende oder begründet verworfen"
+
+  # ----------------------------------------------------------------------------------------
+  # FIX-UNITS AUS `scan-fe-gateway-shape-and-body-work` (Iteration 42, 2026-10-24). Belege im
+  # Journal. Je Unit: erst die Gateway-Zeile gegen den FE-Aufrufer prüfen, am Gateway/Server
+  # fixen, Test über den echten Handler + gRPC-Hop, Spec nachziehen, `desktop-aufrufer:`.
+  # ----------------------------------------------------------------------------------------
+
+  - id: fix-work-create-task-without-project
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,4 %"
+    scope: >
+      TOTALAUSFALL "Meine Aufgaben -> Neue Aufgabe", für jeden Nutzer. `handleCreateStandaloneTask`
+      (`MyTasksPage.tsx:507-518`) legt eine Aufgabe OHNE `project_id` an
+      (`{title, priority, assignee_id}`; derselbe Dialog öffnet `createDialogOpen`, Zeile ~860).
+      `createTaskRequest.ProjectID` (`route_work_tasks.go:~18`) trägt `validate:"required,uuid"` ->
+      400 "ProjectID is required". Der Server kann es längst: `CreateTask` (`work_grpc.go:~617`)
+      lässt `project_id == ""` zu, `task.Service.Create` überspringt `requireProjectEditor`,
+      Aufgabennummer und Projekt-Status bei `ProjectID == nil`, `Update`/`Move` kennen projektlose
+      Aufgaben (`existing.ProjectID != nil`). Iteration 19 hat das übersehen ("legt nur über
+      denselben Dialog an", `TaskCreateDialog` sendet immer ein Projekt) — falsch, siehe oben.
+      Bau: `ProjectID` -> `validate:"omitempty,uuid"`, leer wird nicht gesetzt. Prüfen, dass eine
+      projektlose Aufgabe mit `assignee_id` ohne `status_id` einen sinnvollen Zustand bekommt (kein
+      Status möglich -> `status_id` NULL, Wire `status_id` fehlt) und in `GET /tasks?assignee_id=…`
+      auftaucht. `parent_task_id` + projektlos: Service-Regel (service.go:142-146) bleibt.
+      Der vorhandene Gateway-Test, der `project_id` als Pflicht prüft, wird umgekehrt (kein
+      Workaround: der Test fährt den echten Handler ohne `project_id`).
+    sources:
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/gateway/route_work_tasks_test.go
+      - backend/internal/server/work_grpc.go
+      - backend/internal/work/task/service.go
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/modules/work/tasks/MyTasksPage.tsx
+    done_when:
+      - "Router-Test über echten gRPC-Hop: POST /tasks ohne project_id -> 201, Aufgabe ohne Projekt, assignee gesetzt; mit ungültiger project_id -> 400"
+      - "DB-Test (kmuhub_app): projektlose Aufgabe erscheint in GET /tasks?assignee_id=<ich> und nicht bei einem anderen Mandanten"
+      - "Spec: project_id in CreateTaskRequest nicht mehr required; swagger-cli validate"
+      - "Mutations-Probe: required wieder gesetzt, der Test wird rot"
+
+  - id: fix-work-project-preference-flat-wire
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,4 %"
+    scope: >
+      Gespeicherte Ansicht/Sortierung eines Projekts wird nie wiederhergestellt. `GET
+      /projects/{id}/preferences` (`route_work_projects.go:~523-542`) schreibt
+      `GetUserProjectPreferenceResponse` per `response.Proto` -> `{"preference":{view_type,
+      list_group_by,list_sort_by,list_sort_desc}}`. Das FE liest FLACH: `ProjectDetailPage.tsx:94/99`
+      (`prefData?.view_type`), `TaskListView.tsx:241-247` (`prefData?.list_group_by`,
+      `list_sort_by`, `list_sort_desc`), und die OpenAPI-Spec (`UserProjectPreferenceResponse`,
+      `types.ts:20643`) beschreibt ebenfalls die flache Form. Folge: jedes Öffnen eines Projekts
+      startet mit dem persönlichen Standard statt mit der gespeicherten Ansicht; Speichern geht
+      (PUT), Wiederherstellen nie. Bau: Gateway schreibt die Felder von `resp.Preference` flach
+      (GET und PUT, damit beide der Spec entsprechen). Nicht-FE-Aufrufer der Route greppen.
+      Default-Antwort des Servers ("list"/"status"/"sort_order") bleibt.
+    sources:
+      - backend/internal/gateway/route_work_projects.go
+      - backend/internal/server/work_grpc.go
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/modules/work/projects/ProjectDetailPage.tsx
+      - desktop/src/renderer/src/modules/work/list/TaskListView.tsx
+      - desktop/src/renderer/src/api/hooks/useProjects.ts
+    done_when:
+      - "Router-Test über echten gRPC-Hop: PUT {view_type:kanban} dann GET -> flaches {view_type:kanban,…} ohne preference-Hülle; ohne gespeicherte Einstellung die Defaults"
+      - "Spec-Antwort passt (flach); swagger-cli validate"
+      - "Mutations-Probe: Hülle wieder eingebaut, der Test wird rot"
+
+  - id: fix-work-task-file-attach-flow
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,4 % · internal/server (CI-Wert 75,3 %)"
+    scope: >
+      TOTALAUSFALL "Datei an Aufgabe anhängen" und "Aufgaben-Datei herunterladen", drei
+      hintereinanderliegende Brüche (alle am Code belegt). FE-Ablauf: `useTaskFiles.ts` (`useAttachFile`,
+      `getFileDownloadUrl`): (1) `POST /api/v1/files/upload` mit FormData NUR `file`; (2) liest
+      `uploadData.storage_key ?? uploadData.key`; (3) `POST /tasks/{id}/files` mit
+      `{filename,mime_type,file_size,storage_key,thumbnail_key?}`; Download: `GET
+      /api/v1/files/{taskFileId}/download` -> `{url}`.
+      (1) `HandleUploadFile` (`server/file_upload.go:~64`) verlangt `channel_id` ("valid channel_id is
+      required", 400) — der Task-Flow hat keinen Kanal. (2) Die Antwort (`file_upload.go:~145`) enthält
+      weder `storage_key` noch `key`; selbst ein erfolgreicher Upload ergäbe `storage_key: ''` und
+      damit 400 in (3) (`attachFileRequest.StorageKey` required). (3) Download: die Route ist die
+      Chat-Datei-Route (`route_chat.go:102`, `chat/file/service.go GetDownloadURL` -> `GetFileByID` in
+      `chat_files` + Kanalmitgliedschaft); die ID einer Aufgaben-Datei (`task_files`) findet sie nie
+      -> 404. Das Desktop ist tabu, der Ablauf muss mit GLEICHEN Aufrufen funktionieren.
+      Bau-Skizze (Entscheidung beim Bauen, im Journal begründen): `files/upload` ohne `channel_id`
+      = kanalloser Upload (Objekt unter Mandanten-Präfix im selben Store, Antwort um `storage_key`
+      und ggf. `thumbnail_key` erweitert; Chat-Aufrufer behalten ihre Felder unverändert); `POST
+      /tasks/{id}/files` prüft, dass `storage_key` zum Mandanten-Präfix des Aufrufers gehört (sonst
+      lässt sich der Key eines fremden Mandanten anhängen = Cross-Tenant-Leck) und die Größe
+      stimmt; `GET /files/{id}/download` fällt auf `task_files` zurück, wenn keine Chat-Datei mit
+      dieser ID existiert (Zugriffsprüfung: Leserecht an der Aufgabe statt Kanalmitgliedschaft; ID
+      tenant-gescoped lesen). Presign-Muster `chat/file/minio_store.go` wiederverwenden, KEINE neue
+      Route. Ist der Schnitt nicht eindeutig oder braucht er eine Produktentscheidung (z. B. Quota),
+      Teil (3) bauen und den Rest mit präziser Frage nach BACKLOG-NEXT.yml.
+    sources:
+      - backend/internal/server/file_upload.go
+      - backend/internal/chat/file/service.go
+      - backend/internal/chat/file/minio_store.go
+      - backend/internal/gateway/route_chat.go
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/server/work_grpc.go
+      - backend/internal/work/task/postgres_repository.go
+      - desktop/src/renderer/src/api/hooks/useTaskFiles.ts
+      - desktop/src/renderer/src/modules/work/components/TaskFileAttachments.tsx
+    done_when:
+      - "Test über den echten Stack: Upload ohne channel_id -> storage_key in der Antwort; Task-Anhang mit diesem Key -> 201; Download über die Task-Datei-ID -> URL"
+      - "Test: storage_key eines anderen Mandanten wird beim Anhängen abgelehnt (kein Eintrag)"
+      - "Test: Download einer Task-Datei eines anderen Mandanten -> NotFound; Chat-Datei-Download unverändert"
+      - "Mutations-Probe: Mandanten-Präfix-Prüfung entfernt, der Fremd-Key-Test wird rot"
+      - "Journal desktop-aufrufer: Chat-Upload (channel_id) bleibt unverändert, Chat-Download-Aufrufer geprüft"
 
   - id: scan-fe-gateway-shape-and-body-chat
     phase: 4

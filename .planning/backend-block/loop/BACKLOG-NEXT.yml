@@ -2020,3 +2020,45 @@ units:
     done_when:
       - "Luke: (a) oder (b) entschieden"
       - "Bei (a): Service-Test + DB-Test, projektlose Aufgabe bekommt completed_at, is_closed=false löscht es"
+
+  - id: fe-handle-work-shape-findings
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Desktop ist tabu; Build-+-Verify mit Screenshot-QA)"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Work-Befunde aus `scan-fe-gateway-shape-and-body-work` (Iteration 42, 2026-10-24), die NUR
+      das Desktop beheben kann — das Gateway sieht den Wunsch nicht:
+      (a) Zuweisung aufheben und Fälligkeit leeren sind wirkungslos: `TaskDetailPage.tsx:147-149`,
+      `TaskDetailPanel.tsx:122-124/131-133`, `TaskRow.tsx:123-125/132-134` senden
+      `assignee_id: undefined` bzw. `due_date: date || undefined` — `JSON.stringify` lässt den Key
+      weg, das Gateway sieht "unverändert" (200, nichts passiert). `due_date: null` löscht seit
+      `94093fa6` korrekt; für `assignee_id` gibt es kein Null-Löschen am Gateway (separate
+      Backend-Entscheidung: `null`/`""` als "Zuweisung aufheben"?). FE: `due_date: null` senden.
+      (b) Aufgaben-Custom-Fields: `CustomFieldsSection.tsx:51` liest `defsData?.customFields`
+      (camelCase), die Wire ist `custom_fields` (`response.Proto` = snake_case) -> der Abschnitt
+      zeigt nie ein Feld. Zusätzlich holt er die CRM-Definitionen (`/api/v1/custom-fields`,
+      entity_type contact/company/deal/activity), nicht `/api/v1/work/custom-fields`
+      (`work_custom_fields:*`, vom FE nirgends aufgerufen) — der Task-Custom-Field-Weg ist
+      konzeptionell offen; Produktentscheidung vor dem Fix.
+      (c) "Meine Aufgaben" gruppiert nach Projekt über `task.project_name`
+      (`MyTasksPage.tsx:456`); `TaskProto` hat kein `project_name` -> Gruppenname fällt auf
+      "Projekt <KEY>" zurück. Kosmetisch; entweder FE schlägt den Namen über `useProjects` nach
+      (Liste liegt vor, `MyTasksPage.tsx:403`) oder Backend ergänzt das Feld (additiv im Proto).
+      (d) Kanban, Gantt und Monatskalender fragen `page_size: 500` an (`KanbanBoard.tsx:57`,
+      `GanttChart.tsx:64`, `WorkCalendarView.tsx:44`); das Gateway klemmt auf 200 (`listPageSizeMax`).
+      Projekte mit mehr als 200 Aufgaben zeigen den Rest stillschweigend nicht. FE: nachladen über
+      `page`, oder Backend-Maximum bewusst anheben (Produktentscheidung, Last).
+      (e) `useCreateTask` erlaubt `project_id` optional (Typ stimmt, siehe
+      `fix-work-create-task-without-project` — Backend-Seite ist dort gelöst).
+    sources:
+      - desktop/src/renderer/src/modules/work/tasks/TaskDetailPage.tsx
+      - desktop/src/renderer/src/modules/work/tasks/TaskDetailPanel.tsx
+      - desktop/src/renderer/src/modules/work/list/TaskRow.tsx
+      - desktop/src/renderer/src/modules/work/components/CustomFieldsSection.tsx
+      - desktop/src/renderer/src/modules/work/tasks/MyTasksPage.tsx
+    done_when:
+      - "Luke/Frontend: (a)-(d) entschieden bzw. gebaut, je per Screenshot-QA abgenommen"
