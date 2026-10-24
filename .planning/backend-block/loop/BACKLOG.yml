@@ -2360,7 +2360,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper, fix-calendar-and-chat-own-delete-for-members, fix-documents-helper-routes-accept-fine-keys, fix-hr-employee-directory-for-members, fix-global-search-for-members, fix-work-task-ops-on-open-projects]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow `TestMemberDailyWorkFlow`: der Arbeitstag eines members. Eigenen Termin
