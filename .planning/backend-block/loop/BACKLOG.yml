@@ -2407,7 +2407,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Erster Flow für die neu in den E2E-Job aufgenommenen Services (`inventar` :9110,
@@ -2811,3 +2811,30 @@ units:
       - "Test: Aufrufer ohne agent:manage mit fremder agent_id -> der gRPC-Stub sieht die ID des Aufrufers (alle drei Handler)"
       - "Test: Aufrufer mit agent:manage darf eine fremde ID benennen"
       - "Mutations-Probe: Pin in einem Handler entfernt, der zugehörige Test wird rot"
+
+  - id: fix-inventar-movement-performed-by-from-caller
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,6 % (vor Bau messen)"
+    scope: >
+      Gefunden in e2e-inventar-einkauf-fe-body (Lauf 16, Iteration 63). Das Desktop sendet
+      `performed_by` bei keiner Lagerbewegung (`ItemDetailModal.tsx`/`inventar-client.ts` lesen es
+      nur, `RecordMovementInput.performed_by` ist optional und wird nie gesetzt). Das Gateway
+      reicht das Feld aus dem Body durch (`HandleRecordMovement`, `HandleAdjustStock`,
+      `HandleTransferStock`, `HandleBookInventur*` mit `performed_by`/`booked_by`): ohne Feld bleibt
+      der Bewegungsverlauf ohne Akteur (Spalte zeigt `—`), mit Feld kann jeder eine fremde User-ID
+      als Verursacher eintragen. Für ein Lager-Audit ist beides falsch. Fix: im Gateway den
+      Aufrufer (`middleware.GetUserID`) eintragen und ein abweichendes Body-Feld verwerfen (oder nur
+      mit `inventar:item:write` zulassen); `acknowledged_by` bei Warnungen analog prüfen.
+      Wire-Form bleibt, nur der Wert ändert sich.
+    sources:
+      - backend/internal/gateway/route_inventar.go
+      - backend/internal/server/inventar_grpc.go
+      - desktop/src/renderer/src/modules/inventar/ItemDetailModal.tsx
+    done_when:
+      - "Test: Bewegung ohne performed_by im Body -> der gRPC-Stub sieht die ID des Aufrufers"
+      - "Test: Bewegung mit fremder performed_by -> wird auf den Aufrufer gesetzt oder mit 403 abgelehnt"
+      - "Mutations-Probe: Pin entfernt, der Test wird rot"
