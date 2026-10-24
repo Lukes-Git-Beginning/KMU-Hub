@@ -291,6 +291,7 @@ type createTripLogRequest struct {
 	DriverName       string `json:"driver_name"`
 	BusinessPartner  string `json:"business_partner,omitempty"`
 	Notes            string `json:"notes,omitempty"`
+	DriverUserID     *string `json:"driver_user_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type updateTripLogRequest struct {
@@ -304,6 +305,8 @@ type updateTripLogRequest struct {
 	DriverName      *string `json:"driver_name,omitempty"`
 	BusinessPartner *string `json:"business_partner,omitempty"`
 	Notes           *string `json:"notes,omitempty"`
+	// null or absent keeps the stored driver link, "" clears it.
+	DriverUserID *string `json:"driver_user_id,omitempty" validate:"omitempty,uuid|len=0"`
 }
 
 type createVehicleDocumentRequest struct {
@@ -1301,6 +1304,7 @@ func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Req
 		DriverName:      req.DriverName,
 		BusinessPartner: req.BusinessPartner,
 		Notes:           req.Notes,
+		DriverUserId:    req.DriverUserID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1359,6 +1363,7 @@ func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Req
 	if req.Notes != nil {
 		grpcReq.Notes = *req.Notes
 	}
+	grpcReq.DriverUserId = req.DriverUserID
 	resp, err := client.UpdateTripLog(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)

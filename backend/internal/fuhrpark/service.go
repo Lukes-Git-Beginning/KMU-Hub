@@ -3,6 +3,7 @@ package fuhrpark
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -740,6 +741,9 @@ func (s *Service) CreateTripLog(ctx context.Context, req TripLog) (TripLog, erro
 	if req.EndKm < req.StartKm {
 		return TripLog{}, fmt.Errorf("%w: end_km must be >= start_km", ErrInvalidInput)
 	}
+	if err := s.resolveTripDriver(ctx, &req); err != nil {
+		return TripLog{}, err
+	}
 	return s.repo.CreateTripLog(ctx, req)
 }
 
@@ -748,7 +752,32 @@ func (s *Service) UpdateTripLog(ctx context.Context, req TripLog) (TripLog, erro
 	if req.ID == (uuid.UUID{}) {
 		return TripLog{}, ErrInvalidInput
 	}
+	if req.DriverUserIDSet {
+		if err := s.resolveTripDriver(ctx, &req); err != nil {
+			return TripLog{}, err
+		}
+	}
 	return s.repo.UpdateTripLog(ctx, req)
+}
+
+// resolveTripDriver checks that a linked driver account belongs to the tenant (the FK on
+// trip_logs does not) and prints the account's name when the entry carries none, so an
+// entry that names its driver by account still reads as a complete Fahrtenbuch row.
+func (s *Service) resolveTripDriver(ctx context.Context, log *TripLog) error {
+	if log.DriverUserID == nil {
+		return nil
+	}
+	name, err := s.repo.DriverUserName(ctx, log.TenantID, *log.DriverUserID)
+	if errors.Is(err, ErrDriverNotFound) {
+		return fmt.Errorf("%w: driver_user_id is not a user of this tenant", ErrInvalidInput)
+	}
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(log.DriverName) == "" {
+		log.DriverName = name
+	}
+	return nil
 }
 
 // DeleteTripLog deletes a trip log entry.

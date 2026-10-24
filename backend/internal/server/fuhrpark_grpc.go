@@ -862,6 +862,10 @@ func (s *FuhrparkGRPCServer) CreateTripLog(ctx context.Context, req *fuhrparkv1.
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
 	}
+	driverUserID, _, err := parseDriverUserID(req.DriverUserId)
+	if err != nil {
+		return nil, err
+	}
 	date, _ := time.Parse("2006-01-02", req.Date)
 	l, err := s.svc.CreateTripLog(ctx, fuhrpark.TripLog{
 		TenantID:        tenantID,
@@ -876,6 +880,7 @@ func (s *FuhrparkGRPCServer) CreateTripLog(ctx context.Context, req *fuhrparkv1.
 		DriverName:      req.DriverName,
 		BusinessPartner: req.BusinessPartner,
 		Notes:           req.Notes,
+		DriverUserID:    driverUserID,
 	})
 	if err != nil {
 		return nil, mapFuhrparkError(err)
@@ -892,6 +897,10 @@ func (s *FuhrparkGRPCServer) UpdateTripLog(ctx context.Context, req *fuhrparkv1.
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
 	}
+	driverUserID, driverUserIDSet, err := parseDriverUserID(req.DriverUserId)
+	if err != nil {
+		return nil, err
+	}
 	date, _ := time.Parse("2006-01-02", req.Date)
 	l, err := s.svc.UpdateTripLog(ctx, fuhrpark.TripLog{
 		ID:              id,
@@ -906,6 +915,8 @@ func (s *FuhrparkGRPCServer) UpdateTripLog(ctx context.Context, req *fuhrparkv1.
 		DriverName:      req.DriverName,
 		BusinessPartner: req.BusinessPartner,
 		Notes:           req.Notes,
+		DriverUserID:    driverUserID,
+		DriverUserIDSet: driverUserIDSet,
 	})
 	if err != nil {
 		return nil, mapFuhrparkError(err)
@@ -1508,8 +1519,24 @@ func fuelLogToProto(l fuhrpark.FuelLog) *fuhrparkv1.FuelLog {
 	}
 }
 
+// parseDriverUserID reads the optional driver link of a trip log request: unset is
+// (nil, false), "" is (nil, true) and clears the link on update, anything else must be a UUID.
+func parseDriverUserID(raw *string) (*uuid.UUID, bool, error) {
+	if raw == nil {
+		return nil, false, nil
+	}
+	if *raw == "" {
+		return nil, true, nil
+	}
+	id, err := uuid.Parse(*raw)
+	if err != nil {
+		return nil, false, status.Errorf(codes.InvalidArgument, "invalid driver_user_id: %v", err)
+	}
+	return &id, true, nil
+}
+
 func tripLogToProto(l fuhrpark.TripLog) *fuhrparkv1.TripLog {
-	return &fuhrparkv1.TripLog{
+	out := &fuhrparkv1.TripLog{
 		Id:              l.ID.String(),
 		TenantId:        l.TenantID.String(),
 		VehicleId:       l.VehicleID.String(),
@@ -1527,6 +1554,11 @@ func tripLogToProto(l fuhrpark.TripLog) *fuhrparkv1.TripLog {
 		CreatedAt:       l.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       l.UpdatedAt.Format(time.RFC3339),
 	}
+	if l.DriverUserID != nil {
+		id := l.DriverUserID.String()
+		out.DriverUserId = &id
+	}
+	return out
 }
 
 func vehicleBookingToProto(b *fuhrpark.VehicleBooking) *fuhrparkv1.VehicleBooking {

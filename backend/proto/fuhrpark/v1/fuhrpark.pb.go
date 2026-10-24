@@ -3185,6 +3185,7 @@ type TripLog struct {
 	CreatedAt       string                 `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt       string                 `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	BusinessPartner string                 `protobuf:"bytes,16,opt,name=business_partner,json=businessPartner,proto3" json:"business_partner,omitempty"` // Geschaeftspartner (Fahrtenbuch Pflichtangabe)
+	DriverUserId    *string                `protobuf:"bytes,17,opt,name=driver_user_id,json=driverUserId,proto3,oneof" json:"driver_user_id,omitempty"`  // linked user account; unset for an external driver
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -3331,6 +3332,13 @@ func (x *TripLog) GetBusinessPartner() string {
 	return ""
 }
 
+func (x *TripLog) GetDriverUserId() string {
+	if x != nil && x.DriverUserId != nil {
+		return *x.DriverUserId
+	}
+	return ""
+}
+
 type ListTripLogsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	VehicleId     string                 `protobuf:"bytes,1,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
@@ -3456,6 +3464,7 @@ type CreateTripLogRequest struct {
 	DriverName      string                 `protobuf:"bytes,9,opt,name=driver_name,json=driverName,proto3" json:"driver_name,omitempty"`
 	Notes           string                 `protobuf:"bytes,10,opt,name=notes,proto3" json:"notes,omitempty"`
 	BusinessPartner string                 `protobuf:"bytes,11,opt,name=business_partner,json=businessPartner,proto3" json:"business_partner,omitempty"`
+	DriverUserId    *string                `protobuf:"bytes,12,opt,name=driver_user_id,json=driverUserId,proto3,oneof" json:"driver_user_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -3567,6 +3576,13 @@ func (x *CreateTripLogRequest) GetBusinessPartner() string {
 	return ""
 }
 
+func (x *CreateTripLogRequest) GetDriverUserId() string {
+	if x != nil && x.DriverUserId != nil {
+		return *x.DriverUserId
+	}
+	return ""
+}
+
 type CreateTripLogResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TripLog       *TripLog               `protobuf:"bytes,1,opt,name=trip_log,json=tripLog,proto3" json:"trip_log,omitempty"`
@@ -3624,8 +3640,10 @@ type UpdateTripLogRequest struct {
 	DriverName      string                 `protobuf:"bytes,9,opt,name=driver_name,json=driverName,proto3" json:"driver_name,omitempty"`
 	Notes           string                 `protobuf:"bytes,10,opt,name=notes,proto3" json:"notes,omitempty"`
 	BusinessPartner string                 `protobuf:"bytes,11,opt,name=business_partner,json=businessPartner,proto3" json:"business_partner,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// unset keeps the stored link, "" clears it, a user id replaces it
+	DriverUserId  *string `protobuf:"bytes,12,opt,name=driver_user_id,json=driverUserId,proto3,oneof" json:"driver_user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateTripLogRequest) Reset() {
@@ -3731,6 +3749,13 @@ func (x *UpdateTripLogRequest) GetNotes() string {
 func (x *UpdateTripLogRequest) GetBusinessPartner() string {
 	if x != nil {
 		return x.BusinessPartner
+	}
+	return ""
+}
+
+func (x *UpdateTripLogRequest) GetDriverUserId() string {
+	if x != nil && x.DriverUserId != nil {
+		return *x.DriverUserId
 	}
 	return ""
 }
@@ -6444,7 +6469,7 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\bfuel_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.FuelLogR\afuelLog\"&\n" +
 	"\x14DeleteFuelLogRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeleteFuelLogResponse\"\xce\x03\n" +
+	"\x15DeleteFuelLogResponse\"\x8c\x04\n" +
 	"\aTripLog\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1d\n" +
@@ -6467,7 +6492,9 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"created_at\x18\x0e \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\x0f \x01(\tR\tupdatedAt\x12)\n" +
-	"\x10business_partner\x18\x10 \x01(\tR\x0fbusinessPartner\"e\n" +
+	"\x10business_partner\x18\x10 \x01(\tR\x0fbusinessPartner\x12)\n" +
+	"\x0edriver_user_id\x18\x11 \x01(\tH\x00R\fdriverUserId\x88\x01\x01B\x11\n" +
+	"\x0f_driver_user_id\"e\n" +
 	"\x13ListTripLogsRequest\x12\x1d\n" +
 	"\n" +
 	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12\x12\n" +
@@ -6475,7 +6502,7 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"_\n" +
 	"\x14ListTripLogsResponse\x121\n" +
 	"\ttrip_logs\x18\x01 \x03(\v2\x14.fuhrpark.v1.TripLogR\btripLogs\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xe0\x02\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x9e\x03\n" +
 	"\x14CreateTripLogRequest\x12\x1d\n" +
 	"\n" +
 	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12\x12\n" +
@@ -6491,9 +6518,11 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"driverName\x12\x14\n" +
 	"\x05notes\x18\n" +
 	" \x01(\tR\x05notes\x12)\n" +
-	"\x10business_partner\x18\v \x01(\tR\x0fbusinessPartner\"H\n" +
+	"\x10business_partner\x18\v \x01(\tR\x0fbusinessPartner\x12)\n" +
+	"\x0edriver_user_id\x18\f \x01(\tH\x00R\fdriverUserId\x88\x01\x01B\x11\n" +
+	"\x0f_driver_user_id\"H\n" +
 	"\x15CreateTripLogResponse\x12/\n" +
-	"\btrip_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.TripLogR\atripLog\"\xd1\x02\n" +
+	"\btrip_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.TripLogR\atripLog\"\x8f\x03\n" +
 	"\x14UpdateTripLogRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04date\x18\x02 \x01(\tR\x04date\x12%\n" +
@@ -6508,7 +6537,9 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"driverName\x12\x14\n" +
 	"\x05notes\x18\n" +
 	" \x01(\tR\x05notes\x12)\n" +
-	"\x10business_partner\x18\v \x01(\tR\x0fbusinessPartner\"H\n" +
+	"\x10business_partner\x18\v \x01(\tR\x0fbusinessPartner\x12)\n" +
+	"\x0edriver_user_id\x18\f \x01(\tH\x00R\fdriverUserId\x88\x01\x01B\x11\n" +
+	"\x0f_driver_user_id\"H\n" +
 	"\x15UpdateTripLogResponse\x12/\n" +
 	"\btrip_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.TripLogR\atripLog\"&\n" +
 	"\x14DeleteTripLogRequest\x12\x0e\n" +
@@ -6999,6 +7030,9 @@ func file_proto_fuhrpark_v1_fuhrpark_proto_init() {
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[21].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[22].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[28].OneofWrappers = []any{}
+	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[42].OneofWrappers = []any{}
+	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[45].OneofWrappers = []any{}
+	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[47].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[81].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

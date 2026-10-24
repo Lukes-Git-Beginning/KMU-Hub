@@ -195,6 +195,7 @@ type fuhrparkShapeStub struct {
 	fuhrparkv1.UnimplementedFuhrparkServiceServer
 	damage   *fuhrparkv1.ReportDamageRequest
 	trip     *fuhrparkv1.CreateTripLogRequest
+	tripUpd  *fuhrparkv1.UpdateTripLogRequest
 	tuev     *fuhrparkv1.CheckTuevDueRequest
 	upcoming *fuhrparkv1.ListUpcomingServicesRequest
 	gps      *fuhrparkv1.GetGpsPositionsRequest
@@ -208,6 +209,11 @@ func (s *fuhrparkShapeStub) ReportDamage(_ context.Context, r *fuhrparkv1.Report
 func (s *fuhrparkShapeStub) CreateTripLog(_ context.Context, r *fuhrparkv1.CreateTripLogRequest) (*fuhrparkv1.CreateTripLogResponse, error) {
 	s.trip = r
 	return &fuhrparkv1.CreateTripLogResponse{TripLog: &fuhrparkv1.TripLog{Id: "t1"}}, nil
+}
+
+func (s *fuhrparkShapeStub) UpdateTripLog(_ context.Context, r *fuhrparkv1.UpdateTripLogRequest) (*fuhrparkv1.UpdateTripLogResponse, error) {
+	s.tripUpd = r
+	return &fuhrparkv1.UpdateTripLogResponse{TripLog: &fuhrparkv1.TripLog{Id: "t1"}}, nil
 }
 
 func (s *fuhrparkShapeStub) CheckTuevDue(_ context.Context, r *fuhrparkv1.CheckTuevDueRequest) (*fuhrparkv1.CheckTuevDueResponse, error) {
@@ -271,6 +277,51 @@ func TestBranchenShape_FuhrparkTripLogPrivateTripNeedsNeitherPurposeNorDriver(t 
 	routes.HandleCreateTripLog(rec, branchenRequest(http.MethodPost, "/vehicles/x/trip-logs", `{`+base+`,"purpose":"Kundentermin"}`))
 	assertStatus(t, rec, http.StatusCreated)
 	assert.Equal(t, "Kundentermin", stub.trip.GetPurpose(), "driver_name stays optional")
+}
+
+func TestBranchenShape_FuhrparkTripLogDriverUserReachesTheService(t *testing.T) {
+	routes, stub := newFuhrparkShapeRoutes(t)
+	base := `"date":"2026-10-20","start_location":"A","end_location":"B","start_km":10,"end_km":20,"purpose":"Termin"`
+	driver := "22222222-2222-2222-2222-222222222222"
+
+	rec := httptest.NewRecorder()
+	routes.HandleCreateTripLog(rec, branchenRequest(http.MethodPost, "/vehicles/x/trip-logs", `{`+base+`,"driver_user_id":"`+driver+`"}`))
+	assertStatus(t, rec, http.StatusCreated)
+	require.NotNil(t, stub.trip.DriverUserId)
+	assert.Equal(t, driver, *stub.trip.DriverUserId)
+
+	stub.trip = nil
+	rec = httptest.NewRecorder()
+	routes.HandleCreateTripLog(rec, branchenRequest(http.MethodPost, "/vehicles/x/trip-logs", `{`+base+`,"driver_user_id":"Max Mustermann"}`))
+	assertStatus(t, rec, http.StatusBadRequest)
+	assert.Nil(t, stub.trip, "a name is not a user id and never reaches the service")
+
+	rec = httptest.NewRecorder()
+	routes.HandleCreateTripLog(rec, branchenRequest(http.MethodPost, "/vehicles/x/trip-logs", `{`+base+`}`))
+	assertStatus(t, rec, http.StatusCreated)
+	assert.Nil(t, stub.trip.DriverUserId, "an external driver sends no link")
+
+	// Update: omitted keeps the link, "" clears it, a UUID replaces it.
+	rec = httptest.NewRecorder()
+	routes.HandleUpdateTripLog(rec, branchenRequest(http.MethodPatch, "/trip-logs/x", `{"notes":"n"}`))
+	assertStatus(t, rec, http.StatusOK)
+	assert.Nil(t, stub.tripUpd.DriverUserId)
+
+	rec = httptest.NewRecorder()
+	routes.HandleUpdateTripLog(rec, branchenRequest(http.MethodPatch, "/trip-logs/x", `{"driver_user_id":""}`))
+	assertStatus(t, rec, http.StatusOK)
+	require.NotNil(t, stub.tripUpd.DriverUserId)
+	assert.Equal(t, "", *stub.tripUpd.DriverUserId)
+
+	rec = httptest.NewRecorder()
+	routes.HandleUpdateTripLog(rec, branchenRequest(http.MethodPatch, "/trip-logs/x", `{"driver_user_id":"`+driver+`"}`))
+	assertStatus(t, rec, http.StatusOK)
+	require.NotNil(t, stub.tripUpd.DriverUserId)
+	assert.Equal(t, driver, *stub.tripUpd.DriverUserId)
+
+	rec = httptest.NewRecorder()
+	routes.HandleUpdateTripLog(rec, branchenRequest(http.MethodPatch, "/trip-logs/x", `{"driver_user_id":"nope"}`))
+	assertStatus(t, rec, http.StatusBadRequest)
 }
 
 func TestBranchenShape_FuhrparkQueryParametersReachTheService(t *testing.T) {

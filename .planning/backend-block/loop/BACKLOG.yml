@@ -1294,7 +1294,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/fuhrpark 82,3 %"
     decided: 2026-10-24
     decision: >-

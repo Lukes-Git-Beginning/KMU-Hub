@@ -65,6 +65,9 @@ type Repository interface {
 	CreateTripLog(ctx context.Context, log TripLog) (TripLog, error)
 	UpdateTripLog(ctx context.Context, log TripLog) (TripLog, error)
 	DeleteTripLog(ctx context.Context, tenantID, id uuid.UUID) error
+	// DriverUserName returns the display name of a user of the tenant, ErrDriverNotFound
+	// for an unknown user or one of another tenant.
+	DriverUserName(ctx context.Context, tenantID, userID uuid.UUID) (string, error)
 	ListTripLogsForExport(ctx context.Context, params ExportTripLogsParams) ([]TripLog, error)
 
 	// Vehicle documents

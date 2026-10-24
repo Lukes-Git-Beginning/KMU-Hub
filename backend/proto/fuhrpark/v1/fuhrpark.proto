@@ -429,6 +429,7 @@ message TripLog {
   string created_at          = 14;
   string updated_at          = 15;
   string business_partner    = 16; // Geschaeftspartner (Fahrtenbuch Pflichtangabe)
+  optional string driver_user_id = 17; // linked user account; unset for an external driver
 }
 message ListTripLogsRequest {
   string vehicle_id = 1;
@@ -451,6 +452,7 @@ message CreateTripLogRequest {
   string driver_name       = 9;
   string notes              = 10;
   string business_partner   = 11;
+  optional string driver_user_id = 12;
 }
 message CreateTripLogResponse { TripLog trip_log = 1; }
 message UpdateTripLogRequest {
@@ -465,6 +467,8 @@ message UpdateTripLogRequest {
   string driver_name       = 9;
   string notes              = 10;
   string business_partner   = 11;
+  // unset keeps the stored link, "" clears it, a user id replaces it
+  optional string driver_user_id = 12;
 }
 message UpdateTripLogResponse { TripLog trip_log = 1; }
 message DeleteTripLogRequest  { string id = 1; }

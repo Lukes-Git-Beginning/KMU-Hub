@@ -19848,9 +19848,10 @@ paths:
                 start_km: { type: integer, format: int64 }
                 end_km: { type: integer, format: int64 }
                 is_private: { type: boolean }
-                driver_name: { type: string, description: "Optional" }
+                driver_name: { type: string, description: "Optional; filled with the account's name when driver_user_id is set and this is empty" }
                 business_partner: { type: string }
                 notes: { type: string }
+                driver_user_id: { type: string, format: uuid, description: "Optional link to the driver's user account; must belong to the caller's tenant (400 otherwise)" }
       responses:
         "201":
           description: Trip log created
@@ -20328,6 +20329,7 @@ paths:
                 driver_name: { type: string }
                 business_partner: { type: string }
                 notes: { type: string }
+                driver_user_id: { type: string, description: "Omitted keeps the stored link, an empty string clears it, a user id of the caller's tenant replaces it (400 otherwise)" }
       responses:
         "200":
           description: Trip log updated
@@ -50223,6 +50225,11 @@ components:
           description: "Geschaeftspartner (Fahrtenbuch Pflichtangabe)"
         notes:
           type: string
+        driver_user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "Linked driver account; null for an external driver"
         created_at:
           type: string
           description: "ISO-8601 string (proto string field, not Timestamp)"
