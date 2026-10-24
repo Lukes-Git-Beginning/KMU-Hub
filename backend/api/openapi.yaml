@@ -30022,6 +30022,38 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/berichte/schedules/{id}/run:
+    post:
+      summary: Run a report schedule's report now
+      description: >
+        Requires berichte:reports:write or berichte:schedule:manage. Runs the schedule's
+        definition once with the schedule's own params (trigger "manual", cache bypassed),
+        also when the schedule is inactive. The run result is not returned and the schedule's
+        last-run fields are not touched; delivery to recipients stays with the scheduler.
+        There is no single-schedule lookup in the service, so the schedule is found by paging
+        through the tenant's schedules (at most 2000).
+      tags: [berichte]
+      operationId: runBerichteScheduleNow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Report was run; the schedule is returned unchanged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schedule: { $ref: "#/components/schemas/BerichtSchedule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/berichte/documents:
     get:
       summary: List report documents

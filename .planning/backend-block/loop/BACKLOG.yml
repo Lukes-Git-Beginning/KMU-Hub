@@ -971,7 +971,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     decided: 2026-10-24
     decision: >-
